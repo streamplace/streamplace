@@ -284,7 +284,7 @@ export function BottomMetadata({
 }
 
 /** Shared derived stream metadata for both metadata layouts. */
-function useStreamMeta() {
+export function useStreamMeta() {
   const profile = useAuthor();
   const ls = useLivestreamStore((x) => x.livestream);
   const segment = useLivestreamStore((x) => x.segment);

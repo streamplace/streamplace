@@ -85,6 +85,15 @@ function ContextMenuButton({
   );
 }
 
+// YouTube-style: a translucent rounded field hugging each button cluster,
+// rather than a scrim across the whole width of the player.
+const pill = {
+  backgroundColor: "rgba(0,0,0,0.45)", // token-ok: over video
+  borderRadius: 999,
+  paddingHorizontal: 10,
+  paddingVertical: 4,
+} as const;
+
 function FullscreenButton() {
   const { theme } = useTheme();
   const fullscreen = usePlayerStore((state) => state.fullscreen);
@@ -165,7 +174,9 @@ export function BottomControlBar({
           zero.px[4],
         ]}
       >
-        <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[4]]}>
+        <View
+          style={[layout.flex.row, layout.flex.alignCenter, gap.all[4], pill]}
+        >
           {playbackMode === "vod" && (
             <Pressable onPress={togglePlayPause}>
               <PlayPause
@@ -198,7 +209,9 @@ export function BottomControlBar({
           )}
         </View>
 
-        <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
+        <View
+          style={[layout.flex.row, layout.flex.alignCenter, gap.all[3], pill]}
+        >
           {pipSupported && (
             <PipButton pipActive={pipActive} onHandlePip={onHandlePip} />
           )}

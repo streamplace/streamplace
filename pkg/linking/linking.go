@@ -3,15 +3,18 @@ package linking
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"stream.place/streamplace/pkg/log"
 
 	"golang.org/x/net/html"
+	"stream.place/streamplace/pkg/branding"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
@@ -46,16 +49,38 @@ type MetaTag struct {
 	Content string
 }
 
-var BrandingAssetList = [...]string{
-	"siteTitle",
-	"siteDescription",
-	"primaryColor",
-	"accentColor",
-	"defaultStreamer",
-	"mainLogo",
-	"favicon",
-	"sidebarBg",
-	"legalLinks",
+var BrandingAssetList = func() []string {
+	keys := make([]string, 0, len(branding.Specs))
+	for _, spec := range branding.Specs {
+		keys = append(keys, spec.Key)
+	}
+	return keys
+}()
+
+// inlineBrandingImageLimit caps the image assets embedded as data URLs in
+// the internal-brand meta tags.
+const inlineBrandingImageLimit = 96 * 1024
+
+// hexColor accepts #rgb / #rrggbb / #rrggbbaa, the only forms the app's
+// theme accepts, so a stored value can be dropped straight into a style.
+var hexColor = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$`)
+
+// bodyBackground returns the node's branded dark background color, if any,
+// so the page can paint it before the bundle loads instead of the default
+// then re-painting (the "flash of unbranded content").
+func (l *Linker) bodyBackground() string {
+	if l.sdb == nil || l.cli == nil {
+		return ""
+	}
+	blob, err := l.sdb.GetBrandingBlob("did:web:"+l.cli.BroadcasterHost, "backgroundColor")
+	if err != nil || blob == nil {
+		return ""
+	}
+	v := strings.TrimSpace(string(blob.Data))
+	if !hexColor.MatchString(v) {
+		return ""
+	}
+	return v
 }
 
 // atTags returns meta tags implementing the at-tags proposal
@@ -114,6 +139,14 @@ func (l *Linker) getBrandingAssets(broadcasterDid string) ([]placestream.Brandin
 		} else {
 			url := fmt.Sprintf("/xrpc/place.stream.branding.getBlob?key=%s&broadcaster=%s", blob.Key, broadcasterDid)
 			asset.Url = &url
+			// Small images ride along inline so the very first paint can draw
+			// the node's logo instead of the default mark while the blob
+			// fetch is in flight. Large ones (sidebar backgrounds) stay
+			// URL-only; the meta tag would dwarf the page.
+			if len(blob.Data) <= inlineBrandingImageLimit {
+				dataURL := "data:" + blob.MimeType + ";base64," + base64.StdEncoding.EncodeToString(blob.Data)
+				asset.Data = &dataURL
+			}
 		}
 		ret = append(ret, asset)
 	}
@@ -316,45 +349,35 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN 
 		return nil, errors.New("url is nil")
 	}
 
+	// The front-page card is the node's own: its siteTitle and
+	// siteDescription branding, and /linkbanner.png, which serves the
+	// uploaded linkBanner asset when there is one and the bundled brand
+	// banner otherwise.
 	thumbURL, _ := url.Parse(u.String())
 	thumbURL.Path = "/linkbanner.png"
 
-	// Define all meta tags
-	metaTags := []MetaTag{
-		// Basic meta
-		{Type: "name", Key: "description", Content: "Stream.place is open-source livestreaming on the AT Protocol."},
-
-		// Facebook Meta Tags
-		{Type: "property", Key: "og:url", Content: u.String()},
-		{Type: "property", Key: "og:type", Content: "website"},
-		{Type: "property", Key: "og:title", Content: "Stream.place"},
-		{Type: "property", Key: "og:description", Content: "Open-source livestreaming on the AT Protocol."},
-		{Type: "property", Key: "og:image", Content: thumbURL.String()},
-
-		// Twitter Meta Tags
-		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
-		{Type: "property", Key: "twitter:domain", Content: u.Host},
-		{Type: "property", Key: "twitter:url", Content: u.String()},
-		{Type: "name", Key: "twitter:title", Content: "Stream.place"},
-		{Type: "name", Key: "twitter:description", Content: "Open-source livestreaming on the AT Protocol."},
-		{Type: "name", Key: "twitter:image", Content: thumbURL.String()},
-	}
-
 	brandingTitle := "streamplace node"
+	brandingDescription := "Open-source livestreaming on the AT Protocol."
+	var brandMetas []MetaTag
 	if l.sdb != nil && l.cli != nil {
 		branding, err := l.getBrandingAssets("did:web:" + l.cli.BroadcasterHost)
 		if err == nil {
 			for i := range branding {
 				val := branding[i]
-				if val.Key == "siteTitle" && val.Data != nil {
-					brandingTitle = *val.Data
+				if val.Data != nil && strings.TrimSpace(*val.Data) != "" {
+					switch val.Key {
+					case "siteTitle":
+						brandingTitle = *val.Data
+					case "siteDescription":
+						brandingDescription = *val.Data
+					}
 				}
 				marshalledJson, err := json.Marshal(val)
 				if err != nil {
 					log.Error(ctx, "error marshalling branding asset", "key", val.Key, "error", err)
 					continue
 				}
-				metaTags = append(metaTags, MetaTag{
+				brandMetas = append(brandMetas, MetaTag{
 					Type:    "name",
 					Key:     "internal-brand:" + val.Key,
 					Content: string(marshalledJson),
@@ -366,17 +389,28 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN 
 		}
 	}
 
-	// do twitter/og title after
-	metaTags = append(metaTags, MetaTag{
-		Type:    "property",
-		Key:     "og:title",
-		Content: brandingTitle,
-	})
-	metaTags = append(metaTags, MetaTag{
-		Type:    "name",
-		Key:     "twitter:title",
-		Content: brandingTitle,
-	})
+	// Define all meta tags
+	metaTags := []MetaTag{
+		// Basic meta
+		{Type: "name", Key: "description", Content: brandingDescription},
+
+		// Facebook Meta Tags
+		{Type: "property", Key: "og:url", Content: u.String()},
+		{Type: "property", Key: "og:type", Content: "website"},
+		{Type: "property", Key: "og:site_name", Content: brandingTitle},
+		{Type: "property", Key: "og:title", Content: brandingTitle},
+		{Type: "property", Key: "og:description", Content: brandingDescription},
+		{Type: "property", Key: "og:image", Content: thumbURL.String()},
+
+		// Twitter Meta Tags
+		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
+		{Type: "property", Key: "twitter:domain", Content: u.Host},
+		{Type: "property", Key: "twitter:url", Content: u.String()},
+		{Type: "name", Key: "twitter:title", Content: brandingTitle},
+		{Type: "name", Key: "twitter:description", Content: brandingDescription},
+		{Type: "name", Key: "twitter:image", Content: thumbURL.String()},
+	}
+	metaTags = append(metaTags, brandMetas...)
 
 	// at-tags: the site itself is identified by this node's did:web; there's
 	// no single author or canonical record for the front page
@@ -387,6 +421,24 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN 
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
 	})
+}
+
+// isLinkPreviewMeta reports whether a <meta> is one the cards own: the page
+// description and every og: / twitter: tag.
+func isLinkPreviewMeta(node *html.Node) bool {
+	for _, attr := range node.Attr {
+		switch attr.Key {
+		case "property":
+			if strings.HasPrefix(attr.Val, "og:") || strings.HasPrefix(attr.Val, "twitter:") {
+				return true
+			}
+		case "name":
+			if attr.Val == "description" || strings.HasPrefix(attr.Val, "twitter:") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, error) {
@@ -418,17 +470,20 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 		return nil, errors.New("head not found")
 	}
 
-	// Title tag (handled separately as it's not a meta tag)
-
-	var oldTitle *html.Node
+	// The template ships its own title, description and link-preview tags
+	// (the first-party brand, for a static host). Every card replaces them,
+	// and crawlers honour the first tag they meet, so the template's go.
+	var stale []*html.Node
 	for node := range head.ChildNodes() {
-		if node.Type == html.ElementNode && node.Data == "title" {
-			oldTitle = node
-			break
+		if node.Type != html.ElementNode {
+			continue
+		}
+		if node.Data == "title" || (node.Data == "meta" && isLinkPreviewMeta(node)) {
+			stale = append(stale, node)
 		}
 	}
-	if oldTitle != nil {
-		head.RemoveChild(oldTitle)
+	for _, node := range stale {
+		head.RemoveChild(node)
 	}
 
 	title := &html.Node{
@@ -449,6 +504,24 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 			Attr: []html.Attribute{
 				{Key: tag.Type, Val: tag.Key},
 				{Key: "content", Val: tag.Content},
+			},
+		})
+	}
+
+	// Paint the branded background before any script runs: on the root
+	// element too, since that is what mobile browsers show behind their
+	// translucent bars and in overscroll, and as theme-color for the bars
+	// themselves.
+	if bg := l.bodyBackground(); bg != "" {
+		style := &html.Node{Type: html.ElementNode, Data: "style"}
+		head.AppendChild(style)
+		style.AppendChild(&html.Node{Type: html.TextNode, Data: "html,body{background-color:" + bg + "}"})
+		head.AppendChild(&html.Node{
+			Type: html.ElementNode,
+			Data: "meta",
+			Attr: []html.Attribute{
+				{Key: "name", Val: "theme-color"},
+				{Key: "content", Val: bg},
 			},
 		})
 	}

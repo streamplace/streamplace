@@ -168,3 +168,10 @@ func testSessionContext(ctx context.Context, did string) context.Context {
 		UpstreamDPoPPrivateJWK: string(keyBs),
 	})
 }
+
+func TestNormalizeBroadcasterID(t *testing.T) {
+	require.Equal(t, "did:web:node.example", NormalizeBroadcasterID("", "node.example"))
+	require.Equal(t, "did:web:node.example", NormalizeBroadcasterID("node.example", "other.example"))
+	require.Equal(t, "did:web:node.example", NormalizeBroadcasterID(" did:web:node.example ", "other.example"))
+	require.Equal(t, "did:plc:abc", NormalizeBroadcasterID("did:plc:abc", "node.example"))
+}

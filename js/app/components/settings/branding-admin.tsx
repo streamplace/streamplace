@@ -1,5 +1,6 @@
 import {
   Button,
+  DEFAULT_CHROME,
   Input,
   MenuContainer,
   MenuGroup,
@@ -7,8 +8,10 @@ import {
   MenuItem,
   MenuLabel,
   MenuSeparator,
+  SegmentedTabs,
   Text,
   useStreamplaceStore,
+  useTheme,
   useToast,
   useTranslation,
   View,
@@ -22,12 +25,45 @@ import {
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { Image } from "expo-image";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Platform, ScrollView } from "react-native";
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+} from "react-native";
 import { place } from "streamplace";
 import { SettingsRowItem } from "./components/settings-navigation-item";
 
+const NAV_LINKS_EXAMPLE =
+  '[{"label": "Home", "url": "https://example.com", "icon": "home"}, {"label": "Live", "url": "/", "icon": "play"}]';
+const NAV_CTA_EXAMPLE =
+  '{"label": "New post", "url": "https://example.com/compose"}';
+const SOCIAL_LINKS_EXAMPLE =
+  '[{"label": "Bluesky", "url": "https://bsky.app/profile/example.com", "icon": "bluesky"}, {"label": "Forum", "url": "https://example.com/forum", "icon": "socialIcon1"}]';
+const BOTTOM_LINKS_EXAMPLE =
+  '[{"label": "Help", "url": "https://example.com/help", "icon": "book"}]';
+const SOCIAL_ICON_SLOTS = [
+  "socialIcon1",
+  "socialIcon2",
+  "socialIcon3",
+  "socialIcon4",
+];
+
+// Base64 without spreading the whole buffer into one call: a 2MB link
+// banner spread into String.fromCharCode overflows the call stack.
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
 export function BrandingAdmin() {
   const { t } = useTranslation("settings");
+  const { theme } = useTheme();
   const agent = usePDSAgent();
   const fetchBranding = useFetchBranding();
   const toast = useToast();
@@ -38,6 +74,7 @@ export function BrandingAdmin() {
   const [siteDescription, setSiteDescription] = useState("");
   const [primaryColor, setPrimaryColor] = useState("");
   const [accentColor, setAccentColor] = useState("");
+  const [chromeInputs, setChromeInputs] = useState<Record<string, string>>({});
   const [defaultStreamer, setDefaultStreamer] = useState("");
   const [broadcasterDID, setBroadcasterDID] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -50,10 +87,126 @@ export function BrandingAdmin() {
   const currentDescription = useBrandingAsset("siteDescription");
   const currentPrimaryColor = useBrandingAsset("primaryColor");
   const currentAccentColor = useBrandingAsset("accentColor");
+  const branding = useStreamplaceStore((st) => st.branding);
+  const brandingValue = (key: string) => branding?.[key]?.data || "";
+
+  // Bundles: everything set on the node as a zip (branding.yaml + images).
+  // Import previews with a dry run first, then applies on confirmation.
+  const [bundleBusy, setBundleBusy] = useState(false);
+  const [bundleMerge, setBundleMerge] = useState(false);
+  const [bundlePreview, setBundlePreview] = useState<{
+    bytes: Uint8Array;
+    name: string;
+    changes: { key: string; action: string; detail?: string }[];
+    warnings: string[];
+  } | null>(null);
+
+  const exportBundle = async () => {
+    if (!agent) return;
+    setBundleBusy(true);
+    try {
+      const bytes = (await agent.client.call(
+        place.stream.branding.exportBundle,
+        { broadcaster: (broadcasterDID || undefined) as any },
+      )) as unknown as Uint8Array;
+      const blob = new Blob([bytes as any], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "branding.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (e: any) {
+      toast.show(t("branding-bundle-export-failed"), e?.message, {
+        variant: "error",
+      });
+    } finally {
+      setBundleBusy(false);
+    }
+  };
+
+  const runImport = async (
+    bytes: Uint8Array,
+    dryRun: boolean,
+  ): Promise<{
+    applied: boolean;
+    changes: { key: string; action: string; detail?: string }[];
+    warnings?: string[];
+  }> => {
+    if (!agent) throw new Error("not logged in");
+    return (await agent.client.call(
+      place.stream.branding.importBundle,
+      bytes as any,
+      {
+        params: {
+          broadcaster: (broadcasterDID || undefined) as any,
+          dryRun,
+          merge: bundleMerge,
+        },
+      } as any,
+    )) as any;
+  };
+
+  const pickBundle = () => {
+    if (Platform.OS !== "web") return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".zip,application/zip";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setBundleBusy(true);
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const res = await runImport(bytes, true);
+        setBundlePreview({
+          bytes,
+          name: file.name,
+          changes: res.changes,
+          warnings: res.warnings ?? [],
+        });
+      } catch (e: any) {
+        toast.show(t("branding-bundle-invalid"), e?.message, {
+          variant: "error",
+        });
+      } finally {
+        setBundleBusy(false);
+      }
+    };
+    input.click();
+  };
+
+  const applyBundle = async () => {
+    if (!bundlePreview) return;
+    setBundleBusy(true);
+    try {
+      const res = await runImport(bundlePreview.bytes, false);
+      toast.show(
+        t("branding-bundle-imported", { count: res.changes.length }),
+        undefined,
+        { variant: "success" },
+      );
+      setBundlePreview(null);
+      await fetchBranding();
+    } catch (e: any) {
+      toast.show(t("branding-bundle-import-failed"), e?.message, {
+        variant: "error",
+      });
+    } finally {
+      setBundleBusy(false);
+    }
+  };
+  const currentBgDark = useBrandingAsset("backgroundColor");
+  const currentFgDark = useBrandingAsset("foregroundColor");
+  const currentBgLight = useBrandingAsset("backgroundColorLight");
+  const currentFgLight = useBrandingAsset("foregroundColorLight");
   const currentDefaultStreamer = useBrandingAsset("defaultStreamer");
   const currentLogo = useBrandingAsset("mainLogo");
   const currentFavicon = useBrandingAsset("favicon");
   const currentSidebarBg = useSidebarBackgroundImage();
+  const currentLinkBanner = useBrandingAsset("linkBanner");
   const currentLegalLinks = useBrandingAsset("legalLinks");
 
   // parse legal links
@@ -92,7 +245,7 @@ export function BrandingAdmin() {
     setUploading(true);
     try {
       const textBytes = new TextEncoder().encode(value.trim());
-      const base64Data = btoa(String.fromCharCode(...textBytes));
+      const base64Data = bytesToBase64(textBytes);
 
       await agent.client.call(place.stream.branding.updateBlob, {
         key,
@@ -122,6 +275,42 @@ export function BrandingAdmin() {
           break;
         case "accentColor":
           setAccentColor("");
+          break;
+        case "backgroundColor":
+        case "foregroundColor":
+        case "backgroundColorLight":
+        case "foregroundColorLight":
+        case "dangerColor":
+        case "successColor":
+        case "warningColor":
+        case "infoColor":
+        case "liveColor":
+        case "navLinks":
+        case "navCta":
+        case "streamLayout":
+        case "typeface":
+        case "chatLayout":
+        case "chatNameColors":
+        case "chatBadges":
+        case "socialHeading":
+        case "socialLinks":
+        case "bottomLinks":
+        case "networkName":
+        case "networkProfileUrl":
+        case "sessionBrokerOrigin":
+        case "loginMode":
+        case "loginPdsUrl":
+        case "quickLogin":
+        case "loginForgotUrl":
+        case "loginWaitlistUrl":
+        case "loginSupportEmail":
+        case "verifierDids":
+        case "labelerDid":
+        case "verifiedLabels":
+        case "verifyUrl":
+        case "chatVerifiedOnly":
+        case "loginPlaceholder":
+          setChromeInputs((prev) => ({ ...prev, [key]: "" }));
           break;
         case "defaultStreamer":
           setDefaultStreamer("");
@@ -159,7 +348,7 @@ export function BrandingAdmin() {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
-      const base64Data = btoa(String.fromCharCode(...uint8Array));
+      const base64Data = bytesToBase64(uint8Array);
 
       // detect image dimensions if it's an image
       let width: number | undefined;
@@ -169,19 +358,28 @@ export function BrandingAdmin() {
         const img = new window.Image();
         const imageUrl = URL.createObjectURL(file);
 
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => {
-            width = img.naturalWidth;
-            height = img.naturalHeight;
-            URL.revokeObjectURL(imageUrl);
-            resolve();
-          };
-          img.onerror = () => {
-            URL.revokeObjectURL(imageUrl);
-            reject(new Error("Failed to load image"));
-          };
-          img.src = imageUrl;
-        });
+        // The dimensions are a nicety (the sidebar background's aspect
+        // ratio); an image the browser won't decode as an <img> — an SVG
+        // with an unusual header, an .ico — must not sink the upload.
+        try {
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => {
+              width = img.naturalWidth || undefined;
+              height = img.naturalHeight || undefined;
+              URL.revokeObjectURL(imageUrl);
+              resolve();
+            };
+            img.onerror = () => {
+              URL.revokeObjectURL(imageUrl);
+              reject(new Error("Failed to load image"));
+            };
+            img.src = imageUrl;
+          });
+        } catch (e) {
+          console.warn("could not read image dimensions, uploading anyway", e);
+          width = undefined;
+          height = undefined;
+        }
       }
 
       await agent.client.call(place.stream.branding.updateBlob, {
@@ -450,6 +648,762 @@ export function BrandingAdmin() {
                 <SettingsRowItem>
                   <View style={[zero.gap.all[2], { flex: 1 }]}>
                     <Text size="sm" weight="semibold">
+                      {t("branding-network-name")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-network-name-description", {
+                        network: "Bluesky",
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="Bluesky"
+                          value={
+                            chromeInputs["networkName"] ??
+                            brandingValue("networkName")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              networkName: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "networkName",
+                            chromeInputs["networkName"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["networkName"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("networkName")}
+                        disabled={uploading || !brandingValue("networkName")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-network-profile-url")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-network-profile-url-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="https://bsky.app/profile/{handle}"
+                          value={
+                            chromeInputs["networkProfileUrl"] ??
+                            brandingValue("networkProfileUrl")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              networkProfileUrl: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "networkProfileUrl",
+                            chromeInputs["networkProfileUrl"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["networkProfileUrl"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("networkProfileUrl")}
+                        disabled={
+                          uploading || !brandingValue("networkProfileUrl")
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-network-icon-description")}
+                    </Text>
+                    <View
+                      style={[
+                        zero.layout.flex.direction.row,
+                        zero.gap.all[2],
+                        { alignItems: "center" },
+                      ]}
+                    >
+                      {branding?.networkIcon?.data ? (
+                        <Image
+                          source={{ uri: branding.networkIcon.data }}
+                          contentFit="contain"
+                          style={{ width: 24, height: 24 }}
+                        />
+                      ) : null}
+                      <Button
+                        variant="secondary"
+                        onPress={() =>
+                          handleFileSelect(
+                            "networkIcon",
+                            "image/svg+xml,image/png,image/webp",
+                          )
+                        }
+                        disabled={uploading || Platform.OS !== "web"}
+                        width="min"
+                        style={{ height: 36 }}
+                      >
+                        {t("branding-upload")}
+                      </Button>
+                      {!!branding?.networkIcon?.data && (
+                        <Button
+                          variant="danger"
+                          onPress={() => deleteBlob("networkIcon")}
+                          disabled={uploading}
+                          width="min"
+                          style={{ height: 36 }}
+                        >
+                          {t("branding-remove")}
+                        </Button>
+                      )}
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-verifiers")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-verifiers-description")}
+                    </Text>
+                    <TextInput
+                      multiline
+                      numberOfLines={2}
+                      placeholderTextColor={theme.colors.text3}
+                      style={{
+                        minHeight: 56,
+                        padding: 12,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.surface1,
+                        color: theme.colors.text1,
+                        fontFamily: theme.fonts.monoRegular,
+                        fontSize: 12,
+                        textAlignVertical: "top",
+                      }}
+                      placeholder='["did:plc:..."]'
+                      value={
+                        chromeInputs["verifierDids"] ??
+                        brandingValue("verifierDids")
+                      }
+                      onChangeText={(v) =>
+                        setChromeInputs((prev) => ({
+                          ...prev,
+                          verifierDids: v,
+                        }))
+                      }
+                    />
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "verifierDids",
+                            chromeInputs["verifierDids"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["verifierDids"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("verifierDids")}
+                        disabled={uploading || !brandingValue("verifierDids")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-labeler-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="did:plc:..."
+                          value={
+                            chromeInputs["labelerDid"] ??
+                            brandingValue("labelerDid")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              labelerDid: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="verified-*"
+                          value={
+                            chromeInputs["verifiedLabels"] ??
+                            brandingValue("verifiedLabels")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              verifiedLabels: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={async () => {
+                          await uploadText(
+                            "labelerDid",
+                            chromeInputs["labelerDid"] ??
+                              brandingValue("labelerDid"),
+                          );
+                          await uploadText(
+                            "verifiedLabels",
+                            chromeInputs["verifiedLabels"] ??
+                              brandingValue("verifiedLabels"),
+                          );
+                        }}
+                        disabled={
+                          uploading ||
+                          !(
+                            chromeInputs["labelerDid"] ??
+                            brandingValue("labelerDid")
+                          ).trim() ||
+                          !(
+                            chromeInputs["verifiedLabels"] ??
+                            brandingValue("verifiedLabels")
+                          ).trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={async () => {
+                          await deleteBlob("labelerDid");
+                          await deleteBlob("verifiedLabels");
+                        }}
+                        disabled={uploading || !brandingValue("labelerDid")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-verify-url-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="https://example.com/verify"
+                          value={
+                            chromeInputs["verifyUrl"] ??
+                            brandingValue("verifyUrl")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              verifyUrl: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "verifyUrl",
+                            chromeInputs["verifyUrl"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading || !(chromeInputs["verifyUrl"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("verifyUrl")}
+                        disabled={uploading || !brandingValue("verifyUrl")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-chat-verified-only-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        {
+                          value: "off",
+                          label: t("branding-chat-verified-only-off"),
+                        },
+                        {
+                          value: "on",
+                          label: t("branding-chat-verified-only-on"),
+                        },
+                      ]}
+                      value={brandingValue("chatVerifiedOnly") || "off"}
+                      onChange={(v) => uploadText("chatVerifiedOnly", v)}
+                    />
+                    <Text size="xs" color="muted">
+                      {t("branding-verified-icon-description")}
+                    </Text>
+                    <View
+                      style={[
+                        zero.layout.flex.direction.row,
+                        zero.gap.all[2],
+                        { alignItems: "center" },
+                      ]}
+                    >
+                      {branding?.verifiedIcon?.data ? (
+                        <Image
+                          source={{ uri: branding.verifiedIcon.data }}
+                          contentFit="contain"
+                          style={{ width: 24, height: 24 }}
+                        />
+                      ) : null}
+                      <Button
+                        variant="secondary"
+                        onPress={() =>
+                          handleFileSelect(
+                            "verifiedIcon",
+                            "image/svg+xml,image/png,image/webp",
+                          )
+                        }
+                        disabled={uploading || Platform.OS !== "web"}
+                        width="min"
+                        style={{ height: 36 }}
+                      >
+                        {t("branding-upload")}
+                      </Button>
+                      {!!branding?.verifiedIcon?.data && (
+                        <Button
+                          variant="danger"
+                          onPress={() => deleteBlob("verifiedIcon")}
+                          disabled={uploading}
+                          width="min"
+                          style={{ height: 36 }}
+                        >
+                          {t("branding-remove")}
+                        </Button>
+                      )}
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-login-mode")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-login-mode-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        {
+                          value: "oauth",
+                          label: t("branding-login-mode-oauth"),
+                        },
+                        { value: "pds", label: t("branding-login-mode-pds") },
+                      ]}
+                      value={brandingValue("loginMode") || "oauth"}
+                      onChange={(v) => uploadText("loginMode", v)}
+                    />
+                    <Text size="xs" color="muted">
+                      {t("branding-login-pds-url-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="https://pds.example.com"
+                          value={
+                            chromeInputs["loginPdsUrl"] ??
+                            brandingValue("loginPdsUrl")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              loginPdsUrl: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "loginPdsUrl",
+                            chromeInputs["loginPdsUrl"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["loginPdsUrl"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("loginPdsUrl")}
+                        disabled={uploading || !brandingValue("loginPdsUrl")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-quick-login-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        { value: "off", label: t("branding-quick-login-off") },
+                        { value: "on", label: t("branding-quick-login-on") },
+                      ]}
+                      value={brandingValue("quickLogin") || "off"}
+                      onChange={(v) => uploadText("quickLogin", v)}
+                    />
+                    <Text size="xs" color="muted">
+                      {t("branding-login-links-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="https://example.com/forgot-password"
+                          value={
+                            chromeInputs["loginForgotUrl"] ??
+                            brandingValue("loginForgotUrl")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              loginForgotUrl: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "loginForgotUrl",
+                            chromeInputs["loginForgotUrl"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["loginForgotUrl"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("loginForgotUrl")}
+                        disabled={uploading || !brandingValue("loginForgotUrl")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="https://example.com/waitlist"
+                          value={
+                            chromeInputs["loginWaitlistUrl"] ??
+                            brandingValue("loginWaitlistUrl")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              loginWaitlistUrl: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "loginWaitlistUrl",
+                            chromeInputs["loginWaitlistUrl"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["loginWaitlistUrl"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("loginWaitlistUrl")}
+                        disabled={
+                          uploading || !brandingValue("loginWaitlistUrl")
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="support@example.com"
+                          value={
+                            chromeInputs["loginSupportEmail"] ??
+                            brandingValue("loginSupportEmail")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              loginSupportEmail: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "loginSupportEmail",
+                            chromeInputs["loginSupportEmail"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["loginSupportEmail"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("loginSupportEmail")}
+                        disabled={
+                          uploading || !brandingValue("loginSupportEmail")
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-session-broker")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-session-broker-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="https://example.com"
+                          value={
+                            chromeInputs["sessionBrokerOrigin"] ??
+                            brandingValue("sessionBrokerOrigin")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              sessionBrokerOrigin: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "sessionBrokerOrigin",
+                            chromeInputs["sessionBrokerOrigin"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["sessionBrokerOrigin"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("sessionBrokerOrigin")}
+                        disabled={
+                          uploading || !brandingValue("sessionBrokerOrigin")
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-login-placeholder")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-login-placeholder-description", {
+                        network: "Bluesky",
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="you.example.com"
+                          value={
+                            chromeInputs["loginPlaceholder"] ??
+                            brandingValue("loginPlaceholder")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              loginPlaceholder: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "loginPlaceholder",
+                            chromeInputs["loginPlaceholder"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["loginPlaceholder"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("loginPlaceholder")}
+                        disabled={
+                          uploading || !brandingValue("loginPlaceholder")
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
                       {t("branding-default-streamer")}
                     </Text>
                     <Text size="xs" color="muted">
@@ -558,6 +1512,1187 @@ export function BrandingAdmin() {
                         style={{ height: 42 }}
                       >
                         {t("update")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+            </MenuGroup>
+
+            <MenuLabel>{t("branding-status-colors")}</MenuLabel>
+            <MenuGroup>
+              <MenuItem>
+                <SettingsRowItem>
+                  <Text size="xs" color="muted">
+                    {t("branding-status-colors-description")}
+                  </Text>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-danger-color")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value:
+                          brandingValue("dangerColor") || t("branding-default"),
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="#rrggbb"
+                          value={chromeInputs["dangerColor"] ?? ""}
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              dangerColor: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "dangerColor",
+                            chromeInputs["dangerColor"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["dangerColor"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("dangerColor")}
+                        disabled={uploading || !brandingValue("dangerColor")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-success-color")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value:
+                          brandingValue("successColor") ||
+                          t("branding-default"),
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="#rrggbb"
+                          value={chromeInputs["successColor"] ?? ""}
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              successColor: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "successColor",
+                            chromeInputs["successColor"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["successColor"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("successColor")}
+                        disabled={uploading || !brandingValue("successColor")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-warning-color")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value:
+                          brandingValue("warningColor") ||
+                          t("branding-default"),
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="#rrggbb"
+                          value={chromeInputs["warningColor"] ?? ""}
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              warningColor: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "warningColor",
+                            chromeInputs["warningColor"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["warningColor"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("warningColor")}
+                        disabled={uploading || !brandingValue("warningColor")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-info-color")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value:
+                          brandingValue("infoColor") || t("branding-default"),
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="#rrggbb"
+                          value={chromeInputs["infoColor"] ?? ""}
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              infoColor: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "infoColor",
+                            chromeInputs["infoColor"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading || !(chromeInputs["infoColor"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("infoColor")}
+                        disabled={uploading || !brandingValue("infoColor")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-live-color")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value:
+                          brandingValue("liveColor") || t("branding-default"),
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="#rrggbb"
+                          value={chromeInputs["liveColor"] ?? ""}
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              liveColor: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "liveColor",
+                            chromeInputs["liveColor"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading || !(chromeInputs["liveColor"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("liveColor")}
+                        disabled={uploading || !brandingValue("liveColor")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+            </MenuGroup>
+
+            <MenuLabel>{t("branding-bundle")}</MenuLabel>
+            <MenuGroup>
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="xs" color="muted">
+                      {t("branding-bundle-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={exportBundle}
+                        disabled={bundleBusy || Platform.OS !== "web"}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-bundle-export")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={pickBundle}
+                        disabled={bundleBusy || Platform.OS !== "web"}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-bundle-import")}
+                      </Button>
+                    </View>
+                    <Pressable
+                      onPress={() => setBundleMerge((v) => !v)}
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Text size="sm">
+                        {bundleMerge ? "☑" : "☐"} {t("branding-bundle-merge")}
+                      </Text>
+                    </Pressable>
+                    {bundlePreview && (
+                      <View style={[zero.gap.all[2], { marginTop: 8 }]}>
+                        <Text size="sm" weight="semibold">
+                          {t("branding-bundle-preview", {
+                            name: bundlePreview.name,
+                          })}
+                        </Text>
+                        {bundlePreview.changes
+                          .filter((c) => c.action !== "unchanged")
+                          .map((c) => (
+                            <Text key={c.key} size="xs">
+                              {c.action === "added"
+                                ? "+"
+                                : c.action === "removed"
+                                  ? "−"
+                                  : "~"}{" "}
+                              {c.key}
+                              {c.detail ? `: ${c.detail}` : ""}
+                            </Text>
+                          ))}
+                        {bundlePreview.changes.every(
+                          (c) => c.action === "unchanged",
+                        ) && (
+                          <Text size="xs" color="muted">
+                            {t("branding-bundle-no-changes")}
+                          </Text>
+                        )}
+                        {bundlePreview.warnings.map((w) => (
+                          <Text key={w} size="xs" color="muted">
+                            {w}
+                          </Text>
+                        ))}
+                        <View
+                          style={[
+                            zero.layout.flex.direction.row,
+                            zero.gap.all[2],
+                          ]}
+                        >
+                          <Button
+                            variant="primary"
+                            onPress={applyBundle}
+                            disabled={bundleBusy}
+                            width="min"
+                            style={{ height: 42 }}
+                          >
+                            {t("branding-bundle-apply")}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onPress={() => setBundlePreview(null)}
+                            disabled={bundleBusy}
+                            width="min"
+                            style={{ height: 42 }}
+                          >
+                            {t("cancel")}
+                          </Button>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+            </MenuGroup>
+
+            <MenuLabel>{t("branding-layout")}</MenuLabel>
+            <MenuGroup>
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-app-layout")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-app-layout-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        {
+                          value: "classic",
+                          label: t("branding-layout-classic"),
+                        },
+                        {
+                          value: "social",
+                          label: t("branding-app-layout-social"),
+                        },
+                      ]}
+                      value={brandingValue("appLayout") || "classic"}
+                      onChange={(v) => uploadText("appLayout", v)}
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-stream-layout")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-stream-layout-description")}
+                    </Text>
+                    <SegmentedTabs
+                      size="sm"
+                      options={[
+                        {
+                          value: "classic",
+                          label: t("branding-layout-classic"),
+                        },
+                        { value: "card", label: t("branding-layout-card") },
+                      ]}
+                      value={brandingValue("streamLayout") || "classic"}
+                      onChange={(v) => uploadText("streamLayout", v)}
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-typeface")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-typeface-description")}
+                    </Text>
+                    <SegmentedTabs
+                      size="sm"
+                      options={[
+                        { value: "geist", label: "Geist" },
+                        { value: "inter", label: "Inter" },
+                      ]}
+                      value={brandingValue("typeface") || "geist"}
+                      onChange={(v) => uploadText("typeface", v)}
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-chat-layout")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-chat-layout-description")}
+                    </Text>
+                    <SegmentedTabs
+                      size="sm"
+                      options={[
+                        { value: "compact", label: t("branding-chat-compact") },
+                        { value: "avatar", label: t("branding-chat-avatar") },
+                      ]}
+                      value={brandingValue("chatLayout") || "compact"}
+                      onChange={(v) => uploadText("chatLayout", v)}
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-chat-name-colors")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-chat-name-colors-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        {
+                          value: "on",
+                          label: t("branding-chat-name-colors-on"),
+                        },
+                        {
+                          value: "off",
+                          label: t("branding-chat-name-colors-off"),
+                        },
+                      ]}
+                      value={brandingValue("chatNameColors") || "on"}
+                      onChange={(v) => uploadText("chatNameColors", v)}
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-chat-badges")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-chat-badges-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        { value: "all", label: t("branding-chat-badges-all") },
+                        {
+                          value: "custom",
+                          label: t("branding-chat-badges-custom"),
+                        },
+                        {
+                          value: "none",
+                          label: t("branding-chat-badges-none"),
+                        },
+                      ]}
+                      value={brandingValue("chatBadges") || "all"}
+                      onChange={(v) => uploadText("chatBadges", v)}
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-nav-links")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-nav-links-description")}
+                    </Text>
+                    <TextInput
+                      multiline
+                      numberOfLines={6}
+                      placeholderTextColor={theme.colors.text3}
+                      style={{
+                        minHeight: 120,
+                        padding: 12,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.surface1,
+                        color: theme.colors.text1,
+                        fontFamily: theme.fonts.monoRegular,
+                        fontSize: 12,
+                        textAlignVertical: "top",
+                      }}
+                      placeholder={NAV_LINKS_EXAMPLE}
+                      value={
+                        chromeInputs["navLinks"] ?? brandingValue("navLinks")
+                      }
+                      onChangeText={(v) =>
+                        setChromeInputs((prev) => ({ ...prev, navLinks: v }))
+                      }
+                    />
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={() =>
+                          uploadText("navLinks", chromeInputs["navLinks"] ?? "")
+                        }
+                        disabled={
+                          uploading || !(chromeInputs["navLinks"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("navLinks")}
+                        disabled={uploading || !brandingValue("navLinks")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-nav-cta")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-nav-cta-description")}
+                    </Text>
+                    <Input
+                      placeholder={NAV_CTA_EXAMPLE}
+                      value={chromeInputs["navCta"] ?? brandingValue("navCta")}
+                      onChangeText={(v) =>
+                        setChromeInputs((prev) => ({ ...prev, navCta: v }))
+                      }
+                    />
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={() =>
+                          uploadText("navCta", chromeInputs["navCta"] ?? "")
+                        }
+                        disabled={
+                          uploading || !(chromeInputs["navCta"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("navCta")}
+                        disabled={uploading || !brandingValue("navCta")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-download-link")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-download-link-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        { value: "", label: t("branding-download-default") },
+                        { value: "on", label: t("branding-download-on") },
+                        { value: "off", label: t("branding-download-off") },
+                      ]}
+                      value={brandingValue("showDownloadLink") || ""}
+                      onChange={(v) =>
+                        v
+                          ? uploadText("showDownloadLink", v)
+                          : deleteBlob("showDownloadLink")
+                      }
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-bottom-links")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-bottom-links-description")}
+                    </Text>
+                    <TextInput
+                      multiline
+                      numberOfLines={3}
+                      placeholderTextColor={theme.colors.text3}
+                      style={{
+                        minHeight: 70,
+                        padding: 12,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.surface1,
+                        color: theme.colors.text1,
+                        fontFamily: theme.fonts.monoRegular,
+                        fontSize: 12,
+                        textAlignVertical: "top",
+                      }}
+                      placeholder={BOTTOM_LINKS_EXAMPLE}
+                      value={
+                        chromeInputs["bottomLinks"] ??
+                        brandingValue("bottomLinks")
+                      }
+                      onChangeText={(v) =>
+                        setChromeInputs((prev) => ({ ...prev, bottomLinks: v }))
+                      }
+                    />
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "bottomLinks",
+                            chromeInputs["bottomLinks"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["bottomLinks"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => uploadText("bottomLinks", "[]")}
+                        disabled={uploading}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-social-hide")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("bottomLinks")}
+                        disabled={uploading || !brandingValue("bottomLinks")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-social-links")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-social-links-description")}
+                    </Text>
+                    <Input
+                      placeholder={t("branding-social-heading-placeholder")}
+                      value={
+                        chromeInputs["socialHeading"] ??
+                        brandingValue("socialHeading")
+                      }
+                      onChangeText={(v) =>
+                        setChromeInputs((prev) => ({
+                          ...prev,
+                          socialHeading: v,
+                        }))
+                      }
+                    />
+                    <TextInput
+                      multiline
+                      numberOfLines={4}
+                      placeholderTextColor={theme.colors.text3}
+                      style={{
+                        minHeight: 90,
+                        padding: 12,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.surface1,
+                        color: theme.colors.text1,
+                        fontFamily: theme.fonts.monoRegular,
+                        fontSize: 12,
+                        textAlignVertical: "top",
+                      }}
+                      placeholder={SOCIAL_LINKS_EXAMPLE}
+                      value={
+                        chromeInputs["socialLinks"] ??
+                        brandingValue("socialLinks")
+                      }
+                      onChangeText={(v) =>
+                        setChromeInputs((prev) => ({
+                          ...prev,
+                          socialLinks: v,
+                        }))
+                      }
+                    />
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={() => {
+                          const heading = chromeInputs["socialHeading"];
+                          const links = chromeInputs["socialLinks"];
+                          if (heading !== undefined) {
+                            uploadText("socialHeading", heading);
+                          }
+                          if (links !== undefined) {
+                            uploadText("socialLinks", links);
+                          }
+                        }}
+                        disabled={
+                          uploading ||
+                          (chromeInputs["socialHeading"] === undefined &&
+                            chromeInputs["socialLinks"] === undefined)
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => uploadText("socialLinks", "[]")}
+                        disabled={uploading}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-social-hide")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => {
+                          deleteBlob("socialHeading");
+                          deleteBlob("socialLinks");
+                        }}
+                        disabled={
+                          uploading ||
+                          (!brandingValue("socialLinks") &&
+                            !brandingValue("socialHeading"))
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-social-icons-description")}
+                    </Text>
+                    <View
+                      style={[
+                        zero.layout.flex.direction.row,
+                        zero.gap.all[3],
+                        { flexWrap: "wrap" },
+                      ]}
+                    >
+                      {SOCIAL_ICON_SLOTS.map((slot) => (
+                        <View
+                          key={slot}
+                          style={[
+                            zero.layout.flex.direction.row,
+                            zero.gap.all[2],
+                            { alignItems: "center" },
+                          ]}
+                        >
+                          <View
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 8,
+                              borderWidth: 1,
+                              borderColor: theme.colors.border,
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            {branding?.[slot]?.data ? (
+                              <Image
+                                source={{ uri: branding[slot].data }}
+                                contentFit="contain"
+                                style={{ width: 20, height: 20 }}
+                              />
+                            ) : (
+                              <Text size="xs" color="muted">
+                                {slot.slice(-1)}
+                              </Text>
+                            )}
+                          </View>
+                          <Text
+                            size="xs"
+                            style={{ fontFamily: theme.fonts.monoRegular }}
+                          >
+                            {slot}
+                          </Text>
+                          <Button
+                            variant="secondary"
+                            onPress={() =>
+                              handleFileSelect(
+                                slot,
+                                "image/svg+xml,image/png,image/webp",
+                              )
+                            }
+                            disabled={uploading || Platform.OS !== "web"}
+                            width="min"
+                            style={{ height: 32 }}
+                          >
+                            {t("branding-upload")}
+                          </Button>
+                          {!!branding?.[slot]?.data && (
+                            <Button
+                              variant="danger"
+                              onPress={() => deleteBlob(slot)}
+                              disabled={uploading}
+                              width="min"
+                              style={{ height: 32 }}
+                            >
+                              {t("branding-remove")}
+                            </Button>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+            </MenuGroup>
+
+            <MenuLabel>{t("branding-theme")}</MenuLabel>
+            <MenuGroup>
+              <MenuItem>
+                <SettingsRowItem>
+                  <Text size="xs" color="muted">
+                    {t("branding-theme-description")}
+                  </Text>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-background-dark")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value:
+                          currentBgDark?.data || DEFAULT_CHROME.dark.background,
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder={DEFAULT_CHROME.dark.background}
+                          value={chromeInputs["backgroundColor"] ?? ""}
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              backgroundColor: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "backgroundColor",
+                            chromeInputs["backgroundColor"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["backgroundColor"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("backgroundColor")}
+                        disabled={uploading || !currentBgDark?.data}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-foreground-dark")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value:
+                          currentFgDark?.data || DEFAULT_CHROME.dark.foreground,
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder={DEFAULT_CHROME.dark.foreground}
+                          value={chromeInputs["foregroundColor"] ?? ""}
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              foregroundColor: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "foregroundColor",
+                            chromeInputs["foregroundColor"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["foregroundColor"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("foregroundColor")}
+                        disabled={uploading || !currentFgDark?.data}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-background-light")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value:
+                          currentBgLight?.data ||
+                          DEFAULT_CHROME.light.background,
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder={DEFAULT_CHROME.light.background}
+                          value={chromeInputs["backgroundColorLight"] ?? ""}
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              backgroundColorLight: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "backgroundColorLight",
+                            chromeInputs["backgroundColorLight"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["backgroundColorLight"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("backgroundColorLight")}
+                        disabled={uploading || !currentBgLight?.data}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-foreground-light")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value:
+                          currentFgLight?.data ||
+                          DEFAULT_CHROME.light.foreground,
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder={DEFAULT_CHROME.light.foreground}
+                          value={chromeInputs["foregroundColorLight"] ?? ""}
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              foregroundColorLight: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "foregroundColorLight",
+                            chromeInputs["foregroundColorLight"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["foregroundColorLight"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("foregroundColorLight")}
+                        disabled={uploading || !currentFgLight?.data}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
                       </Button>
                     </View>
                   </View>
@@ -807,6 +2942,59 @@ export function BrandingAdmin() {
                       style={{ height: 42 }}
                     >
                       {t("branding-delete-background")}
+                    </Button>
+                  </View>
+                </View>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <View style={[zero.gap.all[2], { flex: 1 }]}>
+                  <Text size="sm" weight="semibold">
+                    {t("branding-link-banner")}
+                  </Text>
+                  <MenuInfo
+                    description={t("branding-link-banner-description")}
+                  />
+                  {currentLinkBanner?.data && (
+                    <>
+                      <Image
+                        source={{ uri: currentLinkBanner.data }}
+                        contentFit="contain"
+                        style={{
+                          width: 300,
+                          height: 158,
+                        }}
+                      />
+                      <Text size="xs" color="muted">
+                        {currentLinkBanner?.width || "unknown"} x{" "}
+                        {currentLinkBanner?.height || "unknown"}
+                      </Text>
+                    </>
+                  )}
+                  <View
+                    style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                  >
+                    <Button
+                      onPress={() =>
+                        handleFileSelect(
+                          "linkBanner",
+                          "image/png,image/jpeg,image/webp",
+                        )
+                      }
+                      disabled={uploading || Platform.OS !== "web"}
+                      width="min"
+                      style={{ height: 42 }}
+                    >
+                      {t("branding-upload-link-banner")}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onPress={() => deleteBlob("linkBanner")}
+                      disabled={uploading || !currentLinkBanner?.data}
+                      width="min"
+                      style={{ height: 42 }}
+                    >
+                      {t("branding-delete-link-banner")}
                     </Button>
                   </View>
                 </View>

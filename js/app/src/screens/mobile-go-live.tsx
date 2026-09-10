@@ -1,5 +1,9 @@
 import { useRoute } from "@react-navigation/native";
 import { KeepAwake } from "@streamplace/components";
+import {
+  NodeSessionRequired,
+  useBearerSession,
+} from "components/access/node-session-required";
 import Loading from "components/loading/loading";
 import { Player } from "components/mobile/player";
 import { FullscreenProvider } from "contexts/FullscreenContext";
@@ -10,6 +14,7 @@ import { useUserProfile } from "store/hooks";
 export default function MobileGoLive() {
   const userProfile = useUserProfile();
   const openLoginModal = useStore((state) => state.openLoginModal);
+  const bearerSession = useBearerSession();
   const route = useRoute();
 
   useEffect(() => {
@@ -20,6 +25,13 @@ export default function MobileGoLive() {
 
   if (!userProfile) {
     return <Loading />;
+  }
+  if (bearerSession) {
+    return (
+      <NodeSessionRequired
+        returnRoute={{ name: route.name, params: route.params }}
+      />
+    );
   }
   // get player
   return (

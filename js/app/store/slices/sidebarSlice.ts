@@ -11,11 +11,19 @@ export interface SidebarSlice {
   // Overlay/drawer mode — on detail views (Stream, Video) the sidebar leaves
   // the flow and opens as a drawer over the dimmed content instead of pushing.
   overlay: boolean;
+  /** A mounted stream card layout asks the social shell for the wide
+   *  (feed + chat) column; the shell can't tell from route names alone. */
+  wideColumn: boolean;
   drawerOpen: boolean;
+  /** The social shell's phone menu: the sidebar shown as a drawer on
+   *  windows too narrow for a rail. */
+  mobileMenuOpen: boolean;
+  toggleMobileMenu: () => void;
   setSidebarHidden: () => void;
   setSidebarUnhidden: () => void;
   toggleSidebar: () => void;
   setOverlay: (overlay: boolean) => void;
+  setWideColumn: (wide: boolean) => void;
   toggleDrawer: () => void;
   closeDrawer: () => void;
   loadStateFromStorage: () => Promise<void>;
@@ -50,7 +58,15 @@ export const createSidebarSlice: StateCreator<SidebarSlice> = (set, get) => ({
   targetWidth: 250,
   isLoaded: false,
   overlay: false,
+  wideColumn: false,
   drawerOpen: false,
+  mobileMenuOpen: false,
+  toggleMobileMenu: () => {
+    set((state) => ({
+      mobileMenuOpen: !(state as SidebarSlice).mobileMenuOpen,
+    }));
+  },
+  setWideColumn: (wide: boolean) => set({ wideColumn: wide }),
   setOverlay: (overlay: boolean) => {
     set((state) => {
       if ((state as SidebarSlice).overlay === overlay) return {};
@@ -62,7 +78,7 @@ export const createSidebarSlice: StateCreator<SidebarSlice> = (set, get) => ({
     set((state) => ({ drawerOpen: !(state as SidebarSlice).drawerOpen }));
   },
   closeDrawer: () => {
-    set({ drawerOpen: false });
+    set({ drawerOpen: false, mobileMenuOpen: false });
   },
   setSidebarHidden: () => {
     set((state) => {

@@ -5,7 +5,7 @@
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
     />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="apple-itunes-app" content="app-id=6535653195" />
@@ -58,13 +58,24 @@
         height: 100%;
         flex: 1;
       }
+      /* Mobile browsers: size to the dynamic viewport so the page ends where
+         the browser chrome begins instead of running behind it. */
+      @supports (height: 100dvh) {
+        html,
+        body,
+        #root {
+          height: 100dvh;
+        }
+      }
     </style>
     <style>
+      html,
       body {
         /* surfaces.dark[0] — the app's base surface. The web nav container is
            transparent (for OBS sourcing), so header/content scenes fall through
            to the body; matching surface0 keeps them consistent with the
-           sidebar, which paints its own surface0 fill. */
+           sidebar, which paints its own surface0 fill. The root element too:
+           mobile browsers paint it behind their bars and in overscroll. */
         background-color: #0a0a0b;
       }
     </style>

@@ -144,17 +144,23 @@ export function useFetchBranding() {
         // check localStorage first
         const cacheKey = `branding:${broadcasterDID}`;
         const cached = await storage.getItem(cacheKey);
-        if (!force && cached) {
+        if (cached) {
           try {
             const parsed = JSON.parse(cached);
-            // check if cache is less than 1 hour old
-            if (Date.now() - parsed.timestamp < 60 * 60 * 1000) {
+            const fresh = Date.now() - parsed.timestamp < 60 * 60 * 1000;
+            if (!force && fresh) {
               store.setState({
                 branding: parsed.data,
                 brandingLoading: false,
                 brandingError: null,
               });
               return;
+            }
+            // Paint what we had last time right away, then refresh: the
+            // alternative is a flash of default branding on every cold start
+            // (no server-injected meta on native or behind the dev proxy).
+            if (parsed.data && !store.getState().branding) {
+              store.setState({ branding: parsed.data });
             }
           } catch (e) {
             // invalid cache, continue to fetch
@@ -228,11 +234,62 @@ export function useFetchBranding() {
 
 // hook to get a specific branding asset by key
 export function useBrandingAsset(key: string): BrandingAsset | undefined {
-  return (
-    useStreamplaceStore((state) => state.branding?.[key]) ||
-    getMetaContent(key) ||
-    undefined
-  );
+  // The hook runs unconditionally; the fallbacks are plain values.
+  const fromStore = useStreamplaceStore((state) => state.branding?.[key]);
+  return fromStore || getMetaContent(key) || undefined;
+}
+
+/**
+ * App shell shape (branding key appLayout). "social" is the timeline-style
+ * shell: no top bar, the viewer's avatar atop the nav rail, a fixed-width
+ * feed column and upstream social-app nav icons.
+ */
+export function useAppLayout(): "classic" | "social" {
+  const asset = useBrandingAsset("appLayout");
+  return asset?.data === "social" ? "social" : "classic";
+}
+
+export function useSocialShell(): boolean {
+  return useAppLayout() === "social";
+}
+
+/** The stream page as a post card beside live chat: streamLayout=card, which
+ *  the social shell implies. */
+export function useCardStreamLayout(): boolean {
+  const layout = useBrandingAsset("streamLayout")?.data;
+  const social = useSocialShell();
+  return layout === "card" || social;
+}
+
+/** What the app calls the social network (branding key networkName). */
+export function useNetworkName(): string {
+  return useBrandingAsset("networkName")?.data?.trim() || "Bluesky";
+}
+
+/**
+ * Where a user's profile link goes (branding key networkProfileUrl, with
+ * {handle} and {did} placeholders); the Bluesky profile page by default.
+ */
+export function useNetworkProfileUrl(): (author: {
+  handle?: string;
+  did?: string;
+}) => string {
+  const template =
+    useBrandingAsset("networkProfileUrl")?.data?.trim() ||
+    "https://bsky.app/profile/{handle}";
+  return (author) =>
+    template
+      .replace(
+        "{handle}",
+        encodeURIComponent(author.handle || author.did || ""),
+      )
+      .replace("{did}", encodeURIComponent(author.did || ""));
+}
+
+/** Example handle in the login form's empty field (branding key
+ *  loginPlaceholder), or undefined for the app's own. */
+export function useLoginPlaceholder(): string | undefined {
+  return useBrandingAsset("loginPlaceholder")?.data?.trim() || undefined;
 }
 
 // convenience hook for main logo
@@ -305,4 +362,18 @@ export function useBrandingAutoFetch() {
       fetchBranding();
     }
   }, [broadcasterDID, fetchBranding]);
+}
+
+// Whether the first paint can be branded: the store has branding (fetched or
+// hydrated from cache), the fetch failed (nothing more will arrive), or the
+// page carries server-injected branding meta (web) that the asset hooks read
+// directly. Until then the shell holds its blank frame so the default mark
+// and title never flash before the node's own.
+export function useBrandingSettled(): boolean {
+  return useStreamplaceStore(
+    (s) =>
+      s.branding !== null ||
+      s.brandingError !== null ||
+      getMetaContent("siteTitle") !== null,
+  );
 }

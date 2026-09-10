@@ -12,7 +12,13 @@ import { OAuthSession } from "@atproto/oauth-client";
 import { storage } from "@streamplace/components";
 import { Platform } from "react-native";
 import { AppStore } from "store";
-import { place, StreamplaceAgent } from "streamplace";
+import {
+  BearerSession,
+  BearerSessionData,
+  BrokeredSession,
+  place,
+  StreamplaceAgent,
+} from "streamplace";
 import clearQueryParams from "utils/clear-query-params";
 import { privateKeyToAccount } from "viem/accounts";
 import { StateCreator } from "zustand";
@@ -20,6 +26,24 @@ import createOAuthClient from "../../features/bluesky/oauthClient";
 import { OAuthClient } from "../../features/bluesky/oauthClientImport";
 import { withoutBlueskyScopes } from "../../features/bluesky/scopes";
 import { DID_KEY, STORED_KEY_KEY, StreamKey } from "./baseSlice";
+
+// Where a credentials session (tokens this app holds) is kept between loads.
+const CREDENTIAL_SESSION_KEY = "sp:credential-session";
+
+// Picks a stored credentials session back up, if there is one.
+async function restoreCredentialSession(get: () => AppStore) {
+  const stored = await storage.getItem(CREDENTIAL_SESSION_KEY);
+  if (!stored) return;
+  let credential: BearerSessionData | null = null;
+  try {
+    credential = JSON.parse(stored);
+  } catch {
+    credential = null;
+  }
+  if (credential?.accessJwt && credential.did) {
+    await (get() as BlueskySlice).setCredentialSession(credential);
+  }
+}
 
 type NewLivestream = {
   loading: boolean;
@@ -30,7 +54,19 @@ type NewLivestream = {
 export interface BlueskySlice {
   authStatus: "start" | "loggedIn" | "loggedOut";
   oauthState: null | string;
-  oauthSession?: null | OAuthSession;
+  oauthSession?: null | OAuthSession | BrokeredSession;
+  // How the session came to be: the node's OAuth flow, or handed over by a
+  // sibling app's session broker (a bearer token for the PDS; the node sees
+  // an anonymous viewer). null while logged out.
+  sessionKind: "oauth" | "brokered" | "credential" | null;
+  // False while a configured session broker has not answered yet, so the
+  // first frame can wait for it instead of flashing logged-out.
+  brokerSettled: boolean;
+  setBrokerSettled: (settled: boolean) => void;
+  setBrokeredSession: (session: BrokeredSession | null) => void;
+  // A session this app holds itself (email / app password, QR login
+  // against the PDS): persisted, refreshed with its refresh token.
+  setCredentialSession: (data: BearerSessionData | null) => Promise<void>;
   // granted OAuth scope of the current session (from /oauth/introspect);
   // null means unknown, which is treated as a full grant
   sessionScope: null | string;
@@ -84,7 +120,12 @@ export interface BlueskySlice {
   oauthCallback: (url: string) => Promise<void>;
   setReturnRoute: (route: { name: string; params?: any } | null) => void;
   showLoginModal: boolean;
-  openLoginModal: (returnRoute?: { name: string; params?: any }) => void;
+  /** Open the login modal on the node's OAuth flow even when loginMode=pds. */
+  loginModalOAuth: boolean;
+  openLoginModal: (
+    returnRoute?: { name: string; params?: any },
+    options?: { oauth?: boolean },
+  ) => void;
   closeLoginModal: () => void;
   showPdsModal: boolean;
   openPdsModal: () => void;
@@ -175,6 +216,8 @@ export const createBlueskySlice: StateCreator<
   authStatus: "start",
   oauthState: null,
   oauthSession: undefined,
+  sessionKind: null,
+  brokerSettled: true,
   sessionScope: null,
   pdsAgent: null,
   anonPDSAgent: null,
@@ -207,6 +250,7 @@ export const createBlueskySlice: StateCreator<
   serverSettings: null,
   returnRoute: null,
   showLoginModal: false,
+  loginModalOAuth: false,
   showPdsModal: false,
   notification: null,
 
@@ -225,17 +269,24 @@ export const createBlueskySlice: StateCreator<
     set({ returnRoute: route });
   },
 
-  openLoginModal: async (returnRoute?: { name: string; params?: any }) => {
+  openLoginModal: async (
+    returnRoute?: { name: string; params?: any },
+    options?: { oauth?: boolean },
+  ) => {
     console.log("openLoginModal with returnRoute:", returnRoute);
     if (returnRoute) {
       await storage.setItem("returnRoute", JSON.stringify(returnRoute));
     }
-    set({ showLoginModal: true, returnRoute: returnRoute || null });
+    set({
+      showLoginModal: true,
+      loginModalOAuth: !!options?.oauth,
+      returnRoute: returnRoute || null,
+    });
   },
 
   closeLoginModal: () => {
     console.log("closeLoginModal");
-    set({ showLoginModal: false });
+    set({ showLoginModal: false, loginModalOAuth: false });
   },
 
   openPdsModal: () => {
@@ -246,6 +297,62 @@ export const createBlueskySlice: StateCreator<
     set({ showPdsModal: false });
   },
 
+  setBrokerSettled: (settled: boolean) => set({ brokerSettled: settled }),
+  setCredentialSession: async (data: BearerSessionData | null) => {
+    if (!data) {
+      await storage.removeItem(CREDENTIAL_SESSION_KEY);
+      const state = get() as BlueskySlice;
+      if (state.sessionKind !== "credential") return;
+      set({
+        oauthSession: null,
+        sessionKind: null,
+        pdsAgent: null,
+        sessionScope: null,
+        authStatus: "loggedOut",
+      });
+      return;
+    }
+    await storage.setItem(CREDENTIAL_SESSION_KEY, JSON.stringify(data));
+    const session = new BearerSession(data, {
+      nodeUrl: get().url,
+      kind: "credential",
+      onUpdate: (fresh) => {
+        storage
+          .setItem(CREDENTIAL_SESSION_KEY, JSON.stringify(fresh))
+          .catch(() => {});
+      },
+    });
+    set({
+      oauthSession: session,
+      sessionKind: "credential",
+      pdsAgent: new StreamplaceAgent(session),
+      sessionScope: null,
+      authStatus: "loggedIn",
+    });
+  },
+  setBrokeredSession: (session: BrokeredSession | null) => {
+    const state = get() as BlueskySlice;
+    if (session) {
+      // The node's own OAuth session always wins over a brokered one.
+      if (state.sessionKind === "oauth" && state.oauthSession) return;
+      set({
+        oauthSession: session,
+        sessionKind: "brokered",
+        pdsAgent: new StreamplaceAgent(session),
+        sessionScope: null,
+        authStatus: "loggedIn",
+      });
+      return;
+    }
+    if (state.sessionKind !== "brokered") return;
+    set({
+      oauthSession: null,
+      sessionKind: null,
+      pdsAgent: null,
+      sessionScope: null,
+      authStatus: "loggedOut",
+    });
+  },
   loadOAuthClient: async () => {
     set({ authStatus: "start" });
     try {
@@ -287,6 +394,7 @@ export const createBlueskySlice: StateCreator<
           client,
           authStatus: "loggedIn",
           oauthSession: session,
+          sessionKind: "oauth",
           pdsAgent: new StreamplaceAgent(session),
           anonPDSAgent,
         });
@@ -298,9 +406,23 @@ export const createBlueskySlice: StateCreator<
           client,
           anonPDSAgent,
         });
+        // No OAuth session: a credentials session this app holds may still
+        // be around from an earlier sign-in.
+        await restoreCredentialSession(get);
       }
     } catch (error) {
       console.error("loadOAuthClient error", error);
+      // A client that cannot be built (bad metadata, unreachable node, a dev
+      // hostname the OAuth rules reject) must not wedge the app in "start":
+      // that is a logged-out viewer, and a session broker can still take
+      // over from here.
+      set({
+        authStatus: "loggedOut",
+        oauthSession: null,
+        sessionKind: null,
+        anonPDSAgent: new StreamplaceAgent(get().url),
+      });
+      await restoreCredentialSession(get);
     }
   },
 
@@ -321,7 +443,7 @@ export const createBlueskySlice: StateCreator<
 
   refreshSessionScope: async () => {
     const session = (get() as BlueskySlice).oauthSession;
-    if (!session) {
+    if (!session || session instanceof BrokeredSession) {
       set({ sessionScope: null });
       return;
     }
@@ -412,9 +534,26 @@ export const createBlueskySlice: StateCreator<
     if (!state.oauthSession) {
       throw new Error("No oauth session");
     }
+    if (state.oauthSession instanceof BearerSession) {
+      if (state.oauthSession.kind === "credential") {
+        await storage.removeItem(CREDENTIAL_SESSION_KEY);
+        await state.oauthSession.signOut();
+      }
+      // A brokered login belongs to the sibling app: nothing to revoke, the
+      // broker hands it back on the next load while it lasts there.
+      set({
+        oauthSession: null,
+        sessionKind: null,
+        pdsAgent: null,
+        sessionScope: null,
+        authStatus: "loggedOut",
+      });
+      return;
+    }
     await state.oauthSession.signOut();
     set({
       oauthSession: null,
+      sessionKind: null,
       pdsAgent: null,
       sessionScope: null,
       authStatus: "loggedOut",
@@ -495,6 +634,7 @@ export const createBlueskySlice: StateCreator<
         set({
           client,
           oauthSession: ret.session,
+          sessionKind: "oauth",
           pdsAgent: new StreamplaceAgent(ret.session),
           authStatus: "loggedIn",
         });

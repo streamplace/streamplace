@@ -103,6 +103,29 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, streamplaceBlock)
 
+	case *appbsky.GraphVerification:
+		// Indexed from any repo, known or not: verifiers are few, and which
+		// ones this node trusts is decided by branding after the fact.
+		v := &model.Verification{
+			URI:         aturi.String(),
+			CID:         cid,
+			IssuerDID:   userDID,
+			SubjectDID:  rec.Subject,
+			Handle:      rec.Handle,
+			DisplayName: rec.DisplayName,
+		}
+		if created, err := aqtime.FromString(rec.CreatedAt); err == nil {
+			v.CreatedAt = created.Time()
+		}
+		err := atsync.Model.CreateVerification(ctx, v)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("failed to create verification: %w", err)
+		}
+		return nil
+
 	case *appbsky.ActorProfile:
 		if r == nil {
 			// someone we don't know about
@@ -222,6 +245,12 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 
 		if scm.Author.Handle == "" || scm.Author.Handle == "handle.invalid" {
 			scm.Author.Handle = atsync.ResolveAuthorHandle(ctx, scm.Author.Did)
+		}
+		atsync.DecorateVerification(ctx, scm)
+		if !atsync.ChatAllowed(ctx, scm.Author.Did) {
+			// Chat is locked to verified users: the message is indexed (the
+			// lock may lift) but not shown.
+			return nil
 		}
 
 		go atsync.Bus.Publish(rec.Streamer, scm)

@@ -38,6 +38,8 @@ import {
   useSetReplyToMessage,
 } from "../../livestream-store";
 import { useDID, usePDSAgent } from "../../streamplace-store";
+import { useChatLockedOut } from "../../streamplace-store/access";
+import { useNetworkName } from "../../streamplace-store/branding";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
 import {
@@ -65,9 +67,17 @@ export function ChatBox({
   skinTone = 0,
   hideLogin = false,
   leftSlot,
+  hideSendButton = false,
+  hideToolbar = false,
+  placeholder = "Type a message...",
 }: {
   isPopout?: boolean;
   chatBoxStyle?: any;
+  /** Enter still sends; the timeline-style composer has no button. */
+  hideSendButton?: boolean;
+  /** No @ / emoji / popout row under the field. */
+  hideToolbar?: boolean;
+  placeholder?: string;
   emojiData: EmojiData | null;
   setIsChatVisible?: (visible: boolean) => void;
   onEmojiPickerToggle?: () => void;
@@ -80,6 +90,8 @@ export function ChatBox({
   hideLogin?: boolean;
   leftSlot?: ReactNode;
 }) {
+  const lockedOut = useChatLockedOut();
+  const networkName = useNetworkName();
   const [submitting, setSubmitting] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const message = useChatDraft();
@@ -392,6 +404,29 @@ export function ChatBox({
     }
   }, [replyTo]);
 
+  if (lockedOut) {
+    return (
+      <View
+        style={[
+          layout.flex.row,
+          layout.flex.alignCenter,
+          layout.flex.justifyCenter,
+          {
+            paddingVertical: 12,
+            paddingHorizontal: 12,
+            borderRadius: 10,
+            backgroundColor: theme.colors.surface2,
+          },
+          chatBoxStyle,
+        ]}
+      >
+        <Text size="sm" color="muted" center>
+          Only verified {networkName} accounts can chat.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[layout.flex.column, flex.shrink[1], gap.all[2]]}>
       <TeleportModal
@@ -568,20 +603,22 @@ export function ChatBox({
             }
             // "submit" won't blur on enter
             submitBehavior="submit"
-            placeholder="Type a message..."
+            placeholder={placeholder}
           />
         </View>
-        <View>
-          <Button
-            disabled={submitting}
-            variant="secondary"
-            width="min"
-            style={{ borderRadius: theme.borderRadius.md, height: 43 }}
-            onPress={submit}
-          >
-            {submitting ? <Loader /> : "Send"}
-          </Button>
-        </View>
+        {!hideSendButton && (
+          <View>
+            <Button
+              disabled={submitting}
+              variant="secondary"
+              width="min"
+              style={{ borderRadius: theme.borderRadius.md, height: 43 }}
+              onPress={submit}
+            >
+              {submitting ? <Loader /> : "Send"}
+            </Button>
+          </View>
+        )}
       </View>
       {showSuggestions && (
         <MentionSuggestions
@@ -598,7 +635,7 @@ export function ChatBox({
           skinTone={skinTone}
         />
       )}
-      {Platform.OS === "web" && (
+      {Platform.OS === "web" && !hideToolbar && (
         <View
           style={[
             layout.flex.row,

@@ -4,7 +4,7 @@ import {
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import { Facet, RichtextSegment, segmentize } from "@streamplace/core";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
@@ -18,14 +18,21 @@ import {
   useTheme,
 } from "../ui";
 
+import { useAvatars } from "../../hooks/useAvatars";
 import { useLivestreamStore } from "../../livestream-store";
+import {
+  useBrandingAsset,
+  useNetworkProfileUrl,
+} from "../../streamplace-store";
+import { Avatar } from "../ui/avatar";
 import { Text } from "../ui/text";
-import { BadgeDisplayRow } from "./badge";
+import { Badge, BadgeDisplayRow } from "./badge";
 import {
   ProfileCardContent,
   UserProfileCard,
   useProfileCardData,
 } from "./user-profile-card";
+import { VerifiedBadge } from "./verified-badge";
 
 // Deterministic per-user color, muted so a busy chat doesn't turn into a
 // rainbow, and clamped for contrast against the dark chat surface: colors
@@ -89,6 +96,7 @@ const renderSegment = (
   seg: RichtextSegment,
   index: number,
   userCache?: { [key: string]: ChatMessageViewHydrated["chatProfile"] },
+  profileUrl?: (author: { handle?: string; did?: string }) => string,
 ) => {
   const ftr = seg.features?.[0];
 
@@ -108,7 +116,11 @@ const renderSegment = (
         key={`mention-${index}`}
         style={{ color: getRgbColor(profile?.color), cursor: "pointer" }}
         onPress={() =>
-          Linking.openURL(`https://bsky.app/profile/${mtnFtr.did || ""}`)
+          Linking.openURL(
+            profileUrl
+              ? profileUrl({ did: mtnFtr.did })
+              : `https://bsky.app/profile/${mtnFtr.did || ""}`,
+          )
         }
       >
         {seg.text}
@@ -125,21 +137,53 @@ export const RichTextMessage = ({
   text: string;
   facets: ChatMessageViewHydrated["record"]["facets"];
 }) => {
+  const profileUrl = useNetworkProfileUrl();
   const userCache = useLivestreamStore((state) => state.authors);
   if (!facets?.length) return <Text>{text}</Text>;
 
   let segs = segmentize(text, facets as Facet[]);
 
-  return segs.map((seg, i) => renderSegment(seg, i, userCache));
+  return segs.map((seg, i) => renderSegment(seg, i, userCache, profileUrl));
 };
 
 // Web flows the whole message inline inside a single <Text>, with the badges and
 // handle rendered as an inline-block via display: "inline".
 // Chat is dense but legible: 14px (size base), handles in medium weight.
+// Branding key chatNameColors=off: names in the default text color instead
+// of each user's chosen chat color.
+function useNameColor(): (
+  color?: Parameters<typeof getRgbColor>[0],
+) => string | undefined {
+  const off = useBrandingAsset("chatNameColors")?.data === "off";
+  return off ? () => undefined : getRgbColor;
+}
+
+// Branding key chatBadges: "custom" drops the node's built-in marks
+// (streamer, moderator, bot), "none" drops every badge.
+const BUILT_IN_BADGES = new Set([
+  "place.stream.badge.defs#streamer",
+  "place.stream.badge.defs#mod",
+  "place.stream.badge.defs#bot",
+]);
+function useVisibleBadges(
+  badges: ChatMessageViewHydrated["badges"],
+): ChatMessageViewHydrated["badges"] {
+  const mode = useBrandingAsset("chatBadges")?.data;
+  return useMemo(() => {
+    if (!badges || mode === "all" || !mode) return badges;
+    if (mode === "none") return [];
+    return badges.filter((b) => !BUILT_IN_BADGES.has(b.badgeType));
+  }, [badges, mode]);
+}
+
 const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
+  const nameColor = useNameColor();
+  const badges = useVisibleBadges(item.badges);
+  const dids = useMemo(() => [item.author.did], [item.author.did]);
+  const profile = useAvatars(dids)[item.author.did];
   return (
     <Text size="base" style={[flex.shrink[1], { minWidth: 0 }]}>
-      <UserProfileCard uri={item.uri} author={item.author} badges={item.badges}>
+      <UserProfileCard uri={item.uri} author={item.author} badges={badges}>
         <View
           style={
             {
@@ -151,17 +195,18 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
             } as any
           }
         >
-          <BadgeDisplayRow badges={item.badges} />
+          <BadgeDisplayRow badges={badges} />
           <Text
             size="base"
             weight="medium"
             style={{
               cursor: "pointer",
-              color: getRgbColor(item.chatProfile?.color),
+              color: nameColor(item.chatProfile?.color),
             }}
           >
             {formatHandleWithAt(item.author)}
           </Text>
+          <VerifiedBadge author={item.author} profile={profile} size={14} />
         </View>
       </UserProfileCard>
       <Text size="base" color="default">
@@ -179,8 +224,12 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
 // a flex row beside the message instead of inline. Tapping the badges or the
 // handle opens the same profile bottom sheet via two triggers on one menu.
 const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
+  const nameColor = useNameColor();
+  const badges = useVisibleBadges(item.badges);
+  const dids = useMemo(() => [item.author.did], [item.author.did]);
+  const profile = useAvatars(dids)[item.author.did];
   const { theme } = useTheme();
-  const data = useProfileCardData(item.author, item.badges);
+  const data = useProfileCardData(item.author, badges);
   return (
     <DropdownMenu
       style={[
@@ -189,7 +238,7 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
         { minWidth: 0, alignItems: "flex-start" },
       ]}
     >
-      {!!item.badges?.length && (
+      {!!badges?.length && (
         <DropdownMenuTrigger asChild>
           <Pressable
             style={{
@@ -201,7 +250,8 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
               marginTop: Platform.OS === "ios" ? 1 : 0,
             }}
           >
-            <BadgeDisplayRow badges={item.badges} />
+            <BadgeDisplayRow badges={badges} />
+            <VerifiedBadge author={item.author} profile={profile} size={14} />
           </Pressable>
         </DropdownMenuTrigger>
       )}
@@ -210,7 +260,7 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
           <Text
             size="base"
             weight="medium"
-            style={{ color: getRgbColor(item.chatProfile?.color) }}
+            style={{ color: nameColor(item.chatProfile?.color) }}
           >
             {formatHandleWithAt(item.author)}
           </Text>
@@ -230,6 +280,158 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
   );
 };
 
+// Short relative age for the avatar layout: "now", "3m", "2h", "5d".
+function relativeAge(dateString: string): string {
+  const diff = Date.now() - new Date(dateString).getTime();
+  if (!Number.isFinite(diff) || diff < 45_000) return "now";
+  const m = Math.round(diff / 60_000);
+  if (m < 60) return `${m}m`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.round(h / 24)}d`;
+}
+
+// The avatar layout (branding chatLayout=avatar): a post-style row with the
+// author's avatar, display name, handle and age on one line and the text
+// beneath, the way a social timeline shows a reply. Badges sit after the
+// name; the profile card opens from the name as it does in compact rows.
+const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
+  const { theme } = useTheme();
+  const badges = useVisibleBadges(item.badges);
+  const author = item.author;
+  // Hydrated messages carry handle and display name but not the avatar;
+  // the profile cache batches getProfiles across visible rows.
+  const dids = useMemo(() => [author.did], [author.did]);
+  const profile = useAvatars(dids)[author.did];
+  const avatar = profile?.avatar || author.avatar;
+  const displayName = (author.displayName || profile?.displayName)?.trim();
+  const handle = formatHandleWithAt(author);
+  const name = displayName || handle;
+  const nameColor = useNameColor()(item.chatProfile?.color);
+  const meta = { fontSize: 15, lineHeight: 23, color: theme.colors.text2 };
+  // The name line is a flex row rather than nested <Text> so the badges (which
+  // are views) sit after the name on every platform, a long handle truncates
+  // instead of pushing the age off the edge, and native never nests views in
+  // text.
+  // Room the verified mark and badges take beside the name (see below).
+  const verified =
+    author.verification?.verifiedStatus === "valid" ||
+    profile?.verification?.verifiedStatus === "valid";
+  const marksWidth =
+    (verified ? 20 : 0) + (badges?.length ? 6 + badges.length * 22 : 0);
+  // text.
+  return (
+    <View
+      style={[
+        layout.flex.row,
+        { gap: 12, minWidth: 0, maxWidth: "100%", paddingVertical: 4 },
+      ]}
+    >
+      <Avatar src={avatar} name={displayName || author.handle} size={42} />
+      <View style={[flex.shrink[1], { flex: 1, minWidth: 0 }]}>
+        <View
+          style={[
+            layout.flex.row,
+            { alignItems: "center", minWidth: 0, maxWidth: "100%" },
+          ]}
+        >
+          {/* Name, marks and handle share one box beside the time. The
+              handle is the only thing in it that shrinks, so it gives way
+              first; the name can't shrink at all on web and is instead
+              capped at the box minus the marks, so it only truncates once
+              the handle is gone. (Native's layout engine weights shrink by
+              the factor, so there the 1000x handle does the same job.) */}
+          <View
+            style={[
+              layout.flex.row,
+              {
+                flex: 1,
+                alignItems: "center",
+                minWidth: 0,
+                overflow: "hidden",
+              },
+            ]}
+          >
+            <View
+              style={[
+                {
+                  minWidth: 0,
+                  flexShrink: Platform.OS === "web" ? 0 : 1,
+                  maxWidth:
+                    Platform.OS === "web"
+                      ? (`calc(100% - ${marksWidth}px)` as any)
+                      : undefined,
+                },
+              ]}
+            >
+              <UserProfileCard
+                uri={item.uri}
+                author={item.author}
+                badges={badges}
+              >
+                <Text
+                  weight="semibold"
+                  numberOfLines={1}
+                  style={[
+                    flex.shrink[1],
+                    {
+                      fontSize: 15,
+                      lineHeight: 23,
+                      color: nameColor,
+                      minWidth: 0,
+                    },
+                  ]}
+                >
+                  {name}
+                </Text>
+              </UserProfileCard>
+            </View>
+            <VerifiedBadge author={author} profile={profile} />
+            {!!badges?.length && (
+              <View
+                style={[
+                  layout.flex.row,
+                  { alignItems: "center", marginLeft: 6, flexShrink: 0 },
+                ]}
+              >
+                {badges.map((badge, index) => (
+                  <Badge
+                    key={index}
+                    badgeType={badge.badgeType}
+                    imageUrl={badge.imageUrl}
+                  />
+                ))}
+              </View>
+            )}
+            {displayName ? (
+              <Text
+                numberOfLines={1}
+                style={{
+                  ...meta,
+                  marginLeft: 8,
+                  minWidth: 0,
+                  flexShrink: 1000,
+                }}
+              >
+                {handle}
+              </Text>
+            ) : null}
+          </View>
+          <Text style={{ ...meta, marginLeft: 8, flexShrink: 0 }}>
+            {"· " + relativeAge(item.record.createdAt)}
+          </Text>
+        </View>
+        <Text style={{ fontSize: 15, lineHeight: 23 }}>
+          <RichTextMessage
+            text={item.record.text}
+            facets={item.record.facets || []}
+          />
+        </Text>
+      </View>
+    </View>
+  );
+};
+
 export const RenderChatMessage = memo(
   function RenderChatMessage({
     item,
@@ -242,6 +444,8 @@ export const RenderChatMessage = memo(
     showTime?: boolean;
   }) {
     const { theme } = useTheme();
+    const avatarLayout = useBrandingAsset("chatLayout")?.data === "avatar";
+    const nameColor = useNameColor();
     const formatTime = useCallback((dateString: string) => {
       return new Date(dateString).toLocaleString(undefined, {
         hour: "2-digit",
@@ -280,7 +484,7 @@ export const RenderChatMessage = memo(
                 size="xs"
                 weight="medium"
                 style={{
-                  color: getRgbColor(replyTo.chatProfile?.color),
+                  color: nameColor(replyTo.chatProfile?.color),
                 }}
               >
                 {formatHandleWithAt(replyTo.author)}
@@ -297,26 +501,30 @@ export const RenderChatMessage = memo(
             </Text>
           </View>
         )}
-        <View style={[layout.flex.row, { minWidth: 0, maxWidth: "100%" }]}>
-          {showTime && (
-            <Text
-              size="xs"
-              style={{
-                ...tabularNums,
-                color: theme.colors.text3,
-                marginRight: 8,
-                marginTop: Platform.OS === "web" ? 2 : 3,
-              }}
-            >
-              {formatTime(item.record.createdAt)}
-            </Text>
-          )}
-          {Platform.OS === "web" ? (
-            <MessageBodyWeb item={item} />
-          ) : (
-            <MessageBodyNative item={item} />
-          )}
-        </View>
+        {avatarLayout ? (
+          <AvatarMessageBody item={item} />
+        ) : (
+          <View style={[layout.flex.row, { minWidth: 0, maxWidth: "100%" }]}>
+            {showTime && (
+              <Text
+                size="xs"
+                style={{
+                  ...tabularNums,
+                  color: theme.colors.text3,
+                  marginRight: 8,
+                  marginTop: Platform.OS === "web" ? 2 : 3,
+                }}
+              >
+                {formatTime(item.record.createdAt)}
+              </Text>
+            )}
+            {Platform.OS === "web" ? (
+              <MessageBodyWeb item={item} />
+            ) : (
+              <MessageBodyNative item={item} />
+            )}
+          </View>
+        )}
       </>
     );
   },

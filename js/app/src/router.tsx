@@ -2,21 +2,27 @@ import { LiquidGlassView } from "@callstack/liquid-glass";
 import "@expo/metro-runtime";
 import { useNavigation } from "@react-navigation/native";
 import {
+  AppCrashScreen,
   Button,
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  ErrorBoundary,
   IconButton,
   ResponsiveDropdownMenuContent,
   Text,
+  useNetworkName,
+  useSocialShell,
   useTheme,
 } from "@streamplace/components";
 import { statusColors } from "@streamplace/components/src/lib/theme/tokens";
 import { Provider } from "components";
+import { ArrowLeftIcon } from "components/sidebar/social-icons";
 import { ImageBackground } from "expo-image";
 import { useLiveUser } from "hooks/useLiveUser";
 import {
   CircleUser,
+  KeyRound,
   LogIn,
   LogOut,
   Plus,
@@ -29,6 +35,7 @@ import { useState } from "react";
 import {
   ImageSourcePropType,
   Platform,
+  Pressable,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -102,18 +109,53 @@ if (hasDevDomain) {
 console.log("Linking prefixes", streamplaceLinkingOptions.prefixes);
 
 export default function Router() {
+  // The last line of defense: a render error anywhere below would otherwise
+  // unmount the whole tree and leave a black window with nothing to click.
   return (
-    <Provider linking={streamplaceLinkingOptions}>
-      <Shell />
-    </Provider>
+    <ErrorBoundary fallback={(reset) => <AppCrashScreen reset={reset} />}>
+      <Provider linking={streamplaceLinkingOptions}>
+        <Shell />
+      </Provider>
+    </ErrorBoundary>
   );
 }
 
 // Just a small left inset so the header title clears the sidebar. Back
 // navigation is handled by the sidebar and the browser's own back button, so
 // there's no in-header back arrow.
-export const NavigationButton = (_props: { canGoBack?: boolean }) => {
-  return <View style={{ width: 12 }} />;
+// The social shell's column header carries a back arrow (the classic chrome
+// leaves navigation to the sidebar and only pads the title).
+export const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
+  const social = useSocialShell();
+  const navigation = useNavigation();
+  const { theme } = useTheme();
+  if (!social) return <View style={{ width: 12 }} />;
+  return (
+    <Pressable
+      accessibilityLabel="Back"
+      accessibilityRole="button"
+      onPress={() => {
+        if (canGoBack && navigation.canGoBack()) navigation.goBack();
+        else
+          (navigation as any).navigate("MainTabs", {
+            screen: "HomeTab",
+            params: { screen: "HomeMain" },
+          });
+      }}
+      style={({ hovered }: any) => ({
+        width: 33,
+        height: 33,
+        marginLeft: 12,
+        marginRight: 2,
+        borderRadius: 999,
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: hovered ? 0.8 : 1,
+      })}
+    >
+      <ArrowLeftIcon size={24} color={theme.colors.text1} />
+    </Pressable>
+  );
 };
 
 export const LGAvatarButton = () => {
@@ -252,12 +294,23 @@ const AccountMenuItem = ({
   );
 };
 
-export const AvatarButton = () => {
+export const AvatarButton = ({
+  size = 32,
+  bare = false,
+}: {
+  /** Avatar diameter; the social shell's nav rail uses 48. */
+  size?: number;
+  /** No header margin, and logged-out renders a placeholder avatar that
+   *  opens the login modal (the nav-rail form) instead of the button pair. */
+  bare?: boolean;
+} = {}) => {
   const userProfile = useUserProfile();
   const userIsLive = useLiveUser();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const openPDSModal = useStore((state) => state.openPdsModal);
   const logout = useStore((state) => state.logout);
+  const sessionKind = useStore((state) => state.sessionKind);
+  const networkName = useNetworkName();
   const navigation = useNavigation();
   const { theme } = useTheme();
   const c = theme.colors;
@@ -293,9 +346,9 @@ export const AvatarButton = () => {
         key={source?.uri ?? "default"}
         source={source}
         style={{
-          width: 32,
-          height: 32,
-          borderRadius: 24,
+          width: size,
+          height: size,
+          borderRadius: size,
           overflow: "hidden",
           borderWidth: 1,
           borderColor: menuOpen ? c.text3 : c.borderStrong,
@@ -305,7 +358,7 @@ export const AvatarButton = () => {
         }}
       >
         <User
-          size={18}
+          size={Math.round(size * 0.56)}
           color={c.text2}
           style={{
             zIndex: -2,
@@ -316,7 +369,7 @@ export const AvatarButton = () => {
       </ImageBackground>
     );
     return (
-      <View style={{ marginRight: 12 }}>
+      <View style={{ marginRight: bare ? 0 : 12 }}>
         <DropdownMenu onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger>
             {userIsLive ? (
@@ -422,15 +475,52 @@ export const AvatarButton = () => {
               }}
             />
 
-            <AccountMenuItem
-              icon={LogOut}
-              label="Log out"
-              danger
-              onPress={() => logout()}
-            />
+            {sessionKind === "brokered" || sessionKind === "credential" ? (
+              <AccountMenuItem
+                icon={KeyRound}
+                label="Sign in with OAuth"
+                onPress={() => openLoginModal(undefined, { oauth: true })}
+              />
+            ) : null}
+            {sessionKind === "brokered" ? (
+              <View style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
+                <Text style={{ color: c.text3, fontSize: 12.5 }}>
+                  Signed in through {networkName}
+                </Text>
+              </View>
+            ) : (
+              <AccountMenuItem
+                icon={LogOut}
+                label="Log out"
+                danger
+                onPress={() => logout()}
+              />
+            )}
           </ResponsiveDropdownMenuContent>
         </DropdownMenu>
       </View>
+    );
+  }
+
+  if (bare) {
+    return (
+      <Pressable
+        onPress={() => openLoginModal()}
+        accessibilityLabel="Log in"
+        accessibilityRole="button"
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size,
+          borderWidth: 1,
+          borderColor: c.borderStrong,
+          backgroundColor: c.surface3,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <User size={Math.round(size * 0.56)} color={c.text2} />
+      </Pressable>
     );
   }
 

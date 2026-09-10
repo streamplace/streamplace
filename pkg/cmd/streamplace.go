@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -17,6 +18,8 @@ import (
 	"slices"
 	"strconv"
 	"stream.place/streamplace/pkg/accessctl"
+	"stream.place/streamplace/pkg/acme"
+	"stream.place/streamplace/pkg/branding"
 	"strings"
 	"syscall"
 	"time"
@@ -87,6 +90,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeLivepeerCommand(build),
 		makeMigrateCommand(build),
 		makeSyncCommand(build),
+		makeBrandingCommand(build),
 	}
 	// Add the verbosity flag
 	// app.Flags = append(app.Flags, &urfavecli.StringFlag{
@@ -355,6 +359,10 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	// it, and at full speed it is what buries a boot. It trickles in at
 	// --deepen-rate windows a minute for as long as this node runs.
 	go atsync.DeepenForever(ctx)
+	// Trusted verifiers' records predate this node; pull them at boot and
+	// hourly, the firehose keeps them current in between.
+	go atsync.SeedVerificationsForever(ctx)
+	go atsync.SeedLabelsForever(ctx)
 
 	var replicator replication.Replicator = nil
 	if slices.Contains(cli.Replicators, config.ReplicatorIroh) {
@@ -534,7 +542,22 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		})
 	}
 
+	if cli.ACME && !cli.Secure {
+		log.Warn(ctx, "--acme has no effect without --secure; TLS is terminated elsewhere")
+	}
 	if cli.Secure {
+		var rtmpsTLS *tls.Config
+		if cli.ACME {
+			mgr, err := acme.New(ctx, cli, state)
+			if err != nil {
+				return err
+			}
+			a.ACME = mgr
+			rtmpsTLS = mgr.TLSConfig()
+			group.Go(func() error {
+				return mgr.Manage(ctx)
+			})
+		}
 		group.Go(func() error {
 			return a.ServeHTTPS(ctx)
 		})
@@ -543,7 +566,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		})
 		if cli.RTMPServerAddon != "" {
 			group.Go(func() error {
-				return rtmps.ServeRTMPSAddon(ctx, cli)
+				return rtmps.ServeRTMPSAddon(ctx, cli, rtmpsTLS)
 			})
 		}
 		group.Go(func() error {
@@ -1257,4 +1280,95 @@ func resolveLiveSigningKey(mod model.Model, repoDID string) (string, error) {
 		return "", fmt.Errorf("no active signing key for repo %s", repoDID)
 	}
 	return best.DID, nil
+}
+
+// makeBrandingCommand exports and imports branding bundles straight against
+// the state database, without a running node or a signed-in admin: the way
+// to seed a fresh node before anyone can log in, or to copy a look between
+// hosts from a terminal.
+func makeBrandingCommand(build *config.BuildFlags) *urfavecli.Command {
+	cli := config.CLI{Build: build}
+	root := cli.NewCommand("branding")
+	root.Usage = "export or import the node's branding as a bundle (zip with branding.yaml)"
+	open := func(ctx context.Context, cmd *urfavecli.Command) (*statedb.StatefulDB, string, error) {
+		if err := cli.Validate(cmd); err != nil {
+			return nil, "", err
+		}
+		log.SetColorLogger(cli.Color)
+		mod, err := model.MakeDBConns(cli.DataFilePath([]string{"index"}), cli.IndexDBConnections)
+		if err != nil {
+			return nil, "", err
+		}
+		state, err := statedb.MakeDB(ctx, &cli, nil, mod)
+		if err != nil {
+			return nil, "", err
+		}
+		return state, cli.BroadcasterDID(), nil
+	}
+	exportCmd := &urfavecli.Command{
+		Name:      "export",
+		Usage:     "write the node's branding to a bundle",
+		ArgsUsage: "<out.zip>",
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			if cmd.Args().Len() != 1 {
+				return fmt.Errorf("usage: streamplace branding export <out.zip>")
+			}
+			state, bid, err := open(ctx, cmd)
+			if err != nil {
+				return err
+			}
+			bs, err := branding.Export(ctx, state, bid)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(cmd.Args().First(), bs, 0o644); err != nil {
+				return err
+			}
+			log.Log(ctx, "branding exported", "broadcaster", bid, "file", cmd.Args().First(), "bytes", len(bs))
+			return nil
+		},
+	}
+	var merge, dryRun bool
+	importCmd := &urfavecli.Command{
+		Name:      "import",
+		Usage:     "apply a bundle to the node (replaces branding unless --merge)",
+		ArgsUsage: "<in.zip>",
+		Flags: []urfavecli.Flag{
+			&urfavecli.BoolFlag{Name: "merge", Usage: "keep keys the bundle does not mention", Destination: &merge},
+			&urfavecli.BoolFlag{Name: "dry-run", Usage: "report what would change without writing", Destination: &dryRun},
+		},
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			if cmd.Args().Len() != 1 {
+				return fmt.Errorf("usage: streamplace branding import [--merge] [--dry-run] <in.zip>")
+			}
+			bs, err := os.ReadFile(cmd.Args().First())
+			if err != nil {
+				return err
+			}
+			state, bid, err := open(ctx, cmd)
+			if err != nil {
+				return err
+			}
+			report, err := branding.Import(ctx, state, bid, bs, merge, dryRun)
+			if err != nil {
+				return err
+			}
+			for _, c := range report.Changes {
+				if c.Detail != "" {
+					fmt.Printf("%-10s %-24s %s\n", c.Action, c.Key, c.Detail)
+				} else {
+					fmt.Printf("%-10s %s\n", c.Action, c.Key)
+				}
+			}
+			for _, w := range report.Warnings {
+				fmt.Printf("warning: %s\n", w)
+			}
+			if !report.Applied {
+				fmt.Println("dry run: nothing written")
+			}
+			return nil
+		},
+	}
+	root.Commands = append(root.Commands, exportCmd, importCmd)
+	return root
 }

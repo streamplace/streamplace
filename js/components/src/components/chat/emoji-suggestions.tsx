@@ -38,10 +38,6 @@ export function EmojiSuggestions({
   highlightedIndex,
   skinTone = 0,
 }: EmojiSuggestionsProps) {
-  if (!emojis || emojis.length === 0) {
-    return null;
-  }
-
   const itemRefs = useRef<Map<number, HTMLElement>>(new Map());
   const { theme } = useTheme();
 
@@ -53,6 +49,10 @@ export function EmojiSuggestions({
       }
     }
   }, [highlightedIndex]);
+
+  if (!emojis || emojis.length === 0) {
+    return null;
+  }
 
   return (
     <View

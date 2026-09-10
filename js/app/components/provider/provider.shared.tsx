@@ -12,6 +12,7 @@ import {
 } from "@streamplace/components";
 import { useFonts } from "expo-font";
 import BlueskyProvider from "features/bluesky/blueskyProvider";
+import { SessionBrokerProvider } from "features/session-broker/provider";
 import StreamplaceProvider from "features/streamplace/streamplaceProvider";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import React from "react";
@@ -101,6 +102,7 @@ function ProviderInner({
             <StreamplaceProvider>
               <BlueskyProvider>
                 <NewStreamplaceProvider>
+                  <SessionBrokerProvider />
                   <BrandedThemeProvider forcedTheme="dark">
                     <FontProvider>{children}</FontProvider>
                   </BrandedThemeProvider>
@@ -135,15 +137,21 @@ export const NewStreamplaceProvider = ({
 
 export const FontProvider = ({ children }: { children: React.ReactNode }) => {
   const [fontLoaded, fontError] = useFonts({
-    // Atkinson Hyperlegible Next (Sans) — three static weights, no variable fonts
-    "AtkinsonHyperlegibleNext-Regular": require("../../assets/fonts/AtkinsonHyperlegibleNext-Regular.ttf"),
-    "AtkinsonHyperlegibleNext-Medium": require("../../assets/fonts/AtkinsonHyperlegibleNext-Medium.ttf"),
-    "AtkinsonHyperlegibleNext-SemiBold": require("../../assets/fonts/AtkinsonHyperlegibleNext-SemiBold.ttf"),
+    // Geist (Sans Serif) — the design system uses exactly three weights
+    "Geist-Regular": require("../../assets/fonts/Geist-Regular.ttf"),
+    "Geist-Medium": require("../../assets/fonts/Geist-Medium.ttf"),
+    "Geist-SemiBold": require("../../assets/fonts/Geist-SemiBold.ttf"),
 
-    // Ioskeley Mono — stream keys, ingest URLs, timers
-    "IoskeleyMono-Regular": require("../../assets/fonts/IoskeleyMono-Regular.ttf"),
-    "IoskeleyMono-Medium": require("../../assets/fonts/IoskeleyMono-Medium.ttf"),
-    "IoskeleyMono-SemiBold": require("../../assets/fonts/IoskeleyMono-SemiBold.ttf"),
+    // Geist Mono — stream keys, ingest URLs, timers
+    "GeistMono-Regular": require("../../assets/fonts/GeistMono-Regular.ttf"),
+    "GeistMono-Medium": require("../../assets/fonts/GeistMono-Medium.ttf"),
+    "GeistMono-SemiBold": require("../../assets/fonts/GeistMono-SemiBold.ttf"),
+
+    // Inter — the alternative sans a node can pick with the typeface
+    // branding key (same three weights, mono stays Geist Mono)
+    "Inter-Regular": require("@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf"),
+    "Inter-Medium": require("@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf"),
+    "Inter-SemiBold": require("@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf"),
   });
 
   if (!fontLoaded && !fontError) {

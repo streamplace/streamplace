@@ -1,6 +1,6 @@
 import { Portal } from "@rn-primitives/portal";
 import { CheckCircle, Info, X, XCircle } from "lucide-react-native";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -224,10 +224,10 @@ export function useToast() {
     return toastManager.subscribe(setToasts);
   }, []);
 
-  return {
-    toasts,
-    ...toast,
-  };
+  // Stable identity between toasts: consumers put this in hook deps, and a
+  // fresh object every render turned a "load on mount" effect into a
+  // request per render.
+  return useMemo(() => ({ toasts, ...toast }), [toasts]);
 }
 
 export function ToastProvider() {

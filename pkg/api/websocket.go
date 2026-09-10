@@ -178,6 +178,11 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					"did":    repoDID,
 					"handle": profile.Handle,
 				}
+				// The streamer's verified badge comes from the same place as
+				// chat authors'.
+				if state := a.ATSync.VerificationState(ctx, repoDID); state != nil {
+					p["verification"] = state
+				}
 				initialBurst <- p
 			}
 		}()
@@ -251,10 +256,14 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			// Add mod badges to messages
 			issuerDID := fmt.Sprintf("did:web:%s", a.CLI.BroadcasterHost)
 			for _, message := range messages {
+				if !a.ATSync.ChatAllowed(ctx, message.Author.Did) {
+					continue
+				}
 				err := atproto.AddModBadgeIfApplicable(ctx, &message, repoDID, issuerDID, a.Model)
 				if err != nil {
 					log.Error(ctx, "failed to add mod badge to message", "error", err)
 				}
+				a.ATSync.DecorateVerification(ctx, &message)
 				if message.Author.Handle == "" || message.Author.Handle == "handle.invalid" {
 					message.Author.Handle = a.ATSync.ResolveAuthorHandle(ctx, message.Author.Did)
 				}

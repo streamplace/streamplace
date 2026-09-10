@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { Clipboard, Linking, Platform, View } from "react-native";
 import { textAlphas } from "../../lib/theme/tokens";
 import { useLivestreamStore } from "../../livestream-store";
-import { useUrl } from "../../streamplace-store";
+import { useNetworkName, useUrl } from "../../streamplace-store";
 import { formatHandle } from "../../utils/format-handle";
 import { BlueskyIcon } from "../icons/bluesky-icon";
 import {
@@ -75,7 +75,8 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
     [onShare],
   );
 
-  // Share to Bluesky
+  const networkName = useNetworkName();
+  // Share to the network
   const shareToBluesky = useCallback(() => {
     const streamUrl = getStreamUrl();
     const text = target?.message
@@ -124,7 +125,7 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
               style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
             >
               <BlueskyIcon size={20} color={textAlphas.dark[2]} />
-              <Text>Share to Bluesky</Text>
+              <Text>Share to {networkName}</Text>
             </View>
           </DropdownMenuItem>
           {/* navigator isn't on non-web */}

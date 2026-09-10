@@ -6,6 +6,7 @@ import {
   ResponsiveDialog,
   Trans as T,
   Text,
+  useNetworkName,
   useTheme,
   useTranslation,
   zero,
@@ -96,6 +97,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
 
   const { theme } = useTheme();
   const { t } = useTranslation();
+  const network = useNetworkName();
 
   const selectedHostObj =
     SHUFFLED_PDS_HOSTS.find((host) => host.value === selectedHost) ||
@@ -151,7 +153,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
             {t("pds-selector-title")}
           </Text>
           <Text style={[{ color: theme.colors.textMuted }]}>
-            {t("pds-selector-description")}
+            {t("pds-selector-description", { network })}
           </Text>
         </View>
         <View style={[zero.pb[2]]}>

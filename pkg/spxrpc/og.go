@@ -15,6 +15,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 
 	imagedraw "image/draw"
@@ -222,15 +223,79 @@ func downloadImage(ctx context.Context, url string) ([]byte, error) {
 	return imageData, nil
 }
 
+// ogBrand is what the node's branding contributes to the profile card.
+type ogBrand struct {
+	title       string
+	description string
+	bg          color.RGBA
+	primary     color.RGBA
+}
+
+// ogBranding reads the branding keys the card uses, falling back to the
+// first-party look for anything unset.
+func (s *Server) ogBranding(ctx context.Context) ogBrand {
+	b := ogBrand{
+		title:       "Stream.place",
+		description: "Live streaming platform for creators and their communities.",
+		bg:          bgColor,
+		primary:     joinTextColor,
+	}
+	if s.statefulDB == nil || s.cli == nil {
+		return b
+	}
+	broadcaster := s.getBroadcasterID(ctx, "")
+	text := func(key string) string {
+		data, mime, _, _, err := s.GetBrandingBlob(ctx, broadcaster, key)
+		if err != nil || mime != "text/plain" {
+			return ""
+		}
+		return strings.TrimSpace(string(data))
+	}
+	if v := text("siteTitle"); v != "" {
+		b.title = v
+	}
+	if v := text("siteDescription"); v != "" {
+		b.description = v
+	}
+	if c, ok := parseHexColor(text("backgroundColor")); ok {
+		b.bg = c
+	}
+	if c, ok := parseHexColor(text("primaryColor")); ok {
+		b.primary = c
+	}
+	return b
+}
+
+// parseHexColor reads #rgb or #rrggbb.
+func parseHexColor(v string) (color.RGBA, bool) {
+	v = strings.TrimPrefix(strings.TrimSpace(v), "#")
+	if len(v) == 3 {
+		v = string([]byte{v[0], v[0], v[1], v[1], v[2], v[2]})
+	}
+	if len(v) != 6 {
+		return color.RGBA{}, false
+	}
+	n, err := strconv.ParseUint(v, 16, 32)
+	if err != nil {
+		return color.RGBA{}, false
+	}
+	return color.RGBA{R: uint8(n >> 16), G: uint8(n >> 8), B: uint8(n), A: 255}, true
+}
+
 func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, error) {
 	// Fetch user profile and avatar from Bluesky
 	var imageURL string
 	var handle, description string
 	var userDID string
 
-	// Set default fallbacks
+	// Set default fallbacks. The node's branding names the card: its title
+	// in the "streaming on" line and the avatar placeholder, its description
+	// when the profile has none, its background and primary colors.
+	brand := s.ogBranding(ctx)
 	handle = username
-	description = "Live streaming platform for creators and their communities."
+	description = brand.description
+	bg := brand.bg
+	card := blendWithBackground(color.RGBA{R: 255, G: 255, B: 255, A: 255}, bg, 0.12)
 
 	profileData, err := s.ATSync.FetchUserProfile(ctx, username)
 	if err != nil {
@@ -261,8 +326,8 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 	}
 
 	// Fetch user's chat profile color
-	var userColor = joinTextColor      // default
-	var borderColor = imageBorderColor // default
+	var userColor = brand.primary   // default
+	var borderColor = brand.primary // default
 	if userDID != "" {
 		chatProfile, err := s.ATSync.Model.GetChatProfile(ctx, userDID)
 		if err != nil {
@@ -297,7 +362,7 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 	// Create a canvas context used to keep drawing state
 	canvasCtx := canvas.NewContext(c)
 
-	fontAHN := canvas.NewFontFamily("Atkinson Hyperlegible Next")
+	fontAHN := canvas.NewFontFamily("Geist")
 
 	regularData, regularDataErr := getAtkinsonRegular()
 	if regularDataErr != nil {
@@ -332,17 +397,17 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 	}
 
 	// Set black background
-	canvasCtx.SetFillColor(bgColor)
+	canvasCtx.SetFillColor(bg)
 	canvasCtx.DrawPath(0, 0, canvas.Rectangle(ogWidth, ogHeight))
 	canvasCtx.Fill()
 
 	// Create neutral-800 rounded card
-	canvasCtx.SetFillColor(blendWithBackground(borderColor, cardColor, 0.04))
+	canvasCtx.SetFillColor(blendWithBackground(borderColor, card, 0.04))
 	canvasCtx.DrawPath(cardPadding, cardPadding, canvas.RoundedRectangle(cardWidth, cardHeight, cardRadius))
 	canvasCtx.Fill()
 
 	// border
-	cardBorderTransparent := blendWithBackground(blendWithBackground(borderColor, color.RGBA{R: 180, G: 180, B: 180}, 0.3), bgColor, 0.3)
+	cardBorderTransparent := blendWithBackground(blendWithBackground(borderColor, color.RGBA{R: 180, G: 180, B: 180}, 0.3), bg, 0.3)
 	canvasCtx.SetStrokeColor(cardBorderTransparent)
 	canvasCtx.SetStrokeWidth(1)
 	canvasCtx.DrawPath(cardPadding, cardPadding, canvas.RoundedRectangle(cardWidth, cardHeight, cardRadius))
@@ -373,7 +438,7 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 		canvasCtx.Fill()
 
 		imageFace := fontAHN.Face(placeholderFontSize, placeholderTextColor, canvas.FontBold, canvas.FontNormal)
-		imageText := canvas.NewTextBox(imageFace, "Streamplace", 100, 30, canvas.Center, canvas.Center, &canvas.TextOptions{})
+		imageText := canvas.NewTextBox(imageFace, brand.title, 100, 30, canvas.Center, canvas.Center, &canvas.TextOptions{})
 		canvasCtx.DrawText(imageX, 105, imageText)
 	} else {
 		// High-quality avatar processing with circular masking
@@ -430,7 +495,7 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 		// Add circular border with user's color (50% opacity for subtle effect)
 		avatarCenterX := imageX + avatarDisplaySize/2
 		avatarCenterY := imageY + avatarDisplaySize/2
-		avatarBorderTransparent := blendWithBackground(blendWithBackground(borderColor, color.RGBA{R: 180, G: 180, B: 180}, 0.5), bgColor, 0.5)
+		avatarBorderTransparent := blendWithBackground(blendWithBackground(borderColor, color.RGBA{R: 180, G: 180, B: 180}, 0.5), bg, 0.5)
 		canvasCtx.SetStrokeColor(avatarBorderTransparent)
 		canvasCtx.SetStrokeWidth(1)
 		canvasCtx.DrawPath(avatarCenterX, avatarCenterY, canvas.Circle(avatarDisplaySize/2))
@@ -445,9 +510,9 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 	joinText := createResponsiveJoinText(fontAHN, joinUserContent, availableWidth, userColor)
 	canvasCtx.DrawText(textStartX, joinY-(joinFontSize*0.5), joinText)
 
-	// Add "streaming on Stream.place" subtitle
+	// Add "streaming on <node>" subtitle
 	onFace := fontAHN.Face(subtitleFontSize, blendWithBackground(borderColor, subtitleColor, 0.2), canvas.FontRegular, canvas.FontNormal)
-	onText := canvas.NewTextBox(onFace, "streaming on Stream.place", 250, 30, canvas.Left, canvas.Center, &canvas.TextOptions{})
+	onText := canvas.NewTextBox(onFace, "streaming on "+brand.title, 250, 30, canvas.Left, canvas.Center, &canvas.TextOptions{})
 	canvasCtx.DrawText(textStartX, subtitleY, onText)
 
 	// Add user description or promotional text
@@ -469,14 +534,16 @@ func hashString(s string) int {
 	return int(h.Sum32())
 }
 
-// getAtkinsonRegular returns the regular Atkinson Hyperlegible Next font data from app filesystem
+// getAtkinsonRegular returns the app's regular text face (Geist since the
+// redesign; the Atkinson files it used to load no longer ship, which left
+// the card panicking with an empty font family).
 func getAtkinsonRegular() ([]byte, error) {
 	files, err := app.Assets()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get app assets: %w", err)
 	}
 
-	file, err := files.Open("fonts/AtkinsonHyperlegibleNext-Regular.ttf")
+	file, err := files.Open("fonts/Geist-Regular.ttf")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open regular font: %w", err)
 	}
@@ -497,7 +564,7 @@ func getAtkinsonBold() ([]byte, error) {
 		return nil, fmt.Errorf("failed to get app assets: %w", err)
 	}
 
-	file, err := files.Open("fonts/AtkinsonHyperlegibleNext-Bold.ttf")
+	file, err := files.Open("fonts/Geist-SemiBold.ttf")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open bold font: %w", err)
 	}

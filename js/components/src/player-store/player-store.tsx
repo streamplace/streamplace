@@ -309,10 +309,10 @@ export function usePlayerStore<U>(
   selector: (state: PlayerState) => U,
   playerId?: string,
 ): U {
-  if (!playerId) {
-    playerId = Object.keys(usePlayerContext().players)[0];
-  }
-  const store = getPlayerStoreById(playerId);
+  // Always read the context so the hook count is the same with or without
+  // an explicit id.
+  const players = usePlayerContext().players;
+  const store = getPlayerStoreById(playerId ?? Object.keys(players)[0]);
   return useStore(store, selector);
 }
 

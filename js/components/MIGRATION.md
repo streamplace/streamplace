@@ -6,10 +6,9 @@ lists everything a downstream consumer might notice.
 
 ## Typeface
 
-- **Geist / Geist Mono → Atkinson Hyperlegible Next / Ioskeley Mono.** Apps
-  embedding the components must load
-  `AtkinsonHyperlegibleNext-Regular/Medium/SemiBold` and
-  `IoskeleyMono-Regular/Medium/SemiBold` (see
+- **Atkinson Hyperlegible → Geist / Geist Mono.** Apps embedding the
+  components must load `Geist-Regular/Medium/SemiBold` and
+  `GeistMono-Regular/Medium/SemiBold` (see
   `js/app/components/provider/provider.shared.tsx` for the expo-font map).
   Static weights only — the app does not load variable fonts.
 - `fontFamilies.light/extraLight` now alias `regular`; `bold/extraBold`

@@ -296,7 +296,7 @@ func (s *Server) HandleComAtprotoSyncGetBlocks(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "application/vnd.ipld.car", out)
 }
 
 func (s *Server) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
@@ -326,7 +326,7 @@ func (s *Server) HandleComAtprotoSyncGetRecord(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "application/vnd.ipld.car", out)
 }
 
 func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
@@ -341,7 +341,7 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "application/vnd.ipld.car", out)
 }
 
 func (s *Server) HandleComAtprotoSyncListRepos(c echo.Context) error {
@@ -428,8 +428,10 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.badge.getValidBadges", s.HandlePlaceStreamBadgeGetValidBadges)
 	e.GET("/xrpc/place.stream.beta.getStatus", s.HandlePlaceStreamBetaGetStatus)
 	e.POST("/xrpc/place.stream.branding.deleteBlob", s.HandlePlaceStreamBrandingDeleteBlob)
+	e.GET("/xrpc/place.stream.branding.exportBundle", s.HandlePlaceStreamBrandingExportBundle)
 	e.GET("/xrpc/place.stream.branding.getBlob", s.HandlePlaceStreamBrandingGetBlob)
 	e.GET("/xrpc/place.stream.branding.getBranding", s.HandlePlaceStreamBrandingGetBranding)
+	e.POST("/xrpc/place.stream.branding.importBundle", s.HandlePlaceStreamBrandingImportBundle)
 	e.POST("/xrpc/place.stream.branding.updateBlob", s.HandlePlaceStreamBrandingUpdateBlob)
 	e.GET("/xrpc/place.stream.broadcast.getBroadcaster", s.HandlePlaceStreamBroadcastGetBroadcaster)
 	e.GET("/xrpc/place.stream.config.getEnv", s.HandlePlaceStreamConfigGetEnv)
@@ -527,10 +529,11 @@ func (s *Server) HandlePlaceStreamAccessDeleteGrant(c echo.Context) error {
 func (s *Server) HandlePlaceStreamAccessGetStatus(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamAccessGetStatus")
 	defer span.End()
+	subject := c.QueryParam("subject")
 	var out *placestream.AccessGetStatus_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamAccessGetStatus(ctx context.Context) (*placestream.AccessGetStatus_Output, error)
-	out, handleErr = s.handlePlaceStreamAccessGetStatus(ctx)
+	// func (s *Server) handlePlaceStreamAccessGetStatus(ctx context.Context,subject string) (*placestream.AccessGetStatus_Output, error)
+	out, handleErr = s.handlePlaceStreamAccessGetStatus(ctx, subject)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -628,6 +631,20 @@ func (s *Server) HandlePlaceStreamBrandingDeleteBlob(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamBrandingExportBundle(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingExportBundle")
+	defer span.End()
+	broadcaster := c.QueryParam("broadcaster")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBrandingExportBundle(ctx context.Context,broadcaster string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamBrandingExportBundle(ctx, broadcaster)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/zip", out)
+}
+
 func (s *Server) HandlePlaceStreamBrandingGetBlob(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingGetBlob")
 	defer span.End()
@@ -651,6 +668,38 @@ func (s *Server) HandlePlaceStreamBrandingGetBranding(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context,broadcaster string) (*placestream.BrandingGetBranding_Output, error)
 	out, handleErr = s.handlePlaceStreamBrandingGetBranding(ctx, broadcaster)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamBrandingImportBundle(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingImportBundle")
+	defer span.End()
+	broadcaster := c.QueryParam("broadcaster")
+	dryRun := false
+	if p := c.QueryParam("dryRun"); p != "" {
+		var err error
+		dryRun, err = strconv.ParseBool(p)
+		if err != nil {
+			return err
+		}
+	}
+	merge := false
+	if p := c.QueryParam("merge"); p != "" {
+		var err error
+		merge, err = strconv.ParseBool(p)
+		if err != nil {
+			return err
+		}
+	}
+	body := c.Request().Body
+	contentType := c.Request().Header.Get("Content-Type")
+	var out *placestream.BrandingImportBundle_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBrandingImportBundle(ctx context.Context,broadcaster string,dryRun bool,merge bool,r io.Reader,contentType string) (*placestream.BrandingImportBundle_Output, error)
+	out, handleErr = s.handlePlaceStreamBrandingImportBundle(ctx, broadcaster, dryRun, merge, body, contentType)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1292,7 +1341,7 @@ func (s *Server) HandlePlaceStreamPlaybackGetLiveSegment(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "video/mp4", out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetPlaybackServer(c echo.Context) error {
@@ -1322,7 +1371,7 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoBlob(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "video/mp4", out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error {

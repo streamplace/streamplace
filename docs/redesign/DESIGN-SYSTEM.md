@@ -11,21 +11,21 @@ numeric font size, spacing, radius, or duration.** The ratchet
 
 ## Color
 
-The palette is aligned with the web app's CSS tokens
-(`js/web/src/styles.css`), which is the source of truth. The app is
-dark-first; light values mirror the web's `:root` block.
+The neutral ramp (surfaces, text, borders) is a clean, untinted
+near-black/white system. The accent colors (`primary`, `secondary`) are
+aligned with the web app's CSS tokens (`js/web/src/styles.css`).
 
 ### Surfaces (`theme.colors.surface0–3`, `surfaceHover`)
 
-Purple-tinted dark surfaces, never pure black. Surfaces separate with
+Clean near-black, never pure black and never tinted. Surfaces separate with
 hairline borders, not shadows.
 
 | Token          | Dark       | Light      | Use                            |
 | -------------- | ---------- | ---------- | ------------------------------ |
-| `surface0`     | `#150e1c`  | `#fdf6fa`  | App background                 |
-| `surface1`     | `#281b28`  | `#ffffff`  | Cards, panels, inputs          |
-| `surface2`     | `#201324`  | `#ffffff`  | Popovers, menus, sheets        |
-| `surface3`     | `#292129`  | `#f5e8f0`  | Hovered overlay rows, tooltips |
+| `surface0`     | `#0a0a0b`  | `#ffffff`  | App background                 |
+| `surface1`     | `#111113`  | `#fafafa`  | Cards, panels, inputs          |
+| `surface2`     | `#18181b`  | `#f4f4f5`  | Popovers, menus, sheets        |
+| `surface3`     | `#1f1f23`  | `#ececef`  | Hovered overlay rows, tooltips |
 | `surfaceHover` | = surface3 | = surface3 | Hover fill on interactive rows |
 
 Legacy aliases (kept working): `background`→surface0, `card`→surface1,
@@ -33,21 +33,20 @@ Legacy aliases (kept working): `background`→surface0, `card`→surface1,
 
 ### Text (`theme.colors.text1–4`)
 
-Steps 1–2 mirror the web's `--foreground` / `--muted-foreground`; 3–4 derive
-from the foreground at fixed alphas.
+White (dark) / ink (light) at fixed alphas.
 
-| Token   | Dark                    | Light                | Use                                |
-| ------- | ----------------------- | -------------------- | ---------------------------------- |
-| `text1` | `#f7eaf3`               | `#3d1c44`            | Primary: titles, body              |
-| `text2` | `#b79aae`               | `#9b7e92`            | Secondary: metadata, descriptions  |
-| `text3` | `rgba(247,234,243,.45)` | `rgba(61,28,68,.46)` | Tertiary: placeholders, timestamps |
-| `text4` | `rgba(247,234,243,.30)` | `rgba(61,28,68,.32)` | Disabled                           |
+| Token   | Dark                    | Light              | Use                                |
+| ------- | ----------------------- | ------------------ | ---------------------------------- |
+| `text1` | `rgba(255,255,255,.92)` | `rgba(9,9,11,.92)` | Primary: titles, body              |
+| `text2` | `rgba(255,255,255,.65)` | `rgba(9,9,11,.66)` | Secondary: metadata, descriptions  |
+| `text3` | `rgba(255,255,255,.45)` | `rgba(9,9,11,.46)` | Tertiary: placeholders, timestamps |
+| `text4` | `rgba(255,255,255,.30)` | `rgba(9,9,11,.32)` | Disabled                           |
 
 Legacy aliases: `text`→text1, `textMuted`→text2, `textDisabled`→text4.
 
 ### Borders (`borderSubtle` / `border` / `borderStrong`)
 
-1px hairlines: `rgba(247,234,243,0.06 / 0.10 / 0.15)` in dark. Subtle for
+1px hairlines: `rgba(255,255,255,0.06 / 0.08 / 0.10)` in dark. Subtle for
 surface separation, default for controls at rest, strong for hover.
 
 ### Accent (`primary`, `ring`, `focus`) & secondary
@@ -73,8 +72,8 @@ Secondary/accent: teal `#1abbc0` (`colors.secondary` ramp, the web's
 
 ## Typography
 
-One sans typeface: **Atkinson Hyperlegible Next** (+ **Ioskeley Mono**),
-weights 400/500/600 only, static (no variable fonts). Canonical scale
+One typeface: **Geist** (+ **Geist Mono**), weights 400/500/600 only,
+static (no variable fonts). Canonical scale
 `typeScale` — sizes 12/13/14/16/20/24/32, line heights in the token file,
 tight letter-spacing from 20px up:
 
@@ -90,8 +89,8 @@ tight letter-spacing from 20px up:
 
 - **Counts, timers, durations always use `tabularNums`**
   (`fontVariant: ["tabular-nums"]`) so digits don't jitter; long-form timers
-  use Ioskeley Mono.
-- `typography.mono.*` (Ioskeley Mono) for stream keys, ingest URLs, diagnostics.
+  use Geist Mono.
+- `typography.mono.*` (Geist Mono) for stream keys, ingest URLs, diagnostics.
 - `typography.ios` / `typography.android` / fontFamily keys outside
   regular/medium/semiBold are **deprecated remaps** — do not use in new code.
 

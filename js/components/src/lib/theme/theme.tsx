@@ -9,20 +9,61 @@ import {
 } from "react";
 import { Platform, useColorScheme } from "react-native";
 import {
+  contrastForeground,
+  defaultChrome,
+  deriveChrome,
+  parseHexColor,
+  withAlpha,
+  type ChromeColors,
+  type DerivedChrome,
+} from "./chrome";
+import {
   animations,
-  borderAlphas,
   borderRadius,
   colors,
+  fontFamilies,
   motion,
   scrims,
   shadows,
   spacing,
   statusColors,
-  surfaces,
-  textAlphas,
   touchTargets,
   typography,
 } from "./tokens";
+
+/**
+ * Branded accent and status colors. Each is a hex color; invalid or missing
+ * values keep the token defaults. The scheme-specific variants win for that
+ * scheme when set. Foreground-on-color tokens are derived by luminance.
+ */
+export interface BrandColors {
+  secondary?: string;
+  danger?: string;
+  success?: string;
+  warning?: string;
+  info?: string;
+  live?: string;
+  secondaryLight?: string;
+  dangerLight?: string;
+  successLight?: string;
+  warningLight?: string;
+  infoLight?: string;
+}
+
+const validHex = (v: string | undefined) =>
+  v && parseHexColor(v) ? v.trim() : undefined;
+
+// pick the branded value for this scheme, if any
+function brandFor(
+  brand: BrandColors | undefined,
+  key: "secondary" | "danger" | "success" | "warning" | "info",
+  isDark: boolean,
+): string | undefined {
+  if (!brand) return undefined;
+  const light = validHex(brand[`${key}Light`]);
+  if (!isDark && light) return light;
+  return validHex(brand[key]);
+}
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ToastProvider } from "../../components/ui/toast";
@@ -147,6 +188,8 @@ export interface Theme {
   spacing: typeof spacing;
   borderRadius: typeof borderRadius;
   typography: typeof typography;
+  /** Font family names after the typeface choice; prefer over the tokens. */
+  fonts: typeof fontFamilies;
   shadows: typeof shadows;
   touchTargets: typeof touchTargets;
   animations: typeof animations;
@@ -214,23 +257,30 @@ const createThemeColors = (
   lightTheme?: ColorPalette | Theme["colors"],
   darkTheme?: ColorPalette | Theme["colors"],
   colorTheme?: Partial<Theme["colors"]>,
+  chrome?: { dark?: DerivedChrome | null; light?: DerivedChrome | null },
+  brand?: BrandColors,
 ): Theme["colors"] => {
   let baseColors: Theme["colors"];
 
   if (isDark && darkTheme) {
     // Use dark theme
     baseColors = isColorPalette(darkTheme)
-      ? generateThemeColorsFromPalette(darkTheme, true)
+      ? generateThemeColorsFromPalette(darkTheme, true, chrome, brand)
       : darkTheme;
   } else if (!isDark && lightTheme) {
     // Use light theme
     baseColors = isColorPalette(lightTheme)
-      ? generateThemeColorsFromPalette(lightTheme, false)
+      ? generateThemeColorsFromPalette(lightTheme, false, chrome, brand)
       : lightTheme;
   } else {
     // Fall back to default gray theme
     const defaultPalette = colors.neutral;
-    baseColors = generateThemeColorsFromPalette(defaultPalette, isDark);
+    baseColors = generateThemeColorsFromPalette(
+      defaultPalette,
+      isDark,
+      chrome,
+      brand,
+    );
   }
 
   // Merge with custom color overrides if provided. Focus rings follow the
@@ -241,6 +291,11 @@ const createThemeColors = (
   };
   if (colorTheme?.ring && !colorTheme.focus) {
     merged.focus = colorTheme.ring;
+  }
+  // A branded primary picks its own text color, so a light brand color
+  // doesn't get white-on-pastel buttons.
+  if (colorTheme?.primary && !colorTheme.primaryForeground) {
+    merged.primaryForeground = contrastForeground(colorTheme.primary);
   }
   return merged;
 };
@@ -380,12 +435,36 @@ function isColorPalette(
 function generateThemeColorsFromPalette(
   palette: ColorPalette,
   isDark: boolean,
+  chrome?: { dark?: DerivedChrome | null; light?: DerivedChrome | null },
+  brand?: BrandColors,
 ): Theme["colors"] {
-  const surface = isDark ? surfaces.dark : surfaces.light;
-  const text = isDark ? textAlphas.dark : textAlphas.light;
-  const border = isDark ? borderAlphas.dark : borderAlphas.light;
-  const status = isDark ? statusColors.dark : statusColors.light;
+  // The neutral chrome comes from the node's branded background/foreground
+  // pair when it has one (see chrome.ts), else the design tokens.
+  const own = (isDark ? chrome?.dark : chrome?.light) ?? defaultChrome(isDark);
+  const other =
+    (isDark ? chrome?.light : chrome?.dark) ?? defaultChrome(!isDark);
+  const surface = own.surface;
+  const text = own.text;
+  const border = own.border;
+  const tokenStatus = isDark ? statusColors.dark : statusColors.light;
   const isDefaultPalette = palette === colors.neutral;
+
+  // Branded status colors, with their soft tints re-derived so a custom
+  // danger red gets a matching hover wash.
+  const danger = brandFor(brand, "danger", isDark);
+  const success = brandFor(brand, "success", isDark);
+  const warning = brandFor(brand, "warning", isDark);
+  const info = brandFor(brand, "info", isDark);
+  const live = validHex(brand?.live);
+  const status = {
+    danger: danger ?? tokenStatus.danger,
+    dangerSoft: danger
+      ? withAlpha(danger, isDark ? 0.14 : 0.1)
+      : tokenStatus.dangerSoft,
+    success: success ?? tokenStatus.success,
+    warning: warning ?? tokenStatus.warning,
+  };
+  const brandedSecondary = brandFor(brand, "secondary", isDark);
 
   return {
     background: surface[0],
@@ -401,46 +480,55 @@ function generateThemeColorsFromPalette(
     // product looks the same everywhere.) Pink/magenta, aligned with the
     // web app's `--primary`.
     primary: colors.primary[500],
-    primaryForeground: isDark ? "#ece5f2" : "#fdf6fa",
+    primaryForeground: colors.white,
 
-    // Teal, aligned with the web app's `--secondary`.
-    secondary: isDefaultPalette
-      ? colors.secondary[500]
+    // Teal, aligned with the web app's `--secondary`; a node's accentColor
+    // branding replaces it.
+    secondary:
+      brandedSecondary ??
+      (isDefaultPalette
+        ? colors.secondary[500]
+        : isDark
+          ? palette[800]
+          : palette[100]),
+    secondaryForeground: brandedSecondary
+      ? contrastForeground(brandedSecondary)
       : isDark
-        ? palette[800]
-        : palette[100],
-    secondaryForeground: isDark ? "#09060d" : "#fdf6fa",
+        ? surface[0]
+        : colors.white,
 
-    muted: isDefaultPalette
-      ? isDark
-        ? "#231e23"
-        : "#f5e8f0"
-      : isDark
-        ? palette[800]
-        : palette[100],
+    muted: isDefaultPalette ? surface[2] : isDark ? palette[800] : palette[100],
     mutedForeground: text[2],
 
     accent: isDefaultPalette
       ? isDark
         ? colors.secondary[500]
-        : "#f5e8f0"
+        : surface[2]
       : isDark
         ? palette[800]
         : palette[100],
-    accentForeground: isDark ? "#070707" : "#3d1c44",
+    accentForeground: isDark ? surface[0] : text[1],
 
     destructive: status.danger,
     destructiveForeground: colors.white,
 
     success: status.success,
-    successForeground: isDark ? surfaces.dark[0] : colors.white,
+    successForeground: success
+      ? contrastForeground(success)
+      : isDark
+        ? surface[0]
+        : colors.white,
 
     warning: status.warning,
-    warningForeground: isDark ? surfaces.dark[0] : colors.white,
+    warningForeground: warning
+      ? contrastForeground(warning)
+      : isDark
+        ? surface[0]
+        : colors.white,
 
     // Info is a blue, distinct from the pink primary. Aligned with the web's
     // `--color-info` (chart-3); the light value reads on dark, the dark on light.
-    info: isDark ? "#88c0f9" : "#335b83",
+    info: info ?? (isDark ? "#88c0f9" : "#335b83"),
     infoForeground: text[1],
 
     border: border.default,
@@ -466,9 +554,9 @@ function generateThemeColorsFromPalette(
     borderSubtle: border.subtle,
     borderStrong: border.strong,
 
-    live: statusColors.live,
-    liveDim: statusColors.liveDim,
-    liveForeground: colors.white,
+    live: live ?? statusColors.live,
+    liveDim: live ? withAlpha(live, 0.16) : statusColors.liveDim,
+    liveForeground: live ? contrastForeground(live) : colors.white,
 
     overlay: isDark ? scrims.dark : scrims.light,
     focus: colors.primary[500],
@@ -478,7 +566,7 @@ function generateThemeColorsFromPalette(
 
     // Paper on dark, Ink on light — the opposite scheme's raised surface, with
     // the current scheme's base surface as its text.
-    inverse: (isDark ? surfaces.light : surfaces.dark)[1],
+    inverse: other.surface[1],
     inverseForeground: surface[0],
   };
 }
@@ -491,6 +579,55 @@ interface ThemeProviderProps {
   colorTheme?: Partial<Theme["colors"]>;
   lightTheme?: ColorPalette | Theme["colors"];
   darkTheme?: ColorPalette | Theme["colors"];
+  /**
+   * Branded chrome: a background + foreground pair per scheme from which the
+   * surface, text and border ramps are derived. Missing or invalid pairs
+   * keep the design-token defaults for that scheme.
+   */
+  chromeColors?: {
+    dark?: Partial<ChromeColors>;
+    light?: Partial<ChromeColors>;
+  };
+  /** Branded accent and status colors; see BrandColors. */
+  brandColors?: BrandColors;
+  /** Sans typeface: "geist" (default) or "inter". Mono stays Geist Mono. */
+  typeface?: Typeface;
+}
+
+export type Typeface = "geist" | "inter";
+
+// The sans faces are registered as "<Family>-<Weight>"; swapping the family
+// prefix across the typography tree is all a typeface change needs.
+function remapFonts<T>(value: T, from: string, to: string): T {
+  if (typeof value === "string") {
+    return (
+      value.startsWith(from + "-") ? to + value.slice(from.length) : value
+    ) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => remapFonts(v, from, to)) as T;
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] =
+        k === "fontFamily" || typeof v !== "string"
+          ? remapFonts(v, from, to)
+          : v;
+    }
+    return out as T;
+  }
+  return value;
+}
+
+function typographyFor(typeface: Typeface | undefined) {
+  if (typeface === "inter") {
+    return {
+      typography: remapFonts(typography, "Geist", "Inter"),
+      fonts: remapFonts(fontFamilies, "Geist", "Inter"),
+    };
+  }
+  return { typography, fonts: fontFamilies };
 }
 
 // Theme provider component
@@ -502,8 +639,23 @@ export function ThemeProvider({
   colorTheme,
   lightTheme,
   darkTheme,
+  chromeColors,
+  brandColors,
+  typeface,
 }: ThemeProviderProps) {
   const systemColorScheme = useColorScheme();
+  const chrome = useMemo(
+    () => ({
+      dark: deriveChrome(chromeColors?.dark, true),
+      light: deriveChrome(chromeColors?.light, false),
+    }),
+    [
+      chromeColors?.dark?.background,
+      chromeColors?.dark?.foreground,
+      chromeColors?.light?.background,
+      chromeColors?.light?.foreground,
+    ],
+  );
   const [currentTheme, setCurrentTheme] = useState<"light" | "dark" | "system">(
     defaultTheme,
   );
@@ -525,18 +677,30 @@ export function ThemeProvider({
       lightTheme,
       darkTheme,
       colorTheme,
+      chrome,
+      brandColors,
     );
+    const type = typographyFor(typeface);
     return {
       colors: themeColors,
       spacing,
       borderRadius,
-      typography,
+      typography: type.typography,
+      fonts: type.fonts,
       shadows,
       touchTargets,
       animations,
       motion,
     };
-  }, [isDark, lightTheme, darkTheme, colorTheme]);
+  }, [
+    isDark,
+    lightTheme,
+    darkTheme,
+    colorTheme,
+    chrome,
+    brandColors,
+    typeface,
+  ]);
 
   // Create theme-aware zero tokens
   const zero = useMemo<ThemeZero>(() => {
@@ -605,11 +769,42 @@ export function ThemeProvider({
       el.id = "sp-focus-ring";
       document.head.appendChild(el);
     }
+    // Scrollbars in the page's own palette (chat, sidebars, long pages)
+    // instead of the browser's default light chrome.
+    const thumb = withAlpha(theme.colors.text1, 0.22);
+    const thumbHover = withAlpha(theme.colors.text1, 0.36);
     el.textContent = [
+      // Each weight is its own static face registered at the default weight,
+      // while the style also asks for 500/600; without this the browser
+      // fakes extra boldness on top of the real Medium and SemiBold faces.
+      `* { font-synthesis: none; }`,
       `:focus { outline: none; }`,
       `:focus-visible { outline: 2px solid ${theme.colors.focus}; outline-offset: 2px; }`,
+      `* { scrollbar-width: thin; scrollbar-color: ${thumb} transparent; }`,
+      `*::-webkit-scrollbar { width: 8px; height: 8px; }`,
+      `*::-webkit-scrollbar-track { background: transparent; }`,
+      `*::-webkit-scrollbar-thumb { background: ${thumb}; border-radius: 999px; }`,
+      `*::-webkit-scrollbar-thumb:hover { background: ${thumbHover}; }`,
     ].join("\n");
-  }, [isRoot, theme.colors.focus]);
+    // The web nav container is transparent (for OBS sourcing), so anything
+    // no component paints falls through to the body. The server injects the
+    // branded background into the page head, but the dev proxy bypasses it;
+    // painting from the theme covers both and follows the scheme switch.
+    document.body.style.backgroundColor = theme.colors.background;
+    // Mobile browsers paint the root element's color behind the address bar
+    // and into overscroll, and read theme-color for their own chrome, so the
+    // page fills the whole window in the brand's background.
+    document.documentElement.style.backgroundColor = theme.colors.background;
+    let meta = document.querySelector(
+      'meta[name="theme-color"]',
+    ) as HTMLMetaElement | null;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "theme-color";
+      document.head.appendChild(meta);
+    }
+    meta.content = theme.colors.background;
+  }, [isRoot, theme.colors.focus, theme.colors.background, theme.colors.text1]);
 
   return (
     <ThemeContext.Provider value={value}>
@@ -668,6 +863,7 @@ export const lightTheme: Theme = {
   spacing,
   borderRadius,
   typography,
+  fonts: fontFamilies,
   shadows,
   touchTargets,
   animations,
@@ -679,6 +875,7 @@ export const darkTheme: Theme = {
   spacing,
   borderRadius,
   typography,
+  fonts: fontFamilies,
   shadows,
   touchTargets,
   animations,

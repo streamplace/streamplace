@@ -13,6 +13,10 @@ export interface AccessStatus {
   did?: string;
   roles: string[];
   policy: Record<string, string>;
+  /** Chat is restricted to users the node's trusted verifiers vouch for. */
+  chatVerifiedOnly?: boolean;
+  /** The caller is one of them. */
+  chatVerified?: boolean;
 }
 
 // What we assume when the node predates access control (the method doesn't
@@ -45,7 +49,21 @@ export function useFetchAccessStatus() {
       if (!agent) {
         throw new Error("Streamplace agent not available");
       }
-      const res = await agent.client.call(place.stream.access.getStatus);
+      // A session the node can't attribute (inherited from the network's
+      // app, or made from a password) is anonymous to it; name the account
+      // so the answer still carries its chat verification.
+      const session = store.getState().oauthSession as
+        | { did?: string; kind?: string }
+        | null
+        | undefined;
+      const bearer =
+        session?.kind === "brokered" || session?.kind === "credential";
+      const res = await agent.client.call(
+        place.stream.access.getStatus,
+        bearer && session?.did
+          ? { subject: session.did as `did:${string}:${string}` }
+          : {},
+      );
       const policy: Record<string, string> = {};
       for (const entry of res.policy?.roles ?? []) {
         policy[entry.role] = entry.mode;
@@ -55,6 +73,8 @@ export function useFetchAccessStatus() {
           did: res.did,
           roles: [...(res.roles ?? [])],
           policy,
+          chatVerifiedOnly: res.chatVerifiedOnly ?? false,
+          chatVerified: res.chatVerified ?? false,
         },
         accessStatusLoaded: true,
         accessStatusError: null,
@@ -106,8 +126,29 @@ export function useAccessStatusAutoFetch() {
 
 export const useAccessStatus = () => useStreamplaceStore((s) => s.accessStatus);
 
+// An answer only counts once it belongs to the current caller. When the
+// session restores (or the user signs in or out) the store re-renders before
+// the effect that refetches runs, so for one frame the old anonymous answer
+// would otherwise pair with a signed-in session and paint the wall.
+function statusIsCurrent(s: {
+  accessStatusLoaded: boolean;
+  accessStatus: AccessStatus | null;
+  oauthSession: { did?: string; kind?: string } | null | undefined;
+}): boolean {
+  if (!s.accessStatusLoaded || !s.accessStatus) return false;
+  if (s.oauthSession === undefined) return false;
+  // A brokered session (a sibling app's bearer token) is anonymous to the
+  // node, so the node's answer for it carries no DID.
+  const kind = s.oauthSession?.kind;
+  const expected =
+    kind === "brokered" || kind === "credential"
+      ? undefined
+      : (s.oauthSession?.did ?? undefined);
+  return (s.accessStatus.did ?? undefined) === expected;
+}
+
 export const useAccessStatusLoaded = () =>
-  useStreamplaceStore((s) => s.accessStatusLoaded);
+  useStreamplaceStore((s) => statusIsCurrent(s));
 
 // Whether the caller holds `role`. Admin implies every other role.
 export function useHasRole(role: string): boolean {
@@ -125,7 +166,7 @@ export const useIsAdmin = () => useHasRole("admin");
 // the app. False until status has loaded, and for nodes without a policy.
 export function useViewerLockedOut(): boolean {
   return useStreamplaceStore((s) => {
-    if (!s.accessStatusLoaded || !s.accessStatus) return false;
+    if (!statusIsCurrent(s) || !s.accessStatus) return false;
     const mode = s.accessStatus.policy.viewer;
     if (mode === undefined || mode === "open") return false;
     const roles = s.accessStatus.roles;
@@ -135,3 +176,17 @@ export function useViewerLockedOut(): boolean {
 
 export const useAccessStatusError = () =>
   useStreamplaceStore((s) => s.accessStatusError);
+
+/**
+ * Whether the signed-in caller is locked out of chat: the node restricts
+ * chat to verified users and the caller isn't one. False while logged out
+ * (the composer already asks for a login then).
+ */
+export function useChatLockedOut(): boolean {
+  return useStreamplaceStore(
+    (s) =>
+      !!s.accessStatus?.chatVerifiedOnly &&
+      !!s.oauthSession?.did &&
+      !s.accessStatus?.chatVerified,
+  );
+}

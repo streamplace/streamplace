@@ -1,3 +1,4 @@
+import { useSocialShell } from "@streamplace/components";
 import { useEffect, useRef } from "react";
 import { useWindowDimensions } from "react-native";
 import {
@@ -23,6 +24,27 @@ export function useIsLargeScreen() {
 
 // Width of the sidebar when opened as an overlay drawer (always expanded).
 export const DRAWER_WIDTH = 250;
+// The docked rail's icon-only width (the store's minimum).
+const COLLAPSED_WIDTH = 64;
+// The social shell's breakpoints, after the design's small-desktop frame:
+// an icon-only rail from 842px, the full rail from the usual large screen,
+// and the mobile bottom bar below that.
+export const SOCIAL_RAIL_MIN = 842;
+
+/** Social shell on a window too narrow for any rail: navigation lives in
+ *  the hamburger's drawer instead. */
+export function usePhoneMenu() {
+  const social = useSocialShell();
+  const { width } = useWindowDimensions();
+  return social && width < SOCIAL_RAIL_MIN;
+}
+
+/** Social shell on a window that gets the icon rail rather than the full one. */
+export function useSocialIconRail() {
+  const social = useSocialShell();
+  const { width } = useWindowDimensions();
+  return social && width >= SOCIAL_RAIL_MIN && width < 981;
+}
 
 export interface UseSidebarOutput {
   isActive: boolean;
@@ -60,12 +82,21 @@ const SCRIM_OPACITY = 0.55;
 export function useSidebarControl(): UseSidebarOutput {
   const toggleSidebar = useStore((state) => state.toggleSidebar);
   const toggleDrawer = useStore((state) => state.toggleDrawer);
-  const isCollapsed = useIsSidebarCollapsed();
-  const targetWidth = useSidebarTargetWidth();
+  const storedCollapsed = useIsSidebarCollapsed();
+  const storedTargetWidth = useSidebarTargetWidth();
   const isHidden = useIsSidebarHidden();
   const overlay = useIsSidebarOverlay();
   const drawerOpen = useIsSidebarDrawerOpen();
-  const isActive = useIsLargeScreen();
+  const isLargeScreen = useIsLargeScreen();
+  const social = useSocialShell();
+  const { width: windowWidth } = useWindowDimensions();
+  const iconRail = useSocialIconRail();
+  // The social shell keeps a (collapsed) rail down to its small-desktop
+  // breakpoint; the classic shell drops to the mobile layout at the usual
+  // large-screen one.
+  const isActive = social ? windowWidth >= SOCIAL_RAIL_MIN : isLargeScreen;
+  const isCollapsed = iconRail || storedCollapsed;
+  const targetWidth = iconRail ? COLLAPSED_WIDTH : storedTargetWidth;
 
   // In overlay mode the drawer is always full-width; docked uses the stored width.
   const width = overlay ? DRAWER_WIDTH : targetWidth;

@@ -133,7 +133,7 @@ func policyView(ac access.Checker) placestream.AccessDefs_PolicyView {
 	return out
 }
 
-func (s *Server) handlePlaceStreamAccessGetStatus(ctx context.Context) (*placestream.AccessGetStatus_Output, error) {
+func (s *Server) handlePlaceStreamAccessGetStatus(ctx context.Context, subject string) (*placestream.AccessGetStatus_Output, error) {
 	ac, err := s.accessManager()
 	if err != nil {
 		return nil, err
@@ -151,6 +151,23 @@ func (s *Server) handlePlaceStreamAccessGetStatus(ctx context.Context) (*placest
 	for _, role := range access.Roles {
 		if ac.Allowed(ctx, did, role) {
 			out.Roles = append(out.Roles, role)
+		}
+	}
+	// The chat lock and the caller's standing under it, so the composer can
+	// explain itself rather than post into the void.
+	if s.ATSync != nil {
+		locked := s.ATSync.ChatVerifiedOnly(ctx)
+		out.ChatVerifiedOnly = &locked
+		if did != "" {
+			verified := s.ATSync.IsVerified(ctx, did)
+			out.ChatVerified = &verified
+		} else if strings.HasPrefix(subject, "did:") {
+			// A client holding a session this node can't attribute (one
+			// inherited from the network's app) still needs to know whether
+			// its user may chat; verification is public, so answer for the
+			// DID it names.
+			verified := s.ATSync.IsVerified(ctx, subject)
+			out.ChatVerified = &verified
 		}
 	}
 	return out, nil

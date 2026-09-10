@@ -16,11 +16,7 @@ export function MentionSuggestions({
   onSelect,
   highlightedIndex,
 }: MentionSuggestionsProps) {
-  if (!authors || authors.size === 0) {
-    return null; // No authors to display
-  }
-
-  const authorHandles = Array.from(authors.keys());
+  const authorHandles = Array.from(authors?.keys() ?? []);
   const itemRefs = useRef<Map<number, HTMLElement>>(new Map());
   const { theme } = useTheme();
 
@@ -32,6 +28,10 @@ export function MentionSuggestions({
       }
     }
   }, [highlightedIndex]);
+
+  if (!authors || authors.size === 0) {
+    return null; // No authors to display
+  }
 
   return (
     <View

@@ -5,6 +5,9 @@ import {
   Loader,
   Text,
   Tooltip,
+  useBrandingAsset,
+  useLoginPlaceholder,
+  useNetworkName,
   useTheme,
   useTranslation,
   zero,
@@ -21,23 +24,57 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Platform, Pressable, View } from "react-native";
 import { useStore } from "store";
 import { useLogin } from "store/hooks";
+import PdsLoginForm from "./pds-login-form";
 
 interface LoginFormProps {
   onSuccess?: () => void;
   onCloseModal?: () => void;
   onOpenPdsModal?: () => void;
+  /** Show the node's OAuth flow even when branding picks the PDS login. */
+  forceOAuth?: boolean;
 }
 
-export default function LoginForm({
+// Branding key loginMode picks the sign-in: the node's OAuth flow, or the
+// PDS's own email / app password + QR login. Either form links to the
+// other, since only an OAuth session is attributable by the node (access
+// roles, admin, streaming).
+export default function LoginForm(props: LoginFormProps) {
+  const mode = useBrandingAsset("loginMode")?.data;
+  const [useOAuth, setUseOAuth] = useState(false);
+  const pdsMode = mode === "pds";
+  if (pdsMode && !useOAuth && !props.forceOAuth) {
+    return (
+      <PdsLoginForm
+        onSuccess={props.onSuccess}
+        inModal={!!props.onCloseModal}
+        onUseOAuth={() => setUseOAuth(true)}
+      />
+    );
+  }
+  return (
+    <OAuthLoginForm
+      {...props}
+      onUsePassword={
+        pdsMode && !props.forceOAuth ? () => setUseOAuth(false) : undefined
+      }
+    />
+  );
+}
+
+function OAuthLoginForm({
   onSuccess,
   onCloseModal,
   onOpenPdsModal,
-}: LoginFormProps) {
+  onUsePassword,
+}: LoginFormProps & { onUsePassword?: () => void }) {
   const { theme } = useTheme();
   const { t } = useTranslation("common");
+  const network = useNetworkName();
+  const loginPlaceholder = useLoginPlaceholder();
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
   const authStatus = useStore((state) => state.authStatus);
+  const sessionKind = useStore((state) => state.sessionKind);
   const loginState = useLogin();
   const [handle, setHandle] = useState("");
   const [imageLoading, setImageLoading] = useState(false);
@@ -116,11 +153,13 @@ export default function LoginForm({
     }
   }, [loginState?.error]);
 
+  // Only an OAuth session counts as done here: a brokered or password
+  // session is what the user is upgrading from, so it must not close the form.
   useEffect(() => {
-    if (authStatus === "loggedIn" && onSuccess) {
+    if (authStatus === "loggedIn" && sessionKind === "oauth" && onSuccess) {
       onSuccess();
     }
-  }, [authStatus, onSuccess]);
+  }, [authStatus, sessionKind, onSuccess]);
 
   return (
     <>
@@ -144,7 +183,7 @@ export default function LoginForm({
           <Info size={16} style={{ paddingTop: 4 }} color={theme.colors.ring} />
         </Pressable>
         <Text style={[{ color: theme.colors.textMuted }]}>
-          (e.g. your Bluesky handle)
+          (e.g. your {network} handle)
         </Text>
       </View>
 
@@ -274,7 +313,7 @@ export default function LoginForm({
                   .trim(),
               )
             }
-            placeholder="jcsalterego.bsky.social"
+            placeholder={loginPlaceholder ?? "jcsalterego.bsky.social"}
             onKeyPress={onKeyPress}
             onSubmitEditing={submit}
             autoCapitalize="none"
@@ -353,14 +392,14 @@ export default function LoginForm({
           </View>
         </View>
         <Tooltip
-          content={t("login-show-live-on-bluesky-description")}
+          content={t("login-show-live-on-bluesky-description", { network })}
           position="top"
           style={{ flex: 1 }}
         >
           <Checkbox
             checked={blueskyPermissions}
             onCheckedChange={setBlueskyPermissions}
-            label={t("login-show-live-on-bluesky")}
+            label={t("login-show-live-on-bluesky", { network })}
           />
         </Tooltip>
       </View>
@@ -385,6 +424,13 @@ export default function LoginForm({
           Log In
         </Button>
       </View>
+      {onUsePassword ? (
+        <Pressable onPress={onUsePassword} style={[zero.mt[4]]}>
+          <Text style={{ color: theme.colors.text3, fontSize: 13 }}>
+            Sign in with email and password instead
+          </Text>
+        </Pressable>
+      ) : null}
     </>
   );
 }

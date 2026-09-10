@@ -146,3 +146,31 @@ func TestGenerateDefaultCardAtMe(t *testing.T) {
 	require.NotContains(t, linkStr, "at:canonical", "front page has no canonical record")
 	require.NotContains(t, linkStr, "at:author", "front page has no single author")
 }
+
+// The app template ships first-party link-preview tags; a card must replace
+// them rather than append after them, since crawlers take the first tag.
+func TestGenerateHTMLReplacesTemplatePreviewTags(t *testing.T) {
+	base := []byte(`<!doctype html><html><head>
+<title>Streamplace</title>
+<meta name="description" content="The video layer for everything." />
+<meta property="og:site_name" content="Streamplace" />
+<meta property="og:title" content="Streamplace — the video layer for everything" />
+<meta property="og:image" content="/linkbanner.png" />
+<meta property="og:image:width" content="1200" />
+<meta name="twitter:title" content="Streamplace — the video layer for everything" />
+<meta name="viewport" content="width=device-width" />
+</head><body></body></html>`)
+	linker, err := NewLinker(context.Background(), base, nil, &config.CLI{BroadcasterHost: "example.com"})
+	require.NoError(t, err)
+	u, err := url.Parse("https://example.com/")
+	require.NoError(t, err)
+	out, err := linker.GenerateDefaultCard(context.Background(), u, "")
+	require.NoError(t, err)
+	page := string(out)
+	require.NotContains(t, page, "video layer for everything")
+	require.NotContains(t, page, `content="/linkbanner.png"`)
+	require.NotContains(t, page, "og:image:width")
+	require.Contains(t, page, `name="viewport"`)
+	require.Equal(t, 1, strings.Count(page, `property="og:title"`))
+	require.Equal(t, 1, strings.Count(page, "<title>"))
+}

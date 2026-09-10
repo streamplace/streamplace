@@ -122,7 +122,8 @@ export default async function createOAuthClient(
         }
         const newUrl = new URL(request.url.toString());
         newUrl.protocol = "http:";
-        newUrl.host = "127.0.0.1:38080";
+        // The dev node, whatever port it runs on (not only the default).
+        newUrl.host = new URL(streamplaceUrl).host;
         let newRequest: Request;
         if (request.method === "POST") {
           const data = await request.blob();

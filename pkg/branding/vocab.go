@@ -84,6 +84,8 @@ var Specs = []Spec{
 	{Key: "infoColorLight", Kind: KindColor, MaxSize: textMax, Doc: "infoColor override for the light scheme."},
 	{Key: "liveColor", Kind: KindColor, MaxSize: textMax, Doc: "The live badge."},
 	{Key: "verifierDids", Kind: KindJSON, MaxSize: jsonMax, Doc: "DIDs whose app.bsky.graph.verification records mark a chat user as verified: [\"did:plc:...\"]."},
+	{Key: "labelerDid", Kind: KindText, MaxSize: textMax, Doc: "A labeler whose account labels mark users as verified here (see verifiedLabels): did:plc:..."},
+	{Key: "verifiedLabels", Kind: KindText, MaxSize: textMax, Doc: "Label values from labelerDid that count as verified, comma-separated; a trailing * matches a prefix: \"wsocial-*\" or \"verified,org\"."},
 	{Key: "chatVerifiedOnly", Kind: KindEnum, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "Only users verified by one of verifierDids may chat (their messages are the only ones shown)."},
 	{Key: "chatBadges", Kind: KindEnum, Enum: []string{"all", "custom", "none"}, MaxSize: textMax, Doc: "Badges beside chat names: all, only badges issued by badge definitions (no built-in streamer / moderator / bot marks), or none."},
 	{Key: "chatNameColors", Kind: KindEnum, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "Whether chat shows display names in each user's chosen color (on) or the default text color (off)."},

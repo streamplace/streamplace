@@ -69,6 +69,12 @@ function toSession(pdsUrl: string, r: any): BearerSessionData | null {
  * https://auth.example/QR/tagsign:auth.example,ABC?w=400 →
  * "tagsign:auth.example,ABC". Undefined when the URL isn't of that shape.
  */
+// Quick-login status methods, in the order to try them.
+const STATUS_METHODS = [
+  "io.trustanchor.quicklogin.status",
+  "eu.wsocial.quicklogin.status",
+] as const;
+
 export function signUrlFromQrImage(imageUrl: string): string | undefined {
   try {
     const m = new URL(imageUrl).pathname.match(/\/QR\/(.+)$/);
@@ -128,9 +134,15 @@ function QuickLoginPanel({
         const msLeft = new Date(init.expiresAt).getTime() - Date.now() - 5000;
         if (msLeft > 0) timers.current.refresh = setTimeout(start, msLeft);
       }
+      // The status method has two names with one shape and one store
+      // behind them: io.trustanchor.quicklogin.status, which every
+      // deployment answers, and eu.wsocial.quicklogin.status, which only
+      // some do (and a missing method surfaces as a 401, not a 404). Start
+      // with the one that is everywhere; fall back if a server lacks it.
+      let statusMethod: (typeof STATUS_METHODS)[number] = STATUS_METHODS[0];
       timers.current.poll = setInterval(async () => {
         try {
-          const r = await fetch(`${pdsUrl}/xrpc/eu.wsocial.quicklogin.status`, {
+          const r = await fetch(`${pdsUrl}/xrpc/${statusMethod}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -138,7 +150,13 @@ function QuickLoginPanel({
               sessionToken: init.sessionToken,
             }),
           });
-          if (!r.ok) return;
+          if (!r.ok) {
+            if ([400, 401, 404, 501].includes(r.status)) {
+              const i = STATUS_METHODS.indexOf(statusMethod);
+              statusMethod = STATUS_METHODS[(i + 1) % STATUS_METHODS.length];
+            }
+            return;
+          }
           const data = await r.json();
           if (data?.status === "completed" && data.result) {
             clearTimers();
@@ -198,7 +216,8 @@ function QuickLoginPanel({
         ) : (
           <Button
             variant="accent"
-            width="min"
+            // Full width: "min" pins the button to the card's left edge.
+            width="full"
             style={{ borderRadius: 999 }}
             onPress={() => Linking.openURL(state.init!.signUrl!)}
           >

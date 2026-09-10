@@ -69,18 +69,34 @@ var hexColor = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F
 // so the page can paint it before the bundle loads instead of the default
 // then re-painting (the "flash of unbranded content").
 func (l *Linker) bodyBackground() string {
-	if l.sdb == nil || l.cli == nil {
-		return ""
-	}
-	blob, err := l.sdb.GetBrandingBlob("did:web:"+l.cli.BroadcasterHost, "backgroundColor")
-	if err != nil || blob == nil {
-		return ""
-	}
-	v := strings.TrimSpace(string(blob.Data))
+	v := l.brandingText("backgroundColor")
 	if !hexColor.MatchString(v) {
 		return ""
 	}
 	return v
+}
+
+// brandingText reads a text branding key for this node, "" when unset.
+func (l *Linker) brandingText(key string) string {
+	if l.sdb == nil || l.cli == nil {
+		return ""
+	}
+	blob, err := l.sdb.GetBrandingBlob("did:web:"+l.cli.BroadcasterHost, key)
+	if err != nil || blob == nil {
+		return ""
+	}
+	return strings.TrimSpace(string(blob.Data))
+}
+
+// isAppBannerMeta reports whether a <meta> is the iOS Smart App Banner
+// (apple-itunes-app), which the template ships for the first-party app.
+func isAppBannerMeta(node *html.Node) bool {
+	for _, attr := range node.Attr {
+		if attr.Key == "name" && attr.Val == "apple-itunes-app" {
+			return true
+		}
+	}
+	return false
 }
 
 // atTags returns meta tags implementing the at-tags proposal
@@ -473,12 +489,18 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 	// The template ships its own title, description and link-preview tags
 	// (the first-party brand, for a static host). Every card replaces them,
 	// and crawlers honour the first tag they meet, so the template's go.
+	// A node that is its own product can also drop the template's iOS Smart
+	// App Banner (branding key mobileAppBanner=off).
+	dropAppBanner := l.brandingText("mobileAppBanner") == "off"
 	var stale []*html.Node
 	for node := range head.ChildNodes() {
 		if node.Type != html.ElementNode {
 			continue
 		}
 		if node.Data == "title" || (node.Data == "meta" && isLinkPreviewMeta(node)) {
+			stale = append(stale, node)
+		}
+		if dropAppBanner && node.Data == "meta" && isAppBannerMeta(node) {
 			stale = append(stale, node)
 		}
 	}

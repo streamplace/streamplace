@@ -75,6 +75,7 @@ var Specs = []Spec{
 	{Key: "navLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Navigation links replacing the sidebar sections: [{label, url, icon}]."},
 	{Key: "navCta", Kind: KindJSON, MaxSize: jsonMax, Doc: "Highlighted button under the navigation links: {label, url}."},
 	{Key: "legalLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Footer legal links: [{text, url}]."},
+	{Key: "mobileAppBanner", Kind: KindEnum, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "Whether the web app suggests the Streamplace mobile app on phones: the in-page banner and the iOS Smart App Banner meta tag. Default on; off for a node that is its own product."},
 	{Key: "socialHeading", Kind: KindText, Default: "Say Hello?", MaxSize: textMax, Doc: "Heading above the social links at the bottom of the sidebar."},
 	{Key: "socialLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Social links at the bottom of the sidebar: [{label, url, icon}], icon a built-in name (bluesky, discord, ...) or socialIcon1..4; [] hides them."},
 	{Key: "mainLogo", Kind: KindImage, MaxSize: imageMax, Doc: "The logo mark (SVG preferred)."},

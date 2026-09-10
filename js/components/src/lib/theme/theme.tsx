@@ -570,6 +570,11 @@ function generateThemeColorsFromPalette(
 
 // Theme provider props
 interface ThemeProviderProps {
+  /** Whether this provider paints the document (root/body background,
+   *  theme-color, global CSS) on web. Defaults to being the outermost
+   *  provider; a branded provider nested inside an unbranded root must
+   *  take this over, or the root's defaults win over the brand. */
+  paintDocument?: boolean;
   children: ReactNode;
   defaultTheme?: "light" | "dark" | "system";
   forcedTheme?: "light" | "dark";
@@ -600,6 +605,7 @@ export function ThemeProvider({
   darkTheme,
   chromeColors,
   brandColors,
+  paintDocument,
 }: ThemeProviderProps) {
   const systemColorScheme = useColorScheme();
   const chrome = useMemo(
@@ -707,8 +713,9 @@ export function ThemeProvider({
   // Web keyboard navigation: one global :focus-visible rule (2px ring,
   // 2px offset) instead of per-component focus tracking. Mouse/touch
   // interactions don't show the ring; keyboard focus always does.
+  const paints = paintDocument ?? isRoot;
   useEffect(() => {
-    if (!isRoot || Platform.OS !== "web" || typeof document === "undefined") {
+    if (!paints || Platform.OS !== "web" || typeof document === "undefined") {
       return;
     }
     let el = document.getElementById("sp-focus-ring");
@@ -752,7 +759,7 @@ export function ThemeProvider({
       document.head.appendChild(meta);
     }
     meta.content = theme.colors.background;
-  }, [isRoot, theme.colors.focus, theme.colors.background, theme.colors.text1]);
+  }, [paints, theme.colors.focus, theme.colors.background, theme.colors.text1]);
 
   return (
     <ThemeContext.Provider value={value}>

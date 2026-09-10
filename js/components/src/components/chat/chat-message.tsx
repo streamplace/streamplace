@@ -369,11 +369,12 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
             </View>
           )}
           {displayName ? (
-            // The handle gives way first: it shrinks many times faster than
-            // the name, so the name only truncates once the handle is gone.
+            // The handle gives way first: flex shrink is weighted by the
+            // factor, so at 1000x the name loses well under a pixel while
+            // the handle collapses, and only truncates once it is gone.
             <Text
               numberOfLines={1}
-              style={{ ...meta, marginLeft: 8, minWidth: 0, flexShrink: 20 }}
+              style={{ ...meta, marginLeft: 8, minWidth: 0, flexShrink: 1000 }}
             >
               {handle}
             </Text>

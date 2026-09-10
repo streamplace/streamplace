@@ -102,6 +102,8 @@ export function BrandedThemeProvider({
       colorTheme={colorTheme}
       chromeColors={chromeColors}
       brandColors={brandColors}
+      // The brand paints the document, not the unbranded root above it.
+      paintDocument
     >
       {children}
     </ThemeProvider>

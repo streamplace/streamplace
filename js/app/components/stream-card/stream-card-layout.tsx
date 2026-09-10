@@ -1,4 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import {
   Avatar,
   Chat,
@@ -603,6 +603,9 @@ export function StreamCardLayout({
   const { width: windowWidth } = useWindowDimensions();
   const chatWidth = chatWidthFor(windowWidth);
   const twoColumn = contentWidth >= FEED_WIDTH + chatWidth + 1;
+  // The Live / Video on demand / Go live tabs belong to the landing page;
+  // a stream reached from elsewhere is a sub page with just the back arrow.
+  const landing = useRoute().name === "HomeMain";
   // In the social shell the nav rail's own border is the feed's left edge.
   const socialShell = useSocialShell();
   // Tell the shell this page wants the feed + chat column while mounted
@@ -631,8 +634,12 @@ export function StreamCardLayout({
         >
           <CardHeader />
           <Hairline />
-          <CardTabs />
-          <Hairline />
+          {landing && (
+            <>
+              <CardTabs />
+              <Hairline />
+            </>
+          )}
           <PostCard src={src} extraProps={extraProps} onTeleport={onTeleport} />
           <Hairline />
         </ScrollView>
@@ -658,8 +665,12 @@ export function StreamCardLayout({
       <View style={{ flex: 1, width: "100%", maxWidth: FEED_WIDTH }}>
         <CardHeader />
         <Hairline />
-        <CardTabs />
-        <Hairline />
+        {landing && (
+          <>
+            <CardTabs />
+            <Hairline />
+          </>
+        )}
         <PostCard
           src={src}
           extraProps={extraProps}

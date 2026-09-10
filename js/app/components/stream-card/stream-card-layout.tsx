@@ -19,6 +19,8 @@ import {
 import { RichTextMessage } from "@streamplace/components/src/components/chat/chat-message";
 import { VerifiedBadge } from "@streamplace/components/src/components/chat/verified-badge";
 import { useAvatars } from "@streamplace/components/src/hooks/useAvatars";
+import { useUnpinChatMessage } from "@streamplace/components/src/livestream-store/hooks";
+import { useCanModerate } from "@streamplace/components/src/streamplace-store/moderation";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { useStreamMeta } from "components/mobile/bottom-metadata";
@@ -478,13 +480,30 @@ function PostCard({
 // (the design's #1d2433 on the page, #272f43 inside the phone chat sheet).
 function PinnedCard({ raised = false }: { raised?: boolean }) {
   const { theme } = useTheme();
+  const toast = useToast();
   const pinned = useLivestreamStore((x) => x.pinnedComment);
+  const streamerDID = useLivestreamStore((x) => x.profile?.did);
   const message: any = pinned?.message;
   const author = message?.author ?? {};
   // The pinned record carries the author's handle but not avatar or
   // display name; the profile cache fills them in like chat rows do.
   const dids = useMemo(() => (author.did ? [author.did] : []), [author.did]);
   const profile = useAvatars(dids)[author.did];
+  // The streamer and moderators with the pin permission can take it down.
+  const canUnpin = !!useCanModerate(streamerDID ?? "")?.canPin;
+  const unpin = useUnpinChatMessage();
+  const onUnpin = async () => {
+    if (!pinned?.uri || !streamerDID) return;
+    try {
+      await unpin(pinned.uri, streamerDID);
+    } catch (e) {
+      toast.show(
+        "Couldn't unpin",
+        e instanceof Error ? e.message : "Failed to unpin",
+        { variant: "error" },
+      );
+    }
+  };
   if (!message) return null;
   const avatar: string | undefined = profile?.avatar || author.avatar;
   const name: string =
@@ -513,10 +532,33 @@ function PinnedCard({ raised = false }: { raised?: boolean }) {
         <Pin size={16} color={theme.colors.text3} />
         <Text
           weight="medium"
-          style={{ fontSize: 13, lineHeight: 17, color: theme.colors.text2 }}
+          style={{
+            flex: 1,
+            fontSize: 13,
+            lineHeight: 17,
+            color: theme.colors.text2,
+          }}
         >
           Pinned
         </Text>
+        {canUnpin && (
+          <Pressable
+            onPress={onUnpin}
+            accessibilityRole="button"
+            accessibilityLabel="Unpin message"
+            hitSlop={8}
+            style={({ hovered }: any) => ({
+              width: 24,
+              height: 24,
+              borderRadius: 999,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: hovered ? 1 : 0.7,
+            })}
+          >
+            <X size={14} color={theme.colors.text2} />
+          </Pressable>
+        )}
       </View>
       <View
         style={{ flexDirection: "row", gap: 12, padding: 12, paddingTop: 8 }}

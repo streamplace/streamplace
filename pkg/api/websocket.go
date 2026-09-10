@@ -191,6 +191,11 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					"did":    repoDID,
 					"handle": profile.Handle,
 				}
+				// The streamer's verified badge comes from the same place as
+				// chat authors'.
+				if state := a.ATSync.VerificationState(ctx, repoDID); state != nil {
+					p["verification"] = state
+				}
 				initialBurst <- p
 			}
 		}()

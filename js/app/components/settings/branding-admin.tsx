@@ -305,6 +305,7 @@ export function BrandingAdmin() {
         case "loginWaitlistUrl":
         case "loginSupportEmail":
         case "verifierDids":
+        case "verifyUrl":
         case "chatVerifiedOnly":
         case "loginPlaceholder":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
@@ -862,6 +863,52 @@ export function BrandingAdmin() {
                         variant="secondary"
                         onPress={() => deleteBlob("verifierDids")}
                         disabled={uploading || !brandingValue("verifierDids")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-verify-url-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="https://example.com/verify"
+                          value={
+                            chromeInputs["verifyUrl"] ??
+                            brandingValue("verifyUrl")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              verifyUrl: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "verifyUrl",
+                            chromeInputs["verifyUrl"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading || !(chromeInputs["verifyUrl"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("verifyUrl")}
+                        disabled={uploading || !brandingValue("verifyUrl")}
                         width="min"
                         style={{ height: 42 }}
                       >

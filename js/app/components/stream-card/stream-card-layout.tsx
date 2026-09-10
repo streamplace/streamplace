@@ -6,6 +6,9 @@ import {
   KeepAwake,
   Loader,
   Text,
+  useAccessStatus,
+  useBrandingAsset,
+  useChatLockedOut,
   useLivestreamStore,
   useSocialShell,
   useTheme,
@@ -23,9 +26,10 @@ import { Player } from "components/mobile/player";
 import { PlayerProps } from "components/player/props";
 import { MessageIcon } from "components/sidebar/social-icons";
 import { FullscreenProvider } from "contexts/FullscreenContext";
-import { ArrowLeft, ArrowRight, Eye, Pin, Share2 } from "lucide-react-native";
+import { ArrowLeft, Eye, Pin, Share2 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -498,12 +502,86 @@ function PinnedCard({ raised = false }: { raised?: boolean }) {
   );
 }
 
+// The composer's three states from the design: signed out (the field opens
+// login, "Verified users can write messages. Sign in"), signed in but not
+// verified while chat is verified-only ("... Verify now", to the node's
+// verifyUrl), and able to write (the field alone).
+function ComposerNotice({
+  text,
+  linkLabel,
+  onPress,
+}: {
+  text: string;
+  linkLabel?: string;
+  onPress?: () => void;
+}) {
+  const { theme } = useTheme();
+  return (
+    <Text
+      style={{
+        fontSize: 13,
+        lineHeight: 17,
+        color: theme.colors.text2,
+        textAlign: "center",
+        marginTop: -6,
+      }}
+    >
+      {text}
+      {linkLabel && onPress ? (
+        <>
+          {" "}
+          <Text
+            onPress={onPress}
+            style={{
+              fontSize: 13,
+              lineHeight: 17,
+              color: theme.colors.primary,
+            }}
+          >
+            {linkLabel}
+          </Text>
+        </>
+      ) : null}
+    </Text>
+  );
+}
+
+// A look-alike of the composer field for the states that can't take input.
+function ComposerPlaceholder({ onPress }: { onPress?: () => void }) {
+  const { theme } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? "button" : undefined}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        height: 44,
+        paddingLeft: 12,
+        paddingRight: 12,
+        borderRadius: 10,
+        backgroundColor: theme.colors.surface2,
+      }}
+    >
+      <MessageIcon size={18} color={theme.colors.text3} />
+      <Text style={{ fontSize: 15, color: theme.colors.text3, marginLeft: 4 }}>
+        Write your message...
+      </Text>
+    </Pressable>
+  );
+}
+
 function CardChatPanel({ fill }: { fill: boolean }) {
   const { theme } = useTheme();
   const agent = usePDSAgent();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const emojiData = useEmojiData();
   const customEmoji: any[] = [];
+  const verifiedOnly = !!useAccessStatus()?.chatVerifiedOnly;
+  const lockedOut = useChatLockedOut();
+  const verifyUrl = useBrandingAsset("verifyUrl")?.data?.trim();
 
   return (
     <View
@@ -521,7 +599,16 @@ function CardChatPanel({ fill }: { fill: boolean }) {
       <View style={{ flex: 1, minHeight: 0 }}>
         <Chat />
       </View>
-      {agent?.did ? (
+      {agent?.did && lockedOut ? (
+        <>
+          <ComposerPlaceholder />
+          <ComposerNotice
+            text="Verified users can write messages."
+            linkLabel={verifyUrl ? "Verify now" : undefined}
+            onPress={verifyUrl ? () => Linking.openURL(verifyUrl) : undefined}
+          />
+        </>
+      ) : agent?.did ? (
         <ChatBox
           emojiData={emojiData}
           // The timeline composer: a 44px field, no send button (Enter
@@ -562,23 +649,18 @@ function CardChatPanel({ fill }: { fill: boolean }) {
           <Loader size="large" />
         </View>
       ) : (
-        <Pressable
-          onPress={() => openLoginModal()}
-          style={[
-            zero.layout.flex.row,
-            zero.layout.flex.center,
-            {
-              gap: 8,
-              paddingVertical: 12,
-              paddingHorizontal: 12,
-              borderRadius: 10,
-              backgroundColor: theme.colors.surface2,
-            },
-          ]}
-        >
-          <Text style={{ fontSize: 15 }}>Log in to write a message</Text>
-          <ArrowRight color={theme.colors.text1} size={16} />
-        </Pressable>
+        <>
+          <ComposerPlaceholder onPress={() => openLoginModal()} />
+          <ComposerNotice
+            text={
+              verifiedOnly
+                ? "Verified users can write messages."
+                : "Sign in to write messages."
+            }
+            linkLabel="Sign in"
+            onPress={() => openLoginModal()}
+          />
+        </>
       )}
     </View>
   );

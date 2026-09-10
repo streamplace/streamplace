@@ -242,6 +242,7 @@
   "branding-network-icon-description": "Icon shown on those profile links. SVG preferred, max 64KB; unset shows the Bluesky butterfly.",
   "branding-verifiers": "Verified users",
   "branding-verifiers-description": "DIDs of the verifiers this node trusts, as a JSON list. Anyone they have issued an app.bsky.graph.verification record for shows a verified badge in chat. Bluesky's own verification shows its blue check regardless.",
+  "branding-verify-url-description": "Where a signed-in but unverified user goes to get verified: the \"Verify now\" link under the composer when chat is verified-only. Unset shows no link.",
   "branding-chat-verified-only-description": "Restrict chat to users verified by those verifiers. Others see a notice instead of the composer and their messages are not shown.",
   "branding-chat-verified-only-off": "Anyone can chat",
   "branding-chat-verified-only-on": "Verified only",

@@ -84,6 +84,7 @@ var Specs = []Spec{
 	{Key: "streamLayout", Kind: KindEnum, Enum: []string{"classic", "card"}, MaxSize: textMax, Doc: "Stream page shape: classic full-width player, or card (post in a feed column with live chat beside it)."},
 	{Key: "typeface", Kind: KindEnum, Enum: []string{"geist", "inter"}, MaxSize: textMax, Doc: "Sans-serif typeface."},
 	{Key: "verifierDids", Kind: KindJSON, MaxSize: jsonMax, Doc: "DIDs whose app.bsky.graph.verification records mark a chat user as verified: [\"did:plc:...\"]."},
+	{Key: "verifyUrl", Kind: KindText, MaxSize: textMax, Doc: "Where a signed-in but unverified user goes to get verified (the composer's \"Verify now\" link); unset shows no link."},
 	{Key: "chatVerifiedOnly", Kind: KindEnum, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "Only users verified by one of verifierDids may chat (their messages are the only ones shown)."},
 	{Key: "chatBadges", Kind: KindEnum, Enum: []string{"all", "custom", "none"}, MaxSize: textMax, Doc: "Badges beside chat names: all, only badges issued by badge definitions (no built-in streamer / moderator / bot marks), or none."},
 	{Key: "chatNameColors", Kind: KindEnum, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "Whether chat shows display names in each user's chosen color (on) or the default text color (off)."},

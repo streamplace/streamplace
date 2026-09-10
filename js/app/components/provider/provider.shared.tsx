@@ -97,7 +97,7 @@ function ProviderInner({
   return (
     <SafeAreaProvider>
       <NavigationContainer theme={SPDarkTheme} linking={linking}>
-        <ThemeProvider forcedTheme="dark">
+        <ThemeProvider forcedTheme="dark" paintDocument={false}>
           <I18nProvider i18n={i18n}>
             <StreamplaceProvider>
               <BlueskyProvider>

@@ -791,6 +791,19 @@ export function ThemeProvider({
     // branded background into the page head, but the dev proxy bypasses it;
     // painting from the theme covers both and follows the scheme switch.
     document.body.style.backgroundColor = theme.colors.background;
+    // Mobile browsers paint the root element's color behind the address bar
+    // and into overscroll, and read theme-color for their own chrome, so the
+    // page fills the whole window in the brand's background.
+    document.documentElement.style.backgroundColor = theme.colors.background;
+    let meta = document.querySelector(
+      'meta[name="theme-color"]',
+    ) as HTMLMetaElement | null;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "theme-color";
+      document.head.appendChild(meta);
+    }
+    meta.content = theme.colors.background;
   }, [isRoot, theme.colors.focus, theme.colors.background, theme.colors.text1]);
 
   return (

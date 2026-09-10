@@ -1,4 +1,4 @@
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import {
   Avatar,
   Chat,
@@ -154,10 +154,11 @@ function CardHeader() {
   );
 }
 
-// The feed column's tab bar from the design: Live (this page), Video on
-// demand and Go live, so viewers learn those exist even before they're the
-// node's focus. 48px, 15px labels, a 3px brand-colored indicator.
-function CardTabs() {
+// The feed column's tab bar from the design: Live, Video on demand and Go
+// live. It belongs to a stream index page, not to a stream's own page, so
+// nothing renders it until that index exists. 48px, 15px labels, a 3px
+// brand-colored indicator.
+export function CardTabs() {
   const { theme } = useTheme();
   const navigation: any = useNavigation();
   const tabs: { label: string; active?: boolean; onPress: () => void }[] = [
@@ -378,17 +379,8 @@ function PostCard({
         </View>
       </View>
 
-      {/* the post text is the stream title */}
-      {title ? (
-        <Text
-          numberOfLines={compact ? 2 : undefined}
-          style={{ fontSize: 17, lineHeight: 22, marginTop: 12 }}
-        >
-          {title}
-        </Text>
-      ) : null}
-
-      {/* the embed is the player */}
+      {/* the embed is the player; the post text sits under it so a long
+          title doesn't push the video down */}
       {!phone && (
         <View style={{ marginTop: 12 }}>
           <PlayerEmbed
@@ -398,6 +390,14 @@ function PostCard({
           />
         </View>
       )}
+      {title ? (
+        <Text
+          numberOfLines={compact ? 2 : undefined}
+          style={{ fontSize: 17, lineHeight: 22, marginTop: 12 }}
+        >
+          {title}
+        </Text>
+      ) : null}
       {phone && <Hairline />}
 
       {/* engagement row */}
@@ -740,9 +740,6 @@ export function StreamCardLayout({
   const { width: windowWidth } = useWindowDimensions();
   const chatWidth = chatWidthFor(windowWidth);
   const twoColumn = contentWidth >= FEED_WIDTH + chatWidth + 1;
-  // The Live / Video on demand / Go live tabs belong to the landing page;
-  // a stream reached from elsewhere is a sub page with just the back arrow.
-  const landing = useRoute().name === "HomeMain";
   const [chatOpen, setChatOpen] = useState(false);
   // In the social shell the nav rail's own border is the feed's left edge.
   const socialShell = useSocialShell();
@@ -772,12 +769,6 @@ export function StreamCardLayout({
         >
           <CardHeader />
           <Hairline />
-          {landing && (
-            <>
-              <CardTabs />
-              <Hairline />
-            </>
-          )}
           <PostCard src={src} extraProps={extraProps} onTeleport={onTeleport} />
           <Hairline />
         </ScrollView>
@@ -805,12 +796,6 @@ export function StreamCardLayout({
       <View style={{ flex: 1, width: "100%", maxWidth: FEED_WIDTH }}>
         <CardHeader />
         <Hairline />
-        {landing && (
-          <>
-            <CardTabs />
-            <Hairline />
-          </>
-        )}
         <PlayerEmbed
           src={src}
           extraProps={extraProps}

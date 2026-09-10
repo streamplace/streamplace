@@ -69,11 +69,13 @@
       }
     </style>
     <style>
+      html,
       body {
         /* surfaces.dark[0] — the app's base surface. The web nav container is
            transparent (for OBS sourcing), so header/content scenes fall through
            to the body; matching surface0 keeps them consistent with the
-           sidebar, which paints its own surface0 fill. */
+           sidebar, which paints its own surface0 fill. The root element too:
+           mobile browsers paint it behind their bars and in overscroll. */
         background-color: #0a0a0b;
       }
     </style>

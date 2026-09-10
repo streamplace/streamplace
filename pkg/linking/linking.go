@@ -508,11 +508,22 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 		})
 	}
 
-	// Paint the branded background before any script runs.
+	// Paint the branded background before any script runs: on the root
+	// element too, since that is what mobile browsers show behind their
+	// translucent bars and in overscroll, and as theme-color for the bars
+	// themselves.
 	if bg := l.bodyBackground(); bg != "" {
 		style := &html.Node{Type: html.ElementNode, Data: "style"}
 		head.AppendChild(style)
-		style.AppendChild(&html.Node{Type: html.TextNode, Data: "body{background-color:" + bg + "}"})
+		style.AppendChild(&html.Node{Type: html.TextNode, Data: "html,body{background-color:" + bg + "}"})
+		head.AppendChild(&html.Node{
+			Type: html.ElementNode,
+			Data: "meta",
+			Attr: []html.Attribute{
+				{Key: "name", Val: "theme-color"},
+				{Key: "content", Val: bg},
+			},
+		})
 	}
 
 	// Add Sentry DSN script if configured

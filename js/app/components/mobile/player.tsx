@@ -122,12 +122,16 @@ function PlayerWithProvider(
   const notchOnLeft = currentOrientation === 4;
   const videoPadLeft = notchOnLeft ? landscapeNotchPad : 0;
   const videoPadRight = !notchOnLeft && !chatVisible ? landscapeNotchPad : 0;
-  // if the screen is portrait and video is landscaps
+  // if the screen is portrait and video is landscaps. Not when the player
+  // is embedded in a box it must fit: that box gets the desktop controls,
+  // and the mobile chrome this case adds would sit invisibly over them,
+  // swallowing every tap on fullscreen, mute and the rest.
   const isPortraitLandscapeCase =
     isPortrait &&
     segDims.width > segDims.height &&
     !shouldShowChatSidePanel &&
     !props.ingest &&
+    !props.fitContainer &&
     props.mode !== "vod";
   const videoBoxHeight = isPortraitLandscapeCase
     ? Math.round((screenWidth * segDims.height) / segDims.width)

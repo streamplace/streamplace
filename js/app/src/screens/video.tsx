@@ -15,10 +15,13 @@ export default function VideoScreen({
 }: {
   route?: { params?: { user?: string; tid?: string } };
 }) {
+  const url = usePlaybackUrl(
+    route?.params?.user ?? "",
+    route?.params?.tid ?? "",
+  );
   if (!route?.params?.user || !route?.params?.tid) {
     return <Redirect to={{ screen: "HomeMain" }} />;
   }
-  const url = usePlaybackUrl(route.params.user, route.params.tid);
 
   return (
     <View style={[zero.flex.values[1], { backgroundColor: colors.black }]}>

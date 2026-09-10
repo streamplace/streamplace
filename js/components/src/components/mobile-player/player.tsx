@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { flex, h, layout, w, zIndex } from "../../lib/theme/atoms";
+import { useLivestreamStoreOptional } from "../../livestream-store/use-store";
 import {
   PlayerStatus,
   PlayerStatusTracker,
@@ -36,6 +37,23 @@ export function Player(
 
   const setMuted = useSetMuted();
   const muted = useMuted();
+  // A stream whose segments carry B-frames can't play over WebRTC (the
+  // encoder can't always be talked out of them), so hold such a stream on
+  // HLS. The segment record says; the viewer's low-latency preference is
+  // kept for streams that can use it.
+  const streamHasBFrames = useLivestreamStoreOptional(
+    (x) => x.segment?.video?.[0]?.bframes === true,
+  );
+  const streamForcesHLS = usePlayerStore((x) => x.streamForcesHLS);
+  const setStreamForcesHLS = usePlayerStore((x) => x.setStreamForcesHLS);
+  const protocol = usePlayerStore((x) => x.protocol);
+  useEffect(() => {
+    if (streamHasBFrames && (!streamForcesHLS || protocol !== "hls")) {
+      setStreamForcesHLS(true);
+    } else if (!streamHasBFrames && streamForcesHLS) {
+      setStreamForcesHLS(false);
+    }
+  }, [streamHasBFrames, streamForcesHLS, protocol, setStreamForcesHLS]);
 
   // if we set muted, set it and restore after
   useEffect(() => {

@@ -43,7 +43,7 @@ import {
   UserCircle,
   Video,
 } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Linking,
   Platform,
@@ -177,6 +177,30 @@ export function parseSocialLinks(
 const isExternal = (url: string) => /^[a-z]+:/i.test(url);
 
 /**
+ * How the sidebar opens an external URL: a new tab, or (branding key
+ * externalLinkTarget=sameWindow) the same window, for a node whose links
+ * lead back into the network's own app.
+ */
+export function useOpenExternal(): (url: string) => void {
+  const sameWindow =
+    useBrandingAsset("externalLinkTarget")?.data === "sameWindow";
+  return useCallback(
+    (url: string) => {
+      if (
+        sameWindow &&
+        Platform.OS === "web" &&
+        typeof window !== "undefined"
+      ) {
+        window.location.assign(url);
+        return;
+      }
+      void Linking.openURL(url);
+    },
+    [sameWindow],
+  );
+}
+
+/**
  * Branded link URLs may carry {handle} and {did} for the signed-in viewer
  * (a "Profile" link into the main app, say). Signed out, such a link falls
  * back to its site root rather than a broken path.
@@ -296,6 +320,7 @@ function SocialIconButton({
 }) {
   const { theme } = useTheme();
   const [hover, setHover] = useState(false);
+  const openExternal = useOpenExternal();
   const color = hover ? theme.colors.text1 : theme.colors.text2;
   const slot = icon && SOCIAL_ICON_SLOTS.includes(icon) ? icon : null;
   const Icon = SOCIAL_ICONS[icon ?? ""] ?? NAV_ICONS[icon ?? ""] ?? LinkIcon;
@@ -303,7 +328,7 @@ function SocialIconButton({
     <Pressable
       onPress={(e) => {
         e.preventDefault();
-        Linking.openURL(href);
+        openExternal(href);
       }}
       onHoverIn={() => setHover(true)}
       onHoverOut={() => setHover(false)}
@@ -495,6 +520,7 @@ export function SidebarOverlay() {
     useBrandingAsset("bottomLinks")?.data,
   );
   const { width: windowWidth } = useWindowDimensions();
+  const openExternal = useOpenExternal();
 
   // Don't render if sidebar is not active (small screen) or hidden — unless
   // the phone menu is open, which is that sidebar as a drawer.
@@ -518,7 +544,7 @@ export function SidebarOverlay() {
     const url = resolveNavUrl(raw, viewer);
     if (isExternal(url)) {
       closeDrawer();
-      void Linking.openURL(url);
+      openExternal(url);
     } else {
       navigate(url);
     }

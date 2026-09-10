@@ -2206,6 +2206,37 @@ export function BrandingAdmin() {
                 <SettingsRowItem>
                   <View style={[zero.gap.all[2], { flex: 1 }]}>
                     <Text size="sm" weight="semibold">
+                      {t("branding-external-links")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-external-links-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        {
+                          value: "newTab",
+                          label: t("branding-external-links-new-tab"),
+                        },
+                        {
+                          value: "sameWindow",
+                          label: t("branding-external-links-same-window"),
+                        },
+                      ]}
+                      value={brandingValue("externalLinkTarget") || "newTab"}
+                      onChange={(v) =>
+                        v === "newTab"
+                          ? deleteBlob("externalLinkTarget")
+                          : uploadText("externalLinkTarget", v)
+                      }
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
                       {t("branding-bottom-links")}
                     </Text>
                     <Text size="xs" color="muted">

@@ -1,8 +1,8 @@
 package linking
 
 import (
-	"golang.org/x/net/html"
 	"context"
+	"golang.org/x/net/html"
 	"io"
 	"net/url"
 	"strings"

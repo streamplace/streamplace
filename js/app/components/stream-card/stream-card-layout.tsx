@@ -314,6 +314,9 @@ function PostCard({
   const { theme } = useTheme();
   const toast = useToast();
   const { title, avatarUri, views, displayName, handleStr } = useStreamMeta();
+  // The node reports the streamer's verification on the profile it sends
+  // over the stream's websocket, the same way it does for chat authors.
+  const streamer = useLivestreamStore((x) => x.profile);
   // Liveness from the segments actually arriving (a fresh one in the last
   // ten seconds), not the player's mode; no segment at all means offline.
   const segment = useLivestreamStore((x) => x.segment);
@@ -350,13 +353,16 @@ function PostCard({
       <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
         <Avatar src={avatarUri} name={name} size={42} live={isLive} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text
-            weight="semibold"
-            numberOfLines={1}
-            style={{ fontSize: 17, lineHeight: 22 }}
-          >
-            {name}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text
+              weight="semibold"
+              numberOfLines={1}
+              style={{ fontSize: 17, lineHeight: 22, flexShrink: 1 }}
+            >
+              {name}
+            </Text>
+            <VerifiedBadge author={(streamer as any) ?? {}} size={16} />
+          </View>
           {displayName ? (
             <Text
               numberOfLines={1}

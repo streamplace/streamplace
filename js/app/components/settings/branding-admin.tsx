@@ -305,6 +305,8 @@ export function BrandingAdmin() {
         case "loginWaitlistUrl":
         case "loginSupportEmail":
         case "verifierDids":
+        case "labelerDid":
+        case "verifiedLabels":
         case "verifyUrl":
         case "chatVerifiedOnly":
         case "loginPlaceholder":
@@ -863,6 +865,84 @@ export function BrandingAdmin() {
                         variant="secondary"
                         onPress={() => deleteBlob("verifierDids")}
                         disabled={uploading || !brandingValue("verifierDids")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-labeler-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="did:plc:..."
+                          value={
+                            chromeInputs["labelerDid"] ??
+                            brandingValue("labelerDid")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              labelerDid: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="verified-*"
+                          value={
+                            chromeInputs["verifiedLabels"] ??
+                            brandingValue("verifiedLabels")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              verifiedLabels: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={async () => {
+                          await uploadText(
+                            "labelerDid",
+                            chromeInputs["labelerDid"] ??
+                              brandingValue("labelerDid"),
+                          );
+                          await uploadText(
+                            "verifiedLabels",
+                            chromeInputs["verifiedLabels"] ??
+                              brandingValue("verifiedLabels"),
+                          );
+                        }}
+                        disabled={
+                          uploading ||
+                          !(
+                            chromeInputs["labelerDid"] ??
+                            brandingValue("labelerDid")
+                          ).trim() ||
+                          !(
+                            chromeInputs["verifiedLabels"] ??
+                            brandingValue("verifiedLabels")
+                          ).trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={async () => {
+                          await deleteBlob("labelerDid");
+                          await deleteBlob("verifiedLabels");
+                        }}
+                        disabled={uploading || !brandingValue("labelerDid")}
                         width="min"
                         style={{ height: 42 }}
                       >

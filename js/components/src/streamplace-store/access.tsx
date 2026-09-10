@@ -49,7 +49,21 @@ export function useFetchAccessStatus() {
       if (!agent) {
         throw new Error("Streamplace agent not available");
       }
-      const res = await agent.client.call(place.stream.access.getStatus);
+      // A session the node can't attribute (inherited from the network's
+      // app, or made from a password) is anonymous to it; name the account
+      // so the answer still carries its chat verification.
+      const session = store.getState().oauthSession as
+        | { did?: string; kind?: string }
+        | null
+        | undefined;
+      const bearer =
+        session?.kind === "brokered" || session?.kind === "credential";
+      const res = await agent.client.call(
+        place.stream.access.getStatus,
+        bearer && session?.did
+          ? { subject: session.did as `did:${string}:${string}` }
+          : {},
+      );
       const policy: Record<string, string> = {};
       for (const entry of res.policy?.roles ?? []) {
         policy[entry.role] = entry.mode;
@@ -172,7 +186,7 @@ export function useChatLockedOut(): boolean {
   return useStreamplaceStore(
     (s) =>
       !!s.accessStatus?.chatVerifiedOnly &&
-      !!s.accessStatus?.did &&
+      !!s.oauthSession?.did &&
       !s.accessStatus?.chatVerified,
   );
 }

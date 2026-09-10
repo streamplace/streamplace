@@ -30,6 +30,8 @@ var (
 	verifierCached []string
 	verifierAt     time.Time
 	verifiedOnlyC  bool
+	labelerCached  string
+	labelPatternsC []string
 )
 
 // Verifiers returns the trusted verifier DIDs, cached briefly.
@@ -55,9 +57,32 @@ func (atsync *ATProtoSynchronizer) Verifiers(ctx context.Context) []string {
 			}
 		}
 		verifiedOnlyC = branding.Text(atsync.StatefulDB, atsync.CLI.BroadcasterHost, "chatVerifiedOnly") == "on"
+		// A labeler is a verifier too: its matching account labels are
+		// mirrored into the verification table under its DID (see labels.go).
+		labelerCached = strings.TrimSpace(branding.Text(atsync.StatefulDB, atsync.CLI.BroadcasterHost, "labelerDid"))
+		labelPatternsC = nil
+		for _, p := range strings.Split(branding.Text(atsync.StatefulDB, atsync.CLI.BroadcasterHost, "verifiedLabels"), ",") {
+			if p = strings.TrimSpace(p); p != "" {
+				labelPatternsC = append(labelPatternsC, p)
+			}
+		}
+		if strings.HasPrefix(labelerCached, "did:") && len(labelPatternsC) > 0 {
+			verifierCached = append(verifierCached, labelerCached)
+		} else {
+			labelerCached = ""
+		}
 	}
 	verifierAt = time.Now()
 	return verifierCached
+}
+
+// Labeler returns the verifying labeler's DID and the label values (exact,
+// or prefix with a trailing *) that count as verified; "" when unset.
+func (atsync *ATProtoSynchronizer) Labeler(ctx context.Context) (string, []string) {
+	atsync.Verifiers(ctx)
+	verifierMu.Lock()
+	defer verifierMu.Unlock()
+	return labelerCached, labelPatternsC
 }
 
 // ChatVerifiedOnly reports whether chat is restricted to verified users.
@@ -87,16 +112,13 @@ func (atsync *ATProtoSynchronizer) IsVerified(ctx context.Context, did string) b
 	return len(atsync.verificationsOf(ctx, did)) > 0
 }
 
-// DecorateVerification fills the author's verification state on a chat
-// message view from this node's trusted verifiers, in the shape the app view
-// uses, so the app renders the same badge either way.
-func (atsync *ATProtoSynchronizer) DecorateVerification(ctx context.Context, message *placestream.ChatDefs_MessageView) {
-	if message == nil {
-		return
-	}
-	vs := atsync.verificationsOf(ctx, message.Author.Did)
+// VerificationState is did's verification by this node's trusted verifiers
+// in the shape the app view uses (so the app renders the same badge either
+// way), or nil when there is none.
+func (atsync *ATProtoSynchronizer) VerificationState(ctx context.Context, did string) *appbsky.ActorDefs_VerificationState {
+	vs := atsync.verificationsOf(ctx, did)
 	if len(vs) == 0 {
-		return
+		return nil
 	}
 	state := &appbsky.ActorDefs_VerificationState{
 		VerifiedStatus:        "valid",
@@ -110,7 +132,18 @@ func (atsync *ATProtoSynchronizer) DecorateVerification(ctx context.Context, mes
 			Uri:       v.URI,
 		})
 	}
-	message.Author.Verification = state
+	return state
+}
+
+// DecorateVerification fills the author's verification state on a chat
+// message view.
+func (atsync *ATProtoSynchronizer) DecorateVerification(ctx context.Context, message *placestream.ChatDefs_MessageView) {
+	if message == nil {
+		return
+	}
+	if state := atsync.VerificationState(ctx, message.Author.Did); state != nil {
+		message.Author.Verification = state
+	}
 }
 
 // ChatAllowed reports whether a message from did may be shown, given the

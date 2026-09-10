@@ -5,6 +5,16 @@
     "main": {
       "type": "query",
       "description": "Report the caller's roles on this node and the node's access policy. Works unauthenticated (roles then reflect what an anonymous visitor holds). This is the one place.stream method a node always answers, even to accounts locked out by a private viewer policy, so clients can render the right wall.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "format": "did",
+            "description": "For an anonymous caller (a client holding a session this node can't attribute), the account whose chat verification to report in chatVerified. Ignored when the caller is authenticated."
+          }
+        }
+      },
       "output": {
         "encoding": "application/json",
         "schema": {

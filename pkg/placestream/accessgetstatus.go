@@ -48,10 +48,17 @@ func (t *AccessGetStatus_Output) UnmarshalCBOR(r io.Reader) error {
 // AccessGetStatus calls the XRPC method "place.stream.access.getStatus".
 //
 // Report the caller's roles on this node and the node's access policy. Works unauthenticated (roles then reflect what an anonymous visitor holds). This is the one place.stream method a node always answers, even to accounts locked out by a private viewer policy, so clients can render the right wall.
-func AccessGetStatus(ctx context.Context, c glex.LexClient) (*AccessGetStatus_Output, error) {
+//
+// subject: For an anonymous caller (a client holding a session this node can't attribute), the account whose chat verification to report in chatVerified. Ignored when the caller is authenticated.
+func AccessGetStatus(ctx context.Context, c glex.LexClient, subject string) (*AccessGetStatus_Output, error) {
 	var out AccessGetStatus_Output
 
-	if err := c.LexDo(ctx, glex.Query, "", "place.stream.access.getStatus", nil, nil, &out); err != nil {
+	params := map[string]interface{}{}
+	if subject != "" {
+		params["subject"] = subject
+	}
+
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.access.getStatus", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

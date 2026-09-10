@@ -362,6 +362,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	// Trusted verifiers' records predate this node; pull them at boot and
 	// hourly, the firehose keeps them current in between.
 	go atsync.SeedVerificationsForever(ctx)
+	go atsync.SeedLabelsForever(ctx)
 
 	var replicator replication.Replicator = nil
 	if slices.Contains(cli.Replicators, config.ReplicatorIroh) {

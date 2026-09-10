@@ -529,10 +529,11 @@ func (s *Server) HandlePlaceStreamAccessDeleteGrant(c echo.Context) error {
 func (s *Server) HandlePlaceStreamAccessGetStatus(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamAccessGetStatus")
 	defer span.End()
+	subject := c.QueryParam("subject")
 	var out *placestream.AccessGetStatus_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamAccessGetStatus(ctx context.Context) (*placestream.AccessGetStatus_Output, error)
-	out, handleErr = s.handlePlaceStreamAccessGetStatus(ctx)
+	// func (s *Server) handlePlaceStreamAccessGetStatus(ctx context.Context,subject string) (*placestream.AccessGetStatus_Output, error)
+	out, handleErr = s.handlePlaceStreamAccessGetStatus(ctx, subject)
 	if handleErr != nil {
 		return handleErr
 	}

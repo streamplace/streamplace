@@ -259,8 +259,20 @@ func AggregateWindow(ctx context.Context, store blob.Store, in AggregateInput) (
 					}
 					trackRefCache[ev.CID] = refs
 				}
+				// CDN-ingested events carry bytes-sent but no Range;
+				// prorate across tracks by byte share. Node-logged
+				// events carry a Range over the blob, which includes
+				// the flat-MP4 header the metafile's fragment-relative
+				// offsets sit behind, so shift it before intersecting.
+				prorated := ev.BytesSent > 0 && ev.RangeStart == 0 && ev.RangeEnd == 0
+				totalBody := metafileBodyBytes(meta)
 				for tid, track := range meta.Tracks {
-					bytes, durMS := rangeOverlapInTrack(ev.RangeStart, ev.RangeEnd, track)
+					var bytes, durMS int64
+					if prorated {
+						bytes, durMS = prorateInTrack(ev.BytesSent, totalBody, track)
+					} else {
+						bytes, durMS = rangeOverlapInTrack(ev.RangeStart-meta.FlatHeaderSize, ev.RangeEnd-meta.FlatHeaderSize, track)
+					}
 					if bytes == 0 {
 						continue
 					}
@@ -383,6 +395,47 @@ func rangeOverlapInTrack(rangeStart, rangeEnd int64, track vod.MetafileTrack) (b
 		segDurMS := int64(seg.DurationTicks) * 1000 / int64(track.Timescale)
 		durationMS += segDurMS * overlap / seg.Size
 	}
+	return bytes, durationMS
+}
+
+// metafileBodyBytes is the byte length of every track's segments
+// summed: the denominator for prorating a bytes-sent figure.
+func metafileBodyBytes(meta *vod.Metafile) int64 {
+	var total int64
+	for _, t := range meta.Tracks {
+		for _, seg := range t.Segments {
+			total += seg.Size
+		}
+	}
+	return total
+}
+
+// prorateInTrack credits one track with its byte-share of a request
+// whose size we know but whose Range we don't (CDN access logs). The
+// track gets bytesSent * (trackBytes / totalBody) bytes and the same
+// fraction of its playback duration. bytesSent is capped at the blob
+// body so a whole-blob download that also carried the flat header
+// doesn't over-credit.
+func prorateInTrack(bytesSent, totalBody int64, track vod.MetafileTrack) (bytes, durationMS int64) {
+	if bytesSent <= 0 || totalBody <= 0 || track.Timescale == 0 {
+		return 0, 0
+	}
+	if bytesSent > totalBody {
+		bytesSent = totalBody
+	}
+	var trackBytes int64
+	var trackTicks uint64
+	for _, seg := range track.Segments {
+		trackBytes += seg.Size
+		trackTicks += seg.DurationTicks
+	}
+	if trackBytes == 0 {
+		return 0, 0
+	}
+	// Integer math throughout so re-runs are byte-identical.
+	bytes = bytesSent * trackBytes / totalBody
+	trackDurMS := int64(trackTicks) * 1000 / int64(track.Timescale)
+	durationMS = trackDurMS * bytesSent / totalBody
 	return bytes, durationMS
 }
 

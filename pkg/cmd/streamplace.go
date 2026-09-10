@@ -33,6 +33,7 @@ import (
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/cdn/providers"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/director"
 	"stream.place/streamplace/pkg/gstinit"
@@ -521,6 +522,9 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			})
 		})
 	}
+	if err := wireCDNLogIngest(ctx, cli, state, vodStore, viewLog, ldb, group); err != nil {
+		return err
+	}
 	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um, vodStore, viewLog)
 	if err != nil {
 		return err
@@ -775,6 +779,62 @@ func makeVODStore(ctx context.Context, cli *config.CLI) (blob.Store, error) {
 	root := cli.DataFilePath(nil)
 	log.Log(ctx, "VOD store: file", "root", root)
 	return blob.NewFileStore(root)
+}
+
+// wireCDNLogIngest installs the CDN access-log ingester when the
+// configured --vod-cdn-provider has a log source, and warns loudly
+// when a CDN is configured without one: segment fetches then bypass
+// the node entirely and every VOD's view count silently reads zero.
+func wireCDNLogIngest(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB, vodStore blob.Store, viewLog *viewlog.Writer, ldb localdb.LocalDB, group *TimeoutGroup) error {
+	provider, err := providers.FromConfig(cli)
+	if err != nil {
+		return err
+	}
+	if provider == nil {
+		return nil
+	}
+	if provider.Logs == nil {
+		log.Warn(ctx, "VOD CDN is configured without an access-log source: segment requests served by the CDN are invisible to view counting, so view counts for CDN-served VODs will be zero. Configure the provider's log ingestion (e.g. --bunny-log-storage-zone) or accept the gap.",
+			"vod_cdn_url", cli.VODCDNURL, "provider", cli.VODCDNProvider)
+		return nil
+	}
+	if vodStore == nil || cli.ViewCountAggregateInterval <= 0 {
+		log.Warn(ctx, "VOD CDN log source configured but view-count aggregation is off; not ingesting CDN logs")
+		return nil
+	}
+	if cli.CDNLogIngestInterval <= 0 {
+		log.Log(ctx, "cdn log ingest: disabled (cdn-log-ingest-interval=0)")
+		return nil
+	}
+	var salts *viewlog.SaltManager
+	if viewLog != nil {
+		salts = viewLog.Salts()
+	} else {
+		salts = viewlog.NewSaltManager(ldb)
+	}
+	sourceName := provider.Name
+	state.SetCDNLogIngester(func(ctx context.Context) error {
+		_, err := viewlog.RunIngest(ctx, viewlog.IngestInput{
+			Store:      vodStore,
+			Source:     provider.Logs,
+			SourceName: sourceName,
+			Salts:      salts,
+			Cursor:     state,
+			Window:     cli.ViewCountAggregateInterval,
+			Reaggregate: func(ctx context.Context, partID string, start, end time.Time) error {
+				_, err := state.EnqueueTask(ctx, statedb.TaskViewCountAggregate,
+					statedb.ViewCountAggregateTask{WindowStart: start, WindowEnd: end},
+					statedb.WithTaskKey(viewlog.ReaggregateTaskKey(start, end, partID)))
+				return err
+			},
+		})
+		return err
+	})
+	group.Go(func() error {
+		return viewlog.ScheduleIngest(ctx, state, cli.CDNLogIngestInterval)
+	})
+	log.Log(ctx, "cdn log ingest: enabled", "provider", sourceName, "interval", cli.CDNLogIngestInterval)
+	return nil
 }
 
 // makeViewLog returns the configured view-event log writer, or nil if

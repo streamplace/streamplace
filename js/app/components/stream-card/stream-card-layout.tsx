@@ -28,7 +28,7 @@ import { PhoneMenuButton } from "components/sidebar/sidebar-overlay";
 import { MessageIcon } from "components/sidebar/social-icons";
 import { FullscreenProvider } from "contexts/FullscreenContext";
 import { usePhoneMenu } from "hooks/useSidebarControl";
-import { ArrowLeft, Eye, Pin, Share2 } from "lucide-react-native";
+import { ArrowLeft, Eye, Pin, Share2, X } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
   Linking,
@@ -254,11 +254,52 @@ function CardOffline({ handle }: { handle: string }) {
   );
 }
 
+// The embed: the player in a 16:9 box, rounded inside the feed card and
+// edge to edge on phones.
+function PlayerEmbed({
+  src,
+  extraProps,
+  onTeleport,
+  rounded = true,
+}: {
+  src: string;
+  extraProps: Partial<PlayerProps>;
+  onTeleport?: (targetHandle: string, targetDID: string) => void;
+  rounded?: boolean;
+}) {
+  const { handleStr } = useStreamMeta();
+  return (
+    <View
+      style={{
+        width: "100%",
+        aspectRatio: 16 / 9,
+        borderRadius: rounded ? 12 : 0,
+        overflow: "hidden",
+        backgroundColor: "#000", // token-ok: video letterbox
+      }}
+    >
+      <KeepAwake />
+      <FullscreenProvider>
+        <Player
+          key={src}
+          src={src}
+          {...extraProps}
+          hideChat
+          fitContainer
+          offlineContent={<CardOffline handle={handleStr} />}
+          onTeleport={onTeleport}
+        />
+      </FullscreenProvider>
+    </View>
+  );
+}
+
 function PostCard({
   src,
   extraProps,
   onTeleport,
   compact = false,
+  phone = false,
 }: {
   src: string;
   extraProps: Partial<PlayerProps>;
@@ -266,6 +307,9 @@ function PostCard({
   /** Streamer row, title and player only: the fixed phone layout keeps the
    *  rest of the height for chat. */
   compact?: boolean;
+  /** The phone design: the embed sits above the card edge to edge, so the
+   *  card is the streamer row, text, engagement and date alone. */
+  phone?: boolean;
 }) {
   const { theme } = useTheme();
   const toast = useToast();
@@ -339,29 +383,16 @@ function PostCard({
       ) : null}
 
       {/* the embed is the player */}
-      <View
-        style={{
-          marginTop: 12,
-          width: "100%",
-          aspectRatio: 16 / 9,
-          borderRadius: 12,
-          overflow: "hidden",
-          backgroundColor: "#000", // token-ok: video letterbox
-        }}
-      >
-        <KeepAwake />
-        <FullscreenProvider>
-          <Player
-            key={src}
+      {!phone && (
+        <View style={{ marginTop: 12 }}>
+          <PlayerEmbed
             src={src}
-            {...extraProps}
-            hideChat
-            fitContainer
-            offlineContent={<CardOffline handle={handleStr} />}
+            extraProps={extraProps}
             onTeleport={onTeleport}
           />
-        </FullscreenProvider>
-      </View>
+        </View>
+      )}
+      {phone && <Hairline />}
 
       {/* engagement row */}
       {!compact && (
@@ -577,7 +608,17 @@ function ComposerPlaceholder({ onPress }: { onPress?: () => void }) {
   );
 }
 
-function CardChatPanel({ fill }: { fill: boolean }) {
+function CardChatPanel({
+  fill,
+  raised = false,
+  bare = false,
+}: {
+  fill: boolean;
+  /** Inside the phone chat sheet: the pinned card one surface step up. */
+  raised?: boolean;
+  /** No "Live chat" heading (the sheet draws its own header). */
+  bare?: boolean;
+}) {
   const { theme } = useTheme();
   const agent = usePDSAgent();
   const openLoginModal = useStore((state) => state.openLoginModal);
@@ -592,14 +633,17 @@ function CardChatPanel({ fill }: { fill: boolean }) {
       style={{
         flex: fill ? 1 : undefined,
         height: fill ? undefined : 560,
-        padding: 20,
+        padding: bare ? 16 : 20,
+        paddingTop: bare ? 0 : 20,
         gap: 16,
       }}
     >
-      <Text weight="medium" style={{ fontSize: 15, lineHeight: 23 }}>
-        Live chat
-      </Text>
-      <PinnedCard />
+      {!bare && (
+        <Text weight="medium" style={{ fontSize: 15, lineHeight: 23 }}>
+          Live chat
+        </Text>
+      )}
+      <PinnedCard raised={raised} />
       <View style={{ flex: 1, minHeight: 0 }}>
         <Chat />
       </View>
@@ -693,6 +737,7 @@ export function StreamCardLayout({
   // The Live / Video on demand / Go live tabs belong to the landing page;
   // a stream reached from elsewhere is a sub page with just the back arrow.
   const landing = useRoute().name === "HomeMain";
+  const [chatOpen, setChatOpen] = useState(false);
   // In the social shell the nav rail's own border is the feed's left edge.
   const socialShell = useSocialShell();
   // Tell the shell this page wants the feed + chat column while mounted
@@ -738,8 +783,10 @@ export function StreamCardLayout({
     );
   }
 
-  // Narrow: a fixed column — the player up top, chat filling the rest, the
-  // composer pinned at the bottom — rather than a page that scrolls.
+  // Narrow (the phone design): the player pinned edge to edge under the
+  // header, the post details scrolling beneath it with the chat minimized
+  // to its last two messages; opening the chat slides a sheet up over the
+  // details, the way a mobile browser shows a video's comments.
   return (
     <View
       onLayout={onLayout}
@@ -758,15 +805,181 @@ export function StreamCardLayout({
             <Hairline />
           </>
         )}
-        <PostCard
+        <PlayerEmbed
           src={src}
           extraProps={extraProps}
           onTeleport={onTeleport}
-          compact
+          rounded={false}
         />
-        <Hairline />
-        <CardChatPanel fill />
+        <View style={{ flex: 1, minHeight: 0 }}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingBottom: 28 }}
+          >
+            <PostCard
+              src={src}
+              extraProps={extraProps}
+              onTeleport={onTeleport}
+              phone
+            />
+            <Hairline />
+            <MiniChat onOpen={() => setChatOpen(true)} />
+          </ScrollView>
+          {chatOpen && <ChatSheet onClose={() => setChatOpen(false)} />}
+        </View>
       </View>
+    </View>
+  );
+}
+
+// The minimized chat on phones: a filled panel with the count and the last
+// two messages (avatar and text), or the composer when nothing has been said
+// yet. Tapping it opens the chat sheet.
+function MiniChat({ onOpen }: { onOpen: () => void }) {
+  const { theme } = useTheme();
+  const chat = useLivestreamStore((x) => x.chat) ?? [];
+  const recent = useMemo(() => chat.slice(-2), [chat]);
+  const dids = useMemo(
+    () => recent.map((m: any) => m.author?.did).filter(Boolean),
+    [recent],
+  );
+  const profiles = useAvatars(dids);
+  return (
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      accessibilityLabel="Open live chat"
+      style={{
+        marginHorizontal: 8,
+        marginTop: 8,
+        padding: 12,
+        paddingTop: 8,
+        borderRadius: 8,
+        gap: 8,
+        backgroundColor: theme.colors.surface2,
+      }}
+    >
+      <Text style={{ fontSize: 15, lineHeight: 23 }}>
+        <Text weight="semibold" style={{ fontSize: 15 }}>
+          Live chat
+        </Text>
+        {chat.length > 0 ? (
+          <Text style={{ fontSize: 15, color: theme.colors.text2 }}>
+            {"  " + chat.length}
+          </Text>
+        ) : null}
+      </Text>
+      {recent.length === 0 ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 4,
+            height: 44,
+            paddingHorizontal: 12,
+            borderRadius: 10,
+            backgroundColor: theme.colors.background,
+          }}
+        >
+          <MessageIcon size={18} color={theme.colors.text3} />
+          <Text
+            style={{ fontSize: 15, color: theme.colors.text3, marginLeft: 4 }}
+          >
+            Write your message...
+          </Text>
+        </View>
+      ) : (
+        recent.map((m: any) => {
+          const author = m.author ?? {};
+          const profile = profiles[author.did];
+          return (
+            <View
+              key={m.uri ?? m.cid}
+              style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}
+            >
+              <View style={{ paddingTop: 2 }}>
+                <Avatar
+                  src={profile?.avatar || author.avatar}
+                  name={author.displayName || author.handle}
+                  size={24}
+                />
+              </View>
+              <Text
+                numberOfLines={2}
+                style={{ flex: 1, fontSize: 15, lineHeight: 23 }}
+              >
+                <RichTextMessage
+                  text={m.record?.text ?? ""}
+                  facets={m.record?.facets ?? []}
+                />
+              </Text>
+            </View>
+          );
+        })
+      )}
+    </Pressable>
+  );
+}
+
+// The maximized chat on phones: a sheet over the post details (the video
+// stays put above), with a grabber, the pinned message, the chat and the
+// composer.
+function ChatSheet({ onClose }: { onClose: () => void }) {
+  const { theme } = useTheme();
+  return (
+    <View
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
+        backgroundColor: theme.colors.surface1,
+        paddingTop: 8,
+        overflow: "hidden",
+      }}
+    >
+      <View style={{ alignItems: "center" }}>
+        <View
+          style={{
+            width: 36,
+            height: 5,
+            borderRadius: 100,
+            backgroundColor: theme.colors.text1,
+          }}
+        />
+      </View>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 16,
+          height: 41,
+        }}
+      >
+        <Text weight="semibold" style={{ fontSize: 15, lineHeight: 23 }}>
+          Live chat
+        </Text>
+        <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close live chat"
+          style={{
+            width: 33,
+            height: 33,
+            borderRadius: 999,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: theme.colors.surface2,
+          }}
+        >
+          <X size={16} color={theme.colors.text1} />
+        </Pressable>
+      </View>
+      <CardChatPanel fill raised bare />
     </View>
   );
 }

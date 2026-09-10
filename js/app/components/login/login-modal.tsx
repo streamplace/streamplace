@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useStore } from "store";
 import LoginForm from "./login-form";
 
 interface LoginModalProps {
@@ -26,7 +27,8 @@ export default function LoginModal({
   onClose,
   onOpenPdsModal,
 }: LoginModalProps) {
-  const pdsMode = useBrandingAsset("loginMode")?.data === "pds";
+  const oauth = useStore((state) => state.loginModalOAuth);
+  const pdsMode = useBrandingAsset("loginMode")?.data === "pds" && !oauth;
   const { theme } = useTheme();
 
   if (!visible) {
@@ -98,6 +100,7 @@ export default function LoginModal({
             onSuccess={onClose}
             onCloseModal={onClose}
             onOpenPdsModal={onOpenPdsModal}
+            forceOAuth={oauth}
           />
         </Pressable>
       </KeyboardAvoidingView>

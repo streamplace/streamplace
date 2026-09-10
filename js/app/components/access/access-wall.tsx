@@ -98,6 +98,12 @@ export default function AccessWall() {
   const [retrying, setRetrying] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
+  const sessionKind = useStore((state) => state.sessionKind);
+  // A brokered or password session is anonymous to the node, so no grant
+  // can match it; the way through the wall is a real OAuth session.
+  const bearerSession =
+    sessionKind === "brokered" || sessionKind === "credential";
+
   const loggedIn = !!did;
   const account = profile?.handle ? `@${profile.handle}` : did;
 
@@ -175,14 +181,25 @@ export default function AccessWall() {
           leading="relaxed"
         >
           {loggedIn
-            ? t("access-wall-denied-body")
+            ? bearerSession
+              ? t("access-wall-bearer-body")
+              : t("access-wall-denied-body")
             : t("access-wall-private-body")}
         </Text>
 
         {loggedIn ? (
           <View style={{ width: "100%", gap: 8, marginTop: 4 }}>
+            {bearerSession ? (
+              <Button
+                variant="primary"
+                onPress={() => openLoginModal(undefined, { oauth: true })}
+                disabled={retrying || signingOut}
+              >
+                {t("access-wall-sign-in-oauth")}
+              </Button>
+            ) : null}
             <Button
-              variant="primary"
+              variant={bearerSession ? "secondary" : "primary"}
               onPress={handleRetry}
               loading={retrying}
               disabled={retrying || signingOut}

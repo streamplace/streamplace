@@ -20,6 +20,7 @@ import { ImageBackground } from "expo-image";
 import { useLiveUser } from "hooks/useLiveUser";
 import {
   CircleUser,
+  KeyRound,
   LogIn,
   LogOut,
   Plus,
@@ -468,6 +469,13 @@ export const AvatarButton = ({
               }}
             />
 
+            {sessionKind === "brokered" || sessionKind === "credential" ? (
+              <AccountMenuItem
+                icon={KeyRound}
+                label="Sign in with OAuth"
+                onPress={() => openLoginModal(undefined, { oauth: true })}
+              />
+            ) : null}
             {sessionKind === "brokered" ? (
               <View style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
                 <Text style={{ color: c.text3, fontSize: 12.5 }}>

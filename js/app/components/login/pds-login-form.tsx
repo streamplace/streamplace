@@ -13,7 +13,6 @@ import {
   ActivityIndicator,
   LayoutChangeEvent,
   Linking,
-  Platform,
   Pressable,
   TextInput,
   View,
@@ -236,9 +235,12 @@ function QuickLoginPanel({
 export default function PdsLoginForm({
   onSuccess,
   inModal = false,
+  onUseOAuth,
 }: {
   onSuccess?: () => void;
   inModal?: boolean;
+  /** Switch to the node's OAuth flow (the only session the node can attribute). */
+  onUseOAuth?: () => void;
 }) {
   const { theme } = useTheme();
   const networkName = useNetworkName();
@@ -495,7 +497,13 @@ export default function PdsLoginForm({
           ) : null}
         </View>
       )}
-      {Platform.OS === "web" ? null : null}
+      {onUseOAuth ? (
+        <Pressable onPress={onUseOAuth}>
+          <Text style={{ color: theme.colors.text3, fontSize: 13 }}>
+            Advanced: sign in with OAuth instead
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

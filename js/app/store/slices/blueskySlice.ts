@@ -120,7 +120,12 @@ export interface BlueskySlice {
   oauthCallback: (url: string) => Promise<void>;
   setReturnRoute: (route: { name: string; params?: any } | null) => void;
   showLoginModal: boolean;
-  openLoginModal: (returnRoute?: { name: string; params?: any }) => void;
+  /** Open the login modal on the node's OAuth flow even when loginMode=pds. */
+  loginModalOAuth: boolean;
+  openLoginModal: (
+    returnRoute?: { name: string; params?: any },
+    options?: { oauth?: boolean },
+  ) => void;
   closeLoginModal: () => void;
   showPdsModal: boolean;
   openPdsModal: () => void;
@@ -245,6 +250,7 @@ export const createBlueskySlice: StateCreator<
   serverSettings: null,
   returnRoute: null,
   showLoginModal: false,
+  loginModalOAuth: false,
   showPdsModal: false,
   notification: null,
 
@@ -263,17 +269,24 @@ export const createBlueskySlice: StateCreator<
     set({ returnRoute: route });
   },
 
-  openLoginModal: async (returnRoute?: { name: string; params?: any }) => {
+  openLoginModal: async (
+    returnRoute?: { name: string; params?: any },
+    options?: { oauth?: boolean },
+  ) => {
     console.log("openLoginModal with returnRoute:", returnRoute);
     if (returnRoute) {
       await storage.setItem("returnRoute", JSON.stringify(returnRoute));
     }
-    set({ showLoginModal: true, returnRoute: returnRoute || null });
+    set({
+      showLoginModal: true,
+      loginModalOAuth: !!options?.oauth,
+      returnRoute: returnRoute || null,
+    });
   },
 
   closeLoginModal: () => {
     console.log("closeLoginModal");
-    set({ showLoginModal: false });
+    set({ showLoginModal: false, loginModalOAuth: false });
   },
 
   openPdsModal: () => {

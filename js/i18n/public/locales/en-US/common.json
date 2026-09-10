@@ -46,6 +46,8 @@
   "access-wall-denied-body": "Ask an administrator of this node to grant you access.",
   "access-wall-signed-in-as": "Signed in as {$account}",
   "access-wall-sign-out": "Sign out",
+  "access-wall-bearer-body": "This node can't see who you are through that sign-in. Sign in with OAuth so it can check your access.",
+  "access-wall-sign-in-oauth": "Sign in with OAuth",
   "access-wall-connecting-title": "Connecting to this node",
   "access-wall-connecting-body": "The node hasn't said whether you can use it yet. Check that it's running and reachable.",
   "welcome-user": "Welcome, {$username}!",

@@ -30,28 +30,43 @@ interface LoginFormProps {
   onSuccess?: () => void;
   onCloseModal?: () => void;
   onOpenPdsModal?: () => void;
+  /** Show the node's OAuth flow even when branding picks the PDS login. */
+  forceOAuth?: boolean;
 }
 
 // Branding key loginMode picks the sign-in: the node's OAuth flow, or the
-// PDS's own email / app password + QR login.
+// PDS's own email / app password + QR login. Either form links to the
+// other, since only an OAuth session is attributable by the node (access
+// roles, admin, streaming).
 export default function LoginForm(props: LoginFormProps) {
   const mode = useBrandingAsset("loginMode")?.data;
-  if (mode === "pds") {
+  const [useOAuth, setUseOAuth] = useState(false);
+  const pdsMode = mode === "pds";
+  if (pdsMode && !useOAuth && !props.forceOAuth) {
     return (
       <PdsLoginForm
         onSuccess={props.onSuccess}
         inModal={!!props.onCloseModal}
+        onUseOAuth={() => setUseOAuth(true)}
       />
     );
   }
-  return <OAuthLoginForm {...props} />;
+  return (
+    <OAuthLoginForm
+      {...props}
+      onUsePassword={
+        pdsMode && !props.forceOAuth ? () => setUseOAuth(false) : undefined
+      }
+    />
+  );
 }
 
 function OAuthLoginForm({
   onSuccess,
   onCloseModal,
   onOpenPdsModal,
-}: LoginFormProps) {
+  onUsePassword,
+}: LoginFormProps & { onUsePassword?: () => void }) {
   const { theme } = useTheme();
   const { t } = useTranslation("common");
   const network = useNetworkName();
@@ -59,6 +74,7 @@ function OAuthLoginForm({
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
   const authStatus = useStore((state) => state.authStatus);
+  const sessionKind = useStore((state) => state.sessionKind);
   const loginState = useLogin();
   const [handle, setHandle] = useState("");
   const [imageLoading, setImageLoading] = useState(false);
@@ -137,11 +153,13 @@ function OAuthLoginForm({
     }
   }, [loginState?.error]);
 
+  // Only an OAuth session counts as done here: a brokered or password
+  // session is what the user is upgrading from, so it must not close the form.
   useEffect(() => {
-    if (authStatus === "loggedIn" && onSuccess) {
+    if (authStatus === "loggedIn" && sessionKind === "oauth" && onSuccess) {
       onSuccess();
     }
-  }, [authStatus, onSuccess]);
+  }, [authStatus, sessionKind, onSuccess]);
 
   return (
     <>
@@ -406,6 +424,13 @@ function OAuthLoginForm({
           Log In
         </Button>
       </View>
+      {onUsePassword ? (
+        <Pressable onPress={onUsePassword} style={[zero.mt[4]]}>
+          <Text style={{ color: theme.colors.text3, fontSize: 13 }}>
+            Sign in with email and password instead
+          </Text>
+        </Pressable>
+      ) : null}
     </>
   );
 }

@@ -429,7 +429,9 @@ function PostCard({
   );
 }
 
-function PinnedCard() {
+// The pinned message: a filled card one surface step above its container
+// (the design's #1d2433 on the page, #272f43 inside the phone chat sheet).
+function PinnedCard({ raised = false }: { raised?: boolean }) {
   const { theme } = useTheme();
   const pinned = useLivestreamStore((x) => x.pinnedComment);
   const message: any = pinned?.message;
@@ -448,8 +450,7 @@ function PinnedCard() {
   return (
     <View
       style={{
-        borderWidth: 1,
-        borderColor: theme.colors.borderStrong,
+        backgroundColor: raised ? theme.colors.surface2 : theme.colors.surface1,
         borderRadius: 12,
         overflow: "hidden",
       }}

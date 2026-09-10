@@ -166,6 +166,10 @@ type CLI struct {
 	BunnyLogStorageEndpoint     string
 	BunnyLogStorageKey          string
 	CDNLogIngestInterval        time.Duration
+	LiveCDNURL                  string
+	LiveCDNProvider             string
+	LiveBunnyTokenAuthKey       string
+	LiveCDNTokenTTL             time.Duration
 	DisableSyndication          bool
 	MuxlInitialMemoryMB         int
 	MuxlMaxMemoryMB             int
@@ -1136,6 +1140,31 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Sources:     urfavecli.EnvVars("SP_CDN_LOG_INGEST_INTERVAL"),
 			},
 			&urfavecli.StringFlag{
+				Name:        "live-cdn-url",
+				Usage:       "CDN URL fronting this node's live HLS segments (a pull zone whose origin is this node's public URL). When set, live media playlists emit segment URLs of the form <live-cdn-url>/live/<did>/<track>/<seq>.m4s instead of the self-hosted getLiveSegment endpoint; playlists and init segments stay on the node. Typically a different domain from --vod-cdn-url, since the origin is the node rather than the blob store. Omit for self-contained deployments.",
+				Destination: &cli.LiveCDNURL,
+				Sources:     urfavecli.EnvVars("SP_LIVE_CDN_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "live-cdn-provider",
+				Usage:       "Which CDN product sits at --live-cdn-url, selecting URL signing. Empty means a plain CDN: unsigned URLs. Supported: bunny (configure with --live-bunny-token-auth-key). Live view counting rides on the playlist requests the node keeps serving, so no access-log ingestion is needed here.",
+				Destination: &cli.LiveCDNProvider,
+				Sources:     urfavecli.EnvVars("SP_LIVE_CDN_PROVIDER"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "live-bunny-token-auth-key",
+				Usage:       "bunny.net: the live pull zone's Token Authentication key (a separate zone from VOD means a separate key). When set, every live segment URL in a media playlist is signed so the CDN only serves segments this node handed out. Requires --live-cdn-provider=bunny.",
+				Destination: &cli.LiveBunnyTokenAuthKey,
+				Sources:     urfavecli.EnvVars("SP_LIVE_BUNNY_TOKEN_AUTH_KEY"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "live-cdn-token-ttl",
+				Usage:       "How long a signed live segment URL stays valid. Expiry is rounded to this interval so every playlist rendered within it carries identical URLs and the CDN can cache them; a URL is therefore valid for between one and two intervals. A live player refetches its playlist every few seconds, so this only needs to outlive the segment window.",
+				Value:       5 * time.Minute,
+				Destination: &cli.LiveCDNTokenTTL,
+				Sources:     urfavecli.EnvVars("SP_LIVE_CDN_TOKEN_TTL"),
+			},
+			&urfavecli.StringFlag{
 				Name:        "beta-invite-did",
 				Usage:       "DID of the atproto account whose place.stream.beta.invite records this node trusts. When set, uploading VODs requires an invite from that account; when empty, falls back to the --allowed-streams allowlist used by livestreaming.",
 				Destination: &cli.BetaInviteDID,
@@ -1377,6 +1406,30 @@ func (cli *CLI) Validate(cmd *urfavecli.Command) error {
 	}
 	if err := cli.validateVODCDN(); err != nil {
 		return err
+	}
+	if err := cli.validateLiveCDN(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateLiveCDN is validateVODCDN for the live segment CDN: a key
+// without its provider, or a provider without a URL, is refused.
+func (cli *CLI) validateLiveCDN() error {
+	switch cli.LiveCDNProvider {
+	case "":
+		if cli.LiveBunnyTokenAuthKey != "" {
+			return fmt.Errorf("--live-bunny-token-auth-key is set but --live-cdn-provider is not; set --live-cdn-provider=bunny")
+		}
+	case "bunny":
+		if cli.LiveCDNURL == "" {
+			return fmt.Errorf("--live-cdn-provider=bunny requires --live-cdn-url (the pull zone hostname)")
+		}
+	default:
+		return fmt.Errorf("unknown --live-cdn-provider %q (supported: bunny)", cli.LiveCDNProvider)
+	}
+	if cli.LiveCDNURL != "" && cli.LiveCDNTokenTTL <= 0 {
+		return fmt.Errorf("--live-cdn-token-ttl must be positive")
 	}
 	return nil
 }

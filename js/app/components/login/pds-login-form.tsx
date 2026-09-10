@@ -64,6 +64,20 @@ function toSession(pdsUrl: string, r: any): BearerSessionData | null {
 }
 
 /** The QR / app login: init, show the code, poll until the app signs. */
+/**
+ * The sign-in deep link encoded in a quick-login QR image URL, e.g.
+ * https://auth.example/QR/tagsign:auth.example,ABC?w=400 →
+ * "tagsign:auth.example,ABC". Undefined when the URL isn't of that shape.
+ */
+export function signUrlFromQrImage(imageUrl: string): string | undefined {
+  try {
+    const m = new URL(imageUrl).pathname.match(/\/QR\/(.+)$/);
+    return m?.[1] ? decodeURIComponent(m[1]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function QuickLoginPanel({
   pdsUrl,
   compact,
@@ -102,6 +116,13 @@ function QuickLoginPanel({
       if (!res.ok) throw new Error(`Could not start (${res.status})`);
       const init: QuickLoginInit = await res.json();
       if (my !== gen.current) return;
+      // The identity app's deep link is the text inside the QR code, and
+      // the QR image URL carries that text as its path: .../QR/<text>. Init
+      // doesn't return it separately, so lift it out (the image's own size
+      // query string falls away with the path).
+      if (!init.signUrl && init.qrCodeUrl) {
+        init.signUrl = signUrlFromQrImage(init.qrCodeUrl);
+      }
       setState({ init, loading: false });
       if (init.expiresAt) {
         const msLeft = new Date(init.expiresAt).getTime() - Date.now() - 5000;

@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   LayoutChangeEvent,
   Linking,
+  Platform,
   Pressable,
   TextInput,
   View,
@@ -69,6 +70,42 @@ function toSession(pdsUrl: string, r: any): BearerSessionData | null {
  * https://auth.example/QR/tagsign:auth.example,ABC?w=400 →
  * "tagsign:auth.example,ABC". Undefined when the URL isn't of that shape.
  */
+/**
+ * Whether this is a device that would hand a sign-in off to an app on the
+ * same device rather than scan a code with a second one: native, or a web
+ * browser with a coarse pointer and no hover (phones and tablets; not a
+ * narrow desktop window, which still wants the QR).
+ */
+function useHandoffDevice(): boolean {
+  const [touch, setTouch] = useState(() => {
+    if (Platform.OS !== "web") return true;
+    if (typeof window === "undefined" || !window.matchMedia) return false;
+    return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  });
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    if (!window.matchMedia) return;
+    const mq = window.matchMedia("(hover: none) and (pointer: coarse)");
+    const onChange = () => setTouch(mq.matches);
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, []);
+  return touch;
+}
+
+/** A readable line for a quick-login failure code from the PDS. */
+function describeQuickLoginError(code: string | undefined, network: string) {
+  switch (code) {
+    case "InvitationRequired":
+      return `That identity doesn't have a ${network} account yet, and this sign-in can't create one. Sign up in the ${network} app first, then try again.`;
+    case undefined:
+    case "":
+      return "Login failed.";
+    default:
+      return code;
+  }
+}
+
 // Quick-login status methods, in the order to try them.
 const STATUS_METHODS = [
   "io.trustanchor.quicklogin.status",
@@ -164,7 +201,10 @@ function QuickLoginPanel({
             if (session) onSession(session);
           } else if (data?.status === "failed") {
             clearTimers();
-            setState({ loading: false, error: data.error || "Login failed." });
+            setState({
+              loading: false,
+              error: describeQuickLoginError(data.error, networkName),
+            });
           }
         } catch {
           // network blip: keep polling
@@ -174,7 +214,7 @@ function QuickLoginPanel({
       if (my !== gen.current) return;
       setState({ loading: false, error: e?.message || "Could not connect." });
     }
-  }, [pdsUrl, onSession]);
+  }, [pdsUrl, onSession, networkName]);
 
   useEffect(() => {
     start();
@@ -190,9 +230,14 @@ function QuickLoginPanel({
     </Pressable>
   );
 
-  // Narrow with a hand-off link: the app card. Narrow without one (the
-  // PDS offers only the QR): the code, centered above the form.
-  if (compact && (state.init?.signUrl || (state.error && !state.init))) {
+  // A phone or tablet with a hand-off link: the app card (a code can't be
+  // scanned from the device showing it). Everything else, a narrow desktop
+  // window included: the code, centered above the form when narrow.
+  const handoff = useHandoffDevice();
+  if (
+    (handoff && state.init?.signUrl) ||
+    (compact && state.error && !state.init)
+  ) {
     return (
       <View
         style={{

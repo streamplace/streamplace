@@ -1,4 +1,4 @@
-import { Button, Text, View } from "@streamplace/components";
+import { Button, Text, View, useBrandingAsset } from "@streamplace/components";
 import {
   bg,
   borders,
@@ -30,8 +30,11 @@ export function MobileAppBanner() {
 
   const insets = useSafeAreaInsets();
   const platform = usePlatform();
+  // A node that is its own product turns the suggestion off in Branding.
+  const disabled = useBrandingAsset("mobileAppBanner")?.data === "off";
 
   if (
+    disabled ||
     dismissed ||
     !((platform.isWebIOS && !platform.isMobileSafari) || platform.isWebAndroid)
   )

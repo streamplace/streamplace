@@ -94,6 +94,7 @@ var Specs = []Spec{
 	{Key: "navLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Navigation links replacing the sidebar sections: [{label, url, icon}]."},
 	{Key: "navCta", Kind: KindJSON, MaxSize: jsonMax, Doc: "Highlighted button under the navigation links: {label, url}."},
 	{Key: "legalLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Footer legal links: [{text, url}]."},
+	{Key: "mobileAppBanner", Kind: KindEnum, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "Whether the web app suggests the Streamplace mobile app on phones: the in-page banner and the iOS Smart App Banner meta tag. Default on; off for a node that is its own product."},
 	{Key: "externalLinkTarget", Kind: KindEnum, Enum: []string{"newTab", "sameWindow"}, MaxSize: textMax, Doc: "Where the sidebar's external links (navLinks, navCta, bottomLinks, socialLinks) open on the web: a new tab (default) or the same window."},
 	{Key: "showDownloadLink", Kind: KindEnum, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "Whether the sidebar shows the app Download link (default on for classic, off for social)."},
 	{Key: "bottomLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Links pinned above the social row at the bottom of the sidebar: [{label, url, icon}]; unset shows Documentation (classic only), [] hides them."},

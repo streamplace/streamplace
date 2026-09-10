@@ -2206,6 +2206,24 @@ export function BrandingAdmin() {
                 <SettingsRowItem>
                   <View style={[zero.gap.all[2], { flex: 1 }]}>
                     <Text size="sm" weight="semibold">
+                      {t("branding-app-banner")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        { value: "on", label: t("branding-app-banner-on") },
+                        { value: "off", label: t("branding-app-banner-off") },
+                      ]}
+                      value={brandingValue("mobileAppBanner") || "on"}
+                      onChange={(v) =>
+                        v === "on"
+                          ? deleteBlob("mobileAppBanner")
+                          : uploadText("mobileAppBanner", v)
+                      }
+                    />
+                    <Text size="xs" color="muted">
+                      {t("branding-app-banner-description")}
+                    </Text>
+                    <Text size="sm" weight="semibold">
                       {t("branding-external-links")}
                     </Text>
                     <Text size="xs" color="muted">

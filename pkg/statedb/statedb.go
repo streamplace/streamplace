@@ -47,6 +47,9 @@ type StatefulDB struct {
 	// SetViewCountAggregator at bootstrap so pkg/statedb doesn't have
 	// to depend on the blob.Store-heavy pkg/viewlog.
 	viewCountAggregator ViewCountAggregator
+	// cdnLogIngester pulls archived CDN access logs into the view-log
+	// store; nil when no CDN log source is configured.
+	cdnLogIngester CDNLogIngester
 	// livestreamVODFinalizer concatenates a finished livestream's recorded
 	// MUXL objects into a VOD. Installed via SetLivestreamVODFinalizer at
 	// bootstrap, same indirection as vodProcessor.
@@ -71,6 +74,7 @@ var StatefulDBModels = []any{
 	S3Segment{},
 	Upload{},
 	DraftVideo{},
+	CDNLogPart{},
 }
 
 var NoPostgresDatabaseCode = "3D000"

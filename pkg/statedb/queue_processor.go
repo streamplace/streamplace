@@ -29,6 +29,7 @@ var TaskFinalizeLivestream = "finalize_livestream"
 var TaskFinalizeLivestreamVOD = "finalize_livestream_vod"
 var TaskVODProcess = "vod_process"
 var TaskViewCountAggregate = "view_count_aggregate"
+var TaskCDNLogIngest = "cdn_log_ingest"
 
 // nonVODTaskTypes is every task type handled by the general queue worker.
 // VOD processing runs on its own dedicated pool (see ProcessQueue) so a
@@ -42,6 +43,7 @@ var nonVODTaskTypes = []string{
 	TaskStreamReceived,
 	TaskFinalizeLivestream,
 	TaskViewCountAggregate,
+	TaskCDNLogIngest,
 }
 
 type NotificationTask struct {
@@ -94,6 +96,14 @@ type FinalizeLivestreamVODTask struct {
 type ViewCountAggregateTask struct {
 	WindowStart time.Time `json:"windowStart"`
 	WindowEnd   time.Time `json:"windowEnd"`
+}
+
+// CDNLogIngestTask is the payload for one scheduled pass over the
+// CDN's archived access logs. Tick is the UTC-aligned schedule slot;
+// it's in the dedup key, not used by the ingester itself (which
+// always looks for whatever is new).
+type CDNLogIngestTask struct {
+	Tick time.Time `json:"tick"`
 }
 
 // ProcessQueue runs the task queue until ctx is cancelled. VOD tasks are
@@ -178,6 +188,8 @@ func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
 		return state.processFinalizeLivestreamVODTask(ctx, task)
 	case TaskViewCountAggregate:
 		return state.processViewCountAggregateTask(ctx, task)
+	case TaskCDNLogIngest:
+		return state.processCDNLogIngestTask(ctx, task)
 	default:
 		return fmt.Errorf("unknown task type: %s", task.Type)
 	}
@@ -324,6 +336,26 @@ func (state *StatefulDB) processViewCountAggregateTask(ctx context.Context, task
 	}
 	if err := state.viewCountAggregator(ctx, t); err != nil {
 		return fmt.Errorf("view-count aggregation: %w", err)
+	}
+	return state.CompleteTask(ctx, task.ID)
+}
+
+// CDNLogIngester pulls newly archived CDN access logs into the view-log
+// store. Same indirection as ViewCountAggregator.
+type CDNLogIngester func(ctx context.Context) error
+
+func (state *StatefulDB) SetCDNLogIngester(f CDNLogIngester) {
+	state.cdnLogIngester = f
+}
+
+func (state *StatefulDB) processCDNLogIngestTask(ctx context.Context, task *AppTask) error {
+	ctx = log.WithLogValues(ctx, "func", "processCDNLogIngestTask")
+	if state.cdnLogIngester == nil {
+		log.Warn(ctx, "no cdn log ingester configured; dropping task")
+		return state.CompleteTask(ctx, task.ID)
+	}
+	if err := state.cdnLogIngester(ctx); err != nil {
+		return fmt.Errorf("cdn log ingest: %w", err)
 	}
 	return state.CompleteTask(ctx, task.ID)
 }

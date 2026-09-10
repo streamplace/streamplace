@@ -313,6 +313,13 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
   // are views) sit after the name on every platform, a long handle truncates
   // instead of pushing the age off the edge, and native never nests views in
   // text.
+  // Room the verified mark and badges take beside the name (see below).
+  const verified =
+    author.verification?.verifiedStatus === "valid" ||
+    profile?.verification?.verifiedStatus === "valid";
+  const marksWidth =
+    (verified ? 20 : 0) + (badges?.length ? 6 + badges.length * 22 : 0);
+  // text.
   return (
     <View
       style={[
@@ -328,57 +335,88 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
             { alignItems: "center", minWidth: 0, maxWidth: "100%" },
           ]}
         >
-          <View style={[flex.shrink[1], { minWidth: 0 }]}>
-            <UserProfileCard
-              uri={item.uri}
-              author={item.author}
-              badges={badges}
-            >
-              <Text
-                weight="semibold"
-                numberOfLines={1}
-                style={[
-                  flex.shrink[1],
-                  {
-                    fontSize: 15,
-                    lineHeight: 23,
-                    color: nameColor,
-                    minWidth: 0,
-                  },
-                ]}
-              >
-                {name}
-              </Text>
-            </UserProfileCard>
-          </View>
-          <VerifiedBadge author={author} profile={profile} />
-          {!!badges?.length && (
+          {/* Name, marks and handle share one box beside the time. The
+              handle is the only thing in it that shrinks, so it gives way
+              first; the name can't shrink at all on web and is instead
+              capped at the box minus the marks, so it only truncates once
+              the handle is gone. (Native's layout engine weights shrink by
+              the factor, so there the 1000x handle does the same job.) */}
+          <View
+            style={[
+              layout.flex.row,
+              {
+                flex: 1,
+                alignItems: "center",
+                minWidth: 0,
+                overflow: "hidden",
+              },
+            ]}
+          >
             <View
               style={[
-                layout.flex.row,
-                { alignItems: "center", marginLeft: 6, flexShrink: 0 },
+                {
+                  minWidth: 0,
+                  flexShrink: Platform.OS === "web" ? 0 : 1,
+                  maxWidth:
+                    Platform.OS === "web"
+                      ? (`calc(100% - ${marksWidth}px)` as any)
+                      : undefined,
+                },
               ]}
             >
-              {badges.map((badge, index) => (
-                <Badge
-                  key={index}
-                  badgeType={badge.badgeType}
-                  imageUrl={badge.imageUrl}
-                />
-              ))}
+              <UserProfileCard
+                uri={item.uri}
+                author={item.author}
+                badges={badges}
+              >
+                <Text
+                  weight="semibold"
+                  numberOfLines={1}
+                  style={[
+                    flex.shrink[1],
+                    {
+                      fontSize: 15,
+                      lineHeight: 23,
+                      color: nameColor,
+                      minWidth: 0,
+                    },
+                  ]}
+                >
+                  {name}
+                </Text>
+              </UserProfileCard>
             </View>
-          )}
-          {displayName ? (
-            // The handle gives way first: flex shrink is weighted by the
-            // factor, so at 1000x the name loses well under a pixel while
-            // the handle collapses, and only truncates once it is gone.
-            <Text
-              numberOfLines={1}
-              style={{ ...meta, marginLeft: 8, minWidth: 0, flexShrink: 1000 }}
-            >
-              {handle}
-            </Text>
-          ) : null}
+            <VerifiedBadge author={author} profile={profile} />
+            {!!badges?.length && (
+              <View
+                style={[
+                  layout.flex.row,
+                  { alignItems: "center", marginLeft: 6, flexShrink: 0 },
+                ]}
+              >
+                {badges.map((badge, index) => (
+                  <Badge
+                    key={index}
+                    badgeType={badge.badgeType}
+                    imageUrl={badge.imageUrl}
+                  />
+                ))}
+              </View>
+            )}
+            {displayName ? (
+              <Text
+                numberOfLines={1}
+                style={{
+                  ...meta,
+                  marginLeft: 8,
+                  minWidth: 0,
+                  flexShrink: 1000,
+                }}
+              >
+                {handle}
+              </Text>
+            ) : null}
+          </View>
           <Text style={{ ...meta, marginLeft: 8, flexShrink: 0 }}>
             {"· " + relativeAge(item.record.createdAt)}
           </Text>

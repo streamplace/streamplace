@@ -47,6 +47,11 @@ export interface PlayerState {
   setPlayingVODRendition: (name: string | null) => void;
   protocol: PlayerProtocol;
   setProtocol: (protocol: PlayerProtocol) => void;
+  /** The stream being watched has B-frames, which WebRTC playback can't
+   *  handle, so the player is held on HLS regardless of the viewer's
+   *  low-latency preference (which stays stored for other streams). */
+  streamForcesHLS: boolean;
+  setStreamForcesHLS: (forced: boolean) => void;
 
   /** Source (streamer did) */
   src: string;

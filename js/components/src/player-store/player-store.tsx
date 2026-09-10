@@ -52,6 +52,35 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
       storage.setItem(PROTOCOL_STORAGE_KEY, protocol).catch(console.error);
       set((state) => ({ ...state, protocol: protocol }));
     },
+    streamForcesHLS: false,
+    setStreamForcesHLS: (forced: boolean) => {
+      if (forced) {
+        // Hold on HLS without touching the stored preference.
+        set((state) => ({
+          ...state,
+          streamForcesHLS: true,
+          protocol: PlayerProtocol.HLS,
+        }));
+        return;
+      }
+      set((state) => ({ ...state, streamForcesHLS: false }));
+      // Back to whatever the viewer had chosen.
+      storage
+        .getItem(PROTOCOL_STORAGE_KEY)
+        .then((stored) => {
+          if (
+            stored &&
+            Object.values(PlayerProtocol).includes(stored as PlayerProtocol)
+          ) {
+            set((state) =>
+              state.streamForcesHLS
+                ? state
+                : { ...state, protocol: stored as PlayerProtocol },
+            );
+          }
+        })
+        .catch(console.error);
+    },
 
     src: "",
     setSrc: (src: string) => set(() => ({ src })),

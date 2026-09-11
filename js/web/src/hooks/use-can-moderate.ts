@@ -37,7 +37,8 @@ async function fetchDelegations(
  * Moderation capabilities of the logged-in viewer for the stream this store
  * is connected to. The streamer's delegation records are fetched once per
  * (agent, streamer) pair into the store; websocket permissionView pushes
- * keep the store current while the page is open.
+ * keep the store current while the page is open, including permission
+ * revocations.
  */
 export function useCanModerate(store: LivestreamStore): UseCanModerateResult {
   const { pdsAgent, did } = useSession();

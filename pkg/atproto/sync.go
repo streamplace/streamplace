@@ -783,6 +783,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 		view := placestream.ModerationDefs_PermissionView{
+			LexiconTypeID: "place.stream.moderation.defs#permissionView",
 			Uri: aturi.String(),
 			Cid: cid,
 			Author: appbsky.ActorDefs_ProfileViewBasic{

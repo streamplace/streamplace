@@ -1,7 +1,6 @@
-import type { place } from "streamplace";
+import type { LivestreamModerationPermission } from "@streamplace/core";
 
-export type ModerationPermissionRecord =
-  place.stream.moderation.permission.Main;
+export type ModerationPermissionRecord = LivestreamModerationPermission;
 
 const PERMISSION_RECORD_TYPE = "place.stream.moderation.permission";
 
@@ -18,16 +17,25 @@ export interface ModerationPermissions {
  * permission record values.
  */
 export function permissionRecordsFromListRecords(
-  records: Array<{ value: unknown } | null | undefined>,
+  records: Array<{ value: unknown; uri?: string } | null | undefined>,
 ): ModerationPermissionRecord[] {
-  return records
-    .map((r) => r?.value)
-    .filter(
-      (value): value is ModerationPermissionRecord =>
-        !!value &&
-        typeof value === "object" &&
-        (value as { $type?: unknown }).$type === PERMISSION_RECORD_TYPE,
-    );
+  return records.flatMap((record) => {
+    const value = record?.value;
+    if (
+      !value ||
+      typeof value !== "object" ||
+      (value as { $type?: unknown }).$type !== PERMISSION_RECORD_TYPE
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        ...(value as ModerationPermissionRecord),
+        ...(record.uri ? { uri: record.uri } : {}),
+      },
+    ];
+  });
 }
 
 /**

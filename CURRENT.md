@@ -79,3 +79,73 @@ bare `maestro` calls with `$MAESTRO`. Verified: syntax, missing branch (message
 - exit 1), home-fallback full run (5 screenshots + video + tree). Did NOT test
   the interactive "y" install path (would reinstall maestro via curl|bash).
   README + skill updated with the behavior.
+
+## 2026-02-06: stream moderation delegation in js/web
+
+Ported the delegation model from js/app (js/components) to the true-DOM web
+app, on natb/cleanup-web-ui.
+
+### what changed
+
+- `js/core` websocket-consumer: handles
+  `place.stream.moderation.defs#permissionView` (server publishes it on
+  delegation create); merges into `moderationPermissions`, deduped by
+  moderator+createdAt (records are immutable). Fixes real-time grants for
+  js/app too — the store field existed but nothing consumed the pushes.
+- `js/web/src/lib/moderation.ts`: pure logic — record filtering +
+  `moderationPermissionsFor` (owner short-circuit, union of unexpired
+  delegations). Tested in `lib/moderation.test.ts`.
+- `js/web/src/hooks/use-can-moderate.ts`: binds logic to session agent +
+  LivestreamStore; listRecords fetch deduped across the three surfaces that
+  mount it (chat panel, stream info, pinned banner).
+- `js/web/src/hooks/use-moderation-actions.ts`: blockUser / hideMessage /
+  pinMessage / unpinMessage / updateStreamTitle / submitReport — owner
+  writes own repo, delegated moderators hit place.stream.moderation.\*
+  (server-side CheckPermission is the authority).
+- chat: per-message "…" hover menu (pin durations, hide w/ optimistic
+  reduceChat filter, block, report, delete-own two-click) replacing the
+  owner-only pin button; pinned banner unpin works for moderators with
+  message.pin.
+- reporting: `stream/report-dialog.tsx` ports the app's report modal (six
+  AT Protocol reason types + optional comment, createReport via submitReport).
+  Entry point: report others' messages from the chat menu. Dialog takes any
+  subject, so stream-record/account entry points can reuse it.
+- dashboard: `moderators` widget (registry + `dashboard/moderators.tsx`) —
+  list/add/remove permission records in own repo, handle resolution,
+  permission switches, expiry display.
+- stream page: pencil beside title when canManageLivestream → title-only
+  dialog (owner: chapter-marker record; mod: updateLivestream XRPC).
+- i18n: en-US keys under ## Moderation / ## Moderators / ## Report + chat &
+  stream-info additions; compiled via `pnpm --filter @streamplace/i18n compile`.
+
+### verified
+
+- js/core vitest 53/53 (new websocket-consumer.test.ts), js/web vitest 101/101,
+  web tsc clean, i18n check passes.
+- NOT tested end-to-end: needs two OAuth accounts (streamer + moderator)
+  against a live node; delegated XRPC paths are byte-for-byte ports of the
+  js/components calls js/app ships with.
+
+### gotchas
+
+- lexicon-typed client brands did/uri/datetime strings; delegated calls cast
+  those fields `as any` (same as js/components).
+- i18next key separator is "." — never put lexicon strings like
+  `livestream.manage` inside key names (used `moderators-permission-manage`).
+- server publishes permissionView on CREATE only; deletions aren't pushed, so
+  a revoked moderator keeps flags client-side until reload (server still
+  rejects the action) — same gap exists in js/app.
+- lint-staged stash-dance breaks if a file is partially staged while a
+  concurrent process edits it; unstage everything before running commits.
+
+## 2026-09-08: split natb/cleanup-web-ui into two stacked PRs
+
+- `natb/web-moderation-delegation`: 12 feature commits cherry-picked onto
+  origin/next (core permissionView through stream-level report menu).
+- `natb/web-ui-cleanup`: 7 cleanup commits stacked on the feature branch
+  (sidebar scroll, debug toggle, comment-out link, branding agent wait,
+  decorator signal, multistream trim, i18n nits sweep).
+- Verified: `git diff` between natb/web-ui-cleanup and the original
+  natb/cleanup-web-ui tip is empty (tree-identical). Feature branch alone:
+  core vitest 53/53, web vitest 101/101, web tsc clean, core check + i18n
+  compile clean. Neither branch pushed yet.

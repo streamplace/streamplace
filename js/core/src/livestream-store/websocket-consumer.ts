@@ -9,9 +9,37 @@ import { formatHandleWithAt } from "../lib/format-handle";
 import { SystemMessages } from "../lib/system-messages";
 import { reduceChat } from "./chat-reducer";
 import { findProblems } from "./problems";
-import { LivestreamState } from "./state";
+import { LivestreamModerationPermission, LivestreamState } from "./state";
 
 const MAX_RECENT_SEGMENTS = 10;
+const MODERATION_PERMISSION_TYPE = "place.stream.moderation.permission";
+
+type ModerationPermissionDeletion = {
+  $type?: unknown;
+  deleted?: unknown;
+  uri?: unknown;
+  streamer?: unknown;
+  rkey?: unknown;
+};
+
+function moderationPermissionURI(
+  message: ModerationPermissionDeletion,
+): string | null {
+  if (typeof message.uri === "string" && message.uri.length > 0) {
+    return message.uri;
+  }
+
+  if (
+    typeof message.streamer === "string" &&
+    typeof message.rkey === "string" &&
+    message.streamer.length > 0 &&
+    message.rkey.length > 0
+  ) {
+    return `at://${message.streamer}/${MODERATION_PERMISSION_TYPE}/${message.rkey}`;
+  }
+
+  return null;
+}
 
 export const handleWebSocketMessages = (
   state: LivestreamState,
@@ -137,22 +165,37 @@ export const handleWebSocketMessages = (
           pinnedComment: null,
         };
       } else if (
+        (message as ModerationPermissionDeletion).$type ===
+          MODERATION_PERMISSION_TYPE &&
+        (message as ModerationPermissionDeletion).deleted === true
+      ) {
+        const deletedURI = moderationPermissionURI(
+          message as ModerationPermissionDeletion,
+        );
+        if (deletedURI) {
+          state = {
+            ...state,
+            moderationPermissions: state.moderationPermissions.filter(
+              (permission) => permission.uri !== deletedURI,
+            ),
+          };
+        }
+      } else if (
         place.stream.moderation.defs.permissionView.isTypeOf(message)
       ) {
         const view = message as place.stream.moderation.defs.PermissionView;
-        const record =
-          view.record as unknown as place.stream.moderation.permission.Main;
+        const record = {
+          ...(view.record as unknown as place.stream.moderation.permission.Main),
+          uri: view.uri,
+        } as LivestreamModerationPermission;
         if (record?.moderator) {
-          // Permission records are immutable, so moderator+createdAt
-          // identifies a record across the initial listRecords fetch and
-          // websocket pushes; a re-delivered view replaces its earlier copy
-          // instead of stacking a duplicate.
-          const withoutRecord = state.moderationPermissions.filter(
-            (perm) =>
-              !(
-                perm.moderator === record.moderator &&
-                perm.createdAt === record.createdAt
-              ),
+          const withoutRecord = state.moderationPermissions.filter((perm) =>
+            record.uri
+              ? perm.uri !== record.uri
+              : !(
+                  perm.moderator === record.moderator &&
+                  perm.createdAt === record.createdAt
+                ),
           );
           state = {
             ...state,

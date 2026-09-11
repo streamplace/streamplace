@@ -36,6 +36,10 @@ function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
 
 const MODERATOR_DID = "did:plc:mod";
 const OTHER_MODERATOR_DID = "did:plc:othermod";
+const PERMISSION_URI =
+  "at://did:plc:streamer/place.stream.moderation.permission/3kq";
+const OTHER_PERMISSION_URI =
+  "at://did:plc:streamer/place.stream.moderation.permission/3kz";
 
 function permissionRecord(overrides: Record<string, unknown> = {}) {
   return {
@@ -43,6 +47,7 @@ function permissionRecord(overrides: Record<string, unknown> = {}) {
     moderator: MODERATOR_DID,
     permissions: ["ban", "hide"],
     createdAt: "2024-01-01T00:00:00.000Z",
+    uri: PERMISSION_URI,
     ...overrides,
   };
 }
@@ -50,10 +55,19 @@ function permissionRecord(overrides: Record<string, unknown> = {}) {
 function permissionView(record = permissionRecord()) {
   return {
     $type: "place.stream.moderation.defs#permissionView",
-    uri: "at://did:plc:streamer/place.stream.moderation.permission/3kq",
+    uri: PERMISSION_URI,
     cid: "bafytest",
     author: { did: "did:plc:streamer", handle: "streamer.bsky.social" },
     record,
+  };
+}
+
+function deletedPermission(overrides: Record<string, unknown> = {}) {
+  return {
+    $type: "place.stream.moderation.permission",
+    deleted: true,
+    uri: PERMISSION_URI,
+    ...overrides,
   };
 }
 
@@ -67,6 +81,7 @@ describe("handleWebSocketMessages: moderation permission views", () => {
       "ban",
       "hide",
     ]);
+    expect(result.moderationPermissions[0].uri).toBe(PERMISSION_URI);
   });
 
   it("replaces the record fetched earlier for the same moderator and createdAt", () => {
@@ -83,7 +98,10 @@ describe("handleWebSocketMessages: moderation permission views", () => {
   it("keeps records belonging to other moderators", () => {
     const state = makeState({
       moderationPermissions: [
-        permissionRecord({ moderator: OTHER_MODERATOR_DID }) as any,
+        permissionRecord({
+          moderator: OTHER_MODERATOR_DID,
+          uri: OTHER_PERMISSION_URI,
+        }) as any,
       ],
     });
     const result = handleWebSocketMessages(state, [permissionView()]);
@@ -97,11 +115,64 @@ describe("handleWebSocketMessages: moderation permission views", () => {
   it("treats records with a different createdAt as separate delegations", () => {
     const state = makeState({
       moderationPermissions: [
-        permissionRecord({ createdAt: "2023-06-01T00:00:00.000Z" }) as any,
+        permissionRecord({
+          createdAt: "2023-06-01T00:00:00.000Z",
+          uri: OTHER_PERMISSION_URI,
+        }) as any,
       ],
     });
     const result = handleWebSocketMessages(state, [permissionView()]);
     expect(result.moderationPermissions).toHaveLength(2);
+  });
+
+  it("replaces an updated permission view for the same URI", () => {
+    const state = makeState({
+      moderationPermissions: [
+        permissionRecord({ permissions: ["ban"] }) as any,
+      ],
+    });
+    const result = handleWebSocketMessages(state, [
+      permissionView(
+        permissionRecord({
+          permissions: ["hide"],
+          createdAt: "2024-01-02T00:00:00.000Z",
+        }),
+      ),
+    ]);
+
+    expect(result.moderationPermissions).toHaveLength(1);
+    expect(result.moderationPermissions[0].permissions).toEqual(["hide"]);
+  });
+
+  it("removes only the permission named by a deletion event", () => {
+    const state = makeState({
+      moderationPermissions: [
+        permissionRecord() as any,
+        permissionRecord({
+          moderator: OTHER_MODERATOR_DID,
+          uri: OTHER_PERMISSION_URI,
+        }) as any,
+      ],
+    });
+    const result = handleWebSocketMessages(state, [deletedPermission()]);
+
+    expect(result.moderationPermissions).toHaveLength(1);
+    expect(result.moderationPermissions[0].moderator).toBe(OTHER_MODERATOR_DID);
+  });
+
+  it("supports the server deletion marker identified by streamer and rkey", () => {
+    const state = makeState({
+      moderationPermissions: [permissionRecord() as any],
+    });
+    const result = handleWebSocketMessages(state, [
+      deletedPermission({
+        uri: undefined,
+        streamer: "did:plc:streamer",
+        rkey: "3kq",
+      }),
+    ]);
+
+    expect(result.moderationPermissions).toEqual([]);
   });
 
   it("leaves moderationPermissions alone for unrelated messages", () => {

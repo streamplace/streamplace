@@ -1,3 +1,7 @@
+import {
+  handleWebSocketMessages,
+  makeLivestreamStore,
+} from "@streamplace/core";
 import { describe, expect, it } from "vitest";
 import {
   moderationPermissionsFor,
@@ -29,6 +33,12 @@ describe("permissionRecordsFromListRecords", () => {
     ]);
     expect(records).toHaveLength(1);
     expect(records[0].moderator).toBe(MODERATOR);
+    expect(records[0].uri).toBeUndefined();
+
+    const recordsWithURI = permissionRecordsFromListRecords([
+      { value: permissionRecord(), uri: "at://streamer/permission/3kq" },
+    ]);
+    expect(recordsWithURI[0].uri).toBe("at://streamer/permission/3kq");
   });
 });
 
@@ -120,5 +130,47 @@ describe("moderationPermissionsFor", () => {
     ] as ModerationPermissionRecord[];
     const perms = moderationPermissionsFor(records, MODERATOR, STREAMER);
     expect(perms.canBan).toBe(true);
+  });
+
+  it("removes a moderator's controls when the websocket revokes their permission", () => {
+    const store = makeLivestreamStore();
+    const permission = permissionRecord({
+      permissions: ["ban", "hide", "message.pin", "livestream.manage"],
+      uri: "at://did:plc:streamer/place.stream.moderation.permission/3kq",
+    }) as ModerationPermissionRecord;
+    store.setState({ moderationPermissions: [permission] });
+
+    expect(
+      moderationPermissionsFor(
+        store.getState().moderationPermissions,
+        MODERATOR,
+        STREAMER,
+      ).canBan,
+    ).toBe(true);
+
+    store.setState((state) =>
+      handleWebSocketMessages(state, [
+        {
+          $type: "place.stream.moderation.permission",
+          deleted: true,
+          uri: permission.uri,
+        },
+      ]),
+    );
+
+    expect(store.getState().moderationPermissions).toEqual([]);
+    expect(
+      moderationPermissionsFor(
+        store.getState().moderationPermissions,
+        MODERATOR,
+        STREAMER,
+      ),
+    ).toMatchObject({
+      canBan: false,
+      canHide: false,
+      canPin: false,
+      canManageLivestream: false,
+      isOwner: false,
+    });
   });
 });

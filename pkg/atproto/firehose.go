@@ -777,12 +777,13 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 				err := atsync.Model.DeleteModerationDelegation(ctx, rkey.String())
 				if err != nil {
 					log.Error(ctx, "failed to delete moderation delegation", "err", err)
+					continue
 				}
 				// Publish deletion to WebSocket bus for real-time updates
-				// Create a deleted record marker to notify frontend
 				deletedRecord := map[string]any{
-					"$type":    "place.stream.moderation.permission",
+					"$type":    constants.PLACE_STREAM_MODERATION_PERMISSION,
 					"deleted":  true,
+					"uri":      uri,
 					"rkey":     rkey.String(),
 					"streamer": evt.Repo,
 				}

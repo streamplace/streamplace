@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
+	"stream.place/streamplace/pkg/branding"
 	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -158,19 +160,47 @@ func (s *Server) handlePlaceStreamAccessGetStatus(ctx context.Context, subject s
 	if s.ATSync != nil {
 		locked := s.ATSync.ChatVerifiedOnly(ctx)
 		out.ChatVerifiedOnly = &locked
-		if did != "" {
-			verified := s.ATSync.IsVerified(ctx, did)
-			out.ChatVerified = &verified
-		} else if strings.HasPrefix(subject, "did:") {
+		who := did
+		if who == "" && strings.HasPrefix(subject, "did:") {
 			// A client holding a session this node can't attribute (one
 			// inherited from the network's app) still needs to know whether
 			// its user may chat; verification is public, so answer for the
 			// DID it names.
-			verified := s.ATSync.IsVerified(ctx, subject)
+			who = subject
+		}
+		if who != "" {
+			verified := s.ATSync.IsVerified(ctx, who)
 			out.ChatVerified = &verified
+			if member, ok := s.networkMember(ctx, who); ok {
+				out.NetworkMember = &member
+			}
 		}
 	}
 	return out, nil
+}
+
+// networkMember reports whether did's account is hosted on the network's
+// own PDS (branding key loginPdsUrl), so the composer can tell "not
+// verified yet" from "not one of us at all". ok is false when the node has
+// no network PDS configured or the account can't be resolved.
+func (s *Server) networkMember(ctx context.Context, did string) (member bool, ok bool) {
+	pdsURL := branding.Text(s.statefulDB, s.cli.BroadcasterHost, "loginPdsUrl")
+	if pdsURL == "" {
+		return false, false
+	}
+	want, err := url.Parse(pdsURL)
+	if err != nil || want.Host == "" {
+		return false, false
+	}
+	repo, err := s.ATSync.SyncBlueskyRepoCached(ctx, did)
+	if err != nil || repo == nil || repo.PDS == "" {
+		return false, false
+	}
+	have, err := url.Parse(repo.PDS)
+	if err != nil {
+		return false, false
+	}
+	return strings.EqualFold(have.Host, want.Host), true
 }
 
 func (s *Server) handlePlaceStreamAccessListGrants(ctx context.Context, role string) (*placestream.AccessListGrants_Output, error) {

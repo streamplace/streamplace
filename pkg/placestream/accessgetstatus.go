@@ -19,8 +19,10 @@ type AccessGetStatus_Output struct {
 	// chatVerifiedOnly: Whether chat is restricted to users verified by the node's trusted verifiers (branding key chatVerifiedOnly).
 	ChatVerifiedOnly *bool `json:"chatVerifiedOnly,omitempty"`
 	// did: The authenticated caller, when there is one.
-	Did    *string               `json:"did,omitempty"`
-	Policy AccessDefs_PolicyView `json:"policy"`
+	Did *string `json:"did,omitempty"`
+	// networkMember: Whether the caller's (or subject's) account is hosted on the network's own PDS (branding key loginPdsUrl). Absent when the node has no such PDS configured.
+	NetworkMember *bool                 `json:"networkMember,omitempty"`
+	Policy        AccessDefs_PolicyView `json:"policy"`
 	// roles: Every role the caller effectively holds.
 	Roles []string `json:"roles"`
 	// space: The node's access-control space: at://{authority}/space/place.stream.access.control/self (A space URI; not validated as a classic at-uri because the space form is newer than that grammar.)

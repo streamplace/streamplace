@@ -718,8 +718,19 @@ function CardChatPanel({
   const openLoginModal = useStore((state) => state.openLoginModal);
   const emojiData = useEmojiData();
   const customEmoji: any[] = [];
-  const verifiedOnly = !!useAccessStatus()?.chatVerifiedOnly;
+  const access = useAccessStatus();
+  const verifiedOnly = !!access?.chatVerifiedOnly;
   const lockedOut = useChatLockedOut();
+  // Locked out and not even on the network: a different message and link
+  // (apply for an account) than "verify your account".
+  const nonMember = lockedOut && access?.networkMember === false;
+  const nonMemberMessage =
+    useBrandingAsset("chatNonMemberMessage")?.data?.trim() ||
+    "Only members can write messages.";
+  const applyUrl = useBrandingAsset("networkApplyUrl")?.data?.trim();
+  const applyLinkLabel =
+    useBrandingAsset("applyLinkLabel")?.data?.trim() || "Apply for access";
+  const openExternalLink = useOpenExternal();
   const verifyUrl = useBrandingAsset("verifyUrl")?.data?.trim();
   const verifiedOnlyMessage =
     useBrandingAsset("chatVerifiedOnlyMessage")?.data?.trim() ||
@@ -746,7 +757,16 @@ function CardChatPanel({
       <View style={{ flex: 1, minHeight: 0 }}>
         <Chat hideSystemMessages />
       </View>
-      {agent?.did && lockedOut ? (
+      {agent?.did && nonMember ? (
+        <>
+          <ComposerPlaceholder />
+          <ComposerNotice
+            text={nonMemberMessage}
+            linkLabel={applyUrl ? applyLinkLabel : undefined}
+            onPress={applyUrl ? () => openExternalLink(applyUrl) : undefined}
+          />
+        </>
+      ) : agent?.did && lockedOut ? (
         <>
           <ComposerPlaceholder />
           <ComposerNotice

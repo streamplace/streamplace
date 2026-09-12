@@ -253,6 +253,7 @@
   "branding-labeler-description": "Or a labeler and the label values that mean verified on your network: the labeler's DID, then the labels, comma-separated, with a trailing * for a prefix (e.g. verified-*). Accounts carrying one of those labels count as verified here, next to any verifiers above.",
   "branding-verify-url-description": "Where a signed-in but unverified user goes to get verified: the \"Verify now\" link under the composer when chat is verified-only. Unset shows no link.",
   "branding-verified-only-message-description": "What the composer says when chat is verified-only and the viewer can't write, and the label of the verify link beside it. Signed-out viewers get a sign-in link instead.",
+  "branding-non-member-description": "For a signed-in viewer whose account isn't on your network's PDS (the login PDS above): the message, the page where they can apply for an account, and the link's label.",
   "branding-chat-verified-only-description": "Restrict chat to users verified by those verifiers. Others see a notice instead of the composer and their messages are not shown.",
   "branding-chat-verified-only-off": "Anyone can chat",
   "branding-chat-verified-only-on": "Verified only",

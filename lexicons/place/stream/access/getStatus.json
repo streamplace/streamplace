@@ -49,6 +49,10 @@
             "chatVerified": {
               "type": "boolean",
               "description": "Whether the authenticated caller is verified by one of the node's trusted verifiers."
+            },
+            "networkMember": {
+              "type": "boolean",
+              "description": "Whether the caller's (or subject's) account is hosted on the network's own PDS (branding key loginPdsUrl). Absent when the node has no such PDS configured."
             }
           }
         }

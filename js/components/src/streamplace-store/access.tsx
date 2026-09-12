@@ -17,6 +17,9 @@ export interface AccessStatus {
   chatVerifiedOnly?: boolean;
   /** The caller is one of them. */
   chatVerified?: boolean;
+  /** Whether the account lives on the network's own PDS; undefined when
+   *  the node has no network PDS configured. */
+  networkMember?: boolean;
 }
 
 // What we assume when the node predates access control (the method doesn't
@@ -75,6 +78,7 @@ export function useFetchAccessStatus() {
           policy,
           chatVerifiedOnly: res.chatVerifiedOnly ?? false,
           chatVerified: res.chatVerified ?? false,
+          networkMember: res.networkMember ?? undefined,
         },
         accessStatusLoaded: true,
         accessStatusError: null,

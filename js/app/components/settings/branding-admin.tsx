@@ -310,6 +310,9 @@ export function BrandingAdmin() {
         case "verifyUrl":
         case "chatVerifiedOnlyMessage":
         case "verifyLinkLabel":
+        case "chatNonMemberMessage":
+        case "networkApplyUrl":
+        case "applyLinkLabel":
         case "chatVerifiedOnly":
         case "loginPlaceholder":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
@@ -1073,6 +1076,99 @@ export function BrandingAdmin() {
                           uploading ||
                           (!brandingValue("chatVerifiedOnlyMessage") &&
                             !brandingValue("verifyLinkLabel"))
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-non-member-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 2 }}>
+                        <Input
+                          placeholder="Only members can write messages."
+                          value={
+                            chromeInputs["chatNonMemberMessage"] ??
+                            brandingValue("chatNonMemberMessage")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              chatNonMemberMessage: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <View style={{ flex: 2 }}>
+                        <Input
+                          placeholder="https://example.com/apply"
+                          value={
+                            chromeInputs["networkApplyUrl"] ??
+                            brandingValue("networkApplyUrl")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              networkApplyUrl: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="Apply for access"
+                          value={
+                            chromeInputs["applyLinkLabel"] ??
+                            brandingValue("applyLinkLabel")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              applyLinkLabel: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={async () => {
+                          for (const k of [
+                            "chatNonMemberMessage",
+                            "networkApplyUrl",
+                            "applyLinkLabel",
+                          ]) {
+                            const v = (
+                              chromeInputs[k] ?? brandingValue(k)
+                            ).trim();
+                            if (v) await uploadText(k, v);
+                          }
+                        }}
+                        disabled={uploading}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={async () => {
+                          for (const k of [
+                            "chatNonMemberMessage",
+                            "networkApplyUrl",
+                            "applyLinkLabel",
+                          ]) {
+                            if (brandingValue(k)) await deleteBlob(k);
+                          }
+                        }}
+                        disabled={
+                          uploading ||
+                          (!brandingValue("chatNonMemberMessage") &&
+                            !brandingValue("networkApplyUrl") &&
+                            !brandingValue("applyLinkLabel"))
                         }
                         width="min"
                         style={{ height: 42 }}

@@ -159,12 +159,26 @@ export function ContextMenu({
                   <DropdownMenuRadioItem value="source">
                     <Text>Source {resolutionDisplay}</Text>
                   </DropdownMenuRadioItem>
-                  {qualities.map((r) => (
-                    <DropdownMenuRadioItem key={r.name} value={r.name}>
-                      <Text>{r.name === "audio" ? "Audio Only" : r.name}</Text>
-                    </DropdownMenuRadioItem>
-                  ))}
+                  {qualities
+                    .filter((r) => r.name !== "audio")
+                    .map((r) => (
+                      <DropdownMenuRadioItem key={r.name} value={r.name}>
+                        <Text>{r.name}</Text>
+                      </DropdownMenuRadioItem>
+                    ))}
                 </DropdownMenuRadioGroup>
+                {qualities.some((r) => r.name === "audio") && (
+                  // A checkbox rather than a radio entry: choosing it again
+                  // turns audio-only back off and returns to the source.
+                  <DropdownMenuCheckboxItem
+                    checked={quality === "audio"}
+                    onCheckedChange={() =>
+                      setQuality(quality === "audio" ? "source" : "audio")
+                    }
+                  >
+                    <Text>Audio Only</Text>
+                  </DropdownMenuCheckboxItem>
+                )}
               </DropdownMenuGroup>
               {mode !== "vod" && (
                 <>

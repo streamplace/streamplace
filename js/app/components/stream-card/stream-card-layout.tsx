@@ -37,16 +37,31 @@ import {
 import { MessageIcon } from "components/sidebar/social-icons";
 import { FullscreenProvider } from "contexts/FullscreenContext";
 import { usePhoneMenu } from "hooks/useSidebarControl";
-import { ArrowLeft, Eye, Pin, Share2, X } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  Pin,
+  Share2,
+  X,
+} from "lucide-react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Linking,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
   useWindowDimensions,
   type LayoutChangeEvent,
 } from "react-native";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { useStore } from "store";
 import { useEmojiData } from "utils/emoji";
 import { chatWidthFor, FEED_WIDTH } from "./widths";
@@ -519,7 +534,16 @@ function PostCard({
 
 // The pinned message: a filled card one surface step above its container
 // (the design's #1d2433 on the page, #272f43 inside the phone chat sheet).
-function PinnedCard({ raised = false }: { raised?: boolean }) {
+// `collapsible` is the phone sheet's variant: no avatar, and a chevron that
+// folds it to one row ("Pinned by …" and a line of text); tapping the folded
+// row opens it again. Open by default.
+function PinnedCard({
+  raised = false,
+  collapsible = false,
+}: {
+  raised?: boolean;
+  collapsible?: boolean;
+}) {
   const { theme } = useTheme();
   const toast = useToast();
   const pinned = useLivestreamStore((x) => x.pinnedComment);
@@ -533,6 +557,7 @@ function PinnedCard({ raised = false }: { raised?: boolean }) {
   // The streamer and moderators with the pin permission can take it down.
   const canUnpin = !!useCanModerate(streamerDID ?? "")?.canPin;
   const unpin = useUnpinChatMessage();
+  const [open, setOpen] = useState(true);
   const onUnpin = async () => {
     if (!pinned?.uri || !streamerDID) return;
     try {
@@ -552,6 +577,126 @@ function PinnedCard({ raised = false }: { raised?: boolean }) {
   const handle: string = author.handle ? `@${author.handle}` : "";
   const text: string = message.record?.text ?? "";
   const facets = message.record?.facets ?? [];
+  const age = message.record?.createdAt
+    ? relativeAge(message.record.createdAt)
+    : "";
+  const folded = collapsible && !open;
+
+  const unpinButton = canUnpin ? (
+    <Pressable
+      onPress={onUnpin}
+      accessibilityRole="button"
+      accessibilityLabel="Unpin message"
+      hitSlop={8}
+      style={({ hovered }: any) => ({
+        width: 24,
+        height: 24,
+        borderRadius: 999,
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: hovered ? 1 : 0.7,
+      })}
+    >
+      <X size={14} color={theme.colors.text2} />
+    </Pressable>
+  ) : null;
+
+  const nameLine = (
+    <Text numberOfLines={1} style={{ fontSize: 15, lineHeight: 23 }}>
+      <Text weight="semibold" style={{ fontSize: 15 }}>
+        {name}
+      </Text>
+      <VerifiedBadge author={author} profile={profile} size={14} />
+      {handle && name !== author.handle ? (
+        <Text style={{ fontSize: 15, color: theme.colors.text2 }}>
+          {"  " + handle}
+        </Text>
+      ) : null}
+      {age ? (
+        <Text style={{ fontSize: 15, color: theme.colors.text2 }}>
+          {" · " + age}
+        </Text>
+      ) : null}
+    </Text>
+  );
+
+  if (collapsible) {
+    return (
+      <Pressable
+        onPress={folded ? () => setOpen(true) : undefined}
+        disabled={!folded}
+        accessibilityRole={folded ? "button" : undefined}
+        accessibilityLabel={folded ? "Open pinned message" : undefined}
+        style={{
+          backgroundColor: raised
+            ? theme.colors.surface2
+            : theme.colors.surface1,
+          borderRadius: 12,
+          overflow: "hidden",
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 4,
+            paddingLeft: 8,
+            paddingRight: 8,
+            paddingTop: 8,
+          }}
+        >
+          <Pin size={16} color={theme.colors.text3} />
+          <Text
+            weight="medium"
+            numberOfLines={1}
+            style={{
+              flex: 1,
+              fontSize: 13,
+              lineHeight: 17,
+              color: theme.colors.text2,
+            }}
+          >
+            {folded
+              ? `Pinned by ${name}${handle ? " " + handle : ""}`
+              : "Pinned"}
+          </Text>
+          {unpinButton}
+          <Pressable
+            onPress={() => setOpen(!open)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              open ? "Collapse pinned message" : "Open pinned message"
+            }
+            hitSlop={8}
+            style={{
+              width: 24,
+              height: 24,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {open ? (
+              <ChevronUp size={18} color={theme.colors.text3} />
+            ) : (
+              <ChevronDown size={18} color={theme.colors.text3} />
+            )}
+          </Pressable>
+        </View>
+        <View
+          style={{ paddingHorizontal: 12, paddingTop: 4, paddingBottom: 8 }}
+        >
+          {!folded && nameLine}
+          <Text
+            numberOfLines={folded ? 1 : undefined}
+            style={{ fontSize: 15, lineHeight: 23 }}
+          >
+            <RichTextMessage text={text} facets={facets} />
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }
+
   return (
     <View
       style={{
@@ -582,46 +727,14 @@ function PinnedCard({ raised = false }: { raised?: boolean }) {
         >
           Pinned
         </Text>
-        {canUnpin && (
-          <Pressable
-            onPress={onUnpin}
-            accessibilityRole="button"
-            accessibilityLabel="Unpin message"
-            hitSlop={8}
-            style={({ hovered }: any) => ({
-              width: 24,
-              height: 24,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: hovered ? 1 : 0.7,
-            })}
-          >
-            <X size={14} color={theme.colors.text2} />
-          </Pressable>
-        )}
+        {unpinButton}
       </View>
       <View
         style={{ flexDirection: "row", gap: 12, padding: 12, paddingTop: 8 }}
       >
         <Avatar src={avatar} name={name} size={42} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text numberOfLines={1} style={{ fontSize: 15, lineHeight: 23 }}>
-            <Text weight="semibold" style={{ fontSize: 15 }}>
-              {name}
-            </Text>
-            <VerifiedBadge author={author} profile={profile} size={14} />
-            {handle && name !== author.handle ? (
-              <Text style={{ fontSize: 15, color: theme.colors.text2 }}>
-                {"  " + handle}
-              </Text>
-            ) : null}
-            {message.record?.createdAt ? (
-              <Text style={{ fontSize: 15, color: theme.colors.text2 }}>
-                {" · " + relativeAge(message.record.createdAt)}
-              </Text>
-            ) : null}
-          </Text>
+          {nameLine}
           <Text style={{ fontSize: 15, lineHeight: 23 }}>
             <RichTextMessage text={text} facets={facets} />
           </Text>
@@ -745,7 +858,7 @@ function CardChatPanel({
         height: fill ? undefined : 560,
         padding: bare ? 16 : 20,
         paddingTop: bare ? 0 : 20,
-        gap: 16,
+        gap: bare ? 12 : 16,
       }}
     >
       {!bare && (
@@ -753,7 +866,7 @@ function CardChatPanel({
           Live chat
         </Text>
       )}
-      <PinnedCard raised={raised} />
+      <PinnedCard raised={raised} collapsible={bare} />
       <View style={{ flex: 1, minHeight: 0 }}>
         <Chat hideSystemMessages />
       </View>
@@ -852,6 +965,12 @@ export function StreamCardLayout({
   const chatWidth = chatWidthFor(windowWidth);
   const twoColumn = contentWidth >= FEED_WIDTH + chatWidth + 1;
   const [chatOpen, setChatOpen] = useState(false);
+  const [videoHeight, setVideoHeight] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const openChat = () => {
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+    setChatOpen(true);
+  };
   // In the social shell the nav rail's own border is the feed's left edge.
   const socialShell = useSocialShell();
   // Tell the shell this page wants the feed + chat column while mounted
@@ -907,17 +1026,27 @@ export function StreamCardLayout({
       <View style={{ flex: 1, width: "100%", maxWidth: FEED_WIDTH }}>
         <CardHeader />
         <Hairline />
-        <PlayerEmbed
-          src={src}
-          extraProps={extraProps}
-          onTeleport={onTeleport}
-          rounded={false}
-        />
         <View style={{ flex: 1, minHeight: 0 }}>
+          {/* Everything scrolls, the video included, so small phones can
+              reach the chat; the sheet opens under the video, which is
+              scrolled back into view first. */}
           <ScrollView
+            ref={scrollRef}
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingBottom: 28 }}
           >
+            <View
+              onLayout={(e: LayoutChangeEvent) =>
+                setVideoHeight(e.nativeEvent.layout.height)
+              }
+            >
+              <PlayerEmbed
+                src={src}
+                extraProps={extraProps}
+                onTeleport={onTeleport}
+                rounded={false}
+              />
+            </View>
             <PostCard
               src={src}
               extraProps={extraProps}
@@ -925,30 +1054,76 @@ export function StreamCardLayout({
               phone
             />
             <Hairline />
-            <MiniChat onOpen={() => setChatOpen(true)} />
+            <MiniChat onOpen={openChat} />
           </ScrollView>
-          {chatOpen && <ChatSheet onClose={() => setChatOpen(false)} />}
+          <ChatSheet
+            open={chatOpen}
+            top={videoHeight}
+            onClose={() => setChatOpen(false)}
+          />
         </View>
       </View>
     </View>
   );
 }
 
-// The minimized chat on phones: a filled panel with the count and the last
-// two messages (avatar and text), or the composer when nothing has been said
-// yet. Tapping it opens the chat sheet.
+// The minimized chat on phones: a filled panel with the count, the pinned
+// message (two lines), the last four messages one line each — avatar and
+// text, links live — and a "Write a message…" link. Tapping anywhere opens
+// the chat sheet.
 function MiniChat({ onOpen }: { onOpen: () => void }) {
   const { theme } = useTheme();
   const chat = useLivestreamStore((x) => x.chat) ?? [];
+  const pinned = useLivestreamStore((x) => x.pinnedComment);
+  const pinnedMsg: any = pinned?.message;
   const recent = useMemo(
-    () => chat.filter((m: any) => m.author?.did !== "did:sys:system").slice(-2),
-    [chat],
+    () =>
+      chat
+        .filter(
+          (m: any) =>
+            m.author?.did !== "did:sys:system" && m.uri !== pinnedMsg?.uri,
+        )
+        .slice(-4),
+    [chat, pinnedMsg?.uri],
   );
   const dids = useMemo(
-    () => recent.map((m: any) => m.author?.did).filter(Boolean),
-    [recent],
+    () =>
+      [pinnedMsg, ...recent]
+        .map((m: any) => m?.author?.did)
+        .filter(Boolean) as string[],
+    [recent, pinnedMsg],
   );
   const profiles = useAvatars(dids);
+  const row = (m: any, lines: number) => {
+    const author = m.author ?? {};
+    const profile = profiles[author.did];
+    return (
+      <View
+        key={m.uri ?? m.cid}
+        style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}
+      >
+        <View style={{ paddingTop: 0 }}>
+          <Avatar
+            src={profile?.avatar || author.avatar}
+            name={author.displayName || author.handle}
+            size={24}
+          />
+        </View>
+        <Text
+          numberOfLines={lines}
+          style={{ flex: 1, fontSize: 15, lineHeight: 23 }}
+        >
+          <RichTextMessage
+            text={m.record?.text ?? ""}
+            facets={m.record?.facets ?? []}
+          />
+        </Text>
+      </View>
+    );
+  };
+  const count = chat.filter(
+    (m: any) => m.author?.did !== "did:sys:system",
+  ).length;
   return (
     <Pressable
       onPress={onOpen}
@@ -968,123 +1143,146 @@ function MiniChat({ onOpen }: { onOpen: () => void }) {
         <Text weight="semibold" style={{ fontSize: 15 }}>
           Live chat
         </Text>
-        {chat.length > 0 ? (
+        {count > 0 ? (
           <Text style={{ fontSize: 15, color: theme.colors.text2 }}>
-            {"  " + chat.length}
+            {"  " + count}
           </Text>
         ) : null}
       </Text>
-      {recent.length === 0 ? (
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 4,
-            height: 44,
-            paddingHorizontal: 12,
-            borderRadius: 10,
-            backgroundColor: theme.colors.background,
-          }}
-        >
-          <MessageIcon size={18} color={theme.colors.text3} />
-          <Text
-            style={{ fontSize: 15, color: theme.colors.text3, marginLeft: 4 }}
-          >
-            Write your message...
-          </Text>
-        </View>
-      ) : (
-        recent.map((m: any) => {
-          const author = m.author ?? {};
-          const profile = profiles[author.did];
-          return (
-            <View
-              key={m.uri ?? m.cid}
-              style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}
-            >
-              <View style={{ paddingTop: 2 }}>
-                <Avatar
-                  src={profile?.avatar || author.avatar}
-                  name={author.displayName || author.handle}
-                  size={24}
-                />
-              </View>
-              <Text
-                numberOfLines={2}
-                style={{ flex: 1, fontSize: 15, lineHeight: 23 }}
-              >
-                <RichTextMessage
-                  text={m.record?.text ?? ""}
-                  facets={m.record?.facets ?? []}
-                />
-              </Text>
-            </View>
-          );
-        })
-      )}
+      {pinnedMsg ? row(pinnedMsg, 2) : null}
+      {recent.map((m: any) => row(m, 1))}
+      <Text
+        onPress={onOpen}
+        style={{ fontSize: 15, lineHeight: 23, color: theme.colors.primary }}
+      >
+        Write a message...
+      </Text>
     </Pressable>
   );
 }
 
-// The maximized chat on phones: a sheet over the post details (the video
-// stays put above), with a grabber, the pinned message, the chat and the
-// composer.
-function ChatSheet({ onClose }: { onClose: () => void }) {
+// The maximized chat on phones: a sheet that slides up under the video
+// (fast, and out again), with a grabber that can be dragged down to close,
+// the pinned message, the chat and the composer.
+function ChatSheet({
+  open,
+  top,
+  onClose,
+}: {
+  open: boolean;
+  top: number;
+  onClose: () => void;
+}) {
   const { theme } = useTheme();
+  const [height, setHeight] = useState(0);
+  // Closed = translated fully below its box; open = 0.
+  const translateY = useSharedValue(1000);
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      translateY.value = withTiming(0, { duration: 180 });
+    } else {
+      translateY.value = withTiming(
+        height || 1000,
+        { duration: 150 },
+        (done) => {
+          if (done) runOnJS(setMounted)(false);
+        },
+      );
+    }
+  }, [open, height, translateY]);
+  // The grabber and header drag the sheet down; past a threshold (or a
+  // flick) it closes, else it springs back. The responder system rather
+  // than a gesture handler: it follows plain touch and mouse events on
+  // every platform.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dy) > 4 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_, g) => {
+        translateY.value = Math.max(0, g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 80 || g.vy > 0.6) {
+          onCloseRef.current();
+        } else {
+          translateY.value = withTiming(0, { duration: 120 });
+        }
+      },
+      onPanResponderTerminate: () => {
+        translateY.value = withTiming(0, { duration: 120 });
+      },
+    }),
+  ).current;
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+  if (!mounted) return null;
   return (
-    <View
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
-        backgroundColor: theme.colors.surface1,
-        paddingTop: 8,
-        overflow: "hidden",
-      }}
+    <Animated.View
+      onLayout={(e: LayoutChangeEvent) =>
+        setHeight(e.nativeEvent.layout.height)
+      }
+      style={[
+        {
+          position: "absolute",
+          top,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          backgroundColor: theme.colors.surface1,
+          paddingTop: 8,
+          overflow: "hidden",
+        },
+        style,
+      ]}
     >
-      <View style={{ alignItems: "center" }}>
+      <View {...pan.panHandlers}>
+        <View style={{ alignItems: "center", paddingVertical: 2 }}>
+          <View
+            style={{
+              width: 36,
+              height: 5,
+              borderRadius: 100,
+              backgroundColor: theme.colors.text1,
+            }}
+          />
+        </View>
         <View
           style={{
-            width: 36,
-            height: 5,
-            borderRadius: 100,
-            backgroundColor: theme.colors.text1,
-          }}
-        />
-      </View>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: 16,
-          height: 41,
-        }}
-      >
-        <Text weight="semibold" style={{ fontSize: 15, lineHeight: 23 }}>
-          Live chat
-        </Text>
-        <Pressable
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel="Close live chat"
-          style={{
-            width: 33,
-            height: 33,
-            borderRadius: 999,
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: theme.colors.surface2,
+            justifyContent: "space-between",
+            paddingHorizontal: 16,
+            height: 41,
           }}
         >
-          <X size={16} color={theme.colors.text1} />
-        </Pressable>
+          <Text weight="semibold" style={{ fontSize: 15, lineHeight: 23 }}>
+            Live chat
+          </Text>
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close live chat"
+            style={{
+              width: 33,
+              height: 33,
+              borderRadius: 999,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: theme.colors.surface2,
+            }}
+          >
+            <X size={16} color={theme.colors.text1} />
+          </Pressable>
+        </View>
       </View>
       <CardChatPanel fill raised bare />
-    </View>
+    </Animated.View>
   );
 }

@@ -281,7 +281,7 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
 };
 
 // Short relative age for the avatar layout: "now", "3m", "2h", "5d".
-function relativeAge(dateString: string): string {
+export function relativeAge(dateString: string): string {
   const diff = Date.now() - new Date(dateString).getTime();
   if (!Number.isFinite(diff) || diff < 45_000) return "now";
   const m = Math.round(diff / 60_000);
@@ -416,10 +416,12 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
                 {handle}
               </Text>
             ) : null}
+            {/* The time follows the handle (left-aligned with the rest),
+                and never shrinks. */}
+            <Text style={{ ...meta, marginLeft: 8, flexShrink: 0 }}>
+              {"· " + relativeAge(item.record.createdAt)}
+            </Text>
           </View>
-          <Text style={{ ...meta, marginLeft: 8, flexShrink: 0 }}>
-            {"· " + relativeAge(item.record.createdAt)}
-          </Text>
         </View>
         <Text style={{ fontSize: 15, lineHeight: 23 }}>
           <RichTextMessage

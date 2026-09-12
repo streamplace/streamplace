@@ -17,7 +17,10 @@ import {
   View,
   zero,
 } from "@streamplace/components";
-import { RichTextMessage } from "@streamplace/components/src/components/chat/chat-message";
+import {
+  relativeAge,
+  RichTextMessage,
+} from "@streamplace/components/src/components/chat/chat-message";
 import { VerifiedBadge } from "@streamplace/components/src/components/chat/verified-badge";
 import { useAvatars } from "@streamplace/components/src/hooks/useAvatars";
 import { useUnpinChatMessage } from "@streamplace/components/src/livestream-store/hooks";
@@ -613,6 +616,11 @@ function PinnedCard({ raised = false }: { raised?: boolean }) {
                 {"  " + handle}
               </Text>
             ) : null}
+            {message.record?.createdAt ? (
+              <Text style={{ fontSize: 15, color: theme.colors.text2 }}>
+                {" · " + relativeAge(message.record.createdAt)}
+              </Text>
+            ) : null}
           </Text>
           <Text style={{ fontSize: 15, lineHeight: 23 }}>
             <RichTextMessage text={text} facets={facets} />
@@ -736,7 +744,7 @@ function CardChatPanel({
       )}
       <PinnedCard raised={raised} />
       <View style={{ flex: 1, minHeight: 0 }}>
-        <Chat />
+        <Chat hideSystemMessages />
       </View>
       {agent?.did && lockedOut ? (
         <>
@@ -912,7 +920,10 @@ export function StreamCardLayout({
 function MiniChat({ onOpen }: { onOpen: () => void }) {
   const { theme } = useTheme();
   const chat = useLivestreamStore((x) => x.chat) ?? [];
-  const recent = useMemo(() => chat.slice(-2), [chat]);
+  const recent = useMemo(
+    () => chat.filter((m: any) => m.author?.did !== "did:sys:system").slice(-2),
+    [chat],
+  );
   const dids = useMemo(
     () => recent.map((m: any) => m.author?.did).filter(Boolean),
     [recent],

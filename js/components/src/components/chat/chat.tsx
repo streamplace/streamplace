@@ -274,12 +274,15 @@ export function Chat({
   style: propsStyle,
   reverse = false,
   hideAfter,
+  hideSystemMessages = false,
   ...props
 }: ComponentProps<typeof View> & {
   shownMessages?: number;
   style?: ComponentProps<typeof View>["style"];
   reverse?: boolean;
   hideAfter?: number;
+  /** Leave out the node's system notices ("now streaming" and the like). */
+  hideSystemMessages?: boolean;
 }) {
   const { theme } = useTheme();
   const chat = useChat();
@@ -289,10 +292,13 @@ export function Chat({
   // The store keeps chat oldest-first. An inverted FlatList renders index 0 at
   // the bottom, so feed it newest-first to keep the latest message at the
   // bottom (or at the top when reverse is set, where inverted is off).
-  const displayMessages = useMemo(
-    () => (chat ? chat.slice(-shownMessages).reverse() : []),
-    [chat, shownMessages],
-  );
+  const displayMessages = useMemo(() => {
+    if (!chat) return [];
+    const visible = hideSystemMessages
+      ? chat.filter((m) => m.author.did !== "did:sys:system")
+      : chat;
+    return visible.slice(-shownMessages).reverse();
+  }, [chat, shownMessages, hideSystemMessages]);
   const latestMessageTime = displayMessages[0]
     ? new Date(displayMessages[0].record.createdAt).getTime()
     : null;

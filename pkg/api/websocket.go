@@ -178,6 +178,17 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					"did":    repoDID,
 					"handle": profile.Handle,
 				}
+				// Display name and avatar from the indexed profile record, so
+				// the stream page names the streamer the way chat rows do
+				// without a trip to an app view.
+				if bp, err := a.Model.GetBskyProfile(ctx, repoDID, false); err == nil && bp != nil {
+					if bp.DisplayName != nil && *bp.DisplayName != "" {
+						p["displayName"] = *bp.DisplayName
+					}
+					if bp.Avatar != nil {
+						p["avatar"] = fmt.Sprintf("https://cdn.bsky.app/img/avatar/plain/%s/%s@jpeg", repoDID, bp.Avatar.Ref.String())
+					}
+				}
 				// The streamer's verified badge comes from the same place as
 				// chat authors'.
 				if state := a.ATSync.VerificationState(ctx, repoDID); state != nil {

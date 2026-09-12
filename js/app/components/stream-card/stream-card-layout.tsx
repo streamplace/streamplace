@@ -10,6 +10,7 @@ import {
   useBrandingAsset,
   useChatLockedOut,
   useLivestreamStore,
+  useNetworkProfileUrl,
   useSocialShell,
   useTheme,
   useToast,
@@ -26,7 +27,10 @@ import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { useStreamMeta } from "components/mobile/bottom-metadata";
 import { Player } from "components/mobile/player";
 import { PlayerProps } from "components/player/props";
-import { PhoneMenuButton } from "components/sidebar/sidebar-overlay";
+import {
+  PhoneMenuButton,
+  useOpenExternal,
+} from "components/sidebar/sidebar-overlay";
 import { MessageIcon } from "components/sidebar/social-icons";
 import { FullscreenProvider } from "contexts/FullscreenContext";
 import { usePhoneMenu } from "hooks/useSidebarControl";
@@ -316,10 +320,26 @@ function PostCard({
 }) {
   const { theme } = useTheme();
   const toast = useToast();
-  const { title, avatarUri, views, displayName, handleStr } = useStreamMeta();
-  // The node reports the streamer's verification on the profile it sends
-  // over the stream's websocket, the same way it does for chat authors.
+  const meta = useStreamMeta();
+  const { title, avatarUri, views, handleStr } = meta;
+  // The node reports the streamer's verification, display name and avatar
+  // on the profile it sends over the stream's websocket; the profile cache
+  // fills any gap the same way chat rows do.
   const streamer = useLivestreamStore((x) => x.profile);
+  const streamerDids = useMemo(
+    () => (streamer?.did ? [streamer.did] : []),
+    [streamer?.did],
+  );
+  const cached = useAvatars(streamerDids)[streamer?.did ?? ""];
+  const displayName =
+    meta.displayName || cached?.displayName?.trim() || undefined;
+  // The streamer row links to their profile on the network, like a chat
+  // row's name does.
+  const profileUrlFor = useNetworkProfileUrl();
+  const openExternal = useOpenExternal();
+  const profileUrl = streamer?.did
+    ? profileUrlFor({ handle: streamer.handle, did: streamer.did })
+    : undefined;
   // Liveness from the segments actually arriving (a fresh one in the last
   // ten seconds), not the player's mode; no segment at all means offline.
   const segment = useLivestreamStore((x) => x.segment);
@@ -351,9 +371,33 @@ function PostCard({
   };
 
   return (
-    <View style={{ padding: 16, gap: 0 }}>
-      {/* streamer row */}
-      <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+    <View style={{ padding: 16, paddingBottom: 0, gap: 0 }}>
+      {/* the embed is the player, first (the design's video-first card) */}
+      {!phone && (
+        <View style={{ marginBottom: 8 }}>
+          <PlayerEmbed
+            src={src}
+            extraProps={extraProps}
+            onTeleport={onTeleport}
+          />
+        </View>
+      )}
+
+      {/* streamer row, linking to the profile on the network */}
+      <Pressable
+        onPress={profileUrl ? () => openExternal(profileUrl) : undefined}
+        disabled={!profileUrl}
+        accessibilityRole={profileUrl ? "link" : undefined}
+        // @ts-ignore renders as <a> on web
+        href={profileUrl}
+        style={({ hovered }: any) => ({
+          flexDirection: "row",
+          gap: 12,
+          alignItems: "center",
+          paddingBottom: 12,
+          opacity: hovered ? 0.85 : 1,
+        })}
+      >
         <Avatar src={avatarUri} name={name} size={42} live={isLive} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -379,28 +423,19 @@ function PostCard({
             </Text>
           ) : null}
         </View>
-      </View>
+      </Pressable>
 
-      {/* the embed is the player; the post text sits under it so a long
-          title doesn't push the video down */}
-      {!phone && (
-        <View style={{ marginTop: 12 }}>
-          <PlayerEmbed
-            src={src}
-            extraProps={extraProps}
-            onTeleport={onTeleport}
-          />
-        </View>
-      )}
+      {/* the post text under the player, then a hairline, the engagement
+          row and the date, each a step tighter than before */}
       {title ? (
         <Text
           numberOfLines={compact ? 2 : undefined}
-          style={{ fontSize: 17, lineHeight: 22, marginTop: 12 }}
+          style={{ fontSize: 17, lineHeight: 22, paddingBottom: 8 }}
         >
           {title}
         </Text>
       ) : null}
-      {phone && <Hairline />}
+      <Hairline />
 
       {/* engagement row */}
       {!compact && (
@@ -409,8 +444,8 @@ function PostCard({
             flexDirection: "row",
             alignItems: "center",
             gap: 16,
-            paddingVertical: 12,
-            marginTop: 8,
+            paddingTop: 8,
+            paddingBottom: 2,
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
@@ -466,12 +501,15 @@ function PostCard({
             fontSize: 13,
             lineHeight: 17,
             color: theme.colors.text2,
-            paddingVertical: 12,
+            paddingTop: 10,
+            paddingBottom: 12,
           }}
         >
           {postDate}
         </Text>
-      ) : null}
+      ) : (
+        <View style={{ height: 12 }} />
+      )}
     </View>
   );
 }

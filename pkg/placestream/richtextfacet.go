@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/bluesky-social/indigo/atproto/atdata"
 	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	appbsky "stream.place/streamplace/pkg/appbsky"
@@ -77,18 +76,10 @@ func (t RichtextFacet_Features_Elem) MarshalJSON() ([]byte, error) {
 		return json.Marshal(&cp)
 	}
 	if t.Raw != nil {
-		switch t.Raw.Encoding {
-		case "json":
-			return t.Raw.Bytes, nil
-		case "cbor":
-			value, err := atdata.UnmarshalCBOR(t.Raw.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("cannot decode raw cbor record as JSON in union RichtextFacet_Features_Elem: %w", err)
-			}
-			return json.Marshal(value)
-		default:
+		if t.Raw.Encoding != "json" {
 			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union RichtextFacet_Features_Elem", t.Raw.Encoding)
 		}
+		return t.Raw.Bytes, nil
 	}
 	return nil, fmt.Errorf("cannot marshal empty union RichtextFacet_Features_Elem as JSON")
 }

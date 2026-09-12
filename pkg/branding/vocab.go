@@ -87,6 +87,8 @@ var Specs = []Spec{
 	{Key: "labelerDid", Kind: KindText, MaxSize: textMax, Doc: "A labeler whose account labels mark users as verified here (see verifiedLabels): did:plc:..."},
 	{Key: "verifiedLabels", Kind: KindText, MaxSize: textMax, Doc: "Label values from labelerDid that count as verified, comma-separated; a trailing * matches a prefix: \"wsocial-*\" or \"verified,org\"."},
 	{Key: "verifyUrl", Kind: KindText, MaxSize: textMax, Doc: "Where a signed-in but unverified user goes to get verified (the composer's \"Verify now\" link); unset shows no link."},
+	{Key: "chatVerifiedOnlyMessage", Kind: KindText, MaxSize: textMax, Doc: "The line under the composer when chat is verified-only and the viewer can't write: signed out it is followed by a sign-in link, signed in but unverified by the verifyUrl link. Default \"Verified users can write messages.\""},
+	{Key: "verifyLinkLabel", Kind: KindText, MaxSize: textMax, Doc: "Label of the verifyUrl link under the composer. Default \"Verify now\"."},
 	{Key: "chatVerifiedOnly", Kind: KindEnum, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "Only users verified by one of verifierDids may chat (their messages are the only ones shown)."},
 	{Key: "chatBadges", Kind: KindEnum, Enum: []string{"all", "custom", "none"}, MaxSize: textMax, Doc: "Badges beside chat names: all, only badges issued by badge definitions (no built-in streamer / moderator / bot marks), or none."},
 	{Key: "chatNameColors", Kind: KindEnum, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "Whether chat shows display names in each user's chosen color (on) or the default text color (off)."},

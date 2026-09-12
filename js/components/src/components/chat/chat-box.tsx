@@ -2,7 +2,7 @@ import Graphemer from "graphemer";
 import { AtSignIcon, ExternalLink, X } from "lucide-react-native";
 import { env } from "process";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, TextInput } from "react-native";
+import { Linking, Platform, Pressable, TextInput } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { Button, Loader, Text, toast, useTheme, View } from "../../";
 import { handleSlashCommand } from "../../lib/slash-commands";
@@ -39,7 +39,10 @@ import {
 } from "../../livestream-store";
 import { useDID, usePDSAgent } from "../../streamplace-store";
 import { useChatLockedOut } from "../../streamplace-store/access";
-import { useNetworkName } from "../../streamplace-store/branding";
+import {
+  useBrandingAsset,
+  useNetworkName,
+} from "../../streamplace-store/branding";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
 import {
@@ -92,6 +95,12 @@ export function ChatBox({
 }) {
   const lockedOut = useChatLockedOut();
   const networkName = useNetworkName();
+  const verifyUrl = useBrandingAsset("verifyUrl")?.data?.trim();
+  const verifiedOnlyMessage =
+    useBrandingAsset("chatVerifiedOnlyMessage")?.data?.trim() ||
+    `Only verified ${networkName} accounts can chat.`;
+  const verifyLinkLabel =
+    useBrandingAsset("verifyLinkLabel")?.data?.trim() || "Verify now";
   const [submitting, setSubmitting] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const message = useChatDraft();
@@ -421,7 +430,19 @@ export function ChatBox({
         ]}
       >
         <Text size="sm" color="muted" center>
-          Only verified {networkName} accounts can chat.
+          {verifiedOnlyMessage}
+          {verifyUrl ? (
+            <>
+              {" "}
+              <Text
+                size="sm"
+                color="primary"
+                onPress={() => Linking.openURL(verifyUrl)}
+              >
+                {verifyLinkLabel}
+              </Text>
+            </>
+          ) : null}
         </Text>
       </View>
     );

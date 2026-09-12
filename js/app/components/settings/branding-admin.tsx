@@ -308,6 +308,8 @@ export function BrandingAdmin() {
         case "labelerDid":
         case "verifiedLabels":
         case "verifyUrl":
+        case "chatVerifiedOnlyMessage":
+        case "verifyLinkLabel":
         case "chatVerifiedOnly":
         case "loginPlaceholder":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
@@ -989,6 +991,89 @@ export function BrandingAdmin() {
                         variant="secondary"
                         onPress={() => deleteBlob("verifyUrl")}
                         disabled={uploading || !brandingValue("verifyUrl")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-verified-only-message-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 2 }}>
+                        <Input
+                          placeholder="Verified users can write messages."
+                          value={
+                            chromeInputs["chatVerifiedOnlyMessage"] ??
+                            brandingValue("chatVerifiedOnlyMessage")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              chatVerifiedOnlyMessage: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="Verify now"
+                          value={
+                            chromeInputs["verifyLinkLabel"] ??
+                            brandingValue("verifyLinkLabel")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              verifyLinkLabel: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={async () => {
+                          const msg = (
+                            chromeInputs["chatVerifiedOnlyMessage"] ??
+                            brandingValue("chatVerifiedOnlyMessage")
+                          ).trim();
+                          const label = (
+                            chromeInputs["verifyLinkLabel"] ??
+                            brandingValue("verifyLinkLabel")
+                          ).trim();
+                          if (msg)
+                            await uploadText("chatVerifiedOnlyMessage", msg);
+                          if (label) await uploadText("verifyLinkLabel", label);
+                        }}
+                        disabled={
+                          uploading ||
+                          (!(
+                            chromeInputs["chatVerifiedOnlyMessage"] ??
+                            brandingValue("chatVerifiedOnlyMessage")
+                          ).trim() &&
+                            !(
+                              chromeInputs["verifyLinkLabel"] ??
+                              brandingValue("verifyLinkLabel")
+                            ).trim())
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={async () => {
+                          await deleteBlob("chatVerifiedOnlyMessage");
+                          await deleteBlob("verifyLinkLabel");
+                        }}
+                        disabled={
+                          uploading ||
+                          (!brandingValue("chatVerifiedOnlyMessage") &&
+                            !brandingValue("verifyLinkLabel"))
+                        }
                         width="min"
                         style={{ height: 42 }}
                       >

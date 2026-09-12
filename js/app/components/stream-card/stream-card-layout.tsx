@@ -675,6 +675,11 @@ function CardChatPanel({
   const verifiedOnly = !!useAccessStatus()?.chatVerifiedOnly;
   const lockedOut = useChatLockedOut();
   const verifyUrl = useBrandingAsset("verifyUrl")?.data?.trim();
+  const verifiedOnlyMessage =
+    useBrandingAsset("chatVerifiedOnlyMessage")?.data?.trim() ||
+    "Verified users can write messages.";
+  const verifyLinkLabel =
+    useBrandingAsset("verifyLinkLabel")?.data?.trim() || "Verify now";
 
   return (
     <View
@@ -699,8 +704,8 @@ function CardChatPanel({
         <>
           <ComposerPlaceholder />
           <ComposerNotice
-            text="Verified users can write messages."
-            linkLabel={verifyUrl ? "Verify now" : undefined}
+            text={verifiedOnlyMessage}
+            linkLabel={verifyUrl ? verifyLinkLabel : undefined}
             onPress={verifyUrl ? () => Linking.openURL(verifyUrl) : undefined}
           />
         </>
@@ -749,9 +754,7 @@ function CardChatPanel({
           <ComposerPlaceholder onPress={() => openLoginModal()} />
           <ComposerNotice
             text={
-              verifiedOnly
-                ? "Verified users can write messages."
-                : "Sign in to write messages."
+              verifiedOnly ? verifiedOnlyMessage : "Sign in to write messages."
             }
             linkLabel="Sign in"
             onPress={() => openLoginModal()}

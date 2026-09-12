@@ -2,6 +2,8 @@ package atproto
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -24,7 +26,14 @@ import (
 
 const labelPollInterval = time.Minute
 
-func labelCursorKey(labeler string) string { return "labels-cursor:" + labeler }
+// labelCursorKey is the statedb config key holding the labeler's cursor.
+// The label rules are part of the key: changing verifiedLabels starts a
+// fresh scan from the beginning under the new rules, instead of only
+// applying them to labels issued after the change.
+func labelCursorKey(labeler string, patterns []string) string {
+	sum := sha256.Sum256([]byte(strings.Join(patterns, ",")))
+	return "labels-cursor:" + labeler + ":" + hex.EncodeToString(sum[:4])
+}
 
 // labelVerificationURI is the synthetic record URI of a mirrored label.
 func labelVerificationURI(src, subject, val string) string {
@@ -84,11 +93,22 @@ func (atsync *ATProtoSynchronizer) seedLabels(ctx context.Context, labeler strin
 		return fmt.Errorf("%s has no atproto_labeler service", labeler)
 	}
 	xrpcc := xrpc.Client{Host: host, Client: SyncHTTPClient}
+	cursorKey := labelCursorKey(labeler, patterns)
 	cursor := ""
+	fresh := true
 	if atsync.StatefulDB != nil {
-		if conf, err := atsync.StatefulDB.GetConfig(labelCursorKey(labeler)); err == nil && conf != nil {
+		if conf, err := atsync.StatefulDB.GetConfig(cursorKey); err == nil && conf != nil {
 			cursor = string(conf.Value)
+			fresh = false
 		}
+	}
+	if fresh {
+		// New rules (or first run): what was mirrored under the old ones no
+		// longer applies, so start from nothing and replay every label.
+		if err := atsync.Model.DeleteVerificationsByIssuer(ctx, labeler); err != nil {
+			return fmt.Errorf("clear mirrored labels: %w", err)
+		}
+		log.Log(ctx, "mirroring labels from the start", "labeler", labeler, "labels", strings.Join(patterns, ","))
 	}
 	added, removed := 0, 0
 	for {
@@ -141,7 +161,7 @@ func (atsync *ATProtoSynchronizer) seedLabels(ctx context.Context, labeler strin
 		}
 		cursor = out.Cursor
 		if atsync.StatefulDB != nil {
-			if err := atsync.StatefulDB.PutConfig(labelCursorKey(labeler), []byte(cursor)); err != nil {
+			if err := atsync.StatefulDB.PutConfig(cursorKey, []byte(cursor)); err != nil {
 				log.Warn(ctx, "failed to store label cursor", "err", err)
 			}
 		}

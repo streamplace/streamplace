@@ -287,6 +287,28 @@ export function Chat({
   const { theme } = useTheme();
   const chat = useChat();
   const [isScrolledUp, setIsScrolledUp] = useState(false);
+  // On phones the keyboard shrinks the viewport, and an inverted list that
+  // is re-laid out into a shorter box can end up showing its far (oldest)
+  // end. When the viewport resizes and the viewer wasn't reading history,
+  // pin the list back to the latest message.
+  const isScrolledUpRef = useRef(false);
+  isScrolledUpRef.current = isScrolledUp;
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    const onResize = () => {
+      if (isScrolledUpRef.current) return;
+      requestAnimationFrame(() =>
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: false }),
+      );
+    };
+    vv?.addEventListener("resize", onResize);
+    window.addEventListener("resize", onResize);
+    return () => {
+      vv?.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
   const [isVisible, setIsVisible] = useState(true);
   const flatListRef = useRef<FlatList>(null);
   // The store keeps chat oldest-first. An inverted FlatList renders index 0 at

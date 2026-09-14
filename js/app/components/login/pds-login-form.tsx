@@ -48,7 +48,15 @@ function usePdsConfig() {
   const forgotUrl = useBrandingAsset("loginForgotUrl")?.data?.trim();
   const waitlistUrl = useBrandingAsset("loginWaitlistUrl")?.data?.trim();
   const supportEmail = useBrandingAsset("loginSupportEmail")?.data?.trim();
-  return { pdsUrl, quickLogin, forgotUrl, waitlistUrl, supportEmail };
+  const quickLoginReturn = useBrandingAsset("quickLoginReturn")?.data?.trim();
+  return {
+    pdsUrl,
+    quickLogin,
+    forgotUrl,
+    waitlistUrl,
+    supportEmail,
+    quickLoginReturn,
+  };
 }
 
 function toSession(pdsUrl: string, r: any): BearerSessionData | null {
@@ -93,6 +101,12 @@ function useHandoffDevice(): boolean {
   return touch;
 }
 
+/** deepLink + ?return=<value> (or &return= when it has a query already). */
+export function withReturn(deepLink: string, value: string): string {
+  const sep = deepLink.includes("?") ? "&" : "?";
+  return `${deepLink}${sep}return=${encodeURIComponent(value)}`;
+}
+
 /** A readable line for a quick-login failure code from the PDS. */
 function describeQuickLoginError(code: string | undefined, network: string) {
   switch (code) {
@@ -125,10 +139,12 @@ function QuickLoginPanel({
   pdsUrl,
   compact,
   onSession,
+  quickLoginReturn,
 }: {
   pdsUrl: string;
   compact: boolean;
   onSession: (s: BearerSessionData) => void;
+  quickLoginReturn?: string;
 }) {
   const { theme } = useTheme();
   const networkName = useNetworkName();
@@ -165,6 +181,11 @@ function QuickLoginPanel({
       // query string falls away with the path).
       if (!init.signUrl && init.qrCodeUrl) {
         init.signUrl = signUrlFromQrImage(init.qrCodeUrl);
+      }
+      // Tell the identity app where to send the viewer back afterwards
+      // (branding key quickLoginReturn, e.g. the network app's own name).
+      if (init.signUrl && quickLoginReturn) {
+        init.signUrl = withReturn(init.signUrl, quickLoginReturn);
       }
       setState({ init, loading: false });
       if (init.expiresAt) {
@@ -214,7 +235,7 @@ function QuickLoginPanel({
       if (my !== gen.current) return;
       setState({ loading: false, error: e?.message || "Could not connect." });
     }
-  }, [pdsUrl, onSession, networkName]);
+  }, [pdsUrl, onSession, networkName, quickLoginReturn]);
 
   useEffect(() => {
     start();
@@ -329,8 +350,14 @@ export default function PdsLoginForm({
 }) {
   const { theme } = useTheme();
   const networkName = useNetworkName();
-  const { pdsUrl, quickLogin, forgotUrl, waitlistUrl, supportEmail } =
-    usePdsConfig();
+  const {
+    pdsUrl,
+    quickLogin,
+    forgotUrl,
+    waitlistUrl,
+    supportEmail,
+    quickLoginReturn,
+  } = usePdsConfig();
   const setCredentialSession = useStore((s) => s.setCredentialSession);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -463,6 +490,7 @@ export default function PdsLoginForm({
             pdsUrl={pdsUrl}
             compact={!twoColumn}
             onSession={finish}
+            quickLoginReturn={quickLoginReturn}
           />
         )}
 

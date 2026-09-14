@@ -301,6 +301,7 @@ export function BrandingAdmin() {
         case "loginMode":
         case "loginPdsUrl":
         case "quickLogin":
+        case "quickLoginReturn":
         case "loginForgotUrl":
         case "loginWaitlistUrl":
         case "loginSupportEmail":
@@ -1417,6 +1418,55 @@ export function BrandingAdmin() {
                       value={brandingValue("quickLogin") || "off"}
                       onChange={(v) => uploadText("quickLogin", v)}
                     />
+                    <Text size="xs" color="muted">
+                      {t("branding-quick-login-return-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="appname"
+                          value={
+                            chromeInputs["quickLoginReturn"] ??
+                            brandingValue("quickLoginReturn")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              quickLoginReturn: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "quickLoginReturn",
+                            chromeInputs["quickLoginReturn"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["quickLoginReturn"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("quickLoginReturn")}
+                        disabled={
+                          uploading || !brandingValue("quickLoginReturn")
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
                     <Text size="xs" color="muted">
                       {t("branding-login-links-description")}
                     </Text>

@@ -312,6 +312,9 @@ branding-verifiers = Verified users
 branding-verifiers-description = DIDs of the verifiers this node trusts, as a JSON list. Anyone they have issued an app.bsky.graph.verification record for shows a verified badge in chat. Bluesky's own verification shows its blue check regardless.
 branding-labeler-description = Or a labeler and the label values that mean verified on your network: the labeler's DID, then the labels, comma-separated, with a trailing * for a prefix (e.g. verified-*). Accounts carrying one of those labels count as verified here, next to any verifiers above.
 branding-verify-appview-description = Or an app view whose getProfile carries your network's own verification field: its URL, the field name (default wsocialVerified) and the values that count, comma-separated, or * for any value. The node asks it about each chat author on first sight and re-checks every few minutes.
+branding-verify-bluesky-description = Also count Bluesky's blue check: accounts Bluesky's public app view reports as verified can chat here too, and wear Bluesky's check rather than your badge.
+branding-verify-bluesky-off = Your verifiers only
+branding-verify-bluesky-on = Plus Bluesky's blue check
 branding-quick-login-return-description = Appended to the identity app's sign-in link on phones as ?return=<value>, so the app knows where to send people back. Leave empty to append nothing.
 branding-verify-url-description = Where a signed-in but unverified user goes to get verified: the "Verify now" link under the composer when chat is verified-only. Unset shows no link.
 branding-verified-only-message-description = What the composer says when chat is verified-only and the viewer can't write, and the label of the verify link beside it. Signed-out viewers get a sign-in link instead.

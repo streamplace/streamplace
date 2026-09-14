@@ -29,6 +29,10 @@ export function VerifiedCheck({
 
 const BLUESKY_BLUE = "#1185fe"; // token-ok: Bluesky's verification color
 
+/** The verifier DID the node files Bluesky's blue check under when the
+ *  branding key verifyBluesky is on (pkg/atproto/appview_verification.go). */
+export const BLUESKY_APPVIEW_ISSUER = "did:web:api.bsky.app";
+
 function decodeDataUrlText(dataUrl: string): string | null {
   const comma = dataUrl.indexOf(",");
   if (comma < 0) return null;
@@ -86,7 +90,8 @@ function NodeVerifiedIcon({ size }: { size: number }) {
  *  - the node's trusted verifiers (branding key verifierDids), which the
  *    node reports on the message author itself — the branded badge;
  *  - the public app view's verification (e.g. Bluesky's), read from the
- *    profile cache — the network's blue check.
+ *    profile cache, or mirrored by the node under Bluesky's app view DID
+ *    when verifyBluesky is on — the network's blue check.
  * A user verified both ways gets the node's badge only.
  */
 export function VerifiedBadge({
@@ -95,13 +100,26 @@ export function VerifiedBadge({
   size = 16,
   style,
 }: {
-  author: { verification?: { verifiedStatus?: string } | null };
+  author: {
+    verification?: {
+      verifiedStatus?: string;
+      verifications?: { issuer: string }[];
+    } | null;
+  };
   profile?: AppBskyActorDefs.ProfileViewDetailed | null;
   size?: number;
   style?: any;
 }) {
-  const nodeVerified = author.verification?.verifiedStatus === "valid";
-  const networkVerified = profile?.verification?.verifiedStatus === "valid";
+  const nodeIssuers = author.verification?.verifications ?? [];
+  const nodeValid = author.verification?.verifiedStatus === "valid";
+  // Rows filed under Bluesky's app view are Bluesky's check, not ours.
+  const nodeVerified =
+    nodeValid &&
+    (nodeIssuers.length === 0 ||
+      nodeIssuers.some((v) => v.issuer !== BLUESKY_APPVIEW_ISSUER));
+  const networkVerified =
+    profile?.verification?.verifiedStatus === "valid" ||
+    (nodeValid && !nodeVerified);
   if (!nodeVerified && !networkVerified) return null;
   return (
     <View

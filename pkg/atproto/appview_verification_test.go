@@ -14,7 +14,7 @@ func TestParseAppViewConfig(t *testing.T) {
 	c := parseAppViewConfig("https://api.example.com/", "", "")
 	require.Equal(t, "https://api.example.com", c.URL)
 	require.Equal(t, "did:web:api.example.com", c.Issuer())
-	require.Equal(t, "wsocialVerified", c.Field)
+	require.Equal(t, []string{"wsocialVerified"}, c.Fields)
 	require.True(t, c.matches("wid"), "* means any non-empty value")
 	require.False(t, c.matches(""))
 	require.False(t, c.matches(nil))
@@ -25,6 +25,20 @@ func TestParseAppViewConfig(t *testing.T) {
 
 	require.Equal(t, appViewConfig{}, parseAppViewConfig("", "", ""))
 	require.Equal(t, appViewConfig{}, parseAppViewConfig("not a url", "", ""))
+}
+
+func TestBlueskyAppViewConfig(t *testing.T) {
+	c := blueskyAppViewConfig()
+	require.Equal(t, BlueskyAppViewIssuer, c.Issuer())
+	verified := map[string]any{"verification": map[string]any{"verifiedStatus": "valid", "trustedVerifierStatus": "none"}}
+	verifier := map[string]any{"verification": map[string]any{"verifiedStatus": "none", "trustedVerifierStatus": "valid"}}
+	invalid := map[string]any{"verification": map[string]any{"verifiedStatus": "invalid", "trustedVerifierStatus": "none"}}
+	plain := map[string]any{"did": "did:plc:x"}
+	require.True(t, c.verified(verified))
+	require.True(t, c.verified(verifier), "a trusted verifier wears a check too")
+	require.False(t, c.verified(invalid))
+	require.False(t, c.verified(plain))
+	require.Nil(t, fieldValue(map[string]any{"verification": "oops"}, "verification.verifiedStatus"))
 }
 
 func TestCheckAppView(t *testing.T) {

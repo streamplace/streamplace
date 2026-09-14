@@ -1055,6 +1055,27 @@ export function BrandingAdmin() {
                       </Button>
                     </View>
                     <Text size="xs" color="muted">
+                      {t("branding-verify-bluesky-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        {
+                          value: "off",
+                          label: t("branding-verify-bluesky-off"),
+                        },
+                        {
+                          value: "on",
+                          label: t("branding-verify-bluesky-on"),
+                        },
+                      ]}
+                      value={brandingValue("verifyBluesky") || "off"}
+                      onChange={(v) =>
+                        v === "off"
+                          ? deleteBlob("verifyBluesky")
+                          : uploadText("verifyBluesky", v)
+                      }
+                    />
+                    <Text size="xs" color="muted">
                       {t("branding-verify-url-description")}
                     </Text>
                     <View

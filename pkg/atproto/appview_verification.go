@@ -17,8 +17,10 @@ import (
 
 // App-view verification: a network whose notion of "verified" is a field on
 // its own app view's getProfile (branding keys verifyAppViewUrl,
-// verifyAppViewField, verifyAppViewValues). There is no feed of changes to
-// subscribe to, so the node asks:
+// verifyAppViewField, verifyAppViewValues), and, with verifyBluesky on,
+// Bluesky's public app view, whose getProfile carries the blue check
+// (verification.verifiedStatus). There is no feed of changes to subscribe
+// to, so the node asks:
 //
 //   - on first sight of an account (a chat message, a getStatus for it), a
 //     synchronous lookup with a short timeout, so a verified viewer's very
@@ -40,12 +42,36 @@ const (
 type appViewConfig struct {
 	URL    string
 	Host   string
-	Field  string
+	issuer string   // "" = did:web:Host
+	Fields []string // dotted paths into the profile; any one matching counts
 	Values []string // empty = any non-empty value
 }
 
 // Issuer is the verifier DID the app view's rows are filed under.
-func (c appViewConfig) Issuer() string { return "did:web:" + c.Host }
+func (c appViewConfig) Issuer() string {
+	if c.issuer != "" {
+		return c.issuer
+	}
+	return "did:web:" + c.Host
+}
+
+// Bluesky's blue check: the public app view says verifiedStatus (a
+// verified account) or trustedVerifierStatus (a verifier, whose check is
+// scalloped) is valid.
+const (
+	blueskyAppViewURL    = "https://public.api.bsky.app"
+	BlueskyAppViewIssuer = "did:web:api.bsky.app"
+)
+
+func blueskyAppViewConfig() appViewConfig {
+	return appViewConfig{
+		URL:    blueskyAppViewURL,
+		Host:   "public.api.bsky.app",
+		issuer: BlueskyAppViewIssuer,
+		Fields: []string{"verification.verifiedStatus", "verification.trustedVerifierStatus"},
+		Values: []string{"valid"},
+	}
+}
 
 func parseAppViewConfig(rawURL, field, values string) appViewConfig {
 	rawURL = strings.TrimSpace(rawURL)
@@ -56,10 +82,11 @@ func parseAppViewConfig(rawURL, field, values string) appViewConfig {
 	if err != nil || u.Host == "" {
 		return appViewConfig{}
 	}
-	c := appViewConfig{URL: strings.TrimRight(rawURL, "/"), Host: u.Host, Field: strings.TrimSpace(field)}
-	if c.Field == "" {
-		c.Field = "wsocialVerified"
+	c := appViewConfig{URL: strings.TrimRight(rawURL, "/"), Host: u.Host}
+	if field = strings.TrimSpace(field); field == "" {
+		field = "wsocialVerified"
 	}
+	c.Fields = []string{field}
 	for _, v := range strings.Split(values, ",") {
 		if v = strings.TrimSpace(v); v != "" && v != "*" {
 			c.Values = append(c.Values, v)
@@ -85,6 +112,31 @@ func (c appViewConfig) matches(v any) bool {
 	return false
 }
 
+// verified reports whether a getProfile view counts as verified: any of
+// the configured fields matches.
+func (c appViewConfig) verified(profile map[string]any) bool {
+	for _, f := range c.Fields {
+		if c.matches(fieldValue(profile, f)) {
+			return true
+		}
+	}
+	return false
+}
+
+// fieldValue walks a dotted path ("verification.verifiedStatus") into a
+// decoded JSON object; nil when any step is missing.
+func fieldValue(obj map[string]any, path string) any {
+	var cur any = obj
+	for _, key := range strings.Split(path, ".") {
+		m, ok := cur.(map[string]any)
+		if !ok {
+			return nil
+		}
+		cur = m[key]
+	}
+	return cur
+}
+
 // appViewVerificationURI is the synthetic record URI of a mirrored answer.
 func appViewVerificationURI(host, did string) string {
 	return fmt.Sprintf("appview://%s/%s", host, did)
@@ -92,26 +144,38 @@ func appViewVerificationURI(host, did string) string {
 
 var (
 	appViewNegMu sync.Mutex
-	appViewNeg   = map[string]time.Time{} // did -> when the "no" expires
+	appViewNeg   = map[string]time.Time{} // issuer+did -> when the "no" expires
 	appViewGroup singleflight.Group
 )
 
-// appViewLookup asks the app view about did if nothing vouches for it yet
-// and no recent "no" is remembered. It returns true when the app view says
-// verified (and the row has been written). Callers on hot paths share one
-// in-flight request per DID.
+func appViewNegKey(c appViewConfig, did string) string { return c.Issuer() + " " + did }
+
+// appViewLookup asks each app view about did, in order, if nothing vouches
+// for it yet, stopping at the first yes. It returns true when one says
+// verified (and the row has been written).
 func (atsync *ATProtoSynchronizer) appViewLookup(ctx context.Context, did string) bool {
-	c := atsync.AppView(ctx)
-	if c.URL == "" || did == "" {
+	if did == "" {
 		return false
 	}
+	for _, c := range atsync.AppViews(ctx) {
+		if atsync.appViewLookupOne(ctx, c, did) {
+			return true
+		}
+	}
+	return false
+}
+
+// appViewLookupOne asks one app view about did unless a recent "no" is
+// remembered. Callers on hot paths share one in-flight request per DID.
+func (atsync *ATProtoSynchronizer) appViewLookupOne(ctx context.Context, c appViewConfig, did string) bool {
+	key := appViewNegKey(c, did)
 	appViewNegMu.Lock()
-	until, denied := appViewNeg[did]
+	until, denied := appViewNeg[key]
 	appViewNegMu.Unlock()
 	if denied && time.Now().Before(until) {
 		return false
 	}
-	v, _, _ := appViewGroup.Do(did, func() (any, error) {
+	v, _, _ := appViewGroup.Do(key, func() (any, error) {
 		lctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), appViewLookupTimeout)
 		defer cancel()
 		res, err := atsync.checkAppView(lctx, c, []string{did})
@@ -131,9 +195,10 @@ func (atsync *ATProtoSynchronizer) appViewLookup(ctx context.Context, did string
 // (and no row) for no.
 func (atsync *ATProtoSynchronizer) applyAppViewAnswer(ctx context.Context, c appViewConfig, did string, verified bool) {
 	uri := appViewVerificationURI(c.Host, did)
+	key := appViewNegKey(c, did)
 	if verified {
 		appViewNegMu.Lock()
-		delete(appViewNeg, did)
+		delete(appViewNeg, key)
 		appViewNegMu.Unlock()
 		err := atsync.Model.CreateVerification(ctx, &model.Verification{
 			URI:        uri,
@@ -147,7 +212,7 @@ func (atsync *ATProtoSynchronizer) applyAppViewAnswer(ctx context.Context, c app
 		return
 	}
 	appViewNegMu.Lock()
-	appViewNeg[did] = time.Now().Add(appViewNegativeTTL)
+	appViewNeg[key] = time.Now().Add(appViewNegativeTTL)
 	appViewNegMu.Unlock()
 	if err := atsync.Model.DeleteVerification(ctx, uri); err != nil {
 		log.Warn(ctx, "failed to clear app view verification", "did", did, "err", err)
@@ -194,13 +259,13 @@ func (atsync *ATProtoSynchronizer) checkAppView(ctx context.Context, c appViewCo
 			if did == "" {
 				continue
 			}
-			out[did] = c.matches(p[c.Field])
+			out[did] = c.verified(p)
 		}
 	}
 	return out, nil
 }
 
-// RefreshAppViewVerificationsForever re-asks the app view about every
+// RefreshAppViewVerificationsForever re-asks each app view about every
 // account it has vouched for, in batches, so a verification the network
 // withdraws stops counting here within appViewRefreshInterval. Accounts
 // that were never verified are re-asked on sight instead (see
@@ -213,36 +278,38 @@ func (atsync *ATProtoSynchronizer) RefreshAppViewVerificationsForever(ctx contex
 			return
 		case <-time.After(appViewRefreshInterval):
 		}
-		c := atsync.AppView(ctx)
-		if c.URL == "" {
-			continue
+		for _, c := range atsync.AppViews(ctx) {
+			atsync.refreshAppView(ctx, c)
 		}
-		rows, err := atsync.Model.ListVerificationsByIssuer(ctx, c.Issuer())
-		if err != nil {
-			log.Warn(ctx, "failed to list app view verifications", "err", err)
-			continue
+	}
+}
+
+func (atsync *ATProtoSynchronizer) refreshAppView(ctx context.Context, c appViewConfig) {
+	rows, err := atsync.Model.ListVerificationsByIssuer(ctx, c.Issuer())
+	if err != nil {
+		log.Warn(ctx, "failed to list app view verifications", "issuer", c.Issuer(), "err", err)
+		return
+	}
+	dids := make([]string, 0, len(rows))
+	for _, r := range rows {
+		dids = append(dids, r.SubjectDID)
+	}
+	if len(dids) == 0 {
+		return
+	}
+	res, err := atsync.checkAppView(ctx, c, dids)
+	if err != nil {
+		log.Warn(ctx, "app view verification refresh failed", "issuer", c.Issuer(), "err", err)
+		return
+	}
+	revoked := 0
+	for _, did := range dids {
+		if !res[did] {
+			atsync.applyAppViewAnswer(ctx, c, did, false)
+			revoked++
 		}
-		dids := make([]string, 0, len(rows))
-		for _, r := range rows {
-			dids = append(dids, r.SubjectDID)
-		}
-		if len(dids) == 0 {
-			continue
-		}
-		res, err := atsync.checkAppView(ctx, c, dids)
-		if err != nil {
-			log.Warn(ctx, "app view verification refresh failed", "err", err)
-			continue
-		}
-		revoked := 0
-		for _, did := range dids {
-			if !res[did] {
-				atsync.applyAppViewAnswer(ctx, c, did, false)
-				revoked++
-			}
-		}
-		if revoked > 0 {
-			log.Log(ctx, "app view verifications refreshed", "checked", len(dids), "revoked", revoked)
-		}
+	}
+	if revoked > 0 {
+		log.Log(ctx, "app view verifications refreshed", "issuer", c.Issuer(), "checked", len(dids), "revoked", revoked)
 	}
 }

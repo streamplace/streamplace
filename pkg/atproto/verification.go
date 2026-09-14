@@ -32,7 +32,7 @@ var (
 	verifiedOnlyC  bool
 	labelerCached  string
 	labelPatternsC []string
-	appViewCached  appViewConfig
+	appViewsCached []appViewConfig
 )
 
 // Verifiers returns the trusted verifier DIDs, cached briefly.
@@ -73,26 +73,34 @@ func (atsync *ATProtoSynchronizer) Verifiers(ctx context.Context) []string {
 			labelerCached = ""
 		}
 		// An app view with its own verification field is a verifier too,
-		// under the did:web of its host (see appview_verification.go).
-		appViewCached = parseAppViewConfig(
+		// under the did:web of its host (see appview_verification.go); so
+		// is Bluesky's public app view, for the blue check, when verifyBluesky
+		// is on. The network's own view is asked first.
+		appViewsCached = nil
+		if c := parseAppViewConfig(
 			branding.Text(atsync.StatefulDB, atsync.CLI.BroadcasterHost, "verifyAppViewUrl"),
 			branding.Text(atsync.StatefulDB, atsync.CLI.BroadcasterHost, "verifyAppViewField"),
 			branding.Text(atsync.StatefulDB, atsync.CLI.BroadcasterHost, "verifyAppViewValues"),
-		)
-		if appViewCached.URL != "" {
-			verifierCached = append(verifierCached, appViewCached.Issuer())
+		); c.URL != "" {
+			appViewsCached = append(appViewsCached, c)
+		}
+		if branding.Text(atsync.StatefulDB, atsync.CLI.BroadcasterHost, "verifyBluesky") == "on" {
+			appViewsCached = append(appViewsCached, blueskyAppViewConfig())
+		}
+		for _, c := range appViewsCached {
+			verifierCached = append(verifierCached, c.Issuer())
 		}
 	}
 	verifierAt = time.Now()
 	return verifierCached
 }
 
-// AppView returns the verifying app view's configuration; URL "" when unset.
-func (atsync *ATProtoSynchronizer) AppView(ctx context.Context) appViewConfig {
+// AppViews returns the verifying app views, in the order they are asked.
+func (atsync *ATProtoSynchronizer) AppViews(ctx context.Context) []appViewConfig {
 	atsync.Verifiers(ctx)
 	verifierMu.Lock()
 	defer verifierMu.Unlock()
-	return appViewCached
+	return appViewsCached
 }
 
 // Labeler returns the verifying labeler's DID and the label values (exact,

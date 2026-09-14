@@ -210,6 +210,7 @@ export function DesktopUi({
 
   const togglePlayPause = usePlayerStore((x) => x.togglePlayPause);
 
+  const mode = usePlayerStore((x) => x.mode);
   const handleSingleClick = useCallback(() => {
     // Touch screens have no hover: once the controls have faded (and stopped
     // taking taps), the first tap brings them back rather than toggling
@@ -218,8 +219,15 @@ export function DesktopUi({
       resetFadeTimer();
       return;
     }
+    // Click-to-pause is for on-demand video. A live stream has nothing to
+    // pause into, and on phones the tap that reaches for a control button
+    // was landing here and pausing the stream instead.
+    if (mode !== "vod") {
+      resetFadeTimer();
+      return;
+    }
     togglePlayPause();
-  }, [togglePlayPause, resetFadeTimer]);
+  }, [togglePlayPause, resetFadeTimer, mode]);
 
   const handleDoubleClick = useCallback(() => {
     toggleFullscreen();

@@ -56,6 +56,9 @@ export function SessionBrokerProvider() {
           const client = clientRef.current;
           return client ? client.request() : null;
         },
+        // The network's app says the session is gone: drop ours. Its
+        // broker pushes a fresh one if the viewer signs in again.
+        onExpired: () => setBrokeredSession(null),
       });
       sessionRef.current = session;
       setBrokeredSession(session);

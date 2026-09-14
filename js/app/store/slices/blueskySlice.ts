@@ -42,6 +42,11 @@ async function restoreCredentialSession(get: () => AppStore) {
   }
   if (credential?.accessJwt && credential.did) {
     await (get() as BlueskySlice).setCredentialSession(credential);
+    // A stored session may be long dead (both tokens expired). Ask the PDS
+    // now rather than letting the viewer find out from a failed post; a
+    // dead one signs itself out through onExpired.
+    const session = (get() as BlueskySlice).oauthSession;
+    if (session instanceof BearerSession) void session.validate();
   }
 }
 
@@ -320,6 +325,11 @@ export const createBlueskySlice: StateCreator<
         storage
           .setItem(CREDENTIAL_SESSION_KEY, JSON.stringify(fresh))
           .catch(() => {});
+      },
+      // Both tokens gone: forget the session so the app is honestly
+      // signed out (composer becomes the sign-in prompt).
+      onExpired: () => {
+        void (get() as BlueskySlice).setCredentialSession(null);
       },
     });
     set({

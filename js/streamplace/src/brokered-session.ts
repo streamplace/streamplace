@@ -30,6 +30,11 @@ export interface BearerSessionOptions {
   refresh?: () => Promise<BearerSessionData | null>;
   /** Called with the new tokens after a refresh (to persist them). */
   onUpdate?: (data: BearerSessionData) => void;
+  /** Called once the session is known to be dead: a request was refused
+   *  for an expired token and the refresh failed too. The holder should
+   *  drop the session (and whatever persisted it) so the app shows the
+   *  viewer as signed out instead of a composer that can't post. */
+  onExpired?: () => void;
   /** atproto-proxy value for app view reads (Bluesky's by default). */
   appViewProxy?: string;
 }
@@ -52,6 +57,7 @@ export class BearerSession implements SessionManager {
   private readonly nodeUrl: string;
   private readonly refreshViaBroker?: () => Promise<BearerSessionData | null>;
   private readonly onUpdate?: (data: BearerSessionData) => void;
+  private readonly onExpired?: () => void;
   private refreshing: Promise<BearerSessionData | null> | null = null;
   readonly appViewProxy: string;
 
@@ -61,6 +67,7 @@ export class BearerSession implements SessionManager {
     this.nodeUrl = options.nodeUrl.replace(/\/$/, "");
     this.refreshViaBroker = options.refresh;
     this.onUpdate = options.onUpdate;
+    this.onExpired = options.onExpired;
     this.appViewProxy =
       options.appViewProxy ?? "did:web:api.bsky.app#bsky_appview";
   }
@@ -137,12 +144,43 @@ export class BearerSession implements SessionManager {
         .clone()
         .json()
         .catch(() => null);
-      if (body?.error === "ExpiredToken") {
+      if (body?.error === "ExpiredToken" || body?.error === "InvalidToken") {
         const fresh = await this.refreshOnce();
-        if (fresh) res = await send();
+        if (fresh) {
+          res = await send();
+        } else {
+          this.expire();
+        }
       }
     }
     return res;
+  }
+
+  private expired = false;
+  private expire() {
+    if (this.expired) return;
+    this.expired = true;
+    this.onExpired?.();
+  }
+
+  /**
+   * Checks the session against the PDS (refreshing if the access token
+   * has lapsed). Resolves false — after calling onExpired — when the PDS
+   * no longer honours it. For a session restored from storage at boot.
+   */
+  async validate(): Promise<boolean> {
+    try {
+      const res = await this.fetchHandler(
+        "/xrpc/com.atproto.server.getSession",
+        { method: "GET" },
+      );
+      if (res.ok) return true;
+      if (res.status === 400 || res.status === 401) this.expire();
+      return false;
+    } catch {
+      // Offline or unreachable: not evidence of a dead session.
+      return true;
+    }
   }
 
   private refreshOnce(): Promise<BearerSessionData | null> {

@@ -53,6 +53,7 @@ import { useResponsiveLayout } from "./useResponsiveLayout";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStore } from "store";
+import { place } from "streamplace";
 import { UserOffline } from "./user-offline";
 
 const SEGMENT_TIMEOUT = 500; // half a sec
@@ -390,6 +391,48 @@ export function PlayerInner(
   const safeAreaInsets = useSafeAreaInsets();
   const setSidebarHidden = useStore((state) => state.setSidebarHidden);
   const setSidebarUnhidden = useStore((state) => state.setSidebarUnhidden);
+
+  // Pre-live over HLS: the streamer previewing their own stream needs a
+  // playback token (the HLS requests carry no session). Only a node OAuth
+  // session can mint one, and it only opens the caller's own stream, so
+  // ask when this is that viewer, and again before it expires.
+  const sessionKind = useStore((s) => s.sessionKind);
+  const pdsAgent = useStore((s) => s.pdsAgent);
+  const setLiveToken = usePlayerStore((x) => x.setLiveToken);
+  const userProfile = useUserProfile();
+  const myDid = userProfile?.did;
+  const myHandle = userProfile?.handle;
+  const isMine =
+    !!myDid && (props.ingest || props.src === myDid || props.src === myHandle);
+  useEffect(() => {
+    if (!isMine || sessionKind !== "oauth" || !pdsAgent) {
+      setLiveToken(undefined);
+      return;
+    }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const fetchToken = async () => {
+      try {
+        const res = await pdsAgent.client.call(
+          place.stream.playback.getLiveToken,
+        );
+        if (cancelled) return;
+        setLiveToken(res.token);
+        const msLeft = new Date(res.expiresAt).getTime() - Date.now();
+        timer = setTimeout(fetchToken, Math.max(60_000, msLeft - 5 * 60_000));
+      } catch (e) {
+        if (cancelled) return;
+        console.warn("could not fetch a live playback token", e);
+        timer = setTimeout(fetchToken, 60_000);
+      }
+    };
+    void fetchToken();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      setLiveToken(undefined);
+    };
+  }, [isMine, sessionKind, pdsAgent, setLiveToken]);
 
   // auto-collapse chat once when going offline
   const hasCollapsedChat = useRef(false);

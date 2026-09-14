@@ -24,6 +24,10 @@
           "sid": {
             "type": "string",
             "description": "Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control."
+          },
+          "token": {
+            "type": "string",
+            "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live."
           }
         }
       },

@@ -220,7 +220,8 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	// critical path. This runs for every segment — locally signed or replicated
 	// from another node — so any node that validates a stream's segments can
 	// serve its live HLS. WithoutCancel keeps the feed alive past this request.
-	// Only published segments are actually folded in (see feedLiveWindow).
+	// Pre-live segments are folded in too; the handlers gate them on a
+	// playback token (see feedLiveWindow).
 	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.Published)
 
 	// Segments are no longer written to disk, but a Segment DB row is still kept

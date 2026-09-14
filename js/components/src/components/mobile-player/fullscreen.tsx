@@ -90,16 +90,33 @@ export function Fullscreen(props: {
 
   useEffect(() => {
     const listener = () => {
-      console.log("fullscreenchange", document.fullscreenElement);
       setFullscreen(!!document.fullscreenElement);
     };
-    document.body.addEventListener("fullscreenchange", listener);
-    document.body.addEventListener("webkitfullscreenchange", listener);
+    document.addEventListener("fullscreenchange", listener);
+    document.addEventListener("webkitfullscreenchange", listener);
     return () => {
-      document.body.removeEventListener("fullscreenchange", listener);
-      document.body.removeEventListener("webkitfullscreenchange", listener);
+      document.removeEventListener("fullscreenchange", listener);
+      document.removeEventListener("webkitfullscreenchange", listener);
     };
   }, []);
+
+  // iPhone Safari goes fullscreen on the video element itself, and reports
+  // it with the video's own webkit events rather than document.fullscreen*;
+  // without these the store still says "fullscreen" after the viewer swipes
+  // out, and the button needs a second tap to work again.
+  useEffect(() => {
+    const v = videoElement();
+    if (!v) return;
+    const began = () => setFullscreen(true);
+    const ended = () => setFullscreen(false);
+    v.addEventListener("webkitbeginfullscreen", began);
+    v.addEventListener("webkitendfullscreen", ended);
+    return () => {
+      v.removeEventListener("webkitbeginfullscreen", began);
+      v.removeEventListener("webkitendfullscreen", ended);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeVideoRef, props.src]);
 
   return (
     <View

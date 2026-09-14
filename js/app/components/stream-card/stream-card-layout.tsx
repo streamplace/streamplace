@@ -1,6 +1,7 @@
 import { useNavigation } from "@react-navigation/native";
 import {
   Avatar,
+  Button,
   Chat,
   ChatBox,
   KeepAwake,
@@ -10,6 +11,7 @@ import {
   useBrandingAsset,
   useChatLockedOut,
   useLivestreamStore,
+  useNetworkName,
   useNetworkProfileUrl,
   useSocialShell,
   useTheme,
@@ -28,6 +30,7 @@ import { useUnpinChatMessage } from "@streamplace/components/src/livestream-stor
 import { useCanModerate } from "@streamplace/components/src/streamplace-store/moderation";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
+import { OAuthLoginButton } from "components/login/oauth-login-button";
 import { useStreamMeta } from "components/mobile/bottom-metadata";
 import { Player } from "components/mobile/player";
 import { PlayerProps } from "components/player/props";
@@ -56,6 +59,7 @@ import {
   ScrollView,
   useWindowDimensions,
   type LayoutChangeEvent,
+  type TextStyle,
 } from "react-native";
 import Animated, {
   runOnJS,
@@ -771,21 +775,26 @@ function ComposerNotice({
   text,
   linkLabel,
   onPress,
+  style,
 }: {
   text: string;
   linkLabel?: string;
   onPress?: () => void;
+  style?: TextStyle;
 }) {
   const { theme } = useTheme();
   return (
     <Text
-      style={{
-        fontSize: 13,
-        lineHeight: 17,
-        color: theme.colors.text2,
-        textAlign: "center",
-        marginTop: -6,
-      }}
+      style={[
+        {
+          fontSize: 13,
+          lineHeight: 17,
+          color: theme.colors.text2,
+          textAlign: "center",
+          marginTop: -6,
+        },
+        style ?? {},
+      ]}
     >
       {text}
       {linkLabel && onPress ? (
@@ -804,6 +813,65 @@ function ComposerNotice({
         </>
       ) : null}
     </Text>
+  );
+}
+
+// Signed out. In the network's PDS login mode the two ways in are laid out
+// as buttons (the design: the network's own sign-in, then OAuth for a
+// Bluesky / AT Protocol account, which is the only way an outside verified
+// account can chat); otherwise the field opens the login modal.
+function ComposerSignedOut({ message }: { message: string }) {
+  const { theme } = useTheme();
+  const openLoginModal = useStore((state) => state.openLoginModal);
+  const pdsMode = useBrandingAsset("loginMode")?.data === "pds";
+  const quickLogin = useBrandingAsset("quickLogin")?.data === "on";
+  const networkName = useNetworkName();
+  const networkLabel =
+    useBrandingAsset("signInNetworkLabel")?.data?.trim() ||
+    `Sign in with your ${networkName} account`;
+  const networkHint =
+    useBrandingAsset("signInNetworkHint")?.data?.trim() ||
+    (quickLogin ? `Authenticate with ${networkName} Identity` : "");
+  if (!pdsMode) {
+    return (
+      <>
+        <ComposerPlaceholder onPress={() => openLoginModal()} />
+        <ComposerNotice
+          text={message}
+          linkLabel="Sign in"
+          onPress={() => openLoginModal()}
+        />
+      </>
+    );
+  }
+  return (
+    <View style={{ gap: 10 }}>
+      <ComposerNotice text={message} style={{ marginTop: 0 }} />
+      <Button
+        variant="accent"
+        width="full"
+        style={{ height: 44 }}
+        onPress={() => openLoginModal()}
+      >
+        {networkLabel}
+      </Button>
+      {networkHint ? (
+        <Text
+          style={{
+            fontSize: 13,
+            lineHeight: 17,
+            color: theme.colors.text2,
+            textAlign: "center",
+            marginTop: -4,
+          }}
+        >
+          {networkHint}
+        </Text>
+      ) : null}
+      <OAuthLoginButton
+        onPress={() => openLoginModal(undefined, { oauth: true })}
+      />
+    </View>
   );
 }
 
@@ -847,7 +915,6 @@ function CardChatPanel({
 }) {
   const { theme } = useTheme();
   const agent = usePDSAgent();
-  const openLoginModal = useStore((state) => state.openLoginModal);
   const emojiData = useEmojiData();
   const customEmoji: any[] = [];
   const access = useAccessStatus();
@@ -948,16 +1015,11 @@ function CardChatPanel({
           <Loader size="large" />
         </View>
       ) : (
-        <>
-          <ComposerPlaceholder onPress={() => openLoginModal()} />
-          <ComposerNotice
-            text={
-              verifiedOnly ? verifiedOnlyMessage : "Sign in to write messages."
-            }
-            linkLabel="Sign in"
-            onPress={() => openLoginModal()}
-          />
-        </>
+        <ComposerSignedOut
+          message={
+            verifiedOnly ? verifiedOnlyMessage : "Sign in to write messages."
+          }
+        />
       )}
     </View>
   );

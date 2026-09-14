@@ -6,6 +6,7 @@ import {
   useTheme,
 } from "@streamplace/components";
 import { LogoMark } from "components/brand/logo";
+import { OAuthLoginButton } from "components/login/oauth-login-button";
 import { Image } from "expo-image";
 import { Lock, Mail } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -611,11 +612,12 @@ export default function PdsLoginForm({
         </View>
       )}
       {onUseOAuth ? (
-        <Pressable onPress={onUseOAuth}>
-          <Text style={{ color: theme.colors.text3, fontSize: 13 }}>
-            Advanced: sign in with OAuth instead
+        <View style={{ gap: 8 }}>
+          <OAuthLoginButton onPress={onUseOAuth} />
+          <Text style={{ color: theme.colors.text3, fontSize: 13 }} center>
+            {`Not on ${networkName}? Any Bluesky or AT Protocol account can sign in with OAuth.`}
           </Text>
-        </Pressable>
+        </View>
       ) : null}
     </View>
   );

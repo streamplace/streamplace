@@ -318,6 +318,7 @@ branding-verify-bluesky-on = Plus Bluesky's blue check
 branding-quick-login-return-description = Appended to the identity app's sign-in link on phones as ?return=<value>, so the app knows where to send people back. Leave empty to append nothing.
 branding-verify-url-description = Where a signed-in but unverified user goes to get verified: the "Verify now" link under the composer when chat is verified-only. Unset shows no link.
 branding-verified-only-message-description = What the composer says when chat is verified-only and the viewer can't write, and the label of the verify link beside it. Signed-out viewers get a sign-in link instead.
+branding-sign-in-buttons-description = The signed-out composer's two sign-in buttons (PDS login mode): the network button's label, the small line under it, and the OAuth button's label (also shown on the sign-in form). Defaults use the network name.
 branding-non-member-description = For a signed-in viewer whose account isn't on your network's PDS (the login PDS above): the message, the page where they can apply for an account, and the link's label.
 branding-chat-verified-only-description = Restrict chat to users verified by those verifiers. Others see a notice instead of the composer and their messages are not shown.
 branding-chat-verified-only-off = Anyone can chat

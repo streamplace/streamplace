@@ -317,6 +317,9 @@ export function BrandingAdmin() {
         case "chatNonMemberMessage":
         case "networkApplyUrl":
         case "applyLinkLabel":
+        case "signInNetworkLabel":
+        case "signInNetworkHint":
+        case "signInOAuthLabel":
         case "chatVerifiedOnly":
         case "loginPlaceholder":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
@@ -1290,6 +1293,99 @@ export function BrandingAdmin() {
                           (!brandingValue("chatNonMemberMessage") &&
                             !brandingValue("networkApplyUrl") &&
                             !brandingValue("applyLinkLabel"))
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-sign-in-buttons-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 2 }}>
+                        <Input
+                          placeholder="Sign in with your network account"
+                          value={
+                            chromeInputs["signInNetworkLabel"] ??
+                            brandingValue("signInNetworkLabel")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              signInNetworkLabel: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <View style={{ flex: 2 }}>
+                        <Input
+                          placeholder="Authenticate with network Identity"
+                          value={
+                            chromeInputs["signInNetworkHint"] ??
+                            brandingValue("signInNetworkHint")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              signInNetworkHint: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <View style={{ flex: 2 }}>
+                        <Input
+                          placeholder="Sign in with Bluesky or AT Protocol"
+                          value={
+                            chromeInputs["signInOAuthLabel"] ??
+                            brandingValue("signInOAuthLabel")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              signInOAuthLabel: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={async () => {
+                          for (const k of [
+                            "signInNetworkLabel",
+                            "signInNetworkHint",
+                            "signInOAuthLabel",
+                          ]) {
+                            const v = (
+                              chromeInputs[k] ?? brandingValue(k)
+                            ).trim();
+                            if (v) await uploadText(k, v);
+                          }
+                        }}
+                        disabled={uploading}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={async () => {
+                          for (const k of [
+                            "signInNetworkLabel",
+                            "signInNetworkHint",
+                            "signInOAuthLabel",
+                          ]) {
+                            if (brandingValue(k)) await deleteBlob(k);
+                          }
+                        }}
+                        disabled={
+                          uploading ||
+                          (!brandingValue("signInNetworkLabel") &&
+                            !brandingValue("signInNetworkHint") &&
+                            !brandingValue("signInOAuthLabel"))
                         }
                         width="min"
                         style={{ height: 42 }}

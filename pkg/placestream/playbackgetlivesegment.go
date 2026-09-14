@@ -18,13 +18,17 @@ import (
 // seg: `init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored.
 // sid: Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control.
 // streamer: The streamer: a DID or a Bluesky handle (resolved to its DID).
+// token: A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live.
 // track: Track ID (stringified u32 matching the MUXL container).
-func PlaybackGetLiveSegment(ctx context.Context, c glex.LexClient, seg string, sid string, streamer string, track string) ([]byte, error) {
+func PlaybackGetLiveSegment(ctx context.Context, c glex.LexClient, seg string, sid string, streamer string, token string, track string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
 	if sid != "" {
 		params["sid"] = sid
+	}
+	if token != "" {
+		params["token"] = token
 	}
 	params["seg"] = seg
 	params["streamer"] = streamer

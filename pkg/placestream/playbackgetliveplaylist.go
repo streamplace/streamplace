@@ -17,13 +17,17 @@ import (
 //
 // sid: Opaque playback session identifier. Omit on the master playlist request; the server generates one and threads it through the sub-playlist + segment URLs it returns, for view-count correlation.
 // streamer: The streamer to play back: a DID (did:plc/did:web/did:key) or a Bluesky handle, which is resolved to its DID.
+// token: A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live.
 // track: Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist.
-func PlaybackGetLivePlaylist(ctx context.Context, c glex.LexClient, sid string, streamer string, track string) ([]byte, error) {
+func PlaybackGetLivePlaylist(ctx context.Context, c glex.LexClient, sid string, streamer string, token string, track string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
 	if sid != "" {
 		params["sid"] = sid
+	}
+	if token != "" {
+		params["token"] = token
 	}
 	if track != "" {
 		params["track"] = track

@@ -65,6 +65,7 @@ export const handleWebSocketMessages = (
         state = {
           ...state,
           viewers: message.count,
+          viewTotal: message.total ?? state.viewTotal,
         };
       } else if (place.stream.chat.defs.messageView.isTypeOf(message)) {
         message = message as place.stream.chat.defs.MessageView;

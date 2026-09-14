@@ -142,8 +142,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				case msg := <-initialBurst:
 					send(msg)
 				case <-ticker.C:
-					count := a.Bus.GetViewerCount(repoDID)
-					bs, err := json.Marshal(placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
+					bs, err := json.Marshal(a.viewerCountMessage(ctx, repoDID))
 					if err != nil {
 						log.Error(ctx, "could not marshal view count", "error", err)
 						continue
@@ -253,8 +252,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 		}()
 
 		go func() {
-			count := a.Bus.GetViewerCount(repoDID)
-			initialBurst <- placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"}
+			initialBurst <- a.viewerCountMessage(ctx, repoDID)
 		}()
 
 		go func() {
@@ -385,4 +383,20 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			log.Log(ctx, "received message", "messageType", messageType, "message", string(message))
 		}
 	}
+}
+
+// viewerCountMessage is the viewerCount event: who is watching now (the
+// bus) and how many sessions this livestream has had (statedb's running
+// total, when the node keeps one).
+func (a *StreamplaceAPI) viewerCountMessage(ctx context.Context, repoDID string) placestream.Livestream_ViewerCount {
+	msg := placestream.Livestream_ViewerCount{
+		Count:         int64(a.Bus.GetViewerCount(repoDID)),
+		LexiconTypeID: "place.stream.livestream#viewerCount",
+	}
+	if a.StatefulDB != nil {
+		if total, _, err := a.StatefulDB.GetStreamViewTotal(ctx, repoDID); err == nil && total > 0 {
+			msg.Total = &total
+		}
+	}
+	return msg
 }

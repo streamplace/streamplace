@@ -14,6 +14,7 @@ import {
   useSocialShell,
   useTheme,
   useToast,
+  useViewTotal,
   View,
   zero,
 } from "@streamplace/components";
@@ -340,6 +341,7 @@ function PostCard({
   const toast = useToast();
   const meta = useStreamMeta();
   const { title, avatarUri, views, handleStr } = meta;
+  const viewTotal = useViewTotal();
   // The node reports the streamer's verification, display name and avatar
   // on the profile it sends over the stream's websocket; the profile cache
   // fills any gap the same way chat rows do.
@@ -467,17 +469,34 @@ function PostCard({
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Eye size={18} color={theme.colors.text3} />
+            <Eye
+              size={18}
+              color={isLive ? theme.colors.live : theme.colors.text3}
+            />
             <Text
               style={{
                 fontSize: 13,
                 lineHeight: 17,
-                color: theme.colors.text3,
+                color: isLive ? theme.colors.live : theme.colors.text3,
               }}
             >
               {typeof views === "number" ? views : 0}
               {isLive ? " watching" : ""}
             </Text>
+            {/* the running total of sessions this stream has had, in grey
+                beside the live count */}
+            {viewTotal !== null && viewTotal > 0 ? (
+              <Text
+                style={{
+                  fontSize: 13,
+                  lineHeight: 17,
+                  color: theme.colors.text3,
+                  marginLeft: 4,
+                }}
+              >
+                {"· " + viewTotal.toLocaleString() + " views"}
+              </Text>
+            ) : null}
           </View>
           {isLive ? (
             <View

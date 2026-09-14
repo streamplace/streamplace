@@ -13,6 +13,8 @@ export interface LivestreamState {
   authors: { [key: string]: ChatMessageViewHydrated["chatProfile"] };
   livestream: LivestreamViewHydrated | null;
   viewers: number | null;
+  /** Running number of playback sessions this livestream has had. */
+  viewTotal: number | null;
   pendingHides: string[];
   segment: place.stream.segment.Main | null;
   recentSegments: place.stream.segment.Main[];

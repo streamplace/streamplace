@@ -69,6 +69,7 @@ var StatefulDBModels = []any{
 	MultistreamEvent{},
 	BrandingBlob{},
 	AccessGrant{},
+	StreamViewTotal{},
 	CertmagicItem{},
 	ModerationAuditLog{},
 	Storage{},

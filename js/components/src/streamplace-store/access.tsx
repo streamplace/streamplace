@@ -52,18 +52,19 @@ export function useFetchAccessStatus() {
       if (!agent) {
         throw new Error("Streamplace agent not available");
       }
-      // A session the node can't attribute (inherited from the network's
-      // app, or made from a password) is anonymous to it; name the account
-      // so the answer still carries its chat verification.
+      // Name the account whenever there is one: a session the node can't
+      // attribute (inherited from the network's app, made from a password,
+      // or an OAuth session whose proof the node's proxy setup doesn't
+      // honour) is anonymous to it, and the answer must still carry the
+      // user's chat verification. The node ignores subject when it can
+      // attribute the caller itself.
       const session = store.getState().oauthSession as
-        | { did?: string; kind?: string }
+        | { did?: string }
         | null
         | undefined;
-      const bearer =
-        session?.kind === "brokered" || session?.kind === "credential";
       const res = await agent.client.call(
         place.stream.access.getStatus,
-        bearer && session?.did
+        session?.did
           ? { subject: session.did as `did:${string}:${string}` }
           : {},
       );

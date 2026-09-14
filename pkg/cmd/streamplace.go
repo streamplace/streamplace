@@ -364,6 +364,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	// hourly, the firehose keeps them current in between.
 	go atsync.SeedVerificationsForever(ctx)
 	go atsync.SeedLabelsForever(ctx)
+	go atsync.RefreshAppViewVerificationsForever(ctx)
 
 	var replicator replication.Replicator = nil
 	if slices.Contains(cli.Replicators, config.ReplicatorIroh) {

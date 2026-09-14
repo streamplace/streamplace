@@ -39,6 +39,16 @@ func (m *DBModel) DeleteVerification(ctx context.Context, uri string) error {
 	return m.DB.WithContext(ctx).Where("uri = ?", uri).Delete(&Verification{}).Error
 }
 
+// ListVerificationsByIssuer returns every verification issued by issuer.
+func (m *DBModel) ListVerificationsByIssuer(ctx context.Context, issuer string) ([]Verification, error) {
+	var rows []Verification
+	err := m.DB.WithContext(ctx).Where("issuer_did = ?", issuer).Find(&rows).Error
+	if err != nil && !isNotFound(err) {
+		return nil, err
+	}
+	return rows, nil
+}
+
 // DeleteVerificationsByIssuer removes every verification issued by issuer
 // (a mirrored labeler's rows, before a rescan under new label rules).
 func (m *DBModel) DeleteVerificationsByIssuer(ctx context.Context, issuer string) error {

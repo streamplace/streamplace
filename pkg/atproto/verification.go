@@ -32,6 +32,7 @@ var (
 	verifiedOnlyC  bool
 	labelerCached  string
 	labelPatternsC []string
+	appViewCached  appViewConfig
 )
 
 // Verifiers returns the trusted verifier DIDs, cached briefly.
@@ -71,9 +72,27 @@ func (atsync *ATProtoSynchronizer) Verifiers(ctx context.Context) []string {
 		} else {
 			labelerCached = ""
 		}
+		// An app view with its own verification field is a verifier too,
+		// under the did:web of its host (see appview_verification.go).
+		appViewCached = parseAppViewConfig(
+			branding.Text(atsync.StatefulDB, atsync.CLI.BroadcasterHost, "verifyAppViewUrl"),
+			branding.Text(atsync.StatefulDB, atsync.CLI.BroadcasterHost, "verifyAppViewField"),
+			branding.Text(atsync.StatefulDB, atsync.CLI.BroadcasterHost, "verifyAppViewValues"),
+		)
+		if appViewCached.URL != "" {
+			verifierCached = append(verifierCached, appViewCached.Issuer())
+		}
 	}
 	verifierAt = time.Now()
 	return verifierCached
+}
+
+// AppView returns the verifying app view's configuration; URL "" when unset.
+func (atsync *ATProtoSynchronizer) AppView(ctx context.Context) appViewConfig {
+	atsync.Verifiers(ctx)
+	verifierMu.Lock()
+	defer verifierMu.Unlock()
+	return appViewCached
 }
 
 // Labeler returns the verifying labeler's DID and the label values (exact,
@@ -103,6 +122,14 @@ func (atsync *ATProtoSynchronizer) verificationsOf(ctx context.Context, did stri
 	if err != nil {
 		log.Error(ctx, "failed to look up verifications", "did", did, "err", err)
 		return nil
+	}
+	if len(found[did]) == 0 && atsync.appViewLookup(ctx, did) {
+		// First sight of this account: the app view just vouched for it,
+		// and the row is in the table now.
+		found, err = atsync.Model.VerificationsFor(ctx, []string{did}, verifiers)
+		if err != nil {
+			return nil
+		}
 	}
 	return found[did]
 }

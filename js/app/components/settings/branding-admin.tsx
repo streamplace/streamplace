@@ -307,6 +307,9 @@ export function BrandingAdmin() {
         case "verifierDids":
         case "labelerDid":
         case "verifiedLabels":
+        case "verifyAppViewUrl":
+        case "verifyAppViewField":
+        case "verifyAppViewValues":
         case "verifyUrl":
         case "chatVerifiedOnlyMessage":
         case "verifyLinkLabel":
@@ -948,6 +951,102 @@ export function BrandingAdmin() {
                           await deleteBlob("verifiedLabels");
                         }}
                         disabled={uploading || !brandingValue("labelerDid")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-verify-appview-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 2 }}>
+                        <Input
+                          placeholder="https://api.example.com"
+                          value={
+                            chromeInputs["verifyAppViewUrl"] ??
+                            brandingValue("verifyAppViewUrl")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              verifyAppViewUrl: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="wsocialVerified"
+                          value={
+                            chromeInputs["verifyAppViewField"] ??
+                            brandingValue("verifyAppViewField")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              verifyAppViewField: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="*"
+                          value={
+                            chromeInputs["verifyAppViewValues"] ??
+                            brandingValue("verifyAppViewValues")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              verifyAppViewValues: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={async () => {
+                          for (const k of [
+                            "verifyAppViewUrl",
+                            "verifyAppViewField",
+                            "verifyAppViewValues",
+                          ]) {
+                            const v = (
+                              chromeInputs[k] ?? brandingValue(k)
+                            ).trim();
+                            if (v) await uploadText(k, v);
+                          }
+                        }}
+                        disabled={
+                          uploading ||
+                          !(
+                            chromeInputs["verifyAppViewUrl"] ??
+                            brandingValue("verifyAppViewUrl")
+                          ).trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={async () => {
+                          for (const k of [
+                            "verifyAppViewUrl",
+                            "verifyAppViewField",
+                            "verifyAppViewValues",
+                          ]) {
+                            if (brandingValue(k)) await deleteBlob(k);
+                          }
+                        }}
+                        disabled={
+                          uploading || !brandingValue("verifyAppViewUrl")
+                        }
                         width="min"
                         style={{ height: 42 }}
                       >

@@ -82,6 +82,7 @@ type Model interface {
 	CreateVerification(ctx context.Context, v *Verification) error
 	DeleteVerification(ctx context.Context, uri string) error
 	DeleteVerificationsByIssuer(ctx context.Context, issuer string) error
+	ListVerificationsByIssuer(ctx context.Context, issuer string) ([]Verification, error)
 	VerificationsFor(ctx context.Context, subjectDIDs []string, issuerDIDs []string) (map[string][]Verification, error)
 	GetBlock(ctx context.Context, rkey string) (*Block, error)
 	GetUserBlock(ctx context.Context, userDID, subjectDID string) (*Block, error)

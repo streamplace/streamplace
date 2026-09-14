@@ -116,6 +116,15 @@ export function useAccessStatusAutoFetch() {
   const store = getStreamplaceStoreFromContext();
   const oauthSession = useStreamplaceStore((s) => s.oauthSession);
   const did = oauthSession?.did;
+  // While a signed-in viewer is locked out of a verified-only chat, ask
+  // again every minute: the node re-checks verification on a schedule, so
+  // a viewer who just got verified unlocks without reloading.
+  const lockedOut = useChatLockedOut();
+  useEffect(() => {
+    if (!lockedOut || !did) return;
+    const handle = setInterval(() => void fetchAccessStatus(), 60_000);
+    return () => clearInterval(handle);
+  }, [lockedOut, did, fetchAccessStatus]);
 
   useEffect(() => {
     const { accessStatus, accessStatusLoaded } = store.getState();

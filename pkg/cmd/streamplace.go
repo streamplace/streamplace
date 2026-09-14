@@ -276,6 +276,17 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
+	// Every new playback session counts toward the streamer's running view
+	// total, filed under their current livestream record.
+	mm.SetViewRecorder(func(streamer string) {
+		uri := ""
+		if ls, err := mod.GetLatestLivestreamForRepo(streamer); err == nil && ls != nil {
+			uri = ls.URI
+		}
+		if _, err := state.AddStreamView(ctx, streamer, uri); err != nil {
+			log.Warn(ctx, "failed to count a view", "streamer", streamer, "err", err)
+		}
+	})
 	if cli.IsolatedIngest && !media.IngestIsolationSupported() {
 		// The worker transport needs Unix fd-passing + Setsid (Linux today); fall
 		// back to in-process ingest elsewhere rather than break.

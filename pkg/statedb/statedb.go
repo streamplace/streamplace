@@ -38,7 +38,11 @@ type StatefulDB struct {
 	// pgLockConn is used to hold a connection to the database for locking
 	pgLockConn   *gorm.DB
 	pgLockConnMu sync.Mutex
-	OATProxy     *oatproxy.OATProxy
+	// brandingCache holds one brandingSnapshot per broadcaster (see
+	// BrandingBlobs), so the many per-key reads of a page render cost one
+	// query per TTL instead of one each.
+	brandingCache sync.Map
+	OATProxy      *oatproxy.OATProxy
 	// vodProcessor runs the gstreamer + muxl + S3 pipeline for a VOD
 	// upload task. Installed via SetVODProcessor at bootstrap so
 	// pkg/statedb doesn't have to depend on the gstreamer-heavy pkg/vod.

@@ -62,6 +62,7 @@ type CLI struct {
 	Build                      *BuildFlags
 	DataDir                    string
 	DBURL                      string
+	DBMaxOpenConns             int
 	LocalDBURL                 string
 	EthAccountAddr             string
 	EthKeystorePath            string
@@ -398,6 +399,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       "sqlite://$SP_DATA_DIR/state.sqlite",
 				Destination: &cli.DBURL,
 				Sources:     urfavecli.EnvVars("SP_DB_URL"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "db-max-open-conns",
+				Usage:       "most connections this node holds to a Postgres state database (one of them is the advisory-lock connection); requests wait for a free one rather than opening more. Size it so nodes × this stays under the server's max_connections. Ignored for sqlite",
+				Value:       30,
+				Destination: &cli.DBMaxOpenConns,
+				Sources:     urfavecli.EnvVars("SP_DB_MAX_OPEN_CONNS"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "admin-account",

@@ -12,7 +12,9 @@ import (
 	"github.com/gorilla/websocket"
 	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 func originView(streamer, wsURL string) *placestream.BroadcastDefs_BroadcastOriginView {
@@ -76,10 +78,10 @@ func TestPullRetriesUntilOriginAnswers(t *testing.T) {
 	require.False(t, r.hasConnection(streamer))
 }
 
-// An origin nobody has refreshed for a while is a stream that ended: the
-// pull gives up instead of dialling forever.
-func TestPullGivesUpOnStaleOrigin(t *testing.T) {
-	pullBackoffMin, pullBackoffMax = 5*time.Millisecond, 20*time.Millisecond
+// A pull never gives up: an origin nobody has refreshed for a long time is
+// still dialled, just slowly.
+func TestPullKeepsRetryingQuietOrigin(t *testing.T) {
+	pullBackoffMin, pullBackoffMax, pullBackoffQuiet = 5*time.Millisecond, 20*time.Millisecond, 40*time.Millisecond
 	var attempts atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		attempts.Add(1)
@@ -90,18 +92,27 @@ func TestPullGivesUpOnStaleOrigin(t *testing.T) {
 	const streamer = "did:plc:streamer"
 	r.rememberOrigin(originView(streamer, "ws"+strings.TrimPrefix(srv.URL, "http")+"/x"), streamer)
 	r.latestMutex.Lock()
-	r.latest[streamer] = latestOrigin{view: r.latest[streamer].view, seen: time.Now().Add(-originStaleAfter - time.Second)}
+	r.latest[streamer] = latestOrigin{view: r.latest[streamer].view, seen: time.Now().Add(-originQuietAfter - time.Hour)}
 	r.latestMutex.Unlock()
 
+	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		r.pull(context.Background(), streamer)
+		r.pull(ctx, streamer)
 		close(done)
 	}()
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("pull kept going on a stale origin")
-	}
-	require.Zero(t, attempts.Load(), "a stale origin is not dialled at all")
+	require.Eventually(t, func() bool { return attempts.Load() >= 5 }, 5*time.Second, 5*time.Millisecond, "keeps dialling a quiet origin")
+	cancel()
+	<-done
+}
+
+// Rows from the shared statedb become origins to pull from, shaped like the
+// firehose's, with the URL a node at that server DID advertises.
+func TestOriginViewForRow(t *testing.T) {
+	r := &WebsocketReplicator{cli: &config.CLI{ServerHost: "me.example", BehindHTTPSProxy: true}}
+	view := r.originViewForRow(statedb.BroadcastOrigin{StreamerRepoDID: "did:plc:s", ServerDID: "did:web:origin.example", UpdatedAt: time.Now()})
+	origin := view.Record.Val.(*placestream.BroadcastOrigin)
+	require.Equal(t, "wss://origin.example/xrpc/place.stream.live.subscribeSegments?streamer=did%3Aplc%3As", *origin.WebsocketURL)
+	require.Equal(t, "did:plc:s", origin.Streamer)
+	require.Equal(t, "did:plc:s", view.Author.Did)
 }

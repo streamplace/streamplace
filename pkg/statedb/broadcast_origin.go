@@ -49,3 +49,16 @@ func (state *StatefulDB) GetLatestBroadcastOriginForStreamer(streamerRepoDID str
 	}
 	return &origin, nil
 }
+
+// ListBroadcastOriginsSince returns every streamer→server row refreshed
+// after since, newest first. With one statedb shared by a station this is
+// how peers learn which node is ingesting whom — the ingest node touches
+// its row on every segment.
+func (state *StatefulDB) ListBroadcastOriginsSince(since time.Time) ([]BroadcastOrigin, error) {
+	var rows []BroadcastOrigin
+	err := state.DB.Where("updated_at >= ?", since.UTC()).Order("updated_at DESC").Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}

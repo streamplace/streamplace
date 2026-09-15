@@ -5,11 +5,14 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	glex "github.com/streamplace/glex/runtime"
 	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
@@ -17,6 +20,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spmetrics"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 type WebsocketReplicator struct {
@@ -25,6 +29,10 @@ type WebsocketReplicator struct {
 	mod        model.Model
 	conns      map[string]bool
 	connsMutex sync.RWMutex
+	// state is the station's shared statedb, whose broadcast_origins table
+	// is the second (and, with a shared database, the dependable) way to
+	// learn about origins; nil in tests.
+	state *statedb.StatefulDB
 	// latest is the newest origin heard per streamer (see latestOrigin).
 	latest      map[string]latestOrigin
 	latestMutex sync.RWMutex
@@ -32,10 +40,11 @@ type WebsocketReplicator struct {
 	mm          *media.MediaManager
 }
 
-func NewWebsocketReplicator(bus *bus.Bus, mod model.Model, mm *media.MediaManager) *WebsocketReplicator {
+func NewWebsocketReplicator(bus *bus.Bus, mod model.Model, mm *media.MediaManager, state *statedb.StatefulDB) *WebsocketReplicator {
 	return &WebsocketReplicator{
 		bus:        bus,
 		mod:        mod,
+		state:      state,
 		conns:      make(map[string]bool),
 		connsMutex: sync.RWMutex{},
 		latest:     make(map[string]latestOrigin),
@@ -54,12 +63,21 @@ type latestOrigin struct {
 }
 
 var (
-	originStaleAfter = 2 * time.Minute
-	pullBackoffMin   = time.Second
-	pullBackoffMax   = 30 * time.Second
+	pullBackoffMin = time.Second
+	pullBackoffMax = 30 * time.Second
+	// A pull whose origin nobody has refreshed for originQuietAfter is
+	// probably a stream that ended; it is still retried (an ingest node
+	// that comes back is picked up without anyone doing anything), just
+	// at pullBackoffQuiet rather than pullBackoffMax.
+	originQuietAfter = 10 * time.Minute
+	pullBackoffQuiet = 5 * time.Minute
 	// A pull that lasted this long counts as having worked: the next failure
 	// starts the backoff over rather than continuing where it left off.
 	pullHealthyAfter = 30 * time.Second
+	// How often the shared broadcast_origins table is read, and how far
+	// back a row still counts as an origin worth pulling from.
+	originPollInterval = 10 * time.Second
+	originPollWindow   = 5 * time.Minute
 )
 
 func (r *WebsocketReplicator) rememberOrigin(view *placestream.BroadcastDefs_BroadcastOriginView, streamer string) {
@@ -79,7 +97,68 @@ func (r *WebsocketReplicator) Start(ctx context.Context, cli *config.CLI) error 
 	r.cli = cli
 	_ = r.getMyWebsocketURL() // panic check
 	r.group, ctx = errgroup.WithContext(ctx)
+	if r.state != nil {
+		r.group.Go(func() error {
+			r.pollOrigins(ctx)
+			return nil
+		})
+	}
 	return r.startBusSubscribe(ctx)
+}
+
+// pollOrigins learns about origins from the station's shared statedb rather
+// than the firehose: the ingest node upserts (streamer, its server DID) on
+// every local segment, so the table says who is ingesting whom right now
+// regardless of which relays this node follows. (The origin record on the
+// firehose lives in the streamer's own repo, which a peer's firehose never
+// carries — a station whose nodes relay only each other would otherwise
+// never hear of any origin.)
+func (r *WebsocketReplicator) pollOrigins(ctx context.Context) {
+	ticker := time.NewTicker(originPollInterval)
+	defer ticker.Stop()
+	for {
+		rows, err := r.state.ListBroadcastOriginsSince(time.Now().Add(-originPollWindow))
+		if err != nil {
+			log.Error(ctx, "could not list broadcast origins", "error", err)
+		}
+		seen := map[string]bool{}
+		for _, row := range rows {
+			if seen[row.StreamerRepoDID] {
+				continue // newest row per streamer wins
+			}
+			seen[row.StreamerRepoDID] = true
+			view := r.originViewForRow(row)
+			if err := r.handleOriginMessage(ctx, view); err != nil {
+				log.Error(ctx, "could not handle broadcast origin row", "streamer", row.StreamerRepoDID, "server", row.ServerDID, "error", err)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// originViewForRow shapes a statedb row like the firehose's origin view, with
+// the websocket URL a node at that server DID advertises (same scheme rule
+// as our own, see getMyWebsocketURL — the station's nodes share a config).
+func (r *WebsocketReplicator) originViewForRow(row statedb.BroadcastOrigin) *placestream.BroadcastDefs_BroadcastOriginView {
+	u := url.URL{Scheme: "ws", Host: strings.TrimPrefix(row.ServerDID, "did:web:"), Path: "/xrpc/place.stream.live.subscribeSegments"}
+	if r.cli.HasHTTPS() {
+		u.Scheme = "wss"
+	}
+	u.RawQuery = url.Values{"streamer": []string{row.StreamerRepoDID}}.Encode()
+	wsURL := u.String()
+	return &placestream.BroadcastDefs_BroadcastOriginView{
+		Author: appbsky.ActorDefs_ProfileViewBasic{Did: row.StreamerRepoDID},
+		Record: &glex.LexiconTypeDecoder{Val: &placestream.BroadcastOrigin{
+			Streamer:     row.StreamerRepoDID,
+			Server:       row.ServerDID,
+			WebsocketURL: &wsURL,
+			UpdatedAt:    row.UpdatedAt.UTC().Format(time.RFC3339),
+		}},
+	}
 }
 
 func (r *WebsocketReplicator) startBusSubscribe(ctx context.Context) error {
@@ -157,10 +236,13 @@ func (r *WebsocketReplicator) handleOriginMessage(ctx context.Context, view *pla
 }
 
 // pull keeps one streamer's segments flowing from wherever its origin is:
-// dial, read until the connection drops, back off, dial again — for as
-// long as the origin keeps being refreshed. Before this a failed dial was
-// logged once and forgotten, and the node stayed silent on that stream
-// until a fresh origin record happened to arrive and start a new attempt.
+// dial, read until the connection drops, back off, dial again, for as long
+// as the node runs. It never gives up: a stream that is merely taking a
+// while to come back is indistinguishable from one that ended, and a
+// periodic dial for a stream that ought to be live costs nothing. Each
+// attempt re-reads the newest origin for the streamer, so a stream that
+// moves to another ingest node is followed. Before this a failed dial was
+// logged once and forgotten.
 func (r *WebsocketReplicator) pull(ctx context.Context, streamer string) {
 	if err := r.tryConnection(streamer); err != nil {
 		return
@@ -171,8 +253,7 @@ func (r *WebsocketReplicator) pull(ctx context.Context, streamer string) {
 	attempts := 0
 	for {
 		latest, ok := r.latestFor(streamer)
-		if !ok || time.Since(latest.seen) > originStaleAfter {
-			log.Log(ctx, "syndication: origin no longer refreshed, giving up", "attempts", attempts)
+		if !ok {
 			return
 		}
 		attempts++
@@ -184,16 +265,26 @@ func (r *WebsocketReplicator) pull(ctx context.Context, streamer string) {
 		if time.Since(started) > pullHealthyAfter {
 			backoff = pullBackoffMin
 		}
-		log.Warn(ctx, "syndication: pull from origin ended, retrying", "error", err, "attempt", attempts, "retry_in", backoff)
+		cap := pullBackoffMax
+		if time.Since(latest.seen) > originQuietAfter {
+			cap = pullBackoffQuiet
+		}
+		if backoff > cap {
+			backoff = cap
+		}
+		// Every attempt while it's fresh; once it's a slow ping, a line now
+		// and then so the log says the stream is still being watched.
+		if backoff < cap || attempts%10 == 0 {
+			log.Warn(ctx, "syndication: pull from origin ended, retrying", "error", err, "attempt", attempts, "retry_in", backoff, "origin_age", time.Since(latest.seen).Round(time.Second))
+		} else {
+			log.Debug(ctx, "syndication: pull from origin ended, retrying", "error", err, "attempt", attempts, "retry_in", backoff)
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(backoff):
 		}
 		backoff *= 2
-		if backoff > pullBackoffMax {
-			backoff = pullBackoffMax
-		}
 	}
 }
 

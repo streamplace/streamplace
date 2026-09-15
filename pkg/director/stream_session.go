@@ -129,7 +129,12 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
 	allRenditions = append(allRenditions, renditions.AudioRendition)
 
-	ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
+	// Live recording is the ingest node's job alone: a node that merely
+	// syndicates this stream must not also write it to S3, or every node
+	// records the same stream and they fight over the finalize.
+	if notif.Local {
+		ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
+	}
 
 	close(ss.started)
 
@@ -267,7 +272,9 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	// got absorbed into the recording). The moment publishing stops we complete
 	// the current object so it's immediately finalize-able instead of lingering
 	// un-completed (which made finalize report "no recorded S3 segments").
-	if notif.Metadata.Published {
+	if !notif.Local {
+		// replicated segment: the origin node records it
+	} else if notif.Metadata.Published {
 		ss.s3Upload(ctx, notif)
 	} else {
 		ss.s3Cutover(ctx)

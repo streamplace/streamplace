@@ -23,6 +23,13 @@ const liveWindowSize = 12
 // with nothing to fetch (404s — the stall at the same spot every replay).
 const liveWindowMinDuration = 10 * time.Second
 
+// liveWindowMinFragment joins signed segments shorter than this into one
+// playlist fragment (they concatenate blindly and each starts at a
+// keyframe). Serving a scene-cut passage one keyframe per fragment costs a
+// player a round trip per 40ms of video; half a second is enough to keep a
+// buffer fed and delays the live edge by at most that during the passage.
+const liveWindowMinFragment = 500 * time.Millisecond
+
 // liveWindowRetention ages segments out by wall-clock arrival time, independent
 // of liveWindowSize. The count window only evicts as new segments push old ones
 // out, so when a stream stalls or ends its last segments would otherwise sit in
@@ -39,7 +46,7 @@ func (mm *MediaManager) liveWindow(did string) *livehls.Writer {
 	defer mm.liveWindowsMut.Unlock()
 	w := mm.liveWindows[did]
 	if w == nil {
-		w = livehls.NewWriter(livehls.WithWindow(liveWindowSize), livehls.WithMinDuration(liveWindowMinDuration), livehls.WithRetention(liveWindowRetention))
+		w = livehls.NewWriter(livehls.WithWindow(liveWindowSize), livehls.WithMinDuration(liveWindowMinDuration), livehls.WithMinFragment(liveWindowMinFragment), livehls.WithRetention(liveWindowRetention))
 		mm.liveWindows[did] = w
 	}
 	return w

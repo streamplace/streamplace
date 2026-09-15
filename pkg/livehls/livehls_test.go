@@ -121,21 +121,81 @@ func TestSlidingWindowEvictsAndAdvancesMediaSequence(t *testing.T) {
 	}
 	tr := w.Track("1")
 	if len(tr.Segments) != 2 {
-		t.Fatalf("window=2 should cap the window at 2 segments, got %d", len(tr.Segments))
+		t.Fatalf("window=2 should advertise 2 segments, got %d", len(tr.Segments))
 	}
-	// 4 emitted, 2 retained → media sequences 2 and 3 remain.
+	// 4 emitted, 2 advertised → media sequences 2 and 3 are listed.
 	if tr.Segments[0].Seq != 2 || tr.Segments[1].Seq != 3 {
-		t.Errorf("expected retained seqs [2,3], got [%d,%d]", tr.Segments[0].Seq, tr.Segments[1].Seq)
+		t.Errorf("expected advertised seqs [2,3], got [%d,%d]", tr.Segments[0].Seq, tr.Segments[1].Seq)
 	}
-	if !strings.Contains(w.MediaPlaylist("1", "i", segURI), "#EXT-X-MEDIA-SEQUENCE:2") {
-		t.Errorf("expected EXT-X-MEDIA-SEQUENCE:2 after evicting 2 segments")
+	pl := w.MediaPlaylist("1", "i", segURI)
+	if !strings.Contains(pl, "#EXT-X-MEDIA-SEQUENCE:2") || strings.Contains(pl, "seg1.m4s") {
+		t.Errorf("expected the playlist to start at seq 2 and not list seq 1:\n%s", pl)
 	}
-	// Evicted segments are gone from memory; retained ones are served.
-	if w.SegmentData("1", 0) != nil {
-		t.Errorf("evicted segment 0 should no longer be retained")
+	// A segment that has left the playlist is still served for a while (a
+	// player a little behind asks for it), up to a playlist's worth of grace.
+	if w.SegmentData("1", 0) == nil || w.SegmentData("1", 1) == nil {
+		t.Errorf("segments just off the playlist must still be served")
 	}
 	if w.SegmentData("1", 3) == nil {
 		t.Errorf("segment 3 should still be retained")
+	}
+	for i := 4; i < 8; i++ {
+		_ = w.Observe(segEvent([]byte{byte(i)}, []byte{byte(i)}))
+	}
+	if w.SegmentData("1", 0) != nil || w.SegmentData("1", 3) != nil {
+		t.Errorf("beyond the grace (2×window) segments are dropped")
+	}
+	if w.SegmentData("1", 4) == nil {
+		t.Errorf("segment 4 is within the grace and still served")
+	}
+}
+
+// Signed segments shorter than the minimum fragment are joined into one
+// fragment, advertised only once it spans the minimum; the join is a byte
+// append and the fragment carries the summed timing.
+func TestMinFragmentJoinsTinySegments(t *testing.T) {
+	frame := func(b byte) *muxl.MuxlEvent {
+		ev := segEvent([]byte{b}, []byte{b})
+		ev.Durations = map[string]uint64{"1": 3000, "2": 1600} // one frame at 30fps
+		ev.SampleCounts = map[string]uint32{"1": 1, "2": 1}
+		return ev
+	}
+	w := NewWriter(WithWindow(12), WithMinFragment(500*time.Millisecond))
+	_ = w.Observe(initEvent())
+	_ = w.Observe(segEvent([]byte("A"), []byte("a"))) // 1s: a fragment on its own
+	for i := 0; i < 6; i++ {
+		_ = w.Observe(frame(byte('0' + i))) // 0.2s so far: open, not advertised
+	}
+	if got := len(w.Track("1").Segments); got != 1 {
+		t.Fatalf("an open fragment must not be advertised: want 1 listed, got %d", got)
+	}
+	if w.SegmentData("1", 1) != nil {
+		t.Errorf("an open fragment must not be served")
+	}
+	_ = w.Observe(segEvent([]byte("B"), []byte("b"))) // joins: 1.2s, closes
+	tr := w.Track("1")
+	if len(tr.Segments) != 2 {
+		t.Fatalf("want 2 fragments advertised, got %d", len(tr.Segments))
+	}
+	f := tr.Segments[1]
+	if f.Seq != 1 || f.SampleCount != 36 || f.DurationTicks != 6*3000+90000 {
+		t.Errorf("fragment timing wrong: seq=%d samples=%d ticks=%d", f.Seq, f.SampleCount, f.DurationTicks)
+	}
+	if got := string(w.SegmentData("1", 1)); got != "012345B" {
+		t.Errorf("fragment bytes are the pieces in order, got %q", got)
+	}
+	pl := w.MediaPlaylist("1", "i", segURI)
+	if !strings.Contains(pl, "#EXTINF:1.200000,\nseg1.m4s") || !strings.Contains(pl, "#EXT-X-TARGETDURATION:2") {
+		t.Errorf("playlist should carry the joined fragment:\n%s", pl)
+	}
+	// A stream that ends mid-fragment publishes what it has.
+	_ = w.Observe(frame('x'))
+	w.Finalize()
+	if n := len(w.Track("1").Segments); n != 3 {
+		t.Errorf("finalize closes the open fragment: want 3, got %d", n)
+	}
+	if got := string(w.SegmentData("1", 2)); got != "x" {
+		t.Errorf("closed tail fragment served, got %q", got)
 	}
 }
 

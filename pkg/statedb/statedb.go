@@ -129,6 +129,11 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 			return nil, err
 		}
 	}
+	if dbType == DBTypePostgres {
+		if err := postgresIndexFixes(ctx, db); err != nil {
+			return nil, err
+		}
+	}
 
 	err = db.Use(prometheus.New(prometheus.Config{
 		DBName:          "state",
@@ -155,6 +160,38 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 		}
 	}
 	return state, nil
+}
+
+// postgresIndexFixes swaps indexes AutoMigrate builds as btrees for hash
+// indexes where the column is a long token looked up only by equality: a
+// btree entry tops out at ~2.7KB and a downstream OAuth access token (a JWT
+// carrying the session's whole scope list) can be bigger, which makes the
+// INSERT of a perfectly good session fail. AutoMigrate leaves an index alone
+// once one of that name exists, so this holds across restarts.
+func postgresIndexFixes(ctx context.Context, db *gorm.DB) error {
+	type ix struct{ table, column, name string }
+	for _, i := range []ix{
+		{"oauth_sessions", "downstream_access_token", "idx_oauth_sessions_downstream_access_token"},
+	} {
+		var def string
+		err := db.WithContext(ctx).Raw(
+			"SELECT indexdef FROM pg_indexes WHERE schemaname = CURRENT_SCHEMA() AND tablename = ? AND indexname = ?", i.table, i.name,
+		).Scan(&def).Error
+		if err != nil {
+			return fmt.Errorf("checking index %s: %w", i.name, err)
+		}
+		if def == "" || strings.Contains(def, "USING hash") {
+			continue
+		}
+		log.Log(ctx, "rebuilding index as hash (btree can't hold long tokens)", "index", i.name)
+		if err := db.WithContext(ctx).Exec(fmt.Sprintf(`DROP INDEX IF EXISTS %q`, i.name)).Error; err != nil {
+			return fmt.Errorf("dropping index %s: %w", i.name, err)
+		}
+		if err := db.WithContext(ctx).Exec(fmt.Sprintf(`CREATE INDEX %q ON %q USING hash (%q)`, i.name, i.table, i.column)).Error; err != nil {
+			return fmt.Errorf("creating hash index %s: %w", i.name, err)
+		}
+	}
+	return nil
 }
 
 // sqlitePragmas applies the two settings a sqlite state database needs: WAL, so

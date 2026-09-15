@@ -204,3 +204,54 @@ func TestPrimaryAudioTrackID(t *testing.T) {
 		t.Errorf("PrimaryAudioTrackID() = %q, want %q", got, "2")
 	}
 }
+
+// A run of tiny segments (an encoder keyframing every scene cut) must not
+// evict whole seconds of media out of a count window: with a duration floor
+// the window grows past the count until it again spans that much media.
+func TestMinDurationKeepsWindowFromShrinking(t *testing.T) {
+	short := func(frames uint64) *muxl.MuxlEvent {
+		ev := segEvent([]byte("v"), []byte("a"))
+		ev.Durations = map[string]uint64{"1": 3000 * frames, "2": 1600 * frames} // 1 frame at 30fps
+		ev.SampleCounts = map[string]uint32{"1": uint32(frames), "2": uint32(frames)}
+		return ev
+	}
+	w := NewWriter(WithWindow(4), WithMinDuration(3*time.Second))
+	_ = w.Observe(initEvent())
+	for i := 0; i < 4; i++ {
+		_ = w.Observe(segEvent([]byte("v"), []byte("a"))) // 4s of 1s segments
+	}
+	for i := 0; i < 6; i++ {
+		_ = w.Observe(short(1)) // six one-frame segments
+	}
+	tr := w.Track("1")
+	// Count alone would keep the last 4 (four frames, 0.13s of media). The
+	// floor keeps enough whole-second segments for 3s: 3 of them + 6 frames.
+	if len(tr.Segments) != 9 {
+		t.Fatalf("expected 9 segments retained (3 full + 6 frames), got %d", len(tr.Segments))
+	}
+	if tr.Segments[0].Seq != 1 {
+		t.Errorf("expected the window to start at seq 1, got %d", tr.Segments[0].Seq)
+	}
+	total := 0.0
+	for _, s := range tr.Segments {
+		total += s.seconds(tr.Timescale)
+	}
+	if total < 3 {
+		t.Errorf("window spans %.2fs, want at least 3s", total)
+	}
+	// Back to full-length segments: the count window applies again.
+	for i := 0; i < 6; i++ {
+		_ = w.Observe(segEvent([]byte("v"), []byte("a")))
+	}
+	if n := len(w.Track("1").Segments); n != 4 {
+		t.Errorf("expected the count window (4) once whole segments return, got %d", n)
+	}
+	// Without a timescale the floor can't be measured and count applies.
+	w2 := NewWriter(WithWindow(2), WithMinDuration(time.Hour))
+	for i := 0; i < 5; i++ {
+		_ = w2.Observe(short(1))
+	}
+	if n := len(w2.Track("1").Segments); n != 2 {
+		t.Errorf("no timescale: expected count window 2, got %d", n)
+	}
+}

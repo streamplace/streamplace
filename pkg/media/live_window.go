@@ -112,3 +112,15 @@ func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment 
 		log.Error(ctx, "live-hls: window feed failed", "streamer", did, "error", err)
 	}
 }
+
+// FeedLiveRenditions folds an addendum of signed rendition tracks (see
+// MintVideoRenditions) into the streamer's live-HLS window. Each rendition
+// is its own track there — a variant in the master playlist — with its
+// own media sequence, so an addendum arriving a beat after its source
+// segment (the transcoder's round trip) is fine.
+func (mm *MediaManager) FeedLiveRenditions(ctx context.Context, did string, addendum []byte, published bool) {
+	if len(addendum) == 0 {
+		return
+	}
+	mm.feedLiveWindow(ctx, did, addendum, published)
+}

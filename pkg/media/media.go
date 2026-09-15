@@ -82,8 +82,11 @@ type MediaManager struct {
 	// Per-stream continuous audio transcoders, keyed by repoDID. A single-codec
 	// stream's segments are fed here in order; each completed dual-codec segment
 	// is distributed asynchronously (~1 GoP later). See transcode_stream.go.
-	transcoders   map[string]*streamTranscoder
-	transcodersMu sync.Mutex
+	transcoders map[string]*streamTranscoder
+	// renditionVideoTID remembers, per rendition name, the track id a
+	// transcoder's MP4s carry their video under (see canonicalRenditionTrack).
+	renditionVideoTID renditionTIDCache
+	transcodersMu     sync.Mutex
 
 	// Monotonic ingest-session epoch. Each live ingest session (one
 	// SegmentAndSignElem) claims a fresh value, stamped onto its context, so the

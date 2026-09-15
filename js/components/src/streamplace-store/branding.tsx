@@ -38,7 +38,7 @@ const PropsInHeader = [
   "legalLinks",
 ];
 
-function getMetaContent(key: string): BrandingAsset | null {
+export function getMetaContent(key: string): BrandingAsset | null {
   if (typeof window === "undefined" || !window.document) return null;
   const meta = document.querySelector(`meta[name="internal-brand:${key}`);
   if (meta && meta.getAttribute("content")) {
@@ -48,6 +48,33 @@ function getMetaContent(key: string): BrandingAsset | null {
 
   return null;
 }
+
+// Every branding asset the node wrote into the page (pkg/linking puts one
+// internal-brand:<key> meta per key, small images inline as data URLs), or
+// null off the web / behind the dev proxy. This is the whole of getBranding
+// as of the moment the page was rendered, so the store can be filled from
+// it before any request goes out.
+function getAllMetaBranding(): Record<string, BrandingAsset> | null {
+  if (typeof window === "undefined" || !window.document) return null;
+  const metas = document.querySelectorAll('meta[name^="internal-brand:"]');
+  if (!metas.length) return null;
+  const out: Record<string, BrandingAsset> = {};
+  metas.forEach((meta) => {
+    const key = meta.getAttribute("name")!.slice("internal-brand:".length);
+    const content = meta.getAttribute("content");
+    if (!content) return;
+    try {
+      out[key] = JSON.parse(content) as BrandingAsset;
+    } catch {
+      // a malformed tag is just a missing key
+    }
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+// One branding fetch at a time: the auto-fetch on boot and a caller's own
+// call can overlap, and each used to walk every image asset again.
+let brandingInflight: Promise<void> | null = null;
 
 // hook to fetch broadcaster DID (unauthenticated)
 export function useFetchBroadcasterDID() {
@@ -140,99 +167,158 @@ export function useFetchBranding() {
   return useCallback(
     async ({ force = true } = {}) => {
       if (!broadcasterDID) return;
-
-      try {
-        store.setState({ brandingLoading: true });
-
-        // check localStorage first
-        const cacheKey = `branding:${broadcasterDID}`;
-        const cached = await storage.getItem(cacheKey);
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached);
-            const fresh = Date.now() - parsed.timestamp < 60 * 60 * 1000;
-            if (!force && fresh) {
-              store.setState({
-                branding: parsed.data,
-                brandingLoading: false,
-                brandingError: null,
-              });
-              return;
-            }
-            // Paint what we had last time right away, then refresh: the
-            // alternative is a flash of default branding on every cold start
-            // (no server-injected meta on native or behind the dev proxy).
-            if (parsed.data && !store.getState().branding) {
-              store.setState({ branding: parsed.data });
-            }
-          } catch (e) {
-            // invalid cache, continue to fetch
-            console.warn("Invalid branding cache, refetching", e);
-          }
-        }
-
-        // fetch branding metadata from server
-        if (!streamplaceAgent) {
-          throw new Error("Streamplace agent not available");
-        }
-        const res = await streamplaceAgent.client.call(
-          place.stream.branding.getBranding,
-          {
-            broadcaster: broadcasterDID as any,
-          },
-        );
-        const assets = res.assets;
-
-        // convert assets array to keyed object and fetch blob data
-        const brandingMap: Record<string, BrandingAsset> = {};
-
-        for (const asset of assets) {
-          brandingMap[asset.key] = { ...asset };
-
-          // if data is already inline (text assets), use it directly
-          if (asset.data) {
-            brandingMap[asset.key].data = asset.data;
-          } else if (asset.url) {
-            // for images, construct full URL and fetch blob
-            const fullUrl = `${url}${asset.url}`;
-            const blobRes = await fetch(fullUrl);
-            const blob = await blobRes.blob();
-            const dataUrl = await blobToBase64(blob);
-            // FileReader stamps the data URI with the blob's served
-            // Content-Type, which some nodes return as application/octet-stream
-            // — browsers refuse to render that as a favicon, so it flashes then
-            // vanishes. Prefer the asset's declared mimeType so the icon (and
-            // other image assets) actually display.
-            brandingMap[asset.key].data = asset.mimeType
-              ? dataUrl.replace(/^data:[^;,]*/, `data:${asset.mimeType}`)
-              : dataUrl;
-          }
-        }
-
-        // cache in localStorage
-        storage.setItem(
-          cacheKey,
-          JSON.stringify({
-            timestamp: Date.now(),
-            data: brandingMap,
-          }),
-        );
-
-        store.setState({
-          branding: brandingMap,
-          brandingLoading: false,
-          brandingError: null,
-        });
-      } catch (err: any) {
-        console.error("Failed to fetch branding:", err);
-        store.setState({
-          brandingLoading: false,
-          brandingError: err.message || "Failed to fetch branding",
-        });
-      }
+      if (brandingInflight && !force) return brandingInflight;
+      const run = fetchBrandingOnce({
+        force,
+        broadcasterDID,
+        streamplaceAgent,
+        url,
+        store,
+      }).finally(() => {
+        if (brandingInflight === run) brandingInflight = null;
+      });
+      brandingInflight = run;
+      return run;
     },
     [broadcasterDID, streamplaceAgent, url, store],
   );
+}
+
+async function fetchBrandingOnce({
+  force,
+  broadcasterDID,
+  streamplaceAgent,
+  url,
+  store,
+}: {
+  force: boolean;
+  broadcasterDID: string;
+  streamplaceAgent: ReturnType<typeof usePossiblyUnauthedPDSAgent>;
+  url: string | undefined | null;
+  store: ReturnType<typeof getStreamplaceStoreFromContext>;
+}) {
+  try {
+    store.setState({ brandingLoading: true });
+
+    // The page itself carries the branding (web): fill the store from
+    // it now, so nothing renders unbranded and no request is needed for
+    // the first paint. Only assets too big to inline (URL-only) are
+    // fetched, in parallel. An explicit refresh (the admin screen after
+    // an upload) still asks the node.
+    const fromPage = getAllMetaBranding();
+    if (fromPage && !force) {
+      if (!store.getState().branding) {
+        store.setState({ branding: fromPage });
+      }
+      const pending = Object.values(fromPage).filter((a) => !a.data && a.url);
+      await Promise.all(
+        pending.map(async (asset) => {
+          try {
+            asset.data = await fetchAssetDataUrl(url, asset);
+          } catch (e) {
+            console.warn("branding asset fetch failed", asset.key, e);
+          }
+        }),
+      );
+      store.setState({
+        branding: { ...fromPage },
+        brandingLoading: false,
+        brandingError: null,
+      });
+      return;
+    }
+
+    // check localStorage first
+    const cacheKey = `branding:${broadcasterDID}`;
+    const cached = await storage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        const fresh = Date.now() - parsed.timestamp < 60 * 60 * 1000;
+        if (!force && fresh) {
+          store.setState({
+            branding: parsed.data,
+            brandingLoading: false,
+            brandingError: null,
+          });
+          return;
+        }
+        // Paint what we had last time right away, then refresh: the
+        // alternative is a flash of default branding on every cold start
+        // (no server-injected meta on native or behind the dev proxy).
+        if (parsed.data && !store.getState().branding) {
+          store.setState({ branding: parsed.data });
+        }
+      } catch (e) {
+        // invalid cache, continue to fetch
+        console.warn("Invalid branding cache, refetching", e);
+      }
+    }
+
+    // fetch branding metadata from server
+    if (!streamplaceAgent) {
+      throw new Error("Streamplace agent not available");
+    }
+    const res = await streamplaceAgent.client.call(
+      place.stream.branding.getBranding,
+      {
+        broadcaster: broadcasterDID as any,
+      },
+    );
+    const assets = res.assets;
+
+    // convert assets array to keyed object and fetch blob data — the
+    // images all at once, not one after another
+    const brandingMap: Record<string, BrandingAsset> = {};
+    for (const asset of assets) {
+      brandingMap[asset.key] = { ...asset };
+    }
+    await Promise.all(
+      assets
+        .filter((asset) => !asset.data && asset.url)
+        .map(async (asset) => {
+          brandingMap[asset.key].data = await fetchAssetDataUrl(url, asset);
+        }),
+    );
+
+    // cache in localStorage
+    storage.setItem(
+      cacheKey,
+      JSON.stringify({
+        timestamp: Date.now(),
+        data: brandingMap,
+      }),
+    );
+
+    store.setState({
+      branding: brandingMap,
+      brandingLoading: false,
+      brandingError: null,
+    });
+  } catch (err: any) {
+    console.error("Failed to fetch branding:", err);
+    store.setState({
+      brandingLoading: false,
+      brandingError: err.message || "Failed to fetch branding",
+    });
+  }
+}
+
+// Fetches an image asset and returns it as a data URL. FileReader stamps
+// the data URI with the blob's served Content-Type, which some nodes return
+// as application/octet-stream — browsers refuse to render that as a favicon,
+// so it flashes then vanishes. Prefer the asset's declared mimeType so the
+// icon (and other image assets) actually display.
+async function fetchAssetDataUrl(
+  url: string | undefined | null,
+  asset: { url?: string; mimeType?: string },
+): Promise<string> {
+  const blobRes = await fetch(`${url}${asset.url}`);
+  const blob = await blobRes.blob();
+  const dataUrl = await blobToBase64(blob);
+  return asset.mimeType
+    ? dataUrl.replace(/^data:[^;,]*/, `data:${asset.mimeType}`)
+    : dataUrl;
 }
 
 // hook to get a specific branding asset by key
@@ -320,7 +406,7 @@ export function useBrandingAutoFetch() {
 
   useEffect(() => {
     if (broadcasterDID) {
-      fetchBranding();
+      fetchBranding({ force: false });
     }
   }, [broadcasterDID, fetchBranding]);
 }

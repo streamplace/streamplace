@@ -6,16 +6,18 @@ import {
 import * as Sentry from "@sentry/react-native";
 import {
   BrandedThemeProvider,
+  getMetaContent,
   I18nProvider,
   ThemeProvider,
   StreamplaceProvider as ZustandStreamplaceProvider,
 } from "@streamplace/components";
+import * as Font from "expo-font";
 import { useFonts } from "expo-font";
 import BlueskyProvider from "features/bluesky/blueskyProvider";
 import { SessionBrokerProvider } from "features/session-broker/provider";
 import StreamplaceProvider from "features/streamplace/streamplaceProvider";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useStore } from "store";
 import { useOAuthSession } from "store/hooks";
 
@@ -135,24 +137,53 @@ export const NewStreamplaceProvider = ({
   );
 };
 
+// Geist (Sans Serif) — the design system uses exactly three weights
+const GEIST = {
+  "Geist-Regular": require("../../assets/fonts/Geist-Regular.ttf"),
+  "Geist-Medium": require("../../assets/fonts/Geist-Medium.ttf"),
+  "Geist-SemiBold": require("../../assets/fonts/Geist-SemiBold.ttf"),
+};
+// Inter — the alternative sans a node can pick with the typeface branding
+// key (same three weights, mono stays Geist Mono)
+const INTER = {
+  "Inter-Regular": require("@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf"),
+  "Inter-Medium": require("@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf"),
+  "Inter-SemiBold": require("@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf"),
+};
+// Geist Mono — stream keys, ingest URLs, timers
+const GEIST_MONO = {
+  "GeistMono-Regular": require("../../assets/fonts/GeistMono-Regular.ttf"),
+  "GeistMono-Medium": require("../../assets/fonts/GeistMono-Medium.ttf"),
+  "GeistMono-SemiBold": require("../../assets/fonts/GeistMono-SemiBold.ttf"),
+};
+
+// The faces the first paint waits for. On web the mono (stream keys, ingest
+// URLs — nothing on a landing page) loads behind the paint and the browser
+// swaps it in when it arrives (@font-face); native can't swap, so it waits
+// for everything. The sans families both stay in front: the page's
+// branding meta names the node's typeface, but the text primitives still
+// draw most text in Geist whatever it says (see js/components ui/text),
+// so gating on Inter alone would paint the page in the fallback font.
+function splitFonts() {
+  const all = { ...GEIST, ...INTER, ...GEIST_MONO };
+  if (Platform.OS !== "web") return { first: all, later: {} };
+  const inter = getMetaContent("typeface")?.data === "inter";
+  return {
+    first: inter ? { ...GEIST, ...INTER } : GEIST,
+    later: { ...(inter ? {} : INTER), ...GEIST_MONO },
+  };
+}
+
 export const FontProvider = ({ children }: { children: React.ReactNode }) => {
-  const [fontLoaded, fontError] = useFonts({
-    // Geist (Sans Serif) — the design system uses exactly three weights
-    "Geist-Regular": require("../../assets/fonts/Geist-Regular.ttf"),
-    "Geist-Medium": require("../../assets/fonts/Geist-Medium.ttf"),
-    "Geist-SemiBold": require("../../assets/fonts/Geist-SemiBold.ttf"),
-
-    // Geist Mono — stream keys, ingest URLs, timers
-    "GeistMono-Regular": require("../../assets/fonts/GeistMono-Regular.ttf"),
-    "GeistMono-Medium": require("../../assets/fonts/GeistMono-Medium.ttf"),
-    "GeistMono-SemiBold": require("../../assets/fonts/GeistMono-SemiBold.ttf"),
-
-    // Inter — the alternative sans a node can pick with the typeface
-    // branding key (same three weights, mono stays Geist Mono)
-    "Inter-Regular": require("@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf"),
-    "Inter-Medium": require("@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf"),
-    "Inter-SemiBold": require("@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf"),
-  });
+  const [{ first, later }] = useState(splitFonts);
+  const [fontLoaded, fontError] = useFonts(first);
+  useEffect(() => {
+    if (Object.keys(later).length) {
+      Font.loadAsync(later).catch((e) =>
+        console.warn("secondary fonts failed to load", e),
+      );
+    }
+  }, [later]);
 
   if (!fontLoaded && !fontError) {
     return null;

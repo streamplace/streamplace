@@ -86,6 +86,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeSplitCommand(build),
 		makeLivepeerCommand(build),
 		makeMigrateCommand(build),
+		makeMigrateStateCommand(),
 		makeSyncCommand(build),
 	}
 	// Add the verbosity flag
@@ -1232,6 +1233,33 @@ func makeMigrateCommand(build *config.BuildFlags) *urfavecli.Command {
 		Usage: "run database migrations",
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
 			return statedb.Migrate(&cli)
+		},
+	}
+}
+
+// makeMigrateStateCommand copies the state database from one engine to
+// another — the sqlite → Postgres move. Run it once while the old node is
+// still up to prove the target out, stop the node, run it again for the
+// delta (it is idempotent), then start the node with --db-url pointing at
+// the target.
+func makeMigrateStateCommand() *urfavecli.Command {
+	var from, to string
+	var batch int
+	return &urfavecli.Command{
+		Name:  "migrate-statedb",
+		Usage: "copy the state database to another engine (sqlite → Postgres), then exit",
+		Flags: []urfavecli.Flag{
+			&urfavecli.StringFlag{Name: "from", Usage: "source state database URL, e.g. sqlite:///data/state.sqlite", Required: true, Destination: &from},
+			&urfavecli.StringFlag{Name: "to", Usage: "target state database URL, e.g. postgres://user:pass@host/streamplace (created if missing)", Required: true, Destination: &to},
+			&urfavecli.IntFlag{Name: "batch-size", Usage: "rows per INSERT", Value: 500, Destination: &batch},
+		},
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			reports, err := statedb.CopyState(ctx, from, to, batch)
+			fmt.Fprintf(os.Stderr, "\n%-28s %10s %10s %10s\n", "table", "source", "inserted", "target")
+			for _, r := range reports {
+				fmt.Fprintf(os.Stderr, "%-28s %10d %10d %10d\n", r.Table, r.Source, r.Inserted, r.Target)
+			}
+			return err
 		},
 	}
 }

@@ -42,6 +42,10 @@ export interface StreamplaceState {
   // Injected by the app: prompt the user to log in (opens the login modal).
   // Lets components (comments, likes, chat) gate actions behind auth.
   onNeedsLogin: (() => void) | null;
+  // Injected by the app: the session it gave us is dead (the node refuses
+  // its token — revoked, expired past refresh). The app drops it so the
+  // viewer continues anonymously instead of every request failing.
+  onSessionInvalid: (() => void) | null;
   handle: string | null;
   chatProfile: place.stream.chat.profile.Main | null;
 
@@ -131,6 +135,7 @@ export const makeStreamplaceStore = ({
     liveUsersError: null,
     oauthSession: null,
     onNeedsLogin: null,
+    onSessionInvalid: null,
     handle: null,
     chatProfile: null,
     ingests: null,

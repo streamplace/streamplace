@@ -79,6 +79,10 @@ export interface BlueskySlice {
   ) => Promise<void>;
   refreshSessionScope: () => Promise<void>;
   logout: () => Promise<void>;
+  /** Forget a session the node no longer accepts (revoked, expired past
+   *  refresh): like logout, but never throws and never waits on the
+   *  provider — the point is to get back to an anonymous viewer. */
+  dropSession: () => Promise<void>;
   getProfile: (actor: string) => Promise<void>;
   getProfiles: (actors: string[]) => Promise<void>;
   oauthCallback: (url: string) => Promise<void>;
@@ -419,6 +423,39 @@ export const createBlueskySlice: StateCreator<
       sessionScope: null,
       authStatus: "loggedOut",
     });
+  },
+
+  dropSession: async () => {
+    const state = get() as BlueskySlice;
+    const session = state.oauthSession;
+    if (!session) return;
+    console.warn("dropping a session the node rejected", session.did);
+    set({
+      oauthSession: null,
+      pdsAgent: null,
+      sessionScope: null,
+      authStatus: "loggedOut",
+    });
+    const forget = async (key: string) => {
+      try {
+        await storage.removeItem(key);
+      } catch {
+        // storage may be unavailable; the in-memory state is already clear
+      }
+    };
+    await Promise.all([
+      forget(DID_KEY),
+      forget(STORED_KEY_KEY),
+      forget("@@atproto/oauth-client-browser(sub)"),
+      forget("@@atproto/oauth-client-react-native:did:(sub)"),
+    ]);
+    try {
+      // Best effort: tells the provider to forget its side too, but a
+      // revoked session's sign-out is expected to fail.
+      await session.signOut();
+    } catch (e) {
+      console.log("sign-out of a rejected session failed (expected)", e);
+    }
   },
 
   getProfile: async (actor: string) => {

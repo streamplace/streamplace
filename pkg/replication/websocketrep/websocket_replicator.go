@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/sync/errgroup"
@@ -24,8 +25,11 @@ type WebsocketReplicator struct {
 	mod        model.Model
 	conns      map[string]bool
 	connsMutex sync.RWMutex
-	group      *errgroup.Group
-	mm         *media.MediaManager
+	// latest is the newest origin heard per streamer (see latestOrigin).
+	latest      map[string]latestOrigin
+	latestMutex sync.RWMutex
+	group       *errgroup.Group
+	mm          *media.MediaManager
 }
 
 func NewWebsocketReplicator(bus *bus.Bus, mod model.Model, mm *media.MediaManager) *WebsocketReplicator {
@@ -34,8 +38,41 @@ func NewWebsocketReplicator(bus *bus.Bus, mod model.Model, mm *media.MediaManage
 		mod:        mod,
 		conns:      make(map[string]bool),
 		connsMutex: sync.RWMutex{},
+		latest:     make(map[string]latestOrigin),
 		mm:         mm,
 	}
+}
+
+// latestOrigin is the newest broadcast origin heard for a streamer and when
+// it was heard. The ingest node re-publishes its origin every 30s or so
+// while segments flow, so an origin nobody has refreshed for originStaleAfter
+// belongs to a stream that ended (or an ingest node that died) and is not
+// worth dialling any more.
+type latestOrigin struct {
+	view *placestream.BroadcastDefs_BroadcastOriginView
+	seen time.Time
+}
+
+var (
+	originStaleAfter = 2 * time.Minute
+	pullBackoffMin   = time.Second
+	pullBackoffMax   = 30 * time.Second
+	// A pull that lasted this long counts as having worked: the next failure
+	// starts the backoff over rather than continuing where it left off.
+	pullHealthyAfter = 30 * time.Second
+)
+
+func (r *WebsocketReplicator) rememberOrigin(view *placestream.BroadcastDefs_BroadcastOriginView, streamer string) {
+	r.latestMutex.Lock()
+	defer r.latestMutex.Unlock()
+	r.latest[streamer] = latestOrigin{view: view, seen: time.Now()}
+}
+
+func (r *WebsocketReplicator) latestFor(streamer string) (latestOrigin, bool) {
+	r.latestMutex.RLock()
+	defer r.latestMutex.RUnlock()
+	l, ok := r.latest[streamer]
+	return l, ok
 }
 
 func (r *WebsocketReplicator) Start(ctx context.Context, cli *config.CLI) error {
@@ -90,11 +127,6 @@ func (r *WebsocketReplicator) handleOriginMessage(ctx context.Context, view *pla
 		log.Debug(ctx, "not replicating streamer", "streamer", origin.Streamer)
 		return nil
 	}
-	if r.hasConnection(origin.Streamer) {
-		spmetrics.BroadcastOriginsTotal.WithLabelValues("already_connected").Inc()
-		log.Debug(ctx, "already has connection")
-		return nil
-	}
 	myURL := r.getMyWebsocketURL()
 	u, err := url.Parse(*origin.WebsocketURL)
 	if err != nil {
@@ -106,22 +138,68 @@ func (r *WebsocketReplicator) handleOriginMessage(ctx context.Context, view *pla
 		log.Debug(ctx, "origin websocket URL is on this node, skipping")
 		return nil
 	}
+	// Remembered before the connected check: a running pull re-reads the
+	// newest origin on every attempt (the stream may have moved nodes) and
+	// each refresh keeps it from concluding the stream is over.
+	r.rememberOrigin(view, origin.Streamer)
+	if r.hasConnection(origin.Streamer) {
+		spmetrics.BroadcastOriginsTotal.WithLabelValues("already_connected").Inc()
+		log.Debug(ctx, "already has connection")
+		return nil
+	}
 	spmetrics.BroadcastOriginsTotal.WithLabelValues("connect").Inc()
 	log.Log(ctx, "syndicating: pulling from origin", "streamer", origin.Streamer, "origin", *origin.WebsocketURL)
 	r.group.Go(func() error {
-		err := r.openWebsocket(ctx, view)
-		log.Error(ctx, "websocket connection error", "error", err)
+		r.pull(ctx, origin.Streamer)
 		return nil
 	})
 	return nil
 }
 
-func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *placestream.BroadcastDefs_BroadcastOriginView) error {
-	err := r.tryConnection(view.Author.Did)
-	if err != nil {
-		return err
+// pull keeps one streamer's segments flowing from wherever its origin is:
+// dial, read until the connection drops, back off, dial again — for as
+// long as the origin keeps being refreshed. Before this a failed dial was
+// logged once and forgotten, and the node stayed silent on that stream
+// until a fresh origin record happened to arrive and start a new attempt.
+func (r *WebsocketReplicator) pull(ctx context.Context, streamer string) {
+	if err := r.tryConnection(streamer); err != nil {
+		return
 	}
-	defer r.removeConnection(view.Author.Did)
+	defer r.removeConnection(streamer)
+	ctx = log.WithLogValues(ctx, "streamer", streamer)
+	backoff := pullBackoffMin
+	attempts := 0
+	for {
+		latest, ok := r.latestFor(streamer)
+		if !ok || time.Since(latest.seen) > originStaleAfter {
+			log.Log(ctx, "syndication: origin no longer refreshed, giving up", "attempts", attempts)
+			return
+		}
+		attempts++
+		started := time.Now()
+		err := r.openWebsocket(ctx, latest.view)
+		if ctx.Err() != nil {
+			return
+		}
+		if time.Since(started) > pullHealthyAfter {
+			backoff = pullBackoffMin
+		}
+		log.Warn(ctx, "syndication: pull from origin ended, retrying", "error", err, "attempt", attempts, "retry_in", backoff)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+		backoff *= 2
+		if backoff > pullBackoffMax {
+			backoff = pullBackoffMax
+		}
+	}
+}
+
+// openWebsocket dials the origin and feeds its segments through validation
+// until the connection ends; it always returns an error saying why.
+func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *placestream.BroadcastDefs_BroadcastOriginView) error {
 	origin, ok := view.Record.Val.(*placestream.BroadcastOrigin)
 	if !ok {
 		return fmt.Errorf("record is not a BroadcastOrigin")
@@ -129,19 +207,26 @@ func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *placestre
 	if origin.WebsocketURL == nil {
 		return fmt.Errorf("origin has no websocket URL")
 	}
-	conn, _, err := websocket.DefaultDialer.Dial(*origin.WebsocketURL, nil)
+	dialCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	conn, _, err := websocket.DefaultDialer.DialContext(dialCtx, *origin.WebsocketURL, nil)
+	cancel()
 	if err != nil {
 		spmetrics.ReplicationConnectErrorsTotal.Inc()
 		return fmt.Errorf("could not dial websocket (%s): %w", *origin.WebsocketURL, err)
 	}
 	defer conn.Close()
+	// Drop the connection when the pull is cancelled, so ReadMessage returns.
+	go func() {
+		<-ctx.Done()
+		conn.Close()
+	}()
+	log.Log(ctx, "syndication: connected to origin", "origin", *origin.WebsocketURL)
 	spmetrics.ReplicationOutboundOpen.WithLabelValues(origin.Streamer).Inc()
 	defer spmetrics.ReplicationOutboundOpen.WithLabelValues(origin.Streamer).Dec()
 	for {
 		typ, msg, err := conn.ReadMessage()
 		if err != nil {
 			spmetrics.ReplicationConnectErrorsTotal.Inc()
-			log.Error(ctx, "could not read message", "error", err)
 			return fmt.Errorf("could not read message: %w", err)
 		}
 		if typ != websocket.BinaryMessage {

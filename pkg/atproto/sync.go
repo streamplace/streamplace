@@ -716,6 +716,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			log.Error(ctx, "failed to update broadcast origin", "err", err)
 		}
+		log.Log(ctx, "indexed broadcast origin", "streamer", rec.Streamer, "server", rec.Server)
 		view := placestream.BroadcastDefs_BroadcastOriginView{
 			Uri: aturi.String(),
 			Cid: cid,

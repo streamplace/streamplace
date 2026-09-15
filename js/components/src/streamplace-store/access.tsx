@@ -30,6 +30,17 @@ const OPEN_ACCESS_STATUS: AccessStatus = { roles: [], policy: {} };
 // proxy or a 404, never with a policy. Anything else (network failure, a
 // response the client can't parse) must not be mistaken for "open": on a
 // private node that would render an app whose every request fails.
+// A request the node refused for want of a valid token: a 401, or the OAuth
+// client giving up on a refresh (revoked or long-expired session).
+function isAuthFailure(err: any): boolean {
+  const status = err?.status ?? err?.statusCode;
+  if (status === 401) return true;
+  const text = `${err?.name ?? ""} ${err?.error ?? ""} ${err?.message ?? ""}`;
+  return /TokenRefreshError|TokenRevoked|TokenInvalid|invalid_token|invalid_grant|InvalidToken|ExpiredToken|AuthenticationRequired|AuthMissing|revoked/i.test(
+    text,
+  );
+}
+
 function isMethodMissing(err: any): boolean {
   const status = err?.status ?? err?.statusCode;
   if (status === 404 || status === 501) return true;
@@ -59,7 +70,7 @@ export function useFetchAccessStatus() {
       // user's chat verification. The node ignores subject when it can
       // attribute the caller itself.
       const session = store.getState().oauthSession as
-        | { did?: string }
+        | { did?: string; kind?: string }
         | null
         | undefined;
       const res = await agent.client.call(
@@ -68,6 +79,26 @@ export function useFetchAccessStatus() {
           ? { subject: session.did as `did:${string}:${string}` }
           : {},
       );
+      // An OAuth session the node didn't attribute is one it no longer
+      // knows (revoked, or expired past refresh): the node answers such a
+      // request as anonymous rather than with a 401. Left alone, the
+      // answer's DID never matches the session's and the shell waits
+      // forever for a status "for this caller". Hand the session to the
+      // app to drop; the status is fetched again anonymously once it's
+      // gone. Bearer sessions (brokered, password) are never attributed
+      // and sign themselves out when they die (BearerSession.onExpired).
+      const bearer =
+        session?.kind === "brokered" || session?.kind === "credential";
+      if (session?.did && !bearer && !res.did) {
+        const { onSessionInvalid } = store.getState();
+        if (onSessionInvalid) {
+          console.warn(
+            "Access status: the node no longer recognises this session, dropping it",
+          );
+          onSessionInvalid();
+          return;
+        }
+      }
       const policy: Record<string, string> = {};
       for (const entry of res.policy?.roles ?? []) {
         policy[entry.role] = entry.mode;
@@ -92,6 +123,20 @@ export function useFetchAccessStatus() {
           accessStatusLoaded: true,
           accessStatusError: null,
         });
+        return;
+      }
+      // The node won't take this session's token any more (revoked, or
+      // expired beyond refresh). That is a signed-out viewer, not an
+      // unreachable node: hand the session back to the app to drop, and the
+      // status is fetched again anonymously once it's gone. Bearer sessions
+      // sign themselves out (BearerSession.onExpired) so only OAuth ones
+      // get here.
+      const { oauthSession, onSessionInvalid } = store.getState();
+      if (oauthSession && onSessionInvalid && isAuthFailure(err)) {
+        console.warn(
+          "Access status: session rejected by the node, dropping it",
+        );
+        onSessionInvalid();
         return;
       }
       store.setState({

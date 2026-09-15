@@ -88,6 +88,15 @@ func (l *Linker) brandingText(key string) string {
 	return strings.TrimSpace(string(blob.Data))
 }
 
+func findChild(parent *html.Node, name string) *html.Node {
+	for node := range parent.ChildNodes() {
+		if node.Type == html.ElementNode && node.Data == name {
+			return node
+		}
+	}
+	return nil
+}
+
 // isAppBannerMeta reports whether a <meta> is the iOS Smart App Banner
 // (apple-itunes-app), which the template ships for the first-party app.
 func isAppBannerMeta(node *html.Node) bool {

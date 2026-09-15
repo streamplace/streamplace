@@ -84,6 +84,7 @@ type Writer struct {
 	tracks    map[string]*Track
 	order     []string      // track ids, sorted
 	window    int           // max segments retained per track; 0 = keep all
+	minDur    time.Duration // the count window never cuts below this much media; 0 = count only
 	retention time.Duration // max segment age before eviction; 0 = no time limit
 	finished  bool
 	now       func() time.Time // clock, overridable in tests
@@ -98,6 +99,19 @@ type Option func(*Writer)
 // 24/7 streams).
 func WithWindow(n int) Option {
 	return func(w *Writer) { w.window = n }
+}
+
+// WithMinDuration keeps the count window from shrinking below d of media:
+// a segment is only evicted by count while the rest still spans at least
+// d. Segments are cut at keyframes, and an encoder that puts a keyframe on
+// every scene cut can hand over a run of one- and two-frame segments; with
+// a count-only window that run evicts whole seconds of the stream in a
+// moment, and a player a few seconds behind live finds its next segment
+// gone (404) — the stall at "the same part of the video" every time. Time
+// eviction (WithRetention) is unaffected. Needs the track's timescale (from
+// the catalog); until it's known the count alone applies.
+func WithMinDuration(d time.Duration) Option {
+	return func(w *Writer) { w.minDur = d }
 }
 
 // WithRetention evicts segments older than d (by wall-clock arrival time),
@@ -149,7 +163,25 @@ func (w *Writer) Observe(ev *muxl.MuxlEvent) error {
 			t.nextSeq++
 			if w.window > 0 && len(t.Segments) > w.window {
 				drop := len(t.Segments) - w.window
-				t.Segments = append(t.Segments[:0:0], t.Segments[drop:]...)
+				if w.minDur > 0 && t.Timescale > 0 {
+					// Only as many as leave minDur of media behind.
+					keep := float64(0)
+					for i := len(t.Segments) - 1; i >= 0 && drop > 0; i-- {
+						keep += t.Segments[i].seconds(t.Timescale)
+						if keep >= w.minDur.Seconds() {
+							if i < drop {
+								drop = i
+							}
+							break
+						}
+						if i == 0 {
+							drop = 0
+						}
+					}
+				}
+				if drop > 0 {
+					t.Segments = append(t.Segments[:0:0], t.Segments[drop:]...)
+				}
 			}
 		}
 		w.evictExpired(now)

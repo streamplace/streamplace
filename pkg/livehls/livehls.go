@@ -54,6 +54,11 @@ type Segment struct {
 	// than the Writer's retention are evicted so a stalled/ended stream's
 	// window empties instead of a player replaying it forever.
 	addedAt time.Time
+	// open is a fragment still being assembled from signed segments (see
+	// WithMinFragment); it is not advertised or served until it closes.
+	open bool
+	// pieces is how many signed segments the fragment is made of.
+	pieces int
 }
 
 // Size is the segment's byte length.
@@ -83,9 +88,10 @@ type Writer struct {
 	mu        sync.Mutex
 	tracks    map[string]*Track
 	order     []string      // track ids, sorted
-	window    int           // max segments retained per track; 0 = keep all
-	minDur    time.Duration // the count window never cuts below this much media; 0 = count only
-	retention time.Duration // max segment age before eviction; 0 = no time limit
+	window    int           // segments advertised per track; 0 = all retained
+	minDur    time.Duration // the advertised window never spans less than this; 0 = count only
+	minFrag   time.Duration // signed segments shorter than this are joined into one fragment; 0 = none
+	retention time.Duration // max segment age before eviction; 0 = keep 2×window instead
 	finished  bool
 	now       func() time.Time // clock, overridable in tests
 }
@@ -93,12 +99,31 @@ type Writer struct {
 // Option configures a Writer.
 type Option func(*Writer)
 
-// WithWindow keeps at most n segments per track in memory (a sliding window),
-// advancing EXT-X-MEDIA-SEQUENCE as older segments are evicted. n <= 0 keeps
-// every segment (an "event"/VOD-style window — unbounded memory, avoid for
-// 24/7 streams).
+// WithWindow advertises the newest n segments per track in the media
+// playlist (a sliding window), advancing EXT-X-MEDIA-SEQUENCE as older ones
+// leave it. Segments that have left the playlist stay fetchable until they
+// age out (WithRetention; without one, until 2n segments are held): RFC
+// 8216 §6.2.2 wants a segment served for its own duration plus the
+// playlist's after its URI is removed, and a player that is a little behind
+// otherwise finds the oldest listed segment gone the moment a new one
+// arrives. n <= 0 advertises everything retained (an "event"/VOD-style
+// window — unbounded memory, avoid for 24/7 streams).
 func WithWindow(n int) Option {
 	return func(w *Writer) { w.window = n }
+}
+
+// WithMinFragment joins signed segments into playlist fragments of at least
+// d: a segment shorter than d opens a fragment that the following segments
+// are appended to until it spans d, and only then is it advertised. Canonical
+// segments concatenate blindly (no container header) and every one starts
+// at a keyframe, so the join is a plain byte append and the fragment stays
+// independent. The point is a passage the encoder keyframes every few
+// frames: served one segment per keyframe it costs a player a round trip
+// per 40ms of video, which no buffer survives. Latency cost: a fragment is
+// held back until it spans d, so at most d during such a passage and nothing
+// otherwise. d <= 0 advertises every segment as it comes.
+func WithMinFragment(d time.Duration) Option {
+	return func(w *Writer) { w.minFrag = d }
 }
 
 // WithMinDuration keeps the count window from shrinking below d of media:
@@ -153,33 +178,34 @@ func (w *Writer) Observe(ev *muxl.MuxlEvent) error {
 		now := w.now()
 		for _, tid := range sortedKeys(ev.Tracks) {
 			t := w.track(tid)
-			t.Segments = append(t.Segments, Segment{
+			if n := len(t.Segments); n > 0 && t.Segments[n-1].open {
+				// Grow the open fragment; it closes once it spans minFrag.
+				f := &t.Segments[n-1]
+				f.DurationTicks += ev.Durations[tid]
+				f.SampleCount += ev.SampleCounts[tid]
+				f.data = append(f.data, ev.Tracks[tid]...)
+				f.pieces++
+				f.open = w.minFrag > 0 && f.seconds(t.Timescale) < w.minFrag.Seconds()
+				continue
+			}
+			seg := Segment{
 				Seq:           t.nextSeq,
 				DurationTicks: ev.Durations[tid],
 				SampleCount:   ev.SampleCounts[tid],
 				data:          append([]byte(nil), ev.Tracks[tid]...),
 				addedAt:       now,
-			})
+				pieces:        1,
+			}
+			// A timescale is needed to measure it; until the catalog has
+			// arrived every segment stands alone.
+			seg.open = w.minFrag > 0 && t.Timescale > 0 && seg.seconds(t.Timescale) < w.minFrag.Seconds()
+			t.Segments = append(t.Segments, seg)
 			t.nextSeq++
-			if w.window > 0 && len(t.Segments) > w.window {
-				drop := len(t.Segments) - w.window
-				if w.minDur > 0 && t.Timescale > 0 {
-					// Only as many as leave minDur of media behind.
-					keep := float64(0)
-					for i := len(t.Segments) - 1; i >= 0 && drop > 0; i-- {
-						keep += t.Segments[i].seconds(t.Timescale)
-						if keep >= w.minDur.Seconds() {
-							if i < drop {
-								drop = i
-							}
-							break
-						}
-						if i == 0 {
-							drop = 0
-						}
-					}
-				}
-				if drop > 0 {
+			if w.retention <= 0 && w.window > 0 {
+				// No time-based retention: hold a window's worth of grace
+				// behind the advertised playlist, then let go.
+				if start, _ := w.advertisedRange(t); start > w.window {
+					drop := start - w.window
 					t.Segments = append(t.Segments[:0:0], t.Segments[drop:]...)
 				}
 			}
@@ -228,12 +254,54 @@ func (w *Writer) Empty() bool {
 	return true
 }
 
+// advertised is the slice of a track's retained segments the media playlist
+// lists: closed fragments only, the newest `window` of them, extended back
+// as far as needed to span minDur. Caller holds w.mu.
+func (w *Writer) advertised(t *Track) []Segment {
+	start, end := w.advertisedRange(t)
+	return t.Segments[start:end]
+}
+
+// advertisedRange is advertised as indexes into t.Segments. Caller holds w.mu.
+func (w *Writer) advertisedRange(t *Track) (start, end int) {
+	end = len(t.Segments)
+	for end > 0 && t.Segments[end-1].open {
+		end--
+	}
+	if w.window <= 0 || end <= w.window {
+		return 0, end
+	}
+	start = end - w.window
+	if w.minDur > 0 && t.Timescale > 0 {
+		span := 0.0
+		for i := end - 1; i >= 0; i-- {
+			span += t.Segments[i].seconds(t.Timescale)
+			if span >= w.minDur.Seconds() {
+				if i < start {
+					start = i
+				}
+				break
+			}
+			if i == 0 {
+				start = 0
+			}
+		}
+	}
+	return start, end
+}
+
 // Finalize marks the stream complete; subsequent media playlists carry
-// EXT-X-ENDLIST and the VOD playlist type.
+// EXT-X-ENDLIST and the VOD playlist type. A fragment still open is closed
+// as it is — the tail of the stream, however short, is worth serving.
 func (w *Writer) Finalize() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.finished = true
+	for _, t := range w.tracks {
+		if n := len(t.Segments); n > 0 {
+			t.Segments[n-1].open = false
+		}
+	}
 }
 
 // TrackIDs returns the known track ids in sorted order.
@@ -253,7 +321,7 @@ func (w *Writer) Track(trackID string) *Track {
 		return nil
 	}
 	cp := *t
-	cp.Segments = append([]Segment(nil), t.Segments...)
+	cp.Segments = append([]Segment(nil), w.advertised(t)...)
 	cp.init = nil
 	return &cp
 }
@@ -270,7 +338,9 @@ func (w *Writer) InitSegment(trackID string) []byte {
 }
 
 // SegmentData returns the bytes of the segment with media-sequence seq for
-// trackID, or nil if it's unknown or has already slid out of the window.
+// trackID, or nil if it's unknown, still being assembled, or has aged out.
+// Segments that have left the playlist but not aged out are still served
+// (see WithWindow).
 func (w *Writer) SegmentData(trackID string, seq uint64) []byte {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -280,7 +350,7 @@ func (w *Writer) SegmentData(trackID string, seq uint64) []byte {
 		return nil
 	}
 	for _, s := range t.Segments {
-		if s.Seq == seq {
+		if s.Seq == seq && !s.open {
 			return s.data
 		}
 	}
@@ -319,8 +389,9 @@ func (w *Writer) MediaPlaylist(trackID, initURL string, segURI func(seq uint64) 
 		return ""
 	}
 
+	segs := w.advertised(t)
 	maxDur := 0.0
-	for _, s := range t.Segments {
+	for _, s := range segs {
 		if d := s.seconds(t.Timescale); d > maxDur {
 			maxDur = d
 		}
@@ -330,8 +401,8 @@ func (w *Writer) MediaPlaylist(trackID, initURL string, segURI func(seq uint64) 
 		target = 1
 	}
 	mediaSeq := uint64(0)
-	if len(t.Segments) > 0 {
-		mediaSeq = t.Segments[0].Seq
+	if len(segs) > 0 {
+		mediaSeq = segs[0].Seq
 	}
 
 	var b strings.Builder
@@ -343,7 +414,7 @@ func (w *Writer) MediaPlaylist(trackID, initURL string, segURI func(seq uint64) 
 		b.WriteString("#EXT-X-PLAYLIST-TYPE:VOD\n")
 	}
 	fmt.Fprintf(&b, "#EXT-X-MAP:URI=%q\n", initURL)
-	for _, s := range t.Segments {
+	for _, s := range segs {
 		fmt.Fprintf(&b, "#EXTINF:%.6f,\n%s\n", s.seconds(t.Timescale), segURI(s.Seq))
 	}
 	if w.finished {

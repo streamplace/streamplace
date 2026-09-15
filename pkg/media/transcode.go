@@ -27,8 +27,15 @@ func isOpusCodec(codec string) bool { return strings.HasPrefix(codec, "opus") }
 // c2pa.transcoded action referencing it, both by TranscodeIngredientLabel.
 // muxl-sign stamps the per-segment time into cawg.metadata as it signs.
 func transcodeManifest(creator string) []byte {
+	return transcodeManifestFor(creator, "transcoded audio")
+}
+
+// transcodeManifestFor is the C2PA manifest a transcoded track is signed
+// with: opened + transcoded actions over the source ingredient, and the
+// streamer as creator.
+func transcodeManifestFor(creator, title string) []byte {
 	return []byte(fmt.Sprintf(`{
-		"title": "transcoded audio",
+		"title": %q,
 		"assertions": [
 			{"label": "c2pa.actions", "data": {"actions": [
 				{"action": "c2pa.opened",     "parameters": {"org.cai.ingredientIds": [%q]}},
@@ -39,7 +46,7 @@ func transcodeManifest(creator string) []byte {
 				"dc:creator": %q
 			}}
 		]
-	}`, muxl.TranscodeIngredientLabel, muxl.TranscodeIngredientLabel, creator))
+	}`, title, muxl.TranscodeIngredientLabel, muxl.TranscodeIngredientLabel, creator))
 }
 
 // transcodeSigner returns the node's S2PA cert + PKCS#8 key PEM, built once

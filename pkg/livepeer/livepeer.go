@@ -71,7 +71,11 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 	}
 	tsSeg := bytes.Buffer{}
 	audioSeg := bytes.Buffer{}
-	err = media.MP4ToMPEGTSVideoMP4Audio(ctx, bytes.NewReader(buf), &tsSeg, &audioSeg)
+	// Bounded: a conversion pipeline that never reaches EOS must not hold
+	// the in-flight guard forever and silently stop every later transcode.
+	convCtx, convCancel := context.WithTimeout(ctx, 30*time.Second)
+	err = media.MP4ToMPEGTSVideoMP4Audio(convCtx, bytes.NewReader(buf), &tsSeg, &audioSeg)
+	convCancel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert mp4 to ts video/mp4 audio: %w", err)
 	}

@@ -20,7 +20,11 @@ func MP4ToMPEGTSVideoMP4Audio(ctx context.Context, input io.Reader, videoOutput 
 		"mpegtsmux name=videomux ! appsink name=videoappsink sync=false",
 		"mp4mux name=audiomux ! appsink name=audioappsink sync=false",
 		"demux.video_0 ! h264parse ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue",
-		"demux.audio_0 ! opusparse ! queue name=audioqueue",
+		// parsebin plugs the parser the audio actually needs (opusparse for a
+		// WHIP/Opus ingest, aacparse for RTMP/AAC); a hard-wired opusparse
+		// never linked for AAC and the pipeline hung on it, wedging every
+		// transcode behind the in-flight guard.
+		"demux.audio_0 ! parsebin ! queue name=audioqueue",
 	}, " ")
 
 	pipeline, err := gst.NewPipelineFromString(pipelineStr)
@@ -154,7 +158,7 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 		"appsrc name=audioappsrc ! qtdemux name=audiodemux",
 		"mp4mux name=mux ! appsink name=appsink sync=false",
 		"h264parse name=videoparse ! video/x-h264,stream-format=avc ! queue name=videoqueue",
-		"audiodemux.audio_0 ! opusparse ! queue name=audioqueue",
+		"audiodemux.audio_0 ! parsebin ! queue name=audioqueue",
 	}, " ")
 
 	pipeline, err := gst.NewPipelineFromString(pipelineStr)

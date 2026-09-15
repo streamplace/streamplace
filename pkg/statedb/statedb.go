@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/driver/postgres"
@@ -120,6 +121,11 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 		}
 		sqlDB.SetMaxOpenConns(1)
 	}
+	if dbType == DBTypePostgres {
+		if err := boundPostgresPool(ctx, db, cli.DBMaxOpenConns); err != nil {
+			return nil, err
+		}
+	}
 	for _, model := range StatefulDBModels {
 		err = db.AutoMigrate(model)
 		if err != nil {
@@ -211,6 +217,44 @@ func openDB(dial gorm.Dialector) (*gorm.DB, error) {
 	})
 }
 
+// Postgres pool bounds. database/sql opens connections without limit by
+// default, so a station of N nodes under load could each grab as many as
+// the server allows and collectively hit max_connections — at which point
+// every node fails (SQLSTATE 53300) at once. A cap per node means a busy
+// node queues on its own pool instead. Idle connections are trimmed so a
+// quiet node doesn't sit on its whole allowance, and connections are
+// recycled hourly so a failover or pooler restart is followed.
+const (
+	pgMaxIdleConns    = 8
+	pgConnMaxIdleTime = 5 * time.Minute
+	pgConnMaxLifetime = time.Hour
+)
+
+func boundPostgresPool(ctx context.Context, db *gorm.DB, maxOpen int) error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("error getting database: %w", err)
+	}
+	if maxOpen <= 0 {
+		maxOpen = 30
+	}
+	// The advisory-lock connection is held for the process lifetime; keep
+	// room for at least a few queries beside it.
+	if maxOpen < 4 {
+		maxOpen = 4
+	}
+	idle := pgMaxIdleConns
+	if idle > maxOpen {
+		idle = maxOpen
+	}
+	sqlDB.SetMaxOpenConns(maxOpen)
+	sqlDB.SetMaxIdleConns(idle)
+	sqlDB.SetConnMaxIdleTime(pgConnMaxIdleTime)
+	sqlDB.SetConnMaxLifetime(pgConnMaxLifetime)
+	log.Log(ctx, "postgres pool bounded", "maxOpen", maxOpen, "maxIdle", idle, "idleTime", pgConnMaxIdleTime, "lifetime", pgConnMaxLifetime)
+	return nil
+}
+
 // helper function for creating the requested postgres database
 func makePostgresDB(dbURL string) (*gorm.DB, error) {
 	u, err := url.Parse(dbURL)
@@ -229,6 +273,12 @@ func makePostgresDB(dbURL string) (*gorm.DB, error) {
 
 	// postgres doesn't support prepared statements for CREATE DATABASE. don't SQL inject yourself.
 	err = db.Exec(fmt.Sprintf("CREATE DATABASE %s;", dbName)).Error
+	// The bootstrap connection to the maintenance database isn't needed
+	// again; left open it would count against max_connections for the
+	// life of the process.
+	if rootSQL, dbErr := db.DB(); dbErr == nil {
+		rootSQL.Close()
+	}
 	if err != nil {
 		return nil, err
 	}

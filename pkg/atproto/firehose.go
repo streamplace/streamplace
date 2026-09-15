@@ -166,6 +166,7 @@ func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	for _, relay := range relays {
 		relay := relay
+		spmetrics.TouchRelay(relay, relayProtocol(relay))
 		g.Go(func() error {
 			atsync.consumeRelay(ctx, relay)
 			return nil

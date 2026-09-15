@@ -24,6 +24,9 @@ import (
 )
 
 func (atsync *ATProtoSynchronizer) StartLabelerFirehose(ctx context.Context, did string) error {
+	// The series exists at 0 from here, so a labeler that never connects
+	// shows as 0 rather than as nothing.
+	spmetrics.LabelerFirehosesConnected.WithLabelValues(did)
 	retryCount := 0
 	retryWindow := time.Now()
 

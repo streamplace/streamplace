@@ -350,6 +350,21 @@ export function HLSPlayer(props: VideoProps) {
   );
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const mode = usePlayerStore((x) => x.mode);
+  // The latest pick, for the manifest handler below: choosing a rendition
+  // changes the source URL, which recreates hls.js, and the new instance
+  // must pin the level once it knows the levels.
+  const selectedRenditionRef = useRef(selectedRendition);
+  selectedRenditionRef.current = selectedRendition;
+  const levelFor = (hls: Hls, rendition: string | undefined) => {
+    if (!rendition || rendition === "source" || rendition === "auto") {
+      return -1;
+    }
+    return hls.levels.findIndex((l) => {
+      const name =
+        l.height > 0 ? `${l.height}p` : `${Math.round(l.bitrate / 1000)}k`;
+      return name === rendition;
+    });
+  };
 
   // other players set some status on start, HLS doesn't, so
   // do this to make sure we we reset off of "error" state
@@ -378,6 +393,10 @@ export function HLSPlayer(props: VideoProps) {
           return;
         }
         localRef.current.play();
+        const pinned = levelFor(hls, selectedRenditionRef.current);
+        if (pinned !== -1) {
+          hls.currentLevel = pinned;
+        }
         if (mode === "vod" && hls.levels.length > 1) {
           setVodLevels(
             hls.levels.map((l) => ({
@@ -451,19 +470,14 @@ export function HLSPlayer(props: VideoProps) {
     }
   }, [props.url]);
 
+  // The quality menu drives hls.js levels: "auto"/"source" leave ABR to
+  // hls.js (it picks by measured bandwidth from the master playlist's
+  // variants), a named rendition pins that level. Live too, now that a
+  // live master playlist carries the node's transcoded renditions.
   useEffect(() => {
     const hls = hlsRef.current;
-    if (!hls || mode !== "vod") return;
-    if (selectedRendition === "source" || selectedRendition === "auto") {
-      hls.currentLevel = -1;
-      return;
-    }
-    const idx = hls.levels.findIndex((l) => {
-      const name =
-        l.height > 0 ? `${l.height}p` : `${Math.round(l.bitrate / 1000)}k`;
-      return name === selectedRendition;
-    });
-    if (idx !== -1) hls.currentLevel = idx;
+    if (!hls) return;
+    hls.currentLevel = levelFor(hls, selectedRendition);
   }, [selectedRendition, mode]);
 
   return <VideoElement {...props} ref={localRef} />;

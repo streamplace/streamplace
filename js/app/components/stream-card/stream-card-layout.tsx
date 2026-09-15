@@ -915,6 +915,10 @@ function CardChatPanel({
 }) {
   const { theme } = useTheme();
   const agent = usePDSAgent();
+  // Signed out for now, but the network's broker hasn't answered yet: the
+  // page paints without waiting for it, so the composer shows a loader
+  // rather than sign-in buttons that would vanish a moment later.
+  const brokerSettled = useStore((state) => state.brokerSettled);
   const emojiData = useEmojiData();
   const customEmoji: any[] = [];
   const access = useAccessStatus();
@@ -1000,7 +1004,7 @@ function CardChatPanel({
             />
           )}
         />
-      ) : !agent ? (
+      ) : !agent || !brokerSettled ? (
         <View
           style={[
             zero.layout.flex.row,

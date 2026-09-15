@@ -88,6 +88,33 @@ func (l *Linker) brandingText(key string) string {
 	return strings.TrimSpace(string(blob.Data))
 }
 
+// brokerOrigin validates a sessionBrokerOrigin value for use in markup: an
+// https origin (http only for a loopback dev broker) with nothing after
+// the host.
+func brokerOrigin(v string) string {
+	v = strings.TrimRight(strings.TrimSpace(v), "/")
+	u, err := url.Parse(v)
+	if err != nil || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return ""
+	}
+	loopback := u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1"
+	secure := u.Scheme == "https"
+	devHTTP := u.Scheme == "http" && loopback
+	if !secure && !devHTTP {
+		return ""
+	}
+	return v
+}
+
+func findChild(parent *html.Node, name string) *html.Node {
+	for node := range parent.ChildNodes() {
+		if node.Type == html.ElementNode && node.Data == name {
+			return node
+		}
+	}
+	return nil
+}
+
 // isAppBannerMeta reports whether a <meta> is the iOS Smart App Banner
 // (apple-itunes-app), which the template ships for the first-party app.
 func isAppBannerMeta(node *html.Node) bool {
@@ -528,6 +555,25 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 				{Key: "content", Val: tag.Content},
 			},
 		})
+	}
+
+	// A node that inherits logins from a sibling app (branding key
+	// sessionBrokerOrigin) starts that app's broker iframe here, so it
+	// boots while our bundle is still downloading rather than after it;
+	// the app adopts the frame by id (js/app/features/session-broker).
+	if origin := brokerOrigin(l.brandingText("sessionBrokerOrigin")); origin != "" {
+		if body := findChild(htmlNode, "body"); body != nil {
+			body.AppendChild(&html.Node{
+				Type: html.ElementNode,
+				Data: "iframe",
+				Attr: []html.Attribute{
+					{Key: "id", Val: "sp-session-broker"},
+					{Key: "src", Val: origin + "/session-broker"},
+					{Key: "style", Val: "display:none"},
+					{Key: "aria-hidden", Val: "true"},
+				},
+			})
+		}
 	}
 
 	// Paint the branded background before any script runs: on the root

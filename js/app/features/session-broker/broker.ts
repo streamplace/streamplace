@@ -16,17 +16,32 @@ export interface SessionBrokerClient {
   stop(): void;
 }
 
+/** The id of the broker iframe the node's HTML starts before the bundle
+ *  has even downloaded (pkg/linking), so the broker app boots in parallel
+ *  with ours instead of after it. */
+export const PRESTARTED_FRAME_ID = "sp-session-broker";
+
 export function startSessionBroker(
   origin: string,
   onSession: (session: BrokeredSessionData | null, error?: string) => void,
 ): SessionBrokerClient | null {
   if (Platform.OS !== "web" || typeof document === "undefined") return null;
   const brokerOrigin = origin.replace(/\/$/, "");
-  const frame = document.createElement("iframe");
-  frame.src = `${brokerOrigin}/session-broker`;
-  frame.style.display = "none";
-  frame.setAttribute("aria-hidden", "true");
+  const src = `${brokerOrigin}/session-broker`;
+  let frame: HTMLIFrameElement;
   let loaded = false;
+  const prestarted = document.getElementById(PRESTARTED_FRAME_ID);
+  if (prestarted instanceof HTMLIFrameElement && prestarted.src === src) {
+    frame = prestarted;
+    // It may have finished loading before we attached; the retry loop
+    // below covers a request that lands before the broker listens.
+    loaded = true;
+  } else {
+    frame = document.createElement("iframe");
+    frame.src = src;
+    frame.style.display = "none";
+    frame.setAttribute("aria-hidden", "true");
+  }
   let answered = false;
   let waiters: ((s: BrokeredSessionData | null) => void)[] = [];
   // The broker is a full app that boots inside the iframe; a request sent
@@ -55,10 +70,10 @@ export function startSessionBroker(
   const post = () => {
     frame.contentWindow?.postMessage({ type: REQUEST }, brokerOrigin);
   };
-  window.addEventListener("message", onMessage);
-  frame.addEventListener("load", () => {
+  const askUntilAnswered = () => {
     loaded = true;
     post();
+    if (retry) clearInterval(retry);
     let tries = 0;
     retry = setInterval(() => {
       if (answered || ++tries > RETRY_MAX) {
@@ -68,8 +83,14 @@ export function startSessionBroker(
       }
       post();
     }, RETRY_MS);
-  });
-  document.body.appendChild(frame);
+  };
+  window.addEventListener("message", onMessage);
+  frame.addEventListener("load", askUntilAnswered);
+  if (frame === prestarted) {
+    askUntilAnswered();
+  } else {
+    document.body.appendChild(frame);
+  }
 
   return {
     request: () =>

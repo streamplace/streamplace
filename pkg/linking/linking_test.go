@@ -16,6 +16,7 @@ import (
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 func IndexHTML(t *testing.T) []byte {
@@ -182,4 +183,30 @@ func TestGenerateHTMLReplacesTemplatePreviewTags(t *testing.T) {
 	require.Contains(t, page, `name="viewport"`)
 	require.Equal(t, 1, strings.Count(page, `property="og:title"`))
 	require.Equal(t, 1, strings.Count(page, "<title>"))
+}
+
+func TestGenerateHTMLStartsBrokerIframe(t *testing.T) {
+	base := []byte(`<!doctype html><html><head><title>x</title></head><body><div id="root"></div></body></html>`)
+	cli := &config.CLI{BroadcasterHost: "example.com"}
+	sdb, err := statedb.MakeDB(context.Background(), &config.CLI{DBURL: ":memory:"}, nil, nil)
+	require.NoError(t, err)
+	linker, err := NewLinker(context.Background(), base, sdb, cli)
+	require.NoError(t, err)
+	u, _ := url.Parse("https://example.com/")
+
+	out, err := linker.GenerateDefaultCard(context.Background(), u, "")
+	require.NoError(t, err)
+	require.NotContains(t, string(out), "sp-session-broker", "no broker configured, no iframe")
+
+	require.NoError(t, sdb.PutBrandingBlob("did:web:example.com", "sessionBrokerOrigin", "text/plain", []byte("https://app.example.com/"), nil, nil))
+	out, err = linker.GenerateDefaultCard(context.Background(), u, "")
+	require.NoError(t, err)
+	page := string(out)
+	require.Contains(t, page, `<iframe id="sp-session-broker" src="https://app.example.com/session-broker" style="display:none" aria-hidden="true">`)
+	require.Less(t, strings.Index(page, `id="root"`), strings.Index(page, "sp-session-broker"), "after the app root, so it never delays it")
+
+	require.Equal(t, "", brokerOrigin("javascript:alert(1)"))
+	require.Equal(t, "", brokerOrigin("https://app.example.com/path"))
+	require.Equal(t, "", brokerOrigin("http://app.example.com"))
+	require.Equal(t, "http://127.0.0.1:38555", brokerOrigin("http://127.0.0.1:38555/"))
 }

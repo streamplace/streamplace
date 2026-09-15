@@ -834,10 +834,7 @@ export default function Shell() {
       <View />
     );
   }
-  if (
-    (sessionRestoring || !brandingSettled || !brokerSettled) &&
-    !bootTimedOut
-  ) {
+  if ((sessionRestoring || !brandingSettled) && !bootTimedOut) {
     return <View />;
   }
 
@@ -862,6 +859,14 @@ export default function Shell() {
   );
 
   if (viewerLockedOut) {
+    // The anonymous answer says "wall", but the network's broker may be
+    // about to hand over a session that is on the list: hold the frame for
+    // that answer (bounded by the same timeout) rather than flash the wall.
+    // The open-node case above doesn't wait — the page paints signed out
+    // and the composer fills in when the broker answers.
+    if (!brokerSettled && !bootTimedOut) {
+      return <View />;
+    }
     return (
       <View style={{ flex: 1 }}>
         <StatusBar barStyle="light-content" />

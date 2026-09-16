@@ -11,11 +11,17 @@ export interface SidebarSlice {
   // Overlay/drawer mode — on detail views (Stream, Video) the sidebar leaves
   // the flow and opens as a drawer over the dimmed content instead of pushing.
   overlay: boolean;
+  /** A mounted video page reports itself, for the pages the route name
+   *  doesn't reveal: the front door showing the node's default video. The
+   *  shell then treats it as the Video route: sidebar as an overlay drawer,
+   *  content the full width, the sticky video header. */
+  videoPage: boolean;
   drawerOpen: boolean;
   setSidebarHidden: () => void;
   setSidebarUnhidden: () => void;
   toggleSidebar: () => void;
   setOverlay: (overlay: boolean) => void;
+  setVideoPage: (video: boolean) => void;
   toggleDrawer: () => void;
   closeDrawer: () => void;
   loadStateFromStorage: () => Promise<void>;
@@ -50,7 +56,9 @@ export const createSidebarSlice: StateCreator<SidebarSlice> = (set, get) => ({
   targetWidth: 250,
   isLoaded: false,
   overlay: false,
+  videoPage: false,
   drawerOpen: false,
+  setVideoPage: (video: boolean) => set({ videoPage: video }),
   setOverlay: (overlay: boolean) => {
     set((state) => {
       if ((state as SidebarSlice).overlay === overlay) return {};

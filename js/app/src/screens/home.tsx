@@ -23,6 +23,7 @@ import { useFrontDoorReload } from "hooks/useDefaultStreamerReload";
 import { useEffect, useState } from "react";
 import { Platform, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useStore } from "store";
 import { place } from "streamplace";
 import MobileStream from "./mobile-stream";
 import VideoScreen from "./video";
@@ -244,6 +245,14 @@ export default function HomeScreen({
   // ...and the page follows both: an operator who points the node at
   // another streamer or a video moves everyone on this page there.
   useFrontDoorReload(defaultStreamer, defaultVideoRaw);
+  // Showing the default video, this page is a video page: tell the shell,
+  // which otherwise keeps the docked sidebar and the feed column the home
+  // grid lives in, and clips the player to it.
+  const setVideoPage = useStore((s) => s.setVideoPage);
+  useEffect(() => {
+    setVideoPage(!!defaultVideo);
+    return () => setVideoPage(false);
+  }, [defaultVideo, setVideoPage]);
 
   useEffect(() => {
     if (!liveUsersLoading) {

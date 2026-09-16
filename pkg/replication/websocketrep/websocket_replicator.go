@@ -336,6 +336,9 @@ func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *placestre
 				continue
 			}
 			r.mm.FeedLiveRenditions(context.WithoutCancel(ctx), origin.Streamer, addendum, true)
+			// And onto this node's bus for WebRTC viewers who pick a
+			// rendition here.
+			r.mm.PublishRenditionsForPlayback(context.WithoutCancel(ctx), origin.Streamer, addendum, true)
 			continue
 		}
 		err = r.mm.ValidateMP4(context.Background(), bytes.NewReader(msg), false)

@@ -91,39 +91,12 @@ func (a *StreamplaceAPI) HandleFinalizeLivestream(ctx context.Context) httproute
 			errors.WriteHTTPBadRequest(w, "livestream (at:// URI) or livestreams is required", nil)
 			return
 		}
-		items := make([]livestreamItem, 0, len(uris))
-		for _, u := range uris {
-			ls, err := a.Model.GetLivestream(u)
-			if err != nil {
-				errors.WriteHTTPInternalServerError(w, "get livestream "+u, err)
-				return
-			}
-			if ls == nil {
-				errors.WriteHTTPNotFound(w, "livestream not indexed on this node: "+u, nil)
-				return
-			}
-			view, err := ls.ToLivestreamView()
-			if err != nil {
-				errors.WriteHTTPInternalServerError(w, "decode livestream "+u, err)
-				return
-			}
-			rec, ok := view.Record.Val.(*placestream.Livestream)
-			if !ok {
-				errors.WriteHTTPInternalServerError(w, "record is not a place.stream.livestream: "+u, nil)
-				return
-			}
-			items = append(items, livestreamItem{ls: ls, rec: rec})
+		items, herr := a.livestreamItems(uris)
+		if herr != nil {
+			herr.write(w)
+			return
 		}
 		repoDID := items[0].ls.RepoDID
-		for _, it := range items[1:] {
-			if it.ls.RepoDID != repoDID {
-				errors.WriteHTTPBadRequest(w, "the livestreams belong to different streamers", nil)
-				return
-			}
-		}
-		// Recording order is record order: the earlier record's objects
-		// come first whatever order the caller listed them in.
-		sort.SliceStable(items, func(i, j int) bool { return items[i].rec.CreatedAt < items[j].rec.CreatedAt })
 		ordered := make([]string, len(items))
 		for i, it := range items {
 			ordered[i] = it.ls.URI
@@ -193,6 +166,56 @@ func (a *StreamplaceAPI) HandleFinalizeLivestream(ctx context.Context) httproute
 			log.Error(ctx, "error writing response", "error", err)
 		}
 	}
+}
+
+// httpError is a handler failure with the status it should be reported as.
+type httpError struct {
+	status int
+	msg    string
+	err    error
+}
+
+func (e *httpError) write(w http.ResponseWriter) {
+	switch e.status {
+	case http.StatusBadRequest:
+		errors.WriteHTTPBadRequest(w, e.msg, e.err)
+	case http.StatusNotFound:
+		errors.WriteHTTPNotFound(w, e.msg, e.err)
+	default:
+		errors.WriteHTTPInternalServerError(w, e.msg, e.err)
+	}
+}
+
+// livestreamItems resolves livestream URIs to their indexed rows and decoded
+// records, checks they belong to one streamer, and orders them by creation:
+// recording order is record order, whatever order the caller listed them in.
+func (a *StreamplaceAPI) livestreamItems(uris []string) ([]livestreamItem, *httpError) {
+	items := make([]livestreamItem, 0, len(uris))
+	for _, u := range uris {
+		ls, err := a.Model.GetLivestream(u)
+		if err != nil {
+			return nil, &httpError{http.StatusInternalServerError, "get livestream " + u, err}
+		}
+		if ls == nil {
+			return nil, &httpError{http.StatusNotFound, "livestream not indexed on this node: " + u, nil}
+		}
+		view, err := ls.ToLivestreamView()
+		if err != nil {
+			return nil, &httpError{http.StatusInternalServerError, "decode livestream " + u, err}
+		}
+		rec, ok := view.Record.Val.(*placestream.Livestream)
+		if !ok {
+			return nil, &httpError{http.StatusInternalServerError, "record is not a place.stream.livestream: " + u, nil}
+		}
+		items = append(items, livestreamItem{ls: ls, rec: rec})
+	}
+	for _, it := range items[1:] {
+		if it.ls.RepoDID != items[0].ls.RepoDID {
+			return nil, &httpError{http.StatusBadRequest, "the livestreams belong to different streamers", nil}
+		}
+	}
+	sort.SliceStable(items, func(i, j int) bool { return items[i].rec.CreatedAt < items[j].rec.CreatedAt })
+	return items, nil
 }
 
 func contains(list []string, v string) bool {

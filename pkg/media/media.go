@@ -490,3 +490,14 @@ func extractLivestream(mani *c2patypes.Manifest) *placestream.Livestream {
 	}
 	return &livestream
 }
+
+// NewOffline is a MediaManager with no node behind it — just the
+// configuration and the in-memory windows — for harnesses that run the
+// transcode and rendition code paths against stored segments.
+func NewOffline(cli *config.CLI) *MediaManager {
+	return &MediaManager{
+		cli:                 cli,
+		liveWindows:         map[string]*livehls.Writer{},
+		liveWindowPublished: map[string]bool{},
+	}
+}

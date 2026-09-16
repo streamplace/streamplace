@@ -56,6 +56,16 @@ var TranscodeErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Help: "total number of transcode errors",
 })
 
+var IngestNonIDRKeyframesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_ingest_non_idr_keyframes_total",
+	Help: "frames the parser flagged as keyframes that hold no IDR slice (open-GOP I-frames), kept inside their GoP instead of starting a segment",
+}, []string{"streamer"})
+
+var TranscodeSkippedNoKeyframeTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_transcode_skipped_no_keyframe_total",
+	Help: "segments not sent to the transcoder because their video does not start with an IDR and its parameter sets (a transcoder cannot decode them and drops the session)",
+})
+
 var TranscodeManifestRotationsTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "streamplace_transcode_manifest_rotations_total",
 	Help: "times a stream moved to a fresh gateway manifest after the gateway refused every recent push (see livepeer.RotateAfterFailures)",

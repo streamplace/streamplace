@@ -50,7 +50,7 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 
 	pipelineSlice := []string{
 		"multiqueue name=queue",
-		"appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! capsfilter caps=video/x-h264,stream-format=byte-stream,alignment=nal ! h264parse disable-passthrough=true config-interval=-1 ! h264timestamper ! identity ! queue.sink_0",
+		"appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! capsfilter caps=video/x-h264,stream-format=byte-stream,alignment=nal ! h264parse name=videoparse disable-passthrough=true config-interval=-1 ! h264timestamper ! identity ! queue.sink_0",
 		"appsrc format=time do-timestamp=true name=audiosrc ! capsfilter caps=application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! rtpopusdepay ! opusparse ! queue.sink_1",
 	}
 
@@ -59,6 +59,14 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 		return nil, fmt.Errorf("failed to create GStreamer pipeline: %w", err)
 	}
 
+	// Only an IDR starts a segment (see installIDRKeyframeProbe).
+	if parseEle, err := pipeline.GetElementByName("videoparse"); err == nil {
+		streamer := "whip"
+		if keyRevSigner != nil {
+			streamer = keyRevSigner.Streamer()
+		}
+		installIDRKeyframeProbe(ctx, parseEle.GetStaticPad("src"), streamer)
+	}
 	queue, err := pipeline.GetElementByName("queue")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queue element from pipeline: %w", err)

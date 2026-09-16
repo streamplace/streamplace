@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -221,6 +222,17 @@ func TestRealBroadcastPipeline(t *testing.T) {
 			r.dup = true
 		}
 		if scanOnly {
+			if os.Getenv("SP_REAL_LIST") != "" {
+				for _, ev := range evs {
+					if ev.Type == "segment" || ev.Type == "signed-segment" {
+						if vb := ev.Tracks["1"]; len(vb) > 0 {
+							nals, sync := firstSampleInfo(vb)
+							t.Logf("LIST %d dur=%.3f samples=%d tfdt=%d firstNALs=%v firstSync=%v", i, r.dur, r.samples, r.srcTfdt, nals, sync)
+						}
+						break
+					}
+				}
+			}
 			rows = append(rows, r)
 			continue
 		}
@@ -440,4 +452,68 @@ func walkBoxRange(b []byte, start, end int, fn func(typ string, s, e int) bool) 
 		}
 		off += size
 	}
+}
+
+// firstSampleInfo returns the NAL types of a track fragment's first sample
+// and whether its trun flags mark it a sync sample (the flag muxl cuts
+// segments on).
+func firstSampleInfo(b []byte) (nals []int, sync bool) {
+	var size int
+	var flags uint32
+	haveFlags := false
+	var mdatOff int
+	walkBoxRange(b, 0, len(b), func(typ string, start, end int) bool {
+		switch typ {
+		case "moof", "traf":
+			walkBoxRange(b, start+8, end, func(t2 string, s2, e2 int) bool {
+				if t2 == "traf" {
+					walkBoxRange(b, s2+8, e2, func(t3 string, s3, e3 int) bool {
+						if t3 == "trun" && size == 0 {
+							body := b[s3+8 : e3]
+							tflags := binary.BigEndian.Uint32(body[0:4]) & 0xffffff
+							p := 8
+							if tflags&1 != 0 {
+								p += 4
+							}
+							if tflags&4 != 0 {
+								flags = binary.BigEndian.Uint32(body[p:])
+								haveFlags = true
+								p += 4
+							}
+							if tflags&0x100 != 0 {
+								p += 4
+							}
+							if tflags&0x200 != 0 {
+								size = int(binary.BigEndian.Uint32(body[p:]))
+								p += 4
+							}
+							if tflags&0x400 != 0 && !haveFlags {
+								flags = binary.BigEndian.Uint32(body[p:])
+								haveFlags = true
+							}
+						}
+						return true
+					})
+				}
+				return true
+			})
+		case "mdat":
+			if mdatOff == 0 {
+				mdatOff = start + 8
+			}
+		}
+		return true
+	})
+	if size == 0 || mdatOff == 0 {
+		return nil, false
+	}
+	q := mdatOff
+	for q+4 < len(b) && q < mdatOff+size {
+		l := int(binary.BigEndian.Uint32(b[q:]))
+		nals = append(nals, int(b[q+4]&31))
+		q += 4 + l
+	}
+	// sample_is_non_sync_sample is bit 16 of the sample flags
+	sync = haveFlags && flags&0x10000 == 0
+	return nals, sync
 }

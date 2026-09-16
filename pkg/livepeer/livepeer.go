@@ -35,6 +35,40 @@ const SegmentsInFlight = 2
 // Skipping keeps the renditions near live at the cost of a gap in them.
 const MaxWaiting = 2
 
+// ErrNoKeyframe is returned for a segment whose video has no IDR with its
+// parameter sets: a transcoder decodes each pushed segment from scratch, so
+// it cannot decode such a segment and, worse, a go-livepeer gateway drops
+// its orchestrator session over the failure. The segment is skipped (a
+// gap in the renditions) rather than pushed. The ingest path keeps such
+// frames inside their GoP (media.installIDRKeyframeProbe); this guards the
+// transcoder from any other source of them.
+var ErrNoKeyframe = errors.New("segment does not start with an IDR and its parameter sets")
+
+// tsStartsDecodable reports whether an MPEG-TS video segment carries SPS,
+// PPS and an IDR slice — what a fresh decoder needs.
+func tsStartsDecodable(ts []byte) bool {
+	var sps, pps, idr bool
+	for i := 0; i+3 < len(ts); {
+		if ts[i] == 0 && ts[i+1] == 0 && ts[i+2] == 1 {
+			switch ts[i+3] & 31 {
+			case 7:
+				sps = true
+			case 8:
+				pps = true
+			case 5:
+				idr = true
+			}
+			if sps && pps && idr {
+				return true
+			}
+			i += 4
+			continue
+		}
+		i++
+	}
+	return false
+}
+
 // ErrBacklog is returned for a segment skipped because too many are already
 // waiting for a transcode slot.
 var ErrBacklog = errors.New("transcode backlog: segment skipped")
@@ -139,6 +173,9 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 	}
 	if audioSeg.Len() == 0 {
 		return nil, fmt.Errorf("no audio in segment")
+	}
+	if !tsStartsDecodable(tsSeg.Bytes()) {
+		return nil, ErrNoKeyframe
 	}
 	if ls.waiting.Add(1) > MaxWaiting {
 		ls.waiting.Add(-1)

@@ -105,6 +105,7 @@ export function BrandingAdmin() {
   const [accentColor, setAccentColor] = useState("");
   const [chromeInputs, setChromeInputs] = useState<Record<string, string>>({});
   const [defaultStreamer, setDefaultStreamer] = useState("");
+  const [defaultVideo, setDefaultVideo] = useState("");
   const [broadcasterDID, setBroadcasterDID] = useState("");
   const [uploading, setUploading] = useState(false);
   const [legalLinkText, setLegalLinkText] = useState("");
@@ -232,6 +233,7 @@ export function BrandingAdmin() {
   const currentBgLight = useBrandingAsset("backgroundColorLight");
   const currentFgLight = useBrandingAsset("foregroundColorLight");
   const currentDefaultStreamer = useBrandingAsset("defaultStreamer");
+  const currentDefaultVideo = useBrandingAsset("defaultVideo");
   const currentLogo = useBrandingAsset("mainLogo");
   const currentFavicon = useBrandingAsset("favicon");
   const currentSidebarBg = useSidebarBackgroundImage();
@@ -333,6 +335,9 @@ export function BrandingAdmin() {
           break;
         case "defaultStreamer":
           setDefaultStreamer("");
+          break;
+        case "defaultVideo":
+          setDefaultVideo("");
           break;
       }
 
@@ -904,6 +909,52 @@ export function BrandingAdmin() {
                       disabled={uploading}
                     >
                       {t("branding-clear-default-streamer")}
+                    </Button>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-default-video")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value:
+                          currentDefaultVideo?.data ||
+                          t("branding-default-streamer-none"),
+                      })}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-default-video-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder={t("branding-default-video-placeholder")}
+                          value={defaultVideo}
+                          onChangeText={setDefaultVideo}
+                        />
+                      </View>
+                      <Button
+                        onPress={() => uploadText("defaultVideo", defaultVideo)}
+                        disabled={uploading || !defaultVideo.trim()}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                    </View>
+                    <Button
+                      variant="danger"
+                      onPress={() => deleteBlob("defaultVideo")}
+                      disabled={uploading || !currentDefaultVideo?.data}
+                    >
+                      {t("branding-clear-default-video")}
                     </Button>
                   </View>
                 </SettingsRowItem>

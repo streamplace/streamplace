@@ -3,12 +3,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../../lib/theme/tokens";
 import { useTheme } from "../../ui";
 import { useVideoStore } from "../../video-store/video-store";
-import { VodComments } from "./vod-comments";
 import { VodDescription } from "./vod-description";
 import { VodMobileMetadata } from "./vod-mobile-metadata";
 
 // Below-the-player detail column (YouTube grammar): title + channel/actions
-// row, then the description card, then comments.
+// row, then the description card. Comments (VodComments) are deliberately not
+// mounted for now; they come back below the description when they are wanted.
 //
 // scrollDescription (mobile) keeps the metadata header fixed and scrolls the
 // rest, so the video above is always visible. Desktop flows in the surrounding
@@ -19,12 +19,10 @@ export function VodSection({
   scrollDescription?: boolean;
 }) {
   const aturi = useVideoStore((x) => x.aturi);
-  const video = useVideoStore((x) => x.video);
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
   if (!aturi) return null;
-  const videoUri = video?.uri ?? aturi;
 
   if (!scrollDescription) {
     return (
@@ -34,7 +32,6 @@ export function VodSection({
         <View style={{ width: "100%", gap: spacing[5] }}>
           <VodMobileMetadata />
           <VodDescription />
-          {video ? <VodComments videoUri={videoUri} /> : null}
         </View>
       </View>
     );
@@ -62,7 +59,6 @@ export function VodSection({
         showsVerticalScrollIndicator={false}
       >
         <VodDescription />
-        {video ? <VodComments videoUri={videoUri} /> : null}
       </ScrollView>
     </View>
   );

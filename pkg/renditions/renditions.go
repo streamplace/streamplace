@@ -3,6 +3,7 @@ package renditions
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"stream.place/streamplace/pkg/placestream"
 )
@@ -135,14 +136,59 @@ var DesiredRenditions = []Rendition{
 	},
 }
 
-// GenerateRenditions generates renditions for a given spseg
+// Ladder resolves a comma-separated selection of rendition names ("240p,160p")
+// from DesiredRenditions, in ladder order; empty means the whole ladder. An
+// unknown name is an error.
+func Ladder(spec string) ([]Rendition, error) {
+	spec = strings.TrimSpace(spec)
+	if spec == "" {
+		return DesiredRenditions, nil
+	}
+	want := map[string]bool{}
+	for _, n := range strings.Split(spec, ",") {
+		n = strings.TrimSpace(n)
+		if n == "" {
+			continue
+		}
+		known := false
+		for _, r := range DesiredRenditions {
+			if r.Name == n {
+				known = true
+			}
+		}
+		if !known {
+			names := make([]string, 0, len(DesiredRenditions))
+			for _, r := range DesiredRenditions {
+				names = append(names, r.Name)
+			}
+			return nil, fmt.Errorf("unknown rendition %q (known: %s)", n, strings.Join(names, ", "))
+		}
+		want[n] = true
+	}
+	out := make([]Rendition, 0, len(want))
+	for _, r := range DesiredRenditions {
+		if want[r.Name] {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
+// GenerateRenditions generates renditions for a given spseg from the whole
+// ladder.
 func GenerateRenditions(spseg *placestream.Segment) (Renditions, error) {
+	return GenerateRenditionsFrom(spseg, DesiredRenditions)
+}
+
+// GenerateRenditionsFrom generates the renditions of ladder (see Ladder)
+// that fit under spseg's video.
+func GenerateRenditionsFrom(spseg *placestream.Segment, ladder []Rendition) (Renditions, error) {
 	if len(spseg.Video) == 0 {
 		return nil, fmt.Errorf("no video stream found")
 	}
 	vid := spseg.Video[0]
 	rs := []Rendition{}
-	for _, r := range DesiredRenditions {
+	for _, r := range ladder {
 		vidWidth := int64(vid.Width)
 		vidHeight := int64(vid.Height)
 		vertical := vid.Height > vid.Width

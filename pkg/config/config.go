@@ -34,6 +34,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/moderation"
 	placestream "stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/s3"
 )
 
@@ -115,6 +116,7 @@ type CLI struct {
 	PrintChat                   bool
 	Color                       string
 	LivepeerGatewayURL          string
+	TranscodeRenditions         string
 	LivepeerGateway             bool
 	WHIPTest                    string
 	Thumbnail                   bool
@@ -545,6 +547,12 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "URL of the Livepeer Gateway to use for transcoding",
 				Destination: &cli.LivepeerGatewayURL,
 				Sources:     urfavecli.EnvVars("SP_LIVEPEER_GATEWAY_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "transcode-renditions",
+				Usage:       "the renditions to transcode, comma-separated names from the ladder (1080p,720p,360p,240p,160p); only those smaller than the source are made. Default: the whole ladder",
+				Destination: &cli.TranscodeRenditions,
+				Sources:     urfavecli.EnvVars("SP_TRANSCODE_RENDITIONS"),
 			},
 			&urfavecli.BoolFlag{
 				Name:        "livepeer-gateway",
@@ -1437,6 +1445,9 @@ func (cli *CLI) Validate(cmd *urfavecli.Command) error {
 	if cli.LivepeerGateway && cli.LivepeerGatewayURL != "" {
 		return fmt.Errorf("defining both livepeer-gateway and livepeer-gateway-url doesn't make sense. do you want an embedded gateway or an external one?")
 	}
+	if _, err := renditions.Ladder(cli.TranscodeRenditions); err != nil {
+		return fmt.Errorf("--transcode-renditions: %w", err)
+	}
 	if cli.LivepeerGateway {
 		log.MonkeypatchStderr()
 		// Livepeer gateway configuration will be handled in the caller
@@ -1851,4 +1862,14 @@ func (cli *CLI) IsAdmin(did string) bool {
 		return cli.Access.Allowed(context.Background(), did, access.RoleAdmin)
 	}
 	return slices.Contains(cli.AdminDIDs, did)
+}
+
+// RenditionLadder is the rendition ladder this node transcodes
+// (--transcode-renditions), validated at startup.
+func (cli *CLI) RenditionLadder() []renditions.Rendition {
+	ladder, err := renditions.Ladder(cli.TranscodeRenditions)
+	if err != nil {
+		return renditions.DesiredRenditions
+	}
+	return ladder
 }

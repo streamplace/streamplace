@@ -347,3 +347,21 @@ func TestSingleRendition(t *testing.T) {
 		})
 	}
 }
+
+func TestLadder(t *testing.T) {
+	all, err := Ladder("")
+	require.NoError(t, err)
+	require.Equal(t, DesiredRenditions, all)
+	two, err := Ladder("160p, 240p")
+	require.NoError(t, err)
+	require.Equal(t, []string{"240p", "160p"}, []string{two[0].Name, two[1].Name}, "ladder order, whatever the order given")
+	_, err = Ladder("240p,4k")
+	require.ErrorContains(t, err, `unknown rendition "4k"`)
+
+	src := seg(1920, 1080, 30, 1)
+	rs, err := GenerateRenditionsFrom(src, two)
+	require.NoError(t, err)
+	require.Len(t, rs, 2)
+	require.Equal(t, "240p", rs[0].Name)
+	require.Equal(t, "160p", rs[1].Name)
+}

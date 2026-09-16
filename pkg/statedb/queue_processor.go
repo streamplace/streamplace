@@ -16,6 +16,7 @@ import (
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
 
@@ -63,6 +64,18 @@ type StreamReceivedTask struct {
 
 type FinalizeLivestreamTask struct {
 	LivestreamURI string `json:"livestreamURI"`
+	// StaleSince is the record's lastSeenAt as it stood when this task was
+	// rescheduled to give the heartbeat one more idle window. If it is still
+	// that when the task runs again, the heartbeat is frozen and the record
+	// is ended; without it the task rescheduled itself forever for a repo's
+	// latest un-ended record.
+	StaleSince string `json:"staleSince,omitempty"`
+}
+
+// heartbeatFrozen reports whether a rescheduled finalize found the record's
+// heartbeat exactly where it left it a full idle window ago.
+func heartbeatFrozen(task FinalizeLivestreamTask, lastSeenAt string) bool {
+	return task.StaleSince != "" && task.StaleSince == lastSeenAt
 }
 
 // VODProcessTask is enqueued by the upload manager when a resumable user
@@ -87,6 +100,19 @@ type FinalizeLivestreamVODTask struct {
 	UploadID      string `json:"uploadId"`
 	RepoDID       string `json:"repoDID"`
 	LivestreamURI string `json:"livestreamURI"`
+	// Publish, when set, is the place.stream.video record to publish in
+	// the streamer's repo (with their stored session) as soon as the VOD
+	// is finalized, instead of leaving a draft for them to publish from
+	// the app. Set by the operator's finalize route.
+	Publish *placestream.Video `json:"publish,omitempty"`
+}
+
+// VideoPublisher publishes a finalized livestream VOD's place.stream.video
+// record; installed at bootstrap like LivestreamVODFinalizer.
+type VideoPublisher func(ctx context.Context, t FinalizeLivestreamVODTask) (uri, cid string, err error)
+
+func (state *StatefulDB) SetVideoPublisher(f VideoPublisher) {
+	state.videoPublisher = f
 }
 
 // ViewCountAggregateTask is the payload for one aggregation window.
@@ -310,6 +336,18 @@ func (state *StatefulDB) processFinalizeLivestreamVODTask(ctx context.Context, t
 		log.Warn(ctx, "failed to mark draft ready", "uploadId", t.UploadID, "error", err)
 	}
 	log.Log(ctx, "livestream VOD finalized", "uploadId", t.UploadID, "cid", cid)
+	if t.Publish != nil {
+		// The VOD is finalized either way: a failed publish leaves an upload
+		// the streamer can still publish from the app, so it is logged, not
+		// retried (a retry would finalize and publish the tracks again).
+		if state.videoPublisher == nil {
+			log.Error(ctx, "finalize-livestream-vod: publish requested but no video publisher configured", "uploadId", t.UploadID)
+		} else if uri, vcid, perr := state.videoPublisher(ctx, t); perr != nil {
+			log.Error(ctx, "finalize-livestream-vod: VOD finalized but publishing the video record failed", "uploadId", t.UploadID, "error", perr)
+		} else {
+			log.Log(ctx, "livestream VOD published", "uploadId", t.UploadID, "uri", uri, "cid", vcid)
+		}
+	}
 	return state.CompleteTask(ctx, task.ID)
 }
 
@@ -436,15 +474,29 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 		if err != nil {
 			return fmt.Errorf("failed to get session for finalize-livestream guard: %w", err)
 		}
-		rescheduledAt := time.Now().Add(time.Duration(*rec.IdleTimeoutSeconds) * time.Second).UTC()
-		rescheduledKey := fmt.Sprintf("finalize-livestream::%s::%s", livestream.URI, rescheduledAt.Format(util.ISO8601))
-		_, err = state.EnqueueTask(ctx, TaskFinalizeLivestream, finalizeLivestreamTask, WithTaskKey(rescheduledKey), WithScheduledAt(rescheduledAt))
-		if err != nil {
-			return fmt.Errorf("failed to reschedule finalize livestream task: %w", err)
+		if heartbeatFrozen(finalizeLivestreamTask, *rec.LastSeenAt) {
+			log.Log(ctx, "livestream is latest for repo and its heartbeat has not moved in a full idle window; ending it", "uri", livestream.URI, "lastSeenAt", lastSeenTime)
+		} else {
+			rescheduledAt := time.Now().Add(time.Duration(*rec.IdleTimeoutSeconds) * time.Second).UTC()
+			rescheduledKey := fmt.Sprintf("finalize-livestream::%s::%s", livestream.URI, rescheduledAt.Format(util.ISO8601))
+			next := finalizeLivestreamTask
+			next.StaleSince = *rec.LastSeenAt
+			_, err = state.EnqueueTask(ctx, TaskFinalizeLivestream, next, WithTaskKey(rescheduledKey), WithScheduledAt(rescheduledAt))
+			if err != nil {
+				return fmt.Errorf("failed to reschedule finalize livestream task: %w", err)
+			}
+			log.Log(ctx, "livestream is latest for repo but lastSeenAt is stale; rescheduling finalize once to let heartbeat catch up", "uri", livestream.URI, "lastSeenAt", lastSeenTime, "rescheduledAt", rescheduledAt)
+			return nil
 		}
-		log.Log(ctx, "livestream is latest for repo but lastSeenAt is stale; rescheduling finalize to let heartbeat catch up", "uri", livestream.URI, "lastSeenAt", lastSeenTime, "rescheduledAt", rescheduledAt)
-		return nil
 	}
+	return state.EndLivestreamRecord(ctx, livestream, rec)
+}
+
+// EndLivestreamRecord sets endedAt (= lastSeenAt) on a livestream record in
+// the streamer's repo, with the streamer's stored OAuth session. Used by the
+// idle finalize task and by the operator's finalize route for a record the
+// streamer never stopped.
+func (state *StatefulDB) EndLivestreamRecord(ctx context.Context, livestream *model.Livestream, rec *placestream.Livestream) error {
 	session, err := state.GetSessionByDID(livestream.RepoDID)
 	if err != nil {
 		return fmt.Errorf("failed to get session: %w", err)

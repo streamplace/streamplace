@@ -59,6 +59,9 @@ type StatefulDB struct {
 	// MUXL objects into a VOD. Installed via SetLivestreamVODFinalizer at
 	// bootstrap, same indirection as vodProcessor.
 	livestreamVODFinalizer LivestreamVODFinalizer
+	// videoPublisher publishes a finalized livestream VOD's video record
+	// when the finalize task asks for it (SetVideoPublisher).
+	videoPublisher VideoPublisher
 }
 
 // list tables here so we can migrate them

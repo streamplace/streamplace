@@ -315,3 +315,27 @@ func TestMinDurationKeepsWindowFromShrinking(t *testing.T) {
 		t.Errorf("no timescale: expected count window 2, got %d", n)
 	}
 }
+
+func TestVideoTracks(t *testing.T) {
+	w := NewWriter()
+	ev := initEvent()
+	ev.TrackInits["100"] = []byte("RINIT")
+	ev.Catalog.Video.Renditions["r"] = muxl.MuxlVideoConfig{Codec: "avc1.64001e", Container: muxl.MuxlContainer{Kind: "cmaf", Timescale: 90000, TrackID: 100}, CodedWidth: 640, CodedHeight: 360}
+	if err := w.Observe(ev); err != nil {
+		t.Fatal(err)
+	}
+	seg := segEvent([]byte{1}, []byte{2})
+	seg.Tracks["100"] = []byte{3}
+	seg.Durations["100"] = 90000
+	seg.SampleCounts["100"] = 30
+	if err := w.Observe(seg); err != nil {
+		t.Fatal(err)
+	}
+	got := w.VideoTracks()
+	if len(got) != 2 {
+		t.Fatalf("want 2 video tracks, got %+v", got)
+	}
+	if got[0].ID != "1" || got[0].Height != 720 || got[1].ID != "100" || got[1].Height != 360 || got[1].Codec != "avc1.64001e" {
+		t.Fatalf("unexpected tracks %+v", got)
+	}
+}

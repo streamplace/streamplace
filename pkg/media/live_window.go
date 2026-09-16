@@ -3,6 +3,9 @@ package media
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"sort"
+	"strconv"
 	"time"
 
 	"stream.place/streamplace/pkg/livehls"
@@ -123,4 +126,34 @@ func (mm *MediaManager) FeedLiveRenditions(ctx context.Context, did string, adde
 		return
 	}
 	mm.feedLiveWindow(ctx, did, addendum, published)
+}
+
+// LiveRenditionNames lists the transcoded renditions the streamer's live
+// window currently carries, highest first, named the way the player and
+// the transcode profiles name them ("720p"): what a viewer of this node can
+// actually pick, whether the node transcoded them or received them from
+// the origin. Empty when the stream has no window or no renditions yet.
+func (mm *MediaManager) LiveRenditionNames(did string) []string {
+	w := mm.GetLiveWindow(did)
+	if w == nil {
+		return nil
+	}
+	return renditionNames(w.VideoTracks())
+}
+
+func renditionNames(tracks []livehls.VideoTrack) []string {
+	var rs []livehls.VideoTrack
+	for _, t := range tracks {
+		id, err := strconv.ParseUint(t.ID, 10, 32)
+		if err != nil || uint32(id) < renditionTrackBase || t.Height == 0 {
+			continue
+		}
+		rs = append(rs, t)
+	}
+	sort.Slice(rs, func(i, j int) bool { return rs[i].Height > rs[j].Height })
+	names := make([]string, 0, len(rs))
+	for _, t := range rs {
+		names = append(names, fmt.Sprintf("%dp", t.Height))
+	}
+	return names
 }

@@ -73,6 +73,7 @@ var Specs = []Spec{
 	{Key: "networkProfileUrl", Kind: KindText, MaxSize: textMax, Doc: "Where a chat user's profile link goes, with {handle} and {did} placeholders; default https://bsky.app/profile/{handle}."},
 	{Key: "loginPlaceholder", Kind: KindText, MaxSize: textMax, Doc: "Example handle shown in the login form's empty handle field."},
 	{Key: "defaultStreamer", Kind: KindText, MaxSize: textMax, Doc: "Handle or DID whose stream page is the node's front door (single-user nodes)."},
+	{Key: "defaultVideo", Kind: KindText, MaxSize: textMax, Doc: "A video whose page is the node's front door while set, over defaultStreamer: its at:// URI (at://did/place.stream.video/rkey) or its path (<handle-or-did>/video/<rkey>). Clear it to return the front door to the streamer."},
 	{Key: "primaryColor", Kind: KindColor, Default: "#6366f1", MaxSize: textMax, Doc: "Buttons, links, focus rings."},
 	{Key: "accentColor", Kind: KindColor, Default: "#8b5cf6", MaxSize: textMax, Doc: "Secondary surfaces and highlights."},
 	{Key: "accentColorLight", Kind: KindColor, MaxSize: textMax, Doc: "accentColor override for the light scheme."},

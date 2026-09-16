@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -72,7 +73,7 @@ func (s *Server) GetBrandingBlob(ctx context.Context, broadcasterID, key string)
 		if def, ok := defaultBrandingAssets[key]; ok {
 			return def.data, def.mime, nil, nil, nil
 		}
-		return nil, "", nil, nil, fmt.Errorf("unknown branding key: %s", key)
+		return nil, "", nil, nil, fmt.Errorf("%w: %s", ErrBrandingKeyUnset, key)
 	}
 	if err != nil {
 		return nil, "", nil, nil, fmt.Errorf("error fetching branding blob: %w", err)
@@ -80,8 +81,18 @@ func (s *Server) GetBrandingBlob(ctx context.Context, broadcasterID, key string)
 	return blob.Data, blob.MimeType, blob.Width, blob.Height, nil
 }
 
+// ErrBrandingKeyUnset is returned for a branding key with neither a stored
+// value nor a built-in default.
+var ErrBrandingKeyUnset = errors.New("branding key is not set")
+
 func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context, broadcasterDID string, key string) (io.Reader, error) {
-	return s.HandlePlaceStreamBrandingGetBlobDirect(ctx, broadcasterDID, key)
+	r, err := s.HandlePlaceStreamBrandingGetBlobDirect(ctx, broadcasterDID, key)
+	if errors.Is(err, ErrBrandingKeyUnset) {
+		// 404, not 500: a client polling a key (the front door's
+		// defaultVideo) must tell "cleared" from "the node is down".
+		return nil, echo.NewHTTPError(http.StatusNotFound, err.Error())
+	}
+	return r, err
 }
 
 // HandlePlaceStreamBrandingGetBlobDirect is the exported version for direct calls

@@ -17,6 +17,7 @@ import LiveDot from "components/home/live-dot";
 import PullToRefreshScrollView from "components/pull-to-refresh";
 import { Image } from "expo-image";
 import useAvatars from "hooks/useAvatars";
+import { useDefaultStreamerReload } from "hooks/useDefaultStreamerReload";
 import { useEffect, useState } from "react";
 import { Platform, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -233,6 +234,9 @@ export default function HomeScreen({
   // render: the early returns below come and go with the live-users fetch,
   // and a hook after them would change the hook count between renders.)
   const defaultStreamer = useDefaultStreamer();
+  // ...and follows it: an operator who points the node at another
+  // streamer moves everyone on this page there.
+  useDefaultStreamerReload(defaultStreamer);
 
   useEffect(() => {
     if (!liveUsersLoading) {

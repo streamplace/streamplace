@@ -46,6 +46,11 @@ var TranscodeSuccessesTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Help: "total number of transcode successes",
 })
 
+var TranscodeSkippedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_transcode_skipped_total",
+	Help: "segments not transcoded because the transcoder was too far behind (see livepeer.MaxWaiting)",
+})
+
 var TranscodeErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "streamplace_transcode_errors_total",
 	Help: "total number of transcode errors",

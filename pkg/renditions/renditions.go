@@ -43,34 +43,28 @@ type JSONProfile struct {
 	Quality uint   `json:"quality,omitempty"`
 }
 
+// ToLivepeerProfile is the rendition as the gateway's transcode
+// configuration wants it. Both dimensions are sent: GenerateRenditions has
+// already fitted them to the source's aspect, and a gateway handed one
+// dimension takes it as the width (a "720p" asked for by height alone came
+// back 720 pixels wide). Dimensions are rounded to even for the encoder.
 func (r Rendition) ToLivepeerProfile() JSONProfile {
-	p := JSONProfile{
+	return JSONProfile{
 		Name:    r.Name,
+		Width:   even(r.Width),
+		Height:  even(r.Height),
 		Bitrate: r.Bitrate,
 		FPS:     r.Framerate.Num,
 		FPSDen:  r.Framerate.Den,
 		Profile: r.Profile,
 	}
-	if r.Parent == nil {
-		p.Width = int(r.Width)
-		p.Height = int(r.Height)
-	} else {
-		// We want to set the dimension that is the same as the parent
-		if r.Width < r.Height {
-			if r.Parent.Width == r.Height {
-				p.Height = int(r.Parent.Width)
-			} else {
-				p.Width = int(r.Parent.Height)
-			}
-		} else {
-			if r.Parent.Height == r.Height {
-				p.Height = int(r.Parent.Height)
-			} else {
-				p.Width = int(r.Parent.Width)
-			}
-		}
+}
+
+func even(n int64) int {
+	if n%2 != 0 {
+		n++
 	}
-	return p
+	return int(n)
 }
 
 type Renditions []Rendition

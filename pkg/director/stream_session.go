@@ -870,6 +870,11 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	}
 	spmetrics.TranscodeAttemptsTotal.Inc()
 	segs, err := ss.lp.PostSegmentToGateway(ctx, data, spseg, rs)
+	if errors.Is(err, livepeer.ErrBacklog) {
+		spmetrics.TranscodeSkippedTotal.Inc()
+		log.Debug(ctx, "transcode: skipped, transcoder is behind")
+		return nil
+	}
 	if err != nil {
 		spmetrics.TranscodeErrorsTotal.Inc()
 		return err

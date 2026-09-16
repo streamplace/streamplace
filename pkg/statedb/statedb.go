@@ -77,6 +77,7 @@ var StatefulDBModels = []any{
 	MultistreamEvent{},
 	BrandingBlob{},
 	StreamViewTotal{},
+	LivestreamViewTotal{},
 	CertmagicItem{},
 	ModerationAuditLog{},
 	Storage{},
@@ -145,6 +146,9 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 		if err := postgresIndexFixes(ctx, db); err != nil {
 			return nil, err
 		}
+	}
+	if err := migrateStreamViewTotals(ctx, db); err != nil {
+		return nil, fmt.Errorf("carrying over stream view totals: %w", err)
 	}
 
 	err = db.Use(prometheus.New(prometheus.Config{

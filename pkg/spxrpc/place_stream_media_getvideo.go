@@ -30,5 +30,6 @@ func (s *Server) handlePlaceStreamMediaGetVideo(ctx context.Context, uri string)
 	if view == nil {
 		return nil, echo.NewHTTPError(http.StatusNotFound, "VideoNotFound")
 	}
+	s.addLivestreamViews(ctx, view)
 	return view, nil
 }

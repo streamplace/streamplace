@@ -766,14 +766,18 @@ export default function Shell() {
   const cardStreamLayout = useCardStreamLayout();
   const socialShell = useSocialShell();
   const { width: windowWidth } = useWindowDimensions();
+  // A video page reports itself while mounted (the front door showing the
+  // default video is one the route name doesn't reveal).
+  const videoPage = useStore((state) => state.videoPage);
   const isDetailView =
     (currentRouteName === "Stream" && !cardStreamLayout) ||
     currentRouteName === "Video" ||
-    currentRouteName === "Vod";
+    currentRouteName === "Vod" ||
+    videoPage;
   // Video pages get a YouTube-style sticky translucent header the content
   // scrolls under; the livestream keeps its own solid header.
   const isVodDetail =
-    currentRouteName === "Video" || currentRouteName === "Vod";
+    currentRouteName === "Video" || currentRouteName === "Vod" || videoPage;
   useEffect(() => {
     setOverlay(isDetailView);
   }, [isDetailView, setOverlay]);

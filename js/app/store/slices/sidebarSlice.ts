@@ -14,6 +14,11 @@ export interface SidebarSlice {
   /** A mounted stream card layout asks the social shell for the wide
    *  (feed + chat) column; the shell can't tell from route names alone. */
   wideColumn: boolean;
+  /** A mounted video page reports itself, for the pages the route name
+   *  doesn't reveal: the front door showing the node's default video. The
+   *  shell then treats it as the Video route: sidebar as an overlay drawer,
+   *  content the full width, the sticky video header. */
+  videoPage: boolean;
   drawerOpen: boolean;
   /** The social shell's phone menu: the sidebar shown as a drawer on
    *  windows too narrow for a rail. */
@@ -24,6 +29,7 @@ export interface SidebarSlice {
   toggleSidebar: () => void;
   setOverlay: (overlay: boolean) => void;
   setWideColumn: (wide: boolean) => void;
+  setVideoPage: (video: boolean) => void;
   toggleDrawer: () => void;
   closeDrawer: () => void;
   loadStateFromStorage: () => Promise<void>;
@@ -59,6 +65,7 @@ export const createSidebarSlice: StateCreator<SidebarSlice> = (set, get) => ({
   isLoaded: false,
   overlay: false,
   wideColumn: false,
+  videoPage: false,
   drawerOpen: false,
   mobileMenuOpen: false,
   toggleMobileMenu: () => {
@@ -67,6 +74,7 @@ export const createSidebarSlice: StateCreator<SidebarSlice> = (set, get) => ({
     }));
   },
   setWideColumn: (wide: boolean) => set({ wideColumn: wide }),
+  setVideoPage: (video: boolean) => set({ videoPage: video }),
   setOverlay: (overlay: boolean) => {
     set((state) => {
       if ((state as SidebarSlice).overlay === overlay) return {};

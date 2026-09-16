@@ -2,6 +2,7 @@ package media
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -114,4 +115,52 @@ func TestIngestOpenGOPSegmentsStartOnIDR(t *testing.T) {
 	}
 	require.Zero(t, nonIDR, "segments starting without an IDR")
 	require.LessOrEqual(t, len(segs), 2, "one IDR in 90 frames (the other 8 keyframes are open-GOP I-frames): one GoP, not a segment per I-frame")
+}
+
+// The dual-codec completion re-segments its transcoded audio on the
+// passed-through video's keyframes; with open-GOP I-frames in the source
+// it must still cut exactly where the source segments were cut, or the
+// audio chunks pair with the wrong segments and the completed track
+// drifts from the video (HLS audio then lands outside the video's
+// timeline). Every completed segment's audio must match its video.
+func TestIngestOpenGOPCompletionStaysAligned(t *testing.T) {
+	ctx := context.Background()
+	mp4 := makeOpenGOPFMP4(t, ctx)
+	segs, err := runMP4ThroughIngestWorkerSegments(t, mp4, true)
+	require.NoError(t, err)
+	require.NotEmpty(t, segs)
+	for i, seg := range segs {
+		evs, err := unwrapMuxlEvents(ctx, seg)
+		require.NoError(t, err)
+		cat, _ := catalogAndTracks(evs)
+		require.NotNil(t, cat)
+		require.NotNil(t, cat.Audio)
+		require.Len(t, cat.Audio.Renditions, 2, "segment %d is dual-codec", i)
+		scales := map[string]float64{}
+		for _, v := range cat.Video.Renditions {
+			scales[fmt.Sprint(v.TrackID())] = float64(v.Timescale())
+		}
+		for _, a := range cat.Audio.Renditions {
+			scales[fmt.Sprint(a.TrackID())] = float64(a.Timescale())
+		}
+		for _, ev := range evs {
+			if ev.Type != "segment" && ev.Type != "signed-segment" {
+				continue
+			}
+			// The two audio tracks (the source's and the completed one)
+			// must cover the same span: the completion cut where the
+			// source did.
+			var audios []float64
+			for tid, d := range ev.Durations {
+				if tid == "1" {
+					continue
+				}
+				audios = append(audios, float64(d)/scales[tid])
+			}
+			require.Len(t, audios, 2, "segment %d has both audio tracks", i)
+			require.InDelta(t, audios[0], audios[1], 0.1, "segment %d: audio tracks carry %.3fs and %.3fs", i, audios[0], audios[1])
+			break
+		}
+	}
+	require.LessOrEqual(t, len(segs), 2, "as many completed segments as source segments: one GoP")
 }

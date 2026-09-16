@@ -178,6 +178,14 @@ func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
 	}
 
 	vparse, err := pipeline.GetElementByName("vparse")
+	if err == nil {
+		// The passed-through video is muxl's cut clock for the transcoded
+		// audio: it must cut exactly where the source segments were cut,
+		// at IDRs only (see installIDRKeyframeProbe), or the audio chunks
+		// and the source segments pair up out of step and the completed
+		// track drifts from the video.
+		installIDRKeyframeProbe(context.Background(), vparse.GetStaticPad("src"), "completion")
+	}
 	if err != nil {
 		return nil, err
 	}

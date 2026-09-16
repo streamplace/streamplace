@@ -118,6 +118,13 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	// the operator's say-so (the streamer's own path is the app's
 	// Livestreams tab); see HandleFinalizeLivestream.
 	router.POST("/finalize-livestream", a.HandleFinalizeLivestream(ctx))
+	// The operator's hands on a streamer's video records after the
+	// finalize: list them (with the node's uploads for the repo), publish
+	// one for a finished upload, retitle or repair one, delete one.
+	router.GET("/videos", a.HandleListVideos(ctx))
+	router.POST("/videos", a.HandlePublishVideo(ctx))
+	router.PUT("/videos", a.HandleUpdateVideo(ctx))
+	router.DELETE("/videos", a.HandleDeleteVideo(ctx))
 
 	// Rebuild the local media.origin index from our own server repo, for
 	// blobs we host but never indexed (a dropped firehose event, or a

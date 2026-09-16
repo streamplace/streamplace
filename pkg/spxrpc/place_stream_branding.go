@@ -260,36 +260,46 @@ func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input 
 	}, nil
 }
 
-// HandleFaviconICO serves the favicon at /favicon.ico
+// HandleFaviconICO serves /favicon.ico: the node's branded favicon, else
+// the bundled one.
 func (s *Server) HandleFaviconICO(c echo.Context) error {
+	return s.handleFavicon(c, "favicon.ico", "image/x-icon")
+}
+
+// HandleFaviconPNG serves /favicon.png, the icon the app's HTML template
+// links first (Expo's web export writes it). It carries the same branded
+// favicon as /favicon.ico: link unfurlers (Slack, Discord) and browsers
+// take the first icon link they see, and this one used to be the bundled
+// brand mark on every node no matter its branding.
+func (s *Server) HandleFaviconPNG(c echo.Context) error {
+	return s.handleFavicon(c, "favicon.png", "image/png")
+}
+
+// handleFavicon serves the branded favicon blob with its own MIME type
+// (browsers sniff icon bytes, so an ICO at /favicon.png is fine), falling
+// back to the bundled file fallback / fallbackMime.
+func (s *Server) handleFavicon(c echo.Context, fallback, fallbackMime string) error {
 	ctx := c.Request().Context()
-
-	broadcasterID := s.cli.BroadcasterHost
-	log.Log(ctx, "fetching favicon", "broadcasterID", broadcasterID)
-	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, "did:web:"+broadcasterID, "favicon")
-
-	if err != nil || data == nil {
-		log.Log(ctx, "using fallback favicon", "err", err, "data_nil", data == nil)
+	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, s.cli.BroadcasterDID(), "favicon")
+	if err != nil || len(data) == 0 || !strings.HasPrefix(mimeType, "image/") {
 		distFiles, fsErr := app.Files()
 		if fsErr != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch favicon")
 		}
-
-		faviconFile, fsErr := distFiles.Open("favicon.ico")
+		f, fsErr := distFiles.Open(fallback)
 		if fsErr != nil {
 			return echo.NewHTTPError(http.StatusNotFound, "favicon not found")
 		}
-		defer faviconFile.Close()
-
-		data, fsErr = io.ReadAll(faviconFile)
+		defer f.Close()
+		data, fsErr = io.ReadAll(f)
 		if fsErr != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to read favicon")
 		}
-
-		// detect mime type based on file extension (ico)
-		mimeType = "image/x-icon"
+		mimeType = fallbackMime
 	}
-
+	// Short-lived: a rebrand shows up within minutes instead of whenever a
+	// cache's heuristic for an uncached-header image runs out.
+	c.Response().Header().Set("Cache-Control", "public, max-age=300")
 	return c.Blob(http.StatusOK, mimeType, data)
 }
 

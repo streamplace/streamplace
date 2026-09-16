@@ -464,6 +464,17 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			SigningKey:    signingKey,
 		})
 	})
+	// Publishes the video record right after a finalize the operator asked
+	// to publish (the finalize route), with the streamer's stored session.
+	state.SetVideoPublisher(func(ctx context.Context, t statedb.FinalizeLivestreamVODTask) (string, string, error) {
+		if t.Publish == nil {
+			return "", "", nil
+		}
+		if vodStore == nil {
+			return "", "", fmt.Errorf("finalize-livestream-vod: no VOD store configured")
+		}
+		return vod.PublishVideo(ctx, state, vodStore, t.RepoDID, t.UploadID, t.Publish)
+	})
 	// View-count aggregator runs the log → record pipeline for one
 	// window. Same function-pointer pattern as the VOD processor so
 	// statedb stays free of viewlog's transitive deps. The scheduler

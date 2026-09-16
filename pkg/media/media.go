@@ -10,6 +10,7 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pion/webrtc/v4"
@@ -54,7 +55,7 @@ type MediaManager struct {
 	modBuffersMut       sync.Mutex
 	httpPipes           map[string]io.Writer
 	httpPipesMutex      sync.Mutex
-	newSegmentSubs      []chan *NewSegmentNotification
+	newSegmentSubs      []*segmentSubscriber
 	newSegmentSubsMutex sync.RWMutex
 	model               model.Model
 	bus                 *bus.Bus
@@ -187,13 +188,54 @@ func (mm *MediaManager) GetHTTPPipeWriter(uu string) io.Writer {
 	return mm.httpPipes[uu]
 }
 
+// segmentQueueSize is how many validated segments may wait for one
+// subscriber before further ones are dropped for it.
+const segmentQueueSize = 256
+
+// A segmentSubscriber receives every validated segment, in validation
+// order: notifications queue per subscriber and one goroutine forwards
+// them. (A goroutine per notification, as before, handed a burst of tiny
+// segments to the director in whatever order the scheduler ran them.)
+type segmentSubscriber struct {
+	ch    chan *NewSegmentNotification
+	queue chan *NewSegmentNotification
+}
+
+func (s *segmentSubscriber) forward() {
+	for not := range s.queue {
+		select {
+		case s.ch <- not:
+		case <-time.After(time.Minute):
+			log.Warn(context.Background(), "segment subscriber did not take a segment within a minute, dropping it", "streamer", not.Segment.RepoDID, "segmentID", not.Segment.ID)
+		}
+	}
+}
+
 // register a handler for all new segments that come in
 func (mm *MediaManager) NewSegment() <-chan *NewSegmentNotification {
-	ch := make(chan *NewSegmentNotification)
+	sub := &segmentSubscriber{
+		ch:    make(chan *NewSegmentNotification),
+		queue: make(chan *NewSegmentNotification, segmentQueueSize),
+	}
+	go sub.forward()
 	mm.newSegmentSubsMutex.Lock()
 	defer mm.newSegmentSubsMutex.Unlock()
-	mm.newSegmentSubs = append(mm.newSegmentSubs, ch)
-	return ch
+	mm.newSegmentSubs = append(mm.newSegmentSubs, sub)
+	return sub.ch
+}
+
+// notifySubscribers hands a validated segment to every subscriber, in
+// order, without waiting on any of them.
+func (mm *MediaManager) notifySubscribers(ctx context.Context, not *NewSegmentNotification) {
+	mm.newSegmentSubsMutex.RLock()
+	defer mm.newSegmentSubsMutex.RUnlock()
+	for _, sub := range mm.newSegmentSubs {
+		select {
+		case sub.queue <- not:
+		default:
+			log.Error(ctx, "segment subscriber is not keeping up, dropping a segment", "streamer", not.Segment.RepoDID, "segmentID", not.Segment.ID, "behind", len(sub.queue))
+		}
+	}
 }
 
 type obj map[string]any

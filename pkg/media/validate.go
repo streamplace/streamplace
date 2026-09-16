@@ -270,27 +270,13 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 		return fmt.Errorf("wrap segment for distribution: %w", err)
 	}
 
-	mm.newSegmentSubsMutex.RLock()
-	defer mm.newSegmentSubsMutex.RUnlock()
-	not := &NewSegmentNotification{
+	mm.notifySubscribers(ctx, &NewSegmentNotification{
 		Segment:  dbSeg,
 		Data:     playable.Bytes(),
 		Muxl:     seg,
 		Metadata: meta,
 		Local:    vs.local,
-	}
-	for _, ch := range mm.newSegmentSubs {
-		go func() {
-			select {
-			case ch <- not:
-			case <-ctx.Done():
-				return
-			case <-time.After(1 * time.Minute):
-				log.Warn(ctx, "failed to send segment to channel, timing out", "streamer", vs.repoDID, "signingKey", vs.signingKeyDID, "segmentID", vs.label)
-				return
-			}
-		}()
-	}
+	})
 	aqt := aqtime.FromTime(meta.StartTime.Time())
 	log.Log(ctx, "successfully ingested segment", "user", vs.repoDID, "signingKey", vs.signingKeyDID, "timestamp", aqt.FileSafeString(), "segmentID", vs.label)
 	return nil

@@ -458,10 +458,11 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			return "", fmt.Errorf("finalize-livestream-vod: resolve signing key: %w", err)
 		}
 		return vod.FinalizeLivestreamVOD(ctx, cli, state, vodStore, vod.FinalizeInput{
-			UploadID:      t.UploadID,
-			RepoDID:       t.RepoDID,
-			LivestreamURI: t.LivestreamURI,
-			SigningKey:    signingKey,
+			UploadID:       t.UploadID,
+			RepoDID:        t.RepoDID,
+			LivestreamURI:  t.LivestreamURI,
+			LivestreamURIs: t.LivestreamURIs,
+			SigningKey:     signingKey,
 		})
 	})
 	// Publishes the video record right after a finalize the operator asked

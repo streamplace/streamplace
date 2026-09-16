@@ -110,7 +110,7 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	var allRenditions renditions.Renditions
 
 	if ss.cli.LivepeerGatewayURL != "" {
-		allRenditions, err = renditions.GenerateRenditions(spseg)
+		allRenditions, err = renditions.GenerateRenditionsFrom(spseg, ss.cli.RenditionLadder())
 	} else {
 		allRenditions = []renditions.Rendition{}
 	}
@@ -867,7 +867,7 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 			log.Warn(ctx, "transcode: could not select opus audio, using the presentation as is", "error", err)
 		}
 	}
-	rs, err := renditions.GenerateRenditions(spseg)
+	rs, err := renditions.GenerateRenditionsFrom(spseg, ss.cli.RenditionLadder())
 	if err != nil {
 		return fmt.Errorf("failed to generated renditions: %w", err)
 	}

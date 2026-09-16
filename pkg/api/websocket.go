@@ -212,7 +212,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			if len(names) == 0 && a.CLI.LivepeerGatewayURL != "" {
 				// This node transcodes but hasn't a rendition in its window
 				// yet: the profiles it is about to produce.
-				videoRenditions, err := renditions.GenerateRenditions(spSeg)
+				videoRenditions, err := renditions.GenerateRenditionsFrom(spSeg, a.CLI.RenditionLadder())
 				if err != nil {
 					log.Error(ctx, "could not generate renditions", "error", err)
 					return

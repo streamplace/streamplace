@@ -114,6 +114,10 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	// Pull a VOD blob from another Streamplace node into our playback
 	// store and attest to it via place.stream.media.origin.
 	router.POST("/vod-transfer", a.HandleVODTransfer(ctx))
+	// Turn a recorded livestream into a VOD on the streamer's channel, on
+	// the operator's say-so (the streamer's own path is the app's
+	// Livestreams tab); see HandleFinalizeLivestream.
+	router.POST("/finalize-livestream", a.HandleFinalizeLivestream(ctx))
 
 	// Rebuild the local media.origin index from our own server repo, for
 	// blobs we host but never indexed (a dropped firehose event, or a

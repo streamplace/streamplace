@@ -61,6 +61,36 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+// The link-card templates (pkg/branding vocab): {site} is cardSiteName over
+// the site title; {name} and {handle} the account a page is about. The
+// placeholders show each template's default.
+const CARD_TEMPLATE_KEYS: { key: string; placeholder: string }[] = [
+  {
+    key: "cardSiteName",
+    placeholder: "Site name in cards (default: site title)",
+  },
+  { key: "cardLiveTitle", placeholder: "{name} is live on {site}" },
+  {
+    key: "cardHomeTitle",
+    placeholder: "Front page title (default: site title)",
+  },
+  {
+    key: "cardHomeDescription",
+    placeholder: "Front page description (default: site description)",
+  },
+  { key: "cardVideosTitle", placeholder: "Videos on {site}" },
+  {
+    key: "cardVideosDescription",
+    placeholder: "Watch replays of live streams on {site}.",
+  },
+  { key: "cardVideoTitle", placeholder: "{name}'s video on {site}" },
+  { key: "cardGoLiveTitle", placeholder: "Go live on {site}" },
+  {
+    key: "cardGoLiveDescription",
+    placeholder: "Set up and start your live stream on {site}.",
+  },
+];
+
 export function BrandingAdmin() {
   const { t } = useTranslation("settings");
   const { theme } = useTheme();
@@ -322,6 +352,15 @@ export function BrandingAdmin() {
         case "signInOAuthLabel":
         case "chatVerifiedOnly":
         case "loginPlaceholder":
+        case "cardSiteName":
+        case "cardLiveTitle":
+        case "cardHomeTitle":
+        case "cardHomeDescription":
+        case "cardVideosTitle":
+        case "cardVideosDescription":
+        case "cardVideoTitle":
+        case "cardGoLiveTitle":
+        case "cardGoLiveDescription":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
           break;
         case "defaultStreamer":
@@ -650,6 +689,85 @@ export function BrandingAdmin() {
                         style={{ height: 42 }}
                       >
                         {t("update")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-link-cards")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-link-cards-description")}
+                    </Text>
+                    {CARD_TEMPLATE_KEYS.map(({ key, placeholder }) => (
+                      <View
+                        key={key}
+                        style={[
+                          zero.layout.flex.direction.row,
+                          zero.layout.flex.alignCenter,
+                          zero.gap.all[2],
+                        ]}
+                      >
+                        <View style={{ width: 160 }}>
+                          <Text size="xs" color="muted">
+                            {key}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Input
+                            placeholder={placeholder}
+                            value={chromeInputs[key] ?? brandingValue(key)}
+                            onChangeText={(v) =>
+                              setChromeInputs((prev) => ({
+                                ...prev,
+                                [key]: v,
+                              }))
+                            }
+                          />
+                        </View>
+                      </View>
+                    ))}
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={async () => {
+                          for (const { key } of CARD_TEMPLATE_KEYS) {
+                            const v = (
+                              chromeInputs[key] ?? brandingValue(key)
+                            ).trim();
+                            if (v && v !== brandingValue(key))
+                              await uploadText(key, v);
+                          }
+                        }}
+                        disabled={uploading}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={async () => {
+                          for (const { key } of CARD_TEMPLATE_KEYS) {
+                            if (brandingValue(key)) await deleteBlob(key);
+                          }
+                        }}
+                        disabled={
+                          uploading ||
+                          !CARD_TEMPLATE_KEYS.some(({ key }) =>
+                            brandingValue(key),
+                          )
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
                       </Button>
                     </View>
                   </View>

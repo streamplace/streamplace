@@ -14,6 +14,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 
 	"golang.org/x/net/html"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/branding"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/placestream"
@@ -197,6 +198,119 @@ func (l *Linker) getBrandingAssets(broadcasterDid string) ([]placestream.Brandin
 	return ret, nil
 }
 
+// brandMetas fetches the node's branding once for a card: the
+// internal-brand:* meta tags the app hydrates from, plus every text value by
+// key so the card's own title and description can be branded.
+func (l *Linker) brandMetas(ctx context.Context) ([]MetaTag, map[string]string) {
+	values := map[string]string{}
+	if l.sdb == nil || l.cli == nil {
+		return nil, values
+	}
+	assets, err := l.getBrandingAssets("did:web:" + l.cli.BroadcasterHost)
+	if err != nil {
+		// log but we should not block rendering
+		log.Error(ctx, "error fetching branding assets", "error", err)
+		return nil, values
+	}
+	var metas []MetaTag
+	for i := range assets {
+		val := assets[i]
+		if val.MimeType == branding.TextMime && val.Data != nil {
+			values[val.Key] = strings.TrimSpace(*val.Data)
+		}
+		marshalledJson, err := json.Marshal(val)
+		if err != nil {
+			log.Error(ctx, "error marshalling branding asset", "key", val.Key, "error", err)
+			continue
+		}
+		metas = append(metas, MetaTag{
+			Type:    "name",
+			Key:     "internal-brand:" + val.Key,
+			Content: string(marshalledJson),
+		})
+	}
+	return metas, values
+}
+
+// The card text when a node has no siteTitle / siteDescription branding.
+const (
+	defaultSiteTitle       = "streamplace node"
+	defaultSiteDescription = "Open-source livestreaming on the AT Protocol."
+)
+
+// cardText resolves one of the card template keys: the node's value when
+// set, else the vocabulary's default.
+func cardText(values map[string]string, key string) string {
+	if v := values[key]; v != "" {
+		return v
+	}
+	if spec, ok := branding.Lookup(key); ok {
+		return spec.Default
+	}
+	return ""
+}
+
+// siteTitle is the node's name for og:site_name and the page title fallback;
+// siteName is how the card templates refer to it ({site}), which a node can
+// shorten with cardSiteName ("W" for a "W Social" site).
+func siteTitle(values map[string]string) string {
+	if v := values["siteTitle"]; v != "" {
+		return v
+	}
+	return defaultSiteTitle
+}
+
+func siteName(values map[string]string) string {
+	if v := values["cardSiteName"]; v != "" {
+		return v
+	}
+	return siteTitle(values)
+}
+
+// expandCard fills a card template's placeholders: {site}, and for a page
+// about one account {name} (display name, falling back to the handle) and
+// {handle}.
+func expandCard(tmpl string, values map[string]string, author *appbsky.ActorDefs_ProfileViewBasic) string {
+	r := []string{"{site}", siteName(values)}
+	if author != nil {
+		name := author.Handle
+		if author.DisplayName != nil && strings.TrimSpace(*author.DisplayName) != "" {
+			name = strings.TrimSpace(*author.DisplayName)
+		}
+		r = append(r, "{name}", name, "{handle}", author.Handle)
+	}
+	return strings.TrimSpace(strings.NewReplacer(r...).Replace(tmpl))
+}
+
+// cardTags builds the description, OpenGraph and Twitter tags every card
+// shares.
+func cardTags(u *url.URL, ogType, title, description, image, site string) []MetaTag {
+	tags := []MetaTag{
+		// Basic meta
+		{Type: "name", Key: "description", Content: description},
+
+		// Facebook Meta Tags
+		{Type: "property", Key: "og:url", Content: u.String()},
+		{Type: "property", Key: "og:type", Content: ogType},
+		{Type: "property", Key: "og:site_name", Content: site},
+		{Type: "property", Key: "og:title", Content: title},
+		{Type: "property", Key: "og:description", Content: description},
+		{Type: "property", Key: "og:image", Content: image},
+
+		// Twitter Meta Tags
+		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
+		{Type: "property", Key: "twitter:domain", Content: u.Host},
+		{Type: "property", Key: "twitter:url", Content: u.String()},
+		{Type: "name", Key: "twitter:title", Content: title},
+		{Type: "name", Key: "twitter:description", Content: description},
+		{Type: "name", Key: "twitter:image", Content: image},
+	}
+	return tags
+}
+
+// GenerateStreamerCard is the card for a stream page: "<name> is live on
+// <site>" (cardLiveTitle) over the stream's post text, with the streamer's
+// profile card as the image.
 func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *placestream.Livestream_LivestreamView, sentryDSN string) ([]byte, error) {
 	if u == nil {
 		return nil, errors.New("url is nil")
@@ -209,80 +323,28 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *plac
 		return nil, errors.New("livestream view is not a livestream")
 	}
 
-	titleStr := fmt.Sprintf("@%s's livestream on ", lsv.Author.Handle)
-	outURL := u.String()
-
 	thumbURL, _ := url.Parse(u.String())
 	thumbURL.Path = "/xrpc/place.stream.live.getProfileCard"
 	thumbURL.RawQuery = fmt.Sprintf("id=%s", lsv.Author.Did)
 
-	// Define all meta tags
-	metaTags := []MetaTag{
-		// Basic meta
-		{Type: "name", Key: "description", Content: ls.Title},
-
-		// Facebook Meta Tags
-		{Type: "property", Key: "og:url", Content: u.String()},
-		{Type: "property", Key: "og:type", Content: "website"},
-		{Type: "property", Key: "og:description", Content: ls.Title},
-		{Type: "property", Key: "og:image", Content: thumbURL.String()},
-
-		// Twitter Meta Tags
-		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
-		{Type: "property", Key: "twitter:domain", Content: u.Host},
-		{Type: "property", Key: "twitter:url", Content: outURL},
-		{Type: "name", Key: "twitter:description", Content: ls.Title},
-		{Type: "name", Key: "twitter:image", Content: thumbURL.String()},
-	}
-	brandingTitle := "streamplace node"
-	if l.sdb != nil && l.cli != nil {
-		branding, err := l.getBrandingAssets("did:web:" + l.cli.BroadcasterHost)
-		if err == nil {
-			for i := range branding {
-				val := branding[i]
-				if val.Key == "siteTitle" && val.Data != nil {
-					brandingTitle = *val.Data
-				}
-				marshalledJson, err := json.Marshal(val)
-				if err != nil {
-					log.Error(ctx, "error marshalling branding asset", "key", val.Key, "error", err)
-					continue
-				}
-				metaTags = append(metaTags, MetaTag{
-					Type:    "name",
-					Key:     "internal-brand:" + val.Key,
-					Content: string(marshalledJson),
-				})
-			}
-		} else {
-			// log but we should not block rendering
-			log.Error(ctx, "error fetching branding assets", "error", err)
-		}
-	}
-
-	// do twitter/og title after
-	metaTags = append(metaTags, MetaTag{
-		Type:    "property",
-		Key:     "og:title",
-		Content: fmt.Sprintf("%s%s", titleStr, brandingTitle),
-	})
-	metaTags = append(metaTags, MetaTag{
-		Type:    "name",
-		Key:     "twitter:title",
-		Content: fmt.Sprintf("%s%s", titleStr, brandingTitle),
-	})
+	brandMetas, values := l.brandMetas(ctx)
+	title := expandCard(cardText(values, "cardLiveTitle"), values, &lsv.Author)
+	metaTags := cardTags(u, "website", title, ls.Title, thumbURL.String(), siteTitle(values))
+	metaTags = append(metaTags, brandMetas...)
 
 	// at-tags: this page canonically maps to the livestream record, authored
 	// by the streamer
 	metaTags = append(metaTags, l.atTags(lsv.Uri, lsv.Author.Did)...)
 
 	return l.GenerateHTML(ctx, &PageConfig{
-		Title:     fmt.Sprintf("%s%s", titleStr, brandingTitle),
+		Title:     title,
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
 	})
 }
 
+// GenerateVideoCard is the card for a video page: "<name>'s video on <site>"
+// (cardVideoTitle) over the video's own title.
 func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestream.MediaGetVideo_VideoView, sentryDSN string) ([]byte, error) {
 	if u == nil {
 		return nil, errors.New("url is nil")
@@ -295,14 +357,7 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestr
 		return nil, errors.New("video view record is not a video")
 	}
 
-	outURL := u.String()
-
-	authorDid := ""
-	authorHandle := ""
-	if !false {
-		authorDid = vv.Author.Did
-		authorHandle = vv.Author.Handle
-	}
+	authorDid := vv.Author.Did
 
 	// og:image is the VOD's own thumbnail, served through the Bluesky image
 	// CDN (which fetches the blob from the author's PDS — the same trick used
@@ -321,60 +376,16 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestr
 		imageURL = cardURL.String()
 	}
 
-	// Define all meta tags. The title/description pair is appended after we
-	// resolve the node's branding title below: the card headline is the
-	// video's own title, and the author + node go in the description.
-	metaTags := []MetaTag{
-		// Facebook Meta Tags
-		{Type: "property", Key: "og:url", Content: outURL},
-		{Type: "property", Key: "og:type", Content: "video.other"},
-		{Type: "property", Key: "og:image", Content: imageURL},
-
-		// Twitter Meta Tags
-		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
-		{Type: "property", Key: "twitter:domain", Content: u.Host},
-		{Type: "property", Key: "twitter:url", Content: outURL},
-		{Type: "name", Key: "twitter:image", Content: imageURL},
+	brandMetas, values := l.brandMetas(ctx)
+	title := expandCard(cardText(values, "cardVideoTitle"), values, &vv.Author)
+	// The description is the video's title, the post text it was published
+	// with; a video without one falls back to its description.
+	description := strings.TrimSpace(video.Title)
+	if description == "" && video.Description != nil {
+		description = strings.TrimSpace(*video.Description)
 	}
-
-	brandingTitle := "streamplace node"
-	if l.sdb != nil && l.cli != nil {
-		branding, err := l.getBrandingAssets("did:web:" + l.cli.BroadcasterHost)
-		if err == nil {
-			for i := range branding {
-				val := branding[i]
-				if val.Key == "siteTitle" && val.Data != nil {
-					brandingTitle = *val.Data
-				}
-				marshalledJson, err := json.Marshal(val)
-				if err != nil {
-					log.Error(ctx, "error marshalling branding asset %s", "key", val.Key, "error", err)
-					continue
-				}
-				metaTags = append(metaTags, MetaTag{
-					Type:    "name",
-					Key:     "internal-brand:" + val.Key,
-					Content: string(marshalledJson),
-				})
-			}
-		} else {
-			// log but we should not block rendering
-			log.Error(ctx, "error fetching branding assets", "error", err)
-		}
-	}
-
-	// The card headline is the video's own title; the author + node name go
-	// in the description. Appended after the branding loop so the description
-	// can reference the resolved branding title.
-	title := video.Title
-	description := fmt.Sprintf("@%s's video on %s", authorHandle, brandingTitle)
-	metaTags = append(metaTags,
-		MetaTag{Type: "name", Key: "description", Content: description},
-		MetaTag{Type: "property", Key: "og:description", Content: description},
-		MetaTag{Type: "property", Key: "og:title", Content: title},
-		MetaTag{Type: "name", Key: "twitter:description", Content: description},
-		MetaTag{Type: "name", Key: "twitter:title", Content: title},
-	)
+	metaTags := cardTags(u, "video.other", title, description, imageURL, siteTitle(values))
+	metaTags = append(metaTags, brandMetas...)
 
 	// at-tags: this page canonically maps to the place.stream.video record,
 	// authored by the streamer
@@ -387,72 +398,82 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestr
 	})
 }
 
+// LandingPage names the app's top-level tabs, each with its own link card.
+type LandingPage int
+
+const (
+	// LandingDefault is any page without a card of its own: the node's
+	// siteTitle and siteDescription.
+	LandingDefault LandingPage = iota
+	// LandingHome is the front page, the live tab (/): cardHomeTitle and
+	// cardHomeDescription, falling back to the site's own.
+	LandingHome
+	// LandingVideos is the on-demand tab (/video).
+	LandingVideos
+	// LandingGoLive is the go-live tab (/live, /go-live).
+	LandingGoLive
+)
+
+// LandingPageFor maps a request path to the tab it shows, LandingDefault for
+// anything else.
+func LandingPageFor(path string) LandingPage {
+	switch strings.Trim(path, "/") {
+	case "":
+		return LandingHome
+	case "video":
+		return LandingVideos
+	case "live", "go-live":
+		return LandingGoLive
+	}
+	return LandingDefault
+}
+
+// GenerateDefaultCard is the card for a page without one of its own: the
+// node's siteTitle and siteDescription with its link banner.
 func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN string) ([]byte, error) {
+	return l.GenerateLandingCard(ctx, u, LandingDefault, sentryDSN)
+}
+
+// GenerateLandingCard is the card for one of the app's tabs: its own title
+// and description from the card templates (cardHomeTitle, cardVideosTitle,
+// cardGoLiveTitle and their descriptions), the node's link banner as the
+// image.
+func (l *Linker) GenerateLandingCard(ctx context.Context, u *url.URL, page LandingPage, sentryDSN string) ([]byte, error) {
 	if u == nil {
 		return nil, errors.New("url is nil")
 	}
 
-	// The front-page card is the node's own: its siteTitle and
-	// siteDescription branding, and /linkbanner.png, which serves the
-	// uploaded linkBanner asset when there is one and the bundled brand
-	// banner otherwise.
+	// /linkbanner.png serves the uploaded linkBanner asset when there is one
+	// and the bundled brand banner otherwise.
 	thumbURL, _ := url.Parse(u.String())
 	thumbURL.Path = "/linkbanner.png"
 
-	brandingTitle := "streamplace node"
-	brandingDescription := "Open-source livestreaming on the AT Protocol."
-	var brandMetas []MetaTag
-	if l.sdb != nil && l.cli != nil {
-		branding, err := l.getBrandingAssets("did:web:" + l.cli.BroadcasterHost)
-		if err == nil {
-			for i := range branding {
-				val := branding[i]
-				if val.Data != nil && strings.TrimSpace(*val.Data) != "" {
-					switch val.Key {
-					case "siteTitle":
-						brandingTitle = *val.Data
-					case "siteDescription":
-						brandingDescription = *val.Data
-					}
-				}
-				marshalledJson, err := json.Marshal(val)
-				if err != nil {
-					log.Error(ctx, "error marshalling branding asset", "key", val.Key, "error", err)
-					continue
-				}
-				brandMetas = append(brandMetas, MetaTag{
-					Type:    "name",
-					Key:     "internal-brand:" + val.Key,
-					Content: string(marshalledJson),
-				})
-			}
-		} else {
-			// log but we should not block rendering
-			log.Error(ctx, "error fetching branding assets", "error", err)
+	brandMetas, values := l.brandMetas(ctx)
+	title := siteTitle(values)
+	description := values["siteDescription"]
+	if description == "" {
+		description = defaultSiteDescription
+	}
+	switch page {
+	case LandingHome:
+		// The front page falls back to the site's own title and description;
+		// a node phrases its live tab ("Live streams on W") by setting the
+		// home templates.
+		if t := expandCard(cardText(values, "cardHomeTitle"), values, nil); t != "" {
+			title = t
 		}
+		if d := expandCard(cardText(values, "cardHomeDescription"), values, nil); d != "" {
+			description = d
+		}
+	case LandingVideos:
+		title = expandCard(cardText(values, "cardVideosTitle"), values, nil)
+		description = expandCard(cardText(values, "cardVideosDescription"), values, nil)
+	case LandingGoLive:
+		title = expandCard(cardText(values, "cardGoLiveTitle"), values, nil)
+		description = expandCard(cardText(values, "cardGoLiveDescription"), values, nil)
 	}
 
-	// Define all meta tags
-	metaTags := []MetaTag{
-		// Basic meta
-		{Type: "name", Key: "description", Content: brandingDescription},
-
-		// Facebook Meta Tags
-		{Type: "property", Key: "og:url", Content: u.String()},
-		{Type: "property", Key: "og:type", Content: "website"},
-		{Type: "property", Key: "og:site_name", Content: brandingTitle},
-		{Type: "property", Key: "og:title", Content: brandingTitle},
-		{Type: "property", Key: "og:description", Content: brandingDescription},
-		{Type: "property", Key: "og:image", Content: thumbURL.String()},
-
-		// Twitter Meta Tags
-		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
-		{Type: "property", Key: "twitter:domain", Content: u.Host},
-		{Type: "property", Key: "twitter:url", Content: u.String()},
-		{Type: "name", Key: "twitter:title", Content: brandingTitle},
-		{Type: "name", Key: "twitter:description", Content: brandingDescription},
-		{Type: "name", Key: "twitter:image", Content: thumbURL.String()},
-	}
+	metaTags := cardTags(u, "website", title, description, thumbURL.String(), siteTitle(values))
 	metaTags = append(metaTags, brandMetas...)
 
 	// at-tags: the site itself is identified by this node's did:web; there's
@@ -460,7 +481,7 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN 
 	metaTags = append(metaTags, l.atTags("", "")...)
 
 	return l.GenerateHTML(ctx, &PageConfig{
-		Title:     brandingTitle,
+		Title:     title,
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
 	})

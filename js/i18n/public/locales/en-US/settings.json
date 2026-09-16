@@ -243,6 +243,8 @@
   "branding-site-title-placeholder": "Enter new site title",
   "branding-site-description": "Site Description",
   "branding-site-description-placeholder": "Enter site description",
+  "branding-link-cards": "Link cards",
+  "branding-link-cards-description": "What a shared link shows for each page: the stream page, the front page (live tab), the videos tab, a video page and the go-live tab. Templates take {} (the site name below, or the site title), and on pages about one account {} (their display name, else handle) and {}. Descriptions of stream and video pages are their post text.",
   "branding-network-name": "Network name",
   "branding-network-name-description": "What the app calls the social network viewers sign in with and share to: \"Sign in with your {$network} account\", \"Share to {$network}\", the live-ring permission. Default Bluesky.",
   "branding-network-profile-url": "Profile link",

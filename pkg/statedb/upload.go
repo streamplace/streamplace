@@ -124,6 +124,23 @@ func (state *StatefulDB) SetUploadProcessed(ctx context.Context, id string, dura
 		}).Error
 }
 
+// SetUploadTrackURIs remembers the published place.stream.media.track records
+// of a finished upload (JSON array of {"uri","cid"}), so a later publish of the
+// same upload reuses them instead of publishing a second set.
+func (state *StatefulDB) SetUploadTrackURIs(ctx context.Context, id string, trackURIs string) error {
+	return state.DB.WithContext(ctx).Model(&Upload{}).Where("id = ?", id).Updates(map[string]any{
+		"track_uris": trackURIs,
+		"updated_at": time.Now(),
+	}).Error
+}
+
+// ListUploadsForRepo lists a repo's uploads, newest first.
+func (state *StatefulDB) ListUploadsForRepo(ctx context.Context, did string) ([]Upload, error) {
+	var out []Upload
+	err := state.DB.WithContext(ctx).Where("user_did = ?", did).Order("created_at DESC").Find(&out).Error
+	return out, err
+}
+
 func (state *StatefulDB) SetUploadFailed(ctx context.Context, id string, errMsg string) error {
 	return state.DB.WithContext(ctx).Model(&Upload{}).
 		Where("id = ?", id).

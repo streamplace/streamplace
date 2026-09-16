@@ -100,6 +100,10 @@ type FinalizeLivestreamVODTask struct {
 	UploadID      string `json:"uploadId"`
 	RepoDID       string `json:"repoDID"`
 	LivestreamURI string `json:"livestreamURI"`
+	// LivestreamURIs, when set, are all the livestream records whose
+	// recordings make up the VOD, in order (LivestreamURI is the first);
+	// empty means just LivestreamURI.
+	LivestreamURIs []string `json:"livestreamURIs,omitempty"`
 	// Publish, when set, is the place.stream.video record to publish in
 	// the streamer's repo (with their stored session) as soon as the VOD
 	// is finalized, instead of leaving a draft for them to publish from

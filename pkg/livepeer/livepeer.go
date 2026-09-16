@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"stream.place/streamplace/pkg/aqhttp"
@@ -25,12 +27,24 @@ import (
 
 const SegmentsInFlight = 2
 
+// MaxWaiting is how many segments may queue for a transcode slot before
+// further ones are skipped (ErrBacklog). A transcoder that can't keep up
+// with real time otherwise builds an ever-growing queue: renditions fall
+// further behind live and the node holds every waiting segment in memory.
+// Skipping keeps the renditions near live at the cost of a gap in them.
+const MaxWaiting = 2
+
+// ErrBacklog is returned for a segment skipped because too many are already
+// waiting for a transcode slot.
+var ErrBacklog = errors.New("transcode backlog: segment skipped")
+
 type LivepeerSession struct {
 	SessionID  string
 	Count      int
 	GatewayURL string
 	Guard      chan struct{}
 	CLI        *config.CLI
+	waiting    atomic.Int32
 }
 
 // borrowed from catalyst-api
@@ -85,7 +99,12 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 	if audioSeg.Len() == 0 {
 		return nil, fmt.Errorf("no audio in segment")
 	}
+	if ls.waiting.Add(1) > MaxWaiting {
+		ls.waiting.Add(-1)
+		return nil, ErrBacklog
+	}
 	ls.Guard <- struct{}{}
+	ls.waiting.Add(-1)
 	start := time.Now()
 	// check if context is done since we were waiting for the lock
 	if ctx.Err() != nil {

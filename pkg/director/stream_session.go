@@ -875,6 +875,11 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 		log.Debug(ctx, "transcode: skipped, transcoder is behind")
 		return nil
 	}
+	if errors.Is(err, livepeer.ErrNoKeyframe) {
+		spmetrics.TranscodeSkippedNoKeyframeTotal.Inc()
+		log.Warn(ctx, "transcode: skipped, segment does not start with an IDR", "segment", notif.Segment.ID)
+		return nil
+	}
 	if err != nil {
 		spmetrics.TranscodeErrorsTotal.Inc()
 		return err

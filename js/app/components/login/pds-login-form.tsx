@@ -7,7 +7,7 @@ import {
 } from "@streamplace/components";
 import { LogoMark } from "components/brand/logo";
 import { OAuthLoginButton } from "components/login/oauth-login-button";
-import { Image } from "expo-image";
+import { QrCode } from "components/login/qr-code";
 import { Lock, Mail } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -32,12 +32,18 @@ import { BearerSessionData } from "streamplace";
 
 const TWO_COLUMN_MIN = 640;
 const QR_POLL_MS = 2000;
+// The code's side, the network's own sign-in page's size; narrower layouts
+// shrink it to what they have.
+const QR_SIZE = 300;
 
 interface QuickLoginInit {
   sessionId: string;
   sessionToken: string;
   qrCodeUrl?: string;
   signUrl?: string;
+  /** The text the provider's QR image encodes: signUrl before any return
+   *  parameter, what the app draws its own code from. */
+  qrText?: string;
   expiresAt?: string;
 }
 
@@ -156,6 +162,7 @@ function QuickLoginPanel({
   }>({ loading: true });
   const timers = useRef<{ poll?: any; refresh?: any }>({});
   const gen = useRef(0);
+  const [qrSize, setQrSize] = useState(0);
 
   const clearTimers = () => {
     clearInterval(timers.current.poll);
@@ -183,6 +190,7 @@ function QuickLoginPanel({
       if (!init.signUrl && init.qrCodeUrl) {
         init.signUrl = signUrlFromQrImage(init.qrCodeUrl);
       }
+      init.qrText = init.signUrl;
       // Tell the identity app where to send the viewer back afterwards
       // (branding key quickLoginReturn, e.g. the network app's own name).
       if (init.signUrl && quickLoginReturn) {
@@ -300,13 +308,17 @@ function QuickLoginPanel({
       style={{
         alignItems: "center",
         gap: 10,
-        width: compact ? "100%" : 220,
+        width: compact ? "100%" : QR_SIZE,
       }}
     >
       <View
+        onLayout={(e: LayoutChangeEvent) =>
+          setQrSize(Math.floor(e.nativeEvent.layout.width))
+        }
         style={{
-          width: 200,
-          height: 200,
+          width: "100%",
+          maxWidth: QR_SIZE,
+          aspectRatio: 1,
           borderRadius: 12,
           overflow: "hidden",
           backgroundColor: theme.colors.surface2,
@@ -323,11 +335,13 @@ function QuickLoginPanel({
             </Text>
             {retry}
           </View>
-        ) : state.init?.qrCodeUrl ? (
-          <Image
-            source={{ uri: state.init.qrCodeUrl }}
-            style={{ width: 200, height: 200 }}
-            contentFit="contain"
+        ) : state.init?.qrText && qrSize > 0 ? (
+          // Drawn here from the text the provider's image encodes, so it
+          // can be as large as the layout allows; that image is a small
+          // raster.
+          <QrCode
+            value={state.init.qrText}
+            size={qrSize}
             accessibilityLabel={`Scan to sign in with ${networkName} Identity`}
           />
         ) : null}

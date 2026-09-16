@@ -474,7 +474,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		if vodStore == nil {
 			return "", "", fmt.Errorf("finalize-livestream-vod: no VOD store configured")
 		}
-		return vod.PublishVideo(ctx, state, vodStore, t.RepoDID, t.UploadID, t.Publish)
+		return vod.PublishVideo(ctx, state, vodStore, t.RepoDID, t.UploadID, t.Publish.Record())
 	})
 	// View-count aggregator runs the log → record pipeline for one
 	// window. Same function-pointer pattern as the VOD processor so

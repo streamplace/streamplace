@@ -163,7 +163,7 @@ func (a *StreamplaceAPI) HandleFinalizeLivestream(ctx context.Context) httproute
 			return
 		}
 		task := statedb.FinalizeLivestreamVODTask{UploadID: uploadID, RepoDID: repoDID, LivestreamURI: ordered[0], LivestreamURIs: ordered}
-		video := videoRecordForLivestreams(items, req.Title, req.Description)
+		video := videoDraftForLivestreams(items, req.Title, req.Description)
 		if publish {
 			task.Publish = video
 		}
@@ -204,12 +204,12 @@ func contains(list []string, v string) bool {
 	return false
 }
 
-// videoRecordForLivestreams is the place.stream.video record for the VOD of
-// one or more livestream records: the first one's title (or the given one),
-// description, tags and activity, connected to every livestream record the
-// way the app's draft is connected to its one. Duration, source tracks and
-// thumbnail are filled in at publish time from the finalized upload.
-func videoRecordForLivestreams(items []livestreamItem, title, description string) *placestream.Video {
+// videoDraftForLivestreams describes the place.stream.video record for the
+// VOD of one or more livestream records: the first one's title (or the given
+// one), description, tags and activity, connected to every livestream record
+// the way the app's draft is connected to its one. Duration, source tracks
+// and thumbnail are filled in at publish time from the finalized upload.
+func videoDraftForLivestreams(items []livestreamItem, title, description string) *statedb.VideoDraft {
 	first := items[0].rec
 	title = strings.TrimSpace(title)
 	if title == "" {
@@ -218,10 +218,9 @@ func videoRecordForLivestreams(items []livestreamItem, title, description string
 	if title == "" {
 		title = "Livestream"
 	}
-	v := &placestream.Video{
-		LexiconTypeID: "place.stream.video",
-		Title:         title,
-		Tags:          first.Tags,
+	v := &statedb.VideoDraft{
+		Title: title,
+		Tags:  first.Tags,
 	}
 	for _, it := range items {
 		v.Connections = append(v.Connections, placestream.Video_Connections_Elem{

@@ -19,12 +19,21 @@ func MP4ToMPEGTSVideoMP4Audio(ctx context.Context, input io.Reader, videoOutput 
 		"appsrc name=appsrc ! qtdemux name=demux",
 		"mpegtsmux name=videomux ! appsink name=videoappsink sync=false",
 		"mp4mux name=audiomux ! appsink name=audioappsink sync=false",
-		"demux.video_0 ! h264parse ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue",
+		// config-interval=-1: SPS/PPS before every IDR, taken from the MP4's
+		// avcC. A transcoder decodes each pushed segment with a fresh
+		// decoder, so a segment without them ("Could not find codec
+		// parameters") kills its session — encoders that don't repeat the
+		// headers in-band (most) produced exactly that.
+		// Unlimited queues: a muxer holds its first video buffers until the
+		// audio pad has data too, and a 1s 1080p60 segment with B-frame
+		// reordering fills the default 1s queue before the demuxer gets to
+		// the audio — the pipeline deadlocked and produced nothing.
+		"demux.video_0 ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue max-size-time=0 max-size-buffers=0 max-size-bytes=0",
 		// parsebin plugs the parser the audio actually needs (opusparse for a
 		// WHIP/Opus ingest, aacparse for RTMP/AAC); a hard-wired opusparse
 		// never linked for AAC and the pipeline hung on it, wedging every
 		// transcode behind the in-flight guard.
-		"demux.audio_0 ! parsebin ! queue name=audioqueue",
+		"demux.audio_0 ! parsebin ! queue name=audioqueue max-size-time=0 max-size-buffers=0 max-size-bytes=0",
 	}, " ")
 
 	pipeline, err := gst.NewPipelineFromString(pipelineStr)
@@ -157,8 +166,8 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 		"appsrc name=videoappsrc ! tsdemux name=videodemux",
 		"appsrc name=audioappsrc ! qtdemux name=audiodemux",
 		"mp4mux name=mux ! appsink name=appsink sync=false",
-		"h264parse name=videoparse ! video/x-h264,stream-format=avc ! queue name=videoqueue",
-		"audiodemux.audio_0 ! parsebin ! queue name=audioqueue",
+		"h264parse name=videoparse ! video/x-h264,stream-format=avc ! queue name=videoqueue max-size-time=0 max-size-buffers=0 max-size-bytes=0",
+		"audiodemux.audio_0 ! parsebin ! queue name=audioqueue max-size-time=0 max-size-buffers=0 max-size-bytes=0",
 	}, " ")
 
 	pipeline, err := gst.NewPipelineFromString(pipelineStr)

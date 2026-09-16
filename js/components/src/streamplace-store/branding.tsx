@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { place } from "streamplace";
 import storage from "../storage";
 import {
@@ -379,6 +379,39 @@ export function useAccentColor(): string {
 export function useDefaultStreamer(): string | undefined {
   const asset = useBrandingAsset("defaultStreamer");
   return asset?.data || undefined;
+}
+
+/**
+ * The default video (branding key defaultVideo), parsed to the video page's
+ * route params: the node's front door while set, over defaultStreamer.
+ */
+export function useDefaultVideo(): { user: string; tid: string } | undefined {
+  const asset = useBrandingAsset("defaultVideo");
+  return useMemo(() => parseDefaultVideo(asset?.data), [asset?.data]);
+}
+
+/**
+ * Accepts a video's at:// URI (at://did/place.stream.video/rkey) or its page
+ * path (<handle-or-did>/video/<rkey>, with or without a leading slash or a
+ * full URL around it). Undefined for anything else.
+ */
+export function parseDefaultVideo(
+  value?: string,
+): { user: string; tid: string } | undefined {
+  if (!value) return undefined;
+  let s = value.trim();
+  const at = s.match(/^at:\/\/([^/]+)\/place\.stream\.video\/([^/?#]+)$/);
+  if (at) return { user: at[1], tid: at[2] };
+  if (/^https?:\/\//.test(s)) {
+    try {
+      s = new URL(s).pathname;
+    } catch {
+      return undefined;
+    }
+  }
+  const path = s.match(/^\/?([^/]+)\/video\/([^/?#]+)\/?$/);
+  if (path) return { user: path[1], tid: path[2] };
+  return undefined;
 }
 
 // convenience hook for sidebar background image

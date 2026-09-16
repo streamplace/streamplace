@@ -2,7 +2,9 @@ import {
   ACTIVITY_LABEL_DISPLAY,
   Skeleton,
   Text,
+  useBrandingAsset,
   useDefaultStreamer,
+  useDefaultVideo,
   useStreamplaceStore,
   useTheme,
   zero,
@@ -17,12 +19,13 @@ import LiveDot from "components/home/live-dot";
 import PullToRefreshScrollView from "components/pull-to-refresh";
 import { Image } from "expo-image";
 import useAvatars from "hooks/useAvatars";
-import { useDefaultStreamerReload } from "hooks/useDefaultStreamerReload";
+import { useFrontDoorReload } from "hooks/useDefaultStreamerReload";
 import { useEffect, useState } from "react";
 import { Platform, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { place } from "streamplace";
 import MobileStream from "./mobile-stream";
+import VideoScreen from "./video";
 
 function getStreamActivity(
   record: place.stream.livestream.Main,
@@ -234,9 +237,13 @@ export default function HomeScreen({
   // render: the early returns below come and go with the live-users fetch,
   // and a hook after them would change the hook count between renders.)
   const defaultStreamer = useDefaultStreamer();
-  // ...and follows it: an operator who points the node at another
-  // streamer moves everyone on this page there.
-  useDefaultStreamerReload(defaultStreamer);
+  // A default video (branding key defaultVideo) is the front door while
+  // set, over the streamer: a replay to send everyone to after an event.
+  const defaultVideo = useDefaultVideo();
+  const defaultVideoRaw = useBrandingAsset("defaultVideo")?.data;
+  // ...and the page follows both: an operator who points the node at
+  // another streamer or a video moves everyone on this page there.
+  useFrontDoorReload(defaultStreamer, defaultVideoRaw);
 
   useEffect(() => {
     if (!liveUsersLoading) {
@@ -244,6 +251,9 @@ export default function HomeScreen({
     }
   }, [liveUsersLoading]);
 
+  if (defaultVideo) {
+    return <VideoScreen route={{ params: defaultVideo }} />;
+  }
   if (defaultStreamer) {
     return <MobileStream route={{ params: { user: defaultStreamer } }} />;
   }

@@ -51,11 +51,15 @@ type MediaManager struct {
 	// canonical segments, the source for moderation/report clips now that
 	// segments are no longer archived to disk. Keyed by repoDID. See
 	// moderation_buffer.go.
-	modBuffers          map[string]*modBuffer
-	modBuffersMut       sync.Mutex
-	httpPipes           map[string]io.Writer
-	httpPipesMutex      sync.Mutex
-	newSegmentSubs      []*segmentSubscriber
+	modBuffers     map[string]*modBuffer
+	modBuffersMut  sync.Mutex
+	httpPipes      map[string]io.Writer
+	httpPipesMutex sync.Mutex
+	newSegmentSubs []*segmentSubscriber
+	// Recent replicated source segments' Opus tracks, for pairing with the
+	// rendition addenda that follow them (see PublishRenditionsForPlayback).
+	sourceAudios        map[string][]sourceAudio
+	sourceAudioMu       sync.Mutex
 	newSegmentSubsMutex sync.RWMutex
 	model               model.Model
 	bus                 *bus.Bus

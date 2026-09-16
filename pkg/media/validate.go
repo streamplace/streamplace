@@ -223,6 +223,11 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	// Pre-live segments are folded in too; the handlers gate them on a
 	// playback token (see feedLiveWindow).
 	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.Published)
+	if !vs.local {
+		// A replicated stream's renditions arrive separately; keep this
+		// segment's audio to pair them with (see PublishRenditionsForPlayback).
+		mm.rememberSourceAudio(ctx, vs.repoDID, seg)
+	}
 
 	// Segments are no longer written to disk, but a Segment DB row is still kept
 	// (dedup, /segment metadata, live playlists). delete_after governs when that

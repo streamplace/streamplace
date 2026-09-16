@@ -104,11 +104,39 @@ type FinalizeLivestreamVODTask struct {
 	// recordings make up the VOD, in order (LivestreamURI is the first);
 	// empty means just LivestreamURI.
 	LivestreamURIs []string `json:"livestreamURIs,omitempty"`
-	// Publish, when set, is the place.stream.video record to publish in
-	// the streamer's repo (with their stored session) as soon as the VOD
-	// is finalized, instead of leaving a draft for them to publish from
-	// the app. Set by the operator's finalize route.
-	Publish *placestream.Video `json:"publish,omitempty"`
+	// Publish, when set, describes the place.stream.video record to
+	// publish in the streamer's repo (with their stored session) as soon
+	// as the VOD is finalized, instead of leaving a draft for them to
+	// publish from the app. Set by the operator's finalize route.
+	Publish *VideoDraft `json:"publish,omitempty"`
+}
+
+// VideoDraft is the part of a place.stream.video record known before the
+// VOD exists: what the operator (or the livestream record) says about it.
+// It is not a placestream.Video because that record's source union has no
+// value until the finalizer has the MUXL CID, and an empty union will not
+// marshal, so a Video cannot sit in a task payload; the publisher builds
+// the record from this with Record() and fills in the source, duration and
+// thumbnail from the finished upload.
+type VideoDraft struct {
+	Title       string                               `json:"title"`
+	Description *string                              `json:"description,omitempty"`
+	Tags        []string                             `json:"tags,omitempty"`
+	Activity    *placestream.Video_Activity          `json:"activity,omitempty"`
+	Connections []placestream.Video_Connections_Elem `json:"connections,omitempty"`
+}
+
+// Record is the place.stream.video record for the draft, minus the fields
+// that come from the finalized upload.
+func (d *VideoDraft) Record() *placestream.Video {
+	return &placestream.Video{
+		LexiconTypeID: "place.stream.video",
+		Title:         d.Title,
+		Description:   d.Description,
+		Tags:          d.Tags,
+		Activity:      d.Activity,
+		Connections:   d.Connections,
+	}
 }
 
 // VideoPublisher publishes a finalized livestream VOD's place.stream.video

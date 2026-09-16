@@ -56,6 +56,11 @@ var TranscodeErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Help: "total number of transcode errors",
 })
 
+var TranscodeManifestRotationsTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_transcode_manifest_rotations_total",
+	Help: "times a stream moved to a fresh gateway manifest after the gateway refused every recent push (see livepeer.RotateAfterFailures)",
+})
+
 var TranscodeDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "streamplace_transcode_duration_ms",
 	Help:    "duration of transcode in ms",

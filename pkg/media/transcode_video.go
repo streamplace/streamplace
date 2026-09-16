@@ -3,7 +3,9 @@ package media
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
+	"math"
 	"strconv"
 	"sync"
 
@@ -80,6 +82,12 @@ func (mm *MediaManager) MintVideoRenditions(ctx context.Context, srcSeg []byte, 
 	return mm.mintVideoRenditions(ctx, srcSeg, rs, cert, keyPEM)
 }
 
+// MintVideoRenditionsWith is MintVideoRenditions with an explicit signing
+// identity (tests and offline harnesses, which have no node signer).
+func (mm *MediaManager) MintVideoRenditionsWith(ctx context.Context, srcSeg []byte, rs []RenditionInput, cert, keyPEM []byte) ([]byte, error) {
+	return mm.mintVideoRenditions(ctx, srcSeg, rs, cert, keyPEM)
+}
+
 func (mm *MediaManager) mintVideoRenditions(ctx context.Context, srcSeg []byte, rs []RenditionInput, cert, keyPEM []byte) ([]byte, error) {
 	events, err := unwrapMuxlEvents(ctx, srcSeg)
 	if err != nil {
@@ -89,9 +97,10 @@ func (mm *MediaManager) mintVideoRenditions(ctx context.Context, srcSeg []byte, 
 	if cat == nil || cat.Video == nil {
 		return nil, fmt.Errorf("source segment has no video track")
 	}
-	var srcVideoTID uint32
+	var srcVideoTID, srcTimescale uint32
 	for _, v := range cat.Video.Renditions {
 		srcVideoTID = v.TrackID()
+		srcTimescale = v.Timescale()
 		break
 	}
 	sourceVideo := tracks[strconv.FormatUint(uint64(srcVideoTID), 10)]
@@ -107,10 +116,20 @@ func (mm *MediaManager) mintVideoRenditions(ctx context.Context, srcSeg []byte, 
 			continue
 		}
 		want := RenditionTrackID(i)
-		pieces, err := mm.canonicalRenditionTrack(ctx, r, want)
+		pieces, renTimescale, err := mm.canonicalRenditionTrack(ctx, r, want)
 		if err != nil {
 			log.Warn(ctx, "rendition: canonicalize failed, skipping", "rendition", r.Name, "error", err)
 			continue
+		}
+		// The transcoder saw a segment that starts at zero (the TS we hand
+		// it carries running time, not the stream's), so its output starts
+		// at zero too: put every fragment back on the source's timeline.
+		if delta, ok := retimeDelta(sourceVideo, srcTimescale, pieces[0], renTimescale); ok {
+			for j := range pieces {
+				pieces[j] = shiftTfdt(pieces[j], delta)
+			}
+		} else {
+			log.Warn(ctx, "rendition: could not align timeline to source", "rendition", r.Name)
 		}
 		// One signed asset per canonical segment (a rendition the transcoder
 		// keyframed mid-segment is several): a signature over a run of
@@ -150,22 +169,22 @@ func (mm *MediaManager) mintVideoRenditions(ctx context.Context, srcSeg []byte, 
 // order. The transcoder's track layout is learned on first sight per
 // rendition name and remembered, so later segments canonicalize once, not
 // twice.
-func (mm *MediaManager) canonicalRenditionTrack(ctx context.Context, r RenditionInput, want uint32) ([][]byte, error) {
+func (mm *MediaManager) canonicalRenditionTrack(ctx context.Context, r RenditionInput, want uint32) ([][]byte, uint32, error) {
 	var remap map[uint32]uint32
 	if v, ok := mm.renditionVideoTID.Load(r.Name); ok && v.(uint32) != want {
 		remap = map[uint32]uint32{v.(uint32): want}
 	}
 	canon, err := muxl.RunMuxlCanonicalize(ctx, r.MP4, remap)
 	if err != nil {
-		return nil, fmt.Errorf("canonicalize: %w", err)
+		return nil, 0, fmt.Errorf("canonicalize: %w", err)
 	}
 	events, err := unwrapMuxlEvents(ctx, canon)
 	if err != nil {
-		return nil, fmt.Errorf("unwrap canonical: %w", err)
+		return nil, 0, fmt.Errorf("unwrap canonical: %w", err)
 	}
 	cat, _ := catalogAndTracks(events)
 	if cat == nil || cat.Video == nil || len(cat.Video.Renditions) == 0 {
-		return nil, fmt.Errorf("no video track in rendition")
+		return nil, 0, fmt.Errorf("no video track in rendition")
 	}
 	var videoTID uint32
 	for _, v := range cat.Video.Renditions {
@@ -178,11 +197,17 @@ func (mm *MediaManager) canonicalRenditionTrack(ctx context.Context, r Rendition
 		mm.renditionVideoTID.Store(r.Name, videoTID)
 		canon, err = muxl.RunMuxlCanonicalize(ctx, r.MP4, map[uint32]uint32{videoTID: want})
 		if err != nil {
-			return nil, fmt.Errorf("canonicalize with relabel: %w", err)
+			return nil, 0, fmt.Errorf("canonicalize with relabel: %w", err)
 		}
 		events, err = unwrapMuxlEvents(ctx, canon)
 		if err != nil {
-			return nil, fmt.Errorf("unwrap relabelled: %w", err)
+			return nil, 0, fmt.Errorf("unwrap relabelled: %w", err)
+		}
+	}
+	var timescale uint32
+	for _, v := range cat.Video.Renditions {
+		if v.TrackID() == want {
+			timescale = v.Timescale()
 		}
 	}
 	key := strconv.FormatUint(uint64(want), 10)
@@ -193,27 +218,144 @@ func (mm *MediaManager) canonicalRenditionTrack(ctx context.Context, r Rendition
 		}
 	}
 	if len(pieces) == 0 {
-		return nil, fmt.Errorf("relabelled video track %d missing", want)
+		return nil, 0, fmt.Errorf("relabelled video track %d missing", want)
 	}
-	return pieces, nil
+	return pieces, timescale, nil
 }
 
 // renditionTIDCache is the per-rendition-name video track id a transcoder's
 // MP4s come out under (see canonicalRenditionTrack).
 type renditionTIDCache = sync.Map
 
-// PresentationWithOpus is a segment as a flat MP4 with video plus its Opus
-// audio only — what the transcoder is handed so the audio it muxes back
-// into each rendition is the one the WebRTC packetizer can take. A
+// PresentationWithOpus is a segment as a fragmented MP4 with video plus its
+// Opus audio only — what the transcoder is handed so the audio it muxes
+// back into each rendition is the one the WebRTC packetizer can take. A
 // single-codec AAC segment (none completed yet) comes back as is.
+//
+// Fragmented, not flat: a flat MP4 carries a track duration, and qtdemux
+// clips samples that present past it — with B-frames the last P frame's
+// presentation time lands beyond the summed sample durations, so every
+// segment lost one frame (49 of 50 from a real broadcast). A fragmented
+// presentation has no duration to clip against and every sample gets
+// through.
 func PresentationWithOpus(ctx context.Context, seg []byte) ([]byte, error) {
 	opus, err := filterSegmentToCodec(ctx, seg, true)
 	if err != nil {
 		return nil, err
 	}
-	var flat bytes.Buffer
-	if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(opus), "flat", &flat); err != nil {
+	var fmp4 bytes.Buffer
+	if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(opus), "fmp4", &fmp4); err != nil {
 		return nil, err
 	}
-	return flat.Bytes(), nil
+	return fmp4.Bytes(), nil
+}
+
+// firstTfdt returns the first fragment's baseMediaDecodeTime in a run of
+// [moof][mdat] (or [uuid]…[moof][mdat]) boxes, and whether one was found.
+func firstTfdt(b []byte) (uint64, bool) {
+	var found bool
+	var val uint64
+	walkBoxes(b, func(typ string, body []byte) bool {
+		if typ != "moof" {
+			return true
+		}
+		walkBoxes(body, func(t2 string, traf []byte) bool {
+			if t2 != "traf" {
+				return true
+			}
+			walkBoxes(traf, func(t3 string, tfdt []byte) bool {
+				if t3 != "tfdt" || len(tfdt) < 8 {
+					return true
+				}
+				if tfdt[0] == 1 && len(tfdt) >= 12 {
+					val = binary.BigEndian.Uint64(tfdt[4:12])
+				} else {
+					val = uint64(binary.BigEndian.Uint32(tfdt[4:8]))
+				}
+				found = true
+				return false
+			})
+			return !found
+		})
+		return !found
+	})
+	return val, found
+}
+
+// shiftTfdt adds delta to every tfdt in b, in place, and returns b. A
+// version-0 tfdt that would overflow 32 bits is left alone (the box can't
+// grow without moving every mdat offset).
+func shiftTfdt(b []byte, delta int64) []byte {
+	walkBoxesOffsets(b, 0, func(typ string, start, end int) bool {
+		if typ != "moof" {
+			return true
+		}
+		walkBoxesOffsets(b[:end], start+8, func(t2 string, s2, e2 int) bool {
+			if t2 != "traf" {
+				return true
+			}
+			walkBoxesOffsets(b[:e2], s2+8, func(t3 string, s3, e3 int) bool {
+				if t3 != "tfdt" || e3-s3 < 16 {
+					return true
+				}
+				body := b[s3+8 : e3]
+				if body[0] == 1 && len(body) >= 12 {
+					v := int64(binary.BigEndian.Uint64(body[4:12])) + delta
+					binary.BigEndian.PutUint64(body[4:12], uint64(v))
+				} else {
+					v := int64(binary.BigEndian.Uint32(body[4:8])) + delta
+					if v >= 0 && v <= math.MaxUint32 {
+						binary.BigEndian.PutUint32(body[4:8], uint32(v))
+					}
+				}
+				return true
+			})
+			return true
+		})
+		return true
+	})
+	return b
+}
+
+// retimeDelta is what to add to a rendition's tfdts so its first fragment
+// lands where the source segment starts, in the rendition's timescale.
+func retimeDelta(sourceVideo []byte, srcTimescale uint32, rendition []byte, renTimescale uint32) (int64, bool) {
+	srcBase, ok := firstTfdt(sourceVideo)
+	if !ok || srcTimescale == 0 {
+		return 0, false
+	}
+	renBase, ok := firstTfdt(rendition)
+	if !ok {
+		return 0, false
+	}
+	if renTimescale == 0 {
+		renTimescale = srcTimescale
+	}
+	want := int64(float64(srcBase) * float64(renTimescale) / float64(srcTimescale))
+	return want - int64(renBase), true
+}
+
+// walkBoxes calls fn(type, body) for each top-level box of b until fn
+// returns false.
+func walkBoxes(b []byte, fn func(typ string, body []byte) bool) {
+	walkBoxesOffsets(b, 0, func(typ string, start, end int) bool {
+		return fn(typ, b[start+8:end])
+	})
+}
+
+// walkBoxesOffsets calls fn(type, start, end) for each box in b[off:] until
+// fn returns false; start is the box header offset, end one past the box.
+// 64-bit sizes are not expected in a canonical segment and stop the walk.
+func walkBoxesOffsets(b []byte, off int, fn func(typ string, start, end int) bool) {
+	for off+8 <= len(b) {
+		size := int(binary.BigEndian.Uint32(b[off : off+4]))
+		typ := string(b[off+4 : off+8])
+		if size < 8 || off+size > len(b) {
+			return
+		}
+		if !fn(typ, off, off+size) {
+			return
+		}
+		off += size
+	}
 }

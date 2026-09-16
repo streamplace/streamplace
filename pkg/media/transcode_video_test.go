@@ -162,3 +162,59 @@ func TestRenditionFraming(t *testing.T) {
 	_, ok = UnframeRenditions([]byte("SPRN"))
 	require.False(t, ok, "an empty frame is not an addendum")
 }
+
+// A rendition's fragments are moved onto the source segment's timeline: the
+// transcoder saw running time starting at zero, the window needs the
+// stream's decode time so the variant lines up with the source.
+func TestMintVideoRenditionsRetimes(t *testing.T) {
+	ctx := context.Background()
+	// The fixture's SECOND signed segment: its decode time is not zero.
+	ms := newBareSegmentSigner(t)
+	frag, err := os.ReadFile(getFixture("h264-opus-frag.mp4"))
+	require.NoError(t, err)
+	eventCh := make(chan *muxl.MuxlEvent, 16)
+	errCh := make(chan error, 1)
+	go func() {
+		err := ms.SignSegmentStream(ctx, bytes.NewReader(frag), eventCh)
+		close(eventCh)
+		errCh <- err
+	}()
+	var segs [][]byte
+	for ev := range eventCh {
+		if ev.Type == "signed-segment" {
+			segs = append(segs, concatTracksByID(ev.Tracks))
+		}
+	}
+	require.NoError(t, <-errCh)
+	require.Greater(t, len(segs), 1)
+	src := segs[1]
+	srcEvents, err := unwrapMuxlEvents(ctx, src)
+	require.NoError(t, err)
+	cat, tracks := catalogAndTracks(srcEvents)
+	var srcTID, srcTS uint32
+	for _, v := range cat.Video.Renditions {
+		srcTID, srcTS = v.TrackID(), v.Timescale()
+	}
+	srcBase, ok := firstTfdt(tracks[fmt.Sprint(srcTID)])
+	require.True(t, ok)
+	require.NotZero(t, srcBase, "second segment starts after zero")
+
+	cert, keyPEM := nodeSignerForTest(t)
+	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "node.test"}, liveWindows: map[string]*livehls.Writer{}}
+	addendum, err := mm.mintVideoRenditions(ctx, src, []RenditionInput{{Name: "160p", MP4: renditionMP4(t, 160, 120)}}, cert, keyPEM)
+	require.NoError(t, err)
+	require.NotEmpty(t, addendum)
+	renEvents, err := unwrapMuxlEvents(ctx, addendum)
+	require.NoError(t, err)
+	rcat, rtracks := catalogAndTracks(renEvents)
+	var renTS uint32
+	for _, v := range rcat.Video.Renditions {
+		renTS = v.Timescale()
+	}
+	renBase, ok := firstTfdt(rtracks[fmt.Sprint(RenditionTrackID(0))])
+	require.True(t, ok)
+	want := uint64(float64(srcBase) * float64(renTS) / float64(srcTS))
+	require.Equal(t, want, renBase, "rendition starts where the source segment starts")
+	_, err = muxl.RunMuxlVerify(ctx, bytes.NewReader(addendum))
+	require.NoError(t, err, "re-timed before signing, so it still verifies")
+}

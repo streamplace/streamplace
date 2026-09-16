@@ -59,6 +59,9 @@ func TestRealBroadcastPipeline(t *testing.T) {
 		height = int64(h)
 	}
 	outDir := os.Getenv("SP_REAL_OUT")
+	// SP_REAL_SCAN=1: read, regroup and inspect only — no gateway, no mint.
+	// An inventory of a recording: durations, tiny segments, duplicated GoPs.
+	scanOnly := os.Getenv("SP_REAL_SCAN") != ""
 
 	ctx := context.Background()
 	f, err := os.Open(path)
@@ -84,6 +87,8 @@ func TestRealBroadcastPipeline(t *testing.T) {
 
 	type row struct {
 		seq          int
+		srcTfdt      uint64
+		dup          bool
 		srcBytes     int
 		dur          float64
 		samples      uint32
@@ -201,6 +206,24 @@ func TestRealBroadcastPipeline(t *testing.T) {
 		}
 		r.audio = strings.Join(audios, "+")
 		r.tiny = r.dur < 0.5
+		// The source video track's first decode time: a segment that starts
+		// where the previous one did is the same interval encoded again (a
+		// stream pushed twice into one recording).
+		for _, ev := range evs {
+			if ev.Type == "segment" || ev.Type == "signed-segment" {
+				if vb := ev.Tracks["1"]; len(vb) > 0 {
+					r.srcTfdt, _ = firstTfdtOf(vb)
+				}
+				break
+			}
+		}
+		if len(rows) > 0 && rows[len(rows)-1].srcTfdt == r.srcTfdt && r.srcTfdt != 0 {
+			r.dup = true
+		}
+		if scanOnly {
+			rows = append(rows, r)
+			continue
+		}
 		if vw == 0 || vh == 0 {
 			r.err = fmt.Sprintf("no video in catalog (tracks: %d events, audio=%q)", len(evs), r.audio)
 			rows = append(rows, r)
@@ -234,6 +257,7 @@ func TestRealBroadcastPipeline(t *testing.T) {
 		if dump := os.Getenv("SP_REAL_DUMP"); dump != "" && i < 2 {
 			// Every stage of one segment, for frame-counting by hand.
 			_ = os.MkdirAll(dump, 0o755)
+			_ = os.WriteFile(filepath.Join(dump, fmt.Sprintf("seg%d-src.m4s", i)), seg, 0o644)
 			_ = os.WriteFile(filepath.Join(dump, fmt.Sprintf("seg%d-flat.mp4", i)), flat, 0o644)
 			var ts, audio bytes.Buffer
 			if err := media.MP4ToMPEGTSVideoMP4Audio(ctx, bytes.NewReader(flat), &ts, &audio); err == nil {
@@ -258,6 +282,9 @@ func TestRealBroadcastPipeline(t *testing.T) {
 			r.err = fmt.Sprintf("mint: %v (addendum %d bytes)", err, len(addendum))
 			rows = append(rows, r)
 			continue
+		}
+		if dump := os.Getenv("SP_REAL_DUMP"); dump != "" && i < 2 {
+			_ = os.WriteFile(filepath.Join(dump, fmt.Sprintf("seg%d-addendum.m4s", i)), addendum, 0o644)
 		}
 		r.renBytes = len(addendum)
 		if _, err := muxl.RunMuxlVerify(ctx, bytes.NewReader(append(append([]byte{}, seg...), addendum...))); err != nil {
@@ -291,7 +318,7 @@ func TestRealBroadcastPipeline(t *testing.T) {
 	}
 
 	// Report.
-	var ok, tiny, failed int
+	var ok, tiny, failed, dups int
 	var srcDur, renDur float64
 	var convSum, gwSum, mintSum int64
 	reasons := map[string]int{}
@@ -303,6 +330,12 @@ func TestRealBroadcastPipeline(t *testing.T) {
 		mintSum += r.mintMS
 		if r.tiny {
 			tiny++
+		}
+		if r.dup {
+			dups++
+		}
+		if scanOnly {
+			continue
 		}
 		if r.err == "" && r.verified {
 			ok++
@@ -316,7 +349,10 @@ func TestRealBroadcastPipeline(t *testing.T) {
 		}
 	}
 	n := len(rows)
-	t.Logf("SOURCE %s: %d segments, %.1fs of media, %d tiny (<0.5s), audio=%q", filepath.Base(path), n, srcDur, tiny, rows[0].audio)
+	t.Logf("SOURCE %s: %d segments, %.1fs of media, %d tiny (<0.5s), %d duplicated GoPs (same start as the previous segment), audio=%q", filepath.Base(path), n, srcDur, tiny, dups, rows[0].audio)
+	if scanOnly {
+		return
+	}
 	t.Logf("RESULT ok=%d failed=%d rendition media=%.1fs (%.1f%% of source)", ok, failed, renDur, 100*renDur/srcDur)
 	if n > 0 {
 		t.Logf("TIMING avg per segment: presentation %dms, gateway (conv+transcode+remux) %dms, mint+sign %dms", convSum/int64(n), gwSum/int64(n), mintSum/int64(n))
@@ -353,4 +389,55 @@ func TestRealBroadcastPipeline(t *testing.T) {
 		}
 	}
 	require.Greater(t, ok, 0, "at least one segment must make it through")
+}
+
+// firstTfdtOf is the first fragment's baseMediaDecodeTime in a run of
+// [uuid]…[moof][mdat] boxes.
+func firstTfdtOf(b []byte) (uint64, bool) {
+	var val uint64
+	found := false
+	walkBoxRange(b, 0, len(b), func(typ string, s, e int) bool {
+		if typ != "moof" {
+			return true
+		}
+		walkBoxRange(b, s+8, e, func(t2 string, s2, e2 int) bool {
+			if t2 != "traf" {
+				return true
+			}
+			walkBoxRange(b, s2+8, e2, func(t3 string, s3, e3 int) bool {
+				if t3 != "tfdt" || e3-s3 < 16 {
+					return true
+				}
+				if b[s3+8] == 1 {
+					val = uint64(be32(b, s3+12))<<32 | uint64(be32(b, s3+16))
+				} else {
+					val = uint64(be32(b, s3+12))
+				}
+				found = true
+				return false
+			})
+			return !found
+		})
+		return !found
+	})
+	return val, found
+}
+
+func be32(b []byte, off int) uint32 {
+	return uint32(b[off])<<24 | uint32(b[off+1])<<16 | uint32(b[off+2])<<8 | uint32(b[off+3])
+}
+
+// walkBoxRange calls fn(type, start, end) for each box in b[start:end]
+// until fn returns false.
+func walkBoxRange(b []byte, start, end int, fn func(typ string, s, e int) bool) {
+	for off := start; off+8 <= end; {
+		size := int(be32(b, off))
+		if size < 8 || off+size > end {
+			return
+		}
+		if !fn(string(b[off+4:off+8]), off, off+size) {
+			return
+		}
+		off += size
+	}
 }

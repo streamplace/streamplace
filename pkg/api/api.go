@@ -262,6 +262,14 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 			return
 		}
 	})
+	router.GET("/favicon.png", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		err := a.XRPCServer.HandleFaviconPNG(echo.New().NewContext(r, w))
+		if err != nil {
+			log.Error(ctx, "error handling favicon.png", "error", err)
+			w.WriteHeader(500)
+			return
+		}
+	})
 	router.GET("/.well-known/did.json", a.HandleDidJSON(ctx))
 	router.GET("/.well-known/atproto-did", a.HandleAtprotoDID(ctx))
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))

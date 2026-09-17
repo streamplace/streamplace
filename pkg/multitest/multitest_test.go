@@ -133,7 +133,8 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 	require.NoErrorf(t, err, "[%s] failed to resolve absolute binary path", name)
 	// Run the streamplace binary at abs with the environment env
 	cmd := exec.Command(abs)
-	cmd.Env = []string{}
+	// Keep PATH so the development wrapper can resolve its Go version probe.
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH")}
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}

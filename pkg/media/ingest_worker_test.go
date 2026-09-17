@@ -106,10 +106,10 @@ func makeAudioOnlyAACFMP4(t *testing.T, ctx context.Context, seconds int) []byte
 
 // TestRunMP4IngestWorkerProducesValidSignedFrames drives the isolated ingest
 // worker's core directly (no subprocess): feed it an H264+AAC fMP4, collect the
-// framed output, and verify every emitted segment is a valid signed canonical
-// .m4s. This is the contract the supervisor relies on — frames it can hand
-// straight to ValidateMP4. (The real subprocess spawn + fault injection is
-// Stage 3.)
+// framed output, and verify every emitted segment is a valid signed source
+// .m4s. The worker forwards the WebRTC-compatible Opus source; main completes
+// the AAC derivative asynchronously. (The real subprocess spawn + fault
+// injection is Stage 3.)
 func TestRunMP4IngestWorkerProducesValidSignedFrames(t *testing.T) {
 	ctx := context.Background()
 	ms := newBareSegmentSigner(t)
@@ -119,8 +119,7 @@ func TestRunMP4IngestWorkerProducesValidSignedFrames(t *testing.T) {
 	manifest, err := ms.buildManifest(ctx, time.Now().UnixMilli())
 	require.NoError(t, err)
 
-	// Provide the node transcode signer (the same test key serves both roles
-	// here, as in the transcoder tests) so the worker completes to dual-codec.
+	// Provide the node signer so the worker can sign forwarded source segments.
 	cfg := IngestWorkerConfig{
 		StreamerDID:     ms.Streamer(),
 		KeyPEM:          keyPEM,
@@ -154,24 +153,33 @@ func TestRunMP4IngestWorkerProducesValidSignedFrames(t *testing.T) {
 		require.NoError(t, err, "segment %d verify", segs)
 		require.NotContains(t, out, `"validation_state":"Invalid"`, "segment %d must validate", segs)
 
-		// With a node key the worker completes to dual-codec: every segment must
-		// carry both the source Opus and a worker-transcoded AAC track.
+		// The worker forwards the source Opus track. Main owns the asynchronous
+		// AAC derivative, so the first path can reach WebRTC without waiting for it.
 		codecs := audioCodecsOf(t, ctx, payload)
-		hasOpus, hasAAC := false, false
+		hasOpus := false
 		for _, c := range codecs {
 			if isOpusCodec(c) {
 				hasOpus = true
 			}
-			if isAACCodec(c) {
-				hasAAC = true
-			}
 		}
 		require.True(t, hasOpus, "segment %d keeps source Opus (got %v)", segs, codecs)
-		require.True(t, hasAAC, "segment %d gains worker-transcoded AAC (got %v)", segs, codecs)
+		require.Len(t, codecs, 1, "segment %d forwards source-only media (got %v)", segs, codecs)
 		segs++
 	}
-	require.GreaterOrEqual(t, segs, 1, "worker emitted at least one signed dual-codec segment")
-	t.Logf("worker emitted %d valid dual-codec segments", segs)
+	require.GreaterOrEqual(t, segs, 1, "worker emitted at least one signed Opus source segment")
+	t.Logf("worker emitted %d valid signed Opus source segments", segs)
+}
+
+func TestRunMP4IngestWorkerForwardsOpusSourceBeforeAACCompletion(t *testing.T) {
+	ctx := context.Background()
+	frag := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
+
+	segs, err := runMP4ThroughIngestWorkerSegments(t, frag, true)
+	require.NoError(t, err)
+	require.NotEmpty(t, segs)
+	codecs := audioCodecsOf(t, ctx, segs[0])
+	require.Len(t, codecs, 1, "the worker must forward Opus source media; main owns the async AAC derivative")
+	require.True(t, isOpusCodec(codecs[0]), "the first worker frame should remain WebRTC-compatible Opus (got %v)", codecs)
 }
 
 // TestRunMP4IngestWorkerRecords proves debug recording works INSIDE the worker:

@@ -23,6 +23,7 @@ import (
 // the command line, for process-listing identification.
 type RTMPPushWorkerConfig struct {
 	StreamerDID string `json:"streamer_did"`
+	AudioCodec  string `json:"audio_codec"`
 	// TargetURL is the rtmp(s):// destination including its stream key. Sensitive
 	// — fd-3 only.
 	TargetURL string `json:"target_url"`
@@ -57,7 +58,7 @@ func RunRTMPPushWorker(ctx context.Context, cfg RTMPPushWorkerConfig, source io.
 			log.Error(ctx, "rtmp push worker: emit event", "error", err)
 		}
 	}
-	return mm.runRTMPPushPipeline(ctx, source, cfg.TargetURL, report)
+	return mm.runRTMPPushPipeline(ctx, source, cfg.TargetURL, report, cfg.AudioCodec)
 }
 
 // RTMPPushIsolated is the process-isolated counterpart to RTMPPush: the
@@ -78,8 +79,15 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 	if !ok {
 		return fmt.Errorf("failed to convert target view to multistream target")
 	}
+	if err := validateRTMPTargetURL(rec.Url); err != nil {
+		return err
+	}
 
-	cfgJSON, err := json.Marshal(RTMPPushWorkerConfig{StreamerDID: user, TargetURL: rec.Url})
+	audioCodec, err := mm.waitForRTMPSourceAudioCodec(ctx, user, rendition)
+	if err != nil {
+		return fmt.Errorf("wait for RTMP source audio: %w", err)
+	}
+	cfgJSON, err := json.Marshal(RTMPPushWorkerConfig{StreamerDID: user, TargetURL: rec.Url, AudioCodec: audioCodec})
 	if err != nil {
 		return fmt.Errorf("marshal push worker config: %w", err)
 	}
@@ -139,11 +147,11 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 		cfgW.Close() // EOF so the worker's config read completes
 	}()
 
-	// Feed the worker the continuous fMP4 source stream (bus → AAC select →
+	// Feed the worker the continuous fMP4 source stream (bus → codec select →
 	// init+concat). Closing stdin on source EOF/cancel is the worker's EOS.
 	go func() {
 		defer stdin.Close()
-		if serr := mm.writeRTMPSource(ctx, user, rendition, stdin); serr != nil && ctx.Err() == nil {
+		if serr := mm.writeRTMPSourceWithCodec(ctx, user, rendition, stdin, audioCodec); serr != nil && ctx.Err() == nil {
 			log.Error(ctx, "rtmp push source ended", "error", serr)
 		}
 	}()

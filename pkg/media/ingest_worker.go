@@ -64,9 +64,11 @@ type IngestWorkerConfig struct {
 	Manifest []byte `json:"manifest"`
 
 	// Node transcode signer + broadcaster identity. When set, the worker completes
-	// each single-codec source segment to dual-codec (Opus+AAC) itself — the
-	// transcode runs in this isolated process too — signing the added track under
-	// the node identity. Empty → the worker emits single-codec source segments.
+	// AAC-only source segments to dual-codec (Opus+AAC) itself — the transcode runs
+	// in this isolated process too — signing the added track under the node
+	// identity. Opus-only source segments are forwarded immediately so main can
+	// publish the WebRTC-compatible source while it derives AAC asynchronously.
+	// Empty → the worker emits single-codec source segments.
 	NodeCertPEM     []byte `json:"node_cert_pem,omitempty"`
 	NodeKeyPEM      []byte `json:"node_key_pem,omitempty"`
 	BroadcasterHost string `json:"broadcaster_host,omitempty"`
@@ -164,12 +166,14 @@ func workerSignStream(cfg IngestWorkerConfig, getManifest func() []byte) SignSeg
 
 // workerSegmentSink returns the onSegment handler a worker hands to
 // muxlSignSegmentElem, plus a flush to call once the signer has drained. With a
-// node transcode key it completes each single-codec source segment to dual-codec
-// via an in-process transcoder (its completion callback frames the finished
-// segment); flush Closes that transcoder so its ~1-GoP tail is framed before the
-// worker exits. The transcoder runs on a non-cancellable context so draining the
-// signer can't kill it early. One process == one session, so the per-DID
-// transcoder-reuse hazard can't arise. Shared by the MP4 and WHIP workers.
+// node transcode key it completes AAC-only source segments to dual-codec via an
+// in-process transcoder (its completion callback frames the finished segment).
+// Opus-only source segments are forwarded immediately because main can publish
+// them to WebRTC while it derives AAC on its own path. flush closes the
+// transcoder so its ~1-GoP tail is framed before the worker exits. The
+// transcoder runs on a non-cancellable context so draining the signer can't kill
+// it early. One process == one session, so the per-DID transcoder-reuse hazard
+// can't arise. Shared by the MP4 and WHIP workers.
 func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerConfig, frames FrameWriter) (onSegment func(context.Context, []byte) error, flush func()) {
 	var transcoder *streamTranscoder
 	onSegment = func(_ context.Context, segment []byte) error {
@@ -182,10 +186,12 @@ func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerC
 			// started with a cancelled ctx deadlocks its wasm mid-stream
 			// instead of returning.
 			target, need := mm.audioCompletionTarget(context.WithoutCancel(ctx), segment)
-			if !need {
-				return frames.Segment(segment) // already dual-codec / no audio track
+			if !need || target == "aac" {
+				// Opus is already WebRTC-compatible. Forward it now and let main
+				// publish a private playback copy while its AAC derivative runs.
+				return frames.Segment(segment) // already dual-codec / no audio track / Opus source
 			}
-			transcoder = mm.newStreamTranscoder(context.WithoutCancel(ctx), target, cfg.NodeCertPEM, cfg.NodeKeyPEM,
+			transcoder = mm.newStreamTranscoder(context.WithoutCancel(ctx), target, cfg.NodeCertPEM, cfg.NodeKeyPEM, cfg.StreamerDID,
 				func(_ any, completed []byte) {
 					if ferr := frames.Segment(completed); ferr != nil {
 						log.Error(ctx, "ingest worker: frame completed segment", "error", ferr)

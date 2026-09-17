@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/mist/misttriggers"
@@ -12,11 +11,12 @@ import (
 
 var StreamName = "stream"
 
+// LiveSegmentTargetMS keeps the source GOP target below the first-RTP budget.
+// Mist may extend a segment to a complete keyframe, so the upstream encoder's
+// keyframe interval must be no larger than this target as well.
+const LiveSegmentTargetMS = 500
+
 func Generate(cli *config.CLI) ([]byte, error) {
-	exec, err := os.Executable()
-	if err != nil {
-		return nil, fmt.Errorf("couldn't find my path for extwriter purposes: %w", err)
-	}
 	triggers := map[string][]map[string]any{}
 	for name, blocking := range misttriggers.BlockingTriggers {
 		triggers[name] = []map[string]any{{
@@ -89,8 +89,8 @@ func Generate(cli *config.CLI) ([]byte, error) {
 		"streams": map[string]map[string]any{
 			StreamName: {
 				"name":          StreamName,
-				"segmentsize":   1,
-				"source":        fmt.Sprintf("mkv-exec:%s stream %s/playback/$wildcard/stream.mkv", exec, cli.OwnInternalURL()),
+				"segmentsize":   LiveSegmentTargetMS,
+				"source":        "push://",
 				"stop_sessions": false,
 			},
 		},

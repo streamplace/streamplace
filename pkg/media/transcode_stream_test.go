@@ -200,7 +200,7 @@ func TestStreamTranscoderGapless(t *testing.T) {
 
 	var mu sync.Mutex
 	var completed [][]byte
-	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, func(_ any, c []byte) {
+	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, "", func(_ any, c []byte) {
 		mu.Lock()
 		completed = append(completed, c)
 		mu.Unlock()
@@ -266,6 +266,52 @@ func TestStreamTranscoderGapless(t *testing.T) {
 		"transcoded AAC total drifts from source Opus beyond priming + boundary quantization")
 }
 
+func TestStreamTranscoderRecordsCompletionLag(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+	segs := allSignedBareSegments(t, ctx, ms, getFixture("h264-opus-frag.mp4"))
+	require.GreaterOrEqual(t, len(segs), 2, "fixture should produce multiple segments")
+
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	const streamer = "phase1-transcode-lag"
+	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "test.example.com"}}
+
+	type feedTiming struct {
+		sequence int
+		enqueued time.Time
+	}
+	var mu sync.Mutex
+	var lags []time.Duration
+	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, streamer, func(token any, _ []byte) {
+		feed := token.(feedTiming)
+		mu.Lock()
+		lags = append(lags, time.Since(feed.enqueued))
+		mu.Unlock()
+	})
+
+	before := histogramSampleCount(t, "streamplace_transcode_completion_lag_ms", map[string]string{
+		"streamer": streamer,
+	})
+	for i, seg := range segs {
+		require.NoError(t, tr.Feed(seg, feedTiming{sequence: i, enqueued: time.Now()}), "feed segment %d", i)
+	}
+	require.NoError(t, tr.Close())
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.NotEmpty(t, lags, "transcoder emitted at least one completed segment")
+	require.Greater(t, histogramSampleCount(t, "streamplace_transcode_completion_lag_ms", map[string]string{
+		"streamer": streamer,
+	}), before)
+	var total time.Duration
+	for _, lag := range lags {
+		require.Positive(t, lag)
+		total += lag
+	}
+	t.Logf("transcode completion checkpoints completed=%d avg_lag_ms=%.1f", len(lags), total.Seconds()*1000/float64(len(lags)))
+}
+
 // TestStreamTranscoderDegenerateTimestamps feeds a real WHIP-captured segment
 // whose source video carries degenerate timestamps — several frames sharing a
 // PTS, plus zero/N/A frame durations (a variable-frame-rate capture artifact
@@ -288,7 +334,7 @@ func TestStreamTranscoderDegenerateTimestamps(t *testing.T) {
 
 	var mu sync.Mutex
 	var completed [][]byte
-	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, func(_ any, c []byte) {
+	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, "", func(_ any, c []byte) {
 		mu.Lock()
 		completed = append(completed, c)
 		mu.Unlock()

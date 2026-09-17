@@ -115,6 +115,7 @@
     "stream": {
       "debug": 5,
       "name": "stream",
+      "segmentsize": 500,
       "source": "push://",
       "stop_sessions": false,
       "tags": []

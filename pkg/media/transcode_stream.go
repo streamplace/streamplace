@@ -14,14 +14,16 @@ import (
 	"github.com/go-gst/go-gst/gst/app"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 // transcodeJob is one fed source segment awaiting its transcoded twin. token is
 // opaque caller context (the validated-segment info), returned verbatim to
 // onComplete so the caller can archive/distribute the completed segment.
 type transcodeJob struct {
-	src   []byte
-	token any
+	src        []byte
+	token      any
+	enqueuedAt time.Time
 }
 
 // streamTranscoder runs ONE long-lived audio transcode for a single stream.
@@ -41,6 +43,7 @@ type transcodeJob struct {
 // validate path delivers segments in order).
 type streamTranscoder struct {
 	mm        *MediaManager
+	streamer  string
 	target    string // codec being ADDED: "opus" (source AAC) or "aac" (source Opus)
 	sessionID uint64 // ingest-session epoch this transcoder was built for; a newer
 	// session rebuilds it (registry-owned: set under transcodersMu before the
@@ -56,9 +59,11 @@ type streamTranscoder struct {
 	jobs   chan transcodeJob
 	done   chan struct{}
 
-	feedMu sync.Mutex  // serializes Feed so segments enter in order
-	reaper *time.Timer // idle reaper; reset on Feed (set by the registry)
-	fedSeq int         // per-instance feed counter (debug dump ordering); under feedMu
+	feedMu   sync.Mutex // serializes Feed so segments enter in order
+	queueMu  sync.Mutex // protects queuedAt, which mirrors jobs in FIFO order
+	queuedAt []time.Time
+	reaper   *time.Timer // idle reaper; reset on Feed (set by the registry)
+	fedSeq   int         // per-instance feed counter (debug dump ordering); under feedMu
 
 	mu      sync.Mutex
 	started bool
@@ -127,7 +132,7 @@ func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedS
 		// The transcoder outlives any single request; carry log values but not
 		// cancellation, and cancel explicitly on reap.
 		streamCtx := context.WithoutCancel(ctx)
-		t = mm.newStreamTranscoder(streamCtx, target, cert, keyPEM, func(token any, completed []byte) {
+		t = mm.newStreamTranscoder(streamCtx, target, cert, keyPEM, did, func(token any, completed []byte) {
 			v := token.(*validatedSegment)
 			if err := mm.distributeSegment(context.WithoutCancel(streamCtx), v, completed); err != nil {
 				log.Error(streamCtx, "distribute completed segment failed", "streamer", v.repoDID, "error", err)
@@ -194,11 +199,11 @@ func (mm *MediaManager) reapStreamTranscoder(did string, t *streamTranscoder) {
 // newStreamTranscoder starts a per-stream continuous transcoder. target is the
 // codec to add. cert/keyPEM are the node's S2PA signer. onComplete is invoked,
 // in order, with each completed dual-codec segment (and its feed token).
-func (mm *MediaManager) newStreamTranscoder(parent context.Context, target string, cert, keyPEM []byte, onComplete func(token any, completed []byte)) *streamTranscoder {
+func (mm *MediaManager) newStreamTranscoder(parent context.Context, target string, cert, keyPEM []byte, streamer string, onComplete func(token any, completed []byte)) *streamTranscoder {
 	ctx, cancel := context.WithCancel(parent)
 	feedR, feedW := io.Pipe()
 	t := &streamTranscoder{
-		mm: mm, target: target, cert: cert, keyPEM: keyPEM, onComplete: onComplete,
+		mm: mm, streamer: streamer, target: target, cert: cert, keyPEM: keyPEM, onComplete: onComplete,
 		ctx: ctx, cancel: cancel, feedW: feedW,
 		jobs: make(chan transcodeJob, 16), done: make(chan struct{}),
 	}
@@ -262,9 +267,18 @@ func (t *streamTranscoder) Feed(src []byte, token any) error {
 	}
 	// Enqueue the job before feeding the bytes so the consumer has the source
 	// ready by the time its (lagging) transcoded twin emerges.
+	enqueuedAt := time.Now()
+	t.queueMu.Lock()
+	t.queuedAt = append(t.queuedAt, enqueuedAt)
+	t.queueMu.Unlock()
 	select {
-	case t.jobs <- transcodeJob{src: src, token: token}:
+	case t.jobs <- transcodeJob{src: src, token: token, enqueuedAt: enqueuedAt}:
+		t.observeTranscodeQueue(time.Now())
 	case <-t.ctx.Done():
+		t.queueMu.Lock()
+		t.queuedAt = t.queuedAt[:len(t.queuedAt)-1]
+		t.queueMu.Unlock()
+		t.observeTranscodeQueue(time.Now())
 		return t.ctx.Err()
 	}
 	if _, err := t.feedW.Write(src); err != nil {
@@ -312,6 +326,13 @@ func (t *streamTranscoder) Close() error {
 // and finishes each emitted transcoded segment against its source.
 func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 	ctx := t.ctx
+	defer func() {
+		t.queueMu.Lock()
+		t.queuedAt = nil
+		t.queueMu.Unlock()
+		spmetrics.TranscodeQueueDepth.WithLabelValues(t.streamer).Set(0)
+		spmetrics.TranscodeOldestJobAge.WithLabelValues(t.streamer).Set(0)
+	}()
 	pipeline, err := buildAudioTranscodePipeline(t.target)
 	if err != nil {
 		return err
@@ -383,6 +404,12 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 		var job transcodeJob
 		select {
 		case job = <-t.jobs:
+			t.queueMu.Lock()
+			if len(t.queuedAt) > 0 {
+				t.queuedAt = t.queuedAt[1:]
+			}
+			t.queueMu.Unlock()
+			t.observeTranscodeQueue(time.Now())
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -396,10 +423,18 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 		// and canonicalize needs the video keyframe as its cut clock to emit one
 		// segment per GoP. Audio by itself has no keyframes to anchor on.
 		transSeg := concatTracksByID(ev.Tracks)
+		finishStarted := time.Now()
 		completed, err := t.mm.finishTranscodedSegment(ctx, job.src, transSeg, audioTID, t.cert, t.keyPEM)
+		spmetrics.TranscodeFinishDuration.WithLabelValues(t.streamer).
+			Observe(float64(time.Since(finishStarted).Milliseconds()))
 		if err != nil {
 			log.Error(ctx, "stream transcode: finish segment failed", "error", err)
 			continue
+		}
+		spmetrics.TranscodeCompletionLag.WithLabelValues(t.streamer).
+			Observe(float64(time.Since(job.enqueuedAt).Milliseconds()))
+		if v, ok := job.token.(*validatedSegment); ok && v.timing != nil {
+			v.timing.MasteringCompleted = time.Now()
 		}
 		t.onComplete(job.token, completed)
 	}
@@ -412,6 +447,19 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 		return e
 	}
 	return nil
+}
+
+func (t *streamTranscoder) observeTranscodeQueue(now time.Time) {
+	t.queueMu.Lock()
+	depth := len(t.queuedAt)
+	oldestAge := time.Duration(0)
+	if depth > 0 && now.After(t.queuedAt[0]) {
+		oldestAge = now.Sub(t.queuedAt[0])
+	}
+	t.queueMu.Unlock()
+
+	spmetrics.TranscodeQueueDepth.WithLabelValues(t.streamer).Set(float64(depth))
+	spmetrics.TranscodeOldestJobAge.WithLabelValues(t.streamer).Set(float64(oldestAge.Milliseconds()))
 }
 
 // finishTranscodedSegment assembles one completed dual-codec segment: relabel

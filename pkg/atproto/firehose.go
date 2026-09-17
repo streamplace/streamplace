@@ -732,6 +732,13 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 				}
 			}
 
+			if collection.String() == constants.PLACE_STREAM_CHAT_ACCESS {
+				if err := atsync.Model.DeleteChatAccessRule(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete chat access rule", "err", err)
+				}
+				atsync.NoteChatAccessRule(ctx, &model.ChatAccessRule{RepoDID: evt.Repo})
+			}
+
 			if collection.String() == constants.PLACE_STREAM_CHAT_MESSAGE {
 				msg, err := atsync.Model.GetChatMessage(uri)
 				if err != nil {

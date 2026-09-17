@@ -10,8 +10,8 @@ import (
 // Verification is one app.bsky.graph.verification record: a verifier (the
 // repo it lives in) vouching for a subject. Indexed from every repo on the
 // firehose, not only tracked ones, because verifiers are few and which of
-// them a node trusts is a branding decision (verifierDids) made after the
-// fact.
+// them matter is decided by streamers' place.stream.chat.access rules,
+// possibly after the fact.
 type Verification struct {
 	URI         string    `json:"uri"         gorm:"primaryKey;column:uri"`
 	CID         string    `json:"cid"         gorm:"column:cid"`

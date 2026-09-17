@@ -16,6 +16,7 @@ var APP_BSKY_GRAPH_BLOCK = "app.bsky.graph.block"                             //
 var APP_BSKY_GRAPH_VERIFICATION = "app.bsky.graph.verification"               //nolint:all
 var APP_BSKY_ACTOR_PROFILE = "app.bsky.actor.profile"                         //nolint:all
 var PLACE_STREAM_CHAT_GATE = "place.stream.chat.gate"                         //nolint:all
+var PLACE_STREAM_CHAT_ACCESS = "place.stream.chat.access"                     //nolint:all
 var PLACE_STREAM_CHAT_PINNED_RECORD = "place.stream.chat.pinnedRecord"        //nolint:all
 var PLACE_STREAM_DEFAULT_METADATA = "place.stream.metadata.configuration"     //nolint:all
 var PLACE_STREAM_LIVE_RECOMMENDATIONS = "place.stream.live.recommendations"   //nolint:all

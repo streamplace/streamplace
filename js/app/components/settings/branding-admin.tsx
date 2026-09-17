@@ -8,6 +8,7 @@ import {
   MenuItem,
   MenuLabel,
   MenuSeparator,
+  SegmentedTabs,
   Text,
   useStreamplaceStore,
   useTheme,
@@ -1420,7 +1421,7 @@ export function BrandingAdmin() {
                         borderColor: theme.colors.border,
                         backgroundColor: theme.colors.surface1,
                         color: theme.colors.text1,
-                        fontFamily: theme.fonts.monoRegular,
+                        fontFamily: fontFamilies.monoRegular,
                         fontSize: 12,
                         textAlignVertical: "top",
                       }}
@@ -1530,7 +1531,7 @@ export function BrandingAdmin() {
                           </View>
                           <Text
                             size="xs"
-                            style={{ fontFamily: theme.fonts.monoRegular }}
+                            style={{ fontFamily: fontFamilies.monoRegular }}
                           >
                             {slot}
                           </Text>

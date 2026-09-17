@@ -14,20 +14,19 @@ import (
 	"stream.place/streamplace/pkg/model"
 )
 
-// Label-based verification: a network whose notion of "verified" is a label
-// on the account (from its own labeler) rather than an app.bsky.graph.
-// verification record. The branding keys labelerDid and verifiedLabels name
-// the labeler and the label values that count; matching non-negated account
-// labels are mirrored into the verification table as if the labeler had
-// issued a verification record, so badges, the chat lock and getStatus all
-// work unchanged. Labels are pulled from the labeler's queryLabels with its
+// Label-based verification: a streamer whose notion of "verified" is a label
+// on the account (from a labeler) rather than an app.bsky.graph.verification
+// record names the labeler and label in a place.stream.chat.access rule;
+// matching non-negated account labels are mirrored into the verification
+// table as if the labeler had issued a verification record, so badges and
+// the chat rules work unchanged. Labels are pulled from the labeler's queryLabels with its
 // sequence cursor, persisted in statedb, so each poll only fetches what is
 // new; a negation removes the mirrored row.
 
 const labelPollInterval = time.Minute
 
 // labelCursorKey is the statedb config key holding the labeler's cursor.
-// The label rules are part of the key: changing verifiedLabels starts a
+// The label rules are part of the key: a change in the labels named starts a
 // fresh scan from the beginning under the new rules, instead of only
 // applying them to labels issued after the change.
 func labelCursorKey(labeler string, patterns []string) string {
@@ -58,7 +57,7 @@ func labelMatches(val string, patterns []string) bool {
 // minute after, following its cursor.
 func (atsync *ATProtoSynchronizer) SeedLabelsForever(ctx context.Context) {
 	for {
-		if labeler, patterns := atsync.Labeler(ctx); labeler != "" {
+		for labeler, patterns := range atsync.Labelers(ctx) {
 			if err := atsync.seedLabels(ctx, labeler, patterns); err != nil {
 				log.Warn(ctx, "failed to mirror labels", "labeler", labeler, "err", err)
 			}

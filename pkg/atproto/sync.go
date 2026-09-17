@@ -246,10 +246,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if scm.Author.Handle == "" || scm.Author.Handle == "handle.invalid" {
 			scm.Author.Handle = atsync.ResolveAuthorHandle(ctx, scm.Author.Did)
 		}
-		atsync.DecorateVerification(ctx, scm)
-		if !atsync.ChatAllowed(ctx, scm.Author.Did) {
-			// Chat is locked to verified users: the message is indexed (the
-			// lock may lift) but not shown.
+		atsync.DecorateVerification(ctx, rec.Streamer, scm)
+		if !atsync.ChatAllowed(ctx, rec.Streamer, scm.Author.Did) {
+			// The streamer's chat access rules refuse this author: the message
+			// is indexed (the rules may change) but not shown.
 			return nil
 		}
 
@@ -744,6 +744,28 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			log.Error(ctx, "failed to create metadata configuration", "err", err)
 		}
+
+	case *placestream.ChatAccess:
+		if _, err := atsync.SyncBlueskyRepoCached(ctx, userDID); err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		row, err := model.ChatAccessRuleFromRecord(rec, aturi)
+		if errors.Is(err, model.ErrChatAccessSubjectUnknown) {
+			log.Warn(ctx, "chat access rule with an unknown subject type, skipping", "uri", aturi.String())
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("invalid chat access rule: %w", err)
+		}
+		err = atsync.Model.CreateChatAccessRule(ctx, row)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("failed to index chat access rule: %w", err)
+		}
+		atsync.NoteChatAccessRule(ctx, row)
+		log.Log(ctx, "indexed chat access rule", "streamer", userDID, "action", row.Action, "subject", row.SubjectType, "did", row.SubjectDID)
 
 	case *placestream.ModerationPermission:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)

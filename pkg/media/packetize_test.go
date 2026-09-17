@@ -70,7 +70,7 @@ func innerTestPacketize(t *testing.T, filename string, expectedVideo int, expect
 		Filepath: filename,
 	}
 
-	packet, err := Packetize(context.Background(), &config.CLI{}, testSeg)
+	packet, err := Packetize(context.Background(), &config.CLI{}, testSeg, 0)
 	require.NoError(t, err)
 	require.NotNil(t, packet)
 	require.Equal(t, expectedVideo, len(packet.Video))
@@ -257,7 +257,7 @@ func TestPacketizeTrailingCaptionSEI(t *testing.T) {
 		const frames = 60
 		flat, seiCount := makeTrailingCaptionSEIFlatMP4(t, ctx, frames, 7)
 
-		packet, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{Data: flat})
+		packet, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{Data: flat}, 0)
 		require.NoError(t, err)
 		require.NotNil(t, packet)
 
@@ -355,7 +355,7 @@ func TestPacketizeSingleTrackSegment(t *testing.T) {
 			defer cancel()
 			flat := runSynthPipeline(t, ctx,
 				"videotestsrc num-buffers=30 ! video/x-raw,width=320,height=240,framerate=30/1 ! x264enc tune=zerolatency speed-preset=ultrafast ! h264parse ! mp4mux fragment-duration=500 ! appsink name=sink")
-			packet, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{Data: flat})
+			packet, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{Data: flat}, 0)
 			require.NoError(t, err)
 			require.Equal(t, 30, len(packet.Video))
 			require.Empty(t, packet.Audio)
@@ -371,7 +371,7 @@ func TestPacketizeSingleTrackSegment(t *testing.T) {
 			defer cancel()
 			flat := runSynthPipeline(t, ctx,
 				"audiotestsrc num-buffers=48 samplesperbuffer=1024 ! audio/x-raw,rate=48000,channels=2 ! audioconvert ! opusenc ! mp4mux fragment-duration=500 ! appsink name=sink")
-			packet, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{Data: flat})
+			packet, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{Data: flat}, 0)
 			require.NoError(t, err)
 			require.Empty(t, packet.Video)
 			require.NotEmpty(t, packet.Audio)
@@ -389,7 +389,7 @@ func TestPacketizeInvalid(t *testing.T) {
 		require.NoError(t, err)
 		packet, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{
 			Data: randomData,
-		})
+		}, 0)
 		require.Error(t, err)
 		require.Nil(t, packet)
 	})

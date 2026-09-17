@@ -395,7 +395,7 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 		// finishTranscodedSegment re-canonicalizes it to relabel the audio track,
 		// and canonicalize needs the video keyframe as its cut clock to emit one
 		// segment per GoP. Audio by itself has no keyframes to anchor on.
-		transSeg := concatTracksByID(ev.Tracks)
+		transSeg := concatTracksSorted(ev.Tracks)
 		completed, err := t.mm.finishTranscodedSegment(ctx, job.src, transSeg, audioTID, t.cert, t.keyPEM)
 		if err != nil {
 			log.Error(ctx, "stream transcode: finish segment failed", "error", err)

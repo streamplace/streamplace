@@ -84,7 +84,7 @@ func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) er
 	defer wd.stop()
 
 	onSegment, flush := mm.workerSegmentSink(ctx, cfg, wd.wrap(srv))
-	signerElem, signerDone, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg, manifest.get), onSegment)
+	signerElem, signerDone, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg, manifest.get), onSegment, 1)
 	if err != nil {
 		return finish(fmt.Errorf("build signer element: %w", err))
 	}

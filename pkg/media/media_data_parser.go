@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -59,6 +60,12 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 	var audioMetadata *localdb.SegmentMediadataAudio
 	var videoDuration time.Duration
 	var audioDuration time.Duration
+	// eRTMP multitrack segments carry one video pad per track. Caps metadata is
+	// readable at pad-added even for unlinked pads, so collect every video
+	// track here; the linked video_0 branch additionally drives duration and
+	// B-frame detection below. Extra unlinked video pads get the same benign
+	// not-linked treatment as the dual-codec audio_1 pad described above.
+	videoMetadataByPad := map[string]*localdb.SegmentMediadataVideo{}
 
 	appsrc, err := pipeline.GetElementByName("appsrc")
 	if err != nil {
@@ -104,7 +111,10 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 		}
 		if padsAdded < 2 {
 			err := fmt.Errorf("expected at least 2 tracks (video + audio), got %d", padsAdded)
-			pipeline.Error(err.Error(), err)
+			// post via the pad's parent (the demux) rather than the captured
+			// pipeline: holding the pipeline in a probe closure pins it in
+			// go-gst's registry and leaks the whole graph
+			pad.GetParentElement().Error(err.Error(), err)
 		}
 		padProbe = padProbeEmpty
 		return gst.PadProbeRemove
@@ -135,18 +145,18 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 		name := structure.Name()
 
 		if name[:5] == "video" {
-			videoMetadata = &localdb.SegmentMediadataVideo{}
+			vm := &localdb.SegmentMediadataVideo{}
 			// Get some common video properties
 			widthVal, _ := structure.GetValue("width")
 			heightVal, _ := structure.GetValue("height")
 
 			width, ok := widthVal.(int)
 			if ok {
-				videoMetadata.Width = width
+				vm.Width = width
 			}
 			height, ok := heightVal.(int)
 			if ok {
-				videoMetadata.Height = height
+				vm.Height = height
 			}
 			framerateVal, _ := structure.GetValue("framerate")
 			framerateStr := fmt.Sprintf("%v", framerateVal)
@@ -158,8 +168,14 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 				den, _ = strconv.Atoi(parts[1])
 			}
 			if num != 0 && den != 0 {
-				videoMetadata.FPSNum = num
-				videoMetadata.FPSDen = den
+				vm.FPSNum = num
+				vm.FPSDen = den
+			}
+			videoMetadataByPad[pad.GetName()] = vm
+			// The primary video track (video_0) is the one statically linked
+			// below; its entry drives duration/B-frames and stays Video[0].
+			if pad.GetName() == "video_0" {
+				videoMetadata = vm
 			}
 		}
 
@@ -294,8 +310,22 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 
 	videoMetadata.BFrames = hasBFrames
 
+	// All video tracks, ordered by qtdemux pad number: video_0 first, then the
+	// multitrack extras in track order.
+	videoPadNames := make([]string, 0, len(videoMetadataByPad))
+	for k := range videoMetadataByPad {
+		videoPadNames = append(videoPadNames, k)
+	}
+	sort.Slice(videoPadNames, func(i, j int) bool {
+		return numericLess(strings.TrimPrefix(videoPadNames[i], "video_"), strings.TrimPrefix(videoPadNames[j], "video_"))
+	})
+	videoTracks := make([]*localdb.SegmentMediadataVideo, 0, len(videoPadNames))
+	for _, k := range videoPadNames {
+		videoTracks = append(videoTracks, videoMetadataByPad[k])
+	}
+
 	meta := &localdb.SegmentMediaData{
-		Video: []*localdb.SegmentMediadataVideo{videoMetadata},
+		Video: videoTracks,
 		Audio: []*localdb.SegmentMediadataAudio{audioMetadata},
 	}
 

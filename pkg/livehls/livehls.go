@@ -389,7 +389,15 @@ func (w *Writer) track(tid string) *Track {
 		t = &Track{Type: "unknown"}
 		w.tracks[tid] = t
 		w.order = append(w.order, tid)
-		sort.Strings(w.order)
+		// numeric sort: track IDs are decimal strings, lexical order breaks at 10
+		sort.Slice(w.order, func(i, j int) bool {
+			a, aErr := strconv.Atoi(w.order[i])
+			b, bErr := strconv.Atoi(w.order[j])
+			if aErr != nil || bErr != nil {
+				return w.order[i] < w.order[j]
+			}
+			return a < b
+		})
 	}
 	return t
 }

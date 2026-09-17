@@ -1,4 +1,3 @@
-// Package main contains an example.
 package api
 
 import (
@@ -13,14 +12,10 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 )
-
-// This example shows how to:
-// 1. create a RTMP server
-// 2. accept a stream from a reader.
-// 3. broadcast the stream to readers.
 
 var RTMPTimeout = 10 * time.Second
 
@@ -46,6 +41,7 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 	session := &media.RTMPSession{
 		EventChan:   make(chan any, 1024),
 		MediaSigner: mediaSigner,
+		VideoTracks: map[uint8]*format.H264{},
 	}
 	a.rtmpSessionsLock.Lock()
 	a.rtmpSessions[streamer] = session
@@ -66,41 +62,80 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 		return err
 	}
 
+	// eRTMP multitrack (OBS "Multitrack Video") track count
+	// Note that this currently only supports H.264 video and 1 track of AAC audio
+	videoTrackCount := 0
+	// relayDone is closed the moment RTMPIngest (the consumer of EventChan via
+	// the internal playback relay) returns. The data callbacks below send into
+	// EventChan synchronously inside r.Read(); if the relay dies nobody drains
+	// that channel, an unbounded send blocks r.Read() forever, so the 10s read
+	// deadline never fires and the session never tears down. Guarding every send
+	// on relayDone turns a permanent hang into a quick drop-and-exit.
+	relayDone := make(chan struct{})
 	for _, track := range r.Tracks() {
 		log.Log(ctx, "get track", "track", track)
 
 		switch track := track.(type) {
 		case *format.H264:
-			session.VideoTrack = track
+			if videoTrackCount >= constants.MaxVideoTracks {
+				log.Log(ctx, "dropping extra H.264 track beyond limit", "track", videoTrackCount, "max", constants.MaxVideoTracks)
+				continue
+			}
+			trackID := uint8(videoTrackCount)
+			videoTrackCount++
+			session.VideoTracks[trackID] = track
 			r.OnDataH264(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
-				// log.Log(ctx, "got H264", "len", len(au), "pts", pts, "dts", dts)
-				session.EventChan <- &media.RTMPH264Data{
-					AU:  au,
-					PTS: pts,
-					DTS: dts,
+				// Guarded send: if the relay is gone, drop the frame instead of
+				// blocking inside r.Read() forever (see relayDone below).
+				select {
+				case session.EventChan <- &media.RTMPH264Data{
+					TrackID: trackID,
+					AU:      au,
+					PTS:     pts,
+					DTS:     dts,
+				}:
+				case <-relayDone:
 				}
 			})
 
 		case *format.MPEG4Audio:
+			if session.AudioTrack != nil {
+				return fmt.Errorf("multitrack audio is not supported (send a single AAC audio track)")
+			}
 			session.AudioTrack = track
 			r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) {
-				// log.Log(ctx, "got MPEG4Au", "len", len(au), "pts", pts)
-				session.EventChan <- &media.RTMPAACData{
+				select {
+				case session.EventChan <- &media.RTMPAACData{
 					AU:  au,
 					PTS: pts,
+				}:
+				case <-relayDone:
 				}
 			})
 
 		default:
-			return fmt.Errorf("unsupported track type: %T", track)
+			// Unsupported track type: drop and log it, and keep the session
+			// running on the remaining tracks, rather than rejecting the whole
+			// stream over one unsupported track. If this drops the only video,
+			// the videoTrackCount == 0 check after the loop fails the session.
+			log.Log(ctx, "dropping unsupported track", "type", fmt.Sprintf("%T", track))
 		}
+	}
+	if videoTrackCount == 0 {
+		return fmt.Errorf("no video track found")
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
+
 	g.Go(func() error {
 		for {
 			if ctx.Err() != nil {
 				return ctx.Err()
+			}
+			select {
+			case <-relayDone:
+				return fmt.Errorf("relay stopped, ending publish session")
+			default:
 			}
 			err = sc.RW.(net.Conn).SetReadDeadline(time.Now().Add(RTMPTimeout))
 			if err != nil {
@@ -114,7 +149,8 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 	})
 
 	g.Go(func() error {
-		return a.MediaManager.RTMPIngest(ctx, fmt.Sprintf("rtmp://%s/live/%s", a.rtmpInternalPlaybackAddr, streamer), mediaSigner)
+		defer close(relayDone)
+		return a.MediaManager.RTMPIngest(ctx, fmt.Sprintf("rtmp://%s/live/%s", a.rtmpInternalPlaybackAddr, streamer), mediaSigner, videoTrackCount)
 	})
 
 	return g.Wait()
@@ -132,9 +168,24 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 		return fmt.Errorf("RTMP session not found for streamer %s", streamer)
 	}
 
+	// Video tracks first, in session track-ID order. gortmplib assigns wire
+	// track IDs by slice position, so this keeps relay IDs identical to the
+	// session's
+	tracks := make([]format.Format, 0, len(session.VideoTracks)+1)
+	for i := 0; i < len(session.VideoTracks); i++ {
+		track, ok := session.VideoTracks[uint8(i)]
+		if !ok {
+			return fmt.Errorf("missing video track %d", i)
+		}
+		tracks = append(tracks, track)
+	}
+	if session.AudioTrack != nil {
+		tracks = append(tracks, session.AudioTrack)
+	}
+
 	w := &gortmplib.Writer{
 		Conn:   sc,
-		Tracks: []format.Format{session.VideoTrack, session.AudioTrack},
+		Tracks: tracks,
 	}
 	err := w.Initialize()
 	if err != nil {
@@ -150,7 +201,11 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 			}
 			switch event := event.(type) {
 			case *media.RTMPH264Data:
-				err := w.WriteH264(session.VideoTrack, event.PTS, event.DTS, event.AU)
+				track, ok := session.VideoTracks[event.TrackID]
+				if !ok {
+					return fmt.Errorf("unknown video track ID: %d", event.TrackID)
+				}
+				err := w.WriteH264(track, event.PTS, event.DTS, event.AU)
 				if err != nil {
 					return fmt.Errorf("error writing H264: %w", err)
 				}

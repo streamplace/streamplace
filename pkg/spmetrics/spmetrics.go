@@ -111,9 +111,29 @@ var TranscodeQueueDepth = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "number of source segments waiting for continuous transcoding",
 }, []string{"streamer"})
 
+var TranscodeQueuedMediaDuration = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_transcode_queued_media_duration_ms",
+	Help: "media duration represented by source segments waiting for continuous transcoding",
+}, []string{"streamer"})
+
 var TranscodeOldestJobAge = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "streamplace_transcode_oldest_job_age_ms",
 	Help: "current age of the oldest continuous-transcode job",
+}, []string{"streamer"})
+
+var TranscodeOldestSourceAge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_transcode_oldest_source_age_ms",
+	Help: "source media age of the oldest continuous-transcode job",
+}, []string{"streamer"})
+
+var TranscodeJobsCompletedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_transcode_jobs_completed_total",
+	Help: "number of source segments completed by continuous transcoding",
+}, []string{"streamer"})
+
+var TranscodeJobsDroppedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_transcode_jobs_dropped_total",
+	Help: "number of queued source segments discarded when continuous transcoding became stale",
 }, []string{"streamer"})
 
 var TranscodeFinishDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{

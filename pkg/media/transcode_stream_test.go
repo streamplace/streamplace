@@ -46,6 +46,53 @@ func TestStreamTranscoderNeedsReset(t *testing.T) {
 	require.True(t, failed.needsReset("aac", 5), "a failed pipeline rebuilds on the next segment")
 }
 
+func TestTranscodeQueuePolicyUsesMediaDurationAndJobCount(t *testing.T) {
+	tests := []struct {
+		name          string
+		depth         int
+		queued        time.Duration
+		next          time.Duration
+		wantAdmission bool
+	}{
+		{name: "one second gops fit", depth: 3, queued: 3 * time.Second, next: time.Second, wantAdmission: true},
+		{name: "two second gops fit", depth: 2, queued: 2 * time.Second, next: 2 * time.Second, wantAdmission: true},
+		{name: "four second gop fits when empty", depth: 0, queued: 0, next: 4 * time.Second, wantAdmission: true},
+		{name: "four second media limit", depth: 3, queued: 3 * time.Second, next: 1*time.Second + time.Nanosecond, wantAdmission: false},
+		{name: "large gop allowed when empty", depth: 0, queued: 0, next: 6 * time.Second, wantAdmission: true},
+		{name: "job count limit", depth: transcodeQueueMaxJobs, queued: 0, next: 0, wantAdmission: false},
+		{name: "unknown duration uses count bound", depth: 3, queued: 0, next: 0, wantAdmission: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.wantAdmission, transcodeQueueFits(tt.depth, tt.queued, tt.next))
+		})
+	}
+}
+
+func TestStreamTranscoderDropsStaleQueuedJobs(t *testing.T) {
+	tr := &streamTranscoder{
+		streamer: "phase4-stale-queue",
+		queued: []transcodeQueueEntry{
+			{enqueuedAt: time.Now().Add(-9 * time.Second), mediaDuration: time.Second},
+			{enqueuedAt: time.Now().Add(-8 * time.Second), mediaDuration: 2 * time.Second},
+		},
+		queueChanged: make(chan struct{}),
+	}
+
+	require.Equal(t, 2, tr.discardStaleQueuedJobs())
+	require.Empty(t, tr.queued)
+	require.Zero(t, tr.queuedMediaDuration)
+	require.True(t, tr.outputsDiscarded())
+}
+
+func TestStreamTranscoderQueueAgeTriggersResync(t *testing.T) {
+	tr := &streamTranscoder{
+		queued:       []transcodeQueueEntry{{enqueuedAt: time.Now().Add(-transcodeQueueMaxAge - time.Nanosecond)}},
+		queueChanged: make(chan struct{}),
+	}
+	require.ErrorIs(t, tr.waitForQueueCapacity(context.Background(), time.Second), ErrTranscodeQueueStale)
+}
+
 // TestFeedStreamTranscoderRebuildsOnNewSession is the end-to-end regression for
 // the rapid stop/start wedge: a streamer disconnects and reconnects within the
 // transcoder's idle window, so the registry would otherwise feed the second

@@ -3,6 +3,7 @@ package media
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http/httputil"
@@ -198,7 +199,20 @@ func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerC
 					}
 				})
 		}
-		return transcoder.Feed(segment, nil)
+		if err := transcoder.Feed(segment, nil); err != nil {
+			if errors.Is(err, ErrTranscodeQueueStale) || transcoder.outputsDiscarded() {
+				stale := transcoder
+				transcoder = nil
+				go func() {
+					if closeErr := stale.Close(); closeErr != nil {
+						log.Error(ctx, "ingest worker: stale transcoder close failed", "error", closeErr)
+					}
+				}()
+				return frames.Segment(segment)
+			}
+			return err
+		}
+		return nil
 	}
 	flush = func() {
 		if transcoder != nil {

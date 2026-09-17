@@ -21,10 +21,25 @@ import (
 // opaque caller context (the validated-segment info), returned verbatim to
 // onComplete so the caller can archive/distribute the completed segment.
 type transcodeJob struct {
-	src        []byte
-	token      any
-	enqueuedAt time.Time
+	src           []byte
+	token         any
+	enqueuedAt    time.Time
+	mediaDuration time.Duration
 }
+
+type transcodeQueueEntry struct {
+	enqueuedAt    time.Time
+	mediaDuration time.Duration
+	sourceStart   time.Time
+}
+
+const (
+	transcodeQueueMaxJobs          = 16
+	transcodeQueueMaxMediaDuration = 4 * time.Second
+	transcodeQueueMaxAge           = 8 * time.Second
+)
+
+var ErrTranscodeQueueStale = errors.New("stream transcoder queue is stale")
 
 // streamTranscoder runs ONE long-lived audio transcode for a single stream.
 //
@@ -59,16 +74,19 @@ type streamTranscoder struct {
 	jobs   chan transcodeJob
 	done   chan struct{}
 
-	feedMu   sync.Mutex // serializes Feed so segments enter in order
-	queueMu  sync.Mutex // protects queuedAt, which mirrors jobs in FIFO order
-	queuedAt []time.Time
-	reaper   *time.Timer // idle reaper; reset on Feed (set by the registry)
-	fedSeq   int         // per-instance feed counter (debug dump ordering); under feedMu
+	feedMu              sync.Mutex // serializes Feed so segments enter in order
+	queueMu             sync.Mutex // protects queued, which mirrors jobs in FIFO order
+	queued              []transcodeQueueEntry
+	queuedMediaDuration time.Duration
+	queueChanged        chan struct{}
+	reaper              *time.Timer // idle reaper; reset on Feed (set by the registry)
+	fedSeq              int         // per-instance feed counter (debug dump ordering); under feedMu
 
-	mu      sync.Mutex
-	started bool
-	closed  bool
-	err     error
+	mu             sync.Mutex
+	started        bool
+	closed         bool
+	discardOutputs bool
+	err            error
 }
 
 // streamTranscoderIdle is how long a per-stream transcoder lingers with no new
@@ -146,7 +164,25 @@ func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedS
 	mm.transcodersMu.Unlock()
 
 	t.reaper.Reset(streamTranscoderIdle)
-	return t.Feed(src, vs)
+	if err := t.Feed(src, vs); err != nil {
+		if errors.Is(err, ErrTranscodeQueueStale) || t.outputsDiscarded() {
+			mm.transcodersMu.Lock()
+			if mm.transcoders[did] == t {
+				delete(mm.transcoders, did)
+			}
+			mm.transcodersMu.Unlock()
+			go func() {
+				if closeErr := t.Close(); closeErr != nil {
+					log.Error(ctx, "stale stream transcoder close failed", "streamer", did, "error", closeErr)
+				}
+			}()
+			// Preserve the source GOP for consumers that can use its original
+			// codec while the next GOP starts a fresh derived pipeline.
+			return mm.distributeSegment(ctx, vs, src)
+		}
+		return err
+	}
+	return nil
 }
 
 // needsReset reports whether an existing per-stream transcoder must be torn down
@@ -174,6 +210,131 @@ func (t *streamTranscoder) failed() bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.err != nil
+}
+
+func transcodeQueueFits(depth int, queuedMediaDuration, nextMediaDuration time.Duration) bool {
+	if depth >= transcodeQueueMaxJobs {
+		return false
+	}
+	if nextMediaDuration <= 0 || queuedMediaDuration <= 0 {
+		return true
+	}
+	return queuedMediaDuration+nextMediaDuration <= transcodeQueueMaxMediaDuration
+}
+
+func (t *streamTranscoder) signalQueueChangedLocked() {
+	if t.queueChanged == nil {
+		return
+	}
+	close(t.queueChanged)
+	t.queueChanged = make(chan struct{})
+}
+
+func (t *streamTranscoder) waitForQueueCapacity(ctx context.Context, mediaDuration time.Duration) error {
+	for {
+		t.queueMu.Lock()
+		depth := len(t.queued)
+		queuedDuration := t.queuedMediaDuration
+		stale := false
+		if depth > 0 {
+			oldest := t.queued[0].enqueuedAt
+			if !t.queued[0].sourceStart.IsZero() && time.Now().After(t.queued[0].sourceStart) {
+				oldest = t.queued[0].sourceStart
+			}
+			stale = time.Since(oldest) > transcodeQueueMaxAge
+		}
+		changed := t.queueChanged
+		fits := transcodeQueueFits(depth, queuedDuration, mediaDuration)
+		t.queueMu.Unlock()
+
+		if stale {
+			return ErrTranscodeQueueStale
+		}
+		if fits {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-changed:
+		}
+	}
+}
+
+func transcodeMediaMetadata(token any) (time.Duration, time.Time) {
+	vs, ok := token.(*validatedSegment)
+	if !ok || vs == nil || vs.mediaData == nil || vs.mediaData.Duration <= 0 {
+		if !ok || vs == nil || vs.timing == nil {
+			return 0, time.Time{}
+		}
+		return 0, vs.timing.SourceStart
+	}
+	if vs.timing == nil {
+		return time.Duration(vs.mediaData.Duration), time.Time{}
+	}
+	return time.Duration(vs.mediaData.Duration), vs.timing.SourceStart
+}
+
+func (t *streamTranscoder) outputsDiscarded() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.discardOutputs
+}
+
+// discardStaleQueuedJobs invalidates all output from this transcoder and
+// cancels its pipeline. The source caller can then publish the current source
+// GOP as a compatible fallback while the next GOP starts a fresh transcoder.
+func (t *streamTranscoder) discardStaleQueuedJobs() int {
+	t.mu.Lock()
+	t.discardOutputs = true
+	t.mu.Unlock()
+
+	t.queueMu.Lock()
+	dropped := len(t.queued)
+	t.queued = nil
+	t.queuedMediaDuration = 0
+	t.signalQueueChangedLocked()
+	t.queueMu.Unlock()
+	if dropped > 0 {
+		spmetrics.TranscodeJobsDroppedTotal.WithLabelValues(t.streamer).Add(float64(dropped))
+	}
+	if t.cancel != nil {
+		t.cancel()
+	}
+	spmetrics.TranscodeQueueDepth.WithLabelValues(t.streamer).Set(0)
+	spmetrics.TranscodeQueuedMediaDuration.WithLabelValues(t.streamer).Set(0)
+	spmetrics.TranscodeOldestJobAge.WithLabelValues(t.streamer).Set(0)
+	spmetrics.TranscodeOldestSourceAge.WithLabelValues(t.streamer).Set(0)
+	return dropped
+}
+
+func (t *streamTranscoder) removeLastQueuedJob() {
+	t.queueMu.Lock()
+	if len(t.queued) > 0 {
+		last := t.queued[len(t.queued)-1]
+		t.queued = t.queued[:len(t.queued)-1]
+		t.queuedMediaDuration -= last.mediaDuration
+		if t.queuedMediaDuration < 0 {
+			t.queuedMediaDuration = 0
+		}
+		t.signalQueueChangedLocked()
+	}
+	t.queueMu.Unlock()
+}
+
+func (t *streamTranscoder) completeQueuedJob() {
+	t.queueMu.Lock()
+	if len(t.queued) > 0 {
+		entry := t.queued[0]
+		t.queued = t.queued[1:]
+		t.queuedMediaDuration -= entry.mediaDuration
+		if t.queuedMediaDuration < 0 {
+			t.queuedMediaDuration = 0
+		}
+		t.signalQueueChangedLocked()
+	}
+	t.queueMu.Unlock()
+	t.observeTranscodeQueue(time.Now())
 }
 
 // isClosed reports whether the transcoder has been torn down (flushed + stopped).
@@ -205,7 +366,8 @@ func (mm *MediaManager) newStreamTranscoder(parent context.Context, target strin
 	t := &streamTranscoder{
 		mm: mm, streamer: streamer, target: target, cert: cert, keyPEM: keyPEM, onComplete: onComplete,
 		ctx: ctx, cancel: cancel, feedW: feedW,
-		jobs: make(chan transcodeJob, 16), done: make(chan struct{}),
+		jobs: make(chan transcodeJob, transcodeQueueMaxJobs), done: make(chan struct{}),
+		queueChanged: make(chan struct{}),
 	}
 	go func() {
 		defer close(t.done)
@@ -265,19 +427,26 @@ func (t *streamTranscoder) Feed(src []byte, token any) error {
 			return err
 		}
 	}
+	mediaDuration, sourceStart := transcodeMediaMetadata(token)
+	if err := t.waitForQueueCapacity(t.ctx, mediaDuration); err != nil {
+		if errors.Is(err, ErrTranscodeQueueStale) {
+			t.discardStaleQueuedJobs()
+		}
+		return err
+	}
 	// Enqueue the job before feeding the bytes so the consumer has the source
 	// ready by the time its (lagging) transcoded twin emerges.
 	enqueuedAt := time.Now()
 	t.queueMu.Lock()
-	t.queuedAt = append(t.queuedAt, enqueuedAt)
+	t.queued = append(t.queued, transcodeQueueEntry{enqueuedAt: enqueuedAt, mediaDuration: mediaDuration, sourceStart: sourceStart})
+	t.queuedMediaDuration += mediaDuration
 	t.queueMu.Unlock()
+	t.observeTranscodeQueue(time.Now())
 	select {
-	case t.jobs <- transcodeJob{src: src, token: token, enqueuedAt: enqueuedAt}:
+	case t.jobs <- transcodeJob{src: src, token: token, enqueuedAt: enqueuedAt, mediaDuration: mediaDuration}:
 		t.observeTranscodeQueue(time.Now())
 	case <-t.ctx.Done():
-		t.queueMu.Lock()
-		t.queuedAt = t.queuedAt[:len(t.queuedAt)-1]
-		t.queueMu.Unlock()
+		t.removeLastQueuedJob()
 		t.observeTranscodeQueue(time.Now())
 		return t.ctx.Err()
 	}
@@ -328,10 +497,14 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 	ctx := t.ctx
 	defer func() {
 		t.queueMu.Lock()
-		t.queuedAt = nil
+		t.queued = nil
+		t.queuedMediaDuration = 0
+		t.signalQueueChangedLocked()
 		t.queueMu.Unlock()
 		spmetrics.TranscodeQueueDepth.WithLabelValues(t.streamer).Set(0)
+		spmetrics.TranscodeQueuedMediaDuration.WithLabelValues(t.streamer).Set(0)
 		spmetrics.TranscodeOldestJobAge.WithLabelValues(t.streamer).Set(0)
+		spmetrics.TranscodeOldestSourceAge.WithLabelValues(t.streamer).Set(0)
 	}()
 	pipeline, err := buildAudioTranscodePipeline(t.target)
 	if err != nil {
@@ -404,17 +577,12 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 		var job transcodeJob
 		select {
 		case job = <-t.jobs:
-			t.queueMu.Lock()
-			if len(t.queuedAt) > 0 {
-				t.queuedAt = t.queuedAt[1:]
-			}
-			t.queueMu.Unlock()
-			t.observeTranscodeQueue(time.Now())
 		case <-ctx.Done():
 			return ctx.Err()
 		}
 		if len(transAudio) == 0 {
 			log.Error(ctx, "stream transcode: emitted segment missing audio track", "track", audioTID)
+			t.completeQueuedJob()
 			continue
 		}
 
@@ -429,6 +597,7 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 			Observe(float64(time.Since(finishStarted).Milliseconds()))
 		if err != nil {
 			log.Error(ctx, "stream transcode: finish segment failed", "error", err)
+			t.completeQueuedJob()
 			continue
 		}
 		spmetrics.TranscodeCompletionLag.WithLabelValues(t.streamer).
@@ -436,7 +605,11 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 		if v, ok := job.token.(*validatedSegment); ok && v.timing != nil {
 			v.timing.MasteringCompleted = time.Now()
 		}
-		t.onComplete(job.token, completed)
+		if !t.outputsDiscarded() {
+			t.onComplete(job.token, completed)
+			spmetrics.TranscodeJobsCompletedTotal.WithLabelValues(t.streamer).Inc()
+		}
+		t.completeQueuedJob()
 	}
 
 	// eventCh closed: prefer a real pipeline/segmenter error over a clean EOF.
@@ -451,15 +624,22 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 
 func (t *streamTranscoder) observeTranscodeQueue(now time.Time) {
 	t.queueMu.Lock()
-	depth := len(t.queuedAt)
-	oldestAge := time.Duration(0)
-	if depth > 0 && now.After(t.queuedAt[0]) {
-		oldestAge = now.Sub(t.queuedAt[0])
+	depth := len(t.queued)
+	queuedDuration := t.queuedMediaDuration
+	oldestJobAge := time.Duration(0)
+	oldestSourceAge := time.Duration(0)
+	if depth > 0 && now.After(t.queued[0].enqueuedAt) {
+		oldestJobAge = now.Sub(t.queued[0].enqueuedAt)
+		if !t.queued[0].sourceStart.IsZero() && now.After(t.queued[0].sourceStart) {
+			oldestSourceAge = now.Sub(t.queued[0].sourceStart)
+		}
 	}
 	t.queueMu.Unlock()
 
 	spmetrics.TranscodeQueueDepth.WithLabelValues(t.streamer).Set(float64(depth))
-	spmetrics.TranscodeOldestJobAge.WithLabelValues(t.streamer).Set(float64(oldestAge.Milliseconds()))
+	spmetrics.TranscodeQueuedMediaDuration.WithLabelValues(t.streamer).Set(float64(queuedDuration.Milliseconds()))
+	spmetrics.TranscodeOldestJobAge.WithLabelValues(t.streamer).Set(float64(oldestJobAge.Milliseconds()))
+	spmetrics.TranscodeOldestSourceAge.WithLabelValues(t.streamer).Set(float64(oldestSourceAge.Milliseconds()))
 }
 
 // finishTranscodedSegment assembles one completed dual-codec segment: relabel

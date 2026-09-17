@@ -25,6 +25,29 @@ func TestSubscribeSegmentBufReplaysCachedSegments(t *testing.T) {
 	}
 }
 
+func TestPublishSegmentPreservesOrder(t *testing.T) {
+	b := NewBus()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sub := b.SubscribeSegment(ctx, "streamer", "source")
+	defer b.UnsubscribeSegment(ctx, "streamer", "source", sub)
+	segments := make([]*Seg, 64)
+	for i := range segments {
+		segments[i] = &Seg{}
+		b.PublishSegment(ctx, "streamer", "source", segments[i])
+	}
+
+	for i, want := range segments {
+		select {
+		case got := <-sub.C:
+			require.Same(t, want, got, "segment %d arrived out of order", i)
+		case <-time.After(time.Second):
+			t.Fatalf("segment %d was not delivered", i)
+		}
+	}
+}
+
 func TestSegmentTimingClonePreservesValuesWithoutSharingState(t *testing.T) {
 	source := time.Unix(100, 0)
 	timing := &SegmentTiming{

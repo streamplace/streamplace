@@ -495,6 +495,20 @@ func (t *streamTranscoder) Close() error {
 // and finishes each emitted transcoded segment against its source.
 func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 	ctx := t.ctx
+	metricsDone := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(250 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				t.observeTranscodeQueue(time.Now())
+			case <-metricsDone:
+				return
+			}
+		}
+	}()
+	defer close(metricsDone)
 	defer func() {
 		t.queueMu.Lock()
 		t.queued = nil

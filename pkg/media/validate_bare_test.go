@@ -31,20 +31,20 @@ import (
 	"stream.place/streamplace/pkg/muxl"
 )
 
-func TestSourceStartForTimingUsesLocalMediaDuration(t *testing.T) {
+func TestSourceStartForTimingUsesSignedCompletionAndMediaDuration(t *testing.T) {
 	receivedAt := time.Date(2026, 9, 17, 2, 0, 0, 0, time.UTC)
 	metadataStart := receivedAt.Add(-10 * time.Minute)
 	meta := &SegmentMetadata{StartTime: aqtime.FromTime(metadataStart)}
 
-	require.Equal(t, receivedAt.Add(-800*time.Millisecond), sourceStartForTiming(meta, 800*time.Millisecond, receivedAt, true),
-		"local ingest should anchor source age to the media end and duration")
-	require.Equal(t, metadataStart, sourceStartForTiming(meta, 800*time.Millisecond, receivedAt, false),
-		"replicated media should keep its signed timeline timestamp")
-	require.Equal(t, metadataStart, sourceStartForTiming(meta, 0, receivedAt, true),
+	require.Equal(t, metadataStart.Add(-800*time.Millisecond), sourceStartForTiming(meta, 800*time.Millisecond),
+		"source age should use the signed completion timestamp minus media duration")
+	require.Equal(t, metadataStart.Add(-800*time.Millisecond), sourceStartForTiming(meta, 800*time.Millisecond),
+		"replayed and replicated media should use the same source timeline")
+	require.Equal(t, metadataStart, sourceStartForTiming(meta, 0),
 		"missing duration should keep the signed timestamp")
-	require.Equal(t, metadataStart, sourceStartForTiming(meta, -time.Second, receivedAt, true),
+	require.Equal(t, metadataStart, sourceStartForTiming(meta, -time.Second),
 		"invalid duration should keep the signed timestamp")
-	require.Equal(t, time.Time{}, sourceStartForTiming(nil, time.Second, receivedAt, true),
+	require.Equal(t, time.Time{}, sourceStartForTiming(nil, time.Second),
 		"missing metadata should not fabricate a source timestamp")
 }
 

@@ -50,7 +50,7 @@ func makeLiveH264OpusFMP4WithGOP(t *testing.T, ctx context.Context, gopFrames in
 	return output.Bytes()
 }
 
-func TestRTMPIngestAudioChainProducesOpus(t *testing.T) {
+func TestRTMPIngestAudioChainPreservesAAC(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -61,7 +61,7 @@ func TestRTMPIngestAudioChainProducesOpus(t *testing.T) {
 	gstinit.InitGST()
 	desc := strings.Join([]string{
 		"filesrc location=" + path + " ! qtdemux name=demux",
-		rtmpIngestAudioChain("demux.") + " ! opusparse ! appsink name=sink sync=false",
+		rtmpIngestAudioChain("demux.") + " ! appsink name=sink sync=false",
 	}, "\n")
 	pipeline, err := gst.NewPipelineFromString(desc)
 	require.NoError(t, err)
@@ -90,8 +90,8 @@ func TestRTMPIngestAudioChainProducesOpus(t *testing.T) {
 	defer func() { _ = pipeline.SetState(gst.StateNull) }()
 	require.NoError(t, <-busErr)
 	require.Positive(t, samples, "RTMP's AAC input chain should produce audio")
-	require.Equal(t, "audio/x-opus", capsName,
-		"RTMP ingest should sign the WebRTC-compatible Opus source")
+	require.Equal(t, "audio/mpeg", capsName,
+		"RTMP ingest should preserve its AAC source")
 }
 
 func TestRTMPSourceAudioCodecIdentifiesOpus(t *testing.T) {
@@ -128,4 +128,20 @@ func TestRTMPAudioChainSupportsSourceCodecs(t *testing.T) {
 	require.NotContains(t, rtmpAudioChain("aac"), "opusdec")
 	require.Contains(t, rtmpAudioChain("opus"), "opusparse")
 	require.Contains(t, rtmpAudioChain("opus"), "fdkaacenc")
+}
+
+func TestFilterSegmentToCodecRejectsMissingTrack(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	ms := newBareSegmentSigner(t)
+	aacInput := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
+	aacPath := filepath.Join(t.TempDir(), "aac-source.mp4")
+	require.NoError(t, os.WriteFile(aacPath, aacInput, 0600))
+	aacSegments := allSignedBareSegments(t, ctx, ms, aacPath)
+	require.NotEmpty(t, aacSegments)
+
+	_, err := filterSegmentToCodec(ctx, aacSegments[0], true)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no Opus audio track")
 }

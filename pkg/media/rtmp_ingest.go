@@ -31,17 +31,16 @@ type RTMPSession struct {
 }
 
 func rtmpIngestAudioChain(audioPad string) string {
-	return fmt.Sprintf("%s ! %s ! fdkaacdec ! audioresample ! opusenc name=audioenc", audioPad, constants.Queue2Big)
+	return fmt.Sprintf("%s ! %s ! aacparse name=audioenc", audioPad, constants.Queue2Big)
 }
 
 func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms MediaSigner) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	ctx = withIngestProtocol(ctx, "rtmp")
-	// Mint the source audio as Opus continuously. WebRTC can consume the signed
-	// source immediately while ValidateMP4 derives AAC asynchronously for the
-	// canonical source. This keeps RTMP on the same source-compatible path as
-	// MP4 and WHIP instead of gating first playback on a one-GoP transcode.
+	// RTMP carries AAC already. Preserve it through ingest so the canonical path
+	// does not pay an AAC→Opus→AAC round trip; validation derives Opus only when a
+	// WebRTC-compatible companion is needed.
 	pipelineSlice := []string{
 		fmt.Sprintf("rtmp2src location=%s ! flvdemux name=demux", rtmpURL),
 		rtmpIngestAudioChain("demux.audio"),

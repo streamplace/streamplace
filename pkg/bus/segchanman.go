@@ -133,16 +133,13 @@ func (b *Bus) PublishSegment(ctx context.Context, user string, rendition string,
 		return
 	}
 	for _, ch := range chs {
-		go func(segChan *SegChan) {
-			select {
-			case segChan.C <- seg:
-			case <-segChan.Context.Done():
-				return
-			case <-time.After(1 * time.Minute):
-				log.Warn(ctx, "failed to send segment to channel, timing out", "user", user, "rendition", rendition)
-			}
-
-		}(ch)
+		select {
+		case ch.C <- seg:
+		case <-ch.Context.Done():
+			continue
+		case <-time.After(1 * time.Minute):
+			log.Warn(ctx, "failed to send segment to channel, timing out", "user", user, "rendition", rendition)
+		}
 	}
 }
 

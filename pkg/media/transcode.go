@@ -355,9 +355,10 @@ func concatTrackAcrossSegments(events []*muxl.MuxlEvent, tid uint32) []byte {
 // track plus the single audio track matching the requested codec (Opus when
 // wantOpus, else AAC) — how an output consumer "asks for the audio it needs"
 // from a dual-codec segment. Track bytes are carried verbatim (signatures
-// intact) in ascending track-id order. If no audio matches the requested
-// codec, any one audio track is kept (degraded but playable); with no audio
-// info at all, the segment is returned unchanged.
+// intact) in ascending track-id order. If audio metadata exists but no track
+// matches, return an error rather than silently feeding the wrong codec into a
+// fixed downstream parser. With no audio info at all, the segment is returned
+// unchanged.
 func filterSegmentToCodec(ctx context.Context, seg []byte, wantOpus bool) ([]byte, error) {
 	events, err := unwrapMuxlEvents(ctx, seg)
 	if err != nil {
@@ -383,11 +384,12 @@ func filterSegmentToCodec(ctx context.Context, seg []byte, wantOpus bool) ([]byt
 				break
 			}
 		}
-		if !found { // no exact codec match — keep some audio rather than none
-			for _, a := range cat.Audio.Renditions {
-				chosen, found = a.TrackID(), true
-				break
+		if !found {
+			wanted := "AAC"
+			if wantOpus {
+				wanted = "Opus"
 			}
+			return nil, fmt.Errorf("segment has no %s audio track", wanted)
 		}
 		if found {
 			keep[chosen] = true

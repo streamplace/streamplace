@@ -43,21 +43,19 @@ func ingestProtocol(ctx context.Context) string {
 	}
 }
 
-// sourceStartForTiming estimates the start of a locally ingested segment from
-// the wall-clock time its complete media became available and its measured
-// duration. Signed metadata is a segment timestamp, not a capture clock: the
-// signer stamps it at segment completion. Replicated segments retain that
-// signed timestamp because their local receipt clock cannot describe the
-// source session. Invalid or missing local timing falls back safely.
-func sourceStartForTiming(meta *SegmentMetadata, mediaDuration time.Duration, receivedAt time.Time, local bool) time.Time {
+// sourceStartForTiming estimates the start of a segment from the signer's
+// completion timestamp and its measured duration. Using the signed timestamp
+// keeps replayed worker frames and replicated segments anchored to the source
+// timeline rather than to the time this node happened to receive them.
+func sourceStartForTiming(meta *SegmentMetadata, mediaDuration time.Duration) time.Time {
 	if meta == nil {
 		return time.Time{}
 	}
 	signedStart := meta.StartTime.Time()
-	if !local || mediaDuration <= 0 || receivedAt.IsZero() {
+	if mediaDuration <= 0 {
 		return signedStart
 	}
-	return receivedAt.Add(-mediaDuration)
+	return signedStart.Add(-mediaDuration)
 }
 
 // segmentValidation mirrors one entry of muxl-sign `verify`'s output: the
@@ -96,7 +94,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 	vs.timing = &bus.SegmentTiming{
 		SegmentID:      vs.label,
 		Ingress:        ingestProtocol(ctx),
-		SourceStart:    sourceStartForTiming(vs.meta, time.Duration(vs.mediaData.Duration), receivedAt, local),
+		SourceStart:    sourceStartForTiming(vs.meta, time.Duration(vs.mediaData.Duration)),
 		IngestReceived: receivedAt,
 		// ValidateMP4 receives the signed canonical segment. The signing
 		// implementation finishes before this boundary, so this is the
@@ -121,12 +119,9 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 				// Opus is already the WebRTC playback codec. Publish a private
 				// playback copy immediately while the AAC derivative catches up;
 				// canonical source publication remains gated on completion.
-				immediateTiming := vs.timing.Clone()
-				go func() {
-					if err := mm.publishImmediateWebRTC(context.WithoutCancel(ctx), vs.repoDID, vs.meta.Published, immediateTiming, buf); err != nil {
-						log.Error(ctx, "immediate WebRTC source publish failed", "streamer", vs.repoDID, "error", err)
-					}
-				}()
+				if err := mm.publishImmediateWebRTC(context.WithoutCancel(ctx), vs.repoDID, vs.meta.Published, vs.timing.Clone(), buf); err != nil {
+					log.Error(ctx, "immediate WebRTC source publish failed", "streamer", vs.repoDID, "error", err)
+				}
 			}
 			return mm.feedStreamTranscoder(ctx, vs, buf, target, cert, keyPEM)
 		} else {

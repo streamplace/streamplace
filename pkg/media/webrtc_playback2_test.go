@@ -52,6 +52,68 @@ func TestObserveWebRTCSegmentLatency(t *testing.T) {
 	require.InDelta(t, beforeIngestCompleteSum+1600, ingestCompleteSum, 0.01)
 }
 
+func TestPlaybackRateUsesSourceAge(t *testing.T) {
+	tests := []struct {
+		name string
+		age  time.Duration
+		want float64
+	}{
+		{name: "target", age: 2 * time.Second, want: 1.0},
+		{name: "target ceiling", age: 4 * time.Second, want: 1.0},
+		{name: "soft catch-up", age: 5 * time.Second, want: 1.125},
+		{name: "aggressive catch-up boundary", age: 6 * time.Second, want: 1.25},
+		{name: "drop boundary", age: 8 * time.Second, want: 1.5},
+		{name: "capped", age: 30 * time.Second, want: 1.5},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.InDelta(t, tt.want, getPlaybackRateForSourceAge(tt.age), 0.0001)
+		})
+	}
+}
+
+func TestPlaybackRecoveryUsesSourceAgeWhenLocalQueueIsShort(t *testing.T) {
+	require.Greater(t, playbackRate(5*time.Second, 500*time.Millisecond, true), 1.0)
+	require.True(t, shouldDropStaleGOP(8*time.Second+time.Nanosecond, true))
+	require.False(t, shouldDropStaleGOP(8*time.Second+time.Nanosecond, false))
+}
+
+func TestPlaybackRecoveryFallsBackToLocalQueueWithoutTiming(t *testing.T) {
+	require.Equal(t, getPlaybackRate(8*time.Second), playbackRate(0, 8*time.Second, false))
+	require.False(t, shouldDropStaleGOP(30*time.Second, false))
+	_, valid := playbackSourceAge(&bus.SegmentTiming{SourceStart: time.Unix(101, 0)}, time.Unix(100, 0))
+	require.False(t, valid, "future source timestamps must not trigger recovery")
+}
+
+func TestDiscardStaleGOPsDropsOnlyWholeSegments(t *testing.T) {
+	now := time.Unix(100, 0)
+	stale := func(id string, age time.Duration) *bus.PacketizedSegment {
+		return &bus.PacketizedSegment{
+			Streamer:  "recovery-test",
+			Rendition: WebRTCSourceRendition,
+			Timing: &bus.SegmentTiming{
+				SegmentID:   id,
+				SourceStart: now.Add(-age),
+			},
+		}
+	}
+	packets := []*bus.PacketizedSegment{
+		stale("stale-1", 9*time.Second),
+		stale("stale-2", 8*time.Second+time.Millisecond),
+		stale("live-edge", 2*time.Second),
+	}
+	next := 0
+	got, dropped := discardStaleGOPs(packets[0], func() (*bus.PacketizedSegment, bool) {
+		if next >= len(packets)-1 {
+			return nil, false
+		}
+		next++
+		return packets[next], true
+	}, now)
+	require.Equal(t, 2, dropped)
+	require.Same(t, packets[2], got)
+}
+
 func TestWebRTCPlayback2(t *testing.T) {
 	mm, _ := getStaticTestMediaManager(t)
 	ignore := goleak.IgnoreCurrent()

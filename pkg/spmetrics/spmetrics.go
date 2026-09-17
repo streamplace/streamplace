@@ -146,6 +146,21 @@ var WebRTCQueueDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Buckets: []float64{0, 250, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 15000, 30000},
 }, []string{"streamer", "rendition"})
 
+var WebRTCLocalQueueDuration = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_webrtc_local_queue_duration_ms",
+	Help: "current packetized media duration waiting behind the WebRTC sender in ms",
+}, []string{"streamer", "rendition"})
+
+var WebRTCOldestSourceAge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_webrtc_oldest_source_age_ms",
+	Help: "source media age of the oldest WebRTC packet selected for playback in ms",
+}, []string{"streamer", "rendition"})
+
+var WebRTCStaleGOPDroppedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_webrtc_stale_gop_dropped_total",
+	Help: "number of complete stale WebRTC GOPs dropped during live-edge recovery",
+}, []string{"streamer", "rendition"})
+
 var WebRTCSourceAge = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "streamplace_webrtc_source_age_ms",
 	Help:    "source media age when queued or first sent by WebRTC in ms",

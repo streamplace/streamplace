@@ -41,6 +41,68 @@ func observeWebRTCSegmentLatency(timing *bus.SegmentTiming, streamer, rendition 
 	}
 }
 
+const (
+	playbackTargetAge = 4 * time.Second
+	playbackDropAge   = 8 * time.Second
+)
+
+// playbackSourceAge is stricter than SegmentTiming.SourceAge because callers
+// need to distinguish a valid source timestamp at the current instant from
+// missing timing metadata. Future timestamps are invalid for recovery too.
+func playbackSourceAge(timing *bus.SegmentTiming, now time.Time) (time.Duration, bool) {
+	if timing == nil || timing.SourceStart.IsZero() || now.Before(timing.SourceStart) {
+		return 0, false
+	}
+	return now.Sub(timing.SourceStart), true
+}
+
+func getPlaybackRateForSourceAge(age time.Duration) float64 {
+	switch {
+	case age <= playbackTargetAge:
+		return 1.0
+	case age >= playbackDropAge:
+		return 1.5
+	default:
+		// Linear interpolation between (4s, 1.0) and (8s, 1.5). The
+		// drop threshold is handled separately so this rate is bounded.
+		progress := (float64(age) - float64(playbackTargetAge)) /
+			(float64(playbackDropAge) - float64(playbackTargetAge))
+		return 1.0 + (0.5 * progress)
+	}
+}
+
+func playbackRate(sourceAge, queueDuration time.Duration, hasSourceAge bool) float64 {
+	if hasSourceAge {
+		return getPlaybackRateForSourceAge(sourceAge)
+	}
+	return getPlaybackRate(queueDuration)
+}
+
+func shouldDropStaleGOP(sourceAge time.Duration, hasSourceAge bool) bool {
+	return hasSourceAge && sourceAge > playbackDropAge
+}
+
+// discardStaleGOPs removes complete packetized segments from the head of the
+// playback stream until a segment near the live edge is available. A
+// PacketizedSegment is the packetized form of one source GOP, so this keeps
+// the drop boundary safe for video reference frames.
+func discardStaleGOPs(current *bus.PacketizedSegment, next func() (*bus.PacketizedSegment, bool), now time.Time) (*bus.PacketizedSegment, int) {
+	dropped := 0
+	for current != nil {
+		age, hasSourceAge := playbackSourceAge(current.Timing, now)
+		if !shouldDropStaleGOP(age, hasSourceAge) {
+			return current, dropped
+		}
+		dropped++
+		var ok bool
+		current, ok = next()
+		if !ok {
+			return nil, dropped
+		}
+	}
+	return nil, dropped
+}
+
 // This function remains in scope for the duration of a single users' playback
 func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendition string, offer *webrtc.SessionDescription, viewer string) (*webrtc.SessionDescription, error) {
 	playbackStarted := time.Now()
@@ -195,7 +257,11 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					latencyMu.Lock()
 					latency += packet.Duration
 					latencyMu.Unlock()
-					packetQueue <- packet
+					select {
+					case packetQueue <- packet:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}()
@@ -208,20 +274,53 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 				}
 			}()
 
-			var scalar float64 = 1
-
 			for {
 				select {
 				case <-ctx.Done():
 					return
 				case packet := <-packetQueue:
+					latencyMu.Lock()
+					latency -= packet.Duration
+					if latency < 0 {
+						latency = 0
+					}
+					latencyMu.Unlock()
+
+					initialStreamer := packet.Streamer
+					initialRendition := packet.Rendition
+					now := time.Now()
+					if sourceAge, hasSourceAge := playbackSourceAge(packet.Timing, now); shouldDropStaleGOP(sourceAge, hasSourceAge) {
+						packet, dropped := discardStaleGOPs(packet, func() (*bus.PacketizedSegment, bool) {
+							select {
+							case next, ok := <-packetQueue:
+								if !ok {
+									return nil, false
+								}
+								latencyMu.Lock()
+								latency -= next.Duration
+								if latency < 0 {
+									latency = 0
+								}
+								latencyMu.Unlock()
+								return next, true
+							default:
+								return nil, false
+							}
+						}, now)
+						if dropped > 0 {
+							spmetrics.WebRTCStaleGOPDroppedTotal.WithLabelValues(initialStreamer, initialRendition).
+								Add(float64(dropped))
+						}
+						if packet == nil {
+							continue
+						}
+					}
+
 					var segmentFirstSend sync.Once
 					latencyMu.Lock()
-					queuedLatency := latency
-					latency -= packet.Duration
 					currentLatency := latency
 					latencyMu.Unlock()
-					scalar = getPlaybackRate(currentLatency)
+					queuedLatency := currentLatency + packet.Duration
 					spmetrics.WebRTCQueueDuration.WithLabelValues(packet.Streamer, packet.Rendition).
 						Observe(float64(queuedLatency.Milliseconds()))
 					segmentID := ""
@@ -229,10 +328,11 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					packetizeDuration := time.Duration(0)
 					packetizeQueueDuration := time.Duration(0)
 					sourceAge := time.Duration(0)
+					hasSourceAge := false
 					if packet.Timing != nil {
 						segmentID = packet.Timing.SegmentID
 						sourceStart = packet.Timing.SourceStart
-						sourceAge = packet.Timing.SourceAge(time.Now())
+						sourceAge, hasSourceAge = playbackSourceAge(packet.Timing, time.Now())
 						if !packet.Timing.PacketizeStarted.IsZero() && !packet.Timing.PacketizeCompleted.IsZero() {
 							packetizeDuration = packet.Timing.PacketizeCompleted.Sub(packet.Timing.PacketizeStarted)
 						}
@@ -240,6 +340,11 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 							packetizeQueueDuration = packet.Timing.PacketizeStarted.Sub(packet.Timing.Distributed)
 						}
 					}
+					scalar := playbackRate(sourceAge, currentLatency, hasSourceAge)
+					spmetrics.WebRTCLocalQueueDuration.WithLabelValues(packet.Streamer, packet.Rendition).
+						Set(float64(currentLatency.Milliseconds()))
+					spmetrics.WebRTCOldestSourceAge.WithLabelValues(packet.Streamer, packet.Rendition).
+						Set(float64(sourceAge.Milliseconds()))
 					log.Debug(ctx, "playback latency",
 						"segment_id", segmentID,
 						"streamer", packet.Streamer,
@@ -439,7 +544,8 @@ func writeSamples(ctx context.Context, track *webrtc.TrackLocalStaticSample, sam
 	return nil
 }
 
-// getPlaybackRate returns a playback rate that eases from 1.0 to 1.5 between 7 and 60 seconds
+// getPlaybackRate is the compatibility fallback for packets without source
+// timing. Timed packets use getPlaybackRateForSourceAge instead.
 func getPlaybackRate(dur time.Duration) float64 {
 	switch {
 	case dur <= 7*time.Second:

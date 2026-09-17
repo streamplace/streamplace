@@ -93,6 +93,44 @@ func TestStreamTranscoderQueueAgeTriggersResync(t *testing.T) {
 	require.ErrorIs(t, tr.waitForQueueCapacity(context.Background(), time.Second), ErrTranscodeQueueStale)
 }
 
+func TestStreamTranscoderQueueWaitsForSlowWorker(t *testing.T) {
+	const segmentDuration = 500 * time.Millisecond
+	queuedAt := time.Now()
+	tr := &streamTranscoder{
+		queued:              make([]transcodeQueueEntry, transcodeQueueMaxMediaDuration/segmentDuration),
+		queuedMediaDuration: transcodeQueueMaxMediaDuration,
+		queueChanged:        make(chan struct{}),
+	}
+	for i := range tr.queued {
+		tr.queued[i] = transcodeQueueEntry{enqueuedAt: queuedAt, mediaDuration: segmentDuration}
+	}
+
+	capacity := make(chan error, 1)
+	go func() {
+		capacity <- tr.waitForQueueCapacity(context.Background(), segmentDuration)
+	}()
+
+	select {
+	case err := <-capacity:
+		t.Fatalf("queue admitted a segment while the slow worker was still at capacity: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	// Completing one old job frees exactly one 500 ms slot and must wake the
+	// blocked feed without allowing the queue to exceed its media budget.
+	tr.completeQueuedJob()
+	select {
+	case err := <-capacity:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("queue did not admit a segment after the worker completed one")
+	}
+
+	tr.queueMu.Lock()
+	require.Equal(t, transcodeQueueMaxMediaDuration-segmentDuration, tr.queuedMediaDuration)
+	tr.queueMu.Unlock()
+}
+
 // TestFeedStreamTranscoderRebuildsOnNewSession is the end-to-end regression for
 // the rapid stop/start wedge: a streamer disconnects and reconnects within the
 // transcoder's idle window, so the registry would otherwise feed the second

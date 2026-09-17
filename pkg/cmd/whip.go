@@ -19,9 +19,12 @@ import (
 	"stream.place/streamplace/pkg/media"
 )
 
-func WHIP(ctx context.Context, streamKey string, count int, viewers int, duration time.Duration, file string, endpoint string, freezeAfter time.Duration) error {
+func WHIP(ctx context.Context, streamKey string, count int, viewers int, duration time.Duration, file string, endpoint string, freezeAfter time.Duration, retry time.Duration) error {
 	if file == "" {
 		return fmt.Errorf("file is required")
+	}
+	if retry < 0 {
+		return fmt.Errorf("retry must not be negative")
 	}
 	gstinit.InitGST()
 
@@ -40,7 +43,24 @@ func WHIP(ctx context.Context, streamKey string, count int, viewers int, duratio
 		Viewers:     viewers,
 	}
 
-	return w.WHIP(ctx)
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		err := w.WHIP(ctx)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if retry == 0 {
+			return err
+		}
+		log.Log(ctx, "WHIP session ended, retrying", "error", err, "delay", retry)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(retry):
+		}
+	}
 }
 
 type WHIPClient struct {
@@ -66,7 +86,7 @@ type WHIPConnection struct {
 	did            string
 }
 
-func (w *WHIPClient) WHIP(ctx context.Context) error {
+func (w *WHIPClient) WHIP(ctx context.Context) (retErr error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -90,6 +110,12 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		cancel()
+		if err := pipeline.BlockSetState(gst.StateNull); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 
 	fileSrc, err := pipeline.GetElementByName("filesrc")
 	if err != nil {
@@ -119,6 +145,13 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	accumulators := make([]time.Duration, len(sinks))
 
 	conns := make([]*WHIPConnection, w.Count)
+	defer func() {
+		for _, conn := range conns {
+			if conn != nil {
+				conn.peerConnection.Close()
+			}
+		}
+	}()
 	g := &errgroup.Group{}
 	for i := 0; i < w.Count; i++ {
 		ctx := ctx
@@ -141,6 +174,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 		g.Go(func() error {
 			conn, err := w.StartWHIPConnection(ctx, streamKey, did)
 			if err != nil {
+				cancel()
 				return err
 			}
 			conns[i] = conn
@@ -154,12 +188,6 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 					}
 				}
 			})
-			go func() {
-				<-ctx.Done()
-				if conn.peerConnection != nil {
-					conn.peerConnection.Close()
-				}
-			}()
 			return nil
 		})
 	}
@@ -192,6 +220,13 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	}()
 
 	errCh := make(chan error, 1)
+	reportError := func(err error) {
+		select {
+		case errCh <- err:
+		default:
+		}
+		cancel()
+	}
 
 	for i := range sinks {
 		func(i int) {
@@ -220,7 +255,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 					durationPtr := buffer.Duration().AsDuration()
 					var duration time.Duration
 					if durationPtr == nil {
-						errCh <- fmt.Errorf("%v duration: nil", trackType)
+						reportError(fmt.Errorf("%v duration: nil", trackType))
 						return gst.FlowError
 					} else {
 						// fmt.Printf("%v duration: %v\n", trackType, *durationPtr)
@@ -234,13 +269,13 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 							if trackType == "video" {
 								if err := conn.videoTrack.WriteSample(pionmedia.Sample{Data: samples, Duration: duration}); err != nil {
 									log.Log(ctx, "error writing video sample", "error", err)
-									errCh <- err
+									reportError(err)
 									return gst.FlowError
 								}
 							} else {
 								if err := conn.audioTrack.WriteSample(pionmedia.Sample{Data: samples, Duration: duration}); err != nil {
 									log.Log(ctx, "error writing video sample", "error", err)
-									errCh <- err
+									reportError(err)
 									return gst.FlowError
 								}
 							}
@@ -281,10 +316,6 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	}
 
 	<-ctx.Done()
-	err = pipeline.BlockSetState(gst.StateNull)
-	if err != nil {
-		return err
-	}
 
 	select {
 	case err := <-errCh:
@@ -304,6 +335,12 @@ func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, 
 	if err != nil {
 		return nil, err
 	}
+	connected := false
+	defer func() {
+		if !connected {
+			peerConnection.Close()
+		}
+	}()
 
 	// Create a audio track
 	audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "audio/opus"}, "audio", "pion1")
@@ -345,7 +382,7 @@ func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, 
 	client := &http.Client{}
 
 	// Send the WHIP request to the server
-	req, err := http.NewRequest("POST", w.Endpoint, strings.NewReader(offer.SDP))
+	req, err := http.NewRequestWithContext(ctx, "POST", w.Endpoint, strings.NewReader(offer.SDP))
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +414,11 @@ func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, 
 	}
 
 	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
-	<-gatherComplete
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-gatherComplete:
+	}
 
 	conn := &WHIPConnection{
 		peerConnection: peerConnection,
@@ -386,5 +427,6 @@ func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, 
 		did:            did,
 	}
 
+	connected = true
 	return conn, nil
 }

@@ -83,7 +83,7 @@ function NodeVerifiedIcon({ size }: { size: number }) {
 
 /**
  * Verified marks beside a chat name. Two sources, two looks:
- *  - the node's trusted verifiers (branding key verifierDids), which the
+ *  - the verifiers and labelers the streamer's chat access rules allow, which the
  *    node reports on the message author itself — the branded badge;
  *  - the public app view's verification (e.g. Bluesky's), read from the
  *    profile cache — the network's blue check.

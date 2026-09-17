@@ -8,11 +8,26 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 
 	"stream.place/streamplace/pkg/branding"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
 )
+
+// requireAdmin returns the caller's DID when there is an OAuth session for a
+// node admin, or the HTTP error to answer with.
+func (s *Server) requireAdmin(ctx context.Context, what string) (string, error) {
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	if session == nil {
+		return "", echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
+	}
+	if !s.isAdminDID(session.DID) {
+		log.Warn(ctx, "unauthorized admin attempt", "did", session.DID, "what", what)
+		return "", echo.NewHTTPError(http.StatusUnauthorized, "Unauthorized: not authorized to "+what)
+	}
+	return session.DID, nil
+}
 
 func (s *Server) handlePlaceStreamBrandingExportBundle(ctx context.Context, broadcaster string) (io.Reader, error) {
 	if _, err := s.requireAdmin(ctx, "export branding"); err != nil {

@@ -78,9 +78,10 @@ Record announcing a livestream is happening
 
 **Properties:**
 
-| Name    | Type      | Req'd | Description | Constraints |
-| ------- | --------- | ----- | ----------- | ----------- |
-| `count` | `integer` | ✅    |             |             |
+| Name    | Type      | Req'd | Description                                                                                                                               | Constraints |
+| ------- | --------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `count` | `integer` | ✅    | Viewers watching right now.                                                                                                               |             |
+| `total` | `integer` | ❌    | Running number of playback sessions this livestream has had (cumulative, session-based; the X-style 'views' beside the concurrent count). |             |
 
 ---
 
@@ -265,7 +266,12 @@ Record announcing a livestream is happening
       "required": ["count"],
       "properties": {
         "count": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Viewers watching right now."
+        },
+        "total": {
+          "type": "integer",
+          "description": "Running number of playback sessions this livestream has had (cumulative, session-based; the X-style 'views' beside the concurrent count)."
         }
       }
     },

@@ -758,9 +758,11 @@ export default function Shell() {
   if (!hydrated) {
     return <View />;
   }
-}
-if ((sessionRestoring || !brandingSettled) && !bootTimedOut) {
-  return <View />;
+
+  if ((sessionRestoring || !brandingSettled) && !bootTimedOut) {
+    return <View />;
+  }
+
   return (
     <View style={{ flex: 1 }}>
       <StatusBar barStyle="light-content" />

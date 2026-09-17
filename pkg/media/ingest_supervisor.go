@@ -39,6 +39,7 @@ var ingestWorkerWatchdog = 30 * time.Second
 // streamer key + cert + a once-built manifest over a dedicated config fd (kept
 // off argv/env). See buildWorkerConfig for the interim key-custody note.
 func (mm *MediaManager) MP4IngestIsolated(ctx context.Context, input io.Reader, ms MediaSigner) error {
+	ctx = withIngestProtocol(ctx, "mp4")
 	cfg, err := mm.buildWorkerConfig(ctx, ms)
 	if err != nil {
 		return err

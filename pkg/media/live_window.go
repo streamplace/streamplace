@@ -5,9 +5,11 @@ import (
 	"context"
 	"time"
 
+	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 // liveWindowSize is how many recent segments per track the in-memory live-HLS
@@ -65,7 +67,7 @@ func (mm *MediaManager) GetLiveWindow(did string) *livehls.Writer {
 // pre-live HLS entirely: an unfed window stays nil, and the getLive* handlers
 // return StreamNotLive. The streamer still monitors their own pre-live stream
 // over WebRTC, which gates playback on viewer == streamer.
-func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment []byte, published bool) {
+func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment []byte, published bool, timing *bus.SegmentTiming) {
 	if !published {
 		return
 	}
@@ -77,9 +79,25 @@ func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment 
 		errCh <- err
 	}()
 	w := mm.liveWindow(did)
+	available := false
 	for ev := range eventCh {
 		if err := w.Observe(ev); err != nil {
 			log.Error(ctx, "live-hls: window observe failed", "streamer", did, "error", err)
+			continue
+		}
+		if !available && (ev.Type == "segment" || ev.Type == "signed-segment") {
+			available = true
+			now := time.Now()
+			if timing != nil {
+				if !timing.Signed.IsZero() && now.After(timing.Signed) {
+					spmetrics.HLSSegmentAvailableDuration.WithLabelValues(did).
+						Observe(float64(now.Sub(timing.Signed).Milliseconds()))
+				}
+				if age := timing.SourceAge(now); age > 0 {
+					spmetrics.MediaSourceAge.WithLabelValues(did, "hls_available").
+						Observe(float64(age.Milliseconds()))
+				}
+			}
 		}
 	}
 	if err := <-errCh; err != nil {

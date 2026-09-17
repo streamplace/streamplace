@@ -2,12 +2,55 @@ package media
 
 import (
 	"context"
+	"io"
+	"os"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
+	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/config"
 )
+
+func TestObserveWebRTCSegmentLatency(t *testing.T) {
+	streamer := "phase1-segment-latency-metrics"
+	render := WebRTCSourceRendition
+	sourceStart := time.Unix(100, 0)
+	timing := &bus.SegmentTiming{
+		SourceStart:    sourceStart,
+		IngestReceived: sourceStart.Add(200 * time.Millisecond),
+		Ingress:        "whip",
+	}
+	firstLabels := map[string]string{
+		"streamer": streamer, "ingress": "whip", "rendition": render, "stage": "first_rtp",
+	}
+	completeLabels := map[string]string{
+		"streamer": streamer, "ingress": "whip", "rendition": render, "stage": "complete",
+	}
+	beforeSourceFirst, beforeSourceFirstSum := histogramSample(t, "streamplace_webrtc_segment_source_age_ms", firstLabels)
+	beforeSourceComplete, beforeSourceCompleteSum := histogramSample(t, "streamplace_webrtc_segment_source_age_ms", completeLabels)
+	beforeIngestFirst, beforeIngestFirstSum := histogramSample(t, "streamplace_webrtc_segment_ingest_latency_ms", firstLabels)
+	beforeIngestComplete, beforeIngestCompleteSum := histogramSample(t, "streamplace_webrtc_segment_ingest_latency_ms", completeLabels)
+
+	observeWebRTCSegmentLatency(timing, streamer, render, sourceStart.Add(900*time.Millisecond), "first_rtp")
+	observeWebRTCSegmentLatency(timing, streamer, render, sourceStart.Add(1800*time.Millisecond), "complete")
+
+	sourceFirst, sourceFirstSum := histogramSample(t, "streamplace_webrtc_segment_source_age_ms", firstLabels)
+	sourceComplete, sourceCompleteSum := histogramSample(t, "streamplace_webrtc_segment_source_age_ms", completeLabels)
+	ingestFirst, ingestFirstSum := histogramSample(t, "streamplace_webrtc_segment_ingest_latency_ms", firstLabels)
+	ingestComplete, ingestCompleteSum := histogramSample(t, "streamplace_webrtc_segment_ingest_latency_ms", completeLabels)
+	require.Equal(t, beforeSourceFirst+1, sourceFirst)
+	require.Equal(t, beforeSourceComplete+1, sourceComplete)
+	require.Equal(t, beforeIngestFirst+1, ingestFirst)
+	require.Equal(t, beforeIngestComplete+1, ingestComplete)
+	require.InDelta(t, beforeSourceFirstSum+900, sourceFirstSum, 0.01)
+	require.InDelta(t, beforeSourceCompleteSum+1800, sourceCompleteSum, 0.01)
+	require.InDelta(t, beforeIngestFirstSum+700, ingestFirstSum, 0.01)
+	require.InDelta(t, beforeIngestCompleteSum+1600, ingestCompleteSum, 0.01)
+}
 
 func TestWebRTCPlayback2(t *testing.T) {
 	mm, _ := getStaticTestMediaManager(t)
@@ -20,6 +63,250 @@ func TestWebRTCPlayback2(t *testing.T) {
 	answer, err := mm.WebRTCPlayback2(context.Background(), "test-user", "test-rendition", offer, "")
 	require.ErrorContains(t, err, "RTPSender created with no codecs")
 	require.Nil(t, answer)
+}
+
+func TestPublishImmediateWebRTCSource(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+	segs := allSignedBareSegments(t, ctx, ms, getFixture("h264-opus-frag.mp4"))
+	require.NotEmpty(t, segs)
+
+	const streamer = "phase2-immediate-webrtc"
+	b := bus.NewBus()
+	mm := &MediaManager{bus: b, cli: &config.CLI{}}
+	timing := &bus.SegmentTiming{
+		SegmentID:   "phase2-immediate-segment",
+		SourceStart: time.Now().Add(-500 * time.Millisecond),
+	}
+	sub := b.SubscribeSegment(ctx, streamer, WebRTCSourceRendition)
+	defer b.UnsubscribeSegment(ctx, streamer, WebRTCSourceRendition, sub)
+
+	require.NoError(t, mm.publishImmediateWebRTC(ctx, streamer, true, timing, segs[0]))
+	select {
+	case got := <-sub.C:
+		require.Equal(t, WebRTCSourceRendition, got.Rendition)
+		require.NotNil(t, got.PacketizedData)
+		require.NotEmpty(t, got.PacketizedData.Video)
+		require.NotEmpty(t, got.PacketizedData.Audio)
+		require.Equal(t, timing, got.Timing)
+	case <-time.After(5 * time.Second):
+		t.Fatal("immediate WebRTC source was not published")
+	}
+
+	canonicalSub := b.SubscribeSegment(ctx, streamer, "source")
+	defer b.UnsubscribeSegment(ctx, streamer, "source", canonicalSub)
+	select {
+	case <-canonicalSub.C:
+		t.Fatal("immediate WebRTC source must not enter the canonical source bus")
+	default:
+	}
+}
+
+func TestWebRTCPlaybackRecordsLiveCaptureTiming(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	mm, _ := getStaticTestMediaManager(t)
+	mm.cli.WideOpen = true
+	const streamer = "phase1-live-capture"
+	const rendition = WebRTCSourceRendition
+
+	inputFile, err := os.Open(getFixture("sample-segment.mp4"))
+	require.NoError(t, err)
+	defer inputFile.Close()
+	data, err := io.ReadAll(inputFile)
+	require.NoError(t, err)
+
+	now := time.Now()
+	packetize := func(segmentID string, sourceStart, distributed time.Time) *bus.PacketizedSegment {
+		timing := &bus.SegmentTiming{
+			SegmentID:      segmentID,
+			SourceStart:    sourceStart,
+			IngestReceived: sourceStart.Add(50 * time.Millisecond),
+			Distributed:    distributed,
+			Ingress:        "whip",
+		}
+		packet, err := Packetize(ctx, mm.cli, &bus.Seg{
+			Data:      data,
+			Streamer:  streamer,
+			Rendition: rendition,
+			Timing:    timing,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, packet.Video)
+		require.NotEmpty(t, packet.Audio)
+		return packet
+	}
+	oldPacket := packetize("phase1-live-capture-old", now.Add(-1700*time.Millisecond), now.Add(-1650*time.Millisecond))
+	packet := packetize("phase1-live-capture-latest", now.Add(-700*time.Millisecond), now.Add(-650*time.Millisecond))
+
+	beforeFirstSent, beforeFirstSentSum := histogramSample(t, "streamplace_webrtc_source_age_ms", map[string]string{
+		"streamer":  streamer,
+		"rendition": rendition,
+		"stage":     "first_sent",
+	})
+	beforeQueue := histogramSampleCount(t, "streamplace_webrtc_queue_duration_ms", map[string]string{
+		"streamer":  streamer,
+		"rendition": rendition,
+	})
+	beforeSetupToFirstSend := histogramSampleCount(t, "streamplace_webrtc_setup_to_first_send_ms", map[string]string{
+		"streamer":  streamer,
+		"rendition": rendition,
+	})
+	beforeVideoSend := histogramSampleCount(t, "streamplace_webrtc_video_send_duration_ms", map[string]string{
+		"streamer":  streamer,
+		"rendition": rendition,
+	})
+	beforeAudioSend := histogramSampleCount(t, "streamplace_webrtc_audio_send_duration_ms", map[string]string{
+		"streamer":  streamer,
+		"rendition": rendition,
+	})
+	beforeSegmentFirstRTP := histogramSampleCount(t, "streamplace_webrtc_segment_source_age_ms", map[string]string{
+		"streamer": streamer, "ingress": "whip", "rendition": rendition, "stage": "first_rtp",
+	})
+	beforeSegmentComplete := histogramSampleCount(t, "streamplace_webrtc_segment_source_age_ms", map[string]string{
+		"streamer": streamer, "ingress": "whip", "rendition": rendition, "stage": "complete",
+	})
+
+	mm.bus.PublishSegment(ctx, streamer, WebRTCSourceRendition, &bus.Seg{
+		Data:           data,
+		PacketizedData: oldPacket,
+		Published:      true,
+		Streamer:       streamer,
+		Rendition:      WebRTCSourceRendition,
+		Timing:         oldPacket.Timing,
+	})
+	mm.bus.PublishSegment(ctx, streamer, WebRTCSourceRendition, &bus.Seg{
+		Data:           data,
+		PacketizedData: packet,
+		Published:      true,
+		Streamer:       streamer,
+		Rendition:      WebRTCSourceRendition,
+		Timing:         packet.Timing,
+	})
+
+	receiverAPI, receiverConfig, err := newWebRTCAPI()
+	require.NoError(t, err)
+	receiver, err := receiverAPI.NewPeerConnection(receiverConfig)
+	require.NoError(t, err)
+	defer receiver.Close()
+
+	connected := make(chan struct{})
+	var connectedOnce sync.Once
+	receiver.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		if state == webrtc.PeerConnectionStateConnected {
+			connectedOnce.Do(func() { close(connected) })
+		}
+	})
+	received := make(chan struct{})
+	var receivedOnce sync.Once
+	receiver.OnTrack(func(*webrtc.TrackRemote, *webrtc.RTPReceiver) {
+		receivedOnce.Do(func() { close(received) })
+	})
+
+	_, err = receiver.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
+	require.NoError(t, err)
+	_, err = receiver.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio)
+	require.NoError(t, err)
+	offer, err := receiver.CreateOffer(nil)
+	require.NoError(t, err)
+	require.NoError(t, receiver.SetLocalDescription(offer))
+	gatherComplete := webrtc.GatheringCompletePromise(receiver)
+	select {
+	case <-gatherComplete:
+	case <-ctx.Done():
+		t.Fatal("receiver ICE gathering timed out")
+	}
+
+	answer, err := mm.WebRTCPlayback2(ctx, streamer, rendition, receiver.LocalDescription(), "")
+	require.NoError(t, err)
+	require.NoError(t, receiver.SetRemoteDescription(*answer))
+
+	select {
+	case <-connected:
+	case <-ctx.Done():
+		t.Fatal("local WebRTC playback did not connect")
+	}
+	select {
+	case <-received:
+	case <-ctx.Done():
+		t.Fatal("local WebRTC receiver did not receive RTP")
+	}
+
+	require.Eventually(t, func() bool {
+		return histogramSampleCount(t, "streamplace_webrtc_source_age_ms", map[string]string{
+			"streamer": streamer, "rendition": rendition, "stage": "first_sent",
+		}) > beforeFirstSent &&
+			histogramSampleCount(t, "streamplace_webrtc_queue_duration_ms", map[string]string{
+				"streamer": streamer, "rendition": rendition,
+			}) > beforeQueue &&
+			histogramSampleCount(t, "streamplace_webrtc_setup_to_first_send_ms", map[string]string{
+				"streamer": streamer, "rendition": rendition,
+			}) > beforeSetupToFirstSend &&
+			histogramSampleCount(t, "streamplace_webrtc_video_send_duration_ms", map[string]string{
+				"streamer": streamer, "rendition": rendition,
+			}) > beforeVideoSend &&
+			histogramSampleCount(t, "streamplace_webrtc_audio_send_duration_ms", map[string]string{
+				"streamer": streamer, "rendition": rendition,
+			}) > beforeAudioSend &&
+			histogramSampleCount(t, "streamplace_webrtc_segment_source_age_ms", map[string]string{
+				"streamer": streamer, "ingress": "whip", "rendition": rendition, "stage": "first_rtp",
+			}) > beforeSegmentFirstRTP &&
+			histogramSampleCount(t, "streamplace_webrtc_segment_source_age_ms", map[string]string{
+				"streamer": streamer, "ingress": "whip", "rendition": rendition, "stage": "complete",
+			}) > beforeSegmentComplete
+	}, 5*time.Second, 25*time.Millisecond, "playback should emit first-send and sender timing metrics")
+
+	firstSentCount, firstSentSum := histogramSample(t, "streamplace_webrtc_source_age_ms", map[string]string{
+		"streamer": streamer, "rendition": rendition, "stage": "first_sent",
+	})
+	require.Equal(t, uint64(1), firstSentCount-beforeFirstSent, "startup should replay only the latest cached segment")
+	require.Less(t, (firstSentSum-beforeFirstSentSum)/float64(firstSentCount-beforeFirstSent), 1000.0,
+		"first RTP source age should stay below one second")
+
+	for _, metric := range []struct {
+		name   string
+		labels map[string]string
+	}{
+		{"streamplace_packetize_duration_ms", map[string]string{"streamer": streamer, "rendition": rendition}},
+		{"streamplace_packetize_queue_duration_ms", map[string]string{"streamer": streamer, "rendition": rendition}},
+		{"streamplace_packetize_source_age_ms", map[string]string{"streamer": streamer, "rendition": rendition}},
+		{"streamplace_webrtc_source_age_ms", map[string]string{"streamer": streamer, "rendition": rendition, "stage": "queued"}},
+		{"streamplace_webrtc_source_age_ms", map[string]string{"streamer": streamer, "rendition": rendition, "stage": "first_sent"}},
+		{"streamplace_webrtc_queue_duration_ms", map[string]string{"streamer": streamer, "rendition": rendition}},
+		{"streamplace_webrtc_setup_to_first_send_ms", map[string]string{"streamer": streamer, "rendition": rendition}},
+		{"streamplace_webrtc_video_send_duration_ms", map[string]string{"streamer": streamer, "rendition": rendition}},
+		{"streamplace_webrtc_audio_send_duration_ms", map[string]string{"streamer": streamer, "rendition": rendition}},
+		{"streamplace_webrtc_segment_source_age_ms", map[string]string{"streamer": streamer, "ingress": "whip", "rendition": rendition, "stage": "first_rtp"}},
+		{"streamplace_webrtc_segment_source_age_ms", map[string]string{"streamer": streamer, "ingress": "whip", "rendition": rendition, "stage": "complete"}},
+		{"streamplace_webrtc_segment_ingest_latency_ms", map[string]string{"streamer": streamer, "ingress": "whip", "rendition": rendition, "stage": "first_rtp"}},
+		{"streamplace_webrtc_segment_ingest_latency_ms", map[string]string{"streamer": streamer, "ingress": "whip", "rendition": rendition, "stage": "complete"}},
+	} {
+		count, sum := histogramSample(t, metric.name, metric.labels)
+		require.Positive(t, count, "expected baseline sample for %s", metric.name)
+		stage := metric.labels["stage"]
+		if stage != "" {
+			stage = " stage=" + stage
+		}
+		t.Logf("baseline metric=%s%s count=%d sum_ms=%.1f avg_ms=%.1f", metric.name, stage, count, sum, sum/float64(count))
+	}
+
+	// A later dual-codec replacement for the same logical segment must not make
+	// WebRTC play that GOP twice after the immediate Opus path has already sent it.
+	mm.bus.PublishSegment(ctx, streamer, WebRTCSourceRendition, &bus.Seg{
+		Data:           data,
+		PacketizedData: packet,
+		Published:      true,
+		Streamer:       streamer,
+		Rendition:      WebRTCSourceRendition,
+		Timing:         packet.Timing,
+	})
+	require.Never(t, func() bool {
+		count, _ := histogramSample(t, "streamplace_webrtc_source_age_ms", map[string]string{
+			"streamer": streamer, "rendition": WebRTCSourceRendition, "stage": "first_sent",
+		})
+		return count > beforeFirstSent+1
+	}, 500*time.Millisecond, 25*time.Millisecond, "dual-codec replacement must be deduplicated")
 }
 
 var firefoxNoH264SDP = `v=0

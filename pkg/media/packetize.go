@@ -15,6 +15,7 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 // hasVideoSlice reports whether byte-stream H264 data contains a VCL NAL
@@ -45,6 +46,33 @@ func hasVideoSlice(data []byte) bool {
 
 // take in a segment and return a bunch of packets suitable for webrtc
 func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.PacketizedSegment, error) {
+	packetizeStarted := time.Now()
+	streamer, rendition := seg.Streamer, seg.Rendition
+	if seg.Timing != nil {
+		seg.Timing.PacketizeStarted = packetizeStarted
+		if !seg.Timing.Distributed.IsZero() && packetizeStarted.After(seg.Timing.Distributed) {
+			spmetrics.PacketizeQueueDuration.WithLabelValues(streamer, rendition).
+				Observe(float64(packetizeStarted.Sub(seg.Timing.Distributed).Milliseconds()))
+		}
+		if age := seg.Timing.SourceAge(packetizeStarted); age > 0 {
+			spmetrics.MediaSourceAge.WithLabelValues(streamer, "packetize_started").
+				Observe(float64(age.Milliseconds()))
+		}
+	}
+	defer func() {
+		completedAt := time.Now()
+		spmetrics.PacketizeDuration.WithLabelValues(streamer, rendition).
+			Observe(float64(completedAt.Sub(packetizeStarted).Milliseconds()))
+		if seg.Timing != nil {
+			seg.Timing.PacketizeCompleted = completedAt
+			if age := seg.Timing.SourceAge(completedAt); age > 0 {
+				spmetrics.MediaSourceAge.WithLabelValues(streamer, "packetize_completed").
+					Observe(float64(age.Milliseconds()))
+				spmetrics.PacketizeSourceAge.WithLabelValues(streamer, rendition).
+					Observe(float64(age.Milliseconds()))
+			}
+		}
+	}()
 
 	uu, err := uuid.NewV7()
 	if err != nil {
@@ -67,7 +95,14 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(opusM4s), "flat", &flat); err != nil {
 			return nil, fmt.Errorf("wrap opus segment: %w", err)
 		}
-		seg = &bus.Seg{Filepath: seg.Filepath, Data: flat.Bytes(), Muxl: opusM4s}
+		seg = &bus.Seg{
+			Filepath:  seg.Filepath,
+			Data:      flat.Bytes(),
+			Muxl:      opusM4s,
+			Streamer:  streamer,
+			Rendition: rendition,
+			Timing:    seg.Timing,
+		}
 	}
 
 	cli.DumpDebugSegment(ctx, fmt.Sprintf("packetize-input-%s.mp4", uu.String()), bytes.NewReader(seg.Data))
@@ -265,9 +300,12 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		}
 	}
 	return &bus.PacketizedSegment{
-		Video:    video,
-		Audio:    finalizeSampleDurations(audioOutput, segDur),
-		Duration: duration,
+		Video:     video,
+		Audio:     finalizeSampleDurations(audioOutput, segDur),
+		Duration:  duration,
+		Streamer:  streamer,
+		Rendition: rendition,
+		Timing:    seg.Timing,
 	}, nil
 }
 

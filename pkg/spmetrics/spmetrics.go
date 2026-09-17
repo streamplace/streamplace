@@ -59,19 +59,128 @@ var TranscodeDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 
 var SigningDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "streamplace_signing_duration_ms",
-	Help:    "duration of transcode in ms",
+	Help:    "duration of signing in ms",
 	Buckets: []float64{0, 250, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 10000, 20000, 30000, 60000},
 }, []string{"streamer"})
 
 // SegmentDeliveryDuration measures wall time from when the muxer hands a
-// fresh segment to the sign callback through the end of validation —
-// i.e. the latency the user actually waits on before the segment is
-// available downstream. Wraps per-segment signing + ValidateMP4.
+// fresh segment to the sign callback through the end of validation. It does
+// not include asynchronous transcoding, distribution fan-out, packetization,
+// or WebRTC playback.
 var SegmentDeliveryDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "streamplace_segment_delivery_duration_ms",
-	Help:    "duration of sign + validate in ms (the user-visible per-segment latency)",
+	Help:    "duration of sign + validate in ms",
 	Buckets: []float64{0, 250, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 10000, 20000, 30000, 60000},
 }, []string{"streamer"})
+
+// MediaSourceAge measures wall-clock age at named media-pipeline boundaries.
+// The stage label is a bounded set of instrumentation points, not a segment
+// identifier.
+var MediaSourceAge = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_media_source_age_ms",
+	Help:    "age of source media at a live pipeline boundary in ms",
+	Buckets: []float64{0, 250, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 15000, 30000, 60000},
+}, []string{"streamer", "stage"})
+
+var MediaSegmentDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_media_segment_duration_ms",
+	Help:    "duration of one validated source media segment in ms",
+	Buckets: []float64{0, 250, 500, 600, 650, 700, 750, 800, 900, 1000, 1500, 2000, 3000, 5000, 10000},
+}, []string{"streamer"})
+
+var HLSSegmentAvailableDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_hls_segment_available_ms",
+	Help:    "time from signed segment receipt to availability in the live HLS window in ms",
+	Buckets: []float64{0, 10, 25, 50, 100, 250, 500, 750, 1000, 1500, 2000, 3000, 5000, 10000, 30000},
+}, []string{"streamer"})
+
+var MasteringLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_mastering_latency_ms",
+	Help:    "time from signed source receipt to mastering completion in ms",
+	Buckets: []float64{0, 50, 100, 250, 500, 750, 1000, 1500, 2000, 3000, 5000, 10000, 30000},
+}, []string{"streamer"})
+
+var TranscodeCompletionLag = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_transcode_completion_lag_ms",
+	Help:    "time from transcode job enqueue to completed derived segment in ms",
+	Buckets: []float64{0, 250, 500, 750, 1000, 1500, 2000, 3000, 5000, 10000, 30000, 60000},
+}, []string{"streamer"})
+
+var TranscodeQueueDepth = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_transcode_queue_depth",
+	Help: "number of source segments waiting for continuous transcoding",
+}, []string{"streamer"})
+
+var TranscodeOldestJobAge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_transcode_oldest_job_age_ms",
+	Help: "current age of the oldest continuous-transcode job",
+}, []string{"streamer"})
+
+var TranscodeFinishDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_transcode_finish_ms",
+	Help:    "duration of post-transcode segment finishing in ms",
+	Buckets: []float64{0, 50, 100, 250, 500, 750, 1000, 1500, 2000, 3000, 5000, 10000, 30000},
+}, []string{"streamer"})
+
+var PacketizeDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_packetize_duration_ms",
+	Help:    "wall-clock duration of packetizing one segment in ms",
+	Buckets: []float64{0, 25, 50, 100, 250, 500, 750, 1000, 1500, 2000, 3000, 5000, 10000},
+}, []string{"streamer", "rendition"})
+
+var PacketizeQueueDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_packetize_queue_duration_ms",
+	Help:    "time a segment waits from distribution until packetization starts in ms",
+	Buckets: []float64{0, 25, 50, 100, 250, 500, 750, 1000, 1500, 2000, 3000, 5000, 10000, 30000},
+}, []string{"streamer", "rendition"})
+
+var PacketizeSourceAge = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_packetize_source_age_ms",
+	Help:    "source media age when packetization completes in ms",
+	Buckets: []float64{0, 250, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 15000, 30000, 60000},
+}, []string{"streamer", "rendition"})
+
+var WebRTCQueueDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_webrtc_queue_duration_ms",
+	Help:    "packetized media duration queued before WebRTC playback in ms",
+	Buckets: []float64{0, 250, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 15000, 30000},
+}, []string{"streamer", "rendition"})
+
+var WebRTCSourceAge = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_webrtc_source_age_ms",
+	Help:    "source media age when queued or first sent by WebRTC in ms",
+	Buckets: []float64{0, 250, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 15000, 30000, 60000},
+}, []string{"streamer", "rendition", "stage"})
+
+var WebRTCSegmentSourceAge = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_webrtc_segment_source_age_ms",
+	Help:    "source media age for each WebRTC segment at first RTP handoff or completion in ms",
+	Buckets: []float64{0, 250, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 15000, 30000, 60000},
+}, []string{"streamer", "ingress", "rendition", "stage"})
+
+var WebRTCSegmentIngestLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_webrtc_segment_ingest_latency_ms",
+	Help:    "time from signed segment receipt by the ingest path to WebRTC first RTP handoff or completion in ms",
+	Buckets: []float64{0, 25, 50, 100, 250, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 15000, 30000},
+}, []string{"streamer", "ingress", "rendition", "stage"})
+
+var WebRTCSetupToFirstSendDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_webrtc_setup_to_first_send_ms",
+	Help:    "wall-clock duration from WebRTC playback setup to the first server-side media sample send in ms",
+	Buckets: []float64{0, 25, 50, 100, 250, 500, 750, 1000, 1500, 2000, 3000, 5000, 10000, 30000},
+}, []string{"streamer", "rendition"})
+
+var WebRTCVideoSendDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_webrtc_video_send_duration_ms",
+	Help:    "wall-clock duration spent sending one WebRTC video segment in ms",
+	Buckets: []float64{0, 25, 50, 100, 250, 500, 750, 1000, 1500, 2000, 3000, 5000, 10000},
+}, []string{"streamer", "rendition"})
+
+var WebRTCAudioSendDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_webrtc_audio_send_duration_ms",
+	Help:    "wall-clock duration spent sending one WebRTC audio segment in ms",
+	Buckets: []float64{0, 25, 50, 100, 250, 500, 750, 1000, 1500, 2000, 3000, 5000, 10000},
+}, []string{"streamer", "rendition"})
 
 var QueuedTranscodeDuration = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "streamplace_queued_transcode_duration_ms",

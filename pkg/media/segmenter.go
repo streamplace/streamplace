@@ -189,9 +189,10 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 
 	// muxl path: stream the fMP4 through the per-segment signer. Each GoP
 	// arrives as a bare canonical .m4s, which ValidateMP4 verifies, archives
-	// (as .m4s), and distributes. muxl-sign stamps the signing time into the
-	// segment, so ValidateMP4 derives StartTime from the segment itself — no
-	// per-GoP wall-clock is threaded through here.
+	// (as .m4s), and distributes. Signed metadata supplies the persistent
+	// segment timestamp; local runtime timing also uses the measured media
+	// duration to estimate capture start without threading a wall-clock through
+	// the signer boundary.
 	onSegment := func(ctx context.Context, segment []byte) error {
 		// Top-level span for segment-delivery latency: signed bytes from the
 		// streaming signer go in, a validated/persisted/distributed segment

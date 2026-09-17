@@ -18,6 +18,9 @@ type Seg struct {
 	Muxl           []byte // bare canonical .m4s (blindly concatenatable)
 	PacketizedData *PacketizedSegment
 	Published      bool
+	Streamer       string
+	Rendition      string
+	Timing         *SegmentTiming
 }
 
 // PacketizedSample is one WebRTC-writable sample — a video access unit or an
@@ -32,9 +35,12 @@ type PacketizedSample struct {
 }
 
 type PacketizedSegment struct {
-	Video    []PacketizedSample
-	Audio    []PacketizedSample
-	Duration time.Duration
+	Video     []PacketizedSample
+	Audio     []PacketizedSample
+	Duration  time.Duration
+	Streamer  string
+	Rendition string
+	Timing    *SegmentTiming
 }
 
 var chanSize = 1024
@@ -66,7 +72,6 @@ func (b *Bus) SubscribeSegmentBuf(ctx context.Context, user string, rendition st
 		chs = []*SegChan{}
 		b.segChans[key] = chs
 	}
-	ch := make(chan *Seg)
 	b.segBufMutex.RLock()
 	defer b.segBufMutex.RUnlock()
 	curBuf, ok := b.segBuf[key]
@@ -79,7 +84,7 @@ func (b *Bus) SubscribeSegmentBuf(ctx context.Context, user string, rendition st
 			myCh <- curBuf[len(curBuf)-bufSize+i]
 		}
 	}
-	segChan := &SegChan{C: ch, Context: ctx}
+	segChan := &SegChan{C: myCh, Context: ctx}
 	chs = append(chs, segChan)
 	b.segChans[key] = chs
 	spmetrics.SegmentSubscriptionsOpen.WithLabelValues(user, rendition).Set(float64(len(chs)))

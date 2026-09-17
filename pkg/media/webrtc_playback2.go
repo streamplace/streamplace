@@ -13,10 +13,37 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/renditions"
+	"stream.place/streamplace/pkg/spmetrics"
 )
+
+func observeWebRTCSegmentLatency(timing *bus.SegmentTiming, streamer, rendition string, at time.Time, stage string) {
+	if timing == nil {
+		return
+	}
+	switch stage {
+	case "first_rtp", "complete":
+	default:
+		return
+	}
+	ingress := timing.Ingress
+	switch ingress {
+	case "mp4", "rtmp", "whip":
+	default:
+		ingress = "unknown"
+	}
+	labels := []string{streamer, ingress, rendition, stage}
+	if age := timing.SourceAge(at); age > 0 {
+		spmetrics.WebRTCSegmentSourceAge.WithLabelValues(labels...).Observe(float64(age.Milliseconds()))
+	}
+	if !timing.IngestReceived.IsZero() && !at.Before(timing.IngestReceived) {
+		spmetrics.WebRTCSegmentIngestLatency.WithLabelValues(labels...).
+			Observe(float64(at.Sub(timing.IngestReceived).Milliseconds()))
+	}
+}
 
 // This function remains in scope for the duration of a single users' playback
 func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendition string, offer *webrtc.SessionDescription, viewer string) (*webrtc.SessionDescription, error) {
+	playbackStarted := time.Now()
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
@@ -117,15 +144,21 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		defer markDone()
 
 		latency := time.Duration(0)
+		var latencyMu sync.Mutex
+		var firstSend sync.Once
 
 		packetQueue := make(chan *bus.PacketizedSegment, 1024)
 		go func() {
 			busRendition := rendition
-			if audioOnly {
-				busRendition = "source"
+			if audioOnly || rendition == "source" {
+				busRendition = WebRTCSourceRendition
 			}
-			segChan := mm.bus.SubscribeSegmentBuf(ctx, user, busRendition, 2)
+			// Replay only the live-edge GOP. Replaying older GOPs adds their media
+			// duration to startup and makes first-RTP latency grow with the cache.
+			segChan := mm.bus.SubscribeSegmentBuf(ctx, user, busRendition, 1)
 			defer mm.bus.UnsubscribeSegment(ctx, user, busRendition, segChan)
+			seenSegmentIDs := make(map[string]struct{}, 32)
+			seenOrder := make([]string, 0, 32)
 			for {
 				select {
 				case <-ctx.Done():
@@ -137,8 +170,32 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 						log.Warn(ctx, "segment is not published and viewer is not the user", "viewer", viewer, "user", user)
 						continue
 					}
-					latency += file.PacketizedData.Duration
-					packetQueue <- file.PacketizedData
+					if timing := file.PacketizedData.Timing; timing != nil && timing.SegmentID != "" {
+						if _, seen := seenSegmentIDs[timing.SegmentID]; seen {
+							continue
+						}
+						seenSegmentIDs[timing.SegmentID] = struct{}{}
+						seenOrder = append(seenOrder, timing.SegmentID)
+						if len(seenOrder) > 64 {
+							delete(seenSegmentIDs, seenOrder[0])
+							seenOrder = seenOrder[1:]
+						}
+					}
+					packetCopy := *file.PacketizedData
+					packetCopy.Timing = file.PacketizedData.Timing.Clone()
+					packet := &packetCopy
+					now := time.Now()
+					if packet.Timing != nil {
+						packet.Timing.WebRTCQueued = now
+						if age := packet.Timing.SourceAge(now); age > 0 {
+							spmetrics.WebRTCSourceAge.WithLabelValues(packet.Streamer, packet.Rendition, "queued").
+								Observe(float64(age.Milliseconds()))
+						}
+					}
+					latencyMu.Lock()
+					latency += packet.Duration
+					latencyMu.Unlock()
+					packetQueue <- packet
 				}
 			}
 		}()
@@ -158,16 +215,75 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 				case <-ctx.Done():
 					return
 				case packet := <-packetQueue:
+					var segmentFirstSend sync.Once
+					latencyMu.Lock()
+					queuedLatency := latency
 					latency -= packet.Duration
-					scalar = getPlaybackRate(latency)
-					log.Debug(ctx, "playback latency", "latency", latency, "scalar", scalar)
+					currentLatency := latency
+					latencyMu.Unlock()
+					scalar = getPlaybackRate(currentLatency)
+					spmetrics.WebRTCQueueDuration.WithLabelValues(packet.Streamer, packet.Rendition).
+						Observe(float64(queuedLatency.Milliseconds()))
+					segmentID := ""
+					sourceStart := time.Time{}
+					packetizeDuration := time.Duration(0)
+					packetizeQueueDuration := time.Duration(0)
+					sourceAge := time.Duration(0)
+					if packet.Timing != nil {
+						segmentID = packet.Timing.SegmentID
+						sourceStart = packet.Timing.SourceStart
+						sourceAge = packet.Timing.SourceAge(time.Now())
+						if !packet.Timing.PacketizeStarted.IsZero() && !packet.Timing.PacketizeCompleted.IsZero() {
+							packetizeDuration = packet.Timing.PacketizeCompleted.Sub(packet.Timing.PacketizeStarted)
+						}
+						if !packet.Timing.Distributed.IsZero() && !packet.Timing.PacketizeStarted.IsZero() {
+							packetizeQueueDuration = packet.Timing.PacketizeStarted.Sub(packet.Timing.Distributed)
+						}
+					}
+					log.Debug(ctx, "playback latency",
+						"segment_id", segmentID,
+						"streamer", packet.Streamer,
+						"rendition", packet.Rendition,
+						"latency", currentLatency,
+						"scalar", scalar,
+						"source_start", sourceStart,
+						"source_age_ms", sourceAge.Milliseconds(),
+						"packetize_ms", packetizeDuration.Milliseconds(),
+						"packetize_queue_ms", packetizeQueueDuration.Milliseconds(),
+						"webrtc_queue_ms", queuedLatency.Milliseconds(),
+						"webrtc_source_age_ms", sourceAge.Milliseconds())
 					g, _ := errgroup.WithContext(ctx)
 					wroteAny := false
+					recordFirstSend := func() {
+						segmentFirstSend.Do(func() {
+							firstSendAt := time.Now()
+							if packet.Timing != nil {
+								packet.Timing.WebRTCSegmentFirstSent = firstSendAt
+							}
+							observeWebRTCSegmentLatency(packet.Timing, packet.Streamer, packet.Rendition, firstSendAt, "first_rtp")
+						})
+						firstSend.Do(func() {
+							firstSendAt := time.Now()
+							if packet.Timing != nil {
+								packet.Timing.WebRTCFirstSent = firstSendAt
+								if age := packet.Timing.SourceAge(firstSendAt); age > 0 {
+									spmetrics.WebRTCSourceAge.WithLabelValues(packet.Streamer, packet.Rendition, "first_sent").
+										Observe(float64(age.Milliseconds()))
+								}
+							}
+							spmetrics.WebRTCSetupToFirstSendDuration.WithLabelValues(packet.Streamer, packet.Rendition).
+								Observe(float64(firstSendAt.Sub(playbackStarted).Milliseconds()))
+						})
+					}
 
 					if !audioOnly && len(packet.Video) > 0 {
 						wroteAny = true
 						g.Go(func() error {
-							return writeSamples(ctx, videoTrack, packet.Video, scalar)
+							started := time.Now()
+							err := writeSamples(ctx, videoTrack, packet.Video, scalar, recordFirstSend)
+							spmetrics.WebRTCVideoSendDuration.WithLabelValues(packet.Streamer, packet.Rendition).
+								Observe(float64(time.Since(started).Milliseconds()))
+							return err
 						})
 					} else if !audioOnly {
 						log.Warn(ctx, "no video samples to write")
@@ -186,12 +302,16 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					if audioDur > 0 {
 						wroteAny = true
 						g.Go(func() error {
+							started := time.Now()
 							ticker := time.NewTicker(time.Duration(float64(audioDur) * (1 / scalar)))
 							defer ticker.Stop()
-							for _, audio := range packet.Audio {
+							for i, audio := range packet.Audio {
 								err := audioTrack.WriteSample(media.Sample{Data: audio.Data, Duration: audioDur})
 								if err != nil {
 									return fmt.Errorf("failed to write audio sample: %w", err)
+								}
+								if i == 0 {
+									recordFirstSend()
 								}
 								select {
 								case <-ctx.Done():
@@ -200,6 +320,8 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 									continue
 								}
 							}
+							spmetrics.WebRTCAudioSendDuration.WithLabelValues(packet.Streamer, packet.Rendition).
+								Observe(float64(time.Since(started).Milliseconds()))
 							return nil
 						})
 					} else {
@@ -209,6 +331,12 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 						if err := g.Wait(); err != nil {
 							log.Error(ctx, "failed to write samples", "error", err)
 							cancel()
+						} else {
+							completedAt := time.Now()
+							if packet.Timing != nil {
+								packet.Timing.WebRTCSegmentCompleted = completedAt
+							}
+							observeWebRTCSegmentLatency(packet.Timing, packet.Streamer, packet.Rendition, completedAt, "complete")
 						}
 					}
 				}
@@ -285,12 +413,15 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 // — enough to starve the receiver's jitter buffer). Sleeping until the
 // scheduled deadline instead absorbs overshoot in the next iteration, like a
 // ticker does.
-func writeSamples(ctx context.Context, track *webrtc.TrackLocalStaticSample, samples []bus.PacketizedSample, scalar float64) error {
+func writeSamples(ctx context.Context, track *webrtc.TrackLocalStaticSample, samples []bus.PacketizedSample, scalar float64, onFirstSample func()) error {
 	start := time.Now()
 	var scheduled time.Duration
-	for _, s := range samples {
+	for i, s := range samples {
 		if err := track.WriteSample(media.Sample{Data: s.Data, Duration: s.Duration}); err != nil {
 			return fmt.Errorf("failed to write sample: %w", err)
+		}
+		if i == 0 {
+			onFirstSample()
 		}
 		scheduled += time.Duration(float64(s.Duration) / scalar)
 		wait := scheduled - time.Since(start)

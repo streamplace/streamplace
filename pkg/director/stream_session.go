@@ -280,6 +280,9 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			Data:      notif.Data,
 			Muxl:      notif.Muxl,
 			Published: notif.Metadata.Published,
+			Streamer:  spseg.Creator,
+			Rendition: "source",
+			Timing:    notif.Timing.Clone(),
 		})
 	})
 
@@ -310,7 +313,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	if ss.cli.LivepeerGatewayURL != "" {
 		ss.Go(ctx, func() error {
 			start := time.Now()
-			err := ss.Transcode(ctx, spseg, notif.Data)
+			err := ss.Transcode(ctx, spseg, notif.Data, notif.Timing)
 			took := time.Since(start)
 			spmetrics.QueuedTranscodeDuration.WithLabelValues(spseg.Creator).Set(float64(took.Milliseconds()))
 			return err
@@ -834,7 +837,7 @@ func (ss *StreamSession) doUpdateViewCount(ctx context.Context, repoDID string) 
 	return nil
 }
 
-func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segment, data []byte) error {
+func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segment, data []byte, timing *bus.SegmentTiming) error {
 	rs, err := renditions.GenerateRenditions(spseg)
 	if err != nil {
 		return fmt.Errorf("failed to generated renditions: %w", err)
@@ -877,8 +880,11 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 		}
 		ss.Go(ctx, func() error {
 			return ss.AddPlaybackSegment(ctx, spseg, rs[i].Name, &bus.Seg{
-				Filepath: fd.Name(),
-				Data:     seg,
+				Filepath:  fd.Name(),
+				Data:      seg,
+				Streamer:  spseg.Creator,
+				Rendition: rs[i].Name,
+				Timing:    timing.Clone(),
 			})
 		})
 
@@ -900,6 +906,16 @@ func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *placestream.Seg
 	}
 	seg.PacketizedData = packet
 	ss.bus.PublishSegment(ctx, spseg.Creator, rendition, seg)
+	if rendition == "source" {
+		webrtcPacket := *packet
+		webrtcPacket.Rendition = media.WebRTCSourceRendition
+		webrtcPacket.Timing = packet.Timing.Clone()
+		webrtcSeg := *seg
+		webrtcSeg.Rendition = media.WebRTCSourceRendition
+		webrtcSeg.PacketizedData = &webrtcPacket
+		webrtcSeg.Timing = webrtcPacket.Timing
+		ss.bus.PublishSegment(ctx, spseg.Creator, media.WebRTCSourceRendition, &webrtcSeg)
+	}
 	return nil
 }
 

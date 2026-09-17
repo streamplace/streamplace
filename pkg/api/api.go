@@ -13,6 +13,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ import (
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/js/app"
 	web "stream.place/streamplace/js/web"
+	"stream.place/streamplace/pkg/acme"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
@@ -73,6 +75,9 @@ type StreamplaceAPI struct {
 	PlaybackStore blob.Store
 	ViewLog       *viewlog.Writer
 	XRPCServer    *spxrpc.Server
+	// ACME, when set, supplies TLS certificates for every TLS listener and
+	// answers HTTP-01 challenges on the redirect listener.
+	ACME *acme.Manager
 	// not thread-safe yet
 	Aliases  map[string]string
 	Bus      *bus.Bus
@@ -197,26 +202,26 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	// new ones
 	addFunc(apiRouter, "GET", "/api/manifest", a.HandleAppUpdates(ctx))
 	addHandle(apiRouter, "GET", "/api/desktop-updates/:platform/:architecture/:version/:buildTime/:file", a.HandleDesktopUpdates(ctx))
-	addHandle(apiRouter, "POST", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	addHandle(apiRouter, "OPTIONS", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	addHandle(apiRouter, "DELETE", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
+	addHandle(apiRouter, "POST", "/api/webrtc/:stream", a.viewerGate(a.MistProxyHandler(ctx, "/webrtc/%s")))
+	addHandle(apiRouter, "OPTIONS", "/api/webrtc/:stream", a.viewerGate(a.MistProxyHandler(ctx, "/webrtc/%s")))
+	addHandle(apiRouter, "DELETE", "/api/webrtc/:stream", a.viewerGate(a.MistProxyHandler(ctx, "/webrtc/%s")))
 	addFunc(apiRouter, "POST", "/api/segment", a.HandleSegment(ctx))
 	addFunc(apiRouter, "GET", "/api/healthz", a.HandleHealthz(ctx))
 	// they're jpegs now
-	addHandle(apiRouter, "GET", "/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/stream.jpg", a.viewerGate(a.HandleThumbnailPlayback(ctx)))
 	// this one is actually a jpeg (used previously and shouldn't remove for historical reasons)
-	addHandle(apiRouter, "GET", "/api/playback/:user/stream.png", a.HandleThumbnailPlayback(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/stream.png", a.viewerGate(a.HandleThumbnailPlayback(ctx)))
 	addHandle(apiRouter, "GET", "/api/app-return/*anything", a.HandleAppReturn(ctx))
-	addHandle(apiRouter, "POST", "/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
+	addHandle(apiRouter, "POST", "/api/playback/:user/webrtc", a.viewerGate(a.HandleWebRTCPlayback(ctx)))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
-	addHandle(apiRouter, "POST", "/api/player-event", a.HandlePlayerEvent(ctx))
-	addHandle(apiRouter, "GET", "/api/chat/:repoDID", a.HandleChat(ctx))
-	addHandle(apiRouter, "GET", "/api/websocket/:repoDID", a.HandleWebsocket(ctx))
-	addHandle(apiRouter, "GET", "/api/livestream/:repoDID", a.HandleLivestream(ctx))
+	addHandle(apiRouter, "POST", "/api/player-event", a.viewerGate(a.HandlePlayerEvent(ctx)))
+	addHandle(apiRouter, "GET", "/api/chat/:repoDID", a.viewerGate(a.HandleChat(ctx)))
+	addHandle(apiRouter, "GET", "/api/websocket/:repoDID", a.viewerGate(a.HandleWebsocket(ctx)))
+	addHandle(apiRouter, "GET", "/api/livestream/:repoDID", a.viewerGate(a.HandleLivestream(ctx)))
 	addHandle(apiRouter, "GET", "/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
-	addHandle(apiRouter, "GET", "/api/view-count/:user", a.HandleViewCount(ctx))
-	addHandle(apiRouter, "GET", "/api/clip/:user/:file", a.HandleClip(ctx))
+	addHandle(apiRouter, "GET", "/api/view-count/:user", a.viewerGate(a.HandleViewCount(ctx)))
+	addHandle(apiRouter, "GET", "/api/clip/:user/:file", a.viewerGate(a.HandleClip(ctx)))
 	if a.UploadManager != nil {
 		// Don't wrap in middlewarestd.Handler (go-http-metrics): its
 		// responseWriterInterceptor doesn't implement Unwrap, which would
@@ -369,6 +374,22 @@ func (a *StreamplaceAPI) loadFrontends(ctx context.Context) (*frontendSet, error
 	return &frontendSet{app: appHandler, web: webHandler}, nil
 }
 
+// assetExtensions are the file types a browser or player asks for by name.
+// A path ending in one of them that is not in the frontend bundle is a
+// missing file, not an app route to serve the shell for. Handles are routes
+// too and can end in a TLD (/live.example.eu), so this is a list, not "has an
+// extension".
+var assetExtensions = map[string]bool{
+	".mp4": true, ".m4s": true, ".m3u8": true, ".ts": true, ".webm": true, ".mp3": true, ".aac": true, ".ogg": true,
+	".json": true, ".js": true, ".mjs": true, ".css": true, ".map": true, ".wasm": true,
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".svg": true, ".ico": true, ".avif": true,
+	".woff": true, ".woff2": true, ".ttf": true, ".otf": true, ".txt": true, ".xml": true, ".pdf": true, ".zip": true,
+}
+
+func looksLikeAsset(path string) bool {
+	return assetExtensions[strings.ToLower(filepath.Ext(path))]
+}
+
 // buildLinkingHandler builds the static-file + link-card handler for a
 // single frontend.
 func (a *StreamplaceAPI) buildLinkingHandler(ctx context.Context, load func() (fs.FS, error)) (http.HandlerFunc, error) {
@@ -411,7 +432,7 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 	fsys := AppHostingFS{http.FS(files)}
 
 	fileHandler := a.FileHandler(ctx, http.FileServer(fsys))
-	defaultHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	serveStaticOrIndex := func(w http.ResponseWriter, req *http.Request, card bool) {
 		f := strings.TrimPrefix(req.URL.Path, "/")
 		// under docs we need the index.html suffix due to astro rendering
 		if strings.HasPrefix(req.URL.Path, "/docs") && strings.HasSuffix(req.URL.Path, "/") {
@@ -423,9 +444,26 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 			return
 		}
 		if errors.Is(err, ErrorIndex) || f == "" {
-			bs, err := linker.GenerateDefaultCard(ctx, req.URL, a.CLI.SentryDSN)
-			if err != nil {
-				log.Error(ctx, "error generating default card", "error", err)
+			if looksLikeAsset(f) {
+				// A missing file, not an app route: a 404, so that a
+				// CDN in front of this node (a blob or segment URL that
+				// reached the app shell by mistake, a stale hashed
+				// asset) caches a short miss rather than the app page
+				// as a month-old "video".
+				apierrors.WriteHTTPNotFound(w, "file not found", nil)
+				return
+			}
+			var bs []byte
+			if card {
+				bs, err = linker.GenerateDefaultCard(ctx, req.URL, a.CLI.SentryDSN)
+				if err != nil {
+					log.Error(ctx, "error generating default card", "error", err)
+				}
+			} else {
+				bs, err = fs.ReadFile(files, "index.html")
+				if err != nil {
+					log.Error(ctx, "error reading index.html", "error", err)
+				}
 			}
 			w.Header().Set("Content-Type", "text/html")
 			if _, err := w.Write(bs); err != nil {
@@ -435,8 +473,17 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 			log.Warn(ctx, "error opening file", "error", err)
 			apierrors.WriteHTTPInternalServerError(w, "file not found", err)
 		}
+	}
+	defaultHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		serveStaticOrIndex(w, req, true)
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if !a.viewerAllowed(req) {
+			// Private node, unknown visitor: the app shell (which renders the
+			// sign-in wall) and its assets, but no link cards.
+			serveStaticOrIndex(w, req, false)
+			return
+		}
 		proto := "http"
 		if req.TLS != nil {
 			proto = "https"
@@ -980,6 +1027,9 @@ func (a *StreamplaceAPI) ServeHTTPRedirect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if a.ACME != nil {
+		handler = a.ACME.HTTPChallengeHandler(handler)
+	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
 		ln, err := getListenerFromFD("http")
 		if err != nil {
@@ -1018,6 +1068,15 @@ func (a *StreamplaceAPI) ServeHTTPS(ctx context.Context) error {
 			port443 := 443
 			a.HTTPRedirectTLSPort = &port443
 			log.Warn(ctx, "https server listening for https over systemd socket", "addr", ln.Addr())
+		}
+		if a.ACME != nil {
+			s.TLSConfig = a.ACME.TLSConfig()
+			s.TLSConfig.NextProtos = append([]string{"h2", "http/1.1"}, s.TLSConfig.NextProtos...)
+			log.Log(ctx, "https server starting",
+				"addr", ln.Addr(),
+				"acmeDomains", strings.Join(a.ACME.Domains(), ","),
+			)
+			return s.ServeTLS(ln, "", "")
 		}
 		log.Log(ctx, "https server starting",
 			"addr", ln.Addr(),

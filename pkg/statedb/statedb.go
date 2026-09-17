@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/driver/postgres"
@@ -37,7 +38,11 @@ type StatefulDB struct {
 	// pgLockConn is used to hold a connection to the database for locking
 	pgLockConn   *gorm.DB
 	pgLockConnMu sync.Mutex
-	OATProxy     *oatproxy.OATProxy
+	// brandingCache holds one brandingSnapshot per broadcaster (see
+	// BrandingBlobs), so the many per-key reads of a page render cost one
+	// query per TTL instead of one each.
+	brandingCache sync.Map
+	OATProxy      *oatproxy.OATProxy
 	// vodProcessor runs the gstreamer + muxl + S3 pipeline for a VOD
 	// upload task. Installed via SetVODProcessor at bootstrap so
 	// pkg/statedb doesn't have to depend on the gstreamer-heavy pkg/vod.
@@ -68,6 +73,8 @@ var StatefulDBModels = []any{
 	MultistreamTarget{},
 	MultistreamEvent{},
 	BrandingBlob{},
+	AccessGrant{},
+	CertmagicItem{},
 	ModerationAuditLog{},
 	Storage{},
 	BroadcastOrigin{},
@@ -120,9 +127,19 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 		}
 		sqlDB.SetMaxOpenConns(1)
 	}
+	if dbType == DBTypePostgres {
+		if err := boundPostgresPool(ctx, db, cli.DBMaxOpenConns); err != nil {
+			return nil, err
+		}
+	}
 	for _, model := range StatefulDBModels {
 		err = db.AutoMigrate(model)
 		if err != nil {
+			return nil, err
+		}
+	}
+	if dbType == DBTypePostgres {
+		if err := postgresIndexFixes(ctx, db); err != nil {
 			return nil, err
 		}
 	}
@@ -154,6 +171,38 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 	return state, nil
 }
 
+// postgresIndexFixes swaps indexes AutoMigrate builds as btrees for hash
+// indexes where the column is a long token looked up only by equality: a
+// btree entry tops out at ~2.7KB and a downstream OAuth access token (a JWT
+// carrying the session's whole scope list) can be bigger, which makes the
+// INSERT of a perfectly good session fail. AutoMigrate leaves an index alone
+// once one of that name exists, so this holds across restarts.
+func postgresIndexFixes(ctx context.Context, db *gorm.DB) error {
+	type ix struct{ table, column, name string }
+	for _, i := range []ix{
+		{"oauth_sessions", "downstream_access_token", "idx_oauth_sessions_downstream_access_token"},
+	} {
+		var def string
+		err := db.WithContext(ctx).Raw(
+			"SELECT indexdef FROM pg_indexes WHERE schemaname = CURRENT_SCHEMA() AND tablename = ? AND indexname = ?", i.table, i.name,
+		).Scan(&def).Error
+		if err != nil {
+			return fmt.Errorf("checking index %s: %w", i.name, err)
+		}
+		if def == "" || strings.Contains(def, "USING hash") {
+			continue
+		}
+		log.Log(ctx, "rebuilding index as hash (btree can't hold long tokens)", "index", i.name)
+		if err := db.WithContext(ctx).Exec(fmt.Sprintf(`DROP INDEX IF EXISTS %q`, i.name)).Error; err != nil {
+			return fmt.Errorf("dropping index %s: %w", i.name, err)
+		}
+		if err := db.WithContext(ctx).Exec(fmt.Sprintf(`CREATE INDEX %q ON %q USING hash (%q)`, i.name, i.table, i.column)).Error; err != nil {
+			return fmt.Errorf("creating hash index %s: %w", i.name, err)
+		}
+	}
+	return nil
+}
+
 // sqlitePragmas applies the two settings a sqlite state database needs: WAL, so
 // readers do not block the writer, and a busy timeout, so a writer in another
 // process (`streamplace sync`, warming a new index) is waited for instead of
@@ -174,6 +223,44 @@ func openDB(dial gorm.Dialector) (*gorm.DB, error) {
 	})
 }
 
+// Postgres pool bounds. database/sql opens connections without limit by
+// default, so a station of N nodes under load could each grab as many as
+// the server allows and collectively hit max_connections — at which point
+// every node fails (SQLSTATE 53300) at once. A cap per node means a busy
+// node queues on its own pool instead. Idle connections are trimmed so a
+// quiet node doesn't sit on its whole allowance, and connections are
+// recycled hourly so a failover or pooler restart is followed.
+const (
+	pgMaxIdleConns    = 8
+	pgConnMaxIdleTime = 5 * time.Minute
+	pgConnMaxLifetime = time.Hour
+)
+
+func boundPostgresPool(ctx context.Context, db *gorm.DB, maxOpen int) error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("error getting database: %w", err)
+	}
+	if maxOpen <= 0 {
+		maxOpen = 30
+	}
+	// The advisory-lock connection is held for the process lifetime; keep
+	// room for at least a few queries beside it.
+	if maxOpen < 4 {
+		maxOpen = 4
+	}
+	idle := pgMaxIdleConns
+	if idle > maxOpen {
+		idle = maxOpen
+	}
+	sqlDB.SetMaxOpenConns(maxOpen)
+	sqlDB.SetMaxIdleConns(idle)
+	sqlDB.SetConnMaxIdleTime(pgConnMaxIdleTime)
+	sqlDB.SetConnMaxLifetime(pgConnMaxLifetime)
+	log.Log(ctx, "postgres pool bounded", "maxOpen", maxOpen, "maxIdle", idle, "idleTime", pgConnMaxIdleTime, "lifetime", pgConnMaxLifetime)
+	return nil
+}
+
 // helper function for creating the requested postgres database
 func makePostgresDB(dbURL string) (*gorm.DB, error) {
 	u, err := url.Parse(dbURL)
@@ -192,6 +279,12 @@ func makePostgresDB(dbURL string) (*gorm.DB, error) {
 
 	// postgres doesn't support prepared statements for CREATE DATABASE. don't SQL inject yourself.
 	err = db.Exec(fmt.Sprintf("CREATE DATABASE %s;", dbName)).Error
+	// The bootstrap connection to the maintenance database isn't needed
+	// again; left open it would count against max_connections for the
+	// life of the process.
+	if rootSQL, dbErr := db.DB(); dbErr == nil {
+		rootSQL.Close()
+	}
 	if err != nil {
 		return nil, err
 	}

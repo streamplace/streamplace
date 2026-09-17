@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"slices"
 	"strconv"
+	"stream.place/streamplace/pkg/access"
 	"strings"
 	"time"
 
@@ -57,33 +58,40 @@ func (b BuildFlags) BuildTimeStrExpo() string {
 }
 
 type CLI struct {
-	AdminAccount                string
-	Build                       *BuildFlags
-	DataDir                     string
-	DBURL                       string
-	LocalDBURL                  string
-	EthAccountAddr              string
-	EthKeystorePath             string
-	EthPassword                 string
-	FirebaseServiceAccount      string
-	FirebaseServiceAccountFile  string
-	GitLabURL                   string
-	HTTPAddr                    string
-	HTTPInternalAddr            string
-	HTTPSAddr                   string
-	RTMPAddr                    string
-	RTMPSAddr                   string
-	RTMPSAddonAddr              string
-	Secure                      bool
-	NoMist                      bool
-	IsolatedIngest              bool
-	MistAdminPort               int
-	MistHTTPPort                int
-	MistRTMPPort                int
-	SigningKeyPath              string
-	TAURL                       string
-	TLSCertPath                 string
-	TLSKeyPath                  string
+	AdminAccount               string
+	Build                      *BuildFlags
+	DataDir                    string
+	DBURL                      string
+	DBMaxOpenConns             int
+	LocalDBURL                 string
+	EthAccountAddr             string
+	EthKeystorePath            string
+	EthPassword                string
+	FirebaseServiceAccount     string
+	FirebaseServiceAccountFile string
+	GitLabURL                  string
+	HTTPAddr                   string
+	HTTPInternalAddr           string
+	HTTPSAddr                  string
+	RTMPAddr                   string
+	RTMPSAddr                  string
+	RTMPSAddonAddr             string
+	Secure                     bool
+	NoMist                     bool
+	IsolatedIngest             bool
+	MistAdminPort              int
+	MistHTTPPort               int
+	MistRTMPPort               int
+	SigningKeyPath             string
+	TAURL                      string
+	TLSCertPath                string
+	TLSKeyPath                 string
+	// ACME enables automatic TLS certificates from an ACME CA (Let\'s Encrypt)
+	// stored in statedb; see pkg/acme.
+	ACME                        bool
+	ACMEEmail                   string
+	ACMECA                      string
+	ACMEDomains                 []string
 	PKCS11ModulePath            string
 	PKCS11Pin                   string
 	PKCS11TokenSlot             string
@@ -149,41 +157,49 @@ type CLI struct {
 	BehindHTTPSProxy            bool
 	SegmentDebugDir             string
 	AdminDIDs                   []string
-	Syndicate                   []string
-	PlayerTelemetry             bool
-	PlaybackWorkerURL           string
-	Ingests                     *placestream.IngestGetIngestUrls_Output
-	S3Endpoint                  string
-	S3Bucket                    string
-	S3AccessKeyID               string
-	S3SecretAccessKey           string
-	S3Region                    string
-	VODCDNURL                   string
-	VODCDNProvider              string
-	BunnyTokenAuthKey           string
-	BunnyPullZone               string
-	BunnyLogStorageZone         string
-	BunnyLogStorageEndpoint     string
-	BunnyLogStorageKey          string
-	CDNLogIngestInterval        time.Duration
-	DisableSyndication          bool
-	MuxlInitialMemoryMB         int
-	MuxlMaxMemoryMB             int
-	GamesAPIURL                 string
-	GamesAPIClientKey           string
-	GamesAPIClientSecret        string
-	BetaInviteDID               string
-	ViewLogFlushInterval        time.Duration
-	ViewCountAggregateInterval  time.Duration
-	ViewCountAggregateLag       time.Duration
-	VODConcurrency              int
-	MaximumLiveBitrate          int
-	SweepConcurrency            int
-	SweepInterval               time.Duration
-	SweepBootDelay              time.Duration
-	DeepenRate                  int
-	FirehoseReplayWindow        time.Duration
-	IndexDBConnections          int
+	// Access is the node's role-based access controller, installed at boot
+	// once statedb is open. When nil (tests, early boot) the environment
+	// lists below are the whole policy.
+	Access access.Manager
+	// AccessPolicy seeds the mode of each role (SP_ACCESS_POLICY, e.g.
+	// "viewer=allowlist,vod=off"). A policy record written from the app
+	// overrides it per role.
+	AccessPolicy               map[string]string
+	Syndicate                  []string
+	PlayerTelemetry            bool
+	PlaybackWorkerURL          string
+	Ingests                    *placestream.IngestGetIngestUrls_Output
+	S3Endpoint                 string
+	S3Bucket                   string
+	S3AccessKeyID              string
+	S3SecretAccessKey          string
+	S3Region                   string
+	VODCDNURL                  string
+	VODCDNProvider             string
+	BunnyTokenAuthKey          string
+	BunnyPullZone              string
+	BunnyLogStorageZone        string
+	BunnyLogStorageEndpoint    string
+	BunnyLogStorageKey         string
+	CDNLogIngestInterval       time.Duration
+	DisableSyndication         bool
+	MuxlInitialMemoryMB        int
+	MuxlMaxMemoryMB            int
+	GamesAPIURL                string
+	GamesAPIClientKey          string
+	GamesAPIClientSecret       string
+	BetaInviteDID              string
+	ViewLogFlushInterval       time.Duration
+	ViewCountAggregateInterval time.Duration
+	ViewCountAggregateLag      time.Duration
+	VODConcurrency             int
+	MaximumLiveBitrate         int
+	SweepConcurrency           int
+	SweepInterval              time.Duration
+	SweepBootDelay             time.Duration
+	DeepenRate                 int
+	FirehoseReplayWindow       time.Duration
+	IndexDBConnections         int
 }
 
 // DefaultSweepInterval is how often the atproto sweep re-runs when
@@ -336,6 +352,37 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       filepath.Join(SPDataDir, "tls", "tls.key"),
 				Sources:     urfavecli.EnvVars("SP_TLS_KEY"),
 			},
+			&urfavecli.BoolFlag{
+				Name:        "acme",
+				Usage:       "With --secure, obtain and renew the node's TLS certificates automatically from an ACME CA (Let's Encrypt by default) instead of reading --tls-cert/--tls-key. Certificates are kept in the state database so every node in a station shares them. The CA must be able to reach this node on port 80 (HTTP-01) or 443 (TLS-ALPN-01) at --broadcaster-host and --server-host. Using this means you agree to the CA's terms of service.",
+				Value:       false,
+				Destination: &cli.ACME,
+				Sources:     urfavecli.EnvVars("SP_ACME"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "acme-email",
+				Usage:       "Contact email registered with the ACME CA (expiry warnings, account recovery)",
+				Destination: &cli.ACMEEmail,
+				Sources:     urfavecli.EnvVars("SP_ACME_EMAIL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "acme-ca",
+				Usage:       `ACME directory URL, or "letsencrypt" / "letsencrypt-staging" (default: letsencrypt)`,
+				Destination: &cli.ACMECA,
+				Sources:     urfavecli.EnvVars("SP_ACME_CA"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "acme-domains",
+				Usage: `comma-separated extra hostnames to hold certificates for, on top of --broadcaster-host and --server-host (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					cli.ACMEDomains = strings.Split(s, ",")
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_ACME_DOMAINS"),
+			},
 			&urfavecli.StringFlag{
 				Name:        "signing-key",
 				Usage:       "Path to signing key for pushing OTA updates to the app",
@@ -348,6 +395,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       "sqlite://$SP_DATA_DIR/state.sqlite",
 				Destination: &cli.DBURL,
 				Sources:     urfavecli.EnvVars("SP_DB_URL"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "db-max-open-conns",
+				Usage:       "most connections this node holds to a Postgres state database (one of them is the advisory-lock connection); requests wait for a free one rather than opening more. Size it so nodes × this stays under the server's max_connections. Ignored for sqlite",
+				Value:       30,
+				Destination: &cli.DBMaxOpenConns,
+				Sources:     urfavecli.EnvVars("SP_DB_MAX_OPEN_CONNS"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "admin-account",
@@ -1000,7 +1054,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:  "admin-dids",
-				Usage: `comma-separated list of DIDs that are authorized to modify branding and other admin operations (default: "")`,
+				Usage: `comma-separated list of DIDs seeded with the admin role: they manage branding and access control (Settings → Access) and can grant every other role (default: "")`,
 				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
 					if s == "" {
 						return nil
@@ -1009,6 +1063,22 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 					return nil
 				},
 				Sources: urfavecli.EnvVars("SP_ADMIN_DIDS"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "access-policy",
+				Usage: `seed the access policy as comma-separated role=mode pairs, e.g. "viewer=allowlist,vod=off". Roles: viewer, streamer, syndicate, vod. Modes: open, allowlist, off. Modes set from the app's Access screen override these per role. Start with viewer=allowlist and an --admin-dids entry to bring up a private node nobody but that admin can use until they grant access (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					policy, err := access.ParsePolicy(s)
+					if err != nil {
+						return fmt.Errorf("--access-policy: %w", err)
+					}
+					cli.AccessPolicy = policy
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_ACCESS_POLICY"),
 			},
 			&urfavecli.StringFlag{
 				Name:  "syndicate",
@@ -1585,6 +1655,12 @@ func (cli *CLI) AddressSliceFlag(name, defaultValue, usage string, dest *[]aqpub
 }
 
 func (cli *CLI) StreamIsAllowed(did string) error {
+	if cli.Access != nil {
+		if cli.Access.Allowed(context.Background(), did, access.RoleStreamer) {
+			return nil
+		}
+		return fmt.Errorf("user %s is not allowed to stream on this node", did)
+	}
 	if cli.WideOpen {
 		return nil
 	}
@@ -1697,6 +1773,9 @@ func (cli *CLI) DebugRecordingCreate(ctx context.Context, fpath []string, conten
 }
 
 func (cli *CLI) ShouldSyndicate(did string) bool {
+	if cli.Access != nil {
+		return cli.Access.Allowed(context.Background(), did, access.RoleSyndicate)
+	}
 	if cli.DisableSyndication {
 		return false
 	}
@@ -1709,4 +1788,14 @@ func (cli *CLI) ShouldSyndicate(did string) bool {
 		}
 	}
 	return false
+}
+
+// IsAdmin reports whether did holds the admin role: an SP_ADMIN_DIDS entry
+// or, once the access controller is installed, a grant in the node's
+// access-control space.
+func (cli *CLI) IsAdmin(did string) bool {
+	if cli.Access != nil {
+		return cli.Access.Allowed(context.Background(), did, access.RoleAdmin)
+	}
+	return slices.Contains(cli.AdminDIDs, did)
 }

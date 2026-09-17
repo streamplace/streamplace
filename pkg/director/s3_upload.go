@@ -2,6 +2,7 @@ package director
 
 import (
 	"context"
+	"stream.place/streamplace/pkg/access"
 
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
@@ -34,7 +35,9 @@ const vodInviteFeature = "vod"
 // any lookup error we fail closed (do not record).
 func (ss *StreamSession) shouldRecordLivestream(ctx context.Context, repoDID string) bool {
 	inBeta := false
-	if ss.cli.BetaInviteDID != "" {
+	if ss.cli.Access != nil {
+		inBeta = ss.cli.Access.Allowed(ctx, repoDID, access.RoleVOD)
+	} else if ss.cli.BetaInviteDID != "" {
 		has, err := ss.mod.HasBetaInvite(ctx, ss.cli.BetaInviteDID, repoDID, vodInviteFeature)
 		if err != nil {
 			log.Error(ctx, "live recording: failed to check VOD beta invite", "error", err, "repoDID", repoDID)

@@ -122,11 +122,13 @@ export const NewStreamplaceProvider = ({
   const { url } = useStreamplaceNode();
   const oauthSession = useOAuthSession();
   const openLoginModal = useStore((s) => s.openLoginModal);
+  const dropSession = useStore((s) => s.dropSession);
   return (
     <ZustandStreamplaceProvider
       url={url}
       oauthSession={oauthSession}
       onNeedsLogin={openLoginModal ? () => openLoginModal() : undefined}
+      onSessionInvalid={dropSession}
     >
       {children}
     </ZustandStreamplaceProvider>

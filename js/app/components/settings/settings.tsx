@@ -5,8 +5,7 @@ import {
   MenuSeparator,
   Text,
   useDanmuUnlocked,
-  useDID,
-  useStreamplaceStore,
+  useIsAdmin,
   useTranslation,
   View,
   zero,
@@ -25,6 +24,7 @@ import {
   Lock,
   LogIn,
   Shield,
+  ShieldCheck,
   User2,
   Video,
 } from "lucide-react-native";
@@ -43,11 +43,8 @@ export function Settings() {
   const danmuUnlocked = useDanmuUnlocked();
   const openLoginModal = useStore((state) => state.openLoginModal);
 
-  const adminDids = useStreamplaceStore((state) => state.adminDIDs);
-  const did = useDID();
-
-  // Determine if the user is an admin
-  const isAdmin = did && adminDids && adminDids.includes(did) ? true : false;
+  // Node admin per place.stream.access.getStatus (the "admin" role).
+  const isAdmin = useIsAdmin();
 
   const { t } = useTranslation("settings");
 
@@ -172,6 +169,12 @@ export function Settings() {
                   title={t("branding")}
                   screen="BrandingAdmin"
                   icon={Brush}
+                />
+                <MenuSeparator />
+                <SettingsNavigationItem
+                  title={t("access")}
+                  screen="AccessAdmin"
+                  icon={ShieldCheck}
                 />
               </MenuGroup>
             )}

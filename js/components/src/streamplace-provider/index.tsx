@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { ProfileCacheProvider } from "../context/profile-cache";
 import { useDocumentTitle } from "../hooks";
 import {
+  useAccessStatusAutoFetch,
   useBrandingAutoFetch,
   useFetchBroadcasterDID,
   useFetchEnvConfig,
@@ -17,11 +18,13 @@ export function StreamplaceProvider({
   url,
   oauthSession,
   onNeedsLogin,
+  onSessionInvalid,
 }: {
   children: React.ReactNode;
   url: string;
   oauthSession?: SessionManager | null;
   onNeedsLogin?: () => void;
+  onSessionInvalid?: () => void;
 }) {
   // todo: handle url changes?
   const store = useRef(makeStreamplaceStore({ url })).current;
@@ -37,6 +40,10 @@ export function StreamplaceProvider({
   useEffect(() => {
     store.setState({ onNeedsLogin: onNeedsLogin ?? null });
   }, [onNeedsLogin]);
+
+  useEffect(() => {
+    store.setState({ onSessionInvalid: onSessionInvalid ?? null });
+  }, [onSessionInvalid]);
 
   return (
     <StreamplaceContext.Provider value={{ store: store }}>
@@ -55,6 +62,7 @@ export function BrandingFetcher({ children }: { children: React.ReactNode }) {
   const fetchBroadcasterDID = useFetchBroadcasterDID();
   const fetchEnvConfig = useFetchEnvConfig();
   useBrandingAutoFetch();
+  useAccessStatusAutoFetch();
   useDocumentTitle();
 
   useEffect(() => {

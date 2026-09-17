@@ -419,6 +419,11 @@ func (s *Server) HandleGamesGamesgamesgamesgamesSearch(c echo.Context) error {
 }
 
 func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
+	e.POST("/xrpc/place.stream.access.createGrant", s.HandlePlaceStreamAccessCreateGrant)
+	e.POST("/xrpc/place.stream.access.deleteGrant", s.HandlePlaceStreamAccessDeleteGrant)
+	e.GET("/xrpc/place.stream.access.getStatus", s.HandlePlaceStreamAccessGetStatus)
+	e.GET("/xrpc/place.stream.access.listGrants", s.HandlePlaceStreamAccessListGrants)
+	e.POST("/xrpc/place.stream.access.updatePolicy", s.HandlePlaceStreamAccessUpdatePolicy)
 	e.GET("/xrpc/place.stream.badge.getIssuedBadges", s.HandlePlaceStreamBadgeGetIssuedBadges)
 	e.GET("/xrpc/place.stream.badge.getValidBadges", s.HandlePlaceStreamBadgeGetValidBadges)
 	e.GET("/xrpc/place.stream.beta.getStatus", s.HandlePlaceStreamBetaGetStatus)
@@ -483,6 +488,84 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.vod.publishDraft", s.HandlePlaceStreamVodPublishDraft)
 	e.POST("/xrpc/place.stream.vod.updateDraft", s.HandlePlaceStreamVodUpdateDraft)
 	return nil
+}
+
+func (s *Server) HandlePlaceStreamAccessCreateGrant(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamAccessCreateGrant")
+	defer span.End()
+	var body placestream.AccessCreateGrant_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.AccessCreateGrant_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamAccessCreateGrant(ctx context.Context,body *placestream.AccessCreateGrant_Input) (*placestream.AccessCreateGrant_Output, error)
+	out, handleErr = s.handlePlaceStreamAccessCreateGrant(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamAccessDeleteGrant(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamAccessDeleteGrant")
+	defer span.End()
+	var body placestream.AccessDeleteGrant_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.AccessDeleteGrant_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamAccessDeleteGrant(ctx context.Context,body *placestream.AccessDeleteGrant_Input) (*placestream.AccessDeleteGrant_Output, error)
+	out, handleErr = s.handlePlaceStreamAccessDeleteGrant(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamAccessGetStatus(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamAccessGetStatus")
+	defer span.End()
+	var out *placestream.AccessGetStatus_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamAccessGetStatus(ctx context.Context) (*placestream.AccessGetStatus_Output, error)
+	out, handleErr = s.handlePlaceStreamAccessGetStatus(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamAccessListGrants(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamAccessListGrants")
+	defer span.End()
+	role := c.QueryParam("role")
+	var out *placestream.AccessListGrants_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamAccessListGrants(ctx context.Context,role string) (*placestream.AccessListGrants_Output, error)
+	out, handleErr = s.handlePlaceStreamAccessListGrants(ctx, role)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamAccessUpdatePolicy(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamAccessUpdatePolicy")
+	defer span.End()
+	var body placestream.AccessUpdatePolicy_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.AccessUpdatePolicy_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamAccessUpdatePolicy(ctx context.Context,body *placestream.AccessUpdatePolicy_Input) (*placestream.AccessUpdatePolicy_Output, error)
+	out, handleErr = s.handlePlaceStreamAccessUpdatePolicy(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandlePlaceStreamBadgeGetIssuedBadges(c echo.Context) error {

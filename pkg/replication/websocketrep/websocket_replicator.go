@@ -15,6 +15,7 @@ import (
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 type WebsocketReplicator struct {
@@ -81,25 +82,32 @@ func (r *WebsocketReplicator) handleOriginMessage(ctx context.Context, view *pla
 	}
 	ctx = log.WithLogValues(ctx, "streamer", view.Author.Did)
 	if origin.WebsocketURL == nil {
+		spmetrics.BroadcastOriginsTotal.WithLabelValues("no_url").Inc()
 		return fmt.Errorf("origin has no websocket URL author=%s", view.Author.Did)
 	}
 	if !r.cli.ShouldSyndicate(origin.Streamer) {
+		spmetrics.BroadcastOriginsTotal.WithLabelValues("not_syndicated").Inc()
 		log.Debug(ctx, "not replicating streamer", "streamer", origin.Streamer)
 		return nil
 	}
 	if r.hasConnection(origin.Streamer) {
+		spmetrics.BroadcastOriginsTotal.WithLabelValues("already_connected").Inc()
 		log.Debug(ctx, "already has connection")
 		return nil
 	}
 	myURL := r.getMyWebsocketURL()
 	u, err := url.Parse(*origin.WebsocketURL)
 	if err != nil {
+		spmetrics.BroadcastOriginsTotal.WithLabelValues("no_url").Inc()
 		return fmt.Errorf("could not parse origin websocket URL: %w", err)
 	}
 	if u.Host == myURL.Host {
+		spmetrics.BroadcastOriginsTotal.WithLabelValues("self").Inc()
 		log.Debug(ctx, "origin websocket URL is on this node, skipping")
 		return nil
 	}
+	spmetrics.BroadcastOriginsTotal.WithLabelValues("connect").Inc()
+	log.Log(ctx, "syndicating: pulling from origin", "streamer", origin.Streamer, "origin", *origin.WebsocketURL)
 	r.group.Go(func() error {
 		err := r.openWebsocket(ctx, view)
 		log.Error(ctx, "websocket connection error", "error", err)
@@ -123,12 +131,16 @@ func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *placestre
 	}
 	conn, _, err := websocket.DefaultDialer.Dial(*origin.WebsocketURL, nil)
 	if err != nil {
+		spmetrics.ReplicationConnectErrorsTotal.Inc()
 		return fmt.Errorf("could not dial websocket (%s): %w", *origin.WebsocketURL, err)
 	}
 	defer conn.Close()
+	spmetrics.ReplicationOutboundOpen.WithLabelValues(origin.Streamer).Inc()
+	defer spmetrics.ReplicationOutboundOpen.WithLabelValues(origin.Streamer).Dec()
 	for {
 		typ, msg, err := conn.ReadMessage()
 		if err != nil {
+			spmetrics.ReplicationConnectErrorsTotal.Inc()
 			log.Error(ctx, "could not read message", "error", err)
 			return fmt.Errorf("could not read message: %w", err)
 		}

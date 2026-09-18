@@ -1138,7 +1138,7 @@ func makeWhipCommand(build *config.BuildFlags) *urfavecli.Command {
 			},
 			&urfavecli.DurationFlag{
 				Name:  "duration",
-				Usage: "duration of the stream",
+				Usage: "total duration of the stream, including retries",
 			},
 			&urfavecli.StringFlag{
 				Name:     "file",
@@ -1154,8 +1154,14 @@ func makeWhipCommand(build *config.BuildFlags) *urfavecli.Command {
 				Name:  "freeze-after",
 				Usage: "freeze the stream after the given duration",
 			},
+			&urfavecli.DurationFlag{
+				Name:  "retry",
+				Usage: "restart after EOF or failure with this delay (e.g. 1s; 0 disables retries)",
+			},
 		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+			defer stop()
 			return WHIP(
 				ctx,
 				cmd.String("stream-key"),
@@ -1165,6 +1171,7 @@ func makeWhipCommand(build *config.BuildFlags) *urfavecli.Command {
 				cmd.String("file"),
 				cmd.String("endpoint"),
 				cmd.Duration("freeze-after"),
+				cmd.Duration("retry"),
 			)
 		},
 	}

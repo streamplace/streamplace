@@ -7031,7 +7031,12 @@
         "type": "object",
         "properties": {
           "count": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Viewers watching right now."
+          },
+          "total": {
+            "type": "integer",
+            "description": "Running number of playback sessions this livestream has had (cumulative, session-based; the X-style 'views' beside the concurrent count)."
           }
         },
         "required": ["count"]

@@ -59,6 +59,9 @@ type StatefulDB struct {
 	// MUXL objects into a VOD. Installed via SetLivestreamVODFinalizer at
 	// bootstrap, same indirection as vodProcessor.
 	livestreamVODFinalizer LivestreamVODFinalizer
+	// videoPublisher publishes a finalized livestream VOD's video record
+	// when the finalize task asks for it (SetVideoPublisher).
+	videoPublisher VideoPublisher
 }
 
 // list tables here so we can migrate them
@@ -73,6 +76,8 @@ var StatefulDBModels = []any{
 	MultistreamTarget{},
 	MultistreamEvent{},
 	BrandingBlob{},
+	StreamViewTotal{},
+	LivestreamViewTotal{},
 	CertmagicItem{},
 	ModerationAuditLog{},
 	Storage{},
@@ -141,6 +146,9 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 		if err := postgresIndexFixes(ctx, db); err != nil {
 			return nil, err
 		}
+	}
+	if err := migrateStreamViewTotals(ctx, db); err != nil {
+		return nil, fmt.Errorf("carrying over stream view totals: %w", err)
 	}
 
 	err = db.Use(prometheus.New(prometheus.Config{

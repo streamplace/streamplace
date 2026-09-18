@@ -71,6 +71,9 @@ type MediaManager struct {
 	// hlsSessions tracks live HLS playback sessions by (streamer, sid) so
 	// stateless HLS requests feed the viewer count. See hls_sessions.go.
 	hlsSessions *hlsSessionTracker
+	// viewRecorder, when set, is told about every new playback session
+	// (see SetViewRecorder).
+	viewRecorder func(streamer string)
 
 	// Node S2PA transcode signer (cert + PKCS#8 key PEM), built once from the
 	// server-repo key. Used to sign transcode-completed audio tracks under the

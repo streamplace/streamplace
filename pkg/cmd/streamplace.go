@@ -276,6 +276,17 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
+	// Every new playback session counts toward the streamer's running view
+	// total, filed under their current livestream record.
+	mm.SetViewRecorder(func(streamer string) {
+		uri := ""
+		if ls, err := mod.GetLatestLivestreamForRepo(streamer); err == nil && ls != nil {
+			uri = ls.URI
+		}
+		if _, err := state.AddStreamView(ctx, streamer, uri); err != nil {
+			log.Warn(ctx, "failed to count a view", "streamer", streamer, "err", err)
+		}
+	})
 	if cli.IsolatedIngest && !media.IngestIsolationSupported() {
 		// The worker transport needs Unix fd-passing + Setsid (Linux today); fall
 		// back to in-process ingest elsewhere rather than break.
@@ -447,11 +458,23 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			return "", fmt.Errorf("finalize-livestream-vod: resolve signing key: %w", err)
 		}
 		return vod.FinalizeLivestreamVOD(ctx, cli, state, vodStore, vod.FinalizeInput{
-			UploadID:      t.UploadID,
-			RepoDID:       t.RepoDID,
-			LivestreamURI: t.LivestreamURI,
-			SigningKey:    signingKey,
+			UploadID:       t.UploadID,
+			RepoDID:        t.RepoDID,
+			LivestreamURI:  t.LivestreamURI,
+			LivestreamURIs: t.LivestreamURIs,
+			SigningKey:     signingKey,
 		})
+	})
+	// Publishes the video record right after a finalize the operator asked
+	// to publish (the finalize route), with the streamer's stored session.
+	state.SetVideoPublisher(func(ctx context.Context, t statedb.FinalizeLivestreamVODTask) (string, string, error) {
+		if t.Publish == nil {
+			return "", "", nil
+		}
+		if vodStore == nil {
+			return "", "", fmt.Errorf("finalize-livestream-vod: no VOD store configured")
+		}
+		return vod.PublishVideo(ctx, state, vodStore, t.RepoDID, t.UploadID, t.Publish.Record())
 	})
 	// View-count aggregator runs the log → record pipeline for one
 	// window. Same function-pointer pattern as the VOD processor so

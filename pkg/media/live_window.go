@@ -3,6 +3,7 @@ package media
 import (
 	"bytes"
 	"context"
+	"sync"
 	"time"
 
 	"stream.place/streamplace/pkg/bus"
@@ -40,6 +41,39 @@ func (mm *MediaManager) liveWindow(did string) *livehls.Writer {
 	return w
 }
 
+type liveWindowFeed struct {
+	mu   sync.Mutex
+	refs int
+}
+
+func (mm *MediaManager) lockLiveWindowFeed(did string) *liveWindowFeed {
+	mm.liveWindowsMut.Lock()
+	if mm.liveWindowFeeds == nil {
+		mm.liveWindowFeeds = map[string]*liveWindowFeed{}
+	}
+	feed := mm.liveWindowFeeds[did]
+	if feed == nil {
+		feed = &liveWindowFeed{}
+		mm.liveWindowFeeds[did] = feed
+	}
+	feed.refs++
+	mm.liveWindowsMut.Unlock()
+
+	feed.mu.Lock()
+	return feed
+}
+
+func (mm *MediaManager) unlockLiveWindowFeed(did string, feed *liveWindowFeed) {
+	feed.mu.Unlock()
+
+	mm.liveWindowsMut.Lock()
+	feed.refs--
+	if feed.refs == 0 && mm.liveWindows[did] == nil {
+		delete(mm.liveWindowFeeds, did)
+	}
+	mm.liveWindowsMut.Unlock()
+}
+
 // GetLiveWindow returns the streamer's live-HLS window, or nil if it has no
 // live segments — either none observed yet, or all aged out (a stalled/ended
 // stream). In the latter case the window is dropped from the map so it's freed
@@ -50,6 +84,9 @@ func (mm *MediaManager) GetLiveWindow(did string) *livehls.Writer {
 	w := mm.liveWindows[did]
 	if w != nil && w.Empty() {
 		delete(mm.liveWindows, did)
+		if feed := mm.liveWindowFeeds[did]; feed == nil || feed.refs == 0 {
+			delete(mm.liveWindowFeeds, did)
+		}
 		return nil
 	}
 	return w

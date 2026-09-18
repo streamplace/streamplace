@@ -46,9 +46,10 @@ const StreamplaceMetadata = "cawg.metadata"
 const WebRTCSourceRendition = "webrtc-source"
 
 type MediaManager struct {
-	cli            *config.CLI
-	liveWindows    map[string]*livehls.Writer
-	liveWindowsMut sync.Mutex
+	cli             *config.CLI
+	liveWindows     map[string]*livehls.Writer
+	liveWindowsMut  sync.Mutex
+	liveWindowFeeds map[string]*liveWindowFeed
 	// modBuffers holds a short in-memory ring of each live user's most recent
 	// canonical segments, the source for moderation/report clips now that
 	// segments are no longer archived to disk. Keyed by repoDID. See
@@ -131,17 +132,18 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		return nil, err
 	}
 	mm := &MediaManager{
-		cli:          cli,
-		liveWindows:  map[string]*livehls.Writer{},
-		modBuffers:   map[string]*modBuffer{},
-		httpPipes:    map[string]io.Writer{},
-		model:        mod,
-		bus:          bus,
-		atsync:       atsync,
-		webrtcAPI:    api,
-		webrtcConfig: config,
-		localDB:      ldb,
-		transcoders:  map[string]*streamTranscoder{},
+		cli:             cli,
+		liveWindows:     map[string]*livehls.Writer{},
+		liveWindowFeeds: map[string]*liveWindowFeed{},
+		modBuffers:      map[string]*modBuffer{},
+		httpPipes:       map[string]io.Writer{},
+		model:           mod,
+		bus:             bus,
+		atsync:          atsync,
+		webrtcAPI:       api,
+		webrtcConfig:    config,
+		localDB:         ldb,
+		transcoders:     map[string]*streamTranscoder{},
 	}
 	mm.hlsSessions = newHLSSessionTracker(hlsSessionTTL,
 		func(streamer string) { mm.IncrementViewerCount(streamer, "hls") },

@@ -82,26 +82,33 @@ func shouldDropStaleGOP(sourceAge time.Duration, hasSourceAge bool) bool {
 	return hasSourceAge && sourceAge > playbackDropAge
 }
 
-// Complete stale segments are dropped only when a replacement is available.
-// Retaining the last segment lets playback continue until the next GOP arrives
-// while keeping the drop boundary safe for video reference frames.
-func discardStaleGOPs(current *bus.PacketizedSegment, next func() (*bus.PacketizedSegment, bool), now time.Time) (*bus.PacketizedSegment, int) {
+// discardStaleGOPs removes complete packetized segments from the head of the
+// playback stream until a segment near the live edge is available. A
+// PacketizedSegment is the packetized form of one source GOP, so this keeps
+// the drop boundary safe for video reference frames. The final stale segment
+// is retained when no replacement is available, so playback always has media
+// to send while waiting for the next GOP.
+func discardStaleGOPs(current *bus.PacketizedSegment, next func() (*bus.PacketizedSegment, bool), now time.Time) (*bus.PacketizedSegment, int, time.Duration) {
 	dropped := 0
+	queuedRemovedDuration := time.Duration(0)
 	for current != nil {
 		age, hasSourceAge := playbackSourceAge(current.Timing, now)
 		if !shouldDropStaleGOP(age, hasSourceAge) {
-			return current, dropped
+			return current, dropped, queuedRemovedDuration
 		}
 		nextSegment, ok := next()
 		if !ok {
 			// Dropping the current segment without a replacement would leave the
 			// viewer with no packetized media to play.
-			return current, dropped
+			return current, dropped, queuedRemovedDuration
 		}
+		// Every value returned by next was removed from packetQueue, including
+		// the replacement that becomes current and is no longer queued.
+		queuedRemovedDuration += nextSegment.Duration
 		dropped++
 		current = nextSegment
 	}
-	return nil, dropped
+	return nil, dropped, queuedRemovedDuration
 }
 
 // This function remains in scope for the duration of a single users' playback
@@ -319,23 +326,23 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					initialRendition := packet.Rendition
 					now := time.Now()
 					if sourceAge, hasSourceAge := playbackSourceAge(packet.Timing, now); shouldDropStaleGOP(sourceAge, hasSourceAge) {
-						packet, dropped := discardStaleGOPs(packet, func() (*bus.PacketizedSegment, bool) {
+						packet, dropped, queuedRemovedDuration := discardStaleGOPs(packet, func() (*bus.PacketizedSegment, bool) {
 							select {
 							case next, ok := <-packetQueue:
 								if !ok {
 									return nil, false
 								}
-								latencyMu.Lock()
-								latency -= next.Duration
-								if latency < 0 {
-									latency = 0
-								}
-								latencyMu.Unlock()
 								return next, true
 							default:
 								return nil, false
 							}
 						}, now)
+						latencyMu.Lock()
+						latency -= queuedRemovedDuration
+						if latency < 0 {
+							latency = 0
+						}
+						latencyMu.Unlock()
 						if dropped > 0 {
 							spmetrics.WebRTCStaleGOPDroppedTotal.WithLabelValues(initialStreamer, initialRendition).
 								Add(float64(dropped))

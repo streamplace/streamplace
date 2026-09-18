@@ -30,8 +30,10 @@ type RTMPSession struct {
 	MediaSigner MediaSigner
 }
 
+const rtmpIngestAudioElementName = "audioenc"
+
 func rtmpIngestAudioChain(audioPad string) string {
-	return fmt.Sprintf("%s ! %s ! aacparse name=audioenc", audioPad, constants.Queue2Big)
+	return fmt.Sprintf("%s ! %s ! aacparse name=%s", audioPad, constants.Queue2Big, rtmpIngestAudioElementName)
 }
 
 func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms MediaSigner) error {
@@ -69,11 +71,11 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 	if err != nil {
 		return err
 	}
-	audioenc, err := pipeline.GetElementByName("audioenc")
+	audioEle, err := pipeline.GetElementByName(rtmpIngestAudioElementName)
 	if err != nil {
 		return err
 	}
-	err = audioenc.Link(signer)
+	err = audioEle.Link(signer)
 	if err != nil {
 		return err
 	}

@@ -10,12 +10,15 @@ import (
 	"testing"
 	"time"
 
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/livehls"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/muxl"
+	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/test/remote"
 )
 
@@ -58,7 +61,9 @@ func TestTranscodeQueuePolicyUsesMediaDurationAndJobCount(t *testing.T) {
 		{name: "two second gops fit", depth: 2, queued: 2 * time.Second, next: 2 * time.Second, wantAdmission: true},
 		{name: "four second gop fits when empty", depth: 0, queued: 0, next: 4 * time.Second, wantAdmission: true},
 		{name: "four second media limit", depth: 3, queued: 3 * time.Second, next: 1*time.Second + time.Nanosecond, wantAdmission: false},
-		{name: "large gop allowed when empty", depth: 0, queued: 0, next: 6 * time.Second, wantAdmission: true},
+		{name: "six second gop allowed when empty", depth: 0, queued: 0, next: 6 * time.Second, wantAdmission: true},
+		{name: "gop over six seconds rejected when empty", depth: 0, queued: 0, next: 6*time.Second + time.Nanosecond, wantAdmission: false},
+		{name: "gop over six seconds rejected with backlog", depth: 1, queued: time.Second, next: 6 * time.Second, wantAdmission: false},
 		{name: "job count limit", depth: transcodeQueueMaxJobs, queued: 0, next: 0, wantAdmission: false},
 		{name: "unknown duration uses count bound", depth: 3, queued: 0, next: 0, wantAdmission: true},
 	}
@@ -108,6 +113,24 @@ func TestStreamTranscoderQueueAgeWakesAtStaleDeadline(t *testing.T) {
 	require.Less(t, time.Since(started), 500*time.Millisecond)
 }
 
+func TestStreamTranscoderRejectsOversizedGOP(t *testing.T) {
+	tr := &streamTranscoder{queueChanged: make(chan struct{})}
+	err := tr.waitForQueueCapacity(context.Background(), transcodeQueueMaxGOPDuration+time.Nanosecond)
+	require.ErrorIs(t, err, ErrTranscodeGOPTooLong)
+}
+
+func TestFeedStreamTranscoderRejectsOversizedGOPBeforeCreatingWorker(t *testing.T) {
+	mm := &MediaManager{transcoders: map[string]*streamTranscoder{}}
+	vs := &validatedSegment{
+		repoDID:   "did:example:long-gop",
+		mediaData: &localdb.SegmentMediaData{Duration: int64(transcodeQueueMaxGOPDuration + time.Nanosecond)},
+	}
+
+	err := mm.feedStreamTranscoder(context.Background(), vs, nil, "aac", nil, nil)
+	require.ErrorIs(t, err, ErrTranscodeGOPTooLong)
+	require.Empty(t, mm.transcoders, "an unsupported GOP must not leave a worker to rebuild on every segment")
+}
+
 func TestStreamTranscoderQueueWaitsForSlowWorker(t *testing.T) {
 	const segmentDuration = 500 * time.Millisecond
 	queuedAt := time.Now()
@@ -144,6 +167,27 @@ func TestStreamTranscoderQueueWaitsForSlowWorker(t *testing.T) {
 	tr.queueMu.Lock()
 	require.Equal(t, transcodeQueueMaxMediaDuration-segmentDuration, tr.queuedMediaDuration)
 	tr.queueMu.Unlock()
+}
+
+func TestTranscodeMetricCleanupDoesNotClearReplacement(t *testing.T) {
+	const streamer = "phase4-metric-owner"
+	old := &streamTranscoder{streamer: streamer}
+	current := &streamTranscoder{streamer: streamer}
+	mm := &MediaManager{transcoders: map[string]*streamTranscoder{streamer: current}}
+	old.mm = mm
+	current.mm = mm
+
+	spmetrics.TranscodeQueueDepth.WithLabelValues(streamer).Set(7)
+	clearTranscodeQueueMetricsIfCurrent(old)
+
+	metric := &dto.Metric{}
+	require.NoError(t, spmetrics.TranscodeQueueDepth.WithLabelValues(streamer).Write(metric))
+	require.Equal(t, float64(7), metric.GetGauge().GetValue(),
+		"a closed transcoder must not clear metrics owned by its replacement")
+
+	clearTranscodeQueueMetricsIfCurrent(current)
+	require.NoError(t, spmetrics.TranscodeQueueDepth.WithLabelValues(streamer).Write(metric))
+	require.Zero(t, metric.GetGauge().GetValue())
 }
 
 // TestFeedStreamTranscoderRebuildsOnNewSession is the end-to-end regression for

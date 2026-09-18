@@ -36,10 +36,13 @@ type transcodeQueueEntry struct {
 const (
 	transcodeQueueMaxJobs          = 16
 	transcodeQueueMaxMediaDuration = 4 * time.Second
+	transcodeQueueMaxGOPDuration   = 6 * time.Second
 	transcodeQueueMaxAge           = 8 * time.Second
+	transcodeQueueMetricsInterval  = 250 * time.Millisecond
 )
 
 var ErrTranscodeQueueStale = errors.New("stream transcoder queue is stale")
+var ErrTranscodeGOPTooLong = errors.New("stream transcoder GOP exceeds maximum duration")
 
 // streamTranscoder runs ONE long-lived audio transcode for a single stream.
 //
@@ -119,6 +122,13 @@ func ingestSessionFromContext(ctx context.Context) uint64 {
 // distributed asynchronously (≈1 GoP later) via distributeSegment.
 func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedSegment, src []byte, target string, cert, keyPEM []byte) error {
 	did := vs.repoDID
+	mediaDuration, _ := transcodeMediaMetadata(vs)
+	if mediaDuration > transcodeQueueMaxGOPDuration {
+		// This is an ingest contract, not a queue-pressure fallback. Reject the
+		// segment before creating a worker so a stream with an overlong GOP does
+		// not tear down and rebuild the same transcoder for every segment.
+		return fmt.Errorf("%w: got %s, maximum is %s", ErrTranscodeGOPTooLong, mediaDuration, transcodeQueueMaxGOPDuration)
+	}
 	sessionID := ingestSessionFromContext(ctx)
 	mm.transcodersMu.Lock()
 	t := mm.transcoders[did]
@@ -136,6 +146,7 @@ func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedS
 		// still complete) and rebuild. One seam at the boundary, clean after.
 		old := t
 		delete(mm.transcoders, did)
+		clearTranscodeQueueMetrics(old.streamer)
 		t = nil
 		log.Log(ctx, "resetting stream transcoder",
 			"streamer", did, "from_target", old.target, "to_target", target,
@@ -169,6 +180,7 @@ func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedS
 			mm.transcodersMu.Lock()
 			if mm.transcoders[did] == t {
 				delete(mm.transcoders, did)
+				clearTranscodeQueueMetrics(t.streamer)
 			}
 			mm.transcodersMu.Unlock()
 			go func() {
@@ -216,6 +228,9 @@ func transcodeQueueFits(depth int, queuedMediaDuration, nextMediaDuration time.D
 	if depth >= transcodeQueueMaxJobs {
 		return false
 	}
+	if nextMediaDuration > transcodeQueueMaxGOPDuration {
+		return false
+	}
 	if nextMediaDuration <= 0 || queuedMediaDuration <= 0 {
 		return true
 	}
@@ -231,6 +246,9 @@ func (t *streamTranscoder) signalQueueChangedLocked() {
 }
 
 func (t *streamTranscoder) waitForQueueCapacity(ctx context.Context, mediaDuration time.Duration) error {
+	if mediaDuration > transcodeQueueMaxGOPDuration {
+		return ErrTranscodeGOPTooLong
+	}
 	for {
 		t.queueMu.Lock()
 		depth := len(t.queued)
@@ -331,10 +349,6 @@ func (t *streamTranscoder) discardStaleQueuedJobs() int {
 	if t.cancel != nil {
 		t.cancel()
 	}
-	spmetrics.TranscodeQueueDepth.WithLabelValues(t.streamer).Set(0)
-	spmetrics.TranscodeQueuedMediaDuration.WithLabelValues(t.streamer).Set(0)
-	spmetrics.TranscodeOldestJobAge.WithLabelValues(t.streamer).Set(0)
-	spmetrics.TranscodeOldestSourceAge.WithLabelValues(t.streamer).Set(0)
 	return dropped
 }
 
@@ -380,6 +394,7 @@ func (mm *MediaManager) reapStreamTranscoder(did string, t *streamTranscoder) {
 	mm.transcodersMu.Lock()
 	if mm.transcoders[did] == t {
 		delete(mm.transcoders, did)
+		clearTranscodeQueueMetrics(t.streamer)
 	}
 	mm.transcodersMu.Unlock()
 	if err := t.Close(); err != nil {
@@ -545,10 +560,7 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 		t.queuedMediaDuration = 0
 		t.signalQueueChangedLocked()
 		t.queueMu.Unlock()
-		spmetrics.TranscodeQueueDepth.WithLabelValues(t.streamer).Set(0)
-		spmetrics.TranscodeQueuedMediaDuration.WithLabelValues(t.streamer).Set(0)
-		spmetrics.TranscodeOldestJobAge.WithLabelValues(t.streamer).Set(0)
-		spmetrics.TranscodeOldestSourceAge.WithLabelValues(t.streamer).Set(0)
+		clearTranscodeQueueMetricsIfCurrent(t)
 	}()
 	pipeline, err := buildAudioTranscodePipeline(t.target)
 	if err != nil {
@@ -597,9 +609,26 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 	}
 
 	// Consume per-GoP transcoded segments, pairing each 1:1 (in order) with the
-	// source segment that produced it.
+	// source segment that produced it. The ticker keeps queue age gauges current
+	// while post-transcode finishing is slow or the pipeline is otherwise idle.
 	var catalog *muxl.MuxlCatalog
-	for ev := range eventCh {
+	metricsTicker := time.NewTicker(transcodeQueueMetricsInterval)
+	defer metricsTicker.Stop()
+eventLoop:
+	for {
+		var ev *muxl.MuxlEvent
+		var ok bool
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-metricsTicker.C:
+			t.observeTranscodeQueue(time.Now())
+			continue
+		case ev, ok = <-eventCh:
+			if !ok {
+				break eventLoop
+			}
+		}
 		switch ev.Type {
 		case "init":
 			if ev.Catalog != nil {
@@ -684,6 +713,24 @@ func (t *streamTranscoder) observeTranscodeQueue(now time.Time) {
 	spmetrics.TranscodeQueuedMediaDuration.WithLabelValues(t.streamer).Set(float64(queuedDuration.Milliseconds()))
 	spmetrics.TranscodeOldestJobAge.WithLabelValues(t.streamer).Set(float64(oldestJobAge.Milliseconds()))
 	spmetrics.TranscodeOldestSourceAge.WithLabelValues(t.streamer).Set(float64(oldestSourceAge.Milliseconds()))
+}
+
+func clearTranscodeQueueMetrics(streamer string) {
+	spmetrics.TranscodeQueueDepth.WithLabelValues(streamer).Set(0)
+	spmetrics.TranscodeQueuedMediaDuration.WithLabelValues(streamer).Set(0)
+	spmetrics.TranscodeOldestJobAge.WithLabelValues(streamer).Set(0)
+	spmetrics.TranscodeOldestSourceAge.WithLabelValues(streamer).Set(0)
+}
+
+func clearTranscodeQueueMetricsIfCurrent(t *streamTranscoder) {
+	if t == nil || t.mm == nil {
+		return
+	}
+	t.mm.transcodersMu.Lock()
+	defer t.mm.transcodersMu.Unlock()
+	if t.mm.transcoders[t.streamer] == t {
+		clearTranscodeQueueMetrics(t.streamer)
+	}
 }
 
 // finishTranscodedSegment assembles one completed dual-codec segment: relabel

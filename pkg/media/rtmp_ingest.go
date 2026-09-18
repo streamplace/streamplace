@@ -8,6 +8,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/go-gst/go-gst/gst"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -29,17 +30,21 @@ type RTMPSession struct {
 	MediaSigner MediaSigner
 }
 
+func rtmpIngestAudioChain(audioPad string) string {
+	return fmt.Sprintf("%s ! %s ! aacparse name=audioenc", audioPad, constants.Queue2Big)
+}
+
 func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms MediaSigner) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	// Mint the source audio: RTMP/FLV audio is already AAC, so pass it through
-	// (aacparse) rather than transcoding to Opus. The validate path completes
-	// each segment to also carry Opus when a consumer (WebRTC) needs it — so
-	// the old RTMP-AAC→Opus→HLS-AAC double-transcode is gone.
+	ctx = withIngestProtocol(ctx, "rtmp")
+	// RTMP carries AAC already. Preserve it through ingest so the canonical path
+	// does not pay an AAC→Opus→AAC round trip; validation derives Opus only when a
+	// WebRTC-compatible companion is needed.
 	pipelineSlice := []string{
 		fmt.Sprintf("rtmp2src location=%s ! flvdemux name=demux", rtmpURL),
-		"demux.audio ! queue ! aacparse name=audioenc",
-		"demux.video ! queue ! h264parse name=parse",
+		rtmpIngestAudioChain("demux.audio"),
+		fmt.Sprintf("demux.video ! %s ! h264parse name=parse", constants.Queue2Big),
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {

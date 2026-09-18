@@ -2,11 +2,14 @@ package media
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/pion/interceptor"
 	"github.com/pion/interceptor/pkg/intervalpli"
 	"github.com/pion/webrtc/v4"
 )
+
+const webrtcKeyframeRequestInterval = 400 * time.Millisecond
 
 // newWebRTCAPI builds the pion API + configuration Streamplace uses for WebRTC
 // ingest (H264 video + Opus audio, default interceptors plus an interval PLI so
@@ -17,7 +20,9 @@ func newWebRTCAPI() (*webrtc.API, webrtc.Configuration, error) {
 	m := &webrtc.MediaEngine{}
 	i := &interceptor.Registry{}
 
-	intervalPliFactory, err := intervalpli.NewReceiverInterceptor()
+	intervalPliFactory, err := intervalpli.NewReceiverInterceptor(
+		intervalpli.GeneratorInterval(webrtcKeyframeRequestInterval),
+	)
 	if err != nil {
 		return nil, webrtc.Configuration{}, fmt.Errorf("failed to create intervalpli factory: %w", err)
 	}

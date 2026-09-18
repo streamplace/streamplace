@@ -14,6 +14,8 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
@@ -34,6 +36,134 @@ func TestPacketize(t *testing.T) {
 		err := g.Wait()
 		require.NoError(t, err)
 	})
+}
+
+func TestPacketizeRecordsTimingAndMetrics(t *testing.T) {
+	withNoGSTLeaks(t, func() {
+		filename := getFixture("sample-segment.mp4")
+		inputFile, err := os.Open(filename)
+		require.NoError(t, err)
+		defer inputFile.Close()
+		data, err := io.ReadAll(inputFile)
+		require.NoError(t, err)
+
+		startedAt := time.Now()
+		timing := &bus.SegmentTiming{
+			SegmentID:   "phase1-segment",
+			SourceStart: startedAt.Add(-2 * time.Second),
+			Distributed: startedAt.Add(-time.Second),
+		}
+		beforePacketize := histogramSampleCount(t, "streamplace_packetize_duration_ms", map[string]string{
+			"streamer":  "phase1-test",
+			"rendition": "source",
+		})
+		beforeQueue := histogramSampleCount(t, "streamplace_packetize_queue_duration_ms", map[string]string{
+			"streamer":  "phase1-test",
+			"rendition": "source",
+		})
+
+		packet, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{
+			Data:      data,
+			Streamer:  "phase1-test",
+			Rendition: "source",
+			Timing:    timing,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, packet)
+		require.Same(t, timing, packet.Timing)
+		require.Equal(t, "phase1-segment", packet.Timing.SegmentID)
+		require.False(t, packet.Timing.PacketizeStarted.IsZero())
+		require.False(t, packet.Timing.PacketizeCompleted.IsZero())
+		require.GreaterOrEqual(t, packet.Timing.PacketizeCompleted, packet.Timing.PacketizeStarted)
+		require.Greater(t, histogramSampleCount(t, "streamplace_packetize_duration_ms", map[string]string{
+			"streamer":  "phase1-test",
+			"rendition": "source",
+		}), beforePacketize)
+		require.Greater(t, histogramSampleCount(t, "streamplace_packetize_queue_duration_ms", map[string]string{
+			"streamer":  "phase1-test",
+			"rendition": "source",
+		}), beforeQueue)
+	})
+}
+
+func TestPacketizeLatencyCheckpoints(t *testing.T) {
+	withNoGSTLeaks(t, func() {
+		data, err := os.ReadFile(getFixture("sample-segment.mp4"))
+		require.NoError(t, err)
+
+		for _, sourceAge := range []time.Duration{time.Second, 5 * time.Second, 6 * time.Second} {
+			streamer := fmt.Sprintf("phase1-age-%ds", int(sourceAge.Seconds()))
+			startedAt := time.Now()
+			timing := &bus.SegmentTiming{
+				SegmentID:   streamer,
+				SourceStart: startedAt.Add(-sourceAge),
+				Distributed: startedAt.Add(-500 * time.Millisecond),
+			}
+
+			_, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{
+				Data:      data,
+				Streamer:  streamer,
+				Rendition: "source",
+				Timing:    timing,
+			})
+			require.NoError(t, err)
+
+			queueCount, queueSum := histogramSample(t, "streamplace_packetize_queue_duration_ms", map[string]string{
+				"streamer": streamer, "rendition": "source",
+			})
+			packetizeCount, packetizeSum := histogramSample(t, "streamplace_packetize_duration_ms", map[string]string{
+				"streamer": streamer, "rendition": "source",
+			})
+			sourceAgeCount, sourceAgeSum := histogramSample(t, "streamplace_packetize_source_age_ms", map[string]string{
+				"streamer": streamer, "rendition": "source",
+			})
+			require.Positive(t, queueCount)
+			require.Positive(t, packetizeCount)
+			require.Positive(t, sourceAgeCount)
+			t.Logf("baseline checkpoint source_age_target_ms=%d source_age_ms=%.1f packetize_queue_ms=%.1f packetize_ms=%.1f", sourceAge.Milliseconds(), sourceAgeSum/float64(sourceAgeCount), queueSum/float64(queueCount), packetizeSum/float64(packetizeCount))
+		}
+	})
+}
+
+func histogramSampleCount(t *testing.T, name string, labels map[string]string) uint64 {
+	t.Helper()
+	count, _ := histogramSample(t, name, labels)
+	return count
+}
+
+func histogramSample(t *testing.T, name string, labels map[string]string) (uint64, float64) {
+	t.Helper()
+	families, err := prometheus.DefaultGatherer.Gather()
+	require.NoError(t, err)
+	for _, family := range families {
+		if family.GetName() != name {
+			continue
+		}
+		for _, metric := range family.GetMetric() {
+			if !metricLabelsMatch(metric, labels) {
+				continue
+			}
+			histogram := metric.GetHistogram()
+			return histogram.GetSampleCount(), histogram.GetSampleSum()
+		}
+	}
+	return 0, 0
+}
+
+func metricLabelsMatch(metric *dto.Metric, want map[string]string) bool {
+	got := make(map[string]string, len(metric.GetLabel()))
+	for _, label := range metric.GetLabel() {
+		got[label.GetName()] = label.GetValue()
+	}
+	if len(got) != len(want) {
+		return false
+	}
+	for name, value := range want {
+		if got[name] != value {
+			return false
+		}
+	}
+	return true
 }
 
 func TestPacketizeMuxl(t *testing.T) {

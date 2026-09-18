@@ -39,6 +39,12 @@ const SegmentsDir = "segments"
 
 const StreamplaceMetadata = "cawg.metadata"
 
+// WebRTCSourceRendition is the private bus rendition used for source media
+// that is safe to send to WebRTC before asynchronous codec completion. It is
+// deliberately separate from "source", which remains the canonical dual-codec
+// stream consumed by replication and AAC-dependent egress.
+const WebRTCSourceRendition = "webrtc-source"
+
 type MediaManager struct {
 	cli            *config.CLI
 	liveWindows    map[string]*livehls.Writer
@@ -105,6 +111,7 @@ type NewSegmentNotification struct {
 	Muxl     []byte
 	Metadata *SegmentMetadata
 	Local    bool
+	Timing   *bus.SegmentTiming
 }
 
 func RunSelfTest(ctx context.Context) error {

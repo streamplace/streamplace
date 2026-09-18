@@ -23,6 +23,7 @@ import (
 // the command line, for process-listing identification.
 type RTMPPushWorkerConfig struct {
 	StreamerDID string `json:"streamer_did"`
+	AudioCodec  string `json:"audio_codec"`
 	// TargetURL is the rtmp(s):// destination including its stream key. Sensitive
 	// — fd-3 only.
 	TargetURL string `json:"target_url"`
@@ -34,6 +35,20 @@ type RTMPPushWorkerConfig struct {
 type pushEvent struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
+}
+
+func rtmpSourceFailure(ctx context.Context, err error) error {
+	if err == nil || errors.Is(err, context.Canceled) || ctx.Err() != nil {
+		return nil
+	}
+	return fmt.Errorf("rtmp push source: %w", err)
+}
+
+func rtmpPushResult(ctx context.Context, pipelineErr, sourceErr error) error {
+	if pipelineErr != nil {
+		return pipelineErr
+	}
+	return rtmpSourceFailure(ctx, sourceErr)
 }
 
 // RunRTMPPushWorker is the body of the `rtmp-push-worker` subcommand. It reads
@@ -57,7 +72,7 @@ func RunRTMPPushWorker(ctx context.Context, cfg RTMPPushWorkerConfig, source io.
 			log.Error(ctx, "rtmp push worker: emit event", "error", err)
 		}
 	}
-	return mm.runRTMPPushPipeline(ctx, source, cfg.TargetURL, report)
+	return mm.runRTMPPushPipeline(ctx, source, cfg.TargetURL, report, cfg.AudioCodec)
 }
 
 // RTMPPushIsolated is the process-isolated counterpart to RTMPPush: the
@@ -78,8 +93,15 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 	if !ok {
 		return fmt.Errorf("failed to convert target view to multistream target")
 	}
+	if err := validateRTMPTargetURL(rec.Url); err != nil {
+		return err
+	}
 
-	cfgJSON, err := json.Marshal(RTMPPushWorkerConfig{StreamerDID: user, TargetURL: rec.Url})
+	audioCodec, err := mm.waitForRTMPSourceAudioCodec(ctx, user, rendition)
+	if err != nil {
+		return fmt.Errorf("wait for RTMP source audio: %w", err)
+	}
+	cfgJSON, err := json.Marshal(RTMPPushWorkerConfig{StreamerDID: user, TargetURL: rec.Url, AudioCodec: audioCodec})
 	if err != nil {
 		return fmt.Errorf("marshal push worker config: %w", err)
 	}
@@ -139,11 +161,15 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 		cfgW.Close() // EOF so the worker's config read completes
 	}()
 
-	// Feed the worker the continuous fMP4 source stream (bus → AAC select →
+	// Feed the worker the continuous fMP4 source stream (bus → codec select →
 	// init+concat). Closing stdin on source EOF/cancel is the worker's EOS.
+	sourceCtx, sourceCancel := context.WithCancel(ctx)
+	sourceDone := make(chan error, 1)
 	go func() {
 		defer stdin.Close()
-		if serr := mm.writeRTMPSource(ctx, user, rendition, stdin); serr != nil && ctx.Err() == nil {
+		serr := mm.writeRTMPSourceWithCodec(sourceCtx, user, rendition, stdin, audioCodec)
+		sourceDone <- serr
+		if serr != nil && !errors.Is(serr, context.Canceled) && ctx.Err() == nil {
 			log.Error(ctx, "rtmp push source ended", "error", serr)
 		}
 	}()
@@ -164,6 +190,14 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 	workerErr := consumePushEvents(ctx, eventsR, report)
 	logsWG.Wait()
 	werr := cmd.Wait()
+	// The worker may exit before the source observes the failure; stop a source
+	// blocked on the bus or pipe before waiting for its result.
+	sourceCancel()
+	// Closing the parent's write end interrupts a source feeding an exited worker.
+	_ = stdin.Close()
+
+	sourceErr := <-sourceDone
+	sourceFailure := rtmpPushResult(ctx, nil, sourceErr)
 
 	switch {
 	case ctx.Err() != nil:
@@ -176,6 +210,8 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 		// A non-zero exit without a clean end means the worker died — contained to
 		// the subprocess; StartMultistreamTarget records it and retries.
 		return fmt.Errorf("rtmp push worker exited: %w", werr)
+	case sourceFailure != nil:
+		return sourceFailure
 	}
 	return nil
 }

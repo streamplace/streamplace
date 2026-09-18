@@ -46,6 +46,106 @@ func TestStreamTranscoderNeedsReset(t *testing.T) {
 	require.True(t, failed.needsReset("aac", 5), "a failed pipeline rebuilds on the next segment")
 }
 
+func TestTranscodeQueuePolicyUsesMediaDurationAndJobCount(t *testing.T) {
+	tests := []struct {
+		name          string
+		depth         int
+		queued        time.Duration
+		next          time.Duration
+		wantAdmission bool
+	}{
+		{name: "one second gops fit", depth: 3, queued: 3 * time.Second, next: time.Second, wantAdmission: true},
+		{name: "two second gops fit", depth: 2, queued: 2 * time.Second, next: 2 * time.Second, wantAdmission: true},
+		{name: "four second gop fits when empty", depth: 0, queued: 0, next: 4 * time.Second, wantAdmission: true},
+		{name: "four second media limit", depth: 3, queued: 3 * time.Second, next: 1*time.Second + time.Nanosecond, wantAdmission: false},
+		{name: "large gop allowed when empty", depth: 0, queued: 0, next: 6 * time.Second, wantAdmission: true},
+		{name: "job count limit", depth: transcodeQueueMaxJobs, queued: 0, next: 0, wantAdmission: false},
+		{name: "unknown duration uses count bound", depth: 3, queued: 0, next: 0, wantAdmission: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.wantAdmission, transcodeQueueFits(tt.depth, tt.queued, tt.next))
+		})
+	}
+}
+
+func TestStreamTranscoderDropsStaleQueuedJobs(t *testing.T) {
+	tr := &streamTranscoder{
+		streamer: "phase4-stale-queue",
+		queued: []transcodeQueueEntry{
+			{enqueuedAt: time.Now().Add(-9 * time.Second), mediaDuration: time.Second},
+			{enqueuedAt: time.Now().Add(-8 * time.Second), mediaDuration: 2 * time.Second},
+		},
+		queueChanged: make(chan struct{}),
+	}
+
+	require.Equal(t, 2, tr.discardStaleQueuedJobs())
+	require.Empty(t, tr.queued)
+	require.Zero(t, tr.queuedMediaDuration)
+	require.True(t, tr.outputsDiscarded())
+}
+
+func TestStreamTranscoderQueueAgeTriggersResync(t *testing.T) {
+	tr := &streamTranscoder{
+		queued:       []transcodeQueueEntry{{enqueuedAt: time.Now().Add(-transcodeQueueMaxAge - time.Nanosecond)}},
+		queueChanged: make(chan struct{}),
+	}
+	require.ErrorIs(t, tr.waitForQueueCapacity(context.Background(), time.Second), ErrTranscodeQueueStale)
+}
+
+func TestStreamTranscoderQueueAgeWakesAtStaleDeadline(t *testing.T) {
+	tr := &streamTranscoder{
+		queued:              []transcodeQueueEntry{{enqueuedAt: time.Now().Add(-transcodeQueueMaxAge + 25*time.Millisecond)}},
+		queuedMediaDuration: transcodeQueueMaxMediaDuration,
+		queueChanged:        make(chan struct{}),
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	started := time.Now()
+	err := tr.waitForQueueCapacity(ctx, time.Second)
+	require.ErrorIs(t, err, ErrTranscodeQueueStale)
+	require.Less(t, time.Since(started), 500*time.Millisecond)
+}
+
+func TestStreamTranscoderQueueWaitsForSlowWorker(t *testing.T) {
+	const segmentDuration = 500 * time.Millisecond
+	queuedAt := time.Now()
+	tr := &streamTranscoder{
+		queued:              make([]transcodeQueueEntry, transcodeQueueMaxMediaDuration/segmentDuration),
+		queuedMediaDuration: transcodeQueueMaxMediaDuration,
+		queueChanged:        make(chan struct{}),
+	}
+	for i := range tr.queued {
+		tr.queued[i] = transcodeQueueEntry{enqueuedAt: queuedAt, mediaDuration: segmentDuration}
+	}
+
+	capacity := make(chan error, 1)
+	go func() {
+		capacity <- tr.waitForQueueCapacity(context.Background(), segmentDuration)
+	}()
+
+	select {
+	case err := <-capacity:
+		t.Fatalf("queue admitted a segment while the slow worker was still at capacity: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	// Completing one old job frees exactly one 500 ms slot and must wake the
+	// blocked feed without allowing the queue to exceed its media budget.
+	tr.completeQueuedJob()
+	select {
+	case err := <-capacity:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("queue did not admit a segment after the worker completed one")
+	}
+
+	tr.queueMu.Lock()
+	require.Equal(t, transcodeQueueMaxMediaDuration-segmentDuration, tr.queuedMediaDuration)
+	tr.queueMu.Unlock()
+}
+
 // TestFeedStreamTranscoderRebuildsOnNewSession is the end-to-end regression for
 // the rapid stop/start wedge: a streamer disconnects and reconnects within the
 // transcoder's idle window, so the registry would otherwise feed the second
@@ -200,7 +300,7 @@ func TestStreamTranscoderGapless(t *testing.T) {
 
 	var mu sync.Mutex
 	var completed [][]byte
-	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, func(_ any, c []byte) {
+	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, "", func(_ any, c []byte) {
 		mu.Lock()
 		completed = append(completed, c)
 		mu.Unlock()
@@ -266,6 +366,52 @@ func TestStreamTranscoderGapless(t *testing.T) {
 		"transcoded AAC total drifts from source Opus beyond priming + boundary quantization")
 }
 
+func TestStreamTranscoderRecordsCompletionLag(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+	segs := allSignedBareSegments(t, ctx, ms, getFixture("h264-opus-frag.mp4"))
+	require.GreaterOrEqual(t, len(segs), 2, "fixture should produce multiple segments")
+
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	const streamer = "phase1-transcode-lag"
+	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "test.example.com"}}
+
+	type feedTiming struct {
+		sequence int
+		enqueued time.Time
+	}
+	var mu sync.Mutex
+	var lags []time.Duration
+	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, streamer, func(token any, _ []byte) {
+		feed := token.(feedTiming)
+		mu.Lock()
+		lags = append(lags, time.Since(feed.enqueued))
+		mu.Unlock()
+	})
+
+	before := histogramSampleCount(t, "streamplace_transcode_completion_lag_ms", map[string]string{
+		"streamer": streamer,
+	})
+	for i, seg := range segs {
+		require.NoError(t, tr.Feed(seg, feedTiming{sequence: i, enqueued: time.Now()}), "feed segment %d", i)
+	}
+	require.NoError(t, tr.Close())
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.NotEmpty(t, lags, "transcoder emitted at least one completed segment")
+	require.Greater(t, histogramSampleCount(t, "streamplace_transcode_completion_lag_ms", map[string]string{
+		"streamer": streamer,
+	}), before)
+	var total time.Duration
+	for _, lag := range lags {
+		require.Positive(t, lag)
+		total += lag
+	}
+	t.Logf("transcode completion checkpoints completed=%d avg_lag_ms=%.1f", len(lags), total.Seconds()*1000/float64(len(lags)))
+}
+
 // TestStreamTranscoderDegenerateTimestamps feeds a real WHIP-captured segment
 // whose source video carries degenerate timestamps — several frames sharing a
 // PTS, plus zero/N/A frame durations (a variable-frame-rate capture artifact
@@ -288,7 +434,7 @@ func TestStreamTranscoderDegenerateTimestamps(t *testing.T) {
 
 	var mu sync.Mutex
 	var completed [][]byte
-	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, func(_ any, c []byte) {
+	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, "", func(_ any, c []byte) {
 		mu.Lock()
 		completed = append(completed, c)
 		mu.Unlock()

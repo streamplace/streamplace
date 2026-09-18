@@ -44,7 +44,7 @@ func TestStreamTranscoderDoubleGopWedge(t *testing.T) {
 
 	var mu sync.Mutex
 	completed := 0
-	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, func(_ any, _ []byte) {
+	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, "", func(_ any, _ []byte) {
 		mu.Lock()
 		completed++
 		mu.Unlock()

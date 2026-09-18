@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -52,11 +53,22 @@ type WHIPClient struct {
 	Viewers     int
 }
 
+func whipViewerBase(endpoint string) string {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return strings.TrimRight(endpoint, "/")
+	}
+	if idx := strings.Index(u.Path, "/api/ingest/webrtc"); idx >= 0 {
+		u.Path = u.Path[:idx]
+		u.RawPath = ""
+	}
+	return strings.TrimRight(u.String(), "/")
+}
+
 var failureStates = []webrtc.ICEConnectionState{
 	webrtc.ICEConnectionStateFailed,
 	webrtc.ICEConnectionStateDisconnected,
 	webrtc.ICEConnectionStateClosed,
-	webrtc.ICEConnectionStateCompleted,
 }
 
 type WHIPConnection struct {
@@ -265,10 +277,11 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	}
 	if w.Viewers > 0 {
 		whepG, ctx := errgroup.WithContext(ctx)
+		viewerBase := whipViewerBase(w.Endpoint)
 		for i := 0; i < w.Count; i++ {
 			did := conns[i].did
 			w := &WHEPClient{
-				Endpoint: fmt.Sprintf("%s/api/playback/%s/webrtc", w.Endpoint, did),
+				Endpoint: fmt.Sprintf("%s/api/playback/%s/webrtc", viewerBase, did),
 				Count:    w.Viewers,
 			}
 			whepG.Go(func() error {

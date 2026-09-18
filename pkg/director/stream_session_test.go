@@ -1,11 +1,61 @@
 package director
 
 import (
+	"context"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/placestream"
 )
+
+func TestAddToWebRTCPublishesSourceAndPrivatePlaybackCopies(t *testing.T) {
+	gstinit.InitGST()
+	_, filename, _, _ := runtime.Caller(0)
+	data, err := os.ReadFile(filepath.Join(filepath.Dir(filename), "..", "..", "test", "fixtures", "sample-segment.mp4"))
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	const streamer = "phase2-dual-codec-playback"
+	b := bus.NewBus()
+	ss := &StreamSession{bus: b, cli: &config.CLI{}}
+	timing := &bus.SegmentTiming{SegmentID: "phase2-dual-segment", SourceStart: time.Now()}
+	sourceSub := b.SubscribeSegment(ctx, streamer, "source")
+	defer b.UnsubscribeSegment(ctx, streamer, "source", sourceSub)
+	webrtcSub := b.SubscribeSegment(ctx, streamer, media.WebRTCSourceRendition)
+	defer b.UnsubscribeSegment(ctx, streamer, media.WebRTCSourceRendition, webrtcSub)
+
+	require.NoError(t, ss.AddToWebRTC(ctx, &placestream.Segment{Creator: streamer}, "source", &bus.Seg{
+		Data:      data,
+		Published: true,
+		Streamer:  streamer,
+		Rendition: "source",
+		Timing:    timing,
+	}))
+
+	select {
+	case got := <-sourceSub.C:
+		require.Equal(t, "source", got.Rendition)
+		require.NotNil(t, got.PacketizedData)
+	case <-time.After(5 * time.Second):
+		t.Fatal("canonical source was not published")
+	}
+	select {
+	case got := <-webrtcSub.C:
+		require.Equal(t, media.WebRTCSourceRendition, got.Rendition)
+		require.NotNil(t, got.PacketizedData)
+		require.NotSame(t, timing, got.Timing, "fan-out timing must be independent")
+	case <-time.After(5 * time.Second):
+		t.Fatal("private WebRTC source was not published")
+	}
+}
 
 func TestExceedsMaxBitrate(t *testing.T) {
 	oneSec := time.Second.Nanoseconds()

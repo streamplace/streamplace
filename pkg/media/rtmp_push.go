@@ -32,13 +32,23 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	if !ok {
 		return fmt.Errorf("failed to convert target view to multistream target")
 	}
+	if err := validateRTMPTargetURL(rec.Url); err != nil {
+		return err
+	}
+	audioCodec, err := mm.waitForRTMPSourceAudioCodec(ctx, user, rendition)
+	if err != nil {
+		return fmt.Errorf("wait for RTMP source audio: %w", err)
+	}
 
-	// Source: subscribe to the streamer's segments and assemble one continuous
-	// fMP4 stream for the push pipeline. Tied to ctx so it tears down when the
-	// pipeline returns.
+	// Assemble one continuous fMP4 source stream for the push pipeline. The
+	// child context lets the pipeline stop the source before collecting its error.
 	pr, pw := io.Pipe()
+	sourceCtx, sourceCancel := context.WithCancel(ctx)
+	sourceDone := make(chan error, 1)
 	go func() {
-		pw.CloseWithError(mm.writeRTMPSource(ctx, user, rendition, pw))
+		err := mm.writeRTMPSourceWithCodec(sourceCtx, user, rendition, pw, audioCodec)
+		sourceDone <- err
+		pw.CloseWithError(err)
 	}()
 
 	// Status straight to the DB (in-process). The isolated worker reports the
@@ -49,28 +59,28 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 			log.Error(ctx, "failed to create multistream event", "error", err)
 		}
 	}
-	return mm.runRTMPPushPipeline(ctx, pr, rec.Url, report)
+	pipelineErr := mm.runRTMPPushPipeline(ctx, pr, rec.Url, report, audioCodec)
+	// Stop a source blocked on the bus or pipe before waiting for its result.
+	sourceCancel()
+
+	closeErr := pipelineErr
+	if closeErr == nil {
+		closeErr = context.Canceled
+	}
+	// Context cancellation cannot interrupt a blocked io.Pipe write; closing the
+	// reader wakes the source goroutine before waiting for its result.
+	_ = pr.CloseWithError(closeErr)
+
+	sourceErr := <-sourceDone
+	return rtmpPushResult(ctx, pipelineErr, sourceErr)
 }
 
-// writeRTMPSource subscribes to the streamer's source segments, selects the AAC
-// audio + video tracks from each dual-codec segment, synthesizes a single fMP4
-// init from the first segment, and writes one continuous fMP4 stream to w (init
-// then every segment's canonical bytes concatenated). It returns when ctx is
-// done or a select/encode/write fails; the caller owns closing w.
-//
-// MUXL segments carry per-track monotonic tfdt, so blind concatenation after a
-// single synthesized init is a valid fMP4 timeline with no remux. The init
-// reflects the first segment's catalog and is never re-emitted; muxl derives the
-// catalog from the moov and does not parse the H.264 bitstream, so a mid-stream
-// resolution/orientation change (carried in-band as new SPS/PPS at a keyframe)
-// is invisible to it — the parameter sets pass through verbatim to
-// h264parse/flvmux and the init's declared dimensions simply stay at the initial
-// config. Reflecting such a change in container metadata would require parsing
-// SPS/PPS.
-func (mm *MediaManager) writeRTMPSource(ctx context.Context, user, rendition string, w io.Writer) error {
-	segChan := mm.bus.SubscribeSegment(ctx, user, rendition)
+// Subscribes to the user's source segments and writes them to the passed-in writer w.
+func (mm *MediaManager) writeRTMPSourceWithCodec(ctx context.Context, user, rendition string, w io.Writer, audioCodec string) error {
+	segChan := mm.bus.SubscribeSegmentBuf(ctx, user, rendition, 1)
 	defer mm.bus.UnsubscribeSegment(ctx, user, rendition, segChan)
 	first := true
+	var err error
 	for {
 		select {
 		case <-ctx.Done():
@@ -81,16 +91,21 @@ func (mm *MediaManager) writeRTMPSource(ctx context.Context, user, rendition str
 				log.Warn(ctx, "source segment has no MUXL bytes, skipping", "file", seg.Filepath)
 				continue
 			}
-			// RTMP wants AAC: select video + the AAC audio track from the
-			// dual-codec segment and feed only those, so flvmux gets AAC with no
-			// transcode.
-			aacSeg, err := filterSegmentToCodec(ctx, seg.Muxl, false)
+			// get source audio codec
+			if audioCodec == "" {
+				audioCodec, err = rtmpSourceAudioCodec(ctx, seg.Muxl)
+				if err != nil {
+					return fmt.Errorf("inspect source audio: %w", err)
+				}
+			}
+			// if opus, prepare for transcode to AAC
+			sourceSeg, err := filterSegmentToCodec(ctx, seg.Muxl, audioCodec == "opus")
 			if err != nil {
-				return fmt.Errorf("select AAC audio: %w", err)
+				return fmt.Errorf("select %s audio: %w", audioCodec, err)
 			}
 			if first {
 				var init bytes.Buffer
-				if err := muxl.RunMuxlWrapInit(ctx, bytes.NewReader(aacSeg), &init); err != nil {
+				if err := muxl.RunMuxlWrapInit(ctx, bytes.NewReader(sourceSeg), &init); err != nil {
 					return fmt.Errorf("synthesize init segment: %w", err)
 				}
 				log.Debug(ctx, "init segment synthesized", "size", init.Len())
@@ -99,32 +114,87 @@ func (mm *MediaManager) writeRTMPSource(ctx context.Context, user, rendition str
 				}
 				first = false
 			}
-			log.Debug(ctx, "writing segment", "size", len(aacSeg))
-			if _, err := w.Write(aacSeg); err != nil {
+			log.Debug(ctx, "writing segment", "size", len(sourceSeg), "audio_codec", audioCodec)
+			if _, err := w.Write(sourceSeg); err != nil {
 				return err
 			}
 		}
 	}
 }
 
-// runRTMPPushPipeline builds and runs the native RTMP egress pipeline:
-// appsrc(source) → qtdemux → {h264parse, aacparse} → flvmux → rtmp2sink → a
-// local TCP/TLS forwarder → the target URL. Status updates (currently "active"
-// once the server acks bytes) go through report. This is the crash-prone native
-// core shared by the in-process RTMPPush and the isolated rtmp-push worker; only
-// `source` and `report` differ between them, so the two paths run an identical
-// gst pipeline and can't drift.
-func (mm *MediaManager) runRTMPPushPipeline(ctx context.Context, source io.Reader, targetURL string, report func(status, message string)) error {
+func (mm *MediaManager) waitForRTMPSourceAudioCodec(ctx context.Context, user, rendition string) (string, error) {
+	segChan := mm.bus.SubscribeSegmentBuf(ctx, user, rendition, 1)
+	defer mm.bus.UnsubscribeSegment(ctx, user, rendition, segChan)
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case seg := <-segChan.C:
+		if seg == nil || len(seg.Muxl) == 0 {
+			return "", fmt.Errorf("source segment has no MUXL bytes")
+		}
+		return rtmpSourceAudioCodec(ctx, seg.Muxl)
+	}
+}
+
+func rtmpSourceAudioCodec(ctx context.Context, seg []byte) (string, error) {
+	events, err := unwrapMuxlEvents(ctx, seg)
+	if err != nil {
+		return "", fmt.Errorf("unwrap source segment: %w", err)
+	}
+	cat, _ := catalogAndTracks(events)
+	if cat == nil || cat.Audio == nil || len(cat.Audio.Renditions) == 0 {
+		return "", fmt.Errorf("source segment has no audio track")
+	}
+	for _, audio := range cat.Audio.Renditions {
+		if isAACCodec(audio.Codec) {
+			return "aac", nil
+		}
+	}
+	for _, audio := range cat.Audio.Renditions {
+		if isOpusCodec(audio.Codec) {
+			return "opus", nil
+		}
+	}
+	return "", fmt.Errorf("source segment has unsupported audio codec")
+}
+
+func rtmpAudioChain(audioCodec string) string {
+	prefix := constants.Queue2Big + " name=audioqueue"
+	switch audioCodec {
+	case "aac":
+		return prefix + " ! aacparse ! muxer.audio"
+	case "opus":
+		return prefix + " ! opusparse ! opusdec ! audioconvert ! audioresample ! fdkaacenc ! aacparse ! muxer.audio"
+	default:
+		return ""
+	}
+}
+
+func validateRTMPTargetURL(targetURL string) error {
+	u, err := url.Parse(targetURL)
+	if err != nil {
+		return fmt.Errorf("failed to parse target URL: %w", err)
+	}
+	if u.Scheme != "rtmp" && u.Scheme != "rtmps" {
+		return fmt.Errorf("invalid target URL scheme: %s", u.Scheme)
+	}
+	return nil
+}
+
+// Shared GStreamer graph between in-process and worker pushes
+func (mm *MediaManager) runRTMPPushPipeline(ctx context.Context, source io.Reader, targetURL string, report func(status, message string), audioCodec string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	audioChain := rtmpAudioChain(audioCodec)
+	if audioChain == "" {
+		return fmt.Errorf("unsupported RTMP source audio codec %q", audioCodec)
+	}
 	pipelineSlice := []string{
 		"appsrc name=muxlsrc ! qtdemux name=demux",
 		"flvmux name=muxer ! rtmp2sink name=rtmp2sink",
 		fmt.Sprintf("%s name=videoqueue ! h264parse ! muxer.video", constants.Queue2Big),
-		// Segments carry AAC (we feed only the AAC track), so pass it straight to
-		// flvmux — no Opus→AAC transcode.
-		fmt.Sprintf("%s name=audioqueue ! aacparse ! muxer.audio", constants.Queue2Big),
+		audioChain,
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

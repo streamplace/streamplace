@@ -257,6 +257,7 @@ func (mm *MediaManager) ingestWorkerSocketDir() (string, error) {
 // and the restarted main rediscovers the socket (DiscoverWorkerSockets) and
 // drains it.
 func (mm *MediaManager) MP4IngestDetached(ctx context.Context, conn net.Conn, prebuf []byte, chunked bool, ms MediaSigner) error {
+	ctx = withIngestProtocol(ctx, "mp4")
 	cfg, err := mm.buildWorkerConfig(ctx, ms)
 	if err != nil {
 		return err
@@ -363,6 +364,7 @@ func readWHIPAnswer(fr *ingestframe.Reader) (string, error) {
 // detached, both the session and its buffered output survive a main restart (the
 // restarted main reconnects via discovery).
 func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string, ms MediaSigner) (string, error) {
+	ctx = withIngestProtocol(ctx, "whip")
 	cfg, err := mm.buildWorkerConfig(ctx, ms)
 	if err != nil {
 		return "", err

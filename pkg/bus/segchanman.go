@@ -18,6 +18,9 @@ type Seg struct {
 	Muxl           []byte // bare canonical .m4s (blindly concatenatable)
 	PacketizedData *PacketizedSegment
 	Published      bool
+	Streamer       string
+	Rendition      string
+	Timing         *SegmentTiming
 }
 
 // PacketizedSample is one WebRTC-writable sample — a video access unit or an
@@ -32,9 +35,12 @@ type PacketizedSample struct {
 }
 
 type PacketizedSegment struct {
-	Video    []PacketizedSample
-	Audio    []PacketizedSample
-	Duration time.Duration
+	Video     []PacketizedSample
+	Audio     []PacketizedSample
+	Duration  time.Duration
+	Streamer  string
+	Rendition string
+	Timing    *SegmentTiming
 }
 
 var chanSize = 1024
@@ -42,6 +48,9 @@ var chanSize = 1024
 type SegChan struct {
 	C       chan *Seg
 	Context context.Context
+	// Keeps publication handoff independent from the consumer-facing channel.
+	publish chan *Seg
+	cancel  context.CancelFunc
 }
 
 var bufSize = 10
@@ -66,7 +75,6 @@ func (b *Bus) SubscribeSegmentBuf(ctx context.Context, user string, rendition st
 		chs = []*SegChan{}
 		b.segChans[key] = chs
 	}
-	ch := make(chan *Seg)
 	b.segBufMutex.RLock()
 	defer b.segBufMutex.RUnlock()
 	curBuf, ok := b.segBuf[key]
@@ -79,11 +87,37 @@ func (b *Bus) SubscribeSegmentBuf(ctx context.Context, user string, rendition st
 			myCh <- curBuf[len(curBuf)-bufSize+i]
 		}
 	}
-	segChan := &SegChan{C: ch, Context: ctx}
+	dispatchCtx, cancel := context.WithCancel(ctx)
+	segChan := &SegChan{
+		C:       myCh,
+		Context: dispatchCtx,
+		publish: make(chan *Seg, chanSize),
+		cancel:  cancel,
+	}
 	chs = append(chs, segChan)
 	b.segChans[key] = chs
 	spmetrics.SegmentSubscriptionsOpen.WithLabelValues(user, rendition).Set(float64(len(chs)))
+	go dispatchSegments(segChan, user, rendition)
 	return segChan
+}
+
+func dispatchSegments(ch *SegChan, user string, rendition string) {
+	// Serialize delivery per subscriber without making the publisher wait for a
+	// slow consumer.
+	for {
+		select {
+		case <-ch.Context.Done():
+			return
+		case seg := <-ch.publish:
+			select {
+			case ch.C <- seg:
+			case <-ch.Context.Done():
+				return
+			case <-time.After(time.Minute):
+				log.Warn(ch.Context, "failed to send segment to channel, timing out", "user", user, "rendition", rendition)
+			}
+		}
+	}
 }
 
 // unsubscribe from a channel for a given user and rendition
@@ -98,6 +132,7 @@ func (b *Bus) UnsubscribeSegment(ctx context.Context, user string, rendition str
 	for i, c := range chs {
 		if c == ch {
 			chs = append(chs[:i], chs[i+1:]...)
+			ch.cancel()
 			break
 		}
 	}
@@ -109,10 +144,7 @@ func (b *Bus) PublishSegment(ctx context.Context, user string, rendition string,
 	ctx, span := otel.Tracer("signer").Start(ctx, "PublishSegment")
 	defer span.End()
 	key := segChanKey(user, rendition)
-	b.segChansMutex.Lock()
-	defer b.segChansMutex.Unlock()
 	b.segBufMutex.Lock()
-	defer b.segBufMutex.Unlock()
 	curBuf, ok := b.segBuf[key]
 	if !ok {
 		curBuf = []*Seg{}
@@ -123,21 +155,23 @@ func (b *Bus) PublishSegment(ctx context.Context, user string, rendition string,
 		curBuf = curBuf[1:]
 	}
 	b.segBuf[key] = curBuf
-	chs, ok := b.segChans[key]
-	if !ok {
+	b.segBufMutex.Unlock()
+
+	b.segChansMutex.Lock()
+	chs := append([]*SegChan(nil), b.segChans[key]...)
+	b.segChansMutex.Unlock()
+	if len(chs) == 0 {
 		return
 	}
+	// A live subscriber that cannot keep up must not stall publication to other
+	// subscribers.
 	for _, ch := range chs {
-		go func(segChan *SegChan) {
-			select {
-			case segChan.C <- seg:
-			case <-segChan.Context.Done():
-				return
-			case <-time.After(1 * time.Minute):
-				log.Warn(ctx, "failed to send segment to channel, timing out", "user", user, "rendition", rendition)
-			}
-
-		}(ch)
+		select {
+		case ch.publish <- seg:
+		case <-ch.Context.Done():
+		default:
+			log.Warn(ctx, "dropping segment for slow subscriber", "user", user, "rendition", rendition)
+		}
 	}
 }
 

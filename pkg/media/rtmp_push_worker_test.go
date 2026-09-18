@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"testing"
@@ -15,6 +16,18 @@ import (
 	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/placestream"
 )
+
+func TestRTMPSourceFailureIsPropagated(t *testing.T) {
+	sourceErr := errors.New("select aac audio: source codec changed")
+	require.ErrorIs(t, rtmpPushResult(context.Background(), nil, sourceErr), sourceErr)
+	pipelineErr := errors.New("pipeline failed")
+	require.ErrorIs(t, rtmpPushResult(context.Background(), pipelineErr, sourceErr), pipelineErr)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	require.NoError(t, rtmpPushResult(ctx, nil, sourceErr))
+	require.NoError(t, rtmpPushResult(context.Background(), nil, context.Canceled))
+}
 
 // runRTMPPushWorkerHelper is what the test binary becomes when re-exec'd with
 // the `rtmp-push-worker` arg (see TestMain). It mirrors makeRTMPPushWorkerCommand:

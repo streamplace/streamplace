@@ -17,13 +17,46 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/bus"
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
+	"stream.place/streamplace/pkg/spmetrics"
 )
+
+type ingestProtocolKey struct{}
+
+func withIngestProtocol(ctx context.Context, protocol string) context.Context {
+	return context.WithValue(ctx, ingestProtocolKey{}, protocol)
+}
+
+func ingestProtocol(ctx context.Context) string {
+	protocol, _ := ctx.Value(ingestProtocolKey{}).(string)
+	switch protocol {
+	case "mp4", "rtmp", "whip":
+		return protocol
+	default:
+		return "unknown"
+	}
+}
+
+// sourceStartForTiming estimates the start of a segment from the signer's
+// completion timestamp and its measured duration. Using the signed timestamp
+// keeps replayed worker frames and replicated segments anchored to the source
+// timeline rather than to the time this node happened to receive them.
+func sourceStartForTiming(meta *SegmentMetadata, mediaDuration time.Duration) time.Time {
+	if meta == nil {
+		return time.Time{}
+	}
+	signedStart := meta.StartTime.Time()
+	if mediaDuration <= 0 {
+		return signedStart
+	}
+	return signedStart.Add(-mediaDuration)
+}
 
 // segmentValidation mirrors one entry of muxl-sign `verify`'s output: the
 // manifest + cert + validation results for a single canonical segment (one
@@ -49,6 +82,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 	if err != nil {
 		return fmt.Errorf("failed to read input: %w", err)
 	}
+	receivedAt := time.Now()
 
 	vs, err := mm.validateSource(ctx, buf, local)
 	if err != nil {
@@ -57,6 +91,22 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 	if vs == nil {
 		return nil // already have this segment
 	}
+	vs.timing = &bus.SegmentTiming{
+		SegmentID:      vs.label,
+		Ingress:        ingestProtocol(ctx),
+		SourceStart:    sourceStartForTiming(vs.meta, time.Duration(vs.mediaData.Duration)),
+		IngestReceived: receivedAt,
+		// ValidateMP4 receives the signed canonical segment. The signing
+		// implementation finishes before this boundary, so this is the
+		// timestamp at which signed media became available to validation.
+		Signed: receivedAt,
+	}
+	if age := vs.timing.SourceAge(receivedAt); age > 0 {
+		spmetrics.MediaSourceAge.WithLabelValues(vs.repoDID, "validate_received").
+			Observe(float64(age.Milliseconds()))
+	}
+	spmetrics.MediaSegmentDuration.WithLabelValues(vs.repoDID).
+		Observe(float64(time.Duration(vs.mediaData.Duration).Milliseconds()))
 
 	// Complete the segment to carry both AAC and Opus. A single-codec segment is
 	// fed to the stream's continuous transcoder, which distributes the completed
@@ -65,6 +115,14 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 	// signer — is distributed as-is, immediately.
 	if target, need := mm.audioCompletionTarget(ctx, buf); need {
 		if cert, keyPEM, serr := mm.transcodeSigner(); serr == nil {
+			if target == "aac" {
+				// Opus is already the WebRTC playback codec. Publish a private
+				// playback copy immediately while the AAC derivative catches up;
+				// canonical source publication remains gated on completion.
+				if err := mm.publishImmediateWebRTC(context.WithoutCancel(ctx), vs.repoDID, vs.meta.Published, vs.timing.Clone(), buf); err != nil {
+					log.Error(ctx, "immediate WebRTC source publish failed", "streamer", vs.repoDID, "error", err)
+				}
+			}
 			return mm.feedStreamTranscoder(ctx, vs, buf, target, cert, keyPEM)
 		} else {
 			log.Warn(ctx, "node transcode signer unavailable, distributing single-codec", "error", serr)
@@ -73,12 +131,42 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 	return mm.distributeSegment(ctx, vs, buf)
 }
 
+// publishImmediateWebRTC packetizes a source segment that already contains
+// Opus and publishes it on the private playback bus. The canonical source bus
+// is intentionally untouched: AAC-dependent consumers continue to receive the
+// completed dual-codec segment from the normal distribution path.
+func (mm *MediaManager) publishImmediateWebRTC(ctx context.Context, streamer string, published bool, timing *bus.SegmentTiming, segment []byte) error {
+	if mm.bus == nil {
+		return fmt.Errorf("WebRTC bus is unavailable")
+	}
+	packet, err := Packetize(ctx, mm.cli, &bus.Seg{
+		Muxl:      segment,
+		Published: published,
+		Streamer:  streamer,
+		Rendition: WebRTCSourceRendition,
+		Timing:    timing,
+	})
+	if err != nil {
+		return fmt.Errorf("packetize immediate WebRTC source: %w", err)
+	}
+	mm.bus.PublishSegment(ctx, streamer, WebRTCSourceRendition, &bus.Seg{
+		Muxl:           segment,
+		PacketizedData: packet,
+		Published:      published,
+		Streamer:       streamer,
+		Rendition:      WebRTCSourceRendition,
+		Timing:         timing,
+	})
+	return nil
+}
+
 // validatedSegment carries the per-segment context derived from validating the
 // SOURCE segment. It is threaded through to distributeSegment, which may run
 // later (and over the COMPLETED dual-codec bytes) when codec completion is
 // async — the metadata still comes from the source.
 type validatedSegment struct {
 	meta          *SegmentMetadata
+	timing        *bus.SegmentTiming
 	mediaData     *localdb.SegmentMediaData
 	label         string
 	repoDID       string
@@ -211,6 +299,25 @@ func (mm *MediaManager) streamerIsBanned(repoDID string) (bool, error) {
 // so it takes its own (non-request) context in the latter case.
 func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegment, seg []byte) error {
 	meta := vs.meta
+	now := time.Now()
+	if vs.timing == nil {
+		vs.timing = &bus.SegmentTiming{SourceStart: meta.StartTime.Time(), Signed: now}
+	}
+	if vs.timing.MasteringCompleted.IsZero() {
+		vs.timing.MasteringCompleted = now
+	}
+	if vs.timing.Distributed.IsZero() {
+		vs.timing.Distributed = now
+	}
+	streamer := vs.repoDID
+	if age := vs.timing.SourceAge(now); age > 0 {
+		spmetrics.MediaSourceAge.WithLabelValues(streamer, "mastering_completed").Observe(float64(age.Milliseconds()))
+		spmetrics.MediaSourceAge.WithLabelValues(streamer, "distributed").Observe(float64(age.Milliseconds()))
+	}
+	if !vs.timing.Signed.IsZero() && !vs.timing.MasteringCompleted.IsZero() {
+		spmetrics.MasteringLatency.WithLabelValues(streamer).
+			Observe(float64(vs.timing.MasteringCompleted.Sub(vs.timing.Signed).Milliseconds()))
+	}
 
 	// Retain the canonical segment in the in-memory moderation buffer (this
 	// replaces on-disk .m4s archival) so reports can clip the recent window.
@@ -221,7 +328,7 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	// from another node — so any node that validates a stream's segments can
 	// serve its live HLS. WithoutCancel keeps the feed alive past this request.
 	// Only published segments are actually folded in (see feedLiveWindow).
-	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.Published)
+	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.Published, vs.timing.Clone())
 
 	// Segments are no longer written to disk, but a Segment DB row is still kept
 	// (dedup, /segment metadata, live playlists). delete_after governs when that
@@ -277,6 +384,7 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 		Muxl:     seg,
 		Metadata: meta,
 		Local:    vs.local,
+		Timing:   vs.timing,
 	}
 	for _, ch := range mm.newSegmentSubs {
 		go func() {
@@ -291,7 +399,14 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 		}()
 	}
 	aqt := aqtime.FromTime(meta.StartTime.Time())
-	log.Log(ctx, "successfully ingested segment", "user", vs.repoDID, "signingKey", vs.signingKeyDID, "timestamp", aqt.FileSafeString(), "segmentID", vs.label)
+	log.Log(ctx, "successfully ingested segment",
+		"user", vs.repoDID,
+		"signingKey", vs.signingKeyDID,
+		"timestamp", aqt.FileSafeString(),
+		"segmentID", vs.label,
+		"source_age_ms", vs.timing.SourceAge(now).Milliseconds(),
+		"mastering_ms", vs.timing.MasteringCompleted.Sub(vs.timing.Signed).Milliseconds(),
+	)
 	return nil
 }
 

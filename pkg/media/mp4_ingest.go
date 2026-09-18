@@ -20,6 +20,7 @@ import (
 // ingest a H264+AAC fragmented-MP4 stream (the MistServer live .mp4 output, or
 // an fMP4 push to /live)
 func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms MediaSigner) error {
+	ctx = withIngestProtocol(ctx, "mp4")
 	shouldRecord, err := mm.shouldRecord(ctx, ms.Streamer())
 	if err != nil {
 		return err

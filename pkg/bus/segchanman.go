@@ -48,6 +48,8 @@ var chanSize = 1024
 type SegChan struct {
 	C       chan *Seg
 	Context context.Context
+	publish chan *Seg
+	cancel  context.CancelFunc
 }
 
 var bufSize = 10
@@ -84,11 +86,35 @@ func (b *Bus) SubscribeSegmentBuf(ctx context.Context, user string, rendition st
 			myCh <- curBuf[len(curBuf)-bufSize+i]
 		}
 	}
-	segChan := &SegChan{C: myCh, Context: ctx}
+	dispatchCtx, cancel := context.WithCancel(ctx)
+	segChan := &SegChan{
+		C:       myCh,
+		Context: dispatchCtx,
+		publish: make(chan *Seg, chanSize),
+		cancel:  cancel,
+	}
 	chs = append(chs, segChan)
 	b.segChans[key] = chs
 	spmetrics.SegmentSubscriptionsOpen.WithLabelValues(user, rendition).Set(float64(len(chs)))
+	go dispatchSegments(segChan, user, rendition)
 	return segChan
+}
+
+func dispatchSegments(ch *SegChan, user string, rendition string) {
+	for {
+		select {
+		case <-ch.Context.Done():
+			return
+		case seg := <-ch.publish:
+			select {
+			case ch.C <- seg:
+			case <-ch.Context.Done():
+				return
+			case <-time.After(time.Minute):
+				log.Warn(ch.Context, "failed to send segment to channel, timing out", "user", user, "rendition", rendition)
+			}
+		}
+	}
 }
 
 // unsubscribe from a channel for a given user and rendition
@@ -103,6 +129,7 @@ func (b *Bus) UnsubscribeSegment(ctx context.Context, user string, rendition str
 	for i, c := range chs {
 		if c == ch {
 			chs = append(chs[:i], chs[i+1:]...)
+			ch.cancel()
 			break
 		}
 	}
@@ -114,10 +141,7 @@ func (b *Bus) PublishSegment(ctx context.Context, user string, rendition string,
 	ctx, span := otel.Tracer("signer").Start(ctx, "PublishSegment")
 	defer span.End()
 	key := segChanKey(user, rendition)
-	b.segChansMutex.Lock()
-	defer b.segChansMutex.Unlock()
 	b.segBufMutex.Lock()
-	defer b.segBufMutex.Unlock()
 	curBuf, ok := b.segBuf[key]
 	if !ok {
 		curBuf = []*Seg{}
@@ -128,17 +152,20 @@ func (b *Bus) PublishSegment(ctx context.Context, user string, rendition string,
 		curBuf = curBuf[1:]
 	}
 	b.segBuf[key] = curBuf
-	chs, ok := b.segChans[key]
-	if !ok {
+	b.segBufMutex.Unlock()
+
+	b.segChansMutex.Lock()
+	chs := append([]*SegChan(nil), b.segChans[key]...)
+	b.segChansMutex.Unlock()
+	if len(chs) == 0 {
 		return
 	}
 	for _, ch := range chs {
 		select {
-		case ch.C <- seg:
+		case ch.publish <- seg:
 		case <-ch.Context.Done():
-			continue
-		case <-time.After(1 * time.Minute):
-			log.Warn(ctx, "failed to send segment to channel, timing out", "user", user, "rendition", rendition)
+		default:
+			log.Warn(ctx, "dropping segment for slow subscriber", "user", user, "rendition", rendition)
 		}
 	}
 }

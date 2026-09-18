@@ -79,6 +79,14 @@ type Model interface {
 	DenyTeleport(ctx context.Context, uri string) error
 
 	CreateBlock(ctx context.Context, block *Block) error
+	CreateVerification(ctx context.Context, v *Verification) error
+	DeleteVerification(ctx context.Context, uri string) error
+	DeleteVerificationsByIssuer(ctx context.Context, issuer string) error
+	CreateChatAccessRule(ctx context.Context, row *ChatAccessRule) error
+	DeleteChatAccessRule(ctx context.Context, uri string) error
+	ListChatAccessRules(ctx context.Context, repoDID string) ([]ChatAccessRule, error)
+	ChatAccessSubjects(ctx context.Context) ([]string, map[string][]string, error)
+	VerificationsFor(ctx context.Context, subjectDIDs []string, issuerDIDs []string) (map[string][]Verification, error)
 	GetBlock(ctx context.Context, rkey string) (*Block, error)
 	GetUserBlock(ctx context.Context, userDID, subjectDID string) (*Block, error)
 	DeleteBlock(ctx context.Context, rkey string) error
@@ -323,6 +331,8 @@ func MakeDBConns(dbURL string, conns int) (Model, error) {
 		VodComment{},
 		Like{},
 		VodGate{},
+		Verification{},
+		ChatAccessRule{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

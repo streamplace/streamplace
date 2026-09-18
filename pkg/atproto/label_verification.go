@@ -1,0 +1,172 @@
+package atproto
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/bluesky-social/indigo/xrpc"
+	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
+)
+
+// Label-based verification: a streamer whose notion of "verified" is a label
+// on the account (from a labeler) rather than an app.bsky.graph.verification
+// record names the labeler and label in a place.stream.chat.access rule;
+// matching non-negated account labels are mirrored into the verification
+// table as if the labeler had issued a verification record, so badges and
+// the chat rules work unchanged. Labels are pulled from the labeler's queryLabels with its
+// sequence cursor, persisted in statedb, so each poll only fetches what is
+// new; a negation removes the mirrored row.
+
+const labelPollInterval = time.Minute
+
+// labelCursorKey is the statedb config key holding the labeler's cursor.
+// The label rules are part of the key: a change in the labels named starts a
+// fresh scan from the beginning under the new rules, instead of only
+// applying them to labels issued after the change.
+func labelCursorKey(labeler string, patterns []string) string {
+	sum := sha256.Sum256([]byte(strings.Join(patterns, ",")))
+	return "labels-cursor:" + labeler + ":" + hex.EncodeToString(sum[:4])
+}
+
+// labelVerificationURI is the synthetic record URI of a mirrored label.
+func labelVerificationURI(src, subject, val string) string {
+	return fmt.Sprintf("label://%s/%s/%s", src, subject, val)
+}
+
+// labelMatches reports whether val is one of the configured verified labels.
+func labelMatches(val string, patterns []string) bool {
+	for _, p := range patterns {
+		if strings.HasSuffix(p, "*") {
+			if strings.HasPrefix(val, strings.TrimSuffix(p, "*")) {
+				return true
+			}
+		} else if val == p {
+			return true
+		}
+	}
+	return false
+}
+
+// SeedLabelsForever mirrors the labeler's verified labels at boot and every
+// minute after, following its cursor.
+func (atsync *ATProtoSynchronizer) SeedLabelsForever(ctx context.Context) {
+	for {
+		for labeler, patterns := range atsync.Labelers(ctx) {
+			if err := atsync.seedLabels(ctx, labeler, patterns); err != nil {
+				log.Warn(ctx, "failed to mirror labels", "labeler", labeler, "err", err)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(labelPollInterval):
+		}
+	}
+}
+
+type queryLabelsOut struct {
+	Cursor string `json:"cursor"`
+	Labels []struct {
+		Src string  `json:"src"`
+		Uri string  `json:"uri"`
+		Cid *string `json:"cid"`
+		Val string  `json:"val"`
+		Neg bool    `json:"neg"`
+		Cts string  `json:"cts"`
+	} `json:"labels"`
+}
+
+func (atsync *ATProtoSynchronizer) seedLabels(ctx context.Context, labeler string, patterns []string) error {
+	ident, err := atsync.resolveIdent(ctx, labeler, true)
+	if err != nil {
+		return err
+	}
+	host := ident.GetServiceEndpoint("atproto_labeler")
+	if host == "" {
+		return fmt.Errorf("%s has no atproto_labeler service", labeler)
+	}
+	xrpcc := xrpc.Client{Host: host, Client: SyncHTTPClient}
+	cursorKey := labelCursorKey(labeler, patterns)
+	cursor := ""
+	fresh := true
+	if atsync.StatefulDB != nil {
+		if conf, err := atsync.StatefulDB.GetConfig(cursorKey); err == nil && conf != nil {
+			cursor = string(conf.Value)
+			fresh = false
+		}
+	}
+	if fresh {
+		// New rules (or first run): what was mirrored under the old ones no
+		// longer applies, so start from nothing and replay every label.
+		if err := atsync.Model.DeleteVerificationsByIssuer(ctx, labeler); err != nil {
+			return fmt.Errorf("clear mirrored labels: %w", err)
+		}
+		log.Log(ctx, "mirroring labels from the start", "labeler", labeler, "labels", strings.Join(patterns, ","))
+	}
+	added, removed := 0, 0
+	for {
+		params := map[string]any{
+			// Account labels only: DIDs, not records.
+			"uriPatterns": []string{"did:*"},
+			"limit":       250,
+		}
+		if cursor != "" {
+			params["cursor"] = cursor
+		}
+		var out queryLabelsOut
+		if err := xrpcc.Do(ctx, xrpc.Query, "", "com.atproto.label.queryLabels", params, nil, &out); err != nil {
+			return err
+		}
+		for _, l := range out.Labels {
+			if l.Src != labeler || !strings.HasPrefix(l.Uri, "did:") || !labelMatches(l.Val, patterns) {
+				continue
+			}
+			uri := labelVerificationURI(l.Src, l.Uri, l.Val)
+			if l.Neg {
+				if err := atsync.Model.DeleteVerification(ctx, uri); err != nil {
+					log.Warn(ctx, "failed to remove negated label", "uri", uri, "err", err)
+					continue
+				}
+				removed++
+				continue
+			}
+			v := &model.Verification{
+				URI:        uri,
+				IssuerDID:  l.Src,
+				SubjectDID: l.Uri,
+			}
+			if l.Cid != nil {
+				v.CID = *l.Cid
+			}
+			if created, err := aqtime.FromString(l.Cts); err == nil {
+				v.CreatedAt = created.Time()
+			} else {
+				v.CreatedAt = time.Now()
+			}
+			if err := atsync.Model.CreateVerification(ctx, v); err != nil && err != model.ErrAlreadyIndexed {
+				log.Warn(ctx, "failed to mirror label", "uri", uri, "err", err)
+				continue
+			}
+			added++
+		}
+		if out.Cursor == "" || out.Cursor == cursor || len(out.Labels) == 0 {
+			break
+		}
+		cursor = out.Cursor
+		if atsync.StatefulDB != nil {
+			if err := atsync.StatefulDB.PutConfig(cursorKey, []byte(cursor)); err != nil {
+				log.Warn(ctx, "failed to store label cursor", "err", err)
+			}
+		}
+	}
+	if added > 0 || removed > 0 {
+		log.Log(ctx, "mirrored verified labels", "labeler", labeler, "added", added, "removed", removed, "cursor", cursor)
+	}
+	return nil
+}

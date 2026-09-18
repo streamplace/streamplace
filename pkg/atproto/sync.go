@@ -103,6 +103,29 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, streamplaceBlock)
 
+	case *appbsky.GraphVerification:
+		// Indexed from any repo, known or not: verifiers are few, and which
+		// ones this node trusts is decided by branding after the fact.
+		v := &model.Verification{
+			URI:         aturi.String(),
+			CID:         cid,
+			IssuerDID:   userDID,
+			SubjectDID:  rec.Subject,
+			Handle:      rec.Handle,
+			DisplayName: rec.DisplayName,
+		}
+		if created, err := aqtime.FromString(rec.CreatedAt); err == nil {
+			v.CreatedAt = created.Time()
+		}
+		err := atsync.Model.CreateVerification(ctx, v)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("failed to create verification: %w", err)
+		}
+		return nil
+
 	case *appbsky.ActorProfile:
 		if r == nil {
 			// someone we don't know about
@@ -222,6 +245,12 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 
 		if scm.Author.Handle == "" || scm.Author.Handle == "handle.invalid" {
 			scm.Author.Handle = atsync.ResolveAuthorHandle(ctx, scm.Author.Did)
+		}
+		atsync.DecorateVerification(ctx, rec.Streamer, scm)
+		if !atsync.ChatAllowed(ctx, rec.Streamer, scm.Author.Did) {
+			// The streamer's chat access rules refuse this author: the message
+			// is indexed (the rules may change) but not shown.
+			return nil
 		}
 
 		go atsync.Bus.Publish(rec.Streamer, scm)
@@ -715,6 +744,28 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			log.Error(ctx, "failed to create metadata configuration", "err", err)
 		}
+
+	case *placestream.ChatAccess:
+		if _, err := atsync.SyncBlueskyRepoCached(ctx, userDID); err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		row, err := model.ChatAccessRuleFromRecord(rec, aturi)
+		if errors.Is(err, model.ErrChatAccessSubjectUnknown) {
+			log.Warn(ctx, "chat access rule with an unknown subject type, skipping", "uri", aturi.String())
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("invalid chat access rule: %w", err)
+		}
+		err = atsync.Model.CreateChatAccessRule(ctx, row)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("failed to index chat access rule: %w", err)
+		}
+		atsync.NoteChatAccessRule(ctx, row)
+		log.Log(ctx, "indexed chat access rule", "streamer", userDID, "action", row.Action, "subject", row.SubjectType, "did", row.SubjectDID)
 
 	case *placestream.ModerationPermission:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)

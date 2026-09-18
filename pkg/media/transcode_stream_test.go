@@ -93,6 +93,21 @@ func TestStreamTranscoderQueueAgeTriggersResync(t *testing.T) {
 	require.ErrorIs(t, tr.waitForQueueCapacity(context.Background(), time.Second), ErrTranscodeQueueStale)
 }
 
+func TestStreamTranscoderQueueAgeWakesAtStaleDeadline(t *testing.T) {
+	tr := &streamTranscoder{
+		queued:              []transcodeQueueEntry{{enqueuedAt: time.Now().Add(-transcodeQueueMaxAge + 25*time.Millisecond)}},
+		queuedMediaDuration: transcodeQueueMaxMediaDuration,
+		queueChanged:        make(chan struct{}),
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	started := time.Now()
+	err := tr.waitForQueueCapacity(ctx, time.Second)
+	require.ErrorIs(t, err, ErrTranscodeQueueStale)
+	require.Less(t, time.Since(started), 500*time.Millisecond)
+}
+
 func TestStreamTranscoderQueueWaitsForSlowWorker(t *testing.T) {
 	const segmentDuration = 500 * time.Millisecond
 	queuedAt := time.Now()

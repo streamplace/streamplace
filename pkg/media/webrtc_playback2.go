@@ -93,12 +93,12 @@ func discardStaleGOPs(current *bus.PacketizedSegment, next func() (*bus.Packetiz
 		if !shouldDropStaleGOP(age, hasSourceAge) {
 			return current, dropped
 		}
-		dropped++
-		var ok bool
-		current, ok = next()
+		nextSegment, ok := next()
 		if !ok {
-			return nil, dropped
+			return current, dropped
 		}
+		dropped++
+		current = nextSegment
 	}
 	return nil, dropped
 }

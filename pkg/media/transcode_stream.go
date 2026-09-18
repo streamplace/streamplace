@@ -236,12 +236,18 @@ func (t *streamTranscoder) waitForQueueCapacity(ctx context.Context, mediaDurati
 		depth := len(t.queued)
 		queuedDuration := t.queuedMediaDuration
 		stale := false
+		var staleWait time.Duration
 		if depth > 0 {
+			now := time.Now()
 			oldest := t.queued[0].enqueuedAt
-			if !t.queued[0].sourceStart.IsZero() && time.Now().After(t.queued[0].sourceStart) {
+			if !t.queued[0].sourceStart.IsZero() && now.After(t.queued[0].sourceStart) {
 				oldest = t.queued[0].sourceStart
 			}
-			stale = time.Since(oldest) > transcodeQueueMaxAge
+			staleAt := oldest.Add(transcodeQueueMaxAge)
+			stale = !now.Before(staleAt)
+			if !stale {
+				staleWait = time.Until(staleAt)
+			}
 		}
 		changed := t.queueChanged
 		fits := transcodeQueueFits(depth, queuedDuration, mediaDuration)
@@ -253,10 +259,32 @@ func (t *streamTranscoder) waitForQueueCapacity(ctx context.Context, mediaDurati
 		if fits {
 			return nil
 		}
+		if staleWait <= 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-changed:
+			}
+			continue
+		}
+		timer := time.NewTimer(staleWait)
 		select {
 		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
 			return ctx.Err()
 		case <-changed:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+		case <-timer.C:
 		}
 	}
 }

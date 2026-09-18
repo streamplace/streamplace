@@ -114,6 +114,24 @@ func TestDiscardStaleGOPsDropsOnlyWholeSegments(t *testing.T) {
 	require.Same(t, packets[2], got)
 }
 
+func TestDiscardStaleGOPsKeepsLastSegmentWithoutReplacement(t *testing.T) {
+	now := time.Unix(100, 0)
+	packet := &bus.PacketizedSegment{
+		Streamer:  "recovery-test",
+		Rendition: WebRTCSourceRendition,
+		Timing: &bus.SegmentTiming{
+			SegmentID:   "stale-last",
+			SourceStart: now.Add(-9 * time.Second),
+		},
+	}
+
+	got, dropped := discardStaleGOPs(packet, func() (*bus.PacketizedSegment, bool) {
+		return nil, false
+	}, now)
+	require.Same(t, packet, got)
+	require.Zero(t, dropped)
+}
+
 func TestWebRTCPlayback2(t *testing.T) {
 	mm, _ := getStaticTestMediaManager(t)
 	ignore := goleak.IgnoreCurrent()

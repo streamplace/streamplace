@@ -144,7 +144,7 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		return nil, fmt.Errorf("failed to add audio track to peer connection: %w", err)
 	}
 
-	close := func() {
+	closePeer := func() {
 		if cErr := peerConnection.Close(); cErr != nil {
 			log.Log(ctx, "cannot close peerConnection: %v\n", cErr)
 		}
@@ -152,20 +152,20 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 
 	// Set the remote SessionDescription
 	if err = peerConnection.SetRemoteDescription(*offer); err != nil {
-		close()
+		closePeer()
 		return nil, fmt.Errorf("failed to set remote description: %w", err)
 	}
 
 	// Create answer
 	answer, err := peerConnection.CreateAnswer(nil)
 	if err != nil {
-		close()
+		closePeer()
 		return nil, fmt.Errorf("failed to create answer: %w", err)
 	}
 
 	// Sets the LocalDescription, and starts our UDP listeners
 	if err = peerConnection.SetLocalDescription(answer); err != nil {
-		close()
+		closePeer()
 		return nil, fmt.Errorf("failed to set local description: %w", err)
 	}
 
@@ -201,10 +201,45 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		}
 	}
 
+	playbackCtx, playbackCancel := context.WithCancel(ctx)
+	connected := make(chan struct{})
+	var connectedOnce sync.Once
+	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
+		log.Log(ctx, "Connection State has changed", "state", connectionState.String())
+	})
+	peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
+		log.Log(ctx, "Peer Connection State has changed", "state", s.String())
+
+		if s == webrtc.PeerConnectionStateConnected {
+			connectedOnce.Do(func() { close(connected) })
+			markConnected()
+		}
+
+		if s == webrtc.PeerConnectionStateFailed || s == webrtc.PeerConnectionStateClosed || s == webrtc.PeerConnectionStateDisconnected {
+			log.Log(ctx, "Peer Connection has gone to failed, exiting")
+			playbackCancel()
+		}
+	})
+
 	go func() {
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
+		ctx := playbackCtx
+		defer playbackCancel()
 		defer markDone()
+
+		go func() {
+			<-ctx.Done()
+			if cErr := peerConnection.Close(); cErr != nil {
+				log.Log(ctx, "cannot close peerConnection: %v\n", cErr)
+			}
+		}()
+
+		// Samples written before the sender is connected can be lost. Wait until
+		// the peer is ready so a finite cached GOP is still available to play.
+		select {
+		case <-connected:
+		case <-ctx.Done():
+			return
+		}
 
 		latency := time.Duration(0)
 		var latencyMu sync.Mutex
@@ -268,13 +303,6 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		}()
 
 		go func() {
-			go func() {
-				<-ctx.Done()
-				if cErr := peerConnection.Close(); cErr != nil {
-					log.Log(ctx, "cannot close peerConnection: %v\n", cErr)
-				}
-			}()
-
 			for {
 				select {
 				case <-ctx.Done():
@@ -436,7 +464,7 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					if wroteAny {
 						if err := g.Wait(); err != nil {
 							log.Error(ctx, "failed to write samples", "error", err)
-							cancel()
+							playbackCancel()
 						} else {
 							completedAt := time.Now()
 							if packet.Timing != nil {
@@ -468,30 +496,6 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 				}
 			}
 		}()
-
-		// Set the handler for ICE connection state
-		// This will notify you when the peer has connected/disconnected
-		peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-			log.Log(ctx, "Connection State has changed", "state", connectionState.String())
-		})
-
-		// Set the handler for Peer connection state
-		// This will notify you when the peer has connected/disconnected
-		peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
-			log.Log(ctx, "Peer Connection State has changed", "state", s.String())
-
-			if s == webrtc.PeerConnectionStateConnected {
-				markConnected()
-			}
-
-			if s == webrtc.PeerConnectionStateFailed || s == webrtc.PeerConnectionStateClosed || s == webrtc.PeerConnectionStateDisconnected {
-				// Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
-				// Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
-				// Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
-				log.Log(ctx, "Peer Connection has gone to failed, exiting")
-				cancel()
-			}
-		})
 
 		<-ctx.Done()
 

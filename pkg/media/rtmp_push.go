@@ -62,6 +62,15 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	pipelineErr := mm.runRTMPPushPipeline(ctx, pr, rec.Url, report, audioCodec)
 	// Stop a source blocked on the bus or pipe before waiting for its result.
 	sourceCancel()
+
+	closeErr := pipelineErr
+	if closeErr == nil {
+		closeErr = context.Canceled
+	}
+	// Context cancellation cannot interrupt a blocked io.Pipe write; closing the
+	// reader wakes the source goroutine before waiting for its result.
+	_ = pr.CloseWithError(closeErr)
+
 	sourceErr := <-sourceDone
 	return rtmpPushResult(ctx, pipelineErr, sourceErr)
 }

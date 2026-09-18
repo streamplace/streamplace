@@ -188,6 +188,8 @@ func TestWebRTCPlaybackRecordsLiveCaptureTiming(t *testing.T) {
 
 	mm, _ := getStaticTestMediaManager(t)
 	mm.cli.WideOpen = true
+	// Keep this loopback timing test independent of external STUN latency.
+	mm.webrtcConfig.ICEServers = nil
 	const streamer = "phase1-live-capture"
 	const rendition = WebRTCSourceRendition
 
@@ -267,6 +269,7 @@ func TestWebRTCPlaybackRecordsLiveCaptureTiming(t *testing.T) {
 
 	receiverAPI, receiverConfig, err := newWebRTCAPI()
 	require.NoError(t, err)
+	receiverConfig.ICEServers = nil
 	receiver, err := receiverAPI.NewPeerConnection(receiverConfig)
 	require.NoError(t, err)
 	defer receiver.Close()

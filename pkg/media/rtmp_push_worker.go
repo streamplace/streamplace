@@ -193,6 +193,9 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 	// The worker may exit before the source observes the failure; stop a source
 	// blocked on the bus or pipe before waiting for its result.
 	sourceCancel()
+	// Closing the parent's write end interrupts a source feeding an exited worker.
+	_ = stdin.Close()
+
 	sourceErr := <-sourceDone
 	sourceFailure := rtmpPushResult(ctx, nil, sourceErr)
 

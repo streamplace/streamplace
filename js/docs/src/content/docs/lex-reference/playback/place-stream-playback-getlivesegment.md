@@ -23,6 +23,7 @@ Fetch a single live HLS segment, or a track's init segment, from the in-memory l
 | `track`    | `string` | ✅    | Track ID (stringified u32 matching the MUXL container).                                                                                                              |             |
 | `seg`      | `string` | ✅    | `init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored.                                              |             |
 | `sid`      | `string` | ❌    | Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control. |             |
+| `token`    | `string` | ❌    | A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live.                                |             |
 
 **Output:**
 
@@ -66,6 +67,10 @@ _Schema not defined._
           "sid": {
             "type": "string",
             "description": "Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control."
+          },
+          "token": {
+            "type": "string",
+            "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live."
           }
         }
       },

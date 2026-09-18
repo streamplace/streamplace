@@ -389,7 +389,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		}
 	}
 	if slices.Contains(cli.Replicators, config.ReplicatorWebsocket) {
-		replicator = websocketrep.NewWebsocketReplicator(b, mod, mm)
+		replicator = websocketrep.NewWebsocketReplicator(b, mod, mm, state)
 	}
 
 	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb, atsync)

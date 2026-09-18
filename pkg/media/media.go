@@ -43,6 +43,9 @@ type MediaManager struct {
 	cli            *config.CLI
 	liveWindows    map[string]*livehls.Writer
 	liveWindowsMut sync.Mutex
+	// liveWindowPublished is, per streamer, whether the latest segment fed
+	// into the window was published; guarded by liveWindowsMut.
+	liveWindowPublished map[string]bool
 	// modBuffers holds a short in-memory ring of each live user's most recent
 	// canonical segments, the source for moderation/report clips now that
 	// segments are no longer archived to disk. Keyed by repoDID. See
@@ -124,17 +127,18 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		return nil, err
 	}
 	mm := &MediaManager{
-		cli:          cli,
-		liveWindows:  map[string]*livehls.Writer{},
-		modBuffers:   map[string]*modBuffer{},
-		httpPipes:    map[string]io.Writer{},
-		model:        mod,
-		bus:          bus,
-		atsync:       atsync,
-		webrtcAPI:    api,
-		webrtcConfig: config,
-		localDB:      ldb,
-		transcoders:  map[string]*streamTranscoder{},
+		cli:                 cli,
+		liveWindows:         map[string]*livehls.Writer{},
+		liveWindowPublished: map[string]bool{},
+		modBuffers:          map[string]*modBuffer{},
+		httpPipes:           map[string]io.Writer{},
+		model:               mod,
+		bus:                 bus,
+		atsync:              atsync,
+		webrtcAPI:           api,
+		webrtcConfig:        config,
+		localDB:             ldb,
+		transcoders:         map[string]*streamTranscoder{},
 	}
 	mm.hlsSessions = newHLSSessionTracker(hlsSessionTTL,
 		func(streamer string) { mm.IncrementViewerCount(streamer, "hls") },

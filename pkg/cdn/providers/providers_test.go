@@ -37,3 +37,28 @@ func TestFromConfig(t *testing.T) {
 	_, err = FromConfig(&config.CLI{VODCDNURL: "https://cdn.example.com", VODCDNProvider: "akamai"})
 	require.Error(t, err)
 }
+
+func TestLiveFromConfig(t *testing.T) {
+	p, err := LiveFromConfig(&config.CLI{})
+	require.NoError(t, err)
+	require.Nil(t, p, "no live CDN URL → no provider")
+
+	// The live CDN is independent of the VOD one: VOD flags alone don't
+	// turn it on, and its bunny key is its own.
+	p, err = LiveFromConfig(&config.CLI{VODCDNURL: "https://vod.b-cdn.net", VODCDNProvider: "bunny", BunnyTokenAuthKey: "vodkey"})
+	require.NoError(t, err)
+	require.Nil(t, p)
+
+	p, err = LiveFromConfig(&config.CLI{LiveCDNURL: "https://live.b-cdn.net", LiveCDNProvider: "bunny", LiveBunnyTokenAuthKey: "livekey"})
+	require.NoError(t, err)
+	require.Equal(t, Bunny, p.Name)
+	require.Equal(t, bunny.Signer{Key: "livekey"}, p.Signer)
+	require.Nil(t, p.Logs, "live never ingests logs")
+
+	p, err = LiveFromConfig(&config.CLI{LiveCDNURL: "https://live.example.com"})
+	require.NoError(t, err)
+	require.IsType(t, cdn.Static{}, p.Signer)
+
+	_, err = LiveFromConfig(&config.CLI{LiveCDNURL: "https://live.example.com", LiveCDNProvider: "akamai"})
+	require.Error(t, err)
+}

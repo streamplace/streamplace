@@ -462,6 +462,7 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.multistream.putTarget", s.HandlePlaceStreamMultistreamPutTarget)
 	e.GET("/xrpc/place.stream.playback.getLivePlaylist", s.HandlePlaceStreamPlaybackGetLivePlaylist)
 	e.GET("/xrpc/place.stream.playback.getLiveSegment", s.HandlePlaceStreamPlaybackGetLiveSegment)
+	e.GET("/xrpc/place.stream.playback.getLiveToken", s.HandlePlaceStreamPlaybackGetLiveToken)
 	e.GET("/xrpc/place.stream.playback.getPlaybackServer", s.HandlePlaceStreamPlaybackGetPlaybackServer)
 	e.GET("/xrpc/place.stream.playback.getVideoBlob", s.HandlePlaceStreamPlaybackGetVideoBlob)
 	e.GET("/xrpc/place.stream.playback.getVideoPlaylist", s.HandlePlaceStreamPlaybackGetVideoPlaylist)
@@ -1184,11 +1185,12 @@ func (s *Server) HandlePlaceStreamPlaybackGetLivePlaylist(c echo.Context) error 
 	defer span.End()
 	sid := c.QueryParam("sid")
 	streamer := c.QueryParam("streamer")
+	token := c.QueryParam("token")
 	track := c.QueryParam("track")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context,sid string,streamer string,track string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetLivePlaylist(ctx, sid, streamer, track)
+	// func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context,sid string,streamer string,token string,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetLivePlaylist(ctx, sid, streamer, token, track)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1201,15 +1203,29 @@ func (s *Server) HandlePlaceStreamPlaybackGetLiveSegment(c echo.Context) error {
 	seg := c.QueryParam("seg")
 	sid := c.QueryParam("sid")
 	streamer := c.QueryParam("streamer")
+	token := c.QueryParam("token")
 	track := c.QueryParam("track")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context,seg string,sid string,streamer string,track string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetLiveSegment(ctx, seg, sid, streamer, track)
+	// func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context,seg string,sid string,streamer string,token string,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetLiveSegment(ctx, seg, sid, streamer, token, track)
 	if handleErr != nil {
 		return handleErr
 	}
 	return c.Stream(200, "application/octet-stream", out)
+}
+
+func (s *Server) HandlePlaceStreamPlaybackGetLiveToken(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetLiveToken")
+	defer span.End()
+	var out *placestream.PlaybackGetLiveToken_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamPlaybackGetLiveToken(ctx context.Context) (*placestream.PlaybackGetLiveToken_Output, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetLiveToken(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetPlaybackServer(c echo.Context) error {

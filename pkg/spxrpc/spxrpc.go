@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -31,20 +32,21 @@ import (
 )
 
 type Server struct {
-	e               *echo.Echo
-	cli             *config.CLI
-	model           model.Model
-	OGImageCache    *cache.Cache
-	LiveUsersCache  *cache.Cache
-	GameSearchCache *cache.Cache
-	ScoreCache      *cache.Cache
-	ATSync          *atproto.ATProtoSynchronizer
-	statefulDB      *statedb.StatefulDB
-	bus             *bus.Bus
-	op              *oatproxy.OATProxy
-	localDB         localdb.LocalDB
-	mm              *media.MediaManager
-	uploadManager   *upload.Manager
+	e                 *echo.Echo
+	cli               *config.CLI
+	model             model.Model
+	OGImageCache      *cache.Cache
+	LiveUsersCache    *cache.Cache
+	GameSearchCache   *cache.Cache
+	ScoreCache        *cache.Cache
+	ATSync            *atproto.ATProtoSynchronizer
+	statefulDB        *statedb.StatefulDB
+	liveTokenKeyCache atomic.Pointer[[]byte]
+	bus               *bus.Bus
+	op                *oatproxy.OATProxy
+	localDB           localdb.LocalDB
+	mm                *media.MediaManager
+	uploadManager     *upload.Manager
 	// playbackStore is where VOD blobs + metafiles + per-track init
 	// segments live. Matches the blob.Store the VOD processor writes
 	// into (vod.BlobsPrefix + <cid>.{mp4,json}).
@@ -55,7 +57,10 @@ type Server struct {
 	viewLog *viewlog.Writer
 	// cdn is the VOD CDN configuration playlists are generated
 	// against (URL + URL signer). Zero-valued for self-hosted.
-	cdn     vodCDN
+	cdn vodCDN
+	// live is the live-segment CDN configuration media playlists are
+	// generated against. Zero-valued for self-hosted.
+	live    liveCDN
 	aliases map[string]string
 }
 
@@ -72,10 +77,19 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	if provider != nil {
 		vcdn = vodCDN{URL: cli.VODCDNURL, Signer: provider.Signer}
 	}
+	liveProvider, err := providers.LiveFromConfig(cli)
+	if err != nil {
+		return nil, err
+	}
+	var lcdn liveCDN
+	if liveProvider != nil {
+		lcdn = liveCDN{URL: cli.LiveCDNURL, Signer: liveProvider.Signer, TTL: cli.LiveCDNTokenTTL}
+	}
 	s := &Server{
 		e:               e,
 		cli:             cli,
 		cdn:             vcdn,
+		live:            lcdn,
 		model:           model,
 		OGImageCache:    cache.New(5*time.Minute, 10*time.Minute),
 		LiveUsersCache:  cache.New(30*time.Second, 60*time.Second),
@@ -130,6 +144,9 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	// in-memory live window instead of a stored metafile.
 	e.GET("/xrpc/place.stream.playback.getLivePlaylist", s.HandleGetLivePlaylist)
 	e.GET("/xrpc/place.stream.playback.getLiveSegment", s.HandleGetLiveSegment)
+	// The same segments under a path-shaped URL, for a CDN pulling from
+	// this node (see liveCDN): one cacheable, signable path per segment.
+	e.GET(liveSegmentPathRoute, s.HandleGetLiveSegmentPath)
 	// glex code-generated these but we want them just passed upstream
 	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleWildcard)
 	e.POST("/xrpc/com.atproto.repo.putRecord", s.HandleWildcard)

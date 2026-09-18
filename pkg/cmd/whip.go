@@ -317,12 +317,17 @@ func (w *WHIPClient) WHIP(ctx context.Context) (retErr error) {
 
 	<-ctx.Done()
 
+	// reportError cancels the session context right after queueing the error it
+	// saw, so both branches below would be ready at once and the select would
+	// pick either one. Prefer the queued error: it is the actual failure, and
+	// returning context.Canceled instead would hide it from both the one-shot
+	// caller and the retry log.
 	select {
 	case err := <-errCh:
 		return err
-	case <-ctx.Done():
-		return ctx.Err()
+	default:
 	}
+	return ctx.Err()
 }
 
 func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, did string) (*WHIPConnection, error) {

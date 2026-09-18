@@ -66,25 +66,7 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	return rtmpPushResult(ctx, pipelineErr, sourceErr)
 }
 
-// writeRTMPSource subscribes to the streamer's source segments, selects the
-// audio + video tracks needed by the egress codec, synthesizes a single fMP4
-// init from the first segment, and writes one continuous fMP4 stream to w
-// (init then every segment's canonical bytes concatenated). It returns when
-// ctx is done or a select/encode/write fails; the caller owns closing w.
-//
-// MUXL segments carry per-track monotonic tfdt, so blind concatenation after a
-// single synthesized init is a valid fMP4 timeline with no remux. The init
-// reflects the first segment's catalog and is never re-emitted; muxl derives the
-// catalog from the moov and does not parse the H.264 bitstream, so a mid-stream
-// resolution/orientation change (carried in-band as new SPS/PPS at a keyframe)
-// is invisible to it — the parameter sets pass through verbatim to
-// h264parse/flvmux and the init's declared dimensions simply stay at the initial
-// config. Reflecting such a change in container metadata would require parsing
-// SPS/PPS.
-func (mm *MediaManager) writeRTMPSource(ctx context.Context, user, rendition string, w io.Writer) error {
-	return mm.writeRTMPSourceWithCodec(ctx, user, rendition, w, "")
-}
-
+// Subscribes to the user's source segments and writes them to the passed-in writer w.
 func (mm *MediaManager) writeRTMPSourceWithCodec(ctx context.Context, user, rendition string, w io.Writer, audioCodec string) error {
 	segChan := mm.bus.SubscribeSegmentBuf(ctx, user, rendition, 1)
 	defer mm.bus.UnsubscribeSegment(ctx, user, rendition, segChan)
@@ -100,17 +82,14 @@ func (mm *MediaManager) writeRTMPSourceWithCodec(ctx context.Context, user, rend
 				log.Warn(ctx, "source segment has no MUXL bytes, skipping", "file", seg.Filepath)
 				continue
 			}
+			// get source audio codec
 			if audioCodec == "" {
 				audioCodec, err = rtmpSourceAudioCodec(ctx, seg.Muxl)
 				if err != nil {
 					return fmt.Errorf("inspect source audio: %w", err)
 				}
 			}
-			// Keep AAC untouched for the normal canonical path. The no-node-signer
-			// fallback is Opus-only, so preserve Opus here and let the egress
-			// pipeline transcode it once to the AAC required by RTMP. If the source
-			// codec changes, fail the continuous push so the supervisor retries with
-			// a pipeline built for the new codec instead of feeding the wrong parser.
+			// if opus, prepare for transcode to AAC
 			sourceSeg, err := filterSegmentToCodec(ctx, seg.Muxl, audioCodec == "opus")
 			if err != nil {
 				return fmt.Errorf("select %s audio: %w", audioCodec, err)

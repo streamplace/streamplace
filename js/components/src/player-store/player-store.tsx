@@ -84,8 +84,9 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
 
     src: "",
     setSrc: (src: string) => set(() => ({ src })),
-    liveToken: undefined,
-    setLiveToken: (liveToken: string | undefined) => set(() => ({ liveToken })),
+    playbackSession: undefined,
+    setPlaybackSession: (playbackSession: string | undefined) =>
+      set(() => ({ playbackSession })),
 
     ingestMediaSource: undefined,
     setIngestMediaSource: (ingestMediaSource: IngestMediaSource | undefined) =>

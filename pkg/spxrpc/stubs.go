@@ -467,8 +467,8 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.multistream.putTarget", s.HandlePlaceStreamMultistreamPutTarget)
 	e.GET("/xrpc/place.stream.playback.getLivePlaylist", s.HandlePlaceStreamPlaybackGetLivePlaylist)
 	e.GET("/xrpc/place.stream.playback.getLiveSegment", s.HandlePlaceStreamPlaybackGetLiveSegment)
-	e.GET("/xrpc/place.stream.playback.getLiveToken", s.HandlePlaceStreamPlaybackGetLiveToken)
 	e.GET("/xrpc/place.stream.playback.getPlaybackServer", s.HandlePlaceStreamPlaybackGetPlaybackServer)
+	e.GET("/xrpc/place.stream.playback.getPlaybackSession", s.HandlePlaceStreamPlaybackGetPlaybackSession)
 	e.GET("/xrpc/place.stream.playback.getVideoBlob", s.HandlePlaceStreamPlaybackGetVideoBlob)
 	e.GET("/xrpc/place.stream.playback.getVideoPlaylist", s.HandlePlaceStreamPlaybackGetVideoPlaylist)
 	e.POST("/xrpc/place.stream.playback.whep", s.HandlePlaceStreamPlaybackWhep)
@@ -1284,12 +1284,11 @@ func (s *Server) HandlePlaceStreamPlaybackGetLivePlaylist(c echo.Context) error 
 	defer span.End()
 	sid := c.QueryParam("sid")
 	streamer := c.QueryParam("streamer")
-	token := c.QueryParam("token")
 	track := c.QueryParam("track")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context,sid string,streamer string,token string,track string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetLivePlaylist(ctx, sid, streamer, token, track)
+	// func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context,sid string,streamer string,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetLivePlaylist(ctx, sid, streamer, track)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1302,29 +1301,15 @@ func (s *Server) HandlePlaceStreamPlaybackGetLiveSegment(c echo.Context) error {
 	seg := c.QueryParam("seg")
 	sid := c.QueryParam("sid")
 	streamer := c.QueryParam("streamer")
-	token := c.QueryParam("token")
 	track := c.QueryParam("track")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context,seg string,sid string,streamer string,token string,track string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetLiveSegment(ctx, seg, sid, streamer, token, track)
+	// func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context,seg string,sid string,streamer string,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetLiveSegment(ctx, seg, sid, streamer, track)
 	if handleErr != nil {
 		return handleErr
 	}
 	return c.Stream(200, "video/mp4", out)
-}
-
-func (s *Server) HandlePlaceStreamPlaybackGetLiveToken(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetLiveToken")
-	defer span.End()
-	var out *placestream.PlaybackGetLiveToken_Output
-	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetLiveToken(ctx context.Context) (*placestream.PlaybackGetLiveToken_Output, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetLiveToken(ctx)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetPlaybackServer(c echo.Context) error {
@@ -1335,6 +1320,19 @@ func (s *Server) HandlePlaceStreamPlaybackGetPlaybackServer(c echo.Context) erro
 	var handleErr error
 	// func (s *Server) handlePlaceStreamPlaybackGetPlaybackServer(ctx context.Context,stream string) (*placestream.PlaybackGetPlaybackServer_Output, error)
 	out, handleErr = s.handlePlaceStreamPlaybackGetPlaybackServer(ctx, stream)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamPlaybackGetPlaybackSession(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetPlaybackSession")
+	defer span.End()
+	var out *placestream.PlaybackGetPlaybackSession_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamPlaybackGetPlaybackSession(ctx context.Context) (*placestream.PlaybackGetPlaybackSession_Output, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetPlaybackSession(ctx)
 	if handleErr != nil {
 		return handleErr
 	}

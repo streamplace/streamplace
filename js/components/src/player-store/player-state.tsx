@@ -55,10 +55,10 @@ export interface PlayerState {
 
   /** Source (streamer did) */
   src: string;
-  /** A pre-live playback token (getLiveToken) for the streamer's own
+  /** The streamer's own playback session (getPlaybackSession) for their
    *  unpublished stream, threaded onto the HLS playlist URL. */
-  liveToken?: string;
-  setLiveToken: (token: string | undefined) => void;
+  playbackSession?: string;
+  setPlaybackSession: (sid: string | undefined) => void;
 
   /** Function to set the source URL */
   setSrc: (src: string) => void;

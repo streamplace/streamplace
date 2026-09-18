@@ -22,7 +22,6 @@ Get an HLS CMAF playlist for a live stream. Returns a master playlist when `trac
 | `streamer` | `string` | ✅    | The streamer to play back: a DID (did:plc/did:web/did:key) or a Bluesky handle, which is resolved to its DID.                                                                                    |             |
 | `track`    | `string` | ❌    | Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist.                                                                          |             |
 | `sid`      | `string` | ❌    | Opaque playback session identifier. Omit on the master playlist request; the server generates one and threads it through the sub-playlist + segment URLs it returns, for view-count correlation. |             |
-| `token`    | `string` | ❌    | A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live.                                                            |             |
 
 **Output:**
 
@@ -63,10 +62,6 @@ _Schema not defined._
           "sid": {
             "type": "string",
             "description": "Opaque playback session identifier. Omit on the master playlist request; the server generates one and threads it through the sub-playlist + segment URLs it returns, for view-count correlation."
-          },
-          "token": {
-            "type": "string",
-            "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live."
           }
         }
       },

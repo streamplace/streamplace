@@ -20,22 +20,9 @@ import (
 	"stream.place/streamplace/pkg/cdn"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
-	"stream.place/streamplace/pkg/spid"
+	"stream.place/streamplace/pkg/psession"
 	"stream.place/streamplace/pkg/vod"
 )
-
-// sessionIDOrNew returns the caller's sid if it's well-formed, otherwise
-// gives you a fresh tid
-func sessionIDOrNew(supplied string) (string, error) {
-	if supplied != "" {
-		_, err := syntax.ParseTID(supplied)
-		if err != nil {
-			return "", fmt.Errorf("invalid session ID: %w", err)
-		}
-		return supplied, nil
-	}
-	return spid.TID(), nil
-}
 
 // videoCollection is the only collection getVideoPlaylist currently
 // knows how to dispatch on. The lexicon accepts any AT-URI so we have
@@ -139,7 +126,7 @@ func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 	}
 	defer r.Close()
 	rangeStart, rangeEnd := parseRangeForLog(c.Request().Header.Get("Range"), r.Size())
-	s.logSegmentRequest(c, cid, did, c.QueryParam("sid"), rangeStart, rangeEnd)
+	s.logSegmentRequest(c, cid, did, psession.ID(c.QueryParam("sid")), rangeStart, rangeEnd)
 	return serveBlobRange(c, r, "video/mp4")
 }
 
@@ -290,9 +277,11 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	// URL we previously handed it) so the master/media/segment requests
 	// of one playback session share an identifier. Generate a fresh one
 	// when the player is making its first request.
-	sid, err := sessionIDOrNew(c.QueryParam("sid"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	// A sid that is not even the shape of a session is refused up front,
+	// before the lookups below; the signature is checked once the video is
+	// known to be servable.
+	if sid := c.QueryParam("sid"); sid != "" && !psession.WellFormed(sid) {
+		return errBadSession
 	}
 
 	uri := aturi.String()
@@ -311,6 +300,19 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	} else if banned {
 		return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
 	}
+
+	// The viewer's playback session, once the video is known to be
+	// servable: verified against the owner, renewed while they watch,
+	// minted for a first request (a media playlist without one is
+	// redirected to carry it, so the player's follow-ups share a session).
+	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), aturi.Authority().String(), track != "")
+	if err != nil {
+		return err
+	}
+	if ps.Redirect {
+		return redirectWithSession(c, ps.SID)
+	}
+	sid := ps.SID
 
 	resolved, err := s.resolveVideoBlob(ctx, uri)
 	if err != nil {
@@ -343,7 +345,7 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 		}
 		kind = "media"
 	}
-	s.logManifestRequest(c, uri, sid, track, kind)
+	s.logManifestRequest(c, uri, ps.ID, track, kind)
 
 	c.Response().Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 	c.Response().Header().Set("Cache-Control", "public, max-age=60")

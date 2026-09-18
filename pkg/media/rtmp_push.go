@@ -98,8 +98,12 @@ func (mm *MediaManager) writeRTMPSourceWithCodec(ctx context.Context, user, rend
 					return fmt.Errorf("inspect source audio: %w", err)
 				}
 			}
-			// if opus, prepare for transcode to AAC
-			sourceSeg, err := filterSegmentToCodec(ctx, seg.Muxl, audioCodec == "opus")
+			// Keep AAC untouched for the normal canonical path. The no-node-signer
+			// fallback is Opus-only, so preserve Opus here and let the egress
+			// pipeline transcode it once to the AAC required by RTMP. If the source
+			// codec changes, fail the continuous push so the supervisor retries with
+			// a pipeline built for the new codec instead of feeding the wrong parser.
+			sourceSeg, err := filterSegmentToCodecStrict(ctx, seg.Muxl, audioCodec == "opus")
 			if err != nil {
 				return fmt.Errorf("select %s audio: %w", audioCodec, err)
 			}

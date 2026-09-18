@@ -102,8 +102,11 @@ func TestDiscardStaleGOPsDropsOnlyWholeSegments(t *testing.T) {
 		stale("stale-2", 8*time.Second+time.Millisecond),
 		stale("live-edge", 2*time.Second),
 	}
+	packets[0].Duration = time.Second
+	packets[1].Duration = 2 * time.Second
+	packets[2].Duration = 3 * time.Second
 	next := 0
-	got, dropped := discardStaleGOPs(packets[0], func() (*bus.PacketizedSegment, bool) {
+	got, dropped, queuedDuration := discardStaleGOPs(packets[0], func() (*bus.PacketizedSegment, bool) {
 		if next >= len(packets)-1 {
 			return nil, false
 		}
@@ -112,6 +115,8 @@ func TestDiscardStaleGOPsDropsOnlyWholeSegments(t *testing.T) {
 	}, now)
 	require.Equal(t, 2, dropped)
 	require.Same(t, packets[2], got)
+	require.Equal(t, packets[1].Duration, queuedDuration,
+		"only stale packets removed from the queue after the consumer dequeues the first packet")
 }
 
 func TestDiscardStaleGOPsKeepsLastSegmentWithoutReplacement(t *testing.T) {
@@ -125,11 +130,12 @@ func TestDiscardStaleGOPsKeepsLastSegmentWithoutReplacement(t *testing.T) {
 		},
 	}
 
-	got, dropped := discardStaleGOPs(packet, func() (*bus.PacketizedSegment, bool) {
+	got, dropped, queuedDuration := discardStaleGOPs(packet, func() (*bus.PacketizedSegment, bool) {
 		return nil, false
 	}, now)
 	require.Same(t, packet, got)
 	require.Zero(t, dropped)
+	require.Zero(t, queuedDuration)
 }
 
 func TestWebRTCPlayback2(t *testing.T) {

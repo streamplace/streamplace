@@ -3,6 +3,7 @@ package media
 import (
 	"bytes"
 	"context"
+	"sync"
 	"time"
 
 	"stream.place/streamplace/pkg/bus"
@@ -38,6 +39,20 @@ func (mm *MediaManager) liveWindow(did string) *livehls.Writer {
 		mm.liveWindows[did] = w
 	}
 	return w
+}
+
+func (mm *MediaManager) liveWindowFeedMutex(did string) *sync.Mutex {
+	mm.liveWindowsMut.Lock()
+	defer mm.liveWindowsMut.Unlock()
+	if mm.liveWindowFeeds == nil {
+		mm.liveWindowFeeds = map[string]*sync.Mutex{}
+	}
+	feedMu := mm.liveWindowFeeds[did]
+	if feedMu == nil {
+		feedMu = &sync.Mutex{}
+		mm.liveWindowFeeds[did] = feedMu
+	}
+	return feedMu
 }
 
 // GetLiveWindow returns the streamer's live-HLS window, or nil if it has no

@@ -301,7 +301,14 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	meta := vs.meta
 	now := time.Now()
 	if vs.timing == nil {
-		vs.timing = &bus.SegmentTiming{SourceStart: meta.StartTime.Time(), Signed: now}
+		mediaDuration := time.Duration(0)
+		if vs.mediaData != nil {
+			mediaDuration = time.Duration(vs.mediaData.Duration)
+		}
+		vs.timing = &bus.SegmentTiming{
+			SourceStart: sourceStartForTiming(meta, mediaDuration),
+			Signed:      now,
+		}
 	}
 	if vs.timing.MasteringCompleted.IsZero() {
 		vs.timing.MasteringCompleted = now
@@ -328,7 +335,12 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	// from another node — so any node that validates a stream's segments can
 	// serve its live HLS. WithoutCancel keeps the feed alive past this request.
 	// Only published segments are actually folded in (see feedLiveWindow).
-	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.Published, vs.timing.Clone())
+	feedMu := mm.liveWindowFeedMutex(vs.repoDID)
+	feedMu.Lock()
+	go func() {
+		defer feedMu.Unlock()
+		mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.Published, vs.timing.Clone())
+	}()
 
 	// Segments are no longer written to disk, but a Segment DB row is still kept
 	// (dedup, /segment metadata, live playlists). delete_after governs when that

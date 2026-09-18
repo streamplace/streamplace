@@ -42,16 +42,16 @@ func requireLatencyBudgetTest(t *testing.T) {
 
 func TestSourceStartForTimingUsesSignedCompletionAndMediaDuration(t *testing.T) {
 	receivedAt := time.Date(2026, 9, 17, 2, 0, 0, 0, time.UTC)
-	metadataStart := receivedAt.Add(-10 * time.Minute)
-	meta := &SegmentMetadata{StartTime: aqtime.FromTime(metadataStart)}
+	signedAt := receivedAt.Add(-10 * time.Minute)
+	meta := &SegmentMetadata{StartTime: aqtime.FromTime(signedAt)}
 
-	require.Equal(t, metadataStart.Add(-800*time.Millisecond), sourceStartForTiming(meta, 800*time.Millisecond),
+	require.Equal(t, signedAt.Add(-800*time.Millisecond), sourceStartForTiming(meta, 800*time.Millisecond),
 		"source age should use the signed completion timestamp minus media duration")
-	require.Equal(t, metadataStart.Add(-800*time.Millisecond), sourceStartForTiming(meta, 800*time.Millisecond),
+	require.Equal(t, signedAt.Add(-800*time.Millisecond), sourceStartForTiming(meta, 800*time.Millisecond),
 		"replayed and replicated media should use the same source timeline")
-	require.Equal(t, metadataStart, sourceStartForTiming(meta, 0),
+	require.Equal(t, signedAt, sourceStartForTiming(meta, 0),
 		"missing duration should keep the signed timestamp")
-	require.Equal(t, metadataStart, sourceStartForTiming(meta, -time.Second),
+	require.Equal(t, signedAt, sourceStartForTiming(meta, -time.Second),
 		"invalid duration should keep the signed timestamp")
 	require.Equal(t, time.Time{}, sourceStartForTiming(nil, time.Second),
 		"missing metadata should not fabricate a source timestamp")

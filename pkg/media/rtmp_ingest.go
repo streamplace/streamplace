@@ -69,11 +69,11 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 	if err != nil {
 		return err
 	}
-	audioenc, err := pipeline.GetElementByName("audioenc")
+	audioEle, err := pipeline.GetElementByName("audioqueue")
 	if err != nil {
 		return err
 	}
-	err = audioenc.Link(signer)
+	err = audioEle.Link(signer)
 	if err != nil {
 		return err
 	}

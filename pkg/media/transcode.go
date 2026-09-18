@@ -360,12 +360,23 @@ func concatTrackAcrossSegments(events []*muxl.MuxlEvent, tid uint32) []byte {
 // fixed downstream parser. With no audio info at all, the segment is returned
 // unchanged.
 func filterSegmentToCodec(ctx context.Context, seg []byte, wantOpus bool) ([]byte, error) {
+	return filterSegmentToCodecMode(ctx, seg, wantOpus, false)
+}
+
+func filterSegmentToCodecStrict(ctx context.Context, seg []byte, wantOpus bool) ([]byte, error) {
+	return filterSegmentToCodecMode(ctx, seg, wantOpus, true)
+}
+
+func filterSegmentToCodecMode(ctx context.Context, seg []byte, wantOpus, requireMatch bool) ([]byte, error) {
 	events, err := unwrapMuxlEvents(ctx, seg)
 	if err != nil {
 		return nil, fmt.Errorf("unwrap segment for codec filter: %w", err)
 	}
 	cat, tracks := catalogAndTracks(events)
 	if cat == nil {
+		if requireMatch {
+			return nil, fmt.Errorf("requested %s audio track is missing", requestedAudioCodec(wantOpus))
+		}
 		return seg, nil
 	}
 
@@ -385,6 +396,9 @@ func filterSegmentToCodec(ctx context.Context, seg []byte, wantOpus bool) ([]byt
 			}
 		}
 		if !found {
+			if requireMatch {
+				return nil, fmt.Errorf("requested %s audio track is missing", requestedAudioCodec(wantOpus))
+			}
 			wanted := "AAC"
 			if wantOpus {
 				wanted = "Opus"
@@ -410,4 +424,11 @@ func filterSegmentToCodec(ctx context.Context, seg []byte, wantOpus bool) ([]byt
 		return seg, nil
 	}
 	return out, nil
+}
+
+func requestedAudioCodec(wantOpus bool) string {
+	if wantOpus {
+		return "opus"
+	}
+	return "aac"
 }

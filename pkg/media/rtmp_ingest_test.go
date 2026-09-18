@@ -145,3 +145,16 @@ func TestFilterSegmentToCodecRejectsMissingTrack(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no Opus audio track")
 }
+
+func TestFilterSegmentToCodecStrictRejectsCodecMismatch(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+	input := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
+	path := filepath.Join(t.TempDir(), "source.mp4")
+	require.NoError(t, os.WriteFile(path, input, 0600))
+	segments := allSignedBareSegments(t, ctx, ms, path)
+	require.NotEmpty(t, segments)
+
+	_, err := filterSegmentToCodecStrict(ctx, segments[0], true)
+	require.ErrorContains(t, err, "requested opus audio track is missing")
+}

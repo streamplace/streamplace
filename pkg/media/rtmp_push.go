@@ -44,8 +44,12 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	// fMP4 stream for the push pipeline. Tied to ctx so it tears down when the
 	// pipeline returns.
 	pr, pw := io.Pipe()
+	sourceCtx, sourceCancel := context.WithCancel(ctx)
+	sourceDone := make(chan error, 1)
 	go func() {
-		pw.CloseWithError(mm.writeRTMPSourceWithCodec(ctx, user, rendition, pw, audioCodec))
+		err := mm.writeRTMPSourceWithCodec(sourceCtx, user, rendition, pw, audioCodec)
+		sourceDone <- err
+		pw.CloseWithError(err)
 	}()
 
 	// Status straight to the DB (in-process). The isolated worker reports the
@@ -56,7 +60,10 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 			log.Error(ctx, "failed to create multistream event", "error", err)
 		}
 	}
-	return mm.runRTMPPushPipeline(ctx, pr, rec.Url, report, audioCodec)
+	pipelineErr := mm.runRTMPPushPipeline(ctx, pr, rec.Url, report, audioCodec)
+	sourceCancel()
+	sourceErr := <-sourceDone
+	return rtmpPushResult(ctx, pipelineErr, sourceErr)
 }
 
 // writeRTMPSource subscribes to the streamer's source segments, selects the

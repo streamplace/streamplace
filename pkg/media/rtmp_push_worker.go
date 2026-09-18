@@ -37,6 +37,20 @@ type pushEvent struct {
 	Message string `json:"message"`
 }
 
+func rtmpSourceFailure(ctx context.Context, err error) error {
+	if err == nil || errors.Is(err, context.Canceled) || ctx.Err() != nil {
+		return nil
+	}
+	return fmt.Errorf("rtmp push source: %w", err)
+}
+
+func rtmpPushResult(ctx context.Context, pipelineErr, sourceErr error) error {
+	if pipelineErr != nil {
+		return pipelineErr
+	}
+	return rtmpSourceFailure(ctx, sourceErr)
+}
+
 // RunRTMPPushWorker is the body of the `rtmp-push-worker` subcommand. It reads
 // the assembled fMP4 source stream from `source` (the worker's stdin, fed by
 // main) and runs the native RTMP egress pipeline, reporting status back to main
@@ -149,9 +163,13 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 
 	// Feed the worker the continuous fMP4 source stream (bus → codec select →
 	// init+concat). Closing stdin on source EOF/cancel is the worker's EOS.
+	sourceCtx, sourceCancel := context.WithCancel(ctx)
+	sourceDone := make(chan error, 1)
 	go func() {
 		defer stdin.Close()
-		if serr := mm.writeRTMPSourceWithCodec(ctx, user, rendition, stdin, audioCodec); serr != nil && ctx.Err() == nil {
+		serr := mm.writeRTMPSourceWithCodec(sourceCtx, user, rendition, stdin, audioCodec)
+		sourceDone <- serr
+		if serr != nil && !errors.Is(serr, context.Canceled) && ctx.Err() == nil {
 			log.Error(ctx, "rtmp push source ended", "error", serr)
 		}
 	}()
@@ -172,6 +190,9 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 	workerErr := consumePushEvents(ctx, eventsR, report)
 	logsWG.Wait()
 	werr := cmd.Wait()
+	sourceCancel()
+	sourceErr := <-sourceDone
+	sourceFailure := rtmpPushResult(ctx, nil, sourceErr)
 
 	switch {
 	case ctx.Err() != nil:
@@ -184,6 +205,8 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 		// A non-zero exit without a clean end means the worker died — contained to
 		// the subprocess; StartMultistreamTarget records it and retries.
 		return fmt.Errorf("rtmp push worker exited: %w", werr)
+	case sourceFailure != nil:
+		return sourceFailure
 	}
 	return nil
 }

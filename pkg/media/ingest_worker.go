@@ -250,7 +250,7 @@ func RunMP4IngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 	if err != nil {
 		return fmt.Errorf("build signer element: %w", err)
 	}
-	pipeline, err := buildMP4IngestPipeline(ctx, media, signerElem)
+	pipeline, err := buildMP4IngestPipeline(ctx, media, signerElem, cfg.StreamerDID)
 	if err != nil {
 		return fmt.Errorf("build pipeline: %w", err)
 	}

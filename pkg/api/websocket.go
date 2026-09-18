@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -111,6 +113,9 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			pongCh <- struct{}{}
 			return nil
 		})
+		// The rendition list last sent to this viewer, as its joined names.
+		var sentRenditions atomic.Value
+		sentRenditions.Store("")
 		go func() {
 
 			ch := a.Bus.Subscribe(repoDID)
@@ -142,6 +147,15 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				case msg := <-initialBurst:
 					send(msg)
 				case <-ticker.C:
+					// The renditions a viewer can pick are whatever this
+					// node's live window holds now: they appear a little
+					// after the stream starts (the transcoder's round trip),
+					// and on a syndicating node they arrive from the origin.
+					if names := a.MediaManager.LiveRenditionNames(repoDID); len(names) > 0 {
+						if key := strings.Join(names, ","); sentRenditions.Swap(key) != key {
+							send(renditionsMessage(names))
+						}
+					}
 					count := a.Bus.GetViewerCount(repoDID)
 					bs, err := json.Marshal(placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
 					if err != nil {
@@ -194,28 +208,21 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				return
 			}
 			initialBurst <- spSeg
-			outRs := placestream.Defs_Renditions{
-				LexiconTypeID: "place.stream.defs#renditions",
-				Renditions:    []placestream.Defs_Rendition{},
-			}
-			if a.CLI.LivepeerGatewayURL != "" {
-				videoRenditions, err := renditions.GenerateRenditions(spSeg)
+			names := a.MediaManager.LiveRenditionNames(repoDID)
+			if len(names) == 0 && a.CLI.LivepeerGatewayURL != "" {
+				// This node transcodes but hasn't a rendition in its window
+				// yet: the profiles it is about to produce.
+				videoRenditions, err := renditions.GenerateRenditionsFrom(spSeg, a.CLI.RenditionLadder())
 				if err != nil {
 					log.Error(ctx, "could not generate renditions", "error", err)
 					return
 				}
 				for _, r := range videoRenditions {
-					outRs.Renditions = append(outRs.Renditions, placestream.Defs_Rendition{
-						LexiconTypeID: "place.stream.defs#rendition",
-						Name:          r.Name,
-					})
+					names = append(names, r.Name)
 				}
 			}
-			outRs.Renditions = append(outRs.Renditions, placestream.Defs_Rendition{
-				LexiconTypeID: "place.stream.defs#rendition",
-				Name:          renditions.AudioRendition.Name,
-			})
-			initialBurst <- outRs
+			sentRenditions.Store(strings.Join(names, ","))
+			initialBurst <- renditionsMessage(names)
 		}()
 
 		go func() {
@@ -365,4 +372,19 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			log.Log(ctx, "received message", "messageType", messageType, "message", string(message))
 		}
 	}
+}
+
+// renditionsMessage is the place.stream.defs#renditions message listing the
+// video renditions a viewer can pick, plus the audio-only rendition every
+// stream has.
+func renditionsMessage(names []string) placestream.Defs_Renditions {
+	out := placestream.Defs_Renditions{
+		LexiconTypeID: "place.stream.defs#renditions",
+		Renditions:    make([]placestream.Defs_Rendition, 0, len(names)+1),
+	}
+	for _, n := range names {
+		out.Renditions = append(out.Renditions, placestream.Defs_Rendition{LexiconTypeID: "place.stream.defs#rendition", Name: n})
+	}
+	out.Renditions = append(out.Renditions, placestream.Defs_Rendition{LexiconTypeID: "place.stream.defs#rendition", Name: renditions.AudioRendition.Name})
+	return out
 }

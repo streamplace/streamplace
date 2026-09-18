@@ -39,7 +39,7 @@ func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms Media
 	if err != nil {
 		return err
 	}
-	pipeline, err := buildMP4IngestPipeline(ctx, input, signer)
+	pipeline, err := buildMP4IngestPipeline(ctx, input, signer, ms.Streamer())
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func rejectMatroska(input io.Reader) (io.Reader, error) {
 	return br, nil
 }
 
-func buildMP4IngestPipeline(ctx context.Context, input io.Reader, signerElem *gst.Element) (*gst.Pipeline, error) {
+func buildMP4IngestPipeline(ctx context.Context, input io.Reader, signerElem *gst.Element, streamer string) (*gst.Pipeline, error) {
 	input, err := rejectMatroska(input)
 	if err != nil {
 		return nil, err
@@ -140,6 +140,8 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, signerElem *gs
 	if err != nil {
 		return nil, err
 	}
+	// Only an IDR starts a segment (see installIDRKeyframeProbe).
+	installIDRKeyframeProbe(ctx, parseEle.GetStaticPad("src"), streamer)
 	if err := pipeline.Add(signerElem); err != nil {
 		return nil, err
 	}

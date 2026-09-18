@@ -311,6 +311,30 @@ func (w *Writer) TrackIDs() []string {
 	return append([]string(nil), w.order...)
 }
 
+// VideoTrack describes one video track of the window: a variant of the
+// master playlist.
+type VideoTrack struct {
+	ID     string
+	Codec  string
+	Width  uint32
+	Height uint32
+}
+
+// VideoTracks lists the window's video tracks in master-playlist order.
+func (w *Writer) VideoTracks() []VideoTrack {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var out []VideoTrack
+	for _, tid := range w.order {
+		t := w.tracks[tid]
+		if t == nil || t.Type != "video" {
+			continue
+		}
+		out = append(out, VideoTrack{ID: tid, Codec: t.Codec, Width: t.Width, Height: t.Height})
+	}
+	return out
+}
+
 // Track returns a snapshot of the track's current windowed segments (segment
 // byte payloads are shared, not copied), or nil if unknown.
 func (w *Writer) Track(trackID string) *Track {

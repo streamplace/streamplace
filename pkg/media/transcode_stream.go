@@ -259,6 +259,8 @@ func (t *streamTranscoder) waitForQueueCapacity(ctx context.Context, mediaDurati
 		if fits {
 			return nil
 		}
+		// Queue changes wake this wait when work completes; the timer also wakes it
+		// when the oldest queued job reaches the freshness limit.
 		if staleWait <= 0 {
 			select {
 			case <-ctx.Done():

@@ -48,6 +48,7 @@ var chanSize = 1024
 type SegChan struct {
 	C       chan *Seg
 	Context context.Context
+	// Keeps publication handoff independent from the consumer-facing channel.
 	publish chan *Seg
 	cancel  context.CancelFunc
 }
@@ -101,6 +102,8 @@ func (b *Bus) SubscribeSegmentBuf(ctx context.Context, user string, rendition st
 }
 
 func dispatchSegments(ch *SegChan, user string, rendition string) {
+	// Serialize delivery per subscriber without making the publisher wait for a
+	// slow consumer.
 	for {
 		select {
 		case <-ch.Context.Done():
@@ -160,6 +163,8 @@ func (b *Bus) PublishSegment(ctx context.Context, user string, rendition string,
 	if len(chs) == 0 {
 		return
 	}
+	// A live subscriber that cannot keep up must not stall publication to other
+	// subscribers.
 	for _, ch := range chs {
 		select {
 		case ch.publish <- seg:

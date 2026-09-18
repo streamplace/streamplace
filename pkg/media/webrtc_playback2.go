@@ -82,10 +82,9 @@ func shouldDropStaleGOP(sourceAge time.Duration, hasSourceAge bool) bool {
 	return hasSourceAge && sourceAge > playbackDropAge
 }
 
-// discardStaleGOPs removes complete packetized segments from the head of the
-// playback stream until a segment near the live edge is available. A
-// PacketizedSegment is the packetized form of one source GOP, so this keeps
-// the drop boundary safe for video reference frames.
+// Complete stale segments are dropped only when a replacement is available.
+// Retaining the last segment lets playback continue until the next GOP arrives
+// while keeping the drop boundary safe for video reference frames.
 func discardStaleGOPs(current *bus.PacketizedSegment, next func() (*bus.PacketizedSegment, bool), now time.Time) (*bus.PacketizedSegment, int) {
 	dropped := 0
 	for current != nil {
@@ -95,6 +94,8 @@ func discardStaleGOPs(current *bus.PacketizedSegment, next func() (*bus.Packetiz
 		}
 		nextSegment, ok := next()
 		if !ok {
+			// Dropping the current segment without a replacement would leave the
+			// viewer with no packetized media to play.
 			return current, dropped
 		}
 		dropped++

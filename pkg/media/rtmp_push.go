@@ -40,9 +40,8 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 		return fmt.Errorf("wait for RTMP source audio: %w", err)
 	}
 
-	// Source: subscribe to the streamer's segments and assemble one continuous
-	// fMP4 stream for the push pipeline. Tied to ctx so it tears down when the
-	// pipeline returns.
+	// Assemble one continuous fMP4 source stream for the push pipeline. The
+	// child context lets the pipeline stop the source before collecting its error.
 	pr, pw := io.Pipe()
 	sourceCtx, sourceCancel := context.WithCancel(ctx)
 	sourceDone := make(chan error, 1)
@@ -61,6 +60,7 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 		}
 	}
 	pipelineErr := mm.runRTMPPushPipeline(ctx, pr, rec.Url, report, audioCodec)
+	// Stop a source blocked on the bus or pipe before waiting for its result.
 	sourceCancel()
 	sourceErr := <-sourceDone
 	return rtmpPushResult(ctx, pipelineErr, sourceErr)

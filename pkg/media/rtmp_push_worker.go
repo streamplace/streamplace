@@ -190,6 +190,8 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 	workerErr := consumePushEvents(ctx, eventsR, report)
 	logsWG.Wait()
 	werr := cmd.Wait()
+	// The worker may exit before the source observes the failure; stop a source
+	// blocked on the bus or pipe before waiting for its result.
 	sourceCancel()
 	sourceErr := <-sourceDone
 	sourceFailure := rtmpPushResult(ctx, nil, sourceErr)

@@ -587,6 +587,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
           // Moderation view
           <View style={[flex.values[1], { minHeight: 400 }]}>
             <Dashboard.ModeratorPanel isLive={userIsLive} embedded={true} />
+            <Dashboard.ChatAccessPanel embedded={true} />
           </View>
         ) : (
           // Create/Edit view

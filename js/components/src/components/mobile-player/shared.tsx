@@ -22,8 +22,9 @@ export function srcToUrl(
   protocol: string;
 } {
   const url = useStreamplaceStore((x) => x.url);
-  // The streamer's pre-live playback token, when their player holds one.
-  const liveToken = usePlayerStore((x) => x.liveToken);
+  // The streamer's own playback session, when their player holds one; it
+  // opens their pre-live stream. Anyone else gets a session from the node.
+  const playbackSession = usePlayerStore((x) => x.playbackSession);
   return useMemo(() => {
     if (props.src.startsWith("at://")) {
       const aturi = new AtUri(props.src);
@@ -57,8 +58,8 @@ export function srcToUrl(
       } else {
         outUrl = `${url}/xrpc/place.stream.playback.getLivePlaylist?streamer=${props.src}`;
       }
-      if (liveToken) {
-        outUrl += `&token=${encodeURIComponent(liveToken)}`;
+      if (playbackSession) {
+        outUrl += `&sid=${encodeURIComponent(playbackSession)}`;
       }
     } else if (protocol === PlayerProtocol.PROGRESSIVE_MP4) {
       outUrl = `${url}/api/playback/${props.src}/stream.mp4`;
@@ -73,5 +74,5 @@ export function srcToUrl(
       protocol: protocol,
       url: outUrl,
     };
-  }, [props.src, props.selectedRendition, protocol, url, liveToken]);
+  }, [props.src, props.selectedRendition, protocol, url, playbackSession]);
 }

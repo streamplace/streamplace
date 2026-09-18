@@ -4,7 +4,9 @@ import {
   useNavigation,
 } from "@react-navigation/native";
 import {
+  Button,
   Text,
+  useBrandingAsset,
   useDID,
   useSidebarBackgroundImage,
   useTheme,
@@ -14,31 +16,177 @@ import {
 import { BlueskyIcon } from "@streamplace/components/src/components/icons/bluesky-icon";
 import { DiscordIcon } from "@streamplace/components/src/components/icons/discord-icon";
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
-import { SiteTitleLockup } from "components/brand/logo";
+import { decodeDataUrlText, SiteTitleLockup } from "components/brand/logo";
 import { LogoBrandMenu } from "components/brand/logo-brand-menu";
 import { Image } from "expo-image";
 import usePlatform from "hooks/usePlatform";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import {
+  Bell,
   Book,
+  Bookmark,
   Clapperboard,
   Download,
+  Hash,
   Home,
   Library,
+  Link as LinkIcon,
+  List,
   LogIn,
   Menu,
+  MessageCircle,
+  Play,
   Radio,
+  Search,
   Settings as SettingsIcon,
+  UserCircle,
+  Video,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import { SvgXml } from "react-native-svg";
 import {
   getStreamplaceStateFromPath,
   streamplaceLinkingOptions,
 } from "src/linking-config";
 import { useStore } from "store";
 import SidebarItem from "./sidebar-item";
+
+/**
+ * Branded navigation (branding keys navLinks / navCta): a node can replace
+ * the browse and creator sections with its own links, typically into the
+ * wider site a single-user node belongs to. navLinks is a JSON array of
+ * { label, url, icon? } with icon one of NAV_ICONS; navCta is
+ * { label, url } and renders as the pill button under the list. Internal
+ * paths navigate in-app; anything else opens as a link.
+ */
+export const NAV_ICONS: Record<string, React.ComponentType<any>> = {
+  home: Home,
+  search: Search,
+  play: Play,
+  live: Radio,
+  bell: Bell,
+  message: MessageCircle,
+  hash: Hash,
+  list: List,
+  bookmark: Bookmark,
+  user: UserCircle,
+  settings: SettingsIcon,
+  video: Video,
+  book: Book,
+};
+
+export interface BrandedNavLink {
+  label: string;
+  url: string;
+  icon?: string;
+}
+
+export function parseNavLinks(raw: string | undefined): BrandedNavLink[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (l: any) =>
+          l && typeof l.label === "string" && typeof l.url === "string",
+      )
+      .map((l: any) => ({ label: l.label, url: l.url, icon: l.icon }));
+  } catch {
+    return [];
+  }
+}
+
+export function parseNavCta(
+  raw: string | undefined,
+): { label: string; url: string } | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed.label === "string" &&
+      typeof parsed.url === "string"
+    ) {
+      return { label: parsed.label, url: parsed.url };
+    }
+  } catch {
+    // fall through
+  }
+  return null;
+}
+
+/**
+ * Social links (branding keys socialHeading / socialLinks / socialIcon1-4):
+ * the "Say Hello?" row at the bottom of the sidebar. socialLinks is a JSON
+ * array of { label, url, icon } where icon is one of SOCIAL_ICONS, one of
+ * NAV_ICONS, or socialIcon1..socialIcon4 for an uploaded image. Unset shows
+ * the Streamplace defaults; an empty array hides the row.
+ */
+export const SOCIAL_ICONS: Record<string, React.ComponentType<any>> = {
+  bluesky: BlueskyIcon,
+  discord: DiscordIcon,
+};
+
+export const SOCIAL_ICON_SLOTS = [
+  "socialIcon1",
+  "socialIcon2",
+  "socialIcon3",
+  "socialIcon4",
+];
+
+export const DEFAULT_SOCIAL_LINKS: BrandedNavLink[] = [
+  {
+    label: "Bluesky",
+    url: "https://bsky.app/profile/stream.place",
+    icon: "bluesky",
+  },
+  { label: "Discord", url: "https://discord.stream.place", icon: "discord" },
+];
+
+export function parseSocialLinks(
+  raw: string | undefined,
+): BrandedNavLink[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return parsed
+      .filter(
+        (l: any) =>
+          l && typeof l.label === "string" && typeof l.url === "string",
+      )
+      .map((l: any) => ({ label: l.label, url: l.url, icon: l.icon }));
+  } catch {
+    return null;
+  }
+}
+
+const isExternal = (url: string) => /^[a-z]+:/i.test(url);
+
+/**
+ * Branded link URLs may carry {handle} and {did} for the signed-in viewer
+ * (a "Profile" link into the main app, say). Signed out, such a link falls
+ * back to its site root rather than a broken path.
+ */
+export function resolveNavUrl(
+  url: string,
+  viewer: { handle?: string | null; did?: string | null },
+): string {
+  if (!/\{(handle|did)\}/.test(url)) return url;
+  if (!viewer.did) {
+    try {
+      return new URL(url).origin + "/";
+    } catch {
+      return url;
+    }
+  }
+  return url
+    .replace("{handle}", encodeURIComponent(viewer.handle || viewer.did))
+    .replace("{did}", encodeURIComponent(viewer.did));
+}
 
 /**
  * Sidebar toggle — a hamburger/panel button styled to line its icon up with
@@ -83,18 +231,64 @@ export function SidebarToggle({
   );
 }
 
+// An uploaded SVG icon is tinted like the built-in ones when it is authored
+// with currentColor; anything else (multi-color SVG, raster) renders as
+// drawn.
+function UploadedSocialIcon({
+  slot,
+  size,
+  color,
+}: {
+  slot: string;
+  size: number;
+  color: string;
+}) {
+  const asset = useBrandingAsset(slot);
+  const data = asset?.data;
+  const mime = asset?.mimeType ?? "";
+  const svg = useMemo(() => {
+    if (!data || !data.startsWith("data:")) return null;
+    if (!mime.includes("svg") && !data.startsWith("data:image/svg")) {
+      return null;
+    }
+    const text = decodeDataUrlText(data);
+    return text && text.includes("<svg") ? text : null;
+  }, [data, mime]);
+  if (svg) {
+    return (
+      <SvgXml
+        xml={svg.replaceAll("currentColor", color)}
+        width={size}
+        height={size}
+      />
+    );
+  }
+  if (data) {
+    return (
+      <Image
+        source={{ uri: data }}
+        style={{ width: size, height: size }}
+        contentFit="contain"
+      />
+    );
+  }
+  return <LinkIcon size={size} color={color} />;
+}
+
 function SocialIconButton({
   icon,
   label,
   href,
 }: {
-  icon: React.ComponentType<any>;
+  icon?: string;
   label: string;
   href: string;
 }) {
   const { theme } = useTheme();
   const [hover, setHover] = useState(false);
-  const Icon = icon;
+  const color = hover ? theme.colors.text1 : theme.colors.text2;
+  const slot = icon && SOCIAL_ICON_SLOTS.includes(icon) ? icon : null;
+  const Icon = SOCIAL_ICONS[icon ?? ""] ?? NAV_ICONS[icon ?? ""] ?? LinkIcon;
   return (
     <Pressable
       onPress={(e) => {
@@ -119,10 +313,11 @@ function SocialIconButton({
           },
         ]}
       >
-        <Icon
-          size={24}
-          color={hover ? theme.colors.text1 : theme.colors.text2}
-        />
+        {slot ? (
+          <UploadedSocialIcon slot={slot} size={24} color={color} />
+        ) : (
+          <Icon size={24} color={color} />
+        )}
       </View>
     </Pressable>
   );
@@ -196,6 +391,10 @@ export function SidebarOverlay() {
   const streamplaceUrl = useUrl();
   const sidebarBackgroundImageAsset = useSidebarBackgroundImage();
   const did = useDID();
+  const viewerHandle = useStore((state) =>
+    did ? state.profiles[did]?.handle : undefined,
+  );
+  const viewer = { did, handle: viewerHandle };
 
   const [navState, setNavState] = useState(() => navigation.getState());
   useEffect(() => {
@@ -227,12 +426,39 @@ export function SidebarOverlay() {
     };
   });
 
+  // Branded navigation replaces the browse/creator sections when present;
+  // the social row is branded the same way. Hooks stay above the early
+  // return below so the count is stable when the sidebar deactivates on
+  // resize.
+  const brandedLinks = parseNavLinks(useBrandingAsset("navLinks")?.data);
+  const brandedCta = parseNavCta(useBrandingAsset("navCta")?.data);
+  const socialLinks =
+    parseSocialLinks(useBrandingAsset("socialLinks")?.data) ??
+    DEFAULT_SOCIAL_LINKS;
+  const socialHeading =
+    useBrandingAsset("socialHeading")?.data?.trim() || "Say Hello?";
+
   // Don't render if sidebar is not active (small screen) or hidden
   if (!sidebar.isActive || sidebar.isHidden) {
     return null;
   }
 
   // Browse destinations — public, content-first, YouTube-style
+  const brandedItems: SidebarNavItem[] = brandedLinks.map((l) => ({
+    icon: NAV_ICONS[l.icon ?? ""] ?? Hash,
+    label: l.label,
+    href: l.url,
+  }));
+  const openLink = (raw: string) => {
+    const url = resolveNavUrl(raw, viewer);
+    if (isExternal(url)) {
+      closeDrawer();
+      void Linking.openURL(url);
+    } else {
+      navigate(url);
+    }
+  };
+
   const browseItems: SidebarNavItem[] = [
     { icon: Home, label: "Home", href: "/" },
     {
@@ -443,12 +669,52 @@ export function SidebarOverlay() {
         )}
       </View>
 
-      <View style={{ gap: 2 }}>{renderItems(browseItems)}</View>
-
-      {creatorItems.some((item) => !item.hidden) && (
+      {brandedItems.length > 0 ? (
+        <View style={{ gap: 2 }}>
+          {brandedItems.map((item) => (
+            <SidebarItem
+              key={item.href}
+              icon={item.icon}
+              href={item.href}
+              label={item.label}
+              active={
+                !isExternal(item.href) &&
+                isItemActive(item.href, item.matchPrefix)
+              }
+              collapsed={collapsed}
+              onPress={(e) => {
+                e.preventDefault();
+                openLink(item.href);
+              }}
+            />
+          ))}
+          {brandedCta && !collapsed && (
+            <View
+              style={{
+                paddingHorizontal: spacing[3],
+                paddingVertical: spacing[4],
+              }}
+            >
+              <Button
+                variant="primary"
+                width="min"
+                style={{ borderRadius: 999, height: 44, paddingHorizontal: 24 }}
+                onPress={() => openLink(brandedCta.url)}
+              >
+                {brandedCta.label}
+              </Button>
+            </View>
+          )}
+        </View>
+      ) : (
         <>
-          {renderSectionHeader("Creator Dashboard")}
-          <View style={{ gap: 2 }}>{renderItems(creatorItems)}</View>
+          <View style={{ gap: 2 }}>{renderItems(browseItems)}</View>
+          {creatorItems.some((item) => !item.hidden) && (
+            <>
+              {renderSectionHeader("Creator Dashboard")}
+              <View style={{ gap: 2 }}>{renderItems(creatorItems)}</View>
+            </>
+          )}
         </>
       )}
 
@@ -478,44 +744,37 @@ export function SidebarOverlay() {
               Linking.openURL(u.toString());
             }}
           />
-          {renderSectionHeader("Say Hello?")}
-          {collapsed ? (
-            <View
-              style={[
-                zero.layout.flex.column,
-                zero.layout.flex.alignCenter,
-                { gap: 2 },
-              ]}
-            >
-              <SocialIconButton
-                icon={BlueskyIcon}
-                label="Bluesky"
-                href="https://bsky.app/profile/stream.place"
-              />
-              <SocialIconButton
-                icon={DiscordIcon}
-                label="Discord"
-                href="https://discord.stream.place"
-              />
-            </View>
-          ) : (
-            <View
-              style={[
-                zero.layout.flex.row,
-                { gap: 2, paddingHorizontal: spacing[3] },
-              ]}
-            >
-              <SocialIconButton
-                icon={BlueskyIcon}
-                label="Bluesky"
-                href="https://bsky.app/profile/stream.place"
-              />
-              <SocialIconButton
-                icon={DiscordIcon}
-                label="Discord"
-                href="https://discord.stream.place"
-              />
-            </View>
+          {socialLinks.length > 0 && (
+            <>
+              {renderSectionHeader(socialHeading)}
+              <View
+                style={
+                  collapsed
+                    ? [
+                        zero.layout.flex.column,
+                        zero.layout.flex.alignCenter,
+                        { gap: 2 },
+                      ]
+                    : [
+                        zero.layout.flex.row,
+                        {
+                          gap: 2,
+                          paddingHorizontal: spacing[3],
+                          flexWrap: "wrap",
+                        },
+                      ]
+                }
+              >
+                {socialLinks.map((link) => (
+                  <SocialIconButton
+                    key={link.url + link.label}
+                    icon={link.icon}
+                    label={link.label}
+                    href={link.url}
+                  />
+                ))}
+              </View>
+            </>
           )}
         </View>
       )}

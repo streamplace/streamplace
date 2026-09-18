@@ -2,6 +2,9 @@ import {
   ACTIVITY_LABEL_DISPLAY,
   Skeleton,
   Text,
+  useBrandingAsset,
+  useDefaultStreamer,
+  useDefaultVideo,
   useStreamplaceStore,
   useTheme,
   zero,
@@ -16,10 +19,14 @@ import LiveDot from "components/home/live-dot";
 import PullToRefreshScrollView from "components/pull-to-refresh";
 import { Image } from "expo-image";
 import useAvatars from "hooks/useAvatars";
+import { useFrontDoorReload } from "hooks/useDefaultStreamerReload";
 import { useEffect, useState } from "react";
 import { Platform, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useStore } from "store";
 import { place } from "streamplace";
+import MobileStream from "./mobile-stream";
+import VideoScreen from "./video";
 
 function getStreamActivity(
   record: place.stream.livestream.Main,
@@ -225,12 +232,40 @@ export default function HomeScreen({
   // const segments = realSegments; // Comment this line out if using mock data
 
   const avis = useAvatars((segments || []).map((s) => s.author.did));
+  // Single-user node: the front door is that streamer's page. The branding
+  // key defaultStreamer (a handle or DID) has meant this for a while; this is
+  // where it finally takes effect. (Every hook above this line runs on every
+  // render: the early returns below come and go with the live-users fetch,
+  // and a hook after them would change the hook count between renders.)
+  const defaultStreamer = useDefaultStreamer();
+  // A default video (branding key defaultVideo) is the front door while
+  // set, over the streamer: a replay to send everyone to after an event.
+  const defaultVideo = useDefaultVideo();
+  const defaultVideoRaw = useBrandingAsset("defaultVideo")?.data;
+  // ...and the page follows both: an operator who points the node at
+  // another streamer or a video moves everyone on this page there.
+  useFrontDoorReload(defaultStreamer, defaultVideoRaw);
+  // Showing the default video, this page is a video page: tell the shell,
+  // which otherwise keeps the docked sidebar and the feed column the home
+  // grid lives in, and clips the player to it.
+  const setVideoPage = useStore((s) => s.setVideoPage);
+  useEffect(() => {
+    setVideoPage(!!defaultVideo);
+    return () => setVideoPage(false);
+  }, [defaultVideo, setVideoPage]);
 
   useEffect(() => {
     if (!liveUsersLoading) {
       setManualRefresh(false);
     }
   }, [liveUsersLoading]);
+
+  if (defaultVideo) {
+    return <VideoScreen route={{ params: defaultVideo }} />;
+  }
+  if (defaultStreamer) {
+    return <MobileStream route={{ params: { user: defaultStreamer } }} />;
+  }
 
   if (liveUsersError) {
     if (liveUsersLoading) {

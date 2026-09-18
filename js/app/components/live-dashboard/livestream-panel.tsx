@@ -20,6 +20,7 @@ import {
   useCreateStreamRecord,
   useEndLivestream,
   useLivestream,
+  useNetworkName,
   useTheme,
   useToast,
   useUpdateStreamRecord,
@@ -299,6 +300,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const [tagInput, setTagInput] = useState("");
 
   const sessionScope = useStore((s) => s.sessionScope);
+  const networkName = useNetworkName();
   const canPostToBluesky = scopeGrants(sessionScope, SCOPE_BSKY_POST_CREATE);
   const [createPost, setCreatePost] = useState(true);
   const [idleTimeout, setIdleTimeout] = useState(true);
@@ -781,8 +783,8 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                 <Tooltip
                   content={
                     canPostToBluesky
-                      ? "Create a Bluesky post announcing you're live with a link to the stream."
-                      : "You signed in without granting Bluesky permissions, so Streamplace can't post to your account. Log out and back in to change this."
+                      ? `Create a ${networkName} post announcing you're live with a link to the stream.`
+                      : `You signed in without granting ${networkName} permissions, so Streamplace can't post to your account. Log out and back in to change this.`
                   }
                   position="top"
                 >
@@ -797,7 +799,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                       checked={createPost && canPostToBluesky}
                       onCheckedChange={(checked) => setCreatePost(checked)}
                       disabled={!canPostToBluesky}
-                      label="Create Bluesky post"
+                      label={`Create ${networkName} post`}
                     />
                     {!canPostToBluesky && (
                       <Lock size={14} color={theme.colors.textMuted} />

@@ -193,13 +193,7 @@ func validateRTMPTargetURL(targetURL string) error {
 	return nil
 }
 
-// runRTMPPushPipeline builds and runs the native RTMP egress pipeline:
-// appsrc(source) → qtdemux → {h264parse, AAC passthrough or Opus→AAC} → flvmux
-// → rtmp2sink → a local TCP/TLS forwarder → the target URL. Status updates
-// (currently "active" once the server acks bytes) go through report. This is
-// the crash-prone native core shared by the in-process RTMPPush and isolated
-// rtmp-push worker; only `source` and `report` differ between the two paths, so
-// the two paths run an identical gst pipeline and can't drift.
+// Shared GStreamer graph between in-process and worker pushes
 func (mm *MediaManager) runRTMPPushPipeline(ctx context.Context, source io.Reader, targetURL string, report func(status, message string), audioCodec string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

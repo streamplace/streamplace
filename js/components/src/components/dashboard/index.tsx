@@ -1,3 +1,4 @@
+export { default as ChatAccessPanel } from "./chat-access-panel";
 export { default as ChatPanel } from "./chat-panel";
 export { default as Header } from "./header";
 export { default as InformationWidget } from "./information-widget";

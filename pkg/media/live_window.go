@@ -41,18 +41,37 @@ func (mm *MediaManager) liveWindow(did string) *livehls.Writer {
 	return w
 }
 
-func (mm *MediaManager) liveWindowFeedMutex(did string) *sync.Mutex {
+type liveWindowFeed struct {
+	mu   sync.Mutex
+	refs int
+}
+
+func (mm *MediaManager) lockLiveWindowFeed(did string) *liveWindowFeed {
 	mm.liveWindowsMut.Lock()
-	defer mm.liveWindowsMut.Unlock()
 	if mm.liveWindowFeeds == nil {
-		mm.liveWindowFeeds = map[string]*sync.Mutex{}
+		mm.liveWindowFeeds = map[string]*liveWindowFeed{}
 	}
-	feedMu := mm.liveWindowFeeds[did]
-	if feedMu == nil {
-		feedMu = &sync.Mutex{}
-		mm.liveWindowFeeds[did] = feedMu
+	feed := mm.liveWindowFeeds[did]
+	if feed == nil {
+		feed = &liveWindowFeed{}
+		mm.liveWindowFeeds[did] = feed
 	}
-	return feedMu
+	feed.refs++
+	mm.liveWindowsMut.Unlock()
+
+	feed.mu.Lock()
+	return feed
+}
+
+func (mm *MediaManager) unlockLiveWindowFeed(did string, feed *liveWindowFeed) {
+	feed.mu.Unlock()
+
+	mm.liveWindowsMut.Lock()
+	feed.refs--
+	if feed.refs == 0 && mm.liveWindows[did] == nil {
+		delete(mm.liveWindowFeeds, did)
+	}
+	mm.liveWindowsMut.Unlock()
 }
 
 // GetLiveWindow returns the streamer's live-HLS window, or nil if it has no
@@ -65,6 +84,9 @@ func (mm *MediaManager) GetLiveWindow(did string) *livehls.Writer {
 	w := mm.liveWindows[did]
 	if w != nil && w.Empty() {
 		delete(mm.liveWindows, did)
+		if feed := mm.liveWindowFeeds[did]; feed == nil || feed.refs == 0 {
+			delete(mm.liveWindowFeeds, did)
+		}
 		return nil
 	}
 	return w

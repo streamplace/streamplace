@@ -16,6 +16,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/livehls"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/test/remote"
@@ -116,6 +117,18 @@ func TestStreamTranscoderRejectsOversizedGOP(t *testing.T) {
 	tr := &streamTranscoder{queueChanged: make(chan struct{})}
 	err := tr.waitForQueueCapacity(context.Background(), transcodeQueueMaxGOPDuration+time.Nanosecond)
 	require.ErrorIs(t, err, ErrTranscodeGOPTooLong)
+}
+
+func TestFeedStreamTranscoderRejectsOversizedGOPBeforeCreatingWorker(t *testing.T) {
+	mm := &MediaManager{transcoders: map[string]*streamTranscoder{}}
+	vs := &validatedSegment{
+		repoDID:   "did:example:long-gop",
+		mediaData: &localdb.SegmentMediaData{Duration: int64(transcodeQueueMaxGOPDuration + time.Nanosecond)},
+	}
+
+	err := mm.feedStreamTranscoder(context.Background(), vs, nil, "aac", nil, nil)
+	require.ErrorIs(t, err, ErrTranscodeGOPTooLong)
+	require.Empty(t, mm.transcoders, "an unsupported GOP must not leave a worker to rebuild on every segment")
 }
 
 func TestStreamTranscoderQueueWaitsForSlowWorker(t *testing.T) {

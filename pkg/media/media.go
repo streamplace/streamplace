@@ -49,7 +49,7 @@ type MediaManager struct {
 	cli             *config.CLI
 	liveWindows     map[string]*livehls.Writer
 	liveWindowsMut  sync.Mutex
-	liveWindowFeeds map[string]*sync.Mutex
+	liveWindowFeeds map[string]*liveWindowFeed
 	// modBuffers holds a short in-memory ring of each live user's most recent
 	// canonical segments, the source for moderation/report clips now that
 	// segments are no longer archived to disk. Keyed by repoDID. See
@@ -134,7 +134,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	mm := &MediaManager{
 		cli:             cli,
 		liveWindows:     map[string]*livehls.Writer{},
-		liveWindowFeeds: map[string]*sync.Mutex{},
+		liveWindowFeeds: map[string]*liveWindowFeed{},
 		modBuffers:      map[string]*modBuffer{},
 		httpPipes:       map[string]io.Writer{},
 		model:           mod,

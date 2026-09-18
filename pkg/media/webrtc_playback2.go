@@ -90,27 +90,25 @@ func shouldDropStaleGOP(sourceAge time.Duration, hasSourceAge bool) bool {
 // to send while waiting for the next GOP.
 func discardStaleGOPs(current *bus.PacketizedSegment, next func() (*bus.PacketizedSegment, bool), now time.Time) (*bus.PacketizedSegment, int, time.Duration) {
 	dropped := 0
-	queuedDroppedDuration := time.Duration(0)
-	fromQueue := false
+	queuedRemovedDuration := time.Duration(0)
 	for current != nil {
 		age, hasSourceAge := playbackSourceAge(current.Timing, now)
 		if !shouldDropStaleGOP(age, hasSourceAge) {
-			return current, dropped, queuedDroppedDuration
+			return current, dropped, queuedRemovedDuration
 		}
 		nextSegment, ok := next()
 		if !ok {
 			// Dropping the current segment without a replacement would leave the
 			// viewer with no packetized media to play.
-			return current, dropped, queuedDroppedDuration
+			return current, dropped, queuedRemovedDuration
 		}
-		if fromQueue {
-			queuedDroppedDuration += current.Duration
-		}
+		// Every value returned by next was removed from packetQueue, including
+		// the replacement that becomes current and is no longer queued.
+		queuedRemovedDuration += nextSegment.Duration
 		dropped++
 		current = nextSegment
-		fromQueue = true
 	}
-	return nil, dropped, queuedDroppedDuration
+	return nil, dropped, queuedRemovedDuration
 }
 
 // This function remains in scope for the duration of a single users' playback
@@ -328,7 +326,7 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					initialRendition := packet.Rendition
 					now := time.Now()
 					if sourceAge, hasSourceAge := playbackSourceAge(packet.Timing, now); shouldDropStaleGOP(sourceAge, hasSourceAge) {
-						packet, dropped, queuedDroppedDuration := discardStaleGOPs(packet, func() (*bus.PacketizedSegment, bool) {
+						packet, dropped, queuedRemovedDuration := discardStaleGOPs(packet, func() (*bus.PacketizedSegment, bool) {
 							select {
 							case next, ok := <-packetQueue:
 								if !ok {
@@ -340,7 +338,7 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 							}
 						}, now)
 						latencyMu.Lock()
-						latency -= queuedDroppedDuration
+						latency -= queuedRemovedDuration
 						if latency < 0 {
 							latency = 0
 						}

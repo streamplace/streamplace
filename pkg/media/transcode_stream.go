@@ -122,6 +122,13 @@ func ingestSessionFromContext(ctx context.Context) uint64 {
 // distributed asynchronously (≈1 GoP later) via distributeSegment.
 func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedSegment, src []byte, target string, cert, keyPEM []byte) error {
 	did := vs.repoDID
+	mediaDuration, _ := transcodeMediaMetadata(vs)
+	if mediaDuration > transcodeQueueMaxGOPDuration {
+		// This is an ingest contract, not a queue-pressure fallback. Reject the
+		// segment before creating a worker so a stream with an overlong GOP does
+		// not tear down and rebuild the same transcoder for every segment.
+		return fmt.Errorf("%w: got %s, maximum is %s", ErrTranscodeGOPTooLong, mediaDuration, transcodeQueueMaxGOPDuration)
+	}
 	sessionID := ingestSessionFromContext(ctx)
 	mm.transcodersMu.Lock()
 	t := mm.transcoders[did]
@@ -169,7 +176,7 @@ func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedS
 
 	t.reaper.Reset(streamTranscoderIdle)
 	if err := t.Feed(src, vs); err != nil {
-		if errors.Is(err, ErrTranscodeQueueStale) || errors.Is(err, ErrTranscodeGOPTooLong) || t.outputsDiscarded() {
+		if errors.Is(err, ErrTranscodeQueueStale) || t.outputsDiscarded() {
 			mm.transcodersMu.Lock()
 			if mm.transcoders[did] == t {
 				delete(mm.transcoders, did)

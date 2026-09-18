@@ -130,6 +130,15 @@ func TestRTMPAudioChainSupportsSourceCodecs(t *testing.T) {
 	require.Contains(t, rtmpAudioChain("opus"), "fdkaacenc")
 }
 
+func TestRTMPIngestAudioChainExposesNamedParser(t *testing.T) {
+	gstinit.InitGST()
+	pipeline, err := gst.NewPipelineFromString(rtmpIngestAudioChain("fakesrc"))
+	require.NoError(t, err)
+
+	_, err = pipeline.GetElementByName(rtmpIngestAudioElementName)
+	require.NoError(t, err)
+}
+
 func TestFilterSegmentToCodecRejectsMissingTrack(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()

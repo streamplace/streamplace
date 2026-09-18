@@ -335,10 +335,9 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	// from another node — so any node that validates a stream's segments can
 	// serve its live HLS. WithoutCancel keeps the feed alive past this request.
 	// Only published segments are actually folded in (see feedLiveWindow).
-	feedMu := mm.liveWindowFeedMutex(vs.repoDID)
-	feedMu.Lock()
+	feed := mm.lockLiveWindowFeed(vs.repoDID)
 	go func() {
-		defer feedMu.Unlock()
+		defer mm.unlockLiveWindowFeed(vs.repoDID, feed)
 		mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.Published, vs.timing.Clone())
 	}()
 

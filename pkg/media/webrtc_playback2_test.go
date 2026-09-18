@@ -115,8 +115,8 @@ func TestDiscardStaleGOPsDropsOnlyWholeSegments(t *testing.T) {
 	}, now)
 	require.Equal(t, 2, dropped)
 	require.Same(t, packets[2], got)
-	require.Equal(t, packets[1].Duration, queuedDuration,
-		"only stale packets removed from the queue after the consumer dequeues the first packet")
+	require.Equal(t, packets[1].Duration+packets[2].Duration, queuedDuration,
+		"every packet pulled from the queue is removed from queued latency")
 }
 
 func TestDiscardStaleGOPsKeepsLastSegmentWithoutReplacement(t *testing.T) {

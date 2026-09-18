@@ -19,11 +19,22 @@ import (
 
 const liveTokenTTL = time.Hour
 
+// liveTokenKey is the station's token key, read from statedb once: token
+// checks happen on every pre-live playlist and segment request, and the key
+// never changes once it exists.
 func (s *Server) liveTokenKey(ctx context.Context) ([]byte, error) {
+	if key := s.liveTokenKeyCache.Load(); key != nil {
+		return *key, nil
+	}
 	if s.statefulDB == nil {
 		return nil, fmt.Errorf("no statedb")
 	}
-	return s.statefulDB.EnsureLiveTokenKey(ctx)
+	key, err := s.statefulDB.EnsureLiveTokenKey(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.liveTokenKeyCache.Store(&key)
+	return key, nil
 }
 
 func liveTokenSig(key []byte, did string, exp int64) string {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -31,20 +32,21 @@ import (
 )
 
 type Server struct {
-	e               *echo.Echo
-	cli             *config.CLI
-	model           model.Model
-	OGImageCache    *cache.Cache
-	LiveUsersCache  *cache.Cache
-	GameSearchCache *cache.Cache
-	ScoreCache      *cache.Cache
-	ATSync          *atproto.ATProtoSynchronizer
-	statefulDB      *statedb.StatefulDB
-	bus             *bus.Bus
-	op              *oatproxy.OATProxy
-	localDB         localdb.LocalDB
-	mm              *media.MediaManager
-	uploadManager   *upload.Manager
+	e                 *echo.Echo
+	cli               *config.CLI
+	model             model.Model
+	OGImageCache      *cache.Cache
+	LiveUsersCache    *cache.Cache
+	GameSearchCache   *cache.Cache
+	ScoreCache        *cache.Cache
+	ATSync            *atproto.ATProtoSynchronizer
+	statefulDB        *statedb.StatefulDB
+	liveTokenKeyCache atomic.Pointer[[]byte]
+	bus               *bus.Bus
+	op                *oatproxy.OATProxy
+	localDB           localdb.LocalDB
+	mm                *media.MediaManager
+	uploadManager     *upload.Manager
 	// playbackStore is where VOD blobs + metafiles + per-track init
 	// segments live. Matches the blob.Store the VOD processor writes
 	// into (vod.BlobsPrefix + <cid>.{mp4,json}).

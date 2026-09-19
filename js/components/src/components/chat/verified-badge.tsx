@@ -27,8 +27,6 @@ export function VerifiedCheck({
   );
 }
 
-const BLUESKY_BLUE = "#1185fe"; // token-ok: Bluesky's verification color
-
 function decodeDataUrlText(dataUrl: string): string | null {
   const comma = dataUrl.indexOf(",");
   if (comma < 0) return null;
@@ -82,16 +80,13 @@ function NodeVerifiedIcon({ size }: { size: number }) {
 }
 
 /**
- * Verified marks beside a chat name. Two sources, two looks:
- *  - the verifiers and labelers the streamer's chat access rules allow, which the
- *    node reports on the message author itself — the branded badge;
- *  - the public app view's verification (e.g. Bluesky's), read from the
- *    profile cache — the network's blue check.
- * A user verified both ways gets the node's badge only.
+ * The verified mark beside a chat name: the node's verdict, from the
+ * verifiers and labelers the streamer's chat access rules allow, reported on
+ * the message author itself. Nothing else counts: a network's own check is
+ * not one of the streamer's rules.
  */
 export function VerifiedBadge({
   author,
-  profile,
   size = 16,
   style,
 }: {
@@ -100,19 +95,13 @@ export function VerifiedBadge({
   size?: number;
   style?: any;
 }) {
-  const nodeVerified = author.verification?.verifiedStatus === "valid";
-  const networkVerified = profile?.verification?.verifiedStatus === "valid";
-  if (!nodeVerified && !networkVerified) return null;
+  if (author.verification?.verifiedStatus !== "valid") return null;
   return (
     <View
       style={[{ marginLeft: 4, alignItems: "center", flexShrink: 0 }, style]}
-      accessibilityLabel={nodeVerified ? "Verified" : "Verified on Bluesky"}
+      accessibilityLabel="Verified"
     >
-      {nodeVerified ? (
-        <NodeVerifiedIcon size={size} />
-      ) : (
-        <VerifiedCheck size={size} color={BLUESKY_BLUE} />
-      )}
+      <NodeVerifiedIcon size={size} />
     </View>
   );
 }

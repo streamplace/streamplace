@@ -61,13 +61,21 @@ func TestCopyState(t *testing.T) {
 	require.NoError(t, dst.DB.First(&c, "key = ?", "k").Error)
 	require.Equal(t, []byte{0, 1, 2, 255}, c.Value)
 
-	// Again: nothing new to insert, nothing duplicated.
+	// Again, after the source moved on (the delta pass after a cutover):
+	// nothing duplicated, and rows that changed under their existing keys
+	// are carried over rather than left at their first-pass values.
+	require.NoError(t, src.DB.Model(&Config{}).Where("key = ?", "k").Update("value", []byte{9}).Error)
+	require.NoError(t, src.DB.Model(&AppTask{}).Where("type = ?", "a").Update("status", "COMPLETED").Error)
 	reports, err = CopyState(ctx, fromURL, toURL, 100)
 	require.NoError(t, err)
 	for _, r := range reports {
-		require.Zero(t, r.Inserted, r.Table)
 		require.Equal(t, r.Source, r.Target, r.Table)
 	}
+	require.NoError(t, dst.DB.First(&c, "key = ?", "k").Error)
+	require.Equal(t, []byte{9}, c.Value, "the changed config value came across")
+	var a AppTask
+	require.NoError(t, dst.DB.Where("type = ?", "a").First(&a).Error)
+	require.Equal(t, "COMPLETED", string(a.Status), "the changed task status came across")
 }
 
 func TestNormalizeJSON(t *testing.T) {

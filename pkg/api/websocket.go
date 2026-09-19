@@ -151,10 +151,12 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					// node's live window holds now: they appear a little
 					// after the stream starts (the transcoder's round trip),
 					// and on a syndicating node they arrive from the origin.
-					if names := a.MediaManager.LiveRenditionNames(repoDID); len(names) > 0 {
-						if key := strings.Join(names, ","); sentRenditions.Swap(key) != key {
-							send(renditionsMessage(names))
-						}
+					// Including the change to none: renditions age out of
+					// the window on their own when the transcoder stops,
+					// and the viewer's menu must lose them too.
+					names := a.MediaManager.LiveRenditionNames(repoDID)
+					if key := strings.Join(names, ","); sentRenditions.Swap(key) != key {
+						send(renditionsMessage(names))
 					}
 					bs, err := json.Marshal(a.viewerCountMessage(ctx, repoDID))
 					if err != nil {

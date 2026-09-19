@@ -26,7 +26,7 @@ func TestLaneOrdersCompletions(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			time.Sleep(time.Duration(n-i) * 2 * time.Millisecond)
-			turns[i].wait(context.Background())
+			require.True(t, turns[i].wait(context.Background()))
 			mu.Lock()
 			order = append(order, i)
 			mu.Unlock()
@@ -46,7 +46,7 @@ func TestLaneReleaseWithoutWait(t *testing.T) {
 	a, b := l.turn(), l.turn()
 	a.release()
 	done := make(chan struct{})
-	go func() { b.wait(context.Background()); close(done) }()
+	go func() { require.True(t, b.wait(context.Background())); close(done) }()
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
@@ -56,22 +56,46 @@ func TestLaneReleaseWithoutWait(t *testing.T) {
 }
 
 // A segment stuck longer than the patience is abandoned: the ones behind
-// it go, and its late release is harmless.
+// it go, its own wait says so when it finally finishes (so it is
+// discarded, never published after newer segments), and its late release
+// is harmless.
 func TestLanePatience(t *testing.T) {
 	l := newLane()
 	stuck, next := l.turn(), l.turn()
 	start := time.Now()
-	l.wait(context.Background(), next.ticket, 50*time.Millisecond)
+	require.True(t, l.wait(context.Background(), next.ticket, 50*time.Millisecond))
 	require.Less(t, time.Since(start), time.Second)
 	next.release()
+	// The stuck segment's work finishes now: its turn is gone.
+	require.False(t, l.wait(context.Background(), stuck.ticket, time.Second))
 	stuck.release() // late, ignored
 	third := l.turn()
-	l.wait(context.Background(), third.ticket, time.Second)
+	require.True(t, l.wait(context.Background(), third.ticket, time.Second))
 	third.release()
+}
+
+// A segment already waiting for its turn when a later one gives up is
+// woken and told its turn is gone.
+func TestLaneAbandonedWhileWaiting(t *testing.T) {
+	l := newLane()
+	stuck, waiting, impatient := l.turn(), l.turn(), l.turn()
+	_ = stuck // never releases in time
+	got := make(chan bool, 1)
+	go func() { got <- l.wait(context.Background(), waiting.ticket, time.Minute) }()
+	time.Sleep(10 * time.Millisecond)
+	require.True(t, l.wait(context.Background(), impatient.ticket, 50*time.Millisecond))
+	select {
+	case ok := <-got:
+		require.False(t, ok, "abandoned while waiting")
+	case <-time.After(2 * time.Second):
+		t.Fatal("the abandoned waiter was never woken")
+	}
+	impatient.release()
+	waiting.release() // late, ignored
 }
 
 func TestNilTurnIsNoop(t *testing.T) {
 	var tn *turn
-	tn.wait(context.Background())
+	require.True(t, tn.wait(context.Background()))
 	tn.release()
 }

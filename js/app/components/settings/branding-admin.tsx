@@ -127,6 +127,9 @@ export function BrandingAdmin() {
   const [bundlePreview, setBundlePreview] = useState<{
     bytes: Uint8Array;
     name: string;
+    // The mode the preview was computed with; apply uses this, not the
+    // checkbox's current value, so what is applied is what was shown.
+    merge: boolean;
     changes: { key: string; action: string; detail?: string }[];
     warnings: string[];
   } | null>(null);
@@ -160,6 +163,7 @@ export function BrandingAdmin() {
   const runImport = async (
     bytes: Uint8Array,
     dryRun: boolean,
+    merge: boolean,
   ): Promise<{
     applied: boolean;
     changes: { key: string; action: string; detail?: string }[];
@@ -173,7 +177,7 @@ export function BrandingAdmin() {
         params: {
           broadcaster: (broadcasterDID || undefined) as any,
           dryRun,
-          merge: bundleMerge,
+          merge,
         },
       } as any,
     )) as any;
@@ -190,10 +194,11 @@ export function BrandingAdmin() {
       setBundleBusy(true);
       try {
         const bytes = new Uint8Array(await file.arrayBuffer());
-        const res = await runImport(bytes, true);
+        const res = await runImport(bytes, true, bundleMerge);
         setBundlePreview({
           bytes,
           name: file.name,
+          merge: bundleMerge,
           changes: res.changes,
           warnings: res.warnings ?? [],
         });
@@ -212,7 +217,11 @@ export function BrandingAdmin() {
     if (!bundlePreview) return;
     setBundleBusy(true);
     try {
-      const res = await runImport(bundlePreview.bytes, false);
+      const res = await runImport(
+        bundlePreview.bytes,
+        false,
+        bundlePreview.merge,
+      );
       toast.show(
         t("branding-bundle-imported", { count: res.changes.length }),
         undefined,
@@ -602,7 +611,12 @@ export function BrandingAdmin() {
                       </Button>
                     </View>
                     <Pressable
-                      onPress={() => setBundleMerge((v) => !v)}
+                      onPress={() => {
+                        // A pending preview was made with the other mode;
+                        // it no longer shows what apply would do.
+                        setBundleMerge((v) => !v);
+                        setBundlePreview(null);
+                      }}
                       style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
                     >
                       <Text size="sm">

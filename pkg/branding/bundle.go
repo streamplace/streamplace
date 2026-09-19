@@ -425,15 +425,14 @@ func Import(ctx context.Context, state *statedb.StatefulDB, broadcasterID string
 	if dryRun {
 		return report, nil
 	}
+	// All or nothing: a failure partway through must not leave the node on a
+	// mix of the old branding and the new.
+	bw := make([]statedb.BrandingWrite, 0, len(writes))
 	for _, w := range writes {
-		if err := state.PutBrandingBlob(broadcasterID, w.key, w.mime, w.data, nil, nil); err != nil {
-			return nil, fmt.Errorf("write %s: %w", w.key, err)
-		}
+		bw = append(bw, statedb.BrandingWrite{Key: w.key, MimeType: w.mime, Data: w.data})
 	}
-	for _, key := range removes {
-		if err := state.DeleteBrandingBlob(broadcasterID, key); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("remove %s: %w", key, err)
-		}
+	if err := state.ApplyBrandingWrites(broadcasterID, bw, removes); err != nil {
+		return nil, err
 	}
 	report.Applied = true
 	return report, nil

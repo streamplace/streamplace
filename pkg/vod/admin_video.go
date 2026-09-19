@@ -275,16 +275,29 @@ func DeleteVideo(ctx context.Context, state *statedb.StatefulDB, uri string, wit
 	}
 	deleted = append(deleted, aturi.String())
 	if withTracks {
+		var tracks []string
 		for _, t := range rec.TrackURIs() {
 			turi, err := syntax.ParseATURI(t)
-			if err != nil || turi.Authority().String() != did {
-				log.Warn(ctx, "not deleting a track outside the video's repo", "track", t)
+			// sourceTracks holds plain strong refs: only a track record of
+			// the video's own repo is deleted, never whatever else a
+			// hand-written record might point at.
+			if err != nil || turi.Authority().String() != did || turi.Collection().String() != constants.PLACE_STREAM_MEDIA_TRACK {
+				log.Warn(ctx, "not deleting a source ref that is not one of the video's own track records", "ref", t)
 				continue
 			}
 			if err := deleteRecord(ctx, client, turi); err != nil {
 				return deleted, err
 			}
 			deleted = append(deleted, turi.String())
+			tracks = append(tracks, turi.String())
+		}
+		// An upload remembers the track records it published so a republish
+		// reuses them; those are gone now, so the next publish from that
+		// upload must mint new ones rather than point at deleted records.
+		if len(tracks) > 0 {
+			if err := state.ForgetUploadTracks(ctx, did, tracks); err != nil {
+				log.Warn(ctx, "could not forget deleted tracks on their uploads", "error", err)
+			}
 		}
 	}
 	log.Log(ctx, "deleted video record (operator)", "deleted", deleted)

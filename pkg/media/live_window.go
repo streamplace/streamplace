@@ -149,6 +149,21 @@ func (mm *MediaManager) LiveRenditionNames(did string) []string {
 	return renditionNames(w.VideoTracks())
 }
 
+// RenditionName is the name a rendition of these dimensions goes by
+// ("720p"): the ladder's name, which is the short edge, so a portrait
+// source's 360×640 rendition is "360p" wherever it is generated,
+// advertised or requested.
+func RenditionName(width, height uint32) string {
+	return fmt.Sprintf("%dp", renditionEdge(width, height))
+}
+
+func renditionEdge(width, height uint32) uint32 {
+	if width > 0 && width < height {
+		return width
+	}
+	return height
+}
+
 func renditionNames(tracks []livehls.VideoTrack) []string {
 	var rs []livehls.VideoTrack
 	for _, t := range tracks {
@@ -158,10 +173,12 @@ func renditionNames(tracks []livehls.VideoTrack) []string {
 		}
 		rs = append(rs, t)
 	}
-	sort.Slice(rs, func(i, j int) bool { return rs[i].Height > rs[j].Height })
+	sort.Slice(rs, func(i, j int) bool {
+		return renditionEdge(rs[i].Width, rs[i].Height) > renditionEdge(rs[j].Width, rs[j].Height)
+	})
 	names := make([]string, 0, len(rs))
 	for _, t := range rs {
-		names = append(names, fmt.Sprintf("%dp", t.Height))
+		names = append(names, RenditionName(t.Width, t.Height))
 	}
 	return names
 }

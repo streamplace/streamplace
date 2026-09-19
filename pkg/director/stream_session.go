@@ -74,6 +74,11 @@ type StreamSession struct {
 	lastLivestreamTime time.Time
 	lastViewCountTime  time.Time
 	s3Uploader         *s3.S3Uploader
+	// localRoleStarted is set once this node has taken up the ingest node's
+	// jobs for the session (recording, multistream targets): on the first
+	// local segment, whether that is the session's first segment or one
+	// that arrives after the node syndicated the stream for a while.
+	localRoleStarted bool
 }
 
 // bitrateMargin is the wiggle room over the configured maximum before a stream
@@ -132,14 +137,15 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
 	allRenditions = append(allRenditions, renditions.AudioRendition)
 
-	// Live recording is the ingest node's job alone: a node that merely
-	// syndicates this stream must not also write it to S3, or every node
-	// records the same stream and they fight over the finalize.
-	if notif.Local {
-		ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
-	}
-
 	close(ss.started)
+
+	// Live recording and multistream targets are the ingest node's jobs
+	// alone: a node that merely syndicates this stream must not also write
+	// it to S3, or every node records the same stream and they fight over
+	// the finalize. Taken up on the first local segment; see startLocalRole.
+	if notif.Local {
+		ss.startLocalRole(ctx, notif.Segment.RepoDID)
+	}
 
 	// Start background workers for status, origin, and livestream updates
 	ss.g.Go(func() error {
@@ -154,12 +160,6 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	ss.g.Go(func() error {
 		return ss.viewCountUpdateLoop(ctx, spseg.Creator)
 	})
-
-	if notif.Local {
-		ss.Go(ctx, func() error {
-			return ss.HandleMultistreamTargets(ctx)
-		})
-	}
 
 	for {
 		select {
@@ -189,6 +189,21 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 			cancel()
 		}
 	}
+}
+
+// startLocalRole takes up what only the ingest node does for a stream:
+// recording it to S3 for live-to-VOD and driving its multistream targets.
+// Once per session, on the first local segment. NewSegment calls run one at
+// a time for a session, so the flag needs no lock.
+func (ss *StreamSession) startLocalRole(ctx context.Context, repoDID string) {
+	if ss.localRoleStarted {
+		return
+	}
+	ss.localRoleStarted = true
+	ss.maybeStartS3Upload(ctx, repoDID)
+	ss.Go(ctx, func() error {
+		return ss.HandleMultistreamTargets(ctx)
+	})
 }
 
 // Execute a goroutine in the context of the stream session. Errors are
@@ -251,6 +266,13 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	spseg, err := notif.Segment.ToStreamplaceSegment()
 	if err != nil {
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
+	}
+
+	// A session that began with replicated segments (this node syndicated
+	// the stream) and now receives local ones has become the ingest node:
+	// take up recording and multistream targets now rather than never.
+	if notif.Local && !ss.localRoleStarted {
+		ss.startLocalRole(ctx, spseg.Creator)
 	}
 
 	// stream.received is enqueued once per StreamSession when the first local media segment is accepted.

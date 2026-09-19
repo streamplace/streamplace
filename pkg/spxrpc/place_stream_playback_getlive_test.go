@@ -150,6 +150,21 @@ func TestResolveSession(t *testing.T) {
 	_, err = s.resolveSession(ctx, "3kabc", streamer, true)
 	require.ErrorIs(t, err, errBadSession, "a bare id is not a session")
 
+	// Past half-life: renewed under the same id, and a media playlist is
+	// redirected to the renewal so the player's follow-ups carry it (a
+	// master embeds it).
+	aging, _ := psession.Mint(key, streamer, psession.ScopePublic, publicSessionTTL/3, time.Now())
+	_, agingSID := psession.Renew(key, aging, streamer, publicSessionTTL/3, time.Now())
+	half, err := s.resolveSession(ctx, agingSID, streamer, true)
+	require.NoError(t, err)
+	require.True(t, half.Redirect)
+	require.Equal(t, aging.ID, half.ID)
+	require.NotEqual(t, agingSID, half.SID)
+	halfMaster, err := s.resolveSession(ctx, agingSID, streamer, false)
+	require.NoError(t, err)
+	require.False(t, halfMaster.Redirect)
+	require.NotEqual(t, agingSID, halfMaster.SID, "renewed all the same")
+
 	// Expired: renewed under the same id; a media playlist is redirected to
 	// the renewal so the player's follow-ups carry it.
 	old, _ := psession.Mint(key, streamer, psession.ScopePublic, -time.Hour, time.Now())
@@ -159,6 +174,13 @@ func TestResolveSession(t *testing.T) {
 	require.True(t, renewed.Redirect)
 	require.Equal(t, old.ID, renewed.ID)
 	require.NotEqual(t, oldSID, renewed.SID)
+
+	// A blob request is credited to its session only when the session
+	// verifies for the owner; a sid copied across streams credits nothing.
+	require.Equal(t, fresh.ID, s.accountedSession(ctx, fresh.SID, streamer))
+	require.Equal(t, "", s.accountedSession(ctx, fresh.SID, "did:plc:other"))
+	require.Equal(t, "", s.accountedSession(ctx, "3kabc", streamer))
+	require.Equal(t, old.ID, s.accountedSession(ctx, oldSID, streamer), "expired but genuine still names its session")
 
 	// Segments never mint: a URL out of a playlist carries a session or is
 	// refused.

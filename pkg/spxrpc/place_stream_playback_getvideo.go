@@ -126,7 +126,7 @@ func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 	}
 	defer r.Close()
 	rangeStart, rangeEnd := parseRangeForLog(c.Request().Header.Get("Range"), r.Size())
-	s.logSegmentRequest(c, cid, did, psession.ID(c.QueryParam("sid")), rangeStart, rangeEnd)
+	s.logSegmentRequest(c, cid, did, s.accountedSession(ctx, c.QueryParam("sid"), did), rangeStart, rangeEnd)
 	return serveBlobRange(c, r, "video/mp4")
 }
 

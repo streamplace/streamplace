@@ -5,17 +5,14 @@ package acme
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/caddyserver/certmagic"
 
-	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/statedb"
 )
 
@@ -40,35 +37,20 @@ func NewStorage(state *statedb.StatefulDB) *Storage {
 
 const lockPrefix = "certmagic/"
 
-// lockRetryDelay is how long Lock waits between attempts once the statedb
-// backoff has given up on a contended lock.
-var lockRetryDelay = 2 * time.Second
-
 // Lock implements certmagic.Locker. It blocks until the lock is held or ctx
 // ends. A lock held by another node in the station (Postgres) or another
 // goroutine (sqlite) makes the call wait, as certmagic expects.
 func (s *Storage) Lock(ctx context.Context, name string) error {
-	for {
-		unlock, err := s.state.GetNamedLock(lockPrefix + name)
-		if err == nil {
-			s.mu.Lock()
-			s.locks[name] = unlock
-			s.mu.Unlock()
-			return nil
-		}
-		if !errors.Is(err, statedb.ErrNoLock) {
-			return fmt.Errorf("acme lock %q: %w", name, err)
-		}
-		log.Debug(ctx, "acme: lock held elsewhere, waiting", "name", name)
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(lockRetryDelay):
-		}
+	unlock, err := s.state.WaitForNamedLock(ctx, lockPrefix+name)
+	if err != nil {
+		return fmt.Errorf("acme lock %q: %w", name, err)
 	}
+	s.mu.Lock()
+	s.locks[name] = unlock
+	s.mu.Unlock()
+	return nil
 }
 
-// Unlock implements certmagic.Locker.
 func (s *Storage) Unlock(ctx context.Context, name string) error {
 	s.mu.Lock()
 	unlock, ok := s.locks[name]

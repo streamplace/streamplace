@@ -3,7 +3,6 @@ package media
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"sort"
 	"strconv"
 
@@ -57,7 +56,23 @@ func (mm *MediaManager) rememberSourceAudio(ctx context.Context, did string, seg
 	if mm.sourceAudios == nil {
 		mm.sourceAudios = map[string][]sourceAudio{}
 	}
-	list := append(mm.sourceAudios[did], sourceAudio{tfdt: tfdt, opus: tracks[opusID]})
+	list := mm.sourceAudios[did]
+	// A publisher reconnect starts a fresh media timeline, so early tfdt
+	// values repeat while the previous session's entries are still cached:
+	// the newest audio at a tfdt is the one that goes with the renditions
+	// arriving now, so it replaces an older entry rather than sitting
+	// behind it.
+	replaced := false
+	for i := range list {
+		if list[i].tfdt == tfdt {
+			list[i].opus = tracks[opusID]
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		list = append(list, sourceAudio{tfdt: tfdt, opus: tracks[opusID]})
+	}
 	if len(list) > sourceAudioKeep {
 		list = list[len(list)-sourceAudioKeep:]
 	}
@@ -67,9 +82,10 @@ func (mm *MediaManager) rememberSourceAudio(ctx context.Context, did string, seg
 func (mm *MediaManager) sourceAudioAt(did string, tfdt uint64) []byte {
 	mm.sourceAudioMu.Lock()
 	defer mm.sourceAudioMu.Unlock()
-	for _, a := range mm.sourceAudios[did] {
-		if a.tfdt == tfdt {
-			return a.opus
+	list := mm.sourceAudios[did]
+	for i := len(list) - 1; i >= 0; i-- {
+		if list[i].tfdt == tfdt {
+			return list[i].opus
 		}
 	}
 	return nil
@@ -97,13 +113,15 @@ func (mm *MediaManager) PublishRenditionsForPlayback(ctx context.Context, did st
 	if cat == nil || cat.Video == nil || tracks == nil {
 		return
 	}
-	heights := map[string]uint32{}
+	names := map[string]string{}
 	for _, v := range cat.Video.Renditions {
-		heights[strconv.FormatUint(uint64(v.TrackID()), 10)] = v.CodedHeight
+		if v.CodedHeight > 0 {
+			names[strconv.FormatUint(uint64(v.TrackID()), 10)] = RenditionName(v.CodedWidth, v.CodedHeight)
+		}
 	}
 	ids := make([]string, 0, len(tracks))
 	for id := range tracks {
-		if heights[id] > 0 {
+		if names[id] != "" {
 			ids = append(ids, id)
 		}
 	}
@@ -119,7 +137,7 @@ func (mm *MediaManager) PublishRenditionsForPlayback(ctx context.Context, did st
 			log.Debug(ctx, "rendition playback: no source audio for this rendition segment", "streamer", did, "tfdt", tfdt)
 			continue
 		}
-		name := fmt.Sprintf("%dp", heights[id])
+		name := names[id]
 		var flat bytes.Buffer
 		if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(append(append([]byte{}, video...), opus...)), "flat", &flat); err != nil {
 			log.Warn(ctx, "rendition playback: could not present rendition", "streamer", did, "rendition", name, "error", err)

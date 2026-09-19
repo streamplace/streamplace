@@ -976,10 +976,17 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	}
 	_ = pg.Wait()
 
-	tn.wait(ctx)
+	if !tn.wait(ctx) {
+		// The segments behind this one gave up waiting and published; a
+		// rendition published now would arrive after newer ones.
+		log.Warn(ctx, "rendition abandoned by later segments, not published", "rendition", "all")
+		return nil
+	}
 	if addendum != nil {
 		// Into the live window (HLS variants), and to the peers pulling
-		// this stream (see subscribeSegments).
+		// this stream (see subscribeSegments). Only the websocket
+		// replicator carries rendition addenda; a peer syndicating over
+		// Iroh receives the source track alone and no renditions.
 		ss.mm.FeedLiveRenditions(context.WithoutCancel(ctx), spseg.Creator, addendum, notif.Metadata.Published)
 		ss.bus.PublishSegment(ctx, spseg.Creator, media.RenditionsChannel, &bus.Seg{
 			Muxl:      addendum,
@@ -1013,7 +1020,10 @@ func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *placestream.Seg
 		return fmt.Errorf("failed to packetize segment: %w", err)
 	}
 	seg.PacketizedData = packet
-	tn.wait(ctx)
+	if !tn.wait(ctx) {
+		log.Warn(ctx, "segment abandoned by later segments, not published", "rendition", rendition)
+		return nil
+	}
 	ss.bus.PublishSegment(ctx, spseg.Creator, rendition, seg)
 	return nil
 }

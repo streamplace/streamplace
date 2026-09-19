@@ -40,11 +40,19 @@ func (l *lane) turn() *turn {
 	return &turn{lane: l, ticket: t}
 }
 
-func (l *lane) wait(ctx context.Context, ticket uint64, patience time.Duration) {
+// wait blocks until it is ticket's turn. It reports false when the turn is
+// gone: the segments behind it gave up waiting (see publishPatience) and
+// published past it, so its work must be discarded, not published late
+// and out of order; or ctx ended.
+func (l *lane) wait(ctx context.Context, ticket uint64, patience time.Duration) bool {
 	l.mu.Lock()
-	if l.head >= ticket {
+	if l.head > ticket {
 		l.mu.Unlock()
-		return
+		return false
+	}
+	if l.head == ticket {
+		l.mu.Unlock()
+		return true
 	}
 	ch, ok := l.waiters[ticket]
 	if !ok {
@@ -56,12 +64,20 @@ func (l *lane) wait(ctx context.Context, ticket uint64, patience time.Duration) 
 	defer timer.Stop()
 	select {
 	case <-ch:
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		// Woken either because it is our turn or because a later ticket
+		// abandoned us.
+		return l.head == ticket
 	case <-ctx.Done():
+		return false
 	case <-timer.C:
 		l.mu.Lock()
+		defer l.mu.Unlock()
 		if l.head < ticket {
-			// Give up on the segments before it: they publish when they
-			// finish, late; everything from here on stays in order.
+			// Give up on the segments before it: they are abandoned (their
+			// wait reports false), and everything from here on stays in
+			// order.
 			for t := l.head; t < ticket; t++ {
 				delete(l.done, t)
 				if w, ok := l.waiters[t]; ok {
@@ -72,7 +88,7 @@ func (l *lane) wait(ctx context.Context, ticket uint64, patience time.Duration) 
 			l.head = ticket
 			delete(l.waiters, ticket)
 		}
-		l.mu.Unlock()
+		return l.head == ticket
 	}
 }
 
@@ -94,8 +110,8 @@ func (l *lane) release(ticket uint64) {
 }
 
 // A turn is one segment's place in a lane. wait blocks until the segments
-// before it have published (or given up on, see publishPatience); release
-// lets the next one go. Both are safe on a nil turn, so callers without a
+// before it have published (or were given up on, see publishPatience);
+// release lets the next one go. Both are safe on a nil turn, so callers without a
 // lane need no branches.
 type turn struct {
 	lane   *lane
@@ -103,11 +119,14 @@ type turn struct {
 	once   sync.Once
 }
 
-func (t *turn) wait(ctx context.Context) {
+// wait blocks for the turn and reports whether it is still worth taking:
+// false means the work was abandoned by the segments behind it and must be
+// discarded. A nil turn is always worth taking.
+func (t *turn) wait(ctx context.Context) bool {
 	if t == nil {
-		return
+		return true
 	}
-	t.lane.wait(ctx, t.ticket, publishPatience)
+	return t.lane.wait(ctx, t.ticket, publishPatience)
 }
 
 func (t *turn) release() {

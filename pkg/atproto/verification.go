@@ -43,26 +43,27 @@ type cachedRules struct {
 	at    time.Time
 }
 
-// rulesFor returns the streamer's rules, cached briefly.
-func (atsync *ATProtoSynchronizer) rulesFor(ctx context.Context, streamer string) []model.ChatAccessRule {
+// rulesFor returns the streamer's rules, cached briefly. An error is a
+// lookup failure, which callers must not read as "no rules".
+func (atsync *ATProtoSynchronizer) rulesFor(ctx context.Context, streamer string) ([]model.ChatAccessRule, error) {
 	if streamer == "" || atsync.Model == nil {
-		return nil
+		return nil, nil
 	}
 	verifierMu.Lock()
 	if c, ok := rulesCache[streamer]; ok && time.Since(c.at) < rulesCacheTTL {
 		verifierMu.Unlock()
-		return c.rules
+		return c.rules, nil
 	}
 	verifierMu.Unlock()
 	rules, err := atsync.Model.ListChatAccessRules(ctx, streamer)
 	if err != nil {
 		log.Error(ctx, "failed to list chat access rules", "streamer", streamer, "err", err)
-		return nil
+		return nil, err
 	}
 	verifierMu.Lock()
 	rulesCache[streamer] = cachedRules{rules: rules, at: time.Now()}
 	verifierMu.Unlock()
-	return rules
+	return rules, nil
 }
 
 func (atsync *ATProtoSynchronizer) refreshSubjects(ctx context.Context) {
@@ -176,14 +177,52 @@ func (atsync *ATProtoSynchronizer) verificationsUnder(ctx context.Context, rules
 		log.Error(ctx, "failed to look up verifications", "did", did, "err", err)
 		return nil
 	}
-	return found[did]
+	return atsync.currentVerifications(ctx, did, found[did])
+}
+
+// currentVerifications drops the app.bsky.graph.verification records that
+// no longer describe the account: the record vouches for a handle and a
+// display name, and either changing invalidates it (that is the record's
+// contract, and what the app view does). Mirrored labels carry neither and
+// pass through.
+func (atsync *ATProtoSynchronizer) currentVerifications(ctx context.Context, did string, vs []model.Verification) []model.Verification {
+	var out []model.Verification
+	var handle, displayName string
+	looked := false
+	for _, v := range vs {
+		if labelValueOf(v) != "" || (v.Handle == "" && v.DisplayName == "") {
+			out = append(out, v)
+			continue
+		}
+		if !looked {
+			looked = true
+			handle = atsync.ResolveAuthorHandle(ctx, did)
+			if atsync.Model != nil {
+				if p, err := atsync.Model.GetBskyProfile(ctx, did, false); err == nil && p != nil && p.DisplayName != nil {
+					displayName = *p.DisplayName
+				}
+			}
+		}
+		if v.Handle != "" && handle != "" && !strings.EqualFold(v.Handle, handle) {
+			continue
+		}
+		if v.DisplayName != "" && displayName != "" && v.DisplayName != displayName {
+			continue
+		}
+		out = append(out, v)
+	}
+	return out
 }
 
 // ChatAllowed reports whether did may chat on streamer's stream under the
 // streamer's rules: with no rules everyone may; a matching deny rule always
 // refuses; when any allow rule exists, only a match on one of them admits.
 func (atsync *ATProtoSynchronizer) ChatAllowed(ctx context.Context, streamer, did string) bool {
-	rules := atsync.rulesFor(ctx, streamer)
+	rules, err := atsync.rulesFor(ctx, streamer)
+	if err != nil {
+		// Fail closed: a database hiccup must not open a locked chat.
+		return false
+	}
 	if len(rules) == 0 {
 		return true
 	}
@@ -213,7 +252,11 @@ func (atsync *ATProtoSynchronizer) ChatAllowed(ctx context.Context, streamer, di
 // there is none.
 func (atsync *ATProtoSynchronizer) VerificationState(ctx context.Context, streamer, did string) *appbsky.ActorDefs_VerificationState {
 	var allows []model.ChatAccessRule
-	for _, r := range atsync.rulesFor(ctx, streamer) {
+	rules, err := atsync.rulesFor(ctx, streamer)
+	if err != nil {
+		return nil
+	}
+	for _, r := range rules {
 		if r.Action == model.ChatAccessAllow {
 			allows = append(allows, r)
 		}

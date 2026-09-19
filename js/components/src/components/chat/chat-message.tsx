@@ -238,7 +238,8 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
         { minWidth: 0, alignItems: "flex-start" },
       ]}
     >
-      {!!badges?.length && (
+      {(!!badges?.length ||
+        item.author.verification?.verifiedStatus === "valid") && (
         <DropdownMenuTrigger asChild>
           <Pressable
             style={{
@@ -250,7 +251,7 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
               marginTop: Platform.OS === "ios" ? 1 : 0,
             }}
           >
-            <BadgeDisplayRow badges={badges} />
+            {!!badges?.length && <BadgeDisplayRow badges={badges} />}
             <VerifiedBadge author={item.author} profile={profile} size={14} />
           </Pressable>
         </DropdownMenuTrigger>

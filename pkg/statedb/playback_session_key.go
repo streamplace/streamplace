@@ -29,7 +29,7 @@ func (state *StatefulDB) ensureSharedSecret(ctx context.Context, key string, n i
 	if conf != nil && len(conf.Value) >= n {
 		return conf.Value, nil
 	}
-	unlock, err := state.waitForNamedLock(ctx, "ensure-secret:"+key)
+	unlock, err := state.WaitForNamedLock(ctx, "ensure-secret:"+key)
 	if err != nil {
 		return nil, fmt.Errorf("lock for %s: %w", key, err)
 	}
@@ -51,16 +51,37 @@ func (state *StatefulDB) ensureSharedSecret(ctx context.Context, key string, n i
 	return secret, nil
 }
 
-// waitForNamedLock takes the named lock, waiting out another holder (the
-// lock is a try-lock) until ctx ends.
-func (state *StatefulDB) waitForNamedLock(ctx context.Context, name string) (func(), error) {
+// WaitForNamedLock takes the named lock, waiting out another holder until
+// ctx ends. GetNamedLock itself can block on the node-local mutex before
+// the database is even asked, so the attempt runs on its own goroutine and
+// a lock that arrives after the caller gave up is released at once.
+func (state *StatefulDB) WaitForNamedLock(ctx context.Context, name string) (func(), error) {
+	type got struct {
+		unlock func()
+		err    error
+	}
 	for {
-		unlock, err := state.GetNamedLock(name)
-		if err == nil {
-			return unlock, nil
+		ch := make(chan got, 1)
+		go func() {
+			unlock, err := state.GetNamedLock(name)
+			ch <- got{unlock, err}
+		}()
+		var g got
+		select {
+		case g = <-ch:
+		case <-ctx.Done():
+			go func() {
+				if g := <-ch; g.err == nil {
+					g.unlock()
+				}
+			}()
+			return nil, ctx.Err()
 		}
-		if !errors.Is(err, ErrNoLock) {
-			return nil, err
+		if g.err == nil {
+			return g.unlock, nil
+		}
+		if !errors.Is(g.err, ErrNoLock) {
+			return nil, g.err
 		}
 		select {
 		case <-ctx.Done():

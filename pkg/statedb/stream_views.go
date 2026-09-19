@@ -71,24 +71,24 @@ func migrateStreamViewTotals(ctx context.Context, db *gorm.DB) error {
 // livestreamURI ("" when no record is known) and returns that livestream's
 // new total.
 func (state *StatefulDB) AddStreamView(ctx context.Context, streamer, livestreamURI string) (int64, error) {
-	var total int64
-	err := state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var row LivestreamViewTotal
-		err := tx.Where("streamer_did = ? AND livestream_uri = ?", streamer, livestreamURI).First(&row).Error
-		switch {
-		case errors.Is(err, gorm.ErrRecordNotFound):
-			row = LivestreamViewTotal{StreamerDID: streamer, LivestreamURI: livestreamURI, Views: 1, UpdatedAt: time.Now()}
-			total = 1
-			return tx.Create(&row).Error
-		case err != nil:
-			return err
-		}
-		row.Views++
-		row.UpdatedAt = time.Now()
-		total = row.Views
-		return tx.Save(&row).Error
-	})
-	return total, err
+	// One atomic upsert: concurrent sessions each add exactly one, whether
+	// they race on the first insert or on a later increment.
+	now := time.Now()
+	res := state.DB.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "streamer_did"}, {Name: "livestream_uri"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"views":      gorm.Expr("livestream_view_totals.views + 1"),
+			"updated_at": now,
+		}),
+	}).Create(&LivestreamViewTotal{StreamerDID: streamer, LivestreamURI: livestreamURI, Views: 1, UpdatedAt: now})
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	var row LivestreamViewTotal
+	if err := state.DB.WithContext(ctx).Where("streamer_did = ? AND livestream_uri = ?", streamer, livestreamURI).First(&row).Error; err != nil {
+		return 0, err
+	}
+	return row.Views, nil
 }
 
 // GetStreamViewTotal returns the running view count of the streamer's

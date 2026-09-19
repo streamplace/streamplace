@@ -95,7 +95,11 @@ func (s *Server) resolveSession(ctx context.Context, sid, streamer string, needs
 	case err == nil:
 		out := playbackSession{Session: sess, SID: sid}
 		if sess.Expires.Sub(now) < sessionTTL(sess.Scope)/2 {
+			// Past half-life: renew, and send a media playlist to the
+			// renewed URL, or the player would keep polling the old one and
+			// every poll would renew (and re-sign every segment URL) again.
 			out.Session, out.SID = psession.Renew(key, sess, streamer, sessionTTL(sess.Scope), now)
+			out.Redirect = needsRedirect
 		}
 		return out, nil
 	case errors.Is(err, psession.ErrExpired):
@@ -119,6 +123,24 @@ func (s *Server) verifySession(ctx context.Context, sid, streamer string) (psess
 		return psession.Session{}, echo.NewHTTPError(http.StatusForbidden, "InvalidSession")
 	}
 	return sess, nil
+}
+
+// accountedSession is the session id a request is counted under: the
+// session's, when it verifies for streamer; nothing otherwise. A copied or
+// forged sid must not credit views and bytes to someone else's session.
+func (s *Server) accountedSession(ctx context.Context, sid, streamer string) string {
+	if sid == "" {
+		return ""
+	}
+	key, err := s.sessionKey(ctx)
+	if err != nil {
+		return ""
+	}
+	sess, err := psession.Parse(key, sid, streamer, time.Now())
+	if err != nil && !errors.Is(err, psession.ErrExpired) {
+		return ""
+	}
+	return sess.ID
 }
 
 // redirectWithSession answers a request that arrived without a usable

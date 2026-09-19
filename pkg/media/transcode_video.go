@@ -203,6 +203,12 @@ func (mm *MediaManager) canonicalRenditionTrack(ctx context.Context, r Rendition
 		if err != nil {
 			return nil, 0, fmt.Errorf("unwrap relabelled: %w", err)
 		}
+		// The catalog is the relabelled one from here on, or the lookup
+		// below misses the track and the rendition is retimed in the
+		// source's timescale.
+		if cat, _ = catalogAndTracks(events); cat == nil || cat.Video == nil {
+			return nil, 0, fmt.Errorf("no video track in relabelled rendition")
+		}
 	}
 	var timescale uint32
 	for _, v := range cat.Video.Renditions {

@@ -280,6 +280,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 			return nil, err
 		}
 		log.Warn(ctx, "using frontend proxy instead of bundled frontend", "destination", a.CLI.FrontendProxy)
+		router.GET(devFrontendProxyStatusPath, a.HandleDevFrontendProxyStatus(ctx, u))
 		router.NotFound = &httputil.ReverseProxy{
 			Rewrite: func(r *httputil.ProxyRequest) {
 				// workaround for Expo disliking serving requests from 127.0.0.1 instead of localhost
@@ -287,6 +288,9 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 				r.Out.Header.Set("Origin", u.String())
 				r.SetURL(u)
 			},
+			// while `pnpm app start` is still booting, show a page that polls
+			// the status endpoint and reloads once the port is up
+			ErrorHandler: devFrontendProxyErrorHandler(ctx, renderDevFrontendProxyPage(u.String())),
 		}
 	} else {
 		// Always load both frontends. The NotFound dispatcher picks one per

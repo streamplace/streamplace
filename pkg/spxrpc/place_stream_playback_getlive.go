@@ -161,7 +161,7 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 // The bytes are the verbatim signed segment, so provenance travels with
 // playback.
 func (s *Server) HandleGetLiveSegment(c echo.Context) error {
-	return s.serveLiveSegment(c, c.QueryParam("streamer"), c.QueryParam("track"), c.QueryParam("seg"), c.QueryParam("sid"))
+	return s.serveLiveSegment(c, c.QueryParam("streamer"), c.QueryParam("track"), c.QueryParam("seg"), c.QueryParam("sid"), true)
 }
 
 // liveSegmentPathRoute is the path-shaped form of getLiveSegment,
@@ -175,11 +175,15 @@ const liveSegmentPathRoute = "/live/:streamer/:track/:seg"
 
 // HandleGetLiveSegmentPath serves liveSegmentPathRoute.
 func (s *Server) HandleGetLiveSegmentPath(c echo.Context) error {
-	return s.serveLiveSegment(c, c.Param("streamer"), c.Param("track"), c.Param("seg"), c.QueryParam("sid"))
+	return s.serveLiveSegment(c, c.Param("streamer"), c.Param("track"), c.Param("seg"), c.QueryParam("sid"), false)
 }
 
-// serveLiveSegment is the body of both segment routes.
-func (s *Server) serveLiveSegment(c echo.Context, streamer, track, segParam, sid string) error {
+// serveLiveSegment is the body of both segment routes. requireSession is
+// set for the XRPC route, whose URLs come out of a playlist this node
+// rendered and so always carry the viewer's session; the CDN path route is
+// the exception, its URLs are identical for every viewer (that is what
+// makes them cacheable) and the CDN's own signing covers them.
+func (s *Server) serveLiveSegment(c echo.Context, streamer, track, segParam, sid string, requireSession bool) error {
 	ctx := c.Request().Context()
 	did, err := s.resolveStreamer(ctx, streamer)
 	if err != nil {
@@ -199,11 +203,10 @@ func (s *Server) serveLiveSegment(c echo.Context, streamer, track, segParam, sid
 		return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
 	}
 	// A session on the URL must be this stream's (the playlist handler put
-	// it there); CDN-served segment URLs carry none, the CDN's own signing
-	// covers those. Pre-live segments open only to the streamer's own
-	// session.
+	// it there), and the XRPC route never serves without one. Pre-live
+	// segments open only to the streamer's own session.
 	var sess psession.Session
-	if sid != "" {
+	if sid != "" || requireSession {
 		if sess, err = s.verifySession(ctx, sid, did); err != nil {
 			return err
 		}

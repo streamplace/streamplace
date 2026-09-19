@@ -572,6 +572,107 @@ export function BrandingAdmin() {
               </View>
             )}
 
+            <MenuLabel>{t("branding-bundle")}</MenuLabel>
+            <MenuGroup>
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="xs" color="muted">
+                      {t("branding-bundle-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={exportBundle}
+                        disabled={bundleBusy || Platform.OS !== "web"}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-bundle-export")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={pickBundle}
+                        disabled={bundleBusy || Platform.OS !== "web"}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-bundle-import")}
+                      </Button>
+                    </View>
+                    <Pressable
+                      onPress={() => setBundleMerge((v) => !v)}
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Text size="sm">
+                        {bundleMerge ? "☑" : "☐"} {t("branding-bundle-merge")}
+                      </Text>
+                    </Pressable>
+                    {bundlePreview && (
+                      <View style={[zero.gap.all[2], { marginTop: 8 }]}>
+                        <Text size="sm" weight="semibold">
+                          {t("branding-bundle-preview", {
+                            name: bundlePreview.name,
+                          })}
+                        </Text>
+                        {bundlePreview.changes
+                          .filter((c) => c.action !== "unchanged")
+                          .map((c) => (
+                            <Text key={c.key} size="xs">
+                              {c.action === "added"
+                                ? "+"
+                                : c.action === "removed"
+                                  ? "−"
+                                  : "~"}{" "}
+                              {c.key}
+                              {c.detail ? `: ${c.detail}` : ""}
+                            </Text>
+                          ))}
+                        {bundlePreview.changes.every(
+                          (c) => c.action === "unchanged",
+                        ) && (
+                          <Text size="xs" color="muted">
+                            {t("branding-bundle-no-changes")}
+                          </Text>
+                        )}
+                        {bundlePreview.warnings.map((w) => (
+                          <Text key={w} size="xs" color="muted">
+                            {w}
+                          </Text>
+                        ))}
+                        <View
+                          style={[
+                            zero.layout.flex.direction.row,
+                            zero.gap.all[2],
+                          ]}
+                        >
+                          <Button
+                            variant="primary"
+                            onPress={applyBundle}
+                            disabled={bundleBusy}
+                            width="min"
+                            style={{ height: 42 }}
+                          >
+                            {t("branding-bundle-apply")}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onPress={() => setBundlePreview(null)}
+                            disabled={bundleBusy}
+                            width="min"
+                            style={{ height: 42 }}
+                          >
+                            {t("cancel")}
+                          </Button>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+            </MenuGroup>
+
             <MenuLabel>{t("branding-configuration")}</MenuLabel>
             <MenuGroup>
               <MenuItem>
@@ -1323,107 +1424,6 @@ export function BrandingAdmin() {
                         {t("branding-reset")}
                       </Button>
                     </View>
-                  </View>
-                </SettingsRowItem>
-              </MenuItem>
-            </MenuGroup>
-
-            <MenuLabel>{t("branding-bundle")}</MenuLabel>
-            <MenuGroup>
-              <MenuItem>
-                <SettingsRowItem>
-                  <View style={[zero.gap.all[2], { flex: 1 }]}>
-                    <Text size="xs" color="muted">
-                      {t("branding-bundle-description")}
-                    </Text>
-                    <View
-                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
-                    >
-                      <Button
-                        onPress={exportBundle}
-                        disabled={bundleBusy || Platform.OS !== "web"}
-                        width="min"
-                        style={{ height: 42 }}
-                      >
-                        {t("branding-bundle-export")}
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onPress={pickBundle}
-                        disabled={bundleBusy || Platform.OS !== "web"}
-                        width="min"
-                        style={{ height: 42 }}
-                      >
-                        {t("branding-bundle-import")}
-                      </Button>
-                    </View>
-                    <Pressable
-                      onPress={() => setBundleMerge((v) => !v)}
-                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
-                    >
-                      <Text size="sm">
-                        {bundleMerge ? "☑" : "☐"} {t("branding-bundle-merge")}
-                      </Text>
-                    </Pressable>
-                    {bundlePreview && (
-                      <View style={[zero.gap.all[2], { marginTop: 8 }]}>
-                        <Text size="sm" weight="semibold">
-                          {t("branding-bundle-preview", {
-                            name: bundlePreview.name,
-                          })}
-                        </Text>
-                        {bundlePreview.changes
-                          .filter((c) => c.action !== "unchanged")
-                          .map((c) => (
-                            <Text key={c.key} size="xs">
-                              {c.action === "added"
-                                ? "+"
-                                : c.action === "removed"
-                                  ? "−"
-                                  : "~"}{" "}
-                              {c.key}
-                              {c.detail ? `: ${c.detail}` : ""}
-                            </Text>
-                          ))}
-                        {bundlePreview.changes.every(
-                          (c) => c.action === "unchanged",
-                        ) && (
-                          <Text size="xs" color="muted">
-                            {t("branding-bundle-no-changes")}
-                          </Text>
-                        )}
-                        {bundlePreview.warnings.map((w) => (
-                          <Text key={w} size="xs" color="muted">
-                            {w}
-                          </Text>
-                        ))}
-                        <View
-                          style={[
-                            zero.layout.flex.direction.row,
-                            zero.gap.all[2],
-                          ]}
-                        >
-                          <Button
-                            variant="primary"
-                            onPress={applyBundle}
-                            disabled={bundleBusy}
-                            width="min"
-                            style={{ height: 42 }}
-                          >
-                            {t("branding-bundle-apply")}
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            onPress={() => setBundlePreview(null)}
-                            disabled={bundleBusy}
-                            width="min"
-                            style={{ height: 42 }}
-                          >
-                            {t("cancel")}
-                          </Button>
-                        </View>
-                      </View>
-                    )}
                   </View>
                 </SettingsRowItem>
               </MenuItem>

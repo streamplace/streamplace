@@ -3,6 +3,7 @@ package statedb
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -132,6 +133,39 @@ func (state *StatefulDB) SetUploadTrackURIs(ctx context.Context, id string, trac
 		"track_uris": trackURIs,
 		"updated_at": time.Now(),
 	}).Error
+}
+
+// ForgetUploadTracks clears the remembered track records of every upload
+// of the repo that references one of the given (now deleted) track URIs, so
+// the next publish from such an upload mints new track records instead of
+// pointing at deleted ones.
+func (state *StatefulDB) ForgetUploadTracks(ctx context.Context, did string, deleted []string) error {
+	uploads, err := state.ListUploadsForRepo(ctx, did)
+	if err != nil {
+		return err
+	}
+	gone := map[string]bool{}
+	for _, u := range deleted {
+		gone[u] = true
+	}
+	for _, u := range uploads {
+		if u.TrackURIs == "" {
+			continue
+		}
+		var refs []struct{ URI string }
+		if err := json.Unmarshal([]byte(u.TrackURIs), &refs); err != nil {
+			continue
+		}
+		for _, r := range refs {
+			if gone[r.URI] {
+				if err := state.SetUploadTrackURIs(ctx, u.ID, ""); err != nil {
+					return err
+				}
+				break
+			}
+		}
+	}
+	return nil
 }
 
 // ListUploadsForRepo lists a repo's uploads, newest first.

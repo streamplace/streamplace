@@ -308,8 +308,13 @@ func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *placestre
 	}
 	defer conn.Close()
 	// Drop the connection when the pull is cancelled, so ReadMessage returns.
+	// The closer lives exactly as long as this connection: the pull loop
+	// reconnects for as long as the node runs, and a closer waiting on the
+	// node's context would pile up one goroutine per reconnect.
+	connCtx, connDone := context.WithCancel(ctx)
+	defer connDone()
 	go func() {
-		<-ctx.Done()
+		<-connCtx.Done()
 		conn.Close()
 	}()
 	log.Log(ctx, "syndication: connected to origin", "origin", *origin.WebsocketURL)

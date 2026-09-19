@@ -1,6 +1,7 @@
 package statedb
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -105,6 +106,48 @@ func (state *StatefulDB) PutBrandingBlob(broadcasterID, key, mimeType string, da
 	}
 
 	return nil
+}
+
+// BrandingWrite is one key a bundle import sets.
+type BrandingWrite struct {
+	Key      string
+	MimeType string
+	Data     []byte
+}
+
+// ApplyBrandingWrites sets and removes branding keys in one transaction: a
+// bundle import is all of its changes or none of them, never a node left
+// with half the old branding and half the new.
+func (state *StatefulDB) ApplyBrandingWrites(broadcasterID string, writes []BrandingWrite, removes []string) error {
+	defer state.forgetBranding(broadcasterID)
+	return state.DB.Transaction(func(tx *gorm.DB) error {
+		for _, w := range writes {
+			var existing BrandingBlob
+			err := tx.Unscoped().Where("broadcaster_id = ? AND key = ?", broadcasterID, w.Key).First(&existing).Error
+			switch {
+			case errors.Is(err, gorm.ErrRecordNotFound):
+				if err := tx.Create(&BrandingBlob{BroadcasterID: broadcasterID, Key: w.Key, MimeType: w.MimeType, Data: w.Data}).Error; err != nil {
+					return fmt.Errorf("write %s: %w", w.Key, err)
+				}
+			case err != nil:
+				return fmt.Errorf("check %s: %w", w.Key, err)
+			default:
+				existing.MimeType = w.MimeType
+				existing.Data = w.Data
+				existing.Width, existing.Height = nil, nil
+				existing.DeletedAt = gorm.DeletedAt{}
+				if err := tx.Unscoped().Save(&existing).Error; err != nil {
+					return fmt.Errorf("write %s: %w", w.Key, err)
+				}
+			}
+		}
+		for _, key := range removes {
+			if err := tx.Where("broadcaster_id = ? AND key = ?", broadcasterID, key).Delete(&BrandingBlob{}).Error; err != nil {
+				return fmt.Errorf("remove %s: %w", key, err)
+			}
+		}
+		return nil
+	})
 }
 
 // ListBrandingKeys returns all keys for a broadcaster

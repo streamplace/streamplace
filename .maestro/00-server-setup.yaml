@@ -1,0 +1,50 @@
+appId: ${APP_ID}
+---
+# No clearState: the app is freshly installed on a fresh device in CI, so
+# there's nothing to clear, and clearState reinstalls the app — which
+# resets the notification permission we pre-granted, re-showing the
+# first-launch permission dialog that dims the screen and blocks taps.
+- launchApp
+- takeScreenshot: 00-01-launched
+# first launch on a cold CI emulator can take a while to render
+- extendedWaitUntil:
+    visible:
+      text: "Settings"
+    timeout: 60000
+- tapOn:
+    text: "Settings"
+- takeScreenshot: 00-02-settings
+- scrollUntilVisible:
+    element:
+      text: "Advanced"
+- tapOn:
+    text: "Advanced"
+- takeScreenshot: 00-03-advanced
+# These three are custom RN components matched by testID: on iOS the
+# accessibilityRole="switch" toggle collapses its subtree and hides the
+# label from text matching, and the wrapped Input/Button aren't reliably
+# findable by placeholder/label text either.
+- tapOn:
+    id: "settings-use-custom-node"
+- takeScreenshot: 00-04-custom-node-toggled
+- tapOn:
+    id: "settings-custom-node-url"
+- inputText: "${SERVER_URL}"
+# dismiss the keyboard, which otherwise covers the bottom Home tab on iOS
+# and blocks navigation back to the feed
+- hideKeyboard
+- takeScreenshot: 00-05-url-entered
+- tapOn:
+    id: "settings-save-node"
+- takeScreenshot: 00-06-saved
+- tapOn:
+    text: "Home"
+# A stream card showing up in the feed proves the app is talking to the
+# custom node (its isolated firehose only has our test stream). Matched
+# by testID because the card's link wrapper collapses its subtree on iOS,
+# hiding the title text from Maestro.
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- takeScreenshot: 00-07-home

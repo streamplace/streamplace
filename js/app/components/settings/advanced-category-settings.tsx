@@ -100,6 +100,7 @@ export function AdvancedCategorySettings() {
           <MenuContainer>
             <MenuGroup>
               <SettingToggle
+                testID="settings-use-custom-node"
                 title={t("use-custom-node")}
                 description={t("default-url", { url: defaultUrl })}
                 value={overrideEnabled}
@@ -133,6 +134,7 @@ export function AdvancedCategorySettings() {
               >
                 <View style={{ flex: 1 }}>
                   <Input
+                    testID="settings-custom-node-url"
                     value={newUrl}
                     containerStyle={[
                       { flex: 1, flexGrow: 1, width: "100%" },
@@ -154,6 +156,7 @@ export function AdvancedCategorySettings() {
                   />
                 </View>
                 <Button
+                  testID="settings-save-node"
                   size="md"
                   width="min"
                   variant="secondary"

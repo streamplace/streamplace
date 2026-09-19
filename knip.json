@@ -6,7 +6,8 @@
     "js/app",
     "js/brand",
     "js/desktop",
-    "js/config-react-native-webrtc"
+    "js/config-react-native-webrtc",
+    "js/e2e-web"
   ],
   "include": ["unlisted"],
   "ignore": [

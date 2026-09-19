@@ -79,13 +79,15 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 	out := &placestream.MediaFinalizeLivestream_Output{UploadId: uploadID, Livestreams: ordered}
 	objects := int64(len(segs))
 	out.Objects = &objects
+	// The video record, published now or drafted: the given title and
+	// description over the first record's, connected to every record.
+	video := videoDraftForLivestreams(items, deref(body.Title), deref(body.Description))
 	if publish {
-		task.Publish = videoDraftForLivestreams(items, deref(body.Title), deref(body.Description))
+		task.Publish = video
 	} else {
-		// A draft VOD in the 'processing' state, inheriting the first
-		// livestream's metadata and linking back to it; it reaches 'ready'
+		// A draft VOD in the 'processing' state; it reaches 'ready'
 		// server-side and the streamer publishes it from the Drafts tab.
-		draft, err := s.createLivestreamDraft(ctx, streamer, uploadID, items[0].ls)
+		draft, err := s.createLivestreamDraft(ctx, streamer, uploadID, video)
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}

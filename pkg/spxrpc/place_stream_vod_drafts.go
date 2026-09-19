@@ -8,9 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
-	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/vod"
@@ -226,45 +224,31 @@ func (s *Server) handlePlaceStreamVodPublishDraft(ctx context.Context, body *pla
 // livestream's title/activity/tags and links back to the livestream record via
 // connections. Called by the finalizeLivestream handler at kickoff so the user
 // can navigate straight to the draft while processing runs server-side.
-func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string, ls *model.Livestream) (*statedb.DraftVideo, error) {
-	view, err := ls.ToLivestreamView()
-	if err != nil {
-		return nil, err
-	}
-	rec, ok := view.Record.Val.(*placestream.Livestream)
-	if !ok {
-		return nil, errors.New("livestream record is not a place.stream.livestream")
-	}
-
-	title := rec.Title
-	if title == "" {
-		title = "Livestream"
-	}
+func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string, v *statedb.VideoDraft) (*statedb.DraftVideo, error) {
 	draftRec := placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
-		Title:         title,
+		Title:         v.Title,
+		Description:   v.Description,
 		Status:        "processing",
 		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
 	}
-	if rec.Activity != nil {
-		draftRec.Activity = livestreamActivityToDraft(rec.Activity)
+	if v.Activity != nil {
+		draftRec.Activity = &placestream.VodDraftVideo_Activity{
+			Defs_ActivityGame:  v.Activity.Defs_ActivityGame,
+			Defs_ActivityLabel: v.Activity.Defs_ActivityLabel,
+		}
 	}
-	if len(rec.Tags) > 0 {
-		draftRec.Tags = rec.Tags
+	if len(v.Tags) > 0 {
+		draftRec.Tags = v.Tags
 	}
-	// Link back to the source livestream so a published VOD carries the
-	// connection (the existing UI uses this to flip a finalized row to
-	// "View VOD").
-	draftRec.Connections = []placestream.VodDraftVideo_Connections_Elem{{
-		Video_Connection: &placestream.Video_Connection{
-			LexiconTypeID: "place.stream.video#connection",
-			Ref: &comatproto.RepoStrongRef{
-				Uri: ls.URI,
-				Cid: ls.CID,
-			},
-		},
-	}}
-
+	// Link back to every source livestream so a published VOD carries the
+	// connections (the existing UI uses this to flip a finalized row to
+	// "View VOD", and the replay inherits the records' view totals).
+	for _, c := range v.Connections {
+		if c.Video_Connection != nil {
+			draftRec.Connections = append(draftRec.Connections, placestream.VodDraftVideo_Connections_Elem{Video_Connection: c.Video_Connection})
+		}
+	}
 	return s.statefulDB.CreateDraft(ctx, did, uploadID, &draftRec)
 }
 

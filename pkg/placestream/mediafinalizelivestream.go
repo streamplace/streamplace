@@ -14,8 +14,18 @@ import (
 
 type MediaFinalizeLivestream_Input struct {
 	LexiconTypeID string `json:"$type,omitempty"`
-	// livestream: AT-URI of the place.stream.livestream record to finalize into a VOD. Must belong to the authenticated user.
-	Livestream string `json:"livestream"`
+	// description: Description of the video record.
+	Description *string `json:"description,omitempty"`
+	// endLivestream: Also end any of the livestream records that were never stopped, so the streamer's page stops reading as live.
+	EndLivestream *bool `json:"endLivestream,omitempty"`
+	// livestream: AT-URI of the place.stream.livestream record to finalize into a VOD. Either this or livestreams is required.
+	Livestream *string `json:"livestream,omitempty"`
+	// livestreams: Several livestream records whose recordings make up one VOD: a streamer who started a new record mid-stream splits the recording across them. Recordings are concatenated in the records' creation order, whatever order they are listed in. All must belong to one streamer.
+	Livestreams []string `json:"livestreams,omitempty"`
+	// publish: Publish the place.stream.video record as soon as the VOD is finalized, instead of leaving a draft.
+	Publish *bool `json:"publish,omitempty"`
+	// title: Title of the video record; the first livestream's title when empty.
+	Title *string `json:"title,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.
@@ -40,8 +50,14 @@ func (t *MediaFinalizeLivestream_Input) UnmarshalCBOR(r io.Reader) error {
 
 type MediaFinalizeLivestream_Output struct {
 	LexiconTypeID string `json:"$type,omitempty"`
-	// draftUri: The ats:// URI of the draft VOD created for this finalize. The draft reaches status 'ready' when processing completes; the user publishes it from the Drafts tab via place.stream.vod.publishDraft.
-	DraftUri string `json:"draftUri"`
+	// draftUri: The ats:// URI of the draft VOD created for this finalize, when publish is not set. The draft reaches status 'ready' when processing completes.
+	DraftUri *string `json:"draftUri,omitempty"`
+	// ended: Livestream records that are now ended (already, or by endLivestream).
+	Ended []string `json:"ended,omitempty"`
+	// livestreams: The livestream records the VOD is made of, in recording order.
+	Livestreams []string `json:"livestreams,omitempty"`
+	// objects: How many recorded objects will be concatenated.
+	Objects *int64 `json:"objects,omitempty"`
 	// uploadId: Identifier for the finalize job. Retained for backwards compatibility; the draft flow no longer requires the client to poll getUploadStatus.
 	UploadId string `json:"uploadId"`
 }
@@ -68,7 +84,7 @@ func (t *MediaFinalizeLivestream_Output) UnmarshalCBOR(r io.Reader) error {
 
 // MediaFinalizeLivestream calls the XRPC method "place.stream.media.finalizeLivestream".
 //
-// Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records. Processing completes server-side and creates a draft VOD; the client does not need to poll or publish — the user publishes the draft later via place.stream.vod.publishDraft. Returns the draft's ats:// URI so the client can navigate to it, alongside an uploadId for backwards compatibility.
+// Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream(s) into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records. By default it leaves a draft VOD the streamer publishes later via place.stream.vod.publishDraft; with publish set it publishes the place.stream.video record as soon as the VOD is finalized. The caller must be the streamer, or a moderator they have granted livestream.manage; every record is written with the streamer's session.
 func MediaFinalizeLivestream(ctx context.Context, c glex.LexClient, input *MediaFinalizeLivestream_Input) (*MediaFinalizeLivestream_Output, error) {
 	var out MediaFinalizeLivestream_Output
 

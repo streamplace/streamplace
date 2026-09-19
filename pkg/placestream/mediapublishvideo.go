@@ -14,8 +14,14 @@ import (
 
 type MediaPublishVideo_Input struct {
 	LexiconTypeID string `json:"$type,omitempty"`
+	// description: Description for a record built by the server.
+	Description *string `json:"description,omitempty"`
+	// livestreams: Livestream records the video came from, used to build the record when none is given; defaults to the upload's own livestream for a finalized recording.
+	Livestreams []string `json:"livestreams,omitempty"`
 	// record: A place.stream.video record. The server overrides `source` and `durationMs` from the processed upload, and fills in `thumb` with a generated thumbnail when the supplied record has none.
-	Record Video `json:"record"`
+	Record *Video `json:"record,omitempty"`
+	// title: Title for a record built by the server; the first livestream's title when empty.
+	Title *string `json:"title,omitempty"`
 	// uploadId: The upload ID returned by place.stream.media.createUpload. Its processing must be complete (status 'done').
 	UploadId string `json:"uploadId"`
 }
@@ -66,7 +72,7 @@ func (t *MediaPublishVideo_Output) UnmarshalCBOR(r io.Reader) error {
 
 // MediaPublishVideo calls the XRPC method "place.stream.media.publishVideo".
 //
-// Publish a place.stream.video record for a finished upload, server-side. The caller supplies the record it would otherwise putRecord itself; the server overrides the fields it is authoritative about (source tracks and durationMs, taken from the processed upload) and, if the record carries no thumb, generates one from the video and attaches it. The record is written to the authenticated user's repo.
+// Publish a place.stream.video record for a finished upload, server-side. The caller supplies the record it would otherwise putRecord itself; the server overrides the fields it is authoritative about (source tracks and durationMs, taken from the processed upload) and, if the record carries no thumb, generates one from the video and attaches it. The record is written to the authenticated user's repo. The caller must own the upload, or hold livestream.manage from its owner; the record is written with the owner's session. Without a record, one is built from the upload's livestream(s) (title, tags, activity, connections) and the given title and description.
 func MediaPublishVideo(ctx context.Context, c glex.LexClient, input *MediaPublishVideo_Input) (*MediaPublishVideo_Output, error) {
 	var out MediaPublishVideo_Output
 

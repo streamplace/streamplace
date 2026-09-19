@@ -2759,9 +2759,88 @@
         }
       }
     },
+    "/xrpc/place.stream.media.deleteVideo": {
+      "post": {
+        "summary": "Delete a place.stream.video record and, on request, the track records its source points at. The content blob and the upload stay, so the record can be published again from the same upload. The caller must be the record's owner or hold livestream.manage from them; the records are deleted with the owner's session.",
+        "operationId": "place.stream.media.deleteVideo",
+        "tags": ["place.stream.media"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "array",
+                      "description": "Every record deleted, the video first.",
+                      "items": {
+                        "type": "string",
+                        "format": "uri"
+                      }
+                    }
+                  },
+                  "required": ["deleted"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotPermitted"
+                        },
+                        {
+                          "const": "VideoNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "uri": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "tracks": {
+                    "type": "boolean",
+                    "description": "Also delete the video's track records.",
+                    "default": false
+                  }
+                },
+                "required": ["uri"]
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.media.finalizeLivestream": {
       "post": {
-        "summary": "Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records. Processing completes server-side and creates a draft VOD; the client does not need to poll or publish — the user publishes the draft later via place.stream.vod.publishDraft. Returns the draft's ats:// URI so the client can navigate to it, alongside an uploadId for backwards compatibility.",
+        "summary": "Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream(s) into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records. By default it leaves a draft VOD the streamer publishes later via place.stream.vod.publishDraft; with publish set it publishes the place.stream.video record as soon as the VOD is finalized. The caller must be the streamer, or a moderator they have granted livestream.manage; every record is written with the streamer's session.",
         "operationId": "place.stream.media.finalizeLivestream",
         "tags": ["place.stream.media"],
         "responses": {
@@ -2778,10 +2857,30 @@
                     },
                     "draftUri": {
                       "type": "string",
-                      "description": "The ats:// URI of the draft VOD created for this finalize. The draft reaches status 'ready' when processing completes; the user publishes it from the Drafts tab via place.stream.vod.publishDraft."
+                      "description": "The ats:// URI of the draft VOD created for this finalize, when publish is not set. The draft reaches status 'ready' when processing completes."
+                    },
+                    "livestreams": {
+                      "type": "array",
+                      "description": "The livestream records the VOD is made of, in recording order.",
+                      "items": {
+                        "type": "string",
+                        "format": "uri"
+                      }
+                    },
+                    "objects": {
+                      "type": "integer",
+                      "description": "How many recorded objects will be concatenated."
+                    },
+                    "ended": {
+                      "type": "array",
+                      "description": "Livestream records that are now ended (already, or by endLivestream).",
+                      "items": {
+                        "type": "string",
+                        "format": "uri"
+                      }
                     }
                   },
-                  "required": ["uploadId", "draftUri"]
+                  "required": ["uploadId"]
                 }
               }
             }
@@ -2802,6 +2901,9 @@
                         },
                         {
                           "const": "NoRecording"
+                        },
+                        {
+                          "const": "NotPermitted"
                         }
                       ]
                     },
@@ -2823,11 +2925,38 @@
                 "properties": {
                   "livestream": {
                     "type": "string",
-                    "description": "AT-URI of the place.stream.livestream record to finalize into a VOD. Must belong to the authenticated user.",
+                    "description": "AT-URI of the place.stream.livestream record to finalize into a VOD. Either this or livestreams is required.",
                     "format": "uri"
+                  },
+                  "livestreams": {
+                    "type": "array",
+                    "description": "Several livestream records whose recordings make up one VOD: a streamer who started a new record mid-stream splits the recording across them. Recordings are concatenated in the records' creation order, whatever order they are listed in. All must belong to one streamer.",
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Title of the video record; the first livestream's title when empty.",
+                    "maxLength": 1000
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Description of the video record.",
+                    "maxLength": 10000
+                  },
+                  "publish": {
+                    "type": "boolean",
+                    "description": "Publish the place.stream.video record as soon as the VOD is finalized, instead of leaving a draft.",
+                    "default": false
+                  },
+                  "endLivestream": {
+                    "type": "boolean",
+                    "description": "Also end any of the livestream records that were never stopped, so the streamer's page stops reading as live.",
+                    "default": false
                   }
-                },
-                "required": ["livestream"]
+                }
               }
             }
           }
@@ -3064,9 +3193,84 @@
         ]
       }
     },
+    "/xrpc/place.stream.media.listVideos": {
+      "get": {
+        "summary": "A streamer's place.stream.video records (read from their PDS) and this node's uploads for them: everything updateVideo, deleteVideo and publishVideo take. The caller must be the streamer or hold livestream.manage from them.",
+        "operationId": "place.stream.media.listVideos",
+        "tags": ["place.stream.media"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "repoDID": {
+                      "type": "string",
+                      "format": "did"
+                    },
+                    "videos": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.media.listVideos_video"
+                      }
+                    },
+                    "uploads": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.media.listVideos_upload"
+                      }
+                    }
+                  },
+                  "required": ["repoDID", "videos", "uploads"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotPermitted"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "query",
+            "required": true,
+            "description": "The streamer's DID.",
+            "schema": {
+              "type": "string",
+              "description": "The streamer's DID.",
+              "format": "did"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.media.publishVideo": {
       "post": {
-        "summary": "Publish a place.stream.video record for a finished upload, server-side. The caller supplies the record it would otherwise putRecord itself; the server overrides the fields it is authoritative about (source tracks and durationMs, taken from the processed upload) and, if the record carries no thumb, generates one from the video and attaches it. The record is written to the authenticated user's repo.",
+        "summary": "Publish a place.stream.video record for a finished upload, server-side. The caller supplies the record it would otherwise putRecord itself; the server overrides the fields it is authoritative about (source tracks and durationMs, taken from the processed upload) and, if the record carries no thumb, generates one from the video and attaches it. The record is written to the authenticated user's repo. The caller must own the upload, or hold livestream.manage from its owner; the record is written with the owner's session. Without a record, one is built from the upload's livestream(s) (title, tags, activity, connections) and the given title and description.",
         "operationId": "place.stream.media.publishVideo",
         "tags": ["place.stream.media"],
         "responses": {
@@ -3135,9 +3339,121 @@
                   "record": {
                     "$ref": "#/components/schemas/place.stream.video",
                     "description": "A place.stream.video record. The server overrides `source` and `durationMs` from the processed upload, and fills in `thumb` with a generated thumbnail when the supplied record has none."
+                  },
+                  "livestreams": {
+                    "type": "array",
+                    "description": "Livestream records the video came from, used to build the record when none is given; defaults to the upload's own livestream for a finalized recording.",
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Title for a record built by the server; the first livestream's title when empty.",
+                    "maxLength": 1000
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Description for a record built by the server.",
+                    "maxLength": 10000
                   }
                 },
-                "required": ["uploadId", "record"]
+                "required": ["uploadId"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.media.updateVideo": {
+      "post": {
+        "summary": "Rewrite a place.stream.video record in place: retitle, redescribe or retag it, or point it at a finished upload's tracks (publishing them if the upload has none yet: the repair for a record published without tracks, or the way to point a record at a re-finalized VOD). Fields left out are kept; an empty description or tag list clears it. The caller must be the record's owner or hold livestream.manage from them; the record is written with the owner's session.",
+        "operationId": "place.stream.media.updateVideo",
+        "tags": ["place.stream.media"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotPermitted"
+                        },
+                        {
+                          "const": "VideoNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "uri": {
+                    "type": "string",
+                    "description": "The place.stream.video record.",
+                    "format": "uri"
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 64
+                    }
+                  },
+                  "uploadId": {
+                    "type": "string",
+                    "description": "A finished upload whose tracks become the record's source and whose duration the record's."
+                  }
+                },
+                "required": ["uri"]
               }
             }
           }
@@ -6997,6 +7313,89 @@
           "record": {}
         },
         "required": ["uri", "cid", "author", "record"]
+      },
+      "place.stream.media.listVideos_video": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "durationMs": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "tracks": {
+            "type": "array",
+            "description": "The track records the video's source points at.",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "connections": {
+            "type": "array",
+            "description": "The livestream records the video is connected to.",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "thumb": {
+            "type": "boolean",
+            "description": "Whether the record carries a thumbnail."
+          }
+        },
+        "required": ["uri", "cid", "title", "tracks"]
+      },
+      "place.stream.media.listVideos_upload": {
+        "type": "object",
+        "properties": {
+          "uploadId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Processing status: pending, processing, done or error."
+          },
+          "error": {
+            "type": "string"
+          },
+          "backend": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string",
+            "description": "For a finalized recording, the livestream record it came from."
+          },
+          "contentCid": {
+            "type": "string"
+          },
+          "durationMs": {
+            "type": "integer"
+          },
+          "blobSize": {
+            "type": "integer"
+          },
+          "tracks": {
+            "type": "integer",
+            "description": "How many track records the upload has published."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["uploadId", "status", "backend"]
       },
       "place.stream.video": {
         "description": "Unknown type"

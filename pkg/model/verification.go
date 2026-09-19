@@ -39,10 +39,12 @@ func (m *DBModel) DeleteVerification(ctx context.Context, uri string) error {
 	return m.DB.WithContext(ctx).Where("uri = ?", uri).Delete(&Verification{}).Error
 }
 
-// DeleteVerificationsByIssuer removes every verification issued by issuer
-// (a mirrored labeler's rows, before a rescan under new label rules).
-func (m *DBModel) DeleteVerificationsByIssuer(ctx context.Context, issuer string) error {
-	return m.DB.WithContext(ctx).Where("issuer_did = ?", issuer).Delete(&Verification{}).Error
+// DeleteMirroredLabels removes the mirrored label rows of a labeler (their
+// URIs are label://…), before a rescan under new label rules. Its real
+// app.bsky.graph.verification records, if the same DID is a verifier too,
+// stay.
+func (m *DBModel) DeleteMirroredLabels(ctx context.Context, labeler string) error {
+	return m.DB.WithContext(ctx).Where("issuer_did = ? AND uri LIKE ?", labeler, "label://%").Delete(&Verification{}).Error
 }
 
 // VerificationsFor returns the verifications of the given subjects issued by

@@ -139,13 +139,21 @@ func TestFeedLiveWindow(t *testing.T) {
 	require.NotNil(t, mm.GetLiveWindow("did:test:streamer"), "pre-live segments make a window")
 	require.False(t, mm.LiveWindowPublished("did:test:streamer"), "…but it is not public")
 
+	preLive := mm.GetLiveWindow("did:test:streamer")
 	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, true)
 	require.True(t, mm.LiveWindowPublished("did:test:streamer"))
 
 	w := mm.GetLiveWindow("did:test:streamer")
 	require.NotNil(t, w, "window created on feed")
+	require.NotSame(t, preLive, w, "going public starts the window over: the preview segments are not served to the public")
 	tids := w.TrackIDs()
 	require.NotEmpty(t, tids, "window has tracks")
+	for _, tid := range tids {
+		require.Len(t, w.Track(tid).Segments, len(preLive.Track(tid).Segments), "track %s: only the published segment, none of the pre-live ones", tid)
+	}
+	// Once public, further segments extend the same window.
+	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, true)
+	require.Same(t, w, mm.GetLiveWindow("did:test:streamer"))
 	for _, tid := range tids {
 		require.NotEmpty(t, w.InitSegment(tid), "track %s has an init segment", tid)
 		tr := w.Track(tid)

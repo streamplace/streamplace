@@ -86,15 +86,23 @@ func (mm *MediaManager) LiveWindowPublished(did string) bool {
 // errors are logged, never fatal to ingest.
 //
 // Unpublished (pre-live) segments are folded in too, and the window remembers
-// whether its latest segment was published. Live HLS requests carry no
-// session, so the getLive* handlers keep an unpublished window to callers
-// holding a playback token the streamer minted for themselves (see
-// spxrpc's getLiveToken) — the HLS counterpart of WebRTC's viewer == streamer
-// gate — and answer StreamNotLive to everyone else.
+// whether its latest segment was published. The getLive* handlers keep an
+// unpublished window to the streamer's own playback session (see spxrpc's
+// getPlaybackSession) — the HLS counterpart of WebRTC's viewer == streamer
+// gate — and answer StreamNotLive to everyone else. When the stream goes
+// public the window is started over, so no preview segment is ever served
+// as part of the public stream.
 func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment []byte, published bool) {
 	mm.liveWindowsMut.Lock()
 	if mm.liveWindowPublished == nil {
 		mm.liveWindowPublished = map[string]bool{}
+	}
+	if published && !mm.liveWindowPublished[did] && mm.liveWindows[did] != nil {
+		// The stream just went public. The window's flag is per stream, not
+		// per segment, so everything in it is about to be served to anyone;
+		// the pre-live preview segments still sitting in it must not be. The
+		// public window starts at this segment.
+		delete(mm.liveWindows, did)
 	}
 	mm.liveWindowPublished[did] = published
 	mm.liveWindowsMut.Unlock()

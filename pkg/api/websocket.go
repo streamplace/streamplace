@@ -395,10 +395,22 @@ func (a *StreamplaceAPI) viewerCountMessage(ctx context.Context, repoDID string)
 		Count:         int64(a.Bus.GetViewerCount(repoDID)),
 		LexiconTypeID: "place.stream.livestream#viewerCount",
 	}
-	if a.StatefulDB != nil {
-		if total, _, err := a.StatefulDB.GetStreamViewTotal(ctx, repoDID); err == nil && total > 0 {
-			msg.Total = &total
+	if a.StatefulDB == nil {
+		return msg
+	}
+	// The total of the streamer's current livestream record, looked up by
+	// its URI: the most recently counted-into row can still be the previous
+	// record's for a moment after a new record is indexed.
+	if ls, err := a.Model.GetLatestLivestreamForRepo(repoDID); err == nil && ls != nil {
+		if totals, err := a.StatefulDB.LivestreamViewTotals(ctx, []string{ls.URI}); err == nil {
+			if total := totals[ls.URI]; total > 0 {
+				msg.Total = &total
+			}
+			return msg
 		}
+	}
+	if total, _, err := a.StatefulDB.GetStreamViewTotal(ctx, repoDID); err == nil && total > 0 {
+		msg.Total = &total
 	}
 	return msg
 }

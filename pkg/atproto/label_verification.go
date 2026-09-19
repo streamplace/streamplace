@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -30,7 +31,9 @@ const labelPollInterval = time.Minute
 // fresh scan from the beginning under the new rules, instead of only
 // applying them to labels issued after the change.
 func labelCursorKey(labeler string, patterns []string) string {
-	sum := sha256.Sum256([]byte(strings.Join(patterns, ",")))
+	sorted := append([]string(nil), patterns...)
+	sort.Strings(sorted)
+	sum := sha256.Sum256([]byte(strings.Join(sorted, ",")))
 	return "labels-cursor:" + labeler + ":" + hex.EncodeToString(sum[:4])
 }
 
@@ -104,7 +107,7 @@ func (atsync *ATProtoSynchronizer) seedLabels(ctx context.Context, labeler strin
 	if fresh {
 		// New rules (or first run): what was mirrored under the old ones no
 		// longer applies, so start from nothing and replay every label.
-		if err := atsync.Model.DeleteVerificationsByIssuer(ctx, labeler); err != nil {
+		if err := atsync.Model.DeleteMirroredLabels(ctx, labeler); err != nil {
 			return fmt.Errorf("clear mirrored labels: %w", err)
 		}
 		log.Log(ctx, "mirroring labels from the start", "labeler", labeler, "labels", strings.Join(patterns, ","))

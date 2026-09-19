@@ -81,7 +81,7 @@ type Model interface {
 	CreateBlock(ctx context.Context, block *Block) error
 	CreateVerification(ctx context.Context, v *Verification) error
 	DeleteVerification(ctx context.Context, uri string) error
-	DeleteVerificationsByIssuer(ctx context.Context, issuer string) error
+	DeleteMirroredLabels(ctx context.Context, labeler string) error
 	CreateChatAccessRule(ctx context.Context, row *ChatAccessRule) error
 	DeleteChatAccessRule(ctx context.Context, uri string) error
 	ListChatAccessRules(ctx context.Context, repoDID string) ([]ChatAccessRule, error)

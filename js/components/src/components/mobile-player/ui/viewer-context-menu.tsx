@@ -86,7 +86,9 @@ export function ContextMenu({
   const [isOpen, setIsOpen] = useState(false);
 
   const lowLatency = protocol === "webrtc";
+  const streamForcesHLS = usePlayerStore((x) => x.streamForcesHLS);
   const setLowLatency = (value: boolean) => {
+    if (streamForcesHLS) return;
     setProtocol(value ? PlayerProtocol.WEBRTC : PlayerProtocol.HLS);
   };
 
@@ -169,12 +171,19 @@ export function ContextMenu({
                   <DropdownMenuGroup>
                     <DropdownMenuCheckboxItem
                       checked={lowLatency}
+                      disabled={streamForcesHLS}
                       onCheckedChange={() => setLowLatency(!lowLatency)}
                     >
-                      <Text>Low Latency</Text>
+                      <Text muted={streamForcesHLS}>Low Latency</Text>
                     </DropdownMenuCheckboxItem>
                   </DropdownMenuGroup>
-                  <DropdownMenuInfo description="Reduces the delay between video and chat for a more real-time experience." />
+                  <DropdownMenuInfo
+                    description={
+                      streamForcesHLS
+                        ? "Not available for this stream: its video has B-frames, which low-latency playback can't handle."
+                        : "Reduces the delay between video and chat for a more real-time experience."
+                    }
+                  />
                 </>
               )}
             </DropdownMenuSubContent>

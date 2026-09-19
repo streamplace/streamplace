@@ -3,6 +3,9 @@ package media
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"sort"
+	"strconv"
 	"time"
 
 	"stream.place/streamplace/pkg/livehls"
@@ -15,6 +18,20 @@ import (
 // memory; older segments fall out of the playlist (DVR depth is a later,
 // storage-backed feature).
 const liveWindowSize = 12
+
+// liveWindowMinDuration is the least media the count window may shrink to.
+// Segments are cut at keyframes, so a scene-cut-heavy passage arrives as a
+// run of one- or two-frame segments; counting those against the 12 would
+// drop whole seconds at once and leave a player a few seconds behind live
+// with nothing to fetch (404s — the stall at the same spot every replay).
+const liveWindowMinDuration = 10 * time.Second
+
+// liveWindowMinFragment joins signed segments shorter than this into one
+// playlist fragment (they concatenate blindly and each starts at a
+// keyframe). Serving a scene-cut passage one keyframe per fragment costs a
+// player a round trip per 40ms of video; half a second is enough to keep a
+// buffer fed and delays the live edge by at most that during the passage.
+const liveWindowMinFragment = 500 * time.Millisecond
 
 // liveWindowRetention ages segments out by wall-clock arrival time, independent
 // of liveWindowSize. The count window only evicts as new segments push old ones
@@ -32,7 +49,7 @@ func (mm *MediaManager) liveWindow(did string) *livehls.Writer {
 	defer mm.liveWindowsMut.Unlock()
 	w := mm.liveWindows[did]
 	if w == nil {
-		w = livehls.NewWriter(livehls.WithWindow(liveWindowSize), livehls.WithRetention(liveWindowRetention))
+		w = livehls.NewWriter(livehls.WithWindow(liveWindowSize), livehls.WithMinDuration(liveWindowMinDuration), livehls.WithMinFragment(liveWindowMinFragment), livehls.WithRetention(liveWindowRetention))
 		mm.liveWindows[did] = w
 	}
 	return w
@@ -48,9 +65,18 @@ func (mm *MediaManager) GetLiveWindow(did string) *livehls.Writer {
 	w := mm.liveWindows[did]
 	if w != nil && w.Empty() {
 		delete(mm.liveWindows, did)
+		delete(mm.liveWindowPublished, did)
 		return nil
 	}
 	return w
+}
+
+// LiveWindowPublished reports whether the streamer's latest windowed segment
+// was published (the stream is live to the public) rather than pre-live.
+func (mm *MediaManager) LiveWindowPublished(did string) bool {
+	mm.liveWindowsMut.Lock()
+	defer mm.liveWindowsMut.Unlock()
+	return mm.liveWindowPublished[did]
 }
 
 // feedLiveWindow re-derives the per-track event stream from a stored canonical
@@ -59,16 +85,19 @@ func (mm *MediaManager) GetLiveWindow(did string) *livehls.Writer {
 // stream whose segments flow through its ValidateMP4. Best-effort: window
 // errors are logged, never fatal to ingest.
 //
-// Only PUBLISHED segments are folded in. Live HLS requests are unauthenticated
-// today, so a pre-live (unpublished) segment in the window would be watchable by
-// anyone, not just the streamer. Until HLS gains per-viewer auth we withhold
-// pre-live HLS entirely: an unfed window stays nil, and the getLive* handlers
-// return StreamNotLive. The streamer still monitors their own pre-live stream
-// over WebRTC, which gates playback on viewer == streamer.
+// Unpublished (pre-live) segments are folded in too, and the window remembers
+// whether its latest segment was published. Live HLS requests carry no
+// session, so the getLive* handlers keep an unpublished window to callers
+// holding a playback token the streamer minted for themselves (see
+// spxrpc's getLiveToken) — the HLS counterpart of WebRTC's viewer == streamer
+// gate — and answer StreamNotLive to everyone else.
 func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment []byte, published bool) {
-	if !published {
-		return
+	mm.liveWindowsMut.Lock()
+	if mm.liveWindowPublished == nil {
+		mm.liveWindowPublished = map[string]bool{}
 	}
+	mm.liveWindowPublished[did] = published
+	mm.liveWindowsMut.Unlock()
 	eventCh := make(chan *muxl.MuxlEvent, 8)
 	errCh := make(chan error, 1)
 	go func() {
@@ -85,4 +114,46 @@ func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment 
 	if err := <-errCh; err != nil {
 		log.Error(ctx, "live-hls: window feed failed", "streamer", did, "error", err)
 	}
+}
+
+// FeedLiveRenditions folds an addendum of signed rendition tracks (see
+// MintVideoRenditions) into the streamer's live-HLS window. Each rendition
+// is its own track there — a variant in the master playlist — with its
+// own media sequence, so an addendum arriving a beat after its source
+// segment (the transcoder's round trip) is fine.
+func (mm *MediaManager) FeedLiveRenditions(ctx context.Context, did string, addendum []byte, published bool) {
+	if len(addendum) == 0 {
+		return
+	}
+	mm.feedLiveWindow(ctx, did, addendum, published)
+}
+
+// LiveRenditionNames lists the transcoded renditions the streamer's live
+// window currently carries, highest first, named the way the player and
+// the transcode profiles name them ("720p"): what a viewer of this node can
+// actually pick, whether the node transcoded them or received them from
+// the origin. Empty when the stream has no window or no renditions yet.
+func (mm *MediaManager) LiveRenditionNames(did string) []string {
+	w := mm.GetLiveWindow(did)
+	if w == nil {
+		return nil
+	}
+	return renditionNames(w.VideoTracks())
+}
+
+func renditionNames(tracks []livehls.VideoTrack) []string {
+	var rs []livehls.VideoTrack
+	for _, t := range tracks {
+		id, err := strconv.ParseUint(t.ID, 10, 32)
+		if err != nil || uint32(id) < renditionTrackBase || t.Height == 0 {
+			continue
+		}
+		rs = append(rs, t)
+	}
+	sort.Slice(rs, func(i, j int) bool { return rs[i].Height > rs[j].Height })
+	names := make([]string, 0, len(rs))
+	for _, t := range rs {
+		names = append(names, fmt.Sprintf("%dp", t.Height))
+	}
+	return names
 }

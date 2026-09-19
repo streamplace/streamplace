@@ -66,8 +66,8 @@ export const findProblems = (
     problems.push({
       code: "bframes",
       message:
-        "Your stream contains B-Frames, which are not supported in Streamplace. Your stream will stutter.",
-      severity: "error",
+        "Your stream contains B-Frames, which low-latency (WebRTC) playback can't handle. Viewers are switched to standard-latency HLS automatically; turn B-Frames off in your encoder to get low latency back.",
+      severity: "warning",
       link: "https://stream.place/docs/guides/start-streaming/obs/#obs-configuration",
     });
   }

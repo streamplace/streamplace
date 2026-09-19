@@ -3,10 +3,13 @@ package spxrpc
 import (
 	"bytes"
 	"context"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
+	"stream.place/streamplace/pkg/cdn"
+	"stream.place/streamplace/pkg/placestream"
 	"strings"
 	"time"
 
@@ -20,11 +23,11 @@ import (
 // getLiveSegment, vnd.apple.mpegurl on getLivePlaylist). NewServer registers
 // custom echo routes that override them; these exist only to satisfy the build.
 
-func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context, sid string, streamer string, track string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context, sid string, streamer string, token string, track string) (io.Reader, error) {
 	return nil, stubMisrouted("getLivePlaylist")
 }
 
-func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context, seg string, sid string, streamer string, track string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context, seg string, sid string, streamer string, token string, track string) (io.Reader, error) {
 	return nil, stubMisrouted("getLiveSegment")
 }
 
@@ -74,6 +77,26 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
 	}
 
+	// A debugging escape hatch: nocdn=1 renders self-hosted segment URLs
+	// even when a live CDN is configured, to tell a misbehaving zone from a
+	// misbehaving node without a redeploy. Carried into the sub-playlists.
+	live := s.live
+	nocdn := c.QueryParam("nocdn") == "1"
+	if nocdn {
+		live = liveCDN{}
+	}
+	// A pre-live (unpublished) window is the streamer's own preview: only a
+	// playback token they minted opens it, and it reads as not live to
+	// everyone else. The token rides along on every URL the playlist emits,
+	// all of them self-hosted — a CDN must not see or cache a preview.
+	token := c.QueryParam("token")
+	if s.mm.LiveWindowPublished(did) {
+		token = ""
+	} else if s.cli.WideOpen || s.liveTokenAllows(ctx, token, did) {
+		live = liveCDN{}
+	} else {
+		return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
+	}
 	// Reuse the caller's sid when present so master/media/segment requests of
 	// one playback session share an identifier; mint one otherwise.
 	sid, err := sessionIDOrNew(c.QueryParam("sid"))
@@ -98,12 +121,15 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 	var body string
 	if track == "" {
 		body = w.MasterPlaylist(func(tid string) string {
-			return liveTrackPlaylistURL(did, tid, sid)
+			return liveTrackPlaylistURL(did, tid, sid, nocdn, token)
 		})
 	} else {
-		initURL := liveSegmentURL(did, track, "init", sid)
+		// The init always comes from the node: it can change mid-stream and
+		// is one small fetch per session. Numbered segments go to the CDN
+		// when one is configured.
+		initURL := liveSegmentURL(did, track, "init", sid, token)
 		segURI := func(seq uint64) string {
-			return liveSegmentURL(did, track, strconv.FormatUint(seq, 10), sid)
+			return live.segmentURL(did, track, strconv.FormatUint(seq, 10), sid, token)
 		}
 		body = w.MediaPlaylist(track, initURL, segURI)
 		if body == "" {
@@ -132,17 +158,35 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 // The bytes are the verbatim signed segment, so provenance travels with
 // playback.
 func (s *Server) HandleGetLiveSegment(c echo.Context) error {
+	return s.serveLiveSegment(c, c.QueryParam("streamer"), c.QueryParam("track"), c.QueryParam("seg"), c.QueryParam("sid"), c.QueryParam("token"))
+}
+
+// liveSegmentPathRoute is the path-shaped form of getLiveSegment,
+// /live/:streamer/:track/:seg, that live media playlists emit when a live
+// CDN is configured. The CDN pulls it from this node, caches it under the
+// segment's immutable Cache-Control, and (with a signing provider) checks
+// the token bound to the path. No sid: the URL is identical for every
+// viewer so the cache hits; the media playlist requests, which stay on the
+// node, carry the session instead.
+const liveSegmentPathRoute = "/live/:streamer/:track/:seg"
+
+// HandleGetLiveSegmentPath serves liveSegmentPathRoute.
+func (s *Server) HandleGetLiveSegmentPath(c echo.Context) error {
+	return s.serveLiveSegment(c, c.Param("streamer"), c.Param("track"), c.Param("seg"), c.QueryParam("sid"), c.QueryParam("token"))
+}
+
+// serveLiveSegment is the body of both segment routes.
+func (s *Server) serveLiveSegment(c echo.Context, streamer, track, segParam, sid, token string) error {
 	ctx := c.Request().Context()
-	did, err := s.resolveStreamer(ctx, c.QueryParam("streamer"))
+	did, err := s.resolveStreamer(ctx, streamer)
 	if err != nil {
 		return err
 	}
-	track := c.QueryParam("track")
 	if track == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "track is required")
 	}
 	// The cosmetic ".m4s" lets ffmpeg-based players fetch the URL; ignore it.
-	seg := strings.TrimSuffix(c.QueryParam("seg"), ".m4s")
+	seg := strings.TrimSuffix(segParam, ".m4s")
 	if seg == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "seg is required")
 	}
@@ -151,10 +195,16 @@ func (s *Server) HandleGetLiveSegment(c echo.Context) error {
 	if w == nil {
 		return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
 	}
+	// Pre-live segments only with the streamer's own playback token.
+	if !s.mm.LiveWindowPublished(did) && !s.cli.WideOpen && !s.liveTokenAllows(ctx, token, did) {
+		return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
+	}
 
 	// Segment fetches keep the playback session alive in the viewer count
-	// (sid is threaded through every segment URL by the playlist handler).
-	s.mm.TouchHLSSession(did, c.QueryParam("sid"))
+	// (sid is threaded through every self-hosted segment URL by the
+	// playlist handler; CDN-served segments carry none, and the playlist
+	// requests that keep coming to the node are the heartbeat then).
+	s.mm.TouchHLSSession(did, sid)
 
 	var data []byte
 	isInit := seg == "init"
@@ -193,23 +243,109 @@ func (s *Server) HandleGetLiveSegment(c echo.Context) error {
 // liveTrackPlaylistURL is the URL to a single-track live media playlist served
 // by this same handler. did is the resolved streamer DID; sid is propagated so
 // a player's playlist + segment requests share an identifier.
-func liveTrackPlaylistURL(did, track, sid string) string {
+func liveTrackPlaylistURL(did, track, sid string, nocdn bool, token string) string {
 	q := url.Values{"streamer": {did}, "track": {track}}
 	if sid != "" {
 		q.Set("sid", sid)
 	}
+	if nocdn {
+		q.Set("nocdn", "1")
+	}
+	if token != "" {
+		q.Set("token", token)
+	}
 	return "/xrpc/place.stream.playback.getLivePlaylist?" + q.Encode()
+}
+
+// liveCDN is the live-segment CDN settings media playlists are generated
+// against: a pull zone whose origin is this node. Zero-valued means
+// self-hosted, and every segment URL points back at getLiveSegment.
+type liveCDN struct {
+	// URL is the CDN base URL. Empty means self-hosted.
+	URL string
+	// Signer turns a segment URL into what the player fetches. nil or
+	// cdn.Static{} emits the URL unsigned.
+	Signer cdn.Signer
+	// TTL is the signed-URL lifetime bucket (see tokenExpiry).
+	TTL time.Duration
+	// now overrides the clock used for token expiry. nil = time.Now.
+	now func() time.Time
+}
+
+// tokenExpiry is the expiry stamped into a signed live segment URL: the
+// end of the *next* TTL bucket on the wall clock, so every playlist
+// rendered within a bucket carries byte-identical URLs (a CDN caches by
+// URL, and a per-render expiry would make every viewer's segment fetch a
+// miss). A URL is therefore valid for between one and two TTLs, which is
+// far longer than the segment stays in the live window.
+func (l liveCDN) tokenExpiry() time.Time {
+	now := time.Now
+	if l.now != nil {
+		now = l.now
+	}
+	ttl := l.TTL
+	if ttl <= 0 {
+		ttl = 5 * time.Minute
+	}
+	t := now().Truncate(ttl)
+	return t.Add(2 * ttl)
+}
+
+// segmentURL is the URL a media playlist emits for a numbered segment (or
+// the init, which never goes through the CDN — see HandleGetLivePlaylist).
+// Self-hosted, it is liveSegmentURL; behind a CDN it is the path-shaped
+// route under the CDN host, signed when the provider signs.
+func (l liveCDN) segmentURL(did, track, seg, sid, token string) string {
+	if l.URL == "" || seg == "init" || token != "" {
+		return liveSegmentURL(did, track, seg, sid, token)
+	}
+	base, err := url.Parse(l.URL)
+	if err != nil || base.Host == "" {
+		// Not a parseable absolute URL: naive concatenation, unsigned.
+		return strings.TrimRight(l.URL, "/") + liveSegmentPath(did, track, seg)
+	}
+	u := *base
+	u.Path = strings.TrimRight(base.Path, "/") + liveSegmentPath(did, track, seg)
+	u.RawPath = ""
+	u.RawQuery = ""
+	if l.Signer == nil {
+		return u.String()
+	}
+	return l.Signer.SignURL(&u, l.tokenExpiry())
+}
+
+// liveSegmentPath is the path liveSegmentPathRoute matches for one segment.
+func liveSegmentPath(did, track, seg string) string {
+	return "/live/" + url.PathEscape(did) + "/" + url.PathEscape(track) + "/" + url.PathEscape(seg) + ".m4s"
 }
 
 // liveSegmentURL builds a getLiveSegment URL. seg is "init" or a media
 // sequence number; the trailing ".m4s" is appended last (so seg is the final
 // query token) to satisfy ffmpeg's segment-extension allowlist — the handler
 // strips it back off.
-func liveSegmentURL(did, track, seg, sid string) string {
+func liveSegmentURL(did, track, seg, sid, token string) string {
 	q := url.Values{"streamer": {did}, "track": {track}}
 	if sid != "" {
 		q.Set("sid", sid)
 	}
+	if token != "" {
+		q.Set("token", token)
+	}
 	return "/xrpc/place.stream.playback.getLiveSegment?" + q.Encode() +
 		"&seg=" + url.QueryEscape(seg) + ".m4s"
+}
+
+// handlePlaceStreamPlaybackGetLiveToken mints a pre-live playback token for
+// the caller's own stream (see live_token.go).
+func (s *Server) handlePlaceStreamPlaybackGetLiveToken(ctx context.Context) (*placestream.PlaybackGetLiveToken_Output, error) {
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	if session == nil {
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
+	}
+	key, err := s.liveTokenKey(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tok, exp := mintLiveToken(key, session.DID, time.Now())
+	return &placestream.PlaybackGetLiveToken_Output{Token: tok, ExpiresAt: exp.UTC().Format(time.RFC3339)}, nil
 }

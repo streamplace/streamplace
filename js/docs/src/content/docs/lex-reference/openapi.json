@@ -1277,6 +1277,16 @@
               "type": "string",
               "description": "Opaque playback session identifier. Omit on the master playlist request; the server generates one and threads it through the sub-playlist + segment URLs it returns, for view-count correlation."
             }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live.",
+            "schema": {
+              "type": "string",
+              "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live."
+            }
           }
         ]
       }
@@ -1363,8 +1373,49 @@
               "type": "string",
               "description": "Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control."
             }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live.",
+            "schema": {
+              "type": "string",
+              "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live."
+            }
           }
         ]
+      }
+    },
+    "/xrpc/place.stream.playback.getLiveToken": {
+      "get": {
+        "summary": "Mint a short-lived playback token for the caller's own live stream, so their player can watch it over HLS before it is published (pre-live). HLS requests carry no session; the token, passed as `token` on getLivePlaylist and getLiveSegment, stands in for one. Requires an authenticated session; the token is bound to the caller's DID.",
+        "operationId": "place.stream.playback.getLiveToken",
+        "tags": ["place.stream.playback"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "description": "Opaque token to pass as the `token` query parameter."
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "description": "When the token stops working; fetch a new one before then.",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": ["token", "expiresAt"]
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/xrpc/place.stream.playback.getPlaybackServer": {

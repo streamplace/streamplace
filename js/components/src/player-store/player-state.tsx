@@ -47,9 +47,18 @@ export interface PlayerState {
   setPlayingVODRendition: (name: string | null) => void;
   protocol: PlayerProtocol;
   setProtocol: (protocol: PlayerProtocol) => void;
+  /** The stream being watched has B-frames, which WebRTC playback can't
+   *  handle, so the player is held on HLS regardless of the viewer's
+   *  low-latency preference (which stays stored for other streams). */
+  streamForcesHLS: boolean;
+  setStreamForcesHLS: (forced: boolean) => void;
 
   /** Source (streamer did) */
   src: string;
+  /** A pre-live playback token (getLiveToken) for the streamer's own
+   *  unpublished stream, threaded onto the HLS playlist URL. */
+  liveToken?: string;
+  setLiveToken: (token: string | undefined) => void;
 
   /** Function to set the source URL */
   setSrc: (src: string) => void;

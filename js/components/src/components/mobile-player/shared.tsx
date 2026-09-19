@@ -1,5 +1,6 @@
 import { AtUri } from "@atproto/syntax";
 import { useMemo } from "react";
+import { usePlayerStore } from "../../player-store";
 import { PlayerProtocol } from "../../player-store/player-state";
 import { useStreamplaceStore } from "../../streamplace-store";
 
@@ -21,6 +22,8 @@ export function srcToUrl(
   protocol: string;
 } {
   const url = useStreamplaceStore((x) => x.url);
+  // The streamer's pre-live playback token, when their player holds one.
+  const liveToken = usePlayerStore((x) => x.liveToken);
   return useMemo(() => {
     if (props.src.startsWith("at://")) {
       const aturi = new AtUri(props.src);
@@ -54,6 +57,9 @@ export function srcToUrl(
       } else {
         outUrl = `${url}/xrpc/place.stream.playback.getLivePlaylist?streamer=${props.src}`;
       }
+      if (liveToken) {
+        outUrl += `&token=${encodeURIComponent(liveToken)}`;
+      }
     } else if (protocol === PlayerProtocol.PROGRESSIVE_MP4) {
       outUrl = `${url}/api/playback/${props.src}/stream.mp4`;
     } else if (protocol === PlayerProtocol.PROGRESSIVE_WEBM) {
@@ -67,5 +73,5 @@ export function srcToUrl(
       protocol: protocol,
       url: outUrl,
     };
-  }, [props.src, props.selectedRendition, protocol, url]);
+  }, [props.src, props.selectedRendition, protocol, url, liveToken]);
 }

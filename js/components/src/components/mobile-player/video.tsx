@@ -350,6 +350,21 @@ export function HLSPlayer(props: VideoProps) {
   );
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const mode = usePlayerStore((x) => x.mode);
+  // The latest pick, for the manifest handler below: choosing a rendition
+  // changes the source URL, which recreates hls.js, and the new instance
+  // must pin the level once it knows the levels.
+  const selectedRenditionRef = useRef(selectedRendition);
+  selectedRenditionRef.current = selectedRendition;
+  const levelFor = (hls: Hls, rendition: string | undefined) => {
+    if (!rendition || rendition === "source" || rendition === "auto") {
+      return -1;
+    }
+    return hls.levels.findIndex((l) => {
+      const name =
+        l.height > 0 ? `${l.height}p` : `${Math.round(l.bitrate / 1000)}k`;
+      return name === rendition;
+    });
+  };
 
   // other players set some status on start, HLS doesn't, so
   // do this to make sure we we reset off of "error" state
@@ -378,6 +393,10 @@ export function HLSPlayer(props: VideoProps) {
           return;
         }
         localRef.current.play();
+        const pinned = levelFor(hls, selectedRenditionRef.current);
+        if (pinned !== -1) {
+          hls.currentLevel = pinned;
+        }
         if (mode === "vod" && hls.levels.length > 1) {
           setVodLevels(
             hls.levels.map((l) => ({
@@ -396,36 +415,69 @@ export function HLSPlayer(props: VideoProps) {
           l.height > 0 ? `${l.height}p` : `${Math.round(l.bitrate / 1000)}k`;
         setPlayingVODRendition(name);
       });
+      // Before a stream is live its playlist is a 404, and a live window
+      // can briefly have nothing to serve; hls.js treats both as fatal and
+      // stops. Keep asking (every couple of seconds) until the stream is
+      // there, so a viewer waiting on the page starts playing when it
+      // begins — the same "pre-live" wait WebRTC gets from its reconnects.
+      let retry: ReturnType<typeof setTimeout> | null = null;
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        if (!data.fatal || hlsRef.current !== hls) return;
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          if (retry) clearTimeout(retry);
+          retry = setTimeout(() => {
+            retry = null;
+            if (hlsRef.current !== hls) return;
+            hls.loadSource(props.url);
+            hls.startLoad();
+          }, 2000);
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          hls.recoverMediaError();
+        }
+      });
       return () => {
+        if (retry) clearTimeout(retry);
         hls.stopLoad();
+        hls.destroy();
         hlsRef.current = null;
         setVodLevels([]);
         setPlayingVODRendition(null);
       };
     } else if (localRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-      localRef.current.src = props.url;
-      localRef.current.addEventListener("canplay", () => {
-        if (!localRef.current) {
-          return;
-        }
-        localRef.current.play();
-      });
+      // Native HLS (iPhone Safari): the element gives up on a 404 too, so
+      // re-point it at the playlist until it plays.
+      const video = localRef.current;
+      video.src = props.url;
+      const onCanPlay = () => {
+        video.play();
+      };
+      let retry: ReturnType<typeof setTimeout> | null = null;
+      const onError = () => {
+        if (retry) clearTimeout(retry);
+        retry = setTimeout(() => {
+          retry = null;
+          video.src = props.url;
+          video.load();
+        }, 2000);
+      };
+      video.addEventListener("canplay", onCanPlay);
+      video.addEventListener("error", onError);
+      return () => {
+        if (retry) clearTimeout(retry);
+        video.removeEventListener("canplay", onCanPlay);
+        video.removeEventListener("error", onError);
+      };
     }
   }, [props.url]);
 
+  // The quality menu drives hls.js levels: "auto"/"source" leave ABR to
+  // hls.js (it picks by measured bandwidth from the master playlist's
+  // variants), a named rendition pins that level. Live too, now that a
+  // live master playlist carries the node's transcoded renditions.
   useEffect(() => {
     const hls = hlsRef.current;
-    if (!hls || mode !== "vod") return;
-    if (selectedRendition === "source" || selectedRendition === "auto") {
-      hls.currentLevel = -1;
-      return;
-    }
-    const idx = hls.levels.findIndex((l) => {
-      const name =
-        l.height > 0 ? `${l.height}p` : `${Math.round(l.bitrate / 1000)}k`;
-      return name === selectedRendition;
-    });
-    if (idx !== -1) hls.currentLevel = idx;
+    if (!hls) return;
+    hls.currentLevel = levelFor(hls, selectedRendition);
   }, [selectedRendition, mode]);
 
   return <VideoElement {...props} ref={localRef} />;

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -16,6 +17,7 @@ import (
 	"runtime/pprof"
 	"slices"
 	"strconv"
+	"stream.place/streamplace/pkg/acme"
 	"strings"
 	"syscall"
 	"time"
@@ -86,6 +88,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeSplitCommand(build),
 		makeLivepeerCommand(build),
 		makeMigrateCommand(build),
+		makeMigrateStateCommand(),
 		makeSyncCommand(build),
 	}
 	// Add the verbosity flag
@@ -386,7 +389,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		}
 	}
 	if slices.Contains(cli.Replicators, config.ReplicatorWebsocket) {
-		replicator = websocketrep.NewWebsocketReplicator(b, mod, mm)
+		replicator = websocketrep.NewWebsocketReplicator(b, mod, mm, state)
 	}
 
 	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb, atsync)
@@ -531,7 +534,22 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		})
 	}
 
+	if cli.ACME && !cli.Secure {
+		log.Warn(ctx, "--acme has no effect without --secure; TLS is terminated elsewhere")
+	}
 	if cli.Secure {
+		var rtmpsTLS *tls.Config
+		if cli.ACME {
+			mgr, err := acme.New(ctx, cli, state)
+			if err != nil {
+				return err
+			}
+			a.ACME = mgr
+			rtmpsTLS = mgr.TLSConfig()
+			group.Go(func() error {
+				return mgr.Manage(ctx)
+			})
+		}
 		group.Go(func() error {
 			return a.ServeHTTPS(ctx)
 		})
@@ -540,7 +558,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		})
 		if cli.RTMPServerAddon != "" {
 			group.Go(func() error {
-				return rtmps.ServeRTMPSAddon(ctx, cli)
+				return rtmps.ServeRTMPSAddon(ctx, cli, rtmpsTLS)
 			})
 		}
 		group.Go(func() error {
@@ -1232,6 +1250,33 @@ func makeMigrateCommand(build *config.BuildFlags) *urfavecli.Command {
 		Usage: "run database migrations",
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
 			return statedb.Migrate(&cli)
+		},
+	}
+}
+
+// makeMigrateStateCommand copies the state database from one engine to
+// another — the sqlite → Postgres move. Run it once while the old node is
+// still up to prove the target out, stop the node, run it again for the
+// delta (it is idempotent), then start the node with --db-url pointing at
+// the target.
+func makeMigrateStateCommand() *urfavecli.Command {
+	var from, to string
+	var batch int
+	return &urfavecli.Command{
+		Name:  "migrate-statedb",
+		Usage: "copy the state database to another engine (sqlite → Postgres), then exit",
+		Flags: []urfavecli.Flag{
+			&urfavecli.StringFlag{Name: "from", Usage: "source state database URL, e.g. sqlite:///data/state.sqlite", Required: true, Destination: &from},
+			&urfavecli.StringFlag{Name: "to", Usage: "target state database URL, e.g. postgres://user:pass@host/streamplace (created if missing)", Required: true, Destination: &to},
+			&urfavecli.IntFlag{Name: "batch-size", Usage: "rows per INSERT", Value: 500, Destination: &batch},
+		},
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			reports, err := statedb.CopyState(ctx, from, to, batch)
+			fmt.Fprintf(os.Stderr, "\n%-28s %10s %10s %10s\n", "table", "source", "inserted", "target")
+			for _, r := range reports {
+				fmt.Fprintf(os.Stderr, "%-28s %10d %10d %10d\n", r.Table, r.Source, r.Inserted, r.Target)
+			}
+			return err
 		},
 	}
 }

@@ -46,9 +46,29 @@ var TranscodeSuccessesTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Help: "total number of transcode successes",
 })
 
+var TranscodeSkippedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_transcode_skipped_total",
+	Help: "segments not transcoded because the transcoder was too far behind (see livepeer.MaxWaiting)",
+})
+
 var TranscodeErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "streamplace_transcode_errors_total",
 	Help: "total number of transcode errors",
+})
+
+var IngestNonIDRKeyframesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_ingest_non_idr_keyframes_total",
+	Help: "frames the parser flagged as keyframes that hold no IDR slice (open-GOP I-frames), kept inside their GoP instead of starting a segment",
+}, []string{"streamer"})
+
+var TranscodeSkippedNoKeyframeTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_transcode_skipped_no_keyframe_total",
+	Help: "segments not sent to the transcoder because their video does not start with an IDR and its parameter sets (a transcoder cannot decode them and drops the session)",
+})
+
+var TranscodeManifestRotationsTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_transcode_manifest_rotations_total",
+	Help: "times a stream moved to a fresh gateway manifest after the gateway refused every recent push (see livepeer.RotateAfterFailures)",
 })
 
 var TranscodeDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
@@ -91,6 +111,38 @@ var WebsocketsOpen = promauto.NewGauge(prometheus.GaugeOpts{
 var ReplicationWebsocketsOpen = promauto.NewGauge(prometheus.GaugeOpts{
 	Name: "streamplace_replication_websockets_open",
 	Help: "number of open replication websockets",
+})
+
+// --- syndication (outbound) -------------------------------------------------
+//
+// The inbound side is ReplicationWebsocketsOpen (peers pulling from this
+// node). These are this node pulling from origins: what it does with each
+// broadcast origin it hears about, how many pulls it holds open, and how
+// often a pull fails. A node that is supposed to syndicate but shows only
+// not_syndicated or self outcomes, or connect errors, is misconfigured or
+// can't reach the origin.
+
+// ReplicationOutboundOpen is the number of origin websockets this node is
+// currently pulling segments from, per streamer.
+var ReplicationOutboundOpen = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_replication_outbound_open",
+	Help: "outbound syndication websockets this node holds open to origin nodes, per streamer",
+}, []string{"streamer"})
+
+// BroadcastOriginsTotal counts broadcast origin records handled, by what was
+// done with each: connect (a pull was opened), not_syndicated (the streamer
+// isn't in the syndicate role), self (the origin is this node),
+// already_connected, no_url (the record carries no websocket URL).
+var BroadcastOriginsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_broadcast_origins_total",
+	Help: "broadcast origin records handled, by outcome (connect|not_syndicated|self|already_connected|no_url)",
+}, []string{"outcome"})
+
+// ReplicationConnectErrorsTotal counts outbound syndication pulls that
+// failed: the dial, or a read after it.
+var ReplicationConnectErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_replication_connect_errors_total",
+	Help: "outbound syndication websocket dials or reads that failed",
 })
 
 var SegmentSubscriptionsOpen = promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -269,11 +321,10 @@ func ViewerDec(user string, protocol string) {
 			Viewers.WithLabelValues(user).Set(float64(viewersByStreamer[user]))
 		}
 		viewersByProtocol[protocol]--
-		if viewersByProtocol[protocol] == 0 {
-			ViewersTotal.DeleteLabelValues(protocol)
-		} else {
-			ViewersTotal.WithLabelValues(protocol).Set(float64(viewersByProtocol[protocol]))
-		}
+		// Per-protocol series stay at 0 rather than vanishing: a node with
+		// no viewers should read 0, not "no data". (Per-streamer ones are
+		// unbounded, so those are still dropped.)
+		ViewersTotal.WithLabelValues(protocol).Set(float64(viewersByProtocol[protocol]))
 	}()
 }
 
@@ -281,4 +332,43 @@ func GetViewCount(user string) int {
 	viewersLock.RLock()
 	defer viewersLock.RUnlock()
 	return viewersByStreamer[user]
+}
+
+// A labelled metric only appears on /metrics once some label combination has
+// been touched, so an idle node shows nothing at all for it — no way to tell
+// "zero" from "not scraping". Touching the known label values (and an empty
+// sentinel for per-streamer ones, which Prometheus reads as the label being
+// absent) makes every one of these report 0 from boot. Per-relay and
+// per-labeler ones are touched where those are configured.
+func init() {
+	for _, v := range []*prometheus.GaugeVec{Viewers, StreamSessions, SwarmPutCalls, ReplicationOutboundOpen} {
+		v.WithLabelValues("")
+	}
+	SegmentSubscriptionsOpen.WithLabelValues("", "")
+	for _, protocol := range []string{"webrtc", "hls", "local"} {
+		ViewersTotal.WithLabelValues(protocol)
+	}
+	for _, outcome := range []string{"connect", "not_syndicated", "self", "already_connected", "no_url"} {
+		BroadcastOriginsTotal.WithLabelValues(outcome)
+	}
+	for _, transport := range []string{"mp4-fd", "mp4", "whip"} {
+		IngestWorkerStarts.WithLabelValues(transport)
+		for _, outcome := range []string{"clean", "crash"} {
+			IngestWorkerExits.WithLabelValues(transport, outcome)
+		}
+	}
+	for _, backend := range []string{"file", "s3"} {
+		VODProcessAttemptsTotal.WithLabelValues(backend)
+		VODProcessSuccessesTotal.WithLabelValues(backend)
+	}
+}
+
+// TouchRelay makes a relay's per-relay series exist at 0 before its first
+// connection, so a relay that never connects is visible as 0 rather than
+// missing.
+func TouchRelay(relay, protocol string) {
+	FirehoseRelaysConnected.WithLabelValues(relay, protocol)
+	for _, kind := range []string{"commit", "identity"} {
+		FirehoseEventsReceivedTotal.WithLabelValues(relay, protocol, kind)
+	}
 }

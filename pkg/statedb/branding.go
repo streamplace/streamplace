@@ -2,6 +2,7 @@ package statedb
 
 import (
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -17,18 +18,60 @@ type BrandingBlob struct {
 	Height        *int   // image height in pixels (nullable)
 }
 
-// GetBrandingBlob fetches a single branding asset
+// Branding is read a key at a time from many places (every HTML render
+// consults every key for its meta tags; getBranding walks them all), which
+// was one query per key — free on sqlite, a network round trip each on
+// Postgres. The rows for a broadcaster are fetched with one query and held
+// for brandingSnapshotTTL; writes through this node drop the snapshot at
+// once, other nodes see them within the TTL.
+const brandingSnapshotTTL = 2 * time.Second
+
+type brandingSnapshot struct {
+	at    time.Time
+	blobs map[string]*BrandingBlob
+}
+
+// BrandingBlobs returns every branding asset of a broadcaster keyed by key,
+// from the snapshot when it is fresh.
+func (state *StatefulDB) BrandingBlobs(broadcasterID string) (map[string]*BrandingBlob, error) {
+	if v, ok := state.brandingCache.Load(broadcasterID); ok {
+		if snap := v.(*brandingSnapshot); time.Since(snap.at) < brandingSnapshotTTL {
+			return snap.blobs, nil
+		}
+	}
+	var rows []BrandingBlob
+	if err := state.DB.Where("broadcaster_id = ?", broadcasterID).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	blobs := make(map[string]*BrandingBlob, len(rows))
+	for i := range rows {
+		blobs[rows[i].Key] = &rows[i]
+	}
+	state.brandingCache.Store(broadcasterID, &brandingSnapshot{at: time.Now(), blobs: blobs})
+	return blobs, nil
+}
+
+func (state *StatefulDB) forgetBranding(broadcasterID string) {
+	state.brandingCache.Delete(broadcasterID)
+}
+
+// GetBrandingBlob fetches a single branding asset; gorm.ErrRecordNotFound
+// when the broadcaster has no such key.
 func (state *StatefulDB) GetBrandingBlob(broadcasterID, key string) (*BrandingBlob, error) {
-	var blob BrandingBlob
-	err := state.DB.Where("broadcaster_id = ? AND key = ?", broadcasterID, key).First(&blob).Error
+	blobs, err := state.BrandingBlobs(broadcasterID)
 	if err != nil {
 		return nil, err
 	}
-	return &blob, nil
+	blob, ok := blobs[key]
+	if !ok {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return blob, nil
 }
 
 // PutBrandingBlob stores or updates a branding asset
 func (state *StatefulDB) PutBrandingBlob(broadcasterID, key, mimeType string, data []byte, width, height *int) error {
+	defer state.forgetBranding(broadcasterID)
 	// try to find existing blob (including soft-deleted ones)
 	var existing BrandingBlob
 	err := state.DB.Unscoped().Where("broadcaster_id = ? AND key = ?", broadcasterID, key).First(&existing).Error
@@ -66,21 +109,20 @@ func (state *StatefulDB) PutBrandingBlob(broadcasterID, key, mimeType string, da
 
 // ListBrandingKeys returns all keys for a broadcaster
 func (state *StatefulDB) ListBrandingKeys(broadcasterID string) ([]string, error) {
-	var blobs []BrandingBlob
-	err := state.DB.Where("broadcaster_id = ?", broadcasterID).Select("key").Find(&blobs).Error
+	blobs, err := state.BrandingBlobs(broadcasterID)
 	if err != nil {
 		return nil, err
 	}
-
-	keys := make([]string, len(blobs))
-	for i, blob := range blobs {
-		keys[i] = blob.Key
+	keys := make([]string, 0, len(blobs))
+	for key := range blobs {
+		keys = append(keys, key)
 	}
 	return keys, nil
 }
 
 // DeleteBrandingBlob removes a specific asset
 func (state *StatefulDB) DeleteBrandingBlob(broadcasterID, key string) error {
+	defer state.forgetBranding(broadcasterID)
 	err := state.DB.Where("broadcaster_id = ? AND key = ?", broadcasterID, key).Delete(&BrandingBlob{}).Error
 	if err != nil {
 		return fmt.Errorf("error deleting branding blob: %w", err)

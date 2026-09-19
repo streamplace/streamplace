@@ -23,6 +23,7 @@ import (
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/spmetrics"
 
@@ -354,6 +355,13 @@ func (s *Server) handlePlaceStreamLiveSubscribeSegments(c echo.Context) error {
 
 		segChan := s.bus.SubscribeSegmentBuf(ctx, user, "source", 2)
 		defer s.bus.UnsubscribeSegment(ctx, user, "source", segChan)
+		// Rendition addenda (signed transcoded tracks, see
+		// media.MintVideoRenditions) ride the same socket, framed so the
+		// peer feeds them to its live window rather than validating them
+		// as segments. Only the ingest node transcodes; this is how the
+		// rest of the station gets the renditions.
+		renChan := s.bus.SubscribeSegmentBuf(ctx, user, media.RenditionsChannel, 4)
+		defer s.bus.UnsubscribeSegment(ctx, user, media.RenditionsChannel, renChan)
 		for {
 			select {
 			case <-ctx.Done():
@@ -369,6 +377,16 @@ func (s *Server) handlePlaceStreamLiveSubscribeSegments(c echo.Context) error {
 				err := ws.WriteMessage(websocket.BinaryMessage, file.Muxl)
 				if err != nil {
 					log.Error(ctx, "could not write message", "error", err)
+					cancel()
+					return
+				}
+			case ren := <-renChan.C:
+				if !ren.Published {
+					continue
+				}
+				err := ws.WriteMessage(websocket.BinaryMessage, media.FrameRenditions(ren.Muxl))
+				if err != nil {
+					log.Error(ctx, "could not write renditions", "error", err)
 					cancel()
 					return
 				}

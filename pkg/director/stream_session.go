@@ -40,6 +40,9 @@ import (
 )
 
 type StreamSession struct {
+	// Publication order for the source segments (WebRTC, peers) and for
+	// the transcoded renditions: see lane.
+	sourceLane, renditions *lane
 	mm                     *media.MediaManager
 	mod                    model.Model
 	cli                    *config.CLI
@@ -107,7 +110,7 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	var allRenditions renditions.Renditions
 
 	if ss.cli.LivepeerGatewayURL != "" {
-		allRenditions, err = renditions.GenerateRenditions(spseg)
+		allRenditions, err = renditions.GenerateRenditionsFrom(spseg, ss.cli.RenditionLadder())
 	} else {
 		allRenditions = []renditions.Rendition{}
 	}
@@ -129,7 +132,12 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
 	allRenditions = append(allRenditions, renditions.AudioRendition)
 
-	ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
+	// Live recording is the ingest node's job alone: a node that merely
+	// syndicates this stream must not also write it to S3, or every node
+	// records the same stream and they fight over the finalize.
+	if notif.Local {
+		ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
+	}
 
 	close(ss.started)
 
@@ -267,20 +275,25 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	// got absorbed into the recording). The moment publishing stops we complete
 	// the current object so it's immediately finalize-able instead of lingering
 	// un-completed (which made finalize report "no recorded S3 segments").
-	if notif.Metadata.Published {
+	if !notif.Local {
+		// replicated segment: the origin node records it
+	} else if notif.Metadata.Published {
 		ss.s3Upload(ctx, notif)
 	} else {
 		ss.s3Cutover(ctx)
 	}
 
 	ss.bus.Publish(spseg.Creator, spseg)
+	// Claimed here, in arrival order, so the source segments publish in it
+	// however long each one's packetizing takes.
+	sourceTurn := ss.sourceLane.turn()
 	ss.Go(ctx, func() error {
 		return ss.AddPlaybackSegment(ctx, spseg, "source", &bus.Seg{
 			Filepath:  notif.Segment.ID,
 			Data:      notif.Data,
 			Muxl:      notif.Muxl,
 			Published: notif.Metadata.Published,
-		})
+		}, sourceTurn)
 	})
 
 	if notif.Local {
@@ -307,10 +320,15 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	}
 	ss.UpdateViewCount(ctx)
 
-	if ss.cli.LivepeerGatewayURL != "" {
+	// Transcoding is the ingest node's job, like recording: a node that
+	// merely syndicates the stream receives the renditions with it.
+	if ss.cli.LivepeerGatewayURL != "" && notif.Local {
+		// Claimed in arrival order: the renditions publish in it however
+		// the gateway's round trips finish.
+		renditionTurn := ss.renditions.turn()
 		ss.Go(ctx, func() error {
 			start := time.Now()
-			err := ss.Transcode(ctx, spseg, notif.Data)
+			err := ss.Transcode(ctx, spseg, notif, renditionTurn)
 			took := time.Since(start)
 			spmetrics.QueuedTranscodeDuration.WithLabelValues(spseg.Creator).Set(float64(took.Milliseconds()))
 			return err
@@ -834,8 +852,22 @@ func (ss *StreamSession) doUpdateViewCount(ctx context.Context, repoDID string) 
 	return nil
 }
 
-func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segment, data []byte) error {
-	rs, err := renditions.GenerateRenditions(spseg)
+func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segment, notif *media.NewSegmentNotification, tn *turn) error {
+	// Released on every exit: a segment that is skipped or fails must not
+	// hold the ones behind it.
+	defer tn.release()
+	data := notif.Data
+	if len(notif.Muxl) > 0 {
+		// Hand the transcoder the Opus presentation: it muxes that audio
+		// back into every rendition, and the WebRTC packetizer the
+		// renditions feed needs Opus (an RTMP source's first audio is AAC).
+		if opus, err := media.PresentationWithOpus(ctx, notif.Muxl); err == nil {
+			data = opus
+		} else {
+			log.Warn(ctx, "transcode: could not select opus audio, using the presentation as is", "error", err)
+		}
+	}
+	rs, err := renditions.GenerateRenditionsFrom(spseg, ss.cli.RenditionLadder())
 	if err != nil {
 		return fmt.Errorf("failed to generated renditions: %w", err)
 	}
@@ -850,6 +882,16 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	}
 	spmetrics.TranscodeAttemptsTotal.Inc()
 	segs, err := ss.lp.PostSegmentToGateway(ctx, data, spseg, rs)
+	if errors.Is(err, livepeer.ErrBacklog) {
+		spmetrics.TranscodeSkippedTotal.Inc()
+		log.Debug(ctx, "transcode: skipped, transcoder is behind")
+		return nil
+	}
+	if errors.Is(err, livepeer.ErrNoKeyframe) {
+		spmetrics.TranscodeSkippedNoKeyframeTotal.Inc()
+		log.Warn(ctx, "transcode: skipped, segment does not start with an IDR", "segment", notif.Segment.ID)
+		return nil
+	}
 	if err != nil {
 		spmetrics.TranscodeErrorsTotal.Inc()
 		return err
@@ -863,42 +905,93 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	if err != nil {
 		return err
 	}
+	// Everything the renditions publish as is prepared first, concurrently
+	// where it can be; then the segment takes its turn and publishes all
+	// of it at once, so every consumer sees renditions in source order.
+	var addendum []byte
+	if len(notif.Muxl) > 0 {
+		inputs := make([]media.RenditionInput, len(segs))
+		for i, seg := range segs {
+			inputs[i] = media.RenditionInput{Name: rs[i].Name, MP4: seg}
+		}
+		addendum, err = ss.mm.MintVideoRenditions(ctx, notif.Muxl, inputs)
+		if err != nil {
+			log.Warn(ctx, "could not mint rendition tracks", "error", err)
+			addendum = nil
+		}
+	}
+	playback := make([]*bus.Seg, len(segs))
+	var pg errgroup.Group
 	for i, seg := range segs {
 		ctx := log.WithLogValues(ctx, "rendition", rs[i].Name)
-		log.Debug(ctx, "publishing segment", "rendition", rs[i])
 		fd, err := ss.cli.SegmentFileCreate(spseg.Creator, aqt, fmt.Sprintf("%s.mp4", rs[i].Name))
 		if err != nil {
 			return fmt.Errorf("failed to create transcoded segment file: %w", err)
 		}
-		defer fd.Close()
 		_, err = fd.Write(seg)
+		fd.Close()
 		if err != nil {
 			return fmt.Errorf("failed to write transcoded segment file: %w", err)
 		}
-		ss.Go(ctx, func() error {
-			return ss.AddPlaybackSegment(ctx, spseg, rs[i].Name, &bus.Seg{
-				Filepath: fd.Name(),
-				Data:     seg,
-			})
+		playback[i] = &bus.Seg{
+			Filepath: fd.Name(),
+			Data:     seg,
+			// Carries the source's state: WebRTC playback hands an
+			// unpublished segment only to the streamer, and a rendition
+			// with the flag unset was refused to every viewer.
+			Published: notif.Metadata.Published,
+		}
+		pg.Go(func() error {
+			packet, err := media.Packetize(ctx, ss.cli, playback[i])
+			if err != nil {
+				log.Error(ctx, "failed to packetize rendition segment", "error", err)
+				playback[i] = nil
+				return nil
+			}
+			playback[i].PacketizedData = packet
+			return nil
 		})
+	}
+	_ = pg.Wait()
 
+	tn.wait(ctx)
+	if addendum != nil {
+		// Into the live window (HLS variants), and to the peers pulling
+		// this stream (see subscribeSegments).
+		ss.mm.FeedLiveRenditions(context.WithoutCancel(ctx), spseg.Creator, addendum, notif.Metadata.Published)
+		ss.bus.PublishSegment(ctx, spseg.Creator, media.RenditionsChannel, &bus.Seg{
+			Muxl:      addendum,
+			Published: notif.Metadata.Published,
+		})
+	}
+	for i, seg := range playback {
+		if seg == nil {
+			continue
+		}
+		log.Debug(ctx, "publishing segment", "rendition", rs[i])
+		ss.bus.PublishSegment(ctx, spseg.Creator, rs[i].Name, seg)
 	}
 	return nil
 }
 
-func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg) error {
+// AddPlaybackSegment packetizes a segment for WebRTC and publishes it on
+// the bus, taking its turn (tn) in the stream's publication order once
+// the packetizing is done.
+func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg, tn *turn) error {
 	ss.Go(ctx, func() error {
-		return ss.AddToWebRTC(ctx, spseg, rendition, seg)
+		return ss.AddToWebRTC(ctx, spseg, rendition, seg, tn)
 	})
 	return nil
 }
 
-func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg) error {
+func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg, tn *turn) error {
+	defer tn.release()
 	packet, err := media.Packetize(ctx, ss.cli, seg)
 	if err != nil {
 		return fmt.Errorf("failed to packetize segment: %w", err)
 	}
 	seg.PacketizedData = packet
+	tn.wait(ctx)
 	ss.bus.PublishSegment(ctx, spseg.Creator, rendition, seg)
 	return nil
 }

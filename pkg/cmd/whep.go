@@ -202,8 +202,12 @@ func (w *WHEPClient) StartWHEPConnection(ctx context.Context, stats map[string]*
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 201 {
-		return nil, fmt.Errorf("status code: %d", resp.StatusCode)
+	// WHEP proper answers 201 Created (the /api/playback/.../webrtc route);
+	// the XRPC method place.stream.playback.whep goes through the generated
+	// handler, which can only write 200. Either carries the SDP answer.
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return nil, fmt.Errorf("status code: %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	// Read and process the answer

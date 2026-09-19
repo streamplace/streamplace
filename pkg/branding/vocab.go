@@ -178,9 +178,62 @@ func Normalize(key string, value []byte) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s must be JSON", key)
 		}
+		if check, ok := jsonShapes[key]; ok {
+			if err := check(canon); err != nil {
+				return nil, fmt.Errorf("%s: %w", key, err)
+			}
+		}
 		return canon, nil
 	}
 	return []byte(v), nil
+}
+
+// jsonShapes is what each JSON key must look like; the app reads these
+// without further checks, so a value of the wrong shape (an object where a
+// list is documented) would crash it rather than be ignored.
+var jsonShapes = map[string]func([]byte) error{
+	"navLinks":    linkList("label", "url"),
+	"socialLinks": linkList("label", "url"),
+	"legalLinks":  linkList("text", "url"),
+	"navCta":      linkObject("label", "url"),
+}
+
+// linkList accepts a JSON array of objects whose named fields are
+// non-empty strings.
+func linkList(fields ...string) func([]byte) error {
+	return func(b []byte) error {
+		var items []map[string]any
+		if err := json.Unmarshal(b, &items); err != nil {
+			return fmt.Errorf("must be a JSON list of objects")
+		}
+		for i, item := range items {
+			if err := hasStringFields(item, fields); err != nil {
+				return fmt.Errorf("item %d %w", i+1, err)
+			}
+		}
+		return nil
+	}
+}
+
+// linkObject accepts one JSON object whose named fields are non-empty
+// strings.
+func linkObject(fields ...string) func([]byte) error {
+	return func(b []byte) error {
+		var item map[string]any
+		if err := json.Unmarshal(b, &item); err != nil {
+			return fmt.Errorf("must be a JSON object")
+		}
+		return hasStringFields(item, fields)
+	}
+}
+
+func hasStringFields(item map[string]any, fields []string) error {
+	for _, f := range fields {
+		if v, _ := item[f].(string); strings.TrimSpace(v) == "" {
+			return fmt.Errorf("needs a %s", f)
+		}
+	}
+	return nil
 }
 
 // CanonicalJSON re-serializes a JSON document compactly with object keys

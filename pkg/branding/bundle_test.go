@@ -135,6 +135,8 @@ func TestImportValidation(t *testing.T) {
 	dst := newState(t)
 	cases := map[string]string{
 		"bad color":        "branding:\n  primaryColor: green\n",
+		"bad shape":        "branding:\n  legalLinks: {text: a, url: b}\n",
+		"link without url": "branding:\n  navLinks: [{label: Home}]\n",
 		"missing file":     "branding:\n  mainLogo: nope.svg\n",
 		"future version":   "version: 99\nbranding: {}\n",
 		"json not a value": "branding:\n  navCta: '{not json'\n",
@@ -168,6 +170,15 @@ func TestNormalize(t *testing.T) {
 	v, err = Normalize("siteTitle", []byte(""))
 	require.NoError(t, err)
 	require.Empty(t, v)
+	v, err = Normalize("navLinks", []byte(`[{"url":"https://a","label":"A","icon":"home"}]`))
+	require.NoError(t, err)
+	require.Equal(t, `[{"icon":"home","label":"A","url":"https://a"}]`, string(v))
+	_, err = Normalize("navLinks", []byte(`{"label":"A","url":"https://a"}`))
+	require.Error(t, err, "a list, not an object")
+	_, err = Normalize("navCta", []byte(`[{"label":"A","url":"https://a"}]`))
+	require.Error(t, err, "an object, not a list")
+	_, err = Normalize("legalLinks", []byte(`[{"label":"Terms","url":"https://a"}]`))
+	require.Error(t, err, "legal links use text, not label")
 	v, err = Normalize("unknownKey", []byte("anything"))
 	require.NoError(t, err)
 	require.Equal(t, "anything", string(v))

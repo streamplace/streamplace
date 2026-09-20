@@ -89,8 +89,12 @@ FFmpeg, iroh and friends that cgo links against) and no `js/app/dist`
 with `//go:embed all:dist/**`). Build both at once, once:
 
 ```sh
-make dev-container   # container + this build; ~5 min, ~1.6 GB
+make dev-container   # container + this build; ~5–8 min cold, ~2 GB
 ```
+
+(The cold build's wall time is dominated by subproject and Go-module
+downloads; `build-linux-amd64/` alone lands at ~1.9 GB and the two frontend
+bundles at ~180 MB.)
 
 `make dev-container` ensures the container (§1) and then runs the build
 inside it. Run directly inside a container, the equivalent is `make dev-setup`
@@ -222,23 +226,34 @@ destination=...` in the log to confirm which way it went). Invoke
   `SP_DEV_FRONTEND_PROXY=false` (or unset) disables the proxy and serves
   the bundle embedded in the binary instead, which needs no metro at all.
 
+  The recipe only unsets `SP_ACCESS_POLICY`, but the developer shell already
+  exports a pile of `SP_*` config (`SP_ADMIN_DIDS`, `SP_ALLOWED_STREAMS`,
+  `SP_S3_*`, `SP_RELAY_HOST`, `SP_BROADCASTER_HOST`, …) that the scratch node
+  inherits — it comes up logging `upload manager: S3 backend bucket=…` and
+  `starting firehose consumers relays=[…, ws://jumbo.iameli.xyz:2480]`, i.e.
+  pointed at real S3 and the production relay. Harmless for a pure frontend
+  check, but unset them (`env -u SP_S3_ENDPOINT -u SP_RELAY_HOST …`) if you
+  want an isolated node.
+
 - Do not start metro with `CI=1`: that disables file watching.
 - `js/app/.env.development` pins `EXPO_PUBLIC_STREAMPLACE_URL` to the
   38080 node; override it on the command line for a scratch node.
 - Branding and other per-node state can be seeded straight into the
   scratch node's `state.sqlite` (`branding_blobs`, `broadcaster_id` is the
   node's `did:web:host:port`). _(unverified)_
-- Screenshots and UI checks: Playwright with a Chromium the _harness_ can
-  launch. On this box `/usr/bin/chromium` does not exist and the system
-  browser is a snap whose confinement refuses a profile directory under
-  `~/.omp` or `~/.cache` ("Failed to create … SingletonLock: Permission
-  denied"); Playwright's own download
-  (`~/.cache/ms-playwright/chromium-<rev>/chrome-linux64/chrome`, or
-  `pnpm --filter @streamplace/e2e-web install-browser` in the container)
-  works as `executablePath`. A persistent profile directory in your
-  scratchpad keeps an OAuth session across runs. The iOS-simulator loop for
-  the Expo app is the `streamplace-app` skill in `.claude/skills/`.
-  _(unverified)_
+- Screenshots and UI checks: use Playwright's Chromium, not the system one.
+  `/usr/bin/chromium` does not exist and the system browser is a snap whose
+  confinement refuses a profile directory under `~/.omp` or `~/.cache`
+  ("Failed to create … SingletonLock: Permission denied"). With no
+  `executablePath` the harness's own managed Chromium also fails outright
+  ("Shared browser daemon unavailable — broker start or Chromium launch
+  failed"); pass the downloaded browser explicitly:
+  `~/.cache/ms-playwright/chromium-<rev>/chrome-linux64/chrome` (install with
+  `pnpm --filter @streamplace/e2e-web install-browser`; inside the container
+  it lands under `/root/.cache/ms-playwright/`). A persistent profile
+  directory in your scratchpad keeps an OAuth session across runs.
+  _(profile-persistence part unverified)_ The iOS-simulator loop for the
+  Expo app is the `streamplace-app` skill in `.claude/skills/`.
 - A TLS dev environment for a real hostname (own cert in `/shared/codes`,
   `/etc/hosts` entry, `iptables` 443 → the scratch HTTPS port) is what made
   OAuth against a strict PDS work; `SP_DEV_PUBLIC_OAUTH=false SP_SECURE=true
@@ -292,7 +307,11 @@ hatch, the explicit `getLiveUsers` limit and the current sidebar labels.
 - A killed harness leaves orphaned node/PDS processes behind. They hold
   ports and their data dirs under `/tmp` look like the run you are
   debugging, so sweep them before re-running:
-  `pkill -f 'libstreamplace e2e'; pkill -f 'js/dev-env/run.mjs'`.
+  `pkill -f 'libstreamplace e2e'; pkill -f 'js/dev-env/run.mjs'`. If you run
+  that from a wrapper whose own command line contains the pattern (e.g.
+  `docker exec … bash -c "pkill -f 'libstreamplace e2e'"`) it matches and
+  kills itself; bracket a character (`'libstreamplace e2[o]e'`) to exclude
+  the wrapper.
 - `js/dev-env` needs Node 22 (better-sqlite3 pin).
 
 ## 6. Git and GitHub _(unverified)_
@@ -352,7 +371,8 @@ github/gh-stack`). `gh stack init --base next b1 b2 b3` adopts existing
 file or directory` on a pre-glex branch. Either `rm -rf build-linux-amd64
 && make dev-setup`, or fetch the wrap by hand.
 - `make dev` / `make app-cached` **silently skip the JS build** when
-  `js/app/dist/index.html` exists, printing only "not rebuilding". After a
+  `js/app/dist/index.html` exists, printing only
+  `frontends already built, run make app to rebuild`. After a
   branch switch that leaves you with the previous branch's frontend _and_
   `node_modules`, which surfaces later as bizarre failures (e.g. an old
   `lex` CLI rejecting `gen-api`). `rm -rf js/app/dist && pnpm install`

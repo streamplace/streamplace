@@ -6,12 +6,16 @@
 #   hack/e2e-web-local.sh [-- <extra playwright args>]
 #
 # Prerequisites:
-#   * A streamplace binary whose embedded web bundle was built with
-#     EXPO_PUBLIC_WEB_TRY_LOCAL=true, so the app served by the harness node
-#     targets its own origin (no server-setup step needed). Build it with:
-#         EXPO_PUBLIC_WEB_TRY_LOCAL=true make app && make dev
+#   * A streamplace binary with the embedded web bundle (`make dev`).
+#     EXPO_PUBLIC_WEB_TRY_LOCAL is *not* required: the Playwright global
+#     setup drives Settings -> Advanced and points the app at the harness
+#     node itself (the web counterpart of .maestro/00-server-setup.yaml), so
+#     a plain `make dev` build works. Building with
+#     EXPO_PUBLIC_WEB_TRY_LOCAL=true only changes the app's compile-time
+#     default (window origin instead of https://stream.place).
 #   * Playwright + its chromium browser installed in js/e2e-web
-#     (pnpm --filter @streamplace/e2e-web install-browser).
+#     (pnpm --filter @streamplace/e2e-web install-browser; needs root for
+#     --with-deps, so run it inside the container).
 #
 # On a dev host without the cgo runtime, run this inside the build container.
 set -euo pipefail

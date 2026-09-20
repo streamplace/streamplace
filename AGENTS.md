@@ -85,9 +85,10 @@ in §7 is worth skimming first if something fails for no apparent reason.
 
 A fresh checkout has no `build-linux-amd64/` (the meson-built GStreamer,
 FFmpeg, iroh and friends that cgo links against) and no `js/app/dist`
-(the Expo web bundle that `pkg/api`, `pkg/media` and `pkg/spxrpc` embed
-with `//go:embed all:dist/**`). `make provision` builds all of it, then
-proves it works:
+(the Expo web bundle `js/app/app.go` embeds with `//go:embed all:dist/**`;
+`js/web/app.go` embeds the Vite build the same way, and `pkg/api`,
+`pkg/media` and `pkg/spxrpc` consume those two packages). `make provision`
+builds all of it, then proves it works:
 
 ```sh
 make provision   # container -> deps -> frontends -> make dev -> e2e
@@ -201,8 +202,9 @@ go test -count=1 ./pkg/<touched>/...
 ### Testing against in-flight muxl
 
 streamplace consumes muxl as a Go library (`github.com/streamplace/muxl/go`),
-which embeds its own `muxl.wasm`; `pkg/muxl/muxl.go` is a thin shim over a
-wazero engine, pinned in `go.mod`. To test unreleased muxl changes:
+which embeds its own `muxl.wasm`; `pkg/muxl/muxl.go` is a thin adapter over
+that library — the wazero engine and host imports live upstream now — pinned
+in `go.mod`. To test unreleased muxl changes:
 
 1. In the muxl repo, rebuild the embedded blob: `just build-go-wasm` (writes
    `/home/iameli/code/muxl/go/muxl.wasm`). Required — the wasm _is_ the CLI,

@@ -20,9 +20,22 @@ PARENT="$(dirname "$REPO")"
 MODE="${1:-ensure}"
 
 case "$MODE" in
-  ensure|dev-setup) ;;
-  *) echo "usage: hack/container.sh [ensure|dev-setup]" >&2; exit 2 ;;
+  ensure|dev-setup|name) ;;
+  *) echo "usage: hack/container.sh [ensure|dev-setup|name]" >&2; exit 2 ;;
 esac
+
+# `name` prints the running container for this checkout and nothing else, for
+# callers that need to docker exec into it themselves.
+if [[ "$MODE" == name ]]; then
+  for candidate in "$NAME" "$NAME-builder"; do
+    if docker ps --format '{{.Names}}' | grep -qx "$candidate"; then
+      echo "$candidate"
+      exit 0
+    fi
+  done
+  echo "no running container for $NAME — run 'make container' first" >&2
+  exit 1
+fi
 
 if [[ "$NAME" != streamplace* ]]; then
   echo "refusing: $REPO is not a streamplace-* checkout, so the container would" >&2

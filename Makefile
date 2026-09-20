@@ -305,6 +305,13 @@ container:
 dev-container:
 	bash hack/container.sh dev-setup
 
+# Cold checkout to a proven dev environment: container, dependencies, embedded
+# frontends, dev binaries, Playwright browser and a passing e2e run. Idempotent
+# — re-run it after a branch switch and it redoes only what went stale.
+.PHONY: provision
+provision:
+	bash hack/provision.sh
+
 .PHONY: dev-setup
 dev-setup:
 	$(MAKE) -j16 app-cached dev-setup-meson

@@ -6,9 +6,9 @@ September 2026 unless marked _(unverified)_ — that mark means the note comes
 from earlier notes and was not re-checked when this file was written, so
 re-run it before trusting it.
 
-Cold start, in order: `make dev-container` (§1+§2) → `make dev` (§4) →
-`hack/e2e-web-local.sh` (§5). The pitfall list in §7 is worth skimming first
-if something fails for no apparent reason.
+Cold start: `make provision` (§2) takes a bare checkout all the way to a green
+e2e run. After that, §4 runs a node and §5 re-runs the tests. The pitfall list
+in §7 is worth skimming first if something fails for no apparent reason.
 
 ## 1. Where to work
 
@@ -86,15 +86,33 @@ if something fails for no apparent reason.
 A fresh checkout has no `build-linux-amd64/` (the meson-built GStreamer,
 FFmpeg, iroh and friends that cgo links against) and no `js/app/dist`
 (the Expo web bundle that `pkg/api`, `pkg/media` and `pkg/spxrpc` embed
-with `//go:embed all:dist/**`). Build both at once, once:
+with `//go:embed all:dist/**`). `make provision` builds all of it, then
+proves it works:
 
 ```sh
-make dev-container   # container + this build; ~5–8 min cold, ~2 GB
+make provision   # container -> deps -> frontends -> make dev -> e2e
 ```
 
-(The cold build's wall time is dominated by subproject and Go-module
-downloads; `build-linux-amd64/` alone lands at ~1.9 GB and the two frontend
-bundles at ~180 MB.)
+It is the last thing to run before handing a checkout to an agent: when it
+prints `4 passed`, the toolchain is known good, so anything that fails later
+is about the change under test rather than the environment. It is idempotent
+— a second run is about a minute — and it rebuilds the frontends only when a
+tracked source under `js/` is newer than `js/app/dist`, because `make dev`
+skips that build silently (§7). It cannot pre-validate a _later_ change: the
+bundle it embeds is what the e2e flows exercise, so an edit under `js/` needs
+another run before the suite reflects it.
+
+The cold run is dominated by the docker pull and the subproject/Go-module
+downloads: ~8 min, ~2 GB, of which `build-linux-amd64/` is ~1.9 GB and the two
+frontend bundles ~180 MB.
+
+The steps individually, if you want to drive them yourself:
+
+```sh
+make dev-container   # container + build-linux-amd64; ~5–8 min cold, ~2 GB
+make app             # the embedded frontends, after a change under js/
+make dev             # libstreamplace + the dev launcher
+```
 
 `make dev-container` ensures the container (§1) and then runs the build
 inside it. Run directly inside a container, the equivalent is `make dev-setup`
@@ -276,6 +294,9 @@ pnpm --filter @streamplace/e2e-web install-browser  # once; needs root for --wit
 hack/e2e-web-local.sh                               # 4 tests, ~40s
 ```
 
+`make provision` (§2) runs this same script, with everything it needs already
+in place, and fails loudly if it does not pass.
+
 Run it **inside the container**: the container is not host-networked
 (pasta), so harness ports bound in there are not reachable from the host,
 and Playwright has to live in the same network namespace. To watch it
@@ -316,6 +337,9 @@ hatch, the explicit `getLiveUsers` limit and the current sidebar labels.
   by name too (`pkill -f 'libstreamplace ingest-worker'`), or just let
   `hack/e2e-web-local.sh` clean up after itself (it sweeps the binaries that
   appeared during the run, leaving any pre-existing scratch node alone).
+  It leaves a couple of `[libstreamplace] <defunct>` zombies behind, because
+  the container's PID 1 is `tail -f /dev/null` and never reaps; they hold
+  nothing, so ignore them.
 - `js/dev-env` needs Node 22 (better-sqlite3 pin).
 
 ## 6. Git and GitHub _(unverified)_

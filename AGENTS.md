@@ -2,7 +2,7 @@
 
 How to get a Streamplace checkout from "cloned" to "built, tested, reviewed
 and stacked as PRs". Everything here was exercised on a Linux box in
-September 2026 unless marked *(unverified)* — that mark means the note comes
+September 2026 unless marked _(unverified)_ — that mark means the note comes
 from earlier notes and was not re-checked when this file was written, so
 re-run it before trusting it.
 
@@ -27,13 +27,14 @@ if something fails for no apparent reason.
   make dev-container    # ...and build the dev environment inside it (§2)
   ```
 
-  `hack/container.sh` does the work: it looks for `streamplace-N` *and*
+  `hack/container.sh` does the work: it looks for `streamplace-N` _and_
   `streamplace-N-builder` (running or stopped) and only runs `docker run` if
   neither exists. It refuses to run outside a `streamplace-*` directory, so
   you cannot accidentally make a container for a sibling repo, and it notes
   when the container's image is older than `.ci/dockerfile-hash.yaml`.
   Run from inside a container, `make container` just says so and
   `make dev-container` degrades to `make dev-setup`.
+
 - Doing it by hand, `docker ps` **hides stopped containers**, and
   `docker exec` on a stopped one fails with "can only create exec sessions on
   running containers":
@@ -45,6 +46,7 @@ if something fails for no apparent reason.
 
   Sometimes the running container is named `streamplace-N-builder` instead,
   and both can exist at once. Pick whichever is `Up`.
+
 - Check what the container actually mounts, and what its environment already
   provides, before relying on either:
 
@@ -56,7 +58,7 @@ if something fails for no apparent reason.
   A container that mounts only your checkout cannot see a sibling's
   `build-linux-amd64`. Containers created from the brief's `docker run`
   recipe also arrive with `PKG_CONFIG_PATH`/`LD_LIBRARY_PATH` already
-  pointed at *your* checkout's build dir, so non-interactive `docker exec`
+  pointed at _your_ checkout's build dir, so non-interactive `docker exec`
   is not the problem there — but a container created some other way may
   have neither set.
 
@@ -127,7 +129,7 @@ go test -count=1 ./pkg/<touched>/...
   checks yourself; otherwise you get phantom "Property X does not exist on
   type ...lexicons" errors from a different branch.
 
-## 3. Tests: what to run and what to ignore *(unverified)*
+## 3. Tests: what to run and what to ignore _(unverified)_
 
 - Run targeted packages. `./pkg/media` as a whole takes ~17 minutes and one
   test (`TestMPEGTSVideoMP4AudioToMP4Invalid`) can hang in a GStreamer
@@ -174,17 +176,18 @@ go test -count=1 ./pkg/<touched>/...
   environment override passed to the launcher is **silently ignored** —
   your "scratch" node would proxy its frontend to the primary node's metro
   on 38081 (watch for `using frontend proxy instead of bundled frontend
-  destination=...` in the log to confirm which way it went). Invoke
+destination=...` in the log to confirm which way it went). Invoke
   `libstreamplace` directly with `LD_LIBRARY_PATH=build-linux-amd64/lib`.
   `SP_DEV_FRONTEND_PROXY=false` (or unset) disables the proxy and serves
   the bundle embedded in the binary instead, which needs no metro at all.
+
 - Do not start metro with `CI=1`: that disables file watching.
 - `js/app/.env.development` pins `EXPO_PUBLIC_STREAMPLACE_URL` to the
   38080 node; override it on the command line for a scratch node.
 - Branding and other per-node state can be seeded straight into the
   scratch node's `state.sqlite` (`branding_blobs`, `broadcaster_id` is the
-  node's `did:web:host:port`). *(unverified)*
-- Screenshots and UI checks: Playwright with a Chromium the *harness* can
+  node's `did:web:host:port`). _(unverified)_
+- Screenshots and UI checks: Playwright with a Chromium the _harness_ can
   launch. On this box `/usr/bin/chromium` does not exist and the system
   browser is a snap whose confinement refuses a profile directory under
   `~/.omp` or `~/.cache` ("Failed to create … SingletonLock: Permission
@@ -194,30 +197,30 @@ go test -count=1 ./pkg/<touched>/...
   works as `executablePath`. A persistent profile directory in your
   scratchpad keeps an OAuth session across runs. The iOS-simulator loop for
   the Expo app is the `streamplace-app` skill in `.claude/skills/`.
-  *(unverified)*
+  _(unverified)_
 - A TLS dev environment for a real hostname (own cert in `/shared/codes`,
   `/etc/hosts` entry, `iptables` 443 → the scratch HTTPS port) is what made
   OAuth against a strict PDS work; `SP_DEV_PUBLIC_OAUTH=false SP_SECURE=true
-  SP_TLS_CERT/KEY=...` on the node. *(unverified)*
+SP_TLS_CERT/KEY=...` on the node. _(unverified)_
 
 ## 5. End-to-end tests
 
-The e2e harness is **not on `next`**. Upstream it lives on `natb/e2e`
-(mobile, Maestro) and `natb/e2e-web` (headless Chromium, Playwright); both
-drive the same `streamplace e2e` subcommand (`pkg/cmd/e2e.go`), which boots
+The harness is in this checkout: `pkg/cmd/e2e.go` (the `streamplace e2e`
+subcommand), `js/e2e-web/` (Playwright flows), `.maestro/` (the mobile
+equivalent, Maestro) and `hack/e2e-web-local.sh`. It boots
 `js/dev-env/run.mjs` (local PDS + PLC), creates a throwaway account, forks a
 server node, registers a stream key, loops a WHIP stream and prints
 `SERVER_URL`, `ACCOUNT_HANDLE`, `ACCOUNT_DID`.
 
-### The web (Playwright) suite, as verified
+### The web (Playwright) suite
 
 ```sh
 make dev                                            # harness binary
 pnpm --filter @streamplace/e2e-web install-browser  # once; needs root for --with-deps
-hack/e2e-web-local.sh                               # harness + flows, 4 tests
+hack/e2e-web-local.sh                               # 4 tests, ~40s
 ```
 
-Run this **inside the container**: the container is not host-networked
+Run it **inside the container**: the container is not host-networked
 (pasta), so harness ports bound in there are not reachable from the host,
 and Playwright has to live in the same network namespace. To watch it
 directly instead of through the script, `./build-linux-amd64/streamplace e2e`
@@ -226,55 +229,32 @@ and then runs `pnpm exec playwright test` in `js/e2e-web`. The global setup
 waits for the harness's looping stream to be live before driving the app,
 so a run that never goes green usually means the stream, not the UI.
 
-### Running the suite against a branch of your own *(verified on a next-based branch)*
-
-`natb/e2e-web` is hundreds of commits behind, so its harness does not test
-your code. Bringing it forward is a small, mechanical port, not a rebase —
-graft the files rather than merging the branch:
-
-```sh
-git checkout origin/natb/e2e-web -- \
-  pkg/cmd/e2e.go js/e2e-web hack/e2e-web-local.sh .maestro
-```
-
-then register the command (`makeE2eCommand(build)` in `pkg/cmd/streamplace.go`'s
-`app.Commands`) and fix the drift. As of September 2026 that is:
-
-- `pkg/cmd/e2e.go`: the lexicon package is `pkg/placestream`, not
-  `pkg/streamplace`; and indigo's `lexutil.LexiconTypeDecoder` refuses glex
-  records ("can only handle record fields with const $type"), so write
-  records through the repo's own `pkg/comatproto` types with
-  `glex.LexiconTypeDecoder{Val: rec}` via `client.Do(...)`.
-- `pkg/aqhttp/aqhttp.go`: add the `SP_TRUST_PRIVATE_NETWORK=true` escape
-  hatch that `pkg/cmd/e2e.go` already sets, or the node cannot resolve the
-  test account's DID through the loopback PLC.
-- `js/e2e-web/global-setup.ts`: request
-  `place.stream.live.getLiveUsers?limit=50`. Without an explicit `limit`
-  the handler truncates the streamer list to 0 and answers `{}` forever, so
-  the readiness probe never sees the stream.
-- `js/e2e-web/flows/`: the desktop sidebar labels its links `Home` /
-  `Settings` (not `Link to /settings`), and `/live` now opens the login
-  modal instead of rendering a "Live Dashboard".
-- `js/app`, `js/components`: testIDs on the custom-node toggle, URL field,
-  save button and home stream card (`aqlink.tsx` needs to forward `testID`),
-  plus the guards that stop an undefined node URL from crashing the app.
+This copy was brought forward from `origin/natb/e2e-web`, which is hundreds
+of commits behind and is still where the mobile `.maestro/` suite is
+maintained. If you ever need to re-port it, `git log js/e2e-web` and the
+commit that added it record exactly what the drift was — the lexicon
+package rename, glex record marshalling, the `SP_TRUST_PRIVATE_NETWORK`
+hatch, the explicit `getLiveUsers` limit and the current sidebar labels.
 
 ### Things only running the flows teaches you
 
 - The node's PLC lookup refuses loopback unless `SP_TRUST_PRIVATE_NETWORK=true`.
 - iOS collapses whole modals into one accessibility element, so Maestro text
-  matches need substrings. *(unverified)*
+  matches need substrings. _(unverified)_
 - Fresh iOS sims show a notifications permission dialog that dims everything
-  (pre-grant with `applesimutils`). *(unverified)*
+  (pre-grant with `applesimutils`). _(unverified)_
 - The web feed fetches once on mount, so the global setup must wait for the
   harness stream to be live.
+- `place.stream.live.getLiveUsers` with no `limit` answers `{}` no matter
+  how live the stream is: the handler truncates the streamer list to `limit`,
+  so zero means zero. Pass `?limit=50`.
 - A killed harness leaves orphaned node/PDS processes behind. They hold
   ports and their data dirs under `/tmp` look like the run you are
   debugging, so sweep them before re-running:
   `pkill -f 'libstreamplace e2e'; pkill -f 'js/dev-env/run.mjs'`.
 - `js/dev-env` needs Node 22 (better-sqlite3 pin).
 
-## 6. Git and GitHub *(unverified)*
+## 6. Git and GitHub _(unverified)_
 
 - Two GitHub identities are usually present: `GH_TOKEN`/`GITHUB_TOKEN`
   fine-grained PATs in the environment that can push but **cannot create
@@ -284,7 +264,7 @@ then register the command (`makeE2eCommand(build)` in `pkg/cmd/streamplace.go`'s
   with `gh api -X POST repos/<o>/<r>/pulls -f title=probe`: a 422 means the
   token is good, a 403 means it is not.
 - Stacked PRs use GitHub's `gh stack` extension (`gh extension install
-  github/gh-stack`). `gh stack init --base next b1 b2 b3` adopts existing
+github/gh-stack`). `gh stack init --base next b1 b2 b3` adopts existing
   branches bottom to top; `gh stack submit --auto` pushes and opens PRs
   (drafts; `--open` for ready, or `gh pr ready N` later); `gh stack sync`
   does the cascading rebase after a lower PR merges or changes, and pushes.
@@ -317,28 +297,28 @@ then register the command (`makeE2eCommand(build)` in `pkg/cmd/streamplace.go`'s
 ## 7. Small things that cost time
 
 - `build-linux-amd64/` is not branch-aware, and `make dev` only runs
-  `dev-setup` when the directory is *missing*. Switch to a branch whose
+  `dev-setup` when the directory is _missing_. Switch to a branch whose
   `meson.build` differs and you keep the old configuration — including
   whatever subprojects the old branch downloaded. Concrete symptom:
   `make lexicons` dies on `stat ./subprojects/atproto/lexicons: no such
-  file or directory` on a pre-glex branch. Either `rm -rf build-linux-amd64
-  && make dev-setup`, or fetch the wrap by hand.
+file or directory` on a pre-glex branch. Either `rm -rf build-linux-amd64
+&& make dev-setup`, or fetch the wrap by hand.
 - `make dev` / `make app-cached` **silently skip the JS build** when
   `js/app/dist/index.html` exists, printing only "not rebuilding". After a
-  branch switch that leaves you with the previous branch's frontend *and*
+  branch switch that leaves you with the previous branch's frontend _and_
   `node_modules`, which surfaces later as bizarre failures (e.g. an old
   `lex` CLI rejecting `gen-api`). `rm -rf js/app/dist && pnpm install`
   before `make dev` whenever you change branches.
 - `make lexicons` also rewrites `lexicons.json` (trailing newline
   differences after a glex bump); commit it with the regeneration. On some
   branches it ends in `make fix`, which prettier-formats the whole tree —
-  expect unrelated diffs afterwards. *(the `lexicons.json` half is unverified)*
+  expect unrelated diffs afterwards. _(the `lexicons.json` half is unverified)_
 - `pnpm add` in `js/app` re-runs `js/streamplace`'s prepare step and drops
-  the generated lexicon types; rerun `make js-lexicons`. *(unverified)*
+  the generated lexicon types; rerun `make js-lexicons`. _(unverified)_
 - Package tests that spawn a node write under `SP_DATA_DIR`; keep scratch
-  data under your scratchpad, not the checkout. *(unverified)*
+  data under your scratchpad, not the checkout. _(unverified)_
 - A "failed" GitHub check named `${{ matrix.image }} image` after a force
   push is usually a cancelled run from the superseded commit; open the run
-  and look at `conclusion` before rerunning anything. *(unverified)*
+  and look at `conclusion` before rerunning anything. _(unverified)_
 - The `sync` (tangled mirror) job rate-limits when many branches push at
-  once; `gh run rerun <id> --failed` clears it. *(unverified)*
+  once; `gh run rerun <id> --failed` clears it. _(unverified)_

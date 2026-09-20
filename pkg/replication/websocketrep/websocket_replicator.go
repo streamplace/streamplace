@@ -340,7 +340,9 @@ func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *placestre
 				log.Warn(ctx, "syndication: rendition addendum failed verification, dropped", "error", err)
 				continue
 			}
-			r.mm.FeedLiveRenditions(context.WithoutCancel(ctx), origin.Streamer, addendum, true)
+			// Only public streams are syndicated, so the ordering check that
+			// wants the start time does not apply here.
+			r.mm.FeedLiveRenditions(context.WithoutCancel(ctx), origin.Streamer, addendum, time.Time{}, true)
 			// And onto this node's bus for WebRTC viewers who pick a
 			// rendition here.
 			r.mm.PublishRenditionsForPlayback(context.WithoutCancel(ctx), origin.Streamer, addendum, true)

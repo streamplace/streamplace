@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/decred/dcrd/dcrec/secp256k1"
@@ -119,8 +120,9 @@ func TestMintVideoRenditions(t *testing.T) {
 
 	// Into the live window: the source and both renditions are variants.
 	const did = "did:test:streamer"
-	mm.feedLiveWindow(ctx, did, src, true)
-	mm.FeedLiveRenditions(ctx, did, addendum, true)
+	t0 := time.Now()
+	mm.feedLiveWindow(ctx, did, src, t0, true)
+	mm.FeedLiveRenditions(ctx, did, addendum, t0, true)
 	w := mm.GetLiveWindow(did)
 	require.NotNil(t, w)
 	master := w.MasterPlaylist(func(tid string) string { return tid + ".m3u8" })
@@ -142,7 +144,7 @@ func TestMintVideoRenditions(t *testing.T) {
 	// layout is remembered) and lands on the same track ids.
 	again, err := mm.mintVideoRenditions(ctx, src, []RenditionInput{{Name: "160p", MP4: r360}, {Name: "80p", MP4: r160}}, cert, keyPEM)
 	require.NoError(t, err)
-	mm.FeedLiveRenditions(ctx, did, again, true)
+	mm.FeedLiveRenditions(ctx, did, again, t0, true)
 	require.Len(t, w.Track("100").Segments, 4)
 
 	// A broken rendition is skipped, the rest still mint.

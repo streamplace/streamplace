@@ -42,17 +42,9 @@ const liveWindowMinFragment = 500 * time.Millisecond
 // enough not to cut a briefly-lagging player.
 const liveWindowRetention = 30 * time.Second
 
-// liveWindow returns the streamer's in-memory live-HLS window, creating it on
-// first use.
-func (mm *MediaManager) liveWindow(did string) *livehls.Writer {
-	mm.liveWindowsMut.Lock()
-	defer mm.liveWindowsMut.Unlock()
-	w := mm.liveWindows[did]
-	if w == nil {
-		w = livehls.NewWriter(livehls.WithWindow(liveWindowSize), livehls.WithMinDuration(liveWindowMinDuration), livehls.WithMinFragment(liveWindowMinFragment), livehls.WithRetention(liveWindowRetention))
-		mm.liveWindows[did] = w
-	}
-	return w
+// newLiveWindow makes a live-HLS window with the node's window settings.
+func newLiveWindow() *livehls.Writer {
+	return livehls.NewWriter(livehls.WithWindow(liveWindowSize), livehls.WithMinDuration(liveWindowMinDuration), livehls.WithMinFragment(liveWindowMinFragment), livehls.WithRetention(liveWindowRetention))
 }
 
 // GetLiveWindow returns the streamer's live-HLS window, or nil if it has no
@@ -66,6 +58,7 @@ func (mm *MediaManager) GetLiveWindow(did string) *livehls.Writer {
 	if w != nil && w.Empty() {
 		delete(mm.liveWindows, did)
 		delete(mm.liveWindowPublished, did)
+		delete(mm.liveWindowLatest, did)
 		return nil
 	}
 	return w
@@ -92,19 +85,43 @@ func (mm *MediaManager) LiveWindowPublished(did string) bool {
 // gate — and answer StreamNotLive to everyone else. When the stream goes
 // public the window is started over, so no preview segment is ever served
 // as part of the public stream.
-func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment []byte, published bool) {
+func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment []byte, start time.Time, published bool) {
+	// Segments are fed from concurrent goroutines, so the window's state
+	// change and the choice of writer happen under one lock: a preview
+	// segment that picked its writer after the stream went public would
+	// otherwise land in the public window. Nor is arrival order segment
+	// order: a pre-live segment that finishes validating after the stream
+	// went public is dropped rather than flipping the window back to a
+	// preview under its viewers. A pre-live segment newer than everything
+	// in the window is the stream going back to preview, and does flip it.
 	mm.liveWindowsMut.Lock()
 	if mm.liveWindowPublished == nil {
 		mm.liveWindowPublished = map[string]bool{}
 	}
-	if published && !mm.liveWindowPublished[did] && mm.liveWindows[did] != nil {
+	if mm.liveWindowLatest == nil {
+		mm.liveWindowLatest = map[string]time.Time{}
+	}
+	if !published && mm.liveWindowPublished[did] && start.Before(mm.liveWindowLatest[did]) {
+		mm.liveWindowsMut.Unlock()
+		log.Debug(ctx, "dropping pre-live segment that arrived after the stream went public", "did", did, "start", start)
+		return
+	}
+	w := mm.liveWindows[did]
+	if published && !mm.liveWindowPublished[did] && w != nil {
 		// The stream just went public. The window's flag is per stream, not
 		// per segment, so everything in it is about to be served to anyone;
 		// the pre-live preview segments still sitting in it must not be. The
 		// public window starts at this segment.
-		delete(mm.liveWindows, did)
+		w = nil
+	}
+	if w == nil {
+		w = newLiveWindow()
+		mm.liveWindows[did] = w
 	}
 	mm.liveWindowPublished[did] = published
+	if start.After(mm.liveWindowLatest[did]) {
+		mm.liveWindowLatest[did] = start
+	}
 	mm.liveWindowsMut.Unlock()
 	eventCh := make(chan *muxl.MuxlEvent, 8)
 	errCh := make(chan error, 1)
@@ -113,7 +130,6 @@ func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment 
 		close(eventCh)
 		errCh <- err
 	}()
-	w := mm.liveWindow(did)
 	for ev := range eventCh {
 		if err := w.Observe(ev); err != nil {
 			log.Error(ctx, "live-hls: window observe failed", "streamer", did, "error", err)
@@ -128,12 +144,14 @@ func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment 
 // MintVideoRenditions) into the streamer's live-HLS window. Each rendition
 // is its own track there — a variant in the master playlist — with its
 // own media sequence, so an addendum arriving a beat after its source
-// segment (the transcoder's round trip) is fine.
-func (mm *MediaManager) FeedLiveRenditions(ctx context.Context, did string, addendum []byte, published bool) {
+// segment (the transcoder's round trip) is fine. start is the source
+// segment's start time (zero when unknown): a pre-live addendum that lands
+// after the stream went public is dropped like its source would be.
+func (mm *MediaManager) FeedLiveRenditions(ctx context.Context, did string, addendum []byte, start time.Time, published bool) {
 	if len(addendum) == 0 {
 		return
 	}
-	mm.feedLiveWindow(ctx, did, addendum, published)
+	mm.feedLiveWindow(ctx, did, addendum, start, published)
 }
 
 // LiveRenditionNames lists the transcoded renditions the streamer's live

@@ -135,12 +135,13 @@ func TestFeedLiveWindow(t *testing.T) {
 	// Pre-live (unpublished) segments are folded in for the streamer's own
 	// preview, and the window remembers that its latest segment is not
 	// public — the getLive* handlers keep it to holders of a playback token.
-	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, false)
+	t0 := time.Now()
+	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, t0, false)
 	require.NotNil(t, mm.GetLiveWindow("did:test:streamer"), "pre-live segments make a window")
 	require.False(t, mm.LiveWindowPublished("did:test:streamer"), "…but it is not public")
 
 	preLive := mm.GetLiveWindow("did:test:streamer")
-	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, true)
+	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, t0.Add(2*time.Second), true)
 	require.True(t, mm.LiveWindowPublished("did:test:streamer"))
 
 	w := mm.GetLiveWindow("did:test:streamer")
@@ -152,7 +153,7 @@ func TestFeedLiveWindow(t *testing.T) {
 		require.Len(t, w.Track(tid).Segments, len(preLive.Track(tid).Segments), "track %s: only the published segment, none of the pre-live ones", tid)
 	}
 	// Once public, further segments extend the same window.
-	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, true)
+	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, t0.Add(4*time.Second), true)
 	require.Same(t, w, mm.GetLiveWindow("did:test:streamer"))
 	for _, tid := range tids {
 		require.NotEmpty(t, w.InitSegment(tid), "track %s has an init segment", tid)
@@ -166,6 +167,21 @@ func TestFeedLiveWindow(t *testing.T) {
 		require.Contains(t, pl, "#EXTINF")
 	}
 	require.Contains(t, w.MasterPlaylist(func(tid string) string { return tid + ".m3u8" }), "#EXTM3U")
+
+	// Segments are fed concurrently, so a pre-live segment can finish
+	// validating after the stream went public. It is older than the window,
+	// so it is dropped: the public window neither restarts nor turns back
+	// into a preview under its viewers.
+	segs := len(w.Track(tids[0]).Segments)
+	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, t0.Add(time.Second), false)
+	require.Same(t, w, mm.GetLiveWindow("did:test:streamer"), "a late pre-live segment does not touch the public window")
+	require.True(t, mm.LiveWindowPublished("did:test:streamer"), "…and does not make it a preview")
+	require.Len(t, w.Track(tids[0]).Segments, segs, "…nor does it add to it")
+
+	// A pre-live segment newer than the window is the stream going back to
+	// preview (the streamer ended it but is still sending), and does flip it.
+	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, t0.Add(6*time.Second), false)
+	require.False(t, mm.LiveWindowPublished("did:test:streamer"), "a newer pre-live segment takes the stream back to preview")
 }
 
 // seedBanLabel writes an active ban label for did into the model.

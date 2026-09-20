@@ -47,6 +47,11 @@ type MediaManager struct {
 	// liveWindowPublished is, per streamer, whether the latest segment fed
 	// into the window was published; guarded by liveWindowsMut.
 	liveWindowPublished map[string]bool
+	// liveWindowLatest is, per streamer, the start time of the newest
+	// segment fed into the window; guarded by liveWindowsMut. Feeds run
+	// concurrently, so it is how a late pre-live segment is told apart
+	// from the stream going back to preview.
+	liveWindowLatest map[string]time.Time
 	// modBuffers holds a short in-memory ring of each live user's most recent
 	// canonical segments, the source for moderation/report clips now that
 	// segments are no longer archived to disk. Keyed by repoDID. See
@@ -141,6 +146,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		cli:                 cli,
 		liveWindows:         map[string]*livehls.Writer{},
 		liveWindowPublished: map[string]bool{},
+		liveWindowLatest:    map[string]time.Time{},
 		modBuffers:          map[string]*modBuffer{},
 		httpPipes:           map[string]io.Writer{},
 		model:               mod,
@@ -545,5 +551,6 @@ func NewOffline(cli *config.CLI) *MediaManager {
 		cli:                 cli,
 		liveWindows:         map[string]*livehls.Writer{},
 		liveWindowPublished: map[string]bool{},
+		liveWindowLatest:    map[string]time.Time{},
 	}
 }

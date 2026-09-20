@@ -15,10 +15,13 @@ if something fails for no apparent reason.
 - You are assigned a sibling checkout, `~/code/streamplace-N`, and (maybe) a
   long-running container named after it. Only edit inside your checkout;
   other siblings (`muxl`, `dasl.ing`, another `streamplace-M`) belong to
-  another agent's assignment. Commit freely on branches.
-- `~/testvids/STREAMPLACE-N.md` is the canonical per-checkout brief
-  (container spin-up, muxl override recipe, commit rules). Read it first;
-  this file adds what it does not say.
+  another agent's assignment — don't touch them without asking, in case you
+  are stepping on someone else's work. If a change needs something from
+  muxl, see §3.
+- You will be told which branch to start from. Commit freely on branches once
+  you are there.
+- The host shell is fish and your working directory may reset between calls,
+  so pass absolute paths and `-w`; never rely on `cd` persisting.
 - Start your container if it is not already up — one command, idempotent, and
   it creates the container if it is missing entirely:
 
@@ -32,6 +35,22 @@ if something fails for no apparent reason.
   neither exists. It refuses to run outside a `streamplace-*` directory, so
   you cannot accidentally make a container for a sibling repo, and it notes
   when the container's image is older than `.ci/dockerfile-hash.yaml`.
+
+  By hand, that is (with `DOCKERFILE_HASH` from `.ci/dockerfile-hash.yaml`,
+  and `PKG_CONFIG_PATH`/`LD_LIBRARY_PATH` so cgo builds work without
+  per-exec env):
+
+  ```sh
+  docker run -d \
+    -w /home/iameli/code/streamplace-N \
+    -v /home/iameli/code:/home/iameli/code \
+    -e LD_LIBRARY_PATH=/home/iameli/code/streamplace-N/build-linux-amd64/lib \
+    -e PKG_CONFIG_PATH=/home/iameli/code/streamplace-N/build-linux-amd64/lib/pkgconfig \
+    --name streamplace-N \
+    public.ecr.aws/m4j3c0j7/streamplace:builder-$DOCKERFILE_HASH \
+    tail -f /dev/null
+  ```
+
   Run from inside a container, `make container` just says so and
   `make dev-container` degrades to `make dev-setup`.
 
@@ -56,11 +75,11 @@ if something fails for no apparent reason.
   ```
 
   A container that mounts only your checkout cannot see a sibling's
-  `build-linux-amd64`. Containers created from the brief's `docker run`
-  recipe also arrive with `PKG_CONFIG_PATH`/`LD_LIBRARY_PATH` already
-  pointed at _your_ checkout's build dir, so non-interactive `docker exec`
-  is not the problem there — but a container created some other way may
-  have neither set.
+  `build-linux-amd64`. Containers created by the `docker run` recipe above
+  also arrive with `PKG_CONFIG_PATH`/`LD_LIBRARY_PATH` already pointed at
+  _your_ checkout's build dir, so non-interactive `docker exec` is not the
+  problem there — but a container created some other way may have neither
+  set.
 
 ## 2. First build, then the build-and-check loop
 
@@ -103,6 +122,10 @@ go test -count=1 ./pkg/<touched>/...
 - The host toolchain and the container's are the same Go version; the host
   is fine for compile, vet, tests and lint as long as the env above is set.
   Wrap it in a tiny script so every call is identical.
+- cgo is the friction point, and it is only about those two variables: every
+  cgo _build_ needs `PKG_CONFIG_PATH` (the meson `.pc` files) and every _run_
+  of the result needs `LD_LIBRARY_PATH`. The container sets both for you;
+  on the host, export them as above.
 - `go build ./...` also works today (meson leaves only `.c`/`.S` in
   `build-linux-amd64`, which the Go tool ignores), but `./pkg/... ./cmd/...`
   is the shape CI and `golangci-lint` use; if meson ever drops generated Go
@@ -150,6 +173,24 @@ go test -count=1 ./pkg/<touched>/...
 - Two `git worktree`s do not help for cross-branch test comparison: the
   devenv-backed tests need `node_modules` and the built dev-env, which a
   worktree lacks. Check out the other branch in place instead.
+- Useful suites for the muxl/media integration: `TestStreamTranscoder*`
+  (dual-codec transcode), `TestRunVODPipeline_*` (VOD) and `./pkg/muxl/...`.
+
+### Testing against in-flight muxl
+
+streamplace consumes muxl as a Go library (`github.com/streamplace/muxl/go`),
+which embeds its own `muxl.wasm`; `pkg/muxl/muxl.go` is a thin shim over a
+wazero engine, pinned in `go.mod`. To test unreleased muxl changes:
+
+1. In the muxl repo, rebuild the embedded blob: `just build-go-wasm` (writes
+   `/home/iameli/code/muxl/go/muxl.wasm`). Required — the wasm _is_ the CLI,
+   so a stale blob means you are testing old behaviour.
+2. Add a local override to `go.mod` (a filesystem replace needs no `go.sum`
+   entry, and the container sees the rebuilt wasm through the bind mount):
+   `replace github.com/streamplace/muxl/go => /home/iameli/code/muxl/go`
+3. Run the relevant tests in the container as above.
+4. Never commit the override — it breaks CI and everyone else. Real adoption
+   is: cut a muxl release, then bump the pin in `go.mod`.
 
 ## 4. Running a node locally
 
@@ -286,8 +327,9 @@ github/gh-stack`). `gh stack init --base next b1 b2 b3` adopts existing
   code" conflicts mechanically (base→theirs is insert-only, so append the
   inserts to the HEAD side). Anything else, read.
 - Commit messages: subject at most 72 characters, blank line, wrapped
-  body, `(cherry picked from commit <sha>)` when it applies. No
-  `Co-Authored-By` trailer on this repo; reviewers read it as "unreviewed".
+  body, `(cherry picked from commit <sha>)` when it applies. Write them with
+  a heredoc (`git commit -F - <<'EOF'`), not `-m`. No `Co-Authored-By`
+  trailer on this repo; reviewers read it as "unreviewed".
 - A Greptile review lands on every PR; read it with
   `gh api repos/<o>/<r>/pulls/<n>/comments` (strip the badge HTML), verify
   each finding against the code before fixing, and put the fix **on the

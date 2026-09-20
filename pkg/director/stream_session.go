@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -74,11 +75,11 @@ type StreamSession struct {
 	lastLivestreamTime time.Time
 	lastViewCountTime  time.Time
 	s3Uploader         *s3.S3Uploader
-	// localRoleStarted is set once this node has taken up the ingest node's
-	// jobs for the session (recording, multistream targets): on the first
-	// local segment, whether that is the session's first segment or one
-	// that arrives after the node syndicated the stream for a while.
-	localRoleStarted bool
+	// localRole runs once this node takes up the ingest node's jobs for the
+	// session (recording, multistream targets): on the first local segment,
+	// whether that is the session's first segment or one that arrives after
+	// the node syndicated the stream for a while.
+	localRole sync.Once
 }
 
 // bitrateMargin is the wiggle room over the configured maximum before a stream
@@ -193,16 +194,16 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 
 // startLocalRole takes up what only the ingest node does for a stream:
 // recording it to S3 for live-to-VOD and driving its multistream targets.
-// Once per session, on the first local segment. NewSegment calls run one at
-// a time for a session, so the flag needs no lock.
+// Once per session, on the first local segment. For the session's first
+// segment the director runs Start in the background and NewSegment right
+// after it, so the two calls can race; sync.Once lets one of them do the
+// work and the other return.
 func (ss *StreamSession) startLocalRole(ctx context.Context, repoDID string) {
-	if ss.localRoleStarted {
-		return
-	}
-	ss.localRoleStarted = true
-	ss.maybeStartS3Upload(ctx, repoDID)
-	ss.Go(ctx, func() error {
-		return ss.HandleMultistreamTargets(ctx)
+	ss.localRole.Do(func() {
+		ss.maybeStartS3Upload(ctx, repoDID)
+		ss.Go(ctx, func() error {
+			return ss.HandleMultistreamTargets(ctx)
+		})
 	})
 }
 
@@ -271,7 +272,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	// A session that began with replicated segments (this node syndicated
 	// the stream) and now receives local ones has become the ingest node:
 	// take up recording and multistream targets now rather than never.
-	if notif.Local && !ss.localRoleStarted {
+	if notif.Local {
 		ss.startLocalRole(ctx, spseg.Creator)
 	}
 
@@ -987,7 +988,7 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 		// this stream (see subscribeSegments). Only the websocket
 		// replicator carries rendition addenda; a peer syndicating over
 		// Iroh receives the source track alone and no renditions.
-		ss.mm.FeedLiveRenditions(context.WithoutCancel(ctx), spseg.Creator, addendum, notif.Metadata.Published)
+		ss.mm.FeedLiveRenditions(context.WithoutCancel(ctx), spseg.Creator, addendum, notif.Metadata.StartTime.Time(), notif.Metadata.Published)
 		ss.bus.PublishSegment(ctx, spseg.Creator, media.RenditionsChannel, &bus.Seg{
 			Muxl:      addendum,
 			Published: notif.Metadata.Published,

@@ -40,14 +40,30 @@ fi
 ENVFILE="$(mktemp)"
 LOGFILE="$(mktemp)"
 echo "starting e2e harness…"
-"$BUILDDIR/streamplace" e2e > "$ENVFILE" 2> "$LOGFILE" &
+# `streamplace e2e` forks a dev-env node, the server node and an ingest
+# worker; run it in its own process group (setsid) so cleanup can take the
+# whole tree down instead of orphaning the grandchildren.
+#
+# PIDs matching this checkout's binary before we start — never kill a scratch
+# node someone else is running from the same build dir.
+PREEXISTING=" $( { pgrep -f "$BUILDDIR/libstreamplace" 2>/dev/null || true; } | tr '\n' ' ') "
+if command -v setsid >/dev/null 2>&1; then
+  setsid "$BUILDDIR/streamplace" e2e > "$ENVFILE" 2> "$LOGFILE" &
+else
+  "$BUILDDIR/streamplace" e2e > "$ENVFILE" 2> "$LOGFILE" &
+fi
 HARNESS_PID=$!
 cleanup() {
-  kill "$HARNESS_PID" 2>/dev/null || true
-  pkill -P "$HARNESS_PID" 2>/dev/null || true
+  kill -- -"$HARNESS_PID" 2>/dev/null || kill "$HARNESS_PID" 2>/dev/null || true
+  wait "$HARNESS_PID" 2>/dev/null || true
+  # The ingest worker re-setsid's itself, escaping the group kill; sweep the
+  # binaries that appeared since we started.
+  for pid in $(pgrep -f "$BUILDDIR/libstreamplace" 2>/dev/null || true); do
+    case "$PREEXISTING" in *" $pid "*) ;; *) kill "$pid" 2>/dev/null || true ;; esac
+  done
   rm -f "$ENVFILE" "$LOGFILE"
 }
-trap cleanup EXIT
+trap cleanup EXIT INT TERM
 
 for _ in $(seq 1 90); do grep -q SERVER_URL "$ENVFILE" && break; sleep 2; done
 if ! grep -q SERVER_URL "$ENVFILE"; then
@@ -59,5 +75,7 @@ export SERVER_URL ACCOUNT_HANDLE ACCOUNT_DID
 echo "harness up: SERVER_URL=$SERVER_URL ACCOUNT_HANDLE=$ACCOUNT_HANDLE"
 
 # --- run the flows ---------------------------------------------------------
+# No `exec` here: that would replace this shell and discard the EXIT trap,
+# leaving the harness and its children running after a successful run.
 cd "$REPO/js/e2e-web"
-exec pnpm exec playwright test "$@"
+pnpm exec playwright test "$@"

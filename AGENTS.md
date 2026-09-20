@@ -304,14 +304,18 @@ hatch, the explicit `getLiveUsers` limit and the current sidebar labels.
 - `place.stream.live.getLiveUsers` with no `limit` answers `{}` no matter
   how live the stream is: the handler truncates the streamer list to `limit`,
   so zero means zero. Pass `?limit=50`.
-- A killed harness leaves orphaned node/PDS processes behind. They hold
-  ports and their data dirs under `/tmp` look like the run you are
+- A harness you kill by hand leaves orphaned node/PDS processes behind.
+  They hold ports and their data dirs under `/tmp` look like the run you are
   debugging, so sweep them before re-running:
   `pkill -f 'libstreamplace e2e'; pkill -f 'js/dev-env/run.mjs'`. If you run
   that from a wrapper whose own command line contains the pattern (e.g.
   `docker exec … bash -c "pkill -f 'libstreamplace e2e'"`) it matches and
-  kills itself; bracket a character (`'libstreamplace e2[o]e'`) to exclude
-  the wrapper.
+  kills itself; bracket a character that is in the target
+  (`'libstreamplace e2[e]'`) to exclude the wrapper. The harness's ingest
+  worker re-`setsid`s itself, so it outlives a plain top-level kill — kill it
+  by name too (`pkill -f 'libstreamplace ingest-worker'`), or just let
+  `hack/e2e-web-local.sh` clean up after itself (it sweeps the binaries that
+  appeared during the run, leaving any pre-existing scratch node alone).
 - `js/dev-env` needs Node 22 (better-sqlite3 pin).
 
 ## 6. Git and GitHub _(unverified)_

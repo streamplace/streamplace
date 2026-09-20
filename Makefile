@@ -289,6 +289,22 @@ test-vod:
 
 # Local builds of Streamplace with node and app.
 
+# The long-running build container for this checkout: named after the
+# checkout directory (streamplace-N), with the whole parent directory
+# bind-mounted at the same path so sibling checkouts are visible. Both
+# targets are idempotent and adopt a container that already exists (under
+# either name) or is stopped. See AGENTS.md §1.
+.PHONY: container
+container:
+	bash hack/container.sh ensure
+
+# The one command a fresh checkout needs: make sure the container is up, then
+# build the dev environment inside it. Run inside the container it degrades to
+# plain `make dev-setup`.
+.PHONY: dev-container
+dev-container:
+	bash hack/container.sh dev-setup
+
 .PHONY: dev-setup
 dev-setup:
 	$(MAKE) -j16 app-cached dev-setup-meson

@@ -6,10 +6,9 @@ September 2026 unless marked *(unverified)* — that mark means the note comes
 from earlier notes and was not re-checked when this file was written, so
 re-run it before trusting it.
 
-Cold start, in order: §1 (container) → `make dev-setup` (§2) → `make dev`
-(§4) → `hack/e2e-web-local.sh` (§5). The first three are prerequisites for
-each other; the pitfall list in §7 is worth skimming first if something
-fails for no apparent reason.
+Cold start, in order: `make dev-container` (§1+§2) → `make dev` (§4) →
+`hack/e2e-web-local.sh` (§5). The pitfall list in §7 is worth skimming first
+if something fails for no apparent reason.
 
 ## 1. Where to work
 
@@ -20,9 +19,24 @@ fails for no apparent reason.
 - `~/testvids/STREAMPLACE-N.md` is the canonical per-checkout brief
   (container spin-up, muxl override recipe, commit rules). Read it first;
   this file adds what it does not say.
-- Start your container if it is not already up. `docker ps` **hides stopped
-  containers**, and `docker exec` on a stopped one fails with "can only
-  create exec sessions on running containers":
+- Start your container if it is not already up — one command, idempotent, and
+  it creates the container if it is missing entirely:
+
+  ```sh
+  make container        # ensure this checkout's build container is running
+  make dev-container    # ...and build the dev environment inside it (§2)
+  ```
+
+  `hack/container.sh` does the work: it looks for `streamplace-N` *and*
+  `streamplace-N-builder` (running or stopped) and only runs `docker run` if
+  neither exists. It refuses to run outside a `streamplace-*` directory, so
+  you cannot accidentally make a container for a sibling repo, and it notes
+  when the container's image is older than `.ci/dockerfile-hash.yaml`.
+  Run from inside a container, `make container` just says so and
+  `make dev-container` degrades to `make dev-setup`.
+- Doing it by hand, `docker ps` **hides stopped containers**, and
+  `docker exec` on a stopped one fails with "can only create exec sessions on
+  running containers":
 
   ```sh
   docker ps -a --format '{{.Names}}\t{{.Status}}'   # streamplace-N may be Exited
@@ -54,8 +68,15 @@ FFmpeg, iroh and friends that cgo links against) and no `js/app/dist`
 with `//go:embed all:dist/**`). Build both at once, once:
 
 ```sh
-make dev-setup     # ~5 min on 16 cores; ~1.6 GB of build-linux-amd64
+make dev-container   # container + this build; ~5 min, ~1.6 GB
 ```
+
+`make dev-container` ensures the container (§1) and then runs the build
+inside it. Run directly inside a container, the equivalent is `make dev-setup`
+(`~5 min on 16 cores`). Note `make dev-setup` is **single-shot**: it calls
+`meson setup`, which exits 1 with "Directory already configured" if
+`build-linux-amd64/` exists, so re-running it fails — `make dev` guards
+itself with an existence check, and `make dev-container` does the same.
 
 Until that has run, plain Go commands fail on the missing embeds with
 `pattern all:dist/**: no matching files found`, and creating empty

@@ -1,10 +1,10 @@
-# Working on Streamplace as an agent
+# Working on Streamplace: a field guide
 
-Field notes on getting a Streamplace checkout from "cloned" to "built,
-tested, reviewed and stacked as PRs". Everything here was exercised on a
-Linux box in September 2026 unless marked *(unverified)* — that mark means
-the note comes from earlier notes and was not re-checked when this file was
-written, so re-run it before trusting it.
+How to get a Streamplace checkout from "cloned" to "built, tested, reviewed
+and stacked as PRs". Everything here was exercised on a Linux box in
+September 2026 unless marked *(unverified)* — that mark means the note comes
+from earlier notes and was not re-checked when this file was written, so
+re-run it before trusting it.
 
 Cold start, in order: §1 (container) → `make dev-setup` (§2) → `make dev`
 (§4) → `hack/e2e-web-local.sh` (§5). The first three are prerequisites for

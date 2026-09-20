@@ -296,6 +296,12 @@ github/gh-stack`). `gh stack init --base next b1 b2 b3` adopts existing
 
 ## 7. Small things that cost time
 
+- `push.default` is `tracking` in this checkout, so `git push origin <branch>`
+  on a branch cut from `origin/next` targets **`next`** — the branch's
+  upstream — not `<branch>`; git prints `agent/field-guide -> next` and
+  branch protection rejects it. Use `git push -u origin HEAD`, or an explicit
+  `refs/heads/<branch>:refs/heads/<branch>`. On a repo without that rule it
+  would land straight on the integration branch.
 - `build-linux-amd64/` is not branch-aware, and `make dev` only runs
   `dev-setup` when the directory is _missing_. Switch to a branch whose
   `meson.build` differs and you keep the old configuration — including

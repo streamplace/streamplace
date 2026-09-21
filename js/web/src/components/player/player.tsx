@@ -15,6 +15,7 @@ import {
   type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { useDevMode } from "../../hooks/use-dev-mode";
 import { cn } from "../../lib/utils";
 import { Loader } from "../ui/loader";
 import { HLSPlayer } from "./hls-player";
@@ -30,13 +31,10 @@ import { WebRTCPlayer } from "./webrtc-player";
 export type PlayerProps = {
   /** Full URL to the media source. Scheme/route is dispatched to a backend. */
   src: string;
+  /** LL-HLS source used by the fallback and developer-only LL-HLS mode. */
+  llHlsSrc?: string;
   /** Live streams hide the scrubber; VODs get a seek bar. */
   mode?: "live" | "vod";
-  /**
-   * Prefer the low-latency live HLS preset. Off by default: standard
-   * latency holds more buffer and is less prone to rebuffering.
-   */
-  lowLatency?: boolean;
   /** Optional poster image (e.g. /api/playback/:user/stream.jpg). */
   poster?: string;
   /** Optional poster that overrides the default when the stream is offline. */
@@ -114,23 +112,28 @@ export type PlayerBackendHandle = {
   setQuality: (index: number) => void;
 };
 
+export type PlayerTransport = "webrtc" | "hls" | "ll-hls";
+
 const IDLE_HIDE_MS = 3000;
 const TRANSPORT_KEY = "player-transport";
 
-function readTransportPreference(): boolean {
+function readTransportPreference(): PlayerTransport {
   try {
     const v = localStorage.getItem(TRANSPORT_KEY);
-    if (v === "hls") return false;
-    if (v === "webrtc") return true;
+    if (v === "hls") return "hls";
+    if (v === "webrtc") return "webrtc";
   } catch {
     // localStorage unavailable (SSR, private browsing, etc.)
   }
-  return true;
+  return "webrtc";
 }
 
-function writeTransportPreference(useWebRTC: boolean) {
+function writeTransportPreference(transport: PlayerTransport) {
   try {
-    localStorage.setItem(TRANSPORT_KEY, useWebRTC ? "webrtc" : "hls");
+    localStorage.setItem(
+      TRANSPORT_KEY,
+      transport === "webrtc" ? "webrtc" : "hls",
+    );
   } catch {
     // ignore
   }
@@ -158,8 +161,8 @@ function writeQualityPreference(index: number) {
 
 export function Player({
   src,
+  llHlsSrc,
   mode = "live",
-  lowLatency = false,
   poster,
   fallbackPoster,
   active,
@@ -174,6 +177,7 @@ export function Player({
   const backendRef = useRef<PlayerBackendHandle | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { t } = useTranslation();
+  const [devMode] = useDevMode();
 
   const [playing, setPlaying] = useState(false);
   const [buffering, setBuffering] = useState(active);
@@ -183,7 +187,10 @@ export function Player({
   const [showControls, setShowControls] = useState(true);
   const [qualities, setQualities] = useState<QualityOption[]>([]);
   const [currentQuality, setCurrentQuality] = useState<number>(-1);
-  const [useWebRTC, setUseWebRTC] = useState(readTransportPreference);
+  const [transport, setTransport] = useState<PlayerTransport>(
+    readTransportPreference,
+  );
+  const [hlsFallback, setHlsFallback] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState<PlayerStats | null>(null);
   // Stable per-mount id for video playback
@@ -192,6 +199,7 @@ export function Player({
   // Refs so the video event-listener effect below doesn't have to list
   // these as deps; it would otherwise tear down and re-add its
   // listeners on every transport toggle or parent re-render.
+  const useWebRTC = transport === "webrtc";
   const useWebRTCRef = useRef(useWebRTC);
   const onErrorRef = useRef(onError);
   useWebRTCRef.current = useWebRTC;
@@ -200,17 +208,34 @@ export function Player({
   const surfaceError = useCallback((msg: string) => {
     setError(msg);
     onErrorRef.current?.(msg);
-    // WebRTC failed; fall back to HLS automatically.
+    // WebRTC failed; fall back to LL-HLS automatically. Keep the persisted
+    // preference as HLS so this fallback does not make LL-HLS the normal
+    // HLS selection on the next page load.
     if (useWebRTCRef.current) {
-      setUseWebRTC(false);
-      writeTransportPreference(false);
+      setHlsFallback(true);
+      setTransport("ll-hls");
+      writeTransportPreference("hls");
     }
   }, []);
 
-  const handleWebRTCChange = useCallback((value: boolean) => {
-    setUseWebRTC(value);
-    writeTransportPreference(value);
-  }, []);
+  const handleTransportChange = useCallback(
+    (next: PlayerTransport) => {
+      if (next === "ll-hls" && !devMode) return;
+      setHlsFallback(false);
+      setTransport(next);
+      writeTransportPreference(next);
+    },
+    [devMode],
+  );
+
+  // A developer-mode-only selection should not remain active after the
+  // developer flag is turned off. A WebRTC failure is allowed to keep its
+  // LL-HLS fallback active until the user chooses another transport.
+  useEffect(() => {
+    if (!devMode && transport === "ll-hls" && !hlsFallback) {
+      setTransport("hls");
+    }
+  }, [devMode, hlsFallback, transport]);
 
   // Reset per-source state when src or active changes.
   useEffect(() => {
@@ -223,7 +248,7 @@ export function Player({
     setStats(null);
   }, [src, active]);
 
-  // When the user toggles transport (HLS <-> WebRTC) the backend child
+  // When the user toggles transport the backend child
   // inside <PlayerBackend> is a different component type, so React
   // unmounts the old one and mounts the new one automatically. We just
   // need to reset the chrome's per-transport state.
@@ -232,7 +257,7 @@ export function Player({
     setQualities([]);
     setCurrentQuality(-1);
     setStats(null);
-  }, [active, useWebRTC]);
+  }, [active, transport]);
 
   // Mirror the video element's state into React.
   useEffect(() => {
@@ -381,9 +406,9 @@ export function Player({
       {active && (
         <PlayerBackend
           src={src}
-          useWebRTC={useWebRTC}
+          llHlsSrc={llHlsSrc}
+          transport={transport}
           mode={mode}
-          lowLatency={lowLatency}
           videoRef={videoRef}
           active={active}
           onError={surfaceError}
@@ -419,8 +444,9 @@ export function Player({
           qualities={qualities}
           currentQuality={currentQuality}
           onQualityChange={setQuality}
-          useWebRTC={useWebRTC}
-          onUseWebRTCChange={handleWebRTCChange}
+          transport={transport}
+          onTransportChange={handleTransportChange}
+          showLowLatencyHLS={devMode || hlsFallback}
           showStats={showStats}
           onShowStatsChange={setShowStats}
           showDanmu={showDanmu}
@@ -435,7 +461,9 @@ export function Player({
             useWebRTC ? t("player-protocol-webrtc") : t("player-protocol-hls")
           }
           latencyMode={
-            useWebRTC ? t("player-latency-low") : t("player-latency-standard")
+            transport === "hls"
+              ? t("player-latency-standard")
+              : t("player-latency-low")
           }
           sessionId={sessionId}
         />
@@ -456,9 +484,9 @@ export function Player({
  */
 function PlayerBackend({
   src,
-  useWebRTC,
+  llHlsSrc,
+  transport,
   mode,
-  lowLatency,
   videoRef,
   active,
   onError,
@@ -468,9 +496,9 @@ function PlayerBackend({
   ref,
 }: {
   src: string;
-  useWebRTC: boolean;
+  llHlsSrc?: string;
+  transport: PlayerTransport;
   mode: "live" | "vod";
-  lowLatency: boolean;
   videoRef: RefObject<HTMLVideoElement | null>;
   active: boolean;
   onError: (msg: string) => void;
@@ -479,7 +507,7 @@ function PlayerBackend({
   onStatsChange: (stats: PlayerStats) => void;
   ref: RefObject<PlayerBackendHandle | null>;
 }) {
-  if (useWebRTC || src.startsWith("webrtc://")) {
+  if (transport === "webrtc" || src.startsWith("webrtc://")) {
     return (
       <WebRTCPlayer
         ref={ref}
@@ -495,10 +523,10 @@ function PlayerBackend({
     <HLSPlayer
       ref={ref}
       videoRef={videoRef}
-      src={src}
+      src={transport === "ll-hls" ? (llHlsSrc ?? src) : src}
       active={active}
       mode={mode}
-      lowLatency={lowLatency}
+      lowLatency={transport === "ll-hls"}
       onError={onError}
       onQualitiesChange={onQualitiesChange}
       onCurrentQualityChange={onCurrentQualityChange}

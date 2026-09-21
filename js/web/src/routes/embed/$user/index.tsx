@@ -1,6 +1,10 @@
 import { Player } from "@/components/player/player";
 import { captureError } from "@/lib/log";
-import { getLiveLLHLSUrl, getStreamplaceUrl } from "@/lib/streamplace-url";
+import {
+  getLiveHLSUrl,
+  getLiveLLHLSUrl,
+  getStreamplaceUrl,
+} from "@/lib/streamplace-url";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 
@@ -11,10 +15,11 @@ export const Route = createFileRoute("/embed/$user/")({
 function EmbedLive() {
   const { user } = Route.useParams();
 
-  const { playlistUrl, thumbnailUrl } = useMemo(() => {
+  const { playlistUrl, llHlsUrl, thumbnailUrl } = useMemo(() => {
     const base = getStreamplaceUrl();
     return {
-      playlistUrl: getLiveLLHLSUrl(user),
+      playlistUrl: getLiveHLSUrl(user),
+      llHlsUrl: getLiveLLHLSUrl(user),
       thumbnailUrl: `${base}/api/playback/${encodeURIComponent(user)}/stream.jpg`,
     };
   }, [user]);
@@ -23,10 +28,10 @@ function EmbedLive() {
     <div className="flex h-screen w-screen items-center justify-center bg-black">
       <Player
         src={playlistUrl}
+        llHlsSrc={llHlsUrl}
         poster={thumbnailUrl}
         active
         mode="live"
-        lowLatency
         onError={(message) =>
           captureError(message, { user, source: "embed-live" })
         }

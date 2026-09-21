@@ -1,5 +1,9 @@
 import { captureError } from "@/lib/log";
-import { getLiveLLHLSUrl, getStreamplaceUrl } from "@/lib/streamplace-url";
+import {
+  getLiveHLSUrl,
+  getLiveLLHLSUrl,
+  getStreamplaceUrl,
+} from "@/lib/streamplace-url";
 import type { LivestreamStore } from "@streamplace/core";
 import { Eye, EyeOff, Radio, Wifi, WifiOff } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -35,7 +39,8 @@ export function StreamMonitorWidget({
   const isLive = !!state.livestream;
   const title = state.livestream?.record?.title || null;
 
-  const playlistUrl = useMemo(() => getLiveLLHLSUrl(user), [user]);
+  const playlistUrl = useMemo(() => getLiveHLSUrl(user), [user]);
+  const llHlsUrl = useMemo(() => getLiveLLHLSUrl(user), [user]);
 
   const thumbnailUrl = useMemo(
     () =>
@@ -64,10 +69,10 @@ export function StreamMonitorWidget({
         {visible && isLive ? (
           <Player
             src={playlistUrl}
+            llHlsSrc={llHlsUrl}
             poster={thumbnailUrl}
             active
             mode="live"
-            lowLatency
             onError={(message) =>
               captureError(message, { user, source: "stream-monitor" })
             }

@@ -8,7 +8,11 @@ import { useFullscreen } from "../../contexts/fullscreen-context";
 import type { Liveness } from "../../hooks/use-liveness-state";
 import { captureError } from "../../lib/log";
 import { useStore as useAppStore } from "../../lib/store";
-import { getLiveLLHLSUrl, getStreamplaceUrl } from "../../lib/streamplace-url";
+import {
+  getLiveHLSUrl,
+  getLiveLLHLSUrl,
+  getStreamplaceUrl,
+} from "../../lib/streamplace-url";
 import { DanmuOverlay } from "./danmu-overlay";
 import { PlayerOffline } from "./player-offline";
 import { UserOffline } from "./user-offline";
@@ -66,10 +70,11 @@ export function VideoSection({
     })),
   );
 
-  const { playlistUrl, thumbnailUrl } = useMemo(() => {
+  const { playlistUrl, llHlsUrl, thumbnailUrl } = useMemo(() => {
     const base = getStreamplaceUrl();
     return {
-      playlistUrl: getLiveLLHLSUrl(user),
+      playlistUrl: getLiveHLSUrl(user),
+      llHlsUrl: getLiveLLHLSUrl(user),
       thumbnailUrl: `${base}/api/playback/${encodeURIComponent(user)}/stream.jpg`,
     };
   }, [user]);
@@ -81,6 +86,7 @@ export function VideoSection({
       segment={state.segment?.video?.at(0) ?? null}
       problems={state.problems}
       playlistUrl={playlistUrl}
+      llHlsUrl={llHlsUrl}
       thumbnailUrl={thumbnailUrl}
       store={store}
       showDanmu={showDanmu}
@@ -103,6 +109,7 @@ export function VideoSectionInner({
   segment,
   problems,
   playlistUrl,
+  llHlsUrl,
   thumbnailUrl,
   mode = "live",
   store,
@@ -118,6 +125,7 @@ export function VideoSectionInner({
   segment: Segment;
   problems: Problem[];
   playlistUrl: string;
+  llHlsUrl?: string;
   thumbnailUrl: string;
   mode?: "live" | "vod";
   store?: LivestreamStore;
@@ -180,10 +188,10 @@ export function VideoSectionInner({
             >
               <Player
                 src={playlistUrl}
+                llHlsSrc={llHlsUrl}
                 poster={thumbnailUrl}
                 active
                 mode={mode}
-                lowLatency={mode === "live"}
                 showDanmu={showDanmu}
                 onShowDanmuChange={onShowDanmuChange}
                 onError={(message) => captureError(message, { user, mode })}

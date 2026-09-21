@@ -38,3 +38,7 @@ export function getStreamplaceUrl(): string {
 export function getLiveLLHLSUrl(user: string): string {
   return `${getStreamplaceUrl()}/api/playback/${encodeURIComponent(user)}/llhls/main.m3u8`;
 }
+
+export function getLiveHLSUrl(user: string): string {
+  return `${getStreamplaceUrl()}/xrpc/place.stream.playback.getLivePlaylist?streamer=${encodeURIComponent(user)}`;
+}

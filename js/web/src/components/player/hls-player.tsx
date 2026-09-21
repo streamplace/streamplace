@@ -12,7 +12,7 @@ import { readQualityPreference } from "./player";
 export type HLSPlayerProps = {
   /** The video element managed by the parent <Player>. */
   videoRef: RefObject<HTMLVideoElement | null>;
-  /** Full URL to the master HLS playlist. */
+  /** Full URL to the selected HLS playlist. */
   src: string;
   /** False stops the current load and tears down hls.js. */
   active: boolean;
@@ -56,9 +56,9 @@ const LIVE_HLS_SETTINGS: Partial<HlsConfig> = {
 const LIVE_LOWLATENCY_HLS_SETTINGS: Partial<HlsConfig> = {
   maxAudioFramesDrift: 20,
   lowLatencyMode: true,
-  liveSyncDuration: 4.75,
+  liveSyncDuration: 3.75,
   liveMaxLatencyDuration: 18,
-  maxLiveSyncPlaybackRate: 1.125,
+  maxLiveSyncPlaybackRate: 1.07,
   backBufferLength: 90,
   enableWorker: true,
   debug: import.meta.env.DEV,

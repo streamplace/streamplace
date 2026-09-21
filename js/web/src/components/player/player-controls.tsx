@@ -30,7 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Slider } from "../ui/slider";
-import type { QualityOption } from "./player";
+import type { PlayerTransport, QualityOption } from "./player";
 
 export type PlayerControlsProps = {
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -50,10 +50,12 @@ export type PlayerControlsProps = {
   currentQuality: number;
   /** Request a quality change; the backend decides what to do. */
   onQualityChange: (index: number) => void;
-  /** Whether the user picked low-latency (WebRTC) over standard (HLS). */
-  useWebRTC: boolean;
-  /** Toggle between standard (HLS) and low (WebRTC) transport. */
-  onUseWebRTCChange: (useWebRTC: boolean) => void;
+  /** Transport selected in the latency menu. */
+  transport: PlayerTransport;
+  /** Select a playback transport. */
+  onTransportChange: (transport: PlayerTransport) => void;
+  /** Whether the developer-only LL-HLS choice should be shown. */
+  showLowLatencyHLS: boolean;
   /** Whether the "Stats for nerds" overlay is visible. */
   showStats: boolean;
   /** Toggle the stats overlay. */
@@ -78,8 +80,9 @@ export function PlayerControls({
   qualities,
   currentQuality,
   onQualityChange,
-  useWebRTC,
-  onUseWebRTCChange,
+  transport,
+  onTransportChange,
+  showLowLatencyHLS,
   showStats,
   onShowStatsChange,
   showDanmu,
@@ -450,12 +453,25 @@ export function PlayerControls({
               <DropdownMenuGroup>
                 <DropdownMenuLabel>{t("player-latency")}</DropdownMenuLabel>
                 <DropdownMenuRadioGroup
-                  value={useWebRTC ? "webrtc" : "hls"}
-                  onValueChange={(v) => onUseWebRTCChange(v === "webrtc")}
+                  value={transport}
+                  onValueChange={(value) => {
+                    if (
+                      value === "webrtc" ||
+                      value === "hls" ||
+                      value === "ll-hls"
+                    ) {
+                      onTransportChange(value);
+                    }
+                  }}
                 >
                   <DropdownMenuRadioItem value="hls">
                     Standard
                   </DropdownMenuRadioItem>
+                  {showLowLatencyHLS && (
+                    <DropdownMenuRadioItem value="ll-hls">
+                      Low (LL-HLS)
+                    </DropdownMenuRadioItem>
+                  )}
                   <DropdownMenuRadioItem value="webrtc">
                     Low (WebRTC)
                   </DropdownMenuRadioItem>

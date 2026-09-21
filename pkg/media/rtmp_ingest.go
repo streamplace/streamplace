@@ -40,12 +40,6 @@ func rtmpIngestAudioChain(audioPad string) string {
 	return fmt.Sprintf("%s ! %s ! aacparse name=%s", audioPad, constants.Queue2Big, rtmpIngestAudioElementName)
 }
 
-const (
-	llhlsParentDuration = 2 * time.Second
-	llhlsPartDuration   = time.Second
-	llhlsPartTarget     = 1100 * time.Millisecond
-)
-
 func h264VideoConfig(track *format.H264) llhls.VideoConfig {
 	if track == nil {
 		return llhls.VideoConfig{}

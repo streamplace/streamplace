@@ -371,7 +371,7 @@ export function HLSPlayer(props: VideoProps) {
         maxLiveSyncPlaybackRate: 1.125,
         backBufferLength: 90,
         enableWorker: true,
-        debug: true,
+        debug: __DEV__,
       });
       hlsRef.current = hls;
       hls.loadSource(props.url);

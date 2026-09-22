@@ -1,6 +1,6 @@
-import { Gauge, Pause, Play } from "lucide-react-native";
+import { Gauge, Pause, Play, Volume2, VolumeX } from "lucide-react-native";
 import { Pressable } from "react-native";
-import { zero } from "../../..";
+import { useMuted, useSetMuted, zero } from "../../..";
 import { useLivestreamStore } from "../../../livestream-store";
 import { PlayerStatus, usePlayerStore } from "../../../player-store";
 import {
@@ -38,6 +38,18 @@ export function VodControls() {
 
   const playTime = usePlayerStore((x) => x.playTime);
   const duration = usePlayerStore((x) => x.duration);
+  // Mobile web autoplays muted (the browser's policy, see video.tsx), and the
+  // viewer chrome on phones has no volume control, so the bar carries the
+  // mute toggle. Unmuting here is a user gesture, which is what the browser
+  // wants before it lets sound through; it also clears the "forced" flag so
+  // the tap-to-unmute prompts stand down.
+  const muted = useMuted();
+  const setMuted = useSetMuted();
+  const setMuteWasForced = usePlayerStore((x) => x.setMuteWasForced);
+  const toggleMuted = () => {
+    if (muted) setMuteWasForced(false);
+    setMuted(!muted);
+  };
 
   if (mode !== "vod") return null;
 
@@ -66,6 +78,18 @@ export function VodControls() {
             color={th.theme.colors.foreground}
             fill={th.theme.colors.foreground}
           />
+        )}
+      </Pressable>
+      <Pressable
+        onPress={toggleMuted}
+        accessibilityRole="button"
+        accessibilityLabel={muted ? "Unmute" : "Mute"}
+        hitSlop={8}
+      >
+        {muted ? (
+          <VolumeX size={22} color={th.theme.colors.foreground} />
+        ) : (
+          <Volume2 size={22} color={th.theme.colors.foreground} />
         )}
       </Pressable>
       <View style={[zero.layout.flex.row, zero.gap.all[1]]}>

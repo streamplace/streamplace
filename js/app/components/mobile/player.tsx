@@ -17,8 +17,10 @@ import {
   useRotation,
   useSegment,
   useSegmentDimensions,
+  useVideoStoreOptional,
   VideoProvider,
   View,
+  VodChatReplay,
   VodSection,
 } from "@streamplace/components";
 import { gap, h, pt, w } from "@streamplace/components/src/lib/theme/atoms";
@@ -512,8 +514,15 @@ export function PlayerInner(
       ? 56
       : 0;
 
+  // A recording of a livestream replays its chat beside the player in the
+  // desktop theater (the side column live chat has), under the description
+  // everywhere else.
+  const replay = useVideoStoreOptional((x) => x.replay);
+  const replaySide =
+    props.mode === "vod" && !!replay && showFullDesktopMode && !fullscreen;
+
   const calculatedWidth =
-    (chatVisible ? contentWidth - chatPanelWidth : contentWidth) -
+    (chatVisible || replaySide ? contentWidth - chatPanelWidth : contentWidth) -
     playerPad * 2;
 
   const calculatedHeight = isDesktopMode
@@ -636,7 +645,8 @@ export function PlayerInner(
       style={{
         height: showFullDesktopMode ? "100%" : undefined,
         flex: 1,
-        maxWidth: calculatedWidth + playerPad * 2,
+        maxWidth:
+          calculatedWidth + playerPad * 2 + (replaySide ? chatPanelWidth : 0),
       }}
       contentContainerStyle={
         showFullDesktopMode
@@ -663,54 +673,74 @@ export function PlayerInner(
       bounces={false}
       showsVerticalScrollIndicator={false}
     >
-      <Reanimated.View
-        style={[
-          showFullDesktopMode
+      <View
+        style={
+          replaySide
             ? {
-                width: calculatedWidth,
-                ...(fullscreen
-                  ? {}
-                  : {
-                      borderRadius: radiusTokens.lg,
-                      overflow: "hidden" as const,
-                    }),
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: spacingTokens[4],
               }
-            : props.mode === "vod"
-              ? vodFillScreen
-                ? // Fullscreen/landscape: fill the area; objectFit:contain
-                  // letterboxes so the video fits without clipping.
-                  { flex: 1 }
-                : {
-                    // Portrait inline: bound the video to its real aspect ratio
-                    // so it occupies a fixed height with the metadata below —
-                    // never the whole window. (A pixel height derived from
-                    // contentWidth collapsed to full-window on Android when
-                    // contentWidth measured 0.)
-                    width: "100%" as any,
-                    aspectRatio: vodAspectRatio,
-                  }
-              : {
-                  flex: 1,
-                  maxHeight: "auto",
-                },
-          {
-            paddingTop:
-              isPlayerRatioGreater && !isLandscape && !props.showUnavailable
-                ? safeAreaInsets.top
-                : 0,
-          },
-          animatedHeightStyle,
-        ]}
+            : undefined
+        }
       >
-        {videoContent}
-      </Reanimated.View>
+        <Reanimated.View
+          style={[
+            showFullDesktopMode
+              ? {
+                  width: calculatedWidth,
+                  ...(fullscreen
+                    ? {}
+                    : {
+                        borderRadius: radiusTokens.lg,
+                        overflow: "hidden" as const,
+                      }),
+                }
+              : props.mode === "vod"
+                ? vodFillScreen
+                  ? // Fullscreen/landscape: fill the area; objectFit:contain
+                    // letterboxes so the video fits without clipping.
+                    { flex: 1 }
+                  : {
+                      // Portrait inline: bound the video to its real aspect ratio
+                      // so it occupies a fixed height with the metadata below —
+                      // never the whole window. (A pixel height derived from
+                      // contentWidth collapsed to full-window on Android when
+                      // contentWidth measured 0.)
+                      width: "100%" as any,
+                      aspectRatio: vodAspectRatio,
+                    }
+                : {
+                    flex: 1,
+                    maxHeight: "auto",
+                  },
+            {
+              paddingTop:
+                isPlayerRatioGreater && !isLandscape && !props.showUnavailable
+                  ? safeAreaInsets.top
+                  : 0,
+            },
+            animatedHeightStyle,
+          ]}
+        >
+          {videoContent}
+        </Reanimated.View>
+        {replaySide && (
+          <VodChatReplay
+            style={{
+              width: chatPanelWidth - spacingTokens[4],
+              height: calculatedHeight,
+            }}
+          />
+        )}
+      </View>
       {showFullDesktopMode && props.mode !== "vod" && (
         <BottomMetadata
           setShowChat={props.setShowChat}
           showChat={props.showChat}
         />
       )}
-      {props.mode === "vod" && <VodSection />}
+      {props.mode === "vod" && <VodSection chatReplay={!replaySide} />}
     </ScrollView>
   );
 }

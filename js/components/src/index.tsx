@@ -91,6 +91,7 @@ export {
 
 // VOD components and interaction hooks
 export * from "./components/vod/like-button";
+export * from "./components/vod/vod-chat-replay";
 export * from "./components/vod/vod-comments";
 export * from "./components/vod/vod-mobile-metadata";
 export * from "./components/vod/vod-player";

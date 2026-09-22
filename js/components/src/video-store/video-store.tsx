@@ -15,6 +15,8 @@ export const makeVideoStore = ({ aturi }: { aturi: string }): VideoStore => {
     setLoading: (loading) => set({ loading }),
     error: null,
     setError: (error) => set({ error }),
+    replay: null,
+    setReplay: (replay) => set({ replay }),
   }));
 };
 

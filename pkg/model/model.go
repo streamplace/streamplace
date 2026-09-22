@@ -90,6 +90,7 @@ type Model interface {
 
 	CreateChatMessage(ctx context.Context, message *ChatMessage) error
 	MostRecentChatMessages(repoDID string) ([]placestream.ChatDefs_MessageView, error)
+	ChatMessagesBetween(ctx context.Context, streamerDID string, from, to time.Time, cursor string, limit int) ([]placestream.ChatDefs_MessageView, string, error)
 	GetChatMessage(uri string) (*ChatMessage, error)
 	DeleteChatMessage(ctx context.Context, uri string, deletedAt *time.Time) error
 

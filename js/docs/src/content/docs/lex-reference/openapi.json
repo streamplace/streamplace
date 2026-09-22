@@ -1277,6 +1277,16 @@
               "type": "string",
               "description": "Opaque playback session identifier. Omit on the master playlist request; the server generates one and threads it through the sub-playlist + segment URLs it returns, for view-count correlation."
             }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live.",
+            "schema": {
+              "type": "string",
+              "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live."
+            }
           }
         ]
       }
@@ -1363,8 +1373,49 @@
               "type": "string",
               "description": "Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control."
             }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live.",
+            "schema": {
+              "type": "string",
+              "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live."
+            }
           }
         ]
+      }
+    },
+    "/xrpc/place.stream.playback.getLiveToken": {
+      "get": {
+        "summary": "Mint a short-lived playback token for the caller's own live stream, so their player can watch it over HLS before it is published (pre-live). HLS requests carry no session; the token, passed as `token` on getLivePlaylist and getLiveSegment, stands in for one. Requires an authenticated session; the token is bound to the caller's DID.",
+        "operationId": "place.stream.playback.getLiveToken",
+        "tags": ["place.stream.playback"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "description": "Opaque token to pass as the `token` query parameter."
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "description": "When the token stops working; fetch a new one before then.",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": ["token", "expiresAt"]
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/xrpc/place.stream.playback.getPlaybackServer": {
@@ -3799,6 +3850,112 @@
         }
       }
     },
+    "/xrpc/place.stream.chat.getReplay": {
+      "get": {
+        "summary": "The chat of the livestream a video is the recording of, for a read-only replay beside it. Follows the video's connections to place.stream.livestream records of its own author (the records a recording is connected to when it is published as a video) and returns their messages oldest first, with the time the recording started so a player can show each message at the moment it was sent. Empty for a video that is not the recording of a livestream.",
+        "operationId": "place.stream.chat.getReplay",
+        "tags": ["place.stream.chat"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "messages": {
+                      "type": "array",
+                      "description": "The messages, oldest first.",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.chat.defs_messageView"
+                      }
+                    },
+                    "livestreams": {
+                      "type": "array",
+                      "description": "The livestream records the messages come from, in the order they were streamed; empty when the video is not the recording of a livestream.",
+                      "items": {
+                        "type": "string",
+                        "format": "uri"
+                      }
+                    },
+                    "startedAt": {
+                      "type": "string",
+                      "description": "When the recording started: the wall-clock time of the video's first moment, so a message sent at time t belongs at offset t - startedAt into the video. Absent when livestreams is empty.",
+                      "format": "date-time"
+                    },
+                    "cursor": {
+                      "type": "string",
+                      "description": "Pagination cursor for the next page, if any."
+                    }
+                  },
+                  "required": ["messages", "livestreams"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "VideoNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "video",
+            "in": "query",
+            "required": true,
+            "description": "AT-URI of the place.stream.video record.",
+            "schema": {
+              "type": "string",
+              "description": "AT-URI of the place.stream.video record.",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of messages to return.",
+            "schema": {
+              "type": "integer",
+              "description": "Maximum number of messages to return.",
+              "default": 500,
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Pagination cursor from a previous response.",
+            "schema": {
+              "type": "string",
+              "description": "Pagination cursor from a previous response."
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.broadcast.getBroadcaster": {
       "get": {
         "summary": "Get information about a Streamplace broadcaster.",
@@ -4628,6 +4785,10 @@
                     "chatVerified": {
                       "type": "boolean",
                       "description": "Whether the authenticated caller is verified by one of the node's trusted verifiers."
+                    },
+                    "networkMember": {
+                      "type": "boolean",
+                      "description": "Whether the caller's (or subject's) account is hosted on the network's own PDS (branding key loginPdsUrl). Absent when the node has no such PDS configured."
                     }
                   },
                   "required": ["roles", "policy", "space"]
@@ -4635,7 +4796,20 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "subject",
+            "in": "query",
+            "required": false,
+            "description": "For an anonymous caller (a client holding a session this node can't attribute), the account whose chat verification to report in chatVerified. Ignored when the caller is authenticated.",
+            "schema": {
+              "type": "string",
+              "description": "For an anonymous caller (a client holding a session this node can't attribute), the account whose chat verification to report in chatVerified. Ignored when the caller is authenticated.",
+              "format": "did"
+            }
+          }
+        ]
       }
     },
     "/xrpc/place.stream.access.listGrants": {
@@ -7474,7 +7648,12 @@
         "type": "object",
         "properties": {
           "count": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Viewers watching right now."
+          },
+          "total": {
+            "type": "integer",
+            "description": "Running number of playback sessions this livestream has had (cumulative, session-based; the X-style 'views' beside the concurrent count)."
           }
         },
         "required": ["count"]
@@ -7738,6 +7917,90 @@
         },
         "required": ["uri", "name"]
       },
+      "place.stream.chat.defs_messageView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "author": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_profileViewBasic"
+          },
+          "record": {},
+          "indexedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "chatProfile": {
+            "$ref": "#/components/schemas/place.stream.chat.profile"
+          },
+          "replyTo": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/place.stream.chat.defs_messageView"
+              }
+            ]
+          },
+          "deleted": {
+            "type": "boolean",
+            "description": "If true, this message has been deleted or labeled and should be cleared from the cache"
+          },
+          "badges": {
+            "type": "array",
+            "description": "Up to 3 badge tokens to display with the message. First badge is server-controlled, remaining badges are user-settable. Tokens are looked up in badges.json for display info.",
+            "items": {
+              "$ref": "#/components/schemas/place.stream.badge.defs_badgeView"
+            },
+            "maxItems": 3
+          }
+        },
+        "required": ["uri", "cid", "author", "record", "indexedAt"]
+      },
+      "place.stream.chat.profile": {
+        "description": "Unknown type"
+      },
+      "place.stream.badge.defs_badgeView": {
+        "type": "object",
+        "description": "View of a badge record, with fields resolved for display. If the DID in issuer is not the current streamplace node, the signature field shall be required.",
+        "properties": {
+          "badgeType": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string",
+            "description": "DID of the badge issuer.",
+            "format": "did"
+          },
+          "recipient": {
+            "type": "string",
+            "description": "DID of the badge recipient.",
+            "format": "did"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name from the badge definition."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description from the badge definition."
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "Resolved image URL for the badge icon.",
+            "format": "uri"
+          },
+          "signature": {
+            "type": "string",
+            "description": "TODO: Cryptographic signature of the badge (of a place.stream.key)."
+          }
+        },
+        "required": ["badgeType", "issuer", "recipient"]
+      },
       "place.stream.branding.getBranding_brandingAsset": {
         "type": "object",
         "properties": {
@@ -7783,43 +8046,6 @@
           }
         },
         "required": ["key", "action"]
-      },
-      "place.stream.badge.defs_badgeView": {
-        "type": "object",
-        "description": "View of a badge record, with fields resolved for display. If the DID in issuer is not the current streamplace node, the signature field shall be required.",
-        "properties": {
-          "badgeType": {
-            "type": "string"
-          },
-          "issuer": {
-            "type": "string",
-            "description": "DID of the badge issuer.",
-            "format": "did"
-          },
-          "recipient": {
-            "type": "string",
-            "description": "DID of the badge recipient.",
-            "format": "did"
-          },
-          "name": {
-            "type": "string",
-            "description": "Display name from the badge definition."
-          },
-          "description": {
-            "type": "string",
-            "description": "Description from the badge definition."
-          },
-          "imageUrl": {
-            "type": "string",
-            "description": "Resolved image URL for the badge icon.",
-            "format": "uri"
-          },
-          "signature": {
-            "type": "string",
-            "description": "TODO: Cryptographic signature of the badge (of a place.stream.key)."
-          }
-        },
-        "required": ["badgeType", "issuer", "recipient"]
       },
       "place.stream.badge.defs_badgeSlot": {
         "type": "object",

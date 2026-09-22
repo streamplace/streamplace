@@ -10,6 +10,8 @@ import (
 
 	"github.com/rivo/uniseg"
 	glex "github.com/streamplace/glex/runtime"
+	"strconv"
+
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/placestream"
@@ -131,15 +133,18 @@ func (m *DBModel) GetChatMessage(uri string) (*ChatMessage, error) {
 	return &message, nil
 }
 
-func (m *DBModel) MostRecentChatMessages(repoDID string) ([]placestream.ChatDefs_MessageView, error) {
-	dbmessages := []ChatMessage{}
-	err := m.DB.
+// visibleChatMessages is the query for a streamer's chat as a viewer may see
+// it: the messages of the streamer's chat, minus those from accounts the
+// streamer blocked, those a gate hid, those a labeler labeled and those that
+// were deleted, with the author, chat profile and reply target loaded.
+func (m *DBModel) visibleChatMessages(streamerDID string) *gorm.DB {
+	return m.DB.
 		Preload("Repo").
 		Preload("ChatProfile").
 		Preload("ReplyTo").
 		Preload("ReplyTo.Repo").
 		Preload("ReplyTo.ChatProfile").
-		Where("streamer_repo_did = ?", repoDID).
+		Where("streamer_repo_did = ?", streamerDID).
 		// Exclude messages from users blocked by the streamer
 		Joins("LEFT JOIN blocks ON blocks.repo_did = chat_messages.streamer_repo_did AND blocks.subject_did = chat_messages.repo_did").
 		Where("blocks.rkey IS NULL"). // Only include messages where no block exists
@@ -150,20 +155,76 @@ func (m *DBModel) MostRecentChatMessages(repoDID string) ([]placestream.ChatDefs
 		Joins("LEFT JOIN labels ON labels.uri = chat_messages.uri").
 		Where("labels.uri IS NULL"). // Only include messages where no label exists
 		// Exclude deleted messages
-		Where("chat_messages.deleted_at IS NULL").
+		Where("chat_messages.deleted_at IS NULL")
+}
+
+func chatMessageViews(dbmessages []ChatMessage) ([]placestream.ChatDefs_MessageView, error) {
+	spmessages := []placestream.ChatDefs_MessageView{}
+	for _, m := range dbmessages {
+		spmessage, err := m.ToStreamplaceMessageView()
+		if err != nil {
+			return nil, fmt.Errorf("error converting chat message to message view: %w", err)
+		}
+		spmessages = append(spmessages, *spmessage)
+	}
+	return spmessages, nil
+}
+
+func (m *DBModel) MostRecentChatMessages(repoDID string) ([]placestream.ChatDefs_MessageView, error) {
+	dbmessages := []ChatMessage{}
+	err := m.visibleChatMessages(repoDID).
 		Limit(100).
 		Order("chat_messages.created_at DESC").
 		Find(&dbmessages).Error
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving replies: %w", err)
 	}
-	spmessages := []placestream.ChatDefs_MessageView{}
-	for _, m := range dbmessages {
-		spmessage, err := m.ToStreamplaceMessageView()
-		if err != nil {
-			return nil, fmt.Errorf("error converting feed post to bsky post view: %w", err)
-		}
-		spmessages = append(spmessages, *spmessage)
+	return chatMessageViews(dbmessages)
+}
+
+// ChatMessagesBetween is a streamer's visible chat from one time to another,
+// oldest first, for the replay of a recording: the messages sent while the
+// livestream(s) it came from were on. Pages of limit with a cursor (the last
+// message's time and CID); the returned cursor is empty on the last page.
+func (m *DBModel) ChatMessagesBetween(ctx context.Context, streamerDID string, from, to time.Time, cursor string, limit int) ([]placestream.ChatDefs_MessageView, string, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 500
 	}
-	return spmessages, nil
+	q := m.visibleChatMessages(streamerDID).WithContext(ctx).
+		Where("chat_messages.created_at >= ? AND chat_messages.created_at <= ?", from, to)
+	if cursor != "" {
+		at, cid, err := decodeChatCursor(cursor)
+		if err != nil {
+			return nil, "", err
+		}
+		q = q.Where("chat_messages.created_at > ? OR (chat_messages.created_at = ? AND chat_messages.cid > ?)", at, at, cid)
+	}
+	dbmessages := []ChatMessage{}
+	if err := q.Order("chat_messages.created_at ASC, chat_messages.cid ASC").Limit(limit + 1).Find(&dbmessages).Error; err != nil {
+		return nil, "", fmt.Errorf("error retrieving chat replay: %w", err)
+	}
+	next := ""
+	if len(dbmessages) > limit {
+		dbmessages = dbmessages[:limit]
+		last := dbmessages[len(dbmessages)-1]
+		next = encodeChatCursor(last.CreatedAt, last.CID)
+	}
+	views, err := chatMessageViews(dbmessages)
+	return views, next, err
+}
+
+func encodeChatCursor(at time.Time, cid string) string {
+	return strconv.FormatInt(at.UTC().UnixNano(), 10) + ":" + cid
+}
+
+func decodeChatCursor(cursor string) (time.Time, string, error) {
+	i := strings.IndexByte(cursor, ':')
+	if i <= 0 {
+		return time.Time{}, "", fmt.Errorf("invalid cursor")
+	}
+	ns, err := strconv.ParseInt(cursor[:i], 10, 64)
+	if err != nil {
+		return time.Time{}, "", fmt.Errorf("invalid cursor")
+	}
+	return time.Unix(0, ns).UTC(), cursor[i+1:], nil
 }

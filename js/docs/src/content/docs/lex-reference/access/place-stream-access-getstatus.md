@@ -15,7 +15,11 @@ description: Reference for the place.stream.access.getStatus lexicon
 
 Report the caller's roles on this node and the node's access policy. Works unauthenticated (roles then reflect what an anonymous visitor holds). This is the one place.stream method a node always answers, even to accounts locked out by a private viewer policy, so clients can render the right wall.
 
-**Parameters:** _(None defined)_
+**Parameters:**
+
+| Name      | Type     | Req'd | Description                                                                                                                                                                              | Constraints   |
+| --------- | -------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `subject` | `string` | ❌    | For an anonymous caller (a client holding a session this node can't attribute), the account whose chat verification to report in chatVerified. Ignored when the caller is authenticated. | Format: `did` |
 
 **Output:**
 
@@ -32,6 +36,7 @@ Report the caller's roles on this node and the node's access policy. Works unaut
 | `space`            | `string`                                                                                    | ✅    | The node's access-control space: at://{authority}/space/place.stream.access.control/self (A space URI; not validated as a classic at-uri because the space form is newer than that grammar.) |               |
 | `chatVerifiedOnly` | `boolean`                                                                                   | ❌    | Whether chat is restricted to users verified by the node's trusted verifiers (branding key chatVerifiedOnly).                                                                                |               |
 | `chatVerified`     | `boolean`                                                                                   | ❌    | Whether the authenticated caller is verified by one of the node's trusted verifiers.                                                                                                         |               |
+| `networkMember`    | `boolean`                                                                                   | ❌    | Whether the caller's (or subject's) account is hosted on the network's own PDS (branding key loginPdsUrl). Absent when the node has no such PDS configured.                                  |               |
 
 ---
 
@@ -45,6 +50,16 @@ Report the caller's roles on this node and the node's access policy. Works unaut
     "main": {
       "type": "query",
       "description": "Report the caller's roles on this node and the node's access policy. Works unauthenticated (roles then reflect what an anonymous visitor holds). This is the one place.stream method a node always answers, even to accounts locked out by a private viewer policy, so clients can render the right wall.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "format": "did",
+            "description": "For an anonymous caller (a client holding a session this node can't attribute), the account whose chat verification to report in chatVerified. Ignored when the caller is authenticated."
+          }
+        }
+      },
       "output": {
         "encoding": "application/json",
         "schema": {
@@ -79,6 +94,10 @@ Report the caller's roles on this node and the node's access policy. Works unaut
             "chatVerified": {
               "type": "boolean",
               "description": "Whether the authenticated caller is verified by one of the node's trusted verifiers."
+            },
+            "networkMember": {
+              "type": "boolean",
+              "description": "Whether the caller's (or subject's) account is hosted on the network's own PDS (branding key loginPdsUrl). Absent when the node has no such PDS configured."
             }
           }
         }

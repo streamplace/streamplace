@@ -1,7 +1,7 @@
 import React, { useContext, useRef } from "react";
 import { makeVideoStore } from "../video-store";
 import { VideoContext } from "../video-store/context";
-import { useVideoFetch } from "./fetch";
+import { useChatReplayFetch, useVideoFetch } from "./fetch";
 
 export function VideoProvider({
   children,
@@ -32,6 +32,7 @@ export function VideoProvider({
 
 export function VideoFetcher({ aturi }: { aturi: string }) {
   useVideoFetch(aturi);
+  useChatReplayFetch(aturi);
   return <></>;
 }
 

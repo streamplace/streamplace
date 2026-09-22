@@ -434,6 +434,7 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.branding.importBundle", s.HandlePlaceStreamBrandingImportBundle)
 	e.POST("/xrpc/place.stream.branding.updateBlob", s.HandlePlaceStreamBrandingUpdateBlob)
 	e.GET("/xrpc/place.stream.broadcast.getBroadcaster", s.HandlePlaceStreamBroadcastGetBroadcaster)
+	e.GET("/xrpc/place.stream.chat.getReplay", s.HandlePlaceStreamChatGetReplay)
 	e.GET("/xrpc/place.stream.config.getEnv", s.HandlePlaceStreamConfigGetEnv)
 	e.GET("/xrpc/place.stream.game.getGame", s.HandlePlaceStreamGameGetGame)
 	e.GET("/xrpc/place.stream.game.search", s.HandlePlaceStreamGameSearch)
@@ -731,6 +732,29 @@ func (s *Server) HandlePlaceStreamBroadcastGetBroadcaster(c echo.Context) error 
 	var handleErr error
 	// func (s *Server) handlePlaceStreamBroadcastGetBroadcaster(ctx context.Context) (*placestream.BroadcastGetBroadcaster_Output, error)
 	out, handleErr = s.handlePlaceStreamBroadcastGetBroadcaster(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamChatGetReplay(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamChatGetReplay")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+	limit := 0
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	}
+	video := c.QueryParam("video")
+	var out *placestream.ChatGetReplay_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamChatGetReplay(ctx context.Context,cursor string,limit int,video string) (*placestream.ChatGetReplay_Output, error)
+	out, handleErr = s.handlePlaceStreamChatGetReplay(ctx, cursor, limit, video)
 	if handleErr != nil {
 		return handleErr
 	}

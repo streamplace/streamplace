@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing } from "../../lib/theme/tokens";
 import { useTheme } from "../../ui";
 import { useVideoStore } from "../../video-store/video-store";
+import { VodChatReplay } from "./vod-chat-replay";
 import { VodDescription } from "./vod-description";
 import { VodMobileMetadata } from "./vod-mobile-metadata";
 
@@ -15,8 +16,12 @@ import { VodMobileMetadata } from "./vod-mobile-metadata";
 // scroll view.
 export function VodSection({
   scrollDescription = false,
+  chatReplay = true,
 }: {
   scrollDescription?: boolean;
+  /** Show the livestream's chat replay under the description (off when the
+   *  page shows it beside the player instead). */
+  chatReplay?: boolean;
 }) {
   const aturi = useVideoStore((x) => x.aturi);
   const { theme } = useTheme();
@@ -32,6 +37,7 @@ export function VodSection({
         <View style={{ width: "100%", gap: spacing[5] }}>
           <VodMobileMetadata />
           <VodDescription />
+          {chatReplay && <VodChatReplay style={{ height: 420 }} />}
         </View>
       </View>
     );
@@ -59,6 +65,7 @@ export function VodSection({
         showsVerticalScrollIndicator={false}
       >
         <VodDescription />
+        {chatReplay && <VodChatReplay style={{ height: 360 }} />}
       </ScrollView>
     </View>
   );

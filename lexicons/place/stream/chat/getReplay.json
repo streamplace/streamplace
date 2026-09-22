@@ -1,0 +1,69 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.chat.getReplay",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "The chat of the livestream a video is the recording of, for a read-only replay beside it. Follows the video's connections to place.stream.livestream records of its own author (the records a recording is connected to when it is published as a video) and returns their messages oldest first, with the time the recording started so a player can show each message at the moment it was sent. Empty for a video that is not the recording of a livestream.",
+      "parameters": {
+        "type": "params",
+        "required": ["video"],
+        "properties": {
+          "video": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "AT-URI of the place.stream.video record."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 500,
+            "description": "Maximum number of messages to return."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Pagination cursor from a previous response."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["messages", "livestreams"],
+          "properties": {
+            "messages": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "place.stream.chat.defs#messageView"
+              },
+              "description": "The messages, oldest first."
+            },
+            "livestreams": {
+              "type": "array",
+              "items": { "type": "string", "format": "at-uri" },
+              "description": "The livestream records the messages come from, in the order they were streamed; empty when the video is not the recording of a livestream."
+            },
+            "startedAt": {
+              "type": "string",
+              "format": "datetime",
+              "description": "When the recording started: the wall-clock time of the video's first moment, so a message sent at time t belongs at offset t - startedAt into the video. Absent when livestreams is empty."
+            },
+            "cursor": {
+              "type": "string",
+              "description": "Pagination cursor for the next page, if any."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "VideoNotFound",
+          "description": "No record indexed at the supplied AT-URI."
+        }
+      ]
+    }
+  }
+}

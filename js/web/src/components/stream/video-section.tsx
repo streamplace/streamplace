@@ -138,7 +138,7 @@ export function VideoSectionInner({
   const { theatre } = useFullscreen();
   const neverLive = liveness === "never-live";
   const offline = liveness === "offline";
-  // Show the live player when neither never-live nor offline, including initial loading state
+  // Show the live player when neither never-live nor offline, including during initial loading state
   const showPlayer = !neverLive && !offline;
 
   // calculate seg ratio for poster aspect ratio correction

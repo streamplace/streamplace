@@ -10,7 +10,7 @@
 # The container is named after the checkout directory (streamplace-N), mounts
 # the checkout's parent at the same absolute path (so sibling checkouts are
 # visible), and comes from the builder image pinned in
-# .ci/dockerfile-hash.yaml. See AGENTS.md §1 and §2.
+# .ci/dockerfile-hash.yaml. See .claude/skills/streamplace-docker/SKILL.md.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

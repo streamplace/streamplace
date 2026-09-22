@@ -8,7 +8,7 @@
 #
 # Idempotent and cheap to re-run: every step reports what it found, and the
 # expensive ones are skipped when they are already up to date. Re-run it after
-# a branch switch to catch the stale-build traps in AGENTS.md §7.
+# a branch switch; see .claude/skills/streamplace-docker/SKILL.md for stale artifacts.
 #
 # It is deliberately the last thing that runs before an agent starts: the e2e
 # suite passing here means the toolchain works, so any later failure is about
@@ -119,6 +119,6 @@ provisioned $REPO
   e2e         $E2E_RESULT
 
 next:
-  make dev                 run a node (AGENTS.md §4)
+  make dev                 rebuild binaries (does not start a node)
   hack/e2e-web-local.sh    re-run the suite for later changes
 EOF

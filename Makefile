@@ -293,7 +293,7 @@ test-vod:
 # checkout directory (streamplace-N), with the whole parent directory
 # bind-mounted at the same path so sibling checkouts are visible. Both
 # targets are idempotent and adopt a container that already exists (under
-# either name) or is stopped. See AGENTS.md §1.
+# either name) or is stopped. See .claude/skills/streamplace-docker/SKILL.md.
 .PHONY: container
 container:
 	bash hack/container.sh ensure

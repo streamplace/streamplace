@@ -426,6 +426,7 @@ md-lexicons:
 	&& ls -R .build/temp \
 	&& cp -rf .build/temp/place/stream/* js/docs/src/content/docs/lex-reference/ \
 	&& rm -rf .build/temp \
+	&& node js/docs/scripts/openapi-decycle.mjs js/docs/src/content/docs/lex-reference/openapi.json \
 	&& find js/docs/src/content/docs/lex-reference -type f  | xargs pnpm exec prettier --write --ignore-unknown
 
 .PHONY: ci-lexicons

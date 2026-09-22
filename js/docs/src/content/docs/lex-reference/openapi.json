@@ -6826,7 +6826,8 @@
             "type": "array",
             "description": "Profiles of the owners of the Atmosphere records that backed this view.",
             "items": {
-              "$ref": "#/components/schemas/app.bsky.actor.defs_profileViewBasic"
+              "type": "object",
+              "description": "A app.bsky.actor.defs_profileViewBasic (recursive reference; see the schema of the same name)."
             }
           }
         },
@@ -7018,7 +7019,8 @@
           "followers": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/app.bsky.actor.defs_profileViewBasic"
+              "type": "object",
+              "description": "A app.bsky.actor.defs_profileViewBasic (recursive reference; see the schema of the same name)."
             },
             "minItems": 0,
             "maxItems": 5
@@ -7942,7 +7944,8 @@
           "replyTo": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/place.stream.chat.defs_messageView"
+                "type": "object",
+                "description": "A place.stream.chat.defs_messageView (recursive reference; see the schema of the same name)."
               }
             ]
           },

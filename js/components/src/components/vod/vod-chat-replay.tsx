@@ -1,13 +1,6 @@
 import { MessageSquare } from "lucide-react-native";
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  FlatList,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  View as RNView,
-  StyleProp,
-  ViewStyle,
-} from "react-native";
+import { useMemo } from "react";
+import { FlatList, View as RNView, StyleProp, ViewStyle } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { spacing } from "../../lib/theme/tokens";
 import { usePlayerStore } from "../../player-store";
@@ -22,6 +15,13 @@ import { Text, useTheme, View } from "../ui";
 // reads the way the stream did; seeking back takes messages away again.
 // Nothing here posts, replies or moderates. Renders nothing for a video
 // that was not recorded from a livestream.
+//
+// The list is inverted, like the live chat: offset zero is the newest
+// message, so the view stays pinned to the latest one however many arrive
+// at once (a seek halfway through the video adds hundreds in one render,
+// and scrolling a normal list "to the end" lands wherever the virtualized
+// list's estimate of its own height puts it). A viewer who scrolls up to
+// read stays put, since new rows are added below the fold.
 
 const keyExtractor = (item: ChatMessageViewHydrated) => item.cid;
 
@@ -41,8 +41,6 @@ export function VodChatReplay({ style }: { style?: StyleProp<ViewStyle> }) {
   const replay = useVideoStore((x) => x.replay);
   const playTime = usePlayerStore((x) => x.playTime);
   const { theme } = useTheme();
-  const listRef = useRef<FlatList<ChatMessageViewHydrated>>(null);
-  const [pinned, setPinned] = useState(true);
 
   const times = useMemo(
     () =>
@@ -54,29 +52,11 @@ export function VodChatReplay({ style }: { style?: StyleProp<ViewStyle> }) {
   const count = replay
     ? visibleCount(times, replay.startedAt + playTime * 1000)
     : 0;
+  // Newest first, for the inverted list.
   const shown = useMemo(
-    () => (replay ? replay.messages.slice(0, count) : []),
+    () => (replay ? replay.messages.slice(0, count).reverse() : []),
     [replay, count],
   );
-
-  // Follow the newest message while the viewer is at the bottom, as live
-  // chat does; a viewer who scrolled up to read stays where they are.
-  useEffect(() => {
-    if (pinned && shown.length > 0) {
-      const t = setTimeout(
-        () => listRef.current?.scrollToEnd({ animated: false }),
-        0,
-      );
-      return () => clearTimeout(t);
-    }
-  }, [shown.length, pinned]);
-
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    const fromBottom =
-      contentSize.height - (contentOffset.y + layoutMeasurement.height);
-    setPinned(fromBottom < 40);
-  };
 
   if (!replay) return null;
 
@@ -131,7 +111,6 @@ export function VodChatReplay({ style }: { style?: StyleProp<ViewStyle> }) {
       ) : (
         <ProfileCardProvider>
           <FlatList
-            ref={listRef}
             style={{ flex: 1 }}
             contentContainerStyle={{
               paddingHorizontal: spacing[2],
@@ -144,8 +123,7 @@ export function VodChatReplay({ style }: { style?: StyleProp<ViewStyle> }) {
                 <RenderChatMessage item={item} />
               </RNView>
             )}
-            onScroll={onScroll}
-            scrollEventThrottle={32}
+            inverted
             nestedScrollEnabled
             removeClippedSubviews
             maxToRenderPerBatch={20}

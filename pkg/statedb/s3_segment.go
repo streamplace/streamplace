@@ -57,9 +57,21 @@ func (state *StatefulDB) RecordStart(ctx context.Context, repoDID, bucket, key, 
 // objects (CompletedAt == nil) are excluded; finalize runs after teardown, by
 // which point every object of a finished stream has completed.
 func (state *StatefulDB) ListS3SegmentsForLivestream(ctx context.Context, livestreamURI string) ([]S3Segment, error) {
+	return state.ListS3SegmentsForLivestreams(ctx, []string{livestreamURI})
+}
+
+// ListS3SegmentsForLivestreams is ListS3SegmentsForLivestream over several
+// livestream records at once, in one chronological order: a streamer who
+// started a new livestream record mid-stream (a title change on some
+// clients) split one recording across two records, and the VOD wants the
+// objects of both in the order they were recorded.
+func (state *StatefulDB) ListS3SegmentsForLivestreams(ctx context.Context, livestreamURIs []string) ([]S3Segment, error) {
+	if len(livestreamURIs) == 0 {
+		return nil, nil
+	}
 	var segs []S3Segment
 	err := state.DB.WithContext(ctx).
-		Where("livestream_uri = ? AND completed_at IS NOT NULL", livestreamURI).
+		Where("livestream_uri IN ? AND completed_at IS NOT NULL", livestreamURIs).
 		Order("started_at ASC").
 		Find(&segs).Error
 	if err != nil {

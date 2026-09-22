@@ -442,11 +442,14 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.live.startLivestream", s.HandlePlaceStreamLiveStartLivestream)
 	e.POST("/xrpc/place.stream.live.stopLivestream", s.HandlePlaceStreamLiveStopLivestream)
 	e.POST("/xrpc/place.stream.media.createUpload", s.HandlePlaceStreamMediaCreateUpload)
+	e.POST("/xrpc/place.stream.media.deleteVideo", s.HandlePlaceStreamMediaDeleteVideo)
 	e.POST("/xrpc/place.stream.media.finalizeLivestream", s.HandlePlaceStreamMediaFinalizeLivestream)
 	e.GET("/xrpc/place.stream.media.getUploadStatus", s.HandlePlaceStreamMediaGetUploadStatus)
 	e.GET("/xrpc/place.stream.media.getVideo", s.HandlePlaceStreamMediaGetVideo)
 	e.GET("/xrpc/place.stream.media.getVideoList", s.HandlePlaceStreamMediaGetVideoList)
+	e.GET("/xrpc/place.stream.media.listVideos", s.HandlePlaceStreamMediaListVideos)
 	e.POST("/xrpc/place.stream.media.publishVideo", s.HandlePlaceStreamMediaPublishVideo)
+	e.POST("/xrpc/place.stream.media.updateVideo", s.HandlePlaceStreamMediaUpdateVideo)
 	e.POST("/xrpc/place.stream.moderation.createBlock", s.HandlePlaceStreamModerationCreateBlock)
 	e.POST("/xrpc/place.stream.moderation.createGate", s.HandlePlaceStreamModerationCreateGate)
 	e.POST("/xrpc/place.stream.moderation.createPin", s.HandlePlaceStreamModerationCreatePin)
@@ -869,6 +872,23 @@ func (s *Server) HandlePlaceStreamMediaCreateUpload(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamMediaDeleteVideo(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaDeleteVideo")
+	defer span.End()
+	var body placestream.MediaDeleteVideo_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.MediaDeleteVideo_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMediaDeleteVideo(ctx context.Context,body *placestream.MediaDeleteVideo_Input) (*placestream.MediaDeleteVideo_Output, error)
+	out, handleErr = s.handlePlaceStreamMediaDeleteVideo(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandlePlaceStreamMediaFinalizeLivestream(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaFinalizeLivestream")
 	defer span.End()
@@ -937,6 +957,20 @@ func (s *Server) HandlePlaceStreamMediaGetVideoList(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamMediaListVideos(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaListVideos")
+	defer span.End()
+	repo := c.QueryParam("repo")
+	var out *placestream.MediaListVideos_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMediaListVideos(ctx context.Context,repo string) (*placestream.MediaListVideos_Output, error)
+	out, handleErr = s.handlePlaceStreamMediaListVideos(ctx, repo)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandlePlaceStreamMediaPublishVideo(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaPublishVideo")
 	defer span.End()
@@ -948,6 +982,23 @@ func (s *Server) HandlePlaceStreamMediaPublishVideo(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamMediaPublishVideo(ctx context.Context,body *placestream.MediaPublishVideo_Input) (*placestream.MediaPublishVideo_Output, error)
 	out, handleErr = s.handlePlaceStreamMediaPublishVideo(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamMediaUpdateVideo(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaUpdateVideo")
+	defer span.End()
+	var body placestream.MediaUpdateVideo_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.MediaUpdateVideo_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMediaUpdateVideo(ctx context.Context,body *placestream.MediaUpdateVideo_Input) (*placestream.MediaUpdateVideo_Output, error)
+	out, handleErr = s.handlePlaceStreamMediaUpdateVideo(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

@@ -156,8 +156,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 							send(renditionsMessage(names))
 						}
 					}
-					count := a.Bus.GetViewerCount(repoDID)
-					bs, err := json.Marshal(placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
+					bs, err := json.Marshal(a.viewerCountMessage(ctx, repoDID))
 					if err != nil {
 						log.Error(ctx, "could not marshal view count", "error", err)
 						continue
@@ -244,8 +243,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 		}()
 
 		go func() {
-			count := a.Bus.GetViewerCount(repoDID)
-			initialBurst <- placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"}
+			initialBurst <- a.viewerCountMessage(ctx, repoDID)
 		}()
 
 		go func() {
@@ -387,4 +385,32 @@ func renditionsMessage(names []string) placestream.Defs_Renditions {
 	}
 	out.Renditions = append(out.Renditions, placestream.Defs_Rendition{LexiconTypeID: "place.stream.defs#rendition", Name: renditions.AudioRendition.Name})
 	return out
+}
+
+// viewerCountMessage is the viewerCount event: who is watching now (the
+// bus) and how many sessions this livestream has had (statedb's running
+// total, when the node keeps one).
+func (a *StreamplaceAPI) viewerCountMessage(ctx context.Context, repoDID string) placestream.Livestream_ViewerCount {
+	msg := placestream.Livestream_ViewerCount{
+		Count:         int64(a.Bus.GetViewerCount(repoDID)),
+		LexiconTypeID: "place.stream.livestream#viewerCount",
+	}
+	if a.StatefulDB == nil {
+		return msg
+	}
+	// The total of the streamer's current livestream record, looked up by
+	// its URI: the most recently counted-into row can still be the previous
+	// record's for a moment after a new record is indexed.
+	if ls, err := a.Model.GetLatestLivestreamForRepo(repoDID); err == nil && ls != nil {
+		if totals, err := a.StatefulDB.LivestreamViewTotals(ctx, []string{ls.URI}); err == nil {
+			if total := totals[ls.URI]; total > 0 {
+				msg.Total = &total
+			}
+			return msg
+		}
+	}
+	if total, _, err := a.StatefulDB.GetStreamViewTotal(ctx, repoDID); err == nil && total > 0 {
+		msg.Total = &total
+	}
+	return msg
 }

@@ -112,6 +112,9 @@ func TestActionPermissions_Mapping(t *testing.T) {
 	require.Equal(t, PermissionBan, ActionPermissions["deleteBlock"])
 	require.Equal(t, PermissionHide, ActionPermissions["createGate"])
 	require.Equal(t, PermissionHide, ActionPermissions["deleteGate"])
+	for _, action := range []string{"finalizeLivestream", "listVideos", "publishVideo", "updateVideo", "deleteVideo"} {
+		require.Equal(t, PermissionLivestreamManage, ActionPermissions[action], action)
+	}
 	require.Equal(t, PermissionLivestreamManage, ActionPermissions["updateLivestream"])
 }
 

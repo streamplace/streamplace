@@ -14,3 +14,9 @@ export function useViews(): number | null {
   );
   return mode === "vod" ? vodViews : liveViewers;
 }
+
+/** The livestream's running view total (playback sessions since it began),
+ *  or null when the node doesn't report one. */
+export function useViewTotal(): number | null {
+  return useLivestreamStoreOptional((x) => x.viewTotal) ?? null;
+}

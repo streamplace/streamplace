@@ -30,8 +30,15 @@ var ActionPermissions = map[string]string{
 	"createVodGate":    PermissionVodCommentHide,
 	"deleteVodGate":    PermissionVodCommentHide,
 	"updateLivestream": PermissionLivestreamManage,
-	"createPin":        PermissionMessagePin,
-	"deletePin":        PermissionMessagePin,
+	// A streamer's recordings and video records: what the app's Livestreams
+	// tab does, for a moderator the streamer trusts with their channel.
+	"finalizeLivestream": PermissionLivestreamManage,
+	"listVideos":         PermissionLivestreamManage,
+	"publishVideo":       PermissionLivestreamManage,
+	"updateVideo":        PermissionLivestreamManage,
+	"deleteVideo":        PermissionLivestreamManage,
+	"createPin":          PermissionMessagePin,
+	"deletePin":          PermissionMessagePin,
 }
 
 // PermissionChecker validates moderation permissions

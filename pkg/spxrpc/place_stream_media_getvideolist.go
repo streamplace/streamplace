@@ -38,5 +38,8 @@ func (s *Server) handlePlaceStreamMediaGetVideoList(ctx context.Context, cursor 
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	for i := range out.Videos {
+		s.addLivestreamViews(ctx, &out.Videos[i])
+	}
 	return &out, nil
 }

@@ -184,7 +184,7 @@ func TestLLHLSMasterAdvertisesFrameRateWhenKnown(t *testing.T) {
 }
 
 func TestLLHLSMasterOmitsIndependentSegments(t *testing.T) {
-	master, err := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{FrameRate: 30, Bandwidth: 5000000, AverageBandwidth: 4000000}, llhls.AudioConfig{Channels: 2, Bandwidth: 128000, AverageBandwidth: 128000})
+	master, err := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{Codec: "avc1.64002a", FrameRate: 30, Bandwidth: 5000000, AverageBandwidth: 4000000}, llhls.AudioConfig{Channels: 2, Bandwidth: 128000, AverageBandwidth: 128000})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestLLHLSMasterOmitsIndependentSegments(t *testing.T) {
 }
 
 func TestLLHLSMasterAdvertisesAudioChannels(t *testing.T) {
-	master, err := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{FrameRate: 30, Bandwidth: 5000000, AverageBandwidth: 4000000}, llhls.AudioConfig{Channels: 1, Bandwidth: 128000, AverageBandwidth: 128000})
+	master, err := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{Codec: "avc1.64002a", FrameRate: 30, Bandwidth: 5000000, AverageBandwidth: 4000000}, llhls.AudioConfig{Channels: 1, Bandwidth: 128000, AverageBandwidth: 128000})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,6 +206,14 @@ func TestLLHLSMasterAdvertisesAudioChannels(t *testing.T) {
 func TestLLHLSMasterRendererRejectsIncompleteMetadata(t *testing.T) {
 	if _, err := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{}, llhls.AudioConfig{}); err == nil {
 		t.Fatal("renderer accepted incomplete metadata")
+	}
+}
+
+func TestLLHLSMasterRendererRejectsMissingVideoCodec(t *testing.T) {
+	video := llhls.VideoConfig{FrameRate: 30, Bandwidth: 5000000, AverageBandwidth: 4000000}
+	audio := llhls.AudioConfig{Channels: 2, Bandwidth: 128000, AverageBandwidth: 128000}
+	if _, err := renderLLHLSMaster("/api/playback/test", video, audio); err == nil {
+		t.Fatal("renderer accepted missing video codec metadata")
 	}
 }
 
@@ -273,7 +281,7 @@ func TestLLHLSMasterWaitsForBothRenditions(t *testing.T) {
 	if err := window.Observe(llhls.Event{Kind: llhls.Init, Presentation: "p", Track: "video", Generation: 1, Data: []byte("video-init")}); err != nil {
 		t.Fatal(err)
 	}
-	window.SetVideoConfig(llhls.VideoConfig{FrameRate: 120, Bandwidth: 5000000, AverageBandwidth: 4000000})
+	window.SetVideoConfig(llhls.VideoConfig{Codec: "avc1.64002a", FrameRate: 120, Bandwidth: 5000000, AverageBandwidth: 4000000})
 	manager := &media.MediaManager{}
 	setLLWindowsForTest(manager, map[string]*llhls.Window{user: window})
 	api := &StreamplaceAPI{MediaManager: manager, Aliases: map[string]string{}}

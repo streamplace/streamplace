@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"time"
+
+	"stream.place/streamplace/pkg/llhls"
 )
 
 type cmafFragmentTiming struct {
@@ -376,6 +378,102 @@ func cmafAudioTrackChannels(data []byte) (int, bool, error) {
 		return 0, false, fmt.Errorf("CMAF audio track contains no mp4a sample entry")
 	}
 	return channels, true, nil
+}
+
+func cmafVideoConfig(data []byte) (llhls.VideoConfig, error) {
+	var config llhls.VideoConfig
+	var foundVideo bool
+	err := walkCMAFBoxes(data, func(boxType string, payload []byte) error {
+		if boxType != "moov" {
+			return nil
+		}
+		return walkCMAFBoxes(payload, func(childType string, childPayload []byte) error {
+			if childType != "trak" {
+				return nil
+			}
+			_, handler, err := parseCMAFTrak(childPayload)
+			if err != nil {
+				return err
+			}
+			if handler != "vide" {
+				return nil
+			}
+			if foundVideo {
+				return fmt.Errorf("CMAF init contains multiple video tracks")
+			}
+			foundVideo = true
+			config, err = cmafVideoTrackConfig(childPayload)
+			return err
+		})
+	})
+	if err != nil {
+		return llhls.VideoConfig{}, err
+	}
+	if !foundVideo {
+		return llhls.VideoConfig{}, fmt.Errorf("CMAF init contains no video track")
+	}
+	return config, nil
+}
+
+func cmafVideoTrackConfig(data []byte) (llhls.VideoConfig, error) {
+	var config llhls.VideoConfig
+	var foundSampleEntry bool
+	var foundCodec bool
+	err := walkCMAFBoxes(data, func(boxType string, payload []byte) error {
+		if boxType != "mdia" {
+			return nil
+		}
+		return walkCMAFBoxes(payload, func(mediaChildType string, mediaChildPayload []byte) error {
+			if mediaChildType != "minf" {
+				return nil
+			}
+			return walkCMAFBoxes(mediaChildPayload, func(minfChildType string, minfChildPayload []byte) error {
+				if minfChildType != "stbl" {
+					return nil
+				}
+				return walkCMAFBoxes(minfChildPayload, func(stblChildType string, stblChildPayload []byte) error {
+					if stblChildType != "stsd" {
+						return nil
+					}
+					if len(stblChildPayload) < 8 {
+						return fmt.Errorf("stsd is truncated")
+					}
+					return walkCMAFBoxes(stblChildPayload[8:], func(entryType string, entryPayload []byte) error {
+						if entryType != "avc1" && entryType != "avc3" {
+							return nil
+						}
+						foundSampleEntry = true
+						if len(entryPayload) < 28 {
+							return fmt.Errorf("%s sample entry is truncated", entryType)
+						}
+						config.Width = int(binary.BigEndian.Uint16(entryPayload[24:26]))
+						config.Height = int(binary.BigEndian.Uint16(entryPayload[26:28]))
+						if len(entryPayload) < 78 {
+							return fmt.Errorf("%s sample entry is missing avcC", entryType)
+						}
+						return walkCMAFBoxes(entryPayload[78:], func(childType string, childPayload []byte) error {
+							if childType != "avcC" || foundCodec {
+								return nil
+							}
+							if len(childPayload) < 4 {
+								return fmt.Errorf("avcC is truncated")
+							}
+							config.Codec = fmt.Sprintf("avc1.%02x%02x%02x", childPayload[1], childPayload[2], childPayload[3])
+							foundCodec = true
+							return nil
+						})
+					})
+				})
+			})
+		})
+	})
+	if err != nil {
+		return llhls.VideoConfig{}, err
+	}
+	if !foundSampleEntry || !foundCodec {
+		return llhls.VideoConfig{}, fmt.Errorf("CMAF video track contains no avcC codec configuration")
+	}
+	return config, nil
 }
 
 func parseCMAFMDHD(payload []byte) (uint32, error) {

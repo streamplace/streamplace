@@ -73,6 +73,28 @@ func TestCMAFAudioChannels(t *testing.T) {
 	}
 }
 
+func TestCMAFVideoConfig(t *testing.T) {
+	sampleEntry := make([]byte, 78)
+	binary.BigEndian.PutUint16(sampleEntry[24:26], 1280)
+	binary.BigEndian.PutUint16(sampleEntry[26:28], 720)
+	sampleEntry = append(sampleEntry, cmafTestBox("avcC", []byte{1, 0x64, 0x00, 0x2a})...)
+	stsdPayload := append(make([]byte, 8), cmafTestBox("avc1", sampleEntry)...)
+	hdlrPayload := append(make([]byte, 8), []byte("vide")...)
+	mediaPayload := append(cmafTestBox("hdlr", hdlrPayload), cmafTestBox("minf", cmafTestBox("stbl", cmafTestBox("stsd", stsdPayload)))...)
+	tkhdPayload := make([]byte, 16)
+	binary.BigEndian.PutUint32(tkhdPayload[12:16], 1)
+	trak := append(cmafTestBox("tkhd", tkhdPayload), cmafTestBox("mdia", mediaPayload)...)
+	init := cmafTestBox("moov", cmafTestBox("trak", trak))
+
+	got, err := cmafVideoConfig(init)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Codec != "avc1.64002a" || got.Width != 1280 || got.Height != 720 {
+		t.Fatalf("video config = %+v", got)
+	}
+}
+
 func TestInspectCMAFFragmentReadsTrackTiming(t *testing.T) {
 	tfhd := cmafTestTFHD(2, 9000)
 	tfdt := cmafTestTFDT(1, 0x00000000000f0000)

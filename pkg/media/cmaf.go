@@ -53,6 +53,7 @@ type cmafTrackSink struct {
 	timescale           uint32
 	videoFrameRate      float64
 	audioChannels       int
+	videoConfig         llhls.VideoConfig
 }
 
 type cmafPendingPart struct {
@@ -97,6 +98,15 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 				log.Error(s.ctx, "LL-HLS CMAF video track mapping failed", "presentation", s.presentation, "track", s.track, "error", err)
 			} else if err == nil {
 				s.videoTrackIDs = videoTrackIDs
+			}
+			videoConfig, err := cmafVideoConfig(buffers[initIndex])
+			if err != nil {
+				if s.ctx != nil {
+					log.Error(s.ctx, "LL-HLS CMAF video metadata unavailable", "presentation", s.presentation, "track", s.track, "error", err)
+				}
+			} else {
+				s.videoConfig = videoConfig
+				s.setVideoConfig(videoConfig)
 			}
 		}
 		if s.track == "audio" {
@@ -364,6 +374,11 @@ func (s *cmafTrackSink) observe(ev llhls.Event) error {
 	ev.Timescale = s.timescale
 	ev.FrameRate = s.videoFrameRate
 	ev.AudioChannels = s.audioChannels
+	if s.track == "video" {
+		ev.VideoCodec = s.videoConfig.Codec
+		ev.VideoWidth = s.videoConfig.Width
+		ev.VideoHeight = s.videoConfig.Height
+	}
 	if s.publish != nil {
 		return s.publish(ev)
 	}
@@ -376,6 +391,12 @@ func (s *cmafTrackSink) observe(ev llhls.Event) error {
 func (s *cmafTrackSink) setVideoFrameRate(fps float64) {
 	if s.window != nil {
 		s.window.SetVideoFrameRate(fps)
+	}
+}
+
+func (s *cmafTrackSink) setVideoConfig(config llhls.VideoConfig) {
+	if s.window != nil {
+		s.window.SetVideoConfig(config)
 	}
 }
 

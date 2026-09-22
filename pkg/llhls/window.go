@@ -61,6 +61,9 @@ type Event struct {
 	Duration        time.Duration
 	Independent     bool
 	ProgramDateTime time.Time
+	VideoCodec      string
+	VideoWidth      int
+	VideoHeight     int
 	Data            []byte
 }
 

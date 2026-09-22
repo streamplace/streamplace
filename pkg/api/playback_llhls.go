@@ -55,6 +55,11 @@ func (a *StreamplaceAPI) HandleLLHLSMaster(ctx context.Context) httprouter.Handl
 			http.Redirect(w, r, "/xrpc/place.stream.playback.getLivePlaylist?streamer="+url.QueryEscape(p.ByName("user")), http.StatusTemporaryRedirect)
 			return
 		}
+		if videoConfig.Codec == "" {
+			w.Header().Set("Cache-Control", "no-store")
+			http.Error(w, "LL-HLS video codec metadata is not ready", http.StatusServiceUnavailable)
+			return
+		}
 		waitCtx, cancel := context.WithTimeout(r.Context(), llhlsBlockingRequestTimeout)
 		waitErr := window.WaitForMaster(waitCtx, presentation)
 		cancel()
@@ -90,13 +95,13 @@ func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig, audioConfig l
 	if !validLLHLSFrameRate(videoConfig.FrameRate) {
 		return "", fmt.Errorf("invalid LL-HLS video frame rate: %v", videoConfig.FrameRate)
 	}
+	if videoConfig.Codec == "" {
+		return "", errors.New("LL-HLS video codec metadata is not ready")
+	}
 	if videoConfig.Bandwidth <= 0 || videoConfig.AverageBandwidth <= 0 || audioConfig.Bandwidth <= 0 || audioConfig.AverageBandwidth <= 0 {
 		return "", errors.New("LL-HLS bandwidth metadata is not ready")
 	}
 	codec := videoConfig.Codec
-	if codec == "" {
-		codec = "avc1.64001f"
-	}
 	channels := audioConfig.Channels
 	if channels <= 0 {
 		channels = 2

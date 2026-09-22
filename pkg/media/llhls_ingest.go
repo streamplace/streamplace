@@ -61,7 +61,10 @@ func newWorkerLLHLSOutput(writer llhlsFrameWriter, presentation string, session 
 }
 
 func (o *workerLLHLSOutput) publish(ev llhls.Event) error {
-	frame := llhlsEventToFrame(ev)
+	frame, err := llhlsEventToFrame(ev)
+	if err != nil {
+		return err
+	}
 	o.mu.Lock()
 	if ev.Track != "" && ev.Kind == llhls.Init {
 		o.tracks[ev.Track] = ev.Generation
@@ -109,7 +112,7 @@ func (o *workerLLHLSOutput) done() {
 	}
 }
 
-func llhlsEventToFrame(ev llhls.Event) ingestframe.LLFrame {
+func llhlsEventToFrame(ev llhls.Event) (ingestframe.LLFrame, error) {
 	frame := ingestframe.LLFrame{
 		Presentation: ev.Presentation,
 		Session:      ev.Session,
@@ -118,17 +121,28 @@ func llhlsEventToFrame(ev llhls.Event) ingestframe.LLFrame {
 		Timescale:    ev.Timescale,
 		MSN:          ev.MSN,
 		Part:         ev.Part,
-		Start:        durationToLLTicks(ev.Start, ev.Timescale),
-		Duration:     durationToLLTicks(ev.Duration, ev.Timescale),
 		Independent:  ev.Independent,
 		FrameRate:    ev.FrameRate,
 		Channels:     ev.AudioChannels,
+		Codec:        ev.VideoCodec,
+		Width:        ev.VideoWidth,
+		Height:       ev.VideoHeight,
 		Data:         ev.Data,
 	}
+	start, err := durationToLLTicks(ev.Start, ev.Timescale)
+	if err != nil {
+		return ingestframe.LLFrame{}, fmt.Errorf("encode LL-HLS start: %w", err)
+	}
+	duration, err := durationToLLTicks(ev.Duration, ev.Timescale)
+	if err != nil {
+		return ingestframe.LLFrame{}, fmt.Errorf("encode LL-HLS duration: %w", err)
+	}
+	frame.Start = start
+	frame.Duration = duration
 	if !ev.ProgramDateTime.IsZero() {
 		frame.ProgramDateTimeUnixNano = ev.ProgramDateTime.UnixNano()
 	}
-	return frame
+	return frame, nil
 }
 
 func llhlsFrameToEvent(kind ingestframe.Type, frame ingestframe.LLFrame) (llhls.Event, error) {
@@ -172,6 +186,9 @@ func llhlsFrameToEvent(kind ingestframe.Type, frame ingestframe.LLFrame) (llhls.
 		Independent:   frame.Independent,
 		FrameRate:     frame.FrameRate,
 		AudioChannels: frame.Channels,
+		VideoCodec:    frame.Codec,
+		VideoWidth:    frame.Width,
+		VideoHeight:   frame.Height,
 		Data:          frame.Data,
 	}
 	if frame.ProgramDateTimeUnixNano != 0 {
@@ -180,14 +197,26 @@ func llhlsFrameToEvent(kind ingestframe.Type, frame ingestframe.LLFrame) (llhls.
 	return event, nil
 }
 
-func durationToLLTicks(value time.Duration, timescale uint32) uint64 {
+func durationToLLTicks(value time.Duration, timescale uint32) (uint64, error) {
 	if value <= 0 {
-		return 0
+		return 0, nil
 	}
 	if timescale == 0 {
-		return uint64(value)
+		return uint64(value), nil
 	}
-	return uint64(value) * uint64(timescale) / uint64(time.Second)
+	seconds := uint64(value / time.Second)
+	remainder := uint64(value % time.Second)
+	scale := uint64(timescale)
+	maxUint64 := ^uint64(0)
+	if seconds > maxUint64/scale {
+		return 0, fmt.Errorf("duration %s exceeds %d-tick range", value, timescale)
+	}
+	ticks := seconds * scale
+	remainderTicks := remainder * scale / uint64(time.Second)
+	if ticks > maxUint64-remainderTicks {
+		return 0, fmt.Errorf("duration %s exceeds %d-tick range", value, timescale)
+	}
+	return ticks + remainderTicks, nil
 }
 
 func durationFromLLTicks(value uint64, timescale uint32) (time.Duration, error) {
@@ -230,6 +259,13 @@ func (mm *MediaManager) observeWorkerLLHLSFrame(streamer string, kind ingestfram
 			return fmt.Errorf("LL-HLS worker event arrived before init")
 		}
 		window = mm.replaceLLWindow(streamer)
+	}
+	if event.VideoCodec != "" || event.VideoWidth > 0 || event.VideoHeight > 0 {
+		window.SetVideoConfig(llhls.VideoConfig{
+			Codec:  event.VideoCodec,
+			Width:  event.VideoWidth,
+			Height: event.VideoHeight,
+		})
 	}
 	if event.FrameRate > 0 {
 		window.SetVideoFrameRate(event.FrameRate)

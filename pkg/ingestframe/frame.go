@@ -182,6 +182,9 @@ type LLFrame struct {
 	ProgramDateTimeUnixNano int64   `cbor:"program_date_time_unix_nano,omitempty"`
 	FrameRate               float64 `cbor:"frame_rate,omitempty"`
 	Channels                int     `cbor:"channels,omitempty"`
+	Codec                   string  `cbor:"codec,omitempty"`
+	Width                   int     `cbor:"width,omitempty"`
+	Height                  int     `cbor:"height,omitempty"`
 	Data                    []byte  `cbor:"data,omitempty"`
 }
 

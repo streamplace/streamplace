@@ -1,10 +1,15 @@
 import useAvatars from "@/hooks/use-avatars";
 import { useToast } from "@/hooks/use-toast";
+import {
+  MODERATION_PERMISSION_COLLECTION,
+  moderatorRecordsFromListRecords,
+  type ModeratorRecord,
+} from "@/lib/moderation";
 import { useSession } from "@/lib/session";
+import { cn } from "@/lib/utils";
 import { Plus, Shield, ShieldOff, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { place } from "streamplace";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -17,14 +22,6 @@ import {
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
 
-const PERMISSION_RECORD = "place.stream.moderation.permission";
-
-interface ModeratorRecord {
-  uri: string;
-  rkey: string;
-  value: place.stream.moderation.permission.Main;
-}
-
 const PERMISSION_OPTIONS = [
   { perm: "ban", key: "ban" },
   { perm: "hide", key: "hide" },
@@ -34,14 +31,22 @@ const PERMISSION_OPTIONS = [
 
 /**
  * Manage delegation of stream moderation: lists the
- * place.stream.moderation.permission records in the logged-in user's repo
- * and adds/removes them. Operates on the session's own repo, so the
- * dashboard's stream store is not needed.
+ * place.stream.moderation.permission records in the logged-in user's repo and
+ * adds/removes them. Operates on the session's own repo, so the dashboard's
+ * stream store is not needed.
+ *
+ * `variant` picks the chrome: "widget" fills a dashboard grid cell with its own
+ * title bar, while "section" sits under a page heading with just an add button.
  */
-export function ModeratorsWidget() {
+export function ModeratorsManager({
+  variant,
+}: {
+  variant: "widget" | "section";
+}) {
   const { t } = useTranslation("common");
-  const { pdsAgent, did } = useSession();
+  const { pdsAgent } = useSession();
   const toast = useToast();
+  const isWidget = variant === "widget";
 
   const [moderators, setModerators] = useState<ModeratorRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,7 +55,7 @@ export function ModeratorsWidget() {
   const [removing, setRemoving] = useState<ModeratorRecord | null>(null);
 
   const moderatorDids = useMemo(
-    () => moderators.map((m) => m.value.moderator),
+    () => moderators.map((m) => m.moderator),
     [moderators],
   );
   const profiles = useAvatars(moderatorDids);
@@ -65,17 +70,10 @@ export function ModeratorsWidget() {
     try {
       const result = await pdsAgent.com.atproto.repo.listRecords({
         repo: pdsAgent.did,
-        collection: PERMISSION_RECORD,
+        collection: MODERATION_PERMISSION_COLLECTION,
         limit: 100,
       });
-      const records = (result.data.records ?? [])
-        .filter((r) => r.value?.$type === PERMISSION_RECORD)
-        .map((r) => ({
-          uri: r.uri,
-          rkey: r.uri.split("/").pop() ?? "",
-          value: r.value as place.stream.moderation.permission.Main,
-        }));
-      setModerators(records);
+      setModerators(moderatorRecordsFromListRecords(result.data.records ?? []));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -94,12 +92,12 @@ export function ModeratorsWidget() {
     try {
       await pdsAgent.com.atproto.repo.deleteRecord({
         repo: pdsAgent.did,
-        collection: PERMISSION_RECORD,
+        collection: MODERATION_PERMISSION_COLLECTION,
         rkey: removing.rkey,
       });
       toast.show(
         t("moderators-removed-toast", {
-          handle: handleFor(removing.value.moderator, profiles),
+          handle: handleFor(removing.moderator, profiles),
         }),
         "",
         { duration: 3000 },
@@ -115,19 +113,32 @@ export function ModeratorsWidget() {
     }
   }, [pdsAgent, refresh, removing, t, toast, profiles]);
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between gap-2 border-b border-(--color-border) p-4">
-        <div className="flex items-center gap-2">
-          <Shield className="size-4" />
-          <span className="font-semibold">{t("moderators-title")}</span>
-        </div>
-        <Button size="sm" onClick={() => setShowAdd(true)}>
-          <Plus /> {t("moderators-add")}
-        </Button>
-      </div>
+  const addButton = (
+    <Button size="sm" onClick={() => setShowAdd(true)}>
+      <Plus /> {t("moderators-add")}
+    </Button>
+  );
 
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
+  return (
+    <div className={cn(isWidget && "flex min-h-0 flex-1 flex-col")}>
+      {isWidget ? (
+        <div className="flex items-center justify-between gap-2 border-b border-(--color-border) p-4">
+          <div className="flex items-center gap-2">
+            <Shield className="size-4" />
+            <span className="font-semibold">{t("moderators-title")}</span>
+          </div>
+          {addButton}
+        </div>
+      ) : (
+        <div className="mb-3 flex justify-end">{addButton}</div>
+      )}
+
+      <div
+        className={cn(
+          "space-y-2",
+          isWidget && "min-h-0 flex-1 overflow-y-auto p-4",
+        )}
+      >
         {error && (
           <p className="border-destructive/40 bg-destructive/10 text-destructive rounded-md border p-2 text-sm">
             {error}
@@ -177,9 +188,7 @@ export function ModeratorsWidget() {
             <DialogTitle>{t("moderators-remove-title")}</DialogTitle>
             <DialogDescription>
               {t("moderators-remove-description", {
-                handle: removing
-                  ? handleFor(removing.value.moderator, profiles)
-                  : "",
+                handle: removing ? handleFor(removing.moderator, profiles) : "",
               })}
             </DialogDescription>
           </DialogHeader>
@@ -195,6 +204,11 @@ export function ModeratorsWidget() {
       </Dialog>
     </div>
   );
+}
+
+/** Dashboard-grid entry point: the manager with widget chrome. */
+export function ModeratorsWidget() {
+  return <ModeratorsManager variant="widget" />;
 }
 
 function handleFor(
@@ -214,11 +228,11 @@ function ModeratorRow({
   onRemove: () => void;
 }) {
   const { t } = useTranslation("common");
-  const handle = handleFor(moderator.value.moderator, profiles);
-  const avatar = profiles[moderator.value.moderator]?.avatar;
+  const handle = handleFor(moderator.moderator, profiles);
+  const avatar = profiles[moderator.moderator]?.avatar;
   const isExpired =
-    !!moderator.value.expirationTime &&
-    new Date(moderator.value.expirationTime) <= new Date();
+    !!moderator.expirationTime &&
+    new Date(moderator.expirationTime) <= new Date();
 
   return (
     <div className="flex items-center gap-3 rounded-md border border-(--color-border) bg-(--color-bg-elevated) p-3">
@@ -232,7 +246,7 @@ function ModeratorRow({
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">@{handle}</p>
         <div className="mt-1 flex flex-wrap gap-1">
-          {moderator.value.permissions?.map((perm) => (
+          {moderator.permissions?.map((perm) => (
             <span
               key={perm}
               className="rounded-sm border border-(--color-border) px-1.5 py-0.5 text-[11px] text-(--color-fg-muted)"
@@ -245,12 +259,10 @@ function ModeratorRow({
               {t("moderators-expired")}
             </span>
           )}
-          {moderator.value.expirationTime && !isExpired && (
+          {moderator.expirationTime && !isExpired && (
             <span className="px-1.5 py-0.5 text-[11px] text-(--color-fg-muted)">
               {t("moderators-expires", {
-                date: new Date(
-                  moderator.value.expirationTime,
-                ).toLocaleDateString(),
+                date: new Date(moderator.expirationTime).toLocaleDateString(),
               })}
             </span>
           )}
@@ -330,9 +342,9 @@ function AddModeratorDialog({
       }
       await pdsAgent.com.atproto.repo.createRecord({
         repo: pdsAgent.did,
-        collection: PERMISSION_RECORD,
+        collection: MODERATION_PERMISSION_COLLECTION,
         record: {
-          $type: PERMISSION_RECORD,
+          $type: MODERATION_PERMISSION_COLLECTION,
           moderator: moderatorDid as any,
           permissions: [...permissions],
           createdAt: new Date().toISOString(),

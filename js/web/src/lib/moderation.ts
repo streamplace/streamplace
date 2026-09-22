@@ -2,7 +2,8 @@ import type { LivestreamModerationPermission } from "@streamplace/core";
 
 export type ModerationPermissionRecord = LivestreamModerationPermission;
 
-const PERMISSION_RECORD_TYPE = "place.stream.moderation.permission";
+export const MODERATION_PERMISSION_COLLECTION =
+  "place.stream.moderation.permission";
 
 export interface ModerationPermissions {
   canBan: boolean;
@@ -24,7 +25,7 @@ export function permissionRecordsFromListRecords(
     if (
       !value ||
       typeof value !== "object" ||
-      (value as { $type?: unknown }).$type !== PERMISSION_RECORD_TYPE
+      (value as { $type?: unknown }).$type !== MODERATION_PERMISSION_COLLECTION
     ) {
       return [];
     }
@@ -36,6 +37,25 @@ export function permissionRecordsFromListRecords(
       },
     ];
   });
+}
+
+/** A permission record paired with its rkey, addressing the record in the repo. */
+export interface ModeratorRecord extends ModerationPermissionRecord {
+  rkey: string;
+}
+
+/**
+ * Map raw `com.atproto.repo.listRecords` results to moderator records. Records
+ * without a URI (which `listRecords` always provides) get an empty rkey and are
+ * therefore not addressable for removal.
+ */
+export function moderatorRecordsFromListRecords(
+  records: Array<{ value: unknown; uri?: string } | null | undefined>,
+): ModeratorRecord[] {
+  return permissionRecordsFromListRecords(records).map((record) => ({
+    ...record,
+    rkey: record.uri?.split("/").pop() ?? "",
+  }));
 }
 
 /**

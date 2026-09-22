@@ -391,7 +391,6 @@ metadata-learn-more = Learn more about content metadata
 metadata-save-failed = Failed to save metadata
 metadata-saved = Metadata saved
 moderation = Moderation
-moderation-coming-soon = Moderator management hooks aren't on the web yet — this section is a placeholder.
 moderation-help = Add/remove stream moderators. Moderators can hide chat messages and time out users in your chat.
 nav-dashboard = Dashboard
 nav-settings = Settings

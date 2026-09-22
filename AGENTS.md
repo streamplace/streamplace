@@ -1,10 +1,7 @@
 # Working on Streamplace: a field guide
 
 How to get a Streamplace checkout from "cloned" to "built, tested, reviewed and
-stacked as PRs". Everything here was exercised on a Linux box in September 2026
-unless marked _(unverified)_ — that mark means the note comes from earlier notes
-and was not re-checked when this file was written, so re-run it before trusting
-it.
+stacked as PRs".
 
 Cold start: `make provision` (§2) takes a bare checkout all the way to a green
 e2e run. After that, §4 runs a node and §5 re-runs the tests. The pitfall list
@@ -17,10 +14,10 @@ in §7 is worth skimming first if something fails for no apparent reason.
   siblings (`muxl`, `dasl.ing`, another `streamplace-M`) belong to another
   agent's assignment — don't touch them without asking, in case you are stepping
   on someone else's work. If a change needs something from muxl, see §3.
-- You will be told which branch to start from. Commit freely on branches once
-  you are there.
-- The host shell is fish and your working directory may reset between calls, so
-  pass absolute paths and `-w`; never rely on `cd` persisting.
+- Unless you are told otherwise, you will be starting from `next`, the default
+  branch.
+- The host shell may be non-default and your working directory may reset between
+  calls, so pass absolute paths and `-w`; never rely on `cd` persisting.
 - Start your container if it is not already up — one command, idempotent, and it
   creates the container if it is missing entirely:
 
@@ -178,16 +175,6 @@ go test -count=1 ./pkg/<touched>/...
 - Run targeted packages. `./pkg/media` as a whole takes ~17 minutes and one test
   (`TestMPEGTSVideoMP4AudioToMP4Invalid`) can hang in a GStreamer state change
   and eat the whole timeout; use `-run` filters.
-- Known environment-only failures on this box, present on plain `next`:
-  `TestChatMessage` in `pkg/atproto` (the devenv PDS the test spawns comes up
-  without accounts). Confirm a failure exists on `origin/next` before chasing
-  it: `git checkout --detach origin/next && go test -run X ./pkg/...`.
-- The GitLab mirror pipeline (`git.stream.place`, reported as a check on every
-  PR) runs `make dev-test` **with leak checking on**; GitHub's Linux job sets
-  `STREAMPLACE_IGNORE_LEAKS=true`. `TestConcatDemuxBin` has failed the leak
-  check on every branch since mid-September, so a red `git.stream.place` check
-  is not evidence about your change unless the failing test is one you touched.
-  `STREAMPLACE_TEST_COUNT=1` is what CI uses for the repeat count.
 - `make test-vod` needs the static `build-linux-amd64/streamplace` binary and
   downloads fixtures; it is a CI smoke test, not part of the local loop.
 - Two `git worktree`s do not help for cross-branch test comparison: the
@@ -312,12 +299,6 @@ library — the wazero engine and host imports live upstream now — pinned in
   persistence remains unverified. The iOS-simulator loop for the Expo app is the
   `streamplace-app` skill.
 
-- A TLS dev environment for a real hostname (own cert in `/shared/codes`,
-  `/etc/hosts` entry, `iptables` 443 → the scratch HTTPS port) is what made
-  OAuth against a strict PDS work;
-  `SP_DEV_PUBLIC_OAUTH=false SP_SECURE=true SP_TLS_CERT/KEY=...` on the node.
-  _(unverified)_
-
 ## 5. End-to-end tests
 
 The harness is in this checkout: `pkg/cmd/e2e.go` (the `streamplace e2e`
@@ -347,20 +328,13 @@ logs on stderr; the script does exactly that and then runs
 harness's looping stream to be live before driving the app, so a run that never
 goes green usually means the stream, not the UI.
 
-This copy was brought forward from `origin/natb/e2e-web`, which is hundreds of
-commits behind and is still where the mobile `.maestro/` suite is maintained. If
-you ever need to re-port it, `git log js/e2e-web` and the commit that added it
-record exactly what the drift was — the lexicon package rename, glex record
-marshalling, the `SP_TRUST_PRIVATE_NETWORK` hatch, the explicit `getLiveUsers`
-limit and the current sidebar labels.
-
 ### Things only running the flows teaches you
 
 - The node's PLC lookup refuses loopback unless `SP_TRUST_PRIVATE_NETWORK=true`.
 - iOS collapses whole modals into one accessibility element, so Maestro text
-  matches need substrings. _(unverified)_
+  matches need substrings.
 - Fresh iOS sims show a notifications permission dialog that dims everything
-  (pre-grant with `applesimutils`). _(unverified)_
+  (pre-grant with `applesimutils`).
 - The web feed fetches once on mount, so the global setup must wait for the
   harness stream to be live.
 - `place.stream.live.getLiveUsers` with no `limit` answers `{}` no matter how
@@ -385,9 +359,6 @@ limit and the current sidebar labels.
 
 ## 6. Git and GitHub
 
-The host/container Git boundary below was checked on September 22; the remaining
-Git/GitHub workflow notes in this section are still unverified.
-
 - **Run Git on the host, not inside the build container.** Builds, tests, and
   the scratch node belong in the container; commits, pushes, and GitHub
   operations do not. The bind mount shares the checkout and `.git`, but not the
@@ -397,13 +368,6 @@ Git/GitHub workflow notes in this section are still unverified.
   configuring a second identity in the container. From the host checkout, commit
   normally and push with `git push -u origin HEAD`.
 
-- Two GitHub identities are usually present: `GH_TOKEN`/`GITHUB_TOKEN`
-  fine-grained PATs in the environment that can push but **cannot create PRs**
-  (403 "Resource not accessible by personal access token"), and a keyring login
-  from `gh auth login` that can. `gh` prefers the env vars, so run PR operations
-  with `env -u GH_TOKEN -u GITHUB_TOKEN gh ...`. Probe with
-  `gh api -X POST repos/<o>/<r>/pulls -f title=probe`: a 422 means the token is
-  good, a 403 means it is not.
 - Stacked PRs use GitHub's `gh stack` extension
   (`gh extension install github/gh-stack`). `gh stack init --base next b1 b2 b3`
   adopts existing branches bottom to top; `gh stack submit --auto` pushes and

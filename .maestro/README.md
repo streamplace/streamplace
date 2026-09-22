@@ -1,7 +1,12 @@
 # e2e tests (Maestro)
 
-Cross-platform Maestro flows for the mobile app, run in CI (`android-e2e`
-and `ios-e2e` in `.github/workflows/build.yaml`) and locally.
+Cross-platform Maestro flows for the mobile app. This branch carries the flows
+themselves; the mobile runner (`hack/e2e-local.sh`) and the CI jobs that drive
+them (`android-e2e`, `ios-e2e` in `.github/workflows/build.yaml`) still live on
+the `natb/e2e` branches and have not landed on `next`. Until they do, nothing
+runs these automatically — invoking Maestro by hand is the only way here. The
+web suite (`js/e2e-web`, `hack/e2e-web-local.sh`) is local-only too; AGENTS.md
+§5 covers it and `make provision` runs it.
 
 Flows run in the order set by `config.yaml`: `00-server-setup` must go first
 (it points the app at the self-contained test server), and `03-go-live` last
@@ -9,14 +14,19 @@ Flows run in the order set by `config.yaml`: `00-server-setup` must go first
 
 ## Run it locally
 
+Without the runner, start the harness yourself and point Maestro at it:
+
 ```bash
-hack/e2e-local.sh android   # on Linux/macOS, with an emulator running
-hack/e2e-local.sh ios       # on macOS
+make dev                              # harness binary
+./build-linux-amd64/streamplace e2e   # SERVER_URL/ACCOUNT_HANDLE on stdout
+maestro test -e APP_ID=tv.aquareum.dev \
+  -e SERVER_URL=http://10.0.2.2:<port> \
+  -e ACCOUNT_HANDLE=<handle> .maestro/
 ```
 
-The script starts a `streamplace e2e` harness (local PDS/PLC + a looping test
-stream), installs the app, prepares the device, runs the flows, and tears the
-harness down. It only _runs_ — build the app first:
+The upstream runner does all of that — it starts the harness (local PDS/PLC +
+a looping test stream), installs the app, prepares the device, runs the flows
+and tears the harness down. Either way it only _runs_ — build the app first:
 
 - **harness binary:** `make dev`
 - **android APK:** `make android-release` (needs JDK 17 + `ANDROID_HOME`)

@@ -40,7 +40,15 @@ export function SettingToggle({
             </Text>
           )}
         </View>
-        <Switch value={value} onValueChange={onValueChange} />
+        {/* The row is the only control. A click on the nested Switch bubbles
+            to the Pressable as well, so an interactive Switch fires
+            onValueChange twice for one tap — once from the switch's change
+            event and once from the row's press — duplicating whatever side
+            effect the caller hangs off it. Inert here; the row still
+            toggles, by tap or by keyboard. */}
+        <View pointerEvents="none">
+          <Switch value={value} />
+        </View>
       </Pressable>
     </MenuItem>
   );

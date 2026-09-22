@@ -4,12 +4,15 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -61,6 +64,11 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 	}
 }
 
+// nodeReadyTimeout bounds how long runE2E waits for the forked node to answer
+// /api/healthz. A cold dev node has to run a GStreamer self-test and open its
+// databases first, so this is generous — but it is a bound, not forever.
+const nodeReadyTimeout = 90 * time.Second
+
 type e2eDevEnv struct {
 	PDSURL string `json:"pds-url"`
 	PLCURL string `json:"plc-url"`
@@ -76,6 +84,12 @@ func freePort() (int, error) {
 }
 
 func runE2E(ctx context.Context, devEnvPath string) error {
+	// Ctrl-C / SIGTERM must unwind through the normal path, or none of the
+	// teardown below runs: Go's default handling exits immediately, which left
+	// the dev-env node, the forked node and the temp data dir behind.
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	// Start the Node.js PDS/PLC dev environment.
 	devEnvCmd := exec.CommandContext(ctx, "node", devEnvPath)
 	devEnvCmd.Stderr = os.Stderr
@@ -184,26 +198,50 @@ func runE2E(ctx context.Context, devEnvPath string) error {
 	)
 	nodeCmd.Stdout = os.Stderr
 	nodeCmd.Stderr = os.Stderr
+	// Own process group, so cleanup can take the whole tree down at once.
+	setNodeProcessGroup(nodeCmd)
 	if err := nodeCmd.Start(); err != nil {
 		return fmt.Errorf("start node: %w", err)
 	}
-	defer nodeCmd.Process.Kill() //nolint:errcheck
+	// Kill the node *and* the ingest workers it detaches; the plain
+	// Process.Kill that used to be here left those behind.
+	defer killNode(ctx, nodeCmd, out.Did)
 
-	// Wait for the node to be ready.
+	// Wait for the node to be ready. Bounded, so a node that never comes up
+	// reports why instead of hanging the harness (and `make provision`) with
+	// no output forever.
 	healthURL := fmt.Sprintf("http://%s/api/healthz", httpAddr)
 	httpClient := &http.Client{Timeout: 2 * time.Second}
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+	deadline := time.Now().Add(nodeReadyTimeout)
+	ready := false
+	var lastErr error
+	for !ready {
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 		resp, err := httpClient.Get(healthURL)
-		if err == nil && resp.StatusCode == 200 {
+		switch {
+		case err != nil:
+			lastErr = err
+		case resp.StatusCode == http.StatusOK:
+			// Close every response, not just the happy one: a body left open
+			// holds its connection out of the pool, so a node answering
+			// non-200 exhausts them.
 			resp.Body.Close()
-			break
+			ready = true
+		default:
+			lastErr = fmt.Errorf("GET %s: %s", healthURL, resp.Status)
+			resp.Body.Close()
 		}
-		time.Sleep(200 * time.Millisecond)
+		if !ready {
+			if time.Now().After(deadline) {
+				if lastErr == nil {
+					lastErr = errors.New("no response")
+				}
+				return fmt.Errorf("node was not ready after %s: %w", nodeReadyTimeout, lastErr)
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
 	}
 
 	// Register a stream key for the test account.

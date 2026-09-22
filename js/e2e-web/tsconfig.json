@@ -10,5 +10,10 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["flows/**/*.ts", "playwright.config.ts"]
+  "include": [
+    "flows/**/*.ts",
+    "global-setup.ts",
+    "storage.ts",
+    "playwright.config.ts"
+  ]
 }

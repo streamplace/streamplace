@@ -50,6 +50,15 @@ const OFFLINE_TEXT_KEYS: { key: string; placeholder: string }[] = [
   { key: "offlineSubtitle", placeholder: "Check back later?" },
 ];
 
+// The go-live page for a viewer the node does not let stream.
+const GOLIVE_TEXT_KEYS: { key: string; placeholder: string }[] = [
+  { key: "goLiveDeniedTitle", placeholder: "Do you want to go live?" },
+  {
+    key: "goLiveDeniedMessage",
+    placeholder: "Only selected accounts can go live here.",
+  },
+];
+
 const SOCIAL_ICON_SLOTS = [
   "socialIcon1",
   "socialIcon2",
@@ -373,6 +382,8 @@ export function BrandingAdmin() {
         case "cardGoLiveDescription":
         case "offlineTitle":
         case "offlineSubtitle":
+        case "goLiveDeniedTitle":
+        case "goLiveDeniedMessage":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
           break;
         case "defaultStreamer":
@@ -3721,6 +3732,78 @@ export function BrandingAdmin() {
                       disabled={
                         uploading ||
                         !OFFLINE_TEXT_KEYS.some(({ key }) => brandingValue(key))
+                      }
+                      width="min"
+                      style={{ height: 42 }}
+                    >
+                      {t("branding-reset")}
+                    </Button>
+                  </View>
+                </View>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <View style={[zero.gap.all[2], { flex: 1 }]}>
+                  <Text size="sm" weight="semibold">
+                    {t("branding-go-live-denied")}
+                  </Text>
+                  <MenuInfo
+                    description={t("branding-go-live-denied-description")}
+                  />
+                  {GOLIVE_TEXT_KEYS.map(({ key, placeholder }) => (
+                    <View
+                      key={key}
+                      style={[
+                        zero.layout.flex.direction.row,
+                        zero.layout.flex.alignCenter,
+                        zero.gap.all[2],
+                      ]}
+                    >
+                      <View style={{ width: 160 }}>
+                        <Text size="xs" color="muted">
+                          {key}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder={placeholder}
+                          value={chromeInputs[key] ?? brandingValue(key)}
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({ ...prev, [key]: v }))
+                          }
+                        />
+                      </View>
+                    </View>
+                  ))}
+                  <View
+                    style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                  >
+                    <Button
+                      onPress={async () => {
+                        for (const { key } of GOLIVE_TEXT_KEYS) {
+                          const v = (
+                            chromeInputs[key] ?? brandingValue(key)
+                          ).trim();
+                          if (v && v !== brandingValue(key))
+                            await uploadText(key, v);
+                        }
+                      }}
+                      disabled={uploading}
+                      width="min"
+                      style={{ height: 42 }}
+                    >
+                      {t("update")}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onPress={async () => {
+                        for (const { key } of GOLIVE_TEXT_KEYS) {
+                          if (brandingValue(key)) await deleteBlob(key);
+                        }
+                      }}
+                      disabled={
+                        uploading ||
+                        !GOLIVE_TEXT_KEYS.some(({ key }) => brandingValue(key))
                       }
                       width="min"
                       style={{ height: 42 }}

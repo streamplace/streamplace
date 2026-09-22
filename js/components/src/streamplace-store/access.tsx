@@ -233,6 +233,20 @@ export function useViewerLockedOut(): boolean {
   });
 }
 
+// True when the node gates who may stream (the streamer role is allowlist
+// or off) and the caller doesn't hold it: the go-live page should say who
+// can, instead of offering a stream that the node will refuse. False until
+// status has loaded, and for nodes without a policy.
+export function useStreamerLockedOut(): boolean {
+  return useStreamplaceStore((s) => {
+    if (!statusIsCurrent(s) || !s.accessStatus) return false;
+    const mode = s.accessStatus.policy.streamer;
+    if (mode === undefined || mode === "open") return false;
+    const roles = s.accessStatus.roles;
+    return !roles.includes("streamer") && !roles.includes("admin");
+  });
+}
+
 export const useAccessStatusError = () =>
   useStreamplaceStore((s) => s.accessStatusError);
 

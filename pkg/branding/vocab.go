@@ -76,6 +76,8 @@ var Specs = []Spec{
 	{Key: "defaultVideo", Kind: KindText, MaxSize: textMax, Doc: "A video whose page is the node's front door while set, over defaultStreamer: its at:// URI (at://did/place.stream.video/rkey) or its path (<handle-or-did>/video/<rkey>). Clear it to return the front door to the streamer."},
 	{Key: "offlineTitle", Kind: KindText, MaxSize: textMax, Doc: "Heading on the front page when nobody is streaming; default \"No one is streaming right now\"."},
 	{Key: "offlineSubtitle", Kind: KindText, MaxSize: textMax, Doc: "Line under the heading on the front page when nobody is streaming; default \"Check back later?\"."},
+	{Key: "goLiveDeniedTitle", Kind: KindText, MaxSize: textMax, Doc: "Heading of the go-live page for a viewer the node does not let stream; default \"Do you want to go live?\"."},
+	{Key: "goLiveDeniedMessage", Kind: KindText, MaxSize: textMax, Doc: "Text under that heading, followed by the networkApplyUrl link when set; default \"Only selected accounts can go live here.\"."},
 	{Key: "primaryColor", Kind: KindColor, Default: "#6366f1", MaxSize: textMax, Doc: "Buttons, links, focus rings."},
 	{Key: "accentColor", Kind: KindColor, Default: "#8b5cf6", MaxSize: textMax, Doc: "Secondary surfaces and highlights."},
 	{Key: "accentColorLight", Kind: KindColor, MaxSize: textMax, Doc: "accentColor override for the light scheme."},

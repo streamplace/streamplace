@@ -237,9 +237,9 @@ function HomeNavigator() {
               ? ({ canGoBack }) => <NavigationButton canGoBack={canGoBack} />
               : undefined,
           headerRight: () => <HeaderRight />,
-          // The social shell's front door is the stream card, which draws
-          // its own column header.
-          headerShown: !(social && !!defaultStreamer),
+          // The social shell's front door draws its own column header (the
+          // stream card's, or the landing tabs).
+          headerShown: !social,
           ...(Platform.OS === "ios" && {
             unstable_headerRightItems: () => [
               {
@@ -328,6 +328,7 @@ function HomeNavigator() {
 function VideosNavigator() {
   const baseScreenOptions = useBaseScreenOptions();
   const isNative = Platform.OS !== "web";
+  const social = useSocialShell();
 
   return (
     <VideosStack.Navigator
@@ -353,7 +354,8 @@ function VideosNavigator() {
       <VideosStack.Screen
         name="VideoList"
         component={VideoListScreen}
-        options={{ title: "Videos" }}
+        // The social shell's videos page carries the landing tabs instead.
+        options={{ title: "Videos", headerShown: !social }}
       />
       <VideosStack.Screen
         name="UserVideoList"
@@ -601,7 +603,7 @@ function TabNavigator() {
                   <Video size={size} color={color} />
                 ),
               }),
-          headerShown: true,
+          headerShown: !socialShell,
           headerTransparent: true,
         }}
       />

@@ -1,6 +1,14 @@
 import { useNavigation } from "@react-navigation/native";
-import { Button, useTheme, zero } from "@streamplace/components";
+import {
+  Button,
+  useOfflineImageUri,
+  useSocialShell,
+  useTheme,
+  zero,
+} from "@streamplace/components";
 import { EmptyState, EmptyStateTile } from "components/empty-state";
+import { LandingTabs } from "components/landing/landing-tabs";
+import { DurationChip, LandingPostCard } from "components/landing/post-card";
 import Title from "components/title";
 import VideoCard from "components/video/video-card";
 import useAvatars from "hooks/useAvatars";
@@ -15,6 +23,12 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { place } from "streamplace";
+import {
+  formatDuration,
+  getTidFromAtUri,
+  getVideoThumbnailUrl,
+} from "utils/video";
 
 const GAP = 16;
 const MAX_WIDTH = 1600;
@@ -39,7 +53,12 @@ export default function VideoListScreen({
   const { videos, loading, refreshing, error, hasMore, loadMore, refresh } =
     useVideoList(repo);
 
-  const columns = getColumns(Math.min(width, MAX_WIDTH));
+  // The social shell's videos page is the Play on demand landing tab: one
+  // column of post cards under the landing tabs. The per-channel page keeps
+  // the grid.
+  const social = useSocialShell() && !repo;
+  const offlineImageUri = useOfflineImageUri();
+  const columns = social ? 1 : getColumns(Math.min(width, MAX_WIDTH));
 
   // Bulk-resolve author avatars so individual cards don't each fire a fetch.
   const dids = useMemo(
@@ -56,11 +75,42 @@ export default function VideoListScreen({
       ? `@${videos[0].author.handle || repo}`
       : undefined;
 
-  const renderItem = ({ item }: { item: VideoView }) => (
-    <View style={{ flex: 1 / columns }}>
-      <VideoCard video={item} avatarUrl={avatars[item.author.did]?.avatar} />
-    </View>
-  );
+  const renderItem = ({ item }: { item: VideoView }) => {
+    if (social) {
+      const rec = item.record as place.stream.video.Main;
+      const user = item.author.handle || item.author.did;
+      const duration = formatDuration(rec.durationMs);
+      return (
+        <LandingPostCard
+          to={{
+            screen: "Video",
+            params: { user, tid: getTidFromAtUri(item.uri) },
+          }}
+          avatarUrl={avatars[item.author.did]?.avatar}
+          name={item.author.displayName || item.author.handle || user}
+          handle={item.author.handle || item.author.did}
+          createdAt={rec.createdAt}
+          text={rec.title || "Untitled"}
+          imageUri={getVideoThumbnailUrl(rec, item.author.did) || undefined}
+          imageFallback={
+            offlineImageUri
+              ? { uri: offlineImageUri }
+              : require("../../assets/images/jelly.png")
+          }
+          count={item.viewCounts?.count ?? 0}
+          countLabel="views"
+          corner={
+            duration ? <DurationChip>{duration}</DurationChip> : undefined
+          }
+        />
+      );
+    }
+    return (
+      <View style={{ flex: 1 / columns }}>
+        <VideoCard video={item} avatarUrl={avatars[item.author.did]?.avatar} />
+      </View>
+    );
+  };
 
   return (
     <FlatList
@@ -75,11 +125,11 @@ export default function VideoListScreen({
         // flexGrow lets the empty state fill and center vertically; harmless
         // once the list has items.
         flexGrow: 1,
-        gap: GAP,
-        paddingHorizontal: GAP,
+        gap: social ? 0 : GAP,
+        paddingHorizontal: social ? 0 : GAP,
         paddingBottom:
           (Platform.OS !== "web" ? 64 : 0) + safeAreaInsets.bottom + GAP,
-        paddingTop: Platform.OS === "ios" ? 96 : GAP,
+        paddingTop: social ? 0 : Platform.OS === "ios" ? 96 : GAP,
         maxWidth: MAX_WIDTH,
         width: "100%",
         alignSelf: "center",
@@ -88,7 +138,9 @@ export default function VideoListScreen({
       onEndReached={loadMore}
       onEndReachedThreshold={0.6}
       ListHeaderComponent={
-        heading ? (
+        social ? (
+          <LandingTabs active="vod" />
+        ) : heading ? (
           <View style={[zero.my[4]]}>
             <Title>{heading}</Title>
           </View>

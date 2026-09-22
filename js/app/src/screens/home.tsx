@@ -6,6 +6,7 @@ import {
   useDefaultStreamer,
   useDefaultVideo,
   useOfflineImageUri,
+  useSocialShell,
   useStreamplaceStore,
   useTheme,
   zero,
@@ -17,10 +18,13 @@ import { EmptyState } from "components/empty-state";
 import ErrorBox from "components/error/error";
 import StreamCardHorizontal, { StreamCardSize } from "components/home/cards";
 import LiveDot from "components/home/live-dot";
+import { LandingTabs } from "components/landing/landing-tabs";
+import { LandingPostCard } from "components/landing/post-card";
 import PullToRefreshScrollView from "components/pull-to-refresh";
 import { Image } from "expo-image";
 import useAvatars from "hooks/useAvatars";
 import { useFrontDoorReload } from "hooks/useDefaultStreamerReload";
+import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useEffect, useState } from "react";
 import { Platform, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -254,6 +258,8 @@ export default function HomeScreen({
     "No one is streaming right now";
   const offlineSubtitle =
     useBrandingAsset("offlineSubtitle")?.data?.trim() || "Check back later?";
+  const social = useSocialShell();
+  const { url: nodeUrl } = useStreamplaceNode();
   // Showing the default video, this page is a video page: tell the shell,
   // which otherwise keeps the docked sidebar and the feed column the home
   // grid lives in, and clips the player to it.
@@ -274,6 +280,69 @@ export default function HomeScreen({
   }
   if (defaultStreamer) {
     return <MobileStream route={{ params: { user: defaultStreamer } }} />;
+  }
+
+  // The social shell's front door is the landing feed: the Live tab of the
+  // three landing tabs, every live stream as a post card.
+  if (social) {
+    const empty = (
+      <EmptyState
+        illustration={
+          <Image
+            source={
+              offlineImageUri
+                ? { uri: offlineImageUri }
+                : require("../../assets/images/jelly.png")
+            }
+            style={{ height: 64, width: 64 }}
+            contentFit="contain"
+          />
+        }
+        title={offlineTitle}
+        subtitle={offlineSubtitle}
+      />
+    );
+    return (
+      <PullToRefreshScrollView
+        style={{ flex: 1, width: "100%" }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        refreshing={manualRefresh}
+        onRefresh={() => {
+          refreshLiveUsers();
+          setManualRefresh(true);
+        }}
+        indicatorTop={safeAreaInsets.top}
+      >
+        <LandingTabs active="live" />
+        {liveUsersError && !segments ? (
+          <ErrorBox onRetry={refreshLiveUsers} />
+        ) : segments === null ? (
+          <HomeSkeletonGrid />
+        ) : segments.length === 0 ? (
+          empty
+        ) : (
+          segments.map((item) => {
+            const user = item.author.handle || item.author.did;
+            const rec = item.record as place.stream.livestream.Main;
+            return (
+              <LandingPostCard
+                key={item.cid}
+                to={{ screen: "Stream", params: { user } }}
+                avatarUrl={avis[item.author.did]?.avatar}
+                name={item.author.displayName || item.author.handle || user}
+                handle={item.author.handle || item.author.did}
+                createdAt={rec.createdAt}
+                text={rec.title || "A livestream!"}
+                imageUri={`${nodeUrl}/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
+                live
+                count={item.viewerCount?.count}
+                countLabel="watching"
+              />
+            );
+          })
+        )}
+      </PullToRefreshScrollView>
+    );
   }
 
   if (liveUsersError) {

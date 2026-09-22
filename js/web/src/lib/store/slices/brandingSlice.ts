@@ -1,9 +1,3 @@
-// Branding state + fetch. Ported from
-// js/components/src/streamplace-store/branding.tsx (useFetchBroadcasterDID,
-// useFetchBranding) so the advanced-settings "refresh branding" button and
-// header site title work on web. Branding is per-broadcaster; the server
-// injects the broadcaster DID via place.stream.broadcast.getBroadcaster and
-// the assets come from place.stream.branding.getBranding.
 import { place } from "streamplace";
 import { StateCreator } from "zustand";
 import { storage } from "../../storage";

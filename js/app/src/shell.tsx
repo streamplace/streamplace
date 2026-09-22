@@ -537,6 +537,14 @@ function TabNavigator() {
       screenOptions={{
         lazy: true,
         headerShown: false,
+        // Switching tabs, the navigator keeps the previous tab's scene
+        // mounted and visible beneath the new one until its (zero-length)
+        // transition settles, and again for a frame whenever that effect
+        // re-runs, as it does when the new tab's nested navigator
+        // initializes. With transparent scenes the old page showed through
+        // the new one: the "flash back to the previous page, twice" on
+        // every tab change on web. An opaque scene covers it.
+        sceneStyle: { backgroundColor: z.theme.colors.background },
         // Hide tab bar on web and < 800px; the social shell has no bottom
         // bar at all (the stream page is a fixed player/chat/composer stack).
         tabBarStyle: socialShell

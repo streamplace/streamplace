@@ -221,18 +221,37 @@ in `go.mod`. To test unreleased muxl changes:
 - `make dev` builds `build-linux-amd64/libstreamplace` and installs a
   launcher at `build-linux-amd64/streamplace` that sets `LD_LIBRARY_PATH`,
   `SP_DEV_FRONTEND_PROXY=http://127.0.0.1:38081` and `SP_DEV_PUBLIC_OAUTH=true`.
-  `make dev-web` is the web-only variant.
-- The 38080/38081 pair belongs to the long-lived dev node and its metro.
-  Never bind those. A scratch stack on alternate ports that coexists with it:
+  `make dev-web` is the web-only build variant. Neither target starts a
+  server: run the resulting binary separately. After provisioning, build
+  inside the selected container:
 
   ```sh
-  env -u SP_ACCESS_POLICY SP_DATA_DIR=<scratch> \
+  docker exec -w /home/iameli/code/streamplace-N streamplace-N make dev
+  ```
+
+- The 38080/38081 pair belongs to the long-lived dev node and its metro.
+  Never bind those. Run this from the checkout root **inside the container**
+  selected by `make provision` (substitute your checkout and scratch paths).
+  This serves the embedded frontend, so no metro is needed:
+
+  ```sh
+  env -i PATH="$PATH" HOME="$HOME" \
+    LD_LIBRARY_PATH="$PWD/build-linux-amd64/lib" \
+    SP_DATA_DIR=/tmp/streamplace-N-scratch SP_NO_FIREHOSE=true \
     SP_HTTP_ADDR=:38090 SP_HTTP_INTERNAL_ADDR=127.0.0.1:39091 SP_HTTPS_ADDR=:38444 \
     SP_RTMP_ADDR=:19350 SP_RTMPS_ADDR=:19351 SP_RTMPS_ADDON_ADDR=:19352 \
     SP_MIST_ADMIN_PORT=14243 SP_MIST_RTMP_PORT=11936 SP_MIST_HTTP_PORT=28081 \
-    SP_DEV_FRONTEND_PROXY=http://127.0.0.1:38091 SP_BROADCASTER_HOST=localhost:38090 \
+    SP_DEV_FRONTEND_PROXY=false SP_DEV_PUBLIC_OAUTH=true \
+    SP_BROADCASTER_HOST=localhost:38090 \
     ./build-linux-amd64/libstreamplace
-  # metro for it, in js/app:
+  ```
+
+  Open `http://127.0.0.1:38090` from a browser in the same container network
+  (see below). For live frontend development instead, change
+  `SP_DEV_FRONTEND_PROXY` to `http://127.0.0.1:38091` and run metro in a
+  second container shell, from `js/app`:
+
+  ```sh
   EXPO_PUBLIC_STREAMPLACE_URL=http://127.0.0.1:38090 npx expo start --port 38091
   ```
 
@@ -246,14 +265,21 @@ destination=...` in the log to confirm which way it went). Invoke
   `SP_DEV_FRONTEND_PROXY=false` (or unset) disables the proxy and serves
   the bundle embedded in the binary instead, which needs no metro at all.
 
-  The recipe only unsets `SP_ACCESS_POLICY`, but the developer shell already
-  exports a pile of `SP_*` config (`SP_ADMIN_DIDS`, `SP_ALLOWED_STREAMS`,
-  `SP_S3_*`, `SP_RELAY_HOST`, `SP_BROADCASTER_HOST`, …) that the scratch node
-  inherits — it comes up logging `upload manager: S3 backend bucket=…` and
-  `starting firehose consumers relays=[…, ws://jumbo.iameli.xyz:2480]`, i.e.
-  pointed at real S3 and the production relay. Harmless for a pure frontend
-  check, but unset them (`env -u SP_S3_ENDPOINT -u SP_RELAY_HOST …`) if you
-  want an isolated node.
+  The clean environment avoids inheriting `SP_ACCESS_POLICY`, `SP_ADMIN_DIDS`,
+  `SP_ALLOWED_STREAMS`, `SP_S3_*`, relay settings, and other production
+  configuration. Do not assume these are harmless for a frontend check:
+  the node starts background services before a browser connects. Merely
+  unsetting `SP_RELAY_HOST` restores the default `wss://bsky.network`;
+  `SP_NO_FIREHOSE=true` disables firehose consumption for this empty scratch
+  node. Confirm startup logs say `upload manager: file backend`, not S3.
+
+  Direct binary invocation also bypasses the launcher's
+  `SP_DEV_PUBLIC_OAUTH=true`. Keep it explicitly for loopback HTTP
+  development: without it, the app's
+  `/oauth/downstream/client-metadata.json?redirect_uri=...` request returned
+  HTTP 400 (`invalid redirect_uri: http://127.0.0.1:38090/login not in allowed
+  URIs`); setting it returned HTTP 200. This verifies client metadata, not
+  a completed login. Never enable this development flag in production.
 
 - Do not start metro with `CI=1`: that disables file watching.
 - `js/app/.env.development` pins `EXPO_PUBLIC_STREAMPLACE_URL` to the
@@ -261,19 +287,32 @@ destination=...` in the log to confirm which way it went). Invoke
 - Branding and other per-node state can be seeded straight into the
   scratch node's `state.sqlite` (`branding_blobs`, `broadcaster_id` is the
   node's `did:web:host:port`). _(unverified)_
-- Screenshots and UI checks: use Playwright's Chromium, not the system one.
-  `/usr/bin/chromium` does not exist and the system browser is a snap whose
-  confinement refuses a profile directory under `~/.omp` or `~/.cache`
-  ("Failed to create … SingletonLock: Permission denied"). With no
-  `executablePath` the harness's own managed Chromium also fails outright
-  ("Shared browser daemon unavailable — broker start or Chromium launch
-  failed"); pass the downloaded browser explicitly:
-  `~/.cache/ms-playwright/chromium-<rev>/chrome-linux64/chrome` (install with
-  `pnpm --filter @streamplace/e2e-web install-browser`; inside the container
-  it lands under `/root/.cache/ms-playwright/`). A persistent profile
-  directory in your scratchpad keeps an OAuth session across runs.
-  _(profile-persistence part unverified)_ The iOS-simulator loop for the
-  Expo app is the `streamplace-app` skill in `.claude/skills/`.
+- Browser networking is separate from browser installation. The provisioned
+  container uses a private network and has no published ports by default;
+  host `127.0.0.1:38090` is not container `127.0.0.1:38090`. Run Playwright
+  **inside that container**, or explicitly forward the port for a host
+  browser. Do not recreate the build container just to add a port mapping.
+  For an interactive automation session, Chromium can run in the container
+  with a loopback CDP port forwarded to the host; keep CDP private.
+- `make provision` installs Playwright's Chromium in the container. Do not
+  guess the revision or try to run its `/root/.cache` path on the host.
+  Resolve its executable from the package that owns Playwright:
+
+  ```sh
+  docker exec -w /home/iameli/code/streamplace-N/js/e2e-web streamplace-N \
+    node -p 'require("playwright").chromium.executablePath()'
+  ```
+
+  On the September 22 bring-up this returned
+  `/root/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome`.
+  Container Chromium launched successfully with `--headless --no-sandbox
+--disable-dev-shm-usage`, and the embedded app rendered Home and Settings.
+  Use `--no-sandbox` only in this trusted development container. The system
+  snap browser previously failed with `SingletonLock: Permission denied`
+  for profiles under `~/.omp` or `~/.cache`; the container browser avoids
+  that host-specific issue. OAuth profile persistence remains unverified.
+  The iOS-simulator loop for the Expo app is the `streamplace-app` skill.
+
 - A TLS dev environment for a real hostname (own cert in `/shared/codes`,
   `/etc/hosts` entry, `iptables` 443 → the scratch HTTPS port) is what made
   OAuth against a strict PDS work; `SP_DEV_PUBLIC_OAUTH=false SP_SECURE=true
@@ -344,7 +383,17 @@ hatch, the explicit `getLiveUsers` limit and the current sidebar labels.
   nothing, so ignore them.
 - `js/dev-env` needs Node 22 (better-sqlite3 pin).
 
-## 6. Git and GitHub _(unverified)_
+## 6. Git and GitHub
+
+The container identity note below was verified on September 22; the remaining
+Git/GitHub workflow notes in this section are still unverified.
+
+- The bind mount shares the checkout, not the host's Git identity.
+  A commit inside the provisioned container failed with `Author identity
+unknown` (`root@...`). Read the configured author on the host with
+  `git var GIT_AUTHOR_IDENT`, then pass that same name and email to the
+  container's commit using `git -c user.name=... -c user.email=... commit`.
+  Do not invent an identity or change the container's global Git config.
 
 - Two GitHub identities are usually present: `GH_TOKEN`/`GITHUB_TOKEN`
   fine-grained PATs in the environment that can push but **cannot create

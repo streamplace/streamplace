@@ -1,4 +1,4 @@
-import { Text, useTheme } from "@streamplace/components";
+import { Text, useStreamerLockedOut, useTheme } from "@streamplace/components";
 import AQLink from "components/aqlink";
 import { View } from "react-native";
 
@@ -6,17 +6,23 @@ import { View } from "react-native";
 // at the top of the feed column (the client design's "Live / Play on demand
 // / Go live"). Three equal tabs; the active one is bright with a 2px accent
 // underline the width of its label, the others muted. Each is a real link,
-// so the pages keep their own paths (/, /video, /go-live) and cards.
+// so the pages keep their own paths (/, /video, /live) and cards. Go live
+// goes straight to the live dashboard (/live); a viewer the node does not
+// let stream gets the go-live page that says who can (/go-live) instead.
 export type LandingTab = "live" | "vod" | "golive";
-
-const TABS: { key: LandingTab; label: string; to: any }[] = [
-  { key: "live", label: "Live", to: { screen: "HomeMain" } },
-  { key: "vod", label: "Play on demand", to: { screen: "VideoList" } },
-  { key: "golive", label: "Go live", to: { screen: "GoLiveTab" } },
-];
 
 export function LandingTabs({ active }: { active: LandingTab }) {
   const { theme } = useTheme();
+  const lockedOut = useStreamerLockedOut();
+  const TABS: { key: LandingTab; label: string; to: any }[] = [
+    { key: "live", label: "Live", to: { screen: "HomeMain" } },
+    { key: "vod", label: "Play on demand", to: { screen: "VideoList" } },
+    {
+      key: "golive",
+      label: "Go live",
+      to: { screen: lockedOut ? "GoLiveTab" : "LiveDashboard" },
+    },
+  ];
   return (
     <View
       style={{

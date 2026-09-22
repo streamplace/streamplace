@@ -179,6 +179,8 @@ function HomeNavigator() {
   const title = useNodeTitle();
   const baseScreenOptions = useBaseScreenOptions();
   const social = useSocialShell();
+  // On a phone the header is where the social shell's menu button lives.
+  const phoneMenu = usePhoneMenu();
   const defaultStreamer = useDefaultStreamer();
   const isNative = Platform.OS !== "web";
   const z = useTheme();
@@ -238,8 +240,9 @@ function HomeNavigator() {
               : undefined,
           headerRight: () => <HeaderRight />,
           // The social shell's front door draws its own column header (the
-          // stream card's, or the landing tabs).
-          headerShown: !social,
+          // stream card's, or the landing tabs); a phone keeps the header
+          // for its menu button.
+          headerShown: !social || phoneMenu,
           ...(Platform.OS === "ios" && {
             unstable_headerRightItems: () => [
               {
@@ -329,6 +332,7 @@ function VideosNavigator() {
   const baseScreenOptions = useBaseScreenOptions();
   const isNative = Platform.OS !== "web";
   const social = useSocialShell();
+  const phoneMenu = usePhoneMenu();
 
   return (
     <VideosStack.Navigator
@@ -354,8 +358,9 @@ function VideosNavigator() {
       <VideosStack.Screen
         name="VideoList"
         component={VideoListScreen}
-        // The social shell's videos page carries the landing tabs instead.
-        options={{ title: "Videos", headerShown: !social }}
+        // The social shell's videos page carries the landing tabs instead;
+        // a phone keeps the header for its menu button.
+        options={{ title: "Videos", headerShown: !social || phoneMenu }}
       />
       <VideosStack.Screen
         name="UserVideoList"
@@ -521,6 +526,7 @@ const getIcon = (
 function TabNavigator() {
   const { isNative, isBrowser } = usePlatform();
   const socialShell = useSocialShell();
+  const phoneMenu = usePhoneMenu();
   const accentColor = useAccentColor();
   const primaryColor = usePrimaryColor();
   const isLargeScreen = useIsLargeScreen();
@@ -603,7 +609,7 @@ function TabNavigator() {
                   <Video size={size} color={color} />
                 ),
               }),
-          headerShown: !socialShell,
+          headerShown: !socialShell || phoneMenu,
           headerTransparent: true,
         }}
       />

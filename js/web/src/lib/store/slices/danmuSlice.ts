@@ -1,6 +1,3 @@
-// Danmu settings, ported from js/components/src/streamplace-store
-// (useDanmuSettings). Persisted to localStorage with the same keys the
-// app uses so a user's danmu preferences carry across frontends.
 import { StateCreator } from "zustand";
 import { storage } from "../../storage";
 import { AppStore } from "../index";

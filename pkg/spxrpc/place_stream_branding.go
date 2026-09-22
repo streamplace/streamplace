@@ -5,48 +5,75 @@ import (
 	"context"
 	_ "embed"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/gorm"
 	"stream.place/streamplace/js/app"
+	"stream.place/streamplace/pkg/branding"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
 )
 
-var defaultBrandingAssets = map[string]struct {
+// defaultBrandingAssets are the text keys with app defaults, served by
+// getBranding when the node has not set them (see pkg/branding for the
+// full vocabulary).
+var defaultBrandingAssets = func() map[string]struct {
 	data []byte
 	mime string
-}{
-	// "mainLogo":         {data: defaultLogoSVG, mime: "image/svg+xml"},
-	// "favicon":          {data: defaultFaviconSVG, mime: "image/svg+xml"},
-	"siteTitle":       {data: []byte(""), mime: "text/plain"},
-	"siteDescription": {data: []byte(""), mime: "text/plain"},
-	"primaryColor":    {data: []byte("#6366f1"), mime: "text/plain"},
-	"accentColor":     {data: []byte("#8b5cf6"), mime: "text/plain"},
-	"defaultStreamer": {data: []byte(""), mime: "text/plain"},
+} {
+	m := map[string]struct {
+		data []byte
+		mime string
+	}{}
+	for key, def := range branding.Defaults() {
+		m[key] = struct {
+			data []byte
+			mime string
+		}{data: []byte(def), mime: branding.TextMime}
+	}
+	return m
+}()
+
+// NormalizeBroadcasterID turns the optional `broadcaster` parameter into the
+// key branding is stored under. Assets are written under the broadcaster's
+// DID (did:web:<host>), which is what clients send; an empty parameter means
+// this node's own broadcaster, and a bare host is upgraded to its did:web.
+func NormalizeBroadcasterID(param, defaultHost string) string {
+	param = strings.TrimSpace(param)
+	if param == "" {
+		return "did:web:" + defaultHost
+	}
+	if strings.HasPrefix(param, "did:") {
+		return param
+	}
+	return "did:web:" + param
 }
 
 func (s *Server) getBroadcasterID(ctx context.Context, broadcasterDID string) string {
-	// if broadcaster param provided, use it; otherwise use server's default
-	if broadcasterDID != "" {
-		return broadcasterDID
-	}
-	return s.cli.BroadcasterHost
+	return NormalizeBroadcasterID(broadcasterDID, s.cli.BroadcasterHost)
 }
 
 func (s *Server) GetBrandingBlob(ctx context.Context, broadcasterID, key string) ([]byte, string, *int, *int, error) {
 	// cache miss - fetch from db
 	blob, err := s.statefulDB.GetBrandingBlob(broadcasterID, key)
 	if err == gorm.ErrRecordNotFound {
+		// Older nodes stored unparameterised writes under the bare host.
+		if host, ok := strings.CutPrefix(broadcasterID, "did:web:"); ok {
+			if legacy, lerr := s.statefulDB.GetBrandingBlob(host, key); lerr == nil {
+				return legacy.Data, legacy.MimeType, legacy.Width, legacy.Height, nil
+			}
+		}
 		// not in db, use default
 		if def, ok := defaultBrandingAssets[key]; ok {
 			return def.data, def.mime, nil, nil, nil
 		}
-		return nil, "", nil, nil, fmt.Errorf("unknown branding key: %s", key)
+		return nil, "", nil, nil, fmt.Errorf("%w: %s", ErrBrandingKeyUnset, key)
 	}
 	if err != nil {
 		return nil, "", nil, nil, fmt.Errorf("error fetching branding blob: %w", err)
@@ -54,8 +81,18 @@ func (s *Server) GetBrandingBlob(ctx context.Context, broadcasterID, key string)
 	return blob.Data, blob.MimeType, blob.Width, blob.Height, nil
 }
 
+// ErrBrandingKeyUnset is returned for a branding key with neither a stored
+// value nor a built-in default.
+var ErrBrandingKeyUnset = errors.New("branding key is not set")
+
 func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context, broadcasterDID string, key string) (io.Reader, error) {
-	return s.HandlePlaceStreamBrandingGetBlobDirect(ctx, broadcasterDID, key)
+	r, err := s.HandlePlaceStreamBrandingGetBlobDirect(ctx, broadcasterDID, key)
+	if errors.Is(err, ErrBrandingKeyUnset) {
+		// 404, not 500: a client polling a key (the front door's
+		// defaultVideo) must tell "cleared" from "the node is down".
+		return nil, echo.NewHTTPError(http.StatusNotFound, err.Error())
+	}
+	return r, err
 }
 
 // HandlePlaceStreamBrandingGetBlobDirect is the exported version for direct calls
@@ -80,6 +117,13 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 	dbKeys, err := s.statefulDB.ListBrandingKeys(broadcasterID)
 	if err != nil {
 		return nil, fmt.Errorf("error listing branding keys: %w", err)
+	}
+	if host, ok := strings.CutPrefix(broadcasterID, "did:web:"); ok {
+		legacyKeys, err := s.statefulDB.ListBrandingKeys(host)
+		if err != nil {
+			return nil, fmt.Errorf("error listing legacy branding keys: %w", err)
+		}
+		dbKeys = append(dbKeys, legacyKeys...)
 	}
 
 	// build key set including defaults
@@ -165,16 +209,16 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid base64 data")
 	}
 
-	// validate size based on key type
-	maxSize := 500 * 1024 // 500KB default for logos
-	if input.Key == "favicon" {
-		maxSize = 100 * 1024 // 100KB for favicons
-	} else if input.Key == "siteTitle" || input.Key == "siteDescription" || input.Key == "primaryColor" || input.Key == "accentColor" || input.Key == "defaultStreamer" {
-		maxSize = 1024 // 1KB for text values
+	// validate size and value against the branding vocabulary
+	if len(data) > branding.MaxSize(input.Key) {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("blob too large (max %d bytes)", branding.MaxSize(input.Key)))
 	}
-	// sidebarBackgroundImage uses default 500KB limit
-	if len(data) > maxSize {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("blob too large (max %d bytes)", maxSize))
+	if branding.IsText(input.Key) {
+		canon, err := branding.Normalize(input.Key, data)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidValue: "+err.Error())
+		}
+		data = canon
 	}
 
 	// store in database
@@ -232,35 +276,73 @@ func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input 
 	}, nil
 }
 
-// HandleFaviconICO serves the favicon at /favicon.ico
+// HandleFaviconICO serves /favicon.ico: the node's branded favicon, else
+// the bundled one.
 func (s *Server) HandleFaviconICO(c echo.Context) error {
+	return s.handleFavicon(c, "favicon.ico", "image/x-icon")
+}
+
+// HandleFaviconPNG serves /favicon.png, the icon the app's HTML template
+// links first (Expo's web export writes it). It carries the same branded
+// favicon as /favicon.ico: link unfurlers (Slack, Discord) and browsers
+// take the first icon link they see, and this one used to be the bundled
+// brand mark on every node no matter its branding.
+func (s *Server) HandleFaviconPNG(c echo.Context) error {
+	return s.handleFavicon(c, "favicon.png", "image/png")
+}
+
+// handleFavicon serves the branded favicon blob with its own MIME type
+// (browsers sniff icon bytes, so an ICO at /favicon.png is fine), falling
+// back to the bundled file fallback / fallbackMime.
+func (s *Server) handleFavicon(c echo.Context, fallback, fallbackMime string) error {
 	ctx := c.Request().Context()
-
-	broadcasterID := s.cli.BroadcasterHost
-	log.Log(ctx, "fetching favicon", "broadcasterID", broadcasterID)
-	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, "did:web:"+broadcasterID, "favicon")
-
-	if err != nil || data == nil {
-		log.Log(ctx, "using fallback favicon", "err", err, "data_nil", data == nil)
+	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, s.cli.BroadcasterDID(), "favicon")
+	if err != nil || len(data) == 0 || !strings.HasPrefix(mimeType, "image/") {
 		distFiles, fsErr := app.Files()
 		if fsErr != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch favicon")
 		}
-
-		faviconFile, fsErr := distFiles.Open("favicon.ico")
+		f, fsErr := distFiles.Open(fallback)
 		if fsErr != nil {
 			return echo.NewHTTPError(http.StatusNotFound, "favicon not found")
 		}
-		defer faviconFile.Close()
-
-		data, fsErr = io.ReadAll(faviconFile)
+		defer f.Close()
+		data, fsErr = io.ReadAll(f)
 		if fsErr != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to read favicon")
 		}
-
-		// detect mime type based on file extension (ico)
-		mimeType = "image/x-icon"
+		mimeType = fallbackMime
 	}
-
+	// Short-lived: a rebrand shows up within minutes instead of whenever a
+	// cache's heuristic for an uncached-header image runs out.
+	c.Response().Header().Set("Cache-Control", "public, max-age=300")
 	return c.Blob(http.StatusOK, mimeType, data)
+}
+
+// HandleLinkBanner serves /linkbanner.png, the image behind the front
+// page's OpenGraph card: the node's uploaded linkBanner branding asset with
+// its real content type (link crawlers refuse application/octet-stream),
+// else the bundled brand banner. Branding is public even on a private node.
+func (s *Server) HandleLinkBanner(c echo.Context) error {
+	ctx := c.Request().Context()
+	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, s.cli.BroadcasterDID(), "linkBanner")
+	if err == nil && len(data) > 0 && strings.HasPrefix(mimeType, "image/") {
+		c.Response().Header().Set("Cache-Control", "public, max-age=300")
+		return c.Blob(http.StatusOK, mimeType, data)
+	}
+	distFiles, fsErr := app.Files()
+	if fsErr != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to load link banner")
+	}
+	f, fsErr := distFiles.Open("linkbanner.png")
+	if fsErr != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "link banner not found")
+	}
+	defer f.Close()
+	bs, fsErr := io.ReadAll(f)
+	if fsErr != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to read link banner")
+	}
+	c.Response().Header().Set("Cache-Control", "public, max-age=300")
+	return c.Blob(http.StatusOK, "image/png", bs)
 }

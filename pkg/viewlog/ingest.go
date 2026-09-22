@@ -16,6 +16,7 @@ import (
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/cdn"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/psession"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/vod"
 )
@@ -296,7 +297,7 @@ func segmentEventFromRequest(r cdn.Request, salts *SaltManager) (Event, bool) {
 	return Event{
 		Ts:        ts,
 		Type:      EventTypeSegmentRequest,
-		SID:       sid,
+		SID:       psession.ID(sid),
 		IPHash:    ipHash,
 		CID:       cid,
 		OwnerDID:  q.Get("did"),

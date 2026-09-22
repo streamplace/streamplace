@@ -296,7 +296,7 @@ func (s *Server) HandleComAtprotoSyncGetBlocks(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "application/vnd.ipld.car", out)
 }
 
 func (s *Server) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
@@ -326,7 +326,7 @@ func (s *Server) HandleComAtprotoSyncGetRecord(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "application/vnd.ipld.car", out)
 }
 
 func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
@@ -341,7 +341,7 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "application/vnd.ipld.car", out)
 }
 
 func (s *Server) HandleComAtprotoSyncListRepos(c echo.Context) error {
@@ -423,8 +423,10 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.badge.getValidBadges", s.HandlePlaceStreamBadgeGetValidBadges)
 	e.GET("/xrpc/place.stream.beta.getStatus", s.HandlePlaceStreamBetaGetStatus)
 	e.POST("/xrpc/place.stream.branding.deleteBlob", s.HandlePlaceStreamBrandingDeleteBlob)
+	e.GET("/xrpc/place.stream.branding.exportBundle", s.HandlePlaceStreamBrandingExportBundle)
 	e.GET("/xrpc/place.stream.branding.getBlob", s.HandlePlaceStreamBrandingGetBlob)
 	e.GET("/xrpc/place.stream.branding.getBranding", s.HandlePlaceStreamBrandingGetBranding)
+	e.POST("/xrpc/place.stream.branding.importBundle", s.HandlePlaceStreamBrandingImportBundle)
 	e.POST("/xrpc/place.stream.branding.updateBlob", s.HandlePlaceStreamBrandingUpdateBlob)
 	e.GET("/xrpc/place.stream.broadcast.getBroadcaster", s.HandlePlaceStreamBroadcastGetBroadcaster)
 	e.GET("/xrpc/place.stream.config.getEnv", s.HandlePlaceStreamConfigGetEnv)
@@ -465,8 +467,8 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.multistream.putTarget", s.HandlePlaceStreamMultistreamPutTarget)
 	e.GET("/xrpc/place.stream.playback.getLivePlaylist", s.HandlePlaceStreamPlaybackGetLivePlaylist)
 	e.GET("/xrpc/place.stream.playback.getLiveSegment", s.HandlePlaceStreamPlaybackGetLiveSegment)
-	e.GET("/xrpc/place.stream.playback.getLiveToken", s.HandlePlaceStreamPlaybackGetLiveToken)
 	e.GET("/xrpc/place.stream.playback.getPlaybackServer", s.HandlePlaceStreamPlaybackGetPlaybackServer)
+	e.GET("/xrpc/place.stream.playback.getPlaybackSession", s.HandlePlaceStreamPlaybackGetPlaybackSession)
 	e.GET("/xrpc/place.stream.playback.getVideoBlob", s.HandlePlaceStreamPlaybackGetVideoBlob)
 	e.GET("/xrpc/place.stream.playback.getVideoPlaylist", s.HandlePlaceStreamPlaybackGetVideoPlaylist)
 	e.POST("/xrpc/place.stream.playback.whep", s.HandlePlaceStreamPlaybackWhep)
@@ -549,6 +551,20 @@ func (s *Server) HandlePlaceStreamBrandingDeleteBlob(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamBrandingExportBundle(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingExportBundle")
+	defer span.End()
+	broadcaster := c.QueryParam("broadcaster")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBrandingExportBundle(ctx context.Context,broadcaster string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamBrandingExportBundle(ctx, broadcaster)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/zip", out)
+}
+
 func (s *Server) HandlePlaceStreamBrandingGetBlob(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingGetBlob")
 	defer span.End()
@@ -572,6 +588,38 @@ func (s *Server) HandlePlaceStreamBrandingGetBranding(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context,broadcaster string) (*placestream.BrandingGetBranding_Output, error)
 	out, handleErr = s.handlePlaceStreamBrandingGetBranding(ctx, broadcaster)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamBrandingImportBundle(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingImportBundle")
+	defer span.End()
+	broadcaster := c.QueryParam("broadcaster")
+	dryRun := false
+	if p := c.QueryParam("dryRun"); p != "" {
+		var err error
+		dryRun, err = strconv.ParseBool(p)
+		if err != nil {
+			return err
+		}
+	}
+	merge := false
+	if p := c.QueryParam("merge"); p != "" {
+		var err error
+		merge, err = strconv.ParseBool(p)
+		if err != nil {
+			return err
+		}
+	}
+	body := c.Request().Body
+	contentType := c.Request().Header.Get("Content-Type")
+	var out *placestream.BrandingImportBundle_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBrandingImportBundle(ctx context.Context,broadcaster string,dryRun bool,merge bool,r io.Reader,contentType string) (*placestream.BrandingImportBundle_Output, error)
+	out, handleErr = s.handlePlaceStreamBrandingImportBundle(ctx, broadcaster, dryRun, merge, body, contentType)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1236,12 +1284,11 @@ func (s *Server) HandlePlaceStreamPlaybackGetLivePlaylist(c echo.Context) error 
 	defer span.End()
 	sid := c.QueryParam("sid")
 	streamer := c.QueryParam("streamer")
-	token := c.QueryParam("token")
 	track := c.QueryParam("track")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context,sid string,streamer string,token string,track string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetLivePlaylist(ctx, sid, streamer, token, track)
+	// func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context,sid string,streamer string,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetLivePlaylist(ctx, sid, streamer, track)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1254,29 +1301,15 @@ func (s *Server) HandlePlaceStreamPlaybackGetLiveSegment(c echo.Context) error {
 	seg := c.QueryParam("seg")
 	sid := c.QueryParam("sid")
 	streamer := c.QueryParam("streamer")
-	token := c.QueryParam("token")
 	track := c.QueryParam("track")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context,seg string,sid string,streamer string,token string,track string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetLiveSegment(ctx, seg, sid, streamer, token, track)
+	// func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context,seg string,sid string,streamer string,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetLiveSegment(ctx, seg, sid, streamer, track)
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
-}
-
-func (s *Server) HandlePlaceStreamPlaybackGetLiveToken(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetLiveToken")
-	defer span.End()
-	var out *placestream.PlaybackGetLiveToken_Output
-	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetLiveToken(ctx context.Context) (*placestream.PlaybackGetLiveToken_Output, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetLiveToken(ctx)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
+	return c.Stream(200, "video/mp4", out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetPlaybackServer(c echo.Context) error {
@@ -1287,6 +1320,19 @@ func (s *Server) HandlePlaceStreamPlaybackGetPlaybackServer(c echo.Context) erro
 	var handleErr error
 	// func (s *Server) handlePlaceStreamPlaybackGetPlaybackServer(ctx context.Context,stream string) (*placestream.PlaybackGetPlaybackServer_Output, error)
 	out, handleErr = s.handlePlaceStreamPlaybackGetPlaybackServer(ctx, stream)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamPlaybackGetPlaybackSession(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetPlaybackSession")
+	defer span.End()
+	var out *placestream.PlaybackGetPlaybackSession_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamPlaybackGetPlaybackSession(ctx context.Context) (*placestream.PlaybackGetPlaybackSession_Output, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetPlaybackSession(ctx)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1306,7 +1352,7 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoBlob(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "video/mp4", out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error {

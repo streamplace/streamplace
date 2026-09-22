@@ -248,10 +248,24 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("PATCH", "/xrpc/*resource", xrpcHandler)
 	router.Handler("DELETE", "/xrpc/*resource", xrpcHandler)
 	// i wonder if there's a better way to do this?
+	router.GET("/linkbanner.png", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		if err := a.XRPCServer.HandleLinkBanner(echo.New().NewContext(r, w)); err != nil {
+			log.Error(ctx, "error handling linkbanner.png", "error", err)
+			w.WriteHeader(500)
+		}
+	})
 	router.GET("/favicon.ico", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		err := a.XRPCServer.HandleFaviconICO(echo.New().NewContext(r, w))
 		if err != nil {
 			log.Error(ctx, "error handling favicon.ico", "error", err)
+			w.WriteHeader(500)
+			return
+		}
+	})
+	router.GET("/favicon.png", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		err := a.XRPCServer.HandleFaviconPNG(echo.New().NewContext(r, w))
+		if err != nil {
+			log.Error(ctx, "error handling favicon.png", "error", err)
 			w.WriteHeader(500)
 			return
 		}
@@ -266,6 +280,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 			return nil, err
 		}
 		log.Warn(ctx, "using frontend proxy instead of bundled frontend", "destination", a.CLI.FrontendProxy)
+		router.GET(devFrontendProxyStatusPath, a.HandleDevFrontendProxyStatus(ctx, u))
 		router.NotFound = &httputil.ReverseProxy{
 			Rewrite: func(r *httputil.ProxyRequest) {
 				// workaround for Expo disliking serving requests from 127.0.0.1 instead of localhost
@@ -273,6 +288,9 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 				r.Out.Header.Set("Origin", u.String())
 				r.SetURL(u)
 			},
+			// while `pnpm app start` is still booting, show a page that polls
+			// the status endpoint and reloads once the port is up
+			ErrorHandler: devFrontendProxyErrorHandler(ctx, renderDevFrontendProxyPage(u.String())),
 		}
 	} else {
 		// Always load both frontends. The NotFound dispatcher picks one per
@@ -478,6 +496,22 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 		req.URL.Host = req.Host
 		req.URL.Scheme = proto
 
+		// The app's tabs each get their own card: the front page (live),
+		// /video (on demand) and /live (go live).
+		if page := linking.LandingPageFor(req.URL.Path); page != linking.LandingDefault {
+			bs, err := linker.GenerateLandingCard(ctx, req.URL, page, a.CLI.SentryDSN)
+			if err != nil {
+				log.Error(ctx, "error generating landing card", "path", req.URL.Path, "error", err)
+				defaultHandler.ServeHTTP(w, req)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html")
+			if _, err := w.Write(bs); err != nil {
+				log.Error(ctx, "error writing response", "error", err)
+			}
+			return
+		}
+
 		// VOD link cards live at /<user>/video/<tid>. Everything else with a
 		// slash in it falls through to static-file / default-card handling.
 		parts := strings.Split(strings.Trim(req.URL.Path, "/"), "/")
@@ -513,6 +547,7 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}
+		a.hydrateAuthorName(ctx, &lsv.Author)
 		bs, err := linker.GenerateStreamerCard(ctx, req.URL, lsv, a.CLI.SentryDSN)
 		if err != nil {
 			log.Error(ctx, "error generating html", "error", err)
@@ -545,6 +580,7 @@ func (a *StreamplaceAPI) writeVideoCard(ctx context.Context, w http.ResponseWrit
 	if vv == nil {
 		return false
 	}
+	a.hydrateAuthorName(ctx, &vv.Author)
 	bs, err := linker.GenerateVideoCard(ctx, req.URL, vv, a.CLI.SentryDSN)
 	if err != nil {
 		log.Error(ctx, "error generating video card", "uri", uri, "error", err)
@@ -555,6 +591,24 @@ func (a *StreamplaceAPI) writeVideoCard(ctx context.Context, w http.ResponseWrit
 		log.Error(ctx, "error writing response", "error", err)
 	}
 	return true
+}
+
+// hydrateAuthorName fills a card author's display name from their indexed
+// profile record (the same source the stream page's websocket names the
+// streamer from), so cards can say "Ada Lovelace is live" rather than
+// "@ada.example". Left empty when no profile is indexed; the card then
+// falls back to the handle.
+func (a *StreamplaceAPI) hydrateAuthorName(ctx context.Context, author *appbsky.ActorDefs_ProfileViewBasic) {
+	if author == nil || author.Did == "" || author.DisplayName != nil {
+		return
+	}
+	bp, err := a.Model.GetBskyProfile(ctx, author.Did, false)
+	if err != nil || bp == nil || bp.DisplayName == nil {
+		return
+	}
+	if name := strings.TrimSpace(*bp.DisplayName); name != "" {
+		author.DisplayName = &name
+	}
 }
 
 func (a *StreamplaceAPI) MistProxyHandler(ctx context.Context, tmpl string) httprouter.Handle {

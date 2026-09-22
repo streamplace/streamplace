@@ -20,8 +20,11 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { ChatMessageViewHydrated } from "streamplace";
 import {
+  DropdownMenu,
+  DropdownMenuTrigger,
   ErrorBoundary,
   getSystemMessageType,
+  ResponsiveDropdownMenuContent,
   Skeleton,
   SystemMessage,
   SystemMessageType,
@@ -35,7 +38,7 @@ import {
 import { flex, gap, layout, mr, px, py } from "../../lib/theme/atoms";
 import { borderRadius, colors, motion, spacing } from "../../lib/theme/tokens";
 import { RenderChatMessage } from "./chat-message";
-import { ModView } from "./mod-view";
+import { ModMenuContent, ModView } from "./mod-view";
 import { ProfileCardProvider } from "./user-profile-card";
 
 function RightAction(prog: SharedValue<number>, drag: SharedValue<number>) {
@@ -80,13 +83,14 @@ const ActionsBar = memo(
     item,
     visible,
     hoverTimeoutRef,
+    onMenuOpenChange,
   }: {
     item: ChatMessageViewHydrated;
     visible: boolean;
     hoverTimeoutRef: React.MutableRefObject<NodeJS.Timeout | null>;
+    onMenuOpenChange: (open: boolean) => void;
   }) => {
     const setReply = useSetReplyToMessage();
-    const setModMsg = usePlayerStore((state) => state.setModMessage);
     const { theme } = useTheme();
 
     if (!visible) return null;
@@ -129,24 +133,33 @@ const ActionsBar = memo(
         >
           <Reply color={theme.colors.text2} size={16} />
         </Pressable>
-        <Pressable
-          onPress={() => setModMsg(item)}
-          style={[
-            {
-              padding: 6,
-              borderRadius: borderRadius.sm,
-            },
-          ]}
-          onHoverIn={() => {
-            // Keep the actions bar visible when hovering over it
-            if (hoverTimeoutRef.current) {
-              clearTimeout(hoverTimeoutRef.current);
-              hoverTimeoutRef.current = null;
-            }
-          }}
-        >
-          <Ellipsis color={theme.colors.text2} size={16} />
-        </Pressable>
+        {/* The moderation / user-actions menu opens from the row itself,
+            anchored to this button, rather than from a hidden trigger at
+            the corner of the chat. */}
+        <DropdownMenu onOpenChange={onMenuOpenChange}>
+          <DropdownMenuTrigger asChild>
+            <Pressable
+              accessibilityLabel="Message actions"
+              style={[
+                {
+                  padding: 6,
+                  borderRadius: borderRadius.sm,
+                },
+              ]}
+              onHoverIn={() => {
+                if (hoverTimeoutRef.current) {
+                  clearTimeout(hoverTimeoutRef.current);
+                  hoverTimeoutRef.current = null;
+                }
+              }}
+            >
+              <Ellipsis color={theme.colors.text2} size={16} />
+            </Pressable>
+          </DropdownMenuTrigger>
+          <ResponsiveDropdownMenuContent align="end" sideOffset={6}>
+            <ModMenuContent message={item} />
+          </ResponsiveDropdownMenuContent>
+        </DropdownMenu>
       </View>
     );
   },
@@ -158,6 +171,7 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
   const setModMsg = usePlayerStore((state) => state.setModMessage);
   const swipeableRef = useRef<SwipeableMethods | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleHoverIn = () => {
@@ -215,8 +229,9 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
         </Pressable>
         <ActionsBar
           item={item}
-          visible={isHovered}
+          visible={isHovered || menuOpen}
           hoverTimeoutRef={hoverTimeoutRef}
+          onMenuOpenChange={setMenuOpen}
         />
       </View>
     );
@@ -259,25 +274,53 @@ export function Chat({
   style: propsStyle,
   reverse = false,
   hideAfter,
+  hideSystemMessages = false,
   ...props
 }: ComponentProps<typeof View> & {
   shownMessages?: number;
   style?: ComponentProps<typeof View>["style"];
   reverse?: boolean;
   hideAfter?: number;
+  /** Leave out the node's system notices ("now streaming" and the like). */
+  hideSystemMessages?: boolean;
 }) {
   const { theme } = useTheme();
   const chat = useChat();
   const [isScrolledUp, setIsScrolledUp] = useState(false);
+  // On phones the keyboard shrinks the viewport, and an inverted list that
+  // is re-laid out into a shorter box can end up showing its far (oldest)
+  // end. When the viewport resizes and the viewer wasn't reading history,
+  // pin the list back to the latest message.
+  const isScrolledUpRef = useRef(false);
+  isScrolledUpRef.current = isScrolledUp;
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    const onResize = () => {
+      if (isScrolledUpRef.current) return;
+      requestAnimationFrame(() =>
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: false }),
+      );
+    };
+    vv?.addEventListener("resize", onResize);
+    window.addEventListener("resize", onResize);
+    return () => {
+      vv?.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
   const [isVisible, setIsVisible] = useState(true);
   const flatListRef = useRef<FlatList>(null);
   // The store keeps chat oldest-first. An inverted FlatList renders index 0 at
   // the bottom, so feed it newest-first to keep the latest message at the
   // bottom (or at the top when reverse is set, where inverted is off).
-  const displayMessages = useMemo(
-    () => (chat ? chat.slice(-shownMessages).reverse() : []),
-    [chat, shownMessages],
-  );
+  const displayMessages = useMemo(() => {
+    if (!chat) return [];
+    const visible = hideSystemMessages
+      ? chat.filter((m) => m.author.did !== "did:sys:system")
+      : chat;
+    return visible.slice(-shownMessages).reverse();
+  }, [chat, shownMessages, hideSystemMessages]);
   const latestMessageTime = displayMessages[0]
     ? new Date(displayMessages[0].record.createdAt).getTime()
     : null;

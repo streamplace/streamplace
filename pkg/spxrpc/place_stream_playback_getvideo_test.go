@@ -19,7 +19,6 @@ import (
 	"stream.place/streamplace/pkg/cdn/bunny"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
-	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/vod"
 )
 
@@ -316,48 +315,6 @@ func TestTicksToDuration(t *testing.T) {
 	require.Equal(t, 29*time.Hour, ticksToDuration(29*3600*90000, 90000))
 }
 
-func TestSessionIDOrNew(t *testing.T) {
-	t.Run("supplied is reused", func(t *testing.T) {
-		// A well-formed TID like the player would have gotten from a
-		// prior master-playlist response.
-		valid := spid.TID()
-		got, err := sessionIDOrNew(valid)
-		require.NoError(t, err)
-		require.Equal(t, valid, got)
-	})
-	t.Run("empty mints a fresh tid", func(t *testing.T) {
-		got, err := sessionIDOrNew("")
-		require.NoError(t, err)
-		// The fresh sid is itself a valid TID — players that round-trip
-		// it through ParseTID won't reject our output.
-		_, err = syntax.ParseTID(got)
-		require.NoError(t, err)
-		// TIDs embed a timestamp + random clock id, so back-to-back
-		// calls never collide.
-		got2, err := sessionIDOrNew("")
-		require.NoError(t, err)
-		require.NotEqual(t, got, got2)
-	})
-	t.Run("invalid is rejected", func(t *testing.T) {
-		for _, bad := range []string{
-			"has space",      // whitespace
-			"has/slash",      // URL-illegal char
-			"has?question",   // ditto
-			"tooshort",       // < 13 chars
-			"toolongtoolong", // > 13 chars
-			"1111111111111",  // 13 chars but '1' isn't in the TID alphabet
-			"zabcdefghijkl",  // 13 chars but 'z' isn't a valid first char
-		} {
-			_, err := sessionIDOrNew(bad)
-			require.Error(t, err, "expected %q to be rejected", bad)
-		}
-	})
-}
-
-// TestResolveVideoBlob_SourceClip walks the playback-resolve path for
-// a clip record: the clip's `Video` field points at a parent video
-// whose sourceTracks lead to a real MediaTrack + blob CID. resolve
-// should return the parent's blob CID and surface the clip's bounds.
 func TestResolveVideoBlob_SourceClip(t *testing.T) {
 	ctx := context.Background()
 	m, err := model.MakeDB(":memory:")
@@ -584,9 +541,9 @@ func TestParseSingleRange(t *testing.T) {
 }
 
 // TestHandleGetVideoPlaylist_RejectsBadSID exercises the handler-side
-// validation. Validation runs before any DB / blob lookups, so the
-// test doesn't need a populated model or playbackStore content — just
-// the playbackStore presence check the handler does up front.
+// validation: a sid that is not even the shape of a signed session is
+// refused before any key, DB or blob lookup, so the test needs none of
+// them — just the playbackStore presence check the handler does up front.
 func TestHandleGetVideoPlaylist_RejectsBadSID(t *testing.T) {
 	store, err := blob.NewFileStore(t.TempDir())
 	require.NoError(t, err)
@@ -600,6 +557,8 @@ func TestHandleGetVideoPlaylist_RejectsBadSID(t *testing.T) {
 		{"contains slash", "has/slash"},
 		{"too long", strings.Repeat("x", 65)},
 		{"wrong tid alphabet", "1111111111111"},
+		{"a bare session id, unsigned", "3kabcdefghijk"},
+		{"unknown scope", "1.3kabcdefghijk.x.1.sig"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet,

@@ -1277,16 +1277,6 @@
               "type": "string",
               "description": "Opaque playback session identifier. Omit on the master playlist request; the server generates one and threads it through the sub-playlist + segment URLs it returns, for view-count correlation."
             }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "required": false,
-            "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live.",
-            "schema": {
-              "type": "string",
-              "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live."
-            }
           }
         ]
       }
@@ -1373,49 +1363,8 @@
               "type": "string",
               "description": "Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control."
             }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "required": false,
-            "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live.",
-            "schema": {
-              "type": "string",
-              "description": "A playback token from getLiveToken. Lets the streamer watch their own stream before it is published; ignored once the stream is live."
-            }
           }
         ]
-      }
-    },
-    "/xrpc/place.stream.playback.getLiveToken": {
-      "get": {
-        "summary": "Mint a short-lived playback token for the caller's own live stream, so their player can watch it over HLS before it is published (pre-live). HLS requests carry no session; the token, passed as `token` on getLivePlaylist and getLiveSegment, stands in for one. Requires an authenticated session; the token is bound to the caller's DID.",
-        "operationId": "place.stream.playback.getLiveToken",
-        "tags": ["place.stream.playback"],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "token": {
-                      "type": "string",
-                      "description": "Opaque token to pass as the `token` query parameter."
-                    },
-                    "expiresAt": {
-                      "type": "string",
-                      "description": "When the token stops working; fetch a new one before then.",
-                      "format": "date-time"
-                    }
-                  },
-                  "required": ["token", "expiresAt"]
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/xrpc/place.stream.playback.getPlaybackServer": {
@@ -1457,6 +1406,37 @@
             }
           }
         ]
+      }
+    },
+    "/xrpc/place.stream.playback.getPlaybackSession": {
+      "get": {
+        "summary": "Mint the caller's own playback session for their live stream. Every playback URL carries a signed session as `sid`; the anonymous one a playlist hands out opens published streams only, while the owner session this returns also opens the caller's unpublished (pre-live) stream to their own player. Requires an authenticated session; the result is bound to the caller's DID. Pass it as `sid` on getLivePlaylist.",
+        "operationId": "place.stream.playback.getPlaybackSession",
+        "tags": ["place.stream.playback"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sid": {
+                      "type": "string",
+                      "description": "The signed session to pass as the `sid` query parameter."
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "description": "When the session stops opening the stream unless renewed; fetch a new one before then.",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": ["sid", "expiresAt"]
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/xrpc/place.stream.playback.getVideoBlob": {
@@ -4280,6 +4260,60 @@
         }
       }
     },
+    "/xrpc/place.stream.branding.exportBundle": {
+      "get": {
+        "summary": "Download the node's branding as a bundle: a zip with branding.yaml (every set key; image keys name files in the zip) plus the image files. Re-import it on another node with place.stream.branding.importBundle. Requires admin authorization.",
+        "operationId": "place.stream.branding.exportBundle",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/zip": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "broadcaster",
+            "in": "query",
+            "required": false,
+            "description": "DID of the broadcaster. Defaults to this node's.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the broadcaster. Defaults to this node's.",
+              "format": "did"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.branding.getBlob": {
       "get": {
         "summary": "Get a specific branding asset blob by key.",
@@ -4384,6 +4418,114 @@
             }
           }
         ]
+      }
+    },
+    "/xrpc/place.stream.branding.importBundle": {
+      "post": {
+        "summary": "Apply a branding bundle (see exportBundle). By default the bundle replaces the node's branding: keys it does not mention are removed. Every value is validated like updateBlob. Requires admin authorization.",
+        "operationId": "place.stream.branding.importBundle",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "applied": {
+                      "type": "boolean",
+                      "description": "False for a dry run."
+                    },
+                    "changes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.branding.importBundle_change"
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": ["applied", "changes"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "InvalidBundle"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "broadcaster",
+            "in": "query",
+            "required": false,
+            "description": "DID of the broadcaster. Defaults to this node's.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the broadcaster. Defaults to this node's.",
+              "format": "did"
+            }
+          },
+          {
+            "name": "merge",
+            "in": "query",
+            "required": false,
+            "description": "Keep keys the bundle does not mention instead of removing them.",
+            "schema": {
+              "type": "boolean",
+              "description": "Keep keys the bundle does not mention instead of removing them.",
+              "default": false
+            }
+          },
+          {
+            "name": "dryRun",
+            "in": "query",
+            "required": false,
+            "description": "Report what would change without writing anything.",
+            "schema": {
+              "type": "boolean",
+              "description": "Report what would change without writing anything.",
+              "default": false
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/zip": {
+              "schema": {}
+            }
+          }
+        }
       }
     },
     "/xrpc/place.stream.branding.updateBlob": {
@@ -7728,6 +7870,22 @@
           }
         },
         "required": ["key", "mimeType"]
+      },
+      "place.stream.branding.importBundle_change": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string",
+            "description": "The new text value, or the image's type and size."
+          }
+        },
+        "required": ["key", "action"]
       },
       "place.stream.badge.defs_badgeView": {
         "type": "object",

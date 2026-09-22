@@ -200,11 +200,28 @@ func postgresIndexFixes(ctx context.Context, db *gorm.DB) error {
 			continue
 		}
 		log.Log(ctx, "rebuilding index as hash (btree can't hold long tokens)", "index", i.name)
-		if err := db.WithContext(ctx).Exec(fmt.Sprintf(`DROP INDEX IF EXISTS %q`, i.name)).Error; err != nil {
-			return fmt.Errorf("dropping index %s: %w", i.name, err)
-		}
-		if err := db.WithContext(ctx).Exec(fmt.Sprintf(`CREATE INDEX %q ON %q USING hash (%q)`, i.name, i.table, i.column)).Error; err != nil {
-			return fmt.Errorf("creating hash index %s: %w", i.name, err)
+		// Nodes of a station start together; one rebuilds, the others wait
+		// for the lock and then find the hash index in place.
+		if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", "index-fix:"+i.name).Error; err != nil {
+				return err
+			}
+			var def string
+			if err := tx.Raw("SELECT indexdef FROM pg_indexes WHERE schemaname = CURRENT_SCHEMA() AND tablename = ? AND indexname = ?", i.table, i.name).Scan(&def).Error; err != nil {
+				return err
+			}
+			if strings.Contains(def, "USING hash") {
+				return nil // another node got there first
+			}
+			if err := tx.Exec(fmt.Sprintf(`DROP INDEX IF EXISTS %q`, i.name)).Error; err != nil {
+				return fmt.Errorf("dropping index %s: %w", i.name, err)
+			}
+			if err := tx.Exec(fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %q ON %q USING hash (%q)`, i.name, i.table, i.column)).Error; err != nil {
+				return fmt.Errorf("creating hash index %s: %w", i.name, err)
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("rebuilding index %s: %w", i.name, err)
 		}
 	}
 	return nil
@@ -238,6 +255,7 @@ func openDB(dial gorm.Dialector) (*gorm.DB, error) {
 // quiet node doesn't sit on its whole allowance, and connections are
 // recycled hourly so a failover or pooler restart is followed.
 const (
+	pgMinOpenConns    = 4
 	pgMaxIdleConns    = 8
 	pgConnMaxIdleTime = 5 * time.Minute
 	pgConnMaxLifetime = time.Hour
@@ -251,10 +269,12 @@ func boundPostgresPool(ctx context.Context, db *gorm.DB, maxOpen int) error {
 	if maxOpen <= 0 {
 		maxOpen = 30
 	}
-	// The advisory-lock connection is held for the process lifetime; keep
-	// room for at least a few queries beside it.
-	if maxOpen < 4 {
-		maxOpen = 4
+	// The advisory-lock connection is held for the process lifetime, and a
+	// node needs a few queries in flight beside it. A cap an operator sets
+	// below that is a misconfiguration to report, not a number to quietly
+	// raise past what they sized max_connections for.
+	if maxOpen < pgMinOpenConns {
+		return fmt.Errorf("--db-max-open-conns must be at least %d (one connection holds the advisory lock for the node's lifetime); got %d", pgMinOpenConns, maxOpen)
 	}
 	idle := pgMaxIdleConns
 	if idle > maxOpen {

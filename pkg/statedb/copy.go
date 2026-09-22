@@ -32,7 +32,7 @@ import (
 type CopyReport struct {
 	Table    string
 	Source   int64 // rows in the source (soft-deleted included)
-	Inserted int64 // rows this run inserted
+	Inserted int64 // rows this run wrote (inserted, or reconciled on a later pass)
 	Target   int64 // rows in the target afterwards
 }
 
@@ -122,7 +122,11 @@ func copyTable(ctx context.Context, src *gorm.DB, dst *StatefulDB, m any, batch 
 	writer := dst.DB.Session(&gorm.Session{SkipHooks: true, Context: ctx}).Unscoped()
 	res := src.WithContext(ctx).Unscoped().Model(m).FindInBatches(rows.Interface(), batch, func(tx *gorm.DB, n int) error {
 		normalizeJSON(rows.Elem())
-		ins := writer.Clauses(clause.OnConflict{DoNothing: true}).Create(rows.Interface())
+		// Upsert, not insert-or-skip: the documented second (delta) pass
+		// after the cutover has to carry rows that changed since the first
+		// pass (tasks, configs, branding, soft deletions), which keep their
+		// primary keys and would otherwise be left at their old values.
+		ins := writer.Clauses(clause.OnConflict{UpdateAll: true}).Create(rows.Interface())
 		if ins.Error != nil {
 			return ins.Error
 		}

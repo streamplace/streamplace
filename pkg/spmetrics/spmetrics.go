@@ -357,6 +357,11 @@ func init() {
 			IngestWorkerExits.WithLabelValues(transport, outcome)
 		}
 	}
+	// A worker reattached after a restart exits under "resumed"; it never
+	// starts here, so only its exits are touched.
+	for _, outcome := range []string{"clean", "crash"} {
+		IngestWorkerExits.WithLabelValues("resumed", outcome)
+	}
 	for _, backend := range []string{"file", "s3"} {
 		VODProcessAttemptsTotal.WithLabelValues(backend)
 		VODProcessSuccessesTotal.WithLabelValues(backend)

@@ -10,11 +10,12 @@ import {
   ThemeProvider,
   StreamplaceProvider as ZustandStreamplaceProvider,
 } from "@streamplace/components";
+import * as Font from "expo-font";
 import { useFonts } from "expo-font";
 import BlueskyProvider from "features/bluesky/blueskyProvider";
 import StreamplaceProvider from "features/streamplace/streamplaceProvider";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useStore } from "store";
 import { useOAuthSession } from "store/hooks";
 
@@ -96,7 +97,7 @@ function ProviderInner({
   return (
     <SafeAreaProvider>
       <NavigationContainer theme={SPDarkTheme} linking={linking}>
-        <ThemeProvider forcedTheme="dark">
+        <ThemeProvider forcedTheme="dark" paintDocument={false}>
           <I18nProvider i18n={i18n}>
             <StreamplaceProvider>
               <BlueskyProvider>
@@ -133,18 +134,40 @@ export const NewStreamplaceProvider = ({
   );
 };
 
-export const FontProvider = ({ children }: { children: React.ReactNode }) => {
-  const [fontLoaded, fontError] = useFonts({
-    // Atkinson Hyperlegible Next (Sans) — three static weights, no variable fonts
-    "AtkinsonHyperlegibleNext-Regular": require("../../assets/fonts/AtkinsonHyperlegibleNext-Regular.ttf"),
-    "AtkinsonHyperlegibleNext-Medium": require("../../assets/fonts/AtkinsonHyperlegibleNext-Medium.ttf"),
-    "AtkinsonHyperlegibleNext-SemiBold": require("../../assets/fonts/AtkinsonHyperlegibleNext-SemiBold.ttf"),
+// Geist (Sans Serif) — the design system uses exactly three weights
+const GEIST = {
+  "Geist-Regular": require("../../assets/fonts/Geist-Regular.ttf"),
+  "Geist-Medium": require("../../assets/fonts/Geist-Medium.ttf"),
+  "Geist-SemiBold": require("../../assets/fonts/Geist-SemiBold.ttf"),
+};
+// Geist Mono — stream keys, ingest URLs, timers
+const GEIST_MONO = {
+  "GeistMono-Regular": require("../../assets/fonts/GeistMono-Regular.ttf"),
+  "GeistMono-Medium": require("../../assets/fonts/GeistMono-Medium.ttf"),
+  "GeistMono-SemiBold": require("../../assets/fonts/GeistMono-SemiBold.ttf"),
+};
 
-    // Ioskeley Mono — stream keys, ingest URLs, timers
-    "IoskeleyMono-Regular": require("../../assets/fonts/IoskeleyMono-Regular.ttf"),
-    "IoskeleyMono-Medium": require("../../assets/fonts/IoskeleyMono-Medium.ttf"),
-    "IoskeleyMono-SemiBold": require("../../assets/fonts/IoskeleyMono-SemiBold.ttf"),
-  });
+// The faces the first paint waits for. On web the mono (stream keys, ingest
+// URLs — nothing on a landing page) loads behind the paint and the browser
+// swaps it in when it arrives (@font-face); native can't swap, so it waits
+// for everything.
+function splitFonts() {
+  if (Platform.OS !== "web") {
+    return { first: { ...GEIST, ...GEIST_MONO }, later: {} };
+  }
+  return { first: GEIST, later: GEIST_MONO };
+}
+
+export const FontProvider = ({ children }: { children: React.ReactNode }) => {
+  const [{ first, later }] = useState(splitFonts);
+  const [fontLoaded, fontError] = useFonts(first);
+  useEffect(() => {
+    if (Object.keys(later).length) {
+      Font.loadAsync(later).catch((e) =>
+        console.warn("secondary fonts failed to load", e),
+      );
+    }
+  }, [later]);
 
   if (!fontLoaded && !fontError) {
     return null;

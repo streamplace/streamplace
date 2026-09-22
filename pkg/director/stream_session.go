@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -74,6 +75,11 @@ type StreamSession struct {
 	lastLivestreamTime time.Time
 	lastViewCountTime  time.Time
 	s3Uploader         *s3.S3Uploader
+	// localRole runs once this node takes up the ingest node's jobs for the
+	// session (recording, multistream targets): on the first local segment,
+	// whether that is the session's first segment or one that arrives after
+	// the node syndicated the stream for a while.
+	localRole sync.Once
 }
 
 // bitrateMargin is the wiggle room over the configured maximum before a stream
@@ -132,14 +138,15 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
 	allRenditions = append(allRenditions, renditions.AudioRendition)
 
-	// Live recording is the ingest node's job alone: a node that merely
-	// syndicates this stream must not also write it to S3, or every node
-	// records the same stream and they fight over the finalize.
-	if notif.Local {
-		ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
-	}
-
 	close(ss.started)
+
+	// Live recording and multistream targets are the ingest node's jobs
+	// alone: a node that merely syndicates this stream must not also write
+	// it to S3, or every node records the same stream and they fight over
+	// the finalize. Taken up on the first local segment; see startLocalRole.
+	if notif.Local {
+		ss.startLocalRole(ctx, notif.Segment.RepoDID)
+	}
 
 	// Start background workers for status, origin, and livestream updates
 	ss.g.Go(func() error {
@@ -154,12 +161,6 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	ss.g.Go(func() error {
 		return ss.viewCountUpdateLoop(ctx, spseg.Creator)
 	})
-
-	if notif.Local {
-		ss.Go(ctx, func() error {
-			return ss.HandleMultistreamTargets(ctx)
-		})
-	}
 
 	for {
 		select {
@@ -189,6 +190,21 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 			cancel()
 		}
 	}
+}
+
+// startLocalRole takes up what only the ingest node does for a stream:
+// recording it to S3 for live-to-VOD and driving its multistream targets.
+// Once per session, on the first local segment. For the session's first
+// segment the director runs Start in the background and NewSegment right
+// after it, so the two calls can race; sync.Once lets one of them do the
+// work and the other return.
+func (ss *StreamSession) startLocalRole(ctx context.Context, repoDID string) {
+	ss.localRole.Do(func() {
+		ss.maybeStartS3Upload(ctx, repoDID)
+		ss.Go(ctx, func() error {
+			return ss.HandleMultistreamTargets(ctx)
+		})
+	})
 }
 
 // Execute a goroutine in the context of the stream session. Errors are
@@ -251,6 +267,13 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	spseg, err := notif.Segment.ToStreamplaceSegment()
 	if err != nil {
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
+	}
+
+	// A session that began with replicated segments (this node syndicated
+	// the stream) and now receives local ones has become the ingest node:
+	// take up recording and multistream targets now rather than never.
+	if notif.Local {
+		ss.startLocalRole(ctx, spseg.Creator)
 	}
 
 	// stream.received is enqueued once per StreamSession when the first local media segment is accepted.
@@ -954,11 +977,18 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	}
 	_ = pg.Wait()
 
-	tn.wait(ctx)
+	if !tn.wait(ctx) {
+		// The segments behind this one gave up waiting and published; a
+		// rendition published now would arrive after newer ones.
+		log.Warn(ctx, "rendition abandoned by later segments, not published", "rendition", "all")
+		return nil
+	}
 	if addendum != nil {
 		// Into the live window (HLS variants), and to the peers pulling
-		// this stream (see subscribeSegments).
-		ss.mm.FeedLiveRenditions(context.WithoutCancel(ctx), spseg.Creator, addendum, notif.Metadata.Published)
+		// this stream (see subscribeSegments). Only the websocket
+		// replicator carries rendition addenda; a peer syndicating over
+		// Iroh receives the source track alone and no renditions.
+		ss.mm.FeedLiveRenditions(context.WithoutCancel(ctx), spseg.Creator, addendum, notif.Metadata.StartTime.Time(), notif.Metadata.Published)
 		ss.bus.PublishSegment(ctx, spseg.Creator, media.RenditionsChannel, &bus.Seg{
 			Muxl:      addendum,
 			Published: notif.Metadata.Published,
@@ -991,7 +1021,10 @@ func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *placestream.Seg
 		return fmt.Errorf("failed to packetize segment: %w", err)
 	}
 	seg.PacketizedData = packet
-	tn.wait(ctx)
+	if !tn.wait(ctx) {
+		log.Warn(ctx, "segment abandoned by later segments, not published", "rendition", rendition)
+		return nil
+	}
 	ss.bus.PublishSegment(ctx, spseg.Creator, rendition, seg)
 	return nil
 }

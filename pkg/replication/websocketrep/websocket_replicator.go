@@ -308,8 +308,13 @@ func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *placestre
 	}
 	defer conn.Close()
 	// Drop the connection when the pull is cancelled, so ReadMessage returns.
+	// The closer lives exactly as long as this connection: the pull loop
+	// reconnects for as long as the node runs, and a closer waiting on the
+	// node's context would pile up one goroutine per reconnect.
+	connCtx, connDone := context.WithCancel(ctx)
+	defer connDone()
 	go func() {
-		<-ctx.Done()
+		<-connCtx.Done()
 		conn.Close()
 	}()
 	log.Log(ctx, "syndication: connected to origin", "origin", *origin.WebsocketURL)
@@ -335,7 +340,9 @@ func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *placestre
 				log.Warn(ctx, "syndication: rendition addendum failed verification, dropped", "error", err)
 				continue
 			}
-			r.mm.FeedLiveRenditions(context.WithoutCancel(ctx), origin.Streamer, addendum, true)
+			// Only public streams are syndicated, so the ordering check that
+			// wants the start time does not apply here.
+			r.mm.FeedLiveRenditions(context.WithoutCancel(ctx), origin.Streamer, addendum, time.Time{}, true)
 			// And onto this node's bus for WebRTC viewers who pick a
 			// rendition here.
 			r.mm.PublishRenditionsForPlayback(context.WithoutCancel(ctx), origin.Streamer, addendum, true)

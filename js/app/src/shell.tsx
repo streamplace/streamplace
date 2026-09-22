@@ -11,9 +11,12 @@ import {
 import {
   Text,
   useAccentColor,
+  useBrandingSettled,
   useDID,
   usePrimaryColor,
+  useStreamplaceStore,
   useTheme,
+  withAlpha,
   zero,
 } from "@streamplace/components";
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
@@ -649,6 +652,19 @@ export default function Shell() {
   const did = useStore((state) => state.oauthSession?.did);
   const hydrated = useHydrated();
 
+  // Two more things the first frame waits for (bounded by the same timeout):
+  // the OAuth session restore, so a signed-in viewer never sees the wall
+  // that the anonymous status answer would paint; and branding, so the
+  // default mark and title never flash before the node's own.
+  const sessionRestoring = useStreamplaceStore(
+    (s) => s.oauthSession === undefined,
+  );
+  const brandingSettled = useBrandingSettled();
+  const [bootTimedOut, setBootTimedOut] = useState(false);
+  useEffect(() => {
+    const handle = setTimeout(() => setBootTimedOut(true), 6000);
+    return () => clearTimeout(handle);
+  }, []);
   // Re-register when the token changes OR once the logged-in DID resolves, so a
   // token acquired before the OAuth session finishes restoring still gets its
   // repoDID association registered (otherwise the user is excluded from
@@ -707,14 +723,18 @@ export default function Shell() {
   // so it opens as an overlay drawer over dimmed content instead of pushing.
   const setOverlay = useStore((state) => state.setOverlay);
   const closeDrawer = useStore((state) => state.closeDrawer);
+  // A video page reports itself while mounted (the front door showing the
+  // default video is one the route name doesn't reveal).
+  const videoPage = useStore((state) => state.videoPage);
   const isDetailView =
     currentRouteName === "Stream" ||
     currentRouteName === "Video" ||
-    currentRouteName === "Vod";
+    currentRouteName === "Vod" ||
+    videoPage;
   // Video pages get a YouTube-style sticky translucent header the content
   // scrolls under; the livestream keeps its own solid header.
   const isVodDetail =
-    currentRouteName === "Video" || currentRouteName === "Vod";
+    currentRouteName === "Video" || currentRouteName === "Vod" || videoPage;
   useEffect(() => {
     setOverlay(isDetailView);
   }, [isDetailView, setOverlay]);
@@ -736,6 +756,10 @@ export default function Shell() {
   }));
 
   if (!hydrated) {
+    return <View />;
+  }
+
+  if ((sessionRestoring || !brandingSettled) && !bootTimedOut) {
     return <View />;
   }
 
@@ -899,7 +923,7 @@ export default function Shell() {
                     left: 0,
                     right: 0,
                     paddingHorizontal: spacing[2],
-                    backgroundColor: "rgba(10,10,11,0.55)", // token-ok: glass tint
+                    backgroundColor: withAlpha(z.theme.colors.surface0, 0.55),
                     backdropFilter: "blur(18px)",
                     WebkitBackdropFilter: "blur(18px)",
                     borderBottomWidth: 1,

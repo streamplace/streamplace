@@ -84,8 +84,9 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
 
     src: "",
     setSrc: (src: string) => set(() => ({ src })),
-    liveToken: undefined,
-    setLiveToken: (liveToken: string | undefined) => set(() => ({ liveToken })),
+    playbackSession: undefined,
+    setPlaybackSession: (playbackSession: string | undefined) =>
+      set(() => ({ playbackSession })),
 
     ingestMediaSource: undefined,
     setIngestMediaSource: (ingestMediaSource: IngestMediaSource | undefined) =>
@@ -340,10 +341,10 @@ export function usePlayerStore<U>(
   selector: (state: PlayerState) => U,
   playerId?: string,
 ): U {
-  if (!playerId) {
-    playerId = Object.keys(usePlayerContext().players)[0];
-  }
-  const store = getPlayerStoreById(playerId);
+  // Always read the context so the hook count is the same with or without
+  // an explicit id.
+  const players = usePlayerContext().players;
+  const store = getPlayerStoreById(playerId ?? Object.keys(players)[0]);
   return useStore(store, selector);
 }
 

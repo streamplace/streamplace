@@ -15,7 +15,6 @@ import { Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { zero } from "../..";
 import { useAvatars } from "../../hooks/useAvatars";
-import IconBsky from "../../icons/icon-bsky";
 import {
   borders,
   gap,
@@ -30,8 +29,10 @@ import {
 } from "../../lib/theme/atoms";
 import { useLivestreamStore } from "../../livestream-store";
 import { useUrl } from "../../streamplace-store";
+import { useNetworkProfileUrl } from "../../streamplace-store/branding";
 import { useTheme } from "../../ui";
 import { formatHandleWithAt } from "../../utils/format-handle";
+import { NetworkIcon } from "../icons/network-icon";
 import { Button, MenuGroup } from "../ui";
 import {
   DropdownMenu,
@@ -184,6 +185,7 @@ export const ProfileCardContent = ({
   data: ProfileCardData;
   theme: ReturnType<typeof useTheme>["theme"];
 }) => {
+  const profileUrl = useNetworkProfileUrl();
   const { author, profile, profiles, serviceDid, allBadges, streamer } = data;
 
   return (
@@ -254,10 +256,10 @@ export const ProfileCardContent = ({
                 variant="secondary"
                 style={{ aspectRatio: 1 }}
                 onPress={() => {
-                  Linking.openURL(`https://bsky.app/profile/${author.handle}`);
+                  Linking.openURL(profileUrl(author));
                 }}
               >
-                <IconBsky size={18} />
+                <NetworkIcon size={18} />
               </Button>
             </View>
           )}
@@ -284,7 +286,7 @@ export const ProfileCardContent = ({
             variant="secondary"
             size="sm"
             onPress={() => {
-              Linking.openURL(`https://bsky.app/profile/${author.handle}`);
+              Linking.openURL(profileUrl(author));
             }}
           >
             <View
@@ -294,7 +296,7 @@ export const ProfileCardContent = ({
                 zero.layout.flex.alignCenter,
               ]}
             >
-              <IconBsky size={20} />
+              <NetworkIcon size={20} />
               <Text>View Profile</Text>
             </View>
           </Button>

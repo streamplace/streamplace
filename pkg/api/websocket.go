@@ -151,10 +151,12 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					// node's live window holds now: they appear a little
 					// after the stream starts (the transcoder's round trip),
 					// and on a syndicating node they arrive from the origin.
-					if names := a.MediaManager.LiveRenditionNames(repoDID); len(names) > 0 {
-						if key := strings.Join(names, ","); sentRenditions.Swap(key) != key {
-							send(renditionsMessage(names))
-						}
+					// Including the change to none: renditions age out of
+					// the window on their own when the transcoder stops,
+					// and the viewer's menu must lose them too.
+					names := a.MediaManager.LiveRenditionNames(repoDID)
+					if key := strings.Join(names, ","); sentRenditions.Swap(key) != key {
+						send(renditionsMessage(names))
 					}
 					bs, err := json.Marshal(a.viewerCountMessage(ctx, repoDID))
 					if err != nil {
@@ -190,6 +192,22 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					"$type":  "app.bsky.actor.defs#profileViewBasic",
 					"did":    repoDID,
 					"handle": profile.Handle,
+				}
+				// Display name and avatar from the indexed profile record, so
+				// the stream page names the streamer the way chat rows do
+				// without a trip to an app view.
+				if bp, err := a.Model.GetBskyProfile(ctx, repoDID, false); err == nil && bp != nil {
+					if bp.DisplayName != nil && *bp.DisplayName != "" {
+						p["displayName"] = *bp.DisplayName
+					}
+					if bp.Avatar != nil {
+						p["avatar"] = fmt.Sprintf("https://cdn.bsky.app/img/avatar/plain/%s/%s@jpeg", repoDID, bp.Avatar.Ref.String())
+					}
+				}
+				// The streamer's verified badge comes from the same place as
+				// chat authors'.
+				if state := a.ATSync.VerificationState(ctx, repoDID, repoDID); state != nil {
+					p["verification"] = state
 				}
 				initialBurst <- p
 			}
@@ -256,10 +274,14 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			// Add mod badges to messages
 			issuerDID := fmt.Sprintf("did:web:%s", a.CLI.BroadcasterHost)
 			for _, message := range messages {
+				if !a.ATSync.ChatAllowed(ctx, repoDID, message.Author.Did) {
+					continue
+				}
 				err := atproto.AddModBadgeIfApplicable(ctx, &message, repoDID, issuerDID, a.Model)
 				if err != nil {
 					log.Error(ctx, "failed to add mod badge to message", "error", err)
 				}
+				a.ATSync.DecorateVerification(ctx, repoDID, &message)
 				if message.Author.Handle == "" || message.Author.Handle == "handle.invalid" {
 					message.Author.Handle = a.ATSync.ResolveAuthorHandle(ctx, message.Author.Did)
 				}

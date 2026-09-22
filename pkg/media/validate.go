@@ -222,7 +222,7 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	// serve its live HLS. WithoutCancel keeps the feed alive past this request.
 	// Pre-live segments are folded in too; the handlers gate them on a
 	// playback token (see feedLiveWindow).
-	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.Published)
+	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.StartTime.Time(), meta.Published)
 	if !vs.local {
 		// A replicated stream's renditions arrive separately; keep this
 		// segment's audio to pair them with (see PublishRenditionsForPlayback).

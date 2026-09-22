@@ -385,15 +385,18 @@ hatch, the explicit `getLiveUsers` limit and the current sidebar labels.
 
 ## 6. Git and GitHub
 
-The container identity note below was verified on September 22; the remaining
-Git/GitHub workflow notes in this section are still unverified.
+The host/container Git boundary below was checked on September 22; the
+remaining Git/GitHub workflow notes in this section are still unverified.
 
-- The bind mount shares the checkout, not the host's Git identity.
-  A commit inside the provisioned container failed with `Author identity
-unknown` (`root@...`). Read the configured author on the host with
-  `git var GIT_AUTHOR_IDENT`, then pass that same name and email to the
-  container's commit using `git -c user.name=... -c user.email=... commit`.
-  Do not invent an identity or change the container's global Git config.
+- **Run Git on the host, not inside the build container.** Builds, tests,
+  and the scratch node belong in the container; commits, pushes, and GitHub
+  operations do not. The bind mount shares the checkout and `.git`, but
+  not the host's author identity, SSH trust, or credential setup. Container
+  Git failed with `Author identity unknown` on commit and `Host key
+verification failed` on push. Use the host's existing configuration rather
+  than copying credentials or configuring a second identity in the container.
+  From the host checkout, commit normally and push with
+  `git push -u origin HEAD`.
 
 - Two GitHub identities are usually present: `GH_TOKEN`/`GITHUB_TOKEN`
   fine-grained PATs in the environment that can push but **cannot create

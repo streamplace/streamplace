@@ -33,20 +33,23 @@ Inspect the current machine before making environment-dependent decisions.
 Prefer repository-provided Make targets and scripts over manually reproducing
 their underlying commands.
 
+For the fully containerized build, scratch-node, and browser-test workflow, use
+the [streamplace-docker skill](.claude/skills/streamplace-docker/SKILL.md).
+It covers isolated sibling checkouts without requiring host-native build tools.
+
 ## Building
 
 A fresh checkout needs both the native build artifacts and the generated
 frontend bundles before ordinary Go builds will work correctly.
 
-The repository provides a cold-start entry point; ask first before executing
-this as it does a lot:
+The repository's cold-start dev entrypoint is:
 
 ```sh
-make provision
+make dev-setup
 ```
 
-Use it when the current environment supports the repository's provisioning
-workflow.
+It handles setting up Meson, the C and Rust dependencies, and does an initial
+frontend build.
 
 For normal development:
 

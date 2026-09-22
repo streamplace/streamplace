@@ -42,7 +42,12 @@ function walk(node) {
     ? node.map((v, i) => [i, v])
     : Object.entries(node);
   for (const [k, v] of entries) {
-    if (v && typeof v === "object" && typeof v.$ref === "string" && v.$ref.startsWith(PREFIX)) {
+    if (
+      v &&
+      typeof v === "object" &&
+      typeof v.$ref === "string" &&
+      v.$ref.startsWith(PREFIX)
+    ) {
       const target = v.$ref.slice(PREFIX.length);
       if (onStack.has(target)) {
         node[k] = stub(target);
@@ -70,4 +75,6 @@ for (const name of Object.keys(schemas)) visit(name);
 if (doc.paths) walk(doc.paths);
 
 writeFileSync(file, JSON.stringify(doc, null, 2) + "\n");
-console.log(`openapi-decycle: ${broken} recursive reference(s) broken in ${file}`);
+console.log(
+  `openapi-decycle: ${broken} recursive reference(s) broken in ${file}`,
+);

@@ -458,6 +458,14 @@ export function useSidebarBackgroundImage(): BrandingAsset | undefined {
   return useBrandingAsset("sidebarBackgroundImage");
 }
 
+// The illustration for "nothing is playing": the front page when nobody is
+// streaming, and a video without a thumbnail. A data URL when the node
+// uploaded one (branding key offlineImage); undefined means the default art.
+export function useOfflineImageUri(): string | undefined {
+  const data = useBrandingAsset("offlineImage")?.data;
+  return data && data.startsWith("data:") ? data : undefined;
+}
+
 // convenience hook for legal links
 export function useLegalLinks(): { text: string; url: string }[] {
   const asset = useBrandingAsset("legalLinks");

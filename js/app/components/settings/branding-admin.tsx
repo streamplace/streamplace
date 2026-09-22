@@ -43,6 +43,13 @@ const SOCIAL_LINKS_EXAMPLE =
   '[{"label": "Bluesky", "url": "https://bsky.app/profile/example.com", "icon": "bluesky"}, {"label": "Forum", "url": "https://example.com/forum", "icon": "socialIcon1"}]';
 const BOTTOM_LINKS_EXAMPLE =
   '[{"label": "Help", "url": "https://example.com/help", "icon": "book"}]';
+// The two lines of the front page's nobody-is-streaming state (pkg/branding
+// vocab offlineTitle / offlineSubtitle); the placeholders are the defaults.
+const OFFLINE_TEXT_KEYS: { key: string; placeholder: string }[] = [
+  { key: "offlineTitle", placeholder: "No one is streaming right now" },
+  { key: "offlineSubtitle", placeholder: "Check back later?" },
+];
+
 const SOCIAL_ICON_SLOTS = [
   "socialIcon1",
   "socialIcon2",
@@ -238,6 +245,7 @@ export function BrandingAdmin() {
   const currentLogo = useBrandingAsset("mainLogo");
   const currentFavicon = useBrandingAsset("favicon");
   const currentSidebarBg = useSidebarBackgroundImage();
+  const currentOfflineImage = useBrandingAsset("offlineImage");
   const currentLinkBanner = useBrandingAsset("linkBanner");
   const currentLegalLinks = useBrandingAsset("legalLinks");
 
@@ -363,6 +371,8 @@ export function BrandingAdmin() {
         case "cardVideoTitle":
         case "cardGoLiveTitle":
         case "cardGoLiveDescription":
+        case "offlineTitle":
+        case "offlineSubtitle":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
           break;
         case "defaultStreamer":
@@ -3607,6 +3617,115 @@ export function BrandingAdmin() {
                       style={{ height: 42 }}
                     >
                       {t("branding-delete-background")}
+                    </Button>
+                  </View>
+                </View>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <View style={[zero.gap.all[2], { flex: 1 }]}>
+                  <Text size="sm" weight="semibold">
+                    {t("branding-offline")}
+                  </Text>
+                  <MenuInfo description={t("branding-offline-description")} />
+                  {currentOfflineImage?.data && (
+                    <>
+                      <Image
+                        source={{ uri: currentOfflineImage.data }}
+                        contentFit="contain"
+                        style={{ width: 120, height: 120 }}
+                      />
+                      <Text size="xs" color="muted">
+                        {currentOfflineImage?.height || "unknown"} x{" "}
+                        {currentOfflineImage?.width || "unknown"}
+                      </Text>
+                    </>
+                  )}
+                  <View
+                    style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                  >
+                    <Button
+                      onPress={() =>
+                        handleFileSelect(
+                          "offlineImage",
+                          "image/svg+xml,image/png,image/jpeg,image/webp",
+                        )
+                      }
+                      disabled={uploading || Platform.OS !== "web"}
+                      width="min"
+                      style={{ height: 42 }}
+                    >
+                      {t("branding-upload-offline-image")}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onPress={() => deleteBlob("offlineImage")}
+                      disabled={uploading || !currentOfflineImage?.data}
+                      width="min"
+                      style={{ height: 42 }}
+                    >
+                      {t("branding-delete-offline-image")}
+                    </Button>
+                  </View>
+                  {OFFLINE_TEXT_KEYS.map(({ key, placeholder }) => (
+                    <View
+                      key={key}
+                      style={[
+                        zero.layout.flex.direction.row,
+                        zero.layout.flex.alignCenter,
+                        zero.gap.all[2],
+                      ]}
+                    >
+                      <View style={{ width: 160 }}>
+                        <Text size="xs" color="muted">
+                          {key}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder={placeholder}
+                          value={chromeInputs[key] ?? brandingValue(key)}
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({ ...prev, [key]: v }))
+                          }
+                        />
+                      </View>
+                    </View>
+                  ))}
+                  <View
+                    style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                  >
+                    <Button
+                      onPress={async () => {
+                        for (const { key } of OFFLINE_TEXT_KEYS) {
+                          const v = (
+                            chromeInputs[key] ?? brandingValue(key)
+                          ).trim();
+                          if (v && v !== brandingValue(key))
+                            await uploadText(key, v);
+                        }
+                      }}
+                      disabled={uploading}
+                      width="min"
+                      style={{ height: 42 }}
+                    >
+                      {t("update")}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onPress={async () => {
+                        for (const { key } of OFFLINE_TEXT_KEYS) {
+                          if (brandingValue(key)) await deleteBlob(key);
+                        }
+                      }}
+                      disabled={
+                        uploading ||
+                        !OFFLINE_TEXT_KEYS.some(({ key }) => brandingValue(key))
+                      }
+                      width="min"
+                      style={{ height: 42 }}
+                    >
+                      {t("branding-reset")}
                     </Button>
                   </View>
                 </View>

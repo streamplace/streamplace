@@ -5,6 +5,7 @@ import {
   useBrandingAsset,
   useDefaultStreamer,
   useDefaultVideo,
+  useOfflineImageUri,
   useStreamplaceStore,
   useTheme,
   zero,
@@ -245,6 +246,14 @@ export default function HomeScreen({
   // ...and the page follows both: an operator who points the node at
   // another streamer or a video moves everyone on this page there.
   useFrontDoorReload(defaultStreamer, defaultVideoRaw);
+  // The nobody-is-streaming state is brandable: the illustration (default
+  // the jellyfish) and its two lines.
+  const offlineImageUri = useOfflineImageUri();
+  const offlineTitle =
+    useBrandingAsset("offlineTitle")?.data?.trim() ||
+    "No one is streaming right now";
+  const offlineSubtitle =
+    useBrandingAsset("offlineSubtitle")?.data?.trim() || "Check back later?";
   // Showing the default video, this page is a video page: tell the shell,
   // which otherwise keeps the docked sidebar and the feed column the home
   // grid lives in, and clips the player to it.
@@ -388,12 +397,17 @@ export default function HomeScreen({
             <EmptyState
               illustration={
                 <Image
-                  source={require("../../assets/images/jelly.png")}
+                  source={
+                    offlineImageUri
+                      ? { uri: offlineImageUri }
+                      : require("../../assets/images/jelly.png")
+                  }
                   style={{ height: 64, width: 64 }}
+                  contentFit="contain"
                 />
               }
-              title="No one is streaming right now"
-              subtitle="Check back later?"
+              title={offlineTitle}
+              subtitle={offlineSubtitle}
             />
           )}
           {useHorizontalAll

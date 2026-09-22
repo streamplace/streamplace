@@ -1,4 +1,9 @@
-import { Text, useTheme, zero } from "@streamplace/components";
+import {
+  Text,
+  useOfflineImageUri,
+  useTheme,
+  zero,
+} from "@streamplace/components";
 import {
   colors,
   motion,
@@ -33,6 +38,7 @@ export default function VideoCard({
   avatarUrl?: string;
 }) {
   const { theme } = useTheme();
+  const offlineImageUri = useOfflineImageUri();
   const record = video.record as place.stream.video.Main;
   const author = video.author;
   const user = author.handle || author.did;
@@ -67,7 +73,11 @@ export default function VideoCard({
             />
           ) : (
             <Image
-              source={require("../../assets/images/jelly.png")}
+              source={
+                offlineImageUri
+                  ? { uri: offlineImageUri }
+                  : require("../../assets/images/jelly.png")
+              }
               style={{ width: "100%", height: "100%" }}
               contentFit="contain"
             />

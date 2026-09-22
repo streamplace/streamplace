@@ -5,6 +5,7 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   moderationPermissionsFor,
+  moderatorRecordsFromListRecords,
   permissionRecordsFromListRecords,
   type ModerationPermissionRecord,
 } from "./moderation";
@@ -39,6 +40,36 @@ describe("permissionRecordsFromListRecords", () => {
       { value: permissionRecord(), uri: "at://streamer/permission/3kq" },
     ]);
     expect(recordsWithURI[0].uri).toBe("at://streamer/permission/3kq");
+  });
+});
+
+describe("moderatorRecordsFromListRecords", () => {
+  it("derives each record's rkey from its URI", () => {
+    const records = moderatorRecordsFromListRecords([
+      {
+        value: permissionRecord(),
+        uri: "at://did:plc:streamer/place.stream.moderation.permission/3kq",
+      },
+    ]);
+    expect(records).toHaveLength(1);
+    expect(records[0].rkey).toBe("3kq");
+    expect(records[0].moderator).toBe(MODERATOR);
+  });
+
+  it("drops non-permission records and keeps the rest addressable", () => {
+    const records = moderatorRecordsFromListRecords([
+      { value: permissionRecord(), uri: "at://x/permission/aaa" },
+      { value: { $type: "place.stream.chat.message", text: "hi" } },
+      { value: null },
+    ]);
+    expect(records.map((r) => r.rkey)).toEqual(["aaa"]);
+  });
+
+  it("falls back to an empty rkey when no URI is present", () => {
+    const records = moderatorRecordsFromListRecords([
+      { value: permissionRecord() },
+    ]);
+    expect(records[0].rkey).toBe("");
   });
 });
 

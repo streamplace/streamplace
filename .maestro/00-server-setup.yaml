@@ -6,11 +6,20 @@ appId: ${APP_ID}
 # first-launch permission dialog that dims the screen and blocks taps.
 - launchApp
 - takeScreenshot: 00-01-launched
+# A slow CI emulator can throw a "Pixel Launcher isn't responding" dialog
+# over the app, which the runner's hide_error_dialogs doesn't suppress; tap
+# Wait if it's there.
+- tapOn:
+    text: "Wait"
+    optional: true
 # first launch on a cold CI emulator can take a while to render
 - extendedWaitUntil:
     visible:
       text: "Settings"
     timeout: 60000
+- tapOn:
+    text: "Wait"
+    optional: true
 - tapOn:
     text: "Settings"
 - takeScreenshot: 00-02-settings

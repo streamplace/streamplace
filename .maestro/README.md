@@ -8,8 +8,10 @@ wired up yet. The web suite (`js/e2e-web`, `hack/e2e-web-local.sh`) mirrors
 these flows.
 
 Flows run in the order set by `config.yaml`: `00-server-setup` first (it
-points the app at the harness), `03-go-live` before `05-oauth-login` (it
-checks that a logged-out user is asked to log in), and `05-oauth-login` last.
+points the app at the harness) and `05-oauth-login` last (the others expect a
+logged-out app). There is no `03`: native builds hide the Go Live controls
+that `03-go-live` covered, and `02-tabs` checks they stay hidden. The web
+suite still has its `03-go-live`.
 
 ## HTTPS, and logging in
 

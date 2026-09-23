@@ -1,9 +1,7 @@
 # 00-server-setup must run first: it points the app at the e2e test server.
 # Without an explicit order Maestro may run flows in any order, silently
 # testing against production instead.
-# 03-go-live checks that streaming asks a logged-out user to log in, so it
-# runs before 05-oauth-login logs in. It leaves the Log In modal open;
-# 05-oauth-login's launchApp clears it.
+# 05-oauth-login runs last: every flow before it expects a logged-out app.
 executionOrder:
   continueOnFailure: false
   flowsOrder:
@@ -11,5 +9,4 @@ executionOrder:
     - 01-smoke
     - 02-tabs
     - 04-stream
-    - 03-go-live
     - 05-oauth-login

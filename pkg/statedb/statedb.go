@@ -43,6 +43,10 @@ type StatefulDB struct {
 	// query per TTL instead of one each.
 	brandingCache sync.Map
 	OATProxy      *oatproxy.OATProxy
+	// Sessions made from the node's own credentials for accounts
+	// (UserXrpcClient), cached per DID.
+	passwordMu       sync.Mutex
+	passwordSessions map[string]*passwordSession
 	// vodProcessor runs the gstreamer + muxl + S3 pipeline for a VOD
 	// upload task. Installed via SetVODProcessor at bootstrap so
 	// pkg/statedb doesn't have to depend on the gstreamer-heavy pkg/vod.

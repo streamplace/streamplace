@@ -2,17 +2,15 @@ package atproto
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
-	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
 
 	glex "github.com/streamplace/glex/runtime"
 
@@ -60,40 +58,14 @@ func (atsync *ATProtoSynchronizer) endLivestreamForTeleport(ctx context.Context,
 	// A teleport record can arrive before the streamer has ever logged in to
 	// this node (e.g. multi-node setups). Without a stored session we have no
 	// credentials to write the record update, so there is nothing to do.
-	session, err := atsync.StatefulDB.GetSessionByDID(repoDID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if !atsync.StatefulDB.HasUserSession(repoDID) {
 		log.Debug(ctx, "no stored session for streamer, cannot end livestream for teleport")
 		return
 	}
-	if err != nil {
-		log.Error(ctx, "failed to get streamer session for teleport stream-end", "err", err)
-		return
-	}
-	if session == nil {
-		log.Debug(ctx, "no stored session for streamer, cannot end livestream for teleport")
-		return
-	}
-
-	// Some synchronizers run without an OAuth proxy (`streamplace sync`), and
-	// this is a best-effort callback on a timer goroutine — a panic here takes
-	// down the whole process, so a missing proxy is a logged no-op.
-	if atsync.OATProxy == nil {
-		log.Error(ctx, "no OAuth proxy configured, cannot end livestream for teleport")
-		return
-	}
-
-	// Refresh the session if its tokens are stale, then build a client that
-	// signs requests as the streamer.
-	session, err = atsync.OATProxy.RefreshIfNeeded(session)
-	if err != nil {
-		log.Error(ctx, "failed to refresh streamer session for teleport stream-end", "err", err)
-		return
-	}
-	if session == nil {
-		log.Debug(ctx, "streamer session missing after refresh, cannot end livestream for teleport")
-		return
-	}
-	client, err := atsync.OATProxy.GetXrpcClient(session)
+	// The stored session or the node's credentials for the account; either
+	// way a best-effort callback on a timer goroutine, so a failure is a
+	// logged no-op.
+	client, err := atsync.StatefulDB.UserXrpcClient(ctx, repoDID)
 	if err != nil {
 		log.Error(ctx, "failed to get xrpc client for teleport stream-end", "err", err)
 		return
@@ -116,7 +88,7 @@ func (atsync *ATProtoSynchronizer) endLivestreamForTeleport(ctx context.Context,
 //
 // Split from endLivestreamForTeleport so the session/client plumbing is
 // testable independently of the record update.
-func (atsync *ATProtoSynchronizer) endReferencedLivestream(ctx context.Context, repoDID string, livestreamRef comatproto.RepoStrongRef, client *oatproxy.XrpcClient) error {
+func (atsync *ATProtoSynchronizer) endReferencedLivestream(ctx context.Context, repoDID string, livestreamRef comatproto.RepoStrongRef, client statedb.UserClient) error {
 	aturi, err := syntax.ParseATURI(livestreamRef.Uri)
 	if err != nil {
 		return fmt.Errorf("parse livestream strongRef URI: %w", err)

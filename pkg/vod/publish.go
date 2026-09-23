@@ -303,22 +303,9 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobS
 // the user's PDS. Mirrors the pattern used by finalize_livestream and
 // stream_session.
 func getUserXRPCClient(ctx context.Context, state *statedb.StatefulDB, did string) (XRPCClient, error) {
-	session, err := state.GetSessionByDID(did)
-	if err != nil {
-		return nil, fmt.Errorf("get oauth session for %s: %w", did, err)
-	}
-	if session == nil {
-		return nil, fmt.Errorf("no oauth session for %s", did)
-	}
-	session, err = state.OATProxy.RefreshIfNeeded(session)
-	if err != nil {
-		return nil, fmt.Errorf("refresh oauth session for %s: %w", did, err)
-	}
-	client, err := state.OATProxy.GetXrpcClient(session)
-	if err != nil {
-		return nil, fmt.Errorf("get xrpc client for %s: %w", did, err)
-	}
-	return client, nil
+	// The stored OAuth session, or a session from the node's own credentials
+	// for the account (statedb.UserXrpcClient).
+	return state.UserXrpcClient(ctx, did)
 }
 
 // audioCodecForLexicon maps a parsebin caps name to one of the values

@@ -498,13 +498,9 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 		// Check for a local session before rescheduling. GetSessionByDID
 		// returns gorm.ErrRecordNotFound (or nil session via callers that
 		// swallow it) when the repo has never logged in here.
-		session, err := state.GetSessionByDID(livestream.RepoDID)
-		if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && session == nil) {
+		if !state.HasUserSession(livestream.RepoDID) {
 			log.Debug(ctx, "stale latest livestream has no local session; dropping finalize task (firehose-observed, no heartbeat to wait for)", "uri", livestream.URI, "lastSeenAt", lastSeenTime)
 			return state.CompleteTask(ctx, task.ID)
-		}
-		if err != nil {
-			return fmt.Errorf("failed to get session for finalize-livestream guard: %w", err)
 		}
 		if heartbeatFrozen(finalizeLivestreamTask, *rec.LastSeenAt) {
 			log.Log(ctx, "livestream is latest for repo and its heartbeat has not moved in a full idle window; ending it", "uri", livestream.URI, "lastSeenAt", lastSeenTime)
@@ -529,15 +525,7 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 // idle finalize task and by the operator's finalize route for a record the
 // streamer never stopped.
 func (state *StatefulDB) EndLivestreamRecord(ctx context.Context, livestream *model.Livestream, rec *placestream.Livestream) error {
-	session, err := state.GetSessionByDID(livestream.RepoDID)
-	if err != nil {
-		return fmt.Errorf("failed to get session: %w", err)
-	}
-	session, err = state.OATProxy.RefreshIfNeeded(session)
-	if err != nil {
-		return fmt.Errorf("failed to refresh session: %w", err)
-	}
-	client, err := state.OATProxy.GetXrpcClient(session)
+	client, err := state.UserXrpcClient(ctx, livestream.RepoDID)
 	if err != nil {
 		return fmt.Errorf("failed to get xrpc client: %w", err)
 	}

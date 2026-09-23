@@ -114,8 +114,8 @@ func (a *StreamplaceAPI) HandleFinalizeLivestream(ctx context.Context) httproute
 		for _, s := range segs {
 			total += s.Size
 		}
-		if session, err := a.StatefulDB.GetSessionByDID(repoDID); err != nil || session == nil {
-			errors.WriteHTTPBadRequest(w, "the streamer has no stored session on this node; they must sign in once before their records can be written", err)
+		if !a.StatefulDB.HasUserSession(repoDID) {
+			errors.WriteHTTPBadRequest(w, "the streamer has no stored session on this node and the node has no credentials for the account; they must sign in once (or the node be given --account-credentials) before their records can be written", nil)
 			return
 		}
 		publish := req.Publish == nil || *req.Publish

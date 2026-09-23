@@ -18,7 +18,6 @@ import (
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/appbsky"
-	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
@@ -1005,39 +1004,10 @@ type XRPCClient interface {
 // that was granted all of them; statedb.ErrNoSessionWithScope means the user
 // declined those permissions everywhere they're logged in.
 func (ss *StreamSession) GetClientByDID(did string, requiredScope ...string) (XRPCClient, error) {
-	password, ok := ss.cli.DevAccountCreds[did]
-	if ok {
-		repo, err := ss.mod.GetRepoByHandleOrDID(did)
-		if err != nil {
-			return nil, fmt.Errorf("could not get repo by did: %w", err)
-		}
-		if repo == nil {
-			return nil, fmt.Errorf("repo not found for did: %s", did)
-		}
-		anonXRPCC := &xrpc.Client{
-			Host:   repo.PDS,
-			Client: &aqhttp.Client,
-		}
-		session, err := comatproto.ServerCreateSession(context.Background(), anonXRPCC, &comatproto.ServerCreateSession_Input{
-			Identifier: repo.DID,
-			Password:   password,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("could not create session: %w", err)
-		}
-
-		log.Warn(context.Background(), "created session for dev account", "did", repo.DID, "handle", repo.Handle, "pds", repo.PDS)
-
-		return &xrpc.Client{
-			Host:   repo.PDS,
-			Client: &aqhttp.Client,
-			Auth: &xrpc.AuthInfo{
-				Did:        repo.DID,
-				AccessJwt:  session.AccessJwt,
-				RefreshJwt: session.RefreshJwt,
-				Handle:     repo.Handle,
-			},
-		}, nil
+	if _, ok := ss.cli.DevAccountCreds[did]; ok && ss.statefulDB != nil {
+		// The node's own credentials for the account: one session, cached
+		// (statedb.UserXrpcClient), rather than a login per write.
+		return ss.statefulDB.UserXrpcClient(context.Background(), did)
 	}
 	var session *oatproxy.OAuthSession
 	var err error

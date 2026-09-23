@@ -936,13 +936,39 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Sources:     urfavecli.EnvVars("SP_DISABLE_IROH_RELAY"),
 			},
 			&urfavecli.StringFlag{
+				Name:  "account-credentials",
+				Usage: `JSON object of DID to app password for accounts the node may act for without an OAuth session, e.g. {"did:plc:abc":"xxxx-xxxx-xxxx-xxxx"}: the node logs in with the password (com.atproto.server.createSession) and uses that session to start, update and end the account's livestream records, publish its videos and act for its moderators. For a network whose OAuth is unavailable. Merged with --dev-account-creds.`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if strings.TrimSpace(s) == "" {
+						return nil
+					}
+					var creds map[string]string
+					if err := json.Unmarshal([]byte(s), &creds); err != nil {
+						return fmt.Errorf("account-credentials must be a JSON object of DID to password: %w", err)
+					}
+					if cli.DevAccountCreds == nil {
+						cli.DevAccountCreds = map[string]string{}
+					}
+					for did, password := range creds {
+						if !strings.HasPrefix(did, "did:") {
+							return fmt.Errorf("account-credentials key %q is not a DID", did)
+						}
+						cli.DevAccountCreds[did] = password
+					}
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_ACCOUNT_CREDENTIALS"),
+			},
+			&urfavecli.StringFlag{
 				Name:  "dev-account-creds",
 				Usage: `(FOR DEVELOPMENT ONLY) did=password pairs for logging into test accounts without oauth (default: "")`,
 				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
 					if s == "" {
 						return nil
 					}
-					cli.DevAccountCreds = map[string]string{}
+					if cli.DevAccountCreds == nil {
+						cli.DevAccountCreds = map[string]string{}
+					}
 					pairs := strings.Split(s, ",")
 					for _, pair := range pairs {
 						parts := strings.Split(pair, "=")

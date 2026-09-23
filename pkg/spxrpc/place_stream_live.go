@@ -26,6 +26,7 @@ import (
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/spmetrics"
+	"stream.place/streamplace/pkg/statedb"
 
 	placestream "stream.place/streamplace/pkg/placestream"
 )
@@ -509,32 +510,35 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 }
 
 func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body *placestream.LiveStartLivestream_Input) (*placestream.LiveStartLivestream_Output, error) {
-	session, client := oatproxy.GetOAuthSession(ctx)
+	var client statedb.UserClient
+	session, oauthClient := oatproxy.GetOAuthSession(ctx)
+	var streamerDID string
 	if session != nil {
 		if session.DID != body.Streamer {
 			return nil, echo.NewHTTPError(http.StatusForbidden, "you are not the streamer")
 		}
+		client = oauthClient
+		streamerDID = session.DID
 	} else {
 		svc := GetServiceAuth(ctx)
 		if svc == nil {
 			return nil, echo.NewHTTPError(http.StatusUnauthorized, "you are not authorized")
 		}
-		streamerSession, err := s.statefulDB.GetSessionByDID(body.Streamer)
-		if err != nil {
-			return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting streamer session", err)
-		}
-		if streamerSession == nil {
+		// The streamer's stored session, or a session from the node's
+		// credentials for the account.
+		if !s.statefulDB.HasUserSession(body.Streamer) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "streamer session not found")
 		}
-		session = streamerSession
-		client, err = s.op.GetXrpcClient(streamerSession)
+		c, err := s.statefulDB.UserXrpcClient(ctx, body.Streamer)
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting streamer client", err)
 		}
+		client = c
+		streamerDID = body.Streamer
 	}
 
 	// proxy to the origin node if the streamer is broadcasting elsewhere
-	origin, err := s.statefulDB.GetLatestBroadcastOriginForStreamer(session.DID)
+	origin, err := s.statefulDB.GetLatestBroadcastOriginForStreamer(streamerDID)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting broadcast origin", err)
 	}
@@ -573,14 +577,14 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 	// finalize task's rec.EndedAt != nil early-skip fire instead of writing a
 	// stale endedAt later. Best-effort: a failure only logs, it must not block
 	// the new stream from starting.
-	if err := s.endPriorLivestream(ctx, session.DID, client); err != nil {
+	if err := s.endPriorLivestream(ctx, streamerDID, client); err != nil {
 		log.Error(ctx, "failed to end prior livestream before starting new one", "error", err)
 	}
 
 	if livestream.Thumb == nil {
 		// Upload the user's current thumbnail to their PDS as the livestream image.
 		var thumb *glex.Blob
-		thumbData, err := os.ReadFile(s.cli.ThumbnailFilePath(session.DID))
+		thumbData, err := os.ReadFile(s.cli.ThumbnailFilePath(streamerDID))
 		if err != nil {
 			log.Error(ctx, "failed to read thumbnail file", "err", err)
 		} else {
@@ -596,12 +600,12 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 	}
 
 	// Step 3: create a Bluesky post announcing the livestream
-	repo, err := s.model.GetRepo(session.DID)
+	repo, err := s.model.GetRepo(streamerDID)
 	if err != nil {
 		log.Error(ctx, "failed to get repo", "err", err)
 	}
 
-	handle := session.DID
+	handle := streamerDID
 	if repo != nil && repo.Handle != "" {
 		handle = repo.Handle
 	}
@@ -613,7 +617,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 
 	createPost := body.CreateBlueskyPost == nil || *body.CreateBlueskyPost
 	if createPost && !session.HasScope(atproto.ScopeBskyPostCreate) {
-		log.Debug(ctx, "session was not granted Bluesky post permissions, skipping go-live post", "did", session.DID)
+		log.Debug(ctx, "session was not granted Bluesky post permissions, skipping go-live post", "did", streamerDID)
 		createPost = false
 	}
 	if createPost {
@@ -660,7 +664,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 		postInput := comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
 			Record:     &glex.LexiconTypeDecoder{Val: &postRecord},
-			Repo:       session.DID,
+			Repo:       streamerDID,
 		}
 		var postOutput comatproto.RepoCreateRecord_Output
 		err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, postInput, &postOutput)
@@ -678,7 +682,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 	lsInput := comatproto.RepoCreateRecord_Input{
 		Collection: "place.stream.livestream",
 		Record:     &glex.LexiconTypeDecoder{Val: &livestream},
-		Repo:       session.DID,
+		Repo:       streamerDID,
 	}
 	var lsOutput comatproto.RepoCreateRecord_Output
 	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, lsInput, &lsOutput)
@@ -704,7 +708,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 // Mirrors the record-ending half of stopLivestream (getRecord for a fresh CID
 // to swap on, set endedAt, putRecord) but is best-effort and never returns an
 // error that blocks the new stream: callers log and continue.
-func (s *Server) endPriorLivestream(ctx context.Context, repoDID string, client *oatproxy.XrpcClient) error {
+func (s *Server) endPriorLivestream(ctx context.Context, repoDID string, client statedb.UserClient) error {
 	prior, err := s.model.GetLatestLivestreamForRepo(repoDID)
 	if err != nil {
 		return fmt.Errorf("get latest livestream: %w", err)

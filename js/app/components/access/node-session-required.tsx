@@ -1,6 +1,7 @@
 import {
   Button,
   Text,
+  useAccessStatus,
   useNetworkName,
   useTheme,
 } from "@streamplace/components";
@@ -17,6 +18,17 @@ import { useStore } from "store";
 export function useBearerSession(): boolean {
   const kind = useStore((state) => state.sessionKind);
   return kind === "brokered" || kind === "credential";
+}
+
+/**
+ * Whether a screen that writes as the streamer must first get a node OAuth
+ * session: the viewer holds only a bearer session, and the node has no
+ * credentials of its own for the account (access status nodeSession).
+ */
+export function useNeedsNodeSession(): boolean {
+  const bearer = useBearerSession();
+  const nodeSession = useAccessStatus()?.nodeSession ?? false;
+  return bearer && !nodeSession;
 }
 
 /**

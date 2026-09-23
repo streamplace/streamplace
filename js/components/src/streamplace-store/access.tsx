@@ -20,6 +20,9 @@ export interface AccessStatus {
   /** Whether the account lives on the network's own PDS; undefined when
    *  the node has no network PDS configured. */
   networkMember?: boolean;
+  /** The node holds credentials for this account and writes its records
+   *  itself, so a bearer (PDS) session is enough to go live here. */
+  nodeSession?: boolean;
 }
 
 // What we assume when the node predates access control (the method doesn't
@@ -111,6 +114,7 @@ export function useFetchAccessStatus() {
           chatVerifiedOnly: res.chatVerifiedOnly ?? false,
           chatVerified: res.chatVerified ?? false,
           networkMember: res.networkMember ?? undefined,
+          nodeSession: (res as any).nodeSession ?? false,
         },
         accessStatusLoaded: true,
         accessStatusError: null,

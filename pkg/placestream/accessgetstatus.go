@@ -21,8 +21,10 @@ type AccessGetStatus_Output struct {
 	// did: The authenticated caller, when there is one.
 	Did *string `json:"did,omitempty"`
 	// networkMember: Whether the caller's (or subject's) account is hosted on the network's own PDS (branding key loginPdsUrl). Absent when the node has no such PDS configured.
-	NetworkMember *bool                 `json:"networkMember,omitempty"`
-	Policy        AccessDefs_PolicyView `json:"policy"`
+	NetworkMember *bool `json:"networkMember,omitempty"`
+	// nodeSession: Whether this node can write to the caller's (or subject's) repo on its own: it holds credentials for the account (--account-credentials), so a session the node can't attribute (a sign-in against the PDS) is enough to go live here.
+	NodeSession *bool                 `json:"nodeSession,omitempty"`
+	Policy      AccessDefs_PolicyView `json:"policy"`
 	// roles: Every role the caller effectively holds.
 	Roles []string `json:"roles"`
 	// space: The node's access-control space: at://{authority}/space/place.stream.access.control/self (A space URI; not validated as a classic at-uri because the space form is newer than that grammar.)

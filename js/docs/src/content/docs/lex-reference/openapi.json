@@ -4789,6 +4789,10 @@
                     "networkMember": {
                       "type": "boolean",
                       "description": "Whether the caller's (or subject's) account is hosted on the network's own PDS (branding key loginPdsUrl). Absent when the node has no such PDS configured."
+                    },
+                    "nodeSession": {
+                      "type": "boolean",
+                      "description": "Whether this node can write to the caller's (or subject's) repo on its own: it holds credentials for the account (--account-credentials), so a session the node can't attribute (a sign-in against the PDS) is enough to go live here."
                     }
                   },
                   "required": ["roles", "policy", "space"]

@@ -2,7 +2,7 @@ import { useRoute } from "@react-navigation/native";
 import { LivestreamProvider, PlayerProvider } from "@streamplace/components";
 import {
   NodeSessionRequired,
-  useBearerSession,
+  useNeedsNodeSession,
 } from "components/access/node-session-required";
 import BentoGrid from "components/live-dashboard/bento-grid";
 import Loading from "components/loading/loading";
@@ -17,7 +17,7 @@ export default function LiveDashboard() {
   const userProfile = useUserProfile();
   const isLive = useLiveUser();
   const openLoginModal = useStore((state) => state.openLoginModal);
-  const bearerSession = useBearerSession();
+  const bearerSession = useNeedsNodeSession();
   const route = useRoute();
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,

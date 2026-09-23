@@ -155,6 +155,19 @@ func (s *Server) handlePlaceStreamAccessGetStatus(ctx context.Context, subject s
 			out.Roles = append(out.Roles, role)
 		}
 	}
+	// An account the node holds credentials for (--account-credentials)
+	// needs no OAuth session here: the node writes its records itself, so a
+	// client signed in against the PDS alone may go live. Answered for the
+	// caller, or for the DID an unattributable client names.
+	if who := did; who != "" || strings.HasPrefix(subject, "did:") {
+		if who == "" {
+			who = subject
+		}
+		if s.cli != nil && s.cli.DevAccountCreds[who] != "" {
+			yes := true
+			out.NodeSession = &yes
+		}
+	}
 	// The chat lock and the caller's standing under it, so the composer can
 	// explain itself rather than post into the void.
 	if s.ATSync != nil {

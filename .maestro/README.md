@@ -1,54 +1,64 @@
 # e2e tests (Maestro)
 
-Cross-platform Maestro flows for the mobile app. This branch carries the flows
-themselves; the mobile runner (`hack/e2e-local.sh`) and the CI jobs that drive
-them (`android-e2e`, `ios-e2e` in `.github/workflows/build.yaml`) still live on
-the `natb/e2e` branches and have not landed on `next`. Until they do, nothing
-runs these automatically — invoking Maestro by hand is the only way here. The
-web suite (`js/e2e-web`, `hack/e2e-web-local.sh`) is local-only too; AGENTS.md
-§5 covers it and `make provision` runs it.
+Cross-platform Maestro flows for the mobile app, run against a self-contained
+`streamplace e2e` harness (a local PDS and PLC, a Streamplace node and a
+looping test stream). `hack/e2e-local.sh android` runs them on an emulator,
+and so does the `android-e2e` job in `.github/workflows/build.yaml`. iOS is not
+wired up yet. The web suite (`js/e2e-web`, `hack/e2e-web-local.sh`) mirrors
+these flows.
 
-Flows run in the order set by `config.yaml`: `00-server-setup` must go first
-(it points the app at the self-contained test server), and `03-go-live` last
-(it leaves the login modal open).
+Flows run in the order set by `config.yaml`: `00-server-setup` first (it
+points the app at the harness), `03-go-live` before `05-oauth-login` (it
+checks that a logged-out user is asked to log in), and `05-oauth-login` last.
+
+## HTTPS, and logging in
+
+The app reaches the harness over HTTPS only: release builds refuse cleartext,
+and `05-oauth-login` signs in to the harness's own PDS through the real atproto
+OAuth flow (the node's OAuth proxy, then the PDS's sign-in and consent pages
+in a Chrome Custom Tab). So the harness runs in its HTTPS mode, serving public
+names for 127.0.0.1 with a throwaway CA (see `pkg/cmd/e2e_https.go`), and the
+runner sets the emulator up, as root, to reach and trust it:
+
+- a hosts file maps the harness's names, and `plc.directory` (the app
+  resolves `did:plc` there itself), to the host at 10.0.2.2;
+- the CA goes in the user trust store. Chrome trusts that store; the app only
+  does when built with `make android-e2e` (`SP_E2E_BUILD` in
+  `js/app/app.config.ts`, which also turns off OTA updates so the run tests
+  the JS it was built with). Never ship that build.
 
 ## Run it locally
 
-Without the runner, start the harness yourself and point Maestro at it:
-
 ```bash
-make dev                              # harness binary
-./build-linux-amd64/streamplace e2e   # SERVER_URL/ACCOUNT_HANDLE on stdout
-maestro test -e APP_ID=tv.aquareum.dev \
-  -e SERVER_URL=http://10.0.2.2:<port> \
-  -e ACCOUNT_HANDLE=<handle> .maestro/
+make dev           # harness binary
+make android-e2e   # bin/streamplace-*-android-e2e.apk (needs JDK 17 + ANDROID_HOME)
+# boot a Google APIs emulator (Play Store images can't be rooted), e.g.
+sdkmanager "system-images;android-34;google_apis;x86_64"
+avdmanager create avd -n e2e-api34 -k "system-images;android-34;google_apis;x86_64" -d pixel_6
+emulator -avd e2e-api34 -no-window -no-audio -no-snapshot-save &
+hack/e2e-local.sh android
 ```
 
-The upstream runner does all of that — it starts the harness (local PDS/PLC +
-a looping test stream), installs the app, prepares the device, runs the flows
-and tears the harness down. Either way it only _runs_ — build the app first:
+The runner starts the harness, installs the APK, prepares the emulator, runs
+the flows and tears everything down. Screenshots, maestro's logs and the
+report land in `.maestro/artifacts/`. The harness binds 127.0.0.1:443; if it
+can't, it says how to allow it. On a machine that redirects loopback 443
+elsewhere (an iptables REDIRECT rule), set `E2E_HTTPS_PORT` to the target.
 
-- **harness binary:** `make dev`
-- **android APK:** `make android-release` (needs JDK 17 + `ANDROID_HOME`)
-- **ios sim app** (needs `watchman`, `applesimutils`, `maestro`, `idb`):
-  ```bash
-  cd js/app && CI=true pnpm run build
-  cd ios && pod install && cd ../../..
-  make dev   # re-embeds the fresh web bundle into the harness binary
-  xcodebuild -workspace js/app/ios/Streamplace.xcworkspace -scheme Streamplace \
-    -configuration Release -sdk iphonesimulator -derivedDataPath js/app/ios/build \
-    -destination 'generic/platform=iOS Simulator' build
-  ```
+The runner runs on the host, not in the build container: the emulator has to
+reach the harness.
 
 ## Notes / gotchas
 
+- **Android dialogs:** the runner turns off ANR/crash dialogs ("Pixel Launcher
+  isn't responding") and the stylus handwriting tutorial, both of which eat
+  taps.
+- **Signing:** every build signs with its own throwaway keystore, so the
+  runner uninstalls any earlier copy before installing.
 - **iOS notification dialog:** the first-launch "would like to send you
   notifications" prompt dims the whole screen and blocks taps. It only shows
-  on a fresh install, so the run pre-grants the permission with
-  `applesimutils` and avoids `clearState` (which reinstalls and re-triggers
-  it).
+  on a fresh install; pre-grant the permission with `applesimutils` and avoid
+  `clearState` (which reinstalls and re-triggers it).
 - **iOS accessibility collapse:** iOS merges tappable containers (the settings
   toggle, the stream cards, the login modal) into a single accessibility
   element, so those are matched by `testID` or substring regex, not exact text.
-- **Android emulator** must be reachable at `10.0.2.2` (the script rewrites the
-  harness URL). The iOS simulator shares the host loopback, so no rewrite.

@@ -3,7 +3,7 @@ appId: ${APP_ID}
 - launchApp
 - takeScreenshot: 02-01-home
 - assertVisible:
-    text: "Streamplace"
+    text: "Live now"
 
 - tapOn:
     text: "Go Live"
@@ -21,4 +21,4 @@ appId: ${APP_ID}
     text: "Home"
 - takeScreenshot: 02-04-home-return
 - assertVisible:
-    text: "Streamplace"
+    text: "Live now"

@@ -39,12 +39,12 @@ appId: ${APP_ID}
 - takeScreenshot: 00-06-saved
 - tapOn:
     text: "Home"
-# A stream card showing up in the feed proves the app is talking to the
-# custom node (its isolated firehose only has our test stream). Matched
-# by testID because the card's link wrapper collapses its subtree on iOS,
-# hiding the title text from Maestro.
+# The harness's own stream in the feed proves the app is talking to the
+# custom node; any card would also match production's feed, which is what
+# the app shows until the new node takes effect. Matched as a substring
+# because iOS collapses the card into one element with a concatenated label.
 - extendedWaitUntil:
     visible:
-      id: "home-stream-card"
+      text: ".*e2e test stream.*"
     timeout: 30000
 - takeScreenshot: 00-07-home

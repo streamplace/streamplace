@@ -474,6 +474,7 @@ export function ChatBox({
           {leftSlot}
           <Textarea
             ref={textAreaRef}
+            testID="chat-input"
             numberOfLines={1}
             value={message}
             enterKeyHint="send"

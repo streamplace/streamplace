@@ -118,8 +118,10 @@ jobs:
     timeout-minutes: 60
     needs: linux
     steps:
+      # full history: pnpm install's prepare steps derive the version from it
       - uses: actions/checkout@v4.1.7
         with:
+          fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
       - uses: actions/setup-node@v4

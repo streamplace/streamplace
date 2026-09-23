@@ -562,9 +562,8 @@ const CreateMenuItem = ({
   );
 };
 
-// YouTube-style "Create" CTA: a pill that opens a menu to upload a VOD or go
-// live. Replaces the old single-purpose Upload button; shown wherever the shell
-// header renders it (logged-in users only).
+// YouTube-style web "Create" CTA: a pill that opens a menu to upload a VOD or
+// go live. Native release builds temporarily hide this entry point.
 export const UploadButton = () => {
   const did = useStore((state) => state.oauthSession?.did);
   const { theme } = useTheme();
@@ -576,7 +575,7 @@ export const UploadButton = () => {
   // so DropdownMenuItem closes the portal itself on press (no orphaned menu).
   const [menuOpen, setMenuOpen] = useState(false);
 
-  if (!did) return null;
+  if (Platform.OS !== "web" || !did) return null;
 
   const go = (screen: string) => () =>
     navigation.navigate("HomeTab" as any, { screen });

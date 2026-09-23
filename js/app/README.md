@@ -50,7 +50,7 @@ To see what the app actually looks like after a change, drive it and capture
 screenshots + video with maestro (already installed on this machine):
 
 ```
-pnpm app ui:shoot home    # shell sweep: Home -> Videos -> Go Live -> Settings
+pnpm app ui:shoot home    # shell sweep: Home -> Videos -> Settings; create controls stay hidden
 pnpm app ui:shoot stream  # opens the first live stream, captures the player
 ```
 

@@ -709,6 +709,22 @@ export default function Shell() {
     return () => clearTimeout(handle);
   }, []);
   const [accessTimedOut, setAccessTimedOut] = useState(false);
+  // Once the app has painted it stays painted. The gates below hold the
+  // first frame until the node has answered for the caller; they are not
+  // re-applied when the answer goes stale later (a session arriving from
+  // the network's app, a sign-in, a token refresh re-fetch), because that
+  // would unmount the navigator, and a navigator that unmounts loses its
+  // state: on remount it starts at its default route, so a viewer who
+  // opened a streamer's page found themselves on the front page with the
+  // URL quietly rewritten. Only the access wall replaces a running app.
+  const [booted, setBooted] = useState(false);
+  const bootReady =
+    hydrated &&
+    accessStatusLoaded &&
+    ((!sessionRestoring && brandingSettled) || bootTimedOut);
+  useEffect(() => {
+    if (bootReady) setBooted(true);
+  }, [bootReady]);
   useEffect(() => {
     if (accessStatusLoaded) {
       setAccessTimedOut(false);
@@ -843,19 +859,20 @@ export default function Shell() {
       )
     : undefined;
 
-  if (!hydrated) {
-    return <View />;
-  }
-
-  if (!accessStatusLoaded) {
-    return accessTimedOut || accessStatusError ? (
-      <AccessConnecting error={accessStatusError} />
-    ) : (
-      <View />
-    );
-  }
-  if ((sessionRestoring || !brandingSettled) && !bootTimedOut) {
-    return <View />;
+  if (!booted) {
+    if (!hydrated) {
+      return <View />;
+    }
+    if (!accessStatusLoaded) {
+      return accessTimedOut || accessStatusError ? (
+        <AccessConnecting error={accessStatusError} />
+      ) : (
+        <View />
+      );
+    }
+    if ((sessionRestoring || !brandingSettled) && !bootTimedOut) {
+      return <View />;
+    }
   }
 
   // The login + PDS modals live here (not inside the navigator) so the access

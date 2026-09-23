@@ -450,10 +450,14 @@ export const createBlueskySlice: StateCreator<
       const bskyAgent = new Agent("https://public.api.bsky.app");
       const payload = await bskyAgent.getProfiles({ actors });
       let parsedProfiles = {};
-      console.log(payload);
       payload.data.profiles.forEach((p) => {
         parsedProfiles[p.did] = p;
       });
+      // an unchanged cache must stay the same object, or every subscriber
+      // re-renders for nothing
+      if (Object.keys(parsedProfiles).length === 0) {
+        return;
+      }
       set((s) => ({
         profileCache: {
           ...(s as BlueskySlice).profileCache,

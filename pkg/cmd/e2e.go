@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -23,6 +24,7 @@ import (
 	urfavecli "github.com/urfave/cli/v3"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/atproto"
 	spcomatproto "stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/spkey"
@@ -57,9 +59,25 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 				Value:   "js/dev-env/run.mjs",
 				Sources: urfavecli.EnvVars("SP_DEV_ENV_MJS"),
 			},
+			// Together these turn on locally trusted HTTPS, so atproto OAuth
+			// works end to end; see e2e_https.go.
+			&urfavecli.StringFlag{
+				Name:    "https-pds-hostname",
+				Usage:   "serve the PDS at https://<this>, with account handles under it; it and *.<it> must resolve to 127.0.0.1 (binds 127.0.0.1:443)",
+				Sources: urfavecli.EnvVars("SP_E2E_HTTPS_PDS_HOSTNAME"),
+			},
+			&urfavecli.StringFlag{
+				Name:    "https-station-hostname",
+				Usage:   "the node's broadcaster host, served at https://<this>, which must resolve to 127.0.0.1",
+				Sources: urfavecli.EnvVars("SP_E2E_HTTPS_STATION_HOSTNAME"),
+			},
 		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
-			return runE2E(ctx, cmd.String("dev-env"))
+			pdsHost, stationHost := cmd.String("https-pds-hostname"), cmd.String("https-station-hostname")
+			if (pdsHost == "") != (stationHost == "") {
+				return errors.New("--https-pds-hostname and --https-station-hostname go together")
+			}
+			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost)
 		},
 	}
 }
@@ -72,6 +90,9 @@ const nodeReadyTimeout = 90 * time.Second
 type e2eDevEnv struct {
 	PDSURL string `json:"pds-url"`
 	PLCURL string `json:"plc-url"`
+	// Only in HTTPS mode: the account the PDS resolves lexicons from.
+	LexiconDID      string `json:"lexicon-did"`
+	LexiconPassword string `json:"lexicon-password"`
 }
 
 func freePort() (int, error) {
@@ -83,15 +104,32 @@ func freePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
-func runE2E(ctx context.Context, devEnvPath string) error {
+func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string) error {
 	// Ctrl-C / SIGTERM must unwind through the normal path, or none of the
 	// teardown below runs: Go's default handling exits immediately, which left
 	// the dev-env node, the forked node and the temp data dir behind.
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Claim the HTTPS listeners first: failing to bind 443 should stop us
+	// before anything else has started.
+	var tlsEnv *e2eHTTPS
+	handleDomain := "test"
+	if httpsPDSHost != "" {
+		var err error
+		tlsEnv, err = newE2EHTTPS(httpsPDSHost, httpsStationHost)
+		if err != nil {
+			return err
+		}
+		defer tlsEnv.Close()
+		handleDomain = httpsPDSHost
+	}
+
 	// Start the Node.js PDS/PLC dev environment.
 	devEnvCmd := exec.CommandContext(ctx, "node", devEnvPath)
+	if tlsEnv != nil {
+		devEnvCmd.Env = append(os.Environ(), tlsEnv.DevEnvEnv()...)
+	}
 	devEnvCmd.Stderr = os.Stderr
 	devEnvStdout, err := devEnvCmd.StdoutPipe()
 	if err != nil {
@@ -102,11 +140,16 @@ func runE2E(ctx context.Context, devEnvPath string) error {
 	}
 	defer devEnvCmd.Process.Kill() //nolint:errcheck
 
+	// The PDS logs JSON to stdout too when LOG_ENABLED is set, so skip lines
+	// until the one that carries the URLs.
 	var env e2eDevEnv
 	scanner := bufio.NewScanner(devEnvStdout)
-	scanner.Scan()
-	if err := json.Unmarshal(scanner.Bytes(), &env); err != nil {
-		return fmt.Errorf("parse dev-env output: %w", err)
+	for env.PDSURL == "" {
+		if !scanner.Scan() {
+			return fmt.Errorf("dev-env exited without printing its URLs: %w", scanner.Err())
+		}
+		log.Log(ctx, "dev-env: "+scanner.Text())
+		_ = json.Unmarshal(scanner.Bytes(), &env) //nolint:errcheck // not every line is ours
 	}
 	go func() {
 		for scanner.Scan() {
@@ -120,7 +163,7 @@ func runE2E(ctx context.Context, devEnvPath string) error {
 	if err != nil {
 		return err
 	}
-	handle := fmt.Sprintf("sp-%s.test", uu.String()[:8])
+	handle := fmt.Sprintf("sp-%s.%s", uu.String()[:8], handleDomain)
 	email := fmt.Sprintf("%s@example.com", handle)
 	password := "test"
 	out, err := comatproto.ServerCreateAccount(ctx, xrpcc, &comatproto.ServerCreateAccount_Input{
@@ -149,6 +192,12 @@ func runE2E(ctx context.Context, devEnvPath string) error {
 		},
 	}
 
+	if env.LexiconDID != "" {
+		if err := publishLexicons(ctx, env); err != nil {
+			return fmt.Errorf("publish lexicons: %w", err)
+		}
+	}
+
 	// Pick free ports for the node.
 	httpPort, err := freePort()
 	if err != nil {
@@ -163,6 +212,19 @@ func runE2E(ctx context.Context, devEnvPath string) error {
 		return err
 	}
 	httpAddr := fmt.Sprintf("127.0.0.1:%d", httpPort)
+	broadcasterHost := httpAddr
+	if tlsEnv != nil {
+		broadcasterHost = httpsStationHost
+		pdsURL, err := url.Parse(env.PDSURL)
+		if err != nil {
+			return fmt.Errorf("parse dev-env pds url: %w", err)
+		}
+		plcURL, err := url.Parse(env.PLCURL)
+		if err != nil {
+			return fmt.Errorf("parse dev-env plc url: %w", err)
+		}
+		tlsEnv.Serve(ctx, pdsURL.Host, plcURL.Host, httpAddr)
+	}
 
 	// Fork ourselves as a Streamplace server node.
 	self, err := os.Executable()
@@ -191,11 +253,14 @@ func runE2E(ctx context.Context, devEnvPath string) error {
 		fmt.Sprintf("SP_PLC_URL=%s", env.PLCURL),
 		fmt.Sprintf("SP_DATA_DIR=%s", dataDir),
 		fmt.Sprintf("SP_DEV_ACCOUNT_CREDS=%s=%s", out.Did, password),
-		fmt.Sprintf("SP_BROADCASTER_HOST=127.0.0.1:%d", httpPort),
+		fmt.Sprintf("SP_BROADCASTER_HOST=%s", broadcasterHost),
 		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", httpAddr),
 		"SP_STREAM_SESSION_TIMEOUT=30s",
 		"SP_TRUST_PRIVATE_NETWORK=true",
 	)
+	if tlsEnv != nil {
+		nodeCmd.Env = append(nodeCmd.Env, tlsEnv.NodeEnv()...)
+	}
 	nodeCmd.Stdout = os.Stderr
 	nodeCmd.Stderr = os.Stderr
 	// Own process group, so cleanup can take the whole tree down at once.
@@ -304,11 +369,52 @@ func runE2E(ctx context.Context, devEnvPath string) error {
 		}
 	})
 
-	// Print the env vars for the workflow to consume.
-	fmt.Printf("SERVER_URL=http://%s\n", httpAddr)
-	fmt.Printf("ACCOUNT_HANDLE=%s\n", out.Handle)
-	fmt.Printf("ACCOUNT_DID=%s\n", out.Did)
+	// Print the env vars for the workflow to consume, in one write: callers
+	// poll for SERVER_URL and then read the whole file.
+	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\n",
+		httpAddr, out.Handle, out.Did, password)
+	if tlsEnv != nil {
+		// The same node over HTTPS at its public name, plus what a browser
+		// needs to reach and trust it (see e2e_https.go).
+		vars += fmt.Sprintf("SERVER_HTTPS_URL=%s\nPDS_HTTPS_URL=%s\nE2E_PROXY_URL=%s\nE2E_TLS_SPKI=%s\n",
+			tlsEnv.StationURL(), tlsEnv.PDSURL(), tlsEnv.ProxyURL(), tlsEnv.spki)
+	}
+	fmt.Print(vars)
 
 	<-ctx.Done()
 	return g.Wait()
+}
+
+// publishLexicons writes this build's lexicons, OAuth permission sets
+// included, into the dev-env lexicon authority account: the local version of
+// what the account behind _lexicon.stream.place holds in production. The PDS
+// resolves `include:place.stream.authFull` from it when the app logs in.
+func publishLexicons(ctx context.Context, env e2eDevEnv) error {
+	xrpcc := &xrpc.Client{Host: env.PDSURL, Client: &aqhttp.TrustedClient}
+	session, err := comatproto.ServerCreateSession(ctx, xrpcc, &comatproto.ServerCreateSession_Input{
+		Identifier: env.LexiconDID,
+		Password:   env.LexiconPassword,
+	})
+	if err != nil {
+		return fmt.Errorf("create session: %w", err)
+	}
+	xrpcc.Auth = &xrpc.AuthInfo{Did: session.Did, AccessJwt: session.AccessJwt, RefreshJwt: session.RefreshJwt}
+	lexs, err := atproto.PublishedLexicons(ctx)
+	if err != nil {
+		return err
+	}
+	for _, lex := range lexs {
+		rkey := lex.ID
+		inp := spcomatproto.RepoCreateRecord_Input{
+			Collection: "com.atproto.lexicon.schema",
+			Repo:       session.Did,
+			Rkey:       &rkey,
+			Record:     &glex.LexiconTypeDecoder{Val: &atproto.SchemaFileWrapper{SchemaFile: *lex}},
+		}
+		out := spcomatproto.RepoCreateRecord_Output{}
+		if err := xrpcc.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, inp, &out); err != nil {
+			return fmt.Errorf("%s: %w", lex.ID, err)
+		}
+	}
+	return nil
 }

@@ -150,8 +150,11 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-          curl -fsSL "https://get.maestro.mobile.dev" | MAESTRO_VERSION=2.6.1 bash
-          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+          # a pinned release, checked before anything in it runs
+          curl -fsSL -o /tmp/maestro.zip https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.6.1/maestro.zip
+          echo "3440825f514f537c6a96bcf5de995780c2a4a7f83a43208fdc95d4f1fecfad3b  /tmp/maestro.zip" | sha256sum -c -
+          unzip -q /tmp/maestro.zip -d "$HOME/.maestro-dist"
+          echo "$HOME/.maestro-dist/maestro/bin" >> $GITHUB_PATH
 
       - uses: actions/cache@v4
         id: avd-cache

@@ -23,11 +23,6 @@ cd "$(dirname "$0")/.."
 REPO="$PWD"
 NAME="$(basename "$REPO")"
 
-if [[ "$NAME" != streamplace* ]]; then
-  echo "refusing: $REPO is not a streamplace-* checkout" >&2
-  exit 1
-fi
-
 N=0
 step() {
   N=$((N + 1))
@@ -39,8 +34,14 @@ step() {
 # container, there is nothing to ensure and we just work in place.
 CONTAINER=""
 if [[ -f /.dockerenv || -f /run/.containerenv ]]; then
+  # CI lands here too, with the checkout mounted at a path like /app.
   echo "already inside a container; provisioning in place"
 else
+  # The checkout's name becomes its container's name.
+  if [[ "$NAME" != streamplace* ]]; then
+    echo "refusing: $REPO is not a streamplace-* checkout" >&2
+    exit 1
+  fi
   step "container (hack/container.sh ensure)"
   bash hack/container.sh ensure
   CONTAINER="$(bash hack/container.sh name)"

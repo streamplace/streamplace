@@ -19,11 +19,7 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": [
-            "roles",
-            "policy",
-            "space"
-          ],
+          "required": ["roles", "policy", "space"],
           "properties": {
             "did": {
               "type": "string",

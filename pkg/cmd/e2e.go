@@ -73,7 +73,10 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			},
 		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
-			pdsHost, stationHost := cmd.String("https-pds-hostname"), cmd.String("https-station-hostname")
+			// Canonical form, so they compare equal to the SNI names the
+			// TLS front end routes on.
+			canon := func(h string) string { return strings.ToLower(strings.TrimSuffix(h, ".")) }
+			pdsHost, stationHost := canon(cmd.String("https-pds-hostname")), canon(cmd.String("https-station-hostname"))
 			if (pdsHost == "") != (stationHost == "") {
 				return errors.New("--https-pds-hostname and --https-station-hostname go together")
 			}

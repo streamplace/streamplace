@@ -80,7 +80,8 @@ export interface BlueskySlice {
   refreshSessionScope: () => Promise<void>;
   logout: () => Promise<void>;
   getProfile: (actor: string) => Promise<void>;
-  getProfiles: (actors: string[]) => Promise<void>;
+  // resolves false if the lookup failed, as opposed to finding nothing
+  getProfiles: (actors: string[]) => Promise<boolean>;
   oauthCallback: (url: string) => Promise<void>;
   setReturnRoute: (route: { name: string; params?: any } | null) => void;
   showLoginModal: boolean;
@@ -456,7 +457,7 @@ export const createBlueskySlice: StateCreator<
       // an unchanged cache must stay the same object, or every subscriber
       // re-renders for nothing
       if (Object.keys(parsedProfiles).length === 0) {
-        return;
+        return true;
       }
       set((s) => ({
         profileCache: {
@@ -464,8 +465,10 @@ export const createBlueskySlice: StateCreator<
           ...parsedProfiles,
         },
       }));
+      return true;
     } catch (error) {
       console.error("getProfiles error", error);
+      return false;
     }
   },
 

@@ -10,19 +10,19 @@ appId: ${APP_ID}
 - tapOn:
     id: "login-handle"
 - inputText: "${ACCOUNT_HANDLE}"
-- hideKeyboard
-# the modal slides down as the keyboard goes; tap where the button ends up
-- waitForAnimationToEnd
-- tapOn:
-    id: "login-submit"
+# Submit from the keyboard, as a user can. Hiding the keyboard and tapping
+# Log In instead misses: the modal slides down as the keyboard goes, after
+# maestro has worked out where to tap.
+- pressKey: Enter
 # the handle comes along as login_hint, so the PDS only asks for the password
 - extendedWaitUntil:
     visible:
       text: "Password"
     timeout: 60000
 - takeScreenshot: 05-01-pds-sign-in
-- tapOn:
-    text: "Password"
+# The page opens with the password field focused. Don't tap "Password": that
+# matches the field's label and container, and tapping it takes focus off
+# the input, whose own label is only a hint.
 - inputText: "${ACCOUNT_PASSWORD}"
 # Enter submits the form. Not hideKeyboard: on Android that can send Back,
 # which closes the Custom Tab and cancels the login.
@@ -65,14 +65,21 @@ appId: ${APP_ID}
     visible:
       text: ".*e2e test stream.*"
     timeout: 30000
-- tapOn:
-    id: "chat-input"
-- inputText: "hello from 05-oauth-login"
-- pressKey: Enter
-- extendedWaitUntil:
-    visible:
-      text: "hello from 05-oauth-login"
-    timeout: 30000
+# A send the page wasn't ready for clears the box and is dropped (as in the
+# web flow), so resend until it shows.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "chat-input"
+      - eraseText: 50
+      - inputText: "hello from 05-oauth-login"
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible:
+            # the row's text is the whole line, "@<handle>: <message>"
+            text: ".*: hello from 05-oauth-login"
+          timeout: 15000
 - takeScreenshot: 05-05-chat-sent
 # The chat box echoes sends optimistically, so relaunch: only the node's chat
 # history can show the message now, and it only has what came back from the
@@ -82,6 +89,7 @@ appId: ${APP_ID}
     id: "home-stream-card"
 - extendedWaitUntil:
     visible:
-      text: "hello from 05-oauth-login"
+      # the row's text is the whole line, "@<handle>: <message>"
+      text: ".*: hello from 05-oauth-login"
     timeout: 30000
 - takeScreenshot: 05-06-chat-history

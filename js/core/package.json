@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/core",
-  "version": "0.0.0",
+  "version": "0.12.0",
   "private": true,
   "description": "Streamplace platform-agnostic core (data layer, providers, i18n, theme tokens, hooks). No React Native or Expo dependencies.",
   "main": "./src/index.ts",

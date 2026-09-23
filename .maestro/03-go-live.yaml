@@ -1,0 +1,19 @@
+appId: ${APP_ID}
+---
+- launchApp
+- tapOn:
+    text: "Go Live"
+- takeScreenshot: 03-01-go-live-prompt
+- assertVisible:
+    text: "Ready to go live?"
+- assertVisible:
+    text: "Start streaming"
+- tapOn:
+    text: "Start streaming"
+- takeScreenshot: 03-02-after-start-streaming
+# iOS collapses the whole login modal into one accessibility element whose
+# text is a concatenation ("Sign Up, Log In, Log in, ..."), so match the
+# login label as a substring rather than the whole element.
+- assertVisible:
+    text: ".*Log [Ii]n.*"
+- takeScreenshot: 03-03-log-in

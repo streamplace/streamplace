@@ -35,10 +35,12 @@ export default function AQLink({
   children,
   to,
   style,
+  testID,
 }: {
   children: React.ReactNode;
   to: LinkParams;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }) {
   const { isWeb } = usePlatform();
   const navigation = useNavigation();
@@ -116,6 +118,7 @@ export default function AQLink({
     <Pressable
       style={[baseStyle, style]}
       onPress={handlePress}
+      testID={testID}
       // @ts-ignore - href prop makes this render as <a> on web
       href={isWeb ? href : undefined}
     >

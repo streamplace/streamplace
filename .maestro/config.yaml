@@ -1,0 +1,13 @@
+# 00-server-setup must run first: it points the app at the e2e test server.
+# Without an explicit order Maestro may run flows in any order, silently
+# testing against production instead.
+# 03-go-live runs last because it ends with the Log In modal open, which
+# would leak into whatever flow runs after it.
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - 00-server-setup
+    - 01-smoke
+    - 02-tabs
+    - 04-stream
+    - 03-go-live

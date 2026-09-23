@@ -104,6 +104,10 @@ android: app .build/bundletool.jar
 
 .PHONY: android-release
 android-release: .build/bundletool.jar android-keystore
+	@if grep -q e2e_network_security_config js/app/android/app/src/main/AndroidManifest.xml; then \
+		echo "js/app/android was prebuilt for e2e (make android-e2e); run 'cd js/app && pnpm run prebuild' before a release build"; \
+		exit 1; \
+	fi
 	export NODE_ENV=production \
 	&& cd ./js/app/android \
 	&& ./gradlew :app:bundleRelease \
@@ -112,6 +116,21 @@ android-release: .build/bundletool.jar android-keystore
 	&& cd bin \
 	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-release.aab --output=streamplace-$(VERSION)-android-release.apks --mode=universal \
 	&& unzip streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb
+
+# The release build for the Maestro suite (hack/e2e-local.sh): it trusts
+# user-installed CAs and never takes OTA updates (SP_E2E_BUILD in
+# js/app/app.config.ts). For testing only; never ship it.
+.PHONY: android-e2e
+android-e2e: .build/bundletool.jar android-keystore
+	cd js/app && SP_E2E_BUILD=true pnpm run prebuild
+	export NODE_ENV=production \
+	&& cd ./js/app/android \
+	&& ./gradlew :app:bundleRelease \
+	&& cd - \
+	&& mv ./js/app/android/app/build/outputs/bundle/release/app-release.aab ./bin/streamplace-$(VERSION)-android-e2e.aab \
+	&& cd bin \
+	&& java -jar ../.build/bundletool.jar build-apks --overwrite --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-e2e.aab --output=streamplace-$(VERSION)-android-e2e.apks --mode=universal \
+	&& unzip -o streamplace-$(VERSION)-android-e2e.apks && mv universal.apk streamplace-$(VERSION)-android-e2e.apk && rm toc.pb
 
 .PHONY: android-debug
 android-debug: .build/bundletool.jar android-keystore

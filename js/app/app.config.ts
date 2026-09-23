@@ -1,9 +1,12 @@
 import {
   ConfigPlugin,
   withAndroidManifest,
+  withDangerousMod,
   withEntitlementsPlist,
   withXcodeProject,
 } from "expo/config-plugins";
+import fs from "fs";
+import path from "path";
 import streamplaceReactNativeWebRTC from "../config-react-native-webrtc";
 export const withNotificationsIOS: ConfigPlugin = (config) => {
   config = withEntitlementsPlist(config, (config) => {
@@ -41,6 +44,46 @@ const withAndroidProfileable = (config) => {
       },
     ];
 
+    return config;
+  });
+};
+
+// For e2e builds only (SP_E2E_BUILD=true, `make android-e2e`): trust CAs in
+// the device's user store, where hack/e2e-local.sh installs the e2e harness's
+// throwaway CA so the app can reach its HTTPS station and PDS. Never ship
+// this — it lets whoever can add a user CA intercept the app's traffic.
+// Cleartext stays off, as in a release build (targetSdk 28+ default).
+const withE2EUserTrust: ConfigPlugin = (config) => {
+  config = withDangerousMod(config, [
+    "android",
+    async (config) => {
+      const dir = path.join(
+        config.modRequest.platformProjectRoot,
+        "app/src/main/res/xml",
+      );
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, "e2e_network_security_config.xml"),
+        `<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <certificates src="system" />
+      <certificates src="user" />
+    </trust-anchors>
+  </base-config>
+</network-security-config>
+`,
+      );
+      return config;
+    },
+  ]);
+  return withAndroidManifest(config, (config) => {
+    const app = config.modResults.manifest.application?.[0];
+    if (!app) {
+      throw new Error("No application found in AndroidManifest.xml");
+    }
+    app.$["android:networkSecurityConfig"] = "@xml/e2e_network_security_config";
     return config;
   });
 };
@@ -85,6 +128,7 @@ export default function () {
   const isProd =
     process.env["SP_PRODUCTION_RELEASE"] === "true" || !!process.env.CI;
   const enableSentry = process.env["SP_ENABLE_SENTRY"] === "true";
+  const isE2E = process.env["SP_E2E_BUILD"] === "true";
   const pkg = require("./package.json");
   // Brand imagery and colors are generated from the active brand directory
   // (see brand/README.md); expo prebuild derives every native icon format
@@ -289,20 +333,24 @@ export default function () {
               ],
             ]
           : []),
+        ...(isE2E ? [withE2EUserTrust] : []),
       ],
-      updates: isProd
-        ? {
-            url: `https://stream.place/api/manifest`,
-            enabled: true,
-            checkAutomatically: "ON_LOAD",
-            fallbackToCacheTimeout: 30000,
-            codeSigningCertificate: "./code-signing/certs/certificate.pem",
-            codeSigningMetadata: {
-              keyid: "main",
-              alg: "rsa-v1_5-sha256",
-            },
-          }
-        : {},
+      // e2e builds must run the JS they were built with, not whatever
+      // production update the manifest serves
+      updates:
+        isProd && !isE2E
+          ? {
+              url: `https://stream.place/api/manifest`,
+              enabled: true,
+              checkAutomatically: "ON_LOAD",
+              fallbackToCacheTimeout: 30000,
+              codeSigningCertificate: "./code-signing/certs/certificate.pem",
+              codeSigningMetadata: {
+                keyid: "main",
+                alg: "rsa-v1_5-sha256",
+              },
+            }
+          : {},
     },
   };
 }

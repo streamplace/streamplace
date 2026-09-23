@@ -475,13 +475,11 @@ function SettingsNavigator() {
 const IOS_ICONS: Record<string, SFSymbols7_0> = {
   Home: "house.fill",
   Videos: "play.rectangle.fill",
-  GoLive: "video.fill",
   Settings: "gearshape.fill",
 };
 const ANDROID_ICONS = {
   Home: "home",
   Videos: "video_library",
-  GoLive: "videocam",
   Settings: "settings",
 };
 
@@ -569,24 +567,20 @@ function TabNavigator() {
               }),
         }}
       />
-      <Tab.Screen
-        name="GoLiveTab"
-        component={LaunchGoLive}
-        options={{
-          title: "Go Live",
-          ...(isNative
-            ? {
-                tabBarIcon: getIcon("GoLive"),
-              }
-            : {
-                tabBarIcon: ({ color, size }) => (
-                  <Video size={size} color={color} />
-                ),
-              }),
-          headerShown: true,
-          headerTransparent: true,
-        }}
-      />
+      {!isNative && (
+        <Tab.Screen
+          name="GoLiveTab"
+          component={LaunchGoLive}
+          options={{
+            title: "Go Live",
+            tabBarIcon: ({ color, size }) => (
+              <Video size={size} color={color} />
+            ),
+            headerShown: true,
+            headerTransparent: true,
+          }}
+        />
+      )}
       <Tab.Screen
         name="SettingsTab"
         component={SettingsNavigator}

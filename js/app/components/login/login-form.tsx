@@ -269,6 +269,7 @@ export default function LoginForm({
             )}
           </View>
           <Input
+            testID="login-handle"
             value={handle}
             onChangeText={(text) =>
               setHandle(
@@ -380,6 +381,7 @@ export default function LoginForm({
           Sign Up
         </Button>
         <Button
+          testID="login-submit"
           onPress={submit}
           disabled={loginState.loading}
           style={[zero.px[6]]}

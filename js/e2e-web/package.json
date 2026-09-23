@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/e2e-web",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
   "description": "Headless-web e2e flows (Playwright) — the web counterpart to the .maestro/ mobile flows",
   "scripts": {

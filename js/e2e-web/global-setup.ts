@@ -1,16 +1,10 @@
 import { chromium, expect, type FullConfig } from "@playwright/test";
+import { pointAppAtNode } from "./server-setup";
 import { STORAGE_STATE } from "./storage";
 
-// Web counterpart to .maestro/00-server-setup.yaml.
-//
-// The mobile app ships pointed at production, so the Maestro suite opens
-// Settings -> Advanced and enters the test node's URL. The web app served by
-// the harness is the same react-native codebase, so we do the same thing —
-// once, here — and persist the result (redux-persist writes it to
-// localStorage) via storageState so every flow starts already pointed at the
-// harness. react-navigation's linking config exposes the advanced-settings
-// screen at /settings/advanced, so we can deep-link straight to it instead of
-// clicking through the nav.
+// Web counterpart to .maestro/00-server-setup.yaml: point the app at the
+// harness node once, here (see server-setup.ts), and save the resulting
+// localStorage via storageState so every flow starts already pointed at it.
 export default async function globalSetup(_config: FullConfig) {
   const SERVER_URL = process.env.SERVER_URL;
   if (!SERVER_URL) {
@@ -20,23 +14,7 @@ export default async function globalSetup(_config: FullConfig) {
   const browser = await chromium.launch();
   const page = await browser.newPage();
   try {
-    await page.goto(`${SERVER_URL}/settings/advanced`);
-
-    // toggle "use custom node" on, which reveals the URL field + save button
-    const toggle = page.getByTestId("settings-use-custom-node");
-    await expect(toggle).toBeVisible({ timeout: 60_000 });
-    await toggle.click();
-
-    // the react-native-web TextInput renders as an <input>; fill it
-    const urlField = page
-      .locator(
-        '[data-testid="settings-custom-node-url"], [data-testid="settings-custom-node-url"] input',
-      )
-      .first();
-    await expect(urlField).toBeVisible();
-    await urlField.fill(SERVER_URL);
-
-    await page.getByTestId("settings-save-node").click();
+    await pointAppAtNode(page, SERVER_URL);
 
     // The harness WHIP stream takes a few seconds after boot to ingest its
     // first segments and register as live. The home feed fetches getLiveUsers

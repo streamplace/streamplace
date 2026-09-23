@@ -16,6 +16,13 @@
 #   * Playwright + its chromium browser installed in js/e2e-web
 #     (pnpm --filter @streamplace/e2e-web install-browser; needs root for
 #     --with-deps, so run it inside the container).
+#   * For the OAuth flow, permission to bind 127.0.0.1:443 (root, as in the
+#     container). The harness serves the PDS and node over HTTPS at
+#     $E2E_HTTPS_PDS_HOSTNAME and $E2E_HTTPS_STATION_HOSTNAME, public DNS
+#     names for 127.0.0.1 on different registrable domains (the PDS name
+#     needs a wildcard too, for handles; see pkg/cmd/e2e_https.go). Set
+#     E2E_HTTPS_PDS_HOSTNAME empty to skip HTTPS; the OAuth flow then skips
+#     itself.
 #
 # On a dev host without the cgo runtime, run this inside the build container.
 set -euo pipefail
@@ -47,10 +54,17 @@ echo "starting e2e harness…"
 # PIDs matching this checkout's binary before we start — never kill a scratch
 # node someone else is running from the same build dir.
 PREEXISTING=" $( { pgrep -f "$BUILDDIR/libstreamplace" 2>/dev/null || true; } | tr '\n' ' ') "
+E2E_HTTPS_PDS_HOSTNAME="${E2E_HTTPS_PDS_HOSTNAME-localhost-pds.streamplace.network}"
+E2E_HTTPS_STATION_HOSTNAME="${E2E_HTTPS_STATION_HOSTNAME-localhost-station.streamplace.team}"
+HARNESS_ARGS=(e2e)
+if [ -n "$E2E_HTTPS_PDS_HOSTNAME" ]; then
+  HARNESS_ARGS+=(--https-pds-hostname "$E2E_HTTPS_PDS_HOSTNAME"
+    --https-station-hostname "$E2E_HTTPS_STATION_HOSTNAME")
+fi
 if command -v setsid >/dev/null 2>&1; then
-  setsid "$BUILDDIR/streamplace" e2e > "$ENVFILE" 2> "$LOGFILE" &
+  setsid "$BUILDDIR/streamplace" "${HARNESS_ARGS[@]}" > "$ENVFILE" 2> "$LOGFILE" &
 else
-  "$BUILDDIR/streamplace" e2e > "$ENVFILE" 2> "$LOGFILE" &
+  "$BUILDDIR/streamplace" "${HARNESS_ARGS[@]}" > "$ENVFILE" 2> "$LOGFILE" &
 fi
 HARNESS_PID=$!
 cleanup() {
@@ -71,8 +85,10 @@ if ! grep -q SERVER_URL "$ENVFILE"; then
 fi
 # shellcheck disable=SC1090
 . "$ENVFILE"
-export SERVER_URL ACCOUNT_HANDLE ACCOUNT_DID
-echo "harness up: SERVER_URL=$SERVER_URL ACCOUNT_HANDLE=$ACCOUNT_HANDLE"
+export SERVER_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD
+# only set in HTTPS mode
+export SERVER_HTTPS_URL PDS_HTTPS_URL E2E_PROXY_URL E2E_TLS_SPKI
+echo "harness up: SERVER_URL=$SERVER_URL ACCOUNT_HANDLE=$ACCOUNT_HANDLE${SERVER_HTTPS_URL:+ SERVER_HTTPS_URL=$SERVER_HTTPS_URL}"
 
 # --- run the flows ---------------------------------------------------------
 # No `exec` here: that would replace this shell and discard the EXIT trap,

@@ -133,6 +133,37 @@ func (c *NoopCloser) Close() error {
 	return nil
 }
 
+// PublishedLexicons is every lexicon a lexicon authority for place.stream
+// publishes: the place.stream schemas, plus the OAuth permission sets
+// generated from them.
+func PublishedLexicons(ctx context.Context) ([]*lexicon.SchemaFile, error) {
+	lexs, err := walkLexicons(ctx, AllFiles, "/")
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk lexicon files: %w", err)
+	}
+
+	lexSchemas := []*lexicon.SchemaFile{}
+
+	for _, lex := range lexs {
+		lexFile := lexicon.SchemaFile{}
+		err := json.Unmarshal(lex, &lexFile)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(lexFile.ID, "place.stream") {
+			continue
+		}
+		lexSchemas = append(lexSchemas, &lexFile)
+	}
+
+	permissionSchemas, err := generatePermissionSets(ctx, lexSchemas)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate permission sets: %w", err)
+	}
+
+	return append(lexSchemas, permissionSchemas...), nil
+}
+
 func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, state *statedb.StatefulDB) (Closer, error) {
 	ctx = log.WithLogValues(ctx, "func", "MakeLexiconRepo")
 	var err error
@@ -233,33 +264,12 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 	}
 
 	LexiconPubMultibase = pub.Multibase()
-	lexs, err := walkLexicons(ctx, AllFiles, "/")
-	if err != nil {
-		return nil, fmt.Errorf("failed to walk lexicon files: %w", err)
-	}
-
 	ops := []comatproto.SyncSubscribeRepos_RepoOp{}
 
-	lexSchemas := []*lexicon.SchemaFile{}
-
-	for _, lex := range lexs {
-		lexFile := lexicon.SchemaFile{}
-		err := json.Unmarshal(lex, &lexFile)
-		if err != nil {
-			return nil, err
-		}
-		if !strings.HasPrefix(lexFile.ID, "place.stream") {
-			continue
-		}
-		lexSchemas = append(lexSchemas, &lexFile)
-	}
-
-	permissionSchemas, err := generatePermissionSets(ctx, lexSchemas)
+	lexSchemas, err := PublishedLexicons(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate permission sets: %w", err)
+		return nil, err
 	}
-
-	lexSchemas = append(lexSchemas, permissionSchemas...)
 
 	for _, lexFile := range lexSchemas {
 		sfw := &SchemaFileWrapper{SchemaFile: *lexFile}

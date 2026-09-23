@@ -9,6 +9,14 @@ import { STORAGE_STATE } from "./storage";
 // throw here so the config stays importable by static tooling (knip, etc.).
 const SERVER_URL = process.env.SERVER_URL;
 
+// In its HTTPS mode the harness also serves the node and PDS at real
+// hostnames with a throwaway CA, for the OAuth flow (see
+// pkg/cmd/e2e_https.go). The browser reaches plc.directory through the
+// harness's proxy, and trusts exactly the harness's leaf certificate, by its
+// SPKI hash.
+const E2E_PROXY_URL = process.env.E2E_PROXY_URL;
+const E2E_TLS_SPKI = process.env.E2E_TLS_SPKI;
+
 export default defineConfig({
   testDir: "./flows",
   // Point the app at the test node once (Settings -> Advanced), then reuse that
@@ -30,17 +38,23 @@ export default defineConfig({
     baseURL: SERVER_URL,
     storageState: STORAGE_STATE,
     headless: true,
-    trace: "on-first-retry",
+    // A failed flow's trace has its console and network too; the OAuth flow's
+    // errors surface nowhere else on web.
+    trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    // The app is served over http on loopback with a self-test stream; don't
-    // let cert/mixed-content strictness get in the way.
-    ignoreHTTPSErrors: true,
+    // Playwright sends loopback through the proxy unless told otherwise.
+    ...(E2E_PROXY_URL
+      ? { proxy: { server: E2E_PROXY_URL, bypass: "127.0.0.1,localhost" } }
+      : {}),
     // WebRTC playback needs a permissive autoplay/media posture.
     launchOptions: {
       args: [
         "--autoplay-policy=no-user-gesture-required",
         "--use-fake-ui-for-media-stream",
+        ...(E2E_TLS_SPKI
+          ? [`--ignore-certificate-errors-spki-list=${E2E_TLS_SPKI}`]
+          : []),
       ],
     },
   },

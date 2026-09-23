@@ -20,8 +20,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"stream.place/streamplace/pkg/log"
@@ -65,15 +67,19 @@ type e2eHTTPS struct {
 	cert        tls.Certificate
 	spki        string
 
-	frontLn net.Listener // 127.0.0.1:443
+	frontLn net.Listener // 127.0.0.1:443, or whatever loopback 443 redirects to
 	proxyLn net.Listener // CONNECT proxy
 }
 
 const e2ePLCHost = "plc.directory"
 
 // newE2EHTTPS mints the certificates and claims every listener up front, so a
-// harness that cannot bind 443 fails before it has started anything else.
-func newE2EHTTPS(pdsHost, stationHost string) (*e2eHTTPS, error) {
+// harness that cannot bind its port fails before it has started anything else.
+//
+// The front end listens on 127.0.0.1:port. The URLs it serves stay portless
+// (https://<host>), so any port other than 443 only works on a machine that
+// redirects loopback 443 to it, e.g. with an iptables REDIRECT rule.
+func newE2EHTTPS(pdsHost, stationHost string, port int) (*e2eHTTPS, error) {
 	h := &e2eHTTPS{pdsHost: pdsHost, stationHost: stationHost}
 	var err error
 	h.dir, err = os.MkdirTemp("", "streamplace-e2e-tls-*")
@@ -84,10 +90,15 @@ func newE2EHTTPS(pdsHost, stationHost string) (*e2eHTTPS, error) {
 		h.Close()
 		return nil, fmt.Errorf("mint e2e certificates: %w", err)
 	}
-	h.frontLn, err = net.Listen("tcp", "127.0.0.1:443")
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	h.frontLn, err = net.Listen("tcp", addr)
 	if err != nil {
 		h.Close()
-		return nil, fmt.Errorf("listen on 127.0.0.1:443 (OAuth needs portless https hosts; run as root, e.g. in the build container, or leave the --https-* hostnames empty to skip HTTPS): %w", err)
+		fix := "run as root (e.g. in the build container)"
+		if errors.Is(err, syscall.EACCES) && runtime.GOOS == "linux" {
+			fix = fmt.Sprintf("run as root, or let unprivileged processes bind it until the next reboot with `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=%d`", port)
+		}
+		return nil, fmt.Errorf("listen on %s: %w\nOAuth needs portless https hosts: %s; or leave the --https-* hostnames empty (E2E_HTTPS_PDS_HOSTNAME= for the hack/ runners) to skip HTTPS", addr, err, fix)
 	}
 	if h.proxyLn, err = net.Listen("tcp", "127.0.0.1:0"); err != nil {
 		h.Close()

@@ -121,7 +121,7 @@ export function PopoutChatInner({ params }: { params: ChatPopoutParams }) {
               {
                 padding: 18,
                 // intentional translucency over arbitrary OBS content
-                backgroundColor: "rgba(255, 255, 255, 0.1)", // token-ok
+                backgroundColor: "rgba(255, 255, 255, 0.1)", // eslint-disable-line streamplace/no-token-literals
                 maxWidth: tokens.breakpoints.sm,
               },
             ]}

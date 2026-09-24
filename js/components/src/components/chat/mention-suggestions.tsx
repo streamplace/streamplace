@@ -44,7 +44,7 @@ export function MentionSuggestions({
         {
           bottom: "100%",
           borderRadius: 8,
-          boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.1)", // token-ok: dynamic user color / soft shadow
+          boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.1)", // eslint-disable-line streamplace/no-token-literals -- dynamic user color / soft shadow
           maxHeight: 200,
           zIndex: 999999,
         },
@@ -76,7 +76,7 @@ export function MentionSuggestions({
               <Text
                 style={{
                   color: profile?.color
-                    ? `rgb(${profile.color.red}, ${profile.color.green}, ${profile.color.blue})` // token-ok: dynamic user color / soft shadow
+                    ? `rgb(${profile.color.red}, ${profile.color.green}, ${profile.color.blue})` // eslint-disable-line streamplace/no-token-literals -- dynamic user color / soft shadow
                     : "black",
                   fontWeight: "bold",
                 }}

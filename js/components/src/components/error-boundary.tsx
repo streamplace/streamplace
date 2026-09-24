@@ -71,12 +71,12 @@ export function AppCrashScreen({ reset }: { reset: () => void }) {
         alignItems: "center",
         justifyContent: "center",
         padding: 24,
-        backgroundColor: "#161928", // token-ok: no theme available here
+        backgroundColor: "#161928", // eslint-disable-line streamplace/no-token-literals -- no theme available here
       }}
     >
       <Text
         style={{
-          color: "#ffffff", // token-ok
+          color: "#ffffff", // eslint-disable-line streamplace/no-token-literals
           fontSize: 20,
           fontWeight: "600",
           marginBottom: 8,
@@ -87,7 +87,7 @@ export function AppCrashScreen({ reset }: { reset: () => void }) {
       </Text>
       <Text
         style={{
-          color: "#d0cfd7", // token-ok
+          color: "#d0cfd7", // eslint-disable-line streamplace/no-token-literals
           fontSize: 15,
           marginBottom: 20,
           textAlign: "center",
@@ -102,16 +102,28 @@ export function AppCrashScreen({ reset }: { reset: () => void }) {
           paddingVertical: 10,
           paddingHorizontal: 20,
           borderRadius: 999,
-          backgroundColor: "#272f43", // token-ok
+          backgroundColor: "#272f43", // eslint-disable-line streamplace/no-token-literals
           marginBottom: 10,
         }}
       >
-        <Text style={{ color: "#ffffff" /* token-ok */, fontSize: 15 }}>
+        <Text
+          style={{
+            color:
+              "#ffffff" /* eslint-disable-line streamplace/no-token-literals */,
+            fontSize: 15,
+          }}
+        >
           Try again
         </Text>
       </Pressable>
       <Pressable onPress={reload} accessibilityRole="button">
-        <Text style={{ color: "#11e8b2" /* token-ok */, fontSize: 15 }}>
+        <Text
+          style={{
+            color:
+              "#11e8b2" /* eslint-disable-line streamplace/no-token-literals */,
+            fontSize: 15,
+          }}
+        >
           Reload the page
         </Text>
       </Pressable>

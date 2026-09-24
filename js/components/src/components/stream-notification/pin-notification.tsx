@@ -14,10 +14,10 @@ import * as tokens from "../../lib/theme/tokens";
 import { formatHandleWithAt } from "../../utils/format-handle";
 
 // static link accent — this overlay can render outside a ThemeProvider (OBS)
-const LINK_ACCENT = tokens.colors.primary[400]; // token-ok
+const LINK_ACCENT = tokens.colors.primary[400]; // eslint-disable-line streamplace/no-token-literals
 
 const getRgbColor = (color?: place.stream.chat.profile.Color) =>
-  color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : undefined; // token-ok: dynamic user color / soft shadow
+  color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : undefined; // eslint-disable-line streamplace/no-token-literals -- dynamic user color / soft shadow
 
 function renderSegment(segment: RichtextSegment, index: number) {
   if (segment.features && segment.features.length > 0) {

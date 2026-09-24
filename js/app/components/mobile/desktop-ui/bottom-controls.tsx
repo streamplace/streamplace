@@ -88,7 +88,7 @@ function ContextMenuButton({
 // YouTube-style: a translucent rounded field hugging each button cluster,
 // rather than a scrim across the whole width of the player.
 const pill = {
-  backgroundColor: "rgba(0,0,0,0.45)", // token-ok: over video
+  backgroundColor: "rgba(0,0,0,0.45)", // eslint-disable-line streamplace/no-token-literals -- over video
   borderRadius: 999,
   paddingHorizontal: 10,
   paddingVertical: 4,

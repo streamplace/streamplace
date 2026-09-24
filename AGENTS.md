@@ -82,7 +82,7 @@ go test -count=1 ./pkg/<package>/...
 
 `go vet ./pkg/<package>/...` is a fast sanity check, but it is much weaker than
 the lint in the commit gate (golangci-lint with staticcheck). A change that
-passes `go vet` can still fail CI tests! See [Testing](#testing).
+passes `go vet` can still fail CI tests! See [Checking your work](#checking-your-work).
 
 Do not run expensive repository-wide suites when a targeted test gives the same
 coverage.
@@ -204,7 +204,7 @@ For scratch or test nodes:
 Do not enable development-only authentication or networking flags in production
 configuration.
 
-## Testing
+## Checking your work
 
 A commit must pass more than `go vet` or one package's tests.
 To run the full test suite:
@@ -214,14 +214,11 @@ make check   # golangci-lint, pnpm run check, gofmt, cargo check -D warnings
 make fix     # autofix: prettier --write, gofmt -w, cargo fix, go mod tidy
 ```
 
-`.husky/pre-commit` runs a subset of these on every commit: `make golangci-lint`,
-lint-staged (prettier), `pnpm run knip`, `pnpm run check:tokens` (the design
-token ratchet), `cd js/app && pnpm run check`, and a `gofmt` check. A change that
-passes `go vet` can still fail the hook. Run `make check`, or the relevant part
-of it, before you treat work as done. Do not bypass the hook with `--no-verify`.
-When the hook fails, fix the cause.
+We use husky for commit hooks. A change that passes `go vet` can still fail hooks!
+Run `make check`, or the relevant part of it, before you treat work as done. Do not
+bypass the hook with `--no-verify`. When the hook fails, fix the cause.
 
-`pnpm run check` runs `knip`, the token ratchet, the `js/app` and `e2e-web`
+`pnpm run check` runs `knip`, the ESLint lint, the `js/app` and `e2e-web`
 typechecks, and a `prettier --check` over all tracked files. `knip` only looks at
 the `js/streamplace` package; see `knip.json` for its narrow reach.
 

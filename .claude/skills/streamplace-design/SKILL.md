@@ -1,6 +1,6 @@
 ---
 name: streamplace-design
-description: Streamplace design system and token discipline for UI work. Use when styling components under js/app, js/components, or js/web, picking colors/typography/spacing/radius/motion, hitting a token-ratchet or check-tokens failure, or deciding whether a raw literal needs a // token-ok exception. Covers the one rule (no raw style literals in component code), the useTheme()/tokens.ts contract, the canonical token scales, and ratchet enforcement.
+description: Streamplace design system and token discipline for UI work. Use when styling components under js/app, js/components, or js/web, picking colors/typography/spacing/radius/motion, when a streamplace/no-token-literals lint error blocks a commit, or deciding whether a raw literal needs a // token-ok exception. Covers the one rule (no raw style literals in component code), the useTheme()/tokens.ts contract, the canonical token scales, and how the ESLint rule is enforced.
 version: 1.0.0
 ---
 
@@ -26,28 +26,27 @@ overlay root composited over OBS content, or a brand-guideline swatch that
 displays the raw palette by design. Do not use `token-ok` to silence a value
 that has a token. Use the token.
 
-### The ratchet
+### Enforcement
 
-`js/scripts/check-tokens.mjs` counts hardcoded style literals (hex, `rgb()`/
-`rgba()`, raw palette-ramp indexing like `colors.primary[`) across
-`js/app/src`, `js/app/components`, `js/app/hooks`, and `js/components/src`,
-excluding the token definitions in `js/components/src/lib/theme`. Lines carrying
-`token-ok` and comment lines are exempt.
+The rule is `streamplace/no-token-literals`, defined in
+`js/scripts/eslint/no-token-literals.mjs` and wired up in the repo-root
+`eslint.config.mjs`. It flags raw hex, `rgb()`/`rgba()`, and raw palette-ramp
+indexing (`colors.primary[500]`) across `js/app/src`, `js/app/components`,
+`js/app/hooks`, and `js/components/src`, excluding the token definitions in
+`js/components/src/lib/theme`. A line carrying a `token-ok` comment is exempt.
 
 Run it directly:
 
 ```sh
-pnpm run check:tokens          # or: node js/scripts/check-tokens.mjs
-node js/scripts/check-tokens.mjs --list   # print every offending line
+pnpm run lint                                             # the four dirs
+node --test js/scripts/eslint/no-token-literals.test.mjs  # rule tests
 ```
 
-Enforcement is automatic: `.husky/pre-commit` runs `pnpm run check:tokens`,
-and `make check` runs it via the root `check` chain. The baseline lives at
-`brand/token-count.json`; the check fails if the live count rises above it.
-Removing literals lets you lower the baseline:
-`node js/scripts/check-tokens.mjs --update` rewrites it to the current count.
-Ratchet only down. Raising the baseline to absorb a violation defeats the
-check. Prefer a token or a justified `token-ok`.
+Enforcement is automatic: `.husky/pre-commit` runs `pnpm run lint`, and
+`make check` runs it via the root `check` chain. There is no baseline and no
+count to maintain. Every literal is an error, so use a token instead of
+silencing the rule. The same ESLint pass also runs
+`react-hooks/rules-of-hooks` (as a warning) over this code.
 
 ## Color
 

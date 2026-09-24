@@ -1,10 +1,5 @@
 // Disallows hardcoded style literals in component code: raw hex colors,
 // rgb()/rgba() strings, and raw palette-ramp indexing (colors.primary[500]).
-//
-// Every visual value should come from the theme (see the streamplace-design
-// skill). A line carrying a `token-ok` comment is exempt, reserved for literals
-// that must render when the theme is unavailable: crash screens, transparent
-// overlay roots composited over OBS content, and brand-guideline swatches.
 
 const RAMPS = new Set(
   "slate gray zinc neutral stone red orange amber yellow lime green emerald teal cyan sky blue indigo violet purple fuchsia pink rose primary destructive success warning".split(
@@ -14,7 +9,6 @@ const RAMPS = new Set(
 
 const HEX = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/;
 const RGB = /\brgba?\(/;
-const ALLOW = "token-ok";
 
 function literalKind(value) {
   if (typeof value !== "string") return null;
@@ -53,43 +47,34 @@ export default {
     },
     messages: {
       literal:
-        'Hardcoded {{kind}} style literal "{{text}}". Read the value from the theme, or exempt the line with a // token-ok comment.',
+        'Hardcoded {{kind}} style literal "{{text}}". Read the value from the theme, or suppress the line with // eslint-disable-line streamplace/no-token-literals.',
     },
   },
   create(context) {
     const sourceCode = context.sourceCode ?? context.getSourceCode();
-
-    // A token-ok comment exempts every line it spans, mirroring the previous
-    // line-oriented check so trailing and inline comments both work.
-    const exempt = new Set();
-    for (const comment of sourceCode.getAllComments()) {
-      if (!comment.value.includes(ALLOW)) continue;
-      for (
-        let line = comment.loc.start.line;
-        line <= comment.loc.end.line;
-        line++
-      ) {
-        exempt.add(line);
-      }
-    }
-
-    const check = (node, kind, text) => {
-      if (exempt.has(node.loc.start.line)) return;
+    const report = (node, kind, text) =>
       context.report({ node, messageId: "literal", data: { kind, text } });
-    };
 
     return {
       Literal(node) {
         const kind = literalKind(node.value);
-        if (kind) check(node, kind, String(node.value));
+        if (kind) report(node, kind, String(node.value));
       },
       TemplateElement(node) {
         const kind = literalKind(node.value.raw);
-        if (kind) check(node, kind, node.value.raw);
+        if (kind) report(node, kind, node.value.raw);
       },
       MemberExpression(node) {
         if (node.computed && isRampIndex(node)) {
-          check(node, "ramp", sourceCode.getText(node));
+          // Point at the index expression, not the whole member chain: a
+          // formatter can wrap `colors.primary[500]` across lines, and the
+          // trailing eslint-disable-line comment lands on the index.
+          context.report({
+            node,
+            loc: node.property.loc,
+            messageId: "literal",
+            data: { kind: "ramp", text: sourceCode.getText(node) },
+          });
         }
       },
     };

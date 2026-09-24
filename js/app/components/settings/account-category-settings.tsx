@@ -72,7 +72,7 @@ export function AccountCategorySettings() {
 
   let rgb =
     chatProfile.profile?.color &&
-    `rgb(${chatProfile.profile?.color?.red},${chatProfile.profile?.color?.green},${chatProfile.profile?.color?.blue})`; // token-ok: dynamic name color
+    `rgb(${chatProfile.profile?.color?.red},${chatProfile.profile?.color?.green},${chatProfile.profile?.color?.blue})`; // eslint-disable-line streamplace/no-token-literals -- dynamic name color
 
   return (
     <ScrollView>
@@ -113,7 +113,8 @@ export function AccountCategorySettings() {
                       size="3xl"
                       style={{
                         color:
-                          rgb || "#bd6e86" /* token-ok: default name color */,
+                          rgb ||
+                          "#bd6e86" /* eslint-disable-line streamplace/no-token-literals -- default name color */,
                       }}
                     >
                       {handle}

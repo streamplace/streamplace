@@ -59,7 +59,7 @@ const getRgbColor = (color?: {
     green = green + (255 - green) * t;
     blue = blue + (255 - blue) * t;
   }
-  return `rgb(${clampChannel(red)}, ${clampChannel(green)}, ${clampChannel(blue)})`; // token-ok: dynamic user color / soft shadow
+  return `rgb(${clampChannel(red)}, ${clampChannel(green)}, ${clampChannel(blue)})`; // eslint-disable-line streamplace/no-token-literals -- dynamic user color / soft shadow
 };
 
 const LinkSegment = ({

@@ -678,7 +678,7 @@ export default function BrandScreen() {
             />
             <Swatch
               name="Indigo"
-              value={colors.primary[500]}
+              value={colors.primary[500] /* token-ok: brand palette swatch */}
               note="Secondary accent — interface only, never the mark"
             />
             <Swatch

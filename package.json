@@ -9,8 +9,9 @@
   },
   "scripts": {
     "preinstall": "node hack/node-version.js",
-    "check": "knip && pnpm run check:workspaces && git ls-files | xargs prettier --check --ignore-unknown",
+    "check": "knip && pnpm run check:tokens && pnpm run check:workspaces && git ls-files | xargs prettier --check --ignore-unknown",
     "check:workspaces": "cd js/app && pnpm run check && pnpm --filter @streamplace/e2e-web run typecheck",
+    "check:tokens": "node js/scripts/check-tokens.mjs",
     "fix": "git ls-files | xargs prettier --write --ignore-unknown",
     "prepare": "husky && pnpm --filter @streamplace/i18n compile && pnpm --filter @streamplace/brand generate",
     "brand": "pnpm --filter @streamplace/brand generate",

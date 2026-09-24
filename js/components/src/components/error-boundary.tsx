@@ -106,10 +106,14 @@ export function AppCrashScreen({ reset }: { reset: () => void }) {
           marginBottom: 10,
         }}
       >
-        <Text style={{ color: "#ffffff", fontSize: 15 }}>Try again</Text>
+        <Text style={{ color: "#ffffff" /* token-ok */, fontSize: 15 }}>
+          Try again
+        </Text>
       </Pressable>
       <Pressable onPress={reload} accessibilityRole="button">
-        <Text style={{ color: "#11e8b2", fontSize: 15 }}>Reload the page</Text>
+        <Text style={{ color: "#11e8b2" /* token-ok */, fontSize: 15 }}>
+          Reload the page
+        </Text>
       </Pressable>
     </View>
   );

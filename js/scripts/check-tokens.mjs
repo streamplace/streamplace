@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Token ratchet: counts hardcoded style literals (hex colors, rgb()/rgba(),
 // raw palette-ramp indexing) in component code and fails if the count ever
-// increases relative to docs/redesign/token-baseline.json.
+// increases relative to brand/token-count.json.
 //
 // Usage:
 //   node js/scripts/check-tokens.mjs          # check against baseline
@@ -16,7 +16,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const BASELINE = join(repoRoot, "docs", "redesign", "token-baseline.json");
+const BASELINE = join(repoRoot, "brand", "token-count.json");
 
 const SCAN_DIRS = [
   "js/app/src",

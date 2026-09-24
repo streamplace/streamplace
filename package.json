@@ -9,9 +9,10 @@
   },
   "scripts": {
     "preinstall": "node hack/node-version.js",
-    "check": "knip && pnpm run lint && pnpm run check:workspaces && git ls-files | xargs prettier --check --ignore-unknown",
+    "check": "knip && pnpm run lint && pnpm run test:eslint && pnpm run check:workspaces && git ls-files | xargs prettier --check --ignore-unknown",
     "check:workspaces": "cd js/app && pnpm run check && pnpm --filter @streamplace/e2e-web run typecheck",
     "lint": "eslint --no-warn-ignored \"js/app/src/**/*.{ts,tsx}\" \"js/app/components/**/*.{ts,tsx}\" \"js/app/hooks/**/*.{ts,tsx}\" \"js/components/src/**/*.{ts,tsx}\"",
+    "test:eslint": "node --test \"js/scripts/eslint/*.test.mjs\"",
     "fix": "git ls-files | xargs prettier --write --ignore-unknown",
     "prepare": "husky && pnpm --filter @streamplace/i18n compile && pnpm --filter @streamplace/brand generate",
     "brand": "pnpm --filter @streamplace/brand generate",

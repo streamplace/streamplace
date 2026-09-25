@@ -12,6 +12,7 @@
   "include": ["unlisted"],
   "ignore": [
     ".*tamagui.config.ts.*",
-    "js/components/src/crypto-polyfill.native.tsx"
+    "js/components/src/crypto-polyfill.native.tsx",
+    "subprojects/**"
   ]
 }

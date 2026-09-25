@@ -145,7 +145,7 @@ function FixedChatPanel() {
       SpringSettings,
     ),
     backgroundColor: withSpring(
-      kb.keyboardHeight > 0 ? scrims.dark : "rgba(0, 0, 0, 0)", // token-ok
+      kb.keyboardHeight > 0 ? scrims.dark : "rgba(0, 0, 0, 0)", // eslint-disable-line streamplace/no-token-literals
       SpringSettings,
     ),
     borderRadius: withSpring(containerHeight > 0 ? 18 : 0, SpringSettings),

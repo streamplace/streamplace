@@ -386,13 +386,13 @@ export function useSiteDescription(): string {
 // convenience hook for primary color
 export function usePrimaryColor(): string {
   const asset = useBrandingAsset("primaryColor");
-  return asset?.data || "#6366f1"; // token-ok: branding config default value
+  return asset?.data || "#6366f1"; // eslint-disable-line streamplace/no-token-literals -- branding config default value
 }
 
 // convenience hook for accent color
 export function useAccentColor(): string {
   const asset = useBrandingAsset("accentColor");
-  return asset?.data || "#8b5cf6"; // token-ok: branding config default value
+  return asset?.data || "#8b5cf6"; // eslint-disable-line streamplace/no-token-literals -- branding config default value
 }
 
 // convenience hook for default streamer

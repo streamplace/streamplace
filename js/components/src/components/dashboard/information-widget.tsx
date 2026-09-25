@@ -169,7 +169,7 @@ export default function InformationWidget({
       onLayout={handleLayout}
       style={[
         embedMode
-          ? { backgroundColor: "rgba(23, 23, 23, 0.9)" } // token-ok: translucent panel over OBS content
+          ? { backgroundColor: "rgba(23, 23, 23, 0.9)" } // eslint-disable-line streamplace/no-token-literals -- translucent panel over OBS content
           : { backgroundColor: surfaces.dark[1] },
         embedMode ? undefined : borders.width.thin,
         embedMode ? undefined : { borderColor: borderAlphas.dark.strong },
@@ -206,7 +206,7 @@ export default function InformationWidget({
                 height: 8,
                 borderRadius: 4,
                 backgroundColor: !livestream
-                  ? colors.primary[400] // token-ok: static accent, may render outside ThemeProvider (OBS)
+                  ? colors.primary[400] // eslint-disable-line streamplace/no-token-literals -- static accent, may render outside ThemeProvider (OBS)
                   : getConnectionStatus() === "good"
                     ? statusColors.dark.success
                     : getConnectionStatus() === "warning"
@@ -369,7 +369,7 @@ export default function InformationWidget({
                 width={componentWidth - 40}
                 height={chartHeight}
                 color={
-                  livestream ? statusColors.dark.success : colors.primary[400] // token-ok
+                  livestream ? statusColors.dark.success : colors.primary[400] // eslint-disable-line streamplace/no-token-literals
                 }
               />
             </View>
@@ -453,7 +453,7 @@ export default function InformationWidget({
                 width={componentWidth - 40}
                 height={isCompactHeight ? 80 : 120}
                 color={
-                  livestream ? statusColors.dark.success : colors.primary[400] // token-ok
+                  livestream ? statusColors.dark.success : colors.primary[400] // eslint-disable-line streamplace/no-token-literals
                 }
               />
             </View>

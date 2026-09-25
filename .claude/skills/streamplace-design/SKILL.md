@@ -1,6 +1,6 @@
 ---
 name: streamplace-design
-description: Streamplace design system and token discipline for UI work. Use when styling components under js/app, js/components, or js/web, picking colors/typography/spacing/radius/motion, hitting a token-ratchet or check-tokens failure, or deciding whether a raw literal needs a // token-ok exception. Covers the one rule (no raw style literals in component code), the useTheme()/tokens.ts contract, the canonical token scales, and ratchet enforcement.
+description: Streamplace design system and token discipline. Use when styling components under js/app, js/components, or js/web, picking colors/typography/spacing/radius/motion, or resolving a streamplace/no-token-literals lint failure.
 version: 1.0.0
 ---
 
@@ -12,107 +12,106 @@ contract and the token reference.
 Every visual decision is a token in `js/components/src/lib/theme/tokens.ts`,
 consumed through `useTheme()` (`js/components/src/lib/theme/theme.tsx`).
 
-## The one rule
+## Always use theme tokens for colors
 
 **Component code never contains a raw hex value, `rgba()`, numeric font size,
 spacing, radius, or duration.** Read every value from the theme instead:
 `theme.colors.*`, `theme.spacing[n]`, `theme.typeScale.*`, `theme.borderRadius.*`,
 `theme.motion.*`.
 
-Intentional exceptions carry a `// token-ok` comment (or `/* token-ok */` inline
-in JSX). Legitimate cases are narrow: a literal that must render when the theme
-provider itself may have crashed (the whole-app crash screen), a transparent
-overlay root composited over OBS content, or a brand-guideline swatch that
-displays the raw palette by design. Do not use `token-ok` to silence a value
-that has a token. Use the token.
+You will generally not want to suppress a line with eslint:
+`// eslint-disable-line streamplace/no-token-literals -- <reason>` (the
+`/* … */` form inline in JSX).
 
-### The ratchet
+Legitimate cases are narrow: a literal that must
+render when the theme provider itself may have crashed (the whole-app crash
+screen), a transparent overlay root composited over OBS content, or a
+brand-guideline swatch that displays the raw palette by design.
 
-`js/scripts/check-tokens.mjs` counts hardcoded style literals (hex, `rgb()`/
-`rgba()`, raw palette-ramp indexing like `colors.primary[`) across
-`js/app/src`, `js/app/components`, `js/app/hooks`, and `js/components/src`,
-excluding the token definitions in `js/components/src/lib/theme`. Lines carrying
-`token-ok` and comment lines are exempt.
+### Enforcement
+
+The rule is `streamplace/no-token-literals`, defined in
+`js/scripts/eslint/no-token-literals.mjs` and wired up in the repo-root
+`eslint.config.mjs`. It flags raw hex, `rgb()`/`rgba()`, and raw palette-ramp
+indexing (`colors.primary[500]`) across `js/app/src`, `js/app/components`,
+`js/app/hooks`, and `js/components/src`, excluding the token definitions in
+`js/components/src/lib/theme`.
 
 Run it directly:
 
 ```sh
-pnpm run check:tokens          # or: node js/scripts/check-tokens.mjs
-node js/scripts/check-tokens.mjs --list   # print every offending line
+pnpm run lint                                             # the four dirs
+node --test js/scripts/eslint/no-token-literals.test.mjs  # rule tests
 ```
 
-Enforcement is automatic: `.husky/pre-commit` runs `pnpm run check:tokens`,
-and `make check` runs it via the root `check` chain. The baseline lives at
-`brand/token-count.json`; the check fails if the live count rises above it.
-Removing literals lets you lower the baseline:
-`node js/scripts/check-tokens.mjs --update` rewrites it to the current count.
-Ratchet only down. Raising the baseline to absorb a violation defeats the
-check. Prefer a token or a justified `token-ok`.
+Enforcement is automatic: `.husky/pre-commit` runs `pnpm run lint`, and
+`make check` runs it via the root `check` chain. There is no baseline and no
+count to maintain. Every literal is an error, so use a token instead of
+silencing the rule. The same ESLint pass also runs
+`react-hooks/rules-of-hooks` (as a warning) over this code.
 
 ## Color
 
-The neutral ramp (surfaces, text, borders) is a clean, untinted
-near-black/white system. The accent colors (`primary`, `secondary`) are
-aligned with the web app's CSS tokens (`js/web/src/styles.css`).
+Read colors from `theme.colors`. There is a light and a dark variant, and
+broadcaster branding can override the accent, so never copy a literal value out
+of this file: pick the token whose role matches.
+
+The neutral ramp (surfaces, text, borders) is a clean, untinted near-black/white
+system. The accents (`primary`, `secondary`) align with the web app's CSS tokens
+(`js/web/src/styles.css`).
+
+The web app (`js/web`) is a Tailwind v4 + shadcn app on Base UI, and its
+`src/styles.css` defines the shadcn variables (`--background`, `--card`,
+`--primary`, `--ring`, …). These tokens mirror those names, so keep the two in
+step. `surface0/1/2` are the same slots as the web's
+`--background`/`--card`/`--popover`, which is where the legacy aliases come from.
 
 ### Surfaces (`theme.colors.surface0–3`, `surfaceHover`)
 
-Clean near-black, never pure black and never tinted. Surfaces separate with
-hairline borders instead of shadows.
-
-| Token          | Dark       | Light      | Use                            |
-| -------------- | ---------- | ---------- | ------------------------------ |
-| `surface0`     | `#0a0a0b`  | `#ffffff`  | App background                 |
-| `surface1`     | `#111113`  | `#fafafa`  | Cards, panels, inputs          |
-| `surface2`     | `#18181b`  | `#f4f4f5`  | Popovers, menus, sheets        |
-| `surface3`     | `#1f1f23`  | `#ececef`  | Hovered overlay rows, tooltips |
-| `surfaceHover` | = surface3 | = surface3 | Hover fill on interactive rows |
+Untinted near-black on dark, off-white on light; never pure black. Surfaces
+separate with hairline borders instead of shadows. `surface0` is the app
+background; `surface1` cards, panels, and inputs; `surface2` popovers, menus, and
+sheets; `surface3` hovered overlay rows and tooltips. `surfaceHover` matches
+`surface3`.
 
 Legacy aliases (kept working): `background`→surface0, `card`→surface1,
 `popover`→surface2.
 
 ### Text (`theme.colors.text1–4`)
 
-White (dark) / ink (light) at fixed alphas.
-
-| Token   | Dark                    | Light              | Use                                |
-| ------- | ----------------------- | ------------------ | ---------------------------------- |
-| `text1` | `rgba(255,255,255,.92)` | `rgba(9,9,11,.92)` | Primary: titles, body              |
-| `text2` | `rgba(255,255,255,.65)` | `rgba(9,9,11,.66)` | Secondary: metadata, descriptions  |
-| `text3` | `rgba(255,255,255,.45)` | `rgba(9,9,11,.46)` | Tertiary: placeholders, timestamps |
-| `text4` | `rgba(255,255,255,.30)` | `rgba(9,9,11,.32)` | Disabled                           |
+White on dark / ink on light, at decreasing alphas: `text1` primary (titles,
+body), `text2` secondary (metadata, descriptions), `text3` tertiary
+(placeholders, timestamps), `text4` disabled.
 
 Legacy aliases: `text`→text1, `textMuted`→text2, `textDisabled`→text4.
 
 ### Borders (`borderSubtle` / `border` / `borderStrong`)
 
-1px hairlines: `rgba(255,255,255,0.06 / 0.08 / 0.10)` in dark. Subtle for
-surface separation, default for controls at rest, strong for hover.
+1px hairlines. Subtle for surface separation, default for controls at rest,
+strong for hover.
 
 ### Accent and secondary
 
-One accent: pink/magenta `#e955c2` (`colors.primary` ramp, the web's
-`--primary`). Use it sparingly: primary buttons, focus rings, active states,
-links, the Go Live moment. Not for large fills or decoration. Broadcaster
-branding may override `primary`/`ring`; `focus` follows `ring` automatically.
+One accent (`colors.primary`, the web's `--primary`). Use it
+sparingly: primary buttons, focus rings, active states, links, the Go Live
+moment. Not for large fills or decoration. Broadcaster branding may override
+`primary`/`ring`; `focus` follows `ring` automatically.
 
-Secondary: teal `#1abbc0` (`colors.secondary` ramp, the web's
-`--secondary`/`--accent`).
+Secondary: teal (`colors.secondary`, the web's `--secondary`/`--accent`).
 
 ### Status
 
-| Token                                 | Dark              | Rule                                                                                          |
-| ------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------- |
-| `live` / `liveDim` / `liveForeground` | `#f23041`         | **Reserved for the LIVE state only**: badges, live avatar rings, on-air dots. Not for errors. |
-| `success`                             | `#3dd68c`         | Healthy ingest, confirmations                                                                 |
-| `warning`                             | `#ffb224`         | Degraded states                                                                               |
-| `danger` / `destructive`              | `#ff3b5c`         | Errors, destructive actions                                                                   |
-| `overlay`                             | `rgba(0,0,0,0.6)` | Modal scrims                                                                                  |
+| Token                                 | Rule                                                                                          |
+| ------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `live` / `liveDim` / `liveForeground` | **Reserved for the LIVE state only**: badges, live avatar rings, on-air dots. Not for errors. |
+| `success`                             | Healthy ingest, confirmations                                                                 |
+| `warning`                             | Degraded states                                                                               |
+| `danger` / `destructive`              | Errors, destructive actions                                                                   |
+| `overlay`                             | Modal scrims                                                                                  |
 
 ## Typography
 
-One typeface: **Geist** (and **Geist Mono**), weights 400/500/600 only,
-static (no variable fonts). The canonical scale is `typeScale`: sizes
+For typography sizes, use `typeScale`: sizes
 12/13/14/16/20/24/32, line heights in the token file, tight letter-spacing
 from 20px up:
 
@@ -127,9 +126,8 @@ from 20px up:
 | `xxl`  | 32/38 −0.5 | 600    | Hero moments only                     |
 
 - **Counts, timers, and durations always use `tabularNums`**
-  (`fontVariant: ["tabular-nums"]`) so digits do not jitter. Long-form timers
-  use Geist Mono.
-- `typography.mono.*` (Geist Mono) for stream keys, ingest URLs, diagnostics.
+  (`fontVariant: ["tabular-nums"]`) so digits do not jitter.
+- `typography.mono.*` for stream keys, ingest URLs, diagnostics.
 - `typography.ios` / `typography.android` / fontFamily keys outside
   regular/medium/semiBold are **deprecated remaps**. Do not use them in new code.
 
@@ -174,12 +172,3 @@ and popovers.
 Every interactive element gets a 2px `focus`-colored ring with a 2px offset
 (`outline` on web, border fallback on native). Keyboard navigation must work
 correctly. Do not remove focus states. Style them.
-
-## Migration status
-
-Deprecated but still working during the redesign: platform typography scales,
-fontFamily weight aliases, off-grid spacing keys, radius `xl/2xl/3xl`,
-`animations` (use `motion`), and the unused Tailwind ramps. They still work,
-but new code should not use them. Removal is tracked as redesign work.
-`tokens.ts` and `theme.tsx` are the source of truth; where this skill and the
-code disagree, the code wins.

@@ -1,7 +1,8 @@
 make golangci-lint
 ./node_modules/.bin/lint-staged
 pnpm run knip
-pnpm run check:tokens
+pnpm run lint
+pnpm run test:eslint
 cd js/app && pnpm run check
 
 unformatted=$(gofmt -l $(find . -name "*.go"))

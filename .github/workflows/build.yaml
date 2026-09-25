@@ -25,8 +25,10 @@ jobs:
             cmd: "make linux-arm64"
           - name: windows-amd64
             cmd: "make windows-amd64 && make desktop-windows-amd64"
+          # The e2e build of the release APK (see `make android-e2e`), which
+          # android-e2e runs. Shipped releases are built by GitLab.
           - name: android
-            cmd: "make app && make android-release"
+            cmd: "make app && make android-e2e"
           # The Playwright web suite (js/e2e-web), OAuth flow included. The
           # harness binds 443 inside the container and needs the public
           # localhost-* DNS records; see pkg/cmd/e2e_https.go.
@@ -72,6 +74,22 @@ jobs:
         with:
           report_paths: "test.xml"
 
+      - name: Upload streamplace binary
+        if: matrix.name == 'linux-amd64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamplace-linux-amd64-${{ github.run_id }}
+          path: ./build-linux-amd64/streamplace
+          retention-days: 1
+
+      - name: Upload android e2e APK
+        if: matrix.name == 'android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-e2e-apk-${{ github.run_id }}
+          path: ./bin/*-android-e2e.apk
+          retention-days: 1
+
       - name: Upload e2e-web artifacts
         if: matrix.name == 'e2e-web' && failure()
         uses: actions/upload-artifact@v4
@@ -89,6 +107,114 @@ jobs:
           name: windows-bin-${{ github.event.pull_request.head.sha }}
           path: ./bin/
           retention-days: 1
+
+  # The Maestro suite (.maestro/) on an Android emulator, OAuth login included:
+  # hack/e2e-local.sh against the linux-amd64 binary and the android job's
+  # e2e APK. The harness runs on the runner, not in the builder container,
+  # so the emulator can reach it.
+  android-e2e:
+    name: android-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: linux
+    steps:
+      # full history: pnpm install's prepare steps derive the version from it
+      - uses: actions/checkout@v4.1.7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # the harness runs js/dev-env (a local PDS and PLC) with node
+      - name: install dependencies
+        run: npm install -g corepack@latest && corepack enable && pnpm install
+
+      - name: download streamplace binary
+        uses: actions/download-artifact@v4
+        with:
+          name: streamplace-linux-amd64-${{ github.run_id }}
+          path: ./build-linux-amd64
+
+      - name: download android e2e APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-e2e-apk-${{ github.run_id }}
+          path: ./bin
+
+      - name: prepare the runner
+        run: |
+          chmod +x ./build-linux-amd64/streamplace
+          # the harness serves the OAuth hosts on 127.0.0.1:443
+          sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          # a pinned release, checked before anything in it runs
+          curl -fsSL -o /tmp/maestro.zip https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.6.1/maestro.zip
+          echo "3440825f514f537c6a96bcf5de995780c2a4a7f83a43208fdc95d4f1fecfad3b  /tmp/maestro.zip" | sha256sum -c -
+          unzip -q /tmp/maestro.zip -d "$HOME/.maestro-dist"
+          echo "$HOME/.maestro-dist/maestro/bin" >> $GITHUB_PATH
+
+      - uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-pixel-6-api-34-google-apis-v1
+
+      # A Google APIs image, not Play Store: hack/e2e-local.sh needs root to
+      # point the emulator at the harness and install its CA.
+      - name: create avd snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options:
+            -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+            -camera-back none
+          disable-animations: true
+          script: echo "avd snapshot created"
+
+      - name: run maestro flows
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          # more cores/RAM so the software-rendered emulator doesn't thrash
+          # and ANR the launcher out from under the app mid-test
+          cores: 4
+          ram-size: 6144M
+          heap-size: 576M
+          emulator-options:
+            -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
+            -no-boot-anim -camera-back none
+          disable-animations: true
+          # one line: the action runs each script line in its own shell
+          script:
+            E2E_HARNESS_LOG=$PWD/.maestro/artifacts/harness.log bash
+            hack/e2e-local.sh android
+
+      - name: upload maestro artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-android-${{ github.run_id }}
+          path: |
+            .maestro/artifacts/
+            ~/.maestro/tests/
+          retention-days: 7
+          if-no-files-found: warn
 
   # windows-selftest:
   #   name: windows-selftest

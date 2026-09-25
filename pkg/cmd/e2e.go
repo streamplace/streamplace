@@ -71,6 +71,17 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 				Usage:   "the node's broadcaster host, served at https://<this>, which must resolve to 127.0.0.1",
 				Sources: urfavecli.EnvVars("SP_E2E_HTTPS_STATION_HOSTNAME"),
 			},
+			&urfavecli.IntFlag{
+				Name:    "https-port",
+				Usage:   "port the HTTPS front end listens on; the URLs stay portless, so anything but 443 only works where loopback 443 is redirected to it",
+				Value:   443,
+				Sources: urfavecli.EnvVars("SP_E2E_HTTPS_PORT"),
+			},
+			&urfavecli.StringFlag{
+				Name:    "app-bundle-id",
+				Usage:   "bundle id of the mobile app under test, which the node hands OAuth logins back to (its --app-bundle-id)",
+				Sources: urfavecli.EnvVars("SP_E2E_APP_BUNDLE_ID"),
+			},
 		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
 			// Canonical form, so they compare equal to the SNI names the
@@ -80,7 +91,7 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			if (pdsHost == "") != (stationHost == "") {
 				return errors.New("--https-pds-hostname and --https-station-hostname go together")
 			}
-			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost)
+			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"))
 		},
 	}
 }
@@ -107,7 +118,7 @@ func freePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
-func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string) error {
+func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, httpsPort int, appBundleID string) error {
 	// Ctrl-C / SIGTERM must unwind through the normal path, or none of the
 	// teardown below runs: Go's default handling exits immediately, which left
 	// the dev-env node, the forked node and the temp data dir behind.
@@ -120,7 +131,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	handleDomain := "test"
 	if httpsPDSHost != "" {
 		var err error
-		tlsEnv, err = newE2EHTTPS(httpsPDSHost, httpsStationHost)
+		tlsEnv, err = newE2EHTTPS(httpsPDSHost, httpsStationHost, httpsPort)
 		if err != nil {
 			return err
 		}
@@ -264,6 +275,9 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	if tlsEnv != nil {
 		nodeCmd.Env = append(nodeCmd.Env, tlsEnv.NodeEnv()...)
 	}
+	if appBundleID != "" {
+		nodeCmd.Env = append(nodeCmd.Env, "SP_APP_BUNDLE_ID="+appBundleID)
+	}
 	nodeCmd.Stdout = os.Stderr
 	nodeCmd.Stderr = os.Stderr
 	// Own process group, so cleanup can take the whole tree down at once.
@@ -377,10 +391,11 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\n",
 		httpAddr, out.Handle, out.Did, password)
 	if tlsEnv != nil {
-		// The same node over HTTPS at its public name, plus what a browser
-		// needs to reach and trust it (see e2e_https.go).
-		vars += fmt.Sprintf("SERVER_HTTPS_URL=%s\nPDS_HTTPS_URL=%s\nE2E_PROXY_URL=%s\nE2E_TLS_SPKI=%s\n",
-			tlsEnv.StationURL(), tlsEnv.PDSURL(), tlsEnv.ProxyURL(), tlsEnv.spki)
+		// The same node over HTTPS at its public name, plus what clients
+		// need to reach and trust it (see e2e_https.go): a browser pins the
+		// leaf by SPKI, a device installs the CA.
+		vars += fmt.Sprintf("SERVER_HTTPS_URL=%s\nPDS_HTTPS_URL=%s\nE2E_PROXY_URL=%s\nE2E_TLS_SPKI=%s\nE2E_TLS_CA=%s\n",
+			tlsEnv.StationURL(), tlsEnv.PDSURL(), tlsEnv.ProxyURL(), tlsEnv.spki, tlsEnv.caPath)
 	}
 	fmt.Print(vars)
 

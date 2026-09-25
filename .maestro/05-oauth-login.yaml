@@ -1,0 +1,95 @@
+appId: ${APP_ID}
+---
+# Log in the way a user does: the app's atproto OAuth client talks to the
+# node's OAuth proxy, which opens the PDS's own sign-in and consent pages in a
+# Chrome Custom Tab; the node's /api/app-return page hands the result back to
+# the app. Every hop is real https to the harness (see .maestro/README.md).
+- launchApp
+- tapOn:
+    text: "Log in"
+- tapOn:
+    id: "login-handle"
+- inputText: "${ACCOUNT_HANDLE}"
+# Submit from the keyboard, as a user can. Hiding the keyboard and tapping
+# Log In instead misses: the modal slides down as the keyboard goes, after
+# maestro has worked out where to tap.
+- pressKey: Enter
+# the handle comes along as login_hint, so the PDS only asks for the password
+- extendedWaitUntil:
+    visible:
+      text: "Password"
+    timeout: 60000
+- takeScreenshot: 05-01-pds-sign-in
+# The page opens with the password field focused. Don't tap "Password": that
+# matches the field's label and container, and tapping it takes focus off
+# the input, whose own label is only a hint.
+- inputText: "${ACCOUNT_PASSWORD}"
+# Enter submits the form. Not hideKeyboard: on Android that can send Back,
+# which closes the Custom Tab and cancels the login.
+- pressKey: Enter
+- takeScreenshot: 05-02-pds-consent
+- extendedWaitUntil:
+    visible:
+      text: "Authorize"
+    timeout: 30000
+- tapOn:
+    text: "Authorize"
+- takeScreenshot: 05-03-app-return
+- extendedWaitUntil:
+    visible:
+      text: "Complete Login"
+    timeout: 30000
+- tapOn:
+    text: "Complete Login"
+- takeScreenshot: 05-04-logged-in
+# logged in, the header's Log in button gives way to the account menu (the
+# handle alone proves nothing: the feed shows it on the stream card)
+- extendedWaitUntil:
+    notVisible:
+      text: "Log in"
+    timeout: 30000
+
+# Now act as the user. A chat message is a record the node writes to the
+# user's PDS through the OAuth proxy's upstream (DPoP-bound) session.
+# Relaunching first also proves the session survives a restart.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- tapOn:
+    id: "home-stream-card"
+# chat needs the stream's context, which arrives over its websocket along
+# with this system message
+- extendedWaitUntil:
+    visible:
+      text: ".*e2e test stream.*"
+    timeout: 30000
+# A send the page wasn't ready for clears the box and is dropped (as in the
+# web flow), so resend until it shows.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "chat-input"
+      - eraseText: 50
+      - inputText: "hello from 05-oauth-login"
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible:
+            # the row's text is the whole line, "@<handle>: <message>"
+            text: ".*: hello from 05-oauth-login"
+          timeout: 15000
+- takeScreenshot: 05-05-chat-sent
+# The chat box echoes sends optimistically, so relaunch: only the node's chat
+# history can show the message now, and it only has what came back from the
+# PDS over the firehose.
+- launchApp
+- tapOn:
+    id: "home-stream-card"
+- extendedWaitUntil:
+    visible:
+      # the row's text is the whole line, "@<handle>: <message>"
+      text: ".*: hello from 05-oauth-login"
+    timeout: 30000
+- takeScreenshot: 05-06-chat-history

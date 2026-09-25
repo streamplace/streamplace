@@ -80,7 +80,8 @@ export interface BlueskySlice {
   refreshSessionScope: () => Promise<void>;
   logout: () => Promise<void>;
   getProfile: (actor: string) => Promise<void>;
-  getProfiles: (actors: string[]) => Promise<void>;
+  // resolves false if the lookup failed, as opposed to finding nothing
+  getProfiles: (actors: string[]) => Promise<boolean>;
   oauthCallback: (url: string) => Promise<void>;
   setReturnRoute: (route: { name: string; params?: any } | null) => void;
   showLoginModal: boolean;
@@ -450,18 +451,24 @@ export const createBlueskySlice: StateCreator<
       const bskyAgent = new Agent("https://public.api.bsky.app");
       const payload = await bskyAgent.getProfiles({ actors });
       let parsedProfiles = {};
-      console.log(payload);
       payload.data.profiles.forEach((p) => {
         parsedProfiles[p.did] = p;
       });
+      // an unchanged cache must stay the same object, or every subscriber
+      // re-renders for nothing
+      if (Object.keys(parsedProfiles).length === 0) {
+        return true;
+      }
       set((s) => ({
         profileCache: {
           ...(s as BlueskySlice).profileCache,
           ...parsedProfiles,
         },
       }));
+      return true;
     } catch (error) {
       console.error("getProfiles error", error);
+      return false;
     }
   },
 

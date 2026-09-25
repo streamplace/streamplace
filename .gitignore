@@ -42,5 +42,5 @@ js/web/.tanstack/
 # white-label brand override (see brand/README.md)
 /brand/custom
 
-# maestro flow screenshots
-.maestro/screenshots/
+# maestro screenshots, logs and reports (hack/e2e-local.sh)
+.maestro/artifacts/

@@ -2,6 +2,9 @@ package director
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
+	"time"
 
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
@@ -11,6 +14,19 @@ import (
 // liveRecPrefix namespaces in-progress livestream recordings in the S3 bucket
 // (keys are liveRecPrefix + <did>/ + <timestamp>.m4s).
 const liveRecPrefix = "live-rec/"
+
+// LiveRecKeyPrefix is the bucket key prefix for one streamer's live-rec
+// objects. Exported so the spool salvage pass (wired in pkg/cmd) uploads
+// leftovers to the same place the live path would have.
+func LiveRecKeyPrefix(repoDID string) string {
+	return liveRecPrefix + repoDID + "/"
+}
+
+// LiveRecSpoolRoot is where live-rec disk spools live under the data dir:
+// <root>/<repoDID>/<session>/. Exported for the same salvage wiring.
+func LiveRecSpoolRoot(dataDir string) string {
+	return filepath.Join(dataDir, "live-rec-spool")
+}
 
 // vodInviteFeature is the place.stream.beta.invite `feature` value that grants
 // VOD access. Mirrors spxrpc's vodInviteFeature (that const is unexported in
@@ -84,8 +100,16 @@ func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string)
 	cfg := ss.cli.S3Config()
 	// live-rec/ namespaces the in-progress livestream recordings away from the
 	// finalized VOD blobs (blobs/) and anything else in the bucket.
-	keyPrefix := liveRecPrefix + repoDID + "/"
-	ss.s3Uploader = s3.NewS3Uploader(cfg, repoDID, keyPrefix, s3.DefaultCutoverEvery, ss.statefulDB)
+	keyPrefix := LiveRecKeyPrefix(repoDID)
+	// Each session gets its own spool directory; segments are deleted as
+	// objects complete, and anything left behind (crash, persistent S3
+	// failure) is picked up by the startup salvage pass.
+	spoolDir := ""
+	if ss.cli.LiveRecSpoolMaxMB > 0 {
+		spoolDir = filepath.Join(LiveRecSpoolRoot(ss.cli.DataDir), repoDID, fmt.Sprintf("%d", time.Now().UnixNano()))
+	}
+	ss.s3Uploader = s3.NewS3Uploader(cfg, repoDID, keyPrefix, s3.DefaultCutoverEvery, ss.statefulDB,
+		spoolDir, int64(ss.cli.LiveRecSpoolMaxMB)*1024*1024)
 	// Best-effort initial resolve of the livestream URI so the very first
 	// object is tagged. The director treats "latest livestream for repo" as
 	// the current stream everywhere (notification blast, idle finalize), so we

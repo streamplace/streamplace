@@ -5,8 +5,10 @@ import {
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import type { LivestreamStore } from "@streamplace/core";
 import {
+  chatMessageOpacity,
   formatBadgeIssuer,
   formatBadgeLabel,
+  isChatMessageGone,
   segmentize,
   type Facet,
   type FacetFeature,
@@ -43,6 +45,20 @@ import {
 import { getAdjacentBadgeIndex } from "./badge-navigation";
 import { initializeChatScroll } from "./chat-scroll";
 
+// Chat ages out on the hour, so a slow tick is plenty: it only exists so the
+// fade and the disappearance happen while the viewer watches, rather than
+// waiting for the next message to arrive and re-render the list.
+const CHAT_EXPIRY_TICK_MS = 30_000;
+
+function useChatExpiryTick(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), CHAT_EXPIRY_TICK_MS);
+    return () => clearInterval(timer);
+  }, []);
+  return now;
+}
+
 export function ChatPanel({
   store,
   reversed = false,
@@ -64,6 +80,7 @@ export function ChatPanel({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const [isAtAnchor, setIsAtAnchor] = useState(true);
+  const now = useChatExpiryTick();
   const [newMessageCount, setNewMessageCount] = useState(0);
   const prevChatLenRef = useRef(chat.length);
   const initialScrollDoneRef = useRef(false);
@@ -152,8 +169,14 @@ export function ChatPanel({
 
   const displayMessages = useMemo(() => {
     const sliced = chat.slice(-1500);
-    return reversed ? [...sliced].reverse() : sliced;
-  }, [chat, reversed]);
+    // Old messages fade out of the live view and then leave it, but they stay
+    // in the store: a viewer scrolled back into history is reading, so there
+    // everything is shown at full strength.
+    const live = isAtAnchor
+      ? sliced.filter((m) => !isChatMessageGone(m.record.createdAt, now))
+      : sliced;
+    return reversed ? [...live].reverse() : live;
+  }, [chat, reversed, isAtAnchor, now]);
   const badgeIssuerDids = useMemo(() => {
     const issuers = new Set<string>();
     for (const message of displayMessages) {
@@ -211,6 +234,9 @@ export function ChatPanel({
                 store={store}
                 isGrouped={isGrouped}
                 issuerProfiles={issuerProfiles}
+                opacity={
+                  isAtAnchor ? chatMessageOpacity(msg.record.createdAt, now) : 1
+                }
               />
             );
           })
@@ -249,6 +275,7 @@ function ChatMessage({
   store,
   isGrouped = false,
   issuerProfiles,
+  opacity = 1,
 }: {
   message: ChatMessageViewHydrated;
   profile: ChatMessageViewHydrated["chatProfile"];
@@ -256,6 +283,8 @@ function ChatMessage({
   store: LivestreamStore;
   isGrouped?: boolean;
   issuerProfiles: ReturnType<typeof useAvatars>;
+  /** 0..1 from chatMessageOpacity; 1 when the viewer is reading history. */
+  opacity?: number;
 }) {
   const { t } = useTranslation("common");
   const { state, pdsAgent, did } = useSession();
@@ -288,7 +317,10 @@ function ChatMessage({
 
   if (isSystem) {
     return (
-      <div className="my-1 rounded border border-(--color-border) bg-(--color-bg-overlay) px-2 py-1.5">
+      <div
+        style={{ opacity }}
+        className="my-1 rounded border border-(--color-border) bg-(--color-bg-overlay) px-2 py-1.5"
+      >
         <p className="text-center text-sm">{message.record.text}</p>
       </div>
     );
@@ -296,6 +328,7 @@ function ChatMessage({
 
   return (
     <div
+      style={{ opacity }}
       className={`group relative -mx-2 rounded px-2 leading-snug hover:bg-(--color-bg-overlay) ${isGrouped ? "py-px" : "py-0.5"}`}
     >
       {/* Hover actions; visible on group hover */}

@@ -1,3 +1,4 @@
+import { chatMessageOpacity, isChatMessageGone } from "@streamplace/core";
 import { ChevronDown, Ellipsis, Reply } from "lucide-react-native";
 import {
   ComponentProps,
@@ -72,6 +73,20 @@ function LeftAction(prog: SharedValue<number>, drag: SharedValue<number>) {
 // ios/android, 25, else 100 msgs
 const SHOWN_MSGS =
   Platform.OS === "ios" || Platform.OS === "android" ? 25 : 100;
+
+// Chat ages out on the hour, so a slow tick is plenty: it only exists so the
+// fade and the disappearance happen while the viewer watches, rather than
+// waiting for the next message to arrive and re-render the list.
+const CHAT_EXPIRY_TICK_MS = 30_000;
+
+function useChatExpiryTick(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), CHAT_EXPIRY_TICK_MS);
+    return () => clearInterval(timer);
+  }, []);
+  return now;
+}
 
 const keyExtractor = (item: ChatMessageViewHydrated, index: number) => {
   return `${item.uri}`;
@@ -165,7 +180,14 @@ const ActionsBar = memo(
   },
 );
 
-const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
+const ChatLine = memo(function ChatLine({
+  item,
+  opacity,
+}: {
+  item: ChatMessageViewHydrated;
+  /** 0..1 from chatMessageOpacity; 1 when the viewer is reading history. */
+  opacity: number;
+}) {
   const { theme } = useTheme();
   const setReply = useSetReplyToMessage();
   const setModMsg = usePlayerStore((state) => state.setModMessage);
@@ -198,12 +220,14 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
 
   if (item.author.did === "did:sys:system") {
     return (
-      <SystemMessage
-        variant={getSystemMessageType(item) || SystemMessageType.notification}
-        timestamp={new Date(item.record.createdAt)}
-        title={item.record.text}
-        facets={item.record.facets}
-      />
+      <View style={{ opacity }}>
+        <SystemMessage
+          variant={getSystemMessageType(item) || SystemMessageType.notification}
+          timestamp={new Date(item.record.createdAt)}
+          title={item.record.text}
+          facets={item.record.facets}
+        />
+      </View>
     );
   }
 
@@ -218,6 +242,7 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
             borderRadius: borderRadius.md,
             minWidth: 0,
             maxWidth: "100%",
+            opacity,
           },
           isHovered ? { backgroundColor: theme.colors.surfaceHover } : {},
         ]}
@@ -238,7 +263,7 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
   }
 
   return (
-    <>
+    <View style={{ opacity }}>
       <Swipeable
         containerStyle={[{ paddingVertical: 6 }]}
         friction={2}
@@ -265,7 +290,7 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
       >
         <RenderChatMessage item={item} />
       </Swipeable>
-    </>
+    </View>
   );
 });
 
@@ -311,16 +336,24 @@ export function Chat({
   }, []);
   const [isVisible, setIsVisible] = useState(true);
   const flatListRef = useRef<FlatList>(null);
+  const now = useChatExpiryTick();
   // The store keeps chat oldest-first. An inverted FlatList renders index 0 at
   // the bottom, so feed it newest-first to keep the latest message at the
   // bottom (or at the top when reverse is set, where inverted is off).
+  //
+  // Old messages fade out of the live view and then leave it, but they are
+  // never dropped from the store: a viewer who scrolls back up is reading
+  // history, so there everything is shown at full strength.
   const displayMessages = useMemo(() => {
     if (!chat) return [];
     const visible = hideSystemMessages
       ? chat.filter((m) => m.author.did !== "did:sys:system")
       : chat;
-    return visible.slice(-shownMessages).reverse();
-  }, [chat, shownMessages, hideSystemMessages]);
+    const live = isScrolledUp
+      ? visible
+      : visible.filter((m) => !isChatMessageGone(m.record.createdAt, now));
+    return live.slice(-shownMessages).reverse();
+  }, [chat, shownMessages, hideSystemMessages, isScrolledUp, now]);
   const latestMessageTime = displayMessages[0]
     ? new Date(displayMessages[0].record.createdAt).getTime()
     : null;
@@ -424,7 +457,14 @@ export function Chat({
           keyExtractor={keyExtractor}
           renderItem={({ item, index }) => (
             <ErrorBoundary>
-              <ChatLine item={item} />
+              <ChatLine
+                item={item}
+                opacity={
+                  isScrolledUp
+                    ? 1
+                    : chatMessageOpacity(item.record.createdAt, now)
+                }
+              />
             </ErrorBoundary>
           )}
           removeClippedSubviews={true}

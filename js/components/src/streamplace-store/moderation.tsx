@@ -3,6 +3,16 @@ import { place } from "streamplace";
 import { useLivestreamStore } from "../livestream-store";
 import { usePDSAgent } from "./xrpc";
 
+function permissionRecordsFromListRecords(
+  records: Array<{ uri?: string; value?: any }>,
+): place.stream.moderation.permission.Main[] {
+  return records
+    .filter(
+      (record) => record.value?.$type === "place.stream.moderation.permission",
+    )
+    .map((record) => ({ ...record.value, uri: record.uri }));
+}
+
 export interface ModerationPermissions {
   canBan: boolean;
   canHide: boolean;
@@ -75,13 +85,9 @@ export function useCanModerate(
           limit: 100,
         });
 
-        const records = result.data.records || [];
-        const permissionRecords: place.stream.moderation.permission.Main[] =
-          records
-            .map((r: { value: any }) => r.value)
-            .filter(
-              (v: any) => v && v.$type === "place.stream.moderation.permission",
-            );
+        const permissionRecords = permissionRecordsFromListRecords(
+          result.data.records || [],
+        );
 
         // Store all permissions in the livestream store
         // WebSocket updates will keep this in sync
@@ -119,14 +125,9 @@ export function useCanModerate(
             limit: 100,
           });
 
-          const records = result.data.records || [];
-          const permissionRecords: place.stream.moderation.permission.Main[] =
-            records
-              .map((r: { value: any }) => r.value)
-              .filter(
-                (v: any) =>
-                  v && v.$type === "place.stream.moderation.permission",
-              );
+          const permissionRecords = permissionRecordsFromListRecords(
+            result.data.records || [],
+          );
 
           setModerationPermissions(permissionRecords);
         } catch (err) {

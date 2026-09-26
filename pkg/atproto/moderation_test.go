@@ -58,6 +58,8 @@ func TestDelegatedModeration(t *testing.T) {
 	streamer := dev.CreateAccount(t)
 	moderator := dev.CreateAccount(t)
 	user := dev.CreateAccount(t)
+	permissionEvents := b.Subscribe(streamer.DID)
+	defer b.Unsubscribe(streamer.DID, permissionEvents)
 
 	// Test 1: Create delegation record with expiration time
 	t.Log("Test 1: Creating delegation record with expiration time")
@@ -89,6 +91,7 @@ func TestDelegatedModeration(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+
 	t.Log("✓ Delegation record ingested successfully")
 
 	// Verify delegation details including expiration time
@@ -96,6 +99,20 @@ func TestDelegatedModeration(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, view)
 	require.Equal(t, streamer.DID, view.Author.Did)
+
+	var permissionViewEvent placestream.ModerationDefs_PermissionView
+	require.Eventually(t, func() bool {
+		select {
+		case event := <-permissionEvents:
+			var ok bool
+			permissionViewEvent, ok = event.(placestream.ModerationDefs_PermissionView)
+			return ok
+		default:
+			return false
+		}
+	}, 5*time.Second, 10*time.Millisecond, "permission creation should reach the websocket bus")
+	require.Equal(t, "place.stream.moderation.defs#permissionView", permissionViewEvent.LexiconTypeID)
+	require.Equal(t, view.Uri, permissionViewEvent.Uri)
 
 	delegation := view.Record.Val.(*placestream.ModerationPermission)
 	require.NotNil(t, delegation)
@@ -231,6 +248,20 @@ func TestDelegatedModeration(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+
+	var deletionEvent map[string]any
+	require.Eventually(t, func() bool {
+		select {
+		case event := <-permissionEvents:
+			var ok bool
+			deletionEvent, ok = event.(map[string]any)
+			return ok && deletionEvent["deleted"] == true
+		default:
+			return false
+		}
+	}, 5*time.Second, 10*time.Millisecond, "permission deletion should reach the websocket bus")
+	require.Equal(t, constants.PLACE_STREAM_MODERATION_PERMISSION, deletionEvent["$type"])
+	require.Equal(t, view.Uri, deletionEvent["uri"])
 	t.Log("✓ Delegation record deleted successfully")
 
 	t.Log("All moderation tests passed!")

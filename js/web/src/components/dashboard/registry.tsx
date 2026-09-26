@@ -5,6 +5,7 @@ import {
   Globe,
   MessageSquare,
   Radio,
+  Shield,
   SquareDashed,
   Video,
   type LucideIcon,
@@ -12,6 +13,7 @@ import {
 import type { ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { ChatPanelWidget } from "./chat-panel";
+import { ModeratorsWidget } from "./moderators";
 import { MultistreamStatusWidget } from "./multistream-status";
 import { ProblemsWidget } from "./problems";
 import { StreamHealthWidget } from "./stream-health";
@@ -93,6 +95,14 @@ export const WIDGET_REGISTRY: Record<string, WidgetMeta> = {
     color: "#f59e0b",
     minWidth: 240,
     minHeight: 100,
+  },
+  moderators: {
+    component: ModeratorsWidget,
+    title: "Moderators",
+    icon: Shield,
+    color: "#a855f7",
+    minWidth: 320,
+    minHeight: 260,
   },
 };
 

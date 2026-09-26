@@ -1,3 +1,4 @@
+import { useIsFocused } from "@react-navigation/native";
 import {
   Button,
   Input,
@@ -24,11 +25,15 @@ type DomainView = place.stream.branding.defs.DomainView;
 
 // Whether the signed-in account owns a custom domain on this node: an owner
 // who is not a node admin still manages their domain's brand from here.
+// Checked again whenever the screen comes back into view, so a domain
+// granted mid-session shows up without signing out.
 export function useOwnsCustomDomain(): boolean {
   const agent = usePDSAgent();
   const did = useDID();
+  const focused = useIsFocused();
   const [owns, setOwns] = useState(false);
   useEffect(() => {
+    if (!focused) return;
     if (!agent || !did) {
       setOwns(false);
       return;
@@ -45,7 +50,7 @@ export function useOwnsCustomDomain(): boolean {
     return () => {
       stopped = true;
     };
-  }, [agent, did]);
+  }, [agent, did, focused]);
   return owns;
 }
 

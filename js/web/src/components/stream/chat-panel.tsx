@@ -312,6 +312,8 @@ function ChatMessage({
   if (isSystem) {
     return (
       <div
+        inert={opacity === 0}
+        aria-hidden={opacity === 0 || undefined}
         style={{ opacity, pointerEvents: opacity === 0 ? "none" : undefined }}
         className="my-1 rounded border border-(--color-border) bg-(--color-bg-overlay) px-2 py-1.5"
       >
@@ -322,6 +324,8 @@ function ChatMessage({
 
   return (
     <div
+      inert={opacity === 0}
+      aria-hidden={opacity === 0 || undefined}
       style={{ opacity, pointerEvents: opacity === 0 ? "none" : undefined }}
       className={`group relative -mx-2 rounded px-2 leading-snug hover:bg-(--color-bg-overlay) ${isGrouped ? "py-px" : "py-0.5"}`}
     >

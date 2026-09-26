@@ -3,6 +3,7 @@ import { ChevronDown, Ellipsis, Reply } from "lucide-react-native";
 import {
   ComponentProps,
   memo,
+  type ReactNode,
   useEffect,
   useMemo,
   useRef,
@@ -91,6 +92,32 @@ function useChatExpiryTick(): number {
 const keyExtractor = (item: ChatMessageViewHydrated, index: number) => {
   return `${item.uri}`;
 };
+
+// A message that has faded out is gone, not absent: it keeps the space the
+// list is scrolled over, so the history behind it stays reachable. It must not
+// stay tabbable, though. react-native-web drops unknown props, so on the web a
+// faded row gets a real DOM node carrying `inert`, which takes it out of
+// keyboard focus and the accessibility tree in one go.
+const FadedRow = ({
+  opacity,
+  children,
+}: {
+  opacity: number;
+  children: ReactNode;
+}) =>
+  Platform.OS === "web" ? (
+    <div
+      inert={opacity === 0}
+      aria-hidden={opacity === 0 || undefined}
+      style={{ opacity }}
+    >
+      {children}
+    </div>
+  ) : (
+    <View style={{ opacity }} pointerEvents={opacity === 0 ? "none" : "auto"}>
+      {children}
+    </View>
+  );
 
 // Actions bar for larger screens
 const ActionsBar = memo(
@@ -220,51 +247,51 @@ const ChatLine = memo(function ChatLine({
 
   if (item.author.did === "did:sys:system") {
     return (
-      <View style={{ opacity }} pointerEvents={opacity === 0 ? "none" : "auto"}>
+      <FadedRow opacity={opacity}>
         <SystemMessage
           variant={getSystemMessageType(item) || SystemMessageType.notification}
           timestamp={new Date(item.record.createdAt)}
           title={item.record.text}
           facets={item.record.facets}
         />
-      </View>
+      </FadedRow>
     );
   }
 
   if (Platform.OS === "web") {
     return (
-      <View
-        pointerEvents={opacity === 0 ? "none" : "auto"}
-        style={[
-          py[1],
-          px[2],
-          {
-            position: "relative",
-            borderRadius: borderRadius.md,
-            minWidth: 0,
-            maxWidth: "100%",
-            opacity,
-          },
-          isHovered ? { backgroundColor: theme.colors.surfaceHover } : {},
-        ]}
-        onPointerEnter={handleHoverIn}
-        onPointerLeave={handleHoverOut}
-      >
-        <Pressable style={[{ minWidth: 0, maxWidth: "100%" }]}>
-          <RenderChatMessage item={item} />
-        </Pressable>
-        <ActionsBar
-          item={item}
-          visible={isHovered || menuOpen}
-          hoverTimeoutRef={hoverTimeoutRef}
-          onMenuOpenChange={setMenuOpen}
-        />
-      </View>
+      <FadedRow opacity={opacity}>
+        <View
+          style={[
+            py[1],
+            px[2],
+            {
+              position: "relative",
+              borderRadius: borderRadius.md,
+              minWidth: 0,
+              maxWidth: "100%",
+            },
+            isHovered ? { backgroundColor: theme.colors.surfaceHover } : {},
+          ]}
+          onPointerEnter={handleHoverIn}
+          onPointerLeave={handleHoverOut}
+        >
+          <Pressable style={[{ minWidth: 0, maxWidth: "100%" }]}>
+            <RenderChatMessage item={item} />
+          </Pressable>
+          <ActionsBar
+            item={item}
+            visible={isHovered || menuOpen}
+            hoverTimeoutRef={hoverTimeoutRef}
+            onMenuOpenChange={setMenuOpen}
+          />
+        </View>
+      </FadedRow>
     );
   }
 
   return (
-    <View style={{ opacity }} pointerEvents={opacity === 0 ? "none" : "auto"}>
+    <FadedRow opacity={opacity}>
       <Swipeable
         containerStyle={[{ paddingVertical: 6 }]}
         friction={2}
@@ -291,7 +318,7 @@ const ChatLine = memo(function ChatLine({
       >
         <RenderChatMessage item={item} />
       </Swipeable>
-    </View>
+    </FadedRow>
   );
 });
 

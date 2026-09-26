@@ -154,6 +154,12 @@ func IsText(key string) bool {
 	return ok && s.Kind != KindImage
 }
 
+// Known reports whether key is in the vocabulary.
+func Known(key string) bool {
+	_, ok := specByKey[key]
+	return ok
+}
+
 // IsRuntime reports whether the running app reads key; unknown keys count
 // as runtime so a newer admin's keys still reach the app.
 func IsRuntime(key string) bool {

@@ -222,14 +222,25 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 	}
 
 	if target.domain != nil {
-		values, err := branding.ReadValues(s.statefulDB, target.brandID)
+		// A custom domain's brand is a record, which has room for the
+		// vocabulary's keys and the image types it accepts, nothing else.
+		mimeType := input.MimeType
+		switch {
+		case !branding.Known(input.Key):
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidValue: unknown branding key "+input.Key)
+		case branding.IsText(input.Key):
+			mimeType = branding.TextMime
+		case !branding.AcceptsImage(mimeType):
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidValue: "+mimeType+" is not an image type a brand may use")
+		}
+		values, err := s.domainBrandValues(ctx, target)
 		if err != nil {
-			return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to read branding")
+			return nil, err
 		}
 		if len(data) == 0 {
 			delete(values, input.Key)
 		} else {
-			values[input.Key] = branding.Value{MimeType: input.MimeType, Data: data}
+			values[input.Key] = branding.Value{MimeType: mimeType, Data: data}
 		}
 		if err := s.writeDomainBrand(ctx, target, values); err != nil {
 			log.Error(ctx, "failed to publish custom domain brand", "err", err)
@@ -271,9 +282,9 @@ func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input 
 	}
 
 	if target.domain != nil {
-		values, err := branding.ReadValues(s.statefulDB, target.brandID)
+		values, err := s.domainBrandValues(ctx, target)
 		if err != nil {
-			return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to read branding")
+			return nil, err
 		}
 		if _, ok := values[input.Key]; !ok {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "branding asset not found")

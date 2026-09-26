@@ -250,6 +250,20 @@ func (s *Server) brandWriteTarget(ctx context.Context, param string) (*brandTarg
 	return t, nil
 }
 
+// domainBrandValues is the domain's brand as its record has it now: an edit
+// through this node starts from the latest record, so a change the owner
+// made elsewhere that the firehose has not delivered yet is not overwritten.
+func (s *Server) domainBrandValues(ctx context.Context, t *brandTarget) (branding.Values, error) {
+	if d := s.SyncBrandingDomain(ctx, t.domain); d.SyncError != "" {
+		return nil, echo.NewHTTPError(http.StatusBadGateway, "unable to read the brand record: "+d.SyncError)
+	}
+	values, err := branding.ReadValues(s.statefulDB, t.brandID)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to read branding")
+	}
+	return values, nil
+}
+
 // writeDomainBrand publishes values as the domain's brand record in the
 // owner's repo, then caches them. The record goes first: if the owner's PDS
 // refuses it, nothing changes here either.

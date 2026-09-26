@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
 	"time"
 
@@ -75,7 +74,7 @@ func FetchRecord(ctx context.Context, client *http.Client, did, rkey string) (*F
 		f.Values[key] = Value{MimeType: TextMime, Data: text}
 	}
 	for key, blob := range content.Blobs {
-		if !slices.Contains(imageAccept, blob.MimeType) {
+		if !AcceptsImage(blob.MimeType) {
 			f.Warnings = append(f.Warnings, fmt.Sprintf("%s: %s is not an image type a brand may use", key, blob.MimeType))
 			continue
 		}

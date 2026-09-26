@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"slices"
 )
 
 // RecordNSID is the record a brand is published as: one per hostname, keyed
@@ -18,6 +19,12 @@ const LexiconPath = "lexicons/place/stream/branding/brand.json"
 
 // imageAccept is what a brand's image blobs may be.
 var imageAccept = []string{"image/svg+xml", "image/png", "image/jpeg", "image/webp", "image/gif", "image/x-icon", "image/vnd.microsoft.icon"}
+
+// AcceptsImage reports whether a brand record may carry an image of this
+// MIME type.
+func AcceptsImage(mimeType string) bool {
+	return slices.Contains(imageAccept, mimeType)
+}
 
 // jsonDefs are the typed shapes of the JSON-kind keys; a JSON key missing
 // here is carried as a string holding the JSON document (appStory, whose

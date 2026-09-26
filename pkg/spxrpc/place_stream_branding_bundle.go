@@ -97,9 +97,9 @@ func (s *Server) importDomainBundle(ctx context.Context, target *brandTarget, zi
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidBundle: "+err.Error())
 	}
-	existing, err := branding.ReadValues(s.statefulDB, target.brandID)
+	existing, err := s.domainBrandValues(ctx, target)
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to read branding")
+		return nil, err
 	}
 	report, _, _ := branding.Plan(existing, p.Values, merge)
 	report.Warnings = p.Warnings

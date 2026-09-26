@@ -30,6 +30,7 @@ import {
   Video,
 } from "lucide-react-native";
 import { ScrollView } from "react-native";
+import { useOwnsCustomDomain } from "./custom-domains";
 
 import { LiquidGlassView } from "@callstack/liquid-glass";
 import Mu from "components/mobile/desktop-ui/mu";
@@ -52,6 +53,7 @@ export function Settings() {
   // Branding is the node admins' on the node's hostname, the owner's on a
   // custom domain.
   const isBrandAdmin = useIsBrandAdmin(did);
+  const ownsCustomDomain = useOwnsCustomDomain();
 
   const { t } = useTranslation("settings");
 
@@ -170,7 +172,7 @@ export function Settings() {
                 />
               </MenuGroup>
             )}
-            {(isAdmin || isBrandAdmin) && (
+            {(isAdmin || isBrandAdmin || ownsCustomDomain) && (
               <MenuGroup>
                 <SettingsNavigationItem
                   title={t("branding")}

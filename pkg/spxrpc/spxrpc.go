@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -33,6 +34,8 @@ import (
 )
 
 type Server struct {
+	// domainLocks holds a *sync.Mutex per custom domain hostname (lockDomain).
+	domainLocks     sync.Map
 	e               *echo.Echo
 	cli             *config.CLI
 	model           model.Model

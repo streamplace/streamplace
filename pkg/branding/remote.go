@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ipfs/go-cid"
-	"github.com/multiformats/go-multihash"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/ipfs/go-cid"
+	"github.com/multiformats/go-multihash"
 
 	"stream.place/streamplace/pkg/placestream"
 )

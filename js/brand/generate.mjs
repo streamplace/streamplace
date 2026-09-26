@@ -18,13 +18,7 @@
 // Brand dir resolution: $SP_BRAND_DIR, else brand/custom/ (gitignored — for
 // first-party or private art), else brand/ (the open-source default).
 
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
@@ -199,18 +193,34 @@ const rasterize = (svg) => sharp(Buffer.from(svg)).png().toBuffer();
 
 // ------------------------------------------------------------ brand inputs
 
+// Raster art a node accepts (and so a brand directory it exports may hold).
+const RASTER = /\.(png|jpe?g|webp|gif)$/i;
+
 function findArt(role) {
   const file = brandFiles[role];
   if (!file) return null;
   const p = join(brandDir, basename(file));
   if (!existsSync(p)) fail(`${role}: ${file} is not in ${brandDir}`);
   if (/\.svg$/i.test(p)) return { svg: stripSize(readFileSync(p, "utf8")) };
-  if (/\.png$/i.test(p)) return { png: p };
-  fail(`${role}: ${file} must be an SVG or PNG`);
+  if (RASTER.test(p)) return { png: p };
+  fail(`${role}: ${file} must be an SVG, PNG, JPEG, WebP or GIF`);
 }
 
-const markArt = findArt("mark");
-if (!markArt?.svg) fail("the mark (mainLogo) is required and must be an SVG");
+// A raster image as an SVG of its own size, so everything drawn from the
+// mark (tiles, lockups, the app's logo components) works the same with a
+// PNG mark as with vector art.
+async function rasterAsSvg(path) {
+  const png = await sharp(path).png().toBuffer();
+  const { width, height } = await sharp(png).metadata();
+  const href = `data:image/png;base64,${png.toString("base64")}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}"><image width="${width}" height="${height}" href="${href}"/></svg>`;
+}
+
+const foundMark = findArt("mark");
+if (!foundMark) fail("the mark (mainLogo) is required");
+const markArt = foundMark.svg
+  ? foundMark
+  : { svg: await rasterAsSvg(foundMark.png) };
 const markSvg = markArt.svg;
 
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
@@ -386,8 +396,10 @@ write(join(outPublic, "favicon.png"), favicon);
 // OG / social card.
 const bannerArt = findArt("linkbanner");
 if (bannerArt?.png) {
-  copyFileSync(bannerArt.png, join(outPublic, "linkbanner.png"));
-  written.push("js/app/public/linkbanner.png");
+  write(
+    join(outPublic, "linkbanner.png"),
+    await sharp(bannerArt.png).png().toBuffer(),
+  );
 } else if (bannerArt?.svg) {
   write(
     join(outPublic, "linkbanner.png"),

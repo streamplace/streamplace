@@ -110,6 +110,7 @@ func TestAppKeyValidation(t *testing.T) {
 		{"appColors", `{"ink":"#000"}`, true},
 		{"appColors", `{"ink":3}`, false},
 		{"appColors", `[]`, false},
+		{"appColors", `{"inkk":"#000"}`, false},
 	} {
 		_, err := Normalize(tc.key, []byte(tc.value))
 		if tc.ok {

@@ -233,18 +233,16 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 		case !branding.AcceptsImage(mimeType):
 			return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidValue: "+mimeType+" is not an image type a brand may use")
 		}
-		values, err := s.domainBrandValues(ctx, target)
+		err := s.editDomainBrand(ctx, target, func(values branding.Values) (branding.Values, error) {
+			if len(data) == 0 {
+				delete(values, input.Key)
+			} else {
+				values[input.Key] = branding.Value{MimeType: mimeType, Data: data}
+			}
+			return values, nil
+		})
 		if err != nil {
 			return nil, err
-		}
-		if len(data) == 0 {
-			delete(values, input.Key)
-		} else {
-			values[input.Key] = branding.Value{MimeType: mimeType, Data: data}
-		}
-		if err := s.writeDomainBrand(ctx, target, values); err != nil {
-			log.Error(ctx, "failed to publish custom domain brand", "err", err)
-			return nil, echo.NewHTTPError(http.StatusBadGateway, "unable to publish brand record: "+err.Error())
 		}
 		return &placestream.BrandingUpdateBlob_Output{Success: true}, nil
 	}
@@ -282,17 +280,15 @@ func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input 
 	}
 
 	if target.domain != nil {
-		values, err := s.domainBrandValues(ctx, target)
+		err := s.editDomainBrand(ctx, target, func(values branding.Values) (branding.Values, error) {
+			if _, ok := values[input.Key]; !ok {
+				return nil, echo.NewHTTPError(http.StatusNotFound, "branding asset not found")
+			}
+			delete(values, input.Key)
+			return values, nil
+		})
 		if err != nil {
 			return nil, err
-		}
-		if _, ok := values[input.Key]; !ok {
-			return nil, echo.NewHTTPError(http.StatusNotFound, "branding asset not found")
-		}
-		delete(values, input.Key)
-		if err := s.writeDomainBrand(ctx, target, values); err != nil {
-			log.Error(ctx, "failed to publish custom domain brand", "err", err)
-			return nil, echo.NewHTTPError(http.StatusBadGateway, "unable to publish brand record: "+err.Error())
 		}
 		return &placestream.BrandingDeleteBlob_Output{Success: true}, nil
 	}

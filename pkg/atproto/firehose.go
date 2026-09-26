@@ -59,8 +59,9 @@ type ATProtoSynchronizer struct {
 	dirMu              sync.Mutex
 	OATProxy           *oatproxy.OATProxy
 	// OnBrandRecord, when set, is told of every create, update or delete of
-	// a place.stream.branding.brand record (a custom domain's brand),
-	// asynchronously, with the repo and record key.
+	// a place.stream.branding.brand record (a custom domain's brand) with the
+	// repo and record key. It runs on the firehose worker for every such
+	// record on the network: it must return at once, and hand real work off.
 	OnBrandRecord func(ctx context.Context, repoDID, rkey string)
 
 	// firehose liveness, written from every relay consumer concurrently
@@ -635,10 +636,9 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 		}
 		if collection.String() == constants.PLACE_STREAM_BRANDING_BRAND {
 			// Nothing to index: the handler re-pulls the record if it is a
-			// custom domain's brand. Off the firehose worker, since that is a
-			// round trip to the owner's PDS.
+			// custom domain's brand.
 			if atsync.OnBrandRecord != nil {
-				go atsync.OnBrandRecord(context.WithoutCancel(ctx), evt.Repo, rkey.String())
+				atsync.OnBrandRecord(ctx, evt.Repo, rkey.String())
 			}
 			continue
 		}

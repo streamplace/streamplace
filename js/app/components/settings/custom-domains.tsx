@@ -8,6 +8,7 @@ import {
   MenuSeparator,
   Text,
   useDID,
+  useIsBrandAdmin,
   useStreamplaceStore,
   useToast,
   useTranslation,
@@ -20,6 +21,33 @@ import { place } from "streamplace";
 import { SettingsRowItem } from "./components/settings-navigation-item";
 
 type DomainView = place.stream.branding.defs.DomainView;
+
+// Whether the signed-in account owns a custom domain on this node: an owner
+// who is not a node admin still manages their domain's brand from here.
+export function useOwnsCustomDomain(): boolean {
+  const agent = usePDSAgent();
+  const did = useDID();
+  const [owns, setOwns] = useState(false);
+  useEffect(() => {
+    if (!agent || !did) {
+      setOwns(false);
+      return;
+    }
+    let stopped = false;
+    agent.client
+      .call(place.stream.branding.listDomains)
+      .then((res) => {
+        if (!stopped) setOwns(res.domains.some((d) => d.owner === did));
+      })
+      .catch(() => {
+        if (!stopped) setOwns(false);
+      });
+    return () => {
+      stopped = true;
+    };
+  }, [agent, did]);
+  return owns;
+}
 
 // Custom domains: hostnames the node serves under their owner's brand (the
 // owner's place.stream.branding.brand record keyed by the hostname). Admins
@@ -40,6 +68,8 @@ export function CustomDomains({
   const did = useDID();
   const adminDIDs = useStreamplaceStore((s) => s.adminDIDs);
   const isAdmin = !!did && adminDIDs.includes(did);
+  // May the caller edit the brand of the hostname the app is on?
+  const isHostBrandAdmin = useIsBrandAdmin(did);
   const [domains, setDomains] = useState<DomainView[] | null>(null);
   const [hostname, setHostname] = useState("");
   const [owner, setOwner] = useState("");
@@ -59,6 +89,16 @@ export function CustomDomains({
   useEffect(() => {
     load();
   }, [load]);
+
+  // An owner who cannot edit this hostname's own brand came here for their
+  // domain: point the screen at it.
+  useEffect(() => {
+    if (isHostBrandAdmin || !domains || !did) return;
+    const mine = domains.filter((d) => d.owner === did);
+    if (mine.length > 0 && !mine.some((d) => d.brand === target)) {
+      onEdit(mine[0].brand);
+    }
+  }, [domains, did, isHostBrandAdmin, target, onEdit]);
 
   const run = async (what: string, fn: () => Promise<unknown>) => {
     setBusy(true);

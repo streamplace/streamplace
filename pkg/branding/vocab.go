@@ -277,7 +277,7 @@ var jsonShapes = map[string]func([]byte) error{
 	"socialLinks": linkList("label", "url"),
 	"legalLinks":  linkList("text", "url"),
 	"navCta":      linkObject("label", "url"),
-	"appColors":   stringObject,
+	"appColors":   colorObject,
 	"appStory":    anyObject,
 }
 
@@ -310,14 +310,17 @@ func linkObject(fields ...string) func([]byte) error {
 	}
 }
 
-// stringObject accepts a JSON object whose values are all strings (or
-// null, which means "use the default").
-func stringObject(b []byte) error {
+// colorObject accepts a JSON object of the app colors the brand record has
+// room for (appColorKeys), each a string or null ("use the default").
+func colorObject(b []byte) error {
 	var obj map[string]any
 	if err := json.Unmarshal(b, &obj); err != nil {
 		return fmt.Errorf("must be a JSON object")
 	}
 	for k, v := range obj {
+		if !slices.Contains(appColorKeys, k) {
+			return fmt.Errorf("%s is not an app color (%s)", k, strings.Join(appColorKeys, ", "))
+		}
 		if _, ok := v.(string); !ok && v != nil {
 			return fmt.Errorf("%s must be a string", k)
 		}

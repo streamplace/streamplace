@@ -97,27 +97,29 @@ func (s *Server) importDomainBundle(ctx context.Context, target *brandTarget, zi
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidBundle: "+err.Error())
 	}
-	existing, err := s.domainBrandValues(ctx, target)
+	var report *branding.Report
+	err = s.editDomainBrand(ctx, target, func(existing branding.Values) (branding.Values, error) {
+		report, _, _ = branding.Plan(existing, p.Values, merge)
+		report.Warnings = p.Warnings
+		if dryRun {
+			return nil, nil
+		}
+		next := branding.Values{}
+		if merge {
+			for k, v := range existing {
+				next[k] = v
+			}
+		}
+		for k, v := range p.Values {
+			next[k] = v
+		}
+		return next, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	report, _, _ := branding.Plan(existing, p.Values, merge)
-	report.Warnings = p.Warnings
 	if dryRun {
 		return report, nil
-	}
-	next := branding.Values{}
-	if merge {
-		for k, v := range existing {
-			next[k] = v
-		}
-	}
-	for k, v := range p.Values {
-		next[k] = v
-	}
-	if err := s.writeDomainBrand(ctx, target, next); err != nil {
-		log.Error(ctx, "failed to publish custom domain brand", "err", err)
-		return nil, echo.NewHTTPError(http.StatusBadGateway, "unable to publish brand record: "+err.Error())
 	}
 	report.Applied = true
 	return report, nil

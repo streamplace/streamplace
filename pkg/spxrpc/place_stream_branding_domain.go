@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/xrpc"
@@ -69,7 +71,9 @@ func (s *Server) handlePlaceStreamBrandingPutDomain(ctx context.Context, input *
 	if input.Owner != nil && *input.Owner != "" {
 		owner = *input.Owner
 	}
+	unlock := s.lockDomain(host)
 	d, err := s.statefulDB.PutBrandingDomain(host, owner)
+	unlock()
 	if err != nil {
 		log.Error(ctx, "failed to add custom domain", "hostname", host, "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to add custom domain")
@@ -103,7 +107,10 @@ func (s *Server) handlePlaceStreamBrandingDeleteDomain(ctx context.Context, inpu
 	if err != nil {
 		return nil, err
 	}
-	if err := s.statefulDB.DeleteBrandingDomain(d.Hostname); err != nil {
+	unlock := s.lockDomain(d.Hostname)
+	err = s.statefulDB.DeleteBrandingDomain(d.Hostname)
+	unlock()
+	if err != nil {
 		log.Error(ctx, "failed to delete custom domain", "hostname", d.Hostname, "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to delete custom domain")
 	}
@@ -139,12 +146,26 @@ func (s *Server) handlePlaceStreamBrandingSyncDomain(ctx context.Context, input 
 	return domainView(s.SyncBrandingDomain(ctx, d)), nil
 }
 
+// lockDomain serializes everything that changes a custom domain's cached
+// brand or ownership on this node: syncs, edits, grants and removals.
+func (s *Server) lockDomain(hostname string) func() {
+	v, _ := s.domainLocks.LoadOrStore(hostname, &sync.Mutex{})
+	mu := v.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
+}
+
 // SyncBrandingDomain pulls d's brand record and replaces the domain's
 // cached branding with it. An owner with no record gets an unbranded domain
 // (the app defaults, never the node's own brand). It returns the domain as
 // updated; failures are recorded on it (SyncError) and logged, and the last
 // good brand stays in place.
 func (s *Server) SyncBrandingDomain(ctx context.Context, d *statedb.BrandingDomain) *statedb.BrandingDomain {
+	defer s.lockDomain(d.Hostname)()
+	return s.syncDomainLocked(ctx, d)
+}
+
+func (s *Server) syncDomainLocked(ctx context.Context, d *statedb.BrandingDomain) *statedb.BrandingDomain {
 	ctx = log.WithLogValues(ctx, "hostname", d.Hostname, "owner", d.OwnerDID)
 	var cidStr string
 	values := branding.Values{}
@@ -155,6 +176,18 @@ func (s *Server) SyncBrandingDomain(ctx context.Context, d *statedb.BrandingDoma
 		err = nil
 	case err == nil:
 		cidStr, values, warnings = fetched.CID, fetched.Values, fetched.Warnings
+	}
+	// The fetch takes a while; the domain may have been removed or handed to
+	// someone else meanwhile (by another node of the station, which this
+	// node's lock does not cover). Never cache a brand for a domain its
+	// author no longer owns.
+	cur, cerr := s.statefulDB.GetBrandingDomain(d.Hostname)
+	if cerr == nil && (cur == nil || cur.OwnerDID != d.OwnerDID) {
+		log.Log(ctx, "custom domain changed hands during sync; dropping the fetched brand")
+		if cur == nil {
+			return d
+		}
+		return cur
 	}
 	if err == nil {
 		var report *branding.Report
@@ -181,14 +214,16 @@ func (s *Server) SyncBrandingDomain(ctx context.Context, d *statedb.BrandingDoma
 	return d
 }
 
-// SyncBrandingDomainsFor re-pulls every custom domain ownerDID owns whose
-// hostname is rkey; the firehose calls it for each brand record event.
+// SyncBrandingDomainsFor re-pulls the custom domain ownerDID owns whose
+// hostname is rkey, if there is one. The firehose calls it inline for every
+// brand record on the network, so the check is a cached lookup and only a
+// match goes on to the (slow) pull, in the background.
 func (s *Server) SyncBrandingDomainsFor(ctx context.Context, ownerDID, rkey string) {
 	d, err := s.statefulDB.GetBrandingDomain(rkey)
 	if err != nil || d == nil || d.OwnerDID != ownerDID {
 		return
 	}
-	s.SyncBrandingDomain(ctx, d)
+	go s.SyncBrandingDomain(context.WithoutCancel(ctx), d)
 }
 
 // SyncBrandingDomains re-pulls every custom domain's brand every interval
@@ -251,24 +286,47 @@ func (s *Server) brandWriteTarget(ctx context.Context, param string) (*brandTarg
 	return t, nil
 }
 
-// domainBrandValues is the domain's brand as its record has it now: an edit
-// through this node starts from the latest record, so a change the owner
-// made elsewhere that the firehose has not delivered yet is not overwritten.
-func (s *Server) domainBrandValues(ctx context.Context, t *brandTarget) (branding.Values, error) {
-	if d := s.SyncBrandingDomain(ctx, t.domain); d.SyncError != "" {
-		return nil, echo.NewHTTPError(http.StatusBadGateway, "unable to read the brand record: "+d.SyncError)
+// editDomainBrand changes a custom domain's brand: edit gets the brand as
+// the owner's record has it now and returns what to publish. The domain is
+// locked from the pull to the publish, so two edits through this node
+// apply one after the other; the publish is a compare-and-swap on the
+// record version the edit started from, so an edit made elsewhere in the
+// meantime (another node, another client) fails the write instead of being
+// silently overwritten.
+func (s *Server) editDomainBrand(ctx context.Context, t *brandTarget, edit func(branding.Values) (branding.Values, error)) error {
+	defer s.lockDomain(t.domain.Hostname)()
+	d := s.syncDomainLocked(ctx, t.domain)
+	if d.SyncError != "" {
+		return echo.NewHTTPError(http.StatusBadGateway, "unable to read the brand record: "+d.SyncError)
 	}
-	values, err := branding.ReadValues(s.statefulDB, t.brandID)
+	if d.OwnerDID != t.domain.OwnerDID {
+		return echo.NewHTTPError(http.StatusConflict, "the domain changed hands")
+	}
+	current, err := branding.ReadValues(s.statefulDB, t.brandID)
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to read branding")
+		return echo.NewHTTPError(http.StatusInternalServerError, "unable to read branding")
 	}
-	return values, nil
+	next, err := edit(current)
+	if err != nil || next == nil {
+		return err
+	}
+	if err := s.publishDomainBrand(ctx, t, next, d.RecordCID); err != nil {
+		log.Error(ctx, "failed to publish custom domain brand", "err", err)
+		// The PDS refuses a stale swapRecord with InvalidSwap, and a
+		// createRecord on a key someone just created as already existing.
+		if msg := err.Error(); strings.Contains(msg, "InvalidSwap") || strings.Contains(strings.ToLower(msg), "already exists") {
+			return echo.NewHTTPError(http.StatusConflict, "the brand record changed while this edit was being made; reload and try again")
+		}
+		return echo.NewHTTPError(http.StatusBadGateway, "unable to publish brand record: "+err.Error())
+	}
+	return nil
 }
 
-// writeDomainBrand publishes values as the domain's brand record in the
+// publishDomainBrand writes values as the domain's brand record in the
 // owner's repo, then caches them. The record goes first: if the owner's PDS
-// refuses it, nothing changes here either.
-func (s *Server) writeDomainBrand(ctx context.Context, t *brandTarget, values branding.Values) error {
+// refuses it, nothing changes here either. base is the record version the
+// values were derived from ("" when there was none).
+func (s *Server) publishDomainBrand(ctx context.Context, t *brandTarget, values branding.Values, base string) error {
 	upload := func(ctx context.Context, key string, v branding.Value) (*glex.Blob, error) {
 		var out comatproto.RepoUploadBlob_Output
 		if err := t.client.Do(ctx, xrpc.Procedure, v.MimeType, "com.atproto.repo.uploadBlob", nil, bytes.NewReader(v.Data), &out); err != nil {
@@ -280,14 +338,21 @@ func (s *Server) writeDomainBrand(ctx context.Context, t *brandTarget, values br
 	if err != nil {
 		return err
 	}
-	var out comatproto.RepoPutRecord_Output
 	input := map[string]any{
 		"repo":       t.domain.OwnerDID,
 		"collection": branding.RecordNSID,
 		"rkey":       t.domain.Hostname,
 		"record":     rec,
 	}
-	if err := t.client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", nil, input, &out); err != nil {
+	// Compare and swap: putRecord against the version we started from, or
+	// createRecord (which refuses an existing key) when there was none.
+	method := "com.atproto.repo.createRecord"
+	if base != "" {
+		method = "com.atproto.repo.putRecord"
+		input["swapRecord"] = base
+	}
+	var out comatproto.RepoPutRecord_Output
+	if err := t.client.Do(ctx, xrpc.Procedure, "application/json", method, nil, input, &out); err != nil {
 		return fmt.Errorf("publish brand record: %w", err)
 	}
 	if _, err := branding.Apply(ctx, s.statefulDB, t.brandID, values, nil, false, false); err != nil {

@@ -98,26 +98,46 @@ const keyExtractor = (item: ChatMessageViewHydrated, index: number) => {
 // stay tabbable, though. react-native-web drops unknown props, so on the web a
 // faded row gets a real DOM node carrying `inert`, which takes it out of
 // keyboard focus and the accessibility tree in one go.
+//
+// A row that expires while one of its controls holds focus keeps its place in
+// the tab order until focus leaves: yanking focus out from under the viewer is
+// worse than leaving a gone row reachable for a moment longer.
 const FadedRow = ({
   opacity,
   children,
 }: {
   opacity: number;
   children: ReactNode;
-}) =>
-  Platform.OS === "web" ? (
+}) => {
+  const [focused, setFocused] = useState(false);
+  const faded = opacity === 0 && !focused;
+  if (Platform.OS !== "web") {
+    return (
+      <View
+        style={{ opacity }}
+        pointerEvents={opacity === 0 ? "none" : "auto"}
+        aria-hidden={opacity === 0 || undefined}
+      >
+        {children}
+      </View>
+    );
+  }
+  return (
     <div
-      inert={opacity === 0}
-      aria-hidden={opacity === 0 || undefined}
+      inert={faded}
+      aria-hidden={faded || undefined}
       style={{ opacity }}
+      onFocus={() => setFocused(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setFocused(false);
+        }
+      }}
     >
       {children}
     </div>
-  ) : (
-    <View style={{ opacity }} pointerEvents={opacity === 0 ? "none" : "auto"}>
-      {children}
-    </View>
   );
+};
 
 // Actions bar for larger screens
 const ActionsBar = memo(

@@ -28,6 +28,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type FocusEvent,
 } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -309,11 +310,28 @@ function ChatMessage({
     }
   }, [pdsAgent, streamerDid, message.uri]);
 
+  // A faded row is gone: it keeps its space (the list scrolls over it) but
+  // leaves keyboard focus and the accessibility tree. A row that expires while
+  // one of its controls holds focus keeps its place in the tab order until
+  // focus leaves -- yanking focus out from under the viewer is worse than
+  // leaving a gone row reachable for a moment longer.
+  const [rowFocused, setRowFocused] = useState(false);
+  const faded = opacity === 0 && !rowFocused;
+  const fadedRowProps = {
+    inert: faded,
+    "aria-hidden": faded || undefined,
+    onFocus: () => setRowFocused(true),
+    onBlur: (event: FocusEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget)) {
+        setRowFocused(false);
+      }
+    },
+  };
+
   if (isSystem) {
     return (
       <div
-        inert={opacity === 0}
-        aria-hidden={opacity === 0 || undefined}
+        {...fadedRowProps}
         style={{ opacity, pointerEvents: opacity === 0 ? "none" : undefined }}
         className="my-1 rounded border border-(--color-border) bg-(--color-bg-overlay) px-2 py-1.5"
       >
@@ -324,8 +342,7 @@ function ChatMessage({
 
   return (
     <div
-      inert={opacity === 0}
-      aria-hidden={opacity === 0 || undefined}
+      {...fadedRowProps}
       style={{ opacity, pointerEvents: opacity === 0 ? "none" : undefined }}
       className={`group relative -mx-2 rounded px-2 leading-snug hover:bg-(--color-bg-overlay) ${isGrouped ? "py-px" : "py-0.5"}`}
     >

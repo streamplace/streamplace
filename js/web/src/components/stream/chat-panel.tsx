@@ -8,7 +8,6 @@ import {
   chatMessageOpacity,
   formatBadgeIssuer,
   formatBadgeLabel,
-  liveChatView,
   segmentize,
   type Facet,
   type FacetFeature,
@@ -167,16 +166,13 @@ export function ChatPanel({
     if (isAtAnchor) setNewMessageCount(0);
   }, [isAtAnchor]);
 
-  // A viewer scrolled back into history is reading, so everything the store
-  // still holds is shown at full strength.
-  const chatView = useMemo(
-    () => liveChatView(chat.slice(-1500), now, !isAtAnchor),
-    [chat, now, isAtAnchor],
-  );
-  const displayMessages = useMemo(
-    () => (reversed ? [...chatView.messages].reverse() : chatView.messages),
-    [chatView, reversed],
-  );
+  // Expired messages stay in the list -- invisible, so the list is scrolled
+  // over them, and scrollable far enough back to reach the history the store
+  // still holds. Only their opacity says "gone".
+  const displayMessages = useMemo(() => {
+    const sliced = chat.slice(-1500);
+    return reversed ? [...sliced].reverse() : sliced;
+  }, [chat, reversed]);
   const badgeIssuerDids = useMemo(() => {
     const issuers = new Set<string>();
     for (const message of displayMessages) {
@@ -234,7 +230,7 @@ export function ChatPanel({
                 store={store}
                 isGrouped={isGrouped}
                 issuerProfiles={issuerProfiles}
-                opacity={chatView.history ? 1 : chatMessageOpacity(msg, now)}
+                opacity={isAtAnchor ? chatMessageOpacity(msg, now) : 1}
               />
             );
           })
@@ -316,7 +312,7 @@ function ChatMessage({
   if (isSystem) {
     return (
       <div
-        style={{ opacity }}
+        style={{ opacity, pointerEvents: opacity === 0 ? "none" : undefined }}
         className="my-1 rounded border border-(--color-border) bg-(--color-bg-overlay) px-2 py-1.5"
       >
         <p className="text-center text-sm">{message.record.text}</p>
@@ -326,7 +322,7 @@ function ChatMessage({
 
   return (
     <div
-      style={{ opacity }}
+      style={{ opacity, pointerEvents: opacity === 0 ? "none" : undefined }}
       className={`group relative -mx-2 rounded px-2 leading-snug hover:bg-(--color-bg-overlay) ${isGrouped ? "py-px" : "py-0.5"}`}
     >
       {/* Hover actions; visible on group hover */}

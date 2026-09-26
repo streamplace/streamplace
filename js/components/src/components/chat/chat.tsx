@@ -1,4 +1,4 @@
-import { chatMessageOpacity, liveChatView } from "@streamplace/core";
+import { chatMessageOpacity } from "@streamplace/core";
 import { ChevronDown, Ellipsis, Reply } from "lucide-react-native";
 import {
   ComponentProps,
@@ -220,7 +220,7 @@ const ChatLine = memo(function ChatLine({
 
   if (item.author.did === "did:sys:system") {
     return (
-      <View style={{ opacity }}>
+      <View style={{ opacity }} pointerEvents={opacity === 0 ? "none" : "auto"}>
         <SystemMessage
           variant={getSystemMessageType(item) || SystemMessageType.notification}
           timestamp={new Date(item.record.createdAt)}
@@ -234,6 +234,7 @@ const ChatLine = memo(function ChatLine({
   if (Platform.OS === "web") {
     return (
       <View
+        pointerEvents={opacity === 0 ? "none" : "auto"}
         style={[
           py[1],
           px[2],
@@ -263,7 +264,7 @@ const ChatLine = memo(function ChatLine({
   }
 
   return (
-    <View style={{ opacity }}>
+    <View style={{ opacity }} pointerEvents={opacity === 0 ? "none" : "auto"}>
       <Swipeable
         containerStyle={[{ paddingVertical: 6 }]}
         friction={2}
@@ -346,18 +347,16 @@ export function Chat({
           : chat,
     [chat, hideSystemMessages],
   );
-  // Scrolled back up, the viewer is reading history, so everything the store
-  // still holds is shown at full strength.
-  const chatView = useMemo(
-    () => liveChatView(visibleMessages, now, isScrolledUp),
-    [visibleMessages, now, isScrolledUp],
-  );
   // The store keeps chat oldest-first. An inverted FlatList renders index 0 at
   // the bottom, so feed it newest-first to keep the latest message at the
   // bottom (or at the top when reverse is set, where inverted is off).
+  //
+  // Expired messages stay in the list -- invisible, so the list is scrolled
+  // over them, and scrollable far enough back to reach the history the store
+  // still holds. Only their opacity says "gone".
   const displayMessages = useMemo(
-    () => chatView.messages.slice(-shownMessages).reverse(),
-    [chatView, shownMessages],
+    () => visibleMessages.slice(-shownMessages).reverse(),
+    [visibleMessages, shownMessages],
   );
   const latestMessageTime = displayMessages[0]
     ? new Date(displayMessages[0].record.createdAt).getTime()
@@ -464,7 +463,7 @@ export function Chat({
             <ErrorBoundary>
               <ChatLine
                 item={item}
-                opacity={chatView.history ? 1 : chatMessageOpacity(item, now)}
+                opacity={isScrolledUp ? 1 : chatMessageOpacity(item, now)}
               />
             </ErrorBoundary>
           )}

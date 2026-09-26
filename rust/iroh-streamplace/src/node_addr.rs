@@ -1,5 +1,6 @@
-use iroh_base::ticket::NodeTicket;
 use std::{str::FromStr, sync::Arc};
+
+use iroh_base::ticket::NodeTicket;
 
 use crate::public_key::PublicKey;
 
@@ -9,6 +10,16 @@ pub struct NodeAddr {
     node_id: Arc<PublicKey>,
     relay_url: Option<String>,
     addresses: Vec<String>,
+}
+
+#[uniffi::export]
+pub fn node_addr_from_ticket(
+    ticket_str: String,
+) -> Result<NodeAddr, TicketError> {
+    let ticket = NodeTicket::from_str(&ticket_str).map_err(|e| TicketError::ParseError {
+        message: e.to_string(),
+    })?;
+    Ok(NodeAddr::from(ticket.node_addr().clone()))
 }
 
 #[uniffi::export]

@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"os"
-	"time"
+	"encoding/hex"
 
 	iroh "stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	_ "stream.place/streamplace/pkg/streamplacedeps"
@@ -16,83 +16,81 @@ func panicIfErr(err error) {
 	}
 }
 
+func GetOrCreateIrohSecret() ([]byte, error) {
+    hexStr := os.Getenv("IROH_SECRET")
+
+    if hexStr != "" {
+        // User provided one — it must be valid
+        decoded, err := hex.DecodeString(hexStr)
+        if err != nil {
+            return nil, fmt.Errorf("IROH_SECRET: invalid hex string: %w", err)
+        }
+        if len(decoded) != 32 {
+            return nil, fmt.Errorf("IROH_SECRET: must be 32 bytes when decoded (64 hex chars), got %d", len(decoded))
+        }
+        return decoded, nil
+    }
+
+    // No env var → generate random secret
+    secret := make([]byte, 32)
+    if _, err := rand.Read(secret); err != nil {
+        return nil, fmt.Errorf("failed to generate random secret: %w", err)
+    }
+
+    // Super helpful during local dev / first run
+    fmt.Fprintf(os.Stderr, "No IROH_SECRET set — generated new random secret:\n")
+    fmt.Fprintf(os.Stderr, "%s\n", hex.EncodeToString(secret))
+
+    return secret, nil
+}
+
 func main() {
 	tickets := os.Args[1:]
 
-	secret := make([]byte, 32)
-	_, err := rand.Read(secret)
+	secret, err := GetOrCreateIrohSecret()
 	panicIfErr(err)
 
-	fmt.Println("Starting with tickets", tickets)
-	config := iroh.Config{
-		Key:             secret,
-		Topic:           make([]byte, 32), // all zero topic for testing
-		MaxSendDuration: 1000_000_000,     // 1s
+	config := iroh.SocketConfig {
+		Secret:             secret,
+		Alpn: 						  []byte("iroh-streamplace/0.1.0"),
 	}
-	fmt.Printf("Config created %+v\n", config)
-	node, err := iroh.NodeSender(config)
+	fmt.Println("Creating iroh socket")
+	socket, err := iroh.NewSocket(config)
 	panicIfErr(err)
 
-	db := node.Db()
-	w := node.NodeScope()
-
-	node_id, err := node.NodeId()
-	panicIfErr(err)
-	fmt.Println("Node ID:", node_id)
-
-	ticket, err := node.Ticket()
-	panicIfErr(err)
-	fmt.Println("Ticket:", ticket)
-
+	fmt.Println("Node created:", socket)
 	if len(tickets) > 0 {
-		err = node.JoinPeers(tickets)
+		fmt.Println("Ticket:", tickets[0])
+		addr, err := iroh.NodeAddrFromTicket(tickets[0])
 		panicIfErr(err)
-	}
-
-	err = w.Put(nil, []byte("hello"), []byte("world"))
-	panicIfErr(err)
-	stream := []byte("stream1")
-	err = w.Put(&stream, []byte("subscribed"), []byte("true"))
-	panicIfErr(err)
-
-	filter := iroh.NewFilter()
-	items, err := db.IterWithOpts(filter)
-	panicIfErr(err)
-	fmt.Printf("Iter items: %+v\n", items)
-
-	filter2 := iroh.NewFilter().Global()
-	items2, err := db.IterWithOpts(filter2)
-	panicIfErr(err)
-	fmt.Printf("Iter items: %+v\n", items2)
-
-	filter3 := iroh.NewFilter().Stream(stream)
-	items3, err := db.IterWithOpts(filter3)
-	panicIfErr(err)
-	fmt.Printf("Iter items: %+v\n", items3)
-
-	go func() {
-		time.Sleep(5 * time.Second)
-		err := node.Shutdown()
+		fmt.Println("Connecting to addr:", addr)
+		stream, err := socket.Connect(addr)
 		panicIfErr(err)
-	}()
-
-	sub := db.Subscribe(iroh.NewFilter())
-	for {
-		ev, err := sub.NextRaw()
+		fmt.Println("Connected to stream:", stream)
+		err2 := stream.WriteAll([]byte("Hello from client!\n"))
+		panicIfErr(err2)
+		err3 := stream.CloseWrite()
+		panicIfErr(err3)
+		data, err4 := stream.Read(1024)
+		panicIfErr(err4)
+		fmt.Println("Received data:", string(data))
+		stream.Close()
+		socket.Close()
+	} else {
+		fmt.Println("Waiting for socket to become online")
+		socket.Online()
+		fmt.Println("Awaiting incoming connections")
+		fmt.Println("Ticket: ", socket.Ticket())
+		stream, err := socket.Accept()
 		panicIfErr(err)
-		if ev == nil {
-			fmt.Println("Subscription closed")
-			break
-		}
-		switch (*ev).(type) {
-		case iroh.SubscribeItemEntry:
-			fmt.Printf("%+v\n", (*ev).(iroh.SubscribeItemEntry))
-		case iroh.SubscribeItemCurrentDone:
-			fmt.Printf("Got current done event: %+v\n", (*ev).(iroh.SubscribeItemCurrentDone))
-		case iroh.SubscribeItemExpired:
-			fmt.Printf("Got expired event: %+v\n", (*ev).(iroh.SubscribeItemExpired))
-		case iroh.SubscribeItemOther:
-			fmt.Printf("Got other event: %+v\n", (*ev).(iroh.SubscribeItemOther))
-		}
+		fmt.Println("Got incoming connection", stream)
+		data, err := stream.Read(1024)
+		panicIfErr(err)
+		fmt.Println("Received data:", string(data))
+		err2 := stream.WriteAll([]byte("Hello from server!\n"))
+		panicIfErr(err2)
+		err3 := stream.CloseWrite()
+		panicIfErr(err3)
+		stream.Closed()
 	}
 }

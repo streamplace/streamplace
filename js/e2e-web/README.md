@@ -24,14 +24,15 @@ mobile-only.
 
 ## Flow ↔ Maestro parity
 
-| Playwright (`flows/`)    | Maestro (`.maestro/`)  |
-| ------------------------ | ---------------------- |
-| `global-setup.ts`        | `00-server-setup.yaml` |
-| `01-smoke.spec.ts`       | `01-smoke.yaml`        |
-| `02-tabs.spec.ts`        | `02-tabs.yaml`         |
-| `03-go-live.spec.ts`     | `03-go-live.yaml`      |
-| `04-stream.spec.ts`      | `04-stream.yaml`       |
-| `05-oauth-login.spec.ts` | —                      |
+| Playwright (`flows/`)      | Maestro (`.maestro/`)   |
+| -------------------------- | ----------------------- |
+| `global-setup.ts`          | `00-server-setup.yaml`  |
+| `01-smoke.spec.ts`         | `01-smoke.yaml`         |
+| `02-tabs.spec.ts`          | `02-tabs.yaml`          |
+| `03-go-live.spec.ts`       | `03-go-live.yaml`       |
+| `04-stream.spec.ts`        | `04-stream.yaml`        |
+| `05-oauth-login.spec.ts`   | —                       |
+| `06-custom-domain.spec.ts` | `05-custom-domain.yaml` |
 
 The web app renders the **desktop layout** (a sidebar of nav links), not the
 mobile tab bar, so a couple of flows adapt to that surface while keeping the
@@ -89,3 +90,16 @@ inside the build container.
 
 Artifacts on failure (traces, screenshots, video) land in `test-results/` and a
 report in `playwright-report/` (`pnpm --filter @streamplace/e2e-web report`).
+
+## Custom domains
+
+`hack/e2e-web-local.sh` starts the harness with `--custom-domain localhost`
+(override with `E2E_CUSTOM_DOMAINS`): the test account owns `localhost` as a
+custom domain, so `http://localhost:<port>` is the same node as `SERVER_URL`
+(`http://127.0.0.1:<port>`) under a hostname with its own brand.
+`06-custom-domain` publishes a `place.stream.branding.brand` record straight
+to the PDS (`PDS_URL`, password session) and waits for the node to follow it
+off the firehose; then, logged in through OAuth as the node's admin (the
+harness makes the test account one), it grants `brand.localhost` from the
+Branding screen and imports `fixtures/brand/` — a brand directory, the same
+shape as the repo's `brand/` — into it.

@@ -10,66 +10,81 @@ from these files by `js/brand/generate.mjs` and gitignored.
 Run the generator with `pnpm run brand` from the repo root. It also runs
 automatically on `pnpm install` and before app, docs, and desktop builds.
 
+## One brand, everywhere
+
+A brand directory is a node **branding bundle**, unzipped: `branding.yaml`
+plus the files it names, in the same vocabulary as Settings → Branding
+(`pkg/branding/vocab.go`). So the same directory:
+
+- brands the **builds** — this generator reads it;
+- brands a **node** — `streamplace branding import path/to/dir`, or zip it
+  and use Settings → Branding → Import bundle;
+- is what a node **exports** (`streamplace branding export path/to/dir`),
+  and what a custom domain's brand record **pulls** into
+  (`streamplace branding pull at://… path/to/dir`).
+
+Runtime keys (`siteTitle`, `primaryColor`, `mainLogo`, …) are served by the
+node; build-time `app*` keys are only read by builds. See the operator guide,
+_Branding bundles_, for the whole picture, custom domains included.
+
 ## White-labeling
 
-To ship your own identity, point the generator at your own flat directory of
-files, either of:
+Point the generator at your own brand directory, either of:
 
 - `brand/custom/` — a gitignored sibling of this directory; if it contains a
-  `brand.json` it takes precedence.
+  `branding.yaml` (or legacy `brand.json`) it takes precedence.
 - `SP_BRAND_DIR=/path/to/your/brand` — explicit override, wins over both.
 
 The directory in git holds the generic open-source identity.
 
-## File contract
+## What a build reads
 
-Only two files are required; everything else is synthesized from the mark
-and `brand.json` colors when absent.
+Only the mark is required; everything else is synthesized from it and
+`appColors` when absent.
 
-| File                           | Required | Purpose                                                                                                            |
-| ------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------ |
-| `brand.json`                   | yes      | Name, wordmark text, colors, `monochrome` flag, optional `story` for the /brand guidelines page.                   |
-| `mark.svg`                     | yes      | The logo mark. Must declare a `viewBox`. If `monochrome` is true, use `fill="currentColor"` so the UI can tint it. |
-| `icon.svg` / `icon.png`        | no       | Full-bleed square app icon art. Default: mark at 62% on `colors.iconBackground`.                                   |
-| `icon-foreground.svg` / `.png` | no       | Android adaptive icon foreground (keep art in the inner ~66% safe zone). Default: mark at 45% on transparent.      |
-| `splash.svg` / `splash.png`    | no       | Splash screen logo, shown on `colors.splashBackground`. Default: mark at 50% on transparent.                       |
-| `wordmark.svg`                 | no       | Wordmark lettering for downloads/lockup. Default: SVG `<text>` of the wordmark string.                             |
-| `linkbanner.svg` / `.png`      | no       | 1200×630 OG/social card. Default: mark centered on `colors.bannerBackground`.                                      |
+| Key                 | Required | Purpose                                                                                                                        |
+| ------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `mainLogo`          | yes      | The mark, an SVG that declares a `viewBox`. If `appMonochrome` is `on`, use `fill="currentColor"` so the UI can tint it.       |
+| `appName`           | yes\*    | Product name (\*or `siteTitle`, its default).                                                                                  |
+| `appWordmark`       | no       | Text in the app's lockup; a `.` gets the accent treatment. Default `appName`.                                                  |
+| `siteTitle`         | no       | What an unbranded node calls itself until its operator sets one. Default `My <appName> Node`.                                  |
+| `appMonochrome`     | no       | `on` for single-color marks.                                                                                                   |
+| `appColors`         | no       | Colors below.                                                                                                                  |
+| `appBundleId`       | no       | iOS bundle id / Android package (`SP_BUNDLE_OVERRIDE` wins). Default `tv.aquareum`.                                            |
+| `appHost`           | no       | Node the built app talks to by default, and its app-link domain. Default `stream.place`.                                       |
+| `appIcon`           | no       | Full-bleed square app icon (SVG/PNG). Default: mark at 62% on `iconBackground`.                                                |
+| `appIconForeground` | no       | Android adaptive icon foreground (keep art in the inner ~66% safe zone). Default: mark at 45% on transparent.                  |
+| `appSplash`         | no       | Splash screen logo, shown on `splashBackground`. Default: mark at 50% on transparent.                                          |
+| `appWordmarkImage`  | no       | Wordmark lettering (SVG) for downloads/lockup. Default: SVG `<text>` of the wordmark string.                                   |
+| `linkBanner`        | no       | 1200×630 OG/social card (SVG/PNG). Default: mark centered on `bannerBackground`.                                               |
+| `appStory`          | no       | The mark's design story for the `/brand` guidelines screen (`BrandStory` in the generated `js/app/assets/generated/brand.ts`). |
 
-### brand.json
+### appColors
 
-```json
-{
-  "name": "Streamplace",
-  "wordmark": "stream.place",
-  "defaultSiteTitle": "My Streamplace Node",
-  "monochrome": false,
-  "colors": {
-    "ink": "#0A0A0B",
-    "paper": "#ffffff",
-    "iconBackground": "#ffffff",
-    "iconForeground": null,
-    "adaptiveIconBackground": "#111113",
-    "adaptiveIconForeground": null,
-    "splashBackground": "#ffffff",
-    "splashForeground": null,
-    "tileBackground": "#111113",
-    "tileForeground": "#ffffff",
-    "tileHairline": "rgba(255,255,255,0.10)",
-    "bannerBackground": null,
-    "bannerForeground": null
-  },
-  "story": null
-}
+```yaml
+appColors:
+  ink: "#0A0A0B"
+  paper: "#ffffff"
+  iconBackground: "#ffffff"
+  iconForeground: null
+  adaptiveIconBackground: "#111113"
+  adaptiveIconForeground: null
+  splashBackground: "#ffffff"
+  splashForeground: null
+  tileBackground: "#111113"
+  tileForeground: "#ffffff"
+  tileHairline: "rgba(255,255,255,0.10)"
+  bannerBackground: null
+  bannerForeground: null
 ```
 
 All colors are optional; `*Foreground` colors default to `ink` and only
-apply to monochrome marks (a multi-color mark renders as-is). `wordmark` is
-the text rendered next to the mark in the app's lockup — a `.` in it gets
-the accent treatment. `defaultSiteTitle` (default `My <name> Node`) is what
-an unbranded node calls itself in the nav until its operator sets a runtime
-siteTitle via the branding admin; a first-party brand points it at its own
-wordmark so its nodes show the styled wordmark with no runtime config. `story` optionally carries the mark's design story for
-the `/brand` guidelines screen (`tagline`, `readings`, `geometry`, `specs`,
-`usage` — see `BrandStory` in the generated `js/app/assets/generated/brand.ts`);
-sections without data are hidden.
+apply to monochrome marks (a multi-color mark renders as-is).
+
+### Legacy brand.json directories
+
+A directory with a `brand.json` (`name`, `wordmark`, `defaultSiteTitle`,
+`monochrome`, `colors`, `story`) and conventionally named files (`mark.svg`,
+`icon.png`, `icon-foreground.svg`, `splash.svg`, `wordmark.svg`,
+`linkbanner.png`) still builds. To make it importable into a node as well,
+move those values into `branding.yaml` under the keys above.

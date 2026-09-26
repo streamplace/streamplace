@@ -1,0 +1,18 @@
+appId: ${APP_ID}
+---
+# Re-point the app, already on a custom node (00-server-setup), at NODE_URL:
+# Settings -> Advanced, replace the URL, save.
+- tapOn:
+    text: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Advanced"
+- tapOn:
+    text: "Advanced"
+- tapOn:
+    id: "settings-custom-node-url"
+- eraseText: 200
+- inputText: "${NODE_URL}"
+- hideKeyboard
+- tapOn:
+    id: "settings-save-node"

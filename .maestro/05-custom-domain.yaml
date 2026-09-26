@@ -1,0 +1,59 @@
+appId: ${APP_ID}
+---
+# Custom domains: the harness grants a hostname (CUSTOM_DOMAIN_URL's) to the
+# test account, which publishes a brand record for it. The same node, reached
+# under that hostname, then wears the brand; under SERVER_URL it does not.
+# This is what a white-label app built for the domain sees at runtime.
+# On Android the domain is localhost, forwarded with `adb reverse`.
+- runScript:
+    file: scripts/publish-brand.js
+    env:
+      BRAND_TITLE: "E2E Mobile Brand"
+- repeat:
+    while:
+      true: ${!output.brandSynced}
+    times: 30
+    commands:
+      - runScript:
+          file: scripts/check-brand.js
+          env:
+            BRAND_TITLE: "E2E Mobile Brand"
+      - waitForAnimationToEnd:
+          timeout: 1000
+- assertTrue: ${output.brandSynced}
+
+- launchApp
+- runFlow:
+    file: subflows/point-app.yaml
+    env:
+      NODE_URL: ${CUSTOM_DOMAIN_URL}
+- takeScreenshot: 05-01-custom-domain
+- tapOn:
+    text: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "About"
+- tapOn:
+    text: "About"
+- extendedWaitUntil:
+    visible:
+      id: "about-node-title"
+      text: "E2E Mobile Brand"
+    timeout: 30000
+- takeScreenshot: 05-02-about-branded
+
+# Back to the node's own hostname, and its own brand, for the flows after.
+- runFlow:
+    file: subflows/point-app.yaml
+    env:
+      NODE_URL: ${SERVER_URL}
+- tapOn:
+    text: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "About"
+- tapOn:
+    text: "About"
+- assertNotVisible:
+    text: "E2E Mobile Brand"
+- takeScreenshot: 05-03-about-node

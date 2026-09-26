@@ -10,4 +10,5 @@ executionOrder:
     - 01-smoke
     - 02-tabs
     - 04-stream
+    - 05-custom-domain
     - 03-go-live

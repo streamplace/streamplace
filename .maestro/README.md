@@ -10,7 +10,10 @@ web suite (`js/e2e-web`, `hack/e2e-web-local.sh`) is local-only too; AGENTS.md
 
 Flows run in the order set by `config.yaml`: `00-server-setup` must go first
 (it points the app at the self-contained test server), and `03-go-live` last
-(it leaves the login modal open).
+(it leaves the login modal open). `05-custom-domain` publishes a brand
+record for a custom domain the harness granted, points the app at the node
+under that hostname, checks Settings → About names the node by that brand,
+and points the app back at `SERVER_URL`.
 
 ## Run it locally
 
@@ -18,11 +21,20 @@ Without the runner, start the harness yourself and point Maestro at it:
 
 ```bash
 make dev                              # harness binary
-./build-linux-amd64/streamplace e2e   # SERVER_URL/ACCOUNT_HANDLE on stdout
+./build-linux-amd64/streamplace e2e --custom-domain localhost
+                                      # SERVER_URL, ACCOUNT_*, PDS_URL on stdout
+adb reverse tcp:<port> tcp:<port>     # Android: device localhost -> harness
 maestro test -e APP_ID=tv.aquareum.dev \
   -e SERVER_URL=http://10.0.2.2:<port> \
-  -e ACCOUNT_HANDLE=<handle> .maestro/
+  -e CUSTOM_DOMAIN_URL=http://localhost:<port> \
+  -e PDS_URL=<pds-url> -e ACCOUNT_HANDLE=<handle> \
+  -e ACCOUNT_DID=<did> -e ACCOUNT_PASSWORD=<password> .maestro/
 ```
+
+`CUSTOM_DOMAIN_URL` is the same node under the granted hostname. On the iOS
+simulator it is `http://localhost:<port>` as-is (with `SERVER_URL`
+`http://127.0.0.1:<port>`). The flow's scripts run on the Maestro host, so
+`PDS_URL` needs no rewriting.
 
 The upstream runner does all of that — it starts the harness (local PDS/PLC +
 a looping test stream), installs the app, prepares the device, runs the flows

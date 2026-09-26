@@ -127,7 +127,10 @@ const FadedRow = ({
     <div
       inert={faded}
       aria-hidden={faded || undefined}
-      style={{ opacity: focused ? 1 : opacity }}
+      style={{
+        opacity: focused ? 1 : opacity,
+        pointerEvents: faded ? "none" : undefined,
+      }}
       onFocus={() => setFocused(true)}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) {

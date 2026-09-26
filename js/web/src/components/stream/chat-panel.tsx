@@ -330,7 +330,7 @@ function ChatMessage({
   };
   const rowStyle = {
     opacity: rowFocused ? 1 : opacity,
-    pointerEvents: opacity === 0 ? ("none" as const) : undefined,
+    pointerEvents: faded ? ("none" as const) : undefined,
   };
 
   if (isSystem) {

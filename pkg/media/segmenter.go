@@ -50,6 +50,7 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 	}
 
 	resetTimer := make(chan struct{})
+	segmentTimestamps := make([]time.Time, 0, 10)
 
 	go func() {
 		for {
@@ -57,7 +58,24 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 			case <-ctx.Done():
 				return
 			case <-resetTimer:
-				continue
+				now := time.Now()
+				segmentTimestamps = append(segmentTimestamps, now)
+
+				// Only keep events from the last 3 seconds
+				cutoff := now.Add(-3 * time.Second)
+				filtered := segmentTimestamps[:0]
+				for _, t := range segmentTimestamps {
+					if t.After(cutoff) {
+						filtered = append(filtered, t)
+					}
+				}
+				segmentTimestamps = filtered
+
+				if len(segmentTimestamps) > 6 {
+					log.Error(ctx, "too many segments in 3 seconds", "count", len(segmentTimestamps))
+					elem.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "Too many segments in 3 seconds", "More than 6 segments in 3 seconds")
+					return
+				}
 			case <-time.After(time.Second * 30):
 				log.Warn(ctx, "no new segment for 30 seconds")
 				elem.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "No new segment for 30 seconds", "No new segment for 30 seconds (debug)")

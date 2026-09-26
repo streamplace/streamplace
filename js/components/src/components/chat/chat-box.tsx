@@ -403,6 +403,7 @@ export function ChatBox({
       />
       {replyTo && (
         <View
+          testID="chat-reply-preview"
           style={[
             layout.flex.row,
             layout.flex.alignCenter,
@@ -423,6 +424,9 @@ export function ChatBox({
             />
           </View>
           <Pressable
+            testID="chat-reply-cancel"
+            accessibilityRole="button"
+            accessibilityLabel="Cancel reply"
             onPress={() => setReplyToMessage(null)}
             style={[
               layout.flex.row,

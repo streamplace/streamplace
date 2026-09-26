@@ -8,8 +8,9 @@ wired up yet. The web suite (`js/e2e-web`, `hack/e2e-web-local.sh`) mirrors
 these flows.
 
 Flows run in the order set by `config.yaml`: `00-server-setup` first (it
-points the app at the harness) and `05-oauth-login` last (the others expect a
-logged-out app). There is no `03`: native builds hide the Go Live controls
+points the app at the harness), then the flows that expect a logged-out app,
+then `05-oauth-login`, then the flows that expect a logged-in one
+(`06-chat-reply`). There is no `03`: native builds hide the Go Live controls
 that `03-go-live` covered, and `02-tabs` checks they stay hidden. The web
 suite still has its `03-go-live`.
 
@@ -43,15 +44,55 @@ hack/e2e-local.sh android
 
 The runner starts the harness, installs the APK, prepares the emulator, runs
 the flows and tears everything down. Screenshots, maestro's logs and the
-report land in `.maestro/artifacts/`. The harness binds 127.0.0.1:443; if it
-can't, it says how to allow it. On a machine that redirects loopback 443
-elsewhere (an iptables REDIRECT rule), set `E2E_HTTPS_PORT` to the target.
+report land in `.maestro/artifacts/`.
 
 The runner runs on the host, not in the build container: the emulator has to
 reach the harness.
 
+### Port 443
+
+The harness binds 127.0.0.1:443, which an unprivileged host process can't do
+by default; if it fails, it says how to allow that until the next reboot. To
+set a development machine up once instead, redirect loopback 443 to a high
+port with a systemd unit, and point the harness at that port:
+
+```ini
+# /etc/systemd/system/loopback-443-redirect.service
+[Unit]
+Description=Redirect loopback port 443 to 38444 (Streamplace e2e harness, E2E_HTTPS_PORT=38444)
+After=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# -C first so starting it again never stacks a duplicate rule
+ExecStart=/bin/sh -c '/usr/sbin/iptables -t nat -C OUTPUT -o lo -p tcp --dport 443 -j REDIRECT --to-ports 38444 2>/dev/null || /usr/sbin/iptables -t nat -A OUTPUT -o lo -p tcp --dport 443 -j REDIRECT --to-ports 38444'
+ExecStop=/usr/sbin/iptables -t nat -D OUTPUT -o lo -p tcp --dport 443 -j REDIRECT --to-ports 38444
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now loopback-443-redirect.service
+E2E_HTTPS_PORT=38444 hack/e2e-local.sh android
+```
+
+The rule covers the emulator too: its connections to the host (10.0.2.2)
+leave from the emulator process on the host's loopback. It only affects
+connections to loopback 443, so it can get in the way of anything else that
+serves HTTPS on 127.0.0.1:443 on that machine. Only set `E2E_HTTPS_PORT` when
+the redirect is in place: the app and PDS still use `https://<host>` URLs
+with no port.
+
 ## Notes / gotchas
 
+- **Other adb devices:** maestro lists no Android devices at all ("Device
+  emulator-5554 was requested, but it is not connected") while any device
+  adb knows about is `unauthorized`, such as a phone plugged in over USB that
+  hasn't allowed this computer. Authorize or unplug it, or restart the adb
+  server so it leaves USB devices alone:
+  `adb kill-server && adb --one-device emulator-5554 start-server`.
 - **Android dialogs:** the runner turns off ANR/crash dialogs ("Pixel Launcher
   isn't responding") and the stylus handwriting tutorial, both of which eat
   taps.

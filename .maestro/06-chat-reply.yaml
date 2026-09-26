@@ -1,0 +1,64 @@
+appId: ${APP_ID}
+---
+# Reply to a chat message by swiping it to the left. Runs after
+# 05-oauth-login, logged in.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- tapOn:
+    id: "home-stream-card"
+# chat needs the stream's context, which arrives over its websocket along
+# with this system message
+- extendedWaitUntil:
+    visible:
+      text: ".*e2e test stream.*"
+    timeout: 30000
+# something to reply to; resend a send the page wasn't ready for, as in
+# 05-oauth-login
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "chat-input"
+      - eraseText: 50
+      - inputText: "reply target from 06-chat-reply"
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible:
+            # the row's text is the whole line, "@<handle>: <message>"
+            text: ".*: reply target from 06-chat-reply"
+          timeout: 15000
+- swipe:
+    from:
+      text: ".*: reply target from 06-chat-reply"
+    direction: LEFT
+- extendedWaitUntil:
+    visible:
+      id: "chat-reply-preview"
+    timeout: 10000
+- takeScreenshot: 06-01-replying
+# picking a message to reply to focuses the chat box
+- inputText: "a reply from 06-chat-reply"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      text: ".*: a reply from 06-chat-reply"
+    timeout: 15000
+- assertNotVisible:
+    id: "chat-reply-preview"
+- takeScreenshot: 06-02-reply-sent
+# Relaunch, so the reply comes from the node's chat history: its quote of the
+# parent ("@<handle> <message>", no colon) proves the record carried the reply
+# reference through the PDS and firehose.
+- launchApp
+- tapOn:
+    id: "home-stream-card"
+- extendedWaitUntil:
+    visible:
+      text: ".*: a reply from 06-chat-reply"
+    timeout: 30000
+- assertVisible:
+    text: "@${ACCOUNT_HANDLE} reply target from 06-chat-reply"
+- takeScreenshot: 06-03-reply-history

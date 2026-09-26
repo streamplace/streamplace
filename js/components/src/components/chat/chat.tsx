@@ -41,7 +41,8 @@ import { RenderChatMessage } from "./chat-message";
 import { ModMenuContent, ModView } from "./mod-view";
 import { ProfileCardProvider } from "./user-profile-card";
 
-function RightAction(prog: SharedValue<number>, drag: SharedValue<number>) {
+function ReplyAction({ drag }: { drag: SharedValue<number> }) {
+  const { theme } = useTheme();
   const styleAnimation = useAnimatedStyle(() => {
     return {
       transform: [{ translateX: drag.value + 25 }],
@@ -50,9 +51,13 @@ function RightAction(prog: SharedValue<number>, drag: SharedValue<number>) {
 
   return (
     <Reanimated.View style={[styleAnimation]}>
-      <Reply color={colors.white} />
+      <Reply color={theme.colors.text2} />
     </Reanimated.View>
   );
+}
+
+function RightAction(prog: SharedValue<number>, drag: SharedValue<number>) {
+  return <ReplyAction drag={drag} />;
 }
 
 function LeftAction(prog: SharedValue<number>, drag: SharedValue<number>) {
@@ -245,15 +250,18 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
         enableTrackpadTwoFingerGesture
         rightThreshold={40}
         leftThreshold={40}
-        renderRightActions={Platform.OS === "android" ? undefined : RightAction}
+        // Swiping left reveals the reply action on every platform; the
+        // swipe-right mod menu is still iOS-only.
+        renderRightActions={RightAction}
         renderLeftActions={Platform.OS === "android" ? undefined : LeftAction}
         overshootFriction={9}
         ref={swipeableRef}
         onSwipeableOpen={(r) => {
-          if (r === (Platform.OS === "android" ? "right" : "left")) {
+          // the direction the row was swiped, on every platform
+          if (r === "left") {
             setReply(item);
           }
-          if (r === (Platform.OS === "android" ? "left" : "right")) {
+          if (r === "right") {
             setModMsg(item);
           }
           // close this swipeable

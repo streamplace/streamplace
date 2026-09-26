@@ -59,6 +59,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MobileChatPanel } from "./chat";
+import { BottomControlBar } from "./desktop-ui/index";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
 const { borders, bottom, gap, h, layout, position, right, w, r } = zero;
@@ -143,23 +144,33 @@ export function MobileUi({
   const FADE_OUT_DELAY = 3000;
   const internalFadeOpacity = useSharedValue(1);
   const fadeOpacity = sharedFadeOpacity ?? internalFadeOpacity;
-  const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
+  const fadeTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
+  const [controlsInteractive, setControlsInteractive] = useState(true);
   const selectedRendition = usePlayerStore((state) => state.selectedRendition);
 
   const resetFadeTimer = () => {
+    setControlsInteractive(true);
     fadeOpacity.value = withTiming(1, { duration: motion.base });
-    if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
+    clearTimeout(fadeTimeout.current);
     if (selectedRendition === "audio") return;
     if (ingest !== null) return;
     fadeTimeout.current = setTimeout(() => {
-      fadeOpacity.value = withTiming(0, { duration: motion.slow });
+      fadeOpacity.value = withTiming(
+        0,
+        { duration: motion.slow },
+        (finished) => {
+          if (finished) {
+            runOnJS(setControlsInteractive)(false);
+          }
+        },
+      );
     }, FADE_OUT_DELAY);
   };
 
   useEffect(() => {
     resetFadeTimer();
     return () => {
-      if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
+      clearTimeout(fadeTimeout.current);
     };
   }, []);
 
@@ -447,6 +458,28 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
+      {Platform.OS === "web" && mode === "live" && ingest === null && (
+        <Animated.View
+          style={[
+            layout.position.absolute,
+            position.bottom[0],
+            w.percent[100],
+            { zIndex: 999 },
+            animatedFadeStyle,
+          ]}
+          pointerEvents={controlsInteractive ? "box-none" : "none"}
+        >
+          <BottomControlBar
+            ingest={ingest}
+            pipSupported={false}
+            pipActive={false}
+            showContextMenu={false}
+            volumeSliderWidth={80}
+            showChat={showChat ?? false}
+            setShowChat={setShowChat}
+          />
+        </Animated.View>
+      )}
       {/* VOD scrub/play controls live OUTSIDE the gesture detector so the seek
           bar's own pan gesture isn't swallowed by the overlay's tap/pan Race.
           They still fade with the rest of the UI via the shared opacity. */}

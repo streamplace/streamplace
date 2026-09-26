@@ -34,6 +34,7 @@ interface BottomControlBarProps {
   onHandlePip?: () => void;
   dropdownPortalContainer?: string;
   showContextMenu?: boolean;
+  volumeSliderWidth?: number;
   showChat: boolean;
   setShowChat?: (show: boolean) => void;
 }
@@ -156,6 +157,7 @@ export function BottomControlBar({
   onHandlePip,
   dropdownPortalContainer,
   showContextMenu = true,
+  volumeSliderWidth = 200,
   showChat,
   setShowChat,
 }: BottomControlBarProps) {
@@ -192,7 +194,10 @@ export function BottomControlBar({
               />
             </Pressable>
           )}
-          <VolumeSlider key={String(sidebarCollapsed)} />
+          <VolumeSlider
+            key={String(sidebarCollapsed)}
+            sliderWidth={volumeSliderWidth}
+          />
           {playbackMode === "vod" && (
             <View style={[layout.flex.row, zero.gap.all[1]]}>
               <Text

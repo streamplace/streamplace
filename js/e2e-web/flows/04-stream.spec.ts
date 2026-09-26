@@ -22,7 +22,7 @@ test("04-stream: open test stream from feed", async ({ page }) => {
 test("04-stream: portrait player exposes playback controls", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/");
 
   const card = page.getByTestId("home-stream-card").first();
@@ -52,4 +52,50 @@ test("04-stream: portrait player exposes playback controls", async ({
 
   await page.getByLabel("Mute").click();
   await expect(page.getByLabel("Unmute")).toBeVisible();
+
+  const unmuteButton = page.getByLabel("Unmute");
+  const unmuteBox = await unmuteButton.boundingBox();
+  if (!unmuteBox) {
+    throw new Error("portrait player mute button has no bounding box");
+  }
+  await expect
+    .poll(
+      () =>
+        unmuteButton.evaluate(
+          (element) => getComputedStyle(element).pointerEvents,
+        ),
+      { timeout: 5_000 },
+    )
+    .toBe("none");
+  await page.mouse.click(
+    unmuteBox.x + unmuteBox.width / 2,
+    unmuteBox.y + unmuteBox.height / 2,
+  );
+  await expect
+    .poll(() =>
+      unmuteButton.evaluate((element) => {
+        let opacity = 1;
+        let current: Element | null = element;
+        while (current) {
+          opacity *= Number.parseFloat(getComputedStyle(current).opacity);
+          current = current.parentElement;
+        }
+        return opacity;
+      }),
+    )
+    .toBeGreaterThan(0.99);
+
+  await page.getByLabel("Enter fullscreen").click();
+  await expect
+    .poll(() => page.evaluate(() => Boolean(document.fullscreenElement)))
+    .toBe(true);
+  const exitFullscreen = page
+    .locator(":fullscreen")
+    .getByLabel("Exit fullscreen");
+  await expect(exitFullscreen).toBeVisible();
+  await exitFullscreen.click();
+  await expect
+    .poll(() => page.evaluate(() => Boolean(document.fullscreenElement)))
+    .toBe(false);
+  await expect(page.getByLabel("Enter fullscreen")).toBeVisible();
 });

@@ -144,23 +144,33 @@ export function MobileUi({
   const FADE_OUT_DELAY = 3000;
   const internalFadeOpacity = useSharedValue(1);
   const fadeOpacity = sharedFadeOpacity ?? internalFadeOpacity;
-  const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
+  const fadeTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
+  const [controlsInteractive, setControlsInteractive] = useState(true);
   const selectedRendition = usePlayerStore((state) => state.selectedRendition);
 
   const resetFadeTimer = () => {
+    setControlsInteractive(true);
     fadeOpacity.value = withTiming(1, { duration: motion.base });
-    if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
+    clearTimeout(fadeTimeout.current);
     if (selectedRendition === "audio") return;
     if (ingest !== null) return;
     fadeTimeout.current = setTimeout(() => {
-      fadeOpacity.value = withTiming(0, { duration: motion.slow });
+      fadeOpacity.value = withTiming(
+        0,
+        { duration: motion.slow },
+        (finished) => {
+          if (finished) {
+            runOnJS(setControlsInteractive)(false);
+          }
+        },
+      );
     }, FADE_OUT_DELAY);
   };
 
   useEffect(() => {
     resetFadeTimer();
     return () => {
-      if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
+      clearTimeout(fadeTimeout.current);
     };
   }, []);
 
@@ -457,13 +467,14 @@ export function MobileUi({
             { zIndex: 999 },
             animatedFadeStyle,
           ]}
-          pointerEvents="box-none"
+          pointerEvents={controlsInteractive ? "box-none" : "none"}
         >
           <BottomControlBar
             ingest={ingest}
             pipSupported={false}
             pipActive={false}
             showContextMenu={false}
+            volumeSliderWidth={80}
             showChat={showChat ?? false}
             setShowChat={setShowChat}
           />

@@ -24,6 +24,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -1495,7 +1496,7 @@ func makeBrandingCommand(build *config.BuildFlags) *urfavecli.Command {
 			if err != nil {
 				return fmt.Errorf("the record's repo must be a DID: %w", err)
 			}
-			f, err := branding.FetchRecord(ctx, http.DefaultClient, did.String(), uri.RecordKey().String())
+			f, err := branding.FetchRecord(ctx, identity.DefaultDirectory(), http.DefaultClient, did.String(), uri.RecordKey().String())
 			if err != nil {
 				return err
 			}

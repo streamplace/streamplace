@@ -14,6 +14,7 @@ import (
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/branding"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
@@ -148,7 +149,7 @@ func (s *Server) SyncBrandingDomain(ctx context.Context, d *statedb.BrandingDoma
 	var cidStr string
 	values := branding.Values{}
 	var warnings []string
-	fetched, err := branding.FetchRecord(ctx, &aqhttp.Client, d.OwnerDID, d.Hostname)
+	fetched, err := branding.FetchRecord(ctx, atproto.CustomDirectory(s.cli.PLCURL), &aqhttp.Client, d.OwnerDID, d.Hostname)
 	switch {
 	case errors.Is(err, branding.ErrNoRecord):
 		err = nil

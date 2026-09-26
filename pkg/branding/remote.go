@@ -13,7 +13,8 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"stream.place/streamplace/pkg/placestream"
 )
@@ -32,14 +33,22 @@ type Fetched struct {
 
 // FetchRecord pulls the brand record at://did/place.stream.branding.brand/rkey
 // and every image it references from the owner's PDS, and validates it like
-// an import. client makes the HTTP requests (aqhttp.Client in a node, which
-// refuses private addresses unless the node trusts them).
-func FetchRecord(ctx context.Context, client *http.Client, did, rkey string) (*Fetched, error) {
-	service, _, err := oatproxy.ResolveServiceWithClient(ctx, did, client)
+// an import. dir resolves the owner's DID (a node passes one on its own PLC);
+// client makes the HTTP requests (aqhttp.Client in a node, which refuses
+// private addresses unless the node trusts them).
+func FetchRecord(ctx context.Context, dir identity.Directory, client *http.Client, did, rkey string) (*Fetched, error) {
+	parsed, err := syntax.ParseDID(did)
+	if err != nil {
+		return nil, err
+	}
+	ident, err := dir.LookupDID(ctx, parsed)
 	if err != nil {
 		return nil, fmt.Errorf("resolve %s: %w", did, err)
 	}
-	service = strings.TrimSuffix(service, "/")
+	service := strings.TrimSuffix(ident.PDSEndpoint(), "/")
+	if service == "" {
+		return nil, fmt.Errorf("%s has no PDS", did)
+	}
 
 	q := url.Values{"repo": {did}, "collection": {RecordNSID}, "rkey": {rkey}}
 	body, status, err := get(ctx, client, service+"/xrpc/com.atproto.repo.getRecord?"+q.Encode(), 256*1024)

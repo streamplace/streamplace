@@ -59,6 +59,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MobileChatPanel } from "./chat";
+import { BottomControlBar } from "./desktop-ui/index";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
 const { borders, bottom, gap, h, layout, position, right, w, r } = zero;
@@ -447,6 +448,27 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
+      {Platform.OS === "web" && mode === "live" && ingest === null && (
+        <Animated.View
+          style={[
+            layout.position.absolute,
+            position.bottom[0],
+            w.percent[100],
+            { zIndex: 999 },
+            animatedFadeStyle,
+          ]}
+          pointerEvents="box-none"
+        >
+          <BottomControlBar
+            ingest={ingest}
+            pipSupported={false}
+            pipActive={false}
+            showContextMenu={false}
+            showChat={showChat ?? false}
+            setShowChat={setShowChat}
+          />
+        </Animated.View>
+      )}
       {/* VOD scrub/play controls live OUTSIDE the gesture detector so the seek
           bar's own pan gesture isn't swallowed by the overlay's tap/pan Race.
           They still fade with the rest of the UI via the shared opacity. */}

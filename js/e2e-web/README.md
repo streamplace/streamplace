@@ -40,6 +40,10 @@ bar, and `03-go-live` reaches the streaming entry point via the Live Dashboard
 (`/live`), which — logged out — surfaces the same Log In prompt as the mobile
 "Go Live → Start streaming" path.
 
+`04-stream` also covers the portrait web layout at 390 × 844, where the live
+video sits above chat. It reveals the player chrome, verifies the mute and
+fullscreen controls, and exercises the mute toggle.
+
 ## OAuth over real HTTPS
 
 `05-oauth-login` logs in the way a user does, through the node's OAuth proxy

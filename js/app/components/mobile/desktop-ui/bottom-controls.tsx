@@ -31,8 +31,9 @@ interface BottomControlBarProps {
   ingest: string | null;
   pipSupported: boolean;
   pipActive: boolean;
-  onHandlePip: () => void;
-  dropdownPortalContainer?: any;
+  onHandlePip?: () => void;
+  dropdownPortalContainer?: string;
+  showContextMenu?: boolean;
   showChat: boolean;
   setShowChat?: (show: boolean) => void;
 }
@@ -100,7 +101,12 @@ function FullscreenButton() {
   const setFullscreen = usePlayerStore((state) => state.setFullscreen);
   if (Platform.OS !== "web") return null;
   return (
-    <Pressable onPress={() => setFullscreen(!fullscreen)} style={[p[2], r[1]]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+      onPress={() => setFullscreen(!fullscreen)}
+      style={[p[2], r[1]]}
+    >
       {fullscreen ? (
         <Minimize color={theme.colors.text} />
       ) : (
@@ -149,6 +155,7 @@ export function BottomControlBar({
   pipActive,
   onHandlePip,
   dropdownPortalContainer,
+  showContextMenu = true,
   showChat,
   setShowChat,
 }: BottomControlBarProps) {
@@ -212,11 +219,11 @@ export function BottomControlBar({
         <View
           style={[layout.flex.row, layout.flex.alignCenter, gap.all[3], pill]}
         >
-          {pipSupported && (
+          {pipSupported && onHandlePip && (
             <PipButton pipActive={pipActive} onHandlePip={onHandlePip} />
           )}
           <DanmuButton />
-          {ingest === null && (
+          {ingest === null && showContextMenu && (
             <ContextMenuButton
               dropdownPortalContainer={dropdownPortalContainer}
             />

@@ -319,6 +319,7 @@ function PlayerWithProvider(
                   showChat={showChat}
                   setShowChat={setShowChat}
                   showUnavailable={showUnavailable}
+                  hideInlineMobileUi={isPortraitLandscapeCase}
                 />
               </View>
               {isPortraitLandscapeCase && (
@@ -342,6 +343,7 @@ export function PlayerInner(
     showChat: boolean;
     setShowChat: (show: boolean) => void;
     showUnavailable: boolean;
+    hideInlineMobileUi?: boolean;
   },
 ) {
   let sb = useSidebarControl();
@@ -476,6 +478,7 @@ export function PlayerInner(
       {showFullDesktopMode || fullscreen ? (
         <DesktopUi dropdownPortalContainer={dropdownPortalRef.current} />
       ) : (
+        !props.hideInlineMobileUi &&
         (isLandscape || props.mode === "vod") && (
           <MobileUi
             hideMobileChat={props.mode === "vod"}

@@ -66,7 +66,12 @@ export function VolumeSlider() {
       onPointerLeave={fadeOut}
       style={[layout.flex.row, layout.flex.alignCenter, { height: 50 }]}
     >
-      <Pressable onPress={handleMuteToggle} style={[p[2], r[1]]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={muted ? "Unmute" : "Mute"}
+        onPress={handleMuteToggle}
+        style={[p[2], r[1]]}
+      >
         <VolumeIcon size={20} color="white" />
       </Pressable>
 

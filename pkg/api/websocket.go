@@ -265,7 +265,14 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 		}()
 
 		go func() {
-			messages, err := a.Model.MostRecentChatMessages(repoDID)
+			// Withhold chat older than the node's retention window: a viewer
+			// arriving the next day should land on an empty chat, not
+			// yesterday's conversation. A zero retention serves everything.
+			var since time.Time
+			if a.CLI.ChatMessageRetention > 0 {
+				since = time.Now().Add(-a.CLI.ChatMessageRetention)
+			}
+			messages, err := a.Model.MostRecentChatMessages(repoDID, since)
 			if err != nil {
 				log.Error(ctx, "could not get chat messages", "error", err)
 				return

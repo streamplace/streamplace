@@ -1,7 +1,9 @@
+import { chatMessageOpacity } from "@streamplace/core";
 import { ChevronDown, Ellipsis, Reply } from "lucide-react-native";
 import {
   ComponentProps,
   memo,
+  type ReactNode,
   useEffect,
   useMemo,
   useRef,
@@ -73,8 +75,72 @@ function LeftAction(prog: SharedValue<number>, drag: SharedValue<number>) {
 const SHOWN_MSGS =
   Platform.OS === "ios" || Platform.OS === "android" ? 25 : 100;
 
+// Chat ages out on the hour, so a slow tick is plenty: it only exists so the
+// fade and the disappearance happen while the viewer watches, rather than
+// waiting for the next message to arrive and re-render the list.
+const CHAT_EXPIRY_TICK_MS = 30_000;
+
+function useChatExpiryTick(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), CHAT_EXPIRY_TICK_MS);
+    return () => clearInterval(timer);
+  }, []);
+  return now;
+}
+
 const keyExtractor = (item: ChatMessageViewHydrated, index: number) => {
   return `${item.uri}`;
+};
+
+// A message that has faded out is gone, not absent: it keeps the space the
+// list is scrolled over, so the history behind it stays reachable. It must not
+// stay tabbable, though. react-native-web drops unknown props, so on the web a
+// faded row gets a real DOM node carrying `inert`, which takes it out of
+// keyboard focus and the accessibility tree in one go.
+//
+// While focus is inside a row, it is neither: the viewer is interacting with
+// it, so it stays at full strength and stays reachable, and only goes quiet
+// once focus leaves. Hiding or blurring the control someone is using is worse
+// than letting a gone row linger a moment longer.
+const FadedRow = ({
+  opacity,
+  children,
+}: {
+  opacity: number;
+  children: ReactNode;
+}) => {
+  const [focused, setFocused] = useState(false);
+  const faded = opacity === 0 && !focused;
+  if (Platform.OS !== "web") {
+    return (
+      <View
+        style={{ opacity }}
+        pointerEvents={opacity === 0 ? "none" : "auto"}
+        aria-hidden={opacity === 0 || undefined}
+      >
+        {children}
+      </View>
+    );
+  }
+  return (
+    <div
+      inert={faded}
+      aria-hidden={faded || undefined}
+      style={{
+        opacity: focused ? 1 : opacity,
+        pointerEvents: faded ? "none" : undefined,
+      }}
+      onFocus={() => setFocused(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setFocused(false);
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
 };
 
 // Actions bar for larger screens
@@ -165,7 +231,14 @@ const ActionsBar = memo(
   },
 );
 
-const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
+const ChatLine = memo(function ChatLine({
+  item,
+  opacity,
+}: {
+  item: ChatMessageViewHydrated;
+  /** 0..1 from chatMessageOpacity; 1 when the viewer is reading history. */
+  opacity: number;
+}) {
   const { theme } = useTheme();
   const setReply = useSetReplyToMessage();
   const setModMsg = usePlayerStore((state) => state.setModMessage);
@@ -198,47 +271,51 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
 
   if (item.author.did === "did:sys:system") {
     return (
-      <SystemMessage
-        variant={getSystemMessageType(item) || SystemMessageType.notification}
-        timestamp={new Date(item.record.createdAt)}
-        title={item.record.text}
-        facets={item.record.facets}
-      />
+      <FadedRow opacity={opacity}>
+        <SystemMessage
+          variant={getSystemMessageType(item) || SystemMessageType.notification}
+          timestamp={new Date(item.record.createdAt)}
+          title={item.record.text}
+          facets={item.record.facets}
+        />
+      </FadedRow>
     );
   }
 
   if (Platform.OS === "web") {
     return (
-      <View
-        style={[
-          py[1],
-          px[2],
-          {
-            position: "relative",
-            borderRadius: borderRadius.md,
-            minWidth: 0,
-            maxWidth: "100%",
-          },
-          isHovered ? { backgroundColor: theme.colors.surfaceHover } : {},
-        ]}
-        onPointerEnter={handleHoverIn}
-        onPointerLeave={handleHoverOut}
-      >
-        <Pressable style={[{ minWidth: 0, maxWidth: "100%" }]}>
-          <RenderChatMessage item={item} />
-        </Pressable>
-        <ActionsBar
-          item={item}
-          visible={isHovered || menuOpen}
-          hoverTimeoutRef={hoverTimeoutRef}
-          onMenuOpenChange={setMenuOpen}
-        />
-      </View>
+      <FadedRow opacity={opacity}>
+        <View
+          style={[
+            py[1],
+            px[2],
+            {
+              position: "relative",
+              borderRadius: borderRadius.md,
+              minWidth: 0,
+              maxWidth: "100%",
+            },
+            isHovered ? { backgroundColor: theme.colors.surfaceHover } : {},
+          ]}
+          onPointerEnter={handleHoverIn}
+          onPointerLeave={handleHoverOut}
+        >
+          <Pressable style={[{ minWidth: 0, maxWidth: "100%" }]}>
+            <RenderChatMessage item={item} />
+          </Pressable>
+          <ActionsBar
+            item={item}
+            visible={isHovered || menuOpen}
+            hoverTimeoutRef={hoverTimeoutRef}
+            onMenuOpenChange={setMenuOpen}
+          />
+        </View>
+      </FadedRow>
     );
   }
 
   return (
-    <>
+    <FadedRow opacity={opacity}>
       <Swipeable
         containerStyle={[{ paddingVertical: 6 }]}
         friction={2}
@@ -265,7 +342,7 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
       >
         <RenderChatMessage item={item} />
       </Swipeable>
-    </>
+    </FadedRow>
   );
 });
 
@@ -311,16 +388,27 @@ export function Chat({
   }, []);
   const [isVisible, setIsVisible] = useState(true);
   const flatListRef = useRef<FlatList>(null);
+  const now = useChatExpiryTick();
+  const visibleMessages = useMemo(
+    () =>
+      !chat
+        ? []
+        : hideSystemMessages
+          ? chat.filter((m) => m.author.did !== "did:sys:system")
+          : chat,
+    [chat, hideSystemMessages],
+  );
   // The store keeps chat oldest-first. An inverted FlatList renders index 0 at
   // the bottom, so feed it newest-first to keep the latest message at the
   // bottom (or at the top when reverse is set, where inverted is off).
-  const displayMessages = useMemo(() => {
-    if (!chat) return [];
-    const visible = hideSystemMessages
-      ? chat.filter((m) => m.author.did !== "did:sys:system")
-      : chat;
-    return visible.slice(-shownMessages).reverse();
-  }, [chat, shownMessages, hideSystemMessages]);
+  //
+  // Expired messages stay in the list -- invisible, so the list is scrolled
+  // over them, and scrollable far enough back to reach the history the store
+  // still holds. Only their opacity says "gone".
+  const displayMessages = useMemo(
+    () => visibleMessages.slice(-shownMessages).reverse(),
+    [visibleMessages, shownMessages],
+  );
   const latestMessageTime = displayMessages[0]
     ? new Date(displayMessages[0].record.createdAt).getTime()
     : null;
@@ -424,7 +512,10 @@ export function Chat({
           keyExtractor={keyExtractor}
           renderItem={({ item, index }) => (
             <ErrorBoundary>
-              <ChatLine item={item} />
+              <ChatLine
+                item={item}
+                opacity={isScrolledUp ? 1 : chatMessageOpacity(item, now)}
+              />
             </ErrorBoundary>
           )}
           removeClippedSubviews={true}

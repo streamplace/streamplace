@@ -109,7 +109,7 @@ func TestBackfillWalk(t *testing.T) {
 	require.Equal(t, head.Rev, stored.Version)
 	require.Equal(t, head.Root.String(), stored.RootCID)
 
-	messages, err := mod.MostRecentChatMessages(user.DID)
+	messages, err := mod.MostRecentChatMessages(user.DID, time.Time{})
 	require.NoError(t, err)
 	require.Len(t, messages, 2)
 	texts := []string{
@@ -156,7 +156,7 @@ func TestBackfillWedgeHeals(t *testing.T) {
 		if repo.Version == "" {
 			return fmt.Errorf("repo still has no version")
 		}
-		messages, err := mod.MostRecentChatMessages(user.DID)
+		messages, err := mod.MostRecentChatMessages(user.DID, time.Time{})
 		if err != nil {
 			return err
 		}
@@ -244,7 +244,7 @@ func TestBackfillFallsBackToGetRepo(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		messages, err := mod.MostRecentChatMessages(user.DID)
+		messages, err := mod.MostRecentChatMessages(user.DID, time.Time{})
 		if err != nil {
 			return err
 		}
@@ -1029,7 +1029,7 @@ func TestBackfillBroadcastsOnlyLiveChat(t *testing.T) {
 
 	_, err := atsync.SyncBlueskyRepoCached(ctx, user.DID)
 	require.NoError(t, err)
-	messages, err := mod.MostRecentChatMessages(user.DID)
+	messages, err := mod.MostRecentChatMessages(user.DID, time.Time{})
 	require.NoError(t, err)
 	require.Len(t, messages, 2, "the walk indexed both messages")
 

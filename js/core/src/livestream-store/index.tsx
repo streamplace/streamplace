@@ -2,6 +2,7 @@
 // Contains only platform-agnostic, React-free code: state, factory,
 // reducers, and pure utilities. The React hooks and context live in
 // @streamplace/components.
+export * from "./chat-expiry";
 export * from "./chat-reducer";
 export * from "./connect";
 export * from "./problems";

@@ -1,13 +1,19 @@
 #!/usr/bin/env node
 // Streamplace brand asset generator.
 //
-// Reads a flat directory of brand inputs (see brand/README.md for the
-// contract) and generates every derived brand asset in the repo: the Expo
+// Reads a brand directory (see brand/README.md for the contract) and
+// generates every derived brand asset in the repo: the Expo
 // icon/splash/adaptive-icon/favicon PNGs (Expo prebuild derives all native
 // iOS/Android formats from those), the OG link banner, desktop ICO/ICNS,
 // docs logos, the downloadable /brand SVGs, and a TypeScript module the
 // app's logo components render from. Every output is gitignored; the brand
 // directory is the only source of truth.
+//
+// A brand directory is a node branding bundle unzipped: branding.yaml
+// naming the files beside it, in the same vocabulary a node imports
+// (pkg/branding/vocab.go), so one directory brands both the builds and the
+// running node. Older directories with a brand.json and conventionally
+// named files (mark.svg, icon.png, ...) still work.
 //
 // Brand dir resolution: $SP_BRAND_DIR, else brand/custom/ (gitignored — for
 // first-party or private art), else brand/ (the open-source default).
@@ -19,15 +25,19 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
+import YAML from "yaml";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
+const isBrandDir = (dir) =>
+  existsSync(join(dir, "branding.yaml")) || existsSync(join(dir, "brand.json"));
+
 const brandDir = process.env.SP_BRAND_DIR
   ? resolve(process.env.SP_BRAND_DIR)
-  : existsSync(join(repoRoot, "brand", "custom", "brand.json"))
+  : isBrandDir(join(repoRoot, "brand", "custom"))
     ? join(repoRoot, "brand", "custom")
     : join(repoRoot, "brand");
 
@@ -36,12 +46,65 @@ function fail(msg) {
   process.exit(1);
 }
 
-if (!existsSync(join(brandDir, "brand.json"))) {
-  fail(`no brand.json in ${brandDir}`);
+if (!isBrandDir(brandDir)) {
+  fail(`no branding.yaml (or legacy brand.json) in ${brandDir}`);
 }
 
-const config = JSON.parse(readFileSync(join(brandDir, "brand.json"), "utf8"));
-if (!config.name) fail("brand.json must set `name`");
+// The brand, whichever format it came in: `config` in brand.json's shape,
+// `files` the art by role (a file name in brandDir, or undefined).
+function loadBrand() {
+  const yamlPath = join(brandDir, "branding.yaml");
+  if (existsSync(yamlPath)) {
+    const doc = YAML.parse(readFileSync(yamlPath, "utf8")) ?? {};
+    const b = doc.branding ?? {};
+    let story = b.appStory ?? null;
+    if (typeof story === "string") {
+      try {
+        story = JSON.parse(story);
+      } catch {
+        fail("appStory must be JSON");
+      }
+    }
+    return {
+      config: {
+        name: b.appName ?? b.siteTitle,
+        wordmark: b.appWordmark,
+        defaultSiteTitle: b.siteTitle,
+        monochrome: b.appMonochrome === "on",
+        colors: b.appColors ?? {},
+        story,
+        bundleId: b.appBundleId,
+        host: b.appHost,
+      },
+      files: {
+        mark: b.mainLogo,
+        icon: b.appIcon,
+        "icon-foreground": b.appIconForeground,
+        splash: b.appSplash,
+        wordmark: b.appWordmarkImage,
+        linkbanner: b.linkBanner,
+      },
+    };
+  }
+  const config = JSON.parse(readFileSync(join(brandDir, "brand.json"), "utf8"));
+  const files = {};
+  for (const role of [
+    "mark",
+    "icon",
+    "icon-foreground",
+    "splash",
+    "wordmark",
+    "linkbanner",
+  ]) {
+    files[role] = ["svg", "png"]
+      .map((ext) => `${role}.${ext}`)
+      .find((f) => existsSync(join(brandDir, f)));
+  }
+  return { config, files };
+}
+
+const { config, files: brandFiles } = loadBrand();
+if (!config.name) fail("the brand must set appName (or siteTitle)");
 
 const colors = {
   ink: "#0A0A0B",
@@ -73,6 +136,10 @@ const wordmark = config.wordmark ?? name;
 const defaultSiteTitle = config.defaultSiteTitle ?? `My ${name} Node`;
 const mono = config.monochrome === true;
 const story = config.story ?? null;
+// Native identity of a white-label build; app.config.ts falls back to the
+// first-party values (and the SP_* env overrides still win).
+const bundleId = config.bundleId ?? null;
+const host = config.host ?? null;
 const slug = name
   .toLowerCase()
   .replace(/[^a-z0-9]+/g, "-")
@@ -132,20 +199,18 @@ const rasterize = (svg) => sharp(Buffer.from(svg)).png().toBuffer();
 
 // ------------------------------------------------------------ brand inputs
 
-function findArt(base) {
-  for (const ext of ["svg", "png"]) {
-    const p = join(brandDir, `${base}.${ext}`);
-    if (existsSync(p)) {
-      return ext === "svg"
-        ? { svg: stripSize(readFileSync(p, "utf8")) }
-        : { png: p };
-    }
-  }
-  return null;
+function findArt(role) {
+  const file = brandFiles[role];
+  if (!file) return null;
+  const p = join(brandDir, basename(file));
+  if (!existsSync(p)) fail(`${role}: ${file} is not in ${brandDir}`);
+  if (/\.svg$/i.test(p)) return { svg: stripSize(readFileSync(p, "utf8")) };
+  if (/\.png$/i.test(p)) return { png: p };
+  fail(`${role}: ${file} must be an SVG or PNG`);
 }
 
 const markArt = findArt("mark");
-if (!markArt?.svg) fail(`${brandDir}/mark.svg is required`);
+if (!markArt?.svg) fail("the mark (mainLogo) is required and must be an SVG");
 const markSvg = markArt.svg;
 
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
@@ -407,7 +472,16 @@ write(join(outDocs, "logo-dark.png"), docsDark);
 write(
   join(outApp, "brand.json"),
   JSON.stringify(
-    { name, slug, wordmark, defaultSiteTitle, monochrome: mono, colors },
+    {
+      name,
+      slug,
+      wordmark,
+      defaultSiteTitle,
+      monochrome: mono,
+      colors,
+      bundleId,
+      host,
+    },
     null,
     2,
   ) + "\n",
@@ -440,6 +514,8 @@ export type Brand = {
   wordmark: string;
   defaultSiteTitle: string;
   monochrome: boolean;
+  /** Hostname of the node a white-label build talks to by default. */
+  host: string | null;
   colors: {
     ink: string;
     paper: string;
@@ -460,6 +536,7 @@ export const BRAND: Brand = {
   wordmark: ${JSON.stringify(wordmark)},
   defaultSiteTitle: ${JSON.stringify(defaultSiteTitle)},
   monochrome: ${mono},
+  host: ${JSON.stringify(host)},
   colors: {
     ink: ${JSON.stringify(colors.ink)},
     paper: ${JSON.stringify(colors.paper)},

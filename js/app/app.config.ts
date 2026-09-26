@@ -98,7 +98,11 @@ export default function () {
     );
   }
   const name = isProd ? brand.name : "Devplace";
-  let bundle = isProd ? "tv.aquareum" : "tv.aquareum.dev";
+  // A white-label brand names its own app identity and home node (appBundleId
+  // and appHost in its branding.yaml); the first-party values otherwise.
+  const baseBundle = brand.bundleId ?? "tv.aquareum";
+  const host = brand.host ?? "stream.place";
+  let bundle = isProd ? baseBundle : `${baseBundle}.dev`;
   if (process.env["SP_BUNDLE_OVERRIDE"]) {
     bundle = process.env["SP_BUNDLE_OVERRIDE"];
   }
@@ -139,7 +143,7 @@ export default function () {
               entitlements: {
                 "aps-environment": "production",
               },
-              associatedDomains: ["applinks:stream.place"],
+              associatedDomains: [`applinks:${host}`],
             }
           : {}),
       },
@@ -158,7 +162,7 @@ export default function () {
             data: [
               {
                 scheme: "https",
-                host: "stream.place",
+                host,
                 pathPattern: "/.*:.*",
               },
             ],
@@ -170,7 +174,7 @@ export default function () {
             data: [
               {
                 scheme: "https",
-                host: "stream.place",
+                host,
                 pathPattern: "/.*\\\\..*",
               },
             ],
@@ -182,7 +186,7 @@ export default function () {
             data: [
               {
                 scheme: "https",
-                host: "stream.place",
+                host,
                 path: "/",
               },
             ],
@@ -292,7 +296,7 @@ export default function () {
       ],
       updates: isProd
         ? {
-            url: `https://stream.place/api/manifest`,
+            url: `https://${host}/api/manifest`,
             enabled: true,
             checkAutomatically: "ON_LOAD",
             fallbackToCacheTimeout: 30000,

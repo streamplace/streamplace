@@ -16,6 +16,10 @@ type BroadcastGetBroadcaster_Output struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	// admins: Array of DIDs authorized as admins
 	Admins []string `json:"admins,omitempty"`
+	// brand: Broadcaster ID the requested hostname's branding is read and written under: did:web:<custom domain> on a custom domain, else the broadcaster.
+	Brand *string `json:"brand,omitempty"`
+	// brandAdmins: DIDs that may change that branding: the admins, or on a custom domain its owner.
+	BrandAdmins []string `json:"brandAdmins,omitempty"`
 	// broadcaster: DID of the Streamplace broadcaster to which this server belongs
 	Broadcaster string `json:"broadcaster"`
 	// server: DID of this particular Streamplace server
@@ -44,7 +48,7 @@ func (t *BroadcastGetBroadcaster_Output) UnmarshalCBOR(r io.Reader) error {
 
 // BroadcastGetBroadcaster calls the XRPC method "place.stream.broadcast.getBroadcaster".
 //
-// Get information about a Streamplace broadcaster.
+// Get information about a Streamplace broadcaster, as seen from the requested hostname.
 func BroadcastGetBroadcaster(ctx context.Context, c glex.LexClient) (*BroadcastGetBroadcaster_Output, error) {
 	var out BroadcastGetBroadcaster_Output
 

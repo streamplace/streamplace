@@ -97,6 +97,21 @@ func New(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB) (*Mana
 		Storage:           storage,
 		Logger:            logger,
 		DefaultServerName: domains[0],
+		// Custom domains (place.stream.branding.putDomain) come and go at
+		// runtime: their certificates are obtained on the first handshake
+		// that asks for one, for registered domains only.
+		OnDemand: &certmagic.OnDemandConfig{
+			DecisionFunc: func(ctx context.Context, name string) error {
+				d, err := state.GetBrandingDomain(name)
+				if err != nil {
+					return err
+				}
+				if d == nil {
+					return fmt.Errorf("acme: %q is not a custom domain of this node", name)
+				}
+				return nil
+			},
+		},
 	})
 	m.issuer = certmagic.NewACMEIssuer(m.cfg, certmagic.ACMEIssuer{
 		CA:     ResolveCA(cli.ACMECA),

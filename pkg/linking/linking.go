@@ -41,6 +41,9 @@ type PageConfig struct {
 	Metas     []MetaTag
 	SentryDSN string
 	Branding  []string
+	// BrandID is the broadcaster ID the page is branded with (see
+	// Linker.brandFor); empty means the node's own.
+	BrandID string
 }
 
 // Define all meta tags in a structured way
@@ -66,23 +69,41 @@ const inlineBrandingImageLimit = 96 * 1024
 // theme accepts, so a stored value can be dropped straight into a style.
 var hexColor = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$`)
 
-// bodyBackground returns the node's branded dark background color, if any,
-// so the page can paint it before the bundle loads instead of the default
-// then re-painting (the "flash of unbranded content").
-func (l *Linker) bodyBackground() string {
-	v := l.brandingText("backgroundColor")
+// brandFor is the broadcaster ID a page at u is branded with, and the
+// custom domain behind it: a custom domain carries its owner's brand, any
+// other host the node's own.
+func (l *Linker) brandFor(u *url.URL) (string, *statedb.BrandingDomain) {
+	if l.cli == nil {
+		return "", nil
+	}
+	host := ""
+	if u != nil {
+		host = u.Host
+	}
+	return branding.ResolveHost(l.sdb, l.cli.BroadcasterHost, host)
+}
+
+// bodyBackground returns the brand's dark background color, if any, so the
+// page can paint it before the bundle loads instead of the default then
+// re-painting (the "flash of unbranded content").
+func (l *Linker) bodyBackground(brandID string) string {
+	v := l.brandingText(brandID, "backgroundColor")
 	if !hexColor.MatchString(v) {
 		return ""
 	}
 	return v
 }
 
-// brandingText reads a text branding key for this node, "" when unset.
-func (l *Linker) brandingText(key string) string {
+// brandingText reads a text branding key of brandID (the node's own when
+// empty), "" when unset.
+func (l *Linker) brandingText(brandID, key string) string {
 	if l.sdb == nil || l.cli == nil {
 		return ""
 	}
-	blob, err := l.sdb.GetBrandingBlob("did:web:"+l.cli.BroadcasterHost, key)
+	if brandID == "" {
+		brandID = "did:web:" + l.cli.BroadcasterHost
+	}
+	blob, err := l.sdb.GetBrandingBlob(brandID, key)
 	if err != nil || blob == nil {
 		return ""
 	}
@@ -118,9 +139,10 @@ func isAppBannerMeta(node *html.Node) bool {
 //     (pass "" to omit, e.g. for pages that don't represent a record)
 //   - at:author    — the atproto identity of the page's author, as an
 //     at://<did> URI (pass "" to omit)
-//   - at:me        — the identity of the overall website, i.e. this node's
-//     did:web, when a broadcaster host is configured
-func (l *Linker) atTags(canonicalURI string, authorDID string) []MetaTag {
+//   - at:me        — the identity of the overall website: this node's
+//     did:web when a broadcaster host is configured, or on a custom domain
+//     the account that owns it
+func (l *Linker) atTags(canonicalURI string, authorDID string, domain *statedb.BrandingDomain) []MetaTag {
 	tags := make([]MetaTag, 0, 3)
 	if strings.HasPrefix(canonicalURI, "at://") {
 		tags = append(tags, MetaTag{Type: "name", Key: "at:canonical", Content: canonicalURI})
@@ -128,7 +150,9 @@ func (l *Linker) atTags(canonicalURI string, authorDID string) []MetaTag {
 	if authorDID != "" {
 		tags = append(tags, MetaTag{Type: "name", Key: "at:author", Content: "at://" + authorDID})
 	}
-	if l.cli != nil && l.cli.BroadcasterHost != "" {
+	if domain != nil {
+		tags = append(tags, MetaTag{Type: "name", Key: "at:me", Content: "at://" + domain.OwnerDID})
+	} else if l.cli != nil && l.cli.BroadcasterHost != "" {
 		tags = append(tags, MetaTag{Type: "name", Key: "at:me", Content: "at://did:web:" + l.cli.BroadcasterHost})
 	}
 	return tags
@@ -138,6 +162,11 @@ func (l *Linker) atTags(canonicalURI string, authorDID string) []MetaTag {
 func (l *Linker) getBrandingAssets(broadcasterDid string) ([]placestream.BrandingGetBranding_BrandingAsset, error) {
 	ret := make([]placestream.BrandingGetBranding_BrandingAsset, 0)
 	for _, asset := range BrandingAssetList {
+		if !branding.IsRuntime(asset) {
+			// Build-time keys (native icons, the app's identity) are never
+			// read by the running app; leave them out of every page.
+			continue
+		}
 		blob, err := l.sdb.GetBrandingBlob(broadcasterDid, asset)
 		if err != nil {
 			// this can probably include a 'record not found' error, in which case we skip
@@ -180,15 +209,15 @@ func (l *Linker) getBrandingAssets(broadcasterDid string) ([]placestream.Brandin
 	return ret, nil
 }
 
-// brandMetas fetches the node's branding once for a card: the
-// internal-brand:* meta tags the app hydrates from, plus every text value by
-// key so the card's own title and description can be branded.
-func (l *Linker) brandMetas(ctx context.Context) ([]MetaTag, map[string]string) {
+// brandMetas fetches a brand once for a card: the internal-brand:* meta
+// tags the app hydrates from, plus every text value by key so the card's own
+// title and description can be branded.
+func (l *Linker) brandMetas(ctx context.Context, brandID string) ([]MetaTag, map[string]string) {
 	values := map[string]string{}
-	if l.sdb == nil || l.cli == nil {
+	if l.sdb == nil || l.cli == nil || brandID == "" {
 		return nil, values
 	}
-	assets, err := l.getBrandingAssets("did:web:" + l.cli.BroadcasterHost)
+	assets, err := l.getBrandingAssets(brandID)
 	if err != nil {
 		// log but we should not block rendering
 		log.Error(ctx, "error fetching branding assets", "error", err)
@@ -309,19 +338,21 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *plac
 	thumbURL.Path = "/xrpc/place.stream.live.getProfileCard"
 	thumbURL.RawQuery = fmt.Sprintf("id=%s", lsv.Author.Did)
 
-	brandMetas, values := l.brandMetas(ctx)
+	brandID, domain := l.brandFor(u)
+	brandMetas, values := l.brandMetas(ctx, brandID)
 	title := expandCard(cardText(values, "cardLiveTitle"), values, &lsv.Author)
 	metaTags := cardTags(u, "website", title, ls.Title, thumbURL.String(), siteTitle(values))
 	metaTags = append(metaTags, brandMetas...)
 
 	// at-tags: this page canonically maps to the livestream record, authored
 	// by the streamer
-	metaTags = append(metaTags, l.atTags(lsv.Uri, lsv.Author.Did)...)
+	metaTags = append(metaTags, l.atTags(lsv.Uri, lsv.Author.Did, domain)...)
 
 	return l.GenerateHTML(ctx, &PageConfig{
 		Title:     title,
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
+		BrandID:   brandID,
 	})
 }
 
@@ -358,7 +389,8 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestr
 		imageURL = cardURL.String()
 	}
 
-	brandMetas, values := l.brandMetas(ctx)
+	brandID, domain := l.brandFor(u)
+	brandMetas, values := l.brandMetas(ctx, brandID)
 	title := expandCard(cardText(values, "cardVideoTitle"), values, &vv.Author)
 	// The description is the video's title, the post text it was published
 	// with; a video without one falls back to its description.
@@ -371,12 +403,13 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestr
 
 	// at-tags: this page canonically maps to the place.stream.video record,
 	// authored by the streamer
-	metaTags = append(metaTags, l.atTags(vv.Uri, authorDid)...)
+	metaTags = append(metaTags, l.atTags(vv.Uri, authorDid, domain)...)
 
 	return l.GenerateHTML(ctx, &PageConfig{
 		Title:     title,
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
+		BrandID:   brandID,
 	})
 }
 
@@ -430,7 +463,8 @@ func (l *Linker) GenerateLandingCard(ctx context.Context, u *url.URL, page Landi
 	thumbURL, _ := url.Parse(u.String())
 	thumbURL.Path = "/linkbanner.png"
 
-	brandMetas, values := l.brandMetas(ctx)
+	brandID, domain := l.brandFor(u)
+	brandMetas, values := l.brandMetas(ctx, brandID)
 	title := siteTitle(values)
 	description := values["siteDescription"]
 	if description == "" {
@@ -460,12 +494,13 @@ func (l *Linker) GenerateLandingCard(ctx context.Context, u *url.URL, page Landi
 
 	// at-tags: the site itself is identified by this node's did:web; there's
 	// no single author or canonical record for the front page
-	metaTags = append(metaTags, l.atTags("", "")...)
+	metaTags = append(metaTags, l.atTags("", "", domain)...)
 
 	return l.GenerateHTML(ctx, &PageConfig{
 		Title:     title,
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
+		BrandID:   brandID,
 	})
 }
 
@@ -521,7 +556,7 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 	// and crawlers honour the first tag they meet, so the template's go.
 	// A node that is its own product can also drop the template's iOS Smart
 	// App Banner (branding key mobileAppBanner=off).
-	dropAppBanner := l.brandingText("mobileAppBanner") == "off"
+	dropAppBanner := l.brandingText(pc.BrandID, "mobileAppBanner") == "off"
 	var stale []*html.Node
 	for node := range head.ChildNodes() {
 		if node.Type != html.ElementNode {
@@ -564,7 +599,7 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 	// element too, since that is what mobile browsers show behind their
 	// translucent bars and in overscroll, and as theme-color for the bars
 	// themselves.
-	if bg := l.bodyBackground(); bg != "" {
+	if bg := l.bodyBackground(pc.BrandID); bg != "" {
 		style := &html.Node{Type: html.ElementNode, Data: "style"}
 		head.AppendChild(style)
 		style.AppendChild(&html.Node{Type: html.TextNode, Data: "html,body{background-color:" + bg + "}"})

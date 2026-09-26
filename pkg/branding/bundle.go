@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -14,7 +13,6 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
-	"gorm.io/gorm"
 
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -110,11 +108,36 @@ func mimeFor(name, declared string) string {
 	return "application/octet-stream"
 }
 
-// Export builds a bundle of everything set on broadcasterID.
-func Export(ctx context.Context, state *statedb.StatefulDB, broadcasterID string) ([]byte, error) {
-	keys, err := state.ListBrandingKeys(broadcasterID)
+// ReadValues loads everything set on broadcasterID.
+func ReadValues(state *statedb.StatefulDB, broadcasterID string) (Values, error) {
+	blobs, err := state.BrandingBlobs(broadcasterID)
 	if err != nil {
 		return nil, err
+	}
+	values := Values{}
+	for key, blob := range blobs {
+		if len(bytes.TrimSpace(blob.Data)) == 0 {
+			continue
+		}
+		values[key] = Value{MimeType: blob.MimeType, Data: blob.Data}
+	}
+	return values, nil
+}
+
+// Export builds a bundle of everything set on broadcasterID.
+func Export(ctx context.Context, state *statedb.StatefulDB, broadcasterID string) ([]byte, error) {
+	values, err := ReadValues(state, broadcasterID)
+	if err != nil {
+		return nil, err
+	}
+	return Bundle(values)
+}
+
+// Bundle zips values: branding.yaml plus one file per image.
+func Bundle(values Values) ([]byte, error) {
+	keys := make([]string, 0, len(values))
+	for k := range values {
+		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
@@ -128,13 +151,7 @@ func Export(ctx context.Context, state *statedb.StatefulDB, broadcasterID string
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 	for _, key := range keys {
-		blob, err := state.GetBrandingBlob(broadcasterID, key)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				continue
-			}
-			return nil, err
-		}
+		blob := values[key]
 		spec, known := Lookup(key)
 		if !known {
 			// Unknown to this build: still round-trip it, as text if it is.
@@ -176,7 +193,7 @@ func Export(ctx context.Context, state *statedb.StatefulDB, broadcasterID string
 	if err != nil {
 		return nil, err
 	}
-	header := "# Streamplace branding bundle. Edit branding: and re-import; defaults: is\n# informational. Image keys name files in this zip.\n"
+	header := "# Streamplace brand. Edit branding: and re-import, or build apps from it\n# (SP_BRAND_DIR). defaults: is informational. Image keys name files beside it.\n"
 	if _, err := io.WriteString(yw, header); err != nil {
 		return nil, err
 	}
@@ -194,18 +211,14 @@ func Export(ctx context.Context, state *statedb.StatefulDB, broadcasterID string
 	return buf.Bytes(), nil
 }
 
-// parsed is a bundle after reading and validation, ready to apply.
-type parsed struct {
-	text   map[string][]byte // key -> canonical value (non-empty)
-	images map[string]struct {
-		data []byte
-		mime string
-	}
-	warnings []string
+// Parsed is a bundle after reading and validation, ready to apply.
+type Parsed struct {
+	Values   Values
+	Warnings []string
 }
 
 // Parse reads and validates a bundle without touching the database.
-func Parse(zipBytes []byte) (*parsed, error) {
+func Parse(zipBytes []byte) (*Parsed, error) {
 	if len(zipBytes) > MaxBundleSize {
 		return nil, fmt.Errorf("bundle is larger than %d bytes", MaxBundleSize)
 	}
@@ -259,10 +272,7 @@ func Parse(zipBytes []byte) (*parsed, error) {
 		return nil, fmt.Errorf("bundle version %d is newer than this node understands (%d)", doc.Version, BundleVersion)
 	}
 
-	p := &parsed{text: map[string][]byte{}, images: map[string]struct {
-		data []byte
-		mime string
-	}{}}
+	p := &Parsed{Values: Values{}}
 	keys := make([]string, 0, len(doc.Branding))
 	for k := range doc.Branding {
 		keys = append(keys, k)
@@ -272,7 +282,7 @@ func Parse(zipBytes []byte) (*parsed, error) {
 		raw := doc.Branding[key]
 		spec, known := Lookup(key)
 		if !known {
-			p.warnings = append(p.warnings, fmt.Sprintf("%s: unknown key, kept as text", key))
+			p.Warnings = append(p.Warnings, fmt.Sprintf("%s: unknown key, kept as text", key))
 			spec = Spec{Key: key, Kind: KindText, MaxSize: jsonMax}
 		}
 		if raw == nil {
@@ -291,10 +301,7 @@ func Parse(zipBytes []byte) (*parsed, error) {
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", key, err)
 			}
-			p.images[key] = struct {
-				data []byte
-				mime string
-			}{data: data, mime: mimeFor(name, "")}
+			p.Values[key] = Value{MimeType: mimeFor(name, ""), Data: data}
 			continue
 		}
 		var text string
@@ -321,7 +328,7 @@ func Parse(zipBytes []byte) (*parsed, error) {
 		if len(canon) == 0 {
 			continue
 		}
-		p.text[key] = canon
+		p.Values[key] = Value{MimeType: TextMime, Data: canon}
 	}
 	return p, nil
 }
@@ -360,60 +367,62 @@ func Import(ctx context.Context, state *statedb.StatefulDB, broadcasterID string
 	if err != nil {
 		return nil, err
 	}
-	existingKeys, err := state.ListBrandingKeys(broadcasterID)
+	return Apply(ctx, state, broadcasterID, p.Values, p.Warnings, merge, dryRun)
+}
+
+// Apply makes broadcasterID's branding values (plus, with merge, whatever
+// it already had that values does not mention). values must already be
+// validated (Parse, FromRecord).
+func Apply(ctx context.Context, state *statedb.StatefulDB, broadcasterID string, values Values, warnings []string, merge, dryRun bool) (*Report, error) {
+	existing, err := ReadValues(state, broadcasterID)
 	if err != nil {
 		return nil, err
 	}
-	existing := map[string]*statedb.BrandingBlob{}
-	for _, k := range existingKeys {
-		b, err := state.GetBrandingBlob(broadcasterID, k)
-		if err == nil && (len(b.Data) > 0) {
-			existing[k] = b
-		}
+	report, writes, removes := Plan(existing, values, merge)
+	report.Warnings = warnings
+	if dryRun {
+		return report, nil
 	}
+	// All or nothing: a failure partway through must not leave the node on a
+	// mix of the old branding and the new.
+	if err := state.ApplyBrandingWrites(broadcasterID, writes, removes); err != nil {
+		return nil, err
+	}
+	report.Applied = true
+	return report, nil
+}
 
-	report := &Report{Warnings: p.warnings, Changes: []Change{}}
-	type write struct {
-		key, mime string
-		data      []byte
-	}
-	var writes []write
+// Plan diffs incoming against existing: what changes, what to write and
+// what to remove.
+func Plan(existing, incoming Values, merge bool) (*Report, []statedb.BrandingWrite, []string) {
+	report := &Report{Changes: []Change{}}
+	var writes []statedb.BrandingWrite
 	var removes []string
-
-	for key, val := range p.text {
-		if cur, ok := existing[key]; ok && sameText(key, cur.Data, val) {
+	for key, val := range incoming {
+		cur, had := existing[key]
+		if had && sameValue(key, cur, val) {
 			report.Changes = append(report.Changes, Change{Key: key, Action: "unchanged"})
 			continue
 		}
 		action := "added"
-		if _, ok := existing[key]; ok {
+		if had {
 			action = "changed"
 		}
-		detail := string(val)
-		if len(detail) > 80 {
-			detail = detail[:77] + "..."
+		var detail string
+		if val.MimeType == TextMime {
+			detail = string(val.Data)
+			if len(detail) > 80 {
+				detail = detail[:77] + "..."
+			}
+		} else {
+			detail = fmt.Sprintf("%s %dB", val.MimeType, len(val.Data))
 		}
 		report.Changes = append(report.Changes, Change{Key: key, Action: action, Detail: detail})
-		writes = append(writes, write{key: key, mime: TextMime, data: val})
-	}
-	for key, img := range p.images {
-		if cur, ok := existing[key]; ok && bytes.Equal(cur.Data, img.data) {
-			report.Changes = append(report.Changes, Change{Key: key, Action: "unchanged"})
-			continue
-		}
-		action := "added"
-		if _, ok := existing[key]; ok {
-			action = "changed"
-		}
-		report.Changes = append(report.Changes, Change{Key: key, Action: action, Detail: fmt.Sprintf("%s %dB", img.mime, len(img.data))})
-		writes = append(writes, write{key: key, mime: img.mime, data: img.data})
+		writes = append(writes, statedb.BrandingWrite{Key: key, MimeType: val.MimeType, Data: val.Data})
 	}
 	if !merge {
 		for key := range existing {
-			if _, inText := p.text[key]; inText {
-				continue
-			}
-			if _, inImg := p.images[key]; inImg {
+			if _, ok := incoming[key]; ok {
 				continue
 			}
 			report.Changes = append(report.Changes, Change{Key: key, Action: "removed"})
@@ -421,21 +430,16 @@ func Import(ctx context.Context, state *statedb.StatefulDB, broadcasterID string
 		}
 	}
 	sort.Slice(report.Changes, func(i, j int) bool { return report.Changes[i].Key < report.Changes[j].Key })
+	sort.Slice(writes, func(i, j int) bool { return writes[i].Key < writes[j].Key })
+	sort.Strings(removes)
+	return report, writes, removes
+}
 
-	if dryRun {
-		return report, nil
+func sameValue(key string, stored, incoming Value) bool {
+	if incoming.MimeType == TextMime {
+		return stored.MimeType == TextMime && sameText(key, stored.Data, incoming.Data)
 	}
-	// All or nothing: a failure partway through must not leave the node on a
-	// mix of the old branding and the new.
-	bw := make([]statedb.BrandingWrite, 0, len(writes))
-	for _, w := range writes {
-		bw = append(bw, statedb.BrandingWrite{Key: w.key, MimeType: w.mime, Data: w.data})
-	}
-	if err := state.ApplyBrandingWrites(broadcasterID, bw, removes); err != nil {
-		return nil, err
-	}
-	report.Applied = true
-	return report, nil
+	return stored.MimeType == incoming.MimeType && bytes.Equal(stored.Data, incoming.Data)
 }
 
 // sameText compares a stored text value with a canonical incoming one,

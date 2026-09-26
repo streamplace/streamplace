@@ -1,0 +1,548 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.branding.brand",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A brand: how a Streamplace node looks on one hostname, and how apps built for it look. Keyed by the hostname. Generated from pkg/branding/vocab.go; do not edit by hand.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "siteTitle": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Name of the node, shown in the nav lockup, the browser tab and link cards."
+          },
+          "siteDescription": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "One-line description for link cards and the page meta description."
+          },
+          "networkName": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "What the app calls the social network viewers sign in with and share to."
+          },
+          "networkProfileUrl": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Where a chat user's profile link goes, with {handle} and {did} placeholders; default https://bsky.app/profile/{handle}."
+          },
+          "cardSiteName": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "How link cards name the site in their titles: the {site} in the card templates below. Default siteTitle."
+          },
+          "cardLiveTitle": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Link-card title of a live stream page; {name} is the streamer's display name (their handle when unset), {handle} their handle, {site} cardSiteName. The description is the stream's post text."
+          },
+          "cardHomeTitle": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Link-card title of the front page (the live tab), e.g. \"Live streams on {site}\". Default siteTitle."
+          },
+          "cardHomeDescription": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Link-card description of the front page, e.g. \"Watch live streams from verified accounts on {site}.\" Default siteDescription."
+          },
+          "cardVideosTitle": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Link-card title of the on-demand videos tab (/video)."
+          },
+          "cardVideosDescription": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Link-card description of the on-demand videos tab."
+          },
+          "cardVideoTitle": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Link-card title of a video page; {name}, {handle} and {site} as in cardLiveTitle. The description is the video's title."
+          },
+          "cardGoLiveTitle": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Link-card title of the go-live tab (/live)."
+          },
+          "cardGoLiveDescription": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Link-card description of the go-live tab."
+          },
+          "loginPlaceholder": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Example handle shown in the login form's empty handle field."
+          },
+          "defaultStreamer": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Handle or DID whose stream page is the node's front door (single-user nodes)."
+          },
+          "defaultVideo": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "A video whose page is the node's front door while set, over defaultStreamer: its at:// URI (at://did/place.stream.video/rkey) or its path (\u003chandle-or-did\u003e/video/\u003crkey\u003e). Clear it to return the front door to the streamer."
+          },
+          "primaryColor": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "Buttons, links, focus rings."
+          },
+          "accentColor": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "Secondary surfaces and highlights."
+          },
+          "accentColorLight": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "accentColor override for the light scheme."
+          },
+          "backgroundColor": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "Page background (dark mode); raised surfaces and borders derive from it."
+          },
+          "foregroundColor": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "Text color (dark mode); unset picks white or near-black to read on the background."
+          },
+          "backgroundColorLight": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "Page background (light mode)."
+          },
+          "foregroundColorLight": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "Text color (light mode)."
+          },
+          "dangerColor": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "Errors and destructive actions."
+          },
+          "dangerColorLight": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "dangerColor override for the light scheme."
+          },
+          "successColor": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "Success states."
+          },
+          "successColorLight": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "successColor override for the light scheme."
+          },
+          "warningColor": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "Warnings."
+          },
+          "warningColorLight": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "warningColor override for the light scheme."
+          },
+          "infoColor": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "Informational notes."
+          },
+          "infoColorLight": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "infoColor override for the light scheme."
+          },
+          "liveColor": {
+            "type": "string",
+            "maxLength": 7,
+            "description": "The live badge."
+          },
+          "chatBadges": {
+            "type": "string",
+            "knownValues": ["all", "custom", "none"],
+            "description": "Badges beside chat names: all, only badges issued by badge definitions (no built-in streamer / moderator / bot marks), or none."
+          },
+          "chatNameColors": {
+            "type": "string",
+            "knownValues": ["on", "off"],
+            "description": "Whether chat shows display names in each user's chosen color (on) or the default text color (off)."
+          },
+          "chatLayout": {
+            "type": "string",
+            "knownValues": ["compact", "avatar"],
+            "description": "Chat message shape: compact one-line rows, or avatar rows with name, handle and time above the text."
+          },
+          "navLinks": {
+            "type": "array",
+            "items": {
+              "type": "ref",
+              "ref": "#link"
+            }
+          },
+          "navCta": {
+            "type": "ref",
+            "ref": "#link"
+          },
+          "legalLinks": {
+            "type": "array",
+            "items": {
+              "type": "ref",
+              "ref": "#legalLink"
+            }
+          },
+          "mobileAppBanner": {
+            "type": "string",
+            "knownValues": ["on", "off"],
+            "description": "Whether the web app suggests the Streamplace mobile app on phones: the in-page banner and the iOS Smart App Banner meta tag. Default on; off for a node that is its own product."
+          },
+          "socialHeading": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Heading above the social links at the bottom of the sidebar."
+          },
+          "socialLinks": {
+            "type": "array",
+            "items": {
+              "type": "ref",
+              "ref": "#link"
+            }
+          },
+          "mainLogo": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 512000,
+            "description": "The logo mark (SVG preferred)."
+          },
+          "favicon": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 102400,
+            "description": "Browser tab icon."
+          },
+          "sidebarBackgroundImage": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 512000,
+            "description": "Decorative image at the bottom of the sidebar."
+          },
+          "linkBanner": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 2097152,
+            "description": "OpenGraph image for the front page's link card (1200x630)."
+          },
+          "verifiedIcon": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 65536,
+            "description": "Badge shown beside verified chat users (SVG preferred); default a check in the primary color."
+          },
+          "networkIcon": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 65536,
+            "description": "Icon on chat profile links to the network (SVG preferred); default the Bluesky butterfly."
+          },
+          "socialIcon1": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 65536,
+            "description": "Custom icon for socialLinks (SVG preferred; use currentColor to take the sidebar's icon color)."
+          },
+          "socialIcon2": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 65536,
+            "description": "Custom icon for socialLinks (SVG preferred; use currentColor to take the sidebar's icon color)."
+          },
+          "socialIcon3": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 65536,
+            "description": "Custom icon for socialLinks (SVG preferred; use currentColor to take the sidebar's icon color)."
+          },
+          "socialIcon4": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 65536,
+            "description": "Custom icon for socialLinks (SVG preferred; use currentColor to take the sidebar's icon color)."
+          },
+          "appName": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Product name of the built apps: the iOS/Android home-screen name, the desktop app, the docs. Default siteTitle."
+          },
+          "appWordmark": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Text beside the mark in the app's lockup; a . in it gets the accent treatment. Default appName."
+          },
+          "appMonochrome": {
+            "type": "string",
+            "knownValues": ["on", "off"],
+            "description": "on when mainLogo is single-color art drawn with fill=\"currentColor\", so the app can tint it. Default off."
+          },
+          "appColors": {
+            "type": "ref",
+            "ref": "#appColors"
+          },
+          "appBundleId": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "iOS bundle identifier and Android package of the built app, reverse-DNS (com.example.live). SP_BUNDLE_OVERRIDE wins over it."
+          },
+          "appHost": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Hostname of the node the built app talks to by default, and the domain its universal/app links open (live.example.com). Default stream.place."
+          },
+          "appStory": {
+            "type": "string",
+            "maxLength": 16384,
+            "description": "The mark's design story for the /brand guidelines page: {tagline, readingsIntro, readings, geometry, constructionNotes, specs, usage}."
+          },
+          "appIcon": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 512000,
+            "description": "Full-bleed square app icon (SVG or 1024px PNG). Default: mainLogo at 62% on appColors.iconBackground."
+          },
+          "appIconForeground": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 512000,
+            "description": "Android adaptive icon foreground; keep the art in the inner ~66%. Default: mainLogo at 45%."
+          },
+          "appSplash": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 512000,
+            "description": "Splash screen logo, shown on appColors.splashBackground. Default: mainLogo at 50%."
+          },
+          "appWordmarkImage": {
+            "type": "blob",
+            "accept": [
+              "image/svg+xml",
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/x-icon",
+              "image/vnd.microsoft.icon"
+            ],
+            "maxSize": 512000,
+            "description": "Wordmark lettering (SVG) for the downloadable lockup. Default: appWordmark set in type."
+          }
+        }
+      }
+    },
+    "link": {
+      "type": "object",
+      "required": ["label", "url"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "icon": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "A built-in icon name or, in socialLinks, socialIcon1..4."
+        }
+      }
+    },
+    "legalLink": {
+      "type": "object",
+      "required": ["text", "url"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 2048
+        }
+      }
+    },
+    "appColors": {
+      "type": "object",
+      "description": "Icon and splash colors of a built app; any CSS color.",
+      "properties": {
+        "ink": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "paper": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "iconBackground": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "iconForeground": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "adaptiveIconBackground": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "adaptiveIconForeground": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "splashBackground": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "splashForeground": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "tileBackground": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "tileForeground": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "tileHairline": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "bannerBackground": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "bannerForeground": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    }
+  }
+}

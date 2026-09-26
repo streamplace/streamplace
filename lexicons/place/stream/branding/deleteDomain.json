@@ -1,0 +1,31 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.branding.deleteDomain",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Stop serving a custom domain. Admins, or the domain's owner.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["hostname"],
+          "properties": {
+            "hostname": { "type": "string" }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["success"],
+          "properties": {
+            "success": { "type": "boolean" }
+          }
+        }
+      },
+      "errors": [{ "name": "Unauthorized" }, { "name": "DomainNotFound" }]
+    }
+  }
+}

@@ -58,6 +58,10 @@ type ATProtoSynchronizer struct {
 	CachedPLCDirectory identity.Directory
 	dirMu              sync.Mutex
 	OATProxy           *oatproxy.OATProxy
+	// OnBrandRecord, when set, is told of every create, update or delete of
+	// a place.stream.branding.brand record (a custom domain's brand),
+	// asynchronously, with the repo and record key.
+	OnBrandRecord func(ctx context.Context, repoDID, rkey string)
 
 	// firehose liveness, written from every relay consumer concurrently
 	// (unix nanos).
@@ -627,6 +631,15 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 		ctx := log.WithLogValues(ctx, "eventKind", op.Action, "collection", collection.String(), "rkey", rkey.String())
 
 		if !indexedCollection(collection.String()) {
+			continue
+		}
+		if collection.String() == constants.PLACE_STREAM_BRANDING_BRAND {
+			// Nothing to index: the handler re-pulls the record if it is a
+			// custom domain's brand. Off the firehose worker, since that is a
+			// round trip to the owner's PDS.
+			if atsync.OnBrandRecord != nil {
+				go atsync.OnBrandRecord(context.WithoutCancel(ctx), evt.Repo, rkey.String())
+			}
 			continue
 		}
 

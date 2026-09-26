@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
@@ -23,6 +24,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
@@ -1394,7 +1396,7 @@ func resolveLiveSigningKey(mod model.Model, repoDID string) (string, error) {
 func makeBrandingCommand(build *config.BuildFlags) *urfavecli.Command {
 	cli := config.CLI{Build: build}
 	root := cli.NewCommand("branding")
-	root.Usage = "export or import the node's branding as a bundle (zip with branding.yaml)"
+	root.Usage = "export or import the node's branding as a bundle (a zip with branding.yaml) or a brand directory (the same, unzipped)"
 	open := func(ctx context.Context, cmd *urfavecli.Command) (*statedb.StatefulDB, string, error) {
 		if err := cli.Validate(cmd); err != nil {
 			return nil, "", err
@@ -1412,11 +1414,11 @@ func makeBrandingCommand(build *config.BuildFlags) *urfavecli.Command {
 	}
 	exportCmd := &urfavecli.Command{
 		Name:      "export",
-		Usage:     "write the node's branding to a bundle",
-		ArgsUsage: "<out.zip>",
+		Usage:     "write the node's branding to a bundle, or to a brand directory when the path is not a .zip",
+		ArgsUsage: "<out.zip | out-dir>",
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
 			if cmd.Args().Len() != 1 {
-				return fmt.Errorf("usage: streamplace branding export <out.zip>")
+				return fmt.Errorf("usage: streamplace branding export <out.zip | out-dir>")
 			}
 			state, bid, err := open(ctx, cmd)
 			if err != nil {
@@ -1426,7 +1428,7 @@ func makeBrandingCommand(build *config.BuildFlags) *urfavecli.Command {
 			if err != nil {
 				return err
 			}
-			if err := os.WriteFile(cmd.Args().First(), bs, 0o644); err != nil {
+			if err := writeBrand(cmd.Args().First(), bs); err != nil {
 				return err
 			}
 			log.Log(ctx, "branding exported", "broadcaster", bid, "file", cmd.Args().First(), "bytes", len(bs))
@@ -1436,17 +1438,17 @@ func makeBrandingCommand(build *config.BuildFlags) *urfavecli.Command {
 	var merge, dryRun bool
 	importCmd := &urfavecli.Command{
 		Name:      "import",
-		Usage:     "apply a bundle to the node (replaces branding unless --merge)",
-		ArgsUsage: "<in.zip>",
+		Usage:     "apply a bundle or brand directory to the node (replaces branding unless --merge)",
+		ArgsUsage: "<in.zip | brand-dir>",
 		Flags: []urfavecli.Flag{
 			&urfavecli.BoolFlag{Name: "merge", Usage: "keep keys the bundle does not mention", Destination: &merge},
 			&urfavecli.BoolFlag{Name: "dry-run", Usage: "report what would change without writing", Destination: &dryRun},
 		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
 			if cmd.Args().Len() != 1 {
-				return fmt.Errorf("usage: streamplace branding import [--merge] [--dry-run] <in.zip>")
+				return fmt.Errorf("usage: streamplace branding import [--merge] [--dry-run] <in.zip | brand-dir>")
 			}
-			bs, err := os.ReadFile(cmd.Args().First())
+			bs, err := branding.ReadBundle(cmd.Args().First())
 			if err != nil {
 				return err
 			}
@@ -1474,6 +1476,52 @@ func makeBrandingCommand(build *config.BuildFlags) *urfavecli.Command {
 			return nil
 		},
 	}
-	root.Commands = append(root.Commands, exportCmd, importCmd)
+	pullCmd := &urfavecli.Command{
+		Name:      "pull",
+		Usage:     "fetch a published brand record (a custom domain's brand) into a bundle or brand directory, e.g. to build apps from it",
+		ArgsUsage: "<at://did/place.stream.branding.brand/hostname> <out.zip | out-dir>",
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			if cmd.Args().Len() != 2 {
+				return fmt.Errorf("usage: streamplace branding pull <at-uri> <out.zip | out-dir>")
+			}
+			uri, err := syntax.ParseATURI(cmd.Args().First())
+			if err != nil {
+				return err
+			}
+			if uri.Collection().String() != branding.RecordNSID || uri.RecordKey() == "" {
+				return fmt.Errorf("%s is not a %s record", uri, branding.RecordNSID)
+			}
+			did, err := uri.Authority().AsDID()
+			if err != nil {
+				return fmt.Errorf("the record's repo must be a DID: %w", err)
+			}
+			f, err := branding.FetchRecord(ctx, http.DefaultClient, did.String(), uri.RecordKey().String())
+			if err != nil {
+				return err
+			}
+			for _, w := range f.Warnings {
+				fmt.Printf("warning: %s\n", w)
+			}
+			bs, err := branding.Bundle(f.Values)
+			if err != nil {
+				return err
+			}
+			if err := writeBrand(cmd.Args().Get(1), bs); err != nil {
+				return err
+			}
+			fmt.Printf("pulled %s (%s): %d keys\n", f.URI, f.CID, len(f.Values))
+			return nil
+		},
+	}
+	root.Commands = append(root.Commands, exportCmd, importCmd, pullCmd)
 	return root
+}
+
+// writeBrand writes a bundle to path: as-is when it names a .zip, else
+// unzipped as a brand directory.
+func writeBrand(path string, bundle []byte) error {
+	if strings.HasSuffix(strings.ToLower(path), ".zip") {
+		return os.WriteFile(path, bundle, 0o644)
+	}
+	return branding.UnzipDir(bundle, path)
 }

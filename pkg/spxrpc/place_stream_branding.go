@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/gorm"
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/branding"
@@ -55,7 +54,14 @@ func NormalizeBroadcasterID(param, defaultHost string) string {
 	return "did:web:" + param
 }
 
+// getBroadcasterID resolves a request's `broadcaster` parameter. Without
+// one, the brand is the one for the hostname the request arrived on: a
+// custom domain's own, else the node's.
 func (s *Server) getBroadcasterID(ctx context.Context, broadcasterDID string) string {
+	if strings.TrimSpace(broadcasterDID) == "" {
+		id, _ := branding.ResolveHost(s.statefulDB, s.cli.BroadcasterHost, branding.RequestHost(ctx))
+		return id
+	}
 	return NormalizeBroadcasterID(broadcasterDID, s.cli.BroadcasterHost)
 }
 
@@ -126,10 +132,13 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 		dbKeys = append(dbKeys, legacyKeys...)
 	}
 
-	// build key set including defaults
+	// build key set including defaults; build-time keys (native icons, the
+	// app's identity) are for app builds, not the running app
 	allKeys := make(map[string]bool)
 	for _, key := range dbKeys {
-		allKeys[key] = true
+		if branding.IsRuntime(key) {
+			allKeys[key] = true
+		}
 	}
 	for key := range defaultBrandingAssets {
 		allKeys[key] = true
@@ -185,23 +194,14 @@ func (s *Server) isAdminDID(did string) bool {
 }
 
 func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input *placestream.BrandingUpdateBlob_Input) (*placestream.BrandingUpdateBlob_Output, error) {
-	// check authentication
-	session, _ := oatproxy.GetOAuthSession(ctx)
-	if session == nil {
-		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
-	}
-
-	// check admin authorization
-	if !s.isAdminDID(session.DID) {
-		log.Warn(ctx, "unauthorized branding update attempt", "did", session.DID)
-		return nil, echo.NewHTTPError(http.StatusUnauthorized, "not authorized to modify branding")
-	}
-
 	var broadcasterDID string
 	if input.Broadcaster != nil {
 		broadcasterDID = *input.Broadcaster
 	}
-	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
+	target, err := s.brandWriteTarget(ctx, broadcasterDID)
+	if err != nil {
+		return nil, err
+	}
 
 	// decode base64 data
 	data, err := base64.StdEncoding.DecodeString(input.Data)
@@ -221,6 +221,23 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 		data = canon
 	}
 
+	if target.domain != nil {
+		values, err := branding.ReadValues(s.statefulDB, target.brandID)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to read branding")
+		}
+		if len(data) == 0 {
+			delete(values, input.Key)
+		} else {
+			values[input.Key] = branding.Value{MimeType: input.MimeType, Data: data}
+		}
+		if err := s.writeDomainBrand(ctx, target, values); err != nil {
+			log.Error(ctx, "failed to publish custom domain brand", "err", err)
+			return nil, echo.NewHTTPError(http.StatusBadGateway, "unable to publish brand record: "+err.Error())
+		}
+		return &placestream.BrandingUpdateBlob_Output{Success: true}, nil
+	}
+
 	// store in database
 	var width, height *int
 	if input.Width != nil {
@@ -232,7 +249,7 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 		height = &h
 	}
 
-	err = s.statefulDB.PutBrandingBlob(broadcasterID, input.Key, input.MimeType, data, width, height)
+	err = s.statefulDB.PutBrandingBlob(target.brandID, input.Key, input.MimeType, data, width, height)
 	if err != nil {
 		log.Error(ctx, "failed to store branding blob", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to store branding blob")
@@ -244,25 +261,32 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 }
 
 func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input *placestream.BrandingDeleteBlob_Input) (*placestream.BrandingDeleteBlob_Output, error) {
-	// check authentication
-	session, _ := oatproxy.GetOAuthSession(ctx)
-	if session == nil {
-		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
-	}
-
-	// check admin authorization
-	if !s.isAdminDID(session.DID) {
-		log.Warn(ctx, "unauthorized branding delete attempt", "did", session.DID)
-		return nil, echo.NewHTTPError(http.StatusUnauthorized, "not authorized to modify branding")
-	}
-
 	var broadcasterDID string
 	if input.Broadcaster != nil {
 		broadcasterDID = *input.Broadcaster
 	}
-	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
+	target, err := s.brandWriteTarget(ctx, broadcasterDID)
+	if err != nil {
+		return nil, err
+	}
 
-	err := s.statefulDB.DeleteBrandingBlob(broadcasterID, input.Key)
+	if target.domain != nil {
+		values, err := branding.ReadValues(s.statefulDB, target.brandID)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to read branding")
+		}
+		if _, ok := values[input.Key]; !ok {
+			return nil, echo.NewHTTPError(http.StatusNotFound, "branding asset not found")
+		}
+		delete(values, input.Key)
+		if err := s.writeDomainBrand(ctx, target, values); err != nil {
+			log.Error(ctx, "failed to publish custom domain brand", "err", err)
+			return nil, echo.NewHTTPError(http.StatusBadGateway, "unable to publish brand record: "+err.Error())
+		}
+		return &placestream.BrandingDeleteBlob_Output{Success: true}, nil
+	}
+
+	err = s.statefulDB.DeleteBrandingBlob(target.brandID, input.Key)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "branding asset not found")
@@ -296,7 +320,8 @@ func (s *Server) HandleFaviconPNG(c echo.Context) error {
 // back to the bundled file fallback / fallbackMime.
 func (s *Server) handleFavicon(c echo.Context, fallback, fallbackMime string) error {
 	ctx := c.Request().Context()
-	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, s.cli.BroadcasterDID(), "favicon")
+	brandID, _ := branding.ResolveHost(s.statefulDB, s.cli.BroadcasterHost, c.Request().Host)
+	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, brandID, "favicon")
 	if err != nil || len(data) == 0 || !strings.HasPrefix(mimeType, "image/") {
 		distFiles, fsErr := app.Files()
 		if fsErr != nil {
@@ -325,7 +350,8 @@ func (s *Server) handleFavicon(c echo.Context, fallback, fallbackMime string) er
 // else the bundled brand banner. Branding is public even on a private node.
 func (s *Server) HandleLinkBanner(c echo.Context) error {
 	ctx := c.Request().Context()
-	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, s.cli.BroadcasterDID(), "linkBanner")
+	brandID, _ := branding.ResolveHost(s.statefulDB, s.cli.BroadcasterHost, c.Request().Host)
+	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, brandID, "linkBanner")
 	if err == nil && len(data) > 0 && strings.HasPrefix(mimeType, "image/") {
 		c.Response().Header().Set("Cache-Control", "public, max-age=300")
 		return c.Blob(http.StatusOK, mimeType, data)

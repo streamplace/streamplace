@@ -7,6 +7,7 @@ package branding
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"regexp"
 	"slices"
 	"strings"
@@ -28,10 +29,25 @@ const (
 	KindImage
 )
 
+// Scope is who reads a key.
+type Scope int
+
+const (
+	// ScopeRuntime: served by the node and applied by the running app; an
+	// operator changes it after the fact from the branding admin.
+	ScopeRuntime Scope = iota
+	// ScopeApp: read when an app is built (js/brand/generate.mjs): native
+	// icons, splash, the app's name and identity. The node stores and
+	// round-trips these so one brand directory, bundle or record carries a
+	// whole brand, but never serves them to the running app.
+	ScopeApp
+)
+
 // Spec describes one branding key.
 type Spec struct {
 	Key     string
 	Kind    Kind
+	Scope   Scope
 	Default string   // for text-valued kinds; "" when unset means the app default
 	Enum    []string // for KindEnum
 	MaxSize int      // bytes
@@ -102,6 +118,20 @@ var Specs = []Spec{
 	{Key: "socialIcon2", Kind: KindImage, MaxSize: iconMax, Doc: "Custom icon for socialLinks (SVG preferred; use currentColor to take the sidebar's icon color)."},
 	{Key: "socialIcon3", Kind: KindImage, MaxSize: iconMax, Doc: "Custom icon for socialLinks (SVG preferred; use currentColor to take the sidebar's icon color)."},
 	{Key: "socialIcon4", Kind: KindImage, MaxSize: iconMax, Doc: "Custom icon for socialLinks (SVG preferred; use currentColor to take the sidebar's icon color)."},
+
+	// Build-time keys. A build also reads mainLogo (the mark every icon is
+	// drawn from; it must be an SVG with a viewBox), linkBanner and siteTitle.
+	{Key: "appName", Kind: KindText, Scope: ScopeApp, MaxSize: textMax, Doc: "Product name of the built apps: the iOS/Android home-screen name, the desktop app, the docs. Default siteTitle."},
+	{Key: "appWordmark", Kind: KindText, Scope: ScopeApp, MaxSize: textMax, Doc: "Text beside the mark in the app's lockup; a . in it gets the accent treatment. Default appName."},
+	{Key: "appMonochrome", Kind: KindEnum, Scope: ScopeApp, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "on when mainLogo is single-color art drawn with fill=\"currentColor\", so the app can tint it. Default off."},
+	{Key: "appColors", Kind: KindJSON, Scope: ScopeApp, MaxSize: jsonMax, Doc: "Icon and splash colors: {ink, paper, iconBackground, iconForeground, adaptiveIconBackground, adaptiveIconForeground, splashBackground, splashForeground, tileBackground, tileForeground, tileHairline, bannerBackground, bannerForeground}, all optional."},
+	{Key: "appBundleId", Kind: KindText, Scope: ScopeApp, MaxSize: textMax, Doc: "iOS bundle identifier and Android package of the built app, reverse-DNS (com.example.live). SP_BUNDLE_OVERRIDE wins over it."},
+	{Key: "appHost", Kind: KindText, Scope: ScopeApp, MaxSize: textMax, Doc: "Hostname of the node the built app talks to by default, and the domain its universal/app links open (live.example.com). Default stream.place."},
+	{Key: "appStory", Kind: KindJSON, Scope: ScopeApp, MaxSize: jsonMax, Doc: "The mark's design story for the /brand guidelines page: {tagline, readingsIntro, readings, geometry, constructionNotes, specs, usage}."},
+	{Key: "appIcon", Kind: KindImage, Scope: ScopeApp, MaxSize: imageMax, Doc: "Full-bleed square app icon (SVG or 1024px PNG). Default: mainLogo at 62% on appColors.iconBackground."},
+	{Key: "appIconForeground", Kind: KindImage, Scope: ScopeApp, MaxSize: imageMax, Doc: "Android adaptive icon foreground; keep the art in the inner ~66%. Default: mainLogo at 45%."},
+	{Key: "appSplash", Kind: KindImage, Scope: ScopeApp, MaxSize: imageMax, Doc: "Splash screen logo, shown on appColors.splashBackground. Default: mainLogo at 50%."},
+	{Key: "appWordmarkImage", Kind: KindImage, Scope: ScopeApp, MaxSize: imageMax, Doc: "Wordmark lettering (SVG) for the downloadable lockup. Default: appWordmark set in type."},
 }
 
 var specByKey = func() map[string]Spec {
@@ -124,18 +154,25 @@ func IsText(key string) bool {
 	return ok && s.Kind != KindImage
 }
 
+// IsRuntime reports whether the running app reads key; unknown keys count
+// as runtime so a newer admin's keys still reach the app.
+func IsRuntime(key string) bool {
+	s, ok := specByKey[key]
+	return !ok || s.Scope == ScopeRuntime
+}
+
 // IsImage reports whether key holds an image.
 func IsImage(key string) bool {
 	s, ok := specByKey[key]
 	return ok && s.Kind == KindImage
 }
 
-// Defaults returns every key with a non-empty default, for the app's
-// getBranding fallbacks.
+// Defaults returns every text-valued runtime key and its default ("" when
+// it has none), for the app's getBranding fallbacks.
 func Defaults() map[string]string {
 	m := map[string]string{}
 	for _, s := range Specs {
-		if s.Kind != KindImage {
+		if s.Kind != KindImage && s.Scope == ScopeRuntime {
 			m[s.Key] = s.Default
 		}
 	}
@@ -191,7 +228,39 @@ func Normalize(key string, value []byte) ([]byte, error) {
 		}
 		return canon, nil
 	}
+	if check, ok := textShapes[key]; ok && !check.MatchString(v) {
+		return nil, fmt.Errorf("%s must be %s", key, textShapeDocs[key])
+	}
 	return []byte(v), nil
+}
+
+// textShapes are the text keys a native build feeds to tooling that rejects
+// anything else, so a bad value fails on import, not in Xcode.
+var textShapes = map[string]*regexp.Regexp{
+	"appBundleId": regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_-]*)+$`),
+	"appHost":     hostname,
+}
+
+var textShapeDocs = map[string]string{
+	"appBundleId": "a reverse-DNS identifier like com.example.live",
+	"appHost":     "a bare hostname like live.example.com",
+}
+
+// hostname is a DNS name (or IP literal) without scheme, port or path.
+var hostname = regexp.MustCompile(`^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$`)
+
+// NormalizeHostname lowercases a hostname and strips a port, returning ""
+// when it is not a plausible DNS name.
+func NormalizeHostname(h string) string {
+	h = strings.ToLower(strings.TrimSpace(h))
+	if host, _, err := net.SplitHostPort(h); err == nil {
+		h = host
+	}
+	h = strings.TrimSuffix(h, ".")
+	if len(h) == 0 || len(h) > 253 || !hostname.MatchString(h) {
+		return ""
+	}
+	return h
 }
 
 // jsonShapes is what each JSON key must look like; the app reads these
@@ -202,6 +271,8 @@ var jsonShapes = map[string]func([]byte) error{
 	"socialLinks": linkList("label", "url"),
 	"legalLinks":  linkList("text", "url"),
 	"navCta":      linkObject("label", "url"),
+	"appColors":   stringObject,
+	"appStory":    anyObject,
 }
 
 // linkList accepts a JSON array of objects whose named fields are
@@ -231,6 +302,29 @@ func linkObject(fields ...string) func([]byte) error {
 		}
 		return hasStringFields(item, fields)
 	}
+}
+
+// stringObject accepts a JSON object whose values are all strings (or
+// null, which means "use the default").
+func stringObject(b []byte) error {
+	var obj map[string]any
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return fmt.Errorf("must be a JSON object")
+	}
+	for k, v := range obj {
+		if _, ok := v.(string); !ok && v != nil {
+			return fmt.Errorf("%s must be a string", k)
+		}
+	}
+	return nil
+}
+
+func anyObject(b []byte) error {
+	var obj map[string]any
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return fmt.Errorf("must be a JSON object")
+	}
+	return nil
 }
 
 func hasStringFields(item map[string]any, fields []string) error {

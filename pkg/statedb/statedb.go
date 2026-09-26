@@ -76,6 +76,7 @@ var StatefulDBModels = []any{
 	MultistreamTarget{},
 	MultistreamEvent{},
 	BrandingBlob{},
+	BrandingDomain{},
 	StreamViewTotal{},
 	LivestreamViewTotal{},
 	CertmagicItem{},

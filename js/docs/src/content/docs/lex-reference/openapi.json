@@ -4148,7 +4148,7 @@
     },
     "/xrpc/place.stream.broadcast.getBroadcaster": {
       "get": {
-        "summary": "Get information about a Streamplace broadcaster.",
+        "summary": "Get information about a Streamplace broadcaster, as seen from the requested hostname.",
         "operationId": "place.stream.broadcast.getBroadcaster",
         "tags": ["place.stream.broadcast"],
         "responses": {
@@ -4172,6 +4172,19 @@
                     "admins": {
                       "type": "array",
                       "description": "Array of DIDs authorized as admins",
+                      "items": {
+                        "type": "string",
+                        "format": "did"
+                      }
+                    },
+                    "brand": {
+                      "type": "string",
+                      "description": "Broadcaster ID the requested hostname's branding is read and written under: did:web:<custom domain> on a custom domain, else the broadcaster.",
+                      "format": "did"
+                    },
+                    "brandAdmins": {
+                      "type": "array",
+                      "description": "DIDs that may change that branding: the admins, or on a custom domain its owner.",
                       "items": {
                         "type": "string",
                         "format": "did"
@@ -4254,6 +4267,74 @@
                   }
                 },
                 "required": ["key"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.branding.deleteDomain": {
+      "post": {
+        "summary": "Stop serving a custom domain. Admins, or the domain's owner.",
+        "operationId": "place.stream.branding.deleteDomain",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["success"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "DomainNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "hostname": {
+                    "type": "string"
+                  }
+                },
+                "required": ["hostname"]
               }
             }
           }
@@ -4523,6 +4604,188 @@
           "content": {
             "application/zip": {
               "schema": {}
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.branding.listDomains": {
+      "get": {
+        "summary": "Custom domains on this node: every one for an admin, the caller's own otherwise.",
+        "operationId": "place.stream.branding.listDomains",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "domains": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.branding.defs_domainView"
+                      }
+                    }
+                  },
+                  "required": ["domains"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.branding.putDomain": {
+      "post": {
+        "summary": "Serve a custom domain from this node under its owner's brand record. Admins only. Point the domain's DNS at the node; the node then pulls the owner's place.stream.branding.brand record keyed by the hostname.",
+        "operationId": "place.stream.branding.putDomain",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/place.stream.branding.defs_domainView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "InvalidHostname"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "hostname": {
+                    "type": "string",
+                    "description": "The custom domain, e.g. live.example.com."
+                  },
+                  "owner": {
+                    "type": "string",
+                    "description": "Account that owns the domain's brand. Default: the caller.",
+                    "format": "did"
+                  }
+                },
+                "required": ["hostname"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.branding.syncDomain": {
+      "post": {
+        "summary": "Pull a custom domain's brand record now instead of waiting for the firehose. Admins, or the domain's owner.",
+        "operationId": "place.stream.branding.syncDomain",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/place.stream.branding.defs_domainView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "DomainNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "hostname": {
+                    "type": "string"
+                  }
+                },
+                "required": ["hostname"]
+              }
             }
           }
         }
@@ -7886,6 +8149,46 @@
           }
         },
         "required": ["key", "action"]
+      },
+      "place.stream.branding.defs_domainView": {
+        "type": "object",
+        "description": "A custom domain: a hostname this node serves under its owner's brand (their place.stream.branding.brand record keyed by the hostname) instead of the node's own.",
+        "properties": {
+          "hostname": {
+            "type": "string",
+            "description": "The custom domain, lowercase, without scheme or port."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Account whose brand record styles the domain, and who may change it.",
+            "format": "did"
+          },
+          "brand": {
+            "type": "string",
+            "description": "The broadcaster ID the domain's branding is read and written under (did:web:<hostname>).",
+            "format": "did"
+          },
+          "record": {
+            "type": "string",
+            "description": "The brand record the domain follows.",
+            "format": "uri"
+          },
+          "recordCid": {
+            "type": "string",
+            "description": "Version of the record the node last applied.",
+            "format": "cid"
+          },
+          "syncedAt": {
+            "type": "string",
+            "description": "When the node last pulled the record.",
+            "format": "date-time"
+          },
+          "syncError": {
+            "type": "string",
+            "description": "Why the last pull failed, if it did."
+          }
+        },
+        "required": ["hostname", "owner", "brand"]
       },
       "place.stream.badge.defs_badgeView": {
         "type": "object",

@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.branding.syncDomain",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Pull a custom domain's brand record now instead of waiting for the firehose. Admins, or the domain's owner.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["hostname"],
+          "properties": {
+            "hostname": { "type": "string" }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "ref",
+          "ref": "place.stream.branding.defs#domainView"
+        }
+      },
+      "errors": [{ "name": "Unauthorized" }, { "name": "DomainNotFound" }]
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.branding.listDomains",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Custom domains on this node: every one for an admin, the caller's own otherwise.",
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["domains"],
+          "properties": {
+            "domains": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "place.stream.branding.defs#domainView"
+              }
+            }
+          }
+        }
+      },
+      "errors": [{ "name": "Unauthorized" }]
+    }
+  }
+}

@@ -19,6 +19,7 @@ import (
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
+	"stream.place/streamplace/pkg/branding"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/cdn/providers"
 	"stream.place/streamplace/pkg/config"
@@ -108,9 +109,19 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())
+	e.Use(requestHostMiddleware)
 	e.Use(echomiddleware.Handler("", mdlw))
 	e.Use(s.ServiceAuthMiddleware())
 	e.Use(op.OAuthMiddleware)
+	if statefulDB != nil {
+		// Custom domains follow their owners' brand records: re-pull one
+		// when the firehose shows its record change, and all of them now
+		// and then in case an event was missed.
+		if atsync != nil {
+			atsync.OnBrandRecord = s.SyncBrandingDomainsFor
+		}
+		go s.SyncBrandingDomains(ctx, brandingDomainResync)
+	}
 	err = s.RegisterHandlersPlacestream(e)
 	if err != nil {
 		return nil, err
@@ -276,5 +287,20 @@ func (s *Server) ContextPreservingMiddleware() echo.MiddlewareFunc {
 			c.SetRequest(c.Request().WithContext(ctx))
 			return next(c)
 		}
+	}
+}
+
+// brandingDomainResync is how often every custom domain's brand record is
+// re-pulled regardless of the firehose.
+const brandingDomainResync = 15 * time.Minute
+
+// requestHostMiddleware puts the Host a request arrived on into its
+// context, so handlers serve the brand of the hostname asked on (the link
+// cards use the same Host).
+func requestHostMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		req := c.Request()
+		c.SetRequest(req.WithContext(branding.WithRequestHost(req.Context(), req.Host)))
+		return next(c)
 	}
 }

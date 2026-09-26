@@ -1,0 +1,27 @@
+# The open-source Streamplace brand. One brand directory feeds both halves
+# of white-labeling:
+#
+#   * builds: `SP_BRAND_DIR=path/to/dir pnpm run brand` generates every app,
+#     desktop and docs icon from it (js/brand/generate.mjs);
+#   * nodes: `streamplace branding import path/to/dir` (or Settings ->
+#     Branding -> Import) applies it to a running node.
+#
+# Keys are the branding vocabulary (pkg/branding/vocab.go); image keys name
+# files in this directory. See README.md.
+version: 1
+branding:
+  # The mark: every icon, splash and tile is drawn from it. SVG with a viewBox.
+  mainLogo: mark.svg
+  linkBanner: linkbanner.png
+
+  appName: Streamplace
+  appWordmark: stream.place
+  appColors:
+    ink: "#0A0A0B"
+    paper: "#ffffff"
+    iconBackground: "#ffffff"
+    adaptiveIconBackground: "#111113"
+    splashBackground: "#ffffff"
+    tileBackground: "#111113"
+    tileForeground: "#ffffff"
+    bannerBackground: "#ffffff"

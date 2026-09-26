@@ -30,10 +30,13 @@ func (s *Server) requireAdmin(ctx context.Context, what string) (string, error) 
 }
 
 func (s *Server) handlePlaceStreamBrandingExportBundle(ctx context.Context, broadcaster string) (io.Reader, error) {
-	if _, err := s.requireAdmin(ctx, "export branding"); err != nil {
+	// Whoever may change a brand may take it away with them: an admin for
+	// the node's, a custom domain's owner for theirs.
+	target, err := s.brandWriteTarget(ctx, broadcaster)
+	if err != nil {
 		return nil, err
 	}
-	bs, err := branding.Export(ctx, s.statefulDB, s.getBroadcasterID(ctx, broadcaster))
+	bs, err := branding.Export(ctx, s.statefulDB, target.brandID)
 	if err != nil {
 		log.Error(ctx, "failed to export branding bundle", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to export branding")
@@ -45,7 +48,7 @@ func (s *Server) handlePlaceStreamBrandingExportBundle(ctx context.Context, broa
 }
 
 func (s *Server) handlePlaceStreamBrandingImportBundle(ctx context.Context, broadcaster string, dryRun bool, merge bool, r io.Reader, contentType string) (*placestream.BrandingImportBundle_Output, error) {
-	author, err := s.requireAdmin(ctx, "import branding")
+	target, err := s.brandWriteTarget(ctx, broadcaster)
 	if err != nil {
 		return nil, err
 	}
@@ -56,12 +59,20 @@ func (s *Server) handlePlaceStreamBrandingImportBundle(ctx context.Context, broa
 	if len(zipBytes) > branding.MaxBundleSize {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("InvalidBundle: larger than %d bytes", branding.MaxBundleSize))
 	}
-	report, err := branding.Import(ctx, s.statefulDB, s.getBroadcasterID(ctx, broadcaster), zipBytes, merge, dryRun)
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidBundle: "+err.Error())
+	var report *branding.Report
+	if target.domain == nil {
+		report, err = branding.Import(ctx, s.statefulDB, target.brandID, zipBytes, merge, dryRun)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidBundle: "+err.Error())
+		}
+	} else {
+		report, err = s.importDomainBundle(ctx, target, zipBytes, merge, dryRun)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if report.Applied {
-		log.Log(ctx, "branding bundle imported", "by", author, "changes", len(report.Changes), "merge", merge)
+		log.Log(ctx, "branding bundle imported", "by", target.caller, "brand", target.brandID, "changes", len(report.Changes), "merge", merge)
 	}
 	out := &placestream.BrandingImportBundle_Output{
 		Applied:  report.Applied,
@@ -77,4 +88,37 @@ func (s *Server) handlePlaceStreamBrandingImportBundle(ctx context.Context, broa
 		out.Changes = append(out.Changes, ch)
 	}
 	return out, nil
+}
+
+// importDomainBundle applies a bundle to a custom domain: the result is
+// published as the owner's brand record, then cached.
+func (s *Server) importDomainBundle(ctx context.Context, target *brandTarget, zipBytes []byte, merge, dryRun bool) (*branding.Report, error) {
+	p, err := branding.Parse(zipBytes)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidBundle: "+err.Error())
+	}
+	existing, err := branding.ReadValues(s.statefulDB, target.brandID)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to read branding")
+	}
+	report, _, _ := branding.Plan(existing, p.Values, merge)
+	report.Warnings = p.Warnings
+	if dryRun {
+		return report, nil
+	}
+	next := branding.Values{}
+	if merge {
+		for k, v := range existing {
+			next[k] = v
+		}
+	}
+	for k, v := range p.Values {
+		next[k] = v
+	}
+	if err := s.writeDomainBrand(ctx, target, next); err != nil {
+		log.Error(ctx, "failed to publish custom domain brand", "err", err)
+		return nil, echo.NewHTTPError(http.StatusBadGateway, "unable to publish brand record: "+err.Error())
+	}
+	report.Applied = true
+	return report, nil
 }

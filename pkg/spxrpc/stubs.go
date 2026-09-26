@@ -423,10 +423,14 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.badge.getValidBadges", s.HandlePlaceStreamBadgeGetValidBadges)
 	e.GET("/xrpc/place.stream.beta.getStatus", s.HandlePlaceStreamBetaGetStatus)
 	e.POST("/xrpc/place.stream.branding.deleteBlob", s.HandlePlaceStreamBrandingDeleteBlob)
+	e.POST("/xrpc/place.stream.branding.deleteDomain", s.HandlePlaceStreamBrandingDeleteDomain)
 	e.GET("/xrpc/place.stream.branding.exportBundle", s.HandlePlaceStreamBrandingExportBundle)
 	e.GET("/xrpc/place.stream.branding.getBlob", s.HandlePlaceStreamBrandingGetBlob)
 	e.GET("/xrpc/place.stream.branding.getBranding", s.HandlePlaceStreamBrandingGetBranding)
 	e.POST("/xrpc/place.stream.branding.importBundle", s.HandlePlaceStreamBrandingImportBundle)
+	e.GET("/xrpc/place.stream.branding.listDomains", s.HandlePlaceStreamBrandingListDomains)
+	e.POST("/xrpc/place.stream.branding.putDomain", s.HandlePlaceStreamBrandingPutDomain)
+	e.POST("/xrpc/place.stream.branding.syncDomain", s.HandlePlaceStreamBrandingSyncDomain)
 	e.POST("/xrpc/place.stream.branding.updateBlob", s.HandlePlaceStreamBrandingUpdateBlob)
 	e.GET("/xrpc/place.stream.broadcast.getBroadcaster", s.HandlePlaceStreamBroadcastGetBroadcaster)
 	e.GET("/xrpc/place.stream.config.getEnv", s.HandlePlaceStreamConfigGetEnv)
@@ -551,6 +555,23 @@ func (s *Server) HandlePlaceStreamBrandingDeleteBlob(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamBrandingDeleteDomain(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingDeleteDomain")
+	defer span.End()
+	var body placestream.BrandingDeleteDomain_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.BrandingDeleteDomain_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBrandingDeleteDomain(ctx context.Context,body *placestream.BrandingDeleteDomain_Input) (*placestream.BrandingDeleteDomain_Output, error)
+	out, handleErr = s.handlePlaceStreamBrandingDeleteDomain(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandlePlaceStreamBrandingExportBundle(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingExportBundle")
 	defer span.End()
@@ -620,6 +641,53 @@ func (s *Server) HandlePlaceStreamBrandingImportBundle(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamBrandingImportBundle(ctx context.Context,broadcaster string,dryRun bool,merge bool,r io.Reader,contentType string) (*placestream.BrandingImportBundle_Output, error)
 	out, handleErr = s.handlePlaceStreamBrandingImportBundle(ctx, broadcaster, dryRun, merge, body, contentType)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamBrandingListDomains(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingListDomains")
+	defer span.End()
+	var out *placestream.BrandingListDomains_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBrandingListDomains(ctx context.Context) (*placestream.BrandingListDomains_Output, error)
+	out, handleErr = s.handlePlaceStreamBrandingListDomains(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamBrandingPutDomain(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingPutDomain")
+	defer span.End()
+	var body placestream.BrandingPutDomain_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.BrandingDefs_DomainView
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBrandingPutDomain(ctx context.Context,body *placestream.BrandingPutDomain_Input) (*placestream.BrandingDefs_DomainView, error)
+	out, handleErr = s.handlePlaceStreamBrandingPutDomain(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamBrandingSyncDomain(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingSyncDomain")
+	defer span.End()
+	var body placestream.BrandingSyncDomain_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.BrandingDefs_DomainView
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBrandingSyncDomain(ctx context.Context,body *placestream.BrandingSyncDomain_Input) (*placestream.BrandingDefs_DomainView, error)
+	out, handleErr = s.handlePlaceStreamBrandingSyncDomain(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

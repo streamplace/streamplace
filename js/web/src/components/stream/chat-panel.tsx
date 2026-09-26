@@ -8,7 +8,7 @@ import {
   chatMessageOpacity,
   formatBadgeIssuer,
   formatBadgeLabel,
-  isChatMessageGone,
+  liveChatView,
   segmentize,
   type Facet,
   type FacetFeature,
@@ -167,16 +167,16 @@ export function ChatPanel({
     if (isAtAnchor) setNewMessageCount(0);
   }, [isAtAnchor]);
 
-  const displayMessages = useMemo(() => {
-    const sliced = chat.slice(-1500);
-    // Old messages fade out of the live view and then leave it, but they stay
-    // in the store: a viewer scrolled back into history is reading, so there
-    // everything is shown at full strength.
-    const live = isAtAnchor
-      ? sliced.filter((m) => !isChatMessageGone(m.record.createdAt, now))
-      : sliced;
-    return reversed ? [...live].reverse() : live;
-  }, [chat, reversed, isAtAnchor, now]);
+  // A viewer scrolled back into history is reading, so everything the store
+  // still holds is shown at full strength.
+  const chatView = useMemo(
+    () => liveChatView(chat.slice(-1500), now, !isAtAnchor),
+    [chat, now, isAtAnchor],
+  );
+  const displayMessages = useMemo(
+    () => (reversed ? [...chatView.messages].reverse() : chatView.messages),
+    [chatView, reversed],
+  );
   const badgeIssuerDids = useMemo(() => {
     const issuers = new Set<string>();
     for (const message of displayMessages) {
@@ -234,9 +234,7 @@ export function ChatPanel({
                 store={store}
                 isGrouped={isGrouped}
                 issuerProfiles={issuerProfiles}
-                opacity={
-                  isAtAnchor ? chatMessageOpacity(msg.record.createdAt, now) : 1
-                }
+                opacity={chatView.history ? 1 : chatMessageOpacity(msg, now)}
               />
             );
           })

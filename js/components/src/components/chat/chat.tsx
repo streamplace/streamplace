@@ -1,4 +1,4 @@
-import { chatMessageOpacity, isChatMessageGone } from "@streamplace/core";
+import { chatMessageOpacity, liveChatView } from "@streamplace/core";
 import { ChevronDown, Ellipsis, Reply } from "lucide-react-native";
 import {
   ComponentProps,
@@ -337,23 +337,28 @@ export function Chat({
   const [isVisible, setIsVisible] = useState(true);
   const flatListRef = useRef<FlatList>(null);
   const now = useChatExpiryTick();
+  const visibleMessages = useMemo(
+    () =>
+      !chat
+        ? []
+        : hideSystemMessages
+          ? chat.filter((m) => m.author.did !== "did:sys:system")
+          : chat,
+    [chat, hideSystemMessages],
+  );
+  // Scrolled back up, the viewer is reading history, so everything the store
+  // still holds is shown at full strength.
+  const chatView = useMemo(
+    () => liveChatView(visibleMessages, now, isScrolledUp),
+    [visibleMessages, now, isScrolledUp],
+  );
   // The store keeps chat oldest-first. An inverted FlatList renders index 0 at
   // the bottom, so feed it newest-first to keep the latest message at the
   // bottom (or at the top when reverse is set, where inverted is off).
-  //
-  // Old messages fade out of the live view and then leave it, but they are
-  // never dropped from the store: a viewer who scrolls back up is reading
-  // history, so there everything is shown at full strength.
-  const displayMessages = useMemo(() => {
-    if (!chat) return [];
-    const visible = hideSystemMessages
-      ? chat.filter((m) => m.author.did !== "did:sys:system")
-      : chat;
-    const live = isScrolledUp
-      ? visible
-      : visible.filter((m) => !isChatMessageGone(m.record.createdAt, now));
-    return live.slice(-shownMessages).reverse();
-  }, [chat, shownMessages, hideSystemMessages, isScrolledUp, now]);
+  const displayMessages = useMemo(
+    () => chatView.messages.slice(-shownMessages).reverse(),
+    [chatView, shownMessages],
+  );
   const latestMessageTime = displayMessages[0]
     ? new Date(displayMessages[0].record.createdAt).getTime()
     : null;
@@ -459,11 +464,7 @@ export function Chat({
             <ErrorBoundary>
               <ChatLine
                 item={item}
-                opacity={
-                  isScrolledUp
-                    ? 1
-                    : chatMessageOpacity(item.record.createdAt, now)
-                }
+                opacity={chatView.history ? 1 : chatMessageOpacity(item, now)}
               />
             </ErrorBoundary>
           )}

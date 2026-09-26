@@ -21,16 +21,28 @@ export interface UseCanModerateResult extends ReturnType<
 // (agent, streamer) instead of stacking identical requests.
 const inflight = new Map<string, Promise<void>>();
 
+// Fetches up to 1000 delegation records
 async function fetchDelegations(
   agent: StreamplaceAgent,
   streamerDid: string,
 ): Promise<ModerationPermissionRecord[]> {
-  const result = await agent.com.atproto.repo.listRecords({
-    repo: streamerDid,
-    collection: "place.stream.moderation.permission",
-    limit: 100,
-  });
-  return permissionRecordsFromListRecords(result.data.records ?? []);
+  let cursor: string | undefined = undefined;
+  let times = 0;
+  const allRecords: Array<{ value: unknown; uri?: string }> = [];
+  while (true) {
+    const result = await agent.com.atproto.repo.listRecords({
+      repo: streamerDid,
+      collection: "place.stream.moderation.permission",
+      limit: 100,
+      cursor,
+    });
+    allRecords.push(...(result.data.records ?? []));
+    if (!result.data.cursor) break;
+    cursor = result.data.cursor;
+    times++;
+    if (times > 10) break;
+  }
+  return permissionRecordsFromListRecords(allRecords);
 }
 
 /**

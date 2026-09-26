@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { place } from "streamplace";
+import { Button } from "../../components/ui/button";
 import { usePDSAgent } from "../../lib/store/hooks";
 
 export const Route = createFileRoute("/settings/badges")({
@@ -46,8 +47,11 @@ function BadgeSelectionManager() {
       );
       setStreamerSlot(res.streamer as BadgeSlot | null);
       setUserSlot(res.user as BadgeSlot | null);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to load badges");
+    } catch (error) {
+      console.error("Failed to load badges:", error);
+      toast.error(
+        t("badges-load-failed", { defaultValue: "Failed to load badges" }),
+      );
     } finally {
       setLoading(false);
     }
@@ -150,8 +154,13 @@ function BadgeSelectionManager() {
             };
           });
         }
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update badge");
+      } catch (error) {
+        console.error("Failed to update badge:", error);
+        toast.error(
+          t("badges-update-failed", {
+            defaultValue: "Failed to update badge",
+          }),
+        );
       } finally {
         togglingRef.current = null;
         setToggling(null);
@@ -168,7 +177,13 @@ function BadgeSelectionManager() {
       <h1 className="font-display text-xl font-semibold">{t("badges")}</h1>
 
       {loading ? (
-        <div className="text-sm text-(--color-fg-muted)">Loading…</div>
+        <div
+          className="text-sm text-(--color-fg-muted)"
+          role="status"
+          aria-label={t("loading")}
+        >
+          {t("loading")}
+        </div>
       ) : !hasStreamerBadges && !hasUserBadges ? (
         <div className="py-8 text-center text-sm text-(--color-fg-muted)">
           {t("badges-empty-state")}
@@ -230,11 +245,12 @@ function BadgeRow({
   const badgeName = badge.name ?? badge.badgeType.split("#")[1];
 
   return (
-    <button
+    <Button
       type="button"
       onClick={onToggle}
       disabled={toggling}
-      className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-(--color-bg) disabled:opacity-50"
+      variant="ghost"
+      className="h-auto w-full justify-start gap-3 rounded-none px-3 py-2.5 text-left font-normal"
     >
       {badge.imageUrl ? (
         <img src={badge.imageUrl} alt="" className="h-6 w-6 rounded" />
@@ -263,6 +279,6 @@ function BadgeRow({
       ) : (
         <div className="h-5 w-5 rounded-full border-2 border-(--color-border)" />
       )}
-    </button>
+    </Button>
   );
 }

@@ -148,7 +148,7 @@ export function HLSPlayer({
             hls.recoverMediaError();
             return;
           default:
-            onError?.(`${data.type}: ${data.details}`);
+            onError?.(t("player-error-playback"));
             return;
         }
       });

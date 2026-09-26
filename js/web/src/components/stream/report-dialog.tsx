@@ -96,9 +96,9 @@ export function ReportDialog({
       await submitReport(subject, selectedReason, comment.trim() || undefined);
       toast.show(t("report-submitted"), "", { duration: 3000 });
       onClose();
-    } catch (e) {
-      console.error(e);
-      setError(e instanceof Error ? e.message : t("report-failed"));
+    } catch (error) {
+      console.error("Failed to submit report:", error);
+      setError(t("report-failed"));
     } finally {
       setIsSubmitting(false);
     }

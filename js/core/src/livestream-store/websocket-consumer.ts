@@ -203,7 +203,6 @@ export const handleWebSocketMessages = (
           };
         }
       } else if (place.stream.live.teleport.$isTypeOf(message)) {
-      } else if (place.stream.live.teleport.$isTypeOf(message)) {
         const teleportRecord = message as place.stream.live.teleport.Main;
         state = {
           ...state,

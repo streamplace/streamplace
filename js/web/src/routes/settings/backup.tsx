@@ -70,9 +70,13 @@ function BackupSettings() {
           setFullUrl(buildS3Url(parsed, showPassword));
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to load storage settings:", error);
-      toast.error(error.message || "Failed to load storage settings");
+      toast.error(
+        t("backup-load-failed", {
+          defaultValue: "Failed to load storage settings",
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -94,10 +98,14 @@ function BackupSettings() {
       await agent.client.call(place.stream.server.upsertStorage, {
         isActive: value,
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to toggle backup:", err);
       setEnabled(previous);
-      toast.error(err.message || "Failed to update backup setting");
+      toast.error(
+        t("backup-update-failed", {
+          defaultValue: "Failed to update backup setting",
+        }),
+      );
     }
   };
 
@@ -156,10 +164,16 @@ function BackupSettings() {
 
       await agent.client.call(place.stream.server.upsertStorage, payload);
       await loadStorage();
-      toast.success("Backup settings saved");
-    } catch (error: any) {
+      toast.success(
+        t("backup-settings-saved", { defaultValue: "Backup settings saved" }),
+      );
+    } catch (error) {
       console.error("Failed to save storage settings:", error);
-      toast.error(error.message || "Failed to save storage settings");
+      toast.error(
+        t("backup-save-failed", {
+          defaultValue: "Failed to save storage settings",
+        }),
+      );
     } finally {
       setSaving(false);
     }
@@ -170,7 +184,13 @@ function BackupSettings() {
       <h1 className="font-display text-xl font-semibold">{t("backup")}</h1>
 
       {loading ? (
-        <div className="text-sm text-(--color-fg-muted)">Loading…</div>
+        <div
+          className="text-sm text-(--color-fg-muted)"
+          role="status"
+          aria-label={t("loading")}
+        >
+          {t("loading")}
+        </div>
       ) : (
         <div className="space-y-4">
           {/* Enable toggle */}

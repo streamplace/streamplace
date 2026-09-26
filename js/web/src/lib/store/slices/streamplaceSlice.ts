@@ -7,8 +7,6 @@ import { storage } from "../../storage";
 import { getStreamplaceUrl } from "../../streamplace-url";
 import { AppStore } from "../index";
 
-// Build-time env override. Empty string when not set; the slice falls back
-// to `getStreamplaceUrl()` (env > window.location.origin) at runtime.
 const ENV_URL = (import.meta.env["VITE_STREAMPLACE_URL"] as string) ?? "";
 
 let DEFAULT_URL = ENV_URL;

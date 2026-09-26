@@ -1,4 +1,5 @@
 import { useDashboardStore } from "@/components/dashboard/dashboard-store-context";
+import { ModeratorsManager } from "@/components/dashboard/moderators";
 import { Admonition } from "@/components/ui/admonition";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,16 +21,7 @@ import { useStore } from "@/lib/store";
 import { useKeyRecords } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Clipboard,
-  ExternalLink,
-  Key,
-  Loader2,
-  Shield,
-  Tags,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Clipboard, Key, Loader2, Shield, Tags, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -555,12 +547,12 @@ function MetadataSection() {
             {t("save", { defaultValue: "Save" })}
           </button>
 
-          <p className="flex items-center gap-1 text-xs text-(--color-fg-muted)">
-            <ExternalLink className="size-3" />
+          {/*<p className="flex items-center gap-1 text-xs text-(--color-fg-muted)">
             {t("metadata-learn-more", {
               defaultValue: "Learn more about content metadata",
             })}
-          </p>
+            <ExternalLink className="size-3" />
+          </p>*/}
         </>
       )}
     </div>
@@ -1017,12 +1009,7 @@ function ModerationSection() {
           })}
         </p>
       </div>
-      <div className="rounded-lg border border-dashed border-(--color-border) p-6 text-sm text-(--color-fg-muted)">
-        {t("moderation-coming-soon", {
-          defaultValue:
-            "Moderator management hooks aren't on the web yet. This section is a placeholder.",
-        })}
-      </div>
+      <ModeratorsManager variant="section" />
     </div>
   );
 }

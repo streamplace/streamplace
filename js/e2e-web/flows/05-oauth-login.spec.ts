@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { pointAppAtNode } from "../server-setup";
+import { logInWithOAuth } from "../oauth";
 
 // Log in the way a user does: the app's atproto OAuth client talks to the
 // node's OAuth proxy (oatproxy), which sends the browser to the PDS's own
@@ -10,43 +10,11 @@ import { pointAppAtNode } from "../server-setup";
 //
 // Needs the harness's HTTPS mode (hack/e2e-web-local.sh turns it on).
 const HTTPS_URL = process.env.SERVER_HTTPS_URL;
-const PDS_URL = process.env.PDS_HTTPS_URL;
-const HANDLE = process.env.ACCOUNT_HANDLE;
-const PASSWORD = process.env.ACCOUNT_PASSWORD;
 
 test.skip(!HTTPS_URL, "harness started without its HTTPS hostnames");
 
 test("05-oauth-login: log in through the PDS, then chat", async ({ page }) => {
-  const appOrigin = new URL(HTTPS_URL!).origin;
-  const pdsOrigin = new URL(PDS_URL!).origin;
-
-  // This origin is new to the browser, so point the app at the node again.
-  await pointAppAtNode(page, HTTPS_URL!);
-
-  await page.goto(`${HTTPS_URL}/login`);
-  const handleField = page
-    .locator('[data-testid="login-handle"], [data-testid="login-handle"] input')
-    .first();
-  await expect(handleField).toBeVisible({ timeout: 30_000 });
-  await handleField.fill(HANDLE!);
-  await page.getByTestId("login-submit").click();
-
-  // oatproxy hands the browser to the PDS's authorization UI; the handle comes
-  // along as login_hint, so only the password is asked for
-  await page.waitForURL((u) => u.origin === pdsOrigin, { timeout: 60_000 });
-  const password = page.locator('input[type="password"]');
-  await expect(password).toBeVisible({ timeout: 30_000 });
-  await password.fill(PASSWORD!);
-  await page.getByRole("button", { name: /^(sign in|next)$/i }).click();
-
-  await page.getByRole("button", { name: /^authorize$/i }).click();
-
-  // back through the node's /oauth/return to the app's /login, which lands a
-  // logged-in user on their account settings
-  await page.waitForURL((u) => u.origin === appOrigin, { timeout: 60_000 });
-  await expect(page.getByText(`@${HANDLE}`).first()).toBeVisible({
-    timeout: 30_000,
-  });
+  await logInWithOAuth(page);
 
   // Now act as the user. A chat message is a record the node writes to the
   // user's PDS through oatproxy's upstream (DPoP-bound) session. Loading the

@@ -45,7 +45,13 @@ export default defineConfig({
     video: "retain-on-failure",
     // Playwright sends loopback through the proxy unless told otherwise.
     ...(E2E_PROXY_URL
-      ? { proxy: { server: E2E_PROXY_URL, bypass: "127.0.0.1,localhost" } }
+      ? {
+          proxy: {
+            server: E2E_PROXY_URL,
+            // *.localhost too: the custom-domain flow's hostnames.
+            bypass: "127.0.0.1,localhost,.localhost",
+          },
+        }
       : {}),
     // WebRTC playback needs a permissive autoplay/media posture.
     launchOptions: {

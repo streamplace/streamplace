@@ -1,0 +1,15 @@
+# A white-label brand for the e2e flows, in the same shape as the repo's
+# brand/ directory: 06-custom-domain imports it into a custom domain.
+version: 1
+branding:
+  siteTitle: E2E Imported Brand
+  siteDescription: Imported from a brand directory by the e2e suite
+  primaryColor: "#0ea5e9"
+  mobileAppBanner: "off"
+  mainLogo: mark.svg
+  appName: E2E Imported App
+  appBundleId: place.stream.e2e.imported
+  appHost: brand.localhost
+  appColors:
+    iconBackground: "#0ea5e9"
+    splashBackground: "#0ea5e9"

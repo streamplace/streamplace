@@ -121,7 +121,12 @@ export function useFetchBroadcasterDID() {
       const result = await streamplaceAgent.client.call(
         place.stream.broadcast.getBroadcaster,
       );
-      store.setState({ broadcasterDID: result.broadcaster });
+      store.setState({
+        broadcasterDID: result.broadcaster,
+        // Older nodes have no custom domains: the brand is the broadcaster's.
+        brandDID: result.brand ?? result.broadcaster,
+        brandAdminDIDs: result.brandAdmins ?? result.admins ?? [],
+      });
       if (result.server) {
         store.setState({ serverDID: result.server });
       }
@@ -157,10 +162,23 @@ export function useFetchEnvConfig() {
   }, [streamplaceAgent, store]);
 }
 
+// The brand ID branding is read and written under: the custom domain's
+// when the app talks to one, else the broadcaster's.
+export function useBrandDID(): string | null {
+  return useStreamplaceStore((state) => state.brandDID ?? state.broadcasterDID);
+}
+
+// Whether the signed-in account may change this hostname's branding: a node
+// admin on the node's own hostname, the owner on a custom domain.
+export function useIsBrandAdmin(did: string | null | undefined): boolean {
+  const brandAdmins = useStreamplaceStore((state) => state.brandAdminDIDs);
+  return !!did && brandAdmins.includes(did);
+}
+
 // hook to fetch branding data from the server
 export function useFetchBranding() {
   const streamplaceAgent = usePossiblyUnauthedPDSAgent();
-  const broadcasterDID = useStreamplaceStore((state) => state.broadcasterDID);
+  const broadcasterDID = useBrandDID();
   const url = useStreamplaceStore((state) => state.url);
   const store = getStreamplaceStoreFromContext();
 
@@ -455,7 +473,7 @@ export function useLegalLinks(): { text: string; url: string }[] {
 // hook to auto-fetch branding when broadcaster changes
 export function useBrandingAutoFetch() {
   const fetchBranding = useFetchBranding();
-  const broadcasterDID = useStreamplaceStore((state) => state.broadcasterDID);
+  const broadcasterDID = useBrandDID();
 
   useEffect(() => {
     if (broadcasterDID) {

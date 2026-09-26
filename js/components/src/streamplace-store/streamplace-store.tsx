@@ -57,6 +57,11 @@ export interface StreamplaceState {
   setServerDID: (serverDID: string | null) => void;
   adminDIDs: string[];
   setAdminDIDs: (adminDIDs: string[]) => void;
+  // The brand of the hostname the app talks to (getBroadcaster's `brand`):
+  // a custom domain's own, else the broadcaster's. brandAdminDIDs may
+  // change it.
+  brandDID: string | null;
+  brandAdminDIDs: string[];
 
   playbackWorkerUrl: string | null;
   setPlaybackWorkerUrl: (url: string | null) => void;
@@ -136,6 +141,8 @@ export const makeStreamplaceStore = ({
     setServerDID: (serverDID: string | null) => set({ serverDID }),
     adminDIDs: [],
     setAdminDIDs: (adminDIDs: string[]) => set({ adminDIDs }),
+    brandDID: null,
+    brandAdminDIDs: [],
 
     playbackWorkerUrl: null,
     setPlaybackWorkerUrl: (playbackWorkerUrl: string | null) =>

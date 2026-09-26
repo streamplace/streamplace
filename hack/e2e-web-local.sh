@@ -57,6 +57,10 @@ PREEXISTING=" $( { pgrep -f "$BUILDDIR/libstreamplace" 2>/dev/null || true; } | 
 E2E_HTTPS_PDS_HOSTNAME="${E2E_HTTPS_PDS_HOSTNAME-localhost-pds.streamplace.network}"
 E2E_HTTPS_STATION_HOSTNAME="${E2E_HTTPS_STATION_HOSTNAME-localhost-station.streamplace.team}"
 HARNESS_ARGS=(e2e)
+# A custom domain for the branding flow: http://localhost:<port> reaches the
+# same node as SERVER_URL (http://127.0.0.1:<port>) under another hostname.
+E2E_CUSTOM_DOMAINS="${E2E_CUSTOM_DOMAINS-localhost}"
+for d in ${E2E_CUSTOM_DOMAINS//,/ }; do HARNESS_ARGS+=(--custom-domain "$d"); done
 if [ -n "$E2E_HTTPS_PDS_HOSTNAME" ]; then
   HARNESS_ARGS+=(--https-pds-hostname "$E2E_HTTPS_PDS_HOSTNAME"
     --https-station-hostname "$E2E_HTTPS_STATION_HOSTNAME")
@@ -85,7 +89,7 @@ if ! grep -q SERVER_URL "$ENVFILE"; then
 fi
 # shellcheck disable=SC1090
 . "$ENVFILE"
-export SERVER_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD
+export SERVER_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD PDS_URL CUSTOM_DOMAINS
 # only set in HTTPS mode
 export SERVER_HTTPS_URL PDS_HTTPS_URL E2E_PROXY_URL E2E_TLS_SPKI
 echo "harness up: SERVER_URL=$SERVER_URL ACCOUNT_HANDLE=$ACCOUNT_HANDLE${SERVER_HTTPS_URL:+ SERVER_HTTPS_URL=$SERVER_HTTPS_URL}"

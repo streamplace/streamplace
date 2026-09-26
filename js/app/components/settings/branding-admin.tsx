@@ -19,6 +19,7 @@ import {
 } from "@streamplace/components";
 import { fontFamilies } from "@streamplace/components/src/lib/theme/tokens";
 import {
+  useBrandDID,
   useBrandingAsset,
   useFetchBranding,
   useSidebarBackgroundImage,
@@ -35,6 +36,7 @@ import {
 } from "react-native";
 import { place } from "streamplace";
 import { SettingsRowItem } from "./components/settings-navigation-item";
+import { CustomDomains } from "./custom-domains";
 
 const NAV_LINKS_EXAMPLE =
   '[{"label": "Home", "url": "https://example.com", "icon": "home"}, {"label": "Live", "url": "/", "icon": "play"}]';
@@ -96,7 +98,7 @@ export function BrandingAdmin() {
   const agent = usePDSAgent();
   const fetchBranding = useFetchBranding();
   const toast = useToast();
-  const currentBroadcasterDID = useStreamplaceStore((s) => s.broadcasterDID);
+  const currentBroadcasterDID = useBrandDID();
 
   // state for form inputs
   const [siteTitle, setSiteTitle] = useState("");
@@ -585,6 +587,8 @@ export function BrandingAdmin() {
               </View>
             )}
 
+            <CustomDomains target={broadcasterDID} onEdit={setBroadcasterDID} />
+
             <MenuLabel>{t("branding-bundle")}</MenuLabel>
             <MenuGroup>
               <MenuItem>
@@ -597,6 +601,7 @@ export function BrandingAdmin() {
                       style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
                     >
                       <Button
+                        testID="branding-bundle-export"
                         onPress={exportBundle}
                         disabled={bundleBusy || Platform.OS !== "web"}
                         width="min"
@@ -605,6 +610,7 @@ export function BrandingAdmin() {
                         {t("branding-bundle-export")}
                       </Button>
                       <Button
+                        testID="branding-bundle-import"
                         variant="secondary"
                         onPress={pickBundle}
                         disabled={bundleBusy || Platform.OS !== "web"}
@@ -666,6 +672,7 @@ export function BrandingAdmin() {
                           ]}
                         >
                           <Button
+                            testID="branding-bundle-apply"
                             variant="primary"
                             onPress={applyBundle}
                             disabled={bundleBusy}
@@ -700,6 +707,7 @@ export function BrandingAdmin() {
                       {t("branding-broadcaster-did")}
                     </Text>
                     <Input
+                      testID="branding-broadcaster-did"
                       placeholder={t("branding-default-streamer-placeholder")}
                       value={broadcasterDID}
                       onChangeText={setBroadcasterDID}

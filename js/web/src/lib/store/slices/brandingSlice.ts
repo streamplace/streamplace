@@ -61,7 +61,9 @@ export const createBrandingSlice: StateCreator<
       const result = await agent.client.call(
         place.stream.broadcast.getBroadcaster,
       );
-      set({ broadcasterDID: result.broadcaster });
+      // Branding follows the hostname: a custom domain has its own brand
+      // (result.brand); older nodes only name the broadcaster.
+      set({ broadcasterDID: result.brand ?? result.broadcaster });
       if (result.server) {
         set({ serverDID: result.server });
       }

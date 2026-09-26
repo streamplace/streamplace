@@ -6,6 +6,7 @@ import {
   Text,
   useDanmuUnlocked,
   useDID,
+  useIsBrandAdmin,
   useStreamplaceStore,
   useTranslation,
   View,
@@ -48,6 +49,9 @@ export function Settings() {
 
   // Determine if the user is an admin
   const isAdmin = did && adminDids && adminDids.includes(did) ? true : false;
+  // Branding is the node admins' on the node's hostname, the owner's on a
+  // custom domain.
+  const isBrandAdmin = useIsBrandAdmin(did);
 
   const { t } = useTranslation("settings");
 
@@ -166,7 +170,7 @@ export function Settings() {
                 />
               </MenuGroup>
             )}
-            {isAdmin && (
+            {(isAdmin || isBrandAdmin) && (
               <MenuGroup>
                 <SettingsNavigationItem
                   title={t("branding")}

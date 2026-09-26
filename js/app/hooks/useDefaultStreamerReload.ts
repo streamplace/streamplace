@@ -1,4 +1,4 @@
-import { useStreamplaceStore } from "@streamplace/components";
+import { useBrandDID, useStreamplaceStore } from "@streamplace/components";
 import { useEffect } from "react";
 import { Platform } from "react-native";
 
@@ -21,7 +21,7 @@ export function useFrontDoorReload(
   defaultVideo: string | undefined,
 ) {
   const url = useStreamplaceStore((s) => s.url);
-  const broadcasterDID = useStreamplaceStore((s) => s.broadcasterDID);
+  const broadcasterDID = useBrandDID();
 
   useEffect(() => {
     if (Platform.OS !== "web" || !broadcasterDID) return;

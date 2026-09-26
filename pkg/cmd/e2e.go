@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -25,11 +26,13 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/branding"
 	spcomatproto "stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/spkey"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/test/remote"
 )
 
@@ -71,6 +74,13 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 				Usage:   "the node's broadcaster host, served at https://<this>, which must resolve to 127.0.0.1",
 				Sources: urfavecli.EnvVars("SP_E2E_HTTPS_STATION_HOSTNAME"),
 			},
+			// What an admin granting the premium feature would do, done
+			// before the node starts so no flow has to log in as an admin.
+			&urfavecli.StringSliceFlag{
+				Name:    "custom-domain",
+				Usage:   "grant this hostname to the test account as a custom domain (repeatable); requests to the node under it get the account's place.stream.branding.brand record for it",
+				Sources: urfavecli.EnvVars("SP_E2E_CUSTOM_DOMAINS"),
+			},
 		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
 			// Canonical form, so they compare equal to the SNI names the
@@ -80,7 +90,7 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			if (pdsHost == "") != (stationHost == "") {
 				return errors.New("--https-pds-hostname and --https-station-hostname go together")
 			}
-			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost)
+			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, cmd.StringSlice("custom-domain"))
 		},
 	}
 }
@@ -107,7 +117,7 @@ func freePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
-func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string) error {
+func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, customDomains []string) error {
 	// Ctrl-C / SIGTERM must unwind through the normal path, or none of the
 	// teardown below runs: Go's default handling exits immediately, which left
 	// the dev-env node, the forked node and the temp data dir behind.
@@ -239,6 +249,9 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		return err
 	}
 	defer os.RemoveAll(dataDir) //nolint:errcheck
+	if err := seedCustomDomains(ctx, dataDir, out.Did, customDomains); err != nil {
+		return fmt.Errorf("seed custom domains: %w", err)
+	}
 
 	nodeCmd := exec.CommandContext(ctx, self)
 	// Inherit the parent environment (dev builds need LD_LIBRARY_PATH etc.)
@@ -256,6 +269,9 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		fmt.Sprintf("SP_PLC_URL=%s", env.PLCURL),
 		fmt.Sprintf("SP_DATA_DIR=%s", dataDir),
 		fmt.Sprintf("SP_DEV_ACCOUNT_CREDS=%s=%s", out.Did, password),
+		// The test account runs the node, so flows can reach admin screens
+		// (branding, custom domains) once logged in.
+		fmt.Sprintf("SP_ADMIN_DIDS=%s", out.Did),
 		fmt.Sprintf("SP_BROADCASTER_HOST=%s", broadcasterHost),
 		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", httpAddr),
 		"SP_STREAM_SESSION_TIMEOUT=30s",
@@ -374,8 +390,11 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 
 	// Print the env vars for the workflow to consume, in one write: callers
 	// poll for SERVER_URL and then read the whole file.
-	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\n",
-		httpAddr, out.Handle, out.Did, password)
+	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nPDS_URL=%s\n",
+		httpAddr, out.Handle, out.Did, password, env.PDSURL)
+	if len(customDomains) > 0 {
+		vars += fmt.Sprintf("CUSTOM_DOMAINS=%s\n", strings.Join(customDomains, ","))
+	}
 	if tlsEnv != nil {
 		// The same node over HTTPS at its public name, plus what a browser
 		// needs to reach and trust it (see e2e_https.go).
@@ -420,4 +439,31 @@ func publishLexicons(ctx context.Context, env e2eDevEnv) error {
 		}
 	}
 	return nil
+}
+
+// seedCustomDomains grants hostnames to the test account in the node's
+// state database before the node first opens it.
+func seedCustomDomains(ctx context.Context, dataDir, did string, hosts []string) error {
+	if len(hosts) == 0 {
+		return nil
+	}
+	cli := &config.CLI{DataDir: dataDir, DBURL: "sqlite://" + filepath.Join(dataDir, "state.sqlite")}
+	state, err := statedb.MakeDB(ctx, cli, nil, nil)
+	if err != nil {
+		return err
+	}
+	for _, h := range hosts {
+		host := branding.NormalizeHostname(h)
+		if host == "" {
+			return fmt.Errorf("%q is not a hostname", h)
+		}
+		if _, err := state.PutBrandingDomain(host, did); err != nil {
+			return err
+		}
+	}
+	sqlDB, err := state.DB.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Close()
 }

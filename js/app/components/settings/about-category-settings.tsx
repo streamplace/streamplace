@@ -12,6 +12,7 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import { useNodeTitle } from "components/brand/logo";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Platform, ScrollView } from "react-native";
@@ -72,6 +73,8 @@ export function AboutCategorySettings() {
   const setDanmuUnlocked = useSetDanmuUnlocked();
   const legalLinks = useLegalLinks();
   const isStreamplace = isStreamplaceDomain();
+  // Which node (or custom domain) the app is talking to, by its brand.
+  const nodeTitle = useNodeTitle();
 
   const handleVersionPress = () => {
     if (danmuUnlocked) {
@@ -121,6 +124,17 @@ export function AboutCategorySettings() {
         <View style={{ maxWidth: 500, width: "100%" }}>
           <MenuContainer>
             <MenuGroup>
+              <SettingsRowItem>
+                <View style={{ flex: 1 }}>
+                  <Text size="lg">Node</Text>
+                </View>
+                <View style={{ alignItems: "flex-end", flexShrink: 1 }}>
+                  <Text size="lg" color="muted" testID="about-node-title">
+                    {nodeTitle}
+                  </Text>
+                </View>
+              </SettingsRowItem>
+              <MenuSeparator />
               <StreamplaceVersionRow />
               <MenuSeparator />
               <SettingsRowItem onPress={handleVersionPress}>

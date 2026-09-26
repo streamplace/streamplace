@@ -1,7 +1,7 @@
 appId: ${APP_ID}
 ---
-# Re-point the app, already on a custom node (00-server-setup), at NODE_URL:
-# Settings -> Advanced, replace the URL, save.
+# Point the app at NODE_URL: Settings -> Advanced, custom node on, replace
+# the URL, save.
 - tapOn:
     text: "Settings"
 - scrollUntilVisible:
@@ -9,6 +9,14 @@ appId: ${APP_ID}
       text: "Advanced"
 - tapOn:
     text: "Advanced"
+# The URL field only shows while "use custom node" is on.
+- runFlow:
+    when:
+      notVisible:
+        id: "settings-custom-node-url"
+    commands:
+      - tapOn:
+          id: "settings-use-custom-node"
 - tapOn:
     id: "settings-custom-node-url"
 - eraseText: 200

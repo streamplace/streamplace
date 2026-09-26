@@ -311,10 +311,11 @@ function ChatMessage({
   }, [pdsAgent, streamerDid, message.uri]);
 
   // A faded row is gone: it keeps its space (the list scrolls over it) but
-  // leaves keyboard focus and the accessibility tree. A row that expires while
-  // one of its controls holds focus keeps its place in the tab order until
-  // focus leaves -- yanking focus out from under the viewer is worse than
-  // leaving a gone row reachable for a moment longer.
+  // leaves keyboard focus and the accessibility tree. While focus is inside a
+  // row, though, it is neither -- the viewer is interacting with it, so it
+  // stays at full strength and stays reachable, and only goes quiet once focus
+  // leaves. Hiding or blurring the control someone is using is worse than
+  // letting a gone row linger a moment longer.
   const [rowFocused, setRowFocused] = useState(false);
   const faded = opacity === 0 && !rowFocused;
   const fadedRowProps = {
@@ -327,12 +328,16 @@ function ChatMessage({
       }
     },
   };
+  const rowStyle = {
+    opacity: rowFocused ? 1 : opacity,
+    pointerEvents: opacity === 0 ? ("none" as const) : undefined,
+  };
 
   if (isSystem) {
     return (
       <div
         {...fadedRowProps}
-        style={{ opacity, pointerEvents: opacity === 0 ? "none" : undefined }}
+        style={rowStyle}
         className="my-1 rounded border border-(--color-border) bg-(--color-bg-overlay) px-2 py-1.5"
       >
         <p className="text-center text-sm">{message.record.text}</p>
@@ -343,7 +348,7 @@ function ChatMessage({
   return (
     <div
       {...fadedRowProps}
-      style={{ opacity, pointerEvents: opacity === 0 ? "none" : undefined }}
+      style={rowStyle}
       className={`group relative -mx-2 rounded px-2 leading-snug hover:bg-(--color-bg-overlay) ${isGrouped ? "py-px" : "py-0.5"}`}
     >
       {/* Hover actions; visible on group hover */}

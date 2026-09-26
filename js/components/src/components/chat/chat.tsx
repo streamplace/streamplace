@@ -99,9 +99,10 @@ const keyExtractor = (item: ChatMessageViewHydrated, index: number) => {
 // faded row gets a real DOM node carrying `inert`, which takes it out of
 // keyboard focus and the accessibility tree in one go.
 //
-// A row that expires while one of its controls holds focus keeps its place in
-// the tab order until focus leaves: yanking focus out from under the viewer is
-// worse than leaving a gone row reachable for a moment longer.
+// While focus is inside a row, it is neither: the viewer is interacting with
+// it, so it stays at full strength and stays reachable, and only goes quiet
+// once focus leaves. Hiding or blurring the control someone is using is worse
+// than letting a gone row linger a moment longer.
 const FadedRow = ({
   opacity,
   children,
@@ -126,7 +127,7 @@ const FadedRow = ({
     <div
       inert={faded}
       aria-hidden={faded || undefined}
-      style={{ opacity }}
+      style={{ opacity: focused ? 1 : opacity }}
       onFocus={() => setFocused(true)}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) {

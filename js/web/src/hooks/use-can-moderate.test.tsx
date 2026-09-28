@@ -91,7 +91,7 @@ describe("useCanModerate", () => {
     expect(container.textContent).toBe("denied");
   });
 
-  it("does not restore a grant revoked while the initial fetch is pending", async () => {
+  it("does not restore a deleted grant missing from the initial store", async () => {
     const uri = `at://${STREAMER}/place.stream.moderation.permission/3kq`;
     const permission = {
       $type: "place.stream.moderation.permission",
@@ -119,16 +119,13 @@ describe("useCanModerate", () => {
     mockUseSession.mockReturnValue({ pdsAgent, did: MODERATOR });
 
     const store = makeLivestreamStore();
-    store.setState({
-      livestream: { author: { did: STREAMER } } as any,
-      moderationPermissions: [permission as any],
-    });
+    store.setState({ livestream: { author: { did: STREAMER } } as any });
     root = createRoot(container);
 
     await act(async () => {
       root?.render(<PermissionProbe store={store} />);
     });
-    expect(container.textContent).toBe("allowed");
+    expect(container.textContent).toBe("denied");
 
     await act(async () => {
       store.setState((state) =>

@@ -27,6 +27,7 @@ function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
     hasReceivedSegment: false,
     pinnedComment: null,
     moderationPermissions: [],
+    deletedModerationPermissionURIs: [],
     setModerationPermissions: () => {},
     localLivestreamURI: null,
     setLocalLivestreamURI: () => {},
@@ -158,6 +159,24 @@ describe("handleWebSocketMessages: moderation permission views", () => {
 
     expect(result.moderationPermissions).toHaveLength(1);
     expect(result.moderationPermissions[0].moderator).toBe(OTHER_MODERATOR_DID);
+    expect(result.deletedModerationPermissionURIs).toContain(PERMISSION_URI);
+  });
+
+  it("remembers deletions that arrive before the permission is loaded", () => {
+    const result = handleWebSocketMessages(makeState(), [deletedPermission()]);
+
+    expect(result.moderationPermissions).toEqual([]);
+    expect(result.deletedModerationPermissionURIs).toEqual([PERMISSION_URI]);
+  });
+
+  it("clears a deletion marker when the same record is recreated", () => {
+    const state = makeState({
+      deletedModerationPermissionURIs: [PERMISSION_URI],
+    });
+    const result = handleWebSocketMessages(state, [permissionView()]);
+
+    expect(result.deletedModerationPermissionURIs).toEqual([]);
+    expect(result.moderationPermissions).toHaveLength(1);
   });
 
   it("supports the server deletion marker identified by streamer and rkey", () => {

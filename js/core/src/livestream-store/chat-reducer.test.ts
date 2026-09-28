@@ -58,6 +58,7 @@ function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
     hasReceivedSegment: false,
     pinnedComment: null,
     moderationPermissions: [],
+    deletedModerationPermissionURIs: [],
     setModerationPermissions: () => {},
     localLivestreamURI: null,
     setLocalLivestreamURI: () => {},

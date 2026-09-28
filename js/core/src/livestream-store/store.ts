@@ -33,7 +33,16 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     hasReceivedSegment: false,
     pinnedComment: null,
     moderationPermissions: [],
-    setModerationPermissions: (perms) => set({ moderationPermissions: perms }),
+    deletedModerationPermissionURIs: [],
+    setModerationPermissions: (permissions) =>
+      set((state) => {
+        const deletedURIs = new Set(state.deletedModerationPermissionURIs);
+        return {
+          moderationPermissions: permissions.filter(
+            (permission) => !permission.uri || !deletedURIs.has(permission.uri),
+          ),
+        };
+      }),
     localLivestreamURI: null,
     setLocalLivestreamURI: (uri) => set({ localLivestreamURI: uri }),
   }));

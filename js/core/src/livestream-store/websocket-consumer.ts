@@ -175,6 +175,10 @@ export const handleWebSocketMessages = (
         if (deletedURI) {
           state = {
             ...state,
+            deletedModerationPermissionURIs:
+              state.deletedModerationPermissionURIs.includes(deletedURI)
+                ? state.deletedModerationPermissionURIs
+                : [...state.deletedModerationPermissionURIs, deletedURI],
             moderationPermissions: state.moderationPermissions.filter(
               (permission) => permission.uri !== deletedURI,
             ),
@@ -199,6 +203,11 @@ export const handleWebSocketMessages = (
           );
           state = {
             ...state,
+            deletedModerationPermissionURIs: record.uri
+              ? state.deletedModerationPermissionURIs.filter(
+                  (uri) => uri !== record.uri,
+                )
+              : state.deletedModerationPermissionURIs,
             moderationPermissions: [...withoutRecord, record],
           };
         }

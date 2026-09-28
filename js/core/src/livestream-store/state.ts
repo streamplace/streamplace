@@ -44,6 +44,7 @@ export interface LivestreamState {
   hasReceivedSegment: boolean;
   pinnedComment: PinnedRecordViewHydrated | null;
   moderationPermissions: LivestreamModerationPermission[];
+  deletedModerationPermissionURIs: string[];
   setModerationPermissions: (
     permissions: LivestreamModerationPermission[],
   ) => void;

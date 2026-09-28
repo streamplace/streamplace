@@ -33,8 +33,8 @@ import { ChatMessageViewHydrated, place } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import useAvatars from "../../hooks/use-avatars";
-import { prefersReducedMotion } from "../../lib/browser";
 import { useCanModerate } from "../../hooks/use-can-moderate";
+import { prefersReducedMotion } from "../../lib/browser";
 import { useSession } from "../../lib/session";
 import {
   HoverCard,

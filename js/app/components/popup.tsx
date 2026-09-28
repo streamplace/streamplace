@@ -37,7 +37,7 @@ export default function Popup({
           { position: "absolute" },
           zero.bottom[0],
           {
-            boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)", // token-ok: web shadow
+            boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)", // eslint-disable-line streamplace/no-token-literals -- web shadow
             elevation: 5, // Android shadow
           },
           bubbleProps.style,

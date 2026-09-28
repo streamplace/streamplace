@@ -147,12 +147,12 @@ export function TeleportNotification({
           width: "100%",
           borderRadius: 2,
           overflow: "hidden",
-          backgroundColor: "#0f0f1e", // token-ok: teleport effect color
+          backgroundColor: "#0f0f1e", // eslint-disable-line streamplace/no-token-literals -- teleport effect color
         }}
       >
         <Animated.View
           style={[
-            { height: "100%", borderRadius: 2, backgroundColor: "#16f4d0" }, // token-ok: teleport effect color
+            { height: "100%", borderRadius: 2, backgroundColor: "#16f4d0" }, // eslint-disable-line streamplace/no-token-literals -- teleport effect color
             progressStyle,
           ]}
         />
@@ -176,7 +176,7 @@ export function TeleportNotification({
             style={{
               width: 30,
               height: "100%",
-              backgroundColor: i % 2 === 0 ? "#FFA500" : "#000000", // token-ok: teleport effect color
+              backgroundColor: i % 2 === 0 ? "#FFA500" : "#000000", // eslint-disable-line streamplace/no-token-literals -- teleport effect color
               transform: [{ skewX: "-45deg" }, { translateX: -30 * 8 }],
             }}
           />

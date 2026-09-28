@@ -9,7 +9,7 @@ export interface IconBskyProps extends SvgProps {
 
 export const IconBsky = ({
   size = 24,
-  color = "#0F73FF", // token-ok: Bluesky brand color
+  color = "#0F73FF", // eslint-disable-line streamplace/no-token-literals -- Bluesky brand color
   style,
   ...props
 }: IconBskyProps) => (

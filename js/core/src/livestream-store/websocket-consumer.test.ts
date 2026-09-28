@@ -231,6 +231,20 @@ describe("handleWebSocketMessages: moderation permission views", () => {
     expect(result.deletedModerationPermissionURIs).toEqual([PERMISSION_URI]);
   });
 
+  it("applies unversioned revocations after a versioned grant", () => {
+    const state = makeState({
+      moderationPermissions: [permissionRecord() as any],
+      moderationPermissionRevisions: { [PERMISSION_URI]: "3kqaaab" },
+    });
+    const result = handleWebSocketMessages(state, [deletedPermission()]);
+
+    expect(result.moderationPermissions).toEqual([]);
+    expect(result.deletedModerationPermissionURIs).toEqual([PERMISSION_URI]);
+    expect(result.moderationPermissionRevisions).toEqual({
+      [PERMISSION_URI]: "3kqaaab",
+    });
+  });
+
   it("supports the server deletion marker identified by streamer and rkey", () => {
     const state = makeState({
       moderationPermissions: [permissionRecord() as any],

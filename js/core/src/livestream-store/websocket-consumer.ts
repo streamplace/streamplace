@@ -178,7 +178,8 @@ export const handleWebSocketMessages = (
           const previousRev = state.moderationPermissionRevisions[deletedURI];
           if (
             previousRev &&
-            (typeof repoRev !== "string" || repoRev <= previousRev)
+            typeof repoRev === "string" &&
+            repoRev <= previousRev
           ) {
             continue;
           }

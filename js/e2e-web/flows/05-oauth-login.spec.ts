@@ -60,6 +60,15 @@ test("05-oauth-login: log in through the PDS, then chat", async ({ page }) => {
   ).toBeVisible({ timeout: 30_000 });
   const chatInput = page.getByPlaceholder("Type a message...");
   const message = `hello from 05-oauth-login ${Date.now()}`;
+  const messageCreateResponse = page.waitForResponse((response) => {
+    const request = response.request();
+    return (
+      request.method() === "POST" &&
+      new URL(response.url()).pathname ===
+        "/xrpc/com.atproto.repo.createRecord" &&
+      request.postData()?.includes(message) === true
+    );
+  });
   // a send the page wasn't ready for clears the box and is dropped; resend
   await expect(async () => {
     await chatInput.fill(message);
@@ -68,6 +77,11 @@ test("05-oauth-login: log in through the PDS, then chat", async ({ page }) => {
       timeout: 10_000,
     });
   }).toPass({ timeout: 45_000 });
+  const response = await messageCreateResponse;
+  expect(
+    response.ok(),
+    `chat record creation returned ${response.status()}`,
+  ).toBe(true);
 
   // The box shows sends optimistically, so reload: only the node's chat
   // history can put the message back, and it only has what the firehose

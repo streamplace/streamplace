@@ -29,11 +29,6 @@ jobs:
           # android-e2e runs. Shipped releases are built by GitLab.
           - name: android
             cmd: "make app && make android-e2e"
-          # The Playwright web suite (js/e2e-web), OAuth flow included. The
-          # harness binds 443 inside the container and needs the public
-          # localhost-* DNS records; see pkg/cmd/e2e_https.go.
-          - name: e2e-web
-            cmd: "bash hack/provision.sh"
     steps:
       - name: Maximize build space
         run: |
@@ -90,16 +85,6 @@ jobs:
           path: ./bin/*-android-e2e.apk
           retention-days: 1
 
-      - name: Upload e2e-web artifacts
-        if: matrix.name == 'e2e-web' && failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-web-${{ github.event.pull_request.head.sha || github.sha }}
-          path: |
-            js/e2e-web/test-results/
-            js/e2e-web/playwright-report/
-          retention-days: 7
-
       - name: Upload bin artifacts
         if: matrix.name == 'windows-amd64'
         uses: actions/upload-artifact@v4
@@ -107,6 +92,61 @@ jobs:
           name: windows-bin-${{ github.event.pull_request.head.sha }}
           path: ./bin/
           retention-days: 1
+
+  # Reuse the binary built by linux-amd64 instead of provisioning another
+  # frontend and native build just to run Playwright.
+  e2e-web:
+    name: e2e-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: linux
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4.1.7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install e2e dependencies
+        run:
+          npm install -g corepack@latest && corepack enable && pnpm install
+          --filter @streamplace/e2e-web --frozen-lockfile
+
+      - name: Download streamplace binary
+        uses: actions/download-artifact@v4
+        with:
+          name: streamplace-linux-amd64-${{ github.run_id }}
+          path: ./build-linux-amd64
+
+      - name: Prepare e2e runner
+        run: |
+          chmod +x ./build-linux-amd64/streamplace
+          sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+          echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/playwright-browsers" >> "$GITHUB_ENV"
+
+      - name: Install Playwright browser
+        run:
+          sudo env "PATH=$PATH"
+          "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/playwright-browsers" pnpm
+          --filter @streamplace/e2e-web install-browser
+
+      - name: Run web e2e tests
+        run: hack/e2e-web-local.sh
+
+      - name: Upload e2e-web artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-web-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            js/e2e-web/test-results/
+            js/e2e-web/playwright-report/
+          retention-days: 7
 
   # The Maestro suite (.maestro/) on an Android emulator, OAuth login included:
   # hack/e2e-local.sh against the linux-amd64 binary and the android job's

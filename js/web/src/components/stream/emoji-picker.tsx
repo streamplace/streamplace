@@ -33,6 +33,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { prefersReducedMotion } from "../../lib/browser";
 import { useEmojiData } from "../../lib/emoji-data";
 
 const CATEGORY_ICONS: { label: string; Icon: LucideIcon }[] = [
@@ -344,7 +345,7 @@ export function EmojiPicker({
     if (category) {
       viewport.scrollTo({
         top: sizerOffset + category.offsetTop,
-        behavior: "smooth",
+        behavior: prefersReducedMotion() ? "instant" : "smooth",
       });
       setActiveCategory(index);
     }

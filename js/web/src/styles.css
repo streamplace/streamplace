@@ -463,8 +463,28 @@ body {
   }
 }
 
+/*
+ * Reduced-motion safety net. Most of the app's motion comes from Tailwind
+ * utilities and from third-party components (base-ui, sonner, frimousse) whose
+ * class names aren't ours to annotate, so this stills all of it, including
+ * code added later. 0.01ms rather than 0 so transitionend and animationend
+ * still fire; base-ui waits on those before unmounting a closed popup.
+ */
 @media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Slowed rather than stopped: a frozen loader stops reading as "working".
+     Same importance as the rules above, so the more specific selector here is
+     what decides. */
   .ui-loader__item::before {
-    animation-duration: 1.5s;
+    animation-duration: 1.5s !important;
+    animation-iteration-count: infinite !important;
   }
 }

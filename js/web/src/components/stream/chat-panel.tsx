@@ -34,6 +34,7 @@ import { ChatMessageViewHydrated, place } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import useAvatars from "../../hooks/use-avatars";
+import { prefersReducedMotion } from "../../lib/browser";
 import { useSession } from "../../lib/session";
 import {
   HoverCard,
@@ -133,7 +134,9 @@ export function ChatPanel({
     if (delta <= 0) return;
 
     if (isAtAnchor) {
-      anchorRef.current?.scrollIntoView({ behavior: "smooth" });
+      anchorRef.current?.scrollIntoView({
+        behavior: prefersReducedMotion() ? "instant" : "smooth",
+      });
       setNewMessageCount(0);
     } else {
       setNewMessageCount((c) => c + delta);
@@ -141,7 +144,9 @@ export function ChatPanel({
   }, [chat.length, isAtAnchor]);
 
   const scrollToAnchor = useCallback(() => {
-    anchorRef.current?.scrollIntoView({ behavior: "smooth" });
+    anchorRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion() ? "instant" : "smooth",
+    });
     setNewMessageCount(0);
   }, []);
 

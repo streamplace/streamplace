@@ -65,23 +65,29 @@ function AdvancedSettings() {
 
   const handleRefreshBranding = () => {
     setRefreshBranding("active");
+    const showRefreshError = (error?: unknown) => {
+      if (error) console.error("Failed to refresh branding:", error);
+      setRefreshBranding("ready");
+      toast.error(
+        t("refresh-branding-failed", {
+          defaultValue: "Failed to refresh branding",
+        }),
+      );
+    };
+
     fetchBranding({ force: true })
-      .then(() => {
+      .then((succeeded) => {
+        if (!succeeded) {
+          showRefreshError();
+          return;
+        }
         setRefreshBranding("done");
         // set back to ready after a short delay
         setTimeout(() => {
           setRefreshBranding("ready");
         }, 2500);
       })
-      .catch((error) => {
-        console.error("Failed to refresh branding:", error);
-        setRefreshBranding("ready");
-        toast.error(
-          t("refresh-branding-failed", {
-            defaultValue: "Failed to refresh branding",
-          }),
-        );
-      });
+      .catch(showRefreshError);
   };
 
   return (

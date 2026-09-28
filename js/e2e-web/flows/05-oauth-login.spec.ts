@@ -39,7 +39,14 @@ test("05-oauth-login: log in through the PDS, then chat", async ({ page }) => {
   await password.fill(PASSWORD!);
   await page.getByRole("button", { name: /^(sign in|next)$/i }).click();
 
-  await page.getByRole("button", { name: /^authorize$/i }).click();
+  // The PDS can skip consent on a retry after this OAuth client is already
+  // authorized, redirecting straight back to the app.
+  await Promise.race([
+    page.getByRole("button", { name: /^authorize$/i }).click({
+      timeout: 60_000,
+    }),
+    page.waitForURL((u) => u.origin === appOrigin, { timeout: 60_000 }),
+  ]);
 
   // back through the node's /oauth/return to the app's /login, which lands a
   // logged-in user on their account settings

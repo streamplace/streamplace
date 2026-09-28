@@ -1,6 +1,7 @@
 import { useLivestreamStore } from "@/hooks/use-livestream-store";
 import type { LivestreamStore } from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
+import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
 
@@ -129,14 +130,17 @@ function DanmuBody({
       {messages.map((msg) => (
         <div
           key={msg.id}
-          className="absolute text-lg font-bold whitespace-nowrap"
-          style={{
-            top: `${msg.lane * laneHeight}%`,
-            color: msg.color,
-            textShadow: "1px 1px 2px rgba(0,0,0,0.8)",
-            animation: `danmu-scroll ${10 / speed}s linear forwards`,
-            right: "-100%",
-          }}
+          className="danmu-message absolute text-lg font-bold whitespace-nowrap"
+          style={
+            {
+              top: `${msg.lane * laneHeight}%`,
+              color: msg.color,
+              textShadow: "1px 1px 2px rgba(0,0,0,0.8)",
+              animation: `danmu-scroll ${10 / speed}s linear forwards`,
+              "--danmu-duration": `${10 / speed}s`,
+              right: "-100%",
+            } as CSSProperties
+          }
         >
           {msg.text}
         </div>

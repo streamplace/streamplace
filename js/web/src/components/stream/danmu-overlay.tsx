@@ -279,7 +279,7 @@ const DanmuMessageElement = memo(
     return (
       <div
         ref={ref}
-        className="absolute left-0 font-semibold whitespace-nowrap"
+        className="danmu-message absolute left-0 font-semibold whitespace-nowrap"
         style={
           {
             top: videoTop + lane * laneHeight,
@@ -288,6 +288,7 @@ const DanmuMessageElement = memo(
             textShadow: "1px 1px 2px rgba(0,0,0,0.8), 0 0 64px rgba(0,0,0,0.5)",
             animation: `danmu-scroll ${duration}ms linear forwards`,
             "--danmu-start": `${containerWidth}px`,
+            "--danmu-duration": `${duration}ms`,
             willChange: "transform",
           } as React.CSSProperties
         }

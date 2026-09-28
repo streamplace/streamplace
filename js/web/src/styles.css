@@ -463,12 +463,9 @@ body {
   }
 }
 
-/*
- * Reduced-motion safety net. Most of the app's motion comes from Tailwind
- * utilities and from third-party components (base-ui, sonner, frimousse) whose
- * class names aren't ours to annotate, so this stills all of it, including
- * code added later. 0.01ms rather than 0 so transitionend and animationend
- * still fire; base-ui waits on those before unmounting a closed popup.
+/* Reduced motion defaults
+   Some parts of the app are vendored and thus we can't touch their animations
+   directly, so we apply these styles globally when reduced-motion is on.
  */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -480,11 +477,16 @@ body {
     scroll-behavior: auto !important;
   }
 
-  /* Slowed rather than stopped: a frozen loader stops reading as "working".
-     Same importance as the rules above, so the more specific selector here is
-     what decides. */
+  /* Slowed rather than stopped as a fully stopped spinner may read as frozen. */
   .ui-loader__item::before {
     animation-duration: 1.5s !important;
     animation-iteration-count: infinite !important;
+  }
+
+  /* Danmu opt-out (user must go out of their way to use this as a OBS overlay
+     or in-player)
+   */
+  .danmu-message {
+    animation-duration: var(--danmu-duration) !important;
   }
 }

@@ -1,8 +1,9 @@
 import useAvatars from "@/hooks/use-avatars";
 import { useToast } from "@/hooks/use-toast";
 import {
+  listModerationPermissionRecords,
   MODERATION_PERMISSION_COLLECTION,
-  moderatorRecordsFromListRecords,
+  removeModeratorDelegations,
   type ModeratorRecord,
 } from "@/lib/moderation";
 import { useSession } from "@/lib/session";
@@ -68,12 +69,9 @@ export function ModeratorsManager({
     }
     setIsLoading(true);
     try {
-      const result = await pdsAgent.com.atproto.repo.listRecords({
-        repo: pdsAgent.did,
-        collection: MODERATION_PERMISSION_COLLECTION,
-        limit: 100,
-      });
-      setModerators(moderatorRecordsFromListRecords(result.data.records ?? []));
+      setModerators(
+        await listModerationPermissionRecords(pdsAgent, pdsAgent.did),
+      );
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -90,11 +88,11 @@ export function ModeratorsManager({
   const handleRemove = useCallback(async () => {
     if (!pdsAgent?.did || !removing) return;
     try {
-      await pdsAgent.com.atproto.repo.deleteRecord({
-        repo: pdsAgent.did,
-        collection: MODERATION_PERMISSION_COLLECTION,
-        rkey: removing.rkey,
-      });
+      await removeModeratorDelegations(
+        pdsAgent,
+        pdsAgent.did,
+        removing.moderator,
+      );
       toast.show(
         t("moderators-removed-toast", {
           handle: handleFor(removing.moderator, profiles),

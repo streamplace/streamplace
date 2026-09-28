@@ -183,3 +183,17 @@ describe("handleWebSocketMessages: moderation permission views", () => {
     expect(result.moderationPermissions).toEqual([]);
   });
 });
+
+describe("handleWebSocketMessages: teleport records", () => {
+  it("stores incoming teleport records as the active teleport", () => {
+    const teleport = {
+      $type: "place.stream.live.teleport",
+      destination: "did:plc:destination",
+      createdAt: "2024-01-01T00:00:00.000Z",
+    };
+
+    const result = handleWebSocketMessages(makeState(), [teleport]);
+
+    expect(result.activeTeleport).toEqual(teleport);
+  });
+});

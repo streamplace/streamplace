@@ -774,7 +774,7 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 
 			if collection.String() == constants.PLACE_STREAM_MODERATION_PERMISSION {
 				log.Debug(ctx, "deleting moderation delegation", "userDID", evt.Repo, "rkey", rkey.String())
-				err := atsync.Model.DeleteModerationDelegation(ctx, rkey.String())
+				err := atsync.Model.DeleteModerationDelegation(ctx, evt.Repo, rkey.String())
 				if err != nil {
 					log.Error(ctx, "failed to delete moderation delegation", "err", err)
 					continue

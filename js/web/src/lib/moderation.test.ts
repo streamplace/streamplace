@@ -2,11 +2,14 @@ import {
   handleWebSocketMessages,
   makeLivestreamStore,
 } from "@streamplace/core";
+import type { StreamplaceAgent } from "streamplace";
 import { describe, expect, it } from "vitest";
 import {
+  listModerationPermissionRecords,
   moderationPermissionsFor,
   moderatorRecordsFromListRecords,
   permissionRecordsFromListRecords,
+  removeModeratorDelegations,
   type ModerationPermissionRecord,
 } from "./moderation";
 
@@ -70,6 +73,88 @@ describe("moderatorRecordsFromListRecords", () => {
       { value: permissionRecord() },
     ]);
     expect(records[0].rkey).toBe("");
+  });
+});
+
+describe("listModerationPermissionRecords", () => {
+  it("continues through every page of permission records", async () => {
+    const pages = Array.from({ length: 12 }, (_, index) => ({
+      cursor: index < 11 ? String(index + 1) : undefined,
+      records: [
+        {
+          uri: `at://${STREAMER}/place.stream.moderation.permission/${index}`,
+          value: permissionRecord({
+            createdAt: `2024-01-${index + 1}T00:00:00Z`,
+          }),
+        },
+      ],
+    }));
+    const agent = {
+      com: {
+        atproto: {
+          repo: {
+            listRecords: async ({ cursor }: { cursor?: string }) => ({
+              data: pages[Number(cursor ?? 0)],
+            }),
+          },
+        },
+      },
+    } as unknown as StreamplaceAgent;
+
+    const records = await listModerationPermissionRecords(agent, STREAMER);
+
+    expect(records).toHaveLength(12);
+    expect(records.at(-1)?.rkey).toBe("11");
+  });
+});
+
+describe("removeModeratorDelegations", () => {
+  it("deletes every record for the moderator, including records on later pages", async () => {
+    const deletedRkeys: string[] = [];
+    const pages = {
+      first: {
+        cursor: "second",
+        records: [
+          {
+            uri: `at://${STREAMER}/place.stream.moderation.permission/first`,
+            value: permissionRecord(),
+          },
+          {
+            uri: `at://${STREAMER}/place.stream.moderation.permission/other`,
+            value: permissionRecord({ moderator: "did:plc:other" }),
+          },
+        ],
+      },
+      second: {
+        records: [
+          {
+            uri: `at://${STREAMER}/place.stream.moderation.permission/second`,
+            value: permissionRecord({
+              permissions: ["hide"],
+              createdAt: "2024-01-02T00:00:00Z",
+            }),
+          },
+        ],
+      },
+    };
+    const agent = {
+      com: {
+        atproto: {
+          repo: {
+            listRecords: async ({ cursor }: { cursor?: string }) => ({
+              data: cursor ? pages.second : pages.first,
+            }),
+            deleteRecord: async ({ rkey }: { rkey: string }) => {
+              deletedRkeys.push(rkey);
+            },
+          },
+        },
+      },
+    } as unknown as StreamplaceAgent;
+
+    await removeModeratorDelegations(agent, STREAMER, MODERATOR);
+
+    expect(deletedRkeys).toEqual(["first", "second"]);
   });
 });
 

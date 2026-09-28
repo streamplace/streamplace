@@ -1,4 +1,5 @@
 import type { LivestreamModerationPermission } from "@streamplace/core";
+import type { StreamplaceAgent } from "streamplace";
 
 export type ModerationPermissionRecord = LivestreamModerationPermission;
 
@@ -56,6 +57,45 @@ export function moderatorRecordsFromListRecords(
     ...record,
     rkey: record.uri?.split("/").pop() ?? "",
   }));
+}
+
+/** List every moderation permission record in a repo, following all cursors. */
+export async function listModerationPermissionRecords(
+  agent: StreamplaceAgent,
+  repo: string,
+): Promise<ModeratorRecord[]> {
+  const records: Array<{ value: unknown; uri?: string }> = [];
+  let cursor: string | undefined;
+
+  do {
+    const result = await agent.com.atproto.repo.listRecords({
+      repo,
+      collection: MODERATION_PERMISSION_COLLECTION,
+      limit: 100,
+      cursor,
+    });
+    records.push(...(result.data.records ?? []));
+    cursor = result.data.cursor;
+  } while (cursor);
+
+  return moderatorRecordsFromListRecords(records);
+}
+
+/** Revoke every permission record the repo has granted to a moderator. */
+export async function removeModeratorDelegations(
+  agent: StreamplaceAgent,
+  repo: string,
+  moderatorDid: string,
+): Promise<void> {
+  const records = await listModerationPermissionRecords(agent, repo);
+  for (const record of records) {
+    if (record.moderator !== moderatorDid || !record.rkey) continue;
+    await agent.com.atproto.repo.deleteRecord({
+      repo,
+      collection: MODERATION_PERMISSION_COLLECTION,
+      rkey: record.rkey,
+    });
+  }
 }
 
 /**

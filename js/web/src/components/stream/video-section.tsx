@@ -74,8 +74,9 @@ export function VideoSection({
     };
   }, [user]);
 
-  // check if the current user is the streamer
-  const isStreamer = useAppStore((s) => s.pdsAgent?.did === user);
+  const viewerDid = useAppStore((s) => s.pdsAgent?.did);
+  // Stream URLs can use a handle, so compare against the resolved author DID.
+  const isStreamer = viewerDid === state.livestream?.author.did;
 
   return (
     <VideoSectionInner
@@ -92,7 +93,7 @@ export function VideoSection({
       danmuSpeed={danmuSpeed}
       danmuLaneCount={danmuLaneCount}
       danmuMaxMessages={danmuMaxMessages}
-      isStreamer={true}
+      isStreamer={isStreamer}
     />
   );
 }

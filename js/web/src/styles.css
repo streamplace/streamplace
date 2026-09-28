@@ -463,8 +463,30 @@ body {
   }
 }
 
+/* Reduced motion defaults
+   Some parts of the app are vendored and thus we can't touch their animations
+   directly, so we apply these styles globally when reduced-motion is on.
+ */
 @media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Slowed rather than stopped as a fully stopped spinner may read as frozen. */
   .ui-loader__item::before {
-    animation-duration: 1.5s;
+    animation-duration: 1.5s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  /* Danmu opt-out (user must go out of their way to use this as a OBS overlay
+     or in-player)
+   */
+  .danmu-message {
+    animation-duration: var(--danmu-duration) !important;
   }
 }

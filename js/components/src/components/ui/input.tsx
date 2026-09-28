@@ -107,8 +107,8 @@ export const Input = forwardRef<any, InputProps>(
     const textStyles = React.useMemo(() => {
       const baseTextStyle = [zt.text.text1, zt.bg.transparent];
 
-      // Inputs never drop below 16px (typeScale.md) — smaller sizes trigger
-      // zoom-on-focus in mobile web browsers.
+      // Inputs stay at or above 16px so mobile web browsers don't zoom on
+      // focus. typeScale.md (18px) clears that floor.
       switch (size) {
         case "sm":
           return [

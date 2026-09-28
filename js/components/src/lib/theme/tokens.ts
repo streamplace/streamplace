@@ -555,7 +555,7 @@ export const borderRadius = {
 
 /**
  * Typography — one typeface (Geist), one modular scale:
- * 12 / 13 / 14 / 16 / 20 / 24 / 32. Weights 400 / 500 / 600 only.
+ * 14 / 15 / 16 / 18 / 22 / 26 / 34. Weights 400 / 500 / 600 only.
  * Line heights live here, never inline. Sizes ≥20 get tight letter-spacing.
  *
  * `typeScale` is the canonical scale. The `ios` / `android` / `universal` objects
@@ -564,46 +564,46 @@ export const borderRadius = {
  */
 export const typeScale = {
   xs: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "400" as const,
-    fontFamily: "Geist-Regular",
-  },
-  sm: {
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
     fontWeight: "400" as const,
     fontFamily: "Geist-Regular",
   },
-  base: {
-    fontSize: 14,
+  sm: {
+    fontSize: 15,
     lineHeight: 20,
     fontWeight: "400" as const,
     fontFamily: "Geist-Regular",
   },
-  md: {
+  base: {
     fontSize: 16,
-    lineHeight: 24,
+    lineHeight: 22,
+    fontWeight: "400" as const,
+    fontFamily: "Geist-Regular",
+  },
+  md: {
+    fontSize: 18,
+    lineHeight: 26,
     fontWeight: "400" as const,
     fontFamily: "Geist-Regular",
   },
   lg: {
-    fontSize: 20,
-    lineHeight: 26,
+    fontSize: 22,
+    lineHeight: 28,
     letterSpacing: -0.2,
     fontWeight: "500" as const,
     fontFamily: "Geist-Medium",
   },
   xl: {
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 26,
+    lineHeight: 32,
     letterSpacing: -0.3,
     fontWeight: "600" as const,
     fontFamily: "Geist-SemiBold",
   },
   xxl: {
-    fontSize: 32,
-    lineHeight: 38,
+    fontSize: 34,
+    lineHeight: 40,
     letterSpacing: -0.5,
     fontWeight: "600" as const,
     fontFamily: "Geist-SemiBold",
@@ -671,7 +671,7 @@ export const typography = {
   },
 
   // Universal typography scale (keys kept for compatibility; values snap to
-  // the canonical 12/13/14/16/20/24/32 scale)
+  // the canonical 14/15/16/18/22/26/34 scale)
   universal: {
     xs: typeScale.xs,
     sm: typeScale.sm,
@@ -688,44 +688,44 @@ export const typography = {
   // ingest URLs, diagnostics)
   mono: {
     xs: {
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: "400" as const,
-      fontFamily: "GeistMono-Regular",
-    },
-    sm: {
-      fontSize: 13,
+      fontSize: 14,
       lineHeight: 18,
       fontWeight: "400" as const,
       fontFamily: "GeistMono-Regular",
     },
-    base: {
-      fontSize: 14,
+    sm: {
+      fontSize: 15,
       lineHeight: 20,
       fontWeight: "400" as const,
       fontFamily: "GeistMono-Regular",
     },
-    lg: {
+    base: {
       fontSize: 16,
-      lineHeight: 24,
+      lineHeight: 22,
+      fontWeight: "400" as const,
+      fontFamily: "GeistMono-Regular",
+    },
+    lg: {
+      fontSize: 18,
+      lineHeight: 26,
       fontWeight: "400" as const,
       fontFamily: "GeistMono-Regular",
     },
     xl: {
-      fontSize: 20,
-      lineHeight: 26,
+      fontSize: 22,
+      lineHeight: 28,
       fontWeight: "500" as const,
       fontFamily: "GeistMono-Medium",
     },
     "2xl": {
-      fontSize: 24,
-      lineHeight: 30,
+      fontSize: 26,
+      lineHeight: 32,
       fontWeight: "600" as const,
       fontFamily: "GeistMono-SemiBold",
     },
     "3xl": {
-      fontSize: 32,
-      lineHeight: 38,
+      fontSize: 34,
+      lineHeight: 40,
       fontWeight: "600" as const,
       fontFamily: "GeistMono-SemiBold",
     },

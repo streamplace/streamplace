@@ -12,6 +12,7 @@ import { useTheme } from "../../../lib/theme/theme";
 import {
   fontFamilies,
   tabularNums,
+  typeScale,
   typography,
 } from "../../../lib/theme/tokens";
 
@@ -123,29 +124,30 @@ export interface TextPrimitiveProps extends Omit<RNTextProps, "style"> {
   reset?: boolean;
 }
 
-// Size mapping — the modular scale (12/13/14/16/20/24/32). Keys are kept
-// stable; "4xl" is a deprecated alias of "3xl".
+// Size mapping — derived from `typeScale` so there is a single source of truth
+// for the modular scale. Text's keys are offset by one step from `typeScale`
+// (Text "lg" is `typeScale.md`, and so on); "4xl" is a deprecated alias of "3xl".
 const sizeMap = {
-  xs: 12,
-  sm: 13,
-  base: 14,
-  lg: 16,
-  xl: 20,
-  "2xl": 24,
-  "3xl": 32,
-  "4xl": 32,
+  xs: typeScale.xs.fontSize,
+  sm: typeScale.sm.fontSize,
+  base: typeScale.base.fontSize,
+  lg: typeScale.md.fontSize,
+  xl: typeScale.lg.fontSize,
+  "2xl": typeScale.xl.fontSize,
+  "3xl": typeScale.xxl.fontSize,
+  "4xl": typeScale.xxl.fontSize,
 } as const;
 
-// Per-size line heights — defined here, never inline
+// Per-size line heights — mirrors the mapping above, never inline
 const sizeLineHeightMap = {
-  xs: 16,
-  sm: 18,
-  base: 20,
-  lg: 24,
-  xl: 26,
-  "2xl": 30,
-  "3xl": 38,
-  "4xl": 38,
+  xs: typeScale.xs.lineHeight,
+  sm: typeScale.sm.lineHeight,
+  base: typeScale.base.lineHeight,
+  lg: typeScale.md.lineHeight,
+  xl: typeScale.lg.lineHeight,
+  "2xl": typeScale.xl.lineHeight,
+  "3xl": typeScale.xxl.lineHeight,
+  "4xl": typeScale.xxl.lineHeight,
 } as const;
 
 // Comfortable leading for a raw numeric fontSize. Mirrors the ratios baked into
@@ -278,8 +280,8 @@ export const TextRoot = forwardRef<RNText, TextPrimitiveProps>(
       calculatedFontSize = typeof size === "number" ? size : sizeMap[size];
     }
 
-    // Use default if still undefined
-    calculatedFontSize = calculatedFontSize || 16;
+    // Use default if still undefined — the body size
+    calculatedFontSize = calculatedFontSize || sizeMap.base;
 
     // Calculate final styles
     const finalStyles: TextStyle = {

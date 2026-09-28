@@ -28,6 +28,7 @@ function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
     pinnedComment: null,
     moderationPermissions: [],
     deletedModerationPermissionURIs: [],
+    moderationPermissionRevisions: {},
     setModerationPermissions: () => {},
     localLivestreamURI: null,
     setLocalLivestreamURI: () => {},
@@ -53,21 +54,26 @@ function permissionRecord(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function permissionView(record = permissionRecord()) {
+function permissionView(record = permissionRecord(), repoRev?: string) {
   return {
     $type: "place.stream.moderation.defs#permissionView",
     uri: PERMISSION_URI,
     cid: "bafytest",
+    repoRev,
     author: { did: "did:plc:streamer", handle: "streamer.bsky.social" },
     record,
   };
 }
 
-function deletedPermission(overrides: Record<string, unknown> = {}) {
+function deletedPermission(
+  overrides: Record<string, unknown> = {},
+  repoRev?: string,
+) {
   return {
     $type: "place.stream.moderation.permission",
     deleted: true,
     uri: PERMISSION_URI,
+    repoRev,
     ...overrides,
   };
 }
@@ -172,11 +178,57 @@ describe("handleWebSocketMessages: moderation permission views", () => {
   it("clears a deletion marker when the same record is recreated", () => {
     const state = makeState({
       deletedModerationPermissionURIs: [PERMISSION_URI],
+      moderationPermissionRevisions: { [PERMISSION_URI]: "3kqaaaa" },
     });
-    const result = handleWebSocketMessages(state, [permissionView()]);
+    const result = handleWebSocketMessages(state, [
+      permissionView(permissionRecord(), "3kqaaab"),
+    ]);
 
     expect(result.deletedModerationPermissionURIs).toEqual([]);
     expect(result.moderationPermissions).toHaveLength(1);
+  });
+
+  it("ignores an older permission event delivered after its deletion", () => {
+    const deleted = handleWebSocketMessages(makeState(), [
+      deletedPermission({}, "3kqaaab"),
+    ]);
+    const result = handleWebSocketMessages(deleted, [
+      permissionView(permissionRecord(), "3kqaaaa"),
+    ]);
+
+    expect(result.moderationPermissions).toEqual([]);
+    expect(result.deletedModerationPermissionURIs).toEqual([PERMISSION_URI]);
+    expect(result.moderationPermissionRevisions).toEqual({
+      [PERMISSION_URI]: "3kqaaab",
+    });
+  });
+
+  it("accepts a newer recreation and ignores a delayed older deletion", () => {
+    const deleted = handleWebSocketMessages(makeState(), [
+      deletedPermission({}, "3kqaaaa"),
+    ]);
+    const recreated = handleWebSocketMessages(deleted, [
+      permissionView(permissionRecord(), "3kqaaab"),
+    ]);
+    const result = handleWebSocketMessages(recreated, [
+      deletedPermission({}, "3kqaaaa"),
+    ]);
+
+    expect(result.moderationPermissions).toHaveLength(1);
+    expect(result.deletedModerationPermissionURIs).toEqual([]);
+    expect(result.moderationPermissionRevisions).toEqual({
+      [PERMISSION_URI]: "3kqaaab",
+    });
+  });
+
+  it("keeps an unversioned deletion fail-closed", () => {
+    const deleted = handleWebSocketMessages(makeState(), [deletedPermission()]);
+    const result = handleWebSocketMessages(deleted, [
+      permissionView(permissionRecord(), "3kqaaab"),
+    ]);
+
+    expect(result.moderationPermissions).toEqual([]);
+    expect(result.deletedModerationPermissionURIs).toEqual([PERMISSION_URI]);
   });
 
   it("supports the server deletion marker identified by streamer and rkey", () => {

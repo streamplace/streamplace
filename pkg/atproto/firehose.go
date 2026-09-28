@@ -674,7 +674,7 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 			// tear down event processing for the whole node). The error is
 			// logged and the loop moves on to the next op.
 			err = log.Recover(ctx, func() error {
-				return atsync.handleCreateUpdate(ctx, evt.Repo, rkey, recCBOR, op.Cid.String(), collection, ek == repomgr.EvtKindUpdateRecord, false)
+				return atsync.handleCreateUpdate(ctx, evt.Repo, rkey, recCBOR, op.Cid.String(), collection, ek == repomgr.EvtKindUpdateRecord, false, evt.Rev)
 			})
 			if err != nil {
 				log.Error(ctx, "failed to handle create update", "err", err)
@@ -786,6 +786,7 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 					"uri":      uri,
 					"rkey":     rkey.String(),
 					"streamer": evt.Repo,
+					"repoRev":  evt.Rev,
 				}
 				go atsync.Bus.Publish(evt.Repo, deletedRecord)
 			}

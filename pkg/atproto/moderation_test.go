@@ -100,12 +100,12 @@ func TestDelegatedModeration(t *testing.T) {
 	require.NotNil(t, view)
 	require.Equal(t, streamer.DID, view.Author.Did)
 
-	var permissionViewEvent placestream.ModerationDefs_PermissionView
+	var permissionViewEvent moderationPermissionViewEvent
 	require.Eventually(t, func() bool {
 		select {
 		case event := <-permissionEvents:
 			var ok bool
-			permissionViewEvent, ok = event.(placestream.ModerationDefs_PermissionView)
+			permissionViewEvent, ok = event.(moderationPermissionViewEvent)
 			return ok
 		default:
 			return false
@@ -113,6 +113,7 @@ func TestDelegatedModeration(t *testing.T) {
 	}, 5*time.Second, 10*time.Millisecond, "permission creation should reach the websocket bus")
 	require.Equal(t, "place.stream.moderation.defs#permissionView", permissionViewEvent.LexiconTypeID)
 	require.Equal(t, view.Uri, permissionViewEvent.Uri)
+	require.NotEmpty(t, permissionViewEvent.RepoRev)
 
 	delegation := view.Record.Val.(*placestream.ModerationPermission)
 	require.NotNil(t, delegation)
@@ -262,6 +263,7 @@ func TestDelegatedModeration(t *testing.T) {
 	}, 5*time.Second, 10*time.Millisecond, "permission deletion should reach the websocket bus")
 	require.Equal(t, constants.PLACE_STREAM_MODERATION_PERMISSION, deletionEvent["$type"])
 	require.Equal(t, view.Uri, deletionEvent["uri"])
+	require.NotEmpty(t, deletionEvent["repoRev"])
 	t.Log("✓ Delegation record deleted successfully")
 
 	t.Log("All moderation tests passed!")

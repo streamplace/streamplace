@@ -32,13 +32,19 @@ import (
 // skew does not eat a genuinely live message.
 const chatLiveWindow = 2 * time.Minute
 
+// The commit revision orders permission updates and deletions on the client.
+type moderationPermissionViewEvent struct {
+	placestream.ModerationDefs_PermissionView
+	RepoRev string `json:"repoRev,omitempty"`
+}
+
 // handleCreateUpdate indexes one record. It is called at least once per record
 // -- firehose cursor replay, a backfill walk restarting against a new head, and
 // the same commit arriving from several relays all deliver records we already
 // have -- so every write it makes has to be idempotent, and every side effect
 // (bus fanout, notification tasks) has to be skipped when nothing changed. The
 // model layer signals that with [model.ErrAlreadyIndexed]; see pkg/model/indexed.go.
-func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID, isUpdate bool, isFirstSync bool) error {
+func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID, isUpdate bool, isFirstSync bool, repoRev string) error {
 	ctx = log.WithLogValues(ctx, "func", "handleCreateUpdate", "userDID", userDID, "rkey", rkey.String(), "cid", cid, "collection", collection.String())
 	now := time.Now()
 	r, err := atsync.Model.GetRepo(userDID)
@@ -794,7 +800,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		// Publish moderation permission view to WebSocket bus for real-time updates
 		// This allows moderators to see their permissions instantly without page refresh
-		go atsync.Bus.Publish(userDID, view)
+		go atsync.Bus.Publish(userDID, moderationPermissionViewEvent{
+			ModerationDefs_PermissionView: view,
+			RepoRev:                       repoRev,
+		})
 
 	case *placestream.LiveViewerCount:
 		log.Debug(ctx, "indexing view count", "streamer", rec.Streamer, "server", rec.Server, "count", rec.Count)

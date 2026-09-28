@@ -45,6 +45,8 @@ export interface LivestreamState {
   pinnedComment: PinnedRecordViewHydrated | null;
   moderationPermissions: LivestreamModerationPermission[];
   deletedModerationPermissionURIs: string[];
+  /** Latest AT Protocol repo revision applied for each moderation record URI. */
+  moderationPermissionRevisions: Record<string, string>;
   setModerationPermissions: (
     permissions: LivestreamModerationPermission[],
   ) => void;

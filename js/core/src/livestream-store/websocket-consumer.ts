@@ -20,6 +20,7 @@ type ModerationPermissionDeletion = {
   uri?: unknown;
   streamer?: unknown;
   rkey?: unknown;
+  repoRev?: unknown;
 };
 
 function moderationPermissionURI(
@@ -169,12 +170,27 @@ export const handleWebSocketMessages = (
           MODERATION_PERMISSION_TYPE &&
         (message as ModerationPermissionDeletion).deleted === true
       ) {
+        const repoRev = (message as ModerationPermissionDeletion).repoRev;
         const deletedURI = moderationPermissionURI(
           message as ModerationPermissionDeletion,
         );
         if (deletedURI) {
+          const previousRev = state.moderationPermissionRevisions[deletedURI];
+          if (
+            previousRev &&
+            (typeof repoRev !== "string" || repoRev <= previousRev)
+          ) {
+            continue;
+          }
           state = {
             ...state,
+            moderationPermissionRevisions:
+              typeof repoRev === "string"
+                ? {
+                    ...state.moderationPermissionRevisions,
+                    [deletedURI]: repoRev,
+                  }
+                : state.moderationPermissionRevisions,
             deletedModerationPermissionURIs:
               state.deletedModerationPermissionURIs.includes(deletedURI)
                 ? state.deletedModerationPermissionURIs
@@ -188,11 +204,28 @@ export const handleWebSocketMessages = (
         place.stream.moderation.defs.permissionView.isTypeOf(message)
       ) {
         const view = message as place.stream.moderation.defs.PermissionView;
+        const repoRev = (message as { repoRev?: unknown }).repoRev;
         const record = {
           ...(view.record as unknown as place.stream.moderation.permission.Main),
           uri: view.uri,
         } as LivestreamModerationPermission;
         if (record?.moderator) {
+          const previousRev = record.uri
+            ? state.moderationPermissionRevisions[record.uri]
+            : undefined;
+          const wasDeleted = state.deletedModerationPermissionURIs.includes(
+            record.uri ?? "",
+          );
+          if (
+            (previousRev &&
+              (typeof repoRev !== "string" || repoRev <= previousRev)) ||
+            (wasDeleted &&
+              (!previousRev ||
+                typeof repoRev !== "string" ||
+                repoRev <= previousRev))
+          ) {
+            continue;
+          }
           const withoutRecord = state.moderationPermissions.filter((perm) =>
             record.uri
               ? perm.uri !== record.uri
@@ -203,6 +236,13 @@ export const handleWebSocketMessages = (
           );
           state = {
             ...state,
+            moderationPermissionRevisions:
+              record.uri && typeof repoRev === "string"
+                ? {
+                    ...state.moderationPermissionRevisions,
+                    [record.uri]: repoRev,
+                  }
+                : state.moderationPermissionRevisions,
             deletedModerationPermissionURIs: record.uri
               ? state.deletedModerationPermissionURIs.filter(
                   (uri) => uri !== record.uri,

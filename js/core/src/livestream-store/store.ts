@@ -34,6 +34,7 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     pinnedComment: null,
     moderationPermissions: [],
     deletedModerationPermissionURIs: [],
+    moderationPermissionRevisions: {},
     setModerationPermissions: (permissions) =>
       set((state) => {
         const deletedURIs = new Set(state.deletedModerationPermissionURIs);

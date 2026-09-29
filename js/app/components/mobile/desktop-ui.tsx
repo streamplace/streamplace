@@ -359,7 +359,7 @@ export function DesktopUi({
             pipSupported={pipSupported}
             pipActive={pipActive}
             onHandlePip={handlePip}
-            dropdownPortalContainer={fullscreen && portalContainerID}
+            dropdownPortalContainer={fullscreen ? portalContainerID : undefined}
             showChat={isChatOpen || false}
             setShowChat={setIsChatOpen || undefined}
           />

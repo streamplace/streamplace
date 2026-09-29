@@ -49,9 +49,6 @@ jobs:
           sudo ln -s $(realpath ./hack/golangci-lint) /usr/bin/golangci-lint
           make golangci-lint-container BUILDER_TARGET=builder-no-darwin DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e ACTIONS_RESULTS_URL -e ACTIONS_RUNTIME_TOKEN -e SCCACHE_GHA_ENABLED=on -e SCCACHE_GHA_RW_MODE=READ_ONLY -e SCCACHE_GHA_VERSION=1 -e SCCACHE_BASEDIRS=$PWD -e 'CC=sccache gcc' -e 'CXX=sccache g++' -e RUSTC_WRAPPER=sccache"
 
-      - name: sccache statistics
-        run: podman exec golangci-lint sccache --show-stats
-
       - name: sanity-check wrapper from bash
         run:
           timeout 120 /usr/bin/golangci-lint config path
@@ -63,3 +60,10 @@ jobs:
           version: v2.1
           args: --config=./.golangci.yaml
           install-mode: none
+
+      - name: sccache statistics
+        if: always()
+        run: |
+          if podman container exists golangci-lint; then
+            podman exec golangci-lint sccache --show-stats
+          fi

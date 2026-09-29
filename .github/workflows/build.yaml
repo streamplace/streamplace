@@ -119,7 +119,7 @@ jobs:
           sudo curl -fsSL -o /usr/bin/crun https://github.com/containers/crun/releases/download/1.28/crun-1.28-linux-amd64
           sudo chmod +x /usr/bin/crun
           sccache_opts=""
-          sccache_cmd="make linux-amd64 && make test-vod && make static-test && make check && make ci-lexicons"
+          sccache_cmd="${{ matrix.cmd }}"
 
           if [[ "${{ matrix.name }}" == "linux-amd64" || \
                 "${{ matrix.name }}" == "linux-arm64" || \

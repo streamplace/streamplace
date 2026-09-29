@@ -109,6 +109,9 @@ export const reduceChat = (
   }
 
   const messagesToAdd: { key: string; message: ChatMessageViewHydrated }[] = [];
+  const seenMessageUris = new Set(
+    Object.values(newChatIndex).map((message) => message.uri),
+  );
 
   for (const message of newMessages) {
     // don't worry about messages that will be hidden
@@ -126,8 +129,9 @@ export const reduceChat = (
       newAuthors[message.author.did] = message.chatProfile;
     }
 
-    // skip messages we already have
-    if (newChatIndex[key] && newChatIndex[key].uri === message.uri) {
+    // Message URIs are the stable identity. Timestamps can differ between
+    // live events and replayed initial-burst messages.
+    if (seenMessageUris.has(message.uri)) {
       continue;
     }
 
@@ -187,6 +191,7 @@ export const reduceChat = (
     }
 
     messagesToAdd.push({ key, message: processedMessage });
+    seenMessageUris.add(message.uri);
     hasChanges = true;
   }
 

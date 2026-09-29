@@ -297,7 +297,11 @@ describe("handleWebSocketMessages: teleport records", () => {
 
     const result = handleWebSocketMessages(makeState(), [
       arrival,
-      { ...arrival, viewerCount: 12 },
+      {
+        ...arrival,
+        startsAt: "2026-09-25T12:00:00.123Z",
+        viewerCount: 12,
+      },
     ]);
 
     expect(result.chat).toHaveLength(1);

@@ -81,7 +81,8 @@ export const SystemMessages = {
     streamerName: string,
     streamerDid: string,
     count: number,
-    chatProfile?: any,
+    chatProfile?: ChatMessageViewHydrated["chatProfile"],
+    teleportUri?: string,
   ): ChatMessageViewHydrated => {
     const text =
       count > 0
@@ -92,15 +93,23 @@ export const SystemMessages = {
       count,
     });
 
+    // The live event and the target stream's initial burst can both carry the
+    // same arrival. Use the teleport record as the message identity so chat
+    // reducer deduplication keeps only one announcement.
+    if (teleportUri) {
+      const id = encodeURIComponent(teleportUri);
+      message.uri =
+        `at://did:sys:system/place.stream.chat.message/teleport-${id}` as ChatMessageViewHydrated["uri"];
+      message.cid = `system-teleport-${id}` as ChatMessageViewHydrated["cid"];
+    }
+
     // create a mention facet for the streamer name so it gets colored using existing mention rendering
     if (chatProfile && streamerDid) {
       const nameStart = text.indexOf(streamerName);
-
       // encode byte positions
       const encoder = new TextEncoder();
       const byteStart = encoder.encode(text.substring(0, nameStart)).length;
       const byteEnd = byteStart + encoder.encode(streamerName).length;
-
       message.record.facets = [
         {
           index: {
@@ -110,7 +119,7 @@ export const SystemMessages = {
           features: [
             {
               $type: "app.bsky.richtext.facet#mention",
-              did: streamerDid as any,
+              did: streamerDid as ChatMessageViewHydrated["author"]["did"],
             },
           ],
         },

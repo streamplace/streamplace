@@ -281,4 +281,26 @@ describe("handleWebSocketMessages: teleport records", () => {
 
     expect(result.activeTeleport).toEqual(teleport);
   });
+
+  it("deduplicates live and initial-burst teleport arrivals", () => {
+    const arrival = {
+      $type: "place.stream.livestream#teleportArrival",
+      teleportUri:
+        "at://did:plc:source/place.stream.live.teleport/3lteleport0001",
+      source: {
+        did: "did:plc:source",
+        handle: "source.example.com",
+      },
+      viewerCount: 15,
+      startsAt: "2026-09-25T12:00:00.000Z",
+    };
+
+    const result = handleWebSocketMessages(makeState(), [
+      arrival,
+      { ...arrival, viewerCount: 12 },
+    ]);
+
+    expect(result.chat).toHaveLength(1);
+    expect(result.chat[0].record.text).toContain("15 viewers teleported");
+  });
 });

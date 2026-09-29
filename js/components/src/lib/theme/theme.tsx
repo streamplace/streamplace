@@ -575,6 +575,9 @@ interface ThemeProviderProps {
    *  provider; a branded provider nested inside an unbranded root must
    *  take this over, or the root's defaults win over the brand. */
   paintDocument?: boolean;
+  /** Mount the default native portal host here. Disable when the app places
+   *  its host below additional providers needed by menu and dialog content. */
+  portalHost?: boolean;
   children: ReactNode;
   defaultTheme?: "light" | "dark" | "system";
   forcedTheme?: "light" | "dark";
@@ -606,6 +609,7 @@ export function ThemeProvider({
   chromeColors,
   brandColors,
   paintDocument,
+  portalHost = true,
 }: ThemeProviderProps) {
   const systemColorScheme = useColorScheme();
   const chrome = useMemo(
@@ -766,7 +770,7 @@ export function ThemeProvider({
       {isRoot ? (
         <GestureHandlerRootView>
           {children}
-          <PortalHost />
+          {portalHost && <PortalHost />}
           <ToastProvider />
         </GestureHandlerRootView>
       ) : (

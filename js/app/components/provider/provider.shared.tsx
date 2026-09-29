@@ -7,6 +7,7 @@ import * as Sentry from "@sentry/react-native";
 import {
   BrandedThemeProvider,
   I18nProvider,
+  PortalHost,
   ThemeProvider,
   StreamplaceProvider as ZustandStreamplaceProvider,
 } from "@streamplace/components";
@@ -97,13 +98,22 @@ function ProviderInner({
   return (
     <SafeAreaProvider>
       <NavigationContainer theme={SPDarkTheme} linking={linking}>
-        <ThemeProvider forcedTheme="dark" paintDocument={false}>
+        <ThemeProvider
+          forcedTheme="dark"
+          paintDocument={false}
+          portalHost={isWeb}
+        >
           <I18nProvider i18n={i18n}>
             <StreamplaceProvider>
               <BlueskyProvider>
                 <NewStreamplaceProvider>
                   <BrandedThemeProvider forcedTheme="dark">
-                    <FontProvider>{children}</FontProvider>
+                    <FontProvider>
+                      {children}
+                      {/* Native portals render in the host's context, not the
+                          trigger's. Keep store, i18n and branding available. */}
+                      {Platform.OS !== "web" && <PortalHost />}
+                    </FontProvider>
                   </BrandedThemeProvider>
                 </NewStreamplaceProvider>
               </BlueskyProvider>

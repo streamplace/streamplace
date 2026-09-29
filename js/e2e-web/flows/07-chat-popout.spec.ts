@@ -47,3 +47,29 @@ test("07-chat-popout: opens one window, leaves the stream page alone", async ({
   await popup.close();
   expect(page.context().pages()).toHaveLength(1);
 });
+
+test("07-chat-popout: blocked popup falls back to this tab", async ({
+  page,
+}) => {
+  await loginThroughPds(page);
+
+  await page.goto(`${HTTPS_URL}/`);
+  await page.getByTestId("home-stream-card").first().click();
+  await expect(
+    page.getByText("Now streaming - e2e test stream").first(),
+  ).toBeVisible({ timeout: 30_000 });
+  const popoutButton = page.getByTestId("chat-popout-button");
+  await expect(popoutButton).toBeVisible({ timeout: 30_000 });
+
+  let popups = 0;
+  page.on("popup", () => popups++);
+  // A popup blocker makes window.open return null with no window; the button
+  // must not just hide the chat panel and leave the viewer with nothing.
+  await page.evaluate(() => {
+    window.open = () => null;
+  });
+
+  await popoutButton.click();
+  await page.waitForURL(/\/chat-popout\/did:plc:/, { timeout: 10_000 });
+  expect(popups).toBe(0);
+});

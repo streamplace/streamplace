@@ -7,6 +7,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Input } from "../components/ui/input";
 
 interface SearchResult {
   did: string;
@@ -97,18 +98,23 @@ function SearchPage() {
     <div className="mx-auto w-full max-w-2xl px-4 py-6">
       <div className="relative mb-6">
         <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--color-fg-muted)" />
-        <input
+        <Input
           ref={inputRef}
-          type="text"
+          type="search"
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           placeholder={t("search-for-streamers")}
-          className="focus:ring-ring h-10 w-full rounded-md border border-(--color-border) bg-(--color-bg) pr-4 pl-9 text-(--color-fg) placeholder:text-(--color-fg-muted) focus:ring-1 focus:outline-none"
+          aria-label={t("search-for-streamers")}
+          className="h-10 pr-4 pl-9"
         />
       </div>
 
       {searching && results.length === 0 && (
-        <div className="flex justify-center py-12">
+        <div
+          className="flex justify-center py-12"
+          role="status"
+          aria-label={t("loading")}
+        >
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-(--color-border) border-t-(--color-accent)" />
         </div>
       )}

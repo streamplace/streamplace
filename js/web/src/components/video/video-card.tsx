@@ -43,7 +43,7 @@ export function VideoCard({
     >
       {/* Thumbnail */}
       <div
-        className="outline-border/40 relative aspect-video overflow-clip rounded-xl bg-black ring-0 outline transition-all duration-200 group-hover:rounded-md group-hover:ring-4"
+        className="outline-border/40 relative aspect-video overflow-clip rounded-xl bg-black ring-0 outline transition-[border-radius,box-shadow] duration-200 group-hover:rounded-md group-hover:ring-4"
         style={{ "--tw-ring-color": ringColor } as CSSProperties}
       >
         {thumbnailUrl ? (

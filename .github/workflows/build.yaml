@@ -86,7 +86,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Export GitHub Actions cache environment
-        if: matrix.name == 'linux-amd64' || matrix.name == 'linux-arm64' || matrix.name == 'windows-amd64'
+        if:
+          matrix.name == 'linux-amd64' || matrix.name == 'linux-arm64' ||
+          matrix.name == 'windows-amd64'
         uses: actions/github-script@v7
         with:
           script: |
@@ -107,7 +109,8 @@ jobs:
 
       - name: make node
         env:
-          SCCACHE_GHA_RW_MODE: ${{ github.event_name == 'push' && 'READ_WRITE' || 'READ_ONLY' }}
+          SCCACHE_GHA_RW_MODE:
+            ${{ github.event_name == 'push' && 'READ_WRITE' || 'READ_ONLY' }}
         run: |
           sudo apt install podman -y
           # Ubuntu 24.04's crun (1.14.1) rejects the OCI spec version newer
@@ -116,12 +119,31 @@ jobs:
           sudo curl -fsSL -o /usr/bin/crun https://github.com/containers/crun/releases/download/1.28/crun-1.28-linux-amd64
           sudo chmod +x /usr/bin/crun
           sccache_opts=""
-          sccache_cmd="${{ matrix.cmd }}"
-          if [[ "${{ matrix.name }}" == "linux-amd64" || "${{ matrix.name }}" == "linux-arm64" || "${{ matrix.name }}" == "windows-amd64" ]]; then
-            sccache_opts="-e ACTIONS_RESULTS_URL -e ACTIONS_RUNTIME_TOKEN"
-            sccache_cmd="export SCCACHE_GHA_ENABLED=on SCCACHE_GHA_VERSION=1 SCCACHE_GHA_RW_MODE=$SCCACHE_GHA_RW_MODE SCCACHE_BASEDIRS=/app CC='sccache gcc' CXX='sccache g++' RUSTC_WRAPPER=sccache USE_SCCACHE=1; set -e; $sccache_cmd; sccache --show-stats"
-          fi
-          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_PWD_MOUNT_PATH=/app DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="make linux-amd64 && make test-vod && make static-test && make check && make ci-lexicons"
+          sccache_cmd="make linux-amd64 && make test-vod && make static-test && make check && make ci-lexicons"
+
+          if [[ "${{ matrix.name }}" == "linux-amd64" || \
+                "${{ matrix.name }}" == "linux-arm64" || \
+                "${{ matrix.name }}" == "windows-amd64" ]]; then
+                sccache_opts="-e ACTIONS_RESULTS_URL -e ACTIONS_RUNTIME_TOKEN"
+                sccache_cmd="export SCCACHE_GHA_ENABLED=on \
+                SCCACHE_GHA_VERSION=1 \
+                SCCACHE_GHA_RW_MODE=$SCCACHE_GHA_RW_MODE \
+                SCCACHE_BASEDIRS=/app \
+                CC='sccache gcc' \
+                CXX='sccache g++' \
+                RUSTC_WRAPPER=sccache \
+                USE_SCCACHE=1; \
+                set -e; \
+                $sccache_cmd; \
+                sccache --show-stats"
+            fi
+
+            make in-container \
+              BUILDER_TARGET=builder-no-darwin \
+              DOCKER_PWD_MOUNT_PATH=/app \
+              DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" \
+              DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true $sccache_opts" \
+              IN_CONTAINER_CMD="$sccache_cmd"
 
       - name: Publish Test Report
         if: success() || failure()

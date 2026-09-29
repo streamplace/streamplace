@@ -684,10 +684,9 @@ export function ChatBox({
           </Pressable>
           {!isPopout && (
             <Button
-              // @ts-ignore this should work fine on web and get ignored on mobile
-              href={`/chat-popout/${linfo?.author?.did}`}
               variant="secondary"
               aria-label="Popout Chat"
+              testID="chat-popout-button"
               style={{
                 borderRadius: theme.borderRadius.md,
                 maxWidth: 44,
@@ -695,14 +694,20 @@ export function ChatBox({
               }}
               onPress={() => {
                 const did = linfo?.author?.did ?? profile?.did;
-                if (did) {
-                  const u = new URL(window.location.href);
-                  u.pathname = `/chat-popout/${did}`;
-                  window.open(
-                    u.toString(),
-                    "_blank",
-                    "popup=true,width=480,height=600",
-                  );
+                if (!did) return;
+                const u = new URL(window.location.href);
+                u.pathname = `/chat-popout/${did}`;
+                const popup = window.open(
+                  u.toString(),
+                  "_blank",
+                  "popup=true,width=480,height=600",
+                );
+                if (!popup) {
+                  // A blocked popup returns null. Don't hide the panel and
+                  // leave the viewer with no chat at all — send this tab to
+                  // the popout instead.
+                  window.location.assign(u.toString());
+                  return;
                 }
                 setIsChatVisible?.(false);
               }}

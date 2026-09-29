@@ -163,7 +163,7 @@ code {
     @apply border-border outline-ring/50 font-sans transition-colors;
     font-size: 16px;
   }
-  body {
+  :root {
     @apply bg-background text-foreground;
   }
 

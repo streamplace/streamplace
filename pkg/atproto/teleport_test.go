@@ -69,7 +69,7 @@ func TestTeleportArrivalNotFromBackfill(t *testing.T) {
 		rcid, err := spid.GetCID(rec)
 		require.NoError(t, err)
 		require.NoError(t, atsync.handleCreateUpdate(ctx, traveller, syntax.RecordKey(rkey),
-			&recCBOR, rcid.String(), syntax.NSID("place.stream.live.teleport"), false, isFirstSync))
+			&recCBOR, rcid.String(), syntax.NSID("place.stream.live.teleport"), false, isFirstSync, ""))
 	}
 
 	// A teleport from last week, met during a backfill. The notification is

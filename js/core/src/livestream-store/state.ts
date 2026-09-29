@@ -6,6 +6,15 @@ import {
   place,
 } from "streamplace";
 
+/**
+ * A permission record plus its AT-URI, which is needed to apply deletion
+ * events to records loaded before the websocket connection was established.
+ */
+export type LivestreamModerationPermission =
+  place.stream.moderation.permission.Main & {
+    uri?: string;
+  };
+
 export interface LivestreamState {
   profile: AppBskyActorDefs.ProfileViewBasic | null;
   chatIndex: { [key: string]: ChatMessageViewHydrated };
@@ -34,9 +43,12 @@ export interface LivestreamState {
   websocketConnected: boolean;
   hasReceivedSegment: boolean;
   pinnedComment: PinnedRecordViewHydrated | null;
-  moderationPermissions: place.stream.moderation.permission.Main[];
+  moderationPermissions: LivestreamModerationPermission[];
+  deletedModerationPermissionURIs: string[];
+  /** Latest AT Protocol repo revision applied for each moderation record URI. */
+  moderationPermissionRevisions: Record<string, string>;
   setModerationPermissions: (
-    permissions: place.stream.moderation.permission.Main[],
+    permissions: LivestreamModerationPermission[],
   ) => void;
   localLivestreamURI: string | null;
   setLocalLivestreamURI: (uri: string | null) => void;

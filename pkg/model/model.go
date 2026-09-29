@@ -132,7 +132,7 @@ type Model interface {
 	DeleteMetadataConfiguration(ctx context.Context, repoDID string) error
 
 	CreateModerationDelegation(ctx context.Context, rec placestream.ModerationPermission, aturi syntax.ATURI) error
-	DeleteModerationDelegation(ctx context.Context, rkey string) error
+	DeleteModerationDelegation(ctx context.Context, repoDID, rkey string) error
 	GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*placestream.ModerationDefs_PermissionView, error)
 	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]placestream.ModerationDefs_PermissionView, error)
 	GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]placestream.ModerationDefs_PermissionView, error)
@@ -338,6 +338,9 @@ func MakeDBConns(dbURL string, conns int) (Model, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+	if err := migrateModerationDelegationKeys(context.Background(), db); err != nil {
+		return nil, fmt.Errorf("migrating moderation delegation keys: %w", err)
 	}
 	return &DBModel{DB: db}, nil
 }

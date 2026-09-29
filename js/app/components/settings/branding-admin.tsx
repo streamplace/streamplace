@@ -1242,7 +1242,7 @@ export function BrandingAdmin() {
                     </Text>
                     <Text size="xs" color="muted">
                       {t("branding-current", {
-                        value: currentPrimaryColor?.data || "#6366f1", // token-ok: branding default
+                        value: currentPrimaryColor?.data || "#6366f1", // eslint-disable-line streamplace/no-token-literals -- branding default
                       })}
                     </Text>
                     <View
@@ -1276,7 +1276,7 @@ export function BrandingAdmin() {
                     </Text>
                     <Text size="xs" color="muted">
                       {t("branding-current", {
-                        value: currentAccentColor?.data || "#8b5cf6", // token-ok: branding default
+                        value: currentAccentColor?.data || "#8b5cf6", // eslint-disable-line streamplace/no-token-literals -- branding default
                       })}
                     </Text>
                     <View

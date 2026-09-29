@@ -54,8 +54,13 @@ function PrivacySettings() {
     setError(null);
     try {
       await createServerSettingsRecord(patch);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to update setting");
+    } catch (error) {
+      console.error("Failed to update privacy setting:", error);
+      setError(
+        t("privacy-update-failed", {
+          defaultValue: "Failed to update setting",
+        }),
+      );
     } finally {
       setSaving(false);
     }
@@ -67,33 +72,30 @@ function PrivacySettings() {
         {t("privacy-security")}
       </h1>
 
-      {!isAuthenticated && (
+      {!isAuthenticated ? (
         <p className="text-sm text-(--color-fg-muted)">
           {t("log-in-to-manage-privacy", {
             defaultValue: "Log in to manage privacy settings.",
           })}
         </p>
-      )}
-
-      <Card>
-        <CardRow>
-          <div className="flex items-center justify-between">
-            <div className="pr-4">
-              <div className="text-sm font-medium">
-                {t("debug-recording-title", { host: u.host })}
+      ) : (
+        <Card>
+          <CardRow>
+            <div className="flex items-center justify-between">
+              <div className="pr-4">
+                <div className="text-sm font-medium">
+                  {t("debug-recording-title", { host: u.host })}
+                </div>
               </div>
-              <div className="mt-0.5 text-xs text-(--color-fg-muted)">
-                {t("debug-recording-description")}
-              </div>
+              <Switch
+                checked={debugRecordingOn}
+                onCheckedChange={(v) => handleToggle({ debugRecording: v })}
+                disabled={!isAuthenticated || saving}
+              />
             </div>
-            <Switch
-              checked={debugRecordingOn}
-              onCheckedChange={(v) => handleToggle({ debugRecording: v })}
-              disabled={!isAuthenticated || saving}
-            />
-          </div>
-        </CardRow>
-      </Card>
+          </CardRow>
+        </Card>
+      )}
 
       {vodBetaStatus === "granted" && (
         <Card>
@@ -119,7 +121,11 @@ function PrivacySettings() {
         </Card>
       )}
 
-      {error && <p className="text-sm text-(--color-danger)">{error}</p>}
+      {error && (
+        <p className="text-sm text-(--color-danger)" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

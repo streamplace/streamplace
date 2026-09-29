@@ -885,7 +885,7 @@ export default function Shell() {
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: "#000", // token-ok: overlay scrim
+              backgroundColor: "#000", // eslint-disable-line streamplace/no-token-literals -- overlay scrim
               zIndex: 127000,
             },
           ]}

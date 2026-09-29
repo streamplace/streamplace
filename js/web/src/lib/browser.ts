@@ -1,3 +1,8 @@
+export function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 export function getBrowserName() {
   // The order matters here, and this may report false positives for unlisted browsers.
   let userAgent = "";

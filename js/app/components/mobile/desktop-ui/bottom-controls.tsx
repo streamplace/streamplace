@@ -31,8 +31,10 @@ interface BottomControlBarProps {
   ingest: string | null;
   pipSupported: boolean;
   pipActive: boolean;
-  onHandlePip: () => void;
-  dropdownPortalContainer?: any;
+  onHandlePip?: () => void;
+  dropdownPortalContainer?: string;
+  showContextMenu?: boolean;
+  volumeSliderWidth?: number;
   showChat: boolean;
   setShowChat?: (show: boolean) => void;
 }
@@ -88,7 +90,7 @@ function ContextMenuButton({
 // YouTube-style: a translucent rounded field hugging each button cluster,
 // rather than a scrim across the whole width of the player.
 const pill = {
-  backgroundColor: "rgba(0,0,0,0.45)", // token-ok: over video
+  backgroundColor: "rgba(0,0,0,0.45)", // eslint-disable-line streamplace/no-token-literals -- over video
   borderRadius: 999,
   paddingHorizontal: 10,
   paddingVertical: 4,
@@ -100,7 +102,12 @@ function FullscreenButton() {
   const setFullscreen = usePlayerStore((state) => state.setFullscreen);
   if (Platform.OS !== "web") return null;
   return (
-    <Pressable onPress={() => setFullscreen(!fullscreen)} style={[p[2], r[1]]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+      onPress={() => setFullscreen(!fullscreen)}
+      style={[p[2], r[1]]}
+    >
       {fullscreen ? (
         <Minimize color={theme.colors.text} />
       ) : (
@@ -149,6 +156,8 @@ export function BottomControlBar({
   pipActive,
   onHandlePip,
   dropdownPortalContainer,
+  showContextMenu = true,
+  volumeSliderWidth = 200,
   showChat,
   setShowChat,
 }: BottomControlBarProps) {
@@ -185,7 +194,10 @@ export function BottomControlBar({
               />
             </Pressable>
           )}
-          <VolumeSlider key={String(sidebarCollapsed)} />
+          <VolumeSlider
+            key={String(sidebarCollapsed)}
+            sliderWidth={volumeSliderWidth}
+          />
           {playbackMode === "vod" && (
             <View style={[layout.flex.row, zero.gap.all[1]]}>
               <Text
@@ -212,11 +224,11 @@ export function BottomControlBar({
         <View
           style={[layout.flex.row, layout.flex.alignCenter, gap.all[3], pill]}
         >
-          {pipSupported && (
+          {pipSupported && onHandlePip && (
             <PipButton pipActive={pipActive} onHandlePip={onHandlePip} />
           )}
           <DanmuButton />
-          {ingest === null && (
+          {ingest === null && showContextMenu && (
             <ContextMenuButton
               dropdownPortalContainer={dropdownPortalContainer}
             />

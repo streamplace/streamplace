@@ -9,6 +9,7 @@ import { useStore } from "../lib/store";
 import { usePDSAgent, useSiteTitle, useUserProfile } from "../lib/store/hooks";
 import StreamplaceSvg from "./svg/streamplace-bw";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import { SidebarTrigger } from "./ui/sidebar";
 
 interface SearchResult {
@@ -162,9 +163,9 @@ export default function Header() {
           <div className="relative w-full max-w-sm">
             <div className="relative flex items-center">
               <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-(--color-fg-muted)" />
-              <input
+              <Input
                 ref={inputRef}
-                type="text"
+                type="search"
                 value={query}
                 onChange={(e) => handleChange(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -172,16 +173,28 @@ export default function Header() {
                   if (query.trim() && results.length > 0) setOpen(true);
                 }}
                 placeholder={t("search-placeholder")}
-                className="focus:ring-ring h-8 w-full rounded-md border border-(--color-border) bg-(--color-bg) pr-8 pl-8 text-sm text-(--color-fg) placeholder:text-(--color-fg-muted) focus:ring-1 focus:outline-none"
+                aria-label={t("search-placeholder")}
+                role="combobox"
+                aria-expanded={open && (results.length > 0 || searching)}
+                aria-controls="header-search-results"
+                aria-activedescendant={
+                  highlightIndex >= 0
+                    ? `header-search-result-${highlightIndex}`
+                    : undefined
+                }
+                className="pr-8 pl-8 text-sm"
               />
               {query && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={clearSearch}
-                  className="absolute right-2 rounded p-0.5 text-(--color-fg-muted) hover:text-(--color-fg)"
+                  aria-label={t("close")}
+                  className="absolute right-1.5 text-(--color-fg-muted) hover:text-(--color-fg)"
                 >
                   <X className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               )}
             </div>
 
@@ -189,20 +202,30 @@ export default function Header() {
             {open && (results.length > 0 || searching) && (
               <div
                 ref={resultsRef}
+                id="header-search-results"
+                role="listbox"
                 className="absolute top-full right-0 left-0 z-50 mt-1 max-h-80 overflow-hidden overflow-y-auto rounded-md border border-(--color-border) bg-(--color-bg-elevated) shadow-md"
               >
                 {searching && results.length === 0 && (
-                  <div className="flex items-center justify-center py-6">
+                  <div
+                    className="flex items-center justify-center py-6"
+                    role="status"
+                    aria-label={t("loading")}
+                  >
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-(--color-border) border-t-(--color-accent)" />
                   </div>
                 )}
                 {results.map((actor, i) => (
-                  <button
+                  <Button
                     key={actor.did}
+                    id={`header-search-result-${i}`}
                     type="button"
+                    role="option"
+                    aria-selected={i === highlightIndex}
+                    variant="ghost"
                     onClick={() => selectResult(actor)}
                     onMouseEnter={() => setHighlightIndex(i)}
-                    className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors ${
+                    className={`h-auto w-full justify-start gap-2.5 rounded-none px-3 py-2 text-left font-normal ${
                       i === highlightIndex
                         ? "bg-(--color-bg-overlay)"
                         : "hover:bg-(--color-bg-overlay)"
@@ -231,7 +254,7 @@ export default function Header() {
                         @{actor.handle}
                       </div>
                     </div>
-                  </button>
+                  </Button>
                 ))}
                 <div className="flex w-full items-center justify-center border-t">
                   <Link

@@ -1,7 +1,8 @@
 # 00-server-setup must run first: it points the app at the e2e test server.
 # Without an explicit order Maestro may run flows in any order, silently
 # testing against production instead.
-# 05-oauth-login runs last: every flow before it expects a logged-out app.
+# 05-oauth-login runs after the logged-out flows: every flow before it
+# expects a logged-out app, and every flow after it a logged-in one.
 executionOrder:
   continueOnFailure: false
   flowsOrder:
@@ -10,3 +11,4 @@ executionOrder:
     - 02-tabs
     - 04-stream
     - 05-oauth-login
+    - 06-chat-reply

@@ -1,7 +1,3 @@
-// Web push notifications. Ported from js/app/store/slices/platformSlice.ts
-// (web-only parts). Registers the service worker on mount, and
-// subscribes/unsubscribes the browser's PushManager from the
-// notifications settings toggle.
 import { StateCreator } from "zustand";
 import { AppStore } from "../index";
 

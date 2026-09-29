@@ -1,10 +1,3 @@
-// Per-livestream content metadata (content warnings, distribution
-// policy, content rights). Ported from
-// js/app/store/slices/contentMetadataSlice.ts. The slice reads PDS
-// agents and the active session from the bluesky slice via get().
-// `resolveDIDDocument` / `getPDSServiceEndpoint` are imported from
-// the web's lib/did helper (a copy of @streamplace/components/utils/did
-// because that package is React-Native-coupled).
 import { StateCreator } from "zustand";
 import { getPDSServiceEndpoint, resolveDIDDocument } from "../../did";
 import { AppStore } from "../index";

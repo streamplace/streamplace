@@ -98,7 +98,7 @@ func TestHandleCreateUpdateRedelivery(t *testing.T) {
 	rkey := syntax.RecordKey("3lmsg000000000")
 	index := func() error {
 		bs := recCBOR
-		return atsync.handleCreateUpdate(ctx, did, rkey, &bs, rcid.String(), collection, false, false)
+		return atsync.handleCreateUpdate(ctx, did, rkey, &bs, rcid.String(), collection, false, false, "")
 	}
 
 	require.NoError(t, index())

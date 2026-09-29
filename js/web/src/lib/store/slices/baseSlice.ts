@@ -1,5 +1,3 @@
-// StreamKey: a signed-atproto stream-publishing key. Persisted to
-// storage so a user returning to the app doesn't have to re-register.
 import { StateCreator } from "zustand";
 import { storage } from "../../storage";
 import { AppStore } from "../index";

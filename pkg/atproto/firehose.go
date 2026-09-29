@@ -674,7 +674,7 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 			// tear down event processing for the whole node). The error is
 			// logged and the loop moves on to the next op.
 			err = log.Recover(ctx, func() error {
-				return atsync.handleCreateUpdate(ctx, evt.Repo, rkey, recCBOR, op.Cid.String(), collection, ek == repomgr.EvtKindUpdateRecord, false)
+				return atsync.handleCreateUpdate(ctx, evt.Repo, rkey, recCBOR, op.Cid.String(), collection, ek == repomgr.EvtKindUpdateRecord, false, evt.Rev)
 			})
 			if err != nil {
 				log.Error(ctx, "failed to handle create update", "err", err)
@@ -774,17 +774,19 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 
 			if collection.String() == constants.PLACE_STREAM_MODERATION_PERMISSION {
 				log.Debug(ctx, "deleting moderation delegation", "userDID", evt.Repo, "rkey", rkey.String())
-				err := atsync.Model.DeleteModerationDelegation(ctx, rkey.String())
+				err := atsync.Model.DeleteModerationDelegation(ctx, evt.Repo, rkey.String())
 				if err != nil {
 					log.Error(ctx, "failed to delete moderation delegation", "err", err)
+					continue
 				}
 				// Publish deletion to WebSocket bus for real-time updates
-				// Create a deleted record marker to notify frontend
 				deletedRecord := map[string]any{
-					"$type":    "place.stream.moderation.permission",
+					"$type":    constants.PLACE_STREAM_MODERATION_PERMISSION,
 					"deleted":  true,
+					"uri":      uri,
 					"rkey":     rkey.String(),
 					"streamer": evt.Repo,
+					"repoRev":  evt.Rev,
 				}
 				go atsync.Bus.Publish(evt.Repo, deletedRecord)
 			}

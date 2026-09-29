@@ -1,27 +1,3 @@
-// Bluesky/ATProto authentication, profile, follow, and per-user record
-// actions (chat profile, server settings). Ported from
-// js/app/store/slices/blueskySlice.ts.
-//
-// Differences from the app source:
-//   - storage is imported from "../../storage" (the web's localStorage
-//     wrapper) instead of @streamplace/components.
-//   - createOAuthClient is imported from the web's lib/oauth, which
-//     returns a BrowserOAuthClient (the same type the app's web variant
-//     surfaces from features/bluesky/oauthClientImport).
-//   - clearQueryParams is a tiny inline helper instead of the app's
-//     utils/clear-query-params, since the app util is React-Native-gated.
-//   - The following actions are NOT ported in this commit and are
-//     placeholders for later phases. They depend on libraries that are
-//     not yet in js/web's deps:
-//       - createStreamKeyRecord, clearStreamKeyRecord,
-//         getStreamKeyRecords, deleteStreamKeyRecord (Phase 3 settings
-//         / Phase 4 go-live; needs @atproto/crypto + viem).
-//       - createLivestreamRecord, updateLivestreamRecord, golivePost,
-//         and the uploadThumbnail helper (Phase 4 go-live).
-//       - createBlockRecord (low priority; revisit if/when needed).
-//     The corresponding state fields (streamKeysResponse, newLivestream,
-//     newKey, etc.) are kept so the slice type stays symmetric with the
-//     app's; they simply aren't mutated yet.
 import { Agent } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { OutputSchema } from "@atproto/api/dist/client/types/com/atproto/repo/listRecords";

@@ -143,17 +143,7 @@ export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
   }
 
   return (
-    <div className="h-full overflow-hidden rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
-      <div className="flex items-center gap-2 border-b border-(--color-border) px-4 py-3">
-        <Globe className="size-4 text-(--color-fg-muted)" />
-        <h3 className="text-sm font-semibold">
-          {t("multistream", { defaultValue: "Multistream" })}
-        </h3>
-        {loading && (
-          <Loader2 className="size-3 animate-spin text-(--color-fg-muted)" />
-        )}
-      </div>
-
+    <div className="h-full overflow-hidden rounded-b-lg border border-(--color-border) bg-(--color-bg-elevated)">
       <div className="divide-y divide-(--color-border)">
         {targets.map((target) => {
           const name = getTargetName(target);

@@ -278,6 +278,7 @@ export const handleWebSocketMessages = (
           arrival.source.did,
           arrival.viewerCount,
           arrival.chatProfile,
+          arrival.teleportUri,
         );
         // set proper times
         systemMessage.indexedAt = arrival.startsAt;

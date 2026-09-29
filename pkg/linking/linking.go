@@ -326,7 +326,8 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *plac
 }
 
 // GenerateVideoCard is the card for a video page: "<name>'s video on <site>"
-// (cardVideoTitle) over the video's own title.
+// (cardVideoTitle) over the video's own title. The page's <title> is the
+// video's own title.
 func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestream.MediaGetVideo_VideoView, sentryDSN string) ([]byte, error) {
 	if u == nil {
 		return nil, errors.New("url is nil")
@@ -373,8 +374,15 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestr
 	// authored by the streamer
 	metaTags = append(metaTags, l.atTags(vv.Uri, authorDid)...)
 
+	// The tab title is the video's own title, so open tabs and bookmarks
+	// tell videos apart; the card title stands in for an untitled video.
+	pageTitle := strings.TrimSpace(video.Title)
+	if pageTitle == "" {
+		pageTitle = title
+	}
+
 	return l.GenerateHTML(ctx, &PageConfig{
-		Title:     title,
+		Title:     pageTitle,
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
 	})

@@ -38,14 +38,17 @@ import (
 // types are used (rather than indigo's) so the record's $type survives
 // marshalling: indigo's LexiconTypeDecoder only accepts structs with a const
 // $type field, which glex-generated records do not have.
-func createRecord(ctx context.Context, client *xrpc.Client, collection, repo string, record glex.Record) error {
+func createRecord(ctx context.Context, client *xrpc.Client, collection, repo string, record glex.Record) (string, error) {
 	inp := spcomatproto.RepoCreateRecord_Input{
 		Collection: collection,
 		Repo:       repo,
 		Record:     &glex.LexiconTypeDecoder{Val: record},
 	}
 	out := spcomatproto.RepoCreateRecord_Output{}
-	return client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, inp, &out)
+	if err := client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, inp, &out); err != nil {
+		return "", err
+	}
+	return out.Uri, nil
 }
 
 func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
@@ -337,7 +340,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		CreatedAt:  time.Now().Format(util.ISO8601),
 		CreatedBy:  &createdBy,
 	}
-	if err := createRecord(ctx, xrpcc, "place.stream.key", out.Did, &streamKey); err != nil {
+	if _, err := createRecord(ctx, xrpcc, "place.stream.key", out.Did, &streamKey); err != nil {
 		return fmt.Errorf("register stream key: %w", err)
 	}
 	// Create a livestream record so the stream shows up in feeds; normally the
@@ -351,8 +354,26 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		LastSeenAt:    &now,
 		Title:         "e2e test stream",
 	}
-	if err := createRecord(ctx, xrpcc, "place.stream.livestream", out.Did, &livestream); err != nil {
+	if _, err := createRecord(ctx, xrpcc, "place.stream.livestream", out.Did, &livestream); err != nil {
 		return fmt.Errorf("create livestream record: %w", err)
+	}
+	// And a VOD, so flows have a video page to open. It has no source tracks:
+	// its metadata (title, author) loads, but there is nothing to play.
+	video := placestream.Video{
+		LexiconTypeID: "place.stream.video",
+		CreatedAt:     now,
+		Title:         "e2e test video",
+		DurationMs:    10_000,
+		Source: placestream.Video_Source{
+			MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
+				LexiconTypeID: "place.stream.media.defs#sourceTracks",
+				Tracks:        []spcomatproto.RepoStrongRef{},
+			},
+		},
+	}
+	videoURI, err := createRecord(ctx, xrpcc, "place.stream.video", out.Did, &video)
+	if err != nil {
+		return fmt.Errorf("create video record: %w", err)
 	}
 
 	// Give the node a moment to index the key before we start streaming.
@@ -388,8 +409,8 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 
 	// Print the env vars for the workflow to consume, in one write: callers
 	// poll for SERVER_URL and then read the whole file.
-	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\n",
-		httpAddr, out.Handle, out.Did, password)
+	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\n",
+		httpAddr, out.Handle, out.Did, password, videoURI)
 	if tlsEnv != nil {
 		// The same node over HTTPS at its public name, plus what clients
 		// need to reach and trust it (see e2e_https.go): a browser pins the

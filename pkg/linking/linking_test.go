@@ -116,8 +116,10 @@ func TestGenerateVideoCard(t *testing.T) {
 	require.NoError(t, err)
 	linkStr := string(linkCard)
 	require.True(t, strings.Contains(linkStr, "iame.li"), "should contain the author handle")
-	require.Contains(t, linkStr, "<title>iame.li&#39;s video on streamplace node</title>",
-		"page title names the author (handle without a display name) and the site")
+	require.Contains(t, linkStr, "<title>My excellent VOD</title>",
+		"page title is the video's own title")
+	require.Contains(t, linkStr, `<meta property="og:title" content="iame.li&#39;s video on streamplace node"/>`,
+		"og:title names the author (handle without a display name) and the site")
 	require.Contains(t, linkStr, `<meta property="og:description" content="`+video.Title+`"/>`,
 		"og:description is the video's own title")
 	require.Contains(t, linkStr, `<meta property="og:type" content="video.other"/>`)
@@ -267,6 +269,12 @@ func TestCardTemplates(t *testing.T) {
 	page = string(out)
 	require.Contains(t, page, `<meta property="og:title" content="Ada Lovelace on X play"/>`)
 	require.Contains(t, page, `<meta property="og:description" content="Lab replay"/>`)
+	require.Contains(t, page, "<title>Lab replay</title>")
+
+	video.Title = "  "
+	out, err = linker.GenerateVideoCard(ctx, vu, vv, "")
+	require.NoError(t, err)
+	require.Contains(t, string(out), "<title>Ada Lovelace on X play</title>", "untitled video: the card title")
 
 	home, _ := url.Parse("https://example.com/")
 	out, err = linker.GenerateLandingCard(ctx, home, LandingHome, "")

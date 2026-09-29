@@ -31,7 +31,8 @@ mobile-only.
 | `02-tabs.spec.ts`        | `02-tabs.yaml`         |
 | `03-go-live.spec.ts`     | `03-go-live.yaml`      |
 | `04-stream.spec.ts`      | `04-stream.yaml`       |
-| `05-oauth-login.spec.ts` | —                      |
+| `05-oauth-login.spec.ts` | `05-oauth-login.yaml`  |
+| `07-chat-popout.spec.ts` | — (web-only)           |
 
 The web app renders the **desktop layout** (a sidebar of nav links), not the
 mobile tab bar, so a couple of flows adapt to that surface while keeping the

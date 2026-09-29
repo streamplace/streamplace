@@ -40,6 +40,10 @@ type finalizeLivestreamRequest struct {
 	// EndLivestream also sets endedAt on any of the records the streamer
 	// never stopped, so their page stops reading as live.
 	EndLivestream bool `json:"endLivestream"`
+	// EndOnly ends the never-stopped records and does nothing else: no
+	// upload, no VOD. For records left live after a finalize that already
+	// ran.
+	EndOnly bool `json:"endOnly"`
 }
 
 type finalizeLivestreamResponse struct {
@@ -101,6 +105,39 @@ func (a *StreamplaceAPI) HandleFinalizeLivestream(ctx context.Context) httproute
 		for i, it := range items {
 			ordered[i] = it.ls.URI
 		}
+		// endRecords ends the listed records the streamer never stopped,
+		// noting each outcome on the response.
+		endRecords := func(resp *finalizeLivestreamResponse) {
+			for _, it := range items {
+				if it.rec.EndedAt != nil {
+					resp.Ended = append(resp.Ended, it.ls.URI)
+					continue
+				}
+				if err := a.StatefulDB.EndLivestreamRecord(ctx, it.ls, it.rec); err != nil {
+					log.Error(ctx, "operator finalize: could not end livestream record", "livestream", it.ls.URI, "error", err)
+					resp.EndErrors = append(resp.EndErrors, it.ls.URI+": "+err.Error())
+				} else {
+					resp.Ended = append(resp.Ended, it.ls.URI)
+				}
+			}
+		}
+		writeResp := func(resp finalizeLivestreamResponse) {
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				log.Error(ctx, "error writing response", "error", err)
+			}
+		}
+		if req.EndOnly {
+			if !a.StatefulDB.HasUserSession(repoDID) {
+				errors.WriteHTTPBadRequest(w, "the streamer has no stored session on this node and the node has no credentials for the account", nil)
+				return
+			}
+			resp := finalizeLivestreamResponse{RepoDID: repoDID, Livestreams: ordered}
+			endRecords(&resp)
+			log.Log(ctx, "operator finalize: ended livestream records", "livestreams", ordered, "repoDID", repoDID, "ended", resp.Ended, "errors", resp.EndErrors)
+			writeResp(resp)
+			return
+		}
 		segs, err := a.StatefulDB.ListS3SegmentsForLivestreams(ctx, ordered)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "list recorded objects", err)
@@ -146,25 +183,16 @@ func (a *StreamplaceAPI) HandleFinalizeLivestream(ctx context.Context) httproute
 		}
 		log.Log(ctx, "operator finalize: livestream VOD queued", "livestreams", ordered, "repoDID", repoDID, "uploadId", uploadID, "objects", len(segs), "bytes", total, "publish", publish)
 		resp := finalizeLivestreamResponse{UploadID: uploadID, RepoDID: repoDID, Livestreams: ordered, Objects: len(segs), Bytes: total, Publish: publish, Title: video.Title, TaskQueue: statedb.TaskFinalizeLivestreamVOD}
-		for _, it := range items {
-			if it.rec.EndedAt != nil {
-				resp.Ended = append(resp.Ended, it.ls.URI)
-				continue
-			}
-			if !req.EndLivestream {
-				continue
-			}
-			if err := a.StatefulDB.EndLivestreamRecord(ctx, it.ls, it.rec); err != nil {
-				log.Error(ctx, "operator finalize: could not end livestream record", "livestream", it.ls.URI, "error", err)
-				resp.EndErrors = append(resp.EndErrors, it.ls.URI+": "+err.Error())
-			} else {
-				resp.Ended = append(resp.Ended, it.ls.URI)
+		if req.EndLivestream {
+			endRecords(&resp)
+		} else {
+			for _, it := range items {
+				if it.rec.EndedAt != nil {
+					resp.Ended = append(resp.Ended, it.ls.URI)
+				}
 			}
 		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			log.Error(ctx, "error writing response", "error", err)
-		}
+		writeResp(resp)
 	}
 }
 

@@ -23,6 +23,8 @@
 #   --skip-ended          leave out records that were ended (default: include)
 #   --no-publish          finalize only, leave a draft; publish later with POST /videos
 #   --keep-live           do not end records that were never stopped
+#   --end-only            only end the never-stopped records; no VOD (for
+#                         records left live after a finalize that already ran)
 #   --yes                 no confirmation prompt
 #   --node URL            internal API (default http://127.0.0.1:39090)
 #   --wait MINUTES        how long to wait for each finalize (default 40)
@@ -35,6 +37,7 @@ TITLE=""
 SKIP_ENDED=0
 PUBLISH=true
 END_LIVE=true
+END_ONLY=false
 YES=0
 WHO=""
 
@@ -45,6 +48,7 @@ while [ $# -gt 0 ]; do
     --skip-ended) SKIP_ENDED=1; shift ;;
     --no-publish) PUBLISH=false; shift ;;
     --keep-live) END_LIVE=false; shift ;;
+    --end-only) END_ONLY=true; shift ;;
     --yes|-y) YES=1; shift ;;
     --node) NODE="$2"; shift 2 ;;
     --wait) WAIT_MINUTES="$2"; shift 2 ;;
@@ -174,7 +178,7 @@ for n, g in enumerate(p["groups"], 1):
         print("      " + r["title"][:90])
 PY
 echo
-echo "Node: $NODE   publish: $PUBLISH   end never-stopped records: $END_LIVE"
+if [ "$END_ONLY" = true ]; then echo "Node: $NODE   END ONLY: no VOD is made, the never-stopped records are ended"; else echo "Node: $NODE   publish: $PUBLISH   end never-stopped records: $END_LIVE"; fi
 if [ "$YES" != "1" ]; then
   read -r -p "Finalize these? [y/N] " answer
   case "$answer" in y|Y|yes|YES) ;; *) echo "aborted"; exit 1 ;; esac
@@ -185,15 +189,18 @@ count=$(PLAN="$plan_json" python3 -c 'import json,os; print(len(json.loads(os.en
 upload_ids=()
 
 for ((n=0; n<count; n++)); do
-  body=$(PLAN="$plan_json" N="$n" PUBLISH="$PUBLISH" END_LIVE="$END_LIVE" python3 - <<'PY'
+  body=$(PLAN="$plan_json" N="$n" PUBLISH="$PUBLISH" END_LIVE="$END_LIVE" END_ONLY="$END_ONLY" python3 - <<'PY'
 import json, os
 g = json.loads(os.environ["PLAN"])["groups"][int(os.environ["N"])]
-print(json.dumps({"livestreams": [r["uri"] for r in g["records"]], "title": g["title"],
-                  "publish": os.environ["PUBLISH"] == "true", "endLivestream": os.environ["END_LIVE"] == "true"}))
+if os.environ["END_ONLY"] == "true":
+    print(json.dumps({"livestreams": [r["uri"] for r in g["records"]], "endOnly": True}))
+else:
+    print(json.dumps({"livestreams": [r["uri"] for r in g["records"]], "title": g["title"],
+                      "publish": os.environ["PUBLISH"] == "true", "endLivestream": os.environ["END_LIVE"] == "true"}))
 PY
 )
   echo
-  echo "=== VOD $((n+1)): finalizing"
+  if [ "$END_ONLY" = true ]; then echo "=== group $((n+1)): ending records"; else echo "=== VOD $((n+1)): finalizing"; fi
   resp=$(curl -sS -X POST "$NODE/finalize-livestream" -H 'content-type: application/json' -d "$body")
   RESP="$resp" python3 - <<'PY' || exit 1
 import json, os, sys
@@ -203,12 +210,16 @@ except ValueError:
     print("FAILED: not a JSON answer from the node:", os.environ["RESP"][:300]); sys.exit(1)
 if "error" in r:
     print("FAILED:", r.get("error"), "-", r.get("error_detail", "")); sys.exit(1)
-print('   upload %s: %d recorded objects, %.2f GB, title "%s"' % (r["uploadId"], r["objects"], r["bytes"] / 1e9, r["title"]))
+if r.get("uploadId"):
+    print('   upload %s: %d recorded objects, %.2f GB, title "%s"' % (r["uploadId"], r["objects"], r["bytes"] / 1e9, r["title"]))
 for u in r.get("ended", []): print("   ended record", u)
 for e in r.get("endErrors", []): print("   could not end:", e)
 PY
-  upload_ids+=("$(RESP="$resp" python3 -c 'import json,os; print(json.loads(os.environ["RESP"])["uploadId"])')")
+  if [ "$END_ONLY" != true ]; then
+    upload_ids+=("$(RESP="$resp" python3 -c 'import json,os; print(json.loads(os.environ["RESP"])["uploadId"])')")
+  fi
 done
+if [ "$END_ONLY" = true ]; then echo; echo "Done: records ended, nothing else changed."; exit 0; fi
 
 # --- wait for the finalizes to finish (the node copies the recording in the background) ---
 echo

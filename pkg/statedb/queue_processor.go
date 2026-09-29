@@ -539,7 +539,16 @@ func (state *StatefulDB) EndLivestreamRecord(ctx context.Context, livestream *mo
 		return fmt.Errorf("failed to parse ATURI: %w", err)
 	}
 
-	rec.EndedAt = rec.LastSeenAt
+	// The record ends at its last heartbeat. A record that never had one (a
+	// client that made a new record a moment later on a title change, or
+	// never reported in) ended when it began; leaving endedAt empty would
+	// write the record back unchanged, still reading as live.
+	endedAt := rec.LastSeenAt
+	if endedAt == nil {
+		createdAt := rec.CreatedAt
+		endedAt = &createdAt
+	}
+	rec.EndedAt = endedAt
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.livestream",

@@ -9,11 +9,50 @@ import (
 	"testing"
 
 	"github.com/bluesky-social/indigo/xrpc"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/placestream"
 )
+
+// A record that never had a heartbeat is ended at its creation time (an
+// empty endedAt would write the record back unchanged), through the
+// node's credentials for the account.
+func TestEndLivestreamRecordWithoutHeartbeat(t *testing.T) {
+	var put comatproto.RepoPutRecord_Input
+	pds := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/xrpc/com.atproto.server.createSession":
+			_ = json.NewEncoder(w).Encode(map[string]any{"did": "did:plc:streamer", "handle": "streamer.test", "accessJwt": "access", "refreshJwt": "refresh"})
+		case "/xrpc/com.atproto.repo.putRecord":
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&put))
+			_ = json.NewEncoder(w).Encode(map[string]any{"uri": "at://did:plc:streamer/place.stream.livestream/3abc", "cid": "bafynew"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer pds.Close()
+	mod, err := model.MakeDB(":memory:")
+	require.NoError(t, err)
+	require.NoError(t, mod.UpdateRepo(&model.Repo{DID: "did:plc:streamer", Handle: "streamer.test", PDS: pds.URL}))
+	cli := &config.CLI{DBURL: ":memory:", DevAccountCreds: map[string]string{"did:plc:streamer": "pw"}}
+	state, err := MakeDB(t.Context(), cli, nil, mod)
+	require.NoError(t, err)
+
+	rec := &placestream.Livestream{LexiconTypeID: "place.stream.livestream", Title: "t", CreatedAt: "2026-09-25T14:01:59Z"}
+	ls := &model.Livestream{URI: "at://did:plc:streamer/place.stream.livestream/3abc", CID: "bafyold", RepoDID: "did:plc:streamer"}
+	require.NoError(t, state.EndLivestreamRecord(context.Background(), ls, rec))
+	require.NotNil(t, rec.EndedAt)
+	require.Equal(t, "2026-09-25T14:01:59Z", *rec.EndedAt, "ended when it began")
+	require.Equal(t, "3abc", put.Rkey)
+	require.Equal(t, "bafyold", *put.SwapRecord)
+	written, err := glex.RecordAs[placestream.Livestream](put.Record.Val)
+	require.NoError(t, err)
+	require.Equal(t, "2026-09-25T14:01:59Z", *written.EndedAt)
+}
 
 // An account the node has credentials for gets a client from a session
 // created with the app password at the account's PDS, reused across calls;

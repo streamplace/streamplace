@@ -372,8 +372,8 @@ const structuralStyles = StyleSheet.create({
     minHeight: tokens.touchTargets.minimum,
     paddingHorizontal: tokens.spacing[3],
     paddingVertical: tokens.spacing[2],
-    // 16px (typeScale.md), not base — inputs under 16px trigger zoom-on-focus
-    // in mobile web browsers
+    // typeScale.md, not base — inputs below 16px trigger zoom-on-focus in
+    // mobile web browsers, and md clears that floor at 18px
     fontSize: tokens.typeScale.md.fontSize,
     borderWidth: 1,
     borderRadius: tokens.borderRadius.md,

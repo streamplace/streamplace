@@ -112,18 +112,18 @@ Secondary: teal (`colors.secondary`, the web's `--secondary`/`--accent`).
 ## Typography
 
 For typography sizes, use `typeScale`: sizes
-12/13/14/16/20/24/32, line heights in the token file, tight letter-spacing
-from 20px up:
+14/15/16/18/22/26/34, line heights in the token file, tight letter-spacing
+from 22px up:
 
 | Key    | Size/Line  | Weight | Use                                   |
 | ------ | ---------- | ------ | ------------------------------------- |
-| `xs`   | 12/16      | 400    | Badges, timestamps, overlines         |
-| `sm`   | 13/18      | 400    | Chat messages, dense metadata         |
-| `base` | 14/20      | 400    | Default UI text                       |
-| `md`   | 16/24      | 400    | Stream titles (rows), emphasized body |
-| `lg`   | 20/26 −0.2 | 500    | Section headings                      |
-| `xl`   | 24/30 −0.3 | 600    | Page titles                           |
-| `xxl`  | 32/38 −0.5 | 600    | Hero moments only                     |
+| `xs`   | 14/18      | 400    | Badges, timestamps, overlines         |
+| `sm`   | 15/20      | 400    | Chat messages, dense metadata         |
+| `base` | 16/22      | 400    | Default UI text                       |
+| `md`   | 18/26      | 400    | Stream titles (rows), emphasized body |
+| `lg`   | 22/28 −0.2 | 500    | Section headings                      |
+| `xl`   | 26/32 −0.3 | 600    | Page titles                           |
+| `xxl`  | 34/40 −0.5 | 600    | Hero moments only                     |
 
 - **Counts, timers, and durations always use `tabularNums`**
   (`fontVariant: ["tabular-nums"]`) so digits do not jitter.

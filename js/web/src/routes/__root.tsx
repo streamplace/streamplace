@@ -12,21 +12,13 @@ import {
 } from "@tanstack/react-router";
 import { Loader } from "lucide-react";
 import { Component, type ReactNode, useEffect, useState } from "react";
+import { Button } from "../components/ui/button";
 import { SidebarInset, SidebarProvider } from "../components/ui/sidebar";
 import { getStoredPreference, syncThemeClass } from "../hooks/use-color-scheme";
 import i18next from "../lib/i18n";
 
 /** Routes that should render without sidebar/header chrome. */
 const POPOUT_PREFIXES = ["/chat-popout/", "/embed/"];
-
-/** Routes that own their own chrome via a layout route
- *  (see routes/dashboard/route.tsx). The root only needs to know about
- *  these to decide whether to wrap with ChromeLayout or render the
- *  Outlet bare. The dashboard's provider tree is mounted by the layout
- *  route itself, not by this check, so a stale read here is just a
- *  visual flash; not a render race. */
-const DASHBOARD_PREFIX = "/dashboard";
-
 export const Route = createRootRoute({
   component: RootLayout,
   pendingComponent: RouteLoadingSkeleton,
@@ -57,16 +49,12 @@ class ErrorBoundary extends Component<
           <h1 className="font-display mb-2 text-2xl font-semibold">
             {i18next.t("something-went-wrong")}
           </h1>
-          <p className="mb-6 max-w-md text-(--color-fg-muted)">
-            {this.state.error.message || i18next.t("unexpected-error")}
+          <p className="mb-6 max-w-md text-(--color-fg-muted)" role="alert">
+            {i18next.t("unexpected-error")}
           </p>
-          <button
-            type="button"
-            onClick={() => this.setState({ error: null })}
-            className="h-10 rounded-md bg-(--color-accent) px-4 font-medium text-(--color-accent-fg) transition-colors hover:bg-(--color-accent-hover)"
-          >
+          <Button type="button" onClick={() => this.setState({ error: null })}>
             {i18next.t("try-again")}
-          </button>
+          </Button>
         </div>
       );
     }
@@ -83,21 +71,14 @@ function RouteLoadingSkeleton() {
 }
 
 function RootLayout() {
-  // Popout routes (chat popout, embeds) skip the regular chrome and
-  // render their own minimal layout. Dashboard routes also skip the
-  // regular chrome; they own their own via routes/dashboard/route.tsx.
-  // The dashboard layout route mounts DashboardChrome (with its
-  // DashboardStoreContext etc.) before its children, so the chrome
-  // decision here is purely visual; a stale read just causes a brief
-  // flash, not a render race.
   const pathname = useRouterState({
     select: (s) => s.resolvedLocation?.pathname ?? "",
   });
+  const isDashboardRoute = useRouterState({
+    select: (s) => s.matches.some((match) => match.routeId === "/dashboard"),
+  });
 
-  const browserPathname =
-    typeof window !== "undefined" ? window.location.pathname : "";
-
-  const actualPathname = pathname || browserPathname;
+  const actualPathname = pathname;
 
   // pause until we can get a valid pathname, to avoid rendering the wrong chrome on initial load
   if (!actualPathname) {
@@ -114,11 +95,7 @@ function RootLayout() {
     );
   }
 
-  const isDashboard =
-    actualPathname === DASHBOARD_PREFIX ||
-    actualPathname.startsWith(`${DASHBOARD_PREFIX}/`);
-
-  if (isDashboard) {
+  if (isDashboardRoute) {
     return (
       <ErrorBoundary>
         <TooltipProvider>

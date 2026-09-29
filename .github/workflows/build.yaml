@@ -19,10 +19,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: linux-amd64
-            cmd: >-
-              make linux-amd64 && make test-vod && make static-test && make
-              check && make ci-lexicons
           - name: linux-arm64
             cmd: "make linux-arm64"
           - name: windows-amd64
@@ -31,11 +27,53 @@ jobs:
           # android-e2e runs. Shipped releases are built by GitLab.
           - name: android
             cmd: "make app && make android-e2e"
-          # The Playwright web suite (js/e2e-web), OAuth flow included. The
-          # harness binds 443 inside the container and needs the public
-          # localhost-* DNS records; see pkg/cmd/e2e_https.go.
-          - name: e2e-web
-            cmd: "bash hack/provision.sh"
+    steps:
+      - name: Maximize build space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+
+      - name: Check out code
+        uses: actions/checkout@v4.1.7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: make node
+        run: |
+          sudo apt install podman -y
+          # Ubuntu 24.04's crun (1.14.1) rejects the OCI spec version newer
+          # podman emits ("unknown version specified", fixed in crun >= 1.14.3),
+          # and the 20260726 runner image update made that pairing fatal.
+          sudo curl -fsSL -o /usr/bin/crun https://github.com/containers/crun/releases/download/1.28/crun-1.28-linux-amd64
+          sudo chmod +x /usr/bin/crun
+          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_PWD_MOUNT_PATH=/app DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
+
+      - name: Upload android e2e APK
+        if: matrix.name == 'android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-e2e-apk-${{ github.run_id }}
+          path: ./bin/*-android-e2e.apk
+          retention-days: 1
+
+      - name: Upload bin artifacts
+        if: matrix.name == 'windows-amd64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-bin-${{ github.event.pull_request.head.sha }}
+          path: ./bin/
+          retention-days: 1
+
+  linux-amd64:
+    name: linux-amd64
+    runs-on: ubuntu-latest
     steps:
       - name: Maximize build space
         run: |
@@ -56,7 +94,6 @@ jobs:
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       - name: mise check
-        if: matrix.name == 'linux-amd64'
         uses: jdx/mise-action@v2
         with:
           install: true
@@ -84,32 +121,69 @@ jobs:
             sccache_opts="-e ACTIONS_RESULTS_URL -e ACTIONS_RUNTIME_TOKEN"
             sccache_cmd="export SCCACHE_GHA_ENABLED=on SCCACHE_GHA_VERSION=1 SCCACHE_GHA_RW_MODE=$SCCACHE_GHA_RW_MODE SCCACHE_BASEDIRS=/app CC='sccache gcc' CXX='sccache g++' RUSTC_WRAPPER=sccache USE_SCCACHE=1; set -e; $sccache_cmd; sccache --show-stats"
           fi
-          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_PWD_MOUNT_PATH=/app DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true $sccache_opts" IN_CONTAINER_CMD="$sccache_cmd"
+          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_PWD_MOUNT_PATH=/app DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="make linux-amd64 && make test-vod && make static-test && make check && make ci-lexicons"
 
       - name: Publish Test Report
-        if: matrix.name == 'linux-amd64' && (success() || failure())
+        if: success() || failure()
         uses: mikepenz/action-junit-report@v5
         with:
           report_paths: "test.xml"
 
       - name: Upload streamplace binary
-        if: matrix.name == 'linux-amd64'
         uses: actions/upload-artifact@v4
         with:
           name: streamplace-linux-amd64-${{ github.run_id }}
           path: ./build-linux-amd64/streamplace
           retention-days: 1
 
-      - name: Upload android e2e APK
-        if: matrix.name == 'android'
-        uses: actions/upload-artifact@v4
+  # Reuse the binary built by linux-amd64 instead of provisioning another
+  # frontend and native build just to run Playwright.
+  e2e-web:
+    name: e2e-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: linux-amd64
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4.1.7
         with:
-          name: android-e2e-apk-${{ github.run_id }}
-          path: ./bin/*-android-e2e.apk
-          retention-days: 1
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install e2e dependencies
+        run:
+          npm install -g corepack@latest && corepack enable && pnpm install
+          --filter @streamplace/e2e-web --filter @atcute/internal-dev-env
+          --frozen-lockfile
+
+      - name: Download streamplace binary
+        uses: actions/download-artifact@v4
+        with:
+          name: streamplace-linux-amd64-${{ github.run_id }}
+          path: ./build-linux-amd64
+
+      - name: Prepare e2e runner
+        run: |
+          chmod +x ./build-linux-amd64/streamplace
+          sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+          echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/playwright-browsers" >> "$GITHUB_ENV"
+
+      - name: Install Playwright browser
+        run:
+          sudo env "PATH=$PATH"
+          "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/playwright-browsers" pnpm
+          --filter @streamplace/e2e-web install-browser
+
+      - name: Run web e2e tests
+        run: hack/e2e-web-local.sh
 
       - name: Upload e2e-web artifacts
-        if: matrix.name == 'e2e-web' && failure()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-web-${{ github.event.pull_request.head.sha || github.sha }}
@@ -117,14 +191,6 @@ jobs:
             js/e2e-web/test-results/
             js/e2e-web/playwright-report/
           retention-days: 7
-
-      - name: Upload bin artifacts
-        if: matrix.name == 'windows-amd64'
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-bin-${{ github.event.pull_request.head.sha }}
-          path: ./bin/
-          retention-days: 1
 
   # The Maestro suite (.maestro/) on an Android emulator, OAuth login included:
   # hack/e2e-local.sh against the linux-amd64 binary and the android job's
@@ -134,7 +200,7 @@ jobs:
     name: android-e2e
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: linux
+    needs: [linux, linux-amd64]
     steps:
       # full history: pnpm install's prepare steps derive the version from it
       - uses: actions/checkout@v4.1.7

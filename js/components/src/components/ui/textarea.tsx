@@ -42,8 +42,7 @@ const Textarea = React.forwardRef<TextInput, TextInputProps>(
             backgroundColor: th.theme.colors.input,
             color: th.theme.colors.text1,
             borderRadius: borderRadius.md,
-            // ≥16px so mobile web browsers don't zoom on focus
-            fontSize: typeScale.md.fontSize,
+            fontSize: typeScale.base.fontSize,
             fontFamily: fontFamilies.regular,
           },
           props.editable === false && { opacity: 0.5 },

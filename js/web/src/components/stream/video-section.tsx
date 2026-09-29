@@ -74,6 +74,10 @@ export function VideoSection({
     };
   }, [user]);
 
+  const viewerDid = useAppStore((s) => s.pdsAgent?.did);
+  // Stream URLs can use a handle, so compare against the resolved author DID.
+  const isStreamer = viewerDid === state.livestream?.author.did;
+
   return (
     <VideoSectionInner
       user={user}
@@ -89,6 +93,7 @@ export function VideoSection({
       danmuSpeed={danmuSpeed}
       danmuLaneCount={danmuLaneCount}
       danmuMaxMessages={danmuMaxMessages}
+      isStreamer={isStreamer}
     />
   );
 }
@@ -112,6 +117,7 @@ export function VideoSectionInner({
   danmuSpeed = 1,
   danmuLaneCount = 12,
   danmuMaxMessages = 50,
+  isStreamer = false,
 }: {
   user: string;
   liveness: Liveness;
@@ -127,14 +133,13 @@ export function VideoSectionInner({
   danmuSpeed?: number;
   danmuLaneCount?: number;
   danmuMaxMessages?: number;
+  isStreamer?: boolean;
 }) {
   const { t } = useTranslation("common");
   const { theatre } = useFullscreen();
   const neverLive = liveness === "never-live";
   const offline = liveness === "offline";
-  // Show the live player when neither never-live nor offline. This
-  // includes the initial loading state before the WebSocket sends its
-  // first snapshot, plus live and temporarily stale streams.
+  // Show the live player when neither never-live nor offline, including during initial loading state
   const showPlayer = !neverLive && !offline;
 
   // calculate seg ratio for poster aspect ratio correction
@@ -144,18 +149,14 @@ export function VideoSectionInner({
     <div
       className="w-full bg-black transition-[height] duration-500 ease-in-out"
       style={{
-        // In theatre mode the sidebar and header are hidden, so the video
-        // fills the full viewport. Otherwise match the live aspect ratio
-        // via the segRatio-driven maxHeight. When offline, collapse to a
-        // 4:3 panel (75vw of height) capped at half the viewport so the
-        // page below gets room. Using an explicit height (not
-        // aspect-ratio) lets CSS transition the size change when the
-        // stream goes live/offline.
+        // In theatre mode the sidebar and header are hidden
         ...(theatre
           ? { height: "100vh" }
           : offline
-            ? { height: "min(100vw, 50vh)" }
-            : {
+            ? // if offline, use a fixed aspect ratio panel
+              { height: "min(100vw, 50vh)" }
+            : // else calculate from segment aspect ratio
+              {
                 height: `min(calc(100vw / ${segRatio}), calc(100vh - 240px))`,
               }),
       }}
@@ -223,6 +224,7 @@ export function VideoSectionInner({
         {neverLive && <UserOffline user={user} />}
 
         {showPlayer &&
+          isStreamer &&
           problems
             .filter((p) => p.severity === "error")
             .map((p) => (

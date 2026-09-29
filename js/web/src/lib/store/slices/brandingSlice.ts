@@ -1,9 +1,3 @@
-// Branding state + fetch. Ported from
-// js/components/src/streamplace-store/branding.tsx (useFetchBroadcasterDID,
-// useFetchBranding) so the advanced-settings "refresh branding" button and
-// header site title work on web. Branding is per-broadcaster; the server
-// injects the broadcaster DID via place.stream.broadcast.getBroadcaster and
-// the assets come from place.stream.branding.getBranding.
 import { place } from "streamplace";
 import { StateCreator } from "zustand";
 import { storage } from "../../storage";
@@ -37,7 +31,7 @@ export interface BrandingSlice {
   brandingLoading: boolean;
   brandingError: string | null;
   fetchBroadcasterDID: () => Promise<void>;
-  fetchBranding: (opts?: { force?: boolean }) => Promise<void>;
+  fetchBranding: (opts?: { force?: boolean }) => Promise<boolean>;
 }
 
 export const createBrandingSlice: StateCreator<
@@ -75,7 +69,7 @@ export const createBrandingSlice: StateCreator<
     if (!broadcasterDID) {
       // If we don't know the broadcaster yet, resolve it first.
       await get().fetchBroadcasterDID();
-      if (!get().broadcasterDID) return;
+      if (!get().broadcasterDID) return false;
     }
     const did = get().broadcasterDID as string;
 
@@ -95,7 +89,7 @@ export const createBrandingSlice: StateCreator<
               brandingLoading: false,
               brandingError: null,
             });
-            return;
+            return true;
           }
         } catch (e) {
           // invalid cache, continue to fetch
@@ -147,12 +141,14 @@ export const createBrandingSlice: StateCreator<
         brandingLoading: false,
         brandingError: null,
       });
+      return true;
     } catch (err: any) {
       console.error("Failed to fetch branding:", err);
       set({
         brandingLoading: false,
         brandingError: err.message || "Failed to fetch branding",
       });
+      return false;
     }
   },
 });

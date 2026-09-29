@@ -41,8 +41,7 @@ import {
   right,
 } from "../../lib/theme/atoms";
 import { useTheme } from "../../ui";
-import { ErrorBoundary } from "../error-boundary";
-import { Button } from "./button";
+import { DropdownContent } from "./dropdown-content";
 import {
   objectFromObjects,
   TextContext as TextClassContext,
@@ -326,36 +325,10 @@ export const DropdownMenuBottomSheet = forwardRef<
             >
               {/* Native portals leave the trigger's error boundaries behind.
                   Catch content failures here without unmounting the sheet. */}
-              <ErrorBoundary
-                fallback={(reset) => (
-                  <View style={[gap.all[3], py[4]]} testID="menu-error">
-                    <Text>This menu couldn't be displayed.</Text>
-                    <Button onPress={reset}>
-                      <Text>Try again</Text>
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onPress={() => onOpenChange?.(false)}
-                    >
-                      <Text>Dismiss</Text>
-                    </Button>
-                  </View>
-                )}
-              >
-                {stack.map((level, index) => {
-                  const isCurrent = index === stack.length - 1;
-                  return (
-                    <View
-                      key={level.key}
-                      style={[{ display: isCurrent ? "flex" : "none" }]}
-                    >
-                      {typeof level.content === "function"
-                        ? level.content({ pressed: true })
-                        : level.content}
-                    </View>
-                  );
-                })}
-              </ErrorBoundary>
+              <DropdownContent
+                stack={stack}
+                onDismiss={() => onOpenChange?.(false)}
+              />
             </BottomSheetScrollView>
           </Animated.View>
         </BottomSheet>

@@ -16,10 +16,11 @@ The web suite still has its `03-go-live`.
 
 `07-chat-profile` taps the signed-in chat author's name, checks that the profile
 sheet contains that account's handle and the View Profile action, dismisses it
-through the backdrop, and opens it again. It then sends another message without
+by swiping its handle down, and opens it again. It then sends another message without
 restarting and verifies that message survives a relaunch from server history.
-The dismissal uses the same backdrop interaction on iOS and Android, not Android
-Back. The logged-in Playwright flow (`05-oauth-login.spec.ts`) covers the matching
+The dismissal uses the same sheet handle gesture on iOS and Android, not Android
+Back. Android flattens nested username text, so the flow taps near the start of
+the matching message row. The logged-in Playwright flow (`05-oauth-login.spec.ts`) covers the matching
 open/dismiss/reopen/chat sequence in the Expo web app served by the default harness.
 
 Native dropdowns render through the default `@rn-primitives` portal host. That
@@ -27,7 +28,14 @@ host belongs below the app stores, i18n, branded theme and font providers so
 profile content retains their context. The sheet also has its own error boundary:
 unexpected content errors show a menu-local fallback with Try again and Dismiss,
 rather than replacing the app. The profile flow requires actual profile content
-and rejects that fallback; it does not inject errors or test the fallback actions.
+and rejects that fallback.
+
+`pnpm --filter @streamplace/components test` covers failures in both child
+components and menu render callbacks, repeated and successful retries,
+dismissal/reopening, and preservation of the surrounding screen's unsent draft.
+These focused tests use native presentation adapters; the Maestro flow exercises
+the actual native sheet and portal. The component tests also run in
+`pnpm run check`.
 
 ## HTTPS, and logging in
 

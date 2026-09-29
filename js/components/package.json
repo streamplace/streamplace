@@ -20,7 +20,10 @@
   "devDependencies": {
     "@types/react-dom": "^19.2.3",
     "@types/sdp-transform": "^2.15.0",
-    "tsup": "^8.5.0"
+    "jsdom": "^29.1.1",
+    "react-dom": "^19.2.0",
+    "tsup": "^8.5.0",
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "@atproto/api": "^0.19.3",
@@ -77,6 +80,7 @@
   "scripts": {
     "build": "tsc",
     "start": "tsc --watch --preserveWatchOutput",
-    "prepare": "tsc"
+    "prepare": "tsc",
+    "test": "vitest run"
   }
 }

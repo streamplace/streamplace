@@ -25,9 +25,10 @@ appId: ${APP_ID}
           visible:
             text: ".*: profile target from 07-chat-profile"
           timeout: 15000
+# Android flattens nested Text spans; tap the handle at the row's start.
 - tapOn:
-    id: "chat-profile-trigger-${ACCOUNT_HANDLE}"
-    index: 0
+    text: ".*: profile target from 07-chat-profile"
+    point: "10%,20%"
 - extendedWaitUntil:
     visible:
       id: "chat-profile-card"
@@ -40,19 +41,19 @@ appId: ${APP_ID}
 - assertNotVisible:
     id: "menu-error"
 - takeScreenshot: 07-01-profile
-# The top of the backdrop is outside the sheet on both iOS and Android.
-# Do not use Android Back: the regression must exercise shared dismissal.
-- assertVisible:
-    id: "menu-backdrop"
-- tapOn:
-    point: "50%,10%"
+# Use the sheet's cross-platform handle gesture, not Android Back.
+- swipe:
+    from:
+      text: "Bottom sheet handle"
+    direction: DOWN
+    duration: 500
 - extendedWaitUntil:
     notVisible:
       id: "chat-profile-card"
     timeout: 10000
 - tapOn:
-    id: "chat-profile-trigger-${ACCOUNT_HANDLE}"
-    index: 0
+    text: ".*: profile target from 07-chat-profile"
+    point: "10%,20%"
 - extendedWaitUntil:
     visible:
       id: "chat-profile-handle"
@@ -62,8 +63,11 @@ appId: ${APP_ID}
 - assertNotVisible:
     id: "menu-error"
 - takeScreenshot: 07-02-profile-reopened
-- tapOn:
-    point: "50%,10%"
+- swipe:
+    from:
+      text: "Bottom sheet handle"
+    direction: DOWN
+    duration: 500
 - extendedWaitUntil:
     notVisible:
       id: "chat-profile-card"

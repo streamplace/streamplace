@@ -86,9 +86,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Export GitHub Actions cache environment
-        if:
-          matrix.name == 'linux-amd64' || matrix.name == 'linux-arm64' ||
-          matrix.name == 'windows-amd64'
         uses: actions/github-script@v7
         with:
           script: |
@@ -118,25 +115,19 @@ jobs:
           # and the 20260726 runner image update made that pairing fatal.
           sudo curl -fsSL -o /usr/bin/crun https://github.com/containers/crun/releases/download/1.28/crun-1.28-linux-amd64
           sudo chmod +x /usr/bin/crun
-          sccache_opts=""
-          sccache_cmd="${{ matrix.cmd }}"
-
-          if [[ "${{ matrix.name }}" == "linux-amd64" || \
-                "${{ matrix.name }}" == "linux-arm64" || \
-                "${{ matrix.name }}" == "windows-amd64" ]]; then
-                sccache_opts="-e ACTIONS_RESULTS_URL -e ACTIONS_RUNTIME_TOKEN"
-                sccache_cmd="export SCCACHE_GHA_ENABLED=on \
-                SCCACHE_GHA_VERSION=1 \
-                SCCACHE_GHA_RW_MODE=$SCCACHE_GHA_RW_MODE \
-                SCCACHE_BASEDIRS=/app \
-                CC='sccache gcc' \
-                CXX='sccache g++' \
-                RUSTC_WRAPPER=sccache \
-                USE_SCCACHE=1; \
-                set -e; \
-                $sccache_cmd; \
-                sccache --show-stats"
-            fi
+          sccache_opts="-e ACTIONS_RESULTS_URL -e ACTIONS_RUNTIME_TOKEN"
+          sccache_cmd="make linux-amd64 && make test-vod && make static-test && make check && make ci-lexicons"
+          sccache_cmd="export SCCACHE_GHA_ENABLED=on \
+          SCCACHE_GHA_VERSION=1 \
+          SCCACHE_GHA_RW_MODE=$SCCACHE_GHA_RW_MODE \
+          SCCACHE_BASEDIRS=/app \
+          CC='sccache gcc' \
+          CXX='sccache g++' \
+          RUSTC_WRAPPER=sccache \
+          USE_SCCACHE=1; \
+          set -e; \
+          $sccache_cmd; \
+          sccache --show-stats"
 
             make in-container \
               BUILDER_TARGET=builder-no-darwin \

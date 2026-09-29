@@ -77,6 +77,12 @@ func (u *Updater) GetManifest(platform, runtime, prefix string) (*UpdateManifest
 	} else {
 		return nil, fmt.Errorf("unknown platform: %s", platform)
 	}
+	if plat.Bundle == "" {
+		// No native bundle means this frontend was exported without one
+		// (`expo export --platform web`), which leaves metadata.json with an
+		// empty fileMetadata. There is nothing to serve an update from.
+		return nil, fmt.Errorf("expo OTA update not found for %s: metadata.json has no %s bundle, did you run `make app`?", platform, platform)
+	}
 	assets := []UpdateAsset{}
 	for _, ass := range plat.Assets {
 		ext := fmt.Sprintf(".%s", ass.Ext)

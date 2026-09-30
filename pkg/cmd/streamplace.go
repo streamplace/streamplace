@@ -595,7 +595,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		})
 		if cli.RTMPServerAddon != "" {
 			group.Go(func() error {
-				return rtmps.ServeRTMPSAddon(ctx, cli, rtmpsTLS)
+				return rtmps.ServeRTMPSAddon(ctx, cli, rtmpsTLS, a.IngestHosts, a.StreamerForKey)
 			})
 		}
 		group.Go(func() error {

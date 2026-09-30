@@ -41,7 +41,7 @@ sidebar:
      - If using `RTMP`, select `Custom...`.
      - If using `WHIP`, select `WHIP`.
    - Server:
-     - If using `RTMP`: `rtmps://stream.place:1935/live`
+     - If using `RTMP`: `rtmps://rtmp.stream.place:1935/live`
      - If using `WHIP`: `https://stream.place`
    - Stream Key (for RTMP) or Bearer Token (for WHIP): _Paste your copied stream
      key_

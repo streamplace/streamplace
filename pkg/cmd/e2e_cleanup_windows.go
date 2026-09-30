@@ -14,7 +14,7 @@ import (
 func setNodeProcessGroup(cmd *exec.Cmd) {}
 
 // killNode terminates the forked node. There is nothing detached to sweep.
-func killNode(ctx context.Context, cmd *exec.Cmd, did string) {
+func killNode(ctx context.Context, cmd *exec.Cmd, dids ...string) {
 	if cmd == nil || cmd.Process == nil {
 		return
 	}

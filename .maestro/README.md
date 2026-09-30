@@ -46,6 +46,17 @@ The organization and generated config are platform-neutral; the current runner
 only provisions Android. No native Go Live scenario exists: native builds hide
 those controls, and `logged-out/tabs.yaml` checks they stay hidden.
 
+## Switching accounts
+
+The harness has a second account, `DEPRECATED_HOST_ACCOUNT_*`, which streams
+RTMP through a hostname the node treats as deprecated
+(`--deprecated-ingest-hosts`). `logged-in/deprecated-ingest-host.yaml` signs
+out, signs in as that account to check its live dashboard warns it to change
+server, then signs back in as the harness account, leaving the phase as it
+found it. It uses `setup/sign-out.yaml` and `setup/sign-in.yaml` (with
+`HANDLE`/`PASSWORD` env), which tolerate the PDS skipping its password or
+consent page for a session the Custom Tab already holds.
+
 ## Profile coverage
 
 `logged-in/chat-profile.yaml` taps the signed-in chat author's name, checks that the profile

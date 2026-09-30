@@ -48,6 +48,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/rtmps"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/upload"
@@ -98,6 +99,10 @@ type StreamplaceAPI struct {
 	rtmpSessions             map[string]*media.RTMPSession
 	rtmpSessionsLock         sync.Mutex
 	rtmpInternalPlaybackAddr string
+
+	// IngestHosts tracks which hostnames open RTMP(S) publishes came in on,
+	// across the native listeners and the Mist RTMPS terminator.
+	IngestHosts *rtmps.IngestHosts
 }
 
 type WebsocketTracker struct {
@@ -132,6 +137,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		rtmpSessions:     make(map[string]*media.RTMPSession),
 		rtmpSessionsLock: sync.Mutex{},
 		LocalDB:          ldb,
+		IngestHosts:      rtmps.NewIngestHosts(cli.DeprecatedIngestHosts),
 	}
 	a.Mimes, err = updater.GetMimes()
 	if err != nil {

@@ -1,0 +1,42 @@
+appId: ${APP_ID}
+---
+# Sign in as ${HANDLE} / ${PASSWORD} the way oauth-login.yaml does, from a
+# signed-out app. For switching accounts within a scenario: the Custom Tab may
+# already hold a PDS session for the account, or remember having authorized
+# this client, so the password and consent pages are each optional here.
+- launchApp
+- tapOn:
+    text: "Log in"
+- tapOn:
+    id: "login-handle"
+- inputText: "${HANDLE}"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      text: "Password|Authorize|Complete Login"
+    timeout: 60000
+- runFlow:
+    when:
+      visible:
+        text: "Password"
+    commands:
+      # the password field opens focused; see oauth-login.yaml
+      - inputText: "${PASSWORD}"
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible:
+            text: "Authorize|Complete Login"
+          timeout: 30000
+- tapOn:
+    text: "Authorize"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      text: "Complete Login"
+    timeout: 30000
+- tapOn:
+    text: "Complete Login"
+- extendedWaitUntil:
+    notVisible:
+      text: "Log in"
+    timeout: 30000

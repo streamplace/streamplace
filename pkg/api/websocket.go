@@ -120,6 +120,9 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 
 			ch := a.Bus.Subscribe(repoDID)
 			defer a.Bus.Unsubscribe(repoDID, ch)
+			// The ingest problems last sent to this viewer; none to begin with,
+			// which is also what the client assumes.
+			sentProblems := ""
 			// Create a ticker that fires every 3 seconds
 			ticker := time.NewTicker(3 * time.Second)
 			pingTicker := time.NewTicker(pingPeriod)
@@ -157,6 +160,14 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					names := a.MediaManager.LiveRenditionNames(repoDID)
 					if key := strings.Join(names, ","); sentRenditions.Swap(key) != key {
 						send(renditionsMessage(names))
+					}
+					// Problems with how the streamer is connected to this
+					// node, e.g. through a deprecated ingest hostname: they
+					// live as long as the connection, not in any segment,
+					// so they're sent when they change.
+					if probs := a.ingestProblems(ctx, repoDID); problemsKey(probs) != sentProblems {
+						sentProblems = problemsKey(probs)
+						send(probs)
 					}
 					bs, err := json.Marshal(a.viewerCountMessage(ctx, repoDID))
 					if err != nil {

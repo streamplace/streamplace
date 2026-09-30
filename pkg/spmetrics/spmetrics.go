@@ -108,6 +108,14 @@ var WebsocketsOpen = promauto.NewGauge(prometheus.GaugeOpts{
 	Help: "number of open playback websockets",
 })
 
+// RTMPIngestConnections is the number of open RTMP(S) publish connections,
+// by the listener that accepted them (rtmp, rtmps, rtmps_mist) and whether the
+// encoder reached us through a --deprecated-ingest-hosts name.
+var RTMPIngestConnections = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_rtmp_ingest_connections",
+	Help: "open RTMP(S) publish connections, by listener and whether the encoder used a deprecated ingest hostname",
+}, []string{"listener", "deprecated_host"})
+
 var ReplicationWebsocketsOpen = promauto.NewGauge(prometheus.GaugeOpts{
 	Name: "streamplace_replication_websockets_open",
 	Help: "number of open replication websockets",

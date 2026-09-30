@@ -8,15 +8,29 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 )
 
+// handshakeTimeout bounds how long a client has to complete its TLS handshake.
+const handshakeTimeout = 10 * time.Second
+
+// StreamerForKey resolves an RTMP stream key to the DID of the streamer it
+// belongs to.
+type StreamerForKey func(ctx context.Context, streamKey string) (string, error)
+
 // passthrough RTMPS TLS terminator to external RTMP server
 // tlsConfig may be nil, in which case the certificate files from the CLI
 // are used; the ACME manager passes its own.
-func ServeRTMPSAddon(ctx context.Context, cli *config.CLI, tlsConfig *tls.Config) error {
+//
+// The external server only sees plain RTMP from us, so the TLS server name
+// the encoder used is known only here. To report it in ingest (see
+// IngestHosts), the terminator reads the client's connect and publish
+// commands as they pass through, and resolves the stream key with
+// streamerForKey.
+func ServeRTMPSAddon(ctx context.Context, cli *config.CLI, tlsConfig *tls.Config, ingest *IngestHosts, streamerForKey StreamerForKey) error {
 	if cli.RTMPServerAddon == "" {
 		return fmt.Errorf("RTMP server address not configured")
 	}
@@ -41,6 +55,12 @@ func ServeRTMPSAddon(ctx context.Context, cli *config.CLI, tlsConfig *tls.Config
 		"addr", cli.RTMPSAddonAddr,
 		"forwarding_to", cli.RTMPServerAddon)
 
+	return serveRTMPSAddon(ctx, listener, cli.RTMPServerAddon, ingest, streamerForKey)
+}
+
+// serveRTMPSAddon relays each connection accepted on the TLS listener to the
+// RTMP server at backend until ctx ends.
+func serveRTMPSAddon(ctx context.Context, listener net.Listener, backend string, ingest *IngestHosts, streamerForKey StreamerForKey) error {
 	go func() {
 		<-ctx.Done()
 		listener.Close()
@@ -62,7 +82,21 @@ func ServeRTMPSAddon(ctx context.Context, cli *config.CLI, tlsConfig *tls.Config
 		go func(clientConn net.Conn) {
 			defer clientConn.Close()
 
-			rtmpConn, err := net.Dial("tcp", cli.RTMPServerAddon)
+			// Handshake up front, rather than lazily on first read, so the
+			// server name is known before any RTMP flows.
+			var sni string
+			if tc, ok := clientConn.(*tls.Conn); ok {
+				hctx, cancel := context.WithTimeout(ctx, handshakeTimeout)
+				err := tc.HandshakeContext(hctx)
+				cancel()
+				if err != nil {
+					log.Debug(ctx, "RTMPS TLS handshake failed", "error", err, "remote", clientConn.RemoteAddr())
+					return
+				}
+				sni = tc.ConnectionState().ServerName
+			}
+
+			rtmpConn, err := net.Dial("tcp", backend)
 			if err != nil {
 				log.Error(ctx, "failed to connect to RTMP server", "error", err)
 				return
@@ -76,7 +110,23 @@ func ServeRTMPSAddon(ctx context.Context, cli *config.CLI, tlsConfig *tls.Config
 			// Copy from client to RTMP server
 			go func() {
 				defer wg.Done()
-				_, err := io.Copy(rtmpConn, clientConn)
+				// Everything PeekPublish reads is forwarded as it goes, so
+				// the copy below picks up exactly where it stopped.
+				info, err := PeekPublish(io.TeeReader(clientConn, rtmpConn))
+				if err != nil {
+					log.Debug(ctx, "not tracking RTMPS connection", "error", err, "sni", sni)
+				} else {
+					var streamer string
+					if streamerForKey != nil {
+						streamer, err = streamerForKey(ctx, info.StreamKey)
+						if err != nil {
+							log.Debug(ctx, "could not resolve RTMPS stream key", "error", err, "sni", sni)
+						}
+					}
+					release := ingest.Open(ctx, ListenerRTMPSMist, sni, info.TCURL, streamer)
+					defer release()
+				}
+				_, err = io.Copy(rtmpConn, clientConn)
 				if err != nil && !errors.Is(err, io.EOF) {
 					log.Error(ctx, "error copying from client to RTMP server", "error", err)
 				}

@@ -13,7 +13,17 @@ import (
 	"stream.place/streamplace/pkg/media"
 )
 
-func (a *StreamplaceAPI) MakeMediaSigner(ctx context.Context, keyStr string) (media.MediaSigner, error) {
+// parsedStreamKey is a decoded stream key, not yet checked against the keys
+// its streamer registered.
+type parsedStreamKey struct {
+	signer crypto.Signer
+	pub    atcrypto.PublicKey
+	// did is the streamer the key names; empty for a bare key, which streams
+	// as its own did:key.
+	did string
+}
+
+func parseStreamKey(keyStr string) (*parsedStreamKey, error) {
 	if len(keyStr) < 2 || keyStr[0] != 'z' {
 		return nil, fmt.Errorf("invalid authorization key (not a multibase base58btc string)")
 	}
@@ -28,6 +38,9 @@ func (a *StreamplaceAPI) MakeMediaSigner(ctx context.Context, keyStr string) (me
 		if err != nil {
 			return nil, fmt.Errorf("invalid authorization key (not a base58btc string)")
 		}
+		if len(decoded) < 32 {
+			return nil, fmt.Errorf("invalid authorization key (too short)")
+		}
 		addrBytes = decoded[:32]
 		didBytes = decoded[32:]
 		priv, err = atcrypto.ParsePrivateBytesK256(addrBytes)
@@ -40,13 +53,50 @@ func (a *StreamplaceAPI) MakeMediaSigner(ctx context.Context, keyStr string) (me
 	if key == nil {
 		return nil, fmt.Errorf("invalid authorization key (not valid secp256k1)")
 	}
-	var signer crypto.Signer = key.ToECDSA()
 	pub, err := priv.PublicKey()
 	if err != nil {
 		return nil, fmt.Errorf("invalid authorization key (could not parse as atproto): %w", err)
 	}
+	return &parsedStreamKey{signer: key.ToECDSA(), pub: pub, did: string(didBytes)}, nil
+}
 
-	did := string(didBytes)
+// bareKeyDID is the did:key a stream key without a streamer DID streams as.
+func (k *parsedStreamKey) bareKeyDID() (string, error) {
+	atkey, err := atproto.ParsePubKey(k.signer.Public())
+	if err != nil {
+		return "", fmt.Errorf("invalid authorization key (not valid secp256k1): %w", err)
+	}
+	return atkey.DIDKey(), nil
+}
+
+// StreamerForKey returns the DID of the streamer a stream key belongs to,
+// checking that the streamer registered the key but not that they may stream:
+// MakeMediaSigner decides that when the ingest itself starts. It reads only
+// local state, so it is cheap enough to call per connection.
+func (a *StreamplaceAPI) StreamerForKey(ctx context.Context, keyStr string) (string, error) {
+	k, err := parseStreamKey(keyStr)
+	if err != nil {
+		return "", err
+	}
+	if k.did == "" {
+		return k.bareKeyDID()
+	}
+	signingKey, err := a.Model.GetSigningKey(ctx, k.pub.DIDKey(), k.did)
+	if err != nil {
+		return "", fmt.Errorf("signing key not found: %w", err)
+	}
+	if signingKey == nil {
+		return "", fmt.Errorf("signing key not found")
+	}
+	return k.did, nil
+}
+
+func (a *StreamplaceAPI) MakeMediaSigner(ctx context.Context, keyStr string) (media.MediaSigner, error) {
+	k, err := parseStreamKey(keyStr)
+	if err != nil {
+		return nil, err
+	}
+	signer, pub, did := k.signer, k.pub, k.did
 
 	if did != "" {
 		repo, err := a.ATSync.SyncBlueskyRepo(ctx, did, a.Model)
@@ -65,11 +115,10 @@ func (a *StreamplaceAPI) MakeMediaSigner(ctx context.Context, keyStr string) (me
 			return nil, fmt.Errorf("signing key not found")
 		}
 	} else {
-		atkey, err := atproto.ParsePubKey(signer.Public())
+		did, err = k.bareKeyDID()
 		if err != nil {
-			return nil, fmt.Errorf("invalid authorization key (not valid secp256k1): %w", err)
+			return nil, err
 		}
-		did = atkey.DIDKey()
 		err = a.CLI.StreamIsAllowed(did)
 		if err != nil {
 			return nil, fmt.Errorf("user is not allowed to stream: %w", err)

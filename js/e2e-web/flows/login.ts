@@ -9,12 +9,18 @@ import { pointAppAtNode } from "../server-setup";
 // production OAuth code, not the http://127.0.0.1 development shortcut.
 //
 // Needs the harness's HTTPS mode (hack/e2e-web-local.sh turns it on); callers
-// gate on SERVER_HTTPS_URL themselves and skip when it is unset.
-export async function loginThroughPds(page: Page): Promise<void> {
+// gate on SERVER_HTTPS_URL themselves and skip when it is unset. Logs in as the
+// harness's main account unless given another.
+export async function loginThroughPds(
+  page: Page,
+  account: { handle: string; password: string } = {
+    handle: process.env.ACCOUNT_HANDLE!,
+    password: process.env.ACCOUNT_PASSWORD!,
+  },
+): Promise<void> {
   const httpsUrl = process.env.SERVER_HTTPS_URL!;
   const pdsUrl = process.env.PDS_HTTPS_URL!;
-  const handle = process.env.ACCOUNT_HANDLE!;
-  const password = process.env.ACCOUNT_PASSWORD!;
+  const { handle, password } = account;
   const appOrigin = new URL(httpsUrl).origin;
   const pdsOrigin = new URL(pdsUrl).origin;
 

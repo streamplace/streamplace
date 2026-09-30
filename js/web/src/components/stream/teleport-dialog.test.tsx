@@ -1,4 +1,5 @@
 import type { LivestreamView } from "@/hooks/use-live-users";
+import type { TeleportErrorData } from "@streamplace/core";
 import { act, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -49,9 +50,12 @@ describe("TeleportDialog", () => {
   let container: HTMLDivElement;
   let root: Root;
 
-  function render() {
+  function render(
+    onSubmit: () => Promise<TeleportErrorData | undefined> = async () =>
+      undefined,
+  ) {
     root.render(
-      <TeleportDialog open onOpenChange={() => {}} onSubmit={async () => {}} />,
+      <TeleportDialog open onOpenChange={() => {}} onSubmit={onSubmit} />,
     );
   }
 
@@ -93,5 +97,22 @@ describe("TeleportDialog", () => {
       container.querySelectorAll("button"),
     ).find((button) => button.textContent === "teleport-start");
     expect(currentTeleportButton?.disabled).toBe(true);
+  });
+
+  it("translates typed teleport errors", async () => {
+    await act(async () => render(async () => ({ code: "self" })));
+    const streamerButton = Array.from(
+      container.querySelectorAll("button"),
+    ).find((button) => button.textContent?.includes("@streamer.example"));
+    await act(async () => streamerButton?.click());
+    const teleportButton = Array.from(
+      container.querySelectorAll("button"),
+    ).find((button) => button.textContent === "teleport-start");
+
+    await act(async () => teleportButton?.click());
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      "teleport-error-self",
+    );
   });
 });

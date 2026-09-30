@@ -106,4 +106,3 @@ teleport-error-countdown-number = Le compte à rebours doit être un nombre de s
 teleport-error-self = Vous ne pouvez pas vous téléporter vers vous-même.
 teleport-error-resolve-handle = @{ $handle } est introuvable.
 teleport-error-create = Impossible de démarrer la téléportation.
-teleport-error-generic = Impossible de démarrer la téléportation : { $message }

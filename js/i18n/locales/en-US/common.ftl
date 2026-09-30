@@ -305,7 +305,6 @@ teleport-error-countdown-number = Countdown must be a number of seconds.
 teleport-error-self = You cannot teleport to yourself.
 teleport-error-resolve-handle = Could not find @{ $handle }.
 teleport-error-create = Could not start the teleport.
-teleport-error-generic = Could not start the teleport: { $message }
 
 ## Video Card
 views-count = { $count ->

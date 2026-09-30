@@ -1,7 +1,9 @@
 import {
   handleSlashCommand,
+  isTeleportErrorCode,
   registerTeleportCommand,
   type LivestreamStore,
+  type TeleportErrorData,
 } from "@streamplace/core";
 import { Extension } from "@tiptap/core";
 import MentionBase from "@tiptap/extension-mention";
@@ -512,13 +514,29 @@ export function ChatInput({
   }, [editor, sending, send, store]);
 
   const submitTeleport = useCallback(
-    async (handle: string, countdownSeconds: number) => {
+    async (
+      handle: string,
+      countdownSeconds: number,
+    ): Promise<TeleportErrorData | undefined> => {
       const result = await handleSlashCommand(
         `/teleport @${handle} ${countdownSeconds}`,
       );
       if (!result.handled || result.error) {
-        throw new Error(result.error || "Could not start teleport.");
+        const errorData = result.errorData;
+        if (
+          errorData?.type === "teleport" &&
+          isTeleportErrorCode(errorData.code)
+        ) {
+          return {
+            code: errorData.code,
+            ...(errorData.params?.handle
+              ? { params: { handle: errorData.params.handle } }
+              : {}),
+          };
+        }
+        return { code: "create" };
       }
+      return undefined;
     },
     [],
   );

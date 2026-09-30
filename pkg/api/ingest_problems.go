@@ -24,14 +24,15 @@ func (a *StreamplaceAPI) ingestProblems(ctx context.Context, repoDID string) pla
 		Problems:      []placestream.IngestDefs_Problem{},
 	}
 	if host := a.IngestHosts.StreamerDeprecatedHost(repoDID); host != "" {
-		fix := "to the RTMP server shown on your live dashboard"
+		var ingestURL string
 		if a.XRPCServer != nil {
-			if u, err := a.XRPCServer.RTMPIngestURL(ctx); err != nil {
+			u, err := a.XRPCServer.RTMPIngestURL(ctx)
+			if err != nil {
 				log.Error(ctx, "could not get RTMP ingest URL", "error", err)
-			} else {
-				fix = "to " + u
 			}
+			ingestURL = u
 		}
+		fix := a.moveTo(ctx, ingestURL)
 		link := deprecatedIngestHostLink
 		out.Problems = append(out.Problems, placestream.IngestDefs_Problem{
 			LexiconTypeID: "place.stream.ingest.defs#problem",
@@ -43,6 +44,21 @@ func (a *StreamplaceAPI) ingestProblems(ctx context.Context, repoDID string) pla
 		})
 	}
 	return out
+}
+
+// moveTo says where to point the encoder instead: the node's advertised RTMP
+// ingest URL, unless there is none or it's itself on a deprecated host (no
+// --ingests override naming the new one), which would send the streamer from
+// one retired name to another.
+func (a *StreamplaceAPI) moveTo(ctx context.Context, ingestURL string) string {
+	if ingestURL == "" {
+		return "to the RTMP server shown on your live dashboard"
+	}
+	if a.IngestHosts.DeprecatedHost("", ingestURL) != "" {
+		log.Debug(ctx, "advertised RTMP ingest URL uses a deprecated ingest host", "url", ingestURL)
+		return "to the RTMP server shown on your live dashboard"
+	}
+	return "to " + ingestURL
 }
 
 // problemsKey identifies a set of problems, to tell when it has changed.

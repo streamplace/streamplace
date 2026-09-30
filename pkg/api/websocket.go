@@ -120,9 +120,11 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 
 			ch := a.Bus.Subscribe(repoDID)
 			defer a.Bus.Unsubscribe(repoDID, ch)
-			// The ingest problems last sent to this viewer; none to begin with,
-			// which is also what the client assumes.
-			sentProblems := ""
+			// The ingest problems last sent to this viewer. Nothing matches
+			// this to begin with, so the first tick always sends the current
+			// list, even an empty one: a reconnecting client may still hold
+			// problems that have since cleared.
+			sentProblems := "\x00unsent"
 			// Create a ticker that fires every 3 seconds
 			ticker := time.NewTicker(3 * time.Second)
 			pingTicker := time.NewTicker(pingPeriod)

@@ -116,15 +116,23 @@ func serveRTMPSAddon(ctx context.Context, listener net.Listener, backend string,
 				if err != nil {
 					log.Debug(ctx, "not tracking RTMPS connection", "error", err, "sni", sni)
 				} else {
-					var streamer string
-					if streamerForKey != nil {
-						streamer, err = streamerForKey(ctx, info.StreamKey)
-						if err != nil {
-							log.Debug(ctx, "could not resolve RTMPS stream key", "error", err, "sni", sni)
+					// Resolving the key can mean syncing the streamer's
+					// repo, so do it beside the relay rather than in its way.
+					connDone := make(chan struct{})
+					defer close(connDone)
+					go func() {
+						var streamer string
+						if streamerForKey != nil {
+							var err error
+							streamer, err = streamerForKey(ctx, info.StreamKey)
+							if err != nil {
+								log.Debug(ctx, "could not resolve RTMPS stream key", "error", err, "sni", sni)
+							}
 						}
-					}
-					release := ingest.Open(ctx, ListenerRTMPSMist, sni, info.TCURL, streamer)
-					defer release()
+						release := ingest.Open(ctx, ListenerRTMPSMist, sni, info.TCURL, streamer)
+						<-connDone
+						release()
+					}()
 				}
 				_, err = io.Copy(rtmpConn, clientConn)
 				if err != nil && !errors.Is(err, io.EOF) {

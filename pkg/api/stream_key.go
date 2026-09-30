@@ -71,8 +71,9 @@ func (k *parsedStreamKey) bareKeyDID() (string, error) {
 
 // StreamerForKey returns the DID of the streamer a stream key belongs to,
 // checking that the streamer registered the key but not that they may stream:
-// MakeMediaSigner decides that when the ingest itself starts. It reads only
-// local state, so it is cheap enough to call per connection.
+// MakeMediaSigner decides that when the ingest itself starts. It syncs the
+// streamer's repo only when the key isn't indexed yet (a key registered moments
+// ago), as MakeMediaSigner would.
 func (a *StreamplaceAPI) StreamerForKey(ctx context.Context, keyStr string) (string, error) {
 	k, err := parseStreamKey(keyStr)
 	if err != nil {
@@ -82,6 +83,12 @@ func (a *StreamplaceAPI) StreamerForKey(ctx context.Context, keyStr string) (str
 		return k.bareKeyDID()
 	}
 	signingKey, err := a.Model.GetSigningKey(ctx, k.pub.DIDKey(), k.did)
+	if err == nil && signingKey == nil {
+		if _, err = a.ATSync.SyncBlueskyRepo(ctx, k.did, a.Model); err != nil {
+			return "", fmt.Errorf("could not resolve streamplace key: %w", err)
+		}
+		signingKey, err = a.Model.GetSigningKey(ctx, k.pub.DIDKey(), k.did)
+	}
 	if err != nil {
 		return "", fmt.Errorf("signing key not found: %w", err)
 	}

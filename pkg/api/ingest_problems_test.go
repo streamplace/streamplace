@@ -33,3 +33,12 @@ func TestIngestProblems(t *testing.T) {
 	release()
 	require.Empty(t, a.ingestProblems(ctx, streamer).Problems)
 }
+
+func TestIngestProblemsMoveTo(t *testing.T) {
+	ctx := context.Background()
+	a := &StreamplaceAPI{IngestHosts: rtmps.NewIngestHosts([]string{"stream.place"})}
+	require.Equal(t, "to rtmps://rtmp.stream.place:1935/live", a.moveTo(ctx, "rtmps://rtmp.stream.place:1935/live"))
+	// never from one retired name to another
+	require.NotContains(t, a.moveTo(ctx, "rtmps://stream.place:1935/live"), "stream.place:1935")
+	require.NotEmpty(t, a.moveTo(ctx, ""))
+}

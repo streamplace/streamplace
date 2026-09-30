@@ -26,6 +26,14 @@ if [ $# -gt 0 ]; then
   done
 fi
 
+# Subset argument order must not change the phase's reporting order.
+if [ ${#logged_out[@]} -gt 1 ]; then
+  mapfile -t logged_out < <(printf '%s\n' "${logged_out[@]}" | sort)
+fi
+if [ ${#logged_in[@]} -gt 1 ]; then
+  mapfile -t logged_in < <(printf '%s\n' "${logged_in[@]}" | sort)
+fi
+
 flows=(setup/server-setup.yaml "${logged_out[@]}")
 if [ $# -eq 0 ] || [ ${#logged_in[@]} -gt 0 ] || [ "${login:-false}" = true ]; then
   flows+=(setup/oauth-login.yaml "${logged_in[@]}")

@@ -17,6 +17,10 @@ import (
 // handshakeTimeout bounds how long a client has to complete its TLS handshake.
 const handshakeTimeout = 10 * time.Second
 
+// resolveTimeout bounds how long the terminator waits to learn whose stream
+// key a connection published with.
+const resolveTimeout = 30 * time.Second
+
 // StreamerForKey resolves an RTMP stream key to the DID of the streamer it
 // belongs to.
 type StreamerForKey func(ctx context.Context, streamKey string) (string, error)
@@ -110,27 +114,35 @@ func serveRTMPSAddon(ctx context.Context, listener net.Listener, backend string,
 			// Copy from client to RTMP server
 			go func() {
 				defer wg.Done()
+				// connCtx ends with the connection, and with it any key
+				// lookup still running for it.
+				connCtx, connDone := context.WithCancel(ctx)
+				defer connDone()
 				// Everything PeekPublish reads is forwarded as it goes, so
 				// the copy below picks up exactly where it stopped.
 				info, err := PeekPublish(io.TeeReader(clientConn, rtmpConn))
 				if err != nil {
 					log.Debug(ctx, "not tracking RTMPS connection", "error", err, "sni", sni)
 				} else {
-					// Resolving the key can mean syncing the streamer's
-					// repo, so do it beside the relay rather than in its way.
-					connDone := make(chan struct{})
-					defer close(connDone)
+					// Resolving the key can wait on the streamer's repo
+					// being indexed, so do it beside the relay rather than
+					// in its way.
 					go func() {
 						var streamer string
 						if streamerForKey != nil {
+							rctx, cancel := context.WithTimeout(connCtx, resolveTimeout)
 							var err error
-							streamer, err = streamerForKey(ctx, info.StreamKey)
+							streamer, err = streamerForKey(rctx, info.StreamKey)
+							cancel()
 							if err != nil {
 								log.Debug(ctx, "could not resolve RTMPS stream key", "error", err, "sni", sni)
 							}
 						}
+						if connCtx.Err() != nil {
+							return // gone before we knew whose it was
+						}
 						release := ingest.Open(ctx, ListenerRTMPSMist, sni, info.TCURL, streamer)
-						<-connDone
+						<-connCtx.Done()
 						release()
 					}()
 				}

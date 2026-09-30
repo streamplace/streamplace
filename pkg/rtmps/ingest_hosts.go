@@ -87,12 +87,14 @@ func tcURLHost(tcURL string) string {
 func (h *IngestHosts) Open(ctx context.Context, listener, sni, tcURL, streamer string) (release func()) {
 	host := h.DeprecatedHost(sni, tcURL)
 	gauge := spmetrics.RTMPIngestConnections.WithLabelValues(listener, strconv.FormatBool(host != ""))
-	gauge.Inc()
 	if host == "" {
+		gauge.Inc()
 		return gauge.Dec
 	}
 	log.Log(ctx, "rtmp publish via deprecated ingest host",
 		"listener", listener, "host", host, "sni", sni, "tcUrlHost", tcURLHost(tcURL), "streamer", streamer)
+	// The streamer is recorded before the connection is counted, and dropped
+	// after it's uncounted, so the two never disagree to an observer.
 	if streamer != "" {
 		h.mu.Lock()
 		use := h.streamers[streamer]
@@ -104,6 +106,7 @@ func (h *IngestHosts) Open(ctx context.Context, listener, sni, tcURL, streamer s
 		use.host = host
 		h.mu.Unlock()
 	}
+	gauge.Inc()
 	return func() {
 		gauge.Dec()
 		if streamer == "" {

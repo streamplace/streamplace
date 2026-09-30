@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"fmt"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/decred/dcrd/dcrec/secp256k1"
@@ -69,11 +70,17 @@ func (k *parsedStreamKey) bareKeyDID() (string, error) {
 	return atkey.DIDKey(), nil
 }
 
+// streamerKeyPoll is how often StreamerForKey looks again for a key that
+// isn't indexed yet.
+var streamerKeyPoll = time.Second
+
 // StreamerForKey returns the DID of the streamer a stream key belongs to,
 // checking that the streamer registered the key but not that they may stream:
-// MakeMediaSigner decides that when the ingest itself starts. It syncs the
-// streamer's repo only when the key isn't indexed yet (a key registered moments
-// ago), as MakeMediaSigner would.
+// MakeMediaSigner decides that when the ingest itself starts. It only reads
+// the local index. A key registered moments ago may not be indexed yet, but
+// the publish's own MakeMediaSigner syncs the streamer's repo, so until ctx
+// ends StreamerForKey looks again rather than doing any network work of its
+// own for a client-supplied key.
 func (a *StreamplaceAPI) StreamerForKey(ctx context.Context, keyStr string) (string, error) {
 	k, err := parseStreamKey(keyStr)
 	if err != nil {
@@ -82,20 +89,20 @@ func (a *StreamplaceAPI) StreamerForKey(ctx context.Context, keyStr string) (str
 	if k.did == "" {
 		return k.bareKeyDID()
 	}
-	signingKey, err := a.Model.GetSigningKey(ctx, k.pub.DIDKey(), k.did)
-	if err == nil && signingKey == nil {
-		if _, err = a.ATSync.SyncBlueskyRepo(ctx, k.did, a.Model); err != nil {
-			return "", fmt.Errorf("could not resolve streamplace key: %w", err)
+	for {
+		signingKey, err := a.Model.GetSigningKey(ctx, k.pub.DIDKey(), k.did)
+		if err != nil {
+			return "", fmt.Errorf("signing key not found: %w", err)
 		}
-		signingKey, err = a.Model.GetSigningKey(ctx, k.pub.DIDKey(), k.did)
+		if signingKey != nil {
+			return k.did, nil
+		}
+		select {
+		case <-ctx.Done():
+			return "", fmt.Errorf("signing key not found")
+		case <-time.After(streamerKeyPoll):
+		}
 	}
-	if err != nil {
-		return "", fmt.Errorf("signing key not found: %w", err)
-	}
-	if signingKey == nil {
-		return "", fmt.Errorf("signing key not found")
-	}
-	return k.did, nil
 }
 
 func (a *StreamplaceAPI) MakeMediaSigner(ctx context.Context, keyStr string) (media.MediaSigner, error) {

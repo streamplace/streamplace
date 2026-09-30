@@ -112,6 +112,7 @@ func TestRTMPSAddonTracksIngestHost(t *testing.T) {
 				Publish:   true,
 			}
 			require.NoError(t, c.Initialize(ctx))
+			defer c.Close()
 
 			// the backend saw the publish intact through the terminator
 			select {
@@ -124,6 +125,7 @@ func TestRTMPSAddonTracksIngestHost(t *testing.T) {
 			require.Eventually(t, func() bool {
 				return gaugeValue(t, gauge) == base+1
 			}, 5*time.Second, 10*time.Millisecond)
+			// counted only once its streamer is recorded
 			require.Equal(t, tc.want, ingest.StreamerDeprecatedHost(streamer))
 
 			c.Close()
@@ -135,4 +137,48 @@ func TestRTMPSAddonTracksIngestHost(t *testing.T) {
 
 	cancel()
 	require.NoError(t, <-done)
+}
+
+// A key nobody has indexed mustn't hold resources past its connection: the
+// lookup is cancelled when the client goes, and the connection isn't counted.
+func TestRTMPSAddonCancelsResolveOnDisconnect(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	backend, published := fakeMist(t)
+	ln, err := tls.Listen("tcp", "127.0.0.1:0", selfSignedTLSConfig(t))
+	require.NoError(t, err)
+
+	resolving := make(chan struct{})
+	cancelled := make(chan struct{})
+	resolve := func(ctx context.Context, key string) (string, error) {
+		close(resolving)
+		<-ctx.Done()
+		close(cancelled)
+		return "", ctx.Err()
+	}
+	ingest := NewIngestHosts([]string{"stream.place"})
+	go func() { _ = serveRTMPSAddon(ctx, ln, backend, ingest, resolve) }()
+
+	gauge := spmetrics.RTMPIngestConnections.WithLabelValues(ListenerRTMPSMist, "true")
+	base := gaugeValue(t, gauge)
+
+	u, err := url.Parse(fmt.Sprintf("rtmps://%s/live/unindexed", ln.Addr()))
+	require.NoError(t, err)
+	c := &gortmplib.Client{
+		URL:       u,
+		TLSConfig: &tls.Config{ServerName: "stream.place", InsecureSkipVerify: true}, //nolint:gosec // self-signed test cert
+		Publish:   true,
+	}
+	require.NoError(t, c.Initialize(ctx))
+	<-published
+	<-resolving
+	c.Close()
+
+	select {
+	case <-cancelled:
+	case <-time.After(10 * time.Second):
+		t.Fatal("stream key lookup outlived its connection")
+	}
+	require.Never(t, func() bool { return gaugeValue(t, gauge) != base }, 300*time.Millisecond, 10*time.Millisecond)
 }

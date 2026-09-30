@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
 // Point the app served at `url` back at that same node — the web counterpart
-// of .maestro/00-server-setup.yaml. The app ships pointed at production, so
+// of .maestro/setup/server-setup.yaml. The app ships pointed at production, so
 // open Settings -> Advanced (react-navigation's linking config exposes it at
 // /settings/advanced), turn on "use custom node" and enter the node's URL.
 // redux-persist keeps the choice in localStorage, which is per origin: do this

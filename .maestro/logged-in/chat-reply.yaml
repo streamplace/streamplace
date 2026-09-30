@@ -1,7 +1,7 @@
 appId: ${APP_ID}
 ---
-# Reply to a chat message by swiping it to the left. Runs after
-# 05-oauth-login, logged in.
+# Reply to a chat message by swiping it to the left. The runner configures
+# the harness and signs in before running any logged-in flow.
 - launchApp
 - extendedWaitUntil:
     visible:
@@ -16,39 +16,39 @@ appId: ${APP_ID}
       text: ".*e2e test stream.*"
     timeout: 30000
 # something to reply to; resend a send the page wasn't ready for, as in
-# 05-oauth-login
+# oauth-login
 - retry:
     maxRetries: 3
     commands:
       - tapOn:
           id: "chat-input"
       - eraseText: 50
-      - inputText: "reply target from 06-chat-reply"
+      - inputText: "reply target from chat-reply"
       - pressKey: Enter
       - extendedWaitUntil:
           visible:
             # the row's text is the whole line, "@<handle>: <message>"
-            text: ".*: reply target from 06-chat-reply"
+            text: ".*: reply target from chat-reply"
           timeout: 15000
 - swipe:
     from:
-      text: ".*: reply target from 06-chat-reply"
+      text: ".*: reply target from chat-reply"
     direction: LEFT
 - extendedWaitUntil:
     visible:
       id: "chat-reply-preview"
     timeout: 10000
-- takeScreenshot: 06-01-replying
+- takeScreenshot: chat-reply-replying
 # picking a message to reply to focuses the chat box
-- inputText: "a reply from 06-chat-reply"
+- inputText: "a reply from chat-reply"
 - pressKey: Enter
 - extendedWaitUntil:
     visible:
-      text: ".*: a reply from 06-chat-reply"
+      text: ".*: a reply from chat-reply"
     timeout: 15000
 - assertNotVisible:
     id: "chat-reply-preview"
-- takeScreenshot: 06-02-reply-sent
+- takeScreenshot: chat-reply-sent
 # Relaunch, so the reply comes from the node's chat history: its quote of the
 # parent ("@<handle> <message>", no colon) proves the record carried the reply
 # reference through the PDS and firehose.
@@ -57,8 +57,8 @@ appId: ${APP_ID}
     id: "home-stream-card"
 - extendedWaitUntil:
     visible:
-      text: ".*: a reply from 06-chat-reply"
+      text: ".*: a reply from chat-reply"
     timeout: 30000
 - assertVisible:
-    text: "@${ACCOUNT_HANDLE} reply target from 06-chat-reply"
-- takeScreenshot: 06-03-reply-history
+    text: "@${ACCOUNT_HANDLE} reply target from chat-reply"
+- takeScreenshot: chat-reply-history

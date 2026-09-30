@@ -21,10 +21,10 @@ export default defineConfig({
   testDir: "./flows",
   // Point the app at the test node once (Settings -> Advanced), then reuse that
   // browser state so every flow starts already configured — the web analogue of
-  // .maestro/00-server-setup.yaml.
+  // .maestro/setup/server-setup.yaml.
   globalSetup: require.resolve("./global-setup"),
-  // Flows share one harness (one account, one looping stream) and are written
-  // to mirror the ordered .maestro/ suite, so run them serially.
+  // Run serially to limit contention on the shared harness account and looping
+  // stream. Each test gets an isolated browser context, with no ordering contract.
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,

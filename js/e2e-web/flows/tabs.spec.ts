@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-// Web counterpart of .maestro/02-tabs.yaml. The web app renders the desktop
+// Web counterpart of .maestro/logged-out/tabs.yaml. The web app renders the desktop
 // layout (a sidebar of nav links) rather than the mobile tab bar, so we
 // exercise the sidebar: Home -> Settings -> Home. Nav links carry their label
 // ("Home", "Settings", ...) as the accessible name.
-test("02-tabs: primary navigation", async ({ page }) => {
+test("tabs: primary navigation", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("Streamplace").first()).toBeVisible();
 

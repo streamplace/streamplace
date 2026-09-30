@@ -299,7 +299,13 @@ function createEmojiSuggestion({ getSkinTone }: EmojiSuggestionProps) {
   };
 }
 
-export function ChatInput({ store }: { store: LivestreamStore }) {
+export function ChatInput({
+  store,
+  onTeleportCreated,
+}: {
+  store: LivestreamStore;
+  onTeleportCreated?: (uri: string, targetDID: string) => void;
+}) {
   const { t } = useTranslation("common");
   const { state, pdsAgent, did } = useSession();
   const isAuthed = state.status === "authenticated";
@@ -327,10 +333,13 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
               streamerDid: livestream.author.did,
             }
           : null,
-      (uri) => store.setState({ activeTeleportUri: uri }),
+      (uri, targetDID) => {
+        store.setState({ activeTeleportUri: uri });
+        onTeleportCreated?.(uri, targetDID);
+      },
       () => setTeleportOpen(true),
     );
-  }, [did, livestream, pdsAgent, store]);
+  }, [did, livestream, pdsAgent, store, onTeleportCreated]);
 
   // Keep module-level refs fresh so the suggestion items functions always
   // have up-to-date data without recreating the editor.

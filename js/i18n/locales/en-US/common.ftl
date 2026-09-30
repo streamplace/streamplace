@@ -425,7 +425,7 @@ player-latency = Latency
 player-quality-auto = Auto
 
 ## Video Player - Stats panel
-player-stats = Player stats
+player-stats = Stats for Nerds
 player-stats-resolution = Resolution
 player-stats-viewport = Viewport
 player-stats-bitrate = Bitrate

@@ -88,8 +88,6 @@ export interface BlueskySlice {
     blue: number,
     selfLabels?: string[],
   ) => Promise<void>;
-  followUser: (subjectDID: string) => Promise<void>;
-  unfollowUser: (subjectDID: string, followUri?: string) => Promise<void>;
   getServerSettingsFromPDS: () => Promise<void>;
   createServerSettingsRecord: (
     patch: Partial<Omit<place.stream.server.settings.Main, "$type">>,
@@ -810,48 +808,6 @@ export const createBlueskySlice: StateCreator<
           profile: null,
         },
       });
-    }
-  },
-
-  followUser: async (subjectDID: string) => {
-    const state = get() as BlueskySlice;
-    if (!state.pdsAgent) {
-      throw new Error("No agent");
-    }
-    const did = state.oauthSession?.did;
-    if (!did) {
-      throw new Error("No DID");
-    }
-    await state.pdsAgent.follow(subjectDID);
-  },
-
-  unfollowUser: async (subjectDID: string, followUri?: string) => {
-    const state = get() as BlueskySlice;
-    if (!state.pdsAgent) {
-      throw new Error("No agent");
-    }
-    const did = state.oauthSession?.did;
-    if (!did) {
-      throw new Error("No DID");
-    }
-
-    if (followUri) {
-      await state.pdsAgent.deleteFollow(followUri);
-    } else {
-      const streamplaceUrl = get().url;
-      const res = await fetch(
-        `${streamplaceUrl}/xrpc/place.stream.graph.getFollowingUser?subjectDID=${encodeURIComponent(subjectDID)}&userDID=${encodeURIComponent(did)}`,
-        {
-          credentials: "include",
-        },
-      );
-      const data = await res.json();
-
-      if (!data.follow || !data.follow.uri) {
-        throw new Error("Follow record not found");
-      }
-
-      await state.pdsAgent.deleteFollow(data.follow.uri);
     }
   },
 

@@ -1,5 +1,4 @@
 import { useToast } from "@/hooks/use-toast";
-import { useStore } from "@/lib/store";
 import { useStreamplaceUrl } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
 import type { LivestreamStore } from "@streamplace/core";
@@ -17,6 +16,7 @@ import { place } from "streamplace";
 import { useStore as useLivestreamStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { useCanModerate } from "../../hooks/use-can-moderate";
+import { useFollow } from "../../hooks/use-follow";
 import type { Liveness } from "../../hooks/use-liveness-state";
 import { useModerationActions } from "../../hooks/use-moderation-actions";
 import { useSession } from "../../lib/session";
@@ -93,8 +93,8 @@ export function StreamInfo({
   );
 
   const { state: sessionState } = useSession();
-  const followUser = useStore((s) => s.followUser);
-  const [following, setFollowing] = useState(false);
+  const follow = useFollow(state.livestream?.author.did);
+  const toast = useToast();
   const record = state.livestream?.record;
   const author = state.livestream?.author;
   const title = record?.title || user;
@@ -107,14 +107,14 @@ export function StreamInfo({
   const node = useStreamplaceUrl();
 
   const handleFollow = async () => {
-    if (!author?.did) return;
-    setFollowing(true);
     try {
-      await followUser(author.did);
-    } catch (e) {
-      console.error("Failed to follow:", e);
-    } finally {
-      setFollowing(false);
+      await follow.toggle();
+    } catch (error) {
+      toast.show(
+        "Failed to update follow",
+        error instanceof Error ? error.message : "Please try again.",
+        { variant: "error" },
+      );
     }
   };
 
@@ -181,14 +181,32 @@ export function StreamInfo({
 
         <div className="flex shrink-0 items-center gap-2">
           {sessionState.status === "authenticated" &&
-            sessionState.session.did !== author?.did && (
+            author?.did &&
+            sessionState.session.did !== author.did && (
               <Button
                 type="button"
                 size="sm"
+                variant={follow.following ? "outline" : "default"}
                 onClick={handleFollow}
-                disabled={following}
+                disabled={follow.loading || !!follow.error}
+                title={
+                  follow.error
+                    ? t("follow-status-failed", {
+                        defaultValue: "Could not load follow status",
+                      })
+                    : follow.following
+                      ? t("unfollow", { defaultValue: "Unfollow" })
+                      : undefined
+                }
               >
-                <Plus className="size-4" /> {t("follow")}
+                {follow.following ? (
+                  <Check className="size-4" />
+                ) : (
+                  <Plus className="size-4" />
+                )}
+                {follow.following
+                  ? t("following", { defaultValue: "Following" })
+                  : t("follow")}
               </Button>
             )}
           <CopyButton type="live" nodeBaseURL={node} />

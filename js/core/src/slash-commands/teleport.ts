@@ -26,7 +26,7 @@ export async function createTeleport(
   targetHandle: string,
   countdownSeconds: number,
   livestream?: { uri: string; cid: string } | null,
-  setActiveTeleportUri?: (uri: string | null) => void,
+  onTeleportCreated?: (uri: string, targetDID: string) => void,
 ): Promise<{ success: boolean; error?: string }> {
   if (countdownSeconds < 5 || countdownSeconds > 300) {
     return {
@@ -76,9 +76,7 @@ export async function createTeleport(
       { repo: userDID as any },
     );
 
-    if (setActiveTeleportUri) {
-      setActiveTeleportUri(result.uri);
-    }
+    onTeleportCreated?.(result.uri, targetDID);
 
     return { success: true };
   } catch (err) {
@@ -97,7 +95,7 @@ export function registerTeleportCommand(
     cid: string;
     streamerDid: string;
   } | null,
-  setActiveTeleportUri?: (uri: string | null) => void,
+  onTeleportCreated?: (uri: string, targetDID: string) => void,
   onOpenModal?: () => void,
 ): () => void {
   const teleportHandler: SlashCommandHandler = async (
@@ -198,10 +196,7 @@ export function registerTeleportCommand(
         { repo: userDID as any },
       );
 
-      // store the URI in the livestream store
-      if (setActiveTeleportUri) {
-        setActiveTeleportUri(result.uri);
-      }
+      onTeleportCreated?.(result.uri, targetDID);
 
       return { handled: true };
     } catch (err) {

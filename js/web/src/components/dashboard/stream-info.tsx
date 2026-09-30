@@ -358,7 +358,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
                   <button
                     type="button"
                     onClick={() => handleRemoveTag(tag)}
-                    className="hover:text-(--color-accent-fg)"
+                    className="hover:text-(--color-fg)"
                   >
                     <X className="size-3" />
                   </button>

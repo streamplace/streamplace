@@ -1431,16 +1431,60 @@ func EnableSQLLogging() {
 	)
 }
 
+// Validate checks the configuration and applies the in-memory defaults a
+// starting node needs. The flag-combination checks live in CheckConfig so
+// they can also run on their own; streamplace validate-config calls that to
+// tell an operator what is wrong before a restart. Anything this method does
+// beyond checking is in-memory only: no files written, no listeners opened.
 func (cli *CLI) Validate(cmd *urfavecli.Command) error {
+	if err := cli.CheckConfig(); err != nil {
+		return err
+	}
+	return cli.PrepareConfig()
+}
+
+// CheckConfig reports every configuration problem it can find, all at once,
+// without changing anything: no defaults are applied, nothing is read from
+// disk except to prove a configured path is usable, no loggers are swapped.
+// It is the single home for "this flag combination will take the node down"
+// checks. If a startup crash can be caused by flags or the environment alone,
+// it belongs here, so `streamplace validate-config` can catch it before a
+// restart does.
+func (cli *CLI) CheckConfig() error {
+	var errs []error
 	if cli.DataDir == "" {
-		return fmt.Errorf("could not determine default data dir (no $HOME) and none provided, please set --data-dir")
+		errs = append(errs, fmt.Errorf("could not determine default data dir (no $HOME) and none provided, please set --data-dir"))
 	}
 	if cli.LivepeerGateway && cli.LivepeerGatewayURL != "" {
-		return fmt.Errorf("defining both livepeer-gateway and livepeer-gateway-url doesn't make sense. do you want an embedded gateway or an external one?")
+		errs = append(errs, fmt.Errorf("defining both livepeer-gateway and livepeer-gateway-url doesn't make sense. do you want an embedded gateway or an external one?"))
 	}
 	if _, err := renditions.Ladder(cli.TranscodeRenditions); err != nil {
-		return fmt.Errorf("--transcode-renditions: %w", err)
+		errs = append(errs, fmt.Errorf("--transcode-renditions: %w", err))
 	}
+	if cli.FirebaseServiceAccount != "" && cli.FirebaseServiceAccountFile != "" {
+		errs = append(errs, fmt.Errorf("defining both firebase-service-account and firebase-service-account-file doesn't make sense. do you want a base64-encoded string or a file?"))
+	}
+	if cli.SigningKeyPath != "" {
+		if _, err := cli.ParseSigningKey(); err != nil {
+			errs = append(errs, fmt.Errorf("--signing-key: %w", err))
+		}
+	}
+	if err := cli.validateVODCDN(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cli.validateLiveCDN(); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
+
+// PrepareConfig applies the defaults and process-level setup that used to be
+// interleaved with the checks in Validate: data-dir substitution, SQL logging
+// verbosity, host fallbacks, the firebase service account file, and the
+// default replicator list. Everything here is in-memory or process-local, so
+// callers that only want to know whether the configuration is sound can call
+// CheckConfig instead.
+func (cli *CLI) PrepareConfig() error {
 	if cli.LivepeerGateway {
 		log.MonkeypatchStderr()
 		// Livepeer gateway configuration will be handled in the caller
@@ -1464,9 +1508,6 @@ func (cli *CLI) Validate(cmd *urfavecli.Command) error {
 	if cli.PublicOAuth {
 		log.Warn(context.Background(), "--dev-public-oauth is set, this is not recommended for production")
 	}
-	if cli.FirebaseServiceAccount != "" && cli.FirebaseServiceAccountFile != "" {
-		return fmt.Errorf("defining both firebase-service-account and firebase-service-account-file doesn't make sense. do you want a base64-encoded string or a file?")
-	}
 	if cli.FirebaseServiceAccountFile != "" {
 		bs, err := os.ReadFile(cli.FirebaseServiceAccountFile)
 		if err != nil {
@@ -1477,12 +1518,6 @@ func (cli *CLI) Validate(cmd *urfavecli.Command) error {
 	// Set default replicator if none specified
 	if len(cli.Replicators) == 0 {
 		cli.Replicators = []string{ReplicatorWebsocket}
-	}
-	if err := cli.validateVODCDN(); err != nil {
-		return err
-	}
-	if err := cli.validateLiveCDN(); err != nil {
-		return err
 	}
 	return nil
 }

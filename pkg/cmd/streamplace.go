@@ -92,6 +92,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeMigrateStateCommand(),
 		makeSyncCommand(build),
 		makeBrandingCommand(build),
+		makeValidateConfigCommand(build),
 		makeE2eCommand(build),
 	}
 	// Add the verbosity flag
@@ -101,6 +102,12 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	// 	Value: "3",
 	// })
 	app.Before = func(ctx context.Context, cmd *urfavecli.Command) (context.Context, error) {
+		// validate-config must run wherever the binary runs, media stack or
+		// not: diagnosing a crashloop with a broken gstreamer install is
+		// exactly when you want pure config validation.
+		if cmd.Name == "validate-config" {
+			return ctx, nil
+		}
 		// Run self-test before starting
 		selfTest := cmd.Name == "self-test"
 		err := media.RunSelfTest(ctx)
@@ -922,6 +929,27 @@ func makeSelfTestCommand(build *config.BuildFlags) *urfavecli.Command {
 			return nil
 		},
 	}
+}
+
+// makeValidateConfigCommand checks the current flags and environment exactly
+// the way a starting node would (cli.Validate) and exits without opening any
+// listeners, databases, or media pipelines. Point deploy tooling at it: it
+// fails before a misconfiguration can crashloop the node on restart.
+func makeValidateConfigCommand(build *config.BuildFlags) *urfavecli.Command {
+	cli := config.CLI{Build: build}
+	cmd := cli.NewCommand("validate-config")
+	cmd.Usage = "validate configuration and exit without starting the node"
+	// NewCommand's Before hook already runs cli.Validate, so a bad
+	// configuration fails the command before we ever get here; this action
+	// only reports success.
+	cmd.Action = func(ctx context.Context, cmd *urfavecli.Command) error {
+		if err := cli.Validate(cmd); err != nil {
+			return err
+		}
+		fmt.Println("configuration OK")
+		return nil
+	}
+	return cmd
 }
 
 // makeVODTestCommand runs the VOD gstreamer pipeline on a local file

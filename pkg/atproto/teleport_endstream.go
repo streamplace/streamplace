@@ -19,6 +19,41 @@ import (
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
+// teleportSourceIsLive confirms that a new teleport is authored by the owner
+// of the source stream and references that owner's latest, unended stream.
+func (atsync *ATProtoSynchronizer) teleportSourceIsLive(
+	repoDID string,
+	livestreamRef *comatproto.RepoStrongRef,
+) (bool, error) {
+	if livestreamRef == nil || livestreamRef.Uri == "" || livestreamRef.Cid == "" {
+		return false, nil
+	}
+
+	aturi, err := syntax.ParseATURI(livestreamRef.Uri)
+	if err != nil ||
+		aturi.Authority().String() != repoDID ||
+		aturi.Collection().String() != "place.stream.livestream" {
+		return false, nil
+	}
+
+	livestream, err := atsync.Model.GetLatestLivestreamForRepo(repoDID)
+	if err != nil {
+		return false, fmt.Errorf("get source livestream: %w", err)
+	}
+	if livestream == nil ||
+		livestream.URI != livestreamRef.Uri ||
+		livestream.CID != livestreamRef.Cid ||
+		livestream.Livestream == nil {
+		return false, nil
+	}
+
+	var record placestream.Livestream
+	if err := glex.DecodeCBOR(*livestream.Livestream, &record); err != nil {
+		return false, fmt.Errorf("decode source livestream: %w", err)
+	}
+	return record.EndedAt == nil, nil
+}
+
 // endLivestreamForTeleport ends the source streamer's livestream when a teleport
 // fires — the same record update that place.stream.live.stopLivestream performs
 // (set endedAt on the place.stream.livestream record via a getRecord/putRecord

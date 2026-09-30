@@ -491,6 +491,37 @@ body {
   }
 }
 
+@keyframes teleport-warning-stripes {
+  0% {
+    opacity: 1;
+    transform: translateX(-45%) skewX(-12deg);
+  }
+  75% {
+    opacity: 1;
+    transform: translateX(0) skewX(-12deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(110%) skewX(-12deg);
+  }
+}
+
+.teleport-warning-stripes {
+  width: 160%;
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-chart-4) 0 16px,
+    var(--color-bg) 16px 32px
+  );
+  animation: teleport-warning-stripes 2s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .teleport-warning-stripes {
+    display: none;
+  }
+}
+
 /* Reduced motion defaults
    Some parts of the app are vendored and thus we can't touch their animations
    directly, so we apply these styles globally when reduced-motion is on.

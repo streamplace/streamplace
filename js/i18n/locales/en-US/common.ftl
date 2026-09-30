@@ -281,6 +281,7 @@ theatre-exit = Exit theatre mode
 
 ## Notifications
 teleporting-in = Teleporting in
+teleporting-to = Teleporting to @{ $handle }
 
 ## Video Card
 views-count = { $count ->

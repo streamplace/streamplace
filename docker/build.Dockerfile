@@ -98,6 +98,13 @@ RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v${GOLAN
   && mv golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64/golangci-lint /usr/local/bin/ \
   && rm -rf golangci-lint.tar.gz golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64
 
+ENV SCCACHE_VERSION 0.18.0
+RUN curl --fail --location https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz -o sccache.tar.gz \
+  && echo '45f1447fbe231e3037bde351ef70677dd212216c8d62ae7ca409fecc4d6acc89  sccache.tar.gz' | sha256sum --check - \
+  && tar -xf sccache.tar.gz \
+  && install -m 0755 sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache /usr/local/bin/sccache \
+  && rm -rf sccache.tar.gz sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl
+
 RUN gem install fpm
 ENV APTLY_VERSION 1.6.2
 RUN curl --fail -L https://github.com/aptly-dev/aptly/releases/download/v${APTLY_VERSION}/aptly_${APTLY_VERSION}_linux_amd64.zip -o aptly.zip \

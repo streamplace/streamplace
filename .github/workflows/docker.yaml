@@ -89,6 +89,8 @@ jobs:
   binaries:
     name: linux binaries
     runs-on: ubuntu-latest
+    # build.yaml is the cache writer; this duplicate build only restores.
+    cache-mode: read
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -103,6 +105,13 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Export GitHub Actions cache environment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
       - name: Log in to ghcr.io (build-layer cache)
         uses: docker/login-action@v3
         with:
@@ -111,14 +120,16 @@ jobs:
           password: ${{ github.token }}
 
       - name: Cross-compile linux amd64 + arm64
+        env:
+          SCCACHE_GHA_RW_MODE: READ_ONLY
         run: |
           sudo apt install podman -y
           make in-container \
             BUILDER_TARGET=builder-no-darwin \
             DOCKER_PWD_MOUNT_PATH=/app \
             DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" \
-            DOCKER_OPTS="-e CI=true -e GITHUB_ACTION=true" \
-            IN_CONTAINER_CMD="make linux-amd64 && make linux-arm64 && go run ./pkg/config/git/git.go -v > sp-version.txt"
+            DOCKER_OPTS="-e CI=true -e GITHUB_ACTION=true -e ACTIONS_RESULTS_URL -e ACTIONS_RUNTIME_TOKEN" \
+            IN_CONTAINER_CMD="export CC='sccache gcc' CXX='sccache g++' RUSTC_WRAPPER=sccache SCCACHE_GHA_ENABLED=on SCCACHE_GHA_VERSION=1 SCCACHE_GHA_RW_MODE=$SCCACHE_GHA_RW_MODE SCCACHE_BASEDIRS=/app USE_SCCACHE=1; set -e; make linux-amd64 && make linux-arm64 && sccache --show-stats && go run ./pkg/config/git/git.go -v > sp-version.txt"
 
       - name: Capture version
         id: version

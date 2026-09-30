@@ -37,7 +37,7 @@ if meson.is_cross_build()
     'GOOS': GOOS,
     'GOARCH': GOARCH,
     'CGO_ENABLED': '1',
-    'CC': meson.get_compiler('c', native: false).cmd_array()[0],
+    'CC': ' '.join(meson.get_compiler('c', native: false).cmd_array()),
   }
 endif
 

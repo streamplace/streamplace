@@ -8,6 +8,8 @@ jobs:
   golangci:
     name: lint
     runs-on: ubuntu-latest
+    # build.yaml is the cache writer; this duplicate build only restores.
+    cache-mode: read
     timeout-minutes: 60
     steps:
       - name: Maximize build space
@@ -20,6 +22,13 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Export GitHub Actions cache environment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       - name: Log in to the Container registry
         uses: docker/login-action@v2
@@ -38,7 +47,7 @@ jobs:
           mkdir -p ~/.config/containers
           printf '[engine]\nlock_type = "file"\n' >> ~/.config/containers/containers.conf
           sudo ln -s $(realpath ./hack/golangci-lint) /usr/bin/golangci-lint
-          make golangci-lint-container BUILDER_TARGET=builder-no-darwin DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace"
+          make golangci-lint-container BUILDER_TARGET=builder-no-darwin DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e ACTIONS_RESULTS_URL -e ACTIONS_RUNTIME_TOKEN -e SCCACHE_GHA_ENABLED=on -e SCCACHE_GHA_RW_MODE=READ_ONLY -e SCCACHE_GHA_VERSION=1 -e SCCACHE_BASEDIRS=$PWD -e 'CC=sccache gcc' -e 'CXX=sccache g++' -e RUSTC_WRAPPER=sccache"
 
       - name: sanity-check wrapper from bash
         run:
@@ -51,3 +60,10 @@ jobs:
           version: v2.1
           args: --config=./.golangci.yaml
           install-mode: none
+
+      - name: sccache statistics
+        if: always()
+        run: |
+          if podman container exists golangci-lint; then
+            podman exec golangci-lint sccache --show-stats
+          fi

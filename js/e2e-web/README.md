@@ -33,6 +33,7 @@ mobile-only.
 | `04-stream.spec.ts`      | `04-stream.yaml`       |
 | `05-oauth-login.spec.ts` | `05-oauth-login.yaml`  |
 | `07-chat-popout.spec.ts` | — (web-only)           |
+| `08-vod.spec.ts`         | — (web-only)           |
 
 The web app renders the **desktop layout** (a sidebar of nav links), not the
 mobile tab bar, so a couple of flows adapt to that surface while keeping the
@@ -40,6 +41,9 @@ same intent: `02-tabs` drives the sidebar (Home ↔ Settings) instead of the tab
 bar, and `03-go-live` reaches the streaming entry point via the Live Dashboard
 (`/live`), which — logged out — surfaces the same Log In prompt as the mobile
 "Go Live → Start streaming" path.
+
+`08-vod` opens the VOD the harness publishes and checks the tab is titled
+after the video; a document title has no native counterpart.
 
 `04-stream` also covers the narrow portrait web layout at 320 × 568, where the
 live video sits above chat. It reveals the player chrome, exercises mute and

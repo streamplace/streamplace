@@ -939,13 +939,12 @@ func makeValidateConfigCommand(build *config.BuildFlags) *urfavecli.Command {
 	cli := config.CLI{Build: build}
 	cmd := cli.NewCommand("validate-config")
 	cmd.Usage = "validate configuration and exit without starting the node"
-	// NewCommand's Before hook already runs cli.Validate, so a bad
-	// configuration fails the command before we ever get here; this action
-	// only reports success.
+	// NewCommand's Before hook runs cli.Validate, so a bad configuration
+	// fails the command before we ever get here. Do not check again in this
+	// action: the checks must run against pristine flag values, and any
+	// second pass would see the defaults PrepareConfig filled in as
+	// operator-set conflicts.
 	cmd.Action = func(ctx context.Context, cmd *urfavecli.Command) error {
-		if err := cli.Validate(cmd); err != nil {
-			return err
-		}
 		fmt.Println("configuration OK")
 		return nil
 	}

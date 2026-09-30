@@ -132,6 +132,7 @@ type CLI struct {
 	AccessJWK                   jwk.Key
 	ServiceAuthKey              jwk.Key
 	dataDirFlags                []*string
+	validated                   bool
 	DiscordWebhooks             []*discordtypes.Webhook
 	AppleTeamID                 string
 	AndroidCertFingerprint      string
@@ -1433,14 +1434,27 @@ func EnableSQLLogging() {
 
 // Validate checks the configuration and applies the in-memory defaults a
 // starting node needs. The flag-combination checks live in CheckConfig so
-// they can also run on their own; streamplace validate-config calls that to
+// they can also run on their own; streamplace validate-config uses that to
 // tell an operator what is wrong before a restart. Anything this method does
 // beyond checking is in-memory only: no files written, no listeners opened.
+//
+// Validate is idempotent: urfavecli runs both a Before hook and the action
+// path against the same CLI, and a second pass would see the defaults
+// PrepareConfig filled in (the gateway URL, the firebase account) as
+// operator-set values and misreport them as conflicts. The checks therefore
+// run once, against pristine flag values.
 func (cli *CLI) Validate(cmd *urfavecli.Command) error {
+	if cli.validated {
+		return nil
+	}
 	if err := cli.CheckConfig(); err != nil {
 		return err
 	}
-	return cli.PrepareConfig()
+	if err := cli.PrepareConfig(); err != nil {
+		return err
+	}
+	cli.validated = true
+	return nil
 }
 
 // CheckConfig reports every configuration problem it can find, all at once,
@@ -1463,6 +1477,13 @@ func (cli *CLI) CheckConfig() error {
 	}
 	if cli.FirebaseServiceAccount != "" && cli.FirebaseServiceAccountFile != "" {
 		errs = append(errs, fmt.Errorf("defining both firebase-service-account and firebase-service-account-file doesn't make sense. do you want a base64-encoded string or a file?"))
+	}
+	if cli.FirebaseServiceAccountFile != "" {
+		// Read-only proof that the configured path is usable. PrepareConfig
+		// reads the file again to actually load the account.
+		if _, err := os.ReadFile(cli.FirebaseServiceAccountFile); err != nil {
+			errs = append(errs, fmt.Errorf("--firebase-service-account-file: %w", err))
+		}
 	}
 	if cli.SigningKeyPath != "" {
 		if _, err := cli.ParseSigningKey(); err != nil {

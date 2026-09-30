@@ -36,6 +36,10 @@ func TestValidateConfigCommandRuns(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "--vod-cdn-provider=bunny")
 
+	err = cmd.Run(t.Context(), []string{"validate-config", "--data-dir", t.TempDir(),
+		"--livepeer-gateway"})
+	require.NoError(t, err)
+
 	err = cmd.Run(t.Context(), []string{"validate-config", "--data-dir", t.TempDir()})
 	require.NoError(t, err)
 }

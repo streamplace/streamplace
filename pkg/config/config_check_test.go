@@ -43,6 +43,14 @@ func TestCheckConfig(t *testing.T) {
 	// the provider.
 	bad(CLI{DataDir: t.TempDir(), BunnyTokenAuthKey: "k"},
 		"--vod-cdn-provider=bunny")
+	// An unreadable firebase file is reported on its own and alongside an
+	// unrelated problem, not swallowed by the other failure.
+	bad(CLI{DataDir: t.TempDir(),
+		FirebaseServiceAccountFile: filepath.Join(t.TempDir(), "nope.json")},
+		"--firebase-service-account-file")
+	bad(CLI{TranscodeRenditions: "not-a-rendition",
+		FirebaseServiceAccountFile: filepath.Join(t.TempDir(), "nope.json")},
+		"--transcode-renditions", "--firebase-service-account-file")
 
 	// Multiple problems are reported together, not one at a time.
 	multi := CLI{LivepeerGateway: true, LivepeerGatewayURL: "http://127.0.0.1:8935",
@@ -81,6 +89,23 @@ func TestCheckConfigSigningKey(t *testing.T) {
 		require.Error(t, err, name)
 		require.Contains(t, err.Error(), "--signing-key", name)
 	}
+}
+
+// TestValidateIsIdempotent pins the reason Validate runs its checks exactly
+// once: urfavecli invokes it from both the Before hook and the action path,
+// and a second pass must not mistake the defaults PrepareConfig filled in
+// (the gateway URL, the firebase account) for operator-set conflicts.
+func TestValidateIsIdempotent(t *testing.T) {
+	cli := CLI{DataDir: t.TempDir(), LivepeerGateway: true}
+	require.NoError(t, cli.Validate(nil))
+	require.NoError(t, cli.Validate(nil))
+	require.Equal(t, "http://127.0.0.1:8935", cli.LivepeerGatewayURL)
+
+	fbFile := filepath.Join(t.TempDir(), "firebase.json")
+	require.NoError(t, os.WriteFile(fbFile, []byte("{}"), 0o600))
+	cli = CLI{DataDir: t.TempDir(), FirebaseServiceAccountFile: fbFile}
+	require.NoError(t, cli.Validate(nil))
+	require.Equal(t, "{}", cli.FirebaseServiceAccount)
 }
 
 // TestValidatePreparesDefaults checks that the starting-node path still

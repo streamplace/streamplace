@@ -1,17 +1,29 @@
-import { expect, test, type Locator } from "@playwright/test";
-import { loginThroughPds } from "./login";
+import {
+  expect,
+  request,
+  test,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 
 // Chat is an inverted list, which the web flips with scaleY(-1) and scrolls by
 // hand on each wheel event. A trackpad sends many small, fractional deltas,
-// and the browser snaps each scrollTop write to a whole pixel: the list used
-// to lose every half-pixel step toward the latest message, so a two-finger
-// scroll back down stalled while scrolling up into history worked. Both
-// directions must travel the full distance the wheel asked for.
+// and the browser snaps each scrollTop write to a device pixel: the list used
+// to lose half-pixel steps in one direction, so in Chromium a two-finger
+// scroll back down to the latest message stalled while scrolling up into
+// history worked. Both directions must travel the full distance the wheel
+// asked for. This flow also runs in Firefox, where the bug was reported (see
+// playwright.config.ts).
 //
-// Log in first so this flow can fill the chat with enough messages to scroll.
-const HTTPS_URL = process.env.SERVER_HTTPS_URL;
+// The chat is filled by writing records straight to the account's PDS, so
+// this flow needs no browser login and runs the same in every browser.
+const SERVER_URL = process.env.SERVER_URL;
+const PDS_URL = process.env.PDS_HTTPS_URL;
+const HANDLE = process.env.ACCOUNT_HANDLE!;
+const DID = process.env.ACCOUNT_DID!;
+const PASSWORD = process.env.ACCOUNT_PASSWORD!;
 
-test.skip(!HTTPS_URL, "harness started without its HTTPS hostnames");
+test.skip(!PDS_URL, "harness started without its HTTPS hostnames");
 
 const MESSAGES = 30;
 const STEPS = 40;
@@ -19,35 +31,63 @@ const STEP_PX = 0.5;
 
 const scrollTop = (list: Locator) => list.evaluate((el) => el.scrollTop);
 
+// Write chat messages to the harness account's PDS; the node picks them up
+// from its firehose, as it would any viewer's.
+async function seedChat(texts: string[]) {
+  // the PDS's throwaway CA is trusted by the harness's browsers, not by Node
+  const pds = await request.newContext({ ignoreHTTPSErrors: true });
+  try {
+    const session = await pds.post(
+      `${PDS_URL}/xrpc/com.atproto.server.createSession`,
+      { data: { identifier: HANDLE, password: PASSWORD } },
+    );
+    expect(session.ok(), `createSession: ${session.status()}`).toBe(true);
+    const { accessJwt } = await session.json();
+    for (const text of texts) {
+      const res = await pds.post(
+        `${PDS_URL}/xrpc/com.atproto.repo.createRecord`,
+        {
+          headers: { Authorization: `Bearer ${accessJwt}` },
+          data: {
+            repo: DID,
+            collection: "place.stream.chat.message",
+            record: {
+              $type: "place.stream.chat.message",
+              text,
+              createdAt: new Date().toISOString(),
+              streamer: DID,
+            },
+          },
+        },
+      );
+      expect(res.ok(), `createRecord: ${res.status()}`).toBe(true);
+    }
+  } finally {
+    await pds.dispose();
+  }
+}
+
+async function wheelSteps(page: Page, deltaY: number, steps: number) {
+  for (let i = 0; i < steps; i++) {
+    await page.mouse.wheel(0, deltaY);
+  }
+}
+
 test("09-chat-wheel-scroll: small wheel deltas scroll chat both ways", async ({
   page,
 }) => {
-  test.setTimeout(180_000);
-  await loginThroughPds(page);
+  const run = Date.now();
+  const texts = Array.from(
+    { length: MESSAGES },
+    (_, i) => `wheel scroll ${run} ${i}`,
+  );
+  await seedChat(texts);
 
-  await page.goto(`${HTTPS_URL}/`);
+  await page.goto(`${SERVER_URL}/`);
   await page.getByTestId("home-stream-card").first().click();
   await expect(
-    page.getByText("Now streaming - e2e test stream").first(),
+    page.getByText(texts[texts.length - 1], { exact: true }).first(),
   ).toBeVisible({ timeout: 30_000 });
-
-  const chatInput = page.getByPlaceholder("Type a message...");
-  const run = Date.now();
-  // a send the page wasn't ready for clears the box and is dropped; resend
-  await expect(async () => {
-    await chatInput.fill(`wheel scroll ${run} 0`);
-    await chatInput.press("Enter");
-    await expect(page.getByText(`wheel scroll ${run} 0`).first()).toBeVisible({
-      timeout: 10_000,
-    });
-  }).toPass({ timeout: 45_000 });
-  for (let i = 1; i < MESSAGES; i++) {
-    await chatInput.fill(`wheel scroll ${run} ${i}`);
-    await chatInput.press("Enter");
-    await expect(
-      page.getByText(`wheel scroll ${run} ${i}`, { exact: true }).first(),
-    ).toBeVisible({ timeout: 15_000 });
-  }
 
   const list = page.getByTestId("chat-list").first();
   await expect
@@ -63,12 +103,10 @@ test("09-chat-wheel-scroll: small wheel deltas scroll chat both ways", async ({
   await page.mouse.wheel(0, -150);
   await expect.poll(() => scrollTop(list)).toBeGreaterThan(100);
   const inHistory = await scrollTop(list);
+  const travel = STEPS * STEP_PX;
 
   // Back down toward the latest message in trackpad-sized steps.
-  for (let i = 0; i < STEPS; i++) {
-    await page.mouse.wheel(0, STEP_PX);
-  }
-  const travel = STEPS * STEP_PX;
+  await wheelSteps(page, STEP_PX, STEPS);
   await expect
     .poll(async () => inHistory - (await scrollTop(list)))
     .toBeGreaterThanOrEqual(travel - 1);
@@ -76,9 +114,7 @@ test("09-chat-wheel-scroll: small wheel deltas scroll chat both ways", async ({
   expect(inHistory - afterDown).toBeLessThanOrEqual(travel + 1);
 
   // And up again by the same amount.
-  for (let i = 0; i < STEPS; i++) {
-    await page.mouse.wheel(0, -STEP_PX);
-  }
+  await wheelSteps(page, -STEP_PX, STEPS);
   await expect
     .poll(async () => (await scrollTop(list)) - afterDown)
     .toBeGreaterThanOrEqual(travel - 1);

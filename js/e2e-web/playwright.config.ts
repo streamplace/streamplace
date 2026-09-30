@@ -63,5 +63,18 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    // Firefox runs only the flows that cover a Firefox-specific bug, and none
+    // that log in: the harness's certificate pinning above is a Chromium flag.
+    {
+      name: "firefox",
+      testMatch: /09-chat-wheel-scroll\.spec\.ts$/,
+      use: {
+        ...devices["Desktop Firefox"],
+        // the launch flags above are Chromium's
+        launchOptions: {
+          firefoxUserPrefs: { "media.autoplay.default": 0 },
+        },
+      },
+    },
   ],
 });

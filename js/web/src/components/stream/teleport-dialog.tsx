@@ -9,42 +9,32 @@ import {
 } from "@/components/ui/dialog";
 import useAvatars from "@/hooks/use-avatars";
 import { useLiveUsers } from "@/hooks/use-live-users";
+import type { TeleportErrorData } from "@streamplace/core";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 function translateTeleportError(
-  message: string,
+  error: TeleportErrorData,
   t: ReturnType<typeof useTranslation>["t"],
 ) {
-  if (
-    message ===
-    "Only the streamer of the current livestream can start a teleport"
-  ) {
-    return t("teleport-error-streamer-only");
+  switch (error.code) {
+    case "streamer-only":
+      return t("teleport-error-streamer-only");
+    case "handle-format":
+      return t("teleport-error-handle-format");
+    case "countdown-number":
+      return t("teleport-error-countdown-number");
+    case "countdown-range":
+      return t("teleport-countdown-error");
+    case "self":
+      return t("teleport-error-self");
+    case "resolve-handle":
+      return t("teleport-error-resolve-handle", {
+        handle: error.params?.handle,
+      });
+    case "create":
+      return t("teleport-error-create");
   }
-  if (message === "Invalid handle format. Expected: handle.bsky.social") {
-    return t("teleport-error-handle-format");
-  }
-  if (message === "Countdown must be a number (seconds)") {
-    return t("teleport-error-countdown-number");
-  }
-  if (message.startsWith("Countdown must be between")) {
-    return t("teleport-countdown-error");
-  }
-  if (message === "You cannot teleport to yourself") {
-    return t("teleport-error-self");
-  }
-  if (
-    message === "Failed to create teleport" ||
-    message === "Teleport failed."
-  ) {
-    return t("teleport-error-create");
-  }
-  const resolveError = message.match(/^Could not resolve handle: (.+)$/);
-  if (resolveError) {
-    return t("teleport-error-resolve-handle", { handle: resolveError[1] });
-  }
-  return t("teleport-error-generic", { message });
 }
 
 export function TeleportDialog({
@@ -54,7 +44,10 @@ export function TeleportDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (handle: string, countdownSeconds: number) => Promise<void>;
+  onSubmit: (
+    handle: string,
+    countdownSeconds: number,
+  ) => Promise<TeleportErrorData | undefined>;
 }) {
   const { t } = useTranslation("common");
   const [query, setQuery] = useState("");
@@ -113,15 +106,14 @@ export function TeleportDialog({
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit(stream.author.handle, seconds);
+      const teleportError = await onSubmit(stream.author.handle, seconds);
+      if (teleportError) {
+        setError(translateTeleportError(teleportError, t));
+        return;
+      }
       close();
-    } catch (reason) {
-      setError(
-        translateTeleportError(
-          reason instanceof Error ? reason.message : "Teleport failed.",
-          t,
-        ),
-      );
+    } catch {
+      setError(t("teleport-error-create"));
     } finally {
       setSubmitting(false);
     }

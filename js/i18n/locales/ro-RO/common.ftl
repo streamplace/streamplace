@@ -106,4 +106,3 @@ teleport-error-countdown-number = Numărătoarea trebuie să fie un număr de se
 teleport-error-self = Nu te poți teleporta la tine însuți.
 teleport-error-resolve-handle = Nu s-a putut găsi @{ $handle }.
 teleport-error-create = Nu s-a putut porni teleportarea.
-teleport-error-generic = Nu s-a putut porni teleportarea: { $message }

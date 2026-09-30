@@ -106,4 +106,3 @@ teleport-error-countdown-number = La cuenta atrás debe ser un número de segund
 teleport-error-self = No puedes teletransportarte a ti mismo.
 teleport-error-resolve-handle = No se encontró a @{ $handle }.
 teleport-error-create = No se pudo iniciar la teletransportación.
-teleport-error-generic = No se pudo iniciar la teletransportación: { $message }

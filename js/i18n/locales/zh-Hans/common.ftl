@@ -98,4 +98,3 @@ teleport-error-countdown-number = 倒计时必须是秒数。
 teleport-error-self = 无法传送到自己的直播间。
 teleport-error-resolve-handle = 找不到 @{ $handle }。
 teleport-error-create = 无法启动传送。
-teleport-error-generic = 无法启动传送：{ $message }

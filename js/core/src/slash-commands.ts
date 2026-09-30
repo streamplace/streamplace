@@ -1,6 +1,11 @@
 export interface SlashCommandResult {
   handled: boolean;
   error?: string;
+  errorData?: {
+    type: string;
+    code: string;
+    params?: Record<string, string>;
+  };
 }
 
 export type SlashCommandHandler = (

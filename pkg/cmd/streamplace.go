@@ -1365,9 +1365,8 @@ func makeSyncCommand(build *config.BuildFlags) *urfavecli.Command {
 // manager, no firehose: this process talks to other people's PDSes and to the
 // two databases, and then it is done.
 func runSync(ctx context.Context, build *config.BuildFlags, cmd *urfavecli.Command, cli *config.CLI) error {
-	if err := cli.Validate(cmd); err != nil {
-		return err
-	}
+	// The sync command's Before hook already ran cli.Validate; calling it
+	// again would see PrepareConfig's defaults as operator-set conflicts.
 	log.SetColorLogger(cli.Color)
 	ctx = log.WithDebugValue(ctx, cli.Debug)
 	log.Log(ctx, "streamplace sync", "version", build.Version, "dataDir", cli.DataDir)
@@ -1430,9 +1429,8 @@ func makeBrandingCommand(build *config.BuildFlags) *urfavecli.Command {
 	root := cli.NewCommand("branding")
 	root.Usage = "export or import the node's branding as a bundle (zip with branding.yaml)"
 	open := func(ctx context.Context, cmd *urfavecli.Command) (*statedb.StatefulDB, string, error) {
-		if err := cli.Validate(cmd); err != nil {
-			return nil, "", err
-		}
+		// The branding command's Before hook already ran cli.Validate; see
+		// runSync for why a second pass would be wrong.
 		log.SetColorLogger(cli.Color)
 		mod, err := model.MakeDBConns(cli.DataFilePath([]string{"index"}), cli.IndexDBConnections)
 		if err != nil {

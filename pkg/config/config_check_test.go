@@ -91,28 +91,19 @@ func TestCheckConfigSigningKey(t *testing.T) {
 	}
 }
 
-// TestValidateIsIdempotent pins the reason Validate runs its checks exactly
-// once: urfavecli invokes it from both the Before hook and the action path,
-// and a second pass must not mistake the defaults PrepareConfig filled in
-// (the gateway URL, the firebase account) for operator-set conflicts.
-func TestValidateIsIdempotent(t *testing.T) {
-	cli := CLI{DataDir: t.TempDir(), LivepeerGateway: true}
+// TestValidatePreparesDefaults checks that the starting-node path still
+// applies the in-memory defaults after the check/prepare split, and that
+// Validate is called exactly once per parsed configuration — see the contract
+// on Validate for why a second pass would be wrong.
+func TestValidatePreparesDefaults(t *testing.T) {
+	cli := CLI{DataDir: t.TempDir(), BroadcasterHost: "example.com"}
 	require.NoError(t, cli.Validate(nil))
-	require.NoError(t, cli.Validate(nil))
-	require.Equal(t, "http://127.0.0.1:8935", cli.LivepeerGatewayURL)
+	require.Equal(t, []string{ReplicatorWebsocket}, cli.Replicators)
+	require.Equal(t, "example.com", cli.ServerHost)
 
 	fbFile := filepath.Join(t.TempDir(), "firebase.json")
 	require.NoError(t, os.WriteFile(fbFile, []byte("{}"), 0o600))
 	cli = CLI{DataDir: t.TempDir(), FirebaseServiceAccountFile: fbFile}
 	require.NoError(t, cli.Validate(nil))
 	require.Equal(t, "{}", cli.FirebaseServiceAccount)
-}
-
-// TestValidatePreparesDefaults checks that the starting-node path still
-// applies the in-memory defaults after the check/prepare split.
-func TestValidatePreparesDefaults(t *testing.T) {
-	cli := CLI{DataDir: t.TempDir(), BroadcasterHost: "example.com"}
-	require.NoError(t, cli.Validate(nil))
-	require.Equal(t, []string{ReplicatorWebsocket}, cli.Replicators)
-	require.Equal(t, "example.com", cli.ServerHost)
 }

@@ -132,7 +132,6 @@ type CLI struct {
 	AccessJWK                   jwk.Key
 	ServiceAuthKey              jwk.Key
 	dataDirFlags                []*string
-	validated                   bool
 	DiscordWebhooks             []*discordtypes.Webhook
 	AppleTeamID                 string
 	AndroidCertFingerprint      string
@@ -1438,23 +1437,17 @@ func EnableSQLLogging() {
 // tell an operator what is wrong before a restart. Anything this method does
 // beyond checking is in-memory only: no files written, no listeners opened.
 //
-// Validate is idempotent: urfavecli runs both a Before hook and the action
-// path against the same CLI, and a second pass would see the defaults
-// PrepareConfig filled in (the gateway URL, the firebase account) as
-// operator-set values and misreport them as conflicts. The checks therefore
-// run once, against pristine flag values.
+// Call this exactly once per parsed configuration. The checks must run
+// against pristine flag values, because PrepareConfig fills in values (the
+// gateway URL, the firebase account) that a second pass would mistake for
+// operator-set conflicts. Every command gets this: NewCommand's Before hook
+// for subcommands, runMain for the node — which is why callers further down
+// the action path must not call Validate again.
 func (cli *CLI) Validate(cmd *urfavecli.Command) error {
-	if cli.validated {
-		return nil
-	}
 	if err := cli.CheckConfig(); err != nil {
 		return err
 	}
-	if err := cli.PrepareConfig(); err != nil {
-		return err
-	}
-	cli.validated = true
-	return nil
+	return cli.PrepareConfig()
 }
 
 // CheckConfig reports every configuration problem it can find, all at once,

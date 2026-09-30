@@ -26,20 +26,22 @@ func TestValidateConfigCommand(t *testing.T) {
 	require.True(t, names["bunny-token-auth-key"], "validate-config needs the bunny flags")
 }
 
-// TestValidateConfigCommandRuns runs the command for real: a bad flag
-// combination fails with the same error a starting node would die on, and a
-// clean configuration passes without opening anything.
+// TestValidateConfigCommandRuns runs the command for real: a clean
+// configuration passes without opening anything, and a bad flag combination
+// fails with the same error a starting node would die on — including a bad
+// run AFTER a good one, which pins that every run validates its own flags
+// rather than skipping after a previous success.
 func TestValidateConfigCommandRuns(t *testing.T) {
 	cmd := makeValidateConfigCommand(&config.BuildFlags{Version: "test"})
-	err := cmd.Run(t.Context(), []string{"validate-config", "--data-dir", t.TempDir(),
-		"--bunny-token-auth-key", "k"})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "--vod-cdn-provider=bunny")
+	err := cmd.Run(t.Context(), []string{"validate-config", "--data-dir", t.TempDir()})
+	require.NoError(t, err)
 
 	err = cmd.Run(t.Context(), []string{"validate-config", "--data-dir", t.TempDir(),
 		"--livepeer-gateway"})
 	require.NoError(t, err)
 
-	err = cmd.Run(t.Context(), []string{"validate-config", "--data-dir", t.TempDir()})
-	require.NoError(t, err)
+	err = cmd.Run(t.Context(), []string{"validate-config", "--data-dir", t.TempDir(),
+		"--bunny-token-auth-key", "k"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "--vod-cdn-provider=bunny")
 }

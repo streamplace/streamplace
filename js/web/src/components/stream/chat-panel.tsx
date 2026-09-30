@@ -702,7 +702,7 @@ function ReplyBanner({
   authors: { [key: string]: ChatMessageViewHydrated["chatProfile"] };
 }) {
   if (!parent) return null;
-  if (parent.$type !== "place.stream.chat.message") return null;
+  if (parent.$type !== "place.stream.chat.defs#messageView") return null;
   const msg = parent as ChatMessageViewHydrated;
   const text = msg.record?.text || "";
   const handle = msg.author?.handle || "...";

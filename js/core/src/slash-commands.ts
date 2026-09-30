@@ -17,8 +17,13 @@ export interface SlashCommand {
 
 const commands = new Map<string, SlashCommand>();
 
-export function registerSlashCommand(command: SlashCommand) {
+export function registerSlashCommand(command: SlashCommand): () => void {
   commands.set(command.name, command);
+  return () => {
+    if (commands.get(command.name) === command) {
+      commands.delete(command.name);
+    }
+  };
 }
 
 export function unregisterSlashCommand(name: string) {

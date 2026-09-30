@@ -1,7 +1,6 @@
-import { makeLivestreamStore } from "@streamplace/core";
+import { deleteTeleport, makeLivestreamStore } from "@streamplace/core";
 import React, { useContext, useEffect, useRef } from "react";
 import { useAvatars } from "../hooks";
-import { deleteTeleport } from "../lib/slash-commands/teleport";
 import { StreamNotifications } from "../lib/stream-notifications";
 import { LivestreamContext } from "../livestream-store/context";
 import { useUnpinChatMessage } from "../livestream-store/hooks";

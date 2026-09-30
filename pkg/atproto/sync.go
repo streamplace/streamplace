@@ -594,6 +594,14 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if r == nil {
 			return nil
 		}
+		sourceIsLive, err := atsync.teleportSourceIsLive(userDID, rec.Livestream)
+		if err != nil {
+			return fmt.Errorf("failed to validate teleport source stream: %w", err)
+		}
+		if !sourceIsLive {
+			log.Debug(ctx, "ignoring teleport without an active source stream owned by its author")
+			return nil
+		}
 		startsAt, err := time.Parse(time.RFC3339, rec.StartsAt)
 		if err != nil {
 			log.Error(ctx, "failed to parse startsAt", "err", err)

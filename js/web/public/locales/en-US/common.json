@@ -229,6 +229,7 @@
   "theatre-enter": "Theatre mode",
   "theatre-exit": "Exit theatre mode",
   "teleporting-in": "Teleporting in",
+  "teleporting-to": "Teleporting to @{$handle}",
   "views-count": "{$count ->\n   [one] {$count} view\n   *[other] {$count} views\n  }",
   "likes-count": "{$count ->\n   [one] {$count} like\n   *[other] {$count} likes\n  }",
   "could-not-load-streams": "Could not load streams. You might be offline.",

@@ -92,14 +92,27 @@ export async function createTeleport(
 export function registerTeleportCommand(
   pdsAgent: StreamplaceAgent,
   userDID: string,
-  getLivestream?: () => { uri: string; cid: string } | null,
+  getLivestream?: () => {
+    uri: string;
+    cid: string;
+    streamerDid: string;
+  } | null,
   setActiveTeleportUri?: (uri: string | null) => void,
   onOpenModal?: () => void,
-) {
+): () => void {
   const teleportHandler: SlashCommandHandler = async (
     args,
     rawInput,
   ): Promise<SlashCommandResult> => {
+    const livestream = getLivestream?.() ?? null;
+    if (!livestream || livestream.streamerDid !== userDID) {
+      return {
+        handled: true,
+        error:
+          "Only the streamer of the current livestream can start a teleport",
+      };
+    }
+
     if (args.length === 0) {
       if (onOpenModal) {
         onOpenModal();
@@ -146,8 +159,6 @@ export function registerTeleportCommand(
     // stream so the server can end exactly that record on arrival. When absent
     // the teleport still sends viewers over; the server just won't end a
     // source stream.
-    const livestream = getLivestream?.() ?? null;
-
     let targetDID: string;
     try {
       const resolution = await pdsAgent.resolveHandle({
@@ -201,17 +212,22 @@ export function registerTeleportCommand(
     }
   };
 
-  registerSlashCommand({
+  const unregisterTeleport = registerSlashCommand({
     name: "teleport",
     description: "Start a teleport to another streamer",
     usage: "/teleport @handle.bsky.social [duration_seconds]",
     handler: teleportHandler,
   });
 
-  registerSlashCommand({
+  const unregisterTp = registerSlashCommand({
     name: "tp",
     description: "Start a teleport to another streamer (alias for /teleport)",
     usage: "/tp @handle.bsky.social [duration_seconds]",
     handler: teleportHandler,
   });
+
+  return () => {
+    unregisterTeleport();
+    unregisterTp();
+  };
 }

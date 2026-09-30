@@ -47,7 +47,7 @@ describe("useFollow", () => {
 
   async function waitForLoaded() {
     await act(async () => {
-      await vi.runAllTimersAsync();
+      await vi.advanceTimersByTimeAsync(0);
     });
     expect(current.loading).toBe(false);
   }
@@ -105,6 +105,25 @@ describe("useFollow", () => {
     await act(async () => current.toggle());
     expect(agent.deleteFollow).toHaveBeenCalledWith(FOLLOW_URI);
     expect(container.textContent).toBe("Follow");
+  });
+
+  it("keeps a successful follow while the node index is still stale", async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(null))
+      .mockResolvedValueOnce(response(null));
+    await render();
+    await waitForLoaded();
+
+    await act(async () => current.toggle());
+    expect(container.textContent).toBe("Following");
+
+    await render(undefined);
+    await render();
+    await waitForLoaded();
+
+    expect(container.textContent).toBe("Following");
+    await act(async () => current.toggle());
+    expect(agent.deleteFollow).toHaveBeenCalledWith(FOLLOW_URI);
   });
 
   it("does not allow a follow before the lookup completes", async () => {
@@ -197,7 +216,43 @@ describe("useFollow", () => {
     expect(container.textContent).toBe("Follow");
     expect(
       client.getQueryData(["follow", "https://node.example", VIEWER, STREAMER]),
-    ).toBe(FOLLOW_URI);
+    ).toMatchObject({ uri: FOLLOW_URI, reconcileUntil: expect.any(Number) });
+  });
+
+  it("stops reconciling after the index window expires", async () => {
+    fetchMock.mockResolvedValue(response(null));
+    await render();
+    await waitForLoaded();
+    await act(async () => current.toggle());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(7);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(7);
+  });
+
+  it("allows changes after a background reconciliation error", async () => {
+    fetchMock.mockResolvedValueOnce(response(null));
+    await render();
+    await waitForLoaded();
+    await act(async () => current.toggle());
+
+    fetchMock.mockRejectedValueOnce(new Error("node unavailable"));
+    await act(async () => {
+      await client.refetchQueries({
+        queryKey: ["follow", "https://node.example", VIEWER, STREAMER],
+      });
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => current.toggle());
+    expect(agent.deleteFollow).toHaveBeenCalledWith(FOLLOW_URI);
+    expect(container.textContent).toBe("Follow");
   });
 
   it("does not apply a late lookup to a different streamer", async () => {

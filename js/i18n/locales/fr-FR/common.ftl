@@ -80,3 +80,30 @@ login-show-live-on-bluesky-description = Ajoute l'anneau rouge LIVE à votre ava
 ## Stream notifications
 teleporting-in = Téléportation dans
 teleporting-to = Téléportation vers @{ $handle }
+
+## Teleport dialog
+teleport-dialog-title = Téléporter vers un autre streamer en direct
+teleport-dialog-description = Choisissez un streamer vers lequel téléporter vos spectateurs.
+teleport-unknown-streamer = Streamer inconnu
+teleport-search-label = Rechercher les streams en direct
+teleport-search-placeholder = Rechercher par identifiant ou titre
+teleport-loading-streamers = Chargement des streamers en direct…
+teleport-empty-streamers = Aucun streamer en direct trouvé.
+teleport-no-matching-streamers = Aucun streamer en direct ne correspond.
+teleport-viewer-count = { $count ->
+    [one] { $count } spectateur
+   *[other] { $count } spectateurs
+}
+teleport-countdown = Compte à rebours
+teleport-seconds-range = secondes (5–300)
+teleport-countdown-error = Le compte à rebours doit être compris entre 5 et 300 secondes.
+teleport-selection-expired = Ce streamer n'est plus en direct. Choisissez-en un autre.
+teleport-starting = Démarrage…
+teleport-start = Téléporter
+teleport-error-streamer-only = Seul le streamer du direct actuel peut lancer une téléportation.
+teleport-error-handle-format = Saisissez un identifiant valide, par exemple handle.bsky.social.
+teleport-error-countdown-number = Le compte à rebours doit être un nombre de secondes.
+teleport-error-self = Vous ne pouvez pas vous téléporter vers vous-même.
+teleport-error-resolve-handle = @{ $handle } est introuvable.
+teleport-error-create = Impossible de démarrer la téléportation.
+teleport-error-generic = Impossible de démarrer la téléportation : { $message }

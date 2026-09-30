@@ -9,7 +9,43 @@ import {
 } from "@/components/ui/dialog";
 import useAvatars from "@/hooks/use-avatars";
 import { useLiveUsers } from "@/hooks/use-live-users";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+
+function translateTeleportError(
+  message: string,
+  t: ReturnType<typeof useTranslation>["t"],
+) {
+  if (
+    message ===
+    "Only the streamer of the current livestream can start a teleport"
+  ) {
+    return t("teleport-error-streamer-only");
+  }
+  if (message === "Invalid handle format. Expected: handle.bsky.social") {
+    return t("teleport-error-handle-format");
+  }
+  if (message === "Countdown must be a number (seconds)") {
+    return t("teleport-error-countdown-number");
+  }
+  if (message.startsWith("Countdown must be between")) {
+    return t("teleport-countdown-error");
+  }
+  if (message === "You cannot teleport to yourself") {
+    return t("teleport-error-self");
+  }
+  if (
+    message === "Failed to create teleport" ||
+    message === "Teleport failed."
+  ) {
+    return t("teleport-error-create");
+  }
+  const resolveError = message.match(/^Could not resolve handle: (.+)$/);
+  if (resolveError) {
+    return t("teleport-error-resolve-handle", { handle: resolveError[1] });
+  }
+  return t("teleport-error-generic", { message });
+}
 
 export function TeleportDialog({
   open,
@@ -20,12 +56,22 @@ export function TeleportDialog({
   onOpenChange: (open: boolean) => void;
   onSubmit: (handle: string, countdownSeconds: number) => Promise<void>;
 }) {
+  const { t } = useTranslation("common");
   const [query, setQuery] = useState("");
   const [countdown, setCountdown] = useState("10");
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { data: liveUsers = [], isLoading } = useLiveUsers();
+  const selectedStream = useMemo(
+    () => liveUsers.find((stream) => stream.uri === selected),
+    [liveUsers, selected],
+  );
+  useEffect(() => {
+    if (!selected || selectedStream) return;
+    setSelected(null);
+    setError(t("teleport-selection-expired"));
+  }, [selected, selectedStream, t]);
   const authorDids = useMemo(
     () =>
       liveUsers.map((stream) => stream.author?.did).filter(Boolean) as string[],
@@ -55,9 +101,13 @@ export function TeleportDialog({
   const submit = async () => {
     const stream = liveUsers.find((candidate) => candidate.uri === selected);
     const seconds = Number.parseInt(countdown, 10);
-    if (!stream?.author?.handle) return;
+    if (!stream?.author?.handle) {
+      setSelected(null);
+      setError(t("teleport-selection-expired"));
+      return;
+    }
     if (!Number.isInteger(seconds) || seconds < 5 || seconds > 300) {
-      setError("Countdown must be between 5 and 300 seconds.");
+      setError(t("teleport-countdown-error"));
       return;
     }
     setSubmitting(true);
@@ -66,7 +116,12 @@ export function TeleportDialog({
       await onSubmit(stream.author.handle, seconds);
       close();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Teleport failed.");
+      setError(
+        translateTeleportError(
+          reason instanceof Error ? reason.message : "Teleport failed.",
+          t,
+        ),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -76,39 +131,42 @@ export function TeleportDialog({
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && close()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Teleport to another live streamer</DialogTitle>
+          <DialogTitle>{t("teleport-dialog-title")}</DialogTitle>
           <DialogDescription>
-            Select a streamer to teleport your viewers to their stream.
+            {t("teleport-dialog-description")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           <label className="block">
-            <span className="sr-only">Search live streams</span>
+            <span className="sr-only">{t("teleport-search-label")}</span>
             <input
               autoComplete="off"
               className="h-10 w-full rounded-md border border-(--color-border) bg-(--color-bg) px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-(--color-focus) focus-visible:ring-offset-2"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by handle or title"
+              placeholder={t("teleport-search-placeholder")}
               value={query}
             />
           </label>
 
           {isLoading && liveUsers.length === 0 ? (
             <p className="py-8 text-center text-sm text-(--color-fg-muted)">
-              Loading live streamers…
+              {t("teleport-loading-streamers")}
             </p>
           ) : filteredUsers.length === 0 ? (
             <p className="py-8 text-center text-sm text-(--color-fg-muted)">
               {liveUsers.length === 0
-                ? "No live streamers found."
-                : "No matching live streamers found."}
+                ? t("teleport-empty-streamers")
+                : t("teleport-no-matching-streamers")}
             </p>
           ) : (
             <div className="grid max-h-80 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
               {filteredUsers.map((stream) => {
                 const did = stream.author?.did;
-                const handle = stream.author?.handle || did || "Unknown";
+                const handle =
+                  stream.author?.handle ||
+                  did ||
+                  t("teleport-unknown-streamer");
                 const profile = did ? profiles[did] : undefined;
                 const isSelected = stream.uri === selected;
                 return (
@@ -116,7 +174,10 @@ export function TeleportDialog({
                     key={stream.uri}
                     type="button"
                     aria-pressed={isSelected}
-                    onClick={() => setSelected(stream.uri)}
+                    onClick={() => {
+                      setSelected(stream.uri);
+                      setError(null);
+                    }}
                     className={`flex min-w-0 items-center gap-3 rounded-md border p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-focus) ${isSelected ? "border-(--color-accent) bg-(--color-bg-overlay)" : "border-(--color-border) hover:bg-(--color-bg-overlay)"}`}
                   >
                     {profile?.avatar ? (
@@ -140,7 +201,9 @@ export function TeleportDialog({
                     </span>
                     {stream.viewerCount && (
                       <span className="shrink-0 text-xs text-(--color-fg-muted)">
-                        {stream.viewerCount.count} viewers
+                        {t("teleport-viewer-count", {
+                          count: stream.viewerCount.count,
+                        })}
                       </span>
                     )}
                   </button>
@@ -150,7 +213,9 @@ export function TeleportDialog({
           )}
 
           <label className="flex items-center gap-3 text-sm">
-            <span className="text-(--color-fg-muted)">Countdown</span>
+            <span className="text-(--color-fg-muted)">
+              {t("teleport-countdown")}
+            </span>
             <input
               type="number"
               min={5}
@@ -159,7 +224,9 @@ export function TeleportDialog({
               onChange={(event) => setCountdown(event.target.value)}
               className="h-10 w-28 rounded-md border border-(--color-border) bg-(--color-bg) px-3 outline-none focus-visible:ring-2 focus-visible:ring-(--color-focus) focus-visible:ring-offset-2"
             />
-            <span className="text-(--color-fg-muted)">seconds (5–300)</span>
+            <span className="text-(--color-fg-muted)">
+              {t("teleport-seconds-range")}
+            </span>
           </label>
           {error && (
             <p role="alert" className="text-sm text-(--color-danger)">
@@ -170,10 +237,13 @@ export function TeleportDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={close} disabled={submitting}>
-            Cancel
+            {t("cancel")}
           </Button>
-          <Button onClick={submit} disabled={!selected || submitting}>
-            {submitting ? "Starting…" : "Teleport"}
+          <Button
+            onClick={submit}
+            disabled={!selectedStream?.author?.handle || submitting}
+          >
+            {submitting ? t("teleport-starting") : t("teleport-start")}
           </Button>
         </DialogFooter>
       </DialogContent>

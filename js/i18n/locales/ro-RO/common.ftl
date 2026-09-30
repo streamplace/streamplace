@@ -80,3 +80,30 @@ login-show-live-on-bluesky-description = Adaugă inelul roșu LIVE avatarului dv
 ## Stream notifications
 teleporting-in = Teleportare în
 teleporting-to = Teleportare către @{ $handle }
+
+## Teleport dialog
+teleport-dialog-title = Teleportează-te la un alt streamer live
+teleport-dialog-description = Alege un streamer către care să-ți teleportezi spectatorii.
+teleport-unknown-streamer = Streamer necunoscut
+teleport-search-label = Caută transmisiuni live
+teleport-search-placeholder = Caută după handle sau titlu
+teleport-loading-streamers = Se încarcă streamerii live…
+teleport-empty-streamers = Nu s-au găsit streameri live.
+teleport-no-matching-streamers = Niciun streamer live nu corespunde căutării.
+teleport-viewer-count = { $count ->
+    [one] { $count } spectator
+   *[other] { $count } spectatori
+}
+teleport-countdown = Numărătoare inversă
+teleport-seconds-range = secunde (5–300)
+teleport-countdown-error = Numărătoarea trebuie să fie între 5 și 300 de secunde.
+teleport-selection-expired = Acest streamer nu mai este live. Alege altul.
+teleport-starting = Se pornește…
+teleport-start = Teleportează
+teleport-error-streamer-only = Doar streamerul transmisiunii curente poate porni o teleportare.
+teleport-error-handle-format = Introdu un handle valid, de exemplu handle.bsky.social.
+teleport-error-countdown-number = Numărătoarea trebuie să fie un număr de secunde.
+teleport-error-self = Nu te poți teleporta la tine însuți.
+teleport-error-resolve-handle = Nu s-a putut găsi @{ $handle }.
+teleport-error-create = Nu s-a putut porni teleportarea.
+teleport-error-generic = Nu s-a putut porni teleportarea: { $message }

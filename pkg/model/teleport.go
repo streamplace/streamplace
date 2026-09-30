@@ -47,6 +47,24 @@ func (m *DBModel) GetLatestTeleportForRepo(repoDID string) (*Teleport, error) {
 	return &teleport, nil
 }
 
+func (m *DBModel) GetPendingTeleportForRepo(repoDID string) (*Teleport, error) {
+	var teleport Teleport
+	now := time.Now().UTC()
+	err := m.DB.
+		Where("repo_did = ?", repoDID).
+		Where("denied = ?", false).
+		Where("starts_at > ?", now).
+		Order("uri DESC").
+		First(&teleport).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving pending teleport: %w", err)
+	}
+	return &teleport, nil
+}
+
 func (m *DBModel) GetActiveTeleportsForRepo(repoDID string) ([]Teleport, error) {
 	now := time.Now()
 	var teleports []Teleport

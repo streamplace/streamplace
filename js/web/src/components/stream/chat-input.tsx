@@ -492,9 +492,12 @@ export function ChatInput({
       if (text.startsWith("/")) {
         const result = await handleSlashCommand(text);
         if (result.handled) {
+          if (result.error) {
+            setError(result.error);
+            return;
+          }
           editor.commands.clearContent();
           store.setState((s) => ({ ...s, replyToMessage: null }));
-          if (result.error) setError(result.error);
           return;
         }
       }

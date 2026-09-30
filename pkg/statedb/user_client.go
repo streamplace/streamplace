@@ -33,13 +33,10 @@ type passwordSession struct {
 }
 
 // UserXrpcClient is the node's client for writing to a user's repo. It comes
-// from the user's stored OAuth session, or, for an account the operator
-// gave the node credentials for (--account-credentials / --dev-account-creds),
-// from a session created with that app password, cached for an hour and
-// made again on demand. The credential path is for a network whose OAuth is
-// broken or absent: the streamer never signs in here, yet the node still
-// starts, updates and ends their livestream records, publishes their VODs
-// and acts for their moderators.
+// from the user's stored OAuth session, or, for a test account the node was
+// given a password for (--dev-account-creds, development only), from a
+// session created with that password, cached for an hour and made again on
+// demand.
 func (state *StatefulDB) UserXrpcClient(ctx context.Context, did string) (UserClient, error) {
 	if c, err, ok := state.passwordClient(ctx, did); ok {
 		return c, err
@@ -65,8 +62,8 @@ func (state *StatefulDB) UserXrpcClient(ctx context.Context, did string) (UserCl
 	return client, nil
 }
 
-// HasUserSession reports whether UserXrpcClient can act for did: the node
-// holds credentials for the account, or a stored OAuth session.
+// HasUserSession reports whether UserXrpcClient can act for did: a stored
+// OAuth session, or (development) a password for the account.
 func (state *StatefulDB) HasUserSession(did string) bool {
 	if state.CLI != nil && state.CLI.DevAccountCreds[did] != "" {
 		return true

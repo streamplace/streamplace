@@ -27,6 +27,16 @@ import { OAuthClient } from "../../features/bluesky/oauthClientImport";
 import { withoutBlueskyScopes } from "../../features/bluesky/scopes";
 import { DID_KEY, STORED_KEY_KEY, StreamKey } from "./baseSlice";
 
+// An agent on the node's OAuth session, told what to do when the node
+// rejects that session: sign out and ask for a sign-in.
+function oauthAgent(session: OAuthSession, slice: () => BlueskySlice) {
+  const agent = new StreamplaceAgent(session);
+  agent.onSessionRejected = (reason) => {
+    void slice().sessionRejected(reason);
+  };
+  return agent;
+}
+
 // Where a credentials session (tokens this app holds) is kept between loads.
 const CREDENTIAL_SESSION_KEY = "sp:credential-session";
 
@@ -124,6 +134,10 @@ export interface BlueskySlice {
    *  refresh): like logout, but never throws and never waits on the
    *  provider — the point is to get back to an anonymous viewer. */
   dropSession: () => Promise<void>;
+  /** The node rejected the OAuth session (revoked, or gone from its store):
+   *  drop it and open the login modal on the OAuth flow, instead of leaving
+   *  a signed-in-looking app whose every authenticated call fails. */
+  sessionRejected: (reason: string) => Promise<void>;
   getProfile: (actor: string) => Promise<void>;
   getProfiles: (actors: string[]) => Promise<void>;
   oauthCallback: (url: string) => Promise<void>;
@@ -409,7 +423,7 @@ export const createBlueskySlice: StateCreator<
           authStatus: "loggedIn",
           oauthSession: session,
           sessionKind: "oauth",
-          pdsAgent: new StreamplaceAgent(session),
+          pdsAgent: oauthAgent(session, () => get() as BlueskySlice),
           anonPDSAgent,
         });
         void (get() as BlueskySlice).refreshSessionScope();
@@ -574,6 +588,13 @@ export const createBlueskySlice: StateCreator<
     });
   },
 
+  sessionRejected: async (reason: string) => {
+    const state = get() as BlueskySlice;
+    if (state.sessionKind !== "oauth" || !state.oauthSession) return;
+    console.warn("the node rejected the OAuth session; signing out", reason);
+    await state.dropSession();
+    (get() as BlueskySlice).openLoginModal(undefined, { oauth: true });
+  },
   dropSession: async () => {
     const state = get() as BlueskySlice;
     const session = state.oauthSession;
@@ -684,7 +705,7 @@ export const createBlueskySlice: StateCreator<
           client,
           oauthSession: ret.session,
           sessionKind: "oauth",
-          pdsAgent: new StreamplaceAgent(ret.session),
+          pdsAgent: oauthAgent(ret.session, () => get() as BlueskySlice),
           authStatus: "loggedIn",
         });
         void (get() as BlueskySlice).refreshSessionScope();

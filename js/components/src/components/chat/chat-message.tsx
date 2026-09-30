@@ -259,6 +259,7 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
       <Text size="base" style={[flex.shrink[1], { minWidth: 0 }]}>
         <DropdownMenuTrigger asChild>
           <Text
+            testID={`chat-profile-trigger-${item.author.handle}`}
             size="base"
             weight="medium"
             style={{ color: nameColor(item.chatProfile?.color) }}

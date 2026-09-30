@@ -4,10 +4,11 @@ import { loginThroughPds } from "./login";
 // Log in the way a user does, then act as that user through chat. See
 // flows/login.ts for the OAuth machinery; it needs the harness's HTTPS mode.
 const HTTPS_URL = process.env.SERVER_HTTPS_URL;
+const HANDLE = process.env.ACCOUNT_HANDLE;
 
 test.skip(!HTTPS_URL, "harness started without its HTTPS hostnames");
 
-test("05-oauth-login: log in through the PDS, then chat", async ({ page }) => {
+test("05-oauth-login: log in, chat, and reopen a profile", async ({ page }) => {
   await loginThroughPds(page);
 
   // Now act as the user. A chat message is a record the node writes to the
@@ -50,6 +51,37 @@ test("05-oauth-login: log in through the PDS, then chat", async ({ page }) => {
   // brought back from the PDS.
   await page.reload();
   await expect(page.getByText(message).first()).toBeVisible({
+    timeout: 30_000,
+  });
+
+  // Exercise the real card rendered outside the chat row. Checking its own
+  // handle avoids accidentally matching the account settings or chat username.
+  const profileTrigger = page
+    .getByTestId(`chat-profile-trigger-${HANDLE}`)
+    .first();
+  const profileCard = page.getByTestId("chat-profile-card");
+  for (let opening = 0; opening < 2; opening++) {
+    await profileTrigger.click();
+    await expect(profileCard).toBeVisible();
+    await expect(profileCard.getByTestId("chat-profile-handle")).toHaveText(
+      `@${HANDLE}`,
+    );
+    await page
+      .getByTestId("chat-profile-backdrop")
+      .click({ position: { x: 10, y: 10 } });
+    await expect(profileCard).toBeHidden();
+  }
+
+  // Do not reload or retry the send here: closing the profile must leave the
+  // existing chat session usable. Reload only afterward to prove persistence.
+  const afterProfileMessage = `chat after profile ${Date.now()}`;
+  await chatInput.fill(afterProfileMessage);
+  await chatInput.press("Enter");
+  await expect(page.getByText(afterProfileMessage).first()).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.reload();
+  await expect(page.getByText(afterProfileMessage).first()).toBeVisible({
     timeout: 30_000,
   });
 });

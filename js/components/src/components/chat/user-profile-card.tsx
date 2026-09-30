@@ -189,7 +189,7 @@ export const ProfileCardContent = ({
   const { author, profile, profiles, serviceDid, allBadges, streamer } = data;
 
   return (
-    <View style={[zero.pb[1]]}>
+    <View style={[zero.pb[1]]} testID="chat-profile-card">
       {profile?.banner ? (
         <Image
           source={{ uri: profile.banner }}
@@ -248,7 +248,7 @@ export const ProfileCardContent = ({
             gap.all[2],
           ]}
         >
-          <Text>@{author.handle}</Text>
+          <Text testID="chat-profile-handle">@{author.handle}</Text>
           {Platform.OS === "web" && (
             <View style={{ position: "absolute", right: 2, bottom: 7 }}>
               <Button
@@ -345,6 +345,7 @@ const ProfileCardOverlay = ({
     <>
       {/* Invisible backdrop — clicking outside closes the card */}
       <Pressable
+        testID="chat-profile-backdrop"
         onPress={onClose}
         style={{
           position: "fixed" as any,
@@ -448,6 +449,7 @@ export const UserProfileCard = ({
   return (
     <Pressable
       ref={triggerRef}
+      testID={`chat-profile-trigger-${author.handle}`}
       onPress={openWebCard}
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}

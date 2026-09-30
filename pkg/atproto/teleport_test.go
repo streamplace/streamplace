@@ -10,7 +10,6 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bus"
-	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
@@ -36,20 +35,6 @@ func TestTeleportArrivalNotFromBackfill(t *testing.T) {
 		PDS:     "http://127.0.0.1:1",
 		Version: "3lrev00000000",
 	}))
-
-	sourceStream := &placestream.Livestream{
-		LexiconTypeID: "place.stream.livestream",
-		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
-		Title:         "Source stream",
-	}
-	var sourceStreamBuffer bytes.Buffer
-	require.NoError(t, sourceStream.MarshalCBOR(&sourceStreamBuffer))
-	sourceStreamCBOR := sourceStreamBuffer.Bytes()
-	sourceStreamCID, err := spid.GetCID(sourceStream)
-	require.NoError(t, err)
-	sourceStreamURI := "at://" + traveller + "/place.stream.livestream/3lsourcestream"
-	require.NoError(t, atsync.handleCreateUpdate(ctx, traveller, syntax.RecordKey("3lsourcestream"),
-		&sourceStreamCBOR, sourceStreamCID.String(), syntax.NSID("place.stream.livestream"), false, false, ""))
 
 	// Watch the streamer's topic, which is where an arrival is announced.
 	ch := b.Subscribe(streamer)
@@ -77,10 +62,6 @@ func TestTeleportArrivalNotFromBackfill(t *testing.T) {
 			Streamer:        streamer,
 			StartsAt:        startsAt,
 			DurationSeconds: &duration,
-			Livestream: &comatproto.RepoStrongRef{
-				Uri: sourceStreamURI,
-				Cid: sourceStreamCID.String(),
-			},
 		}
 		var buf bytes.Buffer
 		require.NoError(t, rec.MarshalCBOR(&buf))

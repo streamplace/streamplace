@@ -6,6 +6,7 @@ import {
   esESSettings,
   frFRCommon,
   frFRSettings,
+  getSupportedLocales,
   ptBRCommon,
   ptBRSettings,
   roROCommon,
@@ -36,6 +37,7 @@ i18next
   .use(i18nextFluent)
   .init({
     ...baseConfig,
+    preload: getSupportedLocales(),
     resources,
   } as Parameters<typeof i18next.init>[0]);
 

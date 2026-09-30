@@ -76,3 +76,7 @@ pds-selector-handle-policy-checkbox = Am citit și sunt de acord cu <policyLink>
 ## Login
 login-show-live-on-bluesky = Arată când sunt live pe Bluesky
 login-show-live-on-bluesky-description = Adaugă inelul roșu LIVE avatarului dvs. de Bluesky în timp ce transmiteți și permite Streamplace să publice anunțuri în numele dvs. Debifați pentru a vă conecta fără a acorda niciun acces la contul dvs. de Bluesky.
+
+## Stream notifications
+teleporting-in = Teleportare în
+teleporting-to = Teleportare către @{ $handle }

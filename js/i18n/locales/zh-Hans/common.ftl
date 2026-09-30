@@ -71,3 +71,7 @@ pds-selector-handle-policy-checkbox = 我已阅读并同意<policyLink>处理政
 ## Login
 login-show-live-on-bluesky = 在 Bluesky 上显示我的直播状态
 login-show-live-on-bluesky-description = 直播时为您的 Bluesky 头像加上红色 LIVE 圆环，并允许 Streamplace 代您发布直播公告。取消勾选即可在不授予任何 Bluesky 账号访问权限的情况下登录。
+
+## Stream notifications
+teleporting-in = 传送倒计时
+teleporting-to = 正在传送至 @{ $handle }

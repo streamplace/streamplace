@@ -20,6 +20,7 @@ import useAvatars from "../../hooks/use-avatars";
 import { useCanModerate } from "../../hooks/use-can-moderate";
 import { useModerationActions } from "../../hooks/use-moderation-actions";
 import { useSession } from "../../lib/session";
+import { streamNotification } from "../../lib/stream-notification";
 
 function rgbColor(
   color?: { red: number; green: number; blue: number } | null,
@@ -61,8 +62,22 @@ export function StreamTeleportNotification({
   store: LivestreamStore;
 }) {
   const teleport = useStore(store, (s) => s.activeTeleport);
-  if (!teleport) return null;
-  return <TeleportNotification store={store} teleport={teleport} />;
+
+  useEffect(() => {
+    if (!teleport) {
+      streamNotification.hide("teleport");
+      return;
+    }
+
+    streamNotification.show({
+      id: "teleport",
+      duration: 0,
+      render: () => <TeleportNotification store={store} teleport={teleport} />,
+    });
+    return () => streamNotification.hide("teleport");
+  }, [store, teleport]);
+
+  return null;
 }
 
 function PinnedNotification({
@@ -261,6 +276,10 @@ function TeleportNotification({
   if (!Number.isFinite(startsAt)) return null;
 
   const diff = Math.max(0, Math.ceil((startsAt - now) / 1000));
+
+  useEffect(() => {
+    if (diff <= 0) streamNotification.hide("teleport");
+  }, [diff]);
 
   if (diff <= 0) return null;
 

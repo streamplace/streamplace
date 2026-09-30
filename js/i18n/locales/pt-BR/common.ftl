@@ -76,3 +76,7 @@ pds-selector-handle-policy-checkbox = Li e concordo com a <policyLink>política 
 ## Login
 login-show-live-on-bluesky = Mostrar quando estou ao vivo no Bluesky
 login-show-live-on-bluesky-description = Adiciona o anel vermelho LIVE ao seu avatar do Bluesky enquanto você transmite e permite que o Streamplace publique anúncios por você. Desmarque para entrar sem conceder nenhum acesso à sua conta do Bluesky.
+
+## Stream notifications
+teleporting-in = Teletransportando em
+teleporting-to = Teletransportando para @{ $handle }

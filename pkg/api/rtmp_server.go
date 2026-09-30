@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortmplib"
+	"github.com/bluenviron/gortmplib/pkg/h264conf"
+	"github.com/bluenviron/gortmplib/pkg/message"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/config"
@@ -150,6 +152,18 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 			}
 			switch event := event.(type) {
 			case *media.RTMPH264Data:
+				// gortmplib's reader hands on an AVC sequence header as an AU
+				// of just SPS and PPS, including the stream's first one, which
+				// it replays after reading ahead for the tracks. Written back as
+				// a frame, it takes the timestamp of the keyframe after it, and
+				// h264parse drops that keyframe's PTS, which fails the
+				// segmenter's muxer. Write it as the sequence header it was.
+				if msg, ok := h264ConfigMessage(event.AU, event.DTS); ok {
+					if err := sc.Write(msg); err != nil {
+						return fmt.Errorf("error writing H264 config: %w", err)
+					}
+					continue
+				}
 				err := w.WriteH264(session.VideoTrack, event.PTS, event.DTS, event.AU)
 				if err != nil {
 					return fmt.Errorf("error writing H264: %w", err)
@@ -347,4 +361,46 @@ func (a *StreamplaceAPI) ServeRTMPS(ctx context.Context, cli *config.CLI) error 
 	})
 
 	return g.Wait()
+}
+
+// h264ConfigMessage returns the FLV sequence header for an H.264 access unit
+// that holds nothing but parameter sets (one SPS and one PPS), or false for
+// any other AU.
+func h264ConfigMessage(au [][]byte, dts time.Duration) (*message.Video, bool) {
+	var conf h264conf.Conf
+	for _, nalu := range au {
+		if len(nalu) == 0 {
+			return nil, false
+		}
+		switch nalu[0] & 0x1f {
+		case 7: // SPS
+			if conf.SPS != nil {
+				return nil, false
+			}
+			conf.SPS = nalu
+		case 8: // PPS
+			if conf.PPS != nil {
+				return nil, false
+			}
+			conf.PPS = nalu
+		default:
+			return nil, false
+		}
+	}
+	if conf.SPS == nil || conf.PPS == nil {
+		return nil, false
+	}
+	buf, err := conf.Marshal()
+	if err != nil {
+		return nil, false
+	}
+	return &message.Video{
+		ChunkStreamID:   message.VideoChunkStreamID,
+		MessageStreamID: 0x1000000,
+		Codec:           message.CodecH264,
+		IsKeyFrame:      true,
+		Type:            message.VideoTypeConfig,
+		Payload:         buf,
+		DTS:             dts,
+	}, true
 }

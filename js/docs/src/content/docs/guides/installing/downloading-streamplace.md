@@ -79,3 +79,20 @@ host networking. So that command would look something like:
 
 Binaries for all platforms are available to download from
 [our GitLab server](https://git.stream.place/streamplace/streamplace/-/releases).
+
+## Recovering missing video listings
+
+Video listings include only videos whose content blob has a `place.stream.media.origin`
+indexed under this node's server DID. A missed origin firehose event can therefore
+hide a VOD from listings even when it still plays by direct link.
+
+Streamplace rebuilds its own origin index from its durable server repository at
+startup, before serving requests. After upgrading, restart the node to repair
+historical gaps, including origins older than the 72-hour commit replay window.
+This does not republish records or add videos hosted only by other nodes.
+
+For a live node, the internal admin listener also supports `POST /reindex-origins`.
+Its JSON response reports `serverDid`, `scanned`, `indexed`, and any per-record
+`errors`. Use the configured internal address locally; do not expose this listener
+publicly. Startup fails if reconciliation cannot complete, rather than silently
+serving an incomplete hosting index.

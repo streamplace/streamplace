@@ -256,6 +256,19 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 	defer serverHandle.Close()
 
+	// Historical origin commits may never have reached the derived index.
+	// Repair them before accepting listing requests, without relying on the
+	// firehose's bounded commit history or a manual admin repair.
+	origins, err := atproto.ReindexOwnMediaOrigins(ctx, mod, cli.ServerDID())
+	if err != nil {
+		return fmt.Errorf("reindex own media origins: %w", err)
+	}
+	if len(origins.Errors) > 0 {
+		return fmt.Errorf("reindex own media origins: %s", strings.Join(origins.Errors, "; "))
+	}
+	log.Log(ctx, "reindexed own media origins at startup",
+		"serverDid", origins.ServerDID, "scanned", origins.Scanned, "indexed", origins.Indexed)
+
 	jwk, err := state.EnsureJWK(ctx, "jwk")
 	if err != nil {
 		return err

@@ -1,0 +1,29 @@
+appId: ${APP_ID}
+---
+# This VOD was indexed before node launch, with its media.origin only in the
+# server repo. It must be recovered at startup, not by a test-triggered reindex.
+- launchApp
+- tapOn:
+    text: "Videos"
+# iOS can collapse the card's title and author into its link accessibility
+# label; substring matching works for that and Android's separate title text.
+- scrollUntilVisible:
+    element:
+      text: ".*e2e recovered video.*"
+    direction: DOWN
+    timeout: 30000
+- assertNotVisible:
+    text: ".*e2e unhosted video.*"
+- takeScreenshot: 08-01-recovered-listing
+- tapOn:
+    text: ".*e2e recovered video.*"
+- waitForAnimationToEnd
+# Require the detail screen, not just the card that was tapped. The Videos
+# tab/header disappears, and the VOD metadata renders the exact record title.
+- assertNotVisible:
+    text: "Videos"
+- extendedWaitUntil:
+    visible:
+      text: "e2e recovered video"
+    timeout: 30000
+- takeScreenshot: 08-02-recovered-video

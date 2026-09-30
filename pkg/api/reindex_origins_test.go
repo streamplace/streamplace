@@ -84,18 +84,30 @@ func TestReindexOriginsRepairsListing(t *testing.T) {
 
 	handle, err := atproto.MakeServerRepo(ctx, &cli, state)
 	require.NoError(t, err)
-	defer handle.Close()
+	defer func() { require.NoError(t, handle.Close()) }()
 	t.Cleanup(func() {
 		atproto.ServerRepo = nil
 		atproto.ServerCarStore = nil
 		atproto.ServerPubMultibase = ""
 	})
 
-	// Three VODs this node hosts: origin committed to the server repo (as
-	// publishOrigin does), video+track indexed (as the user's own firehose
-	// events did), but no media_origins row — the dropped half.
-	blobs := []string{"blobAAA", "blobBBB", "blobCCC"}
-	for i, blob := range blobs {
+	// More than one origin page, persisted without local hosting rows.
+	// An unrelated collection must not interfere with origin reconciliation.
+	updatedAt := "2026-07-25T00:00:00Z"
+	require.NoError(t, atproto.CommitServerRepoRecord(ctx, &cli,
+		constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "did:plc:alice", &placestream.LiveViewerCount{
+			LexiconTypeID: constants.PLACE_STREAM_LIVE_VIEWERCOUNT,
+			Count:         1,
+			Server:        serverDID,
+			Streamer:      "did:plc:alice",
+			UpdatedAt:     &updatedAt,
+		}))
+	blobs := make([]string, 103)
+	wantVideos := make(map[string]bool, len(blobs))
+	for i := range blobs {
+		blob := fmt.Sprintf("blob%03d", i)
+		blobs[i] = blob
+		wantVideos[fmt.Sprintf("at://did:plc:alice/place.stream.video/v%d", i)] = true
 		require.NoError(t, atproto.CommitServerRepoRecord(ctx, &cli,
 			constants.PLACE_STREAM_MEDIA_ORIGIN, blob, &placestream.MediaOrigin{
 				LexiconTypeID: constants.PLACE_STREAM_MEDIA_ORIGIN,
@@ -110,6 +122,9 @@ func TestReindexOriginsRepairsListing(t *testing.T) {
 			blob,
 		)
 	}
+	require.NoError(t, handle.Close())
+	handle, err = atproto.MakeServerRepo(ctx, &cli, state)
+	require.NoError(t, err)
 
 	// The symptom: nothing is listable, even though every blob is ours.
 	before, err := mod.GetVideoList(ctx, "", 25, "", serverDID)
@@ -118,16 +133,16 @@ func TestReindexOriginsRepairsListing(t *testing.T) {
 
 	// Unfiltered the videos are plainly there — they are hidden by the hosted
 	// filter alone, which is exactly why they still play by direct link.
-	unfiltered, err := mod.GetVideoList(ctx, "", 25, "", "")
+	unfiltered, err := mod.GetVideoList(ctx, "", 100, "", "")
 	require.NoError(t, err)
-	require.Len(t, unfiltered.Videos, len(blobs))
+	require.Len(t, unfiltered.Videos, 100)
 
 	a := StreamplaceAPI{CLI: &cli, Model: mod}
 	rr := httptest.NewRecorder()
 	a.HandleReindexOrigins(ctx)(rr, httptest.NewRequest(http.MethodPost, "/reindex-origins", nil), httprouter.Params{})
 
 	require.Equal(t, http.StatusOK, rr.Result().StatusCode)
-	var res reindexOriginsResponse
+	var res atproto.MediaOriginReindexResult
 	require.NoError(t, json.NewDecoder(rr.Body).Decode(&res))
 	require.Equal(t, serverDID, res.ServerDID)
 	require.Equal(t, len(blobs), res.Scanned)
@@ -137,13 +152,27 @@ func TestReindexOriginsRepairsListing(t *testing.T) {
 	// The repair: every video the node hosts is listable again.
 	after, err := mod.GetVideoList(ctx, "", 25, "", serverDID)
 	require.NoError(t, err)
-	require.Len(t, after.Videos, len(blobs))
+	gotVideos := make(map[string]bool, len(blobs))
+	cursor := ""
+	for {
+		page, err := mod.GetVideoList(ctx, "", 100, cursor, serverDID)
+		require.NoError(t, err)
+		for _, video := range page.Videos {
+			require.False(t, gotVideos[video.Uri], "duplicate listing entry")
+			gotVideos[video.Uri] = true
+		}
+		if page.Cursor == nil {
+			break
+		}
+		cursor = *page.Cursor
+	}
+	require.Equal(t, wantVideos, gotVideos)
 
 	// Size/mimeType came from the record body, not invented from the rkey.
 	origin, err := mod.GetMediaOriginByURI(ctx, fmt.Sprintf(
-		"at://%s/%s/%s", serverDID, constants.PLACE_STREAM_MEDIA_ORIGIN, "blobBBB"))
+		"at://%s/%s/%s", serverDID, constants.PLACE_STREAM_MEDIA_ORIGIN, "blob001"))
 	require.NoError(t, err)
-	require.Equal(t, "blobBBB", origin.Blob)
+	require.Equal(t, "blob001", origin.Blob)
 	require.Equal(t, int64(1001), origin.Size)
 	require.Equal(t, "video/mp4", origin.MimeType)
 
@@ -151,11 +180,11 @@ func TestReindexOriginsRepairsListing(t *testing.T) {
 	rr2 := httptest.NewRecorder()
 	a.HandleReindexOrigins(ctx)(rr2, httptest.NewRequest(http.MethodPost, "/reindex-origins", nil), httprouter.Params{})
 	require.Equal(t, http.StatusOK, rr2.Result().StatusCode)
-	var res2 reindexOriginsResponse
+	var res2 atproto.MediaOriginReindexResult
 	require.NoError(t, json.NewDecoder(rr2.Body).Decode(&res2))
 	require.Equal(t, len(blobs), res2.Indexed)
 
 	again, err := mod.GetVideoList(ctx, "", 25, "", serverDID)
 	require.NoError(t, err)
-	require.Len(t, again.Videos, len(blobs))
+	require.Equal(t, after.Videos, again.Videos)
 }

@@ -254,6 +254,10 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	}
 	defer os.RemoveAll(dataDir) //nolint:errcheck
 
+	if err := seedE2ERecovery(ctx, dataDir, broadcasterHost, out.Did, xrpcc); err != nil {
+		return fmt.Errorf("seed startup recovery fixtures: %w", err)
+	}
+
 	nodeCmd := exec.CommandContext(ctx, self)
 	// Inherit the parent environment (dev builds need LD_LIBRARY_PATH etc.)
 	// but strip any SP_ vars so the node only gets our config.

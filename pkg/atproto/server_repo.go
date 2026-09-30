@@ -3,6 +3,7 @@ package atproto
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -109,10 +110,11 @@ type ServerCommitEvent struct {
 
 type serverRepoCloser struct {
 	carStore *carstore.SQLiteStore
+	commitDB *sql.DB
 }
 
 func (c *serverRepoCloser) Close() error {
-	return c.carStore.Close()
+	return errors.Join(c.carStore.Close(), c.commitDB.Close())
 }
 
 func MakeServerRepo(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB) (Closer, error) {
@@ -205,7 +207,7 @@ func MakeServerRepo(ctx context.Context, cli *config.CLI, state *statedb.Statefu
 
 	// Open local SQLite for commit events
 	commitDBPath := cli.DataFilePath([]string{"server-repo", "commits.db"})
-	db, err := gorm.Open(sqlite.Open(commitDBPath), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(commitDBPath), &gorm.Config{Logger: config.GormLogger})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open server commit db at %s: %w", commitDBPath, err)
 	}
@@ -226,7 +228,7 @@ func MakeServerRepo(ctx context.Context, cli *config.CLI, state *statedb.Statefu
 		log.Warn(ctx, "failed to prune old server commit events", "error", err)
 	}
 
-	return &serverRepoCloser{carStore: sqliteStore}, nil
+	return &serverRepoCloser{carStore: sqliteStore, commitDB: sqlDB}, nil
 }
 
 func OpenServerRepo(ctx context.Context) (*atrepo.Repo, *carstore.DeltaSession, error) {

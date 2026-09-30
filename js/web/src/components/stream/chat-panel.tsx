@@ -5,6 +5,7 @@ import {
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import type { LivestreamStore } from "@streamplace/core";
 import {
+  chatMessageOpacity,
   formatBadgeIssuer,
   formatBadgeLabel,
   segmentize,
@@ -26,6 +27,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type FocusEvent,
 } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -44,6 +46,20 @@ import {
 import { getAdjacentBadgeIndex } from "./badge-navigation";
 import { ChatMessageMenu } from "./chat-message-menu";
 import { initializeChatScroll } from "./chat-scroll";
+
+// Chat ages out on the hour, so a slow tick is plenty: it only exists so the
+// fade and the disappearance happen while the viewer watches, rather than
+// waiting for the next message to arrive and re-render the list.
+const CHAT_EXPIRY_TICK_MS = 30_000;
+
+function useChatExpiryTick(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), CHAT_EXPIRY_TICK_MS);
+    return () => clearInterval(timer);
+  }, []);
+  return now;
+}
 
 export function ChatPanel({
   store,
@@ -67,6 +83,7 @@ export function ChatPanel({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const [isAtAnchor, setIsAtAnchor] = useState(true);
+  const now = useChatExpiryTick();
   const [newMessageCount, setNewMessageCount] = useState(0);
   const prevChatLenRef = useRef(chat.length);
   const initialScrollDoneRef = useRef(false);
@@ -157,6 +174,9 @@ export function ChatPanel({
     if (isAtAnchor) setNewMessageCount(0);
   }, [isAtAnchor]);
 
+  // Expired messages stay in the list -- invisible, so the list is scrolled
+  // over them, and scrollable far enough back to reach the history the store
+  // still holds. Only their opacity says "gone".
   const displayMessages = useMemo(() => {
     const sliced = chat.slice(-1500);
     return reversed ? [...sliced].reverse() : sliced;
@@ -218,6 +238,7 @@ export function ChatPanel({
                 store={store}
                 isGrouped={isGrouped}
                 issuerProfiles={issuerProfiles}
+                opacity={isAtAnchor ? chatMessageOpacity(msg, now) : 1}
                 moderation={moderation}
               />
             );
@@ -257,6 +278,7 @@ function ChatMessage({
   store,
   isGrouped = false,
   issuerProfiles,
+  opacity = 1,
   moderation,
 }: {
   message: ChatMessageViewHydrated;
@@ -265,6 +287,8 @@ function ChatMessage({
   store: LivestreamStore;
   isGrouped?: boolean;
   issuerProfiles: ReturnType<typeof useAvatars>;
+  /** 0..1 from chatMessageOpacity; 1 when the viewer is reading history. */
+  opacity?: number;
   moderation: ReturnType<typeof useCanModerate>;
 }) {
   const { t } = useTranslation("common");
@@ -278,9 +302,36 @@ function ChatMessage({
     store.setState((s) => ({ ...s, replyToMessage: message }));
   }, [store, message]);
 
+  // A faded row is gone: it keeps its space (the list scrolls over it) but
+  // leaves keyboard focus and the accessibility tree. While focus is inside a
+  // row, though, it is neither -- the viewer is interacting with it, so it
+  // stays at full strength and stays reachable, and only goes quiet once focus
+  // leaves. Hiding or blurring the control someone is using is worse than
+  // letting a gone row linger a moment longer.
+  const [rowFocused, setRowFocused] = useState(false);
+  const faded = opacity === 0 && !rowFocused;
+  const fadedRowProps = {
+    inert: faded,
+    "aria-hidden": faded || undefined,
+    onFocus: () => setRowFocused(true),
+    onBlur: (event: FocusEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget)) {
+        setRowFocused(false);
+      }
+    },
+  };
+  const rowStyle = {
+    opacity: rowFocused ? 1 : opacity,
+    pointerEvents: faded ? ("none" as const) : undefined,
+  };
+
   if (isSystem) {
     return (
-      <div className="my-1 rounded border border-(--color-border) bg-(--color-bg-overlay) px-2 py-1.5">
+      <div
+        {...fadedRowProps}
+        style={rowStyle}
+        className="my-1 rounded border border-(--color-border) bg-(--color-bg-overlay) px-2 py-1.5"
+      >
         <p className="text-center text-sm">{message.record.text}</p>
       </div>
     );
@@ -288,6 +339,8 @@ function ChatMessage({
 
   return (
     <div
+      {...fadedRowProps}
+      style={rowStyle}
       className={`group relative -mx-2 rounded px-2 leading-snug hover:bg-(--color-bg-overlay) ${isGrouped ? "py-px" : "py-0.5"}`}
     >
       {/* Hover actions; visible on group hover */}

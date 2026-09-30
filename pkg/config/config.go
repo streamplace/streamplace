@@ -153,6 +153,7 @@ type CLI struct {
 	StreamSessionTimeout        time.Duration
 	LegacySegmentCleaner        bool
 	SegmentArchiveRetention     time.Duration
+	ChatMessageRetention        time.Duration
 	Replicators                 []string
 	WebsocketURL                string
 	BehindHTTPSProxy            bool
@@ -209,6 +210,16 @@ type CLI struct {
 // within that. Any lower buys hours of detection latency for a proportional
 // increase in traffic against every PDS on the network.
 const DefaultSweepInterval = 6 * time.Hour
+
+// DefaultChatMessageRetention is how much chat history a node serves when
+// --chat-message-retention is unset.
+//
+// Chat is a live conversation, not an archive: viewers who arrive the next day
+// should land on an empty chat rather than a wall of stale messages. A day is
+// long enough that a viewer rejoining the same day still sees what was said,
+// and short enough that the backlog stays a conversation. The rows themselves
+// stay in the index; this only bounds what the websocket backlog hands out.
+const DefaultChatMessageRetention = 24 * time.Hour
 
 // DefaultSweepConcurrency is how many PDS hosts the atproto backfill sweep
 // works on at once when --sweep-concurrency is unset or zero.
@@ -1029,6 +1040,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       1 * time.Hour,
 				Destination: &cli.SegmentArchiveRetention,
 				Sources:     urfavecli.EnvVars("SP_SEGMENT_ARCHIVE_RETENTION"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "chat-message-retention",
+				Usage:       "how much chat history a node serves to newly connected viewers. Messages older than this are withheld from the chat backlog, so a viewer arriving later lands on an empty chat. 0 serves the full backlog.",
+				Value:       DefaultChatMessageRetention,
+				Destination: &cli.ChatMessageRetention,
+				Sources:     urfavecli.EnvVars("SP_CHAT_MESSAGE_RETENTION"),
 			},
 			&urfavecli.StringFlag{
 				Name:    "replicators",

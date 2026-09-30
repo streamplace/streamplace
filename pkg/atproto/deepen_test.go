@@ -60,7 +60,7 @@ func TestDeepenForeverTrickles(t *testing.T) {
 		return nil
 	}), "the deepener should find the repo by scanning and walk it to the end")
 
-	messages, err := mod.MostRecentChatMessages(user.DID)
+	messages, err := mod.MostRecentChatMessages(user.DID, time.Time{})
 	require.NoError(t, err)
 	require.Len(t, messages, 1, "the message in the deepest window was indexed")
 

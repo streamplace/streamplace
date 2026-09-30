@@ -131,15 +131,23 @@ func (m *DBModel) GetChatMessage(uri string) (*ChatMessage, error) {
 	return &message, nil
 }
 
-func (m *DBModel) MostRecentChatMessages(repoDID string) ([]placestream.ChatDefs_MessageView, error) {
+func (m *DBModel) MostRecentChatMessages(repoDID string, since time.Time) ([]placestream.ChatDefs_MessageView, error) {
 	dbmessages := []ChatMessage{}
-	err := m.DB.
+	query := m.DB.
 		Preload("Repo").
 		Preload("ChatProfile").
 		Preload("ReplyTo").
 		Preload("ReplyTo.Repo").
 		Preload("ReplyTo.ChatProfile").
-		Where("streamer_repo_did = ?", repoDID).
+		Where("streamer_repo_did = ?", repoDID)
+	if !since.IsZero() {
+		// Chat is a live conversation, not an archive: withhold history older
+		// than the node's retention window so a viewer arriving later lands on
+		// an empty chat instead of a wall of stale messages. A zero `since`
+		// serves everything, which is what a 0 retention asks for.
+		query = query.Where("chat_messages.created_at >= ?", since)
+	}
+	err := query.
 		// Exclude messages from users blocked by the streamer
 		Joins("LEFT JOIN blocks ON blocks.repo_did = chat_messages.streamer_repo_did AND blocks.subject_did = chat_messages.repo_did").
 		Where("blocks.rkey IS NULL"). // Only include messages where no block exists

@@ -80,3 +80,27 @@ login-show-live-on-bluesky-description = 直播時為您的 Bluesky 頭像加上
 ## Stream notifications
 teleporting-in = 傳送倒數
 teleporting-to = 正在傳送至 @{ $handle }
+
+## Teleport dialog
+teleport-dialog-title = 傳送至其他直播主
+teleport-dialog-description = 選擇一位直播主，將觀眾傳送到對方的直播間。
+teleport-unknown-streamer = 未知直播主
+teleport-search-label = 搜尋直播
+teleport-search-placeholder = 依帳號或標題搜尋
+teleport-loading-streamers = 正在載入直播主…
+teleport-empty-streamers = 找不到直播主。
+teleport-no-matching-streamers = 沒有符合條件的直播主。
+teleport-viewer-count = { $count } 位觀眾
+teleport-countdown = 倒數計時
+teleport-seconds-range = 秒（5–300）
+teleport-countdown-error = 倒數時間必須介於 5 到 300 秒。
+teleport-selection-expired = 這位直播主已不在直播。請選擇其他直播主。
+teleport-starting = 正在啟動…
+teleport-start = 開始傳送
+teleport-error-streamer-only = 只有目前直播的直播主可以發起傳送。
+teleport-error-handle-format = 請輸入有效帳號，例如 handle.bsky.social。
+teleport-error-countdown-number = 倒數時間必須是秒數。
+teleport-error-self = 無法傳送到自己的直播間。
+teleport-error-resolve-handle = 找不到 @{ $handle }。
+teleport-error-create = 無法啟動傳送。
+teleport-error-generic = 無法啟動傳送：{ $message }

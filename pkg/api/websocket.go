@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -350,6 +351,23 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				}
 				initialBurst <- prv
 			}
+		}()
+
+		go func() {
+			teleport, err := a.Model.GetPendingTeleportForRepo(repoDID)
+			if err != nil {
+				log.Error(ctx, "could not get pending teleport", "error", err)
+				return
+			}
+			if teleport == nil || teleport.Teleport == nil {
+				return
+			}
+			var record placestream.LiveTeleport
+			if err := record.UnmarshalCBOR(bytes.NewReader(*teleport.Teleport)); err != nil {
+				log.Error(ctx, "could not decode pending teleport", "error", err, "uri", teleport.URI)
+				return
+			}
+			initialBurst <- &record
 		}()
 
 		go func() {

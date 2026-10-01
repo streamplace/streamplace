@@ -142,7 +142,10 @@ func (s *Server) requestBaseURL(ctx context.Context) (string, error) {
 	}
 	req := ec.Request()
 	scheme := "https"
-	if !s.cli.Secure {
+	// HasHTTPS covers a TLS-terminating proxy in front of us, not just a
+	// node serving TLS itself: an https page refuses an http upload URL as
+	// mixed content.
+	if !s.cli.HasHTTPS() {
 		scheme = "http"
 	}
 	if fwd := req.Header.Get("X-Forwarded-Proto"); fwd != "" {

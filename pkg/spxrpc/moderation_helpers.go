@@ -28,11 +28,12 @@ func (s *Server) GetDelegatedModerationContext(
 ) (*DelegatedModerationContext, error) {
 
 	// Step 1: Get and validate moderator OAuth session
-	moderator := GetCaller(ctx)
-	if moderator == nil {
+	// NOTE: GetOAuthSession returns (*OAuthSession, *XrpcClient), not (*OAuthSession, error)
+	moderatorSession, _ := oatproxy.GetOAuthSession(ctx)
+	if moderatorSession == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
-	moderatorDID := moderator.DID
+	moderatorDID := moderatorSession.DID
 
 	// Step 2: Check permission
 	permChecker := moderation.NewPermissionChecker(s.model)
@@ -70,7 +71,7 @@ func (s *Server) GetDelegatedModerationContext(
 
 	return &DelegatedModerationContext{
 		ModeratorDID:     moderatorDID,
-		ModeratorSession: moderator.OAuth,
+		ModeratorSession: moderatorSession,
 		StreamerClient:   client,
 		StreamerSession:  streamerSession,
 	}, nil

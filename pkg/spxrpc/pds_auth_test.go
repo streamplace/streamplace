@@ -28,6 +28,7 @@ import (
 
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/config"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 const (
@@ -244,6 +245,32 @@ func TestPDSAuthMiddlewareThrottlesIdentityRefresh(t *testing.T) {
 	rec := callPDSAuthTest(e, bearer(signPDSAuthTestToken(t, victim, pdsAuthTestServiceAud, pdsAuthTestMethod, time.Minute)))
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, 1, dir.purges)
+}
+
+func TestPDSAuthCallerCannotTriggerIndependentWrites(t *testing.T) {
+	ctx := context.WithValue(context.Background(), pdsAuthContextKey, pdsAuthTestUser.String())
+	require.NotNil(t, GetCaller(ctx))
+	s := &Server{cli: &config.CLI{BroadcasterHost: pdsAuthTestHost, ServerHost: pdsAuthTestHost}}
+
+	requireUnauthorized := func(t *testing.T, err error) {
+		t.Helper()
+		var he *echo.HTTPError
+		require.ErrorAs(t, err, &he)
+		require.Equal(t, http.StatusUnauthorized, he.Code)
+	}
+
+	t.Run("publishDraft", func(t *testing.T) {
+		_, err := s.handlePlaceStreamVodPublishDraft(ctx, &placestream.VodPublishDraft_Input{Uri: "at://did:plc:pdsauthtestuser/place.stream.vod.draftVideo/abc"})
+		requireUnauthorized(t, err)
+	})
+	t.Run("createUpload", func(t *testing.T) {
+		_, err := s.handlePlaceStreamMediaCreateUpload(ctx, &placestream.MediaCreateUpload_Input{})
+		requireUnauthorized(t, err)
+	})
+	t.Run("delegated moderation", func(t *testing.T) {
+		_, err := s.GetDelegatedModerationContext(ctx, pdsAuthTestUser.String(), "livestream.manage")
+		requireUnauthorized(t, err)
+	})
 }
 
 type oauthTestClient struct {

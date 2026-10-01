@@ -134,9 +134,23 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 		return fmt.Errorf("RTMP session not found for streamer %s", streamer)
 	}
 
+	return relayRTMPSession(ctx, sc, session)
+}
+
+// relayRTMPSession writes a publisher's session out to conn, the internal
+// playback connection the ingest pipeline reads with rtmp2src, until the
+// session closes or ctx ends.
+func relayRTMPSession(ctx context.Context, conn gortmplib.Conn, session *media.RTMPSession) error {
+	tracks := []format.Format{}
+	if session.VideoTrack != nil {
+		tracks = append(tracks, session.VideoTrack)
+	}
+	if session.AudioTrack != nil {
+		tracks = append(tracks, session.AudioTrack)
+	}
 	w := &gortmplib.Writer{
-		Conn:   sc,
-		Tracks: []format.Format{session.VideoTrack, session.AudioTrack},
+		Conn:   conn,
+		Tracks: tracks,
 	}
 	err := w.Initialize()
 	if err != nil {
@@ -159,7 +173,7 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 				// h264parse drops that keyframe's PTS, which fails the
 				// segmenter's muxer. Write it as the sequence header it was.
 				if msg, ok := h264ConfigMessage(event.AU, event.DTS); ok {
-					if err := sc.Write(msg); err != nil {
+					if err := conn.Write(msg); err != nil {
 						return fmt.Errorf("error writing H264 config: %w", err)
 					}
 					continue

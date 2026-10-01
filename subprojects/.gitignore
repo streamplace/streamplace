@@ -8,3 +8,4 @@
 !packagefiles/
 !packagefiles/**
 !iroh_streamplace.wrap
+!whisper.wrap

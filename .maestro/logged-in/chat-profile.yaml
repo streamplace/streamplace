@@ -1,6 +1,6 @@
 appId: ${APP_ID}
 ---
-# Runs after 05-oauth-login and 06-chat-reply with the harness account signed in.
+# The runner configures the harness and signs in before any logged-in flow.
 - launchApp
 - extendedWaitUntil:
     visible:
@@ -12,22 +12,22 @@ appId: ${APP_ID}
     visible:
       text: ".*e2e test stream.*"
     timeout: 30000
-# Give this account a visible row even if earlier chat has scrolled away.
+# Create this flow's own target instead of depending on another scenario's chat.
 - retry:
     maxRetries: 3
     commands:
       - tapOn:
           id: "chat-input"
       - eraseText: 100
-      - inputText: "profile target from 07-chat-profile"
+      - inputText: "profile target from chat-profile"
       - pressKey: Enter
       - extendedWaitUntil:
           visible:
-            text: ".*: profile target from 07-chat-profile"
+            text: ".*: profile target from chat-profile"
           timeout: 15000
 # Android flattens nested Text spans; tap the handle at the row's start.
 - tapOn:
-    text: ".*: profile target from 07-chat-profile"
+    text: ".*: profile target from chat-profile"
     point: "10%,20%"
 - extendedWaitUntil:
     visible:
@@ -40,7 +40,7 @@ appId: ${APP_ID}
 - assertVisible: "View Profile"
 - assertNotVisible:
     id: "menu-error"
-- takeScreenshot: 07-01-profile
+- takeScreenshot: chat-profile-open
 # Use the sheet's cross-platform handle gesture, not Android Back.
 - swipe:
     from:
@@ -52,7 +52,7 @@ appId: ${APP_ID}
       id: "chat-profile-card"
     timeout: 10000
 - tapOn:
-    text: ".*: profile target from 07-chat-profile"
+    text: ".*: profile target from chat-profile"
     point: "10%,20%"
 - extendedWaitUntil:
     visible:
@@ -62,7 +62,7 @@ appId: ${APP_ID}
 - assertVisible: "View Profile"
 - assertNotVisible:
     id: "menu-error"
-- takeScreenshot: 07-02-profile-reopened
+- takeScreenshot: chat-profile-reopened
 - swipe:
     from:
       text: "Bottom sheet handle"
@@ -75,11 +75,11 @@ appId: ${APP_ID}
 # No retry/relaunch before this send: dismissing the sheet must leave chat usable.
 - tapOn:
     id: "chat-input"
-- inputText: "chat after profile from 07-chat-profile"
+- inputText: "chat after profile from chat-profile"
 - pressKey: Enter
 - extendedWaitUntil:
     visible:
-      text: ".*: chat after profile from 07-chat-profile"
+      text: ".*: chat after profile from chat-profile"
     timeout: 15000
 # Reload from server history so an optimistic local echo cannot pass the test.
 - launchApp
@@ -91,6 +91,6 @@ appId: ${APP_ID}
     id: "home-stream-card"
 - extendedWaitUntil:
     visible:
-      text: ".*: chat after profile from 07-chat-profile"
+      text: ".*: chat after profile from chat-profile"
     timeout: 30000
-- takeScreenshot: 07-03-chat-history
+- takeScreenshot: chat-profile-chat-history

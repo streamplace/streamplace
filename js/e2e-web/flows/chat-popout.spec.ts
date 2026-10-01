@@ -8,12 +8,12 @@ import { loginThroughPds } from "./login";
 // must open exactly one window and leave the stream page where it was.
 //
 // Log in first (chat's input row, which hosts the button, only renders for a
-// logged-in user), the same way 05-oauth-login does.
+// logged-in user), the same way oauth-login does.
 const HTTPS_URL = process.env.SERVER_HTTPS_URL;
 
 test.skip(!HTTPS_URL, "harness started without its HTTPS hostnames");
 
-test("07-chat-popout: opens one window, leaves the stream page alone", async ({
+test("chat-popout: opens one window, leaves the stream page alone", async ({
   page,
 }) => {
   await loginThroughPds(page);
@@ -21,7 +21,7 @@ test("07-chat-popout: opens one window, leaves the stream page alone", async ({
   await page.goto(`${HTTPS_URL}/`);
   await page.getByTestId("home-stream-card").first().click();
   // Wait for the stream context the button needs (the streamer's profile and
-  // the livestream record) the way 04-stream does, so the click can resolve the
+  // the livestream record) the way stream does, so the click can resolve the
   // streamer's DID rather than racing the stream's first websocket message.
   await expect(
     page.getByText("Now streaming - e2e test stream").first(),
@@ -48,9 +48,7 @@ test("07-chat-popout: opens one window, leaves the stream page alone", async ({
   expect(page.context().pages()).toHaveLength(1);
 });
 
-test("07-chat-popout: blocked popup falls back to this tab", async ({
-  page,
-}) => {
+test("chat-popout: blocked popup falls back to this tab", async ({ page }) => {
   await loginThroughPds(page);
 
   await page.goto(`${HTTPS_URL}/`);

@@ -475,10 +475,12 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.server.createWebhook", s.HandlePlaceStreamServerCreateWebhook)
 	e.POST("/xrpc/place.stream.server.deleteStorage", s.HandlePlaceStreamServerDeleteStorage)
 	e.POST("/xrpc/place.stream.server.deleteWebhook", s.HandlePlaceStreamServerDeleteWebhook)
+	e.GET("/xrpc/place.stream.server.getPreferences", s.HandlePlaceStreamServerGetPreferences)
 	e.GET("/xrpc/place.stream.server.getServerTime", s.HandlePlaceStreamServerGetServerTime)
 	e.GET("/xrpc/place.stream.server.getStorage", s.HandlePlaceStreamServerGetStorage)
 	e.GET("/xrpc/place.stream.server.getWebhook", s.HandlePlaceStreamServerGetWebhook)
 	e.GET("/xrpc/place.stream.server.listWebhooks", s.HandlePlaceStreamServerListWebhooks)
+	e.POST("/xrpc/place.stream.server.putPreferences", s.HandlePlaceStreamServerPutPreferences)
 	e.POST("/xrpc/place.stream.server.updateWebhook", s.HandlePlaceStreamServerUpdateWebhook)
 	e.POST("/xrpc/place.stream.server.upsertStorage", s.HandlePlaceStreamServerUpsertStorage)
 	e.POST("/xrpc/place.stream.vod.createDraft", s.HandlePlaceStreamVodCreateDraft)
@@ -1451,6 +1453,19 @@ func (s *Server) HandlePlaceStreamServerDeleteWebhook(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamServerGetPreferences(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamServerGetPreferences")
+	defer span.End()
+	var out *placestream.ServerGetPreferences_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamServerGetPreferences(ctx context.Context) (*placestream.ServerGetPreferences_Output, error)
+	out, handleErr = s.handlePlaceStreamServerGetPreferences(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandlePlaceStreamServerGetServerTime(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamServerGetServerTime")
 	defer span.End()
@@ -1516,6 +1531,23 @@ func (s *Server) HandlePlaceStreamServerListWebhooks(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamServerListWebhooks(ctx context.Context,active bool,cursor string,event string,limit int) (*placestream.ServerListWebhooks_Output, error)
 	out, handleErr = s.handlePlaceStreamServerListWebhooks(ctx, active, cursor, event, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamServerPutPreferences(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamServerPutPreferences")
+	defer span.End()
+	var body placestream.ServerPutPreferences_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ServerPutPreferences_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamServerPutPreferences(ctx context.Context,body *placestream.ServerPutPreferences_Input) (*placestream.ServerPutPreferences_Output, error)
+	out, handleErr = s.handlePlaceStreamServerPutPreferences(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

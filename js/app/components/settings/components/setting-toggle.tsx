@@ -29,7 +29,9 @@ export function SettingToggle({
         // title as the element's label and a stable testID so e2e can find
         // it by id on both platforms.
         accessibilityLabel={title}
-        accessibilityState={{ checked: value }}
+        // aria-checked, not accessibilityState: react-native-web only renders
+        // the aria form, and native maps it to the same checked state.
+        aria-checked={value}
         testID={testID}
       >
         <View style={{ flex: 1, paddingRight: 12 }}>

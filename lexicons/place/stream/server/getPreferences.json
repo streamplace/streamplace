@@ -1,0 +1,23 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.server.getPreferences",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get the authenticated user's private preferences on this node.",
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["preferences"],
+          "properties": {
+            "preferences": {
+              "type": "ref",
+              "ref": "place.stream.server.defs#preferences"
+            }
+          }
+        }
+      }
+    }
+  }
+}

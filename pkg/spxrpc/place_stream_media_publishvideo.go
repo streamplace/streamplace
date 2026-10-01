@@ -50,18 +50,18 @@ func (s *Server) handlePlaceStreamMediaPublishVideo(ctx context.Context, body *p
 		if len(uris) == 0 && strings.HasPrefix(upload.Location, "at://") {
 			uris = []string{upload.Location}
 		}
-		var items []livestreamItem
+		var items []statedb.LivestreamItem
 		if len(uris) > 0 {
 			if items, err = s.livestreamItems(uris); err != nil {
 				return nil, err
 			}
-			if items[0].ls.RepoDID != upload.RepoDID {
+			if items[0].Livestream.RepoDID != upload.RepoDID {
 				return nil, echo.NewHTTPError(http.StatusBadRequest, "the livestreams belong to a different streamer than the upload")
 			}
 		}
 		var draft *statedb.VideoDraft
 		if len(items) > 0 {
-			draft = videoDraftForLivestreams(items, deref(body.Title), deref(body.Description))
+			draft = statedb.VideoDraftForLivestreams(items, deref(body.Title), deref(body.Description))
 		} else {
 			title := strings.TrimSpace(deref(body.Title))
 			if title == "" {

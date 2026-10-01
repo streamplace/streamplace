@@ -11,6 +11,33 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
+// ServerDefs_Preferences is a "preferences" in the place.stream.server.defs schema.
+//
+// A user's private preferences on this Streamplace node. The node stores them itself; they are not a record in the user's repository.
+type ServerDefs_Preferences struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	// autoPublishVods: Whether the node publishes a VOD of each of the user's recorded livestreams as soon as the livestream ends.
+	AutoPublishVods bool `json:"autoPublishVods"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ServerDefs_Preferences) RecordTypeID() string { return "place.stream.server.defs#preferences" }
+
+func (t *ServerDefs_Preferences) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.server.defs#preferences"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ServerDefs_Preferences) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
 // ServerDefs_RewriteRule is a "rewriteRule" in the place.stream.server.defs schema.
 type ServerDefs_RewriteRule struct {
 	LexiconTypeID string `json:"$type,omitempty"`

@@ -31,6 +31,7 @@ var TaskFinalizeLivestreamVOD = "finalize_livestream_vod"
 var TaskVODProcess = "vod_process"
 var TaskViewCountAggregate = "view_count_aggregate"
 var TaskCDNLogIngest = "cdn_log_ingest"
+var TaskAutoPublishVOD = "auto_publish_vod"
 
 // nonVODTaskTypes is every task type handled by the general queue worker.
 // VOD processing runs on its own dedicated pool (see ProcessQueue) so a
@@ -45,6 +46,7 @@ var nonVODTaskTypes = []string{
 	TaskFinalizeLivestream,
 	TaskViewCountAggregate,
 	TaskCDNLogIngest,
+	TaskAutoPublishVOD,
 }
 
 type NotificationTask struct {
@@ -107,7 +109,8 @@ type FinalizeLivestreamVODTask struct {
 	// Publish, when set, describes the place.stream.video record to
 	// publish in the streamer's repo (with their stored session) as soon
 	// as the VOD is finalized, instead of leaving a draft for them to
-	// publish from the app. Set by the operator's finalize route.
+	// publish from the app. Set by the operator's finalize route and by
+	// automatic VOD publishing (AutoPublishVODTask).
 	Publish *VideoDraft `json:"publish,omitempty"`
 }
 
@@ -248,6 +251,8 @@ func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
 		return state.processViewCountAggregateTask(ctx, task)
 	case TaskCDNLogIngest:
 		return state.processCDNLogIngestTask(ctx, task)
+	case TaskAutoPublishVOD:
+		return state.processAutoPublishVODTask(ctx, task)
 	default:
 		return fmt.Errorf("unknown task type: %s", task.Type)
 	}

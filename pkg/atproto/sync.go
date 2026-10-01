@@ -566,12 +566,20 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				// they're live somewhere but they don't have nothin' to do with us
 				return nil
 			}
+			if rec.EndedAt != nil {
+				// The livestream is over: publish its VOD if the streamer
+				// asked for that.
+				if err := atsync.StatefulDB.ScheduleAutoPublishVOD(ctx, userDID, aturi.String()); err != nil {
+					return fmt.Errorf("failed to schedule automatic VOD publishing: %w", err)
+				}
+				return nil
+			}
 			log.Debug(ctx, "stream is allowed, queuing finalize task")
 			// queue a task to clean up the livestream if it's been inactive for too long
 			task := &statedb.FinalizeLivestreamTask{
 				LivestreamURI: aturi.String(),
 			}
-			if rec.LastSeenAt == nil || rec.IdleTimeoutSeconds == nil || *rec.IdleTimeoutSeconds == 0 || rec.EndedAt != nil {
+			if rec.LastSeenAt == nil || rec.IdleTimeoutSeconds == nil || *rec.IdleTimeoutSeconds == 0 {
 				return nil
 			}
 			scheduledAt, err := time.Parse(time.RFC3339, *rec.LastSeenAt)

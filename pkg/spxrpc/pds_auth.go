@@ -125,57 +125,59 @@ func newIdentityRefreshCache() *cache.Cache {
 }
 
 func (s *Server) verifyServiceToken(ctx context.Context, raw string, method string) (syntax.DID, error) {
-	parser := jwt.NewParser(
-		jwt.WithValidMethods(serviceAuthAlgs),
+	validator := jwt.NewValidator(
 		jwt.WithAudience(s.serviceAudiences()...),
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(),
 		jwt.WithLeeway(serviceAuthLeeway),
 	)
+	parser := jwt.NewParser(jwt.WithValidMethods(serviceAuthAlgs), jwt.WithoutClaimsValidation())
 	dir := s.identityDirectory()
+	keyFunc := func(token *jwt.Token) (any, error) {
+		claims := token.Claims.(*serviceAuthClaims)
+		if err := validator.Validate(claims); err != nil {
+			return nil, err
+		}
+		if claims.IssuedAt == nil {
+			return nil, errors.New("iat is required")
+		}
+		if claims.Lxm != method {
+			return nil, fmt.Errorf("lxm %q does not match %q", claims.Lxm, method)
+		}
+		return issuerKey(ctx, dir, claims.Issuer)
+	}
+
 	claims := &serviceAuthClaims{}
-	_, err := parser.ParseWithClaims(raw, claims, issuerKey(ctx, dir))
+	_, err := parser.ParseWithClaims(raw, claims, keyFunc)
 	if errors.Is(err, jwt.ErrTokenSignatureInvalid) && s.identityRefreshes.Add(claims.Issuer, struct{}{}, cache.DefaultExpiration) == nil {
 		issuer := syntax.DID(claims.Issuer)
 		if purgeErr := dir.Purge(ctx, issuer.AtIdentifier()); purgeErr != nil {
 			log.Warn(ctx, "failed to purge identity before retrying service auth", "did", issuer, "error", purgeErr)
 		}
 		claims = &serviceAuthClaims{}
-		_, err = parser.ParseWithClaims(raw, claims, issuerKey(ctx, dir))
+		_, err = parser.ParseWithClaims(raw, claims, keyFunc)
 	}
 	if err != nil {
 		return "", err
 	}
-	if claims.IssuedAt == nil {
-		return "", errors.New("iat is required")
-	}
-	if claims.Lxm != method {
-		return "", fmt.Errorf("lxm %q does not match %q", claims.Lxm, method)
-	}
 	return syntax.DID(claims.Issuer), nil
 }
 
-func issuerKey(ctx context.Context, dir identity.Directory) jwt.Keyfunc {
-	return func(token *jwt.Token) (any, error) {
-		iss, err := token.Claims.GetIssuer()
-		if err != nil {
-			return nil, err
-		}
-		did, err := syntax.ParseDID(iss)
-		if err != nil {
-			return nil, fmt.Errorf("iss: %w", err)
-		}
-		ident, err := dir.LookupDID(ctx, did)
-		if err != nil {
-			return nil, fmt.Errorf("resolving %s: %w", did, err)
-		}
-		key, err := ident.PublicKey()
-		if err != nil {
-			return nil, fmt.Errorf("signing key for %s: %w", did, err)
-		}
-		if p256, ok := key.(*atcrypto.PublicKeyP256); ok {
-			return ecdsa.ParseUncompressedPublicKey(elliptic.P256(), p256.UncompressedBytes())
-		}
-		return key, nil
+func issuerKey(ctx context.Context, dir identity.Directory, iss string) (any, error) {
+	did, err := syntax.ParseDID(iss)
+	if err != nil {
+		return nil, fmt.Errorf("iss: %w", err)
 	}
+	ident, err := dir.LookupDID(ctx, did)
+	if err != nil {
+		return nil, fmt.Errorf("resolving %s: %w", did, err)
+	}
+	key, err := ident.PublicKey()
+	if err != nil {
+		return nil, fmt.Errorf("signing key for %s: %w", did, err)
+	}
+	if p256, ok := key.(*atcrypto.PublicKeyP256); ok {
+		return ecdsa.ParseUncompressedPublicKey(elliptic.P256(), p256.UncompressedBytes())
+	}
+	return key, nil
 }

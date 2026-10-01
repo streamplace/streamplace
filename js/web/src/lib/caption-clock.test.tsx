@@ -21,6 +21,7 @@ it("holds fallback speech through pause and new segment announcements, then resu
       final: true,
       startMs: 10000,
       endMs: 12000,
+      shiftMs: 0,
       updatedAt: 1000,
     },
   };

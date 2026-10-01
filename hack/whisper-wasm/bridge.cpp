@@ -28,7 +28,11 @@ static emscripten::val transcribe(const std::string & language, int threads) {
     params.n_threads = std::clamp(threads, 1, 4);
     params.print_realtime = params.print_progress = params.print_timestamps = false;
     params.no_context = true;
-    params.single_segment = false;
+    // One word per segment, with its own timestamps: the worker commits
+    // words as consecutive decodes agree on them.
+    params.token_timestamps = true;
+    params.split_on_word = true;
+    params.max_len = 1;
     if (whisper_full(context, params, pcm.data(), pcm.size()) != 0)
         throw std::runtime_error("Whisper transcription failed");
     auto result = emscripten::val::object();

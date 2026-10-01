@@ -220,6 +220,24 @@ describe("activeLiveCaptions", () => {
     ]);
     expect(activeLiveCaptions(cues, en.id, 30000)).toEqual([]);
   });
+  it("shows node and pushed captions that arrive after their speech from arrival, for their duration", () => {
+    const sidecar = { ...en, id: "s-en", origin: "sidecar" };
+    const spoken = (text: string, final: boolean) => ({
+      ...liveCue("s", text, final, cueTime(10000), sidecar),
+      endTime: cueTime(12000),
+    });
+    // Recognition published speech from 10–12 s once the player was at 15 s.
+    let cues = reduceLiveCaption({}, spoken("late words", false), 15000, 15000);
+    expect(
+      activeLiveCaptions(cues, sidecar.id, 15500).map((c) => c.text),
+    ).toEqual(["late words"]);
+    // The final revision stays where the interim appeared.
+    cues = reduceLiveCaption(cues, spoken("late words.", true), 16000, 16000);
+    expect(
+      activeLiveCaptions(cues, sidecar.id, 16900).map((c) => c.text),
+    ).toEqual(["late words."]);
+    expect(activeLiveCaptions(cues, sidecar.id, 17100)).toEqual([]);
+  });
   it("shows the newest two cues of the track, oldest first", () => {
     let cues = {};
     cues = reduceLiveCaption(

@@ -10,6 +10,8 @@ export interface LiveCaption {
   /** Cue start on the segment wall clock, ms since the epoch. */
   startMs: number;
   endMs: number;
+  /** How far the cue was moved to show after arriving late; see reduceLiveCaption. */
+  shiftMs: number;
   /** Local time of the last revision, ms since the epoch. */
   updatedAt: number;
 }
@@ -84,6 +86,17 @@ export function reduceLiveCaption(
     }
     return next;
   }
+  // Node and directly pushed captions keep their speech times, which a
+  // low-latency player has already presented by the time they are published:
+  // such a late cue shows from the presentation time for its own duration,
+  // and its revisions stay where it appeared. Canonical cues were placed in
+  // the stream already.
+  const shiftMs =
+    existing?.shiftMs ??
+    (cue.track.origin === "canonical"
+      ? 0
+      : Math.max(0, presentationMs - startMs));
+  const shownStart = startMs + shiftMs;
   if (!existing) {
     const keys: string[] = [];
     for (const id in next) {
@@ -93,8 +106,8 @@ export function reduceLiveCaption(
       keys.push(key);
       keys.sort(
         (a, b) =>
-          (b === key ? startMs : next[b].startMs) -
-            (a === key ? startMs : next[a].startMs) ||
+          (b === key ? shownStart : next[b].startMs) -
+            (a === key ? shownStart : next[a].startMs) ||
           (b === key ? now : next[b].updatedAt) -
             (a === key ? now : next[a].updatedAt),
       );
@@ -112,8 +125,9 @@ export function reduceLiveCaption(
     trackId: cue.track.id,
     text: cue.text,
     final: cue.final,
-    startMs,
-    endMs: Number.isFinite(endMs) ? endMs : now,
+    startMs: shownStart,
+    endMs: (Number.isFinite(endMs) ? endMs : now) + shiftMs,
+    shiftMs,
     updatedAt: now,
   };
   return next;

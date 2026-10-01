@@ -21,6 +21,11 @@ import (
 // CaptionTrackIDBase reserves canonical text IDs above node-added AV renditions.
 const CaptionTrackIDBase uint32 = 100
 
+// autoCaptionHold keeps recognized speech on screen after its last word
+// until the next words replace it, so captions read without blinking off
+// between agreed batches.
+const autoCaptionHold = 3 * time.Second
+
 type captionSession interface {
 	captionPolicy() (captions.Policy, error)
 	push(captions.Track, []captions.Cue) error
@@ -51,11 +56,12 @@ type captionMaster struct {
 	consumed               map[string]int64
 	pending                map[string]muxl.TextCue
 	tracks                 map[string]muxl.TextTrack
+	next                   map[string]int64 // per track, the earliest start of its next cue
 	nextID                 uint32
 }
 
 func newCaptionMaster(ctx context.Context, streamer string, cli *config.CLI, engine stt.Engine) *captionMaster {
-	return &captionMaster{ctx: ctx, streamer: streamer, sessionID: uuid.NewString(), cli: cli, engine: engine, hub: captions.NewHub(0), current: captions.DefaultPolicy(), changed: make(chan struct{}), closes: make(map[uint64]time.Time), gopTimes: make(map[uint64]time.Time), consumed: make(map[string]int64), pending: make(map[string]muxl.TextCue), tracks: make(map[string]muxl.TextTrack)}
+	return &captionMaster{ctx: ctx, streamer: streamer, sessionID: uuid.NewString(), cli: cli, engine: engine, hub: captions.NewHub(0), current: captions.DefaultPolicy(), changed: make(chan struct{}), closes: make(map[uint64]time.Time), gopTimes: make(map[uint64]time.Time), consumed: make(map[string]int64), pending: make(map[string]muxl.TextCue), tracks: make(map[string]muxl.TextTrack), next: make(map[string]int64)}
 }
 
 func captionPolicyFromManifest(data []byte) captions.Policy {
@@ -289,14 +295,25 @@ func (m *captionMaster) text(ctx context.Context, req muxl.TextRequest) (*muxl.T
 			if end <= 0 {
 				continue
 			}
-			if start < 0 {
-				start = 0
+			start = max(start, 0)
+			// Live captions play in order on the canonical timeline. A late
+			// cue starts in the first unsigned GoP, after the previous cue
+			// has had its own reading time, and keeps its whole duration; it
+			// replaces whatever the track still shows.
+			duration := end - start
+			start = max(start, int64(until), m.next[track.ID])
+			m.next[track.ID] = start + duration
+			end = start + duration
+			if track.Source == captions.SourceAuto {
+				end += autoCaptionHold.Milliseconds()
 			}
-			if start < int64(until) {
-				duration := end - start
-				start = int64(until)
-				if end <= start {
-					end = start + duration
+			for k, shown := range m.pending {
+				if strings.HasPrefix(k, track.ID+"/") && shown.End > uint64(start) {
+					shown.End = uint64(start)
+					m.pending[k] = shown
+					if shown.End <= shown.Start {
+						delete(m.pending, k)
+					}
 				}
 			}
 			m.pending[key] = muxl.TextCue{Start: uint64(start), End: uint64(end), Text: cue.Text, ID: m.sessionID + "/" + key}

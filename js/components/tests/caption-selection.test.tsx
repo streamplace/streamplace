@@ -25,6 +25,7 @@ const boundary = vi.hoisted(() => ({
         final: true,
         startMs: 11000,
         endMs: 20000,
+        shiftMs: 0,
         updatedAt: 1000,
       },
     },

@@ -82,13 +82,20 @@ captions or pushed captions take precedence when supplied. With canonical
 `ingest`, it only masters supplied captions; with canonical `off`, no canonical
 caption text is attached.
 
+Automatic captions are published phrase by phrase: words are final as soon as
+two recognition passes agree on them, or once two seconds of audio follow
+them. With the bundled models a pass takes one to three seconds on a typical
+server, so captions usually trail speech by two to five seconds.
+
 The signer waits until recognition covers the GoP end or until GoP closure
 plus `SP_CAPTIONS_MASTER_DELAY`, whichever comes first. Buffering separates
 that wait from ingest. A larger delay gives recognition more time to arrive
 in the matching segment but increases origin latency **by up to that delay**;
-a smaller delay releases media sooner but can carry late words into the next
-unsigned segment. This is not the total player latency: encoding, segment
-length, network, and playback buffering also contribute. See
+a smaller delay releases media sooner but places more captions in a later
+segment than the speech. Such late captions play in order from the first
+unsigned segment, each for its full duration. This is not the total player
+latency: encoding, segment length, network, and playback buffering also
+contribute. See
 [`captions_master.go`](https://github.com/streamplace/streamplace/blob/main/pkg/media/captions_master.go)
 for the hold and late-cue behavior.
 Sources wait for the first signed policy snapshot before recognition admission,

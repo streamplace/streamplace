@@ -69,8 +69,9 @@ There are **two separate pages**:
    page's microphone audio. Use its speed measurement before choosing a model;
    a larger model may not keep up with live speech. A positive calibration
    offset delays cue timestamps to match encoder latency.
-   Final captions commit after 600 ms of silence or a 12-second window and are
-   pushed about once a second.
+   Words are final as soon as two consecutive decodes agree on them, or once
+   two seconds of audio follow them, and everything is final when you pause
+   for 600 ms. Captions are pushed about once a second.
 2. **Display overlay**: add this URL as an OBS Browser Source:
 
    ```text

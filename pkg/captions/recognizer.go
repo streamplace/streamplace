@@ -54,10 +54,14 @@ type pcmChunk struct {
 
 // Recognizer turns a stream's 16 kHz mono audio into caption cues on the
 // hub. Audio is pushed with the wall-clock time of its first sample (the
-// segment startTime clock); a sliding window is transcribed every Step of
-// new audio, words that two consecutive passes agree on are committed
-// (LocalAgreement-2) and grouped into final cues, the rest are published as
-// the interim tail of the open cue.
+// segment startTime clock). The window is transcribed every Step of new
+// audio; words that two consecutive passes agree on are committed
+// (LocalAgreement-2) and published at once as a final cue, and the rest are
+// published as an interim cue.
+//
+// The window keeps committed audio until a committed sentence ends, so a
+// rough word timestamp never cuts off the words after it; the committed
+// words whisper hears again are matched and skipped.
 type Recognizer struct {
 	opts  RecognizerOptions
 	ctx   context.Context
@@ -69,11 +73,12 @@ type Recognizer struct {
 	once  sync.Once
 
 	// Worker-owned state.
-	buf       []float32 // uncommitted audio, starting at bufStart
+	buf       []float32 // window audio, starting at bufStart
 	bufStart  time.Time
-	sincePass int    // samples appended since the last pass
-	prev      []Word // the previous pass's uncommitted words
-	prompt    []string
+	sincePass int      // samples appended since the last pass
+	committed []Word   // committed words still inside the window
+	prev      []Word   // the previous pass's uncommitted words
+	prompt    []string // committed words from before the window
 	language  string
 	track     Track
 	grouper   *Grouper
@@ -142,7 +147,15 @@ func (r *Recognizer) Close() {
 const rate = stt.SampleRate
 
 const (
-	recognizerMaxWindow         = 10 * time.Second
+	// Past recognizerTrimAfter, the window is cut at the start of its newest
+	// committed sentence; past recognizerMaxWindow, at its newest committed
+	// word.
+	recognizerTrimAfter = 5 * time.Second
+	recognizerMaxWindow = 15 * time.Second
+	// Words that end this long before the window's end have heard enough of
+	// what follows them: they are final even without a second agreeing pass,
+	// so a word whisper keeps revising cannot hold back the rest.
+	recognizerSettled           = 2 * time.Second
 	recognizerMaxBuffer         = 30 * time.Second
 	recognizerNoSpeechThreshold = 0.6
 	recognizerSilenceRMS        = 0.004
@@ -210,8 +223,7 @@ func (r *Recognizer) append(c pcmChunk) {
 			// New timeline: commit what the old one said, then restart.
 			r.maybePass(true)
 			r.commitAll()
-			r.buf = r.buf[:0]
-			r.prev = nil
+			r.trim(len(r.buf))
 			r.bufStart = c.start
 		}
 	} else {
@@ -223,7 +235,7 @@ func (r *Recognizer) append(c pcmChunk) {
 		drop := len(r.buf) - maxSamples
 		log.Warn(r.ctx, "speech recognition is behind, dropping audio", "streamer", r.opts.Streamer, "dropped", samplesDuration(drop))
 		r.commitAll()
-		r.advance(drop)
+		r.trim(drop)
 	}
 }
 
@@ -231,18 +243,83 @@ func samplesDuration(n int) time.Duration {
 	return time.Duration(float64(n) / rate * float64(time.Second))
 }
 
-// advance drops the first n samples of the window.
-func (r *Recognizer) advance(n int) {
-	if n <= 0 {
-		return
-	}
-	if n >= len(r.buf) {
-		r.bufStart = r.bufStart.Add(samplesDuration(len(r.buf)))
-		r.buf = r.buf[:0]
-		return
-	}
+// trim drops the first n samples of the window. Committed words that start
+// before the new window become the prompt.
+func (r *Recognizer) trim(n int) {
+	n = min(max(n, 0), len(r.buf))
 	r.bufStart = r.bufStart.Add(samplesDuration(n))
 	r.buf = append(r.buf[:0], r.buf[n:]...)
+	i := 0
+	for i < len(r.committed) && r.committed[i].Start.Before(r.bufStart) {
+		r.prompt = append(r.prompt, r.committed[i].Text)
+		i++
+	}
+	r.committed = r.committed[i:]
+	if len(r.prompt) > promptWords {
+		r.prompt = r.prompt[len(r.prompt)-promptWords:]
+	}
+}
+
+// trimCommitted keeps a long window short by cutting it at the start of its
+// newest committed sentence: only committed audio is cut, and the next pass
+// starts at a natural boundary. Past recognizerMaxWindow the cut can fall at
+// the newest committed word. Once two passes in a row heard nothing new
+// (quiet), only the last stretch can still hold a word.
+func (r *Recognizer) trimCommitted(quiet bool) {
+	have := samplesDuration(len(r.buf))
+	if have <= recognizerTrimAfter {
+		return
+	}
+	at := time.Duration(-1)
+	for i := len(r.committed) - 1; i > 0; i-- {
+		if endsSentence(r.committed[i-1].Text) {
+			at = r.committed[i].Start.Sub(r.bufStart)
+			break
+		}
+	}
+	if at < 0 && have > recognizerMaxWindow && len(r.committed) > 0 {
+		at = r.committed[len(r.committed)-1].Start.Sub(r.bufStart)
+	}
+	if quiet {
+		at = max(at, have-r.opts.MinWindow)
+	}
+	if at > 0 {
+		r.trim(int(at.Seconds() * rate))
+	}
+}
+
+// uncommitted drops the words of a pass that repeat committed text still in
+// the window. The committed tail is matched by text, at the occurrence
+// nearest its own time, so a drifting timestamp neither hides a new word nor
+// repeats an old one, and a word whisper adds or drops before it does not
+// shift the match; failing that, by time.
+func (r *Recognizer) uncommitted(words []Word) []Word {
+	c := r.committed
+	if len(c) == 0 {
+		return words
+	}
+	last := c[len(c)-1]
+	for k := min(5, len(c)); k >= 1; k-- {
+		// Several words in a row coincide by accident only when far apart;
+		// a single word must be close.
+		best, near := -1, 3*time.Second
+		if k == 1 {
+			near = time.Second
+		}
+		for i := 0; i+k <= len(words); i++ {
+			if d := words[i+k-1].End.Sub(last.End).Abs(); d < near && agreedPrefix(words[i:i+k], c[len(c)-k:]) == k {
+				best, near = i+k, d
+			}
+		}
+		if best >= 0 {
+			return words[best:]
+		}
+	}
+	i := 0
+	for i < len(words) && words[i].Start.Before(last.End.Add(-100*time.Millisecond)) {
+		i++
+	}
+	return words[i:]
 }
 
 // maybePass runs a transcription pass when enough new audio has arrived (or
@@ -262,7 +339,7 @@ func (r *Recognizer) maybePass(force bool) {
 		// Nothing but silence: whatever was pending is done, and the
 		// window moves past the silence.
 		r.commitAll()
-		r.advance(len(r.buf))
+		r.trim(len(r.buf))
 		r.reportCoverage(r.bufStart)
 		return
 	}
@@ -272,7 +349,7 @@ func (r *Recognizer) maybePass(force bool) {
 		// Over budget right now: keep the window bounded and try again
 		// on the next step.
 		if have > recognizerMaxWindow {
-			r.advance(len(r.buf) - int(r.opts.MinWindow.Seconds()*rate))
+			r.trim(len(r.buf) - int(r.opts.MinWindow.Seconds()*rate))
 		}
 		return
 	}
@@ -302,51 +379,35 @@ func (r *Recognizer) maybePass(force bool) {
 
 	var words []Word
 	if res.NoSpeechProb < recognizerNoSpeechThreshold {
-		words = r.guard(winStart, pcm, suppressRepeats(res.Words))
+		words = r.uncommitted(r.guard(winStart, pcm, suppressRepeats(res.Words)))
 	}
 	winEnd := winStart.Add(samplesDuration(len(pcm)))
 
 	// LocalAgreement-2: the prefix this pass shares with the previous one
-	// over the same uncommitted audio is final.
+	// over the same uncommitted audio is final, and so are words well clear
+	// of the window's end.
 	n := agreedPrefix(r.prev, words)
-	// Bounded latency: past MaxWindow, words well clear of the window's
-	// end are final even without agreement.
-	if have > recognizerMaxWindow {
-		cutoff := winEnd.Add(-r.opts.Step)
-		for n < len(words) && words[n].End.Before(cutoff) {
-			n++
-		}
+	settled := winEnd.Add(-recognizerSettled)
+	for n < len(words) && words[n].End.Before(settled) {
+		n++
 	}
-	// Trailing silence: the speaker paused, so everything is final and the
-	// open cue closes.
+	// Trailing silence: the speaker paused, so everything is final.
 	tail := int(r.opts.SilenceFlush.Seconds() * rate)
 	paused := len(pcm) > tail && rms(pcm[len(pcm)-tail:]) < recognizerSilenceRMS
 	if paused {
 		n = len(words)
 	}
-
-	for _, w := range words[:n] {
-		r.commit(w)
-	}
+	quiet := len(r.prev) == 0 && len(words) == 0
+	r.commitWords(words[:n])
 	r.prev = words[n:]
 
-	switch {
-	case paused:
+	// The buffer is still the pass's audio: appends happen on this
+	// goroutine, between passes.
+	if paused {
 		// The silence itself need not be heard again.
-		r.commitAll()
-		r.advance(len(r.buf))
-	case n > 0:
-		// The window now starts where the last final word ended. The
-		// buffer is still the pass's audio: appends happen on this
-		// goroutine, between passes.
-		r.advance(int(words[n-1].End.Sub(winStart).Seconds() * rate))
-	case len(words) == 0:
-		// No speech found: keep only the last stretch, in case a word was
-		// cut at the edge.
-		keep := int(r.opts.MinWindow.Seconds() * rate)
-		if len(pcm) > keep {
-			r.advance(len(pcm) - keep)
-		}
+		r.trim(len(r.buf))
+	} else {
+		r.trimCommitted(quiet)
 	}
 	if force {
 		r.finish()
@@ -378,26 +439,29 @@ func (r *Recognizer) trackLanguage() string {
 	return r.language
 }
 
-// guard applies the hallucination filters that need the audio: words
-// claimed over silence are dropped, and times are made absolute.
+// guard applies the hallucination filters that need the audio, and makes
+// times absolute. A word is dropped as claimed over silence only when the
+// audio around it is silent too: whisper's word timestamps are rough, and a
+// real word timed onto a pause must survive. Whisper's annotations of
+// non-speech ("[BLANK_AUDIO]", "(music)") are not captions.
 func (r *Recognizer) guard(winStart time.Time, pcm []float32, in []stt.Word) []Word {
+	const around = rate / 4
 	out := make([]Word, 0, len(in))
+	annotation := false
 	for _, w := range in {
 		text := strings.TrimSpace(w.Text)
+		if strings.HasPrefix(text, "[") || strings.HasPrefix(text, "(") {
+			annotation = true
+		}
+		if annotation {
+			annotation = !strings.HasSuffix(text, "]") && !strings.HasSuffix(text, ")")
+			continue
+		}
 		if text == "" {
 			continue
 		}
-		s := int(w.Start.Seconds() * rate)
-		e := int(w.End.Seconds() * rate)
-		if s < 0 {
-			s = 0
-		}
-		if e > len(pcm) {
-			e = len(pcm)
-		}
-		if e <= s {
-			e = min(s+rate/10, len(pcm))
-		}
+		s := max(int(w.Start.Seconds()*rate)-around, 0)
+		e := min(int(w.End.Seconds()*rate)+around, len(pcm))
 		if e > s && rms(pcm[s:e]) < recognizerSilenceRMS {
 			continue
 		}
@@ -406,27 +470,24 @@ func (r *Recognizer) guard(winStart time.Time, pcm []float32, in []stt.Word) []W
 	return out
 }
 
-func (r *Recognizer) commit(w Word) {
-	for _, c := range r.grouper.Add(w) {
-		r.publishFinal(c)
+// commitWords makes words final and publishes them at once, so viewers get
+// each agreed batch rather than waiting for a full cue.
+func (r *Recognizer) commitWords(words []Word) {
+	for _, w := range words {
+		r.committed = append(r.committed, w)
+		for _, c := range r.grouper.Add(w) {
+			r.publishFinal(c)
+		}
 	}
-	// The prompt is the recent transcript, bounded to what the model's
-	// context comfortably takes.
-	r.prompt = append(r.prompt, w.Text)
-	if len(r.prompt) > promptWords {
-		r.prompt = r.prompt[len(r.prompt)-promptWords:]
+	for _, c := range r.grouper.Flush() {
+		r.publishFinal(c)
 	}
 }
 
 // commitAll makes the previous pass's uncommitted words final.
 func (r *Recognizer) commitAll() {
-	for _, w := range r.prev {
-		r.commit(w)
-	}
+	r.commitWords(r.prev)
 	r.prev = nil
-	for _, c := range r.grouper.Flush() {
-		r.publishFinal(c)
-	}
 }
 
 func (r *Recognizer) finish() {

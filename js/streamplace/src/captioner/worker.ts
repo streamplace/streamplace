@@ -19,6 +19,7 @@ type WhisperModule = {
   audioBuffer(samples: number): number;
   transcribe(language: string, threads: number): Recognition;
 };
+type Word = { text: string; start: number; end: number };
 let module: WhisperModule;
 let language = "";
 let samples: number[] = [];
@@ -28,6 +29,13 @@ let lastDecode = 0;
 let cueID = "";
 let detectedLanguage = "en";
 let threads = 1;
+// The last decode's words that are not final yet, and the final words whose
+// audio is still in the window (whisper hears them again).
+let heard: Word[] = [];
+let committed: Word[] = [];
+// How long the last decode took; decoding more often than that would fall
+// behind the microphone without bound.
+let decodeMs = 0;
 
 async function load(model: string) {
   const base = new URL(".", scope.location.href);
@@ -55,7 +63,67 @@ function decode(pcm: Float32Array) {
   module.HEAPF32.set(pcm, pointer / 4);
   const began = performance.now();
   const result = module.transcribe(language, threads);
-  return { ...result, rtf: (performance.now() - began) / (pcm.length / 16) };
+  decodeMs = performance.now() - began;
+  return { ...result, rtf: decodeMs / (pcm.length / 16) };
+}
+
+const norm = (text: string) =>
+  text.toLowerCase().replace(/[^\p{L}\p{N}']/gu, "");
+
+// The window's words on the absolute clock (one per segment), without
+// whisper's annotations of non-speech ("[BLANK_AUDIO]", "(music)").
+function words(result: Recognition): Word[] {
+  const out: Word[] = [];
+  let annotation = false;
+  for (const segment of result.segments) {
+    const text = segment.text.trim();
+    if (text.startsWith("[") || text.startsWith("(")) annotation = true;
+    if (annotation) {
+      annotation = !text.endsWith("]") && !text.endsWith(")");
+      continue;
+    }
+    if (text)
+      out.push({
+        text,
+        start: start + segment.startMs,
+        end: start + segment.endMs,
+      });
+  }
+  return out;
+}
+
+// Drops the committed words whisper heard again: the committed tail is
+// matched by text at the occurrence nearest its time, else by time.
+function uncommitted(now: Word[]): Word[] {
+  const last = committed.at(-1);
+  if (!last) return now;
+  for (let k = Math.min(3, committed.length); k >= 1; k--) {
+    const tail = committed.slice(-k).map((w) => norm(w.text));
+    let best = -1;
+    let near = k > 1 ? 3000 : 1000;
+    for (let i = 0; i + k <= now.length; i++) {
+      const d = Math.abs(now[i + k - 1].end - last.end);
+      if (d < near && tail.every((t, j) => norm(now[i + j].text) === t)) {
+        best = i + k;
+        near = d;
+      }
+    }
+    if (best >= 0) return now.slice(best);
+  }
+  return now.filter((w) => w.start >= last.end - 100);
+}
+
+function send(id: string, cue: Word[], final: boolean, rtf?: number) {
+  scope.postMessage({
+    type: "cue",
+    id,
+    text: cue.map((w) => w.text).join(" "),
+    start: cue[0].start,
+    end: cue[cue.length - 1].end,
+    final,
+    language: detectedLanguage,
+    rtf,
+  });
 }
 
 scope.onmessage = async (event: MessageEvent) => {
@@ -87,48 +155,50 @@ scope.onmessage = async (event: MessageEvent) => {
       samples.push(...pcm);
       const end = start + samples.length / 16;
       if (voiced) lastSpeech = end;
-      const final = end - lastSpeech >= 600 || end - start >= 12000;
-      if (!final && end - lastDecode < 2000) return;
+      const paused = end - lastSpeech >= 600;
+      if (end - lastDecode < Math.max(paused ? 0 : 2000, decodeMs)) return;
       const result = decode(new Float32Array(samples));
       detectedLanguage = result.language || language || "en";
-      const text = result.segments
-        .map((segment: { text: string }) => segment.text)
-        .join(" ")
-        .trim();
       lastDecode = end;
-      if (text)
-        scope.postMessage({
-          type: "cue",
-          id: cueID,
-          text,
-          start,
-          end: lastSpeech,
-          final,
-          language: detectedLanguage,
-          rtf: result.rtf,
-        });
-      if (final) {
+      const now = uncommitted(words(result));
+      // Final: what two consecutive decodes agree on, words two seconds
+      // clear of the window's end, and everything once the speaker pauses.
+      let n = 0;
+      while (
+        n < now.length &&
+        n < heard.length &&
+        norm(now[n].text) === norm(heard[n].text)
+      )
+        n++;
+      while (n < now.length && now[n].end < end - 2000) n++;
+      if (paused) n = now.length;
+      if (n) {
+        send(cueID, now.slice(0, n), true, result.rtf);
+        committed.push(...now.slice(0, n));
+        cueID = crypto.randomUUID();
+      }
+      heard = now.slice(n);
+      if (heard.length) send(cueID, heard, false, result.rtf);
+      if (paused) {
         samples = [];
-        lastDecode = end;
+        committed = [];
+        heard = [];
+      } else if (end - start >= 12000) {
+        // Keep the window bounded: committed audio need not be heard again.
+        const keep = Math.max(start, (heard[0]?.start ?? end - 1000) - 300);
+        samples = samples.slice(Math.round((keep - start) * 16));
+        committed = committed.filter((w) => w.start >= keep);
+        start = keep;
       }
     } else if (message.type === "flush") {
       if (samples.length) {
         const result = decode(new Float32Array(samples));
-        const text = result.segments
-          .map((segment: { text: string }) => segment.text)
-          .join(" ")
-          .trim();
-        if (text)
-          scope.postMessage({
-            type: "cue",
-            id: cueID,
-            text,
-            start,
-            end: lastSpeech,
-            final: true,
-            language: result.language || detectedLanguage,
-          });
+        detectedLanguage = result.language || detectedLanguage;
+        const now = uncommitted(words(result));
+        if (now.length) send(cueID, now, true);
         samples = [];
+        committed = [];
+        heard = [];
       }
       scope.postMessage({ type: "flushed" });
     }

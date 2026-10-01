@@ -94,25 +94,36 @@ func TestCaptionMasterHoldsUntilRecognitionCoversSpan(t *testing.T) {
 	}
 }
 
-func TestCaptionMasterDeadlineClippingAndLateCarry(t *testing.T) {
+func TestCaptionMasterLaysOutLateCuesInOrder(t *testing.T) {
 	m := newCaptionMaster(context.Background(), "streamer", &config.CLI{CaptionsMasterDelay: time.Second}, &captionTestEngine{})
 	m.closes[1000] = time.Now().Add(-2 * time.Second)
 	first, err := m.text(context.Background(), muxl.TextRequest{StartMs: 0, EndMs: 1000})
 	require.NoError(t, err)
 	require.Empty(t, first.Tracks)
+	// Recognition agreed on two batches after their GoP was signed, and on a
+	// third that crosses into the next GoP.
 	track := masterTrack(captions.SourceAuto)
 	m.hub.Publish(m.streamer, track, captions.Cue{ID: "late", Start: time.UnixMilli(500), End: time.UnixMilli(800), Text: "late", Final: true})
+	m.hub.Publish(m.streamer, track, captions.Cue{ID: "later", Start: time.UnixMilli(800), End: time.UnixMilli(1200), Text: "later", Final: true})
 	m.hub.Publish(m.streamer, track, captions.Cue{ID: "crossing", Start: time.UnixMilli(1400), End: time.UnixMilli(2300), Text: "crossing", Final: true})
 	m.closes[2000] = time.Now().Add(-2 * time.Second)
 	second, err := m.text(context.Background(), muxl.TextRequest{StartMs: 1000, EndMs: 2000})
 	require.NoError(t, err)
 	require.Len(t, second.Tracks, 1)
-	require.ElementsMatch(t, []muxl.TextCue{{Start: 1000, End: 1300, Text: "late", ID: m.sessionID + "/" + track.ID + "/late"}, {Start: 1400, End: 2000, Text: "crossing", ID: m.sessionID + "/" + track.ID + "/crossing"}}, second.Tracks[0].Cues)
+	id := func(cue string) string { return m.sessionID + "/" + track.ID + "/" + cue }
+	// Late cues play one after another, each for its whole duration, rather
+	// than stacking at the GoP start; each replaces the one before.
+	require.ElementsMatch(t, []muxl.TextCue{
+		{Start: 1000, End: 1300, Text: "late", ID: id("late")},
+		{Start: 1300, End: 1700, Text: "later", ID: id("later")},
+		{Start: 1700, End: 2000, Text: "crossing", ID: id("crossing")},
+	}, second.Tracks[0].Cues)
+	// Recognized speech stays up after its last word until replaced.
 	m.coverage(time.UnixMilli(3000))
 	m.mediaFinished = true
 	third, err := m.text(context.Background(), muxl.TextRequest{StartMs: 2000, EndMs: 3000})
 	require.NoError(t, err)
-	require.Equal(t, []muxl.TextCue{{Start: 2000, End: 2300, Text: "crossing", ID: m.sessionID + "/" + track.ID + "/crossing"}}, third.Tracks[0].Cues)
+	require.Equal(t, []muxl.TextCue{{Start: 2000, End: 3000, Text: "crossing", ID: id("crossing")}}, third.Tracks[0].Cues)
 }
 
 func TestCaptionMasterPolicySwitchPreservesTruthfulTracks(t *testing.T) {
@@ -264,7 +275,7 @@ func TestCaptionMasterOriginStreamingRecognizesDecodedAudio(t *testing.T) {
 	require.Len(t, cues, 1)
 	require.Equal(t, "held words", cues[0].Text)
 	require.GreaterOrEqual(t, cues[0].Start, uint64(1000), "late words cannot be written into the already signed first GoP")
-	require.LessOrEqual(t, cues[0].End, uint64(2000))
+	require.GreaterOrEqual(t, cues[0].End-cues[0].Start, uint64(500), "a late cue keeps its whole duration")
 	report, err := muxl.RunMuxlVerify(ctx, bytes.NewReader(archived.Bytes()))
 	require.NoError(t, err)
 	var verified struct {

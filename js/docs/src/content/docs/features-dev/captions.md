@@ -27,7 +27,11 @@ Tracks are declared when their first cues arrive and retain stable IDs and
 immutable configuration during the ingest session. A track replaced by another
 source continues with empty text segments rather than changing its metadata.
 Cue pieces crossing GoP boundaries retain their identity and are clipped to the
-corresponding GoP ranges.
+corresponding GoP ranges. A track's cues never overlap: a cue that arrives
+after its GoP was signed starts in the first unsigned GoP, after the previous
+cue has had its own duration, and keeps its whole duration; the next cue on
+the track ends it. Automatic captions stay up to 3 s past their last word until
+replaced, so the track reads continuously between recognized phrases.
 Origin text tracks start at reserved numeric ID 100, above node-added AV
 renditions. Continuous audio completion decodes only AV tracks; late text
 declarations remain in signed source bytes and completed archival segments.

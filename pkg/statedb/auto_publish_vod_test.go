@@ -73,11 +73,11 @@ func pendingTasks(t *testing.T, state *StatefulDB, taskType string) []AppTask {
 	return tasks
 }
 
-// runAutoPublish schedules the decision for the livestream and runs the
-// task it queued.
-func runAutoPublish(t *testing.T, state *StatefulDB, uri string) {
+// runAutoPublish schedules automatic publishing for the livestream and runs
+// the task it queued.
+func runAutoPublish(t *testing.T, state *StatefulDB, did, uri string) {
 	t.Helper()
-	require.NoError(t, state.ScheduleAutoPublishVOD(context.Background(), uri))
+	require.NoError(t, state.ScheduleAutoPublishVOD(context.Background(), did, uri))
 	tasks := pendingTasks(t, state, TaskAutoPublishVOD)
 	require.Len(t, tasks, 1)
 	require.NoError(t, state.processAutoPublishVODTask(context.Background(), &tasks[0]))
@@ -86,12 +86,19 @@ func runAutoPublish(t *testing.T, state *StatefulDB, uri string) {
 func TestScheduleAutoPublishVOD(t *testing.T) {
 	WithAllDatabases(t, func(state *StatefulDB) {
 		ctx := context.Background()
-		uri := endedLivestream(t, state, "did:plc:scheduled")
+		did := "did:plc:optedout"
+		uri := endedLivestream(t, state, did)
+		setAutoPublishVODs(t, state, did, false)
+		require.NoError(t, state.ScheduleAutoPublishVOD(ctx, did, uri))
+		require.Empty(t, pendingTasks(t, state, TaskAutoPublishVOD), "nothing for a streamer who has it off when the livestream ends")
+
+		did = "did:plc:optedin"
+		uri = endedLivestream(t, state, did)
 		before := time.Now()
-		require.NoError(t, state.ScheduleAutoPublishVOD(ctx, uri))
-		require.NoError(t, state.ScheduleAutoPublishVOD(ctx, uri), "the ended record seen again")
+		require.NoError(t, state.ScheduleAutoPublishVOD(ctx, did, uri))
+		require.NoError(t, state.ScheduleAutoPublishVOD(ctx, did, uri), "scheduled again")
 		tasks := pendingTasks(t, state, TaskAutoPublishVOD)
-		require.Len(t, tasks, 1, "one decision per livestream")
+		require.Len(t, tasks, 1, "one VOD per livestream")
 		require.NotNil(t, tasks[0].ScheduledAt)
 		require.False(t, tasks[0].ScheduledAt.Before(before.Add(autoPublishVODWait)), "gives the recorder time to complete its last object")
 	})
@@ -104,7 +111,7 @@ func TestAutoPublishVODQueuesPublishingFinalize(t *testing.T) {
 		recordObject(t, state, did, uri, "a.m4s", true)
 		recordObject(t, state, did, uri, "b.m4s", true)
 
-		runAutoPublish(t, state, uri)
+		runAutoPublish(t, state, did, uri)
 
 		require.Empty(t, pendingTasks(t, state, TaskAutoPublishVOD))
 		vods := pendingTasks(t, state, TaskFinalizeLivestreamVOD)
@@ -125,43 +132,6 @@ func TestAutoPublishVODQueuesPublishingFinalize(t *testing.T) {
 	})
 }
 
-// A livestream that ended while the streamer had it off stays unpublished
-// when they turn it on and the node sees the record again.
-func TestAutoPublishVODDecidesOnce(t *testing.T) {
-	WithAllDatabases(t, func(state *StatefulDB) {
-		did := "did:plc:decided"
-		uri := endedLivestream(t, state, did)
-		recordObject(t, state, did, uri, "a.m4s", true)
-		setAutoPublishVODs(t, state, did, false)
-		runAutoPublish(t, state, uri)
-		require.Empty(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD))
-
-		setAutoPublishVODs(t, state, did, true)
-		require.NoError(t, state.ScheduleAutoPublishVOD(context.Background(), uri))
-		require.Empty(t, pendingTasks(t, state, TaskAutoPublishVOD))
-		require.Empty(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD))
-	})
-}
-
-// Sync queues the task before it indexes the ended record; the task waits
-// for the index to show the end.
-func TestAutoPublishVODWaitsForEndedRecord(t *testing.T) {
-	WithAllDatabases(t, func(state *StatefulDB) {
-		ctx := context.Background()
-		did := "did:plc:notindexed"
-		uri := "at://" + did + "/place.stream.livestream/notindexed"
-		runAutoPublish(t, state, uri)
-		require.Empty(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD))
-		tasks := pendingTasks(t, state, TaskAutoPublishVOD)
-		require.Len(t, tasks, 1, "waits another pass")
-
-		require.Equal(t, uri, endedLivestream(t, state, did))
-		recordObject(t, state, did, uri, "a.m4s", true)
-		require.NoError(t, state.processAutoPublishVODTask(ctx, &tasks[0]))
-		require.Len(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD), 1)
-	})
-}
-
 // A pass that dies after handing off (its task is never completed) runs
 // again; it must pick up the VOD it started, not start a second one.
 func TestAutoPublishVODRetriedHandoff(t *testing.T) {
@@ -170,7 +140,7 @@ func TestAutoPublishVODRetriedHandoff(t *testing.T) {
 		did := "did:plc:interrupted"
 		uri := endedLivestream(t, state, did)
 		recordObject(t, state, did, uri, "a.m4s", true)
-		require.NoError(t, state.ScheduleAutoPublishVOD(ctx, uri))
+		require.NoError(t, state.ScheduleAutoPublishVOD(ctx, did, uri))
 		tasks := pendingTasks(t, state, TaskAutoPublishVOD)
 		require.Len(t, tasks, 1)
 
@@ -191,7 +161,7 @@ func TestAutoPublishVODWaitsForRecording(t *testing.T) {
 		recordObject(t, state, did, uri, "a.m4s", true)
 		recordObject(t, state, did, uri, "b.m4s", false)
 
-		runAutoPublish(t, state, uri)
+		runAutoPublish(t, state, did, uri)
 
 		require.Empty(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD), "not before the last object completes")
 		tasks := pendingTasks(t, state, TaskAutoPublishVOD)
@@ -224,15 +194,16 @@ func TestAutoPublishVODSkips(t *testing.T) {
 
 		// No recording: the streamer was not recorded (not in the VOD beta,
 		// recording turned off, no S3 on this node).
-		uri := endedLivestream(t, state, "did:plc:unrecorded")
-		runAutoPublish(t, state, uri)
+		did := "did:plc:unrecorded"
+		uri := endedLivestream(t, state, did)
+		runAutoPublish(t, state, did, uri)
 		require.Empty(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD))
 
 		// Turned off between the livestream ending and the task running.
-		did := "did:plc:changedmind"
+		did = "did:plc:changedmind"
 		uri = endedLivestream(t, state, did)
 		recordObject(t, state, did, uri, "a.m4s", true)
-		require.NoError(t, state.ScheduleAutoPublishVOD(ctx, uri))
+		require.NoError(t, state.ScheduleAutoPublishVOD(ctx, did, uri))
 		setAutoPublishVODs(t, state, did, false)
 		tasks := pendingTasks(t, state, TaskAutoPublishVOD)
 		require.Len(t, tasks, 1)
@@ -246,7 +217,7 @@ func TestAutoPublishVODSkips(t *testing.T) {
 		uri = endedLivestream(t, state, did)
 		recordObject(t, state, did, uri, "a.m4s", true)
 		require.NoError(t, state.CreateLivestreamUpload(ctx, "by-hand", did, uri))
-		runAutoPublish(t, state, uri)
+		runAutoPublish(t, state, did, uri)
 		require.Empty(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD))
 	})
 }

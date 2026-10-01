@@ -11,22 +11,21 @@ import (
 	placestream "stream.place/streamplace/pkg/placestream"
 )
 
-// AutoPublishVODTask decides, once per livestream, whether to publish the VOD
-// of a livestream the node has just seen end: it does if the streamer has
-// UserPreferences.AutoPublishVODs on when the task runs. It is queued by
-// ScheduleAutoPublishVOD when sync first sees the livestream record ended.
+// AutoPublishVODTask publishes the VOD of a livestream the node has just seen
+// end, for a streamer who had UserPreferences.AutoPublishVODs on then and
+// still has it on when the task runs. It is queued by ScheduleAutoPublishVOD.
 type AutoPublishVODTask struct {
 	LivestreamURI string `json:"livestreamURI"`
-	// Waits counts the passes that found the ended record not indexed yet,
-	// or part of the recording still being written.
+	// Waits counts the passes that found part of the recording still being
+	// written.
 	Waits int `json:"waits,omitempty"`
 }
 
 const (
 	// autoPublishVODWait is how long the task waits after the livestream ends,
-	// and between passes that have to wait. The recorder completes its last
-	// object when the next segment arrives or the stream session ends, a few
-	// seconds after the record ends.
+	// and between passes that find the recording still being written. The
+	// recorder completes its last object when the next segment arrives or the
+	// stream session ends, a few seconds after the record ends.
 	autoPublishVODWait = 15 * time.Second
 	// autoPublishVODMaxWaits bounds that waiting: an object whose upload never
 	// completes (its node died mid-stream) would otherwise hold the VOD back
@@ -35,11 +34,17 @@ const (
 	autoPublishVODMaxWaits = 8
 )
 
-// ScheduleAutoPublishVOD queues the decision on publishing the VOD of a
-// livestream the node has just seen end, whatever the streamer's preference:
-// the task reads it when it runs. Once per livestream, so a livestream that
-// ended while the streamer had it off stays decided when they turn it on.
-func (state *StatefulDB) ScheduleAutoPublishVOD(ctx context.Context, livestreamURI string) error {
+// ScheduleAutoPublishVOD queues the publishing of the VOD of a livestream the
+// node has just seen end, if its streamer has automatic VOD publishing on.
+// Once per livestream: scheduling it again is a no-op.
+func (state *StatefulDB) ScheduleAutoPublishVOD(ctx context.Context, repoDID, livestreamURI string) error {
+	prefs, err := state.GetUserPreferences(ctx, repoDID)
+	if err != nil {
+		return fmt.Errorf("get user preferences: %w", err)
+	}
+	if !prefs.AutoPublishVODs {
+		return nil
+	}
 	return state.enqueueAutoPublishVOD(ctx, AutoPublishVODTask{LivestreamURI: livestreamURI})
 }
 
@@ -56,48 +61,31 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 		return err
 	}
 	ctx = log.WithLogValues(ctx, "livestream", t.LivestreamURI)
-	again := func(why string) error {
-		next := t
-		next.Waits++
-		if err := state.enqueueAutoPublishVOD(ctx, next); err != nil {
-			return fmt.Errorf("reschedule automatic VOD publishing: %w", err)
-		}
-		log.Debug(ctx, why, "waits", next.Waits)
-		return state.CompleteTask(ctx, task.ID)
-	}
-
-	// Sync queues this before it indexes the ended record, so the record
-	// may not show the end yet.
 	ls, err := state.model.GetLivestream(t.LivestreamURI)
 	if err != nil {
 		return fmt.Errorf("get livestream: %w", err)
 	}
-	var rec *placestream.Livestream
-	if ls != nil {
-		view, err := ls.ToLivestreamView()
-		if err != nil {
-			return fmt.Errorf("decode livestream: %w", err)
-		}
-		var ok bool
-		if rec, ok = view.Record.Val.(*placestream.Livestream); !ok {
-			return fmt.Errorf("record is not a place.stream.livestream: %s", ls.URI)
-		}
-	}
-	if rec == nil || rec.EndedAt == nil {
-		if t.Waits < autoPublishVODMaxWaits {
-			return again("ended livestream not indexed yet; waiting to decide on its VOD")
-		}
-		log.Warn(ctx, "ended livestream was never indexed; no VOD to publish")
+	if ls == nil {
+		log.Warn(ctx, "livestream to publish a VOD of is not indexed; skipping")
 		return state.CompleteTask(ctx, task.ID)
 	}
 	ctx = log.WithLogValues(ctx, "did", ls.RepoDID)
+	view, err := ls.ToLivestreamView()
+	if err != nil {
+		return fmt.Errorf("decode livestream: %w", err)
+	}
+	rec, ok := view.Record.Val.(*placestream.Livestream)
+	if !ok {
+		return fmt.Errorf("record is not a place.stream.livestream: %s", ls.URI)
+	}
 
+	// The streamer may have turned it off since the livestream ended.
 	prefs, err := state.GetUserPreferences(ctx, ls.RepoDID)
 	if err != nil {
 		return fmt.Errorf("get user preferences: %w", err)
 	}
 	if !prefs.AutoPublishVODs {
-		log.Debug(ctx, "automatic VOD publishing is off; not publishing")
+		log.Log(ctx, "automatic VOD publishing was turned off after the livestream ended; skipping")
 		return state.CompleteTask(ctx, task.ID)
 	}
 
@@ -124,7 +112,13 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 		return fmt.Errorf("count open recording objects: %w", err)
 	}
 	if open > 0 && t.Waits < autoPublishVODMaxWaits {
-		return again("livestream recording still being written; waiting to publish its VOD")
+		next := t
+		next.Waits++
+		if err := state.enqueueAutoPublishVOD(ctx, next); err != nil {
+			return fmt.Errorf("reschedule automatic VOD publishing: %w", err)
+		}
+		log.Debug(ctx, "livestream recording still being written; waiting to publish its VOD", "open", open, "waits", next.Waits)
+		return state.CompleteTask(ctx, task.ID)
 	}
 	segs, err := state.ListS3SegmentsForLivestream(ctx, ls.URI)
 	if err != nil {

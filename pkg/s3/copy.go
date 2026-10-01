@@ -2,11 +2,14 @@ package s3
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -81,11 +84,7 @@ func copyObject(ctx context.Context, client copyAPI, bucket, srcKey, dstKey stri
 	copySource := bucket + "/" + srcKey
 
 	if size <= maxCopyObjectSize {
-		if _, err := client.CopyObject(ctx, &s3.CopyObjectInput{
-			Bucket:     aws.String(bucket),
-			Key:        aws.String(dstKey),
-			CopySource: aws.String(copySource),
-		}); err != nil {
+		if err := singleCopy(ctx, client, bucket, dstKey, copySource, size); err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "copy_object")
 			return fmt.Errorf("copy s3://%s/%s -> %s: %w", bucket, srcKey, dstKey, err)
@@ -99,6 +98,54 @@ func copyObject(ctx context.Context, client copyAPI, bucket, srcKey, dstKey stri
 		return err
 	}
 	return nil
+}
+
+// copyObjectAttempts is how many times singleCopy sends a CopyObject whose
+// answer could not be read before giving up.
+const copyObjectAttempts = 3
+
+// copyRetryDelay is the pause before a CopyObject is sent again; a variable
+// so tests don't wait.
+var copyRetryDelay = time.Second
+
+// singleCopy runs one CopyObject. Some S3-compatible stores now and then
+// answer it with a 200 and no body, which the SDK reports as a
+// deserialization error and does not retry: the copy may or may not have
+// happened. So the destination is asked: if it is there at the source's size
+// the copy is done, otherwise it is sent again.
+func singleCopy(ctx context.Context, client copyAPI, bucket, dstKey, copySource string, size int64) error {
+	var err error
+	for attempt := 1; attempt <= copyObjectAttempts; attempt++ {
+		_, err = client.CopyObject(ctx, &s3.CopyObjectInput{
+			Bucket:     aws.String(bucket),
+			Key:        aws.String(dstKey),
+			CopySource: aws.String(copySource),
+		})
+		if err == nil {
+			return nil
+		}
+		var deser *smithy.DeserializationError
+		if !errors.As(err, &deser) {
+			return err
+		}
+		head, herr := client.HeadObject(ctx, &s3.HeadObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(dstKey),
+		})
+		if herr == nil && aws.ToInt64(head.ContentLength) == size {
+			log.Warn(ctx, "CopyObject answer was unreadable but the destination is complete", "dst_key", dstKey, "attempt", attempt, "error", err)
+			return nil
+		}
+		log.Warn(ctx, "CopyObject answer was unreadable and the destination is not complete", "dst_key", dstKey, "attempt", attempt, "error", err)
+		if attempt < copyObjectAttempts {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(copyRetryDelay):
+			}
+		}
+	}
+	return err
 }
 
 // multipartCopy copies an over-5-GiB object by opening a multipart upload at

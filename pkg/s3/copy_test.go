@@ -2,6 +2,7 @@ package s3
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,6 +30,9 @@ type fakeCopyClient struct {
 	srcBytes []byte            // for the small-object CopyObject path
 	dst      map[string][]byte // CopyObject writes here when non-nil
 
+	copyErrs     []error // CopyObject returns these, one per call, before succeeding
+	copyErrLands bool    // a failing CopyObject still writes the destination
+
 	mu              sync.Mutex
 	copyObjectCalls int
 	createCalls     int
@@ -39,9 +44,17 @@ type fakeCopyClient struct {
 	maxInFlight     int
 }
 
-func (f *fakeCopyClient) HeadObject(context.Context, *s3.HeadObjectInput, ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+func (f *fakeCopyClient) HeadObject(_ context.Context, in *s3.HeadObjectInput, _ ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
 	if f.headErr != nil {
 		return nil, f.headErr
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if b, ok := f.dst[aws.ToString(in.Key)]; ok {
+		return &s3.HeadObjectOutput{ContentLength: aws.Int64(int64(len(b)))}, nil
+	}
+	if aws.ToString(in.Key) == "dst" && f.dst != nil {
+		return nil, &types.NotFound{}
 	}
 	out := &s3.HeadObjectOutput{ContentLength: aws.Int64(f.headSize)}
 	if f.headContentType != "" {
@@ -54,6 +67,14 @@ func (f *fakeCopyClient) CopyObject(_ context.Context, in *s3.CopyObjectInput, _
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.copyObjectCalls++
+	if len(f.copyErrs) > 0 {
+		err := f.copyErrs[0]
+		f.copyErrs = f.copyErrs[1:]
+		if f.copyErrLands && f.dst != nil {
+			f.dst[aws.ToString(in.Key)] = f.srcBytes
+		}
+		return nil, err
+	}
 	if f.dst != nil {
 		f.dst[aws.ToString(in.Key)] = f.srcBytes
 	}
@@ -136,6 +157,45 @@ func TestCopyAtThresholdUsesCopyObject(t *testing.T) {
 	require.NoError(t, copyObject(context.Background(), fake, "bucket", "src", "dst"))
 	require.Equal(t, 1, fake.copyObjectCalls)
 	require.Equal(t, 0, fake.createCalls)
+}
+
+// emptyAnswer is what the SDK returns for a CopyObject answered with a 200
+// and no body.
+func emptyAnswer() error {
+	return fmt.Errorf("operation error S3: CopyObject: %w", &smithy.DeserializationError{Err: errors.New("received empty response payload")})
+}
+
+// TestCopyUnreadableAnswer covers a CopyObject whose answer could not be
+// read: a copy that landed anyway is taken as done, one that did not is sent
+// again, and a store that never answers properly fails the copy.
+func TestCopyUnreadableAnswer(t *testing.T) {
+	delay := copyRetryDelay
+	copyRetryDelay = 0
+	t.Cleanup(func() { copyRetryDelay = delay })
+	src := []byte("a small object")
+	newFake := func(errs ...error) *fakeCopyClient {
+		return &fakeCopyClient{headSize: int64(len(src)), srcBytes: src, dst: map[string][]byte{}, copyErrs: errs}
+	}
+
+	landed := newFake(emptyAnswer())
+	landed.copyErrLands = true
+	require.NoError(t, copyObject(context.Background(), landed, "bucket", "src", "dst"))
+	require.Equal(t, 1, landed.copyObjectCalls, "the copy landed: it is not sent again")
+
+	lost := newFake(emptyAnswer(), emptyAnswer())
+	require.NoError(t, copyObject(context.Background(), lost, "bucket", "src", "dst"))
+	require.Equal(t, 3, lost.copyObjectCalls)
+	require.Equal(t, src, lost.dst["dst"])
+
+	never := newFake(emptyAnswer(), emptyAnswer(), emptyAnswer())
+	err := copyObject(context.Background(), never, "bucket", "src", "dst")
+	var deser *smithy.DeserializationError
+	require.ErrorAs(t, err, &deser)
+	require.Equal(t, copyObjectAttempts, never.copyObjectCalls)
+
+	other := newFake(errors.New("AccessDenied"))
+	require.Error(t, copyObject(context.Background(), other, "bucket", "src", "dst"))
+	require.Equal(t, 1, other.copyObjectCalls, "any other failure is not retried")
 }
 
 // TestCopyLargeObjectUsesMultipart verifies an over-5-GiB object is copied

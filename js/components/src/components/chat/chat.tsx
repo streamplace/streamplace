@@ -426,7 +426,14 @@ export function Chat({
     const onWheel = (ev: WheelEvent) => {
       ev.stopPropagation();
       ev.preventDefault();
-      const wanted = node.scrollTop - ev.deltaY + carry;
+      // Pixels almost everywhere (Firefox too, once deltaY is read first), but
+      // e.g. Windows' "one screen at a time" setting reports pages.
+      let delta = ev.deltaY;
+      if (ev.deltaMode === WheelEvent.DOM_DELTA_LINE) delta *= 16;
+      if (ev.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+        delta *= node.clientHeight;
+      }
+      const wanted = node.scrollTop - delta + carry;
       node.scrollTop = wanted;
       carry = wanted - node.scrollTop;
       // A whole pixel or more short means the list hit an end, not rounding.

@@ -72,7 +72,6 @@ func (s *subscriber) close() {
 }
 
 func (s *subscriber) deliver() {
-	defer close(s.ch)
 	for {
 		s.mu.Lock()
 		for len(s.queue) == 0 && !s.closed {
@@ -131,18 +130,14 @@ func NewBus() *Bus {
 }
 
 func (b *Bus) Subscribe(user string) <-chan Message {
-	return b.subscribe(user, 0)
+	return b.subscribeWithOverflow(user, 0, nil)
 }
 
-// SubscribeWithBacklogLimit bounds queued messages and closes the subscription
-// when a consumer falls behind. Use this for clients that can reconnect and
-// receive a fresh snapshot after overflow.
+// SubscribeWithBacklogLimit bounds queued messages and calls onOverflow when a
+// consumer falls behind. Use this for clients that can reconnect and receive a
+// fresh snapshot after overflow.
 func (b *Bus) SubscribeWithBacklogLimit(user string, onOverflow func()) <-chan Message {
 	return b.subscribeWithOverflow(user, maxQueuedMessages, onOverflow)
-}
-
-func (b *Bus) subscribe(user string, limit int) <-chan Message {
-	return b.subscribeWithOverflow(user, limit, nil)
 }
 
 func (b *Bus) subscribeWithOverflow(user string, limit int, onOverflow func()) <-chan Message {

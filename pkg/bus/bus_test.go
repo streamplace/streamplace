@@ -25,36 +25,30 @@ func TestPublishPreservesSubscriptionOrder(t *testing.T) {
 	}
 }
 
-func TestPublishClosesSlowSubscriberAtBacklogLimit(t *testing.T) {
+func TestPublishCallsOverflowForSlowSubscriber(t *testing.T) {
 	b := NewBus()
 	overflowed := false
 	ch := b.SubscribeWithBacklogLimit("repo", func() {
 		overflowed = true
 	})
+	b.mu.Lock()
+	sub := b.clients["repo"][0]
+	b.mu.Unlock()
 	defer b.Unsubscribe("repo", ch)
 
 	for i := 0; i <= maxQueuedMessages+cap(ch)+1; i++ {
 		b.Publish("repo", i)
 	}
 
-	count := 0
-	timer := time.NewTimer(time.Second)
-	defer timer.Stop()
-	for {
-		select {
-		case _, ok := <-ch:
-			if !ok {
-				if !overflowed {
-					t.Fatal("overflow callback was not called")
-				}
-				if count > maxQueuedMessages+cap(ch) {
-					t.Fatalf("received %d messages before subscription closed", count)
-				}
-				return
-			}
-			count++
-		case <-timer.C:
-			t.Fatal("timed out waiting for slow subscription to close")
-		}
+	if !overflowed {
+		t.Fatal("overflow callback was not called")
+	}
+	sub.mu.Lock()
+	defer sub.mu.Unlock()
+	if !sub.closed {
+		t.Fatal("slow subscriber remained active")
+	}
+	if len(sub.queue) != 0 {
+		t.Fatalf("slow subscriber retained %d queued messages after overflow", len(sub.queue))
 	}
 }

@@ -174,11 +174,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 
 			for {
 				select {
-				case msg, ok := <-ch:
-					if !ok {
-						log.Warn(ctx, "websocket bus subscription exceeded its backlog")
-						return
-					}
+				case msg := <-ch:
 					send(msg)
 				case msg := <-initialBurst:
 					send(msg)

@@ -17,6 +17,19 @@ describe("parseTimeParam", () => {
     expect(parseTimeParam("5m")).toBe(300);
   });
 
+  it("rejects string conversion and duration arithmetic overflow", () => {
+    const overflow = "9".repeat(400);
+    expect(parseTimeParam(overflow)).toBeNull();
+    expect(parseTimeParam(`${overflow}s`)).toBeNull();
+    // Each component is finite, but multiplying or summing can overflow.
+    const finite = `1${"0".repeat(308)}`;
+    expect(parseTimeParam(finite)).toBe(1e308);
+    expect(parseTimeParam(`${finite}h`)).toBeNull();
+    expect(parseTimeParam(`${finite}m`)).toBeNull();
+    const hours = `3${"0".repeat(304)}`;
+    expect(parseTimeParam(`${hours}h${finite}s`)).toBeNull();
+  });
+
   it("returns null for missing or malformed values", () => {
     expect(parseTimeParam(undefined)).toBeNull();
     expect(parseTimeParam(null)).toBeNull();

@@ -8,8 +8,8 @@
  *   - a bare number of seconds: `t=90`, `t=90.5`
  *   - a duration string: `t=1h2m3s`, `t=2m30s`, `t=90s`
  *
- * Anything else — a missing value, a malformed string, a negative number —
- * returns `null` so callers can fall back to the start of the video.
+ * Anything else — a missing value, a malformed string, a negative number,
+ * or a value that overflows to Infinity — returns `null`.
  * Callers still have to clamp the result to the media's duration.
  *
  * The parameter is typed `unknown` because URL search params and
@@ -28,7 +28,8 @@ export function parseTimeParam(value: unknown): number | null {
     return null;
   }
   if (/^\d+(\.\d+)?$/.test(raw)) {
-    return Number(raw);
+    const seconds = Number(raw);
+    return Number.isFinite(seconds) ? seconds : null;
   }
   const match = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
   if (!match) {
@@ -38,7 +39,9 @@ export function parseTimeParam(value: unknown): number | null {
   if (hours === undefined && minutes === undefined && seconds === undefined) {
     return null;
   }
-  return (
-    Number(hours ?? 0) * 3600 + Number(minutes ?? 0) * 60 + Number(seconds ?? 0)
-  );
+  const total =
+    Number(hours ?? 0) * 3600 +
+    Number(minutes ?? 0) * 60 +
+    Number(seconds ?? 0);
+  return Number.isFinite(total) ? total : null;
 }

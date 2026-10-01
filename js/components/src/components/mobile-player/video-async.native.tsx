@@ -187,13 +187,13 @@ export function NativeVideo(props?: {
 
   // Start a VOD where a `?t=` link asked. The player only accepts a
   // position once the source is loaded, so wait for readyToPlay; the ref
-  // keeps one source from being re-seeked on every status change.
+  // preserves the viewer's position if recovery emits readyToPlay again.
   useEffect(() => {
     if (mode !== "vod" || startTime === null) return;
     const key = `${url}#${startTime}`;
     if (appliedStartRef.current === key) return;
     const applyStart = (status: string) => {
-      if (status !== "readyToPlay") return;
+      if (status !== "readyToPlay" || appliedStartRef.current === key) return;
       appliedStartRef.current = key;
       const duration = player.duration;
       player.currentTime =

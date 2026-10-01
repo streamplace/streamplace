@@ -228,6 +228,11 @@ export function BottomControlBar({
             <PipButton pipActive={pipActive} onHandlePip={onHandlePip} />
           )}
           <DanmuButton />
+          {ingest === null && (
+            <PlayerUI.CaptionsButton
+              dropdownPortalContainer={dropdownPortalContainer}
+            />
+          )}
           {ingest === null && showContextMenu && (
             <ContextMenuButton
               dropdownPortalContainer={dropdownPortalContainer}

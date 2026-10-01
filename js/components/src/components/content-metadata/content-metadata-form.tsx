@@ -1,4 +1,16 @@
-import { forwardRef, useCallback, useEffect, useState } from "react";
+import {
+  buildCaptionPolicy,
+  CaptionPolicySettings,
+  readCaptionPolicy,
+} from "@streamplace/core";
+import {
+  forwardRef,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Linking, Pressable, ScrollView, View } from "react-native";
 import {
   CONTENT_WARNINGS,
@@ -27,6 +39,7 @@ import { Text } from "../ui/text";
 import { Textarea } from "../ui/textarea";
 import { useToast } from "../ui/toast";
 import { Tooltip } from "../ui/tooltip";
+import { CaptionPolicyFields } from "./caption-policy-fields";
 
 const { p, r, bg, borders, w, text, layout, gap, flex } = zero;
 
@@ -37,11 +50,37 @@ export interface ContentMetadataFormProps {
   ) => void;
   initialMetadata?: place.stream.metadata.configuration.Main;
   style?: any;
+  /** The host app's language picker, for the captions spoken-language hint. */
+  renderLanguagePicker?: (
+    language: string | null,
+    onLanguageChange: (language: string | null) => void,
+  ) => ReactNode;
+}
+
+type MetadataConfiguration = place.stream.metadata.configuration.Main;
+
+// Fields of the stored record this form doesn't edit, kept as-is on save.
+function otherFields(record: MetadataConfiguration | undefined) {
+  if (!record) return {};
+  const {
+    contentWarnings: _warnings,
+    contentRights: _rights,
+    distributionPolicy: _distribution,
+    captionPolicy: _captions,
+    ...rest
+  } = record;
+  return rest;
 }
 
 export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
   (
-    { showUpdateButton = false, onMetadataChange, initialMetadata, style },
+    {
+      showUpdateButton = false,
+      onMetadataChange,
+      initialMetadata,
+      style,
+      renderLanguagePicker,
+    },
     ref,
   ) => {
     const pdsAgent = usePDSAgent();
@@ -61,6 +100,10 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const [customLicenseText, setCustomLicenseText] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [hasMetadata, setHasMetadata] = useState(false);
+    const [captionPolicy, setCaptionPolicy] = useState<CaptionPolicySettings>(
+      () => readCaptionPolicy(undefined),
+    );
+    const storedFields = useRef<Partial<MetadataConfiguration>>({});
 
     // State for section toggles
     const [activeSection, setActiveSection] =
@@ -89,6 +132,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
           setContentRights(initialMetadata.contentRights);
           setSelectedLicense(initialMetadata.contentRights.license || "");
         }
+        setCaptionPolicy(readCaptionPolicy(initialMetadata.captionPolicy));
+        storedFields.current = otherFields(initialMetadata);
         return;
       }
 
@@ -111,6 +156,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
               setContentRights(metadata.record.contentRights);
               setSelectedLicense(metadata.record.contentRights.license || "");
             }
+            setCaptionPolicy(readCaptionPolicy(metadata.record.captionPolicy));
+            storedFields.current = otherFields(metadata.record);
           }
         } catch (error) {
           // No existing metadata is fine
@@ -135,10 +182,17 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
             contentWarnings: { warnings: newWarnings },
             distributionPolicy,
             contentRights,
+            captionPolicy: buildCaptionPolicy(captionPolicy),
           });
         }
       },
-      [contentWarnings, distributionPolicy, contentRights, onMetadataChange],
+      [
+        contentWarnings,
+        distributionPolicy,
+        contentRights,
+        captionPolicy,
+        onMetadataChange,
+      ],
     );
 
     // Notify parent component when metadata changes
@@ -149,9 +203,16 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
           contentWarnings: { warnings: contentWarnings },
           distributionPolicy,
           contentRights,
+          captionPolicy: buildCaptionPolicy(captionPolicy),
         });
       }
-    }, [contentWarnings, distributionPolicy, contentRights, onMetadataChange]);
+    }, [
+      contentWarnings,
+      distributionPolicy,
+      contentRights,
+      captionPolicy,
+      onMetadataChange,
+    ]);
 
     // Handle distribution policy changes
     const handleDistributionPolicyChange = useCallback(
@@ -195,12 +256,14 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
             contentWarnings: { warnings: contentWarnings },
             distributionPolicy: newDistributionPolicy,
             contentRights,
+            captionPolicy: buildCaptionPolicy(captionPolicy),
           });
         }
       },
       [
         contentWarnings,
         contentRights,
+        captionPolicy,
         onMetadataChange,
         distributionPolicy,
         setDistributionPolicy,
@@ -219,10 +282,17 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
             contentWarnings: { warnings: contentWarnings },
             distributionPolicy,
             contentRights: newRights,
+            captionPolicy: buildCaptionPolicy(captionPolicy),
           });
         }
       },
-      [contentWarnings, distributionPolicy, contentRights, onMetadataChange],
+      [
+        contentWarnings,
+        distributionPolicy,
+        contentRights,
+        captionPolicy,
+        onMetadataChange,
+      ],
     );
 
     const handleSave = useCallback(async () => {
@@ -230,7 +300,9 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       try {
         // Build the metadata object, only including non-empty fields
         const metadata: place.stream.metadata.configuration.Main = {
+          ...storedFields.current,
           $type: "place.stream.metadata.configuration",
+          captionPolicy: buildCaptionPolicy(captionPolicy),
         };
 
         // Only include contentWarnings if it has values
@@ -305,6 +377,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       contentWarnings,
       contentRights,
       distributionPolicy,
+      captionPolicy,
       selectedLicense,
       customLicenseText,
       hasMetadata,
@@ -327,12 +400,20 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                   { label: "Warnings", value: "contentWarnings" },
                   { label: "Rights", value: "contentRights" },
                   { label: "Distribution", value: "distribution" },
+                  { label: "Captions", value: "captions" },
                 ]}
                 value={activeSection}
                 onChange={setActiveSection}
               />
             </View>
 
+            {activeSection === "captions" && (
+              <CaptionPolicyFields
+                value={captionPolicy}
+                onChange={setCaptionPolicy}
+                renderLanguagePicker={renderLanguagePicker}
+              />
+            )}
             {/* Content Warnings Section */}
             {activeSection === "contentWarnings" && (
               <View style={[gap.all[3], w.percent[100]]}>

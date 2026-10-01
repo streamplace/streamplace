@@ -4,6 +4,11 @@ import { BaseSlice, createBaseSlice } from "./slices/baseSlice";
 import { BlueskySlice, createBlueskySlice } from "./slices/blueskySlice";
 import { BrandingSlice, createBrandingSlice } from "./slices/brandingSlice";
 import {
+  CaptionsSlice,
+  createCaptionsSlice,
+  hydrateCaptionSettings,
+} from "./slices/captionsSlice";
+import {
   ContentMetadataSlice,
   createContentMetadataSlice,
 } from "./slices/contentMetadataSlice";
@@ -26,6 +31,7 @@ export type AppStore = BaseSlice &
   ContentMetadataSlice &
   PlatformSlice &
   DanmuSlice &
+  CaptionsSlice &
   BrandingSlice;
 
 export const useStore = create<AppStore>()((...a) => ({
@@ -36,15 +42,18 @@ export const useStore = create<AppStore>()((...a) => ({
   ...createContentMetadataSlice(...a),
   ...createPlatformSlice(...a),
   ...createDanmuSlice(...a),
+  ...createCaptionsSlice(...a),
   ...createBrandingSlice(...a),
 }));
 
 // Hydrate danmu settings from localStorage once the store exists.
 hydrateDanmuSettings(useStore);
+hydrateCaptionSettings(useStore);
 
 export * from "./slices/baseSlice";
 export * from "./slices/blueskySlice";
 export * from "./slices/brandingSlice";
+export * from "./slices/captionsSlice";
 export * from "./slices/contentMetadataSlice";
 export * from "./slices/danmuSlice";
 export * from "./slices/platformSlice";

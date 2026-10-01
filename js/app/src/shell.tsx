@@ -34,6 +34,7 @@ import { BackupSettings } from "components/settings/backup-settings";
 import { BadgeIssuerPanel } from "components/settings/badge-issuer-panel";
 import { BadgeSelectionManager } from "components/settings/badge-selection-manager";
 import { BrandingAdmin } from "components/settings/branding-admin";
+import { CaptionsCategorySettings } from "components/settings/captions-category-settings";
 import { DanmuCategorySettings } from "components/settings/danmu-category-settings";
 import KeyManager from "components/settings/key-manager";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
@@ -432,6 +433,11 @@ function SettingsNavigator() {
         name="DanmuCategory"
         component={DanmuCategorySettings}
         options={{ title: "Danmu" }}
+      />
+      <SettingsStack.Screen
+        name="CaptionsCategory"
+        component={CaptionsCategorySettings}
+        options={{ title: "Captions" }}
       />
       <SettingsStack.Screen
         name="AdvancedCategory"

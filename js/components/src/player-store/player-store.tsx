@@ -32,6 +32,20 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     playingVODRendition: null,
     setPlayingVODRendition: (playingVODRendition) =>
       set(() => ({ playingVODRendition })),
+    captionServerTracks: [],
+    setCaptionServerTracks: (captionServerTracks) =>
+      set(() => ({ captionServerTracks })),
+    captionElementTracks: [],
+    setCaptionElementTracks: (captionElementTracks) =>
+      set(() => ({ captionElementTracks })),
+    captionElementRenders: false,
+    setCaptionElementRenders: (captionElementRenders) =>
+      set(() => ({ captionElementRenders })),
+    captionElementLines: [],
+    setCaptionElementLines: (captionElementLines) =>
+      set(() => ({ captionElementLines })),
+    captionTrackId: null,
+    setCaptionTrackId: (captionTrackId) => set(() => ({ captionTrackId })),
 
     selectedRendition: "source",
     setSelectedRendition: (rendition: string) =>

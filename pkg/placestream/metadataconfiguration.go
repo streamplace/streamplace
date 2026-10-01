@@ -16,9 +16,10 @@ func init() {
 	glex.RegisterType("place.stream.metadata.configuration", &MetadataConfiguration{})
 }
 
-// Default metadata record for livestream including content warnings, rights, and distribution policy
+// Default metadata record for livestream including content warnings, rights, distribution policy, and caption policy
 type MetadataConfiguration struct {
 	LexiconTypeID      string                      `json:"$type,omitempty"`
+	CaptionPolicy      *MetadataCaptionPolicy      `json:"captionPolicy,omitempty"`
 	ContentRights      *MetadataContentRights      `json:"contentRights,omitempty"`
 	ContentWarnings    *MetadataContentWarnings    `json:"contentWarnings,omitempty"`
 	DistributionPolicy *MetadataDistributionPolicy `json:"distributionPolicy,omitempty"`

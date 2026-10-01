@@ -32,6 +32,7 @@ var PLACE_STREAM_BETA_REQUEST = "place.stream.beta.request"                   //
 var PLACE_STREAM_VOD_COMMENT = "place.stream.vod.comment"                     //nolint:all
 var PLACE_STREAM_LIKE = "place.stream.like"                                   //nolint:all
 var PLACE_STREAM_VOD_GATE = "place.stream.vod.gate"                           //nolint:all
+var PLACE_STREAM_CAPTION_TRANSCRIPT = "place.stream.caption.transcript"       //nolint:all
 
 // Streamplace badge types
 const (

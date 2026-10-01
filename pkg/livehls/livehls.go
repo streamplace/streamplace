@@ -49,7 +49,14 @@ type Segment struct {
 	Seq           uint64
 	DurationTicks uint64
 	SampleCount   uint32
-	data          []byte
+	// Start is the segment's wall-clock start time (the segment record's
+	// startTime), or the zero time when the feeder did not know it (see
+	// [Writer.ObserveAt]). Of a joined fragment, the start of its first piece.
+	Start time.Time
+	// FirstDecode is the tfdt (baseMediaDecodeTime, in the track timescale)
+	// of the segment's first sample.
+	FirstDecode uint64
+	data        []byte
 	// addedAt is the wall-clock time the segment was observed; segments older
 	// than the Writer's retention are evicted so a stalled/ended stream's
 	// window empties instead of a player replaying it forever.
@@ -93,7 +100,10 @@ type Writer struct {
 	minFrag   time.Duration // signed segments shorter than this are joined into one fragment; 0 = none
 	retention time.Duration // max segment age before eviction; 0 = keep 2×window instead
 	finished  bool
-	now       func() time.Time // clock, overridable in tests
+	// epoch is the start time of the first segment observed with a start time:
+	// the zero of the subtitle rendition's cue timeline (see SubtitleWindow).
+	epoch time.Time
+	now   func() time.Time // clock, overridable in tests
 }
 
 // Option configures a Writer.
@@ -157,11 +167,21 @@ func NewWriter(opts ...Option) *Writer {
 	return w
 }
 
-// Observe folds one muxl event into the window. An "init" event supplies the
+// Observe folds one muxl event into the window without wall-clock timing;
+// see [Writer.ObserveAt].
+func (w *Writer) Observe(ev *muxl.MuxlEvent) error {
+	return w.ObserveAt(ev, time.Time{})
+}
+
+// ObserveAt folds one muxl event into the window. An "init" event supplies the
 // per-track init segments and catalog; "segment"/"signed-segment" events
 // append each track's canonical-segment bytes (copied — the caller may reuse
-// its buffer) and evict beyond the window.
-func (w *Writer) Observe(ev *muxl.MuxlEvent) error {
+// its buffer) and evict beyond the window. start is the wall-clock start time
+// of a segment event's segment (the segment record's startTime): it anchors
+// the live subtitle rendition (see [Writer.SubtitleWindow]) to the media
+// timeline. The zero time means unknown, and a window fed no start times
+// offers no subtitles.
+func (w *Writer) ObserveAt(ev *muxl.MuxlEvent, start time.Time) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -176,6 +196,9 @@ func (w *Writer) Observe(ev *muxl.MuxlEvent) error {
 
 	case "segment", "signed-segment":
 		now := w.now()
+		if w.epoch.IsZero() {
+			w.epoch = start
+		}
 		for _, tid := range sortedKeys(ev.Tracks) {
 			t := w.track(tid)
 			if n := len(t.Segments); n > 0 && t.Segments[n-1].open {
@@ -192,6 +215,8 @@ func (w *Writer) Observe(ev *muxl.MuxlEvent) error {
 				Seq:           t.nextSeq,
 				DurationTicks: ev.Durations[tid],
 				SampleCount:   ev.SampleCounts[tid],
+				Start:         start,
+				FirstDecode:   firstDecode(ev, tid),
 				data:          append([]byte(nil), ev.Tracks[tid]...),
 				addedAt:       now,
 				pieces:        1,
@@ -204,8 +229,8 @@ func (w *Writer) Observe(ev *muxl.MuxlEvent) error {
 			if w.retention <= 0 && w.window > 0 {
 				// No time-based retention: hold a window's worth of grace
 				// behind the advertised playlist, then let go.
-				if start, _ := w.advertisedRange(t); start > w.window {
-					drop := start - w.window
+				if first, _ := w.advertisedRange(t); first > w.window {
+					drop := first - w.window
 					t.Segments = append(t.Segments[:0:0], t.Segments[drop:]...)
 				}
 			}
@@ -451,6 +476,13 @@ func (w *Writer) MediaPlaylist(trackID, initURL string, segURI func(seq uint64) 
 // its media-playlist URL. Audio tracks become EXT-X-MEDIA renditions in the
 // "audio" group; video tracks become EXT-X-STREAM-INF variants.
 func (w *Writer) MasterPlaylist(trackURL func(trackID string) string) string {
+	return w.MasterPlaylistWithSubtitles(trackURL, nil)
+}
+
+// MasterPlaylistWithSubtitles is MasterPlaylist plus a SubtitlesGroup of
+// WebVTT renditions that every video variant references. No subtitles
+// renders exactly MasterPlaylist.
+func (w *Writer) MasterPlaylistWithSubtitles(trackURL func(trackID string) string, subs []SubtitleRendition) string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.evictExpired(w.now())
@@ -488,6 +520,9 @@ func (w *Writer) MasterPlaylist(trackURL func(trackID string) string) string {
 		fmt.Fprintf(&b, "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=%q,NAME=%q,DEFAULT=%s,AUTOSELECT=YES,CHANNELS=%q,URI=%q\n",
 			"audio", t.Codec, def, strconv.Itoa(int(maxU32(t.Channels, 2))), trackURL(tid))
 	}
+	for _, s := range subs {
+		b.WriteString(s.MediaLine() + "\n")
+	}
 	for _, tid := range w.order {
 		t := w.tracks[tid]
 		if t.Type != "video" {
@@ -498,11 +533,14 @@ func (w *Writer) MasterPlaylist(trackURL func(trackID string) string) string {
 			codecs = t.Codec + "," + audioCodec
 		}
 		bw := t.peakBitrate()
+		attrs := ""
 		if haveAudio {
-			fmt.Fprintf(&b, "#EXT-X-STREAM-INF:AUDIO=%q,BANDWIDTH=%d,CODECS=%q,RESOLUTION=%dx%d\n", "audio", bw, codecs, t.Width, t.Height)
-		} else {
-			fmt.Fprintf(&b, "#EXT-X-STREAM-INF:BANDWIDTH=%d,CODECS=%q,RESOLUTION=%dx%d\n", bw, codecs, t.Width, t.Height)
+			attrs += fmt.Sprintf("AUDIO=%q,", "audio")
 		}
+		if len(subs) > 0 {
+			attrs += fmt.Sprintf("SUBTITLES=%q,", SubtitlesGroup)
+		}
+		fmt.Fprintf(&b, "#EXT-X-STREAM-INF:%sBANDWIDTH=%d,CODECS=%q,RESOLUTION=%dx%d\n", attrs, bw, codecs, t.Width, t.Height)
 		b.WriteString(trackURL(tid) + "\n")
 	}
 	return b.String()

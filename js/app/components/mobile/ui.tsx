@@ -310,6 +310,7 @@ export function MobileUi({
                     ]}
                   >
                     <ShareSheet />
+                    {mode !== "vod" && <PlayerUI.CaptionsButton size={20} />}
                     <PlayerUI.ContextMenu
                       onOpenChat={
                         streamProfile?.handle ? openChatOnlyMode : undefined

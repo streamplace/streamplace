@@ -581,6 +581,17 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
             <ContentMetadataForm
               showUpdateButton={!userIsLive}
               style={{ flex: 1, height: "100%" }}
+              renderLanguagePicker={(language, onLanguageChange) => (
+                <LanguagePicker
+                  tags={language ? [`${LANG_TAG_PREFIX}${language}`] : []}
+                  onTagsChange={(tags) => {
+                    const tag = tags.find((t) => t.startsWith(LANG_TAG_PREFIX));
+                    onLanguageChange(
+                      tag ? tag.slice(LANG_TAG_PREFIX.length) : null,
+                    );
+                  }}
+                />
+              )}
             />
           </View>
         ) : mode === "moderation" ? (

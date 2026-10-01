@@ -32,6 +32,8 @@ function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
     setModerationPermissions: () => {},
     localLivestreamURI: null,
     setLocalLivestreamURI: () => {},
+    captionTracks: [],
+    liveCaptions: {},
     ...overrides,
   } as LivestreamState;
 }
@@ -306,5 +308,45 @@ describe("handleWebSocketMessages: teleport records", () => {
 
     expect(result.chat).toHaveLength(1);
     expect(result.chat[0].record.text).toContain("15 viewers teleported");
+  });
+});
+
+describe("handleWebSocketMessages: live captions", () => {
+  const track = {
+    id: "canonical-auto-en",
+    language: "en",
+    source: "auto",
+    origin: "canonical",
+  };
+  const cue = (id: string, text: string, final: boolean) => ({
+    $type: "place.stream.caption.defs#liveCue",
+    id,
+    streamer: "did:plc:streamer",
+    track,
+    startTime: "2026-09-25T12:00:00.000Z",
+    endTime: "2026-09-25T12:00:01.000Z",
+    text,
+    final,
+  });
+
+  it("learns the track and keeps the latest revision of each cue", () => {
+    const result = handleWebSocketMessages(makeState(), [
+      cue("c1", "hello", false),
+      cue("c1", "hello world", true),
+      cue("c2", "next", false),
+    ]);
+
+    expect(result.captionTracks).toEqual([track]);
+    const captions = Object.values(result.liveCaptions);
+    expect(
+      captions.find(
+        (caption) => caption.id === "c1" && caption.trackId === track.id,
+      ),
+    ).toMatchObject({ text: "hello world", final: true });
+    expect(
+      captions.find(
+        (caption) => caption.id === "c2" && caption.trackId === track.id,
+      ),
+    ).toBeDefined();
   });
 });

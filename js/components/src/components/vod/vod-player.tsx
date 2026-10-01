@@ -4,6 +4,7 @@ import { colors as tokensColors } from "../../lib/theme/tokens";
 import { PlayerProvider } from "../../player-store/player-provider";
 import { usePlayerStore } from "../../player-store/player-store";
 import { useMuted, useSetMuted } from "../../streamplace-store";
+import { CaptionOverlay } from "../captions/caption-overlay";
 import Video from "../mobile-player/video";
 
 export function VodPlayer({
@@ -92,6 +93,7 @@ function VodPlayerInner({
           pictureInPictureEnabled={pictureInPictureEnabled}
         />
       ) : null}
+      {storeSrc === src ? <CaptionOverlay /> : null}
       {children}
     </View>
   );

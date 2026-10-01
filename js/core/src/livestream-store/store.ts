@@ -46,5 +46,7 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
       }),
     localLivestreamURI: null,
     setLocalLivestreamURI: (uri) => set({ localLivestreamURI: uri }),
+    captionTracks: [],
+    liveCaptions: {},
   }));
 };

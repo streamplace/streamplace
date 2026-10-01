@@ -14,6 +14,7 @@ import {
   Tooltip,
   useBetaStatus,
   useTheme,
+  VideoCaptionsManager,
   View,
   zero,
 } from "@streamplace/components";
@@ -1737,6 +1738,13 @@ export function UploadVideoScreen({ route }: { route: any }) {
                 </MenuGroup>
               </View>
             </MenuContainer>
+            {mode === "video" && videoUri_ && (
+              <MenuContainer>
+                <View style={[zero.px[3], zero.py[2]]}>
+                  <VideoCaptionsManager video={videoUri_} />
+                </View>
+              </MenuContainer>
+            )}
           </View>
         </View>
       </View>

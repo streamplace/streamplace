@@ -13,6 +13,7 @@ import { Route as VideosRouteImport } from './routes/videos'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as CaptionerRouteImport } from './routes/captioner'
 import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
@@ -41,6 +42,7 @@ import { Route as DashboardMultistreamIndexRouteImport } from './routes/dashboar
 import { Route as DashboardKeysIndexRouteImport } from './routes/dashboard/keys/index'
 import { Route as EmbedInfoWidgetUserRouteImport } from './routes/embed/info-widget/$user'
 import { Route as EmbedDanmuObsUserRouteImport } from './routes/embed/danmu-obs/$user'
+import { Route as EmbedCaptionsUserRouteImport } from './routes/embed/captions/$user'
 import { Route as UserVideoTidRouteImport } from './routes/$user/video/$tid'
 import { Route as EmbedUserVideoTidRouteImport } from './routes/embed/$user/video/$tid'
 
@@ -62,6 +64,11 @@ const SearchRoute = SearchRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CaptionerRoute = CaptionerRouteImport.update({
+  id: '/captioner',
+  path: '/captioner',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRouteRoute = DashboardRouteRouteImport.update({
@@ -206,6 +213,11 @@ const EmbedDanmuObsUserRoute = EmbedDanmuObsUserRouteImport.update({
   path: '/embed/danmu-obs/$user',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EmbedCaptionsUserRoute = EmbedCaptionsUserRouteImport.update({
+  id: '/embed/captions/$user',
+  path: '/embed/captions/$user',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UserVideoTidRoute = UserVideoTidRouteImport.update({
   id: '/$user/video/$tid',
   path: '/$user/video/$tid',
@@ -220,6 +232,7 @@ const EmbedUserVideoTidRoute = EmbedUserVideoTidRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteRouteWithChildren
+  '/captioner': typeof CaptionerRoute
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -243,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/': typeof DashboardIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/$user/video/$tid': typeof UserVideoTidRoute
+  '/embed/captions/$user': typeof EmbedCaptionsUserRoute
   '/embed/danmu-obs/$user': typeof EmbedDanmuObsUserRoute
   '/embed/info-widget/$user': typeof EmbedInfoWidgetUserRoute
   '/dashboard/keys/': typeof DashboardKeysIndexRoute
@@ -255,6 +269,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/captioner': typeof CaptionerRoute
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/videos': typeof VideosRoute
@@ -277,6 +292,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/$user/video/$tid': typeof UserVideoTidRoute
+  '/embed/captions/$user': typeof EmbedCaptionsUserRoute
   '/embed/danmu-obs/$user': typeof EmbedDanmuObsUserRoute
   '/embed/info-widget/$user': typeof EmbedInfoWidgetUserRoute
   '/dashboard/keys': typeof DashboardKeysIndexRoute
@@ -291,6 +307,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteRouteWithChildren
+  '/captioner': typeof CaptionerRoute
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -314,6 +331,7 @@ export interface FileRoutesById {
   '/dashboard/': typeof DashboardIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/$user/video/$tid': typeof UserVideoTidRoute
+  '/embed/captions/$user': typeof EmbedCaptionsUserRoute
   '/embed/danmu-obs/$user': typeof EmbedDanmuObsUserRoute
   '/embed/info-widget/$user': typeof EmbedInfoWidgetUserRoute
   '/dashboard/keys/': typeof DashboardKeysIndexRoute
@@ -329,6 +347,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/captioner'
     | '/login'
     | '/search'
     | '/settings'
@@ -352,6 +371,7 @@ export interface FileRouteTypes {
     | '/dashboard/'
     | '/settings/'
     | '/$user/video/$tid'
+    | '/embed/captions/$user'
     | '/embed/danmu-obs/$user'
     | '/embed/info-widget/$user'
     | '/dashboard/keys/'
@@ -364,6 +384,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/captioner'
     | '/login'
     | '/search'
     | '/videos'
@@ -386,6 +407,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/settings'
     | '/$user/video/$tid'
+    | '/embed/captions/$user'
     | '/embed/danmu-obs/$user'
     | '/embed/info-widget/$user'
     | '/dashboard/keys'
@@ -399,6 +421,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/captioner'
     | '/login'
     | '/search'
     | '/settings'
@@ -422,6 +445,7 @@ export interface FileRouteTypes {
     | '/dashboard/'
     | '/settings/'
     | '/$user/video/$tid'
+    | '/embed/captions/$user'
     | '/embed/danmu-obs/$user'
     | '/embed/info-widget/$user'
     | '/dashboard/keys/'
@@ -436,6 +460,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
+  CaptionerRoute: typeof CaptionerRoute
   LoginRoute: typeof LoginRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRouteWithChildren
@@ -443,6 +468,7 @@ export interface RootRouteChildren {
   ChatPopoutUserRoute: typeof ChatPopoutUserRoute
   UserIndexRoute: typeof UserIndexRoute
   UserVideoTidRoute: typeof UserVideoTidRoute
+  EmbedCaptionsUserRoute: typeof EmbedCaptionsUserRoute
   EmbedDanmuObsUserRoute: typeof EmbedDanmuObsUserRoute
   EmbedInfoWidgetUserRoute: typeof EmbedInfoWidgetUserRoute
   EmbedUserIndexRoute: typeof EmbedUserIndexRoute
@@ -477,6 +503,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/captioner': {
+      id: '/captioner'
+      path: '/captioner'
+      fullPath: '/captioner'
+      preLoaderRoute: typeof CaptionerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -675,6 +708,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EmbedDanmuObsUserRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/embed/captions/$user': {
+      id: '/embed/captions/$user'
+      path: '/embed/captions/$user'
+      fullPath: '/embed/captions/$user'
+      preLoaderRoute: typeof EmbedCaptionsUserRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/$user/video/$tid': {
       id: '/$user/video/$tid'
       path: '/$user/video/$tid'
@@ -757,6 +797,7 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRouteRoute: DashboardRouteRouteWithChildren,
+  CaptionerRoute: CaptionerRoute,
   LoginRoute: LoginRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRouteWithChildren,
@@ -764,6 +805,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatPopoutUserRoute: ChatPopoutUserRoute,
   UserIndexRoute: UserIndexRoute,
   UserVideoTidRoute: UserVideoTidRoute,
+  EmbedCaptionsUserRoute: EmbedCaptionsUserRoute,
   EmbedDanmuObsUserRoute: EmbedDanmuObsUserRoute,
   EmbedInfoWidgetUserRoute: EmbedInfoWidgetUserRoute,
   EmbedUserIndexRoute: EmbedUserIndexRoute,

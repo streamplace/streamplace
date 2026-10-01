@@ -13,17 +13,21 @@ import (
 
 // PlaybackGetVideoPlaylist calls the XRPC method "place.stream.playback.getVideoPlaylist".
 //
-// Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash. The `uri` is an AT-URI pointing at a playable record — today only place.stream.video records are supported, but the surface is collection-agnostic so other record types can join later.
+// Get an HLS CMAF playlist for a video. Returns a master playlist when `track` and `captions` are omitted, a single-track media playlist when `track` is supplied, or a WebVTT subtitle media playlist when `captions` is supplied. The master playlist lists the video's caption tracks as a SUBTITLES rendition group (GROUP-ID `cc`) that every variant references; subtitle segments are served by place.stream.caption.getCaptions and aligned to the video's segments. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash. The `uri` is an AT-URI pointing at a playable record — today only place.stream.video records are supported, but the surface is collection-agnostic so other record types can join later.
 //
+// captions: Caption track id from place.stream.caption.listTracks, for that track's WebVTT subtitle media playlist. Takes precedence over `track`.
 // end: End time in milliseconds. Omit to include all remaining content. Local to the clip's timeline when playing back a sourceClip record.
 // sid: Opaque playback session identifier. Omit on the master playlist request; the server generates one and embeds it in every sub-playlist URL it returns. Players never have to construct it themselves — they just follow the URLs the master playlist hands them, which carry the sid into media-playlist + segment requests. Used downstream to correlate a player's playlist + segment fetches for view-count accounting.
 // start: Start time in milliseconds from the beginning of the video. Defaults to 0. For a place.stream.video record whose source is a place.stream.media.defs#sourceClip, this is in the clip's local timeline (0 == the clip's start).
 // track: Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist.
 // uri: AT-URI of the record to play back (e.g. at://did:plc:.../place.stream.video/<rkey>).
-func PlaybackGetVideoPlaylist(ctx context.Context, c glex.LexClient, end *int64, sid string, start *int64, track string, uri string) ([]byte, error) {
+func PlaybackGetVideoPlaylist(ctx context.Context, c glex.LexClient, captions string, end *int64, sid string, start *int64, track string, uri string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
+	if captions != "" {
+		params["captions"] = captions
+	}
 	if end != nil {
 		params["end"] = *end
 	}

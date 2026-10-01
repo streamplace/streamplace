@@ -1,4 +1,9 @@
 import { SessionManager } from "@atproto/api/dist/session-manager";
+import {
+  CaptionDisplayPrefs,
+  DEFAULT_CAPTION_PREFS,
+  parseCaptionPrefs,
+} from "@streamplace/core";
 import { useContext } from "react";
 import { place } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
@@ -88,6 +93,15 @@ export interface StreamplaceState {
   setDanmuSpeed: (speed: number) => void;
   setDanmuLaneCount: (laneCount: number) => void;
   setDanmuMaxMessages: (maxMessages: number) => void;
+
+  // Caption settings: on/off, the language of the last track the viewer
+  // picked, and display styling (see @streamplace/core captions/prefs).
+  captionsEnabled: boolean;
+  captionLanguage: string | null;
+  captionPrefs: CaptionDisplayPrefs;
+  setCaptionsEnabled: (enabled: boolean) => void;
+  setCaptionLanguage: (language: string | null) => void;
+  setCaptionPrefs: (prefs: CaptionDisplayPrefs) => void;
 }
 
 export type StreamplaceStore = StoreApi<StreamplaceState>;
@@ -105,6 +119,9 @@ export const makeStreamplaceStore = ({
   const DANMU_SPEED_KEY = "danmuSpeed";
   const DANMU_LANE_COUNT_KEY = "danmuLaneCount";
   const DANMU_MAX_MESSAGES_KEY = "danmuMaxMessages";
+  const CAPTIONS_ENABLED_KEY = "captionsEnabled";
+  const CAPTION_LANGUAGE_KEY = "captionLanguage";
+  const CAPTION_PREFS_KEY = "captionPrefs";
 
   const store = createStore<StreamplaceState>()((set) => ({
     url,
@@ -234,6 +251,32 @@ export const makeStreamplaceStore = ({
         .setItem(DANMU_MAX_MESSAGES_KEY, clamped.toString())
         .catch(console.error);
     },
+
+    captionsEnabled: false,
+    captionLanguage: null,
+    captionPrefs: DEFAULT_CAPTION_PREFS,
+
+    setCaptionsEnabled: (enabled: boolean) => {
+      set({ captionsEnabled: enabled });
+      storage
+        .setItem(CAPTIONS_ENABLED_KEY, enabled.toString())
+        .catch(console.error);
+    },
+
+    setCaptionLanguage: (language: string | null) => {
+      set({ captionLanguage: language });
+      const write = language
+        ? storage.setItem(CAPTION_LANGUAGE_KEY, language)
+        : storage.removeItem(CAPTION_LANGUAGE_KEY);
+      write.catch(console.error);
+    },
+
+    setCaptionPrefs: (prefs: CaptionDisplayPrefs) => {
+      set({ captionPrefs: prefs });
+      storage
+        .setItem(CAPTION_PREFS_KEY, JSON.stringify(prefs))
+        .catch(console.error);
+    },
   }));
 
   // Load initial volume and danmu state from storage asynchronously
@@ -249,6 +292,9 @@ export const makeStreamplaceStore = ({
       const storedDanmuMaxMessages = await storage.getItem(
         DANMU_MAX_MESSAGES_KEY,
       );
+      const storedCaptionsEnabled = await storage.getItem(CAPTIONS_ENABLED_KEY);
+      const storedCaptionLanguage = await storage.getItem(CAPTION_LANGUAGE_KEY);
+      const storedCaptionPrefs = await storage.getItem(CAPTION_PREFS_KEY);
 
       let initialVolume = 1.0;
       let initialMuted = false;
@@ -319,6 +365,9 @@ export const makeStreamplaceStore = ({
         danmuSpeed: initialDanmuSpeed,
         danmuLaneCount: initialDanmuLaneCount,
         danmuMaxMessages: initialDanmuMaxMessages,
+        captionsEnabled: storedCaptionsEnabled === "true",
+        captionLanguage: storedCaptionLanguage || null,
+        captionPrefs: parseCaptionPrefs(storedCaptionPrefs),
       });
     } catch (error) {
       console.error("Failed to load state from storage:", error);
@@ -401,6 +450,19 @@ export const useSetDanmuLaneCount = () =>
   useStreamplaceStore((x) => x.setDanmuLaneCount);
 export const useSetDanmuMaxMessages = () =>
   useStreamplaceStore((x) => x.setDanmuMaxMessages);
+
+// Caption settings hooks
+export const useCaptionsEnabled = () =>
+  useStreamplaceStore((x) => x.captionsEnabled);
+export const useSetCaptionsEnabled = () =>
+  useStreamplaceStore((x) => x.setCaptionsEnabled);
+export const useCaptionLanguage = () =>
+  useStreamplaceStore((x) => x.captionLanguage);
+export const useSetCaptionLanguage = () =>
+  useStreamplaceStore((x) => x.setCaptionLanguage);
+export const useCaptionPrefs = () => useStreamplaceStore((x) => x.captionPrefs);
+export const useSetCaptionPrefs = () =>
+  useStreamplaceStore((x) => x.setCaptionPrefs);
 
 // Composite hook that calls all individual hooks
 export const useDanmuSettings = () => {

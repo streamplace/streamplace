@@ -22,11 +22,11 @@ import (
 // getLiveSegment, vnd.apple.mpegurl on getLivePlaylist). NewServer registers
 // custom echo routes that override them; these exist only to satisfy the build.
 
-func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context, sid string, streamer string, track string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context, captions string, sid string, streamer string, track string) (io.Reader, error) {
 	return nil, stubMisrouted("getLivePlaylist")
 }
 
-func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context, seg string, sid string, streamer string, track string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context, captions string, seg string, sid string, streamer string, track string) (io.Reader, error) {
 	return nil, stubMisrouted("getLiveSegment")
 }
 
@@ -53,11 +53,13 @@ func (s *Server) resolveStreamer(ctx context.Context, streamer string) (string, 
 
 // --- getLivePlaylist ----------------------------------------------------
 
-// HandleGetLivePlaylist serves a live HLS master playlist (track omitted) or a
-// single-track media playlist out of the streamer's in-memory live window. The
-// window is fed by ValidateMP4 for every segment that flows through this node,
-// so a playlist exists only while the stream is live here. Open playback,
-// gated only on an account ban (auth middleware can layer on later).
+// HandleGetLivePlaylist serves a live HLS master playlist (neither track nor
+// captions given), a single-track media playlist (track), or a caption
+// track's WebVTT subtitle playlist (captions) out of the streamer's in-memory
+// live window. The window is fed by ValidateMP4 for every segment that flows
+// through this node, so a playlist exists only while the stream is live here.
+// Open playback, gated only on an account ban (auth middleware can layer on
+// later).
 func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 	ctx := c.Request().Context()
 	did, err := s.resolveStreamer(ctx, c.QueryParam("streamer"))
@@ -88,6 +90,7 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 	// skip handle resolution and stay stable across a session.
 	track := c.QueryParam("track")
 	rendition := c.QueryParam("rendition")
+	captionTrack := c.QueryParam("captions")
 
 	// The viewer's playback session: verified against this stream, renewed
 	// while they keep watching, minted for a first request. A media
@@ -97,7 +100,7 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 	// preview: only their own session (from getPlaybackSession) opens it,
 	// and it reads as not live to everyone else; its URLs stay self-hosted,
 	// a CDN must not see or cache a preview.
-	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), did, track != "" || rendition == "audio")
+	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), did, track != "" || captionTrack != "" || rendition == "audio")
 	if err != nil {
 		return err
 	}
@@ -122,11 +125,17 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 	}
 
 	var body string
-	if track == "" {
-		body = w.MasterPlaylist(func(tid string) string {
+	switch {
+	case captionTrack != "":
+		body = s.liveSubtitlePlaylist(w, did, captionTrack, sid)
+		if body == "" {
+			return echo.NewHTTPError(http.StatusNotFound, "CaptionTrackNotFound")
+		}
+	case track == "":
+		body = w.MasterPlaylistWithSubtitles(func(tid string) string {
 			return liveTrackPlaylistURL(did, tid, sid, nocdn)
-		})
-	} else {
+		}, s.liveSubtitleRenditions(w, did, sid, nocdn))
+	default:
 		// The init always comes from the node: it can change mid-stream and
 		// is one small fetch per session. Numbered segments go to the CDN
 		// when one is configured.
@@ -159,8 +168,12 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 // HandleGetLiveSegment serves a track's init segment (seg=init) or a windowed
 // canonical .m4s (seg=<media-sequence>) from the live window, with HTTP Range.
 // The bytes are the verbatim signed segment, so provenance travels with
-// playback.
+// playback. With captions=<track> it serves that caption track's WebVTT
+// subtitle segment instead (see serveLiveSubtitleSegment).
 func (s *Server) HandleGetLiveSegment(c echo.Context) error {
+	if captionTrack := c.QueryParam("captions"); captionTrack != "" {
+		return s.serveLiveSubtitleSegment(c, c.QueryParam("streamer"), captionTrack, c.QueryParam("seg"), c.QueryParam("sid"))
+	}
 	return s.serveLiveSegment(c, c.QueryParam("streamer"), c.QueryParam("track"), c.QueryParam("seg"), c.QueryParam("sid"), true)
 }
 

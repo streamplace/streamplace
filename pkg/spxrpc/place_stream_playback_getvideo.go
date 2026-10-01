@@ -18,6 +18,7 @@ import (
 
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/cdn"
+	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/psession"
@@ -53,7 +54,7 @@ func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context, cid 
 	return nil, stubMisrouted("getVideoBlob")
 }
 
-func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, end int, sid string, start int, track string, uri string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, captions string, end int, sid string, start int, track string, uri string) (io.Reader, error) {
 	return nil, stubMisrouted("getVideoPlaylist")
 }
 
@@ -261,6 +262,7 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	}
 
 	track := c.QueryParam("track")
+	captionTrack := c.QueryParam("captions")
 	startMS, err := optionalInt64Param(c, "start")
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
@@ -305,7 +307,7 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	// servable: verified against the owner, renewed while they watch,
 	// minted for a first request (a media playlist without one is
 	// redirected to carry it, so the player's follow-ups share a session).
-	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), aturi.Authority().String(), track != "")
+	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), aturi.Authority().String(), track != "" || captionTrack != "")
 	if err != nil {
 		return err
 	}
@@ -332,20 +334,31 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 
 	var body string
 	kind := "master"
-	if track == "" {
+	switch {
+	case captionTrack != "":
+		// The subtitle playlist is clip-local like the media playlists:
+		// segment times and cue offsets count from the clip's start.
+		body, err = s.vodSubtitlePlaylist(ctx, meta, uri, captionTrack, resolved.clipStartMS, effectiveStartMS, effectiveEndMS)
+		if err != nil {
+			return err
+		}
+	case track == "":
 		// Master playlist's sub-playlist URLs carry the *unmodified*
 		// query-param start/end (clip-local). Each per-track follow-up
 		// request re-resolves the clip and composes bounds again on the
 		// server side, so the propagation stays in clip-local time.
-		body = masterPlaylist(meta, uri, sid, startMS, endMS)
-	} else {
+		body = masterPlaylist(meta, uri, sid, startMS, endMS, s.vodSubtitleRenditions(ctx, uri, sid, startMS, endMS))
+	default:
 		body, err = mediaPlaylist(meta, track, aturi.Authority().String(), sid, s.vodCDN(), effectiveStartMS, effectiveEndMS)
 		if err != nil {
 			return err
 		}
 		kind = "media"
 	}
-	s.logManifestRequest(c, uri, ps.ID, track, kind)
+	// A subtitle playlist is not a view: the video's own playlists are.
+	if captionTrack == "" {
+		s.logManifestRequest(c, uri, ps.ID, track, kind)
+	}
 
 	c.Response().Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 	c.Response().Header().Set("Cache-Control", "public, max-age=60")
@@ -636,7 +649,7 @@ func trackPlaylistURL(uri, track, sid string, startMS, endMS *int64) string {
 // URLs so the player keeps the clip bounds. `sid` is threaded into
 // every sub-playlist URL so the per-track requests + downstream
 // segment fetches share one playback-session identifier.
-func masterPlaylist(meta *vod.Metafile, uri, sid string, startMS, endMS *int64) string {
+func masterPlaylist(meta *vod.Metafile, uri, sid string, startMS, endMS *int64, subs []livehls.SubtitleRendition) string {
 	lines := []string{"#EXTM3U", "#EXT-X-VERSION:6", ""}
 
 	// Collect audio tracks in deterministic order, pick a default
@@ -654,7 +667,10 @@ func masterPlaylist(meta *vod.Metafile, uri, sid string, startMS, endMS *int64) 
 			trackPlaylistURL(uri, tid, sid, startMS, endMS),
 		))
 	}
-	if len(audioIDs) > 0 {
+	for _, sub := range subs {
+		lines = append(lines, sub.MediaLine())
+	}
+	if len(audioIDs) > 0 || len(subs) > 0 {
 		lines = append(lines, "")
 	}
 
@@ -681,6 +697,9 @@ func masterPlaylist(meta *vod.Metafile, uri, sid string, startMS, endMS *int64) 
 		)
 		if audioCodec != "" {
 			streamInf += `,AUDIO="audio"`
+		}
+		if len(subs) > 0 {
+			streamInf += fmt.Sprintf(`,SUBTITLES=%q`, livehls.SubtitlesGroup)
 		}
 		lines = append(lines, streamInf)
 		lines = append(lines, trackPlaylistURL(uri, tid, sid, startMS, endMS))

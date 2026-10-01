@@ -16,6 +16,7 @@ import {
   VideoRetry,
 } from "../..";
 import { colors, surfaces } from "../../lib/theme/tokens";
+import { CaptionOverlay } from "../captions/caption-overlay";
 import { AudioOnlyOverlay } from "./ui/audio-only-overlay";
 import Video from "./video.native";
 
@@ -176,6 +177,7 @@ export function Fullscreen(props: {
             laneCount={danmuLaneCount}
             maxMessages={danmuMaxMessages}
           />
+          <CaptionOverlay />
           {props.children}
         </View>
       </View>
@@ -199,6 +201,7 @@ export function Fullscreen(props: {
         laneCount={danmuLaneCount}
         maxMessages={danmuMaxMessages}
       />
+      <CaptionOverlay />
       {props.children}
     </>
   );

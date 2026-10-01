@@ -162,6 +162,12 @@ type Model interface {
 	GetMediaTrackByURI(ctx context.Context, uri string) (*placestream.MediaTrack, error)
 	GetMediaTracksByBlob(ctx context.Context, blob string) ([]*MediaTrack, error)
 
+	UpsertCaptionTranscript(ctx context.Context, rec placestream.CaptionTranscript, aturi syntax.ATURI) error
+	DeleteCaptionTranscript(ctx context.Context, uri string) error
+	GetCaptionTranscriptByURI(ctx context.Context, uri string) (*CaptionTranscript, error)
+	GetCaptionTranscriptsBySubject(ctx context.Context, subjectURI string) ([]*CaptionTranscript, error)
+	GetCaptionTranscriptsForRepoSubject(ctx context.Context, repoDID, subjectURI string) ([]*CaptionTranscript, error)
+
 	UpsertMediaOrigin(ctx context.Context, rec placestream.MediaOrigin, aturi syntax.ATURI) error
 	UpsertOwnMediaOrigin(ctx context.Context, serverDID, blobCID string, size int64, mimeType string) error
 	DeleteMediaOrigin(ctx context.Context, uri string) error
@@ -324,6 +330,7 @@ func MakeDBConns(dbURL string, conns int) (Model, error) {
 		BadgeIssuance{},
 		Video{},
 		MediaTrack{},
+		CaptionTranscript{},
 		MediaOrigin{},
 		MediaViewCount{},
 		BetaInvite{},

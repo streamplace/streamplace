@@ -31,6 +31,7 @@ import {
   p,
 } from "../../lib/theme/atoms";
 import { statusColors } from "../../lib/theme/tokens";
+import { useNativeSubtitles } from "../captions/use-native-subtitles";
 import { srcToUrl } from "./shared";
 import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
 import { mediaDevices, WebRTCMediaStream } from "./webrtc-primitives.native";
@@ -128,6 +129,8 @@ export function NativeVideo(props?: {
     player.muted = muted;
     player.play();
   });
+
+  useNativeSubtitles(player);
 
   useEffect(() => {
     player.muted = muted;

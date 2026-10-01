@@ -13,7 +13,7 @@ description: Reference for the place.stream.metadata.configuration lexicon
 
 **Type:** `record`
 
-Default metadata record for livestream including content warnings, rights, and distribution policy
+Default metadata record for livestream including content warnings, rights, distribution policy, and caption policy
 
 **Record Key:** `literal:self`
 
@@ -24,6 +24,7 @@ Default metadata record for livestream including content warnings, rights, and d
 | `contentWarnings`    | [`place.stream.metadata.contentWarnings`](/lex-reference/place-stream-metadata-contentwarnings)       | ❌    |             |             |
 | `contentRights`      | [`place.stream.metadata.contentRights`](/lex-reference/place-stream-metadata-contentrights)           | ❌    |             |             |
 | `distributionPolicy` | [`place.stream.metadata.distributionPolicy`](/lex-reference/place-stream-metadata-distributionpolicy) | ❌    |             |             |
+| `captionPolicy`      | [`place.stream.metadata.captionPolicy`](/lex-reference/place-stream-metadata-captionpolicy)           | ❌    |             |             |
 
 ---
 
@@ -36,7 +37,7 @@ Default metadata record for livestream including content warnings, rights, and d
   "defs": {
     "main": {
       "type": "record",
-      "description": "Default metadata record for livestream including content warnings, rights, and distribution policy",
+      "description": "Default metadata record for livestream including content warnings, rights, distribution policy, and caption policy",
       "key": "literal:self",
       "record": {
         "type": "object",
@@ -52,6 +53,10 @@ Default metadata record for livestream including content warnings, rights, and d
           "distributionPolicy": {
             "type": "ref",
             "ref": "place.stream.metadata.distributionPolicy"
+          },
+          "captionPolicy": {
+            "type": "ref",
+            "ref": "place.stream.metadata.captionPolicy"
           }
         }
       }

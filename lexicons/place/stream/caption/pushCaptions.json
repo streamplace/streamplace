@@ -1,0 +1,56 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.caption.pushCaptions",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Push live captions into a stream from a captioner: the Streamplace caption overlay, a CART stenographer, or an external tool. Requires the streamer's authorization. When the streamer's caption policy is `ingest`, pushed captions become the canonical caption track.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["language", "cues"],
+          "properties": {
+            "streamer": {
+              "type": "string",
+              "format": "did",
+              "description": "Defaults to the authenticated account."
+            },
+            "language": {
+              "type": "string",
+              "format": "language"
+            },
+            "source": {
+              "type": "string",
+              "knownValues": ["human", "auto"],
+              "description": "Whether a person or a recognizer produced the captions. Defaults to human."
+            },
+            "cues": {
+              "type": "array",
+              "maxLength": 100,
+              "items": {
+                "type": "ref",
+                "ref": "place.stream.caption.defs#pushedCue"
+              }
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      "errors": [
+        {
+          "name": "StreamNotLive"
+        },
+        {
+          "name": "Forbidden"
+        }
+      ]
+    }
+  }
+}

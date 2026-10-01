@@ -1,5 +1,6 @@
 import Hls from "hls.js";
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import { startBrowserCaptioner } from "streamplace";
 import {
   IngestMediaSource,
   PlayerProtocol,
@@ -10,8 +11,11 @@ import {
   useSetMuted,
   useStreamplaceStore,
 } from "../..";
+import { useTheme } from "../../lib/theme";
 import { borderRadius, mt } from "../../lib/theme/atoms";
-import { statusColors, surfaces } from "../../lib/theme/tokens";
+import { statusColors, surfaces, typeScale } from "../../lib/theme/tokens";
+import { usePossiblyUnauthedPDSAgent } from "../../streamplace-store/xrpc";
+import { useTextTrackCaptions } from "../captions/use-text-track-captions";
 import { Text, View } from "../ui/index";
 import { Loader } from "../ui/loader";
 import { srcToUrl } from "./shared";
@@ -168,6 +172,10 @@ const VideoElement = forwardRef<
   const setAutoplayFailed = usePlayerStore((x) => x.setAutoplayFailed);
 
   const localVideoRef = props.videoRef ?? useRef<HTMLVideoElement | null>(null);
+
+  // HLS subtitle renditions and Safari's native HLS text tracks feed the
+  // caption overlay.
+  useTextTrackCaptions(localVideoRef);
 
   // setPipAction comes from Zustand store
   useEffect(() => {
@@ -379,6 +387,9 @@ export function HLSPlayer(props: VideoProps) {
     }
     if (Hls.isSupported()) {
       var hls = new Hls({ maxAudioFramesDrift: 20 });
+      // Load the subtitle group's cues, but let CaptionOverlay draw them
+      // (useTextTrackCaptions keeps the chosen track "hidden").
+      hls.subtitleDisplay = false;
       hlsRef.current = hls;
       hls.loadSource(props.url);
       try {
@@ -673,6 +684,14 @@ export function WebcamIngestPlayer(props: VideoProps) {
   const setIngestLive = usePlayerStore((x) => x.setIngestLive);
 
   const [error, setError] = useState<Error | null>(null);
+  const { theme } = useTheme();
+  const captionAgent = usePossiblyUnauthedPDSAgent();
+  const oauthSession = useStreamplaceStore((state) => state.oauthSession);
+  const [deviceCaptions, setDeviceCaptions] = useState(
+    () =>
+      new URLSearchParams(window.location.search).get("deviceCaptions") === "1",
+  );
+  const [captionStatus, setCaptionStatus] = useState("");
 
   let streamKey = null;
 
@@ -755,6 +774,38 @@ export function WebcamIngestPlayer(props: VideoProps) {
     videoElement.srcObject = localMediaStream;
   }, [videoElement, localMediaStream]);
 
+  useEffect(() => {
+    if (!deviceCaptions || !localMediaStream || !captionAgent || !oauthSession)
+      return;
+    let cancelled = false;
+    let stop: (() => Promise<void>) | undefined;
+    setCaptionStatus("Loading device captions…");
+    void startBrowserCaptioner({
+      nodeURL: url,
+      agent: captionAgent,
+      stream: localMediaStream,
+      model: "tiny",
+      language: "",
+      onCue: (cue) => setCaptionStatus(cue.text),
+      onError: (captionError) => setCaptionStatus(captionError.message),
+      onSpeed: (rtf) => {
+        if (rtf >= 1)
+          setCaptionStatus(
+            "Device captions are slower than realtime on this browser.",
+          );
+      },
+    })
+      .then(async (session) => {
+        if (cancelled) await session.stop();
+        else stop = session.stop;
+      })
+      .catch((captionError: Error) => setCaptionStatus(captionError.message));
+    return () => {
+      cancelled = true;
+      void stop?.().catch(console.error);
+    };
+  }, [deviceCaptions, localMediaStream, captionAgent, oauthSession, url]);
+
   if (error) {
     return (
       <View
@@ -785,5 +836,52 @@ export function WebcamIngestPlayer(props: VideoProps) {
     );
   }
 
-  return <VideoElement {...props} ref={handleRef} />;
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <VideoElement {...props} ref={handleRef} />
+      <div
+        style={{
+          position: "absolute",
+          bottom: theme.spacing[4],
+          left: theme.spacing[4],
+          right: theme.spacing[4],
+          padding: theme.spacing[3],
+          borderRadius: theme.borderRadius.md,
+          background: theme.colors.surface0,
+          color: theme.colors.text1,
+          fontSize: typeScale.sm.fontSize,
+        }}
+      >
+        <label
+          style={{
+            display: "flex",
+            gap: theme.spacing[2],
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={deviceCaptions}
+            disabled={!oauthSession}
+            onChange={(event) => {
+              if (event.target.checked && !window.crossOriginIsolated) {
+                const next = new URL(window.location.href);
+                next.searchParams.set("deviceCaptions", "1");
+                window.location.assign(next.href);
+                return;
+              }
+              setDeviceCaptions(event.target.checked);
+            }}
+          />
+          Caption my stream on this device
+        </label>
+        <p>
+          Uses the outgoing audio track. Set caption policy to ingest for
+          canonical device captions; this toggle never changes policy. Enabling
+          may reload for browser isolation; restart Go Live after reloading.
+        </p>
+        {captionStatus && <p role="status">{captionStatus}</p>}
+      </div>
+    </div>
+  );
 }

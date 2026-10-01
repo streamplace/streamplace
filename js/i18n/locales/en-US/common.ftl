@@ -455,6 +455,33 @@ player-error-negotiation-failed = WebRTC negotiation failed
 player-error-stream-stalled = Stream stalled. Reconnecting.
 player-error-connection-lost = Connection lost. Reconnecting.
 
+## Captions
+player-captions = Captions
+player-captions-menu = Captions and subtitles
+player-captions-off = Off
+player-captions-style = Caption style
+player-captions-track-auto = { $language } (auto-generated)
+player-captions-shortcut = Captions (c)
+dashboard-captions = Captions
+dashboard-captions-auto = Automatic captions
+dashboard-captions-auto-description = Streamplace transcribes what you say and adds captions to your stream.
+dashboard-captions-ingest = My encoder or captioner provides captions
+dashboard-captions-ingest-description = Use the CEA-608/708 captions in your video, or captions sent with place.stream.caption.pushCaptions, instead of automatic captions.
+dashboard-captions-allow-nodes = Allow Streamplace nodes to caption my streams for accessibility
+dashboard-captions-allow-nodes-description = When your stream has no captions, nodes that carry it may add their own.
+dashboard-captions-language = Spoken language
+dashboard-captions-language-description = Helps speech recognition. Leave it unset to detect the language automatically.
+dashboard-captions-language-auto = Detect automatically
+vod-captions-title = Captions
+vod-captions-empty = This video has no captions yet.
+vod-captions-upload-description = Add a WebVTT (.vtt) or SubRip (.srt) file for a language. Uploading again for the same language replaces it.
+vod-captions-language = Caption language
+vod-captions-language-placeholder = Language code, like en or pt-BR
+vod-captions-upload = Upload captions
+vod-captions-uploaded = Captions uploaded.
+vod-captions-error-language = Enter a language code, like en or pt-BR.
+vod-captions-error-upload = Couldn't import that file. Check that it's valid WebVTT or SRT.
+
 ## Upload
 upload-error-format = File doesn't appear to be a supported video format (MP4, WebM, MKV, MOV, AVI, OGG, FLV, MPEG-TS).
 upload-error-timeout = Processing timed out. Please try again later.

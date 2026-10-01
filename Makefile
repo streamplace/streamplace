@@ -56,12 +56,19 @@ install:
 	pnpm install
 
 .PHONY: app
-app: install
+app: install whisper-wasm
 	pnpm run build
 
 .PHONY: app-cached
-app-cached:
+app-cached: whisper-wasm
 	if [ ! -f js/app/dist/index.html ] || [ ! -f js/web/dist/index.html ]; then $(MAKE) app; else echo "frontends already built, run make app to rebuild"; fi
+
+# Worker generation uses the workspace TypeScript compiler. app-cached can
+# reach this target before app/install on a fresh checkout.
+.PHONY: whisper-wasm
+whisper-wasm:
+	test -f node_modules/typescript/package.json || pnpm install
+	bash hack/whisper-wasm/build.sh
 
 .PHONY: ci-ios
 ci-ios: version install app

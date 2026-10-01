@@ -13,22 +13,28 @@ import (
 
 // PlaybackGetLiveSegment calls the XRPC method "place.stream.playback.getLiveSegment".
 //
-// Fetch a single live HLS segment, or a track's init segment, from the in-memory live window. `seg` is `init` for the EXT-X-MAP init segment, otherwise the segment's media-sequence number; a cosmetic `.m4s` suffix is accepted (and ignored) so ffmpeg-based HLS players will fetch it. HTTP Range is honored. Segments are the verbatim signed canonical .m4s, so provenance travels with playback.
+// Fetch a single live HLS segment, or a track's init segment, from the in-memory live window. `seg` is `init` for the EXT-X-MAP init segment, otherwise the segment's media-sequence number; a cosmetic `.m4s` suffix is accepted (and ignored) so ffmpeg-based HLS players will fetch it. HTTP Range is honored. Segments are the verbatim signed canonical .m4s, so provenance travels with playback. With `captions`, `seg` is a subtitle segment's media-sequence number (the same numbering as the video's, with a cosmetic `.vtt` suffix) and the response is a text/vtt document.
 //
-// seg: `init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored.
+// captions: Caption track id from place.stream.caption.listTracks, for a WebVTT subtitle segment instead of a media segment.
+// seg: `init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` (`.vtt` with `captions`) is accepted and ignored.
 // sid: Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control.
 // streamer: The streamer: a DID or a Bluesky handle (resolved to its DID).
-// track: Track ID (stringified u32 matching the MUXL container).
-func PlaybackGetLiveSegment(ctx context.Context, c glex.LexClient, seg string, sid string, streamer string, track string) ([]byte, error) {
+// track: Track ID (stringified u32 matching the MUXL container). Required unless `captions` is set.
+func PlaybackGetLiveSegment(ctx context.Context, c glex.LexClient, captions string, seg string, sid string, streamer string, track string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
+	if captions != "" {
+		params["captions"] = captions
+	}
 	if sid != "" {
 		params["sid"] = sid
 	}
+	if track != "" {
+		params["track"] = track
+	}
 	params["seg"] = seg
 	params["streamer"] = streamer
-	params["track"] = track
 
 	if err := c.LexDo(ctx, glex.Query, "", "place.stream.playback.getLiveSegment", params, nil, buf); err != nil {
 		return nil, err

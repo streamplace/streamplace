@@ -5,6 +5,8 @@ import {
   PinnedRecordViewHydrated,
   place,
 } from "streamplace";
+import type { LiveCaption } from "../captions/live-cues";
+import type { CaptionTrackView } from "../captions/tracks";
 
 /**
  * A permission record plus its AT-URI, which is needed to apply deletion
@@ -52,6 +54,10 @@ export interface LivestreamState {
   ) => void;
   localLivestreamURI: string | null;
   setLocalLivestreamURI: (uri: string | null) => void;
+  /** Caption tracks seen in liveCue events, in arrival order. */
+  captionTracks: CaptionTrackView[];
+  /** Recent live caption cues by cue id; see reduceLiveCaption. */
+  liveCaptions: Record<string, LiveCaption>;
 }
 
 export interface LivestreamProblem {

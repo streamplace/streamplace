@@ -114,9 +114,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())
 	e.Use(echomiddleware.Handler("", mdlw))
-	e.Use(s.ServiceAuthMiddleware())
-	e.Use(op.OAuthMiddleware)
-	e.Use(s.PDSAuthMiddleware())
+	s.useAuthMiddleware(e)
 	err = s.RegisterHandlersPlacestream(e)
 	if err != nil {
 		return nil, err

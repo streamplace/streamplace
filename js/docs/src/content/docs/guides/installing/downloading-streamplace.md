@@ -90,6 +90,9 @@ Streamplace rebuilds its own origin index from its durable server repository at
 startup, before serving requests. After upgrading, restart the node to repair
 historical gaps, including origins older than the 72-hour commit replay window.
 This does not republish records or add videos hosted only by other nodes.
+Reconciliation walks one immutable repository snapshot without repeatedly paging
+and sorting the collection. Live repair releases the repository writer lock before
+reading records and writing the index, so new origin commits can continue.
 
 For a live node, the internal admin listener also supports `POST /reindex-origins`.
 Its JSON response reports `serverDid`, `scanned`, `indexed`, and any per-record

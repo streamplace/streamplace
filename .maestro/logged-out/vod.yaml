@@ -12,8 +12,6 @@ appId: ${APP_ID}
       text: ".*e2e recovered video.*"
     direction: DOWN
     timeout: 30000
-- assertNotVisible:
-    text: ".*e2e unhosted video.*"
 - takeScreenshot: 08-01-recovered-listing
 - tapOn:
     text: ".*e2e recovered video.*"

@@ -22,6 +22,8 @@ function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
     setStreamKey: () => {},
     activeTeleport: null,
     activeTeleportUri: null,
+    activeTeleportCID: null,
+    canceledTeleportURIs: [],
     setActiveTeleportUri: () => {},
     websocketConnected: false,
     hasReceivedSegment: false,
@@ -273,6 +275,8 @@ describe("handleWebSocketMessages: teleport records", () => {
   it("stores incoming teleport records as the active teleport", () => {
     const teleport = {
       $type: "place.stream.live.teleport",
+      uri: "at://did:plc:streamer/place.stream.live.teleport/3kq",
+      cid: "bafyreicanceledold",
       destination: "did:plc:destination",
       createdAt: "2024-01-01T00:00:00.000Z",
     };
@@ -280,6 +284,110 @@ describe("handleWebSocketMessages: teleport records", () => {
     const result = handleWebSocketMessages(makeState(), [teleport]);
 
     expect(result.activeTeleport).toEqual(teleport);
+    expect(result.activeTeleportUri).toBe(teleport.uri);
+  });
+
+  it("does not clear a newer teleport for a cancellation of an older one", () => {
+    const activeTeleport = {
+      $type: "place.stream.live.teleport",
+      uri: "at://did:plc:streamer/place.stream.live.teleport/3kz",
+      cid: "bafyreicurrent",
+    };
+    const result = handleWebSocketMessages(
+      makeState({
+        activeTeleport: activeTeleport as never,
+        activeTeleportUri: activeTeleport.uri,
+      }),
+      [
+        {
+          $type: "place.stream.livestream#teleportCanceled",
+          teleportUri: "at://did:plc:streamer/place.stream.live.teleport/3kq",
+          cid: "bafyreicanceledold",
+          reason: "deleted",
+        },
+      ],
+    );
+
+    expect(result.activeTeleport).toBe(activeTeleport);
+    expect(result.activeTeleportUri).toBe(activeTeleport.uri);
+  });
+
+  it("ignores a teleport record delivered after its cancellation", () => {
+    const canceledURI = "at://did:plc:streamer/place.stream.live.teleport/3kq";
+    const canceledCID = "bafyreicanceledold";
+    const currentTeleport = {
+      $type: "place.stream.live.teleport",
+      uri: "at://did:plc:streamer/place.stream.live.teleport/3kz",
+      cid: "bafyreicurrent",
+    };
+    const staleTeleport = {
+      $type: "place.stream.live.teleport",
+      uri: canceledURI,
+      cid: canceledCID,
+    };
+    const state = handleWebSocketMessages(makeState(), [
+      {
+        $type: "place.stream.livestream#teleportCanceled",
+        teleportUri: canceledURI,
+        cid: canceledCID,
+        reason: "deleted",
+      },
+      currentTeleport,
+      staleTeleport,
+    ]);
+
+    expect(state.activeTeleport).toBe(currentTeleport);
+    expect(state.activeTeleportUri).toBe(currentTeleport.uri);
+  });
+
+  it("keeps only the most recent cancellation URIs", () => {
+    const makeVersion = (index: number) =>
+      `at://did:plc:streamer/place.stream.live.teleport/${index}#bafyreicid${index}`;
+    const canceledTeleportURIs = Array.from({ length: 256 }, (_, index) =>
+      makeVersion(index),
+    );
+    const nextURI = "at://did:plc:streamer/place.stream.live.teleport/newest";
+    const nextCID = "bafyreinewest";
+    const state = handleWebSocketMessages(makeState({ canceledTeleportURIs }), [
+      {
+        $type: "place.stream.livestream#teleportCanceled",
+        teleportUri: nextURI,
+        cid: nextCID,
+        reason: "deleted",
+      },
+    ]);
+
+    expect(state.canceledTeleportURIs).toHaveLength(256);
+    expect(state.canceledTeleportURIs).not.toContain(canceledTeleportURIs[0]);
+    expect(state.canceledTeleportURIs.at(-1)).toBe(`${nextURI}#${nextCID}`);
+  });
+
+  it("allows a recreated record at the same URI with a new CID", () => {
+    const uri = "at://did:plc:streamer/place.stream.live.teleport/3kq";
+    const replacement = {
+      $type: "place.stream.live.teleport",
+      uri,
+      cid: "bafyreinewrecord",
+    };
+    const state = handleWebSocketMessages(makeState(), [
+      {
+        $type: "place.stream.livestream#teleportCanceled",
+        teleportUri: uri,
+        cid: "bafyreicanceledold",
+        reason: "deleted",
+      },
+      replacement,
+      {
+        $type: "place.stream.livestream#teleportCanceled",
+        teleportUri: uri,
+        cid: "bafyreicanceledold",
+        reason: "deleted",
+      },
+    ]);
+
+    expect(state.activeTeleport).toBe(replacement);
+    expect(state.activeTeleportUri).toBe(uri);
+    expect(state.activeTeleportCID).toBe(replacement.cid);
   });
 
   it("deduplicates live and initial-burst teleport arrivals", () => {

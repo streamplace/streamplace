@@ -119,7 +119,10 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 		sentRenditions.Store("")
 		go func() {
 
-			ch := a.Bus.Subscribe(repoDID)
+			ch := a.Bus.SubscribeWithBacklogLimit(repoDID, func() {
+				conn.Close()
+				cancel()
+			})
 			defer a.Bus.Unsubscribe(repoDID, ch)
 			// Create a ticker that fires every 3 seconds
 			ticker := time.NewTicker(3 * time.Second)
@@ -141,9 +144,41 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				}
 			}
 
+			// Subscribe before reading the snapshot so changes during the lookup
+			// are buffered. Send the snapshot first, then consume those changes so
+			// a cancellation cannot be followed by the stale pending record.
+			teleport, err := a.Model.GetPendingTeleportForRepo(repoDID)
+			if err != nil {
+				log.Error(ctx, "could not get pending teleport", "error", err)
+			} else if teleport != nil && teleport.Teleport != nil {
+				var record placestream.LiveTeleport
+				if err := record.UnmarshalCBOR(bytes.NewReader(*teleport.Teleport)); err != nil {
+					log.Error(ctx, "could not decode pending teleport", "error", err, "uri", teleport.URI)
+				} else {
+					teleportMessage := map[string]any{
+						"$type":    record.RecordTypeID(),
+						"uri":      teleport.URI,
+						"cid":      teleport.CID,
+						"streamer": record.Streamer,
+						"startsAt": record.StartsAt,
+					}
+					if record.DurationSeconds != nil {
+						teleportMessage["durationSeconds"] = *record.DurationSeconds
+					}
+					if record.Livestream != nil {
+						teleportMessage["livestream"] = record.Livestream
+					}
+					send(teleportMessage)
+				}
+			}
+
 			for {
 				select {
-				case msg := <-ch:
+				case msg, ok := <-ch:
+					if !ok {
+						log.Warn(ctx, "websocket bus subscription exceeded its backlog")
+						return
+					}
 					send(msg)
 				case msg := <-initialBurst:
 					send(msg)
@@ -351,23 +386,6 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				}
 				initialBurst <- prv
 			}
-		}()
-
-		go func() {
-			teleport, err := a.Model.GetPendingTeleportForRepo(repoDID)
-			if err != nil {
-				log.Error(ctx, "could not get pending teleport", "error", err)
-				return
-			}
-			if teleport == nil || teleport.Teleport == nil {
-				return
-			}
-			var record placestream.LiveTeleport
-			if err := record.UnmarshalCBOR(bytes.NewReader(*teleport.Teleport)); err != nil {
-				log.Error(ctx, "could not decode pending teleport", "error", err, "uri", teleport.URI)
-				return
-			}
-			initialBurst <- &record
 		}()
 
 		go func() {

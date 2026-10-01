@@ -28,6 +28,8 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     problems: [],
     activeTeleport: null,
     activeTeleportUri: null,
+    activeTeleportCID: null,
+    canceledTeleportURIs: [],
     setActiveTeleportUri: (uri) => set({ activeTeleportUri: uri }),
     websocketConnected: false,
     hasReceivedSegment: false,

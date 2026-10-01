@@ -165,6 +165,7 @@ func (r *WebsocketReplicator) originViewForRow(row statedb.BroadcastOrigin) *pla
 func (r *WebsocketReplicator) startBusSubscribe(ctx context.Context) error {
 	// start subscription first so we're buffering new origins
 	busCh := r.bus.Subscribe("")
+	defer r.bus.Unsubscribe("", busCh)
 	originViews, err := r.mod.GetRecentBroadcastOrigins(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get recent broadcast origins: %w", err)
@@ -180,7 +181,10 @@ func (r *WebsocketReplicator) startBusSubscribe(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case msg := <-busCh:
+		case msg, ok := <-busCh:
+			if !ok {
+				return fmt.Errorf("bus subscription exceeded its backlog")
+			}
 			if view, ok := msg.(*placestream.BroadcastDefs_BroadcastOriginView); ok {
 				log.Debug(ctx, "got broadcast origin view", "view", view)
 				err = r.handleOriginMessage(ctx, view)

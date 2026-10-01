@@ -13,6 +13,7 @@ import { LivestreamModerationPermission, LivestreamState } from "./state";
 
 const MAX_RECENT_SEGMENTS = 10;
 const MODERATION_PERMISSION_TYPE = "place.stream.moderation.permission";
+const MAX_CANCELED_TELEPORT_URIS = 256;
 
 type ModerationPermissionDeletion = {
   $type?: unknown;
@@ -254,9 +255,27 @@ export const handleWebSocketMessages = (
         }
       } else if (place.stream.live.teleport.$isTypeOf(message)) {
         const teleportRecord = message as place.stream.live.teleport.Main;
+        const teleportMessage = message as place.stream.live.teleport.Main & {
+          uri?: unknown;
+          cid?: unknown;
+        };
+        const teleportUri =
+          typeof teleportMessage.uri === "string" ? teleportMessage.uri : null;
+        const teleportCID =
+          typeof teleportMessage.cid === "string" ? teleportMessage.cid : null;
+        const teleportVersion =
+          teleportUri && teleportCID ? `${teleportUri}#${teleportCID}` : null;
+        if (
+          teleportVersion &&
+          state.canceledTeleportURIs.includes(teleportVersion)
+        ) {
+          continue;
+        }
         state = {
           ...state,
           activeTeleport: teleportRecord,
+          activeTeleportUri: teleportUri ?? state.activeTeleportUri,
+          activeTeleportCID: teleportCID ?? state.activeTeleportCID,
         };
       } else if (place.stream.livestream.teleportArrival.isTypeOf(message)) {
         // teleport has succeeded, we are now at the target stream
@@ -287,10 +306,36 @@ export const handleWebSocketMessages = (
         state = reduceChat(state, [systemMessage], []);
       } else if (place.stream.livestream.teleportCanceled.isTypeOf(message)) {
         // teleport was canceled (deleted or denied)
+        const cancellation =
+          message as place.stream.livestream.TeleportCanceled & {
+            cid?: string;
+          };
+        const cancellationVersion = cancellation.cid
+          ? `${cancellation.teleportUri}#${cancellation.cid}`
+          : cancellation.teleportUri;
+        const canceledTeleportURIs = state.canceledTeleportURIs.includes(
+          cancellationVersion,
+        )
+          ? state.canceledTeleportURIs
+          : [...state.canceledTeleportURIs, cancellationVersion].slice(
+              -MAX_CANCELED_TELEPORT_URIS,
+            );
+        const cancelsActiveTeleport =
+          (!state.activeTeleportUri ||
+            state.activeTeleportUri === cancellation.teleportUri) &&
+          (!state.activeTeleportCID ||
+            !cancellation.cid ||
+            state.activeTeleportCID === cancellation.cid);
         state = {
           ...state,
-          activeTeleport: null,
-          activeTeleportUri: null,
+          canceledTeleportURIs,
+          ...(cancelsActiveTeleport
+            ? {
+                activeTeleport: null,
+                activeTeleportUri: null,
+                activeTeleportCID: null,
+              }
+            : {}),
         };
       }
     }

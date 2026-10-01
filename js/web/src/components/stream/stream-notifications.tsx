@@ -267,13 +267,15 @@ function TeleportNotification({
     if (!pdsAgent || !did || !activeTeleportUri) return;
     try {
       await deleteTeleport(pdsAgent, did, activeTeleportUri);
-      store.setState({ activeTeleportUri: null, activeTeleport: null });
+      store.setState({
+        activeTeleportUri: null,
+        activeTeleportCID: null,
+        activeTeleport: null,
+      });
     } catch (error) {
       console.error("Failed to cancel teleport:", error);
     }
   };
-
-  if (!Number.isFinite(startsAt)) return null;
 
   const diff = Math.max(0, Math.ceil((startsAt - now) / 1000));
 
@@ -281,7 +283,7 @@ function TeleportNotification({
     if (diff <= 0) streamNotification.hide("teleport");
   }, [diff]);
 
-  if (diff <= 0) return null;
+  if (!Number.isFinite(startsAt) || diff <= 0) return null;
 
   const mins = Math.floor(diff / 60);
   const secs = diff % 60;

@@ -639,7 +639,7 @@ linux-arm64:
 	&& CC=aarch64-linux-gnu-gcc \
 	LD=aarch64-linux-gnu-ld \
 	CROSS_COMPILE=1 \
-	MESON_SETUP_OPTS="--cross-file util/linux-arm64-gnu.ini $(if $(USE_SCCACHE),--cross-file util/linux-arm64-sccache.ini)" \
+	MESON_SETUP_OPTS="--cross-file util/linux-arm64-gnu.ini" \
 	BUILDDIR=build-linux-arm64 \
 	CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
 	$(MAKE) -j $(shell nproc) archive
@@ -650,7 +650,7 @@ windows-amd64:
 	&& CC=x86_64-w64-mingw32-gcc \
 	LD=x86_64-w64-mingw32-ld \
 	CROSS_COMPILE=1 \
-	MESON_SETUP_OPTS="--cross-file util/windows-amd64-gnu.ini $(if $(USE_SCCACHE),--cross-file util/windows-amd64-sccache.ini)" \
+	MESON_SETUP_OPTS="--cross-file util/windows-amd64-gnu.ini" \
 	BUILDDIR=build-windows-amd64 \
 	$(MAKE) -j $(shell nproc) archive
 
@@ -770,7 +770,6 @@ dockerfile-hash-precommit:
 .PHONY: golangci-lint-container
 golangci-lint-container: docker-build-builder
 	podman run \
-		$(DOCKER_OPTS) \
 		-v $$(pwd):$$(pwd) \
 		-w $$(pwd) \
 		-e PKG_CONFIG_PATH=$$(pwd)/build-linux-amd64/lib/pkgconfig \

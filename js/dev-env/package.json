@@ -12,7 +12,8 @@
     "better-sqlite3": "10.1.0",
     "get-port": "^7.1.0",
     "typescript": "^5.8.2",
-    "uint8arrays": "^5.1.0"
+    "uint8arrays": "^5.1.0",
+    "undici": "^6.24.0"
   },
   "exports": {
     ".": "./dist/index.js"

@@ -1,4 +1,5 @@
 import { TestNetwork } from "./dist/index.js";
+import "./https-proxy.mjs";
 
 // With DEV_ENV_PDS_HOSTNAME the PDS presents itself as https://<hostname>
 // (its OAuth issuer, did:web and account handles under .<hostname>) while

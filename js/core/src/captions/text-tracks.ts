@@ -6,8 +6,26 @@ function cueLines(cues: TextTrackCueList | null): string[] {
   if (!cues) return [];
   const lines: string[] = [];
   for (const cue of Array.from(cues)) {
-    const text = "text" in cue && typeof cue.text === "string" ? cue.text : "";
-    for (const line of text.replace(/<[^>]*>/g, "").split("\n")) {
+    const payload =
+      "text" in cue && typeof cue.text === "string" ? cue.text : "";
+    const text =
+      "getCueAsHTML" in cue && typeof cue.getCueAsHTML === "function"
+        ? ((cue.getCueAsHTML() as DocumentFragment).textContent ?? "")
+        : payload
+            .replace(/<[^>]*>/g, "")
+            .replace(
+              /&(amp|lt|gt|nbsp|lrm|rlm);/g,
+              (_, name: string) =>
+                ({
+                  amp: "&",
+                  lt: "<",
+                  gt: ">",
+                  nbsp: "\u00a0",
+                  lrm: "\u200e",
+                  rlm: "\u200f",
+                })[name] ?? "",
+            );
+    for (const line of text.split("\n")) {
       if (line.trim() !== "") lines.push(line);
     }
   }
@@ -34,6 +52,7 @@ export function watchTextTracks(
 ): TextTrackWatcher {
   const list = video.textTracks;
   const keys = new WeakMap<TextTrack, string>();
+  const subscribed = new Set<TextTrack>();
   let nextKey = 0;
   let activeKey: string | null = null;
   let lastLines = "";
@@ -61,11 +80,19 @@ export function watchTextTracks(
   };
 
   const apply = () => {
-    for (const track of captionTracks()) {
+    const current = captionTracks();
+    for (const track of subscribed) {
+      if (!current.includes(track)) {
+        track.removeEventListener("cuechange", updateLines);
+        subscribed.delete(track);
+      }
+    }
+    for (const track of current) {
       const mode = keyOf(track) === activeKey ? "hidden" : "disabled";
       if (track.mode !== mode) track.mode = mode;
       // Re-adding the same listener is a no-op.
       track.addEventListener("cuechange", updateLines);
+      subscribed.add(track);
     }
     updateLines();
   };
@@ -97,9 +124,10 @@ export function watchTextTracks(
       list.removeEventListener("addtrack", onListChanged);
       list.removeEventListener("removetrack", onListChanged);
       list.removeEventListener("change", apply);
-      for (const track of Array.from(list)) {
+      for (const track of subscribed) {
         track.removeEventListener("cuechange", updateLines);
       }
+      subscribed.clear();
     },
   };
 }

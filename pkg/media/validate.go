@@ -274,6 +274,7 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(seg), "flat", &playable); err != nil {
 		return fmt.Errorf("wrap segment for distribution: %w", err)
 	}
+	mm.distributeCaptions(ctx, vs, seg, playable.Bytes())
 
 	mm.notifySubscribers(ctx, &NewSegmentNotification{
 		Segment:  dbSeg,

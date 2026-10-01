@@ -18,15 +18,20 @@ import (
 // aliases, so values (events, catalogs, signer inputs) flow between this package
 // and upstream with no conversion and the existing call sites are unchanged.
 type (
-	MuxlEvent        = upstream.Event
-	MuxlCatalog      = upstream.Catalog
-	MuxlCatalogVideo = upstream.CatalogVideo
-	MuxlCatalogAudio = upstream.CatalogAudio
-	MuxlVideoConfig  = upstream.VideoConfig
-	MuxlAudioConfig  = upstream.AudioConfig
-	MuxlContainer    = upstream.Container
-	SignerInput      = upstream.SignerInput
-	TranscodeInput   = upstream.TranscodeInput
+	MuxlEvent           = upstream.Event
+	MuxlCatalog         = upstream.Catalog
+	MuxlCatalogVideo    = upstream.CatalogVideo
+	MuxlCatalogAudio    = upstream.CatalogAudio
+	MuxlVideoConfig     = upstream.VideoConfig
+	MuxlAudioConfig     = upstream.AudioConfig
+	MuxlContainer       = upstream.Container
+	SignerInput         = upstream.SignerInput
+	TextRequest         = upstream.TextRequest
+	TextAttachment      = upstream.TextAttachment
+	TextTrackAttachment = upstream.TextTrackAttachment
+	TextTrack           = upstream.TextTrack
+	TextCue             = upstream.TextCue
+	TranscodeInput      = upstream.TranscodeInput
 )
 
 // TranscodeIngredientLabel is the C2PA ingredient label SignTranscode assigns
@@ -311,4 +316,22 @@ func failedConcatenator(err error) *Concatenator {
 		write:   func([]byte) error { return err },
 		closeFn: func() error { return err },
 	}
+}
+
+// RunMuxlTextTracks lists archival WebVTT tracks on the shared wasm engine.
+func RunMuxlTextTracks(ctx context.Context, input io.Reader) ([]TextTrack, error) {
+	eng, err := getEngine()
+	if err != nil {
+		return nil, err
+	}
+	return eng.TextTracks(ctx, input)
+}
+
+// RunMuxlReadTextCues reconstructs cues across canonical GoP boundaries.
+func RunMuxlReadTextCues(ctx context.Context, input io.Reader, trackID uint32) ([]TextCue, error) {
+	eng, err := getEngine()
+	if err != nil {
+		return nil, err
+	}
+	return eng.ReadTextCues(ctx, input, trackID)
 }

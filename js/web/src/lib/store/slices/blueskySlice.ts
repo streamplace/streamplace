@@ -378,6 +378,7 @@ export const createBlueskySlice: StateCreator<
       for (let i = 0; i < unique.length; i += BATCH_SIZE) {
         const batch = unique.slice(i, i + BATCH_SIZE);
         const payload = await bskyAgent.getProfiles({ actors: batch });
+        if (payload.data.profiles.length === 0) continue;
         let parsedProfiles = {};
         payload.data.profiles.forEach((p) => {
           parsedProfiles[p.did] = p;

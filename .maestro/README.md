@@ -37,6 +37,20 @@ These focused tests use native presentation adapters; the Maestro flow exercises
 the actual native sheet and portal. The component tests also run in
 `pnpm run check`.
 
+`08-captions` runs after login and chat flows. It toggles the shared
+`player-cc-button`, selects Off through `player-cc-menu-button`, pushes known
+live text with `push-caption.js`, verifies `caption-overlay-text`, then turns
+captions off. The default low-latency player renders websocket cues through
+the overlay; native HLS subtitle renditions are rendered by expo-video with
+the OS caption style. The harness supplies `SERVER_URL`, `ACCOUNT_DID` and
+`STREAM_KEY`; the stream key authenticates the caption procedure, not a PDS JWT.
+The host-side `runScript` HTTP calls use `CAPTION_API_URL`, the harness's plain
+loopback API, while the installed app continues to use HTTPS `SERVER_URL`.
+The proof cue lasts four seconds and is pushed again after track selection,
+so the overlay assertion exercises its actual media-timed interval. Readiness
+retries wait in the open track menu for the mastered human track to appear
+before selecting it; unexpected API errors still fail immediately.
+
 ## HTTPS, and logging in
 
 The app reaches the harness over HTTPS only: release builds refuse cleartext,
@@ -73,6 +87,18 @@ The runner runs on the host, not in the build container: the emulator has to
 reach the harness.
 
 ### Port 443
+
+For a local run without host sudo or a privileged-port redirect, use an
+unprivileged HTTPS listener and explicitly select your rooted emulator:
+
+```bash
+E2E_HTTPS_PORT=14443 ANDROID_SERIAL=emulator-5554 hack/e2e-local.sh android
+```
+
+The runner redirects only that emulator's traffic from `10.0.2.2:443` to the
+chosen host port, retaining portless HTTPS URLs and the real harness CA.
+It removes the guest rule when the run exits. With the default port 443,
+including CI's `android-e2e` job, no guest redirection is installed.
 
 The harness binds 127.0.0.1:443, which an unprivileged host process can't do
 by default; if it fails, it says how to allow that until the next reboot. To

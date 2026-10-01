@@ -1,3 +1,4 @@
+import { useStore as useAppStore } from "@/lib/store";
 import { useSonare } from "@/lib/useSonare";
 import {
   useCallback,
@@ -10,6 +11,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { Loader } from "../ui/loader";
+import { CaptionOverlay } from "./caption-overlay";
 import { HLSPlayer } from "./hls-player";
 import {
   getBufferingOverlayPresentation,
@@ -18,6 +20,10 @@ import {
   type BufferingMediaEvent,
 } from "./player-buffering";
 import { PlayerControls } from "./player-controls";
+import {
+  usePlayerCaptions,
+  type PlayerCaptionSource,
+} from "./use-player-captions";
 import { WebRTCPlayer } from "./webrtc-player";
 
 export type PlayerProps = {
@@ -54,6 +60,7 @@ export type PlayerProps = {
   danmuOverlay?: ReactNode;
   /** Whether the current user is the stream owner. */
   isStreamer?: boolean;
+  captionSource?: PlayerCaptionSource;
 };
 
 /** One quality option shown in the player's settings menu. */
@@ -164,6 +171,7 @@ export function Player({
   onShowDanmuChange,
   danmuOverlay,
   isStreamer,
+  captionSource,
 }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -184,6 +192,8 @@ export function Player({
   const [stats, setStats] = useState<PlayerStats | null>(null);
   // Stable per-mount id for video playback
   const [sessionId] = useSonare();
+  const captions = usePlayerCaptions(videoRef, captionSource, active);
+  const captionPrefs = useAppStore((s) => s.captionPrefs);
 
   // Refs so the video event-listener effect below doesn't have to list
   // these as deps; it would otherwise tear down and re-add its
@@ -377,7 +387,7 @@ export function Player({
       {active && (
         <PlayerBackend
           src={src}
-          useWebRTC={useWebRTC}
+          useWebRTC={mode === "live" && useWebRTC}
           mode={mode}
           lowLatency={lowLatency}
           videoRef={videoRef}
@@ -403,10 +413,18 @@ export function Player({
       )}
 
       {active && danmuOverlay}
+      {active && (
+        <CaptionOverlay
+          lines={captions.lines}
+          prefs={captionPrefs}
+          raised={showControls}
+        />
+      )}
 
       {active && (
         <PlayerControls
           videoRef={videoRef}
+          captions={captions}
           containerRef={containerRef}
           isLive={mode === "live"}
           showControls={showControls}

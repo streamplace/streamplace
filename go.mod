@@ -72,7 +72,7 @@ require (
 	github.com/streamplace/atmoq/go v0.0.4-0.20260701223355-13757de4ae08
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20260413212710-98956064d06c
 	github.com/streamplace/glex v0.0.0-20260820164827-814f46540f22
-	github.com/streamplace/muxl/go v0.3.5
+	github.com/streamplace/muxl/go v0.3.6-0.20261001091251-c4e9d84c5131
 	github.com/streamplace/oatproxy v0.0.0-20260710202406-60d97b9d780b
 	github.com/stretchr/testify v1.11.1
 	github.com/tdewolff/canvas v0.0.0-20250728095813-50d4cb1eee71

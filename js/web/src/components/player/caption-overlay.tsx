@@ -9,10 +9,6 @@ import {
 } from "@streamplace/core";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
-// Smallest caption text, in px: the design system's xs type size, so
-// captions stay readable in small embeds.
-const MIN_CAPTION_PX = 14;
-
 /**
  * Caption lines in the viewer's display settings. All colors here are the
  * viewer's own choices (@streamplace/core captions/prefs), not theme
@@ -25,15 +21,27 @@ export function CaptionLines({
 }: {
   lines: string[];
   prefs: CaptionDisplayPrefs;
-  fontSize: number;
+  fontSize: number | string;
 }) {
+  const textRef = useRef<HTMLDivElement | null>(null);
+  const [measuredSize, setMeasuredSize] = useState(0);
+  useEffect(() => {
+    if (textRef.current && typeof fontSize === "string")
+      setMeasuredSize(parseFloat(getComputedStyle(textRef.current).fontSize));
+  }, [fontSize]);
   const lineStyle: CSSProperties = {
+    font: "inherit",
     color: captionColor(prefs.textColor, prefs.textOpacity),
     backgroundColor: captionColor(
       prefs.backgroundColor,
       prefs.backgroundOpacity,
     ),
-    textShadow: captionTextShadowCss(captionEdgeShadows(prefs, fontSize)),
+    textShadow: captionTextShadowCss(
+      captionEdgeShadows(
+        prefs,
+        typeof fontSize === "number" ? fontSize : measuredSize,
+      ),
+    ),
     // Background behind each line's glyphs, padded at the line ends, like
     // broadcast captions.
     boxDecorationBreak: "clone",
@@ -42,6 +50,7 @@ export function CaptionLines({
   };
   return (
     <div
+      ref={textRef}
       className="max-w-[90%] rounded-sm px-2 py-1 text-center"
       style={{
         backgroundColor: captionColor(prefs.windowColor, prefs.windowOpacity),
@@ -51,9 +60,13 @@ export function CaptionLines({
         lineHeight: 1.3,
       }}
     >
-      <p data-testid="caption-overlay-text" className="m-0 whitespace-pre-wrap">
+      <p
+        data-testid="caption-overlay-text"
+        className="m-0 whitespace-pre-wrap"
+        style={{ font: "inherit" }}
+      >
         {lines.map((line, i) => (
-          <span key={i}>
+          <span key={i} style={{ font: "inherit" }}>
             {i > 0 && <br />}
             <span style={lineStyle}>{line}</span>
           </span>
@@ -100,7 +113,7 @@ export function CaptionOverlay({
         <CaptionLines
           lines={lines}
           prefs={prefs}
-          fontSize={captionFontSize(prefs, height, MIN_CAPTION_PX)}
+          fontSize={`max(var(--text-xs), ${captionFontSize(prefs, height, 0)}px)`}
         />
       )}
     </div>

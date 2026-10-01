@@ -75,7 +75,7 @@ function ChoiceGroup<T extends string | number>({
               testID={`${testID}-${choice.value}`}
               accessibilityRole="radio"
               accessibilityLabel={choice.label}
-              accessibilityState={{ checked: selected }}
+              aria-checked={selected}
               onPress={() => onChange(choice.value)}
               style={{
                 flexDirection: "row",
@@ -165,6 +165,11 @@ export function CaptionSettings() {
           onValueChange={setEnabled}
         />
       </View>
+      {Platform.OS !== "web" && (
+        <Text size="sm" muted>
+          {t("captions-native-style-description")}
+        </Text>
+      )}
 
       <View
         testID="settings-captions-preview"

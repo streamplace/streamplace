@@ -22,6 +22,9 @@ type RecognizerOptions struct {
 	Hub       *Hub
 	Engine    stt.Engine
 	Layout    CueLayout
+	// OnCoverage runs after finalized captions are published, with the absolute
+	// audio watermark before any still-provisional words. It is monotonic.
+	OnCoverage func(time.Time)
 
 	// Step is how much new audio arrives between passes over the window.
 	Step time.Duration
@@ -103,6 +106,7 @@ type Recognizer struct {
 	track     Track
 	grouper   *Grouper
 	passes    int
+	coverage  time.Time
 }
 
 // NewRecognizer leases recognition capacity and starts the worker. It
@@ -189,6 +193,7 @@ func (r *Recognizer) run() {
 			// finish everything with a forced final pass.
 			r.drain()
 			r.maybePass(true)
+			// A refused/failed final pass must still flush previously known words.
 			r.finish()
 			return
 		case <-r.ctx.Done():
@@ -285,6 +290,7 @@ func (r *Recognizer) maybePass(force bool) {
 		// window moves past the silence.
 		r.commitAll()
 		r.advance(len(r.buf))
+		r.reportCoverage(r.bufStart)
 		return
 	}
 
@@ -370,10 +376,26 @@ func (r *Recognizer) maybePass(force bool) {
 			r.advance(len(pcm) - keep)
 		}
 	}
-	if !force {
-		// A forced pass is followed by a commit of everything, so an
-		// interim would only flicker.
+	if force {
+		r.finish()
+	} else {
 		r.publishInterim()
+	}
+	// Examining audio is not enough: the signer may consume only immutable
+	// finals, so never release it past a still-open cue or uncommitted word.
+	finalized := winEnd
+	if cue, ok := r.grouper.Current(r.prev); ok && cue.Start.Before(finalized) {
+		finalized = cue.Start
+	}
+	r.reportCoverage(finalized)
+}
+
+func (r *Recognizer) reportCoverage(end time.Time) {
+	if end.After(r.coverage) {
+		r.coverage = end
+		if r.opts.OnCoverage != nil {
+			r.opts.OnCoverage(end)
+		}
 	}
 }
 

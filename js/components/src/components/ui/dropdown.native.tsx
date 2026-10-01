@@ -464,40 +464,53 @@ export const ResponsiveDropdownMenuContent = forwardRef<
 export const DropdownMenuItem = forwardRef<
   any,
   DropdownMenuPrimitive.ItemProps & { inset?: boolean; disabled?: boolean }
->(({ inset, disabled, style, children, ...props }, ref) => {
-  const { theme } = useTheme();
-  return (
-    <Pressable {...props}>
-      <TextClassContext.Provider
-        value={objectFromObjects([
-          { color: theme.colors.popoverForeground },
-          a.fontSize.base,
-        ])}
+>(
+  (
+    { inset, disabled, style, children, closeOnPress, onPress, ...props },
+    ref,
+  ) => {
+    const { theme } = useTheme();
+    const { onOpenChange } = DropdownMenuPrimitive.useRootContext();
+    return (
+      <Pressable
+        {...props}
+        disabled={disabled}
+        onPress={(event) => {
+          if (closeOnPress) onOpenChange?.(false);
+          onPress?.(event);
+        }}
       >
-        <View
-          style={[
-            a.layout.flex.row,
-            a.layout.flex.alignCenter,
-            a.radius.all.sm,
-            py[1],
-            pl[2],
-            pr[2],
-          ]}
+        <TextClassContext.Provider
+          value={objectFromObjects([
+            { color: theme.colors.popoverForeground },
+            a.fontSize.base,
+          ])}
         >
-          {typeof children === "function" ? (
-            children({ pressed: true })
-          ) : typeof children === "string" ? (
-            <Text style={[inset && gap[2], disabled && { opacity: 0.5 }]}>
-              {children}
-            </Text>
-          ) : (
-            children
-          )}
-        </View>
-      </TextClassContext.Provider>
-    </Pressable>
-  );
-});
+          <View
+            style={[
+              a.layout.flex.row,
+              a.layout.flex.alignCenter,
+              a.radius.all.sm,
+              py[1],
+              pl[2],
+              pr[2],
+            ]}
+          >
+            {typeof children === "function" ? (
+              children({ pressed: true })
+            ) : typeof children === "string" ? (
+              <Text style={[inset && gap[2], disabled && { opacity: 0.5 }]}>
+                {children}
+              </Text>
+            ) : (
+              children
+            )}
+          </View>
+        </TextClassContext.Provider>
+      </Pressable>
+    );
+  },
+);
 
 export const DropdownMenuCheckboxItem = forwardRef<
   any,
@@ -555,20 +568,22 @@ export const DropdownMenuRadioItem = forwardRef<
     children?: React.ReactNode;
     value?: string;
   }
->(({ children, value, ...props }, ref) => {
+>(({ children, value, closeOnPress, onPress, ...props }, ref) => {
   const { theme } = useTheme();
   const radioGroupContext = useContext(RadioGroupContext);
+  const { onOpenChange } = DropdownMenuPrimitive.useRootContext();
   const isSelected = radioGroupContext?.value === value;
 
   return (
     <Pressable
+      {...props}
       onPress={(e) => {
         if (value && radioGroupContext?.onValueChange) {
           radioGroupContext.onValueChange(value);
         }
-        props.onPress?.(e);
+        if (closeOnPress) onOpenChange?.(false);
+        onPress?.(e);
       }}
-      {...props}
     >
       <View
         style={[

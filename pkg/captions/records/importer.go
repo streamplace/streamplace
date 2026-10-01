@@ -98,7 +98,7 @@ func (im *Importer) Import(ctx context.Context, client XRPCClient, caller string
 	if err != nil {
 		return nil, err
 	}
-	chunks := transcript.Chunk(transcript.WordsFromCues(cues), im.Chunking)
+	chunks := transcript.ChunkAuthored(transcript.WordsFromCues(cues), im.Chunking)
 	if len(chunks) == 0 {
 		return nil, fmt.Errorf("%w: the file has no caption text", ErrInvalidCaptions)
 	}

@@ -8,16 +8,26 @@ export interface LiveCaption {
   final: boolean;
   /** Cue start on the segment wall clock, ms since the epoch. */
   startMs: number;
+  endMs: number;
   /** Local time of the last revision, ms since the epoch. */
   updatedAt: number;
 }
 
-/**
- * How long a cue stays on screen after its last revision. Live cues
- * render as they arrive (WebRTC plays within a second of the encoder),
- * so this is the reading time a line gets once speech moves on.
- */
+/** Minimum reading time for the streamer's standalone OBS display. */
 export const LIVE_CAPTION_HOLD_MS = 5000;
+
+export interface CaptionClock {
+  startMs: number;
+  receivedAt: number;
+}
+
+/** Estimate presentation time from the latest segment announcement. */
+export function presentedCaptionTime(
+  clock: CaptionClock | null,
+  now: number,
+): number | null {
+  return clock ? clock.startMs + Math.max(0, now - clock.receivedAt) : null;
+}
 
 /** Rolling captions show at most this many cues at once. */
 export const LIVE_CAPTION_MAX_LINES = 2;
@@ -38,27 +48,31 @@ export function reduceLiveCaption(
 ): Record<string, LiveCaption> {
   const next: Record<string, LiveCaption> = {};
   for (const [id, c] of Object.entries(cues)) {
-    if (now - c.updatedAt <= LIVE_CAPTION_RETAIN_MS) next[id] = c;
+    if (
+      now - c.updatedAt <= LIVE_CAPTION_RETAIN_MS ||
+      c.endMs >= now - LIVE_CAPTION_RETAIN_MS
+    ) {
+      next[id] = c;
+    }
   }
   const key = JSON.stringify([cue.track.id, cue.id]);
   const existing = next[key];
   if (existing?.final) return next;
   const startMs = Date.parse(cue.startTime);
+  const endMs = Date.parse(cue.endTime);
   next[key] = {
     id: cue.id,
     trackId: cue.track.id,
     text: cue.text,
     final: cue.final,
     startMs: Number.isFinite(startMs) ? startMs : now,
+    endMs: Number.isFinite(endMs) ? endMs : now,
     updatedAt: now,
   };
   return next;
 }
 
-/**
- * The cues of one track to show now: revised within the hold window,
- * non-empty, oldest first, at most LIVE_CAPTION_MAX_LINES.
- */
+/** Cues covering the presented media wall clock, newest two, oldest first. */
 export function activeLiveCaptions(
   cues: Record<string, LiveCaption>,
   trackId: string,
@@ -69,8 +83,27 @@ export function activeLiveCaptions(
       (c) =>
         c.trackId === trackId &&
         c.text.trim() !== "" &&
-        now - c.updatedAt <= LIVE_CAPTION_HOLD_MS,
+        c.startMs <= now + 100 &&
+        now < c.endMs,
     )
     .sort((a, b) => a.startMs - b.startMs)
     .slice(-LIVE_CAPTION_MAX_LINES);
+}
+
+/** OBS composites the streamer's live speech, independently of player latency. */
+export function displayLiveCaptions(
+  cues: Record<string, LiveCaption>,
+  trackId: string,
+  now: number,
+): LiveCaption[] {
+  const latest = Object.values(cues)
+    .filter((c) => c.trackId === trackId && c.text.trim() !== "")
+    .sort((a, b) => a.updatedAt - b.updatedAt || a.startMs - b.startMs)
+    .at(-1);
+  return latest &&
+    now <
+      latest.updatedAt +
+        Math.max(LIVE_CAPTION_HOLD_MS, latest.endMs - latest.startMs)
+    ? [latest]
+    : [];
 }

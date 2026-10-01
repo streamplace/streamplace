@@ -22,6 +22,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
+	"stream.place/streamplace/pkg/stt"
 )
 
 var signerTracer = otel.Tracer("signer")
@@ -56,6 +57,7 @@ type MediaSignerLocal struct {
 	manifestBuilder  Manifester
 	PrebuiltManifest []byte // Optional: use this manifest instead of building one
 	sigs             [][]byte
+	cli              *config.CLI
 }
 
 func prepareCert(ctx context.Context, cli *config.CLI, signer crypto.Signer) ([]byte, error) {
@@ -89,6 +91,7 @@ func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, sign
 		AQPub:           pub,
 		did:             did.DIDKey(),
 		manifestBuilder: NewManifestBuilder(model, cli),
+		cli:             cli,
 	}, nil
 }
 
@@ -156,17 +159,39 @@ func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Read
 		attribute.String("streamer", ms.StreamerName),
 	))
 	defer span.End()
+	mm, _ := ctx.Value(captionManagerKey{}).(*MediaManager)
+	cli := ms.cli
+	if mm != nil {
+		cli = mm.cli
+	}
+	if cli == nil {
+		cli = &config.CLI{}
+	}
+	var engine stt.Engine
+	if mm != nil {
+		engine = mm.STT
+	}
+	master := newCaptionMaster(ctx, ms.StreamerName, cli, engine)
+	if mm != nil {
+		defer mm.registerCaptionMaster(ms.StreamerName, master)()
+	}
 
 	// One callback shared by both kinds — track and wrapper manifests are the
 	// same JSON in Streamplace today, so a single buildManifest call per GoP
 	// covers both. If they ever diverge we split this in two.
 	fetchManifest := func() ([]byte, error) {
-		return ms.buildManifest(ctx, time.Now().UnixMilli())
+		data, err := ms.buildManifest(ctx, time.Now().UnixMilli())
+		if err == nil {
+			master.setManifest(data)
+		}
+		return data, err
 	}
 	in := muxl.SignerInput{
 		CertPEM:           ms.Cert,
 		TrackManifestFn:   fetchManifest,
 		WrapperManifestFn: fetchManifest,
+		TextFn:            master.text,
+		SegmentTimeFn:     master.segmentTime,
 	}
 	if _, ok := ms.Signer.(*ecdsa.PrivateKey); ok {
 		keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
@@ -179,6 +204,8 @@ func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Read
 		in.Sign = muxl.SignerToCallback(ms.Signer, 32)
 		span.SetAttributes(attribute.String("backend", "host-callback"))
 	}
+	input, finish := master.tee(input)
+	defer finish()
 
 	return muxl.RunMuxlSignSegment(ctx, input, in, nil, nil, eventCh)
 }

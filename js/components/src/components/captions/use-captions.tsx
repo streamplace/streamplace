@@ -5,6 +5,7 @@ import {
   fetchCaptionTracks,
   fetchTimedCaptions,
   mergeCaptionTracks,
+  presentedCaptionTime,
   selectCaptionTrack,
   TimedCaption,
   timedCaptionsAt,
@@ -89,12 +90,9 @@ export function useSetCaptionTrack(): (
 
 /** Turns captions on (the selected or preferred track) or off; the `c` key. */
 export function useToggleCaptions(): () => void {
-  const { track, enabled } = useCaptionSelection();
-  const setTrack = useSetCaptionTrack();
-  return useCallback(
-    () => setTrack(enabled ? null : track),
-    [enabled, track, setTrack],
-  );
+  const enabled = useCaptionsEnabled();
+  const setEnabled = useSetCaptionsEnabled();
+  return useCallback(() => setEnabled(!enabled), [enabled, setEnabled]);
 }
 
 /** Menu label for a track: its language, marked when auto-generated. */
@@ -121,6 +119,11 @@ export function useLoadCaptionTracks() {
   const src = usePlayerStore((x) => x.src);
   const setServerTracks = usePlayerStore((x) => x.setCaptionServerTracks);
   const url = useStreamplaceStore((x) => x.url);
+  const session = useLivestreamStoreOptional((x) =>
+    x.livestream
+      ? `${x.livestream.uri}:${x.livestream.record.endedAt ?? ""}`
+      : null,
+  );
   useEffect(() => {
     setServerTracks(NO_TRACKS);
     if (!src) return;
@@ -137,25 +140,29 @@ export function useLoadCaptionTracks() {
         }
       });
     return () => controller.abort();
-  }, [url, mode, src, setServerTracks]);
+  }, [url, mode, src, session, setServerTracks]);
 }
 
-// Live cues of a track. While lines are on screen, re-evaluate every
-// second so they leave once stale even when no new cue arrives.
+// Live cues follow the segment presentation clock, including queued future cues.
 function useLiveCaptionLines(trackId: string | null): string[] {
   const cues = useLivestreamStoreOptional((x) => x.liveCaptions);
+  const clock = useLivestreamStoreOptional((x) => x.captionClock);
   const [tick, setTick] = useState(0);
   const active = useMemo(
-    () => (trackId ? activeLiveCaptions(cues, trackId, Date.now()) : []),
+    () => {
+      const presented = presentedCaptionTime(clock, Date.now());
+      return trackId && presented !== null
+        ? activeLiveCaptions(cues, trackId, presented)
+        : [];
+    },
     // tick only forces a re-evaluation against the current time.
-    [cues, trackId, tick],
+    [cues, clock, trackId, tick],
   );
-  const showing = active.length > 0;
   useEffect(() => {
-    if (!showing) return;
-    const timer = setInterval(() => setTick((n) => n + 1), 1000);
+    if (!trackId || !clock) return;
+    const timer = setInterval(() => setTick((n) => n + 1), 250);
     return () => clearInterval(timer);
-  }, [showing]);
+  }, [trackId, clock]);
   return useMemo(() => active.map((c) => c.text), [active]);
 }
 

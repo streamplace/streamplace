@@ -3,6 +3,7 @@ package captions
 import (
 	"context"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -11,7 +12,11 @@ import (
 // It must cover the live HLS window plus the slowest player's lag behind it.
 const DefaultRetention = 15 * time.Minute
 
-const subscriberBuffer = 256
+const (
+	subscriberBuffer     = 256
+	maxTracksPerStream   = 64
+	maxFinalCuesPerTrack = 8192
+)
 
 // Hub is the per-node registry of live caption tracks. Sources publish cues
 // into it; outputs subscribe to cue events or read windows of final cues.
@@ -31,7 +36,6 @@ type trackCaptions struct {
 	track    Track
 	final    []Cue // sorted by Start
 	finalIDs map[string]struct{}
-	interim  map[string]Cue
 }
 
 func NewHub(retention time.Duration) *Hub {
@@ -55,28 +59,60 @@ func (h *Hub) stream(streamer string) *streamCaptions {
 // a final cue's ID is ignored. A slow subscriber misses events rather than
 // stalling sources; final cues stay readable through Cues.
 func (h *Hub) Publish(streamer string, track Track, cue Cue) {
+	h.publish(streamer, track, cue, false)
+}
+
+// PublishCanonical joins a MUXL cue clipped across consecutive GoPs. The text
+// and start of a final cue never change; only its discovered end can extend.
+// This produces one display cue in HLS rather than duplicate clipped pieces.
+func (h *Hub) PublishCanonical(streamer string, track Track, cue Cue) {
+	h.publish(streamer, track, cue, true)
+}
+
+func (h *Hub) publish(streamer string, track Track, cue Cue, continuation bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	s := h.stream(streamer)
 	t, ok := s.tracks[track.ID]
 	if !ok {
-		t = &trackCaptions{finalIDs: map[string]struct{}{}, interim: map[string]Cue{}}
+		if len(s.tracks) >= maxTracksPerStream {
+			return
+		}
+		t = &trackCaptions{finalIDs: map[string]struct{}{}}
 		s.tracks[track.ID] = t
+	} else if t.track.Origin != track.Origin {
+		return
 	}
 	t.track = track
+	if continuation && len(t.final) > 0 {
+		last := &t.final[len(t.final)-1]
+		sameCue := last.ID == cue.ID || (strings.HasPrefix(cue.ID, "muxl-") && !cue.Start.After(last.End))
+		if strings.HasPrefix(cue.ID, "muxl-") && last.Text == cue.Text && !cue.Start.Before(last.Start) && !cue.End.After(last.End) {
+			return
+		}
+		if last.Text == cue.Text && !cue.Start.Before(last.Start) && cue.End.After(last.End) && sameCue {
+			last.End = cue.End
+			cue = *last
+			h.prune(t)
+			for ch := range s.subs {
+				select {
+				case ch <- Event{Streamer: streamer, Track: track, Cue: cue}:
+				default:
+				}
+			}
+			return
+		}
+	}
 	if _, done := t.finalIDs[cue.ID]; done {
 		return
 	}
 	if cue.Final {
-		delete(t.interim, cue.ID)
 		t.finalIDs[cue.ID] = struct{}{}
 		i := sort.Search(len(t.final), func(i int) bool { return t.final[i].Start.After(cue.Start) })
 		t.final = append(t.final, Cue{})
 		copy(t.final[i+1:], t.final[i:])
 		t.final[i] = cue
 		h.prune(t)
-	} else {
-		t.interim[cue.ID] = cue
 	}
 	ev := Event{Streamer: streamer, Track: track, Cue: cue}
 	for ch := range s.subs {
@@ -106,6 +142,13 @@ func (h *Hub) prune(t *trackCaptions) {
 		kept = append(kept, c)
 	}
 	t.final = kept
+	if over := len(t.final) - maxFinalCuesPerTrack; over > 0 {
+		for _, cue := range t.final[:over] {
+			delete(t.finalIDs, cue.ID)
+		}
+		copy(t.final, t.final[over:])
+		t.final = t.final[:len(t.final)-over]
+	}
 }
 
 // Subscribe returns cue events for a streamer's tracks until ctx is done, when
@@ -118,7 +161,12 @@ func (h *Hub) Subscribe(ctx context.Context, streamer string) <-chan Event {
 	go func() {
 		<-ctx.Done()
 		h.mu.Lock()
-		delete(h.stream(streamer).subs, ch)
+		if s, ok := h.streams[streamer]; ok {
+			delete(s.subs, ch)
+			if len(s.subs) == 0 && len(s.tracks) == 0 {
+				delete(h.streams, streamer)
+			}
+		}
 		close(ch)
 		h.mu.Unlock()
 	}()
@@ -173,5 +221,24 @@ func (h *Hub) EndSession(streamer string) {
 	defer h.mu.Unlock()
 	if s, ok := h.streams[streamer]; ok {
 		s.tracks = map[string]*trackCaptions{}
+		if len(s.subs) == 0 {
+			delete(h.streams, streamer)
+		}
+	}
+}
+
+// Retention bounds the final history available for archival reconciliation.
+func (h *Hub) Retention() time.Duration { return h.retention }
+
+// RemoveOrigin suppresses competing tracks when canonical captions appear.
+func (h *Hub) RemoveOrigin(streamer string, origin Origin) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if s := h.streams[streamer]; s != nil {
+		for id, t := range s.tracks {
+			if t.track.Origin == origin {
+				delete(s.tracks, id)
+			}
+		}
 	}
 }

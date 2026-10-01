@@ -25,6 +25,7 @@ import (
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/stt"
 
 	"stream.place/streamplace/pkg/log"
 
@@ -41,9 +42,13 @@ const SegmentsDir = "segments"
 const StreamplaceMetadata = "cawg.metadata"
 
 type MediaManager struct {
-	cli            *config.CLI
-	liveWindows    map[string]*livehls.Writer
-	liveWindowsMut sync.Mutex
+	cli *config.CLI
+	// STT is the node-wide speech engine; nil disables auto recognition safely.
+	STT                 stt.Engine
+	CaptionEngineSocket string
+	captionMasters      sync.Map // streamer DID -> captionSession
+	liveWindows         map[string]*livehls.Writer
+	liveWindowsMut      sync.Mutex
 	// liveWindowPublished is, per streamer, whether the latest segment fed
 	// into the window was published; guarded by liveWindowsMut.
 	liveWindowPublished map[string]bool
@@ -103,7 +108,9 @@ type MediaManager struct {
 	// per-DID transcoder rebuilds when a streamer reconnects rather than feeding
 	// the restarted media timeline into the previous session's continuous encoder.
 	// See withIngestSession / feedStreamTranscoder.
-	ingestSessionSeq atomic.Uint64
+	ingestSessionSeq        atomic.Uint64
+	captionDistributionOnce sync.Once
+	captionDistribution     *captionDistribution
 }
 
 // nextIngestSession claims a fresh monotonic ingest-session epoch for a new live

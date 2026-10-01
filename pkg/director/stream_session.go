@@ -102,6 +102,7 @@ func exceedsMaxBitrate(dataLen int, durationNS int64, maxBitrate int) (int, bool
 
 func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
 	ctx, cancel := context.WithCancel(ctx)
+	defer ss.mm.EndCaptionSession(notif.Segment.RepoDID)
 	spmetrics.StreamSessions.WithLabelValues(notif.Segment.RepoDID).Inc()
 	ss.g, ctx = errgroup.WithContext(ctx)
 	sid := livepeer.RandomTrailer(8)

@@ -15,6 +15,11 @@ It shows:
 
 The layout adjusts to your screen width. On wide screens all panels are visible at once, and on narrower screens it stacks vertically with a button to open chat in a separate window.
 
+The stream settings include a **Captions** toggle (on by default) and advanced
+options for supplied captions, language hints, and optional node captions. See
+[Captions for your stream](/docs/guides/start-streaming/captions/) for setup,
+OBS captioning, and VOD caption files.
+
 ## Widget popouts
 
 Each dashboard widget is also available as a standalone page, useful for floating browser windows while you stream: for example, keeping stream settings in a small window on a second monitor.

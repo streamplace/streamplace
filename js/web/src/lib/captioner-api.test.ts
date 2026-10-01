@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 let workerReady = false;
 let addWorkletModule: () => Promise<void>;
+let flushFailure = false;
 
 class MockWorker {
   static instances: MockWorker[] = [];
@@ -35,6 +36,14 @@ class MockWorker {
       );
     }
     if (type === "flush") {
+      if (flushFailure) {
+        queueMicrotask(() =>
+          this.onerror?.(
+            new ErrorEvent("error", { message: "worker crashed" }),
+          ),
+        );
+        return;
+      }
       queueMicrotask(() =>
         this.onmessage?.(
           new MessageEvent("message", { data: { type: "flushed" } }),
@@ -104,6 +113,7 @@ function captionerOptions(signal?: AbortSignal) {
 describe("browser captioner cancellation", () => {
   beforeEach(() => {
     workerReady = false;
+    flushFailure = false;
     addWorkletModule = () => Promise.resolve();
     MockWorker.instances = [];
     MockAudioContext.instances = [];
@@ -175,6 +185,23 @@ describe("browser captioner cancellation", () => {
     expect(
       MockAudioWorkletNode.instances[0]?.disconnect,
     ).toHaveBeenCalledOnce();
+  });
+
+  it("reports a runtime worker crash and rejects stop while releasing resources", async () => {
+    workerReady = true;
+    flushFailure = true;
+    const onError = vi.fn();
+    const session = await startBrowserCaptioner({
+      ...captionerOptions(),
+      onError,
+    });
+    await expect(session.stop()).rejects.toThrow("worker crashed");
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "worker crashed" }),
+    );
+    expect(MockWorker.instances[0].terminate).toHaveBeenCalledOnce();
+    expect(MockAudioContext.instances[0].close).toHaveBeenCalledOnce();
+    expect(MockAudioWorkletNode.instances[0].disconnect).toHaveBeenCalledOnce();
   });
 
   it("terminates and rejects an active benchmark when aborted", async () => {

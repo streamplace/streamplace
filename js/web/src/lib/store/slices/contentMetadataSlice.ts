@@ -1,3 +1,5 @@
+import type { CaptionPolicy } from "@streamplace/core";
+import type { place } from "streamplace";
 import { StateCreator } from "zustand";
 import { getPDSServiceEndpoint, resolveDIDDocument } from "../../did";
 import { AppStore } from "../index";
@@ -9,9 +11,11 @@ export interface ContentMetadataSlice {
   lastCreatedRecord: any | null;
   // actions
   createContentMetadata: (params: {
+    captionPolicy?: CaptionPolicy;
     contentWarnings?: string[];
     distributionPolicy?: {
       deleteAfter?: number;
+      allowGenAiTraining?: boolean;
       allowedBroadcasters?: string[];
     };
     contentRights?: {
@@ -23,11 +27,13 @@ export interface ContentMetadataSlice {
     };
   }) => Promise<void>;
   updateContentMetadata: (params: {
+    captionPolicy?: CaptionPolicy;
     rkey?: string;
     livestreamRef?: { uri: string; cid: string };
     contentWarnings?: string[];
     distributionPolicy?: {
       deleteAfter?: number;
+      allowGenAiTraining?: boolean;
       allowedBroadcasters?: string[];
     };
     contentRights?: {
@@ -45,6 +51,34 @@ export interface ContentMetadataSlice {
   clearError: () => void;
 }
 
+function mergeMetadata(
+  existing: place.stream.metadata.configuration.Main | undefined,
+  params: Parameters<ContentMetadataSlice["updateContentMetadata"]>[0],
+) {
+  return {
+    ...existing,
+    $type: "place.stream.metadata.configuration",
+    createdAt: new Date().toISOString(),
+    ...(params.captionPolicy && { captionPolicy: params.captionPolicy }),
+    ...(params.livestreamRef && { livestreamRef: params.livestreamRef }),
+    ...(params.contentWarnings !== undefined && {
+      contentWarnings: {
+        ...existing?.contentWarnings,
+        warnings: params.contentWarnings,
+      },
+    }),
+    ...(params.distributionPolicy && {
+      distributionPolicy: {
+        ...existing?.distributionPolicy,
+        ...params.distributionPolicy,
+      },
+    }),
+    ...(params.contentRights && {
+      contentRights: { ...existing?.contentRights, ...params.contentRights },
+    }),
+  };
+}
+
 export const createContentMetadataSlice: StateCreator<
   AppStore,
   [],
@@ -57,9 +91,10 @@ export const createContentMetadataSlice: StateCreator<
   lastCreatedRecord: null,
 
   createContentMetadata: async ({
-    contentWarnings = [],
-    distributionPolicy = { deleteAfter: undefined },
-    contentRights = {},
+    contentWarnings,
+    distributionPolicy,
+    contentRights,
+    captionPolicy,
   }) => {
     set({ creating: true, error: null });
     try {
@@ -73,31 +108,14 @@ export const createContentMetadataSlice: StateCreator<
         throw new Error("No DID");
       }
 
-      const metadataRecord = {
-        $type: "place.stream.metadata.configuration",
-        createdAt: new Date().toISOString(),
-        ...(contentWarnings.length > 0 && {
-          contentWarnings: { warnings: contentWarnings },
-        }),
-        ...((distributionPolicy.deleteAfter !== undefined ||
-          (distributionPolicy.allowedBroadcasters &&
-            distributionPolicy.allowedBroadcasters.length > 0)) && {
-          distributionPolicy: {
-            ...(distributionPolicy.deleteAfter !== undefined && {
-              deleteAfter: distributionPolicy.deleteAfter,
-            }),
-            ...(distributionPolicy.allowedBroadcasters && {
-              allowedBroadcasters: distributionPolicy.allowedBroadcasters,
-            }),
-          },
-        }),
-        ...(contentRights &&
-          Object.keys(contentRights).length > 0 && {
-            contentRights,
-          }),
-      };
+      const metadataRecord = mergeMetadata(get().lastCreatedRecord?.record, {
+        contentWarnings,
+        distributionPolicy,
+        contentRights,
+        captionPolicy,
+      });
 
-      const result = await pdsAgent.com.atproto.repo.createRecord({
+      const result = await pdsAgent.com.atproto.repo.putRecord({
         repo: did,
         collection: "place.stream.metadata.configuration",
         rkey: "self",
@@ -128,9 +146,10 @@ export const createContentMetadataSlice: StateCreator<
   updateContentMetadata: async ({
     rkey,
     livestreamRef,
-    contentWarnings = [],
-    distributionPolicy = { deleteAfter: undefined },
-    contentRights = {},
+    contentWarnings,
+    distributionPolicy,
+    contentRights,
+    captionPolicy,
   }) => {
     set({ updating: true, error: null });
     try {
@@ -144,30 +163,13 @@ export const createContentMetadataSlice: StateCreator<
         throw new Error("No DID");
       }
 
-      const metadataRecord = {
-        $type: "place.stream.metadata.configuration",
-        ...(livestreamRef && { livestreamRef }),
-        createdAt: new Date().toISOString(),
-        ...(contentWarnings.length > 0 && {
-          contentWarnings: { warnings: contentWarnings },
-        }),
-        ...((distributionPolicy.deleteAfter !== undefined ||
-          (distributionPolicy.allowedBroadcasters &&
-            distributionPolicy.allowedBroadcasters.length > 0)) && {
-          distributionPolicy: {
-            ...(distributionPolicy.deleteAfter !== undefined && {
-              deleteAfter: distributionPolicy.deleteAfter,
-            }),
-            ...(distributionPolicy.allowedBroadcasters && {
-              allowedBroadcasters: distributionPolicy.allowedBroadcasters,
-            }),
-          },
-        }),
-        ...(contentRights &&
-          Object.keys(contentRights).length > 0 && {
-            contentRights,
-          }),
-      };
+      const metadataRecord = mergeMetadata(get().lastCreatedRecord?.record, {
+        livestreamRef,
+        contentWarnings,
+        distributionPolicy,
+        contentRights,
+        captionPolicy,
+      });
 
       const result = await pdsAgent.com.atproto.repo.putRecord({
         repo: did,

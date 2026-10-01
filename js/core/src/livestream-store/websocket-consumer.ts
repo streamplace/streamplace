@@ -74,6 +74,17 @@ export const handleWebSocketMessages = (
       if (place.stream.livestream.livestreamView.isTypeOf(message)) {
         const newLivestream = message as LivestreamViewHydrated;
         const oldLivestream = state.livestream;
+        if (
+          oldLivestream?.uri !== newLivestream.uri ||
+          newLivestream.record.endedAt
+        ) {
+          state = {
+            ...state,
+            captionTracks: [],
+            liveCaptions: {},
+            captionClock: null,
+          };
+        }
 
         // check if this is actually new
         if (!oldLivestream || oldLivestream.uri !== newLivestream.uri) {
@@ -118,12 +129,20 @@ export const handleWebSocketMessages = (
         if (newRecentSegments.length > MAX_RECENT_SEGMENTS) {
           newRecentSegments.pop();
         }
+        const segment = message as place.stream.segment.Main;
+        const startMs = Date.parse(segment.startTime);
+        const captionClock =
+          Number.isFinite(startMs) &&
+          (!state.captionClock || startMs > state.captionClock.startMs)
+            ? { startMs, receivedAt: Date.now() }
+            : state.captionClock;
         state = {
           ...state,
-          segment: message as place.stream.segment.Main,
+          segment,
           recentSegments: newRecentSegments,
           problems: findProblems(newRecentSegments),
           hasReceivedSegment: true,
+          captionClock,
         };
       } else if (place.stream.defs.blockView.isTypeOf(message)) {
         const block = message as place.stream.defs.BlockView;

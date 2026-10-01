@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -23,13 +24,19 @@ import (
 	glex "github.com/streamplace/glex/runtime"
 	urfavecli "github.com/urfave/cli/v3"
 	"golang.org/x/sync/errgroup"
+	gormlogger "gorm.io/gorm/logger"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/blob"
 	spcomatproto "stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/spkey"
+	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
+	"stream.place/streamplace/pkg/vod"
 	"stream.place/streamplace/test/remote"
 )
 
@@ -51,10 +58,93 @@ func createRecord(ctx context.Context, client *xrpc.Client, collection, repo str
 	return out.Uri, nil
 }
 
+// prepareE2EVideo uses the node's real upload processing and publication paths.
+// Run before forking the node, so its server repo and databases are not being
+// written by two processes while we seed the fixture.
+func prepareE2EVideo(ctx context.Context, dataDir, broadcasterHost, fixture, did string, client *xrpc.Client) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
+	started := time.Now()
+	// stdout is the harness's shell-readable environment protocol. Reuse the
+	// node's stderr logger for dependencies that otherwise log to stdout.
+	defaultLogger := gormlogger.Default
+	gormlogger.Default = config.GormLogger
+	defer func() { gormlogger.Default = defaultLogger }()
+	cli := &config.CLI{
+		DataDir: dataDir, DBURL: "sqlite://" + dataDir + "/state.sqlite",
+		BroadcasterHost: broadcasterHost, ServerHost: broadcasterHost,
+	}
+	mod, err := model.MakeDBConns(cli.DataFilePath([]string{"index"}), 1)
+	if err != nil {
+		return "", err
+	}
+	state, err := statedb.MakeDB(ctx, cli, nil, mod)
+	if err != nil {
+		return "", err
+	}
+	sqlDB, err := state.DB.DB()
+	if err != nil {
+		return "", err
+	}
+	defer sqlDB.Close()
+	serverRepo, err := atproto.MakeServerRepo(ctx, cli, state)
+	if err != nil {
+		return "", err
+	}
+	defer serverRepo.Close()
+	store, err := blob.NewFileStore(dataDir)
+	if err != nil {
+		return "", err
+	}
+	source, err := os.Open(fixture)
+	if err != nil {
+		return "", err
+	}
+	defer source.Close()
+	info, err := source.Stat()
+	if err != nil {
+		return "", err
+	}
+	uploadID := uuid.NewString()
+	key := "uploads/" + uploadID
+	writer, err := store.NewWriter(ctx, key, "video/mp4")
+	if err != nil {
+		return "", err
+	}
+	defer writer.Close()
+	if _, err := io.Copy(writer, source); err != nil {
+		return "", err
+	}
+	if err := writer.Complete(); err != nil {
+		return "", err
+	}
+	if err := state.CreateUpload(ctx, &statedb.Upload{
+		ID: uploadID, RepoDID: did, MimeType: "video/mp4",
+		Filename: "e2e.mp4", Size: info.Size(), Backend: "file",
+		Location: store.URL(key),
+	}); err != nil {
+		return "", err
+	}
+	gstinit.InitGST()
+	if _, err := vod.ProcessVOD(ctx, cli, state, store, vod.Input{
+		UploadID: uploadID, RepoDID: did, MimeType: "video/mp4",
+		Filename: "e2e.mp4", Size: info.Size(), Backend: "file",
+		Location: store.URL(key),
+	}); err != nil {
+		return "", fmt.Errorf("process fixture: %w", err)
+	}
+	uri, _, err := vod.PublishVideoWithClient(ctx, state, store, client, did, uploadID, &placestream.Video{Title: "e2e test video"})
+	if err != nil {
+		return "", fmt.Errorf("publish fixture: %w", err)
+	}
+	log.Log(ctx, "prepared playable e2e VOD", "uri", uri, "elapsed", time.Since(started))
+	return uri, nil
+}
+
 func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 	return &urfavecli.Command{
 		Name:  "e2e",
-		Usage: "start a self-contained e2e test environment with a test account and live stream",
+		Usage: "start a self-contained e2e test environment with a test account, live stream and playable VOD",
 		Flags: []urfavecli.Flag{
 			&urfavecli.StringFlag{
 				Name:    "dev-env",
@@ -76,7 +166,7 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			},
 			&urfavecli.IntFlag{
 				Name:    "https-port",
-				Usage:   "port the HTTPS front end listens on; the URLs stay portless, so anything but 443 only works where loopback 443 is redirected to it",
+				Usage:   "port the HTTPS front end listens on; server clients use the harness proxy, while direct device clients must redirect port 443 to this port",
 				Value:   443,
 				Sources: urfavecli.EnvVars("SP_E2E_HTTPS_PORT"),
 			},
@@ -253,6 +343,11 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		return err
 	}
 	defer os.RemoveAll(dataDir) //nolint:errcheck
+	fixture := remote.RemoteFixture("3188c071b354f2e548d7f2d332699758e8e3ab1600280e5b07cb67eedc64f274/BigBuckBunny_1sGOP_240p30_NoBframes.mp4")
+	videoURI, err := prepareE2EVideo(ctx, dataDir, broadcasterHost, fixture, out.Did, xrpcc)
+	if err != nil {
+		return fmt.Errorf("prepare playable video: %w", err)
+	}
 
 	nodeCmd := exec.CommandContext(ctx, self)
 	// Inherit the parent environment (dev builds need LD_LIBRARY_PATH etc.)
@@ -357,30 +452,11 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	if _, err := createRecord(ctx, xrpcc, "place.stream.livestream", out.Did, &livestream); err != nil {
 		return fmt.Errorf("create livestream record: %w", err)
 	}
-	// And a VOD, so flows have a video page to open. It has no source tracks:
-	// its metadata (title, author) loads, but there is nothing to play.
-	video := placestream.Video{
-		LexiconTypeID: "place.stream.video",
-		CreatedAt:     now,
-		Title:         "e2e test video",
-		DurationMs:    10_000,
-		Source: placestream.Video_Source{
-			MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
-				LexiconTypeID: "place.stream.media.defs#sourceTracks",
-				Tracks:        []spcomatproto.RepoStrongRef{},
-			},
-		},
-	}
-	videoURI, err := createRecord(ctx, xrpcc, "place.stream.video", out.Did, &video)
-	if err != nil {
-		return fmt.Errorf("create video record: %w", err)
-	}
 
 	// Give the node a moment to index the key before we start streaming.
 	time.Sleep(1 * time.Second)
 
 	// Stream a test fixture in a loop so it outlasts any Maestro test run.
-	fixture := remote.RemoteFixture("3188c071b354f2e548d7f2d332699758e8e3ab1600280e5b07cb67eedc64f274/BigBuckBunny_1sGOP_240p30_NoBframes.mp4")
 	g, streamCtx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		for {
@@ -409,8 +485,8 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 
 	// Print the env vars for the workflow to consume, in one write: callers
 	// poll for SERVER_URL and then read the whole file.
-	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\n",
-		httpAddr, out.Handle, out.Did, password, videoURI)
+	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nSTREAM_KEY=%s\n",
+		httpAddr, out.Handle, out.Did, password, videoURI, priv)
 	if tlsEnv != nil {
 		// The same node over HTTPS at its public name, plus what clients
 		// need to reach and trust it (see e2e_https.go): a browser pins the

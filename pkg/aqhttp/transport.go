@@ -23,6 +23,7 @@ func (t *TrustedTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 func NewTrustedTransport() *TrustedTransport {
 	return &TrustedTransport{
 		Base: &http.Transport{
+			Proxy:               http.ProxyFromEnvironment,
 			MaxIdleConns:        100,
 			IdleConnTimeout:     90 * time.Second,
 			TLSHandshakeTimeout: 10 * time.Second,

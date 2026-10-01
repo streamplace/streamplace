@@ -65,13 +65,23 @@ func Tokens(text string) []string {
 // form, so it is split and its span divided evenly between the pieces; a word
 // with no text is dropped.
 func Encode(words []Word) Compact {
-	tokens := tokenize(words)
+	return encodeTokens(tokenize(words), false)
+}
+
+func encodeTokens(tokens []Word, authored bool) Compact {
 	if len(tokens) == 0 {
 		return Compact{Timings: []int64{}}
 	}
 	text := make([]string, len(tokens))
+	separator := " "
+	if authored {
+		separator = ""
+	}
 	for i, t := range tokens {
 		text[i] = t.Text
+		if authored && i > 0 && t.Text == strings.TrimLeftFunc(t.Text, isSpace) {
+			text[i] = " " + t.Text
+		}
 	}
 	startMs := tokens[0].StartMs
 	timings := make([]int64, 0, len(tokens))
@@ -83,7 +93,7 @@ func Encode(words []Word) Compact {
 		timings = append(timings, max(t.EndMs-t.StartMs, 1))
 		cursor = t.EndMs
 	}
-	return Compact{Text: strings.Join(text, " "), StartMs: startMs, Timings: timings}
+	return Compact{Text: strings.Join(text, separator), StartMs: startMs, Timings: timings}
 }
 
 // tokenize makes every Word hold exactly one whitespace-free token.
@@ -121,7 +131,10 @@ func spread(tokens []string, startMs, endMs int64) []Word {
 
 // Decode unpacks a compact transcript into words with their spans.
 func Decode(c Compact) []Word {
-	tokens := Tokens(c.Text)
+	return decodeTokens(c, Tokens(c.Text))
+}
+
+func decodeTokens(c Compact, tokens []string) []Word {
 	out := make([]Word, 0, len(tokens))
 	cursor := c.StartMs
 	for _, v := range c.Timings {

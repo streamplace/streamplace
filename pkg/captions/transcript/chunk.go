@@ -63,8 +63,11 @@ func (o ChunkOptions) withDefaults() ChunkOptions {
 // a chunk past MaxSpan, or past the size limits. A chunk never splits a word,
 // and consecutive chunks together hold every word.
 func Chunk(words []Word, opts ChunkOptions) []Compact {
+	return chunkTokens(tokenize(words), opts, Encode)
+}
+
+func chunkTokens(toks []Word, opts ChunkOptions, encode func([]Word) Compact) []Compact {
 	opts = opts.withDefaults()
-	toks := tokenize(words)
 	for i := range toks {
 		toks[i] = clamp(toks[i], opts.MaxTextBytes)
 	}
@@ -83,7 +86,7 @@ func Chunk(words []Word, opts ChunkOptions) []Compact {
 				add = 2
 			}
 			if textBytes+1+len(w.Text) > opts.MaxTextBytes || entries+add > opts.MaxTimings || w.EndMs-toks[first].StartMs > maxSpan {
-				out = append(out, Encode(toks[first:i]))
+				out = append(out, encode(toks[first:i]))
 				first = i
 				textBytes, entries, cursor = len(w.Text), 1, w.EndMs
 				continue
@@ -98,12 +101,12 @@ func Chunk(words []Word, opts ChunkOptions) []Compact {
 		span := w.EndMs - toks[first].StartMs
 		next := toks[i+1]
 		if span >= target && (endsSentence(w.Text) || next.StartMs-w.EndMs >= silence) {
-			out = append(out, Encode(toks[first:i+1]))
+			out = append(out, encode(toks[first:i+1]))
 			first = i + 1
 		}
 	}
 	if first < len(toks) {
-		out = append(out, Encode(toks[first:]))
+		out = append(out, encode(toks[first:]))
 	}
 	return out
 }

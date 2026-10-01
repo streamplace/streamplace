@@ -1,7 +1,6 @@
 package transcript
 
 import (
-	"cmp"
 	"slices"
 	"strconv"
 	"strings"
@@ -108,36 +107,6 @@ func wrap(lines []string, word string, maxChars, maxLines int) ([]string, bool) 
 		return lines, false
 	}
 	return append(slices.Clone(lines), word), true
-}
-
-// WordsFromCues spreads the text of cues, which carry timing only for the cue
-// as a whole (an imported VTT or SRT file), over words: each cue's words share
-// its span evenly. A cue that begins before the previous one has finished
-// pushes its words later, and a cue that is overlapped is cut short at the
-// start of the next, because words in a transcript cannot overlap.
-func WordsFromCues(cues []captions.TimedCue) []Word {
-	sorted := slices.SortedStableFunc(slices.Values(cues), func(a, b captions.TimedCue) int {
-		return cmp.Compare(a.Start, b.Start)
-	})
-	var out []Word
-	var cursor int64
-	for i, c := range sorted {
-		toks := Tokens(c.Text)
-		if len(toks) == 0 {
-			continue
-		}
-		start := max(durationMs(c.Start), cursor)
-		end := durationMs(c.End)
-		if i+1 < len(sorted) {
-			if next := durationMs(sorted[i+1].Start); next > start {
-				end = min(end, next)
-			}
-		}
-		end = max(end, start)
-		out = append(out, spread(toks, start, end)...)
-		cursor = end
-	}
-	return out
 }
 
 // WordsFromCaptions converts live words, which carry absolute times, into

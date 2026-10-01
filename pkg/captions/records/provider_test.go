@@ -212,9 +212,9 @@ func TestProviderCues(t *testing.T) {
 	cues, err := p.Cues(ctx, videoURI, id)
 	require.NoError(t, err)
 	require.Equal(t, []captions.TimedCue{
-		{ID: "1", Start: 1000 * time.Millisecond, End: 2000 * time.Millisecond, Text: "First bit."},
-		{ID: "2", Start: 60_000 * time.Millisecond, End: 61_000 * time.Millisecond, Text: "Second bit."},
-	}, cues, "chunks are merged in time order and grouped into cues of at least a second")
+		{ID: "1", Start: 1000 * time.Millisecond, End: 1800 * time.Millisecond, Text: "First bit."},
+		{ID: "2", Start: 60_000 * time.Millisecond, End: 60_800 * time.Millisecond, Text: "Second bit."},
+	}, cues, "authored chunks retain their exact spans in time order")
 
 	_, err = p.Cues(ctx, videoURI, "record-human-en-00000000")
 	require.ErrorIs(t, err, ErrTrackNotFound)
@@ -239,8 +239,10 @@ func TestProviderToleratesBrokenRecords(t *testing.T) {
 	require.NoError(t, f.m.UpsertCaptionTranscript(context.Background(), rec, syntax.ATURI("at://"+alice+"/place.stream.caption.transcript/odd")))
 	cues, err := f.provider(nil).Cues(context.Background(), videoURI, TrackID(alice, "en", "captions", "human"))
 	require.NoError(t, err)
-	require.Len(t, cues, 1)
-	require.Equal(t, "one two three", cues[0].Text)
+	require.Equal(t, []captions.TimedCue{
+		{ID: "1", Start: 0, End: time.Second, Text: "one two"},
+		{ID: "2", Start: 1100 * time.Millisecond, End: 1600 * time.Millisecond, Text: "three"},
+	}, cues, "extra durations cannot extend authored cues or swallow their silence")
 }
 
 // The recording of a livestream VOD: two objects with ten minutes between them
@@ -372,7 +374,7 @@ func TestProviderClipsUseTheirSourceVideosCaptions(t *testing.T) {
 	cues, err := f.provider(nil).Cues(ctx, clip, TrackID(alice, "en", "captions", "human"))
 	require.NoError(t, err)
 	require.Equal(t, map[string][2]int64{
-		"straddles": {0, 1000},
+		"straddles": {0, 500},
 		"inside.":   {2000, 3000},
 	}, cueTimes(cues), "shifted by the clip's start and cut to its length")
 

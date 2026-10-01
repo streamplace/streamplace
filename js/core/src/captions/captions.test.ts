@@ -1,11 +1,7 @@
 import { place } from "streamplace";
 import { describe, expect, it } from "vitest";
 import { parseTimedCaptions, timedCaptionsAt } from "./api";
-import {
-  activeLiveCaptions,
-  LIVE_CAPTION_HOLD_MS,
-  reduceLiveCaption,
-} from "./live-cues";
+import { activeLiveCaptions, reduceLiveCaption } from "./live-cues";
 import { buildCaptionPolicy, readCaptionPolicy } from "./policy";
 import { DEFAULT_CAPTION_PREFS, parseCaptionPrefs } from "./prefs";
 import { mergeCaptionTracks, selectCaptionTrack } from "./tracks";
@@ -17,14 +13,14 @@ function liveCue(
   id: string,
   text: string,
   final: boolean,
-  startTime = "2026-09-25T12:00:00.000Z",
+  startTime = new Date(1000).toISOString(),
   track = en,
 ): place.stream.caption.defs.LiveCue {
   return {
     id,
     track,
     startTime: startTime as place.stream.caption.defs.LiveCue["startTime"],
-    endTime: startTime as place.stream.caption.defs.LiveCue["endTime"],
+    endTime: new Date(Date.parse(startTime) + 20000).toISOString(),
     text,
     final,
   };
@@ -111,20 +107,13 @@ describe("activeLiveCaptions", () => {
       liveCue("x", "otra", true, "2026-09-25T12:00:04.000Z", es),
       1000,
     );
-    expect(activeLiveCaptions(cues, en.id, 1000).map((c) => c.text)).toEqual([
-      "two",
-      "three",
-    ]);
-  });
-
-  it("drops cues once the hold window passes", () => {
-    const cues = reduceLiveCaption({}, liveCue("c", "hi", true), 1000);
     expect(
-      activeLiveCaptions(cues, en.id, 1000 + LIVE_CAPTION_HOLD_MS),
-    ).toHaveLength(1);
-    expect(
-      activeLiveCaptions(cues, en.id, 1001 + LIVE_CAPTION_HOLD_MS),
-    ).toHaveLength(0);
+      activeLiveCaptions(
+        cues,
+        en.id,
+        Date.parse("2026-09-25T12:00:04.000Z"),
+      ).map((c) => c.text),
+    ).toEqual(["two", "three"]);
   });
 });
 

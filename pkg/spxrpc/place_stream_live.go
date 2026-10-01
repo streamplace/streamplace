@@ -21,6 +21,8 @@ import (
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/captions"
+	"stream.place/streamplace/pkg/captions/livecue"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
@@ -362,11 +364,36 @@ func (s *Server) handlePlaceStreamLiveSubscribeSegments(c echo.Context) error {
 		// rest of the station gets the renditions.
 		renChan := s.bus.SubscribeSegmentBuf(ctx, user, media.RenditionsChannel, 4)
 		defer s.bus.UnsubscribeSegment(ctx, user, media.RenditionsChannel, renChan)
+		var captionEvents <-chan captions.Event
+		sendCaption := func(ev captions.Event) error {
+			if ev.Track.Origin != captions.OriginSidecar || !s.mm.LiveWindowPublished(user) || !s.mm.CaptionSyndicationAllowed(user) {
+				return nil
+			}
+			data, err := captions.EncodeSidecar(ev)
+			if err != nil {
+				return err
+			}
+			return ws.WriteMessage(websocket.TextMessage, data)
+		}
+		if c.QueryParam("captions") == captions.SyndicationVersion && s.bus.Captions != nil {
+			captionEvents = s.bus.Captions.Subscribe(ctx, user)
+			for _, ev := range livecue.Recent(s.bus.Captions, user, livecue.JoinWindow, time.Now()) {
+				if err := sendCaption(ev); err != nil {
+					cancel()
+					return
+				}
+			}
+		}
 		for {
 			select {
 			case <-ctx.Done():
 				log.Debug(ctx, "exiting segment reader")
 				return
+			case ev := <-captionEvents:
+				if err := sendCaption(ev); err != nil {
+					cancel()
+					return
+				}
 			case file := <-segChan.C:
 				if !file.Published {
 					continue

@@ -13,7 +13,7 @@ description: Reference for the place.stream.caption.pushCaptions lexicon
 
 **Type:** `procedure`
 
-Push live captions into a stream from a captioner: the Streamplace caption overlay, a CART stenographer, or an external tool. Requires the streamer's authorization. When the streamer's caption policy is `ingest`, pushed captions become the canonical caption track.
+Push live captions into a stream from a captioner, a CART stenographer, or an external tool. Requires the streamer's OAuth authorization or active registered stream key. Under canonical policy auto or ingest, pushed captions become streamer-signed MUXL text tracks. Under canonical policy off, pushed captions remain sidecar or local according to the streamer's node-caption policy.
 
 **Parameters:** _(None defined)_
 
@@ -55,7 +55,7 @@ _(No properties defined)_
   "defs": {
     "main": {
       "type": "procedure",
-      "description": "Push live captions into a stream from a captioner: the Streamplace caption overlay, a CART stenographer, or an external tool. Requires the streamer's authorization. When the streamer's caption policy is `ingest`, pushed captions become the canonical caption track.",
+      "description": "Push live captions into a stream from a captioner, a CART stenographer, or an external tool. Requires the streamer's OAuth authorization or active registered stream key. Under canonical policy auto or ingest, pushed captions become streamer-signed MUXL text tracks. Under canonical policy off, pushed captions remain sidecar or local according to the streamer's node-caption policy.",
       "input": {
         "encoding": "application/json",
         "schema": {

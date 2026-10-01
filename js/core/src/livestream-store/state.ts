@@ -5,7 +5,7 @@ import {
   PinnedRecordViewHydrated,
   place,
 } from "streamplace";
-import type { LiveCaption } from "../captions/live-cues";
+import type { CaptionClock, LiveCaption } from "../captions/live-cues";
 import type { CaptionTrackView } from "../captions/tracks";
 
 /**
@@ -58,6 +58,7 @@ export interface LivestreamState {
   captionTracks: CaptionTrackView[];
   /** Recent live caption cues by cue id; see reduceLiveCaption. */
   liveCaptions: Record<string, LiveCaption>;
+  captionClock: CaptionClock | null;
 }
 
 export interface LivestreamProblem {

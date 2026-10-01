@@ -68,6 +68,7 @@ export function StreamMonitorWidget({
         {visible && isLive ? (
           <Player
             src={playlistUrl}
+            captionSource={{ streamer: user, store }}
             poster={thumbnailUrl}
             active
             mode="live"

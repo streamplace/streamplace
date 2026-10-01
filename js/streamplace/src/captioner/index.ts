@@ -148,6 +148,20 @@ export async function startBrowserCaptioner(
     await sending;
   };
 
+  const workerFailed = Promise.withResolvers<never>();
+  // A failure can precede stop(); keep the rejection handled until it is awaited.
+  void workerFailed.promise.catch(() => {});
+  let workerError: Error | undefined;
+  const failWorker = (error: Error) => {
+    if (workerError) return;
+    workerError = error;
+    workerFailed.reject(error);
+    terminateWorker();
+    disconnectAudio();
+    void closeAudio().catch(() => {});
+    options.onError?.(error);
+  };
+  worker.onerror = (event) => failWorker(new Error(event.message));
   const signal = options.signal;
   const aborted = Promise.withResolvers<never>();
   const onAbort = () => {
@@ -158,7 +172,11 @@ export async function startBrowserCaptioner(
     aborted.reject(abortError(signal));
   };
   const waitForAbort = <T>(promise: Promise<T>) =>
-    signal ? Promise.race([promise, aborted.promise]) : promise;
+    Promise.race(
+      signal
+        ? [promise, workerFailed.promise, aborted.promise]
+        : [promise, workerFailed.promise],
+    );
   signal?.addEventListener("abort", onAbort, { once: true });
 
   try {
@@ -167,14 +185,13 @@ export async function startBrowserCaptioner(
     );
     await waitForAbort(audio.resume());
     const ready = Promise.withResolvers<void>();
-    worker.onerror = (event) => ready.reject(new Error(event.message));
     worker.onmessage = (event: MessageEvent) => {
       if (event.data.type === "ready") {
         options.onSpeed?.(event.data.rtf);
         ready.resolve();
       }
       if (event.data.type === "error")
-        ready.reject(new Error(event.data.message));
+        failWorker(new Error(event.data.message));
     };
     worker.postMessage({
       type: "init",
@@ -203,7 +220,7 @@ export async function startBrowserCaptioner(
         options.onCue?.(cue);
         if (cue.rtf !== undefined) options.onSpeed?.(cue.rtf);
       } else if (event.data.type === "error")
-        options.onError?.(new Error(event.data.message));
+        failWorker(new Error(event.data.message));
     };
     source.connect(processor);
     // No output is written, but a connected output keeps worklets running.
@@ -228,16 +245,17 @@ export async function startBrowserCaptioner(
       disconnectAudio();
       try {
         await closeAudio();
+        if (workerError) throw workerError;
         const previous = worker.onmessage;
         const flushed = Promise.withResolvers<void>();
         worker.onmessage = (event: MessageEvent) => {
           previous?.call(worker, event);
           if (event.data.type === "flushed") flushed.resolve();
           if (event.data.type === "error")
-            flushed.reject(new Error(event.data.message));
+            failWorker(new Error(event.data.message));
         };
         worker.postMessage({ type: "flush" });
-        await flushed.promise;
+        await Promise.race([flushed.promise, workerFailed.promise]);
         await sending;
         while (pending.size) await flush();
       } finally {

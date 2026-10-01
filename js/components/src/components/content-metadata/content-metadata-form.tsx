@@ -909,10 +909,17 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
               </View>
             )}
 
+            <CaptionPolicyFields
+              value={captionPolicy}
+              onChange={setCaptionPolicy}
+              renderLanguagePicker={renderLanguagePicker}
+            />
+
             {/* Save Button - Always visible */}
             <View style={[layout.flex.center, w.percent[100]]}>
               <Button
                 onPress={handleSave}
+                testID="dashboard-metadata-save"
                 loading={loading}
                 disabled={loading}
                 style={[

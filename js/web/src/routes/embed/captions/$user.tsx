@@ -1,15 +1,16 @@
 import { useLivestreamStore } from "@/hooks/use-livestream-store";
 import type { LivestreamStore } from "@streamplace/core";
 import {
-  activeLiveCaptions,
   CAPTION_WEB_FONTS,
   captionColor,
   captionFontSize,
   DEFAULT_CAPTION_PREFS,
+  displayLiveCaptions,
   parseCaptionPrefs,
 } from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 
 export const Route = createFileRoute("/embed/captions/$user")({
@@ -54,6 +55,7 @@ function CaptionOverlay() {
 
 function OverlayBody({ store }: { store: LivestreamStore }) {
   const search = Route.useSearch();
+  const { t } = useTranslation("common");
   const tracks = useStore(store, (state) => state.captionTracks);
   const captions = useStore(store, (state) => state.liveCaptions);
   const [now, setNow] = useState(Date.now());
@@ -71,14 +73,14 @@ function OverlayBody({ store }: { store: LivestreamStore }) {
     search.track ??
     tracks.find((item) => item.origin === "canonical")?.id ??
     tracks[0]?.id;
-  const lines = track ? activeLiveCaptions(captions, track, now) : [];
+  const lines = track ? displayLiveCaptions(captions, track, now) : [];
   const prefs = parseCaptionPrefs(
     JSON.stringify({ ...DEFAULT_CAPTION_PREFS, font: search.font }),
   );
   const fontSize =
     Number.isFinite(search.fontSize) && (search.fontSize ?? 0) > 0
       ? Math.min(200, search.fontSize!)
-      : captionFontSize(prefs, height, 22);
+      : `max(var(--text-lg), ${captionFontSize(prefs, height, 0)}px)`;
   const color =
     search.color && CSS.supports("color", search.color)
       ? search.color
@@ -101,7 +103,7 @@ function OverlayBody({ store }: { store: LivestreamStore }) {
     >
       <div
         aria-live="polite"
-        aria-label="Live captions"
+        aria-label={t("player-captions")}
         className="max-w-full rounded-md px-4 py-2 text-center"
         style={{
           color,

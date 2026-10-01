@@ -249,11 +249,16 @@ func (t *streamTranscoder) Feed(src []byte, token any) error {
 	t.started = true
 	t.mu.Unlock()
 
-	// Synthesize and write the init (ftyp+moov) once, then the segment bytes —
-	// the same init-then-blind-concat the RTMP push feeder uses.
+	// Native qtdemux sees one immutable init, so a lazily declared text track
+	// cannot enter its input. Keep the original signed source in the completion
+	// job, but decode only video and the audio codec being transcoded.
+	decodeSrc, err := filterSegmentToCodec(t.ctx, src, t.target == "aac")
+	if err != nil {
+		return fmt.Errorf("filter transcoder input: %w", err)
+	}
 	if first {
 		var init bytes.Buffer
-		if err := muxl.RunMuxlWrapInit(t.ctx, bytes.NewReader(src), &init); err != nil {
+		if err := muxl.RunMuxlWrapInit(t.ctx, bytes.NewReader(decodeSrc), &init); err != nil {
 			return fmt.Errorf("synthesize transcoder init: %w", err)
 		}
 		if _, err := t.feedW.Write(init.Bytes()); err != nil {
@@ -267,7 +272,7 @@ func (t *streamTranscoder) Feed(src []byte, token any) error {
 	case <-t.ctx.Done():
 		return t.ctx.Err()
 	}
-	if _, err := t.feedW.Write(src); err != nil {
+	if _, err := t.feedW.Write(decodeSrc); err != nil {
 		return err
 	}
 	return nil

@@ -73,3 +73,17 @@ func TestHubSubscribeReceivesEventsAndCloses(t *testing.T) {
 	for range ch {
 	}
 }
+
+func TestHubCanonicalAnonymousContinuationAndReplay(t *testing.T) {
+	h := NewHub(time.Minute)
+	tr := Track{ID: "canonical-ingest-en", Origin: OriginCanonical}
+	h.PublishCanonical("s", tr, cue("muxl-9-100", 0.1, 1, "same line", true))
+	h.PublishCanonical("s", tr, cue("muxl-9-1000", 1, 2, "same line", true))
+	h.PublishCanonical("s", tr, cue("muxl-9-1000", 1, 2, "same line", true))
+	h.PublishCanonical("s", tr, cue("muxl-9-3000", 3, 4, "same line", true))
+	got := h.Cues("s", tr.ID, t0, t0.Add(time.Minute))
+	require.Equal(t, []Cue{
+		cue("muxl-9-100", 0.1, 2, "same line", true),
+		cue("muxl-9-3000", 3, 4, "same line", true),
+	}, got)
+}

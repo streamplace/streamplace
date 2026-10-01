@@ -109,6 +109,7 @@ Alternatively, you can
 ## Additional Resources
 
 - [OBS Official Documentation](https://obsproject.com/docs/)
+- [Captions, browser captioning, and OBS overlays](/docs/guides/start-streaming/captions/)
 
 ### Example Settings
 

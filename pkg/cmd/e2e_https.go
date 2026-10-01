@@ -43,7 +43,7 @@ import (
 // page to a same-site navigation (Sec-Fetch-Site: same-site).
 //
 //   - mints a throwaway CA and one leaf for all of those and plc.directory;
-//   - terminates TLS on 127.0.0.1:443 and routes by SNI: the PDS hostname and
+//   - terminates TLS on 127.0.0.1:443 (or --https-port) and routes by SNI: the PDS hostname and
 //     handles to the dev-env PDS, the station hostname to the node's
 //     plain-HTTP listener (it runs with --behind-https-proxy), plc.directory
 //     to the dev-env PLC;
@@ -76,9 +76,9 @@ const e2ePLCHost = "plc.directory"
 // newE2EHTTPS mints the certificates and claims every listener up front, so a
 // harness that cannot bind its port fails before it has started anything else.
 //
-// The front end listens on 127.0.0.1:port. The URLs it serves stay portless
-// (https://<host>), so any port other than 443 only works on a machine that
-// redirects loopback 443 to it, e.g. with an iptables REDIRECT rule.
+// The front end listens on 127.0.0.1:port while public URLs stay portless.
+// Server-side Go/Node clients and proxied browsers reach it through CONNECT
+// even on a high port. Direct devices must redirect their port 443 to it.
 func newE2EHTTPS(pdsHost, stationHost string, port int) (*e2eHTTPS, error) {
 	h := &e2eHTTPS{pdsHost: pdsHost, stationHost: stationHost}
 	var err error
@@ -128,10 +128,17 @@ func (h *e2eHTTPS) ProxyURL() string { return "http://" + h.proxyLn.Addr().Strin
 // hostname, and trust in our CA for what it fetches over https (the node's
 // OAuth client metadata, lexicons from its own public URL).
 func (h *e2eHTTPS) DevEnvEnv() []string {
-	return []string{
+	env := []string{
 		"DEV_ENV_PDS_HOSTNAME=" + h.pdsHost,
 		"NODE_EXTRA_CA_CERTS=" + h.caPath,
 	}
+	if h.frontLn.Addr().(*net.TCPAddr).Port != 443 {
+		// Native clients redirect only their own port 443, not the host's.
+		// Node fetch needs an explicit dispatcher on the pinned Node 22.
+		env = append(env, "DEV_ENV_HTTPS_PROXY=true", "HTTPS_PROXY="+h.ProxyURL(),
+			"NO_PROXY=localhost,127.0.0.1,::1")
+	}
+	return env
 }
 
 // NodeEnv is the extra environment for the forked node, whose broadcaster

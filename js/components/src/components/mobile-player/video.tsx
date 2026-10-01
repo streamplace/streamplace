@@ -1,5 +1,6 @@
 import Hls from "hls.js";
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { startBrowserCaptioner } from "streamplace";
 import {
   IngestMediaSource,
@@ -682,6 +683,7 @@ export function WebcamIngestPlayer(props: VideoProps) {
   const ingestMediaSource = usePlayerStore((x) => x.ingestMediaSource);
   const ingestAutoStart = usePlayerStore((x) => x.ingestAutoStart);
   const setIngestLive = usePlayerStore((x) => x.setIngestLive);
+  const { t } = useTranslation();
 
   const [error, setError] = useState<Error | null>(null);
   const { theme } = useTheme();
@@ -779,8 +781,10 @@ export function WebcamIngestPlayer(props: VideoProps) {
       return;
     let cancelled = false;
     let stop: (() => Promise<void>) | undefined;
-    setCaptionStatus("Loading device captions…");
+    const controller = new AbortController();
+    setCaptionStatus(t("device-captions-loading"));
     void startBrowserCaptioner({
+      signal: controller.signal,
       nodeURL: url,
       agent: captionAgent,
       stream: localMediaStream,
@@ -789,22 +793,22 @@ export function WebcamIngestPlayer(props: VideoProps) {
       onCue: (cue) => setCaptionStatus(cue.text),
       onError: (captionError) => setCaptionStatus(captionError.message),
       onSpeed: (rtf) => {
-        if (rtf >= 1)
-          setCaptionStatus(
-            "Device captions are slower than realtime on this browser.",
-          );
+        if (rtf >= 1) setCaptionStatus(t("device-captions-slow"));
       },
     })
       .then(async (session) => {
         if (cancelled) await session.stop();
         else stop = session.stop;
       })
-      .catch((captionError: Error) => setCaptionStatus(captionError.message));
+      .catch((captionError: Error) => {
+        if (!cancelled) setCaptionStatus(captionError.message);
+      });
     return () => {
       cancelled = true;
+      controller.abort();
       void stop?.().catch(console.error);
     };
-  }, [deviceCaptions, localMediaStream, captionAgent, oauthSession, url]);
+  }, [deviceCaptions, localMediaStream, captionAgent, oauthSession, url, t]);
 
   if (error) {
     return (
@@ -861,6 +865,7 @@ export function WebcamIngestPlayer(props: VideoProps) {
         >
           <input
             type="checkbox"
+            data-testid="device-captions-toggle"
             checked={deviceCaptions}
             disabled={!oauthSession}
             onChange={(event) => {
@@ -873,13 +878,9 @@ export function WebcamIngestPlayer(props: VideoProps) {
               setDeviceCaptions(event.target.checked);
             }}
           />
-          Caption my stream on this device
+          {t("device-captions-toggle")}
         </label>
-        <p>
-          Uses the outgoing audio track. Set caption policy to ingest for
-          canonical device captions; this toggle never changes policy. Enabling
-          may reload for browser isolation; restart Go Live after reloading.
-        </p>
+        <p>{t("device-captions-description")}</p>
         {captionStatus && <p role="status">{captionStatus}</p>}
       </div>
     </div>

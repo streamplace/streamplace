@@ -24,6 +24,7 @@ import { Route as SettingsNotificationsRouteImport } from './routes/settings/not
 import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
 import { Route as SettingsDanmuRouteImport } from './routes/settings/danmu'
 import { Route as SettingsChatProfileRouteImport } from './routes/settings/chat-profile'
+import { Route as SettingsCaptionsRouteImport } from './routes/settings/captions'
 import { Route as SettingsBrandingRouteImport } from './routes/settings/branding'
 import { Route as SettingsBadgesRouteImport } from './routes/settings/badges'
 import { Route as SettingsBadgeIssuerRouteImport } from './routes/settings/badge-issuer'
@@ -119,6 +120,11 @@ const SettingsDanmuRoute = SettingsDanmuRouteImport.update({
 const SettingsChatProfileRoute = SettingsChatProfileRouteImport.update({
   id: '/chat-profile',
   path: '/chat-profile',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsCaptionsRoute = SettingsCaptionsRouteImport.update({
+  id: '/captions',
+  path: '/captions',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsBrandingRoute = SettingsBrandingRouteImport.update({
@@ -247,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
+  '/settings/captions': typeof SettingsCaptionsRoute
   '/settings/chat-profile': typeof SettingsChatProfileRoute
   '/settings/danmu': typeof SettingsDanmuRoute
   '/settings/languages': typeof SettingsLanguagesRoute
@@ -283,6 +290,7 @@ export interface FileRoutesByTo {
   '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
+  '/settings/captions': typeof SettingsCaptionsRoute
   '/settings/chat-profile': typeof SettingsChatProfileRoute
   '/settings/danmu': typeof SettingsDanmuRoute
   '/settings/languages': typeof SettingsLanguagesRoute
@@ -322,6 +330,7 @@ export interface FileRoutesById {
   '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
+  '/settings/captions': typeof SettingsCaptionsRoute
   '/settings/chat-profile': typeof SettingsChatProfileRoute
   '/settings/danmu': typeof SettingsDanmuRoute
   '/settings/languages': typeof SettingsLanguagesRoute
@@ -362,6 +371,7 @@ export interface FileRouteTypes {
     | '/settings/badge-issuer'
     | '/settings/badges'
     | '/settings/branding'
+    | '/settings/captions'
     | '/settings/chat-profile'
     | '/settings/danmu'
     | '/settings/languages'
@@ -398,6 +408,7 @@ export interface FileRouteTypes {
     | '/settings/badge-issuer'
     | '/settings/badges'
     | '/settings/branding'
+    | '/settings/captions'
     | '/settings/chat-profile'
     | '/settings/danmu'
     | '/settings/languages'
@@ -436,6 +447,7 @@ export interface FileRouteTypes {
     | '/settings/badge-issuer'
     | '/settings/badges'
     | '/settings/branding'
+    | '/settings/captions'
     | '/settings/chat-profile'
     | '/settings/danmu'
     | '/settings/languages'
@@ -580,6 +592,13 @@ declare module '@tanstack/react-router' {
       path: '/chat-profile'
       fullPath: '/settings/chat-profile'
       preLoaderRoute: typeof SettingsChatProfileRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/captions': {
+      id: '/settings/captions'
+      path: '/captions'
+      fullPath: '/settings/captions'
+      preLoaderRoute: typeof SettingsCaptionsRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/branding': {
@@ -766,6 +785,7 @@ interface SettingsRouteChildren {
   SettingsBadgeIssuerRoute: typeof SettingsBadgeIssuerRoute
   SettingsBadgesRoute: typeof SettingsBadgesRoute
   SettingsBrandingRoute: typeof SettingsBrandingRoute
+  SettingsCaptionsRoute: typeof SettingsCaptionsRoute
   SettingsChatProfileRoute: typeof SettingsChatProfileRoute
   SettingsDanmuRoute: typeof SettingsDanmuRoute
   SettingsLanguagesRoute: typeof SettingsLanguagesRoute
@@ -782,6 +802,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsBadgeIssuerRoute: SettingsBadgeIssuerRoute,
   SettingsBadgesRoute: SettingsBadgesRoute,
   SettingsBrandingRoute: SettingsBrandingRoute,
+  SettingsCaptionsRoute: SettingsCaptionsRoute,
   SettingsChatProfileRoute: SettingsChatProfileRoute,
   SettingsDanmuRoute: SettingsDanmuRoute,
   SettingsLanguagesRoute: SettingsLanguagesRoute,

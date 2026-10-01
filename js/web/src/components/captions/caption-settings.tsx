@@ -143,8 +143,7 @@ export function CaptionSettings() {
         <CaptionLines
           lines={[t("captions-preview")]}
           prefs={prefs}
-          // 22px (the lg type size) at 100%.
-          fontSize={Math.round((22 * prefs.size) / 100)}
+          fontSize={`calc(var(--text-lg) * ${prefs.size / 100})`}
         />
       </div>
 

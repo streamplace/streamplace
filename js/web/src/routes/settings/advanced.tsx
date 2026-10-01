@@ -103,7 +103,11 @@ function AdvancedSettings() {
                 {t("default-url", { url: defaultUrl })}
               </div>
             </div>
-            <Switch checked={overrideEnabled} onCheckedChange={handleToggle} />
+            <Switch
+              data-testid="settings-use-custom-node"
+              checked={overrideEnabled}
+              onCheckedChange={handleToggle}
+            />
           </div>
         </CardRow>
 
@@ -111,6 +115,7 @@ function AdvancedSettings() {
           <CardRow>
             <div className="flex items-center justify-center gap-2">
               <Input
+                data-testid="settings-custom-node-url"
                 type="url"
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
@@ -125,6 +130,7 @@ function AdvancedSettings() {
                 type="button"
                 size="lg"
                 onClick={onSubmitUrl}
+                data-testid="settings-save-node"
                 disabled={!newUrl.trim()}
               >
                 {t("save-button")}

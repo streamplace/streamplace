@@ -34,6 +34,7 @@ mobile-only.
 | `05-oauth-login.spec.ts` | `05-oauth-login.yaml`  |
 | `07-chat-popout.spec.ts` | — (web-only)           |
 | `08-vod.spec.ts`         | — (web-only)           |
+| `09-captions.spec.ts`    | `08-captions.yaml`     |
 
 The web app renders the **desktop layout** (a sidebar of nav links), not the
 mobile tab bar, so a couple of flows adapt to that surface while keeping the
@@ -49,6 +50,27 @@ after the video; a document title has no native counterpart.
 live video sits above chat. It reveals the player chrome, exercises mute and
 fullscreen entry/exit, and verifies that faded controls reveal instead of
 accepting an unseen tap.
+
+`09-captions` exercises both frontends (`sp_web_beta` selects the modern web
+app): live/VOD CC preferences, real live text sent through
+`place.stream.caption.pushCaptions`, caption-style persistence, dashboard
+`captionPolicy` saves, and modern-web VOD caption import/download/rendering.
+It uses the harness's `STREAM_KEY` bearer credential for live pushes, never a
+PDS access JWT. Cues use the encoder wall clock and are pushed with fresh
+timestamps while waiting for mastering and segment delivery. OAuth-only
+management checks use `flows/login.ts` and the harness account.
+
+VOD management opens the harness's `VIDEO_URI` directly through
+`/dashboard/videos?video=<encoded AT URI>`, loading the owner's published record
+from their PDS rather than depending on video-list indexing. Downloads use the
+browser's real download flow, which trusts the harness certificate by its SPKI
+pin; Playwright's standalone API request client does not inherit that pin.
+Stream Settings saves the same `self` metadata configuration record as the
+shared app, so caption policy survives reload and applies to future streams.
+Avatar lookups are keyed by missing DID contents, so a successful Bluesky
+response that omits the harness's Streamplace-only actor cannot trigger a
+profile-fetch/render loop during playback. `use-avatars.test.tsx` covers that
+case and repeated playback renders.
 
 ## OAuth over real HTTPS
 
@@ -99,3 +121,9 @@ inside the build container.
 
 Artifacts on failure (traces, screenshots, video) land in `test-results/` and a
 report in `playwright-report/` (`pnpm --filter @streamplace/e2e-web report`).
+
+To run just captions after building the current bundles and binary:
+
+```bash
+make dev && hack/e2e-web-local.sh flows/09-captions.spec.ts
+```

@@ -122,6 +122,9 @@ func (p *Provider) Cues(ctx context.Context, video, trackID string) ([]captions.
 		if err != nil {
 			return nil, err
 		}
+		if authoredSource(g.track.Source) {
+			return transcript.AuthoredCues(words), nil
+		}
 		return transcript.Cues(words, p.CueOptions), nil
 	}
 	return nil, ErrTrackNotFound
@@ -294,7 +297,13 @@ func (p *Provider) words(ctx context.Context, v *videoView, g *group) ([]transcr
 			log.Warn(ctx, "skipping unreadable caption transcript", "uri", row.URI, "error", err)
 			continue
 		}
-		ws := transcript.Decode(transcript.Compact{Text: rec.Text, StartMs: rec.StartMs, Timings: rec.Timings})
+		compact := transcript.Compact{Text: rec.Text, StartMs: rec.StartMs, Timings: rec.Timings}
+		var ws []transcript.Word
+		if authoredSource(g.track.Source) {
+			ws = transcript.DecodeAuthored(compact)
+		} else {
+			ws = transcript.Decode(compact)
+		}
 		switch g.class {
 		case classVideo:
 			out = append(out, ws...)
@@ -312,6 +321,10 @@ func (p *Provider) words(ctx context.Context, v *videoView, g *group) ([]transcr
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].StartMs < out[j].StartMs })
 	return out, nil
+}
+
+func authoredSource(source captions.Source) bool {
+	return source == captions.SourceImported || source == captions.SourceHuman
 }
 
 // shiftWords moves words by delta ms and cuts them to [0, limit).

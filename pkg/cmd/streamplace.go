@@ -51,7 +51,7 @@ import (
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/storage"
-	_ "stream.place/streamplace/pkg/stt" // Include bundled models even when automatic captions are disabled.
+	"stream.place/streamplace/pkg/stt"
 	"stream.place/streamplace/pkg/upload"
 	"stream.place/streamplace/pkg/viewlog"
 	"stream.place/streamplace/pkg/vod"
@@ -292,6 +292,22 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 	mm, err := media.MakeMediaManager(ctx, cli, signer, mod, b, atsync, ldb)
 	if err != nil {
+		return err
+	}
+	mm.STT, err = stt.NewEngine(ctx, cli)
+	if err != nil {
+		log.Warn(ctx, "speech engine unavailable; automatic captions disabled", "error", err)
+	}
+	if mm.STT != nil {
+		defer mm.STT.Close()
+	}
+	stopSpeechProxy, err := mm.StartCaptionEngineProxy(ctx)
+	if err != nil {
+		return err
+	}
+	defer stopSpeechProxy()
+	defer mm.ShutdownCaptions()
+	if err := mm.ConfigureCaptionRecords(ctx, state); err != nil {
 		return err
 	}
 	// Every new playback session counts toward the streamer's running view

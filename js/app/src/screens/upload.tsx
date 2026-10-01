@@ -32,6 +32,8 @@ import AQLink from "components/aqlink";
 import { EmptyState, EmptyStateTile } from "components/empty-state";
 import Loading from "components/loading/loading";
 import BetaAccessGate from "components/upload/beta-access-gate";
+import * as DocumentPicker from "expo-document-picker";
+import { File as NativeFile } from "expo-file-system";
 import { Image } from "expo-image";
 import {
   AlertCircle,
@@ -1741,7 +1743,30 @@ export function UploadVideoScreen({ route }: { route: any }) {
             {mode === "video" && videoUri_ && (
               <MenuContainer>
                 <View style={[zero.px[3], zero.py[2]]}>
-                  <VideoCaptionsManager video={videoUri_} />
+                  <VideoCaptionsManager
+                    video={videoUri_}
+                    pickFile={
+                      Platform.OS === "web"
+                        ? undefined
+                        : async () => {
+                            const result =
+                              await DocumentPicker.getDocumentAsync({
+                                type: [
+                                  "text/vtt",
+                                  "application/x-subrip",
+                                  "text/plain",
+                                ],
+                                copyToCacheDirectory: true,
+                              });
+                            if (result.canceled) return null;
+                            const asset = result.assets[0];
+                            return {
+                              name: asset.name,
+                              text: () => new NativeFile(asset.uri).text(),
+                            };
+                          }
+                    }
+                  />
                 </View>
               </MenuContainer>
             )}

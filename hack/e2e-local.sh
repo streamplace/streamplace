@@ -113,6 +113,24 @@ printf '%s\n' "$hosts" | adb_ shell 'while grep -q " /system/etc/hosts " /proc/m
   chcon u:object_r:system_file:s0 /data/local/tmp/sp-e2e-hosts
   mount -o bind /data/local/tmp/sp-e2e-hosts /system/etc/hosts'
 
+# Keep OAuth URLs portless without changing the host's privileged-port policy.
+if [ -n "${E2E_HTTPS_PORT:-}" ] && [ "$E2E_HTTPS_PORT" != 443 ]; then
+  case "$DEVICE" in
+    emulator-*) ;;
+    *) echo "high-port HTTPS redirection requires an emulator serial"; exit 1 ;;
+  esac
+  stop_with_https_redirect() {
+    adb_ shell iptables -t nat -D OUTPUT -p tcp -d 10.0.2.2 --dport 443 \
+      -m comment --comment streamplace-e2e -j DNAT \
+      --to-destination "10.0.2.2:$E2E_HTTPS_PORT" >/dev/null 2>&1 || true
+    e2e_harness_stop
+  }
+  trap stop_with_https_redirect EXIT INT TERM
+  adb_ shell iptables -t nat -A OUTPUT -p tcp -d 10.0.2.2 --dport 443 \
+    -m comment --comment streamplace-e2e -j DNAT \
+    --to-destination "10.0.2.2:$E2E_HTTPS_PORT"
+fi
+
 # The user trust store keys certificates by OpenSSL's old subject hash.
 # Each run mints a new CA, so drop the one an earlier run left behind.
 ca_file="$(openssl x509 -subject_hash_old -noout -in "$E2E_TLS_CA").0"
@@ -138,7 +156,9 @@ adb_ shell pm grant "$APP_ID" android.permission.POST_NOTIFICATIONS 2>/dev/null 
 adb_ shell am force-stop com.android.chrome || true
 
 MAESTRO_ARGS=(-e APP_ID="$APP_ID" -e SERVER_URL="$SERVER_HTTPS_URL"
-  -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD")
+  -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD"
+  -e STREAM_KEY="$STREAM_KEY" -e ACCOUNT_DID="$ACCOUNT_DID"
+  -e CAPTION_API_URL="$SERVER_URL")
 
 # --- run the flows ---------------------------------------------------------
 # takeScreenshot paths are relative to maestro's cwd, so run from the

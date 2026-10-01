@@ -1,0 +1,67 @@
+appId: ${APP_ID}
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- tapOn:
+    id: "home-stream-card"
+- extendedWaitUntil:
+    visible:
+      text: ".*e2e test stream.*"
+    timeout: 30000
+- tapOn:
+    point: 50%,20%
+- tapOn:
+    id: "player-cc-menu-button"
+- tapOn:
+    id: "player-cc-track-off"
+- tapOn:
+    point: 50%,20%
+- tapOn:
+    id: "player-cc-button"
+- tapOn:
+    point: 50%,20%
+- tapOn:
+    id: "player-cc-menu-button"
+- retry:
+    maxRetries: 3
+    commands:
+      - runScript:
+          file: push-caption.js
+          env:
+            CAPTION_API_URL: ${CAPTION_API_URL}
+            STREAM_KEY: ${STREAM_KEY}
+            ACCOUNT_DID: ${ACCOUNT_DID}
+      - extendedWaitUntil:
+          visible:
+            id: "player-cc-track-${output.captionTrackID}"
+          timeout: 10000
+- tapOn:
+    id: "player-cc-track-${output.captionTrackID}"
+- assertNotVisible:
+    id: "player-cc-menu"
+- retry:
+    maxRetries: 5
+    commands:
+      - runScript:
+          file: push-caption.js
+          env:
+            CAPTION_API_URL: ${CAPTION_API_URL}
+            STREAM_KEY: ${STREAM_KEY}
+            ACCOUNT_DID: ${ACCOUNT_DID}
+      - extendedWaitUntil:
+          visible:
+            text: ".*Maestro live caption proof.*"
+          timeout: 15000
+- assertVisible:
+    id: "caption-overlay-text"
+- takeScreenshot: 08-caption-visible
+- tapOn:
+    point: 50%,20%
+- tapOn:
+    id: "player-cc-button"
+- assertNotVisible:
+    id: "caption-overlay-text"
+- takeScreenshot: 08-caption-off

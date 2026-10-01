@@ -178,83 +178,6 @@ func TestCuesLimits(t *testing.T) {
 	require.Equal(t, want, got, "every word appears exactly once, in order")
 }
 
-func TestWordsFromCues(t *testing.T) {
-	tests := []struct {
-		name string
-		cues []captions.TimedCue
-		want []Word
-	}{
-		{
-			name: "spreads the words evenly over the cue",
-			cues: []captions.TimedCue{{Start: ms(1000), End: ms(2000), Text: "one two three four"}},
-			want: []Word{{"one", 1000, 1250}, {"two", 1250, 1500}, {"three", 1500, 1750}, {"four", 1750, 2000}},
-		},
-		{
-			name: "rounding never leaves a hole or runs past the cue",
-			cues: []captions.TimedCue{{Start: ms(0), End: ms(1000), Text: "a b c"}},
-			want: []Word{{"a", 0, 333}, {"b", 333, 666}, {"c", 666, 1000}},
-		},
-		{
-			name: "multi-line cue text is split on any whitespace",
-			cues: []captions.TimedCue{{Start: ms(0), End: ms(400), Text: "first line\nsecond  line"}},
-			want: []Word{{"first", 0, 100}, {"line", 100, 200}, {"second", 200, 300}, {"line", 300, 400}},
-		},
-		{
-			name: "unicode and punctuation-only tokens",
-			cues: []captions.TimedCue{{Start: ms(0), End: ms(300), Text: "世界 — ♪"}},
-			want: []Word{{"世界", 0, 100}, {"—", 100, 200}, {"♪", 200, 300}},
-		},
-		{
-			name: "empty cues are skipped and gaps are kept",
-			cues: []captions.TimedCue{
-				{Start: ms(0), End: ms(500), Text: "a"},
-				{Start: ms(600), End: ms(900), Text: "  "},
-				{Start: ms(5000), End: ms(5500), Text: "b"},
-			},
-			want: []Word{{"a", 0, 500}, {"b", 5000, 5500}},
-		},
-		{
-			name: "cues out of order are sorted",
-			cues: []captions.TimedCue{
-				{Start: ms(2000), End: ms(2500), Text: "second"},
-				{Start: ms(0), End: ms(500), Text: "first"},
-			},
-			want: []Word{{"first", 0, 500}, {"second", 2000, 2500}},
-		},
-		{
-			name: "an overlapped cue is cut short at the start of the next",
-			cues: []captions.TimedCue{
-				{Start: ms(0), End: ms(2000), Text: "a b"},
-				{Start: ms(1000), End: ms(2000), Text: "c d"},
-			},
-			want: []Word{{"a", 0, 500}, {"b", 500, 1000}, {"c", 1000, 1500}, {"d", 1500, 2000}},
-		},
-		{
-			name: "cues that start together are laid out one after another",
-			cues: []captions.TimedCue{
-				{Start: ms(0), End: ms(1000), Text: "a"},
-				{Start: ms(0), End: ms(1000), Text: "b"},
-			},
-			want: []Word{{"a", 0, 1000}, {"b", 1000, 1000}},
-		},
-		{
-			name: "a zero-length cue still yields its words",
-			cues: []captions.TimedCue{{Start: ms(700), End: ms(700), Text: "a b"}},
-			want: []Word{{"a", 700, 700}, {"b", 700, 700}},
-		},
-		{
-			name: "none",
-			cues: nil,
-			want: nil,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, WordsFromCues(tt.cues))
-		})
-	}
-}
-
 // An imported file survives the trip into a record and back out as cues:
 // the cue-level timing comes back within the 1ms the encoding can lose.
 func TestImportedCuesRoundTrip(t *testing.T) {
@@ -263,13 +186,15 @@ func TestImportedCuesRoundTrip(t *testing.T) {
 		{Start: ms(4000), End: ms(6000), Text: "Today: ünïcode, — and ♪ music ♪"},
 		{Start: ms(70_000), End: ms(72_000), Text: "A cue after a long silence."},
 	}
-	chunks := Chunk(WordsFromCues(in), ChunkOptions{})
+	chunks := ChunkAuthored(WordsFromCues(in), ChunkOptions{})
 	require.Len(t, chunks, 1)
 	var words []Word
 	for _, c := range chunks {
-		words = append(words, Decode(c)...)
+		words = append(words, DecodeAuthored(c)...)
 	}
-	for i, c := range Cues(words, CueOptions{}) {
+	cues := AuthoredCues(words)
+	require.Len(t, cues, len(in))
+	for i, c := range cues {
 		require.Equal(t, in[i].Text, c.Text)
 		require.InDelta(t, in[i].Start.Milliseconds(), c.Start.Milliseconds(), 1)
 		require.InDelta(t, in[i].End.Milliseconds(), c.End.Milliseconds(), 1)

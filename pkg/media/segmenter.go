@@ -186,6 +186,7 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 	// per-DID continuous transcoder keys on this epoch and rebuilds rather than
 	// feeding the restarted timeline into the previous session's encoder.
 	ctx = withIngestSession(ctx, mm.nextIngestSession())
+	ctx = withCaptionManager(ctx, mm)
 
 	// muxl path: stream the fMP4 through the per-segment signer. Each GoP
 	// arrives as a bare canonical .m4s, which ValidateMP4 verifies, archives

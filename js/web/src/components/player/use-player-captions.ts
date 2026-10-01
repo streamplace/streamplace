@@ -10,6 +10,7 @@ import {
   type LivestreamStore,
   makeLivestreamStore,
   mergeCaptionTracks,
+  presentedCaptionTime,
   selectCaptionTrack,
   type TextTrackWatcher,
   type TimedCaption,
@@ -81,6 +82,12 @@ export function usePlayerCaptions(
       : emptyLivestreamStore;
   const liveTracks = useStore(liveStore, (s) => s.captionTracks);
   const liveCues = useStore(liveStore, (s) => s.liveCaptions);
+  const captionClock = useStore(liveStore, (s) => s.captionClock);
+  const liveSession = useStore(liveStore, (s) =>
+    s.livestream
+      ? `${s.livestream.uri}:${s.livestream.record.endedAt ?? ""}`
+      : null,
+  );
 
   const [serverTracks, setServerTracks] = useState<CaptionTrackView[]>([]);
   useEffect(() => {
@@ -99,7 +106,7 @@ export function usePlayerCaptions(
         }
       });
     return () => controller.abort();
-  }, [subjectKey]);
+  }, [subjectKey, liveSession]);
 
   // The <video>'s own text tracks, from hls.js or Safari.
   const [elementTracks, setElementTracks] = useState<ElementCaptionTrack[]>([]);
@@ -137,26 +144,26 @@ export function usePlayerCaptions(
     watcher.current?.setActive(activeKey);
   }, [activeKey]);
 
-  // Live cues, re-evaluated every second while some are on screen so
-  // stale lines leave without a new cue arriving.
+  // Live cues follow the segment presentation clock, including queued future cues.
   const liveTrackId = shown && !shown.elementKey && isLive ? shown.id : null;
   const [tick, setTick] = useState(0);
   const liveLines = useMemo(
-    () =>
-      liveTrackId
-        ? activeLiveCaptions(liveCues, liveTrackId, Date.now()).map(
+    () => {
+      const presented = presentedCaptionTime(captionClock, Date.now());
+      return liveTrackId && presented !== null
+        ? activeLiveCaptions(liveCues, liveTrackId, presented).map(
             (c) => c.text,
           )
-        : NO_LINES,
+        : NO_LINES;
+    },
     // tick only forces a re-evaluation against the current time.
-    [liveCues, liveTrackId, tick],
+    [liveCues, captionClock, liveTrackId, tick],
   );
-  const liveShowing = liveLines.length > 0;
   useEffect(() => {
-    if (!liveShowing) return;
-    const timer = setInterval(() => setTick((n) => n + 1), 1000);
+    if (!liveTrackId || !captionClock) return;
+    const timer = setInterval(() => setTick((n) => n + 1), 250);
     return () => clearInterval(timer);
-  }, [liveShowing]);
+  }, [liveTrackId, captionClock]);
 
   // VOD cues as JSON, looked up by the element's play position.
   const vodTrackId =
@@ -202,7 +209,7 @@ export function usePlayerCaptions(
       video.removeEventListener("timeupdate", update);
       video.removeEventListener("seeked", update);
     };
-  }, [timed, videoRef]);
+  }, [timed, videoRef, active]);
   const timedLines = useMemo(
     () => (timedText ? timedText.split("\n") : NO_LINES),
     [timedText],
@@ -220,10 +227,7 @@ export function usePlayerCaptions(
     },
     [setEnabled, setLanguage],
   );
-  const toggle = useCallback(
-    () => select(enabled ? null : track),
-    [select, enabled, track],
-  );
+  const toggle = useCallback(() => setEnabled(!enabled), [setEnabled, enabled]);
 
   const lines = !shown
     ? NO_LINES

@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { useSession } from "@/lib/session";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { BrowserCue, CaptionModel } from "streamplace";
 import { benchmarkCaptionModel, startBrowserCaptioner } from "streamplace";
 
@@ -11,6 +12,7 @@ export const Route = createFileRoute("/captioner")({
 });
 
 export function CaptionerPage() {
+  const { t } = useTranslation("common");
   const { did, pdsAgent, signIn } = useSession();
   const [handle, setHandle] = useState("");
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -18,7 +20,8 @@ export function CaptionerPage() {
   const [language, setLanguage] = useState("");
   const [model, setModel] = useState<CaptionModel>("tiny");
   const [offset, setOffset] = useState(0);
-  const [status, setStatus] = useState("Stopped");
+  const [status, setStatus] = useState("captioner-status-stopped");
+  const [statusModel, setStatusModel] = useState<CaptionModel>("tiny");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [running, setRunning] = useState(false);
@@ -80,7 +83,7 @@ export function CaptionerPage() {
     } finally {
       if (!cancelled.current) {
         setBusy(false);
-        setStatus("Stopped");
+        setStatus("captioner-status-stopped");
       }
     }
   };
@@ -96,7 +99,7 @@ export function CaptionerPage() {
       startAbortRef.current === controller;
     setBusy(true);
     setError("");
-    setStatus("Loading model; the first download is cached by your browser…");
+    setStatus("captioner-status-loading");
     let stream: MediaStream | undefined;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -137,9 +140,7 @@ export function CaptionerPage() {
           if (!isCurrent()) return;
           setSpeeds((before) => ({ ...before, [model]: rtf }));
           setStatus(
-            rtf < 1
-              ? "Listening"
-              : "This model is slower than realtime; stop and choose a smaller model.",
+            rtf < 1 ? "captioner-status-listening" : "captioner-status-slow",
           );
         },
         onError: (e) => {
@@ -168,7 +169,7 @@ export function CaptionerPage() {
           if (!intentionallyAborted) setError(String(e));
           setRunning(false);
           setBusy(false);
-          setStatus("Stopped");
+          setStatus("captioner-status-stopped");
         }
       }
     }
@@ -188,7 +189,8 @@ export function CaptionerPage() {
     try {
       for (const name of ["tiny", "base", "small"] as const) {
         if (!isCurrent()) return;
-        setStatus(`Measuring ${name} in this browser…`);
+        setStatusModel(name);
+        setStatus("captioner-status-measuring");
         measured[name] = await benchmarkCaptionModel(
           window.location.origin,
           name,
@@ -204,9 +206,8 @@ export function CaptionerPage() {
         ) ?? "tiny";
       if (!isCurrent()) return;
       setModel(suggested);
-      setStatus(
-        `Suggested ${suggested}: measured inference time / audio time. Live speech may be slower.`,
-      );
+      setStatusModel(suggested);
+      setStatus("captioner-status-suggested");
     } catch (e) {
       const intentionallyAborted =
         e !== null &&
@@ -224,17 +225,12 @@ export function CaptionerPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
-      <h1 className="font-display text-2xl font-semibold">Captioner</h1>
-      <p>
-        Speech recognition runs on this device. This page sends only recognized
-        captions to your Streamplace node. Start your livestream before starting
-        captions.
-      </p>
+      <h1 className="font-display text-2xl font-semibold">
+        {t("captioner-title")}
+      </h1>
+      <p>{t("captioner-description")}</p>
       <p className="text-muted-foreground text-sm">
-        For canonical device captions, set the stream’s caption policy to{" "}
-        <strong>ingest</strong> in stream settings. This page never changes your
-        policy. Use a microphone connected to the same machine/clock as your
-        encoder; add a calibration offset to match encoder latency.
+        {t("captioner-policy-description")}
       </p>
       {!did ? (
         <form
@@ -247,60 +243,53 @@ export function CaptionerPage() {
           }}
         >
           <Input
-            aria-label="Streamer handle"
-            placeholder="your.handle"
+            aria-label={t("captioner-handle")}
+            placeholder={t("captioner-handle-placeholder")}
             value={handle}
             onChange={(e) => setHandle(e.target.value)}
             required
           />
-          <Button type="submit">Sign in as streamer</Button>
+          <Button type="submit">{t("captioner-sign-in")}</Button>
         </form>
       ) : (
-        <p className="text-sm">Signed in as {did}</p>
+        <p className="text-sm">{t("captioner-signed-in", { did })}</p>
       )}
       {!mediaAvailable && (
-        <p role="alert">
-          Microphone access is unavailable. Use HTTPS (or localhost), allow
-          microphone permissions, or launch OBS with{" "}
-          <code>--enable-media-stream</code>. Open Browser Source → Interact to
-          sign in and start.
-        </p>
+        <p role="alert">{t("captioner-microphone-unavailable")}</p>
       )}
       {!globalThis.crossOriginIsolated && (
-        <p role="alert">
-          SharedArrayBuffer is unavailable. Serve this page over HTTPS with
-          COOP/COEP headers; your proxy must preserve the node’s headers.
-        </p>
+        <p role="alert">{t("captioner-isolation-unavailable")}</p>
       )}
       <fieldset
         disabled={busy || running}
         className="border-border grid gap-4 rounded-lg border p-4"
       >
         <label className="grid gap-2">
-          Microphone
+          {t("captioner-microphone")}
           <select
             className="border-input bg-background rounded-md border p-2"
             value={device}
             onChange={(e) => setDevice(e.target.value)}
           >
-            <option value="">System default</option>
+            <option value="">{t("captioner-system-default")}</option>
             {devices.map((d, index) => (
               <option key={d.deviceId || index} value={d.deviceId}>
-                {d.label || `Microphone ${index + 1}`}
+                {d.label ||
+                  t("captioner-microphone-number", { number: index + 1 })}
               </option>
             ))}
           </select>
         </label>
         <label className="grid gap-2">
-          Language (ISO code; blank detects automatically)
+          {t("captioner-language")}
           <Input
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            placeholder="en, es, fr, ja…"
+            placeholder={t("captioner-language-placeholder")}
           />
         </label>
         <label className="grid gap-2">
-          Model
+          {t("captioner-model")}
           <select
             className="border-input bg-background rounded-md border p-2"
             value={model}
@@ -310,14 +299,16 @@ export function CaptionerPage() {
               <option key={name} value={name}>
                 {name}
                 {speeds[name] !== undefined
-                  ? ` — ${speeds[name]?.toFixed(2)}× realtime factor`
+                  ? t("captioner-model-speed", {
+                      factor: speeds[name]?.toFixed(2),
+                    })
                   : ""}
               </option>
             ))}
           </select>
         </label>
         <label className="grid gap-2">
-          Calibration offset (ms; positive delays captions)
+          {t("captioner-offset")}
           <Input
             type="number"
             value={offset}
@@ -325,7 +316,7 @@ export function CaptionerPage() {
           />
         </label>
         <Button variant="outline" onClick={() => void measure()}>
-          Measure speed and suggest model
+          {t("captioner-measure")}
         </Button>
       </fieldset>
       <div className="flex items-center gap-4">
@@ -333,9 +324,9 @@ export function CaptionerPage() {
           disabled={(busy && !running) || !did || !mediaAvailable}
           onClick={() => void (running ? stop() : start())}
         >
-          {running ? "Stop captions" : "Start captions"}
+          {t(running ? "captioner-stop" : "captioner-start")}
         </Button>
-        <span role="status">{status}</span>
+        <span role="status">{t(status, { model: statusModel })}</span>
       </div>
       {error && (
         <p className="text-destructive" role="alert">
@@ -343,7 +334,7 @@ export function CaptionerPage() {
         </p>
       )}
       <section
-        aria-label="Live transcript"
+        aria-label={t("captioner-transcript")}
         aria-live="polite"
         className="border-border space-y-2 rounded-lg border p-4"
       >
@@ -355,7 +346,7 @@ export function CaptionerPage() {
       </section>
       {did && (
         <p className="text-sm">
-          OBS display URL (no sign-in or microphone required):{" "}
+          {t("captioner-display-url")}{" "}
           <a
             className="underline"
             href={`/embed/captions/${encodeURIComponent(did)}`}
@@ -365,16 +356,8 @@ export function CaptionerPage() {
         </p>
       )}
       <details className="text-sm">
-        <summary>Run directly inside OBS</summary>
-        <p className="mt-2">
-          Launch OBS with <code>--enable-media-stream</code>, add this HTTPS URL
-          as a Browser Source, then use Interact to sign in, select your mic,
-          and start captions. Do not add{" "}
-          <code>--use-fake-ui-for-media-stream</code> unless you accept
-          automatic mic access by every browser source. Keep the source active
-          (disable “Shutdown source when not visible”). For a clean transparent
-          output, use the separate display URL.
-        </p>
+        <summary>{t("captioner-obs-title")}</summary>
+        <p className="mt-2">{t("captioner-obs-description")}</p>
       </details>
     </main>
   );

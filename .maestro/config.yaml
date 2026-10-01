@@ -13,3 +13,4 @@ executionOrder:
     - 05-oauth-login
     - 06-chat-reply
     - 07-chat-profile
+    - 08-captions

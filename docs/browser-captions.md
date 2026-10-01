@@ -8,11 +8,14 @@ text, not microphone audio, to `place.stream.caption.pushCaptions` about once a
 second. Final captions commit after 600 ms of silence or a 12-second window.
 A positive calibration offset delays caption timestamps to match encoder latency.
 
-For canonical device captions, explicitly set the stream's caption policy to
-**ingest** in stream settings. The captioner and browser go-live checkbox never
-change this policy. Browser go-live's “Caption my stream on this device” option
-uses the outgoing audio track and tiny model. Enabling it can reload the page to
-turn on browser isolation; restart Go Live after that reload.
+Pushed device captions are canonical under **auto** or **ingest**. Choose
+**ingest** in stream settings to use only your supplied captions and avoid node
+speech recognition; under auto, supplied captions take over when they arrive.
+With canonical captions off, pushes are sidecar or local according to
+`allowNodeCaptions`. The captioner and browser go-live checkbox never change this
+policy. Browser go-live's “Caption my stream on this device” option uses the
+outgoing audio track and tiny model. Enabling it can reload the page to turn on
+browser isolation; restart Go Live after that reload.
 
 ## OBS display source (recommended)
 
@@ -26,6 +29,11 @@ This display source needs **neither login nor microphone permissions**. Its
 canvas is transparent; `background` controls only the caption box. It receives
 interim and final live cues from the livestream websocket, regardless of whether
 they came from node recognition, ingest captions, or the captioner page.
+The display shows the newest cue on arrival for its duration (at least five
+seconds), or until a replacement arrives. Viewer-player overlays instead use
+the latest livestream segment's start time plus elapsed time since that segment
+arrived, and show cues only inside their start/end interval. Native HLS
+TextTracks continue to use the browser's media timeline.
 
 Options: `fontSize` (pixels), `color` and `background` (CSS colors, URL-encoded
 where necessary), `position` (`top`, `center`, `bottom`), `maxLines` (1–10 wrapped

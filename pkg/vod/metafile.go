@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -93,6 +94,9 @@ type MetafileTrack struct {
 	// Audio-only.
 	Channels   uint32 `json:"channels,omitempty"`
 	SampleRate uint32 `json:"sampleRate,omitempty"`
+	// Text-track encoding: language is BCP 47, label is captions.Source.
+	Language string `json:"language,omitempty"`
+	Label    string `json:"label,omitempty"`
 }
 
 // MetafileSegment is one GOP-sized byte range within the blob.
@@ -101,6 +105,18 @@ type MetafileSegment struct {
 	Size          int64  `json:"size"`
 	DurationTicks uint64 `json:"durationTicks"`
 	SampleCount   uint32 `json:"sampleCount"`
+	// DecodeTimeKnown distinguishes a genuine zero tfdt from legacy indexes
+	// that lack decode times. Caption placement uses the reference AV clock.
+	FirstDecodeTicks uint64 `json:"firstDecodeTicks,omitempty"`
+	DecodeTimeKnown  bool   `json:"decodeTimeKnown,omitempty"`
+	// Text identity and reference clock belong to this GoP, not to the final
+	// merged catalog or the physical ordering of neighboring byte ranges.
+	CaptionConfigKnown    bool   `json:"captionConfigKnown,omitempty"`
+	CaptionLanguage       string `json:"captionLanguage,omitempty"`
+	CaptionLabel          string `json:"captionLabel,omitempty"`
+	CaptionReferenceTicks uint64 `json:"captionReferenceTicks,omitempty"`
+	CaptionReferenceScale uint32 `json:"captionReferenceScale,omitempty"`
+	CaptionOffsetNanos    int64  `json:"captionOffsetNanos,omitempty"`
 	// Discontinuity marks a segment that begins a new continuous timeline —
 	// its decode time jumped backward relative to the previous segment of the
 	// same track. This happens when a recording concatenates multiple ingest
@@ -141,8 +157,15 @@ type metafileBuilder struct {
 	// lastTFDT / tfdtSeen track each track's previous baseMediaDecodeTime so a
 	// backward jump (a concatenated reconnect/restart) can be flagged as a
 	// discontinuity. See MetafileSegment.Discontinuity.
-	lastTFDT map[string]uint64
-	tfdtSeen map[string]bool
+	lastTFDT        map[string]uint64
+	tfdtSeen        map[string]bool
+	textConfigs     map[string]textProbeJSON
+	referenceScale  uint32
+	referenceTicks  uint64
+	referenceOffset time.Duration
+	// Set only when indexing untouched archived fragments: compare their
+	// original content hash with the ascending-numeric event serialization.
+	canonicalHash *bdasl.Writer
 }
 
 func newMetafileBuilder(ctx context.Context, store blob.Store) *metafileBuilder {
@@ -154,6 +177,7 @@ func newMetafileBuilder(ctx context.Context, store blob.Store) *metafileBuilder 
 		leadingInitInBlob: true,
 		lastTFDT:          map[string]uint64{},
 		tfdtSeen:          map[string]bool{},
+		textConfigs:       map[string]textProbeJSON{},
 	}
 }
 
@@ -172,15 +196,13 @@ func newFragmentMetafileBuilder(ctx context.Context, store blob.Store) *metafile
 func (b *metafileBuilder) Observe(ev *muxl.MuxlEvent) error {
 	switch ev.Type {
 	case "init":
-		if b.seenInit {
-			// Mid-stream init swap (catalog change). Doesn't happen in
-			// today's single-input VOD pipeline; if it ever does we'd
-			// need a richer schema (sub-archives per init). Warn loudly
-			// rather than silently produce a wrong metafile.
-			log.Warn(b.ctx, "metafile: mid-stream init swap; offsets after this point may be wrong")
+		if ev.Catalog != nil && ev.Catalog.Text != nil {
+			for _, c := range ev.Catalog.Text.Renditions {
+				id := strconv.FormatUint(uint64(c.TrackID()), 10)
+				b.textConfigs[id] = textProbeJSON{TrackID: id, Language: c.Language, Label: c.Label}
+			}
 		}
-		b.seenInit = true
-		b.catalog = ev.Catalog
+		b.catalog = mergeCatalog(b.catalog, ev.Catalog)
 		// Write per-track init bytes to the blob.Store keyed by their
 		// own BDASL CID. The primary blob's init occupies bytes
 		// [0, len(ev.Data)) in the output; advance runningOffset by
@@ -195,12 +217,26 @@ func (b *metafileBuilder) Observe(ev *muxl.MuxlEvent) error {
 		// Advance past the leading init only when it physically prefixes the
 		// blob. For the flat-MP4 shape the fragments start at 0 (the flat-header
 		// is added at serve/store time, not measured here).
-		if b.leadingInitInBlob {
-			b.runningOffset = int64(len(ev.Data))
-		} else {
-			b.runningOffset = 0
+		if !b.seenInit {
+			if b.leadingInitInBlob {
+				b.runningOffset = int64(len(ev.Data))
+			}
+			b.seenInit = true
 		}
 	case "segment", "signed-segment":
+		refID, scale := catalogCaptionReference(b.catalog, ev.Tracks)
+		refTicks, referenceKnown := firstTFDT(ev.Tracks[refID])
+		if b.referenceScale != scale {
+			if b.referenceScale != 0 {
+				b.referenceOffset += captionTicks(b.referenceTicks, b.referenceScale)
+			}
+			b.referenceScale = scale
+			b.referenceTicks = 0
+		}
+		var captionOffset time.Duration
+		if scale != 0 {
+			captionOffset = b.referenceOffset + captionTicks(b.referenceTicks, scale)
+		}
 		// Within a single segment event, per-track byte slices are
 		// concatenated in sorted key order (matching ParseMuxlEvents'
 		// byte-channel dispatch). Track that order here so offsets
@@ -211,31 +247,55 @@ func (b *metafileBuilder) Observe(ev *muxl.MuxlEvent) error {
 		for k := range ev.Tracks {
 			keys = append(keys, k)
 		}
-		sort.Strings(keys)
+		sort.Slice(keys, func(i, j int) bool {
+			a, _ := strconv.ParseUint(keys[i], 10, 32)
+			c, _ := strconv.ParseUint(keys[j], 10, 32)
+			return a < c
+		})
 		for _, tid := range keys {
 			chunk := ev.Tracks[tid]
+			if b.canonicalHash != nil {
+				if _, err := b.canonicalHash.Write(chunk); err != nil {
+					return fmt.Errorf("hash canonical MUXL layout: %w", err)
+				}
+			}
 			// Flag a discontinuity when this track's decode time jumps backward
 			// vs its previous segment — the signature of a concatenated
 			// reconnect/restart. A normal stream's tfdt is strictly increasing
 			// (tfdt[n] = tfdt[n-1] + duration[n-1]), so this never fires for a
 			// clean single-session recording.
 			disc := false
-			if tfdt, ok := firstTFDT(chunk); ok {
+			tfdt, known := firstTFDT(chunk)
+			if known {
 				if b.tfdtSeen[tid] && tfdt < b.lastTFDT[tid] {
 					disc = true
 				}
 				b.lastTFDT[tid] = tfdt
 				b.tfdtSeen[tid] = true
 			}
-			b.trackSegments[tid] = append(b.trackSegments[tid], MetafileSegment{
-				Offset:        b.runningOffset,
-				Size:          int64(len(chunk)),
-				DurationTicks: ev.Durations[tid],
-				SampleCount:   ev.SampleCounts[tid],
-				Discontinuity: disc,
-			})
+			entry := MetafileSegment{
+				Offset:           b.runningOffset,
+				Size:             int64(len(chunk)),
+				DurationTicks:    ev.Durations[tid],
+				SampleCount:      ev.SampleCounts[tid],
+				Discontinuity:    disc,
+				FirstDecodeTicks: tfdt,
+				DecodeTimeKnown:  known,
+			}
+			if config, ok := b.textConfigs[tid]; ok {
+				entry.CaptionConfigKnown = true
+				entry.CaptionLanguage = config.Language
+				entry.CaptionLabel = config.Label
+				if referenceKnown {
+					entry.CaptionReferenceTicks = refTicks
+					entry.CaptionReferenceScale = scale
+					entry.CaptionOffsetNanos = int64(captionOffset)
+				}
+			}
+			b.trackSegments[tid] = append(b.trackSegments[tid], entry)
 			b.runningOffset += int64(len(chunk))
 		}
+		b.referenceTicks += ev.Durations[refID]
 	default:
 		log.Warn(b.ctx, "metafile: unexpected event type; skipping", "type", ev.Type)
 	}
@@ -285,6 +345,38 @@ func (b *metafileBuilder) Finalize(cid string, size int64) *Metafile {
 							break
 						}
 					}
+				}
+				if track.Type == "unknown" && b.catalog.Text != nil {
+					for _, c := range b.catalog.Text.Renditions {
+						if c.TrackID() == targetTID {
+							track.Type = "text"
+							track.Codec = c.Codec
+							track.Timescale = c.Timescale()
+							track.Language = c.Language
+							track.Label = c.Label
+							break
+						}
+					}
+				}
+			}
+		}
+		if track.Type == "text" {
+			first := true
+			for _, seg := range segments {
+				if !seg.CaptionConfigKnown {
+					continue
+				}
+				if first {
+					track.Language = seg.CaptionLanguage
+					track.Label = seg.CaptionLabel
+					first = false
+					continue
+				}
+				if track.Language != seg.CaptionLanguage {
+					track.Language = "und"
+				}
+				if track.Label != seg.CaptionLabel {
+					track.Label = ""
 				}
 			}
 		}

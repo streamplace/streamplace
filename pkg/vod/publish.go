@@ -46,6 +46,7 @@ type publishParams struct {
 	mimeType   string
 	probe      media.VODResult
 	signingKey string
+	text       []textProbeJSON
 }
 
 // publishRecords does the post-processing record publish. With tracks
@@ -95,6 +96,18 @@ func publishRecords(ctx context.Context, p publishParams) error {
 		span.SetStatus(codes.Error, "marshal_probe")
 		return fmt.Errorf("marshal probe: %w", err)
 	}
+	if len(p.text) > 0 {
+		var shape probeJSONShape
+		if err := json.Unmarshal([]byte(probeJSON), &shape); err != nil {
+			return err
+		}
+		shape.Text = p.text
+		data, err := json.Marshal(shape)
+		if err != nil {
+			return err
+		}
+		probeJSON = string(data)
+	}
 
 	if err := p.state.SetUploadProcessed(ctx, p.in.UploadID, p.probe.DurationMS, p.cid, p.signingKey, probeJSON, p.size); err != nil {
 		span.RecordError(err)
@@ -114,6 +127,7 @@ type probeJSONShape struct {
 	DurationMS int64           `json:"durationMs"`
 	Video      *videoProbeJSON `json:"video,omitempty"`
 	Audio      *audioProbeJSON `json:"audio,omitempty"`
+	Text       []textProbeJSON `json:"text,omitempty"`
 }
 type videoProbeJSON struct {
 	Codec  string `json:"codec"`
@@ -127,6 +141,12 @@ type audioProbeJSON struct {
 	Rate        int    `json:"rate"`
 	Channels    int    `json:"channels"`
 	MPEGVersion int    `json:"mpegVersion"`
+}
+
+type textProbeJSON struct {
+	TrackID  string `json:"trackId"`
+	Language string `json:"language"`
+	Label    string `json:"label"`
 }
 
 func marshalProbe(p media.VODResult) (string, error) {
@@ -220,7 +240,7 @@ func publishOrigin(ctx context.Context, cli *config.CLI, cid string, size int64,
 // this upload's segments — the same key signs every track of an upload.
 // Exactly one of videoMeta / audioMeta should be non-nil; the other
 // is ignored.
-func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobSize, durationMS int64, trackID, mediaType, signingKey string, videoMeta *media.VODVideoTrack, audioMeta *media.VODAudioTrack) (*comatproto.RepoStrongRef, error) {
+func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobSize, durationMS int64, trackID, mediaType, signingKey string, videoMeta *media.VODVideoTrack, audioMeta *media.VODAudioTrack, textMeta *textProbeJSON) (*comatproto.RepoStrongRef, error) {
 	ctx, span := vodTracer.Start(ctx, "vod.publishTrack", trace.WithAttributes(
 		attribute.String("cid", cid),
 		attribute.String("track_id", trackID),
@@ -251,6 +271,9 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobS
 			Rate:     int64(audioMeta.Rate),
 			Channels: int64(audioMeta.Channels),
 		}
+	}
+	if textMeta != nil {
+		meta.Language = &textMeta.Language
 	}
 
 	rec := &placestream.MediaTrack{

@@ -11,6 +11,7 @@ import {
 } from "@tanstack/react-router";
 import {
   Bell,
+  Captions,
   ChevronDown,
   Globe,
   Info,
@@ -94,6 +95,12 @@ const NAV_ITEMS: NavItem[] = [
     to: "/settings/languages",
     icon: Globe,
     labelKey: "languages",
+  },
+  {
+    role: "link",
+    to: "/settings/captions",
+    icon: Captions,
+    labelKey: "captions",
   },
   { role: "link", to: "/settings/advanced", icon: Lock, labelKey: "advanced" },
   { role: "link", to: "/settings/about", icon: Info, labelKey: "about" },

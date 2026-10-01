@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http/httputil"
 	"sync"
+	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/config"
@@ -14,6 +15,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/s3"
+	"stream.place/streamplace/pkg/stt"
 )
 
 // manifestHolder holds the worker's current C2PA manifest. It starts as the
@@ -56,12 +58,10 @@ type IngestWorkerConfig struct {
 	// forwarded verbatim, no reconstruction.
 	KeyPEM  []byte `json:"key_pem"`
 	CertPEM []byte `json:"cert_pem"`
-	// Manifest is the C2PA manifest JSON, built ONCE by main at stream start.
-	// muxl-sign stamps each segment's signing time into it as it signs. NOTE:
-	// static for the worker's lifetime — mid-stream manifest changes (e.g. a
-	// pre-live → live transition) don't yet cross the boundary; that needs a
-	// control channel and is tracked as future work.
-	Manifest []byte `json:"manifest"`
+	// Manifest is refreshed through the worker's existing control channel.
+	Manifest            []byte        `json:"manifest"`
+	CaptionEngineSocket string        `json:"caption_engine_socket"`
+	CaptionsMasterDelay time.Duration `json:"captions_master_delay"`
 
 	// Node transcode signer + broadcaster identity. When set, the worker completes
 	// each single-codec source segment to dual-codec (Opus+AAC) itself — the
@@ -75,6 +75,9 @@ type IngestWorkerConfig struct {
 	// it serves frames over this unix socket with buffered reconnect (survives a
 	// main restart) instead of the fd-4 pipe. Empty → fd-4 pipe (Stage 1).
 	SocketPath string `json:"socket_path,omitempty"`
+	// CaptionSocketPath supplies the private caption-control socket for the fd
+	// transport without switching its signed-segment transport to sockets.
+	CaptionSocketPath string `json:"caption_socket_path,omitempty"`
 
 	// InputFD, when > 0, is the fd main passed the ingest CONNECTION on (fd-passing
 	// the accepted, authed push). The worker reads media from it directly instead
@@ -122,7 +125,7 @@ const IngestTransportWHIP = "whip"
 // handed its config over the handshake, else local disk under DataDir). Shared
 // by the MP4 and WHIP workers so both record to the same place main would.
 func (cfg IngestWorkerConfig) workerCLI() *config.CLI {
-	cli := &config.CLI{BroadcasterHost: cfg.BroadcasterHost, DataDir: cfg.DataDir}
+	cli := &config.CLI{BroadcasterHost: cfg.BroadcasterHost, DataDir: cfg.DataDir, CaptionsMasterDelay: cfg.CaptionsMasterDelay}
 	if cfg.S3 != nil {
 		cli.SetS3Config(*cfg.S3)
 	}
@@ -152,12 +155,30 @@ func WorkerInput(cfg IngestWorkerConfig, raw io.Reader) io.Reader {
 // workers.
 func workerSignStream(cfg IngestWorkerConfig, getManifest func() []byte) SignSegmentStreamFunc {
 	return func(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
-		fetchManifest := func() ([]byte, error) { return getManifest(), nil }
+		cli := cfg.workerCLI()
+		engine := stt.NewProxy(cfg.CaptionEngineSocket)
+		defer engine.Close()
+		master := newCaptionMaster(ctx, cfg.StreamerDID, cli, engine)
+		master.setManifest(getManifest())
+		captionPath := cfg.CaptionSocketPath
+		if captionPath == "" {
+			captionPath = cfg.SocketPath
+		}
+		stop, err := master.servePush(captionPath)
+		if err != nil {
+			return fmt.Errorf("serve canonical caption pushes: %w", err)
+		}
+		defer stop()
+		input, finish := master.tee(input)
+		defer finish()
+		fetchManifest := func() ([]byte, error) { data := getManifest(); master.setManifest(data); return data, nil }
 		return muxl.RunMuxlSignSegment(ctx, input, muxl.SignerInput{
 			CertPEM:           cfg.CertPEM,
 			KeyPEM:            cfg.KeyPEM,
 			TrackManifestFn:   fetchManifest,
 			WrapperManifestFn: fetchManifest,
+			TextFn:            master.text,
+			SegmentTimeFn:     master.segmentTime,
 		}, nil, nil, eventCh)
 	}
 }

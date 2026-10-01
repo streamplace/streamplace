@@ -181,6 +181,11 @@ export function VideoSectionInner({
             >
               <Player
                 src={playlistUrl}
+                captionSource={
+                  mode === "live"
+                    ? { streamer: user, store: store ?? undefined }
+                    : { video: new URL(playlistUrl).searchParams.get("uri")! }
+                }
                 poster={thumbnailUrl}
                 active
                 mode={mode}

@@ -11,9 +11,11 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/log"
@@ -43,6 +45,13 @@ func (mm *MediaManager) MP4IngestIsolated(ctx context.Context, input io.Reader, 
 	if err != nil {
 		return err
 	}
+	dir, err := mm.ingestWorkerSocketDir()
+	if err != nil {
+		return err
+	}
+	cfg.CaptionSocketPath = filepath.Join(dir, uuid.NewString()+".sock")
+	defer mm.registerWorkerCaptionMaster(ctx, cfg.CaptionSocketPath, ms.Streamer())()
+	defer os.Remove(cfg.CaptionSocketPath + ".captions")
 	cfgJSON, err := json.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("marshal worker config: %w", err)
@@ -264,11 +273,13 @@ func (mm *MediaManager) buildWorkerConfig(ctx context.Context, ms MediaSigner) (
 		return IngestWorkerConfig{}, fmt.Errorf("build manifest: %w", err)
 	}
 	cfg := IngestWorkerConfig{
-		StreamerDID:     ms.Streamer(),
-		KeyPEM:          keyPEM,
-		CertPEM:         local.Cert,
-		Manifest:        manifest,
-		BroadcasterHost: mm.cli.BroadcasterHost,
+		StreamerDID:         ms.Streamer(),
+		KeyPEM:              keyPEM,
+		CertPEM:             local.Cert,
+		Manifest:            manifest,
+		BroadcasterHost:     mm.cli.BroadcasterHost,
+		CaptionEngineSocket: mm.CaptionEngineSocket,
+		CaptionsMasterDelay: mm.cli.CaptionsMasterDelay,
 	}
 	// Debug recording: main owns the per-stream setting (it needs the DB); the
 	// worker carries out the recording (it owns the data path). A lookup failure

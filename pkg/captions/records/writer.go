@@ -87,6 +87,8 @@ type Config struct {
 	NodeDID   string
 	Subject   SubjectResolver
 	Publisher Publisher
+	// OutboxDir persists encoded records until their PDS write succeeds.
+	OutboxDir string
 	// Index, when set, is called with every record that was written so it is
 	// searchable at once, without waiting for the firehose to bring it back.
 	Index func(ctx context.Context, rec *placestream.CaptionTranscript, uri string) error
@@ -116,6 +118,9 @@ type Writer struct {
 
 	mu       sync.Mutex
 	sessions map[string]*session
+	active   sync.WaitGroup
+	closed   bool
+	outbox   *outbox
 }
 
 // NewWriter returns a Writer, or an error when cfg lacks the hub, publisher,
@@ -141,7 +146,15 @@ func NewWriter(cfg Config) (*Writer, error) {
 	if cfg.RetryDelay <= 0 {
 		cfg.RetryDelay = 2 * time.Second
 	}
-	return &Writer{cfg: cfg, sessions: map[string]*session{}}, nil
+	w := &Writer{cfg: cfg, sessions: map[string]*session{}}
+	if cfg.OutboxDir != "" {
+		var err error
+		w.outbox, err = newOutbox(cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return w, nil
 }
 
 // TargetFor says where a live track of a streamer is written, and whether it is
@@ -172,8 +185,17 @@ func targetFor(nodeDID, streamer string, track captions.Track) (Target, bool) {
 // startMs counts from. Starting a streamer that already has a session is a
 // no-op. The session ends with StopSession, Stop, or ctx.
 func (w *Writer) StartSession(ctx context.Context, streamer string, mediaStart time.Time) {
+	w.StartSessionWithOrigin(ctx, streamer, mediaStart, true)
+}
+
+// StartSessionWithOrigin also records whether this node ingests the stream.
+// A relay never writes another node's canonical captions to the streamer's repo.
+func (w *Writer) StartSessionWithOrigin(ctx context.Context, streamer string, mediaStart time.Time, origin bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.closed {
+		return
+	}
 	// A session that is already ending (its stream restarted) does not count:
 	// the new one starts alongside it, and the old one finishes its flush.
 	if old, ok := w.sessions[streamer]; ok && old.ctx.Err() == nil {
@@ -185,6 +207,7 @@ func (w *Writer) StartSession(ctx context.Context, streamer string, mediaStart t
 		mediaStart: mediaStart.UTC().Truncate(time.Millisecond),
 		tracks:     map[string]*trackBuf{},
 		done:       make(chan struct{}),
+		origin:     origin,
 	}
 	ctx = log.WithLogValues(ctx, "system", "caption-records", "streamer", streamer)
 	ctx, s.cancel = context.WithCancel(ctx)
@@ -192,8 +215,13 @@ func (w *Writer) StartSession(ctx context.Context, streamer string, mediaStart t
 	w.sessions[streamer] = s
 	events := w.cfg.Hub.Subscribe(ctx, streamer)
 	s.backfill()
+	w.active.Add(1)
 	go func() {
+		defer w.active.Done()
 		defer close(s.done)
+		if w.outbox != nil {
+			defer w.outbox.release(s)
+		}
 		defer func() {
 			w.mu.Lock()
 			if w.sessions[streamer] == s {
@@ -209,29 +237,43 @@ func (w *Writer) StartSession(ctx context.Context, streamer string, mediaStart t
 // written (or for StopTimeout to give up). It is a no-op for a streamer with no
 // session.
 func (w *Writer) StopSession(streamer string) {
-	w.mu.Lock()
-	s := w.sessions[streamer]
-	w.mu.Unlock()
-	if s == nil {
-		return
+	if done := w.FinishSession(streamer); done != nil {
+		<-done
 	}
+}
+
+// FinishSession cancels precisely the current session and returns its flush
+// completion signal, allowing media teardown to continue without PDS I/O.
+func (w *Writer) FinishSession(streamer string) <-chan struct{} {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	s := w.sessions[streamer]
+	if s == nil {
+		return nil
+	}
+	s.backfill()
 	s.cancel()
-	<-s.done
+	return s.done
 }
 
 // Stop ends every session, waiting for each to flush.
 func (w *Writer) Stop() {
 	w.mu.Lock()
+	w.closed = true
 	all := make([]*session, 0, len(w.sessions))
 	for _, s := range w.sessions {
 		all = append(all, s)
 	}
 	w.mu.Unlock()
+	if w.outbox != nil {
+		w.outbox.cancel()
+	}
 	for _, s := range all {
 		s.cancel()
 	}
-	for _, s := range all {
-		<-s.done
+	w.active.Wait()
+	if w.outbox != nil {
+		<-w.outbox.done
 	}
 }
 
@@ -242,20 +284,24 @@ type session struct {
 	ctx        context.Context // ends the session
 	cancel     context.CancelFunc
 	done       chan struct{}
+	origin     bool
 
 	mu     sync.Mutex // guards tracks, which the collector and the flusher share
 	tracks map[string]*trackBuf
 
-	retryAt time.Time // flusher only
-	backoff time.Duration
+	retryAt     time.Time // flusher only
+	backoff     time.Duration
+	rateLimited bool
 }
 
 // trackBuf is what one live track has produced and not yet written.
 type trackBuf struct {
-	track captions.Track
-	seen  map[string]struct{} // ids of final cues already taken in
-	words []transcript.Word   // taken in, not yet part of a record
-	queue []*queued           // encoded records, oldest first, waiting to be written
+	track             captions.Track
+	seen              map[string]time.Time // recent IDs; bounded to the reconciliation window
+	latestEnd, cutoff time.Time
+	pending           map[string]captions.Cue
+	words             []transcript.Word // taken in, not yet part of a record
+	queue             []*queued         // encoded records, oldest first, waiting to be written
 }
 
 type queued struct {
@@ -282,6 +328,9 @@ func (s *session) take(ev captions.Event) {
 	if !ev.Cue.Final || ev.Cue.End.Before(s.mediaStart) {
 		return
 	}
+	if ev.Track.Origin == captions.OriginCanonical && !s.origin {
+		return
+	}
 	if _, ok := targetFor(s.w.cfg.NodeDID, s.streamer, ev.Track); !ok {
 		return
 	}
@@ -289,15 +338,37 @@ func (s *session) take(ev captions.Event) {
 	defer s.mu.Unlock()
 	tb, ok := s.tracks[ev.Track.ID]
 	if !ok {
-		tb = &trackBuf{seen: map[string]struct{}{}}
+		tb = &trackBuf{seen: map[string]time.Time{}, pending: map[string]captions.Cue{}}
 		s.tracks[ev.Track.ID] = tb
 	}
 	tb.track = ev.Track
+	if ev.Cue.End.Before(tb.cutoff) {
+		return
+	}
+	if ev.Cue.End.After(tb.latestEnd) {
+		tb.latestEnd = ev.Cue.End
+	}
+	if len(tb.seen) >= maxPendingWords {
+		s.pruneSeen(tb)
+	}
+	if old, ok := tb.pending[ev.Cue.ID]; ok {
+		if ev.Track.Origin == captions.OriginCanonical && old.Text == ev.Cue.Text && ev.Cue.End.After(old.End) {
+			tb.pending[ev.Cue.ID] = ev.Cue
+			tb.seen[ev.Cue.ID] = ev.Cue.End
+		}
+		return
+	}
 	if _, dup := tb.seen[ev.Cue.ID]; dup {
 		return
 	}
-	tb.seen[ev.Cue.ID] = struct{}{}
-	tb.words = append(tb.words, transcript.WordsFromCue(s.mediaStart, ev.Cue)...)
+	if len(tb.pending) >= maxPendingWords {
+		return
+	}
+	if len(tb.seen) >= maxPendingWords {
+		return
+	}
+	tb.seen[ev.Cue.ID] = ev.Cue.End
+	tb.pending[ev.Cue.ID] = ev.Cue
 	if over := len(tb.words) - maxPendingWords; over > 0 {
 		tb.words = tb.words[over:]
 	}
@@ -333,12 +404,15 @@ func (s *session) run(ctx context.Context, events <-chan captions.Event) {
 	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.w.cfg.StopTimeout)
 	defer cancel()
 	s.flush(fctx, true)
+	// Final reconciliation also covers viewer-subscription overflow. The media
+	// teardown takes a synchronous snapshot before clearing the live hub.
 }
 
 // flush encodes the buffered words of every track into records and writes the
 // queued records. Unless final, a backoff in progress skips the writes; a final
 // flush retries a few times before giving up.
 func (s *session) flush(ctx context.Context, final bool) {
+	s.backfill()
 	s.mu.Lock()
 	ids := make([]string, 0, len(s.tracks))
 	for id := range s.tracks {
@@ -348,7 +422,11 @@ func (s *session) flush(ctx context.Context, final bool) {
 	sort.Strings(ids)
 
 	for _, id := range ids {
-		s.encode(ctx, id)
+		s.encode(ctx, id, final)
+	}
+	if err := s.persistOutbox(); err != nil {
+		log.Warn(ctx, "retain caption outbox", "error", err)
+		return
 	}
 	attempts := 1
 	if final {
@@ -362,8 +440,17 @@ func (s *session) flush(ctx context.Context, final bool) {
 				return
 			}
 		}
-		if !final && s.w.cfg.Now().Before(s.retryAt) {
-			return
+		if s.w.cfg.Now().Before(s.retryAt) {
+			if !final {
+				return
+			}
+			if s.rateLimited {
+				select {
+				case <-time.After(s.retryAt.Sub(s.w.cfg.Now())):
+				case <-ctx.Done():
+					return
+				}
+			}
 		}
 		if s.publishQueued(ctx) {
 			s.backoff, s.retryAt = 0, time.Time{}
@@ -387,9 +474,29 @@ func (s *session) pending() int {
 
 // encode turns a track's buffered words into queued records. Without a subject
 // to attach them to, the words stay buffered.
-func (s *session) encode(ctx context.Context, trackID string) {
+func (s *session) encode(ctx context.Context, trackID string, final bool) {
 	s.mu.Lock()
 	tb := s.tracks[trackID]
+	s.pruneSeen(tb)
+	// MUXL finals are clipped to GoPs. Keep the newest canonical cue mutable
+	// until another cue follows, it settles for one flush interval, or the
+	// session ends; otherwise a flush can permanently truncate its next piece.
+	var latest time.Time
+	if !final && tb.track.Origin == captions.OriginCanonical {
+		for _, cue := range tb.pending {
+			if cue.End.After(latest) {
+				latest = cue.End
+			}
+		}
+	}
+	settled := s.w.cfg.Now().Add(-s.w.cfg.FlushInterval)
+	for id, cue := range tb.pending {
+		if cue.End.Equal(latest) && cue.End.After(settled) {
+			continue
+		}
+		tb.words = append(tb.words, transcript.WordsFromCue(s.mediaStart, cue)...)
+		delete(tb.pending, id)
+	}
 	if len(tb.words) == 0 {
 		s.mu.Unlock()
 		return
@@ -500,7 +607,13 @@ func (s *session) publishQueued(ctx context.Context) bool {
 			uri, err := s.w.cfg.Publisher.Publish(ctx, target, head.rkey, head.rec)
 			if err != nil {
 				s.fail(ctx, id, err)
+				if err := s.persistOutbox(); err != nil {
+					log.Warn(ctx, "retain caption outbox retry", "error", err)
+				}
 				ok = false
+				if s.rateLimited {
+					return false
+				}
 				break
 			}
 			log.Log(ctx, "wrote caption transcript", "uri", uri, "track", id, "words", len(transcript.Tokens(head.rec.Text)))
@@ -516,6 +629,9 @@ func (s *session) publishQueued(ctx context.Context) bool {
 }
 
 func (s *session) drop(trackID string, q *queued) {
+	if s.w.outbox != nil {
+		s.w.outbox.remove(q.rkey)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	tb := s.tracks[trackID]
@@ -534,5 +650,44 @@ func (s *session) fail(ctx context.Context, trackID string, err error) {
 		wait = s.backoff
 	}
 	s.retryAt = now.Add(wait)
+	s.rateLimited = limited
 	log.Warn(ctx, "failed to write caption transcript, will retry", "track", trackID, "retryIn", wait.String(), "rateLimited", limited, "error", err)
+}
+
+func (s *session) pruneSeen(tb *trackBuf) {
+	cutoff := tb.latestEnd.Add(-s.w.cfg.Hub.Retention())
+	if cutoff.After(tb.cutoff) {
+		tb.cutoff = cutoff
+	}
+	for id, end := range tb.seen {
+		if end.Before(tb.cutoff) {
+			if _, mutable := tb.pending[id]; !mutable {
+				delete(tb.seen, id)
+			}
+		}
+	}
+}
+
+func (s *session) persistOutbox() error {
+	if s.w.outbox == nil {
+		return nil
+	}
+	s.mu.Lock()
+	var records []outboxRecord
+	for _, tb := range s.tracks {
+		target, ok := targetFor(s.w.cfg.NodeDID, s.streamer, tb.track)
+		if !ok {
+			continue
+		}
+		for _, q := range tb.queue {
+			records = append(records, outboxRecord{Target: target, Rkey: q.rkey, Record: q.rec, RetryAt: s.retryAt})
+		}
+	}
+	s.mu.Unlock()
+	for _, r := range records {
+		if err := s.w.outbox.save(s, r); err != nil {
+			return err
+		}
+	}
+	return nil
 }

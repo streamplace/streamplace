@@ -112,6 +112,7 @@ export function HLSPlayer({
             ? LIVE_LOWLATENCY_HLS_SETTINGS
             : LIVE_HLS_SETTINGS;
       const hls = new Hls(settings);
+      hls.subtitleDisplay = false;
       hlsRef.current = hls;
 
       hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {

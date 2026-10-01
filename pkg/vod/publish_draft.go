@@ -236,16 +236,27 @@ func tracksForUpload(ctx context.Context, state *statedb.StatefulDB, client XRPC
 	}
 	var tracks []comatproto.RepoStrongRef
 	if probe.Video != nil {
-		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, "1", "video", upload.SigningKey, probe.Video, nil)
+		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, "1", "video", upload.SigningKey, probe.Video, nil, nil)
 		if err != nil {
 			return nil, fmt.Errorf("publish video track: %w", err)
 		}
 		tracks = append(tracks, *ref)
 	}
 	if probe.Audio != nil {
-		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, "2", "audio", upload.SigningKey, nil, probe.Audio)
+		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, "2", "audio", upload.SigningKey, nil, probe.Audio, nil)
 		if err != nil {
 			return nil, fmt.Errorf("publish audio track: %w", err)
+		}
+		tracks = append(tracks, *ref)
+	}
+	var shape probeJSONShape
+	if err := json.Unmarshal([]byte(upload.ProbeJSON), &shape); err != nil {
+		return nil, err
+	}
+	for _, text := range shape.Text {
+		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, text.TrackID, "text", upload.SigningKey, nil, nil, &text)
+		if err != nil {
+			return nil, fmt.Errorf("publish text track: %w", err)
 		}
 		tracks = append(tracks, *ref)
 	}

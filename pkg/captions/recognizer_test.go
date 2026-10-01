@@ -423,3 +423,55 @@ func TestWrapLines(t *testing.T) {
 	require.Equal(t, "aa bb\ncc dd\nee ff", WrapLines("aa bb cc dd ee ff", 5, 3))
 	require.Equal(t, "", WrapLines("   ", 37, 2))
 }
+
+func TestRecognizerCoverageFollowsDecisionsAtMonotonicWindowEnd(t *testing.T) {
+	model := &fakeModel{}
+	var covered []time.Time
+	start := time.UnixMilli(1000)
+	r, err := NewRecognizer(context.Background(), RecognizerOptions{
+		Streamer: "coverage", Origin: OriginCanonical, Hub: NewHub(time.Minute),
+		Engine: &fakeEngine{lease: &fakeLease{model: model}},
+		Step:   time.Second, MinWindow: 2 * time.Second,
+		OnCoverage: func(end time.Time) { covered = append(covered, end) },
+	})
+	require.NoError(t, err)
+	r.Push(start, speech(time.Second))
+	r.settle()
+	require.Empty(t, covered, "PCM receipt alone must not release a held GoP")
+	r.Push(start.Add(time.Second), speech(time.Second))
+	r.settle()
+	require.Equal(t, []time.Time{start.Add(2 * time.Second)}, covered)
+	// A pure-silence decision also covers its complete window.
+	r.Push(start.Add(3*time.Second), silence(2*time.Second))
+	r.settle()
+	require.Equal(t, start.Add(5*time.Second), covered[len(covered)-1])
+	// A backwards discontinuity cannot move the reported coverage backwards.
+	before := len(covered)
+	r.Push(start, silence(2*time.Second))
+	r.settle()
+	require.Len(t, covered, before)
+	r.Close()
+}
+
+func TestRecognizerEOFCoverageIncludesFinalVoicedWords(t *testing.T) {
+	hub := NewHub(time.Minute)
+	start := time.UnixMilli(1000)
+	var atCoverage []Cue
+	var covered time.Time
+	model := &fakeModel{script: []*stt.Result{result(w("last words", 0.1, 0.7))}}
+	r, err := NewRecognizer(context.Background(), RecognizerOptions{
+		Streamer: "eof", Origin: OriginCanonical, Hub: hub,
+		Engine: &fakeEngine{lease: &fakeLease{model: model}}, MinWindow: 2 * time.Second,
+		OnCoverage: func(end time.Time) {
+			covered = end
+			atCoverage = hub.Cues("eof", TrackID(OriginCanonical, SourceAuto, "en"), start, end)
+		},
+	})
+	require.NoError(t, err)
+	r.Push(start, speech(time.Second))
+	r.Close()
+	require.Equal(t, start.Add(time.Second), covered)
+	require.Len(t, atCoverage, 1, "the final voiced pass must publish before releasing the last GoP")
+	require.Equal(t, "last words", atCoverage[0].Text)
+	require.True(t, atCoverage[0].Final)
+}

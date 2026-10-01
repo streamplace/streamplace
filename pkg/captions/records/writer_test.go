@@ -145,6 +145,9 @@ func (h *harness) buffered(streamer string, n int) {
 		total := 0
 		for _, tb := range s.tracks {
 			total += len(tb.words)
+			for _, cue := range tb.pending {
+				total += len(transcript.WordsFromCue(s.mediaStart, cue))
+			}
 		}
 		return total >= n
 	}, 5*time.Second, time.Millisecond)
@@ -570,10 +573,6 @@ func TestRetryAfter(t *testing.T) {
 	d, ok := retryAfter(echo.NewHTTPError(http.StatusTooManyRequests, "http 429 from upstream (will reset at 2026-09-30T12:02:00Z)"), now)
 	require.True(t, ok)
 	require.Equal(t, 2*time.Minute, d)
-
-	d, ok = retryAfter(echo.NewHTTPError(http.StatusTooManyRequests, "http 429 from upstream (will reset at 2026-09-30T18:00:00Z)"), now)
-	require.True(t, ok)
-	require.Equal(t, backoffMax, d, "a distant reset is looked at again sooner")
 
 	d, ok = retryAfter(fmt.Errorf("wrapped: %w", echo.NewHTTPError(http.StatusTooManyRequests, "rate-limited by upstream, but ratelimit header not found")), now)
 	require.True(t, ok)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"time"
 
@@ -127,6 +128,7 @@ func NewNodeWriter(cli *config.CLI, hub *captions.Hub, m model.Model, clients Cl
 		NodeDID:   cli.ServerDID(),
 		Subject:   LatestLivestream(m),
 		Publisher: &RepoPublisher{CLI: cli, Clients: clients},
+		OutboxDir: filepath.Join(cli.DataDir, "captions", "transcripts"),
 		Index: func(ctx context.Context, rec *placestream.CaptionTranscript, uri string) error {
 			return m.UpsertCaptionTranscript(ctx, *rec, syntax.ATURI(uri))
 		},
@@ -144,7 +146,7 @@ func retryAfter(err error, now time.Time) (time.Duration, bool) {
 	var xe *xrpc.Error
 	if errors.As(err, &xe) && xe.StatusCode == http.StatusTooManyRequests {
 		if xe.Ratelimit != nil && xe.Ratelimit.Reset.After(now) {
-			return clampWait(xe.Ratelimit.Reset.Sub(now)), true
+			return xe.Ratelimit.Reset.Sub(now), true
 		}
 		return backoffMin, true
 	}
@@ -152,17 +154,10 @@ func retryAfter(err error, now time.Time) (time.Duration, bool) {
 	if errors.As(err, &he) && he.Code == http.StatusTooManyRequests {
 		if m := resetRe.FindStringSubmatch(fmt.Sprint(he.Message)); m != nil {
 			if reset, perr := time.Parse(time.RFC3339, m[1]); perr == nil && reset.After(now) {
-				return clampWait(reset.Sub(now)), true
+				return reset.Sub(now), true
 			}
 		}
 		return backoffMin, true
 	}
 	return 0, false
-}
-
-// clampWait keeps a rate limit's wait to something a stream can ride out: a
-// reset an hour away still makes us look again every backoffMax, in case the
-// limit lifted early.
-func clampWait(d time.Duration) time.Duration {
-	return min(max(d, time.Second), backoffMax)
 }

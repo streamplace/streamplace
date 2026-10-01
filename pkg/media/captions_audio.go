@@ -93,7 +93,7 @@ func buildCaptionAudioPipeline(codec string) (*gst.Pipeline, error) {
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join([]string{
 		"appsrc name=src ! qtdemux name=demux",
-		constants.Queue2Big + " name=vq ! fakesink sync=false",
+		constants.Queue2Big + " name=vq ! fakesink sync=false async=false",
 		fmt.Sprintf("%s name=aq ! %s ! audioconvert ! audioresample ! audio/x-raw,format=F32LE,rate=%d,channels=1,layout=interleaved ! appsink name=sink sync=false", constants.Queue2Big, decode, stt.SampleRate),
 	}, "\n"))
 	if err != nil {

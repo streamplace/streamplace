@@ -102,10 +102,9 @@ export function timedCaptionsAt(
     if (cues[mid].startMs <= ms) lo = mid + 1;
     else hi = mid;
   }
-  // Cues rarely overlap, so look back only a few cues for a long one that
-  // started earlier and still covers ms.
+  // Any earlier cue can still overlap, even behind many short expired cues.
   const out: TimedCaption[] = [];
-  for (let i = lo - 1; i >= 0 && i >= lo - 8 && out.length < 2; i--) {
+  for (let i = lo - 1; i >= 0 && out.length < 2; i--) {
     if (cues[i].endMs > ms) out.unshift(cues[i]);
   }
   return out;

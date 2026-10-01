@@ -204,6 +204,7 @@ captions-description = How captions look on streams and videos
 captions-enabled = Show captions
 captions-enabled-description = Turn captions on whenever a stream or video has them. Press c in the player to toggle them.
 captions-preview = Captions look like this.
+captions-native-style-description = Live low-latency captions use this style. HLS subtitles use your device's accessibility caption settings.
 captions-text-size = Text size
 captions-font = Font
 captions-font-proportional-sans = Sans serif

@@ -33,10 +33,18 @@ function pickCaptionFile(): Promise<File | null> {
 /**
  * Caption tracks of one of the viewer's videos: lists them with VTT/SRT
  * downloads, and imports a .vtt or .srt file per language
- * (place.stream.caption.importCaptions). Uploading needs a file picker,
- * so it is offered on the web only.
+ * (place.stream.caption.importCaptions). Native hosts supply their platform file picker.
  */
-export function VideoCaptionsManager({ video }: { video: string }) {
+export function VideoCaptionsManager({
+  video,
+  pickFile,
+}: {
+  video: string;
+  pickFile?: () => Promise<{
+    name: string;
+    text: () => Promise<string>;
+  } | null>;
+}) {
   const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   const url = useStreamplaceStore((x) => x.url);
@@ -65,11 +73,11 @@ export function VideoCaptionsManager({ video }: { video: string }) {
       return;
     }
     if (!agent || !isValidAtUri(video)) return;
-    const file = await pickCaptionFile();
-    if (!file) return;
     setUploading(true);
     setMessage(null);
     try {
+      const file = await (pickFile ?? pickCaptionFile)();
+      if (!file) return;
       await agent.client.call(place.stream.caption.importCaptions, {
         video,
         language: language.trim(),
@@ -139,7 +147,7 @@ export function VideoCaptionsManager({ video }: { video: string }) {
           );
         })
       )}
-      {Platform.OS === "web" && (
+      {(Platform.OS === "web" || pickFile) && (
         <View style={{ gap: theme.spacing[2] }}>
           <Text size="sm" muted>
             {t("vod-captions-upload-description")}

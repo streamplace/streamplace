@@ -3,15 +3,15 @@ package api
 import (
 	"stream.place/streamplace/pkg/captions"
 	"stream.place/streamplace/pkg/captions/records"
+	"stream.place/streamplace/pkg/vod"
 )
 
-// recordCaptions is the node's VideoCaptions: the place.stream.caption.transcript
-// records in the index, with live captions placed on VODs through the
-// recording objects this node keeps.
+// recordCaptions combines the archival MUXL text tracks with indexed transcript
+// records. Canonical records are a copy, not a second rendition.
 func (a *StreamplaceAPI) recordCaptions() captions.VideoCaptions {
 	p := &records.Provider{Store: a.Model, NodeDID: a.CLI.ServerDID()}
 	if a.StatefulDB != nil {
 		p.Recording = records.StatedbRecording{State: a.StatefulDB}
 	}
-	return p
+	return &vod.VideoCaptions{Model: a.Model, Store: a.PlaybackStore, Records: p}
 }

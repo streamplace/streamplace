@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import {
+  activeLiveCaptions,
+  presentedCaptionTime,
+} from "../captions/live-cues";
 import type { LivestreamState } from "./state";
 import { handleWebSocketMessages } from "./websocket-consumer";
 
@@ -34,6 +38,7 @@ function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
     setLocalLivestreamURI: () => {},
     captionTracks: [],
     liveCaptions: {},
+    captionClock: null,
     ...overrides,
   } as LivestreamState;
 }
@@ -348,5 +353,70 @@ describe("handleWebSocketMessages: live captions", () => {
         (caption) => caption.id === "c2" && caption.trackId === track.id,
       ),
     ).toBeDefined();
+  });
+
+  it("clears old tracks and cues when a livestream changes or ends", () => {
+    const first = {
+      $type: "place.stream.livestream#livestreamView",
+      uri: "at://did:plc:streamer/place.stream.livestream/first",
+      indexedAt: "2026-09-25T12:00:00.000Z",
+      record: { title: "First", createdAt: "2026-09-25T12:00:00.000Z" },
+    };
+    let state = handleWebSocketMessages(makeState(), [
+      first,
+      cue("old", "Old speech", true),
+    ]);
+    state = handleWebSocketMessages(state, [
+      { ...first, uri: first.uri.replace("first", "second") },
+    ]);
+    expect(state.captionTracks).toEqual([]);
+    expect(state.liveCaptions).toEqual({});
+    state = handleWebSocketMessages(state, [cue("new", "New speech", true)]);
+    state = handleWebSocketMessages(state, [
+      {
+        ...first,
+        uri: first.uri.replace("first", "second"),
+        record: { ...first.record, endedAt: "2026-09-25T12:00:02.000Z" },
+      },
+    ]);
+    expect(state.captionTracks).toEqual([]);
+    expect(state.liveCaptions).toEqual({});
+  });
+
+  it("presents cues against segment time and ignores older replayed segments", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-09-25T12:00:10.000Z"));
+      const segment = {
+        $type: "place.stream.segment",
+        startTime: "2026-09-25T12:00:00.000Z",
+      };
+      let state = handleWebSocketMessages(makeState(), [
+        segment,
+        cue("speech", "Delayed speech", true),
+      ]);
+      const presented = presentedCaptionTime(state.captionClock, Date.now())!;
+      expect(
+        activeLiveCaptions(state.liveCaptions, track.id, presented).map(
+          (c) => c.text,
+        ),
+      ).toEqual(["Delayed speech"]);
+      vi.advanceTimersByTime(1000);
+      expect(
+        activeLiveCaptions(
+          state.liveCaptions,
+          track.id,
+          presentedCaptionTime(state.captionClock, Date.now())!,
+        ),
+      ).toEqual([]);
+      state = handleWebSocketMessages(state, [
+        { ...segment, startTime: "2026-09-25T11:59:59.000Z" },
+      ]);
+      expect(presentedCaptionTime(state.captionClock, Date.now())).toBe(
+        presented + 1000,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

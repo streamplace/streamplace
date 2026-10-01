@@ -1,8 +1,9 @@
 import { CaptionPolicySettings } from "@streamplace/core";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { useTheme } from "../../lib/theme/theme";
+import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Switch } from "../ui/switch";
 import { Text } from "../ui/text";
@@ -69,38 +70,49 @@ export function CaptionPolicyFields({
 }) {
   const { t } = useTranslation();
   const { theme } = useTheme();
+  const [advanced, setAdvanced] = useState(false);
   return (
     <View testID="dashboard-captions" style={{ gap: theme.spacing[6] }}>
       <Text size="lg">{t("dashboard-captions")}</Text>
       <SwitchRow
         testID="dashboard-captions-auto"
-        title={t("dashboard-captions-auto")}
+        title={t("dashboard-captions")}
         description={t("dashboard-captions-auto-description")}
-        value={value.mode === "auto"}
-        disabled={value.mode === "ingest"}
+        value={value.mode !== "off"}
         onValueChange={(on) =>
           onChange({ ...value, mode: on ? "auto" : "off" })
         }
       />
-      <View testID="dashboard-captions-ingest">
-        <Checkbox
-          checked={value.mode === "ingest"}
-          onCheckedChange={(checked) =>
-            onChange({ ...value, mode: checked ? "ingest" : "auto" })
-          }
-          label={t("dashboard-captions-ingest")}
-          description={t("dashboard-captions-ingest-description")}
-        />
-      </View>
-      <SwitchRow
-        testID="dashboard-captions-allow-nodes"
-        title={t("dashboard-captions-allow-nodes")}
-        description={t("dashboard-captions-allow-nodes-description")}
-        value={value.allowNodeCaptions}
-        onValueChange={(allowNodeCaptions) =>
-          onChange({ ...value, allowNodeCaptions })
-        }
-      />
+      <Button
+        variant="ghost"
+        testID="dashboard-captions-advanced"
+        onPress={() => setAdvanced(!advanced)}
+      >
+        {t("dashboard-captions-advanced")}
+      </Button>
+      {advanced && (
+        <View style={{ gap: theme.spacing[6] }}>
+          <View testID="dashboard-captions-ingest">
+            <Checkbox
+              checked={value.mode === "ingest"}
+              onCheckedChange={(checked) =>
+                onChange({ ...value, mode: checked ? "ingest" : "auto" })
+              }
+              label={t("dashboard-captions-ingest")}
+              description={t("dashboard-captions-ingest-description")}
+            />
+          </View>
+          <SwitchRow
+            testID="dashboard-captions-allow-nodes"
+            title={t("dashboard-captions-allow-nodes")}
+            description={t("dashboard-captions-allow-nodes-description")}
+            value={value.allowNodeCaptions}
+            onValueChange={(allowNodeCaptions) =>
+              onChange({ ...value, allowNodeCaptions })
+            }
+          />
+        </View>
+      )}
       {renderLanguagePicker && (
         <View
           testID="dashboard-captions-language"

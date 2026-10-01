@@ -545,7 +545,14 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		err = atsync.Model.CreateLivestream(ctx, ls)
 		if errors.Is(err, model.ErrAlreadyIndexed) {
 			// Re-announcing an unchanged livestream would light the red circle
-			// up again and re-queue its finalize task.
+			// up again and re-queue its finalize task. An ended one still
+			// schedules its VOD, though: scheduling is idempotent, and a
+			// redelivery is the retry when scheduling failed the first time.
+			if !isFirstSync && rec.EndedAt != nil && atsync.CLI.StreamIsAllowed(userDID) == nil {
+				if err := atsync.StatefulDB.ScheduleAutoPublishVOD(ctx, userDID, aturi.String()); err != nil {
+					return fmt.Errorf("failed to schedule automatic VOD publishing: %w", err)
+				}
+			}
 			return nil
 		}
 		if err != nil {

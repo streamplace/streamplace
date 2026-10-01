@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"stream.place/streamplace/pkg/log"
 	placestream "stream.place/streamplace/pkg/placestream"
@@ -56,8 +57,12 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 		return nil, echo.NewHTTPError(http.StatusNotFound, "NoRecording: no completed recording objects for these livestreams")
 	}
 
-	uploadID, err := s.statefulDB.CreateLivestreamUpload(ctx, streamer, ordered[0])
+	uu, err := uuid.NewV7()
 	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	uploadID := uu.String()
+	if err := s.statefulDB.CreateLivestreamUpload(ctx, uploadID, streamer, ordered[0]); err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -74,7 +79,7 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 	} else {
 		// A draft VOD in the 'processing' state; it reaches 'ready'
 		// server-side and the streamer publishes it from the Drafts tab.
-		draft, err := s.createLivestreamDraft(ctx, streamer, uploadID, video)
+		draft, err := s.statefulDB.CreateLivestreamDraft(ctx, streamer, uploadID, video)
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}

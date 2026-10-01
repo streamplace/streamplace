@@ -124,6 +124,28 @@ func TestAutoPublishVODQueuesPublishingFinalize(t *testing.T) {
 	})
 }
 
+// A pass that dies after handing off (its task is never completed) runs
+// again; it must pick up the VOD it started, not start a second one.
+func TestAutoPublishVODRetriedHandoff(t *testing.T) {
+	WithAllDatabases(t, func(state *StatefulDB) {
+		ctx := context.Background()
+		did := "did:plc:interrupted"
+		uri := endedLivestream(t, state, did)
+		recordObject(t, state, did, uri, "a.m4s", true)
+		require.NoError(t, state.ScheduleAutoPublishVOD(ctx, did, uri))
+		tasks := pendingTasks(t, state, TaskAutoPublishVOD)
+		require.Len(t, tasks, 1)
+
+		require.NoError(t, state.processAutoPublishVODTask(ctx, &tasks[0]))
+		require.NoError(t, state.processAutoPublishVODTask(ctx, &tasks[0]))
+
+		require.Len(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD), 1, "one VOD")
+		uploads, err := state.ListLivestreamUploads(ctx, uri)
+		require.NoError(t, err)
+		require.Len(t, uploads, 1, "one upload")
+	})
+}
+
 func TestAutoPublishVODWaitsForRecording(t *testing.T) {
 	WithAllDatabases(t, func(state *StatefulDB) {
 		did := "did:plc:stillwriting"
@@ -180,5 +202,14 @@ func TestAutoPublishVODSkips(t *testing.T) {
 		require.NoError(t, state.processAutoPublishVODTask(ctx, &tasks[0]))
 		require.Empty(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD))
 		require.Empty(t, pendingTasks(t, state, TaskAutoPublishVOD))
+
+		// Finalized by hand (the Finalize button, or a moderator) before
+		// the task ran.
+		did = "did:plc:byhand"
+		uri = endedLivestream(t, state, did)
+		recordObject(t, state, did, uri, "a.m4s", true)
+		require.NoError(t, state.CreateLivestreamUpload(ctx, "by-hand", did, uri))
+		runAutoPublish(t, state, did, uri)
+		require.Empty(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD))
 	})
 }

@@ -7,7 +7,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView } from "react-native";
 import { useStore } from "store";
@@ -22,6 +22,9 @@ function AutoPublishVodsToggle({ host }: { host: string }) {
   const toast = useToast();
   const agent = usePDSAgent();
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  // One write at a time: overlapping writes could finish out of order and
+  // leave the switch showing the opposite of the last tap.
+  const saving = useRef(false);
 
   useEffect(() => {
     if (!agent) return;
@@ -36,7 +39,8 @@ function AutoPublishVodsToggle({ host }: { host: string }) {
   }
 
   const handleChange = async (value: boolean) => {
-    if (!agent) return;
+    if (!agent || saving.current) return;
+    saving.current = true;
     setEnabled(value);
     try {
       const res = await agent.client.call(place.stream.server.putPreferences, {
@@ -53,6 +57,8 @@ function AutoPublishVodsToggle({ host }: { host: string }) {
           : t("auto-publish-vods-update-failed"),
         { variant: "error" },
       );
+    } finally {
+      saving.current = false;
     }
   };
 

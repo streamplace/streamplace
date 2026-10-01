@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/log"
 	placestream "stream.place/streamplace/pkg/placestream"
 )
@@ -80,6 +81,24 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 		return state.CompleteTask(ctx, task.ID)
 	}
 
+	// The upload is named after the livestream, so a pass interrupted after
+	// creating it (or after queueing the finalize) picks it up again rather
+	// than starting a second VOD. Any other upload of the livestream is one
+	// the streamer (or a moderator) finalized by hand.
+	uploadID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(ls.URI)).String()
+	uploads, err := state.ListLivestreamUploads(ctx, ls.URI)
+	if err != nil {
+		return fmt.Errorf("list livestream uploads: %w", err)
+	}
+	created := false
+	for _, u := range uploads {
+		if u.ID != uploadID {
+			log.Log(ctx, "livestream was already finalized into a VOD; not publishing another", "uploadId", u.ID)
+			return state.CompleteTask(ctx, task.ID)
+		}
+		created = true
+	}
+
 	open, err := state.CountOpenS3Segments(ctx, ls.URI)
 	if err != nil {
 		return fmt.Errorf("count open recording objects: %w", err)
@@ -110,9 +129,10 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 	if !ok {
 		return fmt.Errorf("record is not a place.stream.livestream: %s", ls.URI)
 	}
-	uploadID, err := state.CreateLivestreamUpload(ctx, ls.RepoDID, ls.URI)
-	if err != nil {
-		return fmt.Errorf("create upload: %w", err)
+	if !created {
+		if err := state.CreateLivestreamUpload(ctx, uploadID, ls.RepoDID, ls.URI); err != nil {
+			return fmt.Errorf("create upload: %w", err)
+		}
 	}
 	vodTask := FinalizeLivestreamVODTask{
 		UploadID:       uploadID,

@@ -3,8 +3,8 @@ package statedb
 import (
 	"context"
 	"strings"
+	"time"
 
-	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/model"
 	placestream "stream.place/streamplace/pkg/placestream"
@@ -57,24 +57,63 @@ func VideoDraftForLivestreams(items []LivestreamItem, title, description string)
 	return v
 }
 
+// livestreamUploadBackend marks the synthetic Upload rows of livestream VODs;
+// their Location is the first livestream record of the recording.
+const livestreamUploadBackend = "live"
+
 // CreateLivestreamUpload creates the synthetic Upload row a livestream VOD is
 // finalized into, so clients follow it with the getUploadStatus / publishVideo
 // flow they already have for resumable uploads. firstURI is the first
 // livestream record of the recording.
-func (state *StatefulDB) CreateLivestreamUpload(ctx context.Context, repoDID, firstURI string) (string, error) {
-	uu, err := uuid.NewV7()
-	if err != nil {
-		return "", err
-	}
-	uploadID := uu.String()
-	if err := state.CreateUpload(ctx, &Upload{
+func (state *StatefulDB) CreateLivestreamUpload(ctx context.Context, uploadID, repoDID, firstURI string) error {
+	return state.CreateUpload(ctx, &Upload{
 		ID:       uploadID,
 		RepoDID:  repoDID,
 		MimeType: "video/mp4",
-		Backend:  "live",
+		Backend:  livestreamUploadBackend,
 		Location: firstURI,
-	}); err != nil {
-		return "", err
+	})
+}
+
+// ListLivestreamUploads lists the VOD uploads whose recording starts with the
+// given livestream record.
+func (state *StatefulDB) ListLivestreamUploads(ctx context.Context, firstURI string) ([]Upload, error) {
+	var out []Upload
+	err := state.DB.WithContext(ctx).
+		Where("backend = ? AND location = ?", livestreamUploadBackend, firstURI).
+		Find(&out).Error
+	return out, err
+}
+
+// CreateLivestreamDraft creates the draft VOD for a livestream upload, in the
+// 'processing' state, inheriting the video record's title, description,
+// activity, tags and connections back to the livestream records. The draft
+// turns 'ready' with the upload; the streamer publishes it from the Drafts
+// tab.
+func (state *StatefulDB) CreateLivestreamDraft(ctx context.Context, did, uploadID string, v *VideoDraft) (*DraftVideo, error) {
+	draftRec := placestream.VodDraftVideo{
+		LexiconTypeID: "place.stream.vod.draftVideo",
+		Title:         v.Title,
+		Description:   v.Description,
+		Status:        "processing",
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
 	}
-	return uploadID, nil
+	if v.Activity != nil {
+		draftRec.Activity = &placestream.VodDraftVideo_Activity{
+			Defs_ActivityGame:  v.Activity.Defs_ActivityGame,
+			Defs_ActivityLabel: v.Activity.Defs_ActivityLabel,
+		}
+	}
+	if len(v.Tags) > 0 {
+		draftRec.Tags = v.Tags
+	}
+	// Link back to every source livestream so a published VOD carries the
+	// connections (the existing UI uses this to flip a finalized row to
+	// "View VOD", and the replay inherits the records' view totals).
+	for _, c := range v.Connections {
+		if c.Video_Connection != nil {
+			draftRec.Connections = append(draftRec.Connections, placestream.VodDraftVideo_Connections_Elem{Video_Connection: c.Video_Connection})
+		}
+	}
+	return state.CreateDraft(ctx, did, uploadID, &draftRec)
 }

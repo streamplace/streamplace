@@ -125,8 +125,9 @@ and **2,000 UTF-8 bytes of text per cue**, with a **2 MiB request-body limit**.
 The complete batch is validated before publishing any cue. Send small batches
 promptly rather than waiting to collect 100 cues. Use UTC wall-clock times
 for when the words were spoken, not offsets
-from zero or the captioner's HTTP send time. The end must be after the start.
-Keep the captioner and encoder clocks synchronized.
+from zero or the captioner's HTTP send time. Starts must be within **±30 seconds**
+of the server's request time; cue duration must be **greater than zero and at
+most 30 seconds**. Keep the captioner and encoder clocks synchronized.
 
 For example, with your stream running at the example times:
 

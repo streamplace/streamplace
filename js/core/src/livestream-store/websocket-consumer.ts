@@ -5,7 +5,7 @@ import {
   PinnedRecordViewHydrated,
   place,
 } from "streamplace";
-import { reduceLiveCaption } from "../captions/live-cues";
+import { presentedCaptionTime, reduceLiveCaption } from "../captions/live-cues";
 import { formatHandleWithAt } from "../lib/format-handle";
 import { SystemMessages } from "../lib/system-messages";
 import { reduceChat } from "./chat-reducer";
@@ -315,12 +315,18 @@ export const handleWebSocketMessages = (
       } else if (place.stream.caption.defs.liveCue.isTypeOf(message)) {
         const cue = message as place.stream.caption.defs.LiveCue;
         const known = state.captionTracks.find((t) => t.id === cue.track.id);
+        const now = Date.now();
         state = {
           ...state,
           captionTracks: known
             ? state.captionTracks
             : [...state.captionTracks, cue.track],
-          liveCaptions: reduceLiveCaption(state.liveCaptions, cue, Date.now()),
+          liveCaptions: reduceLiveCaption(
+            state.liveCaptions,
+            cue,
+            now,
+            presentedCaptionTime(state.captionClock, now) ?? now,
+          ),
         };
       }
     }

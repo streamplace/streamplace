@@ -77,7 +77,7 @@ type Publisher interface {
 
 // SubjectResolver returns the strongRef of the livestream record that
 // captions for the streamer's current session belong to.
-type SubjectResolver func(ctx context.Context, streamer string) (comatproto.RepoStrongRef, error)
+type SubjectResolver func(ctx context.Context, streamer string, sessionStart time.Time) (comatproto.RepoStrongRef, error)
 
 // Config configures a Writer.
 type Config struct {
@@ -478,7 +478,7 @@ func (s *session) encode(ctx context.Context, trackID string, final bool) {
 	tb.words = nil
 	s.mu.Unlock()
 
-	subject, err := s.w.cfg.Subject(ctx, s.streamer)
+	subject, err := s.w.cfg.Subject(ctx, s.streamer, s.mediaStart)
 	if err != nil {
 		log.Warn(ctx, "caption records waiting for the livestream record", "track", trackID, "error", err)
 		s.mu.Lock()

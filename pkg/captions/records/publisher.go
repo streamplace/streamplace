@@ -95,18 +95,22 @@ func putTranscript(ctx context.Context, client XRPCClient, repo, rkey string, re
 	return out.Uri, nil
 }
 
+// livestreamClockSkew tolerates small differences between the streamer's record
+// clock and the signed first segment's clock.
+const livestreamClockSkew = 5 * time.Second
+
 // LatestLivestream returns the SubjectResolver that points captions at the
-// streamer's most recent livestream record in the index.
+// streamer's most recent livestream record, once it belongs to this session.
 func LatestLivestream(m interface {
 	GetLatestLivestreamForRepo(repoDID string) (*model.Livestream, error)
 }) SubjectResolver {
-	return func(ctx context.Context, streamer string) (comatproto.RepoStrongRef, error) {
+	return func(ctx context.Context, streamer string, sessionStart time.Time) (comatproto.RepoStrongRef, error) {
 		ls, err := m.GetLatestLivestreamForRepo(streamer)
 		if err != nil {
 			return comatproto.RepoStrongRef{}, err
 		}
-		if ls == nil {
-			return comatproto.RepoStrongRef{}, fmt.Errorf("no livestream record indexed for %s", streamer)
+		if ls == nil || ls.CreatedAt.Before(sessionStart.Add(-livestreamClockSkew)) {
+			return comatproto.RepoStrongRef{}, fmt.Errorf("no livestream record indexed for %s's current session", streamer)
 		}
 		return comatproto.RepoStrongRef{LexiconTypeID: "com.atproto.repo.strongRef", Uri: ls.URI, Cid: ls.CID}, nil
 	}

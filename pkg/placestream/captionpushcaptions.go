@@ -13,9 +13,10 @@ import (
 )
 
 type CaptionPushCaptions_Input struct {
-	LexiconTypeID string                  `json:"$type,omitempty"`
-	Cues          []CaptionDefs_PushedCue `json:"cues"`
-	Language      string                  `json:"language"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	// cues: Each cue's startTime must be within 30 seconds before or after the server's request time. Its endTime must be later than startTime and no more than 30 seconds after it. If any cue violates these bounds, the entire batch is rejected with HTTP 400.
+	Cues     []CaptionDefs_PushedCue `json:"cues"`
+	Language string                  `json:"language"`
 	// source: Whether a person or a recognizer produced the captions. Defaults to human.
 	Source *string `json:"source,omitempty"`
 	// streamer: Defaults to the authenticated account.

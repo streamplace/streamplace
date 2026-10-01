@@ -4,6 +4,7 @@ import { parseTimedCaptions, timedCaptionsAt } from "./api";
 import {
   activeLiveCaptions,
   displayLiveCaptions,
+  LIVE_CAPTION_MAX_CUES_PER_TRACK,
   reduceLiveCaption,
   selectLiveCaptionTrack,
 } from "./live-cues";
@@ -13,6 +14,12 @@ import { mergeCaptionTracks, selectCaptionTrack } from "./tracks";
 
 const en = { id: "a-en", language: "en", source: "auto", origin: "canonical" };
 const es = { id: "h-es", language: "es", source: "human", origin: "record" };
+
+function cueTime(ms: number): place.stream.caption.defs.LiveCue["startTime"] {
+  return new Date(
+    ms,
+  ).toISOString() as place.stream.caption.defs.LiveCue["startTime"];
+}
 
 function liveCue(
   id: string,
@@ -25,7 +32,7 @@ function liveCue(
     id,
     track,
     startTime: startTime as place.stream.caption.defs.LiveCue["startTime"],
-    endTime: new Date(Date.parse(startTime) + 20000).toISOString(),
+    endTime: cueTime(Date.parse(startTime) + 20000),
     text,
     final,
   };
@@ -49,24 +56,24 @@ describe("reduceLiveCaption", () => {
   it("extends matching canonical finals without accepting text, start, or interim revisions", () => {
     const original = {
       ...liveCue("c", "Speech", true),
-      endTime: new Date(12000).toISOString(),
+      endTime: cueTime(12000),
     };
     let cues = reduceLiveCaption({}, original, 1000);
     for (const revision of [
       { ...original, final: false },
       { ...original, text: "Changed" },
-      { ...original, startTime: new Date(2000).toISOString() },
+      { ...original, startTime: cueTime(2000) },
     ]) {
       cues = reduceLiveCaption(
         cues,
-        { ...revision, endTime: new Date(16000).toISOString() },
+        { ...revision, endTime: cueTime(16000) },
         2000,
       );
       expect(Object.values(cues)[0].endMs).toBe(12000);
     }
     cues = reduceLiveCaption(
       cues,
-      { ...original, endTime: new Date(16000).toISOString() },
+      { ...original, endTime: cueTime(16000) },
       3000,
     );
     cues = reduceLiveCaption(cues, original, 4000);
@@ -78,7 +85,7 @@ describe("reduceLiveCaption", () => {
     let sidecars = reduceLiveCaption({}, sidecar, 1000);
     sidecars = reduceLiveCaption(
       sidecars,
-      { ...sidecar, endTime: new Date(16000).toISOString() },
+      { ...sidecar, endTime: cueTime(16000) },
       3000,
     );
     expect(Object.values(sidecars)[0].endMs).toBe(12000);
@@ -88,6 +95,76 @@ describe("reduceLiveCaption", () => {
     let cues = reduceLiveCaption({}, liveCue("old", "old", true), 0);
     cues = reduceLiveCaption(cues, liveCue("new", "new", false), 60000);
     expect(Object.values(cues).map((cue) => cue.id)).toEqual(["new"]);
+  });
+
+  it("bounds each track independently and keeps newest starts despite out-of-order arrivals and remote end times", () => {
+    const count = LIVE_CAPTION_MAX_CUES_PER_TRACK + 64;
+    let cues = reduceLiveCaption(
+      {},
+      liveCue("other", "Other track", true, undefined, es),
+      10000,
+    );
+    for (let i = count - 1; i >= 0; i--) {
+      cues = reduceLiveCaption(
+        cues,
+        {
+          ...liveCue(
+            `cue-${i}`,
+            `Speech ${i}`,
+            true,
+            new Date(10000 + i).toISOString(),
+          ),
+          endTime: "2100-01-01T00:00:00.000Z",
+        },
+        10000,
+      );
+    }
+    expect(
+      Object.values(cues)
+        .filter((cue) => cue.trackId === en.id)
+        .map((cue) => cue.id)
+        .sort(),
+    ).toEqual(
+      Array.from(
+        { length: LIVE_CAPTION_MAX_CUES_PER_TRACK },
+        (_, i) => `cue-${count - LIVE_CAPTION_MAX_CUES_PER_TRACK + i}`,
+      ).sort(),
+    );
+    expect(
+      Object.values(cues)
+        .filter((cue) => cue.trackId === es.id)
+        .map((cue) => cue.text),
+    ).toEqual(["Other track"]);
+    expect(
+      activeLiveCaptions(cues, en.id, 11000).map((cue) => cue.text),
+    ).toEqual([`Speech ${count - 2}`, `Speech ${count - 1}`]);
+  });
+
+  it("drops far-future cues against presentation rather than arrival time, including previously queued cues", () => {
+    const atBoundary = liveCue(
+      "boundary",
+      "Queued speech",
+      true,
+      new Date(40000).toISOString(),
+    );
+    const cues = reduceLiveCaption({}, atBoundary, 1000, 10000);
+    const next = reduceLiveCaption(
+      cues,
+      liveCue("too-far", "Never queue", true, new Date(40001).toISOString()),
+      1000,
+      10000,
+    );
+    expect(Object.values(next).map((cue) => cue.id)).toEqual(["boundary"]);
+    expect(
+      activeLiveCaptions(next, en.id, 40000).map((cue) => cue.text),
+    ).toEqual(["Queued speech"]);
+    const reanchored = reduceLiveCaption(
+      next,
+      liveCue("current", "Current speech", true, new Date(9000).toISOString()),
+      1001,
+      9000,
+    );
+    expect(Object.values(reanchored).map((cue) => cue.id)).toEqual(["current"]);
   });
 
   it("isolates revisions and finality for identical ids on different tracks", () => {
@@ -133,7 +210,7 @@ describe("activeLiveCaptions", () => {
       {},
       {
         ...liveCue("cue", "Speech", true, new Date(10000).toISOString()),
-        endTime: new Date(30000).toISOString(),
+        endTime: cueTime(30000),
       },
       50000,
     );
@@ -149,21 +226,25 @@ describe("activeLiveCaptions", () => {
       cues,
       liveCue("1", "one", true, "2026-09-25T12:00:01.000Z"),
       1000,
+      Date.parse("2026-09-25T12:00:04.000Z"),
     );
     cues = reduceLiveCaption(
       cues,
       liveCue("3", "three", false, "2026-09-25T12:00:03.000Z"),
       1000,
+      Date.parse("2026-09-25T12:00:04.000Z"),
     );
     cues = reduceLiveCaption(
       cues,
       liveCue("2", "two", true, "2026-09-25T12:00:02.000Z"),
       1000,
+      Date.parse("2026-09-25T12:00:04.000Z"),
     );
     cues = reduceLiveCaption(
       cues,
       liveCue("x", "otra", true, "2026-09-25T12:00:04.000Z", es),
       1000,
+      Date.parse("2026-09-25T12:00:04.000Z"),
     );
     expect(
       activeLiveCaptions(
@@ -181,7 +262,7 @@ describe("displayLiveCaptions", () => {
       {},
       {
         ...liveCue("cue", "Speech", true, new Date(10000).toISOString()),
-        endTime: new Date(30000).toISOString(),
+        endTime: cueTime(30000),
       },
       50000,
     );
@@ -193,7 +274,7 @@ describe("displayLiveCaptions", () => {
       cues,
       {
         ...liveCue("next", "Next speech", true, new Date(31000).toISOString()),
-        endTime: new Date(32000).toISOString(),
+        endTime: cueTime(32000),
       },
       57000,
     );
@@ -215,7 +296,7 @@ describe("live caption track selection", () => {
         {},
         {
           ...liveCue("auto", "Old automatic", true),
-          endTime: new Date(2000).toISOString(),
+          endTime: cueTime(2000),
         },
         1000,
       );

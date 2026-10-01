@@ -20,13 +20,16 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/mr-tron/base58"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/captions"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/spkey"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/placestream"
 )
@@ -50,7 +53,7 @@ func requireCaptionHTTPError(t *testing.T, err error, code int, message string) 
 	require.Contains(t, httpErr.Message, message)
 }
 func TestPushCaptionsAuthorizationAndLiveBoundary(t *testing.T) {
-	s := &Server{cli: &config.CLI{}, mm: media.NewOffline(&config.CLI{})}
+	s := &Server{cli: &config.CLI{}, model: newTestModel(t), mm: media.NewOffline(&config.CLI{})}
 	input := &placestream.CaptionPushCaptions_Input{Language: "en-US"}
 	_, err := s.handlePlaceStreamCaptionPushCaptions(context.Background(), input)
 	requireCaptionHTTPError(t, err, http.StatusUnauthorized, "authorization")
@@ -58,7 +61,9 @@ func TestPushCaptionsAuthorizationAndLiveBoundary(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer z2")
 	ec := echo.New().NewContext(req, httptest.NewRecorder())
 	_, err = s.handlePlaceStreamCaptionPushCaptions(context.WithValue(context.Background(), echoContextKey, ec), input)
-	requireCaptionHTTPError(t, err, http.StatusUnauthorized, "invalid stream key")
+	var authErr *echo.HTTPError
+	require.ErrorAs(t, err, &authErr)
+	require.Equal(t, http.StatusUnauthorized, authErr.Code)
 	ctx := captionOAuthContext(t, context.Background(), "did:plc:owner")
 	other := "did:plc:other"
 	input.Streamer = &other
@@ -67,6 +72,41 @@ func TestPushCaptionsAuthorizationAndLiveBoundary(t *testing.T) {
 	input.Streamer = nil
 	_, err = s.handlePlaceStreamCaptionPushCaptions(ctx, input)
 	requireCaptionHTTPError(t, err, http.StatusBadRequest, "StreamNotLive")
+}
+
+func TestPushCaptionsOAuthEnforcesStreamAuthorization(t *testing.T) {
+	priv, pub, err := spkey.GenerateStreamKey()
+	require.NoError(t, err)
+	did := pub.DIDKey()
+	for _, banned := range []bool{true, false} {
+		name := "disallowed"
+		if banned {
+			name = "banned"
+		}
+		t.Run(name, func(t *testing.T) {
+			mod := newTestModel(t)
+			require.NoError(t, mod.UpdateSigningKey(&model.SigningKey{DID: did, RepoDID: did}))
+			cli := &config.CLI{WideOpen: true}
+			if banned {
+				putLabel(t, mod, did, atproto.LabelDMCAViolation)
+			} else {
+				cli.WideOpen = false
+				cli.AllowedStreams = []string{"did:plc:someoneelse"}
+			}
+			s := &Server{cli: cli, model: mod}
+			request := httptest.NewRequest(http.MethodPost, "/", nil)
+			request.Header.Set("Authorization", "Bearer z"+base58.Encode(priv.Bytes()))
+			ec := echo.New().NewContext(request, httptest.NewRecorder())
+			_, keyErr := s.captionPusher(context.WithValue(context.Background(), echoContextKey, ec))
+			_, oauthErr := s.captionPusher(captionOAuthContext(t, context.Background(), did))
+			var keyHTTP, oauthHTTP *echo.HTTPError
+			require.ErrorAs(t, keyErr, &keyHTTP)
+			require.ErrorAs(t, oauthErr, &oauthHTTP)
+			require.Equal(t, http.StatusUnauthorized, oauthHTTP.Code)
+			require.Equal(t, keyHTTP.Code, oauthHTTP.Code)
+			require.Equal(t, keyHTTP.Message, oauthHTTP.Message)
+		})
+	}
 }
 
 func TestPushCaptionsLiveCanonicalAndOffRoutes(t *testing.T) {
@@ -132,7 +172,7 @@ func TestPushCaptionsLiveCanonicalAndOffRoutes(t *testing.T) {
 			}
 		live:
 			hub := captions.NewHub(0)
-			s := &Server{cli: cli, mm: mm, bus: &bus.Bus{Captions: hub}}
+			s := &Server{cli: cli, model: newTestModel(t), mm: mm, bus: &bus.Bus{Captions: hub}}
 			auth := captionOAuthContext(t, ctx, did)
 			id := strings.Repeat("界", 21) // 63 UTF-8 bytes.
 			final := false
@@ -154,9 +194,33 @@ func TestPushCaptionsLiveCanonicalAndOffRoutes(t *testing.T) {
 			_, err = s.handlePlaceStreamCaptionPushCaptions(auth, badBatch)
 			requireCaptionHTTPError(t, err, http.StatusBadRequest, "lexicon limits")
 			require.Empty(t, hub.Tracks(did))
+			// All timing bounds reject the whole batch, including its valid prefix.
+			for _, invalid := range []struct {
+				name     string
+				start    time.Time
+				duration time.Duration
+			}{
+				{"future start", time.Now().Add(31 * time.Second), time.Second},
+				{"past start", time.Now().Add(-31 * time.Second), time.Second},
+				{"long duration", time.Now(), 31 * time.Second},
+				{"zero duration", time.Now(), 0},
+				{"negative duration", time.Now(), -time.Second},
+			} {
+				badBatch.Cues[1].Text = invalid.name
+				badBatch.Cues[1].StartTime = invalid.start.Format(time.RFC3339Nano)
+				badBatch.Cues[1].EndTime = invalid.start.Add(invalid.duration).Format(time.RFC3339Nano)
+				_, err = s.handlePlaceStreamCaptionPushCaptions(auth, badBatch)
+				var timingErr *echo.HTTPError
+				require.ErrorAs(t, err, &timingErr, invalid.name)
+				require.Equal(t, http.StatusBadRequest, timingErr.Code, invalid.name)
+				require.Empty(t, hub.Tracks(did), invalid.name)
+			}
+			// The maximum duration is inclusive; finalization can shorten the interim cue.
+			input.Cues[0].EndTime = start.Add(30 * time.Second).Format(time.RFC3339Nano)
 			_, err = s.handlePlaceStreamCaptionPushCaptions(auth, input)
 			require.NoError(t, err)
 			final = true
+			input.Cues[0].EndTime = end.Format(time.RFC3339Nano)
 			input.Cues[0].Text = "CART words survive signing"
 			_, err = s.handlePlaceStreamCaptionPushCaptions(auth, input)
 			require.NoError(t, err)

@@ -14,6 +14,7 @@ import (
 	"stream.place/streamplace/pkg/captions"
 	"stream.place/streamplace/pkg/captions/transcript"
 	"stream.place/streamplace/pkg/comatproto"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -103,7 +104,7 @@ func newHarness(t *testing.T, mutate func(*Config)) *harness {
 	cfg := Config{
 		Hub:     h.hub,
 		NodeDID: nodeDID,
-		Subject: func(context.Context, string) (comatproto.RepoStrongRef, error) {
+		Subject: func(context.Context, string, time.Time) (comatproto.RepoStrongRef, error) {
 			return comatproto.RepoStrongRef{LexiconTypeID: "com.atproto.repo.strongRef", Uri: "at://" + streamer + "/place.stream.livestream/3abc", Cid: "bafylive"}, nil
 		},
 		Publisher:   h.repos,
@@ -454,20 +455,15 @@ func TestWriterWaitsOutARateLimit(t *testing.T) {
 	require.Len(t, h.repos.written(), 1)
 }
 
-func TestWriterKeepsWordsUntilThereIsALivestreamToPointAt(t *testing.T) {
-	var mu sync.Mutex
-	ready := false
-	h := newHarness(t, func(c *Config) {
-		c.Subject = func(context.Context, string) (comatproto.RepoStrongRef, error) {
-			mu.Lock()
-			defer mu.Unlock()
-			if !ready {
-				return comatproto.RepoStrongRef{}, errors.New("not indexed yet")
-			}
-			return comatproto.RepoStrongRef{Uri: "at://did:plc:streamer/place.stream.livestream/late", Cid: "c"}, nil
-		}
-	})
-	h.w.StartSession(context.Background(), streamer, t0)
+func TestWriterWaitsForItsSessionsLivestream(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	require.NoError(t, f.m.CreateLivestream(ctx, &model.Livestream{
+		URI: "at://" + streamer + "/place.stream.livestream/previous", CID: "previous",
+		RepoDID: streamer, CreatedAt: t0.Add(-time.Hour),
+	}))
+	h := newHarness(t, func(c *Config) { c.Subject = LatestLivestream(f.m) })
+	h.w.StartSession(ctx, streamer, t0)
 	say(h, autoTrack, "c1", 0, "early")
 	h.buffered(streamer, 1)
 	h.flushed()
@@ -475,14 +471,16 @@ func TestWriterKeepsWordsUntilThereIsALivestreamToPointAt(t *testing.T) {
 
 	say(h, autoTrack, "c2", 1000, "bird")
 	h.buffered(streamer, 2)
-	mu.Lock()
-	ready = true
-	mu.Unlock()
+	require.NoError(t, f.m.CreateLivestream(ctx, &model.Livestream{
+		URI: "at://" + streamer + "/place.stream.livestream/current", CID: "current",
+		RepoDID: streamer, CreatedAt: t0.Add(-time.Second),
+	}))
 	h.flushed()
 	calls := h.repos.snapshot()
 	require.Len(t, calls, 1)
 	require.Equal(t, "early bird", calls[0].rec.Text)
-	require.Equal(t, "at://did:plc:streamer/place.stream.livestream/late", calls[0].rec.Subject.Uri)
+	require.Equal(t, "at://did:plc:streamer/place.stream.livestream/current", calls[0].rec.Subject.Uri)
+	require.Equal(t, "current", calls[0].rec.Subject.Cid)
 }
 
 func TestWriterBackfillsFromTheHubWithoutDuplicates(t *testing.T) {

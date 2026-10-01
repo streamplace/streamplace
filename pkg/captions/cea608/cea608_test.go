@@ -259,16 +259,13 @@ func TestExtractCCDataSEIFraming(t *testing.T) {
 	d := NewDecoder()
 	cc := cat(ctrl(field1, 0x14, 0x29), ctrl(field1, 0x14, 0x70), text(field1, "SEI"))
 	nal := captionSEINAL(cc)
-	// Length-prefixed AVC sample: an IDR slice first, then the SEI.
-	slice := []byte{0x65, 0x88, 0x84, 0x00}
+	// A 300-byte NAL's length begins 00 00 01, but is not an Annex B
+	// start code. The following SEI must still be extracted.
+	slice := make([]byte, 300)
+	slice[0] = 0x65
 	sample := cat(lenPrefixed(slice), lenPrefixed(nal))
 	ev := d.Decode(ExtractCCData(sample), time.Second)
 	require.Equal(t, []string{"SEI"}, texts(ev))
-
-	// Annex B framing of the same access unit.
-	d2 := NewDecoder()
-	annexB := cat([]byte{0, 0, 0, 1}, slice, []byte{0, 0, 1}, nal)
-	require.Equal(t, []string{"SEI"}, texts(d2.Decode(ExtractCCData(annexB), time.Second)))
 
 	require.Nil(t, ExtractCCData(lenPrefixed(slice)), "no SEI, no captions")
 }

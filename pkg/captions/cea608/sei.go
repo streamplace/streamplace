@@ -13,66 +13,24 @@ const seiUserDataRegistered = 4
 
 // ExtractCCData returns the cc_data triplets (cc_count * 3 bytes: a marker
 // byte with cc_valid and cc_type, then two data bytes) carried in the closed
-// caption SEI messages of one H264 access unit, in order. The sample may be
-// length-prefixed (AVC, 4-byte sizes, as in MP4) or Annex B byte-stream.
+// caption SEI messages of one H264 access unit, in order. Samples use the
+// four-byte AVC NAL lengths produced by the ingest MP4 muxer.
 // Samples without captions return nil.
 func ExtractCCData(sample []byte) []byte {
 	var out []byte
-	forEachNAL(sample, func(nal []byte) {
-		if len(nal) < 2 || nal[0]&0x1f != nalSEI {
-			return
-		}
-		out = append(out, ccDataFromSEI(unescapeRBSP(nal[1:]))...)
-	})
-	return out
-}
-
-// forEachNAL calls fn with each NAL unit of an access unit. A sample whose
-// first four bytes are a plausible NAL length is read as length-prefixed;
-// otherwise it is scanned for Annex B start codes.
-func forEachNAL(sample []byte, fn func(nal []byte)) {
-	if isAnnexB(sample) {
-		forEachAnnexBNAL(sample, fn)
-		return
-	}
 	for len(sample) >= 4 {
 		n := int(binary.BigEndian.Uint32(sample[:4]))
 		sample = sample[4:]
 		if n <= 0 || n > len(sample) {
-			return
+			break
 		}
-		fn(sample[:n])
+		nal := sample[:n]
 		sample = sample[n:]
-	}
-}
-
-func isAnnexB(b []byte) bool {
-	return len(b) >= 3 && b[0] == 0 && b[1] == 0 && (b[2] == 1 || (b[2] == 0 && len(b) >= 4 && b[3] == 1))
-}
-
-func forEachAnnexBNAL(b []byte, fn func(nal []byte)) {
-	start := -1
-	i := 0
-	for i+2 < len(b) {
-		if b[i] == 0 && b[i+1] == 0 && b[i+2] == 1 {
-			if start >= 0 {
-				end := i
-				if end > start && b[end-1] == 0 {
-					end--
-				}
-				if end > start {
-					fn(b[start:end])
-				}
-			}
-			i += 3
-			start = i
-			continue
+		if len(nal) >= 2 && nal[0]&0x1f == nalSEI {
+			out = append(out, ccDataFromSEI(unescapeRBSP(nal[1:]))...)
 		}
-		i++
 	}
-	if start >= 0 && start < len(b) {
-		fn(b[start:])
-	}
+	return out
 }
 
 // unescapeRBSP removes emulation prevention bytes (00 00 03 → 00 00).

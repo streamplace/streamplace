@@ -193,6 +193,15 @@ Use the generated lexicon pages as the schema source of truth:
 - [Push live captions](/docs/lex-reference/caption/place-stream-caption-pushcaptions/)
 - [Import VOD captions](/docs/lex-reference/caption/place-stream-caption-importcaptions/)
 
+`pushCaptions` evaluates one server timestamp per request. Every cue's start must
+be within **±30 seconds** of it (inclusive), with duration **greater than zero
+and at most 30 seconds**. Any invalid cue rejects the entire batch atomically
+with HTTP 400. Send live speech promptly rather than scheduling distant cues.
+
+Viewer reducers independently retain at most **32 cues per track**, newest
+starts first, and drop cues starting more than **30 seconds ahead of the segment
+presentation clock** (local arrival time until that clock is available).
+
 `getCaptions` supports `vtt`, `srt`, and JSON cues. Video offsets count from
 video start; live downloads cover the node's current window, with JSON's
 `epoch` identifying its time base. `listTracks` takes a live streamer or a video

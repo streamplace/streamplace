@@ -33,8 +33,10 @@ export function presentedCaptionTime(
 /** Rolling captions show at most this many cues at once. */
 export const LIVE_CAPTION_MAX_LINES = 2;
 
-// Cues older than this are pruned on every update, bounding memory on a
-// long stream.
+/** Maximum retained cues per track, independent of server-side limits. */
+export const LIVE_CAPTION_MAX_CUES_PER_TRACK = 32;
+
+// History/lookahead horizon; the count cap also bounds untrusted distant ends.
 const LIVE_CAPTION_RETAIN_MS = 30000;
 
 /**
@@ -45,16 +47,24 @@ export function reduceLiveCaption(
   cues: Record<string, LiveCaption>,
   cue: place.stream.caption.defs.LiveCue,
   now: number,
+  presentationMs = now,
 ): Record<string, LiveCaption> {
-  const next: Record<string, LiveCaption> = {};
-  for (const [id, c] of Object.entries(cues)) {
+  let next = cues;
+  for (const id in cues) {
+    const c = cues[id];
     if (
-      now - c.updatedAt <= LIVE_CAPTION_RETAIN_MS ||
-      c.endMs >= now - LIVE_CAPTION_RETAIN_MS
+      c.startMs > presentationMs + LIVE_CAPTION_RETAIN_MS ||
+      (now - c.updatedAt > LIVE_CAPTION_RETAIN_MS &&
+        c.endMs < presentationMs - LIVE_CAPTION_RETAIN_MS)
     ) {
-      next[id] = c;
+      if (next === cues) next = { ...cues };
+      delete next[id];
     }
   }
+  const parsedStart = Date.parse(cue.startTime);
+  const startMs = Number.isFinite(parsedStart) ? parsedStart : now;
+  const endMs = Date.parse(cue.endTime);
+  if (startMs > presentationMs + LIVE_CAPTION_RETAIN_MS) return next;
   const key = JSON.stringify([cue.track.id, cue.id]);
   const existing = next[key];
   if (existing?.final) {
@@ -62,25 +72,47 @@ export function reduceLiveCaption(
       cue.track.origin === "canonical" &&
       cue.final &&
       cue.text === existing.text &&
-      Date.parse(cue.startTime) === existing.startMs &&
-      Date.parse(cue.endTime) > existing.endMs
+      parsedStart === existing.startMs &&
+      endMs > existing.endMs
     ) {
+      if (next === cues) next = { ...cues };
       next[key] = {
         ...existing,
-        endMs: Date.parse(cue.endTime),
+        endMs,
         updatedAt: now,
       };
     }
     return next;
   }
-  const startMs = Date.parse(cue.startTime);
-  const endMs = Date.parse(cue.endTime);
+  if (!existing) {
+    const keys: string[] = [];
+    for (const id in next) {
+      if (next[id].trackId === cue.track.id) keys.push(id);
+    }
+    if (keys.length >= LIVE_CAPTION_MAX_CUES_PER_TRACK) {
+      keys.push(key);
+      keys.sort(
+        (a, b) =>
+          (b === key ? startMs : next[b].startMs) -
+            (a === key ? startMs : next[a].startMs) ||
+          (b === key ? now : next[b].updatedAt) -
+            (a === key ? now : next[a].updatedAt),
+      );
+      for (let i = LIVE_CAPTION_MAX_CUES_PER_TRACK; i < keys.length; i++) {
+        if (keys[i] === key) continue;
+        if (next === cues) next = { ...cues };
+        delete next[keys[i]];
+      }
+      if (keys.indexOf(key) >= LIVE_CAPTION_MAX_CUES_PER_TRACK) return next;
+    }
+  }
+  if (next === cues) next = { ...cues };
   next[key] = {
     id: cue.id,
     trackId: cue.track.id,
     text: cue.text,
     final: cue.final,
-    startMs: Number.isFinite(startMs) ? startMs : now,
+    startMs,
     endMs: Number.isFinite(endMs) ? endMs : now,
     updatedAt: now,
   };

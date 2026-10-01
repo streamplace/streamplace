@@ -53,8 +53,8 @@ func AuthenticateStreamKey(ctx context.Context, cli *config.CLI, mod model.Model
 	} else {
 		did = pub.DIDKey()
 	}
-	if err := cli.StreamIsAllowed(did); err != nil {
-		return "", nil, fmt.Errorf("user is not allowed to stream: %w", err)
+	if err := CheckStreamAllowed(cli, mod, did); err != nil {
+		return "", nil, err
 	}
 	if len(didBytes) > 0 || requireRegistered {
 		signingKey, err := mod.GetSigningKey(ctx, pub.DIDKey(), did)
@@ -65,12 +65,20 @@ func AuthenticateStreamKey(ctx context.Context, cli *config.CLI, mod model.Model
 			return "", nil, fmt.Errorf("signing key not found")
 		}
 	}
+	return did, signer, nil
+}
+
+// CheckStreamAllowed applies the account policy shared by stream keys and OAuth caption pushes.
+func CheckStreamAllowed(cli *config.CLI, mod model.Model, did string) error {
+	if err := cli.StreamIsAllowed(did); err != nil {
+		return fmt.Errorf("user is not allowed to stream: %w", err)
+	}
 	labels, err := mod.GetActiveLabels(did)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to get active labels: %w", err)
+		return fmt.Errorf("failed to get active labels: %w", err)
 	}
 	if atproto.IsBanned(labels...) {
-		return "", nil, fmt.Errorf("user is banned")
+		return fmt.Errorf("user is banned")
 	}
-	return did, signer, nil
+	return nil
 }

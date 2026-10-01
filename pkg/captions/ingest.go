@@ -75,8 +75,9 @@ func (t *IngestTap) Publish(on bool) {
 // Seen reports whether the video has carried caption text so far.
 func (t *IngestTap) Seen() bool { return t.seen }
 
-// Sample decodes one H264 access unit presented at the given media time,
-// in presentation order. It reports whether the sample carried cc_data.
+// Sample decodes one H264 access unit with four-byte AVC NAL lengths,
+// presented at the given media time in presentation order. It reports
+// whether the sample carried cc_data.
 func (t *IngestTap) Sample(sample []byte, at time.Time) bool {
 	cc := cea608.ExtractCCData(sample)
 	if len(cc) == 0 {

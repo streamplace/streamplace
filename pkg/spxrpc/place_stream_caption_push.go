@@ -17,7 +17,11 @@ import (
 )
 
 // A maximum batch needs under 1 MiB even with four-byte Unicode and JSON escapes.
-const captionPushBodyLimit = "2M"
+const (
+	captionPushBodyLimit   = "2M"
+	captionPushStartWindow = 30 * time.Second
+	captionPushMaxDuration = 30 * time.Second
+)
 
 func captionPushBodyLimitMiddleware() echo.MiddlewareFunc {
 	return echomiddleware.BodyLimitWithConfig(echomiddleware.BodyLimitConfig{
@@ -30,6 +34,9 @@ func captionPushBodyLimitMiddleware() echo.MiddlewareFunc {
 
 func (s *Server) captionPusher(ctx context.Context) (string, error) {
 	if session, _ := oatproxy.GetOAuthSession(ctx); session != nil {
+		if err := media.CheckStreamAllowed(s.cli, s.model, session.DID); err != nil {
+			return "", echo.NewHTTPError(http.StatusUnauthorized, "streamer authorization rejected", err)
+		}
 		return session.DID, nil
 	}
 	ec, _ := ctx.Value(echoContextKey).(echo.Context)
@@ -42,7 +49,7 @@ func (s *Server) captionPusher(ctx context.Context) (string, error) {
 	}
 	did, _, err := media.AuthenticateStreamKey(ctx, s.cli, s.model, s.ATSync, auth[1], true)
 	if err != nil {
-		return "", echo.NewHTTPError(http.StatusUnauthorized, "invalid stream key", err)
+		return "", echo.NewHTTPError(http.StatusUnauthorized, "streamer authorization rejected", err)
 	}
 	return did, nil
 }
@@ -78,6 +85,8 @@ func (s *Server) handlePlaceStreamCaptionPushCaptions(ctx context.Context, body 
 	origin := captions.PushedOrigin(policy)
 	track := captions.Track{ID: captions.TrackID(origin, source, body.Language), Language: body.Language, Kind: captions.KindCaptions, Source: source, Origin: origin, Author: did, Label: "Captions"}
 	cues := make([]captions.Cue, 0, len(body.Cues))
+	now := time.Now()
+	earliestStart, latestStart := now.Add(-captionPushStartWindow), now.Add(captionPushStartWindow)
 	for _, input := range body.Cues {
 		if len(input.Text) > 2000 || (input.Id != nil && len(*input.Id) > 64) {
 			return nil, echo.NewHTTPError(http.StatusBadRequest, "caption cue exceeds lexicon limits")
@@ -86,8 +95,11 @@ func (s *Server) handlePlaceStreamCaptionPushCaptions(ctx context.Context, body 
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid cue start", err)
 		}
+		if start.Before(earliestStart) || start.After(latestStart) {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "cue start must be within 30 seconds of now")
+		}
 		end, err := time.Parse(time.RFC3339Nano, input.EndTime)
-		if err != nil || !end.After(start) {
+		if err != nil || !end.After(start) || end.Sub(start) > captionPushMaxDuration {
 			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid cue end")
 		}
 		id := uuid.NewString()

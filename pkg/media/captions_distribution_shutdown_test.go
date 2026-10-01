@@ -52,7 +52,7 @@ func TestDistributionShutdownArchivesAcceptedCanonicalQueue(t *testing.T) {
 	canonical, hdr := distributionCanonicalFixture(t, seg, []upstream.TextCue{{ID: "last", Text: "Last accepted speech", Start: 100, End: 400}})
 	mm := &MediaManager{cli: &config.CLI{}, bus: bus.NewBus()}
 	pds := &shutdownCaptionPDS{}
-	writer, err := records.NewWriter(records.Config{Hub: mm.bus.Captions, Publisher: pds, Subject: func(context.Context, string) (comatproto.RepoStrongRef, error) {
+	writer, err := records.NewWriter(records.Config{Hub: mm.bus.Captions, Publisher: pds, Subject: func(context.Context, string, time.Time) (comatproto.RepoStrongRef, error) {
 		return comatproto.RepoStrongRef{Uri: "at://alice/place.stream.livestream/live", Cid: "bafy"}, nil
 	}})
 	require.NoError(t, err)

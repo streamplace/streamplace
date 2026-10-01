@@ -24,12 +24,12 @@ Push live captions into a stream from a captioner, a CART stenographer, or an ex
 
 **Schema Type:** `object`
 
-| Name       | Type                                                                                                 | Req'd | Description                                                                | Constraints                   |
-| ---------- | ---------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------- | ----------------------------- |
-| `streamer` | `string`                                                                                             | ❌    | Defaults to the authenticated account.                                     | Format: `did`                 |
-| `language` | `string`                                                                                             | ✅    |                                                                            | Format: `language`            |
-| `source`   | `string`                                                                                             | ❌    | Whether a person or a recognizer produced the captions. Defaults to human. | Known Values: `human`, `auto` |
-| `cues`     | Array of [`place.stream.caption.defs#pushedCue`](/lex-reference/place-stream-caption-defs#pushedcue) | ✅    |                                                                            | Max Items: 100                |
+| Name       | Type                                                                                                 | Req'd | Description                                                                                                                                                                                                                                            | Constraints                   |
+| ---------- | ---------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| `streamer` | `string`                                                                                             | ❌    | Defaults to the authenticated account.                                                                                                                                                                                                                 | Format: `did`                 |
+| `language` | `string`                                                                                             | ✅    |                                                                                                                                                                                                                                                        | Format: `language`            |
+| `source`   | `string`                                                                                             | ❌    | Whether a person or a recognizer produced the captions. Defaults to human.                                                                                                                                                                             | Known Values: `human`, `auto` |
+| `cues`     | Array of [`place.stream.caption.defs#pushedCue`](/lex-reference/place-stream-caption-defs#pushedcue) | ✅    | Each cue's startTime must be within 30 seconds before or after the server's request time. Its endTime must be later than startTime and no more than 30 seconds after it. If any cue violates these bounds, the entire batch is rejected with HTTP 400. | Max Items: 100                |
 
 **Output:**
 
@@ -79,6 +79,7 @@ _(No properties defined)_
             "cues": {
               "type": "array",
               "maxLength": 100,
+              "description": "Each cue's startTime must be within 30 seconds before or after the server's request time. Its endTime must be later than startTime and no more than 30 seconds after it. If any cue violates these bounds, the entire batch is rejected with HTTP 400.",
               "items": {
                 "type": "ref",
                 "ref": "place.stream.caption.defs#pushedCue"

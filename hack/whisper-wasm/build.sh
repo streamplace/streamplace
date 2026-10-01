@@ -33,6 +33,6 @@ cmake --build "$CACHE/build" --target caption-whisper --parallel 4
 DEST="$ROOT/js/app/assets/whisper/$REV"
 mkdir -p "$DEST"
 cp "$CACHE/build/caption-whisper.mjs" "$CACHE/build/caption-whisper.wasm" "$DEST/"
-"$NODE" hack/whisper-wasm/build-worker.mjs "$DEST"
+"$NODE" hack/whisper-wasm/transpile-worker.mjs "$DEST"
 printf '%s\n' "WASM artifacts: $DEST"
 wc -c "$DEST"/*

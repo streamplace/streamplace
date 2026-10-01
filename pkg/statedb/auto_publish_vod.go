@@ -12,8 +12,9 @@ import (
 )
 
 // AutoPublishVODTask publishes the VOD of a livestream the node has just seen
-// end, for a streamer who had UserPreferences.AutoPublishVODs on then and
-// still has it on when the task runs. It is queued by ScheduleAutoPublishVOD.
+// end, for a streamer who had autoPublishVods on in their
+// place.stream.server.settings for this node then, and still has it on when
+// the task runs. It is queued by ScheduleAutoPublishVOD.
 type AutoPublishVODTask struct {
 	LivestreamURI string `json:"livestreamURI"`
 	// Waits counts the passes that found part of the recording still being
@@ -38,14 +39,28 @@ const (
 // node has just seen end, if its streamer has automatic VOD publishing on.
 // Once per livestream: scheduling it again is a no-op.
 func (state *StatefulDB) ScheduleAutoPublishVOD(ctx context.Context, repoDID, livestreamURI string) error {
-	prefs, err := state.GetUserPreferences(ctx, repoDID)
-	if err != nil {
-		return fmt.Errorf("get user preferences: %w", err)
-	}
-	if !prefs.AutoPublishVODs {
-		return nil
+	on, err := state.autoPublishVODsOn(ctx, repoDID)
+	if err != nil || !on {
+		return err
 	}
 	return state.enqueueAutoPublishVOD(ctx, AutoPublishVODTask{LivestreamURI: livestreamURI})
+}
+
+// autoPublishVODsOn reports whether the streamer has autoPublishVods on in
+// their settings record for this node. Off unless set: it is opt-in.
+func (state *StatefulDB) autoPublishVODsOn(ctx context.Context, repoDID string) (bool, error) {
+	settings, err := state.model.GetServerSettings(ctx, state.CLI.BroadcasterHost, repoDID)
+	if err != nil {
+		return false, fmt.Errorf("get server settings: %w", err)
+	}
+	if settings == nil {
+		return false, nil
+	}
+	rec, err := settings.ToStreamplaceServerSettings()
+	if err != nil {
+		return false, fmt.Errorf("decode server settings: %w", err)
+	}
+	return rec.AutoPublishVods != nil && *rec.AutoPublishVods, nil
 }
 
 func (state *StatefulDB) enqueueAutoPublishVOD(ctx context.Context, t AutoPublishVODTask) error {
@@ -80,11 +95,11 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 	}
 
 	// The streamer may have turned it off since the livestream ended.
-	prefs, err := state.GetUserPreferences(ctx, ls.RepoDID)
+	on, err := state.autoPublishVODsOn(ctx, ls.RepoDID)
 	if err != nil {
-		return fmt.Errorf("get user preferences: %w", err)
+		return err
 	}
-	if !prefs.AutoPublishVODs {
+	if !on {
 		log.Log(ctx, "automatic VOD publishing was turned off after the livestream ended; skipping")
 		return state.CompleteTask(ctx, task.ID)
 	}

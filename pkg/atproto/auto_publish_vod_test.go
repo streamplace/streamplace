@@ -31,7 +31,10 @@ func TestAutoPublishVODScheduledWhenSeenEnding(t *testing.T) {
 	}))
 	optIn := func(on bool) {
 		t.Helper()
-		require.NoError(t, atsync.StatefulDB.PutUserPreferences(ctx, &statedb.UserPreferences{RepoDID: did, AutoPublishVODs: on}))
+		var buf bytes.Buffer
+		require.NoError(t, (&placestream.ServerSettings{AutoPublishVods: &on}).MarshalCBOR(&buf))
+		rec := buf.Bytes()
+		require.NoError(t, mod.UpdateServerSettings(ctx, &model.ServerSettings{Server: atsync.CLI.BroadcasterHost, RepoDID: did, Record: &rec}))
 	}
 
 	// Fixed times, so indexing the same record again is byte-identical.

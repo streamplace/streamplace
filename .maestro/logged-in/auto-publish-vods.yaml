@@ -1,8 +1,8 @@
 appId: ${APP_ID}
 ---
 # The runner configures the harness and signs in before any logged-in flow.
-# Automatic VOD publishing is a preference the node keeps for the account, so
-# the toggle has to come back on after a relaunch, and off again after the
+# Automatic VOD publishing is saved to the account's settings record, so the
+# toggle has to come back on after a relaunch, and off again after the
 # next one. The harness node has no beta-invite issuer, so the account is in
 # the VOD beta that gates the toggle. Web: js/e2e-web/flows/auto-publish-vods.spec.ts.
 - launchApp

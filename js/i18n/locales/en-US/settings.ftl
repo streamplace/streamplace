@@ -46,7 +46,6 @@ livestream-recording-title = Record my livestreams into VODs on { $host }
 livestream-recording-description = When enabled, your livestreams are saved so you can finalize and publish them as videos
 auto-publish-vods-title = Publish my livestreams as VODs automatically
 auto-publish-vods-description = When a recorded livestream ends, { $host } publishes it as a video right away, without waiting for you to finalize it
-auto-publish-vods-update-failed = Failed to update automatic VOD publishing
 
 ## Key Management
 manage-keys = Manage Keys

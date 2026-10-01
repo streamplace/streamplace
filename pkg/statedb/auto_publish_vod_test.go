@@ -1,6 +1,7 @@
 package statedb
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"strings"
@@ -8,37 +9,24 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 )
 
-func TestUserPreferences(t *testing.T) {
-	WithAllDatabases(t, func(state *StatefulDB) {
-		ctx := context.Background()
-		prefs, err := state.GetUserPreferences(ctx, "did:plc:prefs")
-		require.NoError(t, err)
-		require.False(t, prefs.AutoPublishVODs, "off until the user opts in")
-
-		prefs.AutoPublishVODs = true
-		require.NoError(t, state.PutUserPreferences(ctx, prefs))
-		prefs, err = state.GetUserPreferences(ctx, "did:plc:prefs")
-		require.NoError(t, err)
-		require.True(t, prefs.AutoPublishVODs)
-
-		prefs.AutoPublishVODs = false
-		require.NoError(t, state.PutUserPreferences(ctx, prefs), "saving over existing preferences")
-		prefs, err = state.GetUserPreferences(ctx, "did:plc:prefs")
-		require.NoError(t, err)
-		require.False(t, prefs.AutoPublishVODs)
-
-		other, err := state.GetUserPreferences(ctx, "did:plc:other")
-		require.NoError(t, err)
-		require.False(t, other.AutoPublishVODs, "one user's preferences are not another's")
-	})
-}
-
+// setAutoPublishVODs indexes did's place.stream.server.settings record for
+// this node with autoPublishVods set.
 func setAutoPublishVODs(t *testing.T, state *StatefulDB, did string, on bool) {
 	t.Helper()
-	require.NoError(t, state.PutUserPreferences(context.Background(), &UserPreferences{RepoDID: did, AutoPublishVODs: on}))
+	var buf bytes.Buffer
+	require.NoError(t, (&placestream.ServerSettings{AutoPublishVods: &on}).MarshalCBOR(&buf))
+	rec := buf.Bytes()
+	// Replace rather than save over: these tests' CLI has no broadcaster
+	// host, and Save inserts when a primary key (server) is empty.
+	ctx := context.Background()
+	require.NoError(t, state.model.DeleteServerSettings(ctx, state.CLI.BroadcasterHost, did))
+	require.NoError(t, state.model.UpdateServerSettings(ctx, &model.ServerSettings{
+		Server: state.CLI.BroadcasterHost, RepoDID: did, Record: &rec,
+	}))
 }
 
 // endedLivestream seeds an ended livestream record for did, a streamer opted
@@ -86,8 +74,13 @@ func runAutoPublish(t *testing.T, state *StatefulDB, did, uri string) {
 func TestScheduleAutoPublishVOD(t *testing.T) {
 	WithAllDatabases(t, func(state *StatefulDB) {
 		ctx := context.Background()
+		uri := endedLivestream(t, state, "did:plc:nosettings")
+		require.NoError(t, state.model.DeleteServerSettings(ctx, state.CLI.BroadcasterHost, "did:plc:nosettings"))
+		require.NoError(t, state.ScheduleAutoPublishVOD(ctx, "did:plc:nosettings", uri))
+		require.Empty(t, pendingTasks(t, state, TaskAutoPublishVOD), "off for a streamer with no settings record: it is opt-in")
+
 		did := "did:plc:optedout"
-		uri := endedLivestream(t, state, did)
+		uri = endedLivestream(t, state, did)
 		setAutoPublishVODs(t, state, did, false)
 		require.NoError(t, state.ScheduleAutoPublishVOD(ctx, did, uri))
 		require.Empty(t, pendingTasks(t, state, TaskAutoPublishVOD), "nothing for a streamer who has it off when the livestream ends")

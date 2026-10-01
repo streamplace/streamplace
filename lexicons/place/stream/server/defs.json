@@ -119,17 +119,6 @@
           "description": "Whether backup storage is currently active."
         }
       }
-    },
-    "preferences": {
-      "type": "object",
-      "description": "A user's private preferences on this Streamplace node. The node stores them itself; they are not a record in the user's repository.",
-      "required": ["autoPublishVods"],
-      "properties": {
-        "autoPublishVods": {
-          "type": "boolean",
-          "description": "Whether the node publishes a VOD of each of the user's recorded livestreams as soon as the livestream ends."
-        }
-      }
     }
   }
 }

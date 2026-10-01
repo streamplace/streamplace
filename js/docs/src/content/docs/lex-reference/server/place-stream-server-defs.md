@@ -68,22 +68,6 @@ S3 storage configuration for backups.
 
 ---
 
-<a name="preferences"></a>
-
-### `preferences`
-
-**Type:** `object`
-
-A user's private preferences on this Streamplace node. The node stores them itself; they are not a record in the user's repository.
-
-**Properties:**
-
-| Name              | Type      | Req'd | Description                                                                                                 | Constraints |
-| ----------------- | --------- | ----- | ----------------------------------------------------------------------------------------------------------- | ----------- |
-| `autoPublishVods` | `boolean` | ✅    | Whether the node publishes a VOD of each of the user's recorded livestreams as soon as the livestream ends. |             |
-
----
-
 ## Lexicon Source
 
 ```json
@@ -209,17 +193,6 @@ A user's private preferences on this Streamplace node. The node stores them itse
         "isActive": {
           "type": "boolean",
           "description": "Whether backup storage is currently active."
-        }
-      }
-    },
-    "preferences": {
-      "type": "object",
-      "description": "A user's private preferences on this Streamplace node. The node stores them itself; they are not a record in the user's repository.",
-      "required": ["autoPublishVods"],
-      "properties": {
-        "autoPublishVods": {
-          "type": "boolean",
-          "description": "Whether the node publishes a VOD of each of the user's recorded livestreams as soon as the livestream ends."
         }
       }
     }

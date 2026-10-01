@@ -771,31 +771,6 @@
         }
       }
     },
-    "/xrpc/place.stream.server.getPreferences": {
-      "get": {
-        "summary": "Get the authenticated user's private preferences on this node.",
-        "operationId": "place.stream.server.getPreferences",
-        "tags": ["place.stream.server"],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "preferences": {
-                      "$ref": "#/components/schemas/place.stream.server.defs_preferences"
-                    }
-                  },
-                  "required": ["preferences"]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/xrpc/place.stream.server.getServerTime": {
       "get": {
         "summary": "Get the current server time for client clock synchronization",
@@ -1017,47 +992,6 @@
             }
           }
         ]
-      }
-    },
-    "/xrpc/place.stream.server.putPreferences": {
-      "post": {
-        "summary": "Update the authenticated user's private preferences on this node. Omitted fields keep their current values.",
-        "operationId": "place.stream.server.putPreferences",
-        "tags": ["place.stream.server"],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "preferences": {
-                      "$ref": "#/components/schemas/place.stream.server.defs_preferences"
-                    }
-                  },
-                  "required": ["preferences"]
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "autoPublishVods": {
-                    "type": "boolean",
-                    "description": "Whether the node publishes a VOD of each of the user's recorded livestreams as soon as the livestream ends."
-                  }
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/xrpc/place.stream.server.updateWebhook": {
@@ -7370,17 +7304,6 @@
           }
         },
         "required": ["id", "url", "events", "active", "createdAt"]
-      },
-      "place.stream.server.defs_preferences": {
-        "type": "object",
-        "description": "A user's private preferences on this Streamplace node. The node stores them itself; they are not a record in the user's repository.",
-        "properties": {
-          "autoPublishVods": {
-            "type": "boolean",
-            "description": "Whether the node publishes a VOD of each of the user's recorded livestreams as soon as the livestream ends."
-          }
-        },
-        "required": ["autoPublishVods"]
       },
       "place.stream.server.defs_storage": {
         "type": "object",

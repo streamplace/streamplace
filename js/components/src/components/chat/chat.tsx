@@ -4,7 +4,6 @@ import {
   ComponentProps,
   memo,
   type ReactNode,
-  type RefObject,
   useEffect,
   useMemo,
   useRef,
@@ -98,58 +97,6 @@ function useChatExpiryTick(): number {
 const keyExtractor = (item: ChatMessageViewHydrated, index: number) => {
   return `${item.uri}`;
 };
-
-// On the web an inverted list is flipped with scaleY(-1), so native wheel
-// scrolling would run backwards; react-native-web cancels every wheel event
-// and moves scrollTop itself. Its handler loses trackpad scrolls, though:
-//
-// - The browser snaps each scrollTop write to a device pixel. A trackpad
-//   sends many small, fractional deltas, and rounding favours one direction:
-//   in Chromium every half-pixel step toward the latest message lands back
-//   where it started, so scrolling down stalls while scrolling up works.
-// - It lets the element under the pointer absorb the delta first if its
-//   scrollHeight exceeds its clientHeight, which a truncated, overflow-hidden
-//   name can do by a few pixels on every row.
-//
-// So this list handles its own wheel events first (capture phase, on the
-// scroll node, ahead of react-native-web's bubbling listener), carries the
-// part of each delta the browser rounded away into the next one, and scrolls
-// only the list: chat rows have no scroll areas of their own.
-const WHEEL_LINE_PX = 16;
-
-function useInvertedWheelScroll(
-  listRef: RefObject<FlatList | null>,
-  enabled: boolean,
-) {
-  useEffect(() => {
-    if (Platform.OS !== "web" || !enabled) return;
-    const node = (
-      listRef.current as unknown as { getScrollableNode?: () => unknown }
-    )?.getScrollableNode?.();
-    if (!(node instanceof HTMLElement)) return;
-    let carry = 0;
-    const onWheel = (ev: WheelEvent) => {
-      ev.stopPropagation();
-      ev.preventDefault();
-      // Firefox reports pixels once deltaY is read before deltaMode.
-      let delta = ev.deltaY;
-      if (ev.deltaMode === WheelEvent.DOM_DELTA_LINE) delta *= WHEEL_LINE_PX;
-      if (ev.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
-        delta *= node.clientHeight;
-      }
-      if (!delta) return;
-      const wanted = node.scrollTop - delta + carry;
-      node.scrollTop = wanted;
-      carry = wanted - node.scrollTop;
-      // A whole pixel or more short means the list hit an end, not rounding.
-      if (Math.abs(carry) >= 1) carry = 0;
-    };
-    node.addEventListener("wheel", onWheel, { capture: true, passive: false });
-    return () => {
-      node.removeEventListener("wheel", onWheel, { capture: true });
-    };
-  }, [listRef, enabled]);
-}
 
 // A message that has faded out is gone, not absent: it keeps the space the
 // list is scrolled over, so the history behind it stays reachable. It must not
@@ -449,8 +396,47 @@ export function Chat({
   }, []);
   const [isVisible, setIsVisible] = useState(true);
   const flatListRef = useRef<FlatList>(null);
-  // the list is only mounted (and inverted) once chat has loaded and is shown
-  useInvertedWheelScroll(flatListRef, !reverse && isVisible && !!chat);
+  // On the web an inverted list is flipped with scaleY(-1), so native wheel
+  // scrolling would run backwards; react-native-web cancels every wheel event
+  // and moves scrollTop itself. Its handler loses trackpad scrolls, though:
+  //
+  // - The browser snaps each scrollTop write to a device pixel. A trackpad
+  //   sends many small, fractional deltas, and rounding favours one
+  //   direction: every half-pixel step toward the latest message can land
+  //   back where it started, so scrolling down stalls while scrolling up
+  //   works.
+  // - It lets the element under the pointer absorb the delta first if its
+  //   scrollHeight exceeds its clientHeight, which a truncated,
+  //   overflow-hidden name can do by a few pixels on every row.
+  //
+  // So the list handles its own wheel events first (capture phase, on the
+  // scroll node, ahead of react-native-web's bubbling listener), carries the
+  // part of each delta the browser rounded away into the next one, and
+  // scrolls only the list: chat rows have no scroll areas of their own.
+  //
+  // The list is only mounted (and inverted) once chat has loaded and is shown.
+  const invertedListShown = !reverse && isVisible && !!chat;
+  useEffect(() => {
+    if (Platform.OS !== "web" || !invertedListShown) return;
+    const node = (
+      flatListRef.current as unknown as { getScrollableNode?: () => unknown }
+    )?.getScrollableNode?.();
+    if (!(node instanceof HTMLElement)) return;
+    let carry = 0;
+    const onWheel = (ev: WheelEvent) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      const wanted = node.scrollTop - ev.deltaY + carry;
+      node.scrollTop = wanted;
+      carry = wanted - node.scrollTop;
+      // A whole pixel or more short means the list hit an end, not rounding.
+      if (Math.abs(carry) >= 1) carry = 0;
+    };
+    node.addEventListener("wheel", onWheel, { capture: true, passive: false });
+    return () => {
+      node.removeEventListener("wheel", onWheel, { capture: true });
+    };
+  }, [invertedListShown]);
   const now = useChatExpiryTick();
   const visibleMessages = useMemo(
     () =>

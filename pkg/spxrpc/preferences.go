@@ -3,6 +3,7 @@ package spxrpc
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
@@ -32,7 +33,7 @@ func (s *Server) handlePlaceStreamServerPutPreferences(ctx context.Context, inpu
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "get preferences: "+err.Error())
 	}
 	if input.AutoPublishVods != nil {
-		prefs.AutoPublishVODs = *input.AutoPublishVods
+		prefs.SetAutoPublishVODs(*input.AutoPublishVods, time.Now().UTC())
 	}
 	if err := s.statefulDB.PutUserPreferences(ctx, prefs); err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "save preferences: "+err.Error())

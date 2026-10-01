@@ -18,17 +18,23 @@ func TestUserPreferences(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, prefs.AutoPublishVODs, "off until the user opts in")
 
-		prefs.AutoPublishVODs = true
+		on := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+		prefs.SetAutoPublishVODs(true, on)
 		require.NoError(t, state.PutUserPreferences(ctx, prefs))
 		prefs, err = state.GetUserPreferences(ctx, "did:plc:prefs")
 		require.NoError(t, err)
 		require.True(t, prefs.AutoPublishVODs)
+		require.True(t, on.Equal(*prefs.AutoPublishVODsSince))
 
-		prefs.AutoPublishVODs = false
+		prefs.SetAutoPublishVODs(true, on.Add(time.Hour))
+		require.True(t, on.Equal(*prefs.AutoPublishVODsSince), "turning it on again keeps when it was turned on")
+
+		prefs.SetAutoPublishVODs(false, on.Add(time.Hour))
 		require.NoError(t, state.PutUserPreferences(ctx, prefs), "saving over existing preferences")
 		prefs, err = state.GetUserPreferences(ctx, "did:plc:prefs")
 		require.NoError(t, err)
 		require.False(t, prefs.AutoPublishVODs)
+		require.Nil(t, prefs.AutoPublishVODsSince)
 
 		other, err := state.GetUserPreferences(ctx, "did:plc:other")
 		require.NoError(t, err)
@@ -36,11 +42,13 @@ func TestUserPreferences(t *testing.T) {
 	})
 }
 
-// endedLivestream seeds an ended livestream record for did, a streamer opted
-// in to automatic VOD publishing.
+// endedLivestream seeds a livestream record for did that ended just now, for
+// a streamer who opted in to automatic VOD publishing a minute before.
 func endedLivestream(t *testing.T, state *StatefulDB, did string) string {
 	t.Helper()
-	require.NoError(t, state.PutUserPreferences(context.Background(), &UserPreferences{RepoDID: did, AutoPublishVODs: true}))
+	prefs := &UserPreferences{RepoDID: did}
+	prefs.SetAutoPublishVODs(true, time.Now().Add(-time.Minute))
+	require.NoError(t, state.PutUserPreferences(context.Background(), prefs))
 	return seedLivestream(t, state.model, did, strings.TrimPrefix(did, "did:plc:"), time.Hour, &placestream.Livestream{
 		LexiconTypeID: "place.stream.livestream",
 		CreatedAt:     time.Now().Add(-time.Hour).Format(time.RFC3339),
@@ -209,6 +217,17 @@ func TestAutoPublishVODSkips(t *testing.T) {
 		uri = endedLivestream(t, state, did)
 		recordObject(t, state, did, uri, "a.m4s", true)
 		require.NoError(t, state.CreateLivestreamUpload(ctx, "by-hand", did, uri))
+		runAutoPublish(t, state, did, uri)
+		require.Empty(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD))
+
+		// Ended before the streamer opted in: an old record redelivered
+		// after they turned it on.
+		did = "did:plc:oldstream"
+		uri = endedLivestream(t, state, did)
+		recordObject(t, state, did, uri, "a.m4s", true)
+		prefs := &UserPreferences{RepoDID: did}
+		prefs.SetAutoPublishVODs(true, time.Now().Add(time.Minute))
+		require.NoError(t, state.PutUserPreferences(ctx, prefs))
 		runAutoPublish(t, state, did, uri)
 		require.Empty(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD))
 	})

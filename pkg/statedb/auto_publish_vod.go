@@ -71,13 +71,37 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 	}
 	ctx = log.WithLogValues(ctx, "did", ls.RepoDID)
 
-	// The streamer may have turned it off since the livestream ended.
+	view, err := ls.ToLivestreamView()
+	if err != nil {
+		return fmt.Errorf("decode livestream: %w", err)
+	}
+	rec, ok := view.Record.Val.(*placestream.Livestream)
+	if !ok {
+		return fmt.Errorf("record is not a place.stream.livestream: %s", ls.URI)
+	}
+	if rec.EndedAt == nil {
+		log.Warn(ctx, "livestream to publish a VOD of has not ended; skipping")
+		return state.CompleteTask(ctx, task.ID)
+	}
+	endedAt, err := time.Parse(time.RFC3339, *rec.EndedAt)
+	if err != nil {
+		log.Warn(ctx, "livestream has an unreadable endedAt; skipping", "endedAt", *rec.EndedAt, "error", err)
+		return state.CompleteTask(ctx, task.ID)
+	}
+
+	// The streamer may have turned it off since the livestream ended. And a
+	// livestream that ended before they turned it on (an old record
+	// redelivered) keeps its recording unpublished, as it was when it ended.
 	prefs, err := state.GetUserPreferences(ctx, ls.RepoDID)
 	if err != nil {
 		return fmt.Errorf("get user preferences: %w", err)
 	}
 	if !prefs.AutoPublishVODs {
 		log.Log(ctx, "automatic VOD publishing was turned off after the livestream ended; skipping")
+		return state.CompleteTask(ctx, task.ID)
+	}
+	if prefs.AutoPublishVODsSince != nil && endedAt.Before(*prefs.AutoPublishVODsSince) {
+		log.Log(ctx, "livestream ended before automatic VOD publishing was turned on; skipping", "endedAt", endedAt, "since", *prefs.AutoPublishVODsSince)
 		return state.CompleteTask(ctx, task.ID)
 	}
 
@@ -119,15 +143,6 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 	if len(segs) == 0 {
 		log.Log(ctx, "livestream has no recording; no VOD to publish")
 		return state.CompleteTask(ctx, task.ID)
-	}
-
-	view, err := ls.ToLivestreamView()
-	if err != nil {
-		return fmt.Errorf("decode livestream: %w", err)
-	}
-	rec, ok := view.Record.Val.(*placestream.Livestream)
-	if !ok {
-		return fmt.Errorf("record is not a place.stream.livestream: %s", ls.URI)
 	}
 	if !created {
 		if err := state.CreateLivestreamUpload(ctx, uploadID, ls.RepoDID, ls.URI); err != nil {

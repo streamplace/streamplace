@@ -270,6 +270,11 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 			return
 		}
 	})
+	router.GET("/notification-icon", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		if err := a.XRPCServer.HandleNotificationIcon(echo.New().NewContext(r, w)); err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "failed to serve notification icon", err)
+		}
+	})
 	router.GET("/.well-known/did.json", a.HandleDidJSON(ctx))
 	router.GET("/.well-known/atproto-did", a.HandleAtprotoDID(ctx))
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))

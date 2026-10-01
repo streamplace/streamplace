@@ -288,6 +288,8 @@ const iconPng = (size) =>
     ? squarePng(markArt, size, iconArt.synth)
     : squarePng(iconArt, size, {});
 write(join(outApp, "icon.png"), await iconPng(1024));
+// Fallback for Web Push on nodes without a runtime mainLogo branding asset.
+write(join(outPublicBrand, "notification-icon.png"), await iconPng(512));
 
 const adaptiveArt = findArt("icon-foreground");
 write(

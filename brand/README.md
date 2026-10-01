@@ -1,14 +1,23 @@
 # Brand assets
 
-This directory is the single source of truth for Streamplace's visual
+This directory is the build-time source of truth for Streamplace's visual
 identity. Everything else — the Expo app icon and splash screen (and from
 those, every iOS and Android icon format via `expo prebuild`), favicons, the
-OG link banner, desktop ICO/ICNS icons, docs logos, the downloadable SVGs on
-`/brand`, and the logo components rendered in the app itself — is generated
+Web Push fallback icon, OG link banner, desktop ICO/ICNS icons, docs logos,
+the downloadable SVGs on `/brand`, and the logo components rendered in the app itself — is generated
 from these files by `js/brand/generate.mjs` and gitignored.
 
 Run the generator with `pnpm run brand` from the repo root. It also runs
 automatically on `pnpm install` and before app, docs, and desktop builds.
+
+Web Push uses `/notification-icon`, which serves the node's runtime `mainLogo`
+branding asset with its declared image MIME type. Production and other branded
+nodes can therefore use the same binary; no custom build is required.
+If no image logo is configured, the endpoint serves the bundled
+`/brand/notification-icon.png`, a 512×512 PNG generated from the app-icon artwork
+(`icon.svg` / `icon.png`, or the synthesized mark). The main notification image
+never uses the favicon; the small notification badge is unchanged. Responses
+are cached for five minutes, so runtime logo changes can take that long to appear.
 
 ## White-labeling
 

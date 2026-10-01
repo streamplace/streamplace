@@ -279,7 +279,7 @@ func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input 
 // HandleFaviconICO serves /favicon.ico: the node's branded favicon, else
 // the bundled one.
 func (s *Server) HandleFaviconICO(c echo.Context) error {
-	return s.handleFavicon(c, "favicon.ico", "image/x-icon")
+	return s.handleBrandingImage(c, "favicon", "favicon.ico", "image/x-icon")
 }
 
 // HandleFaviconPNG serves /favicon.png, the icon the app's HTML template
@@ -288,28 +288,33 @@ func (s *Server) HandleFaviconICO(c echo.Context) error {
 // take the first icon link they see, and this one used to be the bundled
 // brand mark on every node no matter its branding.
 func (s *Server) HandleFaviconPNG(c echo.Context) error {
-	return s.handleFavicon(c, "favicon.png", "image/png")
+	return s.handleBrandingImage(c, "favicon", "favicon.png", "image/png")
 }
 
-// handleFavicon serves the branded favicon blob with its own MIME type
-// (browsers sniff icon bytes, so an ICO at /favicon.png is fine), falling
-// back to the bundled file fallback / fallbackMime.
-func (s *Server) handleFavicon(c echo.Context, fallback, fallbackMime string) error {
+// HandleNotificationIcon serves the node's full-size runtime logo for Web Push,
+// falling back to the bundled app icon when no image logo is configured.
+func (s *Server) HandleNotificationIcon(c echo.Context) error {
+	return s.handleBrandingImage(c, "mainLogo", "brand/notification-icon.png", "image/png")
+}
+
+// handleBrandingImage serves a branding image with its declared MIME type,
+// falling back to the bundled file fallback / fallbackMime.
+func (s *Server) handleBrandingImage(c echo.Context, key, fallback, fallbackMime string) error {
 	ctx := c.Request().Context()
-	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, s.cli.BroadcasterDID(), "favicon")
+	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, s.cli.BroadcasterDID(), key)
 	if err != nil || len(data) == 0 || !strings.HasPrefix(mimeType, "image/") {
 		distFiles, fsErr := app.Files()
 		if fsErr != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch favicon")
+			return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch branding image")
 		}
 		f, fsErr := distFiles.Open(fallback)
 		if fsErr != nil {
-			return echo.NewHTTPError(http.StatusNotFound, "favicon not found")
+			return echo.NewHTTPError(http.StatusNotFound, "branding image not found")
 		}
 		defer f.Close()
 		data, fsErr = io.ReadAll(f)
 		if fsErr != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "failed to read favicon")
+			return echo.NewHTTPError(http.StatusInternalServerError, "failed to read branding image")
 		}
 		mimeType = fallbackMime
 	}

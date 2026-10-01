@@ -31,6 +31,14 @@ func TestCheckConfig(t *testing.T) {
 
 	ok(CLI{DataDir: t.TempDir()})
 
+	// Do not silently enable a shadow test on a node without the TLS addon.
+	bad(CLI{DataDir: t.TempDir(), DuplicateMistTest: true},
+		"--duplicate-mist-test")
+	bad(CLI{DataDir: t.TempDir(), DuplicateMistTest: true, Secure: true},
+		"--rtmp-server-addon")
+	bad(CLI{DataDir: t.TempDir(), DuplicateMistTest: true, RTMPServerAddon: "127.0.0.1:31935"},
+		"--secure")
+	ok(CLI{DataDir: t.TempDir(), DuplicateMistTest: true, Secure: true, RTMPServerAddon: "127.0.0.1:31935"})
 	bad(CLI{}, "data-dir")
 	bad(CLI{DataDir: t.TempDir(), LivepeerGateway: true, LivepeerGatewayURL: "http://127.0.0.1:8935"},
 		"livepeer-gateway")

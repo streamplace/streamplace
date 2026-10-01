@@ -29,6 +29,37 @@ Good places to start:
 - [Self-hosting](https://stream.place/docs/guides/installing/downloading-streamplace)
 - [API reference](https://stream.place/docs/lex-reference/place-stream-defs)
 
+## Shadow-testing native RTMP ingest with Mist
+
+Add `--duplicate-mist-test` (or `SP_DUPLICATE_MIST_TEST=true`) to an existing
+Mist-backed RTMPS configuration. It requires `--secure` and
+`--rtmp-server-addon` pointing to Mist, and applies to the
+`--rtmps-addon-addr` listener—not the native `--rtmps-addr` listener.
+Mist remains the only server responding to the encoder.
+
+After TLS termination, the client byte stream is also replayed in a separate
+process through the native RTMP reader, relay, GStreamer ingest, segment
+signer, and media/signature verifier. The worker ignores the supplied stream
+key for signing and uses a fresh ephemeral key. Its output is discarded:
+no duplicate live segments, recordings, archive writes, or stream state.
+
+Look for `duplicate-mist-test segment verified` progress (first segment, then
+every 30 seconds) and `segments_verified` at disconnect. Parser, ingest,
+validation, worker-exit, and queue-overflow failures log
+`duplicate-mist-test failed` with connection identifiers. Protocol error
+details that could contain stream keys are redacted.
+
+The shadow has an 8 MiB per-connection buffer. If it cannot keep up, only the
+shadow is killed; Mist continues unchanged. It gets 30 seconds to exit after
+disconnect, and node shutdown kills/reaps it. This is opt-in diagnostic work
+with additional CPU and memory cost. Plain RTMP inside TLS is supported;
+RTMPE's separately negotiated encryption cannot be passively replayed.
+
+The backend end-to-end regression is `TestDuplicateMistEndToEnd` in
+`pkg/cmd`; it exercises a real TLS publisher and the isolated native ingest
+through verified segments beyond the former few-second failure interval.
+No client UI or platform-specific iOS/Android/Web behavior changes.
+
 ## Contributions
 
 Check for existing [issues](https://github.com/streamplace/streamplace/issues)

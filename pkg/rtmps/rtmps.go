@@ -46,6 +46,17 @@ func ServeRTMPSAddon(ctx context.Context, cli *config.CLI, tlsConfig *tls.Config
 		listener.Close()
 	}()
 
+	opts := shadowOptions{}
+	// Reaps every shadow worker before we return on shutdown; each worker is
+	// killed when ctx is canceled.
+	var shadows sync.WaitGroup
+	defer shadows.Wait()
+	opts.release = shadows.Done
+	if cli.DuplicateMistTest {
+		log.Warn(ctx, shadowTag+": ENABLED, teeing decrypted client RTMP bytes to a shadow parser worker for every connection; Mist remains the only responder")
+	}
+	var connID uint64
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -59,44 +70,75 @@ func ServeRTMPSAddon(ctx context.Context, cli *config.CLI, tlsConfig *tls.Config
 			}
 		}
 
+		if cli.DuplicateMistTest {
+			connID++
+			shadows.Add(1)
+			// Count before starting the goroutine so shutdown cannot race Add.
+		}
+		id := connID
 		go func(clientConn net.Conn) {
 			defer clientConn.Close()
-
-			rtmpConn, err := net.Dial("tcp", cli.RTMPServerAddon)
-			if err != nil {
-				log.Error(ctx, "failed to connect to RTMP server", "error", err)
-				return
+			var sh *shadow
+			if cli.DuplicateMistTest {
+				// Complete TLS before allocating a ring or spawning a parser.
+				// HandshakeContext also unblocks idle clients on shutdown.
+				if err := clientConn.(*tls.Conn).HandshakeContext(ctx); err != nil {
+					shadows.Done()
+					if ctx.Err() == nil {
+						log.Error(ctx, "error completing RTMPS handshake", "error", err)
+					}
+					return
+				}
+				sh = startShadow(ctx, opts, id, clientConn.RemoteAddr().String())
 			}
-			defer rtmpConn.Close()
-
-			// Create a wait group to wait for both copy operations to complete
-			var wg sync.WaitGroup
-			wg.Add(2)
-
-			// Copy from client to RTMP server
-			go func() {
-				defer wg.Done()
-				_, err := io.Copy(rtmpConn, clientConn)
-				if err != nil && !errors.Is(err, io.EOF) {
-					log.Error(ctx, "error copying from client to RTMP server", "error", err)
-				}
-				// Signal the other goroutine to stop by closing the connection
-				rtmpConn.Close()
-			}()
-
-			// Copy from RTMP server to client
-			go func() {
-				defer wg.Done()
-				_, err := io.Copy(clientConn, rtmpConn)
-				if err != nil && !errors.Is(err, io.EOF) {
-					log.Error(ctx, "error copying from RTMP server to client", "error", err)
-				}
-				// Signal the other goroutine to stop by closing the connection
-				clientConn.Close()
-			}()
-
-			// Wait for both copy operations to complete
-			wg.Wait()
+			proxyConn(ctx, clientConn, cli.RTMPServerAddon, sh)
 		}(conn)
 	}
+}
+
+// proxyConn copies bytes between the client and the RTMP server until either
+// side closes. sh, if non-nil, receives a copy of the client-to-server bytes
+// only; it never writes to the client or the server.
+func proxyConn(ctx context.Context, clientConn net.Conn, rtmpAddr string, sh *shadow) {
+	rtmpConn, err := (&net.Dialer{}).DialContext(ctx, "tcp", rtmpAddr)
+	if err != nil {
+		log.Error(ctx, "failed to connect to RTMP server", "error", err)
+		sh.finish(ctx)
+		return
+	}
+	defer rtmpConn.Close()
+	stop := context.AfterFunc(ctx, func() {
+		_ = clientConn.Close()
+		_ = rtmpConn.Close()
+	})
+	defer stop()
+
+	// Create a wait group to wait for both copy operations to complete
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Copy from client to RTMP server
+	go func() {
+		defer wg.Done()
+		_, err := forwardClientToMist(ctx, rtmpConn, clientConn, sh)
+		if err != nil && !errors.Is(err, io.EOF) {
+			log.Error(ctx, "error copying from client to RTMP server", "error", err)
+		}
+		// Signal the other goroutine to stop by closing the connection
+		rtmpConn.Close()
+	}()
+
+	// Copy from RTMP server to client
+	go func() {
+		defer wg.Done()
+		_, err := io.Copy(clientConn, rtmpConn)
+		if err != nil && !errors.Is(err, io.EOF) {
+			log.Error(ctx, "error copying from RTMP server to client", "error", err)
+		}
+		// Signal the other goroutine to stop by closing the connection
+		clientConn.Close()
+	}()
+
+	// Wait for both copy operations to complete
+	wg.Wait()
 }

@@ -78,6 +78,7 @@ type CLI struct {
 	RTMPSAddonAddr             string
 	Secure                     bool
 	NoMist                     bool
+	DuplicateMistTest          bool
 	IsolatedIngest             bool
 	MistAdminPort              int
 	MistHTTPPort               int
@@ -345,6 +346,12 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       true,
 				Destination: &cli.IsolatedIngest,
 				Sources:     urfavecli.EnvVars("SP_ISOLATED_INGEST"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "duplicate-mist-test",
+				Usage:       "Shadow-test the native RTMP ingest in an isolated process while forwarding RTMPS to Mist (never publishes shadow output)",
+				Destination: &cli.DuplicateMistTest,
+				Sources:     urfavecli.EnvVars("SP_DUPLICATE_MIST_TEST"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "tls-cert",
@@ -1461,6 +1468,9 @@ func (cli *CLI) CheckConfig() error {
 	var errs []error
 	if cli.DataDir == "" {
 		errs = append(errs, fmt.Errorf("could not determine default data dir (no $HOME) and none provided, please set --data-dir"))
+	}
+	if cli.DuplicateMistTest && (!cli.Secure || cli.RTMPServerAddon == "") {
+		errs = append(errs, fmt.Errorf("--duplicate-mist-test requires --secure and --rtmp-server-addon pointing to Mist"))
 	}
 	if cli.LivepeerGateway && cli.LivepeerGatewayURL != "" {
 		errs = append(errs, fmt.Errorf("defining both livepeer-gateway and livepeer-gateway-url doesn't make sense. do you want an embedded gateway or an external one?"))

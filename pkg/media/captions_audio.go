@@ -56,7 +56,7 @@ type audioMark struct {
 const audioMarksKept = 32
 
 func newCaptionAudioDecoder(parent context.Context, codec string, onPCM func(time.Time, []float32)) (*captionAudioDecoder, error) {
-	pipeline, err := buildCaptionAudioPipeline(codec)
+	pipeline, err := buildCaptionAudioPipeline(parent, codec)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func newCaptionAudioDecoder(parent context.Context, codec string, onPCM func(tim
 
 // buildCaptionAudioPipeline demuxes fed fMP4 bytes, decodes the one audio
 // track to 16 kHz mono float samples, and discards the video.
-func buildCaptionAudioPipeline(codec string) (*gst.Pipeline, error) {
+func buildCaptionAudioPipeline(ctx context.Context, codec string) (*gst.Pipeline, error) {
 	var decode string
 	switch codec {
 	case "aac":
@@ -124,7 +124,7 @@ func buildCaptionAudioPipeline(codec string) (*gst.Pipeline, error) {
 		}
 		if r := pad.Link(dst); r != gst.PadLinkOK {
 			// A second track of the same kind is simply not decoded.
-			fmt.Printf("caption audio: failed to link demux pad %s: %v\n", name, r)
+			log.Debug(ctx, "caption audio demux pad not linked", "pad", name, "result", r)
 		}
 	}); err != nil {
 		return nil, fmt.Errorf("connect demux pad-added: %w", err)

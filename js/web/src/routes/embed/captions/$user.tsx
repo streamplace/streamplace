@@ -7,6 +7,7 @@ import {
   DEFAULT_CAPTION_PREFS,
   displayLiveCaptions,
   parseCaptionPrefs,
+  selectLiveCaptionTrack,
 } from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -71,8 +72,8 @@ function OverlayBody({ store }: { store: LivestreamStore }) {
   }, []);
   const track =
     search.track ??
-    tracks.find((item) => item.origin === "canonical")?.id ??
-    tracks[0]?.id;
+    selectLiveCaptionTrack(tracks, null, captions, now, displayLiveCaptions)
+      ?.id;
   const lines = track ? displayLiveCaptions(captions, track, now) : [];
   const prefs = parseCaptionPrefs(
     JSON.stringify({ ...DEFAULT_CAPTION_PREFS, font: search.font }),

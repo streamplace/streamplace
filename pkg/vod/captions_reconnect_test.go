@@ -18,8 +18,9 @@ import (
 func reconnectCaptionFixture(t *testing.T, changeLanguage, textFirst bool) (*videoCaptionView, time.Duration, error) {
 	t.Helper()
 	ctx := context.Background()
-	eng, err := captions.TextEngine()
+	eng, err := upstream.NewWASM(ctx)
 	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, eng.Close(ctx)) })
 	data, err := os.ReadFile(getFixture("h264-opus-frag.mp4"))
 	require.NoError(t, err)
 	ch := make(chan *upstream.Event, 32)

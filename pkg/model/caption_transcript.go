@@ -3,13 +3,11 @@ package model
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	glex "github.com/streamplace/glex/runtime"
-	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
@@ -91,18 +89,6 @@ func (m *DBModel) UpsertCaptionTranscript(ctx context.Context, rec placestream.C
 
 func (m *DBModel) DeleteCaptionTranscript(ctx context.Context, uri string) error {
 	return m.DB.WithContext(ctx).Where("uri = ?", uri).Delete(&CaptionTranscript{}).Error
-}
-
-func (m *DBModel) GetCaptionTranscriptByURI(ctx context.Context, uri string) (*CaptionTranscript, error) {
-	var row CaptionTranscript
-	err := m.DB.WithContext(ctx).Where("uri = ?", uri).First(&row).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("get caption transcript by uri: %w", err)
-	}
-	return &row, nil
 }
 
 // GetCaptionTranscriptsBySubject returns every indexed chunk of captions whose

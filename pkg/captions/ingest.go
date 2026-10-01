@@ -63,9 +63,6 @@ func (t *IngestTap) SetTrack(origin Origin, author, language string) {
 	t.track = tr
 }
 
-// Track is the track the tap publishes on.
-func (t *IngestTap) Track() Track { return t.track }
-
 // Publish turns publication on or off; decoding continues either way so
 // Seen stays accurate. Turning it off ends the open cue.
 func (t *IngestTap) Publish(on bool) {
@@ -88,22 +85,18 @@ func (t *IngestTap) Sample(sample []byte, at time.Time) bool {
 	if !t.haveTime {
 		t.first, t.haveTime = at, true
 	}
-	t.apply(t.dec.Decode(cc, at.Sub(t.first)), at)
+	t.apply(t.dec.Decode(cc, at.Sub(t.first)))
 	return true
 }
 
-// Close ends the stream: pending data is decoded and the open cue ends at
-// the given time.
+// Close ends the open displayed cue at the given time.
 func (t *IngestTap) Close(at time.Time) {
-	if t.haveTime {
-		t.apply(t.dec.Flush(at.Sub(t.first)), at)
-	}
 	if t.open != nil {
 		t.closeOpen(at)
 	}
 }
 
-func (t *IngestTap) apply(events []cea608.Event, at time.Time) {
+func (t *IngestTap) apply(events []cea608.Event) {
 	for _, ev := range events {
 		if t.channel == 0 {
 			if ev.Text == "" {

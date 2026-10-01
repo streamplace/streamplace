@@ -15,6 +15,9 @@ for important content, consider a human captioner or corrected VOD captions.
 Use the player's **CC** button to turn captions on or off. Open its caption menu
 to choose a track by language; automatic tracks are marked as automatic. A track
 must be available before it can be selected.
+Without an explicit track choice, live players follow the canonical track with
+the newest displayable cue, falling back to node sidecars when canonical speech
+is absent. An explicit menu choice stays selected.
 
 Open **Settings → Captions**, or **Caption style** in the player menu, to preview
 and change text size, font, text color and opacity, text edges, and background
@@ -66,6 +69,8 @@ There are **two separate pages**:
    page's microphone audio. Use its speed measurement before choosing a model;
    a larger model may not keep up with live speech. A positive calibration
    offset delays cue timestamps to match encoder latency.
+   Final captions commit after 600 ms of silence or a 12-second window and are
+   pushed about once a second.
 2. **Display overlay**: add this URL as an OBS Browser Source:
 
    ```text
@@ -78,11 +83,21 @@ There are **two separate pages**:
    `fontSize` is in pixels, `color` and `background` are CSS colors, `position`
    is `top`, `center`, or `bottom`, and `maxLines` is 1–10. URL-encode colors
    containing special characters, such as `#`.
+   The optional `font` uses a shared caption font name, such as
+   `proportionalSans` or `monospacedSans`. Without `track`, the overlay follows
+   the newest displayable canonical cue, or a sidecar when canonical speech is
+   absent. It shows the newest cue on arrival for its duration (at least five
+   seconds), until replaced. Player overlays instead use the segment
+   presentation clock and cue start/end intervals; pausing freezes their
+   fallback caption clock. HLS subtitles follow the playback element's timeline.
 
 Use **ingest** mode if you want the browser captioner to be your only canonical
 caption source. **Auto** also accepts its pushed captions, but may recognize
 speech until your captions arrive. The captioner does not change this setting
 for you.
+Browser Go Live's **Caption my stream on this device** uses the outgoing audio
+track and tiny model without changing policy. Enabling it may reload the page
+for browser isolation; restart Go Live after that reload.
 
 You can keep the captioner in an ordinary browser and use only the display in
 OBS. To run the **captioner itself** in an OBS Browser Source, launch OBS with
@@ -105,9 +120,11 @@ registered Streamplace stream key. Treat the key as a secret. If `streamer` is
 provided, it must be the authenticated streamer's DID. The stream must be live
 on this node; otherwise the procedure returns `StreamNotLive`.
 
-The API accepts at most **100 cues per request**, with at most **2,000 characters
-of text per cue**. Send small batches promptly rather than waiting to collect
-100 cues. Use UTC wall-clock times for when the words were spoken, not offsets
+The API accepts at most **100 cues per request**, **64 UTF-8 bytes per cue ID**,
+and **2,000 UTF-8 bytes of text per cue**, with a **2 MiB request-body limit**.
+The complete batch is validated before publishing any cue. Send small batches
+promptly rather than waiting to collect 100 cues. Use UTC wall-clock times
+for when the words were spoken, not offsets
 from zero or the captioner's HTTP send time. The end must be after the start.
 Keep the captioner and encoder clocks synchronized.
 

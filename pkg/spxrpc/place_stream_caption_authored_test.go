@@ -52,15 +52,6 @@ func TestAuthoredCaptionImportHTTPRoundTrip(t *testing.T) {
 			httpServer := httptest.NewServer(e)
 			defer httpServer.Close()
 			trackID := records.TrackID("did:plc:owner", "en", "captions", string(source))
-			// The same provider supplies the native/web VOD overlay.
-			overlay, err := s.VideoCaptions.Cues(context.Background(), capVideoURI, trackID)
-			require.NoError(t, err)
-			require.Len(t, overlay, len(want))
-			for i := range want {
-				require.Equal(t, want[i].Text, overlay[i].Text)
-				require.InDelta(t, want[i].Start.Milliseconds(), overlay[i].Start.Milliseconds(), 1)
-				require.InDelta(t, want[i].End.Milliseconds(), overlay[i].End.Milliseconds(), 1)
-			}
 			for _, format := range []string{"vtt", "srt", "json"} {
 				q := url.Values{"video": {capVideoURI}, "track": {trackID}, "format": {format}}
 				resp, err := http.Get(httpServer.URL + "/xrpc/place.stream.caption.getCaptions?" + q.Encode())

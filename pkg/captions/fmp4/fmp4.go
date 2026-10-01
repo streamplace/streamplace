@@ -1,13 +1,14 @@
 // Package fmp4 reads the samples of a fragmented MP4 track: the
-// [moof][mdat] runs of a canonical MUXL track, or a presentation fMP4. It
-// knows just enough of ISO BMFF (tfhd, tfdt, trun) to hand back each
-// sample's bytes with its decode and presentation times.
+// [moof][mdat] runs of a canonical MUXL track, or a presentation fMP4 with
+// explicit tfhd bases (or default-base-is-moof) and trun data offsets.
+// It reads each sample's bytes with its decode and presentation times.
 package fmp4
 
 import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/bits"
 )
 
 // Sample is one media sample of a track.
@@ -44,7 +45,15 @@ func Fragments(b []byte) ([]Fragment, error) {
 		}
 		if typ == "moof" {
 			moof := b[off : off+size]
-			frags, err := parseMoof(b, off, moof[hdr:])
+			dataOff := off + size
+			dataSize, dataType, dataHdr, err := boxHeader(b, dataOff)
+			if err != nil {
+				return out, err
+			}
+			if dataType != "mdat" {
+				return out, fmt.Errorf("fmp4: moof must be followed by mdat")
+			}
+			frags, err := parseMoof(b, off, moof[hdr:], dataOff+dataHdr, dataOff+dataSize)
 			if err != nil {
 				return out, err
 			}
@@ -129,7 +138,7 @@ type traf struct {
 
 // parseMoof returns a Fragment per traf. file is the whole buffer and
 // moofOff the moof box's offset in it, for resolving data offsets.
-func parseMoof(file []byte, moofOff int, body []byte) ([]Fragment, error) {
+func parseMoof(file []byte, moofOff int, body []byte, dataStart, dataEnd int) ([]Fragment, error) {
 	var out []Fragment
 	err := children(body, func(typ string, _, payload []byte) error {
 		if typ != "traf" {
@@ -139,7 +148,7 @@ func parseMoof(file []byte, moofOff int, body []byte) ([]Fragment, error) {
 		err := children(payload, func(typ string, _, p []byte) error {
 			switch typ {
 			case "tfhd":
-				return t.parseTfhd(p, moofOff)
+				return t.parseTfhd(p, moofOff, len(file), len(out) == 0)
 			case "tfdt":
 				if len(p) < 8 {
 					return errTruncated
@@ -161,7 +170,7 @@ func parseMoof(file []byte, moofOff int, body []byte) ([]Fragment, error) {
 		if err != nil {
 			return err
 		}
-		frag, err := t.samples(file)
+		frag, err := t.samples(file, dataStart, dataEnd)
 		if err != nil {
 			return err
 		}
@@ -171,7 +180,7 @@ func parseMoof(file []byte, moofOff int, body []byte) ([]Fragment, error) {
 	return out, err
 }
 
-func (t *traf) parseTfhd(p []byte, moofOff int) error {
+func (t *traf) parseTfhd(p []byte, moofOff, fileSize int, first bool) error {
 	if len(p) < 8 {
 		return errTruncated
 	}
@@ -188,12 +197,16 @@ func (t *traf) parseTfhd(p []byte, moofOff int) error {
 		if err := need(8); err != nil {
 			return err
 		}
-		t.baseOffset = int(binary.BigEndian.Uint64(p[i : i+8]))
+		offset := binary.BigEndian.Uint64(p[i : i+8])
+		if offset > uint64(fileSize) {
+			return fmt.Errorf("fmp4: tfhd base data offset outside the file")
+		}
+		t.baseOffset = int(offset)
 		i += 8
-	} else {
-		// default-base-is-moof, or the implicit "first traf starts at the
-		// moof" rule; both resolve to the moof for the layouts we read.
+	} else if flags&tfhdDefaultBaseIsMoof != 0 || first {
 		t.baseOffset = moofOff
+	} else {
+		return fmt.Errorf("fmp4: unsupported implicit traf base")
 	}
 	if flags&tfhdSampleDescriptionIndex != 0 {
 		if err := need(4); err != nil {
@@ -224,7 +237,7 @@ func (t *traf) parseTfhd(p []byte, moofOff int) error {
 	return nil
 }
 
-func (t *traf) samples(file []byte) (Fragment, error) {
+func (t *traf) samples(file []byte, dataStart, dataEnd int) (Fragment, error) {
 	frag := Fragment{TrackID: t.trackID, BaseDecodeTime: t.tfdt}
 	dts := t.tfdt
 	for _, p := range t.truns {
@@ -242,6 +255,8 @@ func (t *traf) samples(file []byte) (Fragment, error) {
 			}
 			dataOff = int(int32(binary.BigEndian.Uint32(p[i : i+4])))
 			i += 4
+		} else {
+			return frag, fmt.Errorf("fmp4: trun missing data offset")
 		}
 		firstFlags := t.defFlags
 		hasFirst := false
@@ -254,8 +269,17 @@ func (t *traf) samples(file []byte) (Fragment, error) {
 			i += 4
 		}
 		pos := t.baseOffset + dataOff
-		if pos < 0 || pos > len(file) {
-			return frag, fmt.Errorf("fmp4: trun data offset %d outside the file", pos)
+		if pos < dataStart || pos > dataEnd {
+			return frag, fmt.Errorf("fmp4: trun data offset %d outside mdat", pos)
+		}
+		entrySize := 4 * bits.OnesCount32(flags&(trunSampleDuration|trunSampleSize|trunSampleFlags|trunSampleCTO))
+		if entrySize > 0 && count > (len(p)-i)/entrySize {
+			return frag, errTruncated
+		}
+		// Every supported sample consumes payload bytes. Default-only runs
+		// must also fit before we allocate or iterate from an untrusted count.
+		if count > dataEnd-pos || (flags&trunSampleSize == 0 && (t.defSize == 0 || uint64(count)*uint64(t.defSize) > uint64(dataEnd-pos))) {
+			return frag, fmt.Errorf("fmp4: sample count exceeds mdat payload")
 		}
 		for s := range count {
 			dur, size, sflags := t.defDuration, t.defSize, t.defFlags
@@ -295,9 +319,13 @@ func (t *traf) samples(file []byte) (Fragment, error) {
 				}
 				i += 4
 			}
+			// Producers may explicitly encode a zero-duration terminal sample.
+			if size == 0 || (flags&trunSampleDuration == 0 && dur == 0) {
+				return frag, fmt.Errorf("fmp4: sample must have payload and an explicit or default duration")
+			}
 			end := pos + int(size)
-			if end > len(file) || end < pos {
-				return frag, fmt.Errorf("fmp4: sample of %d bytes at %d runs past the file", size, pos)
+			if end > dataEnd || end < pos {
+				return frag, fmt.Errorf("fmp4: sample of %d bytes at %d runs past mdat", size, pos)
 			}
 			pts := int64(dts) + cto
 			if pts < 0 {
@@ -395,21 +423,4 @@ func parseTrak(trak []byte) (TrackInfo, error) {
 		return nil
 	})
 	return info, err
-}
-
-// HasTextTrack reports whether an init segment or flat MP4 carries a
-// timed-text track (a WebVTT, TX3G or TTML track), the shape of a caption
-// track mastered into the stream.
-func HasTextTrack(b []byte) bool {
-	tracks, err := Tracks(b)
-	if err != nil {
-		return false
-	}
-	for _, t := range tracks {
-		switch t.Handler {
-		case "text", "sbtl", "subt":
-			return true
-		}
-	}
-	return false
 }

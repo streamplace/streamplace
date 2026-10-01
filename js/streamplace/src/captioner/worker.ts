@@ -1,5 +1,3 @@
-import { agree, shouldCommit } from "./agreement.js";
-
 // This file is compiled by make whisper-wasm and served beside the native
 // bridge, independent of Metro/Vite's incompatible Worker bundling conventions.
 const scope = globalThis as unknown as {
@@ -27,7 +25,6 @@ let samples: number[] = [];
 let start = 0;
 let lastSpeech = 0;
 let lastDecode = 0;
-let hypothesis = "";
 let cueID = "";
 let detectedLanguage = "en";
 let threads = 1;
@@ -90,7 +87,7 @@ scope.onmessage = async (event: MessageEvent) => {
       samples.push(...pcm);
       const end = start + samples.length / 16;
       if (voiced) lastSpeech = end;
-      const final = shouldCommit(end - lastSpeech, end - start);
+      const final = end - lastSpeech >= 600 || end - start >= 12000;
       if (!final && end - lastDecode < 2000) return;
       const result = decode(new Float32Array(samples));
       detectedLanguage = result.language || language || "en";
@@ -98,15 +95,12 @@ scope.onmessage = async (event: MessageEvent) => {
         .map((segment: { text: string }) => segment.text)
         .join(" ")
         .trim();
-      const agreed = agree(hypothesis, text);
-      hypothesis = agreed.text;
       lastDecode = end;
       if (text)
         scope.postMessage({
           type: "cue",
           id: cueID,
           text,
-          stable: agreed.stable,
           start,
           end: lastSpeech,
           final,
@@ -115,7 +109,6 @@ scope.onmessage = async (event: MessageEvent) => {
         });
       if (final) {
         samples = [];
-        hypothesis = "";
         lastDecode = end;
       }
     } else if (message.type === "flush") {

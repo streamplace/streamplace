@@ -19,7 +19,7 @@ func captionerAssets() http.Handler {
 		name := strings.TrimPrefix(r.URL.Path, captionerBasePath)
 		var files fs.FS
 		switch name {
-		case "caption-whisper.mjs", "caption-whisper.wasm", "worker.js", "agreement.js":
+		case "caption-whisper.mjs", "caption-whisper.wasm", "worker.js":
 			files = wasm
 		case "ggml-tiny-q5_1.bin", "ggml-base-q5_1.bin", "ggml-small-q5_1.bin", "ggml-silero-v5.1.2.bin":
 			files = stt.ModelFiles

@@ -125,7 +125,7 @@ export function StreamSettingsPage() {
 
 function MetadataSection() {
   const { t } = useTranslation("common");
-  const createContentMetadata = useStore((s) => s.createContentMetadata);
+  const saveContentMetadata = useStore((s) => s.saveContentMetadata);
   const getContentMetadata = useStore((s) => s.getContentMetadata);
   const { did: userDid } = useSession();
   const liveStore = useDashboardStore();
@@ -284,7 +284,7 @@ function MetadataSection() {
         captionPolicy: buildCaptionPolicy(captionPolicy),
       };
 
-      await createContentMetadata(params);
+      await saveContentMetadata(params);
       toast.success(t("metadata-saved", { defaultValue: "Metadata saved" }));
     } catch (error) {
       console.error("Error saving metadata:", error);
@@ -307,7 +307,7 @@ function MetadataSection() {
     archiveIndefinite,
     deleteAfter,
     captionPolicy,
-    createContentMetadata,
+    saveContentMetadata,
     t,
   ]);
 

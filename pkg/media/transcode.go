@@ -337,13 +337,15 @@ func maxU32(a, b uint32) uint32 {
 // inverse of how catalogAndTracks/the segmenter split a segment into ev.Tracks.
 func concatTracksByID(tracks map[string][]byte) []byte {
 	ids := make([]int, 0, len(tracks))
-	for k := range tracks {
+	size := 0
+	for k, data := range tracks {
 		if n, err := strconv.Atoi(k); err == nil {
 			ids = append(ids, n)
+			size += len(data)
 		}
 	}
 	sort.Ints(ids)
-	var out []byte
+	out := make([]byte, 0, size)
 	for _, id := range ids {
 		out = append(out, tracks[strconv.Itoa(id)]...)
 	}

@@ -94,9 +94,9 @@ func TestEngineBenchmarkSmoke(t *testing.T) {
 		t.Fatal(ctx.Err())
 	case <-e.ready:
 	}
-	models := engine.Models()
-	require.Len(t, models, 3)
-	for _, m := range models {
+	require.Len(t, e.models, 3)
+	for _, item := range e.models {
+		m := item.model.Info()
 		require.Greater(t, m.RealtimeFactor, 0.0)
 		t.Logf("%s realtime factor %.6f", m.Name, m.RealtimeFactor)
 	}

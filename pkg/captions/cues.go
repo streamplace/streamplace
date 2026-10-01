@@ -23,8 +23,6 @@ func DefaultCueLayout() CueLayout {
 	return CueLayout{MaxLineChars: 37, MaxLines: 2, MinDuration: time.Second, MaxDuration: 7 * time.Second, MaxGap: time.Second}
 }
 
-func (l CueLayout) maxChars() int { return l.MaxLineChars * l.MaxLines }
-
 // Grouper folds a stream of committed words into cues that fit a CueLayout.
 // Cue IDs are the prefix plus a counter, unique per Grouper.
 type Grouper struct {
@@ -68,11 +66,26 @@ func (g *Grouper) fits(w Word) bool {
 	if w.End.Sub(g.words[0].Start) > g.layout.MaxDuration {
 		return false
 	}
-	return wordChars(g.words)+1+utf8.RuneCountInString(w.Text) <= g.layout.maxChars()
+	lines, chars := 1, 0
+	add := func(text string) {
+		for token := range strings.FieldsSeq(text) {
+			n := utf8.RuneCountInString(token)
+			if lineFits(chars, n, g.layout.MaxLineChars) {
+				chars += 1 + n
+			} else {
+				if chars > 0 {
+					lines++
+				}
+				chars = n
+			}
+		}
+	}
+	for _, word := range g.words {
+		add(word.Text)
+	}
+	add(w.Text)
+	return lines <= g.layout.MaxLines
 }
-
-// Open reports whether a cue is being built.
-func (g *Grouper) Open() bool { return len(g.words) > 0 }
 
 // Current is the open cue extended with interim words, for publishing as an
 // interim cue; ok is false when there is nothing to show. The interim words
@@ -145,78 +158,41 @@ func endsSentence(s string) bool {
 	return r == '.' || r == '!' || r == '?' || r == '。' || r == '！' || r == '？'
 }
 
-// WrapLines breaks text into at most maxLines lines of up to maxChars
-// characters at word boundaries. Two-line text is balanced (the break that
-// keeps the longer line shortest), so a cue reads as a pair rather than a
-// long line over a short tail. Text that cannot fit keeps its last line
-// long rather than dropping words.
-func WrapLines(text string, maxChars, maxLines int) string {
-	words := strings.Fields(text)
-	if len(words) == 0 {
-		return ""
+// WrapWord appends a word to the last line, or starts a new line when it
+// would not fit. It leaves lines unchanged when maxLines would be exceeded.
+// A single overlong word occupies a line by itself.
+func WrapWord(lines []string, word string, maxChars, maxLines int) ([]string, bool) {
+	n := len(lines)
+	if n > 0 && lineFits(utf8.RuneCountInString(lines[n-1]), utf8.RuneCountInString(word), maxChars) {
+		lines[n-1] += " " + word
+		return lines, true
 	}
-	if maxLines <= 1 || maxChars <= 0 {
-		return strings.Join(words, " ")
+	if n >= maxLines {
+		return lines, false
 	}
-	total := wordsLen(words)
-	if total <= maxChars {
-		return strings.Join(words, " ")
-	}
-	if maxLines == 2 {
-		best, bestMax := 1, -1
-		for k := 1; k < len(words); k++ {
-			a, b := wordsLen(words[:k]), wordsLen(words[k:])
-			if a > maxChars && k > 1 {
-				break
-			}
-			if m := max(a, b); bestMax < 0 || m < bestMax {
-				best, bestMax = k, m
-			}
-		}
-		return strings.Join(words[:best], " ") + "\n" + strings.Join(words[best:], " ")
-	}
-	lines := make([]string, 0, maxLines)
-	target := (total + maxLines - 1) / maxLines
-	if target > maxChars {
-		target = maxChars
-	}
-	i := 0
-	for len(lines) < maxLines-1 && i < len(words) {
-		n := 0
-		j := i
-		for j < len(words) {
-			w := utf8.RuneCountInString(words[j])
-			next := n + w
-			if n > 0 {
-				next++
-			}
-			if next > maxChars || (n > 0 && next > target) {
-				break
-			}
-			n = next
-			j++
-		}
-		if j == i {
-			j = i + 1 // a single word longer than the line
-		}
-		lines = append(lines, strings.Join(words[i:j], " "))
-		i = j
-	}
-	if i < len(words) {
-		lines = append(lines, strings.Join(words[i:], " "))
-	}
-	return strings.Join(lines, "\n")
+	return append(lines, word), true
 }
 
-func wordsLen(words []string) int {
-	n := 0
-	for i, w := range words {
-		if i > 0 {
-			n++
-		}
-		n += utf8.RuneCountInString(w)
+func lineFits(lineChars, wordChars, maxChars int) bool {
+	return lineChars > 0 && lineChars+1+wordChars <= maxChars
+}
+
+// WrapLines wraps at word boundaries. Overflow (such as interim speech)
+// stays on the last line rather than dropping words.
+func WrapLines(text string, maxChars, maxLines int) string {
+	if maxLines <= 1 || maxChars <= 0 {
+		return strings.Join(strings.Fields(text), " ")
 	}
-	return n
+	var lines []string
+	for word := range strings.FieldsSeq(text) {
+		next, ok := WrapWord(lines, word, maxChars, maxLines)
+		if !ok {
+			lines[len(lines)-1] += " " + word
+		} else {
+			lines = next
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // NormalizeWord lowercases a word and strips punctuation, for comparing two

@@ -1,7 +1,6 @@
 package media
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -89,6 +88,6 @@ func (r *remoteCaptionMaster) push(track captions.Track, cues []captions.Cue) er
 	_, err := r.call(captionControl{Track: track, Cues: cues})
 	return err
 }
-func (mm *MediaManager) registerWorkerCaptionMaster(ctx context.Context, path, streamer string) func() {
+func (mm *MediaManager) registerWorkerCaptionMaster(path, streamer string) func() {
 	return mm.registerCaptionMaster(streamer, &remoteCaptionMaster{path: path})
 }

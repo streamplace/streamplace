@@ -50,7 +50,7 @@ func TestCaptionMasterCanonicalNamespaceSurvivesAudioCompletion(t *testing.T) {
 			defer tr.Close()
 			for event := range events {
 				if event.Type == "signed-segment" {
-					source := concatTracksSorted(event.Tracks)
+					source := concatTracksByID(event.Tracks)
 					sources = append(sources, source)
 					require.NoError(t, tr.Feed(source, nil))
 				}

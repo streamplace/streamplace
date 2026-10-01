@@ -227,7 +227,7 @@ func tracksForUpload(ctx context.Context, state *statedb.StatefulDB, client XRPC
 			Tracks:        refs,
 		}, nil
 	}
-	probe, err := unmarshalProbe(upload.ProbeJSON)
+	probe, textTracks, err := unmarshalProbe(upload.ProbeJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -249,11 +249,7 @@ func tracksForUpload(ctx context.Context, state *statedb.StatefulDB, client XRPC
 		}
 		tracks = append(tracks, *ref)
 	}
-	var shape probeJSONShape
-	if err := json.Unmarshal([]byte(upload.ProbeJSON), &shape); err != nil {
-		return nil, err
-	}
-	for _, text := range shape.Text {
+	for _, text := range textTracks {
 		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, text.TrackID, "text", upload.SigningKey, nil, nil, &text)
 		if err != nil {
 			return nil, fmt.Errorf("publish text track: %w", err)

@@ -81,7 +81,7 @@ func TestValidateMP4MediaBareSegment(t *testing.T) {
 	var m4s []byte
 	for ev := range eventCh {
 		if ev.Type == "signed-segment" && m4s == nil {
-			m4s = concatTracksSorted(ev.Tracks)
+			m4s = concatTracksByID(ev.Tracks)
 		}
 	}
 	require.NoError(t, <-errCh)

@@ -230,10 +230,6 @@ func TestLiveConversions(t *testing.T) {
 		require.Equal(t, int64(-2), durationMs(-1_500_001))
 		require.Equal(t, int64(0), durationMs(-499_999))
 	})
-	t.Run("absolute words round-trip through offsets", func(t *testing.T) {
-		in := []captions.Word{{Text: "a", Start: at(10), End: at(20)}, {Text: "b", Start: at(30), End: at(45)}}
-		require.Equal(t, in, CaptionWords(base, WordsFromCaptions(base, in)))
-	})
 }
 
 func ExampleCues() {

@@ -409,17 +409,19 @@ iroh-test:
 #  | |____ _| |_| |\  |  | |   _| |_| |\  | |__| |
 #  |______|_____|_| \_|  |_|  |_____|_| \_|\_____|
 
+# gofmt covers the repo's own Go files: ignored downloads (meson subprojects,
+# .build) carry third-party Go sources.
 .PHONY: check
 check: install
 	$(MAKE) golangci-lint
 	pnpm run check
-	if [ "`gofmt -l . | wc -l`" -gt 0 ]; then echo 'gofmt failed, run make fix'; exit 1; fi
+	if [ -n "`git ls-files -co --exclude-standard '*.go' | xargs gofmt -l`" ]; then echo 'gofmt failed, run make fix'; exit 1; fi
 	RUSTFLAGS="-D warnings" cargo check
 
 .PHONY: fix
 fix:
 	pnpm run fix
-	gofmt -w .
+	git ls-files -co --exclude-standard '*.go' | xargs gofmt -w
 	cargo fix --allow-dirty
 	go mod tidy
 

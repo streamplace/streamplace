@@ -13,7 +13,7 @@ import (
 
 // CaptionDefs_LiveCue is a "liveCue" in the place.stream.caption.defs schema.
 //
-// A live caption cue, delivered over the livestream websocket and WebRTC data channels. Interim cues may be revised; a cue with the same id replaces earlier versions, and final cues will not change.
+// A live caption cue, delivered over the livestream websocket and WebRTC data channels. Interim cues may be revised; a cue with the same id replaces earlier versions. Final text and startTime are immutable; canonical final cues may extend endTime as subsequent segments continue the same cue.
 type CaptionDefs_LiveCue struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	EndTime       string `json:"endTime"`

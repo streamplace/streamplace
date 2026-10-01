@@ -127,7 +127,6 @@ func (m *captionMaster) coverage(end time.Time) {
 	}
 	m.mu.Unlock()
 }
-func (m *captionMaster) clock(media time.Time) { m.clockAt(media, time.Now()) }
 func (m *captionMaster) clockAt(media, at time.Time) {
 	m.mu.Lock()
 	if m.arrival.IsZero() {
@@ -141,6 +140,19 @@ func (m *captionMaster) clockAt(media, at time.Time) {
 func (m *captionMaster) segmentTime(start uint64) time.Time {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	// Clock readiness is independent of caption policy and recognition delay.
+	// The signer queue can reach a GoP before the ingest parser sees its clock.
+	for !m.mediaFinished && (m.arrival.IsZero() || m.parsedUntil < start) {
+		changed := m.changed
+		m.mu.Unlock()
+		select {
+		case <-m.ctx.Done():
+			m.mu.Lock()
+			return time.Time{}
+		case <-changed:
+		}
+		m.mu.Lock()
+	}
 	prediction := m.arrival.Add(time.Duration(int64(start)-m.mediaOrigin.UnixMilli()) * time.Millisecond)
 	if at, ok := m.gopTimes[start]; ok {
 		prediction = at
@@ -151,9 +163,6 @@ func (m *captionMaster) segmentTime(start uint64) time.Time {
 		}
 	}
 	return prediction
-}
-func (m *captionMaster) closeGop(end uint64) {
-	m.closeGopAt(end, time.Now())
 }
 func (m *captionMaster) closeGopAt(end uint64, at time.Time) {
 	m.mu.Lock()

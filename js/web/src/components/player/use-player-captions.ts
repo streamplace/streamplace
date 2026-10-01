@@ -10,11 +10,12 @@ import {
   type LivestreamStore,
   makeLivestreamStore,
   mergeCaptionTracks,
-  presentedCaptionTime,
   selectCaptionTrack,
+  selectLiveCaptionTrack,
   type TextTrackWatcher,
   type TimedCaption,
   timedCaptionsAt,
+  useCaptionTime,
   watchTextTracks,
 } from "@streamplace/core";
 import {
@@ -63,6 +64,7 @@ export function usePlayerCaptions(
   videoRef: RefObject<HTMLVideoElement | null>,
   source: PlayerCaptionSource | undefined,
   active: boolean,
+  paused: boolean,
 ): PlayerCaptions {
   const enabled = useAppStore((s) => s.captionsEnabled);
   const language = useAppStore((s) => s.captionLanguage);
@@ -136,7 +138,11 @@ export function usePlayerCaptions(
     [isLive, serverTracks, liveTracks, elementTracks],
   );
   const [trackId, setTrackId] = useState<string | null>(null);
-  const track = selectCaptionTrack(tracks, trackId, language);
+  const presented = useCaptionTime(isLive ? captionClock : null, paused);
+  const track =
+    (isLive && presented !== null
+      ? selectLiveCaptionTrack(tracks, trackId, liveCues, presented)
+      : null) ?? selectCaptionTrack(tracks, trackId, language);
   const shown = enabled ? track : null;
   const activeKey = shown?.elementKey ?? null;
   activeKeyRef.current = activeKey;
@@ -146,24 +152,11 @@ export function usePlayerCaptions(
 
   // Live cues follow the segment presentation clock, including queued future cues.
   const liveTrackId = shown && !shown.elementKey && isLive ? shown.id : null;
-  const [tick, setTick] = useState(0);
-  const liveLines = useMemo(
-    () => {
-      const presented = presentedCaptionTime(captionClock, Date.now());
-      return liveTrackId && presented !== null
-        ? activeLiveCaptions(liveCues, liveTrackId, presented).map(
-            (c) => c.text,
-          )
-        : NO_LINES;
-    },
-    // tick only forces a re-evaluation against the current time.
-    [liveCues, captionClock, liveTrackId, tick],
-  );
-  useEffect(() => {
-    if (!liveTrackId || !captionClock) return;
-    const timer = setInterval(() => setTick((n) => n + 1), 250);
-    return () => clearInterval(timer);
-  }, [liveTrackId, captionClock]);
+  const liveLines = useMemo(() => {
+    return liveTrackId && presented !== null
+      ? activeLiveCaptions(liveCues, liveTrackId, presented).map((c) => c.text)
+      : NO_LINES;
+  }, [liveCues, liveTrackId, presented]);
 
   // VOD cues as JSON, looked up by the element's play position.
   const vodTrackId =

@@ -1,7 +1,12 @@
 import { place } from "streamplace";
 import { describe, expect, it } from "vitest";
 import { parseTimedCaptions, timedCaptionsAt } from "./api";
-import { activeLiveCaptions, reduceLiveCaption } from "./live-cues";
+import {
+  activeLiveCaptions,
+  displayLiveCaptions,
+  reduceLiveCaption,
+  selectLiveCaptionTrack,
+} from "./live-cues";
 import { buildCaptionPolicy, readCaptionPolicy } from "./policy";
 import { DEFAULT_CAPTION_PREFS, parseCaptionPrefs } from "./prefs";
 import { mergeCaptionTracks, selectCaptionTrack } from "./tracks";
@@ -34,11 +39,49 @@ describe("reduceLiveCaption", () => {
     expect(Object.values(cues)[0].updatedAt).toBe(1100);
   });
 
-  it("never revises a final cue", () => {
+  it("ignores late interim revisions after a final cue", () => {
     let cues = reduceLiveCaption({}, liveCue("c", "hello.", true), 1000);
     cues = reduceLiveCaption(cues, liveCue("c", "hello", false), 1100);
     expect(Object.values(cues)[0].text).toBe("hello.");
     expect(Object.values(cues)[0].final).toBe(true);
+  });
+
+  it("extends matching canonical finals without accepting text, start, or interim revisions", () => {
+    const original = {
+      ...liveCue("c", "Speech", true),
+      endTime: new Date(12000).toISOString(),
+    };
+    let cues = reduceLiveCaption({}, original, 1000);
+    for (const revision of [
+      { ...original, final: false },
+      { ...original, text: "Changed" },
+      { ...original, startTime: new Date(2000).toISOString() },
+    ]) {
+      cues = reduceLiveCaption(
+        cues,
+        { ...revision, endTime: new Date(16000).toISOString() },
+        2000,
+      );
+      expect(Object.values(cues)[0].endMs).toBe(12000);
+    }
+    cues = reduceLiveCaption(
+      cues,
+      { ...original, endTime: new Date(16000).toISOString() },
+      3000,
+    );
+    cues = reduceLiveCaption(cues, original, 4000);
+    expect(
+      activeLiveCaptions(cues, en.id, 14000).map((cue) => cue.text),
+    ).toEqual(["Speech"]);
+    expect(Object.values(cues)[0].updatedAt).toBe(3000);
+    const sidecar = { ...original, track: { ...en, origin: "sidecar" } };
+    let sidecars = reduceLiveCaption({}, sidecar, 1000);
+    sidecars = reduceLiveCaption(
+      sidecars,
+      { ...sidecar, endTime: new Date(16000).toISOString() },
+      3000,
+    );
+    expect(Object.values(sidecars)[0].endMs).toBe(12000);
   });
 
   it("prunes cues long past their last revision", () => {
@@ -85,6 +128,21 @@ describe("reduceLiveCaption", () => {
 });
 
 describe("activeLiveCaptions", () => {
+  it("shows live speech only within its media interval, not its arrival window", () => {
+    const cues = reduceLiveCaption(
+      {},
+      {
+        ...liveCue("cue", "Speech", true, new Date(10000).toISOString()),
+        endTime: new Date(30000).toISOString(),
+      },
+      50000,
+    );
+    expect(activeLiveCaptions(cues, en.id, 9000)).toEqual([]);
+    expect(activeLiveCaptions(cues, en.id, 20000).map((c) => c.text)).toEqual([
+      "Speech",
+    ]);
+    expect(activeLiveCaptions(cues, en.id, 30000)).toEqual([]);
+  });
   it("shows the newest two cues of the track, oldest first", () => {
     let cues = {};
     cues = reduceLiveCaption(
@@ -115,6 +173,85 @@ describe("activeLiveCaptions", () => {
       ).map((c) => c.text),
     ).toEqual(["two", "three"]);
   });
+});
+
+describe("displayLiveCaptions", () => {
+  it("keeps delayed OBS speech readable on arrival and replaces it with newer speech", () => {
+    let cues = reduceLiveCaption(
+      {},
+      {
+        ...liveCue("cue", "Speech", true, new Date(10000).toISOString()),
+        endTime: new Date(30000).toISOString(),
+      },
+      50000,
+    );
+    expect(displayLiveCaptions(cues, en.id, 56000).map((c) => c.text)).toEqual([
+      "Speech",
+    ]);
+    expect(displayLiveCaptions(cues, en.id, 70000)).toEqual([]);
+    cues = reduceLiveCaption(
+      cues,
+      {
+        ...liveCue("next", "Next speech", true, new Date(31000).toISOString()),
+        endTime: new Date(32000).toISOString(),
+      },
+      57000,
+    );
+    expect(displayLiveCaptions(cues, en.id, 58000).map((c) => c.text)).toEqual([
+      "Next speech",
+    ]);
+    expect(displayLiveCaptions(cues, en.id, 62000)).toEqual([]);
+  });
+});
+
+describe("live caption track selection", () => {
+  it.each([activeLiveCaptions, displayLiveCaptions])(
+    "follows canonical takeover and falls back to sidecars, unless explicitly selected (%s)",
+    (display) => {
+      const human = { ...en, id: "human-en", source: "human" };
+      const sidecar = { ...en, id: "node-en", origin: "sidecar" };
+      const options = [en, human, sidecar];
+      let cues = reduceLiveCaption(
+        {},
+        {
+          ...liveCue("auto", "Old automatic", true),
+          endTime: new Date(2000).toISOString(),
+        },
+        1000,
+      );
+      cues = reduceLiveCaption(
+        cues,
+        liveCue(
+          "human",
+          "Human speech",
+          true,
+          new Date(7000).toISOString(),
+          human,
+        ),
+        7000,
+      );
+      cues = reduceLiveCaption(
+        cues,
+        liveCue(
+          "node",
+          "Node speech",
+          true,
+          new Date(8000).toISOString(),
+          sidecar,
+        ),
+        8000,
+      );
+      expect(
+        selectLiveCaptionTrack(options, null, cues, 9000, display)?.id,
+      ).toBe(human.id);
+      expect(
+        selectLiveCaptionTrack(options, en.id, cues, 9000, display)?.id,
+      ).toBe(en.id);
+      expect(
+        selectLiveCaptionTrack(options, null, cues, 27500, display)?.id,
+      ).toBe(sidecar.id);
+    },
+  );
 });
 
 describe("mergeCaptionTracks", () => {
@@ -200,6 +337,20 @@ describe("timedCaptionsAt", () => {
     expect(timedCaptionsAt(cues, 1000)).toEqual([]);
     expect(timedCaptionsAt(cues, 2700).map((c) => c.text)).toEqual(["b", "c"]);
     expect(timedCaptionsAt(cues, 3500).map((c) => c.text)).toEqual(["c"]);
+  });
+
+  it("finds a long-running VOD cue behind many expired overlapping cues", () => {
+    const overlapping = [
+      { startMs: 0, endMs: 60000, text: "Long speech" },
+      ...Array.from({ length: 12 }, (_, i) => ({
+        startMs: (i + 1) * 1000,
+        endMs: (i + 1) * 1000 + 500,
+        text: "Short",
+      })),
+    ];
+    expect(timedCaptionsAt(overlapping, 15000).map((c) => c.text)).toEqual([
+      "Long speech",
+    ]);
   });
 });
 

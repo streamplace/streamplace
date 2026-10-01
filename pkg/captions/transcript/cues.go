@@ -1,11 +1,9 @@
 package transcript
 
 import (
-	"slices"
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"stream.place/streamplace/pkg/captions"
 )
@@ -68,11 +66,14 @@ func Cues(words []Word, opts CueOptions) []captions.TimedCue {
 			prev := cur[len(cur)-1]
 			if w.StartMs-prev.EndMs >= silence || w.EndMs-cur[0].StartMs > maxDur {
 				flush()
-			} else if _, ok := wrap(lines, w.Text, opts.MaxLineChars, opts.MaxLines); !ok {
-				flush()
 			}
 		}
-		lines, _ = wrap(lines, w.Text, opts.MaxLineChars, opts.MaxLines)
+		next, ok := captions.WrapWord(lines, w.Text, opts.MaxLineChars, opts.MaxLines)
+		if !ok {
+			flush()
+			next, _ = captions.WrapWord(nil, w.Text, opts.MaxLineChars, opts.MaxLines)
+		}
+		lines = next
 		cur = append(cur, w)
 		if endsSentence(w.Text) && w.EndMs-cur[0].StartMs >= minDur {
 			flush()
@@ -91,22 +92,6 @@ func Cues(words []Word, opts CueOptions) []captions.TimedCue {
 		out[i].End = max(out[i].End, end)
 	}
 	return out
-}
-
-// wrap appends word to the last line of lines, or starts a new line when it
-// would not fit; ok is false when that would exceed maxLines. It returns a new
-// slice and never modifies lines.
-func wrap(lines []string, word string, maxChars, maxLines int) ([]string, bool) {
-	n := len(lines)
-	if n > 0 && utf8.RuneCountInString(lines[n-1])+1+utf8.RuneCountInString(word) <= maxChars {
-		out := slices.Clone(lines)
-		out[n-1] += " " + word
-		return out, true
-	}
-	if n >= maxLines {
-		return lines, false
-	}
-	return append(slices.Clone(lines), word), true
 }
 
 // WordsFromCaptions converts live words, which carry absolute times, into
@@ -130,15 +115,6 @@ func WordsFromCue(base time.Time, cue captions.Cue) []Word {
 		return nil
 	}
 	return spread(toks, durationMs(cue.Start.Sub(base)), durationMs(cue.End.Sub(base)))
-}
-
-// CaptionWords converts words offset from base back into absolute live words.
-func CaptionWords(base time.Time, words []Word) []captions.Word {
-	out := make([]captions.Word, len(words))
-	for i, w := range words {
-		out[i] = captions.Word{Text: w.Text, Start: base.Add(msDuration(w.StartMs)), End: base.Add(msDuration(w.EndMs))}
-	}
-	return out
 }
 
 func msDuration(ms int64) time.Duration { return time.Duration(ms) * time.Millisecond }

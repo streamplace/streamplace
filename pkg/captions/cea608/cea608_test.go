@@ -90,6 +90,20 @@ func TestPopOnCaption(t *testing.T) {
 	require.Empty(t, d.Decode(ctrl(field1, 0x14, 0x2c), 6*time.Second), "clearing an empty display is not a change")
 }
 
+func TestEndOfCaptionPreservesMemories(t *testing.T) {
+	d := NewDecoder()
+	load := func(s string, at time.Duration) {
+		d.Decode(cat(ctrl(field1, 0x14, 0x2e), ctrl(field1, 0x14, 0x70), text(field1, s)), at)
+	}
+	load("FIRST", time.Second)
+	require.Equal(t, []string{"FIRST"}, texts(d.Decode(ctrl(field1, 0x14, 0x2f), 2*time.Second)))
+	load("SECOND", 3*time.Second)
+	require.Equal(t, []string{"SECOND"}, texts(d.Decode(ctrl(field1, 0x14, 0x2f), 4*time.Second)))
+	require.Equal(t, []string{"FIRST"}, texts(d.Decode(ctrl(field1, 0x14, 0x2f), 5*time.Second)), "EOC swaps without erasing")
+	require.Empty(t, d.Decode(ctrl(field1, 0x14, 0x2e), 6*time.Second), "ENM does not change the display")
+	require.Equal(t, []string{""}, texts(d.Decode(ctrl(field1, 0x14, 0x2f), 7*time.Second)), "ENM clears the memory later swapped on screen")
+}
+
 func TestRollUpScrollsAndCarriageReturns(t *testing.T) {
 	d := NewDecoder()
 	ev := d.Decode(cat(
@@ -174,20 +188,6 @@ func TestChannelsAndXDS(t *testing.T) {
 		byChan[e.Channel] = e.Text
 	}
 	require.Equal(t, map[Channel]string{CC2: "TWO", CC3: "THREE\n!", CC4: "FOUR"}, byChan)
-	require.Equal(t, "CC3", CC3.String())
-}
-
-func TestDuplicateControlCodesActOnce(t *testing.T) {
-	d := NewDecoder()
-	// A doubled CR must scroll once, not twice.
-	ev := d.Decode(cat(
-		ctrl(field1, 0x14, 0x25),
-		ctrl(field1, 0x14, 0x70),
-		text(field1, "A"),
-		ctrl(field1, 0x14, 0x2d),
-		text(field1, "B"),
-	), time.Second)
-	require.Equal(t, []string{"A\nB"}, texts(ev))
 }
 
 func TestNullPairsAndInvalidTripletsIgnored(t *testing.T) {
@@ -245,29 +245,30 @@ func TestDTVCCService1Windows(t *testing.T) {
 	require.Equal(t, []string{""}, texts(ev))
 }
 
-func TestFlushDecodesTruncatedDTVCCPacket(t *testing.T) {
+func TestIncompleteDTVCCPacketsLeaveDisplayUnchanged(t *testing.T) {
 	d := NewDecoder()
-	define := []byte{0x98, 0x20, 0x00, 0x00, 0x00, 0x1f, 0x00}
-	pkt := dtvccPacket(0, cat(define, []byte("tail")))
+	require.Equal(t, []string{"shown"}, texts(d.Decode(dtvccPacket(0, []byte("shown")), time.Second)))
+	pkt := dtvccPacket(1, []byte("tail"))
 	pkt[1] += 2 // the header claims two more pairs than will ever arrive
-	require.Empty(t, d.Decode(pkt, time.Second), "an incomplete packet waits for the rest")
-	require.Equal(t, []string{"tail"}, texts(d.Flush(2*time.Second)), "end of stream decodes what arrived")
+	require.Empty(t, d.Decode(pkt, 2*time.Second))
+	require.Empty(t, d.Decode(dtvccPacket(2, []byte{0}), 3*time.Second), "a new packet discards the incomplete one")
+	require.Equal(t, []string{"shown!"}, texts(d.Decode(dtvccPacket(3, []byte("!")), 4*time.Second)))
 }
 
-func TestDecodeSampleExtractsSEI(t *testing.T) {
+func TestExtractCCDataSEIFraming(t *testing.T) {
 	d := NewDecoder()
 	cc := cat(ctrl(field1, 0x14, 0x29), ctrl(field1, 0x14, 0x70), text(field1, "SEI"))
 	nal := captionSEINAL(cc)
 	// Length-prefixed AVC sample: an IDR slice first, then the SEI.
 	slice := []byte{0x65, 0x88, 0x84, 0x00}
 	sample := cat(lenPrefixed(slice), lenPrefixed(nal))
-	ev := d.DecodeSample(sample, time.Second)
+	ev := d.Decode(ExtractCCData(sample), time.Second)
 	require.Equal(t, []string{"SEI"}, texts(ev))
 
 	// Annex B framing of the same access unit.
 	d2 := NewDecoder()
 	annexB := cat([]byte{0, 0, 0, 1}, slice, []byte{0, 0, 1}, nal)
-	require.Equal(t, []string{"SEI"}, texts(d2.DecodeSample(annexB, time.Second)))
+	require.Equal(t, []string{"SEI"}, texts(d2.Decode(ExtractCCData(annexB), time.Second)))
 
 	require.Nil(t, ExtractCCData(lenPrefixed(slice)), "no SEI, no captions")
 }
@@ -283,7 +284,7 @@ func TestExtractCCDataUnescapesEmulationPrevention(t *testing.T) {
 	require.Positive(t, i)
 	escaped := cat(nal[:i+2], []byte{0x03}, nal[i+2:])
 	d := NewDecoder()
-	require.Equal(t, []string{"EP"}, texts(d.DecodeSample(lenPrefixed(escaped), time.Second)))
+	require.Equal(t, []string{"EP"}, texts(d.Decode(ExtractCCData(lenPrefixed(escaped)), time.Second)))
 }
 
 func lenPrefixed(nal []byte) []byte {

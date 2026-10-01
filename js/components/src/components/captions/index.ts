@@ -3,7 +3,6 @@ export { CaptionSettings } from "./caption-settings";
 export { CaptionsButton } from "./captions-button";
 export {
   useCaptionSelection,
-  useCaptionTrackLabel,
   useCaptionTracks,
   useSetCaptionTrack,
   useToggleCaptions,

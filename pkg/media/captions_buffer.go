@@ -34,11 +34,7 @@ type ingestByteBuffer struct {
 const ingestByteCapacity = 32 * 1024 * 1024
 const ingestByteChunk = 64 * 1024
 
-func newIngestByteBuffer(contexts ...context.Context) *ingestByteBuffer {
-	ctx := context.Background()
-	if len(contexts) > 0 {
-		ctx = contexts[0]
-	}
+func newIngestByteBuffer(ctx context.Context) *ingestByteBuffer {
 	b := &ingestByteBuffer{ctx: ctx}
 	b.ready = sync.NewCond(&b.mu)
 	return b

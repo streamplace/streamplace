@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"stream.place/streamplace/pkg/captions"
-	"stream.place/streamplace/pkg/captions/fmp4"
 	"stream.place/streamplace/pkg/captions/records"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
@@ -154,7 +153,7 @@ func (mm *MediaManager) runCaptionStream(streamer string, s *captionStream) {
 		var events []captions.Event
 		var err error
 		if seg.canonical {
-			events, _, err = captions.ReadCanonicalWithClock(context.WithoutCancel(s.ctx), seg.segment, seg.media, seg.vs.meta.StartTime.Time(), streamer)
+			events, err = captions.ReadCanonicalWithClock(context.WithoutCancel(s.ctx), seg.segment, seg.media, seg.vs.meta.StartTime.Time(), streamer)
 		}
 		if err != nil {
 			log.Warn(s.ctx, "extract canonical captions", "error", err, "streamer", streamer)
@@ -267,15 +266,20 @@ func (s *captionStream) feedAudio(seg captionSegment) error {
 	if chosen == 0 || scale == 0 {
 		return nil
 	}
-	audio := tracks[strconv.FormatUint(uint64(chosen), 10)]
-	frags, err := fmp4.Fragments(audio)
-	if err != nil {
-		return err
+	key := strconv.FormatUint(uint64(chosen), 10)
+	audio := tracks[key]
+	var tfdt uint64
+	found := false
+	for _, event := range events {
+		if event.Type == "segment" || event.Type == "signed-segment" {
+			if tfdt, found = event.FirstDecodeTimes[key]; found {
+				break
+			}
+		}
 	}
-	if len(frags) == 0 {
-		return fmt.Errorf("missing caption audio fragment")
+	if !found {
+		return fmt.Errorf("missing caption audio clock")
 	}
-	tfdt := frags[0].BaseDecodeTime
 	selected := map[string][]byte{strconv.FormatUint(uint64(chosen), 10): audio}
 	if cat.Video != nil {
 		for _, v := range cat.Video.Renditions {

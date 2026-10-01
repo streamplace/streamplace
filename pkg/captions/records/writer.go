@@ -87,8 +87,6 @@ type Config struct {
 	NodeDID   string
 	Subject   SubjectResolver
 	Publisher Publisher
-	// OutboxDir persists encoded records until their PDS write succeeds.
-	OutboxDir string
 	// Index, when set, is called with every record that was written so it is
 	// searchable at once, without waiting for the firehose to bring it back.
 	Index func(ctx context.Context, rec *placestream.CaptionTranscript, uri string) error
@@ -120,7 +118,6 @@ type Writer struct {
 	sessions map[string]*session
 	active   sync.WaitGroup
 	closed   bool
-	outbox   *outbox
 }
 
 // NewWriter returns a Writer, or an error when cfg lacks the hub, publisher,
@@ -146,21 +143,7 @@ func NewWriter(cfg Config) (*Writer, error) {
 	if cfg.RetryDelay <= 0 {
 		cfg.RetryDelay = 2 * time.Second
 	}
-	w := &Writer{cfg: cfg, sessions: map[string]*session{}}
-	if cfg.OutboxDir != "" {
-		var err error
-		w.outbox, err = newOutbox(cfg)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return w, nil
-}
-
-// TargetFor says where a live track of a streamer is written, and whether it is
-// written by this node at all.
-func (w *Writer) TargetFor(streamer string, track captions.Track) (Target, bool) {
-	return targetFor(w.cfg.NodeDID, streamer, track)
+	return &Writer{cfg: cfg, sessions: map[string]*session{}}, nil
 }
 
 func targetFor(nodeDID, streamer string, track captions.Track) (Target, bool) {
@@ -219,9 +202,6 @@ func (w *Writer) StartSessionWithOrigin(ctx context.Context, streamer string, me
 	go func() {
 		defer w.active.Done()
 		defer close(s.done)
-		if w.outbox != nil {
-			defer w.outbox.release(s)
-		}
 		defer func() {
 			w.mu.Lock()
 			if w.sessions[streamer] == s {
@@ -265,16 +245,10 @@ func (w *Writer) Stop() {
 		all = append(all, s)
 	}
 	w.mu.Unlock()
-	if w.outbox != nil {
-		w.outbox.cancel()
-	}
 	for _, s := range all {
 		s.cancel()
 	}
 	w.active.Wait()
-	if w.outbox != nil {
-		<-w.outbox.done
-	}
 }
 
 type session struct {
@@ -423,10 +397,6 @@ func (s *session) flush(ctx context.Context, final bool) {
 
 	for _, id := range ids {
 		s.encode(ctx, id, final)
-	}
-	if err := s.persistOutbox(); err != nil {
-		log.Warn(ctx, "retain caption outbox", "error", err)
-		return
 	}
 	attempts := 1
 	if final {
@@ -607,9 +577,6 @@ func (s *session) publishQueued(ctx context.Context) bool {
 			uri, err := s.w.cfg.Publisher.Publish(ctx, target, head.rkey, head.rec)
 			if err != nil {
 				s.fail(ctx, id, err)
-				if err := s.persistOutbox(); err != nil {
-					log.Warn(ctx, "retain caption outbox retry", "error", err)
-				}
 				ok = false
 				if s.rateLimited {
 					return false
@@ -629,9 +596,6 @@ func (s *session) publishQueued(ctx context.Context) bool {
 }
 
 func (s *session) drop(trackID string, q *queued) {
-	if s.w.outbox != nil {
-		s.w.outbox.remove(q.rkey)
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	tb := s.tracks[trackID]
@@ -666,28 +630,4 @@ func (s *session) pruneSeen(tb *trackBuf) {
 			}
 		}
 	}
-}
-
-func (s *session) persistOutbox() error {
-	if s.w.outbox == nil {
-		return nil
-	}
-	s.mu.Lock()
-	var records []outboxRecord
-	for _, tb := range s.tracks {
-		target, ok := targetFor(s.w.cfg.NodeDID, s.streamer, tb.track)
-		if !ok {
-			continue
-		}
-		for _, q := range tb.queue {
-			records = append(records, outboxRecord{Target: target, Rkey: q.rkey, Record: q.rec, RetryAt: s.retryAt})
-		}
-	}
-	s.mu.Unlock()
-	for _, r := range records {
-		if err := s.w.outbox.save(s, r); err != nil {
-			return err
-		}
-	}
-	return nil
 }

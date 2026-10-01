@@ -587,8 +587,7 @@ function ContentWarningsQuickEdit({
 }) {
   const { t } = useTranslation("common");
   const getContentMetadata = useGlobalStore((s) => s.getContentMetadata);
-  const createContentMetadata = useGlobalStore((s) => s.createContentMetadata);
-  const updateContentMetadata = useGlobalStore((s) => s.updateContentMetadata);
+  const saveContentMetadata = useGlobalStore((s) => s.saveContentMetadata);
   const lastRecord = useGlobalStore((s) => s.lastCreatedRecord) as any;
 
   const existingWarnings = useStore(
@@ -640,17 +639,11 @@ function ContentWarningsQuickEdit({
             }
           : undefined;
 
-      if (livestreamRef) {
-        await updateContentMetadata({
-          rkey,
-          livestreamRef,
-          contentWarnings: Array.from(selected),
-        });
-      } else {
-        await createContentMetadata({
-          contentWarnings: Array.from(selected),
-        });
-      }
+      await saveContentMetadata({
+        rkey: livestreamRef ? rkey : undefined,
+        livestreamRef,
+        contentWarnings: Array.from(selected),
+      });
       toast.success(
         t("content-warnings-saved", {
           defaultValue: "Content warnings saved",
@@ -666,14 +659,7 @@ function ContentWarningsQuickEdit({
     } finally {
       setSaving(false);
     }
-  }, [
-    livestreamUri,
-    lastRecord,
-    selected,
-    createContentMetadata,
-    updateContentMetadata,
-    t,
-  ]);
+  }, [livestreamUri, lastRecord, selected, saveContentMetadata, t]);
 
   return (
     <div className="space-y-1.5 px-3 pt-1 pb-3">

@@ -26,6 +26,7 @@ function pickCaptionFile(): Promise<File | null> {
   input.type = "file";
   input.accept = ".vtt,.srt,text/vtt,application/x-subrip";
   input.onchange = () => resolve(input.files?.[0] ?? null);
+  input.oncancel = () => resolve(null);
   input.click();
   return promise;
 }

@@ -1,19 +1,18 @@
 import {
   activeLiveCaptions,
-  captionLanguageName,
   CaptionTrackOption,
   fetchCaptionTracks,
   fetchTimedCaptions,
   mergeCaptionTracks,
-  presentedCaptionTime,
   selectCaptionTrack,
+  selectLiveCaptionTrack,
   TimedCaption,
   timedCaptionsAt,
+  useCaptionTime,
 } from "@streamplace/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { useLivestreamStoreOptional } from "../../livestream-store";
-import { usePlayerStore } from "../../player-store";
+import { PlayerStatus, usePlayerStore } from "../../player-store";
 import {
   useCaptionLanguage,
   useCaptionsEnabled,
@@ -51,6 +50,7 @@ export interface CaptionSelection {
   enabled: boolean;
   /** The track to render now: `track` when captions are on. */
   active: CaptionTrackOption | null;
+  presented: number | null;
 }
 
 export function useCaptionSelection(): CaptionSelection {
@@ -58,10 +58,24 @@ export function useCaptionSelection(): CaptionSelection {
   const trackId = usePlayerStore((x) => x.captionTrackId);
   const language = useCaptionLanguage();
   const enabled = useCaptionsEnabled();
+  const mode = usePlayerStore((x) => x.mode);
+  const paused = usePlayerStore((x) => x.status === PlayerStatus.PAUSE);
+  const cues = useLivestreamStoreOptional((x) => x.liveCaptions);
+  const clock = useLivestreamStoreOptional((x) => x.captionClock);
+  const presented = useCaptionTime(mode === "live" ? clock : null, paused);
   return useMemo(() => {
-    const track = selectCaptionTrack(tracks, trackId, language);
-    return { tracks, track, enabled, active: enabled ? track : null };
-  }, [tracks, trackId, language, enabled]);
+    const track =
+      (mode === "live" && presented !== null
+        ? selectLiveCaptionTrack(tracks, trackId, cues, presented)
+        : null) ?? selectCaptionTrack(tracks, trackId, language);
+    return {
+      tracks,
+      track,
+      enabled,
+      active: enabled ? track : null,
+      presented,
+    };
+  }, [tracks, trackId, language, enabled, mode, cues, presented]);
 }
 
 /**
@@ -93,21 +107,6 @@ export function useToggleCaptions(): () => void {
   const enabled = useCaptionsEnabled();
   const setEnabled = useSetCaptionsEnabled();
   return useCallback(() => setEnabled(!enabled), [enabled, setEnabled]);
-}
-
-/** Menu label for a track: its language, marked when auto-generated. */
-export function useCaptionTrackLabel(): (track: CaptionTrackOption) => string {
-  const { t, i18n } = useTranslation();
-  return useCallback(
-    (track) => {
-      const name = captionLanguageName(track.language, i18n.language);
-      const base = name === track.language && track.label ? track.label : name;
-      return track.source === "auto"
-        ? t("player-captions-track-auto", { language: base })
-        : base;
-    },
-    [t, i18n.language],
-  );
 }
 
 /**
@@ -144,26 +143,18 @@ export function useLoadCaptionTracks() {
 }
 
 // Live cues follow the segment presentation clock, including queued future cues.
-function useLiveCaptionLines(trackId: string | null): string[] {
+function useLiveCaptionLines(
+  trackId: string | null,
+  presented: number | null,
+): string[] {
   const cues = useLivestreamStoreOptional((x) => x.liveCaptions);
-  const clock = useLivestreamStoreOptional((x) => x.captionClock);
-  const [tick, setTick] = useState(0);
-  const active = useMemo(
-    () => {
-      const presented = presentedCaptionTime(clock, Date.now());
-      return trackId && presented !== null
-        ? activeLiveCaptions(cues, trackId, presented)
-        : [];
-    },
-    // tick only forces a re-evaluation against the current time.
-    [cues, clock, trackId, tick],
+  return useMemo(
+    () =>
+      trackId && presented !== null
+        ? activeLiveCaptions(cues, trackId, presented).map((cue) => cue.text)
+        : [],
+    [cues, trackId, presented],
   );
-  useEffect(() => {
-    if (!trackId || !clock) return;
-    const timer = setInterval(() => setTick((n) => n + 1), 250);
-    return () => clearInterval(timer);
-  }, [trackId, clock]);
-  return useMemo(() => active.map((c) => c.text), [active]);
 }
 
 // VOD cues fetched as JSON and looked up by play position.
@@ -196,13 +187,16 @@ function useTimedCaptionLines(trackId: string | null): string[] {
  * natively.
  */
 export function useCaptionLines(): string[] {
-  const { active } = useCaptionSelection();
+  const { active, presented } = useCaptionSelection();
   const mode = usePlayerStore((x) => x.mode);
   const elementRenders = usePlayerStore((x) => x.captionElementRenders);
   const elementLines = usePlayerStore((x) => x.captionElementLines);
   const fromElement = !!active?.elementKey;
   const serverTrack = active && !fromElement ? active.id : null;
-  const live = useLiveCaptionLines(mode === "live" ? serverTrack : null);
+  const live = useLiveCaptionLines(
+    mode === "live" ? serverTrack : null,
+    presented,
+  );
   const timed = useTimedCaptionLines(mode === "vod" ? serverTrack : null);
   if (!active) return NO_TRACKS;
   if (fromElement) return elementRenders ? NO_TRACKS : elementLines;

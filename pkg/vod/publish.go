@@ -90,23 +90,11 @@ func publishRecords(ctx context.Context, p publishParams) error {
 
 	// Serialize the probe so publishDraft can publish the track records later
 	// without re-probing the blob.
-	probeJSON, err := marshalProbe(p.probe)
+	probeJSON, err := marshalProbe(p.probe, p.text)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "marshal_probe")
 		return fmt.Errorf("marshal probe: %w", err)
-	}
-	if len(p.text) > 0 {
-		var shape probeJSONShape
-		if err := json.Unmarshal([]byte(probeJSON), &shape); err != nil {
-			return err
-		}
-		shape.Text = p.text
-		data, err := json.Marshal(shape)
-		if err != nil {
-			return err
-		}
-		probeJSON = string(data)
 	}
 
 	if err := p.state.SetUploadProcessed(ctx, p.in.UploadID, p.probe.DurationMS, p.cid, p.signingKey, probeJSON, p.size); err != nil {
@@ -149,8 +137,8 @@ type textProbeJSON struct {
 	Label    string `json:"label"`
 }
 
-func marshalProbe(p media.VODResult) (string, error) {
-	out := probeJSONShape{DurationMS: p.DurationMS}
+func marshalProbe(p media.VODResult, text []textProbeJSON) (string, error) {
+	out := probeJSONShape{DurationMS: p.DurationMS, Text: text}
 	if p.Video != nil {
 		out.Video = &videoProbeJSON{
 			Codec: p.Video.Codec, Width: p.Video.Width, Height: p.Video.Height,
@@ -171,13 +159,13 @@ func marshalProbe(p media.VODResult) (string, error) {
 }
 
 // unmarshalProbe reverses marshalProbe.
-func unmarshalProbe(s string) (media.VODResult, error) {
+func unmarshalProbe(s string) (media.VODResult, []textProbeJSON, error) {
 	if s == "" {
-		return media.VODResult{}, nil
+		return media.VODResult{}, nil, nil
 	}
 	var pjs probeJSONShape
 	if err := json.Unmarshal([]byte(s), &pjs); err != nil {
-		return media.VODResult{}, fmt.Errorf("unmarshal probe: %w", err)
+		return media.VODResult{}, nil, fmt.Errorf("unmarshal probe: %w", err)
 	}
 	res := media.VODResult{DurationMS: pjs.DurationMS}
 	if pjs.Video != nil {
@@ -192,7 +180,7 @@ func unmarshalProbe(s string) (media.VODResult, error) {
 			MPEGVersion: pjs.Audio.MPEGVersion,
 		}
 	}
-	return res, nil
+	return res, pjs.Text, nil
 }
 
 // publishOrigin attests that this server has the blob with the given

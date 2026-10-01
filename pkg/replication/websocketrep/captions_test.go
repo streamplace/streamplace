@@ -51,8 +51,9 @@ func replicationCaptionFixture(t *testing.T) (string, []byte) {
 	_, file, _, _ := runtime.Caller(0)
 	data, err := os.ReadFile(filepath.Join(filepath.Dir(file), "../../../test/fixtures/h264-opus-frag.mp4"))
 	require.NoError(t, err)
-	eng, err := captions.TextEngine()
+	eng, err := upstream.NewWASM(ctx)
 	require.NoError(t, err)
+	defer eng.Close(ctx)
 	ch := make(chan *upstream.Event, 32)
 	errs := make(chan error, 1)
 	go func() {

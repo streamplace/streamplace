@@ -34,7 +34,7 @@ description: Reference for the place.stream.caption.defs lexicon
 
 **Type:** `object`
 
-A live caption cue, delivered over the livestream websocket and WebRTC data channels. Interim cues may be revised; a cue with the same id replaces earlier versions, and final cues will not change.
+A live caption cue, delivered over the livestream websocket and WebRTC data channels. Interim cues may be revised; a cue with the same id replaces earlier versions. Final text and startTime are immutable; canonical final cues may extend endTime as subsequent segments continue the same cue.
 
 **Properties:**
 
@@ -118,7 +118,7 @@ A live caption cue, delivered over the livestream websocket and WebRTC data chan
     },
     "liveCue": {
       "type": "object",
-      "description": "A live caption cue, delivered over the livestream websocket and WebRTC data channels. Interim cues may be revised; a cue with the same id replaces earlier versions, and final cues will not change.",
+      "description": "A live caption cue, delivered over the livestream websocket and WebRTC data channels. Interim cues may be revised; a cue with the same id replaces earlier versions. Final text and startTime are immutable; canonical final cues may extend endTime as subsequent segments continue the same cue.",
       "required": ["id", "track", "startTime", "endTime", "text", "final"],
       "properties": {
         "id": {

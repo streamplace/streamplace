@@ -136,7 +136,7 @@ func removeWorkerFiles(socketPath string) {
 // over the same socket (pushManifestUpdates) — so a pre-live → live transition
 // reaches a worker that has no model of its own. It's re-armed per connection.
 func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, streamer string, onSegment func([]byte) error, manifestSource func() ([]byte, error)) error {
-	unregister := mm.registerWorkerCaptionMaster(ctx, socketPath, streamer)
+	unregister := mm.registerWorkerCaptionMaster(socketPath, streamer)
 	defer unregister()
 	connectedOnce := false
 	giveUp := time.Now().Add(workerConnectGrace)
@@ -407,7 +407,7 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 		return "", err
 	}
 	_ = conn.SetReadDeadline(time.Time{}) // clear; streaming has no deadline
-	unregister := mm.registerWorkerCaptionMaster(ctx, cfg.SocketPath, ms.Streamer())
+	unregister := mm.registerWorkerCaptionMaster(cfg.SocketPath, ms.Streamer())
 
 	// Consume the signed segments in the background; the HTTP handler returns the
 	// answer now and the WebRTC media establishes directly to the worker.

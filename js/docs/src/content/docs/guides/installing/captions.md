@@ -39,8 +39,10 @@ The flag names, descriptions, and defaults are defined in
 Budget validation and extra-model discovery are in
 [`pkg/stt/engine.go`](https://github.com/streamplace/streamplace/blob/main/pkg/stt/engine.go).
 This budget is speech-engine admission and scheduling, not an operating-system
-CPU quota for the entire node. Isolated ingest workers own their own engines;
-account for that when sizing a multi-worker deployment.
+CPU quota for the entire node. Isolated ingest workers share the parent node's
+engine and CPU budget through a private mode-0600 Unix-socket proxy; they do not
+load separate engines. Disconnecting a worker releases its lease and cancels
+inference. Proxy frames are bounded to 16 MiB and recognition windows to 30 seconds.
 
 ## Bundled models and CPU requirements
 
@@ -61,6 +63,9 @@ model as load grows. It includes headroom rather than assuming every machine
 can run the small model live. An unavailable engine or refused recognition
 lease leaves media playback working, but no automatic captions are produced
 for that path. Supplied canonical captions still work without recognition.
+Admission is live/realtime-only, without batch/VOD recognition or explicit model
+pins. See the [native development notes](https://github.com/streamplace/streamplace/blob/main/docs/captions-whisper.md#benchmark-and-scheduler)
+for thread costs and upgrade/downgrade hysteresis.
 
 The bundled catalog and scheduler are in
 [`engine.go`](https://github.com/streamplace/streamplace/blob/main/pkg/stt/engine.go),
@@ -86,6 +91,10 @@ unsigned segment. This is not the total player latency: encoding, segment
 length, network, and playback buffering also contribute. See
 [`captions_master.go`](https://github.com/streamplace/streamplace/blob/main/pkg/media/captions_master.go)
 for the hold and late-cue behavior.
+Sources wait for the first signed policy snapshot before recognition admission,
+so ingest-only/off never briefly starts automatic recognition. Lossless byte
+queues block at 32 MiB instead of dropping media; aborts discard retained bytes
+and unblock writers.
 
 ## Relaying and sidecar syndication
 
@@ -122,6 +131,24 @@ Routing and policy checks are implemented in
 [`pkg/captions/policy.go`](https://github.com/streamplace/streamplace/blob/main/pkg/captions/policy.go)
 and [`captions_distribution.go`](https://github.com/streamplace/streamplace/blob/main/pkg/media/captions_distribution.go).
 For wire formats, see [the protocol notes](/docs/features-dev/captions/).
+
+## Transcript delivery and shutdown
+
+Writers begin with the first published segment. Session end (including return to
+preview) clears live captions and starts an asynchronous final record flush;
+PDS retries never block media. Writers retain the newest canonical cue across
+periodic flushes until another cue follows, its end is older than one flush
+interval, or the session ends, preventing GoP boundaries from truncating records.
+Sidecar finals need no such hold. Before flush and teardown, retained hub finals
+are reconciled so an overflowing event buffer can recover transcript words.
+Deduplication is bounded to the replay window.
+
+Unpublished batches are queued **in memory**, capped and retried per streamer,
+honoring PDS rate-limit reset times. Graceful shutdown flushes within its timeout,
+after stopping admission and draining accepted canonical segments, before closing
+the speech engine. A crash or restart during a PDS outage loses unpublished
+transcript batches; canonical text remains archived in signed MUXL. There is no
+durable transcript outbox or restart replay.
 
 ## License notices
 

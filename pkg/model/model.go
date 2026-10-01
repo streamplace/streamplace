@@ -164,7 +164,6 @@ type Model interface {
 
 	UpsertCaptionTranscript(ctx context.Context, rec placestream.CaptionTranscript, aturi syntax.ATURI) error
 	DeleteCaptionTranscript(ctx context.Context, uri string) error
-	GetCaptionTranscriptByURI(ctx context.Context, uri string) (*CaptionTranscript, error)
 	GetCaptionTranscriptsBySubject(ctx context.Context, subjectURI string) ([]*CaptionTranscript, error)
 	GetCaptionTranscriptsForRepoSubject(ctx context.Context, repoDID, subjectURI string) ([]*CaptionTranscript, error)
 

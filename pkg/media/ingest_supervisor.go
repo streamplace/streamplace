@@ -50,7 +50,7 @@ func (mm *MediaManager) MP4IngestIsolated(ctx context.Context, input io.Reader, 
 		return err
 	}
 	cfg.CaptionSocketPath = filepath.Join(dir, uuid.NewString()+".sock")
-	defer mm.registerWorkerCaptionMaster(ctx, cfg.CaptionSocketPath, ms.Streamer())()
+	defer mm.registerWorkerCaptionMaster(cfg.CaptionSocketPath, ms.Streamer())()
 	defer os.Remove(cfg.CaptionSocketPath + ".captions")
 	cfgJSON, err := json.Marshal(cfg)
 	if err != nil {

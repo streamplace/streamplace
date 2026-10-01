@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/stt"
 )
@@ -21,7 +22,6 @@ type RecognizerOptions struct {
 	Languages []string // policy hints, most prominent first; empty detects
 	Hub       *Hub
 	Engine    stt.Engine
-	Layout    CueLayout
 	// OnCoverage runs after finalized captions are published, with the absolute
 	// audio watermark before any still-provisional words. It is monotonic.
 	OnCoverage func(time.Time)
@@ -30,48 +30,20 @@ type RecognizerOptions struct {
 	Step time.Duration
 	// MinWindow is the least uncommitted audio worth a pass.
 	MinWindow time.Duration
-	// MaxWindow bounds the uncommitted audio: beyond it, words that end
-	// more than a step before the window's end are committed without a
-	// second agreeing pass, so latency stays bounded when speech never
-	// pauses.
-	MaxWindow time.Duration
-	// MaxBuffer is the most audio held when the engine falls behind;
-	// older audio is dropped (and its words lost) past this.
-	MaxBuffer time.Duration
 	// SilenceFlush is the trailing silence that commits everything
 	// recognized so far.
 	SilenceFlush time.Duration
-	// NoSpeechThreshold drops a pass whose no-speech probability is above it.
-	NoSpeechThreshold float32
-	// SilenceRMS is the RMS level below which audio counts as silence (or
-	// too quiet to carry the words claimed over it).
-	SilenceRMS float32
 }
 
 func (o *RecognizerOptions) defaults() {
-	if o.Layout == (CueLayout{}) {
-		o.Layout = DefaultCueLayout()
-	}
 	if o.Step <= 0 {
 		o.Step = time.Second
 	}
 	if o.MinWindow <= 0 {
 		o.MinWindow = 2 * time.Second
 	}
-	if o.MaxWindow <= 0 {
-		o.MaxWindow = 10 * time.Second
-	}
-	if o.MaxBuffer <= 0 {
-		o.MaxBuffer = 30 * time.Second
-	}
 	if o.SilenceFlush <= 0 {
 		o.SilenceFlush = 1200 * time.Millisecond
-	}
-	if o.NoSpeechThreshold <= 0 {
-		o.NoSpeechThreshold = 0.6
-	}
-	if o.SilenceRMS <= 0 {
-		o.SilenceRMS = 0.004
 	}
 }
 
@@ -105,7 +77,6 @@ type Recognizer struct {
 	language  string
 	track     Track
 	grouper   *Grouper
-	passes    int
 	coverage  time.Time
 }
 
@@ -119,7 +90,7 @@ func NewRecognizer(ctx context.Context, opts RecognizerOptions) (*Recognizer, er
 	if opts.Hub == nil {
 		return nil, errors.New("no caption hub")
 	}
-	lease, err := opts.Engine.Lease(ctx, stt.LeaseOptions{Realtime: true})
+	lease, err := opts.Engine.Lease(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("lease speech model: %w", err)
 	}
@@ -135,7 +106,8 @@ func NewRecognizer(ctx context.Context, opts RecognizerOptions) (*Recognizer, er
 	if len(opts.Languages) > 0 {
 		r.language = opts.Languages[0]
 	}
-	r.grouper = NewGrouper(opts.Layout, "a")
+	// Re-admission on the same track/hub must not reuse already finalized IDs.
+	r.grouper = NewGrouper(DefaultCueLayout(), uuid.NewString()+"-")
 	go r.run()
 	return r, nil
 }
@@ -167,13 +139,14 @@ func (r *Recognizer) Close() {
 	<-r.done
 }
 
-// Track is the caption track the recognizer publishes on, once the language
-// is known.
-func (r *Recognizer) Track() Track {
-	return r.track
-}
-
 const rate = stt.SampleRate
+
+const (
+	recognizerMaxWindow         = 10 * time.Second
+	recognizerMaxBuffer         = 30 * time.Second
+	recognizerNoSpeechThreshold = 0.6
+	recognizerSilenceRMS        = 0.004
+)
 
 func (r *Recognizer) run() {
 	defer close(r.done)
@@ -246,7 +219,7 @@ func (r *Recognizer) append(c pcmChunk) {
 	}
 	r.buf = append(r.buf, c.pcm...)
 	r.sincePass += len(c.pcm)
-	if maxSamples := int(r.opts.MaxBuffer.Seconds() * rate); len(r.buf) > maxSamples {
+	if maxSamples := int(recognizerMaxBuffer.Seconds() * rate); len(r.buf) > maxSamples {
 		drop := len(r.buf) - maxSamples
 		log.Warn(r.ctx, "speech recognition is behind, dropping audio", "streamer", r.opts.Streamer, "dropped", samplesDuration(drop))
 		r.commitAll()
@@ -285,7 +258,7 @@ func (r *Recognizer) maybePass(force bool) {
 	}
 	r.sincePass = 0
 
-	if rms(r.buf) < r.opts.SilenceRMS {
+	if rms(r.buf) < recognizerSilenceRMS {
 		// Nothing but silence: whatever was pending is done, and the
 		// window moves past the silence.
 		r.commitAll()
@@ -298,16 +271,15 @@ func (r *Recognizer) maybePass(force bool) {
 	if model == nil {
 		// Over budget right now: keep the window bounded and try again
 		// on the next step.
-		if have > r.opts.MaxWindow {
+		if have > recognizerMaxWindow {
 			r.advance(len(r.buf) - int(r.opts.MinWindow.Seconds()*rate))
 		}
 		return
 	}
 	info := model.Info()
 	winStart := r.bufStart
-	pcm := append([]float32(nil), r.buf...)
+	pcm := r.buf
 	res, err := model.Transcribe(r.ctx, pcm, stt.Options{Language: r.language, Prompt: strings.Join(r.prompt, " ")})
-	r.passes++
 	if err != nil {
 		if r.ctx.Err() == nil {
 			log.Warn(r.ctx, "speech recognition pass failed", "streamer", r.opts.Streamer, "error", err)
@@ -329,7 +301,7 @@ func (r *Recognizer) maybePass(force bool) {
 	}
 
 	var words []Word
-	if res.NoSpeechProb < r.opts.NoSpeechThreshold {
+	if res.NoSpeechProb < recognizerNoSpeechThreshold {
 		words = r.guard(winStart, pcm, suppressRepeats(res.Words))
 	}
 	winEnd := winStart.Add(samplesDuration(len(pcm)))
@@ -339,7 +311,7 @@ func (r *Recognizer) maybePass(force bool) {
 	n := agreedPrefix(r.prev, words)
 	// Bounded latency: past MaxWindow, words well clear of the window's
 	// end are final even without agreement.
-	if have > r.opts.MaxWindow {
+	if have > recognizerMaxWindow {
 		cutoff := winEnd.Add(-r.opts.Step)
 		for n < len(words) && words[n].End.Before(cutoff) {
 			n++
@@ -348,7 +320,7 @@ func (r *Recognizer) maybePass(force bool) {
 	// Trailing silence: the speaker paused, so everything is final and the
 	// open cue closes.
 	tail := int(r.opts.SilenceFlush.Seconds() * rate)
-	paused := len(pcm) > tail && rms(pcm[len(pcm)-tail:]) < r.opts.SilenceRMS
+	paused := len(pcm) > tail && rms(pcm[len(pcm)-tail:]) < recognizerSilenceRMS
 	if paused {
 		n = len(words)
 	}
@@ -356,7 +328,7 @@ func (r *Recognizer) maybePass(force bool) {
 	for _, w := range words[:n] {
 		r.commit(w)
 	}
-	r.prev = append([]Word(nil), words[n:]...)
+	r.prev = words[n:]
 
 	switch {
 	case paused:
@@ -426,7 +398,7 @@ func (r *Recognizer) guard(winStart time.Time, pcm []float32, in []stt.Word) []W
 		if e <= s {
 			e = min(s+rate/10, len(pcm))
 		}
-		if e > s && rms(pcm[s:e]) < r.opts.SilenceRMS {
+		if e > s && rms(pcm[s:e]) < recognizerSilenceRMS {
 			continue
 		}
 		out = append(out, Word{Text: text, Start: winStart.Add(w.Start), End: winStart.Add(w.End)})

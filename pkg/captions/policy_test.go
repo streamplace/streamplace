@@ -89,12 +89,6 @@ func TestDecideMatrix(t *testing.T) {
 	}
 }
 
-func TestDecisionString(t *testing.T) {
-	require.Equal(t, "none", Decision{Mode: ModeNone}.String())
-	require.Equal(t, "recognize(sidecar)", Decision{Mode: ModeRecognize, Origin: OriginSidecar}.String())
-	require.Equal(t, "ingest(canonical)", Decision{Mode: ModeIngest, Origin: OriginCanonical}.String())
-}
-
 func TestPushedOrigin(t *testing.T) {
 	require.Equal(t, OriginCanonical, PushedOrigin(Policy{Canonical: CanonicalAuto, AllowNodeCaptions: true}))
 	require.Equal(t, OriginCanonical, PushedOrigin(Policy{Canonical: CanonicalIngest, AllowNodeCaptions: false}))

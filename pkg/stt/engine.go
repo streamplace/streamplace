@@ -22,25 +22,20 @@ type scheduledModel struct {
 	scale int64
 }
 type scheduler struct {
-	mu           sync.Mutex
-	models       []scheduledModel // increasing accuracy
-	budget       float64          // logical CPU-seconds per wall-clock second
-	batchCost    float64
-	batchThreads int
-	leases       map[*engineLease]struct{}
-	changed      chan struct{}
-	ready        chan struct{}
-	stopped      bool
-	cancel       context.CancelFunc
-	done         chan struct{}
-	closeOnce    sync.Once
+	mu        sync.Mutex
+	models    []scheduledModel // increasing accuracy
+	budget    float64          // logical CPU-seconds per wall-clock second
+	leases    map[*engineLease]struct{}
+	ready     chan struct{}
+	stopped   bool
+	cancel    context.CancelFunc
+	done      chan struct{}
+	closeOnce sync.Once
 }
 type engineLease struct {
-	engine     *scheduler
-	opts       LeaseOptions
-	selected   int
-	released   bool
-	batchModel Model
+	engine   *scheduler
+	selected int
+	released bool
 }
 
 // NewEngine returns without loading/benchmarking models on the node startup path.
@@ -55,7 +50,7 @@ func NewEngine(ctx context.Context, cli *config.CLI) (Engine, error) {
 	budget := float64(runtime.NumCPU()) * cli.CaptionsCPUBudget
 	threads := max(1, min(4, int(budget)))
 	ctx, cancel := context.WithCancel(ctx)
-	e := &scheduler{budget: budget, batchCost: min(float64(threads), budget), batchThreads: threads, leases: make(map[*engineLease]struct{}), changed: make(chan struct{}), ready: make(chan struct{}), cancel: cancel, done: make(chan struct{})}
+	e := &scheduler{budget: budget, leases: make(map[*engineLease]struct{}), ready: make(chan struct{}), cancel: cancel, done: make(chan struct{})}
 	for _, size := range []string{"tiny", "base", "small"} {
 		e.models = append(e.models, scheduledModel{model: &whisperModel{info: ModelInfo{Name: "whisper-" + size + "-q5_1", Size: size, Multilingual: true, Bundled: true}, path: "ggml-" + size + "-q5_1.bin", threads: threads}})
 	}
@@ -119,18 +114,7 @@ func (e *scheduler) benchmark(ctx context.Context, threads int) {
 	e.mu.Lock()
 	e.models = measured
 	close(e.ready)
-	e.notify()
 	e.mu.Unlock()
-}
-func (e *scheduler) notify() { close(e.changed); e.changed = make(chan struct{}) }
-func (e *scheduler) Models() []ModelInfo {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	infos := make([]ModelInfo, len(e.models))
-	for i, m := range e.models {
-		infos[i] = m.model.Info()
-	}
-	return infos
 }
 func (l *engineLease) Model() Model {
 	e := l.engine
@@ -138,9 +122,6 @@ func (l *engineLease) Model() Model {
 	defer e.mu.Unlock()
 	if l.released || e.stopped {
 		return nil
-	}
-	if l.batchModel != nil {
-		return l.batchModel
 	}
 	return e.models[l.selected].model
 }
@@ -154,18 +135,8 @@ func (l *engineLease) Release() {
 	l.released = true
 	delete(e.leases, l)
 	e.rebalance()
-	e.notify()
 }
-func (e *scheduler) batchUsed() float64 {
-	n := 0
-	for l := range e.leases {
-		if !l.opts.Realtime {
-			n++
-		}
-	}
-	return float64(n) * e.batchCost
-}
-func (e *scheduler) candidate(l *engineLease, share float64, upgrade bool) int {
+func (e *scheduler) candidate(share float64, upgrade bool) int {
 	limit := share
 	if upgrade {
 		limit *= .8
@@ -173,9 +144,6 @@ func (e *scheduler) candidate(l *engineLease, share float64, upgrade bool) int {
 	best := -1
 	for i, m := range e.models {
 		info := m.model.Info()
-		if l.opts.Model != "" && info.Name != l.opts.Model {
-			continue
-		}
 		if m.cost <= limit && info.RealtimeFactor <= 1 {
 			best = i
 		}
@@ -183,122 +151,49 @@ func (e *scheduler) candidate(l *engineLease, share float64, upgrade bool) int {
 	return best
 }
 func (e *scheduler) rebalance() {
-	n := 0
-	for l := range e.leases {
-		if l.opts.Realtime {
-			n++
-		}
-	}
+	n := len(e.leases)
 	if n == 0 {
 		return
 	}
-	share := (e.budget - e.batchUsed()) / float64(n)
+	share := e.budget / float64(n)
 	for l := range e.leases {
-		if !l.opts.Realtime {
-			continue
-		}
 		if e.models[l.selected].cost > share {
-			if i := e.candidate(l, share, false); i >= 0 {
+			if i := e.candidate(share, false); i >= 0 {
 				l.selected = i
 			}
-		} else if i := e.candidate(l, share, true); i > l.selected {
+		} else if i := e.candidate(share, true); i > l.selected {
 			l.selected = i
 		}
 	}
 }
-func (e *scheduler) Lease(ctx context.Context, opts LeaseOptions) (Lease, error) {
+func (e *scheduler) Lease(ctx context.Context) (Lease, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case <-e.ready:
 	}
-	for {
-		e.mu.Lock()
-		if e.stopped {
-			e.mu.Unlock()
-			return nil, fmt.Errorf("speech engine closed")
-		}
-		if err := ctx.Err(); err != nil {
-			e.mu.Unlock()
-			return nil, err
-		}
-		if len(e.models) == 0 {
-			e.mu.Unlock()
-			return nil, ErrOverBudget
-		}
-		if opts.Model != "" {
-			found := false
-			for _, m := range e.models {
-				if m.model.Info().Name == opts.Model {
-					found = true
-				}
-			}
-			if !found {
-				e.mu.Unlock()
-				return nil, fmt.Errorf("unknown speech model %q", opts.Model)
-			}
-		}
-		l := &engineLease{engine: e, opts: opts}
-		if opts.Realtime {
-			n := 1
-			for other := range e.leases {
-				if other.opts.Realtime {
-					n++
-				}
-			}
-			share := (e.budget - e.batchUsed()) / float64(n)
-			l.selected = e.candidate(l, share, false)
-			fits := l.selected >= 0
-			for other := range e.leases {
-				if other.opts.Realtime && e.candidate(other, share, false) < 0 {
-					fits = false
-				}
-			}
-			if !fits {
-				e.mu.Unlock()
-				return nil, ErrOverBudget
-			}
-			e.leases[l] = struct{}{}
-			e.rebalance()
-			e.mu.Unlock()
-			return l, nil
-		}
-		used := e.batchUsed()
-		for other := range e.leases {
-			if other.opts.Realtime {
-				used += e.models[other.selected].cost
-			}
-		}
-		if used+e.batchCost <= e.budget {
-			l.selected = len(e.models) - 1
-			if opts.Model != "" {
-				for i, m := range e.models {
-					if m.model.Info().Name == opts.Model {
-						l.selected = i
-					}
-				}
-			}
-			if e.batchCost < float64(e.batchThreads) {
-				l.batchModel = &pacedModel{Model: e.models[l.selected].model, slowdown: float64(e.batchThreads)/e.batchCost - 1}
-			}
-			e.leases[l] = struct{}{}
-			e.mu.Unlock()
-			return l, nil
-		}
-		changed := e.changed
-		e.mu.Unlock()
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-changed:
-		}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.stopped {
+		return nil, fmt.Errorf("speech engine closed")
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	share := e.budget / float64(len(e.leases)+1)
+	selected := e.candidate(share, false)
+	if selected < 0 {
+		return nil, ErrOverBudget
+	}
+	l := &engineLease{engine: e, selected: selected}
+	e.leases[l] = struct{}{}
+	e.rebalance()
+	return l, nil
 }
 func (e *scheduler) Close() error {
 	e.closeOnce.Do(func() {
 		e.mu.Lock()
 		e.stopped = true
-		e.notify()
 		e.mu.Unlock()
 		e.cancel()
 		<-e.done
@@ -309,28 +204,4 @@ func (e *scheduler) Close() error {
 		}
 	})
 	return nil
-}
-
-// Fractional-CPU nodes still run VOD jobs: pace their single native thread
-// rather than waiting forever for a whole logical CPU that can never be spare.
-type pacedModel struct {
-	Model
-	slowdown float64
-}
-
-func (m *pacedModel) Transcribe(ctx context.Context, pcm []float32, opts Options) (*Result, error) {
-	start := time.Now()
-	result, err := m.Model.Transcribe(ctx, pcm, opts)
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
-	delay := time.Duration(float64(time.Since(start)) * m.slowdown)
-	timer := time.NewTimer(delay)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case <-timer.C:
-		return result, err
-	}
 }

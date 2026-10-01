@@ -16,8 +16,9 @@ import (
 
 func TestCanonicalMuxlClockAndContinuation(t *testing.T) {
 	ctx := context.Background()
-	eng, err := TextEngine()
+	eng, err := upstream.NewWASM(ctx)
 	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, eng.Close(ctx)) })
 	_, file, _, _ := runtime.Caller(0)
 	data, err := os.ReadFile(filepath.Join(filepath.Dir(file), "../../test/fixtures/h264-opus-frag.mp4"))
 	require.NoError(t, err)
@@ -47,7 +48,7 @@ func TestCanonicalMuxlClockAndContinuation(t *testing.T) {
 	var plainHeader bytes.Buffer
 	plain := join(segments[0])
 	require.NoError(t, eng.Wrap(ctx, bytes.NewReader(plain), "flat", &plainHeader))
-	_, has, err := ReadCanonical(ctx, plain, plainHeader.Bytes(), time.Unix(1000, 0), "did:plc:alice")
+	_, has, err := SegmentClock(plainHeader.Bytes(), plain)
 	require.NoError(t, err)
 	require.False(t, has)
 	track := upstream.TextTrack{TrackID: 9, Language: "en", Label: "auto"}
@@ -79,9 +80,11 @@ func TestCanonicalMuxlClockAndContinuation(t *testing.T) {
 		if i == 1 {
 			start = start.Add(media1 - media0)
 		}
-		events, has, err := ReadCanonical(ctx, added, hdr.Bytes(), start, "did:plc:alice")
+		media, has, err := SegmentClock(hdr.Bytes(), added)
 		require.NoError(t, err)
 		require.True(t, has)
+		events, err := ReadCanonicalWithClock(ctx, added, media, start, "did:plc:alice")
+		require.NoError(t, err)
 		for _, ev := range events {
 			hub.PublishCanonical("alice", ev.Track, ev.Cue)
 			hub.PublishCanonical("alice", ev.Track, ev.Cue)
@@ -98,9 +101,11 @@ func TestCanonicalMuxlClockAndContinuation(t *testing.T) {
 	require.NoError(t, err)
 	var hdr bytes.Buffer
 	require.NoError(t, eng.Wrap(ctx, bytes.NewReader(second), "flat", &hdr))
-	events, has, err := ReadCanonical(ctx, second, hdr.Bytes(), wall.Add(media1-media0), "did:plc:alice")
+	media, has, err := SegmentClock(hdr.Bytes(), second)
 	require.NoError(t, err)
 	require.True(t, has)
+	events, err := ReadCanonicalWithClock(ctx, second, media, wall.Add(media1-media0), "did:plc:alice")
+	require.NoError(t, err)
 	require.Len(t, events, 1)
 	require.Equal(t, "canonical-human-es", events[0].Track.ID)
 	require.Equal(t, "Hola", events[0].Cue.Text)

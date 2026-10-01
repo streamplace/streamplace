@@ -8,6 +8,7 @@ package muxl
 
 import (
 	"context"
+	"encoding/binary"
 	"io"
 	"sync"
 
@@ -334,4 +335,41 @@ func RunMuxlReadTextCues(ctx context.Context, input io.Reader, trackID uint32) (
 		return nil, err
 	}
 	return eng.ReadTextCues(ctx, input, trackID)
+}
+
+// FirstTFDT returns the baseMediaDecodeTime of the first tfdt box in a chunk
+// of ISO-BMFF boxes (a track's [c2pa uuid][muxl uuid][moof][mdat] segment, or
+// just the first bytes of one: a moof cut off by the end of the data is
+// searched as far as it goes). ok is false when none is found.
+func FirstTFDT(box []byte) (tfdt uint64, ok bool) {
+	for len(box) >= 8 {
+		size := int(binary.BigEndian.Uint32(box[0:4]))
+		typ := string(box[4:8])
+		if size < 8 {
+			return 0, false
+		}
+		container := typ == "moof" || typ == "traf"
+		if size > len(box) {
+			if !container {
+				return 0, false
+			}
+			size = len(box)
+		}
+		payload := box[8:size]
+		switch typ {
+		case "moof", "traf":
+			if v, ok := FirstTFDT(payload); ok {
+				return v, true
+			}
+		case "tfdt":
+			if len(payload) >= 8 && payload[0] == 0 {
+				return uint64(binary.BigEndian.Uint32(payload[4:8])), true
+			}
+			if len(payload) >= 12 && payload[0] == 1 {
+				return binary.BigEndian.Uint64(payload[4:12]), true
+			}
+		}
+		box = box[size:]
+	}
+	return 0, false
 }

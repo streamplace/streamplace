@@ -38,8 +38,6 @@ type CaptionTranscript struct {
 	Text string `json:"text"`
 	// timings: Flat timing array: a positive entry is a word duration in milliseconds, and the Nth positive entry corresponds to the Nth whitespace token of `text`; a negative entry is a silence gap (absolute value, in milliseconds) before the next word.
 	Timings []int64 `json:"timings"`
-	// track: The place.stream.media.track text track this chunk mirrors, when the captions were mastered into the canonical stream.
-	Track *comatproto.RepoStrongRef `json:"track,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.

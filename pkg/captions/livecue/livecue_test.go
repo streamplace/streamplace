@@ -1,7 +1,6 @@
 package livecue
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 	"time"
@@ -72,33 +71,4 @@ func TestRecentOnlyCarriesTheCurrentLine(t *testing.T) {
 	}
 	require.Equal(t, []string{"recent", "latest"}, ids, "final cues of the last 10s only, oldest first")
 	require.Empty(t, Recent(nil, "did:plc:s", JoinWindow, now))
-}
-
-// What a websocket forwards: hub events become liveCue JSON, interim and final.
-func TestHubEventsBecomeMessages(t *testing.T) {
-	hub := captions.NewHub(0)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	events := hub.Subscribe(ctx, "did:plc:s")
-
-	hub.Publish("did:plc:s", enTrack, captions.Cue{ID: "c", Text: "hel", Start: now, End: now.Add(time.Second)})
-	hub.Publish("did:plc:s", enTrack, captions.Cue{ID: "c", Text: "hello", Start: now, End: now.Add(time.Second), Final: true})
-
-	for _, want := range []struct {
-		text  string
-		final bool
-	}{{"hel", false}, {"hello", true}} {
-		select {
-		case ev := <-events:
-			bs, err := Message(ev)
-			require.NoError(t, err)
-			var got map[string]any
-			require.NoError(t, json.Unmarshal(bs, &got))
-			require.Equal(t, "place.stream.caption.defs#liveCue", got["$type"])
-			require.Equal(t, want.text, got["text"])
-			require.Equal(t, want.final, got["final"])
-		case <-time.After(time.Second):
-			t.Fatal("no event")
-		}
-	}
 }

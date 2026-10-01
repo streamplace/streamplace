@@ -22,16 +22,6 @@ const (
 	Service1                    // CEA-708 service 1
 )
 
-func (c Channel) String() string {
-	switch c {
-	case CC1, CC2, CC3, CC4:
-		return "CC" + string(rune('0'+c))
-	case Service1:
-		return "708-1"
-	}
-	return "?"
-}
-
 // Event is a change of a channel's displayed text. Text is the full display
 // after the change, rows joined by newlines; an empty Text means the display
 // was cleared.
@@ -50,7 +40,7 @@ type Decoder struct {
 
 func NewDecoder() *Decoder {
 	return &Decoder{
-		fields: [2]*field608{newField608(0), newField608(1)},
+		fields: [2]*field608{newField608(), newField608()},
 		dtv:    newDTVCC(),
 		last:   map[Channel]string{},
 	}
@@ -72,21 +62,6 @@ func (d *Decoder) Decode(cc []byte, at time.Duration) []Event {
 			d.dtv.triplet(valid, ccType == 3, b1, b2)
 		}
 	}
-	return d.collect(at)
-}
-
-// DecodeSample extracts the cc_data of an H264 access unit and decodes it.
-func (d *Decoder) DecodeSample(sample []byte, at time.Duration) []Event {
-	cc := ExtractCCData(sample)
-	if len(cc) == 0 {
-		return nil
-	}
-	return d.Decode(cc, at)
-}
-
-// Flush ends the stream: the DTVCC packet still being assembled is decoded.
-func (d *Decoder) Flush(at time.Duration) []Event {
-	d.dtv.flush()
 	return d.collect(at)
 }
 
@@ -275,21 +250,19 @@ func (c *channel608) endOfCaption() {
 	// displayed one becomes the next buffer to load into.
 	c.mode = modePopOn
 	c.displayed, c.hidden = c.hidden, c.displayed
-	c.hidden.clear()
 }
 
 // field608 decodes one field's byte pairs, routing them to the data channel
 // selected by the latest control code.
 type field608 struct {
-	field    int
 	chans    [2]*channel608
 	cur      int
 	lastPair [2]byte
 	inXDS    bool
 }
 
-func newField608(field int) *field608 {
-	return &field608{field: field, chans: [2]*channel608{newChannel608(), newChannel608()}, lastPair: [2]byte{0xff, 0xff}}
+func newField608() *field608 {
+	return &field608{chans: [2]*channel608{newChannel608(), newChannel608()}, lastPair: [2]byte{0xff, 0xff}}
 }
 
 func (f *field608) pair(b1, b2 byte) {

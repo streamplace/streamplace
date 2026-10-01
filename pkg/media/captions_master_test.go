@@ -23,14 +23,11 @@ type captionTestEngine struct {
 	scripted       *stt.Result
 }
 
-func (e *captionTestEngine) Lease(context.Context, stt.LeaseOptions) (stt.Lease, error) {
-	return e, nil
-}
-func (e *captionTestEngine) Models() []stt.ModelInfo { return nil }
-func (e *captionTestEngine) Close() error            { return nil }
-func (e *captionTestEngine) Model() stt.Model        { return e }
-func (e *captionTestEngine) Release()                {}
-func (e *captionTestEngine) Info() stt.ModelInfo     { return stt.ModelInfo{Name: "fake"} }
+func (e *captionTestEngine) Lease(context.Context) (stt.Lease, error) { return e, nil }
+func (e *captionTestEngine) Close() error                             { return nil }
+func (e *captionTestEngine) Model() stt.Model                         { return e }
+func (e *captionTestEngine) Release()                                 {}
+func (e *captionTestEngine) Info() stt.ModelInfo                      { return stt.ModelInfo{Name: "fake"} }
 func (e *captionTestEngine) Transcribe(ctx context.Context, _ []float32, _ stt.Options) (*stt.Result, error) {
 	if e.enter != nil {
 		e.once.Do(func() { close(e.enter) })
@@ -121,7 +118,7 @@ func TestCaptionMasterDeadlineClippingAndLateCarry(t *testing.T) {
 func TestCaptionMasterPolicySwitchPreservesTruthfulTracks(t *testing.T) {
 	m := newCaptionMaster(context.Background(), "streamer", &config.CLI{}, nil)
 	m.mediaFinished = true
-	m.clock(time.UnixMilli(0))
+	m.clockAt(time.UnixMilli(0), time.Now())
 	auto := masterTrack(captions.SourceAuto)
 	m.hub.Publish(m.streamer, auto, captions.Cue{ID: "auto", Start: time.UnixMilli(100), End: time.UnixMilli(200), Text: "automatic", Final: true})
 	first, err := m.text(context.Background(), muxl.TextRequest{EndMs: 1000})
@@ -192,7 +189,7 @@ func TestCaptionMasterOriginStreamingSignedFixture(t *testing.T) {
 			continue
 		}
 		count++
-		segment := concatTracksSorted(event.Tracks)
+		segment := concatTracksByID(event.Tracks)
 		report, err := muxl.RunMuxlVerify(ctx, bytes.NewReader(segment))
 		require.NoError(t, err)
 		var verified struct {
@@ -222,7 +219,7 @@ func TestCaptionMasterOriginStreamingSignedFixture(t *testing.T) {
 }
 
 func TestCaptionMasterBufferNeverDropsMediaOnHoldOrClose(t *testing.T) {
-	queue := newIngestByteBuffer()
+	queue := newIngestByteBuffer(context.Background())
 	for range 1000 {
 		_, err := queue.Write([]byte("media"))
 		require.NoError(t, err)
@@ -256,7 +253,7 @@ func TestCaptionMasterOriginStreamingRecognizesDecodedAudio(t *testing.T) {
 			first = false
 			close(engine.release)
 		}
-		archived.Write(concatTracksSorted(event.Tracks))
+		archived.Write(concatTracksByID(event.Tracks))
 	}
 	require.NoError(t, <-done)
 	tracks, err := muxl.RunMuxlTextTracks(ctx, bytes.NewReader(archived.Bytes()))
@@ -297,7 +294,7 @@ func TestCaptionMasterVoicedEOFFinalsReachLastSignedGoP(t *testing.T) {
 	var last []byte
 	for event := range events {
 		if event.Type == "signed-segment" {
-			last = concatTracksSorted(event.Tracks)
+			last = concatTracksByID(event.Tracks)
 		}
 	}
 	require.NoError(t, <-done)

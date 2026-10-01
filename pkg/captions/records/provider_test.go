@@ -136,7 +136,7 @@ func TestProviderTracks(t *testing.T) {
 
 	// Alice's own captions, in two chunks, make one track.
 	f.transcript(chunk{repo: alice, rkey: "a1", subject: videoURI, lang: "en", source: "human", words: words("hello", "world")})
-	f.transcript(chunk{repo: alice, rkey: "a2", subject: videoURI, lang: "en", source: "human", words: shifted(words("again"), 60_000)})
+	f.transcript(chunk{repo: alice, rkey: "a2", subject: videoURI, lang: "EN", source: "human", words: shifted(words("again"), 60_000)})
 	// Another source, another language, and subtitles are each their own track.
 	f.transcript(chunk{repo: alice, rkey: "a3", subject: videoURI, lang: "en", source: "imported", words: words("imported")})
 	f.transcript(chunk{repo: alice, rkey: "a4", subject: videoURI, lang: "es", kind: "subtitles", source: "human", words: words("hola")})
@@ -172,6 +172,9 @@ func TestProviderTracks(t *testing.T) {
 	again, err := p.Tracks(ctx, videoURI)
 	require.NoError(t, err)
 	require.Equal(t, tracks, again, "ids and order are stable")
+	cues, err := p.Cues(ctx, videoURI, human.ID)
+	require.NoError(t, err)
+	require.Equal(t, map[string][2]int64{"hello world": {0, 800}, "again": {60_000, 60_400}}, cueTimes(cues), "language case must not split a track or lose a chunk")
 }
 
 func TestTrackIDDependsOnWhoWroteIt(t *testing.T) {
@@ -369,6 +372,7 @@ func TestProviderClipsUseTheirSourceVideosCaptions(t *testing.T) {
 		{Text: "before", StartMs: 2000, EndMs: 3000},
 		{Text: "straddles", StartMs: 9_500, EndMs: 10_500}, // half in
 		{Text: "inside.", StartMs: 12_000, EndMs: 13_000},
+		{Text: "right", StartMs: 19_500, EndMs: 20_500},
 		{Text: "outside", StartMs: 25_000, EndMs: 26_000},
 	}})
 	cues, err := f.provider(nil).Cues(ctx, clip, TrackID(alice, "en", "captions", "human"))
@@ -376,7 +380,14 @@ func TestProviderClipsUseTheirSourceVideosCaptions(t *testing.T) {
 	require.Equal(t, map[string][2]int64{
 		"straddles": {0, 500},
 		"inside.":   {2000, 3000},
+		"right":     {9500, 10_000},
 	}, cueTimes(cues), "shifted by the clip's start and cut to its length")
+	f.transcript(chunk{repo: alice, rkey: "auto", subject: parent, lang: "en", source: "auto", words: []transcript.Word{
+		{Text: "short", StartMs: 19_900, EndMs: 19_950},
+	}})
+	ac, err := f.provider(nil).Cues(ctx, clip, TrackID(alice, "en", "captions", "auto"))
+	require.NoError(t, err)
+	require.Equal(t, map[string][2]int64{"short": {9900, 10_000}}, cueTimes(ac), "minimum cue duration cannot extend past the clip")
 
 	// The parent is unaffected.
 	pc, err := f.provider(nil).Cues(ctx, parent, TrackID(alice, "en", "captions", "human"))

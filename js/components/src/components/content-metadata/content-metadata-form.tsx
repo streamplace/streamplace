@@ -175,24 +175,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
           : contentWarnings.filter((w) => w !== warning);
 
         setContentWarnings(newWarnings);
-
-        if (onMetadataChange) {
-          onMetadataChange({
-            $type: "place.stream.metadata.configuration",
-            contentWarnings: { warnings: newWarnings },
-            distributionPolicy,
-            contentRights,
-            captionPolicy: buildCaptionPolicy(captionPolicy),
-          });
-        }
       },
-      [
-        contentWarnings,
-        distributionPolicy,
-        contentRights,
-        captionPolicy,
-        onMetadataChange,
-      ],
+      [contentWarnings],
     );
 
     // Notify parent component when metadata changes
@@ -249,25 +233,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
             allowedBroadcasters.split("\n");
         }
         setDistributionPolicy(newDistributionPolicy);
-
-        if (onMetadataChange) {
-          onMetadataChange({
-            $type: "place.stream.metadata.configuration",
-            contentWarnings: { warnings: contentWarnings },
-            distributionPolicy: newDistributionPolicy,
-            contentRights,
-            captionPolicy: buildCaptionPolicy(captionPolicy),
-          });
-        }
       },
-      [
-        contentWarnings,
-        contentRights,
-        captionPolicy,
-        onMetadataChange,
-        distributionPolicy,
-        setDistributionPolicy,
-      ],
+      [distributionPolicy],
     );
 
     // Handle content rights changes
@@ -275,24 +242,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       (field: string, value: any) => {
         const newRights = { ...contentRights, [field]: value };
         setContentRights(newRights);
-
-        if (onMetadataChange) {
-          onMetadataChange({
-            $type: "place.stream.metadata.configuration",
-            contentWarnings: { warnings: contentWarnings },
-            distributionPolicy,
-            contentRights: newRights,
-            captionPolicy: buildCaptionPolicy(captionPolicy),
-          });
-        }
       },
-      [
-        contentWarnings,
-        distributionPolicy,
-        contentRights,
-        captionPolicy,
-        onMetadataChange,
-      ],
+      [contentRights],
     );
 
     const handleSave = useCallback(async () => {
@@ -400,20 +351,12 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                   { label: "Warnings", value: "contentWarnings" },
                   { label: "Rights", value: "contentRights" },
                   { label: "Distribution", value: "distribution" },
-                  { label: "Captions", value: "captions" },
                 ]}
                 value={activeSection}
                 onChange={setActiveSection}
               />
             </View>
 
-            {activeSection === "captions" && (
-              <CaptionPolicyFields
-                value={captionPolicy}
-                onChange={setCaptionPolicy}
-                renderLanguagePicker={renderLanguagePicker}
-              />
-            )}
             {/* Content Warnings Section */}
             {activeSection === "contentWarnings" && (
               <View style={[gap.all[3], w.percent[100]]}>

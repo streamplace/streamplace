@@ -19,12 +19,12 @@ func TestCaptionMasterWorkerControlAndReconnectIDs(t *testing.T) {
 	for range 2 {
 		master := newCaptionMaster(ctx, "did:plc:streamer", &config.CLI{}, nil)
 		master.setManifest(captionManifest("ingest"))
-		master.clock(time.UnixMilli(200))
+		master.clockAt(time.UnixMilli(200), time.Now())
 		master.mediaFinished = true
 		path := filepath.Join(t.TempDir(), "ingest.sock")
 		stop, err := master.servePush(path)
 		require.NoError(t, err)
-		unregister := mm.registerWorkerCaptionMaster(ctx, path, master.streamer)
+		unregister := mm.registerWorkerCaptionMaster(path, master.streamer)
 		policy, live := mm.OriginCaptionPolicy(master.streamer)
 		require.True(t, live)
 		require.Equal(t, captions.CanonicalIngest, policy.Canonical)

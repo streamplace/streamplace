@@ -150,8 +150,9 @@ func (ms *MediaSignerLocal) buildManifest(ctx context.Context, start int64) ([]b
 // at connection start and a pre-live → live transition stayed invisible until
 // the streamer reconnected.
 //
-// muxl-sign stamps each segment's signing time into cawg.metadata/dc:date as
-// it signs. Signing backend: an *ecdsa.PrivateKey is marshaled to PEM and
+// muxl-sign stamps each segment's arrival-anchored media time into
+// cawg.metadata/dc:date, regardless of caption policy or signing delay.
+// Signing backend: an *ecdsa.PrivateKey is marshaled to PEM and
 // signed in-wasm, otherwise the host-callback path keeps the key out of the
 // sandbox.
 func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {

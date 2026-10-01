@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CaptionerPage } from "../routes/captioner";
+import i18n from "./i18n";
 
 const mocks = vi.hoisted(() => ({
   benchmarkCaptionModel: vi.fn(),
@@ -76,12 +77,12 @@ describe("CaptionerPage lifecycle", () => {
     vi.unstubAllGlobals();
   });
 
-  function buttonNamed(name: string): HTMLButtonElement {
+  function captionerButton(key: string): HTMLButtonElement {
     const button = Array.from(
       container.querySelectorAll<HTMLButtonElement>("button"),
-    ).find((candidate) => candidate.textContent === name);
+    ).find((candidate) => candidate.textContent === i18n.t(key));
     if (!(button instanceof HTMLButtonElement))
-      throw new Error(`Missing ${name} button`);
+      throw new Error(`Missing ${key} button`);
     return button;
   }
 
@@ -107,11 +108,11 @@ describe("CaptionerPage lifecycle", () => {
     await renderPage();
 
     await act(async () => {
-      buttonNamed("Start captions").click();
+      captionerButton("captioner-start").click();
       await flushPromises();
     });
 
-    const stopButton = buttonNamed("Stop captions");
+    const stopButton = captionerButton("captioner-stop");
     expect(stopButton.disabled).toBe(false);
     expect(startupSignal?.aborted).toBe(false);
 
@@ -139,7 +140,7 @@ describe("CaptionerPage lifecycle", () => {
     });
     await renderPage();
     await act(async () => {
-      buttonNamed("Start captions").click();
+      captionerButton("captioner-start").click();
       await flushPromises();
     });
 
@@ -159,11 +160,11 @@ describe("CaptionerPage lifecycle", () => {
     await renderPage();
 
     await act(async () => {
-      buttonNamed("Start captions").click();
+      captionerButton("captioner-start").click();
       await flushPromises();
     });
     await act(async () => {
-      buttonNamed("Stop captions").click();
+      captionerButton("captioner-stop").click();
       await flushPromises();
     });
 
@@ -191,7 +192,7 @@ describe("CaptionerPage lifecycle", () => {
     await renderPage();
 
     await act(async () => {
-      buttonNamed("Measure speed and suggest model").click();
+      captionerButton("captioner-measure").click();
       await flushPromises();
     });
     await act(async () => {

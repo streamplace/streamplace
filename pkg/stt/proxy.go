@@ -17,14 +17,12 @@ const engineFrameLimit = 16 << 20
 
 type engineRequest struct {
 	Op      string
-	Lease   LeaseOptions
 	PCM     []float32
 	Options Options
 }
 type engineResponse struct {
 	Error      string
 	OverBudget bool
-	Models     []ModelInfo
 	Info       *ModelInfo
 	Result     *Result
 }
@@ -121,17 +119,13 @@ func serveEngineConnection(parent context.Context, c net.Conn, engine Engine) {
 		var response engineResponse
 		var err error
 		switch r.Op {
-		case "models":
-			if engine != nil {
-				response.Models = engine.Models()
-			}
 		case "lease":
 			if lease != nil {
 				err = fmt.Errorf("connection already holds a lease")
 			} else if engine == nil {
 				err = ErrOverBudget
 			} else {
-				lease, err = engine.Lease(ctx, r.Lease)
+				lease, err = engine.Lease(ctx)
 			}
 		case "model", "transcribe":
 			if lease == nil {
@@ -212,25 +206,12 @@ func (e *proxyEngine) connect(ctx context.Context) (*proxyLease, error) {
 	e.connections[l] = struct{}{}
 	return l, nil
 }
-func (e *proxyEngine) Models() []ModelInfo {
-	ctx := context.Background()
-	l, err := e.connect(ctx)
-	if err != nil {
-		return nil
-	}
-	defer l.Release()
-	r, err := l.call(ctx, engineRequest{Op: "models"})
-	if err != nil {
-		return nil
-	}
-	return r.Models
-}
-func (e *proxyEngine) Lease(ctx context.Context, opts LeaseOptions) (Lease, error) {
+func (e *proxyEngine) Lease(ctx context.Context) (Lease, error) {
 	l, err := e.connect(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if _, err = l.call(ctx, engineRequest{Op: "lease", Lease: opts}); err != nil {
+	if _, err = l.call(ctx, engineRequest{Op: "lease"}); err != nil {
 		l.Release()
 		return nil, err
 	}

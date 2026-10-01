@@ -14,6 +14,7 @@ import (
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/captions"
 	"stream.place/streamplace/pkg/captions/records"
+	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -101,7 +102,7 @@ func (p *VideoCaptions) view(ctx context.Context, uri string, depth int) (*video
 			}
 			copy := false
 			for _, canonical := range out.tracks {
-				if canonical.Origin == captions.OriginCanonical && canonical.Language == track.Language && canonical.Kind == track.Kind && canonical.Source == track.Source && canonical.Author == track.Author && captionText(out.cues[canonical.ID]) == captionText(cues) {
+				if canonical.Origin == captions.OriginCanonical && strings.EqualFold(canonical.Language, track.Language) && canonical.Kind == track.Kind && canonical.Source == track.Source && canonical.Author == track.Author && captionText(out.cues[canonical.ID]) == captionText(cues) {
 					copy = true
 					break
 				}
@@ -128,7 +129,6 @@ func (p *VideoCaptions) readMuxl(ctx context.Context, cid, uri string, out *vide
 			reader.Close()
 		}
 	}()
-	ref := captionReference(meta)
 	known := map[string]bool{}
 	for _, track := range out.tracks {
 		known[track.ID] = true
@@ -147,14 +147,11 @@ func (p *VideoCaptions) readMuxl(ctx context.Context, cid, uri string, out *vide
 				return err
 			}
 		}
-		refIndex := 0
-		var elapsed uint64
 		for _, seg := range t.Segments {
-			lang, label := t.Language, t.Label
-			if seg.CaptionConfigKnown {
-				lang, label = seg.CaptionLanguage, seg.CaptionLabel
+			if seg.CaptionReferenceScale == 0 {
+				return fmt.Errorf("caption reference AV clock missing")
 			}
-			track := captions.CanonicalTrack(upstream.TextTrack{TrackID: uint32(id), Language: lang, Label: label}, videoAuthor(uri))
+			track := captions.CanonicalTrack(upstream.TextTrack{TrackID: uint32(id), Language: seg.CaptionLanguage, Label: seg.CaptionLabel}, videoAuthor(uri))
 			if !known[track.ID] {
 				out.tracks = append(out.tracks, track)
 				known[track.ID] = true
@@ -164,35 +161,8 @@ func (p *VideoCaptions) readMuxl(ctx context.Context, cid, uri string, out *vide
 				return err
 			}
 			offset := time.Duration(seg.CaptionOffsetNanos)
-			var baseOffset time.Duration
-			if seg.CaptionReferenceScale != 0 {
-				baseOffset = captionTicks(seg.CaptionReferenceTicks, seg.CaptionReferenceScale)
-			} else {
-				// Legacy indexes did not retain the containing GoP association.
-				for refIndex+1 < len(ref.Segments) && ref.Segments[refIndex+1].Offset <= seg.Offset {
-					elapsed += ref.Segments[refIndex].DurationTicks
-					refIndex++
-				}
-				if len(ref.Segments) == 0 || ref.Timescale == 0 {
-					return fmt.Errorf("caption reference AV track missing")
-				}
-				reference := ref.Segments[refIndex]
-				base := reference.FirstDecodeTicks
-				if !reference.DecodeTimeKnown {
-					av, err := io.ReadAll(io.NewSectionReader(reader, meta.FlatHeaderSize+reference.Offset, reference.Size))
-					if err != nil {
-						return err
-					}
-					var ok bool
-					base, ok = firstTFDT(av)
-					if !ok {
-						return fmt.Errorf("caption reference AV clock missing")
-					}
-				}
-				offset = captionTicks(elapsed, ref.Timescale)
-				baseOffset = captionTicks(base, ref.Timescale)
-			}
-			cues, err := captions.ReadTextCues(ctx, bytes.NewReader(data), uint32(id))
+			baseOffset := captionTicks(seg.CaptionReferenceTicks, seg.CaptionReferenceScale)
+			cues, err := muxl.RunMuxlReadTextCues(ctx, bytes.NewReader(data), uint32(id))
 			if err != nil {
 				return err
 			}
@@ -243,27 +213,6 @@ func clipCaptionCues(cues []captions.TimedCue, start, end time.Duration) []capti
 }
 
 var _ captions.VideoCaptions = (*VideoCaptions)(nil)
-
-// captionReference is the same reference clock used by live extraction:
-// the canonical video track, or audio when the video has none.
-func captionReference(meta *Metafile) MetafileTrack {
-	keys := make([]string, 0, len(meta.Tracks))
-	for id := range meta.Tracks {
-		keys = append(keys, id)
-	}
-	sort.Strings(keys)
-	var audio MetafileTrack
-	for _, id := range keys {
-		t := meta.Tracks[id]
-		if t.Type == "video" {
-			return t
-		}
-		if t.Type == "audio" && audio.Timescale == 0 {
-			audio = t
-		}
-	}
-	return audio
-}
 
 func captionTicks(ticks uint64, scale uint32) time.Duration {
 	return time.Duration(ticks/uint64(scale))*time.Second + time.Duration(ticks%uint64(scale))*time.Second/time.Duration(scale)

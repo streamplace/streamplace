@@ -21,8 +21,9 @@ import (
 
 func TestVideoCaptionsMuxlPrecedenceAndLazyTrack(t *testing.T) {
 	ctx := context.Background()
-	eng, err := captions.TextEngine()
+	eng, err := upstream.NewWASM(ctx)
 	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, eng.Close(ctx)) })
 	data, err := os.ReadFile(getFixture("h264-opus-frag.mp4"))
 	require.NoError(t, err)
 	ch := make(chan *upstream.Event, 32)
@@ -91,7 +92,7 @@ func TestVideoCaptionsMuxlPrecedenceAndLazyTrack(t *testing.T) {
 	require.NoError(t, m.UpsertMediaTrack(ctx, placestream.MediaTrack{Track: placestream.MediaTrack_Track{MediaDefs_MuxlTrack: &placestream.MediaDefs_MuxlTrack{Blob: cid, TrackId: "1", MediaType: "video"}}}, syntax.ATURI(trackURI)))
 	require.NoError(t, m.UpsertVideo(ctx, placestream.Video{Source: placestream.Video_Source{MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{Tracks: []comatproto.RepoStrongRef{{Uri: trackURI, Cid: "bafy"}}}}}, syntax.ATURI(video)))
 	for _, source := range []string{"auto", "imported"} {
-		rec := placestream.CaptionTranscript{Subject: comatproto.RepoStrongRef{Uri: video, Cid: "bafy"}, Text: "The mastered text", StartMs: 0, Timings: []int64{100, 100, 200}, Language: "en", Source: source, CreatedAt: "2026-09-30T00:00:00Z"}
+		rec := placestream.CaptionTranscript{Subject: comatproto.RepoStrongRef{Uri: video, Cid: "bafy"}, Text: "The mastered text", StartMs: 0, Timings: []int64{100, 100, 200}, Language: "EN", Source: source, CreatedAt: "2026-09-30T00:00:00Z"}
 		require.NoError(t, m.UpsertCaptionTranscript(ctx, rec, syntax.ATURI("at://did:plc:alice/place.stream.caption.transcript/"+source)))
 	}
 	p := &VideoCaptions{Model: m, Store: store, Records: &records.Provider{Store: m}}

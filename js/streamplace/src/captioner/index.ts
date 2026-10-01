@@ -1,14 +1,12 @@
 import { l } from "@atproto/lex";
 import type { StreamplaceAgent } from "../agent.js";
 import { place } from "../lexicons/index.js";
-export { agree, shouldCommit } from "./agreement.js";
 
 const revision = "4979e04f5dcaccb36057e059bbaed8a2f5288315";
 export type CaptionModel = "tiny" | "base" | "small";
 export type BrowserCue = {
   id: string;
   text: string;
-  stable?: string;
   start: number;
   end: number;
   final: boolean;

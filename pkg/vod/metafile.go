@@ -2,7 +2,6 @@ package vod
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -17,44 +16,6 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 )
-
-// firstTFDT walks the ISO-BMFF boxes of a segment chunk (per-track moof+mdat,
-// possibly prefixed by c2pa/muxl uuid boxes) and returns the
-// baseMediaDecodeTime from the first tfdt box it finds. Minimal walker:
-// recurses into moof/traf containers and skips everything else. ok=false if no
-// tfdt is present or a box uses 64-bit/extends-to-EOF sizing (not expected in
-// canonical MUXL segments).
-func firstTFDT(box []byte) (uint64, bool) {
-	for len(box) >= 8 {
-		size := int(binary.BigEndian.Uint32(box[0:4]))
-		typ := string(box[4:8])
-		if size < 8 || size > len(box) {
-			return 0, false
-		}
-		payload := box[8:size]
-		switch typ {
-		case "moof", "traf":
-			if v, ok := firstTFDT(payload); ok {
-				return v, true
-			}
-		case "tfdt":
-			if len(payload) >= 1 {
-				switch payload[0] { // version
-				case 0:
-					if len(payload) >= 8 {
-						return uint64(binary.BigEndian.Uint32(payload[4:8])), true
-					}
-				case 1:
-					if len(payload) >= 12 {
-						return binary.BigEndian.Uint64(payload[4:12]), true
-					}
-				}
-			}
-		}
-		box = box[size:]
-	}
-	return 0, false
-}
 
 // Metafile is the per-blob HLS playback index emitted alongside a
 // processed VOD blob. JSON shape mirrors what `muxl hls` produces (see
@@ -111,7 +72,6 @@ type MetafileSegment struct {
 	DecodeTimeKnown  bool   `json:"decodeTimeKnown,omitempty"`
 	// Text identity and reference clock belong to this GoP, not to the final
 	// merged catalog or the physical ordering of neighboring byte ranges.
-	CaptionConfigKnown    bool   `json:"captionConfigKnown,omitempty"`
 	CaptionLanguage       string `json:"captionLanguage,omitempty"`
 	CaptionLabel          string `json:"captionLabel,omitempty"`
 	CaptionReferenceTicks uint64 `json:"captionReferenceTicks,omitempty"`
@@ -225,7 +185,7 @@ func (b *metafileBuilder) Observe(ev *muxl.MuxlEvent) error {
 		}
 	case "segment", "signed-segment":
 		refID, scale := catalogCaptionReference(b.catalog, ev.Tracks)
-		refTicks, referenceKnown := firstTFDT(ev.Tracks[refID])
+		refTicks, referenceKnown := muxl.FirstTFDT(ev.Tracks[refID])
 		if b.referenceScale != scale {
 			if b.referenceScale != 0 {
 				b.referenceOffset += captionTicks(b.referenceTicks, b.referenceScale)
@@ -265,7 +225,7 @@ func (b *metafileBuilder) Observe(ev *muxl.MuxlEvent) error {
 			// (tfdt[n] = tfdt[n-1] + duration[n-1]), so this never fires for a
 			// clean single-session recording.
 			disc := false
-			tfdt, known := firstTFDT(chunk)
+			tfdt, known := muxl.FirstTFDT(chunk)
 			if known {
 				if b.tfdtSeen[tid] && tfdt < b.lastTFDT[tid] {
 					disc = true
@@ -283,14 +243,14 @@ func (b *metafileBuilder) Observe(ev *muxl.MuxlEvent) error {
 				DecodeTimeKnown:  known,
 			}
 			if config, ok := b.textConfigs[tid]; ok {
-				entry.CaptionConfigKnown = true
 				entry.CaptionLanguage = config.Language
 				entry.CaptionLabel = config.Label
-				if referenceKnown {
-					entry.CaptionReferenceTicks = refTicks
-					entry.CaptionReferenceScale = scale
-					entry.CaptionOffsetNanos = int64(captionOffset)
+				if !referenceKnown || scale == 0 {
+					return fmt.Errorf("caption reference AV clock missing")
 				}
+				entry.CaptionReferenceTicks = refTicks
+				entry.CaptionReferenceScale = scale
+				entry.CaptionOffsetNanos = int64(captionOffset)
 			}
 			b.trackSegments[tid] = append(b.trackSegments[tid], entry)
 			b.runningOffset += int64(len(chunk))
@@ -363,9 +323,6 @@ func (b *metafileBuilder) Finalize(cid string, size int64) *Metafile {
 		if track.Type == "text" {
 			first := true
 			for _, seg := range segments {
-				if !seg.CaptionConfigKnown {
-					continue
-				}
 				if first {
 					track.Language = seg.CaptionLanguage
 					track.Label = seg.CaptionLabel

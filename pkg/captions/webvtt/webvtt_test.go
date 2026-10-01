@@ -12,7 +12,7 @@ func ms(n int64) time.Duration { return time.Duration(n) * time.Millisecond }
 func TestEncodeVTT(t *testing.T) {
 	cues := []Cue{
 		{ID: "a", Start: ms(1000), End: ms(3500), Text: "Hello <world> & friends"},
-		{Start: ms(3661001), End: ms(3662000), Text: "line one\n\n  line two  ", Settings: "line:90% align:start"},
+		{Start: ms(3661001), End: ms(3662000), Text: "line one\n\n  line two  "},
 		{Start: ms(5000), End: ms(6000), Text: "  \n "}, // nothing to show: dropped
 		{ID: "x --> y\nz", Start: ms(7000), End: ms(8000), Text: "id sanitised"},
 	}
@@ -24,7 +24,7 @@ func TestEncodeVTT(t *testing.T) {
 		"00:00:01.000 --> 00:00:03.500\n"+
 		"Hello &lt;world&gt; &amp; friends\n"+
 		"\n"+
-		"01:01:01.001 --> 01:01:02.000 line:90% align:start\n"+
+		"01:01:01.001 --> 01:01:02.000\n"+
 		"line one\nline two\n"+
 		"\n"+
 		"x -> y z\n"+
@@ -41,10 +41,10 @@ func TestEncodeSRT(t *testing.T) {
 	got := string(EncodeSRT([]Cue{
 		{Start: ms(0), End: ms(1999), Text: "one\r\ntwo"},
 		{Start: ms(2000), End: ms(2500), Text: ""},
-		{Start: ms(100*3600*1000 + 5), End: ms(100*3600*1000 + 1000), Text: "a --> b <i>"},
+		{Start: ms(100*3600*1000 + 5), End: ms(100*3600*1000 + 1000), Text: "long clock"},
 	}))
 	require.Equal(t, "1\n00:00:00,000 --> 00:00:01,999\none\ntwo\n\n"+
-		"2\n100:00:00,005 --> 100:00:01,000\na --> b <i>\n\n", got)
+		"2\n100:00:00,005 --> 100:00:01,000\nlong clock\n\n", got)
 }
 
 func TestEncodeJSON(t *testing.T) {
@@ -79,7 +79,7 @@ func TestParseVTT(t *testing.T) {
 				"intro\r\n00:00:01.000 --> 00:00:02.500 line:90% align:start\r\nHello <b>there</b>\r\nsecond &amp; line\r\n\r\n" +
 				"00:02.500 --> 00:03.000\r\n<v Roger>Short form</v>\r\n\r\n",
 			want: []Cue{
-				{ID: "intro", Start: ms(1000), End: ms(2500), Text: "Hello there\nsecond & line", Settings: "line:90% align:start"},
+				{ID: "intro", Start: ms(1000), End: ms(2500), Text: "Hello there\nsecond & line"},
 				{Start: ms(2500), End: ms(3000), Text: "Short form"},
 			},
 		},
@@ -173,11 +173,17 @@ func TestParseSRT(t *testing.T) {
 		},
 		{
 			name: "dots, short fields, odd arrows, missing numbers, extra blank lines",
-			in:   "\n\n\n00:00:01.5 -> 0:0:2.25\nrough\n\n\n\n3\n1:02:03,004 ---> 1:02:04,000\n{\\an8}<i>styled</i> &amp; fine\n",
+			in:   "\n\n\n00:00:01.5 -> 0:0:2.25\nrough\n\n\n\n3\n1:02:03,004 ---> 1:02:04,000\n<i>styled</i> &amp; fine\n",
 			want: []Cue{
 				{Start: ms(1500), End: ms(2250), Text: "rough"},
-				{Start: ms(3723004), End: ms(3724000), Text: "styled & fine"},
+				{Start: ms(3723004), End: ms(3724000), Text: "styled &amp; fine"},
 			},
+		},
+		{
+			name: "formatting tags stripped but non-formatting tags and entities stay literal",
+			in: "1\n00:00:01,000 --> 00:00:02,000\n" +
+				`<I>italic</I> <b>bold</b> <u>underline</u> <font color="red">font</font> A & B > C <3 &amp; &#65; <widget>x</widget> {\an8}` + "\n",
+			want: []Cue{{Start: ms(1000), End: ms(2000), Text: `italic bold underline font A & B > C <3 &amp; &#65; <widget>x</widget> {\an8}`}},
 		},
 		{
 			name: "a number that is cue text stays text",
@@ -188,14 +194,14 @@ func TestParseSRT(t *testing.T) {
 			},
 		},
 		{
-			name: "out of order, end before start, empty text, settings kept",
+			name: "out of order, end before start, empty text, settings ignored",
 			in: "2\n00:00:05,000 --> 00:00:06,000 X1:100\nlate\n\n" +
 				"3\n00:00:07,000 --> 00:00:06,000\nbackwards\n\n" +
 				"4\n00:00:08,000 --> 00:00:09,000\n\n" +
 				"1\n00:00:01,000 --> 00:00:02,000\nearly\n",
 			want: []Cue{
 				{Start: ms(1000), End: ms(2000), Text: "early"},
-				{Start: ms(5000), End: ms(6000), Text: "late", Settings: "X1:100"},
+				{Start: ms(5000), End: ms(6000), Text: "late"},
 			},
 		},
 	}
@@ -222,34 +228,25 @@ func TestParseSRTErrors(t *testing.T) {
 	}
 }
 
-func TestParseDetectsFormat(t *testing.T) {
-	cues, f, err := Parse([]byte("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nvtt\n"))
-	require.NoError(t, err)
-	require.Equal(t, FormatVTT, f)
-	require.Equal(t, "vtt", cues[0].Text)
-
-	cues, f, err = Parse([]byte("1\n00:00:01,000 --> 00:00:02,000\nsrt\n"))
-	require.NoError(t, err)
-	require.Equal(t, FormatSRT, f)
-	require.Equal(t, "srt", cues[0].Text)
-}
-
-// Text with markup characters survives encode then parse in both formats.
+// Plain text round-trips; SRT formatting tags are interpreted, unlike escaped VTT.
 func TestRoundTrip(t *testing.T) {
 	in := []Cue{
 		{ID: "1", Start: ms(1000), End: ms(2000), Text: "a < b && c > d\nsecond line"},
 		{ID: "2", Start: ms(2000), End: ms(3500), Text: "a --> b"},
+		{ID: "3", Start: ms(3500), End: ms(4000), Text: "<i>hello</i> &amp; &#65;"},
+		{ID: "4", Start: ms(4000), End: ms(4500), Text: "A & B > C <3 <widget>literal</widget>"},
 	}
-	cues, f, err := Parse(EncodeVTT(in, &TimestampMap{MPEGTS: 90000}))
+	cues, err := ParseVTT(EncodeVTT(in, &TimestampMap{MPEGTS: 90000}))
 	require.NoError(t, err)
-	require.Equal(t, FormatVTT, f)
 	require.Equal(t, in, cues)
 
-	cues, _, err = Parse(EncodeSRT(in))
+	cues, err = ParseSRT(EncodeSRT(in))
 	require.NoError(t, err)
 	// SRT carries no cue ids.
+	wantSRT := []string{in[0].Text, in[1].Text, "hello &amp; &#65;", in[3].Text}
 	for i := range in {
-		require.Equal(t, in[i].Text, cues[i].Text)
+		require.Equal(t, wantSRT[i], cues[i].Text)
 		require.Equal(t, in[i].Start, cues[i].Start)
+		require.Equal(t, in[i].End, cues[i].End)
 	}
 }

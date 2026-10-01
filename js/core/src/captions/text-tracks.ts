@@ -1,7 +1,16 @@
 import type { ElementCaptionTrack } from "./tracks";
 
-// WebVTT cue text may carry markup (<v Speaker>, <i>, <c.class>); caption
-// overlays draw plain lines.
+// WebVTT cue text may carry markup (<v Speaker>, <i>, <c.class>) and
+// character references; caption overlays draw plain lines.
+const WEBVTT_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  nbsp: "\u00a0",
+  lrm: "\u200e",
+  rlm: "\u200f",
+};
+
 function cueLines(cues: TextTrackCueList | null): string[] {
   if (!cues) return [];
   const lines: string[] = [];
@@ -15,15 +24,7 @@ function cueLines(cues: TextTrackCueList | null): string[] {
             .replace(/<[^>]*>/g, "")
             .replace(
               /&(amp|lt|gt|nbsp|lrm|rlm);/g,
-              (_, name: string) =>
-                ({
-                  amp: "&",
-                  lt: "<",
-                  gt: ">",
-                  nbsp: "\u00a0",
-                  lrm: "\u200e",
-                  rlm: "\u200f",
-                })[name] ?? "",
+              (_, name: string) => WEBVTT_ENTITIES[name],
             );
     for (const line of text.split("\n")) {
       if (line.trim() !== "") lines.push(line);

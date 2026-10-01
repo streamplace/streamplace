@@ -5,28 +5,11 @@ import { getPDSServiceEndpoint, resolveDIDDocument } from "../../did";
 import { AppStore } from "../index";
 
 export interface ContentMetadataSlice {
-  creating: boolean;
-  updating: boolean;
+  saving: boolean;
   error: string | null;
   lastCreatedRecord: any | null;
   // actions
-  createContentMetadata: (params: {
-    captionPolicy?: CaptionPolicy;
-    contentWarnings?: string[];
-    distributionPolicy?: {
-      deleteAfter?: number;
-      allowGenAiTraining?: boolean;
-      allowedBroadcasters?: string[];
-    };
-    contentRights?: {
-      creator?: string;
-      copyrightNotice?: string;
-      copyrightYear?: number;
-      license?: string;
-      creditLine?: string;
-    };
-  }) => Promise<void>;
-  updateContentMetadata: (params: {
+  saveContentMetadata: (params: {
     captionPolicy?: CaptionPolicy;
     rkey?: string;
     livestreamRef?: { uri: string; cid: string };
@@ -53,7 +36,7 @@ export interface ContentMetadataSlice {
 
 function mergeMetadata(
   existing: place.stream.metadata.configuration.Main | undefined,
-  params: Parameters<ContentMetadataSlice["updateContentMetadata"]>[0],
+  params: Parameters<ContentMetadataSlice["saveContentMetadata"]>[0],
 ) {
   return {
     ...existing,
@@ -85,73 +68,19 @@ export const createContentMetadataSlice: StateCreator<
   [],
   ContentMetadataSlice
 > = (set, get) => ({
-  creating: false,
-  updating: false,
+  saving: false,
   error: null,
   lastCreatedRecord: null,
 
-  createContentMetadata: async ({
-    contentWarnings,
-    distributionPolicy,
-    contentRights,
-    captionPolicy,
-  }) => {
-    set({ creating: true, error: null });
-    try {
-      const { pdsAgent, oauthSession } = get();
-      if (!pdsAgent) {
-        throw new Error("No agent");
-      }
-
-      const did = oauthSession?.did;
-      if (!did) {
-        throw new Error("No DID");
-      }
-
-      const metadataRecord = mergeMetadata(get().lastCreatedRecord?.record, {
-        contentWarnings,
-        distributionPolicy,
-        contentRights,
-        captionPolicy,
-      });
-
-      const result = await pdsAgent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: "place.stream.metadata.configuration",
-        rkey: "self",
-        record: metadataRecord,
-      });
-
-      const rkey = result.data.uri.split("/").pop();
-
-      set({
-        creating: false,
-        error: null,
-        lastCreatedRecord: {
-          record: metadataRecord,
-          uri: result.data.uri,
-          cid: result.data.cid,
-          rkey,
-        },
-      });
-    } catch (error: any) {
-      set({
-        creating: false,
-        error: error?.message ?? "Failed to create content metadata",
-      });
-      throw error;
-    }
-  },
-
-  updateContentMetadata: async ({
-    rkey,
+  saveContentMetadata: async ({
+    rkey = "self",
     livestreamRef,
     contentWarnings,
     distributionPolicy,
     contentRights,
     captionPolicy,
   }) => {
-    set({ updating: true, error: null });
+    set({ saving: true, error: null });
     try {
       const { pdsAgent, oauthSession } = get();
       if (!pdsAgent) {
@@ -174,25 +103,24 @@ export const createContentMetadataSlice: StateCreator<
       const result = await pdsAgent.com.atproto.repo.putRecord({
         repo: did,
         collection: "place.stream.metadata.configuration",
-        rkey: rkey || "self",
+        rkey,
         record: metadataRecord,
       });
 
       set({
-        updating: false,
+        saving: false,
         error: null,
         lastCreatedRecord: {
           record: metadataRecord,
-          uri: `at://${did}/place.stream.metadata.configuration/${
-            rkey || "self"
-          }`,
+          uri: result.data.uri,
+          rkey,
           cid: result.data.cid,
         },
       });
     } catch (error: any) {
       set({
-        updating: false,
-        error: error?.message ?? "Failed to update content metadata",
+        saving: false,
+        error: error?.message ?? "Failed to save content metadata",
       });
       throw error;
     }

@@ -122,10 +122,18 @@ func (p *Provider) Cues(ctx context.Context, video, trackID string) ([]captions.
 		if err != nil {
 			return nil, err
 		}
+		var cues []captions.TimedCue
 		if authoredSource(g.track.Source) {
-			return transcript.AuthoredCues(words), nil
+			cues = transcript.AuthoredCues(words)
+		} else {
+			cues = transcript.Cues(words, p.CueOptions)
 		}
-		return transcript.Cues(words, p.CueOptions), nil
+		if g.class == classClip {
+			for i := range cues {
+				cues[i].End = min(cues[i].End, v.clipEnd-v.clipStart)
+			}
+		}
+		return cues, nil
 	}
 	return nil, ErrTrackNotFound
 }
@@ -190,7 +198,7 @@ func (p *Provider) view(ctx context.Context, videoURI string) (*videoView, error
 			if !trusted[row.RepoDID] {
 				continue
 			}
-			k := key{row.RepoDID, row.Language, row.Kind, row.Source}
+			k := key{row.RepoDID, strings.ToLower(row.Language), row.Kind, row.Source}
 			g := byKey[k]
 			// Subjects are visited in precedence order, so a track that was
 			// first seen at one class ignores rows of the lower classes.
@@ -337,6 +345,7 @@ func shiftWords(ws []transcript.Word, delta, limit int64) []transcript.Word {
 			continue
 		}
 		w.StartMs = max(w.StartMs, 0)
+		w.EndMs = min(w.EndMs, limit)
 		out = append(out, w)
 	}
 	return out

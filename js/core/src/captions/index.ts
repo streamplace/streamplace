@@ -7,3 +7,4 @@ export * from "./policy";
 export * from "./prefs";
 export * from "./text-tracks";
 export * from "./tracks";
+export * from "./use-caption-time";

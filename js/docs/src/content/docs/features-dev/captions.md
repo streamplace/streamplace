@@ -28,6 +28,12 @@ immutable configuration during the ingest session. A track replaced by another
 source continues with empty text segments rather than changing its metadata.
 Cue pieces crossing GoP boundaries retain their identity and are clipped to the
 corresponding GoP ranges.
+Origin text tracks start at reserved numeric ID 100, above node-added AV
+renditions. Continuous audio completion decodes only AV tracks; late text
+declarations remain in signed source bytes and completed archival segments.
+Every policy stamps GoPs on the media clock, anchored to the first fragment's
+arrival, not signing time; drift over one second reanchors the next GoP.
+Pushed wall-clock cues use the inverse mapping.
 
 MUXL cue times are absolute **media-timeline milliseconds**, not Unix time.
 For live delivery the conversion is:
@@ -43,11 +49,22 @@ records for text tracks alongside their audio/video tracks. VOD lookup reads
 MUXL text cues on the video's AV timeline and merges them with indexed
 transcript records. A matching transcript copy of the streamer's mastered text
 is deduplicated; imports and differently authored tracks remain available.
+Indexes retain each segment's language/source and explicit containing-GoP
+reference clock. Reused numeric IDs after reconnect cannot relabel old captions.
+Archives must use ascending numeric track-ID order within each GoP; the indexer
+rejects noncanonical ordering rather than rewriting signed bytes. Track records
+are published by `publishDraft`, not while the video remains a draft.
 
 The convention and time conversion are implemented in
 [`pkg/captions/muxl.go`](https://github.com/streamplace/streamplace/blob/main/pkg/captions/muxl.go);
 origin attachment is in
 [`pkg/media/captions_master.go`](https://github.com/streamplace/streamplace/blob/main/pkg/media/captions_master.go).
+The ingest audio decoder accepts fMP4 runs with explicit `trun.data_offset` and
+an explicit or default-moof `traf` base; unsupported implicit subsequent-traf
+addressing is rejected. Sample counts must fit their encoded entries and paired
+`mdat`, rather than trusting declared counts. Embedded caption decoding discards
+incomplete CEA-708 packets; CEA-608 end-of-caption swaps memories without clearing
+them (erase-nondisplayed-memory clears the back buffer).
 
 ## Compact transcript records
 
@@ -68,16 +85,30 @@ For example, `startMs: 1000`, `text: "Hello world"`, and
 For a livestream subject, all chunks repeat **`mediaStart`**, the wall-clock
 start of the session's first segment. `startMs` is relative to that instant.
 For a video subject, `mediaStart` is absent and offsets are relative to video
-start. A strong reference in `subject` identifies the livestream or video;
-`track` can identify the canonical media text track being mirrored. Use the
-generated reference for the remaining fields and record limits rather than
-assuming a transcript fits in one record.
+start. A strong reference in `subject` identifies the livestream or video.
+Use the generated reference for the remaining fields and record limits rather
+than assuming a transcript fits in one record.
 
 Canonical records are published by the origin in the **streamer's repository**
 through their stored OAuth session. Imported VOD captions also live there.
 Node-generated sidecars are published in the **generating node's server
 repository**, with node attribution preserved through relays. Republishing a
 received sidecar as the receiving node's transcript would lose that attribution.
+For retry, overflow reconciliation, and shutdown guarantees, see
+[transcript delivery](/docs/guides/installing/captions/#transcript-delivery-and-shutdown).
+
+Imported SRT/WebVTT and human records preserve long cues, adjacent boundaries,
+and authored line breaks. Their cues split at explicit silence gaps; imports
+encode a 1 ms gap between otherwise adjacent cues by shortening the preceding
+final word (or moving the next start 1 ms if that word is already 1 ms).
+Automatic and ingest transcripts retain broadcast display layout. VTT, SRT,
+JSON, VOD HLS, and overlays share the same record provider.
+Live and transcript automatic/ingest cues share greedy word-boundary line fitting;
+only a single overlong word can exceed the line limit. WebVTT timing settings
+are ignored on import. SRT downloads write raw text; imports preserve entities
+literally and strip only `<i>`, `<b>`, `<u>`, and `<font …>` formatting tags.
+Literal text shaped like those formatting tags is treated as formatting.
+WebVTT instead escapes text on export and decodes it on import.
 
 The encoding is implemented in
 [`pkg/captions/transcript/transcript.go`](https://github.com/streamplace/streamplace/blob/main/pkg/captions/transcript/transcript.go),
@@ -107,6 +138,10 @@ and [`place_stream_playback_captions.go`](https://github.com/streamplace/streamp
 wall-clock `startTime`/`endTime`, text, ID, and `final` state. Clients replace
 an earlier cue with the same ID rather than displaying it twice. Interim text
 can be revised; canonical GoP pieces are coalesced into the same cue.
+Final text and start time are immutable. A matching canonical final with the
+same track and cue ID may extend its end time monotonically across GoPs;
+clients must accept that continuation without accepting late interim or text
+revisions.
 
 New connections receive recent final cues (roughly the last ten seconds),
 not the complete transcript. Public websocket captions are gated by the
@@ -124,6 +159,10 @@ The server opens the channel and can also serve a viewer-opened channel with
 that label. Public viewers receive only published-live cues; owner preview
 access follows the WHEP session's viewer identity.
 
+Fallback player caption clocks freeze only on an explicit pause. Connection
+statuses such as starting, waiting, or stalled do not themselves mean the viewer
+paused playback and must not prevent incoming live cues from being presented.
+
 See
 [`pkg/media/webrtc_captions.go`](https://github.com/streamplace/streamplace/blob/main/pkg/media/webrtc_captions.go).
 
@@ -134,6 +173,13 @@ websocket, `captions=1` opts into JSON text frames carrying
 `place.stream.caption.sidecar#event`, alongside binary media frames. Relays
 preserve the original node author and signed segment-clock timing, and honor
 `allowNodeCaptions` from validated stream metadata before distribution.
+Receivers derive track IDs from origin/source/language and bind authors to the
+connected upstream's server DID. Replay before the first media segment stays
+private until its signed policy is validated. Incoming canonical tracks remove
+competing sidecars and stop recognition. The hub rejects cross-origin ID
+collisions, stores only finals, and bounds track count/history; viewer delivery
+remains nonblocking. Websocket replication is the implemented origin pull path;
+Iroh currently has no segment transport.
 
 ## API references
 

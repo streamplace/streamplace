@@ -11,7 +11,7 @@ import (
 )
 
 func TestCaptionBufferBackpressureAndAbort(t *testing.T) {
-	b := newIngestByteBuffer()
+	b := newIngestByteBuffer(context.Background())
 	prefix := bytes.Repeat([]byte{'a'}, 32*1024*1024)
 	_, err := b.Write(prefix)
 	require.NoError(t, err)

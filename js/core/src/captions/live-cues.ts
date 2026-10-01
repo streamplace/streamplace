@@ -1,4 +1,5 @@
 import { place } from "streamplace";
+import type { CaptionTrackOption } from "./tracks";
 
 /** A live cue as the player keeps it. */
 export interface LiveCaption {
@@ -37,9 +38,8 @@ export const LIVE_CAPTION_MAX_LINES = 2;
 const LIVE_CAPTION_RETAIN_MS = 30000;
 
 /**
- * Applies one place.stream.caption.defs#liveCue. A cue replaces an earlier
- * version with the same track and cue ids, unless that version was final
- * (finals never change, so a late interim must not overwrite one).
+ * Applies one place.stream.caption.defs#liveCue. Final text/start are
+ * immutable; matching canonical finals may extend their end across GoPs.
  */
 export function reduceLiveCaption(
   cues: Record<string, LiveCaption>,
@@ -57,7 +57,22 @@ export function reduceLiveCaption(
   }
   const key = JSON.stringify([cue.track.id, cue.id]);
   const existing = next[key];
-  if (existing?.final) return next;
+  if (existing?.final) {
+    if (
+      cue.track.origin === "canonical" &&
+      cue.final &&
+      cue.text === existing.text &&
+      Date.parse(cue.startTime) === existing.startMs &&
+      Date.parse(cue.endTime) > existing.endMs
+    ) {
+      next[key] = {
+        ...existing,
+        endMs: Date.parse(cue.endTime),
+        updatedAt: now,
+      };
+    }
+    return next;
+  }
   const startMs = Date.parse(cue.startTime);
   const endMs = Date.parse(cue.endTime);
   next[key] = {
@@ -106,4 +121,34 @@ export function displayLiveCaptions(
         Math.max(LIVE_CAPTION_HOLD_MS, latest.endMs - latest.startMs)
     ? [latest]
     : [];
+}
+
+/** Follow the newest displayable canonical speech, else a sidecar. */
+export function selectLiveCaptionTrack(
+  options: CaptionTrackOption[],
+  selectedId: string | null,
+  cues: Record<string, LiveCaption>,
+  now: number,
+  display = activeLiveCaptions,
+): CaptionTrackOption | null {
+  if (selectedId)
+    return options.find((track) => track.id === selectedId) ?? null;
+  let selected: CaptionTrackOption | null = null;
+  let latest: LiveCaption | undefined;
+  for (const track of options) {
+    const cue = display(cues, track.id, now).at(-1);
+    if (!cue) continue;
+    if (
+      !selected ||
+      (track.origin === "canonical" && selected.origin !== "canonical") ||
+      (track.origin === selected.origin &&
+        (cue.updatedAt > latest!.updatedAt ||
+          (cue.updatedAt === latest!.updatedAt &&
+            cue.startMs > latest!.startMs)))
+    ) {
+      selected = track;
+      latest = cue;
+    }
+  }
+  return selected;
 }

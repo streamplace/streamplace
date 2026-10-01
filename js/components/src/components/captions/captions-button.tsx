@@ -1,3 +1,4 @@
+import { captionLanguageName } from "@streamplace/core";
 import { Captions, CaptionsOff, ChevronDown } from "lucide-react-native";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,42 +18,29 @@ import { Text } from "../ui/text";
 import { CaptionSettings } from "./caption-settings";
 import {
   useCaptionSelection,
-  useCaptionTrackLabel,
   useSetCaptionTrack,
   useToggleCaptions,
 } from "./use-captions";
 
 const OFF = "off";
 
-/**
- * The player's CC toggle and track menu, plus caption style settings.
- *
- * `onOpenSettings` replaces the built-in settings dialog, e.g. to
- * navigate to the app's Captions settings page.
- */
+/** The player's CC toggle and track menu, plus caption style settings. */
 export function CaptionsButton({
   dropdownPortalContainer,
-  onOpenSettings,
   size,
 }: {
   dropdownPortalContainer?: string;
-  onOpenSettings?: () => void;
   size?: number;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   const { tracks, track, enabled } = useCaptionSelection();
   const setTrack = useSetCaptionTrack();
-  const trackLabel = useCaptionTrackLabel();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const toggle = useToggleCaptions();
 
   const on = enabled;
   const Icon = on ? Captions : CaptionsOff;
-  const openSettings = () => {
-    if (onOpenSettings) onOpenSettings();
-    else setSettingsOpen(true);
-  };
 
   return (
     <>
@@ -109,22 +97,36 @@ export function CaptionsButton({
                   >
                     <Text>{t("player-captions-off")}</Text>
                   </DropdownMenuRadioItem>
-                  {tracks.map((tr) => (
-                    <DropdownMenuRadioItem
-                      key={tr.id}
-                      value={tr.id}
-                      testID={`player-cc-track-${tr.id}`}
-                      closeOnPress
-                    >
-                      <Text>{trackLabel(tr)}</Text>
-                    </DropdownMenuRadioItem>
-                  ))}
+                  {tracks.map((tr) => {
+                    const name = captionLanguageName(
+                      tr.language,
+                      i18n.language,
+                    );
+                    const base =
+                      name === tr.language && tr.label ? tr.label : name;
+                    return (
+                      <DropdownMenuRadioItem
+                        key={tr.id}
+                        value={tr.id}
+                        testID={`player-cc-track-${tr.id}`}
+                        closeOnPress
+                      >
+                        <Text>
+                          {tr.source === "auto"
+                            ? t("player-captions-track-auto", {
+                                language: base,
+                              })
+                            : base}
+                        </Text>
+                      </DropdownMenuRadioItem>
+                    );
+                  })}
                 </DropdownMenuRadioGroup>
               </DropdownMenuGroup>
               <DropdownMenuGroup>
                 <DropdownMenuItem
                   closeOnPress={true}
-                  onPress={openSettings}
+                  onPress={() => setSettingsOpen(true)}
                   testID="player-cc-settings"
                 >
                   <Text>{t("player-captions-style")}</Text>
@@ -134,20 +136,18 @@ export function CaptionsButton({
           </ResponsiveDropdownMenuContent>
         </DropdownMenu>
       </View>
-      {!onOpenSettings && (
-        <ResponsiveDialog
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          title={t("player-captions-style")}
-          showCloseButton
-          variant="default"
-          size="md"
-        >
-          <ScrollView>
-            <CaptionSettings />
-          </ScrollView>
-        </ResponsiveDialog>
-      )}
+      <ResponsiveDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        title={t("player-captions-style")}
+        showCloseButton
+        variant="default"
+        size="md"
+      >
+        <ScrollView>
+          <CaptionSettings />
+        </ScrollView>
+      </ResponsiveDialog>
     </>
   );
 }

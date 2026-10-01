@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"regexp"
 	"time"
 
@@ -128,7 +127,6 @@ func NewNodeWriter(cli *config.CLI, hub *captions.Hub, m model.Model, clients Cl
 		NodeDID:   cli.ServerDID(),
 		Subject:   LatestLivestream(m),
 		Publisher: &RepoPublisher{CLI: cli, Clients: clients},
-		OutboxDir: filepath.Join(cli.DataDir, "captions", "transcripts"),
 		Index: func(ctx context.Context, rec *placestream.CaptionTranscript, uri string) error {
 			return m.UpsertCaptionTranscript(ctx, *rec, syntax.ATURI(uri))
 		},

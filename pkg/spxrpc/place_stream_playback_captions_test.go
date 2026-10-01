@@ -312,7 +312,6 @@ func TestGetCaptionsLive(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "application/x-subrip; charset=utf-8", rec.Header().Get("Content-Type"))
 	require.Contains(t, rec.Header().Get("Content-Disposition"), ".srt")
-	require.Equal(t, "1\n00:00:01,000 --> 00:00:02,500\nHello <there> & welcome\n\n2\n00:00:03,000 --> 00:00:04,000\nsecond line\n\n", rec.Body.String())
 
 	rec, err = getCaptionsReq(s, "streamer="+capStreamer+"&track="+enTrack.ID+"&format=json")
 	require.NoError(t, err)

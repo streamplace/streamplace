@@ -2,11 +2,10 @@
 // download and HLS subtitle segments, and a JSON cue list for programmatic
 // consumers.
 //
-// Cue text in this package is plain text with "\n" line breaks. Encoders
-// escape it for the target format; parsers strip markup (tags, SRT styling)
-// and decode entities back to plain text, so cues round-trip through either
-// format. Line breaking and cue splitting are the caller's business: the
-// encoders write the cues they are given.
+// Cue text is plain text with "\n" line breaks. WebVTT escapes markup and
+// decodes entities on import. SRT writes text without entity escaping; imports
+// strip its formatting tags, so literal tag-shaped formatting is not retained.
+// Line breaking and cue splitting are the caller's business.
 package webvtt
 
 import (
@@ -28,9 +27,6 @@ type Cue struct {
 	Start time.Duration
 	End   time.Duration
 	Text  string
-	// Settings holds raw WebVTT cue settings ("line:90% align:start") kept
-	// from imports. The encoder writes them back unchanged.
-	Settings string
 }
 
 // TimestampMap is the WebVTT X-TIMESTAMP-MAP header (RFC 8216 §3.5): the cue
@@ -65,20 +61,15 @@ func EncodeVTT(cues []Cue, tm *TimestampMap) []byte {
 			b.WriteString(id)
 			b.WriteString("\n")
 		}
-		fmt.Fprintf(&b, "%s --> %s", FormatVTTTime(c.Start), FormatVTTTime(c.End))
-		if s := strings.TrimSpace(strings.NewReplacer("\r", " ", "\n", " ").Replace(c.Settings)); s != "" {
-			b.WriteString(" ")
-			b.WriteString(s)
-		}
-		b.WriteString("\n")
+		fmt.Fprintf(&b, "%s --> %s\n", FormatVTTTime(c.Start), FormatVTTTime(c.End))
 		b.WriteString(text)
 		b.WriteString("\n\n")
 	}
 	return b.Bytes()
 }
 
-// EncodeSRT writes cues as a SubRip document, numbered from 1. Empty cues are
-// dropped.
+// EncodeSRT writes cues as a SubRip document, numbered from 1, without entity
+// escaping. Empty cues are dropped; SRT consumers interpret formatting tags.
 func EncodeSRT(cues []Cue) []byte {
 	var b bytes.Buffer
 	n := 0

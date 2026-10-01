@@ -192,7 +192,7 @@ export function Player({
   const [stats, setStats] = useState<PlayerStats | null>(null);
   // Stable per-mount id for video playback
   const [sessionId] = useSonare();
-  const captions = usePlayerCaptions(videoRef, captionSource, active);
+  const captions = usePlayerCaptions(videoRef, captionSource, active, !playing);
   const captionPrefs = useAppStore((s) => s.captionPrefs);
 
   // Refs so the video event-listener effect below doesn't have to list

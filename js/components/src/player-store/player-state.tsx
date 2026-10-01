@@ -61,8 +61,8 @@ export interface PlayerState {
   /** Active cue lines of the selected element TextTrack (web). */
   captionElementLines: string[];
   setCaptionElementLines: (lines: string[]) => void;
-  /** The track the viewer picked in this player, by option id; null
-   *  follows the preferred caption language. */
+  /** The viewer's explicit track id; null follows live caption sources
+   *  or the preferred caption language on VOD. */
   captionTrackId: string | null;
   setCaptionTrackId: (id: string | null) => void;
   protocol: PlayerProtocol;

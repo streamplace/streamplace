@@ -64,11 +64,11 @@ func TestCaptionTranscriptIndex(t *testing.T) {
 	})
 
 	t.Run("kind defaults to captions and the record decodes back", func(t *testing.T) {
-		row, err := m.GetCaptionTranscriptByURI(ctx, early)
+		rows, err := m.GetCaptionTranscriptsForRepoSubject(ctx, "did:plc:alice", video)
 		require.NoError(t, err)
-		require.Equal(t, "captions", row.Kind)
-		require.Nil(t, row.MediaStart)
-		rec, err := row.ToRecord()
+		require.Equal(t, "captions", rows[0].Kind)
+		require.Nil(t, rows[0].MediaStart)
+		rec, err := rows[0].ToRecord()
 		require.NoError(t, err)
 		require.Equal(t, "earlier", rec.Text)
 		require.Equal(t, []int64{100}, rec.Timings)
@@ -80,23 +80,23 @@ func TestCaptionTranscriptIndex(t *testing.T) {
 		kind := "subtitles"
 		rec.MediaStart, rec.Kind = &start, &kind
 		uri := put("did:plc:alice", "live1", rec)
-		row, err := m.GetCaptionTranscriptByURI(ctx, uri)
+		rows, err := m.GetCaptionTranscriptsBySubject(ctx, live)
 		require.NoError(t, err)
-		require.Equal(t, "subtitles", row.Kind)
-		require.NotNil(t, row.MediaStart)
-		require.True(t, row.MediaStart.Equal(time.Date(2026, 9, 30, 12, 34, 56, 789_000_000, time.UTC)))
+		require.Len(t, rows, 1)
+		require.Equal(t, uri, rows[0].URI)
+		require.Equal(t, "subtitles", rows[0].Kind)
+		require.NotNil(t, rows[0].MediaStart)
+		require.True(t, rows[0].MediaStart.Equal(time.Date(2026, 9, 30, 12, 34, 56, 789_000_000, time.UTC)))
 	})
 
 	t.Run("an update replaces the row", func(t *testing.T) {
 		put("did:plc:alice", "a", captionRec(video, "en", "human", 0, "corrected"))
-		row, err := m.GetCaptionTranscriptByURI(ctx, early)
-		require.NoError(t, err)
-		rec, err := row.ToRecord()
-		require.NoError(t, err)
-		require.Equal(t, "corrected", rec.Text)
 		rows, err := m.GetCaptionTranscriptsBySubject(ctx, video)
 		require.NoError(t, err)
 		require.Len(t, rows, 3)
+		rec, err := rows[0].ToRecord()
+		require.NoError(t, err)
+		require.Equal(t, "corrected", rec.Text)
 	})
 
 	t.Run("delete removes only that chunk", func(t *testing.T) {
@@ -104,9 +104,7 @@ func TestCaptionTranscriptIndex(t *testing.T) {
 		rows, err := m.GetCaptionTranscriptsBySubject(ctx, video)
 		require.NoError(t, err)
 		require.Len(t, rows, 2)
-		gone, err := m.GetCaptionTranscriptByURI(ctx, late)
-		require.NoError(t, err)
-		require.Nil(t, gone)
+		require.Equal(t, []string{early, node}, []string{rows[0].URI, rows[1].URI})
 	})
 
 	t.Run("a bad media start is refused", func(t *testing.T) {

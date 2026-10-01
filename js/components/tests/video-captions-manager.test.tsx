@@ -5,10 +5,15 @@ import { VideoCaptionsManager } from "../src/components/captions/video-captions-
 
 const boundary = vi.hoisted(() => ({
   call: vi.fn(),
+  os: "android",
   rejected: undefined as unknown,
 }));
 vi.mock("react-native", () => ({
-  Platform: { OS: "android" },
+  Platform: {
+    get OS() {
+      return boundary.os;
+    },
+  },
   Linking: { openURL: vi.fn() },
   View: ({ children }: { children: ReactNode }) =>
     createElement("div", {}, children),
@@ -118,6 +123,48 @@ it("contains picker rejection, restores the upload button, and allows a later su
     });
     expect(container.textContent).toContain("vod-captions-uploaded");
     expect(container.textContent).not.toContain("vod-captions-error-upload");
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+  }
+});
+
+it("restores upload after browser cancellation and accepts a later file", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  boundary.os = "web";
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  let input: HTMLInputElement;
+  vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(function () {
+    input = this;
+  });
+  try {
+    await act(async () => {
+      root.render(
+        <VideoCaptionsManager video="at://did:plc:owner/place.stream.video/video" />,
+      );
+    });
+    await act(async () => container.querySelector("button")!.click());
+    const upload = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "vod-captions-upload",
+    )!;
+    await act(async () => upload.click());
+    expect(upload.disabled).toBe(true);
+    await act(async () => input.dispatchEvent(new Event("cancel")));
+    expect(upload.disabled).toBe(false);
+    expect(boundary.call).not.toHaveBeenCalled();
+    await act(async () => upload.click());
+    Object.defineProperty(input!, "files", {
+      value: [
+        {
+          name: "speech.vtt",
+          text: async () => "WEBVTT\n\n00:00.000 --> 00:01.000\nSpeech",
+        },
+      ],
+    });
+    await act(async () => input.dispatchEvent(new Event("change")));
+    expect(container.textContent).toContain("vod-captions-uploaded");
   } finally {
     await act(async () => root.unmount());
     container.remove();

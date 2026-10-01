@@ -11,14 +11,6 @@ import (
 	"unicode/utf8"
 )
 
-// Format is a caption file format.
-type Format string
-
-const (
-	FormatVTT Format = "vtt"
-	FormatSRT Format = "srt"
-)
-
 var (
 	// ErrNotWebVTT is returned by ParseVTT when the file has no WEBVTT header.
 	ErrNotWebVTT = errors.New("webvtt: missing WEBVTT header")
@@ -26,21 +18,10 @@ var (
 	ErrNoCues = errors.New("webvtt: no cues found")
 )
 
-// Parse parses a caption file in either format: WebVTT when it starts with a
-// WEBVTT header, SubRip otherwise.
-func Parse(data []byte) ([]Cue, Format, error) {
-	if hasVTTHeader(normalize(data)) {
-		cues, err := ParseVTT(data)
-		return cues, FormatVTT, err
-	}
-	cues, err := ParseSRT(data)
-	return cues, FormatSRT, err
-}
-
 // ParseVTT parses a WebVTT document. It skips the header block (including
 // X-TIMESTAMP-MAP and metadata) and NOTE, STYLE, and REGION blocks, and keeps
-// cue identifiers and settings. Cue timestamps may omit hours. Blocks that
-// are not well-formed cues are skipped rather than failing the file, so an
+// cue identifiers, ignoring timing settings. Cue timestamps may omit hours.
+// Blocks that are not well-formed cues are skipped rather than failing the file, so an
 // import survives a few bad cues; cues without text or with an end before
 // their start are dropped. Markup in cue text is stripped and entities are
 // decoded. The result is sorted by start time.
@@ -69,11 +50,11 @@ func ParseVTT(data []byte) ([]Cue, error) {
 			id = strings.TrimSpace(first)
 			timing = 1
 		}
-		start, end, settings, ok := parseTimingLine(block[timing])
+		start, end, ok := parseTimingLine(block[timing])
 		if !ok {
 			continue
 		}
-		if c, ok := newCue(id, start, end, settings, block[timing+1:]); ok {
+		if c, ok := newCue(id, start, end, cleanText(strings.Join(block[timing+1:], "\n"))); ok {
 			cues = append(cues, c)
 		}
 	}
@@ -85,20 +66,20 @@ func ParseVTT(data []byte) ([]Cue, error) {
 // numbers, "." instead of "," before the milliseconds, one- and two-digit
 // fields, "->" arrows, and WebVTT-style settings after the timing. A cue's
 // text runs from its timing line to the next blank line or timing line.
-// Styling tags ("<i>", "{\an8}") are stripped and entities decoded. Cues
+// Formatting tags (<i>, <b>, <u>, <font ...>) are stripped; entities stay literal. Cues
 // without text or with an end before their start are dropped. The result is
 // sorted by start time.
 func ParseSRT(data []byte) ([]Cue, error) {
 	lines := strings.Split(normalize(data), "\n")
 	var cues []Cue
 	for i := 0; i < len(lines); i++ {
-		start, end, settings, ok := parseTimingLine(lines[i])
+		start, end, ok := parseTimingLine(lines[i])
 		if !ok {
 			continue
 		}
 		j := i + 1
 		for j < len(lines) && strings.TrimSpace(lines[j]) != "" {
-			if _, _, _, isTiming := parseTimingLine(lines[j]); isTiming {
+			if _, _, isTiming := parseTimingLine(lines[j]); isTiming {
 				break
 			}
 			j++
@@ -109,7 +90,8 @@ func ParseSRT(data []byte) ([]Cue, error) {
 		if j < len(lines) && strings.TrimSpace(lines[j]) != "" && len(body) > 0 && isIndexLine(body[len(body)-1]) {
 			body = body[:len(body)-1]
 		}
-		if c, ok := newCue("", start, end, settings, body); ok {
+		text := cleanLines(srtTagRe.ReplaceAllString(strings.Join(body, "\n"), ""))
+		if c, ok := newCue("", start, end, text); ok {
 			cues = append(cues, c)
 		}
 		i = j - 1
@@ -125,15 +107,14 @@ func finish(cues []Cue) ([]Cue, error) {
 	return cues, nil
 }
 
-func newCue(id string, start, end time.Duration, settings string, body []string) (Cue, bool) {
+func newCue(id string, start, end time.Duration, text string) (Cue, bool) {
 	if end <= start {
 		return Cue{}, false
 	}
-	text := cleanText(strings.Join(body, "\n"))
 	if text == "" {
 		return Cue{}, false
 	}
-	return Cue{ID: id, Start: start, End: end, Text: text, Settings: settings}, true
+	return Cue{ID: id, Start: start, End: end, Text: text}, true
 }
 
 // normalize strips a UTF-8 byte order mark and NULs, replaces invalid UTF-8,
@@ -191,22 +172,23 @@ var (
 	indexRe  = regexp.MustCompile(`^\s*\d+\s*$`)
 	// markup: HTML-ish tags (a "<" followed by a space is text, not a tag),
 	// WebVTT karaoke timestamps, and SRT/ASS override blocks.
-	tagRe = regexp.MustCompile(`</?[A-Za-z][^>\n]*>|<\d+:\d+(?::\d+)?[.,]\d+>|\{\\[^}\n]*\}`)
+	tagRe    = regexp.MustCompile(`</?[A-Za-z][^>\n]*>|<\d+:\d+(?::\d+)?[.,]\d+>|\{\\[^}\n]*\}`)
+	srtTagRe = regexp.MustCompile(`(?i)</?(?:i|b|u|font)(?:[ \t]+[^>\n]*)?>`)
 )
 
 func isIndexLine(l string) bool { return indexRe.MatchString(l) }
 
-func parseTimingLine(line string) (start, end time.Duration, settings string, ok bool) {
+func parseTimingLine(line string) (start, end time.Duration, ok bool) {
 	m := timingRe.FindStringSubmatch(line)
 	if m == nil {
-		return 0, 0, "", false
+		return 0, 0, false
 	}
 	start, ok1 := parseTimestamp(m[1])
 	end, ok2 := parseTimestamp(m[2])
 	if !ok1 || !ok2 {
-		return 0, 0, "", false
+		return 0, 0, false
 	}
-	return start, end, strings.TrimSpace(m[3]), true
+	return start, end, true
 }
 
 // parseTimestamp parses [h+:]mm:ss[.,fff] where the fraction is a decimal

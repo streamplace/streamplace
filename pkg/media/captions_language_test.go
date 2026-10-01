@@ -14,7 +14,7 @@ import (
 func TestCaptionMasterPushedLanguagesIgnoreRecognitionHints(t *testing.T) {
 	m := newCaptionMaster(context.Background(), "streamer", &config.CLI{}, nil)
 	m.setManifest(captionManifest("auto"))
-	m.clock(time.UnixMilli(0))
+	m.clockAt(time.UnixMilli(0), time.Now())
 	m.mediaFinished = true
 	for _, language := range []string{"es", "fr"} {
 		track := captions.Track{Language: language, Source: captions.SourceHuman}

@@ -5,8 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sort"
-	"strconv"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -136,7 +134,7 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 			if ev.Type != "signed-segment" {
 				continue
 			}
-			segment := concatTracksSorted(ev.Tracks)
+			segment := concatTracksByID(ev.Tracks)
 			cli.DumpDebugSegment(drainCtx, "muxl_signed_segment.m4s", bytes.NewReader(segment))
 			if err := onSegment(drainCtx, segment); err != nil {
 				log.Error(drainCtx, "error handling signed segment", "error", err)
@@ -150,27 +148,4 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 	})
 
 	return bin.Element, done, nil
-}
-
-// concatTracksSorted joins the per-track canonical segment bytes for one GoP
-// in ascending track-id order — the canonical interleave a multi-track .m4s
-// uses, which muxl's unwrap/verify/wrap all expect.
-func concatTracksSorted(tracks map[string][]byte) []byte {
-	type numericTrack struct {
-		id  uint32
-		key string
-	}
-	keys := make([]numericTrack, 0, len(tracks))
-	size := 0
-	for k, data := range tracks {
-		id, _ := strconv.ParseUint(k, 10, 32) // signer event keys are uint32 track IDs
-		keys = append(keys, numericTrack{id: uint32(id), key: k})
-		size += len(data)
-	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i].id < keys[j].id })
-	out := make([]byte, 0, size)
-	for _, k := range keys {
-		out = append(out, tracks[k.key]...)
-	}
-	return out
 }

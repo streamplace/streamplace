@@ -66,15 +66,14 @@ type captionEngine struct {
 	passes atomic.Int32
 }
 
-func (e *captionEngine) Lease(context.Context, stt.LeaseOptions) (stt.Lease, error) {
+func (e *captionEngine) Lease(context.Context) (stt.Lease, error) {
 	e.leases.Add(1)
 	return e, nil
 }
-func (e *captionEngine) Models() []stt.ModelInfo { return []stt.ModelInfo{e.Info()} }
-func (*captionEngine) Close() error              { return nil }
-func (e *captionEngine) Model() stt.Model        { return e }
-func (*captionEngine) Release()                  {}
-func (*captionEngine) Info() stt.ModelInfo       { return stt.ModelInfo{Name: "multitest-deterministic"} }
+func (*captionEngine) Close() error        { return nil }
+func (e *captionEngine) Model() stt.Model  { return e }
+func (*captionEngine) Release()            {}
+func (*captionEngine) Info() stt.ModelInfo { return stt.ModelInfo{Name: "multitest-deterministic"} }
 func (e *captionEngine) Transcribe(ctx context.Context, _ []float32, _ stt.Options) (*stt.Result, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -80,7 +79,7 @@ func (s *Server) handlePlaceStreamCaptionPushCaptions(ctx context.Context, body 
 	track := captions.Track{ID: captions.TrackID(origin, source, body.Language), Language: body.Language, Kind: captions.KindCaptions, Source: source, Origin: origin, Author: did, Label: "Captions"}
 	cues := make([]captions.Cue, 0, len(body.Cues))
 	for _, input := range body.Cues {
-		if utf8.RuneCountInString(input.Text) > 2000 || (input.Id != nil && utf8.RuneCountInString(*input.Id) > 64) {
+		if len(input.Text) > 2000 || (input.Id != nil && len(*input.Id) > 64) {
 			return nil, echo.NewHTTPError(http.StatusBadRequest, "caption cue exceeds lexicon limits")
 		}
 		start, err := time.Parse(time.RFC3339Nano, input.StartTime)

@@ -61,16 +61,6 @@ type Model interface {
 	Transcribe(ctx context.Context, pcm []float32, opts Options) (*Result, error)
 }
 
-type LeaseOptions struct {
-	// Realtime leases must keep up with live audio; the engine reserves
-	// capacity for them and may move them to a smaller or larger model as
-	// load changes. Non-realtime leases (VOD) wait for spare capacity and get
-	// the most accurate model available.
-	Realtime bool
-	// Model forces a specific model by name.
-	Model string
-}
-
 // Lease is one stream's claim on speech recognition capacity. Call Model
 // before each Transcribe: realtime leases can change models between calls.
 // A Lease's Transcribe calls must not overlap.
@@ -80,7 +70,6 @@ type Lease interface {
 }
 
 type Engine interface {
-	Lease(ctx context.Context, opts LeaseOptions) (Lease, error)
-	Models() []ModelInfo
+	Lease(ctx context.Context) (Lease, error)
 	Close() error
 }

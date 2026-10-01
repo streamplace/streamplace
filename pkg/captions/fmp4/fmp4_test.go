@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -105,7 +105,41 @@ func TestFragmentsRejectsSamplesPastTheEnd(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestTracksAndTextTrackDetection(t *testing.T) {
+func TestFragmentsRejectInvalidRuns(t *testing.T) {
+	defaults := box("tfhd", u32(tfhdDefaultBaseIsMoof|tfhdDefaultSampleDuration|tfhdDefaultSampleSize), u32(1), u32(1), u32(1))
+	for _, tc := range []struct {
+		name       string
+		tfhd, trun []byte
+		secondTraf bool
+		want       string
+	}{
+		{"zero defaults", box("tfhd", u32(tfhdDefaultBaseIsMoof), u32(1)), box("trun", u32(trunDataOffset), u32(32), u32(0)), false, "sample count"},
+		{"default count beyond payload", defaults, box("trun", u32(trunDataOffset), u32(0xffffffff), u32(0)), false, "sample count"},
+		{"truncated entries", defaults, box("trun", u32(trunDataOffset|trunSampleSize), u32(32), u32(0), u32(1)), false, "truncated"},
+		{"zero sample size", defaults, box("trun", u32(trunDataOffset|trunSampleSize), u32(1), u32(0), u32(0)), false, "must have payload"},
+		{"missing default duration", box("tfhd", u32(tfhdDefaultBaseIsMoof|tfhdDefaultSampleSize), u32(1), u32(1)), box("trun", u32(trunDataOffset), u32(1), u32(0)), false, "explicit or default duration"},
+		{"missing offset", defaults, box("trun", u32(0), u32(1)), false, "missing data offset"},
+		{"implicit second traf base", box("tfhd", u32(tfhdDefaultSampleDuration|tfhdDefaultSampleSize), u32(2), u32(1), u32(1)), box("trun", u32(trunDataOffset), u32(1), u32(0)), true, "implicit traf base"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var first []byte
+			if tc.secondTraf {
+				first = box("traf", defaults, box("trun", u32(trunDataOffset), u32(0), u32(0)))
+			}
+			b := box("moof", first, box("traf", tc.tfhd, tc.trun))
+			if binary.BigEndian.Uint32(tc.trun[8:12])&trunDataOffset != 0 {
+				binary.BigEndian.PutUint32(b[len(b)-len(tc.trun)+16:], uint32(len(b)+8))
+			}
+			if tc.secondTraf {
+				binary.BigEndian.PutUint32(b[8+len(first)-4:], uint32(len(b)+8))
+			}
+			_, err := Fragments(append(b, box("mdat", []byte("a"))...))
+			require.ErrorContains(t, err, tc.want)
+		})
+	}
+}
+
+func TestTracks(t *testing.T) {
 	trak := func(id uint32, timescale uint32, handler string) []byte {
 		tkhd := box("tkhd", []byte{0, 0, 0, 0}, u32(0), u32(0), u32(id))
 		mdhd := box("mdhd", []byte{0, 0, 0, 0}, u32(0), u32(0), u32(timescale), u32(0), u32(0))
@@ -117,11 +151,6 @@ func TestTracksAndTextTrackDetection(t *testing.T) {
 	tracks, err := Tracks(file)
 	require.NoError(t, err)
 	require.Equal(t, []TrackInfo{{ID: 1, Timescale: 90000, Handler: "vide"}, {ID: 2, Timescale: 48000, Handler: "soun"}}, tracks)
-	require.False(t, HasTextTrack(file))
-
-	withText := append(box("ftyp", []byte("isom"), u32(0)), box("moov", trak(1, 90000, "vide"), trak(3, 1000, "text"))...)
-	require.True(t, HasTextTrack(withText))
-	require.False(t, HasTextTrack(nil))
 }
 
 // TestFragmentsReadsCanonicalMuxlTrack walks a real canonical video track
@@ -152,7 +181,7 @@ func TestFragmentsReadsCanonicalMuxlTrack(t *testing.T) {
 		case "segment", "signed-segment":
 			if videoID == "" && cat != nil && cat.Video != nil {
 				for _, v := range cat.Video.Renditions {
-					videoID = itoa(v.TrackID())
+					videoID = strconv.FormatUint(uint64(v.TrackID()), 10)
 				}
 			}
 			video = append(video, ev.Tracks[videoID]...)
@@ -184,24 +213,5 @@ func TestFragmentsReadsCanonicalMuxlTrack(t *testing.T) {
 		}
 	}
 	require.Greater(t, total, 1)
-	pts := make([]uint64, 0, total)
-	for _, f := range frags {
-		for _, s := range f.Samples {
-			pts = append(pts, s.PTS)
-		}
-	}
-	sort.Slice(pts, func(i, j int) bool { return pts[i] < pts[j] })
 	require.Equal(t, frags[0].BaseDecodeTime, frags[0].Samples[0].DTS)
-}
-
-func itoa(v uint32) string {
-	if v == 0 {
-		return "0"
-	}
-	var b []byte
-	for v > 0 {
-		b = append([]byte{byte('0' + v%10)}, b...)
-		v /= 10
-	}
-	return string(b)
 }

@@ -29,7 +29,6 @@ A chunk of timed captions for a livestream or video. Word timing uses the compac
 | `language`   | `string`                                                                                                                               | ✅    | BCP 47 language of the caption text.                                                                                                                                                                                                                                                                           | Format: `language`                                  |
 | `kind`       | `string`                                                                                                                               | ❌    | captions (the default when absent): the same language as the audio, for viewers who can't hear it. subtitles: a translation.                                                                                                                                                                                   | Known Values: `captions`, `subtitles`               |
 | `source`     | `string`                                                                                                                               | ✅    | auto: speech recognition. ingest: supplied by the streamer at ingest (CEA-608/708 or pushCaptions). human: authored or corrected by a person. imported: converted from an uploaded caption file.                                                                                                               | Known Values: `auto`, `ingest`, `human`, `imported` |
-| `track`      | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | The place.stream.media.track text track this chunk mirrors, when the captions were mastered into the canonical stream.                                                                                                                                                                                         |                                                     |
 | `generator`  | [`#generator`](#generator)                                                                                                             | ❌    |                                                                                                                                                                                                                                                                                                                |                                                     |
 | `createdAt`  | `string`                                                                                                                               | ✅    |                                                                                                                                                                                                                                                                                                                | Format: `datetime`                                  |
 
@@ -117,11 +116,6 @@ What produced machine-generated captions.
             "type": "string",
             "knownValues": ["auto", "ingest", "human", "imported"],
             "description": "auto: speech recognition. ingest: supplied by the streamer at ingest (CEA-608/708 or pushCaptions). human: authored or corrected by a person. imported: converted from an uploaded caption file."
-          },
-          "track": {
-            "type": "ref",
-            "ref": "com.atproto.repo.strongRef",
-            "description": "The place.stream.media.track text track this chunk mirrors, when the captions were mastered into the canonical stream."
           },
           "generator": {
             "type": "ref",

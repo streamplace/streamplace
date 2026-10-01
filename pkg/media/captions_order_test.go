@@ -26,7 +26,7 @@ func TestCaptionMasterCanonicalNumericInterleave(t *testing.T) {
 	close(events)
 	for event := range events {
 		if event.Type == "signed-segment" {
-			segment := concatTracksSorted(event.Tracks)
+			segment := concatTracksByID(event.Tracks)
 			for _, id := range []string{"1", "2", "3", "10"} {
 				require.True(t, bytes.HasPrefix(segment, event.Tracks[id]), "canonical byte order at track %s", id)
 				segment = segment[len(event.Tracks[id]):]

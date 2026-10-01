@@ -61,11 +61,6 @@
             "knownValues": ["auto", "ingest", "human", "imported"],
             "description": "auto: speech recognition. ingest: supplied by the streamer at ingest (CEA-608/708 or pushCaptions). human: authored or corrected by a person. imported: converted from an uploaded caption file."
           },
-          "track": {
-            "type": "ref",
-            "ref": "com.atproto.repo.strongRef",
-            "description": "The place.stream.media.track text track this chunk mirrors, when the captions were mastered into the canonical stream."
-          },
           "generator": {
             "type": "ref",
             "ref": "#generator"

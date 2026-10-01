@@ -1,56 +1,10 @@
 # Browser captions and OBS
 
-Open `/captioner` on your Streamplace node over HTTPS (localhost also works).
-Sign in **as the streamer**, start the livestream, select a microphone,
-language (blank means automatic detection), and tiny/base/small model, then
-start captions. Recognition runs locally in a worker; this page sends caption
-text, not microphone audio, to `place.stream.caption.pushCaptions` about once a
-second. Final captions commit after 600 ms of silence or a 12-second window.
-A positive calibration offset delays caption timestamps to match encoder latency.
-
-Pushed device captions are canonical under **auto** or **ingest**. Choose
-**ingest** in stream settings to use only your supplied captions and avoid node
-speech recognition; under auto, supplied captions take over when they arrive.
-With canonical captions off, pushes are sidecar or local according to
-`allowNodeCaptions`. The captioner and browser go-live checkbox never change this
-policy. Browser go-live's “Caption my stream on this device” option uses the
-outgoing audio track and tiny model. Enabling it can reload the page to turn on
-browser isolation; restart Go Live after that reload.
-
-## OBS display source (recommended)
-
-Add a Browser Source using:
-
-```text
-https://YOUR-NODE/embed/captions/YOUR-DID-OR-HANDLE?fontSize=42&color=white&background=black&position=bottom&maxLines=3
-```
-
-This display source needs **neither login nor microphone permissions**. Its
-canvas is transparent; `background` controls only the caption box. It receives
-interim and final live cues from the livestream websocket, regardless of whether
-they came from node recognition, ingest captions, or the captioner page.
-The display shows the newest cue on arrival for its duration (at least five
-seconds), or until a replacement arrives. Viewer-player overlays instead use
-the latest livestream segment's start time plus elapsed time since that segment
-arrived, and show cues only inside their start/end interval. Native HLS
-TextTracks continue to use the browser's media timeline.
-
-Options: `fontSize` (pixels), `color` and `background` (CSS colors, URL-encoded
-where necessary), `position` (`top`, `center`, `bottom`), `maxLines` (1–10 wrapped
-lines), optional `track` ID, and `font` (one of the shared caption font names,
-such as `proportionalSans` or `monospacedSans`). Keep the source active: disable
-“Shutdown source when not visible” if captions must continue when scenes change.
-
-## Captioner directly inside OBS
-
-Launch OBS with `--enable-media-stream`, then add the `/captioner` URL as a
-Browser Source. Use **Interact** to sign in, choose the mic, and start captions.
-If microphone access is missing, the page explains the flag, HTTPS requirement,
-and browser permissions. A separate display source gives a cleaner output than
-capturing the captioner controls.
-
-Do not add `--use-fake-ui-for-media-stream` unless you accept automatic microphone
-access by every browser source. The ordinary display source needs no OBS flags.
+The authoritative [streamer guide](../js/docs/src/content/docs/guides/start-streaming/captions.md#browser-captioner-and-obs-display)
+covers the browser captioner, OBS display source, permissions, calibration, and
+caption policy. See the [operator guide](../js/docs/src/content/docs/guides/installing/captions.md)
+for node resources and the [protocol notes](../js/docs/src/content/docs/features-dev/captions.md)
+for push authentication, live delivery, and archival formats.
 
 ## Building and serving
 
@@ -69,7 +23,6 @@ are embedded by `app.AssetFiles`; generated artifacts are not checked in. Routes
 /api/captioner/4979e04f5dcaccb36057e059bbaed8a2f5288315/caption-whisper.wasm
 /api/captioner/4979e04f5dcaccb36057e059bbaed8a2f5288315/caption-whisper.mjs
 /api/captioner/4979e04f5dcaccb36057e059bbaed8a2f5288315/worker.js
-/api/captioner/4979e04f5dcaccb36057e059bbaed8a2f5288315/agreement.js
 /api/captioner/4979e04f5dcaccb36057e059bbaed8a2f5288315/ggml-{tiny,base,small}-q5_1.bin
 /api/captioner/4979e04f5dcaccb36057e059bbaed8a2f5288315/ggml-silero-v5.1.2.bin
 ```

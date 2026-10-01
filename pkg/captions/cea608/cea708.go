@@ -81,7 +81,6 @@ func (w *window708) carriageReturn() {
 
 func (d *dtvcc) triplet(valid, start bool, b1, b2 byte) {
 	if start {
-		d.flush()
 		d.packet = append(d.packet[:0], b1, b2)
 		d.inPkt = valid
 	} else {
@@ -105,9 +104,9 @@ func packetSize(hdr byte) int {
 	return 128
 }
 
-// flush decodes the packet being assembled.
+// flush decodes only a complete packet.
 func (d *dtvcc) flush() {
-	if !d.inPkt || len(d.packet) < 2 {
+	if !d.inPkt || len(d.packet) < packetSize(d.packet[0]) {
 		d.inPkt = false
 		return
 	}
@@ -132,7 +131,7 @@ func (d *dtvcc) flush() {
 			continue
 		}
 		if blockSize > len(data) {
-			blockSize = len(data)
+			return
 		}
 		if svc == 1 {
 			d.service(data[:blockSize])

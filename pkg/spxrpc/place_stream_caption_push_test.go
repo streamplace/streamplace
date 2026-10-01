@@ -134,18 +134,23 @@ func TestPushCaptionsLiveCanonicalAndOffRoutes(t *testing.T) {
 			hub := captions.NewHub(0)
 			s := &Server{cli: cli, mm: mm, bus: &bus.Bus{Captions: hub}}
 			auth := captionOAuthContext(t, ctx, did)
-			id := "cart-tools-cue"
+			id := strings.Repeat("界", 21) // 63 UTF-8 bytes.
 			final := false
 			start := streamStarted.Add(100 * time.Millisecond)
 			end := start.Add(300 * time.Millisecond)
-			input := &placestream.CaptionPushCaptions_Input{Language: "en-US", Cues: []placestream.CaptionDefs_PushedCue{{Id: &id, StartTime: start.Format(time.RFC3339Nano), EndTime: end.Format(time.RFC3339Nano), Text: "partial", Final: &final}}}
+			input := &placestream.CaptionPushCaptions_Input{Language: "en-US", Cues: []placestream.CaptionDefs_PushedCue{{Id: &id, StartTime: start.Format(time.RFC3339Nano), EndTime: end.Format(time.RFC3339Nano), Text: strings.Repeat("界", 666), Final: &final}}}
 			// A rejected batch must not publish its valid prefix to either route.
 			atomicID := "must-not-publish"
-			oversizedID := strings.Repeat("界", 65)
+			oversizedID := strings.Repeat("界", 22) // 66 bytes, but only 22 runes.
 			badBatch := &placestream.CaptionPushCaptions_Input{Language: "en-US", Cues: []placestream.CaptionDefs_PushedCue{
 				{Id: &atomicID, StartTime: start.Format(time.RFC3339Nano), EndTime: end.Format(time.RFC3339Nano), Text: "rejected prefix"},
 				{Id: &oversizedID, StartTime: start.Format(time.RFC3339Nano), EndTime: end.Format(time.RFC3339Nano), Text: "rejected suffix"},
 			}}
+			_, err = s.handlePlaceStreamCaptionPushCaptions(auth, badBatch)
+			requireCaptionHTTPError(t, err, http.StatusBadRequest, "lexicon limits")
+			require.Empty(t, hub.Tracks(did))
+			badBatch.Cues[1].Id = &id
+			badBatch.Cues[1].Text = strings.Repeat("界", 667) // 2001 bytes.
 			_, err = s.handlePlaceStreamCaptionPushCaptions(auth, badBatch)
 			requireCaptionHTTPError(t, err, http.StatusBadRequest, "lexicon limits")
 			require.Empty(t, hub.Tracks(did))

@@ -91,17 +91,6 @@ type Decision struct {
 // Recognize reports whether the node should transcribe speech.
 func (d Decision) Recognize() bool { return d.Mode == ModeRecognize }
 
-// Ingest reports whether the node should decode and publish the streamer's
-// own ingest captions.
-func (d Decision) Ingest() bool { return d.Mode == ModeIngest }
-
-func (d Decision) String() string {
-	if d.Mode == ModeNone {
-		return string(ModeNone)
-	}
-	return string(d.Mode) + "(" + string(d.Origin) + ")"
-}
-
 // Decide applies the behavior matrix:
 //
 //   - Origin, canonical=auto: recognize into the canonical track; if the

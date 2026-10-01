@@ -17,27 +17,10 @@ import (
 type UserPreferences struct {
 	RepoDID string `gorm:"column:repo_did;primarykey"`
 	// AutoPublishVODs publishes the VOD of each of the user's recorded
-	// livestreams as soon as the livestream ends. Set it with
-	// SetAutoPublishVODs.
-	AutoPublishVODs bool `gorm:"column:auto_publish_vods;not null;default:false"`
-	// AutoPublishVODsSince is when AutoPublishVODs was last turned on: only
-	// livestreams that end after it are published, never older recordings
-	// the node still holds. Nil while it is off.
-	AutoPublishVODsSince *time.Time `gorm:"column:auto_publish_vods_since"`
-	CreatedAt            time.Time  `gorm:"column:created_at"`
-	UpdatedAt            time.Time  `gorm:"column:updated_at"`
-}
-
-// SetAutoPublishVODs turns automatic VOD publishing on or off, as of now.
-func (p *UserPreferences) SetAutoPublishVODs(on bool, now time.Time) {
-	if on == p.AutoPublishVODs {
-		return
-	}
-	p.AutoPublishVODs = on
-	p.AutoPublishVODsSince = nil
-	if on {
-		p.AutoPublishVODsSince = &now
-	}
+	// livestreams as soon as the livestream ends.
+	AutoPublishVODs bool      `gorm:"column:auto_publish_vods;not null;default:false"`
+	CreatedAt       time.Time `gorm:"column:created_at"`
+	UpdatedAt       time.Time `gorm:"column:updated_at"`
 }
 
 func (p *UserPreferences) TableName() string {
@@ -62,7 +45,7 @@ func (state *StatefulDB) GetUserPreferences(ctx context.Context, repoDID string)
 func (state *StatefulDB) PutUserPreferences(ctx context.Context, prefs *UserPreferences) error {
 	return state.DB.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "repo_did"}},
-		DoUpdates: clause.AssignmentColumns([]string{"auto_publish_vods", "auto_publish_vods_since", "updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"auto_publish_vods", "updated_at"}),
 	}).Create(prefs).Error
 }
 

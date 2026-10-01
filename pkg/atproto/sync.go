@@ -542,17 +542,27 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			ls.PostCID = rec.Post.Cid
 			ls.PostURI = rec.Post.Uri
 		}
-		err = atsync.Model.CreateLivestream(ctx, ls)
-		if errors.Is(err, model.ErrAlreadyIndexed) {
-			// Re-announcing an unchanged livestream would light the red circle
-			// up again and re-queue its finalize task. An ended one still
-			// schedules its VOD, though: scheduling is idempotent, and a
-			// redelivery is the retry when scheduling failed the first time.
-			if !isFirstSync && rec.EndedAt != nil && atsync.CLI.StreamIsAllowed(userDID) == nil {
-				if err := atsync.StatefulDB.ScheduleAutoPublishVOD(ctx, userDID, aturi.String()); err != nil {
+		if !isFirstSync && rec.EndedAt != nil && atsync.CLI.StreamIsAllowed(userDID) == nil {
+			// The node is seeing this livestream end: queue the decision on
+			// publishing its VOD, which the task takes with the streamer's
+			// preference when it runs. Queued before indexing, so a failure
+			// here leaves the record unindexed for its redelivery to retry;
+			// a version already indexed (an unchanged record redelivered)
+			// never schedules one.
+			prev, err := atsync.Model.GetLivestream(aturi.String())
+			if err != nil {
+				return fmt.Errorf("failed to get livestream: %w", err)
+			}
+			if prev == nil || prev.CID != cid {
+				if err := atsync.StatefulDB.ScheduleAutoPublishVOD(ctx, aturi.String()); err != nil {
 					return fmt.Errorf("failed to schedule automatic VOD publishing: %w", err)
 				}
 			}
+		}
+		err = atsync.Model.CreateLivestream(ctx, ls)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			// Re-announcing an unchanged livestream would light the red circle
+			// up again and re-queue its finalize task.
 			return nil
 		}
 		if err != nil {
@@ -573,20 +583,12 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				// they're live somewhere but they don't have nothin' to do with us
 				return nil
 			}
-			if rec.EndedAt != nil {
-				// The livestream is over: publish its VOD if the streamer
-				// asked for that.
-				if err := atsync.StatefulDB.ScheduleAutoPublishVOD(ctx, userDID, aturi.String()); err != nil {
-					return fmt.Errorf("failed to schedule automatic VOD publishing: %w", err)
-				}
-				return nil
-			}
 			log.Debug(ctx, "stream is allowed, queuing finalize task")
 			// queue a task to clean up the livestream if it's been inactive for too long
 			task := &statedb.FinalizeLivestreamTask{
 				LivestreamURI: aturi.String(),
 			}
-			if rec.LastSeenAt == nil || rec.IdleTimeoutSeconds == nil || *rec.IdleTimeoutSeconds == 0 {
+			if rec.LastSeenAt == nil || rec.IdleTimeoutSeconds == nil || *rec.IdleTimeoutSeconds == 0 || rec.EndedAt != nil {
 				return nil
 			}
 			scheduledAt, err := time.Parse(time.RFC3339, *rec.LastSeenAt)

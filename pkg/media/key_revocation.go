@@ -50,7 +50,10 @@ func (mm *MediaManager) watchKeyRevocation(ctx context.Context, streamer, did st
 		select {
 		case <-ctx.Done():
 			return
-		case msg := <-sub:
+		case msg, ok := <-sub:
+			if !ok {
+				return
+			}
 			switch v := msg.(type) {
 			case *model.SigningKey:
 				if v.RevokedAt != nil && v.DID == did {

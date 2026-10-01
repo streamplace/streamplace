@@ -11,6 +11,90 @@ import (
 type Message any
 type Subscription chan Message
 
+const maxQueuedMessages = 1000
+
+type subscriber struct {
+	ch         Subscription
+	mu         sync.Mutex
+	cond       *sync.Cond
+	queue      []Message
+	limit      int
+	onOverflow func()
+	closed     bool
+	done       chan struct{}
+}
+
+func newSubscriber(limit int, onOverflow func()) *subscriber {
+	s := &subscriber{
+		ch:         make(Subscription, 100),
+		done:       make(chan struct{}),
+		limit:      limit,
+		onOverflow: onOverflow,
+	}
+	s.cond = sync.NewCond(&s.mu)
+	go s.deliver()
+	return s
+}
+
+func (s *subscriber) enqueue(msg Message) {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return
+	}
+	if s.limit > 0 && len(s.queue) >= s.limit {
+		s.closed = true
+		s.queue = nil
+		close(s.done)
+		s.cond.Signal()
+		onOverflow := s.onOverflow
+		s.mu.Unlock()
+		if onOverflow != nil {
+			onOverflow()
+		}
+		return
+	}
+	s.queue = append(s.queue, msg)
+	s.cond.Signal()
+	s.mu.Unlock()
+}
+
+func (s *subscriber) close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
+	s.closed = true
+	s.queue = nil
+	close(s.done)
+	s.cond.Signal()
+}
+
+func (s *subscriber) deliver() {
+	defer close(s.ch)
+	for {
+		s.mu.Lock()
+		for len(s.queue) == 0 && !s.closed {
+			s.cond.Wait()
+		}
+		if s.closed {
+			s.mu.Unlock()
+			return
+		}
+		msg := s.queue[0]
+		s.queue[0] = nil
+		s.queue = s.queue[1:]
+		s.mu.Unlock()
+
+		select {
+		case s.ch <- msg:
+		case <-s.done:
+			return
+		}
+	}
+}
+
 type ViewerCountUpdate struct {
 	Streamer string
 	Count    int
@@ -20,7 +104,7 @@ type ViewerCountUpdate struct {
 // Bus is a simple pub/sub system for backing websocket connections
 type Bus struct {
 	mu                       sync.Mutex
-	clients                  map[string][]Subscription
+	clients                  map[string][]*subscriber
 	segChans                 map[string][]*SegChan
 	segChansMutex            sync.Mutex
 	segBuf                   map[string][]*Seg
@@ -37,7 +121,7 @@ type Bus struct {
 
 func NewBus() *Bus {
 	return &Bus{
-		clients:                  make(map[string][]Subscription),
+		clients:                  make(map[string][]*subscriber),
 		segChans:                 make(map[string][]*SegChan),
 		segBuf:                   make(map[string][]*Seg),
 		viewerCounts:             make(map[string]map[string]int),
@@ -47,14 +131,29 @@ func NewBus() *Bus {
 }
 
 func (b *Bus) Subscribe(user string) <-chan Message {
+	return b.subscribe(user, 0)
+}
+
+// SubscribeWithBacklogLimit bounds queued messages and closes the subscription
+// when a consumer falls behind. Use this for clients that can reconnect and
+// receive a fresh snapshot after overflow.
+func (b *Bus) SubscribeWithBacklogLimit(user string, onOverflow func()) <-chan Message {
+	return b.subscribeWithOverflow(user, maxQueuedMessages, onOverflow)
+}
+
+func (b *Bus) subscribe(user string, limit int) <-chan Message {
+	return b.subscribeWithOverflow(user, limit, nil)
+}
+
+func (b *Bus) subscribeWithOverflow(user string, limit int, onOverflow func()) <-chan Message {
 	if b == nil {
 		return make(<-chan Message)
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	ch := make(chan Message, 100)
-	b.clients[user] = append(b.clients[user], ch)
-	return ch
+	sub := newSubscriber(limit, onOverflow)
+	b.clients[user] = append(b.clients[user], sub)
+	return sub.ch
 }
 
 func (b *Bus) Unsubscribe(user string, ch <-chan Message) {
@@ -70,11 +169,12 @@ func (b *Bus) Unsubscribe(user string, ch <-chan Message) {
 	}
 
 	for i, sub := range subs {
-		if sub == ch {
+		if sub.ch == ch {
 			// Remove the subscription by replacing it with the last element
 			// and then truncating the slice
 			subs[i] = subs[len(subs)-1]
 			b.clients[user] = subs[:len(subs)-1]
+			sub.close()
 			break
 		}
 	}
@@ -96,9 +196,7 @@ func (b *Bus) Publish(user string, msg Message) {
 		return
 	}
 	for _, sub := range subs {
-		go func(sub Subscription) {
-			sub <- msg
-		}(sub)
+		sub.enqueue(msg)
 	}
 }
 

@@ -8,8 +8,7 @@ test infrastructure.
 This document is meant to be easy to parse for everyone, but agents should note that they must follow all guidelines, especially the ones marked as such.
 
 Agents: you will want to keep your changes focused on the task. Read the relevant code before you edit it.
-Use the repository's existing abstractions and scripts instead of recreating
-their behaviour by hand.
+Use the repository's existing abstractions and scripts instead of recreating their behaviour by hand.
 
 ## Repository layout
 
@@ -269,13 +268,53 @@ or unrelated changes have leaked into the patch.
 
 ## Working style
 
-Understand the existing implementation before you add new abstractions.
+Understand the existing implementation before adding new abstractions. Reuse established packages, helpers, scripts, and conventions where they fit.
 
-Reuse established packages, helpers, scripts, and conventions where they fit.
+Some repository documentation records observations that are specific to one machine. Treat these as context, and verify them against the current checkout and environment before you rely on them.
 
-Some repository documentation records observations that are specific to one
-machine. Treat these as context, and verify them against the current checkout and
-environment before you rely on them.
+For task-specific procedures, use the relevant repository documentation or agent skills when they exist. Do not apply unrelated operational instructions globally.
 
-For task-specific procedures, use the relevant repository documentation or agent
-skills when they exist. Do not apply unrelated operational instructions globally.
+### Minimize code and complexity
+
+Prefer the simplest correct solution and the smallest change that solves the actual problem. Prioritize code that is easy for humans to read, understand, and maintain.
+
+Before writing anything non-trivial, identify what existing code already does or nearly does what is needed. Prefer, in order:
+
+1. Reuse what exists.
+2. Simplify, consolidate, or delete existing code so the change fits.
+3. Add new code only when necessary, and as little as needed.
+
+Every added line, abstraction, dependency, state field, and test is an ongoing maintenance cost and should provide clear value.
+
+- Add abstractions, helpers, layers, options, or dependencies only when they reduce overall complexity. A single caller is not, by itself, justification.
+- Do not build general-purpose infrastructure for narrow or speculative requirements.
+- Prefer modularity when it creates clearer boundaries or reduces coupling, not as a reason to add architecture or indirection.
+- Do not store what can be clearly derived, or maintain overlapping state without a concrete need.
+- Extend an existing mechanism when it can carry the new behavior cleanly. If adding a parallel mechanism, be able to explain why.
+- When review identifies a risk, first ask whether the change can avoid the risky case or do less before adding more machinery.
+- Never trade correctness, readability, data integrity, security, necessary validation, or required behavior for fewer lines of code.
+
+If the diff is much larger than the problem appears to require, reconsider whether the solution introduced unnecessary parallel machinery.
+
+Keep this question top-of-mind throughout the task, and always address it _explicitly_ in session summaries:
+
+> Could this change be made smaller or simpler by removing, reusing, or consolidating existing code?
+
+### Be deliberate about tests
+
+Tests should protect meaningful behavior, realistic regressions, edge cases, public contracts, and important invariants.
+
+For each test, be able to identify the failure or regression it is intended to catch. If that value is unclear, reconsider whether the test is necessary.
+
+- Test behavior at the layer where its logic lives. Add higher-level coverage when the integration between layers is itself worth protecting.
+- Avoid asserting the same behavior at multiple layers without a distinct failure mode.
+- Avoid tests that merely restate straightforward implementation details.
+- Do not optimize for test count or coverage in isolation.
+
+### Before you finish
+
+Review your own diff. For each added function, abstraction, dependency, state field, and test, ask whether the change would be simpler without it. Remove what you cannot justify.
+
+Check again for existing code that can be reused, consolidated, or deleted. When introducing a new mechanism alongside an existing similar one, explain why the existing mechanism could not reasonably be extended.
+
+The objective is not to maximize implementation size, abstraction, test count, or coverage. The objective is to keep the codebase correct, small, direct, readable, and easy to reason about as it grows.

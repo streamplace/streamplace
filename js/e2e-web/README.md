@@ -49,7 +49,9 @@ The web app renders the **desktop layout** (a sidebar of nav links), not the
 mobile tab bar, so `tabs` drives Home ↔ Settings through the sidebar.
 `go-live` checks that the Live Dashboard (`/live`) requires login; this is
 web-only coverage, with no current native Go Live scenario. Chat popout is also
-web-only. `vod` opens the VOD the harness publishes and checks both the node's
+web-only, as is `chat-wheel-scroll` (trackpad wheel input in the inverted
+chat list), which also runs in a Firefox project because the bug it covers
+was reported there. `vod` opens the VOD the harness publishes and checks both the node's
 page title and the app's tab title; document titles have no native counterpart.
 
 `stream` also covers the narrow portrait web layout at 320 × 568, where the

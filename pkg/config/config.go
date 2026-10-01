@@ -530,7 +530,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:        "frontend",
-				Usage:       "which bundled frontend to serve: 'app' (legacy Expo) or 'web' (Vite)",
+				Usage:       "which bundled frontend to serve. This build bundles only 'app'; 'web' is accepted and ignored",
 				Value:       "app",
 				Destination: &cli.Frontend,
 				Sources:     urfavecli.EnvVars("SP_FRONTEND"),

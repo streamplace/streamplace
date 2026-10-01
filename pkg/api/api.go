@@ -31,7 +31,6 @@ import (
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/js/app"
-	web "stream.place/streamplace/js/web"
 	"stream.place/streamplace/pkg/acme"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
@@ -289,14 +288,16 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 			},
 		}
 	} else {
-		// Always load both frontends. The NotFound dispatcher picks one per
-		// request based on the sp_web_beta cookie (or the --frontend CLI
-		// flag, which forces web for everyone).
+		// This build bundles one frontend, the app. The web frontend is
+		// not compiled in, so nothing a request carries can select it.
+		if a.CLI.Frontend == "web" {
+			log.Warn(ctx, "--frontend=web ignored: this build bundles only the app frontend")
+		}
 		frontends, err := a.loadFrontends(ctx)
 		if err != nil {
 			return nil, err
 		}
-		linkingHandler, err := a.NotFoundLinkingHandler(ctx, frontends, a.CLI.Frontend == "web")
+		linkingHandler, err := a.NotFoundLinkingHandler(ctx, frontends)
 		if err != nil {
 			return nil, err
 		}
@@ -356,22 +357,24 @@ func copyHeader(dst, src http.Header) {
 	}
 }
 
-// frontendSet holds a per-frontend linking handler so the NotFound
-// dispatcher can pick which one to serve per request. The legacy RN app
-// and the new Vite web app each get their own; the sp_web_beta cookie
-// opts a user into the new one unless the operator forced it via
-// --frontend=web (in which case forceWeb is true on pick).
+// webBetaCookie is the cookie that used to opt a browser into the web
+// frontend. This build has no web frontend, so the cookie selects nothing;
+// a browser still carrying one (set for a year by a settings toggle that is
+// gone too) has it expired on its next page load, so it cannot take effect
+// on some other build of the node either.
+const webBetaCookie = "sp_web_beta"
+
+// frontendSet holds the linking handler of the one frontend this build
+// bundles: the app. The web frontend is not compiled in.
 type frontendSet struct {
 	app http.HandlerFunc
-	web http.HandlerFunc
 }
 
-func (f *frontendSet) pick(r *http.Request, forceWeb bool) http.HandlerFunc {
-	if forceWeb {
-		return f.web
-	}
-	if c, err := r.Cookie("sp_web_beta"); err == nil && c.Value == "1" {
-		return f.web
+// pick is the frontend for a request: always the app, whatever cookie the
+// request carries.
+func (f *frontendSet) pick(w http.ResponseWriter, r *http.Request) http.HandlerFunc {
+	if _, err := r.Cookie(webBetaCookie); err == nil {
+		http.SetCookie(w, &http.Cookie{Name: webBetaCookie, Value: "", Path: "/", MaxAge: -1, SameSite: http.SameSiteLaxMode})
 	}
 	return f.app
 }
@@ -381,11 +384,7 @@ func (a *StreamplaceAPI) loadFrontends(ctx context.Context) (*frontendSet, error
 	if err != nil {
 		return nil, fmt.Errorf("loading app frontend: %w", err)
 	}
-	webHandler, err := a.buildLinkingHandler(ctx, web.Files)
-	if err != nil {
-		return nil, fmt.Errorf("loading web frontend: %w", err)
-	}
-	return &frontendSet{app: appHandler, web: webHandler}, nil
+	return &frontendSet{app: appHandler}, nil
 }
 
 // assetExtensions are the file types a browser or player asks for by name.
@@ -426,14 +425,12 @@ func (a *StreamplaceAPI) buildLinkingHandler(ctx context.Context, load func() (f
 	return a.notFoundLinkingHandler(ctx, linker, frontendFS)
 }
 
-// NotFoundLinkingHandler dispatches to the per-frontend handler that
-// matches the current request. The sp_web_beta cookie opts users into the
-// new web frontend; forceWeb (driven by --frontend=web) makes it stick
-// for everyone. The dev proxy (--dev-frontend-proxy) is handled upstream
-// and never reaches this handler.
-func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, frontends *frontendSet, forceWeb bool) (http.HandlerFunc, error) {
+// NotFoundLinkingHandler serves the bundled frontend for anything no route
+// claimed. The dev proxy (--dev-frontend-proxy) is handled upstream and
+// never reaches this handler.
+func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, frontends *frontendSet) (http.HandlerFunc, error) {
 	return func(w http.ResponseWriter, req *http.Request) {
-		frontends.pick(req, forceWeb)(w, req)
+		frontends.pick(w, req)(w, req)
 	}, nil
 }
 

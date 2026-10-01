@@ -73,7 +73,7 @@ async function wheelSteps(page: Page, deltaY: number, steps: number) {
   }
 }
 
-test("09-chat-wheel-scroll: small wheel deltas scroll chat both ways", async ({
+test("chat-wheel-scroll: small wheel deltas scroll chat both ways", async ({
   page,
 }) => {
   const run = Date.now();

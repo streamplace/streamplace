@@ -67,7 +67,7 @@ export default defineConfig({
     // that log in: the harness's certificate pinning above is a Chromium flag.
     {
       name: "firefox",
-      testMatch: /09-chat-wheel-scroll\.spec\.ts$/,
+      testMatch: /chat-wheel-scroll\.spec\.ts$/,
       use: {
         ...devices["Desktop Firefox"],
         // the launch flags above are Chromium's

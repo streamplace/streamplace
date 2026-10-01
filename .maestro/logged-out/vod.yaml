@@ -12,7 +12,7 @@ appId: ${APP_ID}
       text: ".*e2e recovered video.*"
     direction: DOWN
     timeout: 30000
-- takeScreenshot: 08-01-recovered-listing
+- takeScreenshot: vod-recovered-listing
 - tapOn:
     text: ".*e2e recovered video.*"
 - waitForAnimationToEnd
@@ -24,4 +24,4 @@ appId: ${APP_ID}
     visible:
       text: "e2e recovered video"
     timeout: 30000
-- takeScreenshot: 08-02-recovered-video
+- takeScreenshot: vod-recovered-video

@@ -10,7 +10,7 @@ const RECOVERED_VIDEO_TITLE = "e2e recovered video";
 const UNHOSTED_VIDEO_TITLE = "e2e unhosted video";
 
 for (const scope of ["global", "profile"] as const) {
-  test(`08-vod: ${scope} listing recovers hosted videos after boot`, async ({
+  test(`vod: ${scope} listing recovers hosted videos after boot`, async ({
     page,
   }) => {
     const handle = process.env.ACCOUNT_HANDLE;

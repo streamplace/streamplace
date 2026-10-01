@@ -38,7 +38,15 @@ endif
 lib = static_library('whisper', sources, include_directories: inc,
   c_args: args + arch_args, cpp_args: args + arch_args,
   dependencies: deps, pic: true, install: true)
-stdlib = cpp.find_library(host_machine.system() == 'darwin' ? 'c++' : 'stdc++')
+# Static release binaries carry the C++ runtime (link-test-linux; Windows
+# already links it statically); macOS uses the system libc++.
+if host_machine.system() == 'darwin'
+  stdlib = cpp.find_library('c++')
+elif get_option('default_library') == 'static'
+  stdlib = declare_dependency(link_args: '-static-libstdc++')
+else
+  stdlib = cpp.find_library('stdc++')
+endif
 whisper_dep = declare_dependency(link_with: lib, include_directories: inc, dependencies: deps + [stdlib])
 install_headers('include/whisper.h', 'ggml/include/ggml.h', 'ggml/include/ggml-cpu.h',
   'ggml/include/ggml-backend.h', 'ggml/include/ggml-alloc.h', subdir: 'whisper')

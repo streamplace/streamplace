@@ -134,10 +134,11 @@ For wire formats, see [the protocol notes](/docs/features-dev/captions/).
 
 ## Transcript delivery and shutdown
 
-Writers begin with the first published segment and buffer words until the newest
-indexed livestream record belongs to the current session: its `createdAt` must
-be at least session `mediaStart` minus the allowed five-second clock skew. This
-prevents a delayed index from attributing new speech to the previous livestream.
+Writers begin with the first published segment and resolve the newest indexed
+livestream record for each caption batch, so changing chapters during ingest
+updates the transcript subject. A record created before the encoder starts is
+valid unless its `endedAt` precedes session `mediaStart`; words wait for a
+current record rather than being attributed to an already ended livestream.
 Session end (including return to preview) clears live captions and starts an
 asynchronous final record flush; PDS retries never block media. Writers retain
 the newest canonical cue across

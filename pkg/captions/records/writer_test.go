@@ -1,6 +1,7 @@
 package records
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -455,32 +456,67 @@ func TestWriterWaitsOutARateLimit(t *testing.T) {
 	require.Len(t, h.repos.written(), 1)
 }
 
-func TestWriterWaitsForItsSessionsLivestream(t *testing.T) {
-	f := newFixture(t)
-	ctx := context.Background()
-	require.NoError(t, f.m.CreateLivestream(ctx, &model.Livestream{
-		URI: "at://" + streamer + "/place.stream.livestream/previous", CID: "previous",
-		RepoDID: streamer, CreatedAt: t0.Add(-time.Hour),
-	}))
-	h := newHarness(t, func(c *Config) { c.Subject = LatestLivestream(f.m) })
-	h.w.StartSession(ctx, streamer, t0)
-	say(h, autoTrack, "c1", 0, "early")
-	h.buffered(streamer, 1)
-	h.flushed()
-	require.Empty(t, h.repos.snapshot())
-
-	say(h, autoTrack, "c2", 1000, "bird")
-	h.buffered(streamer, 2)
-	require.NoError(t, f.m.CreateLivestream(ctx, &model.Livestream{
-		URI: "at://" + streamer + "/place.stream.livestream/current", CID: "current",
-		RepoDID: streamer, CreatedAt: t0.Add(-time.Second),
-	}))
-	h.flushed()
-	calls := h.repos.snapshot()
-	require.Len(t, calls, 1)
-	require.Equal(t, "early bird", calls[0].rec.Text)
-	require.Equal(t, "at://did:plc:streamer/place.stream.livestream/current", calls[0].rec.Subject.Uri)
-	require.Equal(t, "current", calls[0].rec.Subject.Cid)
+func TestWriterLivestreamSubjects(t *testing.T) {
+	for _, scenario := range []string{"go live before encoder", "wait for new session", "chapter during ingest"} {
+		t.Run(scenario, func(t *testing.T) {
+			f := newFixture(t)
+			ctx := context.Background()
+			put := func(rkey string, createdAt time.Time, endedAt *time.Time) string {
+				rec := placestream.Livestream{CreatedAt: createdAt.Format(time.RFC3339)}
+				if endedAt != nil {
+					ended := endedAt.Format(time.RFC3339)
+					rec.EndedAt = &ended
+				}
+				var buf bytes.Buffer
+				require.NoError(t, rec.MarshalCBOR(&buf))
+				data := buf.Bytes()
+				uri := "at://" + streamer + "/place.stream.livestream/" + rkey
+				require.NoError(t, f.m.CreateLivestream(ctx, &model.Livestream{
+					URI: uri, CID: rkey, RepoDID: streamer, CreatedAt: createdAt, Livestream: &data,
+				}))
+				return uri
+			}
+			var endedAt *time.Time
+			if scenario == "wait for new session" {
+				end := t0.Add(-time.Minute)
+				endedAt = &end
+			}
+			initial := put("initial", t0.Add(-10*time.Minute), endedAt)
+			h := newHarness(t, func(c *Config) { c.Subject = LatestLivestream(f.m) })
+			h.w.StartSession(ctx, streamer, t0)
+			say(h, autoTrack, "c1", 0, "early")
+			h.buffered(streamer, 1)
+			h.flushed()
+			calls := h.repos.snapshot()
+			if scenario == "wait for new session" {
+				require.Empty(t, calls, "an ended prior stream must not receive this session's words")
+				current := put("current", t0, nil)
+				say(h, autoTrack, "c2", 1000, "bird")
+				h.buffered(streamer, 2)
+				h.flushed()
+				calls = h.repos.snapshot()
+				require.Len(t, calls, 1)
+				require.Equal(t, "early bird", calls[0].rec.Text)
+				require.Equal(t, current, calls[0].rec.Subject.Uri)
+				require.Equal(t, "current", calls[0].rec.Subject.Cid)
+				return
+			}
+			require.Len(t, calls, 1)
+			require.Equal(t, initial, calls[0].rec.Subject.Uri)
+			require.Equal(t, "early", calls[0].rec.Text)
+			if scenario == "chapter during ingest" {
+				chapter := put("chapter", t0.Add(time.Minute), nil)
+				say(h, autoTrack, "c2", 60_000, "later", "chapter")
+				h.buffered(streamer, 2)
+				h.flushed()
+				calls = h.repos.snapshot()
+				require.Len(t, calls, 2)
+				require.Equal(t, chapter, calls[1].rec.Subject.Uri)
+				require.Equal(t, "chapter", calls[1].rec.Subject.Cid)
+				require.Equal(t, "later chapter", calls[1].rec.Text)
+			}
+		})
+	}
 }
 
 func TestWriterBackfillsFromTheHubWithoutDuplicates(t *testing.T) {

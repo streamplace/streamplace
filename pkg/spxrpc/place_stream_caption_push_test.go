@@ -201,7 +201,7 @@ func TestPushCaptionsLiveCanonicalAndOffRoutes(t *testing.T) {
 				duration time.Duration
 			}{
 				{"future start", time.Now().Add(31 * time.Second), time.Second},
-				{"past start", time.Now().Add(-31 * time.Second), time.Second},
+				{"past start", time.Now().Add(-6 * time.Minute), time.Second},
 				{"long duration", time.Now(), 31 * time.Second},
 				{"zero duration", time.Now(), 0},
 				{"negative duration", time.Now(), -time.Second},
@@ -234,6 +234,25 @@ func TestPushCaptionsLiveCanonicalAndOffRoutes(t *testing.T) {
 				require.Len(t, cues, 1)
 				require.Equal(t, "CART words survive signing", cues[0].Text)
 				require.True(t, cues[0].Final)
+			}
+			if tc.origin != captions.OriginCanonical {
+				updates := hub.Subscribe(ctx, did)
+				lateStart := time.Now().Add(-2 * time.Minute)
+				lateID := "late-browser"
+				late := &placestream.CaptionPushCaptions_Input{Language: "en-US", Cues: []placestream.CaptionDefs_PushedCue{{
+					Id: &lateID, StartTime: lateStart.Format(time.RFC3339Nano), EndTime: lateStart.Add(time.Second).Format(time.RFC3339Nano), Text: "Delayed browser words",
+				}}}
+				_, err = s.handlePlaceStreamCaptionPushCaptions(auth, late)
+				require.NoError(t, err, "slow browser recognition can arrive two minutes late")
+				select {
+				case event := <-updates:
+					require.Equal(t, lateID, event.Cue.ID)
+					require.Equal(t, "Delayed browser words", event.Cue.Text)
+					require.True(t, event.Cue.Start.Equal(lateStart))
+					require.Equal(t, tc.origin, event.Track.Origin)
+				case <-ctx.Done():
+					t.Fatal("accepted delayed caption was not published")
+				}
 			}
 			require.NoError(t, writer.Close())
 			for event := range events {

@@ -1,5 +1,7 @@
+import { XrpcResponseError } from "@atproto/lex";
 import {
   benchmarkCaptionModel,
+  place,
   startBrowserCaptioner,
   type StreamplaceAgent,
 } from "streamplace";
@@ -110,7 +112,7 @@ function captionerOptions(signal?: AbortSignal) {
   };
 }
 
-describe("browser captioner cancellation", () => {
+describe("browser captioner", () => {
   beforeEach(() => {
     workerReady = false;
     flushFailure = false;
@@ -134,6 +136,7 @@ describe("browser captioner cancellation", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("terminates the worker and audio context when model initialization aborts", async () => {
@@ -202,6 +205,136 @@ describe("browser captioner cancellation", () => {
     expect(MockWorker.instances[0].terminate).toHaveBeenCalledOnce();
     expect(MockAudioContext.instances[0].close).toHaveBeenCalledOnce();
     expect(MockAudioWorkletNode.instances[0].disconnect).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    new TypeError("Network unavailable"),
+    new XrpcResponseError(
+      place.stream.caption.pushCaptions.main,
+      new Response(null, { status: 503 }),
+      { encoding: "application/json", body: { error: "UpstreamFailure" } },
+    ),
+  ])(
+    "sends failed speech before newly queued cues on the next attempt (%s)",
+    async (error) => {
+      vi.useFakeTimers();
+      workerReady = true;
+      const onError = vi.fn();
+      const call = vi.fn().mockRejectedValueOnce(error).mockResolvedValue({});
+      const session = await startBrowserCaptioner({
+        ...captionerOptions(),
+        agent: { client: { call } } as unknown as StreamplaceAgent,
+        onError,
+      });
+      const worker = MockWorker.instances[0];
+      const cue = {
+        type: "cue",
+        id: "failed",
+        text: "Speech during outage",
+        start: Date.now(),
+        end: Date.now() + 1000,
+        final: true,
+        language: "en",
+      };
+      worker.onmessage?.(new MessageEvent("message", { data: cue }));
+      await vi.advanceTimersByTimeAsync(1000);
+      worker.onmessage?.(
+        new MessageEvent("message", {
+          data: { ...cue, id: "new", text: "Later speech" },
+        }),
+      );
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(
+        call.mock.calls[1][1].cues.map((sent: { text: string }) => sent.text),
+      ).toEqual(["Speech during outage", "Later speech"]);
+      expect(onError).toHaveBeenCalledExactlyOnceWith(error);
+      await session.stop();
+    },
+  );
+
+  it("bounds retries, preserves newer revisions, and does not resend successful language groups", async () => {
+    vi.useFakeTimers();
+    workerReady = true;
+    const failedSend = Promise.withResolvers<void>();
+    const call = vi
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockReturnValueOnce(failedSend.promise)
+      .mockResolvedValue({});
+    const onError = vi.fn();
+    const session = await startBrowserCaptioner({
+      ...captionerOptions(),
+      agent: { client: { call } } as unknown as StreamplaceAgent,
+      onError,
+    });
+    const worker = MockWorker.instances[0];
+    const cue = {
+      type: "cue",
+      id: "failed",
+      text: "Interim speech",
+      start: Date.now(),
+      end: Date.now() + 1000,
+      final: false,
+      language: "en",
+    };
+    const emit = (data: typeof cue) =>
+      worker.onmessage?.(new MessageEvent("message", { data }));
+    emit({ ...cue, id: "sent", language: "es", text: "Already sent" });
+    emit(cue);
+    await vi.advanceTimersByTimeAsync(1000);
+    for (let i = 0; i < 110; i++) emit({ ...cue, id: `new-${i}` });
+    emit({ ...cue, final: true, text: "Final speech" });
+    failedSend.reject(new TypeError("Network unavailable"));
+    await vi.advanceTimersByTimeAsync(1000);
+    const retried = call.mock.calls[2][1].cues;
+    expect(retried.map((sent: { id: string }) => sent.id)).toEqual([
+      "failed",
+      ...Array.from({ length: 99 }, (_, i) => `new-${i + 11}`),
+    ]);
+    expect(retried[0]).toMatchObject({ final: true, text: "Final speech" });
+    await session.stop();
+  });
+
+  it("drops HTTP 400 speech without retrying or repeatedly reporting the error", async () => {
+    vi.useFakeTimers();
+    workerReady = true;
+    const error = new XrpcResponseError(
+      place.stream.caption.pushCaptions.main,
+      new Response(null, { status: 400 }),
+      { encoding: "application/json", body: { error: "InvalidRequest" } },
+    );
+    const onError = vi.fn();
+    const call = vi.fn().mockRejectedValueOnce(error).mockResolvedValue({});
+    const session = await startBrowserCaptioner({
+      ...captionerOptions(),
+      agent: { client: { call } } as unknown as StreamplaceAgent,
+      onError,
+    });
+    const worker = MockWorker.instances[0];
+    const cue = {
+      type: "cue",
+      id: "invalid",
+      text: "Rejected speech",
+      start: Date.now(),
+      end: Date.now() + 1000,
+      final: true,
+      language: "en",
+    };
+    worker.onmessage?.(new MessageEvent("message", { data: cue }));
+    await vi.advanceTimersByTimeAsync(3000);
+    worker.onmessage?.(
+      new MessageEvent("message", {
+        data: { ...cue, id: "valid", text: "Valid speech" },
+      }),
+    );
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(
+      call.mock.calls.map((args) =>
+        args[1].cues.map((sent: { text: string }) => sent.text),
+      ),
+    ).toEqual([["Rejected speech"], ["Valid speech"]]);
+    expect(onError).toHaveBeenCalledExactlyOnceWith(error);
+    await session.stop();
   });
 
   it("terminates and rejects an active benchmark when aborted", async () => {

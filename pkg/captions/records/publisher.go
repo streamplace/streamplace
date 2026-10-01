@@ -95,12 +95,8 @@ func putTranscript(ctx context.Context, client XRPCClient, repo, rkey string, re
 	return out.Uri, nil
 }
 
-// livestreamClockSkew tolerates small differences between the streamer's record
-// clock and the signed first segment's clock.
-const livestreamClockSkew = 5 * time.Second
-
 // LatestLivestream returns the SubjectResolver that points captions at the
-// streamer's most recent livestream record, once it belongs to this session.
+// streamer's latest livestream record, resolved anew for each encoded batch.
 func LatestLivestream(m interface {
 	GetLatestLivestreamForRepo(repoDID string) (*model.Livestream, error)
 }) SubjectResolver {
@@ -109,8 +105,24 @@ func LatestLivestream(m interface {
 		if err != nil {
 			return comatproto.RepoStrongRef{}, err
 		}
-		if ls == nil || ls.CreatedAt.Before(sessionStart.Add(-livestreamClockSkew)) {
+		if ls == nil {
 			return comatproto.RepoStrongRef{}, fmt.Errorf("no livestream record indexed for %s's current session", streamer)
+		}
+		if ls.Livestream == nil {
+			return comatproto.RepoStrongRef{}, errors.New("livestream record is nil")
+		}
+		var rec placestream.Livestream
+		if err := glex.DecodeCBOR(*ls.Livestream, &rec); err != nil {
+			return comatproto.RepoStrongRef{}, fmt.Errorf("decode livestream record: %w", err)
+		}
+		if rec.EndedAt != nil {
+			endedAt, err := time.Parse(time.RFC3339, *rec.EndedAt)
+			if err != nil {
+				return comatproto.RepoStrongRef{}, fmt.Errorf("parse livestream endedAt: %w", err)
+			}
+			if endedAt.Before(sessionStart) {
+				return comatproto.RepoStrongRef{}, fmt.Errorf("latest livestream for %s ended before this session", streamer)
+			}
 		}
 		return comatproto.RepoStrongRef{LexiconTypeID: "com.atproto.repo.strongRef", Uri: ls.URI, Cid: ls.CID}, nil
 	}

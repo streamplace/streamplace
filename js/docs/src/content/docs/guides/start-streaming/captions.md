@@ -125,9 +125,15 @@ and **2,000 UTF-8 bytes of text per cue**, with a **2 MiB request-body limit**.
 The complete batch is validated before publishing any cue. Send small batches
 promptly rather than waiting to collect 100 cues. Use UTC wall-clock times
 for when the words were spoken, not offsets
-from zero or the captioner's HTTP send time. Starts must be within **±30 seconds**
-of the server's request time; cue duration must be **greater than zero and at
-most 30 seconds**. Keep the captioner and encoder clocks synchronized.
+from zero or the captioner's HTTP send time. Starts must be within the **last
+five minutes** and **at most 30 seconds ahead** of the server's request time
+(inclusive); cue duration must be **greater than zero and at most 30 seconds**.
+Keep the captioner and encoder clocks synchronized.
+
+The browser captioner retries network and server (5xx) failures on the next
+one-second send, before newer queued speech. It keeps at most 100 pending cues;
+an extended outage can lose speech beyond that buffer or the five-minute push
+window. Client (4xx) failures are reported once and dropped, not retried.
 
 For example, with your stream running at the example times:
 

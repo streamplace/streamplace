@@ -28,7 +28,7 @@
             "cues": {
               "type": "array",
               "maxLength": 100,
-              "description": "Each cue's startTime must be within 30 seconds before or after the server's request time. Its endTime must be later than startTime and no more than 30 seconds after it. If any cue violates these bounds, the entire batch is rejected with HTTP 400.",
+              "description": "Each cue's startTime must be in the inclusive interval from five minutes before to 30 seconds after the server's request time. Its endTime must be later than startTime and no more than 30 seconds after it. If any cue violates these bounds, the entire batch is rejected with HTTP 400.",
               "items": {
                 "type": "ref",
                 "ref": "place.stream.caption.defs#pushedCue"

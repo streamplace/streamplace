@@ -1,8 +1,9 @@
-import { l } from "@atproto/lex";
+import { l, XrpcResponseError } from "@atproto/lex";
 import type { StreamplaceAgent } from "../agent.js";
 import { place } from "../lexicons/index.js";
 
 const revision = "4979e04f5dcaccb36057e059bbaed8a2f5288315";
+const maxPendingCues = 100;
 export type CaptionModel = "tiny" | "base" | "small";
 export type BrowserCue = {
   id: string;
@@ -115,30 +116,54 @@ export async function startBrowserCaptioner(
   };
   const flush = async () => {
     if (sending || !pending.size) return sending;
-    const batch = [...pending.values()].slice(0, 100);
+    let batch = [...pending.values()].slice(0, maxPendingCues);
     for (const cue of batch) pending.delete(cue.id);
     sending = (async () => {
       // A batch has one language: auto detection may change between utterances.
-      for (const language of new Set(batch.map((cue) => cue.language))) {
-        await options.agent.client.call(place.stream.caption.pushCaptions, {
-          language,
-          source: "auto",
-          cues: batch
-            .filter((cue) => cue.language === language)
-            .map((cue) => ({
-              id: cue.id,
-              text: cue.text.slice(0, 2000),
-              final: cue.final,
-              startTime: l.toDatetimeString(
-                new Date(cue.start + (options.offsetMs ?? 0)),
-              ),
-              endTime: l.toDatetimeString(
-                new Date(
-                  Math.max(cue.start, cue.end) + (options.offsetMs ?? 0),
+      while (batch.length) {
+        const language = batch[0].language;
+        try {
+          await options.agent.client.call(place.stream.caption.pushCaptions, {
+            language,
+            source: "auto",
+            cues: batch
+              .filter((cue) => cue.language === language)
+              .map((cue) => ({
+                id: cue.id,
+                text: cue.text.slice(0, 2000),
+                final: cue.final,
+                startTime: l.toDatetimeString(
+                  new Date(cue.start + (options.offsetMs ?? 0)),
                 ),
-              ),
-            })),
-        });
+                endTime: l.toDatetimeString(
+                  new Date(
+                    Math.max(cue.start, cue.end) + (options.offsetMs ?? 0),
+                  ),
+                ),
+              })),
+          });
+        } catch (error) {
+          if (
+            error instanceof XrpcResponseError &&
+            error.response.status >= 400 &&
+            error.response.status < 500
+          ) {
+            options.onError?.(error);
+          } else {
+            // Retry unsent speech first, preserving any newer same-ID revisions.
+            const queued = new Map([
+              ...batch.map((cue) => [cue.id, cue] as const),
+              ...pending,
+            ]);
+            pending.clear();
+            for (const [id, cue] of queued) {
+              pending.set(id, cue);
+              if (pending.size === maxPendingCues) break;
+            }
+            throw error;
+          }
+        }
+        batch = batch.filter((cue) => cue.language !== language);
       }
     })().finally(() => {
       sending = undefined;
@@ -215,6 +240,8 @@ export async function startBrowserCaptioner(
       if (event.data.type === "cue") {
         const cue: BrowserCue = event.data;
         pending.set(cue.id, cue);
+        if (pending.size > maxPendingCues)
+          pending.delete(pending.keys().next().value!);
         options.onCue?.(cue);
         if (cue.rtf !== undefined) options.onSpeed?.(cue.rtf);
       } else if (event.data.type === "error")

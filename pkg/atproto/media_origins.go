@@ -44,24 +44,23 @@ func ReindexOwnMediaOrigins(ctx context.Context, mod model.Model, serverDID stri
 		if !strings.HasPrefix(path, prefix) {
 			return atrepo.ErrDoneIterating
 		}
-		uri := "at://" + serverDID + "/" + path
 		raw, err := getBlock(ctx, ses, recordCID)
 		if err != nil {
-			return fmt.Errorf("read origin %s: %w", uri, err)
+			return fmt.Errorf("read origin at://%s/%s: %w", serverDID, path, err)
 		}
 		rec, err := glex.CborDecodeValue(raw)
 		if err != nil {
-			return fmt.Errorf("decode origin %s: %w", uri, err)
+			return fmt.Errorf("decode origin at://%s/%s: %w", serverDID, path, err)
 		}
 		res.Scanned++
 		origin, ok := rec.(*placestream.MediaOrigin)
 		if !ok {
-			res.Errors = append(res.Errors, uri+": not a media.origin record")
+			res.Errors = append(res.Errors, "at://"+serverDID+"/"+path+": not a media.origin record")
 			return nil
 		}
 		// The record's blob is authoritative; its rkey is only a convention.
 		if err := mod.UpsertOwnMediaOrigin(ctx, serverDID, origin.Blob, origin.Size, origin.MimeType); err != nil {
-			res.Errors = append(res.Errors, uri+": "+err.Error())
+			res.Errors = append(res.Errors, "at://"+serverDID+"/"+path+": "+err.Error())
 			return nil
 		}
 		res.Indexed++

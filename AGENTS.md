@@ -296,7 +296,7 @@ Every added line, abstraction, dependency, state field, and test is an ongoing m
 
 If the diff is much larger than the problem appears to require, reconsider whether the solution introduced unnecessary parallel machinery.
 
-Keep this question top-of-mind throughout the task, and address it explicitly in session summaries:
+Keep this question top-of-mind throughout the task, and always address it _explicitly_ in session summaries:
 
 > Could this change be made smaller or simpler by removing, reusing, or consolidating existing code?
 

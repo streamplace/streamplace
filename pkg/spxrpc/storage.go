@@ -8,7 +8,6 @@ import (
 
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/log"
 	placestreamtypes "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
@@ -16,7 +15,7 @@ import (
 
 func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input *placestreamtypes.ServerUpsertStorage_Input) (*placestreamtypes.ServerUpsertStorage_Output, error) {
 	// Get authenticated user
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
@@ -73,7 +72,7 @@ func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input
 }
 
 func (s *Server) handlePlaceStreamServerGetStorage(ctx context.Context) (*placestreamtypes.ServerGetStorage_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
@@ -93,7 +92,7 @@ func (s *Server) handlePlaceStreamServerGetStorage(ctx context.Context) (*places
 
 func (s *Server) handlePlaceStreamServerDeleteStorage(ctx context.Context) (*placestreamtypes.ServerDeleteStorage_Output, error) {
 	// Get authenticated user
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}

@@ -11,7 +11,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/pion/webrtc/v4"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/constants"
 	placestream "stream.place/streamplace/pkg/placestream"
 )
@@ -42,7 +41,7 @@ func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition st
 		}
 		streamer = repo.DID
 	}
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session != nil {
 		viewer = session.DID
 	} else {

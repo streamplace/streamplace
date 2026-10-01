@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/log"
 	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
@@ -46,7 +45,7 @@ func (s *Server) loadOwnedDraft(ctx context.Context, uri, did string) (*placestr
 // handlers ─────────────────────────────────────────────────────────────────
 
 func (s *Server) handlePlaceStreamVodListDrafts(ctx context.Context, cursor string, limit int) (*placestream.VodListDrafts_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
@@ -71,7 +70,7 @@ func (s *Server) handlePlaceStreamVodListDrafts(ctx context.Context, cursor stri
 }
 
 func (s *Server) handlePlaceStreamVodGetDraft(ctx context.Context, uri string) (*placestream.VodGetDraft_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
@@ -83,7 +82,7 @@ func (s *Server) handlePlaceStreamVodGetDraft(ctx context.Context, uri string) (
 }
 
 func (s *Server) handlePlaceStreamVodUpdateDraft(ctx context.Context, body *placestream.VodUpdateDraft_Input) (*placestream.VodUpdateDraft_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
@@ -139,7 +138,7 @@ func (s *Server) handlePlaceStreamVodUpdateDraft(ctx context.Context, body *plac
 }
 
 func (s *Server) handlePlaceStreamVodDeleteDraft(ctx context.Context, body *placestream.VodDeleteDraft_Input) (*placestream.VodDeleteDraft_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
@@ -166,7 +165,7 @@ func (s *Server) handlePlaceStreamVodDeleteDraft(ctx context.Context, body *plac
 // fills this draft. Lets the user edit metadata while the upload runs and
 // supports re-upload (a failed upload leaves the draft intact).
 func (s *Server) handlePlaceStreamVodCreateDraft(ctx context.Context, body *placestream.VodCreateDraft_Input) (*placestream.VodCreateDraft_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
@@ -189,7 +188,7 @@ func (s *Server) handlePlaceStreamVodCreateDraft(ctx context.Context, body *plac
 }
 
 func (s *Server) handlePlaceStreamVodPublishDraft(ctx context.Context, body *placestream.VodPublishDraft_Input) (*placestream.VodPublishDraft_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}

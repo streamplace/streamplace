@@ -7,13 +7,12 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/log"
 	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *placestream.MediaCreateUpload_Input) (*placestream.MediaCreateUpload_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
@@ -76,7 +75,7 @@ func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *p
 }
 
 func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context, uploadId string) (*placestream.MediaGetUploadStatus_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}

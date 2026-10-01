@@ -64,6 +64,7 @@ type Server struct {
 	live              liveCDN
 	aliases           map[string]string
 	identityDirectory func() identity.Directory
+	identityRefreshes *cache.Cache
 }
 
 // vodCDN returns the playlist-generation CDN settings.
@@ -108,6 +109,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		viewLog:         viewLog,
 		aliases:         aliases,
 	}
+	s.identityRefreshes = newIdentityRefreshCache()
 	if atsync != nil {
 		s.identityDirectory = atsync.IdentityDirectory
 	}

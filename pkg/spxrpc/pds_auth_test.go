@@ -74,6 +74,7 @@ func newPDSAuthTestServer(dir identity.Directory) *echo.Echo {
 	s := &Server{
 		cli:               &config.CLI{BroadcasterHost: pdsAuthTestHost, ServerHost: pdsAuthTestHost},
 		identityDirectory: func() identity.Directory { return dir },
+		identityRefreshes: newIdentityRefreshCache(),
 	}
 	e := echo.New()
 	e.Use(s.PDSAuthMiddleware())
@@ -227,6 +228,24 @@ func TestPDSAuthMiddlewareKeyRotation(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
+func TestPDSAuthMiddlewareThrottlesIdentityRefresh(t *testing.T) {
+	victim := newPDSAuthTestKey(t)
+	forger := newPDSAuthTestKey(t)
+	dir := &rotatingDirectory{MockDirectory: identity.NewMockDirectory(), rotated: pdsAuthTestIdentity(t, victim)}
+	dir.Insert(pdsAuthTestIdentity(t, victim))
+	e := newPDSAuthTestServer(dir)
+
+	for range 20 {
+		rec := callPDSAuthTest(e, bearer(signPDSAuthTestToken(t, forger, pdsAuthTestServiceAud, pdsAuthTestMethod, time.Minute)))
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	}
+	require.Equal(t, 1, dir.purges)
+
+	rec := callPDSAuthTest(e, bearer(signPDSAuthTestToken(t, victim, pdsAuthTestServiceAud, pdsAuthTestMethod, time.Minute)))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, 1, dir.purges)
+}
+
 type oauthTestClient struct {
 	key   *ecdsa.PrivateKey
 	pub   jwk.Key
@@ -304,6 +323,7 @@ func newOAuthTestStack(t *testing.T, pdsDir identity.Directory) (*echo.Echo, *oa
 	s := &Server{
 		cli:               &config.CLI{BroadcasterHost: pdsAuthTestHost, ServerHost: pdsAuthTestHost},
 		identityDirectory: func() identity.Directory { return pdsDir },
+		identityRefreshes: newIdentityRefreshCache(),
 		op:                op,
 	}
 	e := echo.New()

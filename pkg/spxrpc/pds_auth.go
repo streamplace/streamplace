@@ -13,12 +13,15 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
+	"github.com/patrickmn/go-cache"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/log"
 )
 
 const serviceAuthLeeway = 5 * time.Second
+
+const identityRefreshInterval = time.Minute
 
 var serviceAuthAlgs = []string{"ES256", "ES256K"}
 
@@ -78,7 +81,7 @@ func (s *Server) PDSAuthMiddleware() echo.MiddlewareFunc {
 				err = token.checkClaims(time.Now(), method, s.serviceAudiences())
 			}
 			if err == nil {
-				err = verifyServiceToken(ctx, s.identityDirectory(), token)
+				err = s.verifyServiceToken(ctx, token)
 			}
 			if err != nil {
 				log.Debug(ctx, "rejected PDS service auth token", "method", method, "error", err)
@@ -194,10 +197,18 @@ func (t *serviceToken) checkClaims(now time.Time, method string, audiences []str
 	return nil
 }
 
-func verifyServiceToken(ctx context.Context, dir identity.Directory, t *serviceToken) error {
+func newIdentityRefreshCache() *cache.Cache {
+	return cache.New(identityRefreshInterval, 2*identityRefreshInterval)
+}
+
+func (s *Server) verifyServiceToken(ctx context.Context, t *serviceToken) error {
+	dir := s.identityDirectory()
 	err := verifyServiceTokenSignature(ctx, dir, t)
 	if err == nil {
 		return nil
+	}
+	if s.identityRefreshes.Add(t.issuer.String(), struct{}{}, cache.DefaultExpiration) != nil {
+		return err
 	}
 	if purgeErr := dir.Purge(ctx, t.issuer.AtIdentifier()); purgeErr != nil {
 		log.Warn(ctx, "failed to purge identity before retrying service auth", "did", t.issuer, "error", purgeErr)

@@ -2,16 +2,17 @@ package spxrpc
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/patrickmn/go-cache"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
@@ -23,7 +24,32 @@ const serviceAuthLeeway = 5 * time.Second
 
 const identityRefreshInterval = time.Minute
 
-var serviceAuthAlgs = []string{"ES256", "ES256K"}
+var serviceAuthAlgs = []string{jwt.SigningMethodES256.Alg(), signingMethodES256K.Alg()}
+
+var signingMethodES256K = es256kSigningMethod{}
+
+func init() {
+	jwt.RegisterSigningMethod(signingMethodES256K.Alg(), func() jwt.SigningMethod { return signingMethodES256K })
+}
+
+type es256kSigningMethod struct{}
+
+func (es256kSigningMethod) Alg() string { return "ES256K" }
+
+func (es256kSigningMethod) Verify(signingString string, sig []byte, key any) error {
+	pub, ok := key.(*atcrypto.PublicKeyK256)
+	if !ok {
+		return jwt.ErrInvalidKeyType
+	}
+	if len(sig) != 64 {
+		return jwt.ErrTokenSignatureInvalid
+	}
+	return pub.HashAndVerifyLenient([]byte(signingString), sig)
+}
+
+func (es256kSigningMethod) Sign(string, any) ([]byte, error) {
+	return nil, errors.New("ES256K signing is not supported")
+}
 
 type Caller struct {
 	DID   string
@@ -76,154 +102,80 @@ func (s *Server) PDSAuthMiddleware() echo.MiddlewareFunc {
 			}
 
 			ctx := c.Request().Context()
-			token, err := parseServiceToken(raw)
-			if err == nil {
-				err = token.checkClaims(time.Now(), method, s.serviceAudiences())
-			}
-			if err == nil {
-				err = s.verifyServiceToken(ctx, token)
-			}
+			issuer, err := s.verifyServiceToken(ctx, raw, method)
 			if err != nil {
 				log.Debug(ctx, "rejected PDS service auth token", "method", method, "error", err)
 				return next(c)
 			}
 
-			ctx = context.WithValue(ctx, pdsAuthContextKey, token.issuer.String())
+			ctx = context.WithValue(ctx, pdsAuthContextKey, issuer.String())
 			c.SetRequest(c.Request().WithContext(ctx))
 			return next(c)
 		}
 	}
 }
 
-type serviceToken struct {
-	signingInput []byte
-	signature    []byte
-	issuer       syntax.DID
-	audience     []string
-	lxm          string
-	expires      time.Time
-	issuedAt     time.Time
-}
-
-func parseServiceToken(raw string) (*serviceToken, error) {
-	parts := strings.Split(raw, ".")
-	if len(parts) != 3 {
-		return nil, errors.New("malformed token")
-	}
-	headerJSON, err := base64.RawURLEncoding.DecodeString(parts[0])
-	if err != nil {
-		return nil, fmt.Errorf("header: %w", err)
-	}
-	payloadJSON, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return nil, fmt.Errorf("payload: %w", err)
-	}
-	signature, err := base64.RawURLEncoding.DecodeString(parts[2])
-	if err != nil {
-		return nil, fmt.Errorf("signature: %w", err)
-	}
-
-	var header struct {
-		Alg string `json:"alg"`
-	}
-	if err := json.Unmarshal(headerJSON, &header); err != nil {
-		return nil, fmt.Errorf("header: %w", err)
-	}
-	if !slices.Contains(serviceAuthAlgs, header.Alg) {
-		return nil, fmt.Errorf("unsupported alg %q", header.Alg)
-	}
-	if len(signature) != 64 {
-		return nil, errors.New("signature has the wrong length")
-	}
-
-	var claims struct {
-		Iss string          `json:"iss"`
-		Aud json.RawMessage `json:"aud"`
-		Exp *int64          `json:"exp"`
-		Iat *int64          `json:"iat"`
-		Lxm string          `json:"lxm"`
-	}
-	if err := json.Unmarshal(payloadJSON, &claims); err != nil {
-		return nil, fmt.Errorf("payload: %w", err)
-	}
-	issuer, err := syntax.ParseDID(claims.Iss)
-	if err != nil {
-		return nil, fmt.Errorf("iss: %w", err)
-	}
-	if claims.Exp == nil || claims.Iat == nil {
-		return nil, errors.New("exp and iat are required")
-	}
-	audience, err := parseAudience(claims.Aud)
-	if err != nil {
-		return nil, err
-	}
-
-	return &serviceToken{
-		signingInput: []byte(parts[0] + "." + parts[1]),
-		signature:    signature,
-		issuer:       issuer,
-		audience:     audience,
-		lxm:          claims.Lxm,
-		expires:      time.Unix(*claims.Exp, 0),
-		issuedAt:     time.Unix(*claims.Iat, 0),
-	}, nil
-}
-
-func parseAudience(raw json.RawMessage) ([]string, error) {
-	var single string
-	if err := json.Unmarshal(raw, &single); err == nil {
-		return []string{single}, nil
-	}
-	var many []string
-	if err := json.Unmarshal(raw, &many); err != nil {
-		return nil, errors.New("aud must be a string or a list of strings")
-	}
-	return many, nil
-}
-
-func (t *serviceToken) checkClaims(now time.Time, method string, audiences []string) error {
-	if !slices.ContainsFunc(t.audience, func(aud string) bool { return slices.Contains(audiences, aud) }) {
-		return fmt.Errorf("aud %v is not this service", t.audience)
-	}
-	if t.lxm != method {
-		return fmt.Errorf("lxm %q does not match %q", t.lxm, method)
-	}
-	if now.After(t.expires.Add(serviceAuthLeeway)) {
-		return errors.New("token expired")
-	}
-	if t.issuedAt.After(now.Add(serviceAuthLeeway)) {
-		return errors.New("token issued in the future")
-	}
-	return nil
+type serviceAuthClaims struct {
+	jwt.RegisteredClaims
+	Lxm string `json:"lxm"`
 }
 
 func newIdentityRefreshCache() *cache.Cache {
 	return cache.New(identityRefreshInterval, 2*identityRefreshInterval)
 }
 
-func (s *Server) verifyServiceToken(ctx context.Context, t *serviceToken) error {
+func (s *Server) verifyServiceToken(ctx context.Context, raw string, method string) (syntax.DID, error) {
+	parser := jwt.NewParser(
+		jwt.WithValidMethods(serviceAuthAlgs),
+		jwt.WithAudience(s.serviceAudiences()...),
+		jwt.WithExpirationRequired(),
+		jwt.WithIssuedAt(),
+		jwt.WithLeeway(serviceAuthLeeway),
+	)
 	dir := s.identityDirectory()
-	err := verifyServiceTokenSignature(ctx, dir, t)
-	if err == nil {
-		return nil
+	claims := &serviceAuthClaims{}
+	_, err := parser.ParseWithClaims(raw, claims, issuerKey(ctx, dir))
+	if errors.Is(err, jwt.ErrTokenSignatureInvalid) && s.identityRefreshes.Add(claims.Issuer, struct{}{}, cache.DefaultExpiration) == nil {
+		issuer := syntax.DID(claims.Issuer)
+		if purgeErr := dir.Purge(ctx, issuer.AtIdentifier()); purgeErr != nil {
+			log.Warn(ctx, "failed to purge identity before retrying service auth", "did", issuer, "error", purgeErr)
+		}
+		claims = &serviceAuthClaims{}
+		_, err = parser.ParseWithClaims(raw, claims, issuerKey(ctx, dir))
 	}
-	if s.identityRefreshes.Add(t.issuer.String(), struct{}{}, cache.DefaultExpiration) != nil {
-		return err
+	if err != nil {
+		return "", err
 	}
-	if purgeErr := dir.Purge(ctx, t.issuer.AtIdentifier()); purgeErr != nil {
-		log.Warn(ctx, "failed to purge identity before retrying service auth", "did", t.issuer, "error", purgeErr)
+	if claims.IssuedAt == nil {
+		return "", errors.New("iat is required")
 	}
-	return verifyServiceTokenSignature(ctx, dir, t)
+	if claims.Lxm != method {
+		return "", fmt.Errorf("lxm %q does not match %q", claims.Lxm, method)
+	}
+	return syntax.DID(claims.Issuer), nil
 }
 
-func verifyServiceTokenSignature(ctx context.Context, dir identity.Directory, t *serviceToken) error {
-	ident, err := dir.LookupDID(ctx, t.issuer)
-	if err != nil {
-		return fmt.Errorf("resolving %s: %w", t.issuer, err)
+func issuerKey(ctx context.Context, dir identity.Directory) jwt.Keyfunc {
+	return func(token *jwt.Token) (any, error) {
+		iss, err := token.Claims.GetIssuer()
+		if err != nil {
+			return nil, err
+		}
+		did, err := syntax.ParseDID(iss)
+		if err != nil {
+			return nil, fmt.Errorf("iss: %w", err)
+		}
+		ident, err := dir.LookupDID(ctx, did)
+		if err != nil {
+			return nil, fmt.Errorf("resolving %s: %w", did, err)
+		}
+		key, err := ident.PublicKey()
+		if err != nil {
+			return nil, fmt.Errorf("signing key for %s: %w", did, err)
+		}
+		if p256, ok := key.(*atcrypto.PublicKeyP256); ok {
+			return ecdsa.ParseUncompressedPublicKey(elliptic.P256(), p256.UncompressedBytes())
+		}
+		return key, nil
 	}
-	key, err := ident.PublicKey()
-	if err != nil {
-		return fmt.Errorf("signing key for %s: %w", t.issuer, err)
-	}
-	return key.HashAndVerifyLenient(t.signingInput, t.signature)
 }

@@ -181,10 +181,7 @@ func (r *WebsocketReplicator) startBusSubscribe(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case msg, ok := <-busCh:
-			if !ok {
-				return fmt.Errorf("bus subscription exceeded its backlog")
-			}
+		case msg := <-busCh:
 			if view, ok := msg.(*placestream.BroadcastDefs_BroadcastOriginView); ok {
 				log.Debug(ctx, "got broadcast origin view", "view", view)
 				err = r.handleOriginMessage(ctx, view)

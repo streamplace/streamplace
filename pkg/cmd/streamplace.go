@@ -38,6 +38,7 @@ import (
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
+	"stream.place/streamplace/pkg/licenses"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
@@ -50,6 +51,7 @@ import (
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/storage"
+	_ "stream.place/streamplace/pkg/stt" // Include bundled models even when automatic captions are disabled.
 	"stream.place/streamplace/pkg/upload"
 	"stream.place/streamplace/pkg/viewlog"
 	"stream.place/streamplace/pkg/vod"
@@ -76,6 +78,19 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	app := cli.NewCommand("streamplace")
 	app.Usage = "decentralized live streaming platform"
 	app.Version = build.Version
+	app.Flags = append(app.Flags, &urfavecli.BoolFlag{
+		Name:  "licenses",
+		Usage: "print Streamplace and bundled speech recognition license notices and exit",
+		Action: func(_ context.Context, cmd *urfavecli.Command, enabled bool) error {
+			if !enabled {
+				return nil
+			}
+			if _, err := fmt.Fprint(cmd.Root().Writer, licenses.Text); err != nil {
+				return err
+			}
+			return urfavecli.Exit("", 0)
+		},
+	})
 	app.Commands = []*urfavecli.Command{
 		makeSelfTestCommand(build),
 		makeVODTestCommand(build),

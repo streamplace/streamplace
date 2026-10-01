@@ -40,6 +40,7 @@ import (
 	"stream.place/streamplace/pkg/crypto/signers/eip712"
 	"stream.place/streamplace/pkg/director"
 	apierrors "stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/licenses"
 	"stream.place/streamplace/pkg/linking"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
@@ -195,6 +196,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("GET", "/.well-known/apple-app-site-association", a.HandleAppleAppSiteAssociation(ctx))
 	router.Handler("GET", "/.well-known/assetlinks.json", a.HandleAndroidAssetLinks(ctx))
 	apiRouter := httprouter.New()
+	addFunc(apiRouter, "GET", "/api/licenses", licenses.Handler)
 	addFunc(apiRouter, "POST", "/api/notification", a.HandleNotification(ctx))
 	addFunc(apiRouter, "DELETE", "/api/notification", a.HandleNotificationDelete(ctx))
 	addFunc(apiRouter, "GET", "/api/notification/vapid-public-key", a.HandleVapidPublicKey(ctx))

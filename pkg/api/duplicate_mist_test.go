@@ -15,7 +15,7 @@ func TestDuplicateMistIdleHandshakeClosesOnlyShadowInput(t *testing.T) {
 	defer input.Close()
 	defer publisher.Close()
 	result := make(chan error, 1)
-	go func() { result <- RunDuplicateMistWorker(t.Context(), input) }()
+	go func() { result <- RunDuplicateMistWorker(t.Context(), input, io.Discard) }()
 	select {
 	case err := <-result:
 		require.ErrorIs(t, err, errShadowIdleTimeout)
@@ -33,7 +33,7 @@ func TestDuplicateMistRejectsTruncatedHandshake(t *testing.T) {
 		"truncated plain handshake": {[]byte{3, 0, 0}, io.ErrUnexpectedEOF},
 	} {
 		t.Run(name, func(t *testing.T) {
-			err := RunDuplicateMistWorker(t.Context(), bytes.NewReader(tc.input))
+			err := RunDuplicateMistWorker(t.Context(), bytes.NewReader(tc.input), io.Discard)
 			require.ErrorIs(t, err, tc.want)
 		})
 	}

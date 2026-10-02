@@ -49,6 +49,33 @@ validation, worker-exit, and queue-overflow failures log
 `duplicate-mist-test failed` with connection identifiers. Protocol error
 details that could contain stream keys are redacted.
 
+Prometheus metrics are available on the existing internal `/metrics` endpoint
+(`http://127.0.0.1:39090/metrics` by default; configure `--http-internal-addr`
+or `SP_HTTP_INTERNAL_ADDR`). Keep this admin listener private.
+
+| Metric                                                         | Meaning                                                                                                          |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `streamplace_duplicate_mist_verified_segments_total`           | Successfully signed and verified segments, reported live even if the session later fails.                        |
+| `streamplace_duplicate_mist_workers`                           | Active shadow workers, including workers draining after publisher EOF.                                           |
+| `streamplace_duplicate_mist_sessions_total{result="success"}`  | Publisher EOF followed by a clean worker exit with at least one verified segment.                                |
+| `streamplace_duplicate_mist_sessions_total{result="failure"}`  | A running shadow failed, including parser/ingest/validation errors, overflow, unexpected exit, or drain timeout. |
+| `streamplace_duplicate_mist_sessions_total{result="canceled"}` | Node shutdown canceled the shadow without an earlier failure.                                                    |
+| `streamplace_duplicate_mist_sessions_total{result="skipped"}`  | The worker cap or a startup error prevented shadowing; Mist forwarding continued.                                |
+
+For rollout confidence, watch live verification and completed outcomes:
+
+```promql
+sum(rate(streamplace_duplicate_mist_verified_segments_total[5m]))
+sum(increase(streamplace_duplicate_mist_sessions_total{result="success"}[1h]))
+sum(increase(streamplace_duplicate_mist_sessions_total{result=~"failure|skipped"}[1h]))
+```
+
+Long-running streams only increment the success counter after disconnect.
+An active worker alone is not evidence of successful ingest, and skipped
+sessions are coverage gaps. All four outcome series exist at zero even when
+shadowing is disabled; counters reset on node restart. Labels contain no
+publisher identifiers or stream keys; use the failure logs for details.
+
 The shadow has an 8 MiB per-connection buffer and a cap of 16 workers per
 addon listener, including draining workers. At capacity, new connections
 forward only to Mist and log a shadow failure. Shadow input idle for 10

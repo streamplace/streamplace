@@ -3,6 +3,7 @@ package rtmps
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -13,7 +14,18 @@ import (
 	"time"
 
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/spmetrics"
 )
+
+// Cached so per-segment and per-session accounting never looks up labels.
+var (
+	shadowSuccess  = spmetrics.DuplicateMistSessionsTotal.WithLabelValues("success")
+	shadowFailure  = spmetrics.DuplicateMistSessionsTotal.WithLabelValues("failure")
+	shadowCanceled = spmetrics.DuplicateMistSessionsTotal.WithLabelValues("canceled")
+	shadowSkipped  = spmetrics.DuplicateMistSessionsTotal.WithLabelValues("skipped")
+)
+
+var errShadowProgress = errors.New("shadow worker wrote invalid progress output")
 
 const (
 	shadowTag = "duplicate-mist-test"
@@ -33,6 +45,15 @@ const (
 
 	shadowWriteChunk = 64 << 10
 	shadowMaxLogLine = 64 << 10
+
+	// The only byte a worker may write to stdout, once per validated segment.
+	shadowProgressByte = 1
+)
+
+const (
+	shadowRunning uint32 = iota
+	shadowFailed
+	shadowReaped
 )
 
 type shadowOptions struct {
@@ -60,8 +81,9 @@ type shadow struct {
 	exitGrace time.Duration
 
 	teed     atomic.Int64
+	verified atomic.Int64
 	finished atomic.Bool
-	aborted  atomic.Bool
+	state    atomic.Uint32
 	done     chan struct{}
 }
 
@@ -82,6 +104,7 @@ func startShadow(ctx context.Context, opts shadowOptions, connID uint64, remote 
 				parentRelease()
 			}
 		default:
+			shadowSkipped.Inc()
 			log.Error(ctx, shadowTag+" failed: shadow worker limit reached, forwarding only to Mist", "max_workers", cap(opts.slots))
 			release()
 			return nil
@@ -92,6 +115,7 @@ func startShadow(ctx context.Context, opts shadowOptions, connID uint64, remote 
 		var err error
 		exe, err = os.Executable()
 		if err != nil {
+			shadowSkipped.Inc()
 			log.Error(ctx, shadowTag+" failed: cannot locate executable for shadow worker, shadow disabled for this connection", "error", err)
 			release()
 			return nil
@@ -111,33 +135,36 @@ func startShadow(ctx context.Context, opts shadowOptions, connID uint64, remote 
 	}
 
 	wctx, cancel := context.WithCancel(ctx)
+	s := &shadow{
+		ctx:       wctx,
+		cancel:    cancel,
+		exitGrace: grace,
+		done:      make(chan struct{}),
+	}
 	cmd := exec.CommandContext(wctx, exe, args...)
 	cmd.Env = workerEnv(os.Environ())
 	cmd.WaitDelay = shadowWaitDelay
-	stdout := &lineLogger{ctx: ctx, stream: "stdout"}
 	stderr := &lineLogger{ctx: ctx, stream: "stderr"}
-	cmd.Stdout = stdout
+	// Worker stdout is not a log: it is the private progress channel.
+	cmd.Stdout = &shadowProgress{ctx: ctx, s: s}
 	cmd.Stderr = stderr
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		cancel()
+		shadowSkipped.Inc()
 		log.Error(ctx, shadowTag+" failed: cannot create shadow worker stdin, shadow disabled for this connection", "error", err)
 		release()
 		return nil
 	}
 	if err := cmd.Start(); err != nil {
 		cancel()
+		shadowSkipped.Inc()
 		log.Error(ctx, shadowTag+" failed: cannot start shadow worker, shadow disabled for this connection", "error", err)
 		release()
 		return nil
 	}
-	s := &shadow{
-		ctx:       wctx,
-		cancel:    cancel,
-		ring:      newRing(ringSize),
-		exitGrace: grace,
-		done:      make(chan struct{}),
-	}
+	s.ring = newRing(ringSize)
+	spmetrics.DuplicateMistWorkers.Inc()
 	log.Log(ctx, shadowTag+": shadow worker started", "pid", cmd.Process.Pid)
 
 	writerDone := make(chan struct{})
@@ -148,15 +175,32 @@ func startShadow(ctx context.Context, opts shadowOptions, connID uint64, remote 
 	go func() {
 		defer close(s.done)
 		defer release()
+		// Wait also drains the progress pipe, so verified is final after it.
 		err := cmd.Wait()
-		stdout.flush()
 		stderr.flush()
 		if err != nil || !s.finished.Load() {
 			s.fail(ctx, "shadow worker exited unexpectedly", "error", err)
+		} else if s.verified.Load() == 0 {
+			s.fail(ctx, "shadow worker exited without validating any segment")
 		}
 		// Process is gone; unblock the pump if it is stuck in a write.
 		s.cancel()
 		<-writerDone
+		// The one terminal outcome of this session. Every other failure path
+		// (overflow, pump error, drain timeout, bad progress bytes) only
+		// aborts the shadow; it is counted here, once, as the worker is reaped.
+		// Freeze the outcome before recording it. A late grace timer must not
+		// log a failure after this session has already counted as successful.
+		failed := s.state.Swap(shadowReaped) == shadowFailed
+		switch {
+		case failed:
+			shadowFailure.Inc()
+		case ctx.Err() != nil:
+			shadowCanceled.Inc()
+		default:
+			shadowSuccess.Inc()
+		}
+		spmetrics.DuplicateMistWorkers.Dec()
 		// The primary connection and grace timer may outlive this worker.
 		// Release its large FIFO before admitting another worker.
 		s.ring.mu.Lock()
@@ -164,7 +208,7 @@ func startShadow(ctx context.Context, opts shadowOptions, connID uint64, remote 
 		s.ring.buf = nil
 		s.ring.r, s.ring.n = 0, 0
 		s.ring.mu.Unlock()
-		log.Log(ctx, shadowTag+": shadow worker exited", "error", err, "aborted", s.aborted.Load(), "bytes_teed", s.teed.Load())
+		log.Log(ctx, shadowTag+": shadow worker exited", "error", err, "aborted", failed, "bytes_teed", s.teed.Load(), "segments_verified", s.verified.Load())
 	}()
 	return s
 }
@@ -198,7 +242,7 @@ func (s *shadow) pump(ctx context.Context, stdin io.WriteCloser) {
 // is too far behind, the whole shadow is aborted; the stream is never
 // continued after a gap.
 func (s *shadow) tee(ctx context.Context, p []byte) {
-	if s == nil || s.aborted.Load() {
+	if s == nil || s.state.Load() != shadowRunning {
 		return
 	}
 	if !s.ring.write(p) {
@@ -230,9 +274,37 @@ func (s *shadow) fail(ctx context.Context, msg string, args ...any) {
 		s.cancel()
 		return
 	}
-	if s.aborted.CompareAndSwap(false, true) {
+	if s.state.CompareAndSwap(shadowRunning, shadowFailed) {
 		log.Error(ctx, shadowTag+" failed: "+msg, append(args, "bytes_teed", s.teed.Load())...)
 		s.cancel()
+	}
+}
+
+// shadowProgress is the worker's stdout, a private machine channel: exactly
+// one shadowProgressByte per segment the worker validated. Anything else
+// means the channel can't be trusted, so it aborts the shadow rather than
+// letting a session count as a clean success.
+type shadowProgress struct {
+	ctx context.Context
+	s   *shadow
+}
+
+func (p *shadowProgress) Write(b []byte) (int, error) {
+	for i, c := range b {
+		if c != shadowProgressByte {
+			p.report(i)
+			p.s.fail(p.ctx, "shadow worker wrote invalid progress output", "byte", c)
+			return i, errShadowProgress
+		}
+	}
+	p.report(len(b))
+	return len(b), nil
+}
+
+func (p *shadowProgress) report(n int) {
+	if n > 0 {
+		p.s.verified.Add(int64(n))
+		spmetrics.DuplicateMistVerifiedSegmentsTotal.Add(float64(n))
 	}
 }
 

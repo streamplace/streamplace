@@ -16,7 +16,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
+
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 const mistReply = "REPLY-FROM-MIST"
@@ -44,6 +48,20 @@ func TestShadowHelperProcess(t *testing.T) {
 		_ = os.WriteFile(out, []byte(strings.Join(os.Environ(), "\n")), 0o644)
 		_, _ = io.Copy(io.Discard, os.Stdin)
 		os.Exit(0)
+	case "silent":
+		_, _ = io.Copy(io.Discard, os.Stdin)
+		os.Exit(0)
+	case "report":
+		// Stdout is the progress channel: one 0x01 per validated segment, the
+		// first while the client is still streaming.
+		_, _ = os.Stdout.Write([]byte{1})
+		_, _ = io.Copy(io.Discard, os.Stdin)
+		_, _ = os.Stdout.Write([]byte{1, 1})
+		os.Exit(0)
+	case "garbage":
+		_, _ = os.Stdout.Write([]byte{1, 1, 'x', 1})
+		_, _ = io.Copy(io.Discard, os.Stdin)
+		os.Exit(0)
 	}
 	os.Exit(2)
 }
@@ -59,6 +77,41 @@ func randomBytes(n int) []byte {
 	b := make([]byte, n)
 	rand.New(rand.NewSource(1)).Read(b)
 	return b
+}
+
+// The duplicate-mist collectors are process-global and shared with every
+// other test, so assertions are deltas against a baseline.
+type shadowMetrics struct {
+	success, failure, canceled, skipped, verified, workers float64
+}
+
+func readShadowMetrics(t *testing.T) shadowMetrics {
+	t.Helper()
+	val := func(m prometheus.Metric) float64 {
+		var d dto.Metric
+		require.NoError(t, m.Write(&d))
+		return d.GetCounter().GetValue() + d.GetGauge().GetValue()
+	}
+	sessions := spmetrics.DuplicateMistSessionsTotal
+	return shadowMetrics{
+		success:  val(sessions.WithLabelValues("success")),
+		failure:  val(sessions.WithLabelValues("failure")),
+		canceled: val(sessions.WithLabelValues("canceled")),
+		skipped:  val(sessions.WithLabelValues("skipped")),
+		verified: val(spmetrics.DuplicateMistVerifiedSegmentsTotal),
+		workers:  val(spmetrics.DuplicateMistWorkers),
+	}
+}
+
+func (m shadowMetrics) since(base shadowMetrics) shadowMetrics {
+	return shadowMetrics{
+		success:  m.success - base.success,
+		failure:  m.failure - base.failure,
+		canceled: m.canceled - base.canceled,
+		skipped:  m.skipped - base.skipped,
+		verified: m.verified - base.verified,
+		workers:  m.workers - base.workers,
+	}
 }
 
 func waitDone(t *testing.T, sh *shadow) {
@@ -123,6 +176,7 @@ func runProxy(t *testing.T, ctx context.Context, sh *shadow, payload []byte) (mi
 func TestShadowAdmissionLimitLeavesMistRunningAndReusesSlot(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	base := readShadowMetrics(t)
 	opts, _ := helperOpts(t, "stall")
 	opts.slots = make(chan struct{}, 1)
 	opts.ringSize = 1024
@@ -130,6 +184,7 @@ func TestShadowAdmissionLimitLeavesMistRunningAndReusesSlot(t *testing.T) {
 	require.NotNil(t, first)
 	rejected := startShadow(ctx, opts, 2, "127.0.0.1:2")
 	require.Nil(t, rejected, "a saturated addon must not spawn another worker")
+	require.Equal(t, shadowMetrics{skipped: 1, workers: 1}, readShadowMetrics(t).since(base))
 	payload := randomBytes(64 << 10)
 	mistGot, clientGot := runProxy(t, ctx, rejected, payload)
 	require.Equal(t, payload, mistGot)
@@ -143,6 +198,7 @@ func TestShadowAdmissionLimitLeavesMistRunningAndReusesSlot(t *testing.T) {
 	require.NotNil(t, next, "a reaped worker must release admission")
 	nextCancel()
 	waitDone(t, next)
+	require.Equal(t, shadowMetrics{canceled: 2, skipped: 1}, readShadowMetrics(t).since(base))
 }
 
 func TestStalledShadowDoesNotAffectPrimary(t *testing.T) {
@@ -150,6 +206,7 @@ func TestStalledShadowDoesNotAffectPrimary(t *testing.T) {
 	defer cancel()
 	opts, out := helperOpts(t, "stall")
 	opts.ringSize = 256 << 10
+	base := readShadowMetrics(t)
 	sh := startShadow(ctx, opts, 1, "127.0.0.1:1")
 	require.NotNil(t, sh)
 
@@ -160,7 +217,7 @@ func TestStalledShadowDoesNotAffectPrimary(t *testing.T) {
 
 	require.Equal(t, payload, mistGot)
 	require.Equal(t, mistReply, string(clientGot))
-	require.True(t, sh.aborted.Load(), "overflow must abort the shadow")
+	require.Equal(t, shadowMetrics{failure: 1}, readShadowMetrics(t).since(base))
 	pid := readPid(t, out)
 	require.ErrorIs(t, syscall.Kill(pid, 0), syscall.ESRCH, "stalled worker must be killed and reaped")
 }
@@ -169,6 +226,7 @@ func TestCrashedShadowDoesNotAffectPrimary(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	opts, _ := helperOpts(t, "crash")
+	base := readShadowMetrics(t)
 	sh := startShadow(ctx, opts, 1, "127.0.0.1:1")
 	require.NotNil(t, sh)
 
@@ -178,7 +236,7 @@ func TestCrashedShadowDoesNotAffectPrimary(t *testing.T) {
 
 	require.Equal(t, payload, mistGot)
 	require.Equal(t, mistReply, string(clientGot))
-	require.True(t, sh.aborted.Load())
+	require.Equal(t, shadowMetrics{failure: 1}, readShadowMetrics(t).since(base), "crash, broken stdin pipe and bad exit are one failure")
 }
 
 func TestShadowHungAtStreamEndIsKilled(t *testing.T) {
@@ -186,6 +244,7 @@ func TestShadowHungAtStreamEndIsKilled(t *testing.T) {
 	defer cancel()
 	opts, _ := helperOpts(t, "hang-on-eof")
 	opts.exitGrace = 300 * time.Millisecond
+	base := readShadowMetrics(t)
 	sh := startShadow(ctx, opts, 1, "127.0.0.1:1")
 	require.NotNil(t, sh)
 
@@ -193,7 +252,7 @@ func TestShadowHungAtStreamEndIsKilled(t *testing.T) {
 	mistGot, _ := runProxy(t, ctx, sh, payload)
 	require.Equal(t, payload, mistGot)
 	waitDone(t, sh)
-	require.True(t, sh.aborted.Load(), "a worker that outlives the grace period must be killed")
+	require.Equal(t, shadowMetrics{failure: 1}, readShadowMetrics(t).since(base))
 }
 
 func TestServerCancelReapsShadow(t *testing.T) {
@@ -202,6 +261,7 @@ func TestServerCancelReapsShadow(t *testing.T) {
 	opts, out := helperOpts(t, "stall")
 	var released atomic.Int32
 	opts.release = func() { released.Add(1) }
+	base := readShadowMetrics(t)
 	sh := startShadow(ctx, opts, 1, "127.0.0.1:1")
 	require.NotNil(t, sh)
 	sh.tee(ctx, []byte("some client bytes"))
@@ -210,6 +270,7 @@ func TestServerCancelReapsShadow(t *testing.T) {
 	cancel()
 	waitDone(t, sh)
 	require.Eventually(t, func() bool { return released.Load() == 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Equal(t, shadowMetrics{canceled: 1}, readShadowMetrics(t).since(base), "server shutdown is neither a success nor a failure")
 	require.ErrorIs(t, syscall.Kill(readPid(t, out), 0), syscall.ESRCH)
 }
 
@@ -233,15 +294,65 @@ func TestShadowWorkerEnvStripsSPVars(t *testing.T) {
 func TestStartFailureLeavesPrimaryAlone(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	base := readShadowMetrics(t)
 	var released atomic.Int32
 	sh := startShadow(ctx, shadowOptions{exe: "/nonexistent/streamplace", release: func() { released.Add(1) }}, 1, "127.0.0.1:1")
 	require.Nil(t, sh)
 	require.Equal(t, int32(1), released.Load())
+	require.Equal(t, shadowMetrics{skipped: 1}, readShadowMetrics(t).since(base))
 
 	payload := randomBytes(64 << 10)
 	mistGot, clientGot := runProxy(t, ctx, sh, payload)
 	require.Equal(t, payload, mistGot)
 	require.Equal(t, mistReply, string(clientGot))
+}
+
+// The worker's progress stream is what makes a session a success: the live
+// reports must reach the parent while the client is still connected, and the
+// session is counted exactly once, after the publisher's EOF.
+func TestShadowCountsProgressLiveAndSuccessAtEOF(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	opts, _ := helperOpts(t, "report")
+	base := readShadowMetrics(t)
+	sh := startShadow(ctx, opts, 1, "127.0.0.1:1")
+	require.NotNil(t, sh)
+
+	require.Eventually(t, func() bool {
+		return readShadowMetrics(t).since(base) == shadowMetrics{verified: 1, workers: 1}
+	}, 10*time.Second, 10*time.Millisecond, "a report must be counted before the publisher ends")
+
+	sh.tee(ctx, randomBytes(1024))
+	sh.finish(ctx)
+	waitDone(t, sh)
+	require.Equal(t, shadowMetrics{success: 1, verified: 3}, readShadowMetrics(t).since(base))
+}
+
+// A clean exit that never reported a validated segment proved nothing.
+func TestShadowCleanExitWithoutProgressIsFailure(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	opts, _ := helperOpts(t, "silent")
+	base := readShadowMetrics(t)
+	sh := startShadow(ctx, opts, 1, "127.0.0.1:1")
+	require.NotNil(t, sh)
+	sh.finish(ctx)
+	waitDone(t, sh)
+	require.Equal(t, shadowMetrics{failure: 1}, readShadowMetrics(t).since(base))
+}
+
+// Anything but progress bytes on stdout makes the channel untrustworthy; only
+// the valid prefix counts and the session can never be a success.
+func TestShadowInvalidProgressOutputIsFailure(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	opts, _ := helperOpts(t, "garbage")
+	base := readShadowMetrics(t)
+	sh := startShadow(ctx, opts, 1, "127.0.0.1:1")
+	require.NotNil(t, sh)
+	sh.finish(ctx)
+	waitDone(t, sh)
+	require.Equal(t, shadowMetrics{failure: 1, verified: 2}, readShadowMetrics(t).since(base))
 }
 
 func TestRingWrapsAndRejectsOverflow(t *testing.T) {

@@ -46,7 +46,9 @@ func (r shadowIdleReader) Read(p []byte) (int, error) {
 // the shadow's S1, so the publisher's response to Mist's handshake is valid.
 // All shadow replies are discarded; only Mist negotiates with the publisher.
 // This runs ONLY in a child process: no auth, database, storage, or live state.
-func RunDuplicateMistWorker(parent context.Context, input io.Reader) (retErr error) {
+// progress is the private machine channel back to the parent (stdout in the
+// child): exactly one byte of value 1 per validated segment, nothing else.
+func RunDuplicateMistWorker(parent context.Context, input io.Reader, progress io.Writer) (retErr error) {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 	ctx = log.WithLogValues(ctx, "component", "duplicate-mist-test")
@@ -158,10 +160,20 @@ func RunDuplicateMistWorker(parent context.Context, input io.Reader) (retErr err
 	})
 	var verified int
 	var lastProgress time.Time
+	report := [1]byte{1}
 	g.Go(func() error {
 		err := media.RTMPIngestUnpublished(groupCtx, &config.CLI{}, "rtmp://"+ln.Addr().String()+"/live/"+ms.Streamer(), ms, func(c context.Context, segment []byte) error {
 			if _, err := media.ValidateMP4Media(c, segment); err != nil {
 				return fmt.Errorf("shadow signed segment validation: %w", err)
+			}
+			// The parent counts only reported segments; a report it never
+			// received must not end as a clean worker exit.
+			n, err := progress.Write(report[:])
+			if err == nil && n != len(report) {
+				err = io.ErrShortWrite
+			}
+			if err != nil {
+				return fmt.Errorf("shadow progress report: %w", err)
 			}
 			verified++
 			if time.Since(lastProgress) >= 30*time.Second {

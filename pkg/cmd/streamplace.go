@@ -1025,6 +1025,7 @@ func makeStreamCommand(build *config.BuildFlags) *urfavecli.Command {
 }
 
 // The shadow uses an ephemeral signer and has no node, database, or storage.
+// stdout carries only the per-segment progress bytes; all logs go to stderr.
 func makeDuplicateMistWorkerCommand() *urfavecli.Command {
 	return &urfavecli.Command{
 		Name:   "duplicate-mist-worker",
@@ -1033,7 +1034,7 @@ func makeDuplicateMistWorkerCommand() *urfavecli.Command {
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
 			_ = flag.Set("logtostderr", "true")
 			_ = flag.Set("v", "3")
-			return api.RunDuplicateMistWorker(ctx, os.Stdin)
+			return api.RunDuplicateMistWorker(ctx, os.Stdin, os.Stdout)
 		},
 	}
 }

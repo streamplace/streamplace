@@ -299,6 +299,28 @@ var S3MultipartBytesUploadedTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Help: "total bytes written via pkg/s3.MultipartWriter",
 })
 
+// Duplicate-mist test: the shadow native ingest that runs beside Mist. One
+// session is one duplication attempt, counted once by how it ended:
+// success (publisher EOF, worker exited cleanly having validated at least
+// one segment), failure, canceled (the server shut down first), or skipped
+// (never started: addon at its worker limit, or the spawn failed).
+var DuplicateMistSessionsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_duplicate_mist_sessions_total",
+	Help: "duplicate-mist shadow sessions, by result (success|failure|canceled|skipped)",
+}, []string{"result"})
+
+// Counted in the parent as each validated segment is reported by the worker,
+// so it climbs while the publisher is still streaming.
+var DuplicateMistVerifiedSegmentsTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_duplicate_mist_verified_segments_total",
+	Help: "segments the duplicate-mist shadow workers parsed, signed and validated",
+})
+
+var DuplicateMistWorkers = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "streamplace_duplicate_mist_workers",
+	Help: "duplicate-mist shadow worker subprocesses currently running (including ones draining after publisher EOF)",
+})
+
 func ViewerInc(user string, protocol string) {
 	go func() {
 		viewersLock.Lock()
@@ -361,6 +383,9 @@ func init() {
 	// starts here, so only its exits are touched.
 	for _, outcome := range []string{"clean", "crash"} {
 		IngestWorkerExits.WithLabelValues("resumed", outcome)
+	}
+	for _, result := range []string{"success", "failure", "canceled", "skipped"} {
+		DuplicateMistSessionsTotal.WithLabelValues(result)
 	}
 	for _, backend := range []string{"file", "s3"} {
 		VODProcessAttemptsTotal.WithLabelValues(backend)

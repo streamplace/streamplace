@@ -10,17 +10,19 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/http/httptest"
 	"os"
 	"os/exec"
-	"regexp"
-	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/go-gst/go-gst/gst"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	scraper "github.com/starttoaster/prometheus-exporter-scraper"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
@@ -53,13 +55,84 @@ func (w *shadowExitWriter) Write(p []byte) (int, error) {
 	return w.Writer.Write(p)
 }
 
+// zeroFillWriter forwards bytes intact until armed, then replaces every byte
+// with zero. A zeroed chunk header is an RTMP message of invalid type 0, so
+// the shadow parser fails deterministically; the byte count the primary
+// receives is unchanged.
+type zeroFillWriter struct {
+	io.Writer
+	armed  atomic.Bool
+	intact atomic.Int64 // bytes forwarded before the first zeroed byte
+}
+
+func (w *zeroFillWriter) Write(p []byte) (int, error) {
+	if w.armed.Load() {
+		return w.Writer.Write(make([]byte, len(p)))
+	}
+	w.intact.Add(int64(len(p)))
+	return w.Writer.Write(p)
+}
+
+// shadowMetrics is the parent's view of the shadow, scraped over HTTP.
+type shadowMetrics struct {
+	sessions map[string]int
+	verified int
+	workers  float64
+}
+
+func scrapeShadowMetrics(t *testing.T, scrp *scraper.WebScraper) shadowMetrics {
+	t.Helper()
+	data, err := scrp.ScrapeWeb()
+	require.NoError(t, err)
+	m := shadowMetrics{sessions: map[string]int{}}
+	for _, c := range data.Counters {
+		switch c.Key {
+		case "streamplace_duplicate_mist_sessions_total":
+			m.sessions[c.Labels["result"]] = c.Value
+		case "streamplace_duplicate_mist_verified_segments_total":
+			m.verified = c.Value
+		}
+	}
+	for _, g := range data.Gauges {
+		if g.Key == "streamplace_duplicate_mist_workers" {
+			m.workers = g.Value
+		}
+	}
+	return m
+}
+
+func waitForVerifiedSegment(ctx context.Context, t *testing.T, scrp *scraper.WebScraper) shadowMetrics {
+	t.Helper()
+	for {
+		m := scrapeShadowMetrics(t, scrp)
+		if m.verified > 0 {
+			return m
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("shadow never reported a verified segment: %+v", m)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+// Every outcome series must exist, so a zero is a zero and not a missing one.
+func sessionCounts(success, failure int) map[string]int {
+	return map[string]int{"success": success, "failure": failure, "canceled": 0, "skipped": 0}
+}
+
 // An independently negotiated primary RTMP session receives all media while
 // the client-only replay passes the native relay, mp4mux, signer and verifier.
-// Run the scenario in its own process so logging and GStreamer state remain
-// isolated from the rest of the package suite.
+// Run the scenario in its own process so logging, GStreamer state and the
+// global metrics remain isolated from the rest of the package suite.
+//
+// paced streams in real time, burst sends everything at once to exercise the
+// downstream drain, and corrupt zero-fills the publisher's bytes once the
+// shadow has verified a segment: the shadow parser fails while the primary
+// keeps receiving the stream.
 func TestDuplicateMistEndToEnd(t *testing.T) {
 	if os.Getenv("DUPLICATE_MIST_E2E_SCENARIO") != "1" {
-		for _, mode := range []string{"paced", "burst"} {
+		for _, mode := range []string{"paced", "burst", "corrupt"} {
 			t.Run(mode, func(t *testing.T) {
 				ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 				defer cancel()
@@ -69,29 +142,33 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 				cmd.Env = append(os.Environ(), "DUPLICATE_MIST_E2E_SCENARIO=1", "DUPLICATE_MIST_E2E_MODE="+mode)
 				out, err := cmd.CombinedOutput()
 				require.NoError(t, err, "%s", out)
-				// Every GoP, including buffered media at publisher EOF. The
-				// unpaced burst specifically exercises downstream drain.
-				match := regexp.MustCompile(`duplicate-mist-test shadow finished.*segments_verified=(\d+)`).FindSubmatch(out)
-				require.Len(t, match, 2, "%s", out)
-				verified, err := strconv.Atoi(string(match[1]))
-				require.NoError(t, err)
-				require.Equal(t, 10, verified, "%s", out)
-				require.NotContains(t, string(out), "duplicate-mist-test failed", "%s", out)
 				t.Logf("%s", out)
 			})
 		}
 		return
 	}
+	mode := os.Getenv("DUPLICATE_MIST_E2E_MODE")
+	corrupt := mode == "corrupt"
+	paced := mode != "burst"
 	_ = flag.Set("v", "3")
 	shadowExit := &shadowExitWriter{Writer: os.Stderr, done: make(chan struct{})}
 	slog.SetDefault(slog.New(slog.NewTextHandler(shadowExit, nil)))
 	ctx, cancel := context.WithTimeout(t.Context(), 40*time.Second)
 	defer cancel()
 
+	// The parent's collectors are in this process's default registry; scrape
+	// them the way production is scraped, through promhttp over HTTP.
+	metricsSrv := httptest.NewServer(promhttp.Handler())
+	defer metricsSrv.Close()
+	scrp, err := scraper.NewWebScraper(metricsSrv.URL)
+	require.NoError(t, err)
+	require.Equal(t, shadowMetrics{sessions: sessionCounts(0, 0)}, scrapeShadowMetrics(t, scrp))
+
 	primary, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	defer primary.Close()
 	primaryResult := make(chan error, 1)
+	var primaryBytes atomic.Int64
 	go func() {
 		conn, err := primary.Accept()
 		if err != nil {
@@ -106,6 +183,14 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 			return
 		}
 		if err := sc.Accept(); err != nil {
+			primaryResult <- err
+			return
+		}
+		if corrupt {
+			// Mist is only a byte sink here: it must keep receiving the
+			// publisher after the shadow's copy has turned to garbage.
+			n, err := io.Copy(io.Discard, conn)
+			primaryBytes.Store(n)
 			primaryResult <- err
 			return
 		}
@@ -153,6 +238,7 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	defer bridge.Close()
 	bridgeDone := make(chan error, 1)
+	zeroFill := &zeroFillWriter{}
 	go func() {
 		client, err := bridge.Accept()
 		if err != nil {
@@ -178,7 +264,8 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 		defer stop()
 		replies := make(chan struct{})
 		go func() { _, _ = io.Copy(client, server); client.Close(); close(replies) }()
-		_, err = io.Copy(server, client)
+		zeroFill.Writer = server
+		_, err = io.Copy(zeroFill, client)
 		server.Close()
 		<-replies
 		bridgeDone <- err
@@ -188,12 +275,27 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf(
 		"flvmux name=mux streamable=true ! rtmp2sink sync=%t location=rtmp://%s/live/shadow-e2e "+
 			"videotestsrc num-buffers=300 ! video/x-raw,width=320,height=240,framerate=30/1 ! x264enc key-int-max=30 bframes=0 tune=zerolatency ! h264parse ! queue ! mux.video "+
-			"audiotestsrc num-buffers=470 samplesperbuffer=1024 ! audio/x-raw,rate=48000 ! audioconvert ! fdkaacenc ! aacparse ! queue ! mux.audio", os.Getenv("DUPLICATE_MIST_E2E_MODE") != "burst", bridge.Addr()))
+			"audiotestsrc num-buffers=470 samplesperbuffer=1024 ! audio/x-raw,rate=48000 ! audioconvert ! fdkaacenc ! aacparse ! queue ! mux.audio", paced, bridge.Addr()))
 	require.NoError(t, err)
 	defer pipeline.SetState(gst.StateNull) //nolint:errcheck
 	busDone := make(chan error, 1)
 	go func() { busDone <- media.HandleBusMessages(ctx, pipeline) }()
 	require.NoError(t, pipeline.SetState(gst.StatePlaying))
+	if paced {
+		// Progress must be visible while the publisher is still sending,
+		// not only once the worker has exited.
+		live := waitForVerifiedSegment(ctx, t, scrp)
+		select {
+		case err := <-busDone:
+			t.Fatalf("publisher finished before the shadow reported progress: %v", err)
+		default:
+		}
+		require.Equal(t, float64(1), live.workers)
+		require.Equal(t, sessionCounts(0, 0), live.sessions)
+		if corrupt {
+			zeroFill.armed.Store(true)
+		}
+	}
 	select {
 	case err := <-busDone:
 		require.NoError(t, err)
@@ -219,6 +321,21 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 	case <-shadowExit.done:
 	case <-ctx.Done():
 		t.Fatal("shadow failed to exit after publisher EOF")
+	}
+	// The session's one terminal outcome is recorded before the exit log.
+	final := scrapeShadowMetrics(t, scrp)
+	require.Equal(t, float64(0), final.workers)
+	if corrupt {
+		require.Equal(t, sessionCounts(0, 1), final.sessions)
+		require.Positive(t, final.verified)
+		// primaryBytes excludes the few KB consumed by its own handshake and
+		// publish exchange; seconds of media follow the zero-fill point.
+		intact := zeroFill.intact.Load()
+		require.Positive(t, intact)
+		require.Greater(t, primaryBytes.Load(), intact, "primary stopped receiving once the shadow failed")
+	} else {
+		require.Equal(t, sessionCounts(1, 0), final.sessions)
+		require.Equal(t, 10, final.verified)
 	}
 	cancel()
 	require.NoError(t, <-addonDone)

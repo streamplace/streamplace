@@ -3,7 +3,7 @@ import { Switch } from "@/components/ui/switch";
 import { useBetaStatus } from "@/hooks/use-beta-status";
 import { useSession } from "@/lib/session";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "../../lib/store";
 import {
@@ -26,6 +26,7 @@ function PrivacySettings() {
   const createServerSettingsRecord = useStore(
     (s) => s.createServerSettingsRecord,
   );
+  const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,7 +53,8 @@ function PrivacySettings() {
     livestreamRecording?: boolean;
     autoPublishVods?: boolean;
   }) => {
-    if (!isAuthenticated || saving) return;
+    if (!isAuthenticated || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -65,6 +67,7 @@ function PrivacySettings() {
         }),
       );
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };

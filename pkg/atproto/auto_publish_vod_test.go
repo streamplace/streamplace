@@ -6,8 +6,11 @@ import (
 	"testing"
 	"time"
 
+	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/comatproto"
+	"stream.place/streamplace/pkg/devenv"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
@@ -96,4 +99,50 @@ func TestAutoPublishVODScheduledWhenSeenEnding(t *testing.T) {
 	optIn(true)
 	index("3loff00000000", "off, retitled", true, false)
 	require.Zero(t, scheduled(off), "edited after turning it on")
+}
+
+func TestDeletedServerSettingsWithdrawAutoPublishConsent(t *testing.T) {
+	ctx := context.Background()
+	dev := devenv.WithDevEnv(t)
+	atsync, mod := backfillTestSynchronizer(t, dev)
+	user := dev.CreateAccount(t)
+	other := dev.CreateAccount(t)
+	on := true
+	for _, account := range []*devenv.DevEnvAccount{user, other} {
+		for _, host := range []string{atsync.CLI.BroadcasterHost, "other.example.com"} {
+			createBackfillRecord(t, account, "place.stream.server.settings", host,
+				&placestream.ServerSettings{LexiconTypeID: "place.stream.server.settings", AutoPublishVods: &on})
+		}
+		_, err := atsync.SyncBlueskyRepoCached(ctx, account.DID)
+		require.NoError(t, err)
+	}
+	settings, err := mod.GetServerSettings(ctx, atsync.CLI.BroadcasterHost, user.DID)
+	require.NoError(t, err)
+	require.NotNil(t, settings)
+
+	_, err = comatproto.RepoDeleteRecord(ctx, user.XRPC, &comatproto.RepoDeleteRecord_Input{
+		Repo: user.DID, Collection: "place.stream.server.settings", Rkey: atsync.CLI.BroadcasterHost,
+	})
+	require.NoError(t, err)
+	blocks, err := comatproto.SyncGetRepo(ctx, user.XRPC, user.DID, "")
+	require.NoError(t, err)
+	evt := &indigoatproto.SyncSubscribeRepos_Commit{
+		Repo: user.DID, Time: time.Now().UTC().Format(time.RFC3339), Blocks: blocks,
+		Ops: []*indigoatproto.SyncSubscribeRepos_RepoOp{
+			repoOp("delete", "place.stream.server.settings/"+atsync.CLI.BroadcasterHost),
+		},
+	}
+	require.True(t, atsync.handleIndexedOps(ctx, evt))
+	settings, err = mod.GetServerSettings(ctx, atsync.CLI.BroadcasterHost, user.DID)
+	require.NoError(t, err)
+	require.Nil(t, settings, "deleting the record must withdraw indexed consent")
+	require.NoError(t, atsync.StatefulDB.ScheduleAutoPublishVOD(ctx, user.DID, "at://"+user.DID+"/place.stream.livestream/3lended00000"))
+	tasks, err := atsync.StatefulDB.ListTasks(ctx, statedb.TaskFilters{Type: statedb.TaskAutoPublishVOD})
+	require.NoError(t, err)
+	require.Empty(t, tasks, "a deleted opt-in must not schedule publication")
+	for _, key := range [][2]string{{"other.example.com", user.DID}, {atsync.CLI.BroadcasterHost, other.DID}} {
+		settings, err := mod.GetServerSettings(ctx, key[0], key[1])
+		require.NoError(t, err)
+		require.NotNil(t, settings, "deletion must be scoped to the server and account")
+	}
 }

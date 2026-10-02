@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/log"
 	placestream "stream.place/streamplace/pkg/placestream"
 )
@@ -108,7 +107,7 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 	// creating it (or after queueing the finalize) picks it up again rather
 	// than starting a second VOD. Any other upload of the livestream is one
 	// the streamer (or a moderator) finalized by hand.
-	uploadID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(ls.URI)).String()
+	uploadID := ls.URI
 	uploads, err := state.ListLivestreamUploads(ctx, ls.URI)
 	if err != nil {
 		return fmt.Errorf("list livestream uploads: %w", err)

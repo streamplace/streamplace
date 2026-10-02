@@ -5,7 +5,7 @@ import {
   View,
   zero,
 } from "@streamplace/components";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView } from "react-native";
 import { useStore } from "store";
@@ -23,6 +23,8 @@ export function PrivacyCategorySettings() {
   const createServerSettingsRecord = useStore(
     (state) => state.createServerSettingsRecord,
   );
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
   const debugRecordingOn = serverSettings?.debugRecording === true;
   // Defaults on (unlike debugRecording): only an explicit `false` turns it off.
   const livestreamRecordingOn = serverSettings?.livestreamRecording !== false;
@@ -39,6 +41,20 @@ export function PrivacyCategorySettings() {
     }
   }, [isReady]);
 
+  const saveSetting = async (
+    patch: Parameters<typeof createServerSettingsRecord>[0],
+  ) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      await createServerSettingsRecord(patch);
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+
   const u = new URL(url);
 
   return (
@@ -51,9 +67,10 @@ export function PrivacyCategorySettings() {
                 title={t("debug-recording-title", { host: u.host })}
                 description={t("debug-recording-description")}
                 value={debugRecordingOn}
-                onValueChange={(value) => {
-                  createServerSettingsRecord({ debugRecording: value });
-                }}
+                disabled={saving}
+                onValueChange={(value) =>
+                  saveSetting({ debugRecording: value })
+                }
               />
               {vodBetaStatus === "granted" && (
                 <>
@@ -61,11 +78,11 @@ export function PrivacyCategorySettings() {
                     title={t("livestream-recording-title", { host: u.host })}
                     description={t("livestream-recording-description")}
                     value={livestreamRecordingOn}
-                    onValueChange={(value) => {
-                      createServerSettingsRecord({
-                        livestreamRecording: value,
-                      });
-                    }}
+                    disabled={saving}
+                    onValueChange={(value) =>
+                      saveSetting({ livestreamRecording: value })
+                    }
+                    testID="settings-livestream-recording"
                   />
                   <SettingToggle
                     title={t("auto-publish-vods-title")}
@@ -73,9 +90,10 @@ export function PrivacyCategorySettings() {
                       host: u.host,
                     })}
                     value={autoPublishVodsOn}
-                    onValueChange={(value) => {
-                      createServerSettingsRecord({ autoPublishVods: value });
-                    }}
+                    disabled={saving}
+                    onValueChange={(value) =>
+                      saveSetting({ autoPublishVods: value })
+                    }
                     testID="settings-auto-publish-vods"
                   />
                 </>

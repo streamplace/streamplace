@@ -682,6 +682,12 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 			}
 
 		case repomgr.EvtKindDeleteRecord:
+			if collection.String() == constants.PLACE_STREAM_SERVER_SETTINGS {
+				if err := atsync.Model.DeleteServerSettings(ctx, rkey.String(), evt.Repo); err != nil {
+					log.Error(ctx, "failed to delete server settings", "err", err)
+				}
+			}
+
 			if collection.String() == constants.APP_BSKY_GRAPH_FOLLOW {
 				if r == nil {
 					log.Debug(ctx, "no repo found for follow", "userDID", evt.Repo, "subjectDID", rkey.String())

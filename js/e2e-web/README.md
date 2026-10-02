@@ -57,6 +57,12 @@ live video sits above chat. It reveals the player chrome, exercises mute and
 fullscreen entry/exit, and verifies that faded controls reveal instead of
 accepting an unseen tap.
 
+`auto-publish-vods` saves and reloads the automatic publishing preference,
+then holds a recording opt-out request to verify another privacy toggle cannot
+overwrite it while saving. Deleting the node's settings record also withdraws
+automatic publishing consent; the PDS-backed regression for that index deletion
+lives in `pkg/atproto/auto_publish_vod_test.go`.
+
 ## OAuth over real HTTPS
 
 `oauth-login` logs in the way a user does, through the node's OAuth proxy

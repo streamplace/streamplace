@@ -85,10 +85,10 @@ The proof cue lasts four seconds and is pushed again after track selection,
 so the overlay assertion exercises its actual media-timed interval. Readiness
 retries wait in the open track menu for the mastered human track to appear
 before selecting it; unexpected API errors still fail immediately.
-The player's controls fade three seconds after a tap, and a playing stream
-never settles, so each reveal tap skips Maestro's settle wait and each control
-step retries until its result shows: the open menu, or the toggle's `checked`
-state, which keeps a retry from toggling captions back on.
+The player's controls normally fade three seconds after a tap, and on an
+emulator Maestro takes longer than that to find and tap a control after
+revealing it, so e2e builds (`make android-e2e`) keep them up and the flow taps
+them directly.
 
 ## HTTPS, and logging in
 

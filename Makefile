@@ -128,12 +128,13 @@ android-release: .build/bundletool.jar android-keystore
 	&& unzip streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb
 
 # The release build for the Maestro suite (hack/e2e-local.sh): it trusts
-# user-installed CAs and never takes OTA updates (SP_E2E_BUILD in
-# js/app/app.config.ts). For testing only; never ship it.
+# user-installed CAs, never takes OTA updates and keeps the player's controls
+# up (SP_E2E_BUILD in js/app/app.config.ts, which both prebuild and the
+# Gradle build read). For testing only; never ship it.
 .PHONY: android-e2e
 android-e2e: .build/bundletool.jar android-keystore
 	cd js/app && SP_E2E_BUILD=true pnpm run prebuild
-	export NODE_ENV=production \
+	export NODE_ENV=production SP_E2E_BUILD=true \
 	&& cd ./js/app/android \
 	&& ./gradlew :app:bundleRelease \
 	&& cd - \

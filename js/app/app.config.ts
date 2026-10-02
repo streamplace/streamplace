@@ -351,6 +351,9 @@ export default function () {
               },
             }
           : {},
+      // Read by the app (expo-constants): e2e builds keep the player's
+      // controls up for Maestro.
+      extra: { e2e: isE2E },
     },
   };
 }

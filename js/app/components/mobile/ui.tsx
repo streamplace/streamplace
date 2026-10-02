@@ -35,6 +35,7 @@ import {
   textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
 import { px, py } from "@streamplace/components/src/ui";
+import Constants from "expo-constants";
 import { Image } from "expo-image";
 import useAvatars from "hooks/useAvatars";
 import {
@@ -154,6 +155,9 @@ export function MobileUi({
     clearTimeout(fadeTimeout.current);
     if (selectedRendition === "audio") return;
     if (ingest !== null) return;
+    // On an emulator Maestro takes longer than the fade to find and tap a
+    // control after revealing it, so e2e builds keep the controls up.
+    if (Constants.expoConfig?.extra?.e2e) return;
     fadeTimeout.current = setTimeout(() => {
       fadeOpacity.value = withTiming(
         0,

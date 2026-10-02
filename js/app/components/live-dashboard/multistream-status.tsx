@@ -202,6 +202,7 @@ export default function MultistreamStatus() {
             onCheckedChange={setAutoPublishVods}
             disabled={!agent || settingsLoading || saving}
             label={t("auto-publish-vods-dashboard-label")}
+            description={t("auto-publish-vods-dashboard-description")}
             testID="live-auto-publish-vods"
           />
         </View>

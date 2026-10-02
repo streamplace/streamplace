@@ -59,7 +59,8 @@ accepting an unseen tap.
 
 `auto-publish-vods` saves and reloads the automatic publishing preference,
 checks that the desktop live dashboard and Privacy & Security share it, and
-hides the dashboard checkbox without VOD beta access. The destination panel is
+hides the dashboard checkbox without VOD beta access. The checkbox explains that
+consent also applies to future recorded streams until disabled. The destination panel is
 absent from the native/narrow dashboard layout, so this dashboard coverage is
 web-only; the native settings flow remains in Maestro. The browser flow also
 holds a recording opt-out request to verify another privacy toggle cannot

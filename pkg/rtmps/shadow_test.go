@@ -120,6 +120,31 @@ func runProxy(t *testing.T, ctx context.Context, sh *shadow, payload []byte) (mi
 	return mistGot, clientGot
 }
 
+func TestShadowAdmissionLimitLeavesMistRunningAndReusesSlot(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	opts, _ := helperOpts(t, "stall")
+	opts.slots = make(chan struct{}, 1)
+	opts.ringSize = 1024
+	first := startShadow(ctx, opts, 1, "127.0.0.1:1")
+	require.NotNil(t, first)
+	rejected := startShadow(ctx, opts, 2, "127.0.0.1:2")
+	require.Nil(t, rejected, "a saturated addon must not spawn another worker")
+	payload := randomBytes(64 << 10)
+	mistGot, clientGot := runProxy(t, ctx, rejected, payload)
+	require.Equal(t, payload, mistGot)
+	require.Equal(t, mistReply, string(clientGot))
+
+	cancel()
+	waitDone(t, first)
+	nextCtx, nextCancel := context.WithCancel(context.Background())
+	defer nextCancel()
+	next := startShadow(nextCtx, opts, 3, "127.0.0.1:3")
+	require.NotNil(t, next, "a reaped worker must release admission")
+	nextCancel()
+	waitDone(t, next)
+}
+
 func TestStalledShadowDoesNotAffectPrimary(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

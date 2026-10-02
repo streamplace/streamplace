@@ -53,6 +53,7 @@ func ServeRTMPSAddon(ctx context.Context, cli *config.CLI, tlsConfig *tls.Config
 	defer shadows.Wait()
 	opts.release = shadows.Done
 	if cli.DuplicateMistTest {
+		opts.slots = make(chan struct{}, defaultShadowMaxWorkers)
 		log.Warn(ctx, shadowTag+": ENABLED, teeing decrypted client RTMP bytes to a shadow parser worker for every connection; Mist remains the only responder")
 	}
 	var connID uint64

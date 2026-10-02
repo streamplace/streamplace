@@ -5,9 +5,24 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestDuplicateMistIdleHandshakeClosesOnlyShadowInput(t *testing.T) {
+	input, publisher := io.Pipe()
+	defer input.Close()
+	defer publisher.Close()
+	result := make(chan error, 1)
+	go func() { result <- RunDuplicateMistWorker(t.Context(), input) }()
+	select {
+	case err := <-result:
+		require.ErrorIs(t, err, errShadowIdleTimeout)
+	case <-time.After(RTMPTimeout + 5*time.Second):
+		t.Fatal("idle shadow handshake did not exit")
+	}
+}
 
 func TestDuplicateMistRejectsTruncatedHandshake(t *testing.T) {
 	for name, tc := range map[string]struct {

@@ -24,6 +24,8 @@ const (
 	// Upper bound on client bytes buffered for a worker that is not keeping
 	// up (~10s of a 6Mbps stream). Overflow aborts the shadow, never Mist.
 	defaultShadowRingSize = 8 << 20
+	// Per-addon cap, including workers still draining after publisher EOF.
+	defaultShadowMaxWorkers = 16
 	// How long a worker gets to finish and exit after the client stream ends.
 	defaultShadowExitGrace = 30 * time.Second
 	// Bounds Wait when a worker's grandchildren keep its output pipes open.
@@ -41,6 +43,8 @@ type shadowOptions struct {
 	ringSize int
 	// Defaults to defaultShadowExitGrace.
 	exitGrace time.Duration
+	// Shared addon admission limit; nil only in isolated worker tests.
+	slots chan struct{}
 	// Called exactly once when the worker and its goroutines are gone, or
 	// immediately if it never started.
 	release func()
@@ -68,6 +72,20 @@ func startShadow(ctx context.Context, opts shadowOptions, connID uint64, remote 
 	release := opts.release
 	if release == nil {
 		release = func() {}
+	}
+	if opts.slots != nil {
+		select {
+		case opts.slots <- struct{}{}:
+			parentRelease := release
+			release = func() {
+				<-opts.slots
+				parentRelease()
+			}
+		default:
+			log.Error(ctx, shadowTag+" failed: shadow worker limit reached, forwarding only to Mist", "max_workers", cap(opts.slots))
+			release()
+			return nil
+		}
 	}
 	exe := opts.exe
 	if exe == "" {
@@ -128,6 +146,7 @@ func startShadow(ctx context.Context, opts shadowOptions, connID uint64, remote 
 		s.pump(ctx, stdin)
 	}()
 	go func() {
+		defer close(s.done)
 		defer release()
 		err := cmd.Wait()
 		stdout.flush()
@@ -138,7 +157,13 @@ func startShadow(ctx context.Context, opts shadowOptions, connID uint64, remote 
 		// Process is gone; unblock the pump if it is stuck in a write.
 		s.cancel()
 		<-writerDone
-		close(s.done)
+		// The primary connection and grace timer may outlive this worker.
+		// Release its large FIFO before admitting another worker.
+		s.ring.mu.Lock()
+		s.ring.closed = true
+		s.ring.buf = nil
+		s.ring.r, s.ring.n = 0, 0
+		s.ring.mu.Unlock()
 		log.Log(ctx, shadowTag+": shadow worker exited", "error", err, "aborted", s.aborted.Load(), "bytes_teed", s.teed.Load())
 	}()
 	return s
@@ -177,7 +202,7 @@ func (s *shadow) tee(ctx context.Context, p []byte) {
 		return
 	}
 	if !s.ring.write(p) {
-		s.fail(ctx, "shadow worker fell too far behind, aborting shadow only", "queue_bytes", len(s.ring.buf))
+		s.fail(ctx, "shadow worker fell too far behind, aborting shadow only")
 		return
 	}
 	s.teed.Add(int64(len(p)))
@@ -277,7 +302,7 @@ func (r *ring) signal() {
 // write appends all of p, or nothing and false if it doesn't fit.
 func (r *ring) write(p []byte) bool {
 	r.mu.Lock()
-	if len(p) > len(r.buf)-r.n {
+	if r.closed || len(p) > len(r.buf)-r.n {
 		r.mu.Unlock()
 		return false
 	}

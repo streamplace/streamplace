@@ -59,22 +59,27 @@ func (w *shadowExitWriter) Write(p []byte) (int, error) {
 // isolated from the rest of the package suite.
 func TestDuplicateMistEndToEnd(t *testing.T) {
 	if os.Getenv("DUPLICATE_MIST_E2E_SCENARIO") != "1" {
-		ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
-		defer cancel()
-		exe, err := os.Executable()
-		require.NoError(t, err)
-		cmd := exec.CommandContext(ctx, exe, "-test.run=^TestDuplicateMistEndToEnd$", "-test.v")
-		cmd.Env = append(os.Environ(), "DUPLICATE_MIST_E2E_SCENARIO=1")
-		out, err := cmd.CombinedOutput()
-		require.NoError(t, err, "%s", out)
-		// Multiple verified GoPs, not merely successful parser initialization.
-		match := regexp.MustCompile(`duplicate-mist-test shadow finished.*segments_verified=(\d+)`).FindSubmatch(out)
-		require.Len(t, match, 2, "%s", out)
-		verified, err := strconv.Atoi(string(match[1]))
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, verified, 5, "%s", out)
-		require.NotContains(t, string(out), "duplicate-mist-test failed", "%s", out)
-		t.Logf("%s", out)
+		for _, mode := range []string{"paced", "burst"} {
+			t.Run(mode, func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+				defer cancel()
+				exe, err := os.Executable()
+				require.NoError(t, err)
+				cmd := exec.CommandContext(ctx, exe, "-test.run=^TestDuplicateMistEndToEnd$", "-test.v")
+				cmd.Env = append(os.Environ(), "DUPLICATE_MIST_E2E_SCENARIO=1", "DUPLICATE_MIST_E2E_MODE="+mode)
+				out, err := cmd.CombinedOutput()
+				require.NoError(t, err, "%s", out)
+				// Every GoP, including buffered media at publisher EOF. The
+				// unpaced burst specifically exercises downstream drain.
+				match := regexp.MustCompile(`duplicate-mist-test shadow finished.*segments_verified=(\d+)`).FindSubmatch(out)
+				require.Len(t, match, 2, "%s", out)
+				verified, err := strconv.Atoi(string(match[1]))
+				require.NoError(t, err)
+				require.Equal(t, 10, verified, "%s", out)
+				require.NotContains(t, string(out), "duplicate-mist-test failed", "%s", out)
+				t.Logf("%s", out)
+			})
+		}
 		return
 	}
 	_ = flag.Set("v", "3")
@@ -181,9 +186,9 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 
 	gstinit.InitGST()
 	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf(
-		"flvmux name=mux streamable=true ! rtmp2sink location=rtmp://%s/live/shadow-e2e "+
+		"flvmux name=mux streamable=true ! rtmp2sink sync=%t location=rtmp://%s/live/shadow-e2e "+
 			"videotestsrc num-buffers=300 ! video/x-raw,width=320,height=240,framerate=30/1 ! x264enc key-int-max=30 bframes=0 tune=zerolatency ! h264parse ! queue ! mux.video "+
-			"audiotestsrc num-buffers=470 samplesperbuffer=1024 ! audio/x-raw,rate=48000 ! audioconvert ! fdkaacenc ! aacparse ! queue ! mux.audio", bridge.Addr()))
+			"audiotestsrc num-buffers=470 samplesperbuffer=1024 ! audio/x-raw,rate=48000 ! audioconvert ! fdkaacenc ! aacparse ! queue ! mux.audio", os.Getenv("DUPLICATE_MIST_E2E_MODE") != "burst", bridge.Addr()))
 	require.NoError(t, err)
 	defer pipeline.SetState(gst.StateNull) //nolint:errcheck
 	busDone := make(chan error, 1)

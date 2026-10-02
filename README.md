@@ -49,15 +49,21 @@ validation, worker-exit, and queue-overflow failures log
 `duplicate-mist-test failed` with connection identifiers. Protocol error
 details that could contain stream keys are redacted.
 
-The shadow has an 8 MiB per-connection buffer. If it cannot keep up, only the
-shadow is killed; Mist continues unchanged. It gets 30 seconds to exit after
-disconnect, and node shutdown kills/reaps it. This is opt-in diagnostic work
-with additional CPU and memory cost. Plain RTMP inside TLS is supported;
-RTMPE's separately negotiated encryption cannot be passively replayed.
+The shadow has an 8 MiB per-connection buffer and a cap of 16 workers per
+addon listener, including draining workers. At capacity, new connections
+forward only to Mist and log a shadow failure. Shadow input idle for 10
+seconds is aborted without closing the primary connection. Buffer overflow
+also kills only the shadow; Mist continues unchanged. On disconnect it
+drains the native pipeline through EOS and verifies the final segment,
+with a 30-second worker-exit deadline. Node shutdown kills/reaps workers.
+This is opt-in diagnostic work with additional CPU and memory cost, up to
+128 MiB of tee buffers plus native worker memory. Plain RTMP inside TLS is
+supported; RTMPE's separately negotiated encryption cannot be passively replayed.
 
 The backend end-to-end regression is `TestDuplicateMistEndToEnd` in
 `pkg/cmd`; it exercises a real TLS publisher and the isolated native ingest
-through verified segments beyond the former few-second failure interval.
+through verified segments beyond the former few-second failure interval,
+including all final segments after paced and unpaced publisher EOF.
 No client UI or platform-specific iOS/Android/Web behavior changes.
 
 ## Contributions

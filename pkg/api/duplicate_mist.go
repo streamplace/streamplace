@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortmplib"
@@ -22,12 +23,30 @@ type replayRTMP struct{ io.Reader }
 
 func (replayRTMP) Write(p []byte) (int, error) { return len(p), nil }
 
+var errShadowIdleTimeout = errors.New("shadow RTMP input idle timeout")
+
+type shadowIdleReader struct {
+	io.Reader
+	timer *time.Timer
+}
+
+func (r shadowIdleReader) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
+	if err != nil {
+		// Publisher EOF starts downstream drain, not another input deadline.
+		r.timer.Stop()
+	} else if n > 0 {
+		r.timer.Reset(RTMPTimeout)
+	}
+	return n, err
+}
+
 // RunDuplicateMistWorker consumes the decrypted, client-only RTMP conversation.
 // gortmplib's non-strict plain handshake consumes C2 without comparing it to
 // the shadow's S1, so the publisher's response to Mist's handshake is valid.
 // All shadow replies are discarded; only Mist negotiates with the publisher.
 // This runs ONLY in a child process: no auth, database, storage, or live state.
-func RunDuplicateMistWorker(parent context.Context, input io.Reader) error {
+func RunDuplicateMistWorker(parent context.Context, input io.Reader) (retErr error) {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 	ctx = log.WithLogValues(ctx, "component", "duplicate-mist-test")
@@ -37,8 +56,19 @@ func RunDuplicateMistWorker(parent context.Context, input io.Reader) error {
 		}
 	})
 	defer stopInput()
+	var timedOut atomic.Bool
+	idle := time.AfterFunc(RTMPTimeout, func() {
+		timedOut.Store(true)
+		cancel()
+	})
+	defer func() {
+		idle.Stop()
+		if timedOut.Load() {
+			retErr = errShadowIdleTimeout
+		}
+	}()
 
-	br := bufio.NewReader(input)
+	br := bufio.NewReader(shadowIdleReader{Reader: input, timer: idle})
 	version, err := br.Peek(1)
 	if err != nil {
 		return fmt.Errorf("shadow RTMP handshake: %w", err)
@@ -106,10 +136,16 @@ func RunDuplicateMistWorker(parent context.Context, input io.Reader) error {
 		stop := context.AfterFunc(groupCtx, func() { _ = conn.Close() })
 		defer stop()
 		err = a.HandleRTMPPlaybackConn(groupCtx, conn)
-		// The relay has drained every queued access unit. Stop the pipeline
-		// and flush its signer once the publisher has ended.
-		if errors.Is(err, io.EOF) || groupCtx.Err() != nil {
-			cancel()
+		if errors.Is(err, io.EOF) {
+			// A full close with unread RTMP acknowledgements can reset TCP,
+			// discarding buffered media. FIN follows every written byte; keep
+			// draining peer replies until the native pipeline reaches EOS.
+			err = conn.(*net.TCPConn).CloseWrite()
+			if err == nil {
+				_, err = io.Copy(io.Discard, conn)
+			}
+		}
+		if err == nil || groupCtx.Err() != nil {
 			return nil
 		}
 		cancel()

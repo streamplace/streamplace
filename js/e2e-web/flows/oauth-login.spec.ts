@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { loginThroughPds } from "./login";
 
+// Login counterpart to .maestro/setup/oauth-login.yaml, with chat/profile
+// coverage corresponding to .maestro/logged-in/chat-profile.yaml.
 // Log in the way a user does, then act as that user through chat. See
 // flows/login.ts for the OAuth machinery; it needs the harness's HTTPS mode.
 const HTTPS_URL = process.env.SERVER_HTTPS_URL;
@@ -8,7 +10,7 @@ const HANDLE = process.env.ACCOUNT_HANDLE;
 
 test.skip(!HTTPS_URL, "harness started without its HTTPS hostnames");
 
-test("05-oauth-login: log in, chat, and reopen a profile", async ({ page }) => {
+test("oauth-login: log in, chat, and reopen a profile", async ({ page }) => {
   await loginThroughPds(page);
 
   // Now act as the user. A chat message is a record the node writes to the
@@ -22,7 +24,7 @@ test("05-oauth-login: log in, chat, and reopen a profile", async ({ page }) => {
     page.getByText("Now streaming - e2e test stream").first(),
   ).toBeVisible({ timeout: 30_000 });
   const chatInput = page.getByPlaceholder("Type a message...");
-  const message = `hello from 05-oauth-login ${Date.now()}`;
+  const message = `hello from oauth-login ${Date.now()}`;
   const messageCreateResponse = page.waitForResponse((response) => {
     const request = response.request();
     return (

@@ -76,7 +76,7 @@ func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *p
 }
 
 func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context, uploadId string) (*placestream.MediaGetUploadStatus_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}

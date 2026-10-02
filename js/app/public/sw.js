@@ -34,7 +34,7 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(data.title, {
       body: data.body,
       data: data.data,
-      icon: "/favicon.ico",
+      icon: "/notification-icon",
       badge: "/favicon.ico",
     }),
   );

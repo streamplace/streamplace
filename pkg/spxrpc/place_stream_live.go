@@ -33,7 +33,7 @@ import (
 )
 
 func (s *Server) handlePlaceStreamLiveDenyTeleport(ctx context.Context, input *placestream.LiveDenyTeleport_Input) (*placestream.LiveDenyTeleport_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
@@ -152,7 +152,7 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 	}
 
 	includeUnpublished := false
-	sess, _ := oatproxy.GetOAuthSession(ctx)
+	sess := GetCaller(ctx)
 	if sess != nil && sess.DID == userDID {
 		includeUnpublished = true
 		// this user gets sent right to the origin in case we're unpublished
@@ -225,7 +225,7 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 
 	// Get optional user DID for personalized scoring
 	var userDID string
-	sess, _ := oatproxy.GetOAuthSession(ctx)
+	sess := GetCaller(ctx)
 	if sess != nil {
 		userDID = sess.DID
 	}

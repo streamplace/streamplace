@@ -2,7 +2,7 @@ import { chromium, expect, type FullConfig } from "@playwright/test";
 import { pointAppAtNode } from "./server-setup";
 import { STORAGE_STATE } from "./storage";
 
-// Web counterpart to .maestro/00-server-setup.yaml: point the app at the
+// Web counterpart to .maestro/setup/server-setup.yaml: point the app at the
 // harness node once, here (see server-setup.ts), and save the resulting
 // localStorage via storageState so every flow starts already pointed at it.
 export default async function globalSetup(_config: FullConfig) {

@@ -5,7 +5,7 @@ appId: ${APP_ID}
 # resets the notification permission we pre-granted, re-showing the
 # first-launch permission dialog that dims the screen and blocks taps.
 - launchApp
-- takeScreenshot: 00-01-launched
+- takeScreenshot: server-setup-launched
 # A slow CI emulator can throw a "Pixel Launcher isn't responding" dialog
 # over the app, which the runner's hide_error_dialogs doesn't suppress; tap
 # Wait if it's there.
@@ -22,30 +22,30 @@ appId: ${APP_ID}
     optional: true
 - tapOn:
     text: "Settings"
-- takeScreenshot: 00-02-settings
+- takeScreenshot: server-setup-settings
 - scrollUntilVisible:
     element:
       text: "Advanced"
 - tapOn:
     text: "Advanced"
-- takeScreenshot: 00-03-advanced
+- takeScreenshot: server-setup-advanced
 # These three are custom RN components matched by testID: on iOS the
 # accessibilityRole="switch" toggle collapses its subtree and hides the
 # label from text matching, and the wrapped Input/Button aren't reliably
 # findable by placeholder/label text either.
 - tapOn:
     id: "settings-use-custom-node"
-- takeScreenshot: 00-04-custom-node-toggled
+- takeScreenshot: server-setup-custom-node-toggled
 - tapOn:
     id: "settings-custom-node-url"
 - inputText: "${SERVER_URL}"
 # dismiss the keyboard, which otherwise covers the bottom Home tab on iOS
 # and blocks navigation back to the feed
 - hideKeyboard
-- takeScreenshot: 00-05-url-entered
+- takeScreenshot: server-setup-url-entered
 - tapOn:
     id: "settings-save-node"
-- takeScreenshot: 00-06-saved
+- takeScreenshot: server-setup-saved
 - tapOn:
     text: "Home"
 # The harness's own stream in the feed proves the app is talking to the
@@ -56,4 +56,4 @@ appId: ${APP_ID}
     visible:
       text: ".*e2e test stream.*"
     timeout: 30000
-- takeScreenshot: 00-07-home
+- takeScreenshot: server-setup-home

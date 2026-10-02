@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/labstack/echo/v4"
 	"github.com/patrickmn/go-cache"
 	"github.com/slok/go-http-metrics/middleware"
@@ -61,8 +62,10 @@ type Server struct {
 	cdn vodCDN
 	// live is the live-segment CDN configuration media playlists are
 	// generated against. Zero-valued for self-hosted.
-	live    liveCDN
-	aliases map[string]string
+	live              liveCDN
+	aliases           map[string]string
+	identityDirectory func() identity.Directory
+	identityRefreshes *cache.Cache
 	// VideoCaptions supplies the caption tracks of videos for playlists,
 	// listTracks, and getCaptions. nil means videos have no caption tracks.
 	VideoCaptions captions.VideoCaptions
@@ -110,12 +113,15 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		viewLog:         viewLog,
 		aliases:         aliases,
 	}
+	s.identityRefreshes = newIdentityRefreshCache()
+	if atsync != nil {
+		s.identityDirectory = atsync.IdentityDirectory
+	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())
 	e.Use(captionPushBodyLimitMiddleware())
 	e.Use(echomiddleware.Handler("", mdlw))
-	e.Use(s.ServiceAuthMiddleware())
-	e.Use(op.OAuthMiddleware)
+	s.useAuthMiddleware(e)
 	err = s.RegisterHandlersPlacestream(e)
 	if err != nil {
 		return nil, err
@@ -248,7 +254,7 @@ func (s *Server) ErrorHandlingMiddleware() echo.MiddlewareFunc {
 			}
 			// this can mean we missed a PDS migration and need to refresh identity
 			if strings.Contains(err.Error(), AccountDeactivated) {
-				session, _ := oatproxy.GetOAuthSession(c.Request().Context())
+				session := GetCaller(c.Request().Context())
 				if session != nil {
 					_, err := s.ATSync.RefreshIdentity(c.Request().Context(), session.DID)
 					if err != nil {

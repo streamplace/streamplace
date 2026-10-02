@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"go.opentelemetry.io/otel"
 	placestreamtypes "stream.place/streamplace/pkg/placestream"
 )
@@ -34,7 +33,7 @@ func (s *Server) handlePlaceStreamMultistreamCreateTarget(ctx context.Context, b
 	ctx, span := otel.Tracer("server").Start(ctx, "handleComAtprotoRepoUploadBlob")
 	defer span.End()
 
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
@@ -55,7 +54,7 @@ func (s *Server) handlePlaceStreamMultistreamListTargets(ctx context.Context, cu
 	ctx, span := otel.Tracer("server").Start(ctx, "handlePlaceStreamMultistreamListTargets")
 	defer span.End()
 
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
@@ -97,7 +96,7 @@ func (s *Server) handlePlaceStreamMultistreamPutTarget(ctx context.Context, body
 	ctx, span := otel.Tracer("server").Start(ctx, "handlePlaceStreamMultistreamPutTarget")
 	defer span.End()
 
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
@@ -127,7 +126,7 @@ func (s *Server) handlePlaceStreamMultistreamDeleteTarget(ctx context.Context, b
 	ctx, span := otel.Tracer("server").Start(ctx, "handlePlaceStreamMultistreamDeleteTarget")
 	defer span.End()
 
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}

@@ -7,20 +7,54 @@ and so does the `android-e2e` job in `.github/workflows/build.yaml`. iOS is not
 wired up yet. The web suite (`js/e2e-web`, `hack/e2e-web-local.sh`) mirrors
 these flows.
 
-Flows run in the order set by `config.yaml`: `00-server-setup` first (it
-points the app at the harness), then the flows that expect a logged-out app,
-then `05-oauth-login`, then the flows that expect a logged-in one
-(`06-chat-reply`, `07-chat-profile`). There is no `03`: native builds hide the Go
-Live controls that `03-go-live` covered, and `02-tabs` checks they stay hidden.
-The web suite still has its `03-go-live`.
+## Organization and prerequisites
 
-`07-chat-profile` taps the signed-in chat author's name, checks that the profile
+Use feature/behavior names, not sequence numbers. Add a lowercase kebab-case
+flow file to `logged-out/` or `logged-in/`, depending on its required session
+state. For example, a new signed-in chat scenario is
+`logged-in/chat-message-expiry.yaml`; its web counterpart is
+`js/e2e-web/flows/chat-message-expiry.spec.ts`. Filenames must be unique across
+the mobile suite; do not override the flow's `name` property.
+
+The runner generates `.maestro/artifacts/workspace.yaml` using
+`hack/maestro-config.sh`. It discovers scenario files and orders **phases**:
+
+1. `setup/server-setup.yaml` points the app at the harness.
+2. Every `logged-out/*.yaml` scenario runs.
+3. `setup/oauth-login.yaml` signs in and verifies persisted chat.
+4. Every `logged-in/*.yaml` scenario runs.
+
+Maestro only accepts individual names in `executionOrder.flowsOrder`, not
+phase globs, so that list is generated at runtime, never committed. Adding a
+scenario does not require editing a manifest, this README, or another test.
+Alphabetical order within each phase is only for reproducible reports, not a
+dependency contract. Every scenario must launch/navigate to its own starting
+screen and create its own test data; it must not depend on another scenario's
+messages or navigation. A flow must leave its phase's session state intact.
+Reusable prerequisite flows belong in `setup/`, outside scenario discovery.
+
+Use `hack/e2e-local.sh android` rather than running the directory without its
+generated config. For a subset, prerequisites are included automatically:
+
+```bash
+E2E_FLOWS=".maestro/logged-in/chat-profile.yaml" hack/e2e-local.sh android
+# Inspect the selected plan without a device:
+bash hack/maestro-config.sh .maestro/logged-in/chat-profile.yaml
+```
+
+The organization and generated config are platform-neutral; the current runner
+only provisions Android. No native Go Live scenario exists: native builds hide
+those controls, and `logged-out/tabs.yaml` checks they stay hidden.
+
+## Profile coverage
+
+`logged-in/chat-profile.yaml` taps the signed-in chat author's name, checks that the profile
 sheet contains that account's handle and the View Profile action, dismisses it
 by swiping its handle down, and opens it again. It then sends another message without
 restarting and verifies that message survives a relaunch from server history.
 The dismissal uses the same sheet handle gesture on iOS and Android, not Android
 Back. Android flattens nested username text, so the flow taps near the start of
-the matching message row. The logged-in Playwright flow (`05-oauth-login.spec.ts`) covers the matching
+the matching message row. The logged-in Playwright flow (`oauth-login.spec.ts`) covers the matching
 open/dismiss/reopen/chat sequence in the Expo web app served by the default harness.
 
 Native dropdowns render through the default `@rn-primitives` portal host. That
@@ -37,7 +71,7 @@ These focused tests use native presentation adapters; the Maestro flow exercises
 the actual native sheet and portal. The component tests also run in
 `pnpm run check`.
 
-`08-captions` runs after login and chat flows. It toggles the shared
+`logged-out/captions.yaml` needs no app session. It toggles the shared
 `player-cc-button`, selects Off through `player-cc-menu-button`, pushes known
 live text with `push-caption.js`, verifies `caption-overlay-text`, then turns
 captions off. The default low-latency player renders websocket cues through
@@ -54,7 +88,7 @@ before selecting it; unexpected API errors still fail immediately.
 ## HTTPS, and logging in
 
 The app reaches the harness over HTTPS only: release builds refuse cleartext,
-and `05-oauth-login` signs in to the harness's own PDS through the real atproto
+and `setup/oauth-login.yaml` signs in to the harness's own PDS through the real atproto
 OAuth flow (the node's OAuth proxy, then the PDS's sign-in and consent pages
 in a Chrome Custom Tab). So the harness runs in its HTTPS mode, serving public
 names for 127.0.0.1 with a throwaway CA (see `pkg/cmd/e2e_https.go`), and the

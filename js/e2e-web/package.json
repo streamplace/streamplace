@@ -8,7 +8,7 @@
     "test:headed": "playwright test --headed",
     "typecheck": "tsc --noEmit",
     "report": "playwright show-report",
-    "install-browser": "playwright install --with-deps chromium"
+    "install-browser": "playwright install --with-deps chromium firefox"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1",

@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loginThroughPds } from "./login";
 
+// Live CC and pushed caption text mirror .maestro/logged-out/captions.yaml; the
+// VOD, styling, and dashboard checks are web-only.
+
 const DID = process.env.ACCOUNT_DID!;
 const VIDEO_URI = process.env.VIDEO_URI!;
 const STREAM_KEY = process.env.STREAM_KEY;
@@ -16,7 +19,7 @@ async function reveal(page: Page) {
 }
 
 for (const frontend of ["app", "web"] as const) {
-  test.describe(`09-captions: ${frontend}`, () => {
+  test.describe(`captions: ${frontend}`, () => {
     test.beforeEach(async ({ context, baseURL }) => {
       for (const url of [baseURL!, HTTPS_URL].filter(Boolean) as string[]) {
         await context.addCookies([

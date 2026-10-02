@@ -57,11 +57,11 @@ appId: ${APP_ID}
           timeout: 15000
 - assertVisible:
     id: "caption-overlay-text"
-- takeScreenshot: 08-caption-visible
+- takeScreenshot: caption-visible
 - tapOn:
     point: 50%,20%
 - tapOn:
     id: "player-cc-button"
 - assertNotVisible:
     id: "caption-overlay-text"
-- takeScreenshot: 08-caption-off
+- takeScreenshot: caption-off

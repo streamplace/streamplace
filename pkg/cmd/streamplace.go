@@ -107,6 +107,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeMigrateStateCommand(),
 		makeSyncCommand(build),
 		makeBrandingCommand(build),
+		makeValidateConfigCommand(build),
 		makeE2eCommand(build),
 	}
 	// Add the verbosity flag
@@ -116,6 +117,12 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	// 	Value: "3",
 	// })
 	app.Before = func(ctx context.Context, cmd *urfavecli.Command) (context.Context, error) {
+		// validate-config must run wherever the binary runs, media stack or
+		// not: diagnosing a crashloop with a broken gstreamer install is
+		// exactly when you want pure config validation.
+		if cmd.Name == "validate-config" {
+			return ctx, nil
+		}
 		// Run self-test before starting
 		selfTest := cmd.Name == "self-test"
 		err := media.RunSelfTest(ctx)
@@ -955,6 +962,26 @@ func makeSelfTestCommand(build *config.BuildFlags) *urfavecli.Command {
 	}
 }
 
+// makeValidateConfigCommand checks the current flags and environment exactly
+// the way a starting node would (cli.Validate) and exits without opening any
+// listeners, databases, or media pipelines. Point deploy tooling at it: it
+// fails before a misconfiguration can crashloop the node on restart.
+func makeValidateConfigCommand(build *config.BuildFlags) *urfavecli.Command {
+	cli := config.CLI{Build: build}
+	cmd := cli.NewCommand("validate-config")
+	cmd.Usage = "validate configuration and exit without starting the node"
+	// NewCommand's Before hook runs cli.Validate, so a bad configuration
+	// fails the command before we ever get here. Do not check again in this
+	// action: the checks must run against pristine flag values, and any
+	// second pass would see the defaults PrepareConfig filled in as
+	// operator-set conflicts.
+	cmd.Action = func(ctx context.Context, cmd *urfavecli.Command) error {
+		fmt.Println("configuration OK")
+		return nil
+	}
+	return cmd
+}
+
 // makeVODTestCommand runs the VOD gstreamer pipeline on a local file
 // and prints probe results. Useful for reproducing gstreamer-side
 // crashes against the static binary without needing the full server
@@ -1369,9 +1396,8 @@ func makeSyncCommand(build *config.BuildFlags) *urfavecli.Command {
 // manager, no firehose: this process talks to other people's PDSes and to the
 // two databases, and then it is done.
 func runSync(ctx context.Context, build *config.BuildFlags, cmd *urfavecli.Command, cli *config.CLI) error {
-	if err := cli.Validate(cmd); err != nil {
-		return err
-	}
+	// The sync command's Before hook already ran cli.Validate; calling it
+	// again would see PrepareConfig's defaults as operator-set conflicts.
 	log.SetColorLogger(cli.Color)
 	ctx = log.WithDebugValue(ctx, cli.Debug)
 	log.Log(ctx, "streamplace sync", "version", build.Version, "dataDir", cli.DataDir)
@@ -1434,9 +1460,8 @@ func makeBrandingCommand(build *config.BuildFlags) *urfavecli.Command {
 	root := cli.NewCommand("branding")
 	root.Usage = "export or import the node's branding as a bundle (zip with branding.yaml)"
 	open := func(ctx context.Context, cmd *urfavecli.Command) (*statedb.StatefulDB, string, error) {
-		if err := cli.Validate(cmd); err != nil {
-			return nil, "", err
-		}
+		// The branding command's Before hook already ran cli.Validate; see
+		// runSync for why a second pass would be wrong.
 		log.SetColorLogger(cli.Color)
 		mod, err := model.MakeDBConns(cli.DataFilePath([]string{"index"}), cli.IndexDBConnections)
 		if err != nil {

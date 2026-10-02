@@ -799,24 +799,6 @@ in-container: docker-build-builder
 docker-shell:
 	$(MAKE) in-container IN_CONTAINER_CMD="bash" DOCKER_OPTS="-it -v $$(pwd):$$(pwd) -w $$(pwd)"
 
-STREAMPLACE_URL?=https://git.stream.place/streamplace/streamplace/-/package_files/10122/download
-.PHONY: docker-release
-docker-release:
-	cd docker \
-	&& docker build -f release.Dockerfile \
-	  --build-arg TARGETARCH=$(BUILDARCH) \
-		--build-arg STREAMPLACE_URL=$(STREAMPLACE_URL) \
-		-t dist.stream.place/streamplace/streamplace \
-		.
-
-.PHONY: docker-mistserver
-docker-mistserver:
-	cd docker \
-	&& docker build -f mistserver.Dockerfile \
-	  --build-arg TARGETARCH=$(BUILDARCH) \
-		--build-arg STREAMPLACE_URL=$(STREAMPLACE_URL) \
-		-t dist.stream.place/streamplace/streamplace:mistserver \
-
 #   _____ _____  _____ _______ _____   ____
 #  |  __ \_   _|/ ____|__   __|  __ \ / __ \
 #  | |  | || | | (___    | |  | |__) | |  | |

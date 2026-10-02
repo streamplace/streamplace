@@ -7,7 +7,8 @@ name: docker
 #   ghcr.io/streamplace/streamplace:latest               - newest tagged release
 #   ghcr.io/streamplace/streamplace:next-mistserver      - MistServer companion (amd64)
 #   ghcr.io/streamplace/streamplace:bunny                - leak-test fixture image (amd64)
-#   ghcr.io/streamplace/streamplace:builder              - cross-compile toolchain (amd64)
+#   ghcr.io/streamplace/streamplace:builder-<hash>      - pinned dev toolchain tag;
+#                                      hack/container.sh resolves it from .ci/dockerfile-hash.yaml
 #
 # Pushes happen on `next` and on `v*` tags. Pull requests build everything but
 # do not push, so the Dockerfiles stay validated without publishing.
@@ -64,7 +65,11 @@ jobs:
         id: tags
         run: |
           short=${GITHUB_SHA::7}
-          echo "tags=${REGISTRY_IMAGE}:builder,${REGISTRY_IMAGE}:builder-${short}" >> "$GITHUB_OUTPUT"
+          # builder-<dockerfile-hash> is the tag hack/container.sh pins local
+          # dev containers to (.ci/dockerfile-hash.yaml); publish it so the
+          # pinned image is pullable without AWS ECR.
+          hash=$(sed -n 's/^[[:space:]]*DOCKERFILE_HASH:[[:space:]]*//p' .ci/dockerfile-hash.yaml | head -1)
+          echo "tags=${REGISTRY_IMAGE}:builder,${REGISTRY_IMAGE}:builder-${short},${REGISTRY_IMAGE}:builder-${hash}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push builder
         uses: docker/build-push-action@v6

@@ -72,7 +72,7 @@ new shell. Always pass `-w "$REPO"`; do not rely on a previous shell's directory
 - Requires a checkout basename beginning with `streamplace`.
 - Reuses a running container named after the checkout or `<checkout>-builder`,
   starts a stopped one, or creates one if neither exists.
-- Uses `public.ecr.aws/m4j3c0j7/streamplace:builder-<DOCKERFILE_HASH>`, pinned by
+- Uses `ghcr.io/streamplace/streamplace:builder-<DOCKERFILE_HASH>`, pinned by
   `.ci/dockerfile-hash.yaml`; it warns about an existing image mismatch but does
   not recreate the container.
 - For new containers, mounts the checkout's **entire parent** at the same absolute

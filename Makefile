@@ -56,11 +56,11 @@ install:
 	pnpm install
 
 .PHONY: app
-app: install whisper-wasm
+app: install whisper-wasm-cached
 	pnpm run build
 
 .PHONY: app-cached
-app-cached: whisper-wasm
+app-cached: whisper-wasm-cached
 	if [ ! -f js/app/dist/index.html ] || [ ! -f js/web/dist/index.html ]; then $(MAKE) app; else echo "frontends already built, run make app to rebuild"; fi
 
 # Worker generation uses the workspace TypeScript compiler. app-cached can
@@ -69,6 +69,21 @@ app-cached: whisper-wasm
 whisper-wasm:
 	test -f node_modules/typescript/package.json || pnpm install
 	bash hack/whisper-wasm/build.sh
+
+# Releases use the checked-in emscripten build for this pinned revision, which
+# needs no emsdk (e.g. on the iOS runner); the worker is still regenerated from
+# source. `make whisper-wasm` rebuilds everything.
+WHISPER_WASM_DIR = js/app/assets/whisper/4979e04f5dcaccb36057e059bbaed8a2f5288315
+.PHONY: whisper-wasm-cached
+whisper-wasm-cached:
+	@if [ -s $(WHISPER_WASM_DIR)/caption-whisper.mjs ] && \
+	    [ -s $(WHISPER_WASM_DIR)/caption-whisper.wasm ]; then \
+		echo "using pinned whisper WASM artifacts"; \
+		test -f node_modules/typescript/package.json || pnpm install; \
+		node hack/whisper-wasm/transpile-worker.mjs $(WHISPER_WASM_DIR); \
+	else \
+		$(MAKE) whisper-wasm; \
+	fi
 
 .PHONY: ci-ios
 ci-ios: version install app
@@ -660,7 +675,7 @@ linux-arm64:
 .PHONY: windows-amd64
 windows-amd64:
 	rustup target add x86_64-pc-windows-gnu \
-	&& CC=x86_64-w64-mingw32-gcc \
+	&& CC=x86_64-w64-mingw32-gcc-posix \
 	LD=x86_64-w64-mingw32-ld \
 	CROSS_COMPILE=1 \
 	MESON_SETUP_OPTS="--cross-file util/windows-amd64-gnu.ini" \
@@ -674,6 +689,10 @@ darwin-amd64:
 	&& export CXX_X86_64_APPLE_DARWIN=x86_64-apple-darwin24.4-clang++ \
 	&& export AR_X86_64_APPLE_DARWIN=x86_64-apple-darwin24.4-ar \
 	&& export CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER=x86_64-apple-darwin24.4-clang \
+	&& export MACOSX_DEPLOYMENT_TARGET=10.15 \
+	&& export CGO_CFLAGS="-mmacosx-version-min=10.15" \
+	&& export CGO_CXXFLAGS="-mmacosx-version-min=10.15" \
+	&& export CGO_LDFLAGS="-mmacosx-version-min=10.15" \
 	&& export LD=x86_64-apple-darwin24.4-ld \
 	&& export CROSS_COMPILE=1 \
 	&& export MESON_SETUP_OPTS="--cross-file util/osxcross-darwin-amd64.ini" \

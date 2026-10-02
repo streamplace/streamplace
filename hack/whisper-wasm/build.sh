@@ -20,7 +20,13 @@ source "$CACHE/emsdk/emsdk_env.sh"
 if [ ! -f "$CACHE/source.tar.gz" ]; then
   curl --fail --location --retry 3 "https://codeload.github.com/ggml-org/whisper.cpp/tar.gz/$REV" -o "$CACHE/source.tar.gz"
 fi
-printf '%s  %s\n' "$SOURCE_SHA256" "$CACHE/source.tar.gz" | sha256sum --check
+# Both GNU coreutils and BSD sha256sum accept -c; BSD rejects --check.
+# macOS also ships shasum even when sha256sum is not installed.
+if command -v sha256sum >/dev/null 2>&1; then
+  printf '%s  %s\n' "$SOURCE_SHA256" "$CACHE/source.tar.gz" | sha256sum -c
+else
+  printf '%s  %s\n' "$SOURCE_SHA256" "$CACHE/source.tar.gz" | shasum -a 256 -c
+fi
 if [ ! -f "$CACHE/source/CMakeLists.txt" ]; then
   mkdir -p "$CACHE/source"
   tar -xz --strip-components=1 -C "$CACHE/source" -f "$CACHE/source.tar.gz"

@@ -10,6 +10,7 @@ elif host_machine.system() == 'darwin'
   args += '-D_DARWIN_C_SOURCE'
 elif host_machine.system() == 'windows'
   args += ['-D_WIN32_WINNT=0x0602', '-D_CRT_SECURE_NO_WARNINGS']
+  args += ['-include', meson.current_source_dir() / 'windows-compat.h']
 endif
 arch_args = []
 arch = 'arm'
@@ -42,6 +43,12 @@ lib = static_library('whisper', sources, include_directories: inc,
 # already links it statically); macOS uses the system libc++.
 if host_machine.system() == 'darwin'
   stdlib = cpp.find_library('c++')
+elif host_machine.system() == 'windows'
+  # Explicit ordering also works with cgo's C linker: libstdc++ introduces
+  # winpthread references, and both must be resolved before dynamic linking.
+  stdlib = declare_dependency(link_args: [
+    '-static-libgcc', '-Wl,-Bstatic', '-lstdc++', '-lwinpthread', '-Wl,-Bdynamic',
+  ])
 elif get_option('default_library') == 'static'
   stdlib = declare_dependency(link_args: '-static-libstdc++')
 else

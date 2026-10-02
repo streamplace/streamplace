@@ -19,9 +19,27 @@ dot-product, i8mm, SVE, Metal, CUDA, Accelerate, BLAS, or OpenMP dependencies.
 
 The source list and system definitions support the existing linux amd64/arm64,
 darwin amd64/arm64, and Windows amd64 GNU cross files. Linux uses pthreads,
-libm, libdl and libstdc++; Darwin uses pthreads, libm and libc++; Windows uses
-the existing MinGW toolchain and its thread/C++ runtime. Cross-platform archive
-configuration does not run a target executable.
+libm, libdl and libstdc++; Darwin uses pthreads, libm and libc++. The
+darwin-amd64 release now requires macOS 10.15 or newer because ggml uses
+`std::filesystem`. The osxcross profile sets that deployment target for C,
+C++, Objective-C and their linkers; `make darwin-amd64` also applies it to
+cgo and exports `MACOSX_DEPLOYMENT_TARGET` for the other native toolchains.
+Windows uses the MinGW POSIX-thread compiler variants so `std::mutex` and
+`std::thread` work, and links libstdc++, libgcc and winpthread statically;
+no additional runtime DLLs are required. Whisper sets the Windows 8 API level
+(`_WIN32_WINNT=0x0602`) for `SetThreadInformation`. Its scoped compatibility
+header supplies the standard power-throttling declarations missing from
+MinGW-w64 8's older SDK headers, without disabling ggml's API call.
+Cross-platform archive configuration does not run a target executable.
+
+The frontend builds, including `make ci-ios`, reuse the committed emscripten
+build (`caption-whisper.mjs` and `caption-whisper.wasm`) under
+`js/app/assets/whisper/4979e04f5dcaccb36057e059bbaed8a2f5288315/` and only
+regenerate `worker.js` from its TypeScript source, so they need no emsdk. They
+rebuild everything only when the emscripten build is missing or empty. Run
+`make whisper-wasm` explicitly after changing the WASM bridge; it builds with the
+pinned emsdk on Linux or macOS. Source checksums use portable `sha256sum -c`
+when available, otherwise macOS's `shasum -a 256 -c`.
 
 ## Assets and licenses
 
@@ -77,6 +95,14 @@ whisper computation, and state history does not leak across streams.
 Run `make dev`, then `go test -count=1 ./pkg/stt/...` in the builder. During
 native development, add `build-linux-amd64/meson-uninstalled` to
 `PKG_CONFIG_PATH` if the new archive has not yet been installed.
+
+For native-only cross checks, configure the release directory with
+`make meson-setup-static BUILDDIR=build-windows-amd64 MESON_SETUP_OPTS="--cross-file util/windows-amd64-gnu.ini"`
+(substitute `build-darwin-amd64` and `util/osxcross-darwin-amd64.ini` for macOS),
+then run `meson compile -C build-windows-amd64 whisper`. These commands do not
+compile the Go application. After editing the whisper packagefiles in an
+already-extracted checkout, run `meson subprojects packagefiles --apply whisper`
+and `meson setup --reconfigure <build-directory>` before compiling.
 
 The real-speech integration fixture is the public-domain excerpt of John F.
 Kennedy's 1961 inaugural address from whisper.cpp `samples/jfk.wav`. Its source

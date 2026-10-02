@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/gorm"
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/branding"
@@ -186,7 +185,7 @@ func (s *Server) isAdminDID(did string) bool {
 
 func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input *placestream.BrandingUpdateBlob_Input) (*placestream.BrandingUpdateBlob_Output, error) {
 	// check authentication
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
@@ -245,7 +244,7 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 
 func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input *placestream.BrandingDeleteBlob_Input) (*placestream.BrandingDeleteBlob_Output, error) {
 	// check authentication
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}

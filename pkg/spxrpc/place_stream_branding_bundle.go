@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 
 	"stream.place/streamplace/pkg/branding"
 	"stream.place/streamplace/pkg/log"
@@ -18,7 +17,7 @@ import (
 // requireAdmin returns the caller's DID when there is an OAuth session for a
 // node admin, or the HTTP error to answer with.
 func (s *Server) requireAdmin(ctx context.Context, what string) (string, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return "", echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}

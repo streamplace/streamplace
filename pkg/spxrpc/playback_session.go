@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/psession"
 )
@@ -167,7 +166,7 @@ func withSID(q url.Values, sid string) url.Values {
 // their own player, which the anonymous session a playlist hands out does
 // not. Bound to the caller's DID, so it opens nobody else's stream.
 func (s *Server) handlePlaceStreamPlaybackGetPlaybackSession(ctx context.Context) (*placestream.PlaybackGetPlaybackSession_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}

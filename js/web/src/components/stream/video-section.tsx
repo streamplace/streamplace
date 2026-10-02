@@ -83,9 +83,7 @@ export function VideoSection({
       user={user}
       liveness={liveness}
       segment={state.segment?.video?.at(0) ?? null}
-      contentWarnings={
-        state.segment?.video?.at(0)?.contentWarnings?.warnings ?? []
-      }
+      contentWarnings={state.segment?.contentWarnings?.warnings ?? []}
       problems={state.problems}
       playlistUrl={playlistUrl}
       thumbnailUrl={thumbnailUrl}

@@ -27,6 +27,9 @@ refresh = Refresh
 success = Success
 warning = Warning
 info = Information
+content-warning-badge = Intended for certain audiences
+content-warning-title = Heads up!
+content-warning-description = This may contain:
 
 ## Input Placeholders
 search-placeholder = Search...

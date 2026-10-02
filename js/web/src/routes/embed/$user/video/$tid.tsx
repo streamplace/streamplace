@@ -1,8 +1,10 @@
 import { Player } from "@/components/player/player";
+import { useVideoRecord } from "@/hooks/use-video-record";
 import { captureError } from "@/lib/log";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
+import { place } from "streamplace";
 
 export const Route = createFileRoute("/embed/$user/video/$tid")({
   component: EmbedVideo,
@@ -10,6 +12,7 @@ export const Route = createFileRoute("/embed/$user/video/$tid")({
 
 function EmbedVideo() {
   const { user, tid } = Route.useParams();
+  const { video } = useVideoRecord(user, tid);
 
   const { playlistUrl, thumbnailUrl } = useMemo(() => {
     const base = getStreamplaceUrl();
@@ -27,6 +30,10 @@ function EmbedVideo() {
         poster={thumbnailUrl}
         active
         mode="vod"
+        contentWarnings={
+          (video?.record as place.stream.video.Main | undefined)
+            ?.contentWarnings?.warnings ?? []
+        }
         onError={(message) =>
           captureError(message, { user, tid, source: "embed-vod" })
         }

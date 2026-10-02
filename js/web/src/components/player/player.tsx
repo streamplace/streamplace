@@ -1,3 +1,4 @@
+import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useSonare } from "@/lib/useSonare";
 import {
   useCallback,
@@ -10,6 +11,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { Loader } from "../ui/loader";
+import { ContentWarningOverlay } from "./content-warning-overlay";
 import { HLSPlayer } from "./hls-player";
 import {
   getBufferingOverlayPresentation,
@@ -17,7 +19,6 @@ import {
   shouldShowBufferingIndicator,
   type BufferingMediaEvent,
 } from "./player-buffering";
-import { ContentWarningOverlay } from "./content-warning-overlay";
 import { PlayerControls } from "./player-controls";
 import { WebRTCPlayer } from "./webrtc-player";
 
@@ -171,6 +172,7 @@ export function Player({
 }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const { fullscreen } = useFullscreen();
   const backendRef = useRef<PlayerBackendHandle | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { t } = useTranslation();
@@ -408,7 +410,12 @@ export function Player({
 
       {active && danmuOverlay}
 
-      {active && <ContentWarningOverlay warnings={contentWarnings} />}
+      {active && (
+        <ContentWarningOverlay
+          warnings={contentWarnings}
+          portalContainer={fullscreen ? containerRef : undefined}
+        />
+      )}
 
       {active && (
         <PlayerControls

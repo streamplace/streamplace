@@ -40,22 +40,22 @@ lib = static_library('whisper', sources, include_directories: inc,
   c_args: args + arch_args, cpp_args: args + arch_args,
   dependencies: deps, pic: true, install: true)
 # Static release binaries carry the C++ runtime (link-test-linux; Windows
-# already links it statically); macOS uses the system libc++.
+# already links it statically); macOS uses the system libc++. The archives are
+# named by file: meson moves -l flags out of -Wl,-Bstatic/-Bdynamic brackets,
+# which linked the shared runtime as well.
 if host_machine.system() == 'darwin'
   stdlib = cpp.find_library('c++')
 elif host_machine.system() == 'windows'
-  # Explicit ordering also works with cgo's C linker: libstdc++ introduces
-  # winpthread references, and both must be resolved before dynamic linking.
+  # libstdc++ introduces winpthread references, so it comes first for cgo's C
+  # linker.
   stdlib = declare_dependency(link_args: [
-    '-static-libgcc', '-Wl,-Bstatic', '-lstdc++', '-lwinpthread', '-Wl,-Bdynamic',
+    '-static-libgcc', '-l:libstdc++.a', '-l:libwinpthread.a',
   ])
 elif get_option('default_library') == 'static'
   # -static-libstdc++ only reaches g++, which meson links release binaries
   # with; cgo links `go test` binaries with gcc, which needs the explicit
   # static library.
-  stdlib = declare_dependency(link_args: [
-    '-static-libstdc++', '-Wl,-Bstatic', '-lstdc++', '-Wl,-Bdynamic',
-  ])
+  stdlib = declare_dependency(link_args: ['-static-libstdc++', '-l:libstdc++.a'])
 else
   stdlib = cpp.find_library('stdc++')
 endif

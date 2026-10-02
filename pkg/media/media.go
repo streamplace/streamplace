@@ -131,6 +131,9 @@ type NewSegmentNotification struct {
 	Muxl     []byte
 	Metadata *SegmentMetadata
 	Local    bool
+	// archive re-times this local segment's captions for its recorded copy;
+	// see ArchiveCopy.
+	archive *captionArchive
 }
 
 func RunSelfTest(ctx context.Context) error {

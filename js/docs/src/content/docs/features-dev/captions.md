@@ -24,17 +24,29 @@ The MUXL text-track metadata convention is:
   an empty or unrecognized label as `ingest`; it is not a free-form display name.
 
 Tracks are declared when their first cues arrive and retain stable IDs and
-immutable configuration during the ingest session. A track replaced by another
-source continues with empty text segments rather than changing its metadata.
+immutable configuration during the ingest session. A declared track appears in
+every later GoP; a track replaced by another source continues with empty text
+segments rather than changing its metadata.
 Cue pieces crossing GoP boundaries retain their identity and are clipped to the
 corresponding GoP ranges. A track's cues never overlap: a cue that arrives
 after its GoP was signed starts in the first unsigned GoP, after the previous
 cue has had its own duration, and keeps its whole duration; the next cue on
 the track ends it. Automatic captions stay up to 3 s past their last word until
 replaced, so the track reads continuously between recognized phrases.
+
+Live segments are never held for speech recognition, so their late words take
+that path. The **recorded** copy of each origin segment (the S3 live recording
+and the VODs finalized from it) is laid out a second time, once recognition
+covers the GoP or `--captions-master-delay` passes. It is the live segment with
+only its text runs replaced by runs signed with the streamer's key for the same
+GoP span and `dc:date`, in ascending track-ID order. Audio, video, and the
+node's transcoded audio run are byte-identical, so their signatures and the
+transcode's source binding still verify. Isolated ingest workers send these
+text runs to the main process as `ingestframe.Captions` frames before `End`.
 Origin text tracks start at reserved numeric ID 100, above node-added AV
-renditions. Continuous audio completion decodes only AV tracks; late text
-declarations remain in signed source bytes and completed archival segments.
+renditions. Continuous audio completion decodes only AV tracks and inserts its
+audio run before any text tracks; late text declarations remain in signed
+source bytes and completed archival segments.
 Every policy stamps GoPs on the media clock, anchored to the first fragment's
 arrival, not signing time; drift over one second reanchors the next GoP.
 Pushed wall-clock cues use the inverse mapping.

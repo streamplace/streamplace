@@ -87,7 +87,7 @@ func TestDetachedWorkerZeroDowntime(t *testing.T) {
 
 	// Consume through the reconnecting consumer; verify dual-codec signed output.
 	var segs int
-	onSegment := func(s []byte) error {
+	onSegment := func(_ context.Context, s []byte) error {
 		out, verr := muxl.RunMuxlVerify(ctx, bytes.NewReader(s))
 		require.NoError(t, verr)
 		require.NotContains(t, out, `"validation_state":"Invalid"`)

@@ -22,14 +22,14 @@ The equivalent CLI flags are listed below.
 | `SP_CAPTIONS`              | `--captions`              | `true`                  | Enables optional node-generated sidecars when the streamer's policy allows them. It does not disable an origin streamer's requested canonical automatic captions, or pass-through of existing captions.                              |
 | `SP_CAPTIONS_CPU_BUDGET`   | `--captions-cpu-budget`   | `0.5`                   | Fraction of logical CPUs available to the speech-recognition engine across streams. Must be greater than zero and at most one. The scheduler measures models and chooses the largest model that fits each stream's available budget. |
 | `SP_CAPTIONS_MODEL_DIR`    | `--captions-model-dir`    | Unset (no extra models) | Directory of additional `ggml-*.bin` Whisper models, offered alongside bundled models. Models are loaded and benchmarked; Silero-named files are not recognition models.                                                             |
-| `SP_CAPTIONS_MASTER_DELAY` | `--captions-master-delay` | `1.5s`                  | Maximum time after a GoP closes that the origin may hold it waiting for captions before signing its canonical MUXL segment. Late final words move into the next unsigned GoP.                                                        |
+| `SP_CAPTIONS_MASTER_DELAY` | `--captions-master-delay` | `10s`                   | Maximum time after a GoP closes that its **recorded** copy waits for speech recognition to cover it before the captions are laid out for the recording. Live segments are never held for captions.                                   |
 
 For example:
 
 ```ini
 SP_CAPTIONS=true
 SP_CAPTIONS_CPU_BUDGET=0.5
-SP_CAPTIONS_MASTER_DELAY=1.5s
+SP_CAPTIONS_MASTER_DELAY=10s
 # Optional extra models:
 # SP_CAPTIONS_MODEL_DIR=/var/lib/streamplace/whisper-models
 ```
@@ -87,17 +87,26 @@ two recognition passes agree on them, or once two seconds of audio follow
 them. With the bundled models a pass takes one to three seconds on a typical
 server, so captions usually trail speech by two to five seconds.
 
-The signer waits until recognition covers the GoP end or until GoP closure
-plus `SP_CAPTIONS_MASTER_DELAY`, whichever comes first. Buffering separates
-that wait from ingest. A larger delay gives recognition more time to arrive
-in the matching segment but increases origin latency **by up to that delay**;
-a smaller delay releases media sooner but places more captions in a later
-segment than the speech. Such late captions play in order from the first
-unsigned segment, each for its full duration. This is not the total player
-latency: encoding, segment length, network, and playback buffering also
-contribute. See
+Live segments are signed and sent as soon as the ingest tap has parsed them;
+the origin never holds video or audio for speech recognition. A word recognized
+after its segment was signed is shown live in the first unsigned segment, after
+the previous caption has had its own reading time, so viewers see captions a few
+seconds behind the speech.
+
+When the origin records the stream to S3, the recording gets captions in the
+segment where they were spoken. A second, archival layout of each segment waits
+until recognition covers it, or until GoP closure plus
+`SP_CAPTIONS_MASTER_DELAY`, whichever comes first; with pushed captions, which
+give no coverage signal, it waits the full delay. The recorded segment is the
+live one with only its text runs replaced, re-signed with the streamer's key; its
+audio and video bytes are unchanged. A larger delay therefore costs no live
+latency, only memory for segments awaiting upload. Words that arrive after the
+delay are recorded like late live captions. Isolated ingest workers send their
+archival text to the main process before their stream ends. See
 [`captions_master.go`](https://github.com/streamplace/streamplace/blob/main/pkg/media/captions_master.go)
-for the hold and late-cue behavior.
+for both layouts and
+[`captions_archive.go`](https://github.com/streamplace/streamplace/blob/main/pkg/media/captions_archive.go)
+for the recorded copy.
 Sources wait for the first signed policy snapshot before recognition admission,
 so ingest-only/off never briefly starts automatic recognition. Lossless byte
 queues block at 32 MiB instead of dropping media; aborts discard retained bytes

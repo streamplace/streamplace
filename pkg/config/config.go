@@ -1074,8 +1074,8 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.DurationFlag{
 				Name:        "captions-master-delay",
-				Usage:       "how long the origin may hold a segment waiting for its captions before mastering it into the canonical stream. Late words move to the next segment.",
-				Value:       1500 * time.Millisecond,
+				Usage:       "how long the recorded (S3) copy of a segment waits for speech recognition to cover it before its captions are laid out. Live segments are never held: words recognized late are shown in the next live segment.",
+				Value:       10 * time.Second,
 				Destination: &cli.CaptionsMasterDelay,
 				Sources:     urfavecli.EnvVars("SP_CAPTIONS_MASTER_DELAY"),
 			},

@@ -515,7 +515,7 @@ func TestWrapLines(t *testing.T) {
 	require.Equal(t, "", WrapLines("   ", 37, 2))
 }
 
-func TestRecognizerCoverageFollowsDecisionsAtMonotonicWindowEnd(t *testing.T) {
+func TestRecognizerCoverageIsSettledAndMonotonic(t *testing.T) {
 	model := &fakeModel{}
 	var covered []time.Time
 	start := time.UnixMilli(1000)
@@ -531,7 +531,11 @@ func TestRecognizerCoverageFollowsDecisionsAtMonotonicWindowEnd(t *testing.T) {
 	require.Empty(t, covered, "PCM receipt alone must not release a held GoP")
 	r.Push(start.Add(time.Second), speech(time.Second))
 	r.settle()
-	require.Equal(t, []time.Time{start.Add(2 * time.Second)}, covered)
+	r.Push(start.Add(2*time.Second), speech(time.Second))
+	r.settle()
+	// Mid-speech, a pass releases only audio that has recognizerSettled after
+	// it: whisper may not have heard a word at the window's end yet.
+	require.Equal(t, []time.Time{start, start.Add(time.Second)}, covered)
 	// A pure-silence decision also covers its complete window.
 	r.Push(start.Add(3*time.Second), silence(2*time.Second))
 	r.settle()

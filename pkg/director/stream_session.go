@@ -75,6 +75,7 @@ type StreamSession struct {
 	lastLivestreamTime time.Time
 	lastViewCountTime  time.Time
 	s3Uploader         *s3.S3Uploader
+	s3Prev             chan struct{} // closed when the latest S3 operation is done; see s3InOrder
 	// localRole runs once this node takes up the ingest node's jobs for the
 	// session (recording, multistream targets): on the first local segment,
 	// whether that is the session's first segment or one that arrives after

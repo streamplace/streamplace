@@ -415,8 +415,13 @@ func (r *Recognizer) maybePass(force bool) {
 		r.publishInterim()
 	}
 	// Examining audio is not enough: the signer may consume only immutable
-	// finals, so never release it past a still-open cue or uncommitted word.
+	// finals, so never release it past a still-open cue or uncommitted word,
+	// nor, while the speaker is still talking, into the window's last
+	// recognizerSettled, where whisper may not have heard a word yet.
 	finalized := winEnd
+	if !paused && !force {
+		finalized = settled
+	}
 	if cue, ok := r.grouper.Current(r.prev); ok && cue.Start.Before(finalized) {
 		finalized = cue.Start
 	}

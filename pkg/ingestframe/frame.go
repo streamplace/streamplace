@@ -62,6 +62,11 @@ const (
 	// worker reconnecting — it has no model of its own to notice the change.
 	// Payload: the manifest JSON.
 	Manifest Type = 6
+	// Captions carries one GoP's archival caption text runs (JSON) from the
+	// worker's caption master. Main swaps them into the recorded copy of that
+	// GoP, whose live copy went out before speech recognition settled. Every
+	// Captions frame precedes End.
+	Captions Type = 7
 )
 
 func (t Type) String() string {
@@ -78,6 +83,8 @@ func (t Type) String() string {
 		return "event"
 	case Manifest:
 		return "manifest"
+	case Captions:
+		return "captions"
 	default:
 		return fmt.Sprintf("unknown(%d)", uint8(t))
 	}
@@ -143,6 +150,9 @@ func (fw *Writer) Event(payload []byte) error { return fw.WriteFrame(Event, payl
 
 // Manifest frames an updated C2PA manifest (main → worker).
 func (fw *Writer) Manifest(payload []byte) error { return fw.WriteFrame(Manifest, payload) }
+
+// Captions frames one GoP's archival caption text runs (JSON payload).
+func (fw *Writer) Captions(payload []byte) error { return fw.WriteFrame(Captions, payload) }
 
 // Reader decodes frames from an underlying stream. The decoder buffers/reads
 // ahead, so a Reader OWNS its stream for the stream's lifetime — don't create a

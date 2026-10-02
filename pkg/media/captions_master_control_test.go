@@ -24,7 +24,7 @@ func TestCaptionMasterWorkerControlAndReconnectIDs(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "ingest.sock")
 		stop, err := master.servePush(path)
 		require.NoError(t, err)
-		unregister := mm.registerWorkerCaptionMaster(path, master.streamer)
+		_, unregister := mm.registerWorkerCaptionMaster(ctx, path, master.streamer)
 		policy, live := mm.OriginCaptionPolicy(master.streamer)
 		require.True(t, live)
 		require.Equal(t, captions.CanonicalIngest, policy.Canonical)

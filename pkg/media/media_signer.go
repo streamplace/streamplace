@@ -205,6 +205,14 @@ func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Read
 		in.Sign = muxl.SignerToCallback(ms.Signer, 32)
 		span.SetAttributes(attribute.String("backend", "host-callback"))
 	}
+	// A session whose segments are recorded masters a second, archival
+	// layout of its captions; see captionArchive.
+	if archive := captionArchiveFrom(ctx); archive != nil {
+		defer archive.finish()
+		manifest := func() ([]byte, error) { return ms.buildManifest(ctx, time.Now().UnixMilli()) }
+		master.archiveTo(muxl.SignerInput{CertPEM: in.CertPEM, KeyPEM: in.KeyPEM, Sign: in.Sign, TrackManifestFn: manifest}, archive.put)
+		defer master.awaitArchive()
+	}
 	input, finish := master.tee(input)
 	defer finish()
 

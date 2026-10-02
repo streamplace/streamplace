@@ -50,7 +50,8 @@ func (mm *MediaManager) MP4IngestIsolated(ctx context.Context, input io.Reader, 
 		return err
 	}
 	cfg.CaptionSocketPath = filepath.Join(dir, uuid.NewString()+".sock")
-	defer mm.registerWorkerCaptionMaster(cfg.CaptionSocketPath, ms.Streamer())()
+	ctx, unregisterCaptions := mm.registerWorkerCaptionMaster(ctx, cfg.CaptionSocketPath, ms.Streamer())
+	defer unregisterCaptions()
 	defer os.Remove(cfg.CaptionSocketPath + ".captions")
 	cfgJSON, err := json.Marshal(cfg)
 	if err != nil {
@@ -154,7 +155,7 @@ func (mm *MediaManager) MP4IngestIsolated(ctx context.Context, input io.Reader, 
 	})
 
 	// Read signed-segment frames and feed each into the normal chokepoint.
-	sawEnd, readErr := mm.consumeWorkerFrames(ctx, ingestframe.NewReader(framesR), ms.Streamer(), mm.validateSegment(ctx), func() {
+	sawEnd, readErr := mm.consumeWorkerFrames(ctx, ingestframe.NewReader(framesR), ms.Streamer(), mm.validateSegment, func() {
 		watchdog.Reset(ingestWorkerWatchdog)
 	})
 	logsWG.Wait()
@@ -199,11 +200,12 @@ func recordWorkerExit(transport string, exitErr, ctxErr error) {
 	}
 }
 
-// consumeWorkerFrames reads framed segments from the worker and runs ValidateMP4
-// over each. It returns whether a clean End frame was seen and the terminal read
-// error: nil on a clean close (End then EOF), or io.ErrUnexpectedEOF / a desync
-// error when the worker died mid-frame.
-func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, fr *ingestframe.Reader, streamer string, onSegment func([]byte) error, onProgress func()) (sawEnd bool, _ error) {
+// consumeWorkerFrames reads framed segments from the worker and runs onSegment
+// over each with ctx, which carries the session's caption archive (if any) for
+// the worker's Captions frames. It returns whether a clean End frame was seen
+// and the terminal read error: nil on a clean close (End then EOF), or
+// io.ErrUnexpectedEOF / a desync error when the worker died mid-frame.
+func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, fr *ingestframe.Reader, streamer string, onSegment func(context.Context, []byte) error, onProgress func()) (sawEnd bool, _ error) {
 	for {
 		typ, payload, err := fr.ReadFrame()
 		if err != nil {
@@ -218,10 +220,19 @@ func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, fr *ingestframe
 		switch typ {
 		case ingestframe.Segment:
 			if onSegment != nil {
-				if serr := onSegment(payload); serr != nil {
+				if serr := onSegment(ctx, payload); serr != nil {
 					// Per-segment failures are logged, not fatal to the stream — a
 					// bad GoP shouldn't tear down an otherwise-healthy ingest.
 					log.Error(ctx, "ingest worker: segment handler failed", "streamer", streamer, "error", serr)
+				}
+			}
+		case ingestframe.Captions:
+			if archive := captionArchiveFrom(ctx); archive != nil {
+				var text archiveText
+				if uerr := json.Unmarshal(payload, &text); uerr != nil {
+					log.Error(ctx, "ingest worker: bad captions frame", "streamer", streamer, "error", uerr)
+				} else {
+					_ = archive.put(text)
 				}
 			}
 		case ingestframe.End:
@@ -235,10 +246,8 @@ func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, fr *ingestframe
 // validateSegment is the onSegment handler for ingested worker frames: it folds
 // each signed segment into the normal ValidateMP4 chokepoint (verify → archive →
 // live-HLS → notify).
-func (mm *MediaManager) validateSegment(ctx context.Context) func([]byte) error {
-	return func(seg []byte) error {
-		return mm.ValidateMP4(ctx, bytes.NewReader(seg), true)
-	}
+func (mm *MediaManager) validateSegment(ctx context.Context, seg []byte) error {
+	return mm.ValidateMP4(ctx, bytes.NewReader(seg), true)
 }
 
 // streamWorkerLogs forwards the worker's stderr lines into the node logger.
@@ -280,6 +289,7 @@ func (mm *MediaManager) buildWorkerConfig(ctx context.Context, ms MediaSigner) (
 		BroadcasterHost:     mm.cli.BroadcasterHost,
 		CaptionEngineSocket: mm.CaptionEngineSocket,
 		CaptionsMasterDelay: mm.cli.CaptionsMasterDelay,
+		ArchiveCaptions:     mm.cli.S3Configured(),
 	}
 	// Debug recording: main owns the per-stream setting (it needs the DB); the
 	// worker carries out the recording (it owns the data path). A lookup failure

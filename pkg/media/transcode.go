@@ -308,8 +308,17 @@ func collectMuxlEvents(run func(chan *muxl.MuxlEvent) error) ([]*muxl.MuxlEvent,
 // bytes (from the first segment/signed-segment event) out of a muxl event
 // stream.
 func catalogAndTracks(events []*muxl.MuxlEvent) (*muxl.MuxlCatalog, map[string][]byte) {
+	cat, segment := catalogAndSegment(events)
+	if segment == nil {
+		return cat, nil
+	}
+	return cat, segment.Tracks
+}
+
+// catalogAndSegment is catalogAndTracks with the whole first segment event.
+func catalogAndSegment(events []*muxl.MuxlEvent) (*muxl.MuxlCatalog, *muxl.MuxlEvent) {
 	var cat *muxl.MuxlCatalog
-	var tracks map[string][]byte
+	var segment *muxl.MuxlEvent
 	for _, ev := range events {
 		switch ev.Type {
 		case "init":
@@ -317,12 +326,12 @@ func catalogAndTracks(events []*muxl.MuxlEvent) (*muxl.MuxlCatalog, map[string][
 				cat = ev.Catalog
 			}
 		case "segment", "signed-segment":
-			if tracks == nil && len(ev.Tracks) > 0 {
-				tracks = ev.Tracks
+			if segment == nil && len(ev.Tracks) > 0 {
+				segment = ev
 			}
 		}
 	}
-	return cat, tracks
+	return cat, segment
 }
 
 func maxU32(a, b uint32) uint32 {

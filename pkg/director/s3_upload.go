@@ -103,11 +103,10 @@ func (ss *StreamSession) s3Upload(ctx context.Context, notif *media.NewSegmentNo
 	if ss.s3Uploader == nil {
 		return
 	}
-	ss.Go(ctx, func() error {
-		// notif.Muxl is the bare canonical segment; it concatenates directly
-		// (the S3 uploader synthesizes one init and prepends it per object).
-		return ss.s3Uploader.AddSegment(ctx, notif.Muxl)
-	})
+	// notif.ArchiveCopy is the bare canonical segment (with its captions laid
+	// out again for the recording, which can take seconds); it concatenates
+	// directly (the S3 uploader synthesizes one init and prepends it per object).
+	ss.s3InOrder(ctx, notif.ArchiveCopy, ss.s3Uploader.AddSegment)
 }
 
 // s3Cutover completes the current live-recording object so it's immediately
@@ -119,8 +118,29 @@ func (ss *StreamSession) s3Cutover(ctx context.Context) {
 	if ss.s3Uploader == nil {
 		return
 	}
-	ss.Go(ctx, func() error {
+	ss.s3InOrder(ctx, nil, func(ctx context.Context, _ []byte) error {
 		return ss.s3Uploader.Cutover(ctx)
+	})
+}
+
+// s3InOrder applies op to the recording after every earlier S3 operation of
+// the session. prepare runs right away, so archive copies waiting on their
+// captions overlap instead of adding up. Unlike a lane, nothing is skipped: a
+// recording must not drop a slow segment. NewSegment, the only caller, runs on
+// the director's dispatch goroutine, which orders s3Prev.
+func (ss *StreamSession) s3InOrder(ctx context.Context, prepare func(context.Context) []byte, op func(context.Context, []byte) error) {
+	prev, done := ss.s3Prev, make(chan struct{})
+	ss.s3Prev = done
+	ss.Go(ctx, func() error {
+		defer close(done)
+		var data []byte
+		if prepare != nil {
+			data = prepare(ctx)
+		}
+		if prev != nil {
+			<-prev
+		}
+		return op(ctx, data)
 	})
 }
 

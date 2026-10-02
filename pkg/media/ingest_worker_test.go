@@ -3,6 +3,7 @@ package media
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -129,6 +130,7 @@ func TestRunMP4IngestWorkerProducesValidSignedFrames(t *testing.T) {
 		NodeCertPEM:     ms.Cert,
 		NodeKeyPEM:      keyPEM,
 		BroadcasterHost: "test.example.com",
+		ArchiveCaptions: true,
 	}
 
 	mp4 := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
@@ -141,18 +143,30 @@ func TestRunMP4IngestWorkerProducesValidSignedFrames(t *testing.T) {
 
 	r := ingestframe.NewReader(&buf)
 	var segs int
+	var segmentStarts, archiveStarts []uint64
 	for {
 		typ, payload, err := r.ReadFrame()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)
-		require.Equal(t, ingestframe.Segment, typ, "worker emits only Segment frames; End is the subcommand's job")
+		if typ == ingestframe.Captions {
+			var text archiveText
+			require.NoError(t, json.Unmarshal(payload, &text))
+			archiveStarts = append(archiveStarts, text.StartMs)
+			continue
+		}
+		require.Equal(t, ingestframe.Segment, typ, "worker emits Segment and Captions frames; End is the subcommand's job")
 		require.NotEmpty(t, payload)
 
 		out, err := muxl.RunMuxlVerify(ctx, bytes.NewReader(payload))
 		require.NoError(t, err, "segment %d verify", segs)
 		require.NotContains(t, out, `"validation_state":"Invalid"`, "segment %d must validate", segs)
+		events, err := unwrapMuxlEvents(ctx, payload)
+		require.NoError(t, err)
+		start, ok := gopStartMs(catalogAndSegment(events))
+		require.True(t, ok)
+		segmentStarts = append(segmentStarts, start)
 
 		// With a node key the worker completes to dual-codec: every segment must
 		// carry both the source Opus and a worker-transcoded AAC track.
@@ -171,6 +185,9 @@ func TestRunMP4IngestWorkerProducesValidSignedFrames(t *testing.T) {
 		segs++
 	}
 	require.GreaterOrEqual(t, segs, 1, "worker emitted at least one signed dual-codec segment")
+	// Main finds each completed segment's archival captions by the GoP start it
+	// reads from that segment, so every GoP needs exactly one entry under it.
+	require.ElementsMatch(t, segmentStarts, archiveStarts, "one archival captions frame per GoP, keyed by its media start")
 	t.Logf("worker emitted %d valid dual-codec segments", segs)
 }
 

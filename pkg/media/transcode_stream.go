@@ -423,9 +423,9 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 // the freshly-segmented transcoded audio (the audio track transTID within
 // transSeg) to a free track id so it won't collide with the source tracks, sign
 // it as a c2pa.transcoded derivative of the source segment's audio (node
-// identity), and append it to the source segment. The relabel is a lossless
-// re-container (no re-encode), so the continuous encoder's gaplessness is
-// preserved.
+// identity), and add it to the source segment's tracks. The relabel is a
+// lossless re-container (no re-encode), so the continuous encoder's gaplessness
+// is preserved.
 //
 // transSeg is the FULL emitted transcoded segment (video + transcoded audio),
 // not the audio track alone. The relabel goes through muxl's canonicalize,
@@ -494,10 +494,10 @@ func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, tra
 		return nil, fmt.Errorf("sign transcoded track: %w", err)
 	}
 
-	completed := make([]byte, 0, len(srcSeg)+len(signed))
-	completed = append(completed, srcSeg...)
-	completed = append(completed, signed...)
-	return completed, nil
+	// The added track takes its place in ascending track-ID order, before any
+	// text tracks, as archives require.
+	tracks[strconv.FormatUint(uint64(freeTID), 10)] = signed
+	return concatTracksByID(tracks), nil
 }
 
 // audioTrackID returns the (single) audio rendition's track id in a catalog.

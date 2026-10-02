@@ -337,6 +337,17 @@ func RunMuxlReadTextCues(ctx context.Context, input io.Reader, trackID uint32) (
 	return eng.ReadTextCues(ctx, input, trackID)
 }
 
+// RunMuxlSignTextRuns mints and signs one standalone WebVTT run per track for
+// the GoP span req, as the streaming signer would for that GoP, keyed by track
+// ID. Exactly one of in.KeyPEM or in.Sign must be set.
+func RunMuxlSignTextRuns(ctx context.Context, req TextRequest, tracks []TextTrackAttachment, in SignerInput) (map[uint32][]byte, error) {
+	eng, err := getEngine()
+	if err != nil {
+		return nil, err
+	}
+	return eng.SignTextRuns(ctx, req, tracks, in)
+}
+
 // FirstTFDT returns the baseMediaDecodeTime of the first tfdt box in a chunk
 // of ISO-BMFF boxes (a track's [c2pa uuid][muxl uuid][moof][mdat] segment, or
 // just the first bytes of one: a moof cut off by the end of the data is

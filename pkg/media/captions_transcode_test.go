@@ -64,7 +64,11 @@ func TestCaptionMasterCanonicalNamespaceSurvivesAudioCompletion(t *testing.T) {
 				require.GreaterOrEqual(t, len(sources), 3, "exercise another AV GoP after declaring text")
 			}
 			for index, segment := range completed {
-				require.True(t, bytes.HasPrefix(segment, sources[index]), "audio completion must retain every signed source byte")
+				completedTracks := segmentTracks(t, ctx, segment)
+				for id, run := range segmentTracks(t, ctx, sources[index]) {
+					require.Equal(t, run, completedTracks[id], "audio completion must retain every signed source run (track %s)", id)
+				}
+				require.Equal(t, concatTracksByID(completedTracks), segment, "the added audio run keeps ascending track order, ahead of text")
 				events, err := unwrapMuxlEvents(ctx, segment)
 				require.NoError(t, err)
 				catalog, tracks := catalogAndTracks(events)

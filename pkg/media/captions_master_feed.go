@@ -59,10 +59,7 @@ func (m *captionMaster) tee(input io.Reader) (io.Reader, func()) {
 		}
 	}()
 	return media, func() {
-		m.mu.Lock()
-		m.stopped = true
-		m.signal()
-		m.mu.Unlock()
+		m.stop()
 		_ = media.CloseWithError(context.Canceled)
 		_ = audio.CloseWithError(context.Canceled)
 		if closer, ok := input.(io.ReadCloser); ok {

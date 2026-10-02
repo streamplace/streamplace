@@ -1,6 +1,7 @@
 package media
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -88,6 +89,15 @@ func (r *remoteCaptionMaster) push(track captions.Track, cues []captions.Cue) er
 	_, err := r.call(captionControl{Track: track, Cues: cues})
 	return err
 }
-func (mm *MediaManager) registerWorkerCaptionMaster(path, streamer string) func() {
-	return mm.registerCaptionMaster(streamer, &remoteCaptionMaster{path: path})
+
+// registerWorkerCaptionMaster routes pushes to a worker's caption socket. When
+// main records segments, the returned ctx also collects the worker's archival
+// captions (Captions frames) for them; a ctx that already does is reused.
+func (mm *MediaManager) registerWorkerCaptionMaster(ctx context.Context, path, streamer string) (context.Context, func()) {
+	unregister := mm.registerCaptionMaster(streamer, &remoteCaptionMaster{path: path})
+	if captionArchiveFrom(ctx) != nil || mm.cli == nil || !mm.cli.S3Configured() {
+		return ctx, unregister
+	}
+	archive := newCaptionArchive(mm.cli.CaptionsMasterDelay)
+	return withCaptionArchive(ctx, archive), func() { unregister(); archive.finish() }
 }

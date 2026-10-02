@@ -570,6 +570,9 @@ func TestWriterNeverBlocksTheHub(t *testing.T) {
 		t.Fatal("the hub was held up by a writer that is stuck on the PDS")
 	}
 	close(h.repos.block)
+	// Before the session ends, only the tick's flush, held in the publisher
+	// until now, can write a record.
+	require.Eventually(t, func() bool { return len(h.repos.written()) > 0 }, 5*time.Second, time.Millisecond, "a tick flushes the session")
 }
 
 func TestWriterIndexesWhatItWrites(t *testing.T) {

@@ -28,6 +28,11 @@ const getIcon = (severity: string) => {
   }
 };
 
+// Titles for problems whose code alone doesn't say what to do.
+const problemTitles: Record<string, string> = {
+  deprecated_ingest_host: "Update your stream server",
+};
+
 const Problems = ({
   probs,
   onIgnore,
@@ -58,7 +63,7 @@ const Problems = ({
           >
             <View style={[zero.p[1]]}>{getIcon(p.severity)}</View>
             <View style={[{ flex: 1 }, gap.all[1]]}>
-              <Text weight="semibold">{p.code}</Text>
+              <Text weight="semibold">{problemTitles[p.code] ?? p.code}</Text>
               <Text size="sm" color="muted">
                 {p.message}
               </Text>

@@ -177,13 +177,23 @@ const debugRecordingFlushTimeout = 5 * time.Minute
 // it to commit. Callers MUST finalize after ingest ends: on the S3 path the
 // object only exists once Close commits the upload, so skipping it (e.g. a
 // worker process exiting) silently loses the recording.
+//
+// The recording is best-effort and MUST NOT affect the stream. It is a tee off
+// the live ingest path, so a recorder that dies — an S3 upload rejected
+// mid-stream (billing, credentials), an unwritable disk — would otherwise leave
+// the pipe writer with no reader, blocking the next read of the ingest stream
+// forever and taking the whole broadcast down with it. Instead the dump
+// goroutine closes the pipe with its error on the way out (unblocking any
+// in-flight write) and recordingTeeWriter drops every later write. The failure
+// is logged; losing a recording is acceptable, stalling a broadcast is not.
 func (mm *MediaManager) recordTee(ctx context.Context, r io.Reader, user string, filesuffix string) (io.Reader, func()) {
 	pr, pw := io.Pipe()
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		if err := mm.dumpToFile(ctx, pr, user, filesuffix); err != nil {
-			log.Error(ctx, "error dumping to file", "error", err, "streamer", user)
+			log.Error(ctx, "debug recording failed; continuing without it", "error", err, "streamer", user)
+			_ = pw.CloseWithError(err)
 		}
 	}()
 	finalize := func() {
@@ -194,7 +204,19 @@ func (mm *MediaManager) recordTee(ctx context.Context, r io.Reader, user string,
 			log.Error(ctx, "debug recording did not finalize in time", "streamer", user)
 		}
 	}
-	return io.TeeReader(r, pw), finalize
+	return io.TeeReader(r, recordingTeeWriter{pw}), finalize
+}
+
+// recordingTeeWriter is recordTee's write half: it reports success and drops
+// the bytes once the recorder is gone (its pipe closed with an error, see
+// recordTee) rather than surfacing that error to the live ingest reader. Writes
+// still block while the recorder is alive: that backpressure is what keeps the
+// recording from growing without bound, and only a dead recorder is ignored.
+type recordingTeeWriter struct{ w io.Writer }
+
+func (t recordingTeeWriter) Write(p []byte) (int, error) {
+	_, _ = t.w.Write(p)
+	return len(p), nil
 }
 
 func (mm *MediaManager) dumpToFile(ctx context.Context, r io.Reader, user string, filesuffix string) error {

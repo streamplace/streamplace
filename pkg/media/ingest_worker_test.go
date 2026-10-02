@@ -225,10 +225,25 @@ type fakeS3Server struct {
 	mu      sync.Mutex
 	parts   map[string][]byte // "<path>#<partNumber>" → body
 	objects map[string][]byte // completed "<bucket>/<key>" → body
+	// failInitiate rejects the multipart-upload create, failPart rejects part
+	// uploads — the two shapes of a bucket that refuses writes (bad credentials,
+	// unpaid billing). The counters let a test prove the failure it asked for
+	// actually fired.
+	failInitiate     bool
+	failPart         bool
+	initiateFailures int
+	partFailures     int
 }
 
 func newFakeS3Server() *fakeS3Server {
 	return &fakeS3Server{parts: map[string][]byte{}, objects: map[string][]byte{}}
+}
+
+// failureCounts returns how many create/part requests the fake rejected.
+func (f *fakeS3Server) failureCounts() (initiate, part int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.initiateFailures, f.partFailures
 }
 
 func (f *fakeS3Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -238,8 +253,23 @@ func (f *fakeS3Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	switch {
 	case r.Method == "POST" && q.Has("uploads"):
+		if f.failInitiate {
+			f.initiateFailures++
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 		fmt.Fprintf(w, `<InitiateMultipartUploadResult><UploadId>test-upload</UploadId></InitiateMultipartUploadResult>`)
 	case r.Method == "PUT" && q.Has("partNumber"):
+		if f.failPart {
+			f.partFailures++
+			// Drain the part before rejecting it. Responding while the client is
+			// still streaming 16 MB resets the connection, which the SDK retries
+			// as a network error and only surfaces seconds later — turning a
+			// clean 403 into a flaky one.
+			_, _ = io.Copy(io.Discard, r.Body)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 		body, _ := io.ReadAll(r.Body)
 		f.parts[path+"#"+q.Get("partNumber")] = body
 		w.Header().Set("ETag", `"part-`+q.Get("partNumber")+`"`)

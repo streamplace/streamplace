@@ -53,14 +53,14 @@ Prometheus metrics are available on the existing internal `/metrics` endpoint
 (`http://127.0.0.1:39090/metrics` by default; configure `--http-internal-addr`
 or `SP_HTTP_INTERNAL_ADDR`). Keep this admin listener private.
 
-| Metric                                                         | Meaning                                                                                                          |
-| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `streamplace_duplicate_mist_verified_segments_total`           | Successfully signed and verified segments, reported live even if the session later fails.                        |
-| `streamplace_duplicate_mist_workers`                           | Active shadow workers, including workers draining after publisher EOF.                                           |
-| `streamplace_duplicate_mist_sessions_total{result="success"}`  | Publisher EOF followed by a clean worker exit with at least one verified segment.                                |
-| `streamplace_duplicate_mist_sessions_total{result="failure"}`  | A running shadow failed, including parser/ingest/validation errors, overflow, unexpected exit, or drain timeout. |
-| `streamplace_duplicate_mist_sessions_total{result="canceled"}` | Node shutdown canceled the shadow without an earlier failure.                                                    |
-| `streamplace_duplicate_mist_sessions_total{result="skipped"}`  | The worker cap or a startup error prevented shadowing; Mist forwarding continued.                                |
+| Metric                                                         | Meaning                                                                                                                                               |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `streamplace_duplicate_mist_verified_segments_total`           | Successfully signed and verified segments, reported live even if the session later fails.                                                             |
+| `streamplace_duplicate_mist_workers`                           | Active shadow workers, including workers draining after publisher EOF.                                                                                |
+| `streamplace_duplicate_mist_sessions_total{result="success"}`  | Publisher EOF followed by a clean worker exit with at least one verified segment.                                                                     |
+| `streamplace_duplicate_mist_sessions_total{result="failure"}`  | A shadow failed, including parser/ingest/validation errors, overflow, unexpected exit, drain timeout, or forwarding interrupted before publisher EOF. |
+| `streamplace_duplicate_mist_sessions_total{result="canceled"}` | Node shutdown canceled the shadow without an earlier failure.                                                                                         |
+| `streamplace_duplicate_mist_sessions_total{result="skipped"}`  | The worker cap or a startup error prevented shadowing; Mist forwarding continued.                                                                     |
 
 For rollout confidence, watch live verification and completed outcomes:
 

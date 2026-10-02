@@ -310,13 +310,17 @@ func (p *shadowProgress) report(n int) {
 
 // forwardClientToMist is io.Copy from the client to Mist that also tees every
 // byte, handshake included, to sh (which may be nil).
-func forwardClientToMist(ctx context.Context, mist io.Writer, client io.Reader, sh *shadow) (int64, error) {
+func forwardClientToMist(ctx context.Context, mist io.Writer, client io.Reader, sh *shadow) (total int64, err error) {
 	if sh == nil {
 		return io.Copy(mist, client)
 	}
-	defer sh.finish(ctx)
+	defer func() {
+		if err != nil {
+			sh.fail(ctx, "forwarding ended without publisher EOF", "error", err)
+		}
+		sh.finish(ctx)
+	}()
 	buf := make([]byte, 32<<10)
-	var total int64
 	for {
 		n, rerr := client.Read(buf)
 		if n > 0 {

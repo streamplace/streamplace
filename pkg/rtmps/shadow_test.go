@@ -328,6 +328,54 @@ func TestShadowCountsProgressLiveAndSuccessAtEOF(t *testing.T) {
 	require.Equal(t, shadowMetrics{success: 1, verified: 3}, readShadowMetrics(t).since(base))
 }
 
+func TestMistDisconnectAfterShadowProgressIsFailure(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	opts, _ := helperOpts(t, "report")
+	base := readShadowMetrics(t)
+	sh := startShadow(ctx, opts, 1, "127.0.0.1:1")
+	require.NotNil(t, sh)
+	require.Eventually(t, func() bool {
+		return readShadowMetrics(t).since(base).verified == 1
+	}, 10*time.Second, 10*time.Millisecond)
+
+	primary, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer primary.Close()
+	payload := []byte("publisher has not sent EOF")
+	primaryDone := make(chan error, 1)
+	go func() {
+		conn, err := primary.Accept()
+		if err != nil {
+			primaryDone <- err
+			return
+		}
+		defer conn.Close()
+		_, err = io.ReadFull(conn, make([]byte, len(payload)))
+		primaryDone <- err
+		// Mist disconnects while the publisher is still connected.
+	}()
+	client, proxySide := net.Pipe()
+	defer client.Close()
+	defer proxySide.Close()
+	proxyDone := make(chan struct{})
+	go func() {
+		defer close(proxyDone)
+		proxyConn(ctx, proxySide, primary.Addr().String(), sh)
+	}()
+	_, err = client.Write(payload)
+	require.NoError(t, err)
+	_, err = io.ReadAll(client)
+	require.NoError(t, err)
+	require.NoError(t, <-primaryDone)
+	<-proxyDone
+	waitDone(t, sh)
+	delta := readShadowMetrics(t).since(base)
+	require.Positive(t, delta.verified)
+	require.Equal(t, shadowMetrics{failure: 1, verified: delta.verified}, delta,
+		"verified progress plus Mist disconnect is not publisher EOF")
+}
+
 // A clean exit that never reported a validated segment proved nothing.
 func TestShadowCleanExitWithoutProgressIsFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())

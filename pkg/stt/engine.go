@@ -84,7 +84,9 @@ func (e *scheduler) benchmark(ctx context.Context, threads int) {
 	for _, item := range e.models {
 		m := item.model.(*whisperModel)
 		// Load separately so startup disk/weight allocation is not counted as RTF.
+		logged := whisperOutput(ctx)
 		s, err := m.acquire()
+		logged()
 		if err == nil {
 			m.put(s)
 		}

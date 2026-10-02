@@ -1,4 +1,5 @@
 #include "bridge.h"
+#include <stdlib.h>
 #include <string.h>
 #if defined(__x86_64__) || defined(_M_X64)
 #include <cpuid.h>
@@ -20,6 +21,31 @@ int sp_whisper_supported_cpu(void) {
 }
 extern int goWhisperAbort(uintptr_t);
 static bool abort_call(void *p) { return goWhisperAbort((uintptr_t)p) != 0; }
+// whisper.cpp and ggml log through one process-wide callback. While Go runs
+// whisper on a thread (sp_log_begin to sp_log_end), that thread's output
+// collects here for the caller to log as one line; other threads' output goes
+// straight to Go.
+extern void goWhisperLog(char *);
+static _Thread_local bool log_collecting;
+static _Thread_local char *log_text;
+static _Thread_local size_t log_len;
+static void log_callback(enum ggml_log_level level, const char *text, void *user_data) {
+    (void)user_data;
+    if (level == GGML_LOG_LEVEL_DEBUG) return; // whisper's own printer drops these too
+    if (!log_collecting) { goWhisperLog((char *)text); return; }
+    size_t n = strlen(text);
+    char *grown = realloc(log_text, log_len + n + 1);
+    if (grown == NULL) return;
+    memcpy(grown + log_len, text, n + 1);
+    log_text = grown; log_len += n;
+}
+void sp_log_init(void) { whisper_log_set(log_callback, NULL); }
+void sp_log_begin(void) { log_collecting = true; }
+char *sp_log_end(void) {
+    char *text = log_text;
+    log_collecting = false; log_text = NULL; log_len = 0;
+    return text;
+}
 struct whisper_context *sp_whisper_load(void *data, size_t len) {
     struct whisper_context_params p = whisper_context_default_params();
     p.use_gpu = false;

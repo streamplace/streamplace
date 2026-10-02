@@ -88,6 +88,10 @@ punctuation. Results include probabilities and window-relative offsets. Silero
 skips speech-free windows before encoder inference. Context cancellation aborts
 whisper computation, and state history does not leak across streams.
 
+whisper.cpp and ggml print through a log callback instead of stderr. What a
+recognition call (or a model load) prints becomes one debug log line, `whisper
+output=...`, which appears at `-v=4`.
+
 ## Scoped verification
 
 Run `make dev`, then `go test -count=1 ./pkg/stt/...` in the builder. During

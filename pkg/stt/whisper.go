@@ -25,12 +25,17 @@ import (
 	"unicode"
 	"unicode/utf8"
 	"unsafe"
+
+	"stream.place/streamplace/pkg/log"
 )
 
 //go:embed assets/*.bin assets/licenses.txt
 var bundled embed.FS
 
-func init() { ModelFiles, _ = fs.Sub(bundled, "assets") }
+func init() {
+	ModelFiles, _ = fs.Sub(bundled, "assets")
+	C.sp_log_init()
+}
 
 func supportedCPU() bool {
 	return C.sp_whisper_supported_cpu() != 0
@@ -42,6 +47,40 @@ func goWhisperAbort(handle C.uintptr_t) C.int {
 		return 1
 	}
 	return 0
+}
+
+// goWhisperLog receives whisper.cpp output printed outside whisperOutput.
+//
+//export goWhisperLog
+func goWhisperLog(text *C.char) {
+	logWhisper(context.Background(), C.GoString(text))
+}
+
+// whisperOutput collects what whisper.cpp prints on this goroutine's thread
+// until the returned func runs, which logs it as one debug line.
+func whisperOutput(ctx context.Context) func() {
+	runtime.LockOSThread()
+	C.sp_log_begin()
+	return func() {
+		text := C.sp_log_end()
+		runtime.UnlockOSThread()
+		if text != nil {
+			logWhisper(ctx, C.GoString(text))
+			C.free(unsafe.Pointer(text))
+		}
+	}
+}
+
+func logWhisper(ctx context.Context, output string) {
+	var lines []string
+	for _, line := range strings.Split(output, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			lines = append(lines, line)
+		}
+	}
+	if len(lines) > 0 {
+		log.Debug(ctx, "whisper", "output", strings.Join(lines, "; "))
+	}
 }
 
 type nativeState struct {
@@ -148,6 +187,7 @@ func (m *whisperModel) Transcribe(ctx context.Context, pcm []float32, opts Optio
 	return m.transcribe(ctx, pcm, opts, true)
 }
 func (m *whisperModel) transcribe(ctx context.Context, pcm []float32, opts Options, vad bool) (*Result, error) {
+	defer whisperOutput(ctx)()
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

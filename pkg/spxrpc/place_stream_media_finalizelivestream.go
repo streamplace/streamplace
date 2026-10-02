@@ -30,10 +30,10 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 	if err != nil {
 		return nil, err
 	}
-	streamer := items[0].ls.RepoDID
+	streamer := items[0].Livestream.RepoDID
 	ordered := make([]string, len(items))
 	for i, it := range items {
-		ordered[i] = it.ls.URI
+		ordered[i] = it.Livestream.URI
 	}
 	modCtx, err := s.requireLivestreamManage(ctx, streamer, "finalizeLivestream")
 	if err != nil {
@@ -57,20 +57,12 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 		return nil, echo.NewHTTPError(http.StatusNotFound, "NoRecording: no completed recording objects for these livestreams")
 	}
 
-	// Synthetic Upload row so the client reuses the getUploadStatus /
-	// publishVideo flow it already has for resumable uploads.
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	uploadID := uu.String()
-	if err := s.statefulDB.CreateUpload(ctx, &statedb.Upload{
-		ID:       uploadID,
-		RepoDID:  streamer,
-		MimeType: "video/mp4",
-		Backend:  "live",
-		Location: ordered[0],
-	}); err != nil {
+	if err := s.statefulDB.CreateLivestreamUpload(ctx, uploadID, streamer, ordered[0]); err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -81,13 +73,13 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 	out.Objects = &objects
 	// The video record, published now or drafted: the given title and
 	// description over the first record's, connected to every record.
-	video := videoDraftForLivestreams(items, deref(body.Title), deref(body.Description))
+	video := statedb.VideoDraftForLivestreams(items, deref(body.Title), deref(body.Description))
 	if publish {
 		task.Publish = video
 	} else {
 		// A draft VOD in the 'processing' state; it reaches 'ready'
 		// server-side and the streamer publishes it from the Drafts tab.
-		draft, err := s.createLivestreamDraft(ctx, streamer, uploadID, video)
+		draft, err := s.statefulDB.CreateLivestreamDraft(ctx, streamer, uploadID, video)
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
@@ -102,17 +94,17 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 	log.Log(ctx, "livestream VOD queued", "uploadId", uploadID, "objects", len(segs), "publish", publish)
 
 	for _, it := range items {
-		if it.rec.EndedAt != nil {
-			out.Ended = append(out.Ended, it.ls.URI)
+		if it.Record.EndedAt != nil {
+			out.Ended = append(out.Ended, it.Livestream.URI)
 			continue
 		}
 		if body.EndLivestream == nil || !*body.EndLivestream {
 			continue
 		}
-		if err := s.statefulDB.EndLivestreamRecord(ctx, it.ls, it.rec); err != nil {
-			log.Error(ctx, "could not end livestream record", "livestream", it.ls.URI, "error", err)
+		if err := s.statefulDB.EndLivestreamRecord(ctx, it.Livestream, it.Record); err != nil {
+			log.Error(ctx, "could not end livestream record", "livestream", it.Livestream.URI, "error", err)
 		} else {
-			out.Ended = append(out.Ended, it.ls.URI)
+			out.Ended = append(out.Ended, it.Livestream.URI)
 		}
 	}
 	return out, nil

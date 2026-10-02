@@ -10,7 +10,6 @@ import (
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/log"
 	placestream "stream.place/streamplace/pkg/placestream"
-	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/vod"
 )
 
@@ -218,38 +217,6 @@ func (s *Server) handlePlaceStreamVodPublishDraft(ctx context.Context, body *pla
 		}
 	}
 	return &placestream.VodPublishDraft_Output{VideoUri: videoURI, VideoCid: videoCID}, nil
-}
-
-// createLivestreamDraft builds a 'processing'-state draft that inherits the
-// livestream's title/activity/tags and links back to the livestream record via
-// connections. Called by the finalizeLivestream handler at kickoff so the user
-// can navigate straight to the draft while processing runs server-side.
-func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string, v *statedb.VideoDraft) (*statedb.DraftVideo, error) {
-	draftRec := placestream.VodDraftVideo{
-		LexiconTypeID: "place.stream.vod.draftVideo",
-		Title:         v.Title,
-		Description:   v.Description,
-		Status:        "processing",
-		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
-	}
-	if v.Activity != nil {
-		draftRec.Activity = &placestream.VodDraftVideo_Activity{
-			Defs_ActivityGame:  v.Activity.Defs_ActivityGame,
-			Defs_ActivityLabel: v.Activity.Defs_ActivityLabel,
-		}
-	}
-	if len(v.Tags) > 0 {
-		draftRec.Tags = v.Tags
-	}
-	// Link back to every source livestream so a published VOD carries the
-	// connections (the existing UI uses this to flip a finalized row to
-	// "View VOD", and the replay inherits the records' view totals).
-	for _, c := range v.Connections {
-		if c.Video_Connection != nil {
-			draftRec.Connections = append(draftRec.Connections, placestream.VodDraftVideo_Connections_Elem{Video_Connection: c.Video_Connection})
-		}
-	}
-	return s.statefulDB.CreateDraft(ctx, did, uploadID, &draftRec)
 }
 
 // livestreamActivityToDraft maps a livestream's activity union onto the draft's

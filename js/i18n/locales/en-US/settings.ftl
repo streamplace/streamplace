@@ -44,6 +44,10 @@ debug-recording-title = Allow { $host } to record your livestream for debugging 
 debug-recording-description = Optional
 livestream-recording-title = Record my livestreams into VODs on { $host }
 livestream-recording-description = When enabled, your livestreams are saved so you can finalize and publish them as videos
+auto-publish-vods-title = Publish my livestreams as VODs automatically
+auto-publish-vods-description = When a recorded livestream ends, { $host } publishes it as a video right away, without waiting for you to finalize it
+auto-publish-vods-dashboard-label = Automatically publish this stream as a VOD after it ends
+auto-publish-vods-dashboard-description = Also applies to future recorded streams until you turn it off.
 
 ## Key Management
 manage-keys = Manage Keys
@@ -172,6 +176,7 @@ failed-load-multistream-targets = Failed to load multistream targets. Please try
 failed-toggle-multistream-target = Failed to toggle multistream target. Please try again.
 failed-delete-multistream-target = Failed to delete multistream target. Please try again.
 no-multistream-targets-yet = No targets yet!
+no-multistream-destinations = No multistream destinations yet
 multistream-targets-count = { $count ->
     [one] { $count } target
    *[other] { $count } targets

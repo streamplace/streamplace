@@ -1,0 +1,75 @@
+appId: ${APP_ID}
+---
+# The runner configures the harness and signs in before any logged-in flow.
+# Automatic VOD publishing is saved to the account's settings record, so the
+# toggle has to come back on after a relaunch, and off again after the
+# next one. The harness node has no beta-invite issuer, so the account is in
+# the VOD beta that gates the toggle. Web: js/e2e-web/flows/auto-publish-vods.spec.ts.
+- launchApp
+- tapOn:
+    text: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Privacy & Security"
+- tapOn:
+    text: "Privacy & Security"
+- extendedWaitUntil:
+    visible:
+      id: "settings-auto-publish-vods"
+    timeout: 30000
+# Start from off, whatever an earlier attempt left behind.
+- runFlow:
+    when:
+      visible:
+        id: "settings-auto-publish-vods"
+        checked: true
+    commands:
+      - tapOn:
+          id: "settings-auto-publish-vods"
+      - extendedWaitUntil:
+          visible:
+            id: "settings-auto-publish-vods"
+            checked: false
+          timeout: 10000
+- tapOn:
+    id: "settings-auto-publish-vods"
+- extendedWaitUntil:
+    visible:
+      id: "settings-auto-publish-vods"
+      checked: true
+    timeout: 10000
+- takeScreenshot: auto-publish-vods-on
+- launchApp
+- tapOn:
+    text: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Privacy & Security"
+- tapOn:
+    text: "Privacy & Security"
+- extendedWaitUntil:
+    visible:
+      id: "settings-auto-publish-vods"
+      checked: true
+    timeout: 30000
+- tapOn:
+    id: "settings-auto-publish-vods"
+- extendedWaitUntil:
+    visible:
+      id: "settings-auto-publish-vods"
+      checked: false
+    timeout: 10000
+- launchApp
+- tapOn:
+    text: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Privacy & Security"
+- tapOn:
+    text: "Privacy & Security"
+- extendedWaitUntil:
+    visible:
+      id: "settings-auto-publish-vods"
+      checked: false
+    timeout: 30000
+- takeScreenshot: auto-publish-vods-off

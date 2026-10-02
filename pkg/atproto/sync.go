@@ -542,6 +542,25 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			ls.PostCID = rec.Post.Cid
 			ls.PostURI = rec.Post.Uri
 		}
+		// Whether this version is the node seeing the livestream end: the
+		// version it had indexed, if any, had not ended. Read before indexing
+		// replaces it.
+		seenEnding := false
+		if rec.EndedAt != nil && !isFirstSync {
+			prev, err := atsync.Model.GetLivestream(aturi.String())
+			if err != nil {
+				return fmt.Errorf("failed to get livestream: %w", err)
+			}
+			seenEnding = prev == nil
+			if prev != nil {
+				prevView, err := prev.ToLivestreamView()
+				if err != nil {
+					return fmt.Errorf("failed to decode indexed livestream: %w", err)
+				}
+				prevRec, ok := prevView.Record.Val.(*placestream.Livestream)
+				seenEnding = ok && prevRec.EndedAt == nil
+			}
+		}
 		err = atsync.Model.CreateLivestream(ctx, ls)
 		if errors.Is(err, model.ErrAlreadyIndexed) {
 			// Re-announcing an unchanged livestream would light the red circle
@@ -564,6 +583,16 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if !isFirstSync {
 			if atsync.CLI.StreamIsAllowed(userDID) != nil {
 				// they're live somewhere but they don't have nothin' to do with us
+				return nil
+			}
+			if seenEnding {
+				// Publish its VOD if the streamer has that on now. Only on
+				// seeing it end, never for an ended record seen again (a
+				// redelivery, an edit, a backfilled one), so turning it on
+				// later doesn't publish an old recording.
+				if err := atsync.StatefulDB.ScheduleAutoPublishVOD(ctx, userDID, aturi.String()); err != nil {
+					return fmt.Errorf("failed to schedule automatic VOD publishing: %w", err)
+				}
 				return nil
 			}
 			log.Debug(ctx, "stream is allowed, queuing finalize task")

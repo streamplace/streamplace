@@ -5,7 +5,7 @@ import {
   View,
   zero,
 } from "@streamplace/components";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView } from "react-native";
 import { useStore } from "store";
@@ -23,12 +23,16 @@ export function PrivacyCategorySettings() {
   const createServerSettingsRecord = useStore(
     (state) => state.createServerSettingsRecord,
   );
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
   const debugRecordingOn = serverSettings?.debugRecording === true;
   // Defaults on (unlike debugRecording): only an explicit `false` turns it off.
   const livestreamRecordingOn = serverSettings?.livestreamRecording !== false;
-  // The livestream-recording toggle is only meaningful for accounts in the VOD
-  // beta — the node won't record anyone else regardless of this flag — so we
-  // only surface it to them.
+  // Opt-in: only an explicit `true` turns it on.
+  const autoPublishVodsOn = serverSettings?.autoPublishVods === true;
+  // The livestream-recording and automatic VOD publishing toggles are only
+  // meaningful for accounts in the VOD beta — the node won't record anyone
+  // else regardless of these flags — so we only surface them to them.
   const { status: vodBetaStatus } = useBetaStatus("vod");
 
   useEffect(() => {
@@ -36,6 +40,20 @@ export function PrivacyCategorySettings() {
       getServerSettingsFromPDS();
     }
   }, [isReady]);
+
+  const saveSetting = async (
+    patch: Parameters<typeof createServerSettingsRecord>[0],
+  ) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      await createServerSettingsRecord(patch);
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
 
   const u = new URL(url);
 
@@ -49,19 +67,36 @@ export function PrivacyCategorySettings() {
                 title={t("debug-recording-title", { host: u.host })}
                 description={t("debug-recording-description")}
                 value={debugRecordingOn}
-                onValueChange={(value) => {
-                  createServerSettingsRecord({ debugRecording: value });
-                }}
+                disabled={saving}
+                onValueChange={(value) =>
+                  saveSetting({ debugRecording: value })
+                }
               />
               {vodBetaStatus === "granted" && (
-                <SettingToggle
-                  title={t("livestream-recording-title", { host: u.host })}
-                  description={t("livestream-recording-description")}
-                  value={livestreamRecordingOn}
-                  onValueChange={(value) => {
-                    createServerSettingsRecord({ livestreamRecording: value });
-                  }}
-                />
+                <>
+                  <SettingToggle
+                    title={t("livestream-recording-title", { host: u.host })}
+                    description={t("livestream-recording-description")}
+                    value={livestreamRecordingOn}
+                    disabled={saving}
+                    onValueChange={(value) =>
+                      saveSetting({ livestreamRecording: value })
+                    }
+                    testID="settings-livestream-recording"
+                  />
+                  <SettingToggle
+                    title={t("auto-publish-vods-title")}
+                    description={t("auto-publish-vods-description", {
+                      host: u.host,
+                    })}
+                    value={autoPublishVodsOn}
+                    disabled={saving}
+                    onValueChange={(value) =>
+                      saveSetting({ autoPublishVods: value })
+                    }
+                    testID="settings-auto-publish-vods"
+                  />
+                </>
               )}
             </MenuGroup>
           </MenuContainer>

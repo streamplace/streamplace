@@ -80,6 +80,16 @@ func (state *StatefulDB) ListS3SegmentsForLivestreams(ctx context.Context, lives
 	return segs, nil
 }
 
+// CountOpenS3Segments counts the objects recorded for one livestream whose
+// uploads have not completed yet.
+func (state *StatefulDB) CountOpenS3Segments(ctx context.Context, livestreamURI string) (int64, error) {
+	var n int64
+	err := state.DB.WithContext(ctx).Model(&S3Segment{}).
+		Where("livestream_uri = ? AND completed_at IS NULL", livestreamURI).
+		Count(&n).Error
+	return n, err
+}
+
 // RecordComplete marks an S3 multipart upload as completed and records the
 // final part count and size. Implements s3.Recorder.
 func (state *StatefulDB) RecordComplete(ctx context.Context, id string, parts int32, size int64) error {

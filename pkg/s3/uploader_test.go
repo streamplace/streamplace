@@ -110,10 +110,10 @@ func waitForStarts(t *testing.T, rec *fakeRecorder, n int) {
 }
 
 // TestS3UploaderCutoverOnLivestreamChange proves the uploader rolls over to a
-// fresh object the moment the livestream URI changes (a new "chapter" record),
-// so each object belongs to exactly one livestream — which is what lets finalize
-// select one livestream's objects. cutoverEvery is set huge so ONLY the
-// livestream change can trigger the rollover.
+// fresh object the moment a segment belongs to a different livestream (a new
+// "chapter" record), so each object belongs to exactly one livestream — which
+// is what lets finalize select one livestream's objects. cutoverEvery is set
+// huge so ONLY the livestream change can trigger the rollover.
 func TestS3UploaderCutoverOnLivestreamChange(t *testing.T) {
 	fc := &fakeUploadAPI{}
 	rec := &fakeRecorder{}
@@ -122,18 +122,16 @@ func TestS3UploaderCutoverOnLivestreamChange(t *testing.T) {
 	ctx := context.Background()
 	seg := make([]byte, 1024) // well under minPartSize: buffered until the object completes
 
-	u.SetLivestreamURI("at://A")
-	require.NoError(t, u.AddSegment(ctx, seg))
+	require.NoError(t, u.AddSegment(ctx, seg, "at://A"))
 	waitForStarts(t, rec, 1) // object 1, livestream A
 
-	u.SetLivestreamURI("at://B")
-	require.NoError(t, u.AddSegment(ctx, seg))
+	require.NoError(t, u.AddSegment(ctx, seg, "at://B"))
 	waitForStarts(t, rec, 2) // livestream changed -> object 2, livestream B
 
 	require.NoError(t, u.Close(ctx))
 
 	require.Equal(t, []string{"at://A", "at://B"}, rec.startURIs(),
-		"each object must be tagged with the livestream active when it started")
+		"each object must be tagged with the livestream of the segment that started it")
 	keys := rec.startKeys()
 	require.Len(t, keys, 2)
 	require.NotEqual(t, keys[0], keys[1], "rolled-over objects must have distinct keys")
@@ -152,12 +150,11 @@ func TestS3UploaderCutoverCompletesObject(t *testing.T) {
 	ctx := context.Background()
 	seg := make([]byte, 1024) // under minPartSize: buffered until the object completes
 
-	u.SetLivestreamURI("at://A")
-	require.NoError(t, u.AddSegment(ctx, seg))
+	require.NoError(t, u.AddSegment(ctx, seg, "at://A"))
 	waitForStarts(t, rec, 1) // object 1
 
 	require.NoError(t, u.Cutover(ctx)) // completes object 1
-	require.NoError(t, u.AddSegment(ctx, seg))
+	require.NoError(t, u.AddSegment(ctx, seg, "at://A"))
 	waitForStarts(t, rec, 2) // object 2
 
 	require.NoError(t, u.Close(ctx))
@@ -182,7 +179,7 @@ func TestS3UploaderUniformParts(t *testing.T) {
 	ctx := context.Background()
 	total := 0
 	for _, mb := range []int{2, 3, 4, 3} { // 12MB in irregular chunks
-		require.NoError(t, u.AddSegment(ctx, make([]byte, mb*1024*1024)))
+		require.NoError(t, u.AddSegment(ctx, make([]byte, mb*1024*1024), ""))
 		total += mb * 1024 * 1024
 	}
 	require.NoError(t, u.Close(ctx))
@@ -217,11 +214,11 @@ func TestS3UploaderRecoversFromCompleteFailure(t *testing.T) {
 	ctx := context.Background()
 	seg := make([]byte, 1024)
 
-	require.NoError(t, u.AddSegment(ctx, seg))
+	require.NoError(t, u.AddSegment(ctx, seg, ""))
 	waitForStarts(t, rec, 1)           // object 1
 	require.NoError(t, u.Cutover(ctx)) // complete fails -> object 1 abandoned+aborted
 
-	require.NoError(t, u.AddSegment(ctx, seg))
+	require.NoError(t, u.AddSegment(ctx, seg, ""))
 	waitForStarts(t, rec, 2) // loop survived: object 2 started
 
 	require.NoError(t, u.Close(ctx), "mid-stream failure must not surface at Close; the final object completed fine")
@@ -266,7 +263,7 @@ func TestS3UploaderCloseIdempotent(t *testing.T) {
 	}
 
 	// A late AddSegment must be rejected, not panic on a closed channel.
-	if err := u.AddSegment(context.Background(), []byte("late")); err == nil {
+	if err := u.AddSegment(context.Background(), []byte("late"), ""); err == nil {
 		t.Fatalf("AddSegment after Close should return an error")
 	}
 }

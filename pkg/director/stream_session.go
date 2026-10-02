@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -76,6 +77,9 @@ type StreamSession struct {
 	lastViewCountTime  time.Time
 	s3Uploader         *s3.S3Uploader
 	s3Prev             chan struct{} // closed when the latest S3 operation is done; see s3InOrder
+	// livestreamURI is the latest place.stream.livestream record of this
+	// stream (a string), which tags its recorded segments as they arrive.
+	livestreamURI atomic.Value
 	// localRole runs once this node takes up the ingest node's jobs for the
 	// session (recording, multistream targets): on the first local segment,
 	// whether that is the session's first segment or one that arrives after
@@ -375,12 +379,10 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 				log.Warn(ctx, "no livestream found, skipping notification blast", "repoDID", spseg.Creator)
 				return nil
 			}
-			// Refresh the S3 uploader's livestream tag now that this stream's
-			// own record is indexed (it may not have been when the uploader
-			// started), so all objects are attributed to the right stream.
-			if ss.s3Uploader != nil {
-				ss.s3Uploader.SetLivestreamURI(livestreamModel.URI)
-			}
+			// Refresh the livestream that tags recorded segments now that this
+			// stream's own record is indexed (it may not have been when
+			// recording started), so later objects are attributed to it.
+			ss.livestreamURI.Store(livestreamModel.URI)
 			lsv, err := livestreamModel.ToLivestreamView()
 			if err != nil {
 				return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)

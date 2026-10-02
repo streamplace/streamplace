@@ -94,7 +94,7 @@ func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string)
 	if ls, err := ss.mod.GetLatestLivestreamForRepo(repoDID); err != nil {
 		log.Warn(ctx, "live recording: failed to resolve initial livestream URI; first object starts untagged", "error", err, "repoDID", repoDID)
 	} else if ls != nil {
-		ss.s3Uploader.SetLivestreamURI(ls.URI)
+		ss.livestreamURI.Store(ls.URI)
 	}
 	log.Log(ctx, "S3 upload enabled", "bucket", ss.cli.S3Bucket, "endpoint", ss.cli.S3Endpoint, "repoDID", repoDID)
 }
@@ -106,7 +106,12 @@ func (ss *StreamSession) s3Upload(ctx context.Context, notif *media.NewSegmentNo
 	// notif.ArchiveCopy is the bare canonical segment (with its captions laid
 	// out again for the recording, which can take seconds); it concatenates
 	// directly (the S3 uploader synthesizes one init and prepends it per object).
-	ss.s3InOrder(ctx, notif.ArchiveCopy, ss.s3Uploader.AddSegment)
+	// The segment belongs to the livestream current when it arrived, however
+	// late it reaches the uploader.
+	uri, _ := ss.livestreamURI.Load().(string)
+	ss.s3InOrder(ctx, notif.ArchiveCopy, func(ctx context.Context, seg []byte) error {
+		return ss.s3Uploader.AddSegment(ctx, seg, uri)
+	})
 }
 
 // s3Cutover completes the current live-recording object so it's immediately
@@ -126,8 +131,10 @@ func (ss *StreamSession) s3Cutover(ctx context.Context) {
 // s3InOrder applies op to the recording after every earlier S3 operation of
 // the session. prepare runs right away, so archive copies waiting on their
 // captions overlap instead of adding up. Unlike a lane, nothing is skipped: a
-// recording must not drop a slow segment. NewSegment, the only caller, runs on
-// the director's dispatch goroutine, which orders s3Prev.
+// recording must not drop a slow segment, so op runs even after the session
+// is cancelled (Start drains these before closing the uploader). NewSegment,
+// the only caller, runs on the director's dispatch goroutine, which orders
+// s3Prev.
 func (ss *StreamSession) s3InOrder(ctx context.Context, prepare func(context.Context) []byte, op func(context.Context, []byte) error) {
 	prev, done := ss.s3Prev, make(chan struct{})
 	ss.s3Prev = done
@@ -140,7 +147,7 @@ func (ss *StreamSession) s3InOrder(ctx context.Context, prepare func(context.Con
 		if prev != nil {
 			<-prev
 		}
-		return op(ctx, data)
+		return op(context.WithoutCancel(ctx), data)
 	})
 }
 

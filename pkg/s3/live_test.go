@@ -88,7 +88,7 @@ func TestLiveS3Uploader(t *testing.T) {
 	for _, mb := range []int{2, 2, 2, 3, 3, 1, 2} { // parts: 6MB, 6MB(3+3), then 3MB tail
 		seg := bytes.Repeat([]byte("streamplace-live-s3-test"), mb*1024*1024/24)
 		seg = append(seg, bytes.Repeat([]byte{0xAB}, 137*mb)...) // knock sizes off round numbers
-		require.NoError(t, up.AddSegment(ctx, seg))
+		require.NoError(t, up.AddSegment(ctx, seg, ""))
 		want = append(want, seg...)
 	}
 	require.NoError(t, up.Close(ctx))

@@ -209,8 +209,7 @@ func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Read
 	// layout of its captions; see captionArchive.
 	if archive := captionArchiveFrom(ctx); archive != nil {
 		defer archive.finish()
-		manifest := func() ([]byte, error) { return ms.buildManifest(ctx, time.Now().UnixMilli()) }
-		master.archiveTo(muxl.SignerInput{CertPEM: in.CertPEM, KeyPEM: in.KeyPEM, Sign: in.Sign, TrackManifestFn: manifest}, archive.put)
+		master.archiveTo(muxl.SignerInput{CertPEM: in.CertPEM, KeyPEM: in.KeyPEM, Sign: in.Sign}, archive.put)
 		defer master.awaitArchive()
 	}
 	input, finish := master.tee(input)

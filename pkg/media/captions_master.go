@@ -56,7 +56,7 @@ type captionMaster struct {
 	policyReady            bool
 	stopped                bool
 	ingestSeen             bool
-	pushed                 bool
+	manifest               []byte // the manifest the signer last fetched
 	recognitionUnavailable bool
 	parsedUntil            uint64
 	mediaFinished          bool
@@ -131,6 +131,7 @@ func captionPolicyFromManifest(data []byte) captions.Policy {
 func (m *captionMaster) setManifest(data []byte) {
 	m.mu.Lock()
 	m.current = captionPolicyFromManifest(data)
+	m.manifest = data
 	m.policyReady = true
 	m.signal()
 	m.mu.Unlock()
@@ -281,7 +282,6 @@ func (m *captionMaster) push(track captions.Track, cues []captions.Cue) error {
 	}
 	arrival, origin := m.arrival, m.mediaOrigin
 	m.ingestSeen = true
-	m.pushed = true
 	m.signal()
 	m.mu.Unlock()
 	track.Origin = captions.OriginCanonical
@@ -316,25 +316,25 @@ func (m *captionMaster) text(ctx context.Context, req muxl.TextRequest) (*muxl.T
 			return nil, err
 		}
 	}
+	p, ingest, manifest := m.current, m.ingestSeen, m.manifest
 	m.mu.Unlock()
-	attachment := m.layout(&m.live, req)
+	attachment := m.layout(&m.live, req, p, ingest)
 	if m.archive != nil {
 		m.mu.Lock()
-		m.archive.signed = &archiveGoP{req: req, closeAt: closeAt, live: attachment}
+		m.archive.signed = &archiveGoP{req: req, closeAt: closeAt, live: attachment, policy: p, ingest: ingest, manifest: manifest}
 		m.mu.Unlock()
 	}
 	return attachment, nil
 }
 
-// layout places the final cues overlapping req on l's timeline. Cues play in
-// order: one that arrives after its GoP was laid out starts in the next GoP,
-// after the previous cue has had its own reading time, and keeps its whole
-// duration; it replaces whatever the track still shows. Every declared track
-// appears in every GoP, so neither output drops a track mid-stream.
-func (m *captionMaster) layout(l *captionLayout, req muxl.TextRequest) *muxl.TextAttachment {
-	m.mu.Lock()
-	p, ingest := m.current, m.ingestSeen
-	m.mu.Unlock()
+// layout places the final cues overlapping req on l's timeline, under the
+// caption policy the GoP is signed with (and whether supplied captions had
+// been seen by then). Cues play in order: one that arrives after its GoP was
+// laid out starts in the next GoP, after the previous cue has had its own
+// reading time, and keeps its whole duration; it replaces whatever the track
+// still shows. Every declared track appears in every GoP, so neither output
+// drops a track mid-stream.
+func (m *captionMaster) layout(l *captionLayout, req muxl.TextRequest, p captions.Policy, ingest bool) *muxl.TextAttachment {
 	cues := make(map[uint32][]muxl.TextCue)
 	if p.Canonical == captions.CanonicalOff {
 		l.pending = make(map[string]muxl.TextCue)
@@ -468,11 +468,16 @@ type archiveGoP struct {
 	closeAt time.Time
 	when    time.Time // the GoP's signed start time
 	live    *muxl.TextAttachment
+	// What the GoP was signed under: the archive lays it out and signs its
+	// text runs the same way, however the stream changed since.
+	policy   captions.Policy
+	ingest   bool
+	manifest []byte
 }
 
-// archiveTo starts the archive pass. signer carries the cert, the key or Sign
-// callback, and the manifest for its text runs; put receives every GoP the
-// streaming signer signed, in order.
+// archiveTo starts the archive pass. signer carries the cert and the key or
+// Sign callback for its text runs; put receives every GoP the streaming signer
+// signed, in order.
 func (m *captionMaster) archiveTo(signer muxl.SignerInput, put func(archiveText) error) {
 	m.archive = &captionArchivePass{layout: newCaptionLayout(true), signer: signer, put: put, done: make(chan struct{})}
 	go m.runArchive()
@@ -501,15 +506,16 @@ func (m *captionMaster) runArchive() {
 		gop := a.gops[0]
 		a.gops = a.gops[1:]
 		deadline := gop.closeAt.Add(m.cli.CaptionsMasterDelay)
-		for !m.archiveReady(gop.req.EndMs) && time.Now().Before(deadline) {
-			if m.waitLocked(m.ctx, deadline) != nil {
-				break
-			}
+		// Cancellation doesn't finish a GoP early: the media ending does,
+		// once recognition has flushed (see readMedia).
+		for !m.archiveReady(gop) && time.Now().Before(deadline) {
+			_ = m.waitLocked(context.Background(), deadline)
 		}
 		m.mu.Unlock()
 		text := archiveText{StartMs: gop.req.StartMs}
-		if attachment := m.layout(&a.layout, gop.req); !reflect.DeepEqual(attachment, gop.live) {
+		if attachment := m.layout(&a.layout, gop.req, gop.policy, gop.ingest); !reflect.DeepEqual(attachment, gop.live) {
 			in := a.signer
+			in.TrackManifest = gop.manifest
 			in.SegmentTimeFn = func(uint64) time.Time { return gop.when }
 			runs, err := muxl.RunMuxlSignTextRuns(context.WithoutCancel(m.ctx), gop.req, attachment.Tracks, in)
 			if err != nil {
@@ -525,17 +531,19 @@ func (m *captionMaster) runArchive() {
 }
 
 // archiveReady reports, with m.mu held, whether the archive pass has every
-// caption for the GoP ending at end: recognition has covered it, nothing
-// recognizes it, or the media ended. Pushed captions give no such signal, so
-// a session that has had pushes waits out the hold.
-func (m *captionMaster) archiveReady(end uint64) bool {
-	if m.mediaFinished || m.current.Canonical == captions.CanonicalOff {
+// caption for gop: recognition has covered it, nothing recognizes it, or the
+// media ended. Captions the streamer supplies, embedded or pushed, give no
+// such signal (an embedded caption only becomes final when the display
+// changes), so once any are seen the pass waits out the hold.
+func (m *captionMaster) archiveReady(gop archiveGoP) bool {
+	end := gop.req.EndMs
+	if m.mediaFinished || gop.policy.Canonical == captions.CanonicalOff {
 		return true
 	}
-	if m.pushed || m.parsedUntil < end {
+	if m.ingestSeen || m.parsedUntil < end {
 		return false
 	}
-	decision := captions.Decide(captions.Situation{Policy: m.current, Origin: true, IngestCaptions: m.ingestSeen})
+	decision := captions.Decide(captions.Situation{Policy: gop.policy, Origin: true})
 	return !decision.Recognize() || m.engine == nil || m.recognitionUnavailable || m.covered.UnixMilli() >= int64(end)+archiveTimingSlack.Milliseconds()
 }
 

@@ -58,16 +58,7 @@ func TestCaptionMasterLiveSkipsTheHoldTheArchiveWaitsOut(t *testing.T) {
 	m.setManifest(captionManifest("auto"))
 	m.clockAt(time.UnixMilli(0), time.Now())
 	m.closeGopAt(3000, time.Now())
-	signer := newBareSegmentSigner(t)
-	key, err := signers.MarshalES256KPrivateKeyPEM(signer.Signer)
-	require.NoError(t, err)
-	archived := make(chan archiveText, 1)
-	m.archiveTo(muxl.SignerInput{CertPEM: signer.Cert, KeyPEM: key, TrackManifest: signer.PrebuiltManifest}, func(text archiveText) error {
-		archived <- text
-		return nil
-	})
-	defer m.awaitArchive()
-	defer m.stop()
+	archived := archiveInto(t, m)
 	r, err := captions.NewRecognizer(ctx, captions.RecognizerOptions{Streamer: m.streamer, Origin: captions.OriginCanonical, Hub: m.hub, Engine: engine, OnCoverage: m.coverage, Step: time.Millisecond, MinWindow: time.Millisecond, SilenceFlush: 100 * time.Millisecond})
 	require.NoError(t, err)
 	defer r.Close()
@@ -89,18 +80,87 @@ func TestCaptionMasterLiveSkipsTheHoldTheArchiveWaitsOut(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 	release.Do(func() { close(engine.release) })
-	var text archiveText
-	select {
-	case text = <-archived:
-	case <-time.After(5 * time.Second):
-		t.Fatal("coverage did not release the archive pass")
-	}
+	// The first text runs compile muxl's WASM, which can take seconds.
+	text := <-archived
 	require.Equal(t, uint64(2000), text.StartMs, "keyed by the GoP's media start")
 	cues, err := muxl.RunMuxlReadTextCues(ctx, bytes.NewReader(text.Runs[CaptionTrackIDBase]), CaptionTrackIDBase)
 	require.NoError(t, err)
 	require.Len(t, cues, 1)
 	require.Equal(t, "held words", cues[0].Text)
 	require.Equal(t, uint64(2250), cues[0].Start, "the archive places words in the GoP they were spoken in")
+}
+
+// archiveInto runs m's archive pass for a test and collects what it hands over.
+func archiveInto(t *testing.T, m *captionMaster) <-chan archiveText {
+	t.Helper()
+	signer := newBareSegmentSigner(t)
+	key, err := signers.MarshalES256KPrivateKeyPEM(signer.Signer)
+	require.NoError(t, err)
+	archived := make(chan archiveText, 4)
+	m.archiveTo(muxl.SignerInput{CertPEM: signer.Cert, KeyPEM: key}, func(text archiveText) error {
+		archived <- text
+		return nil
+	})
+	t.Cleanup(func() { m.stop(); m.awaitArchive() })
+	return archived
+}
+
+// The archive pass holds a GoP until its captions are final, even once the
+// session's context ends (workers cancel it before recognition has flushed):
+// an embedded caption is final only once the display changes, a recognized
+// one once recognition has covered the GoP or the media has ended.
+func TestCaptionArchiveWaitsForFinalCaptions(t *testing.T) {
+	for name, tc := range map[string]struct {
+		policy   string
+		source   captions.Source
+		embedded bool // the ingest tap has seen embedded captions
+	}{
+		"embedded":   {policy: "ingest", source: captions.SourceIngest, embedded: true},
+		"recognized": {policy: "auto", source: captions.SourceAuto},
+	} {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			m := newCaptionMaster(ctx, "streamer", &config.CLI{CaptionsMasterDelay: time.Hour}, &captionTestEngine{})
+			m.setManifest(captionManifest(tc.policy))
+			m.clockAt(time.UnixMilli(0), time.Now())
+			m.closeGopAt(1000, time.Now())
+			m.ingestSeen = tc.embedded
+			archived := archiveInto(t, m)
+			_, err := m.text(context.Background(), muxl.TextRequest{StartMs: 0, EndMs: 1000})
+			require.NoError(t, err)
+			m.segmentTime(0)
+			cancel()
+			select {
+			case <-archived:
+				t.Fatal("archived before its caption was final")
+			case <-time.After(100 * time.Millisecond):
+			}
+			m.hub.Publish(m.streamer, masterTrack(tc.source), captions.Cue{ID: "last", Start: time.UnixMilli(200), End: time.UnixMilli(900), Text: "last words", Final: true})
+			m.finishMedia()
+			text := <-archived
+			cues, err := muxl.RunMuxlReadTextCues(context.Background(), bytes.NewReader(text.Runs[CaptionTrackIDBase]), CaptionTrackIDBase)
+			require.NoError(t, err)
+			require.Len(t, cues, 1)
+			require.Equal(t, uint64(200), cues[0].Start)
+		})
+	}
+}
+
+func TestCaptionArchiveKeepsTheSignedPolicy(t *testing.T) {
+	ctx := context.Background()
+	m := newCaptionMaster(ctx, "streamer", &config.CLI{CaptionsMasterDelay: time.Hour}, nil)
+	m.setManifest(captionManifest("ingest"))
+	m.clockAt(time.UnixMilli(0), time.Now())
+	archived := archiveInto(t, m)
+	m.hub.Publish(m.streamer, masterTrack(captions.SourceIngest), captions.Cue{ID: "cc", Start: time.UnixMilli(200), End: time.UnixMilli(900), Text: "supplied", Final: true})
+	live, err := m.text(ctx, muxl.TextRequest{StartMs: 0, EndMs: 1000})
+	require.NoError(t, err)
+	require.Len(t, live.Tracks[0].Cues, 1)
+	m.segmentTime(0)
+	// Captions are turned off before the archive pass reaches the GoP.
+	m.setManifest(captionManifest("off"))
+	m.closeGopAt(1000, time.Now())
+	require.Nil(t, (<-archived).Runs, "the recording keeps the captions the GoP was signed with")
 }
 
 func TestCaptionMasterLaysOutLateCuesInOrder(t *testing.T) {
@@ -139,11 +199,11 @@ func TestCaptionArchiveLayoutKeepsOnTimeCuesAfterALateOne(t *testing.T) {
 	m := newCaptionMaster(context.Background(), "streamer", &config.CLI{}, nil)
 	archive := newCaptionLayout(true)
 	// The first GoP was laid out before its speech was recognized.
-	m.layout(&archive, muxl.TextRequest{StartMs: 0, EndMs: 1000})
+	m.layout(&archive, muxl.TextRequest{StartMs: 0, EndMs: 1000}, captions.DefaultPolicy(), false)
 	track := masterTrack(captions.SourceHuman)
 	m.hub.Publish(m.streamer, track, captions.Cue{ID: "late", Start: time.UnixMilli(500), End: time.UnixMilli(1100), Text: "late", Final: true})
 	m.hub.Publish(m.streamer, track, captions.Cue{ID: "on-time", Start: time.UnixMilli(1200), End: time.UnixMilli(1800), Text: "on time", Final: true})
-	got := m.layout(&archive, muxl.TextRequest{StartMs: 1000, EndMs: 2000})
+	got := m.layout(&archive, muxl.TextRequest{StartMs: 1000, EndMs: 2000}, captions.DefaultPolicy(), false)
 	id := func(cue string) string { return m.sessionID + "/" + track.ID + "/" + cue }
 	require.Equal(t, []muxl.TextCue{
 		{Start: 1000, End: 1200, Text: "late", ID: id("late")},
@@ -158,7 +218,7 @@ func TestCaptionArchiveLayoutNeverErasesACue(t *testing.T) {
 	// Whisper sometimes times a cue to start with the one before it.
 	m.hub.Publish(m.streamer, track, captions.Cue{ID: "a", Start: time.UnixMilli(200), End: time.UnixMilli(500), Text: "a", Final: true})
 	m.hub.Publish(m.streamer, track, captions.Cue{ID: "b", Start: time.UnixMilli(200), End: time.UnixMilli(400), Text: "b", Final: true})
-	got := m.layout(&archive, muxl.TextRequest{StartMs: 0, EndMs: 1000})
+	got := m.layout(&archive, muxl.TextRequest{StartMs: 0, EndMs: 1000}, captions.DefaultPolicy(), false)
 	var texts []string
 	for _, cue := range got.Tracks[0].Cues {
 		require.Greater(t, cue.End, cue.Start)

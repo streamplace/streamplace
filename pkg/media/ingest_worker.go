@@ -177,8 +177,7 @@ func workerSignStream(cfg IngestWorkerConfig, getManifest func() []byte, frames 
 		if cfg.ArchiveCaptions {
 			// Every archive frame precedes End: the pass drains before the
 			// signer returns, and the worker frames End after that.
-			manifest := func() ([]byte, error) { return getManifest(), nil }
-			master.archiveTo(muxl.SignerInput{CertPEM: cfg.CertPEM, KeyPEM: cfg.KeyPEM, TrackManifestFn: manifest}, func(text archiveText) error {
+			master.archiveTo(muxl.SignerInput{CertPEM: cfg.CertPEM, KeyPEM: cfg.KeyPEM}, func(text archiveText) error {
 				payload, err := json.Marshal(text)
 				if err != nil {
 					return err

@@ -82,7 +82,6 @@ type harness struct {
 	hub   *captions.Hub
 	repos *fakeRepos
 	w     *Writer
-	tick  chan time.Time
 	now   time.Time
 	nowMu sync.Mutex
 }
@@ -101,7 +100,7 @@ func (h *harness) advance(d time.Duration) {
 
 func newHarness(t *testing.T, mutate func(*Config)) *harness {
 	t.Helper()
-	h := &harness{t: t, hub: captions.NewHub(0), repos: &fakeRepos{}, tick: make(chan time.Time), now: t0.Add(time.Hour)}
+	h := &harness{t: t, hub: captions.NewHub(0), repos: &fakeRepos{}, now: t0.Add(time.Hour)}
 	cfg := Config{
 		Hub:     h.hub,
 		NodeDID: nodeDID,
@@ -109,7 +108,7 @@ func newHarness(t *testing.T, mutate func(*Config)) *harness {
 			return comatproto.RepoStrongRef{LexiconTypeID: "com.atproto.repo.strongRef", Uri: "at://" + streamer + "/place.stream.livestream/3abc", Cid: "bafylive"}, nil
 		},
 		Publisher:   h.repos,
-		Tick:        h.tick,
+		Tick:        make(chan time.Time), // never fires; see flushed
 		Now:         h.clock,
 		RetryDelay:  time.Millisecond,
 		StopTimeout: 5 * time.Second,
@@ -124,12 +123,16 @@ func newHarness(t *testing.T, mutate func(*Config)) *harness {
 	return h
 }
 
-// flushed triggers a flush and returns once it has run. The tick channel is
-// unbuffered, so the second send returns only after the first flush finished.
+// flushed runs one flush of the streamer's session to completion. Sessions
+// flush only here and when they end: one flushing on its own could take in,
+// between a test's say and buffered, the words the test is waiting for.
 func (h *harness) flushed() {
 	h.t.Helper()
-	h.tick <- time.Time{}
-	h.tick <- time.Time{}
+	h.w.mu.Lock()
+	s := h.w.sessions[streamer]
+	h.w.mu.Unlock()
+	require.NotNil(h.t, s, "no session to flush")
+	s.flush(context.Background(), false)
 }
 
 // buffered waits until the session has taken in n words, so a flush sees them.
@@ -546,12 +549,13 @@ func TestWriterGivesUpAtSessionEndWithoutHanging(t *testing.T) {
 }
 
 func TestWriterNeverBlocksTheHub(t *testing.T) {
-	h := newHarness(t, nil)
+	tick := make(chan time.Time)
+	h := newHarness(t, func(c *Config) { c.Tick = tick })
 	h.repos.block = make(chan struct{})
 	h.w.StartSession(context.Background(), streamer, t0)
 	say(h, autoTrack, "c0", 0, "x")
 	h.buffered(streamer, 1)
-	go func() { h.tick <- time.Time{} }() // the flush now hangs inside the publisher
+	go func() { tick <- time.Time{} }() // the session's flush now hangs inside the publisher
 
 	done := make(chan struct{})
 	go func() {

@@ -17,6 +17,7 @@ import {
   shouldShowBufferingIndicator,
   type BufferingMediaEvent,
 } from "./player-buffering";
+import { ContentWarningOverlay } from "./content-warning-overlay";
 import { PlayerControls } from "./player-controls";
 import { WebRTCPlayer } from "./webrtc-player";
 
@@ -52,6 +53,8 @@ export type PlayerProps = {
    * travels with the video into fullscreen.
    */
   danmuOverlay?: ReactNode;
+  /** Content-warning labels associated with the current video or stream. */
+  contentWarnings?: string[];
   /** Whether the current user is the stream owner. */
   isStreamer?: boolean;
 };
@@ -163,6 +166,7 @@ export function Player({
   showDanmu = false,
   onShowDanmuChange,
   danmuOverlay,
+  contentWarnings = [],
   isStreamer,
 }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -403,6 +407,8 @@ export function Player({
       )}
 
       {active && danmuOverlay}
+
+      {active && <ContentWarningOverlay warnings={contentWarnings} />}
 
       {active && (
         <PlayerControls

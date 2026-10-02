@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   activeLiveCaptions,
+  LIVE_CAPTION_LINGER_MS,
   presentedCaptionTime,
 } from "../captions/live-cues";
 import type { LivestreamState } from "./state";
@@ -402,7 +403,7 @@ describe("handleWebSocketMessages: live captions", () => {
           (c) => c.text,
         ),
       ).toEqual(["Delayed speech"]);
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000 + LIVE_CAPTION_LINGER_MS);
       expect(
         activeLiveCaptions(
           state.liveCaptions,
@@ -414,7 +415,7 @@ describe("handleWebSocketMessages: live captions", () => {
         { ...segment, startTime: "2026-09-25T11:59:59.000Z" },
       ]);
       expect(presentedCaptionTime(state.captionClock, Date.now())).toBe(
-        presented + 1000,
+        presented + 1000 + LIVE_CAPTION_LINGER_MS,
       );
     } finally {
       vi.useRealTimers();

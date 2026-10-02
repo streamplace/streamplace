@@ -218,6 +218,14 @@ Viewer reducers independently retain at most **32 cues per track**, newest
 starts first, and drop cues starting more than **30 seconds ahead of the segment
 presentation clock** (local arrival time until that clock is available).
 
+Players keep a track's newest cue up for **2 seconds** past its end while no
+later cue is known: a canonical cue's end is provisional until the next
+segment's text arrives. Recognized (`auto`) speech rolls up, as in broadcast
+roll-up captions: consecutive cues run together in rows of 42 columns (scaled
+down for larger caption sizes), each sentence starting a row. A player shows
+every row of the newest cue and at least the last two rows, and keeps them up
+until 2 seconds after the newest cue ends. Other sources keep their cue lines.
+
 `getCaptions` supports `vtt`, `srt`, and JSON cues. Video offsets count from
 video start; live downloads cover the node's current window, with JSON's
 `epoch` identifying its time base. `listTracks` takes a live streamer or a video

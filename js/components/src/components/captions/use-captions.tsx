@@ -1,8 +1,8 @@
 import {
-  activeLiveCaptions,
   CaptionTrackOption,
   fetchCaptionTracks,
   fetchTimedCaptions,
+  liveCaptionLines,
   mergeCaptionTracks,
   selectCaptionTrack,
   selectLiveCaptionTrack,
@@ -15,6 +15,7 @@ import { useLivestreamStoreOptional } from "../../livestream-store";
 import { PlayerStatus, usePlayerStore } from "../../player-store";
 import {
   useCaptionLanguage,
+  useCaptionPrefs,
   useCaptionsEnabled,
   useSetCaptionLanguage,
   useSetCaptionsEnabled,
@@ -144,16 +145,17 @@ export function useLoadCaptionTracks() {
 
 // Live cues follow the segment presentation clock, including queued future cues.
 function useLiveCaptionLines(
-  trackId: string | null,
+  track: CaptionTrackOption | null,
   presented: number | null,
 ): string[] {
   const cues = useLivestreamStoreOptional((x) => x.liveCaptions);
+  const size = useCaptionPrefs().size;
   return useMemo(
     () =>
-      trackId && presented !== null
-        ? activeLiveCaptions(cues, trackId, presented).map((cue) => cue.text)
+      track && presented !== null
+        ? liveCaptionLines(cues, track, presented, size)
         : [],
-    [cues, trackId, presented],
+    [cues, track, presented, size],
   );
 }
 
@@ -192,12 +194,14 @@ export function useCaptionLines(): string[] {
   const elementRenders = usePlayerStore((x) => x.captionElementRenders);
   const elementLines = usePlayerStore((x) => x.captionElementLines);
   const fromElement = !!active?.elementKey;
-  const serverTrack = active && !fromElement ? active.id : null;
+  const serverTrack = active && !fromElement ? active : null;
   const live = useLiveCaptionLines(
     mode === "live" ? serverTrack : null,
     presented,
   );
-  const timed = useTimedCaptionLines(mode === "vod" ? serverTrack : null);
+  const timed = useTimedCaptionLines(
+    mode === "vod" ? (serverTrack?.id ?? null) : null,
+  );
   if (!active) return NO_TRACKS;
   if (fromElement) return elementRenders ? NO_TRACKS : elementLines;
   return mode === "live" ? live : timed;

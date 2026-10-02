@@ -89,8 +89,9 @@ There are **two separate pages**:
    the newest displayable canonical cue, or a sidecar when canonical speech is
    absent. It shows the newest cue on arrival for its duration (at least five
    seconds), until replaced. Player overlays instead use the segment
-   presentation clock and cue start/end intervals; pausing freezes their
-   fallback caption clock. HLS subtitles follow the playback element's timeline.
+   presentation clock and cue start/end intervals, rolling recognized speech up
+   in rows that stay up between phrases; pausing freezes their fallback caption
+   clock. HLS subtitles follow the playback element's timeline.
 
 Use **ingest** mode if you want the browser captioner to be your only canonical
 caption source. **Auto** also accepts its pushed captions, but may recognize

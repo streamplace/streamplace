@@ -4,7 +4,9 @@ import { parseTimedCaptions, timedCaptionsAt } from "./api";
 import {
   activeLiveCaptions,
   displayLiveCaptions,
+  LIVE_CAPTION_LINGER_MS,
   LIVE_CAPTION_MAX_CUES_PER_TRACK,
+  liveCaptionLines,
   reduceLiveCaption,
   selectLiveCaptionTrack,
 } from "./live-cues";
@@ -35,6 +37,13 @@ function liveCue(
     endTime: cueTime(Date.parse(startTime) + 20000),
     text,
     final,
+  };
+}
+
+function finalCue(id: string, text: string, startMs: number, endMs: number) {
+  return {
+    ...liveCue(id, text, true, cueTime(startMs)),
+    endTime: cueTime(endMs),
   };
 }
 
@@ -218,7 +227,9 @@ describe("activeLiveCaptions", () => {
     expect(activeLiveCaptions(cues, en.id, 20000).map((c) => c.text)).toEqual([
       "Speech",
     ]);
-    expect(activeLiveCaptions(cues, en.id, 30000)).toEqual([]);
+    expect(
+      activeLiveCaptions(cues, en.id, 30000 + LIVE_CAPTION_LINGER_MS),
+    ).toEqual([]);
   });
   it("shows node and pushed captions that arrive after their speech from arrival, for their duration", () => {
     const sidecar = { ...en, id: "s-en", origin: "sidecar" };
@@ -236,7 +247,9 @@ describe("activeLiveCaptions", () => {
     expect(
       activeLiveCaptions(cues, sidecar.id, 16900).map((c) => c.text),
     ).toEqual(["late words."]);
-    expect(activeLiveCaptions(cues, sidecar.id, 17100)).toEqual([]);
+    expect(
+      activeLiveCaptions(cues, sidecar.id, 17000 + LIVE_CAPTION_LINGER_MS),
+    ).toEqual([]);
   });
   it("shows the newest two cues of the track, oldest first", () => {
     let cues = {};
@@ -271,6 +284,99 @@ describe("activeLiveCaptions", () => {
         Date.parse("2026-09-25T12:00:04.000Z"),
       ).map((c) => c.text),
     ).toEqual(["two", "three"]);
+  });
+  it("keeps the newest cue up past its end until the next cue is known", () => {
+    // A canonical cue's end is provisional until the next segment's text.
+    let cues = reduceLiveCaption({}, finalCue("a", "First", 1000, 2000), 1000);
+    expect(activeLiveCaptions(cues, en.id, 2500).map((c) => c.text)).toEqual([
+      "First",
+    ]);
+    expect(
+      activeLiveCaptions(cues, en.id, 2000 + LIVE_CAPTION_LINGER_MS),
+    ).toEqual([]);
+    // A cue that is already known keeps the gap before it.
+    cues = reduceLiveCaption(cues, finalCue("b", "Second", 2700, 3000), 1000);
+    expect(activeLiveCaptions(cues, en.id, 2500)).toEqual([]);
+    expect(activeLiveCaptions(cues, en.id, 2800).map((c) => c.text)).toEqual([
+      "Second",
+    ]);
+  });
+});
+
+describe("liveCaptionLines", () => {
+  type Cues = ReturnType<typeof reduceLiveCaption>;
+  // Each cue is one agreed batch from the recognizer.
+  function speak(cues: Cues, ...batches: [string, number, number][]): Cues {
+    for (const [text, startMs, endMs] of batches) {
+      cues = reduceLiveCaption(
+        cues,
+        finalCue(text, text, startMs, endMs),
+        startMs,
+      );
+    }
+    return cues;
+  }
+
+  it("rolls recognized batches up into rows instead of a line per batch", () => {
+    let cues = speak({}, ["So today I want to talk about", 1000, 3000]);
+    cues = speak(cues, ["how", 3000, 3300]);
+    // A one-word batch joins the row before it.
+    expect(liveCaptionLines(cues, en, 3100)).toEqual([
+      "So today I want to talk about how",
+    ]);
+    // Larger caption text wraps narrower rows.
+    expect(liveCaptionLines(cues, en, 3100, 200)).toEqual([
+      "So today I want to",
+      "talk about how",
+    ]);
+    cues = speak(cues, ["we built captions for Streamplace.", 3300, 5000]);
+    expect(liveCaptionLines(cues, en, 3400)).toEqual([
+      "So today I want to talk about how we built",
+      "captions for Streamplace.",
+    ]);
+    // The rows stay up across the pause before a queued batch, and a new
+    // sentence starts a row.
+    cues = speak(cues, ["Thanks", 5300, 5700]);
+    expect(liveCaptionLines(cues, en, 5100)).toEqual([
+      "So today I want to talk about how we built",
+      "captions for Streamplace.",
+    ]);
+    expect(liveCaptionLines(cues, en, 5400)).toEqual([
+      "captions for Streamplace.",
+      "Thanks",
+    ]);
+    expect(liveCaptionLines(cues, en, 5700 + LIVE_CAPTION_LINGER_MS)).toEqual(
+      [],
+    );
+    // Speech after the screen cleared starts fresh rows.
+    cues = speak(cues, ["Next topic.", 9000, 10000]);
+    expect(liveCaptionLines(cues, en, 9100)).toEqual(["Next topic."]);
+  });
+
+  it("keeps rows in place as older cues expire", () => {
+    const cues = speak(
+      {},
+      ["Hello everyone.", 1000, 2000],
+      ["First we set up the encoder and", 2000, 4000],
+      ["connected it to the node.", 4000, 6000],
+      ["Then captions showed up", 6000, 8000],
+    );
+    const rows = ["it to the node.", "Then captions showed up"];
+    expect(liveCaptionLines(cues, en, 7000)).toEqual(rows);
+    const expired = { ...cues };
+    delete expired[JSON.stringify([en.id, "Hello everyone."])];
+    expect(liveCaptionLines(expired, en, 7000)).toEqual(rows);
+  });
+
+  it("keeps the lines of authored captions", () => {
+    const human = { ...en, id: "human-en", source: "human" };
+    const text = "An authored caption line, longer than a recognized row";
+    const cues = reduceLiveCaption(
+      {},
+      { ...finalCue("h", text, 1000, 3000), track: human },
+      1000,
+    );
+    expect(liveCaptionLines(cues, human, 2000)).toEqual([text]);
   });
 });
 
@@ -320,13 +426,16 @@ describe("live caption track selection", () => {
       );
       cues = reduceLiveCaption(
         cues,
-        liveCue(
-          "human",
-          "Human speech",
-          true,
-          new Date(7000).toISOString(),
-          human,
-        ),
+        {
+          ...liveCue(
+            "human",
+            "Human speech",
+            true,
+            new Date(7000).toISOString(),
+            human,
+          ),
+          endTime: cueTime(25000),
+        },
         7000,
       );
       cues = reduceLiveCaption(

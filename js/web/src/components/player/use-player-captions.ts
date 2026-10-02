@@ -1,12 +1,12 @@
 import { useStore as useAppStore } from "@/lib/store";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
 import {
-  activeLiveCaptions,
   type CaptionTrackOption,
   type CaptionTrackView,
   type ElementCaptionTrack,
   fetchCaptionTracks,
   fetchTimedCaptions,
+  liveCaptionLines,
   type LivestreamStore,
   makeLivestreamStore,
   mergeCaptionTracks,
@@ -68,6 +68,7 @@ export function usePlayerCaptions(
 ): PlayerCaptions {
   const enabled = useAppStore((s) => s.captionsEnabled);
   const language = useAppStore((s) => s.captionLanguage);
+  const captionSize = useAppStore((s) => s.captionPrefs.size);
   const setEnabled = useAppStore((s) => s.setCaptionsEnabled);
   const setLanguage = useAppStore((s) => s.setCaptionLanguage);
 
@@ -151,12 +152,12 @@ export function usePlayerCaptions(
   }, [activeKey]);
 
   // Live cues follow the segment presentation clock, including queued future cues.
-  const liveTrackId = shown && !shown.elementKey && isLive ? shown.id : null;
+  const liveTrack = shown && !shown.elementKey && isLive ? shown : null;
   const liveLines = useMemo(() => {
-    return liveTrackId && presented !== null
-      ? activeLiveCaptions(liveCues, liveTrackId, presented).map((c) => c.text)
+    return liveTrack && presented !== null
+      ? liveCaptionLines(liveCues, liveTrack, presented, captionSize)
       : NO_LINES;
-  }, [liveCues, liveTrackId, presented]);
+  }, [liveCues, liveTrack, presented, captionSize]);
 
   // VOD cues as JSON, looked up by the element's play position.
   const vodTrackId =

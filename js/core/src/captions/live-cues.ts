@@ -35,6 +35,16 @@ export function presentedCaptionTime(
 /** Rolling captions show at most this many cues at once. */
 export const LIVE_CAPTION_MAX_LINES = 2;
 
+/**
+ * How long the newest cue of a track stays up past its end while no later
+ * cue is known: a canonical cue's end is provisional until the next
+ * segment's text arrives, and recognized speech pauses between batches.
+ */
+export const LIVE_CAPTION_LINGER_MS = 2000;
+
+/** Recognized speech rolls up in rows of this many columns at the default size. */
+const LIVE_CAPTION_ROW_COLUMNS = 42;
+
 /** Maximum retained cues per track, independent of server-side limits. */
 export const LIVE_CAPTION_MAX_CUES_PER_TRACK = 32;
 
@@ -133,22 +143,123 @@ export function reduceLiveCaption(
   return next;
 }
 
-/** Cues covering the presented media wall clock, newest two, oldest first. */
+/**
+ * Cues covering the presented media wall clock, newest two, oldest first.
+ * The newest cue lingers past its end until a later cue is known, which
+ * keeps the gaps a later cue does define.
+ */
 export function activeLiveCaptions(
   cues: Record<string, LiveCaption>,
   trackId: string,
   now: number,
 ): LiveCaption[] {
-  return Object.values(cues)
+  const track = trackCues(cues, trackId);
+  const last = track.at(-1);
+  return track
     .filter(
       (c) =>
-        c.trackId === trackId &&
-        c.text.trim() !== "" &&
         c.startMs <= now + 100 &&
-        now < c.endMs,
+        now < c.endMs + (c === last ? LIVE_CAPTION_LINGER_MS : 0),
     )
-    .sort((a, b) => a.startMs - b.startMs)
     .slice(-LIVE_CAPTION_MAX_LINES);
+}
+
+// The track's cues with text, by start.
+function trackCues(
+  cues: Record<string, LiveCaption>,
+  trackId: string,
+): LiveCaption[] {
+  return Object.values(cues)
+    .filter((c) => c.trackId === trackId && c.text.trim() !== "")
+    .sort((a, b) => a.startMs - b.startMs);
+}
+
+/**
+ * The lines to draw for a live track: recognized speech rolls up (see
+ * rolledLiveCaptions); other captions keep the lines their author cued.
+ * `size` is the viewer's caption size, percent.
+ */
+export function liveCaptionLines(
+  cues: Record<string, LiveCaption>,
+  track: CaptionTrackOption,
+  now: number,
+  size = 100,
+): string[] {
+  const language = track.language.split("-")[0].toLowerCase();
+  if (track.source !== "auto" || UNSPACED_LANGUAGES.has(language)) {
+    return activeLiveCaptions(cues, track.id, now).map((c) => c.text);
+  }
+  return rolledLiveCaptions(
+    cues,
+    track.id,
+    now,
+    Math.max(12, Math.round((LIVE_CAPTION_ROW_COLUMNS * 100) / size)),
+  );
+}
+
+// Scripts written without spaces between words, whose batches can't be
+// joined with one.
+const UNSPACED_LANGUAGES = new Set(["ja", "zh", "yue", "th", "lo", "km", "my"]);
+const SENTENCE_END = /[.!?…。！？]["'”’)\]]*$/u;
+const WIDE =
+  /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe4f\uff00-\uff60\uffe0-\uffe6]/u;
+
+function columns(text: string): number {
+  let n = 0;
+  for (const ch of text) n += WIDE.test(ch) ? 2 : 1;
+  return n;
+}
+
+/**
+ * Recognized speech as roll-up rows: consecutive cues (agreed batches of
+ * arbitrary length) run together and wrap at `rowColumns`, so a short batch
+ * joins the row before it instead of standing alone, and the rows stay up
+ * across the pauses between batches. Each sentence starts a row, which also
+ * keeps rows from reflowing as old cues expire. Shows every row of the
+ * newest cue, and at least the last LIVE_CAPTION_MAX_LINES rows.
+ */
+function rolledLiveCaptions(
+  cues: Record<string, LiveCaption>,
+  trackId: string,
+  now: number,
+  rowColumns = LIVE_CAPTION_ROW_COLUMNS,
+): string[] {
+  const started = trackCues(cues, trackId).filter(
+    (c) => c.startMs <= now + 100,
+  );
+  const newest = started.at(-1);
+  if (!newest || now >= newest.endMs + LIVE_CAPTION_LINGER_MS) return [];
+  // The rows run back to where the screen last cleared.
+  let first = started.length - 1;
+  while (
+    first > 0 &&
+    started[first].startMs <= started[first - 1].endMs + LIVE_CAPTION_LINGER_MS
+  ) {
+    first--;
+  }
+  const rows: string[] = [];
+  let newestRow = -1;
+  let sentenceEnded = true;
+  for (let i = first; i < started.length; i++) {
+    for (const word of started[i].text.trim().split(/\s+/)) {
+      const last = rows.length - 1;
+      if (
+        !sentenceEnded &&
+        columns(rows[last]) + 1 + columns(word) <= rowColumns
+      ) {
+        rows[last] += ` ${word}`;
+      } else {
+        rows.push(word);
+      }
+      if (i === started.length - 1 && newestRow < 0) {
+        newestRow = rows.length - 1;
+      }
+      sentenceEnded = SENTENCE_END.test(word);
+    }
+  }
+  return rows.slice(
+    Math.max(0, Math.min(newestRow, rows.length - LIVE_CAPTION_MAX_LINES)),
+  );
 }
 
 /** OBS composites the streamer's live speech, independently of player latency. */

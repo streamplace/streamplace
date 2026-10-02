@@ -11,23 +11,33 @@ appId: ${APP_ID}
     visible:
       text: ".*e2e test stream.*"
     timeout: 30000
-- tapOn:
-    point: 50%,20%
-- tapOn:
-    id: "player-cc-menu-button"
-- tapOn:
-    id: "player-cc-track-off"
-- tapOn:
-    point: 50%,20%
-- tapOn:
-    id: "player-cc-button"
-- tapOn:
-    point: 50%,20%
-- tapOn:
-    id: "player-cc-menu-button"
+# The player's controls fade 3 s after a tap and a playing stream never
+# settles, so each reveal skips Maestro's settle wait and each control step
+# retries until its result shows.
 - retry:
     maxRetries: 3
     commands:
+      - tapOn:
+          point: 50%,20%
+          waitToSettleTimeoutMs: 500
+      - tapOn:
+          id: "player-cc-menu-button"
+          waitToSettleTimeoutMs: 500
+      - extendedWaitUntil:
+          visible:
+            id: "player-cc-track-off"
+          timeout: 5000
+- tapOn:
+    id: "player-cc-track-off"
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          point: 50%,20%
+          waitToSettleTimeoutMs: 500
+      - tapOn:
+          id: "player-cc-menu-button"
+          waitToSettleTimeoutMs: 500
       - runScript:
           file: push-caption.js
           env:
@@ -38,6 +48,7 @@ appId: ${APP_ID}
           visible:
             id: "player-cc-track-${output.captionTrackID}"
           timeout: 10000
+# Choosing a track turns captions on.
 - tapOn:
     id: "player-cc-track-${output.captionTrackID}"
 - assertNotVisible:
@@ -58,10 +69,25 @@ appId: ${APP_ID}
 - assertVisible:
     id: "caption-overlay-text"
 - takeScreenshot: caption-visible
-- tapOn:
-    point: 50%,20%
-- tapOn:
-    id: "player-cc-button"
+# The toggle is tapped only while it is on, so a retry can't turn it back on.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          point: 50%,20%
+          waitToSettleTimeoutMs: 500
+      - runFlow:
+          when:
+            visible:
+              id: "player-cc-button"
+              checked: true
+          commands:
+            - tapOn:
+                id: "player-cc-button"
+                waitToSettleTimeoutMs: 500
+      - assertVisible:
+          id: "player-cc-button"
+          checked: false
 - assertNotVisible:
     id: "caption-overlay-text"
 - takeScreenshot: caption-off

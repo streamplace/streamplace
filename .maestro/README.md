@@ -71,19 +71,24 @@ These focused tests use native presentation adapters; the Maestro flow exercises
 the actual native sheet and portal. The component tests also run in
 `pnpm run check`.
 
-`logged-out/captions.yaml` needs no app session. It toggles the shared
-`player-cc-button`, selects Off through `player-cc-menu-button`, pushes known
-live text with `push-caption.js`, verifies `caption-overlay-text`, then turns
-captions off. The default low-latency player renders websocket cues through
-the overlay; native HLS subtitle renditions are rendered by expo-video with
-the OS caption style. The harness supplies `SERVER_URL`, `ACCOUNT_DID` and
-`STREAM_KEY`; the stream key authenticates the caption procedure, not a PDS JWT.
+`logged-out/captions.yaml` needs no app session. It selects Off through
+`player-cc-menu-button`, pushes known live text with `push-caption.js`, selects
+its track (which turns captions on), verifies `caption-overlay-text`, then turns
+captions off with `player-cc-button`. The default low-latency player renders
+websocket cues through the overlay; native HLS subtitle renditions are
+rendered by expo-video with the OS caption style. The harness supplies
+`SERVER_URL`, `ACCOUNT_DID` and `STREAM_KEY`; the stream key authenticates the
+caption procedure, not a PDS JWT.
 The host-side `runScript` HTTP calls use `CAPTION_API_URL`, the harness's plain
 loopback API, while the installed app continues to use HTTPS `SERVER_URL`.
 The proof cue lasts four seconds and is pushed again after track selection,
 so the overlay assertion exercises its actual media-timed interval. Readiness
 retries wait in the open track menu for the mastered human track to appear
 before selecting it; unexpected API errors still fail immediately.
+The player's controls fade three seconds after a tap, and a playing stream
+never settles, so each reveal tap skips Maestro's settle wait and each control
+step retries until its result shows: the open menu, or the toggle's `checked`
+state, which keeps a retry from toggling captions back on.
 
 ## HTTPS, and logging in
 

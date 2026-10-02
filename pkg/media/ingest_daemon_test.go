@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/muxl"
 )
@@ -29,6 +30,27 @@ func TestDiscoverWorkerSockets(t *testing.T) {
 	socks, err = DiscoverWorkerSockets(filepath.Join(dir, "nope")) // missing dir → empty, no error
 	require.NoError(t, err)
 	require.Empty(t, socks)
+}
+
+// Reconnecting to a worker that died (a WHIP session the watchdog replaced)
+// must leave caption pushes with the stream's live worker.
+func TestConsumingADeadWorkerKeepsTheLiveCaptionSession(t *testing.T) {
+	mm := NewOffline(&config.CLI{})
+	live := newCaptionMaster(context.Background(), "streamer", &config.CLI{}, nil)
+	live.setManifest(captionManifest("auto"))
+	defer mm.registerCaptionMaster("streamer", live)()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- mm.ConsumeWorkerSocket(ctx, filepath.Join(t.TempDir(), "dead.sock"), "streamer", nil, nil)
+	}()
+	time.Sleep(3 * ingestReconnectBackoff)
+	_, ok := mm.OriginCaptionPolicy("streamer")
+	require.True(t, ok, "pushes reach the live worker while the dead one is retried")
+	cancel()
+	require.Error(t, <-done)
+	_, ok = mm.OriginCaptionPolicy("streamer")
+	require.True(t, ok, "and after it is given up")
 }
 
 // TestDetachedWorkerZeroDowntime exercises the main-side lifecycle end to end:

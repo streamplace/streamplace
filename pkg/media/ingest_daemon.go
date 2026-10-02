@@ -136,8 +136,8 @@ func removeWorkerFiles(socketPath string) {
 // over the same socket (pushManifestUpdates) — so a pre-live → live transition
 // reaches a worker that has no model of its own. It's re-armed per connection.
 func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, streamer string, onSegment func(context.Context, []byte) error, manifestSource func() ([]byte, error)) error {
-	ctx, unregister := mm.registerWorkerCaptionMaster(ctx, socketPath, streamer)
-	defer unregister()
+	unregister := func() {}
+	defer func() { unregister() }()
 	connectedOnce := false
 	giveUp := time.Now().Add(workerConnectGrace)
 	for {
@@ -163,6 +163,11 @@ func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, str
 			// the leftover (no-op if already gone).
 			removeWorkerFiles(socketPath)
 			return fmt.Errorf("ingest worker socket gone before End: %w", err)
+		}
+		if !connectedOnce {
+			// Route caption pushes here only once the worker answers: a dead
+			// one must not take them from the stream's live worker.
+			ctx, unregister = mm.registerWorkerCaptionMaster(ctx, socketPath, streamer)
 		}
 		connectedOnce = true
 		// Push manifest refreshes to the worker over this connection (re-armed per

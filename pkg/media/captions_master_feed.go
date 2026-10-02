@@ -98,17 +98,37 @@ func readCaptionBox(r io.Reader) ([]byte, string, error) {
 	return data, string(h[4:]), nil
 }
 
+// recognizerLease is a recognizer readMedia started, once its engine lease
+// resolves.
+type recognizerLease struct {
+	recognizer *captions.Recognizer
+	err        error
+}
+
 func (m *captionMaster) readMedia(input io.Reader) error {
 	var init, moof []byte
 	var tracks []fmp4.TrackInfo
 	var referenceVideo, referenceAudio uint32
 	var decoder *captionAudioDecoder
 	var recognizer *captions.Recognizer
+	// The signer waits on this parse (segmentTime), so it waits for a
+	// recognizer's lease no longer than for the tap: a ready engine answers at
+	// once, while one still measuring its models (node startup) leaves the
+	// audio before it answers unrecognized.
+	var leasing chan recognizerLease
 	unavailable := false
 	var last time.Time
 	tap := captions.NewIngestTap(m.streamer, m.hub, captions.OriginCanonical, m.streamer, "und")
 	defer m.finishMedia()
 	stopRecognition := func() {
+		if leasing != nil {
+			go func(pending chan recognizerLease) {
+				if lease := <-pending; lease.recognizer != nil {
+					lease.recognizer.Close()
+				}
+			}(leasing)
+			leasing = nil
+		}
 		if decoder != nil {
 			decoder.close()
 			decoder = nil
@@ -214,19 +234,39 @@ func (m *captionMaster) readMedia(input io.Reader) error {
 					}
 					if track.Handler == "soun" && canonicalRecognition && m.engine != nil && !unavailable {
 						if decoder == nil {
-							codec := "aac"
-							if bytes.Contains(init, []byte("Opus")) {
-								codec = "opus"
+							var lease recognizerLease
+							if leasing == nil {
+								leasing = make(chan recognizerLease, 1)
+								go func(out chan<- recognizerLease, languages []string) {
+									r, err := captions.NewRecognizer(context.WithoutCancel(m.ctx), captions.RecognizerOptions{Streamer: m.streamer, Origin: captions.OriginCanonical, Author: m.streamer, Languages: languages, Hub: m.hub, Engine: m.engine, OnCoverage: m.coverage})
+									out <- recognizerLease{r, err}
+								}(leasing, p.Languages)
+								select {
+								case lease = <-leasing:
+								case <-time.After(liveTapWait):
+									continue
+								}
+							} else {
+								select {
+								case lease = <-leasing:
+								default:
+									continue
+								}
 							}
-							recognizer, err = captions.NewRecognizer(context.WithoutCancel(m.ctx), captions.RecognizerOptions{Streamer: m.streamer, Origin: captions.OriginCanonical, Author: m.streamer, Languages: p.Languages, Hub: m.hub, Engine: m.engine, OnCoverage: m.coverage})
-							if err != nil {
-								log.Warn(m.ctx, "canonical recognizer unavailable", "error", err)
+							leasing = nil
+							if lease.err != nil {
+								log.Warn(m.ctx, "canonical recognizer unavailable", "error", lease.err)
 								unavailable = true
 								m.mu.Lock()
 								m.recognitionUnavailable = true
 								m.signal()
 								m.mu.Unlock()
 								continue
+							}
+							recognizer = lease.recognizer
+							codec := "aac"
+							if bytes.Contains(init, []byte("Opus")) {
+								codec = "opus"
 							}
 							decoder, err = newCaptionAudioDecoder(context.WithoutCancel(m.ctx), codec, func(at time.Time, pcm []float32) {
 								m.mu.Lock()

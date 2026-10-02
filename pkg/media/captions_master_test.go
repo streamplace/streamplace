@@ -23,13 +23,25 @@ type captionTestEngine struct {
 	enter, release chan struct{}
 	once           sync.Once
 	scripted       *stt.Result
+	// loading, when set, holds every lease until it is closed: the models are
+	// still being measured.
+	loading chan struct{}
 }
 
-func (e *captionTestEngine) Lease(context.Context) (stt.Lease, error) { return e, nil }
-func (e *captionTestEngine) Close() error                             { return nil }
-func (e *captionTestEngine) Model() stt.Model                         { return e }
-func (e *captionTestEngine) Release()                                 {}
-func (e *captionTestEngine) Info() stt.ModelInfo                      { return stt.ModelInfo{Name: "fake"} }
+func (e *captionTestEngine) Lease(ctx context.Context) (stt.Lease, error) {
+	if e.loading != nil {
+		select {
+		case <-e.loading:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return e, nil
+}
+func (e *captionTestEngine) Close() error        { return nil }
+func (e *captionTestEngine) Model() stt.Model    { return e }
+func (e *captionTestEngine) Release()            {}
+func (e *captionTestEngine) Info() stt.ModelInfo { return stt.ModelInfo{Name: "fake"} }
 func (e *captionTestEngine) Transcribe(ctx context.Context, _ []float32, _ stt.Options) (*stt.Result, error) {
 	if e.enter != nil {
 		e.once.Do(func() { close(e.enter) })
@@ -427,6 +439,35 @@ func TestCaptionMasterRecordingKeepsVoicedEOFFinals(t *testing.T) {
 	require.Len(t, cues, 1)
 	require.Equal(t, "final voiced words", cues[0].Text)
 	require.Equal(t, uint64(1500), cues[0].Start)
+}
+
+// A node measures its speech models at startup, which can take a minute on a
+// slow CPU; live media keeps flowing meanwhile, uncaptioned.
+func TestCaptionMasterSignsWhileTheSpeechModelLoads(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	fixture, err := os.ReadFile(getFixture("h264-opus-frag.mp4"))
+	require.NoError(t, err)
+	engine := &captionTestEngine{loading: make(chan struct{})}
+	t.Cleanup(func() { close(engine.loading) })
+	mm := NewOffline(&config.CLI{})
+	mm.STT = engine
+	ms := newBareSegmentSigner(t)
+	ms.PrebuiltManifest = captionManifest("auto")
+	events := make(chan *muxl.MuxlEvent, 16)
+	done := make(chan error, 1)
+	go func() {
+		done <- mm.SignOriginStream(ctx, ms, bytes.NewReader(fixture), events)
+		close(events)
+	}()
+	signed := 0
+	for event := range events {
+		if event.Type == "signed-segment" {
+			signed++
+		}
+	}
+	require.NoError(t, <-done, "live media does not wait for the speech model")
+	require.Positive(t, signed)
 }
 
 // recordSegments records live segments the way the director does: each one's

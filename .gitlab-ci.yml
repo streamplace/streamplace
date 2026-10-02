@@ -184,6 +184,7 @@ build-desktop-darwin:
     - build-darwin-arm64
     - build-android-debug
     - build-android-release
+    - build-desktop-darwin
     - build-ios
     - test
   rules:

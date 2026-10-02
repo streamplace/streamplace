@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/log"
 	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
@@ -17,7 +16,7 @@ import (
 
 func (s *Server) handlePlaceStreamServerCreateWebhook(ctx context.Context, input *placestream.ServerCreateWebhook_Input) (*placestream.ServerCreateWebhook_Output, error) {
 	// Get authenticated user
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
@@ -62,7 +61,7 @@ func (s *Server) handlePlaceStreamServerCreateWebhook(ctx context.Context, input
 
 func (s *Server) handlePlaceStreamServerListWebhooks(ctx context.Context, active bool, cursor string, event string, limit int) (*placestream.ServerListWebhooks_Output, error) {
 	// Get authenticated user
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
@@ -142,7 +141,7 @@ func (s *Server) handlePlaceStreamServerListWebhooks(ctx context.Context, active
 
 func (s *Server) handlePlaceStreamServerGetWebhook(ctx context.Context, id string) (*placestream.ServerGetWebhook_Output, error) {
 	// Get authenticated user
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
@@ -171,7 +170,7 @@ func (s *Server) handlePlaceStreamServerGetWebhook(ctx context.Context, id strin
 
 func (s *Server) handlePlaceStreamServerUpdateWebhook(ctx context.Context, input *placestream.ServerUpdateWebhook_Input) (*placestream.ServerUpdateWebhook_Output, error) {
 	// Get authenticated user
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
@@ -253,7 +252,7 @@ func (s *Server) handlePlaceStreamServerUpdateWebhook(ctx context.Context, input
 
 func (s *Server) handlePlaceStreamServerDeleteWebhook(ctx context.Context, input *placestream.ServerDeleteWebhook_Input) (*placestream.ServerDeleteWebhook_Output, error) {
 	// Get authenticated user
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}

@@ -48,6 +48,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/rtmps"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/upload"
@@ -98,6 +99,10 @@ type StreamplaceAPI struct {
 	rtmpSessions             map[string]*media.RTMPSession
 	rtmpSessionsLock         sync.Mutex
 	rtmpInternalPlaybackAddr string
+
+	// IngestHosts tracks authorized Mist publishes by the hostname reported
+	// in PUSH_REWRITE, for the lifetime of their pull ingest.
+	IngestHosts *rtmps.IngestHosts
 }
 
 type WebsocketTracker struct {
@@ -132,6 +137,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		rtmpSessions:     make(map[string]*media.RTMPSession),
 		rtmpSessionsLock: sync.Mutex{},
 		LocalDB:          ldb,
+		IngestHosts:      rtmps.NewIngestHosts(cli.DeprecatedIngestHosts),
 	}
 	a.Mimes, err = updater.GetMimes()
 	if err != nil {
@@ -268,6 +274,11 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 			log.Error(ctx, "error handling favicon.png", "error", err)
 			w.WriteHeader(500)
 			return
+		}
+	})
+	router.GET("/notification-icon", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		if err := a.XRPCServer.HandleNotificationIcon(echo.New().NewContext(r, w)); err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "failed to serve notification icon", err)
 		}
 	})
 	router.GET("/.well-known/did.json", a.HandleDidJSON(ctx))

@@ -17,7 +17,7 @@ function videoPath(): string {
   return `/${match[1]}/video/${match[2]}`;
 }
 
-test("08-vod: the node serves the video page titled after the video", async ({
+test("vod: the node serves the video page titled after the video", async ({
   request,
 }) => {
   // The node indexes the record off the firehose, shortly after the harness
@@ -27,7 +27,7 @@ test("08-vod: the node serves the video page titled after the video", async ({
     .toContain(`<title>${VIDEO_TITLE}</title>`);
 });
 
-test("08-vod: the app titles the tab after the video", async ({ page }) => {
+test("vod: the app titles the tab after the video", async ({ page }) => {
   await page.goto(videoPath());
   // The node's page already carries the title; wait for the app to load the
   // video (it shows the title) so the check below sees the app's own title.

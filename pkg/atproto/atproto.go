@@ -450,6 +450,12 @@ func CustomDirectory(plcURL string) identity.Directory {
 	return &base
 }
 
+const StreamplaceServiceID = "streamplace"
+
+func (atsync *ATProtoSynchronizer) IdentityDirectory() identity.Directory {
+	return atsync.directory(true)
+}
+
 func DIDDoc(host string, pubMultibase string) map[string]any {
 	return map[string]any{
 		"@context": []string{
@@ -468,6 +474,11 @@ func DIDDoc(host string, pubMultibase string) map[string]any {
 			{
 				"id":              "#atproto_pds",
 				"type":            "AtprotoPersonalDataServer",
+				"serviceEndpoint": fmt.Sprintf("https://%s", host),
+			},
+			{
+				"id":              "#" + StreamplaceServiceID,
+				"type":            "StreamplaceServer",
 				"serviceEndpoint": fmt.Sprintf("https://%s", host),
 			},
 		},

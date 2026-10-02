@@ -896,7 +896,9 @@ function GoLiveSection({
     navigator.clipboard.writeText(text);
   }, []);
 
-  const rtmpIngest = ingestUrls.find((i) => i.type === "rtmp");
+  const rtmpIngest = ingestUrls.find(
+    (i) => i.type === "rtmp" || i.type === "rtmps",
+  );
   const whipIngest = ingestUrls.find((i) => i.type === "whip");
 
   const activeIngest = mode === "rtmp" ? rtmpIngest : whipIngest;

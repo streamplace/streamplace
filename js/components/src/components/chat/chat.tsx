@@ -396,6 +396,54 @@ export function Chat({
   }, []);
   const [isVisible, setIsVisible] = useState(true);
   const flatListRef = useRef<FlatList>(null);
+  // On the web an inverted list is flipped with scaleY(-1), so native wheel
+  // scrolling would run backwards; react-native-web cancels every wheel event
+  // and moves scrollTop itself. Its handler loses trackpad scrolls, though:
+  //
+  // - The browser snaps each scrollTop write to a device pixel. A trackpad
+  //   sends many small, fractional deltas, and rounding favours one
+  //   direction: every half-pixel step toward the latest message can land
+  //   back where it started, so scrolling down stalls while scrolling up
+  //   works.
+  // - It lets the element under the pointer absorb the delta first if its
+  //   scrollHeight exceeds its clientHeight, which a truncated,
+  //   overflow-hidden name can do by a few pixels on every row.
+  //
+  // So the list handles its own wheel events first (capture phase, on the
+  // scroll node, ahead of react-native-web's bubbling listener), carries the
+  // part of each delta the browser rounded away into the next one, and
+  // scrolls only the list: chat rows have no scroll areas of their own.
+  //
+  // The list is only mounted (and inverted) once chat has loaded and is shown.
+  const invertedListShown = !reverse && isVisible && !!chat;
+  useEffect(() => {
+    if (Platform.OS !== "web" || !invertedListShown) return;
+    const node = (
+      flatListRef.current as unknown as { getScrollableNode?: () => unknown }
+    )?.getScrollableNode?.();
+    if (!(node instanceof HTMLElement)) return;
+    let carry = 0;
+    const onWheel = (ev: WheelEvent) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      // Pixels almost everywhere (Firefox too, once deltaY is read first), but
+      // e.g. Windows' "one screen at a time" setting reports pages.
+      let delta = ev.deltaY;
+      if (ev.deltaMode === WheelEvent.DOM_DELTA_LINE) delta *= 16;
+      if (ev.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+        delta *= node.clientHeight;
+      }
+      const wanted = node.scrollTop - delta + carry;
+      node.scrollTop = wanted;
+      carry = wanted - node.scrollTop;
+      // A whole pixel or more short means the list hit an end, not rounding.
+      if (Math.abs(carry) >= 1) carry = 0;
+    };
+    node.addEventListener("wheel", onWheel, { capture: true, passive: false });
+    return () => {
+      node.removeEventListener("wheel", onWheel, { capture: true });
+    };
+  }, [invertedListShown]);
   const now = useChatExpiryTick();
   const visibleMessages = useMemo(
     () =>
@@ -510,6 +558,7 @@ export function Chat({
       <ProfileCardProvider>
         <FlatList
           ref={flatListRef}
+          testID="chat-list"
           style={[
             flex.grow[1],
             flex.shrink[1],

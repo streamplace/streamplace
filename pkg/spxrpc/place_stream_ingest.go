@@ -77,3 +77,31 @@ func (s *Server) handlePlaceStreamIngestGetIngestUrls(ctx context.Context) (*pla
 
 	return &out, nil
 }
+
+// RTMPIngestURL is the RTMP server URL streamers should point their encoders
+// at: this node's rtmps ingest if it advertises one, otherwise its rtmp one.
+func (s *Server) RTMPIngestURL(ctx context.Context) (string, error) {
+	out, err := s.handlePlaceStreamIngestGetIngestUrls(ctx)
+	if err != nil {
+		return "", err
+	}
+	var rtmpURL string
+	for _, elem := range out.Ingests {
+		in := elem.IngestDefs_Ingest
+		if in == nil {
+			continue
+		}
+		switch in.Type {
+		case "rtmps":
+			return in.Url, nil
+		case "rtmp":
+			if rtmpURL == "" {
+				rtmpURL = in.Url
+			}
+		}
+	}
+	if rtmpURL == "" {
+		return "", fmt.Errorf("no RTMP ingest configured")
+	}
+	return rtmpURL, nil
+}

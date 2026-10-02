@@ -45,6 +45,7 @@ function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
     segment: null,
     recentSegments: [],
     problems: [],
+    ingestProblems: [],
     renditions: [],
     replyToMessage: null,
     chatDraft: "",

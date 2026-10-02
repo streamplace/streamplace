@@ -28,7 +28,7 @@
 #
 # Env overrides: APK, APP_ID, ANDROID_SERIAL, ANDROID_HOME,
 # E2E_ARTIFACTS (default .maestro/artifacts), E2E_HARNESS_LOG, and E2E_FLOWS
-# (default .maestro; flow files to run a subset — include 00-server-setup).
+# (space-separated flow files to run a subset; prerequisites are automatic).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -145,6 +145,11 @@ MAESTRO_ARGS=(-e APP_ID="$APP_ID" -e SERVER_URL="$SERVER_HTTPS_URL"
 # artifacts dir. No `exec`: the EXIT trap has to stop the harness.
 ARTIFACTS="${E2E_ARTIFACTS:-$REPO/.maestro/artifacts}"
 mkdir -p "$ARTIFACTS"
+ARTIFACTS="$(cd "$ARTIFACTS" && pwd)"
+# Maestro's flowsOrder accepts names, not phase globs. Generate its order
+# from the selected files so new scenarios never edit a shared manifest.
+bash "$REPO/hack/maestro-config.sh" ${E2E_FLOWS:-} > "$ARTIFACTS/workspace.yaml"
 cd "$ARTIFACTS"
 MAESTRO_CLI_NO_ANALYTICS=1 "$MAESTRO" --device "$DEVICE" test \
-  --test-output-dir "$ARTIFACTS" "${MAESTRO_ARGS[@]}" "$@" ${E2E_FLOWS:-"$REPO/.maestro"}
+  --test-output-dir "$ARTIFACTS" --config "$ARTIFACTS/workspace.yaml" \
+  "${MAESTRO_ARGS[@]}" "$@" "$REPO/.maestro"

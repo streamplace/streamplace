@@ -56,11 +56,11 @@ install:
 	pnpm install
 
 .PHONY: app
-app: install whisper-wasm-cached
+app: install whisper-wasm
 	pnpm run build
 
 .PHONY: app-cached
-app-cached: whisper-wasm-cached
+app-cached: whisper-wasm
 	if [ ! -f js/app/dist/index.html ] || [ ! -f js/web/dist/index.html ]; then $(MAKE) app; else echo "frontends already built, run make app to rebuild"; fi
 
 # Worker generation uses the workspace TypeScript compiler. app-cached can
@@ -69,21 +69,6 @@ app-cached: whisper-wasm-cached
 whisper-wasm:
 	test -f node_modules/typescript/package.json || pnpm install
 	bash hack/whisper-wasm/build.sh
-
-# Releases use the checked-in emscripten build for this pinned revision, which
-# needs no emsdk (e.g. on the iOS runner); the worker is still regenerated from
-# source. `make whisper-wasm` rebuilds everything.
-WHISPER_WASM_DIR = js/app/assets/whisper/4979e04f5dcaccb36057e059bbaed8a2f5288315
-.PHONY: whisper-wasm-cached
-whisper-wasm-cached:
-	@if [ -s $(WHISPER_WASM_DIR)/caption-whisper.mjs ] && \
-	    [ -s $(WHISPER_WASM_DIR)/caption-whisper.wasm ]; then \
-		echo "using pinned whisper WASM artifacts"; \
-		test -f node_modules/typescript/package.json || pnpm install; \
-		node hack/whisper-wasm/transpile-worker.mjs $(WHISPER_WASM_DIR); \
-	else \
-		$(MAKE) whisper-wasm; \
-	fi
 
 .PHONY: ci-ios
 ci-ios: version install app

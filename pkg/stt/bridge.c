@@ -1,9 +1,19 @@
 #include "bridge.h"
 #include <string.h>
+#if defined(__x86_64__) || defined(_M_X64)
+#include <cpuid.h>
+#endif
 int sp_whisper_supported_cpu(void) {
 #if defined(__x86_64__) || defined(_M_X64)
-    __builtin_cpu_init();
-    return __builtin_cpu_supports("avx2") && __builtin_cpu_supports("fma") && __builtin_cpu_supports("f16c");
+    // CPUID directly: __builtin_cpu_supports needs a runtime osxcross lacks,
+    // and GCC before 11 (the Windows cross compiler) can't test f16c with it.
+    unsigned a, b, c, d, xcr0;
+    if (!__get_cpuid(1, &a, &b, &c, &d) || !(c & bit_FMA) || !(c & bit_F16C) || !(c & bit_OSXSAVE)) {
+        return 0;
+    }
+    // AVX registers are usable only if the OS saves them (XCR0 bits 1 and 2).
+    __asm__("xgetbv" : "=a"(xcr0), "=d"(d) : "c"(0));
+    return (xcr0 & 6) == 6 && __get_cpuid_count(7, 0, &a, &b, &c, &d) && (b & bit_AVX2);
 #else
     return 1;
 #endif

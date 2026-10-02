@@ -20,12 +20,12 @@ source "$CACHE/emsdk/emsdk_env.sh"
 if [ ! -f "$CACHE/source.tar.gz" ]; then
   curl --fail --location --retry 3 "https://codeload.github.com/ggml-org/whisper.cpp/tar.gz/$REV" -o "$CACHE/source.tar.gz"
 fi
-# Both GNU coreutils and BSD sha256sum accept -c; BSD rejects --check.
-# macOS also ships shasum even when sha256sum is not installed.
-if command -v sha256sum >/dev/null 2>&1; then
-  printf '%s  %s\n' "$SOURCE_SHA256" "$CACHE/source.tar.gz" | sha256sum -c
-else
-  printf '%s  %s\n' "$SOURCE_SHA256" "$CACHE/source.tar.gz" | shasum -a 256 -c
+# Compare the digest directly: macOS's sha256sum takes no check list on
+# stdin, and older macOS only has shasum.
+sum=$(shasum -a 256 "$CACHE/source.tar.gz" 2>/dev/null || sha256sum "$CACHE/source.tar.gz")
+if [ "${sum%% *}" != "$SOURCE_SHA256" ]; then
+  echo "whisper.cpp source checksum mismatch: got ${sum%% *}, want $SOURCE_SHA256" >&2
+  exit 1
 fi
 if [ ! -f "$CACHE/source/CMakeLists.txt" ]; then
   mkdir -p "$CACHE/source"

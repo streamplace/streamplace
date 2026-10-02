@@ -32,14 +32,12 @@ header supplies the standard power-throttling declarations missing from
 MinGW-w64 8's older SDK headers, without disabling ggml's API call.
 Cross-platform archive configuration does not run a target executable.
 
-The frontend builds, including `make ci-ios`, reuse the committed emscripten
-build (`caption-whisper.mjs` and `caption-whisper.wasm`) under
-`js/app/assets/whisper/4979e04f5dcaccb36057e059bbaed8a2f5288315/` and only
-regenerate `worker.js` from its TypeScript source, so they need no emsdk. They
-rebuild everything only when the emscripten build is missing or empty. Run
-`make whisper-wasm` explicitly after changing the WASM bridge; it builds with the
-pinned emsdk on Linux or macOS. Source checksums use portable `sha256sum -c`
-when available, otherwise macOS's `shasum -a 256 -c`.
+The emscripten build of the WASM captioner is not committed: `make app` runs
+`make whisper-wasm`, which builds it with the pinned emsdk on Linux or macOS
+(including the iOS runner) and is incremental after the first run. The
+whisper.cpp source tarball is checked by comparing its SHA-256 digest, since
+macOS's `sha256sum` reads no check list from stdin and older macOS only has
+`shasum`.
 
 ## Assets and licenses
 

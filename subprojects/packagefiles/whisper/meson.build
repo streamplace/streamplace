@@ -50,7 +50,12 @@ elif host_machine.system() == 'windows'
     '-static-libgcc', '-Wl,-Bstatic', '-lstdc++', '-lwinpthread', '-Wl,-Bdynamic',
   ])
 elif get_option('default_library') == 'static'
-  stdlib = declare_dependency(link_args: '-static-libstdc++')
+  # -static-libstdc++ only reaches g++, which meson links release binaries
+  # with; cgo links `go test` binaries with gcc, which needs the explicit
+  # static library.
+  stdlib = declare_dependency(link_args: [
+    '-static-libstdc++', '-Wl,-Bstatic', '-lstdc++', '-Wl,-Bdynamic',
+  ])
 else
   stdlib = cpp.find_library('stdc++')
 endif

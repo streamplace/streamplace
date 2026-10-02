@@ -3,11 +3,13 @@ name: docker-builder
 # Publishes the pinned builder toolchain image:
 # ghcr.io/streamplace/streamplace:builder-<DOCKERFILE_HASH>, the tag that
 # .gitlab-ci.yml jobs and hack/container.sh (local dev containers) run on,
-# resolved from .ci/dockerfile-hash.yaml.
+# resolved from .ci/dockerfile-hash.yaml. The hash covers every file the
+# image bakes in (build.Dockerfile plus its ADD inputs), so any change
+# publishes a new tag rather than mutating the pinned one.
 #
 # docker.yaml only pushes images on `next` and `v*` tags, but the pinned tag
 # must also exist for branch pipelines (GitLab runs per-branch builds, and a
-# branch that bumps docker/build.Dockerfile needs its new hash published
+# branch that changes a docker/ builder input needs its new hash published
 # before its own jobs can start). This is docker.yaml's builder job split out
 # on its own every-push trigger; the registry build cache makes unchanged
 # Dockerfiles a fast cache hit, and re-pushing an existing tag is idempotent.

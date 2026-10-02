@@ -140,7 +140,12 @@ func RunDuplicateMistWorker(parent context.Context, input io.Reader) (retErr err
 			// A full close with unread RTMP acknowledgements can reset TCP,
 			// discarding buffered media. FIN follows every written byte; keep
 			// draining peer replies until the native pipeline reaches EOS.
-			err = conn.(*net.TCPConn).CloseWrite()
+			// The playback handshake deadline must not truncate slow native
+			// signing. The parent worker-exit grace bounds the entire drain.
+			err = conn.SetReadDeadline(time.Time{})
+			if err == nil {
+				err = conn.(*net.TCPConn).CloseWrite()
+			}
 			if err == nil {
 				_, err = io.Copy(io.Discard, conn)
 			}

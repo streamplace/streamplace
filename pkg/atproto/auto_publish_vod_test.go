@@ -3,16 +3,19 @@ package atproto
 import (
 	"bytes"
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/devenv"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/reposync"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -126,13 +129,31 @@ func TestDeletedServerSettingsWithdrawAutoPublishConsent(t *testing.T) {
 	require.NoError(t, err)
 	blocks, err := comatproto.SyncGetRepo(ctx, user.XRPC, user.DID, "")
 	require.NoError(t, err)
+	before, err := mod.GetRepo(user.DID)
+	require.NoError(t, err)
 	evt := &indigoatproto.SyncSubscribeRepos_Commit{
 		Repo: user.DID, Time: time.Now().UTC().Format(time.RFC3339), Blocks: blocks,
+		Since: &before.Version, Rev: reposync.TIDForTime(time.Now().Add(time.Hour)),
 		Ops: []*indigoatproto.SyncSubscribeRepos_RepoOp{
 			repoOp("delete", "place.stream.server.settings/"+atsync.CLI.BroadcasterHost),
 		},
 	}
-	require.True(t, atsync.handleIndexedOps(ctx, evt))
+	db := mod.(*model.DBModel).DB
+	require.NoError(t, db.Callback().Delete().Before("gorm:delete").Register("fail_settings_delete", func(tx *gorm.DB) {
+		tx.Error = errors.New("settings deletion unavailable")
+	}))
+	t.Cleanup(func() {
+		require.NoError(t, db.Callback().Delete().Remove("fail_settings_delete"))
+	})
+	atsync.handleCommitEventOps(ctx, evt)
+	after, err := mod.GetRepo(user.DID)
+	require.NoError(t, err)
+	require.Equal(t, before.Version, after.Version, "a failed consent deletion must not advance the commit watermark")
+	require.NoError(t, db.Callback().Delete().Remove("fail_settings_delete"))
+	atsync.handleCommitEventOps(ctx, evt)
+	after, err = mod.GetRepo(user.DID)
+	require.NoError(t, err)
+	require.Equal(t, evt.Rev, after.Version, "successful reprocessing can advance the watermark")
 	settings, err = mod.GetServerSettings(ctx, atsync.CLI.BroadcasterHost, user.DID)
 	require.NoError(t, err)
 	require.Nil(t, settings, "deleting the record must withdraw indexed consent")

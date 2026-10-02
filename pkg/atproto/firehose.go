@@ -685,6 +685,7 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 			if collection.String() == constants.PLACE_STREAM_SERVER_SETTINGS {
 				if err := atsync.Model.DeleteServerSettings(ctx, rkey.String(), evt.Repo); err != nil {
 					log.Error(ctx, "failed to delete server settings", "err", err)
+					return false
 				}
 			}
 

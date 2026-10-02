@@ -31,9 +31,11 @@ test("best-effort-recording: a failing recording sink does not block playback", 
 
   // And the stream stays up. The harness restarts its WHIP stream every few
   // seconds, so checking well past that window means recording failed again and
-  // again without the broadcast going dark. The playlist query is served from the
-  // node's in-memory live window, so it only succeeds while segments are flowing.
-  await page.waitForTimeout(15_000);
+  // again without the broadcast going dark. The wait also clears the node's
+  // 30s live-window retention: the playlist query is served from that window, so
+  // only a stream still ingesting fresh segments answers 200 after it (a stream
+  // that stopped would keep serving stale segments for up to 30s).
+  await page.waitForTimeout(35_000);
   await expect
     .poll(
       async () => {

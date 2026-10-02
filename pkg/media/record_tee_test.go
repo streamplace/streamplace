@@ -117,6 +117,21 @@ func (g *gatedReader) Read(b []byte) (int, error) {
 	return n, err
 }
 
+// midStreamInput feeds payload through a gate that holds the tail until the fake
+// has rejected a part upload, so the tee is provably mid-stream when the
+// recorder dies rather than racing the upload's HTTP round trip.
+func midStreamInput(payload []byte, fake *fakeS3Server) *gatedReader {
+	return &gatedReader{
+		r:      bytes.NewReader(payload),
+		gateAt: 18 << 20,
+		gate: func() bool {
+			_, parts := fake.failureCounts()
+			return parts > 0
+		},
+		delay: 250 * time.Microsecond,
+	}
+}
+
 // TestRecordTeeSurvivesRecorderMidStreamFailure covers the mid-stream shape: the
 // upload starts, a part is rejected (a long recording dies after its first
 // 16 MB part), and ingest must keep flowing from wherever the recorder died —
@@ -131,18 +146,38 @@ func TestRecordTeeSurvivesRecorderMidStreamFailure(t *testing.T) {
 	// 18 MB puts the first part on the wire with 6 MB still to come: exactly the
 	// in-flight stream a dead recorder used to strand.
 	payload := recordingTeePayload(24 << 20)
-	input, finalize := mm.recordTee(context.Background(), &gatedReader{
-		r:      bytes.NewReader(payload),
-		gateAt: 18 << 20,
-		gate: func() bool {
-			_, parts := fake.failureCounts()
-			return parts > 0
-		},
-		delay: 250 * time.Microsecond,
-	}, "did:plc:test", ".rtmp.mp4")
+	input, finalize := mm.recordTee(context.Background(), midStreamInput(payload, fake), "did:plc:test", ".rtmp.mp4")
 	defer finalize()
 
 	require.Equal(t, payload, readTeeWithin(t, input, 30*time.Second), "the ingest stream reaches its consumer verbatim")
 	_, parts := fake.failureCounts()
 	require.Positive(t, parts, "the recorder must have attempted (and failed) a part upload mid-stream")
+}
+
+// TestRecordTeeSurvivesRecorderCleanupStall covers the wait AFTER the copy dies:
+// one rejected part plus a request the bucket never answers. S3's Close commits
+// the upload and waits on every outstanding request (bounded only by the s3
+// package's per-operation timeouts), so a tee that released ingest only once the
+// dump returned would still hold the live stream hostage behind that cleanup.
+// The tee must release ingest the moment copying stops.
+func TestRecordTeeSurvivesRecorderCleanupStall(t *testing.T) {
+	fake := newFakeS3Server()
+	fake.failPart = true
+	// The tail becomes a second part at Close; hang it, so the completion wait is
+	// provably still in flight when ingest has to be released.
+	fake.stallPartNum = "2"
+	srv := httptest.NewServer(fake)
+	defer srv.Close()
+
+	mm := recordingTeeTestManager(t, srv.URL)
+	payload := recordingTeePayload(24 << 20)
+	input, finalize := mm.recordTee(context.Background(), midStreamInput(payload, fake), "did:plc:test", ".rtmp.mp4")
+	// Unblock the stalled request before the dump finishes and before the server
+	// closes (httptest's Close waits on outstanding handlers).
+	defer finalize()
+	defer close(fake.releaseParts)
+
+	require.Equal(t, payload, readTeeWithin(t, input, 30*time.Second), "ingest is released while the recording is still cleaning up")
+	require.Eventually(t, func() bool { return fake.stalledCount() > 0 }, 5*time.Second, 10*time.Millisecond,
+		"the stalled S3 request must still be outstanding when ingest was released")
 }

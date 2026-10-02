@@ -183,17 +183,20 @@ const debugRecordingFlushTimeout = 5 * time.Minute
 // mid-stream (billing, credentials), an unwritable disk — would otherwise leave
 // the pipe writer with no reader, blocking the next read of the ingest stream
 // forever and taking the whole broadcast down with it. Instead the dump
-// goroutine closes the pipe with its error on the way out (unblocking any
-// in-flight write) and recordingTeeWriter drops every later write. The failure
-// is logged; losing a recording is acceptable, stalling a broadcast is not.
+// disconnects the pipe the moment it stops reading it (before the sink's own
+// cleanup, which for S3 waits on every outstanding request) and
+// recordingTeeWriter drops every later write. The failure is logged; losing a
+// recording is acceptable, stalling a broadcast is not.
 func (mm *MediaManager) recordTee(ctx context.Context, r io.Reader, user string, filesuffix string) (io.Reader, func()) {
 	pr, pw := io.Pipe()
 	done := make(chan struct{})
+	// stopIngest is how the dump releases the live stream: it closes the tee's
+	// pipe (unblocking any in-flight write) and makes every later write a no-op.
+	stopIngest := func(err error) { _ = pw.CloseWithError(err) }
 	go func() {
 		defer close(done)
-		if err := mm.dumpToFile(ctx, pr, user, filesuffix); err != nil {
+		if err := mm.dumpToFile(ctx, pr, user, filesuffix, stopIngest); err != nil {
 			log.Error(ctx, "debug recording failed; continuing without it", "error", err, "streamer", user)
-			_ = pw.CloseWithError(err)
 		}
 	}()
 	finalize := func() {
@@ -219,18 +222,26 @@ func (t recordingTeeWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (mm *MediaManager) dumpToFile(ctx context.Context, r io.Reader, user string, filesuffix string) error {
+// dumpToFile copies the recording stream into the sink and finalizes it.
+// stopIngest is called the moment copying stops, BEFORE the sink is closed: an
+// S3 Close commits the upload (flushing a final part and waiting on every
+// outstanding request, bounded only by the s3 package's per-operation timeouts),
+// and the live ingest stream must not sit behind that wait.
+func (mm *MediaManager) dumpToFile(ctx context.Context, r io.Reader, user string, filesuffix string, stopIngest func(error)) error {
 	now := aqtime.FromTime(time.Now())
 	filename := fmt.Sprintf("%s%s", now.FileSafeString(), filesuffix)
 	// Streams to S3 when configured (production), else a local file under DataDir
 	// (dev). Close finalizes either target — for S3 it commits the upload.
 	f, err := mm.cli.DebugRecordingCreate(ctx, []string{"debug-recordings", user, filename}, "video/mp4", false)
 	if err != nil {
+		stopIngest(err)
 		return fmt.Errorf("failed to create debug recording: %w", err)
 	}
-	if _, err = io.Copy(f, r); err != nil {
+	_, cerr := io.Copy(f, r)
+	stopIngest(cerr)
+	if cerr != nil {
 		f.Close()
-		return fmt.Errorf("failed to copy to debug recording: %w", err)
+		return fmt.Errorf("failed to copy to debug recording: %w", cerr)
 	}
 	if err = f.Close(); err != nil {
 		return fmt.Errorf("failed to finalize debug recording: %w", err)

@@ -12,6 +12,7 @@ export function VodPlayer({
   embedded,
   muted: mutedProp,
   pictureInPictureEnabled,
+  startTime,
   children,
 }: {
   src: string;
@@ -19,6 +20,8 @@ export function VodPlayer({
   embedded?: boolean;
   muted?: boolean;
   pictureInPictureEnabled?: boolean;
+  /** Seconds into the VOD to start playback at (from a `?t=` URL param). */
+  startTime?: number;
   children?: React.ReactNode;
 }) {
   return (
@@ -29,6 +32,7 @@ export function VodPlayer({
         embedded={!!embedded}
         muted={mutedProp}
         pictureInPictureEnabled={pictureInPictureEnabled}
+        startTime={startTime}
       >
         {children}
       </VodPlayerInner>
@@ -42,6 +46,7 @@ function VodPlayerInner({
   embedded,
   muted: mutedProp,
   pictureInPictureEnabled,
+  startTime,
   children,
 }: {
   src: string;
@@ -49,11 +54,13 @@ function VodPlayerInner({
   embedded: boolean;
   muted?: boolean;
   pictureInPictureEnabled?: boolean;
+  startTime?: number;
   children?: React.ReactNode;
 }) {
   const setSrc = usePlayerStore((x) => x.setSrc);
   const setMode = usePlayerStore((x) => x.setMode);
   const setEmbedded = usePlayerStore((x) => x.setEmbedded);
+  const setStartTime = usePlayerStore((x) => x.setStartTime);
   const storeSrc = usePlayerStore((x) => x.src);
 
   const setMuted = useSetMuted();
@@ -63,6 +70,10 @@ function VodPlayerInner({
     setMode("vod");
     setSrc(src);
   }, [src, setMode, setSrc]);
+
+  useEffect(() => {
+    setStartTime(startTime ?? null);
+  }, [startTime, setStartTime]);
 
   useEffect(() => {
     setEmbedded(embedded);

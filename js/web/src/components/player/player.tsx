@@ -28,6 +28,11 @@ export type PlayerProps = {
   /** Live streams hide the scrubber; VODs get a seek bar. */
   mode?: "live" | "vod";
   /**
+   * Seconds into a VOD to start playback at, from a `?t=` URL param.
+   * Ignored for live playback and for values past the media's end.
+   */
+  startTime?: number;
+  /**
    * Prefer the low-latency live HLS preset. Off by default: standard
    * latency holds more buffer and is less prone to rebuffering.
    */
@@ -158,6 +163,7 @@ function writeQualityPreference(index: number) {
 export function Player({
   src,
   mode = "live",
+  startTime,
   lowLatency = false,
   poster,
   fallbackPoster,
@@ -385,6 +391,7 @@ export function Player({
           src={src}
           useWebRTC={useWebRTC}
           mode={mode}
+          startTime={startTime}
           lowLatency={lowLatency}
           videoRef={videoRef}
           active={active}
@@ -470,6 +477,7 @@ function PlayerBackend({
   src,
   useWebRTC,
   mode,
+  startTime,
   lowLatency,
   videoRef,
   active,
@@ -482,6 +490,7 @@ function PlayerBackend({
   src: string;
   useWebRTC: boolean;
   mode: "live" | "vod";
+  startTime?: number;
   lowLatency: boolean;
   videoRef: RefObject<HTMLVideoElement | null>;
   active: boolean;
@@ -510,6 +519,7 @@ function PlayerBackend({
       src={src}
       active={active}
       mode={mode}
+      startTime={startTime}
       lowLatency={lowLatency}
       onError={onError}
       onQualitiesChange={onQualitiesChange}

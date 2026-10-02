@@ -350,6 +350,7 @@ export function HLSPlayer(props: VideoProps) {
   );
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const mode = usePlayerStore((x) => x.mode);
+  const startTime = usePlayerStore((x) => x.startTime);
   // The latest pick, for the manifest handler below: choosing a rendition
   // changes the source URL, which recreates hls.js, and the new instance
   // must pin the level once it knows the levels.
@@ -378,7 +379,14 @@ export function HLSPlayer(props: VideoProps) {
       return;
     }
     if (Hls.isSupported()) {
-      var hls = new Hls({ maxAudioFramesDrift: 20 });
+      var hls = new Hls({
+        maxAudioFramesDrift: 20,
+        // A `?t=` link starts a VOD partway in; hls.js clamps a position
+        // past the end onto the last fragment.
+        ...(mode === "vod" && startTime !== null && startTime > 0
+          ? { startPosition: startTime }
+          : {}),
+      });
       hlsRef.current = hls;
       hls.loadSource(props.url);
       try {
@@ -448,6 +456,14 @@ export function HLSPlayer(props: VideoProps) {
       // re-point it at the playlist until it plays.
       const video = localRef.current;
       video.src = props.url;
+      // Native HLS has no hls.js config to carry the start position, so
+      // seek once the element knows how long the media is.
+      const onLoadedMetadata = () => {
+        if (mode !== "vod" || startTime === null || startTime <= 0) return;
+        video.currentTime = Number.isFinite(video.duration)
+          ? Math.min(startTime, Math.max(0, video.duration - 0.1))
+          : startTime;
+      };
       const onCanPlay = () => {
         video.play();
       };
@@ -460,15 +476,17 @@ export function HLSPlayer(props: VideoProps) {
           video.load();
         }, 2000);
       };
+      video.addEventListener("loadedmetadata", onLoadedMetadata);
       video.addEventListener("canplay", onCanPlay);
       video.addEventListener("error", onError);
       return () => {
         if (retry) clearTimeout(retry);
+        video.removeEventListener("loadedmetadata", onLoadedMetadata);
         video.removeEventListener("canplay", onCanPlay);
         video.removeEventListener("error", onError);
       };
     }
-  }, [props.url]);
+  }, [props.url, mode, startTime]);
 
   // The quality menu drives hls.js levels: "auto"/"source" leave ABR to
   // hls.js (it picks by measured bandwidth from the master playlist's

@@ -112,6 +112,7 @@ export function VideoSectionInner({
   playlistUrl,
   thumbnailUrl,
   mode = "live",
+  startTime,
   store,
   showDanmu = false,
   onShowDanmuChange,
@@ -129,6 +130,8 @@ export function VideoSectionInner({
   playlistUrl: string;
   thumbnailUrl: string;
   mode?: "live" | "vod";
+  /** Seconds into the VOD to start playback at (from a `?t=` URL param). */
+  startTime?: number;
   store?: LivestreamStore;
   showDanmu?: boolean;
   onShowDanmuChange?: (show: boolean) => void;
@@ -188,6 +191,7 @@ export function VideoSectionInner({
                 active
                 mode={mode}
                 contentWarnings={contentWarnings}
+                startTime={startTime}
                 showDanmu={showDanmu}
                 onShowDanmuChange={onShowDanmuChange}
                 onError={(message) => captureError(message, { user, mode })}

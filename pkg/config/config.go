@@ -121,6 +121,7 @@ type CLI struct {
 	Thumbnail                   bool
 	ExternalSigning             bool
 	RTMPServerAddon             string
+	DeprecatedIngestHosts       []string
 	TracingEndpoint             string
 	BroadcasterHost             string
 	XXDeprecatedPublicHost      string
@@ -748,6 +749,17 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "address of external RTMP server to forward streams to",
 				Destination: &cli.RTMPServerAddon,
 				Sources:     urfavecli.EnvVars("SP_RTMP_SERVER_ADDON"),
+			},
+			&urfavecli.StringFlag{
+				Name:    "deprecated-ingest-hosts",
+				Usage:   "comma-separated deprecated hostnames for Mist RTMPS ingest. Authorized publishes whose PUSH_REWRITE URL hostname matches are counted in streamplace_rtmp_ingest_connections and flagged on the streamer's dashboard until their pull ingest ends",
+				Sources: urfavecli.EnvVars("SP_DEPRECATED_INGEST_HOSTS"),
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s != "" {
+						cli.DeprecatedIngestHosts = strings.Split(s, ",")
+					}
+					return nil
+				},
 			},
 			&urfavecli.StringFlag{
 				Name:        "rtmps-addon-addr",

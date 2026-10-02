@@ -12,3 +12,4 @@ export * from "./lib/game";
 export * from "./lib/pds-hosts";
 export { getPlatform } from "./lib/platform";
 export type { CorePlatform } from "./lib/platform";
+export * from "./lib/time-param";

@@ -62,7 +62,8 @@ then holds a recording opt-out request to verify another privacy toggle cannot
 overwrite it while saving. Deleting the node's settings record also withdraws
 automatic publishing consent; the PDS-backed regression for that index deletion
 lives in `pkg/atproto/auto_publish_vod_test.go`. It also injects a deletion failure
-and checks that the commit watermark advances only after successful reprocessing.
+and checks that later deletions still run while the commit watermark advances
+only after successful reprocessing.
 
 ## OAuth over real HTTPS
 

@@ -112,7 +112,7 @@ func TestDeletedServerSettingsWithdrawAutoPublishConsent(t *testing.T) {
 	other := dev.CreateAccount(t)
 	on := true
 	for _, account := range []*devenv.DevEnvAccount{user, other} {
-		for _, host := range []string{atsync.CLI.BroadcasterHost, "other.example.com"} {
+		for _, host := range []string{atsync.CLI.BroadcasterHost, "other.example.com", "batch.example.com"} {
 			createBackfillRecord(t, account, "place.stream.server.settings", host,
 				&placestream.ServerSettings{LexiconTypeID: "place.stream.server.settings", AutoPublishVods: &on})
 		}
@@ -123,10 +123,12 @@ func TestDeletedServerSettingsWithdrawAutoPublishConsent(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, settings)
 
-	_, err = comatproto.RepoDeleteRecord(ctx, user.XRPC, &comatproto.RepoDeleteRecord_Input{
-		Repo: user.DID, Collection: "place.stream.server.settings", Rkey: atsync.CLI.BroadcasterHost,
-	})
-	require.NoError(t, err)
+	for _, host := range []string{atsync.CLI.BroadcasterHost, "batch.example.com"} {
+		_, err = comatproto.RepoDeleteRecord(ctx, user.XRPC, &comatproto.RepoDeleteRecord_Input{
+			Repo: user.DID, Collection: "place.stream.server.settings", Rkey: host,
+		})
+		require.NoError(t, err)
+	}
 	blocks, err := comatproto.SyncGetRepo(ctx, user.XRPC, user.DID, "")
 	require.NoError(t, err)
 	before, err := mod.GetRepo(user.DID)
@@ -136,11 +138,16 @@ func TestDeletedServerSettingsWithdrawAutoPublishConsent(t *testing.T) {
 		Since: &before.Version, Rev: reposync.TIDForTime(time.Now().Add(time.Hour)),
 		Ops: []*indigoatproto.SyncSubscribeRepos_RepoOp{
 			repoOp("delete", "place.stream.server.settings/"+atsync.CLI.BroadcasterHost),
+			repoOp("delete", "place.stream.server.settings/batch.example.com"),
 		},
 	}
 	db := mod.(*model.DBModel).DB
+	failNextDelete := true
 	require.NoError(t, db.Callback().Delete().Before("gorm:delete").Register("fail_settings_delete", func(tx *gorm.DB) {
-		tx.Error = errors.New("settings deletion unavailable")
+		if failNextDelete {
+			tx.Error = errors.New("settings deletion unavailable")
+			failNextDelete = false
+		}
 	}))
 	t.Cleanup(func() {
 		require.NoError(t, db.Callback().Delete().Remove("fail_settings_delete"))
@@ -149,6 +156,9 @@ func TestDeletedServerSettingsWithdrawAutoPublishConsent(t *testing.T) {
 	after, err := mod.GetRepo(user.DID)
 	require.NoError(t, err)
 	require.Equal(t, before.Version, after.Version, "a failed consent deletion must not advance the commit watermark")
+	settings, err = mod.GetServerSettings(ctx, "batch.example.com", user.DID)
+	require.NoError(t, err)
+	require.Nil(t, settings, "a failed settings deletion must not skip later delete operations")
 	require.NoError(t, db.Callback().Delete().Remove("fail_settings_delete"))
 	atsync.handleCommitEventOps(ctx, evt)
 	after, err = mod.GetRepo(user.DID)

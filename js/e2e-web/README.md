@@ -58,7 +58,11 @@ fullscreen entry/exit, and verifies that faded controls reveal instead of
 accepting an unseen tap.
 
 `auto-publish-vods` saves and reloads the automatic publishing preference,
-then holds a recording opt-out request to verify another privacy toggle cannot
+checks that the desktop live dashboard and Privacy & Security share it, and
+hides the dashboard checkbox without VOD beta access. The destination panel is
+absent from the native/narrow dashboard layout, so this dashboard coverage is
+web-only; the native settings flow remains in Maestro. The browser flow also
+holds a recording opt-out request to verify another privacy toggle cannot
 overwrite it while saving. Deleting the node's settings record also withdraws
 automatic publishing consent; the PDS-backed regression for that index deletion
 lives in `pkg/atproto/auto_publish_vod_test.go`. It also injects a deletion failure

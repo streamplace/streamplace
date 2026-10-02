@@ -8,6 +8,7 @@ export interface CheckboxProps {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   disabled?: boolean;
+  testID?: string;
   size?: "sm" | "md" | "lg";
   label?: string;
   description?: string;
@@ -44,6 +45,10 @@ export const Checkbox = forwardRef<any, CheckboxProps>(
         style={[styles.container, style]}
         onPress={handlePress}
         disabled={disabled}
+        accessibilityRole="checkbox"
+        accessibilityLabel={label}
+        aria-checked={checked}
+        aria-disabled={disabled}
         {...props}
       >
         <View style={styles.checkbox}>

@@ -2,12 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { loginThroughPds } from "./login";
 
 // Automatic VOD publishing is the autoPublishVods field of the account's
-// place.stream.server.settings record for this node. Flip it in Privacy &
-// Security and back, reloading each time so only the saved record can set the
-// toggle. The harness node has no beta-invite issuer, so the test account is
-// in the VOD beta that gates the toggle. It records no streams (no S3), so
-// publishing itself is covered by the Go tests in pkg/statedb and
-// pkg/atproto. Mobile: .maestro/logged-in/auto-publish-vods.yaml.
+// place.stream.server.settings record for this node, shared by Privacy &
+// Security and the desktop live dashboard. The harness account has VOD beta
+// access. It records no streams (no S3), so publishing itself is covered by
+// the Go tests in pkg/statedb and pkg/atproto.
+// Mobile settings: .maestro/logged-in/auto-publish-vods.yaml.
 const HTTPS_URL = process.env.SERVER_HTTPS_URL;
 
 test.skip(!HTTPS_URL, "harness started without its HTTPS hostnames");
@@ -95,4 +94,43 @@ test("auto-publish-vods: recording opt-out survives another toggle", async ({
   if (recordingInitiallyOn) {
     await setSetting(page, "settings-livestream-recording", true);
   }
+});
+
+test("auto-publish-vods: dashboard and privacy share the saved preference", async ({
+  page,
+}) => {
+  await loginThroughPds(page);
+  await page.goto(`${HTTPS_URL}/live`);
+  const toggle = page.getByTestId("live-auto-publish-vods");
+  await expect(toggle).toBeVisible({ timeout: 30_000 });
+  await expect(toggle).toBeEnabled();
+  const initial = (await toggle.getAttribute("aria-checked")) === "true";
+
+  await setSetting(page, "live-auto-publish-vods", !initial);
+  await page.goto(`${HTTPS_URL}/settings/privacy`);
+  await expect(page.getByTestId("settings-auto-publish-vods")).toHaveAttribute(
+    "aria-checked",
+    String(!initial),
+    { timeout: 30_000 },
+  );
+  await setSetting(page, "settings-auto-publish-vods", initial);
+  await page.goto(`${HTTPS_URL}/live`);
+  await expect(toggle).toHaveAttribute("aria-checked", String(initial), {
+    timeout: 30_000,
+  });
+
+  // The preference is not offered to accounts without VOD beta access.
+  await page.route("**/xrpc/place.stream.beta.getStatus?*", (route) =>
+    route.fulfill({ json: { status: "none" } }),
+  );
+  await Promise.all([
+    page.waitForResponse((response) =>
+      new URL(response.url()).pathname.endsWith(
+        "/xrpc/place.stream.beta.getStatus",
+      ),
+    ),
+    page.reload(),
+  ]);
+  await expect(page.getByTestId("live-stream-destinations")).toBeVisible();
+  await expect(toggle).toBeHidden();
 });

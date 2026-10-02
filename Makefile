@@ -55,8 +55,11 @@ version:
 install:
 	pnpm install
 
+# whisper-wasm runs once install is done: under make -j, its own pnpm install
+# on a fresh checkout would run beside install's, and both fail.
 .PHONY: app
-app: install whisper-wasm
+app: install
+	$(MAKE) whisper-wasm
 	pnpm run build
 
 .PHONY: app-cached

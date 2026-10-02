@@ -626,7 +626,7 @@ func TestWriterRestartedStreamGetsAFreshSessionWhileTheOldOneFlushes(t *testing.
 	say(h, autoTrack, "c2", 3_600_000, "after", "restart")
 	h.buffered(streamer, 2)
 	close(h.repos.block)
-	h.w.StopSession(streamer)
+	h.w.Stop() // waits for both sessions: the restarted one and the old one still flushing
 
 	var texts []string
 	for _, c := range h.repos.snapshot() {

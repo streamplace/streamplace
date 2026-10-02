@@ -231,14 +231,28 @@ func syndicateCaptionStream(t *testing.T, ctx context.Context, relay, origin *ca
 
 func captionTracks(t *testing.T, node *captionNode, did string) []placestream.CaptionDefs_TrackView {
 	t.Helper()
+	tracks, err := listCaptionTracks(node, did)
+	require.NoError(t, err)
+	return tracks
+}
+
+// listCaptionTracks is safe in an assert.Never/Eventually condition, which
+// runs on its own goroutine and may outlive the test.
+func listCaptionTracks(node *captionNode, did string) ([]placestream.CaptionDefs_TrackView, error) {
 	client := &http.Client{Timeout: 2 * time.Second}
 	resp, err := client.Get(node.server.URL + "/xrpc/place.stream.caption.listTracks?streamer=" + url.QueryEscape(did))
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 	defer resp.Body.Close()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("listTracks: HTTP %d", resp.StatusCode)
+	}
 	var out placestream.CaptionListTracks_Output
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
-	return out.Tracks
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	return out.Tracks, nil
 }
 
 func publicCaption(t *testing.T, ctx context.Context, node *captionNode, did, text string) placestream.CaptionDefs_LiveCue {
@@ -395,7 +409,8 @@ func TestCaptionNodeOptOut(t *testing.T) {
 	track := captions.Track{ID: "sidecar-auto-en", Language: "en", Kind: captions.KindCaptions, Source: captions.SourceAuto, Origin: captions.OriginSidecar, Author: origin.cli.ServerDID()}
 	origin.bus.Captions.Publish(did, track, captions.Cue{ID: "forbidden", Start: now, End: now.Add(time.Second), Text: "Must not be distributed.", Final: true})
 	require.Never(t, func() bool {
-		return len(captionTracks(t, relay, did)) > 0 || relay.engine.leases.Load() > 0 || origin.engine.leases.Load() > 0
+		tracks, err := listCaptionTracks(relay, did)
+		return (err == nil && len(tracks) > 0) || relay.engine.leases.Load() > 0 || origin.engine.leases.Load() > 0
 	}, time.Second, 20*time.Millisecond, "opt-out must prevent recognition and public sidecars")
 	require.Empty(t, captionTracks(t, relay, did))
 	require.Zero(t, relay.engine.passes.Load())

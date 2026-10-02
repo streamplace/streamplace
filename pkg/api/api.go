@@ -100,8 +100,8 @@ type StreamplaceAPI struct {
 	rtmpSessionsLock         sync.Mutex
 	rtmpInternalPlaybackAddr string
 
-	// IngestHosts tracks which hostnames open RTMP(S) publishes came in on,
-	// across the native listeners and the Mist RTMPS terminator.
+	// IngestHosts tracks authorized Mist publishes by the hostname reported
+	// in PUSH_REWRITE, for the lifetime of their pull ingest.
 	IngestHosts *rtmps.IngestHosts
 }
 

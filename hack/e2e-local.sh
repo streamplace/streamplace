@@ -103,7 +103,7 @@ fi
 # comes along because the app resolves did:plc there itself.
 hosts="127.0.0.1 localhost
 ::1 ip6-localhost"
-for name in "$E2E_HTTPS_STATION_HOSTNAME" "$E2E_HTTPS_PDS_HOSTNAME" "$ACCOUNT_HANDLE" "$DEPRECATED_HOST_ACCOUNT_HANDLE" plc.directory; do
+for name in "$E2E_HTTPS_STATION_HOSTNAME" "$E2E_HTTPS_PDS_HOSTNAME" "$ACCOUNT_HANDLE" plc.directory; do
   hosts="$hosts
 10.0.2.2 $name"
 done
@@ -138,9 +138,7 @@ adb_ shell pm grant "$APP_ID" android.permission.POST_NOTIFICATIONS 2>/dev/null 
 adb_ shell am force-stop com.android.chrome || true
 
 MAESTRO_ARGS=(-e APP_ID="$APP_ID" -e SERVER_URL="$SERVER_HTTPS_URL"
-  -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD"
-  -e DEPRECATED_HOST_ACCOUNT_HANDLE="$DEPRECATED_HOST_ACCOUNT_HANDLE"
-  -e DEPRECATED_HOST_ACCOUNT_PASSWORD="$DEPRECATED_HOST_ACCOUNT_PASSWORD")
+  -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD")
 
 # --- run the flows ---------------------------------------------------------
 # takeScreenshot paths are relative to maestro's cwd, so run from the

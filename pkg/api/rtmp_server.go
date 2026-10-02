@@ -17,7 +17,6 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
-	"stream.place/streamplace/pkg/rtmps"
 )
 
 // This example shows how to:
@@ -53,14 +52,6 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 	a.rtmpSessionsLock.Lock()
 	a.rtmpSessions[streamer] = session
 	a.rtmpSessionsLock.Unlock()
-
-	listener, sni := rtmps.ListenerRTMP, ""
-	if tc, ok := sc.RW.(*tls.Conn); ok {
-		listener, sni = rtmps.ListenerRTMPS, tc.ConnectionState().ServerName
-	}
-	// sc.URL's scheme and host are the connect command's tcUrl.
-	release := a.IngestHosts.Open(ctx, listener, sni, sc.URL.String(), streamer)
-	defer release()
 
 	defer func() {
 		a.rtmpSessionsLock.Lock()

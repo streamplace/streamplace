@@ -752,7 +752,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:    "deprecated-ingest-hosts",
-				Usage:   "comma-separated hostnames streamers should stop using for RTMP(S) ingest. A publish whose TLS server name or RTMP tcUrl names one of these is counted in the streamplace_rtmp_ingest_connections metric and flagged on the streamer's dashboard",
+				Usage:   "comma-separated deprecated hostnames for Mist RTMPS ingest. Authorized publishes whose PUSH_REWRITE URL hostname matches are counted in streamplace_rtmp_ingest_connections and flagged on the streamer's dashboard until their pull ingest ends",
 				Sources: urfavecli.EnvVars("SP_DEPRECATED_INGEST_HOSTS"),
 				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
 					if s != "" {

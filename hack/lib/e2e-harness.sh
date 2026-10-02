@@ -7,9 +7,7 @@
 #
 # The caller's cwd must be the repo root. On return the harness is up and its
 # variables are exported: SERVER_URL, ACCOUNT_HANDLE, ACCOUNT_DID,
-# ACCOUNT_PASSWORD, VIDEO_URI (the account's test VOD),
-# DEPRECATED_HOST_ACCOUNT_{HANDLE,DID,PASSWORD} (a second account, streaming
-# RTMP through a deprecated ingest hostname), and in HTTPS mode also
+# ACCOUNT_PASSWORD, VIDEO_URI (the account's test VOD), and in HTTPS mode also
 # SERVER_HTTPS_URL, PDS_HTTPS_URL,
 # E2E_PROXY_URL, E2E_TLS_SPKI and E2E_TLS_CA. An EXIT trap stops it; a caller
 # with its own EXIT work calls e2e_harness_stop from its trap instead.
@@ -81,7 +79,6 @@ e2e_harness_start() {
   # shellcheck disable=SC1090
   . "$E2E_ENVFILE"
   export SERVER_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD VIDEO_URI
-  export DEPRECATED_HOST_ACCOUNT_HANDLE DEPRECATED_HOST_ACCOUNT_DID DEPRECATED_HOST_ACCOUNT_PASSWORD
   # only set in HTTPS mode
   export SERVER_HTTPS_URL PDS_HTTPS_URL E2E_PROXY_URL E2E_TLS_SPKI E2E_TLS_CA
   echo "harness up: SERVER_URL=$SERVER_URL ACCOUNT_HANDLE=$ACCOUNT_HANDLE${SERVER_HTTPS_URL:+ SERVER_HTTPS_URL=$SERVER_HTTPS_URL}"

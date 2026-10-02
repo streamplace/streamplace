@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,8 @@ func TestIngestProblems(t *testing.T) {
 	require.Empty(t, none.Problems)
 	require.Equal(t, "", problemsKey(none))
 
-	release := a.IngestHosts.Open(ctx, rtmps.ListenerRTMPS, "stream.place", "", streamer)
+	release := sync.OnceFunc(a.IngestHosts.Open(ctx, "stream.place", streamer))
+	t.Cleanup(release)
 	probs := a.ingestProblems(ctx, streamer)
 	require.Len(t, probs.Problems, 1)
 	p := probs.Problems[0]
@@ -37,8 +39,8 @@ func TestIngestProblems(t *testing.T) {
 func TestIngestProblemsMoveTo(t *testing.T) {
 	ctx := context.Background()
 	a := &StreamplaceAPI{IngestHosts: rtmps.NewIngestHosts([]string{"stream.place"})}
-	require.Equal(t, "to rtmps://rtmp.stream.place:1935/live", a.moveTo(ctx, "rtmps://rtmp.stream.place:1935/live"))
+	require.Contains(t, a.moveTo(ctx, "rtmps://rtmp.stream.place:1935/live"), "rtmps://rtmp.stream.place:1935/live")
 	// never from one retired name to another
 	require.NotContains(t, a.moveTo(ctx, "rtmps://stream.place:1935/live"), "stream.place:1935")
-	require.NotEmpty(t, a.moveTo(ctx, ""))
+	require.NotContains(t, a.moveTo(ctx, "rtmps://STREAM.PLACE.:1935/live"), "STREAM.PLACE.")
 }

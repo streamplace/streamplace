@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"stream.place/streamplace/pkg/log"
@@ -10,7 +11,7 @@ import (
 )
 
 // ProblemDeprecatedIngestHost is the dashboard problem for a streamer whose
-// encoder reaches us through a --deprecated-ingest-hosts name.
+// Mist publish uses a --deprecated-ingest-hosts name.
 const ProblemDeprecatedIngestHost = "deprecated_ingest_host"
 
 const deprecatedIngestHostLink = "https://stream.place/docs/guides/start-streaming/obs/#2b-stream-settings"
@@ -54,7 +55,8 @@ func (a *StreamplaceAPI) moveTo(ctx context.Context, ingestURL string) string {
 	if ingestURL == "" {
 		return "to the RTMP server shown on your live dashboard"
 	}
-	if a.IngestHosts.DeprecatedHost("", ingestURL) != "" {
+	u, err := url.Parse(ingestURL)
+	if err == nil && a.IngestHosts.DeprecatedHost(u.Hostname()) != "" {
 		log.Debug(ctx, "advertised RTMP ingest URL uses a deprecated ingest host", "url", ingestURL)
 		return "to the RTMP server shown on your live dashboard"
 	}

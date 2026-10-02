@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -100,12 +99,6 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 	}
 }
 
-// e2eDeprecatedIngestHost is the hostname the harness node treats as a
-// deprecated ingest host (--deprecated-ingest-hosts). It has to resolve to the
-// node's loopback listener, since the RTMP client dials the host it names in
-// its tcUrl.
-const e2eDeprecatedIngestHost = "localhost"
-
 // nodeReadyTimeout bounds how long runE2E waits for the forked node to answer
 // /api/healthz. A cold dev node has to run a GStreamer self-test and open its
 // databases first, so this is generous — but it is a bound, not forever.
@@ -117,75 +110,6 @@ type e2eDevEnv struct {
 	// Only in HTTPS mode: the account the PDS resolves lexicons from.
 	LexiconDID      string `json:"lexicon-did"`
 	LexiconPassword string `json:"lexicon-password"`
-}
-
-// e2eAccount is a test account on the dev-env PDS, and a client logged in as
-// it.
-type e2eAccount struct {
-	DID      string
-	Handle   string
-	Password string
-	client   *xrpc.Client
-}
-
-func createE2EAccount(ctx context.Context, pdsURL, handleDomain string) (*e2eAccount, error) {
-	xrpcc := &xrpc.Client{Host: pdsURL, Client: &aqhttp.TrustedClient}
-	uu, err := uuid.NewRandom()
-	if err != nil {
-		return nil, err
-	}
-	handle := fmt.Sprintf("sp-%s.%s", uu.String()[:8], handleDomain)
-	email := fmt.Sprintf("%s@example.com", handle)
-	password := "test"
-	out, err := comatproto.ServerCreateAccount(ctx, xrpcc, &comatproto.ServerCreateAccount_Input{
-		Handle:   handle,
-		Email:    &email,
-		Password: &password,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create account: %w", err)
-	}
-	session, err := comatproto.ServerCreateSession(ctx, xrpcc, &comatproto.ServerCreateSession_Input{
-		Identifier: out.Handle,
-		Password:   password,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create session: %w", err)
-	}
-	return &e2eAccount{
-		DID:      out.Did,
-		Handle:   out.Handle,
-		Password: password,
-		client: &xrpc.Client{
-			Host:   pdsURL,
-			Client: &aqhttp.TrustedClient,
-			Auth: &xrpc.AuthInfo{
-				Did:        out.Did,
-				AccessJwt:  session.AccessJwt,
-				RefreshJwt: session.RefreshJwt,
-				Handle:     out.Handle,
-			},
-		},
-	}, nil
-}
-
-// registerStreamKey makes a stream key for the account and publishes it, and
-// returns the private key an encoder streams with.
-func registerStreamKey(ctx context.Context, acct *e2eAccount) (string, error) {
-	priv, pub, err := spkey.GenerateStreamKeyForDID(acct.DID)
-	if err != nil {
-		return "", fmt.Errorf("generate stream key: %w", err)
-	}
-	createdBy := "e2e"
-	streamKey := placestream.Key{
-		SigningKey: pub.DIDKey(),
-		CreatedAt:  time.Now().Format(util.ISO8601),
-		CreatedBy:  &createdBy,
-	}
-	if _, err := createRecord(ctx, acct.client, "place.stream.key", acct.DID, &streamKey); err != nil {
-		return "", fmt.Errorf("register stream key: %w", err)
-	}
-	return priv, nil
 }
 
 func freePort() (int, error) {
@@ -250,15 +174,39 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		}
 	}()
 
-	// Create the test accounts on the local PDS: the one whose stream flows
-	// watch, and one that streams through a deprecated ingest hostname.
-	acct, err := createE2EAccount(ctx, env.PDSURL, handleDomain)
+	// Create a test account on the local PDS.
+	xrpcc := &xrpc.Client{Host: env.PDSURL, Client: &aqhttp.TrustedClient}
+	uu, err := uuid.NewRandom()
 	if err != nil {
 		return err
 	}
-	deprecatedHostAcct, err := createE2EAccount(ctx, env.PDSURL, handleDomain)
+	handle := fmt.Sprintf("sp-%s.%s", uu.String()[:8], handleDomain)
+	email := fmt.Sprintf("%s@example.com", handle)
+	password := "test"
+	out, err := comatproto.ServerCreateAccount(ctx, xrpcc, &comatproto.ServerCreateAccount_Input{
+		Handle:   handle,
+		Email:    &email,
+		Password: &password,
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("create account: %w", err)
+	}
+	session, err := comatproto.ServerCreateSession(ctx, xrpcc, &comatproto.ServerCreateSession_Input{
+		Identifier: out.Handle,
+		Password:   password,
+	})
+	if err != nil {
+		return fmt.Errorf("create session: %w", err)
+	}
+	xrpcc = &xrpc.Client{
+		Host:   env.PDSURL,
+		Client: &aqhttp.TrustedClient,
+		Auth: &xrpc.AuthInfo{
+			Did:        out.Did,
+			AccessJwt:  session.AccessJwt,
+			RefreshJwt: session.RefreshJwt,
+			Handle:     out.Handle,
+		},
 	}
 
 	if env.LexiconDID != "" {
@@ -321,14 +269,11 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		fmt.Sprintf("SP_RELAY_HOST=%s", strings.ReplaceAll(env.PDSURL, "http://", "ws://")),
 		fmt.Sprintf("SP_PLC_URL=%s", env.PLCURL),
 		fmt.Sprintf("SP_DATA_DIR=%s", dataDir),
-		fmt.Sprintf("SP_DEV_ACCOUNT_CREDS=%s=%s", acct.DID, acct.Password),
+		fmt.Sprintf("SP_DEV_ACCOUNT_CREDS=%s=%s", out.Did, password),
 		fmt.Sprintf("SP_BROADCASTER_HOST=%s", broadcasterHost),
 		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", httpAddr),
 		"SP_STREAM_SESSION_TIMEOUT=30s",
 		"SP_TRUST_PRIVATE_NETWORK=true",
-		// This node's old name, as stream.place is for rtmp.stream.place:
-		// the second account's encoder streams to it.
-		"SP_DEPRECATED_INGEST_HOSTS="+e2eDeprecatedIngestHost,
 	)
 	if tlsEnv != nil {
 		nodeCmd.Env = append(nodeCmd.Env, tlsEnv.NodeEnv()...)
@@ -345,7 +290,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	}
 	// Kill the node *and* the ingest workers it detaches; the plain
 	// Process.Kill that used to be here left those behind.
-	defer killNode(ctx, nodeCmd, acct.DID, deprecatedHostAcct.DID)
+	defer killNode(ctx, nodeCmd, out.Did)
 
 	// Wait for the node to be ready. Bounded, so a node that never comes up
 	// reports why instead of hanging the harness (and `make provision`) with
@@ -384,14 +329,19 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		}
 	}
 
-	// Register stream keys for the test accounts.
-	priv, err := registerStreamKey(ctx, acct)
+	// Register a stream key for the test account.
+	priv, pub, err := spkey.GenerateStreamKeyForDID(out.Did)
 	if err != nil {
-		return err
+		return fmt.Errorf("generate stream key: %w", err)
 	}
-	deprecatedHostPriv, err := registerStreamKey(ctx, deprecatedHostAcct)
-	if err != nil {
-		return err
+	createdBy := "e2e"
+	streamKey := placestream.Key{
+		SigningKey: pub.DIDKey(),
+		CreatedAt:  time.Now().Format(util.ISO8601),
+		CreatedBy:  &createdBy,
+	}
+	if _, err := createRecord(ctx, xrpcc, "place.stream.key", out.Did, &streamKey); err != nil {
+		return fmt.Errorf("register stream key: %w", err)
 	}
 	// Create a livestream record so the stream shows up in feeds; normally the
 	// app does this via place.stream.live.startLivestream when a user goes
@@ -404,7 +354,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		LastSeenAt:    &now,
 		Title:         "e2e test stream",
 	}
-	if _, err := createRecord(ctx, acct.client, "place.stream.livestream", acct.DID, &livestream); err != nil {
+	if _, err := createRecord(ctx, xrpcc, "place.stream.livestream", out.Did, &livestream); err != nil {
 		return fmt.Errorf("create livestream record: %w", err)
 	}
 	// And a VOD, so flows have a video page to open. It has no source tracks:
@@ -421,7 +371,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 			},
 		},
 	}
-	videoURI, err := createRecord(ctx, acct.client, "place.stream.video", acct.DID, &video)
+	videoURI, err := createRecord(ctx, xrpcc, "place.stream.video", out.Did, &video)
 	if err != nil {
 		return fmt.Errorf("create video record: %w", err)
 	}
@@ -456,29 +406,11 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 			}
 		}
 	})
-	// The second account streams RTMP, as OBS does, through the deprecated
-	// hostname, so its dashboard warns about it. It has no livestream record,
-	// so it stays out of the feeds the other flows open streams from.
-	deprecatedHostURL := fmt.Sprintf("rtmp://%s/live/%s", net.JoinHostPort(e2eDeprecatedIngestHost, strconv.Itoa(rtmpPort)), deprecatedHostPriv)
-	g.Go(func() error {
-		for {
-			if err := rtmpPublishFile(streamCtx, fixture, deprecatedHostURL); err != nil && streamCtx.Err() == nil {
-				log.Log(streamCtx, "rtmp stream ended, restarting", "err", err)
-			}
-			select {
-			case <-streamCtx.Done():
-				return nil
-			case <-time.After(500 * time.Millisecond):
-			}
-		}
-	})
 
 	// Print the env vars for the workflow to consume, in one write: callers
 	// poll for SERVER_URL and then read the whole file.
 	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\n",
-		httpAddr, acct.Handle, acct.DID, acct.Password, videoURI)
-	vars += fmt.Sprintf("DEPRECATED_HOST_ACCOUNT_HANDLE=%s\nDEPRECATED_HOST_ACCOUNT_DID=%s\nDEPRECATED_HOST_ACCOUNT_PASSWORD=%s\n",
-		deprecatedHostAcct.Handle, deprecatedHostAcct.DID, deprecatedHostAcct.Password)
+		httpAddr, out.Handle, out.Did, password, videoURI)
 	if tlsEnv != nil {
 		// The same node over HTTPS at its public name, plus what clients
 		// need to reach and trust it (see e2e_https.go): a browser pins the

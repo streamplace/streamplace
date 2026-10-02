@@ -9,10 +9,7 @@ is mobile-only.
 
 - **Harness:** `streamplace e2e` (see `pkg/cmd/e2e.go`) boots a node + local
   PDS/PLC + a looping WHIP test stream and prints `SERVER_URL` /
-  `ACCOUNT_HANDLE` / `ACCOUNT_DID`. A second account,
-  `DEPRECATED_HOST_ACCOUNT_*`, streams RTMP through a hostname the node treats
-  as a deprecated ingest host; it has no livestream record, so it stays out of
-  the feeds. The node also serves the web app (embedded
+  `ACCOUNT_HANDLE` / `ACCOUNT_DID`. The node also serves the web app (embedded
   via `//go:embed all:dist/**`), so Playwright just points a browser at
   `SERVER_URL`.
 - **Shared testIDs:** react-native-web maps `testID` -> `data-testid`, so the

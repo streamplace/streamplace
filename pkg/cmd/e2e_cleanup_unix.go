@@ -23,12 +23,12 @@ func setNodeProcessGroup(cmd *exec.Cmd) {
 // killNode tears the forked node down: first its process group, then the
 // isolated ingest workers, which put themselves in their own session (see
 // setDetached in pkg/media) precisely so they survive the death of a main.
-// They carry the streamer DID in argv, and the DIDs are throwaways created by
-// this run, so matching on them cannot catch another node's worker.
+// They carry the streamer DID in argv, and the DID is a throwaway created by
+// this run, so matching on it cannot catch another node's worker.
 //
 // The errgroup context is not enough on its own: nothing downstream of the
 // node watches it, and a SIGKILLed main never gets to reap what it spawned.
-func killNode(ctx context.Context, cmd *exec.Cmd, dids ...string) {
+func killNode(ctx context.Context, cmd *exec.Cmd, did string) {
 	if cmd == nil || cmd.Process == nil {
 		return
 	}
@@ -37,9 +37,7 @@ func killNode(ctx context.Context, cmd *exec.Cmd, dids ...string) {
 		// No group (already gone, or never got one): at least take the node.
 		_ = cmd.Process.Kill() //nolint:errcheck
 	}
-	for _, did := range dids {
-		killIngestWorkers(ctx, did)
-	}
+	killIngestWorkers(ctx, did)
 }
 
 // killIngestWorkers SIGKILLs any `ingest-worker <did>` left behind, matching

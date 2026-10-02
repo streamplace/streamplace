@@ -2,6 +2,7 @@ package rtmps
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -19,39 +20,42 @@ func gaugeValue(t *testing.T, g prometheus.Gauge) float64 {
 func TestDeprecatedHost(t *testing.T) {
 	h := NewIngestHosts([]string{"stream.place", " Old.Example.com. ", ""})
 	for _, tc := range []struct {
-		sni, tcURL, want string
+		hostname, want string
 	}{
-		{"stream.place", "", "stream.place"},
-		{"STREAM.PLACE.", "rtmps://rtmp.stream.place:1935/live", "stream.place"},
-		{"", "rtmps://stream.place:1935/live", "stream.place"},
-		{"rtmp.stream.place", "rtmp://stream.place/live", "stream.place"},
-		{"", "rtmp://old.example.com/live", "old.example.com"},
-		{"rtmp.stream.place", "rtmps://rtmp.stream.place:1935/live", ""},
-		{"", "", ""},
-		{"", "not a url %%", ""},
+		{"stream.place", "stream.place"},
+		{"STREAM.PLACE.", "stream.place"},
+		{" Old.Example.Com. ", "old.example.com"},
+		{"rtmp.stream.place", ""},
+		{"sub.stream.place", ""},
+		{"stream.place.example.com", ""},
+		{"", ""},
 	} {
-		require.Equal(t, tc.want, h.DeprecatedHost(tc.sni, tc.tcURL), "sni=%q tcUrl=%q", tc.sni, tc.tcURL)
+		require.Equal(t, tc.want, h.DeprecatedHost(tc.hostname), "hostname=%q", tc.hostname)
 	}
 
-	require.Equal(t, "", NewIngestHosts(nil).DeprecatedHost("stream.place", ""))
+	require.Equal(t, "", NewIngestHosts(nil).DeprecatedHost("stream.place"))
 	var nilHosts *IngestHosts
-	require.Equal(t, "", nilHosts.DeprecatedHost("stream.place", ""))
+	require.Equal(t, "", nilHosts.DeprecatedHost("stream.place"))
 }
 
 func TestIngestHostsOpen(t *testing.T) {
 	ctx := context.Background()
 	h := NewIngestHosts([]string{"stream.place"})
-	deprecated := spmetrics.RTMPIngestConnections.WithLabelValues(ListenerRTMP, "true")
-	current := spmetrics.RTMPIngestConnections.WithLabelValues(ListenerRTMP, "false")
+	deprecated := spmetrics.RTMPIngestConnections.WithLabelValues("true")
+	current := spmetrics.RTMPIngestConnections.WithLabelValues("false")
 	baseDeprecated, baseCurrent := gaugeValue(t, deprecated), gaugeValue(t, current)
 
-	a := h.Open(ctx, ListenerRTMP, "", "rtmp://stream.place/live", "did:plc:alice")
-	b := h.Open(ctx, ListenerRTMP, "stream.place", "", "did:plc:alice")
-	unresolved := h.Open(ctx, ListenerRTMP, "stream.place", "", "")
-	fine := h.Open(ctx, ListenerRTMP, "", "rtmp://rtmp.stream.place/live", "did:plc:bob")
+	a := sync.OnceFunc(h.Open(ctx, "stream.place", "did:plc:alice"))
+	b := sync.OnceFunc(h.Open(ctx, "STREAM.PLACE.", "did:plc:alice"))
+	fine := sync.OnceFunc(h.Open(ctx, "rtmp.stream.place", "did:plc:alice"))
+	bob := sync.OnceFunc(h.Open(ctx, "rtmp.stream.place", "did:plc:bob"))
+	t.Cleanup(a)
+	t.Cleanup(b)
+	t.Cleanup(fine)
+	t.Cleanup(bob)
 
-	require.Equal(t, baseDeprecated+3, gaugeValue(t, deprecated))
-	require.Equal(t, baseCurrent+1, gaugeValue(t, current))
+	require.Equal(t, baseDeprecated+2, gaugeValue(t, deprecated))
+	require.Equal(t, baseCurrent+2, gaugeValue(t, current))
 	require.Equal(t, "stream.place", h.StreamerDeprecatedHost("did:plc:alice"))
 	require.Equal(t, "", h.StreamerDeprecatedHost("did:plc:bob"))
 
@@ -60,8 +64,41 @@ func TestIngestHostsOpen(t *testing.T) {
 	require.Equal(t, "stream.place", h.StreamerDeprecatedHost("did:plc:alice"))
 	b()
 	require.Equal(t, "", h.StreamerDeprecatedHost("did:plc:alice"))
-	unresolved()
 	fine()
+	bob()
 	require.Equal(t, baseDeprecated, gaugeValue(t, deprecated))
 	require.Equal(t, baseCurrent, gaugeValue(t, current))
+}
+
+func TestIngestHostsOverlappingDeprecatedHosts(t *testing.T) {
+	ctx := context.Background()
+	h := NewIngestHosts([]string{"stream.place", "old.example.com"})
+	const alice = "did:plc:alice"
+	const bob = "did:plc:bob"
+	oldA := sync.OnceFunc(h.Open(ctx, "stream.place", alice))
+	oldB := sync.OnceFunc(h.Open(ctx, "old.example.com", alice))
+	other := sync.OnceFunc(h.Open(ctx, "old.example.com", bob))
+	t.Cleanup(oldA)
+	t.Cleanup(oldB)
+	t.Cleanup(other)
+
+	// Close whichever host the warning currently reports. Its replacement
+	// must name the remaining active host, not the one that just closed.
+	host := h.StreamerDeprecatedHost(alice)
+	switch host {
+	case "stream.place":
+		oldA()
+		require.Equal(t, "old.example.com", h.StreamerDeprecatedHost(alice))
+		oldB()
+	case "old.example.com":
+		oldB()
+		require.Equal(t, "stream.place", h.StreamerDeprecatedHost(alice))
+		oldA()
+	default:
+		t.Fatalf("no active deprecated hostname reported: %q", host)
+	}
+	require.Equal(t, "", h.StreamerDeprecatedHost(alice))
+	require.Equal(t, "old.example.com", h.StreamerDeprecatedHost(bob))
+	other()
+	require.Equal(t, "", h.StreamerDeprecatedHost(bob))
 }

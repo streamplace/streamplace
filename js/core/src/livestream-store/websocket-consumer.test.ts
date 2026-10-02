@@ -18,6 +18,7 @@ function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
     segment: null,
     recentSegments: [],
     problems: [],
+    ingestProblems: [],
     renditions: [],
     replyToMessage: null,
     chatDraft: "",
@@ -418,5 +419,69 @@ describe("handleWebSocketMessages: live captions", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("handleWebSocketMessages ingest problems", () => {
+  const deprecatedHost = {
+    $type: "place.stream.ingest.defs#problem",
+    code: "deprecated_ingest_host",
+    message: "Your encoder is streaming to stream.place, an old address.",
+    severity: "warning",
+    link: "https://stream.place/docs/guides/start-streaming/obs/",
+  };
+  const problems = (list: unknown[]) => ({
+    $type: "place.stream.ingest.defs#problems",
+    problems: list,
+  });
+  const segment = (id: string) => ({
+    $type: "place.stream.segment",
+    id,
+    signingKey: "did:key:zQ3sh",
+    startTime: "2026-09-30T00:00:00.000Z",
+    creator: "did:plc:streamer",
+    duration: 1_000_000_000,
+    video: [{ codec: "h264", width: 1280, height: 720, bframes: false }],
+  });
+
+  it("surfaces the node's problems", () => {
+    const result = handleWebSocketMessages(makeState(), [
+      problems([deprecatedHost]),
+    ]);
+    expect(result.problems).toEqual([
+      {
+        code: "deprecated_ingest_host",
+        message: deprecatedHost.message,
+        severity: "warning",
+        link: deprecatedHost.link,
+      },
+    ]);
+  });
+
+  it("keeps them across segments, alongside segment problems", () => {
+    const bframes = {
+      ...segment("s1"),
+      video: [{ codec: "h264", width: 1280, height: 720, bframes: true }],
+    };
+    const result = handleWebSocketMessages(makeState(), [
+      problems([deprecatedHost]),
+      bframes,
+      segment("s2"),
+    ]);
+    expect(result.problems.map((p) => p.code)).toEqual([
+      "bframes",
+      "deprecated_ingest_host",
+    ]);
+  });
+
+  it("clears them when the node sends an empty list", () => {
+    const result = handleWebSocketMessages(makeState(), [
+      problems([deprecatedHost]),
+      segment("s1"),
+      problems([]),
+      segment("s2"),
+    ]);
+    expect(result.problems).toEqual([]);
+    expect(result.ingestProblems).toEqual([]);
   });
 });

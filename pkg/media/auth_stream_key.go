@@ -29,7 +29,7 @@ func AuthenticateStreamKey(ctx context.Context, cli *config.CLI, mod model.Model
 			return "", nil, fmt.Errorf("invalid authorization key (not a base58btc string)")
 		}
 		if len(decoded) < 32 {
-			return "", nil, fmt.Errorf("invalid authorization key (not valid secp256k1)")
+			return "", nil, fmt.Errorf("invalid authorization key (too short)")
 		}
 		addrBytes, didBytes = decoded[:32], decoded[32:]
 		priv, err = atcrypto.ParsePrivateBytesK256(addrBytes)

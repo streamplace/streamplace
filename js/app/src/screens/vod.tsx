@@ -1,6 +1,7 @@
 import { useLinkTo, useNavigation } from "@react-navigation/native";
 import { VideoProvider, View, VodPlayer, zero } from "@streamplace/components";
 import { colors, scrims } from "@streamplace/components/src/lib/theme/tokens";
+import { parseTimeParam } from "@streamplace/core";
 import { Redirect } from "components/aqlink";
 import { ChevronLeft } from "lucide-react-native";
 import { Pressable } from "react-native";
@@ -13,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function VodScreen({
   route,
 }: {
-  route?: { params?: { user?: string; tid?: string } };
+  route?: { params?: { user?: string; tid?: string; t?: string } };
 }) {
   const navigation = useNavigation();
   const linkTo = useLinkTo();
@@ -23,6 +24,8 @@ export default function VodScreen({
     return <Redirect to={{ screen: "HomeMain" }} />;
   }
   const aturi = `at://${route.params.user}/place.stream.video/${route.params.tid}`;
+  // Deep links carry the playback start as `?t=` (seconds, or `1h2m3s`).
+  const startTime = parseTimeParam(route.params.t) ?? undefined;
 
   const goBack = () => {
     if (navigation.canGoBack()) {
@@ -42,7 +45,7 @@ export default function VodScreen({
             (the app draws edge-to-edge, so without this the bar is
             unreachable). */}
         <View style={{ flex: 1, paddingBottom: insets.bottom }}>
-          <VodPlayer src={aturi} />
+          <VodPlayer src={aturi} startTime={startTime} />
         </View>
 
         {/* Back affordance — the player screen is otherwise chrome-less. */}

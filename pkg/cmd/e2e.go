@@ -484,9 +484,11 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	})
 
 	// Print the env vars for the workflow to consume, in one write: callers
-	// poll for SERVER_URL and then read the whole file.
-	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nSTREAM_KEY=%s\n",
-		httpAddr, out.Handle, out.Did, password, videoURI, priv)
+	// poll for SERVER_URL and then read the whole file. E2E_FIXTURE_MP4 is
+	// the local file the ingest loop is streaming, which tests upload through
+	// the app to get themselves a playable VOD.
+	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nSTREAM_KEY=%s\nE2E_FIXTURE_MP4=%s\n",
+		httpAddr, out.Handle, out.Did, password, videoURI, priv, fixture)
 	if tlsEnv != nil {
 		// The same node over HTTPS at its public name, plus what clients
 		// need to reach and trust it (see e2e_https.go): a browser pins the

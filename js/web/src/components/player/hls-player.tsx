@@ -18,6 +18,11 @@ export type HLSPlayerProps = {
   active: boolean;
   /** "live" applies live-edge sync settings; "vod" optimizes buffering. */
   mode?: "live" | "vod";
+  /**
+   * Seconds into a VOD to start playback at, from a `?t=` URL param.
+   * Applied once, when the manifest loads.
+   */
+  startTime?: number;
   /** Use the low-latency live preset instead of the standard live one. */
   lowLatency?: boolean;
   /**
@@ -70,6 +75,7 @@ export function HLSPlayer({
   src,
   active,
   mode = "live",
+  startTime,
   lowLatency = false,
   onError,
   onQualitiesChange,
@@ -107,7 +113,11 @@ export function HLSPlayer({
     if (Hls.isSupported()) {
       const settings =
         mode === "vod"
-          ? VOD_HLS_SETTINGS
+          ? startTime !== undefined && startTime > 0
+            ? // Start where the link said. hls.js clamps a position past the
+              // end onto the last fragment.
+              { ...VOD_HLS_SETTINGS, startPosition: startTime }
+            : VOD_HLS_SETTINGS
           : lowLatency
             ? LIVE_LOWLATENCY_HLS_SETTINGS
             : LIVE_HLS_SETTINGS;
@@ -170,14 +180,24 @@ export function HLSPlayer({
       };
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = src;
+      // Native HLS has no hls.js config to carry the start position, so
+      // seek once the element knows how long the media is.
+      const onLoadedMetadata = () => {
+        if (startTime === undefined || startTime <= 0) return;
+        video.currentTime = Number.isFinite(video.duration)
+          ? Math.min(startTime, Math.max(0, video.duration - 0.1))
+          : startTime;
+      };
       const onCanPlay = () => {
         video
           .play()
           .catch((err) => console.warn("[hls-player] play() rejected", err));
         video.removeEventListener("canplay", onCanPlay);
       };
+      video.addEventListener("loadedmetadata", onLoadedMetadata);
       video.addEventListener("canplay", onCanPlay);
       return () => {
+        video.removeEventListener("loadedmetadata", onLoadedMetadata);
         video.removeEventListener("canplay", onCanPlay);
         video.removeAttribute("src");
         video.srcObject = null;
@@ -190,6 +210,7 @@ export function HLSPlayer({
     src,
     active,
     mode,
+    startTime,
     lowLatency,
     onError,
     onQualitiesChange,

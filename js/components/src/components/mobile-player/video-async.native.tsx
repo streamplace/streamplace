@@ -90,10 +90,13 @@ export function NativeVideo(props?: {
   const setDuration = usePlayerStore((x) => x.setDuration);
   const setBufferedEnd = usePlayerStore((x) => x.setBufferedEnd);
   const playTime = usePlayerStore((x) => x.playTime);
+  const startTime = usePlayerStore((x) => x.startTime);
   const setTogglePlayPause = usePlayerStore((x) => x.setTogglePlayPause);
   const status = usePlayerStore((x) => x.status);
   const statusRef = useRef(status);
   const lastReportedTimeRef = useRef(0);
+  // Source+time already seeked to, so a status change never re-seeks.
+  const appliedStartRef = useRef<string | null>(null);
 
   // State for live dimensions
   const [dimensions, setDimensions] = useState<{
@@ -184,6 +187,29 @@ export function NativeVideo(props?: {
       player.seekBy(playTime - player.currentTime);
     }
   }, [playTime, mode, player]);
+
+  // Start a VOD where a `?t=` link asked. The player only accepts a
+  // position once the source is loaded, so wait for readyToPlay; the ref
+  // preserves the viewer's position if recovery emits readyToPlay again.
+  useEffect(() => {
+    if (mode !== "vod" || startTime === null) return;
+    const key = `${url}#${startTime}`;
+    if (appliedStartRef.current === key) return;
+    const applyStart = (status: string) => {
+      if (status !== "readyToPlay" || appliedStartRef.current === key) return;
+      appliedStartRef.current = key;
+      const duration = player.duration;
+      player.currentTime =
+        Number.isFinite(duration) && duration > 0
+          ? Math.min(startTime, Math.max(0, duration - 0.1))
+          : startTime;
+    };
+    const sub = player.addListener("statusChange", ({ status }) =>
+      applyStart(status),
+    );
+    applyStart(player.status);
+    return () => sub.remove();
+  }, [player, url, startTime, mode]);
 
   useEffect(() => {
     const subs = (

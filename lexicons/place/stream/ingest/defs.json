@@ -17,6 +17,42 @@
           "description": "The URL of the ingest endpoint."
         }
       }
+    },
+    "problems": {
+      "type": "object",
+      "description": "The problems a node currently sees with how a streamer is connected to it, sent over the livestream websocket whenever they change. An empty list clears earlier ones.",
+      "required": ["problems"],
+      "properties": {
+        "problems": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "#problem" }
+        }
+      }
+    },
+    "problem": {
+      "type": "object",
+      "description": "Something the streamer should fix about how they're connected.",
+      "required": ["code", "message", "severity"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Stable identifier for the kind of problem.",
+          "knownValues": ["deprecated_ingest_host"]
+        },
+        "message": {
+          "type": "string",
+          "description": "What's wrong and how to fix it, for the streamer."
+        },
+        "severity": {
+          "type": "string",
+          "knownValues": ["error", "warning", "info"]
+        },
+        "link": {
+          "type": "string",
+          "format": "uri",
+          "description": "Where to read more."
+        }
+      }
     }
   }
 }

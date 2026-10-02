@@ -30,6 +30,8 @@ export interface LivestreamState {
   segment: place.stream.segment.Main | null;
   recentSegments: place.stream.segment.Main[];
   problems: LivestreamProblem[];
+  /** The node's place.stream.ingest.defs#problems, also merged into problems. */
+  ingestProblems: LivestreamProblem[];
   renditions: place.stream.defs.Rendition[];
   replyToMessage: ChatMessageViewHydrated | null;
   chatDraft: string;

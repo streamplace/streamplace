@@ -132,6 +132,16 @@ export interface PlayerState {
   /** Seek the video element to a specific time */
   seekTo: (time: number) => void;
 
+  /**
+   * Seconds into a VOD to start playback at, set from a `?t=` URL param.
+   * The active backend seeks there once per source, after it has loaded;
+   * later scrubbing is left alone.
+   */
+  startTime: number | null;
+
+  /** Function to set the requested initial playback time */
+  setStartTime: (startTime: number | null) => void;
+
   /** Reference to the video element for direct manipulation (used for PiP) */
   videoRef:
     | React.MutableRefObject<HTMLVideoElement | null>

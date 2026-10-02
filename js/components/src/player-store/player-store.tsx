@@ -158,6 +158,9 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
         return { playTime: time };
       }),
 
+    startTime: null,
+    setStartTime: (startTime: number | null) => set(() => ({ startTime })),
+
     videoRef: undefined,
     setVideoRef: (
       videoRef:

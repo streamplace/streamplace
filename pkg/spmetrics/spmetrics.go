@@ -108,6 +108,13 @@ var WebsocketsOpen = promauto.NewGauge(prometheus.GaugeOpts{
 	Help: "number of open playback websockets",
 })
 
+// RTMPIngestConnections counts authorized Mist publishes whose pull ingest is
+// active, by whether the PUSH_REWRITE URL names a deprecated ingest host.
+var RTMPIngestConnections = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_rtmp_ingest_connections",
+	Help: "active authorized Mist publish ingests, by whether the PUSH_REWRITE URL uses a deprecated ingest hostname",
+}, []string{"deprecated_host"})
+
 var ReplicationWebsocketsOpen = promauto.NewGauge(prometheus.GaugeOpts{
 	Name: "streamplace_replication_websockets_open",
 	Help: "number of open replication websockets",

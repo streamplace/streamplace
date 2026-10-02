@@ -65,6 +65,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		if err != nil {
 			return "", err
 		}
+		release := a.IngestHosts.Open(ctx, payload.URL.Hostname(), mediaSigner.Streamer())
 
 		ms := time.Now().UnixMilli()
 		out := fmt.Sprintf("%s+%s_%d", mistconfig.StreamName, mediaSigner.Streamer(), ms)
@@ -80,6 +81,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		// Mist accepts the push right after this trigger returns, so the pull
 		// retries briefly while the stream boots (mistPullConnect).
 		go func() {
+			defer release()
 			if perr := a.MediaManager.MistPullIngest(serverCtx, out, mediaSigner); perr != nil {
 				log.Error(serverCtx, "mist pull ingest ended", "mist-stream", out, "streamer", mediaSigner.Streamer(), "error", perr)
 			} else {

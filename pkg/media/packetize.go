@@ -73,8 +73,8 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 	cli.DumpDebugSegment(ctx, fmt.Sprintf("packetize-input-%s.mp4", uu.String()), bytes.NewReader(seg.Data))
 
 	pipelineSlice := []string{
-		fmt.Sprintf("%s name=videoparse ! h264parse ! video/x-h264,stream-format=byte-stream ! appsink sync=false name=videoappsink", constants.Queue2Big),
-		fmt.Sprintf("%s name=audioparse ! opusparse ! appsink sync=false name=audioappsink", constants.Queue2Big),
+		fmt.Sprintf("%s name=videoparse ! video/x-h264,stream-format=byte-stream ! appsink sync=false name=videoappsink", constants.Queue2Big),
+		fmt.Sprintf("%s name=audioparse ! appsink sync=false name=audioappsink", constants.Queue2Big),
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

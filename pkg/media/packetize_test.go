@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/rand"
 	"os"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/test/remote"
 )
 
@@ -76,6 +78,102 @@ func innerTestPacketize(t *testing.T, filename string, expectedVideo int, expect
 	require.Equal(t, expectedVideo, len(packet.Video))
 	require.Equal(t, expectedAudio, len(packet.Audio))
 	require.Equal(t, expectedDuration, packet.Duration)
+}
+
+// Canonical source segments take the Muxl path even when a presentation is
+// supplied too. Its output must carry the same samples and timing as the
+// single-Opus presentation, including the parameter sets needed to join on an IDR.
+func TestPacketizeCanonicalSegment(t *testing.T) {
+	withNoGSTLeaks(t, func() {
+		flat, canonical := packetizeFixture(t)
+		ctx := context.Background()
+		want, err := Packetize(ctx, &config.CLI{}, &bus.Seg{Data: flat})
+		require.NoError(t, err)
+		got, err := Packetize(ctx, &config.CLI{}, &bus.Seg{
+			Data: []byte("stale presentation"),
+			Muxl: canonical,
+		})
+		require.NoError(t, err)
+		require.Equal(t, want, got, "canonical and presentation samples have the same bytes and durations")
+		require.NotEmpty(t, got.Video)
+		require.NotEmpty(t, got.Audio)
+		require.Positive(t, got.Duration)
+
+		// The captured fixture starts with two pictures at the same timestamp.
+		// Preserve that zero gap rather than inventing uniform frame spacing.
+		require.Zero(t, got.Video[0].Duration)
+		keyframes := 0
+		for i, sample := range got.Video {
+			require.True(t, bytes.HasPrefix(sample.Data, []byte{0, 0, 1}) || bytes.HasPrefix(sample.Data, []byte{0, 0, 0, 1}),
+				"sample %d uses byte-stream framing", i)
+			require.True(t, hasVideoSlice(sample.Data), "sample %d contains a picture", i)
+			if i > 0 {
+				require.Positive(t, sample.Duration, "sample %d retains its source duration", i)
+			}
+			sps, pps := false, false
+			for _, typ := range h264NALTypes(sample.Data) {
+				switch typ {
+				case 7:
+					sps = true
+				case 8:
+					pps = true
+				case 5:
+					keyframes++
+					require.True(t, sps && pps, "sample %d has SPS and PPS before its IDR", i)
+				}
+			}
+		}
+		require.Positive(t, keyframes, "fixture exercises keyframe header insertion")
+	})
+}
+
+// Both benchmark inputs contain the same real GoP. Fixture parsing and
+// presentation synthesis happen before the timed packetization loop.
+func packetizeFixture(tb testing.TB) (flat, canonical []byte) {
+	tb.Helper()
+	fixture, err := os.ReadFile(getFixture("sample-segment.mp4"))
+	require.NoError(tb, err)
+	ctx := context.Background()
+	canonicalMP4, err := muxl.RunMuxlCanonicalize(ctx, fixture, nil)
+	require.NoError(tb, err)
+	events, err := unwrapMuxlEvents(ctx, canonicalMP4)
+	require.NoError(tb, err)
+	_, tracks := catalogAndTracks(events)
+	require.NotEmpty(tb, tracks)
+	canonical = concatTracksByID(tracks)
+	var presentation bytes.Buffer
+	require.NoError(tb, muxl.RunMuxlWrap(ctx, bytes.NewReader(canonical), "flat", &presentation))
+	return presentation.Bytes(), canonical
+}
+
+func BenchmarkPacketize(b *testing.B) {
+	gstinit.InitGST()
+	flat, canonical := packetizeFixture(b)
+	for _, tc := range []struct {
+		name string
+		seg  *bus.Seg
+	}{
+		{name: "flat", seg: &bus.Seg{Data: flat}},
+		{name: "canonical", seg: &bus.Seg{Muxl: canonical}},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			ctx := context.Background()
+			cli := &config.CLI{}
+			_, err := Packetize(ctx, cli, tc.seg)
+			require.NoError(b, err)
+			b.ReportAllocs()
+			b.SetBytes(int64(len(tc.seg.Data) + len(tc.seg.Muxl)))
+			for b.Loop() {
+				packet, err := Packetize(ctx, cli, tc.seg)
+				if err != nil {
+					b.Fatal(err)
+				}
+				if len(packet.Video) == 0 || len(packet.Audio) == 0 {
+					b.Fatal("packetization lost a track")
+				}
+			}
+		})
+	}
 }
 
 // captionSEINAL builds a minimal valid closed-caption SEI NAL (payload_type 4,
@@ -380,8 +478,10 @@ func TestPacketizeSingleTrackSegment(t *testing.T) {
 }
 
 func TestPacketizeInvalid(t *testing.T) {
-	// cur := goleak.IgnoreCurrent()
-	// defer goleak.VerifyNone(t, cur)
+	var logs logCapture
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	defer slog.SetDefault(previousLogger)
 	withNoGSTLeaks(t, func() {
 		rng := rand.New(rand.NewSource(42))
 		randomData := make([]byte, 1024*1024) // 1MB
@@ -393,4 +493,5 @@ func TestPacketizeInvalid(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, packet)
 	})
+	require.Contains(t, logs.String(), "gstreamer error")
 }

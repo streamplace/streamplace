@@ -129,7 +129,7 @@ func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedS
 		streamCtx := context.WithoutCancel(ctx)
 		t = mm.newStreamTranscoder(streamCtx, target, cert, keyPEM, func(token any, completed []byte) {
 			v := token.(*validatedSegment)
-			if err := mm.distributeSegment(context.WithoutCancel(streamCtx), v, completed); err != nil {
+			if err := mm.distributeSegment(context.WithoutCancel(streamCtx), v, completed, nil); err != nil {
 				log.Error(streamCtx, "distribute completed segment failed", "streamer", v.repoDID, "error", err)
 			}
 		})

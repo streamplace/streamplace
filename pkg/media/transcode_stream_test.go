@@ -120,7 +120,7 @@ func TestFeedStreamTranscoderRebuildsOnNewSession(t *testing.T) {
 
 // allSignedBareSegments signs the fragmented fixture per-segment and returns
 // every GoP's bare canonical .m4s (the live ingest shape), in order.
-func allSignedBareSegments(t *testing.T, ctx context.Context, ms *MediaSignerLocal, fragPath string) [][]byte {
+func allSignedBareSegments(t testing.TB, ctx context.Context, ms *MediaSignerLocal, fragPath string) [][]byte {
 	t.Helper()
 	frag, err := os.ReadFile(fragPath)
 	require.NoError(t, err)

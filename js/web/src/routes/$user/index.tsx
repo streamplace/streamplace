@@ -207,14 +207,14 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="relative flex min-h-0 flex-1 flex-col wide:h-full">
+      <div className="wide:h-full relative flex min-h-0 flex-1 flex-col">
         <div
-          className={`z-0 flex min-h-0 min-w-0 flex-1 flex-col transition-[margin] duration-300 ease-in-out wide:overflow-y-auto ${chatOpen ? "wide:mr-90" : ""}`}
+          className={`wide:overflow-y-auto z-0 flex min-h-0 min-w-0 flex-1 flex-col transition-[margin] duration-300 ease-in-out ${chatOpen ? "wide:mr-90" : ""}`}
         >
           <VideoSection store={store} user={user} liveness={liveness} />
 
           {!theatre && (
-            <div className="hidden wide:block">
+            <div className="wide:block hidden">
               <StreamInfo
                 store={store}
                 user={user}
@@ -250,7 +250,7 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
 
         {/* Sidebar layout chat */}
         <div
-          className={`fixed right-0 bottom-0 z-20 hidden w-90 flex-col overflow-hidden transition-all duration-300 ease-in-out wide:flex ${
+          className={`wide:flex fixed right-0 bottom-0 z-20 hidden w-90 flex-col overflow-hidden transition-all duration-300 ease-in-out ${
             chatOpen ? "translate-x-0" : "translate-x-full"
           } ${theatre ? "top-0" : "top-12"}`}
         >

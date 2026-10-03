@@ -1,11 +1,89 @@
 package director
 
 import (
+	"context"
+	"flag"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/localdb"
+	"stream.place/streamplace/pkg/media"
 )
+
+func idleStreamSession(b *bus.Bus) (*StreamSession, *media.NewSegmentNotification) {
+	return &StreamSession{
+			cli:         &config.CLI{StreamSessionTimeout: time.Minute},
+			bus:         b,
+			segmentChan: make(chan struct{}),
+			started:     make(chan struct{}),
+		}, &media.NewSegmentNotification{
+			Segment: &localdb.Segment{
+				RepoDID: "did:example:idle-session",
+				MediaData: &localdb.SegmentMediaData{
+					Duration: int64(time.Second),
+					Video:    []*localdb.SegmentMediadataVideo{{Width: 1280, Height: 720}},
+					Audio:    []*localdb.SegmentMediadataAudio{{Rate: 48000, Channels: 2}},
+				},
+			},
+		}
+}
+
+func TestStreamSessionIdleTimeout(t *testing.T) {
+	for _, cancelSession := range []bool{false, true} {
+		name := "activity resets timeout"
+		if cancelSession {
+			name = "cancellation stops session"
+		}
+		t.Run(name, func(t *testing.T) {
+			b := bus.NewBus()
+			synctest.Test(t, func(t *testing.T) {
+				ss, notif := idleStreamSession(b)
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				done := make(chan error, 1)
+				go func() { done <- ss.Start(ctx, notif) }()
+				<-ss.started
+				synctest.Wait()
+				time.Sleep(time.Minute - time.Second)
+				ss.segmentChan <- struct{}{}
+				synctest.Wait()
+				time.Sleep(time.Minute - time.Second)
+				synctest.Wait()
+				require.NoError(t, ss.ctx.Err(), "activity must extend the idle deadline")
+				if cancelSession {
+					cancel()
+				} else {
+					time.Sleep(time.Second)
+				}
+				require.NoError(t, <-done)
+				require.ErrorIs(t, ss.ctx.Err(), context.Canceled)
+			})
+		})
+	}
+}
+
+func BenchmarkStreamSessionActivity(b *testing.B) {
+	previousVerbosity := flag.Lookup("v").Value.String()
+	require.NoError(b, flag.Set("v", "0"))
+	b.Cleanup(func() { require.NoError(b, flag.Set("v", previousVerbosity)) })
+	ss, notif := idleStreamSession(bus.NewBus())
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- ss.Start(ctx, notif) }()
+	<-ss.started
+	b.Cleanup(func() {
+		cancel()
+		require.NoError(b, <-done)
+	})
+	b.ReportAllocs()
+	for b.Loop() {
+		ss.segmentChan <- struct{}{}
+	}
+}
 
 func TestExceedsMaxBitrate(t *testing.T) {
 	oneSec := time.Second.Nanoseconds()

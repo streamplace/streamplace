@@ -212,12 +212,17 @@ type segmentSubscriber struct {
 }
 
 func (s *segmentSubscriber) forward() {
+	timer := time.NewTimer(time.Minute)
+	timer.Stop()
+	defer timer.Stop()
 	for not := range s.queue {
+		timer.Reset(time.Minute)
 		select {
 		case s.ch <- not:
-		case <-time.After(time.Minute):
+		case <-timer.C:
 			log.Warn(context.Background(), "segment subscriber did not take a segment within a minute, dropping it", "streamer", not.Segment.RepoDID, "segmentID", not.Segment.ID)
 		}
+		timer.Stop()
 	}
 }
 

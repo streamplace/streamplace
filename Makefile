@@ -761,9 +761,12 @@ docker-build-builder:
 .PHONY: precommit
 precommit: dockerfile-hash-precommit
 
-.PHONY: dockefile-hash-precommit
+.PHONY: dockerfile-hash-precommit
 dockerfile-hash-precommit:
-	@bash -c 'printf "variables:\n  DOCKERFILE_HASH: `git hash-object docker/build.Dockerfile`" > .ci/dockerfile-hash.yaml' \
+	# Hash every file the builder image bakes in (docker/build.Dockerfile plus
+	# its ADD inputs), so a change to any of them changes DOCKERFILE_HASH and
+	# publishes a new builder-<hash> tag instead of mutating the pinned one.
+	@bash -c 'printf "variables:\n  DOCKERFILE_HASH: `cat docker/build.Dockerfile docker/sources.list docker/winehq.key docker/llvm-snapshot.key | git hash-object --stdin`" > .ci/dockerfile-hash.yaml' \
 	&& git add .ci/dockerfile-hash.yaml
 
 # tricks the github action for golangci-lint to run inside a container
@@ -798,24 +801,6 @@ in-container: docker-build-builder
 .PHONY: docker-shell
 docker-shell:
 	$(MAKE) in-container IN_CONTAINER_CMD="bash" DOCKER_OPTS="-it -v $$(pwd):$$(pwd) -w $$(pwd)"
-
-STREAMPLACE_URL?=https://git.stream.place/streamplace/streamplace/-/package_files/10122/download
-.PHONY: docker-release
-docker-release:
-	cd docker \
-	&& docker build -f release.Dockerfile \
-	  --build-arg TARGETARCH=$(BUILDARCH) \
-		--build-arg STREAMPLACE_URL=$(STREAMPLACE_URL) \
-		-t dist.stream.place/streamplace/streamplace \
-		.
-
-.PHONY: docker-mistserver
-docker-mistserver:
-	cd docker \
-	&& docker build -f mistserver.Dockerfile \
-	  --build-arg TARGETARCH=$(BUILDARCH) \
-		--build-arg STREAMPLACE_URL=$(STREAMPLACE_URL) \
-		-t dist.stream.place/streamplace/streamplace:mistserver \
 
 #   _____ _____  _____ _______ _____   ____
 #  |  __ \_   _|/ ____|__   __|  __ \ / __ \

@@ -64,6 +64,8 @@ jobs:
         id: tags
         run: |
           short=${GITHUB_SHA::7}
+          # The pinned builder-<DOCKERFILE_HASH> tag that GitLab and
+          # hack/container.sh consume is published by docker-builder.yaml.
           echo "tags=${REGISTRY_IMAGE}:builder,${REGISTRY_IMAGE}:builder-${short}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push builder

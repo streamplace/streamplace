@@ -3,16 +3,24 @@ import { VodWatchHeader } from "@/components/video/vod-watch-header";
 import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useVideoRecord } from "@/hooks/use-video-record";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
+import { parseTimeParam } from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { place } from "streamplace";
 
 export const Route = createFileRoute("/$user/video/$tid")({
+  // `?t=` is the playback start time, YouTube-style: seconds or an
+  // `1h2m3s` duration. Parsed here so the player gets a number.
+  validateSearch: (search: Record<string, unknown>): { t?: number } => ({
+    t: parseTimeParam(search.t) ?? undefined,
+  }),
   component: VodPage,
 });
 
 function VodPage() {
   const { user, tid } = Route.useParams();
+  const { t: startTime } = Route.useSearch();
   const { t } = useTranslation("common");
   const { video, loading, error } = useVideoRecord(user, tid);
   const [downloading, setDownloading] = useState(false);
@@ -52,10 +60,15 @@ function VodPage() {
             user={user}
             liveness="live"
             segment={null}
+            contentWarnings={
+              (video?.record as place.stream.video.Main | undefined)
+                ?.contentWarnings?.warnings ?? []
+            }
             problems={[]}
             playlistUrl={playlistUrl}
             thumbnailUrl={thumbnailUrl}
             mode="vod"
+            startTime={startTime}
           />
           {!theatre && (
             <>

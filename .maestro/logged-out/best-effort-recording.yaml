@@ -1,0 +1,29 @@
+appId: ${APP_ID}
+---
+# The harness runs the node with debug recording ON for the test account and a
+# deliberately broken recording sink (see `streamplace e2e`), so every ingest
+# session attempts a recording that fails. Recording is best-effort: a failed
+# upload must never stall the ingest pipeline. Regression: a dead recorder used
+# to wedge it, and the stream never came up at all.
+- launchApp
+- takeScreenshot: best-effort-recording-launched
+# open the test stream from the home feed. Matched by testID because the
+# card's link wrapper collapses its subtree on iOS.
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- tapOn:
+    id: "home-stream-card"
+- waitForAnimationToEnd
+- takeScreenshot: best-effort-recording-open
+# the stream's "Now streaming - e2e test stream" chat system message only
+# appears once playback context is up, which requires ingested segments
+- extendedWaitUntil:
+    visible:
+      text: ".*e2e test stream.*"
+    timeout: 30000
+# tap on the video to show the player controls
+- tapOn:
+    point: 50%,20%
+- takeScreenshot: best-effort-recording-player-tapped

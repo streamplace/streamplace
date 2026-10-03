@@ -83,6 +83,7 @@ export function VideoSection({
       user={user}
       liveness={liveness}
       segment={state.segment?.video?.at(0) ?? null}
+      contentWarnings={state.segment?.contentWarnings?.warnings ?? []}
       problems={state.problems}
       playlistUrl={playlistUrl}
       thumbnailUrl={thumbnailUrl}
@@ -106,10 +107,12 @@ export function VideoSectionInner({
   user,
   liveness,
   segment,
+  contentWarnings = [],
   problems,
   playlistUrl,
   thumbnailUrl,
   mode = "live",
+  startTime,
   store,
   showDanmu = false,
   onShowDanmuChange,
@@ -122,10 +125,13 @@ export function VideoSectionInner({
   user: string;
   liveness: Liveness;
   segment: Segment;
+  contentWarnings?: string[];
   problems: Problem[];
   playlistUrl: string;
   thumbnailUrl: string;
   mode?: "live" | "vod";
+  /** Seconds into the VOD to start playback at (from a `?t=` URL param). */
+  startTime?: number;
   store?: LivestreamStore;
   showDanmu?: boolean;
   onShowDanmuChange?: (show: boolean) => void;
@@ -184,6 +190,8 @@ export function VideoSectionInner({
                 poster={thumbnailUrl}
                 active
                 mode={mode}
+                contentWarnings={contentWarnings}
+                startTime={startTime}
                 showDanmu={showDanmu}
                 onShowDanmuChange={onShowDanmuChange}
                 onError={(message) => captureError(message, { user, mode })}

@@ -32,15 +32,22 @@ func NewRecordingPeerConnection(ctx context.Context, cli config.CLI, user string
 	}
 	aqt := aqtime.FromTime(time.Now())
 	// Streams to S3 when configured (production), else a local file under DataDir
-	// (dev). Close (after the drain delay below) finalizes either target.
+	// (dev). Close (after the drain delay below) finalizes either target. A sink
+	// that won't open — rejected S3 credentials or billing, an unwritable data
+	// dir — is not a reason to drop the stream: debug recording is best-effort,
+	// so log it and carry on without recording (this widens the same contract
+	// recordTee enforces for the ingest tee).
 	f, err := cli.DebugRecordingCreate(ctx, []string{"debug-recordings", user, fmt.Sprintf("%s.rtcrec.cbor", aqt.FileSafeString())}, "application/cbor", true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create debug recording: %w", err)
+		log.Error(ctx, "debug recording failed to open; continuing without it", "streamer", user, "error", err)
+		return &RecordingPeerConnection{pionpc: pionpc}, nil
 	}
 	log.Log(ctx, "logging webrtc session to file", "file", f.Name())
 	stream, err := MakeWebRTCEncoder(f)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create recorder stream: %w", err)
+		_ = f.Close()
+		log.Error(ctx, "debug recording failed to initialize; continuing without it", "streamer", user, "error", err)
+		return &RecordingPeerConnection{pionpc: pionpc}, nil
 	}
 	return &RecordingPeerConnection{
 		pionpc:  pionpc,

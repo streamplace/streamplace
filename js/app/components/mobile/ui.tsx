@@ -16,6 +16,7 @@ import {
   useLivestreamInfo,
   useLivestreamStore,
   useMuted,
+  useNetworkProfileUrl,
   usePlayerDimensions,
   usePlayerStore,
   useRotation,
@@ -36,7 +37,6 @@ import {
 } from "@streamplace/components/src/lib/theme/tokens";
 import { px, py } from "@streamplace/components/src/ui";
 import { Image } from "expo-image";
-import useAvatars from "hooks/useAvatars";
 import {
   ChevronLeft,
   ChevronRight,
@@ -48,7 +48,7 @@ import {
   VolumeX,
 } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
-import { Platform, Pressable } from "react-native";
+import { Linking, Platform, Pressable } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -62,7 +62,7 @@ import { MobileChatPanel } from "./chat";
 import { BottomControlBar } from "./desktop-ui/index";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
-const { borders, bottom, gap, h, layout, position, right, w, r } = zero;
+const { borders, bottom, gap, h, layout, p, position, right, w, r } = zero;
 
 export function MobileUi({
   setShowChat,
@@ -94,7 +94,14 @@ export function MobileUi({
   const { width, height } = usePlayerDimensions();
   const { isPlayerRatioGreater } = useSegmentDimensions();
   const { doSetIngestCamera } = useCameraToggle();
-  const avis = useAvatars([streamProfile?.did].filter(Boolean) as string[]);
+  const profile = useAuthor();
+  const avatar = useAvatar();
+  const profileUrl = useNetworkProfileUrl();
+  const headerControlStyle = {
+    backgroundColor: scrims.light,
+    borderRadius: theme.borderRadius.md,
+    minHeight: theme.touchTargets.minimum,
+  };
 
   const mode = usePlayerStore((state) => state.mode);
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
@@ -230,105 +237,109 @@ export function MobileUi({
                   // the window and clears the notch with the top edge inset.
                   edges={mode === "vod" ? [] : ["top"]}
                   style={[
-                    layout.flex.row,
-                    layout.flex.alignCenter,
+                    layout.flex.column,
                     py[2],
                     px[2],
-                    gap.all[4],
+                    gap.all[2],
                     w.percent[100],
                   ]}
                 >
-                  <Pressable
-                    onPress={() => {
-                      navigation.canGoBack()
-                        ? navigation.goBack()
-                        : navigation.navigate("MainTabs" as any, {
-                            screen: "HomeTab",
-                          });
-                    }}
+                  <View
                     style={[
-                      {
-                        padding: 9,
-                        backgroundColor: scrims.light,
-                        borderRadius: 12,
-                      },
-                      r[2],
+                      layout.flex.row,
+                      layout.flex.alignCenter,
+                      gap.all[2],
                     ]}
                   >
-                    <ChevronLeft color={colors.white} />
-                  </Pressable>
-                  {/* if we're in landscape mode show the profile picture and username */}
-                  {shouldShowChatSidePanel && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Back"
+                      onPress={() => {
+                        navigation.canGoBack()
+                          ? navigation.goBack()
+                          : navigation.navigate("MainTabs" as any, {
+                              screen: "HomeTab",
+                            });
+                      }}
+                      style={[
+                        headerControlStyle,
+                        p[2],
+                        layout.flex.center,
+                        { minWidth: theme.touchTargets.minimum },
+                      ]}
+                    >
+                      <ChevronLeft color={colors.white} />
+                    </Pressable>
+                    {profile ? (
+                      <Pressable
+                        accessibilityRole="link"
+                        accessibilityLabel={`Open profile for ${profile.handle || profile.did}`}
+                        onPress={() => Linking.openURL(profileUrl(profile))}
+                        style={[
+                          headerControlStyle,
+                          { flex: 1, minWidth: 0 },
+                          layout.flex.row,
+                          layout.flex.alignCenter,
+                          gap.all[2],
+                          p[2],
+                        ]}
+                      >
+                        <Avatar src={avatar} name={profile.handle} size="sm" />
+                        <Text
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                          size="sm"
+                          style={{
+                            color: colors.white,
+                            flexShrink: 1,
+                          }}
+                        >
+                          {profile.handle || profile.did}
+                        </Text>
+                      </Pressable>
+                    ) : (
+                      <View style={{ flex: 1 }} />
+                    )}
                     <View
                       style={[
-                        {
-                          backgroundColor: scrims.light,
-                          borderRadius: 12,
-                        },
-                        r[2],
+                        headerControlStyle,
+                        { flexShrink: 0 },
                         layout.flex.row,
                         layout.flex.alignCenter,
-                        gap.all[1],
+                        gap.all[2],
                         px[3],
                         py[2],
                       ]}
                     >
-                      <Avatar
-                        src={
-                          streamProfile?.did && avis[streamProfile?.did].avatar
+                      <ShareSheet />
+                      <PlayerUI.ContextMenu
+                        onOpenChat={
+                          streamProfile?.handle ? openChatOnlyMode : undefined
                         }
-                        name={streamProfile?.handle}
-                        size="sm"
                       />
-                      <Text
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                        style={{
-                          color: colors.white,
-                          fontSize: 14,
-                          marginLeft: 8,
-                        }}
-                      >
-                        {streamProfile?.handle}
-                      </Text>
+                      {shouldShowChatSidePanel && setShowChat && (
+                        <Pressable
+                          onPress={() => {
+                            setShowChat(!showChat);
+                          }}
+                        >
+                          {showChat ? (
+                            <ChevronRight color={colors.white} size={20} />
+                          ) : (
+                            <ChevronLeft color={colors.white} size={20} />
+                          )}
+                        </Pressable>
+                      )}
+                    </View>
+                  </View>
+                  {contentWarnings.length > 0 && (
+                    <View style={{ alignSelf: "flex-start", maxWidth: "100%" }}>
+                      <ContentWarningBadge
+                        warnings={contentWarnings}
+                        truncate
+                      />
                     </View>
                   )}
-                  <ContentWarningBadge warnings={contentWarnings} truncate />
-                  <View style={{ flex: 1 }} />
-                  <View
-                    style={[
-                      {
-                        backgroundColor: scrims.light,
-                        borderRadius: 12,
-                      },
-                      r[2],
-                      layout.flex.row,
-                      layout.flex.alignCenter,
-                      gap.all[4],
-                      px[3],
-                      py[2],
-                    ]}
-                  >
-                    <ShareSheet />
-                    <PlayerUI.ContextMenu
-                      onOpenChat={
-                        streamProfile?.handle ? openChatOnlyMode : undefined
-                      }
-                    />
-                    {shouldShowChatSidePanel && setShowChat && (
-                      <Pressable
-                        onPress={() => {
-                          setShowChat(!showChat);
-                        }}
-                      >
-                        {showChat ? (
-                          <ChevronRight color={colors.white} size={20} />
-                        ) : (
-                          <ChevronLeft color={colors.white} size={20} />
-                        )}
-                      </Pressable>
-                    )}
-                  </View>
                 </SafeAreaView>
               ) : (
                 <SafeAreaView

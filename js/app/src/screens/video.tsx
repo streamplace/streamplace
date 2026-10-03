@@ -5,6 +5,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { colors } from "@streamplace/components/src/lib/theme/tokens";
+import { parseTimeParam } from "@streamplace/core";
 import { Redirect } from "components/aqlink";
 import { useVideoTitle } from "hooks/useTitle";
 import { Player } from "../../components/mobile/player";
@@ -24,12 +25,14 @@ function VideoTitle() {
 export default function VideoScreen({
   route,
 }: {
-  route?: { params?: { user?: string; tid?: string } };
+  route?: { params?: { user?: string; tid?: string; t?: string } };
 }) {
   const url = usePlaybackUrl(
     route?.params?.user ?? "",
     route?.params?.tid ?? "",
   );
+  // Deep links carry the playback start as `?t=` (seconds, or `1h2m3s`).
+  const startTime = parseTimeParam(route?.params?.t) ?? undefined;
   if (!route?.params?.user || !route?.params?.tid) {
     return <Redirect to={{ screen: "HomeMain" }} />;
   }
@@ -41,7 +44,7 @@ export default function VideoScreen({
       <VideoTitle />
       <View style={[zero.flex.values[1], { backgroundColor: colors.black }]}>
         <View style={{ flex: 1 }}>
-          <Player src={url} mode="vod" />
+          <Player src={url} mode="vod" startTime={startTime} />
         </View>
         {/*{src && (
         <View

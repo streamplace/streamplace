@@ -1,3 +1,4 @@
+import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useSonare } from "@/lib/useSonare";
 import {
   useCallback,
@@ -10,6 +11,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { Loader } from "../ui/loader";
+import { ContentWarningOverlay } from "./content-warning-overlay";
 import { HLSPlayer } from "./hls-player";
 import {
   getBufferingOverlayPresentation,
@@ -25,6 +27,11 @@ export type PlayerProps = {
   src: string;
   /** Live streams hide the scrubber; VODs get a seek bar. */
   mode?: "live" | "vod";
+  /**
+   * Seconds into a VOD to start playback at, from a `?t=` URL param.
+   * Ignored for live playback and for values past the media's end.
+   */
+  startTime?: number;
   /**
    * Prefer the low-latency live HLS preset. Off by default: standard
    * latency holds more buffer and is less prone to rebuffering.
@@ -52,6 +59,8 @@ export type PlayerProps = {
    * travels with the video into fullscreen.
    */
   danmuOverlay?: ReactNode;
+  /** Content-warning labels associated with the current video or stream. */
+  contentWarnings?: string[];
   /** Whether the current user is the stream owner. */
   isStreamer?: boolean;
 };
@@ -154,6 +163,7 @@ function writeQualityPreference(index: number) {
 export function Player({
   src,
   mode = "live",
+  startTime,
   lowLatency = false,
   poster,
   fallbackPoster,
@@ -163,10 +173,12 @@ export function Player({
   showDanmu = false,
   onShowDanmuChange,
   danmuOverlay,
+  contentWarnings = [],
   isStreamer,
 }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const { fullscreen } = useFullscreen();
   const backendRef = useRef<PlayerBackendHandle | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { t } = useTranslation();
@@ -379,6 +391,7 @@ export function Player({
           src={src}
           useWebRTC={useWebRTC}
           mode={mode}
+          startTime={startTime}
           lowLatency={lowLatency}
           videoRef={videoRef}
           active={active}
@@ -403,6 +416,13 @@ export function Player({
       )}
 
       {active && danmuOverlay}
+
+      {active && (
+        <ContentWarningOverlay
+          warnings={contentWarnings}
+          portalContainer={fullscreen ? containerRef : undefined}
+        />
+      )}
 
       {active && (
         <PlayerControls
@@ -457,6 +477,7 @@ function PlayerBackend({
   src,
   useWebRTC,
   mode,
+  startTime,
   lowLatency,
   videoRef,
   active,
@@ -469,6 +490,7 @@ function PlayerBackend({
   src: string;
   useWebRTC: boolean;
   mode: "live" | "vod";
+  startTime?: number;
   lowLatency: boolean;
   videoRef: RefObject<HTMLVideoElement | null>;
   active: boolean;
@@ -497,6 +519,7 @@ function PlayerBackend({
       src={src}
       active={active}
       mode={mode}
+      startTime={startTime}
       lowLatency={lowLatency}
       onError={onError}
       onQualitiesChange={onQualitiesChange}

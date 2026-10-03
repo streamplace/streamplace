@@ -9,7 +9,11 @@ import { formatHandleWithAt } from "../lib/format-handle";
 import { SystemMessages } from "../lib/system-messages";
 import { reduceChat } from "./chat-reducer";
 import { findProblems } from "./problems";
-import { LivestreamModerationPermission, LivestreamState } from "./state";
+import {
+  LivestreamModerationPermission,
+  LivestreamProblem,
+  LivestreamState,
+} from "./state";
 
 const MAX_RECENT_SEGMENTS = 10;
 const MODERATION_PERMISSION_TYPE = "place.stream.moderation.permission";
@@ -41,6 +45,20 @@ function moderationPermissionURI(
 
   return null;
 }
+
+const toLivestreamProblem = (
+  p: place.stream.ingest.defs.Problem,
+): LivestreamProblem => ({
+  code: p.code,
+  message: p.message,
+  severity:
+    p.severity === "error"
+      ? "error"
+      : p.severity === "info"
+        ? "info"
+        : "warning",
+  link: p.link,
+});
 
 export const handleWebSocketMessages = (
   state: LivestreamState,
@@ -121,12 +139,31 @@ export const handleWebSocketMessages = (
           ...state,
           segment: message as place.stream.segment.Main,
           recentSegments: newRecentSegments,
-          problems: findProblems(newRecentSegments),
+          problems: [
+            ...findProblems(newRecentSegments),
+            ...state.ingestProblems,
+          ],
           hasReceivedSegment: true,
         };
       } else if (place.stream.defs.blockView.isTypeOf(message)) {
         const block = message as place.stream.defs.BlockView;
         state = reduceChat(state, [], [block], []);
+      } else if (place.stream.ingest.defs.problems.isTypeOf(message)) {
+        // The node sends its whole current list whenever it changes, and
+        // these outlive any segment: swap out the last list, keeping the
+        // segment-derived problems.
+        const ingestProblems = (
+          message as place.stream.ingest.defs.Problems
+        ).problems.map(toLivestreamProblem);
+        const stale = new Set(state.ingestProblems.map((p) => p.code));
+        state = {
+          ...state,
+          ingestProblems,
+          problems: [
+            ...state.problems.filter((p) => !stale.has(p.code)),
+            ...ingestProblems,
+          ],
+        };
       } else if (place.stream.defs.renditions.isTypeOf(message)) {
         message = message as place.stream.defs.Renditions;
         state = {

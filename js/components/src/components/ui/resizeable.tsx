@@ -225,7 +225,7 @@ export function Resizable({
           aboveElementStyle,
           {
             width: "100%",
-            pointerEvents: "none",
+            pointerEvents: "box-none",
             position: "absolute",
             bottom: 0,
           },
@@ -233,7 +233,7 @@ export function Resizable({
       >
         <View
           style={{
-            pointerEvents: "auto",
+            pointerEvents: "box-none",
             width: "100%",
             // hate doing it this way, but can't figure out
             // how to make it size to content otherwise

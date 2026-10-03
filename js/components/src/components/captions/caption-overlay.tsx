@@ -151,8 +151,18 @@ export function CaptionOverlay() {
           justifyContent: "flex-end",
           alignItems: "center",
           paddingHorizontal: theme.spacing[4],
-          // Clear the control bar while it's showing.
-          paddingBottom: showControls ? theme.spacing[16] : theme.spacing[6],
+          paddingBottom: theme.spacing[6],
+          // Clear the bottom controls while they show. A transform rather
+          // than padding: a layout change makes the browser hit-test a
+          // resting pointer again, and once the faded controls let it
+          // through, the player's hover would bring them straight back.
+          transform: [
+            {
+              translateY: showControls
+                ? theme.spacing[6] - theme.spacing[16]
+                : 0,
+            },
+          ],
         },
       ]}
     >

@@ -2,6 +2,7 @@ package media
 
 import (
 	"context"
+	"flag"
 	"io"
 	"log/slog"
 	"net"
@@ -38,13 +39,16 @@ func TestWebRTCPlayback2(t *testing.T) {
 // Cancelling playback must release its segment subscription even while the
 // sender is pacing a real segment and its pending segment queue is full.
 func TestWebRTCPlayback2CancelsBackloggedPlayback(t *testing.T) {
-	var packet *bus.PacketizedSegment
-	withNoGSTLeaks(t, func() { packet = playbackPacketFixture(t) })
-
 	var logs logCapture
 	previousLogger := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelError})))
 	defer slog.SetDefault(previousLogger)
+
+	previousVerbosity := flag.Lookup("v").Value.String()
+	require.NoError(t, flag.Set("v", "3"))
+	t.Cleanup(func() { require.NoError(t, flag.Set("v", previousVerbosity)) })
+	var packet *bus.PacketizedSegment
+	withNoGSTLeaks(t, func() { packet = playbackPacketFixture(t) })
 
 	mm := loopbackPlaybackManager()
 	ignore := goleak.IgnoreCurrent()

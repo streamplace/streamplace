@@ -2,7 +2,9 @@ package media
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -213,7 +215,9 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					}
 					if wroteAny {
 						if err := g.Wait(); err != nil {
-							log.Error(ctx, "failed to write samples", "error", err)
+							if ctx.Err() == nil || !errors.Is(err, io.ErrClosedPipe) {
+								log.Error(ctx, "failed to write samples", "error", err)
+							}
 							cancel()
 						}
 					}

@@ -227,16 +227,15 @@ function rolledLiveCaptions(
   const started = trackCues(cues, trackId).filter(
     (c) => c.startMs <= now + 100,
   );
-  const newest = started.at(-1);
-  if (!newest || now >= newest.endMs + LIVE_CAPTION_LINGER_MS) return [];
-  // The rows run back to where the screen last cleared.
-  let first = started.length - 1;
-  while (
-    first > 0 &&
-    started[first].startMs <= started[first - 1].endMs + LIVE_CAPTION_LINGER_MS
-  ) {
-    first--;
+  // The rows start where the screen last cleared: after every cue so far
+  // ended (overlapping cues included) and the linger passed.
+  let first = 0;
+  let reach = -Infinity;
+  for (let i = 0; i < started.length; i++) {
+    if (started[i].startMs > reach + LIVE_CAPTION_LINGER_MS) first = i;
+    reach = Math.max(reach, started[i].endMs);
   }
+  if (now >= reach + LIVE_CAPTION_LINGER_MS) return [];
   const rows: string[] = [];
   let newestRow = -1;
   let sentenceEnded = true;

@@ -368,6 +368,17 @@ describe("liveCaptionLines", () => {
     expect(liveCaptionLines(expired, en, 7000)).toEqual(rows);
   });
 
+  it("keeps rows up while an earlier, overlapping cue is still on", () => {
+    const cues = speak(
+      {},
+      ["A long pushed caption", 1000, 20000],
+      ["short", 2000, 2500],
+    );
+    expect(liveCaptionLines(cues, en, 8000)).toEqual([
+      "A long pushed caption short",
+    ]);
+  });
+
   it("keeps the lines of authored captions", () => {
     const human = { ...en, id: "human-en", source: "human" };
     const text = "An authored caption line, longer than a recognized row";

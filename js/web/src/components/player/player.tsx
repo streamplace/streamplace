@@ -1,3 +1,4 @@
+import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useSonare } from "@/lib/useSonare";
 import {
   useCallback,
@@ -10,6 +11,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { Loader } from "../ui/loader";
+import { ContentWarningOverlay } from "./content-warning-overlay";
 import { HLSPlayer } from "./hls-player";
 import {
   getBufferingOverlayPresentation,
@@ -57,6 +59,8 @@ export type PlayerProps = {
    * travels with the video into fullscreen.
    */
   danmuOverlay?: ReactNode;
+  /** Content-warning labels associated with the current video or stream. */
+  contentWarnings?: string[];
   /** Whether the current user is the stream owner. */
   isStreamer?: boolean;
 };
@@ -169,10 +173,12 @@ export function Player({
   showDanmu = false,
   onShowDanmuChange,
   danmuOverlay,
+  contentWarnings = [],
   isStreamer,
 }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const { fullscreen } = useFullscreen();
   const backendRef = useRef<PlayerBackendHandle | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { t } = useTranslation();
@@ -410,6 +416,13 @@ export function Player({
       )}
 
       {active && danmuOverlay}
+
+      {active && (
+        <ContentWarningOverlay
+          warnings={contentWarnings}
+          portalContainer={fullscreen ? containerRef : undefined}
+        />
+      )}
 
       {active && (
         <PlayerControls

@@ -83,6 +83,7 @@ export function VideoSection({
       user={user}
       liveness={liveness}
       segment={state.segment?.video?.at(0) ?? null}
+      contentWarnings={state.segment?.contentWarnings?.warnings ?? []}
       problems={state.problems}
       playlistUrl={playlistUrl}
       thumbnailUrl={thumbnailUrl}
@@ -106,6 +107,7 @@ export function VideoSectionInner({
   user,
   liveness,
   segment,
+  contentWarnings = [],
   problems,
   playlistUrl,
   thumbnailUrl,
@@ -123,6 +125,7 @@ export function VideoSectionInner({
   user: string;
   liveness: Liveness;
   segment: Segment;
+  contentWarnings?: string[];
   problems: Problem[];
   playlistUrl: string;
   thumbnailUrl: string;
@@ -187,6 +190,7 @@ export function VideoSectionInner({
                 poster={thumbnailUrl}
                 active
                 mode={mode}
+                contentWarnings={contentWarnings}
                 startTime={startTime}
                 showDanmu={showDanmu}
                 onShowDanmuChange={onShowDanmuChange}

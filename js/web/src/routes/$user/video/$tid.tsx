@@ -7,6 +7,7 @@ import { parseTimeParam } from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { place } from "streamplace";
 
 export const Route = createFileRoute("/$user/video/$tid")({
   // `?t=` is the playback start time, YouTube-style: seconds or an
@@ -59,6 +60,10 @@ function VodPage() {
             user={user}
             liveness="live"
             segment={null}
+            contentWarnings={
+              (video?.record as place.stream.video.Main | undefined)
+                ?.contentWarnings?.warnings ?? []
+            }
             problems={[]}
             playlistUrl={playlistUrl}
             thumbnailUrl={thumbnailUrl}

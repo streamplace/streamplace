@@ -89,7 +89,9 @@ function RootLayout() {
     return (
       <ErrorBoundary>
         <TooltipProvider>
-          <Outlet />
+          <FullscreenProvider>
+            <Outlet />
+          </FullscreenProvider>
         </TooltipProvider>
       </ErrorBoundary>
     );

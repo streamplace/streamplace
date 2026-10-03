@@ -75,7 +75,7 @@ host networking. So that command would look something like:
     -e SP_ALLOWED_STREAMS=did:web:example.com,did:plc:rbvrr34edl5ddpuwcubjiost \
     -v /var/lib/streamplace:/var/lib/streamplace \
     --net=host \
-    oci.stream.place/streamplace
+    ghcr.io/streamplace/streamplace
 ```
 
 ## Download a binary

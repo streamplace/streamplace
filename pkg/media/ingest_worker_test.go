@@ -242,21 +242,73 @@ type fakeS3Server struct {
 	mu      sync.Mutex
 	parts   map[string][]byte // "<path>#<partNumber>" → body
 	objects map[string][]byte // completed "<bucket>/<key>" → body
+	// failInitiate rejects the multipart-upload create, failPart rejects part
+	// uploads — the two shapes of a bucket that refuses writes (bad credentials,
+	// unpaid billing). stallPartNum blocks the given part's request until
+	// releaseParts is closed, standing in for a hung connection the client is
+	// still waiting on after a sibling part failed. The counters let a test prove
+	// the failure it asked for actually fired.
+	failInitiate     bool
+	failPart         bool
+	stallPartNum     string
+	releaseParts     chan struct{}
+	initiateFailures int
+	partFailures     int
+	partsStalled     int
 }
 
 func newFakeS3Server() *fakeS3Server {
-	return &fakeS3Server{parts: map[string][]byte{}, objects: map[string][]byte{}}
+	return &fakeS3Server{parts: map[string][]byte{}, objects: map[string][]byte{}, releaseParts: make(chan struct{})}
+}
+
+// failureCounts returns how many create/part requests the fake rejected.
+func (f *fakeS3Server) failureCounts() (initiate, part int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.initiateFailures, f.partFailures
+}
+
+// stalledCount returns how many part requests have reached the stall and are
+// still waiting on releaseParts.
+func (f *fakeS3Server) stalledCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.partsStalled
 }
 
 func (f *fakeS3Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Stall before taking the lock: a blocked request must not hold up the rest
+	// of the fake.
+	if f.stallPartNum != "" && r.Method == "PUT" && r.URL.Query().Get("partNumber") == f.stallPartNum {
+		f.mu.Lock()
+		f.partsStalled++
+		release := f.releaseParts
+		f.mu.Unlock()
+		<-release
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	path := strings.TrimPrefix(r.URL.Path, "/")
 	q := r.URL.Query()
 	switch {
 	case r.Method == "POST" && q.Has("uploads"):
+		if f.failInitiate {
+			f.initiateFailures++
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 		fmt.Fprintf(w, `<InitiateMultipartUploadResult><UploadId>test-upload</UploadId></InitiateMultipartUploadResult>`)
 	case r.Method == "PUT" && q.Has("partNumber"):
+		if f.failPart {
+			f.partFailures++
+			// Drain the part before rejecting it. Responding while the client is
+			// still streaming 16 MB resets the connection, which the SDK retries
+			// as a network error and only surfaces seconds later — turning a
+			// clean 403 into a flaky one.
+			_, _ = io.Copy(io.Discard, r.Body)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 		body, _ := io.ReadAll(r.Body)
 		f.parts[path+"#"+q.Get("partNumber")] = body
 		w.Header().Set("ETag", `"part-`+q.Get("partNumber")+`"`)

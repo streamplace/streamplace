@@ -64,7 +64,7 @@ if [[ -z "$HASH" ]]; then
   echo "no DOCKERFILE_HASH in .ci/dockerfile-hash.yaml" >&2
   exit 1
 fi
-IMAGE="public.ecr.aws/m4j3c0j7/streamplace:builder-$HASH"
+IMAGE="ghcr.io/streamplace/streamplace:builder-$HASH"
 
 running() { docker ps --format '{{.Names}}' | grep -qx "$1"; }
 exists() { docker ps -a --format '{{.Names}}' | grep -qx "$1"; }

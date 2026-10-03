@@ -49,18 +49,7 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
 
     selectedRendition: "source",
     setSelectedRendition: (rendition: string) =>
-      set((state) => {
-        if (rendition === "audio" && state.controlsTimeout) {
-          clearTimeout(state.controlsTimeout);
-          return {
-            ...state,
-            selectedRendition: rendition,
-            showControls: true,
-            controlsTimeout: undefined,
-          };
-        }
-        return { ...state, selectedRendition: rendition };
-      }),
+      set(() => ({ selectedRendition: rendition })),
     protocol: PlayerProtocol.WEBRTC,
     setProtocol: (protocol: PlayerProtocol) => {
       storage.setItem(PROTOCOL_STORAGE_KEY, protocol).catch(console.error);
@@ -211,10 +200,8 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     embedded: false,
     setEmbedded: (embedded: boolean) => set(() => ({ embedded })),
 
-    showControls: true,
-    controlsTimeout: undefined,
-    setShowControls: (showControls: boolean) =>
-      set({ showControls, controlsTimeout: undefined }),
+    showControls: false,
+    setShowControls: (showControls: boolean) => set({ showControls }),
 
     telemetry: true,
     setTelemetry: (telemetry: boolean) => set(() => ({ telemetry })),
@@ -252,28 +239,6 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
           console.error("error sending player telemetry", e);
         }
         return {};
-      }),
-
-    // Clear the controls timeout, if it exists.
-    // Should be called on player unmount.
-    clearControlsTimeout: () =>
-      set((state) => {
-        if (state.controlsTimeout) {
-          clearTimeout(state.controlsTimeout);
-        }
-        return { controlsTimeout: undefined };
-      }),
-
-    setUserInteraction: () =>
-      set((p) => {
-        if (p.controlsTimeout) {
-          clearTimeout(p.controlsTimeout);
-        }
-        if (p.selectedRendition === "audio") {
-          return { showControls: true, controlsTimeout: undefined };
-        }
-        let controlsTimeout = setTimeout(() => p.setShowControls(false), 1000);
-        return { showControls: true, controlsTimeout };
       }),
 
     showDebugInfo: false,

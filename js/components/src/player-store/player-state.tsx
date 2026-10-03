@@ -199,9 +199,11 @@ export interface PlayerState {
   /** Function to set the embedded flag */
   setEmbedded: (embedded: boolean) => void;
 
-  /** Flag indicating if player controls should be shown */
+  /**
+   * Whether the player UI's bottom controls are showing; captions rise above
+   * them. The UI that draws them reports it.
+   */
   showControls: boolean;
-  controlsTimeout?: NodeJS.Timeout | undefined;
 
   /** Function to set the showControls flag */
   setShowControls: (showControls: boolean) => void;
@@ -215,10 +217,6 @@ export interface PlayerState {
     eventType: string,
     meta: { [key: string]: any },
   ) => void;
-
-  clearControlsTimeout: () => void;
-
-  setUserInteraction: () => void;
 
   showDebugInfo: boolean;
   setShowDebugInfo: (showDebugInfo: boolean) => void;

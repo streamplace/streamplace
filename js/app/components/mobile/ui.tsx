@@ -178,6 +178,17 @@ export function MobileUi({
     };
   }, []);
 
+  // Captions rise above the bottom controls while they show: the web live bar
+  // and the VOD seek bar. Native live draws none.
+  const webLiveBar =
+    Platform.OS === "web" && mode === "live" && ingest === null;
+  const setShowControls = usePlayerStore((state) => state.setShowControls);
+  const bottomControls = webLiveBar || mode === "vod";
+  useEffect(() => {
+    setShowControls(bottomControls && controlsInteractive);
+    return () => setShowControls(false);
+  }, [bottomControls, controlsInteractive, setShowControls]);
+
   const showUI = () => {
     "worklet";
     fadeOpacity.value = withTiming(1, { duration: motion.base });
@@ -463,7 +474,7 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
-      {Platform.OS === "web" && mode === "live" && ingest === null && (
+      {webLiveBar && (
         <Animated.View
           style={[
             layout.position.absolute,

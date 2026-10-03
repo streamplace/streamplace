@@ -136,6 +136,14 @@ export function DesktopUi({
     };
   }, [resetFadeTimer]);
 
+  // Captions rise above the bottom bar while it shows.
+  const setShowControls = usePlayerStore((state) => state.setShowControls);
+  const bottomBarShown = isControlsVisible || shouldShowFloatingMetrics;
+  useEffect(() => {
+    setShowControls(bottomBarShown);
+    return () => setShowControls(false);
+  }, [bottomBarShown, setShowControls]);
+
   const animatedFadeStyle = useAnimatedStyle(() => ({
     opacity: shouldShowFloatingMetrics ? 1 : fadeOpacity.value,
   }));

@@ -154,7 +154,6 @@ const VideoElement = forwardRef<
   const muted = useMuted();
   const setMuted = useSetMuted();
   const setStatus = usePlayerStore((x) => x.setStatus);
-  const setUserInteraction = usePlayerStore((x) => x.setUserInteraction);
   const setVideoRef = usePlayerStore((x) => x.setVideoRef);
   const setPlayTime = usePlayerStore((x) => x.setPlayTime);
   const setDuration = usePlayerStore((x) => x.setDuration);
@@ -292,8 +291,6 @@ const VideoElement = forwardRef<
       src={ingest ? undefined : props.url}
       muted={muted}
       crossOrigin="anonymous"
-      onMouseMove={setUserInteraction}
-      onClick={setUserInteraction}
       onAbort={event("abort")}
       onCanPlay={eventLogger}
       onCanPlayThroughCapture={eventLogger}

@@ -142,8 +142,8 @@ func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join([]string{
 		"appsrc name=src ! qtdemux name=demux",
-		constants.Queue2Big + " name=vq ! h264parse name=vparse",
-		audioChain,
+		"demux.video_0 ! " + constants.Queue2Big + " name=vq ! h264parse name=vparse",
+		"demux.audio_0 ! " + audioChain,
 	}, "\n"))
 	if err != nil {
 		return nil, fmt.Errorf("create transcode pipeline: %w", err)
@@ -239,37 +239,6 @@ func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
 	}
 	if r := aenc.GetStaticPad("src").Link(audioMuxPad); r != gst.PadLinkOK {
 		return nil, fmt.Errorf("link audio chain → mux: %v", r)
-	}
-
-	vq, err := pipeline.GetElementByName("vq")
-	if err != nil {
-		return nil, err
-	}
-	aq, err := pipeline.GetElementByName("aq")
-	if err != nil {
-		return nil, err
-	}
-	demux, err := pipeline.GetElementByName("demux")
-	if err != nil {
-		return nil, err
-	}
-	if _, err := demux.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
-		name := pad.GetName()
-		var dst *gst.Pad
-		switch {
-		case strings.HasPrefix(name, "video"):
-			dst = vq.GetStaticPad("sink")
-		case strings.HasPrefix(name, "audio"):
-			dst = aq.GetStaticPad("sink")
-		default:
-			return
-		}
-		if r := pad.Link(dst); r != gst.PadLinkOK {
-			// non-fatal: a stray pad (e.g. a second audio track) is just dropped
-			fmt.Printf("transcode: failed to link demux pad %s: %v\n", name, r)
-		}
-	}); err != nil {
-		return nil, fmt.Errorf("connect demux pad-added: %w", err)
 	}
 
 	return pipeline, nil

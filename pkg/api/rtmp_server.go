@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 	"time"
@@ -60,45 +61,14 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 		close(session.EventChan)
 	}()
 
-	r := &gortmplib.Reader{
-		Conn: sc,
-	}
-	err = r.Initialize()
+	g, ctx := errgroup.WithContext(ctx)
+	r, err := initializeRTMPReader(ctx, sc, session)
 	if err != nil {
 		return err
 	}
 
-	for _, track := range r.Tracks() {
-		log.Log(ctx, "get track", "track", track)
-
-		switch track := track.(type) {
-		case *format.H264:
-			session.VideoTrack = track
-			r.OnDataH264(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
-				// log.Log(ctx, "got H264", "len", len(au), "pts", pts, "dts", dts)
-				session.EventChan <- &media.RTMPH264Data{
-					AU:  au,
-					PTS: pts,
-					DTS: dts,
-				}
-			})
-
-		case *format.MPEG4Audio:
-			session.AudioTrack = track
-			r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) {
-				// log.Log(ctx, "got MPEG4Au", "len", len(au), "pts", pts)
-				session.EventChan <- &media.RTMPAACData{
-					AU:  au,
-					PTS: pts,
-				}
-			})
-
-		default:
-			return fmt.Errorf("unsupported track type: %T", track)
-		}
-	}
-
-	g, ctx := errgroup.WithContext(ctx)
+	stopRead := context.AfterFunc(ctx, func() { _ = sc.RW.(net.Conn).Close() })
+	defer stopRead()
 	g.Go(func() error {
 		for {
 			if ctx.Err() != nil {
@@ -120,6 +90,37 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 	})
 
 	return g.Wait()
+}
+
+// initializeRTMPReader is shared by live publishers and the unpublished shadow.
+func initializeRTMPReader(ctx context.Context, sc *gortmplib.ServerConn, session *media.RTMPSession) (*gortmplib.Reader, error) {
+	r := &gortmplib.Reader{Conn: sc}
+	if err := r.Initialize(); err != nil {
+		return nil, err
+	}
+	send := func(event any) {
+		select {
+		case session.EventChan <- event:
+		case <-ctx.Done():
+		}
+	}
+	for _, track := range r.Tracks() {
+		switch track := track.(type) {
+		case *format.H264:
+			session.VideoTrack = track
+			r.OnDataH264(track, func(pts, dts time.Duration, au [][]byte) {
+				send(&media.RTMPH264Data{AU: au, PTS: pts, DTS: dts})
+			})
+		case *format.MPEG4Audio:
+			session.AudioTrack = track
+			r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) {
+				send(&media.RTMPAACData{AU: au, PTS: pts})
+			})
+		default:
+			return nil, fmt.Errorf("unsupported track type: %T", track)
+		}
+	}
+	return r, nil
 }
 
 func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.ServerConn) error {
@@ -162,7 +163,7 @@ func relayRTMPSession(ctx context.Context, conn gortmplib.Conn, session *media.R
 			return ctx.Err()
 		case event := <-session.EventChan:
 			if event == nil {
-				return fmt.Errorf("RTMP session closed")
+				return fmt.Errorf("RTMP session closed: %w", io.EOF)
 			}
 			switch event := event.(type) {
 			case *media.RTMPH264Data:

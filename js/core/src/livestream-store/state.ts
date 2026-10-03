@@ -41,6 +41,8 @@ export interface LivestreamState {
   setStreamKey: (key: string | null) => void;
   activeTeleport: place.stream.live.teleport.Main | null;
   activeTeleportUri: string | null;
+  activeTeleportCID: string | null;
+  canceledTeleportURIs: string[];
   setActiveTeleportUri: (uri: string | null) => void;
   websocketConnected: boolean;
   hasReceivedSegment: boolean;

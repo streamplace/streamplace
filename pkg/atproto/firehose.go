@@ -766,10 +766,7 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 			}
 
 			if collection.String() == constants.PLACE_STREAM_LIVE_TELEPORT {
-				err := atsync.Model.DeleteTeleport(ctx, uri)
-				if err != nil {
-					log.Error(ctx, "failed to delete teleport", "err", err)
-				}
+				atsync.handleTeleportDelete(ctx, uri)
 			}
 
 			if collection.String() == constants.PLACE_STREAM_MODERATION_PERMISSION {
@@ -898,6 +895,31 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 	}
 
 	return true
+}
+
+func (atsync *ATProtoSynchronizer) handleTeleportDelete(ctx context.Context, uri string) {
+	teleport, err := atsync.Model.GetTeleportByURI(uri)
+	if err != nil {
+		log.Error(ctx, "failed to get teleport before deleting", "err", err, "uri", uri)
+		teleport = nil
+	}
+
+	if err := atsync.Model.DeleteTeleport(ctx, uri); err != nil {
+		log.Error(ctx, "failed to delete teleport", "err", err, "uri", uri)
+		return
+	}
+	if teleport == nil {
+		return
+	}
+
+	cancelMsg := map[string]any{
+		"$type":       "place.stream.livestream#teleportCanceled",
+		"teleportUri": uri,
+		"cid":         teleport.CID,
+		"reason":      "deleted",
+	}
+	atsync.Bus.Publish(teleport.RepoDID, cancelMsg)
+	atsync.Bus.Publish(teleport.TargetDID, cancelMsg)
 }
 
 // reviveRepo un-parks a repo we had written off. A commit event is proof the

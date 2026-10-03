@@ -11,6 +11,7 @@ import { useStore as useAppStore } from "../../lib/store";
 import { getStreamplaceUrl } from "../../lib/streamplace-url";
 import { DanmuOverlay } from "./danmu-overlay";
 import { PlayerOffline } from "./player-offline";
+import { StreamNotificationProvider } from "./stream-notification-provider";
 import { UserOffline } from "./user-offline";
 
 const DANMU_KEY = "danmu-enabled";
@@ -239,6 +240,8 @@ export function VideoSectionInner({
                 {p.message}
               </div>
             ))}
+
+        {mode === "live" && store && <StreamNotificationProvider />}
       </div>
     </div>
   );

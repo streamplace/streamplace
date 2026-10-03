@@ -1,3 +1,8 @@
+import {
+  createTeleport,
+  handleSlashCommand,
+  registerTeleportCommand,
+} from "@streamplace/core";
 import Graphemer from "graphemer";
 import { AtSignIcon, ExternalLink, X } from "lucide-react-native";
 import { env } from "process";
@@ -5,11 +10,6 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, TextInput } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { Button, Loader, Text, toast, useTheme, View } from "../../";
-import { handleSlashCommand } from "../../lib/slash-commands";
-import {
-  createTeleport,
-  registerTeleportCommand,
-} from "../../lib/slash-commands/teleport";
 import { StreamNotifications } from "../../lib/stream-notifications";
 import { SystemMessages } from "../../lib/system-messages";
 import {
@@ -119,15 +119,21 @@ export function ChatBox({
   );
 
   useEffect(() => {
-    if (pdsAgent && userDID) {
-      registerTeleportCommand(
-        pdsAgent,
-        userDID,
-        () => (linfo ? { uri: linfo.uri, cid: linfo.cid } : null),
-        setActiveTeleportUri,
-        () => setShowTeleportModal(true),
-      );
-    }
+    if (!pdsAgent || !userDID) return;
+    return registerTeleportCommand(
+      pdsAgent,
+      userDID,
+      () =>
+        linfo && !linfo.record.endedAt
+          ? {
+              uri: linfo.uri,
+              cid: linfo.cid,
+              streamerDid: linfo.author.did,
+            }
+          : null,
+      setActiveTeleportUri,
+      () => setShowTeleportModal(true),
+    );
   }, [pdsAgent, userDID, linfo, setActiveTeleportUri]);
 
   const authors = useMemo(() => {
@@ -140,18 +146,6 @@ export function ChatBox({
       return acc;
     }, new Map<string, ChatMessageViewHydrated["chatProfile"]>());
   }, [chat]);
-
-  useEffect(() => {
-    if (pdsAgent && linfo?.author?.did && pdsAgent.did === linfo.author.did) {
-      registerTeleportCommand(
-        pdsAgent,
-        pdsAgent.did,
-        () => (linfo ? { uri: linfo.uri, cid: linfo.cid } : null),
-        setActiveTeleportUri,
-        () => setShowTeleportModal(true),
-      );
-    }
-  }, [pdsAgent, linfo, setActiveTeleportUri]);
 
   const handleMentionSelect = (handle: string) => {
     const beforeAt = message.slice(0, message.lastIndexOf("@"));
@@ -177,6 +171,14 @@ export function ChatBox({
     countdownSeconds: number,
   ) => {
     if (!pdsAgent || !userDID) return;
+    if (!linfo || linfo.record.endedAt || linfo.author.did !== userDID) {
+      addSystemMessage(
+        SystemMessages.commandError(
+          "Only the streamer of the current livestream can start a teleport",
+        ),
+      );
+      return;
+    }
 
     const result = await createTeleport(
       pdsAgent,

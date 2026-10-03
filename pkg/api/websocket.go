@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -118,7 +119,10 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 		sentRenditions.Store("")
 		go func() {
 
-			ch := a.Bus.Subscribe(repoDID)
+			ch := a.Bus.SubscribeWithBacklogLimit(repoDID, func() {
+				conn.Close()
+				cancel()
+			})
 			defer a.Bus.Unsubscribe(repoDID, ch)
 			// The ingest problems last sent to this viewer. Nothing matches
 			// this to begin with, so the first tick always sends the current
@@ -142,6 +146,34 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				if err != nil {
 					log.Error(ctx, "could not write message", "error", err)
 					return
+				}
+			}
+
+			// Subscribe before reading the snapshot so changes during the lookup
+			// are buffered. Send the snapshot first, then consume those changes so
+			// a cancellation cannot be followed by the stale pending record.
+			teleport, err := a.Model.GetPendingTeleportForRepo(repoDID)
+			if err != nil {
+				log.Error(ctx, "could not get pending teleport", "error", err)
+			} else if teleport != nil && teleport.Teleport != nil {
+				var record placestream.LiveTeleport
+				if err := record.UnmarshalCBOR(bytes.NewReader(*teleport.Teleport)); err != nil {
+					log.Error(ctx, "could not decode pending teleport", "error", err, "uri", teleport.URI)
+				} else {
+					teleportMessage := map[string]any{
+						"$type":    record.RecordTypeID(),
+						"uri":      teleport.URI,
+						"cid":      teleport.CID,
+						"streamer": record.Streamer,
+						"startsAt": record.StartsAt,
+					}
+					if record.DurationSeconds != nil {
+						teleportMessage["durationSeconds"] = *record.DurationSeconds
+					}
+					if record.Livestream != nil {
+						teleportMessage["livestream"] = record.Livestream
+					}
+					send(teleportMessage)
 				}
 			}
 

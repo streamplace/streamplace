@@ -1,4 +1,10 @@
-import type { LivestreamStore } from "@streamplace/core";
+import {
+  handleSlashCommand,
+  isTeleportErrorCode,
+  registerTeleportCommand,
+  type LivestreamStore,
+  type TeleportErrorData,
+} from "@streamplace/core";
 import { Extension } from "@tiptap/core";
 import MentionBase from "@tiptap/extension-mention";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -8,7 +14,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { exitSuggestion, Suggestion } from "@tiptap/suggestion";
 import type { SkinTone } from "frimousse";
 import { Reply, Smile, X } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { ChatMessageViewHydrated } from "streamplace";
@@ -29,6 +35,7 @@ import { Button } from "../ui/button";
 import { EmojiList } from "./emoji-list";
 import { EmojiPicker } from "./emoji-picker";
 import { MentionList, type MentionItem } from "./mention-list";
+import { TeleportDialog } from "./teleport-dialog";
 
 const MAX_LENGTH = 300;
 
@@ -294,9 +301,15 @@ function createEmojiSuggestion({ getSkinTone }: EmojiSuggestionProps) {
   };
 }
 
-export function ChatInput({ store }: { store: LivestreamStore }) {
+export function ChatInput({
+  store,
+  onTeleportCreated,
+}: {
+  store: LivestreamStore;
+  onTeleportCreated?: (uri: string, targetDID: string) => void;
+}) {
   const { t } = useTranslation("common");
-  const { state } = useSession();
+  const { state, pdsAgent, did } = useSession();
   const isAuthed = state.status === "authenticated";
   const send = useChatSend(store);
   const replyToMessage = useStore(store, (s) => s.replyToMessage);
@@ -306,6 +319,29 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
   const [sending, setSending] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [skinTone, setSkinTone] = useSkinTone();
+  const [teleportOpen, setTeleportOpen] = useState(false);
+  const livestream = useStore(store, (s) => s.livestream);
+
+  useEffect(() => {
+    if (!pdsAgent || !did) return;
+    return registerTeleportCommand(
+      pdsAgent,
+      did,
+      () =>
+        livestream && !livestream.record.endedAt
+          ? {
+              uri: livestream.uri,
+              cid: livestream.cid,
+              streamerDid: livestream.author.did,
+            }
+          : null,
+      (uri, targetDID) => {
+        store.setState({ activeTeleportUri: uri });
+        onTeleportCreated?.(uri, targetDID);
+      },
+      () => setTeleportOpen(true),
+    );
+  }, [did, livestream, pdsAgent, store, onTeleportCreated]);
 
   // Keep module-level refs fresh so the suggestion items functions always
   // have up-to-date data without recreating the editor.
@@ -455,6 +491,18 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
     setError(null);
     setSending(true);
     try {
+      if (text.startsWith("/")) {
+        const result = await handleSlashCommand(text);
+        if (result.handled) {
+          if (result.error) {
+            setError(result.error);
+            return;
+          }
+          editor.commands.clearContent();
+          store.setState((s) => ({ ...s, replyToMessage: null }));
+          return;
+        }
+      }
       await send(text);
       editor.commands.clearContent();
     } catch (error) {
@@ -463,7 +511,35 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
     } finally {
       setSending(false);
     }
-  }, [editor, sending, send]);
+  }, [editor, sending, send, store]);
+
+  const submitTeleport = useCallback(
+    async (
+      handle: string,
+      countdownSeconds: number,
+    ): Promise<TeleportErrorData | undefined> => {
+      const result = await handleSlashCommand(
+        `/teleport @${handle} ${countdownSeconds}`,
+      );
+      if (!result.handled || result.error) {
+        const errorData = result.errorData;
+        if (
+          errorData?.type === "teleport" &&
+          isTeleportErrorCode(errorData.code)
+        ) {
+          return {
+            code: errorData.code,
+            ...(errorData.params?.handle
+              ? { params: { handle: errorData.params.handle } }
+              : {}),
+          };
+        }
+        return { code: "create" };
+      }
+      return undefined;
+    },
+    [],
+  );
 
   // Keep the ref fresh so editorProps.handleKeyDown can call the latest onSubmit.
   onSubmitRef.current = () => onSubmit();
@@ -506,10 +582,15 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
       {replyToMessage && (
         <div className="mb-1 flex items-center gap-2 rounded border border-(--color-border) bg-(--color-bg-overlay) px-2 py-1 text-xs">
           <Reply className="h-3 w-3 shrink-0 text-(--color-fg-muted)" />
-          <span className="flex-1 truncate text-(--color-fg-muted)">
-            {t("chat-replying-to", {
-              handle: replyToMessage.author.handle || replyToMessage.author.did,
-            })}
+          <span className="min-w-0 flex-1 truncate text-(--color-fg-muted)">
+            <span className="font-medium">
+              {t("chat-replying-to", {
+                handle:
+                  replyToMessage.author.handle || replyToMessage.author.did,
+              })}
+            </span>
+            {" · "}
+            {replyToMessage.record.text}
           </span>
           <Button
             type="button"
@@ -570,6 +651,14 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
           skinTone={skinTone}
           onSkinToneChange={setSkinTone}
           anchorRef={smileButtonRef}
+        />
+      )}
+
+      {teleportOpen && (
+        <TeleportDialog
+          open={teleportOpen}
+          onOpenChange={setTeleportOpen}
+          onSubmit={submitTeleport}
         />
       )}
 

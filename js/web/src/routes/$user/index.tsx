@@ -4,6 +4,7 @@ import {
   CopyButton,
   StreamInfo,
 } from "@/components/stream/stream-info";
+import { StreamTeleportNotification } from "@/components/stream/stream-notifications";
 import { VideoSection } from "@/components/stream/video-section";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -15,12 +16,13 @@ import {
 } from "@/components/ui/sheet";
 import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useActorLookup } from "@/hooks/actor-lookup";
+import useAvatars from "@/hooks/use-avatars";
 import { useLivenessState } from "@/hooks/use-liveness-state";
 import { useLivestreamStore } from "@/hooks/use-livestream-store";
 import { useStreamAvatar } from "@/hooks/use-stream-avatar";
 import { useStreamplaceUrl } from "@/lib/store/hooks";
 import type { LivestreamStore } from "@streamplace/core";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ExternalLink,
   House,
@@ -29,7 +31,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
@@ -140,9 +142,32 @@ function CreatorState({
 }
 
 function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
+  const navigate = useNavigate();
   const liveness = useLivenessState(store);
   const avatar = useStreamAvatar(store);
+  const activeTeleport = useStore(store, (s) => s.activeTeleport);
+  const livestreamDid = useStore(store, (s) => s.livestream?.author.did);
+  const teleportDids = useMemo(
+    () => (activeTeleport ? [activeTeleport.streamer] : []),
+    [activeTeleport?.streamer],
+  );
+  const teleportProfiles = useAvatars(teleportDids);
   const { theatre } = useFullscreen();
+
+  useEffect(() => {
+    if (!activeTeleport || activeTeleport.streamer === livestreamDid) return;
+    const targetDid = activeTeleport.streamer;
+    const startsAt = new Date(activeTeleport.startsAt).getTime();
+    if (!Number.isFinite(startsAt)) return;
+    const timer = setTimeout(
+      () => {
+        const target = teleportProfiles[targetDid]?.handle || targetDid;
+        void navigate({ to: "/$user", params: { user: target } });
+      },
+      Math.max(0, startsAt - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [activeTeleport, livestreamDid, navigate, teleportProfiles]);
   // Offline streams default to a closed chat; the chat has nothing
   // to show, and the shorter offline player should take the page
   // width. Live streams honor the user's saved preference.
@@ -207,6 +232,7 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
 
   return (
     <div className="flex h-full flex-col">
+      <StreamTeleportNotification store={store} />
       {/* Sidebar layout (wide viewport) */}
       <div className="wide:flex wide:h-full wide:flex-col wide:gap-3 hidden">
         <div

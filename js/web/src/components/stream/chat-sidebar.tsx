@@ -70,7 +70,7 @@ export function ChatSidebar({
         </div>
       </SidebarHeader>
 
-      <StreamNotifications store={store} />
+      <StreamNotifications store={store} showTeleport={false} />
 
       <SidebarContent className="overflow-hidden p-0!">
         <ChatPanel store={store} />

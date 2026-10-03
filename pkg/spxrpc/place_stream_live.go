@@ -60,10 +60,11 @@ func (s *Server) handlePlaceStreamLiveDenyTeleport(ctx context.Context, input *p
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to deny teleport")
 	}
 
-	cancelMsg := placestream.Livestream_TeleportCanceled{
-		LexiconTypeID: "place.stream.livestream#teleportCanceled",
-		TeleportUri:   input.Uri,
-		Reason:        "denied",
+	cancelMsg := map[string]any{
+		"$type":       "place.stream.livestream#teleportCanceled",
+		"teleportUri": input.Uri,
+		"cid":         teleport.CID,
+		"reason":      "denied",
 	}
 
 	s.bus.Publish(teleport.RepoDID, cancelMsg)

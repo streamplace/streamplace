@@ -278,6 +278,33 @@ theatre-exit = Exit theatre mode
 
 ## Notifications
 teleporting-in = Teleporting in
+teleporting-to = Teleporting to @{ $handle }
+
+## Teleport dialog
+teleport-dialog-title = Teleport to another live streamer
+teleport-dialog-description = Select a streamer to teleport your viewers to their stream.
+teleport-unknown-streamer = Unknown streamer
+teleport-search-label = Search live streams
+teleport-search-placeholder = Search by handle or title
+teleport-loading-streamers = Loading live streamers…
+teleport-empty-streamers = No live streamers found.
+teleport-no-matching-streamers = No matching live streamers found.
+teleport-viewer-count = { $count ->
+    [one] { $count } viewer
+   *[other] { $count } viewers
+}
+teleport-countdown = Countdown
+teleport-seconds-range = seconds (5–300)
+teleport-countdown-error = Countdown must be between 5 and 300 seconds.
+teleport-selection-expired = That streamer is no longer live. Choose another streamer.
+teleport-starting = Starting…
+teleport-start = Teleport
+teleport-error-streamer-only = Only the streamer of the current livestream can start a teleport.
+teleport-error-handle-format = Enter a valid handle, such as handle.bsky.social.
+teleport-error-countdown-number = Countdown must be a number of seconds.
+teleport-error-self = You cannot teleport to yourself.
+teleport-error-resolve-handle = Could not find @{ $handle }.
+teleport-error-create = Could not start the teleport.
 
 ## Video Card
 views-count = { $count ->
@@ -424,7 +451,7 @@ player-latency = Latency
 player-quality-auto = Auto
 
 ## Video Player - Stats panel
-player-stats = Player stats
+player-stats = Stats for Nerds
 player-stats-resolution = Resolution
 player-stats-viewport = Viewport
 player-stats-bitrate = Bitrate

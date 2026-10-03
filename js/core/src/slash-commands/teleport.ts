@@ -5,6 +5,43 @@ import {
   SlashCommandResult,
 } from "../slash-commands";
 
+const TELEPORT_ERROR_CODES = [
+  "streamer-only",
+  "handle-format",
+  "countdown-number",
+  "countdown-range",
+  "self",
+  "resolve-handle",
+  "create",
+] as const;
+
+export type TeleportErrorCode = (typeof TELEPORT_ERROR_CODES)[number];
+
+export type TeleportErrorData = {
+  code: TeleportErrorCode;
+  params?: { handle?: string };
+};
+
+export function isTeleportErrorCode(code: string): code is TeleportErrorCode {
+  return TELEPORT_ERROR_CODES.some((knownCode) => knownCode === code);
+}
+
+function teleportError(
+  message: string,
+  code: TeleportErrorCode,
+  params?: TeleportErrorData["params"],
+): SlashCommandResult {
+  return {
+    handled: true,
+    error: message,
+    errorData: {
+      type: "teleport",
+      code,
+      ...(params ? { params } : {}),
+    },
+  };
+}
+
 export async function deleteTeleport(
   pdsAgent: StreamplaceAgent,
   userDID: string,
@@ -26,7 +63,7 @@ export async function createTeleport(
   targetHandle: string,
   countdownSeconds: number,
   livestream?: { uri: string; cid: string } | null,
-  setActiveTeleportUri?: (uri: string | null) => void,
+  onTeleportCreated?: (uri: string, targetDID: string) => void,
 ): Promise<{ success: boolean; error?: string }> {
   if (countdownSeconds < 5 || countdownSeconds > 300) {
     return {
@@ -76,9 +113,7 @@ export async function createTeleport(
       { repo: userDID as any },
     );
 
-    if (setActiveTeleportUri) {
-      setActiveTeleportUri(result.uri);
-    }
+    onTeleportCreated?.(result.uri, targetDID);
 
     return { success: true };
   } catch (err) {
@@ -92,14 +127,26 @@ export async function createTeleport(
 export function registerTeleportCommand(
   pdsAgent: StreamplaceAgent,
   userDID: string,
-  getLivestream?: () => { uri: string; cid: string } | null,
-  setActiveTeleportUri?: (uri: string | null) => void,
+  getLivestream?: () => {
+    uri: string;
+    cid: string;
+    streamerDid: string;
+  } | null,
+  onTeleportCreated?: (uri: string, targetDID: string) => void,
   onOpenModal?: () => void,
-) {
+): () => void {
   const teleportHandler: SlashCommandHandler = async (
     args,
     rawInput,
   ): Promise<SlashCommandResult> => {
+    const livestream = getLivestream?.() ?? null;
+    if (!livestream || livestream.streamerDid !== userDID) {
+      return teleportError(
+        "Only the streamer of the current livestream can start a teleport",
+        "streamer-only",
+      );
+    }
+
     if (args.length === 0) {
       if (onOpenModal) {
         onOpenModal();
@@ -118,26 +165,26 @@ export function registerTeleportCommand(
     }
 
     if (!targetHandle.includes(".")) {
-      return {
-        handled: true,
-        error: "Invalid handle format. Expected: handle.bsky.social",
-      };
+      return teleportError(
+        "Invalid handle format. Expected: handle.bsky.social",
+        "handle-format",
+      );
     }
 
     let countdownSeconds = 10;
     if (args.length > 1) {
       const parsedDuration = parseInt(args[1], 10);
       if (isNaN(parsedDuration)) {
-        return {
-          handled: true,
-          error: "Countdown must be a number (seconds)",
-        };
+        return teleportError(
+          "Countdown must be a number (seconds)",
+          "countdown-number",
+        );
       }
       if (parsedDuration < 5 || parsedDuration > 300) {
-        return {
-          handled: true,
-          error: "Countdown must be between 5 seconds and 5 minutes",
-        };
+        return teleportError(
+          "Countdown must be between 5 seconds and 5 minutes",
+          "countdown-range",
+        );
       }
       countdownSeconds = parsedDuration;
     }
@@ -146,8 +193,6 @@ export function registerTeleportCommand(
     // stream so the server can end exactly that record on arrival. When absent
     // the teleport still sends viewers over; the server just won't end a
     // source stream.
-    const livestream = getLivestream?.() ?? null;
-
     let targetDID: string;
     try {
       const resolution = await pdsAgent.resolveHandle({
@@ -155,17 +200,15 @@ export function registerTeleportCommand(
       });
       targetDID = resolution.data.did;
     } catch (err) {
-      return {
-        handled: true,
-        error: `Could not resolve handle: ${targetHandle}`,
-      };
+      return teleportError(
+        `Could not resolve handle: ${targetHandle}`,
+        "resolve-handle",
+        { handle: targetHandle },
+      );
     }
 
     if (targetDID === userDID) {
-      return {
-        handled: true,
-        error: "You cannot teleport to yourself",
-      };
+      return teleportError("You cannot teleport to yourself", "self");
     }
 
     const startsAt = new Date(
@@ -187,31 +230,33 @@ export function registerTeleportCommand(
         { repo: userDID as any },
       );
 
-      // store the URI in the livestream store
-      if (setActiveTeleportUri) {
-        setActiveTeleportUri(result.uri);
-      }
+      onTeleportCreated?.(result.uri, targetDID);
 
       return { handled: true };
     } catch (err) {
-      return {
-        handled: true,
-        error: err instanceof Error ? err.message : "Failed to create teleport",
-      };
+      return teleportError(
+        err instanceof Error ? err.message : "Failed to create teleport",
+        "create",
+      );
     }
   };
 
-  registerSlashCommand({
+  const unregisterTeleport = registerSlashCommand({
     name: "teleport",
     description: "Start a teleport to another streamer",
     usage: "/teleport @handle.bsky.social [duration_seconds]",
     handler: teleportHandler,
   });
 
-  registerSlashCommand({
+  const unregisterTp = registerSlashCommand({
     name: "tp",
     description: "Start a teleport to another streamer (alias for /teleport)",
     usage: "/tp @handle.bsky.social [duration_seconds]",
     handler: teleportHandler,
   });
+
+  return () => {
+    unregisterTeleport();
+    unregisterTp();
+  };
 }

@@ -294,6 +294,7 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 func writeSamples(ctx context.Context, track *webrtc.TrackLocalStaticSample, samples []bus.PacketizedSample, scalar float64) error {
 	start := time.Now()
 	var scheduled time.Duration
+	var timer *time.Timer
 	for _, s := range samples {
 		if err := track.WriteSample(media.Sample{Data: s.Data, Duration: s.Duration}); err != nil {
 			return fmt.Errorf("failed to write sample: %w", err)
@@ -303,7 +304,11 @@ func writeSamples(ctx context.Context, track *webrtc.TrackLocalStaticSample, sam
 		if wait <= 0 {
 			continue
 		}
-		timer := time.NewTimer(wait)
+		if timer == nil {
+			timer = time.NewTimer(wait)
+		} else {
+			timer.Reset(wait)
+		}
 		select {
 		case <-ctx.Done():
 			timer.Stop()

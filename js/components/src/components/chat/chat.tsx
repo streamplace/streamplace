@@ -37,7 +37,15 @@ import {
   useTheme,
   View,
 } from "../../";
-import { flex, gap, layout, mr, px, py } from "../../lib/theme/atoms";
+import {
+  flex,
+  gap,
+  layout,
+  mr,
+  px,
+  py,
+  selectableText,
+} from "../../lib/theme/atoms";
 import { borderRadius, colors, motion, spacing } from "../../lib/theme/tokens";
 import { RenderChatMessage } from "./chat-message";
 import { ModMenuContent, ModView } from "./mod-view";
@@ -305,9 +313,12 @@ const ChatLine = memo(function ChatLine({
           onPointerEnter={handleHoverIn}
           onPointerLeave={handleHoverOut}
         >
-          <Pressable style={[{ minWidth: 0, maxWidth: "100%" }]}>
+          {/* A plain View, not a Pressable: the row has no onPress, and the
+              Pressable's DOM node and press handler made the whole message
+              non-selectable. userSelect restores web text selection. */}
+          <View style={[{ minWidth: 0, maxWidth: "100%" }, selectableText]}>
             <RenderChatMessage item={item} />
-          </Pressable>
+          </View>
           <ActionsBar
             item={item}
             visible={isHovered || menuOpen}

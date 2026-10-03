@@ -7,7 +7,15 @@ import { Facet, RichtextSegment, segmentize } from "@streamplace/core";
 import { memo, useCallback, useMemo } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
-import { flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
+import {
+  flex,
+  gap,
+  ml,
+  mr,
+  opacity,
+  pl,
+  selectableText,
+} from "../../lib/theme/atoms";
 import { tabularNums, textAlphas } from "../../lib/theme/tokens";
 import { formatHandleWithAt } from "../../utils/format-handle";
 import {
@@ -74,6 +82,7 @@ const LinkSegment = ({
   return (
     <Text
       key={`link-${index}`}
+      selectable={Platform.OS === "web"}
       style={{ color: theme.colors.info, cursor: "pointer" }}
       // @ts-ignore href renders as <a> on web
       href={Platform.OS === "web" ? linkFtr.uri : undefined}
@@ -101,7 +110,11 @@ const renderSegment = (
   const ftr = seg.features?.[0];
 
   if (!ftr) {
-    return <Text key={`text-${index}`}>{seg.text}</Text>;
+    return (
+      <Text key={`text-${index}`} selectable={Platform.OS === "web"}>
+        {seg.text}
+      </Text>
+    );
   }
 
   if (ftr.$type === "app.bsky.richtext.facet#link") {
@@ -114,6 +127,7 @@ const renderSegment = (
     return (
       <Text
         key={`mention-${index}`}
+        selectable={Platform.OS === "web"}
         style={{ color: getRgbColor(profile?.color), cursor: "pointer" }}
         onPress={() =>
           Linking.openURL(
@@ -127,7 +141,11 @@ const renderSegment = (
       </Text>
     );
   }
-  return <Text key={`unknown-facet-${index}`}>{seg.text}</Text>;
+  return (
+    <Text key={`unknown-facet-${index}`} selectable={Platform.OS === "web"}>
+      {seg.text}
+    </Text>
+  );
 };
 
 export const RichTextMessage = ({
@@ -139,7 +157,8 @@ export const RichTextMessage = ({
 }) => {
   const profileUrl = useNetworkProfileUrl();
   const userCache = useLivestreamStore((state) => state.authors);
-  if (!facets?.length) return <Text>{text}</Text>;
+  if (!facets?.length)
+    return <Text selectable={Platform.OS === "web"}>{text}</Text>;
 
   let segs = segmentize(text, facets as Facet[]);
 
@@ -182,7 +201,17 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
   const dids = useMemo(() => [item.author.did], [item.author.did]);
   const profile = useAvatars(dids)[item.author.did];
   return (
-    <Text size="base" style={[flex.shrink[1], { minWidth: 0 }]}>
+    <View
+      style={[
+        flex.shrink[1],
+        // A row keeps the old inline layout: react-native-web defaults a View
+        // to column, which would stack the handle, colon and message. The
+        // selectableText marker opts the message back into web text selection.
+        layout.flex.row,
+        { display: "flex", flexWrap: "wrap", minWidth: 0 },
+        selectableText,
+      ]}
+    >
       <UserProfileCard uri={item.uri} author={item.author} badges={badges}>
         <View
           style={
@@ -216,7 +245,7 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
         text={item.record.text}
         facets={item.record.facets || []}
       />
-    </Text>
+    </View>
   );
 };
 

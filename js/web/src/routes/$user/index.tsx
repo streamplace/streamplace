@@ -207,14 +207,14 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Sidebar layout (wide viewport) */}
-      <div className="wide:flex wide:h-full wide:flex-col wide:gap-3 hidden">
+      <div className="relative flex min-h-0 flex-1 flex-col wide:h-full">
         <div
-          className={`z-0 flex min-h-0 flex-1 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen ? "wide:mr-90" : ""}`}
+          className={`z-0 flex min-h-0 min-w-0 flex-1 flex-col transition-[margin] duration-300 ease-in-out wide:overflow-y-auto ${chatOpen ? "wide:mr-90" : ""}`}
         >
-          <div className="min-w-0 flex-1 overflow-y-auto">
-            <VideoSection store={store} user={user} liveness={liveness} />
-            {!theatre && (
+          <VideoSection store={store} user={user} liveness={liveness} />
+
+          {!theatre && (
+            <div className="hidden wide:block">
               <StreamInfo
                 store={store}
                 user={user}
@@ -223,39 +223,38 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
                 onToggleChat={toggleChat}
                 avatar={avatar}
               />
+            </div>
+          )}
+
+          {/* Stacked layout details */}
+          <div className="wide:hidden flex min-h-0 flex-1 flex-col">
+            <MobileStreamBar
+              store={store}
+              user={user}
+              chatOpen={chatOpen}
+              onToggleChat={toggleChat}
+              avatar={avatar}
+            />
+
+            {!chatOpen && !isOffline && (
+              <MobileStreamDetails store={store} user={user} avatar={avatar} />
             )}
+
+            <div
+              className={`min-h-0 flex-1 flex-col border-t ${chatOpen ? "flex" : "hidden"}`}
+            >
+              <ChatSidebar store={store} avatar={avatar} />
+            </div>
           </div>
         </div>
 
+        {/* Sidebar layout chat */}
         <div
-          className={`fixed right-0 bottom-0 z-20 flex w-90 flex-col overflow-hidden transition-all duration-300 ease-in-out ${
+          className={`fixed right-0 bottom-0 z-20 hidden w-90 flex-col overflow-hidden transition-all duration-300 ease-in-out wide:flex ${
             chatOpen ? "translate-x-0" : "translate-x-full"
           } ${theatre ? "top-0" : "top-12"}`}
         >
           <ChatSidebar store={store} onClose={toggleChat} avatar={avatar} />
-        </div>
-      </div>
-
-      {/* Stacked layout (portrait/tall) */}
-      <div className="wide:hidden flex min-h-0 flex-1 flex-col">
-        <VideoSection store={store} user={user} liveness={liveness} />
-
-        <MobileStreamBar
-          store={store}
-          user={user}
-          chatOpen={chatOpen}
-          onToggleChat={toggleChat}
-          avatar={avatar}
-        />
-
-        {!chatOpen && !isOffline && (
-          <MobileStreamDetails store={store} user={user} avatar={avatar} />
-        )}
-
-        <div
-          className={`min-h-0 flex-1 flex-col border-t ${chatOpen ? "flex" : "hidden"}`}
-        >
-          <ChatSidebar store={store} avatar={avatar} />
         </div>
       </div>
     </div>

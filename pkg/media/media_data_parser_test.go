@@ -2,11 +2,17 @@ package media
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"io"
+	"log/slog"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/test/remote"
 )
@@ -69,4 +75,87 @@ func TestMediaDataParserVideoHeaderWithNoVideo(t *testing.T) {
 		require.ErrorContains(t, err, "no video in segment")
 		require.Nil(t, mediaData)
 	})
+}
+
+// The two real demuxed tracks finish on native threads. Repeated EOS processing
+// must preserve both tracks and stay race-free under the race detector.
+func TestMediaDataParserConcurrentEOS(t *testing.T) {
+	var logs logCapture
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	defer slog.SetDefault(previousLogger)
+	previousVerbosity := flag.Lookup("v").Value.String()
+	require.NoError(t, flag.Set("v", "3"))
+	t.Cleanup(func() { require.NoError(t, flag.Set("v", previousVerbosity)) })
+	withNoGSTLeaks(t, func() {
+		bs, err := os.ReadFile(getFixture("sample-segment.mp4"))
+		require.NoError(t, err)
+		g, ctx := errgroup.WithContext(context.Background())
+		g.SetLimit(4)
+		for range 16 {
+			g.Go(func() error {
+				meta, err := ParseSegmentMediaData(ctx, bs)
+				if err != nil {
+					return err
+				}
+				if len(meta.Video) != 1 || len(meta.Audio) != 1 || meta.Duration <= 0 {
+					return fmt.Errorf("EOS lost media tracks or duration: %+v", meta)
+				}
+				if meta.Video[0].Width <= 0 || meta.Video[0].Height <= 0 || meta.Audio[0].Rate <= 0 || meta.Audio[0].Channels <= 0 {
+					return fmt.Errorf("EOS lost video dimensions or audio configuration: %+v", meta)
+				}
+				return nil
+			})
+		}
+		require.NoError(t, g.Wait())
+	})
+	// The fixture's initial zero-duration picture warns once per parse.
+	require.Equal(t, 16, strings.Count(logs.String(), "no duration found for track"))
+	require.NotContains(t, logs.String(), "level=ERROR")
+}
+
+func BenchmarkParseSegmentMediaData(b *testing.B) {
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	b.Cleanup(func() { slog.SetDefault(previousLogger) })
+	previousVerbosity := flag.Lookup("v").Value.String()
+	require.NoError(b, flag.Set("v", "0"))
+	b.Cleanup(func() { require.NoError(b, flag.Set("v", previousVerbosity)) })
+	bs, err := os.ReadFile(getFixture("sample-segment.mp4"))
+	require.NoError(b, err)
+	b.ReportAllocs()
+	b.SetBytes(int64(len(bs)))
+	for b.Loop() {
+		meta, err := ParseSegmentMediaData(context.Background(), bs)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if meta.Duration <= 0 {
+			b.Fatal("missing media duration")
+		}
+	}
+}
+
+func TestMediaDataParserMissingVideo(t *testing.T) {
+	var logs logCapture
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	defer slog.SetDefault(previousLogger)
+	previousVerbosity := flag.Lookup("v").Value.String()
+	require.NoError(t, flag.Set("v", "3"))
+	t.Cleanup(func() { require.NoError(t, flag.Set("v", previousVerbosity)) })
+	withNoGSTLeaks(t, func() {
+		synthCtx, stopSynth := context.WithTimeout(context.Background(), 10*time.Second)
+		defer stopSynth()
+		flat := runSynthPipeline(t, synthCtx,
+			"audiotestsrc num-buffers=48 samplesperbuffer=1024 ! audio/x-raw,rate=48000,channels=2 ! audioconvert ! opusenc ! mp4mux fragment-duration=500 ! appsink name=sink")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		meta, err := ParseSegmentMediaData(ctx, flat)
+		require.ErrorContains(t, err, "no video in segment")
+		require.Nil(t, meta)
+		// The demux EOS error must stop parsing before the missing sink stalls.
+		require.NoError(t, ctx.Err())
+	})
+	require.Contains(t, logs.String(), "expected at least 2 tracks (video + audio), got 1")
 }

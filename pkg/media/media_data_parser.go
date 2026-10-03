@@ -9,6 +9,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
@@ -18,10 +19,6 @@ import (
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 )
-
-func padProbeEmpty(_ *gst.Pad, _ *gst.PadProbeInfo) gst.PadProbeReturn {
-	return gst.PadProbeOK
-}
 
 func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentMediaData, error) {
 	ctx, span := otel.Tracer("signer").Start(ctx, "ParseSegmentMediaData")
@@ -95,27 +92,26 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 	videoSink.SetCallbacks(&app.SinkCallbacks{
 		NewSampleFunc: ParseSegmentMediaDataSinkNewSampleFunc(ctx, &foundSomeVideo, &videoDuration),
 	})
-	padsAdded := 0
+	var padsAdded atomic.Int32
 
-	var padProbe func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn
-	padProbe = func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+	padProbe := func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
 		if info.GetEvent().Type() != gst.EventTypeEOS {
 			return gst.PadProbeOK
 		}
-		if padsAdded < 2 {
-			err := fmt.Errorf("expected at least 2 tracks (video + audio), got %d", padsAdded)
-			pipeline.Error(err.Error(), err)
+		if count := padsAdded.Load(); count < 2 {
+			err := fmt.Errorf("expected at least 2 tracks (video + audio), got %d", count)
+			// Resolve the parent here so the callback does not retain the pipeline.
+			if element := pad.GetParentElement(); element != nil {
+				element.Error(err.Error(), err)
+			} else {
+				cancel()
+			}
 		}
-		padProbe = padProbeEmpty
 		return gst.PadProbeRemove
 	}
 
-	outerPadProbe := func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-		return padProbe(pad, info)
-	}
-
 	onPadAdded := func(element *gst.Element, pad *gst.Pad) {
-		padsAdded += 1
+		padsAdded.Add(1)
 		caps := pad.GetCurrentCaps()
 		if caps == nil {
 			log.Warn(ctx, "Unable to get pad caps")
@@ -123,7 +119,8 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 			return
 		}
 
-		pad.AddProbe(gst.PadProbeTypeEventBoth, outerPadProbe)
+		// EOS travels downstream; each pad removes its own probe at EOS.
+		pad.AddProbe(gst.PadProbeTypeEventDownstream, padProbe)
 
 		structure := caps.GetStructureAt(0)
 		if structure == nil {

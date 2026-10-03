@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -49,6 +50,21 @@ func createRecord(ctx context.Context, client *xrpc.Client, collection, repo str
 		return "", err
 	}
 	return out.Uri, nil
+}
+
+// putRecord writes (creates or replaces) a repo record at an explicit rkey. The
+// node keys a user's settings for it by rkey — not by any field in the record —
+// so place.stream.server.settings has to live at the node's host, exactly as the
+// app writes it.
+func putRecord(ctx context.Context, client *xrpc.Client, collection, repo, rkey string, record glex.Record) error {
+	inp := spcomatproto.RepoPutRecord_Input{
+		Collection: collection,
+		Repo:       repo,
+		Rkey:       rkey,
+		Record:     &glex.LexiconTypeDecoder{Val: record},
+	}
+	out := spcomatproto.RepoPutRecord_Output{}
+	return client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out)
 }
 
 func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
@@ -254,6 +270,17 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	}
 	defer os.RemoveAll(dataDir) //nolint:errcheck
 
+	// Break the debug-recording sink on purpose: a regular file where the
+	// recording tree (debug-recordings/<did>/) belongs makes every
+	// DebugRecordingCreate fail — the local-disk shape of a misconfigured or
+	// unpaid S3 bucket. The test account has debugRecording enabled below, so
+	// every flow runs against a recorder that fails on every attempt: recordings
+	// are best-effort and must never stall ingest or block playback. Run the
+	// whole suite this way on purpose; that is the regression it covers.
+	if err := os.WriteFile(filepath.Join(dataDir, "debug-recordings"), []byte("e2e: recording sink intentionally broken\n"), 0o644); err != nil {
+		return fmt.Errorf("break debug-recording sink: %w", err)
+	}
+
 	nodeCmd := exec.CommandContext(ctx, self)
 	// Inherit the parent environment (dev builds need LD_LIBRARY_PATH etc.)
 	// but strip any SP_ vars so the node only gets our config.
@@ -342,6 +369,17 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	}
 	if _, err := createRecord(ctx, xrpcc, "place.stream.key", out.Did, &streamKey); err != nil {
 		return fmt.Errorf("register stream key: %w", err)
+	}
+	// Turn debug recording on for the test account, whose sink is broken above:
+	// every stream session therefore attempts a recording that fails, which is
+	// what makes the whole suite cover "a failed recording must not take the
+	// stream down".
+	debugRecording := true
+	if err := putRecord(ctx, xrpcc, "place.stream.server.settings", out.Did, broadcasterHost, &placestream.ServerSettings{
+		LexiconTypeID:  "place.stream.server.settings",
+		DebugRecording: &debugRecording,
+	}); err != nil {
+		return fmt.Errorf("enable debug recording: %w", err)
 	}
 	// Create a livestream record so the stream shows up in feeds; normally the
 	// app does this via place.stream.live.startLivestream when a user goes

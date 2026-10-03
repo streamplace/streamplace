@@ -63,31 +63,9 @@ type S3Uploader struct {
 	done         chan error
 	recorder     Recorder
 
-	mu            sync.Mutex
-	livestreamURI string // guarded by mu; stamped on each S3Segment row
-
 	closeOnce sync.Once
 	closeErr  error
 	closed    atomic.Bool
-}
-
-// SetLivestreamURI records the livestream this stream's objects belong to. A
-// single continuous ingest can move through several place.stream.livestream
-// records (each "update livestream" mints a new one — chapter markers), so when
-// this changes the upload loop rolls over to a fresh object tagged with the new
-// URI. That keeps every object within a single livestream, which is what lets
-// finalize select exactly one livestream's objects (and, across nodes, coalesce
-// them by the shared URI). It may be called before the URI is first resolved.
-func (u *S3Uploader) SetLivestreamURI(uri string) {
-	u.mu.Lock()
-	u.livestreamURI = uri
-	u.mu.Unlock()
-}
-
-func (u *S3Uploader) getLivestreamURI() string {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	return u.livestreamURI
 }
 
 // S3 requires each part except the last to be at least 5MB.
@@ -165,8 +143,9 @@ func newS3Uploader(client uploadAPI, bucket, userDID, keyPrefix string, cutoverE
 // request to complete the current object now (cutover). Both travel the same
 // channel so a cutover stays FIFO-ordered behind the segments queued before it.
 type uploadCmd struct {
-	seg     []byte // bare canonical MUXL segment to append; nil for a cutover
-	cutover bool   // complete the current object now (see Cutover)
+	seg           []byte // bare canonical MUXL segment to append; nil for a cutover
+	livestreamURI string // the livestream seg belongs to; see AddSegment
+	cutover       bool   // complete the current object now (see Cutover)
 }
 
 // AddSegment feeds one bare canonical MUXL segment (uuid+moof+mdat per track)
@@ -175,13 +154,21 @@ type uploadCmd struct {
 // (the StreamSession guarantees this by draining its goroutines before closing,
 // see director.Start); the closed guard here is a best-effort backstop that
 // turns a late call into an error rather than a send-on-closed-channel panic.
-func (u *S3Uploader) AddSegment(ctx context.Context, data []byte) error {
+//
+// livestreamURI is the livestream the segment belongs to ("" if not yet
+// known). A single continuous ingest can move through several
+// place.stream.livestream records (each "update livestream" mints a new one —
+// chapter markers), so when it changes the upload loop rolls over to a fresh
+// object tagged with the new URI. That keeps every object within a single
+// livestream, which is what lets finalize select exactly one livestream's
+// objects (and, across nodes, coalesce them by the shared URI).
+func (u *S3Uploader) AddSegment(ctx context.Context, data []byte, livestreamURI string) error {
 	if u.closed.Load() {
 		return fmt.Errorf("s3 uploader closed")
 	}
 	seg := append([]byte(nil), data...)
 	select {
-	case u.segCh <- uploadCmd{seg: seg}:
+	case u.segCh <- uploadCmd{seg: seg, livestreamURI: livestreamURI}:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -236,7 +223,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 	var current *activeUpload
 	objSeq := 0 // disambiguates keys when two objects roll over within one second
 
-	startUpload := func() error {
+	startUpload := func(uri string) error {
 		objSeq++
 		now := time.Now()
 		key := fmt.Sprintf("%s%s-%d.m4s", u.keyPrefix, now.UTC().Format("2006-01-02T15-04-05"), objSeq)
@@ -250,7 +237,6 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			return fmt.Errorf("creating multipart upload for %s: %w", key, err)
 		}
 
-		uri := u.getLivestreamURI()
 		current = &activeUpload{
 			key:           key,
 			uploadID:      *resp.UploadId,
@@ -339,7 +325,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		return nil
 	}
 
-	handleSegment := func(seg []byte) error {
+	handleSegment := func(seg []byte, uri string) error {
 		now := time.Now()
 
 		// Roll over to a new object when the current one has run for cutoverEvery,
@@ -347,7 +333,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		// record). Cutting over on the livestream change keeps each object within
 		// a single livestream so finalize can select exactly one livestream's
 		// objects without one straddling two chapters.
-		if current != nil && (now.Sub(current.started) >= u.cutoverEvery || current.livestreamURI != u.getLivestreamURI()) {
+		if current != nil && (now.Sub(current.started) >= u.cutoverEvery || current.livestreamURI != uri) {
 			if err := completeUpload(); err != nil {
 				return err
 			}
@@ -355,7 +341,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 
 		// Start a new upload if needed
 		if current == nil {
-			if err := startUpload(); err != nil {
+			if err := startUpload(uri); err != nil {
 				return err
 			}
 		}
@@ -428,7 +414,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 				continue
 			}
 			log.Debug(ctx, "received segment for S3 upload", "size", len(cmd.seg))
-			if err := handleSegment(cmd.seg); err != nil {
+			if err := handleSegment(cmd.seg, cmd.livestreamURI); err != nil {
 				// The triggering segment is dropped along with the object: it may
 				// already be partially flushed into it, so it can't be salvaged.
 				abandonCurrent(fmt.Errorf("error handling segment: %w", err))

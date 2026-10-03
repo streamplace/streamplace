@@ -1,0 +1,61 @@
+---
+title: place.stream.metadata.captionPolicy
+description: Reference for the place.stream.metadata.captionPolicy lexicon
+---
+
+**Lexicon Version:** 1
+
+## Definitions
+
+<a name="main"></a>
+
+### `main`
+
+**Type:** `object`
+
+Captioning preferences for a streamer's content. Travels with the metadata configuration into every minted segment, so relays see the same policy as the origin.
+
+**Properties:**
+
+| Name                | Type              | Req'd | Description                                                                                                                                                                                                                                                                                                                                                                             | Constraints                           |
+| ------------------- | ----------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `canonical`         | `string`          | ❌    | How the canonical caption track is produced. auto (the default when absent): the origin node transcribes speech and masters a caption track into the canonical stream. ingest: the streamer supplies canonical captions at ingest (CEA-608/708 embedded in the video, or place.stream.caption.pushCaptions) and nodes do not transcribe. off: the canonical stream carries no captions. | Known Values: `auto`, `ingest`, `off` |
+| `allowNodeCaptions` | `boolean`         | ❌    | Whether nodes may generate and distribute their own captions for accessibility when the canonical stream has none. Absent means allowed.                                                                                                                                                                                                                                                |                                       |
+| `languages`         | Array of `string` | ❌    | Spoken languages of the content, most prominent first. A hint for speech recognition; absent means detect automatically.                                                                                                                                                                                                                                                                | Max Items: 4                          |
+
+---
+
+## Lexicon Source
+
+```json
+{
+  "lexicon": 1,
+  "id": "place.stream.metadata.captionPolicy",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "Captioning preferences for a streamer's content. Travels with the metadata configuration into every minted segment, so relays see the same policy as the origin.",
+      "properties": {
+        "canonical": {
+          "type": "string",
+          "knownValues": ["auto", "ingest", "off"],
+          "description": "How the canonical caption track is produced. auto (the default when absent): the origin node transcribes speech and masters a caption track into the canonical stream. ingest: the streamer supplies canonical captions at ingest (CEA-608/708 embedded in the video, or place.stream.caption.pushCaptions) and nodes do not transcribe. off: the canonical stream carries no captions."
+        },
+        "allowNodeCaptions": {
+          "type": "boolean",
+          "description": "Whether nodes may generate and distribute their own captions for accessibility when the canonical stream has none. Absent means allowed."
+        },
+        "languages": {
+          "type": "array",
+          "maxLength": 4,
+          "items": {
+            "type": "string",
+            "format": "language"
+          },
+          "description": "Spoken languages of the content, most prominent first. A hint for speech recognition; absent means detect automatically."
+        }
+      }
+    }
+  }
+}
+```

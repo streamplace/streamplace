@@ -10,6 +10,7 @@ const SETTINGS_SCREENS = [
   "RecommendationsSettings",
   "PrivacyCategory",
   "DanmuCategory",
+  "CaptionsCategory",
   "AdvancedCategory",
   "LanguagesCategory",
   "MultistreamCategory",

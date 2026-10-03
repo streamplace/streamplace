@@ -42,6 +42,10 @@ if meson.is_cross_build()
 endif
 
 streamplace_deps = []
+whisper_proj = subproject('whisper')
+streamplace_deps += whisper_proj.get_variable('whisper_dep')
+# Downloads are content-addressed and shared by dev/static/cross builds.
+run_command(find_program('go'), 'run', meson.current_source_dir() / 'hack/captions-assets/main.go', meson.current_source_dir(), check: true, env: {'CGO_ENABLED': '0'})
 # if host_machine.system() == 'linux'
 #   mistserver_proj = subproject(
 #     'mistserver',

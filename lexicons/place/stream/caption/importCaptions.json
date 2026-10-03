@@ -1,0 +1,66 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.caption.importCaptions",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Import a WebVTT or SRT caption file for one of the caller's videos, writing place.stream.caption.transcript records to the caller's repo. Replaces the caller's earlier imported or human-authored records for the same video and language.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["video", "language", "format", "body"],
+          "properties": {
+            "video": {
+              "type": "string",
+              "format": "at-uri"
+            },
+            "language": {
+              "type": "string",
+              "format": "language"
+            },
+            "kind": {
+              "type": "string",
+              "knownValues": ["captions", "subtitles"]
+            },
+            "format": {
+              "type": "string",
+              "knownValues": ["vtt", "srt"]
+            },
+            "body": {
+              "type": "string",
+              "maxLength": 5000000
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["uris"],
+          "properties": {
+            "uris": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "at-uri"
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound"
+        },
+        {
+          "name": "Forbidden"
+        },
+        {
+          "name": "InvalidCaptions"
+        }
+      ]
+    }
+  }
+}

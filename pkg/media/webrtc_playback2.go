@@ -54,6 +54,15 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		return nil, fmt.Errorf("failed to add audio track to peer connection: %w", err)
 	}
 
+	// A viewer whose offer includes a data channel also gets live captions
+	// on it. Without one nothing changes. The channel applies the same
+	// publication, owner, and WideOpen rule as media at every send.
+	captionChans, err := newCaptionChannels(peerConnection, mm, user, viewer, offer)
+	if err != nil {
+		_ = peerConnection.Close()
+		return nil, fmt.Errorf("failed to open captions data channel: %w", err)
+	}
+
 	close := func() {
 		if cErr := peerConnection.Close(); cErr != nil {
 			log.Log(ctx, "cannot close peerConnection: %v\n", cErr)
@@ -115,6 +124,9 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		defer markDone()
+		if captionChans != nil {
+			go captionChans.Run(ctx)
+		}
 
 		latency := time.Duration(0)
 

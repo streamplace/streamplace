@@ -54,6 +54,8 @@ export * from "./utils/format-handle";
 export { DanmuOverlay } from "./components/danmu/danmu-overlay";
 export { DanmuOverlayOBS } from "./components/danmu/danmu-overlay-obs";
 
+export * from "./components/captions";
+
 // Rotation lock system exports
 export {
   RotationProvider,

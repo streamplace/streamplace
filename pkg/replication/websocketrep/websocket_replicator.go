@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/captions"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
@@ -300,7 +301,15 @@ func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *placestre
 		return fmt.Errorf("origin has no websocket URL")
 	}
 	dialCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	conn, _, err := websocket.DefaultDialer.DialContext(dialCtx, *origin.WebsocketURL, nil)
+	u, err := url.Parse(*origin.WebsocketURL)
+	if err != nil {
+		cancel()
+		return err
+	}
+	q := u.Query()
+	q.Set("captions", captions.SyndicationVersion)
+	u.RawQuery = q.Encode()
+	conn, _, err := websocket.DefaultDialer.DialContext(dialCtx, u.String(), nil)
 	cancel()
 	if err != nil {
 		spmetrics.ReplicationConnectErrorsTotal.Inc()
@@ -325,6 +334,12 @@ func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *placestre
 		if err != nil {
 			spmetrics.ReplicationConnectErrorsTotal.Inc()
 			return fmt.Errorf("could not read message: %w", err)
+		}
+		if typ == websocket.TextMessage {
+			if ev, ok := captions.DecodeSidecar(msg); ok {
+				r.mm.ReceiveSidecar(origin.Streamer, origin.Server, ev)
+			}
+			continue
 		}
 		if typ != websocket.BinaryMessage {
 			log.Error(ctx, "expected binary message", "type", typ)

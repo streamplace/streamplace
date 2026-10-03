@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/patrickmn/go-cache"
+	"stream.place/streamplace/pkg/captions"
 )
 
 type Message any
@@ -33,6 +34,10 @@ type Bus struct {
 	// Key: "{streamerDID}:{serverDID}", Value: int (count).
 	// 2min TTL so stale servers drop off (records update every ~30s).
 	federatedViewCounts *cache.Cache
+
+	// Captions holds this node's live caption tracks. Caption sources publish
+	// into it; HLS, websocket, WebRTC, and record outputs read from it.
+	Captions *captions.Hub
 }
 
 func NewBus() *Bus {
@@ -43,6 +48,7 @@ func NewBus() *Bus {
 		viewerCounts:             make(map[string]map[string]int),
 		viewerCountSubscriptions: []chan ViewerCountUpdate{},
 		federatedViewCounts:      cache.New(2*time.Minute, 4*time.Minute),
+		Captions:                 captions.NewHub(captions.DefaultRetention),
 	}
 }
 

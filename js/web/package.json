@@ -22,6 +22,7 @@
   "dependencies": {
     "@atproto/api": "^0.19.3",
     "@atproto/crypto": "^0.4.5",
+    "@atproto/syntax": "^0.6.1",
     "@atproto/oauth-client-browser": "^0.4.1",
     "@base-ui/react": "^1.5.0",
     "@dnd-kit/helpers": "^0.4.0",

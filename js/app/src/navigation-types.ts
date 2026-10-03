@@ -11,6 +11,7 @@ export type SettingsStackParamList = {
   PrivacyCategory: undefined;
   NotificationsCategory: undefined;
   DanmuCategory: undefined;
+  CaptionsCategory: undefined;
   AdvancedCategory: undefined;
   LanguagesCategory: undefined;
   MultistreamCategory: undefined;

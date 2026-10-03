@@ -22,6 +22,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
+	"stream.place/streamplace/pkg/stt"
 )
 
 var signerTracer = otel.Tracer("signer")
@@ -56,6 +57,7 @@ type MediaSignerLocal struct {
 	manifestBuilder  Manifester
 	PrebuiltManifest []byte // Optional: use this manifest instead of building one
 	sigs             [][]byte
+	cli              *config.CLI
 }
 
 func prepareCert(ctx context.Context, cli *config.CLI, signer crypto.Signer) ([]byte, error) {
@@ -89,6 +91,7 @@ func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, sign
 		AQPub:           pub,
 		did:             did.DIDKey(),
 		manifestBuilder: NewManifestBuilder(model, cli),
+		cli:             cli,
 	}, nil
 }
 
@@ -147,8 +150,9 @@ func (ms *MediaSignerLocal) buildManifest(ctx context.Context, start int64) ([]b
 // at connection start and a pre-live → live transition stayed invisible until
 // the streamer reconnected.
 //
-// muxl-sign stamps each segment's signing time into cawg.metadata/dc:date as
-// it signs. Signing backend: an *ecdsa.PrivateKey is marshaled to PEM and
+// muxl-sign stamps each segment's arrival-anchored media time into
+// cawg.metadata/dc:date, regardless of caption policy or signing delay.
+// Signing backend: an *ecdsa.PrivateKey is marshaled to PEM and
 // signed in-wasm, otherwise the host-callback path keeps the key out of the
 // sandbox.
 func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
@@ -156,17 +160,39 @@ func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Read
 		attribute.String("streamer", ms.StreamerName),
 	))
 	defer span.End()
+	mm, _ := ctx.Value(captionManagerKey{}).(*MediaManager)
+	cli := ms.cli
+	if mm != nil {
+		cli = mm.cli
+	}
+	if cli == nil {
+		cli = &config.CLI{}
+	}
+	var engine stt.Engine
+	if mm != nil {
+		engine = mm.STT
+	}
+	master := newCaptionMaster(ctx, ms.StreamerName, cli, engine)
+	if mm != nil {
+		defer mm.registerCaptionMaster(ms.StreamerName, master)()
+	}
 
 	// One callback shared by both kinds — track and wrapper manifests are the
 	// same JSON in Streamplace today, so a single buildManifest call per GoP
 	// covers both. If they ever diverge we split this in two.
 	fetchManifest := func() ([]byte, error) {
-		return ms.buildManifest(ctx, time.Now().UnixMilli())
+		data, err := ms.buildManifest(ctx, time.Now().UnixMilli())
+		if err == nil {
+			master.setManifest(data)
+		}
+		return data, err
 	}
 	in := muxl.SignerInput{
 		CertPEM:           ms.Cert,
 		TrackManifestFn:   fetchManifest,
 		WrapperManifestFn: fetchManifest,
+		TextFn:            master.text,
+		SegmentTimeFn:     master.segmentTime,
 	}
 	if _, ok := ms.Signer.(*ecdsa.PrivateKey); ok {
 		keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
@@ -179,6 +205,15 @@ func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Read
 		in.Sign = muxl.SignerToCallback(ms.Signer, 32)
 		span.SetAttributes(attribute.String("backend", "host-callback"))
 	}
+	// A session whose segments are recorded masters a second, archival
+	// layout of its captions; see captionArchive.
+	if archive := captionArchiveFrom(ctx); archive != nil {
+		defer archive.finish()
+		master.archiveTo(muxl.SignerInput{CertPEM: in.CertPEM, KeyPEM: in.KeyPEM, Sign: in.Sign}, archive.put)
+		defer master.awaitArchive()
+	}
+	input, finish := master.tee(input)
+	defer finish()
 
 	return muxl.RunMuxlSignSegment(ctx, input, in, nil, nil, eventCh)
 }

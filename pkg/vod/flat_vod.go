@@ -63,6 +63,7 @@ func hashAndBuildFragmentMetafile(ctx context.Context, store blob.Store, keys []
 	tee := io.TeeReader(io.MultiReader(readers...), io.MultiWriter(hasher, counter))
 
 	mb := newFragmentMetafileBuilder(ctx, store)
+	mb.canonicalHash = bdasl.NewWriter()
 	eventCh := make(chan *muxl.MuxlEvent, 16)
 	producerErr := make(chan error, 1)
 	go func() {
@@ -87,6 +88,9 @@ func hashAndBuildFragmentMetafile(ctx context.Context, store blob.Store, keys []
 	}
 
 	muxlCID := hasher.CID()
+	if mb.canonicalHash.CID() != muxlCID {
+		return "", 0, nil, errors.New("non-canonical MUXL track order: fragments must use ascending numeric track_id within each GoP")
+	}
 	size := counter.load()
 	return muxlCID, size, mb.Finalize(muxlCID, size), nil
 }

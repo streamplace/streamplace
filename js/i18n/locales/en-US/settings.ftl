@@ -198,6 +198,44 @@ danmu-speed = Speed
 danmu-lane-count = Lane Count
 danmu-max-messages = Max Messages
 
+## Caption Settings
+captions = Captions
+captions-description = How captions look on streams and videos
+captions-enabled = Show captions
+captions-enabled-description = Turn captions on whenever a stream or video has them. Press c in the player to toggle them.
+captions-preview = Captions look like this.
+captions-native-style-description = Live low-latency captions use this style. HLS subtitles use your device's accessibility caption settings.
+captions-text-size = Text size
+captions-font = Font
+captions-font-proportional-sans = Sans serif
+captions-font-monospaced-sans = Monospaced sans serif
+captions-font-proportional-serif = Serif
+captions-font-monospaced-serif = Monospaced serif
+captions-font-casual = Casual
+captions-font-cursive = Cursive
+captions-font-small-caps = Small capitals
+captions-text-color = Text color
+captions-text-opacity = Text opacity
+captions-edge = Character edges
+captions-edge-none = None
+captions-edge-raised = Raised
+captions-edge-depressed = Depressed
+captions-edge-uniform = Outline
+captions-edge-drop-shadow = Drop shadow
+captions-background-color = Background color
+captions-background-opacity = Background opacity
+captions-window-color = Window color
+captions-window-opacity = Window opacity
+captions-color-white = White
+captions-color-black = Black
+captions-color-red = Red
+captions-color-green = Green
+captions-color-blue = Blue
+captions-color-yellow = Yellow
+captions-color-magenta = Magenta
+captions-color-cyan = Cyan
+captions-reset = Reset to defaults
+
 ## General
 app-version-description = No updates are available at this time
 confirm-delete = Are you sure you want to delete this?

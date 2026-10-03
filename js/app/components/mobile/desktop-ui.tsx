@@ -8,6 +8,7 @@ import {
   usePlayerDimensions,
   usePlayerStore,
   useSegment,
+  useToggleCaptions,
   View,
   zero,
 } from "@streamplace/components";
@@ -135,6 +136,14 @@ export function DesktopUi({
     };
   }, [resetFadeTimer]);
 
+  // Captions rise above the bottom bar while it shows.
+  const setShowControls = usePlayerStore((state) => state.setShowControls);
+  const bottomBarShown = isControlsVisible || shouldShowFloatingMetrics;
+  useEffect(() => {
+    setShowControls(bottomBarShown);
+    return () => setShowControls(false);
+  }, [bottomBarShown, setShowControls]);
+
   const animatedFadeStyle = useAnimatedStyle(() => ({
     opacity: shouldShowFloatingMetrics ? 1 : fadeOpacity.value,
   }));
@@ -176,23 +185,26 @@ export function DesktopUi({
     };
   }, [videoRef]);
 
-  // Keyboard shortcuts (F for fullscreen)
+  // Keyboard shortcuts (F for fullscreen, C for captions)
+  const toggleCaptions = useToggleCaptions();
   useEffect(() => {
     if (Platform.OS !== "web") return;
 
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "f" || e.key === "F") {
-        // are we in an input/textarea or contenteditable element?
-        const activeEl = document.activeElement;
-        const isInput =
-          activeEl &&
-          (activeEl.tagName === "INPUT" ||
-            activeEl.tagName === "TEXTAREA" ||
-            (activeEl as HTMLElement).isContentEditable);
-        if (isInput) return;
-        e.preventDefault();
-        toggleFullscreen();
-      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key !== "f" && key !== "c") return;
+      // are we in an input/textarea or contenteditable element?
+      const activeEl = document.activeElement;
+      const isInput =
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          (activeEl as HTMLElement).isContentEditable);
+      if (isInput) return;
+      e.preventDefault();
+      if (key === "f") toggleFullscreen();
+      else toggleCaptions();
     }
 
     document.addEventListener("keydown", handleKeyDown);
@@ -200,7 +212,7 @@ export function DesktopUi({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [toggleFullscreen]);
+  }, [toggleFullscreen, toggleCaptions]);
 
   const handlePip = useCallback(() => {
     if (pipAction) pipAction();

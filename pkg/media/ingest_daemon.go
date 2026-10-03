@@ -123,6 +123,7 @@ func readWorkerMeta(socketPath string) (workerMeta, error) {
 func removeWorkerFiles(socketPath string) {
 	_ = os.Remove(socketPath)
 	_ = os.Remove(workerMetaPath(socketPath))
+	_ = os.Remove(socketPath + ".captions")
 }
 
 // ConsumeWorkerSocket connects to a worker's frame socket and feeds its segments
@@ -134,7 +135,9 @@ func removeWorkerFiles(socketPath string) {
 // manifestSource, when non-nil, is polled to refresh the worker's C2PA manifest
 // over the same socket (pushManifestUpdates) — so a pre-live → live transition
 // reaches a worker that has no model of its own. It's re-armed per connection.
-func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, streamer string, onSegment func([]byte) error, manifestSource func() ([]byte, error)) error {
+func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, streamer string, onSegment func(context.Context, []byte) error, manifestSource func() ([]byte, error)) error {
+	unregister := func() {}
+	defer func() { unregister() }()
 	connectedOnce := false
 	giveUp := time.Now().Add(workerConnectGrace)
 	for {
@@ -160,6 +163,11 @@ func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, str
 			// the leftover (no-op if already gone).
 			removeWorkerFiles(socketPath)
 			return fmt.Errorf("ingest worker socket gone before End: %w", err)
+		}
+		if !connectedOnce {
+			// Route caption pushes here only once the worker answers: a dead
+			// one must not take them from the stream's live worker.
+			ctx, unregister = mm.registerWorkerCaptionMaster(ctx, socketPath, streamer)
 		}
 		connectedOnce = true
 		// Push manifest refreshes to the worker over this connection (re-armed per
@@ -300,7 +308,7 @@ func (mm *MediaManager) MP4IngestDetached(ctx context.Context, conn net.Conn, pr
 	// it signs with a frozen one otherwise. Fixed start for stable change detection.
 	start := time.Now().UnixMilli()
 	manifestSource := func() ([]byte, error) { return mm.streamerManifest(ctx, ms.Streamer(), start) }
-	err = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx), manifestSource)
+	err = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment, manifestSource)
 	recordWorkerExit("mp4", err, ctx.Err())
 	// Reap the worker unless we're deliberately leaving it running across a main
 	// restart (ctx cancel). On a clean end OR a crash the worker has exited, so
@@ -404,10 +412,12 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 		return "", err
 	}
 	_ = conn.SetReadDeadline(time.Time{}) // clear; streaming has no deadline
+	ctx, unregister := mm.registerWorkerCaptionMaster(ctx, cfg.SocketPath, ms.Streamer())
 
 	// Consume the signed segments in the background; the HTTP handler returns the
 	// answer now and the WebRTC media establishes directly to the worker.
 	go func() {
+		defer unregister()
 		// Ban / key revocation: watch on the detached worker's behalf and kill it.
 		// Scoped to this consume's lifetime so it doesn't outlive the stream.
 		wctx, wcancel := context.WithCancel(ctx)
@@ -423,13 +433,13 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 		manifestSource := func() ([]byte, error) { return mm.streamerManifest(ctx, ms.Streamer(), start) }
 		go pushManifestUpdates(wctx, conn, manifestSource)
 
-		sawEnd, _ := mm.consumeWorkerFrames(ctx, fr, ms.Streamer(), mm.validateSegment(ctx), nil)
+		sawEnd, _ := mm.consumeWorkerFrames(ctx, fr, ms.Streamer(), mm.validateSegment, nil)
 		conn.Close()
 		var exitErr error
 		if !sawEnd && ctx.Err() == nil {
 			// Connection dropped but the detached worker lives on — reconnect and
 			// drain its buffer. Its terminal result is the worker's true outcome.
-			exitErr = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx), manifestSource)
+			exitErr = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment, manifestSource)
 		}
 		recordWorkerExit("whip", exitErr, ctx.Err())
 		go func() { _, _ = proc.Wait() }()
@@ -478,7 +488,7 @@ func (mm *MediaManager) ResumeDetachedWorkers(ctx context.Context) {
 				start := time.Now().UnixMilli()
 				manifestSource = func() ([]byte, error) { return mm.streamerManifest(ctx, meta.StreamerDID, start) }
 			}
-			cerr := mm.ConsumeWorkerSocket(wctx, sock, streamer, mm.validateSegment(ctx), manifestSource)
+			cerr := mm.ConsumeWorkerSocket(wctx, sock, streamer, mm.validateSegment, manifestSource)
 			if cerr != nil {
 				log.Error(ctx, "resumed ingest worker ended", "socket", sock, "error", cerr)
 			}

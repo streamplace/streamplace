@@ -27,9 +27,6 @@ export function Player(
   props: Partial<PlayerProps> & { children?: React.ReactNode },
 ) {
   const setIngest = usePlayerStore((x) => x.setIngestConnectionState);
-
-  const clearControlsTimeout = usePlayerStore((x) => x.clearControlsTimeout);
-
   const setReportingURL = usePlayerStore((x) => x.setReportingURL);
   const setEmbedded = usePlayerStore((x) => x.setEmbedded);
   const setMode = usePlayerStore((x) => x.setMode);
@@ -137,12 +134,6 @@ export function Player(
 
   useEffect(() => {
     setIngest(props.ingest ? "new" : null);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      clearControlsTimeout();
-    };
   }, []);
 
   if (typeof props.src !== "string") {

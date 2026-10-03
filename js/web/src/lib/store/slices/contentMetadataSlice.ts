@@ -1,33 +1,22 @@
+import type { CaptionPolicy } from "@streamplace/core";
+import type { place } from "streamplace";
 import { StateCreator } from "zustand";
 import { getPDSServiceEndpoint, resolveDIDDocument } from "../../did";
 import { AppStore } from "../index";
 
 export interface ContentMetadataSlice {
-  creating: boolean;
-  updating: boolean;
+  saving: boolean;
   error: string | null;
   lastCreatedRecord: any | null;
   // actions
-  createContentMetadata: (params: {
-    contentWarnings?: string[];
-    distributionPolicy?: {
-      deleteAfter?: number;
-      allowedBroadcasters?: string[];
-    };
-    contentRights?: {
-      creator?: string;
-      copyrightNotice?: string;
-      copyrightYear?: number;
-      license?: string;
-      creditLine?: string;
-    };
-  }) => Promise<void>;
-  updateContentMetadata: (params: {
+  saveContentMetadata: (params: {
+    captionPolicy?: CaptionPolicy;
     rkey?: string;
     livestreamRef?: { uri: string; cid: string };
     contentWarnings?: string[];
     distributionPolicy?: {
       deleteAfter?: number;
+      allowGenAiTraining?: boolean;
       allowedBroadcasters?: string[];
     };
     contentRights?: {
@@ -45,94 +34,53 @@ export interface ContentMetadataSlice {
   clearError: () => void;
 }
 
+function mergeMetadata(
+  existing: place.stream.metadata.configuration.Main | undefined,
+  params: Parameters<ContentMetadataSlice["saveContentMetadata"]>[0],
+) {
+  return {
+    ...existing,
+    $type: "place.stream.metadata.configuration",
+    createdAt: new Date().toISOString(),
+    ...(params.captionPolicy && { captionPolicy: params.captionPolicy }),
+    ...(params.livestreamRef && { livestreamRef: params.livestreamRef }),
+    ...(params.contentWarnings !== undefined && {
+      contentWarnings: {
+        ...existing?.contentWarnings,
+        warnings: params.contentWarnings,
+      },
+    }),
+    ...(params.distributionPolicy && {
+      distributionPolicy: {
+        ...existing?.distributionPolicy,
+        ...params.distributionPolicy,
+      },
+    }),
+    ...(params.contentRights && {
+      contentRights: { ...existing?.contentRights, ...params.contentRights },
+    }),
+  };
+}
+
 export const createContentMetadataSlice: StateCreator<
   AppStore,
   [],
   [],
   ContentMetadataSlice
 > = (set, get) => ({
-  creating: false,
-  updating: false,
+  saving: false,
   error: null,
   lastCreatedRecord: null,
 
-  createContentMetadata: async ({
-    contentWarnings = [],
-    distributionPolicy = { deleteAfter: undefined },
-    contentRights = {},
-  }) => {
-    set({ creating: true, error: null });
-    try {
-      const { pdsAgent, oauthSession } = get();
-      if (!pdsAgent) {
-        throw new Error("No agent");
-      }
-
-      const did = oauthSession?.did;
-      if (!did) {
-        throw new Error("No DID");
-      }
-
-      const metadataRecord = {
-        $type: "place.stream.metadata.configuration",
-        createdAt: new Date().toISOString(),
-        ...(contentWarnings.length > 0 && {
-          contentWarnings: { warnings: contentWarnings },
-        }),
-        ...((distributionPolicy.deleteAfter !== undefined ||
-          (distributionPolicy.allowedBroadcasters &&
-            distributionPolicy.allowedBroadcasters.length > 0)) && {
-          distributionPolicy: {
-            ...(distributionPolicy.deleteAfter !== undefined && {
-              deleteAfter: distributionPolicy.deleteAfter,
-            }),
-            ...(distributionPolicy.allowedBroadcasters && {
-              allowedBroadcasters: distributionPolicy.allowedBroadcasters,
-            }),
-          },
-        }),
-        ...(contentRights &&
-          Object.keys(contentRights).length > 0 && {
-            contentRights,
-          }),
-      };
-
-      const result = await pdsAgent.com.atproto.repo.createRecord({
-        repo: did,
-        collection: "place.stream.metadata.configuration",
-        rkey: "self",
-        record: metadataRecord,
-      });
-
-      const rkey = result.data.uri.split("/").pop();
-
-      set({
-        creating: false,
-        error: null,
-        lastCreatedRecord: {
-          record: metadataRecord,
-          uri: result.data.uri,
-          cid: result.data.cid,
-          rkey,
-        },
-      });
-    } catch (error: any) {
-      set({
-        creating: false,
-        error: error?.message ?? "Failed to create content metadata",
-      });
-      throw error;
-    }
-  },
-
-  updateContentMetadata: async ({
-    rkey,
+  saveContentMetadata: async ({
+    rkey = "self",
     livestreamRef,
-    contentWarnings = [],
-    distributionPolicy = { deleteAfter: undefined },
-    contentRights = {},
+    contentWarnings,
+    distributionPolicy,
+    contentRights,
+    captionPolicy,
   }) => {
-    set({ updating: true, error: null });
+    set({ saving: true, error: null });
     try {
       const { pdsAgent, oauthSession } = get();
       if (!pdsAgent) {
@@ -144,53 +92,35 @@ export const createContentMetadataSlice: StateCreator<
         throw new Error("No DID");
       }
 
-      const metadataRecord = {
-        $type: "place.stream.metadata.configuration",
-        ...(livestreamRef && { livestreamRef }),
-        createdAt: new Date().toISOString(),
-        ...(contentWarnings.length > 0 && {
-          contentWarnings: { warnings: contentWarnings },
-        }),
-        ...((distributionPolicy.deleteAfter !== undefined ||
-          (distributionPolicy.allowedBroadcasters &&
-            distributionPolicy.allowedBroadcasters.length > 0)) && {
-          distributionPolicy: {
-            ...(distributionPolicy.deleteAfter !== undefined && {
-              deleteAfter: distributionPolicy.deleteAfter,
-            }),
-            ...(distributionPolicy.allowedBroadcasters && {
-              allowedBroadcasters: distributionPolicy.allowedBroadcasters,
-            }),
-          },
-        }),
-        ...(contentRights &&
-          Object.keys(contentRights).length > 0 && {
-            contentRights,
-          }),
-      };
+      const metadataRecord = mergeMetadata(get().lastCreatedRecord?.record, {
+        livestreamRef,
+        contentWarnings,
+        distributionPolicy,
+        contentRights,
+        captionPolicy,
+      });
 
       const result = await pdsAgent.com.atproto.repo.putRecord({
         repo: did,
         collection: "place.stream.metadata.configuration",
-        rkey: rkey || "self",
+        rkey,
         record: metadataRecord,
       });
 
       set({
-        updating: false,
+        saving: false,
         error: null,
         lastCreatedRecord: {
           record: metadataRecord,
-          uri: `at://${did}/place.stream.metadata.configuration/${
-            rkey || "self"
-          }`,
+          uri: result.data.uri,
+          rkey,
           cid: result.data.cid,
         },
       });
     } catch (error: any) {
       set({
-        updating: false,
-        error: error?.message ?? "Failed to update content metadata",
+        saving: false,
+        error: error?.message ?? "Failed to save content metadata",
       });
       throw error;
     }

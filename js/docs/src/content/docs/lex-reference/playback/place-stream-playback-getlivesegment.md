@@ -13,20 +13,21 @@ description: Reference for the place.stream.playback.getLiveSegment lexicon
 
 **Type:** `query`
 
-Fetch a single live HLS segment, or a track's init segment, from the in-memory live window. `seg` is `init` for the EXT-X-MAP init segment, otherwise the segment's media-sequence number; a cosmetic `.m4s` suffix is accepted (and ignored) so ffmpeg-based HLS players will fetch it. HTTP Range is honored. Segments are the verbatim signed canonical .m4s, so provenance travels with playback.
+Fetch a single live HLS segment, or a track's init segment, from the in-memory live window. `seg` is `init` for the EXT-X-MAP init segment, otherwise the segment's media-sequence number; a cosmetic `.m4s` suffix is accepted (and ignored) so ffmpeg-based HLS players will fetch it. HTTP Range is honored. Segments are the verbatim signed canonical .m4s, so provenance travels with playback. With `captions`, `seg` is a subtitle segment's media-sequence number (the same numbering as the video's, with a cosmetic `.vtt` suffix) and the response is a text/vtt document.
 
 **Parameters:**
 
 | Name       | Type     | Req'd | Description                                                                                                                                                          | Constraints |
 | ---------- | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | `streamer` | `string` | ✅    | The streamer: a DID or a Bluesky handle (resolved to its DID).                                                                                                       |             |
-| `track`    | `string` | ✅    | Track ID (stringified u32 matching the MUXL container).                                                                                                              |             |
-| `seg`      | `string` | ✅    | `init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored.                                              |             |
+| `track`    | `string` | ❌    | Track ID (stringified u32 matching the MUXL container). Required unless `captions` is set.                                                                           |             |
+| `captions` | `string` | ❌    | Caption track id from place.stream.caption.listTracks, for a WebVTT subtitle segment instead of a media segment.                                                     |             |
+| `seg`      | `string` | ✅    | `init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` (`.vtt` with `captions`) is accepted and ignored.                     |             |
 | `sid`      | `string` | ❌    | Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control. |             |
 
 **Output:**
 
-- **Encoding:** `video/mp4`
+- **Encoding:** `*/*`
 - **Schema:**
 
 _Schema not defined._
@@ -46,10 +47,10 @@ _Schema not defined._
   "defs": {
     "main": {
       "type": "query",
-      "description": "Fetch a single live HLS segment, or a track's init segment, from the in-memory live window. `seg` is `init` for the EXT-X-MAP init segment, otherwise the segment's media-sequence number; a cosmetic `.m4s` suffix is accepted (and ignored) so ffmpeg-based HLS players will fetch it. HTTP Range is honored. Segments are the verbatim signed canonical .m4s, so provenance travels with playback.",
+      "description": "Fetch a single live HLS segment, or a track's init segment, from the in-memory live window. `seg` is `init` for the EXT-X-MAP init segment, otherwise the segment's media-sequence number; a cosmetic `.m4s` suffix is accepted (and ignored) so ffmpeg-based HLS players will fetch it. HTTP Range is honored. Segments are the verbatim signed canonical .m4s, so provenance travels with playback. With `captions`, `seg` is a subtitle segment's media-sequence number (the same numbering as the video's, with a cosmetic `.vtt` suffix) and the response is a text/vtt document.",
       "parameters": {
         "type": "params",
-        "required": ["streamer", "track", "seg"],
+        "required": ["streamer", "seg"],
         "properties": {
           "streamer": {
             "type": "string",
@@ -57,11 +58,15 @@ _Schema not defined._
           },
           "track": {
             "type": "string",
-            "description": "Track ID (stringified u32 matching the MUXL container)."
+            "description": "Track ID (stringified u32 matching the MUXL container). Required unless `captions` is set."
+          },
+          "captions": {
+            "type": "string",
+            "description": "Caption track id from place.stream.caption.listTracks, for a WebVTT subtitle segment instead of a media segment."
           },
           "seg": {
             "type": "string",
-            "description": "`init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored."
+            "description": "`init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` (`.vtt` with `captions`) is accepted and ignored."
           },
           "sid": {
             "type": "string",
@@ -70,7 +75,7 @@ _Schema not defined._
         }
       },
       "output": {
-        "encoding": "video/mp4"
+        "encoding": "*/*"
       },
       "errors": [
         {

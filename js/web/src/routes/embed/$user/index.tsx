@@ -1,4 +1,6 @@
 import { Player } from "@/components/player/player";
+import { FullscreenProvider } from "@/contexts/fullscreen-context";
+import { useLivestreamStore } from "@/hooks/use-livestream-store";
 import { captureError } from "@/lib/log";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
 import { createFileRoute } from "@tanstack/react-router";
@@ -10,6 +12,7 @@ export const Route = createFileRoute("/embed/$user/")({
 
 function EmbedLive() {
   const { user } = Route.useParams();
+  const { store } = useLivestreamStore(user);
 
   const { playlistUrl, thumbnailUrl } = useMemo(() => {
     const base = getStreamplaceUrl();
@@ -20,16 +23,19 @@ function EmbedLive() {
   }, [user]);
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-black">
-      <Player
-        src={playlistUrl}
-        poster={thumbnailUrl}
-        active
-        mode="live"
-        onError={(message) =>
-          captureError(message, { user, source: "embed-live" })
-        }
-      />
-    </div>
+    <FullscreenProvider>
+      <div className="flex h-screen w-screen items-center justify-center bg-black">
+        <Player
+          src={playlistUrl}
+          captionSource={{ streamer: user, store: store ?? undefined }}
+          poster={thumbnailUrl}
+          active
+          mode="live"
+          onError={(message) =>
+            captureError(message, { user, source: "embed-live" })
+          }
+        />
+      </div>
+    </FullscreenProvider>
   );
 }

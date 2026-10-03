@@ -3,10 +3,12 @@ package media
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http/httputil"
 	"sync"
+	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/config"
@@ -14,6 +16,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/s3"
+	"stream.place/streamplace/pkg/stt"
 )
 
 // manifestHolder holds the worker's current C2PA manifest. It starts as the
@@ -56,12 +59,14 @@ type IngestWorkerConfig struct {
 	// forwarded verbatim, no reconstruction.
 	KeyPEM  []byte `json:"key_pem"`
 	CertPEM []byte `json:"cert_pem"`
-	// Manifest is the C2PA manifest JSON, built ONCE by main at stream start.
-	// muxl-sign stamps each segment's signing time into it as it signs. NOTE:
-	// static for the worker's lifetime — mid-stream manifest changes (e.g. a
-	// pre-live → live transition) don't yet cross the boundary; that needs a
-	// control channel and is tracked as future work.
-	Manifest []byte `json:"manifest"`
+	// Manifest is refreshed through the worker's existing control channel.
+	Manifest            []byte        `json:"manifest"`
+	CaptionEngineSocket string        `json:"caption_engine_socket"`
+	CaptionsMasterDelay time.Duration `json:"captions_master_delay"`
+	// ArchiveCaptions makes the worker lay its captions out a second time for
+	// recordings and send the re-signed text runs as Captions frames; main sets
+	// it when it records segments to S3.
+	ArchiveCaptions bool `json:"archive_captions,omitempty"`
 
 	// Node transcode signer + broadcaster identity. When set, the worker completes
 	// each single-codec source segment to dual-codec (Opus+AAC) itself — the
@@ -75,6 +80,9 @@ type IngestWorkerConfig struct {
 	// it serves frames over this unix socket with buffered reconnect (survives a
 	// main restart) instead of the fd-4 pipe. Empty → fd-4 pipe (Stage 1).
 	SocketPath string `json:"socket_path,omitempty"`
+	// CaptionSocketPath supplies the private caption-control socket for the fd
+	// transport without switching its signed-segment transport to sockets.
+	CaptionSocketPath string `json:"caption_socket_path,omitempty"`
 
 	// InputFD, when > 0, is the fd main passed the ingest CONNECTION on (fd-passing
 	// the accepted, authed push). The worker reads media from it directly instead
@@ -122,7 +130,7 @@ const IngestTransportWHIP = "whip"
 // handed its config over the handshake, else local disk under DataDir). Shared
 // by the MP4 and WHIP workers so both record to the same place main would.
 func (cfg IngestWorkerConfig) workerCLI() *config.CLI {
-	cli := &config.CLI{BroadcasterHost: cfg.BroadcasterHost, DataDir: cfg.DataDir}
+	cli := &config.CLI{BroadcasterHost: cfg.BroadcasterHost, DataDir: cfg.DataDir, CaptionsMasterDelay: cfg.CaptionsMasterDelay}
 	if cfg.S3 != nil {
 		cli.SetS3Config(*cfg.S3)
 	}
@@ -150,14 +158,44 @@ func WorkerInput(cfg IngestWorkerConfig, raw io.Reader) io.Reader {
 // pushes mid-stream (e.g. pre-live → live) takes effect on the next GoP — the
 // same fresh-per-GoP shape as the in-process signer. Shared by the MP4 and WHIP
 // workers.
-func workerSignStream(cfg IngestWorkerConfig, getManifest func() []byte) SignSegmentStreamFunc {
+func workerSignStream(cfg IngestWorkerConfig, getManifest func() []byte, frames FrameWriter) SignSegmentStreamFunc {
 	return func(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
-		fetchManifest := func() ([]byte, error) { return getManifest(), nil }
+		cli := cfg.workerCLI()
+		engine := stt.NewProxy(cfg.CaptionEngineSocket)
+		defer engine.Close()
+		master := newCaptionMaster(ctx, cfg.StreamerDID, cli, engine)
+		master.setManifest(getManifest())
+		captionPath := cfg.CaptionSocketPath
+		if captionPath == "" {
+			captionPath = cfg.SocketPath
+		}
+		stop, err := master.servePush(captionPath)
+		if err != nil {
+			return fmt.Errorf("serve canonical caption pushes: %w", err)
+		}
+		defer stop()
+		if cfg.ArchiveCaptions {
+			// Every archive frame precedes End: the pass drains before the
+			// signer returns, and the worker frames End after that.
+			master.archiveTo(muxl.SignerInput{CertPEM: cfg.CertPEM, KeyPEM: cfg.KeyPEM}, func(text archiveText) error {
+				payload, err := json.Marshal(text)
+				if err != nil {
+					return err
+				}
+				return frames.Captions(payload)
+			})
+			defer master.awaitArchive()
+		}
+		input, finish := master.tee(input)
+		defer finish()
+		fetchManifest := func() ([]byte, error) { data := getManifest(); master.setManifest(data); return data, nil }
 		return muxl.RunMuxlSignSegment(ctx, input, muxl.SignerInput{
 			CertPEM:           cfg.CertPEM,
 			KeyPEM:            cfg.KeyPEM,
 			TrackManifestFn:   fetchManifest,
 			WrapperManifestFn: fetchManifest,
+			TextFn:            master.text,
+			SegmentTimeFn:     master.segmentTime,
 		}, nil, nil, eventCh)
 	}
 }
@@ -246,7 +284,7 @@ func RunMP4IngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 		defer finalize()
 	}
 
-	signerElem, done, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg, getManifest), onSegment)
+	signerElem, done, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg, getManifest, frames), onSegment)
 	if err != nil {
 		return fmt.Errorf("build signer element: %w", err)
 	}

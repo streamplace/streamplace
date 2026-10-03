@@ -7,9 +7,9 @@
 #
 # The caller's cwd must be the repo root. On return the harness is up and its
 # variables are exported: SERVER_URL, ACCOUNT_HANDLE, ACCOUNT_DID,
-# ACCOUNT_PASSWORD, VIDEO_URI (the account's test VOD), E2E_FIXTURE_MP4 (the
-# local file the harness streams into the node), and in HTTPS mode also
-# SERVER_HTTPS_URL, PDS_HTTPS_URL,
+# ACCOUNT_PASSWORD, STREAM_KEY, VIDEO_URI (the account's processed, playable
+# fixture VOD), E2E_FIXTURE_MP4 (the local file the harness streams into the
+# node), and in HTTPS mode SERVER_HTTPS_URL, PDS_HTTPS_URL,
 # E2E_PROXY_URL, E2E_TLS_SPKI and E2E_TLS_CA. An EXIT trap stops it; a caller
 # with its own EXIT work calls e2e_harness_stop from its trap instead.
 #
@@ -19,8 +19,10 @@
 # $E2E_HTTPS_STATION_HOSTNAME, public DNS names for 127.0.0.1 on different
 # registrable domains (the PDS name needs a wildcard too, for handles; see
 # pkg/cmd/e2e_https.go). Set E2E_HTTPS_PDS_HOSTNAME empty to skip HTTPS; the
-# OAuth flows then skip themselves. A machine that redirects loopback 443
-# elsewhere (an iptables REDIRECT rule) sets E2E_HTTPS_PORT to the target port.
+# OAuth flows then skip themselves. Set E2E_HTTPS_PORT to use an unprivileged
+# listener: server-side Go/Node clients and proxied browsers reach it automatically.
+# Direct device clients still need port-443 redirection (the Android runner
+# installs it in the emulator only).
 #
 # E2E_HARNESS_LOG, if set, is where the harness log goes; it is kept after the
 # run (CI uploads it). Otherwise the log is a temp file, shown on a failed
@@ -79,7 +81,7 @@ e2e_harness_start() {
   fi
   # shellcheck disable=SC1090
   . "$E2E_ENVFILE"
-  export SERVER_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD VIDEO_URI
+  export SERVER_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD VIDEO_URI STREAM_KEY
   export E2E_FIXTURE_MP4
   # only set in HTTPS mode
   export SERVER_HTTPS_URL PDS_HTTPS_URL E2E_PROXY_URL E2E_TLS_SPKI E2E_TLS_CA

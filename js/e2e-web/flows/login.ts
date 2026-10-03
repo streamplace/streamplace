@@ -49,7 +49,10 @@ export async function loginThroughPds(page: Page): Promise<void> {
   // back through the node's /oauth/return to the app's /login, which lands a
   // logged-in user on their account settings
   await page.waitForURL((u) => u.origin === appOrigin, { timeout: 60_000 });
-  await expect(page.getByText(`@${handle}`).first()).toBeVisible({
-    timeout: 30_000,
-  });
+  await expect(
+    page
+      .getByText(`@${handle}`)
+      .or(page.getByRole("link", { name: `Signed in as @${handle}` }))
+      .first(),
+  ).toBeVisible({ timeout: 30_000 });
 }

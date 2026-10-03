@@ -3,6 +3,8 @@ export * from "./vod-store";
 
 export * from "./livestream-store";
 
+export * from "./captions";
+
 export * from "./hooks/use-actor-typeahead";
 export * from "./lib/badge-label";
 export * from "./lib/browser";

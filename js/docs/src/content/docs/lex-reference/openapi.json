@@ -1204,7 +1204,7 @@
     },
     "/xrpc/place.stream.playback.getLivePlaylist": {
       "get": {
-        "summary": "Get an HLS CMAF playlist for a live stream. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getLiveSegment. Segments come from an in-memory sliding window fed as the stream is ingested (or replicated to this node), so a playlist is only available while the stream is live here.",
+        "summary": "Get an HLS CMAF playlist for a live stream. Returns a master playlist when `track` and `captions` are omitted, a single-track media playlist when `track` is supplied, or a WebVTT subtitle media playlist when `captions` is supplied. The playlist references each segment + per-track init segment via getLiveSegment. Segments come from an in-memory sliding window fed as the stream is ingested (or replicated to this node), so a playlist is only available while the stream is live here. The master playlist lists the stream's caption tracks, as of the time it is fetched, as a SUBTITLES rendition group (GROUP-ID `cc`) that every variant references; the subtitle playlists mirror the video's media sequence and lag it by the caption latency.",
         "operationId": "place.stream.playback.getLivePlaylist",
         "tags": ["place.stream.playback"],
         "responses": {
@@ -1232,6 +1232,9 @@
                         },
                         {
                           "const": "TrackNotFound"
+                        },
+                        {
+                          "const": "CaptionTrackNotFound"
                         },
                         {
                           "const": "StreamUnavailable"
@@ -1269,6 +1272,16 @@
             }
           },
           {
+            "name": "captions",
+            "in": "query",
+            "required": false,
+            "description": "Caption track id from place.stream.caption.listTracks, for that track's WebVTT subtitle media playlist. Takes precedence over `track`.",
+            "schema": {
+              "type": "string",
+              "description": "Caption track id from place.stream.caption.listTracks, for that track's WebVTT subtitle media playlist. Takes precedence over `track`."
+            }
+          },
+          {
             "name": "sid",
             "in": "query",
             "required": false,
@@ -1283,14 +1296,14 @@
     },
     "/xrpc/place.stream.playback.getLiveSegment": {
       "get": {
-        "summary": "Fetch a single live HLS segment, or a track's init segment, from the in-memory live window. `seg` is `init` for the EXT-X-MAP init segment, otherwise the segment's media-sequence number; a cosmetic `.m4s` suffix is accepted (and ignored) so ffmpeg-based HLS players will fetch it. HTTP Range is honored. Segments are the verbatim signed canonical .m4s, so provenance travels with playback.",
+        "summary": "Fetch a single live HLS segment, or a track's init segment, from the in-memory live window. `seg` is `init` for the EXT-X-MAP init segment, otherwise the segment's media-sequence number; a cosmetic `.m4s` suffix is accepted (and ignored) so ffmpeg-based HLS players will fetch it. HTTP Range is honored. Segments are the verbatim signed canonical .m4s, so provenance travels with playback. With `captions`, `seg` is a subtitle segment's media-sequence number (the same numbering as the video's, with a cosmetic `.vtt` suffix) and the response is a text/vtt document.",
         "operationId": "place.stream.playback.getLiveSegment",
         "tags": ["place.stream.playback"],
         "responses": {
           "200": {
             "description": "Success",
             "content": {
-              "video/mp4": {
+              "*/*": {
                 "schema": {}
               }
             }
@@ -1337,21 +1350,31 @@
           {
             "name": "track",
             "in": "query",
-            "required": true,
-            "description": "Track ID (stringified u32 matching the MUXL container).",
+            "required": false,
+            "description": "Track ID (stringified u32 matching the MUXL container). Required unless `captions` is set.",
             "schema": {
               "type": "string",
-              "description": "Track ID (stringified u32 matching the MUXL container)."
+              "description": "Track ID (stringified u32 matching the MUXL container). Required unless `captions` is set."
+            }
+          },
+          {
+            "name": "captions",
+            "in": "query",
+            "required": false,
+            "description": "Caption track id from place.stream.caption.listTracks, for a WebVTT subtitle segment instead of a media segment.",
+            "schema": {
+              "type": "string",
+              "description": "Caption track id from place.stream.caption.listTracks, for a WebVTT subtitle segment instead of a media segment."
             }
           },
           {
             "name": "seg",
             "in": "query",
             "required": true,
-            "description": "`init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored.",
+            "description": "`init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` (`.vtt` with `captions`) is accepted and ignored.",
             "schema": {
               "type": "string",
-              "description": "`init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored."
+              "description": "`init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` (`.vtt` with `captions`) is accepted and ignored."
             }
           },
           {
@@ -1515,7 +1538,7 @@
     },
     "/xrpc/place.stream.playback.getVideoPlaylist": {
       "get": {
-        "summary": "Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash. The `uri` is an AT-URI pointing at a playable record — today only place.stream.video records are supported, but the surface is collection-agnostic so other record types can join later.",
+        "summary": "Get an HLS CMAF playlist for a video. Returns a master playlist when `track` and `captions` are omitted, a single-track media playlist when `track` is supplied, or a WebVTT subtitle media playlist when `captions` is supplied. The master playlist lists the video's caption tracks as a SUBTITLES rendition group (GROUP-ID `cc`) that every variant references; subtitle segments are served by place.stream.caption.getCaptions and aligned to the video's segments. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash. The `uri` is an AT-URI pointing at a playable record — today only place.stream.video records are supported, but the surface is collection-agnostic so other record types can join later.",
         "operationId": "place.stream.playback.getVideoPlaylist",
         "tags": ["place.stream.playback"],
         "responses": {
@@ -1581,6 +1604,16 @@
             "schema": {
               "type": "string",
               "description": "Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist."
+            }
+          },
+          {
+            "name": "captions",
+            "in": "query",
+            "required": false,
+            "description": "Caption track id from place.stream.caption.listTracks, for that track's WebVTT subtitle media playlist. Takes precedence over `track`.",
+            "schema": {
+              "type": "string",
+              "description": "Caption track id from place.stream.caption.listTracks, for that track's WebVTT subtitle media playlist. Takes precedence over `track`."
             }
           },
           {
@@ -4140,6 +4173,363 @@
                     }
                   }
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.caption.getCaptions": {
+      "get": {
+        "summary": "Download one caption track as WebVTT, SRT, or JSON cues. For live streams this returns the captions in the node's current window, with times counted from the window's epoch (the start of the first segment the node holds; JSON carries it as `epoch`). For videos times count from the video start. `start`, `end`, and `mpegts` make a response usable as an HLS WebVTT subtitle segment.",
+        "operationId": "place.stream.caption.getCaptions",
+        "tags": ["place.stream.caption"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "*/*": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "streamer",
+            "in": "query",
+            "required": false,
+            "description": "DID or handle of a live streamer. Mutually exclusive with video.",
+            "schema": {
+              "type": "string",
+              "description": "DID or handle of a live streamer. Mutually exclusive with video."
+            }
+          },
+          {
+            "name": "video",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "track",
+            "in": "query",
+            "required": true,
+            "description": "Track id from listTracks.",
+            "schema": {
+              "type": "string",
+              "description": "Track id from listTracks."
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "vtt"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "description": "Only cues overlapping [start, end), in milliseconds from the video start. Videos only.",
+            "schema": {
+              "type": "integer",
+              "description": "Only cues overlapping [start, end), in milliseconds from the video start. Videos only."
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "description": "End of the cue range in milliseconds. Videos only.",
+            "schema": {
+              "type": "integer",
+              "description": "End of the cue range in milliseconds. Videos only."
+            }
+          },
+          {
+            "name": "mpegts",
+            "in": "query",
+            "required": false,
+            "description": "Adds an X-TIMESTAMP-MAP header (MPEGTS:<value>,LOCAL:00:00:00.000) to a WebVTT response: the 90kHz media timestamp that cue time zero plays at. Used by HLS subtitle playlists.",
+            "schema": {
+              "type": "integer",
+              "description": "Adds an X-TIMESTAMP-MAP header (MPEGTS:<value>,LOCAL:00:00:00.000) to a WebVTT response: the 90kHz media timestamp that cue time zero plays at. Used by HLS subtitle playlists."
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.caption.importCaptions": {
+      "post": {
+        "summary": "Import a WebVTT or SRT caption file for one of the caller's videos, writing place.stream.caption.transcript records to the caller's repo. Replaces the caller's earlier imported or human-authored records for the same video and language.",
+        "operationId": "place.stream.caption.importCaptions",
+        "tags": ["place.stream.caption"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uris": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uri"
+                      }
+                    }
+                  },
+                  "required": ["uris"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotFound"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "InvalidCaptions"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "video": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "language": {
+                    "type": "string",
+                    "format": "language"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "format": {
+                    "type": "string"
+                  },
+                  "body": {
+                    "type": "string",
+                    "maxLength": 5000000
+                  }
+                },
+                "required": ["video", "language", "format", "body"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.caption.listTracks": {
+      "get": {
+        "summary": "List the caption tracks available for a live stream on this node, or for a video.",
+        "operationId": "place.stream.caption.listTracks",
+        "tags": ["place.stream.caption"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tracks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.caption.defs_trackView"
+                      }
+                    }
+                  },
+                  "required": ["tracks"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "streamer",
+            "in": "query",
+            "required": false,
+            "description": "DID or handle of a live streamer. Mutually exclusive with video.",
+            "schema": {
+              "type": "string",
+              "description": "DID or handle of a live streamer. Mutually exclusive with video."
+            }
+          },
+          {
+            "name": "video",
+            "in": "query",
+            "required": false,
+            "description": "AT-URI of a place.stream.video.",
+            "schema": {
+              "type": "string",
+              "description": "AT-URI of a place.stream.video.",
+              "format": "uri"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.caption.pushCaptions": {
+      "post": {
+        "summary": "Push live captions into a stream from a captioner, a CART stenographer, or an external tool. Requires the streamer's OAuth authorization or active registered stream key. Under canonical policy auto or ingest, pushed captions become streamer-signed MUXL text tracks. Under canonical policy off, pushed captions remain sidecar or local according to the streamer's node-caption policy.",
+        "operationId": "place.stream.caption.pushCaptions",
+        "tags": ["place.stream.caption"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "StreamNotLive"
+                        },
+                        {
+                          "const": "Forbidden"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "Defaults to the authenticated account.",
+                    "format": "did"
+                  },
+                  "language": {
+                    "type": "string",
+                    "format": "language"
+                  },
+                  "source": {
+                    "type": "string",
+                    "description": "Whether a person or a recognizer produced the captions. Defaults to human."
+                  },
+                  "cues": {
+                    "type": "array",
+                    "description": "Each cue's startTime must be in the inclusive interval from five minutes before to 30 seconds after the server's request time. Its endTime must be later than startTime and no more than 30 seconds after it. If any cue violates these bounds, the entire batch is rejected with HTTP 400.",
+                    "items": {
+                      "$ref": "#/components/schemas/place.stream.caption.defs_pushedCue"
+                    },
+                    "maxItems": 100
+                  }
+                },
+                "required": ["language", "cues"]
               }
             }
           }
@@ -7840,6 +8230,72 @@
           }
         },
         "required": ["uri", "name"]
+      },
+      "place.stream.caption.defs_trackView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Opaque caption track identifier, stable for the lifetime of the stream or video on this node. Pass it to getCaptions and the playback endpoints."
+          },
+          "language": {
+            "type": "string",
+            "format": "language"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string",
+            "description": "canonical: mastered into the streamer's signed stream. sidecar: generated by a node and shared with its syndication peers. local: generated by this node for its own viewers only. record: read from place.stream.caption.transcript records."
+          },
+          "label": {
+            "type": "string",
+            "description": "Human-readable track name.",
+            "maxLength": 128
+          },
+          "author": {
+            "type": "string",
+            "description": "Account or node that published the track, when known.",
+            "format": "did"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "required": ["id", "language", "source", "origin"]
+      },
+      "place.stream.caption.defs_pushedCue": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Optional client cue id; resending an id replaces that cue while it is still interim.",
+            "maxLength": 64
+          },
+          "startTime": {
+            "type": "string",
+            "description": "Wall-clock time the words were spoken.",
+            "format": "date-time"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "final": {
+            "type": "boolean",
+            "description": "Defaults to true."
+          }
+        },
+        "required": ["startTime", "endTime", "text"]
       },
       "place.stream.branding.getBranding_brandingAsset": {
         "type": "object",

@@ -1,0 +1,92 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.caption.transcript",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "A chunk of timed captions for a livestream or video. Word timing uses the compact encoding of tv.ionosphere.transcript: the words of `text` (split on whitespace) pair in order with the positive entries of `timings`, each a word duration in milliseconds, and each word starts where the previous one ended. A negative entry is a silence gap (absolute value, in milliseconds) before the next word. Long transcripts are split across several records.",
+      "record": {
+        "type": "object",
+        "required": [
+          "subject",
+          "language",
+          "source",
+          "startMs",
+          "text",
+          "timings",
+          "createdAt"
+        ],
+        "properties": {
+          "subject": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef",
+            "description": "The place.stream.livestream or place.stream.video these captions belong to."
+          },
+          "mediaStart": {
+            "type": "string",
+            "format": "datetime",
+            "description": "For livestream subjects: the wall-clock instant (millisecond precision) that `startMs` is measured from, which is the start time of the live session's first segment. Every chunk of a live session repeats the same value. Absent for video subjects, whose offsets are measured from the start of the video."
+          },
+          "startMs": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Start of the first word, in milliseconds from the subject's media start."
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 100000,
+            "description": "Caption text. Word boundaries come from whitespace tokenization."
+          },
+          "timings": {
+            "type": "array",
+            "maxLength": 40000,
+            "items": {
+              "type": "integer"
+            },
+            "description": "Flat timing array: a positive entry is a word duration in milliseconds, and the Nth positive entry corresponds to the Nth whitespace token of `text`; a negative entry is a silence gap (absolute value, in milliseconds) before the next word."
+          },
+          "language": {
+            "type": "string",
+            "format": "language",
+            "description": "BCP 47 language of the caption text."
+          },
+          "kind": {
+            "type": "string",
+            "knownValues": ["captions", "subtitles"],
+            "description": "captions (the default when absent): the same language as the audio, for viewers who can't hear it. subtitles: a translation."
+          },
+          "source": {
+            "type": "string",
+            "knownValues": ["auto", "ingest", "human", "imported"],
+            "description": "auto: speech recognition. ingest: supplied by the streamer at ingest (CEA-608/708 or pushCaptions). human: authored or corrected by a person. imported: converted from an uploaded caption file."
+          },
+          "generator": {
+            "type": "ref",
+            "ref": "#generator"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    },
+    "generator": {
+      "type": "object",
+      "description": "What produced machine-generated captions.",
+      "properties": {
+        "model": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Speech model identifier, e.g. whisper-base-q5_1."
+        },
+        "node": {
+          "type": "string",
+          "format": "did",
+          "description": "DID of the node that generated the captions."
+        }
+      }
+    }
+  }
+}

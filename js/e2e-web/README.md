@@ -41,8 +41,8 @@ not to establish dependencies between scenarios.
 
 For shared behavior, use the corresponding semantic slug and mention its mobile
 path in the spec comment; no central parity manifest is needed. Logged-out
-smoke, navigation, and stream coverage correspond to
-`.maestro/logged-out/{smoke,tabs,stream}.yaml`. OAuth setup corresponds to
+smoke, navigation, stream, and live caption coverage correspond to
+`.maestro/logged-out/{smoke,tabs,stream,captions}.yaml`. OAuth setup corresponds to
 `.maestro/setup/oauth-login.yaml`; authenticated chat/profile behavior is covered
 on mobile by `.maestro/logged-in/{chat-reply,chat-profile}.yaml`.
 
@@ -59,6 +59,27 @@ page title and the app's tab title; document titles have no native counterpart.
 live video sits above chat. It reveals the player chrome, exercises mute and
 fullscreen entry/exit, and verifies that faded controls reveal instead of
 accepting an unseen tap.
+
+`captions` exercises both frontends (`sp_web_beta` selects the modern web
+app): live/VOD CC preferences, real live text sent through
+`place.stream.caption.pushCaptions`, caption-style persistence, dashboard
+`captionPolicy` saves, and modern-web VOD caption import/download/rendering.
+It uses the harness's `STREAM_KEY` bearer credential for live pushes, never a
+PDS access JWT. Cues use the encoder wall clock and are pushed with fresh
+timestamps while waiting for mastering and segment delivery. OAuth-only
+management checks use `flows/login.ts` and the harness account.
+
+VOD management opens the harness's `VIDEO_URI` directly through
+`/dashboard/videos?video=<encoded AT URI>`, loading the owner's published record
+from their PDS rather than depending on video-list indexing. Downloads use the
+browser's real download flow, which trusts the harness certificate by its SPKI
+pin; Playwright's standalone API request client does not inherit that pin.
+Stream Settings saves the same `self` metadata configuration record as the
+shared app, so caption policy survives reload and applies to future streams.
+Avatar lookups are keyed by missing DID contents, so a successful Bluesky
+response that omits the harness's Streamplace-only actor cannot trigger a
+profile-fetch/render loop during playback. `use-avatars.test.tsx` covers that
+case and repeated playback renders.
 
 ## OAuth over real HTTPS
 
@@ -110,3 +131,9 @@ inside the build container.
 
 Artifacts on failure (traces, screenshots, video) land in `test-results/` and a
 report in `playwright-report/` (`pnpm --filter @streamplace/e2e-web report`).
+
+To run just captions after building the current bundles and binary:
+
+```bash
+make dev && hack/e2e-web-local.sh flows/captions.spec.ts
+```

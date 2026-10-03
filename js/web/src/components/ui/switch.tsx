@@ -1,6 +1,9 @@
 import { cn } from "@/lib/utils";
 
-interface SwitchProps {
+interface SwitchProps extends Omit<
+  React.ComponentProps<"button">,
+  "onClick" | "role" | "type" | "children"
+> {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   disabled?: boolean;
@@ -14,10 +17,12 @@ function Switch({
   disabled,
   className,
   size = "default",
+  ...props
 }: SwitchProps) {
   const isSmall = size === "sm";
   return (
     <button
+      {...props}
       type="button"
       role="switch"
       aria-checked={checked}

@@ -73,7 +73,7 @@ require (
 	github.com/streamplace/atmoq/go v0.0.4-0.20260701223355-13757de4ae08
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20260413212710-98956064d06c
 	github.com/streamplace/glex v0.0.0-20260820164827-814f46540f22
-	github.com/streamplace/muxl/go v0.3.5
+	github.com/streamplace/muxl/go v0.3.6-0.20261002234149-4dd20ed8c136
 	github.com/streamplace/oatproxy v0.0.0-20260710202406-60d97b9d780b
 	github.com/stretchr/testify v1.11.1
 	github.com/tdewolff/canvas v0.0.0-20250728095813-50d4cb1eee71
@@ -92,6 +92,7 @@ require (
 	golang.org/x/net v0.55.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/term v0.43.0
+	golang.org/x/text v0.37.0
 	golang.org/x/time v0.14.0
 	golang.org/x/tools v0.44.0
 	google.golang.org/api v0.228.0
@@ -566,7 +567,6 @@ require (
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260409153401-be6f6cb8b1fa // indirect
-	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gonum.org/v1/plot v0.16.0 // indirect
 	google.golang.org/appengine/v2 v2.0.2 // indirect

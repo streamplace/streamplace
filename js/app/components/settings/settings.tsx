@@ -20,6 +20,7 @@ import {
   Award,
   Bell,
   Brush,
+  Captions,
   Globe,
   Info,
   Lock,
@@ -180,6 +181,12 @@ export function Settings() {
                 title={t("languages")}
                 screen="LanguagesCategory"
                 icon={Globe}
+              />
+              <MenuSeparator />
+              <SettingsNavigationItem
+                title={t("captions")}
+                screen="CaptionsCategory"
+                icon={Captions}
               />
               <MenuSeparator />
               <SettingsNavigationItem

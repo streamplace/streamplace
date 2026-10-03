@@ -1,0 +1,572 @@
+package captions
+
+import (
+	"context"
+	"math"
+	"math/rand/v2"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/stt"
+)
+
+// fakeModel answers Transcribe from a script, one result per call, and an
+// empty result once the script runs out. It records every call.
+type fakeModel struct {
+	mu     sync.Mutex
+	script []*stt.Result
+	calls  int
+	lens   []int
+	opts   []stt.Options
+}
+
+func (m *fakeModel) Info() stt.ModelInfo { return stt.ModelInfo{Name: "whisper-fake"} }
+
+func (m *fakeModel) Transcribe(_ context.Context, pcm []float32, opts stt.Options) (*stt.Result, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.lens = append(m.lens, len(pcm))
+	m.opts = append(m.opts, opts)
+	i := m.calls
+	m.calls++
+	if i >= len(m.script) {
+		return &stt.Result{Language: "en"}, nil
+	}
+	return m.script[i], nil
+}
+
+type fakeLease struct {
+	model stt.Model
+	nilAt int // call index from which Model returns nil; 0 = never
+	calls int
+}
+
+func (l *fakeLease) Model() stt.Model {
+	l.calls++
+	if l.nilAt > 0 && l.calls >= l.nilAt {
+		return nil
+	}
+	return l.model
+}
+func (l *fakeLease) Release() {}
+
+type fakeEngine struct {
+	lease *fakeLease
+	err   error
+}
+
+func (e *fakeEngine) Lease(context.Context) (stt.Lease, error) {
+	if e.err != nil {
+		return nil, e.err
+	}
+	return e.lease, nil
+}
+func (e *fakeEngine) Close() error { return nil }
+
+func w(text string, start, end float64) stt.Word {
+	return stt.Word{Text: text, Start: time.Duration(start * float64(time.Second)), End: time.Duration(end * float64(time.Second)), Prob: 0.9}
+}
+
+func result(words ...stt.Word) *stt.Result {
+	return &stt.Result{Language: "en", Words: words}
+}
+
+// speech is pseudo-random audio loud enough to count as speech.
+func speech(d time.Duration) []float32 {
+	n := int(d.Seconds() * rate)
+	rng := rand.New(rand.NewPCG(1, 2))
+	out := make([]float32, n)
+	for i := range out {
+		out[i] = (rng.Float32()*2 - 1) * 0.2
+	}
+	return out
+}
+
+func silence(d time.Duration) []float32 {
+	return make([]float32, int(d.Seconds()*rate))
+}
+
+// recorded collects a streamer's hub events; wait drains the subscription
+// so every published event is in events.
+type recorded struct {
+	events []Event
+	cancel context.CancelFunc
+	done   chan struct{}
+}
+
+func record(h *Hub, streamer string) *recorded {
+	ctx, cancel := context.WithCancel(context.Background())
+	r := &recorded{cancel: cancel, done: make(chan struct{})}
+	ch := h.Subscribe(ctx, streamer)
+	go func() {
+		defer close(r.done)
+		for ev := range ch {
+			r.events = append(r.events, ev)
+		}
+	}()
+	return r
+}
+
+func (r *recorded) wait() {
+	r.cancel()
+	<-r.done
+}
+
+func (r *recorded) finals() []Cue {
+	var out []Cue
+	for _, e := range r.events {
+		if e.Cue.Final {
+			out = append(out, e.Cue)
+		}
+	}
+	return out
+}
+
+func (r *recorded) interims() []Cue {
+	var out []Cue
+	for _, e := range r.events {
+		if !e.Cue.Final {
+			out = append(out, e.Cue)
+		}
+	}
+	return out
+}
+
+func newTestRecognizer(t *testing.T, model *fakeModel, lease *fakeLease) (*Recognizer, *recorded) {
+	t.Helper()
+	hub := NewHub(time.Minute)
+	if lease == nil {
+		lease = &fakeLease{model: model}
+	}
+	rec := record(hub, "did:plc:s")
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	r, err := NewRecognizer(ctx, RecognizerOptions{
+		Streamer: "did:plc:s", Origin: OriginCanonical, Author: "did:web:node", Hub: hub,
+		Engine: &fakeEngine{lease: lease}, Languages: []string{"en"},
+		// A pass per second of audio, at least two seconds in the window.
+		Step: time.Second, MinWindow: 2 * time.Second,
+	})
+	require.NoError(t, err)
+	return r, rec
+}
+
+func texts(cues []Cue) []string {
+	out := make([]string, len(cues))
+	for i, c := range cues {
+		out[i] = c.Text
+	}
+	return out
+}
+
+func TestRecognizerPublishesEachAgreedBatchAndFlushesOnClose(t *testing.T) {
+	model := &fakeModel{script: []*stt.Result{
+		result(w("hello", 0.1, 0.5), w("world", 0.6, 1.0), w("foo", 1.2, 1.6)),
+		result(w("hello", 0.1, 0.5), w("world", 0.6, 1.0), w("bar", 1.2, 1.6), w("baz", 1.8, 2.2)),
+		// The window keeps committed audio, so committed words are heard again.
+		result(w("hello", 0.1, 0.5), w("world", 0.6, 1.0), w("bar", 1.2, 1.6), w("baz", 1.8, 2.2), w("qux", 2.4, 2.8)),
+		// Close: a forced pass over the same window.
+		result(w("hello", 0.1, 0.5), w("world", 0.6, 1.0), w("bar", 1.2, 1.6), w("baz", 1.8, 2.2), w("qux", 2.4, 2.8)),
+	}}
+	r, rec := newTestRecognizer(t, model, nil)
+
+	r.Push(t0, speech(2*time.Second))
+	r.settle()
+	r.Push(t0.Add(2*time.Second), speech(time.Second))
+	r.settle()
+	r.Push(t0.Add(3*time.Second), speech(time.Second))
+	r.settle()
+	r.Close()
+	rec.wait()
+
+	finals := rec.finals()
+	require.Equal(t, []string{"hello world", "bar baz", "qux"}, texts(finals), "each agreed batch is final at once, not when its cue fills")
+	require.Equal(t, t0.Add(100*time.Millisecond), finals[0].Start, "word times are absolute, from the chunk's wall clock")
+	require.Equal(t, t0.Add(2400*time.Millisecond), finals[2].Start)
+	interims := rec.interims()
+	require.Equal(t, []string{"hello world foo", "bar baz", "qux"}, texts(interims), "interim cues show the words not yet agreed")
+	for i := range finals {
+		require.Equal(t, finals[i].ID, interims[i].ID, "interim versions carry the id of the cue they become")
+	}
+	require.Equal(t, "en", model.opts[0].Language)
+}
+
+func TestRecognizerTimeMappingAcrossDiscontinuity(t *testing.T) {
+	model := &fakeModel{script: []*stt.Result{
+		result(w("one", 0.5, 1.0)),
+		result(w("one", 0.5, 1.0), w("two", 1.5, 2.0)),
+		// The jump forces a pass over the old window.
+		result(w("one", 0.5, 1.0), w("two", 1.5, 2.0)),
+		// A fresh window starts at the new chunk's time.
+		result(w("three", 0.5, 1.0)),
+		result(w("three", 0.5, 1.0), w("four", 1.5, 2.0)),
+		result(w("three", 0.5, 1.0), w("four", 1.5, 2.0)),
+	}}
+	r, rec := newTestRecognizer(t, model, nil)
+
+	r.Push(t0, speech(2*time.Second))
+	r.settle()
+	r.Push(t0.Add(2*time.Second), speech(time.Second))
+	r.settle()
+	jump := t0.Add(time.Minute)
+	r.Push(jump, speech(2*time.Second)) // a reconnect: new timeline
+	r.settle()
+	r.Push(jump.Add(2*time.Second), speech(time.Second))
+	r.settle()
+	r.Close()
+	rec.wait()
+
+	finals := rec.finals()
+	require.Equal(t, []string{"one", "two", "three", "four"}, texts(finals))
+	require.Equal(t, t0.Add(500*time.Millisecond), finals[0].Start)
+	require.Equal(t, t0.Add(1500*time.Millisecond), finals[1].Start)
+	require.Equal(t, jump.Add(500*time.Millisecond), finals[2].Start)
+	require.Equal(t, jump.Add(1500*time.Millisecond), finals[3].Start)
+}
+
+// timelineModel hears a fixed script of words on the stream's own timeline,
+// the way whisper hears speech: each pass reports the words that start
+// inside its window, relative to the window's start (read off rampSpeech).
+type timelineModel struct {
+	pass  int
+	heard func(pass int) []stt.Word
+}
+
+func (m *timelineModel) Info() stt.ModelInfo { return stt.ModelInfo{Name: "whisper-timeline"} }
+
+func (m *timelineModel) Transcribe(_ context.Context, pcm []float32, _ stt.Options) (*stt.Result, error) {
+	start := rampTime(pcm[0])
+	end := start + time.Duration(len(pcm))*time.Second/rate
+	var words []stt.Word
+	for _, wd := range m.heard(m.pass) {
+		if wd.Start >= start && wd.Start < end {
+			words = append(words, stt.Word{Text: wd.Text, Start: wd.Start - start, End: min(wd.End, end) - start})
+		}
+	}
+	m.pass++
+	return &stt.Result{Language: "en", Words: words}, nil
+}
+
+const rampSeconds = 60
+
+// rampSpeech is loud audio whose samples encode their own stream time.
+func rampSpeech(from, d time.Duration) []float32 {
+	first := int(from.Seconds() * rate)
+	out := make([]float32, int(d.Seconds()*rate))
+	for i := range out {
+		out[i] = 0.1 + 0.8*float32(first+i)/float32(rampSeconds*rate)
+	}
+	return out
+}
+
+func rampTime(v float32) time.Duration {
+	return time.Duration(math.Round(float64(v-0.1)/0.8*rampSeconds*rate)) * time.Second / rate
+}
+
+// transcribeTimeline feeds rampSpeech a second at a time and returns the
+// final text, and the final text published before Close.
+func transcribeTimeline(t *testing.T, seconds int, heard func(pass int) []stt.Word) (string, string) {
+	t.Helper()
+	model := &timelineModel{heard: heard}
+	r, rec := newTestRecognizer(t, nil, &fakeLease{model: model})
+	r.Push(t0, rampSpeech(0, 2*time.Second))
+	r.settle()
+	for s := 2; s < seconds; s++ {
+		r.Push(t0.Add(time.Duration(s)*time.Second), rampSpeech(time.Duration(s)*time.Second, time.Second))
+		r.settle()
+	}
+	before := len(rec.events)
+	r.Close()
+	rec.wait()
+	live := strings.Join(texts(finalsOf(rec.events[:before])), " ")
+	return strings.Join(texts(rec.finals()), " "), live
+}
+
+func finalsOf(events []Event) []Cue {
+	var out []Cue
+	for _, e := range events {
+		if e.Cue.Final {
+			out = append(out, e.Cue)
+		}
+	}
+	return out
+}
+
+func tw(text string, start, end float64) stt.Word {
+	return stt.Word{Text: text, Start: time.Duration(start * float64(time.Second)), End: time.Duration(end * float64(time.Second))}
+}
+
+func TestRecognizerKeepsWordsAfterARoughTimestamp(t *testing.T) {
+	// Whisper times "b" as ending at 2.5s although "c" is spoken from 2.1s.
+	// The window must not be cut at that end: "c" is first heard in the pass
+	// that commits "b".
+	text, _ := transcribeTimeline(t, 5, func(int) []stt.Word {
+		return []stt.Word{tw("a", 0.3, 0.7), tw("b", 0.8, 2.5), tw("c", 2.1, 2.4), tw("d", 2.6, 2.9)}
+	})
+	require.Equal(t, "a b c d", text)
+}
+
+func TestRecognizerRevisedWordCannotHoldBackCaptions(t *testing.T) {
+	// Whisper keeps changing its mind about "this", the word after the
+	// committed text, so no two passes agree from there on.
+	_, live := transcribeTimeline(t, 7, func(pass int) []stt.Word {
+		words := []stt.Word{tw("my", 0.2, 0.5)}
+		if pass%2 == 0 {
+			words = append(words, tw("this", 0.6, 0.8))
+		}
+		return append(words, tw("day", 0.9, 1.3), tw("has", 1.4, 1.7), tw("come", 1.8, 2.2), tw("to", 2.3, 2.6), tw("end", 2.7, 3.1))
+	})
+	require.Contains(t, live, "day has come to end", "words heard well before the window's end are final while the stream is live")
+}
+
+func TestRecognizerDoesNotRepeatReheardWords(t *testing.T) {
+	// From the third pass on, whisper times the whole window 1.5s later.
+	text, _ := transcribeTimeline(t, 6, func(pass int) []stt.Word {
+		words := []stt.Word{tw("alpha", 0.2, 0.6), tw("beta", 0.7, 1.1), tw("gamma", 2.2, 2.6), tw("delta", 2.7, 3.0)}
+		if pass >= 2 {
+			for i := range words {
+				words[i].Start += 1500 * time.Millisecond
+				words[i].End += 1500 * time.Millisecond
+			}
+		}
+		return words
+	})
+	require.Equal(t, "alpha beta gamma delta", text)
+}
+
+func TestRecognizerSilenceFlushesAndSkipsTranscription(t *testing.T) {
+	model := &fakeModel{script: []*stt.Result{
+		result(w("pause", 0.2, 0.8)),
+	}}
+	r, rec := newTestRecognizer(t, model, nil)
+	// One second of speech then two of silence: the trailing silence makes
+	// the single pass final without a second agreeing pass.
+	r.Push(t0, append(speech(time.Second), silence(2*time.Second)...))
+	r.settle()
+	// Pure silence afterwards is never sent to the model.
+	r.Push(t0.Add(3*time.Second), silence(3*time.Second))
+	r.settle()
+	r.Close()
+	rec.wait()
+
+	finals := rec.finals()
+	require.Len(t, finals, 1)
+	require.Equal(t, "pause", finals[0].Text)
+	require.Equal(t, t0.Add(200*time.Millisecond), finals[0].Start)
+	require.Equal(t, t0.Add(1200*time.Millisecond), finals[0].End, "a short cue is held for the minimum duration")
+	require.Equal(t, 1, model.calls, "silence is not transcribed")
+}
+
+func TestRecognizerHallucinationGuards(t *testing.T) {
+	loop := result(w("thank", 0.1, 0.3), w("you", 0.3, 0.5), w("thank", 0.5, 0.7), w("you", 0.7, 0.9), w("thank", 0.9, 1.1), w("you", 1.1, 1.3), w("thank", 1.3, 1.5), w("you", 1.5, 1.7))
+	model := &fakeModel{script: []*stt.Result{
+		{Language: "en", NoSpeechProb: 0.9, Words: []stt.Word{w("ghost", 0.1, 0.5)}},
+		loop,
+		loop,
+	}}
+	r, rec := newTestRecognizer(t, model, nil)
+	r.Push(t0, speech(2*time.Second))
+	r.settle()
+	r.Push(t0.Add(2*time.Second), speech(time.Second))
+	r.settle()
+	r.Push(t0.Add(3*time.Second), speech(time.Second))
+	r.settle()
+	r.Close()
+	rec.wait()
+
+	var all []string
+	for _, c := range rec.finals() {
+		all = append(all, c.Text)
+	}
+	text := strings.Join(all, " ")
+	require.NotContains(t, text, "ghost", "a no-speech pass is dropped")
+	require.Equal(t, "thank you", text, "a looping bigram keeps one copy")
+
+	// A word claimed over silence is dropped, and so are whisper's
+	// annotations of non-speech; a real word whose rough timestamp lands
+	// just past the speech is kept.
+	model = &fakeModel{script: []*stt.Result{result(w("real", 0.1, 0.5), w("tail", 1.55, 1.75), w("quiet", 2.0, 2.5), w("[BLANK_AUDIO]", 2.6, 2.9))}}
+	r, rec = newTestRecognizer(t, model, nil)
+	r.Push(t0, append(speech(1500*time.Millisecond), silence(1500*time.Millisecond)...))
+	r.settle()
+	r.Close()
+	rec.wait()
+	require.Equal(t, "real tail", strings.Join(texts(rec.finals()), " "))
+}
+
+func TestRecognizerNoModelMeansNoCues(t *testing.T) {
+	model := &fakeModel{script: []*stt.Result{result(w("never", 0.1, 0.5))}}
+	r, rec := newTestRecognizer(t, model, &fakeLease{model: model, nilAt: 1})
+	r.Push(t0, speech(3*time.Second))
+	r.settle()
+	r.Close()
+	rec.wait()
+	require.Empty(t, rec.events)
+	require.Equal(t, 0, model.calls)
+}
+
+func TestNewRecognizerOverBudget(t *testing.T) {
+	_, err := NewRecognizer(context.Background(), RecognizerOptions{Hub: NewHub(0), Engine: &fakeEngine{err: stt.ErrOverBudget}})
+	require.ErrorIs(t, err, stt.ErrOverBudget)
+}
+
+func TestSuppressRepeats(t *testing.T) {
+	words := func(s string) []stt.Word {
+		var out []stt.Word
+		for _, t := range strings.Fields(s) {
+			out = append(out, stt.Word{Text: t})
+		}
+		return out
+	}
+	texts := func(ws []stt.Word) string {
+		var out []string
+		for _, w := range ws {
+			out = append(out, w.Text)
+		}
+		return strings.Join(out, " ")
+	}
+	require.Equal(t, "I said no", texts(suppressRepeats(words("I said no no no no no"))), "a word repeated four times loops")
+	require.Equal(t, "no no no", texts(suppressRepeats(words("no no no"))), "three in a row is still speech")
+	require.Equal(t, "so, so, so good", texts(suppressRepeats(words("so, so, so good"))))
+	require.Equal(t, "and then the end", texts(suppressRepeats(words("and then the end the end the end"))), "a looping bigram keeps one copy")
+	require.Equal(t, "a b c a b c", texts(suppressRepeats(words("a b c a b c"))), "two copies of a trigram are not a loop")
+	require.Equal(t, "a b c", texts(suppressRepeats(words("a b c a b c a b c"))))
+}
+
+func TestAgreedPrefix(t *testing.T) {
+	ws := func(s string) []Word {
+		var out []Word
+		for _, t := range strings.Fields(s) {
+			out = append(out, Word{Text: t})
+		}
+		return out
+	}
+	require.Equal(t, 2, agreedPrefix(ws("Hello, world foo"), ws("hello world! bar")), "punctuation and case do not break agreement")
+	require.Equal(t, 0, agreedPrefix(nil, ws("x")))
+	require.Equal(t, 1, agreedPrefix(ws("a"), ws("a b c")))
+}
+
+func TestGrouperLayout(t *testing.T) {
+	g := NewGrouper(DefaultCueLayout(), "c")
+	at := func(s, e float64) (time.Time, time.Time) {
+		return t0.Add(time.Duration(s * float64(time.Second))), t0.Add(time.Duration(e * float64(time.Second)))
+	}
+	add := func(text string, s, e float64) []Cue {
+		st, en := at(s, e)
+		return g.Add(Word{Text: text, Start: st, End: en})
+	}
+	tm := 0.0
+	require.Empty(t, add("window", tm, tm+0.3))
+
+	// A pause longer than MaxGap starts a new cue.
+	closed := add("later", tm+5, tm+5.5)
+	require.Len(t, closed, 1)
+	require.Equal(t, "c0", closed[0].ID)
+	require.Equal(t, "window", closed[0].Text)
+	require.Equal(t, time.Second, closed[0].End.Sub(closed[0].Start), "short cues are held for MinDuration")
+
+	// A sentence end at a full line closes the cue right away.
+	g2 := NewGrouper(DefaultCueLayout(), "s")
+	t2 := 0.0
+	var sentenceClosed []Cue
+	for _, wd := range strings.Fields("this sentence is exactly long enough to end here.") { // 49 chars
+		st, en := at(t2, t2+0.2)
+		sentenceClosed = append(sentenceClosed, g2.Add(Word{Text: wd, Start: st, End: en})...)
+		t2 += 0.25
+	}
+	require.Len(t, sentenceClosed, 1)
+	require.Equal(t, strings.Fields("this sentence is exactly long enough to end here."), strings.Fields(sentenceClosed[0].Text))
+	_, open := g2.Current(nil)
+	require.False(t, open)
+
+	// MaxDuration splits long unbroken speech.
+	g3 := NewGrouper(DefaultCueLayout(), "d")
+	for i := range 7 {
+		require.Empty(t, g3.Add(Word{Text: "w", Start: t0.Add(time.Duration(i) * time.Second), End: t0.Add(time.Duration(i+1) * time.Second)}))
+	}
+	closed = g3.Add(Word{Text: "late", Start: t0.Add(7 * time.Second), End: t0.Add(8 * time.Second)})
+	require.Len(t, closed, 1)
+	require.Equal(t, "w w w w w w w", closed[0].Text)
+	require.Equal(t, 7*time.Second, closed[0].End.Sub(closed[0].Start))
+
+	// Current shows the open cue plus interim words under the open id.
+	cur, ok := g3.Current([]Word{{Text: "maybe", Start: t0.Add(8 * time.Second), End: t0.Add(9 * time.Second)}})
+	require.True(t, ok)
+	require.Equal(t, "late maybe", cur.Text)
+	require.Equal(t, "d1", cur.ID)
+	require.False(t, cur.Final)
+	flushed := g3.Flush()
+	require.Len(t, flushed, 1)
+	require.Equal(t, "late", flushed[0].Text)
+	require.Equal(t, "d1", flushed[0].ID)
+	_, ok = g3.Current(nil)
+	require.False(t, ok)
+	require.Empty(t, g3.Flush())
+}
+
+func TestWrapLines(t *testing.T) {
+	require.Equal(t, "short", WrapLines("short", 37, 2))
+	require.Equal(t, "a\nsupercalifragilisticexpialidocious", WrapLines("a supercalifragilisticexpialidocious", 10, 2), "a word longer than the line stands alone")
+	require.Equal(t, "a b c d e f g h", WrapLines("a b c d e f g h", 5, 1), "a single line never wraps")
+	require.Equal(t, "aa bb\ncc dd\nee ff", WrapLines("aa bb cc dd ee ff", 5, 3))
+	require.Equal(t, "", WrapLines("   ", 37, 2))
+}
+
+func TestRecognizerCoverageIsSettledAndMonotonic(t *testing.T) {
+	model := &fakeModel{}
+	var covered []time.Time
+	start := time.UnixMilli(1000)
+	r, err := NewRecognizer(context.Background(), RecognizerOptions{
+		Streamer: "coverage", Origin: OriginCanonical, Hub: NewHub(time.Minute),
+		Engine: &fakeEngine{lease: &fakeLease{model: model}},
+		Step:   time.Second, MinWindow: 2 * time.Second,
+		OnCoverage: func(end time.Time) { covered = append(covered, end) },
+	})
+	require.NoError(t, err)
+	r.Push(start, speech(time.Second))
+	r.settle()
+	require.Empty(t, covered, "PCM receipt alone must not release a held GoP")
+	r.Push(start.Add(time.Second), speech(time.Second))
+	r.settle()
+	r.Push(start.Add(2*time.Second), speech(time.Second))
+	r.settle()
+	// Mid-speech, a pass releases only audio that has recognizerSettled after
+	// it: whisper may not have heard a word at the window's end yet.
+	require.Equal(t, []time.Time{start, start.Add(time.Second)}, covered)
+	// A pure-silence decision also covers its complete window.
+	r.Push(start.Add(3*time.Second), silence(2*time.Second))
+	r.settle()
+	require.Equal(t, start.Add(5*time.Second), covered[len(covered)-1])
+	// A backwards discontinuity cannot move the reported coverage backwards.
+	before := len(covered)
+	r.Push(start, silence(2*time.Second))
+	r.settle()
+	require.Len(t, covered, before)
+	r.Close()
+}
+
+func TestRecognizerEOFCoverageIncludesFinalVoicedWords(t *testing.T) {
+	hub := NewHub(time.Minute)
+	start := time.UnixMilli(1000)
+	var atCoverage []Cue
+	var covered time.Time
+	model := &fakeModel{script: []*stt.Result{result(w("last words", 0.1, 0.7))}}
+	r, err := NewRecognizer(context.Background(), RecognizerOptions{
+		Streamer: "eof", Origin: OriginCanonical, Hub: hub,
+		Engine: &fakeEngine{lease: &fakeLease{model: model}}, MinWindow: 2 * time.Second,
+		OnCoverage: func(end time.Time) {
+			covered = end
+			atCoverage = hub.Cues("eof", TrackID(OriginCanonical, SourceAuto, "en"), start, end)
+		},
+	})
+	require.NoError(t, err)
+	r.Push(start, speech(time.Second))
+	r.Close()
+	require.Equal(t, start.Add(time.Second), covered)
+	require.Len(t, atCoverage, 1, "the final voiced pass must publish before releasing the last GoP")
+	require.Equal(t, "last words", atCoverage[0].Text)
+	require.True(t, atCoverage[0].Final)
+}

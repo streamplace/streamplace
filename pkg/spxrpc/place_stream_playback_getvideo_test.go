@@ -72,7 +72,7 @@ const (
 )
 
 func TestMasterPlaylist(t *testing.T) {
-	pl := masterPlaylist(fixtureMetafile(), fixtureURI, fixtureSID, nil, nil)
+	pl := masterPlaylist(fixtureMetafile(), fixtureURI, fixtureSID, nil, nil, nil)
 	require.Contains(t, pl, "#EXTM3U")
 	require.Contains(t, pl, "#EXT-X-VERSION:6")
 	// Audio media line for the default (AAC) track.
@@ -99,7 +99,7 @@ func TestMasterPlaylist(t *testing.T) {
 
 func TestMasterPlaylist_PropagatesTimeRange(t *testing.T) {
 	start, end := int64(1_000), int64(2_000) // milliseconds
-	pl := masterPlaylist(fixtureMetafile(), fixtureURI, fixtureSID, &start, &end)
+	pl := masterPlaylist(fixtureMetafile(), fixtureURI, fixtureSID, &start, &end, nil)
 	require.Contains(t, pl, "start=1000")
 	require.Contains(t, pl, "end=2000")
 }
@@ -575,6 +575,6 @@ func TestHandleGetVideoPlaylist_RejectsBadSID(t *testing.T) {
 // Make sure all .m3u8 outputs use LF line endings (no CRLF), match
 // the HLS spec recommendation.
 func TestPlaylistLineEndings(t *testing.T) {
-	pl := masterPlaylist(fixtureMetafile(), fixtureURI, fixtureSID, nil, nil)
+	pl := masterPlaylist(fixtureMetafile(), fixtureURI, fixtureSID, nil, nil, nil)
 	require.False(t, strings.Contains(pl, "\r"), "playlist should not contain carriage returns")
 }

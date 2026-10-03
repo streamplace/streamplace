@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "Default metadata record for livestream including content warnings, rights, and distribution policy",
+      "description": "Default metadata record for livestream including content warnings, rights, distribution policy, and caption policy",
       "key": "literal:self",
       "record": {
         "type": "object",
@@ -20,6 +20,10 @@
           "distributionPolicy": {
             "type": "ref",
             "ref": "place.stream.metadata.distributionPolicy"
+          },
+          "captionPolicy": {
+            "type": "ref",
+            "ref": "place.stream.metadata.captionPolicy"
           }
         }
       }

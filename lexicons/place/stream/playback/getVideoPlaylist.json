@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash. The `uri` is an AT-URI pointing at a playable record — today only place.stream.video records are supported, but the surface is collection-agnostic so other record types can join later.",
+      "description": "Get an HLS CMAF playlist for a video. Returns a master playlist when `track` and `captions` are omitted, a single-track media playlist when `track` is supplied, or a WebVTT subtitle media playlist when `captions` is supplied. The master playlist lists the video's caption tracks as a SUBTITLES rendition group (GROUP-ID `cc`) that every variant references; subtitle segments are served by place.stream.caption.getCaptions and aligned to the video's segments. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash. The `uri` is an AT-URI pointing at a playable record — today only place.stream.video records are supported, but the surface is collection-agnostic so other record types can join later.",
       "parameters": {
         "type": "params",
         "required": ["uri"],
@@ -17,6 +17,10 @@
           "track": {
             "type": "string",
             "description": "Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist."
+          },
+          "captions": {
+            "type": "string",
+            "description": "Caption track id from place.stream.caption.listTracks, for that track's WebVTT subtitle media playlist. Takes precedence over `track`."
           },
           "start": {
             "type": "integer",

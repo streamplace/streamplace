@@ -429,6 +429,10 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.branding.importBundle", s.HandlePlaceStreamBrandingImportBundle)
 	e.POST("/xrpc/place.stream.branding.updateBlob", s.HandlePlaceStreamBrandingUpdateBlob)
 	e.GET("/xrpc/place.stream.broadcast.getBroadcaster", s.HandlePlaceStreamBroadcastGetBroadcaster)
+	e.GET("/xrpc/place.stream.caption.getCaptions", s.HandlePlaceStreamCaptionGetCaptions)
+	e.POST("/xrpc/place.stream.caption.importCaptions", s.HandlePlaceStreamCaptionImportCaptions)
+	e.GET("/xrpc/place.stream.caption.listTracks", s.HandlePlaceStreamCaptionListTracks)
+	e.POST("/xrpc/place.stream.caption.pushCaptions", s.HandlePlaceStreamCaptionPushCaptions)
 	e.GET("/xrpc/place.stream.config.getEnv", s.HandlePlaceStreamConfigGetEnv)
 	e.GET("/xrpc/place.stream.game.getGame", s.HandlePlaceStreamGameGetGame)
 	e.GET("/xrpc/place.stream.game.search", s.HandlePlaceStreamGameSearch)
@@ -650,6 +654,96 @@ func (s *Server) HandlePlaceStreamBroadcastGetBroadcaster(c echo.Context) error 
 	var handleErr error
 	// func (s *Server) handlePlaceStreamBroadcastGetBroadcaster(ctx context.Context) (*placestream.BroadcastGetBroadcaster_Output, error)
 	out, handleErr = s.handlePlaceStreamBroadcastGetBroadcaster(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamCaptionGetCaptions(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamCaptionGetCaptions")
+	defer span.End()
+	end := 0
+	if p := c.QueryParam("end"); p != "" {
+		var err error
+		end, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	}
+	format := c.QueryParam("format")
+	mpegts := 0
+	if p := c.QueryParam("mpegts"); p != "" {
+		var err error
+		mpegts, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	}
+	start := 0
+	if p := c.QueryParam("start"); p != "" {
+		var err error
+		start, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	}
+	streamer := c.QueryParam("streamer")
+	track := c.QueryParam("track")
+	video := c.QueryParam("video")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handlePlaceStreamCaptionGetCaptions(ctx context.Context,end int,format string,mpegts int,start int,streamer string,track string,video string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamCaptionGetCaptions(ctx, end, format, mpegts, start, streamer, track, video)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/octet-stream", out)
+}
+
+func (s *Server) HandlePlaceStreamCaptionImportCaptions(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamCaptionImportCaptions")
+	defer span.End()
+	var body placestream.CaptionImportCaptions_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.CaptionImportCaptions_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamCaptionImportCaptions(ctx context.Context,body *placestream.CaptionImportCaptions_Input) (*placestream.CaptionImportCaptions_Output, error)
+	out, handleErr = s.handlePlaceStreamCaptionImportCaptions(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamCaptionListTracks(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamCaptionListTracks")
+	defer span.End()
+	streamer := c.QueryParam("streamer")
+	video := c.QueryParam("video")
+	var out *placestream.CaptionListTracks_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamCaptionListTracks(ctx context.Context,streamer string,video string) (*placestream.CaptionListTracks_Output, error)
+	out, handleErr = s.handlePlaceStreamCaptionListTracks(ctx, streamer, video)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamCaptionPushCaptions(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamCaptionPushCaptions")
+	defer span.End()
+	var body placestream.CaptionPushCaptions_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.CaptionPushCaptions_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamCaptionPushCaptions(ctx context.Context,body *placestream.CaptionPushCaptions_Input) (*placestream.CaptionPushCaptions_Output, error)
+	out, handleErr = s.handlePlaceStreamCaptionPushCaptions(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1282,13 +1376,14 @@ func (s *Server) HandlePlaceStreamMultistreamPutTarget(c echo.Context) error {
 func (s *Server) HandlePlaceStreamPlaybackGetLivePlaylist(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetLivePlaylist")
 	defer span.End()
+	captions := c.QueryParam("captions")
 	sid := c.QueryParam("sid")
 	streamer := c.QueryParam("streamer")
 	track := c.QueryParam("track")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context,sid string,streamer string,track string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetLivePlaylist(ctx, sid, streamer, track)
+	// func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context,captions string,sid string,streamer string,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetLivePlaylist(ctx, captions, sid, streamer, track)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1298,18 +1393,19 @@ func (s *Server) HandlePlaceStreamPlaybackGetLivePlaylist(c echo.Context) error 
 func (s *Server) HandlePlaceStreamPlaybackGetLiveSegment(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetLiveSegment")
 	defer span.End()
+	captions := c.QueryParam("captions")
 	seg := c.QueryParam("seg")
 	sid := c.QueryParam("sid")
 	streamer := c.QueryParam("streamer")
 	track := c.QueryParam("track")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context,seg string,sid string,streamer string,track string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetLiveSegment(ctx, seg, sid, streamer, track)
+	// func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context,captions string,seg string,sid string,streamer string,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetLiveSegment(ctx, captions, seg, sid, streamer, track)
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "video/mp4", out)
+	return c.Stream(200, "application/octet-stream", out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetPlaybackServer(c echo.Context) error {
@@ -1358,6 +1454,7 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoBlob(c echo.Context) error {
 func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetVideoPlaylist")
 	defer span.End()
+	captions := c.QueryParam("captions")
 	end := 0
 	if p := c.QueryParam("end"); p != "" {
 		var err error
@@ -1379,8 +1476,8 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error
 	uri := c.QueryParam("uri")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context,end int,sid string,start int,track string,uri string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetVideoPlaylist(ctx, end, sid, start, track, uri)
+	// func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context,captions string,end int,sid string,start int,track string,uri string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetVideoPlaylist(ctx, captions, end, sid, start, track, uri)
 	if handleErr != nil {
 		return handleErr
 	}

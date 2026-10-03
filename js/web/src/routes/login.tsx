@@ -129,6 +129,7 @@ function LoginPage() {
           </span>
           <Input
             id="login-handle"
+            data-testid="login-handle"
             type="text"
             value={handle}
             onChange={(e) => setHandle(e.target.value)}
@@ -147,6 +148,7 @@ function LoginPage() {
 
         <Button
           type="submit"
+          data-testid="login-submit"
           disabled={submitting || state.status === "loading"}
           size="lg"
           className="w-full"

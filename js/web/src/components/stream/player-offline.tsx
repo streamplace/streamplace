@@ -1,3 +1,4 @@
+import { useLivestreamStore } from "@/hooks/use-livestream-store";
 import type { LivestreamStore } from "@streamplace/core";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
@@ -213,6 +214,7 @@ function RecommendationEmbed({
   handle: string;
   avatar?: string;
 }) {
+  const { store } = useLivestreamStore(did);
   const { playlistUrl, thumbnailUrl } = useMemo(() => {
     const base = getStreamplaceUrl();
     return {
@@ -226,6 +228,7 @@ function RecommendationEmbed({
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg bg-black">
         <Player
           src={playlistUrl}
+          captionSource={{ streamer: did, store: store ?? undefined }}
           poster={thumbnailUrl}
           active
           mode="live"

@@ -1,5 +1,7 @@
 import Hls from "hls.js";
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { startBrowserCaptioner } from "streamplace";
 import {
   IngestMediaSource,
   PlayerProtocol,
@@ -10,8 +12,11 @@ import {
   useSetMuted,
   useStreamplaceStore,
 } from "../..";
+import { useTheme } from "../../lib/theme";
 import { borderRadius, mt } from "../../lib/theme/atoms";
-import { statusColors, surfaces } from "../../lib/theme/tokens";
+import { statusColors, surfaces, typeScale } from "../../lib/theme/tokens";
+import { usePossiblyUnauthedPDSAgent } from "../../streamplace-store/xrpc";
+import { useTextTrackCaptions } from "../captions/use-text-track-captions";
 import { Text, View } from "../ui/index";
 import { Loader } from "../ui/loader";
 import { srcToUrl } from "./shared";
@@ -149,7 +154,6 @@ const VideoElement = forwardRef<
   const muted = useMuted();
   const setMuted = useSetMuted();
   const setStatus = usePlayerStore((x) => x.setStatus);
-  const setUserInteraction = usePlayerStore((x) => x.setUserInteraction);
   const setVideoRef = usePlayerStore((x) => x.setVideoRef);
   const setPlayTime = usePlayerStore((x) => x.setPlayTime);
   const setDuration = usePlayerStore((x) => x.setDuration);
@@ -168,6 +172,10 @@ const VideoElement = forwardRef<
   const setAutoplayFailed = usePlayerStore((x) => x.setAutoplayFailed);
 
   const localVideoRef = props.videoRef ?? useRef<HTMLVideoElement | null>(null);
+
+  // HLS subtitle renditions and Safari's native HLS text tracks feed the
+  // caption overlay.
+  useTextTrackCaptions(localVideoRef);
 
   // setPipAction comes from Zustand store
   useEffect(() => {
@@ -283,8 +291,6 @@ const VideoElement = forwardRef<
       src={ingest ? undefined : props.url}
       muted={muted}
       crossOrigin="anonymous"
-      onMouseMove={setUserInteraction}
-      onClick={setUserInteraction}
       onAbort={event("abort")}
       onCanPlay={eventLogger}
       onCanPlayThroughCapture={eventLogger}
@@ -387,6 +393,9 @@ export function HLSPlayer(props: VideoProps) {
           ? { startPosition: startTime }
           : {}),
       });
+      // Load the subtitle group's cues, but let CaptionOverlay draw them
+      // (useTextTrackCaptions keeps the chosen track "hidden").
+      hls.subtitleDisplay = false;
       hlsRef.current = hls;
       hls.loadSource(props.url);
       try {
@@ -689,8 +698,17 @@ export function WebcamIngestPlayer(props: VideoProps) {
   const ingestMediaSource = usePlayerStore((x) => x.ingestMediaSource);
   const ingestAutoStart = usePlayerStore((x) => x.ingestAutoStart);
   const setIngestLive = usePlayerStore((x) => x.setIngestLive);
+  const { t } = useTranslation();
 
   const [error, setError] = useState<Error | null>(null);
+  const { theme } = useTheme();
+  const captionAgent = usePossiblyUnauthedPDSAgent();
+  const oauthSession = useStreamplaceStore((state) => state.oauthSession);
+  const [deviceCaptions, setDeviceCaptions] = useState(
+    () =>
+      new URLSearchParams(window.location.search).get("deviceCaptions") === "1",
+  );
+  const [captionStatus, setCaptionStatus] = useState("");
 
   let streamKey = null;
 
@@ -773,6 +791,40 @@ export function WebcamIngestPlayer(props: VideoProps) {
     videoElement.srcObject = localMediaStream;
   }, [videoElement, localMediaStream]);
 
+  useEffect(() => {
+    if (!deviceCaptions || !localMediaStream || !captionAgent || !oauthSession)
+      return;
+    let cancelled = false;
+    let stop: (() => Promise<void>) | undefined;
+    const controller = new AbortController();
+    setCaptionStatus(t("device-captions-loading"));
+    void startBrowserCaptioner({
+      signal: controller.signal,
+      nodeURL: url,
+      agent: captionAgent,
+      stream: localMediaStream,
+      model: "tiny",
+      language: "",
+      onCue: (cue) => setCaptionStatus(cue.text),
+      onError: (captionError) => setCaptionStatus(captionError.message),
+      onSpeed: (rtf) => {
+        if (rtf >= 1) setCaptionStatus(t("device-captions-slow"));
+      },
+    })
+      .then(async (session) => {
+        if (cancelled) await session.stop();
+        else stop = session.stop;
+      })
+      .catch((captionError: Error) => {
+        if (!cancelled) setCaptionStatus(captionError.message);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+      void stop?.().catch(console.error);
+    };
+  }, [deviceCaptions, localMediaStream, captionAgent, oauthSession, url, t]);
+
   if (error) {
     return (
       <View
@@ -803,5 +855,49 @@ export function WebcamIngestPlayer(props: VideoProps) {
     );
   }
 
-  return <VideoElement {...props} ref={handleRef} />;
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <VideoElement {...props} ref={handleRef} />
+      <div
+        style={{
+          position: "absolute",
+          bottom: theme.spacing[4],
+          left: theme.spacing[4],
+          right: theme.spacing[4],
+          padding: theme.spacing[3],
+          borderRadius: theme.borderRadius.md,
+          background: theme.colors.surface0,
+          color: theme.colors.text1,
+          fontSize: typeScale.sm.fontSize,
+        }}
+      >
+        <label
+          style={{
+            display: "flex",
+            gap: theme.spacing[2],
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="checkbox"
+            data-testid="device-captions-toggle"
+            checked={deviceCaptions}
+            disabled={!oauthSession}
+            onChange={(event) => {
+              if (event.target.checked && !window.crossOriginIsolated) {
+                const next = new URL(window.location.href);
+                next.searchParams.set("deviceCaptions", "1");
+                window.location.assign(next.href);
+                return;
+              }
+              setDeviceCaptions(event.target.checked);
+            }}
+          />
+          {t("device-captions-toggle")}
+        </label>
+        <p>{t("device-captions-description")}</p>
+        {captionStatus && <p role="status">{captionStatus}</p>}
+      </div>
+    </div>
+  );
 }

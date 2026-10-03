@@ -1,3 +1,4 @@
+import { CaptionPolicyFields } from "@/components/captions/caption-policy-fields";
 import { useDashboardStore } from "@/components/dashboard/dashboard-store-context";
 import { ModeratorsManager } from "@/components/dashboard/moderators";
 import { Admonition } from "@/components/ui/admonition";
@@ -20,6 +21,7 @@ import { useSession } from "@/lib/session";
 import { useStore } from "@/lib/store";
 import { useKeyRecords } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
+import { buildCaptionPolicy, readCaptionPolicy } from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { Clipboard, Key, Loader2, Shield, Tags, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -123,8 +125,7 @@ export function StreamSettingsPage() {
 
 function MetadataSection() {
   const { t } = useTranslation("common");
-  const createContentMetadata = useStore((s) => s.createContentMetadata);
-  const updateContentMetadata = useStore((s) => s.updateContentMetadata);
+  const saveContentMetadata = useStore((s) => s.saveContentMetadata);
   const getContentMetadata = useStore((s) => s.getContentMetadata);
   const { did: userDid } = useSession();
   const liveStore = useDashboardStore();
@@ -147,13 +148,14 @@ function MetadataSection() {
   const [deleteAfter, setDeleteAfter] = useState<string>("300");
   const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [captionPolicy, setCaptionPolicy] = useState(() =>
+    readCaptionPolicy(undefined),
+  );
 
   useEffect(() => {
-    if (initialized) return;
+    if (initialized || !userDid) return;
     setInitialized(true);
-    if (userDid) {
-      void getContentMetadata({ userDid });
-    }
+    void getContentMetadata({ userDid });
   }, [initialized, getContentMetadata, userDid]);
 
   // Hydrate from existing metadata once we have data
@@ -162,6 +164,7 @@ function MetadataSection() {
     if (!lastRecord) return;
     const record = lastRecord.record;
     if (!record) return;
+    setCaptionPolicy(readCaptionPolicy(record.captionPolicy));
     if (record.contentWarnings?.warnings) {
       setSelectedWarnings(new Set(record.contentWarnings.warnings));
     }
@@ -274,23 +277,14 @@ function MetadataSection() {
         distPolicy.allowedBroadcasters = broadcasters;
       }
 
-      const rkey = livestream?.uri.split("/").pop();
-      const livestreamRef =
-        rkey && livestream
-          ? { uri: livestream.uri, cid: (livestream.cid as string) ?? "" }
-          : undefined;
-
       const params = {
         contentWarnings: Array.from(selectedWarnings),
         contentRights: filteredRights,
         distributionPolicy: distPolicy,
+        captionPolicy: buildCaptionPolicy(captionPolicy),
       };
 
-      if (livestreamRef) {
-        await updateContentMetadata({ rkey, livestreamRef, ...params });
-      } else {
-        await createContentMetadata(params);
-      }
+      await saveContentMetadata(params);
       toast.success(t("metadata-saved", { defaultValue: "Metadata saved" }));
     } catch (error) {
       console.error("Error saving metadata:", error);
@@ -304,7 +298,6 @@ function MetadataSection() {
     }
   }, [
     userDid,
-    livestream,
     selectedWarnings,
     contentRights,
     licenseSelect,
@@ -313,8 +306,8 @@ function MetadataSection() {
     allowedBroadcasters,
     archiveIndefinite,
     deleteAfter,
-    createContentMetadata,
-    updateContentMetadata,
+    captionPolicy,
+    saveContentMetadata,
     t,
   ]);
 
@@ -334,6 +327,10 @@ function MetadataSection() {
         </p>
       ) : (
         <>
+          <CaptionPolicyFields
+            value={captionPolicy}
+            onChange={setCaptionPolicy}
+          />
           <SubSection
             title={t("content-warnings", {
               defaultValue: "Content Warnings",
@@ -539,6 +536,7 @@ function MetadataSection() {
 
           <button
             type="button"
+            data-testid="dashboard-metadata-save"
             onClick={handleSave}
             disabled={saving}
             className="flex h-9 items-center gap-2 rounded-md bg-(--color-accent) px-4 font-medium text-(--color-accent-fg) transition-colors hover:bg-(--color-accent-hover) disabled:cursor-not-allowed disabled:opacity-50"

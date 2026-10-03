@@ -30,10 +30,13 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Slider } from "../ui/slider";
+import { CaptionsButton } from "./captions-button";
 import type { QualityOption } from "./player";
+import type { PlayerCaptions } from "./use-player-captions";
 
 export type PlayerControlsProps = {
   videoRef: RefObject<HTMLVideoElement | null>;
+  captions?: PlayerCaptions;
   /** Element to send into browser fullscreen. Defaults to the parent of the video. */
   containerRef: RefObject<HTMLElement | null>;
   /** Live streams hide the scrubber and show a "LIVE" badge in its place. */
@@ -70,6 +73,7 @@ export function shouldShowUnmutePrompt(playing: boolean, muted: boolean) {
 
 export function PlayerControls({
   videoRef,
+  captions,
   containerRef,
   isLive,
   showControls,
@@ -94,6 +98,7 @@ export function PlayerControls({
   const [isPiP, setIsPiP] = useState(false);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [captionsOpen, setCaptionsOpen] = useState(false);
 
   const { theatre, setTheatre } = useFullscreen();
   const { t } = useTranslation();
@@ -248,14 +253,30 @@ export function PlayerControls({
       } else if (e.key === "t" || e.key === "T") {
         e.preventDefault();
         setTheatre(!theatre);
+      } else if (e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        captions?.toggle();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [togglePlay, toggleMute, toggleFullscreen, theatre, setTheatre]);
+  }, [
+    togglePlay,
+    toggleMute,
+    toggleFullscreen,
+    theatre,
+    setTheatre,
+    captions?.toggle,
+  ]);
 
   const showUnmutePrompt = shouldShowUnmutePrompt(playing, muted);
-  const visible = forceVisible || showControls || bigPlay || showUnmutePrompt;
+  const visible =
+    forceVisible ||
+    showControls ||
+    bigPlay ||
+    showUnmutePrompt ||
+    captionsOpen ||
+    settingsOpen;
 
   return (
     <div
@@ -382,6 +403,12 @@ export function PlayerControls({
           </div>
 
           <div className="flex-1" />
+          {captions && (
+            <CaptionsButton
+              captions={captions}
+              onOpenChange={setCaptionsOpen}
+            />
+          )}
 
           {pipSupported && (
             <button

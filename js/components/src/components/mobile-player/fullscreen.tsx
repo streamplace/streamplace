@@ -11,6 +11,7 @@ import {
   usePlayerStore,
 } from "../..";
 import { View } from "../../components/ui";
+import { CaptionOverlay } from "../captions/caption-overlay";
 import { AudioOnlyOverlay } from "./ui/audio-only-overlay";
 import Video from "./video";
 import VideoRetry from "./video-retry";
@@ -137,6 +138,7 @@ export function Fullscreen(props: {
         laneCount={danmuLaneCount}
         maxMessages={danmuMaxMessages}
       />
+      <CaptionOverlay />
       {props.children}
     </View>
   );

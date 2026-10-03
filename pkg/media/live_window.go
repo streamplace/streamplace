@@ -131,7 +131,7 @@ func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment 
 		errCh <- err
 	}()
 	for ev := range eventCh {
-		if err := w.Observe(ev); err != nil {
+		if err := w.ObserveAt(ev, start); err != nil {
 			log.Error(ctx, "live-hls: window observe failed", "streamer", did, "error", err)
 		}
 	}

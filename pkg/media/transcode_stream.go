@@ -249,11 +249,16 @@ func (t *streamTranscoder) Feed(src []byte, token any) error {
 	t.started = true
 	t.mu.Unlock()
 
-	// Synthesize and write the init (ftyp+moov) once, then the segment bytes —
-	// the same init-then-blind-concat the RTMP push feeder uses.
+	// Native qtdemux sees one immutable init, so a lazily declared text track
+	// cannot enter its input. Keep the original signed source in the completion
+	// job, but decode only video and the audio codec being transcoded.
+	decodeSrc, err := filterSegmentToCodec(t.ctx, src, t.target == "aac")
+	if err != nil {
+		return fmt.Errorf("filter transcoder input: %w", err)
+	}
 	if first {
 		var init bytes.Buffer
-		if err := muxl.RunMuxlWrapInit(t.ctx, bytes.NewReader(src), &init); err != nil {
+		if err := muxl.RunMuxlWrapInit(t.ctx, bytes.NewReader(decodeSrc), &init); err != nil {
 			return fmt.Errorf("synthesize transcoder init: %w", err)
 		}
 		if _, err := t.feedW.Write(init.Bytes()); err != nil {
@@ -267,7 +272,7 @@ func (t *streamTranscoder) Feed(src []byte, token any) error {
 	case <-t.ctx.Done():
 		return t.ctx.Err()
 	}
-	if _, err := t.feedW.Write(src); err != nil {
+	if _, err := t.feedW.Write(decodeSrc); err != nil {
 		return err
 	}
 	return nil
@@ -418,9 +423,9 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 // the freshly-segmented transcoded audio (the audio track transTID within
 // transSeg) to a free track id so it won't collide with the source tracks, sign
 // it as a c2pa.transcoded derivative of the source segment's audio (node
-// identity), and append it to the source segment. The relabel is a lossless
-// re-container (no re-encode), so the continuous encoder's gaplessness is
-// preserved.
+// identity), and add it to the source segment's tracks. The relabel is a
+// lossless re-container (no re-encode), so the continuous encoder's gaplessness
+// is preserved.
 //
 // transSeg is the FULL emitted transcoded segment (video + transcoded audio),
 // not the audio track alone. The relabel goes through muxl's canonicalize,
@@ -489,10 +494,10 @@ func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, tra
 		return nil, fmt.Errorf("sign transcoded track: %w", err)
 	}
 
-	completed := make([]byte, 0, len(srcSeg)+len(signed))
-	completed = append(completed, srcSeg...)
-	completed = append(completed, signed...)
-	return completed, nil
+	// The added track takes its place in ascending track-ID order, before any
+	// text tracks, as archives require.
+	tracks[strconv.FormatUint(uint64(freeTID), 10)] = signed
+	return concatTracksByID(tracks), nil
 }
 
 // audioTrackID returns the (single) audio rendition's track id in a catalog.

@@ -1,3 +1,4 @@
+export { CaptionsButton } from "../../captions/captions-button";
 export * from "./audio-only-overlay";
 export * from "./autoplay-button";
 export * from "./countdown";

@@ -843,6 +843,13 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 				}
 			}
 
+			if collection.String() == constants.PLACE_STREAM_CAPTION_TRANSCRIPT {
+				log.Debug(ctx, "deleting caption transcript", "uri", uri)
+				if err := atsync.Model.DeleteCaptionTranscript(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete caption transcript", "err", err)
+				}
+			}
+
 			if collection.String() == constants.PLACE_STREAM_MEDIA_ORIGIN {
 				log.Debug(ctx, "deleting media origin", "uri", uri)
 				if err := atsync.Model.DeleteMediaOrigin(ctx, uri); err != nil {

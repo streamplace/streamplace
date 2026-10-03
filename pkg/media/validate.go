@@ -84,6 +84,7 @@ type validatedSegment struct {
 	repoDID       string
 	signingKeyDID string
 	local         bool
+	archive       *captionArchive // the local ingest session's archival captions; see withCaptionArchive
 }
 
 // validateSource verifies + media-parses a bare canonical .m4s, resolves the
@@ -184,6 +185,7 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 		repoDID:       repoDID,
 		signingKeyDID: signingKeyDID,
 		local:         local,
+		archive:       captionArchiveFrom(ctx),
 	}, nil
 }
 
@@ -274,6 +276,7 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(seg), "flat", &playable); err != nil {
 		return fmt.Errorf("wrap segment for distribution: %w", err)
 	}
+	mm.distributeCaptions(ctx, vs, seg, playable.Bytes())
 
 	mm.notifySubscribers(ctx, &NewSegmentNotification{
 		Segment:  dbSeg,
@@ -281,6 +284,7 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 		Muxl:     seg,
 		Metadata: meta,
 		Local:    vs.local,
+		archive:  vs.archive,
 	})
 	aqt := aqtime.FromTime(meta.StartTime.Time())
 	log.Log(ctx, "successfully ingested segment", "user", vs.repoDID, "signingKey", vs.signingKeyDID, "timestamp", aqt.FileSafeString(), "segmentID", vs.label)

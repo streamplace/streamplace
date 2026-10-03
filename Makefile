@@ -55,13 +55,23 @@ version:
 install:
 	pnpm install
 
+# whisper-wasm runs once install is done: under make -j, its own pnpm install
+# on a fresh checkout would run beside install's, and both fail.
 .PHONY: app
 app: install
+	$(MAKE) whisper-wasm
 	pnpm run build
 
 .PHONY: app-cached
-app-cached:
+app-cached: whisper-wasm
 	if [ ! -f js/app/dist/index.html ] || [ ! -f js/web/dist/index.html ]; then $(MAKE) app; else echo "frontends already built, run make app to rebuild"; fi
+
+# Worker generation uses the workspace TypeScript compiler. app-cached can
+# reach this target before app/install on a fresh checkout.
+.PHONY: whisper-wasm
+whisper-wasm:
+	test -f node_modules/typescript/package.json || pnpm install
+	bash hack/whisper-wasm/build.sh
 
 .PHONY: ci-ios
 ci-ios: version install app
@@ -118,12 +128,13 @@ android-release: .build/bundletool.jar android-keystore
 	&& unzip streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb
 
 # The release build for the Maestro suite (hack/e2e-local.sh): it trusts
-# user-installed CAs and never takes OTA updates (SP_E2E_BUILD in
-# js/app/app.config.ts). For testing only; never ship it.
+# user-installed CAs, never takes OTA updates and keeps the player's controls
+# up (SP_E2E_BUILD in js/app/app.config.ts, which both prebuild and the
+# Gradle build read). For testing only; never ship it.
 .PHONY: android-e2e
 android-e2e: .build/bundletool.jar android-keystore
 	cd js/app && SP_E2E_BUILD=true pnpm run prebuild
-	export NODE_ENV=production \
+	export NODE_ENV=production SP_E2E_BUILD=true \
 	&& cd ./js/app/android \
 	&& ./gradlew :app:bundleRelease \
 	&& cd - \
@@ -336,7 +347,7 @@ dev-setup:
 	$(MAKE) -j16 app-cached dev-setup-meson
 
 .PHONY: dev
-dev: app-cached $(LEXICON_STAMP)
+dev: app-cached $(LEXICON_STAMP) captions-assets
 	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
@@ -352,6 +363,10 @@ dev-web: app-cached $(LEXICON_STAMP)
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
 	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
+
+.PHONY: captions-assets
+captions-assets:
+	CGO_ENABLED=0 go run ./hack/captions-assets
 
 .PHONY: dev-setup-meson
 dev-setup-meson:
@@ -398,17 +413,19 @@ iroh-test:
 #  | |____ _| |_| |\  |  | |   _| |_| |\  | |__| |
 #  |______|_____|_| \_|  |_|  |_____|_| \_|\_____|
 
+# gofmt covers the repo's own Go files: ignored downloads (meson subprojects,
+# .build) carry third-party Go sources.
 .PHONY: check
 check: install
 	$(MAKE) golangci-lint
 	pnpm run check
-	if [ "`gofmt -l . | wc -l`" -gt 0 ]; then echo 'gofmt failed, run make fix'; exit 1; fi
+	if [ -n "`git ls-files -co --exclude-standard '*.go' | xargs gofmt -l`" ]; then echo 'gofmt failed, run make fix'; exit 1; fi
 	RUSTFLAGS="-D warnings" cargo check
 
 .PHONY: fix
 fix:
 	pnpm run fix
-	gofmt -w .
+	git ls-files -co --exclude-standard '*.go' | xargs gofmt -w
 	cargo fix --allow-dirty
 	go mod tidy
 
@@ -647,7 +664,7 @@ linux-arm64:
 .PHONY: windows-amd64
 windows-amd64:
 	rustup target add x86_64-pc-windows-gnu \
-	&& CC=x86_64-w64-mingw32-gcc \
+	&& CC=x86_64-w64-mingw32-gcc-posix \
 	LD=x86_64-w64-mingw32-ld \
 	CROSS_COMPILE=1 \
 	MESON_SETUP_OPTS="--cross-file util/windows-amd64-gnu.ini" \
@@ -661,6 +678,10 @@ darwin-amd64:
 	&& export CXX_X86_64_APPLE_DARWIN=x86_64-apple-darwin24.4-clang++ \
 	&& export AR_X86_64_APPLE_DARWIN=x86_64-apple-darwin24.4-ar \
 	&& export CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER=x86_64-apple-darwin24.4-clang \
+	&& export MACOSX_DEPLOYMENT_TARGET=10.15 \
+	&& export CGO_CFLAGS="-mmacosx-version-min=10.15" \
+	&& export CGO_CXXFLAGS="-mmacosx-version-min=10.15" \
+	&& export CGO_LDFLAGS="-mmacosx-version-min=10.15" \
 	&& export LD=x86_64-apple-darwin24.4-ld \
 	&& export CROSS_COMPILE=1 \
 	&& export MESON_SETUP_OPTS="--cross-file util/osxcross-darwin-amd64.ini" \

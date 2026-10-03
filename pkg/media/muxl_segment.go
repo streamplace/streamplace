@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sort"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -98,15 +97,15 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 		return nil, nil, fmt.Errorf("failed to link mp4mux to appsink: %w", err)
 	}
 
-	r, w := io.Pipe()
+	r := newIngestByteBuffer(ctx)
 	go func() {
 		<-ctx.Done()
 		r.Close()
 	}()
 
 	// The signer and its event drain run on a non-cancellable ctx: cancelling
-	// ctx is the FLUSH signal, not an abort — it closes the input pipe above,
-	// the signer sees EOF, signs the final GoP, and exits cleanly. If the
+	// ctx is the FLUSH signal, not an abort — it closes the byte buffer above,
+	// the signer drains queued media, signs the final GoP, and exits cleanly. If the
 	// cancelled ctx reached muxl's event parser instead, the parser would
 	// abandon the stream mid-write and the signer wasm would deadlock against
 	// the unread stdout pipe — done would never close and the caller's drain
@@ -120,6 +119,9 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 	eventCh := make(chan *muxl.MuxlEvent, 16)
 	go func() {
 		err := signStream(drainCtx, r, eventCh)
+		if err != nil {
+			_ = r.CloseWithError(err)
+		}
 		close(eventCh)
 		if err != nil && ctx.Err() == nil {
 			log.Error(ctx, "error running muxl sign-segment", "error", err)
@@ -132,7 +134,7 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 			if ev.Type != "signed-segment" {
 				continue
 			}
-			segment := concatTracksSorted(ev.Tracks)
+			segment := concatTracksByID(ev.Tracks)
 			cli.DumpDebugSegment(drainCtx, "muxl_signed_segment.m4s", bytes.NewReader(segment))
 			if err := onSegment(drainCtx, segment); err != nil {
 				log.Error(drainCtx, "error handling signed segment", "error", err)
@@ -142,24 +144,8 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 
 	sink := app.SinkFromElement(appsink)
 	sink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, w),
+		NewSampleFunc: WriterNewSample(ctx, r),
 	})
 
 	return bin.Element, done, nil
-}
-
-// concatTracksSorted joins the per-track canonical segment bytes for one GoP
-// in ascending track-id order — the canonical interleave a multi-track .m4s
-// uses, which muxl's unwrap/verify/wrap all expect.
-func concatTracksSorted(tracks map[string][]byte) []byte {
-	keys := make([]string, 0, len(tracks))
-	for k := range tracks {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	var out []byte
-	for _, k := range keys {
-		out = append(out, tracks[k]...)
-	}
-	return out
 }

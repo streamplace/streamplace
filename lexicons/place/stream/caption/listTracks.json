@@ -1,0 +1,45 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.caption.listTracks",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "List the caption tracks available for a live stream on this node, or for a video.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "streamer": {
+            "type": "string",
+            "description": "DID or handle of a live streamer. Mutually exclusive with video."
+          },
+          "video": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "AT-URI of a place.stream.video."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["tracks"],
+          "properties": {
+            "tracks": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "place.stream.caption.defs#trackView"
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound"
+        }
+      ]
+    }
+  }
+}

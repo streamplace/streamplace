@@ -1,4 +1,5 @@
 import { ComAtprotoModerationCreateReport } from "@atproto/api";
+import type { CaptionTrackView, ElementCaptionTrack } from "@streamplace/core";
 import { ChatMessageViewHydrated } from "streamplace";
 
 export enum PlayerProtocol {
@@ -45,6 +46,25 @@ export interface PlayerState {
   /** Actual rendition name currently playing when in auto/source mode (web HLS only) */
   playingVODRendition: string | null;
   setPlayingVODRendition: (name: string | null) => void;
+
+  /** Caption tracks the server lists for this stream or video (listTracks). */
+  captionServerTracks: CaptionTrackView[];
+  setCaptionServerTracks: (tracks: CaptionTrackView[]) => void;
+  /** Caption tracks the playback element exposes: web TextTracks or
+   *  expo-video subtitle tracks. */
+  captionElementTracks: ElementCaptionTrack[];
+  setCaptionElementTracks: (tracks: ElementCaptionTrack[]) => void;
+  /** True when the element draws the selected track itself (native
+   *  AVPlayer/ExoPlayer subtitles), so the overlay stays empty. */
+  captionElementRenders: boolean;
+  setCaptionElementRenders: (renders: boolean) => void;
+  /** Active cue lines of the selected element TextTrack (web). */
+  captionElementLines: string[];
+  setCaptionElementLines: (lines: string[]) => void;
+  /** The viewer's explicit track id; null follows live caption sources
+   *  or the preferred caption language on VOD. */
+  captionTrackId: string | null;
+  setCaptionTrackId: (id: string | null) => void;
   protocol: PlayerProtocol;
   setProtocol: (protocol: PlayerProtocol) => void;
   /** The stream being watched has B-frames, which WebRTC playback can't
@@ -179,9 +199,11 @@ export interface PlayerState {
   /** Function to set the embedded flag */
   setEmbedded: (embedded: boolean) => void;
 
-  /** Flag indicating if player controls should be shown */
+  /**
+   * Whether the player UI's bottom controls are showing; captions rise above
+   * them. The UI that draws them reports it.
+   */
   showControls: boolean;
-  controlsTimeout?: NodeJS.Timeout | undefined;
 
   /** Function to set the showControls flag */
   setShowControls: (showControls: boolean) => void;
@@ -195,10 +217,6 @@ export interface PlayerState {
     eventType: string,
     meta: { [key: string]: any },
   ) => void;
-
-  clearControlsTimeout: () => void;
-
-  setUserInteraction: () => void;
 
   showDebugInfo: boolean;
   setShowDebugInfo: (showDebugInfo: boolean) => void;

@@ -1,4 +1,5 @@
 import { Player } from "@/components/player/player";
+import { FullscreenProvider } from "@/contexts/fullscreen-context";
 import { captureError } from "@/lib/log";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
 import { parseTimeParam } from "@streamplace/core";
@@ -28,17 +29,20 @@ function EmbedVideo() {
   }, [user, tid]);
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-black">
-      <Player
-        src={playlistUrl}
-        poster={thumbnailUrl}
-        active
-        mode="vod"
-        startTime={startTime}
-        onError={(message) =>
-          captureError(message, { user, tid, source: "embed-vod" })
-        }
-      />
-    </div>
+    <FullscreenProvider>
+      <div className="flex h-screen w-screen items-center justify-center bg-black">
+        <Player
+          src={playlistUrl}
+          captionSource={{ video: `at://${user}/place.stream.video/${tid}` }}
+          poster={thumbnailUrl}
+          active
+          mode="vod"
+          startTime={startTime}
+          onError={(message) =>
+            captureError(message, { user, tid, source: "embed-vod" })
+          }
+        />
+      </div>
+    </FullscreenProvider>
   );
 }

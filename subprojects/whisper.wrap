@@ -1,0 +1,6 @@
+[wrap-file]
+directory = whisper.cpp-4979e04f5dcaccb36057e059bbaed8a2f5288315
+source_url = https://codeload.github.com/ggml-org/whisper.cpp/tar.gz/4979e04f5dcaccb36057e059bbaed8a2f5288315
+source_filename = whisper-4979e04f5dcaccb36057e059bbaed8a2f5288315.tar.gz
+source_hash = ec8e33f4c838ed459ad0a23da255c0262f150a6f54839a17e504ddf1495305d5
+patch_directory = whisper

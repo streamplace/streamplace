@@ -46,6 +46,7 @@ type publishParams struct {
 	mimeType   string
 	probe      media.VODResult
 	signingKey string
+	text       []textProbeJSON
 }
 
 // publishRecords does the post-processing record publish. With tracks
@@ -89,7 +90,7 @@ func publishRecords(ctx context.Context, p publishParams) error {
 
 	// Serialize the probe so publishDraft can publish the track records later
 	// without re-probing the blob.
-	probeJSON, err := marshalProbe(p.probe)
+	probeJSON, err := marshalProbe(p.probe, p.text)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "marshal_probe")
@@ -114,6 +115,7 @@ type probeJSONShape struct {
 	DurationMS int64           `json:"durationMs"`
 	Video      *videoProbeJSON `json:"video,omitempty"`
 	Audio      *audioProbeJSON `json:"audio,omitempty"`
+	Text       []textProbeJSON `json:"text,omitempty"`
 }
 type videoProbeJSON struct {
 	Codec  string `json:"codec"`
@@ -129,8 +131,14 @@ type audioProbeJSON struct {
 	MPEGVersion int    `json:"mpegVersion"`
 }
 
-func marshalProbe(p media.VODResult) (string, error) {
-	out := probeJSONShape{DurationMS: p.DurationMS}
+type textProbeJSON struct {
+	TrackID  string `json:"trackId"`
+	Language string `json:"language"`
+	Label    string `json:"label"`
+}
+
+func marshalProbe(p media.VODResult, text []textProbeJSON) (string, error) {
+	out := probeJSONShape{DurationMS: p.DurationMS, Text: text}
 	if p.Video != nil {
 		out.Video = &videoProbeJSON{
 			Codec: p.Video.Codec, Width: p.Video.Width, Height: p.Video.Height,
@@ -151,13 +159,13 @@ func marshalProbe(p media.VODResult) (string, error) {
 }
 
 // unmarshalProbe reverses marshalProbe.
-func unmarshalProbe(s string) (media.VODResult, error) {
+func unmarshalProbe(s string) (media.VODResult, []textProbeJSON, error) {
 	if s == "" {
-		return media.VODResult{}, nil
+		return media.VODResult{}, nil, nil
 	}
 	var pjs probeJSONShape
 	if err := json.Unmarshal([]byte(s), &pjs); err != nil {
-		return media.VODResult{}, fmt.Errorf("unmarshal probe: %w", err)
+		return media.VODResult{}, nil, fmt.Errorf("unmarshal probe: %w", err)
 	}
 	res := media.VODResult{DurationMS: pjs.DurationMS}
 	if pjs.Video != nil {
@@ -172,7 +180,7 @@ func unmarshalProbe(s string) (media.VODResult, error) {
 			MPEGVersion: pjs.Audio.MPEGVersion,
 		}
 	}
-	return res, nil
+	return res, pjs.Text, nil
 }
 
 // publishOrigin attests that this server has the blob with the given
@@ -220,7 +228,7 @@ func publishOrigin(ctx context.Context, cli *config.CLI, cid string, size int64,
 // this upload's segments — the same key signs every track of an upload.
 // Exactly one of videoMeta / audioMeta should be non-nil; the other
 // is ignored.
-func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobSize, durationMS int64, trackID, mediaType, signingKey string, videoMeta *media.VODVideoTrack, audioMeta *media.VODAudioTrack) (*comatproto.RepoStrongRef, error) {
+func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobSize, durationMS int64, trackID, mediaType, signingKey string, videoMeta *media.VODVideoTrack, audioMeta *media.VODAudioTrack, textMeta *textProbeJSON) (*comatproto.RepoStrongRef, error) {
 	ctx, span := vodTracer.Start(ctx, "vod.publishTrack", trace.WithAttributes(
 		attribute.String("cid", cid),
 		attribute.String("track_id", trackID),
@@ -251,6 +259,9 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobS
 			Rate:     int64(audioMeta.Rate),
 			Channels: int64(audioMeta.Channels),
 		}
+	}
+	if textMeta != nil {
+		meta.Language = &textMeta.Language
 	}
 
 	rec := &placestream.MediaTrack{

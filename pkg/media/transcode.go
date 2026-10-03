@@ -308,8 +308,17 @@ func collectMuxlEvents(run func(chan *muxl.MuxlEvent) error) ([]*muxl.MuxlEvent,
 // bytes (from the first segment/signed-segment event) out of a muxl event
 // stream.
 func catalogAndTracks(events []*muxl.MuxlEvent) (*muxl.MuxlCatalog, map[string][]byte) {
+	cat, segment := catalogAndSegment(events)
+	if segment == nil {
+		return cat, nil
+	}
+	return cat, segment.Tracks
+}
+
+// catalogAndSegment is catalogAndTracks with the whole first segment event.
+func catalogAndSegment(events []*muxl.MuxlEvent) (*muxl.MuxlCatalog, *muxl.MuxlEvent) {
 	var cat *muxl.MuxlCatalog
-	var tracks map[string][]byte
+	var segment *muxl.MuxlEvent
 	for _, ev := range events {
 		switch ev.Type {
 		case "init":
@@ -317,12 +326,12 @@ func catalogAndTracks(events []*muxl.MuxlEvent) (*muxl.MuxlCatalog, map[string][
 				cat = ev.Catalog
 			}
 		case "segment", "signed-segment":
-			if tracks == nil && len(ev.Tracks) > 0 {
-				tracks = ev.Tracks
+			if segment == nil && len(ev.Tracks) > 0 {
+				segment = ev
 			}
 		}
 	}
-	return cat, tracks
+	return cat, segment
 }
 
 func maxU32(a, b uint32) uint32 {
@@ -337,13 +346,15 @@ func maxU32(a, b uint32) uint32 {
 // inverse of how catalogAndTracks/the segmenter split a segment into ev.Tracks.
 func concatTracksByID(tracks map[string][]byte) []byte {
 	ids := make([]int, 0, len(tracks))
-	for k := range tracks {
+	size := 0
+	for k, data := range tracks {
 		if n, err := strconv.Atoi(k); err == nil {
 			ids = append(ids, n)
+			size += len(data)
 		}
 	}
 	sort.Ints(ids)
-	var out []byte
+	out := make([]byte, 0, size)
 	for _, id := range ids {
 		out = append(out, tracks[strconv.Itoa(id)]...)
 	}

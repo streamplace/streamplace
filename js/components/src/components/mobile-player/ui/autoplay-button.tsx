@@ -9,7 +9,6 @@ export function AutoplayButton() {
   const setAutoplayFailed = usePlayerStore((x) => x.setAutoplayFailed);
   const setMuted = useSetMuted();
   const setMuteWasForced = usePlayerStore((x) => x.setMuteWasForced);
-  const setUserInteraction = usePlayerStore((x) => x.setUserInteraction);
   const videoRef = usePlayerStore((x) => x.videoRef);
 
   const handlePlayButtonPress = () => {
@@ -19,7 +18,6 @@ export function AutoplayButton() {
         .then(() => {
           setAutoplayFailed(false);
           setMuted(false);
-          setUserInteraction();
         })
         .catch((err) => {
           console.error("Manual play failed", err);
@@ -31,7 +29,6 @@ export function AutoplayButton() {
               .then(() => {
                 setAutoplayFailed(false);
                 setMuteWasForced(true);
-                setUserInteraction();
               })
               .catch((err) => {
                 console.error("Manual muted play also failed", err);

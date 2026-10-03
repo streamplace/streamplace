@@ -38,6 +38,7 @@ import (
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
+	"stream.place/streamplace/pkg/licenses"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
@@ -50,6 +51,7 @@ import (
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/storage"
+	"stream.place/streamplace/pkg/stt"
 	"stream.place/streamplace/pkg/upload"
 	"stream.place/streamplace/pkg/viewlog"
 	"stream.place/streamplace/pkg/vod"
@@ -76,6 +78,19 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	app := cli.NewCommand("streamplace")
 	app.Usage = "decentralized live streaming platform"
 	app.Version = build.Version
+	app.Flags = append(app.Flags, &urfavecli.BoolFlag{
+		Name:  "licenses",
+		Usage: "print Streamplace and bundled speech recognition license notices and exit",
+		Action: func(_ context.Context, cmd *urfavecli.Command, enabled bool) error {
+			if !enabled {
+				return nil
+			}
+			if _, err := fmt.Fprint(cmd.Root().Writer, licenses.Text); err != nil {
+				return err
+			}
+			return urfavecli.Exit("", 0)
+		},
+	})
 	app.Commands = []*urfavecli.Command{
 		makeSelfTestCommand(build),
 		makeVODTestCommand(build),
@@ -284,6 +299,22 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 	mm, err := media.MakeMediaManager(ctx, cli, signer, mod, b, atsync, ldb)
 	if err != nil {
+		return err
+	}
+	mm.STT, err = stt.NewEngine(ctx, cli)
+	if err != nil {
+		log.Warn(ctx, "speech engine unavailable; automatic captions disabled", "error", err)
+	}
+	if mm.STT != nil {
+		defer mm.STT.Close()
+	}
+	stopSpeechProxy, err := mm.StartCaptionEngineProxy(ctx)
+	if err != nil {
+		return err
+	}
+	defer stopSpeechProxy()
+	defer mm.ShutdownCaptions()
+	if err := mm.ConfigureCaptionRecords(ctx, state); err != nil {
 		return err
 	}
 	// Every new playback session counts toward the streamer's running view

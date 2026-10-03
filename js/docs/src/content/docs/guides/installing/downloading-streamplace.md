@@ -54,6 +54,9 @@ SP_TLS_CERT=/tls/tls.crt
 SP_TLS_KEY=/tls/tls.key
 ```
 
+For speech-recognition resources, caption relaying, and origin latency settings,
+see [Operating a node with captions](/docs/guides/installing/captions/).
+
 ### Docker
 
 Running Streamplace from a Docker image works great except for Docker

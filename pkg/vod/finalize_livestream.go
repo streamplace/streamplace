@@ -137,6 +137,7 @@ func FinalizeLivestreamVOD(ctx context.Context, cli *config.CLI, state *statedb.
 			size:       blobSize,
 			mimeType:   "video/mp4",
 			probe:      probe,
+			text:       metafileTextTracks(metafile),
 			signingKey: in.SigningKey,
 		})
 	}); err != nil {

@@ -5,6 +5,7 @@ import {
   PinnedRecordViewHydrated,
   place,
 } from "streamplace";
+import { presentedCaptionTime, reduceLiveCaption } from "../captions/live-cues";
 import { formatHandleWithAt } from "../lib/format-handle";
 import { SystemMessages } from "../lib/system-messages";
 import { reduceChat } from "./chat-reducer";
@@ -91,6 +92,17 @@ export const handleWebSocketMessages = (
       if (place.stream.livestream.livestreamView.isTypeOf(message)) {
         const newLivestream = message as LivestreamViewHydrated;
         const oldLivestream = state.livestream;
+        if (
+          oldLivestream?.uri !== newLivestream.uri ||
+          newLivestream.record.endedAt
+        ) {
+          state = {
+            ...state,
+            captionTracks: [],
+            liveCaptions: {},
+            captionClock: null,
+          };
+        }
 
         // check if this is actually new
         if (!oldLivestream || oldLivestream.uri !== newLivestream.uri) {
@@ -135,15 +147,23 @@ export const handleWebSocketMessages = (
         if (newRecentSegments.length > MAX_RECENT_SEGMENTS) {
           newRecentSegments.pop();
         }
+        const segment = message as place.stream.segment.Main;
+        const startMs = Date.parse(segment.startTime);
+        const captionClock =
+          Number.isFinite(startMs) &&
+          (!state.captionClock || startMs > state.captionClock.startMs)
+            ? { startMs, receivedAt: Date.now() }
+            : state.captionClock;
         state = {
           ...state,
-          segment: message as place.stream.segment.Main,
+          segment,
           recentSegments: newRecentSegments,
           problems: [
             ...findProblems(newRecentSegments),
             ...state.ingestProblems,
           ],
           hasReceivedSegment: true,
+          captionClock,
         };
       } else if (place.stream.defs.blockView.isTypeOf(message)) {
         const block = message as place.stream.defs.BlockView;
@@ -328,6 +348,22 @@ export const handleWebSocketMessages = (
           ...state,
           activeTeleport: null,
           activeTeleportUri: null,
+        };
+      } else if (place.stream.caption.defs.liveCue.isTypeOf(message)) {
+        const cue = message as place.stream.caption.defs.LiveCue;
+        const known = state.captionTracks.find((t) => t.id === cue.track.id);
+        const now = Date.now();
+        state = {
+          ...state,
+          captionTracks: known
+            ? state.captionTracks
+            : [...state.captionTracks, cue.track],
+          liveCaptions: reduceLiveCaption(
+            state.liveCaptions,
+            cue,
+            now,
+            presentedCaptionTime(state.captionClock, now) ?? now,
+          ),
         };
       }
     }

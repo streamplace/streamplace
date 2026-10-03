@@ -155,6 +155,10 @@ type CLI struct {
 	LegacySegmentCleaner        bool
 	SegmentArchiveRetention     time.Duration
 	ChatMessageRetention        time.Duration
+	Captions                    bool
+	CaptionsCPUBudget           float64
+	CaptionsModelDir            string
+	CaptionsMasterDelay         time.Duration
 	Replicators                 []string
 	WebsocketURL                string
 	BehindHTTPSProxy            bool
@@ -1059,6 +1063,33 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       DefaultChatMessageRetention,
 				Destination: &cli.ChatMessageRetention,
 				Sources:     urfavecli.EnvVars("SP_CHAT_MESSAGE_RETENTION"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "captions",
+				Usage:       "generate captions on this node for streams whose caption policy allows it. Streamers who enable canonical captions get them regardless of this node default when this node is their origin.",
+				Value:       true,
+				Destination: &cli.Captions,
+				Sources:     urfavecli.EnvVars("SP_CAPTIONS"),
+			},
+			&urfavecli.Float64Flag{
+				Name:        "captions-cpu-budget",
+				Usage:       "fraction of this machine's logical CPUs that speech recognition may use, across all streams. The node picks the largest bundled model that fits the budget for each stream.",
+				Value:       0.5,
+				Destination: &cli.CaptionsCPUBudget,
+				Sources:     urfavecli.EnvVars("SP_CAPTIONS_CPU_BUDGET"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "captions-model-dir",
+				Usage:       "directory of extra ggml whisper models (ggml-*.bin) to offer alongside the bundled tiny/base/small models",
+				Destination: &cli.CaptionsModelDir,
+				Sources:     urfavecli.EnvVars("SP_CAPTIONS_MODEL_DIR"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "captions-master-delay",
+				Usage:       "how long the recorded (S3) copy of a segment waits for speech recognition to cover it before its captions are laid out. Live segments are never held: words recognized late are shown in the next live segment.",
+				Value:       10 * time.Second,
+				Destination: &cli.CaptionsMasterDelay,
+				Sources:     urfavecli.EnvVars("SP_CAPTIONS_MASTER_DELAY"),
 			},
 			&urfavecli.StringFlag{
 				Name:    "replicators",

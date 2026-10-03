@@ -45,6 +45,20 @@ var (
 // (the client may not supply one) using the same generateThumbnail path
 // vod-test exercises.
 func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Store, did, uploadID string, video *placestream.Video) (string, string, error) {
+	return publishVideo(ctx, state, store, nil, did, uploadID, video)
+}
+
+// PublishVideoWithClient publishes a processed upload with an already
+// authenticated PDS client. It uses the same validation, track publication,
+// thumbnail generation and video record creation as PublishVideo.
+func PublishVideoWithClient(ctx context.Context, state *statedb.StatefulDB, store blob.Store, client XRPCClient, did, uploadID string, video *placestream.Video) (string, string, error) {
+	if client == nil {
+		return "", "", errors.New("authenticated PDS client required")
+	}
+	return publishVideo(ctx, state, store, client, did, uploadID, video)
+}
+
+func publishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Store, client XRPCClient, did, uploadID string, video *placestream.Video) (string, string, error) {
 	ctx = log.WithLogValues(ctx, "func", "PublishVideo", "did", did, "uploadId", uploadID)
 	ctx, span := vodTracer.Start(ctx, "vod.PublishVideo", trace.WithAttributes(
 		attribute.String("did", did),
@@ -71,10 +85,12 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 	video.DurationMs = upload.DurationMS
 	video.CreatedAt = time.Now().UTC().Format(time.RFC3339)
 
-	client, err := getUserXRPCClient(ctx, state, did)
-	if err != nil {
-		span.RecordError(err)
-		return "", "", fmt.Errorf("get user xrpc client: %w", err)
+	if client == nil {
+		client, err = getUserXRPCClient(ctx, state, did)
+		if err != nil {
+			span.RecordError(err)
+			return "", "", fmt.Errorf("get user xrpc client: %w", err)
+		}
 	}
 
 	// The track records are published here, at publish time, like the

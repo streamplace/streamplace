@@ -16,6 +16,8 @@ import (
 	"stream.place/streamplace/pkg/appbsky"
 
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/captions"
+	"stream.place/streamplace/pkg/captions/livecue"
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
@@ -131,10 +133,13 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			defer ticker.Stop()
 			defer pingTicker.Stop()
 
-			send := func(msg any) {
+			write := func(msg any, publicCaptionsOnly bool) {
 				bs, err := json.Marshal(msg)
 				if err != nil {
 					log.Error(ctx, "could not marshal message", "error", err)
+					return
+				}
+				if publicCaptionsOnly && (a.MediaManager == nil || !a.MediaManager.LiveWindowPublished(repoDID)) {
 					return
 				}
 				log.Debug(ctx, "sending message", "message", string(bs))
@@ -144,11 +149,43 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					return
 				}
 			}
+			send := func(msg any) {
+				write(msg, false)
+			}
+
+			// This websocket has no viewer identity, so captions follow the
+			// public-live state only. The predicate runs after serialization,
+			// immediately before each write: a connection can remain open
+			// while a stream moves into or out of preview.
+			sendCaption := func(ev captions.Event) {
+				write(livecue.Cue(ev), true)
+			}
+
+			// Live captions: the current public line first, so a viewer
+			// joining mid-sentence sees it, then every public cue event of the
+			// streamer's caption tracks. Subscribed before reading the recent
+			// cues so none falls in the gap; a cue seen twice just replaces
+			// itself.
+			var captionEvents <-chan captions.Event
+			if a.Bus.Captions != nil {
+				captionEvents = a.Bus.Captions.Subscribe(ctx, repoDID)
+				if a.MediaManager != nil && a.MediaManager.LiveWindowPublished(repoDID) {
+					for _, ev := range livecue.Recent(a.Bus.Captions, repoDID, livecue.JoinWindow, time.Now()) {
+						sendCaption(ev)
+					}
+				}
+			}
 
 			for {
 				select {
 				case msg := <-ch:
 					send(msg)
+				case ev, ok := <-captionEvents:
+					if !ok {
+						captionEvents = nil
+						continue
+					}
+					sendCaption(ev)
 				case msg := <-initialBurst:
 					send(msg)
 				case <-ticker.C:

@@ -21,6 +21,7 @@ import (
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/captions"
 	"stream.place/streamplace/pkg/cdn/providers"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/localdb"
@@ -65,6 +66,9 @@ type Server struct {
 	aliases           map[string]string
 	identityDirectory func() identity.Directory
 	identityRefreshes *cache.Cache
+	// VideoCaptions supplies the caption tracks of videos for playlists,
+	// listTracks, and getCaptions. nil means videos have no caption tracks.
+	VideoCaptions captions.VideoCaptions
 }
 
 // vodCDN returns the playlist-generation CDN settings.
@@ -115,6 +119,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())
+	e.Use(captionPushBodyLimitMiddleware())
 	e.Use(echomiddleware.Handler("", mdlw))
 	s.useAuthMiddleware(e)
 	err = s.RegisterHandlersPlacestream(e)
@@ -153,6 +158,9 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	// The same segments under a path-shaped URL, for a CDN pulling from
 	// this node (see liveCDN): one cacheable, signable path per segment.
 	e.GET(liveSegmentPathRoute, s.HandleGetLiveSegmentPath)
+	// getCaptions sets its own Content-Type and Content-Disposition, which the
+	// generated stub's fixed octet-stream response cannot.
+	e.GET("/xrpc/place.stream.caption.getCaptions", s.HandleGetCaptions)
 	// glex code-generated these but we want them just passed upstream
 	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleWildcard)
 	e.POST("/xrpc/com.atproto.repo.putRecord", s.HandleWildcard)

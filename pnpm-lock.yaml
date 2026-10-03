@@ -730,6 +730,9 @@ importers:
       uint8arrays:
         specifier: ^5.1.0
         version: 5.1.0
+      undici:
+        specifier: ^6.24.0
+        version: 6.24.0
 
   js/docs:
     dependencies:
@@ -853,6 +856,9 @@ importers:
       '@atproto/oauth-client-browser':
         specifier: ^0.4.1
         version: 0.4.1
+      '@atproto/syntax':
+        specifier: ^0.6.1
+        version: 0.6.1
       '@base-ui/react':
         specifier: ^1.5.0
         version: 1.5.0(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)

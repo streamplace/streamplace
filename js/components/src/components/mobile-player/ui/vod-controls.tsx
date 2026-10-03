@@ -3,6 +3,7 @@ import { Pressable } from "react-native";
 import { zero } from "../../..";
 import { useLivestreamStore } from "../../../livestream-store";
 import { PlayerStatus, usePlayerStore } from "../../../player-store";
+import { CaptionsButton } from "../../captions/captions-button";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -76,6 +77,7 @@ export function VodControls() {
 
       <View style={{ flex: 1 }} />
 
+      <CaptionsButton size={20} />
       {renditions.length > 0 && (
         <DropdownMenu>
           <DropdownMenuTrigger>

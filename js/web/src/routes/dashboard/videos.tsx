@@ -1,3 +1,4 @@
+import { VideoCaptionsManager } from "@/components/captions/video-captions-manager";
 import { UploadForm } from "@/components/dashboard/upload-form";
 import { useUpload } from "@/hooks/use-upload";
 import { useVideoList } from "@/hooks/use-video-list";
@@ -12,18 +13,32 @@ import {
   Pencil,
   Video,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/videos")({
+  validateSearch: (search: Record<string, unknown>): { video?: string } => ({
+    video: typeof search.video === "string" ? search.video : undefined,
+  }),
   component: DashboardVideosPage,
 });
 
 function DashboardVideosPage() {
+  const { t } = useTranslation("common");
+  const { video: requestedVideo } = Route.useSearch();
   const agent = usePDSAgent();
   const isReady = useIsReady();
   const userProfile = useUserProfile();
   const { state: session, did } = useSession();
   const upload = useUpload();
+  const {
+    setTitle,
+    setDescription,
+    setTagsDirectly,
+    setWarningsDirectly,
+    setLicense,
+  } = upload;
 
   // Cursor-aware infinite list scoped to the logged-in user's repo.
   const {
@@ -45,20 +60,53 @@ function DashboardVideosPage() {
     (video: any) => {
       const rec = video.record?.value || video.record || {};
       setEditingVideoUri(video.uri);
-      upload.setTitle(rec.title || "");
-      upload.setDescription(rec.description || "");
-      upload.setTagsDirectly(rec.tags || []);
+      setTitle(rec.title || "");
+      setDescription(rec.description || "");
+      setTagsDirectly(rec.tags || []);
       setExistingThumb(rec.thumb || null);
       const cw = rec.contentWarnings?.warnings || [];
-      upload.setWarningsDirectly(new Set(cw));
+      setWarningsDirectly(new Set(cw));
       const rights = rec.contentRights || {};
-      upload.setLicense(
+      setLicense(
         rights.license?.$type ||
           "place.stream.metadata.contentRights#all-rights-reserved",
       );
     },
-    [upload],
+    [
+      setTitle,
+      setDescription,
+      setTagsDirectly,
+      setWarningsDirectly,
+      setLicense,
+    ],
   );
+
+  useEffect(() => {
+    if (
+      !agent?.did ||
+      !requestedVideo?.startsWith(`at://${agent.did}/place.stream.video/`)
+    )
+      return;
+    let cancelled = false;
+    void agent.com.atproto.repo
+      .getRecord({
+        repo: agent.did,
+        collection: "place.stream.video",
+        rkey: requestedVideo.split("/").pop()!,
+      })
+      .then((result) => {
+        if (!cancelled)
+          handleSelectVideo({ uri: requestedVideo, record: result.data.value });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("Failed to load video for editing", error);
+        toast.error(t("could-not-load-video"));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agent, requestedVideo, handleSelectVideo, t]);
 
   const handleUpdate = useCallback(
     async (u: ReturnType<typeof useUpload>) => {
@@ -196,6 +244,7 @@ function DashboardVideosPage() {
           isUpdating={updating}
           isDeleting={deleting}
         />
+        <VideoCaptionsManager video={editingVideoUri} />
       </div>
     );
   }

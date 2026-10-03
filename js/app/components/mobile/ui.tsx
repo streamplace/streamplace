@@ -35,6 +35,7 @@ import {
   textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
 import { px, py } from "@streamplace/components/src/ui";
+import Constants from "expo-constants";
 import { Image } from "expo-image";
 import useAvatars from "hooks/useAvatars";
 import {
@@ -154,6 +155,9 @@ export function MobileUi({
     clearTimeout(fadeTimeout.current);
     if (selectedRendition === "audio") return;
     if (ingest !== null) return;
+    // On an emulator Maestro takes longer than the fade to find and tap a
+    // control after revealing it, so e2e builds keep the controls up.
+    if (Constants.expoConfig?.extra?.e2e) return;
     fadeTimeout.current = setTimeout(() => {
       fadeOpacity.value = withTiming(
         0,
@@ -173,6 +177,17 @@ export function MobileUi({
       clearTimeout(fadeTimeout.current);
     };
   }, []);
+
+  // Captions rise above the bottom controls while they show: the web live bar
+  // and the VOD seek bar. Native live draws none.
+  const webLiveBar =
+    Platform.OS === "web" && mode === "live" && ingest === null;
+  const setShowControls = usePlayerStore((state) => state.setShowControls);
+  const bottomControls = webLiveBar || mode === "vod";
+  useEffect(() => {
+    setShowControls(bottomControls && controlsInteractive);
+    return () => setShowControls(false);
+  }, [bottomControls, controlsInteractive, setShowControls]);
 
   const showUI = () => {
     "worklet";
@@ -310,6 +325,7 @@ export function MobileUi({
                     ]}
                   >
                     <ShareSheet />
+                    {mode !== "vod" && <PlayerUI.CaptionsButton size={20} />}
                     <PlayerUI.ContextMenu
                       onOpenChat={
                         streamProfile?.handle ? openChatOnlyMode : undefined
@@ -458,7 +474,7 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
-      {Platform.OS === "web" && mode === "live" && ingest === null && (
+      {webLiveBar && (
         <Animated.View
           style={[
             layout.position.absolute,

@@ -918,6 +918,15 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		mt := rec.Track.MediaDefs_MuxlTrack
 		log.Debug(ctx, "indexed media track", "uri", aturi.String(), "blob", mt.Blob, "mediaType", mt.MediaType)
 
+	case *placestream.CaptionTranscript:
+		// Chunks of captions: from streamers (auto/ingest/human/imported) and
+		// from nodes' server repos (sidecar captions). Whose captions a video
+		// shows is decided at read time, so index every author.
+		if err := atsync.Model.UpsertCaptionTranscript(ctx, *rec, aturi); err != nil {
+			return fmt.Errorf("failed to upsert caption transcript: %w", err)
+		}
+		log.Debug(ctx, "indexed caption transcript", "uri", aturi.String(), "subject", rec.Subject.Uri, "language", rec.Language, "source", rec.Source)
+
 	case *placestream.MediaOrigin:
 		// Origin records are published by streamplace nodes (not users)
 		// against their own server-repo DID. The aturi's authority is

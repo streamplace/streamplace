@@ -40,6 +40,7 @@ import (
 	"stream.place/streamplace/pkg/crypto/signers/eip712"
 	"stream.place/streamplace/pkg/director"
 	apierrors "stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/licenses"
 	"stream.place/streamplace/pkg/linking"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
@@ -178,6 +179,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		return nil, err
 	}
 	a.XRPCServer = xrpc.(*spxrpc.Server)
+	a.XRPCServer.VideoCaptions = a.recordCaptions()
 	router := httprouter.New()
 
 	// Create our middleware factory with the default settings.
@@ -200,6 +202,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("GET", "/.well-known/apple-app-site-association", a.HandleAppleAppSiteAssociation(ctx))
 	router.Handler("GET", "/.well-known/assetlinks.json", a.HandleAndroidAssetLinks(ctx))
 	apiRouter := httprouter.New()
+	addFunc(apiRouter, "GET", "/api/licenses", licenses.Handler)
 	addFunc(apiRouter, "POST", "/api/notification", a.HandleNotification(ctx))
 	addFunc(apiRouter, "DELETE", "/api/notification", a.HandleNotificationDelete(ctx))
 	addFunc(apiRouter, "GET", "/api/notification/vapid-public-key", a.HandleVapidPublicKey(ctx))
@@ -213,6 +216,8 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addHandle(apiRouter, "DELETE", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
 	addFunc(apiRouter, "POST", "/api/segment", a.HandleSegment(ctx))
 	addFunc(apiRouter, "GET", "/api/healthz", a.HandleHealthz(ctx))
+	apiRouter.Handler("GET", captionerBasePath+"*file", captionerAssets())
+	apiRouter.Handler("HEAD", captionerBasePath+"*file", captionerAssets())
 	// they're jpegs now
 	addHandle(apiRouter, "GET", "/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
 	// this one is actually a jpeg (used previously and shouldn't remove for historical reasons)
@@ -343,6 +348,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		return nil, err
 	}
 	handler = redirectMiddleware(handler)
+	handler = captionerIsolation(handler)
 
 	// this needs to be LAST so nothing else clobbers the context
 	handler = a.ContextMiddleware(ctx)(handler)
@@ -382,7 +388,7 @@ type frontendSet struct {
 }
 
 func (f *frontendSet) pick(r *http.Request, forceWeb bool) http.HandlerFunc {
-	if forceWeb {
+	if forceWeb || r.URL.Path == "/captioner" || strings.HasPrefix(r.URL.Path, "/embed/captions/") {
 		return f.web
 	}
 	if c, err := r.Cookie("sp_web_beta"); err == nil && c.Value == "1" {

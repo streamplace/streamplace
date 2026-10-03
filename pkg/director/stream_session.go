@@ -75,6 +75,12 @@ type StreamSession struct {
 	lastLivestreamTime time.Time
 	lastViewCountTime  time.Time
 	s3Uploader         *s3.S3Uploader
+	s3Prev             chan struct{} // closed when the latest S3 operation is done; see s3InOrder
+	// s3Livestream is the place.stream.livestream record the latest recorded
+	// segment was signed under, and s3LivestreamURI the URI that tags it; see
+	// recordingLivestreamURI. Dispatch goroutine only.
+	s3Livestream    *placestream.Livestream
+	s3LivestreamURI string
 	// localRole runs once this node takes up the ingest node's jobs for the
 	// session (recording, multistream targets): on the first local segment,
 	// whether that is the session's first segment or one that arrives after
@@ -102,6 +108,7 @@ func exceedsMaxBitrate(dataLen int, durationNS int64, maxBitrate int) (int, bool
 
 func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
 	ctx, cancel := context.WithCancel(ctx)
+	defer ss.mm.EndCaptionSession(notif.Segment.RepoDID)
 	spmetrics.StreamSessions.WithLabelValues(notif.Segment.RepoDID).Inc()
 	ss.g, ctx = errgroup.WithContext(ctx)
 	sid := livepeer.RandomTrailer(8)
@@ -372,12 +379,6 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			if livestreamModel == nil {
 				log.Warn(ctx, "no livestream found, skipping notification blast", "repoDID", spseg.Creator)
 				return nil
-			}
-			// Refresh the S3 uploader's livestream tag now that this stream's
-			// own record is indexed (it may not have been when the uploader
-			// started), so all objects are attributed to the right stream.
-			if ss.s3Uploader != nil {
-				ss.s3Uploader.SetLivestreamURI(livestreamModel.URI)
 			}
 			lsv, err := livestreamModel.ToLivestreamView()
 			if err != nil {

@@ -2,6 +2,7 @@ package director
 
 import (
 	"context"
+	"reflect"
 
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
@@ -86,16 +87,6 @@ func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string)
 	// finalized VOD blobs (blobs/) and anything else in the bucket.
 	keyPrefix := liveRecPrefix + repoDID + "/"
 	ss.s3Uploader = s3.NewS3Uploader(cfg, repoDID, keyPrefix, s3.DefaultCutoverEvery, ss.statefulDB)
-	// Best-effort initial resolve of the livestream URI so the very first
-	// object is tagged. The director treats "latest livestream for repo" as
-	// the current stream everywhere (notification blast, idle finalize), so we
-	// do the same here; NewSegment refreshes it once the stream's own record is
-	// indexed, in case a prior stream was momentarily still "latest".
-	if ls, err := ss.mod.GetLatestLivestreamForRepo(repoDID); err != nil {
-		log.Warn(ctx, "live recording: failed to resolve initial livestream URI; first object starts untagged", "error", err, "repoDID", repoDID)
-	} else if ls != nil {
-		ss.s3Uploader.SetLivestreamURI(ls.URI)
-	}
 	log.Log(ctx, "S3 upload enabled", "bucket", ss.cli.S3Bucket, "endpoint", ss.cli.S3Endpoint, "repoDID", repoDID)
 }
 
@@ -103,11 +94,33 @@ func (ss *StreamSession) s3Upload(ctx context.Context, notif *media.NewSegmentNo
 	if ss.s3Uploader == nil {
 		return
 	}
-	ss.Go(ctx, func() error {
-		// notif.Muxl is the bare canonical segment; it concatenates directly
-		// (the S3 uploader synthesizes one init and prepends it per object).
-		return ss.s3Uploader.AddSegment(ctx, notif.Muxl)
+	// notif.ArchiveCopy is the bare canonical segment (with its captions laid
+	// out again for the recording, which can take seconds); it concatenates
+	// directly (the S3 uploader synthesizes one init and prepends it per object).
+	uri := ss.recordingLivestreamURI(ctx, notif)
+	ss.s3InOrder(ctx, notif.ArchiveCopy, func(ctx context.Context, seg []byte) error {
+		return ss.s3Uploader.AddSegment(ctx, seg, uri)
 	})
+}
+
+// recordingLivestreamURI returns the URI of the place.stream.livestream record
+// notif was signed under, which tags it in the recording so that finalizing a
+// livestream selects exactly its own segments. A segment's manifest takes the
+// repo's latest livestream, so when one brings a record the recording hasn't
+// seen (each "update livestream" mints one, a chapter), that record is still
+// the latest. Segments signed before the change keep the previous URI.
+func (ss *StreamSession) recordingLivestreamURI(ctx context.Context, notif *media.NewSegmentNotification) string {
+	ls := notif.Metadata.Livestream
+	if ls == nil || reflect.DeepEqual(ls, ss.s3Livestream) {
+		return ss.s3LivestreamURI
+	}
+	latest, err := ss.mod.GetLatestLivestreamForRepo(notif.Segment.RepoDID)
+	if err != nil || latest == nil {
+		log.Warn(ctx, "live recording: failed to resolve the segment's livestream; tagging it with the previous one", "error", err)
+		return ss.s3LivestreamURI
+	}
+	ss.s3Livestream, ss.s3LivestreamURI = ls, latest.URI
+	return latest.URI
 }
 
 // s3Cutover completes the current live-recording object so it's immediately
@@ -119,8 +132,31 @@ func (ss *StreamSession) s3Cutover(ctx context.Context) {
 	if ss.s3Uploader == nil {
 		return
 	}
-	ss.Go(ctx, func() error {
+	ss.s3InOrder(ctx, nil, func(ctx context.Context, _ []byte) error {
 		return ss.s3Uploader.Cutover(ctx)
+	})
+}
+
+// s3InOrder applies op to the recording after every earlier S3 operation of
+// the session. prepare runs right away, so archive copies waiting on their
+// captions overlap instead of adding up. Unlike a lane, nothing is skipped: a
+// recording must not drop a slow segment, so op runs even after the session
+// is cancelled (Start drains these before closing the uploader). NewSegment,
+// the only caller, runs on the director's dispatch goroutine, which orders
+// s3Prev.
+func (ss *StreamSession) s3InOrder(ctx context.Context, prepare func(context.Context) []byte, op func(context.Context, []byte) error) {
+	prev, done := ss.s3Prev, make(chan struct{})
+	ss.s3Prev = done
+	ss.Go(ctx, func() error {
+		defer close(done)
+		var data []byte
+		if prepare != nil {
+			data = prepare(ctx)
+		}
+		if prev != nil {
+			<-prev
+		}
+		return op(context.WithoutCancel(ctx), data)
 	})
 }
 

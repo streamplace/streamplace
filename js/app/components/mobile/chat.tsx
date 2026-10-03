@@ -106,7 +106,7 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth, setShowChat }) {
                 zIndex: 2,
                 width: "100%",
                 minWidth: 350,
-                pointerEvents: "none",
+                pointerEvents: "box-none",
                 transformOrigin: "top right",
               },
               notificationOffsetStyle,

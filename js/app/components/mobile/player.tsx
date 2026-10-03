@@ -478,8 +478,7 @@ export function PlayerInner(
       {showFullDesktopMode || fullscreen ? (
         <DesktopUi dropdownPortalContainer={dropdownPortalRef.current} />
       ) : (
-        !props.hideInlineMobileUi &&
-        (isLandscape || props.mode === "vod") && (
+        !props.hideInlineMobileUi && (
           <MobileUi
             hideMobileChat={props.mode === "vod"}
             setShowChat={props.setShowChat}

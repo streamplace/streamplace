@@ -55,24 +55,6 @@ func (w *shadowExitWriter) Write(p []byte) (int, error) {
 	return w.Writer.Write(p)
 }
 
-// zeroFillWriter forwards bytes intact until armed, then replaces every byte
-// with zero. A zeroed chunk header is an RTMP message of invalid type 0, so
-// the shadow parser fails deterministically; the byte count the primary
-// receives is unchanged.
-type zeroFillWriter struct {
-	io.Writer
-	armed  atomic.Bool
-	intact atomic.Int64 // bytes forwarded before the first zeroed byte
-}
-
-func (w *zeroFillWriter) Write(p []byte) (int, error) {
-	if w.armed.Load() {
-		return w.Writer.Write(make([]byte, len(p)))
-	}
-	w.intact.Add(int64(len(p)))
-	return w.Writer.Write(p)
-}
-
 // shadowMetrics is the parent's view of the shadow, scraped over HTTP.
 type shadowMetrics struct {
 	sessions map[string]int
@@ -127,9 +109,8 @@ func sessionCounts(success, failure int) map[string]int {
 // global metrics remain isolated from the rest of the package suite.
 //
 // paced streams in real time, burst sends everything at once to exercise the
-// downstream drain, and corrupt zero-fills the publisher's bytes once the
-// shadow has verified a segment: the shadow parser fails while the primary
-// keeps receiving the stream.
+// downstream drain, and corrupt injects invalid RTMP after verified media.
+// The primary must receive additional traffic after the shadow has failed.
 func TestDuplicateMistEndToEnd(t *testing.T) {
 	if os.Getenv("DUPLICATE_MIST_E2E_SCENARIO") != "1" {
 		for _, mode := range []string{"paced", "burst", "corrupt"} {
@@ -176,7 +157,8 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 			return
 		}
 		defer conn.Close()
-		_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
+		deadline, _ := ctx.Deadline()
+		_ = conn.SetDeadline(deadline)
 		sc := &gortmplib.ServerConn{RW: conn}
 		if err := sc.Initialize(); err != nil {
 			primaryResult <- err
@@ -187,8 +169,8 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 			return
 		}
 		if corrupt {
-			// Mist is only a byte sink here: it must keep receiving the
-			// publisher after the shadow's copy has turned to garbage.
+			// Mist is a byte sink here: it must keep receiving traffic
+			// after the shadow parser rejects the injected corruption.
 			n, err := io.Copy(io.Discard, conn)
 			primaryBytes.Store(n)
 			primaryResult <- err
@@ -238,7 +220,8 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	defer bridge.Close()
 	bridgeDone := make(chan error, 1)
-	zeroFill := &zeroFillWriter{}
+	publisherEOF := make(chan struct{})
+	afterFailure := make(chan int64, 1)
 	go func() {
 		client, err := bridge.Accept()
 		if err != nil {
@@ -264,8 +247,35 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 		defer stop()
 		replies := make(chan struct{})
 		go func() { _, _ = io.Copy(client, server); client.Close(); close(replies) }()
-		zeroFill.Writer = server
-		_, err = io.Copy(zeroFill, client)
+		forwarded, err := io.Copy(server, client)
+		if err == nil {
+			// Keep the actual TLS publisher connected until the parent has
+			// observed live verification, even if encoding already reached EOS.
+			select {
+			case <-publisherEOF:
+			case <-ctx.Done():
+				err = ctx.Err()
+			}
+		}
+		if corrupt && err == nil {
+			// Invalid RTMP after verified media must produce a failure.
+			var garbage [64 << 10]byte
+			var n int
+			n, err = server.Write(garbage[:])
+			forwarded += int64(n)
+			if err == nil {
+				select {
+				case <-shadowExit.done:
+				case <-ctx.Done():
+					err = ctx.Err()
+				}
+			}
+			if err == nil {
+				// Prove forwarding still works after the worker is reaped.
+				afterFailure <- forwarded
+				_, err = server.Write(garbage[:])
+			}
+		}
 		server.Close()
 		<-replies
 		bridgeDone <- err
@@ -282,20 +292,13 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 	go func() { busDone <- media.HandleBusMessages(ctx, pipeline) }()
 	require.NoError(t, pipeline.SetState(gst.StatePlaying))
 	if paced {
-		// Progress must be visible while the publisher is still sending,
-		// not only once the worker has exited.
+		// The TLS publisher has not sent EOF; progress cannot be deferred
+		// until worker completion. Encoding speed is irrelevant.
 		live := waitForVerifiedSegment(ctx, t, scrp)
-		select {
-		case err := <-busDone:
-			t.Fatalf("publisher finished before the shadow reported progress: %v", err)
-		default:
-		}
 		require.Equal(t, float64(1), live.workers)
 		require.Equal(t, sessionCounts(0, 0), live.sessions)
-		if corrupt {
-			zeroFill.armed.Store(true)
-		}
 	}
+	close(publisherEOF)
 	select {
 	case err := <-busDone:
 		require.NoError(t, err)
@@ -328,11 +331,10 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 	if corrupt {
 		require.Equal(t, sessionCounts(0, 1), final.sessions)
 		require.Positive(t, final.verified)
-		// primaryBytes excludes the few KB consumed by its own handshake and
-		// publish exchange; seconds of media follow the zero-fill point.
-		intact := zeroFill.intact.Load()
-		require.Positive(t, intact)
-		require.Greater(t, primaryBytes.Load(), intact, "primary stopped receiving once the shadow failed")
+		// The primary's count excludes handshake/publish bytes. Receiving
+		// more than every byte sent before worker exit proves it also
+		// received the final write made after the shadow failed.
+		require.Greater(t, primaryBytes.Load(), <-afterFailure, "primary stopped receiving once the shadow failed")
 	} else {
 		require.Equal(t, sessionCounts(1, 0), final.sessions)
 		require.Equal(t, 10, final.verified)

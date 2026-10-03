@@ -81,6 +81,9 @@ The backend end-to-end regression is `TestDuplicateMistEndToEnd` in
 `pkg/cmd`; it exercises a real TLS publisher and the isolated native ingest
 through verified segments beyond the former few-second failure interval,
 including all final segments after paced and unpaced publisher EOF.
+The fixture holds TLS publisher EOF until live metrics show verification,
+so slow worker startup is not confused with a metrics failure. Corrupt RTMP
+must export a failure while subsequent primary traffic still arrives.
 No client UI or platform-specific iOS/Android/Web behavior changes.
 
 */

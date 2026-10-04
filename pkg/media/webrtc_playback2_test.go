@@ -108,17 +108,22 @@ func startBackloggedPlayback(tb testing.TB, ctx context.Context, mm *MediaManage
 	offer, err := client.CreateOffer(nil)
 	require.NoError(tb, err)
 	require.NoError(tb, client.SetLocalDescription(offer))
+	select {
+	case <-webrtc.GatheringCompletePromise(client):
+	case <-ctx.Done():
+		tb.Fatal("client ICE gathering timed out")
+	}
 
 	seg := &bus.Seg{Published: true, PacketizedData: packet}
 	for range 2 {
 		mm.bus.PublishSegment(ctx, user, "source", seg)
 	}
-	answer, err := mm.WebRTCPlayback2(ctx, user, renditions.AudioRendition.Name, &offer, "")
+	answer, err := mm.WebRTCPlayback2(ctx, user, renditions.AudioRendition.Name, client.LocalDescription(), "")
 	require.NoError(tb, err)
 	require.NotNil(tb, answer)
+	require.NoError(tb, client.SetRemoteDescription(*answer))
 
-	// The real session starts its reader and pacer while the caller still
-	// holds the answer. A viewer abandoning the handshake must cancel cleanly.
+	// Wait for the connected session before filling its live segment queue.
 	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(user, "source")
 	var metric dto.Metric
 	require.Eventually(tb, func() bool { return subscriptions.Write(&metric) == nil && metric.GetGauge().GetValue() == 1 }, time.Second, time.Millisecond)

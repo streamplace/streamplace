@@ -33,6 +33,18 @@ func (l *logCapture) String() string {
 	return l.buf.String()
 }
 
+func captureLogs(tb testing.TB, verbosity string) *logCapture {
+	tb.Helper()
+	var logs logCapture
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	tb.Cleanup(func() { slog.SetDefault(previousLogger) })
+	previousVerbosity := flag.Lookup("v").Value.String()
+	require.NoError(tb, flag.Set("v", verbosity))
+	tb.Cleanup(func() { require.NoError(tb, flag.Set("v", previousVerbosity)) })
+	return &logs
+}
+
 // Validated segments reach a subscriber in validation order.
 func TestNewSegmentFanoutKeepsOrder(t *testing.T) {
 	mm := &MediaManager{}
@@ -49,13 +61,7 @@ func TestNewSegmentFanoutKeepsOrder(t *testing.T) {
 }
 
 func TestSegmentSubscriberTimeoutAndRecovery(t *testing.T) {
-	var logs logCapture
-	previousLogger := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
-	t.Cleanup(func() { slog.SetDefault(previousLogger) })
-	previousVerbosity := flag.Lookup("v").Value.String()
-	require.NoError(t, flag.Set("v", "2"))
-	t.Cleanup(func() { require.NoError(t, flag.Set("v", previousVerbosity)) })
+	logs := captureLogs(t, "2")
 
 	synctest.Test(t, func(t *testing.T) {
 		sub := &segmentSubscriber{

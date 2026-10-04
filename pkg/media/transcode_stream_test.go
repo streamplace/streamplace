@@ -125,6 +125,9 @@ func TestFeedStreamTranscoderRebuildsOnNewSession(t *testing.T) {
 		select {
 		case notification := <-canonical:
 			counts[notification.Segment.ID]++
+			var flat bytes.Buffer
+			require.NoError(t, muxl.RunMuxlWrap(ctx, bytes.NewReader(notification.Muxl), "flat", &flat))
+			require.Equal(t, flat.Bytes(), notification.Data, "presentation must include the completed audio track")
 		case <-time.After(5 * time.Second):
 			t.Fatal("accepted GOP did not complete")
 		}

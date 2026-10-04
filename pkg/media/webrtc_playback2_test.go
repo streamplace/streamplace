@@ -93,27 +93,39 @@ func loopbackPlaybackManager() *MediaManager {
 	}
 }
 
+func createAudioReceiver(tb testing.TB, ctx context.Context, api *webrtc.API) *webrtc.PeerConnection {
+	tb.Helper()
+	receiver, err := api.NewPeerConnection(webrtc.Configuration{})
+	require.NoError(tb, err)
+	ready := false
+	defer func() {
+		if !ready {
+			receiver.Close()
+		}
+	}()
+	_, err = receiver.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionRecvonly})
+	require.NoError(tb, err)
+	offer, err := receiver.CreateOffer(nil)
+	require.NoError(tb, err)
+	require.NoError(tb, receiver.SetLocalDescription(offer))
+	select {
+	case <-webrtc.GatheringCompletePromise(receiver):
+	case <-ctx.Done():
+		tb.Fatal("receiver ICE gathering timed out")
+	}
+	ready = true
+	return receiver
+}
+
 func startBackloggedPlayback(tb testing.TB, ctx context.Context, mm *MediaManager, user string, packet *bus.PacketizedSegment) *webrtc.PeerConnection {
 	tb.Helper()
-	client, err := mm.webrtcAPI.NewPeerConnection(webrtc.Configuration{})
-	require.NoError(tb, err)
+	client := createAudioReceiver(tb, ctx, mm.webrtcAPI)
 	started := false
 	defer func() {
 		if !started {
 			client.Close()
 		}
 	}()
-	_, err = client.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionRecvonly})
-	require.NoError(tb, err)
-	offer, err := client.CreateOffer(nil)
-	require.NoError(tb, err)
-	require.NoError(tb, client.SetLocalDescription(offer))
-	select {
-	case <-webrtc.GatheringCompletePromise(client):
-	case <-ctx.Done():
-		tb.Fatal("client ICE gathering timed out")
-	}
-
 	seg := &bus.Seg{Published: true, PacketizedData: packet}
 	for range 2 {
 		mm.bus.PublishSegment(ctx, user, WebRTCSourceRendition, seg)
@@ -174,9 +186,6 @@ func BenchmarkWebRTCPlaybackBacklog(b *testing.B) {
 }
 
 func TestWriteSamplesPacing(t *testing.T) {
-	var packet *bus.PacketizedSegment
-	withNoGSTLeaks(t, func() { packet = playbackPacketFixture(t) })
-	require.NotEmpty(t, packet.Video)
 	for _, testCase := range []struct {
 		name      string
 		durations []time.Duration
@@ -190,11 +199,12 @@ func TestWriteSamplesPacing(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
+				// Unbound tracks exercise pacing without invoking RTP packetization.
 				track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264, ClockRate: 90000}, "video", "stream")
 				require.NoError(t, err)
 				samples := make([]bus.PacketizedSample, len(testCase.durations))
 				for i, duration := range testCase.durations {
-					samples[i] = bus.PacketizedSample{Data: packet.Video[0].Data, Duration: duration}
+					samples[i] = bus.PacketizedSample{Duration: duration}
 				}
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
@@ -247,15 +257,12 @@ func TestWriteAudioSamplesUsesSegmentDuration(t *testing.T) {
 }
 
 func TestWriteSamplesCancelsDuringWait(t *testing.T) {
-	var packet *bus.PacketizedSegment
-	withNoGSTLeaks(t, func() { packet = playbackPacketFixture(t) })
-	require.NotEmpty(t, packet.Video)
 	synctest.Test(t, func(t *testing.T) {
 		track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264, ClockRate: 90000}, "video", "stream")
 		require.NoError(t, err)
 		samples := []bus.PacketizedSample{
-			{Data: packet.Video[0].Data, Duration: 30 * time.Millisecond},
-			{Data: packet.Video[0].Data, Duration: 60 * time.Millisecond},
+			{Duration: 30 * time.Millisecond},
+			{Duration: 60 * time.Millisecond},
 		}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

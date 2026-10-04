@@ -80,13 +80,7 @@ func TestMediaDataParserVideoHeaderWithNoVideo(t *testing.T) {
 // The two real demuxed tracks finish on native threads. Repeated EOS processing
 // must preserve both tracks and stay race-free under the race detector.
 func TestMediaDataParserConcurrentEOS(t *testing.T) {
-	var logs logCapture
-	previousLogger := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
-	defer slog.SetDefault(previousLogger)
-	previousVerbosity := flag.Lookup("v").Value.String()
-	require.NoError(t, flag.Set("v", "3"))
-	t.Cleanup(func() { require.NoError(t, flag.Set("v", previousVerbosity)) })
+	logs := captureLogs(t, "3")
 	withNoGSTLeaks(t, func() {
 		bs, err := os.ReadFile(getFixture("sample-segment.mp4"))
 		require.NoError(t, err)
@@ -137,13 +131,7 @@ func BenchmarkParseSegmentMediaData(b *testing.B) {
 }
 
 func TestMediaDataParserMissingVideo(t *testing.T) {
-	var logs logCapture
-	previousLogger := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
-	defer slog.SetDefault(previousLogger)
-	previousVerbosity := flag.Lookup("v").Value.String()
-	require.NoError(t, flag.Set("v", "3"))
-	t.Cleanup(func() { require.NoError(t, flag.Set("v", previousVerbosity)) })
+	logs := captureLogs(t, "3")
 	withNoGSTLeaks(t, func() {
 		synthCtx, stopSynth := context.WithTimeout(context.Background(), 10*time.Second)
 		defer stopSynth()

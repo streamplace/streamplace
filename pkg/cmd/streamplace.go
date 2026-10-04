@@ -82,6 +82,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeStreamCommand(build),
 		makeIngestWorkerCommand(build),
 		makeRTMPPushWorkerCommand(build),
+		makeDuplicateMistWorkerCommand(),
 		makeLiveCommand(build),
 		makeWhepCommand(build),
 		makeWhipCommand(build),
@@ -105,7 +106,9 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		// validate-config must run wherever the binary runs, media stack or
 		// not: diagnosing a crashloop with a broken gstreamer install is
 		// exactly when you want pure config validation.
-		if cmd.Name == "validate-config" {
+		// The shadow initializes only its ingest; a node-wide self-test per
+		// publisher would add unrelated work to production diagnostics.
+		if cmd.Name == "validate-config" || cmd.Name == "duplicate-mist-worker" {
 			return ctx, nil
 		}
 		// Run self-test before starting
@@ -1017,6 +1020,21 @@ func makeStreamCommand(build *config.BuildFlags) *urfavecli.Command {
 				return fmt.Errorf("usage: streamplace stream [user]")
 			}
 			return Stream(args.First())
+		},
+	}
+}
+
+// The shadow uses an ephemeral signer and has no node, database, or storage.
+// stdout carries only the per-segment progress bytes; all logs go to stderr.
+func makeDuplicateMistWorkerCommand() *urfavecli.Command {
+	return &urfavecli.Command{
+		Name:   "duplicate-mist-worker",
+		Usage:  "internal: replay a duplicated Mist publisher through native ingest",
+		Hidden: true,
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			_ = flag.Set("logtostderr", "true")
+			_ = flag.Set("v", "3")
+			return api.RunDuplicateMistWorker(ctx, os.Stdin, os.Stdout)
 		},
 	}
 }

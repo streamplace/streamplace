@@ -3,57 +3,27 @@ package media
 import (
 	"bytes"
 	"context"
-	"crypto"
-	"crypto/ecdsa"
 	"fmt"
 	"os"
 	"sort"
 	"testing"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/atcrypto"
-	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/comatproto"
-	"stream.place/streamplace/pkg/crypto/aqpub"
-	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
 )
 
-// newBareSegmentSigner builds a MediaSignerLocal with a fresh ES256K key +
-// self-signed cert and a cawg.metadata-bearing prebuilt manifest — enough to
-// drive SignSegmentStream in tests.
+// newBareSegmentSigner is an ephemeral signer with the test streamer name,
+// enough to drive SignSegmentStream in tests.
 func newBareSegmentSigner(t *testing.T) *MediaSignerLocal {
 	t.Helper()
-	atPriv, err := atcrypto.GeneratePrivateKeyK256()
+	ms, err := NewEphemeralMediaSigner("test-streamer")
 	require.NoError(t, err)
-	secpPriv, _ := secp256k1.PrivKeyFromBytes(atPriv.Bytes())
-	require.NotNil(t, secpPriv)
-	var signer crypto.Signer = secpPriv.ToECDSA()
-	cert, err := signers.GenerateES256KCert(signer)
-	require.NoError(t, err)
-	pub, err := aqpub.FromPublicKey(secpPriv.ToECDSA().Public().(*ecdsa.PublicKey))
-	require.NoError(t, err)
-	return &MediaSignerLocal{
-		StreamerName: "test-streamer",
-		Signer:       signer,
-		AQPub:        pub,
-		Cert:         cert,
-		PrebuiltManifest: []byte(`{
-			"title": "bare segment test",
-			"assertions": [
-				{"label":"c2pa.actions","data":{"actions":[{"action":"c2pa.created"}]}},
-				{"label":"cawg.metadata","data":{
-					"@context":{"dc":"http://purl.org/dc/elements/1.1/"},
-					"dc:creator":"did:example","dc:title":"t",
-					"dc:date":"1970-01-01T00:00:00.000Z"
-				}}
-			]
-		}`),
-	}
+	return ms
 }
 
 // TestValidateMP4MediaBareSegment exercises the full .m4s-native validate

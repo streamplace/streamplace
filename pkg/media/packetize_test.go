@@ -127,6 +127,57 @@ func TestPacketizeCanonicalSegment(t *testing.T) {
 	})
 }
 
+func TestPacketizePreservesVideoTimeline(t *testing.T) {
+	for _, fixture := range []string{"h264-opus-frag.mp4", "few-video-frames.mp4", "short-video.mp4"} {
+		t.Run(fixture, func(t *testing.T) {
+			withNoGSTLeaks(t, func() {
+				ctx := context.Background()
+				var segments [][]byte
+				if fixture == "h264-opus-frag.mp4" {
+					segments = allSignedBareSegments(t, ctx, newBareSegmentSigner(t), getFixture(fixture))
+				} else {
+					input, err := os.ReadFile(getFixture(fixture))
+					require.NoError(t, err)
+					canonical, err := muxl.RunMuxlCanonicalize(ctx, input, nil)
+					require.NoError(t, err)
+					events, err := unwrapMuxlEvents(ctx, canonical)
+					require.NoError(t, err)
+					_, tracks := catalogAndTracks(events)
+					require.NotEmpty(t, tracks)
+					segments = [][]byte{concatTracksByID(tracks)}
+				}
+				require.NotEmpty(t, segments)
+				for _, segment := range segments {
+					events, err := unwrapMuxlEvents(ctx, segment)
+					require.NoError(t, err)
+					catalog, _ := catalogAndTracks(events)
+					require.NotNil(t, catalog)
+					require.NotNil(t, catalog.Video)
+					require.Len(t, catalog.Video.Renditions, 1)
+					for _, track := range catalog.Video.Renditions {
+						trackID := fmt.Sprint(track.TrackID())
+						var source time.Duration
+						for _, event := range events {
+							source += time.Duration(float64(event.Durations[trackID]) / float64(track.Timescale()) * float64(time.Second))
+						}
+						require.Positive(t, source)
+						packet, err := Packetize(ctx, &config.CLI{}, &bus.Seg{Muxl: segment})
+						require.NoError(t, err)
+						require.NotEmpty(t, packet.Video)
+						require.NotEmpty(t, packet.Audio)
+						var received time.Duration
+						for _, sample := range packet.Video {
+							received += sample.Duration
+						}
+						require.InDelta(t, source, received, float64(time.Microsecond),
+							"video RTP timing must retain its signed span, independent of audio packet rounding")
+					}
+				}
+			})
+		})
+	}
+}
+
 // Both benchmark inputs contain the same real GoP. Fixture parsing and
 // presentation synthesis happen before the timed packetization loop.
 func packetizeFixture(tb testing.TB) (flat, canonical []byte) {
@@ -367,8 +418,8 @@ func TestPacketizeTrailingCaptionSEI(t *testing.T) {
 			require.True(t, hasVideoSlice(v.Data), "video sample %d has no picture", i)
 			totalSEIs += countCaptionSEIs(v.Data)
 			// Real per-sample timing: ~33ms at 30fps, no sample burned by a
-			// zero-length caption "frame". The last sample is exempt — it
-			// stretches to cover the (audio-derived) segment end.
+			// zero-length caption "frame". The final sample uses its native
+			// buffer duration rather than a following timestamp.
 			if i < len(packet.Video)-1 {
 				require.InDelta(t, 33*time.Millisecond, v.Duration, float64(10*time.Millisecond),
 					"video sample %d duration", i)
@@ -413,8 +464,8 @@ func TestFinalizeSampleDurations(t *testing.T) {
 	})
 
 	t.Run("LastSampleStretchesToSegmentEnd", func(t *testing.T) {
-		// A single keyframe in a 4s segment must hold the full 4s, or the
-		// video timeline falls behind the audio's segment after segment.
+		// Fill a known track span when the last sample's native duration
+		// alone would leave its timeline short.
 		raw := []rawSample{
 			{ts: ms(0), hasTS: true, bufDur: ms(33), hasDur: true},
 		}

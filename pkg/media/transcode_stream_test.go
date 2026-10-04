@@ -14,7 +14,6 @@ import (
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers"
-	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/test/remote"
 )
@@ -75,7 +74,7 @@ func TestFeedStreamTranscoderRebuildsOnNewSession(t *testing.T) {
 	mm := &MediaManager{
 		cli:         &config.CLI{BroadcasterHost: "test.example.com", DataDir: t.TempDir()},
 		transcoders: map[string]*streamTranscoder{},
-		liveWindows: map[string]*livehls.Writer{},
+		liveWindows: map[string]*liveWindowState{},
 	}
 
 	const did = "did:web:didweb.example"

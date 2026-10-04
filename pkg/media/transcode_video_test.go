@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers"
-	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/muxl"
 )
 
@@ -89,7 +88,7 @@ func TestMintVideoRenditions(t *testing.T) {
 	r360 := renditionMP4(t, 160, 120)
 	r160 := renditionMP4(t, 80, 60)
 	cert, keyPEM := nodeSignerForTest(t)
-	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "node.test"}, liveWindows: map[string]*livehls.Writer{}}
+	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "node.test"}, liveWindows: map[string]*liveWindowState{}}
 
 	addendum, err := mm.mintVideoRenditions(ctx, src, []RenditionInput{{Name: "160p", MP4: r360}, {Name: "80p", MP4: r160}}, cert, keyPEM)
 	require.NoError(t, err)
@@ -202,7 +201,7 @@ func TestMintVideoRenditionsRetimes(t *testing.T) {
 	require.NotZero(t, srcBase, "second segment starts after zero")
 
 	cert, keyPEM := nodeSignerForTest(t)
-	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "node.test"}, liveWindows: map[string]*livehls.Writer{}}
+	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "node.test"}, liveWindows: map[string]*liveWindowState{}}
 	addendum, err := mm.mintVideoRenditions(ctx, src, []RenditionInput{{Name: "160p", MP4: renditionMP4(t, 160, 120)}}, cert, keyPEM)
 	require.NoError(t, err)
 	require.NotEmpty(t, addendum)

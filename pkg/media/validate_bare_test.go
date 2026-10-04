@@ -3,9 +3,14 @@ package media
 import (
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
+	"log/slog"
 	"os"
+	"runtime"
 	"sort"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -102,17 +107,41 @@ func TestFeedLiveWindow(t *testing.T) {
 	require.NoError(t, <-errCh)
 	require.NotEmpty(t, m4s)
 
-	mm := &MediaManager{liveWindows: map[string]*livehls.Writer{}}
+	mm := &MediaManager{liveWindows: map[string]*liveWindowState{}}
 
 	// Pre-live (unpublished) segments are folded in for the streamer's own
 	// preview, and the window remembers that its latest segment is not
 	// public — the getLive* handlers keep it to holders of a playback token.
 	t0 := time.Now()
+	t.Run("publication preserves the newest observed timestamp", func(t *testing.T) {
+		const did = "did:test:out-of-order"
+		mm.feedLiveWindow(ctx, did, m4s, t0.Add(3*time.Second), false)
+		mm.feedLiveWindow(ctx, did, m4s, t0.Add(time.Second), true)
+		public := mm.GetLiveWindow(did)
+		require.NotNil(t, public)
+		mm.feedLiveWindow(ctx, did, m4s, t0.Add(2*time.Second), false)
+		require.True(t, mm.LiveWindowPublished(did), "an older preview must not undo publication")
+		require.Same(t, public, mm.GetLiveWindow(did))
+	})
 	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, t0, false)
 	require.NotNil(t, mm.GetLiveWindow("did:test:streamer"), "pre-live segments make a window")
 	require.False(t, mm.LiveWindowPublished("did:test:streamer"), "…but it is not public")
 
 	preLive := mm.GetLiveWindow("did:test:streamer")
+	t.Run("malformed publication preserves preview", func(t *testing.T) {
+		var logs logCapture
+		previousLogger := slog.Default()
+		slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+		t.Cleanup(func() { slog.SetDefault(previousLogger) })
+		previousVerbosity := flag.Lookup("v").Value.String()
+		require.NoError(t, flag.Set("v", "3"))
+		t.Cleanup(func() { require.NoError(t, flag.Set("v", previousVerbosity)) })
+
+		mm.feedLiveWindow(ctx, "did:test:streamer", m4s[:len(m4s)-1], t0.Add(time.Second), true)
+		require.Equal(t, 1, strings.Count(logs.String(), "live-hls: window feed failed"))
+		require.Same(t, preLive, mm.GetLiveWindow("did:test:streamer"), "failed decode must preserve the valid preview")
+		require.False(t, mm.LiveWindowPublished("did:test:streamer"), "failed decode must not publish preview media")
+	})
 	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, t0.Add(2*time.Second), true)
 	require.True(t, mm.LiveWindowPublished("did:test:streamer"))
 
@@ -154,6 +183,210 @@ func TestFeedLiveWindow(t *testing.T) {
 	// preview (the streamer ended it but is still sending), and does flip it.
 	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, t0.Add(6*time.Second), false)
 	require.False(t, mm.LiveWindowPublished("did:test:streamer"), "a newer pre-live segment takes the stream back to preview")
+}
+
+func waitLiveWindowWork(t *testing.T, done <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("live window work did not reach the expected synchronization point")
+	}
+}
+
+func waitLiveWindowStack(t *testing.T, caller, callee string) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		stack := make([]byte, 64<<10)
+		n := runtime.Stack(stack, true)
+		for _, goroutine := range strings.Split(string(stack[:n]), "\n\n") {
+			if strings.Contains(goroutine, caller) && strings.Contains(goroutine, callee) {
+				return true
+			}
+		}
+		return false
+	}, 5*time.Second, time.Millisecond)
+}
+
+func TestFeedLiveWindowDoesNotBlockOtherStreams(t *testing.T) {
+	ctx := t.Context()
+	ms := newBareSegmentSigner(t)
+	segments := allSignedBareSegments(t, ctx, ms, getFixture("h264-opus-frag.mp4"))
+	require.NotEmpty(t, segments)
+	mm := &MediaManager{liveWindows: map[string]*liveWindowState{}}
+	mm.feedLiveWindow(ctx, "did:test:busy", segments[0], time.Now(), true)
+	window := mm.GetLiveWindow("did:test:busy")
+	require.NotNil(t, window)
+
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	playlistDone := make(chan struct{})
+	go func() {
+		defer close(playlistDone)
+		first := true
+		window.MasterPlaylist(func(tid string) string {
+			if first {
+				first = false
+				close(entered)
+				<-release
+			}
+			return tid + ".m3u8"
+		})
+	}()
+	unblock := sync.OnceFunc(func() { close(release) })
+	t.Cleanup(func() {
+		unblock()
+		waitLiveWindowWork(t, playlistDone)
+	})
+	waitLiveWindowWork(t, entered)
+	feedDone := make(chan struct{})
+	go func() {
+		defer close(feedDone)
+		mm.feedLiveWindow(ctx, "did:test:busy", segments[0], time.Now(), true)
+	}()
+	t.Cleanup(func() {
+		unblock()
+		waitLiveWindowWork(t, feedDone)
+	})
+	otherDone := make(chan struct{})
+
+	// Wait for the feed to reach the writer held by the playlist callback,
+	// rather than depending on how long decoding or goroutine scheduling takes.
+	waitLiveWindowStack(t, "(*MediaManager).feedLiveWindow", "(*Writer).Observe")
+	go func() {
+		defer close(otherDone)
+		mm.feedLiveWindow(ctx, "did:test:other", segments[0], time.Now(), true)
+		mm.GetLiveWindow("did:test:other")
+		mm.LiveWindowPublished("did:test:other")
+	}()
+	t.Cleanup(func() {
+		unblock()
+		waitLiveWindowWork(t, otherDone)
+	})
+	select {
+	case <-otherDone:
+	case <-time.After(time.Second):
+		t.Error("unrelated stream feed and reads blocked by busy stream")
+	}
+}
+
+func TestFeedLiveWindowRecreatesPrunedState(t *testing.T) {
+	ctx := t.Context()
+	ms := newBareSegmentSigner(t)
+	segments := allSignedBareSegments(t, ctx, ms, getFixture("h264-opus-frag.mp4"))
+	require.NotEmpty(t, segments)
+	events, err := unwrapMuxlEvents(ctx, segments[0])
+	require.NoError(t, err)
+	window := livehls.NewWriter()
+	for _, ev := range events {
+		require.NoError(t, window.Observe(ev))
+	}
+	const did = "did:test:pruned"
+	mm := &MediaManager{liveWindows: map[string]*liveWindowState{
+		did: {w: window, published: true},
+	}}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	playlistDone := make(chan struct{})
+	go func() {
+		defer close(playlistDone)
+		first := true
+		window.MasterPlaylist(func(tid string) string {
+			if first {
+				first = false
+				// The playlist owns the writer lock; expire its segments before
+				// the queued read can check whether the window is empty.
+				livehls.WithRetention(time.Nanosecond)(window)
+				close(entered)
+				<-release
+			}
+			return tid + ".m3u8"
+		})
+	}()
+	unblock := sync.OnceFunc(func() { close(release) })
+	t.Cleanup(func() {
+		unblock()
+		waitLiveWindowWork(t, playlistDone)
+	})
+	waitLiveWindowWork(t, entered)
+	readDone := make(chan struct{})
+	var readWindow *livehls.Writer
+	go func() {
+		defer close(readDone)
+		readWindow = mm.GetLiveWindow(did)
+	}()
+	t.Cleanup(func() {
+		unblock()
+		waitLiveWindowWork(t, readDone)
+	})
+	waitLiveWindowStack(t, "(*MediaManager).GetLiveWindow", "(*Writer).Empty")
+	feedDone := make(chan struct{})
+	go func() {
+		defer close(feedDone)
+		mm.feedLiveWindow(ctx, did, segments[0], time.Now(), true)
+	}()
+	t.Cleanup(func() {
+		unblock()
+		waitLiveWindowWork(t, feedDone)
+	})
+	waitLiveWindowStack(t, "(*MediaManager).feedLiveWindow", "(*MediaManager).lockLiveWindow")
+	unblock()
+	waitLiveWindowWork(t, playlistDone)
+	waitLiveWindowWork(t, feedDone)
+	waitLiveWindowWork(t, readDone)
+	require.Nil(t, readWindow)
+	recreated := mm.GetLiveWindow(did)
+	require.NotNil(t, recreated, "queued feed must populate the current state, not the pruned one")
+	require.NotSame(t, window, recreated)
+	require.True(t, mm.LiveWindowPublished(did))
+	require.Contains(t, recreated.MasterPlaylist(func(tid string) string { return tid + ".m3u8" }), "opus")
+}
+
+func TestFeedLiveWindowSurvivesConcurrentReads(t *testing.T) {
+	ms := newBareSegmentSigner(t)
+	segments := allSignedBareSegments(t, t.Context(), ms, getFixture("h264-opus-frag.mp4"))
+	require.NotEmpty(t, segments)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	mm := &MediaManager{liveWindows: map[string]*liveWindowState{}}
+	for i := range 10 {
+		did := fmt.Sprintf("did:test:window-%d", i)
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			mm.feedLiveWindow(ctx, did, segments[0], time.Now(), true)
+		}()
+	read:
+		for {
+			select {
+			case <-done:
+				break read
+			case <-ctx.Done():
+				t.Fatal("live window feed did not finish")
+			default:
+				mm.GetLiveWindow(did)
+				runtime.Gosched()
+			}
+		}
+		window := mm.GetLiveWindow(did)
+		require.NotNil(t, window, "playback reads must not discard an in-progress feed")
+		require.True(t, mm.LiveWindowPublished(did))
+		require.Contains(t, window.MasterPlaylist(func(tid string) string { return tid + ".m3u8" }), "opus")
+	}
+}
+
+func BenchmarkFeedInitialLiveWindow(b *testing.B) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(b)
+	segments := allSignedBareSegments(b, ctx, ms, getFixture("h264-opus-frag.mp4"))
+	require.NotEmpty(b, segments)
+	b.ReportAllocs()
+	b.SetBytes(int64(len(segments[0])))
+	b.ResetTimer()
+	for b.Loop() {
+		mm := &MediaManager{liveWindows: map[string]*liveWindowState{}}
+		mm.feedLiveWindow(ctx, "did:test:streamer", segments[0], time.Now(), true)
+	}
 }
 
 // seedBanLabel writes an active ban label for did into the model.

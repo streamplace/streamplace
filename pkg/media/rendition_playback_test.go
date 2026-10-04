@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/livehls"
 )
 
 // A node that receives a stream's rendition addendum (a syndicating node)
@@ -21,7 +20,7 @@ func TestPublishRenditionsForPlayback(t *testing.T) {
 	r160 := renditionMP4(t, 160, 120)
 	cert, keyPEM := nodeSignerForTest(t)
 	b := bus.NewBus()
-	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "node.test"}, liveWindows: map[string]*livehls.Writer{}, bus: b}
+	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "node.test"}, liveWindows: map[string]*liveWindowState{}, bus: b}
 	addendum, err := mm.mintVideoRenditions(ctx, src, []RenditionInput{{Name: "120p", MP4: r160}}, cert, keyPEM)
 	require.NoError(t, err)
 

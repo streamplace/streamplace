@@ -11,7 +11,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/muxl"
@@ -45,76 +46,95 @@ func TestStreamTranscoderNeedsReset(t *testing.T) {
 	require.True(t, failed.needsReset("aac", 5), "a failed pipeline rebuilds on the next segment")
 }
 
-// TestFeedStreamTranscoderRebuildsOnNewSession is the end-to-end regression for
-// the rapid stop/start wedge: a streamer disconnects and reconnects within the
-// transcoder's idle window, so the registry would otherwise feed the second
-// session's restarted media timeline into the first session's still-running
-// continuous encoder (a large backwards PTS jump → the encoder stops emitting
-// audio → "emitted segment missing audio track" → segments dropped → the stream
-// wedges). With the ingest-session epoch, the second session must get a FRESH
-// transcoder and the first session's must be flushed + torn down.
-//
-// It drives the real registry path (feedStreamTranscoder, the same one
-// ValidateMP4 uses): two sessions over the same DID + codec, with the same
-// fixture re-fed for the second session — re-feeding restarts the source PTS at
-// zero, exactly the discontinuity a reconnect produces.
+// A new worker consumer restarts the source timeline. Validation must rebuild
+// its continuous AAC encoder, while successive GOPs from one consumer reuse it.
 func TestFeedStreamTranscoderRebuildsOnNewSession(t *testing.T) {
 	ctx := context.Background()
 	ms := newBareSegmentSigner(t)
+	pub, err := atproto.ParsePubKey(ms.Signer.Public())
+	require.NoError(t, err)
+	ms.StreamerName = pub.DIDKey()
+	ms.PrebuiltManifest = bytes.Replace(ms.PrebuiltManifest, []byte("did:example:rtmp-shadow"), []byte(ms.Streamer()), 1)
 	segs := allSignedBareSegments(t, ctx, ms, getFixture("h264-opus-frag.mp4"))
 	require.GreaterOrEqual(t, len(segs), 2, "fixture should produce multiple segments")
 
-	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
-	require.NoError(t, err)
-
-	// A real-enough MediaManager: a temp data dir so completed segments archive
-	// without touching the repo, and an (unused) live-window map. Completed
-	// segments are unpublished, so distributeSegment archives them but folds
-	// nothing into the live window and notifies no subscribers — no blocking.
-	mm := &MediaManager{
-		cli:         &config.CLI{BroadcasterHost: "test.example.com", DataDir: t.TempDir()},
-		transcoders: map[string]*streamTranscoder{},
-		liveWindows: map[string]*liveWindowState{},
-	}
-
-	const did = "did:web:didweb.example"
-	base := time.Unix(1700000000, 0).UTC()
-	feedSession := func(epoch uint64, startIdx int) {
-		sctx := withIngestSession(ctx, epoch)
-		for i, seg := range segs {
-			// Distinct per-segment StartTime so archived filenames don't collide.
-			vs := &validatedSegment{
-				repoDID: did,
-				meta:    &SegmentMetadata{StartTime: aqtime.FromTime(base.Add(time.Duration(startIdx+i) * time.Second))},
-				local:   true,
-			}
-			require.NoError(t, mm.feedStreamTranscoder(sctx, vs, seg, "aac", ms.Cert, keyPEM),
-				"feed session %d segment %d", epoch, i)
+	mm := earlyWebRTCManager(t, ms)
+	canonical := make(chan *NewSegmentNotification, len(segs)*2+1)
+	mm.newSegmentSubs = []*segmentSubscriber{{queue: canonical}}
+	private := mm.bus.SubscribeSegment(ctx, ms.Streamer(), WebRTCSourceRendition)
+	defer mm.bus.UnsubscribeSegment(ctx, ms.Streamer(), WebRTCSourceRendition, private)
+	readPrivate := func(ch *bus.SegChan) *bus.Seg {
+		t.Helper()
+		select {
+		case segment := <-ch.C:
+			return segment
+		case <-time.After(5 * time.Second):
+			t.Fatal("accepted source did not reach private playback")
+			return nil
 		}
 	}
-
-	// Session 1.
-	s1 := mm.nextIngestSession()
-	feedSession(s1, 0)
-	t1 := mm.transcoders[did]
+	firstSession, flushFirst := mm.validateSegment(ctx)
+	defer flushFirst()
+	require.NoError(t, firstSession(segs[0]))
+	firstIDs := []string{readPrivate(private).Filepath}
+	t1 := mm.transcoders[ms.Streamer()]
 	require.NotNil(t, t1, "session 1 built a transcoder")
-	require.Equal(t, s1, t1.sessionID)
+	t.Cleanup(func() {
+		require.NoError(t, t1.Close())
+		select {
+		case <-t1.done:
+		case <-time.After(20 * time.Second):
+			t.Error("previous session's transcoder did not finish")
+		}
+	})
+	for _, seg := range segs[1:] {
+		require.NoError(t, firstSession(seg))
+		firstIDs = append(firstIDs, readPrivate(private).Filepath)
+		require.Same(t, t1, mm.transcoders[ms.Streamer()], "one consumer must keep a continuous encoder")
+	}
 
-	// Session 2: same DID + codec, fresh epoch (the reconnect). The first feed of
-	// this session must reset the registry to a brand-new transcoder.
-	s2 := mm.nextIngestSession()
-	feedSession(s2, len(segs))
-	t2 := mm.transcoders[did]
+	secondSession, flushSecond := mm.validateSegment(ctx)
+	defer flushSecond()
+	require.NoError(t, secondSession(segs[0]))
+	newer := readPrivate(private)
+	require.NotEqual(t, firstIDs[1], newer.Filepath, "the stale GOP must have a distinct identity")
+	t2 := mm.transcoders[ms.Streamer()]
 	require.NotNil(t, t2, "session 2 built a transcoder")
 	require.NotSame(t, t1, t2,
 		"a new ingest session must rebuild the transcoder, not reuse the previous session's continuous encoder")
-	require.Equal(t, s2, t2.sessionID)
+	require.Positive(t, t1.sessionID)
+	require.Greater(t, t2.sessionID, t1.sessionID)
+	// A detached older worker may deliver another GOP after its replacement.
+	// It must neither replace the newest playback cache nor enter the new AAC timeline.
+	require.NoError(t, firstSession(segs[1]))
+	require.Same(t, t2, mm.transcoders[ms.Streamer()])
+	cached := mm.bus.SubscribeSegmentBuf(ctx, ms.Streamer(), WebRTCSourceRendition, 1)
+	defer mm.bus.UnsubscribeSegment(ctx, ms.Streamer(), WebRTCSourceRendition, cached)
+	require.Equal(t, newer.Filepath, readPrivate(cached).Filepath,
+		"an older worker must not replace the current session's cached GOP")
 
 	// The previous session's transcoder is flushed + torn down (async on reset).
-	require.Eventually(t, t1.isClosed, 20*time.Second, 20*time.Millisecond,
-		"the previous session's transcoder must be flushed + torn down on reconnect")
-
 	require.NoError(t, t2.Close(), "the rebuilt transcoder drains cleanly")
+	select {
+	case <-t1.done:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the previous session's transcoder did not finish on reconnect")
+	}
+	counts := map[string]int{}
+	for range len(segs) + 1 {
+		select {
+		case notification := <-canonical:
+			counts[notification.Segment.ID]++
+		case <-time.After(5 * time.Second):
+			t.Fatal("accepted GOP did not complete")
+		}
+	}
+	want := map[string]int{newer.Filepath: 1}
+	for _, id := range firstIDs {
+		want[id]++
+	}
+	require.Equal(t, want, counts, "each encoder must drain only its own accepted source GOPs")
+	require.Empty(t, canonical, "a superseded worker must not produce another completed GOP")
 }
 
 // allSignedBareSegments signs the fragmented fixture per-segment and returns

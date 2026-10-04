@@ -105,6 +105,9 @@ func (mm *MediaManager) nextIngestSession() uint64 {
 	return mm.ingestSessionSeq.Add(1)
 }
 
+// WebRTCSourceRendition carries playable source media before AAC completion.
+const WebRTCSourceRendition = "webrtc-source"
+
 type NewSegmentNotification struct {
 	Segment *localdb.Segment
 	// Data is the presentation flat MP4 (ftyp+moov+mdat envelope) consumed by
@@ -116,6 +119,8 @@ type NewSegmentNotification struct {
 	Muxl     []byte
 	Metadata *SegmentMetadata
 	Local    bool
+	// WebRTCPublished means the validated source already reached private playback.
+	WebRTCPublished bool
 }
 
 func RunSelfTest(ctx context.Context) error {

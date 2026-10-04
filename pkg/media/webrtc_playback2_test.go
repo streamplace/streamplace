@@ -63,7 +63,7 @@ func TestWebRTCPlayback2CancelsBackloggedPlayback(t *testing.T) {
 
 	cancel()
 	require.NoError(t, client.Close())
-	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(t.Name(), "source")
+	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(t.Name(), WebRTCSourceRendition)
 	var metric dto.Metric
 	require.Eventually(t, func() bool { return subscriptions.Write(&metric) == nil && metric.GetGauge().GetValue() == 0 }, time.Second, time.Millisecond,
 		"cancelled playback releases its segment subscription")
@@ -116,7 +116,7 @@ func startBackloggedPlayback(tb testing.TB, ctx context.Context, mm *MediaManage
 
 	seg := &bus.Seg{Published: true, PacketizedData: packet}
 	for range 2 {
-		mm.bus.PublishSegment(ctx, user, "source", seg)
+		mm.bus.PublishSegment(ctx, user, WebRTCSourceRendition, seg)
 	}
 	answer, err := mm.WebRTCPlayback2(ctx, user, renditions.AudioRendition.Name, client.LocalDescription(), "")
 	require.NoError(tb, err)
@@ -124,12 +124,12 @@ func startBackloggedPlayback(tb testing.TB, ctx context.Context, mm *MediaManage
 	require.NoError(tb, client.SetRemoteDescription(*answer))
 
 	// Wait for the connected session before filling its live segment queue.
-	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(user, "source")
+	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(user, WebRTCSourceRendition)
 	var metric dto.Metric
 	require.Eventually(tb, func() bool { return subscriptions.Write(&metric) == nil && metric.GetGauge().GetValue() == 1 }, time.Second, time.Millisecond)
 	for range 16 {
 		for range 256 {
-			mm.bus.PublishSegment(ctx, user, "source", seg)
+			mm.bus.PublishSegment(ctx, user, WebRTCSourceRendition, seg)
 		}
 		// Let the reader fill its queue before the next burst fills the bus.
 		time.Sleep(5 * time.Millisecond)
@@ -148,7 +148,7 @@ func BenchmarkWebRTCPlaybackBacklog(b *testing.B) {
 	defer goleak.VerifyNone(b, ignore)
 	parent, cancelParent := context.WithCancel(b.Context())
 	defer cancelParent()
-	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(b.Name(), "source")
+	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(b.Name(), WebRTCSourceRendition)
 	var metric dto.Metric
 	var cancelTime time.Duration
 	b.ReportAllocs()

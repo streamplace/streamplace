@@ -18,6 +18,7 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/ingestframe"
@@ -119,8 +120,7 @@ func TestRunMP4IngestWorkerProducesValidSignedFrames(t *testing.T) {
 	manifest, err := ms.buildManifest(ctx, time.Now().UnixMilli())
 	require.NoError(t, err)
 
-	// Provide the node transcode signer (the same test key serves both roles
-	// here, as in the transcoder tests) so the worker completes to dual-codec.
+	// The node key remains available for sources that need Opus completion.
 	cfg := IngestWorkerConfig{
 		StreamerDID:     ms.Streamer(),
 		KeyPEM:          keyPEM,
@@ -154,24 +154,53 @@ func TestRunMP4IngestWorkerProducesValidSignedFrames(t *testing.T) {
 		require.NoError(t, err, "segment %d verify", segs)
 		require.NotContains(t, out, `"validation_state":"Invalid"`, "segment %d must validate", segs)
 
-		// With a node key the worker completes to dual-codec: every segment must
-		// carry both the source Opus and a worker-transcoded AAC track.
 		codecs := audioCodecsOf(t, ctx, payload)
-		hasOpus, hasAAC := false, false
-		for _, c := range codecs {
-			if isOpusCodec(c) {
-				hasOpus = true
-			}
-			if isAACCodec(c) {
-				hasAAC = true
-			}
-		}
-		require.True(t, hasOpus, "segment %d keeps source Opus (got %v)", segs, codecs)
-		require.True(t, hasAAC, "segment %d gains worker-transcoded AAC (got %v)", segs, codecs)
+		require.Equal(t, []string{"opus"}, codecs, "segment %d reaches main before AAC completion", segs)
 		segs++
 	}
-	require.GreaterOrEqual(t, segs, 1, "worker emitted at least one signed dual-codec segment")
-	t.Logf("worker emitted %d valid dual-codec segments", segs)
+	require.GreaterOrEqual(t, segs, 1, "worker emitted at least one signed Opus source segment")
+	t.Logf("worker emitted %d valid Opus source segments", segs)
+}
+
+func TestWorkerSegmentSinkCompletesAACSource(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	fragmented := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
+	path := filepath.Join(t.TempDir(), "aac-source.mp4")
+	require.NoError(t, os.WriteFile(path, fragmented, 0600))
+	segments := allSignedBareSegments(t, ctx, ms, path)
+	require.NotEmpty(t, segments)
+	require.Equal(t, []string{"mp4a.40.2"}, audioCodecsOf(t, ctx, segments[0]))
+	var framed bytes.Buffer
+	mm := NewOffline(&config.CLI{BroadcasterHost: "test.example.com"})
+	onSegment, flush := mm.workerSegmentSink(ctx, IngestWorkerConfig{
+		NodeCertPEM: ms.Cert, NodeKeyPEM: keyPEM,
+	}, ingestframe.NewWriter(&framed))
+	defer flush()
+	for _, segment := range segments {
+		require.NoError(t, onSegment(ctx, segment))
+	}
+	flush()
+	reader := ingestframe.NewReader(&framed)
+	var completed int
+	for {
+		typ, payload, err := reader.ReadFrame()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		require.Equal(t, ingestframe.Segment, typ)
+		codecs := audioCodecsOf(t, ctx, payload)
+		require.Contains(t, codecs, "opus", "AAC sources need worker Opus completion")
+		require.Contains(t, codecs, "mp4a.40.2", "completion preserves source AAC")
+		verified, err := muxl.RunMuxlVerify(ctx, bytes.NewReader(payload))
+		require.NoError(t, err)
+		require.NotContains(t, verified, `"validation_state":"Invalid"`)
+		completed++
+	}
+	require.Equal(t, len(segments), completed, "flush releases the final completed source")
 }
 
 // TestRunMP4IngestWorkerRecords proves debug recording works INSIDE the worker:

@@ -31,9 +31,8 @@ var ingestWorkerWatchdog = 30 * time.Second
 // running the demux + sign pipeline in this process — where a native gst fault,
 // OOM, or deadlock would take the whole node down — it spawns a dedicated
 // `ingest-worker` subprocess that owns the pipeline and streams signed canonical
-// .m4s segments back. This process only reads frames and runs ValidateMP4
-// (memory-safe Go + wasm), so a single failing stream can at worst kill its own
-// worker; the node survives.
+// .m4s segments back. Main validates those frames, packetizes Opus for WebRTC,
+// and runs the native AAC completion pipeline.
 //
 // Per the locked design the worker signs everything, so main hands it the
 // streamer key + cert + a once-built manifest over a dedicated config fd (kept
@@ -145,7 +144,9 @@ func (mm *MediaManager) MP4IngestIsolated(ctx context.Context, input io.Reader, 
 	})
 
 	// Read signed-segment frames and feed each into the normal chokepoint.
-	sawEnd, readErr := mm.consumeWorkerFrames(ctx, ingestframe.NewReader(framesR), ms.Streamer(), mm.validateSegment(ctx), func() {
+	onSegment, flush := mm.validateSegment(ctx)
+	defer flush()
+	sawEnd, readErr := mm.consumeWorkerFrames(ctx, ingestframe.NewReader(framesR), ms.Streamer(), onSegment, func() {
 		watchdog.Reset(ingestWorkerWatchdog)
 	})
 	logsWG.Wait()
@@ -223,13 +224,32 @@ func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, fr *ingestframe
 	}
 }
 
-// validateSegment is the onSegment handler for ingested worker frames: it folds
-// each signed segment into the normal ValidateMP4 chokepoint (verify → archive →
-// live-HLS → notify).
-func (mm *MediaManager) validateSegment(ctx context.Context) func([]byte) error {
-	return func(seg []byte) error {
+// validateSegment feeds one worker session through ValidateMP4 and flushes its
+// final canonical audio when the consumer ends, without closing a newer session.
+func (mm *MediaManager) validateSegment(ctx context.Context) (onSegment func([]byte) error, flush func()) {
+	epoch := mm.nextIngestSession()
+	ctx = withIngestSession(ctx, epoch)
+	onSegment = func(seg []byte) error {
 		return mm.ValidateMP4(ctx, bytes.NewReader(seg), true)
 	}
+	flush = func() {
+		var tr *streamTranscoder
+		mm.transcodersMu.Lock()
+		for did, current := range mm.transcoders {
+			if current.sessionID == epoch {
+				tr = current
+				delete(mm.transcoders, did)
+				break
+			}
+		}
+		mm.transcodersMu.Unlock()
+		if tr != nil {
+			if err := tr.Close(); err != nil {
+				log.Error(ctx, "ingest worker: flush canonical audio failed", "session", epoch, "error", err)
+			}
+		}
+	}
+	return onSegment, flush
 }
 
 // streamWorkerLogs forwards the worker's stderr lines into the node logger.
@@ -287,9 +307,8 @@ func (mm *MediaManager) buildWorkerConfig(ctx context.Context, ms MediaSigner) (
 			cfg.S3 = &s3cfg
 		}
 	}
-	// Node transcode signer lets the worker complete to dual-codec itself. If it's
-	// unavailable, the worker emits single-codec (the node doesn't re-transcode the
-	// worker's output) — an acceptable, logged fallback rather than a hard failure.
+	// The worker adds Opus to AAC sources; main adds AAC to Opus sources. Both
+	// use the node signer, falling back to the source when it is unavailable.
 	if nodeCert, nodeKeyPEM, serr := mm.transcodeSigner(); serr == nil {
 		cfg.NodeCertPEM = nodeCert
 		cfg.NodeKeyPEM = nodeKeyPEM

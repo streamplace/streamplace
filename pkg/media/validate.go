@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/bus"
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/signers"
@@ -65,7 +66,15 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 	// signer — is distributed as-is, immediately.
 	if target, need := mm.audioCompletionTarget(ctx, buf); need {
 		if cert, keyPEM, serr := mm.transcodeSigner(); serr == nil {
-			return mm.feedStreamTranscoder(ctx, vs, buf, target, cert, keyPEM)
+			var packet *bus.PacketizedSegment
+			// Bitrate admission runs on the completed segment in the director.
+			if target == "aac" && mm.cli.MaximumLiveBitrate == 0 && mm.bus != nil {
+				packet, err = Packetize(context.WithoutCancel(ctx), mm.cli, &bus.Seg{Data: playable})
+				if err != nil {
+					log.Error(ctx, "early WebRTC source packetization failed", "streamer", vs.repoDID, "error", err)
+				}
+			}
+			return mm.feedStreamTranscoder(ctx, vs, buf, target, cert, keyPEM, packet)
 		} else {
 			log.Warn(ctx, "node transcode signer unavailable, distributing single-codec", "error", serr)
 		}
@@ -78,12 +87,13 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 // later (and over the COMPLETED dual-codec bytes) when codec completion is
 // async — the metadata still comes from the source.
 type validatedSegment struct {
-	meta          *SegmentMetadata
-	mediaData     *localdb.SegmentMediaData
-	label         string
-	repoDID       string
-	signingKeyDID string
-	local         bool
+	meta            *SegmentMetadata
+	mediaData       *localdb.SegmentMediaData
+	label           string
+	repoDID         string
+	signingKeyDID   string
+	local           bool
+	webRTCPublished bool
 }
 
 // validateSource verifies + media-parses a bare canonical .m4s, resolves the
@@ -281,11 +291,12 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	}
 
 	mm.notifySubscribers(ctx, &NewSegmentNotification{
-		Segment:  dbSeg,
-		Data:     playable,
-		Muxl:     seg,
-		Metadata: meta,
-		Local:    vs.local,
+		Segment:         dbSeg,
+		Data:            playable,
+		Muxl:            seg,
+		Metadata:        meta,
+		Local:           vs.local,
+		WebRTCPublished: vs.webRTCPublished,
 	})
 	aqt := aqtime.FromTime(meta.StartTime.Time())
 	log.Log(ctx, "successfully ingested segment", "user", vs.repoDID, "signingKey", vs.signingKeyDID, "timestamp", aqt.FileSafeString(), "segmentID", vs.label)

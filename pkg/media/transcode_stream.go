@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 )
@@ -44,8 +45,8 @@ type streamTranscoder struct {
 	target    string // codec being ADDED: "opus" (source AAC) or "aac" (source Opus)
 	sessionID uint64 // ingest-session epoch this transcoder was built for; a newer
 	// session rebuilds it (registry-owned: set under transcodersMu before the
-	// transcoder is published to the map, read only by needsReset under the same
-	// lock, so it needs no separate synchronization).
+	// transcoder is published to the map, read by registry admission under the
+	// same lock, so it needs no separate synchronization).
 	cert       []byte
 	keyPEM     []byte
 	onComplete func(token any, completed []byte)
@@ -94,11 +95,17 @@ func ingestSessionFromContext(ctx context.Context) uint64 {
 // feedStreamTranscoder routes one source segment into the stream's continuous
 // transcoder, creating it on first use. The completed dual-codec segment is
 // distributed asynchronously (≈1 GoP later) via distributeSegment.
-func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedSegment, src []byte, target string, cert, keyPEM []byte) error {
+func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedSegment, src []byte, target string, cert, keyPEM []byte, packet *bus.PacketizedSegment) error {
 	did := vs.repoDID
 	sessionID := ingestSessionFromContext(ctx)
 	mm.transcodersMu.Lock()
 	t := mm.transcoders[did]
+	// Detached workers can overlap. An active newer encoder supersedes older
+	// stamped segments; callers without an epoch retain their existing admission.
+	if t != nil && sessionID != 0 && sessionID < t.sessionID {
+		mm.transcodersMu.Unlock()
+		return nil
+	}
 	if t != nil && t.needsReset(target, sessionID) {
 		// The live encoder is wrong for the incoming segment:
 		//   - a newer ingest session took over — the streamer reconnected (a rapid
@@ -138,6 +145,14 @@ func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedS
 		mm.transcoders[did] = t
 		log.Log(ctx, "stream transcoder started", "streamer", did, "target", target, "session", sessionID)
 	}
+	if packet != nil {
+		mm.bus.PublishSegment(ctx, did, WebRTCSourceRendition, &bus.Seg{
+			Filepath:       vs.label,
+			PacketizedData: packet,
+			Published:      vs.meta.Published,
+		})
+		vs.webRTCPublished = true
+	}
 	mm.transcodersMu.Unlock()
 
 	t.reaper.Reset(streamTranscoderIdle)
@@ -154,12 +169,9 @@ func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedS
 //     mid-stream), or
 //   - its pipeline has failed.
 //
-// A stale straggler from an OLDER session (sessionID < t.sessionID) does NOT
-// reset — the newer session keeps its encoder. In practice this can't arise: a
-// session's segments are all fed (synchronously, before its ingest returns)
-// before the next session starts, so feeds never interleave across sessions.
-// Guarding on strict advance rather than inequality just makes that explicit and
-// avoids any reset thrash if they ever did.
+// Registry admission drops older stamped segments while a newer encoder is
+// active. Only a strictly newer epoch resets the source timeline; an unstamped
+// caller (epoch 0) may continue feeding the current encoder.
 func (t *streamTranscoder) needsReset(target string, sessionID uint64) bool {
 	return t.target != target || sessionID > t.sessionID || t.failed()
 }

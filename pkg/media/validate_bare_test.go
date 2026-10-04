@@ -472,7 +472,7 @@ func TestDistributeCompletedSegmentPresentation(t *testing.T) {
 	for _, seg := range segs {
 		vs, _, err := mm.validateSource(ctx, seg, true)
 		require.NoError(t, err)
-		require.NoError(t, mm.feedStreamTranscoder(ctx, vs, seg, "aac", ms.Cert, keyPEM))
+		require.NoError(t, mm.feedStreamTranscoder(ctx, vs, seg, "aac", ms.Cert, keyPEM, nil))
 	}
 	require.NoError(t, mm.transcoders[ms.Streamer()].Close())
 	require.NotEmpty(t, sub.queue, "the continuous transcoder distributes its completed segments")

@@ -41,7 +41,7 @@ func TestWebRTCPlaybackStartsWithLatestCachedSegment(t *testing.T) {
 				for range 50 {
 					packet.Audio = append(packet.Audio, bus.PacketizedSample{Data: data, Duration: 20 * time.Millisecond})
 				}
-				mm.bus.PublishSegment(ctx, t.Name(), "source", &bus.Seg{Published: true, PacketizedData: packet})
+				mm.bus.PublishSegment(ctx, t.Name(), WebRTCSourceRendition, &bus.Seg{Published: true, PacketizedData: packet})
 			}
 			receiver, err := mm.webrtcAPI.NewPeerConnection(webrtc.Configuration{})
 			require.NoError(t, err)
@@ -100,15 +100,15 @@ func TestWebRTCPlaybackCancelsPendingHandshake(t *testing.T) {
 	answer, err := mm.WebRTCPlayback2(ctx, t.Name(), renditions.AudioRendition.Name, receiver.LocalDescription(), "")
 	require.NoError(t, err)
 	require.NotNil(t, answer)
-	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(t.Name(), "source")
-	var metric dto.Metric
+	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(t.Name(), WebRTCSourceRendition)
 	require.Never(t, func() bool {
-		require.NoError(t, subscriptions.Write(&metric))
-		return metric.GetGauge().GetValue() != 0
+		var metric dto.Metric
+		return subscriptions.Write(&metric) != nil || metric.GetGauge().GetValue() != 0
 	}, 100*time.Millisecond, time.Millisecond, "pending handshakes must not consume live segments")
 	require.Zero(t, mm.bus.GetViewerCount(t.Name()))
 	cancel()
 	require.NoError(t, receiver.Close())
+	var metric dto.Metric
 	require.NoError(t, subscriptions.Write(&metric))
 	require.Zero(t, metric.GetGauge().GetValue())
 	require.Zero(t, mm.bus.GetViewerCount(t.Name()))

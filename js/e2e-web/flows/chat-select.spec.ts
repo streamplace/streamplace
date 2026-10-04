@@ -93,19 +93,24 @@ test("chat-select: a message can be drag-selected into the browser selection", a
   const selected = await dragSelect(page, body);
   expect(selected).toContain(message);
 
-  // Regression for the body wrapper: it used to be a single inline <Text>.
-  // Replacing it with a default (column) View stacked the handle, colon and
-  // message vertically; the row keeps them on one line.
+  // Layout regressions. The body used to be one inline <Text>; replacing it
+  // with a wrapping flex View moved whole blocks around, so:
   const list = page.getByTestId("chat-list").first();
-  const handle = list.getByText(`@${HANDLE}`, { exact: true }).last();
-  const bodyBox = await body.boundingBox();
-  const handleBox = await handle.boundingBox();
-  expect(bodyBox).not.toBeNull();
+  // The colon sits flush after the handle on the same line: "@name:" wraps as
+  // one unit instead of the colon dropping to the next line.
+  const handleEl = list.getByText(`@${HANDLE}`, { exact: true }).last();
+  const colonEl = list.getByText(":", { exact: true }).last();
+  const handleBox = await handleEl.boundingBox();
+  const colonBox = await colonEl.boundingBox();
   expect(handleBox).not.toBeNull();
+  expect(colonBox).not.toBeNull();
   expect(
-    Math.abs(bodyBox!.y - handleBox!.y),
-    "handle and body share one line",
-  ).toBeLessThan(bodyBox!.height + 2);
+    Math.abs(colonBox!.y - handleBox!.y),
+    "colon shares the handle's line",
+  ).toBeLessThan(handleBox!.height);
+  expect(colonBox!.x, "colon follows the handle").toBeGreaterThanOrEqual(
+    handleBox!.x + handleBox!.width - 2,
+  );
 
   // A message with a link facet renders as several segments (the link text and
   // its URI); the whole line stays selectable, the way the old single-<Text>
@@ -142,4 +147,30 @@ test("chat-select: a message can be drag-selected into the browser selection", a
     return !!chatList && chatList.contains(sel.getRangeAt(0).startContainer);
   });
   expect(inChat).toBe(true);
+});
+
+// The body must fill the line after the handle: a wrapping flex layout moved
+// the whole message block to the next line whenever it did not fit, wasting
+// the rest of the handle's line. The message text is an inline span inside the
+// row's text flow, so words after the handle fill the line and wrap normally
+// (the harness handle is long enough to fill its own line, so the visible
+// symptom is not reachable here; this pins the inline structure that prevents
+// the block-wrap regression).
+test("chat-select: the message body stays in the row's inline flow", async ({
+  page,
+}) => {
+  const run = Date.now();
+  const message = `inline ${run}`;
+  await seedChat([message]);
+
+  await page.goto(`${SERVER_URL}/`);
+  await page.getByTestId("home-stream-card").first().click();
+
+  const body = page.getByText(message, { exact: true }).first();
+  await expect(body).toBeVisible({ timeout: 30_000 });
+
+  const display = await body.evaluate((el) => getComputedStyle(el).display);
+  expect(display, "message text is inline, not a wrapping block").toBe(
+    "inline",
+  );
 });

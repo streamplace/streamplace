@@ -201,17 +201,11 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
   const dids = useMemo(() => [item.author.did], [item.author.did]);
   const profile = useAvatars(dids)[item.author.did];
   return (
-    <View
-      style={[
-        flex.shrink[1],
-        // A row keeps the old inline layout: react-native-web defaults a View
-        // to column, which would stack the handle, colon and message. The
-        // selectableText marker opts the message back into web text selection.
-        layout.flex.row,
-        { display: "flex", flexWrap: "wrap", minWidth: 0 },
-        selectableText,
-      ]}
-    >
+    // One inline flow: the handle, colon and message are children of a single
+    // <Text> so words fill the space after the handle and wrap naturally, the
+    // way an unselectable row did. selectableText opts the flow back into web
+    // text selection.
+    <Text size="base" style={[flex.shrink[1], selectableText]}>
       <UserProfileCard uri={item.uri} author={item.author} badges={badges}>
         <View
           style={
@@ -236,16 +230,21 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
             {formatHandleWithAt(item.author)}
           </Text>
           <VerifiedBadge author={item.author} profile={profile} size={14} />
+          {/* The colon rides in the handle's inline box so the pair wraps as
+              one unit instead of the colon dropping to the next line. */}
+          <Text size="base" color="default">
+            {":"}
+          </Text>
         </View>
       </UserProfileCard>
       <Text size="base" color="default">
-        {": "}
+        {" "}
       </Text>
       <RichTextMessage
         text={item.record.text}
         facets={item.record.facets || []}
       />
-    </View>
+    </Text>
   );
 };
 

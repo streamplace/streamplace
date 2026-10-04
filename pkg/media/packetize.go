@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
@@ -161,6 +162,9 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 			if sample == nil {
 				return gst.FlowEOS
 			}
+			// PullSample transfers a native reference owned by this callback.
+			runtime.SetFinalizer(sample, nil)
+			defer sample.Unref()
 
 			buffer := sample.GetBuffer()
 			if buffer == nil {
@@ -197,6 +201,8 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 				log.Warn(ctx, "audioappsink NewSampleFunc EOS")
 				return gst.FlowEOS
 			}
+			runtime.SetFinalizer(sample, nil)
+			defer sample.Unref()
 
 			buffer := sample.GetBuffer()
 			if buffer == nil {

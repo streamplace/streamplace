@@ -31,14 +31,25 @@ appId: ${APP_ID}
             id: "settings-auto-publish-vods"
             checked: false
           timeout: 10000
-- tapOn:
-    id: "settings-auto-publish-vods"
+# The shared stream form exposes the same preference in its Create tab.
+- openLink: "${APP_ID}://widgets/livestream"
+- scrollUntilVisible:
+    element:
+      id: "live-auto-publish-vods"
 - extendedWaitUntil:
     visible:
-      id: "settings-auto-publish-vods"
+      id: "live-auto-publish-vods"
+      checked: false
+      enabled: true
+    timeout: 30000
+- tapOn:
+    id: "live-auto-publish-vods"
+- extendedWaitUntil:
+    visible:
+      id: "live-auto-publish-vods"
       checked: true
     timeout: 10000
-- takeScreenshot: auto-publish-vods-on
+- takeScreenshot: auto-publish-vods-stream-form-on
 - launchApp
 - tapOn:
     text: "Settings"

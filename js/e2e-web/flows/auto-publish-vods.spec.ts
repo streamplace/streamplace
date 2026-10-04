@@ -3,10 +3,10 @@ import { loginThroughPds } from "./login";
 
 // Automatic VOD publishing is the autoPublishVods field of the account's
 // place.stream.server.settings record for this node, shared by Privacy &
-// Security and the desktop live dashboard. The harness account has VOD beta
+// Security and the stream form's Create tab. The harness account has VOD beta
 // access. It records no streams (no S3), so publishing itself is covered by
 // the Go tests in pkg/statedb and pkg/atproto.
-// Mobile settings: .maestro/logged-in/auto-publish-vods.yaml.
+// Native form and settings: .maestro/logged-in/auto-publish-vods.yaml.
 const HTTPS_URL = process.env.SERVER_HTTPS_URL;
 
 test.skip(!HTTPS_URL, "harness started without its HTTPS hostnames");
@@ -96,7 +96,7 @@ test("auto-publish-vods: recording opt-out survives another toggle", async ({
   }
 });
 
-test("auto-publish-vods: dashboard and privacy share the saved preference", async ({
+test("auto-publish-vods: stream form and privacy share the saved preference", async ({
   page,
 }) => {
   await loginThroughPds(page);
@@ -105,6 +105,11 @@ test("auto-publish-vods: dashboard and privacy share the saved preference", asyn
   await expect(toggle).toBeVisible({ timeout: 30_000 });
   await expect(toggle).toBeEnabled();
   const initial = (await toggle.getAttribute("aria-checked")) === "true";
+  const form = page.getByTestId("live-stream-form");
+  await form.getByText("Metadata", { exact: true }).click();
+  await expect(toggle).toBeHidden();
+  await form.getByText("Create", { exact: true }).click();
+  await expect(toggle).toBeVisible();
 
   await setSetting(page, "live-auto-publish-vods", !initial);
   await page.goto(`${HTTPS_URL}/settings/privacy`);
@@ -113,6 +118,11 @@ test("auto-publish-vods: dashboard and privacy share the saved preference", asyn
     String(!initial),
     { timeout: 30_000 },
   );
+  await page.goto(`${HTTPS_URL}/widgets/livestream`);
+  await expect(toggle).toHaveAttribute("aria-checked", String(!initial), {
+    timeout: 30_000,
+  });
+  await page.goto(`${HTTPS_URL}/settings/privacy`);
   await setSetting(page, "settings-auto-publish-vods", initial);
   await page.goto(`${HTTPS_URL}/live`);
   await expect(toggle).toHaveAttribute("aria-checked", String(initial), {
@@ -131,6 +141,11 @@ test("auto-publish-vods: dashboard and privacy share the saved preference", asyn
     ),
     page.reload(),
   ]);
-  await expect(page.getByTestId("live-stream-destinations")).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", {
+      name: "End livestream automatically",
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(toggle).toBeHidden();
 });

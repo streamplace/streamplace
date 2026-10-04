@@ -17,6 +17,7 @@ import {
   Text,
   Textarea,
   Tooltip,
+  useBetaStatus,
   useCreateStreamRecord,
   useEndLivestream,
   useLivestream,
@@ -38,6 +39,7 @@ import {
 import { Image } from "expo-image";
 import { ChevronsUpDown, Globe, ImagePlus, Lock, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Platform,
   Pressable,
@@ -46,7 +48,7 @@ import {
   View,
 } from "react-native";
 import { useStore } from "store";
-import { useUserProfile } from "store/hooks";
+import { useServerSettings, useUserProfile } from "store/hooks";
 import type { place } from "streamplace";
 import {
   SCOPE_BSKY_POST_CREATE,
@@ -282,6 +284,37 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const endLivestream = useEndLivestream();
   const url = useUrl();
   const [endingLivestream, setEndingLivestream] = useState(false);
+  const { t } = useTranslation("settings");
+  const agent = useStore((state) => state.pdsAgent);
+  const { status: vodBetaStatus } = useBetaStatus("vod");
+  const serverSettings = useServerSettings();
+  const getServerSettingsFromPDS = useStore(
+    (state) => state.getServerSettingsFromPDS,
+  );
+  const createServerSettingsRecord = useStore(
+    (state) => state.createServerSettingsRecord,
+  );
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+
+  useEffect(() => {
+    if (!agent || vodBetaStatus !== "granted") return;
+    setSettingsLoading(true);
+    getServerSettingsFromPDS().finally(() => setSettingsLoading(false));
+  }, [agent, url, vodBetaStatus, getServerSettingsFromPDS]);
+
+  const setAutoPublishVods = async (autoPublishVods: boolean) => {
+    if (!agent || settingsLoading || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      await createServerSettingsRecord({ autoPublishVods });
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
 
   const initializedRef = useRef(false);
   const [title, setTitle] = useState("");
@@ -529,6 +562,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
 
   return (
     <View
+      testID="live-stream-form"
       style={[
         flex.values[1],
         { backgroundColor: surfaces.dark[1] },
@@ -829,6 +863,20 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                     label="End livestream automatically"
                   />
                 </Tooltip>
+                {vodBetaStatus === "granted" && (
+                  <Tooltip
+                    content={t("auto-publish-vods-stream-description")}
+                    position="top"
+                  >
+                    <Checkbox
+                      checked={serverSettings?.autoPublishVods === true}
+                      onCheckedChange={setAutoPublishVods}
+                      disabled={!agent || settingsLoading || saving}
+                      label={t("auto-publish-vods-stream-label")}
+                      testID="live-auto-publish-vods"
+                    />
+                  </Tooltip>
+                )}
               </View>
             </View>
 

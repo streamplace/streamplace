@@ -1,12 +1,10 @@
 import { useNavigation } from "@react-navigation/native";
 import {
   Button,
-  Checkbox,
   Loader,
   Switch,
   Text,
   View,
-  useBetaStatus,
   zero,
 } from "@streamplace/components";
 import {
@@ -16,7 +14,7 @@ import {
 } from "@streamplace/components/src/lib/theme/tokens";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { Plus } from "lucide-react-native";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Animated, {
   cancelAnimation,
@@ -25,8 +23,6 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { useStore } from "store";
-import { useServerSettings, useStreamplaceUrl } from "store/hooks";
 import { place } from "streamplace";
 
 const { flex, p, gap, layout, bg, borders, text, r } = zero;
@@ -40,36 +36,6 @@ export default function MultistreamStatus() {
   const agent = usePDSAgent();
   const navigation = useNavigation();
   const { t } = useTranslation("settings");
-  const { status: vodBetaStatus } = useBetaStatus("vod");
-  const serverSettings = useServerSettings();
-  const url = useStreamplaceUrl();
-  const getServerSettingsFromPDS = useStore(
-    (state) => state.getServerSettingsFromPDS,
-  );
-  const createServerSettingsRecord = useStore(
-    (state) => state.createServerSettingsRecord,
-  );
-  const [settingsLoading, setSettingsLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const savingRef = useRef(false);
-
-  useEffect(() => {
-    if (!agent || vodBetaStatus !== "granted") return;
-    setSettingsLoading(true);
-    getServerSettingsFromPDS().finally(() => setSettingsLoading(false));
-  }, [agent, url, vodBetaStatus, getServerSettingsFromPDS]);
-
-  const setAutoPublishVods = async (autoPublishVods: boolean) => {
-    if (!agent || settingsLoading || savingRef.current) return;
-    savingRef.current = true;
-    setSaving(true);
-    try {
-      await createServerSettingsRecord({ autoPublishVods });
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
-  };
   const [targets, setTargets] = useState<MultistreamTargetViewHydrated[]>([]);
   const [loading, setLoading] = useState(true);
   const [togglingTargets, setTogglingTargets] = useState<Set<string>>(
@@ -195,18 +161,6 @@ export default function MultistreamStatus() {
         { borderColor: borderAlphas.dark.strong },
       ]}
     >
-      {vodBetaStatus === "granted" && (
-        <View style={[p[3]]}>
-          <Checkbox
-            checked={serverSettings?.autoPublishVods === true}
-            onCheckedChange={setAutoPublishVods}
-            disabled={!agent || settingsLoading || saving}
-            label={t("auto-publish-vods-dashboard-label")}
-            description={t("auto-publish-vods-dashboard-description")}
-            testID="live-auto-publish-vods"
-          />
-        </View>
-      )}
       {loading && targets.length === 0 ? (
         <View style={[p[4]]}>
           <Loader size="small" />

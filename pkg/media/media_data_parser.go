@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -240,6 +241,8 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 			if sample == nil {
 				return gst.FlowOK
 			}
+			runtime.SetFinalizer(sample, nil)
+			defer sample.Unref()
 
 			buf := sample.GetBuffer().Bytes()
 			_, err := bufW.Write(buf)
@@ -308,11 +311,21 @@ func ParseSegmentMediaDataSinkNewSampleFunc(ctx context.Context, foundThisTrack 
 		if sample == nil {
 			return gst.FlowOK
 		}
+		runtime.SetFinalizer(sample, nil)
+		defer sample.Unref()
 		buf := sample.GetBuffer()
 		if buf == nil {
 			return gst.FlowError
 		}
 		pts := buf.PresentationTimestamp().AsTimestamp()
+		if pts == nil {
+			// AsTimestamp returns nil for GST_CLOCK_TIME_NONE; such a buffer
+			// carries no timeline information and would nil-deref below. This
+			// callback runs on a GStreamer streaming thread, where a panic
+			// aborts the process, so skip it instead.
+			log.Warn(ctx, "no presentation timestamp on buffer, skipping", "track", sink.GetName())
+			return gst.FlowOK
+		}
 		if firstPTS == nil {
 			firstPTS = pts
 		}

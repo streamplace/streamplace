@@ -9,7 +9,6 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"github.com/google/uuid"
-	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/rtcrec"
@@ -162,6 +161,7 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 
 		go func() {
 			ticker := time.NewTicker(time.Second * 1)
+			defer ticker.Stop()
 			for {
 				select {
 				case <-ctx.Done():
@@ -221,24 +221,6 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 		peerConnection.OnTrack(func(track rtcrec.TrackRemote, _ rtcrec.RTPReceiver) {
 			log.Warn(ctx, "OnTrack", "kind", track.Kind())
 			if track.Kind() == webrtc.RTPCodecTypeVideo {
-				// Send a PLI on an interval so that the publisher is pushing a keyframe every rtcpPLIInterval
-				go func() {
-					ticker := time.NewTicker(time.Second * 1)
-					for {
-						select {
-						case <-ctx.Done():
-							return
-						case <-ticker.C:
-							rtcpSendErr := peerConnection.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: uint32(track.SSRC())}})
-							if rtcpSendErr != nil {
-								log.Log(ctx, "failed to send rtcp packet", "error", rtcpSendErr)
-								cancel()
-								return
-							}
-						}
-					}
-				}()
-
 				codecName := strings.Split(track.Codec().MimeType, "/")[1]
 				log.Log(ctx, "Track has started", "payloadType", track.PayloadType(), "codecName", codecName)
 

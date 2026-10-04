@@ -59,6 +59,7 @@ require (
 	github.com/orandin/slog-gorm v1.4.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pion/interceptor v0.1.37
+	github.com/pion/logging v0.2.4
 	github.com/pion/rtcp v1.2.16
 	github.com/pion/webrtc/v4 v4.0.11
 	github.com/piprate/json-gold v0.5.0
@@ -442,7 +443,6 @@ require (
 	github.com/pion/datachannel v1.5.10 // indirect
 	github.com/pion/dtls/v3 v3.0.4 // indirect
 	github.com/pion/ice/v4 v4.0.8 // indirect
-	github.com/pion/logging v0.2.4 // indirect
 	github.com/pion/mdns/v2 v2.0.7 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtp v1.8.26 // indirect

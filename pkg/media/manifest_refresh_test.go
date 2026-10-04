@@ -33,8 +33,16 @@ func TestPushManifestUpdatesOnChange(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go pushManifestUpdates(ctx, mainConn, source)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		pushManifestUpdates(ctx, mainConn, source)
+	}()
+	defer func() {
+		cancel()
+		mainConn.Close()
+		<-done
+	}()
 
 	fr := ingestframe.NewReader(workerConn)
 	readManifest := func() string {

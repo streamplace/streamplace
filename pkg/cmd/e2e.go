@@ -72,6 +72,10 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 		Name:  "e2e",
 		Usage: "start a self-contained e2e test environment with a test account and live stream",
 		Flags: []urfavecli.Flag{
+			&urfavecli.BoolFlag{
+				Name:  "external-stream",
+				Usage: "export the test account's stream key instead of publishing the fixture",
+			},
 			&urfavecli.StringFlag{
 				Name:    "dev-env",
 				Usage:   "path to js/dev-env/run.mjs",
@@ -110,7 +114,7 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			if (pdsHost == "") != (stationHost == "") {
 				return errors.New("--https-pds-hostname and --https-station-hostname go together")
 			}
-			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"))
+			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"), cmd.Bool("external-stream"))
 		},
 	}
 }
@@ -137,7 +141,7 @@ func freePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
-func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, httpsPort int, appBundleID string) error {
+func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, httpsPort int, appBundleID string, externalStream bool) error {
 	// Ctrl-C / SIGTERM must unwind through the normal path, or none of the
 	// teardown below runs: Go's default handling exits immediately, which left
 	// the dev-env node, the forked node and the temp data dir behind.
@@ -421,32 +425,35 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	time.Sleep(1 * time.Second)
 
 	// Stream a test fixture in a loop so it outlasts any Maestro test run.
-	fixture := remote.RemoteFixture("3188c071b354f2e548d7f2d332699758e8e3ab1600280e5b07cb67eedc64f274/BigBuckBunny_1sGOP_240p30_NoBframes.mp4")
+	fixture := ""
 	g, streamCtx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		for {
-			select {
-			case <-streamCtx.Done():
-				return nil
-			default:
+	if !externalStream {
+		fixture = remote.RemoteFixture("3188c071b354f2e548d7f2d332699758e8e3ab1600280e5b07cb67eedc64f274/BigBuckBunny_1sGOP_240p30_NoBframes.mp4")
+		g.Go(func() error {
+			for {
+				select {
+				case <-streamCtx.Done():
+					return nil
+				default:
+				}
+				whip := &WHIPClient{
+					StreamKey: priv,
+					File:      fixture,
+					Endpoint:  fmt.Sprintf("http://%s", httpAddr),
+					Count:     1,
+				}
+				if err := whip.WHIP(streamCtx); err != nil && streamCtx.Err() == nil {
+					log.Log(streamCtx, "whip stream ended, restarting", "err", err)
+				}
+				// Brief pause between restarts so we don't spin on errors.
+				select {
+				case <-streamCtx.Done():
+					return nil
+				case <-time.After(500 * time.Millisecond):
+				}
 			}
-			whip := &WHIPClient{
-				StreamKey: priv,
-				File:      fixture,
-				Endpoint:  fmt.Sprintf("http://%s", httpAddr),
-				Count:     1,
-			}
-			if err := whip.WHIP(streamCtx); err != nil && streamCtx.Err() == nil {
-				log.Log(streamCtx, "whip stream ended, restarting", "err", err)
-			}
-			// Brief pause between restarts so we don't spin on errors.
-			select {
-			case <-streamCtx.Done():
-				return nil
-			case <-time.After(500 * time.Millisecond):
-			}
-		}
-	})
+		})
+	}
 
 	// Print the env vars for the workflow to consume, in one write: callers
 	// poll for SERVER_URL and then read the whole file. E2E_FIXTURE_MP4 is
@@ -454,6 +461,9 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	// the app to get themselves a playable VOD.
 	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nE2E_FIXTURE_MP4=%s\n",
 		httpAddr, out.Handle, out.Did, password, videoURI, fixture)
+	if externalStream {
+		vars += "E2E_STREAM_KEY=" + priv + "\n"
+	}
 	if tlsEnv != nil {
 		// The same node over HTTPS at its public name, plus what clients
 		// need to reach and trust it (see e2e_https.go): a browser pins the

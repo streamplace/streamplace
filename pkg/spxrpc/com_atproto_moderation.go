@@ -12,10 +12,25 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 )
+
+func (s *Server) HandleComAtprotoModerationCreateReport(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoModerationCreateReport")
+	defer span.End()
+	var body indigoatproto.ModerationCreateReport_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	out, err := s.handleComAtprotoModerationCreateReport(ctx, &body)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, out)
+}
 
 func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, body *indigoatproto.ModerationCreateReport_Input) (*indigoatproto.ModerationCreateReport_Output, error) {
 	c, ok := ctx.Value(echoContextKey).(echo.Context)
@@ -67,7 +82,7 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 			msg, err := s.model.GetChatMessage(body.Subject.RepoStrongRef.Uri)
 			if err != nil {
 				log.Error(ctx, "failed to get chat message for chat report", "error", err)
-			} else {
+			} else if msg != nil {
 				did = msg.StreamerRepoDID
 			}
 		}

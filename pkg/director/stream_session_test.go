@@ -15,21 +15,22 @@ import (
 )
 
 func idleStreamSession(b *bus.Bus) (*StreamSession, *media.NewSegmentNotification) {
-	return &StreamSession{
-			cli:         &config.CLI{StreamSessionTimeout: time.Minute},
-			bus:         b,
-			segmentChan: make(chan struct{}),
-			started:     make(chan struct{}),
-		}, &media.NewSegmentNotification{
-			Segment: &localdb.Segment{
-				RepoDID: "did:example:idle-session",
-				MediaData: &localdb.SegmentMediaData{
-					Duration: int64(time.Second),
-					Video:    []*localdb.SegmentMediadataVideo{{Width: 1280, Height: 720}},
-					Audio:    []*localdb.SegmentMediadataAudio{{Rate: 48000, Channels: 2}},
-				},
+	ss := &StreamSession{
+		cli:         &config.CLI{StreamSessionTimeout: time.Minute},
+		bus:         b,
+		segmentChan: make(chan struct{}),
+		started:     make(chan struct{}),
+	}
+	return ss, &media.NewSegmentNotification{
+		Segment: &localdb.Segment{
+			RepoDID: "did:example:idle-session",
+			MediaData: &localdb.SegmentMediaData{
+				Duration: int64(time.Second),
+				Video:    []*localdb.SegmentMediadataVideo{{Width: 1280, Height: 720}},
+				Audio:    []*localdb.SegmentMediadataAudio{{Rate: 48000, Channels: 2}},
 			},
-		}
+		},
+	}
 }
 
 func TestStreamSessionIdleTimeout(t *testing.T) {

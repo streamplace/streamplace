@@ -402,7 +402,7 @@ iroh-test:
 check: install
 	$(MAKE) golangci-lint
 	pnpm run check
-	if [ "`gofmt -l . | wc -l`" -gt 0 ]; then echo 'gofmt failed, run make fix'; exit 1; fi
+	files=$$(gofmt -l .) || exit $$?; if [ -n "$$files" ]; then printf '%s\n' "$$files"; command -v gofmt; go version -m "$$(command -v gofmt)"; echo 'gofmt failed, run make fix'; exit 1; fi
 	RUSTFLAGS="-D warnings" cargo check
 
 .PHONY: fix

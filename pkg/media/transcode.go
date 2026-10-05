@@ -140,6 +140,8 @@ func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
 		return nil, fmt.Errorf("unsupported transcode target %q", target)
 	}
 
+	// Static pad names are safe here: segments only reach the transcoder after
+	// parsing that rejects video-less input, so demux.video_0 always exists.
 	pipeline, err := gst.NewPipelineFromString(strings.Join([]string{
 		"appsrc name=src ! qtdemux name=demux",
 		"demux.video_0 ! " + constants.Queue2Big + " name=vq ! h264parse name=vparse",

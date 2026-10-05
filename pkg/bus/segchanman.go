@@ -101,12 +101,19 @@ func (b *Bus) UnsubscribeSegment(ctx context.Context, user string, rendition str
 	}
 	for i, c := range chs {
 		if c == ch {
-			chs = append(chs[:i], chs[i+1:]...)
+			last := len(chs) - 1
+			chs[i] = chs[last]
+			chs[last] = nil
+			chs = chs[:last]
 			break
 		}
 	}
 	spmetrics.SegmentSubscriptionsOpen.WithLabelValues(user, rendition).Set(float64(len(chs)))
-	b.segChans[key] = chs
+	if len(chs) == 0 {
+		delete(b.segChans, key)
+	} else {
+		b.segChans[key] = chs
+	}
 }
 
 func (b *Bus) PublishSegment(ctx context.Context, user string, rendition string, seg *Seg) {

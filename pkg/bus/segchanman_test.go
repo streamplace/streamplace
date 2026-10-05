@@ -3,7 +3,9 @@ package bus
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"testing"
+	"weak"
 
 	"github.com/stretchr/testify/require"
 )
@@ -44,4 +46,51 @@ func TestPublishSegmentDropsForStalledSubscriber(t *testing.T) {
 	}()
 	<-done
 	require.Len(t, sub.C, chanSize)
+}
+
+func TestUnsubscribeSegmentReleasesQueuedSegments(t *testing.T) {
+	for _, tt := range []struct{ viewers, removed int }{{1, 0}, {3, 0}, {3, 1}, {3, 2}} {
+		t.Run(fmt.Sprintf("%d/%d", tt.viewers, tt.removed), func(t *testing.T) {
+			b := NewBus()
+			ctx := context.Background()
+			var survivors []*SegChan
+			released := func() weak.Pointer[Seg] {
+				var removed *SegChan
+				for i := range tt.viewers {
+					sub := b.SubscribeSegment(ctx, "u", "source")
+					if i == tt.removed {
+						removed = sub
+					} else {
+						survivors = append(survivors, sub)
+					}
+				}
+				// Keep this payload out of the bus's intentional replay cache.
+				queued := &Seg{Data: make([]byte, 32*1024)}
+				removed.C <- queued
+				ref := weak.Make(queued)
+				b.UnsubscribeSegment(ctx, "u", "source", removed)
+				b.UnsubscribeSegment(ctx, "u", "source", removed)
+				return ref
+			}()
+			for _, sub := range survivors {
+				defer b.UnsubscribeSegment(ctx, "u", "source", sub)
+			}
+			for i := range 2 {
+				seg := &Seg{Filepath: fmt.Sprint(i)}
+				b.PublishSegment(ctx, "u", "source", seg)
+				for _, sub := range survivors {
+					require.Len(t, sub.C, 1)
+					require.Same(t, seg, <-sub.C)
+				}
+			}
+			runtime.GC()
+			runtime.GC()
+			collected := released.Value() == nil
+			runtime.KeepAlive(b)
+			require.True(t, collected, "unsubscribed queues must be collectible while the bus remains alive")
+			if tt.viewers == 1 {
+				require.Empty(t, b.segChans, "idle stream keys must be released")
+			}
+		})
+	}
 }

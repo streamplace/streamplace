@@ -163,30 +163,25 @@ func getLeakCountInner(t *testing.T) int {
 	LeakReport = []string{}
 	LeakReportMutex.Unlock()
 
-	flushes := 2
-
-	for range flushes {
+	// Wait on the same finalizer queue as the Gst wrappers; AddCleanup runs
+	// separately and cannot serve as this barrier. Closing the channel never
+	// blocks the finalizer goroutine that releases Gst refs.
+	for range 2 {
 		ch := make(chan struct{})
+		runtime.SetFinalizer(new([]byte), func(_ *[]byte) {
+			close(ch)
+		})
 		done := false
-		go func() {
-			thing := &[]byte{}
-			runtime.SetFinalizer(thing, func(thing *[]byte) {
+		for !done {
+			runtime.GC()
+			runtime.GC()
+			select {
+			case <-ch:
 				done = true
-				ch <- struct{}{}
-			})
-		}()
-
-		go func() {
-			runtime.GC()
-			runtime.GC()
-			for !done {
-
-				runtime.GC()
-				runtime.GC()
+			default:
 				time.Sleep(500 * time.Millisecond)
 			}
-			<-ch
-		}()
+		}
 	}
 
 	err = process.Signal(os.Signal(syscall.SIGUSR1))

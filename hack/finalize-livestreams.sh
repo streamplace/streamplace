@@ -253,3 +253,5 @@ if not v.get("videos"): print("   (none; if publish was off, publish with POST /
 '
 echo
 echo "Retitle with:  curl -X PUT $NODE/videos -H 'content-type: application/json' -d '{\"uri\":\"<video uri>\",\"title\":\"...\"}'"
+echo "Point a video at a re-finalized upload (and the records it covers) with:"
+echo "  curl -X PUT $NODE/videos -H 'content-type: application/json' -d '{\"uri\":\"<video uri>\",\"uploadId\":\"<upload id>\",\"livestreams\":[\"<livestream uri>\",...]}'"

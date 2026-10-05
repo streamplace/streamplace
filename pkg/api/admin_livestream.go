@@ -255,6 +255,21 @@ func contains(list []string, v string) bool {
 	return false
 }
 
+// livestreamConnections is a video record's connections to the livestream
+// records it is the recording of.
+func livestreamConnections(items []livestreamItem) []placestream.Video_Connections_Elem {
+	out := make([]placestream.Video_Connections_Elem, 0, len(items))
+	for _, it := range items {
+		out = append(out, placestream.Video_Connections_Elem{
+			Video_Connection: &placestream.Video_Connection{
+				LexiconTypeID: "place.stream.video#connection",
+				Ref:           &comatproto.RepoStrongRef{Uri: it.ls.URI, Cid: it.ls.CID},
+			},
+		})
+	}
+	return out
+}
+
 // videoDraftForLivestreams describes the place.stream.video record for the
 // VOD of one or more livestream records: the first one's title (or the given
 // one), description, tags and activity, connected to every livestream record
@@ -273,14 +288,7 @@ func videoDraftForLivestreams(items []livestreamItem, title, description string)
 		Title: title,
 		Tags:  first.Tags,
 	}
-	for _, it := range items {
-		v.Connections = append(v.Connections, placestream.Video_Connections_Elem{
-			Video_Connection: &placestream.Video_Connection{
-				LexiconTypeID: "place.stream.video#connection",
-				Ref:           &comatproto.RepoStrongRef{Uri: it.ls.URI, Cid: it.ls.CID},
-			},
-		})
-	}
+	v.Connections = livestreamConnections(items)
 	if d := strings.TrimSpace(description); d != "" {
 		v.Description = &d
 	}

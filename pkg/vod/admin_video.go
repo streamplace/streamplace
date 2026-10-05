@@ -124,15 +124,17 @@ func ListVideoRecords(ctx context.Context, state *statedb.StatefulDB, did string
 // the field alone; an empty description or tag list clears it. UploadID
 // names a finished upload whose tracks become the record's source (and whose
 // duration its durationMs): the repair for a record published without them,
-// or the way to point a record at a re-finalized VOD.
+// or the way to point a record at a re-finalized VOD. Connections, when not
+// empty, replace the record's connections.
 type VideoUpdate struct {
 	Title       *string
 	Description *string
 	Tags        []string
 	UploadID    string
+	Connections []placestream.Video_Connections_Elem
 }
 
-// applyVideoUpdate applies the text fields of an update; it reports whether
+// applyVideoUpdate applies the text fields and connections of an update; it reports whether
 // anything changed.
 func applyVideoUpdate(v *placestream.Video, up VideoUpdate) bool {
 	changed := false
@@ -169,6 +171,10 @@ func applyVideoUpdate(v *placestream.Video, up VideoUpdate) bool {
 			v.Tags = tags
 			changed = true
 		}
+	}
+	if len(up.Connections) > 0 {
+		v.Connections = up.Connections
+		changed = true
 	}
 	return changed
 }

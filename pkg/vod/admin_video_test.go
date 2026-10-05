@@ -52,6 +52,13 @@ func TestApplyVideoUpdate(t *testing.T) {
 	require.False(t, applyVideoUpdate(v, VideoUpdate{Tags: []string{"b", "c"}}), "same tags, no change")
 	require.True(t, applyVideoUpdate(v, VideoUpdate{Tags: []string{}}))
 	require.Nil(t, v.Tags, "an empty list clears the tags")
+
+	conns := []placestream.Video_Connections_Elem{{Video_Connection: &placestream.Video_Connection{
+		Ref: &comatproto.RepoStrongRef{Uri: "at://did:plc:abc/place.stream.livestream/1"}}}}
+	require.True(t, applyVideoUpdate(v, VideoUpdate{Connections: conns}))
+	require.Equal(t, conns, v.Connections)
+	require.False(t, applyVideoUpdate(v, VideoUpdate{}))
+	require.Equal(t, conns, v.Connections, "an update without connections keeps them")
 }
 
 func TestVideoRecordTrackURIs(t *testing.T) {

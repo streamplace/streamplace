@@ -204,6 +204,11 @@ type updateVideoRequest struct {
 	// UploadID makes the upload's tracks the record's source (publishing
 	// them if the upload has none yet) and its duration the record's.
 	UploadID string `json:"uploadId"`
+	// Livestreams (at:// URIs) become the record's connections, replacing
+	// the ones it has: the livestream records the video is the recording
+	// of, whose views it inherits. For a record pointed at a re-finalized
+	// VOD that covers other records than the first finalize did.
+	Livestreams []string `json:"livestreams"`
 }
 
 // HandleUpdateVideo (PUT /videos) rewrites a video record in place.
@@ -218,9 +223,16 @@ func (a *StreamplaceAPI) HandleUpdateVideo(ctx context.Context) httprouter.Handl
 			sperrors.WriteHTTPBadRequest(w, "uri is required", nil)
 			return
 		}
-		cid, err := vod.UpdateVideo(ctx, a.StatefulDB, a.PlaybackStore, req.URI, vod.VideoUpdate{
-			Title: req.Title, Description: req.Description, Tags: req.Tags, UploadID: req.UploadID,
-		})
+		up := vod.VideoUpdate{Title: req.Title, Description: req.Description, Tags: req.Tags, UploadID: req.UploadID}
+		if len(req.Livestreams) > 0 {
+			items, herr := a.livestreamItems(req.Livestreams)
+			if herr != nil {
+				herr.write(w)
+				return
+			}
+			up.Connections = livestreamConnections(items)
+		}
+		cid, err := vod.UpdateVideo(ctx, a.StatefulDB, a.PlaybackStore, req.URI, up)
 		if err != nil {
 			writeVideoError(w, "update video", err)
 			return

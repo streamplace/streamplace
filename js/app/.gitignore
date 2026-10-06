@@ -66,5 +66,6 @@ public/locales/*
 
 # generated brand assets (pnpm run brand)
 public/favicon.png
+public/favicon.ico
 public/linkbanner.png
 public/brand/

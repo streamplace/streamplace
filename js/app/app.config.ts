@@ -246,7 +246,6 @@ export default function () {
       web: {
         bundler: "metro",
         output: "single",
-        favicon: "./assets/generated/favicon.png",
       },
       plugins: [
         withAndroidProfileable,

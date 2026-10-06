@@ -19,6 +19,28 @@ If no image logo is configured, the endpoint serves the bundled
 never uses the favicon; the small notification badge is unchanged. Responses
 are cached for five minutes, so runtime logo changes can take that long to appear.
 
+## Runtime browser favicons
+
+In **Settings → Branding**, upload **Favicon for light mode** and **Favicon for
+dark mode** independently. Each accepts SVG, PNG, or ICO up to 100 KiB. Selection
+follows the browser/OS `prefers-color-scheme`, not the app's theme setting, and
+changes without reloading the page.
+
+The branding keys are `faviconLight` and `faviconDark`. A missing variant uses
+the existing `favicon` (the **Favicon (fallback)** slot), then the bundled mark.
+The same keys travel with branding ZIP exports/imports and can be set through
+the branding CLI or XRPC. No custom frontend build is needed for uploads.
+
+The HTML declares a generic `/favicon.png` link before media-qualified
+`/favicon.png?scheme=light` and `/favicon.png?scheme=dark` links, so selection
+also works before JavaScript loads. `/favicon.ico` remains the generic fallback.
+These routes serve uploads with their declared image MIME type and cache for
+five minutes; the open admin tab reflects uploads and deletions immediately.
+The brand generator owns the bundled PNG and ICO, rather than Expo injecting
+an extra generic icon link that would override the themed links.
+
+Favicons are web-only; native app icons and the Web Push icon are unchanged.
+
 ## White-labeling
 
 To ship your own identity, point the generator at your own flat directory of

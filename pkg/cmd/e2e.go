@@ -297,6 +297,9 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		fmt.Sprintf("SP_PLC_URL=%s", env.PLCURL),
 		fmt.Sprintf("SP_DATA_DIR=%s", dataDir),
 		fmt.Sprintf("SP_DEV_ACCOUNT_CREDS=%s=%s", out.Did, password),
+		// The account administers the node's branding, which web flows edit
+		// through Settings -> Branding.
+		fmt.Sprintf("SP_ADMIN_DIDS=%s", out.Did),
 		fmt.Sprintf("SP_BROADCASTER_HOST=%s", broadcasterHost),
 		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", httpAddr),
 		"SP_STREAM_SESSION_TIMEOUT=30s",

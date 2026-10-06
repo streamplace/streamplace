@@ -1,23 +1,24 @@
 import { useEffect } from "react";
 import { Platform } from "react-native";
-import { useSiteDescription, useSiteTitle } from "../streamplace-store";
+import {
+  useBrandingAsset,
+  useFavicon,
+  useSiteDescription,
+  useSiteTitle,
+} from "../streamplace-store";
 
 /**
- * Hook to set the document title and description on web based on branding.
- * No-op on native platforms.
- *
- * The tab favicon is intentionally owned by the app's bundled icon
- * (public/index.html + app.config `favicon`) and is re-asserted here rather
- * than driven by branding: letting a node's stored branding favicon override
- * it replaced the current Streamplace mark with whatever (often stale) icon
- * the node had on file. Keeping the bundled mark authoritative guarantees the
- * brand stays consistent; white-label deployments set their favicon at build
- * time. We re-assert it because Expo/React can drop the static <link> during
- * hydration, which would otherwise leave the tab with no icon.
+ * Hook to set the document title, description and browser favicons from branding.
+ * No-op on native platforms. Favicon media queries follow the browser/OS scheme,
+ * not the app's theme setting. Re-assert links after hydration because Expo can
+ * drop the static links.
  */
 export function useDocumentTitle() {
   const siteTitle = useSiteTitle();
   const siteDescription = useSiteDescription();
+  const favicon = useFavicon();
+  const faviconLight = useBrandingAsset("faviconLight")?.data;
+  const faviconDark = useBrandingAsset("faviconDark")?.data;
 
   useEffect(() => {
     if (Platform.OS === "web" && typeof document !== "undefined") {
@@ -32,19 +33,36 @@ export function useDocumentTitle() {
         document.head.appendChild(metaDescription);
       }
       metaDescription.setAttribute("content", siteDescription);
-
-      // keep the bundled Streamplace mark as the tab favicon
-      let link: HTMLLinkElement | null =
-        document.querySelector('link[rel="icon"]');
-      if (!link) {
-        link = document.createElement("link");
-        link.rel = "icon";
-        link.type = "image/png";
-        document.head.appendChild(link);
-      }
-      if (link.getAttribute("href") !== "/favicon.png") {
-        link.setAttribute("href", "/favicon.png");
-      }
     }
   }, [siteTitle, siteDescription]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+
+    // Generic first: browsers prefer the last icon whose media query matches.
+    const icons = [
+      { href: favicon || "/favicon.png", media: "" },
+      {
+        href: faviconLight || favicon || "/favicon.png?scheme=light",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        href: faviconDark || favicon || "/favicon.png?scheme=dark",
+        media: "(prefers-color-scheme: dark)",
+      },
+    ];
+    const links = Array.from(
+      document.head.querySelectorAll<HTMLLinkElement>('link[rel="icon"]'),
+    );
+    icons.forEach(({ href, media }, index) => {
+      const link = links[index] || document.createElement("link");
+      link.rel = "icon";
+      // The response/data URL declares the uploaded format (PNG, SVG or ICO).
+      link.removeAttribute("type");
+      link.href = href;
+      link.media = media;
+      if (!link.parentNode) document.head.appendChild(link);
+    });
+    links.slice(icons.length).forEach((link) => link.remove());
+  }, [favicon, faviconLight, faviconDark]);
 }

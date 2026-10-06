@@ -94,6 +94,8 @@ var Specs = []Spec{
 	{Key: "socialLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Social links at the bottom of the sidebar: [{label, url, icon}], icon a built-in name (bluesky, discord, ...) or socialIcon1..4; [] hides them."},
 	{Key: "mainLogo", Kind: KindImage, MaxSize: imageMax, Doc: "The logo mark (SVG preferred)."},
 	{Key: "favicon", Kind: KindImage, MaxSize: 100 * 1024, Doc: "Browser tab icon."},
+	{Key: "faviconLight", Kind: KindImage, MaxSize: 100 * 1024, Doc: "Browser tab icon for the light color scheme; falls back to favicon."},
+	{Key: "faviconDark", Kind: KindImage, MaxSize: 100 * 1024, Doc: "Browser tab icon for the dark color scheme; falls back to favicon."},
 	{Key: "sidebarBackgroundImage", Kind: KindImage, MaxSize: imageMax, Doc: "Decorative image at the bottom of the sidebar."},
 	{Key: "linkBanner", Kind: KindImage, MaxSize: 2 * 1024 * 1024, Doc: "OpenGraph image for the front page's link card (1200x630)."},
 	{Key: "verifiedIcon", Kind: KindImage, MaxSize: iconMax, Doc: "Badge shown beside verified chat users (SVG preferred); default a check in the primary color."},

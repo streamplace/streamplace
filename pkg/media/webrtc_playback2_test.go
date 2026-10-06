@@ -220,6 +220,27 @@ func TestWriteSamplesPacing(t *testing.T) {
 	}
 }
 
+func TestWriteAudioSamplesUsesSegmentDuration(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus, ClockRate: 48000}, "audio", "stream")
+		require.NoError(t, err)
+		packet := &bus.PacketizedSegment{
+			Duration: 40 * time.Millisecond,
+			Audio: []bus.PacketizedSample{
+				{Duration: 100 * time.Millisecond},
+				{Duration: 20 * time.Millisecond},
+			},
+		}
+		start := time.Now()
+		require.NoError(t, writeAudioSamples(t.Context(), track, packet, 1))
+		require.Equal(t, packet.Duration, time.Since(start), "timestamp gaps must not expand the audio packet clock")
+		packet.Duration = 0
+		start = time.Now()
+		require.NoError(t, writeAudioSamples(t.Context(), track, packet, 1))
+		require.Zero(t, time.Since(start), "a missing segment duration must not start audio pacing")
+	})
+}
+
 func TestWriteSamplesCancelsDuringWait(t *testing.T) {
 	var packet *bus.PacketizedSegment
 	withNoGSTLeaks(t, func() { packet = playbackPacketFixture(t) })

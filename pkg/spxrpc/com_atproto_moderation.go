@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -11,11 +12,27 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/rivo/uniseg"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 )
+
+func (s *Server) HandleComAtprotoModerationCreateReport(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoModerationCreateReport")
+	defer span.End()
+	var body indigoatproto.ModerationCreateReport_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	out, err := s.handleComAtprotoModerationCreateReport(ctx, &body)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, out)
+}
 
 func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, body *indigoatproto.ModerationCreateReport_Input) (*indigoatproto.ModerationCreateReport_Output, error) {
 	c, ok := ctx.Value(echoContextKey).(echo.Context)
@@ -64,25 +81,46 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 		did = aturi.Authority().String()
 		// if it's chat, we want the clip from the streamer, not from the chatter
 		if aturi.Collection() == "place.stream.chat.message" {
+			did = ""
 			msg, err := s.model.GetChatMessage(body.Subject.RepoStrongRef.Uri)
 			if err != nil {
 				log.Error(ctx, "failed to get chat message for chat report", "error", err)
-			} else {
+			} else if msg != nil && msg.CID == body.Subject.RepoStrongRef.Cid && msg.StreamerRepoDID != "" {
 				did = msg.StreamerRepoDID
+				chatContext := fmt.Sprintf("in chat of %s", did)
+				repo, err := s.model.GetRepo(did)
+				if err != nil {
+					log.Warn(ctx, "failed to get streamer for chat report", "error", err)
+				} else if repo != nil && repo.Handle != "" {
+					chatContext = fmt.Sprintf("in chat of @%s (%s)", repo.Handle, did)
+				}
+				if reportReasonFits(*body.Reason, chatContext) {
+					if *body.Reason != "" {
+						chatContext = *body.Reason + "\n\n" + chatContext
+					}
+					body.Reason = &chatContext
+				}
 			}
 		}
 	} else {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid subject")
 	}
 
-	clipID, err := makeClip(ctx, s.cli, s.mm, did)
-	if err != nil {
-		// we still want the report to go through!
-		log.Error(ctx, "failed to make clip for report", "error", err)
-	} else {
-		clipURL := fmt.Sprintf("https://%s/api/clip/%s/%s.mp4", s.cli.BroadcasterHost, did, clipID)
-		newReason := fmt.Sprintf("%s\n\nClip: %s", *body.Reason, clipURL)
-		body.Reason = &newReason
+	if did != "" {
+		clipPrefix := fmt.Sprintf("Clip: https://%s/api/clip/%s/", s.cli.BroadcasterHost, did)
+		if reportReasonFits(*body.Reason, clipPrefix+uuid.Nil.String()+".mp4") {
+			clipID, err := makeClip(ctx, s.cli, s.mm, did)
+			if err != nil {
+				// we still want the report to go through!
+				log.Error(ctx, "failed to make clip for report", "error", err)
+			} else {
+				newReason := clipPrefix + clipID + ".mp4"
+				if *body.Reason != "" {
+					newReason = *body.Reason + "\n\n" + newReason
+				}
+				body.Reason = &newReason
+			}
+		}
 	}
 
 	client.SetHeaders(map[string]string{
@@ -90,12 +128,22 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 	})
 
 	var output indigoatproto.ModerationCreateReport_Output
-	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.moderation.createReport", nil, body, &output)
+	err := client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.moderation.createReport", nil, body, &output)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return &output, nil
+}
+
+// Extra context must not push a valid comment past createReport's limits.
+func reportReasonFits(reason, extra string) bool {
+	separator := 0
+	if reason != "" {
+		separator = 2
+	}
+	return len(reason)+separator+len(extra) <= 20000 &&
+		uniseg.GraphemeClusterCount(reason)+separator+uniseg.GraphemeClusterCount(extra) <= 2000
 }
 
 func makeClip(ctx context.Context, cli *config.CLI, mm *media.MediaManager, did string) (string, error) {
@@ -110,7 +158,14 @@ func makeClip(ctx context.Context, cli *config.CLI, mm *media.MediaManager, did 
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusInternalServerError, "failed to create data file")
 	}
-	defer fd.Close()
+	defer func() {
+		_ = fd.Close()
+		if err != nil {
+			if removeErr := os.Remove(fd.Name()); removeErr != nil {
+				log.Error(ctx, "failed to remove incomplete report clip", "error", removeErr)
+			}
+		}
+	}()
 
 	err = mm.ClipUser(ctx, did, fd, nil, &after)
 	if err != nil {

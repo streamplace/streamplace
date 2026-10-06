@@ -2402,7 +2402,11 @@ export function BrandingAdmin() {
                           {t(label)}
                         </Text>
                         <MenuInfo
-                          description={t("branding-favicon-description")}
+                          description={t(
+                            key === "favicon"
+                              ? "branding-favicon-description"
+                              : "branding-favicon-override-description",
+                          )}
                         />
                         {asset?.data && (
                           <Image

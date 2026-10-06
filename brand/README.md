@@ -21,13 +21,16 @@ are cached for five minutes, so runtime logo changes can take that long to appea
 
 ## Runtime browser favicons
 
-In **Settings → Branding**, upload **Favicon for light mode** and **Favicon for
-dark mode** independently. Each accepts SVG, PNG, or ICO up to 100 KiB. Selection
+In **Settings → Branding**, upload three independent icons: **Default favicon**,
+**Light mode favicon**, and **Dark mode favicon**. Each accepts SVG, PNG, or ICO
+up to 100 KiB. Use an icon with a background for the default and transparent
+light/dark overrides if desired; uploads are served unchanged. Override selection
 follows the browser/OS `prefers-color-scheme`, not the app's theme setting, and
 changes without reloading the page.
 
-The branding keys are `faviconLight` and `faviconDark`. A missing variant uses
-the existing `favicon` (the **Favicon (fallback)** slot), then the bundled mark.
+The branding keys are `favicon` (default), `faviconLight`, and `faviconDark`.
+Clients without theme selection and schemes without an override use the default;
+if no default is uploaded, they use the bundled mark.
 The same keys travel with branding ZIP exports/imports and can be set through
 the branding CLI or XRPC. No custom frontend build is needed for uploads.
 

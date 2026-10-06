@@ -14,12 +14,10 @@ const HTTPS_URL = process.env.SERVER_HTTPS_URL;
 
 test.skip(!HTTPS_URL, "harness started without its HTTPS hostnames");
 
-const svg = (fill: string) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="${fill}"/></svg>`;
 const ICONS: Record<string, string> = {
-  favicon: svg("#808080"),
-  faviconLight: svg("#ffd000"),
-  faviconDark: svg("#2040ff"),
+  favicon: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#808080"/></svg>`,
+  faviconLight: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="12" fill="#ffd000"/></svg>`,
+  faviconDark: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="12" fill="#2040ff"/></svg>`,
 };
 
 type Icon = { type: string; body: string };
@@ -141,7 +139,14 @@ test("branding-favicons: light and dark favicons follow the color scheme", async
     .toBe("image/png");
   const bundled = await shownIcon(page, "dom");
 
-  for (const key of Object.keys(ICONS)) await uploadIcon(page, key);
+  // The background-backed default works in either scheme on its own.
+  await uploadIcon(page, "favicon");
+  await expectShown(page, "light", icon("favicon"));
+  await expectShown(page, "dark", icon("favicon"));
+
+  // Transparent variants override it independently without altering the files.
+  for (const key of ["faviconLight", "faviconDark"])
+    await uploadIcon(page, key);
 
   // Each scheme gets its own icon, live: no reload between the switches.
   await expectShown(page, "light", icon("faviconLight"));

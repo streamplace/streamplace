@@ -39,15 +39,19 @@ export function useDocumentTitle() {
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
 
+    // A branding change can clear the last upload. Use fresh fallback URLs so
+    // the browser cannot resurrect an image cached from the initial HTML.
+    const fallback = `/favicon.png?v=${Date.now()}`;
+
     // Generic first: browsers prefer the last icon whose media query matches.
     const icons = [
-      { href: favicon || "/favicon.png", media: "" },
+      { href: favicon || fallback, media: "" },
       {
-        href: faviconLight || favicon || "/favicon.png?scheme=light",
+        href: faviconLight || favicon || `${fallback}&scheme=light`,
         media: "(prefers-color-scheme: light)",
       },
       {
-        href: faviconDark || favicon || "/favicon.png?scheme=dark",
+        href: faviconDark || favicon || `${fallback}&scheme=dark`,
         media: "(prefers-color-scheme: dark)",
       },
     ];

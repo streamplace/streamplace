@@ -36,6 +36,8 @@ The HTML declares a generic `/favicon.png` link before media-qualified
 also works before JavaScript loads. `/favicon.ico` remains the generic fallback.
 These routes serve uploads with their declared image MIME type and cache for
 five minutes; the open admin tab reflects uploads and deletions immediately.
+Hydrated fallback links use fresh URLs on branding changes so a deleted upload
+cannot return from the browser's cache.
 The brand generator owns the bundled PNG and ICO, rather than Expo injecting
 an extra generic icon link that would override the themed links.
 

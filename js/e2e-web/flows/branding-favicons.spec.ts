@@ -53,7 +53,12 @@ async function shownIcon(page: Page, source: "dom" | "html"): Promise<Icon> {
     const link = links[links.length - 1];
     if (!link) return { type: "no applicable icon link", body: "" };
     const href = new URL(link.getAttribute("href")!, location.href).href;
-    const res = await fetch(href, { cache: "no-store" });
+    // Hydrated links use the browser's normal cache. Static HTML checks ask
+    // the server directly, since its public icon routes cache for five minutes.
+    const res = await fetch(
+      href,
+      source === "html" ? { cache: "no-store" } : undefined,
+    );
     const served = res.headers.get("content-type")?.split(";")[0] ?? "";
     const type =
       link.type && link.type !== served
@@ -155,6 +160,13 @@ test("branding-favicons: light and dark favicons follow the color scheme", async
     await expectShown(page, "dark", icon("faviconDark"), source);
     await expectShown(page, "light", icon("faviconLight"), source);
   }
+
+  // Prime the same HTTP cache used by the initial HTML's favicon links.
+  // Deleting uploads must not bring these cached images back into the tab.
+  await page.evaluate(async () => {
+    await fetch("/favicon.png");
+    await fetch("/favicon.png?scheme=dark");
+  });
 
   // Without its own variant, a scheme falls back to the generic favicon...
   await removeIcon(page, "faviconDark");

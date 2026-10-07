@@ -313,12 +313,14 @@ write(
       }),
 );
 
+// Own browser icons here: Expo's favicon export appends a generic link after
+// the media-qualified links in public/index.html, overriding their selection.
 const favicon = await squarePng(markArt, 256, {
   scale: 0.92,
   color: colors.ink,
 });
-write(join(outApp, "favicon.png"), favicon);
 write(join(outPublic, "favicon.png"), favicon);
+write(join(outPublic, "favicon.ico"), buildIco([{ size: 256, buf: favicon }]));
 
 // OG / social card.
 const bannerArt = findArt("linkbanner");

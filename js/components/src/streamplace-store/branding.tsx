@@ -34,6 +34,8 @@ const PropsInHeader = [
   "defaultStreamer",
   "mainLogo",
   "favicon",
+  "faviconLight",
+  "faviconDark",
   "sidebarBg",
   "legalLinks",
 ];
@@ -323,9 +325,11 @@ async function fetchAssetDataUrl(
 
 // hook to get a specific branding asset by key
 export function useBrandingAsset(key: string): BrandingAsset | undefined {
-  // The hook runs unconditionally; the fallbacks are plain values.
   const fromStore = useStreamplaceStore((state) => state.branding?.[key]);
-  return fromStore || getMetaContent(key) || undefined;
+  const loaded = useStreamplaceStore((state) => !!state.branding);
+  // A refreshed store is authoritative, including deletions. Page meta is only
+  // the initial snapshot; falling back to it would resurrect a deleted asset.
+  return loaded ? fromStore : getMetaContent(key) || undefined;
 }
 
 /** What the app calls the social network (branding key networkName). */

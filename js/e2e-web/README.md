@@ -54,6 +54,10 @@ web-only, as is `chat-wheel-scroll` (trackpad wheel input in the inverted
 chat list), which also runs in a Firefox project because the bug it covers
 was reported there. `vod` opens the VOD the harness publishes and checks both the node's
 page title and the app's tab title; document titles have no native counterpart.
+`branding-favicons` exercises authenticated light/dark favicon uploads, scheme
+switches, persistence and deletion fallbacks, including the HTML before
+hydration. It is web-only: native apps have no browser tab favicon, and branding
+image uploads are already limited to the web.
 
 `stream` also covers the narrow portrait web layout at 320 × 568, where the
 live video sits above chat. It reveals the player chrome, exercises mute and

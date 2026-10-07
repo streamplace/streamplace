@@ -278,30 +278,43 @@ func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input 
 // HandleFaviconICO serves /favicon.ico: the node's branded favicon, else
 // the bundled one.
 func (s *Server) HandleFaviconICO(c echo.Context) error {
-	return s.handleBrandingImage(c, "favicon", "favicon.ico", "image/x-icon")
+	return s.handleBrandingImage(c, []string{"favicon"}, "favicon.ico", "image/x-icon")
 }
 
-// HandleFaviconPNG serves /favicon.png, the icon the app's HTML template
-// links first (Expo's web export writes it). It carries the same branded
-// favicon as /favicon.ico: link unfurlers (Slack, Discord) and browsers
-// take the first icon link they see, and this one used to be the bundled
-// brand mark on every node no matter its branding.
+// HandleFaviconPNG serves the generic favicon. ?scheme=light|dark prefers
+// that scheme's variant, then the generic icon, then the bundled PNG.
+// Any other scheme value serves the generic favicon.
 func (s *Server) HandleFaviconPNG(c echo.Context) error {
-	return s.handleBrandingImage(c, "favicon", "favicon.png", "image/png")
+	keys := []string{"favicon"}
+	switch c.QueryParam("scheme") {
+	case "light":
+		keys = []string{"faviconLight", "favicon"}
+	case "dark":
+		keys = []string{"faviconDark", "favicon"}
+	}
+	return s.handleBrandingImage(c, keys, "favicon.png", "image/png")
 }
 
 // HandleNotificationIcon serves the node's full-size runtime logo for Web Push,
 // falling back to the bundled app icon when no image logo is configured.
 func (s *Server) HandleNotificationIcon(c echo.Context) error {
-	return s.handleBrandingImage(c, "mainLogo", "brand/notification-icon.png", "image/png")
+	return s.handleBrandingImage(c, []string{"mainLogo"}, "brand/notification-icon.png", "image/png")
 }
 
-// handleBrandingImage serves a branding image with its declared MIME type,
-// falling back to the bundled file fallback / fallbackMime.
-func (s *Server) handleBrandingImage(c echo.Context, key, fallback, fallbackMime string) error {
+// handleBrandingImage serves the first of keys that holds an image, with its
+// declared MIME type, falling back to the bundled file fallback / fallbackMime.
+func (s *Server) handleBrandingImage(c echo.Context, keys []string, fallback, fallbackMime string) error {
 	ctx := c.Request().Context()
-	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, s.cli.BroadcasterDID(), key)
-	if err != nil || len(data) == 0 || !strings.HasPrefix(mimeType, "image/") {
+	var data []byte
+	var mimeType string
+	for _, key := range keys {
+		d, m, _, _, err := s.GetBrandingBlob(ctx, s.cli.BroadcasterDID(), key)
+		if err == nil && len(d) > 0 && strings.HasPrefix(m, "image/") {
+			data, mimeType = d, m
+			break
+		}
+	}
+	if data == nil {
 		distFiles, fsErr := app.Files()
 		if fsErr != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch branding image")

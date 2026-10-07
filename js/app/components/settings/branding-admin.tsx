@@ -245,6 +245,8 @@ export function BrandingAdmin() {
   const currentDefaultVideo = useBrandingAsset("defaultVideo");
   const currentLogo = useBrandingAsset("mainLogo");
   const currentFavicon = useBrandingAsset("favicon");
+  const currentFaviconLight = useBrandingAsset("faviconLight");
+  const currentFaviconDark = useBrandingAsset("faviconDark");
   const currentSidebarBg = useSidebarBackgroundImage();
   const currentLinkBanner = useBrandingAsset("linkBanner");
   const currentLegalLinks = useBrandingAsset("legalLinks");
@@ -2375,50 +2377,85 @@ export function BrandingAdmin() {
                 </SettingsRowItem>
               </MenuItem>
               <MenuSeparator />
-              <MenuItem>
-                <SettingsRowItem>
-                  <View style={[zero.gap.all[2], { flex: 1 }]}>
-                    <Text size="sm" weight="semibold">
-                      {t("branding-favicon")}
-                    </Text>
-                    <MenuInfo description={t("branding-favicon-description")} />
-                    {currentFavicon?.data && (
-                      <Image
-                        source={{ uri: currentFavicon.data }}
-                        contentFit="contain"
-                        style={{ width: 64, height: 64 }}
-                      />
-                    )}
-                    <View
-                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
-                    >
-                      <Button
-                        onPress={() =>
-                          handleFileSelect(
-                            "favicon",
-                            "image/svg+xml,image/png,image/x-icon",
-                          )
-                        }
-                        disabled={uploading || Platform.OS !== "web"}
-                        width="min"
-                        style={{ height: 42 }}
-                      >
-                        {t("branding-upload-favicon")}
-                      </Button>
-                      <Button
-                        variant="danger"
-                        onPress={() => deleteBlob("favicon")}
-                        disabled={uploading}
-                        width="min"
-                        style={{ height: 42 }}
-                      >
-                        {t("branding-delete-favicon")}
-                      </Button>
-                    </View>
-                  </View>
-                </SettingsRowItem>
-              </MenuItem>
-              <MenuSeparator />
+              {[
+                {
+                  key: "favicon",
+                  label: "branding-favicon",
+                  asset: currentFavicon,
+                },
+                {
+                  key: "faviconLight",
+                  label: "branding-favicon-light",
+                  asset: currentFaviconLight,
+                },
+                {
+                  key: "faviconDark",
+                  label: "branding-favicon-dark",
+                  asset: currentFaviconDark,
+                },
+              ].map(({ key, label, asset }) => (
+                <View key={key}>
+                  <MenuItem>
+                    <SettingsRowItem>
+                      <View style={[zero.gap.all[2], { flex: 1 }]}>
+                        <Text size="sm" weight="semibold">
+                          {t(label)}
+                        </Text>
+                        <MenuInfo
+                          description={t(
+                            key === "favicon"
+                              ? "branding-favicon-description"
+                              : "branding-favicon-override-description",
+                          )}
+                        />
+                        {asset?.data && (
+                          <Image
+                            testID={`branding-preview-${key}`}
+                            source={{ uri: asset.data }}
+                            contentFit="contain"
+                            style={{
+                              width: theme.spacing[16],
+                              height: theme.spacing[16],
+                            }}
+                          />
+                        )}
+                        <View
+                          style={[
+                            zero.layout.flex.direction.row,
+                            zero.gap.all[2],
+                          ]}
+                        >
+                          <Button
+                            testID={`branding-upload-${key}`}
+                            onPress={() =>
+                              handleFileSelect(
+                                key,
+                                "image/svg+xml,image/png,image/x-icon",
+                              )
+                            }
+                            disabled={uploading || Platform.OS !== "web"}
+                            width="min"
+                            style={{ minHeight: theme.touchTargets.minimum }}
+                          >
+                            {t("branding-upload-favicon")}
+                          </Button>
+                          <Button
+                            testID={`branding-delete-${key}`}
+                            variant="danger"
+                            onPress={() => deleteBlob(key)}
+                            disabled={uploading}
+                            width="min"
+                            style={{ minHeight: theme.touchTargets.minimum }}
+                          >
+                            {t("branding-delete-favicon")}
+                          </Button>
+                        </View>
+                      </View>
+                    </SettingsRowItem>
+                  </MenuItem>
+                  <MenuSeparator />
+                </View>
+              ))}
               <MenuItem>
                 <View style={[zero.gap.all[2], { flex: 1 }]}>
                   <Text size="sm" weight="semibold">

@@ -470,6 +470,15 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	// (where the model is in scope) so pkg/vod stays free of pkg/model, then
 	// concatenates the recorded MUXL objects into a VOD.
 	state.SetLivestreamVODFinalizer(func(ctx context.Context, t statedb.FinalizeLivestreamVODTask) (string, error) {
+		// The finalize route refuses banned accounts up front; automatic
+		// publishing (statedb.AutoPublishVODTask) has no caller to refuse.
+		labels, err := mod.GetActiveLabels(t.RepoDID)
+		if err != nil {
+			return "", fmt.Errorf("finalize-livestream-vod: check account labels: %w", err)
+		}
+		if atproto.IsBanned(labels...) {
+			return "", fmt.Errorf("finalize-livestream-vod: account %s is banned; skipping upload %s", t.RepoDID, t.UploadID)
+		}
 		signingKey, err := resolveLiveSigningKey(mod, t.RepoDID)
 		if err != nil {
 			return "", fmt.Errorf("finalize-livestream-vod: resolve signing key: %w", err)

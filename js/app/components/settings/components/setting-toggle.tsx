@@ -6,6 +6,7 @@ export interface SettingToggleProps {
   description?: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
+  disabled?: boolean;
   style?: ViewStyle;
   testID?: string;
 }
@@ -15,6 +16,7 @@ export function SettingToggle({
   description,
   value,
   onValueChange,
+  disabled,
   style,
   testID,
 }: SettingToggleProps) {
@@ -22,6 +24,7 @@ export function SettingToggle({
     <MenuItem style={style}>
       <Pressable
         style={{ flex: 1, flexDirection: "row", alignItems: "center" }}
+        disabled={disabled}
         onPress={() => onValueChange(!value)}
         accessibilityRole="switch"
         // accessibilityRole="switch" collapses the subtree into one element
@@ -29,7 +32,10 @@ export function SettingToggle({
         // title as the element's label and a stable testID so e2e can find
         // it by id on both platforms.
         accessibilityLabel={title}
-        accessibilityState={{ checked: value }}
+        // aria-checked, not accessibilityState: react-native-web only renders
+        // the aria form, and native maps it to the same checked state.
+        aria-checked={value}
+        aria-disabled={disabled}
         testID={testID}
       >
         <View style={{ flex: 1, paddingRight: 12 }}>

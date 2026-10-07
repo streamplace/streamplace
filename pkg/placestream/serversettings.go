@@ -19,6 +19,8 @@ func init() {
 // Record containing user settings for a particular Streamplace node
 type ServerSettings struct {
 	LexiconTypeID string `json:"$type,omitempty"`
+	// autoPublishVods: Whether this node should publish the VOD of each of your recorded livestreams as soon as it ends
+	AutoPublishVods *bool `json:"autoPublishVods,omitempty"`
 	// debugRecording: Whether this node may archive your livestream for improving the service
 	DebugRecording *bool `json:"debugRecording,omitempty"`
 	// livestreamRecording: Whether this node should record your livestreams into VODs that you can publish

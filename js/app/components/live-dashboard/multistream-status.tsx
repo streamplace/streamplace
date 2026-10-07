@@ -15,6 +15,7 @@ import {
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { Plus } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -34,6 +35,7 @@ interface MultistreamTargetViewHydrated
 export default function MultistreamStatus() {
   const agent = usePDSAgent();
   const navigation = useNavigation();
+  const { t } = useTranslation("settings");
   const [targets, setTargets] = useState<MultistreamTargetViewHydrated[]>([]);
   const [loading, setLoading] = useState(true);
   const [togglingTargets, setTogglingTargets] = useState<Set<string>>(
@@ -151,6 +153,7 @@ export default function MultistreamStatus() {
 
   return (
     <View
+      testID="live-stream-destinations"
       style={[
         { backgroundColor: surfaces.dark[1] },
         r.lg,
@@ -158,34 +161,11 @@ export default function MultistreamStatus() {
         { borderColor: borderAlphas.dark.strong },
       ]}
     >
-      <View
-        style={[
-          layout.flex.row,
-          layout.flex.spaceBetween,
-          layout.flex.alignCenter,
-          p[4],
-          borders.bottom.width.thin,
-          { borderBottomColor: borderAlphas.dark.strong },
-        ]}
-      >
-        <Text style={[text.white, { fontSize: 15, fontWeight: "600" }]}>
-          Multistream
-        </Text>
-        {loading ? (
+      {loading && targets.length === 0 ? (
+        <View style={[p[4]]}>
           <Loader size="small" />
-        ) : targets.length > 0 ? (
-          <Text
-            style={{
-              color: textAlphas.dark[3],
-              fontSize: 12,
-              fontWeight: "600",
-            }}
-          >
-            {targets.length}
-          </Text>
-        ) : null}
-      </View>
-      {targets.length === 0 ? (
+        </View>
+      ) : targets.length === 0 ? (
         <View style={[p[4], { gap: 12, alignItems: "flex-start" }]}>
           <View style={{ gap: 2 }}>
             <Text
@@ -195,7 +175,7 @@ export default function MultistreamStatus() {
                 fontWeight: "500",
               }}
             >
-              No destinations yet
+              {t("no-multistream-destinations")}
             </Text>
             <Text style={{ color: textAlphas.dark[3], fontSize: 12 }}>
               Restream to Twitch, YouTube, and more.

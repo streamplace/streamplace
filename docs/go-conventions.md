@@ -91,3 +91,9 @@ that follow:
 require.NoError(t, err)
 require.Equal(t, "sync", cmd.Name)
 ```
+
+Media tests using `withNoGSTLeaks` must stop their pipelines and cancel their
+contexts before returning. The leak helper waits for finalizer passes before
+requesting the native snapshot; keep that barrier synchronous and never block the
+finalizer queue, which also releases Go-owned GStreamer references. Verify changes
+to the helper with race-enabled media tests without disabling leak assertions.

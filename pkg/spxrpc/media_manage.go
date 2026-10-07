@@ -10,9 +10,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
-	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/vod"
@@ -42,18 +40,11 @@ func (s *Server) requireLivestreamManage(ctx context.Context, streamer, action s
 	return modCtx, nil
 }
 
-// livestreamItem is one livestream record: the indexed row and its decoded
-// record.
-type livestreamItem struct {
-	ls  *model.Livestream
-	rec *placestream.Livestream
-}
-
 // livestreamItems resolves livestream URIs to their indexed rows and decoded
 // records, checks they belong to one streamer, and orders them by creation:
 // recording order is record order, whatever order the caller listed them in.
-func (s *Server) livestreamItems(uris []string) ([]livestreamItem, error) {
-	items := make([]livestreamItem, 0, len(uris))
+func (s *Server) livestreamItems(uris []string) ([]statedb.LivestreamItem, error) {
+	items := make([]statedb.LivestreamItem, 0, len(uris))
 	for _, u := range uris {
 		ls, err := s.model.GetLivestream(u)
 		if err != nil {
@@ -70,14 +61,14 @@ func (s *Server) livestreamItems(uris []string) ([]livestreamItem, error) {
 		if !ok {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, "record is not a place.stream.livestream: "+u)
 		}
-		items = append(items, livestreamItem{ls: ls, rec: rec})
+		items = append(items, statedb.LivestreamItem{Livestream: ls, Record: rec})
 	}
 	for _, it := range items[1:] {
-		if it.ls.RepoDID != items[0].ls.RepoDID {
+		if it.Livestream.RepoDID != items[0].Livestream.RepoDID {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "LivestreamNotFound: the livestreams belong to different streamers")
 		}
 	}
-	sort.SliceStable(items, func(i, j int) bool { return items[i].rec.CreatedAt < items[j].rec.CreatedAt })
+	sort.SliceStable(items, func(i, j int) bool { return items[i].Record.CreatedAt < items[j].Record.CreatedAt })
 	return items, nil
 }
 
@@ -106,46 +97,6 @@ func deref(p *string) string {
 		return ""
 	}
 	return *p
-}
-
-// videoDraftForLivestreams describes the place.stream.video record for the
-// VOD of one or more livestream records: the first one's title (or the given
-// one), description, tags and activity, connected to every livestream record
-// the way the app's draft is connected to its one. Duration, source tracks
-// and thumbnail are filled in at publish time from the finalized upload.
-func videoDraftForLivestreams(items []livestreamItem, title, description string) *statedb.VideoDraft {
-	first := items[0].rec
-	title = strings.TrimSpace(title)
-	if title == "" {
-		title = strings.TrimSpace(first.Title)
-	}
-	if title == "" {
-		title = "Livestream"
-	}
-	v := &statedb.VideoDraft{
-		Title: title,
-		Tags:  first.Tags,
-	}
-	for _, it := range items {
-		v.Connections = append(v.Connections, placestream.Video_Connections_Elem{
-			Video_Connection: &placestream.Video_Connection{
-				LexiconTypeID: "place.stream.video#connection",
-				Ref:           &comatproto.RepoStrongRef{Uri: it.ls.URI, Cid: it.ls.CID},
-			},
-		})
-	}
-	if d := strings.TrimSpace(description); d != "" {
-		v.Description = &d
-	}
-	if first.Activity != nil {
-		switch {
-		case first.Activity.Defs_ActivityGame != nil:
-			v.Activity = &placestream.Video_Activity{Defs_ActivityGame: first.Activity.Defs_ActivityGame}
-		case first.Activity.Defs_ActivityLabel != nil:
-			v.Activity = &placestream.Video_Activity{Defs_ActivityLabel: first.Activity.Defs_ActivityLabel}
-		}
-	}
-	return v
 }
 
 // videoOwner is the repo a place.stream.video URI lives in.

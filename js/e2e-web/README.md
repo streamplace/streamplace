@@ -64,6 +64,19 @@ live video sits above chat. It reveals the player chrome, exercises mute and
 fullscreen entry/exit, and verifies that faded controls reveal instead of
 accepting an unseen tap.
 
+`auto-publish-vods` saves and reloads the automatic publishing preference,
+checks that the stream form's Create tab and Privacy & Security share it,
+including the popout form, and hides the control without VOD beta access or
+outside the Create tab. The compact checkbox keeps persistent-consent details in
+its tooltip. The native Maestro flow opens the shared form by deep link, enables
+the preference there, and verifies persistence in settings after a relaunch.
+The browser flow also holds a recording opt-out request to verify another privacy toggle cannot
+overwrite it while saving. Deleting the node's settings record also withdraws
+automatic publishing consent; the PDS-backed regression for that index deletion
+lives in `pkg/atproto/auto_publish_vod_test.go`. It also injects a deletion failure
+and checks that later deletions still run while the commit watermark advances
+only after successful reprocessing.
+
 ## OAuth over real HTTPS
 
 `oauth-login` logs in the way a user does, through the node's OAuth proxy

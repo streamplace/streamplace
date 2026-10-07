@@ -109,6 +109,52 @@ func TestDraftLifecycleErrorFlipsDraft(t *testing.T) {
 	require.Equal(t, "boom", *rec.Error)
 }
 
+// A livestream VOD finalized for publishing whose publish fails is left as a
+// ready draft, so the streamer can still publish it from the Drafts tab;
+// one that publishes leaves no draft.
+func TestFinalizeLivestreamVODPublishFailureLeavesDraft(t *testing.T) {
+	WithAllDatabases(t, func(state *StatefulDB) {
+		ctx := context.Background()
+		did := "did:plc:publishfail"
+		state.SetLivestreamVODFinalizer(func(ctx context.Context, task FinalizeLivestreamVODTask) (string, error) {
+			require.NoError(t, state.SetUploadProcessed(ctx, task.UploadID, 5000, "muxlcid-"+task.UploadID, "did:key:signing", `{"durationMs":5000}`, 100))
+			return "muxlcid-" + task.UploadID, nil
+		})
+		publishErr := error(errBoom)
+		state.SetVideoPublisher(func(ctx context.Context, task FinalizeLivestreamVODTask) (string, string, error) {
+			if publishErr != nil {
+				return "", "", publishErr
+			}
+			return "at://" + did + "/place.stream.video/v", "bafyvideo", nil
+		})
+		finalize := func(uploadID string) {
+			require.NoError(t, state.CreateLivestreamUpload(ctx, uploadID, did, "at://"+did+"/place.stream.livestream/"+uploadID))
+			task, err := state.EnqueueTask(ctx, TaskFinalizeLivestreamVOD, FinalizeLivestreamVODTask{
+				UploadID: uploadID, RepoDID: did,
+				Publish: &VideoDraft{Title: "Late night stream", Tags: []string{"chill"}},
+			})
+			require.NoError(t, err)
+			require.NoError(t, state.processFinalizeLivestreamVODTask(ctx, task))
+		}
+
+		finalize("up-unpublished")
+		dv, err := state.GetDraftByUpload(ctx, "up-unpublished")
+		require.NoError(t, err)
+		require.NotNil(t, dv, "a draft to publish by hand")
+		rec, err := unmarshalDraft(dv.Data)
+		require.NoError(t, err)
+		require.Equal(t, "ready", rec.Status)
+		require.Equal(t, "Late night stream", rec.Title)
+		require.Equal(t, []string{"chill"}, rec.Tags)
+
+		publishErr = nil
+		finalize("up-published")
+		dv, err = state.GetDraftByUpload(ctx, "up-published")
+		require.NoError(t, err)
+		require.Nil(t, dv, "nothing left to publish")
+	})
+}
+
 var errBoom = errString("boom")
 
 type errString string

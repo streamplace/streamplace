@@ -617,6 +617,7 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 		return false
 	}
 
+	complete := true
 	for _, op := range evt.Ops {
 		collection, rkey, err := syntax.ParseRepoPath(op.Path)
 		uri := fmt.Sprintf("at://%s/%s", evt.Repo, op.Path)
@@ -682,6 +683,13 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 			}
 
 		case repomgr.EvtKindDeleteRecord:
+			if collection.String() == constants.PLACE_STREAM_SERVER_SETTINGS {
+				if err := atsync.Model.DeleteServerSettings(ctx, rkey.String(), evt.Repo); err != nil {
+					log.Error(ctx, "failed to delete server settings", "err", err)
+					complete = false
+				}
+			}
+
 			if collection.String() == constants.APP_BSKY_GRAPH_FOLLOW {
 				if r == nil {
 					log.Debug(ctx, "no repo found for follow", "userDID", evt.Repo, "subjectDID", rkey.String())
@@ -897,7 +905,7 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 		}
 	}
 
-	return true
+	return complete
 }
 
 // reviveRepo un-parks a repo we had written off. A commit event is proof the

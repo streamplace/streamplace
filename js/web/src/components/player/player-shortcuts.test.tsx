@@ -350,20 +350,43 @@ describe("player shortcuts", () => {
     it("immediately replaces the last action with the latest result", async () => {
       await press("l");
       expect(feedback()?.textContent).toBe("Seek to 1:00");
+      expect(feedback()?.querySelector(".lucide-fast-forward")).not.toBeNull();
       await press(">");
       expect(feedback()?.textContent).toBe("Playback speed: 1.25×");
+      expect(feedback()?.querySelector(".lucide-gauge")).not.toBeNull();
       await press("j");
       expect(feedback()?.textContent).toBe("Seek to 0:50");
+      expect(feedback()?.querySelector(".lucide-rewind")).not.toBeNull();
+      expect(feedback()?.querySelectorAll("svg")).toHaveLength(1);
       expect(document.querySelectorAll('[role="status"]')).toHaveLength(1);
     });
 
     it("updates frame position without waiting for a media timeupdate", async () => {
       await press(".");
       expect(feedback()?.textContent).toBe("Next frame at 0:50.017");
+      expect(feedback()?.querySelector(".lucide-step-forward")).not.toBeNull();
       await press(".");
       expect(feedback()?.textContent).toBe("Next frame at 0:50.033");
       await press(",");
       expect(feedback()?.textContent).toBe("Previous frame at 0:50.017");
+      expect(feedback()?.querySelector(".lucide-step-back")).not.toBeNull();
+    });
+
+    it("hides the centered play icon during feedback without disabling its control", async () => {
+      props.bigPlay = true;
+      await render();
+      const playButton = container.querySelector(
+        'button[aria-label="Play"][aria-hidden]',
+      );
+      expect(playButton?.querySelector("svg")).not.toBeNull();
+      await press(".");
+      expect(playButton?.querySelector("svg")).toBeNull();
+      expect(playButton?.getAttribute("aria-hidden")).toBe("false");
+      await act(async () => vi.advanceTimersByTime(1_500));
+      expect(playButton?.querySelector("svg")).not.toBeNull();
+      await press(".");
+      await act(async () => (playButton as HTMLButtonElement).click());
+      expect(video.paused).toBe(false);
     });
 
     it("confirms playback, mute, and resulting volume", async () => {

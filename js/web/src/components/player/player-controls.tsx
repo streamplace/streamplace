@@ -3,13 +3,19 @@
 // Hides when the video is playing and the user is idle; stays visible
 // when the video is paused or has errored.
 import {
+  FastForward,
+  Gauge,
+  type LucideIcon,
   Maximize,
   Minimize,
   Pause,
   PictureInPicture,
   Play,
   RectangleHorizontal,
+  Rewind,
   Settings,
+  StepBack,
+  StepForward,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -107,7 +113,10 @@ export function PlayerControls({
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPiP, setIsPiP] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{
+    message: string;
+    icon: LucideIcon;
+  } | null>(null);
   const feedbackTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -115,9 +124,9 @@ export function PlayerControls({
   const { theatre, setTheatre } = useFullscreen();
   const { t } = useTranslation();
 
-  const showFeedback = useCallback((message: string) => {
+  const showFeedback = useCallback((message: string, icon: LucideIcon) => {
     if (feedbackTimeout.current !== null) clearTimeout(feedbackTimeout.current);
-    setFeedback(message);
+    setFeedback({ message, icon });
     feedbackTimeout.current = setTimeout(() => {
       setFeedback(null);
       feedbackTimeout.current = null;
@@ -211,6 +220,7 @@ export function PlayerControls({
     try {
       showFeedback(
         t(document.pictureInPictureElement ? "player-exit-pip" : "player-pip"),
+        PictureInPicture,
       );
       if (document.pictureInPictureElement) {
         await document.exitPictureInPicture();
@@ -225,7 +235,10 @@ export function PlayerControls({
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    showFeedback(t(video.paused ? "player-play" : "player-pause"));
+    showFeedback(
+      t(video.paused ? "player-play" : "player-pause"),
+      video.paused ? Play : Pause,
+    );
     if (video.paused) {
       video.play().catch(() => {});
     } else {
@@ -239,6 +252,7 @@ export function PlayerControls({
     video.muted = !video.muted;
     showFeedback(
       t(video.muted ? "player-feedback-muted" : "player-feedback-unmuted"),
+      video.muted ? VolumeX : Volume2,
     );
   }, [videoRef, showFeedback, t]);
 
@@ -251,6 +265,7 @@ export function PlayerControls({
       if (v > 0) video.muted = false;
       showFeedback(
         t("player-feedback-volume", { volume: Math.round(video.volume * 100) }),
+        video.volume > 0 ? Volume2 : VolumeX,
       );
     },
     [videoRef, showFeedback, t],
@@ -260,10 +275,12 @@ export function PlayerControls({
     (currentTime: number) => {
       const video = videoRef.current;
       if (!video) return;
+      const icon = currentTime < video.currentTime ? Rewind : FastForward;
       video.currentTime = currentTime;
       setCurrentTime(video.currentTime);
       showFeedback(
         t("player-feedback-seek", { time: formatTime(video.currentTime) }),
+        icon,
       );
     },
     [videoRef, showFeedback, t],
@@ -275,7 +292,10 @@ export function PlayerControls({
       if (!video || isLive) return;
       video.playbackRate = Math.max(0.25, Math.min(2, rate));
       setPlaybackRate(video.playbackRate);
-      showFeedback(t("player-feedback-speed", { speed: video.playbackRate }));
+      showFeedback(
+        t("player-feedback-speed", { speed: video.playbackRate }),
+        Gauge,
+      );
     },
     [videoRef, isLive, showFeedback, t],
   );
@@ -312,6 +332,7 @@ export function PlayerControls({
           ),
           time: `${formatTime(milliseconds / 1000)}.${String(milliseconds % 1000).padStart(3, "0")}`,
         }),
+        direction > 0 ? StepForward : StepBack,
       );
     },
     [videoRef, isLive, frameRate, showFeedback, t],
@@ -327,6 +348,7 @@ export function PlayerControls({
             ? "player-exit-fullscreen"
             : "player-fullscreen",
         ),
+        document.fullscreenElement ? Minimize : Maximize,
       );
       if (document.fullscreenElement) {
         await document.exitFullscreen();
@@ -341,7 +363,10 @@ export function PlayerControls({
   const onTheatreChange = useCallback(
     (value: boolean) => {
       setTheatre(value);
-      showFeedback(t(value ? "player-theatre" : "player-exit-theatre"));
+      showFeedback(
+        t(value ? "player-theatre" : "player-exit-theatre"),
+        RectangleHorizontal,
+      );
     },
     [setTheatre, showFeedback, t],
   );
@@ -463,9 +488,10 @@ export function PlayerControls({
             role="status"
             aria-live="polite"
             aria-atomic="true"
-            className="border-border bg-popover/95 text-popover-foreground pointer-events-none absolute top-4 left-1/2 z-20 max-w-full -translate-x-1/2 rounded-lg border px-4 py-2 text-sm font-medium tabular-nums backdrop-blur"
+            className="pointer-events-none absolute top-1/2 left-1/2 z-20 flex w-full -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 px-4 text-center text-sm font-medium text-white tabular-nums opacity-50"
           >
-            {feedback}
+            <feedback.icon className="size-16" aria-hidden="true" />
+            <span>{feedback.message}</span>
           </div>,
           containerRef.current,
         )}
@@ -487,10 +513,12 @@ export function PlayerControls({
         aria-hidden={!bigPlay}
         tabIndex={bigPlay ? 0 : -1}
       >
-        <div className="flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-5 py-3 backdrop-blur transition-colors hover:bg-white/20">
-          <Play className="h-6 w-6 fill-white text-white" />
-          <span className="font-medium text-white">{t("player-play")}</span>
-        </div>
+        {!feedback && (
+          <div className="flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-5 py-3 backdrop-blur transition-colors hover:bg-white/20">
+            <Play className="h-6 w-6 fill-white text-white" />
+            <span className="font-medium text-white">{t("player-play")}</span>
+          </div>
+        )}
       </button>
 
       <button

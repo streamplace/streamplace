@@ -3,6 +3,11 @@ export type PlayerProps = {
   playerId?: string;
   src: string;
   mode?: "live" | "vod";
+  /**
+   * Temporal reference: initial playback position in seconds from the start
+   * of the stream/video (YouTube-style #t=… fragment).
+   */
+  startTime?: number | null;
   muted: boolean;
   telemetry: boolean;
   fullscreen: boolean;

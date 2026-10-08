@@ -96,6 +96,9 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
         | undefined,
     ) => set(() => ({ videoRef })),
 
+    startTime: null,
+    setStartTime: (startTime) => set(() => ({ startTime })),
+
     pipMode: false,
     setPipMode: (pipMode: boolean) => set(() => ({ pipMode })),
 

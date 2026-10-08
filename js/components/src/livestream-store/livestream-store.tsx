@@ -78,6 +78,20 @@ export const useLivestream = (includeEnded: boolean = false) =>
 
 export const useSegment = () => useLivestreamStore((x) => x.segment);
 
+/**
+ * Wall-clock time the current livestream started, in epoch milliseconds —
+ * the anchor that makes temporal references (#t=…) point at a fixed moment.
+ * Null when there is no live livestream record to anchor to.
+ */
+export const useStreamStartMs = (): number | null => {
+  const livestream = useLivestream();
+  if (!livestream) {
+    return null;
+  }
+  const ms = Date.parse(livestream.record.createdAt);
+  return Number.isNaN(ms) ? null : ms;
+};
+
 export const useRecentSegments = () =>
   useLivestreamStore((x) => x.recentSegments);
 

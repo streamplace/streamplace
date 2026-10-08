@@ -28,6 +28,7 @@ export function Player(
 
   const setReportingURL = usePlayerStore((x) => x.setReportingURL);
   const setEmbedded = usePlayerStore((x) => x.setEmbedded);
+  const setStartTime = usePlayerStore((x) => x.setStartTime);
 
   const reportModalOpen = usePlayerStore((x) => x.reportModalOpen);
   const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
@@ -57,6 +58,10 @@ export function Player(
   useEffect(() => {
     setEmbedded(props.embedded ?? false);
   }, [props.embedded]);
+
+  useEffect(() => {
+    setStartTime(props.startTime ?? null);
+  }, [props.startTime]);
 
   // Will call back every few seconds to send health updates
   usePlayerStatus();

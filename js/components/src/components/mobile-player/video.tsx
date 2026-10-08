@@ -8,9 +8,14 @@ import {
   useMuted,
   usePlayerStore,
   useSetMuted,
+  useStreamStartMs,
   useStreamplaceStore,
 } from "../..";
 import { borderRadius, colors, mt } from "../../lib/theme/atoms";
+import {
+  elementStartTimeTarget,
+  hlsStartTimeTarget,
+} from "../../lib/timestamp";
 import { Text, View } from "../ui/index";
 import { Loader } from "../ui/loader";
 import { srcToUrl } from "./shared";
@@ -39,6 +44,8 @@ type VideoProps = {
   videoRef?: React.RefObject<HTMLVideoElement | null>;
   objectFit?: "contain" | "cover";
   pictureInPictureEnabled?: boolean;
+  /** Seek to the temporal reference (#t=…) once metadata has loaded. */
+  seekToStart?: boolean;
 };
 
 function useVideoDimensions(
@@ -79,12 +86,30 @@ export default function WebVideo(props?: {
   pictureInPictureEnabled?: boolean;
 }) {
   const inProto = usePlayerStore((x) => x.protocol);
+  const setProtocol = usePlayerStore((x) => x.setProtocol);
+  const startTime = usePlayerStore((x) => x.startTime);
   const isIngesting = usePlayerStore((x) => x.ingestConnectionState !== null);
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const src = usePlayerStore((x) => x.src);
   const setPlayerWidth = usePlayerStore((x) => x.setPlayerWidth);
   const setPlayerHeight = usePlayerStore((x) => x.setPlayerHeight);
-  const { url, protocol } = srcToUrl({ src: src, selectedRendition }, inProto);
+
+  // A temporal reference (#t=…) names a point in the timeline, which needs a
+  // seekable protocol — WebRTC has no timeline, so fall back to HLS for it.
+  const effectiveProto =
+    startTime != null && inProto === PlayerProtocol.WEBRTC
+      ? PlayerProtocol.HLS
+      : inProto;
+  useEffect(() => {
+    if (effectiveProto !== inProto) {
+      setProtocol(effectiveProto);
+    }
+  }, [effectiveProto, inProto, setProtocol]);
+
+  const { url, protocol } = srcToUrl(
+    { src: src, selectedRendition },
+    effectiveProto,
+  );
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dimensions = useVideoDimensions(videoRef);
@@ -148,6 +173,8 @@ const VideoElement = forwardRef<
   const setStatus = usePlayerStore((x) => x.setStatus);
   const setUserInteraction = usePlayerStore((x) => x.setUserInteraction);
   const setVideoRef = usePlayerStore((x) => x.setVideoRef);
+  const startTime = usePlayerStore((x) => x.startTime);
+  const streamStartMs = useStreamStartMs();
 
   const event = (evType) => (e) => {
     console.log(evType);
@@ -256,6 +283,28 @@ const VideoElement = forwardRef<
     (localVideoRef as any).current = videoElement;
   };
 
+  const handleLoadedMetadata = (e) => {
+    event("loadedmetadata")(e);
+    if (!props.seekToStart) {
+      return;
+    }
+    const video = localVideoRef.current;
+    if (!video || startTime == null) {
+      return;
+    }
+    const target = elementStartTimeTarget({
+      startTime,
+      streamStartMs,
+      seekable: video.seekable,
+      duration: video.duration,
+    });
+    if (target == null) {
+      return;
+    }
+    console.log("seeking to temporal reference", startTime, "->", target);
+    video.currentTime = target;
+  };
+
   const eventLogger = (evType) => (e) => {
     console.log("📺 Video event:", evType);
     const now = new Date();
@@ -286,7 +335,7 @@ const VideoElement = forwardRef<
       onEnded={event("ended")}
       onError={event("error")}
       onLoadedData={event("loadeddata")}
-      onLoadedMetadata={event("loadedmetadata")}
+      onLoadedMetadata={handleLoadedMetadata}
       onLoadStart={event("loadstart")}
       onPause={event("pause")}
       onPlay={event("play")}
@@ -313,15 +362,38 @@ const VideoElement = forwardRef<
 });
 
 export function ProgressiveMP4Player(props: VideoProps) {
-  return <VideoElement {...props} />;
+  return <VideoElement {...props} seekToStart />;
 }
 
 export function ProgressiveWebMPlayer(props: VideoProps) {
-  return <VideoElement {...props} />;
+  return <VideoElement {...props} seekToStart />;
 }
 
 export function HLSPlayer(props: VideoProps) {
   const localRef = useRef<HTMLVideoElement | null>(null);
+  const startTime = usePlayerStore((x) => x.startTime);
+  const streamStartMs = useStreamStartMs();
+
+  // Apply a temporal reference (#t=…) to a plain video element once its
+  // metadata is in (Safari's native HLS). hls.js is handled through
+  // LEVEL_UPDATED below, which gives us fragments with program dates.
+  const seekElementToStart = () => {
+    const video = localRef.current;
+    if (!video || startTime == null) {
+      return;
+    }
+    const target = elementStartTimeTarget({
+      startTime,
+      streamStartMs,
+      seekable: video.seekable,
+      duration: video.duration,
+    });
+    if (target == null) {
+      return;
+    }
+    console.log("seeking to temporal reference", startTime, "->", target);
+    video.currentTime = target;
+  };
 
   useEffect(() => {
     if (!localRef.current) {
@@ -337,6 +409,28 @@ export function HLSPlayer(props: VideoProps) {
         hls.stopLoad();
         return;
       }
+      if (startTime != null) {
+        const onLevelUpdated = (_e, data) => {
+          const video = localRef.current;
+          if (!video) {
+            return;
+          }
+          const target = hlsStartTimeTarget({
+            startTime,
+            streamStartMs,
+            fragments: data.details.fragments,
+            live: data.details.live,
+            duration: data.details.duration,
+          });
+          hls.off(Hls.Events.LEVEL_UPDATED, onLevelUpdated);
+          if (target == null) {
+            return;
+          }
+          console.log("seeking to temporal reference", startTime, "->", target);
+          video.currentTime = target;
+        };
+        hls.on(Hls.Events.LEVEL_UPDATED, onLevelUpdated);
+      }
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         if (!localRef.current) {
           return;
@@ -348,6 +442,15 @@ export function HLSPlayer(props: VideoProps) {
       };
     } else if (localRef.current.canPlayType("application/vnd.apple.mpegurl")) {
       localRef.current.src = props.url;
+      if (startTime != null) {
+        localRef.current.addEventListener(
+          "loadedmetadata",
+          seekElementToStart,
+          {
+            once: true,
+          },
+        );
+      }
       localRef.current.addEventListener("canplay", () => {
         if (!localRef.current) {
           return;
@@ -355,7 +458,7 @@ export function HLSPlayer(props: VideoProps) {
         localRef.current.play();
       });
     }
-  }, [props.url]);
+  }, [props.url, startTime, streamStartMs]);
 
   return <VideoElement {...props} ref={localRef} />;
 }

@@ -42,6 +42,7 @@ export * from "./lib/system-messages";
 
 export * from "./components/stream-notification";
 export * from "./lib/stream-notifications";
+export * from "./lib/timestamp";
 
 export * from "./utils/did";
 export * from "./utils/format-handle";

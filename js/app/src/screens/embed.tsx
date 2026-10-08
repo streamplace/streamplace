@@ -8,7 +8,7 @@ import { DesktopUi } from "components/mobile/desktop-ui";
 import { useEffect } from "react";
 import { Platform } from "react-native";
 import { useStore } from "store";
-import { queryToProps } from "./util";
+import { queryToProps, startTimeFromLocation } from "./util";
 
 const isWeb = Platform.OS === "web";
 
@@ -25,7 +25,10 @@ export default function EmbedScreen({ route }) {
     };
   }, []);
   if (isWeb) {
-    extraProps = queryToProps(new URLSearchParams(window.location.search));
+    extraProps = {
+      ...queryToProps(new URLSearchParams(window.location.search)),
+      ...startTimeFromLocation(),
+    };
   }
   let src = user;
   if (user === "stream") {

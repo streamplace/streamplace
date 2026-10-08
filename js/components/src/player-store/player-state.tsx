@@ -92,6 +92,15 @@ export interface PlayerState {
     | null
     | undefined;
 
+  /**
+   * Temporal reference: initial playback position in seconds from the start
+   * of the stream/video (from a #t=… URL fragment). Null when absent.
+   */
+  startTime: number | null;
+
+  /** Function to set the temporal reference */
+  setStartTime: (startTime: number | null) => void;
+
   /** Function to set the video reference */
   setVideoRef: (
     videoRef:

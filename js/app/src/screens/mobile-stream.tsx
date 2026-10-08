@@ -11,7 +11,7 @@ import { PlayerProps } from "components/player/props";
 import { FullscreenProvider } from "contexts/FullscreenContext";
 import useTitle from "hooks/useTitle";
 import { Platform, View } from "react-native";
-import { queryToProps } from "./util";
+import { queryToProps, startTimeFromLocation } from "./util";
 
 const isWeb = Platform.OS === "web";
 
@@ -66,7 +66,10 @@ export default function MobileStream({ route }) {
   let navi = useNavigation();
   let extraProps: Partial<PlayerProps> = {};
   if (isWeb) {
-    extraProps = queryToProps(new URLSearchParams(window.location.search));
+    extraProps = {
+      ...queryToProps(new URLSearchParams(window.location.search)),
+      ...startTimeFromLocation(),
+    };
   }
   let src = user;
   if (user === "stream") {

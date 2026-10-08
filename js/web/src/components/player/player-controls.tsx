@@ -13,7 +13,14 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { type RefObject, useCallback, useEffect, useState } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useFullscreen } from "../../contexts/fullscreen-context";
 import { cn } from "../../lib/utils";
@@ -37,6 +44,7 @@ import { Slider } from "../ui/slider";
 import type { QualityOption } from "./player";
 
 const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+const FEEDBACK_DURATION_MS = 1500;
 
 export type PlayerControlsProps = {
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -99,11 +107,30 @@ export function PlayerControls({
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPiP, setIsPiP] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const feedbackTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { theatre, setTheatre } = useFullscreen();
   const { t } = useTranslation();
+
+  const showFeedback = useCallback((message: string) => {
+    if (feedbackTimeout.current !== null) clearTimeout(feedbackTimeout.current);
+    setFeedback(message);
+    feedbackTimeout.current = setTimeout(() => {
+      setFeedback(null);
+      feedbackTimeout.current = null;
+    }, FEEDBACK_DURATION_MS);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (feedbackTimeout.current !== null)
+        clearTimeout(feedbackTimeout.current);
+    },
+    [],
+  );
 
   // Mirror video element state into React.
   useEffect(() => {
@@ -182,6 +209,9 @@ export function PlayerControls({
     const video = videoRef.current;
     if (!video) return;
     try {
+      showFeedback(
+        t(document.pictureInPictureElement ? "player-exit-pip" : "player-pip"),
+      );
       if (document.pictureInPictureElement) {
         await document.exitPictureInPicture();
       } else {
@@ -190,23 +220,27 @@ export function PlayerControls({
     } catch {
       // PiP can be denied by the browser or user settings.
     }
-  }, [videoRef]);
+  }, [videoRef, showFeedback, t]);
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
+    showFeedback(t(video.paused ? "player-play" : "player-pause"));
     if (video.paused) {
       video.play().catch(() => {});
     } else {
       video.pause();
     }
-  }, [videoRef]);
+  }, [videoRef, showFeedback, t]);
 
   const toggleMute = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
     video.muted = !video.muted;
-  }, [videoRef]);
+    showFeedback(
+      t(video.muted ? "player-feedback-muted" : "player-feedback-unmuted"),
+    );
+  }, [videoRef, showFeedback, t]);
 
   const onVolumeInput = useCallback(
     (v: number) => {
@@ -215,8 +249,11 @@ export function PlayerControls({
       video.volume = v;
       // Unmuting requires volume > 0 on some browsers.
       if (v > 0) video.muted = false;
+      showFeedback(
+        t("player-feedback-volume", { volume: Math.round(video.volume * 100) }),
+      );
     },
-    [videoRef],
+    [videoRef, showFeedback, t],
   );
 
   const onSeekInput = useCallback(
@@ -224,8 +261,12 @@ export function PlayerControls({
       const video = videoRef.current;
       if (!video) return;
       video.currentTime = currentTime;
+      setCurrentTime(video.currentTime);
+      showFeedback(
+        t("player-feedback-seek", { time: formatTime(video.currentTime) }),
+      );
     },
-    [videoRef],
+    [videoRef, showFeedback, t],
   );
 
   const onPlaybackRateChange = useCallback(
@@ -234,8 +275,9 @@ export function PlayerControls({
       if (!video || isLive) return;
       video.playbackRate = Math.max(0.25, Math.min(2, rate));
       setPlaybackRate(video.playbackRate);
+      showFeedback(t("player-feedback-speed", { speed: video.playbackRate }));
     },
-    [videoRef, isLive],
+    [videoRef, isLive, showFeedback, t],
   );
 
   const frameRate = qualities.find(
@@ -261,14 +303,31 @@ export function PlayerControls({
         0,
         Math.min(video.duration, video.currentTime + direction / fps),
       );
+      setCurrentTime(video.currentTime);
+      const milliseconds = Math.round(video.currentTime * 1000);
+      showFeedback(
+        t("player-feedback-frame", {
+          frame: t(
+            direction > 0 ? "player-frame-next" : "player-frame-previous",
+          ),
+          time: `${formatTime(milliseconds / 1000)}.${String(milliseconds % 1000).padStart(3, "0")}`,
+        }),
+      );
     },
-    [videoRef, isLive, frameRate],
+    [videoRef, isLive, frameRate, showFeedback, t],
   );
 
   const toggleFullscreen = useCallback(async () => {
     const el = containerRef.current;
     if (!el) return;
     try {
+      showFeedback(
+        t(
+          document.fullscreenElement
+            ? "player-exit-fullscreen"
+            : "player-fullscreen",
+        ),
+      );
       if (document.fullscreenElement) {
         await document.exitFullscreen();
       } else {
@@ -277,7 +336,15 @@ export function PlayerControls({
     } catch {
       // Fullscreen can be denied (e.g. not user-initiated in some browsers).
     }
-  }, [containerRef]);
+  }, [containerRef, showFeedback, t]);
+
+  const onTheatreChange = useCallback(
+    (value: boolean) => {
+      setTheatre(value);
+      showFeedback(t(value ? "player-theatre" : "player-exit-theatre"));
+    },
+    [setTheatre, showFeedback, t],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -313,7 +380,7 @@ export function PlayerControls({
         toggleFullscreen();
       } else if (key === "t") {
         e.preventDefault();
-        setTheatre(!theatre);
+        onTheatreChange(!theatre);
       } else if (key === "arrowup" || key === "arrowdown") {
         e.preventDefault();
         onVolumeInput(
@@ -369,7 +436,7 @@ export function PlayerControls({
     toggleMute,
     toggleFullscreen,
     theatre,
-    setTheatre,
+    onTheatreChange,
     isLive,
     settingsOpen,
     onVolumeInput,
@@ -389,6 +456,19 @@ export function PlayerControls({
         visible ? "opacity-100" : "pointer-events-none opacity-0",
       )}
     >
+      {feedback &&
+        containerRef.current &&
+        createPortal(
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="border-border bg-popover/95 text-popover-foreground pointer-events-none absolute top-4 left-1/2 z-20 max-w-full -translate-x-1/2 rounded-lg border px-4 py-2 text-sm font-medium tabular-nums backdrop-blur"
+          >
+            {feedback}
+          </div>,
+          containerRef.current,
+        )}
       {/* Top gradient; subtle hint that there's a controls bar.
           Not strictly needed since the bar has its own background, but
           gives the play button overlay a darker canvas. */}
@@ -525,7 +605,7 @@ export function PlayerControls({
 
           <button
             type="button"
-            onClick={() => setTheatre(!theatre)}
+            onClick={() => onTheatreChange(!theatre)}
             className={cn(
               "wide:flex wide:p-1 hidden transition-colors",
               theatre ? "text-white" : "text-white/40 hover:text-white/80",
@@ -680,7 +760,7 @@ export function PlayerControls({
               <DropdownMenuCheckboxItem
                 className="wide:hidden"
                 checked={theatre}
-                onCheckedChange={(checked) => setTheatre(checked)}
+                onCheckedChange={onTheatreChange}
               >
                 {t("player-theatre")}
               </DropdownMenuCheckboxItem>

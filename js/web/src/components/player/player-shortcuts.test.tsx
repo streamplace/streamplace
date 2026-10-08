@@ -58,6 +58,7 @@ describe("player shortcuts", () => {
     video.remove();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   async function render() {
@@ -337,5 +338,84 @@ describe("player shortcuts", () => {
       document.querySelectorAll('[role="menuitem"]'),
     ).find((element) => element.textContent === "Next frame");
     expect(item?.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  describe("action feedback", () => {
+    beforeEach(() => vi.useFakeTimers());
+
+    function feedback() {
+      return document.querySelector('[role="status"]');
+    }
+
+    it("immediately replaces the last action with the latest result", async () => {
+      await press("l");
+      expect(feedback()?.textContent).toBe("Seek to 1:00");
+      await press(">");
+      expect(feedback()?.textContent).toBe("Playback speed: 1.25×");
+      await press("j");
+      expect(feedback()?.textContent).toBe("Seek to 0:50");
+      expect(document.querySelectorAll('[role="status"]')).toHaveLength(1);
+    });
+
+    it("updates frame position without waiting for a media timeupdate", async () => {
+      await press(".");
+      expect(feedback()?.textContent).toBe("Next frame at 0:50.017");
+      await press(".");
+      expect(feedback()?.textContent).toBe("Next frame at 0:50.033");
+      await press(",");
+      expect(feedback()?.textContent).toBe("Previous frame at 0:50.017");
+    });
+
+    it("confirms playback, mute, and resulting volume", async () => {
+      await press("k");
+      expect(feedback()?.textContent).toBe("Play");
+      await press("k");
+      expect(feedback()?.textContent).toBe("Pause");
+      await press("m");
+      expect(feedback()?.textContent).toBe("Muted");
+      await press("m");
+      expect(feedback()?.textContent).toBe("Unmuted");
+      await press("ArrowDown");
+      expect(feedback()?.textContent).toBe("Volume: 95%");
+    });
+
+    it("resets dismissal even when the repeated message is identical", async () => {
+      await press("ArrowUp");
+      await act(async () => vi.advanceTimersByTime(1_000));
+      await press("ArrowUp");
+      expect(feedback()?.textContent).toBe("Volume: 100%");
+      await act(async () => vi.advanceTimersByTime(500));
+      expect(feedback()?.textContent).toBe("Volume: 100%");
+      await act(async () => vi.advanceTimersByTime(1_000));
+      expect(feedback()).toBeNull();
+    });
+
+    it("does not let an older dismissal hide a newer action", async () => {
+      await press(">");
+      await act(async () => vi.advanceTimersByTime(1_000));
+      await press("l");
+      await act(async () => vi.advanceTimersByTime(500));
+      expect(feedback()?.textContent).toBe("Seek to 1:00");
+    });
+
+    it("does not show feedback for unavailable live actions or typing", async () => {
+      props.isLive = true;
+      await render();
+      await press(".");
+      await press(">");
+      await press("l");
+      const input = document.createElement("input");
+      container.append(input);
+      await press("k", input);
+      expect(feedback()).toBeNull();
+      await press("ArrowDown");
+      expect(feedback()?.textContent).toBe("Volume: 95%");
+    });
+
+    it("cancels its dismissal timer on unmount", async () => {
+      await press(">");
+      await act(async () => root.unmount());
+      expect(vi.getTimerCount()).toBe(0);
+    });
   });
 });

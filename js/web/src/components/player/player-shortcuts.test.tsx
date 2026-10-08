@@ -353,13 +353,30 @@ describe("player shortcuts", () => {
       expect(feedback()?.querySelector(".lucide-fast-forward")).not.toBeNull();
       await press(">");
       expect(feedback()?.textContent).toBe("Playback speed: 1.25×");
-      expect(feedback()?.querySelector(".lucide-gauge")).not.toBeNull();
+      expect(feedback()?.querySelector(".lucide-rabbit")).not.toBeNull();
       await press("j");
       expect(feedback()?.textContent).toBe("Seek to 0:50");
       expect(feedback()?.querySelector(".lucide-rewind")).not.toBeNull();
       expect(feedback()?.querySelectorAll("svg")).toHaveLength(1);
       expect(document.querySelectorAll('[role="status"]')).toHaveLength(1);
     });
+
+    it.each([
+      { start: 2, key: "<", rate: 1.75, icon: "rabbit" },
+      { start: 0.25, key: ">", rate: 0.5, icon: "snail" },
+      { start: 1.25, key: "<", rate: 1, icon: "panda" },
+      { start: 0.75, key: ">", rate: 1, icon: "panda" },
+    ])(
+      "shows $icon at $rate× after $key",
+      async ({ start, key, rate, icon }) => {
+        await act(async () => {
+          video.playbackRate = start;
+        });
+        await press(key);
+        expect(feedback()?.textContent).toBe(`Playback speed: ${rate}×`);
+        expect(feedback()?.querySelector(`.lucide-${icon}`)).not.toBeNull();
+      },
+    );
 
     it("updates frame position without waiting for a media timeupdate", async () => {
       await press(".");

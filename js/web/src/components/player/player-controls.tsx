@@ -4,16 +4,18 @@
 // when the video is paused or has errored.
 import {
   FastForward,
-  Gauge,
   type LucideIcon,
   Maximize,
   Minimize,
+  Panda,
   Pause,
   PictureInPicture,
   Play,
+  Rabbit,
   RectangleHorizontal,
   Rewind,
   Settings,
+  Snail,
   StepBack,
   StepForward,
   Volume2,
@@ -291,10 +293,11 @@ export function PlayerControls({
       const video = videoRef.current;
       if (!video || isLive) return;
       video.playbackRate = Math.max(0.25, Math.min(2, rate));
-      setPlaybackRate(video.playbackRate);
+      const speed = video.playbackRate;
+      setPlaybackRate(speed);
       showFeedback(
-        t("player-feedback-speed", { speed: video.playbackRate }),
-        Gauge,
+        t("player-feedback-speed", { speed }),
+        speed > 1 ? Rabbit : speed < 1 ? Snail : Panda,
       );
     },
     [videoRef, isLive, showFeedback, t],

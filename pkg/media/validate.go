@@ -48,11 +48,13 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 	readSpan.SetAttributes(attribute.Int("bytes", len(buf)))
 	readSpan.End()
 	if err != nil {
+		mm.abortEarlyEpoch(ctx)
 		return fmt.Errorf("failed to read input: %w", err)
 	}
 
 	vs, playable, err := mm.validateSource(ctx, buf, local)
 	if err != nil {
+		mm.abortEarlyEpoch(ctx)
 		return err
 	}
 	if vs == nil {
@@ -65,6 +67,11 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 	// — already dual-codec, no audio, audio-only, an exotic codec, or no node
 	// signer — is distributed as-is, immediately.
 	if target, need := mm.audioCompletionTarget(ctx, buf); need {
+		if target == "opus" {
+			mm.feedEarlyAAC(ctx, vs, buf)
+		} else if mm.cli.ExperimentalEarlyAACPlayback {
+			mm.abortEarlyEpoch(ctx)
+		}
 		if cert, keyPEM, serr := mm.transcodeSigner(); serr == nil {
 			var packet *bus.PacketizedSegment
 			// Bitrate admission runs on the completed segment in the director.
@@ -78,6 +85,9 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		} else {
 			log.Warn(ctx, "node transcode signer unavailable, distributing single-codec", "error", serr)
 		}
+	}
+	if mm.cli.ExperimentalEarlyAACPlayback {
+		mm.abortEarlyEpoch(ctx)
 	}
 	return mm.distributeSegment(ctx, vs, buf, playable)
 }

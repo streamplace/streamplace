@@ -89,6 +89,8 @@ type MediaManager struct {
 	// transcoder's MP4s carry their video under (see canonicalRenditionTrack).
 	renditionVideoTID renditionTIDCache
 	transcodersMu     sync.Mutex
+	earlyMu           sync.Mutex
+	earlySessions     map[string]*earlyAACSession
 
 	// Monotonic ingest-session epoch. Each live ingest session (one
 	// SegmentAndSignElem) claims a fresh value, stamped onto its context, so the

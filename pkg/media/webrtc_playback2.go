@@ -27,6 +27,11 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 	ctx = log.WithLogValues(ctx, "webrtcID", uu.String())
 	ctx = log.WithLogValues(ctx, "mediafunc", "WebRTCPlayback")
 
+	earlySession, earlyPeer := mm.joinEarlyAAC(user, rendition)
+	if earlyPeer != nil {
+		return mm.webRTCEarlyAAC(ctx, user, offer, earlySession, earlyPeer)
+	}
+
 	// Create a new RTCPeerConnection
 	peerConnection, err := mm.webrtcAPI.NewPeerConnection(mm.webrtcConfig)
 	if err != nil {
@@ -186,7 +191,7 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					queuedDuration := time.Duration(backlog.Add(-int64(packet.Duration)))
 					scalar = getPlaybackRate(queuedDuration)
 					log.Debug(ctx, "playback backlog", "backlog", queuedDuration, "scalar", scalar)
-					g, gctx := errgroup.WithContext(ctx)
+					g, gctx := errgroup.WithContext(log.WithLogValues(ctx, "packet", fmt.Sprintf("%p", packet)))
 
 					if !audioOnly && len(packet.Video) > 0 {
 						g.Go(func() error {

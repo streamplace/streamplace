@@ -23,14 +23,20 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Slider } from "../ui/slider";
 import type { QualityOption } from "./player";
+
+const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
 export type PlayerControlsProps = {
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -90,6 +96,7 @@ export function PlayerControls({
   const [volume, setVolume] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPiP, setIsPiP] = useState(false);
 
@@ -115,17 +122,23 @@ export function PlayerControls({
     const onLoadedMetadata = () => {
       if (!isLive) setDuration(video.duration);
     };
+    const onRateChange = () => setPlaybackRate(video.playbackRate);
 
     // Sync initial state — the video may already be playing when we attach.
     setMuted(video.muted);
     setVolume(video.volume);
     if (!video.paused) setPlaying(true);
+    onLoadedMetadata();
+    onTimeUpdate();
+    onRateChange();
 
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
     video.addEventListener("volumechange", onVolumeChange);
     video.addEventListener("timeupdate", onTimeUpdate);
     video.addEventListener("loadedmetadata", onLoadedMetadata);
+    video.addEventListener("durationchange", onLoadedMetadata);
+    video.addEventListener("ratechange", onRateChange);
 
     return () => {
       video.removeEventListener("play", onPlay);
@@ -133,6 +146,8 @@ export function PlayerControls({
       video.removeEventListener("volumechange", onVolumeChange);
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
+      video.removeEventListener("durationchange", onLoadedMetadata);
+      video.removeEventListener("ratechange", onRateChange);
     };
   }, [videoRef, isLive]);
 
@@ -213,6 +228,43 @@ export function PlayerControls({
     [videoRef],
   );
 
+  const onPlaybackRateChange = useCallback(
+    (rate: number) => {
+      const video = videoRef.current;
+      if (!video || isLive) return;
+      video.playbackRate = Math.max(0.25, Math.min(2, rate));
+      setPlaybackRate(video.playbackRate);
+    },
+    [videoRef, isLive],
+  );
+
+  const frameRate = qualities.find(
+    (q) => q.index === currentQuality,
+  )?.frameRate;
+  const stepFrame = useCallback(
+    (direction: number) => {
+      const video = videoRef.current;
+      if (
+        !video ||
+        isLive ||
+        !video.paused ||
+        !Number.isFinite(video.duration) ||
+        video.duration <= 0
+      )
+        return;
+      // Native HLS and manifests without FRAME-RATE use a 30 fps estimate.
+      const fps =
+        frameRate && Number.isFinite(frameRate) && frameRate > 0
+          ? frameRate
+          : 30;
+      video.currentTime = Math.max(
+        0,
+        Math.min(video.duration, video.currentTime + direction / fps),
+      );
+    },
+    [videoRef, isLive, frameRate],
+  );
+
   const toggleFullscreen = useCallback(async () => {
     const el = containerRef.current;
     if (!el) return;
@@ -227,35 +279,108 @@ export function PlayerControls({
     }
   }, [containerRef]);
 
-  // Keyboard shortcuts: space=play/pause, m=mute, f=fullscreen.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Don't hijack typing in inputs or anywhere a user is composing text
-      // (contenteditable covers rich editors like the Tiptap chat input).
+      if (
+        e.defaultPrevented ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.altKey ||
+        e.isComposing
+      )
+        return;
+      // Preserve typing, focused controls, and popup keyboard navigation.
       const target = e.target as HTMLElement | null;
-      const tag = target?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (target?.isContentEditable) return;
-      if (e.key === " ") {
+      if (
+        target?.closest?.(
+          'input, textarea, select, button, a, [contenteditable], [role="textbox"], [role="slider"], [role="menu"], [role="dialog"]',
+        )
+      )
+        return;
+      if (settingsOpen) return;
+      const video = videoRef.current;
+      if (!video) return;
+      const key = e.key.toLowerCase();
+      if (key === " " || key === "k") {
         e.preventDefault();
         togglePlay();
-      } else if (e.key === "m" || e.key === "M") {
+      } else if (key === "m") {
         e.preventDefault();
         toggleMute();
-      } else if (e.key === "f" || e.key === "F") {
+      } else if (key === "f") {
         e.preventDefault();
         toggleFullscreen();
-      } else if (e.key === "t" || e.key === "T") {
+      } else if (key === "t") {
         e.preventDefault();
         setTheatre(!theatre);
+      } else if (key === "arrowup" || key === "arrowdown") {
+        e.preventDefault();
+        onVolumeInput(
+          Math.max(
+            0,
+            Math.min(1, video.volume + (key === "arrowup" ? 0.05 : -0.05)),
+          ),
+        );
+      } else if (!isLive) {
+        if (key === "<" || key === ">") {
+          e.preventDefault();
+          onPlaybackRateChange(
+            video.playbackRate + (key === ">" ? 0.25 : -0.25),
+          );
+        } else if ((key === "," || key === ".") && video.paused) {
+          e.preventDefault();
+          stepFrame(key === "." ? 1 : -1);
+        } else if (Number.isFinite(video.duration) && video.duration > 0) {
+          let time: number;
+          switch (key) {
+            case "arrowleft":
+              time = video.currentTime - 5;
+              break;
+            case "arrowright":
+              time = video.currentTime + 5;
+              break;
+            case "j":
+              time = video.currentTime - 10;
+              break;
+            case "l":
+              time = video.currentTime + 10;
+              break;
+            case "home":
+              time = 0;
+              break;
+            case "end":
+              time = video.duration;
+              break;
+            default:
+              if (!/^[0-9]$/.test(key)) return;
+              time = (Number(key) / 10) * video.duration;
+          }
+          e.preventDefault();
+          onSeekInput(Math.max(0, Math.min(video.duration, time)));
+        }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [togglePlay, toggleMute, toggleFullscreen, theatre, setTheatre]);
+  }, [
+    videoRef,
+    togglePlay,
+    toggleMute,
+    toggleFullscreen,
+    theatre,
+    setTheatre,
+    isLive,
+    settingsOpen,
+    onVolumeInput,
+    onSeekInput,
+    onPlaybackRateChange,
+    stepFrame,
+  ]);
 
   const showUnmutePrompt = shouldShowUnmutePrompt(playing, muted);
-  const visible = forceVisible || showControls || bigPlay || showUnmutePrompt;
+  const visible =
+    forceVisible || showControls || bigPlay || showUnmutePrompt || settingsOpen;
 
   return (
     <div
@@ -446,8 +571,74 @@ export function PlayerControls({
             <DropdownMenuContent
               side="top"
               align="end"
-              className="border-white/10 bg-black/85 backdrop-blur"
+              portalContainer={containerRef.current}
+              className="border-border bg-popover/95 min-w-48 backdrop-blur"
             >
+              {!isLive && (
+                <>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      {t("player-speed")}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent
+                      portalContainer={containerRef.current}
+                    >
+                      <DropdownMenuGroup>
+                        <DropdownMenuRadioGroup
+                          value={String(playbackRate)}
+                          onValueChange={(v) => onPlaybackRateChange(Number(v))}
+                        >
+                          {PLAYBACK_RATES.map((rate) => (
+                            <DropdownMenuRadioItem
+                              key={rate}
+                              value={String(rate)}
+                            >
+                              {rate === 1
+                                ? t("player-speed-normal")
+                                : `${rate}×`}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      {t("player-frame")}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent
+                      portalContainer={containerRef.current}
+                    >
+                      <DropdownMenuGroup>
+                        <DropdownMenuLabel>
+                          {t("player-frame-paused")}
+                        </DropdownMenuLabel>
+                        <DropdownMenuItem
+                          disabled={
+                            playing ||
+                            !Number.isFinite(duration) ||
+                            duration <= 0
+                          }
+                          onClick={() => stepFrame(-1)}
+                        >
+                          {t("player-frame-previous")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={
+                            playing ||
+                            !Number.isFinite(duration) ||
+                            duration <= 0
+                          }
+                          onClick={() => stepFrame(1)}
+                        >
+                          {t("player-frame-next")}
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuGroup>
                 <DropdownMenuLabel>{t("player-latency")}</DropdownMenuLabel>
                 <DropdownMenuRadioGroup

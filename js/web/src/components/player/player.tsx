@@ -71,6 +71,8 @@ export type QualityOption = {
   index: number;
   /** Human-readable label, e.g. "Auto", "1080p", "720p". */
   label: string;
+  /** Frames per second advertised by the HLS rendition. */
+  frameRate?: number;
 };
 
 /**

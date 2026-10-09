@@ -491,12 +491,15 @@ export function PlayerControls({
             role="status"
             aria-live="polite"
             aria-atomic="true"
-            className="pointer-events-none absolute top-1/2 left-1/2 z-20 flex w-full -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 px-4 text-center text-sm font-medium text-white/80 tabular-nums"
+            className="pointer-events-none absolute top-1/2 left-1/2 z-20 flex w-full -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 px-4 text-center text-sm font-medium tabular-nums"
           >
             <div className="rounded-full bg-black/50 p-2">
-              <feedback.icon className="size-12" aria-hidden="true" />
+              <feedback.icon
+                className="size-12 text-white opacity-80"
+                aria-hidden="true"
+              />
             </div>
-            <span className="max-w-full rounded-md bg-black/50 px-3 py-1">
+            <span className="max-w-full rounded-md bg-black/50 px-3 py-1 text-white/80">
               {feedback.message}
             </span>
           </div>,

@@ -53,6 +53,16 @@ import type { QualityOption } from "./player";
 
 const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 const FEEDBACK_DURATION_MS = 1500;
+const PLAYER_SHORTCUTS_SELECTOR = "[data-player-shortcuts]";
+
+function ownsKeyboardShortcuts(container: HTMLElement | null) {
+  if (!container) return false;
+  const activePlayer =
+    document.querySelector<HTMLElement>(`${PLAYER_SHORTCUTS_SELECTOR}:hover`) ??
+    document.activeElement?.closest<HTMLElement>(PLAYER_SHORTCUTS_SELECTOR);
+  if (activePlayer) return activePlayer === container;
+  return document.querySelectorAll(PLAYER_SHORTCUTS_SELECTOR).length === 1;
+}
 
 export type PlayerControlsProps = {
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -394,6 +404,7 @@ export function PlayerControls({
       )
         return;
       if (settingsOpen) return;
+      if (!ownsKeyboardShortcuts(containerRef.current)) return;
       const video = videoRef.current;
       if (!video) return;
       const key = e.key.toLowerCase();

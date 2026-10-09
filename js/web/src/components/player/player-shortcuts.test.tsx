@@ -7,16 +7,22 @@ import { PlayerControls, type PlayerControlsProps } from "./player-controls";
 
 describe("player shortcuts", () => {
   let container: HTMLDivElement;
+  let playerContainer: HTMLDivElement;
   let video: HTMLVideoElement;
   let root: Root;
+  let additionalRoots: Root[];
   let paused: boolean;
   let props: PlayerControlsProps;
 
   beforeEach(async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     container = document.createElement("div");
+    playerContainer = document.createElement("div");
+    playerContainer.dataset.playerShortcuts = "";
     video = document.createElement("video");
-    document.body.append(container, video);
+    playerContainer.append(video, container);
+    document.body.append(playerContainer);
+    additionalRoots = [];
     paused = true;
     // jsdom has no media decoder. Keep playback state and events together.
     Object.defineProperties(video, {
@@ -34,7 +40,7 @@ describe("player shortcuts", () => {
     video.currentTime = 50;
     props = {
       videoRef: { current: video },
-      containerRef: { current: container },
+      containerRef: { current: playerContainer },
       isLive: false,
       showControls: true,
       bigPlay: false,
@@ -54,8 +60,10 @@ describe("player shortcuts", () => {
 
   afterEach(async () => {
     await act(async () => root.unmount());
-    container.remove();
-    video.remove();
+    for (const additionalRoot of additionalRoots) {
+      await act(async () => additionalRoot.unmount());
+    }
+    playerContainer.remove();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.useRealTimers();
@@ -91,6 +99,50 @@ describe("player shortcuts", () => {
     expect(video.paused).toBe(false);
     await press(" ");
     expect(video.paused).toBe(true);
+  });
+
+  it("routes shortcuts to the player containing the focused video", async () => {
+    const secondPlayerContainer = document.createElement("div");
+    secondPlayerContainer.dataset.playerShortcuts = "";
+    const secondVideo = document.createElement("video");
+    const secondControls = document.createElement("div");
+    secondPlayerContainer.append(secondVideo, secondControls);
+    document.body.append(secondPlayerContainer);
+
+    let secondPaused = true;
+    Object.defineProperties(secondVideo, {
+      duration: { configurable: true, value: 100 },
+      paused: { get: () => secondPaused },
+    });
+    vi.spyOn(secondVideo, "play").mockImplementation(async () => {
+      secondPaused = false;
+      secondVideo.dispatchEvent(new Event("play"));
+    });
+    vi.spyOn(secondVideo, "pause").mockImplementation(() => {
+      secondPaused = true;
+      secondVideo.dispatchEvent(new Event("pause"));
+    });
+    secondVideo.tabIndex = 0;
+    const secondRoot = createRoot(secondControls);
+    additionalRoots.push(secondRoot);
+    await act(async () => {
+      secondRoot.render(
+        <FullscreenProvider>
+          <PlayerControls
+            {...props}
+            videoRef={{ current: secondVideo }}
+            containerRef={{ current: secondPlayerContainer }}
+          />
+        </FullscreenProvider>,
+      );
+    });
+
+    secondVideo.focus();
+    await press("k");
+
+    expect(secondVideo.paused).toBe(false);
+    expect(video.paused).toBe(true);
+    secondPlayerContainer.remove();
   });
 
   it("steps paused frames using the selected video's frame rate", async () => {

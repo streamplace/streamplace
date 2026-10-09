@@ -29,6 +29,7 @@ import {
   Text,
   useTheme,
 } from "../../ui";
+import { vodQualityChoices } from "../vod-levels";
 import { ReportMenuItems } from "./report-menu-items";
 
 const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -55,7 +56,8 @@ export function ContextMenu({
   const vodLevels = usePlayerStore((x) => x.vodLevels);
   const playingVODRendition = usePlayerStore((x) => x.playingVODRendition);
   const liveRenditions = useLivestreamStore((x) => x.renditions);
-  const qualities = mode === "vod" ? vodLevels : liveRenditions;
+  const qualities =
+    mode === "vod" ? vodQualityChoices(vodLevels) : liveRenditions;
 
   const livestream = useLivestreamStore((x) => x.livestream);
   const { profile } = useLivestreamInfo();

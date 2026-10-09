@@ -493,8 +493,8 @@ export const scrims = {
 /** Foreground and separate backplates for transient feedback over video. */
 export const playerActionFeedback = {
   background: "rgba(0,0,0,0.5)",
-  foreground: "rgba(255,255,255,0.8)",
-  iconOpacity: 0.8,
+  foreground: colors.white,
+  foregroundOpacity: 0.8,
 } as const;
 
 /**

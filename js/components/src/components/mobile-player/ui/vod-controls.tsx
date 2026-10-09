@@ -14,6 +14,7 @@ import {
   useTheme,
   View,
 } from "../../ui";
+import { vodQualityChoices } from "../vod-levels";
 
 function formatTime(seconds: number): string {
   const s = Math.floor(seconds);
@@ -33,7 +34,8 @@ export function VodControls() {
   const setQuality = usePlayerStore((x) => x.setSelectedRendition);
   const liveRenditions = useLivestreamStore((x) => x.renditions);
   const vodLevels = usePlayerStore((x) => x.vodLevels);
-  const renditions = mode === "vod" ? vodLevels : liveRenditions;
+  const renditions =
+    mode === "vod" ? vodQualityChoices(vodLevels) : liveRenditions;
   const th = useTheme();
 
   const playTime = usePlayerStore((x) => x.playTime);

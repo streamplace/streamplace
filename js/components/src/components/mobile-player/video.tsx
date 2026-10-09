@@ -16,6 +16,7 @@ import { Text, View } from "../ui/index";
 import { Loader } from "../ui/loader";
 import { srcToUrl } from "./shared";
 import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
+import { vodLevelsFromHls } from "./vod-levels";
 import {
   logWebRTCDiagnostics,
   useWebRTCDiagnostics,
@@ -410,17 +411,7 @@ export function HLSPlayer(props: VideoProps) {
         if (pinned !== -1) {
           hls.currentLevel = pinned;
         }
-        if (mode === "vod" && hls.levels.length > 1) {
-          setVodLevels(
-            hls.levels.map((l) => ({
-              name:
-                l.height > 0
-                  ? `${l.height}p`
-                  : `${Math.round(l.bitrate / 1000)}k`,
-              frameRate: l.frameRate,
-            })),
-          );
-        }
+        setVodLevels(vodLevelsFromHls(mode, hls.levels));
       });
       hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
         const l = hls.levels[data.level];

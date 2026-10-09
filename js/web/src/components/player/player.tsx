@@ -347,6 +347,7 @@ export function Player({
   return (
     <div
       ref={containerRef}
+      data-player-shortcuts=""
       className="group relative h-full w-full bg-black"
       onMouseMove={bumpControls}
       onMouseLeave={() => {

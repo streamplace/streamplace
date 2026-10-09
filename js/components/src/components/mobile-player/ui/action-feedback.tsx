@@ -9,14 +9,13 @@ import { useEffect } from "react";
 import { layout, layouts, spacing, zIndex } from "../../../lib/theme/atoms";
 import { borderRadius, playerActionFeedback } from "../../../lib/theme/tokens";
 import { usePlayerStore } from "../../../player-store";
-import { Text, useTheme, View } from "../../ui";
+import { Text, View } from "../../ui";
 
 const FEEDBACK_DURATION_MS = 1500;
 
 export function ActionFeedback() {
   const feedback = usePlayerStore((state) => state.feedback);
   const clearFeedback = usePlayerStore((state) => state.clearFeedback);
-  const { theme } = useTheme();
 
   useEffect(() => {
     if (!feedback) return;
@@ -58,8 +57,8 @@ export function ActionFeedback() {
             backgroundColor: playerActionFeedback.background,
           }}
         >
-          <View style={{ opacity: playerActionFeedback.iconOpacity }}>
-            <Icon size={spacing[12]} color={theme.colors.foreground} />
+          <View style={{ opacity: playerActionFeedback.foregroundOpacity }}>
+            <Icon size={spacing[12]} color={playerActionFeedback.foreground} />
           </View>
         </View>
         <View
@@ -74,6 +73,7 @@ export function ActionFeedback() {
             size="sm"
             style={{
               color: playerActionFeedback.foreground,
+              opacity: playerActionFeedback.foregroundOpacity,
               fontVariant: ["tabular-nums"],
             }}
           >

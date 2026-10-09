@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/i18n",
-  "version": "0.12.3",
+  "version": "0.12.4",
   "private": true,
   "description": "Streamplace i18n: locale data, manifest, Fluent sources, compiled translations, and platform-agnostic config.",
   "main": "./src/index.ts",

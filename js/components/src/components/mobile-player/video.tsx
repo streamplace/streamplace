@@ -85,6 +85,7 @@ export default function WebVideo(props?: {
   const src = usePlayerStore((x) => x.src);
   const setPlayerWidth = usePlayerStore((x) => x.setPlayerWidth);
   const setPlayerHeight = usePlayerStore((x) => x.setPlayerHeight);
+  const playbackRate = usePlayerStore((x) => x.playbackRate);
   const { url, protocol } = srcToUrl({ src: src, selectedRendition }, inProto);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -96,6 +97,10 @@ export default function WebVideo(props?: {
       setPlayerHeight(dimensions.height);
     }
   }, [dimensions, setPlayerWidth, setPlayerHeight]);
+
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.playbackRate = playbackRate;
+  }, [playbackRate, protocol, url]);
 
   const playerProps = {
     url,
@@ -412,6 +417,7 @@ export function HLSPlayer(props: VideoProps) {
                 l.height > 0
                   ? `${l.height}p`
                   : `${Math.round(l.bitrate / 1000)}k`,
+              frameRate: l.frameRate,
             })),
           );
         }

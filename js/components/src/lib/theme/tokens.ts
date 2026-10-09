@@ -490,6 +490,13 @@ export const scrims = {
   light: "rgba(0,0,0,0.55)",
 } as const;
 
+/** Foreground and separate backplates for transient feedback over video. */
+export const playerActionFeedback = {
+  background: "rgba(0,0,0,0.5)",
+  foreground: "rgba(255,255,255,0.8)",
+  iconOpacity: 0.8,
+} as const;
+
 /**
  * Spacing — 4px base grid. Canonical steps: 4, 8, 12, 16, 24, 32, 48, 64
  * (keys 1, 2, 3, 4, 6, 8, 12, 16). Off-grid keys are deprecated and will be

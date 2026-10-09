@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
@@ -73,8 +74,8 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 	cli.DumpDebugSegment(ctx, fmt.Sprintf("packetize-input-%s.mp4", uu.String()), bytes.NewReader(seg.Data))
 
 	pipelineSlice := []string{
-		fmt.Sprintf("%s name=videoparse ! h264parse ! video/x-h264,stream-format=byte-stream ! appsink sync=false name=videoappsink", constants.Queue2Big),
-		fmt.Sprintf("%s name=audioparse ! opusparse ! appsink sync=false name=audioappsink", constants.Queue2Big),
+		fmt.Sprintf("%s name=videoparse ! video/x-h264,stream-format=byte-stream ! appsink sync=false name=videoappsink", constants.Queue2Big),
+		fmt.Sprintf("%s name=audioparse ! appsink sync=false name=audioappsink", constants.Queue2Big),
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -161,6 +162,9 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 			if sample == nil {
 				return gst.FlowEOS
 			}
+			// PullSample transfers a native reference owned by this callback.
+			runtime.SetFinalizer(sample, nil)
+			defer sample.Unref()
 
 			buffer := sample.GetBuffer()
 			if buffer == nil {
@@ -197,6 +201,8 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 				log.Warn(ctx, "audioappsink NewSampleFunc EOS")
 				return gst.FlowEOS
 			}
+			runtime.SetFinalizer(sample, nil)
+			defer sample.Unref()
 
 			buffer := sample.GetBuffer()
 			if buffer == nil {

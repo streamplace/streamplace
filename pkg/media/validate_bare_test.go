@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/comatproto"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
@@ -19,7 +21,7 @@ import (
 
 // newBareSegmentSigner is an ephemeral signer with the test streamer name,
 // enough to drive SignSegmentStream in tests.
-func newBareSegmentSigner(t *testing.T) *MediaSignerLocal {
+func newBareSegmentSigner(t testing.TB) *MediaSignerLocal {
 	t.Helper()
 	ms, err := NewEphemeralMediaSigner("test-streamer")
 	require.NoError(t, err)
@@ -190,4 +192,89 @@ func TestStreamerIsBanned(t *testing.T) {
 	banned, err = mm.streamerIsBanned(did)
 	require.NoError(t, err)
 	require.True(t, banned, "an active ban label is detected at the validate chokepoint")
+}
+
+// The flat presentation produced for media validation must survive until direct
+// distribution; rebuilding it would repeat a whole muxl operation per GoP.
+func TestValidateSourcePreservesPresentation(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+	ms.PrebuiltManifest = bytes.Replace(ms.PrebuiltManifest, []byte("did:example"), []byte("did:key:test"), 1)
+	segs := allSignedBareSegments(t, ctx, ms, getFixture("h264-opus-frag.mp4"))
+	require.NotEmpty(t, segs)
+	mm := NewOffline(&config.CLI{WideOpen: true})
+	vs, playable, err := mm.validateSource(ctx, segs[0], true)
+	require.NoError(t, err)
+	require.NotNil(t, vs)
+	require.NotEmpty(t, playable)
+	var expected bytes.Buffer
+	require.NoError(t, muxl.RunMuxlWrap(ctx, bytes.NewReader(segs[0]), "flat", &expected))
+	require.Equal(t, expected.Bytes(), playable)
+
+	// Observe the actual subscriber queue without starting a forwarding goroutine.
+	sub := &segmentSubscriber{queue: make(chan *NewSegmentNotification, 1)}
+	mm.newSegmentSubs = []*segmentSubscriber{sub}
+	require.NoError(t, mm.distributeSegment(ctx, vs, segs[0], playable))
+	not := <-sub.queue
+	require.Equal(t, playable, not.Data)
+	require.True(t, &playable[0] == &not.Data[0], "distribution reuses the validated presentation buffer")
+	require.Equal(t, segs[0], not.Muxl, "canonical signed bytes are unchanged")
+}
+
+// Audio completion adds a signed track after source validation. Its presentation
+// must describe those completed bytes rather than reuse the source-only MP4.
+func TestDistributeCompletedSegmentPresentation(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+	ms.StreamerName = "did:key:test"
+	ms.PrebuiltManifest = bytes.Replace(ms.PrebuiltManifest, []byte("did:example:rtmp-shadow"), []byte(ms.Streamer()), 1)
+	segs := allSignedBareSegments(t, ctx, ms, getFixture("h264-opus-frag.mp4"))
+	require.GreaterOrEqual(t, len(segs), 2)
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	mm := NewOffline(&config.CLI{WideOpen: true, BroadcasterHost: "test.example.com"})
+	mm.transcoders = map[string]*streamTranscoder{}
+	sub := &segmentSubscriber{queue: make(chan *NewSegmentNotification, len(segs))}
+	mm.newSegmentSubs = []*segmentSubscriber{sub}
+	for _, seg := range segs {
+		vs, _, err := mm.validateSource(ctx, seg, true)
+		require.NoError(t, err)
+		require.NoError(t, mm.feedStreamTranscoder(ctx, vs, seg, "aac", ms.Cert, keyPEM))
+	}
+	require.NoError(t, mm.transcoders[ms.Streamer()].Close())
+	require.NotEmpty(t, sub.queue, "the continuous transcoder distributes its completed segments")
+	for len(sub.queue) > 0 {
+		not := <-sub.queue
+		var expected bytes.Buffer
+		require.NoError(t, muxl.RunMuxlWrap(ctx, bytes.NewReader(not.Muxl), "flat", &expected))
+		require.Equal(t, expected.Bytes(), not.Data)
+		codecs := audioCodecsOf(t, ctx, not.Muxl)
+		var aac, opus bool
+		for _, codec := range codecs {
+			aac = aac || isAACCodec(codec)
+			opus = opus || isOpusCodec(codec)
+		}
+		require.True(t, aac)
+		require.True(t, opus)
+	}
+}
+
+// BenchmarkValidateAndPresent measures signed-segment validation and preparation
+// of the flat MP4 delivered to local media consumers.
+func BenchmarkValidateAndPresent(b *testing.B) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(b)
+	segs := allSignedBareSegments(b, ctx, ms, getFixture("h264-opus-frag.mp4"))
+	require.NotEmpty(b, segs)
+	b.ReportAllocs()
+	b.SetBytes(int64(len(segs[0])))
+	for b.Loop() {
+		res, err := ValidateMP4Media(ctx, segs[0])
+		if err != nil {
+			b.Fatal(err)
+		}
+		if len(res.Playable) == 0 {
+			b.Fatal("missing presentation")
+		}
+	}
 }

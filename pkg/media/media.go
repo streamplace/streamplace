@@ -11,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/pion/webrtc/v4"
@@ -325,20 +326,39 @@ func ParseSegmentAssertions(ctx context.Context, mani *c2patypes.Manifest) (*Seg
 	if ass == nil {
 		return nil, ErrMissingMetadata
 	}
-	proc := ld.NewJsonLdProcessor()
-	options := ld.NewJsonLdOptions("")
-	flat, err := proc.Expand(ass.Data, options)
-	if err != nil {
-		return nil, err
-	}
-	bs, err := json.Marshal(flat)
-	if err != nil {
-		return nil, err
-	}
 	var metas ExpandedSchemaOrg
-	err = json.Unmarshal(bs, &metas)
-	if err != nil {
-		return nil, err
+	data, _ := ass.Data.(map[string]any)
+	metadataContext, _ := data["@context"].(map[string]any)
+	creator, creatorOK := data["dc:creator"].(string)
+	title, titleOK := data["dc:title"].(string)
+	date, dateOK := data["dc:date"].(string)
+	validStrings := creatorOK && titleOK && dateOK && utf8.ValidString(creator) && utf8.ValidString(title) && utf8.ValidString(date)
+	knownContext := len(metadataContext) == 1 || (len(metadataContext) == 4 &&
+		metadataContext["Iptc4xmpExt"] == "http://iptc.org/std/Iptc4xmpExt/2008-02-29/" &&
+		metadataContext["photoshop"] == "http://ns.adobe.com/photoshop/1.0/" &&
+		metadataContext["xmpRights"] == "http://ns.adobe.com/xap/1.0/rights/")
+	// These exact inline contexts map the three compact strings directly to
+	// DC values. Other JSON-LD shapes retain full expansion semantics.
+	if len(data) == 4 && knownContext && metadataContext["dc"] == "http://purl.org/dc/elements/1.1/" && validStrings {
+		metas = ExpandedSchemaOrg{{
+			Creator: []StringVal{{Value: creator}},
+			Title:   []StringVal{{Value: title}},
+			Date:    []StringVal{{Value: date}},
+		}}
+	} else {
+		proc := ld.NewJsonLdProcessor()
+		options := ld.NewJsonLdOptions("")
+		flat, err := proc.Expand(ass.Data, options)
+		if err != nil {
+			return nil, err
+		}
+		bs, err := json.Marshal(flat)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(bs, &metas); err != nil {
+			return nil, err
+		}
 	}
 	if len(metas) != 1 {
 		return nil, ErrInvalidMetadata

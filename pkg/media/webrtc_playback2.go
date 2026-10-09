@@ -2,7 +2,9 @@ package media
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -167,55 +169,27 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					queuedDuration := time.Duration(backlog.Add(-int64(packet.Duration)))
 					scalar = getPlaybackRate(queuedDuration)
 					log.Debug(ctx, "playback backlog", "backlog", queuedDuration, "scalar", scalar)
-					g, _ := errgroup.WithContext(ctx)
-					wroteAny := false
+					g, gctx := errgroup.WithContext(ctx)
 
 					if !audioOnly && len(packet.Video) > 0 {
-						wroteAny = true
 						g.Go(func() error {
-							return writeSamples(ctx, videoTrack, packet.Video, scalar)
+							return writeSamples(gctx, videoTrack, packet.Video, scalar)
 						})
 					} else if !audioOnly {
 						log.Warn(ctx, "no video samples to write")
 					}
-					// The audio path deliberately keeps the original
-					// uniform-duration ticker instead of writeSamples: Opus
-					// packets are a constant 20ms, so the uniform split is
-					// exact, and this path is proven in production — audio
-					// timing regressions are immediately audible as garbling.
-					// Video is the track that needs per-sample durations (its
-					// spacing goes non-uniform when an encoder sheds frames).
-					var audioDur time.Duration
 					if len(packet.Audio) > 0 {
-						audioDur = packet.Duration / time.Duration(len(packet.Audio))
-					}
-					if audioDur > 0 {
-						wroteAny = true
 						g.Go(func() error {
-							ticker := time.NewTicker(time.Duration(float64(audioDur) * (1 / scalar)))
-							defer ticker.Stop()
-							for _, audio := range packet.Audio {
-								err := audioTrack.WriteSample(media.Sample{Data: audio.Data, Duration: audioDur})
-								if err != nil {
-									return fmt.Errorf("failed to write audio sample: %w", err)
-								}
-								select {
-								case <-ctx.Done():
-									return nil
-								case <-ticker.C:
-									continue
-								}
-							}
-							return nil
+							return writeAudioSamples(gctx, audioTrack, packet, scalar)
 						})
 					} else {
 						log.Warn(ctx, "no audio samples to write")
 					}
-					if wroteAny {
-						if err := g.Wait(); err != nil {
+					if err := g.Wait(); err != nil {
+						if ctx.Err() == nil || !errors.Is(err, io.ErrClosedPipe) {
 							log.Error(ctx, "failed to write samples", "error", err)
-							cancel()
 						}
+						cancel()
 					}
 				}
 			}
@@ -278,6 +252,19 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 	}
 }
 
+// Timestamp gaps must not stretch the audio RTP clock beyond the segment's
+// duration. Split that duration uniformly while sharing the video pacing loop.
+func writeAudioSamples(ctx context.Context, track *webrtc.TrackLocalStaticSample, packet *bus.PacketizedSegment, scalar float64) error {
+	if len(packet.Audio) == 0 {
+		return nil
+	}
+	duration := packet.Duration / time.Duration(len(packet.Audio))
+	if duration <= 0 {
+		return nil
+	}
+	return writeSamplesWithDuration(ctx, track, packet.Audio, scalar, duration)
+}
+
 // writeSamples writes one track's samples paced by their real durations —
 // the source timeline, so non-uniform frame spacing (bursts and gaps from an
 // encoder shedding frames) reaches the viewer intact. The stamped duration
@@ -292,18 +279,31 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 // scheduled deadline instead absorbs overshoot in the next iteration, like a
 // ticker does.
 func writeSamples(ctx context.Context, track *webrtc.TrackLocalStaticSample, samples []bus.PacketizedSample, scalar float64) error {
+	return writeSamplesWithDuration(ctx, track, samples, scalar, 0)
+}
+
+func writeSamplesWithDuration(ctx context.Context, track *webrtc.TrackLocalStaticSample, samples []bus.PacketizedSample, scalar float64, uniformDuration time.Duration) error {
 	start := time.Now()
 	var scheduled time.Duration
+	var timer *time.Timer
 	for _, s := range samples {
-		if err := track.WriteSample(media.Sample{Data: s.Data, Duration: s.Duration}); err != nil {
+		duration := s.Duration
+		if uniformDuration > 0 {
+			duration = uniformDuration
+		}
+		if err := track.WriteSample(media.Sample{Data: s.Data, Duration: duration}); err != nil {
 			return fmt.Errorf("failed to write sample: %w", err)
 		}
-		scheduled += time.Duration(float64(s.Duration) / scalar)
+		scheduled += time.Duration(float64(duration) / scalar)
 		wait := scheduled - time.Since(start)
 		if wait <= 0 {
 			continue
 		}
-		timer := time.NewTimer(wait)
+		if timer == nil {
+			timer = time.NewTimer(wait)
+		} else {
+			timer.Reset(wait)
+		}
 		select {
 		case <-ctx.Done():
 			timer.Stop()

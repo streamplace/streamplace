@@ -2,12 +2,14 @@ package media
 
 import (
 	"context"
+	"flag"
 	"io"
 	"log/slog"
 	"net"
 	"os"
 	"runtime"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/pion/webrtc/v4"
@@ -37,13 +39,16 @@ func TestWebRTCPlayback2(t *testing.T) {
 // Cancelling playback must release its segment subscription even while the
 // sender is pacing a real segment and its pending segment queue is full.
 func TestWebRTCPlayback2CancelsBackloggedPlayback(t *testing.T) {
-	var packet *bus.PacketizedSegment
-	withNoGSTLeaks(t, func() { packet = playbackPacketFixture(t) })
-
 	var logs logCapture
 	previousLogger := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelError})))
 	defer slog.SetDefault(previousLogger)
+
+	previousVerbosity := flag.Lookup("v").Value.String()
+	require.NoError(t, flag.Set("v", "3"))
+	t.Cleanup(func() { require.NoError(t, flag.Set("v", previousVerbosity)) })
+	var packet *bus.PacketizedSegment
+	withNoGSTLeaks(t, func() { packet = playbackPacketFixture(t) })
 
 	mm := loopbackPlaybackManager()
 	ignore := goleak.IgnoreCurrent()
@@ -161,6 +166,130 @@ func BenchmarkWebRTCPlaybackBacklog(b *testing.B) {
 		cancelTime += time.Since(start)
 	}
 	b.ReportMetric(float64(cancelTime)/float64(b.N), "cancel-ns/op")
+}
+
+func TestWriteSamplesPacing(t *testing.T) {
+	var packet *bus.PacketizedSegment
+	withNoGSTLeaks(t, func() { packet = playbackPacketFixture(t) })
+	require.NotEmpty(t, packet.Video)
+	for _, testCase := range []struct {
+		name      string
+		durations []time.Duration
+		scalar    float64
+		elapsed   time.Duration
+	}{
+		{name: "empty", scalar: 1},
+		{name: "zero durations", durations: []time.Duration{0, 0, 0}, scalar: 1},
+		{name: "nonuniform", durations: []time.Duration{0, 30 * time.Millisecond, 60 * time.Millisecond, 0, 15 * time.Millisecond}, scalar: 1, elapsed: 105 * time.Millisecond},
+		{name: "accelerated", durations: []time.Duration{0, 30 * time.Millisecond, 60 * time.Millisecond, 0, 15 * time.Millisecond}, scalar: 1.5, elapsed: 70 * time.Millisecond},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264, ClockRate: 90000}, "video", "stream")
+				require.NoError(t, err)
+				samples := make([]bus.PacketizedSample, len(testCase.durations))
+				for i, duration := range testCase.durations {
+					samples[i] = bus.PacketizedSample{Data: packet.Video[0].Data, Duration: duration}
+				}
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				done := make(chan error, 1)
+				start := time.Now()
+				go func() { done <- writeSamples(ctx, track, samples, testCase.scalar) }()
+				synctest.Wait()
+				if testCase.elapsed > 0 {
+					time.Sleep(testCase.elapsed - time.Nanosecond)
+					synctest.Wait()
+					select {
+					case <-done:
+						t.Fatal("pacing completed before the scheduled deadline")
+					default:
+					}
+					time.Sleep(time.Nanosecond)
+					synctest.Wait()
+				}
+				select {
+				case err := <-done:
+					require.NoError(t, err)
+				default:
+					t.Fatal("pacing did not complete at the scheduled deadline")
+				}
+				require.Equal(t, testCase.elapsed, time.Since(start))
+			})
+		})
+	}
+}
+
+func TestWriteAudioSamplesUsesSegmentDuration(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus, ClockRate: 48000}, "audio", "stream")
+		require.NoError(t, err)
+		packet := &bus.PacketizedSegment{
+			Duration: 40 * time.Millisecond,
+			Audio: []bus.PacketizedSample{
+				{Duration: 100 * time.Millisecond},
+				{Duration: 20 * time.Millisecond},
+			},
+		}
+		start := time.Now()
+		require.NoError(t, writeAudioSamples(t.Context(), track, packet, 1))
+		require.Equal(t, packet.Duration, time.Since(start), "timestamp gaps must not expand the audio packet clock")
+		packet.Duration = 0
+		start = time.Now()
+		require.NoError(t, writeAudioSamples(t.Context(), track, packet, 1))
+		require.Zero(t, time.Since(start), "a missing segment duration must not start audio pacing")
+	})
+}
+
+func TestWriteSamplesCancelsDuringWait(t *testing.T) {
+	var packet *bus.PacketizedSegment
+	withNoGSTLeaks(t, func() { packet = playbackPacketFixture(t) })
+	require.NotEmpty(t, packet.Video)
+	synctest.Test(t, func(t *testing.T) {
+		track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264, ClockRate: 90000}, "video", "stream")
+		require.NoError(t, err)
+		samples := []bus.PacketizedSample{
+			{Data: packet.Video[0].Data, Duration: 30 * time.Millisecond},
+			{Data: packet.Video[0].Data, Duration: 60 * time.Millisecond},
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		done := make(chan error, 1)
+		start := time.Now()
+		go func() { done <- writeSamples(ctx, track, samples, 1) }()
+		synctest.Wait()
+		time.Sleep(45 * time.Millisecond)
+		synctest.Wait()
+		select {
+		case <-done:
+			t.Fatal("pacing completed before cancellation")
+		default:
+		}
+		cancel()
+		synctest.Wait()
+		select {
+		case err := <-done:
+			require.NoError(t, err)
+		default:
+			t.Fatal("cancellation did not stop the pending wait")
+		}
+		require.Equal(t, 45*time.Millisecond, time.Since(start))
+	})
+}
+
+func BenchmarkWriteSamplesVideo(b *testing.B) {
+	packet := playbackPacketFixture(b)
+	require.NotEmpty(b, packet.Video)
+	track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264, ClockRate: 90000}, "video", "stream")
+	require.NoError(b, err)
+	ctx := b.Context()
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := writeSamples(ctx, track, packet.Video, 1); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.ReportMetric(float64(len(packet.Video)), "samples/op")
 }
 
 var firefoxNoH264SDP = `v=0

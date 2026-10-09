@@ -38,6 +38,40 @@ Only when native code changes:
 Then run `pnpm app ios` (or `pnpm app android`). Bump `runtimeVersion` in
 `package.json` only when native dependencies change (it gates expo-updates).
 
+## Web bundle splitting and Atlas
+
+Secondary screens use module-scope `lazyScreen` imports with a screen-local
+Suspense boundary. Keep the home feed and navigation shell eager; use direct
+imports instead of barrels that re-export deferred screens. The broadcaster
+front door also loads its stream/video screen lazily. HLS playback and stream-key
+generation load their libraries only when needed.
+
+Expo splits production **web** exports. iOS/Android still include these modules
+in the installed bundle; the same loading boundaries work without downloading
+web chunks.
+
+Run the production analyzer from the builder container:
+
+```sh
+pnpm app analyze:web
+```
+
+Open the URL printed by Expo Atlas (in a browser that can reach the container).
+The export is in `.expo/atlas-web`, leaving the embedded `dist` bundle untouched.
+Atlas's module graph includes deferred modules too: measure initial download size
+by summing **all** scripts referenced by `.expo/atlas-web/index.html`, including
+Expo's common/runtime chunks, rather than just the entrypoint. Check chunk source
+maps and browser network requests to confirm heavy modules remain deferred.
+
+`.expo/atlas.jsonl` contains source code and inlined public environment variables;
+keep it local. Rebuild with `make app` and `make dev` before exercising embedded
+UI with `hack/e2e-web-local.sh`.
+
+`lazy-navigation.spec.ts` checks deferred settings requests, navigation away from
+a pending chunk, and a cold settings deep link. The platform-neutral
+`.maestro/logged-out/lazy-navigation.yaml` covers first-use navigation and deep
+links on iOS/Android.
+
 ## i18n
 
 FTL strings live in `../i18n/locales` and are compiled before use. Edits won't

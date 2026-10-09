@@ -40,8 +40,10 @@ Then run `pnpm app ios` (or `pnpm app android`). Bump `runtimeVersion` in
 
 ## Web bundle splitting and Atlas
 
-Secondary screens use module-scope `lazyScreen` imports with a screen-local
-Suspense boundary. Keep the home feed and navigation shell eager; use direct
+Secondary screens use module-scope `lazyScreen` imports with screen-local
+Suspense and error boundaries. A failed download leaves navigation usable, and
+retry creates a fresh lazy import instead of reusing React's cached rejection.
+Keep the home feed and navigation shell eager; use direct
 imports instead of barrels that re-export deferred screens. The broadcaster
 front door also loads its stream/video screen lazily. HLS playback and stream-key
 generation load their libraries only when needed.
@@ -56,7 +58,8 @@ Run the production analyzer from the builder container:
 pnpm app analyze:web
 ```
 
-Open the URL printed by Expo Atlas (in a browser that can reach the container).
+The command prepares generated brand assets before exporting. Open the URL
+printed by Expo Atlas (in a browser that can reach the container).
 The export is in `.expo/atlas-web`, leaving the embedded `dist` bundle untouched.
 Atlas's module graph includes deferred modules too: measure initial download size
 by summing **all** scripts referenced by `.expo/atlas-web/index.html`, including
@@ -68,7 +71,7 @@ keep it local. Rebuild with `make app` and `make dev` before exercising embedded
 UI with `hack/e2e-web-local.sh`.
 
 `lazy-navigation.spec.ts` checks deferred settings requests, navigation away from
-a pending chunk, and a cold settings deep link. The platform-neutral
+a pending chunk, recovery from a failed chunk, and a cold settings deep link. The platform-neutral
 `.maestro/logged-out/lazy-navigation.yaml` covers first-use navigation and deep
 links on iOS/Android.
 

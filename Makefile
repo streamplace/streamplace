@@ -340,15 +340,17 @@ dev: app-cached $(LEXICON_STAMP)
 	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
-	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
-	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
-	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
+	$(MAKE) dev-go
 
 .PHONY: dev-web
 dev-web: app-cached $(LEXICON_STAMP)
 	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
 	cp ./util/streamplace-dev-web.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
+	$(MAKE) dev-go
+
+.PHONY: dev-go
+dev-go: app-cached $(LEXICON_STAMP)
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
 	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...

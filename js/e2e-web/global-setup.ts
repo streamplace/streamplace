@@ -1,4 +1,6 @@
 import { chromium, expect, type FullConfig } from "@playwright/test";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { pointAppAtNode } from "./server-setup";
 import { STORAGE_STATE } from "./storage";
 
@@ -9,6 +11,15 @@ export default async function globalSetup(_config: FullConfig) {
   const SERVER_URL = process.env.SERVER_URL;
   if (!SERVER_URL) {
     throw new Error("SERVER_URL is not set — start the harness first");
+  }
+  if (process.env.E2E_LATENCY === "1") {
+    // The latency flow publishes its own source and uses the media APIs directly.
+    await mkdir(dirname(STORAGE_STATE), { recursive: true });
+    await writeFile(
+      STORAGE_STATE,
+      JSON.stringify({ cookies: [], origins: [] }),
+    );
+    return;
   }
 
   const browser = await chromium.launch();

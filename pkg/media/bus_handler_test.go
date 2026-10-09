@@ -117,13 +117,7 @@ func TestBusHandlerTagMessages(t *testing.T) {
 		{name: "context", verbosity: "0", debugContext: true},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			var logs logCapture
-			previousLogger := slog.Default()
-			slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
-			t.Cleanup(func() { slog.SetDefault(previousLogger) })
-			previousVerbosity := flag.Lookup("v").Value.String()
-			require.NoError(t, flag.Set("v", testCase.verbosity))
-			t.Cleanup(func() { require.NoError(t, flag.Set("v", previousVerbosity)) })
+			logs := captureLogs(t, testCase.verbosity)
 
 			withNoGSTLeaks(t, func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

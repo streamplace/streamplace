@@ -43,8 +43,7 @@ func TestWebRTCPlaybackStartsWithLatestCachedSegment(t *testing.T) {
 				}
 				mm.bus.PublishSegment(ctx, t.Name(), WebRTCSourceRendition, &bus.Seg{Published: true, PacketizedData: packet})
 			}
-			receiver, err := mm.webrtcAPI.NewPeerConnection(webrtc.Configuration{})
-			require.NoError(t, err)
+			receiver := createAudioReceiver(t, ctx, mm.webrtcAPI)
 			defer receiver.Close()
 			received := make(chan []byte, 1)
 			receiver.OnTrack(func(track *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
@@ -53,16 +52,6 @@ func TestWebRTCPlaybackStartsWithLatestCachedSegment(t *testing.T) {
 					received <- packet.Payload
 				}
 			})
-			_, err = receiver.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionRecvonly})
-			require.NoError(t, err)
-			offer, err := receiver.CreateOffer(nil)
-			require.NoError(t, err)
-			require.NoError(t, receiver.SetLocalDescription(offer))
-			select {
-			case <-webrtc.GatheringCompletePromise(receiver):
-			case <-ctx.Done():
-				t.Fatal("receiver ICE gathering timed out")
-			}
 			answer, err := mm.WebRTCPlayback2(ctx, t.Name(), renditions.AudioRendition.Name, receiver.LocalDescription(), "")
 			require.NoError(t, err)
 			time.Sleep(wait)
@@ -84,19 +73,8 @@ func TestWebRTCPlaybackCancelsPendingHandshake(t *testing.T) {
 	defer goleak.VerifyNone(t, ignore)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	receiver, err := mm.webrtcAPI.NewPeerConnection(webrtc.Configuration{})
-	require.NoError(t, err)
+	receiver := createAudioReceiver(t, ctx, mm.webrtcAPI)
 	defer receiver.Close()
-	_, err = receiver.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionRecvonly})
-	require.NoError(t, err)
-	offer, err := receiver.CreateOffer(nil)
-	require.NoError(t, err)
-	require.NoError(t, receiver.SetLocalDescription(offer))
-	select {
-	case <-webrtc.GatheringCompletePromise(receiver):
-	case <-ctx.Done():
-		t.Fatal("receiver ICE gathering timed out")
-	}
 	answer, err := mm.WebRTCPlayback2(ctx, t.Name(), renditions.AudioRendition.Name, receiver.LocalDescription(), "")
 	require.NoError(t, err)
 	require.NotNil(t, answer)

@@ -109,11 +109,12 @@ func sessionCounts(success, failure int) map[string]int {
 // global metrics remain isolated from the rest of the package suite.
 //
 // paced streams in real time, burst sends everything at once to exercise the
-// downstream drain, and corrupt injects invalid RTMP after verified media.
+// downstream drain, non-live uses a publisher path outside the native server's
+// /live/ namespace, and corrupt injects invalid RTMP after verified media.
 // The primary must receive additional traffic after the shadow has failed.
 func TestDuplicateMistEndToEnd(t *testing.T) {
 	if os.Getenv("DUPLICATE_MIST_E2E_SCENARIO") != "1" {
-		for _, mode := range []string{"paced", "burst", "corrupt"} {
+		for _, mode := range []string{"paced", "burst", "non-live", "corrupt"} {
 			t.Run(mode, func(t *testing.T) {
 				ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 				defer cancel()
@@ -131,6 +132,10 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 	mode := os.Getenv("DUPLICATE_MIST_E2E_MODE")
 	corrupt := mode == "corrupt"
 	paced := mode != "burst"
+	publisherPath := "/live/shadow-e2e"
+	if mode == "non-live" {
+		publisherPath = "/app/shadow-e2e"
+	}
 	_ = flag.Set("v", "3")
 	shadowExit := &shadowExitWriter{Writer: os.Stderr, done: make(chan struct{})}
 	slog.SetDefault(slog.New(slog.NewTextHandler(shadowExit, nil)))
@@ -283,9 +288,9 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 
 	gstinit.InitGST()
 	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf(
-		"flvmux name=mux streamable=true ! rtmp2sink sync=%t location=rtmp://%s/live/shadow-e2e "+
+		"flvmux name=mux streamable=true ! rtmp2sink sync=%t location=rtmp://%s%s "+
 			"videotestsrc num-buffers=300 ! video/x-raw,width=320,height=240,framerate=30/1 ! x264enc key-int-max=30 bframes=0 tune=zerolatency ! h264parse ! queue ! mux.video "+
-			"audiotestsrc num-buffers=470 samplesperbuffer=1024 ! audio/x-raw,rate=48000 ! audioconvert ! fdkaacenc ! aacparse ! queue ! mux.audio", paced, bridge.Addr()))
+			"audiotestsrc num-buffers=470 samplesperbuffer=1024 ! audio/x-raw,rate=48000 ! audioconvert ! fdkaacenc ! aacparse ! queue ! mux.audio", paced, bridge.Addr(), publisherPath))
 	require.NoError(t, err)
 	defer pipeline.SetState(gst.StateNull) //nolint:errcheck
 	busDone := make(chan error, 1)

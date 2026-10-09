@@ -300,7 +300,9 @@ func (mm *MediaManager) MP4IngestDetached(ctx context.Context, conn net.Conn, pr
 	// it signs with a frozen one otherwise. Fixed start for stable change detection.
 	start := time.Now().UnixMilli()
 	manifestSource := func() ([]byte, error) { return mm.streamerManifest(ctx, ms.Streamer(), start) }
-	err = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx), manifestSource)
+	onSegment, flush := mm.validateSegment(ctx)
+	defer flush()
+	err = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), onSegment, manifestSource)
 	recordWorkerExit("mp4", err, ctx.Err())
 	// Reap the worker unless we're deliberately leaving it running across a main
 	// restart (ctx cancel). On a clean end OR a crash the worker has exited, so
@@ -423,13 +425,15 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 		manifestSource := func() ([]byte, error) { return mm.streamerManifest(ctx, ms.Streamer(), start) }
 		go pushManifestUpdates(wctx, conn, manifestSource)
 
-		sawEnd, _ := mm.consumeWorkerFrames(ctx, fr, ms.Streamer(), mm.validateSegment(ctx), nil)
+		onSegment, flush := mm.validateSegment(ctx)
+		defer flush()
+		sawEnd, _ := mm.consumeWorkerFrames(ctx, fr, ms.Streamer(), onSegment, nil)
 		conn.Close()
 		var exitErr error
 		if !sawEnd && ctx.Err() == nil {
 			// Connection dropped but the detached worker lives on — reconnect and
 			// drain its buffer. Its terminal result is the worker's true outcome.
-			exitErr = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx), manifestSource)
+			exitErr = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), onSegment, manifestSource)
 		}
 		recordWorkerExit("whip", exitErr, ctx.Err())
 		go func() { _, _ = proc.Wait() }()
@@ -478,7 +482,9 @@ func (mm *MediaManager) ResumeDetachedWorkers(ctx context.Context) {
 				start := time.Now().UnixMilli()
 				manifestSource = func() ([]byte, error) { return mm.streamerManifest(ctx, meta.StreamerDID, start) }
 			}
-			cerr := mm.ConsumeWorkerSocket(wctx, sock, streamer, mm.validateSegment(ctx), manifestSource)
+			onSegment, flush := mm.validateSegment(ctx)
+			defer flush()
+			cerr := mm.ConsumeWorkerSocket(wctx, sock, streamer, onSegment, manifestSource)
 			if cerr != nil {
 				log.Error(ctx, "resumed ingest worker ended", "socket", sock, "error", cerr)
 			}

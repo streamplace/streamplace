@@ -148,8 +148,8 @@ func produceWHIPMedia(t *testing.T, ctx context.Context, video, audio *webrtc.Tr
 
 // TestWHIPWorkerLoopback is the full WHIP media path: a pion client offers,
 // connects to the worker (which owns the PeerConnection), and streams real
-// H264+Opus RTP; the worker must mux+sign+transcode it and serve a valid signed
-// dual-codec segment over its socket — the WHIP parity of the fMP4 ingest worker e2e
+// H264+Opus RTP; the worker must mux+sign it and serve a valid signed
+// Opus source segment over its socket — the WHIP parity of the fMP4 ingest worker e2e
 // test.
 func TestWHIPWorkerLoopback(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -210,7 +210,7 @@ func TestWHIPWorkerLoopback(t *testing.T) {
 
 	produceWHIPMedia(t, ctx, videoTrack, audioTrack)
 
-	// Read signed segments; require at least one valid dual-codec one.
+	// Main completes AAC after the worker forwards the playable source.
 	_ = conn.SetReadDeadline(time.Now().Add(45 * time.Second))
 	var segs int
 	for segs == 0 {
@@ -222,6 +222,7 @@ func TestWHIPWorkerLoopback(t *testing.T) {
 		out, verr := muxl.RunMuxlVerify(ctx, bytes.NewReader(payload))
 		require.NoError(t, verr)
 		require.NotContains(t, out, `"validation_state":"Invalid"`, "segment must validate")
+		require.Equal(t, []string{"opus"}, audioCodecsOf(t, ctx, payload))
 		segs++
 	}
 	_ = conn.SetReadDeadline(time.Time{})

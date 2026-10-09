@@ -182,6 +182,7 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 			for _, r := range allRenditions {
 				ss.bus.EndSession(ctx, spseg.Creator, r.Name)
 			}
+			ss.bus.EndSession(ctx, spseg.Creator, media.WebRTCSourceRendition)
 			// Signal background workers to stop
 			if notif.Local {
 				ss.Go(ctx, func() error {
@@ -313,10 +314,11 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	sourceTurn := ss.sourceLane.turn()
 	ss.Go(ctx, func() error {
 		return ss.AddPlaybackSegment(ctx, spseg, "source", &bus.Seg{
-			Filepath:  notif.Segment.ID,
-			Data:      notif.Data,
-			Muxl:      notif.Muxl,
-			Published: notif.Metadata.Published,
+			Filepath:        notif.Segment.ID,
+			Data:            notif.Data,
+			Muxl:            notif.Muxl,
+			Published:       notif.Metadata.Published,
+			WebRTCPublished: notif.WebRTCPublished,
 		}, sourceTurn)
 	})
 
@@ -1005,9 +1007,8 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	return nil
 }
 
-// AddPlaybackSegment packetizes a segment for WebRTC and publishes it on
-// the bus, taking its turn (tn) in the stream's publication order once
-// the packetizing is done.
+// AddPlaybackSegment prepares a segment for playback and publishes it on the
+// bus, taking its turn (tn) in the stream's publication order.
 func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg, tn *turn) error {
 	ss.Go(ctx, func() error {
 		return ss.AddToWebRTC(ctx, spseg, rendition, seg, tn)
@@ -1017,16 +1018,21 @@ func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *placestr
 
 func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg, tn *turn) error {
 	defer tn.release()
-	packet, err := media.Packetize(ctx, ss.cli, seg)
-	if err != nil {
-		return fmt.Errorf("failed to packetize segment: %w", err)
+	if rendition != "source" || !seg.WebRTCPublished {
+		packet, err := media.Packetize(ctx, ss.cli, seg)
+		if err != nil {
+			return fmt.Errorf("failed to packetize segment: %w", err)
+		}
+		seg.PacketizedData = packet
 	}
-	seg.PacketizedData = packet
 	if !tn.wait(ctx) {
 		log.Warn(ctx, "segment abandoned by later segments, not published", "rendition", rendition)
 		return nil
 	}
 	ss.bus.PublishSegment(ctx, spseg.Creator, rendition, seg)
+	if rendition == "source" && !seg.WebRTCPublished {
+		ss.bus.PublishSegment(ctx, spseg.Creator, media.WebRTCSourceRendition, seg)
+	}
 	return nil
 }
 

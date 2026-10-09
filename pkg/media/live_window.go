@@ -1,16 +1,15 @@
 package media
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/muxl"
 )
 
 // liveWindowSize is how many recent segments per track the in-memory live-HLS
@@ -47,29 +46,71 @@ func newLiveWindow() *livehls.Writer {
 	return livehls.NewWriter(livehls.WithWindow(liveWindowSize), livehls.WithMinDuration(liveWindowMinDuration), livehls.WithMinFragment(liveWindowMinFragment), livehls.WithRetention(liveWindowRetention))
 }
 
+// Guarded by mu. latest is a high-water timestamp, preserved across writer
+// resets so late preview segments cannot undo publication.
+type liveWindowState struct {
+	mu        sync.Mutex
+	w         *livehls.Writer
+	published bool
+	latest    time.Time
+}
+
+// Never wait for a stream lock while holding the map lock. A state may be
+// pruned while we wait, so recheck its identity before using it.
+func (mm *MediaManager) lockLiveWindow(did string, create bool) *liveWindowState {
+	for {
+		mm.liveWindowsMut.Lock()
+		st := mm.liveWindows[did]
+		if st == nil && create {
+			st = &liveWindowState{}
+			st.mu.Lock()
+			mm.liveWindows[did] = st
+			mm.liveWindowsMut.Unlock()
+			return st
+		}
+		mm.liveWindowsMut.Unlock()
+		if st == nil {
+			return nil
+		}
+		st.mu.Lock()
+		mm.liveWindowsMut.Lock()
+		current := mm.liveWindows[did] == st
+		mm.liveWindowsMut.Unlock()
+		if current {
+			return st
+		}
+		st.mu.Unlock()
+	}
+}
+
 // GetLiveWindow returns the streamer's live-HLS window, or nil if it has no
 // live segments — either none observed yet, or all aged out (a stalled/ended
 // stream). In the latter case the window is dropped from the map so it's freed
 // and the stream reads as offline; it's recreated if the stream resumes.
 func (mm *MediaManager) GetLiveWindow(did string) *livehls.Writer {
-	mm.liveWindowsMut.Lock()
-	defer mm.liveWindowsMut.Unlock()
-	w := mm.liveWindows[did]
-	if w != nil && w.Empty() {
-		delete(mm.liveWindows, did)
-		delete(mm.liveWindowPublished, did)
-		delete(mm.liveWindowLatest, did)
+	st := mm.lockLiveWindow(did, false)
+	if st == nil {
 		return nil
 	}
-	return w
+	defer st.mu.Unlock()
+	if st.w.Empty() {
+		mm.liveWindowsMut.Lock()
+		delete(mm.liveWindows, did)
+		mm.liveWindowsMut.Unlock()
+		return nil
+	}
+	return st.w
 }
 
 // LiveWindowPublished reports whether the streamer's latest windowed segment
 // was published (the stream is live to the public) rather than pre-live.
 func (mm *MediaManager) LiveWindowPublished(did string) bool {
-	mm.liveWindowsMut.Lock()
-	defer mm.liveWindowsMut.Unlock()
-	return mm.liveWindowPublished[did]
+	st := mm.lockLiveWindow(did, false)
+	if st == nil {
+		return false
+	}
+	defer st.mu.Unlock()
+	return st.published
 }
 
 // feedLiveWindow re-derives the per-track event stream from a stored canonical
@@ -86,6 +127,11 @@ func (mm *MediaManager) LiveWindowPublished(did string) bool {
 // public the window is started over, so no preview segment is ever served
 // as part of the public stream.
 func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment []byte, start time.Time, published bool) {
+	events, err := unwrapMuxlEvents(ctx, segment)
+	if err != nil {
+		log.Error(ctx, "live-hls: window feed failed", "streamer", did, "error", err)
+		return
+	}
 	// Segments are fed from concurrent goroutines, so the window's state
 	// change and the choice of writer happen under one lock: a preview
 	// segment that picked its writer after the stream went public would
@@ -94,49 +140,25 @@ func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment 
 	// went public is dropped rather than flipping the window back to a
 	// preview under its viewers. A pre-live segment newer than everything
 	// in the window is the stream going back to preview, and does flip it.
-	mm.liveWindowsMut.Lock()
-	if mm.liveWindowPublished == nil {
-		mm.liveWindowPublished = map[string]bool{}
-	}
-	if mm.liveWindowLatest == nil {
-		mm.liveWindowLatest = map[string]time.Time{}
-	}
-	if !published && mm.liveWindowPublished[did] && start.Before(mm.liveWindowLatest[did]) {
-		mm.liveWindowsMut.Unlock()
+	st := mm.lockLiveWindow(did, true)
+	defer st.mu.Unlock()
+	if !published && st.published && start.Before(st.latest) {
 		log.Debug(ctx, "dropping pre-live segment that arrived after the stream went public", "did", did, "start", start)
 		return
 	}
-	w := mm.liveWindows[did]
-	if published && !mm.liveWindowPublished[did] && w != nil {
-		// The stream just went public. The window's flag is per stream, not
-		// per segment, so everything in it is about to be served to anyone;
-		// the pre-live preview segments still sitting in it must not be. The
-		// public window starts at this segment.
-		w = nil
+	if st.w == nil || (published && !st.published) {
+		// Publication applies to the whole window, so start fresh rather
+		// than exposing retained preview segments.
+		st.w = newLiveWindow()
 	}
-	if w == nil {
-		w = newLiveWindow()
-		mm.liveWindows[did] = w
+	st.published = published
+	if start.After(st.latest) {
+		st.latest = start
 	}
-	mm.liveWindowPublished[did] = published
-	if start.After(mm.liveWindowLatest[did]) {
-		mm.liveWindowLatest[did] = start
-	}
-	mm.liveWindowsMut.Unlock()
-	eventCh := make(chan *muxl.MuxlEvent, 8)
-	errCh := make(chan error, 1)
-	go func() {
-		err := muxl.RunMuxlUnwrapEvents(ctx, bytes.NewReader(segment), eventCh)
-		close(eventCh)
-		errCh <- err
-	}()
-	for ev := range eventCh {
-		if err := w.Observe(ev); err != nil {
+	for _, ev := range events {
+		if err := st.w.Observe(ev); err != nil {
 			log.Error(ctx, "live-hls: window observe failed", "streamer", did, "error", err)
 		}
-	}
-	if err := <-errCh; err != nil {
-		log.Error(ctx, "live-hls: window feed failed", "streamer", did, "error", err)
 	}
 }
 

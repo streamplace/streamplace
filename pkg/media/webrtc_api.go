@@ -2,6 +2,7 @@ package media
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/pion/interceptor"
 	"github.com/pion/interceptor/pkg/intervalpli"
@@ -17,7 +18,7 @@ func newWebRTCAPI() (*webrtc.API, webrtc.Configuration, error) {
 	m := &webrtc.MediaEngine{}
 	i := &interceptor.Registry{}
 
-	intervalPliFactory, err := intervalpli.NewReceiverInterceptor()
+	intervalPliFactory, err := intervalpli.NewReceiverInterceptor(intervalpli.GeneratorInterval(400 * time.Millisecond))
 	if err != nil {
 		return nil, webrtc.Configuration{}, fmt.Errorf("failed to create intervalpli factory: %w", err)
 	}

@@ -10,8 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/test"
 )
 
 func idleStreamSession(b *bus.Bus) (*StreamSession, *media.NewSegmentNotification) {
@@ -43,6 +46,9 @@ func TestStreamSessionIdleTimeout(t *testing.T) {
 			b := bus.NewBus()
 			synctest.Test(t, func(t *testing.T) {
 				ss, notif := idleStreamSession(b)
+				for _, rendition := range []string{"source", media.WebRTCSourceRendition} {
+					b.PublishSegment(t.Context(), notif.Segment.RepoDID, rendition, &bus.Seg{Filepath: "cached"})
+				}
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 				done := make(chan error, 1)
@@ -62,6 +68,17 @@ func TestStreamSessionIdleTimeout(t *testing.T) {
 				}
 				require.NoError(t, <-done)
 				require.ErrorIs(t, ss.ctx.Err(), context.Canceled)
+				if !cancelSession {
+					for _, rendition := range []string{"source", media.WebRTCSourceRendition} {
+						sub := b.SubscribeSegmentBuf(t.Context(), notif.Segment.RepoDID, rendition, 1)
+						select {
+						case <-sub.C:
+							t.Errorf("ended stream retained %s playback", rendition)
+						default:
+						}
+						b.UnsubscribeSegment(t.Context(), notif.Segment.RepoDID, rendition, sub)
+					}
+				}
 			})
 		})
 	}
@@ -129,4 +146,70 @@ func TestExceedsMaxBitrateMarginBoundary(t *testing.T) {
 	require.False(t, justInside, "8Mbit within 10%% of 7.3Mbit max should not kick")
 	require.True(t, justOutside, "8Mbit beyond 10%% of 7.2Mbit max should kick")
 	require.Equal(t, eightMbit, func() int { r, _ := exceedsMaxBitrate(megabyte, time.Second.Nanoseconds(), 1); return r }())
+}
+
+func TestCompletedSourcePreservesEarlyWebRTCCache(t *testing.T) {
+	gstinit.InitGST()
+	fixture, err := test.Files.ReadFile("fixtures/sample-segment.mp4")
+	require.NoError(t, err)
+	ctx := t.Context()
+	packet, err := media.Packetize(ctx, &config.CLI{}, &bus.Seg{Data: fixture})
+	require.NoError(t, err)
+	require.NotEmpty(t, packet.Video)
+	require.NotEmpty(t, packet.Audio)
+	for _, early := range []bool{false, true} {
+		name := "ordinary source populates playback"
+		if early {
+			name = "completion leaves latest early GOP cached"
+		}
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			receiveSegment := func(ch *bus.SegChan) *bus.Seg {
+				t.Helper()
+				select {
+				case segment := <-ch.C:
+					return segment
+				case <-ctx.Done():
+					t.Fatalf("waiting for segment: %v", ctx.Err())
+					return nil
+				}
+			}
+			b := bus.NewBus()
+			ss := &StreamSession{cli: &config.CLI{}, bus: b}
+			const streamer = "did:example:early-playback"
+			private := b.SubscribeSegment(ctx, streamer, media.WebRTCSourceRendition)
+			defer b.UnsubscribeSegment(ctx, streamer, media.WebRTCSourceRendition, private)
+			canonical := b.SubscribeSegment(ctx, streamer, "source")
+			defer b.UnsubscribeSegment(ctx, streamer, "source", canonical)
+			if early {
+				for _, id := range []string{"first", "latest"} {
+					b.PublishSegment(ctx, streamer, media.WebRTCSourceRendition, &bus.Seg{
+						Filepath: id, Published: true, PacketizedData: packet,
+					})
+					receiveSegment(private)
+				}
+			}
+			completed := &bus.Seg{Filepath: "first", Data: fixture, Published: true, WebRTCPublished: early}
+			require.NoError(t, ss.AddToWebRTC(ctx, &placestream.Segment{Creator: streamer}, "source", completed, nil))
+			require.Same(t, completed, receiveSegment(canonical), "canonical source still reaches its consumers")
+			if early {
+				select {
+				case <-private.C:
+					t.Fatal("completed source replayed a GOP already published for playback")
+				default:
+				}
+			} else {
+				require.Same(t, completed, receiveSegment(private), "ordinary source remains playable")
+				require.NotNil(t, completed.PacketizedData)
+			}
+			cached := b.SubscribeSegmentBuf(ctx, streamer, media.WebRTCSourceRendition, 1)
+			defer b.UnsubscribeSegment(ctx, streamer, media.WebRTCSourceRendition, cached)
+			want := "first"
+			if early {
+				want = "latest"
+			}
+			require.Equal(t, want, receiveSegment(cached).Filepath, "new viewers start at the latest playback GOP")
+		})
+	}
 }

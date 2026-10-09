@@ -22,7 +22,6 @@ import (
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
-	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
@@ -43,16 +42,8 @@ const StreamplaceMetadata = "cawg.metadata"
 
 type MediaManager struct {
 	cli            *config.CLI
-	liveWindows    map[string]*livehls.Writer
+	liveWindows    map[string]*liveWindowState
 	liveWindowsMut sync.Mutex
-	// liveWindowPublished is, per streamer, whether the latest segment fed
-	// into the window was published; guarded by liveWindowsMut.
-	liveWindowPublished map[string]bool
-	// liveWindowLatest is, per streamer, the start time of the newest
-	// segment fed into the window; guarded by liveWindowsMut. Feeds run
-	// concurrently, so it is how a late pre-live segment is told apart
-	// from the stream going back to preview.
-	liveWindowLatest map[string]time.Time
 	// modBuffers holds a short in-memory ring of each live user's most recent
 	// canonical segments, the source for moderation/report clips now that
 	// segments are no longer archived to disk. Keyed by repoDID. See
@@ -114,6 +105,9 @@ func (mm *MediaManager) nextIngestSession() uint64 {
 	return mm.ingestSessionSeq.Add(1)
 }
 
+// WebRTCSourceRendition carries playable source media before AAC completion.
+const WebRTCSourceRendition = "webrtc-source"
+
 type NewSegmentNotification struct {
 	Segment *localdb.Segment
 	// Data is the presentation flat MP4 (ftyp+moov+mdat envelope) consumed by
@@ -125,6 +119,8 @@ type NewSegmentNotification struct {
 	Muxl     []byte
 	Metadata *SegmentMetadata
 	Local    bool
+	// WebRTCPublished means the validated source already reached private playback.
+	WebRTCPublished bool
 }
 
 func RunSelfTest(ctx context.Context) error {
@@ -144,19 +140,17 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		return nil, err
 	}
 	mm := &MediaManager{
-		cli:                 cli,
-		liveWindows:         map[string]*livehls.Writer{},
-		liveWindowPublished: map[string]bool{},
-		liveWindowLatest:    map[string]time.Time{},
-		modBuffers:          map[string]*modBuffer{},
-		httpPipes:           map[string]io.Writer{},
-		model:               mod,
-		bus:                 bus,
-		atsync:              atsync,
-		webrtcAPI:           api,
-		webrtcConfig:        config,
-		localDB:             ldb,
-		transcoders:         map[string]*streamTranscoder{},
+		cli:          cli,
+		liveWindows:  map[string]*liveWindowState{},
+		modBuffers:   map[string]*modBuffer{},
+		httpPipes:    map[string]io.Writer{},
+		model:        mod,
+		bus:          bus,
+		atsync:       atsync,
+		webrtcAPI:    api,
+		webrtcConfig: config,
+		localDB:      ldb,
+		transcoders:  map[string]*streamTranscoder{},
 	}
 	mm.hlsSessions = newHLSSessionTracker(hlsSessionTTL,
 		func(streamer string) { mm.IncrementViewerCount(streamer, "hls") },
@@ -573,9 +567,7 @@ func extractLivestream(mani *c2patypes.Manifest) *placestream.Livestream {
 // transcode and rendition code paths against stored segments.
 func NewOffline(cli *config.CLI) *MediaManager {
 	return &MediaManager{
-		cli:                 cli,
-		liveWindows:         map[string]*livehls.Writer{},
-		liveWindowPublished: map[string]bool{},
-		liveWindowLatest:    map[string]time.Time{},
+		cli:         cli,
+		liveWindows: map[string]*liveWindowState{},
 	}
 }

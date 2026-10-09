@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/muxl"
 )
 
@@ -126,9 +128,26 @@ func TestIngestOpenGOPSegmentsStartOnIDR(t *testing.T) {
 func TestIngestOpenGOPCompletionStaysAligned(t *testing.T) {
 	ctx := context.Background()
 	mp4 := makeOpenGOPFMP4(t, ctx)
-	segs, err := runMP4ThroughIngestWorkerSegments(t, mp4, true)
+	sources, err := runMP4ThroughIngestWorkerSegments(t, mp4, true)
 	require.NoError(t, err)
-	require.NotEmpty(t, segs)
+	require.NotEmpty(t, sources)
+
+	// The worker forwards playable Opus; canonical AAC completion runs in main.
+	ms := newBareSegmentSigner(t)
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	var segs [][]byte
+	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "test.example.com"}}
+	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, func(_ any, completed []byte) {
+		segs = append(segs, completed)
+	})
+	t.Cleanup(func() { require.NoError(t, tr.Close()) })
+	for _, source := range sources {
+		require.Equal(t, []string{"opus"}, audioCodecsOf(t, ctx, source))
+		require.NoError(t, tr.Feed(source, nil))
+	}
+	require.NoError(t, tr.Close())
+	require.Len(t, segs, len(sources), "every source GOP reaches canonical completion")
 	for i, seg := range segs {
 		evs, err := unwrapMuxlEvents(ctx, seg)
 		require.NoError(t, err)

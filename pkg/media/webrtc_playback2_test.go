@@ -63,7 +63,7 @@ func TestWebRTCPlayback2CancelsBackloggedPlayback(t *testing.T) {
 
 	cancel()
 	require.NoError(t, client.Close())
-	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(t.Name(), "source")
+	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(t.Name(), WebRTCSourceRendition)
 	var metric dto.Metric
 	require.Eventually(t, func() bool { return subscriptions.Write(&metric) == nil && metric.GetGauge().GetValue() == 0 }, time.Second, time.Millisecond,
 		"cancelled playback releases its segment subscription")
@@ -108,23 +108,28 @@ func startBackloggedPlayback(tb testing.TB, ctx context.Context, mm *MediaManage
 	offer, err := client.CreateOffer(nil)
 	require.NoError(tb, err)
 	require.NoError(tb, client.SetLocalDescription(offer))
+	select {
+	case <-webrtc.GatheringCompletePromise(client):
+	case <-ctx.Done():
+		tb.Fatal("client ICE gathering timed out")
+	}
 
 	seg := &bus.Seg{Published: true, PacketizedData: packet}
 	for range 2 {
-		mm.bus.PublishSegment(ctx, user, "source", seg)
+		mm.bus.PublishSegment(ctx, user, WebRTCSourceRendition, seg)
 	}
-	answer, err := mm.WebRTCPlayback2(ctx, user, renditions.AudioRendition.Name, &offer, "")
+	answer, err := mm.WebRTCPlayback2(ctx, user, renditions.AudioRendition.Name, client.LocalDescription(), "")
 	require.NoError(tb, err)
 	require.NotNil(tb, answer)
+	require.NoError(tb, client.SetRemoteDescription(*answer))
 
-	// The real session starts its reader and pacer while the caller still
-	// holds the answer. A viewer abandoning the handshake must cancel cleanly.
-	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(user, "source")
+	// Wait for the connected session before filling its live segment queue.
+	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(user, WebRTCSourceRendition)
 	var metric dto.Metric
 	require.Eventually(tb, func() bool { return subscriptions.Write(&metric) == nil && metric.GetGauge().GetValue() == 1 }, time.Second, time.Millisecond)
 	for range 16 {
 		for range 256 {
-			mm.bus.PublishSegment(ctx, user, "source", seg)
+			mm.bus.PublishSegment(ctx, user, WebRTCSourceRendition, seg)
 		}
 		// Let the reader fill its queue before the next burst fills the bus.
 		time.Sleep(5 * time.Millisecond)
@@ -143,7 +148,7 @@ func BenchmarkWebRTCPlaybackBacklog(b *testing.B) {
 	defer goleak.VerifyNone(b, ignore)
 	parent, cancelParent := context.WithCancel(b.Context())
 	defer cancelParent()
-	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(b.Name(), "source")
+	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(b.Name(), WebRTCSourceRendition)
 	var metric dto.Metric
 	var cancelTime time.Duration
 	b.ReportAllocs()

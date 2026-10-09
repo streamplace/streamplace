@@ -18,6 +18,8 @@ type Seg struct {
 	Muxl           []byte // bare canonical .m4s (blindly concatenatable)
 	PacketizedData *PacketizedSegment
 	Published      bool
+	// WebRTCPublished means this source GOP already reached private playback.
+	WebRTCPublished bool
 }
 
 // PacketizedSample is one WebRTC-writable sample — a video access unit or an

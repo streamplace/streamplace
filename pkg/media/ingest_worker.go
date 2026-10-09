@@ -63,10 +63,9 @@ type IngestWorkerConfig struct {
 	// control channel and is tracked as future work.
 	Manifest []byte `json:"manifest"`
 
-	// Node transcode signer + broadcaster identity. When set, the worker completes
-	// each single-codec source segment to dual-codec (Opus+AAC) itself — the
-	// transcode runs in this isolated process too — signing the added track under
-	// the node identity. Empty → the worker emits single-codec source segments.
+	// Node transcode signer + broadcaster identity. The worker adds Opus to AAC
+	// sources under the node identity; Opus sources reach main for AAC completion.
+	// Empty → the worker emits single-codec source segments.
 	NodeCertPEM     []byte `json:"node_cert_pem,omitempty"`
 	NodeKeyPEM      []byte `json:"node_key_pem,omitempty"`
 	BroadcasterHost string `json:"broadcaster_host,omitempty"`
@@ -164,17 +163,17 @@ func workerSignStream(cfg IngestWorkerConfig, getManifest func() []byte) SignSeg
 
 // workerSegmentSink returns the onSegment handler a worker hands to
 // muxlSignSegmentElem, plus a flush to call once the signer has drained. With a
-// node transcode key it completes each single-codec source segment to dual-codec
-// via an in-process transcoder (its completion callback frames the finished
-// segment); flush Closes that transcoder so its ~1-GoP tail is framed before the
-// worker exits. The transcoder runs on a non-cancellable context so draining the
-// signer can't kill it early. One process == one session, so the per-DID
-// transcoder-reuse hazard can't arise. Shared by the MP4 and WHIP workers.
+// node transcode key it completes AAC sources with Opus before forwarding them;
+// Opus sources reach main before AAC completion. flush Closes that transcoder
+// so its ~1-GoP tail is framed before the worker exits. The transcoder runs on a
+// non-cancellable context so draining the signer can't kill it early. Each
+// worker owns one session's transcoder. Shared by the MP4 and WHIP workers.
 func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerConfig, frames FrameWriter) (onSegment func(context.Context, []byte) error, flush func()) {
 	var transcoder *streamTranscoder
+	var forwardSource bool
 	onSegment = func(_ context.Context, segment []byte) error {
-		if len(cfg.NodeKeyPEM) == 0 {
-			return frames.Segment(segment) // no node signer → single-codec
+		if len(cfg.NodeKeyPEM) == 0 || forwardSource {
+			return frames.Segment(segment)
 		}
 		if transcoder == nil {
 			// WithoutCancel for the same reason as the transcoder below: this
@@ -182,8 +181,9 @@ func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerC
 			// started with a cancelled ctx deadlocks its wasm mid-stream
 			// instead of returning.
 			target, need := mm.audioCompletionTarget(context.WithoutCancel(ctx), segment)
-			if !need {
-				return frames.Segment(segment) // already dual-codec / no audio track
+			if !need || target == "aac" {
+				forwardSource = true
+				return frames.Segment(segment) // Opus is already playable; main adds AAC.
 			}
 			transcoder = mm.newStreamTranscoder(context.WithoutCancel(ctx), target, cfg.NodeCertPEM, cfg.NodeKeyPEM,
 				func(_ any, completed []byte) {

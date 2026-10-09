@@ -260,7 +260,16 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		return nil, fmt.Errorf("packetize pipeline error filename=%s, error=%w", seg.Filepath, err)
 	}
 
-	video := finalizeSampleDurations(videoOutput, segDur)
+	// Opus packet rounding does not determine the video timeline. Its own
+	// timestamps and final buffer duration also preserve sparse-frame gaps.
+	var videoDuration time.Duration
+	if len(videoOutput) > 0 {
+		first, last := videoOutput[0], videoOutput[len(videoOutput)-1]
+		if first.hasTS && last.hasTS {
+			videoDuration = last.ts - first.ts + last.bufDur
+		}
+	}
+	video := finalizeSampleDurations(videoOutput, videoDuration)
 	// segDur is audio-derived; a video-only segment would report Duration 0,
 	// throwing off the sender's latency bookkeeping (the segment occupies the
 	// sender for its full video span). Fall back to the video timeline.

@@ -62,3 +62,33 @@ test("lazy navigation: defer settings until opened and keep shell usable", async
   await page.reload();
   await expect(page.getByTestId("settings-use-custom-node")).toBeVisible();
 });
+
+test("lazy navigation: retry a failed chunk without losing navigation", async ({
+  page,
+}) => {
+  let attempts = 0;
+  await page.route(/\/settings-[^/]+\.js$/, async (route) => {
+    attempts++;
+    if (attempts === 1) {
+      await route.fulfill({ status: 503, body: "Temporarily unavailable" });
+    } else {
+      await route.continue();
+    }
+  });
+
+  await page.goto("/");
+  await expect(page.getByTestId("home-stream-card").first()).toBeVisible();
+  await page
+    .getByRole("link", { name: "Settings", exact: true })
+    .first()
+    .click();
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Home", exact: true }).first(),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByText("Advanced", { exact: true })).toBeVisible();
+  expect(attempts).toBe(2);
+  await page.getByRole("link", { name: "Home", exact: true }).first().click();
+  await expect(page.getByTestId("home-stream-card").first()).toBeVisible();
+});

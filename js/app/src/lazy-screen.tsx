@@ -1,6 +1,11 @@
-import { Loader, zero } from "@streamplace/components";
+import {
+  AppCrashScreen,
+  ErrorBoundary,
+  Loader,
+  zero,
+} from "@streamplace/components";
 import type { ComponentProps, ComponentType } from "react";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { View } from "react-native";
 
 function ScreenFallback() {
@@ -16,12 +21,25 @@ function ScreenFallback() {
 export function lazyScreen<T extends ComponentType<any>>(
   load: () => Promise<{ default: T }>,
 ) {
-  const Screen = lazy(load);
+  const InitialScreen = lazy(load);
   return function LazyScreen(props: ComponentProps<T>) {
+    const [Screen, setScreen] = useState(() => InitialScreen);
     return (
-      <Suspense fallback={<ScreenFallback />}>
-        <Screen {...props} />
-      </Suspense>
+      <ErrorBoundary
+        fallback={(reset) => (
+          <AppCrashScreen
+            reset={() => {
+              // React.lazy caches rejection; a retry needs a fresh lazy component.
+              setScreen(() => lazy(load));
+              reset();
+            }}
+          />
+        )}
+      >
+        <Suspense fallback={<ScreenFallback />}>
+          <Screen {...props} />
+        </Suspense>
+      </ErrorBoundary>
     );
   };
 }

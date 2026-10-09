@@ -19,6 +19,7 @@
     "build": "pnpm run build:web && pnpm run prebuild",
     "build:web": "pnpm run brand && node scripts/generate-build-info.js && pnpm run export && node exportClientExpoConfig.js > dist/expoConfig.json",
     "export": "expo export --dump-sourcemap || expo export --dump-sourcemap",
+    "analyze:web": "EXPO_ATLAS=true expo export --platform web --output-dir .expo/atlas-web --dump-sourcemap && expo-atlas --no-open",
     "check": "pnpm --filter @streamplace/i18n compile && bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
     "prebuild": "pnpm run brand && EXPO_NO_GIT_STATUS=1 expo prebuild --clean && sed -i.bak 's/org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m/org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m/' android/gradle.properties && pnpm run find-node",
     "prepare": "which pod && pnpm run prepare-ios || echo 'not a mac, not installing pods' && mkdir -p ./public && cp -r ../i18n/public/locales ./public/",
@@ -149,6 +150,7 @@
     "@types/sdp-transform": "^2.15.0",
     "@types/uuid": "^10.0.0",
     "emojibase-data": "^17.0.0",
+    "expo-atlas": "^0.4.3",
     "i18next-parser": "^9.0.1",
     "typescript": "~5.9.3"
   },

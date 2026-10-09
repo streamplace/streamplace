@@ -14,7 +14,7 @@ import {
   useTheme,
 } from "@streamplace/components";
 import { statusColors } from "@streamplace/components/src/lib/theme/tokens";
-import { Provider } from "components";
+import Provider from "components/provider/provider";
 import { ImageBackground } from "expo-image";
 import { useLiveUser } from "hooks/useLiveUser";
 import {

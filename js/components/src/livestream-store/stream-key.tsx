@@ -7,7 +7,6 @@ import { bytesToMultibase, Secp256k1Keypair } from "@atproto/crypto";
 import { getBrowserName, getPlatform } from "@streamplace/core";
 import { useEffect, useState } from "react";
 import { place } from "streamplace";
-import { privateKeyToAccount } from "viem/accounts";
 import { usePDSAgent } from "../streamplace-store/xrpc";
 import { useLivestreamStore } from "./use-store";
 
@@ -47,6 +46,8 @@ export const useStreamKey = (): {
       const hexKey = Array.from(exportedKey)
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("");
+      // Static import puts key-generation crypto in the initial web bundle.
+      const { privateKeyToAccount } = await import("viem/accounts");
       const account = privateKeyToAccount(`0x${hexKey}`);
       const newKey = {
         privateKey: multibaseKey,

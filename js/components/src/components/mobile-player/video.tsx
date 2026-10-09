@@ -1,4 +1,4 @@
-import Hls from "hls.js";
+import type Hls from "hls.js";
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import {
   IngestMediaSource,
@@ -375,11 +375,17 @@ export function HLSPlayer(props: VideoProps) {
   }, [setStatus]);
 
   useEffect(() => {
-    if (!localRef.current) {
+    const video = localRef.current;
+    if (!video) {
       return;
     }
-    if (Hls.isSupported()) {
-      var hls = new Hls({
+    // hls.js is loaded on demand so it stays out of the main bundle. The
+    // effect may be cleaned up before the import resolves; `cancelled`
+    // stops a late setup, and `cleanup` tears down whatever was started.
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+    const startHlsJs = (HlsClass: typeof Hls) => {
+      const hls = new HlsClass({
         maxAudioFramesDrift: 20,
         // A `?t=` link starts a VOD partway in; hls.js clamps a position
         // past the end onto the last fragment.
@@ -390,13 +396,15 @@ export function HLSPlayer(props: VideoProps) {
       hlsRef.current = hls;
       hls.loadSource(props.url);
       try {
-        hls.attachMedia(localRef.current);
+        hls.attachMedia(video);
       } catch (e) {
-        console.error("error on attachMedia");
-        hls.stopLoad();
+        console.error("error on attachMedia", e);
+        hls.destroy();
+        hlsRef.current = null;
+        video.dispatchEvent(new Event("error"));
         return;
       }
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      hls.on(HlsClass.Events.MANIFEST_PARSED, () => {
         if (!localRef.current) {
           return;
         }
@@ -416,7 +424,7 @@ export function HLSPlayer(props: VideoProps) {
           );
         }
       });
-      hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+      hls.on(HlsClass.Events.LEVEL_SWITCHED, (_, data) => {
         const l = hls.levels[data.level];
         if (!l) return;
         const name =
@@ -429,9 +437,9 @@ export function HLSPlayer(props: VideoProps) {
       // there, so a viewer waiting on the page starts playing when it
       // begins — the same "pre-live" wait WebRTC gets from its reconnects.
       let retry: ReturnType<typeof setTimeout> | null = null;
-      hls.on(Hls.Events.ERROR, (_, data) => {
+      hls.on(HlsClass.Events.ERROR, (_, data) => {
         if (!data.fatal || hlsRef.current !== hls) return;
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+        if (data.type === HlsClass.ErrorTypes.NETWORK_ERROR) {
           if (retry) clearTimeout(retry);
           retry = setTimeout(() => {
             retry = null;
@@ -439,7 +447,7 @@ export function HLSPlayer(props: VideoProps) {
             hls.loadSource(props.url);
             hls.startLoad();
           }, 2000);
-        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+        } else if (data.type === HlsClass.ErrorTypes.MEDIA_ERROR) {
           hls.recoverMediaError();
         }
       });
@@ -451,10 +459,10 @@ export function HLSPlayer(props: VideoProps) {
         setVodLevels([]);
         setPlayingVODRendition(null);
       };
-    } else if (localRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-      // Native HLS (iPhone Safari): the element gives up on a 404 too, so
-      // re-point it at the playlist until it plays.
-      const video = localRef.current;
+    };
+    // Native HLS (iPhone Safari): the element gives up on a 404 too, so
+    // re-point it at the playlist until it plays.
+    const startNative = () => {
       video.src = props.url;
       // Native HLS has no hls.js config to carry the start position, so
       // seek once the element knows how long the media is.
@@ -485,7 +493,33 @@ export function HLSPlayer(props: VideoProps) {
         video.removeEventListener("canplay", onCanPlay);
         video.removeEventListener("error", onError);
       };
-    }
+    };
+    const canPlayNative = () =>
+      video.canPlayType("application/vnd.apple.mpegurl") !== "";
+    import("hls.js").then(
+      ({ default: HlsClass }) => {
+        if (cancelled) return;
+        if (HlsClass.isSupported()) {
+          cleanup = startHlsJs(HlsClass);
+        } else if (canPlayNative()) {
+          cleanup = startNative();
+        }
+      },
+      (e) => {
+        if (cancelled) return;
+        console.error("failed to load hls.js", e);
+        if (canPlayNative()) {
+          cleanup = startNative();
+        } else {
+          // Report it the way the element reports its own errors.
+          video.dispatchEvent(new Event("error"));
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
   }, [props.url, mode, startTime]);
 
   // The quality menu drives hls.js levels: "auto"/"source" leave ABR to

@@ -20,29 +20,11 @@ import {
   zero,
 } from "@streamplace/components";
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
-import { Settings } from "components";
 import { SiteTitleLockup, useNodeTitle } from "components/brand/logo";
 import { LogoBrandMenu } from "components/brand/logo-brand-menu";
-import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
 import PdsHostSelectorModal from "components/login/pds-host-selector-modal";
 import { MobileAppBanner } from "components/mobile-app-banner";
-import { AboutCategorySettings } from "components/settings/about-category-settings";
-import { AccountCategorySettings } from "components/settings/account-category-settings";
-import { AdvancedCategorySettings } from "components/settings/advanced-category-settings";
-import { BackupSettings } from "components/settings/backup-settings";
-import { BadgeIssuerPanel } from "components/settings/badge-issuer-panel";
-import { BadgeSelectionManager } from "components/settings/badge-selection-manager";
-import { BrandingAdmin } from "components/settings/branding-admin";
-import { DanmuCategorySettings } from "components/settings/danmu-category-settings";
-import KeyManager from "components/settings/key-manager";
-import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
-import MultistreamManager from "components/settings/multistream-manager";
-import { NotificationsCategorySettings } from "components/settings/notifications-category-settings";
-import { PrivacyCategorySettings } from "components/settings/privacy-category-settings";
-import RecommendationsManager from "components/settings/recommendations-manager";
-import { StreamingCategorySettings } from "components/settings/streaming-category-settings";
-import WebhookManager from "components/settings/webhook-manager";
 import {
   SidebarOverlay,
   SidebarToggle,
@@ -56,35 +38,9 @@ import { useEffect, useState } from "react";
 import { Platform, Pressable, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { SFSymbols7_0 } from "sf-symbols-typescript";
+import { lazyScreen } from "src/lazy-screen";
 import "src/navigation-types";
-import AboutScreen from "src/screens/about";
-import AppReturnScreen from "src/screens/app-return";
-import PopoutChat from "src/screens/chat-popout";
-import DanmuOBSScreen from "src/screens/danmu-obs";
-import DownloadScreen from "src/screens/download";
-import EmbedScreen from "src/screens/embed";
 import HomeScreen from "src/screens/home";
-import InfoWidgetEmbed from "src/screens/info-widget-embed";
-import LaunchGoLive from "src/screens/launch-go-live";
-import LiveDashboard from "src/screens/live-dashboard";
-import MobileGoLive from "src/screens/mobile-go-live";
-import MobileStream from "src/screens/mobile-stream";
-import MultiScreen from "src/screens/multi";
-import PopoutInfoWidget from "src/screens/popout-info-widget";
-import PopoutLivestream from "src/screens/popout-livestream";
-import PopoutMultistream from "src/screens/popout-multistream";
-import PopoutStreamMonitor from "src/screens/popout-stream-monitor";
-import SupportScreen from "src/screens/support";
-import UploadScreen, {
-  UploadDraftsScreen,
-  UploadLivestreamsScreen,
-  UploadVideoScreen,
-  UploadVideosScreen,
-} from "src/screens/upload";
-import VideoScreen from "src/screens/video";
-import VideoListScreen from "src/screens/video-list";
-import VodScreen from "src/screens/vod";
-import VodEmbedScreen from "src/screens/vod-embed";
 import { useStore } from "store";
 import {
   useHydrated,
@@ -97,6 +53,129 @@ import {
   NavigationButton,
   UploadButton,
 } from "./router";
+
+// Every screen except the home feed is code-split, so its module (and
+// dependencies) only load when the route is first visited.
+const Login = lazyScreen(() => import("components/login/login"));
+const Settings = lazyScreen(() =>
+  import("components/settings/settings").then((m) => ({ default: m.Settings })),
+);
+const AboutCategorySettings = lazyScreen(() =>
+  import("components/settings/about-category-settings").then((m) => ({
+    default: m.AboutCategorySettings,
+  })),
+);
+const AccountCategorySettings = lazyScreen(() =>
+  import("components/settings/account-category-settings").then((m) => ({
+    default: m.AccountCategorySettings,
+  })),
+);
+const AdvancedCategorySettings = lazyScreen(() =>
+  import("components/settings/advanced-category-settings").then((m) => ({
+    default: m.AdvancedCategorySettings,
+  })),
+);
+const BackupSettings = lazyScreen(() =>
+  import("components/settings/backup-settings").then((m) => ({
+    default: m.BackupSettings,
+  })),
+);
+const BadgeIssuerPanel = lazyScreen(() =>
+  import("components/settings/badge-issuer-panel").then((m) => ({
+    default: m.BadgeIssuerPanel,
+  })),
+);
+const BadgeSelectionManager = lazyScreen(() =>
+  import("components/settings/badge-selection-manager").then((m) => ({
+    default: m.BadgeSelectionManager,
+  })),
+);
+const BrandingAdmin = lazyScreen(() =>
+  import("components/settings/branding-admin").then((m) => ({
+    default: m.BrandingAdmin,
+  })),
+);
+const DanmuCategorySettings = lazyScreen(() =>
+  import("components/settings/danmu-category-settings").then((m) => ({
+    default: m.DanmuCategorySettings,
+  })),
+);
+const KeyManager = lazyScreen(() => import("components/settings/key-manager"));
+const LanguagesCategorySettings = lazyScreen(() =>
+  import("components/settings/languages-category-settings").then((m) => ({
+    default: m.LanguagesCategorySettings,
+  })),
+);
+const MultistreamManager = lazyScreen(
+  () => import("components/settings/multistream-manager"),
+);
+const NotificationsCategorySettings = lazyScreen(() =>
+  import("components/settings/notifications-category-settings").then((m) => ({
+    default: m.NotificationsCategorySettings,
+  })),
+);
+const PrivacyCategorySettings = lazyScreen(() =>
+  import("components/settings/privacy-category-settings").then((m) => ({
+    default: m.PrivacyCategorySettings,
+  })),
+);
+const RecommendationsManager = lazyScreen(
+  () => import("components/settings/recommendations-manager"),
+);
+const StreamingCategorySettings = lazyScreen(() =>
+  import("components/settings/streaming-category-settings").then((m) => ({
+    default: m.StreamingCategorySettings,
+  })),
+);
+const WebhookManager = lazyScreen(
+  () => import("components/settings/webhook-manager"),
+);
+const AboutScreen = lazyScreen(() => import("src/screens/about"));
+const AppReturnScreen = lazyScreen(() => import("src/screens/app-return"));
+const PopoutChat = lazyScreen(() => import("src/screens/chat-popout"));
+const DanmuOBSScreen = lazyScreen(() => import("src/screens/danmu-obs"));
+const DownloadScreen = lazyScreen(() => import("src/screens/download"));
+const EmbedScreen = lazyScreen(() => import("src/screens/embed"));
+const InfoWidgetEmbed = lazyScreen(
+  () => import("src/screens/info-widget-embed"),
+);
+const LaunchGoLive = lazyScreen(() => import("src/screens/launch-go-live"));
+const LiveDashboard = lazyScreen(() => import("src/screens/live-dashboard"));
+const MobileGoLive = lazyScreen(() => import("src/screens/mobile-go-live"));
+const MobileStream = lazyScreen(() => import("src/screens/mobile-stream"));
+const MultiScreen = lazyScreen(() => import("src/screens/multi"));
+const PopoutInfoWidget = lazyScreen(
+  () => import("src/screens/popout-info-widget"),
+);
+const PopoutLivestream = lazyScreen(
+  () => import("src/screens/popout-livestream"),
+);
+const PopoutMultistream = lazyScreen(
+  () => import("src/screens/popout-multistream"),
+);
+const PopoutStreamMonitor = lazyScreen(
+  () => import("src/screens/popout-stream-monitor"),
+);
+const SupportScreen = lazyScreen(() => import("src/screens/support"));
+const UploadScreen = lazyScreen(() => import("src/screens/upload"));
+const UploadVideoScreen = lazyScreen(() =>
+  import("src/screens/upload").then((m) => ({ default: m.UploadVideoScreen })),
+);
+const UploadDraftsScreen = lazyScreen(() =>
+  import("src/screens/upload").then((m) => ({ default: m.UploadDraftsScreen })),
+);
+const UploadLivestreamsScreen = lazyScreen(() =>
+  import("src/screens/upload").then((m) => ({
+    default: m.UploadLivestreamsScreen,
+  })),
+);
+const UploadVideosScreen = lazyScreen(() =>
+  import("src/screens/upload").then((m) => ({ default: m.UploadVideosScreen })),
+);
+const VideoScreen = lazyScreen(() => import("src/screens/video"));
+const VideoListScreen = lazyScreen(() => import("src/screens/video-list"));
+const VodScreen = lazyScreen(() => import("src/screens/vod"));
+const VodEmbedScreen = lazyScreen(() => import("src/screens/vod-embed"));
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 

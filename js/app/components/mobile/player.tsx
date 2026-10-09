@@ -501,6 +501,7 @@ export function PlayerInner(
           pointerEvents: "none",
         }}
       />
+      <PlayerUI.ActionFeedback />
     </PlayerInnerInner>
   );
 

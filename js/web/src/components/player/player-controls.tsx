@@ -3,17 +3,32 @@
 // Hides when the video is playing and the user is idle; stays visible
 // when the video is paused or has errored.
 import {
+  FastForward,
+  type LucideIcon,
   Maximize,
   Minimize,
+  Panda,
   Pause,
   PictureInPicture,
   Play,
+  Rabbit,
   RectangleHorizontal,
+  Rewind,
   Settings,
+  Snail,
+  StepBack,
+  StepForward,
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { type RefObject, useCallback, useEffect, useState } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useFullscreen } from "../../contexts/fullscreen-context";
 import { cn } from "../../lib/utils";
@@ -23,14 +38,31 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Slider } from "../ui/slider";
 import type { QualityOption } from "./player";
+
+const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+const FEEDBACK_DURATION_MS = 1500;
+const PLAYER_SHORTCUTS_SELECTOR = "[data-player-shortcuts]";
+
+function ownsKeyboardShortcuts(container: HTMLElement | null) {
+  if (!container) return false;
+  const activePlayer =
+    document.querySelector<HTMLElement>(`${PLAYER_SHORTCUTS_SELECTOR}:hover`) ??
+    document.activeElement?.closest<HTMLElement>(PLAYER_SHORTCUTS_SELECTOR);
+  if (activePlayer) return activePlayer === container;
+  return document.querySelectorAll(PLAYER_SHORTCUTS_SELECTOR).length === 1;
+}
 
 export type PlayerControlsProps = {
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -90,13 +122,36 @@ export function PlayerControls({
   const [volume, setVolume] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPiP, setIsPiP] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    message: string;
+    icon: LucideIcon;
+  } | null>(null);
+  const feedbackTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { theatre, setTheatre } = useFullscreen();
   const { t } = useTranslation();
+
+  const showFeedback = useCallback((message: string, icon: LucideIcon) => {
+    if (feedbackTimeout.current !== null) clearTimeout(feedbackTimeout.current);
+    setFeedback({ message, icon });
+    feedbackTimeout.current = setTimeout(() => {
+      setFeedback(null);
+      feedbackTimeout.current = null;
+    }, FEEDBACK_DURATION_MS);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (feedbackTimeout.current !== null)
+        clearTimeout(feedbackTimeout.current);
+    },
+    [],
+  );
 
   // Mirror video element state into React.
   useEffect(() => {
@@ -115,17 +170,23 @@ export function PlayerControls({
     const onLoadedMetadata = () => {
       if (!isLive) setDuration(video.duration);
     };
+    const onRateChange = () => setPlaybackRate(video.playbackRate);
 
     // Sync initial state — the video may already be playing when we attach.
     setMuted(video.muted);
     setVolume(video.volume);
     if (!video.paused) setPlaying(true);
+    onLoadedMetadata();
+    onTimeUpdate();
+    onRateChange();
 
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
     video.addEventListener("volumechange", onVolumeChange);
     video.addEventListener("timeupdate", onTimeUpdate);
     video.addEventListener("loadedmetadata", onLoadedMetadata);
+    video.addEventListener("durationchange", onLoadedMetadata);
+    video.addEventListener("ratechange", onRateChange);
 
     return () => {
       video.removeEventListener("play", onPlay);
@@ -133,6 +194,8 @@ export function PlayerControls({
       video.removeEventListener("volumechange", onVolumeChange);
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
+      video.removeEventListener("durationchange", onLoadedMetadata);
+      video.removeEventListener("ratechange", onRateChange);
     };
   }, [videoRef, isLive]);
 
@@ -167,6 +230,10 @@ export function PlayerControls({
     const video = videoRef.current;
     if (!video) return;
     try {
+      showFeedback(
+        t(document.pictureInPictureElement ? "player-exit-pip" : "player-pip"),
+        PictureInPicture,
+      );
       if (document.pictureInPictureElement) {
         await document.exitPictureInPicture();
       } else {
@@ -175,23 +242,31 @@ export function PlayerControls({
     } catch {
       // PiP can be denied by the browser or user settings.
     }
-  }, [videoRef]);
+  }, [videoRef, showFeedback, t]);
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
+    showFeedback(
+      t(video.paused ? "player-play" : "player-pause"),
+      video.paused ? Play : Pause,
+    );
     if (video.paused) {
       video.play().catch(() => {});
     } else {
       video.pause();
     }
-  }, [videoRef]);
+  }, [videoRef, showFeedback, t]);
 
   const toggleMute = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
     video.muted = !video.muted;
-  }, [videoRef]);
+    showFeedback(
+      t(video.muted ? "player-feedback-muted" : "player-feedback-unmuted"),
+      video.muted ? VolumeX : Volume2,
+    );
+  }, [videoRef, showFeedback, t]);
 
   const onVolumeInput = useCallback(
     (v: number) => {
@@ -200,23 +275,94 @@ export function PlayerControls({
       video.volume = v;
       // Unmuting requires volume > 0 on some browsers.
       if (v > 0) video.muted = false;
+      showFeedback(
+        t("player-feedback-volume", { volume: Math.round(video.volume * 100) }),
+        video.volume > 0 ? Volume2 : VolumeX,
+      );
     },
-    [videoRef],
+    [videoRef, showFeedback, t],
   );
 
   const onSeekInput = useCallback(
     (currentTime: number) => {
       const video = videoRef.current;
       if (!video) return;
+      const icon = currentTime < video.currentTime ? Rewind : FastForward;
       video.currentTime = currentTime;
+      setCurrentTime(video.currentTime);
+      showFeedback(
+        t("player-feedback-seek", { time: formatTime(video.currentTime) }),
+        icon,
+      );
     },
-    [videoRef],
+    [videoRef, showFeedback, t],
+  );
+
+  const onPlaybackRateChange = useCallback(
+    (rate: number) => {
+      const video = videoRef.current;
+      if (!video || isLive) return;
+      video.playbackRate = Math.max(0.25, Math.min(2, rate));
+      const speed = video.playbackRate;
+      setPlaybackRate(speed);
+      showFeedback(
+        t("player-feedback-speed", { speed }),
+        speed > 1 ? Rabbit : speed < 1 ? Snail : Panda,
+      );
+    },
+    [videoRef, isLive, showFeedback, t],
+  );
+
+  const frameRate = qualities.find(
+    (q) => q.index === currentQuality,
+  )?.frameRate;
+  const stepFrame = useCallback(
+    (direction: number) => {
+      const video = videoRef.current;
+      if (
+        !video ||
+        isLive ||
+        !video.paused ||
+        !Number.isFinite(video.duration) ||
+        video.duration <= 0
+      )
+        return;
+      // Native HLS and manifests without FRAME-RATE use a 30 fps estimate.
+      const fps =
+        frameRate && Number.isFinite(frameRate) && frameRate > 0
+          ? frameRate
+          : 30;
+      video.currentTime = Math.max(
+        0,
+        Math.min(video.duration, video.currentTime + direction / fps),
+      );
+      setCurrentTime(video.currentTime);
+      const milliseconds = Math.round(video.currentTime * 1000);
+      showFeedback(
+        t("player-feedback-frame", {
+          frame: t(
+            direction > 0 ? "player-frame-next" : "player-frame-previous",
+          ),
+          time: `${formatTime(milliseconds / 1000)}.${String(milliseconds % 1000).padStart(3, "0")}`,
+        }),
+        direction > 0 ? StepForward : StepBack,
+      );
+    },
+    [videoRef, isLive, frameRate, showFeedback, t],
   );
 
   const toggleFullscreen = useCallback(async () => {
     const el = containerRef.current;
     if (!el) return;
     try {
+      showFeedback(
+        t(
+          document.fullscreenElement
+            ? "player-exit-fullscreen"
+            : "player-fullscreen",
+        ),
+        document.fullscreenElement ? Minimize : Maximize,
+      );
       if (document.fullscreenElement) {
         await document.exitFullscreen();
       } else {
@@ -225,37 +371,122 @@ export function PlayerControls({
     } catch {
       // Fullscreen can be denied (e.g. not user-initiated in some browsers).
     }
-  }, [containerRef]);
+  }, [containerRef, showFeedback, t]);
 
-  // Keyboard shortcuts: space=play/pause, m=mute, f=fullscreen.
+  const onTheatreChange = useCallback(
+    (value: boolean) => {
+      setTheatre(value);
+      showFeedback(
+        t(value ? "player-theatre" : "player-exit-theatre"),
+        RectangleHorizontal,
+      );
+    },
+    [setTheatre, showFeedback, t],
+  );
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Don't hijack typing in inputs or anywhere a user is composing text
-      // (contenteditable covers rich editors like the Tiptap chat input).
+      if (
+        e.defaultPrevented ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.altKey ||
+        e.isComposing
+      )
+        return;
+      // Preserve typing, focused controls, and popup keyboard navigation.
       const target = e.target as HTMLElement | null;
-      const tag = target?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (target?.isContentEditable) return;
-      if (e.key === " ") {
+      if (
+        target?.closest?.(
+          'input, textarea, select, button, a, [contenteditable], [role="textbox"], [role="slider"], [role="menu"], [role="dialog"]',
+        )
+      )
+        return;
+      if (settingsOpen) return;
+      if (!ownsKeyboardShortcuts(containerRef.current)) return;
+      const video = videoRef.current;
+      if (!video) return;
+      const key = e.key.toLowerCase();
+      if (key === " " || key === "k") {
         e.preventDefault();
         togglePlay();
-      } else if (e.key === "m" || e.key === "M") {
+      } else if (key === "m") {
         e.preventDefault();
         toggleMute();
-      } else if (e.key === "f" || e.key === "F") {
+      } else if (key === "f") {
         e.preventDefault();
         toggleFullscreen();
-      } else if (e.key === "t" || e.key === "T") {
+      } else if (key === "t") {
         e.preventDefault();
-        setTheatre(!theatre);
+        onTheatreChange(!theatre);
+      } else if (key === "arrowup" || key === "arrowdown") {
+        e.preventDefault();
+        onVolumeInput(
+          Math.max(
+            0,
+            Math.min(1, video.volume + (key === "arrowup" ? 0.05 : -0.05)),
+          ),
+        );
+      } else if (!isLive) {
+        if (key === "<" || key === ">") {
+          e.preventDefault();
+          onPlaybackRateChange(
+            video.playbackRate + (key === ">" ? 0.25 : -0.25),
+          );
+        } else if ((key === "," || key === ".") && video.paused) {
+          e.preventDefault();
+          stepFrame(key === "." ? 1 : -1);
+        } else if (Number.isFinite(video.duration) && video.duration > 0) {
+          let time: number;
+          switch (key) {
+            case "arrowleft":
+              time = video.currentTime - 5;
+              break;
+            case "arrowright":
+              time = video.currentTime + 5;
+              break;
+            case "j":
+              time = video.currentTime - 10;
+              break;
+            case "l":
+              time = video.currentTime + 10;
+              break;
+            case "home":
+              time = 0;
+              break;
+            case "end":
+              time = video.duration;
+              break;
+            default:
+              if (!/^[0-9]$/.test(key)) return;
+              time = (Number(key) / 10) * video.duration;
+          }
+          e.preventDefault();
+          onSeekInput(Math.max(0, Math.min(video.duration, time)));
+        }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [togglePlay, toggleMute, toggleFullscreen, theatre, setTheatre]);
+  }, [
+    videoRef,
+    togglePlay,
+    toggleMute,
+    toggleFullscreen,
+    theatre,
+    onTheatreChange,
+    isLive,
+    settingsOpen,
+    onVolumeInput,
+    onSeekInput,
+    onPlaybackRateChange,
+    stepFrame,
+  ]);
 
   const showUnmutePrompt = shouldShowUnmutePrompt(playing, muted);
-  const visible = forceVisible || showControls || bigPlay || showUnmutePrompt;
+  const visible =
+    forceVisible || showControls || bigPlay || showUnmutePrompt || settingsOpen;
 
   return (
     <div
@@ -264,6 +495,27 @@ export function PlayerControls({
         visible ? "opacity-100" : "pointer-events-none opacity-0",
       )}
     >
+      {feedback &&
+        containerRef.current &&
+        createPortal(
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="pointer-events-none absolute top-1/2 left-1/2 z-20 flex w-full -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 px-4 text-center text-sm font-medium tabular-nums"
+          >
+            <div className="rounded-full bg-black/50 p-2">
+              <feedback.icon
+                className="size-12 text-white opacity-80"
+                aria-hidden="true"
+              />
+            </div>
+            <span className="max-w-full rounded-md bg-black/50 px-3 py-1 text-white/80">
+              {feedback.message}
+            </span>
+          </div>,
+          containerRef.current,
+        )}
       {/* Top gradient; subtle hint that there's a controls bar.
           Not strictly needed since the bar has its own background, but
           gives the play button overlay a darker canvas. */}
@@ -282,10 +534,12 @@ export function PlayerControls({
         aria-hidden={!bigPlay}
         tabIndex={bigPlay ? 0 : -1}
       >
-        <div className="flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-5 py-3 backdrop-blur transition-colors hover:bg-white/20">
-          <Play className="h-6 w-6 fill-white text-white" />
-          <span className="font-medium text-white">{t("player-play")}</span>
-        </div>
+        {!feedback && (
+          <div className="flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-5 py-3 backdrop-blur transition-colors hover:bg-white/20">
+            <Play className="h-6 w-6 fill-white text-white" />
+            <span className="font-medium text-white">{t("player-play")}</span>
+          </div>
+        )}
       </button>
 
       <button
@@ -400,7 +654,7 @@ export function PlayerControls({
 
           <button
             type="button"
-            onClick={() => setTheatre(!theatre)}
+            onClick={() => onTheatreChange(!theatre)}
             className={cn(
               "wide:flex wide:p-1 hidden transition-colors",
               theatre ? "text-white" : "text-white/40 hover:text-white/80",
@@ -446,8 +700,74 @@ export function PlayerControls({
             <DropdownMenuContent
               side="top"
               align="end"
-              className="border-white/10 bg-black/85 backdrop-blur"
+              portalContainer={containerRef.current}
+              className="border-border bg-popover/95 min-w-48 backdrop-blur"
             >
+              {!isLive && (
+                <>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      {t("player-speed")}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent
+                      portalContainer={containerRef.current}
+                    >
+                      <DropdownMenuGroup>
+                        <DropdownMenuRadioGroup
+                          value={String(playbackRate)}
+                          onValueChange={(v) => onPlaybackRateChange(Number(v))}
+                        >
+                          {PLAYBACK_RATES.map((rate) => (
+                            <DropdownMenuRadioItem
+                              key={rate}
+                              value={String(rate)}
+                            >
+                              {rate === 1
+                                ? t("player-speed-normal")
+                                : `${rate}×`}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      {t("player-frame")}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent
+                      portalContainer={containerRef.current}
+                    >
+                      <DropdownMenuGroup>
+                        <DropdownMenuLabel>
+                          {t("player-frame-paused")}
+                        </DropdownMenuLabel>
+                        <DropdownMenuItem
+                          disabled={
+                            playing ||
+                            !Number.isFinite(duration) ||
+                            duration <= 0
+                          }
+                          onClick={() => stepFrame(-1)}
+                        >
+                          {t("player-frame-previous")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={
+                            playing ||
+                            !Number.isFinite(duration) ||
+                            duration <= 0
+                          }
+                          onClick={() => stepFrame(1)}
+                        >
+                          {t("player-frame-next")}
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuGroup>
                 <DropdownMenuLabel>{t("player-latency")}</DropdownMenuLabel>
                 <DropdownMenuRadioGroup
@@ -489,7 +809,7 @@ export function PlayerControls({
               <DropdownMenuCheckboxItem
                 className="wide:hidden"
                 checked={theatre}
-                onCheckedChange={(checked) => setTheatre(checked)}
+                onCheckedChange={onTheatreChange}
               >
                 {t("player-theatre")}
               </DropdownMenuCheckboxItem>

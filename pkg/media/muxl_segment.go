@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"sync"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -40,7 +41,7 @@ func MuxlSignSegmentElem(ctx context.Context, cli *config.CLI, ms MediaSigner, o
 // has finished and the event loop has emptied). The isolated ingest worker waits
 // on it to guarantee all segment frames are flushed before it signals a clean
 // end-of-stream.
-func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSegmentStreamFunc, onSegment func(ctx context.Context, segment []byte) error) (*gst.Element, <-chan struct{}, error) {
+func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSegmentStreamFunc, onSegment func(ctx context.Context, segment []byte) error, onComplete ...func(error)) (*gst.Element, <-chan struct{}, error) {
 	ctx = log.WithLogValues(ctx, "func", "MuxlSignSegmentElem")
 	bin := gst.NewBin("muxl-segment-bin")
 	elem, err := gst.NewElementWithProperties("mp4mux", map[string]any{
@@ -99,9 +100,15 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 	}
 
 	r, w := io.Pipe()
+	done := make(chan struct{})
+	cleanEOS := make(chan struct{})
+	var eosOnce sync.Once
 	go func() {
-		<-ctx.Done()
-		r.Close()
+		select {
+		case <-ctx.Done():
+			r.Close()
+		case <-done:
+		}
 	}()
 
 	// The signer and its event drain run on a non-cancellable ctx: cancelling
@@ -118,16 +125,18 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 	// Stream the fMP4 through the per-segment signer; each event carries one
 	// GoP's per-track signed canonical segments.
 	eventCh := make(chan *muxl.MuxlEvent, 16)
+	signResult := make(chan error, 1)
 	go func() {
 		err := signStream(drainCtx, r, eventCh)
+		signResult <- err
 		close(eventCh)
 		if err != nil && ctx.Err() == nil {
 			log.Error(ctx, "error running muxl sign-segment", "error", err)
 		}
 	}()
-	done := make(chan struct{})
 	go func() {
 		defer close(done)
+		var deliveryErr error
 		for ev := range eventCh {
 			if ev.Type != "signed-segment" {
 				continue
@@ -136,13 +145,36 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 			cli.DumpDebugSegment(drainCtx, "muxl_signed_segment.m4s", bytes.NewReader(segment))
 			if err := onSegment(drainCtx, segment); err != nil {
 				log.Error(drainCtx, "error handling signed segment", "error", err)
+				if deliveryErr == nil {
+					deliveryErr = err
+				}
 			}
+		}
+		result := <-signResult
+		if result == nil {
+			result = deliveryErr
+		}
+		if result == nil {
+			select {
+			case <-cleanEOS:
+			default:
+				result = ctx.Err()
+			}
+		}
+		for _, complete := range onComplete {
+			complete(result)
 		}
 	}()
 
 	sink := app.SinkFromElement(appsink)
 	sink.SetCallbacks(&app.SinkCallbacks{
 		NewSampleFunc: WriterNewSample(ctx, w),
+		EOSFunc: func(*app.Sink) {
+			if ctx.Err() == nil {
+				eosOnce.Do(func() { close(cleanEOS) })
+			}
+			_ = w.Close()
+		},
 	})
 
 	return bin.Element, done, nil

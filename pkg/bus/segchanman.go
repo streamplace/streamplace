@@ -29,8 +29,10 @@ type Seg struct {
 // bandwidth pressure sends bursts and gaps, and respacing those uniformly
 // rubber-bands the video against the audio.
 type PacketizedSample struct {
-	Data     []byte
-	Duration time.Duration
+	Data         []byte
+	Duration     time.Duration
+	Timestamp    time.Duration
+	HasTimestamp bool
 }
 
 type PacketizedSegment struct {

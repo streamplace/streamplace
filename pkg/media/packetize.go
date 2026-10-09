@@ -327,7 +327,7 @@ func finalizeSampleDurations(raw []rawSample, total time.Duration) []bus.Packeti
 		if i+1 < len(raw) && rs.hasTS && raw[i+1].hasTS && raw[i+1].ts > rs.ts {
 			dur = raw[i+1].ts - rs.ts
 		}
-		out[i] = bus.PacketizedSample{Data: rs.data, Duration: dur}
+		out[i] = bus.PacketizedSample{Data: rs.data, Duration: dur, Timestamp: rs.ts, HasTimestamp: rs.hasTS}
 		span += dur
 	}
 	if len(out) > 0 && total > span {

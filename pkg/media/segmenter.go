@@ -185,7 +185,6 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 	// new live session (RTMP/WHIP (re)connect) restarts the media timeline; the
 	// per-DID continuous transcoder keys on this epoch and rebuilds rather than
 	// feeding the restarted timeline into the previous session's encoder.
-	ctx = withIngestSession(ctx, mm.nextIngestSession())
 
 	// muxl path: stream the fMP4 through the per-segment signer. Each GoP
 	// arrives as a bare canonical .m4s, which ValidateMP4 verifies, archives
@@ -213,7 +212,26 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		}
 		return nil
 	}
-	return MuxlSignSegmentElem(ctx, mm.cli, ms, onSegment)
+	elem, _, err := mm.ingestSigningElem(ctx, ms.SignSegmentStream, onSegment)
+	return elem, err
+}
+
+// ingestSigningElem owns the epoch through the final signed segment callback.
+func (mm *MediaManager) ingestSigningElem(ctx context.Context, signStream SignSegmentStreamFunc, onSegment func(context.Context, []byte) error) (*gst.Element, <-chan struct{}, error) {
+	ctx = withIngestSession(ctx, mm.nextIngestSession())
+	return muxlSignSegmentElem(ctx, mm.cli, signStream, func(callbackCtx context.Context, segment []byte) error {
+		err := onSegment(callbackCtx, segment)
+		if err != nil {
+			mm.abortEarlyEpoch(ctx)
+		}
+		return err
+	}, func(err error) {
+		if err != nil {
+			mm.abortEarlyEpoch(ctx)
+			return
+		}
+		mm.closeEarlyEpoch(ctx)
+	})
 }
 
 func SegmentFileUnsigned(ctx context.Context, cli *config.CLI, streamer string, input string, ch chan *SplitSegment) error {

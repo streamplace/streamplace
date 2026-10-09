@@ -315,6 +315,9 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	if appBundleID != "" {
 		nodeCmd.Env = append(nodeCmd.Env, "SP_APP_BUNDLE_ID="+appBundleID)
 	}
+	if os.Getenv("SP_E2E_EXPERIMENTAL_EARLY_AAC_PLAYBACK") == "true" {
+		nodeCmd.Env = append(nodeCmd.Env, "SP_EXPERIMENTAL_EARLY_AAC_PLAYBACK=true")
+	}
 	nodeCmd.Stdout = os.Stderr
 	nodeCmd.Stderr = os.Stderr
 	// Own process group, so cleanup can take the whole tree down at once.

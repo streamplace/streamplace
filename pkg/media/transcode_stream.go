@@ -79,17 +79,29 @@ const streamTranscoderIdle = 30 * time.Second
 // still-running encoder — a large backwards PTS discontinuity that makes the
 // encoder stop emitting audio and wedges the stream.
 type ingestSessionKey struct{}
+type ingestEpochState struct {
+	epoch   uint64
+	mu      sync.Mutex
+	did     string
+	retired bool
+}
 
 func withIngestSession(ctx context.Context, epoch uint64) context.Context {
-	return context.WithValue(ctx, ingestSessionKey{}, epoch)
+	return context.WithValue(ctx, ingestSessionKey{}, &ingestEpochState{epoch: epoch})
+}
+func ingestState(ctx context.Context) *ingestEpochState {
+	state, _ := ctx.Value(ingestSessionKey{}).(*ingestEpochState)
+	return state
 }
 
 // ingestSessionFromContext returns the ingest-session epoch stamped on ctx, or 0
 // if none — e.g. a segment replicated from another node (which is already
 // dual-codec, so it never builds a transcoder) or a direct unit-test feed.
 func ingestSessionFromContext(ctx context.Context) uint64 {
-	epoch, _ := ctx.Value(ingestSessionKey{}).(uint64)
-	return epoch
+	if state := ingestState(ctx); state != nil {
+		return state.epoch
+	}
+	return 0
 }
 
 // feedStreamTranscoder routes one source segment into the stream's continuous

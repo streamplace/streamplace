@@ -233,6 +233,7 @@ func (mm *MediaManager) validateSegment(ctx context.Context) (onSegment func([]b
 		return mm.ValidateMP4(ctx, bytes.NewReader(seg), true)
 	}
 	flush = func() {
+		mm.closeEarlyEpoch(ctx)
 		var tr *streamTranscoder
 		mm.transcodersMu.Lock()
 		for did, current := range mm.transcoders {

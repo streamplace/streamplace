@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"runtime"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -86,6 +87,8 @@ func WriterNewSample(ctx context.Context, output io.Writer) func(sink *app.Sink)
 		if sample == nil {
 			return gst.FlowOK
 		}
+		runtime.SetFinalizer(sample, nil)
+		defer sample.Unref()
 
 		// Retrieve the buffer from the sample.
 		buffer := sample.GetBuffer()

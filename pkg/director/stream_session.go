@@ -162,10 +162,12 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 		return ss.viewCountUpdateLoop(ctx, spseg.Creator)
 	})
 
+	timer := time.NewTimer(ss.cli.StreamSessionTimeout)
+	defer timer.Stop()
 	for {
 		select {
 		case <-ss.segmentChan:
-			// reset timer
+			timer.Reset(ss.cli.StreamSessionTimeout)
 		case <-ctx.Done():
 			// Drain all in-flight session goroutines (including the per-segment
 			// AddSegment senders) BEFORE closing the uploader, so no segment
@@ -174,8 +176,7 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 			err := ss.g.Wait()
 			ss.s3Close(ctx)
 			return err
-		// case <-time.After(time.Minute * 1):
-		case <-time.After(ss.cli.StreamSessionTimeout):
+		case <-timer.C:
 			log.Log(ctx, "stream session timeout, shutting down", "timeout", ss.cli.StreamSessionTimeout)
 			spmetrics.StreamSessions.WithLabelValues(notif.Segment.RepoDID).Dec()
 			for _, r := range allRenditions {

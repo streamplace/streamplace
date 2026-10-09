@@ -2,11 +2,23 @@ package media
 
 import (
 	"context"
+	"io"
+	"log/slog"
+	"net"
+	"os"
+	"runtime"
 	"testing"
+	"time"
 
 	"github.com/pion/webrtc/v4"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
+	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/pkg/renditions"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 func TestWebRTCPlayback2(t *testing.T) {
@@ -20,6 +32,135 @@ func TestWebRTCPlayback2(t *testing.T) {
 	answer, err := mm.WebRTCPlayback2(context.Background(), "test-user", "test-rendition", offer, "")
 	require.ErrorContains(t, err, "RTPSender created with no codecs")
 	require.Nil(t, answer)
+}
+
+// Cancelling playback must release its segment subscription even while the
+// sender is pacing a real segment and its pending segment queue is full.
+func TestWebRTCPlayback2CancelsBackloggedPlayback(t *testing.T) {
+	var packet *bus.PacketizedSegment
+	withNoGSTLeaks(t, func() { packet = playbackPacketFixture(t) })
+
+	var logs logCapture
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	defer slog.SetDefault(previousLogger)
+
+	mm := loopbackPlaybackManager()
+	ignore := goleak.IgnoreCurrent()
+	defer func() {
+		goleak.VerifyNone(t, ignore)
+		require.NotContains(t, logs.String(), "level=ERROR")
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	client := startBackloggedPlayback(t, ctx, mm, t.Name(), packet)
+	defer client.Close()
+
+	cancel()
+	require.NoError(t, client.Close())
+	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(t.Name(), "source")
+	var metric dto.Metric
+	require.Eventually(t, func() bool { return subscriptions.Write(&metric) == nil && metric.GetGauge().GetValue() == 0 }, time.Second, time.Millisecond,
+		"cancelled playback releases its segment subscription")
+}
+
+func playbackPacketFixture(tb testing.TB) *bus.PacketizedSegment {
+	tb.Helper()
+	gstinit.InitGST()
+	fixture, err := os.ReadFile(getFixture("sample-segment.mp4"))
+	require.NoError(tb, err)
+	packet, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{Data: fixture})
+	require.NoError(tb, err)
+	require.NotEmpty(tb, packet.Audio)
+	require.Positive(tb, packet.Duration)
+	return packet
+}
+
+func loopbackPlaybackManager() *MediaManager {
+	settings := webrtc.SettingEngine{}
+	settings.SetIncludeLoopbackCandidate(true)
+	settings.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeUDP4})
+	settings.SetIPFilter(func(ip net.IP) bool { return ip.IsLoopback() })
+	return &MediaManager{
+		cli:       &config.CLI{},
+		bus:       bus.NewBus(),
+		webrtcAPI: webrtc.NewAPI(webrtc.WithSettingEngine(settings)),
+	}
+}
+
+func startBackloggedPlayback(tb testing.TB, ctx context.Context, mm *MediaManager, user string, packet *bus.PacketizedSegment) *webrtc.PeerConnection {
+	tb.Helper()
+	client, err := mm.webrtcAPI.NewPeerConnection(webrtc.Configuration{})
+	require.NoError(tb, err)
+	started := false
+	defer func() {
+		if !started {
+			client.Close()
+		}
+	}()
+	_, err = client.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionRecvonly})
+	require.NoError(tb, err)
+	offer, err := client.CreateOffer(nil)
+	require.NoError(tb, err)
+	require.NoError(tb, client.SetLocalDescription(offer))
+
+	seg := &bus.Seg{Published: true, PacketizedData: packet}
+	for range 2 {
+		mm.bus.PublishSegment(ctx, user, "source", seg)
+	}
+	answer, err := mm.WebRTCPlayback2(ctx, user, renditions.AudioRendition.Name, &offer, "")
+	require.NoError(tb, err)
+	require.NotNil(tb, answer)
+
+	// The real session starts its reader and pacer while the caller still
+	// holds the answer. A viewer abandoning the handshake must cancel cleanly.
+	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(user, "source")
+	var metric dto.Metric
+	require.Eventually(tb, func() bool { return subscriptions.Write(&metric) == nil && metric.GetGauge().GetValue() == 1 }, time.Second, time.Millisecond)
+	for range 16 {
+		for range 256 {
+			mm.bus.PublishSegment(ctx, user, "source", seg)
+		}
+		// Let the reader fill its queue before the next burst fills the bus.
+		time.Sleep(5 * time.Millisecond)
+	}
+	started = true
+	return client
+}
+
+func BenchmarkWebRTCPlaybackBacklog(b *testing.B) {
+	packet := playbackPacketFixture(b)
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	defer slog.SetDefault(previousLogger)
+	mm := loopbackPlaybackManager()
+	ignore := goleak.IgnoreCurrent()
+	defer goleak.VerifyNone(b, ignore)
+	parent, cancelParent := context.WithCancel(b.Context())
+	defer cancelParent()
+	subscriptions := spmetrics.SegmentSubscriptionsOpen.WithLabelValues(b.Name(), "source")
+	var metric dto.Metric
+	var cancelTime time.Duration
+	b.ReportAllocs()
+	for b.Loop() {
+		ctx, cancel := context.WithCancel(parent)
+		client := startBackloggedPlayback(b, ctx, mm, b.Name(), packet)
+		start := time.Now()
+		cancel()
+		require.NoError(b, client.Close())
+		for {
+			require.NoError(b, subscriptions.Write(&metric))
+			if metric.GetGauge().GetValue() == 0 {
+				break
+			}
+			if time.Since(start) >= time.Second {
+				b.Fatal("cancelled playback did not release its segment subscription")
+			}
+			runtime.Gosched()
+		}
+		cancelTime += time.Since(start)
+	}
+	b.ReportMetric(float64(cancelTime)/float64(b.N), "cancel-ns/op")
 }
 
 var firefoxNoH264SDP = `v=0

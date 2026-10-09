@@ -171,13 +171,13 @@ func getLeakCountInner(t *testing.T) int {
 		runtime.SetFinalizer(new([]byte), func(_ *[]byte) {
 			close(ch)
 		})
-		done := false
-		for !done {
+	flush:
+		for {
 			runtime.GC()
 			runtime.GC()
 			select {
 			case <-ch:
-				done = true
+				break flush
 			default:
 				time.Sleep(500 * time.Millisecond)
 			}

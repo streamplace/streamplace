@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -116,7 +117,7 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		defer cancel()
 		defer markDone()
 
-		latency := time.Duration(0)
+		var backlog atomic.Int64
 
 		packetQueue := make(chan *bus.PacketizedSegment, 1024)
 		go func() {
@@ -137,8 +138,13 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 						log.Warn(ctx, "segment is not published and viewer is not the user", "viewer", viewer, "user", user)
 						continue
 					}
-					latency += file.PacketizedData.Duration
-					packetQueue <- file.PacketizedData
+					backlog.Add(int64(file.PacketizedData.Duration))
+					select {
+					case packetQueue <- file.PacketizedData:
+					case <-ctx.Done():
+						backlog.Add(-int64(file.PacketizedData.Duration))
+						return
+					}
 				}
 			}
 		}()
@@ -158,9 +164,9 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 				case <-ctx.Done():
 					return
 				case packet := <-packetQueue:
-					latency -= packet.Duration
-					scalar = getPlaybackRate(latency)
-					log.Debug(ctx, "playback latency", "latency", latency, "scalar", scalar)
+					queuedDuration := time.Duration(backlog.Add(-int64(packet.Duration)))
+					scalar = getPlaybackRate(queuedDuration)
+					log.Debug(ctx, "playback backlog", "backlog", queuedDuration, "scalar", scalar)
 					g, _ := errgroup.WithContext(ctx)
 					wroteAny := false
 

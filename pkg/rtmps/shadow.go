@@ -28,9 +28,11 @@ Mist remains the only server responding to the encoder.
 
 After TLS termination, the client byte stream is also replayed in a separate
 process through the native RTMP reader, relay, GStreamer ingest, segment
-signer, and media/signature verifier. The worker ignores the supplied stream
-key for signing and uses a fresh ephemeral key. Its output is discarded:
-no duplicate live segments, recordings, archive writes, or stream state.
+signer, and media/signature verifier. Mist owns publisher routing and
+authentication; the shadow does not require a `/live/` publisher path. The
+worker ignores the supplied stream key for signing and uses a fresh ephemeral
+key. Its output is discarded: no duplicate live segments, recordings, archive
+writes, or stream state.
 
 Look for `duplicate-mist-test segment verified` progress (first segment, then
 every 30 seconds) and `segments_verified` at disconnect. Parser, ingest,
@@ -80,7 +82,8 @@ supported; RTMPE's separately negotiated encryption cannot be passively replayed
 The backend end-to-end regression is `TestDuplicateMistEndToEnd` in
 `pkg/cmd`; it exercises a real TLS publisher and the isolated native ingest
 through verified segments beyond the former few-second failure interval,
-including all final segments after paced and unpaced publisher EOF.
+including a publisher outside `/live/` and all final segments after paced
+and unpaced publisher EOF.
 The fixture holds TLS publisher EOF until live metrics show verification,
 so slow worker startup is not confused with a metrics failure. Corrupt RTMP
 must export a failure while subsequent primary traffic still arrives.

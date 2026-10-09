@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -88,11 +87,9 @@ func RunDuplicateMistWorker(parent context.Context, input io.Reader, progress io
 	if !sc.Publish {
 		return fmt.Errorf("shadow connection is not an RTMP publisher")
 	}
-	if !strings.HasPrefix(sc.URL.Path, RTMPPrefix) {
-		return fmt.Errorf("shadow publisher path must start with /live/")
-	}
-	// Never use the supplied stream key: the signer and session identity are
-	// throwaway, and only the media-only verifier consumes their output.
+	// Mist owns publisher routing and authentication; the shadow accepts any
+	// application path. Never use the supplied stream key: the signer and session
+	// identity are throwaway, and only the media-only verifier consumes their output.
 	ms, err := media.NewEphemeralMediaSigner("did:example:rtmp-shadow")
 	if err != nil {
 		return fmt.Errorf("shadow signer: %w", err)

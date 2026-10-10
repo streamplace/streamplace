@@ -74,6 +74,9 @@ export default function SidebarItem({
       onHoverIn={() => setHover(true)}
       onHoverOut={() => setHover(false)}
       role="link"
+      // The current destination. The filled pill is the only other cue, which
+      // assistive tech (and e2e) can't see.
+      aria-current={active ? "page" : undefined}
       accessibilityLabel={typeof label === "string" ? label : "Link to " + href}
       // @ts-ignore This makes it render as <a> on web!
       href={href}

@@ -23,10 +23,13 @@ import { useFrontDoorReload } from "hooks/useDefaultStreamerReload";
 import { useEffect, useState } from "react";
 import { Platform, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { lazyScreen } from "src/lazy-screen";
 import { useStore } from "store";
 import { place } from "streamplace";
-import MobileStream from "./mobile-stream";
-import VideoScreen from "./video";
+
+// Only rendered when the node sets a default streamer/video for its front door.
+const MobileStream = lazyScreen(() => import("./mobile-stream"));
+const VideoScreen = lazyScreen(() => import("./video"));
 
 function getStreamActivity(
   record: place.stream.livestream.Main,

@@ -103,7 +103,7 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:    "ingest",
-				Usage:   "how the harness streams for the test account: whip (loop a fixture over WHIP) or none (stream nothing; push with STREAM_KEY yourself, e.g. from OBS)",
+				Usage:   "how the harness streams for the test account: whip (loop a fixture over WHIP), fmp4 (loop it through the OBS plugin's fragmented-MP4 ingest) or none (stream nothing; push with STREAM_KEY yourself, e.g. from OBS)",
 				Value:   "whip",
 				Sources: urfavecli.EnvVars("SP_E2E_INGEST"),
 			},
@@ -117,8 +117,8 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 				return errors.New("--https-pds-hostname and --https-station-hostname go together")
 			}
 			ingest := cmd.String("ingest")
-			if ingest != "whip" && ingest != "none" {
-				return fmt.Errorf("--ingest must be whip or none, not %q", ingest)
+			if ingest != "whip" && ingest != "fmp4" && ingest != "none" {
+				return fmt.Errorf("--ingest must be whip, fmp4 or none, not %q", ingest)
 			}
 			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"), ingest)
 		},
@@ -443,14 +443,21 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 				return nil
 			default:
 			}
-			whip := &WHIPClient{
-				StreamKey: priv,
-				File:      fixture,
-				Endpoint:  fmt.Sprintf("http://%s", httpAddr),
-				Count:     1,
+			endpoint := fmt.Sprintf("http://%s", httpAddr)
+			var err error
+			if ingest == "fmp4" {
+				err = pushFMP4(streamCtx, endpoint, priv, fixture)
+			} else {
+				whip := &WHIPClient{
+					StreamKey: priv,
+					File:      fixture,
+					Endpoint:  endpoint,
+					Count:     1,
+				}
+				err = whip.WHIP(streamCtx)
 			}
-			if err := whip.WHIP(streamCtx); err != nil && streamCtx.Err() == nil {
-				log.Log(streamCtx, "whip stream ended, restarting", "err", err)
+			if err != nil && streamCtx.Err() == nil {
+				log.Log(streamCtx, "test stream ended, restarting", "ingest", ingest, "err", err)
 			}
 			// Brief pause between restarts so we don't spin on errors.
 			select {

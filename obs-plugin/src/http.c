@@ -17,7 +17,7 @@ typedef SOCKET socket_t;
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <sys/select.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 typedef int socket_t;
@@ -118,18 +118,23 @@ static bool connect_with_timeout(socket_t s, const struct sockaddr *addr, sockle
 #ifdef _WIN32
 		if (WSAGetLastError() != WSAEWOULDBLOCK)
 			return false;
-#else
-		if (errno != EINPROGRESS)
-			return false;
-#endif
+		/* Winsock's fd_set is a list of sockets, so any socket value fits. */
 		fd_set wfds, efds;
 		FD_ZERO(&wfds);
 		FD_ZERO(&efds);
 		FD_SET(s, &wfds);
 		FD_SET(s, &efds);
 		struct timeval tv = {CONNECT_TIMEOUT_SEC, 0};
-		if (select((int)s + 1, NULL, &wfds, &efds, &tv) <= 0)
+		if (select(0, NULL, &wfds, &efds, &tv) <= 0)
 			return false;
+#else
+		if (errno != EINPROGRESS)
+			return false;
+		/* poll, not select: descriptors past FD_SETSIZE are common in OBS. */
+		struct pollfd pfd = {.fd = s, .events = POLLOUT};
+		if (poll(&pfd, 1, CONNECT_TIMEOUT_SEC * 1000) <= 0)
+			return false;
+#endif
 
 		int so_error = 0;
 		socklen_t so_len = sizeof(so_error);

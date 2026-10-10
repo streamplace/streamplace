@@ -99,7 +99,6 @@ function resolveAtUriNavigation(
 export const SCREEN_PATHS = {
   // HomeTab screens
   HomeMain: "",
-  About: "about",
   Download: "download",
   LiveDashboard: "live",
   Login: "login",
@@ -204,7 +203,6 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
             HomeTab: {
               screens: {
                 HomeMain: SCREEN_PATHS.HomeMain,
-                About: SCREEN_PATHS.About,
                 Download: SCREEN_PATHS.Download,
                 LiveDashboard: SCREEN_PATHS.LiveDashboard,
                 Login: SCREEN_PATHS.Login,

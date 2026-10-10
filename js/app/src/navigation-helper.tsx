@@ -22,7 +22,6 @@ const SETTINGS_SCREENS = [
 // Screens that are in the HomeTab stack
 const HOME_TAB_SCREENS = [
   "HomeMain",
-  "About",
   "Download",
   "LiveDashboard",
   "Login",

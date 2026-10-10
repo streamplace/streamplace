@@ -17,9 +17,10 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-// ingest a H264+AAC fragmented-MP4 stream (the MistServer live .mp4 output, or
-// an fMP4 push to /live)
-func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms MediaSigner) error {
+// ingest a fragmented-MP4 stream: H264+AAC through the demux pipeline (the
+// MistServer live .mp4 output, or an fMP4 push to /live), or, with transport
+// IngestTransportFMP4Direct, signed as-is (the OBS plugin's push).
+func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms MediaSigner, transport string) error {
 	shouldRecord, err := mm.shouldRecord(ctx, ms.Streamer())
 	if err != nil {
 		return err
@@ -32,8 +33,16 @@ func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms Media
 	} else {
 		log.Log(ctx, "not recording ingest stream to file", "streamer", ms.Streamer())
 	}
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
+	if transport == IngestTransportFMP4Direct {
+		go mm.watchKeyRevocation(ctx, ms.Streamer(), ms.DID(), func(reason string) {
+			cancel(fmt.Errorf("ending stream: %s", reason))
+		})
+		ctx, onSegment := mm.validatingSegmentSink(ctx, ms)
+		return signFMP4Direct(ctx, mm.cli, ms.SignSegmentStream, input, onSegment)
+	}
 
 	signer, err := mm.SegmentAndSignElem(ctx, ms)
 	if err != nil {

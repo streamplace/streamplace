@@ -168,6 +168,14 @@ jobs:
       - name: Run web e2e tests
         run: hack/e2e-web-local.sh
 
+      # The stream specs again, with the harness pushing the way the OBS plugin
+      # does (/api/ingest/client-configuration, then fragmented MP4), so that
+      # ingest path is covered from push to web playback.
+      - name: Run web stream e2e tests over fMP4 ingest
+        run: hack/e2e-web-local.sh flows/stream.spec.ts
+        env:
+          SP_E2E_INGEST: fmp4
+
       - name: Upload e2e-web artifacts
         if: failure()
         uses: actions/upload-artifact@v4

@@ -177,6 +177,13 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 }
 
 func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) (*gst.Element, error) {
+	ctx, onSegment := mm.validatingSegmentSink(ctx, ms)
+	return MuxlSignSegmentElem(ctx, mm.cli, ms, onSegment)
+}
+
+// validatingSegmentSink returns the onSegment handler for one ingest session,
+// along with the context its signer must run under.
+func (mm *MediaManager) validatingSegmentSink(ctx context.Context, ms MediaSigner) (context.Context, func(ctx context.Context, segment []byte) error) {
 	tracer := otel.Tracer("signer")
 	streamer := ms.Streamer()
 
@@ -213,7 +220,7 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		}
 		return nil
 	}
-	return MuxlSignSegmentElem(ctx, mm.cli, ms, onSegment)
+	return ctx, onSegment
 }
 
 func SegmentFileUnsigned(ctx context.Context, cli *config.CLI, streamer string, input string, ch chan *SplitSegment) error {

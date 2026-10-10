@@ -101,6 +101,12 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 				Usage:   "bundle id of the mobile app under test, which the node hands OAuth logins back to (its --app-bundle-id)",
 				Sources: urfavecli.EnvVars("SP_E2E_APP_BUNDLE_ID"),
 			},
+			&urfavecli.StringFlag{
+				Name:    "ingest",
+				Usage:   "how the harness streams for the test account: whip (loop a fixture over WHIP), fmp4 (loop it through the OBS plugin's fragmented-MP4 ingest) or none (stream nothing; push with STREAM_KEY yourself, e.g. from OBS)",
+				Value:   "whip",
+				Sources: urfavecli.EnvVars("SP_E2E_INGEST"),
+			},
 		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
 			// Canonical form, so they compare equal to the SNI names the
@@ -110,7 +116,11 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			if (pdsHost == "") != (stationHost == "") {
 				return errors.New("--https-pds-hostname and --https-station-hostname go together")
 			}
-			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"))
+			ingest := cmd.String("ingest")
+			if ingest != "whip" && ingest != "fmp4" && ingest != "none" {
+				return fmt.Errorf("--ingest must be whip, fmp4 or none, not %q", ingest)
+			}
+			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"), ingest)
 		},
 	}
 }
@@ -137,7 +147,7 @@ func freePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
-func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, httpsPort int, appBundleID string) error {
+func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, httpsPort int, appBundleID, ingest string) error {
 	// Ctrl-C / SIGTERM must unwind through the normal path, or none of the
 	// teardown below runs: Go's default handling exits immediately, which left
 	// the dev-env node, the forked node and the temp data dir behind.
@@ -424,20 +434,30 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	fixture := remote.RemoteFixture("3188c071b354f2e548d7f2d332699758e8e3ab1600280e5b07cb67eedc64f274/BigBuckBunny_1sGOP_240p30_NoBframes.mp4")
 	g, streamCtx := errgroup.WithContext(ctx)
 	g.Go(func() error {
+		if ingest == "none" {
+			return nil
+		}
 		for {
 			select {
 			case <-streamCtx.Done():
 				return nil
 			default:
 			}
-			whip := &WHIPClient{
-				StreamKey: priv,
-				File:      fixture,
-				Endpoint:  fmt.Sprintf("http://%s", httpAddr),
-				Count:     1,
+			endpoint := fmt.Sprintf("http://%s", httpAddr)
+			var err error
+			if ingest == "fmp4" {
+				err = pushFMP4(streamCtx, endpoint, priv, fixture)
+			} else {
+				whip := &WHIPClient{
+					StreamKey: priv,
+					File:      fixture,
+					Endpoint:  endpoint,
+					Count:     1,
+				}
+				err = whip.WHIP(streamCtx)
 			}
-			if err := whip.WHIP(streamCtx); err != nil && streamCtx.Err() == nil {
-				log.Log(streamCtx, "whip stream ended, restarting", "err", err)
+			if err != nil && streamCtx.Err() == nil {
+				log.Log(streamCtx, "test stream ended, restarting", "ingest", ingest, "err", err)
 			}
 			// Brief pause between restarts so we don't spin on errors.
 			select {
@@ -452,8 +472,8 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	// poll for SERVER_URL and then read the whole file. E2E_FIXTURE_MP4 is
 	// the local file the ingest loop is streaming, which tests upload through
 	// the app to get themselves a playable VOD.
-	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nE2E_FIXTURE_MP4=%s\n",
-		httpAddr, out.Handle, out.Did, password, videoURI, fixture)
+	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nE2E_FIXTURE_MP4=%s\nSTREAM_KEY=%s\n",
+		httpAddr, out.Handle, out.Did, password, videoURI, fixture, priv)
 	if tlsEnv != nil {
 		// The same node over HTTPS at its public name, plus what clients
 		// need to reach and trust it (see e2e_https.go): a browser pins the

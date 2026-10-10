@@ -690,6 +690,20 @@ darwin-arm64:
 	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-arm64.tar.gz ./streamplace \
 	&& cd -
 
+# The OBS plugin in obs-plugin/, cross-compiled with the same cross files as the node.
+OBS_PLUGIN_TARGETS=linux-amd64 linux-arm64 windows-amd64 darwin-amd64 darwin-arm64
+OBS_PLUGIN_CROSS_FILE_linux-arm64=--cross-file ../util/linux-arm64-gnu.ini
+OBS_PLUGIN_CROSS_FILE_windows-amd64=--cross-file ../util/windows-amd64-gnu.ini
+OBS_PLUGIN_CROSS_FILE_darwin-amd64=--cross-file ../util/osxcross-darwin-amd64.ini
+OBS_PLUGIN_CROSS_FILE_darwin-arm64=--cross-file ../util/osxcross-darwin-arm64.ini
+
+.PHONY: $(addprefix obs-plugin-,$(OBS_PLUGIN_TARGETS))
+$(addprefix obs-plugin-,$(OBS_PLUGIN_TARGETS)): obs-plugin-%:
+	cd obs-plugin \
+	&& meson setup --reconfigure build-$* $(OBS_PLUGIN_CROSS_FILE_$*) -Dplugin_version=$(VERSION) \
+	&& meson compile -C build-$*
+	./obs-plugin/package.sh $* $(VERSION) $(OUT_DIR)
+
 # unbuffer here is a workaround for wine trying to pop up a terminal window and failing
 .PHONY: windows-amd64-startup-test
 windows-amd64-startup-test:
@@ -987,6 +1001,10 @@ ci-upload-android-release:
 .PHONY: ci-upload-ios
 ci-upload-ios: ios
 	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-ios-release.xcarchive.tar.gz
+
+.PHONY: $(addprefix ci-upload-obs-plugin-,$(OBS_PLUGIN_TARGETS))
+$(addprefix ci-upload-obs-plugin-,$(OBS_PLUGIN_TARGETS)): ci-upload-obs-plugin-%:
+	$(MAKE) ci-upload-file upload_file=obs-streamplace-$(VERSION)-$*.$(if $(findstring windows,$*),zip,tar.gz)
 
 upload_file?=""
 .PHONY: ci-upload-file

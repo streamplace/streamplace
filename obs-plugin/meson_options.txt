@@ -1,0 +1,1 @@
+option('plugin_version', type: 'string', value: 'dev', description: 'Version reported in logs and to the server')

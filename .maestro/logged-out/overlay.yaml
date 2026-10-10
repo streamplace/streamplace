@@ -6,13 +6,11 @@ appId: ${APP_ID}
 # diagnostics an operator gets when the name or ?user= is wrong. It needs no
 # node — everything it asserts is decided by the URL alone — so it stays
 # logged-out and independent of the harness's stream.
-- launchApp
-# Wait for the app to render before linking into it, so a cold CI emulator's
-# startup cannot swallow the link.
-- extendedWaitUntil:
-    visible:
-      text: "Home"
-    timeout: 60000
+# The deep link doubles as the launch. Opening it before anything else means
+# it is either the app's launch intent (cold) or the newest intent a running
+# app receives (warm) — and either way it is the last link the app has seen.
+# A link that lands while the app is still starting up is dropped, so nothing
+# may run before it, and the app's own screens are never the starting point.
 - openLink: "${APP_ID}://overlay/not-a-widget?user=${ACCOUNT_HANDLE}"
 # Maestro matches text as a full-string regex, hence the trailing wildcard.
 - extendedWaitUntil:

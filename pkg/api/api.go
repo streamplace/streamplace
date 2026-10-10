@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -79,6 +80,9 @@ type StreamplaceAPI struct {
 	// ACME, when set, supplies TLS certificates for every TLS listener and
 	// answers HTTP-01 challenges on the redirect listener.
 	ACME *acme.Manager
+	// MoqTLS is the certificate the Media over QUIC listener serves; see
+	// ServeMoQ. nil when --moq-addr is empty.
+	MoqTLS *tls.Config
 	// not thread-safe yet
 	Aliases  map[string]string
 	Bus      *bus.Bus

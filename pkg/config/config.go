@@ -158,6 +158,8 @@ type CLI struct {
 	ChatMessageRetention        time.Duration
 	Replicators                 []string
 	WebsocketURL                string
+	MoqAddr                     string
+	MoqURL                      string
 	BehindHTTPSProxy            bool
 	SegmentDebugDir             string
 	AdminDIDs                   []string
@@ -1084,6 +1086,19 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "override the websocket (ws:// or wss://) url to use for replication (normally not necessary, used for testing)",
 				Destination: &cli.WebsocketURL,
 				Sources:     urfavecli.EnvVars("SP_WEBSOCKET_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "moq-addr",
+				Usage:       "UDP address of the Media over QUIC listener that serves this node's MUXL segments to peers (raw QUIC and WebTransport); empty disables it",
+				Value:       ":38443",
+				Destination: &cli.MoqAddr,
+				Sources:     urfavecli.EnvVars("SP_MOQ_ADDR"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "moq-url",
+				Usage:       "override the moqt:// url peers use to reach this node's Media over QUIC listener (default: server-host on moq-addr's port)",
+				Destination: &cli.MoqURL,
+				Sources:     urfavecli.EnvVars("SP_MOQ_URL"),
 			},
 			&urfavecli.BoolFlag{
 				Name:        "behind-https-proxy",

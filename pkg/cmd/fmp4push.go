@@ -65,6 +65,10 @@ func pushFMP4(ctx context.Context, endpoint, streamKey, file string) error {
 			req.Header.Set("Content-Type", "video/mp4")
 			var resp *http.Response
 			if resp, err = http.DefaultClient.Do(req); err == nil {
+				if resp.StatusCode != http.StatusOK {
+					msg, _ := io.ReadAll(resp.Body)
+					err = fmt.Errorf("node answered %s: %s", resp.Status, strings.TrimSpace(string(msg)))
+				}
 				resp.Body.Close()
 			}
 		}

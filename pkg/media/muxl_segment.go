@@ -163,6 +163,9 @@ func signSegments(ctx context.Context, cli *config.CLI, signStream SignSegmentSt
 // returns once every segment has been handed to onSegment.
 func signFMP4Direct(ctx context.Context, cli *config.CLI, signStream SignSegmentStreamFunc, input io.Reader, onSegment func(ctx context.Context, segment []byte) error) error {
 	r, w := io.Pipe()
+	// Closing r on return also releases the copy below if the signer stopped
+	// reading early.
+	defer r.Close()
 	go func() {
 		_, err := io.Copy(w, input)
 		w.CloseWithError(err)

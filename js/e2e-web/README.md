@@ -77,6 +77,11 @@ lives in `pkg/atproto/auto_publish_vod_test.go`. It also injects a deletion fail
 and checks that later deletions still run while the commit watermark advances
 only after successful reprocessing.
 
+`syndication` plays the test stream from the harness's second node, which pulls
+it from the first over Media over QUIC (`SERVER2_URL`; see `docs/moq.md`). It is
+web-only: node-to-node transfer has no mobile surface, and the mobile flows play
+from the ingest node.
+
 ## OAuth over real HTTPS
 
 `oauth-login` logs in the way a user does, through the node's OAuth proxy

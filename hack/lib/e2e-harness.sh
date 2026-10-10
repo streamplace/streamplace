@@ -6,7 +6,8 @@
 #   e2e_harness_start
 #
 # The caller's cwd must be the repo root. On return the harness is up and its
-# variables are exported: SERVER_URL, ACCOUNT_HANDLE, ACCOUNT_DID,
+# variables are exported: SERVER_URL, SERVER2_URL (a second node that pulls
+# the stream from the first over MoQ), ACCOUNT_HANDLE, ACCOUNT_DID,
 # ACCOUNT_PASSWORD, VIDEO_URI (the account's test VOD), E2E_FIXTURE_MP4 (the
 # local file the harness streams into the node), and in HTTPS mode also
 # SERVER_HTTPS_URL, PDS_HTTPS_URL,
@@ -79,7 +80,7 @@ e2e_harness_start() {
   fi
   # shellcheck disable=SC1090
   . "$E2E_ENVFILE"
-  export SERVER_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD VIDEO_URI
+  export SERVER_URL SERVER2_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD VIDEO_URI
   export E2E_FIXTURE_MP4
   # only set in HTTPS mode
   export SERVER_HTTPS_URL PDS_HTTPS_URL E2E_PROXY_URL E2E_TLS_SPKI E2E_TLS_CA

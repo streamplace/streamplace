@@ -761,8 +761,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			},
 			Record: &glex.LexiconTypeDecoder{Val: rec},
 		}
-		// publishes with an empty string because we're discovering the stream
-		go atsync.Bus.Publish("", view)
+		// publishes with an empty string because we're discovering the stream;
+		// as a pointer, which is what the replicator's subscription asserts
+		go atsync.Bus.Publish("", &view)
 
 	case *placestream.MetadataConfiguration:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)

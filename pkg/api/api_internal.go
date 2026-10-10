@@ -201,54 +201,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			}
 		}
 
-		reqCtx = log.WithLogValues(reqCtx, "streamer", mediaSigner.Streamer())
-
-		err = a.checkBanned(reqCtx, mediaSigner.Streamer())
-		if err != nil {
-			errors.WriteHTTPUnauthorized(w, err.Error(), err)
-			return
-		}
-
-		if a.CLI.IsolatedIngest {
-			// Zero-downtime path: hijack the authed push connection and hand it to a
-			// DETACHED worker that owns the connection (so it survives a main
-			// restart) and serves signed segments back over its socket.
-			if hj, ok := w.(http.Hijacker); ok {
-				conn, bufrw, herr := hj.Hijack()
-				if herr != nil {
-					log.Error(reqCtx, "ingest hijack failed", "error", herr)
-					return
-				}
-				var prebuf []byte
-				if n := bufrw.Reader.Buffered(); n > 0 {
-					prebuf = make([]byte, n)
-					_, _ = io.ReadFull(bufrw.Reader, prebuf)
-				}
-				chunked := len(httpReq.TransferEncoding) > 0 && httpReq.TransferEncoding[0] == "chunked"
-				if derr := a.MediaManager.MP4IngestDetached(reqCtx, conn, prebuf, chunked, mediaSigner); derr != nil {
-					log.Log(reqCtx, "isolated stream ended", "error", derr)
-				}
-				return // connection hijacked; the HTTP response is ours now
-			}
-			// The isolated path needs a hijackable HTTP/1.1 connection (which the
-			// real /live clients — the `streamplace live` CLI and tests pushing
-			// over localhost — always are; the Mist ingest itself now arrives via
-			// MistPullIngest, not this route). We don't support a non-hijack
-			// fallback: it couldn't receive mid-stream manifest updates and would
-			// stay stuck pre-live, so refuse. Such a client can use WHIP instead.
-			log.Error(reqCtx, "isolated ingest requires a hijackable HTTP/1.1 connection; refusing push")
-			errors.WriteHTTPInternalServerError(w, "isolated ingest requires a hijackable HTTP/1.1 connection; use WHIP", fmt.Errorf("connection is not hijackable"))
-			return
-		} else {
-			err = a.MediaManager.MP4Ingest(reqCtx, r, mediaSigner)
-		}
-
-		if err != nil {
-			log.Log(reqCtx, "stream error", "error", err)
-			errors.WriteHTTPInternalServerError(w, "stream error", err)
-			return
-		}
-		log.Log(reqCtx, "stream success", "url", httpReq.URL.String())
+		a.ingestFMP4Push(w, httpReq, r, mediaSigner, "")
 	}
 
 	// route to accept an incoming fragmented-MP4 stream (the `streamplace live`

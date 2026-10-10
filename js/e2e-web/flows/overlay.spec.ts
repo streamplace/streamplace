@@ -1,9 +1,37 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const SERVER_URL = process.env.SERVER_URL;
 const ACCOUNT_HANDLE = process.env.ACCOUNT_HANDLE;
 
 test.skip(!SERVER_URL || !ACCOUNT_HANDLE, "needs the e2e harness node");
+
+/**
+ * Every element between the status widget and the page, listing any that paint
+ * a background. An overlay has to composite over the operator's scene, so this
+ * must be empty.
+ */
+async function opaqueAncestors(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const painted: string[] = [];
+    let el: Element | null = document.querySelector(
+      '[data-testid="overlay-status"]',
+    );
+    while (el) {
+      const style = getComputedStyle(el);
+      if (
+        style.backgroundColor !== "rgba(0, 0, 0, 0)" &&
+        style.backgroundColor !== "transparent"
+      ) {
+        painted.push(`${el.tagName} background-color ${style.backgroundColor}`);
+      }
+      if (style.backgroundImage !== "none") {
+        painted.push(`${el.tagName} background-image ${style.backgroundImage}`);
+      }
+      el = el.parentElement;
+    }
+    return painted;
+  });
+}
 
 // Overlays (/overlay/<name>) are OBS browser sources. These flows cover the
 // shell every widget sits in: the ?user= identity, the upstream websocket,
@@ -33,16 +61,11 @@ test.describe("overlays", () => {
     await expect(page.getByTestId("overlay-status")).toBeVisible({
       timeout: 30_000,
     });
-    // An overlay composites over the operator's scene: the page must not
-    // paint a background of its own (OBS's default custom CSS only clears
-    // <body>, and the app paints <html> too).
-    await expect
-      .poll(() =>
-        page.evaluate(
-          () => getComputedStyle(document.documentElement).backgroundColor,
-        ),
-      )
-      .toBe("rgba(0, 0, 0, 0)");
+    // An overlay composites over the operator's scene: nothing between the
+    // widget and the page may paint a background (OBS's default custom CSS
+    // only clears <body>, and the app paints <html> too).
+    const painted = await opaqueAncestors(page);
+    expect(painted).toEqual([]);
     await expect(page.getByTestId("overlay-streamer")).toContainText(
       ACCOUNT_HANDLE as string,
     );
@@ -90,6 +113,12 @@ test.describe("overlays", () => {
     );
     await expect(page.getByTestId("overlay-diagnostic")).toContainText(
       "Available overlays: status",
+    );
+
+    // A name that exists on Object.prototype must not resolve to a widget.
+    await page.goto(`/overlay/__proto__?user=${ACCOUNT_HANDLE}`);
+    await expect(page.getByTestId("overlay-diagnostic")).toContainText(
+      'No overlay named "__proto__"',
     );
   });
 

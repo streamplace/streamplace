@@ -18,7 +18,7 @@ import { getStoredPreference, syncThemeClass } from "../hooks/use-color-scheme";
 import i18next from "../lib/i18n";
 
 /** Routes that should render without sidebar/header chrome. */
-const POPOUT_PREFIXES = ["/chat-popout/", "/embed/"];
+const POPOUT_PREFIXES = ["/chat-popout/", "/embed/", "/overlay/"];
 export const Route = createRootRoute({
   component: RootLayout,
   pendingComponent: RouteLoadingSkeleton,

@@ -13,10 +13,14 @@ import { useEffect } from "react";
 export const Route = createFileRoute("/overlay/$name")({
   // Widgets read their own options (and the shell reads ?user= and
   // ?versionPollMs), so keep every query parameter rather than a fixed set.
+  // TanStack's default parser turns numeric-looking values into numbers (and
+  // "true"/"false" into booleans); widget options are strings, so put them
+  // back rather than dropping them.
   validateSearch: (search: Record<string, unknown>): Record<string, string> => {
     const params: Record<string, string> = {};
     for (const [key, value] of Object.entries(search)) {
-      if (typeof value === "string") params[key] = value;
+      if (value === null || typeof value === "object") continue;
+      params[key] = String(value);
     }
     return params;
   },
@@ -52,7 +56,9 @@ function OverlayHost() {
   const version = useOverlayVersion(Number(params.versionPollMs));
   const { store } = useLivestreamStore(user, user !== "");
 
-  const Overlay = OVERLAYS[name];
+  // hasOwn: a name like __proto__ or constructor would otherwise resolve to
+  // something inherited from Object.prototype and reach React as a component.
+  const Overlay = Object.hasOwn(OVERLAYS, name) ? OVERLAYS[name] : undefined;
   if (!Overlay) {
     return (
       <OverlayDiagnostic

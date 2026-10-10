@@ -30,6 +30,7 @@ import { Route as SettingsBackupRouteImport } from './routes/settings/backup'
 import { Route as SettingsAdvancedRouteImport } from './routes/settings/advanced'
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
 import { Route as SettingsAboutRouteImport } from './routes/settings/about'
+import { Route as OverlayNameRouteImport } from './routes/overlay/$name'
 import { Route as DashboardVideosRouteImport } from './routes/dashboard/videos'
 import { Route as DashboardUploadRouteImport } from './routes/dashboard/upload'
 import { Route as ChatPopoutUserRouteImport } from './routes/chat-popout.$user'
@@ -149,6 +150,11 @@ const SettingsAboutRoute = SettingsAboutRouteImport.update({
   path: '/about',
   getParentRoute: () => SettingsRoute,
 } as any)
+const OverlayNameRoute = OverlayNameRouteImport.update({
+  id: '/overlay/$name',
+  path: '/overlay/$name',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardVideosRoute = DashboardVideosRouteImport.update({
   id: '/videos',
   path: '/videos',
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/chat-popout/$user': typeof ChatPopoutUserRoute
   '/dashboard/upload': typeof DashboardUploadRoute
   '/dashboard/videos': typeof DashboardVideosRoute
+  '/overlay/$name': typeof OverlayNameRoute
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
@@ -261,6 +268,7 @@ export interface FileRoutesByTo {
   '/chat-popout/$user': typeof ChatPopoutUserRoute
   '/dashboard/upload': typeof DashboardUploadRoute
   '/dashboard/videos': typeof DashboardVideosRoute
+  '/overlay/$name': typeof OverlayNameRoute
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
@@ -298,6 +306,7 @@ export interface FileRoutesById {
   '/chat-popout/$user': typeof ChatPopoutUserRoute
   '/dashboard/upload': typeof DashboardUploadRoute
   '/dashboard/videos': typeof DashboardVideosRoute
+  '/overlay/$name': typeof OverlayNameRoute
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
@@ -336,6 +345,7 @@ export interface FileRouteTypes {
     | '/chat-popout/$user'
     | '/dashboard/upload'
     | '/dashboard/videos'
+    | '/overlay/$name'
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
@@ -370,6 +380,7 @@ export interface FileRouteTypes {
     | '/chat-popout/$user'
     | '/dashboard/upload'
     | '/dashboard/videos'
+    | '/overlay/$name'
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
@@ -406,6 +417,7 @@ export interface FileRouteTypes {
     | '/chat-popout/$user'
     | '/dashboard/upload'
     | '/dashboard/videos'
+    | '/overlay/$name'
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
@@ -441,6 +453,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRouteWithChildren
   VideosRoute: typeof VideosRoute
   ChatPopoutUserRoute: typeof ChatPopoutUserRoute
+  OverlayNameRoute: typeof OverlayNameRoute
   UserIndexRoute: typeof UserIndexRoute
   UserVideoTidRoute: typeof UserVideoTidRoute
   EmbedDanmuObsUserRoute: typeof EmbedDanmuObsUserRoute
@@ -597,6 +610,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/about'
       preLoaderRoute: typeof SettingsAboutRouteImport
       parentRoute: typeof SettingsRoute
+    }
+    '/overlay/$name': {
+      id: '/overlay/$name'
+      path: '/overlay/$name'
+      fullPath: '/overlay/$name'
+      preLoaderRoute: typeof OverlayNameRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/dashboard/videos': {
       id: '/dashboard/videos'
@@ -762,6 +782,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRouteWithChildren,
   VideosRoute: VideosRoute,
   ChatPopoutUserRoute: ChatPopoutUserRoute,
+  OverlayNameRoute: OverlayNameRoute,
   UserIndexRoute: UserIndexRoute,
   UserVideoTidRoute: UserVideoTidRoute,
   EmbedDanmuObsUserRoute: EmbedDanmuObsUserRoute,

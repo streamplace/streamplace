@@ -1,0 +1,30 @@
+appId: ${APP_ID}
+---
+# Overlays (/overlay/<name>) are the generic OBS browser-source host. The same
+# route is reachable in the app as a deep link (<scheme>://overlay/<name>),
+# which is what this flow exercises: the registry lookup, and the URL
+# diagnostics an operator gets when the name or ?user= is wrong. It needs no
+# node — everything it asserts is decided by the URL alone — so it stays
+# logged-out and independent of the harness's stream.
+- launchApp
+# Wait for the app to render before linking into it, so a cold CI emulator's
+# startup cannot swallow the link.
+- extendedWaitUntil:
+    visible:
+      text: "Home"
+    timeout: 60000
+- openLink: "${APP_ID}://overlay/not-a-widget?user=${ACCOUNT_HANDLE}"
+# Maestro matches text as a full-string regex, hence the trailing wildcard.
+- extendedWaitUntil:
+    visible:
+      text: "No overlay named.*"
+    timeout: 60000
+- assertVisible: "Available overlays: status"
+# A registered overlay renders its widget instead. The streamer it follows
+# comes straight from ?user=, so it is on screen before the node answers.
+- openLink: "${APP_ID}://overlay/status?user=${ACCOUNT_HANDLE}"
+- extendedWaitUntil:
+    visible:
+      text: "${ACCOUNT_HANDLE}"
+    timeout: 60000
+- assertVisible: "Node"

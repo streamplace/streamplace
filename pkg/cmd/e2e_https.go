@@ -135,11 +135,17 @@ func (h *e2eHTTPS) DevEnvEnv() []string {
 }
 
 // NodeEnv is the extra environment for the forked node, whose broadcaster
-// host is the station hostname. Go reads SSL_CERT_DIR on top of the system
-// bundle file, so public roots still work.
+// host is the station hostname.
 func (h *e2eHTTPS) NodeEnv() []string {
+	return append([]string{"SP_BEHIND_HTTPS_PROXY=true"}, h.TrustEnv()...)
+}
+
+// TrustEnv is what any forked node needs to reach the PDS and PLC at their
+// HTTPS names: the CA, and the proxy that sends plc.directory to the local
+// PLC. Go reads SSL_CERT_DIR on top of the system bundle file, so public
+// roots still work.
+func (h *e2eHTTPS) TrustEnv() []string {
 	return []string{
-		"SP_BEHIND_HTTPS_PROXY=true",
 		"SSL_CERT_DIR=" + h.trustDir,
 		"HTTPS_PROXY=" + h.ProxyURL(),
 	}

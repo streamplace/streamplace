@@ -50,6 +50,8 @@ struct fmp4_mux {
 	DARRAY(struct fmp4_track) tracks;
 	uint32_t sequence;
 	bool init_written;
+	/* Sample bytes held in the muxer, not yet written to a fragment. */
+	size_t held_bytes;
 };
 
 void fmp4_free(struct fmp4_mux *mux);

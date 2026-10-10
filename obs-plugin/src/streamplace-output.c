@@ -263,11 +263,12 @@ static obs_encoder_t *create_video_encoder(obs_data_t *config, size_t idx, const
 	obs_encoder_set_preferred_video_format(
 		encoder, lookup_enum(video_formats, obs_data_get_string(config, "format"), VIDEO_FORMAT_NV12));
 
+	/* Bounded to 32 bits so the products below cannot overflow to zero. */
 	obs_data_t *framerate = obs_data_get_obj(config, "framerate");
-	uint64_t num = (uint64_t)obs_data_get_int(framerate, "numerator");
-	uint64_t den = (uint64_t)obs_data_get_int(framerate, "denominator");
-	if (num && den) {
-		uint64_t divisor = ((uint64_t)ovi->fps_num * den) / (num * ovi->fps_den);
+	long long num = obs_data_get_int(framerate, "numerator");
+	long long den = obs_data_get_int(framerate, "denominator");
+	if (num > 0 && den > 0 && num <= UINT32_MAX && den <= UINT32_MAX) {
+		uint64_t divisor = ((uint64_t)ovi->fps_num * (uint64_t)den) / ((uint64_t)num * ovi->fps_den);
 		if (divisor > 1)
 			obs_encoder_set_frame_rate_divisor(encoder, (uint32_t)divisor);
 	}
@@ -509,8 +510,8 @@ static void sp_encoded_packet(void *data, struct encoder_packet *packet)
 		if (track == 0)
 			fmp4_write_fragment(&sp->mux, &sp->queue_s);
 
-		if (sp->queue.bytes.num > MAX_QUEUED_BYTES) {
-			do_log(LOG_ERROR, "The server is not keeping up; over %d MiB are queued",
+		if (sp->queue.bytes.num + sp->mux.held_bytes > MAX_QUEUED_BYTES) {
+			do_log(LOG_ERROR, "Over %d MiB of stream data are waiting to be sent",
 			       MAX_QUEUED_BYTES / (1024 * 1024));
 			finish_with_error(sp, OBS_OUTPUT_DISCONNECTED);
 		}

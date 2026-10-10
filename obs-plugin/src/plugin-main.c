@@ -15,7 +15,9 @@ MODULE_EXPORT const char *obs_module_description(void)
 /* OBS's Settings → Stream page only knows the rtmp-services service types, so a
  * third-party output is reached through a services.json entry whose "protocol"
  * this plugin registers: rtmp-services hides the entry unless the protocol is
- * registered, and the frontend starts whichever output registered it. */
+ * registered, and the frontend starts whichever output registered it. OBS
+ * applies "recommended" to the stream encoders: a segment is one GoP, so 1s
+ * keyframes keep latency low, and B-frames force viewers onto HLS. */
 static const char service_entry[] = "{"
 				    "\"name\": \"Streamplace\","
 				    "\"common\": true,"
@@ -24,7 +26,8 @@ static const char service_entry[] = "{"
 				    "\"stream_key_link\": \"https://stream.place/live\","
 				    "\"servers\": [{\"name\": \"Local Streamplace node\", \"url\": \"http://127.0.0.1:38080\"}],"
 				    "\"supported video codecs\": [\"h264\"],"
-				    "\"supported audio codecs\": [\"aac\", \"opus\"]"
+				    "\"supported audio codecs\": [\"aac\", \"opus\"],"
+				    "\"recommended\": {\"keyint\": 1, \"bframes\": 0}"
 				    "}";
 
 /* Adds the entry to rtmp-services' services.json in the user's config

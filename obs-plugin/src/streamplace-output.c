@@ -165,6 +165,8 @@ static bool find_ingest_url(obs_data_t *config, const char *key, struct dstr *ur
 		obs_data_t *endpoint = obs_data_array_item(endpoints, i);
 		if (astrcmpi(obs_data_get_string(endpoint, "protocol"), INGEST_PROTOCOL) == 0) {
 			dstr_copy(url, obs_data_get_string(endpoint, "url_template"));
+			/* Logged before the key goes in: OBS logs get shared for support. */
+			do_log(LOG_INFO, "Ingest endpoint: %s", url->array);
 			dstr_replace(url, "{stream_key}", key);
 		}
 		obs_data_release(endpoint);
@@ -594,7 +596,7 @@ static bool start_streaming(struct sp_output *sp, const char *url, struct dstr *
 		return false;
 	}
 
-	do_log(LOG_INFO, "Streaming to %s", url);
+	do_log(LOG_INFO, "Streaming started");
 	if (!obs_output_begin_data_capture(sp->output, 0)) {
 		/* The send thread owns the connection now; it ends the stream. */
 		pthread_mutex_lock(&sp->mutex);
@@ -623,6 +625,9 @@ static bool connect_and_start(struct sp_output *sp, struct dstr *err)
 		  apply_encoder_configs(sp, config, err) && !is_stopping(sp) && start_streaming(sp, url.array, err);
 	obs_data_release(config);
 	dstr_free(&url);
+	/* Errors can quote the ingest URL; keep the key out of logs and dialogs. */
+	if (!ok && key && *key)
+		dstr_replace(err, key, "{stream_key}");
 	return ok;
 }
 

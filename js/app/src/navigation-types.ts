@@ -62,6 +62,7 @@ export type RootStackParamList = {
   Embed: { user: string };
   InfoWidgetEmbed: undefined;
   DanmuOBS: { user: string };
+  Overlay: { name: string; user?: string; versionPollMs?: string };
   PopoutStreamMonitor: undefined;
   PopoutInfoWidget: undefined;
   PopoutMultistream: undefined;

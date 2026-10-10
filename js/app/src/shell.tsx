@@ -70,6 +70,7 @@ import LiveDashboard from "src/screens/live-dashboard";
 import MobileGoLive from "src/screens/mobile-go-live";
 import MobileStream from "src/screens/mobile-stream";
 import MultiScreen from "src/screens/multi";
+import OverlayScreen from "src/screens/overlay";
 import PopoutInfoWidget from "src/screens/popout-info-widget";
 import PopoutLivestream from "src/screens/popout-livestream";
 import PopoutMultistream from "src/screens/popout-multistream";
@@ -845,6 +846,11 @@ export default function Shell() {
           <RootStack.Screen
             name="DanmuOBS"
             component={DanmuOBSScreen}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="Overlay"
+            component={OverlayScreen}
             options={{ headerShown: false }}
           />
           <RootStack.Screen

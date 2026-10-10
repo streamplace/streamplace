@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sort"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -104,39 +103,13 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 		r.Close()
 	}()
 
-	// The signer and its event drain run on a non-cancellable ctx: cancelling
-	// ctx is the FLUSH signal, not an abort — it closes the input pipe above,
-	// the signer sees EOF, signs the final GoP, and exits cleanly. If the
-	// cancelled ctx reached muxl's event parser instead, the parser would
-	// abandon the stream mid-write and the signer wasm would deadlock against
-	// the unread stdout pipe — done would never close and the caller's drain
-	// (`cancel(); <-done`) would hang forever. That was rare while ingest was
-	// clock-paced (everything had drained by EOS); at full speed EOS+cancel
-	// land while GoPs are still in flight, and the abort path lost every time.
-	drainCtx := context.WithoutCancel(ctx)
-
-	// Stream the fMP4 through the per-segment signer; each event carries one
-	// GoP's per-track signed canonical segments.
-	eventCh := make(chan *muxl.MuxlEvent, 16)
-	go func() {
-		err := signStream(drainCtx, r, eventCh)
-		close(eventCh)
-		if err != nil && ctx.Err() == nil {
-			log.Error(ctx, "error running muxl sign-segment", "error", err)
-		}
-	}()
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		for ev := range eventCh {
-			if ev.Type != "signed-segment" {
-				continue
-			}
-			segment := concatTracksSorted(ev.Tracks)
-			cli.DumpDebugSegment(drainCtx, "muxl_signed_segment.m4s", bytes.NewReader(segment))
-			if err := onSegment(drainCtx, segment); err != nil {
-				log.Error(drainCtx, "error handling signed segment", "error", err)
-			}
+		// Non-cancellable: cancelling ctx is the FLUSH signal, not an abort — see
+		// signSegments.
+		if err := signSegments(context.WithoutCancel(ctx), cli, signStream, r, onSegment); err != nil && ctx.Err() == nil {
+			log.Error(ctx, "error running muxl sign-segment", "error", err)
 		}
 	}()
 
@@ -148,18 +121,57 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 	return bin.Element, done, nil
 }
 
-// concatTracksSorted joins the per-track canonical segment bytes for one GoP
-// in ascending track-id order — the canonical interleave a multi-track .m4s
-// uses, which muxl's unwrap/verify/wrap all expect.
-func concatTracksSorted(tracks map[string][]byte) []byte {
-	keys := make([]string, 0, len(tracks))
-	for k := range tracks {
-		keys = append(keys, k)
+// signSegments streams an fMP4 input through the per-segment signer and hands
+// each GoP's bare canonical .m4s to onSegment, returning once all of them have
+// been handed over.
+//
+// ctx MUST NOT be cancellable; callers stop the signer by closing input
+// instead. Closing input is the FLUSH signal, not an abort: the signer sees
+// EOF, signs the final GoP, and exits cleanly. If a cancelled ctx reached
+// muxl's event parser instead, the parser would abandon the stream mid-write
+// and the signer wasm would deadlock against the unread stdout pipe, so this
+// would never return. That was rare while ingest was clock-paced (everything
+// had drained by EOS); at full speed EOS+cancel land while GoPs are still in
+// flight, and the abort path lost every time.
+func signSegments(ctx context.Context, cli *config.CLI, signStream SignSegmentStreamFunc, input io.Reader, onSegment func(ctx context.Context, segment []byte) error) error {
+	eventCh := make(chan *muxl.MuxlEvent, 16)
+	errCh := make(chan error, 1)
+	go func() {
+		err := signStream(ctx, input, eventCh)
+		close(eventCh)
+		errCh <- err
+	}()
+	for ev := range eventCh {
+		if ev.Type != "signed-segment" {
+			continue
+		}
+		segment := concatTracksByID(ev.Tracks)
+		cli.DumpDebugSegment(ctx, "muxl_signed_segment.m4s", bytes.NewReader(segment))
+		if err := onSegment(ctx, segment); err != nil {
+			log.Error(ctx, "error handling signed segment", "error", err)
+		}
 	}
-	sort.Strings(keys)
-	var out []byte
-	for _, k := range keys {
-		out = append(out, tracks[k]...)
+	return <-errCh
+}
+
+// signFMP4Direct signs an fMP4 stream that needs no remuxing straight through
+// the per-segment signer, with no GStreamer graph in front of it. That fits a
+// client that already muxes every track the way a segment carries it — the
+// Streamplace OBS plugin, whose encoders flag only IDR frames as keyframes —
+// and it keeps every track the client sends, where the demux pipeline keeps
+// one video and one audio track. Cancelling ctx flushes the final GoP; it
+// returns once every segment has been handed to onSegment.
+func signFMP4Direct(ctx context.Context, cli *config.CLI, signStream SignSegmentStreamFunc, input io.Reader, onSegment func(ctx context.Context, segment []byte) error) error {
+	r, w := io.Pipe()
+	go func() {
+		_, err := io.Copy(w, input)
+		w.CloseWithError(err)
+	}()
+	stop := context.AfterFunc(ctx, func() { r.Close() })
+	defer stop()
+	err := signSegments(context.WithoutCancel(ctx), cli, signStream, r, onSegment)
+	if ctx.Err() != nil {
+		return context.Cause(ctx)
 	}
-	return out
+	return err
 }

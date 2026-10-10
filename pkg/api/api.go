@@ -221,6 +221,8 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addHandle(apiRouter, "POST", "/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
+	addFunc(apiRouter, "POST", "/api/ingest/client-configuration", a.HandleClientConfiguration(ctx))
+	addHandle(apiRouter, "POST", "/api/ingest/fmp4/:key", a.HandleFMP4Ingest(ctx))
 	addHandle(apiRouter, "POST", "/api/player-event", a.HandlePlayerEvent(ctx))
 	addHandle(apiRouter, "GET", "/api/chat/:repoDID", a.HandleChat(ctx))
 	addHandle(apiRouter, "GET", "/api/websocket/:repoDID", a.HandleWebsocket(ctx))

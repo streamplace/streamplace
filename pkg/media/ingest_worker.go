@@ -105,8 +105,10 @@ type IngestWorkerConfig struct {
 	S3      *s3.Config `json:"s3,omitempty"`
 
 	// Transport selects the worker's ingest source: "" / "mp4" reads fragmented
-	// MP4 media (stdin or InputFD); "whip" makes the worker own the WebRTC
-	// PeerConnection, built from OfferSDP — no media fd to pass.
+	// MP4 media (stdin or InputFD) through the demux pipeline;
+	// IngestTransportFMP4Direct reads the same way but signs the fMP4 as-is;
+	// "whip" makes the worker own the WebRTC PeerConnection, built from
+	// OfferSDP — no media fd to pass.
 	Transport string `json:"transport,omitempty"`
 	// OfferSDP is the WHIP client's SDP offer (transport "whip"). The worker
 	// generates the answer and emits it as the first frame (ingestframe.Answer)
@@ -116,6 +118,12 @@ type IngestWorkerConfig struct {
 
 // IngestTransportWHIP is the cfg.Transport value selecting the WHIP worker.
 const IngestTransportWHIP = "whip"
+
+// IngestTransportFMP4Direct is the cfg.Transport value (and MP4Ingest
+// transport) for a client whose fMP4 needs no remuxing, such as the
+// Streamplace OBS plugin: it is signed as-is, keeping every track (see
+// signFMP4Direct).
+const IngestTransportFMP4Direct = "fmp4-direct"
 
 // workerCLI assembles the minimal config.CLI a worker runs with: the
 // broadcaster identity plus the debug-recording destination (S3 when main
@@ -206,9 +214,10 @@ func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerC
 
 // RunMP4IngestWorker is the body of the `ingest-worker` subcommand. It reads a
 // fragmented-MP4 stream from stdin, runs the same demux + Opus re-encode + muxl-sign
-// pipeline as the in-process MP4Ingest, and emits each signed canonical .m4s
-// segment to frames; the main process reads those frames and runs ValidateMP4
-// over each, exactly as if onSegment had called it directly.
+// pipeline as the in-process MP4Ingest (or, for IngestTransportFMP4Direct, signs
+// the stream as-is), and emits each signed canonical .m4s segment to frames; the
+// main process reads those frames and runs ValidateMP4 over each, exactly as if
+// onSegment had called it directly.
 //
 // It returns when the stream ends cleanly (EOS) or the pipeline errors. The
 // caller frames End or Error accordingly. All segment frames are guaranteed
@@ -244,6 +253,12 @@ func RunMP4IngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 		// the pipeline stops reading — and before this worker process exits, which
 		// would otherwise strand an uncommitted S3 upload.
 		defer finalize()
+	}
+
+	if cfg.Transport == IngestTransportFMP4Direct {
+		err := signFMP4Direct(ctx, mm.cli, workerSignStream(cfg, getManifest), media, onSegment)
+		flush()
+		return err
 	}
 
 	signerElem, done, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg, getManifest), onSegment)

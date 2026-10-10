@@ -52,6 +52,19 @@ Expo splits production **web** exports. iOS/Android still include these modules
 in the installed bundle; the same loading boundaries work without downloading
 web chunks.
 
+Production web HTML renders a dependency-free bootstrap spinner before loading
+Expo's scripts. `scripts/bootstrap-web.mjs` runs after normal and Atlas exports:
+it replaces the eager script tags with a hashed, bare DOM bootloader, preserving
+Expo's runtime/common/entry order and asset base URL. React replaces the spinner
+inside `#root` on its first committed render. Failed downloads offer a retry
+without replaying successfully loaded scripts. Styles come from design tokens
+at build time; no React, theme provider, fonts, or app modules load to show it.
+Development Metro and installed iOS/Android entrypoints are unchanged.
+
+This reduces **bytes required for the first loading UI**, not the bytes required
+for a usable Home screen. The app still downloads automatically after that first
+paint; route-level chunks remain deferred until opened.
+
 Run the production analyzer from the builder container:
 
 ```sh
@@ -61,14 +74,22 @@ pnpm app analyze:web
 The command prepares generated brand assets before exporting. Open the URL
 printed by Expo Atlas (in a browser that can reach the container).
 The export is in `.expo/atlas-web`, leaving the embedded `dist` bundle untouched.
-Atlas's module graph includes deferred modules too: measure initial download size
-by summing **all** scripts referenced by `.expo/atlas-web/index.html`, including
-Expo's common/runtime chunks, rather than just the entrypoint. Check chunk source
-maps and browser network requests to confirm heavy modules remain deferred.
+Atlas's graph still describes the full Expo application, including deferred
+modules; the separately emitted bootstrap is not in that graph. Measure the
+bootstrap by summing the HTML and **all** script URLs directly referenced by
+`.expo/atlas-web/index.html`. The `bootstrap-scripts` JSON manifest lists the
+runtime/common/entry scripts that download after paint: include those too when
+measuring bytes required for Home. Check source maps and browser network requests
+to confirm HLS, stream-key crypto, and secondary screens remain deferred.
 
 `.expo/atlas.jsonl` contains source code and inlined public environment variables;
 keep it local. Rebuild with `make app` and `make dev` before exercising embedded
 UI with `hack/e2e-web-local.sh`.
+
+`bootstrap.spec.ts` runs in Chromium and Firefox: it enforces a sub-1-MB first
+loading payload, holds app downloads to check the visible spinner, then checks
+the handoff to Home and recovery from a failed common-chunk request. This
+HTML-only bootstrap does not apply to native installs.
 
 `lazy-navigation.spec.ts` checks deferred settings requests, navigation away from
 a pending chunk, recovery from a failed chunk, and a cold settings deep link. The platform-neutral

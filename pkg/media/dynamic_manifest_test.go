@@ -89,7 +89,7 @@ func TestSignSegmentStreamRefreshesManifestPerSegment(t *testing.T) {
 		if ev.Type != "signed-segment" {
 			continue
 		}
-		gops = append(gops, concatTracksSorted(ev.Tracks))
+		gops = append(gops, concatTracksByID(ev.Tracks))
 	}
 	require.NoError(t, <-errCh)
 	require.GreaterOrEqual(t, len(gops), 2,

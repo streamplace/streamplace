@@ -25,11 +25,23 @@ const subscribeMaxAge = 60_000
 // one that stays open this long is treated as dropped and skipped.
 var gapTimeout = 5 * time.Second
 
+// maxDrops bounds the SUBSCRIBE_DROP ranges a subscription remembers. A
+// publisher announces a dropped range once; one that keeps announcing
+// ranges far ahead of delivery is not describing a track, and is cut off
+// rather than allowed to grow our state.
+const maxDrops = 64
+
 // Subscribe pulls a track from the peer and returns a Subscription to read
 // its frames from. It does not wait for the publisher's answer: a
 // publisher may withhold SUBSCRIBE_OK until a live track's first group
 // exists (draft §5.1.2), and a refusal (a reset) surfaces from Next.
 func (s *Session) Subscribe(ctx context.Context, broadcast, track string) (*Subscription, error) {
+	return s.subscribe(ctx, broadcast, track, 0)
+}
+
+// subscribe is Subscribe with a Group End: the last group wanted plus one,
+// or 0 for an unbounded subscription (draft §7.9).
+func (s *Session) subscribe(ctx context.Context, broadcast, track string, groupEnd uint64) (*Subscription, error) {
 	sub := &Subscription{s: s, done: make(chan struct{}), frames: make(chan *Frame, 16), notify: make(chan struct{}, 1)}
 	s.mu.Lock()
 	sub.id = s.nextID
@@ -43,7 +55,7 @@ func (s *Session) Subscribe(ctx context.Context, broadcast, track string) (*Subs
 		return nil, fmt.Errorf("opening subscribe stream: %w", err)
 	}
 	req := msg(nil).varint(sub.id).str(broadcast).str(track).u8(0).
-		varint(subscribeMaxAge).varint(0).varint(0).varint(0).varint(0).
+		varint(subscribeMaxAge).varint(0).varint(groupEnd).varint(0).varint(0).
 		frame(streamSubscribe)
 	if err := writeAll(st, req); err != nil {
 		reset(st, errCancelled)
@@ -83,11 +95,14 @@ type Subscription struct {
 	mu sync.Mutex
 	// queue holds accepted group streams by ascending sequence; next is
 	// the sequence delivered next (once started, by SUBSCRIBE_OK or the
-	// first group), so queue[0].seq > next is a hole.
+	// first group), so queue[0].seq > next is a hole. active is the
+	// stream being read, so Close can cut a read short.
 	queue   []groupStream
+	active  recvStream
 	next    uint64
 	started bool
-	// drops are the ranges the publisher said will never arrive.
+	// drops are the ranges the publisher said will never arrive, each
+	// inclusive, disjoint, and ahead of next.
 	drops [][2]uint64
 	// ended once the publisher sent SUBSCRIBE_END (end is then the
 	// exclusive last sequence) or the control stream is over (end 0).
@@ -119,13 +134,25 @@ func (sub *Subscription) finalErr() error {
 	return io.EOF
 }
 
-// Close ends the subscription and releases its streams.
+// Close ends the subscription and releases its streams: the control
+// stream, every group stream still queued, and the one being read, whose
+// pending read then fails instead of waiting on the peer.
 func (sub *Subscription) Close() {
 	sub.once.Do(func() {
 		close(sub.done)
 		sub.s.remove(sub.id)
 		if sub.ctrl != nil {
 			reset(sub.ctrl, errCancelled)
+		}
+		sub.mu.Lock()
+		queued, active := sub.queue, sub.active
+		sub.queue, sub.active = nil, nil
+		sub.mu.Unlock()
+		for _, gs := range queued {
+			gs.st.CancelRead(errCancelled)
+		}
+		if active != nil {
+			active.CancelRead(errCancelled)
 		}
 	})
 }
@@ -149,6 +176,36 @@ func (sub *Subscription) enqueue(gs groupStream) {
 	sub.queue = slices.Insert(sub.queue, i, gs)
 	sub.mu.Unlock()
 	sub.signal()
+}
+
+// addDrop records a SUBSCRIBE_DROP range, merging it into what is already
+// known. A range already behind delivery is nothing to remember; too many
+// ranges ahead of it is a protocol error.
+func (sub *Subscription) addDrop(first, last uint64) error {
+	if first > last {
+		return fmt.Errorf("moq: drop range %d-%d is inverted", first, last)
+	}
+	sub.mu.Lock()
+	defer sub.mu.Unlock()
+	if last < sub.next {
+		return nil
+	}
+	merged := [2]uint64{first, last}
+	kept := sub.drops[:0]
+	for _, r := range sub.drops {
+		// Overlapping or adjacent ranges fold into one.
+		if r[0] <= merged[1]+1 && merged[0] <= r[1]+1 {
+			merged[0] = min(merged[0], r[0])
+			merged[1] = max(merged[1], r[1])
+			continue
+		}
+		kept = append(kept, r)
+	}
+	sub.drops = append(kept, merged)
+	if len(sub.drops) > maxDrops {
+		return fmt.Errorf("moq: more than %d dropped ranges outstanding", maxDrops)
+	}
+	return nil
 }
 
 func (sub *Subscription) signal() {
@@ -178,7 +235,11 @@ func (sub *Subscription) run() {
 		switch state {
 		case pickGroup:
 			gap = nil
-			if !sub.readGroup(gs) {
+			ok := sub.readGroup(gs)
+			sub.mu.Lock()
+			sub.active = nil
+			sub.mu.Unlock()
+			if !ok {
 				return
 			}
 			continue
@@ -243,6 +304,7 @@ func (sub *Subscription) pick() (groupStream, pickState) {
 		gs := sub.queue[0]
 		sub.queue = sub.queue[1:]
 		sub.next = gs.seq + 1
+		sub.active = gs.st
 		return gs, pickGroup
 	}
 	if sub.ended && len(sub.queue) == 0 && (sub.end == 0 || sub.next >= sub.end) {
@@ -367,9 +429,10 @@ func (sub *Subscription) watchControl(br *bufio.Reader) {
 				return
 			}
 			log.Warn(sub.s.ctx, "moq: publisher dropped groups", "from", first, "to", last, "code", code)
-			sub.mu.Lock()
-			sub.drops = append(sub.drops, [2]uint64{first, last})
-			sub.mu.Unlock()
+			if err := sub.addDrop(first, last); err != nil {
+				sub.s.fail(sessionProtocolViolation, err)
+				return
+			}
 			sub.signal()
 		default:
 			// Something newer: nothing to act on.

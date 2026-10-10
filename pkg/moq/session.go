@@ -77,10 +77,15 @@ type Session struct {
 	nextID uint64
 }
 
-// newSession sends SETUP and starts accepting the peer's streams. Both roles
-// run the same loops; what is accepted differs by whether pub is set.
-func newSession(c conn, pub Publisher, setup []byte) (*Session, error) {
-	ctx, cancel := context.WithCancelCause(c.Context())
+// setupTimeout bounds opening the SETUP stream: a peer that grants no
+// stream credit is not a peer worth keeping a session for.
+const setupTimeout = 10 * time.Second
+
+// newSession starts accepting the peer's streams and sends SETUP. Both
+// roles run the same loops; what is accepted differs by whether pub is
+// set. ctx bounds the setup only; the session outlives it.
+func newSession(ctx context.Context, c conn, pub Publisher, setup []byte) (*Session, error) {
+	sctx, cancel := context.WithCancelCause(c.Context())
 	var hop [8]byte
 	if _, err := rand.Read(hop[:]); err != nil {
 		cancel(err)
@@ -89,24 +94,30 @@ func newSession(c conn, pub Publisher, setup []byte) (*Session, error) {
 	s := &Session{
 		conn:   c,
 		pub:    pub,
-		ctx:    ctx,
+		ctx:    sctx,
 		cancel: cancel,
 		hop:    binary.BigEndian.Uint64(hop[:])&maxVarint | 1,
 		subs:   map[uint64]*Subscription{},
 	}
+	ctx, cancelSetup := context.WithTimeout(ctx, setupTimeout)
+	defer cancelSetup()
 	st, err := c.OpenUniStreamSync(ctx)
 	if err != nil {
 		s.fail(sessionProtocolViolation, fmt.Errorf("opening setup stream: %w", err))
 		return nil, err
 	}
-	if err := writeAll(st, setup); err != nil {
-		s.fail(sessionProtocolViolation, fmt.Errorf("writing setup: %w", err))
-		return nil, err
-	}
-	if err := st.Close(); err != nil {
-		s.fail(sessionProtocolViolation, fmt.Errorf("closing setup stream: %w", err))
-		return nil, err
-	}
+	// Neither endpoint waits on the other's SETUP (draft §3.1), so ours is
+	// written off-thread: a peer that never grants flow control credit
+	// stalls this write, not the session, and not whoever accepted it.
+	go func() {
+		if err := writeAll(st, setup); err != nil {
+			s.fail(sessionProtocolViolation, fmt.Errorf("writing setup: %w", err))
+			return
+		}
+		if err := st.Close(); err != nil {
+			s.fail(sessionProtocolViolation, fmt.Errorf("closing setup stream: %w", err))
+		}
+	}()
 	go s.acceptUni()
 	go s.acceptBidi()
 	return s, nil

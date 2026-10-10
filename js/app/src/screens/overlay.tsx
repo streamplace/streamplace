@@ -1,6 +1,6 @@
 import { LivestreamProvider } from "@streamplace/components";
 import { OverlayDiagnostic } from "components/overlay/overlay-diagnostic";
-import { OVERLAYS } from "components/overlay/registry";
+import { overlayFor } from "components/overlay/registry";
 import { useOverlayVersion } from "hooks/useOverlayVersion";
 import { useEffect } from "react";
 import { Platform, View } from "react-native";
@@ -60,9 +60,7 @@ export default function OverlayScreen({ route }) {
   // widget only displays the build it is showing.
   const version = useOverlayVersion(Number(params.versionPollMs));
 
-  // hasOwn: a name like __proto__ would otherwise resolve to something
-  // inherited from Object.prototype and reach React as a component.
-  const Overlay = Object.hasOwn(OVERLAYS, name) ? OVERLAYS[name] : undefined;
+  const Overlay = overlayFor(name);
   if (!Overlay) {
     return (
       <OverlayDiagnostic

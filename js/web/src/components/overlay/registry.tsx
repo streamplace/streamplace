@@ -24,3 +24,16 @@ export interface OverlayProps {
 export const OVERLAYS: Record<string, ComponentType<OverlayProps>> = {
   status: StatusOverlay,
 };
+
+/**
+ * The widget registered under `name`, or undefined. The name comes from the
+ * URL, so a plain lookup is not enough: `__proto__` and friends resolve to
+ * something inherited from Object.prototype.
+ */
+export function overlayFor(
+  name: string,
+): ComponentType<OverlayProps> | undefined {
+  return Object.prototype.hasOwnProperty.call(OVERLAYS, name)
+    ? OVERLAYS[name]
+    : undefined;
+}

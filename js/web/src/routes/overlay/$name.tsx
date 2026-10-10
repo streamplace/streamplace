@@ -4,7 +4,7 @@
 // a transparent full-bleed root — and renders the widget registered under
 // <name> (see @/components/overlay/registry).
 import { OverlayDiagnostic } from "@/components/overlay/overlay-diagnostic";
-import { OVERLAYS } from "@/components/overlay/registry";
+import { overlayFor } from "@/components/overlay/registry";
 import { useLivestreamStore } from "@/hooks/use-livestream-store";
 import { useOverlayVersion } from "@/hooks/use-overlay-version";
 import { createFileRoute } from "@tanstack/react-router";
@@ -56,9 +56,7 @@ function OverlayHost() {
   const version = useOverlayVersion(Number(params.versionPollMs));
   const { store } = useLivestreamStore(user, user !== "");
 
-  // hasOwn: a name like __proto__ or constructor would otherwise resolve to
-  // something inherited from Object.prototype and reach React as a component.
-  const Overlay = Object.hasOwn(OVERLAYS, name) ? OVERLAYS[name] : undefined;
+  const Overlay = overlayFor(name);
   if (!Overlay) {
     return (
       <OverlayDiagnostic

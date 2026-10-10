@@ -74,11 +74,7 @@ func (s *Session) serveSubscribe(br *bufio.Reader, st bidiStream) {
 			if errors.Is(err, io.EOF) {
 				// Every group below next has been sent, so END is also
 				// the moment the stream can be finished (draft §5.1.2).
-				if werr := writeAll(st, msg(nil).varint(next).frame(subscribeEnd)); werr != nil {
-					reset(st, errInternal)
-					return
-				}
-				_ = st.Close()
+				finishSubscribe(st, next)
 				return
 			}
 			if ctx.Err() != nil {
@@ -98,11 +94,7 @@ func (s *Session) serveSubscribe(br *bufio.Reader, st bidiStream) {
 		// it does not want (draft §7.9); a track that has already passed
 		// it owes nothing, not even an OK.
 		if groupEnd != 0 && g.Sequence >= groupEnd {
-			if werr := writeAll(st, msg(nil).varint(groupEnd).frame(subscribeEnd)); werr != nil {
-				reset(st, errInternal)
-				return
-			}
-			_ = st.Close()
+			finishSubscribe(st, groupEnd)
 			return
 		}
 		if first {
@@ -123,14 +115,24 @@ func (s *Session) serveSubscribe(br *bufio.Reader, st bidiStream) {
 			return
 		}
 		if groupEnd != 0 && next >= groupEnd {
-			if werr := writeAll(st, msg(nil).varint(groupEnd).frame(subscribeEnd)); werr != nil {
-				reset(st, errInternal)
-				return
-			}
-			_ = st.Close()
+			finishSubscribe(st, groupEnd)
 			return
 		}
 	}
+}
+
+// finishSubscribe completes a subscription cleanly: SUBSCRIBE_END naming
+// the first sequence never delivered, a FIN, and the read side released.
+// A conforming subscriber closes its side on seeing ours (draft §4.3), but
+// the stream slot must not depend on it: the only thing it could still
+// send is a SUBSCRIBE_UPDATE to a subscription that is over.
+func finishSubscribe(st bidiStream, end uint64) {
+	if err := writeAll(st, msg(nil).varint(end).frame(subscribeEnd)); err != nil {
+		reset(st, errInternal)
+		return
+	}
+	_ = st.Close()
+	st.CancelRead(errCancelled)
 }
 
 // sendGroup ships one group on a fresh unidirectional stream: STREAM_TYPE,

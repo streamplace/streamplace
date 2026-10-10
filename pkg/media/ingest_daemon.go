@@ -250,13 +250,14 @@ func (mm *MediaManager) ingestWorkerSocketDir() (string, error) {
 // worker (own session, survives a main restart) which ingests the media directly
 // and serves signed segments over a per-session unix socket, and then consumes
 // those frames into ValidateMP4 with reconnect. prebuf is any body bytes main
-// already read past the headers; chunked says the push body is chunked.
+// already read past the headers; chunked says the push body is chunked;
+// transport is the worker's cfg.Transport ("" for the demux pipeline).
 //
 // Because the worker owns the connection and is detached, a main restart neither
 // breaks the ingest nor loses output: the worker keeps signing into its buffer,
 // and the restarted main rediscovers the socket (DiscoverWorkerSockets) and
 // drains it.
-func (mm *MediaManager) MP4IngestDetached(ctx context.Context, conn net.Conn, prebuf []byte, chunked bool, ms MediaSigner) error {
+func (mm *MediaManager) MP4IngestDetached(ctx context.Context, conn net.Conn, prebuf []byte, chunked bool, ms MediaSigner, transport string) error {
 	cfg, err := mm.buildWorkerConfig(ctx, ms)
 	if err != nil {
 		return err
@@ -269,6 +270,7 @@ func (mm *MediaManager) MP4IngestDetached(ctx context.Context, conn net.Conn, pr
 	cfg.InputFD = 4
 	cfg.Prebuf = prebuf
 	cfg.Chunked = chunked
+	cfg.Transport = transport
 
 	tcp, ok := conn.(*net.TCPConn)
 	if !ok {

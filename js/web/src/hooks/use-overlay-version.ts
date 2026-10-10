@@ -1,4 +1,3 @@
-import { getStreamplaceUrl } from "@/lib/streamplace-url";
 import { useEffect, useState } from "react";
 
 /** How often an overlay asks the node whether it has been redeployed. */
@@ -7,12 +6,16 @@ export const OVERLAY_VERSION_POLL_MS = 30_000;
 /**
  * Overlays (/overlay/<name>) are OBS browser sources: an operator leaves one
  * open for hours, so a deploy has to reach it without them restarting the
- * source. Poll the node's build manifest (GET /api/version) and reload the
- * page when it differs from the manifest this page booted against — the same
- * trick as useFrontDoorReload, keyed on the build instead of branding. The
- * manifest also names the build being served, which the overlay displays so
- * that "which deploy is this?" is answerable at a glance. A failed poll is
- * ignored until the next tick, so a node hiccup reloads nobody.
+ * source. Poll the serving node's build manifest (GET /api/version) and reload
+ * the page when it differs from the manifest this page booted against — the
+ * same trick as useFrontDoorReload, keyed on the build instead of branding.
+ * The manifest also names the build being served, which the overlay displays
+ * so that "which deploy is this?" is answerable at a glance.
+ *
+ * The manifest comes from the page's own origin, not the configured API node:
+ * this page's *code* is whatever that origin served, and that is what a reload
+ * would replace. A failed poll is ignored until the next tick, so a node
+ * hiccup reloads nobody.
  *
  * ?versionPollMs shortens the interval for tests.
  */
@@ -24,12 +27,8 @@ export function useOverlayVersion(
     Number.isFinite(pollMs) && pollMs > 0 ? pollMs : OVERLAY_VERSION_POLL_MS;
 
   useEffect(() => {
-    let url: string;
-    try {
-      url = getStreamplaceUrl();
-    } catch {
-      return;
-    }
+    if (typeof window === "undefined") return;
+    const url = window.location.origin;
     let booted: string | null = null;
     let stopped = false;
     const check = async () => {

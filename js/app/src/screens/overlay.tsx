@@ -60,7 +60,9 @@ export default function OverlayScreen({ route }) {
   // widget only displays the build it is showing.
   const version = useOverlayVersion(Number(params.versionPollMs));
 
-  const Overlay = OVERLAYS[name];
+  // hasOwn: a name like __proto__ would otherwise resolve to something
+  // inherited from Object.prototype and reach React as a component.
+  const Overlay = Object.hasOwn(OVERLAYS, name) ? OVERLAYS[name] : undefined;
   if (!Overlay) {
     return (
       <OverlayDiagnostic

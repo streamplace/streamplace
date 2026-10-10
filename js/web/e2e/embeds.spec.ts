@@ -51,14 +51,61 @@ test.describe("embeds", () => {
       throw new Error("node served no version manifest");
     });
     await expect(page.getByTestId("overlay-status")).toBeVisible();
-    // An overlay composites over the operator's scene: neither <html> nor
-    // <body> may paint a background of its own.
-    const backgrounds = await page.evaluate(() => [
-      getComputedStyle(document.documentElement).backgroundColor,
-      getComputedStyle(document.body).backgroundColor,
-    ]);
-    expect(backgrounds).toEqual(["rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)"]);
+    // An overlay composites over the operator's scene: nothing between the
+    // widget and the page may paint a background, and the page must not wrap
+    // it in the site's sidebar/header chrome.
+    const painted = await page.evaluate(() => {
+      const paintedAncestors: string[] = [];
+      let el: Element | null = document.querySelector(
+        '[data-testid="overlay-status"]',
+      );
+      while (el) {
+        const style = getComputedStyle(el);
+        if (
+          style.backgroundColor !== "rgba(0, 0, 0, 0)" &&
+          style.backgroundColor !== "transparent"
+        ) {
+          paintedAncestors.push(
+            `${el.tagName} background-color ${style.backgroundColor}`,
+          );
+        }
+        if (style.backgroundImage !== "none") {
+          paintedAncestors.push(
+            `${el.tagName} background-image ${style.backgroundImage}`,
+          );
+        }
+        el = el.parentElement;
+      }
+      return paintedAncestors;
+    });
+    expect(painted).toEqual([]);
     await expect(page.getByTestId("overlay-version")).toHaveText(version);
+  });
+
+  test("status overlay reloads itself when the build manifest changes", async ({
+    page,
+  }) => {
+    let version = "v-e2e-1";
+    await page.route("**/api/version", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          version,
+          buildTime: "2026-01-01T00:00:00Z",
+          uuid: "00000000-0000-7000-8000-000000000000",
+        }),
+      }),
+    );
+
+    // ?versionPollMs is a string on the URL and a number after the router has
+    // parsed the search; this only reloads if the route passes it through.
+    await page.goto("/overlay/status?user=test-user&versionPollMs=500");
+    await expect(page.getByTestId("overlay-version")).toHaveText("v-e2e-1");
+
+    version = "v-e2e-2";
+    await expect(page.getByTestId("overlay-version")).toHaveText("v-e2e-2", {
+      timeout: 30_000,
+    });
   });
 
   test("overlay diagnostics (/overlay/<name>)", async ({ page }) => {
@@ -68,6 +115,13 @@ test.describe("embeds", () => {
     await expect(page.getByTestId("overlay-diagnostic")).toContainText(
       'No overlay named "not-a-widget"',
     );
+
+    // A name that exists on Object.prototype must not resolve to a widget.
+    await page.goto("/overlay/__proto__?user=test-user");
+    await expect(page.getByTestId("overlay-diagnostic")).toContainText(
+      'No overlay named "__proto__"',
+    );
+
     await page.goto("/overlay/status");
     await expect(page.getByTestId("overlay-diagnostic")).toContainText(
       "Add ?user=<your handle>",

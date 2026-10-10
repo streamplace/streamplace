@@ -23,8 +23,8 @@ func (s *Session) serveSubscribe(br *bufio.Reader, st bidiStream) {
 	id := b.varint()
 	broadcast, name := b.str(), b.str()
 	b.u8()                                                        // subscriber priority
-	_, groupStart := b.varint(), b.varint()                       // max age, group floor
-	_, frameStart, frameEnd := b.varint(), b.varint(), b.varint() // group end, frame bounds
+	_, groupStart, groupEnd := b.varint(), b.varint(), b.varint() // max age, group floor, group end
+	frameStart, frameEnd := b.varint(), b.varint()                // frame bounds
 	if err := b.done(); err != nil {
 		s.fail(sessionProtocolViolation, fmt.Errorf("decoding subscribe: %w", err))
 		return
@@ -94,6 +94,17 @@ func (s *Session) serveSubscribe(br *bufio.Reader, st bidiStream) {
 		if g.Sequence < groupStart {
 			continue
 		}
+		// A bounded subscription ends at its Group End, the first sequence
+		// it does not want (draft §7.9); a track that has already passed
+		// it owes nothing, not even an OK.
+		if groupEnd != 0 && g.Sequence >= groupEnd {
+			if werr := writeAll(st, msg(nil).varint(groupEnd).frame(subscribeEnd)); werr != nil {
+				reset(st, errInternal)
+				return
+			}
+			_ = st.Close()
+			return
+		}
 		if first {
 			if err := writeAll(st, msg(nil).varint(g.Sequence).frame(subscribeOK)); err != nil {
 				reset(st, errInternal)
@@ -109,6 +120,14 @@ func (s *Session) serveSubscribe(br *bufio.Reader, st bidiStream) {
 			} else {
 				reset(st, errSessionClosed)
 			}
+			return
+		}
+		if groupEnd != 0 && next >= groupEnd {
+			if werr := writeAll(st, msg(nil).varint(groupEnd).frame(subscribeEnd)); werr != nil {
+				reset(st, errInternal)
+				return
+			}
+			_ = st.Close()
 			return
 		}
 	}

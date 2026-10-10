@@ -75,7 +75,7 @@ func dialQUIC(ctx context.Context, u *url.URL, tlsConf *tls.Config) (*Session, e
 	if path := u.RequestURI(); path != "" && path != "/" {
 		params[setupParamPath] = []byte(path)
 	}
-	return newSession(quicConn{c}, nil, setupMessage(params))
+	return newSession(ctx, quicConn{c}, nil, setupMessage(params))
 }
 
 func dialWebTransport(ctx context.Context, u *url.URL, tlsConf *tls.Config) (*Session, error) {
@@ -94,5 +94,5 @@ func dialWebTransport(ctx context.Context, u *url.URL, tlsConf *tls.Config) (*Se
 		return nil, fmt.Errorf("server negotiated %q, want %s", proto, ALPN)
 	}
 	params := map[uint64][]byte{setupParamRole: appendVarint(nil, roleSubscriber)}
-	return newSession(wtConn{sess}, nil, setupMessage(params))
+	return newSession(ctx, wtConn{sess}, nil, setupMessage(params))
 }

@@ -15,6 +15,7 @@ import (
 	"io"
 	"math/big"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -316,5 +317,98 @@ func TestSubscriptionOrdersGroups(t *testing.T) {
 	sub.mu.Unlock()
 	sub.signal()
 	_, err := sub.Next(ctx)
+	require.ErrorIs(t, err, io.EOF)
+}
+
+// stalledGroup is a group stream whose peer has gone quiet mid-frame: Read
+// blocks until the stream is cancelled.
+type stalledGroup struct {
+	cancelled chan struct{}
+	once      sync.Once
+}
+
+func (g *stalledGroup) Read([]byte) (int, error) {
+	<-g.cancelled
+	return 0, errors.New("cancelled")
+}
+
+func (g *stalledGroup) CancelRead(uint64) { g.once.Do(func() { close(g.cancelled) }) }
+
+// Closing a subscription cuts short a read the peer has stalled, and
+// releases the group streams still queued behind it: otherwise a viewer
+// that left would hold a goroutine and the streams' flow-control credit
+// for as long as the peer kept the session alive.
+func TestSubscriptionCloseCancelsStreams(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	sctx, scancel := context.WithCancelCause(ctx)
+	defer scancel(nil)
+	s := &Session{ctx: sctx, cancel: scancel, subs: map[uint64]*Subscription{}}
+	sub := &Subscription{s: s, done: make(chan struct{}), frames: make(chan *Frame, 16), notify: make(chan struct{}, 1), started: true}
+	go sub.run()
+
+	stalled := &stalledGroup{cancelled: make(chan struct{})}
+	queued := &stalledGroup{cancelled: make(chan struct{})}
+	sub.enqueue(groupStream{seq: 0, r: bufio.NewReader(stalled), st: stalled})
+	sub.enqueue(groupStream{seq: 1, r: bufio.NewReader(queued), st: queued})
+	// Let the reader block on group 0's first byte.
+	require.Eventually(t, func() bool {
+		sub.mu.Lock()
+		defer sub.mu.Unlock()
+		return sub.active == stalled
+	}, 5*time.Second, 10*time.Millisecond)
+
+	sub.Close()
+	_, err := sub.Next(ctx)
+	require.ErrorIs(t, err, io.EOF, "a closed subscription ends, it does not hang")
+	for _, g := range []*stalledGroup{stalled, queued} {
+		select {
+		case <-g.cancelled:
+		case <-time.After(5 * time.Second):
+			t.Fatal("group stream was not cancelled")
+		}
+	}
+}
+
+// Drop ranges are remembered merged, so a publisher repeating or splitting
+// the same announcement costs nothing, and bounded, so one that keeps
+// announcing ranges ahead of delivery is cut off instead of growing state.
+func TestSubscriptionDropRanges(t *testing.T) {
+	sub := &Subscription{}
+	for i := 0; i < 1000; i++ {
+		require.NoError(t, sub.addDrop(1_000_000, 1_000_000))
+	}
+	require.NoError(t, sub.addDrop(1_000_001, 1_000_005))
+	require.NoError(t, sub.addDrop(999_990, 999_999))
+	require.Equal(t, [][2]uint64{{999_990, 1_000_005}}, sub.drops)
+	require.Error(t, sub.addDrop(5, 4), "inverted range")
+	sub.next = 2_000_000
+	require.NoError(t, sub.addDrop(10, 20), "a range already behind delivery")
+	require.Len(t, sub.drops, 1)
+	var err error
+	for i := uint64(0); err == nil && i < 2*maxDrops; i++ {
+		err = sub.addDrop(3_000_000+10*i, 3_000_000+10*i+1)
+	}
+	require.Error(t, err, "unbounded ranges ahead of delivery")
+}
+
+// A bounded subscription (a Group End) is served up to the bound and then
+// ended, rather than fed the live track forever.
+func TestSubscribeBounded(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	tr := &testTrack{groups: groups(5), closed: make(chan struct{})}
+	port, clientTLS := serve(t, ctx, &testPublisher{tracks: map[string]*testTrack{"did:plc:a/source": tr}})
+	sess, err := Dial(ctx, fmt.Sprintf("moqt://127.0.0.1:%d", port), DialOptions{TLS: clientTLS})
+	require.NoError(t, err)
+	defer sess.Close()
+	sub, err := sess.subscribe(ctx, "did:plc:a", "source", 3)
+	require.NoError(t, err)
+	for i := 0; i < 3; i++ {
+		f, err := sub.Next(ctx)
+		require.NoError(t, err)
+		require.Equal(t, uint64(i), f.Group)
+	}
+	_, err = sub.Next(ctx)
 	require.ErrorIs(t, err, io.EOF)
 }

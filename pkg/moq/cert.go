@@ -31,9 +31,13 @@ const (
 	selfSignedRotate   = 7 * 24 * time.Hour
 )
 
-// SelfSignedCert is a rotating self-signed server certificate: TLSConfig
-// always serves a certificate with at least a week left, and Hash names the
-// one being served right now.
+// SelfSignedCert is a rotating self-signed server certificate. The served
+// certificate and the advertised hash change together, under one lock,
+// whichever of them notices the week is up; the origin record and the
+// statedb row re-read Hash every few seconds, so in practice the new hash
+// is advertised before any handshake sees the new certificate, and a
+// peer that pinned the old one reconnects with the refreshed URL on its
+// next pull attempt.
 type SelfSignedCert struct {
 	mu   sync.Mutex
 	cert tls.Certificate
@@ -44,12 +48,15 @@ type SelfSignedCert struct {
 // NewSelfSignedCert mints the first certificate.
 func NewSelfSignedCert() (*SelfSignedCert, error) {
 	c := &SelfSignedCert{}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if err := c.mint(); err != nil {
 		return nil, err
 	}
 	return c, nil
 }
 
+// mint replaces the certificate; the caller holds mu.
 func (c *SelfSignedCert) mint() error {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -72,36 +79,38 @@ func (c *SelfSignedCert) mint() error {
 	if err != nil {
 		return fmt.Errorf("minting self-signed certificate: %w", err)
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.cert = tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
 	c.hash = certHash(der)
 	c.exp = tmpl.NotAfter
 	return nil
 }
 
-// Hash is the SHA-256 (hex) of the certificate currently served.
-func (c *SelfSignedCert) Hash() string {
+// current returns the certificate to serve and advertise, re-minting it
+// once it is a week old. A mint failure keeps the old one in service.
+func (c *SelfSignedCert) current() (tls.Certificate, string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.hash
+	var err error
+	if time.Until(c.exp) < selfSignedLifetime-selfSignedRotate {
+		err = c.mint()
+	}
+	return c.cert, c.hash, err
 }
 
-// TLSConfig serves the certificate, re-minting it once it is a week old.
+// Hash is the SHA-256 (hex) of the certificate currently served.
+func (c *SelfSignedCert) Hash() string {
+	_, hash, _ := c.current()
+	return hash
+}
+
+// TLSConfig serves the certificate.
 func (c *SelfSignedCert) TLSConfig() *tls.Config {
 	return &tls.Config{
 		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-			c.mu.Lock()
-			rotate := time.Until(c.exp) < selfSignedLifetime-selfSignedRotate
-			c.mu.Unlock()
-			if rotate {
-				if err := c.mint(); err != nil {
-					return nil, err
-				}
+			cert, _, err := c.current()
+			if err != nil {
+				return nil, err
 			}
-			c.mu.Lock()
-			defer c.mu.Unlock()
-			cert := c.cert
 			return &cert, nil
 		},
 	}

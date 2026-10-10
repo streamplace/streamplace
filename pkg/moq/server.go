@@ -60,12 +60,14 @@ func (s *Server) Serve(ctx context.Context, conn net.PacketConn) error {
 		}
 		switch proto := c.ConnectionState().TLS.NegotiatedProtocol; proto {
 		case ALPN:
-			sess, err := newSession(quicConn{c}, s.Publisher, setupMessage(nil))
-			if err != nil {
-				log.Warn(ctx, "moq: session setup failed", "remote", c.RemoteAddr(), "error", err)
-				continue
-			}
+			// Off the accept loop: setup waits on the peer for stream
+			// credit, and one slow peer must not hold up the rest.
 			go func() {
+				sess, err := newSession(ctx, quicConn{c}, s.Publisher, setupMessage(nil))
+				if err != nil {
+					log.Warn(ctx, "moq: session setup failed", "remote", c.RemoteAddr(), "error", err)
+					return
+				}
 				select {
 				case <-ctx.Done():
 					_ = sess.Close()
@@ -97,7 +99,7 @@ func (s *Server) upgrade(w http.ResponseWriter, r *http.Request) {
 		_ = sess.CloseWithError(sessionProtocolViolation, "subprotocol "+ALPN+" required")
 		return
 	}
-	if _, err := newSession(wtConn{sess}, s.Publisher, setupMessage(nil)); err != nil {
+	if _, err := newSession(r.Context(), wtConn{sess}, s.Publisher, setupMessage(nil)); err != nil {
 		log.Warn(r.Context(), "moq: webtransport session setup failed", "remote", r.RemoteAddr, "error", err)
 	}
 }

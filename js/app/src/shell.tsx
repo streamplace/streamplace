@@ -57,7 +57,6 @@ import { Platform, Pressable, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { SFSymbols7_0 } from "sf-symbols-typescript";
 import "src/navigation-types";
-import AboutScreen from "src/screens/about";
 import AppReturnScreen from "src/screens/app-return";
 import PopoutChat from "src/screens/chat-popout";
 import DanmuOBSScreen from "src/screens/danmu-obs";
@@ -220,14 +219,6 @@ function HomeNavigator() {
               },
             ],
           }),
-        }}
-      />
-      <HomeStack.Screen
-        name="About"
-        component={AboutScreen}
-        options={{
-          title: "What's Streamplace?",
-          ...headerScreenOptions,
         }}
       />
       <HomeStack.Screen

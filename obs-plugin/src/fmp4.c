@@ -72,6 +72,7 @@ void fmp4_free(struct fmp4_mux *mux)
 	da_free(mux->tracks);
 	mux->sequence = 0;
 	mux->init_written = false;
+	mux->held_bytes = 0;
 }
 
 size_t fmp4_add_track(struct fmp4_mux *mux, const struct fmp4_track *info)
@@ -390,6 +391,7 @@ void fmp4_push(struct fmp4_mux *mux, size_t track_idx, struct encoder_packet *pa
 		complete_pending(track, delta > 0 ? (uint32_t)(delta * track->timebase_num) : 0);
 	}
 	track->pending = *packet;
+	mux->held_bytes += packet->size;
 	track->has_pending = true;
 }
 
@@ -470,6 +472,7 @@ static void write_fragment(struct fmp4_mux *mux, struct serializer *s, bool forc
 			struct encoder_packet *packet = &track->samples.array[j].packet;
 			s_write(s, packet->data, packet->size);
 			data_offset += (uint32_t)packet->size;
+			mux->held_bytes -= packet->size;
 			obs_encoder_packet_release(packet);
 		}
 		da_resize(track->samples, 0);

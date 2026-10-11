@@ -579,6 +579,11 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
+	// Before any server builds its handler: getBroadcaster reports this
+	// URL, which is how a peer pushing streams here finds the listener.
+	if cli.MoqAddr != "" && wsrep != nil {
+		a.MoqURL = func() string { return websocketrep.AdvertisedMoqURL(cli, moqSelfSigned) }
+	}
 
 	ctx = log.WithLogValues(ctx, "version", build.Version)
 
@@ -650,7 +655,6 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		default:
 			wsrep.MoqTLS = moqSelfSigned.TLSConfig()
 		}
-		a.MoqURL = func() string { return websocketrep.AdvertisedMoqURL(cli, moqSelfSigned) }
 	}
 
 	group.Go(func() error {

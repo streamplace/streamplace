@@ -52,6 +52,9 @@ type WebsocketReplicator struct {
 	// same with this node's live streams announced, for sessions to --peers.
 	publisher     *moqPublisher
 	pushPublisher *pushPublisher
+	// pushed counts the sessions currently pushing each streamer here.
+	pushedMu sync.Mutex
+	pushed   map[string]int
 }
 
 func NewWebsocketReplicator(cli *config.CLI, bus *bus.Bus, mod model.Model, mm *media.MediaManager, state *statedb.StatefulDB, moqCert *moq.SelfSignedCert) *WebsocketReplicator {
@@ -68,6 +71,7 @@ func NewWebsocketReplicator(cli *config.CLI, bus *bus.Bus, mod model.Model, mm *
 		moqCert:       moqCert,
 		publisher:     publisher,
 		pushPublisher: &pushPublisher{moqPublisher: publisher, live: newLiveSet(cli.StreamSessionTimeout)},
+		pushed:        map[string]int{},
 	}
 }
 
@@ -369,7 +373,7 @@ func (r *WebsocketReplicator) openMoq(ctx context.Context, origin *placestream.B
 	}
 	defer sess.Close()
 	log.Log(ctx, "syndication: connected to origin (moq)", "origin", *origin.MoqURL)
-	return r.consume(ctx, sess, origin.Streamer)
+	return r.consume(ctx, sess, origin.Streamer, nil)
 }
 
 // feedRenditions folds a rendition addendum the origin minted into this

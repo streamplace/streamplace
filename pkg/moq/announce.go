@@ -17,14 +17,26 @@ type Announced struct {
 	st     bidiStream
 	prefix string
 
-	mu     sync.Mutex
-	err    error
-	paths  []string
+	mu  sync.Mutex
+	err error
+	// active is the route each live Announce ID names ("" for one that
+	// looped back through us and was discarded); ids are assigned in order
+	// and never reused, so count is the next (draft §5.1.1). Only live ids
+	// are kept, so a peer cycling a route costs nothing.
+	active map[uint64]string
+	byPath map[string]uint64
+	count  uint64
 	out    chan Announcement
 	done   chan struct{}
 	closed chan struct{}
 	once   sync.Once
 }
+
+// maxAnnounced bounds the routes a peer may have advertised at once. A
+// node ingests a handful of streams; one announcing thousands is not
+// describing broadcasts, and is cut off rather than allowed to grow our
+// state.
+const maxAnnounced = 1024
 
 // Announced asks the peer for the broadcasts under prefix. It does not
 // wait for the answer: a refusal (a reset) surfaces from Next.
@@ -37,7 +49,7 @@ func (s *Session) Announced(ctx context.Context, prefix string) (*Announced, err
 		reset(st, errCancelled)
 		return nil, fmt.Errorf("writing announce request: %w", err)
 	}
-	a := &Announced{s: s, st: st, prefix: prefix, out: make(chan Announcement, 16), done: make(chan struct{}), closed: make(chan struct{})}
+	a := &Announced{s: s, st: st, prefix: prefix, active: map[uint64]string{}, byPath: map[string]uint64{}, out: make(chan Announcement, 16), done: make(chan struct{}), closed: make(chan struct{})}
 	go a.read(bufio.NewReader(st))
 	return a, nil
 }
@@ -136,19 +148,28 @@ func (a *Announced) read(br *bufio.Reader) {
 			}
 			path := a.prefix + suffix
 			// A route advertised twice is a protocol violation; one that
-			// looped back through us is discarded, id and all
+			// looped back through us is discarded, keeping only its id
 			// (draft §5.1.1.1).
-			if slices.Contains(a.paths, path) {
+			if _, dup := a.byPath[path]; dup {
 				err := fmt.Errorf("route %q announced twice", path)
 				a.s.fail(sessionProtocolViolation, err)
 				a.finish(err)
 				return
 			}
+			if len(a.active) >= maxAnnounced {
+				err := fmt.Errorf("peer has %d routes announced", len(a.active))
+				a.s.fail(sessionInternalError, err)
+				a.finish(err)
+				return
+			}
+			id := a.count
+			a.count++
 			if slices.Contains(hops, a.s.hop) || peerHop == a.s.hop {
-				a.paths = append(a.paths, "")
+				a.active[id] = ""
 				continue
 			}
-			a.paths = append(a.paths, path)
+			a.active[id] = path
+			a.byPath[path] = id
 			if !a.emit(Announcement{Path: path, Active: true}) {
 				return
 			}
@@ -159,21 +180,33 @@ func (a *Announced) read(br *bufio.Reader) {
 				a.finish(err)
 				return
 			}
-			if id >= uint64(len(a.paths)) {
-				err := fmt.Errorf("announce end for unknown id %d", id)
+			path, ok := a.active[id]
+			if !ok {
+				err := fmt.Errorf("announce end for unknown or retired id %d", id)
 				a.s.fail(sessionProtocolViolation, err)
 				a.finish(err)
 				return
 			}
-			path := a.paths[id]
-			a.paths[id] = ""
+			delete(a.active, id)
+			delete(a.byPath, path)
 			if path != "" && !a.emit(Announcement{Path: path}) {
 				return
 			}
 		case announceUpdate:
 			// New hops or cost for a route we already have: nothing to
-			// act on, but it must still decode.
-			b.varint()
+			// act on, but it must name a live id and decode.
+			id := b.varint()
+			if _, err := a.hops(&b); err != nil {
+				a.s.fail(sessionProtocolViolation, err)
+				a.finish(err)
+				return
+			}
+			if _, ok := a.active[id]; !ok {
+				err := fmt.Errorf("announce update for unknown or retired id %d", id)
+				a.s.fail(sessionProtocolViolation, err)
+				a.finish(err)
+				return
+			}
 			if _, err := a.hops(&b); err != nil {
 				a.s.fail(sessionProtocolViolation, err)
 				a.finish(err)

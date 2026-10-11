@@ -98,9 +98,15 @@ Recording a stream to S3, driving its multistream targets and transcoding
 its renditions must each happen on exactly one node, however many carry the
 stream. Every node with a session for a stream, whether it ingested the
 segments or received them from a peer, contends for each job it is equipped
-to do (S3 configured, a Livepeer gateway, always for multistream) through a
-lease in the station's shared statedb (`leases`; `pkg/director/roles.go`).
-The holder renews the lease every 2 seconds; a node that dies stops, and
-the next contender takes the job over once the 6 second TTL has lapsed. A
-node that ends a session cleanly releases its leases, so a peer takes over
-at once. A node on its own statedb simply holds every lease.
+to do (S3 configured for recording, always for multistream) through a lease
+in the station's shared statedb (`leases`; `pkg/director/roles.go`). The
+holder renews the lease every 2 seconds; a node that dies stops, and the
+next contender takes the job over once the 6 second TTL has lapsed. A node
+that ends a session cleanly releases its leases, so a peer takes over at
+once. A node on its own statedb simply holds every lease.
+
+Transcoding is contended for only by a node that is an origin for the
+stream, one that ingests it or that a peer pushes it to, and that has a
+Livepeer gateway: peers take a stream's renditions from its origin, so
+renditions minted on a pull-only replica would reach nobody but its own
+viewers.

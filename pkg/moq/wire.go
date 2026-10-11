@@ -67,6 +67,7 @@ const (
 // Session error codes (CONNECTION_CLOSE).
 const (
 	sessionNoError           = 0x0
+	sessionInternalError     = 0x1
 	sessionUnauthorized      = 0x2
 	sessionProtocolViolation = 0x3
 )

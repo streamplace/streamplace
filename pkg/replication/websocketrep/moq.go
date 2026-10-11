@@ -373,10 +373,12 @@ func (r *WebsocketReplicator) dialMoq(ctx context.Context, rawURL string, pub mo
 // publisher, and its announcements say which streams it is ingesting. Each
 // one is subscribed to and fed through the same validation as a pull;
 // anything that fails validation ends the session, the wire carrying MUXL
-// and nothing else. While a pushed stream flows this node also puts
-// itself in the station's broadcast_origins for it, so peers sharing the
-// statedb pull it from here: the pusher is typically behind NAT, and its
-// own origin record names a listener nobody can reach.
+// and nothing else. While a pushed stream's segments validate this node
+// also puts itself in the station's broadcast_origins for it, so peers
+// sharing the statedb pull it from here: the pusher is typically behind
+// NAT, and its own origin record names a listener nobody can reach. The
+// row follows validated segments, never the announcement alone: naming a
+// DID proves nothing, a signed segment does.
 func (r *WebsocketReplicator) acceptPush(ctx context.Context, sess *moq.Session) {
 	ann, err := sess.Announced(ctx, "")
 	if err != nil {
@@ -414,19 +416,24 @@ func (r *WebsocketReplicator) acceptPush(ctx context.Context, sess *moq.Session)
 		running[a.Path] = cancel
 		streamer := a.Path
 		g.Go(func() error {
-			err := r.consume(bctx, sess, streamer)
+			r.pushedMu.Lock()
+			r.pushed[streamer]++
+			r.pushedMu.Unlock()
+			defer func() {
+				r.pushedMu.Lock()
+				r.pushed[streamer]--
+				if r.pushed[streamer] == 0 {
+					delete(r.pushed, streamer)
+				}
+				r.pushedMu.Unlock()
+			}()
+			err := r.consume(bctx, sess, streamer, r.originAdvertiser(bctx, streamer))
 			if bctx.Err() != nil {
 				// Retracted by the peer, or the session is over.
 				return nil
 			}
 			return err
 		})
-		if r.state != nil {
-			g.Go(func() error {
-				r.advertiseOrigin(bctx, streamer)
-				return nil
-			})
-		}
 	}
 	for _, stop := range running {
 		stop()
@@ -436,27 +443,41 @@ func (r *WebsocketReplicator) acceptPush(ctx context.Context, sess *moq.Session)
 	}
 }
 
+// ReceivesPush reports whether a peer is pushing streamer's stream here.
+func (r *WebsocketReplicator) ReceivesPush(streamer string) bool {
+	r.pushedMu.Lock()
+	defer r.pushedMu.Unlock()
+	return r.pushed[streamer] > 0
+}
+
 // originRefresh is how often a pushed stream's broadcast_origins row is
-// touched; peers read the table every originPollInterval.
+// touched while its segments validate; peers read the table every
+// originPollInterval.
 var originRefresh = 5 * time.Second
 
-func (r *WebsocketReplicator) advertiseOrigin(ctx context.Context, streamer string) {
-	for {
-		if err := r.state.UpsertBroadcastOrigin(streamer, r.cli.ServerDID(), r.getMyMoqURL(), time.Now()); err != nil {
-			log.Warn(ctx, "moq push: could not record this node as origin", "streamer", streamer, "error", err)
-		}
-		select {
-		case <-ctx.Done():
+// originAdvertiser returns a per-validated-segment hook that keeps this
+// node's broadcast_origins row for streamer fresh; nil with no statedb.
+func (r *WebsocketReplicator) originAdvertiser(ctx context.Context, streamer string) func() {
+	if r.state == nil {
+		return nil
+	}
+	var last time.Time
+	return func() {
+		if time.Since(last) < originRefresh {
 			return
-		case <-time.After(originRefresh):
+		}
+		last = time.Now()
+		if err := r.state.UpsertBroadcastOrigin(streamer, r.cli.ServerDID(), r.getMyMoqURL(), last); err != nil {
+			log.Warn(ctx, "moq push: could not record this node as origin", "streamer", streamer, "error", err)
 		}
 	}
 }
 
 // consume subscribes to one streamer's source and rendition tracks on a
 // session and feeds them through validation until the session or ctx ends;
-// it always returns an error saying why.
-func (r *WebsocketReplicator) consume(ctx context.Context, sess *moq.Session, streamer string) error {
+// it always returns an error saying why. onSource, if set, runs after each
+// source segment validates.
+func (r *WebsocketReplicator) consume(ctx context.Context, sess *moq.Session, streamer string, onSource func()) error {
 	source, err := sess.Subscribe(ctx, streamer, MoqSourceTrack)
 	if err != nil {
 		spmetrics.ReplicationConnectErrorsTotal.Inc()
@@ -477,6 +498,12 @@ func (r *WebsocketReplicator) consume(ctx context.Context, sess *moq.Session, st
 			f, err := source.Next(gctx)
 			if err != nil {
 				return fmt.Errorf("source track: %w", err)
+			}
+			if err := r.mm.ValidateMP4(context.Background(), bytes.NewReader(f.Payload), false); err != nil {
+				return fmt.Errorf("could not validate segment: %w", err)
+			}
+			if onSource != nil {
+				onSource()
 			}
 			if err := r.mm.ValidateMP4(context.Background(), bytes.NewReader(f.Payload), false); err != nil {
 				return fmt.Errorf("could not validate segment: %w", err)

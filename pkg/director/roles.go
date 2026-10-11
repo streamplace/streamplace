@@ -40,9 +40,11 @@ type role struct {
 // Once per session, on the first segment of either provenance. For the
 // session's first segment the director runs Start in the background and
 // NewSegment right after it, so the two calls can race; sync.Once lets one
-// of them do the work and the other return.
-func (ss *StreamSession) startRoles(ctx context.Context, repoDID string) {
+// of them do the work and the other return. The loops run on the
+// session's context, so ending the session puts every job down.
+func (ss *StreamSession) startRoles(repoDID string) {
 	ss.roles.Do(func() {
+		ctx := ss.ctx
 		if ss.cli.S3Configured() {
 			ss.contend(ctx, repoDID, role{
 				name:  roleRecord,
@@ -57,67 +59,83 @@ func (ss *StreamSession) startRoles(ctx context.Context, repoDID string) {
 			},
 			stop: func() {},
 		})
-		if ss.cli.LivepeerGatewayURL != "" {
-			ss.contend(ctx, repoDID, role{
-				name:  roleTranscode,
-				start: func(context.Context) { ss.transcoding.Store(true) },
-				stop:  func() { ss.transcoding.Store(false) },
-			})
-		}
+	})
+}
+
+// startTranscodeRole enters the session into contention for transcoding,
+// once, and only on a node that is an origin for the stream: one that
+// ingests it, or that a peer pushes it to. Peers take a stream's
+// renditions from its origin, so renditions minted anywhere else would
+// reach nobody but that node's own viewers.
+func (ss *StreamSession) startTranscodeRole(repoDID string) {
+	if ss.cli.LivepeerGatewayURL == "" {
+		return
+	}
+	ss.transcodeRole.Do(func() {
+		ss.contend(ss.ctx, repoDID, role{
+			name:  roleTranscode,
+			start: func(context.Context) { ss.transcoding.Store(true) },
+			stop:  func() { ss.transcoding.Store(false) },
+		})
 	})
 }
 
 // contend runs one role's lease loop for the life of the session: take the
 // lease when it is free, renew it while held, give the job up when it is
-// lost, and release it on the way out so a peer takes over at once.
+// lost, and release it on the way out so a peer takes over at once. The
+// first check happens before contend returns, so a job this node wins is
+// up before the segment that started the contention is handled; the rest
+// run in the background.
 func (ss *StreamSession) contend(ctx context.Context, repoDID string, r role) {
 	name := "stream:" + r.name + ":" + repoDID
 	holder := ss.cli.ServerDID()
 	ctx = log.WithLogValues(ctx, "role", r.name)
-	ss.Go(ctx, func() error {
-		var held bool
-		var renewed time.Time
-		var cancel context.CancelFunc
-		drop := func() {
+	var held bool
+	var renewed time.Time
+	var cancel context.CancelFunc
+	check := func() {
+		ok, err := ss.statefulDB.AcquireLease(name, holder, roleLeaseTTL)
+		if err != nil {
+			// A database we cannot reach cannot have handed the lease to
+			// anyone either, unless this node alone is cut off: keep the
+			// job until the lease would have lapsed.
+			log.Warn(ctx, "stream role lease check failed", "error", err)
+			ok = held && time.Since(renewed) < roleLeaseTTL
+		} else if ok {
+			renewed = time.Now()
+		}
+		switch {
+		case ok && !held:
+			held = true
+			rctx, stop := context.WithCancel(ctx)
+			cancel = stop
+			log.Log(ctx, "taking up stream role")
+			r.start(rctx)
+		case !ok && held:
+			log.Log(ctx, "stream role taken over by another node")
 			held = false
 			cancel()
 			r.stop()
 		}
+	}
+	check()
+	ss.Go(ctx, func() error {
 		defer func() {
 			if held {
-				drop()
+				cancel()
+				r.stop()
 				if err := ss.statefulDB.ReleaseLease(name, holder); err != nil {
 					log.Warn(ctx, "could not release stream role lease", "error", err)
 				}
 			}
 		}()
 		for {
-			ok, err := ss.statefulDB.AcquireLease(name, holder, roleLeaseTTL)
-			if err != nil {
-				// A database we cannot reach cannot have handed the
-				// lease to anyone either, unless this node alone is cut
-				// off: keep the job until the lease would have lapsed.
-				log.Warn(ctx, "stream role lease check failed", "error", err)
-				ok = held && time.Since(renewed) < roleLeaseTTL
-			} else if ok {
-				renewed = time.Now()
-			}
-			switch {
-			case ok && !held:
-				held = true
-				rctx, stop := context.WithCancel(ctx)
-				cancel = stop
-				log.Log(ctx, "taking up stream role")
-				r.start(rctx)
-			case !ok && held:
-				log.Log(ctx, "stream role taken over by another node")
-				drop()
-			}
 			select {
 			case <-ctx.Done():
 				return nil
 			case <-time.After(roleLeaseRenew):
 			}
+			check()
 		}
 	})
 }

@@ -78,7 +78,9 @@ type StreamSession struct {
 	s3Mu               sync.Mutex
 	s3Uploader         *s3.S3Uploader
 	// roles enters the session into the stream's jobs once; see startRoles.
-	roles sync.Once
+	// transcodeRole is separate: it starts on the first segment that makes
+	// this node an origin for the stream.
+	roles, transcodeRole sync.Once
 	// transcoding is whether this node holds the transcode role.
 	transcoding atomic.Bool
 }
@@ -143,7 +145,10 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	// Live recording, multistream targets and transcoding are jobs for
 	// exactly one node: every node carrying the stream contends for them,
 	// and the leases decide (see roles.go).
-	ss.startRoles(ctx, notif.Segment.RepoDID)
+	ss.startRoles(notif.Segment.RepoDID)
+	if notif.Local {
+		ss.startTranscodeRole(notif.Segment.RepoDID)
+	}
 
 	// Start background workers for status, origin, and livestream updates
 	ss.g.Go(func() error {
@@ -250,8 +255,12 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	// A session that began with replicated segments (this node syndicated
 	// the stream) and then receives local ones is already in the running
 	// for the stream's jobs: contention starts on the first segment of
-	// either kind.
-	ss.startRoles(ctx, spseg.Creator)
+	// either kind. Transcoding is contended for only once this node is an
+	// origin for the stream (see startTranscodeRole).
+	ss.startRoles(spseg.Creator)
+	if notif.Local || ss.replicator.ReceivesPush(spseg.Creator) {
+		ss.startTranscodeRole(spseg.Creator)
+	}
 
 	// stream.received is enqueued once per StreamSession when the first local media segment is accepted.
 	if notif.Local && !ss.streamReceivedNotified {
@@ -329,7 +338,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	}
 	ss.UpdateViewCount(ctx)
 	// Transcoding is a job for the node holding the transcode role; every
-	// other node carrying the stream receives the renditions with it.
+	// other node carrying the stream receives the renditions from it.
 	if ss.cli.LivepeerGatewayURL != "" && ss.transcoding.Load() {
 		// Claimed in arrival order: the renditions publish in it however
 		// the gateway's round trips finish.

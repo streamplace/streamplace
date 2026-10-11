@@ -64,6 +64,18 @@ live video sits above chat. It reveals the player chrome, exercises mute and
 fullscreen entry/exit, and verifies that faded controls reveal instead of
 accepting an unseen tap.
 
+`player-viewport` opts into the Vite web beta and exercises the real harness
+stream at phone, tablet, square, midscale (including 1080px), and desktop
+viewports, with chat open and closed. It checks playback, mute, volume,
+picture-in-picture, settings, theatre, danmu, and fullscreen controls for
+visibility, full viewport containment, opacity, and pointer occlusion, then
+changes volume, opens settings, and enters/exits fullscreen. Cases straddle
+the square-layout boundary and the player-content breakpoint. Controls respond
+to the space inside the player rather than viewport orientation; compact
+players retain theatre and danmu in Settings. Only public AppView identity
+discovery is substituted, because the harness account is not publicly indexed.
+This is web-only: iOS and Android use the separate Expo/native player.
+
 `auto-publish-vods` saves and reloads the automatic publishing preference,
 checks that the stream form's Create tab and Privacy & Security share it,
 including the popout form, and hides the control without VOD beta access or

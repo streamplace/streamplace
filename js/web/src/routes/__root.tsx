@@ -155,7 +155,7 @@ function ChromeLayout() {
       className="h-svh"
     >
       {!theatre && <SidebarComponent />}
-      <SidebarInset>
+      <SidebarInset className="min-w-0">
         {!theatre && <Header />}
         <div className="mx-auto flex min-h-0 w-full flex-1 flex-col">
           <Outlet />

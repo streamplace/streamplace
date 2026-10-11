@@ -313,7 +313,7 @@ export function PlayerControls({
       </button>
 
       <div
-        className="pointer-events-auto relative space-y-2 bg-linear-to-t from-black/80 to-black/0 px-3 py-2 sm:gap-3"
+        className="@container pointer-events-auto relative space-y-2 bg-linear-to-t from-black/80 to-black/0 px-3 py-2 sm:gap-3"
         // The wrapper itself is a "control surface" so clicks on the
         // gradient below the buttons don't bubble to the play handler.
         onClick={(e) => e.stopPropagation()}
@@ -329,11 +329,11 @@ export function PlayerControls({
             aria-label={t("player-seek")}
           />
         )}
-        <div className="wide:gap-2 flex items-center gap-0.5">
+        <div className="flex flex-wrap items-center gap-0.5 @sm:gap-2">
           <button
             type="button"
             onClick={togglePlay}
-            className="wide:size-auto wide:p-1 flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80"
+            className="flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80 @sm:size-auto @sm:p-1"
             aria-label={playing ? t("player-pause") : t("player-play")}
             title={playing ? t("player-pause") : t("player-play")}
           >
@@ -360,7 +360,7 @@ export function PlayerControls({
             <button
               type="button"
               onClick={toggleMute}
-              className="wide:size-auto wide:p-1 flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80"
+              className="flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80 @sm:size-auto @sm:p-1"
               aria-label={muted ? t("player-unmute") : t("player-mute")}
               title={muted ? t("player-unmute") : t("player-mute")}
             >
@@ -371,7 +371,7 @@ export function PlayerControls({
               )}
             </button>
             <Slider
-              className="wide:flex wide:w-24 hidden w-20"
+              className="hidden w-20 @sm:flex @sm:w-24"
               min={0}
               max={1}
               step={0.01}
@@ -388,7 +388,7 @@ export function PlayerControls({
               type="button"
               onClick={togglePiP}
               className={cn(
-                "wide:size-auto wide:p-1 flex size-11 items-center justify-center rounded-md transition-colors hover:bg-white/10",
+                "flex size-11 items-center justify-center rounded-md transition-colors hover:bg-white/10 @sm:size-auto @sm:p-1",
                 isPiP ? "text-white" : "text-white/40 hover:text-white/80",
               )}
               aria-label={isPiP ? t("player-exit-pip") : t("player-pip")}
@@ -402,7 +402,7 @@ export function PlayerControls({
             type="button"
             onClick={() => setTheatre(!theatre)}
             className={cn(
-              "wide:flex wide:p-1 hidden transition-colors",
+              "hidden transition-colors @sm:flex @sm:p-1",
               theatre ? "text-white" : "text-white/40 hover:text-white/80",
             )}
             aria-label={
@@ -417,7 +417,7 @@ export function PlayerControls({
             type="button"
             onClick={() => onShowDanmuChange(!showDanmu)}
             className={cn(
-              "wide:flex wide:p-1 hidden transition-colors",
+              "hidden transition-colors @sm:flex @sm:p-1",
               showDanmu ? "text-white" : "text-white/40 hover:text-white/80",
             )}
             aria-label={
@@ -432,7 +432,7 @@ export function PlayerControls({
 
           <DropdownMenu onOpenChange={setSettingsOpen}>
             <DropdownMenuTrigger
-              className="wide:size-auto wide:p-1 flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80"
+              className="flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80 @sm:size-auto @sm:p-1"
               aria-label={t("player-settings")}
               title={t("player-settings")}
             >
@@ -487,14 +487,12 @@ export function PlayerControls({
 
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem
-                className="wide:hidden"
                 checked={theatre}
                 onCheckedChange={(checked) => setTheatre(checked)}
               >
                 {t("player-theatre")}
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
-                className="wide:hidden"
                 checked={showDanmu}
                 onCheckedChange={onShowDanmuChange}
               >
@@ -512,7 +510,7 @@ export function PlayerControls({
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="wide:size-auto wide:p-1 flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80"
+            className="flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80 @sm:size-auto @sm:p-1"
             aria-label={
               isFullscreen
                 ? t("player-exit-fullscreen")

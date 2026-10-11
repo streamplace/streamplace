@@ -1,7 +1,18 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import {
+import ts from "typescript";
+
+// Tokens have only type imports. Compile them with the project's TypeScript
+// dependency so this works even when Node was built without type stripping.
+const { outputText } = ts.transpileModule(
+  await readFile(
+    new URL("../../components/src/lib/theme/tokens.ts", import.meta.url),
+    "utf8",
+  ),
+  { compilerOptions: { module: ts.ModuleKind.ESNext } },
+);
+const {
   borderRadius,
   motion,
   spacing,
@@ -9,7 +20,9 @@ import {
   textAlphas,
   touchTargets,
   typeScale,
-} from "../../components/src/lib/theme/tokens.ts";
+} = await import(
+  `data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`
+);
 
 // Expo's shared chunk is eager even when every app screen is lazy. Keep its
 // generated bundles intact, but let a tiny bootloader start them after paint.

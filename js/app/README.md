@@ -61,6 +61,10 @@ without replaying successfully loaded scripts. Styles come from design tokens
 at build time; no React, theme provider, fonts, or app modules load to show it.
 Development Metro and installed iOS/Android entrypoints are unchanged.
 
+The bootstrap build uses the project's installed TypeScript compiler to read
+design tokens. It does not require Node's optional native TypeScript support or
+`--experimental-strip-types`; the existing Node 22 requirement is unchanged.
+
 This reduces **bytes required for the first loading UI**, not the bytes required
 for a usable Home screen. The app still downloads automatically after that first
 paint; route-level chunks remain deferred until opened.

@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortmplib"
+	"github.com/bluenviron/gortmplib/pkg/bytecounter"
+	"github.com/bluenviron/gortmplib/pkg/message"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/go-gst/go-gst/gst"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -251,16 +253,36 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 		stop := context.AfterFunc(ctx, func() { client.Close(); server.Close() })
 		defer stop()
 		replies := make(chan struct{})
-		go func() { _, _ = io.Copy(client, server); client.Close(); close(replies) }()
+		go func() {
+			_, _ = io.Copy(client, server)
+			client.Close()
+			// The encoder can finish before the TLS publisher's EOF gate opens.
+			_, _ = io.Copy(io.Discard, server)
+			close(replies)
+		}()
 		forwarded, err := io.Copy(server, client)
 		if err == nil {
-			// Keep the actual TLS publisher connected until the parent has
-			// observed live verification, even if encoding already reached EOS.
-			select {
-			case <-publisherEOF:
-			case <-ctx.Done():
-				err = ctx.Err()
-			}
+			// Keep the actual TLS publisher active until live verification,
+			// even when encoding reaches EOS before a slow worker catches up.
+			counter := bytecounter.NewWriter(server)
+			keepalive := message.NewWriter(counter, counter, false)
+			err = func() error {
+				ticker := time.NewTicker(time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-publisherEOF:
+						return nil
+					case <-ctx.Done():
+						return ctx.Err()
+					case <-ticker.C:
+						if err := keepalive.Write(&message.UserControlPingRequest{}); err != nil {
+							return err
+						}
+					}
+				}
+			}()
+			forwarded += int64(counter.Count())
 		}
 		if corrupt && err == nil {
 			// Invalid RTMP after verified media must produce a failure.
@@ -296,6 +318,13 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 	busDone := make(chan error, 1)
 	go func() { busDone <- media.HandleBusMessages(ctx, pipeline) }()
 	require.NoError(t, pipeline.SetState(gst.StatePlaying))
+	select {
+	case err := <-busDone:
+		require.NoError(t, err)
+	case <-ctx.Done():
+		t.Fatal("publisher timed out")
+	}
+	require.NoError(t, pipeline.SetState(gst.StateNull))
 	if paced {
 		// The TLS publisher has not sent EOF; progress cannot be deferred
 		// until worker completion. Encoding speed is irrelevant.
@@ -304,13 +333,6 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 		require.Equal(t, sessionCounts(0, 0), live.sessions)
 	}
 	close(publisherEOF)
-	select {
-	case err := <-busDone:
-		require.NoError(t, err)
-	case <-ctx.Done():
-		t.Fatal("publisher timed out")
-	}
-	require.NoError(t, pipeline.SetState(gst.StateNull))
 	select {
 	case err := <-primaryResult:
 		require.NoError(t, err)

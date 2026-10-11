@@ -23,7 +23,6 @@ export type SettingsStackParamList = {
 
 export type HomeStackParamList = {
   HomeMain: undefined;
-  About: undefined;
   Download: undefined;
   LiveDashboard: undefined;
   Login: undefined;

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"stream.place/streamplace/pkg/log"
 )
@@ -205,10 +206,13 @@ func (s *Session) serveTrack(br *bufio.Reader, st bidiStream) {
 	_ = st.Close()
 }
 
-// serveAnnounce advertises one route covering the whole requested prefix:
-// a claim of capability, not inventory (draft §5.1.1). Whether a path
-// under it names a broadcast is answered by SUBSCRIBE. The stream stays
-// open, as the peer treats its end as every route going away.
+// serveAnnounce answers an ANNOUNCE_REQUEST. An Announcer's broadcasts are
+// advertised one route each as they come and go, so the peer can enumerate
+// them (draft §3.2); any other Publisher is advertised as one route
+// covering the whole requested prefix, a claim of capability rather than
+// inventory, with SUBSCRIBE answering whether a path under it is live. The
+// stream stays open either way, as the peer treats its end as every route
+// going away.
 func (s *Session) serveAnnounce(br *bufio.Reader, st bidiStream) {
 	m, err := readMessage(br, maxControlMessage)
 	if err != nil {
@@ -216,17 +220,62 @@ func (s *Session) serveAnnounce(br *bufio.Reader, st bidiStream) {
 		return
 	}
 	b := body{b: m}
-	b.str() // prefix
+	prefix := b.str()
 	if err := b.done(); err != nil {
 		s.fail(sessionProtocolViolation, fmt.Errorf("decoding announce request: %w", err))
 		return
 	}
-	ok := msg(nil).varint(s.hop).varint(1).frame()
-	start := msg(nil).str("").varint(0).varint(0).varint(0).frame(announceStart)
-	if err := writeAll(st, append(ok, start...)); err != nil {
+	ann, ok := s.pub.(Announcer)
+	if !ok {
+		ok := msg(nil).varint(s.hop).varint(1).frame()
+		start := msg(nil).str("").varint(0).varint(0).varint(0).frame(announceStart)
+		if err := writeAll(st, append(ok, start...)); err != nil {
+			st.CancelWrite(errInternal)
+			return
+		}
+		_, _ = io.Copy(io.Discard, br)
+		_ = st.Close()
+		return
+	}
+	// The peer ending its side (FIN or reset) ends the announcements.
+	ctx, cancel := context.WithCancel(s.ctx)
+	defer cancel()
+	go func() {
+		defer cancel()
+		_, _ = io.Copy(io.Discard, br)
+	}()
+	// Active Count 0: the live set arrives as updates, which spares
+	// counting it up front (draft §7.5).
+	if err := writeAll(st, msg(nil).varint(s.hop).varint(0).frame()); err != nil {
 		st.CancelWrite(errInternal)
 		return
 	}
-	_, _ = io.Copy(io.Discard, br)
+	// Announce IDs are implicit: the n-th ANNOUNCE_START on the stream is
+	// id n, and ANNOUNCE_END names one (draft §5.1.1).
+	ids := map[string]uint64{}
+	var next uint64
+	for a := range ann.Announce(ctx, prefix) {
+		var out []byte
+		if a.Active {
+			if _, dup := ids[a.Path]; dup {
+				continue
+			}
+			ids[a.Path] = next
+			next++
+			// Suffix only: the peer prepends the prefix it asked for.
+			out = msg(nil).str(strings.TrimPrefix(a.Path, prefix)).varint(0).varint(0).varint(0).frame(announceStart)
+		} else {
+			id, ok := ids[a.Path]
+			if !ok {
+				continue
+			}
+			delete(ids, a.Path)
+			out = msg(nil).varint(id).frame(announceEnd)
+		}
+		if err := writeAll(st, out); err != nil {
+			st.CancelWrite(errInternal)
+			return
+		}
+	}
 	_ = st.Close()
 }

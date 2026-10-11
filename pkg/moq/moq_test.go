@@ -109,14 +109,21 @@ func selfSigned(t *testing.T) (*tls.Config, *tls.Config) {
 		&tls.Config{RootCAs: pool}
 }
 
-// serve starts a Server on a loopback UDP port for the test's lifetime and
-// returns its port.
+// serve starts a Server for pub on a loopback UDP port for the test's
+// lifetime and returns its port.
 func serve(t *testing.T, ctx context.Context, pub Publisher) (int, *tls.Config) {
 	t.Helper()
+	return serveWith(t, ctx, &Server{Publisher: pub})
+}
+
+// serveWith is serve for a Server the test configured; its TLSConfig is
+// supplied here.
+func serveWith(t *testing.T, ctx context.Context, srv *Server) (int, *tls.Config) {
+	t.Helper()
 	serverTLS, clientTLS := selfSigned(t)
+	srv.TLSConfig = serverTLS
 	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
 	require.NoError(t, err)
-	srv := &Server{TLSConfig: serverTLS, Publisher: pub}
 	ctx, cancel := context.WithCancel(ctx)
 	done := make(chan error, 1)
 	go func() { done <- srv.Serve(ctx, pc) }()

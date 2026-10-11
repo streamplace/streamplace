@@ -427,8 +427,10 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			return err
 		}
 	}
+	var wsrep *websocketrep.WebsocketReplicator
 	if slices.Contains(cli.Replicators, config.ReplicatorWebsocket) {
-		replicator = websocketrep.NewWebsocketReplicator(b, mod, mm, state, moqSelfSigned)
+		wsrep = websocketrep.NewWebsocketReplicator(cli, b, mod, mm, state, moqSelfSigned)
+		replicator = wsrep
 	}
 
 	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb, atsync)
@@ -633,22 +635,22 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		})
 	}
 
-	if cli.MoqAddr != "" {
+	// The MoQ listener is the websocket replicator's: node-to-node
+	// transfer in both directions runs through it (see docs/moq.md).
+	if cli.MoqAddr != "" && wsrep != nil {
 		switch {
 		case a.ACME != nil:
-			a.MoqTLS = a.ACME.TLSConfig()
+			wsrep.MoqTLS = a.ACME.TLSConfig()
 		case cli.Secure:
 			cert, err := tls.LoadX509KeyPair(cli.TLSCertPath, cli.TLSKeyPath)
 			if err != nil {
 				return fmt.Errorf("loading tls certificate for moq: %w", err)
 			}
-			a.MoqTLS = &tls.Config{Certificates: []tls.Certificate{cert}}
+			wsrep.MoqTLS = &tls.Config{Certificates: []tls.Certificate{cert}}
 		default:
-			a.MoqTLS = moqSelfSigned.TLSConfig()
+			wsrep.MoqTLS = moqSelfSigned.TLSConfig()
 		}
-		group.Go(func() error {
-			return a.ServeMoQ(ctx)
-		})
+		a.MoqURL = func() string { return websocketrep.AdvertisedMoqURL(cli, moqSelfSigned) }
 	}
 
 	group.Go(func() error {

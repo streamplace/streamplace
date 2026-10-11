@@ -22,8 +22,15 @@ type Server struct {
 	// TLSConfig supplies the certificate; its NextProtos are replaced.
 	TLSConfig *tls.Config
 	Publisher Publisher
+	// Publishers, when set, is handed every session whose client declared
+	// the publisher Role: a peer pushing broadcasts here, which it
+	// discovers with Session.Announced and subscribes to. It runs for the
+	// session's life; the session is closed when it returns. Without it
+	// such a session is refused as unauthorized.
+	Publishers func(ctx context.Context, sess *Session)
 
-	wt *webtransport.Server
+	ctx context.Context
+	wt  *webtransport.Server
 }
 
 // Serve accepts sessions on conn until ctx ends. Every live session is
@@ -45,6 +52,7 @@ func (s *Server) Serve(ctx context.Context, conn net.PacketConn) error {
 	s.wt = wt
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	s.ctx = ctx
 	go func() {
 		<-ctx.Done()
 		_ = ln.Close()
@@ -63,16 +71,12 @@ func (s *Server) Serve(ctx context.Context, conn net.PacketConn) error {
 			// Off the accept loop: setup waits on the peer for stream
 			// credit, and one slow peer must not hold up the rest.
 			go func() {
-				sess, err := newSession(ctx, quicConn{c}, s.Publisher, setupMessage(nil))
+				sess, err := newSession(ctx, quicConn{c}, s.Publisher, true, setupMessage(nil))
 				if err != nil {
 					log.Warn(ctx, "moq: session setup failed", "remote", c.RemoteAddr(), "error", err)
 					return
 				}
-				select {
-				case <-ctx.Done():
-					_ = sess.Close()
-				case <-sess.Done():
-				}
+				s.run(sess)
 			}()
 		case http3.NextProtoH3:
 			go func() {
@@ -84,6 +88,34 @@ func (s *Server) Serve(ctx context.Context, conn net.PacketConn) error {
 			_ = c.CloseWithError(sessionProtocolViolation, "unsupported alpn")
 		}
 	}
+}
+
+// run sees an accepted session out: closed when the server stops, and in
+// between either served by Publisher (the peer subscribes) or, when the
+// peer declared itself a publisher, handed to Publishers to subscribe to.
+func (s *Server) run(sess *Session) {
+	go func() {
+		select {
+		case <-s.ctx.Done():
+			_ = sess.Close()
+		case <-sess.Done():
+		}
+	}()
+	select {
+	case <-sess.Done():
+		return
+	case <-sess.setupDone:
+	}
+	if sess.peerRole != rolePublisher {
+		<-sess.Done()
+		return
+	}
+	if s.Publishers == nil {
+		sess.fail(sessionUnauthorized, errors.New("publishing is not accepted here"))
+		return
+	}
+	s.Publishers(sess.ctx, sess)
+	_ = sess.Close()
 }
 
 // upgrade turns an HTTP/3 CONNECT into a moq-lite session. The subprotocol
@@ -99,7 +131,10 @@ func (s *Server) upgrade(w http.ResponseWriter, r *http.Request) {
 		_ = sess.CloseWithError(sessionProtocolViolation, "subprotocol "+ALPN+" required")
 		return
 	}
-	if _, err := newSession(r.Context(), wtConn{sess}, s.Publisher, setupMessage(nil)); err != nil {
+	ms, err := newSession(r.Context(), wtConn{sess}, s.Publisher, true, setupMessage(nil))
+	if err != nil {
 		log.Warn(r.Context(), "moq: webtransport session setup failed", "remote", r.RemoteAddr, "error", err)
+		return
 	}
+	go s.run(ms)
 }

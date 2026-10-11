@@ -28,6 +28,25 @@ type Publisher interface {
 	Track(ctx context.Context, broadcast, name string) (Track, error)
 }
 
+// Announcer is a Publisher that also enumerates its broadcasts, so a peer
+// can discover them by ANNOUNCE instead of knowing their paths: the
+// "common convention" of draft §3.2, each broadcast's exact path as its own
+// route. A Publisher without it is advertised as one route covering
+// whatever prefix is asked for.
+type Announcer interface {
+	Publisher
+	// Announce reports the broadcasts whose path starts with prefix: those
+	// live now, then each one that starts or ends, until ctx ends. The
+	// channel is closed when ctx ends.
+	Announce(ctx context.Context, prefix string) <-chan Announcement
+}
+
+// Announcement is one broadcast appearing (Active) or going away.
+type Announcement struct {
+	Path   string
+	Active bool
+}
+
 // Track is one subscribable series of groups.
 type Track interface {
 	Info() TrackInfo
@@ -71,6 +90,13 @@ type Session struct {
 	cancel context.CancelCauseFunc
 	// hop is this endpoint's Hop ID, stamped on announcements.
 	hop uint64
+	// server is set on an accepted session; the peer is then a client,
+	// which is the only endpoint that may send a Role.
+	server bool
+	// setupDone is closed once the peer's SETUP has been read; peerRole is
+	// the Role it declared (0, Both, when it declared none).
+	setupDone chan struct{}
+	peerRole  uint64
 
 	mu     sync.Mutex
 	subs   map[uint64]*Subscription
@@ -84,7 +110,7 @@ const setupTimeout = 10 * time.Second
 // newSession starts accepting the peer's streams and sends SETUP. Both
 // roles run the same loops; what is accepted differs by whether pub is
 // set. ctx bounds the setup only; the session outlives it.
-func newSession(ctx context.Context, c conn, pub Publisher, setup []byte) (*Session, error) {
+func newSession(ctx context.Context, c conn, pub Publisher, server bool, setup []byte) (*Session, error) {
 	sctx, cancel := context.WithCancelCause(c.Context())
 	var hop [8]byte
 	if _, err := rand.Read(hop[:]); err != nil {
@@ -92,12 +118,14 @@ func newSession(ctx context.Context, c conn, pub Publisher, setup []byte) (*Sess
 		return nil, err
 	}
 	s := &Session{
-		conn:   c,
-		pub:    pub,
-		ctx:    sctx,
-		cancel: cancel,
-		hop:    binary.BigEndian.Uint64(hop[:])&maxVarint | 1,
-		subs:   map[uint64]*Subscription{},
+		conn:      c,
+		pub:       pub,
+		ctx:       sctx,
+		cancel:    cancel,
+		hop:       binary.BigEndian.Uint64(hop[:])&maxVarint | 1,
+		server:    server,
+		setupDone: make(chan struct{}),
+		subs:      map[uint64]*Subscription{},
 	}
 	ctx, cancelSetup := context.WithTimeout(ctx, setupTimeout)
 	defer cancelSetup()
@@ -131,6 +159,48 @@ func setupMessage(params map[uint64][]byte) []byte {
 		m = append(m, v...)
 	}
 	return m.frame(streamSetup)
+}
+
+// readSetup decodes the peer's SETUP parameters. Only the Role matters
+// here, and only a client may send one (draft §7.3.3); a second SETUP
+// stream is one too many (draft §3.1).
+func (s *Session) readSetup(m []byte) error {
+	select {
+	case <-s.setupDone:
+		return errors.New("second setup stream")
+	default:
+	}
+	b := body{b: m}
+	n := b.varint()
+	for i := uint64(0); i < n && b.err == nil; i++ {
+		id, size := b.varint(), b.varint()
+		if b.err != nil || size > uint64(len(b.b)) {
+			return errors.New("decoding setup: malformed parameter")
+		}
+		v := body{b: b.b[:size]}
+		b.b = b.b[size:]
+		if id != setupParamRole {
+			continue
+		}
+		if !s.server {
+			return errors.New("server sent a role")
+		}
+		role := v.varint()
+		if err := v.done(); err != nil {
+			return fmt.Errorf("decoding setup role: %w", err)
+		}
+		switch role {
+		case rolePublisher, roleSubscriber:
+			s.peerRole = role
+		default:
+			// Unknown values mean Both (draft §7.3.3).
+		}
+	}
+	if err := b.done(); err != nil {
+		return fmt.Errorf("decoding setup: %w", err)
+	}
+	close(s.setupDone)
+	return nil
 }
 
 // Close ends the session; every subscription fails and every served track
@@ -184,8 +254,8 @@ func (s *Session) acceptBidi() {
 	}
 }
 
-// handleUni routes a data stream: the peer's SETUP (read and, carrying no
-// capability we act on, discarded) or a group for one of our subscriptions.
+// handleUni routes a data stream: the peer's SETUP or a group for one of
+// our subscriptions.
 func (s *Session) handleUni(st recvStream) {
 	br := bufio.NewReader(st)
 	typ, err := readVarint(br)
@@ -195,8 +265,13 @@ func (s *Session) handleUni(st recvStream) {
 	}
 	switch typ {
 	case streamSetup:
-		if _, err := readMessage(br, maxControlMessage); err != nil {
+		m, err := readMessage(br, maxControlMessage)
+		if err != nil {
 			s.fail(sessionProtocolViolation, fmt.Errorf("reading setup: %w", err))
+			return
+		}
+		if err := s.readSetup(m); err != nil {
+			s.fail(sessionProtocolViolation, err)
 		}
 	case streamGroup:
 		m, err := readMessage(br, maxControlMessage)

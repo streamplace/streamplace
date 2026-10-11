@@ -594,7 +594,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:  "peers",
-				Usage: `other streamplace nodes to replicate to (default: "")`,
+				Usage: `comma-separated nodes to push this node's live streams to over Media over QUIC, each a node's https:// origin (its MoQ URL is looked up) or a moqt:// URL (default: "")`,
 				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
 					if s == "" {
 						return nil

@@ -43,7 +43,12 @@ const (
 	setupParamRole = 0x3
 )
 
-const roleSubscriber = 2
+// SETUP Role parameter values (draft §7.3.3): the direction the client
+// intends to use the session for.
+const (
+	rolePublisher  = 1
+	roleSubscriber = 2
+)
 
 // Subscribe stream response types (publisher → subscriber).
 const (
@@ -53,11 +58,16 @@ const (
 )
 
 // Announce stream message types (publisher → subscriber).
-const announceStart = 0x0
+const (
+	announceStart  = 0x0
+	announceEnd    = 0x1
+	announceUpdate = 0x2
+)
 
 // Session error codes (CONNECTION_CLOSE).
 const (
 	sessionNoError           = 0x0
+	sessionUnauthorized      = 0x2
 	sessionProtocolViolation = 0x3
 )
 

@@ -61,6 +61,13 @@ without replaying successfully loaded scripts. Styles come from design tokens
 at build time; no React, theme provider, fonts, or app modules load to show it.
 Development Metro and installed iOS/Android entrypoints are unchanged.
 
+The loading UI uses the regular web Loader's SVG ring with no visible loading
+text (an accessible progress label remains). `pkg/linking` injects the node's
+existing `primaryColor` and dark `backgroundColor` as CSS variables in the
+initial HTML, so the spinner and page are branded before JavaScript runs.
+Unset or invalid colors retain the design-token defaults; only validated hex
+colors are embedded in CSS. Static hosting uses those defaults too.
+
 The bootstrap build uses the project's installed TypeScript compiler to read
 design tokens. It does not require Node's optional native TypeScript support or
 `--experimental-strip-types`; the existing Node 22 requirement is unchanged.
@@ -92,8 +99,11 @@ UI with `hack/e2e-web-local.sh`.
 
 `bootstrap.spec.ts` runs in Chromium and Firefox: it enforces a sub-1-MB first
 loading payload, holds app downloads to check the visible spinner, then checks
-the handoff to Home and recovery from a failed common-chunk request. This
-HTML-only bootstrap does not apply to native installs.
+the handoff to Home and recovery from a failed common-chunk request.
+`bootstrap-branding.spec.ts` edits the real node's branding through the admin UI,
+checks spinner/page colors while Expo downloads are held, and restores the
+original branding bundle. This HTML-only bootstrap does not apply to native
+installs.
 
 `lazy-navigation.spec.ts` checks deferred settings requests, navigation away from
 a pending chunk, recovery from a failed chunk, and a cold settings deep link. The platform-neutral

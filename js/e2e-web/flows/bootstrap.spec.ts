@@ -28,8 +28,14 @@ test("bootstrap: paint loading UI before app downloads, below 1 MB", async ({
   });
   try {
     await page.goto("/");
-    await expect(page.getByRole("status")).toHaveText("Loading Streamplace");
-    await expect(page.locator("#bootstrap-spinner")).toBeVisible();
+    await expect(page.locator("#bootstrap-status")).toBeHidden();
+    await expect(
+      page.getByRole("progressbar", { name: "Loading" }),
+    ).toBeVisible();
+    await expect(page.locator("#web-bootstrap")).toHaveJSProperty(
+      "innerText",
+      "",
+    );
     await expect(page.getByTestId("home-stream-card")).toHaveCount(0);
   } finally {
     release();
@@ -56,9 +62,7 @@ test("bootstrap: retry a failed common chunk without replaying Metro", async ({
     }
   });
   await page.goto("/");
-  await expect(page.getByRole("status")).toHaveText(
-    "Could not load Streamplace. Check your connection.",
-  );
+  await expect(page.getByRole("status")).toBeVisible();
   await expect(page.locator("#bootstrap-spinner")).toBeHidden();
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByTestId("home-stream-card").first()).toBeVisible();

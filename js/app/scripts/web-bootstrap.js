@@ -10,8 +10,9 @@ let loaded = 0;
 async function boot() {
   retry.hidden = true;
   retry.disabled = true;
-  spinner.hidden = false;
-  status.textContent = "Loading Streamplace";
+  spinner.removeAttribute("hidden");
+  status.hidden = true;
+  status.textContent = "";
   try {
     // Keep Expo's runtime/common/entry order. On retry, don't replay scripts
     // that already ran: in particular, reinitializing Metro loses its modules.
@@ -33,8 +34,9 @@ async function boot() {
     // React replaces the bootstrap inside #root when its first render commits.
   } catch (error) {
     console.error("Streamplace bootstrap:", error);
-    spinner.hidden = true;
+    spinner.setAttribute("hidden", "");
     status.textContent = "Could not load Streamplace. Check your connection.";
+    status.hidden = false;
     retry.disabled = false;
     retry.hidden = false;
   }

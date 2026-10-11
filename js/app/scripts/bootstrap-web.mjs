@@ -14,7 +14,8 @@ const { outputText } = ts.transpileModule(
 );
 const {
   borderRadius,
-  motion,
+  colors,
+  loadingIndicator,
   spacing,
   surfaces,
   textAlphas,
@@ -50,17 +51,17 @@ const css = `
 #web-bootstrap {
   flex: 1; display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: ${spacing[4]}px; padding: ${spacing[6]}px;
-  background: ${surfaces.dark[0]}; color: ${textAlphas.dark[1]};
+  background: var(--bootstrap-background, ${surfaces.dark[0]}); color: ${textAlphas.dark[1]};
   font: ${typeScale.base.fontSize}px/${typeScale.base.lineHeight}px system-ui, sans-serif;
   text-align: center;
 }
 #bootstrap-spinner {
-  width: ${spacing[8]}px; height: ${spacing[8]}px;
-  border: ${spacing[1]}px solid ${textAlphas.dark[4]}; border-top-color: currentColor;
-  border-radius: ${borderRadius.full}px;
-  animation: bootstrap-spin ${motion.slow * 3}ms linear infinite;
+  width: ${loadingIndicator.size}px; height: ${loadingIndicator.size}px;
+  color: var(--bootstrap-primary, ${colors.primary[500]});
+  animation: bootstrap-spin ${loadingIndicator.duration}ms linear infinite;
 }
 #web-bootstrap [hidden] { display: none; }
+html,body { background-color: var(--bootstrap-background, ${surfaces.dark[0]}); }
 #bootstrap-retry {
   font: inherit; color: inherit; background: ${surfaces.dark[2]};
   padding: ${spacing[2]}px ${spacing[4]}px; border: none;
@@ -74,8 +75,11 @@ html = html.replace("</head>", `<style>${css}</style></head>`);
 html = html.replace(
   '<div id="root"></div>',
   `<div id="root"><div id="web-bootstrap">
-    <div id="bootstrap-spinner" aria-hidden="true"></div>
-    <div id="bootstrap-status" role="status" aria-live="polite">Loading Streamplace</div>
+    <svg id="bootstrap-spinner" viewBox="0 0 32 32" role="progressbar" aria-label="Loading">
+      <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="4" opacity="${loadingIndicator.trackOpacity}"></circle>
+      <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="80" stroke-dashoffset="60"></circle>
+    </svg>
+    <div id="bootstrap-status" role="status" aria-live="polite" hidden></div>
     <button id="bootstrap-retry" type="button" hidden>Try again</button>
   </div></div>`,
 );

@@ -1252,12 +1252,14 @@ export function BrandingAdmin() {
                     >
                       <View style={{ flex: 1 }}>
                         <Input
+                          testID="branding-input-primaryColor"
                           placeholder={t("branding-primary-color-placeholder")}
                           value={primaryColor}
                           onChangeText={setPrimaryColor}
                         />
                       </View>
                       <Button
+                        testID="branding-update-primaryColor"
                         onPress={() => uploadText("primaryColor", primaryColor)}
                         disabled={uploading || !primaryColor.trim()}
                         width="min"
@@ -2013,6 +2015,7 @@ export function BrandingAdmin() {
                     >
                       <View style={{ flex: 1 }}>
                         <Input
+                          testID="branding-input-backgroundColor"
                           placeholder={DEFAULT_CHROME.dark.background}
                           value={chromeInputs["backgroundColor"] ?? ""}
                           onChangeText={(v) =>
@@ -2024,6 +2027,7 @@ export function BrandingAdmin() {
                         />
                       </View>
                       <Button
+                        testID="branding-update-backgroundColor"
                         onPress={() =>
                           uploadText(
                             "backgroundColor",

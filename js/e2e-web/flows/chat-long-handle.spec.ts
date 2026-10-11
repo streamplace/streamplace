@@ -27,9 +27,13 @@ const PASSWORD = process.env.ACCOUNT_PASSWORD!;
 
 test.skip(!PDS_URL, "harness started without its HTTPS hostnames");
 
-// The PDS allows one label of at most 18 characters under the service domain,
-// so a handle this long is as long as the harness can make one.
-const LONG_LABEL = "verylonghandlehere";
+// The account's label under the PDS's service domain. It has to be long enough
+// that the handle outgrows the chat column, and unique per attempt: a retry
+// runs against the same PDS, where the account the previous attempt created is
+// still registered. The PDS caps a service-domain label at 18 characters.
+function longHandleLabel(): string {
+  return `longhandle${Date.now().toString(36).slice(-6)}`;
+}
 
 async function postChatMessage(
   pds: APIRequestContext,
@@ -81,11 +85,12 @@ async function deleteChatMessage(
 async function seedLongHandleMessage(text: string) {
   // the PDS's throwaway CA is trusted by the harness's browsers, not by Node
   const pds = await request.newContext({ ignoreHTTPSErrors: true });
-  const handle = `${LONG_LABEL}.${new URL(PDS_URL!).hostname}`;
+  const label = longHandleLabel();
+  const handle = `${label}.${new URL(PDS_URL!).hostname}`;
   const created = await pds.post(
     `${PDS_URL}/xrpc/com.atproto.server.createAccount`,
     {
-      data: { handle, email: `${LONG_LABEL}@example.com`, password: PASSWORD },
+      data: { handle, email: `${label}@example.com`, password: PASSWORD },
     },
   );
   expect(

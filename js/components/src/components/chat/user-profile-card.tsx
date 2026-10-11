@@ -464,6 +464,12 @@ export const UserProfileCard = ({
           marginLeft: -3,
           marginRight: -2,
           marginBottom: -4,
+          // A View inside a Text is an inline-level flex box, so its
+          // shrink-to-fit width is driven by its max-content unless it is
+          // capped here. The compact chat row's handle lives in this box, so
+          // without the cap a handle longer than the row would size this box
+          // past the chat column and take the message with it.
+          maxWidth: "100%",
           ...(hovered ? { backgroundColor: theme.colors.surfaceHover } : {}),
         },
       ]}

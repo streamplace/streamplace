@@ -2,6 +2,9 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 // Vite web beta only: these DOM controls are not the Expo/native player.
 // Run against the real looping harness stream, opting in through its beta cookie.
+// Each viewport exercises both chat states and fullscreen, not a single action.
+test.setTimeout(180_000);
+
 const viewports = [
   { width: 320, height: 568 },
   { width: 390, height: 844 },
@@ -71,6 +74,11 @@ for (const viewport of viewports) {
     await context.addCookies([
       { name: "sp_web_beta", value: "1", url: baseURL },
     ]);
+    // Layout is shared across transports; use standard HLS to avoid WebRTC
+    // reconnect transitions while inspecting the paused controls.
+    await page.addInitScript(() => {
+      localStorage.setItem("player-transport", "hls");
+    });
     // The isolated harness account isn't indexed by the public Bluesky AppView.
     // Only identity discovery is substituted; stream, chat and media remain real.
     await page.route(
@@ -89,9 +97,15 @@ for (const viewport of viewports) {
     const player = video.locator("..");
     await expect
       .poll(() =>
-        video.evaluate((element: HTMLVideoElement) => element.readyState),
+        video.evaluate((element: HTMLVideoElement) => element.currentTime),
       )
-      .toBeGreaterThanOrEqual(2);
+      .toBeGreaterThan(0);
+    // Prove real playback first, then hold the chrome through the normal pause
+    // shortcut: layout inspection must not race idle hiding or live buffering.
+    await page.keyboard.press("Space");
+    await expect
+      .poll(() => video.evaluate((element: HTMLVideoElement) => element.paused))
+      .toBe(true);
 
     for (const chatOpen of [true, false]) {
       await test.step(`chat ${chatOpen ? "open" : "closed"}`, async () => {
@@ -138,12 +152,20 @@ for (const viewport of viewports) {
           await expectUsable(
             player.getByRole("button", { name: "Enable danmu", exact: true }),
           );
-          await volume.click({ position: { x: 20, y: 2 } });
+          // A different target after closing chat must produce a fresh update.
+          const targetVolume = chatOpen ? 0.25 : 0.75;
+          const sliderBox = (await volume.boundingBox())!;
+          await volume.click({
+            position: {
+              x: sliderBox.width * targetVolume,
+              y: sliderBox.height / 2,
+            },
+          });
           await expect
             .poll(() =>
               video.evaluate((element: HTMLVideoElement) => element.volume),
             )
-            .toBeLessThan(0.9);
+            .toBeCloseTo(targetVolume, 1);
           await expect
             .poll(() =>
               video.evaluate((element: HTMLVideoElement) => element.muted),

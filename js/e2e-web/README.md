@@ -69,10 +69,13 @@ stream at phone, tablet, square, midscale (including 1080px), and desktop
 viewports, with chat open and closed. It checks playback, mute, volume,
 picture-in-picture, settings, theatre, danmu, and fullscreen controls for
 visibility, full viewport containment, opacity, and pointer occlusion, then
-changes volume, opens settings, and enters/exits fullscreen. Cases straddle
-the square-layout boundary and the player-content breakpoint. Controls respond
-to the space inside the player rather than viewport orientation; compact
-players retain theatre and danmu in Settings. Only public AppView identity
+changes volume to distinct values across chat states, opens settings, and
+enters/exits fullscreen. It starts real HLS playback, then pauses via the normal
+keyboard shortcut so idle hiding and WebRTC reconnects do not race layout
+inspection. Cases straddle the square-layout boundary and the player-content
+breakpoint. Controls respond to the space inside the player rather than viewport
+orientation; compact players retain theatre and danmu in Settings. Only public
+AppView identity
 discovery is substituted, because the harness account is not publicly indexed.
 This is web-only: iOS and Android use the separate Expo/native player.
 

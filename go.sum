@@ -1395,8 +1395,8 @@ github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4 h1:L1fS4HJSaAy
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4/go.mod h1:bGUXY9Wd4mnd+XUrOYZr358J2f6z9QO/dLhL1SsiD+0=
 github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507 h1:e8M3qPLr37NxEjlr18TaAwGP+OVyherVjgUG5VVmgWI=
 github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507/go.mod h1:Pm2I1+iDXn/hLbF7XCg/DsZi6uDCiOo7hZGWprSM7k0=
-github.com/streamplace/muxl/go v0.3.6 h1:lyWnY15nft/0GK3LBA4OkD2aHrLV9RRqI+YcDRPFk3g=
-github.com/streamplace/muxl/go v0.3.6/go.mod h1:aCyYTW3o6c1Kush9UJ/Yv6EYMUbj8l8GTD7cHKcSxw8=
+github.com/streamplace/muxl/go v0.3.7-0.20261012131447-1c84542b3758 h1:qyakbXaQagdSTeKxMr8onok3ahMSmJGURJUUJGuKAs0=
+github.com/streamplace/muxl/go v0.3.7-0.20261012131447-1c84542b3758/go.mod h1:aCyYTW3o6c1Kush9UJ/Yv6EYMUbj8l8GTD7cHKcSxw8=
 github.com/streamplace/oatproxy v0.0.0-20261012003324-43c7ac5473f7 h1:4cFVSUVeQSX2iAgK4z3PnIqDIZRho/fIwvAbPimvWUU=
 github.com/streamplace/oatproxy v0.0.0-20261012003324-43c7ac5473f7/go.mod h1:WRKRYf1OcBCa/vWJSJOxabqMIPelwktWcT6WkTj56Hk=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

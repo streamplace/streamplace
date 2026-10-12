@@ -440,7 +440,16 @@ func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, tra
 	if cat == nil || cat.Audio == nil {
 		return nil, fmt.Errorf("source segment has no audio track")
 	}
-	var srcAudioTID, maxTID uint32
+	// The transcoder re-encodes the demux's first audio stream, the main
+	// group's lowest track (completion runs only when the main group lacks a
+	// codec, see completionTarget); the completed track joins that group so
+	// the main-group consumers find it beside the source track.
+	main := mainAudioTracks(audioTracks(cat))
+	if len(main) == 0 {
+		return nil, fmt.Errorf("source segment has no audio track")
+	}
+	srcAudio := main[0]
+	var maxTID uint32
 	if cat.Video != nil {
 		for _, v := range cat.Video.Renditions {
 			maxTID = maxU32(maxTID, v.TrackID())
@@ -448,13 +457,16 @@ func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, tra
 	}
 	for _, a := range cat.Audio.Renditions {
 		maxTID = maxU32(maxTID, a.TrackID())
-		srcAudioTID = a.TrackID()
 	}
-	sourceAudio := tracks[strconv.FormatUint(uint64(srcAudioTID), 10)]
+	sourceAudio := tracks[strconv.FormatUint(uint64(srcAudio.TrackID()), 10)]
 	if len(sourceAudio) == 0 {
-		return nil, fmt.Errorf("source audio track %d missing", srcAudioTID)
+		return nil, fmt.Errorf("source audio track %d missing", srcAudio.TrackID())
 	}
 	freeTID := maxTID + 1
+	var meta []muxl.CanonicalizeOption
+	if srcAudio.AlternateGroup != 0 {
+		meta = append(meta, muxl.WithTrackMeta(map[uint32]muxl.TrackMeta{freeTID: {AlternateGroup: srcAudio.AlternateGroup, Label: srcAudio.Label}}))
+	}
 
 	// Relabel transTID → freeTID: wrap the full segment to fMP4, canonicalize
 	// with the remap (the video keyframe anchors one segment per GoP), extract
@@ -465,7 +477,7 @@ func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, tra
 	if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(transSeg), "fmp4", &fmp4); err != nil {
 		return nil, fmt.Errorf("wrap transcoded segment: %w", err)
 	}
-	canon, err := muxl.RunMuxlCanonicalize(ctx, fmp4.Bytes(), map[uint32]uint32{transTID: freeTID})
+	canon, err := muxl.RunMuxlCanonicalize(ctx, fmp4.Bytes(), map[uint32]uint32{transTID: freeTID}, meta...)
 	if err != nil {
 		return nil, fmt.Errorf("relabel transcoded audio: %w", err)
 	}
@@ -495,13 +507,12 @@ func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, tra
 	return completed, nil
 }
 
-// audioTrackID returns the (single) audio rendition's track id in a catalog.
+// audioTrackID returns the lowest audio track id in a catalog: the transcoded
+// catalog's only audio track.
 func audioTrackID(cat *muxl.MuxlCatalog) (uint32, bool) {
-	if cat == nil || cat.Audio == nil {
+	tracks := audioTracks(cat)
+	if len(tracks) == 0 {
 		return 0, false
 	}
-	for _, a := range cat.Audio.Renditions {
-		return a.TrackID(), true
-	}
-	return 0, false
+	return tracks[0].TrackID(), true
 }

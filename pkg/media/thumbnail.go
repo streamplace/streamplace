@@ -185,7 +185,7 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) err
 		return fmt.Errorf("error creating Thumbnail pipeline: parsed description is not a pipeline")
 	}
 
-	demuxBin, err := ConcatDemuxBin(ctx, seg, false)
+	demuxBin, err := ConcatDemuxBin(ctx, seg, false, 1)
 	if err != nil {
 		return fmt.Errorf("failed to create demux bin: %w", err)
 	}

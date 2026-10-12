@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { LayoutChangeEvent, Linking } from "react-native";
 import {
   MediaStream,
+  MediaStreamTrack,
   RTCView,
   RTCView as RTCViewIngest,
 } from "react-native-webrtc";
@@ -14,6 +15,7 @@ import {
   PlayerProtocol,
   PlayerStatus,
   Text,
+  useAudioTrackLevels,
   useEffectiveVolume,
   usePlayerStore as useIngestPlayerStore,
   useMuted,
@@ -278,7 +280,7 @@ export function NativeWHEP(props?: {
 }) {
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const src = usePlayerStore((x) => x.src);
-  const [stream, stuck] = useWebRTC(src, selectedRendition);
+  const [stream, stuck, audioTracks] = useWebRTC(src, selectedRendition);
   const status = usePlayerStore((x) => x.status);
 
   const setPlayerWidth = usePlayerStore((x) => x.setPlayerWidth);
@@ -303,6 +305,7 @@ export function NativeWHEP(props?: {
   const setStatus = usePlayerStore((x) => x.setStatus);
   const muted = useMuted();
   const volume = useEffectiveVolume();
+  const levels = useAudioTrackLevels();
 
   useEffect(() => {
     if (stuck && status === PlayerStatus.PLAYING) {
@@ -325,16 +328,14 @@ export function NativeWHEP(props?: {
   //   setStatus(PlayerStatus.PLAYING);
   // }, [mediaStream, setStatus]);
 
+  // Every received audio track plays; the levels pick the full mix or stems.
   useEffect(() => {
-    if (!mediaStream) {
-      return;
-    }
-    mediaStream.getTracks().forEach((track) => {
-      if (track.kind === "audio") {
-        track._setVolume(muted ? 0 : volume);
-      }
+    audioTracks.forEach((track, i) => {
+      (track as unknown as MediaStreamTrack | undefined)?._setVolume(
+        muted ? 0 : volume * (levels[i] ?? 0),
+      );
     });
-  }, [mediaStream, muted, volume]);
+  }, [audioTracks, muted, volume, levels]);
 
   // Keep the playerStore videoRef in sync for PiP (if possible)
   useEffect(() => {

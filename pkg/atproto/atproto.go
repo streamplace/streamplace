@@ -515,7 +515,7 @@ func DIDDoc(host string, pubMultibase string, atmoqRelay string) map[string]any 
 		},
 		"id":          fmt.Sprintf("did:web:%s", host),
 		"alsoKnownAs": []string{},
-		"service": services,
+		"service":     services,
 		"verificationMethod": []map[string]any{
 			{
 				"id":                 fmt.Sprintf("did:web:%s#atproto", host),

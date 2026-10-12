@@ -27,6 +27,22 @@ directory (`plugin_config/rtmp-services/`). The entry names the plugin's output
 protocol, so OBS hides it whenever the plugin is not loaded. If OBS's service
 updater replaces that file, the entry comes back on the next start.
 
+## Audio stems
+
+Viewers watching over WebRTC can turn parts of your audio up or down, such as
+the music. To offer that, name OBS mixer tracks in Settings → Output → Audio
+(Advanced output mode), and route your sources to them in Advanced Audio
+Properties:
+
+- **Track 1** stays the full mix. Everything else (HLS, VODs, multistream)
+  uses it, and viewers hear it unless they change the mix.
+- **Named tracks 2–6** become stems, up to two of them, e.g. Track 2 "Voice &
+  game" and Track 3 "Music". A viewer who adjusts a stem hears the stems
+  instead of the full mix, so together they should add up to the full mix:
+  with only a "Music" stem, turning it down leaves nothing else playing.
+
+The plugin encodes each of these tracks in both AAC and Opus.
+
 ## Protocol
 
 When you start streaming, the plugin does three things in order.

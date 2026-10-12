@@ -188,10 +188,12 @@ jobs:
           fi
 
       # The stream specs again, with the harness pushing the way the OBS plugin
-      # does (/api/ingest/client-configuration, then fragmented MP4), so that
-      # ingest path is covered from push to web playback.
+      # does (/api/ingest/client-configuration, then fragmented MP4 with a
+      # "Music" stem), so that ingest path and audio stems are covered from
+      # push to web playback.
       - name: Run web stream e2e tests over fMP4 ingest
-        run: hack/e2e-web-local.sh flows/stream.spec.ts
+        run:
+          hack/e2e-web-local.sh flows/stream.spec.ts flows/audio-stems.spec.ts
         env:
           SP_E2E_INGEST: fmp4
 
@@ -303,8 +305,11 @@ jobs:
             -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
             -no-boot-anim -camera-back none
           disable-animations: true
-          # one line: the action runs each script line in its own shell
+          # one line: the action runs each script line in its own shell.
+          # fMP4 ingest gives the test stream a "Music" stem for the audio
+          # stems flow; WHIP ingest stays covered by the web suite.
           script:
+            SP_E2E_INGEST=fmp4
             E2E_HARNESS_LOG=$PWD/.maestro/artifacts/harness.log bash
             hack/e2e-local.sh android
       - name: Run upstream station Maestro flow

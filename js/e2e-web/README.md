@@ -128,19 +128,27 @@ Details are in `pkg/cmd/e2e_https.go`.
 
 ## Upstream-station topology
 
-This is opt-in; the ordinary single-node suite is unchanged. Install the real
-released **atmoq v0.1.1** binary and verify its release checksum. It must run
-on the builder's libc; if the prebuilt binary requires a newer glibc, build
-that exact release with its locked Cargo dependencies in an isolated directory,
-not by changing a sibling checkout. Set `SP_E2E_ATMOQ_BIN` to that executable
-when it is not on `PATH`.
+This is opt-in; the ordinary single-node suite is unchanged. Build the real
+atmoq relay at commit `09a604b0b00b1eb063295746de1878a258e88d5b` with locked
+Cargo dependencies, as CI does:
+
+```bash
+cargo install --git https://github.com/streamplace/atmoq \
+  --rev 09a604b0b00b1eb063295746de1878a258e88d5b --locked atmoq
+```
+
+This includes the certificate-watcher fix from
+[atmoq#20](https://github.com/streamplace/atmoq/pull/20): v0.1.1 treats Linux
+certificate reads as changes, causing a continuous reload loop that can starve
+live indexing. Build in an isolated directory rather than changing a sibling
+checkout. Set `SP_E2E_ATMOQ_BIN` to the executable when it is not on `PATH`.
 
 ```bash
 # Inside the pinned builder, after make app && make dev:
-SP_E2E_ATMOQ_BIN=/path/to/released/atmoq \
+SP_E2E_ATMOQ_BIN=/path/to/atmoq \
   hack/e2e-web-local.sh --upstream-station -- upstream-station.spec.ts
 # Equivalent flag source:
-SP_E2E_UPSTREAM_STATION=true SP_E2E_ATMOQ_BIN=/path/to/released/atmoq \
+SP_E2E_UPSTREAM_STATION=true SP_E2E_ATMOQ_BIN=/path/to/atmoq \
   hack/e2e-web-local.sh upstream-station.spec.ts
 ```
 

@@ -384,6 +384,7 @@ export function HLSPlayer(props: VideoProps) {
     // stops a late setup, and `cleanup` tears down whatever was started.
     let cancelled = false;
     let cleanup: (() => void) | undefined;
+    let importRetry: NodeJS.Timeout | undefined;
     const startHlsJs = (HlsClass: typeof Hls) => {
       const hls = new HlsClass({
         maxAudioFramesDrift: 20,
@@ -496,28 +497,33 @@ export function HLSPlayer(props: VideoProps) {
     };
     const canPlayNative = () =>
       video.canPlayType("application/vnd.apple.mpegurl") !== "";
-    import("hls.js").then(
-      ({ default: HlsClass }) => {
-        if (cancelled) return;
-        if (HlsClass.isSupported()) {
-          cleanup = startHlsJs(HlsClass);
-        } else if (canPlayNative()) {
-          cleanup = startNative();
-        }
-      },
-      (e) => {
-        if (cancelled) return;
-        console.error("failed to load hls.js", e);
-        if (canPlayNative()) {
-          cleanup = startNative();
-        } else {
-          // Report it the way the element reports its own errors.
-          video.dispatchEvent(new Event("error"));
-        }
-      },
-    );
+    const loadHls = () => {
+      import("hls.js").then(
+        ({ default: HlsClass }) => {
+          if (cancelled) return;
+          if (HlsClass.isSupported()) {
+            cleanup = startHlsJs(HlsClass);
+          } else if (canPlayNative()) {
+            cleanup = startNative();
+          }
+        },
+        (e) => {
+          if (cancelled) return;
+          console.error("failed to load hls.js", e);
+          if (canPlayNative()) {
+            cleanup = startNative();
+          } else {
+            video.dispatchEvent(new Event("error"));
+            // VODs do not use the live player's remount retries.
+            importRetry = setTimeout(loadHls, 2000);
+          }
+        },
+      );
+    };
+    loadHls();
     return () => {
       cancelled = true;
+      clearTimeout(importRetry);
       cleanup?.();
     };
   }, [props.url, mode, startTime]);

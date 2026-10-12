@@ -47,6 +47,9 @@ Keep the home feed and navigation shell eager; use direct
 imports instead of barrels that re-export deferred screens. The broadcaster
 front door also loads its stream/video screen lazily. HLS playback and stream-key
 generation load their libraries only when needed.
+HLS library downloads retry every two seconds when native HLS is unavailable,
+including recorded videos; leaving the player cancels the pending retry.
+`vod-start-time.spec.ts` checks real playback and seeking after a failed chunk.
 
 Expo splits production **web** exports. iOS/Android still include these modules
 in the installed bundle; the same loading boundaries work without downloading

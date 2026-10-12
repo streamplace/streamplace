@@ -1,14 +1,23 @@
 import type Hls from "hls.js";
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   IngestMediaSource,
   PlayerProtocol,
   PlayerStatus,
+  useAudioTrackLevels,
   useEffectiveVolume,
   useMuted,
   usePlayerStore,
   useSetMuted,
   useStreamplaceStore,
+  useVolume,
 } from "../..";
 import { borderRadius, mt } from "../../lib/theme/atoms";
 import { statusColors, surfaces } from "../../lib/theme/tokens";
@@ -631,7 +640,28 @@ export function WebRTCPlayerInner({
   const playerEvent = usePlayerStore((x) => x.playerEvent);
   const spurl = useStreamplaceStore((x) => x.url);
 
-  const [mediaStream, stuck] = useWebRTC(src, selectedRendition);
+  const [mediaStream, stuck, audioTracks] = useWebRTC(src, selectedRendition);
+  const levels = useAudioTrackLevels();
+  const [fullMix, ...stems] = audioTracks;
+
+  // The video element gets the video and the full mix; each stem the viewer
+  // mixes in plays from its own audio element below. A new array of audio
+  // tracks also means the stream has gained a track.
+  const videoStream = useMemo(
+    () =>
+      mediaStream &&
+      new MediaStream([
+        ...mediaStream.getVideoTracks(),
+        ...(fullMix ? [fullMix] : []),
+      ]),
+    [mediaStream, audioTracks],
+  );
+
+  useEffect(() => {
+    if (fullMix) {
+      fullMix.enabled = levels[0] > 0;
+    }
+  }, [fullMix, levels]);
 
   useEffect(() => {
     if (stuck) {
@@ -690,8 +720,8 @@ export function WebRTCPlayerInner({
     if (!videoRef || !videoRef.current) {
       return;
     }
-    videoRef.current.srcObject = mediaStream;
-  }, [mediaStream]);
+    videoRef.current.srcObject = videoStream;
+  }, [videoStream]);
 
   if (!mediaStream) {
     const isError = connectionStatus === "connection-failed";
@@ -722,7 +752,47 @@ export function WebRTCPlayerInner({
       </View>
     );
   }
-  return <VideoElement url={url} ref={videoRef} />;
+  return (
+    <>
+      <VideoElement url={url} ref={videoRef} />
+      {stems.map(
+        (track, i) =>
+          track &&
+          levels[i + 1] > 0 && (
+            <StemAudio key={track.id} track={track} level={levels[i + 1]} />
+          ),
+      )}
+    </>
+  );
+}
+
+// One stem, playing at its own level under the player's volume and mute.
+function StemAudio({
+  track,
+  level,
+}: {
+  track: MediaStreamTrack;
+  level: number;
+}) {
+  const ref = useRef<HTMLAudioElement | null>(null);
+  const volume = useVolume();
+  const muted = useMuted();
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.srcObject = new MediaStream([track]);
+    }
+  }, [track]);
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.volume = volume * level;
+    }
+  }, [volume, level]);
+
+  return (
+    <audio ref={ref} autoPlay muted={muted} data-testid="player-stem-audio" />
+  );
 }
 
 export function WebcamIngestPlayer(props: VideoProps) {

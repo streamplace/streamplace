@@ -31,10 +31,21 @@ type Config struct {
 // to RecordComplete when the upload is finalized. Implementations should
 // tolerate nil contexts being passed. livestreamURI ties the object to the
 // livestream it belongs to (may be empty if not yet known) so the live-to-VOD
-// finalize can later enumerate exactly the objects for one stream.
+// finalize can later enumerate exactly the objects for one stream. started is
+// the media start time of the object's first segment, and RecordComplete
+// carries the index of every segment in the object, so a clip can range-read
+// exactly the segments it needs.
 type Recorder interface {
 	RecordStart(ctx context.Context, userDID, bucket, key, livestreamURI string, started time.Time) (id string, err error)
-	RecordComplete(ctx context.Context, id string, parts int32, size int64) error
+	RecordComplete(ctx context.Context, id string, parts int32, size int64, segments []RecordedSegment) error
+}
+
+// RecordedSegment locates one canonical segment inside a recorded object: its
+// media start time and byte length. Segments are stored back to back, so a
+// segment's offset is the sum of the sizes before it.
+type RecordedSegment struct {
+	StartMs int64 `json:"t"` // media start, unix milliseconds
+	Size    int64 `json:"n"`
 }
 
 // uploadAPI is the subset of *s3.Client the upload loop uses. Pulled out so
@@ -112,9 +123,16 @@ type activeUpload struct {
 	started       time.Time
 	buf           []byte // accumulates segments until we hit minPartSize
 	totalSize     int64  // running total of bytes flushed across all parts
+	segments      []RecordedSegment
 }
 
 var DefaultCutoverEvery = 10 * time.Minute
+
+// MaxOpenObjectAge is how long a live recording's object can stay open (and
+// so unreadable): the cutover interval plus slack for the final flush and
+// completion. Nodes hold a recorded stream's segments in memory this long so
+// clips can cover the object still being uploaded.
+var MaxOpenObjectAge = DefaultCutoverEvery + 2*time.Minute
 
 // NewS3Uploader creates a new S3Uploader. keyPrefix is prepended to every
 // object key (typically the streamer DID + "/"). userDID is passed through
@@ -165,23 +183,25 @@ func newS3Uploader(client uploadAPI, bucket, userDID, keyPrefix string, cutoverE
 // request to complete the current object now (cutover). Both travel the same
 // channel so a cutover stays FIFO-ordered behind the segments queued before it.
 type uploadCmd struct {
-	seg     []byte // bare canonical MUXL segment to append; nil for a cutover
-	cutover bool   // complete the current object now (see Cutover)
+	seg     []byte    // bare canonical MUXL segment to append; nil for a cutover
+	start   time.Time // the segment's media start time
+	cutover bool      // complete the current object now (see Cutover)
 }
 
 // AddSegment feeds one bare canonical MUXL segment (uuid+moof+mdat per track)
-// for upload. The bytes are copied, so the caller may reuse its buffer. It is
-// the caller's responsibility not to call AddSegment concurrently with Close
-// (the StreamSession guarantees this by draining its goroutines before closing,
-// see director.Start); the closed guard here is a best-effort backstop that
-// turns a late call into an error rather than a send-on-closed-channel panic.
-func (u *S3Uploader) AddSegment(ctx context.Context, data []byte) error {
+// that starts at start for upload. The bytes are copied, so the caller may
+// reuse its buffer. It is the caller's responsibility not to call AddSegment
+// concurrently with Close (the StreamSession guarantees this by draining its
+// goroutines before closing, see director.Start); the closed guard here is a
+// best-effort backstop that turns a late call into an error rather than a
+// send-on-closed-channel panic.
+func (u *S3Uploader) AddSegment(ctx context.Context, data []byte, start time.Time) error {
 	if u.closed.Load() {
 		return fmt.Errorf("s3 uploader closed")
 	}
 	seg := append([]byte(nil), data...)
 	select {
-	case u.segCh <- uploadCmd{seg: seg}:
+	case u.segCh <- uploadCmd{seg: seg, start: start}:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -236,7 +256,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 	var current *activeUpload
 	objSeq := 0 // disambiguates keys when two objects roll over within one second
 
-	startUpload := func() error {
+	startUpload := func(firstSegment time.Time) error {
 		objSeq++
 		now := time.Now()
 		key := fmt.Sprintf("%s%s-%d.m4s", u.keyPrefix, now.UTC().Format("2006-01-02T15-04-05"), objSeq)
@@ -258,7 +278,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			livestreamURI: uri,
 		}
 		if u.recorder != nil {
-			id, recErr := u.recorder.RecordStart(ctx, u.userDID, u.bucket, key, uri, now)
+			id, recErr := u.recorder.RecordStart(ctx, u.userDID, u.bucket, key, uri, firstSegment)
 			if recErr != nil {
 				log.Error(ctx, "recording S3 upload start", "key", key, "error", recErr)
 			}
@@ -331,7 +351,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		}
 		log.Log(ctx, "completed S3 multipart upload", "key", current.key, "parts", len(current.parts), "size", current.totalSize)
 		if u.recorder != nil && current.recordID != "" {
-			if recErr := u.recorder.RecordComplete(ctx, current.recordID, int32(len(current.parts)), current.totalSize); recErr != nil {
+			if recErr := u.recorder.RecordComplete(ctx, current.recordID, int32(len(current.parts)), current.totalSize, current.segments); recErr != nil {
 				log.Error(ctx, "recording S3 upload completion", "key", current.key, "error", recErr)
 			}
 		}
@@ -339,7 +359,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		return nil
 	}
 
-	handleSegment := func(seg []byte) error {
+	handleSegment := func(seg []byte, start time.Time) error {
 		now := time.Now()
 
 		// Roll over to a new object when the current one has run for cutoverEvery,
@@ -355,13 +375,14 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 
 		// Start a new upload if needed
 		if current == nil {
-			if err := startUpload(); err != nil {
+			if err := startUpload(start); err != nil {
 				return err
 			}
 		}
 
 		// Append segment data to buffer
 		current.buf = append(current.buf, seg...)
+		current.segments = append(current.segments, RecordedSegment{StartMs: start.UnixMilli(), Size: int64(len(seg))})
 
 		// Flush full-size parts; a sub-part remainder stays buffered until the
 		// next segment or the object's completing flush.
@@ -428,7 +449,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 				continue
 			}
 			log.Debug(ctx, "received segment for S3 upload", "size", len(cmd.seg))
-			if err := handleSegment(cmd.seg); err != nil {
+			if err := handleSegment(cmd.seg, cmd.start); err != nil {
 				// The triggering segment is dropped along with the object: it may
 				// already be partially flushed into it, so it can't be salvaged.
 				abandonCurrent(fmt.Errorf("error handling segment: %w", err))

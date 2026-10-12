@@ -92,18 +92,23 @@ func hashAndBuildFragmentMetafile(ctx context.Context, store blob.Store, keys []
 }
 
 // synthFlatHeaderForObjects emits the metafile stream for the canonical
-// fragments and synthesizes the flat-MP4 faststart header from it. muxl owns
-// all the co64 offset math over the [header][fragments] layout, so the returned
-// header is exactly the bytes to prepend to the fragments.
+// fragments and synthesizes the flat-MP4 faststart header from it.
 func synthFlatHeaderForObjects(ctx context.Context, store blob.Store, keys []string) ([]byte, error) {
 	readers, closers, err := openFragmentReaders(ctx, store, keys)
 	if err != nil {
 		return nil, err
 	}
 	defer closeAll(closers)
+	return synthFlatHeader(ctx, io.MultiReader(readers...))
+}
 
+// synthFlatHeader synthesizes the flat-MP4 faststart header for a stream of
+// bare canonical fragments. muxl owns all the co64 offset math over the
+// [header][fragments] layout, so the returned header is exactly the bytes to
+// prepend to the fragments.
+func synthFlatHeader(ctx context.Context, fragments io.Reader) ([]byte, error) {
 	var metas bytes.Buffer
-	if err := muxl.RunMuxlMetafiles(ctx, io.MultiReader(readers...), &metas); err != nil {
+	if err := muxl.RunMuxlMetafiles(ctx, fragments, &metas); err != nil {
 		return nil, fmt.Errorf("emit metafiles: %w", err)
 	}
 	var header bytes.Buffer

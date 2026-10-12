@@ -52,12 +52,11 @@ type MediaManager struct {
 	// concurrently, so it is how a late pre-live segment is told apart
 	// from the stream going back to preview.
 	liveWindowLatest map[string]time.Time
-	// modBuffers holds a short in-memory ring of each live user's most recent
-	// canonical segments, the source for moderation/report clips now that
-	// segments are no longer archived to disk. Keyed by repoDID. See
-	// moderation_buffer.go.
-	modBuffers     map[string]*modBuffer
-	modBuffersMut  sync.Mutex
+	// segBuffers holds each stream's recent canonical segments in memory: the
+	// part of a stream this node can clip that no recording holds yet. Keyed
+	// by repoDID. See segment_buffer.go.
+	segBuffers     map[string]*segmentBuffer
+	segBuffersMut  sync.Mutex
 	httpPipes      map[string]io.Writer
 	httpPipesMutex sync.Mutex
 	newSegmentSubs []*segmentSubscriber
@@ -147,7 +146,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		liveWindows:         map[string]*livehls.Writer{},
 		liveWindowPublished: map[string]bool{},
 		liveWindowLatest:    map[string]time.Time{},
-		modBuffers:          map[string]*modBuffer{},
+		segBuffers:          map[string]*segmentBuffer{},
 		httpPipes:           map[string]io.Writer{},
 		model:               mod,
 		bus:                 bus,

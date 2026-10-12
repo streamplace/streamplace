@@ -436,6 +436,7 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.graph.getFollowingUser", s.HandlePlaceStreamGraphGetFollowingUser)
 	e.GET("/xrpc/place.stream.ingest.getIngestUrls", s.HandlePlaceStreamIngestGetIngestUrls)
 	e.POST("/xrpc/place.stream.live.denyTeleport", s.HandlePlaceStreamLiveDenyTeleport)
+	e.GET("/xrpc/place.stream.live.getClip", s.HandlePlaceStreamLiveGetClip)
 	e.GET("/xrpc/place.stream.live.getLiveUsers", s.HandlePlaceStreamLiveGetLiveUsers)
 	e.GET("/xrpc/place.stream.live.getProfileCard", s.HandlePlaceStreamLiveGetProfileCard)
 	e.GET("/xrpc/place.stream.live.getRecommendations", s.HandlePlaceStreamLiveGetRecommendations)
@@ -772,6 +773,22 @@ func (s *Server) HandlePlaceStreamLiveDenyTeleport(c echo.Context) error {
 		return handleErr
 	}
 	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamLiveGetClip(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLiveGetClip")
+	defer span.End()
+	end := c.QueryParam("end")
+	start := c.QueryParam("start")
+	streamer := c.QueryParam("streamer")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handlePlaceStreamLiveGetClip(ctx context.Context,end string,start string,streamer string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamLiveGetClip(ctx, end, start, streamer)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "video/mp4", out)
 }
 
 func (s *Server) HandlePlaceStreamLiveGetLiveUsers(c echo.Context) error {

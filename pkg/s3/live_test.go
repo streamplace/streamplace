@@ -61,7 +61,7 @@ func (r *keyRecorder) RecordStart(ctx context.Context, userDID, bucket, key, liv
 	return key, nil
 }
 
-func (r *keyRecorder) RecordComplete(ctx context.Context, id string, parts int32, size int64) error {
+func (r *keyRecorder) RecordComplete(ctx context.Context, id string, parts int32, size int64, segments []RecordedSegment) error {
 	return nil
 }
 
@@ -88,7 +88,7 @@ func TestLiveS3Uploader(t *testing.T) {
 	for _, mb := range []int{2, 2, 2, 3, 3, 1, 2} { // parts: 6MB, 6MB(3+3), then 3MB tail
 		seg := bytes.Repeat([]byte("streamplace-live-s3-test"), mb*1024*1024/24)
 		seg = append(seg, bytes.Repeat([]byte{0xAB}, 137*mb)...) // knock sizes off round numbers
-		require.NoError(t, up.AddSegment(ctx, seg))
+		require.NoError(t, up.AddSegment(ctx, seg, time.Now()))
 		want = append(want, seg...)
 	}
 	require.NoError(t, up.Close(ctx))

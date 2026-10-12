@@ -15,9 +15,8 @@ import (
 	"github.com/rivo/uniseg"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"go.opentelemetry.io/otel"
-	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/vod"
 )
 
 func (s *Server) HandleComAtprotoModerationCreateReport(c echo.Context) error {
@@ -109,7 +108,7 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 	if did != "" {
 		clipPrefix := fmt.Sprintf("Clip: https://%s/api/clip/%s/", s.cli.BroadcasterHost, did)
 		if reportReasonFits(*body.Reason, clipPrefix+uuid.Nil.String()+".mp4") {
-			clipID, err := makeClip(ctx, s.cli, s.mm, did)
+			clipID, err := s.makeClip(ctx, did)
 			if err != nil {
 				// we still want the report to go through!
 				log.Error(ctx, "failed to make clip for report", "error", err)
@@ -146,15 +145,19 @@ func reportReasonFits(reason, extra string) bool {
 		uniseg.GraphemeClusterCount(reason)+separator+uniseg.GraphemeClusterCount(extra) <= 2000
 }
 
-func makeClip(ctx context.Context, cli *config.CLI, mm *media.MediaManager, did string) (string, error) {
-	after := time.Now().Add(-time.Duration(60) * time.Second)
+func (s *Server) makeClip(ctx context.Context, did string) (string, error) {
+	now := time.Now()
+	clip, err := vod.FindClip(ctx, s.statefulDB, s.playbackStore, s.mm, did, now.Add(-60*time.Second), now, true)
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusInternalServerError, "failed to clip user")
+	}
 
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusInternalServerError, "failed to generate uuid")
 	}
 
-	fd, err := cli.DataFileCreate([]string{did, "clips", fmt.Sprintf("%s.mp4", uu.String())}, false)
+	fd, err := s.cli.DataFileCreate([]string{did, "clips", fmt.Sprintf("%s.mp4", uu.String())}, false)
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusInternalServerError, "failed to create data file")
 	}
@@ -167,7 +170,7 @@ func makeClip(ctx context.Context, cli *config.CLI, mm *media.MediaManager, did 
 		}
 	}()
 
-	err = mm.ClipUser(ctx, did, fd, nil, &after)
+	err = clip.WriteMP4(ctx, fd)
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusInternalServerError, "failed to clip user")
 	}

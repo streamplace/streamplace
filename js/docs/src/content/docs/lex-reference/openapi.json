@@ -3511,6 +3511,84 @@
         }
       }
     },
+    "/xrpc/place.stream.live.getClip": {
+      "get": {
+        "summary": "Clip a livestream between two instants as a flat (faststart) MP4. The clip is cut on MUXL segment boundaries: it holds every segment whose start falls within [start, end], so it may begin up to one segment late and run up to one segment past end. Segments come from the node's livestream recordings and from the recent stream it holds in memory; each segment's C2PA signature passes through verbatim. Only published (live) segments are clipped. Requires a signed-in caller: an OAuth session, or a service-auth token bound to this method (lxm), so third-party apps can call it through the PDS with the rpc:place.stream.live.getClip scope.",
+        "operationId": "place.stream.live.getClip",
+        "tags": ["place.stream.live"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "video/mp4": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "ClipNotFound"
+                        },
+                        {
+                          "const": "ClipUnavailable"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "streamer",
+            "in": "query",
+            "required": true,
+            "description": "The streamer: a DID or a Bluesky handle (resolved to its DID).",
+            "schema": {
+              "type": "string",
+              "description": "The streamer: a DID or a Bluesky handle (resolved to its DID)."
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "description": "Start of the clip (wall-clock time).",
+            "schema": {
+              "type": "string",
+              "description": "Start of the clip (wall-clock time).",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "description": "End of the clip (wall-clock time). Must be after start, at most one hour later.",
+            "schema": {
+              "type": "string",
+              "description": "End of the clip (wall-clock time). Must be after start, at most one hour later.",
+              "format": "date-time"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.live.getLiveUsers": {
       "get": {
         "summary": "Get a list of livestream segments for a user",

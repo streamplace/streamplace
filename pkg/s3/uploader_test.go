@@ -62,24 +62,31 @@ func (f *fakeUploadAPI) AbortMultipartUpload(_ context.Context, _ *awss3.AbortMu
 	return &awss3.AbortMultipartUploadOutput{}, nil
 }
 
-// fakeRecorder captures the (key, livestreamURI) of every started object.
+// fakeRecorder captures the (key, livestreamURI, start) of every started
+// object and the segment index of every completed one.
 type fakeRecorder struct {
-	mu     sync.Mutex
-	keys   []string
-	uris   []string
-	starts int
+	mu      sync.Mutex
+	keys    []string
+	uris    []string
+	started []time.Time
+	indexes [][]RecordedSegment
+	starts  int
 }
 
-func (r *fakeRecorder) RecordStart(_ context.Context, _, _, key, livestreamURI string, _ time.Time) (string, error) {
+func (r *fakeRecorder) RecordStart(_ context.Context, _, _, key, livestreamURI string, started time.Time) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.keys = append(r.keys, key)
 	r.uris = append(r.uris, livestreamURI)
+	r.started = append(r.started, started)
 	r.starts++
 	return fmt.Sprintf("rec-%d", r.starts), nil
 }
 
-func (r *fakeRecorder) RecordComplete(_ context.Context, _ string, _ int32, _ int64) error {
+func (r *fakeRecorder) RecordComplete(_ context.Context, _ string, _ int32, _ int64, segments []RecordedSegment) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.indexes = append(r.indexes, segments)
 	return nil
 }
 
@@ -123,11 +130,11 @@ func TestS3UploaderCutoverOnLivestreamChange(t *testing.T) {
 	seg := make([]byte, 1024) // well under minPartSize: buffered until the object completes
 
 	u.SetLivestreamURI("at://A")
-	require.NoError(t, u.AddSegment(ctx, seg))
+	require.NoError(t, u.AddSegment(ctx, seg, time.Now()))
 	waitForStarts(t, rec, 1) // object 1, livestream A
 
 	u.SetLivestreamURI("at://B")
-	require.NoError(t, u.AddSegment(ctx, seg))
+	require.NoError(t, u.AddSegment(ctx, seg, time.Now()))
 	waitForStarts(t, rec, 2) // livestream changed -> object 2, livestream B
 
 	require.NoError(t, u.Close(ctx))
@@ -153,11 +160,11 @@ func TestS3UploaderCutoverCompletesObject(t *testing.T) {
 	seg := make([]byte, 1024) // under minPartSize: buffered until the object completes
 
 	u.SetLivestreamURI("at://A")
-	require.NoError(t, u.AddSegment(ctx, seg))
+	require.NoError(t, u.AddSegment(ctx, seg, time.Now()))
 	waitForStarts(t, rec, 1) // object 1
 
 	require.NoError(t, u.Cutover(ctx)) // completes object 1
-	require.NoError(t, u.AddSegment(ctx, seg))
+	require.NoError(t, u.AddSegment(ctx, seg, time.Now()))
 	waitForStarts(t, rec, 2) // object 2
 
 	require.NoError(t, u.Close(ctx))
@@ -166,6 +173,34 @@ func TestS3UploaderCutoverCompletesObject(t *testing.T) {
 	keys := rec.startKeys()
 	require.Len(t, keys, 2)
 	require.NotEqual(t, keys[0], keys[1], "post-cutover object must have a distinct key")
+}
+
+// TestS3UploaderRecordsSegmentIndex proves each completed object is recorded
+// with exactly its own segments' start times and sizes, in order, and starts
+// at its first segment's start: clips locate segments inside recorded objects
+// by that index, so a segment attributed to the wrong object (or a stale
+// index carried across a cutover) would cut the wrong bytes.
+func TestS3UploaderRecordsSegmentIndex(t *testing.T) {
+	fc := &fakeUploadAPI{}
+	rec := &fakeRecorder{}
+	u := newS3Uploader(fc, "bucket", "did:plc:test", "did:plc:test/", time.Hour, rec)
+
+	ctx := context.Background()
+	t0 := time.UnixMilli(1_760_000_000_000)
+	at := func(s int) time.Time { return t0.Add(time.Duration(s) * time.Second) }
+	require.NoError(t, u.AddSegment(ctx, make([]byte, 100), at(0)))
+	require.NoError(t, u.AddSegment(ctx, make([]byte, 200), at(2)))
+	require.NoError(t, u.Cutover(ctx))
+	require.NoError(t, u.AddSegment(ctx, make([]byte, 300), at(4)))
+	require.NoError(t, u.Close(ctx))
+
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	require.Equal(t, []time.Time{at(0), at(4)}, rec.started)
+	require.Equal(t, [][]RecordedSegment{
+		{{StartMs: at(0).UnixMilli(), Size: 100}, {StartMs: at(2).UnixMilli(), Size: 200}},
+		{{StartMs: at(4).UnixMilli(), Size: 300}},
+	}, rec.indexes)
 }
 
 // TestS3UploaderUniformParts proves the uploader slices its buffer into
@@ -182,7 +217,7 @@ func TestS3UploaderUniformParts(t *testing.T) {
 	ctx := context.Background()
 	total := 0
 	for _, mb := range []int{2, 3, 4, 3} { // 12MB in irregular chunks
-		require.NoError(t, u.AddSegment(ctx, make([]byte, mb*1024*1024)))
+		require.NoError(t, u.AddSegment(ctx, make([]byte, mb*1024*1024), time.Now()))
 		total += mb * 1024 * 1024
 	}
 	require.NoError(t, u.Close(ctx))
@@ -217,11 +252,11 @@ func TestS3UploaderRecoversFromCompleteFailure(t *testing.T) {
 	ctx := context.Background()
 	seg := make([]byte, 1024)
 
-	require.NoError(t, u.AddSegment(ctx, seg))
+	require.NoError(t, u.AddSegment(ctx, seg, time.Now()))
 	waitForStarts(t, rec, 1)           // object 1
 	require.NoError(t, u.Cutover(ctx)) // complete fails -> object 1 abandoned+aborted
 
-	require.NoError(t, u.AddSegment(ctx, seg))
+	require.NoError(t, u.AddSegment(ctx, seg, time.Now()))
 	waitForStarts(t, rec, 2) // loop survived: object 2 started
 
 	require.NoError(t, u.Close(ctx), "mid-stream failure must not surface at Close; the final object completed fine")
@@ -266,7 +301,7 @@ func TestS3UploaderCloseIdempotent(t *testing.T) {
 	}
 
 	// A late AddSegment must be rejected, not panic on a closed channel.
-	if err := u.AddSegment(context.Background(), []byte("late")); err == nil {
+	if err := u.AddSegment(context.Background(), []byte("late"), time.Now()); err == nil {
 		t.Fatalf("AddSegment after Close should return an error")
 	}
 }

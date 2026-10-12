@@ -212,9 +212,9 @@ func (mm *MediaManager) streamerIsBanned(repoDID string) (bool, error) {
 func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegment, seg []byte) error {
 	meta := vs.meta
 
-	// Retain the canonical segment in the in-memory moderation buffer (this
-	// replaces on-disk .m4s archival) so reports can clip the recent window.
-	mm.feedModerationBuffer(vs.repoDID, meta.StartTime.Time(), seg)
+	// Hold the canonical segment in the stream's in-memory buffer, the recent
+	// part of the stream that clips (and moderation reports) draw on.
+	mm.bufferSegment(vs.repoDID, meta.StartTime.Time(), meta.Published, seg)
 
 	// Fold the validated segment into the streamer's live-HLS window, off the
 	// critical path. This runs for every segment — locally signed or replicated

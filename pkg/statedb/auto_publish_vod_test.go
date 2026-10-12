@@ -50,7 +50,7 @@ func recordObject(t *testing.T, state *StatefulDB, did, uri, key string, complet
 	id, err := state.RecordStart(ctx, did, "bucket", key, uri, time.Now())
 	require.NoError(t, err)
 	if completed {
-		require.NoError(t, state.RecordComplete(ctx, id, 1, 100))
+		require.NoError(t, state.RecordComplete(ctx, id, 1, 100, nil))
 	}
 }
 

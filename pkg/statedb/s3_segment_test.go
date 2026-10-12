@@ -22,7 +22,7 @@ func TestListS3SegmentsForLivestreams(t *testing.T) {
 		id, err := RecordStartHelper(ctx, state, uri, key, at)
 		require.NoError(t, err)
 		if complete {
-			require.NoError(t, state.RecordComplete(ctx, id, 1, 100))
+			require.NoError(t, state.RecordComplete(ctx, id, 1, 100, nil))
 		}
 	}
 	rec(first, "07-12-34-1.m4s", t0, true)

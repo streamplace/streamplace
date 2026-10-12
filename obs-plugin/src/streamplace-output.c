@@ -1,9 +1,12 @@
 #include <inttypes.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <obs-avc.h>
+#include <obs-frontend-api.h>
 #include <util/array-serializer.h>
+#include <util/config-file.h>
 #include <util/platform.h>
 #include <util/threading.h>
 
@@ -43,6 +46,9 @@ struct sp_output {
 	struct array_output_data queue;
 	uint64_t total_bytes;
 
+	/* Written on the connect thread before capture begins, read after. */
+	struct dstr mixer_names[MAX_AUDIO_MIXES]; /* empty when the streamer left a track unnamed */
+	int audio_mixers[MAX_OUTPUT_AUDIO_ENCODERS]; /* mixer per audio encoder we created, else -1 */
 	/* OBS's own encoders from its output settings, put back when the server
 	 * asks for none of a kind. */
 	obs_encoder_t *obs_video, *obs_audio;
@@ -59,7 +65,20 @@ static bool is_stopping(struct sp_output *sp)
 /* ---------------------------------------------------------------------------
  * Stream configuration */
 
-static obs_data_t *build_config_request(const char *key)
+/* Mixer track names from Settings → Output → Audio, which is how a streamer
+ * names stems ("Music"). */
+static void read_mixer_names(struct sp_output *sp)
+{
+	config_t *profile = obs_frontend_get_profile_config();
+	for (int i = 0; i < MAX_AUDIO_MIXES; i++) {
+		char key[16];
+		snprintf(key, sizeof(key), "Track%dName", i + 1);
+		const char *name = profile ? config_get_string(profile, "AdvOut", key) : NULL;
+		dstr_copy(&sp->mixer_names[i], name ? name : "");
+	}
+}
+
+static obs_data_t *build_config_request(struct sp_output *sp, const char *key)
 {
 	obs_data_t *post = obs_data_create();
 	obs_data_set_string(post, "service", "Streamplace");
@@ -100,6 +119,17 @@ static obs_data_t *build_config_request(const char *key)
 		obs_data_set_int(preferences, "audio_samples_per_sec", oai.samples_per_sec);
 		obs_data_set_int(preferences, "audio_channels", get_audio_channels(oai.speakers));
 	}
+	/* Streamplace extension: the mixer tracks, so the server can ask for named ones as stems. */
+	obs_data_array_t *audio_tracks = obs_data_array_create();
+	for (int i = 0; i < MAX_AUDIO_MIXES; i++) {
+		obs_data_t *track = obs_data_create();
+		obs_data_set_int(track, "track_id", i);
+		obs_data_set_string(track, "name", dstr_is_empty(&sp->mixer_names[i]) ? "" : sp->mixer_names[i].array);
+		obs_data_array_push_back(audio_tracks, track);
+		obs_data_release(track);
+	}
+	obs_data_set_array(preferences, "audio_tracks", audio_tracks);
+	obs_data_array_release(audio_tracks);
 	obs_data_set_obj(post, "preferences", preferences);
 	obs_data_release(preferences);
 
@@ -107,9 +137,9 @@ static obs_data_t *build_config_request(const char *key)
 }
 
 /* obs_data has no arrays of strings, so the codec list is patched in as JSON. */
-static char *config_request_json(const char *key)
+static char *config_request_json(struct sp_output *sp, const char *key)
 {
-	obs_data_t *post = build_config_request(key);
+	obs_data_t *post = build_config_request(sp, key);
 	struct dstr json = {0};
 	dstr_copy(&json, obs_data_get_json(post));
 	dstr_replace(&json, "\"supported_codecs\":\"h264\"", "\"supported_codecs\":[\"h264\"]");
@@ -117,7 +147,7 @@ static char *config_request_json(const char *key)
 	return json.array;
 }
 
-static obs_data_t *fetch_config(const char *server, const char *key, struct dstr *err)
+static obs_data_t *fetch_config(struct sp_output *sp, const char *server, const char *key, struct dstr *err)
 {
 	struct dstr url = {0};
 	dstr_copy(&url, server);
@@ -125,7 +155,7 @@ static obs_data_t *fetch_config(const char *server, const char *key, struct dstr
 		dstr_resize(&url, url.len - 1);
 	dstr_cat(&url, CONFIG_PATH);
 
-	char *body = config_request_json(key);
+	char *body = config_request_json(sp, key);
 	struct dstr response = {0};
 	long status = 0;
 	obs_data_t *config = NULL;
@@ -348,10 +378,12 @@ static bool create_audio_encoders(struct sp_output *sp, obs_data_array_t *config
 			struct dstr name = {0};
 			dstr_printf(&name, "streamplace audio %d", (int)i);
 			encoders[i] = obs_audio_encoder_create(type, name.array, settings, (size_t)mixer, NULL);
-			if (encoders[i])
+			if (encoders[i]) {
 				obs_encoder_set_audio(encoders[i], obs_get_audio());
-			else
+				sp->audio_mixers[i] = mixer;
+			} else {
 				dstr_printf(err, "Could not create audio encoder '%s'", type);
+			}
 			ok = encoders[i] != NULL;
 			obs_data_release(settings);
 			dstr_free(&name);
@@ -460,7 +492,11 @@ static bool add_video_track(struct sp_output *sp, obs_encoder_t *encoder, struct
 	return true;
 }
 
-static bool add_audio_track(struct sp_output *sp, obs_encoder_t *encoder, struct dstr *err)
+/* idx is the encoder's output audio index. Encoders the plugin created from
+ * the server's configuration carry their mixer track: each becomes an
+ * alternate group (the AAC and Opus encodes of one mix share it), titled with
+ * the mixer track's name. */
+static bool add_audio_track(struct sp_output *sp, obs_encoder_t *encoder, size_t idx, struct dstr *err)
 {
 	const char *codec = obs_encoder_get_codec(encoder);
 	uint8_t *extra = NULL;
@@ -488,7 +524,18 @@ static bool add_audio_track(struct sp_output *sp, obs_encoder_t *encoder, struct
 		return false;
 	}
 
+	struct dstr label = {0};
+	int mixer = sp->audio_mixers[idx];
+	if (mixer >= 0) {
+		track.alternate_group = (uint16_t)(mixer + 1);
+		if (dstr_is_empty(&sp->mixer_names[mixer]))
+			dstr_printf(&label, "Track %d", mixer + 1);
+		else
+			dstr_copy_dstr(&label, &sp->mixer_names[mixer]);
+		track.label = label.array;
+	}
 	fmp4_add_track(&sp->mux, &track);
+	dstr_free(&label);
 	return true;
 }
 
@@ -503,7 +550,7 @@ static bool start_mux(struct sp_output *sp, struct dstr *err)
 	}
 	while (sp->audio_tracks < MAX_OUTPUT_AUDIO_ENCODERS &&
 	       (encoder = obs_output_get_audio_encoder(sp->output, sp->audio_tracks))) {
-		if (!add_audio_track(sp, encoder, err))
+		if (!add_audio_track(sp, encoder, sp->audio_tracks, err))
 			return false;
 		sp->audio_tracks++;
 	}
@@ -683,7 +730,8 @@ static bool connect_and_start(struct sp_output *sp, struct dstr *err)
 		return false;
 	}
 
-	obs_data_t *config = fetch_config(server, key ? key : "", err);
+	read_mixer_names(sp);
+	obs_data_t *config = fetch_config(sp, server, key ? key : "", err);
 	if (!config)
 		return false;
 
@@ -756,6 +804,8 @@ static void sp_destroy(void *data)
 	obs_encoder_release(sp->obs_audio);
 	pthread_cond_destroy(&sp->cond);
 	pthread_mutex_destroy(&sp->mutex);
+	for (int i = 0; i < MAX_AUDIO_MIXES; i++)
+		dstr_free(&sp->mixer_names[i]);
 	bfree(sp);
 }
 
@@ -778,6 +828,8 @@ static bool sp_start(void *data)
 	sp->video_tracks = 0;
 	sp->audio_tracks = 0;
 	sp->total_bytes = 0;
+	for (int i = 0; i < MAX_OUTPUT_AUDIO_ENCODERS; i++)
+		sp->audio_mixers[i] = -1;
 	remember_obs_encoder(&sp->obs_video, obs_output_get_video_encoder2(sp->output, 0));
 	remember_obs_encoder(&sp->obs_audio, obs_output_get_audio_encoder(sp->output, 0));
 

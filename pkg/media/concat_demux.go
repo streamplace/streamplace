@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -20,10 +21,14 @@ func doNothing(self gst.Element, pad gst.Pad) {}
 // doNothing for signals without a pad argument
 func doNothingElement(self gst.Element) {}
 
-// Function for demuxing a single segment. Needs to be handled very carefully.
-// In particular: users of this MUST cancel the passed context when they're
-// done with the bin.
-func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (gst.Bin, error) {
+// ConcatDemuxBin demuxes a single segment (seg.Data, a presentation MP4) into
+// a "video_0" pad and one "audio_<k>" Opus pad per audio stream, k in order of
+// the file's audio tracks, for audioTracks of them (at least one; a stream the
+// segment lacks ends with EOS, one it has beyond audioTracks is dropped).
+// Needs to be handled very carefully. In particular: users of this MUST
+// cancel the passed context when they're done with the bin.
+func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool, audioTracks int) (gst.Bin, error) {
+	audioTracks = max(audioTracks, 1)
 	ctx = log.WithLogValues(ctx, "func", "ConcatDemuxBin")
 	bin := gst.NewBin("seg-demux-bin").(gst.Bin)
 
@@ -69,48 +74,52 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (gst.Bi
 		return nil, fmt.Errorf("failed to add multiqueue to bin")
 	}
 
-	opusparse := gst.ElementFactoryMakeWithProperties("opusparse", map[string]interface{}{
-		"name":                "concat-demux-opusparse",
-		"disable-passthrough": true,
-	})
-	if opusparse == nil {
-		return nil, fmt.Errorf("failed to create opusparse element")
-	}
-	if !bin.Add(opusparse) {
-		return nil, fmt.Errorf("failed to add opusparse to bin")
-	}
-	opusparseSinkPad := opusparse.GetStaticPad("sink")
-	if opusparseSinkPad == nil {
-		return nil, fmt.Errorf("failed to get opusparse sink pad")
-	}
-	opusparseSrcPad := opusparse.GetStaticPad("src")
-	if opusparseSrcPad == nil {
-		return nil, fmt.Errorf("failed to get opusparse source pad")
-	}
-
 	mqVideoSink := mq.RequestPadSimple("sink_%u")
 	if mqVideoSink == nil {
 		return nil, fmt.Errorf("video sink pad not found")
 	}
-
-	mqAudioSink := mq.RequestPadSimple("sink_%u")
-	if mqAudioSink == nil {
-		return nil, fmt.Errorf("audio sink pad not found")
-	}
-
-	mqVideoSrc := mq.GetStaticPad("src_0")
+	mqVideoSrc := mq.GetStaticPad(strings.Replace(mqVideoSink.GetName(), "sink", "src", 1))
 	if mqVideoSrc == nil {
 		return nil, fmt.Errorf("video source pad not found")
 	}
 
-	mqAudioSrc := mq.GetStaticPad("src_1")
-	if mqAudioSrc == nil {
-		return nil, fmt.Errorf("audio source pad not found")
-	}
-
-	linked := mqAudioSrc.Link(opusparseSinkPad)
-	if linked != gst.PadLinkOK {
-		return nil, fmt.Errorf("failed to link opusparse sink pad to mq audio sink pad")
+	// One multiqueue lane + opusparse per audio stream, ghosted as audio_<k>.
+	mqAudioSinks := make([]gst.Pad, audioTracks)
+	audioGhosts := make([]gst.Pad, audioTracks)
+	for k := range mqAudioSinks {
+		opusparse := gst.ElementFactoryMakeWithProperties("opusparse", map[string]interface{}{
+			"name":                fmt.Sprintf("concat-demux-opusparse-%d", k),
+			"disable-passthrough": true,
+		})
+		if opusparse == nil {
+			return nil, fmt.Errorf("failed to create opusparse element")
+		}
+		if !bin.Add(opusparse) {
+			return nil, fmt.Errorf("failed to add opusparse to bin")
+		}
+		opusparseSinkPad := opusparse.GetStaticPad("sink")
+		if opusparseSinkPad == nil {
+			return nil, fmt.Errorf("failed to get opusparse sink pad")
+		}
+		opusparseSrcPad := opusparse.GetStaticPad("src")
+		if opusparseSrcPad == nil {
+			return nil, fmt.Errorf("failed to get opusparse source pad")
+		}
+		mqAudioSinks[k] = mq.RequestPadSimple("sink_%u")
+		if mqAudioSinks[k] == nil {
+			return nil, fmt.Errorf("audio sink pad not found")
+		}
+		mqAudioSrc := mq.GetStaticPad(strings.Replace(mqAudioSinks[k].GetName(), "sink", "src", 1))
+		if mqAudioSrc == nil {
+			return nil, fmt.Errorf("audio source pad not found")
+		}
+		if linked := mqAudioSrc.Link(opusparseSinkPad); linked != gst.PadLinkOK {
+			return nil, fmt.Errorf("failed to link opusparse sink pad to mq audio sink pad")
+		}
+		audioGhosts[k] = gst.NewGhostPad(fmt.Sprintf("audio_%d", k), opusparseSrcPad)
+		if audioGhosts[k] == nil {
+			return nil, fmt.Errorf("failed to create audio ghost pad")
+		}
 	}
 
 	var videoGhost gst.Pad
@@ -150,14 +159,9 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (gst.Bi
 		}
 	}
 
-	audioGhost := gst.NewGhostPad("audio_0", opusparseSrcPad)
-	if audioGhost == nil {
-		return nil, fmt.Errorf("failed to create audio ghost pad")
-	}
-
-	needed := 2
+	needed := 1 + audioTracks
 	videoLinked := false
-	audioLinked := false
+	audioLinked := make([]bool, audioTracks)
 
 	// The signal handlers below are swapped for no-ops once they've done
 	// their job (or the ctx ends, whichever comes first) so their closures
@@ -170,20 +174,27 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (gst.Bi
 	var padAdded atomic.Value
 	padAdded.Store(func(self gst.Element, pad gst.Pad) {
 		var downstreamPad gst.Pad
-		if strings.HasPrefix(pad.GetName(), "video_") {
+		name := pad.GetName()
+		if strings.HasPrefix(name, "video_") {
 			downstreamPad = mqVideoSink
 			videoLinked = true
-		} else if strings.HasPrefix(pad.GetName(), "audio_") {
-			downstreamPad = mqAudioSink
-			audioLinked = true
+		} else if k, ok := strings.CutPrefix(name, "audio_"); ok {
+			// qtdemux numbers its audio pads in the file's track order.
+			idx, err := strconv.Atoi(k)
+			if err != nil || idx >= audioTracks {
+				log.Warn(ctx, "dropping audio stream beyond the requested tracks", "name", name)
+				return
+			}
+			downstreamPad = mqAudioSinks[idx]
+			audioLinked[idx] = true
 		} else {
-			log.Error(ctx, "unknown pad", "name", pad.GetName(), "direction", pad.GetDirection())
+			log.Error(ctx, "unknown pad", "name", name, "direction", pad.GetDirection())
 			// cancel()
 			return
 		}
 		ret := pad.Link(downstreamPad)
 		if ret != gst.PadLinkOK {
-			log.Error(ctx, "failed to link demux to downstream pad", "name", pad.GetName(), "direction", pad.GetDirection(), "error", ret)
+			log.Error(ctx, "failed to link demux to downstream pad", "name", name, "direction", pad.GetDirection(), "error", ret)
 			// cancel()
 			return
 		}
@@ -212,9 +223,11 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (gst.Bi
 			log.Warn(ctx, "segment has no video track; completing video branch with EOS")
 			mqVideoSink.SendEvent(gst.NewEventEOS())
 		}
-		if !audioLinked {
-			log.Warn(ctx, "segment has no audio track; completing audio branch with EOS")
-			mqAudioSink.SendEvent(gst.NewEventEOS())
+		for k, linked := range audioLinked {
+			if !linked {
+				log.Warn(ctx, "segment has no audio track; completing audio branch with EOS", "audio", k)
+				mqAudioSinks[k].SendEvent(gst.NewEventEOS())
+			}
 		}
 		noMorePads.Store(doNothingElement)
 	})
@@ -238,9 +251,10 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (gst.Bi
 		return nil, fmt.Errorf("failed to add video ghost pad to bin")
 	}
 
-	ok = bin.AddPad(audioGhost)
-	if !ok {
-		return nil, fmt.Errorf("failed to add audio ghost pad to bin")
+	for _, ghost := range audioGhosts {
+		if ok := bin.AddPad(ghost); !ok {
+			return nil, fmt.Errorf("failed to add audio ghost pad to bin")
+		}
 	}
 
 	src := appSrc.(app.AppSrc)

@@ -157,7 +157,8 @@ func WorkerInput(cfg IngestWorkerConfig, raw io.Reader) io.Reader {
 // needed. The manifest is read FRESH per GoP from the holder, so a manifest main
 // pushes mid-stream (e.g. pre-live → live) takes effect on the next GoP — the
 // same fresh-per-GoP shape as the in-process signer. Shared by the MP4 and WHIP
-// workers.
+// workers. An fMP4 signed as-is (the OBS plugin's push) keeps the audio groups
+// and track names the plugin wrote; the demuxed transports leave them alone.
 func workerSignStream(cfg IngestWorkerConfig, getManifest func() []byte) SignSegmentStreamFunc {
 	return func(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
 		fetchManifest := func() ([]byte, error) { return getManifest(), nil }
@@ -166,6 +167,7 @@ func workerSignStream(cfg IngestWorkerConfig, getManifest func() []byte) SignSeg
 			KeyPEM:            cfg.KeyPEM,
 			TrackManifestFn:   fetchManifest,
 			WrapperManifestFn: fetchManifest,
+			SourceTrackMeta:   cfg.Transport == IngestTransportFMP4Direct,
 		}, nil, nil, eventCh)
 	}
 }

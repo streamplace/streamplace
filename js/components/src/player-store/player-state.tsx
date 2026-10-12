@@ -53,6 +53,12 @@ export interface PlayerState {
   streamForcesHLS: boolean;
   setStreamForcesHLS: (forced: boolean) => void;
 
+  /** The viewer's volume (0-1) for each audio stem, keyed by its
+   *  alternateGroup: null plays the full mix, otherwise the stems play
+   *  instead (1 for a stem without an entry). WebRTC playback only. */
+  stemVolumes: Record<number, number> | null;
+  setStemVolumes: (stemVolumes: Record<number, number> | null) => void;
+
   /** Source (streamer did) */
   src: string;
   /** The streamer's own playback session (getPlaybackSession) for their

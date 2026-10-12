@@ -15,8 +15,12 @@ import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
 export default function useWebRTC(
   streamer: string,
   rendition: string,
-): [MediaStream | null, boolean] {
+): [MediaStream | null, boolean, (MediaStreamTrack | undefined)[]] {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  // The received audio tracks by transceiver: the full mix, then each stem.
+  const [audioTracks, setAudioTracks] = useState<
+    (MediaStreamTrack | undefined)[]
+  >([]);
   const [stuck, setStuck] = useState<boolean>(false);
   const setStatus = usePlayerStore((x) => x.setStatus);
   let agent = usePossiblyUnauthedPDSAgent();
@@ -42,15 +46,33 @@ export default function useWebRTC(
     peerConnection.addTransceiver("video", {
       direction: "recvonly",
     });
-    peerConnection.addTransceiver("audio", {
-      direction: "recvonly",
-    });
+    // The node sends the full mix on the first audio transceiver and up to
+    // two stems on the others.
+    const audioTransceivers = [0, 1, 2].map(() =>
+      peerConnection.addTransceiver("audio", {
+        direction: "recvonly",
+      }),
+    );
+    const received: (MediaStreamTrack | undefined)[] = [];
     peerConnection.addEventListener("track", (event) => {
       const track = event.track;
       if (!track) {
         return;
       }
-      setMediaStream(event.streams[0]);
+      // An offered transceiver the node leaves unused still fires a track
+      // event, with no stream: keep the stream the real tracks arrived on.
+      if (event.streams[0]) {
+        setMediaStream(event.streams[0]);
+      }
+      const i = audioTransceivers.findIndex(
+        (t) => t.receiver.track?.id === track.id,
+      );
+      if (i >= 0) {
+        received[i] = track;
+      }
+      // A fresh array for every track, so consumers that also read the
+      // stream's tracks catch up with each arrival.
+      setAudioTracks([...received]);
     });
     peerConnection.addEventListener("connectionstatechange", () => {
       console.log("connection state change", peerConnection.connectionState);
@@ -114,7 +136,7 @@ export default function useWebRTC(
       peerConnection.close();
     };
   }, [streamer, agent, isOwnStream, playbackWorkerUrl, rendition]);
-  return [mediaStream, stuck];
+  return [mediaStream, stuck, audioTracks];
 }
 
 /**

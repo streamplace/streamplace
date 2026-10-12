@@ -3,12 +3,14 @@
 // re-renders on changes. useLivestreamStoreOptional never throws when
 // there's no provider above (useful for mode-generic hooks like useTitle).
 import {
+  audioStems,
   handleWebSocketMessages,
   makeLivestreamStore,
+  type AudioStem,
   type LivestreamState,
   type LivestreamStore,
 } from "@streamplace/core";
-import { useContext } from "react";
+import { useContext, useMemo } from "react";
 import { useStore } from "zustand";
 import { LivestreamContext } from "./context";
 
@@ -72,6 +74,15 @@ export const useLivestream = (includeEnded: boolean = false) =>
   });
 
 export const useSegment = () => useLivestreamStore((x) => x.segment);
+
+// The latest segment's audio stems. Every segment repeats them, so subscribe
+// to their serialized form: callers rerender only when the stems change.
+export const useAudioStems = (): AudioStem[] => {
+  const stems = useLivestreamStoreOptional((x) =>
+    JSON.stringify(audioStems(x.segment)),
+  );
+  return useMemo(() => JSON.parse(stems), [stems]);
+};
 
 export const useRecentSegments = () =>
   useLivestreamStore((x) => x.recentSegments);

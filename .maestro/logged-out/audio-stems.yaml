@@ -1,0 +1,56 @@
+appId: ${APP_ID}
+---
+# Over fMP4 ingest (SP_E2E_INGEST=fmp4) the harness pushes the test stream
+# with a stem labeled "Music" beside the full mix. The player menu's Audio
+# section lists it; picking a level mixes the stems in place of the full mix,
+# and "Full mix" goes back. Web, which also checks what plays:
+# js/e2e-web/flows/audio-stems.spec.ts.
+- runFlow:
+    when:
+      true: ${typeof SP_E2E_INGEST !== "undefined" && SP_E2E_INGEST == "fmp4"}
+    commands:
+      - launchApp
+      # matched by testID because the card's link wrapper collapses its
+      # subtree on iOS
+      - extendedWaitUntil:
+          visible:
+            id: "home-stream-card"
+          timeout: 30000
+      - tapOn:
+          id: "home-stream-card"
+      - waitForAnimationToEnd
+      - extendedWaitUntil:
+          visible:
+            text: ".*e2e test stream.*"
+          timeout: 30000
+      # tap on the video to show the player controls
+      - tapOn:
+          point: 50%,20%
+      - tapOn:
+          id: "player-menu"
+      - extendedWaitUntil:
+          visible:
+            text: "Audio"
+          timeout: 10000
+      - assertVisible:
+          id: "player-audio-stem-0"
+      # substring matches: iOS merges a menu row's texts into one element
+      - assertVisible:
+          text: ".*Music.*"
+      - takeScreenshot: audio-stems-menu
+      - tapOn:
+          id: "player-audio-stem-0"
+      - tapOn:
+          id: "player-audio-stem-0-level-50"
+      # the submenu's header, titled with the stem, leads back
+      - tapOn:
+          text: "Music"
+      - extendedWaitUntil:
+          visible:
+            text: ".*50%.*"
+          timeout: 10000
+      - takeScreenshot: audio-stems-mixed
+      - tapOn:
+          id: "player-audio-full-mix"
+      - assertNotVisible:
+          text: ".*50%.*"

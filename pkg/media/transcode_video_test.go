@@ -72,7 +72,7 @@ func sourceSegmentSignedBy(t *testing.T, ms *MediaSignerLocal) []byte {
 	eventCh := make(chan *muxl.MuxlEvent, 16)
 	errCh := make(chan error, 1)
 	go func() {
-		err := ms.SignSegmentStream(ctx, bytes.NewReader(frag), eventCh)
+		err := ms.SignSegmentStream(ctx, bytes.NewReader(frag), eventCh, false)
 		close(eventCh)
 		errCh <- err
 	}()
@@ -183,7 +183,7 @@ func TestMintVideoRenditionsRetimes(t *testing.T) {
 	eventCh := make(chan *muxl.MuxlEvent, 16)
 	errCh := make(chan error, 1)
 	go func() {
-		err := ms.SignSegmentStream(ctx, bytes.NewReader(frag), eventCh)
+		err := ms.SignSegmentStream(ctx, bytes.NewReader(frag), eventCh, false)
 		close(eventCh)
 		errCh <- err
 	}()

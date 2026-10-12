@@ -85,7 +85,7 @@ func (mm *MediaManager) validateMP4(ctx context.Context, input io.Reader, local 
 	// dual-codec segment asynchronously (~1 GoP later, gapless), signed by
 	// completionSigner. Everything else — already dual-codec, no audio,
 	// audio-only, exotic codec, or no signer — is distributed as-is.
-	if target, need := mm.audioCompletionTarget(ctx, buf); need {
+	if target, need := completionTarget(vs.catalog); need {
 		if signer, serr := mm.completionSigner(ctx, local); serr == nil {
 			return mm.feedStreamTranscoder(ctx, vs, buf, target, signer)
 		} else {
@@ -102,6 +102,7 @@ func (mm *MediaManager) validateMP4(ctx context.Context, input io.Reader, local 
 type validatedSegment struct {
 	meta          *SegmentMetadata
 	mediaData     *localdb.SegmentMediaData
+	catalog       *muxl.MuxlCatalog
 	label         string
 	repoDID       string
 	signingKeyDID string
@@ -226,6 +227,7 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 	return &validatedSegment{
 		meta:          meta,
 		mediaData:     valid.MediaData,
+		catalog:       valid.Catalog,
 		label:         label,
 		repoDID:       repoDID,
 		signingKeyDID: signingKeyDID,
@@ -384,6 +386,7 @@ type ValidationResult struct {
 	Pub       *atcrypto.PublicKeyK256
 	Meta      *SegmentMetadata
 	MediaData *localdb.SegmentMediaData
+	Catalog   *muxl.MuxlCatalog // the segment's track configs
 	Manifest  *c2patypes.Manifest
 	Cert      string
 	// TrackSigners is the did:key that signed each track, in track order.
@@ -393,6 +396,7 @@ type ValidationResult struct {
 func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error) {
 	g, ctx := errgroup.WithContext(ctx)
 	var mediaData *localdb.SegmentMediaData
+	var catalog *muxl.MuxlCatalog
 	var validationResult *ValidationResult
 	g.Go(func() error {
 		// gstreamer needs a parseable MP4, but the bytes on the wire/disk are
@@ -408,6 +412,16 @@ func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error
 		return err
 	})
 	g.Go(func() error {
+		// The catalog describes every audio track (codec, group, label);
+		// the gst parse above only reads the first one.
+		events, err := unwrapMuxlEvents(ctx, buf)
+		if err != nil {
+			return fmt.Errorf("unwrap segment for catalog: %w", err)
+		}
+		catalog, _ = catalogAndTracks(events)
+		return nil
+	})
+	g.Go(func() error {
 		var err error
 		validationResult, err = ValidateMP4MediaC2PA(ctx, buf)
 		return err
@@ -416,7 +430,11 @@ func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error
 	if err != nil {
 		return nil, err
 	}
+	if audio := audioMediaData(catalog); len(audio) > 0 {
+		mediaData.Audio = audio
+	}
 	validationResult.MediaData = mediaData
+	validationResult.Catalog = catalog
 	return validationResult, nil
 }
 

@@ -31,10 +31,22 @@ type PacketizedSample struct {
 	Duration time.Duration
 }
 
+// PacketizedSegment is a segment demuxed into WebRTC samples: the video and
+// the main audio (the full mix), plus one Opus track per stem the stream
+// carries (see media.Packetize), all on the segment's one timeline.
 type PacketizedSegment struct {
 	Video    []PacketizedSample
 	Audio    []PacketizedSample
+	Stems    []PacketizedStem // ascending by group
 	Duration time.Duration
+}
+
+// PacketizedStem is one stem's Opus samples, identified by its audio
+// alternateGroup (the segment record's alternateGroup, above the main
+// audio's).
+type PacketizedStem struct {
+	Group uint32
+	Audio []PacketizedSample
 }
 
 var chanSize = 1024
@@ -148,6 +160,18 @@ func (b *Bus) PublishSegment(ctx context.Context, user string, rendition string,
 			log.Warn(ctx, "segment subscriber is not keeping up, dropping a segment", "user", user, "rendition", rendition, "behind", len(segChan.C))
 		}
 	}
+}
+
+// LatestSegment returns the most recently published segment for a user and
+// rendition, or nil when none is cached.
+func (b *Bus) LatestSegment(user string, rendition string) *Seg {
+	b.segBufMutex.RLock()
+	defer b.segBufMutex.RUnlock()
+	curBuf := b.segBuf[segChanKey(user, rendition)]
+	if len(curBuf) == 0 {
+		return nil
+	}
+	return curBuf[len(curBuf)-1]
 }
 
 func (b *Bus) EndSession(ctx context.Context, user string, rendition string) {

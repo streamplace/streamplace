@@ -5,23 +5,27 @@ project(
   meson_version: '>=1.1',
 )
 
-# Headers only: the plugin resolves libobs symbols from the OBS process that loads it.
-libobs_dep = subproject('obs-studio').get_variable('libobs_dep')
+# Headers only: the plugin resolves libobs and frontend API symbols from the
+# OBS process that loads it.
+frontend_api_dep = subproject('obs-studio').get_variable('frontend_api_dep')
 
 c_args = ['-DPLUGIN_VERSION="@0@"'.format(get_option('plugin_version'))]
 link_args = []
 link_with = []
-deps = [libobs_dep, dependency('threads')]
+deps = [frontend_api_dep, dependency('threads')]
 
 if host_machine.system() == 'windows'
-  # Windows needs an import library for obs.dll; obs.def lists what the plugin uses.
+  # Windows needs import libraries for obs.dll and obs-frontend-api.dll; the
+  # .def files list what the plugin uses.
   dlltool = find_program('x86_64-w64-mingw32-dlltool')
-  link_with += custom_target(
-    'obs-import-lib',
-    input: 'obs.def',
-    output: 'libobs.dll.a',
-    command: [dlltool, '--input-def', '@INPUT@', '--output-lib', '@OUTPUT@', '--dllname', 'obs.dll'],
-  )
+  foreach dll : ['obs', 'obs-frontend-api']
+    link_with += custom_target(
+      dll + '-import-lib',
+      input: dll + '.def',
+      output: 'lib' + dll + '.dll.a',
+      command: [dlltool, '--input-def', '@INPUT@', '--output-lib', '@OUTPUT@', '--dllname', dll + '.dll'],
+    )
+  endforeach
   deps += meson.get_compiler('c').find_library('ws2_32')
   # One self-contained DLL, without libwinpthread or libgcc beside it.
   link_args += ['-static']

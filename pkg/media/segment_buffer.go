@@ -20,8 +20,12 @@ const segmentBufferMinAverage = 500 * time.Millisecond
 type BufferedSegment struct {
 	Start     time.Time // media start time
 	Published bool
-	Data      []byte // bare canonical .m4s bytes; never modified once buffered
-	addedAt   time.Time
+	// Local is set for a segment ingested by this node rather than replicated
+	// to it. A node sees every segment of a stream it ingests, so a run of
+	// local segments has no gaps; replication can drop some.
+	Local   bool
+	Data    []byte // bare canonical .m4s bytes; never modified once buffered
+	addedAt time.Time
 }
 
 // segmentBuffer is a stream's time-bounded run of recent segments. All
@@ -32,11 +36,13 @@ type segmentBuffer struct {
 	segs   []BufferedSegment
 }
 
-// bufferSegment appends a canonical segment to the stream's buffer and evicts
-// what has aged out. Called for every validated segment — published or not,
-// local or replicated — so whatever this node has seen of a stream recently
-// can be clipped. The bytes are copied since the caller reuses its buffer.
-func (mm *MediaManager) bufferSegment(did string, start time.Time, published bool, segment []byte) {
+// bufferSegment appends a canonical segment to the stream's buffer. Called
+// for every validated segment — published or not, local or replicated — so
+// whatever this node has seen of a stream recently can be clipped. The bytes
+// are copied since the caller reuses its buffer. Every buffer is evicted
+// here, so a stream that ended is freed once its segments age out even if
+// nothing reads its buffer again.
+func (mm *MediaManager) bufferSegment(did string, start time.Time, published, local bool, segment []byte) {
 	now := time.Now()
 	mm.segBuffersMut.Lock()
 	defer mm.segBuffersMut.Unlock()
@@ -44,10 +50,16 @@ func (mm *MediaManager) bufferSegment(did string, start time.Time, published boo
 	b.segs = append(b.segs, BufferedSegment{
 		Start:     start,
 		Published: published,
+		Local:     local,
 		Data:      append([]byte(nil), segment...),
 		addedAt:   now,
 	})
-	b.evict(now)
+	for other, ob := range mm.segBuffers {
+		ob.evict(now)
+		if len(ob.segs) == 0 {
+			delete(mm.segBuffers, other)
+		}
+	}
 }
 
 // RetainSegments keeps the stream's segments in memory for at least d

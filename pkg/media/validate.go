@@ -214,7 +214,7 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 
 	// Hold the canonical segment in the stream's in-memory buffer, the recent
 	// part of the stream that clips (and moderation reports) draw on.
-	mm.bufferSegment(vs.repoDID, meta.StartTime.Time(), meta.Published, seg)
+	mm.bufferSegment(vs.repoDID, meta.StartTime.Time(), meta.Published, vs.local, seg)
 
 	// Fold the validated segment into the streamer's live-HLS window, off the
 	// critical path. This runs for every segment — locally signed or replicated

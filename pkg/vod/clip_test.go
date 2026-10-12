@@ -64,11 +64,27 @@ func flatOracle(t *testing.T, segs [][]byte) []byte {
 	return out.Bytes()
 }
 
+// recordObject stores segs back to back as one completed recording object of
+// did's stream, indexed with the given start times.
+func recordObject(t *testing.T, state *statedb.StatefulDB, store blob.Store, did, key string, segs [][]byte, starts []time.Time) {
+	t.Helper()
+	ctx := context.Background()
+	body := bytes.Join(segs, nil)
+	require.NoError(t, writeBlob(ctx, store, key, body))
+	id, err := state.RecordStart(ctx, did, "bucket", key, "at://"+did, starts[0])
+	require.NoError(t, err)
+	var index []s3.RecordedSegment
+	for i, seg := range segs {
+		index = append(index, s3.RecordedSegment{StartMs: starts[i].UnixMilli(), Size: int64(len(seg))})
+	}
+	require.NoError(t, state.RecordComplete(ctx, id, 1, int64(len(body)), index))
+}
+
 // TestFindClip clips across completed recordings and the in-memory buffer,
 // which overlap the way they do on a recording node (the buffer still holds
 // segments a completed object also has). A clip must take each segment once,
-// in order, cut a recording at the right byte offsets, and come out as muxl's
-// flat MP4 of exactly the segments starting in range.
+// in start-time order, cut a recording at the right byte offsets, and come
+// out as muxl's flat MP4 of exactly the segments starting in range.
 func TestFindClip(t *testing.T) {
 	ctx := context.Background()
 	segs := liveSegments(t)
@@ -81,19 +97,6 @@ func TestFindClip(t *testing.T) {
 	require.NoError(t, err)
 	store, err := blob.NewFileStore(t.TempDir())
 	require.NoError(t, err)
-	// record stores segs as one completed object of did's stream, starting at at(0).
-	record := func(did string, segs [][]byte) {
-		key := "live-rec/" + did + "/a.m4s"
-		body := bytes.Join(segs, nil)
-		require.NoError(t, writeBlob(ctx, store, key, body))
-		id, err := state.RecordStart(ctx, did, "bucket", key, "at://"+did, at(0))
-		require.NoError(t, err)
-		var index []s3.RecordedSegment
-		for i, seg := range segs {
-			index = append(index, s3.RecordedSegment{StartMs: at(i).UnixMilli(), Size: int64(len(seg))})
-		}
-		require.NoError(t, state.RecordComplete(ctx, id, 1, int64(len(body)), index))
-	}
 	clipBytes := func(did string, from, to time.Time, b SegmentBuffer) []byte {
 		t.Helper()
 		clip, err := FindClip(ctx, state, store, b, did, from, to, false)
@@ -108,7 +111,7 @@ func TestFindClip(t *testing.T) {
 
 	// Segment 0 is in a completed recording; memory still holds it, plus
 	// segment 1, which is newer than any recording.
-	record("did:plc:mixed", segs[:1])
+	recordObject(t, state, store, "did:plc:mixed", "mixed.m4s", segs[:1], []time.Time{at(0)})
 	buf := fakeBuffer{
 		{Start: at(0), Published: true, Data: segs[0]},
 		{Start: at(1), Published: true, Data: segs[1]},
@@ -122,14 +125,19 @@ func TestFindClip(t *testing.T) {
 	require.ErrorIs(t, err, ErrClipNotFound)
 
 	// A range starting inside a recording is cut out of the object's middle.
-	record("did:plc:recorded", segs)
+	recordObject(t, state, store, "did:plc:recorded", "recorded.m4s", segs, []time.Time{at(0), at(1)})
 	require.Equal(t, flatOracle(t, segs[1:]), clipBytes("did:plc:recorded", at(1).Add(-time.Millisecond), at(2), fakeBuffer{}))
+
+	// The recorder appends segments in arrival order, which can differ from
+	// start-time order; the clip is still in start-time order.
+	recordObject(t, state, store, "did:plc:reordered", "reordered.m4s", [][]byte{segs[1], segs[0]}, []time.Time{at(1), at(0)})
+	require.Equal(t, flatOracle(t, segs), clipBytes("did:plc:reordered", at(0), at(1), fakeBuffer{}))
 }
 
-// TestFindClipOpenRecording covers a node that doesn't hold the object still
-// being recorded (another node ingests the stream and this one only buffers
-// the last few minutes): a clip reaching into the gap must fail rather than
-// silently skip it, while one this node fully holds still succeeds.
+// TestFindClipOpenRecording covers the object still being recorded, which
+// only the ingesting node holds (in memory): a clip reaching into it must
+// fail on a node that can't vouch for every segment, rather than silently
+// return a clip with a hole.
 func TestFindClipOpenRecording(t *testing.T) {
 	ctx := context.Background()
 	segs := liveSegments(t)
@@ -139,20 +147,31 @@ func TestFindClipOpenRecording(t *testing.T) {
 	require.NoError(t, err)
 	store, err := blob.NewFileStore(t.TempDir())
 	require.NoError(t, err)
-	_, err = state.RecordStart(ctx, did, "bucket", "live-rec/"+did+"/open.m4s", "at://ls", now.Add(-5*time.Minute))
+	_, err = state.RecordStart(ctx, did, "bucket", "open.m4s", "at://ls", now.Add(-5*time.Minute))
 	require.NoError(t, err)
-	buf := fakeBuffer{{Start: now.Add(-time.Minute), Published: true, Data: segs[0]}}
+	clip := func(buf fakeBuffer, from time.Time) error {
+		_, err := FindClip(ctx, state, store, buf, did, from, now, false)
+		return err
+	}
 
-	_, err = FindClip(ctx, state, store, buf, did, now.Add(-3*time.Minute), now, false)
-	require.ErrorIs(t, err, ErrClipUnavailable)
-	_, err = FindClip(ctx, state, store, buf, did, now.Add(-time.Minute), now, false)
-	require.NoError(t, err)
-
-	// The recording node holds the whole open object in memory.
-	held := fakeBuffer{
+	// The ingesting node holds the whole open object in memory.
+	ingest := fakeBuffer{
+		{Start: now.Add(-5 * time.Minute), Published: true, Local: true, Data: segs[0]},
+		{Start: now.Add(-2 * time.Minute), Published: true, Local: true, Data: segs[1]},
+	}
+	require.NoError(t, clip(ingest, now.Add(-3*time.Minute)))
+	// A node holding only the last two minutes can clip just those.
+	require.ErrorIs(t, clip(ingest[1:], now.Add(-3*time.Minute)), ErrClipUnavailable)
+	require.NoError(t, clip(ingest[1:], now.Add(-2*time.Minute)))
+	// Replicated segments may have gaps between them, however far back they reach.
+	replica := fakeBuffer{
 		{Start: now.Add(-5 * time.Minute), Published: true, Data: segs[0]},
 		{Start: now.Add(-2 * time.Minute), Published: true, Data: segs[1]},
 	}
-	_, err = FindClip(ctx, state, store, held, did, now.Add(-3*time.Minute), now, false)
-	require.NoError(t, err)
+	require.ErrorIs(t, clip(replica, now.Add(-3*time.Minute)), ErrClipUnavailable)
+
+	// An open object older than a completed one was abandoned and never
+	// completes; it doesn't hold up clips of what came after it.
+	recordObject(t, state, store, did, "after.m4s", segs[:1], []time.Time{now.Add(-4 * time.Minute)})
+	require.NoError(t, clip(fakeBuffer{}, now.Add(-4*time.Minute)))
 }

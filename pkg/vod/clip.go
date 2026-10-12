@@ -26,8 +26,8 @@ var (
 	ErrClipUnavailable = errors.New("part of the requested range is still being recorded on another node")
 )
 
-// clipPart is a run of canonical segments: bytes held in memory, or a byte
-// range of a completed recording object.
+// clipPart is one canonical segment: bytes held in memory, or a byte range of
+// a completed recording object.
 type clipPart struct {
 	startMs   int64
 	data      []byte
@@ -57,35 +57,33 @@ type SegmentBuffer interface {
 // pre-live segments from memory, for moderation.
 func FindClip(ctx context.Context, state *statedb.StatefulDB, store blob.Store, buf SegmentBuffer, did string, from, to time.Time, includeUnpublished bool) (*Clip, error) {
 	fromMs, toMs := from.UnixMilli(), to.UnixMilli()
+	buffered := buf.BufferedSegments(did)
 	c := &Clip{store: store}
 	recorded := map[int64]bool{}
 	if state != nil && store != nil {
+		// Open objects first: one that completes after this check is then
+		// in the completed listing below, rather than missed by both.
+		if err := checkOpenRecording(ctx, state, did, fromMs, toMs, buffered); err != nil {
+			return nil, err
+		}
 		objs, err := state.ListS3SegmentsInRange(ctx, did, from, to)
 		if err != nil {
 			return nil, fmt.Errorf("list recordings: %w", err)
 		}
 		for _, obj := range objs {
-			// An object's segments are in time order, so those in range are
-			// one contiguous run of its bytes.
-			var run *clipPart
+			// Segments are taken one by one: an object stores them in
+			// arrival order, which needn't be start-time order.
 			var off int64
 			for _, seg := range obj.Segments {
 				if seg.StartMs >= fromMs && seg.StartMs <= toMs {
-					if run == nil {
-						run = &clipPart{startMs: seg.StartMs, key: obj.Key, off: off}
-					}
-					run.size += seg.Size
+					c.parts = append(c.parts, clipPart{startMs: seg.StartMs, key: obj.Key, off: off, size: seg.Size})
 					recorded[seg.StartMs] = true
 				}
 				off += seg.Size
 			}
-			if run != nil {
-				c.parts = append(c.parts, *run)
-			}
 		}
 	}
 
-	buffered := buf.BufferedSegments(did)
 	for _, seg := range buffered {
 		ms := seg.Start.UnixMilli()
 		if ms < fromMs || ms > toMs || recorded[ms] || (!seg.Published && !includeUnpublished) {
@@ -94,12 +92,6 @@ func FindClip(ctx context.Context, state *statedb.StatefulDB, store blob.Store, 
 		c.parts = append(c.parts, clipPart{startMs: ms, data: seg.Data, size: int64(len(seg.Data))})
 	}
 	sort.SliceStable(c.parts, func(i, j int) bool { return c.parts[i].startMs < c.parts[j].startMs })
-
-	if state != nil {
-		if err := checkOpenRecording(ctx, state, did, fromMs, toMs, buffered); err != nil {
-			return nil, err
-		}
-	}
 	if len(c.parts) == 0 {
 		return nil, ErrClipNotFound
 	}
@@ -107,12 +99,12 @@ func FindClip(ctx context.Context, state *statedb.StatefulDB, store blob.Store, 
 }
 
 // checkOpenRecording fails with ErrClipUnavailable when the range reaches into
-// a recording object still being uploaded whose segments this node doesn't
-// hold: the node recording the stream holds them all in memory until the
-// object completes (see MediaManager.RetainSegments), but another node may
-// only hold the last few minutes. The buffer runs contiguously from its
-// oldest segment to now, so it covers the range if it reaches back to either
-// the object's first segment or the range's start.
+// a recording object still being uploaded whose segments this node can't
+// vouch for. Only segments this node ingested itself are known to be gap-free
+// (replication can drop some), and the ingesting node holds all of them in
+// memory until the object completes (see MediaManager.RetainSegments). So the
+// buffer covers the range if it reaches back to the object's first segment or
+// the range's start, and every segment from there on is local.
 func checkOpenRecording(ctx context.Context, state *statedb.StatefulDB, did string, fromMs, toMs int64, buffered []media.BufferedSegment) error {
 	open, err := state.LatestOpenS3Segment(ctx, did, time.Now().Add(-s3.MaxOpenObjectAge))
 	if err != nil {
@@ -121,13 +113,16 @@ func checkOpenRecording(ctx context.Context, state *statedb.StatefulDB, did stri
 	if open == nil || open.StartedAt.UnixMilli() > toMs {
 		return nil
 	}
-	if len(buffered) > 0 {
-		oldest := buffered[0].Start.UnixMilli()
-		if oldest <= open.StartedAt.UnixMilli() || oldest <= fromMs {
-			return nil
+	need := max(open.StartedAt.UnixMilli(), fromMs)
+	if len(buffered) == 0 || buffered[0].Start.UnixMilli() > need {
+		return ErrClipUnavailable
+	}
+	for _, seg := range buffered {
+		if seg.Start.UnixMilli() >= need && !seg.Local {
+			return ErrClipUnavailable
 		}
 	}
-	return ErrClipUnavailable
+	return nil
 }
 
 // Header synthesizes the clip's flat-MP4 faststart header. The MP4 is the
@@ -178,17 +173,22 @@ func (c *Clip) WriteMP4(ctx context.Context, w io.Writer) error {
 func (c *Clip) open(ctx context.Context) (io.Reader, func(), error) {
 	readers := make([]io.Reader, 0, len(c.parts))
 	var closers []io.Closer
+	opened := map[string]blob.Reader{}
 	for _, p := range c.parts {
 		if p.key == "" {
 			readers = append(readers, bytes.NewReader(p.data))
 			continue
 		}
-		r, err := c.store.Open(ctx, p.key)
-		if err != nil {
-			closeAll(closers)
-			return nil, nil, fmt.Errorf("open recording %s: %w", p.key, err)
+		r, ok := opened[p.key]
+		if !ok {
+			var err error
+			if r, err = c.store.Open(ctx, p.key); err != nil {
+				closeAll(closers)
+				return nil, nil, fmt.Errorf("open recording %s: %w", p.key, err)
+			}
+			opened[p.key] = r
+			closers = append(closers, r)
 		}
-		closers = append(closers, r)
 		readers = append(readers, io.NewSectionReader(r, p.off, p.size))
 	}
 	return io.MultiReader(readers...), func() { closeAll(closers) }, nil

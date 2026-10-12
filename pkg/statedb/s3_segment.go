@@ -101,11 +101,15 @@ func (state *StatefulDB) ListS3SegmentsInRange(ctx context.Context, repoDID stri
 }
 
 // LatestOpenS3Segment returns repoDID's most recently started object whose
-// upload has not completed and that started at or after since, or nil.
+// upload has not completed and that started at or after since, or nil. An
+// open object older than a completed one is skipped: a recorder completes its
+// objects in order, so that one was abandoned (its upload failed) and will
+// never complete.
 func (state *StatefulDB) LatestOpenS3Segment(ctx context.Context, repoDID string, since time.Time) (*S3Segment, error) {
 	var segs []S3Segment
 	err := state.DB.WithContext(ctx).
 		Where("user_did = ? AND completed_at IS NULL AND started_at >= ?", repoDID, since).
+		Where("NOT EXISTS (SELECT 1 FROM s3_segments AS done WHERE done.user_did = s3_segments.user_did AND done.completed_at IS NOT NULL AND done.started_at > s3_segments.started_at)").
 		Order("started_at DESC").
 		Limit(1).
 		Find(&segs).Error

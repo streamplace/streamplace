@@ -90,7 +90,11 @@ proxy serves MoQ with a self-signed certificate it rotates, so a fixed
 `moqt://…?certhash=` entry would go stale. A `moqt://` entry is dialled as
 given. A listener accepts any pushed stream its `--allowed-streams` would
 accept over RTMP; a stream that fails that check, or a frame that fails
-validation, ends the session.
+validation, ends the session. Validation refuses a replicated segment whose
+start time is more than ten minutes from the node's clock, so a pusher
+cannot replay a public streamer's old signed segments to make them appear
+live (the same window applies to every replicated segment, `/api/segment`
+included).
 
 ## Who records, multistreams and transcodes
 

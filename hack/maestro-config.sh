@@ -8,7 +8,14 @@ cd "$REPO/.maestro"
 shopt -s nullglob
 
 logged_out=(logged-out/*.yaml)
-logged_in=(logged-in/*.yaml)
+logged_in=()
+for file in logged-in/*.yaml; do
+  # Opt-in topologies cannot run against the default single-node harness.
+  if grep -q '^  - upstream-station$' "$file" && [ "${SP_E2E_UPSTREAM_STATION:-false}" != true ]; then
+    continue
+  fi
+  logged_in+=("$file")
+done
 if [ $# -gt 0 ]; then
   logged_out=()
   logged_in=()
@@ -16,6 +23,10 @@ if [ $# -gt 0 ]; then
     file="${file#"$REPO/"}"
     file="${file#.maestro/}"
     [ -f "$file" ] || { echo "missing Maestro flow: $file" >&2; exit 1; }
+    if grep -q '^  - upstream-station$' "$file" && [ "${SP_E2E_UPSTREAM_STATION:-false}" != true ]; then
+      echo "upstream-station flow requires SP_E2E_UPSTREAM_STATION=true" >&2
+      exit 1
+    fi
     case "$file" in
       logged-out/*.yaml) logged_out+=("$file") ;;
       logged-in/*.yaml) logged_in+=("$file") ;;

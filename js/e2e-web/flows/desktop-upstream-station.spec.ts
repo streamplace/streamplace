@@ -59,6 +59,7 @@ test("desktop-upstream-station: login and writes survive closing Desktop", async
     SP_DEV_FRONTEND_PROXY: "",
     SP_DEV_PUBLIC_OAUTH: "false",
     SP_TRUST_PRIVATE_NETWORK: "true",
+    SP_PLC_URL: process.env.E2E_PLC_URL!,
     SSL_CERT_FILE: process.env.E2E_TLS_CA!,
     HTTPS_PROXY: process.env.E2E_PROXY_URL!,
   });

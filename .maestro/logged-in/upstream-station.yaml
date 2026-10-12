@@ -22,6 +22,11 @@ tags:
 - tapOn:
     id: "chat-input"
 - inputText: "upstream-station native write"
+- extendedWaitUntil:
+    visible:
+      text: "Send"
+      enabled: true
+    timeout: 30000
 - pressKey: Enter
 - extendedWaitUntil:
     visible:
@@ -46,6 +51,11 @@ tags:
 - tapOn:
     id: "chat-input"
 - inputText: "upstream-station native write after relaunch"
+- extendedWaitUntil:
+    visible:
+      text: "Send"
+      enabled: true
+    timeout: 30000
 - pressKey: Enter
 - extendedWaitUntil:
     visible:

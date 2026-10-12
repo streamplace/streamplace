@@ -74,7 +74,7 @@ type ATProtoSynchronizer struct {
 
 	// sweeping is held for the length of a sweep, so the periodic ticker
 	// cannot start a second one on top of the first.
-	sweeping atomic.Bool
+	sweeping sync.Mutex
 }
 
 func (atsync *ATProtoSynchronizer) markSeen() {

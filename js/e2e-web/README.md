@@ -172,6 +172,9 @@ real Go node with its on-disk sessions and acknowledges readiness in a private
 file. Authenticated writes and indexed history must survive that restart.
 Real browser logout revokes the local downstream session and stops the final
 local DID subscription without destroying the station's confidential PDS grant.
+Chat submission waits for the restored OAuth session and initial streamer
+profile; Enter during initialization leaves the draft intact rather than
+clearing a message that cannot yet be sent.
 
 Prerequisites additionally include Python 3 with SQLite support (for fixture
 inspection), a POSIX shell with `mkfifo`, free loopback HTTPS/TCP/UDP ports, and

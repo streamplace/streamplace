@@ -505,9 +505,6 @@ func (r *WebsocketReplicator) consume(ctx context.Context, sess *moq.Session, st
 			if onSource != nil {
 				onSource()
 			}
-			if err := r.mm.ValidateMP4(context.Background(), bytes.NewReader(f.Payload), false); err != nil {
-				return fmt.Errorf("could not validate segment: %w", err)
-			}
 		}
 	})
 	g.Go(func() error {

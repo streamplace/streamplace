@@ -207,11 +207,6 @@ func (a *Announced) read(br *bufio.Reader) {
 				a.finish(err)
 				return
 			}
-			if _, err := a.hops(&b); err != nil {
-				a.s.fail(sessionProtocolViolation, err)
-				a.finish(err)
-				return
-			}
 		default:
 			// Something newer: nothing to act on.
 		}

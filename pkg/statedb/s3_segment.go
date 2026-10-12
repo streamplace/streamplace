@@ -101,15 +101,11 @@ func (state *StatefulDB) ListS3SegmentsInRange(ctx context.Context, repoDID stri
 }
 
 // LatestOpenS3Segment returns repoDID's most recently started object whose
-// upload has not completed and that started at or after since, or nil. An
-// open object older than a completed one is skipped: a recorder completes its
-// objects in order, so that one was abandoned (its upload failed) and will
-// never complete.
+// upload has not completed and that started at or after since, or nil.
 func (state *StatefulDB) LatestOpenS3Segment(ctx context.Context, repoDID string, since time.Time) (*S3Segment, error) {
 	var segs []S3Segment
 	err := state.DB.WithContext(ctx).
 		Where("user_did = ? AND completed_at IS NULL AND started_at >= ?", repoDID, since).
-		Where("NOT EXISTS (SELECT 1 FROM s3_segments AS done WHERE done.user_did = s3_segments.user_did AND done.completed_at IS NOT NULL AND done.started_at > s3_segments.started_at)").
 		Order("started_at DESC").
 		Limit(1).
 		Find(&segs).Error
@@ -136,6 +132,13 @@ func (state *StatefulDB) RecordComplete(ctx context.Context, id string, parts in
 	return state.DB.WithContext(ctx).Model(&S3Segment{ID: id}).
 		Select("completed_at", "size", "part_count", "segments").
 		Updates(&S3Segment{CompletedAt: &now, Size: size, PartCount: parts, Segments: segments}).Error
+}
+
+// RecordAbort removes the row of an aborted S3 multipart upload: the object
+// never comes into existence, so nothing should wait on it or read from it.
+// Implements s3.Recorder.
+func (state *StatefulDB) RecordAbort(ctx context.Context, id string) error {
+	return state.DB.WithContext(ctx).Delete(&S3Segment{ID: id}).Error
 }
 
 // GetS3Segment fetches an S3Segment by ID. Returns (nil, nil) if not found.

@@ -149,29 +149,33 @@ func TestFindClipOpenRecording(t *testing.T) {
 	require.NoError(t, err)
 	_, err = state.RecordStart(ctx, did, "bucket", "open.m4s", "at://ls", now.Add(-5*time.Minute))
 	require.NoError(t, err)
-	clip := func(buf fakeBuffer, from time.Time) error {
-		_, err := FindClip(ctx, state, store, buf, did, from, now, false)
+	clip := func(buf fakeBuffer, from, to time.Time) error {
+		_, err := FindClip(ctx, state, store, buf, did, from, to, false)
 		return err
 	}
+	ago := func(m time.Duration) time.Time { return now.Add(-m * time.Minute) }
 
 	// The ingesting node holds the whole open object in memory.
 	ingest := fakeBuffer{
-		{Start: now.Add(-5 * time.Minute), Published: true, Local: true, Data: segs[0]},
-		{Start: now.Add(-2 * time.Minute), Published: true, Local: true, Data: segs[1]},
+		{Start: ago(5), Published: true, Local: true, Data: segs[0]},
+		{Start: ago(2), Published: true, Local: true, Data: segs[1]},
 	}
-	require.NoError(t, clip(ingest, now.Add(-3*time.Minute)))
+	require.NoError(t, clip(ingest, ago(3), now))
 	// A node holding only the last two minutes can clip just those.
-	require.ErrorIs(t, clip(ingest[1:], now.Add(-3*time.Minute)), ErrClipUnavailable)
-	require.NoError(t, clip(ingest[1:], now.Add(-2*time.Minute)))
+	require.ErrorIs(t, clip(ingest[1:], ago(3), now), ErrClipUnavailable)
+	require.NoError(t, clip(ingest[1:], ago(2), now))
 	// Replicated segments may have gaps between them, however far back they reach.
 	replica := fakeBuffer{
-		{Start: now.Add(-5 * time.Minute), Published: true, Data: segs[0]},
-		{Start: now.Add(-2 * time.Minute), Published: true, Data: segs[1]},
+		{Start: ago(5), Published: true, Data: segs[0]},
+		{Start: ago(2), Published: true, Data: segs[1]},
 	}
-	require.ErrorIs(t, clip(replica, now.Add(-3*time.Minute)), ErrClipUnavailable)
-
-	// An open object older than a completed one was abandoned and never
-	// completes; it doesn't hold up clips of what came after it.
-	recordObject(t, state, store, did, "after.m4s", segs[:1], []time.Time{now.Add(-4 * time.Minute)})
-	require.NoError(t, clip(fakeBuffer{}, now.Add(-4*time.Minute)))
+	require.ErrorIs(t, clip(replica, ago(3), now), ErrClipUnavailable)
+	// Video after the range doesn't decide it: here the streamer moved to
+	// another ingest node, whose segments now reach this one replicated.
+	moved := fakeBuffer{
+		{Start: ago(5), Published: true, Local: true, Data: segs[0]},
+		{Start: ago(1), Published: true, Data: segs[1]},
+	}
+	require.NoError(t, clip(moved, ago(5), ago(2)))
+	require.ErrorIs(t, clip(moved, ago(5), now), ErrClipUnavailable)
 }

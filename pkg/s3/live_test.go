@@ -65,6 +65,10 @@ func (r *keyRecorder) RecordComplete(ctx context.Context, id string, parts int32
 	return nil
 }
 
+func (r *keyRecorder) RecordAbort(ctx context.Context, id string) error {
+	return nil
+}
+
 // TestLiveS3Uploader exercises the real multipart upload path against a real
 // S3-compatible endpoint. Skipped unless S3_ENDPOINT / S3_ACCESS_KEY_ID /
 // S3_SECRET_ACCESS_KEY are set, e.g.:

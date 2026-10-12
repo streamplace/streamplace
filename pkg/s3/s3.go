@@ -28,16 +28,18 @@ type Config struct {
 
 // Recorder is an optional persistence hook for S3Uploader. RecordStart is
 // called when a new multipart upload begins; the returned id is passed back
-// to RecordComplete when the upload is finalized. Implementations should
-// tolerate nil contexts being passed. livestreamURI ties the object to the
-// livestream it belongs to (may be empty if not yet known) so the live-to-VOD
-// finalize can later enumerate exactly the objects for one stream. started is
-// the media start time of the object's first segment, and RecordComplete
-// carries the index of every segment in the object, so a clip can range-read
-// exactly the segments it needs.
+// to RecordComplete when the upload is finalized, or to RecordAbort when it
+// is aborted and the object never exists. Implementations should tolerate
+// nil contexts being passed. livestreamURI ties the object to the livestream
+// it belongs to (may be empty if not yet known) so the live-to-VOD finalize
+// can later enumerate exactly the objects for one stream. started is the
+// media start time of the object's first segment, and RecordComplete carries
+// the index of every segment in the object, so a clip can range-read exactly
+// the segments it needs.
 type Recorder interface {
 	RecordStart(ctx context.Context, userDID, bucket, key, livestreamURI string, started time.Time) (id string, err error)
 	RecordComplete(ctx context.Context, id string, parts int32, size int64, segments []RecordedSegment) error
+	RecordAbort(ctx context.Context, id string) error
 }
 
 // RecordedSegment locates one canonical segment inside a recorded object: its
@@ -319,6 +321,24 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		return nil
 	}
 
+	// abortUpload aborts the current object's multipart upload and drops its
+	// recorder row, since the object will never exist.
+	abortUpload := func() {
+		if _, err := u.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+			Bucket:   aws.String(u.bucket),
+			Key:      aws.String(current.key),
+			UploadId: aws.String(current.uploadID),
+		}); err != nil {
+			log.Error(ctx, "aborting S3 multipart upload", "key", current.key, "error", err)
+		}
+		if u.recorder != nil && current.recordID != "" {
+			if err := u.recorder.RecordAbort(ctx, current.recordID); err != nil {
+				log.Error(ctx, "recording S3 upload abort", "key", current.key, "error", err)
+			}
+		}
+		current = nil
+	}
+
 	completeUpload := func() error {
 		if current == nil {
 			return nil
@@ -327,15 +347,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			return fmt.Errorf("error flushing buffer: %w", err)
 		}
 		if len(current.parts) == 0 {
-			_, err := u.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
-				Bucket:   aws.String(u.bucket),
-				Key:      aws.String(current.key),
-				UploadId: aws.String(current.uploadID),
-			})
-			if err != nil {
-				log.Error(ctx, "aborting empty multipart upload", "key", current.key, "error", err)
-			}
-			current = nil
+			abortUpload()
 			return nil
 		}
 		_, err := u.client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
@@ -399,9 +411,9 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 	// backend doesn't hold its parts) and drop its un-completed bytes, loudly.
 	// The next segment starts a fresh object, so one bad object costs a gap in
 	// the recording instead of wedging the uploader for the rest of the stream
-	// (the abandoned object's recorder row never completes, so finalize skips
-	// it). Before this existed, the first error killed the loop: segments
-	// backed up silently and the stream never recorded another byte.
+	// (the abandoned object's recorder row is dropped, so finalize and clips
+	// don't wait on it). Before this existed, the first error killed the loop:
+	// segments backed up silently and the stream never recorded another byte.
 	abandonCurrent := func(reason error) {
 		if current == nil {
 			// Nothing in flight (e.g. CreateMultipartUpload itself failed); the
@@ -415,14 +427,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			"droppedBufferedBytes", len(current.buf),
 			"error", reason,
 		)
-		if _, err := u.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
-			Bucket:   aws.String(u.bucket),
-			Key:      aws.String(current.key),
-			UploadId: aws.String(current.uploadID),
-		}); err != nil {
-			log.Error(ctx, "aborting abandoned S3 upload", "key", current.key, "error", err)
-		}
-		current = nil
+		abortUpload()
 	}
 
 	for {

@@ -118,7 +118,7 @@ func checkOpenRecording(ctx context.Context, state *statedb.StatefulDB, did stri
 		return ErrClipUnavailable
 	}
 	for _, seg := range buffered {
-		if seg.Start.UnixMilli() >= need && !seg.Local {
+		if ms := seg.Start.UnixMilli(); ms >= need && ms <= toMs && !seg.Local {
 			return ErrClipUnavailable
 		}
 	}

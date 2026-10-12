@@ -63,13 +63,14 @@ func (f *fakeUploadAPI) AbortMultipartUpload(_ context.Context, _ *awss3.AbortMu
 }
 
 // fakeRecorder captures the (key, livestreamURI, start) of every started
-// object and the segment index of every completed one.
+// object, the segment index of every completed one, and the aborted ids.
 type fakeRecorder struct {
 	mu      sync.Mutex
 	keys    []string
 	uris    []string
 	started []time.Time
 	indexes [][]RecordedSegment
+	aborted []string
 	starts  int
 }
 
@@ -87,6 +88,13 @@ func (r *fakeRecorder) RecordComplete(_ context.Context, _ string, _ int32, _ in
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.indexes = append(r.indexes, segments)
+	return nil
+}
+
+func (r *fakeRecorder) RecordAbort(_ context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.aborted = append(r.aborted, id)
 	return nil
 }
 
@@ -266,6 +274,9 @@ func TestS3UploaderRecoversFromCompleteFailure(t *testing.T) {
 	require.Equal(t, 2, fc.creates, "a fresh object must start after the failure")
 	require.Equal(t, 1, fc.aborts, "the broken object must be aborted, not leaked")
 	require.Equal(t, 1, fc.completes, "the post-failure object must complete")
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	require.Equal(t, []string{"rec-1"}, rec.aborted, "the broken object's row must be dropped, not left open forever")
 }
 
 // TestS3UploaderCloseIdempotent exercises the lifecycle fix that re-enabled

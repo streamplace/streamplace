@@ -36,6 +36,11 @@ struct fmp4_track {
 	/* avcC payload for H.264, AudioSpecificConfig for AAC, OpusHead for Opus. */
 	uint8_t *config;
 	size_t config_size;
+	/* tkhd.alternate_group: tracks sharing a nonzero value are the same
+	 * content in different codecs. 0 when unknown. */
+	uint16_t alternate_group;
+	/* Track title written as udta/name, or NULL. */
+	char *label;
 
 	bool started;
 	/* Packets before zero (encoder priming), in timebase units; undone by an edit list. */

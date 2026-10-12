@@ -1,8 +1,9 @@
 import { ComAtprotoModerationCreateReport } from "@atproto/api";
-import { useContext, useEffect, useState } from "react";
+import { audioTrackLevels } from "@streamplace/core";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { ChatMessageViewHydrated } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
-import { useLivestreamStore } from "../livestream-store";
+import { useAudioStems, useLivestreamStore } from "../livestream-store";
 import storage from "../storage";
 import { useStreamplaceStore } from "../streamplace-store";
 import { PlayerContext } from "./context";
@@ -81,6 +82,9 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
         })
         .catch(console.error);
     },
+
+    stemVolumes: null,
+    setStemVolumes: (stemVolumes) => set(() => ({ stemVolumes })),
 
     src: "",
     setSrc: (src: string) => set(() => ({ src })),
@@ -397,4 +401,15 @@ export const useIsMyStream = () => {
   return () => {
     return myHandle === channelId || myDid === channelId;
   };
+};
+
+// The level of each WebRTC audio track (full mix, then each stem) for the
+// viewer's stem volumes; see audioTrackLevels.
+export const useAudioTrackLevels = () => {
+  const stems = useAudioStems();
+  const stemVolumes = usePlayerStore((x) => x.stemVolumes);
+  return useMemo(
+    () => audioTrackLevels(stems, stemVolumes),
+    [stems, stemVolumes],
+  );
 };

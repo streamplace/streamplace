@@ -7,7 +7,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useLivestreamInfo, useStreamplaceStore, zero } from "../../..";
-import { useLivestreamStore } from "../../../livestream-store";
+import { useAudioStems, useLivestreamStore } from "../../../livestream-store";
 import { PlayerProtocol, usePlayerStore } from "../../../player-store/";
 import {
   DropdownMenu,
@@ -26,6 +26,11 @@ import {
   useTheme,
 } from "../../ui";
 import { ReportMenuItems } from "./report-menu-items";
+
+// The stem volumes a viewer can pick; 0 silences the stem.
+const STEM_LEVELS = [0, 0.25, 0.5, 1];
+const stemLevelLabel = (level: number) =>
+  level === 0 ? "Off" : `${level * 100}%`;
 
 export function ContextMenu({
   dropdownPortalContainer,
@@ -52,6 +57,12 @@ export function ContextMenu({
   const setProtocol = usePlayerStore((x) => x.setProtocol);
 
   const isDevModeOn = useStreamplaceStore((x) => x.danmuUnlocked);
+
+  // Only WebRTC carries the stems (HLS has just the full mix), so the Audio
+  // section shows with low latency on.
+  const stems = useAudioStems();
+  const stemVolumes = usePlayerStore((x) => x.stemVolumes);
+  const setStemVolumes = usePlayerStore((x) => x.setStemVolumes);
 
   const latestSegment = useLivestreamStore((x) => x.segment);
   // get highest height x width rendition for video
@@ -115,7 +126,7 @@ export function ContextMenu({
   // rerender when dropdown portal container changes so we swap portals 'seamlessly'
   return (
     <DropdownMenu onOpenChange={setIsOpen} key={dropdownPortalContainer}>
-      <DropdownMenuTrigger>
+      <DropdownMenuTrigger testID="player-menu">
         <Animated.View style={[iconRotate]}>
           <Cog color={th.theme.colors.foreground} />
         </Animated.View>
@@ -202,6 +213,69 @@ export function ContextMenu({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         </DropdownMenuGroup>
+        {mode !== "vod" && lowLatency && stems.length > 0 && (
+          <DropdownMenuGroup title="Audio">
+            <DropdownMenuCheckboxItem
+              testID="player-audio-full-mix"
+              checked={stemVolumes === null}
+              onCheckedChange={() =>
+                setStemVolumes(stemVolumes === null ? {} : null)
+              }
+            >
+              <Text>Full mix</Text>
+            </DropdownMenuCheckboxItem>
+            {stems.map((stem, i) => {
+              const level = stemVolumes?.[stem.alternateGroup] ?? 1;
+              return (
+                <DropdownMenuSub key={stem.alternateGroup}>
+                  <DropdownMenuSubTrigger
+                    subMenuTitle={stem.label}
+                    testID={`player-audio-stem-${i}`}
+                  >
+                    <View
+                      style={[
+                        zero.flex.values[1],
+                        zero.layout.flex.row,
+                        zero.layout.flex.spaceBetween,
+                        zero.pr[4],
+                      ]}
+                    >
+                      <Text>{stem.label}</Text>
+                      {stemVolumes !== null && (
+                        <Text muted size={isMobile ? "base" : "sm"}>
+                          {stemLevelLabel(level)}
+                        </Text>
+                      )}
+                    </View>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent portalHost={dropdownPortalContainer}>
+                    <DropdownMenuGroup title="Volume">
+                      <DropdownMenuRadioGroup
+                        value={stemVolumes === null ? "" : String(level)}
+                        onValueChange={(value) =>
+                          setStemVolumes({
+                            ...stemVolumes,
+                            [stem.alternateGroup]: Number(value),
+                          })
+                        }
+                      >
+                        {STEM_LEVELS.map((l) => (
+                          <DropdownMenuRadioItem
+                            key={l}
+                            value={String(l)}
+                            testID={`player-audio-stem-${i}-level-${l * 100}`}
+                          >
+                            <Text>{stemLevelLabel(l)}</Text>
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              );
+            })}
+          </DropdownMenuGroup>
+        )}
         {onOpenChat && (
           <DropdownMenuGroup title="View">
             <DropdownMenuItem closeOnPress={true} onPress={onOpenChat}>

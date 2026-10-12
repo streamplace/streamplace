@@ -34,7 +34,7 @@ const moqResumeProbeTimeout = 30 * time.Second
 // connect it tails the live edge. Gaps past the relay's retained window are
 // covered by cross-relay redelivery and the idempotent handlers, exactly as for
 // the best-effort WebSocket cursor.
-func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay string, cursor *relayCursor) error {
+func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay, track string, cursor *relayCursor) error {
 	streamCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -54,10 +54,13 @@ func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay st
 	// the only caller, so groupStart below already reflects that decision.
 	var sub *atmoq.Subscription
 	resumedFrom, resumed := cursor.groupStart()
+	if track != atmoq.DefaultTrack {
+		resumed = false
+	}
 	if resumed {
-		sub, err = sess.SubscribeFrom(streamCtx, atmoq.DefaultBroadcast, atmoq.DefaultTrack, resumedFrom)
+		sub, err = sess.SubscribeFrom(streamCtx, atmoq.DefaultBroadcast, track, resumedFrom)
 	} else {
-		sub, err = sess.Subscribe(streamCtx, atmoq.DefaultBroadcast, atmoq.DefaultTrack)
+		sub, err = sess.Subscribe(streamCtx, atmoq.DefaultBroadcast, track)
 	}
 	if err != nil {
 		return fmt.Errorf("subscribing to moq firehose: %w", err)
@@ -65,14 +68,25 @@ func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay st
 	defer sub.Close()
 
 	protocol := relayProtocol(relay)
-	spmetrics.FirehoseRelaysConnected.WithLabelValues(relay, protocol).Set(1)
-	defer spmetrics.FirehoseRelaysConnected.WithLabelValues(relay, protocol).Set(0)
+	spmetrics.FirehoseRelaysConnected.WithLabelValues(relay, protocol).Inc()
+	defer spmetrics.FirehoseRelaysConnected.WithLabelValues(relay, protocol).Dec()
 
 	rsc := atsync.repoStreamCallbacks(ctx, relay, cursor, cancel)
 	scheduler := parallel.NewScheduler(10, 100, relay, rsc.EventHandler)
 	defer scheduler.Shutdown()
 
-	log.Log(ctx, "connected to relay firehose (moq)", "version", sess.Version())
+	log.Log(ctx, "connected to relay firehose (moq)", "version", sess.Version(), "track", track)
+	if track != atmoq.DefaultTrack {
+		// Reconcile after subscribing, so changes made while this sparse track
+		// was absent cannot fall between the PDS snapshot and live delivery.
+		// The consumer context survives reconnects; a dropped connection must
+		// not abort the gap repair it triggered.
+		go func() {
+			atsync.sweepOnce(ctx, func(sweepCtx context.Context) error {
+				return atsync.sweep(sweepCtx, false)
+			})
+		}()
+	}
 	for {
 		// The relay accepts a SubscribeFrom for any group, including one past
 		// its live edge that it will never produce (a stale or corrupted

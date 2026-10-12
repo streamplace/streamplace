@@ -40,12 +40,20 @@ export default async function makeNode(opts: {
   autoQuit: boolean;
 }) {
   const exe = await findExe();
-  const addr = opts.env.SP_HTTP_ADDR ?? "127.0.0.1:38082";
-  const internalAddr = opts.env.SP_HTTP_INTERNAL_ADDR ?? "127.0.0.1:39092";
+  const addr =
+    opts.env.SP_HTTP_ADDR ?? process.env.SP_HTTP_ADDR ?? "127.0.0.1:38082";
+  const internalAddr =
+    opts.env.SP_HTTP_INTERNAL_ADDR ??
+    process.env.SP_HTTP_INTERNAL_ADDR ??
+    "127.0.0.1:39092";
   const proc = spawn(exe, [], {
     stdio: "inherit",
     env: {
       ...process.env,
+      SP_UPSTREAM_STATION:
+        opts.env.SP_UPSTREAM_STATION ??
+        process.env.SP_UPSTREAM_STATION ??
+        "did:web:stream.place",
       SP_HTTP_ADDR: addr,
       SP_HTTP_INTERNAL_ADDR: internalAddr,
       ...opts.env,

@@ -134,6 +134,9 @@ func (atsync *ATProtoSynchronizer) feedUnresolved(ctx context.Context, items []s
 	g.SetLimit(identityResolveConcurrency)
 	for _, item := range items {
 		g.Go(func() error {
+			if !atsync.indexEventAllowed(gctx, item.DID) {
+				return nil
+			}
 			// On cancellation, still hand the item over (with a lane of its
 			// own): the scheduler's workers notice the dead context themselves,
 			// and every item accounted for exactly once is the simpler
@@ -695,6 +698,22 @@ func (atsync *ATProtoSynchronizer) sweepCandidates(ctx context.Context) ([]strin
 	terminal := make(map[string]struct{}, len(terminalDIDs))
 	for _, did := range terminalDIDs {
 		terminal[did] = struct{}{}
+	}
+	if atsync.upstreamMode() {
+		if atsync.StatefulDB == nil {
+			return nil, fmt.Errorf("cannot list local OAuth users without the state database")
+		}
+		dids, err := atsync.StatefulDB.IndexingDIDs(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list local OAuth users: %w", err)
+		}
+		eligible := dids[:0]
+		for _, did := range dids {
+			if _, parked := terminal[did]; !parked {
+				eligible = append(eligible, did)
+			}
+		}
+		return eligible, nil
 	}
 
 	var allDIDs []string

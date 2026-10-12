@@ -20,7 +20,12 @@ func (state *StatefulDB) LoadOAuthSession(id string) (*oatproxy.OAuthSession, er
 		}
 		return nil, err
 	}
-	if session.Status() != oatproxy.OAuthSessionStateReady || session.Status() != oatproxy.OAuthSessionStateReadyUpstream {
+	if session.Status() != oatproxy.OAuthSessionStateReady && session.Status() != oatproxy.OAuthSessionStateReadyUpstream {
+		return &session, nil
+	}
+	// A delegated session is bound to the station, not the user's actual PDS.
+	// The real PDS remains authoritative in the indexed repo.
+	if state.CLI != nil && state.CLI.UpstreamStation != "" {
 		return &session, nil
 	}
 	r, err := state.model.GetRepo(session.DID)
@@ -28,7 +33,8 @@ func (state *StatefulDB) LoadOAuthSession(id string) (*oatproxy.OAuthSession, er
 		return nil, fmt.Errorf("failed to get repo: %w", err)
 	}
 	if r == nil {
-		return nil, fmt.Errorf("repo not found even though we have a valid session!? repodid=%s", session.DID)
+		// Login is persisted before the asynchronous initial repo sync.
+		return &session, nil
 	}
 	if r.PDS != session.PDSUrl {
 		return nil, fmt.Errorf("pds mismatch (old: %s, new: %s): please log in again", session.PDSUrl, r.PDS)

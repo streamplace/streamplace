@@ -22,6 +22,10 @@ var SyncGetRepo = comatproto.SyncGetRepo
 func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, handle string) (*model.Repo, error) {
 	ctx, span := otel.Tracer("signer").Start(ctx, "SyncBlueskyRepoCached")
 	defer span.End()
+	handle, err := atsync.indexingDID(ctx, handle)
+	if err != nil {
+		return nil, err
+	}
 	repo, err := atsync.Model.GetRepoByHandleOrDID(handle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo for %s: %w", handle, err)
@@ -47,6 +51,10 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, ha
 }
 
 func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
+	handle, err := atsync.indexingDID(ctx, handle)
+	if err != nil {
+		return nil, err
+	}
 	ident, err := atsync.resolveIdent(ctx, handle, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve Bluesky handle %s: %w", handle, err)
@@ -71,6 +79,9 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	handleLock := handleLocks.GetLock(ident.DID.String())
 	handleLock.Lock()
 	defer handleLock.Unlock()
+	if _, err := atsync.indexingDID(ctx, ident.DID.String()); err != nil {
+		return nil, err
+	}
 	ctx = markWalking(ctx, ident.DID.String())
 
 	// Tell re-entrant callers (handleCreateUpdate syncs the repos it sees
@@ -140,6 +151,9 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		}
 		return nil, err
 	}
+	if _, err := atsync.indexingDID(ctx, ident.DID.String()); err != nil {
+		return nil, err
+	}
 
 	// A completed backfill proves the account is fine, so Status goes back to
 	// empty -- UpdateRepo writes every column, so this happens by construction.
@@ -189,6 +203,9 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 // served -- and stays out of the wedge path -- for the entire time its history
 // is being filled in.
 func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (bool, string, error) {
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
+		return false, "", err
+	}
 	repo, err := atsync.Model.GetRepo(did)
 	if err != nil {
 		return false, "", fmt.Errorf("failed to get repo for %s: %w", did, err)
@@ -216,6 +233,9 @@ func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (
 	handleLock := handleLocks.GetLock(did)
 	handleLock.Lock()
 	defer handleLock.Unlock()
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
+		return false, "", err
+	}
 	defer markSyncInFlight(did)()
 	ctx = markWalking(ctx, did)
 
@@ -247,6 +267,9 @@ func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (
 		if parked := parkTerminalRepo(ctx, atsync.Model, did, err); parked != nil {
 			return false, "", parked
 		}
+		return false, "", err
+	}
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
 		return false, "", err
 	}
 
@@ -317,6 +340,9 @@ func syncInFlight(did string) bool {
 }
 
 func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did string) (*identity.Identity, error) {
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
+		return nil, err
+	}
 	id, err := atsync.resolveIdent(ctx, did, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve ident: %w", err)
@@ -456,7 +482,31 @@ func (atsync *ATProtoSynchronizer) IdentityDirectory() identity.Directory {
 	return atsync.directory(true)
 }
 
-func DIDDoc(host string, pubMultibase string) map[string]any {
+func DIDDoc(host string, pubMultibase string, atmoqRelay string) map[string]any {
+	services := []map[string]any{
+		{
+			"id":              "#bsky_fg",
+			"type":            "BskyFeedGenerator",
+			"serviceEndpoint": fmt.Sprintf("https://%s", host),
+		},
+		{
+			"id":              "#atproto_pds",
+			"type":            "AtprotoPersonalDataServer",
+			"serviceEndpoint": fmt.Sprintf("https://%s", host),
+		},
+		{
+			"id":              "#" + StreamplaceServiceID,
+			"type":            "StreamplaceServer",
+			"serviceEndpoint": fmt.Sprintf("https://%s", host),
+		},
+	}
+	if atmoqRelay != "" {
+		services = append(services, map[string]any{
+			"id":              "#" + AtmoqServiceID,
+			"type":            "AtprotoMoQRelay",
+			"serviceEndpoint": atmoqRelay,
+		})
+	}
 	return map[string]any{
 		"@context": []string{
 			"https://www.w3.org/ns/did/v1",
@@ -465,23 +515,7 @@ func DIDDoc(host string, pubMultibase string) map[string]any {
 		},
 		"id":          fmt.Sprintf("did:web:%s", host),
 		"alsoKnownAs": []string{},
-		"service": []map[string]any{
-			{
-				"id":              "#bsky_fg",
-				"type":            "BskyFeedGenerator",
-				"serviceEndpoint": fmt.Sprintf("https://%s", host),
-			},
-			{
-				"id":              "#atproto_pds",
-				"type":            "AtprotoPersonalDataServer",
-				"serviceEndpoint": fmt.Sprintf("https://%s", host),
-			},
-			{
-				"id":              "#" + StreamplaceServiceID,
-				"type":            "StreamplaceServer",
-				"serviceEndpoint": fmt.Sprintf("https://%s", host),
-			},
-		},
+		"service": services,
 		"verificationMethod": []map[string]any{
 			{
 				"id":                 fmt.Sprintf("did:web:%s#atproto", host),

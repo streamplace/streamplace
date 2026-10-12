@@ -58,6 +58,7 @@ type ATProtoSynchronizer struct {
 	CachedPLCDirectory identity.Directory
 	dirMu              sync.Mutex
 	OATProxy           *oatproxy.OATProxy
+	UpstreamStation    *UpstreamStation
 
 	// firehose liveness, written from every relay consumer concurrently
 	// (unix nanos).
@@ -99,6 +100,12 @@ func sinceNanos(ns int64) time.Duration {
 // ourselves when we actually have an HTTP listener to dial — i.e. never in
 // tests that run without the server.
 func (atsync *ATProtoSynchronizer) relayHosts() []string {
+	if atsync.CLI.UpstreamStation != "" {
+		if atsync.UpstreamStation == nil {
+			return nil
+		}
+		return []string{atsync.UpstreamStation.FirehoseURL}
+	}
 	seen := map[string]struct{}{}
 	var hosts []string
 	add := func(h string) {
@@ -160,6 +167,9 @@ func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
 	atsync.identityDedup = newFirehoseDeduper(dedupWindow)
 	atsync.markSeen()
 	atsync.markEvent(time.Now())
+	if atsync.upstreamMode() {
+		return atsync.startUpstreamFirehose(ctx)
+	}
 
 	log.Log(ctx, "starting firehose consumers", "relays", relays)
 
@@ -168,7 +178,7 @@ func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
 		relay := relay
 		spmetrics.TouchRelay(relay, relayProtocol(relay))
 		g.Go(func() error {
-			atsync.consumeRelay(ctx, relay)
+			atsync.consumeRelay(ctx, relay, "")
 			return nil
 		})
 	}
@@ -183,28 +193,31 @@ func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
 // capped exponential backoff. It never returns an error: an unhealthy relay
 // must not disturb the others (or crash the node), so it just loops until ctx
 // is cancelled.
-func (atsync *ATProtoSynchronizer) consumeRelay(ctx context.Context, relay string) {
-	ctx = log.WithLogValues(ctx, "relay", relay)
+func (atsync *ATProtoSynchronizer) consumeRelay(ctx context.Context, relay, track string) {
+	ctx = log.WithLogValues(ctx, "relay", relay, "track", track)
 
-	cursor := atsync.newRelayCursor(ctx, relay)
-	// Persist progress on a timer and once more on the way out, so a restart
-	// resumes near where we left off rather than re-tailing from live.
-	flushDone := make(chan struct{})
-	go func() {
-		defer close(flushDone)
-		ticker := time.NewTicker(cursorFlushInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				cursor.flush(ctx)
-				return
-			case <-ticker.C:
-				cursor.flush(ctx)
+	// On-demand DID tracks reset their group sequences when no subscribers
+	// remain. Only aggregate tracks have durable replay cursors.
+	cursor := &relayCursor{host: relay}
+	if track == "" {
+		cursor = atsync.newRelayCursor(ctx, relay)
+		flushDone := make(chan struct{})
+		go func() {
+			defer close(flushDone)
+			ticker := time.NewTicker(cursorFlushInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					cursor.flush(ctx)
+					return
+				case <-ticker.C:
+					cursor.flush(ctx)
+				}
 			}
-		}
-	}()
-	defer func() { <-flushDone }()
+		}()
+		defer func() { <-flushDone }()
+	}
 
 	const (
 		minBackoff = time.Second
@@ -216,7 +229,12 @@ func (atsync *ATProtoSynchronizer) consumeRelay(ctx context.Context, relay strin
 			return
 		}
 		start := time.Now()
-		err := atsync.connectRelay(ctx, relay, cursor)
+		var err error
+		if track == "" {
+			err = atsync.connectRelay(ctx, relay, cursor)
+		} else {
+			err = atsync.connectRelayMoq(ctx, relay, track, cursor)
+		}
 		if ctx.Err() != nil {
 			return
 		}
@@ -300,7 +318,7 @@ func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay strin
 	// handlers, backoff — is shared, so this is just a transport swap.
 	switch u.Scheme {
 	case "moqt", "moql", "moq", "moqs":
-		return atsync.connectRelayMoq(ctx, relay, cursor)
+		return atsync.connectRelayMoq(ctx, relay, "atproto", cursor)
 	}
 	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
 	if seq, ok := cursor.param(); ok {
@@ -580,6 +598,9 @@ func commitHasIndexedOps(evt *indigoatproto.SyncSubscribeRepos_Commit) bool {
 }
 
 func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt *indigoatproto.SyncSubscribeRepos_Commit) {
+	if !atsync.indexEventAllowed(ctx, evt.Repo) {
+		return
+	}
 	ctx = log.WithLogValues(ctx, "event", "commit", "did", evt.Repo, "rev", evt.Rev, "seq", fmt.Sprintf("%d", evt.Seq), "func", "handleCommitEventOps")
 
 	if evt.TooBig {
@@ -940,7 +961,7 @@ func (atsync *ATProtoSynchronizer) handleTeleportDelete(ctx context.Context, uri
 // It is called from the commit path with the row that path already loaded, so
 // the common case costs one comparison and no query at all.
 func (atsync *ATProtoSynchronizer) reviveRepo(ctx context.Context, r *model.Repo) {
-	if !r.TerminalStatus() {
+	if r == nil || !r.TerminalStatus() {
 		return
 	}
 	log.Log(ctx, "repo committed while parked, clearing terminal status", "did", r.DID, "handle", r.Handle, "status", r.Status)
@@ -952,6 +973,9 @@ func (atsync *ATProtoSynchronizer) reviveRepo(ctx context.Context, r *model.Repo
 }
 
 func (atsync *ATProtoSynchronizer) handleIdentityEventOps(ctx context.Context, evt *indigoatproto.SyncSubscribeRepos_Identity) {
+	if !atsync.indexEventAllowed(ctx, evt.Did) {
+		return
+	}
 	handle := ""
 	if evt.Handle != nil {
 		handle = *evt.Handle

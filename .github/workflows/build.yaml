@@ -125,10 +125,13 @@ jobs:
   # Reuse the binary built by linux-amd64 instead of provisioning another
   # frontend and native build just to run Playwright.
   e2e-web:
-    name: e2e-web
+    name: e2e-web (${{ matrix.mode }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: linux-amd64
+    strategy:
+      matrix:
+        mode: [standalone, upstream]
     steps:
       - name: Check out code
         uses: actions/checkout@v4.1.7
@@ -145,6 +148,7 @@ jobs:
         run:
           npm install -g corepack@latest && corepack enable && pnpm install
           --filter @streamplace/e2e-web --filter @atcute/internal-dev-env
+          --filter streamplace-desktop --filter @streamplace/brand
           --frozen-lockfile
 
       - name: Download streamplace binary
@@ -165,14 +169,34 @@ jobs:
           "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/playwright-browsers" pnpm
           --filter @streamplace/e2e-web install-browser
 
+      - name: Install atmoq relay fixture
+        if: matrix.mode == 'upstream'
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/atmoq.tar.gz" https://github.com/streamplace/atmoq/releases/download/v0.1.1/atmoq-v0.1.1-x86_64-unknown-linux-gnu.tar.gz
+          echo "513ea3c7e0702b4d6ede99c416fee6faca361df4bceeeaefd24edaffc6c59d29  $RUNNER_TEMP/atmoq.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/atmoq-bin"
+          tar -xzf "$RUNNER_TEMP/atmoq.tar.gz" -C "$RUNNER_TEMP/atmoq-bin"
+          echo "$RUNNER_TEMP/atmoq-bin" >> "$GITHUB_PATH"
+      - name: Build Desktop e2e entry point
+        if: matrix.mode == 'upstream'
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          pnpm --filter streamplace-desktop package
       - name: Run web e2e tests
-        run: hack/e2e-web-local.sh
+        run: |
+          if [ "${{ matrix.mode }}" = upstream ]; then
+            E2E_DESKTOP_MAIN="$PWD/js/desktop/.webpack/x64/main/index.js" xvfb-run -a hack/e2e-web-local.sh --upstream-station -- upstream-station.spec.ts
+          else
+            hack/e2e-web-local.sh
+          fi
 
       - name: Upload e2e-web artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-web-${{ github.event.pull_request.head.sha || github.sha }}
+          name:
+            e2e-web-${{ matrix.mode }}-${{ github.event.pull_request.head.sha ||
+            github.sha }}
           path: |
             js/e2e-web/test-results/
             js/e2e-web/playwright-report/
@@ -227,6 +251,13 @@ jobs:
           echo "3440825f514f537c6a96bcf5de995780c2a4a7f83a43208fdc95d4f1fecfad3b  /tmp/maestro.zip" | sha256sum -c -
           unzip -q /tmp/maestro.zip -d "$HOME/.maestro-dist"
           echo "$HOME/.maestro-dist/maestro/bin" >> $GITHUB_PATH
+      - name: Install atmoq relay fixture
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/atmoq.tar.gz" https://github.com/streamplace/atmoq/releases/download/v0.1.1/atmoq-v0.1.1-x86_64-unknown-linux-gnu.tar.gz
+          echo "513ea3c7e0702b4d6ede99c416fee6faca361df4bceeeaefd24edaffc6c59d29  $RUNNER_TEMP/atmoq.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/atmoq-bin"
+          tar -xzf "$RUNNER_TEMP/atmoq.tar.gz" -C "$RUNNER_TEMP/atmoq-bin"
+          echo "$RUNNER_TEMP/atmoq-bin" >> "$GITHUB_PATH"
 
       - uses: actions/cache@v4
         id: avd-cache
@@ -274,6 +305,26 @@ jobs:
           script:
             E2E_HARNESS_LOG=$PWD/.maestro/artifacts/harness.log bash
             hack/e2e-local.sh android
+      - name: Run upstream station Maestro flow
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          cores: 4
+          ram-size: 6144M
+          heap-size: 576M
+          emulator-options:
+            -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
+            -no-boot-anim -camera-back none
+          disable-animations: true
+          script:
+            E2E_ARTIFACTS=$PWD/.maestro/artifacts/upstream
+            E2E_HARNESS_LOG=$PWD/.maestro/artifacts/upstream/harness.log
+            E2E_FLOWS=logged-in/upstream-station.yaml bash hack/e2e-local.sh
+            android --upstream-station
 
       - name: upload maestro artifacts
         if: always()

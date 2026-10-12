@@ -7,37 +7,37 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	glex "github.com/streamplace/glex/runtime"
 
 	"stream.place/streamplace/pkg/comatproto"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"go.opentelemetry.io/otel"
-	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/log"
 )
 
-func resolveRepoService(ctx context.Context, repo string) (string, string, string, error) {
-	did := repo
-	var err error
-	if !strings.HasPrefix(repo, "did:") {
-		did, err = oatproxy.ResolveHandleWithClient(ctx, repo, &aqhttp.Client)
-		if err != nil {
-			return "", "", "", fmt.Errorf("failed to resolve handle %q: %w", repo, err)
-		}
-	}
-
-	service, handle, err := oatproxy.ResolveServiceWithClient(ctx, did, &aqhttp.Client)
+func (s *Server) resolveRepoService(ctx context.Context, repo string) (string, string, string, error) {
+	id, err := syntax.ParseAtIdentifier(repo)
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to resolve service for did %q: %w", did, err)
+		return "", "", "", fmt.Errorf("invalid repository identifier %q: %w", repo, err)
 	}
-
-	return did, service, handle, nil
+	if s.identityDirectory == nil {
+		return "", "", "", fmt.Errorf("identity directory not configured")
+	}
+	ident, err := s.identityDirectory().Lookup(ctx, *id)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to resolve repository %q: %w", repo, err)
+	}
+	service := ident.PDSEndpoint()
+	if service == "" {
+		return "", "", "", fmt.Errorf("no PDS service for did %q", ident.DID.String())
+	}
+	return ident.DID.String(), service, ident.Handle.String(), nil
 }
 
 var maxBlobSize int64 = 1024 * 1024 * 10 // 10MB
@@ -97,7 +97,7 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 		if err != nil {
 			return nil, fmt.Errorf("list server repo collections: %w", err)
 		}
-		didDoc, err := glex.Unknown(atproto.DIDDoc(s.cli.ServerHost, atproto.ServerPubMultibase))
+		didDoc, err := glex.Unknown(atproto.DIDDoc(s.cli.ServerHost, atproto.ServerPubMultibase, s.cli.AtmoqRelay))
 		if err != nil {
 			return nil, fmt.Errorf("marshal did doc: %w", err)
 		}
@@ -110,7 +110,7 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 		}, nil
 	}
 
-	didDoc, err := glex.Unknown(atproto.DIDDoc(s.cli.BroadcasterHost, atproto.LexiconPubMultibase))
+	didDoc, err := glex.Unknown(atproto.DIDDoc(s.cli.BroadcasterHost, atproto.LexiconPubMultibase, s.cli.AtmoqRelay))
 	if err != nil {
 		return nil, fmt.Errorf("marshal did doc: %w", err)
 	}

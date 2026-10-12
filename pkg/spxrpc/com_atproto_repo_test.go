@@ -3,7 +3,6 @@ package spxrpc
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/aqhttp"
@@ -18,27 +19,22 @@ import (
 )
 
 // A former user's DID still points at a PDS hostname now serving Streamplace.
-// Exercise DID resolution and the real HTTP proxy, not a mocked upstream call.
+// Exercise the configured identity directory and the real HTTP proxy.
 func TestRepoProxyLoop(t *testing.T) {
 	for _, method := range []string{"getRecord", "listRecords", "describeRepo"} {
 		t.Run(method, func(t *testing.T) {
-			s := &Server{cli: &config.CLI{ServerHost: "node.example", BroadcasterHost: "node.example"}}
+			dir := identity.NewMockDirectory()
+			s := &Server{
+				cli:               &config.CLI{ServerHost: "node.example", BroadcasterHost: "node.example"},
+				identityDirectory: func() identity.Directory { return &dir },
+			}
 			e := echo.New()
 			e.Use(s.ContextPreservingMiddleware())
 			require.NoError(t, s.RegisterHandlersComatproto(e))
 
-			var did, service string
+			const did = "did:plc:ho26ynsdw2ey7l56xx4owjzd"
 			var requests atomic.Int32
 			upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path == "/"+did {
-					_ = json.NewEncoder(w).Encode(map[string]any{
-						"id": did,
-						"service": []map[string]string{{
-							"id": "#atproto_pds", "type": "AtprotoPersonalDataServer", "serviceEndpoint": service,
-						}},
-					})
-					return
-				}
 				// Bound the broken implementation so a regression never exhausts
 				// sockets or leaves recursive requests running after the test.
 				if requests.Add(1) > 4 {
@@ -48,8 +44,14 @@ func TestRepoProxyLoop(t *testing.T) {
 				e.ServeHTTP(w, r)
 			}))
 			defer upstream.Close()
-			service = upstream.URL
-			did = "did:plc:ho26ynsdw2ey7l56xx4owjzd"
+			service := upstream.URL
+			dir.Insert(identity.Identity{
+				DID:    syntax.DID(did),
+				Handle: syntax.HandleInvalid,
+				Services: map[string]identity.ServiceEndpoint{
+					"atproto_pds": {Type: "AtprotoPersonalDataServer", URL: service},
+				},
+			})
 			repoTestClients(t, upstream)
 			params := url.Values{"repo": {did}, "collection": {"app.bsky.actor.profile"}, "rkey": {"self"}}
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -69,27 +71,16 @@ func TestRepoProxyLoop(t *testing.T) {
 // every marked request at ingress would break reads between Streamplace nodes.
 func TestRepoProxyLocalRecord(t *testing.T) {
 	var e *echo.Echo
-	var did, service string
 	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/.well-known/did.json" {
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id": did,
-				"service": []map[string]string{{
-					"id": "#atproto_pds", "type": "AtprotoPersonalDataServer", "serviceEndpoint": service,
-				}},
-			})
-			return
-		}
 		e.ServeHTTP(w, r)
 	}))
 	defer upstream.Close()
-	service = upstream.URL
+	service := upstream.URL
 	cli, router := newSyncTestNode(t, "node.example", "node.example")
 	e = router
-	did = cli.ServerDID()
+	did := cli.ServerDID()
 	commitTestRecord(t, cli, "place.stream.live.viewerCount", "streamer")
 
-	repoTestClients(t, upstream)
 	params := url.Values{"repo": {did}, "collection": {"place.stream.live.viewerCount"}, "rkey": {"streamer"}}
 	req, err := http.NewRequest(http.MethodGet, service+"/xrpc/com.atproto.repo.getRecord?"+params.Encode(), nil)
 	require.NoError(t, err)
@@ -109,21 +100,109 @@ func TestRepoProxyLocalRecord(t *testing.T) {
 	require.Equal(t, 7, record.Value.Count)
 }
 
+func TestRepoProxyConfiguredDirectory(t *testing.T) {
+	const did = "did:plc:ho26ynsdw2ey7l56xx4owjzd"
+	const recordURI = "at://" + did + "/app.bsky.actor.profile/self"
+	var service string
+	var identityRequests, recordRequests atomic.Int32
+	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/" + did:
+			identityRequests.Add(1)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": did,
+				"service": []map[string]string{
+					{"id": "#atproto_pds", "type": "AtprotoPersonalDataServer", "serviceEndpoint": service},
+					{"id": "#streamplace", "type": "Streamplace", "serviceEndpoint": "https://station.example"},
+				},
+			})
+		case "/xrpc/com.atproto.repo.getRecord":
+			recordRequests.Add(1)
+			require.Equal(t, did, r.URL.Query().Get("repo"))
+			require.Equal(t, "app.bsky.actor.profile", r.URL.Query().Get("collection"))
+			require.Equal(t, "self", r.URL.Query().Get("rkey"))
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"uri": recordURI,
+				"value": map[string]string{
+					"$type": "app.bsky.actor.profile", "displayName": "Configured directory",
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+	service = upstream.URL
+	repoTestClients(t, upstream)
+	dir := &identity.BaseDirectory{PLCURL: upstream.URL, HTTPClient: *upstream.Client()}
+	s := &Server{
+		cli:               &config.CLI{ServerHost: "station.example", BroadcasterHost: "node.example"},
+		identityDirectory: func() identity.Directory { return dir },
+	}
+
+	record, err := s.handleComAtprotoRepoGetRecord(context.Background(), "", "app.bsky.actor.profile", did, "self")
+	require.NoError(t, err)
+	require.Equal(t, recordURI, record.Uri)
+	require.EqualValues(t, 1, identityRequests.Load(), "DID resolution must use the configured PLC directory")
+	require.EqualValues(t, 1, recordRequests.Load(), "the account PDS, not the station service, must serve the record")
+}
+
+func TestResolveRepoServiceConfiguredIdentity(t *testing.T) {
+	const did = "did:plc:ho26ynsdw2ey7l56xx4owjzd"
+	const handle = "account.example"
+	const pds = "https://pds.example"
+	dir := identity.NewMockDirectory()
+	dir.Insert(identity.Identity{
+		DID:    syntax.DID(did),
+		Handle: syntax.Handle(handle),
+		Services: map[string]identity.ServiceEndpoint{
+			"atproto_pds": {Type: "AtprotoPersonalDataServer", URL: pds},
+		},
+	})
+	s := &Server{
+		cli:               &config.CLI{ServerHost: "station.example", BroadcasterHost: "node.example"},
+		identityDirectory: func() identity.Directory { return &dir },
+	}
+	for _, repo := range []string{did, handle} {
+		t.Run(repo, func(t *testing.T) {
+			resolvedDID, service, resolvedHandle, err := s.resolveRepoService(context.Background(), repo)
+			require.NoError(t, err)
+			require.Equal(t, did, resolvedDID)
+			require.Equal(t, pds, service)
+			require.Equal(t, handle, resolvedHandle)
+			local, service, err := s.isLocalPDS(context.Background(), repo)
+			require.NoError(t, err)
+			require.False(t, local, "the station must not treat an upstream account's PDS as a local repository")
+			require.Equal(t, pds, service)
+		})
+	}
+}
+
+func TestIsLocalPDSOwnDIDsWithoutLookup(t *testing.T) {
+	for _, serverHost := range []string{"", "node.example", "station.example"} {
+		t.Run(serverHost, func(t *testing.T) {
+			s := &Server{
+				cli: &config.CLI{ServerHost: serverHost, BroadcasterHost: "node.example"},
+				identityDirectory: func() identity.Directory {
+					t.Fatal("own repository routing must not consult the identity directory")
+					return nil
+				},
+			}
+			for _, did := range []string{s.cli.ServerDID(), s.cli.BroadcasterDID()} {
+				local, service, err := s.isLocalPDS(context.Background(), did)
+				require.NoError(t, err)
+				require.True(t, local)
+				require.Empty(t, service)
+			}
+		})
+	}
+}
+
 func repoTestClients(t *testing.T, upstream *httptest.Server) {
 	t.Helper()
-	originalClient, originalDefault := aqhttp.Client, http.DefaultClient
+	originalClient := aqhttp.Client
 	aqhttp.Client = *upstream.Client()
-	// oatproxy's service resolver currently uses http.DefaultClient rather
-	// than its client argument. Route its real HTTPS lookups to this fixture.
-	transport := upstream.Client().Transport.(*http.Transport).Clone()
-	transport.TLSClientConfig = transport.TLSClientConfig.Clone()
-	transport.TLSClientConfig.ServerName = "127.0.0.1"
-	transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
-		return (&net.Dialer{}).DialContext(ctx, network, upstream.Listener.Addr().String())
-	}
-	http.DefaultClient = &http.Client{Transport: transport, Timeout: 5 * time.Second}
 	t.Cleanup(func() {
-		aqhttp.Client, http.DefaultClient = originalClient, originalDefault
-		transport.CloseIdleConnections()
+		aqhttp.Client = originalClient
 	})
 }

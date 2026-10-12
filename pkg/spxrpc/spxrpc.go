@@ -170,7 +170,11 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 }
 
 func (s *Server) isLocalPDS(ctx context.Context, repo string) (bool, string, error) {
-	did, svc, _, err := resolveRepoService(ctx, repo)
+	// Our own repositories are local even when their DID documents cannot be fetched.
+	if repo == s.cli.BroadcasterDID() || repo == s.cli.ServerDID() {
+		return true, "", nil
+	}
+	did, svc, _, err := s.resolveRepoService(ctx, repo)
 	if err != nil {
 		return false, "", fmt.Errorf("resolveRepoService: %w", err)
 	}

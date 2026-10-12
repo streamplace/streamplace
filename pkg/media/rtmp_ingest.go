@@ -68,7 +68,7 @@ func RTMPIngestUnpublished(ctx context.Context, cli *config.CLI, rtmpURL string,
 		}
 	}
 	signStream := func(c context.Context, input io.Reader, events chan *muxl.MuxlEvent) error {
-		err := ms.SignSegmentStream(c, input, events)
+		err := ms.SignSegmentStream(c, input, events, false)
 		fail(err)
 		return err
 	}

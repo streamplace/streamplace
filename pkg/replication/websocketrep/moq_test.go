@@ -37,7 +37,7 @@ func signedSegments(t *testing.T, ctx context.Context) [][]byte {
 	events := make(chan *muxl.MuxlEvent, 16)
 	signed := make(chan error, 1)
 	go func() {
-		signed <- ms.SignSegmentStream(ctx, bytes.NewReader(frag), events)
+		signed <- ms.SignSegmentStream(ctx, bytes.NewReader(frag), events, false)
 		close(events)
 	}()
 	var segments [][]byte

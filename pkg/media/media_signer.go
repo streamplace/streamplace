@@ -33,7 +33,10 @@ type MediaSigner interface {
 	// signer, emitting one signed-segment event per GoP on eventCh. The
 	// segment bytes routed in each event are bare canonical .m4s
 	// ([c2pa-uuid][muxl-uuid][moof][mdat] per track) — no flat wrapper.
-	SignSegmentStream(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error
+	// sourceTrackMeta carries the input's audio alternate groups and track
+	// names into the signed catalogs (the OBS plugin's stems); other inputs
+	// leave it off, since muxers disagree on what those fields mean.
+	SignSegmentStream(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent, sourceTrackMeta bool) error
 	Pub() aqpub.Pub
 	Streamer() string
 	DID() string
@@ -199,7 +202,7 @@ func (ms *MediaSignerLocal) buildManifest(ctx context.Context, start int64) ([]b
 // it signs. Signing backend: an *ecdsa.PrivateKey is marshaled to PEM and
 // signed in-wasm, otherwise the host-callback path keeps the key out of the
 // sandbox.
-func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
+func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent, sourceTrackMeta bool) error {
 	ctx, span := signerTracer.Start(ctx, "SignSegmentStream", trace.WithAttributes(
 		attribute.String("streamer", ms.StreamerName),
 	))
@@ -215,6 +218,7 @@ func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Read
 		CertPEM:           ms.Cert,
 		TrackManifestFn:   fetchManifest,
 		WrapperManifestFn: fetchManifest,
+		SourceTrackMeta:   sourceTrackMeta,
 	}
 	if _, ok := ms.Signer.(*ecdsa.PrivateKey); ok {
 		keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)

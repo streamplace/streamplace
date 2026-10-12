@@ -169,7 +169,10 @@ CA. The harness prints local/station/MoQ URLs, and uses actual per-DID QUIC
 subscriptions rather than a mock firehose.
 
 `setup/oauth-login.yaml` completes the local → HTTPS station → PDS consent
-chain. `logged-in/upstream-station.yaml` performs an authenticated chat write,
+chain. Upstream mode defers fixture go-live until this login, so its first-card
+wait allows 60 seconds for initial segments and the existing 30-second feed-cache
+TTL; standalone setup has already established go-live and retains its 30-second
+wait. `logged-in/upstream-station.yaml` performs an authenticated chat write,
 kills/relaunches the app, checks indexed history rather than an optimistic
 bubble, and writes again with the restored OAuth session. It is platform-neutral
 and uses the same semantic selectors on Android and iOS. Browser coverage adds

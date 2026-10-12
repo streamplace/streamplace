@@ -605,8 +605,8 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		vars += fmt.Sprintf("PDS_HTTPS_URL=%s\nE2E_PROXY_URL=%s\nE2E_TLS_SPKI=%s\nE2E_TLS_CA=%s\n",
 			tlsEnv.PDSURL(), tlsEnv.ProxyURL(), tlsEnv.spki, tlsEnv.caPath)
 		if local != nil {
-			vars += fmt.Sprintf("E2E_UPSTREAM_STATION=true\nUPSTREAM_STATION_URL=%s\nATMOQ_RELAY_URL=%s\nE2E_ATMOQ_LOG=%s\nE2E_LOCAL_DATA_DIR=%s\nE2E_STATION_DATA_DIR=%s\nE2E_LOCAL_PDS_AUDIT=%s\nUNRELATED_ACCOUNT_DID=%s\nUNRELATED_ACCOUNT_HANDLE=%s\nUNRELATED_ACCESS_JWT=%s\nE2E_PDS_INTERNAL_URL=%s\n",
-				tlsEnv.StationURL(), bridgeURL, filepath.Join(tlsEnv.dir, "atmoq.log"), local.dataDir, dataDir, tlsEnv.auditPath, unrelated.did, unrelated.handle, unrelated.accessJWT, env.PDSURL)
+			vars += fmt.Sprintf("E2E_UPSTREAM_STATION=true\nUPSTREAM_STATION_URL=%s\nATMOQ_RELAY_URL=%s\nE2E_ATMOQ_LOG=%s\nE2E_LOCAL_DATA_DIR=%s\nE2E_STATION_DATA_DIR=%s\nE2E_LOCAL_PDS_AUDIT=%s\nUNRELATED_ACCOUNT_DID=%s\nUNRELATED_ACCOUNT_HANDLE=%s\nUNRELATED_ACCESS_JWT=%s\nE2E_PDS_INTERNAL_URL=%s\nE2E_PLC_URL=%s\n",
+				tlsEnv.StationURL(), bridgeURL, filepath.Join(tlsEnv.dir, "atmoq.log"), local.dataDir, dataDir, tlsEnv.auditPath, unrelated.did, unrelated.handle, unrelated.accessJWT, env.PDSURL, env.PLCURL)
 		} else {
 			vars += fmt.Sprintf("SERVER_HTTPS_URL=%s\n", tlsEnv.StationURL())
 		}

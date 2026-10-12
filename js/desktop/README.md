@@ -26,6 +26,9 @@ local users. Startup, sweeps, history backfill and event handling use the same
 persisted OAuth eligibility; previously indexed repos do not authorize new
 scraping. Logout removes eligibility when the last local grant ends. Existing
 indexed records remain on disk, but no longer receive updates.
+After subscribing or reconnecting, the node queues a head check and shallow
+repair for that DID behind any active sweep. Sparse tracks do not depend on
+firehose replay or wait for the next periodic sweep to recover missed writes.
 
 OAuth has three independent DPoP sessions: frontend → loopback node → HTTPS
 station → PDS. Only the station needs a public HTTPS callback and retains the

@@ -114,6 +114,7 @@ export function ChatBox({
 
   const pdsAgent = usePDSAgent();
   const userDID = useDID();
+  const canSend = !submitting && !!pdsAgent && !!userDID && !!profile;
   const setActiveTeleportUri = useLivestreamStore(
     (state) => state.setActiveTeleportUri,
   );
@@ -333,7 +334,7 @@ export function ChatBox({
   };
 
   const submit = async () => {
-    if (!message.trim()) return;
+    if (!canSend || !message.trim()) return;
     if (graphemer.countGraphemes(message) > 300) {
       toast.show(
         "Message too long",
@@ -584,7 +585,7 @@ export function ChatBox({
         </View>
         <View>
           <Button
-            disabled={submitting}
+            disabled={!canSend}
             variant="secondary"
             width="min"
             style={{ borderRadius: theme.borderRadius.md, height: 43 }}

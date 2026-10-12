@@ -520,11 +520,11 @@ func (atsync *ATProtoSynchronizer) sweepLoop(ctx context.Context, bootDelay, int
 // queued: the next one is another interval away, which is exactly when a sweep
 // that just finished should run again.
 func (atsync *ATProtoSynchronizer) sweepOnce(ctx context.Context, sweep func(context.Context) error) {
-	if !atsync.sweeping.CompareAndSwap(false, true) {
+	if !atsync.sweeping.TryLock() {
 		log.Log(ctx, "skipping scheduled sweep; the previous one is still running")
 		return
 	}
-	defer atsync.sweeping.Store(false)
+	defer atsync.sweeping.Unlock()
 	if err := sweep(ctx); err != nil && ctx.Err() == nil {
 		log.Error(ctx, "backfill sweep failed", "err", err)
 	}
@@ -585,6 +585,21 @@ func (atsync *ATProtoSynchronizer) sweep(ctx context.Context, ladders bool) erro
 	if err != nil {
 		return err
 	}
+	return atsync.sweepRepos(ctx, dids, ladders)
+}
+
+// repairSubscribedRepo must run after any active head-check pass, not be
+// discarded like a periodic tick: sparse tracks cannot replay a reconnect gap.
+func (atsync *ATProtoSynchronizer) repairSubscribedRepo(ctx context.Context, did string) error {
+	atsync.sweeping.Lock()
+	defer atsync.sweeping.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return atsync.sweepRepos(ctx, []string{did}, false)
+}
+
+func (atsync *ATProtoSynchronizer) sweepRepos(ctx context.Context, dids []string, ladders bool) error {
 	log.Log(ctx, "starting backfill sweep", "totalRepos", len(dids),
 		"concurrency", atsync.sweepConcurrency(), "deepening", ladders)
 

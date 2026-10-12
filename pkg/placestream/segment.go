@@ -67,9 +67,13 @@ func (t *Segment) UnmarshalCBOR(r io.Reader) error {
 // Segment_Audio is a "audio" in the place.stream.segment schema.
 type Segment_Audio struct {
 	LexiconTypeID string `json:"$type,omitempty"`
-	Channels      int64  `json:"channels"`
-	Codec         string `json:"codec"`
-	Rate          int64  `json:"rate"`
+	// alternateGroup: Audio tracks sharing this value carry the same sound in different codecs. Tracks with different values are independent and play together: the lowest group is the full mix, and higher groups are stems a viewer can mix in. Absent when the stream doesn't distinguish its audio tracks.
+	AlternateGroup *int64 `json:"alternateGroup,omitempty"`
+	Channels       int64  `json:"channels"`
+	Codec          string `json:"codec"`
+	// label: The streamer's name for this audio track, such as "Music".
+	Label *string `json:"label,omitempty"`
+	Rate  int64   `json:"rate"`
 }
 
 // RecordTypeID implements glex.Record.

@@ -68,6 +68,7 @@ void fmp4_free(struct fmp4_mux *mux)
 			obs_encoder_packet_release(&track->samples.array[j].packet);
 		da_free(track->samples);
 		bfree(track->config);
+		bfree(track->label);
 	}
 	da_free(mux->tracks);
 	mux->sequence = 0;
@@ -89,6 +90,8 @@ size_t fmp4_add_track(struct fmp4_mux *mux, const struct fmp4_track *info)
 	track->bitrate = info->bitrate;
 	track->config = bmemdup(info->config, info->config_size);
 	track->config_size = info->config_size;
+	track->alternate_group = info->alternate_group;
+	track->label = info->label ? bstrdup(info->label) : NULL;
 	return mux->tracks.num - 1;
 }
 
@@ -118,7 +121,7 @@ static void write_tkhd(struct serializer *s, const struct fmp4_track *track)
 	s_wb32(s, 0);                              // duration
 	write_zeros(s, 8);                         // reserved
 	s_wb16(s, 0);                              // layer
-	s_wb16(s, 0);                              // alternate_group
+	s_wb16(s, track->alternate_group);
 	s_wb16(s, is_video(track) ? 0 : 0x0100);   // volume
 	s_wb16(s, 0);                              // reserved
 	write_matrix(s);
@@ -339,6 +342,16 @@ static void write_trak(struct serializer *s, const struct fmp4_track *track)
 	box_end(s, minf);
 
 	box_end(s, mdia);
+
+	/* The track title, in ffmpeg's form: a udta holding a name box whose
+	 * payload is the bare UTF-8 string. */
+	if (track->label && *track->label) {
+		int64_t udta = box_begin(s, "udta");
+		int64_t name = box_begin(s, "name");
+		s_write(s, track->label, strlen(track->label));
+		box_end(s, name);
+		box_end(s, udta);
+	}
 	box_end(s, trak);
 }
 

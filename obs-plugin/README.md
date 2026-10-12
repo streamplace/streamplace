@@ -35,7 +35,10 @@ When you start streaming, the plugin does three things in order.
    the shape of OBS's
    [GoLiveApi `PostData`](https://github.com/obsproject/obs-studio/blob/master/frontend/utility/models/multitrack-video.hpp).
    `authentication` carries the stream key, and `client.supported_codecs` is
-   `["h264"]`.
+   `["h264"]`. As a Streamplace extension, `preferences.audio_tracks` lists
+   OBS's six mixer tracks as `{"track_id", "name"}`, with the names set in
+   Settings → Output → Audio (empty when unnamed), so the server can ask for
+   named tracks as stems.
 2. It reads the response as a GoLiveApi `Config`:
    - `status.result: "error"` stops the stream and shows `status.html_en_us`.
    - `ingest_endpoints`: the plugin uses the first entry whose `protocol` is
@@ -45,7 +48,10 @@ When you start streaming, the plugin does three things in order.
      becomes one video track.
    - `audio_configurations.live` creates one audio encoder per entry. `codec`
      is `aac` or `opus`, and `track_id` is the zero-based OBS audio mixer track
-     to encode.
+     to encode. Each such track is written with `tkhd.alternate_group` set to
+     `track_id + 1`, so the AAC and Opus encodes of one mixer track share a
+     group, and with the mixer track's name (or "Track N") as its title in
+     `trak/udta/name`, the box ffmpeg writes a track title to.
    - If either list is empty, the plugin uses OBS's own encoders for that kind
      of track.
 3. It sends `POST` to the ingest URL with `Transfer-Encoding: chunked` and a

@@ -172,11 +172,8 @@ jobs:
       - name: Install atmoq relay fixture
         if: matrix.mode == 'upstream'
         run: |
-          curl -fsSL -o "$RUNNER_TEMP/atmoq.tar.gz" https://github.com/streamplace/atmoq/releases/download/v0.1.1/atmoq-v0.1.1-x86_64-unknown-linux-gnu.tar.gz
-          echo "513ea3c7e0702b4d6ede99c416fee6faca361df4bceeeaefd24edaffc6c59d29  $RUNNER_TEMP/atmoq.tar.gz" | sha256sum -c -
-          mkdir -p "$RUNNER_TEMP/atmoq-bin"
-          tar -xzf "$RUNNER_TEMP/atmoq.tar.gz" -C "$RUNNER_TEMP/atmoq-bin"
-          echo "$RUNNER_TEMP/atmoq-bin" >> "$GITHUB_PATH"
+          cargo install --git https://github.com/streamplace/atmoq --rev 09a604b0b00b1eb063295746de1878a258e88d5b --locked --root "$RUNNER_TEMP/atmoq-bin" atmoq
+          echo "$RUNNER_TEMP/atmoq-bin/bin" >> "$GITHUB_PATH"
       - name: Build Desktop e2e entry point
         if: matrix.mode == 'upstream'
         run: |
@@ -253,11 +250,8 @@ jobs:
           echo "$HOME/.maestro-dist/maestro/bin" >> $GITHUB_PATH
       - name: Install atmoq relay fixture
         run: |
-          curl -fsSL -o "$RUNNER_TEMP/atmoq.tar.gz" https://github.com/streamplace/atmoq/releases/download/v0.1.1/atmoq-v0.1.1-x86_64-unknown-linux-gnu.tar.gz
-          echo "513ea3c7e0702b4d6ede99c416fee6faca361df4bceeeaefd24edaffc6c59d29  $RUNNER_TEMP/atmoq.tar.gz" | sha256sum -c -
-          mkdir -p "$RUNNER_TEMP/atmoq-bin"
-          tar -xzf "$RUNNER_TEMP/atmoq.tar.gz" -C "$RUNNER_TEMP/atmoq-bin"
-          echo "$RUNNER_TEMP/atmoq-bin" >> "$GITHUB_PATH"
+          cargo install --git https://github.com/streamplace/atmoq --rev 09a604b0b00b1eb063295746de1878a258e88d5b --locked --root "$RUNNER_TEMP/atmoq-bin" atmoq
+          echo "$RUNNER_TEMP/atmoq-bin/bin" >> "$GITHUB_PATH"
 
       - uses: actions/cache@v4
         id: avd-cache

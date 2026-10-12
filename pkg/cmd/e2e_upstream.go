@@ -75,7 +75,7 @@ func waitE2EHealth(ctx context.Context, healthURL string) error {
 
 func startE2EBridge(ctx context.Context, tlsEnv *e2eHTTPS, pdsURL, binary string) (*exec.Cmd, string, error) {
 	// QUIC binds UDP, not TCP. Reserve an unused UDP port before handing it to
-	// the released bridge, rather than guessing from the node's TCP ports.
+	// the real bridge, rather than guessing from the node's TCP ports.
 	if err := tlsEnv.BridgeTLS(); err != nil {
 		return nil, "", fmt.Errorf("write bridge TLS: %w", err)
 	}
@@ -108,9 +108,9 @@ func startE2EBridge(ctx context.Context, tlsEnv *e2eHTTPS, pdsURL, binary string
 	cmd.Stderr = cmd.Stdout
 	setNodeProcessGroup(cmd)
 	if err := cmd.Start(); err != nil {
-		return nil, "", fmt.Errorf("start released atmoq bridge (%s): %w", binary, err)
+		return nil, "", fmt.Errorf("start atmoq bridge (%s): %w", binary, err)
 	}
-	// Raw MoQ on the released Rust server requires SNI; Go correctly omits
+	// Raw MoQ on the Rust server requires SNI; Go correctly omits
 	// SNI for an IP literal. Dial the verified fixture DNS name instead.
 	_, port, _ := net.SplitHostPort(addr)
 	relayURL := "moqt://" + net.JoinHostPort(tlsEnv.stationHost, port)

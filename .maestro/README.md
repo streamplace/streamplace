@@ -161,15 +161,15 @@ with no port.
 ## Upstream-station native flow
 
 The default single-node plan excludes flows tagged `upstream-station`. Opt in
-with the real released atmoq v0.1.1 executable (or a locked build of that exact
-release if its prebuilt glibc requirement is newer than the host):
+with the real atmoq executable built from the pinned, certificate-watcher-fixed
+commit in [the Web harness prerequisites](../js/e2e-web/README.md#upstream-station-topology):
 
 ```bash
 make android-e2e
-SP_E2E_ATMOQ_BIN=/path/to/released/atmoq \
+SP_E2E_ATMOQ_BIN=/path/to/atmoq \
   hack/e2e-local.sh android --upstream-station
 # Explicit subset, including server setup and real OAuth prerequisites:
-SP_E2E_ATMOQ_BIN=/path/to/released/atmoq \
+SP_E2E_ATMOQ_BIN=/path/to/atmoq \
   E2E_FLOWS=.maestro/logged-in/upstream-station.yaml \
   hack/e2e-local.sh android --upstream-station
 ```
@@ -202,7 +202,7 @@ notification permission, and start the same harness from the checkout root:
 ```bash
 # Keep this shell alive; its EXIT trap owns the harness and the ephemeral CA.
 export SP_E2E_UPSTREAM_STATION=true
-export SP_E2E_ATMOQ_BIN=/path/to/released/atmoq
+export SP_E2E_ATMOQ_BIN=/path/to/atmoq
 export SP_E2E_APP_BUNDLE_ID=<installed-app-bundle-id>
 . hack/lib/e2e-harness.sh
 e2e_harness_start

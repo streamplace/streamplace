@@ -169,7 +169,8 @@ Renewal coverage uses the actual browser's persisted DPoP key and local
 to make genuine station/PDS refresh deterministic; keys, tokens and protocol
 responses are never faked. A grant-scoped fixture trigger keeps the old token's
 timestamp expired through concurrent nonce writes; genuine token rotation ends
-that override. A harness-stdin `restart-local` command restarts the real Go node
+that override. Each attempt replaces the trigger so CI retries can reuse the
+harness databases. A harness-stdin `restart-local` command restarts the real Go node
 with its on-disk sessions and acknowledges readiness in a private file.
 Authenticated writes and indexed history must survive that restart.
 Real browser logout revokes the local downstream session and stops the final

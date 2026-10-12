@@ -279,6 +279,7 @@ expired = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(min
 # Concurrent nonce persistence can restore an in-flight session's old timestamp.
 # Keep this grant expired until its genuine upstream token changes.
 token = conn.execute('SELECT upstream_access_token FROM oauth_sessions WHERE downstream_dpop_jkt = ?', (sys.argv[2],)).fetchone()[0]
+conn.execute('DROP TRIGGER IF EXISTS e2e_force_renewal')
 conn.execute(f"""
 CREATE TRIGGER e2e_force_renewal AFTER UPDATE ON oauth_sessions
 WHEN NEW.downstream_dpop_jkt = CAST(X'{sys.argv[2].encode().hex()}' AS TEXT)

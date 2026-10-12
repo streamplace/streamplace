@@ -276,6 +276,19 @@ test("upstream-station: local login, isolated DPoP hops, MoQ indexing, refresh a
 import datetime, sqlite3, sys
 conn = sqlite3.connect(sys.argv[1] + '/state.sqlite', timeout=10)
 expired = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=1)).isoformat()
+# Concurrent nonce persistence can restore an in-flight session's old timestamp.
+# Keep this grant expired until its genuine upstream token changes.
+token = conn.execute('SELECT upstream_access_token FROM oauth_sessions WHERE downstream_dpop_jkt = ?', (sys.argv[2],)).fetchone()[0]
+conn.execute(f"""
+CREATE TRIGGER e2e_force_renewal AFTER UPDATE ON oauth_sessions
+WHEN NEW.downstream_dpop_jkt = CAST(X'{sys.argv[2].encode().hex()}' AS TEXT)
+AND NEW.upstream_access_token = CAST(X'{token.encode().hex()}' AS TEXT)
+AND datetime(NEW.upstream_access_token_exp) > datetime('now')
+BEGIN
+  UPDATE oauth_sessions SET upstream_access_token_exp = '2000-01-01T00:00:00Z'
+  WHERE downstream_dpop_jkt = NEW.downstream_dpop_jkt;
+END
+""")
 conn.execute('UPDATE oauth_sessions SET upstream_access_token_exp = ? WHERE downstream_dpop_jkt = ?', (expired, sys.argv[2]))
 conn.commit()
 `,

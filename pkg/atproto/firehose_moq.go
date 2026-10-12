@@ -34,7 +34,7 @@ const moqResumeProbeTimeout = 30 * time.Second
 // connect it tails the live edge. Gaps past the relay's retained window are
 // covered by cross-relay redelivery and the idempotent handlers, exactly as for
 // the best-effort WebSocket cursor.
-func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay, track string, cursor *relayCursor) error {
+func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay, track string, cursor *relayCursor, repairs chan<- struct{}) error {
 	streamCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -76,15 +76,11 @@ func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay, t
 	defer scheduler.Shutdown()
 
 	log.Log(ctx, "connected to relay firehose (moq)", "version", sess.Version(), "track", track)
-	if track != atmoq.DefaultTrack {
-		// Repair after any in-flight sweep, which may have checked this DID
-		// before the gap. The consumer context survives reconnects; revocation
-		// still cancels the queued repair.
-		go func() {
-			if err := atsync.repairSubscribedRepo(ctx, track); err != nil && ctx.Err() == nil {
-				log.Error(ctx, "failed to repair upstream repo after subscribing", "did", track, "err", err)
-			}
-		}()
+	if repairs != nil {
+		select {
+		case repairs <- struct{}{}:
+		default:
+		}
 	}
 	for {
 		// The relay accepts a SubscribeFrom for any group, including one past

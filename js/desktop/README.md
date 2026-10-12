@@ -27,8 +27,10 @@ persisted OAuth eligibility; previously indexed repos do not authorize new
 scraping. Logout removes eligibility when the last local grant ends. Existing
 indexed records remain on disk, but no longer receive updates.
 After subscribing or reconnecting, the node queues a head check and shallow
-repair for that DID behind any active sweep. Sparse tracks do not depend on
-firehose replay or wait for the next periodic sweep to recover missed writes.
+repair for that DID behind any active sweep. Reconnect bursts coalesce into one
+pending repair per DID; a gap during an active repair retains one follow-up.
+Sparse tracks do not depend on firehose replay or wait for the next periodic
+sweep to recover missed writes.
 
 OAuth has three independent DPoP sessions: frontend → loopback node → HTTPS
 station → PDS. Only the station needs a public HTTPS callback and retains the

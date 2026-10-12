@@ -77,14 +77,13 @@ func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay, t
 
 	log.Log(ctx, "connected to relay firehose (moq)", "version", sess.Version(), "track", track)
 	if track != atmoq.DefaultTrack {
-		// Reconcile after subscribing, so changes made while this sparse track
-		// was absent cannot fall between the PDS snapshot and live delivery.
-		// The consumer context survives reconnects; a dropped connection must
-		// not abort the gap repair it triggered.
+		// Repair after any in-flight sweep, which may have checked this DID
+		// before the gap. The consumer context survives reconnects; revocation
+		// still cancels the queued repair.
 		go func() {
-			atsync.sweepOnce(ctx, func(sweepCtx context.Context) error {
-				return atsync.sweep(sweepCtx, false)
-			})
+			if err := atsync.repairSubscribedRepo(ctx, track); err != nil && ctx.Err() == nil {
+				log.Error(ctx, "failed to repair upstream repo after subscribing", "did", track, "err", err)
+			}
 		}()
 	}
 	for {

@@ -113,6 +113,9 @@ async function sendChat(
   );
   const input = page.getByPlaceholder("Type a message...");
   await input.fill(message);
+  await expect(
+    page.getByRole("button", { name: "Send", exact: true }),
+  ).toBeEnabled();
   await input.press("Enter");
   const response = await created;
   expect(
@@ -187,11 +190,18 @@ async function refreshAtLocal(page: Page): Promise<void> {
         true &&
       response.ok(),
   );
+  const restoredProfile = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).origin === LOCAL &&
+      new URL(response.url()).pathname === "/xrpc/app.bsky.actor.getProfile" &&
+      response.ok(),
+  );
   await page.reload();
   const body = await (await refreshed).json();
   expect(body.sub).toBe(DID);
   expect(body.token_type).toBe("DPoP");
   expect(body.access_token).toBeTruthy();
+  expect((await (await restoredProfile).json()).did).toBe(DID);
 }
 
 test("upstream-station: local login, isolated DPoP hops, MoQ indexing, refresh and revoke", async ({

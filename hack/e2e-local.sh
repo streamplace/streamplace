@@ -98,7 +98,10 @@ adb_ shell settings put secure stylus_handwriting_enabled 0 || true
 # otherwise float over the app and eat maestro's taps
 adb_ shell settings put global hide_error_dialogs 1 || true
 
-if [ -z "${SERVER_HTTPS_URL:-}" ]; then
+if [ "${E2E_UPSTREAM_STATION:-}" = true ]; then
+  : "${UPSTREAM_STATION_URL:?upstream mode requires the station HTTPS URL}"
+  : "${PDS_HTTPS_URL:?upstream mode requires the PDS HTTPS URL}"
+elif [ -z "${SERVER_HTTPS_URL:-}" ]; then
   echo "the Android suite needs the harness's HTTPS mode (release builds refuse cleartext); unset E2E_HTTPS_PDS_HOSTNAME"
   exit 1
 fi
@@ -143,13 +146,14 @@ adb_ shell pm grant "$APP_ID" android.permission.POST_NOTIFICATIONS 2>/dev/null 
 adb_ shell am force-stop com.android.chrome || true
 
 
-APP_SERVER_URL="$SERVER_HTTPS_URL"
 if [ "${E2E_UPSTREAM_STATION:-}" = true ]; then
   # Keep the issuer and callback loopback names identical on host and device.
   # Merely substituting 10.0.2.2 would change the DPoP-bound request target.
   local_port="${SERVER_URL##*:}"
   adb_ reverse "tcp:$local_port" "tcp:$local_port"
   APP_SERVER_URL="$SERVER_URL"
+else
+  APP_SERVER_URL="$SERVER_HTTPS_URL"
 fi
 if [ "${E2E_UPSTREAM_STATION:-}" = true ]; then
   e2e_android_stop() {

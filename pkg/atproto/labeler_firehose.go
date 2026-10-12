@@ -24,6 +24,9 @@ import (
 )
 
 func (atsync *ATProtoSynchronizer) StartLabelerFirehose(ctx context.Context, did string) error {
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
+		return err
+	}
 	// The series exists at 0 from here, so a labeler that never connects
 	// shows as 0 rather than as nothing.
 	spmetrics.LabelerFirehosesConnected.WithLabelValues(did)
@@ -33,6 +36,9 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehose(ctx context.Context, did
 	for {
 		if ctx.Err() != nil {
 			return nil
+		}
+		if _, err := atsync.indexingDID(ctx, did); err != nil {
+			return err
 		}
 		err := atsync.StartLabelerFirehoseRetry(ctx, did)
 		if err != nil {
@@ -59,6 +65,9 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehose(ctx context.Context, did
 }
 
 func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context, did string) error {
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
+		return err
+	}
 	ctx = log.WithLogValues(ctx, "func", "StartLabelerFirehose")
 
 	ident, err := atsync.resolveIdent(ctx, did, true)
@@ -118,6 +127,9 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 	defer spmetrics.LabelerFirehosesConnected.WithLabelValues(did).Dec()
 	rsc := &events.RepoStreamCallbacks{
 		LabelLabels: func(evt *indigoatproto.LabelSubscribeLabels_Labels) error {
+			if _, err := atsync.indexingDID(ctx, did); err != nil {
+				return err
+			}
 			err = atsync.Model.UpdateLabelerCursor(did, evt.Seq)
 			if err != nil {
 				log.Error(ctx, "failed to update labeler cursor", "err", err)

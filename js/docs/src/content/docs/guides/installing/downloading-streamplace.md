@@ -91,3 +91,45 @@ host networking. So that command would look something like:
 
 Binaries for all platforms are available to download from
 [our GitLab server](https://git.stream.place/streamplace/streamplace/-/releases).
+
+## Local node with an upstream station
+
+```shell
+streamplace --http-addr=127.0.0.1:38080 \
+  --upstream-station=did:web:stream.place
+```
+
+`SP_UPSTREAM_STATION` is the environment equivalent. Without it, normal server
+indexing and relay selection remain unchanged. With it, the node discovers the
+station's HTTPS OAuth origin and MoQ firehose from its DID document. There is no
+fallback to `bsky.network` or the local PDS firehose.
+
+The local node indexes only users with a successfully completed, non-revoked
+local OAuth grant. Pending logins, unrelated followed users and repos left over
+from a previous standalone run do not permit PDS scraping. Per-DID subscriptions
+start at login and end when the last eligible grant ends. Reconnects reconcile
+the same scoped users with their actual PDS; historical records remain on disk
+after logout.
+
+Local HTTP OAuth requires a loopback listener. The local node delegates to the
+station using its own DPoP key; the station independently authenticates to the
+PDS using its public HTTPS callback. No public callback or development-only
+OAuth flag is needed on the local node.
+
+### Preparing an upstream station
+
+Run an `atmoq serve` bridge against the station's upstream atproto relay, with
+a valid TLS certificate and reachable QUIC UDP port. Advertise its origin:
+
+```ini
+SP_ATMOQ_RELAY=moqt://firehose.example.com:443
+```
+
+The station's DID document then includes an `#atmoq` service of type
+`AtprotoMoQRelay`, alongside the existing `#streamplace` HTTPS origin. Clients
+fail startup if either advertisement is absent or malformed. Use a DNS name
+matching the certificate: released atmoq v0.1.1 requires TLS SNI for raw MoQ,
+which Go does not send for numeric-IP URLs.
+
+Deploy the station's chained-OAuth support and MoQ advertisement before
+releasing Desktop clients that default to `did:web:stream.place`.

@@ -1,40 +1,24 @@
-import type { OAuthAuthorizationServerMetadata } from "@atproto/oauth-client";
-import {
-  OAuthResolver,
-  ResolveOAuthOptions,
-} from "@atproto/oauth-client/dist/oauth-resolver";
+import type { OAuthResolver } from "@atproto/oauth-client/dist/oauth-resolver";
 
-export class StreamplaceOAuthResolver extends OAuthResolver {
-  private currentResourceServer: string | null = null;
-
-  constructor(
-    private streamplaceUrl: string,
-    ...args: ConstructorParameters<typeof OAuthResolver>
-  ) {
-    super(...args);
-  }
-
-  async resolveFromService(
-    input: string,
-    options?: ResolveOAuthOptions,
-  ): Promise<{
-    metadata: OAuthAuthorizationServerMetadata;
-  }> {
-    // Input is the resource server URL (e.g., https://selfhosted.social)
-    // Store it for use in login_hint
-    this.currentResourceServer = input;
-
-    // Always fetch metadata from our backend
-    // The issuer will be our backend, not the resource server
-    const metadata = await this.getResourceServerMetadata(
-      this.streamplaceUrl,
+// The SDK's server factory captures this object during construction. Configure
+// its methods in place so authorization, callbacks and refresh share routing.
+export function routeOAuthThroughStreamplace(
+  resolver: OAuthResolver,
+  streamplaceUrl: string,
+): () => string | null {
+  let loginHint: string | null = null;
+  resolver.resolveFromService = async (input, options) => {
+    loginHint = input;
+    const metadata = await resolver.getResourceServerMetadata(
+      streamplaceUrl,
       options,
     );
-
     return { metadata };
-  }
-
-  getCurrentResourceServer(): string | null {
-    return this.currentResourceServer;
-  }
+  };
+  resolver.resolveFromIdentity = async (input, options) => {
+    const identityInfo = await resolver.resolveIdentity(input, options);
+    const { metadata } = await resolver.resolveFromService(input, options);
+    return { identityInfo, metadata, pds: new URL(streamplaceUrl) };
+  };
+  return () => loginHint;
 }

@@ -142,6 +142,76 @@ serves HTTPS on 127.0.0.1:443 on that machine. Only set `E2E_HTTPS_PORT` when
 the redirect is in place: the app and PDS still use `https://<host>` URLs
 with no port.
 
+## Upstream-station native flow
+
+The default single-node plan excludes flows tagged `upstream-station`. Opt in
+with the real released atmoq v0.1.1 executable (or a locked build of that exact
+release if its prebuilt glibc requirement is newer than the host):
+
+```bash
+make android-e2e
+SP_E2E_ATMOQ_BIN=/path/to/released/atmoq \
+  hack/e2e-local.sh android --upstream-station
+# Explicit subset, including server setup and real OAuth prerequisites:
+SP_E2E_ATMOQ_BIN=/path/to/released/atmoq \
+  E2E_FLOWS=.maestro/logged-in/upstream-station.yaml \
+  hack/e2e-local.sh android --upstream-station
+```
+
+The runner selects the local HTTP `SERVER_URL`, not the HTTPS upstream station.
+It creates an owned `adb reverse tcp:<local-port> tcp:<local-port>` mapping and
+removes it at teardown. Using `10.0.2.2` as the node URL would change the
+DPoP-bound issuer/callback, so the app keeps `http://127.0.0.1:<local-port>`.
+The E2E-only network security plugin allows cleartext solely for `127.0.0.1`
+and `localhost`; ordinary releases and all other E2E destinations remain
+HTTPS-only. The station/PDS still use genuine TLS and the installed throwaway
+CA. The harness prints local/station/MoQ URLs, and uses actual per-DID QUIC
+subscriptions rather than a mock firehose.
+
+`setup/oauth-login.yaml` completes the local → HTTPS station → PDS consent
+chain. `logged-in/upstream-station.yaml` performs an authenticated chat write,
+kills/relaunches the app, checks indexed history rather than an optimistic
+bubble, and writes again with the restored OAuth session. It is platform-neutral
+and uses the same semantic selectors on Android and iOS. Browser coverage adds
+transport audits, renewal, the actual Go-node restart and final-user revocation
+checks; native coverage is login/write/app-relaunch, not a claim those lower-level
+assertions were run on a device.
+
+### iOS Simulator manual recipe (macOS required)
+
+The Linux runner cannot provision an iOS Simulator. On a macOS development
+machine, build/install the current app on a booted simulator, pre-grant its
+notification permission, and start the same harness from the checkout root:
+
+```bash
+# Keep this shell alive; its EXIT trap owns the harness and the ephemeral CA.
+export SP_E2E_UPSTREAM_STATION=true
+export SP_E2E_ATMOQ_BIN=/path/to/released/atmoq
+export SP_E2E_APP_BUNDLE_ID=<installed-app-bundle-id>
+. hack/lib/e2e-harness.sh
+e2e_harness_start
+xcrun simctl keychain booted add-root-cert "$E2E_TLS_CA"
+SP_E2E_UPSTREAM_STATION=true bash hack/maestro-config.sh \
+  .maestro/logged-in/upstream-station.yaml > /tmp/streamplace-ios-upstream.yaml
+maestro --device <booted-simulator-udid> test \
+  --config /tmp/streamplace-ios-upstream.yaml \
+  -e APP_ID="$SP_E2E_APP_BUNDLE_ID" -e SERVER_URL="$SERVER_URL" \
+  -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD" \
+  -e E2E_UPSTREAM_STATION=true .maestro
+```
+
+Simulator networking must also resolve the harness's `plc.directory` to this
+run's local PLC TLS front end, not the public directory: arrange a temporary
+local DNS/hosts override or a simulator CONNECT proxy using `E2E_PROXY_URL`,
+and remove only that override afterward. The station/PDS/account DNS names
+already need to resolve to host loopback as described above. Trust the CA in
+the simulator, not the macOS system keychain. Confirm the installed build's
+generated `Info.plist` permits local-network transport with
+`NSAllowsLocalNetworking=true`; do not enable blanket arbitrary HTTP loads.
+Remove the temporary workspace file and the simulator's test CA after the run.
+These are execution prerequisites, not
+evidence that an iOS run has occurred.
+
 ## Notes / gotchas
 
 - **Other adb devices:** maestro lists no Android devices at all ("Device

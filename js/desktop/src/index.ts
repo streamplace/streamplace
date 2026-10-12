@@ -12,7 +12,11 @@ import { makeWindow } from "./window";
 if (require("electron-squirrel-startup")) {
   app.quit();
 } else {
+  // Electron leaves Chromium switches and the app entry in process.argv.
+  // Keep parsing our own options without rejecting those Electron arguments.
   const { values: args, positionals } = parseArgs({
+    strict: false,
+    allowPositionals: true,
     options: {
       path: {
         type: "string",
@@ -31,6 +35,18 @@ if (require("electron-squirrel-startup")) {
       },
     },
   });
+  const path = args.path;
+  const testsToRun = args["tests-to-run"];
+  const testDuration = args["self-test-duration"];
+  const selfTest = args["self-test"];
+  if (
+    typeof path !== "string" ||
+    typeof testsToRun !== "string" ||
+    typeof testDuration !== "string" ||
+    (selfTest !== undefined && typeof selfTest !== "boolean")
+  ) {
+    throw new TypeError("Invalid Streamplace Desktop command-line options");
+  }
   const env = getEnv();
   console.log(
     "starting with: ",
@@ -50,13 +66,13 @@ if (require("electron-squirrel-startup")) {
       SP_ADMIN_ACCOUNT: account.address.toLowerCase(),
       SP_ALLOWED_STREAMS: account.address.toLowerCase(),
     };
-    if (args["self-test"]) {
+    if (selfTest) {
       app.on("window-all-closed", () => {
         // need to override this to prevent the app from quitting
       });
       const success = await runTests(
-        args["tests-to-run"].split(","),
-        args["self-test-duration"],
+        testsToRun.split(","),
+        testDuration,
         privateKey,
       );
       console.log("tests finished");
@@ -104,9 +120,9 @@ if (require("electron-squirrel-startup")) {
 
     let startPath;
     if (nodeFrontend) {
-      startPath = `${loadAddr}${args.path}`;
+      startPath = `${loadAddr}${path}`;
     } else {
-      startPath = `http://127.0.0.1:38081${args.path}`;
+      startPath = `http://127.0.0.1:38081${path}`;
     }
     console.log(`opening ${startPath}`);
     mainWindow.loadURL(startPath);

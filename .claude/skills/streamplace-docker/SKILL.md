@@ -158,9 +158,9 @@ specific command. Do not assume a sibling exists or modify its artifacts.
 ## Isolated scratch node
 
 `make dev` builds binaries; it does **not** start a server. The generated
-`build-linux-amd64/streamplace` launcher assigns a frontend proxy to port 38081,
-so an environment override cannot disable it. For a scratch node serving the
-embedded bundle, invoke `libstreamplace` directly.
+`build-linux-amd64/streamplace` launcher defaults to a frontend proxy on port 38081. Set `SP_DEV_FRONTEND_PROXY=` to serve the embedded bundle instead, or
+invoke `libstreamplace` directly as below. Rebuild with `make app && make dev`
+after frontend changes.
 
 Enter the container from the host:
 

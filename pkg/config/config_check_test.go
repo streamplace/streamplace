@@ -39,6 +39,9 @@ func TestCheckConfig(t *testing.T) {
 	bad(CLI{DataDir: t.TempDir(), DuplicateMistTest: true, RTMPServerAddon: "127.0.0.1:31935"},
 		"--secure")
 	ok(CLI{DataDir: t.TempDir(), DuplicateMistTest: true, Secure: true, RTMPServerAddon: "127.0.0.1:31935"})
+	bad(CLI{DataDir: t.TempDir(), UpstreamStation: "did:web:station.test", HTTPAddr: "192.0.2.1:38080"},
+		"loopback --http-addr")
+	ok(CLI{DataDir: t.TempDir(), UpstreamStation: "did:web:station.test", HTTPAddr: "localhost:38080"})
 	bad(CLI{}, "data-dir")
 	bad(CLI{DataDir: t.TempDir(), LivepeerGateway: true, LivepeerGatewayURL: "http://127.0.0.1:8935"},
 		"livepeer-gateway")
@@ -71,6 +74,12 @@ func TestCheckConfig(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "livepeer-gateway")
 	require.Contains(t, err.Error(), "vod-cdn-url")
+}
+
+func TestLocalOAuthCanonicalOrigin(t *testing.T) {
+	cli := CLI{HTTPAddr: "localhost:38080", UpstreamStation: "did:web:station.test"}
+	require.Equal(t, "http://127.0.0.1:38080", cli.OwnPublicURL(),
+		"localhost must produce the numeric loopback issuer accepted by public OAuth clients")
 }
 
 // TestCheckConfigSigningKey proves that a broken --signing-key file — a

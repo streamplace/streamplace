@@ -21,6 +21,9 @@ import (
 // the same backoff memory as every other sync request, so a pass over thousands
 // of repos is as polite to a host as a backfill is.
 func (atsync *ATProtoSynchronizer) headRev(ctx context.Context, did string) (string, *identity.Identity, error) {
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
+		return "", nil, err
+	}
 	ident, err := atsync.resolveIdent(ctx, did, true)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to resolve %s: %w", did, err)
@@ -34,6 +37,9 @@ func (atsync *ATProtoSynchronizer) headRev(ctx context.Context, did string) (str
 	lock := pdsLocks.GetLock(host)
 	lock.Lock()
 	defer lock.Unlock()
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
+		return "", nil, err
+	}
 	latest, err := reposync.LatestCommit(ctx, xrpcc, did, reposync.RetryPolicy{Hints: pdsBackoffHints})
 	if err != nil {
 		return "", ident, err
@@ -57,6 +63,9 @@ func (atsync *ATProtoSynchronizer) headRev(ctx context.Context, did string) (str
 // learned.
 func (atsync *ATProtoSynchronizer) refreshDriftedIdentity(ctx context.Context, repo *model.Repo, ident *identity.Identity) {
 	if ident == nil || (ident.Handle.String() == repo.Handle && ident.PDSEndpoint() == repo.PDS) {
+		return
+	}
+	if !atsync.indexEventAllowed(ctx, repo.DID) {
 		return
 	}
 	fresh, err := atsync.resolveIdent(ctx, repo.DID, false)

@@ -199,6 +199,7 @@ func (atsync *ATProtoSynchronizer) consumeRelay(ctx context.Context, relay, trac
 	// On-demand DID tracks reset their group sequences when no subscribers
 	// remain. Only aggregate tracks have durable replay cursors.
 	cursor := &relayCursor{host: relay}
+	var repairs chan struct{}
 	if track == "" {
 		cursor = atsync.newRelayCursor(ctx, relay)
 		flushDone := make(chan struct{})
@@ -217,6 +218,16 @@ func (atsync *ATProtoSynchronizer) consumeRelay(ctx context.Context, relay, trac
 			}
 		}()
 		defer func() { <-flushDone }()
+	} else {
+		// One pending repair per DID coalesces reconnects. Once a repair starts,
+		// another gap queues one follow-up rather than starting another worker.
+		repairs = make(chan struct{}, 1)
+		repairDone := make(chan struct{})
+		go func() {
+			defer close(repairDone)
+			atsync.upstreamRepairLoop(ctx, track, repairs)
+		}()
+		defer func() { <-repairDone }()
 	}
 
 	const (
@@ -233,7 +244,7 @@ func (atsync *ATProtoSynchronizer) consumeRelay(ctx context.Context, relay, trac
 		if track == "" {
 			err = atsync.connectRelay(ctx, relay, cursor)
 		} else {
-			err = atsync.connectRelayMoq(ctx, relay, track, cursor)
+			err = atsync.connectRelayMoq(ctx, relay, track, cursor, repairs)
 		}
 		if ctx.Err() != nil {
 			return
@@ -318,7 +329,7 @@ func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay strin
 	// handlers, backoff — is shared, so this is just a transport swap.
 	switch u.Scheme {
 	case "moqt", "moql", "moq", "moqs":
-		return atsync.connectRelayMoq(ctx, relay, "atproto", cursor)
+		return atsync.connectRelayMoq(ctx, relay, "atproto", cursor, nil)
 	}
 	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
 	if seq, ok := cursor.param(); ok {

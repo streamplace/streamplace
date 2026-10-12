@@ -70,3 +70,18 @@ func (atsync *ATProtoSynchronizer) startUpstreamFirehose(ctx context.Context) er
 		}
 	}
 }
+
+// A consumed request leaves room for one follow-up if another reconnect
+// happens during repair. Disconnects do not cancel it; user revocation does.
+func (atsync *ATProtoSynchronizer) upstreamRepairLoop(ctx context.Context, did string, requests <-chan struct{}) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-requests:
+			if err := atsync.repairSubscribedRepo(ctx, did); err != nil && ctx.Err() == nil {
+				log.Error(ctx, "failed to repair upstream repo after subscribing", "did", did, "err", err)
+			}
+		}
+	}
+}

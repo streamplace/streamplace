@@ -205,33 +205,43 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
     // <Text> so words fill the space after the handle and wrap naturally, the
     // way an unselectable row did. selectableText opts the flow back into web
     // text selection.
-    <Text size="base" style={[flex.shrink[1], selectableText]}>
+    //
+    // A handle wider than the row used to stretch the row past the chat
+    // column, whose scroll container hides horizontal overflow, putting the
+    // colon and the message out of reach. The handle clamps to one line and
+    // ellipsizes instead: minWidth 0 lets the group (react-native-web's View
+    // default is flexShrink 0) and this <Text> shrink below their min-content
+    // width, and the trigger box around the handle is capped at 100% in
+    // UserProfileCard.
+    <Text size="base" style={[flex.shrink[1], { minWidth: 0 }, selectableText]}>
       <UserProfileCard uri={item.uri} author={item.author} badges={badges}>
         <View
-          style={
-            {
-              display: "inline",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              flexDirection: "row",
-              marginBottom: -6,
-            } as any
-          }
+          style={{
+            alignItems: "center",
+            justifyContent: "flex-end",
+            flexDirection: "row",
+            flexShrink: 1,
+            minWidth: 0,
+            marginBottom: -6,
+          }}
         >
           <BadgeDisplayRow badges={badges} />
           <Text
             size="base"
             weight="medium"
+            numberOfLines={1}
             style={{
               cursor: "pointer",
               color: nameColor(item.chatProfile?.color),
+              flexShrink: 1,
+              minWidth: 0,
             }}
           >
             {formatHandleWithAt(item.author)}
           </Text>
           <VerifiedBadge author={item.author} profile={profile} size={14} />
-          {/* The colon rides in the handle's inline box so the pair wraps as
-              one unit instead of the colon dropping to the next line. */}
+          {/* The colon rides in the handle's box so the pair stays one unit on
+              one line instead of the colon dropping to the next line. */}
           <Text size="base" color="default">
             {":"}
           </Text>

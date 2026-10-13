@@ -67,9 +67,9 @@ accepting an unseen tap.
 `player-breakpoints` exercises live playback at 23 widths in portrait and
 landscape, including 1080 × 722 and immediately below, at, and above the theme
 breakpoints (640, 768, 1024, 1280, 1536), sidebar boundary (981), and desktop
-player boundary (1201). It checks that the mute button and volume slider are
-inside the viewport and change the actual video element's audio state. Side-chat
-layouts repeat those checks with chat open, closed, and reopened. This catches
+player boundary (1201). It checks that the mute button and whole volume slider
+are fully inside the viewport and change the actual video element's audio state.
+Side-chat layouts repeat those checks with chat open, closed, and reopened. This catches
 controls clipped below the web shell's header: the compact player's height must
 fill its available parent, not the whole browser window. These controls are
 web-only; native live playback uses device volume controls.

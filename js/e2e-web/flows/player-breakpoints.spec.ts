@@ -42,7 +42,7 @@ for (const orientation of ["portrait", "landscape"] as const) {
     const exerciseVolume = async () => {
       await revealControls();
       const mute = page.getByRole("button", { name: "Mute", exact: true });
-      await expect(mute).toBeInViewport();
+      await expect(mute).toBeInViewport({ ratio: 1 });
       await mute.click({ timeout: 5_000 });
       await expect
         .poll(() =>
@@ -53,9 +53,13 @@ for (const orientation of ["portrait", "landscape"] as const) {
         name: "Unmute",
         exact: true,
       });
+      await expect(unmute).toBeInViewport({ ratio: 1 });
       await unmute.hover();
       const slider = page.getByRole("slider");
-      await expect(slider).toBeInViewport();
+      await expect(slider).toBeInViewport({ ratio: 1 });
+      await expect(page.getByTestId("player-volume-track")).toBeInViewport({
+        ratio: 1,
+      });
       await unmute.click();
       await expect
         .poll(() =>

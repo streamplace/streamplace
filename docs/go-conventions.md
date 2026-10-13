@@ -97,3 +97,11 @@ contexts before returning. The leak helper waits for finalizer passes before
 requesting the native snapshot; keep that barrier synchronous and never block the
 finalizer queue, which also releases Go-owned GStreamer references. Verify changes
 to the helper with race-enabled media tests without disabling leak assertions.
+
+`WriterNewSample` releases each appsink sample when its callback returns, after
+unmapping its buffer. The go-gst v1.4 `GstSample` wrapper contains only a pointer
+to an opaque C type; on amd64 it is an 8-byte, GC-pointer-free allocation. Go's
+tiny allocator can pack it beside another live object, preventing its finalizer
+from running even after repeated GC. Clear the binding's finalizer before
+explicitly releasing that transferred reference, or it may be released twice.
+This is sample ownership, not a requirement to wrap every `Buffer.Map` call.

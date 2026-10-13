@@ -249,11 +249,20 @@ func (t *streamTranscoder) Feed(src []byte, token any) error {
 	t.started = true
 	t.mu.Unlock()
 
+	// The pipeline re-encodes the demux's first audio stream, so hand it only
+	// video and the main group's source track: a stem may precede it in
+	// track-id order. The job keeps the whole source to append the result to.
+	wantOpus := t.target == "aac"
+	input, err := filterSegmentToCodec(t.ctx, src, wantOpus)
+	if err != nil {
+		return fmt.Errorf("select transcoder source audio: %w", err)
+	}
+
 	// Synthesize and write the init (ftyp+moov) once, then the segment bytes —
 	// the same init-then-blind-concat the RTMP push feeder uses.
 	if first {
 		var init bytes.Buffer
-		if err := muxl.RunMuxlWrapInit(t.ctx, bytes.NewReader(src), &init); err != nil {
+		if err := muxl.RunMuxlWrapInit(t.ctx, bytes.NewReader(input), &init); err != nil {
 			return fmt.Errorf("synthesize transcoder init: %w", err)
 		}
 		if _, err := t.feedW.Write(init.Bytes()); err != nil {
@@ -267,7 +276,7 @@ func (t *streamTranscoder) Feed(src []byte, token any) error {
 	case <-t.ctx.Done():
 		return t.ctx.Err()
 	}
-	if _, err := t.feedW.Write(src); err != nil {
+	if _, err := t.feedW.Write(input); err != nil {
 		return err
 	}
 	return nil
@@ -440,10 +449,10 @@ func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, tra
 	if cat == nil || cat.Audio == nil {
 		return nil, fmt.Errorf("source segment has no audio track")
 	}
-	// The transcoder re-encodes the demux's first audio stream, the main
-	// group's lowest track (completion runs only when the main group lacks a
-	// codec, see completionTarget); the completed track joins that group so
-	// the main-group consumers find it beside the source track.
+	// The transcoder re-encodes the main group's source track (Feed filters
+	// its input to it; completion runs only when the main group lacks a codec,
+	// see completionTarget); the completed track joins that group so the
+	// main-group consumers find it beside the source track.
 	main := mainAudioTracks(audioTracks(cat))
 	if len(main) == 0 {
 		return nil, fmt.Errorf("source segment has no audio track")

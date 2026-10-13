@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/go-gst/go-gst/gst"
@@ -40,6 +41,28 @@ func TestWriterNewSample(t *testing.T) {
 		err = g.Wait()
 		require.NoError(t, err)
 	})
+}
+
+// A live tiny allocation can pin a neighboring GstSample wrapper indefinitely.
+// Keep the writer's markers alive through the native leak check, not just EOS.
+func TestWriterNewSampleTinyAllocations(t *testing.T) {
+	writer := &tinyAllocWriter{}
+	withNoGSTLeaks(t, func() {
+		require.NoError(t, writerNewSampleInner(context.Background(), 0, writer))
+	})
+	runtime.KeepAlive(writer)
+}
+
+type tinyAllocWriter struct {
+	bytes.Buffer
+	markers []*uint64
+}
+
+func (w *tinyAllocWriter) Write(p []byte) (int, error) {
+	marker := new(uint64)
+	*marker = uint64(len(p))
+	w.markers = append(w.markers, marker)
+	return w.Buffer.Write(p)
 }
 
 func writerNewSampleInner(ctx context.Context, i int, w io.Writer) error {

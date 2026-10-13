@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"runtime"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -86,6 +87,11 @@ func WriterNewSample(ctx context.Context, output io.Writer) func(sink *app.Sink)
 		if sample == nil {
 			return gst.FlowOK
 		}
+		// GstSample is an opaque C type, so this small wrapper can share a
+		// Go tiny-allocation block with a live object and never be finalized.
+		// Release our owned reference when the callback finishes instead.
+		runtime.SetFinalizer(sample, nil)
+		defer sample.Unref()
 
 		// Retrieve the buffer from the sample.
 		buffer := sample.GetBuffer()

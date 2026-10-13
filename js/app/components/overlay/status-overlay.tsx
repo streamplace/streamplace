@@ -27,6 +27,9 @@ export default function StatusOverlay({ user, version }: OverlayProps) {
   const viewers = useLivestreamStore((s) => s.viewers);
 
   const handle = profile?.handle ?? user;
+  // The websocket replays the last record after a stream ends, so a saved
+  // livestream is not the same as a live one.
+  const live = livestream && !livestream.record.endedAt ? livestream : null;
 
   return (
     <View style={styles.root} testID="overlay-status">
@@ -55,7 +58,7 @@ export default function StatusOverlay({ user, version }: OverlayProps) {
         />
         <Row
           label="Live"
-          value={livestream ? (livestream.record.title ?? "yes") : "offline"}
+          value={live ? (live.record.title ?? "yes") : "offline"}
         />
         {viewers !== null && (
           <Row label="Viewers" value={String(viewers)} tabular />

@@ -1,11 +1,15 @@
 import { useRef } from "react";
 import useWebSocket from "react-use-websocket";
-import { useHandleWebsocketMessages } from "../livestream-store/use-store";
+import {
+  getStoreFromContext,
+  useHandleWebsocketMessages,
+} from "../livestream-store/use-store";
 import { useUrl } from "../streamplace-store";
 
 export function useLivestreamWebsocket(src: string) {
   const url = useUrl();
   const handleWebSocketMessages = useHandleWebsocketMessages();
+  const store = getStoreFromContext();
 
   let wsUrl = url.replace(/^http\:/, "ws:");
   wsUrl = wsUrl.replace(/^https\:/, "wss:");
@@ -21,7 +25,16 @@ export function useLivestreamWebsocket(src: string) {
       ref.current = [];
     },
 
+    // websocketConnected turns on with the first message, so a socket that
+    // goes away has to turn it back off — otherwise viewers (and the overlay
+    // status card) keep claiming a connection that is being retried. Core's
+    // connect() does the same on close/error.
+    onClose: () => {
+      store.setState((s) => ({ ...s, websocketConnected: false }));
+    },
+
     onError: (e) => {
+      store.setState((s) => ({ ...s, websocketConnected: false }));
       console.log("onError", e);
     },
 

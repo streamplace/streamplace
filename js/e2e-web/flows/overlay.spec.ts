@@ -66,6 +66,15 @@ test.describe("overlays", () => {
     // only clears <body>, and the app paints <html> too).
     const painted = await opaqueAncestors(page);
     expect(painted).toEqual([]);
+
+    // The theme paints <html>/<body> again whenever a scheme or the node's
+    // branding lands, which can be well after this page mounted. The overlay
+    // has to stay transparent through that.
+    await page.evaluate(() => {
+      document.documentElement.style.backgroundColor = "rgb(10, 10, 11)";
+      document.body.style.backgroundColor = "rgb(10, 10, 11)";
+    });
+    expect(await opaqueAncestors(page)).toEqual([]);
     await expect(page.getByTestId("overlay-streamer")).toContainText(
       ACCOUNT_HANDLE as string,
     );

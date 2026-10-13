@@ -22,23 +22,17 @@ export default function OverlayScreen({ route }) {
   }, [setSidebarHidden, setSidebarUnhidden]);
 
   // An overlay is composited over the operator's scene, so the page itself
-  // must not paint a background. The app sets one on <html> and <body> (OBS's
-  // own default custom CSS only clears <body>), so clear both while an
-  // overlay is on screen.
+  // must not paint a background. The app paints one on <html> and <body>:
+  // statically from index.html, and again from the theme whenever the scheme
+  // or the node's branding lands — which can be long after this screen
+  // mounted. An important rule outranks those, so the overlay stays
+  // transparent for as long as it is on screen.
   useEffect(() => {
     if (Platform.OS !== "web") return;
-    const html = document.documentElement;
-    const body = document.body;
-    const backgrounds = [
-      html.style.backgroundColor,
-      body.style.backgroundColor,
-    ];
-    html.style.backgroundColor = "transparent";
-    body.style.backgroundColor = "transparent";
-    return () => {
-      html.style.backgroundColor = backgrounds[0];
-      body.style.backgroundColor = backgrounds[1];
-    };
+    const override = document.createElement("style");
+    override.textContent = "html, body { background: transparent !important; }";
+    document.head.appendChild(override);
+    return () => override.remove();
   }, []);
 
   const name = typeof route.params?.name === "string" ? route.params.name : "";

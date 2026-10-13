@@ -642,6 +642,14 @@ export function WebRTCPlayerInner({
 
   const [mediaStream, stuck, audioTracks] = useWebRTC(src, selectedRendition);
   const levels = useAudioTrackLevels();
+  const playbackVideoRef = useRef<HTMLVideoElement | null>(null);
+  const setPlaybackVideoRef = useCallback(
+    (element: HTMLVideoElement | null) => {
+      playbackVideoRef.current = element;
+      assignVideoRef(videoRef, element);
+    },
+    [videoRef],
+  );
   const [fullMix, ...stems] = audioTracks;
 
   // The video element gets the video and the full mix; each stem the viewer
@@ -717,10 +725,9 @@ export function WebRTCPlayerInner({
   }, [mediaStream]);
 
   useEffect(() => {
-    if (!videoRef || !videoRef.current) {
-      return;
+    if (playbackVideoRef.current) {
+      playbackVideoRef.current.srcObject = videoStream;
     }
-    videoRef.current.srcObject = videoStream;
   }, [videoStream]);
 
   if (!mediaStream) {
@@ -754,12 +761,17 @@ export function WebRTCPlayerInner({
   }
   return (
     <>
-      <VideoElement url={url} ref={videoRef} />
+      <VideoElement url={url} ref={setPlaybackVideoRef} />
       {stems.map(
         (track, i) =>
           track &&
           levels[i + 1] > 0 && (
-            <StemAudio key={track.id} track={track} level={levels[i + 1]} />
+            <StemAudio
+              key={track.id}
+              track={track}
+              level={levels[i + 1]}
+              videoRef={playbackVideoRef}
+            />
           ),
       )}
     </>
@@ -770,9 +782,11 @@ export function WebRTCPlayerInner({
 function StemAudio({
   track,
   level,
+  videoRef,
 }: {
   track: MediaStreamTrack;
   level: number;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
 }) {
   const ref = useRef<HTMLAudioElement | null>(null);
   const volume = useVolume();
@@ -790,9 +804,29 @@ function StemAudio({
     }
   }, [volume, level]);
 
-  return (
-    <audio ref={ref} autoPlay muted={muted} data-testid="player-stem-audio" />
-  );
+  // The video is the player's playback clock. In particular, pausing a live
+  // video must pause its separately rendered stem audio too.
+  useEffect(() => {
+    const video = videoRef.current;
+    const audio = ref.current;
+    if (!video || !audio) return;
+    const syncPlayback = () => {
+      if (video.paused) {
+        audio.pause();
+      } else {
+        audio.play().catch(console.error);
+      }
+    };
+    video.addEventListener("play", syncPlayback);
+    video.addEventListener("pause", syncPlayback);
+    syncPlayback();
+    return () => {
+      video.removeEventListener("play", syncPlayback);
+      video.removeEventListener("pause", syncPlayback);
+    };
+  }, [videoRef]);
+
+  return <audio ref={ref} muted={muted} data-testid="player-stem-audio" />;
 }
 
 export function WebcamIngestPlayer(props: VideoProps) {

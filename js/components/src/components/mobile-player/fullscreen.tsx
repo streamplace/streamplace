@@ -13,6 +13,7 @@ import {
 import { View } from "../../components/ui";
 import { AudioOnlyOverlay } from "./ui/audio-only-overlay";
 import Video from "./video";
+import { HostedVideo } from "./video-host";
 import VideoRetry from "./video-retry";
 
 export function Fullscreen(props: {
@@ -123,12 +124,14 @@ export function Fullscreen(props: {
       ref={divRef}
       style={{ width: "100%", height: "100%", overflow: "hidden" }}
     >
-      <VideoRetry>
-        <Video
-          objectFit={props.objectFit}
-          pictureInPictureEnabled={props.pictureInPictureEnabled}
-        />
-      </VideoRetry>
+      <HostedVideo>
+        <VideoRetry>
+          <Video
+            objectFit={props.objectFit}
+            pictureInPictureEnabled={props.pictureInPictureEnabled}
+          />
+        </VideoRetry>
+      </HostedVideo>
       <AudioOnlyOverlay />
       <DanmuOverlay
         enabled={danmuEnabled}

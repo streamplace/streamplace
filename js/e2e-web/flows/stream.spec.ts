@@ -97,3 +97,52 @@ test("stream: portrait player exposes playback controls", async ({ page }) => {
     .toBe(false);
   await expect(page.getByLabel("Enter fullscreen")).toBeVisible();
 });
+
+// Crossing the desktop/mobile breakpoint moves the player to another branch
+// of the layout. The video has to survive that: same element, never re-sourced
+// ("emptied" fires when its src or srcObject is reset), still playing.
+test("stream: resizing the window keeps the same playing video", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/");
+
+  const card = page.getByTestId("home-stream-card").first();
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await card.click();
+
+  const video = page.locator("video").first();
+  await expect
+    .poll(() =>
+      video.evaluate((v: HTMLVideoElement) => !v.paused && v.readyState >= 2),
+    )
+    .toBe(true);
+  await video.evaluate((v: HTMLVideoElement) => {
+    const w = window as any;
+    w.__spVideo = v;
+    w.__spEmptied = 0;
+    v.addEventListener("emptied", () => w.__spEmptied++);
+  });
+
+  const videoWidth = () =>
+    page.evaluate(
+      () => document.querySelector("video")?.getBoundingClientRect().width,
+    );
+  for (const width of [900, 1280]) {
+    const oldWidth = await videoWidth();
+    await page.setViewportSize({ width, height: 720 });
+    // The layout has caught up once the video's box changes.
+    await expect.poll(videoWidth).not.toBe(oldWidth);
+    const state = await page.evaluate(() => {
+      const w = window as any;
+      const v = document.querySelector("video")!;
+      return { same: v === w.__spVideo, emptied: w.__spEmptied };
+    });
+    expect(state).toEqual({ same: true, emptied: 0 });
+    await expect(video).toBeVisible();
+    const before = await video.evaluate((v: HTMLVideoElement) => v.currentTime);
+    await expect
+      .poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime))
+      .toBeGreaterThan(before);
+  }
+});

@@ -69,10 +69,12 @@ publisher identifiers or stream keys; use the failure logs for details.
 
 The shadow has an 8 MiB per-connection buffer and a cap of 16 workers per
 addon listener, including draining workers. At capacity, new connections
-forward only to Mist and log a shadow failure. Shadow input idle for 10
-seconds is aborted without closing the primary connection. Buffer overflow
-also kills only the shadow; Mist continues unchanged. On disconnect it
-drains the native pipeline through EOS and verifies the final segment.
+forward only to Mist and log a shadow failure. A pending shadow input read
+idle for 10 seconds is aborted without closing the primary connection.
+Parsing buffered input, native initialization, and signing do not consume
+this idle allowance. Buffer overflow also kills only the shadow; Mist
+continues unchanged. On disconnect it drains the native pipeline through
+EOS and verifies the final segment.
 The playback handshake deadline is cleared for this drain; the 30-second
 worker-exit deadline still applies. Node shutdown kills/reaps workers.
 This is opt-in diagnostic work with additional CPU and memory cost, up to
@@ -84,9 +86,11 @@ The backend end-to-end regression is `TestDuplicateMistEndToEnd` in
 through verified segments beyond the former few-second failure interval,
 including a publisher outside `/live/` and all final segments after paced
 and unpaced publisher EOF.
-The fixture holds TLS publisher EOF until live metrics show verification,
-so slow worker startup is not confused with a metrics failure. Corrupt RTMP
-must export a failure while subsequent primary traffic still arrives.
+The fixture stops the encoder at EOS but holds TLS publisher EOF until live
+metrics show verification, sending RTMP keepalives while it waits. Slow
+worker startup or signing is not confused with idle publisher input.
+Corrupt RTMP must export a failure while subsequent primary traffic still
+arrives.
 No client UI or platform-specific iOS/Android/Web behavior changes.
 
 */

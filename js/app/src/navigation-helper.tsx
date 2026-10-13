@@ -46,6 +46,7 @@ export const ROOT_SCREENS = [
   "Embed",
   "InfoWidgetEmbed",
   "DanmuOBS",
+  "Overlay",
   "Video",
   "Vod",
   "VodEmbed",

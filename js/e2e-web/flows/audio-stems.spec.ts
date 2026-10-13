@@ -54,6 +54,25 @@ test("audio stems: switch from the full mix to the stems and back", async ({
         (a.srcObject as MediaStream).getAudioTracks()[0].readyState,
     ),
   ).toBe("live");
+  await expect
+    .poll(() => stemAudio.evaluate((a: HTMLAudioElement) => a.paused))
+    .toBe(false);
+  const startTime = await stemAudio.evaluate(
+    (a: HTMLAudioElement) => a.currentTime,
+  );
+  await expect
+    .poll(() => stemAudio.evaluate((a: HTMLAudioElement) => a.currentTime))
+    .toBeGreaterThan(startTime + 0.1);
+
+  // Pausing the video must also pause the separately rendered stem.
+  await video.evaluate((v: HTMLVideoElement) => v.pause());
+  await expect
+    .poll(() => stemAudio.evaluate((a: HTMLAudioElement) => a.paused))
+    .toBe(true);
+  await video.evaluate((v: HTMLVideoElement) => v.play());
+  await expect
+    .poll(() => stemAudio.evaluate((a: HTMLAudioElement) => a.paused))
+    .toBe(false);
   await expect(music).toContainText("50%");
 
   await page.getByTestId("player-audio-full-mix").click();

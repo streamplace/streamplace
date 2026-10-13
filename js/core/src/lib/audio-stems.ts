@@ -3,26 +3,30 @@ import { place } from "streamplace";
 export type AudioStem = { alternateGroup: number; label: string };
 
 /**
- * The stems in a segment's audio: tracks of the same alternateGroup carry the
- * same sound in different codecs, the lowest group (or an entry without one)
- * is the full mix and every higher group is a stem. In ascending group order,
- * which is also the order the node sends their WebRTC tracks in.
+ * The playable stems in a segment's audio: tracks of the same alternateGroup
+ * carry the same sound in different codecs, the lowest group (or an entry
+ * without one) is the full mix. WebRTC sends up to two higher groups with an
+ * Opus encode, in ascending order.
  */
 export function audioStems(
   segment: place.stream.segment.Main | null | undefined,
 ): AudioStem[] {
   const audio = segment?.audio ?? [];
   const main = Math.min(...audio.map((a) => a.alternateGroup ?? 0));
+  const opusGroups = new Set(
+    audio.filter((a) => a.codec === "opus").map((a) => a.alternateGroup ?? 0),
+  );
   // Each group's label, from whichever of its entries has one.
   const stems = new Map<number, string>();
   for (const a of audio) {
     const group = a.alternateGroup ?? 0;
-    if (group > main && !stems.get(group)) {
+    if (group > main && opusGroups.has(group) && !stems.get(group)) {
       stems.set(group, a.label ?? "");
     }
   }
   return [...stems]
     .sort(([a], [b]) => a - b)
+    .slice(0, 2)
     .map(([alternateGroup, label]) => ({
       alternateGroup,
       label: label || `Track ${alternateGroup}`,

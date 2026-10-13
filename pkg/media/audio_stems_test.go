@@ -316,9 +316,17 @@ func TestWebRTCPlayback2StemTracks(t *testing.T) {
 // names in the fMP4 reach the signed catalogs.
 func groupedSignedSegment(t *testing.T, ctx context.Context) []byte {
 	t.Helper()
-	labeled, err := muxl.RunMuxlCanonicalize(ctx, groupedTestFMP4(t, ctx), nil, muxl.WithTrackMeta(groupedTestMeta))
+	first := signLabeledSegments(t, ctx, newBareSegmentSigner(t), groupedTestFMP4(t, ctx), groupedTestMeta)[0]
+	requireGroupedCatalog(t, ctx, first)
+	return first
+}
+
+// signLabeledSegments writes meta into frag's tracks and signs every GoP the
+// way fmp4-direct ingest does, returning the bare signed segments.
+func signLabeledSegments(t *testing.T, ctx context.Context, ms *MediaSignerLocal, frag []byte, meta map[uint32]muxl.TrackMeta) [][]byte {
+	t.Helper()
+	labeled, err := muxl.RunMuxlCanonicalize(ctx, frag, nil, muxl.WithTrackMeta(meta))
 	require.NoError(t, err)
-	ms := newBareSegmentSigner(t)
 	eventCh := make(chan *muxl.MuxlEvent, 16)
 	errCh := make(chan error, 1)
 	go func() {
@@ -326,15 +334,62 @@ func groupedSignedSegment(t *testing.T, ctx context.Context) []byte {
 		close(eventCh)
 		errCh <- err
 	}()
-	var first []byte
+	var segs [][]byte
 	for ev := range eventCh {
-		if ev.Type == "signed-segment" && first == nil {
-			first = concatTracksByID(ev.Tracks)
+		if ev.Type == "signed-segment" {
+			segs = append(segs, concatTracksByID(ev.Tracks))
 		}
 	}
 	require.NoError(t, <-errCh)
-	requireGroupedCatalog(t, ctx, first)
-	return first
+	require.NotEmpty(t, segs)
+	return segs
+}
+
+// Codec completion encodes the main group's track even when a stem comes
+// first in track-id order: a mono stem on track 2 ahead of the stereo,
+// AAC-only full mix on track 3. The completed Opus must be the mix's.
+func TestStreamTranscoderCompletesTheMainGroup(t *testing.T) {
+	ctx := context.Background()
+	frag := runSynthPipeline(t, ctx, strings.Join([]string{
+		"videotestsrc num-buffers=60 ! video/x-raw,width=320,height=240,framerate=30/1 ! x264enc key-int-max=30 tune=zerolatency speed-preset=ultrafast ! h264parse ! mp4mux name=mux fragment-duration=500 ! appsink name=sink",
+		"audiotestsrc num-buffers=94 samplesperbuffer=1024 ! audio/x-raw,rate=48000,channels=1 ! audioconvert ! fdkaacenc ! aacparse ! mux.",
+		"audiotestsrc num-buffers=94 samplesperbuffer=1024 ! audio/x-raw,rate=48000,channels=2 ! audioconvert ! fdkaacenc ! aacparse ! mux.",
+	}, "\n"))
+	ms := newBareSegmentSigner(t)
+	segs := signLabeledSegments(t, ctx, ms, frag, map[uint32]muxl.TrackMeta{
+		2: {AlternateGroup: 2, Label: "Music"},
+		3: {AlternateGroup: 1, Label: "Mix"},
+	})
+
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "test.example.com"}}
+	// Close waits for the pipeline, which delivers every completion first.
+	var completed [][]byte
+	tr := mm.newStreamTranscoder(ctx, "opus", ms.Cert, keyPEM, func(_ any, c []byte) {
+		completed = append(completed, c)
+	})
+	for i, s := range segs {
+		require.NoError(t, tr.Feed(s, i))
+	}
+	require.NoError(t, tr.Close())
+	require.NotEmpty(t, completed)
+
+	for i, c := range completed {
+		events, err := unwrapMuxlEvents(ctx, c)
+		require.NoError(t, err)
+		cat, _ := catalogAndTracks(events)
+		var opus []muxl.MuxlAudioConfig
+		for _, a := range audioTracks(cat) {
+			if isOpusCodec(a.Codec) {
+				opus = append(opus, a)
+			}
+		}
+		require.Len(t, opus, 1, "segment %d", i)
+		require.Equal(t, uint32(2), opus[0].NumberOfChannels, "segment %d: Opus encoded from the stereo mix, not the mono stem", i)
+		require.Equal(t, uint32(1), opus[0].AlternateGroup, "segment %d", i)
+		require.Equal(t, "Mix", opus[0].Label, "segment %d", i)
+	}
 }
 
 // A syndicating node pairs a rendition with the source segment's Opus

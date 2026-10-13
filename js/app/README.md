@@ -45,8 +45,9 @@ Suspense and error boundaries. A failed download leaves navigation usable, and
 retry creates a fresh lazy import instead of reusing React's cached rejection.
 Keep the home feed and navigation shell eager; use direct
 imports instead of barrels that re-export deferred screens. The broadcaster
-front door also loads its stream/video screen lazily. HLS playback and stream-key
-generation load their libraries only when needed.
+front door also loads its stream/video screen lazily. HLS loads its playback
+library only when needed. Stream keys use the existing atproto Secp256k1 keypair,
+multibase private key and DID; no Ethereum address is derived or stored.
 HLS library downloads retry every two seconds when native HLS is unavailable,
 including recorded videos; leaving the player cancels the pending retry.
 `vod-start-time.spec.ts` checks real playback and seeking after a failed chunk.
@@ -94,7 +95,8 @@ bootstrap by summing the HTML and **all** script URLs directly referenced by
 `.expo/atlas-web/index.html`. The `bootstrap-scripts` JSON manifest lists the
 runtime/common/entry scripts that download after paint: include those too when
 measuring bytes required for Home. Check source maps and browser network requests
-to confirm HLS, stream-key crypto, and secondary screens remain deferred.
+to confirm HLS and secondary screens remain deferred, and no `viem` modules
+remain in the Expo graph.
 
 `.expo/atlas.jsonl` contains source code and inlined public environment variables;
 keep it local. Rebuild with `make app` and `make dev` before exercising embedded

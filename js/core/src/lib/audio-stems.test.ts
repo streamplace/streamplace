@@ -58,6 +58,47 @@ describe("audioStems", () => {
       ),
     ).toEqual([{ alternateGroup: 2, label: "Track 2" }]);
   });
+
+  it("skips AAC-only groups before taking the first two playable stems", () => {
+    expect(
+      audioStems(
+        segment([
+          { codec: "opus", rate: 48000, channels: 2, alternateGroup: 1 },
+          {
+            codec: "aac",
+            rate: 48000,
+            channels: 2,
+            alternateGroup: 2,
+            label: "AAC only",
+          },
+          {
+            codec: "opus",
+            rate: 48000,
+            channels: 2,
+            alternateGroup: 5,
+            label: "Third",
+          },
+          {
+            codec: "opus",
+            rate: 48000,
+            channels: 2,
+            alternateGroup: 4,
+            label: "Second",
+          },
+          {
+            codec: "opus",
+            rate: 48000,
+            channels: 2,
+            alternateGroup: 3,
+            label: "First",
+          },
+        ]),
+      ),
+    ).toEqual([
+      { alternateGroup: 3, label: "First" },
+      { alternateGroup: 4, label: "Second" },
+    ]);
+  });
 });
 
 describe("audioTrackLevels", () => {

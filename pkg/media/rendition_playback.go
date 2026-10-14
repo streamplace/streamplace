@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"strconv"
+	"sync"
 
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/log"
@@ -173,6 +174,10 @@ func (mm *MediaManager) renditionPackets(ctx context.Context, addendum []byte, o
 	if cat == nil || cat.Video == nil || tracks == nil {
 		return nil
 	}
+	// One Packetize per rendition, concurrently: each builds and drains its
+	// own pipeline, and a quality publishes only once all are ready.
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 	var packets []renditionPacket
 	for _, v := range cat.Video.Renditions {
 		id := strconv.FormatUint(uint64(v.TrackID()), 10)
@@ -197,13 +202,18 @@ func (mm *MediaManager) renditionPackets(ctx context.Context, addendum []byte, o
 		for key, track := range opus {
 			m4s[key] = track
 		}
-		packet, err := Packetize(ctx, mm.cli, &bus.Seg{Muxl: concatTracksByID(m4s)})
-		if err != nil {
-			log.Warn(ctx, "rendition playback: could not packetize rendition", "rendition", name, "error", err)
-			continue
-		}
-		packets = append(packets, renditionPacket{trackID: v.TrackID(), name: name, packet: packet})
+		wg.Go(func() {
+			packet, err := Packetize(ctx, mm.cli, &bus.Seg{Muxl: concatTracksByID(m4s)})
+			if err != nil {
+				log.Warn(ctx, "rendition playback: could not packetize rendition", "rendition", name, "error", err)
+				return
+			}
+			mu.Lock()
+			packets = append(packets, renditionPacket{trackID: v.TrackID(), name: name, packet: packet})
+			mu.Unlock()
+		})
 	}
+	wg.Wait()
 	sort.Slice(packets, func(i, j int) bool { return packets[i].trackID < packets[j].trackID })
 	return packets
 }

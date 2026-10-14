@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { place } from "streamplace";
 import { flex, h, layout, w, zIndex } from "../../lib/theme/atoms";
 import { useLivestreamStoreOptional } from "../../livestream-store/use-store";
 import {
@@ -7,10 +8,12 @@ import {
   usePlayerStore,
 } from "../../player-store";
 import {
+  useDID,
   useMuted,
   useSetMuted,
   useStreamplaceStore,
 } from "../../streamplace-store";
+import { usePDSAgent } from "../../streamplace-store/xrpc";
 import { Text, View } from "../ui";
 import { Fullscreen } from "./fullscreen";
 import { PlayerProps } from "./props";
@@ -56,6 +59,49 @@ export function Player(
     }
   }, [streamHasBFrames, streamForcesHLS, protocol, setStreamForcesHLS]);
 
+  // Pre-live over HLS: the streamer previewing their own stream needs their
+  // own playback session (an anonymous one opens published streams only).
+  // It only opens the caller's own stream, so ask when this is that viewer,
+  // and again before it expires. Lives here rather than in the app's
+  // wrapper so every place that mounts a player (the live dashboard
+  // included) gets it.
+  const myDid = useDID();
+  const streamerDid = useLivestreamStoreOptional((x) => x.profile?.did);
+  const agent = usePDSAgent();
+  const setPlaybackSession = usePlayerStore((x) => x.setPlaybackSession);
+  const isMine =
+    !!myDid &&
+    (props.src === myDid || (!!streamerDid && streamerDid === myDid));
+  useEffect(() => {
+    if (!isMine || !agent) {
+      setPlaybackSession(undefined);
+      return;
+    }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const fetchToken = async () => {
+      try {
+        const res = await agent.client.call(
+          place.stream.playback.getPlaybackSession,
+        );
+        if (cancelled) return;
+        setPlaybackSession(res.sid);
+        const msLeft = new Date(res.expiresAt).getTime() - Date.now();
+        timer = setTimeout(fetchToken, Math.max(60_000, msLeft - 5 * 60_000));
+      } catch (e) {
+        if (cancelled) return;
+        console.warn("could not fetch a playback session", e);
+        timer = setTimeout(fetchToken, 60_000);
+      }
+    };
+    void fetchToken();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      setPlaybackSession(undefined);
+    };
+  }, [isMine, agent, setPlaybackSession]);
+
   // if we set muted, set it and restore after
   useEffect(() => {
     let wasMuted: null | boolean = null;
@@ -89,12 +135,8 @@ export function Player(
   // Will call back every few seconds to send health updates
   usePlayerStatus();
 
-  // A Player remounting over a hosted video that's already ingesting keeps
-  // that connection, and its state.
-  const ingestState = usePlayerStore((x) => x.ingestConnectionState);
   useEffect(() => {
-    if (!props.ingest) setIngest(null);
-    else if (ingestState === null) setIngest("new");
+    setIngest(props.ingest ? "new" : null);
   }, []);
 
   useEffect(() => {

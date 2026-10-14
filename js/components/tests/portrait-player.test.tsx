@@ -187,9 +187,6 @@ vi.mock("../src/components/mobile-player/video.native", () => ({
 vi.mock("../src/components/mobile-player/ui/audio-only-overlay", () => ({
   AudioOnlyOverlay: () => null,
 }));
-vi.mock("../src/components/mobile-player/playback-session", () => ({
-  usePlaybackSession: () => {},
-}));
 
 async function bindings() {
   const atoms = await import("../src/lib/theme/atoms");

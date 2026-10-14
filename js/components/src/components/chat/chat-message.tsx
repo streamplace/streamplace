@@ -42,12 +42,9 @@ import {
 } from "./user-profile-card";
 import { VerifiedBadge } from "./verified-badge";
 
-// Deterministic per-user color, muted so a busy chat doesn't turn into a
-// rainbow, and clamped for contrast against the dark chat surface: colors
-// that are too dark get mixed toward white until they clear a minimum
-// luminance. Same input always yields the same output.
-const MIN_LUMA = 110; // 0-255 relative luminance floor
-const DESAT = 0.45; // how far to pull each color toward its own gray
+// Desaturate profile colors and brighten dark ones for the chat background.
+const MIN_LUMA = 110;
+const DESAT = 0.45;
 const clampChannel = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
 const getRgbColor = (color?: {
   red: number;
@@ -61,13 +58,12 @@ const getRgbColor = (color?: {
   green += (luma - green) * DESAT;
   blue += (luma - blue) * DESAT;
   if (luma < MIN_LUMA) {
-    // mix toward white just enough to reach the floor
     const t = (MIN_LUMA - luma) / (255 - luma || 1);
     red = red + (255 - red) * t;
     green = green + (255 - green) * t;
     blue = blue + (255 - blue) * t;
   }
-  return `rgb(${clampChannel(red)}, ${clampChannel(green)}, ${clampChannel(blue)})`; // eslint-disable-line streamplace/no-token-literals -- dynamic user color / soft shadow
+  return `rgb(${clampChannel(red)}, ${clampChannel(green)}, ${clampChannel(blue)})`; // eslint-disable-line streamplace/no-token-literals -- dynamic profile color
 };
 
 const LinkSegment = ({
@@ -165,11 +161,7 @@ export const RichTextMessage = ({
   return segs.map((seg, i) => renderSegment(seg, i, userCache, profileUrl));
 };
 
-// Web flows the whole message inline inside a single <Text>, with the badges and
-// handle rendered as an inline-block via display: "inline".
-// Chat is dense but legible: 14px (size base), handles in medium weight.
-// Branding key chatNameColors=off: names in the default text color instead
-// of each user's chosen chat color.
+// chatNameColors=off uses the default text color instead of the profile color.
 function useNameColor(): (
   color?: Parameters<typeof getRgbColor>[0],
 ) => string | undefined {
@@ -201,23 +193,14 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
   const dids = useMemo(() => [item.author.did], [item.author.did]);
   const profile = useAvatars(dids)[item.author.did];
   return (
-    // One inline flow: the handle, colon and message are children of a single
-    // <Text> so words fill the space after the handle and wrap naturally, the
-    // way an unselectable row did. selectableText opts the flow back into web
-    // text selection.
-    //
-    // A handle wider than the row used to stretch the row past the chat
-    // column, whose scroll container hides horizontal overflow, putting the
-    // colon and the message out of reach. The handle clamps to one line and
-    // ellipsizes instead: minWidth 0 lets the group (react-native-web's View
-    // default is flexShrink 0) and this <Text> shrink below their min-content
-    // width, and the trigger box around the handle is capped at 100% in
-    // UserProfileCard.
+    // Keep the handle and message in one text flow so the message wraps after
+    // the handle. Allow the row to shrink when a handle exceeds its width.
     <Text size="base" style={[flex.shrink[1], { minWidth: 0 }, selectableText]}>
       <UserProfileCard uri={item.uri} author={item.author} badges={badges}>
         <View
+          // @ts-expect-error first baseline is not supported on non-web platforms
           style={{
-            alignItems: "center",
+            alignItems: "first baseline",
             justifyContent: "flex-end",
             flexDirection: "row",
             flexShrink: 1,
@@ -240,8 +223,6 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
             {formatHandleWithAt(item.author)}
           </Text>
           <VerifiedBadge author={item.author} profile={profile} size={14} />
-          {/* The colon rides in the handle's box so the pair stays one unit on
-              one line instead of the colon dropping to the next line. */}
           <Text size="base" color="default">
             {":"}
           </Text>
@@ -258,9 +239,7 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
   );
 };
 
-// Native can't reliably nest views or images inside <Text>, so the badges sit in
-// a flex row beside the message instead of inline. Tapping the badges or the
-// handle opens the same profile bottom sheet via two triggers on one menu.
+// Native keeps badges beside the text because views cannot be nested in Text.
 const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
   const nameColor = useNameColor();
   const badges = useVisibleBadges(item.badges);
@@ -331,16 +310,10 @@ export function relativeAge(dateString: string): string {
   return `${Math.round(h / 24)}d`;
 }
 
-// The avatar layout (branding chatLayout=avatar): a post-style row with the
-// author's avatar, display name, handle and age on one line and the text
-// beneath, the way a social timeline shows a reply. Badges sit after the
-// name; the profile card opens from the name as it does in compact rows.
 const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
   const { theme } = useTheme();
   const badges = useVisibleBadges(item.badges);
   const author = item.author;
-  // Hydrated messages carry handle and display name but not the avatar;
-  // the profile cache batches getProfiles across visible rows.
   const dids = useMemo(() => [author.did], [author.did]);
   const profile = useAvatars(dids)[author.did];
   const avatar = profile?.avatar || author.avatar;
@@ -349,17 +322,12 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
   const name = displayName || handle;
   const nameColor = useNameColor()(item.chatProfile?.color);
   const meta = { fontSize: 15, lineHeight: 23, color: theme.colors.text2 };
-  // The name line is a flex row rather than nested <Text> so the badges (which
-  // are views) sit after the name on every platform, a long handle truncates
-  // instead of pushing the age off the edge, and native never nests views in
-  // text.
-  // Room the verified mark and badges take beside the name (see below).
+  // Keep badges outside Text so they render on native as well as web.
   const verified =
     author.verification?.verifiedStatus === "valid" ||
     profile?.verification?.verifiedStatus === "valid";
   const marksWidth =
     (verified ? 20 : 0) + (badges?.length ? 6 + badges.length * 22 : 0);
-  // text.
   return (
     <View
       style={[
@@ -375,12 +343,7 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
             { alignItems: "center", minWidth: 0, maxWidth: "100%" },
           ]}
         >
-          {/* Name, marks and handle share one box beside the time. The
-              handle is the only thing in it that shrinks, so it gives way
-              first; the name can't shrink at all on web and is instead
-              capped at the box minus the marks, so it only truncates once
-              the handle is gone. (Native's layout engine weights shrink by
-              the factor, so there the 1000x handle does the same job.) */}
+          {/* Reserve room for marks when truncating the name on web. */}
           <View
             style={[
               layout.flex.row,
@@ -456,8 +419,6 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
                 {handle}
               </Text>
             ) : null}
-            {/* The time follows the handle (left-aligned with the rest),
-                and never shrinks. */}
             <Text style={{ ...meta, marginLeft: 8, flexShrink: 0 }}>
               {"· " + relativeAge(item.record.createdAt)}
             </Text>

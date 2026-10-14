@@ -129,6 +129,13 @@ func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedS
 		streamCtx := context.WithoutCancel(ctx)
 		t = mm.newStreamTranscoder(streamCtx, target, cert, keyPEM, func(token any, completed []byte) {
 			v := token.(*validatedSegment)
+			// The record lists the audio the delivered bytes carry, the
+			// completed codec included.
+			if events, err := unwrapMuxlEvents(streamCtx, completed); err == nil && v.mediaData != nil {
+				if cat, _ := catalogAndTracks(events); cat != nil {
+					v.mediaData.Audio = audioMediaData(cat)
+				}
+			}
 			if err := mm.distributeSegment(context.WithoutCancel(streamCtx), v, completed); err != nil {
 				log.Error(streamCtx, "distribute completed segment failed", "streamer", v.repoDID, "error", err)
 			}

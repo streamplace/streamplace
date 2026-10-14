@@ -42,6 +42,12 @@ func TestCheckConfig(t *testing.T) {
 	bad(CLI{DataDir: t.TempDir(), UpstreamStation: "did:web:station.test", HTTPAddr: "192.0.2.1:38080"},
 		"loopback --http-addr")
 	ok(CLI{DataDir: t.TempDir(), UpstreamStation: "did:web:station.test", HTTPAddr: "localhost:38080"})
+	// A wildcard bind serves the plain-HTTP OAuth endpoints to the network,
+	// though the advertised URL is loopback.
+	for _, addr := range []string{":38080", "0.0.0.0:38080", "[::]:38080"} {
+		bad(CLI{DataDir: t.TempDir(), UpstreamStation: "did:web:station.test", HTTPAddr: addr},
+			"loopback --http-addr")
+	}
 	bad(CLI{}, "data-dir")
 	bad(CLI{DataDir: t.TempDir(), LivepeerGateway: true, LivepeerGatewayURL: "http://127.0.0.1:8935"},
 		"livepeer-gateway")

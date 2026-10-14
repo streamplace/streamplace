@@ -42,6 +42,10 @@ struct sp_output {
 	struct serializer queue_s;
 	struct array_output_data queue;
 	uint64_t total_bytes;
+
+	/* OBS's own encoders from its output settings, put back when the server
+	 * asks for none of a kind. */
+	obs_encoder_t *obs_video, *obs_audio;
 };
 
 static bool is_stopping(struct sp_output *sp)
@@ -364,15 +368,59 @@ static bool create_audio_encoders(struct sp_output *sp, obs_data_array_t *config
 	return ok;
 }
 
-/* Without encoder configurations, the encoders from OBS's output settings stay. */
+/* Ours are the encoders created from the server's configuration. */
+static bool is_ours(obs_encoder_t *encoder)
+{
+	return encoder && strncmp(obs_encoder_get_name(encoder), "streamplace ", 12) == 0;
+}
+
+/* The frontend puts its own encoder in slot 0 on every start, but an automatic
+ * reconnect starts with ours still there, so only one of OBS's is remembered. */
+static void remember_obs_encoder(obs_encoder_t **saved, obs_encoder_t *current)
+{
+	if (!current || is_ours(current))
+		return;
+	obs_encoder_release(*saved);
+	*saved = obs_encoder_get_ref(current);
+}
+
+/* Takes ours out of the output, putting OBS's back in slot 0, and leaves any
+ * other encoders OBS attached alone. */
+static void restore_obs_video_encoders(struct sp_output *sp)
+{
+	for (size_t i = 0; i < MAX_OUTPUT_VIDEO_ENCODERS; i++) {
+		if (is_ours(obs_output_get_video_encoder2(sp->output, i)))
+			obs_output_set_video_encoder2(sp->output, i == 0 ? sp->obs_video : NULL, i);
+	}
+	obs_encoder_group_destroy(sp->encoder_group);
+	sp->encoder_group = NULL;
+}
+
+static void restore_obs_audio_encoders(struct sp_output *sp)
+{
+	for (size_t i = 0; i < MAX_OUTPUT_AUDIO_ENCODERS; i++) {
+		if (is_ours(obs_output_get_audio_encoder(sp->output, i)))
+			obs_output_set_audio_encoder(sp->output, i == 0 ? sp->obs_audio : NULL, i);
+	}
+}
+
+/* Without encoder configurations of a kind, OBS's own encoders from its output
+ * settings are used, even if an earlier connection replaced them. */
 static bool apply_encoder_configs(struct sp_output *sp, obs_data_t *config, struct dstr *err)
 {
 	obs_data_array_t *video = obs_data_get_array(config, "encoder_configurations");
 	obs_data_t *audio_configs = obs_data_get_obj(config, "audio_configurations");
 	obs_data_array_t *audio = obs_data_get_array(audio_configs, "live");
 
-	bool ok = (!obs_data_array_count(video) || create_video_encoders(sp, video, err)) &&
-		  (!obs_data_array_count(audio) || create_audio_encoders(sp, audio, err));
+	bool ok = true;
+	if (obs_data_array_count(video))
+		ok = create_video_encoders(sp, video, err);
+	else
+		restore_obs_video_encoders(sp);
+	if (ok && obs_data_array_count(audio))
+		ok = create_audio_encoders(sp, audio, err);
+	else if (ok)
+		restore_obs_audio_encoders(sp);
 
 	obs_data_array_release(audio);
 	obs_data_release(audio_configs);
@@ -685,6 +733,8 @@ static void sp_destroy(void *data)
 	fmp4_free(&sp->mux);
 	array_output_serializer_free(&sp->queue);
 	obs_encoder_group_destroy(sp->encoder_group);
+	obs_encoder_release(sp->obs_video);
+	obs_encoder_release(sp->obs_audio);
 	pthread_cond_destroy(&sp->cond);
 	pthread_mutex_destroy(&sp->mutex);
 	bfree(sp);
@@ -709,6 +759,8 @@ static bool sp_start(void *data)
 	sp->video_tracks = 0;
 	sp->audio_tracks = 0;
 	sp->total_bytes = 0;
+	remember_obs_encoder(&sp->obs_video, obs_output_get_video_encoder2(sp->output, 0));
+	remember_obs_encoder(&sp->obs_audio, obs_output_get_audio_encoder(sp->output, 0));
 
 	sp->connect_thread_active = pthread_create(&sp->connect_thread, NULL, connect_thread, sp) == 0;
 	return sp->connect_thread_active;

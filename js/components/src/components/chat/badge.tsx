@@ -12,18 +12,26 @@ export const BADGE_IMAGES: Record<string, ReturnType<typeof require>> = {
 export const Badge = ({
   badgeType,
   size = 16,
-  isInChat = false,
+  textBaseline = false,
   imageUrl,
+  testID,
 }: {
   badgeType: string;
   size?: number;
-  isInChat?: boolean;
+  /**
+   * The badge sits in a line of text on the web, where the image is pulled up
+   * onto that line. A flex row centers its items on its own, and the pull there
+   * lifts the badge above the line instead, so the chat rows do not ask for it.
+   */
+  textBaseline?: boolean;
   imageUrl?: string;
+  testID?: string;
 }) => {
   const source = BADGE_IMAGES[badgeType];
   if (source) {
     return (
       <Image
+        testID={testID}
         source={source}
         style={[
           {
@@ -31,7 +39,7 @@ export const Badge = ({
             width: size,
             marginRight: 2,
           },
-          isInChat && {
+          textBaseline && {
             marginBottom: Platform.OS === "web" ? -size : 0,
             transform:
               Platform.OS === "web" ? [{ translateY: -size / 1.3 }] : [],
@@ -43,6 +51,7 @@ export const Badge = ({
   if (imageUrl) {
     return (
       <Image
+        testID={testID}
         source={{ uri: imageUrl }}
         style={[
           {
@@ -51,7 +60,7 @@ export const Badge = ({
             marginRight: 2,
             borderRadius: 2,
           },
-          isInChat && {
+          textBaseline && {
             marginBottom: Platform.OS === "web" ? -size : 0,
             transform:
               Platform.OS === "web" ? [{ translateY: -size / 1.3 }] : [],
@@ -74,9 +83,9 @@ export const BadgeDisplayRow = ({
       {badges.map((badge, index) => (
         <Badge
           key={index}
+          testID="chat-badge"
           badgeType={badge.badgeType}
           imageUrl={badge.imageUrl}
-          isInChat
         />
       ))}
     </>

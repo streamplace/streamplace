@@ -226,7 +226,7 @@ export function BadgePicker() {
                     <View>
                       {streamerSlot?.selected && (
                         <Badge
-                          isInChat={true}
+                          textBaseline
                           badgeType={streamerSlot.selected.badgeType}
                           imageUrl={streamerSlot.selected.imageUrl}
                           size={22}
@@ -234,7 +234,7 @@ export function BadgePicker() {
                       )}
                       {userSlot?.selected && (
                         <Badge
-                          isInChat={true}
+                          textBaseline
                           badgeType={userSlot.selected.badgeType}
                           imageUrl={userSlot.selected.imageUrl}
                           size={22}

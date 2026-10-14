@@ -394,7 +394,8 @@ func TestStreamTranscoderCompletesTheMainGroup(t *testing.T) {
 
 // A syndicating node pairs a rendition with the source segment's Opus
 // tracks: the mix and the stems, so a viewer who picked a rendition keeps
-// the stems.
+// the stems. So does the node that transcoded it, whose transcoder output
+// carries only the mix.
 func TestPublishRenditionsForPlaybackCarriesStems(t *testing.T) {
 	ctx := context.Background()
 	src := groupedSignedSegment(t, ctx)
@@ -424,4 +425,10 @@ func TestPublishRenditionsForPlaybackCarriesStems(t *testing.T) {
 	case <-time.After(20 * time.Second):
 		t.Fatal("no rendition segment published")
 	}
+
+	local := mm.PacketizeRenditions(ctx, src, addendum)["120p"]
+	require.NotNil(t, local, "the transcoding node pairs its own rendition")
+	require.NotEmpty(t, local.Video)
+	require.Len(t, local.Stems, 1)
+	require.Equal(t, uint32(2), local.Stems[0].Group)
 }

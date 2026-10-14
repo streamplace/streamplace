@@ -19,19 +19,18 @@ type sourceAudio struct {
 	opus map[string][]byte // the main group's Opus track and each stem's, canonical bytes by track id
 }
 
-// rememberSourceAudio keeps a replicated source segment's Opus tracks — the
-// main group's and each stem's, so a rendition viewer gets the stems too —
-// keyed by its video track's first decode time, for
-// PublishRenditionsForPlayback.
-func (mm *MediaManager) rememberSourceAudio(ctx context.Context, did string, seg []byte) {
+// sourceOpus returns a source segment's Opus tracks, the main group's and
+// each stem's, so a rendition viewer gets the stems too, with its video
+// track's first decode time, which the renditions transcoded from it share.
+func sourceOpus(ctx context.Context, seg []byte) (uint64, map[string][]byte, bool) {
 	events, err := unwrapMuxlEvents(ctx, seg)
 	if err != nil {
-		log.Debug(ctx, "rendition playback: could not read source segment", "streamer", did, "error", err)
-		return
+		log.Debug(ctx, "rendition playback: could not read source segment", "error", err)
+		return 0, nil, false
 	}
 	cat, tracks := catalogAndTracks(events)
 	if cat == nil || cat.Video == nil || cat.Audio == nil || tracks == nil {
-		return
+		return 0, nil, false
 	}
 	var videoID string
 	for _, v := range cat.Video.Renditions {
@@ -47,7 +46,7 @@ func (mm *MediaManager) rememberSourceAudio(ctx context.Context, did string, seg
 		}
 	}
 	if videoID == "" || len(opusIDs) == 0 {
-		return
+		return 0, nil, false
 	}
 	for _, a := range stemOpusTracks(all) {
 		opusIDs = append(opusIDs, a.TrackID())
@@ -60,9 +59,17 @@ func (mm *MediaManager) rememberSourceAudio(ctx context.Context, did string, seg
 		}
 	}
 	if len(opus) == 0 {
-		return
+		return 0, nil, false
 	}
 	tfdt, ok := firstTfdt(tracks[videoID])
+	return tfdt, opus, ok
+}
+
+// rememberSourceAudio keeps a replicated source segment's Opus tracks (see
+// sourceOpus), keyed by its video's first decode time, for
+// PublishRenditionsForPlayback.
+func (mm *MediaManager) rememberSourceAudio(ctx context.Context, did string, seg []byte) {
+	tfdt, opus, ok := sourceOpus(ctx, seg)
 	if !ok {
 		return
 	}
@@ -115,43 +122,67 @@ func (mm *MediaManager) sourceAudioAt(did string, tfdt uint64) map[string][]byte
 // node that only syndicates the stream received the renditions for HLS but
 // had nothing on its bus, so a WebRTC viewer who picked one got no video.
 func (mm *MediaManager) PublishRenditionsForPlayback(ctx context.Context, did string, addendum []byte, published bool) {
-	if mm.bus == nil || len(addendum) == 0 {
+	if mm.bus == nil {
 		return
+	}
+	packets := mm.renditionPackets(ctx, addendum, func(tfdt uint64) map[string][]byte {
+		return mm.sourceAudioAt(did, tfdt)
+	})
+	names := make([]string, 0, len(packets))
+	for name := range packets {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		mm.bus.PublishSegment(ctx, did, name, &bus.Seg{PacketizedData: packets[name], Published: published})
+	}
+}
+
+// PacketizeRenditions packetizes, by rendition name, each rendition of an
+// addendum this node minted from source, paired with source's own Opus
+// tracks: the mix and the stems, which the transcoder's output lacks. A
+// rendition that can't be paired is missing from the result.
+func (mm *MediaManager) PacketizeRenditions(ctx context.Context, source, addendum []byte) map[string]*bus.PacketizedSegment {
+	_, opus, ok := sourceOpus(ctx, source)
+	if !ok {
+		return nil
+	}
+	return mm.renditionPackets(ctx, addendum, func(uint64) map[string][]byte { return opus })
+}
+
+// renditionPackets packetizes each rendition track in an addendum together
+// with the source Opus tracks opusAt returns for its first decode time, by
+// rendition name.
+func (mm *MediaManager) renditionPackets(ctx context.Context, addendum []byte, opusAt func(tfdt uint64) map[string][]byte) map[string]*bus.PacketizedSegment {
+	if len(addendum) == 0 {
+		return nil
 	}
 	events, err := unwrapMuxlEvents(ctx, addendum)
 	if err != nil {
-		log.Warn(ctx, "rendition playback: could not read addendum", "streamer", did, "error", err)
-		return
+		log.Warn(ctx, "rendition playback: could not read addendum", "error", err)
+		return nil
 	}
 	cat, tracks := catalogAndTracks(events)
 	if cat == nil || cat.Video == nil || tracks == nil {
-		return
+		return nil
 	}
-	names := map[string]string{}
+	packets := map[string]*bus.PacketizedSegment{}
 	for _, v := range cat.Video.Renditions {
-		if v.CodedHeight > 0 {
-			names[strconv.FormatUint(uint64(v.TrackID()), 10)] = RenditionName(v.CodedWidth, v.CodedHeight)
-		}
-	}
-	ids := make([]string, 0, len(tracks))
-	for id := range tracks {
-		if names[id] != "" {
-			ids = append(ids, id)
-		}
-	}
-	sort.Strings(ids)
-	for _, id := range ids {
+		id := strconv.FormatUint(uint64(v.TrackID()), 10)
 		video := tracks[id]
+		if v.CodedHeight == 0 || len(video) == 0 {
+			continue
+		}
 		tfdt, ok := firstTfdt(video)
 		if !ok {
 			continue
 		}
-		opus := mm.sourceAudioAt(did, tfdt)
+		opus := opusAt(tfdt)
 		if opus == nil {
-			log.Debug(ctx, "rendition playback: no source audio for this rendition segment", "streamer", did, "tfdt", tfdt)
+			log.Debug(ctx, "rendition playback: no source audio for this rendition segment", "tfdt", tfdt)
 			continue
 		}
-		name := names[id]
+		name := RenditionName(v.CodedWidth, v.CodedHeight)
 		// The rendition's video plus the source's Opus tracks, in track-id
 		// order, is a bare canonical segment, which Packetize presents and
 		// selects from (the mix and the stems) like the source's own.
@@ -161,9 +192,10 @@ func (mm *MediaManager) PublishRenditionsForPlayback(ctx context.Context, did st
 		}
 		packet, err := Packetize(ctx, mm.cli, &bus.Seg{Muxl: concatTracksByID(m4s)})
 		if err != nil {
-			log.Warn(ctx, "rendition playback: could not packetize rendition", "streamer", did, "rendition", name, "error", err)
+			log.Warn(ctx, "rendition playback: could not packetize rendition", "rendition", name, "error", err)
 			continue
 		}
-		mm.bus.PublishSegment(ctx, did, name, &bus.Seg{PacketizedData: packet, Published: published})
+		packets[name] = packet
 	}
+	return packets
 }

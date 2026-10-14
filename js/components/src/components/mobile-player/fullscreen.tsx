@@ -11,6 +11,7 @@ import {
   usePlayerStore,
 } from "../..";
 import { View } from "../../components/ui";
+import { usePlaybackSession } from "./playback-session";
 import { AudioOnlyOverlay } from "./ui/audio-only-overlay";
 import Video from "./video";
 import { HostedVideo } from "./video-host";
@@ -125,6 +126,7 @@ export function Fullscreen(props: {
       style={{ width: "100%", height: "100%", overflow: "hidden" }}
     >
       <HostedVideo>
+        <PlaybackSession src={props.src} />
         <VideoRetry>
           <Video
             objectFit={props.objectFit}
@@ -143,4 +145,11 @@ export function Fullscreen(props: {
       {props.children}
     </View>
   );
+}
+
+// Hosted with the video, so a layout change that remounts this Fullscreen
+// doesn't drop the session and change the video's URL.
+function PlaybackSession(props: { src: string }) {
+  usePlaybackSession(props.src);
+  return null;
 }

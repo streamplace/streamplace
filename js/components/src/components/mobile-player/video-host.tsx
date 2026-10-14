@@ -8,8 +8,10 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { LivestreamContext } from "../../livestream-store/context";
 import { PlayerContext } from "../../player-store/context";
 import { PlayerStore, usePlayerContext } from "../../player-store/player-store";
+import { VideoContext } from "../../video-store/context";
 
 // A player's video (the <video> element and the hls.js or WebRTC session
 // feeding it) is rendered here, near the top of the app, instead of wherever
@@ -96,6 +98,8 @@ export function VideoHostProvider({ children }: { children: ReactNode }) {
 export function HostedVideo({ children }: { children: ReactNode }) {
   const host = useContext(VideoHostContext);
   const players = usePlayerContext();
+  const livestream = useContext(LivestreamContext);
+  const video = useContext(VideoContext);
   const store = players.players[Object.keys(players.players)[0]];
   const box = useRef<HTMLDivElement>(null);
 
@@ -107,14 +111,18 @@ export function HostedVideo({ children }: { children: ReactNode }) {
   }, [host, store]);
 
   useLayoutEffect(() => {
-    // The host is above this player's PlayerProvider.
+    // The host is above the screen's stores; pass their contexts along.
     host?.render(
       store,
       <PlayerContext.Provider value={players}>
-        {children}
+        <LivestreamContext.Provider value={livestream}>
+          <VideoContext.Provider value={video}>
+            {children}
+          </VideoContext.Provider>
+        </LivestreamContext.Provider>
       </PlayerContext.Provider>,
     );
-  }, [host, store, players, children]);
+  }, [host, store, players, livestream, video, children]);
 
   if (!host) return <>{children}</>;
   return <div ref={box} style={{ width: "100%", height: "100%" }} />;

@@ -989,7 +989,7 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 			// with the flag unset was refused to every viewer.
 			Published: notif.Metadata.Published,
 		}
-		if packet := paired[rs[i].Name]; packet != nil {
+		if packet := paired[media.RenditionTrackID(i)]; packet != nil {
 			playback[i].PacketizedData = packet
 			continue
 		}

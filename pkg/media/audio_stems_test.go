@@ -426,7 +426,9 @@ func TestPublishRenditionsForPlaybackCarriesStems(t *testing.T) {
 		t.Fatal("no rendition segment published")
 	}
 
-	local := mm.PacketizeRenditions(ctx, src, addendum)["120p"]
+	// Keyed by the minted track id, not a name: a rung's coded size names
+	// a different rendition when the source isn't 16:9.
+	local := mm.PacketizeRenditions(ctx, src, addendum)[RenditionTrackID(0)]
 	require.NotNil(t, local, "the transcoding node pairs its own rendition")
 	require.NotEmpty(t, local.Video)
 	require.Len(t, local.Stems, 1)

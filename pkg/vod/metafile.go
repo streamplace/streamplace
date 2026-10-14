@@ -93,6 +93,9 @@ type MetafileTrack struct {
 	// Audio-only.
 	Channels   uint32 `json:"channels,omitempty"`
 	SampleRate uint32 `json:"sampleRate,omitempty"`
+	// Group is the track's alternateGroup: the lowest is the full mix,
+	// higher ones are stems (absent on older metafiles: all one group).
+	Group uint32 `json:"group,omitempty"`
 }
 
 // MetafileSegment is one GOP-sized byte range within the blob.
@@ -282,6 +285,7 @@ func (b *metafileBuilder) Finalize(cid string, size int64) *Metafile {
 							track.Timescale = c.Timescale()
 							track.Channels = c.NumberOfChannels
 							track.SampleRate = c.SampleRate
+							track.Group = c.AlternateGroup
 							break
 						}
 					}

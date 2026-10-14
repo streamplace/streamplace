@@ -504,13 +504,13 @@ export function PlayerControls({
             aria-atomic="true"
             className="pointer-events-none absolute top-1/2 left-1/2 z-20 flex w-full -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 px-4 text-center text-sm font-medium tabular-nums"
           >
-            <div className="rounded-full bg-black/50 p-2">
+            <div className="bg-background/50 rounded-full p-4">
               <feedback.icon
-                className="size-12 text-white opacity-80"
+                className="text-foreground fill-foreground size-12 opacity-80"
                 aria-hidden="true"
               />
             </div>
-            <span className="max-w-full rounded-md bg-black/50 px-3 py-1 text-white/80">
+            <span className="bg-background/50 text-foreground/80 max-w-full rounded-md px-3 py-1">
               {feedback.message}
             </span>
           </div>,

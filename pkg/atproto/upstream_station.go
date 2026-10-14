@@ -18,12 +18,15 @@ type UpstreamStation struct {
 	FirehoseURL string
 }
 
-func ResolveUpstreamStation(ctx context.Context, did string) (*UpstreamStation, error) {
+// ResolveUpstreamStation looks the station up through plcURL's directory, the
+// one every other DID lookup uses, so a did:plc station in a private or
+// development directory resolves too.
+func ResolveUpstreamStation(ctx context.Context, plcURL, did string) (*UpstreamStation, error) {
 	parsed, err := syntax.ParseDID(did)
 	if err != nil {
 		return nil, fmt.Errorf("parse upstream station DID: %w", err)
 	}
-	ident, err := CustomDirectory("").LookupDID(ctx, parsed)
+	ident, err := CustomDirectory(plcURL).LookupDID(ctx, parsed)
 	if err != nil {
 		return nil, fmt.Errorf("resolve upstream station %s: %w", did, err)
 	}

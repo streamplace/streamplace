@@ -49,18 +49,18 @@ func TestResolveUpstreamStation(t *testing.T) {
 	t.Cleanup(func() { aqhttp.Client = original })
 	did := "did:web:station.streamplace.team"
 
-	resolved, err := ResolveUpstreamStation(context.Background(), did)
+	resolved, err := ResolveUpstreamStation(context.Background(), "", did)
 	require.NoError(t, err)
 	require.Equal(t, stationURL, resolved.URL)
 	require.Equal(t, firehoseURL, resolved.FirehoseURL)
 
 	// A missing/bad advertisement must not quietly select the global firehose.
 	advertiseRelay = false
-	_, err = ResolveUpstreamStation(context.Background(), did)
+	_, err = ResolveUpstreamStation(context.Background(), "", did)
 	require.Error(t, err)
 	advertiseRelay = true
 	firehoseURL = "wss://bsky.network"
-	_, err = ResolveUpstreamStation(context.Background(), did)
+	_, err = ResolveUpstreamStation(context.Background(), "", did)
 	require.Error(t, err)
 }
 

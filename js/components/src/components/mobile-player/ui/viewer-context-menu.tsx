@@ -198,6 +198,22 @@ export function ContextMenu({
       } else if ((key === "," || key === ".") && canStepFrames) {
         event.preventDefault();
         stepFrame(key === "." ? "forward" : "back");
+      } else if (
+        (key === "arrowleft" || key === "arrowright") &&
+        Number.isFinite(duration) &&
+        duration > 0
+      ) {
+        const currentTime =
+          videoRef && typeof videoRef === "object" && "current" in videoRef
+            ? (videoRef.current?.currentTime ?? playTime)
+            : playTime;
+        event.preventDefault();
+        seekTo(
+          Math.max(
+            0,
+            Math.min(duration, currentTime + (key === "arrowright" ? 5 : -5)),
+          ),
+        );
       }
     };
 
@@ -210,6 +226,10 @@ export function ContextMenu({
     canStepFrames,
     changePlaybackRate,
     stepFrame,
+    duration,
+    videoRef,
+    playTime,
+    seekTo,
   ]);
 
   // are we on mobile? then do dropdowns

@@ -10,6 +10,8 @@ Search is available without signing in from the native Search tab or the web
 sidebar at `/search`. Enter the beginning of a handle and press Search (or the
 keyboard's search/Enter key), then select a result to open that user's stream.
 Matching ignores case, surrounding whitespace, and a leading `@`.
+On mobile, submitting dismisses the keyboard to keep results and empty states
+visible.
 
 The shared screen uses `place.stream.live.searchActorsTypeahead` to search the
 current node's indexed users in its database. It shows up to 20 active accounts,

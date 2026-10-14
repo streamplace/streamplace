@@ -28,13 +28,17 @@ appId: ${APP_ID}
     visible:
       id: "search-no-results"
     timeout: 15000
+- assertVisible:
+    text: 'No results for "nobody-matches-this"'
 - assertNotVisible:
     id: "search-result-.*"
 - takeScreenshot: user-search-no-results
 
 # case, a leading @ and trailing whitespace don't matter
+# Tap past this short query so backspace starts at its end, not its middle.
 - tapOn:
     id: "search-input"
+    point: "95%,50%"
 - eraseText: 100
 - inputText: "@${output.prefix} "
 - tapOn:
@@ -52,6 +56,7 @@ appId: ${APP_ID}
 # emptying the box drops the stale result
 - tapOn:
     id: "search-input"
+    point: "95%,50%"
 - eraseText: 100
 - extendedWaitUntil:
     visible:

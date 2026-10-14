@@ -11,7 +11,13 @@ import { EmptyState, EmptyStateTile } from "components/empty-state";
 import { AlertCircle, Search } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Platform, ScrollView, View } from "react-native";
+import {
+  ActivityIndicator,
+  Keyboard,
+  Platform,
+  ScrollView,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { place } from "streamplace";
 
@@ -60,6 +66,7 @@ export default function SearchScreen() {
   const submit = async () => {
     const q = normalizeQuery(text);
     if (!q) return;
+    if (Platform.OS !== "web") Keyboard.dismiss();
     const id = ++requestId.current;
     if (!agent) {
       setState({ status: "error" });

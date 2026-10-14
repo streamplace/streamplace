@@ -4,6 +4,7 @@ import {
   test,
   type ElectronApplication,
 } from "@playwright/test";
+import { createSocket } from "node:dgram";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
@@ -31,6 +32,16 @@ async function freePort(): Promise<number> {
   return port;
 }
 
+// Every node binds MoQ on UDP :38443 by default, and the upstream harness's
+// local node is already running beside this one.
+async function freeUDPPort(): Promise<number> {
+  const socket = createSocket("udp4");
+  await new Promise<void>((done) => socket.bind(0, "127.0.0.1", done));
+  const port = socket.address().port;
+  await new Promise<void>((done) => socket.close(done));
+  return port;
+}
+
 // Exercise the actual Electron entry point and its bundled-node launcher, not a
 // copied spawn configuration. Mobile counterparts live in upstream-station.yaml.
 test("desktop-upstream-station: login and writes survive closing Desktop", async () => {
@@ -54,6 +65,7 @@ test("desktop-upstream-station: login and writes survive closing Desktop", async
     SP_HTTP_ADDR: localHost,
     SP_HTTP_INTERNAL_ADDR: `127.0.0.1:${await freePort()}`,
     SP_RTMP_ADDR: `127.0.0.1:${await freePort()}`,
+    SP_MOQ_ADDR: `127.0.0.1:${await freeUDPPort()}`,
     SP_DATA_DIR: join(state, "node"),
     SP_BROADCASTER_HOST: localHost,
     SP_DEV_FRONTEND_PROXY: "",

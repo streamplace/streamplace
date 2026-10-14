@@ -190,8 +190,11 @@ const SettingsStack = createNativeStackNavigator();
 
 function useBaseScreenOptions() {
   const z = useTheme();
+  const isLargeScreen = useIsLargeScreen();
   return {
     headerShown: true,
+    // Wide headers reserve the title area for Search; retain browser titles.
+    headerTitle: isLargeScreen ? "" : undefined,
     headerTransparent: Platform.OS === "ios",
     headerBackButtonDisplayMode: "minimal" as const,
     // Slim, quiet chrome: 15px medium title on surface0 with a hairline
@@ -264,12 +267,12 @@ function HomeNavigator() {
         name="HomeMain"
         component={HomeScreen}
         options={{
-          // `title` drives the browser tab: the node's title (runtime
-          // branding, else the brand default). The visible web header shows
-          // the contextual "Home", not a repeat of it.
+          // `title` drives the browser tab. Narrow headers show Home (or the
+          // node title on iOS); wide headers reserve that space for Search.
           title,
           headerTitle:
-            Platform.OS === "ios"
+            baseScreenOptions.headerTitle ??
+            (Platform.OS === "ios"
               ? (props) => (
                   <View style={{ flex: 1, alignItems: "flex-start" }}>
                     <Text size="2xl" style={[zero.ml[4]]}>
@@ -277,7 +280,7 @@ function HomeNavigator() {
                     </Text>
                   </View>
                 )
-              : "Home",
+              : "Home"),
           headerLeft:
             Platform.OS !== "ios"
               ? ({ canGoBack }) => <NavigationButton canGoBack={canGoBack} />

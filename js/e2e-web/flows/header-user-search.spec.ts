@@ -79,6 +79,27 @@ test("header-user-search: searches while typing without leaving the page", async
   ).toBeVisible({ timeout: 30_000 });
 });
 
+test("header-user-search: empty input leaves page controls usable", async ({
+  page,
+}) => {
+  await page.goto("/settings");
+  await input(page).fill(PREFIX);
+  await expect(result(page)).toBeVisible();
+  await input(page).fill("");
+  await expect(input(page)).toBeFocused();
+
+  // One real click must reach the page, not an invisible dismiss layer.
+  await page.getByText("Advanced", { exact: true }).click({ force: true });
+  await expect(page).toHaveURL(/\/settings\/advanced$/);
+
+  // Focusing an empty field must not install that layer either.
+  await input(page).click();
+  await page.getByRole("link", { name: "Home", exact: true }).click({
+    force: true,
+  });
+  await expect(page).toHaveURL(/\/$/);
+});
+
 test("header-user-search: Escape and an outside press close the results", async ({
   page,
 }) => {

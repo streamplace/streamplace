@@ -10,7 +10,6 @@ import { EmptyState, EmptyStateTile } from "components/empty-state";
 import { AlertCircle, Search } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { TextInput } from "react-native";
 import {
   ActivityIndicator,
   Keyboard,
@@ -274,46 +273,45 @@ function DropdownSearch({
   const { height } = useWindowDimensions();
   const { state, throttledSearch, cancel } = useActorSearch();
   const [text, setText] = useState("");
-  const inputRef = useRef<TextInput>(null);
 
-  // Closing drops queued and in-flight searches; reopening searches again.
+  // Opening (including refocusing retained text) starts a search. Edits while
+  // open use the same throttle; empty queries never capture outside presses.
   useEffect(() => {
-    if (!open) {
-      cancel();
-      inputRef.current?.blur();
-    }
-  }, [open]);
-
-  const update = (value: string) => {
-    onOpenChange(true);
-    const q = normalizeQuery(value);
-    if (q) throttledSearch(q);
+    if (open) throttledSearch(normalizeQuery(text));
     else cancel();
-  };
+  }, [open]);
 
   const onChangeText = (value: string) => {
     setText(value);
-    update(value);
+    const q = normalizeQuery(value);
+    if (q && open) throttledSearch(q);
+    else cancel();
+    onOpenChange(Boolean(q));
   };
 
   const onFocus = () => {
-    if (!open) update(text);
+    if (normalizeQuery(text)) onOpenChange(true);
+  };
+
+  const dismiss = () => {
+    onOpenChange(false);
+    if (Platform.OS !== "web") Keyboard.dismiss();
   };
 
   const onKeyPress = (e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
-    if (e.nativeEvent.key === "Escape") onOpenChange(false);
+    if (e.nativeEvent.key === "Escape") dismiss();
   };
 
   return (
     <View style={{ width: "100%" }}>
       <Input
-        ref={inputRef}
         testID="header-search-input"
         accessibilityLabel={t("search")}
         placeholder={t("search")}
         value={text}
         onChangeText={onChangeText}
         onFocus={onFocus}
+        onPressIn={onFocus}
         onKeyPress={onKeyPress}
         returnKeyType="search"
         autoCapitalize="none"
@@ -385,7 +383,7 @@ function DropdownSearch({
                   testID={`header-search-result-${actor.did}`}
                   actor={actor}
                   avatarSize="md"
-                  onPress={() => onOpenChange(false)}
+                  onPress={dismiss}
                 />
               ))}
           </ScrollView>

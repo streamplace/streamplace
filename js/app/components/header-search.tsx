@@ -45,11 +45,7 @@ export default function HeaderSearch() {
         }}
       >
         <View style={{ width: "100%", maxWidth: breakpoints.sm }}>
-          <UserSearch
-            variant="dropdown"
-            open={open}
-            onOpenChange={(value) => (value ? setOpen(true) : dismiss())}
-          />
+          <UserSearch variant="dropdown" open={open} onOpenChange={setOpen} />
         </View>
       </View>
     </View>

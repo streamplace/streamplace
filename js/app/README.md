@@ -11,8 +11,10 @@ the sidebar breakpoint) have a persistent header Search field. Typing searches
 immediately, throttled to one request per 300ms with the latest query sent at
 the end of the interval. Results appear in a dropdown over the current page;
 only selecting an account navigates to its stream. Escape, an outside press,
-or clearing the query dismisses results. Embeds and OBS/popout utilities do
-not include app search chrome.
+or clearing the query dismisses results. An empty field leaves page controls
+usable and clearing preserves keyboard focus. Wide headers reserve the title
+area for Search without changing browser tab titles. Embeds and OBS/popout
+utilities do not include app search chrome.
 
 On smaller windows the header field is hidden entirely. The native Search tab
 and web sidebar/tab still open `/search`, where Search or the keyboard's

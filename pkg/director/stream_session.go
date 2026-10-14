@@ -939,6 +939,10 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 			addendum = nil
 		}
 	}
+	// The transcoder's output carries only the full mix; renditions play
+	// with the source's own Opus tracks, stems included, wherever the
+	// addendum lets them be paired.
+	paired := ss.mm.PacketizeRenditions(ctx, notif.Muxl, addendum)
 	playback := make([]*bus.Seg, len(segs))
 	var pg errgroup.Group
 	for i, seg := range segs {
@@ -959,6 +963,10 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 			// unpublished segment only to the streamer, and a rendition
 			// with the flag unset was refused to every viewer.
 			Published: notif.Metadata.Published,
+		}
+		if packet := paired[rs[i].Name]; packet != nil {
+			playback[i].PacketizedData = packet
+			continue
 		}
 		pg.Go(func() error {
 			packet, err := media.Packetize(ctx, ss.cli, playback[i])

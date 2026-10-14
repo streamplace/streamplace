@@ -217,7 +217,7 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
       <UserProfileCard uri={item.uri} author={item.author} badges={badges}>
         <View
           style={{
-            alignItems: "center",
+            display: "inline",
             justifyContent: "flex-end",
             flexDirection: "row",
             flexShrink: 1,

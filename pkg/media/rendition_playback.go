@@ -128,32 +128,39 @@ func (mm *MediaManager) PublishRenditionsForPlayback(ctx context.Context, did st
 	packets := mm.renditionPackets(ctx, addendum, func(tfdt uint64) map[string][]byte {
 		return mm.sourceAudioAt(did, tfdt)
 	})
-	names := make([]string, 0, len(packets))
-	for name := range packets {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		mm.bus.PublishSegment(ctx, did, name, &bus.Seg{PacketizedData: packets[name], Published: published})
+	for _, p := range packets {
+		mm.bus.PublishSegment(ctx, did, p.name, &bus.Seg{PacketizedData: p.packet, Published: published})
 	}
 }
 
-// PacketizeRenditions packetizes, by rendition name, each rendition of an
-// addendum this node minted from source, paired with source's own Opus
-// tracks: the mix and the stems, which the transcoder's output lacks. A
-// rendition that can't be paired is missing from the result.
-func (mm *MediaManager) PacketizeRenditions(ctx context.Context, source, addendum []byte) map[string]*bus.PacketizedSegment {
+// PacketizeRenditions packetizes each rendition of an addendum this node
+// minted from source, paired with source's own Opus tracks: the mix and
+// the stems, which the transcoder's output lacks. The result is keyed by
+// track id (see RenditionTrackID); a rendition that can't be paired is
+// missing from it.
+func (mm *MediaManager) PacketizeRenditions(ctx context.Context, source, addendum []byte) map[uint32]*bus.PacketizedSegment {
 	_, opus, ok := sourceOpus(ctx, source)
 	if !ok {
 		return nil
 	}
-	return mm.renditionPackets(ctx, addendum, func(uint64) map[string][]byte { return opus })
+	out := map[uint32]*bus.PacketizedSegment{}
+	for _, p := range mm.renditionPackets(ctx, addendum, func(uint64) map[string][]byte { return opus }) {
+		out[p.trackID] = p.packet
+	}
+	return out
+}
+
+// renditionPacket is one rendition track of an addendum, packetized.
+type renditionPacket struct {
+	trackID uint32
+	name    string // from its coded size, as live HLS names it
+	packet  *bus.PacketizedSegment
 }
 
 // renditionPackets packetizes each rendition track in an addendum together
-// with the source Opus tracks opusAt returns for its first decode time, by
-// rendition name.
-func (mm *MediaManager) renditionPackets(ctx context.Context, addendum []byte, opusAt func(tfdt uint64) map[string][]byte) map[string]*bus.PacketizedSegment {
+// with the source Opus tracks opusAt returns for its first decode time, in
+// track-id order.
+func (mm *MediaManager) renditionPackets(ctx context.Context, addendum []byte, opusAt func(tfdt uint64) map[string][]byte) []renditionPacket {
 	if len(addendum) == 0 {
 		return nil
 	}
@@ -166,7 +173,7 @@ func (mm *MediaManager) renditionPackets(ctx context.Context, addendum []byte, o
 	if cat == nil || cat.Video == nil || tracks == nil {
 		return nil
 	}
-	packets := map[string]*bus.PacketizedSegment{}
+	var packets []renditionPacket
 	for _, v := range cat.Video.Renditions {
 		id := strconv.FormatUint(uint64(v.TrackID()), 10)
 		video := tracks[id]
@@ -195,7 +202,8 @@ func (mm *MediaManager) renditionPackets(ctx context.Context, addendum []byte, o
 			log.Warn(ctx, "rendition playback: could not packetize rendition", "rendition", name, "error", err)
 			continue
 		}
-		packets[name] = packet
+		packets = append(packets, renditionPacket{trackID: v.TrackID(), name: name, packet: packet})
 	}
+	sort.Slice(packets, func(i, j int) bool { return packets[i].trackID < packets[j].trackID })
 	return packets
 }

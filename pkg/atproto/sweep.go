@@ -590,12 +590,15 @@ func (atsync *ATProtoSynchronizer) sweep(ctx context.Context, ladders bool) erro
 
 // repairSubscribedRepo must run after any active head-check pass, not be
 // discarded like a periodic tick: sparse tracks cannot replay a reconnect gap.
+// The gap may hold a handle change or a PDS move too, so it resolves the
+// identity afresh rather than checking the head on a cached PDS.
 func (atsync *ATProtoSynchronizer) repairSubscribedRepo(ctx context.Context, did string) error {
 	atsync.sweeping.Lock()
 	defer atsync.sweeping.Unlock()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	atsync.purgeIdentCache(ctx, did)
 	return atsync.sweepRepos(ctx, []string{did}, false)
 }
 

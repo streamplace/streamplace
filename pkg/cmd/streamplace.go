@@ -281,7 +281,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	b := bus.NewBus()
 	var upstreamStation *atproto.UpstreamStation
 	if cli.UpstreamStation != "" {
-		upstreamStation, err = atproto.ResolveUpstreamStation(ctx, cli.UpstreamStation)
+		upstreamStation, err = atproto.ResolveUpstreamStation(ctx, cli.PLCURL, cli.UpstreamStation)
 		if err != nil {
 			return err
 		}

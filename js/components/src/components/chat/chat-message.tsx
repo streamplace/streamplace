@@ -198,9 +198,9 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
     <Text size="base" style={[flex.shrink[1], { minWidth: 0 }, selectableText]}>
       <UserProfileCard uri={item.uri} author={item.author} badges={badges}>
         <View
-          // @ts-expect-error inline display is not supported on non-web platforms
+          // @ts-expect-error first baseline is not supported on non-web platforms
           style={{
-            display: "inline",
+            alignItems: "first baseline",
             justifyContent: "flex-end",
             flexDirection: "row",
             flexShrink: 1,

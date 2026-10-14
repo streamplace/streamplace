@@ -12,6 +12,7 @@ import {
 import type {
   HomeStackParamList,
   RootStackParamList,
+  SearchStackParamList,
   SettingsStackParamList,
   TabParamList,
 } from "../src/navigation-types";
@@ -20,6 +21,7 @@ import Loading from "./loading/loading";
 // Union type of all screens across all navigators
 type AllScreens = RootStackParamList &
   HomeStackParamList &
+  SearchStackParamList &
   SettingsStackParamList &
   TabParamList;
 

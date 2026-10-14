@@ -3,6 +3,7 @@ import {
   withAndroidManifest,
   withDangerousMod,
   withEntitlementsPlist,
+  withPodfile,
   withXcodeProject,
 } from "expo/config-plugins";
 import fs from "fs";
@@ -23,6 +24,30 @@ export const withoutNotificationsIOS: ConfigPlugin = (config) => {
   });
   return config;
 };
+
+// React Native normalizes library targets, but not their privacy/resource bundles.
+// Xcode 27 rejects those bundles' older deployment targets.
+const withMinimumIOSDeploymentTarget: ConfigPlugin = (config) =>
+  withPodfile(config, (config) => {
+    const hook = "post_install do |installer|";
+    if (!config.modResults.contents.includes(hook)) {
+      throw new Error("Missing CocoaPods post_install hook");
+    }
+    config.modResults.contents = config.modResults.contents.replace(
+      hook,
+      `${hook}
+    minimum = Gem::Version.new(min_ios_version_supported)
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        current = build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        if current && Gem::Version.new(current) < minimum
+          build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = minimum.to_s
+        end
+      end
+    end`,
+    );
+    return config;
+  });
 
 const withAndroidProfileable = (config) => {
   return withAndroidManifest(config, (config) => {
@@ -297,6 +322,7 @@ export default function () {
             },
           },
         ],
+        withMinimumIOSDeploymentTarget,
         [
           "expo-asset",
           {

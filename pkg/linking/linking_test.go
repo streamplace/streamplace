@@ -307,4 +307,20 @@ func TestCardTemplates(t *testing.T) {
 	require.Contains(t, page, `<meta property="og:description" content="Trust your feed"/>`)
 }
 
+func TestBootstrapBrandingRejectsCSSInjection(t *testing.T) {
+	ctx := context.Background()
+	sdb, err := statedb.MakeDB(ctx, &config.CLI{DBURL: ":memory:"}, nil, nil)
+	require.NoError(t, err)
+	linker, err := NewLinker(ctx, IndexHTML(t), sdb, &config.CLI{BroadcasterHost: "example.com"})
+	require.NoError(t, err)
+	require.NoError(t, sdb.PutBrandingBlob("did:web:example.com", "backgroundColor", "text/plain", []byte(" #123456 "), nil, nil))
+	require.NoError(t, sdb.PutBrandingBlob("did:web:example.com", "primaryColor", "text/plain", []byte(`</style><script>alert(1)</script>`), nil, nil))
+
+	out, err := linker.GenerateHTML(ctx, &PageConfig{})
+	require.NoError(t, err)
+	require.Contains(t, string(out), "--bootstrap-background:#123456")
+	require.NotContains(t, string(out), "--bootstrap-primary:")
+	require.NotContains(t, string(out), "alert(1)")
+}
+
 // Without the home templates the front page keeps the site's own card.

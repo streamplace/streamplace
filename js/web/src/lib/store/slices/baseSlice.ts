@@ -8,7 +8,6 @@ export const DID_KEY = "did";
 export interface StreamKey {
   privateKey: string;
   did: string;
-  address: string;
 }
 
 export interface BaseSlice {

@@ -98,10 +98,27 @@ requesting the native snapshot; keep that barrier synchronous and never block th
 finalizer queue, which also releases Go-owned GStreamer references. Verify changes
 to the helper with race-enabled media tests without disabling leak assertions.
 
-`WriterNewSample` releases each appsink sample when its callback returns, after
-unmapping its buffer. The go-gst v1.4 `GstSample` wrapper contains only a pointer
-to an opaque C type; on amd64 it is an 8-byte, GC-pointer-free allocation. Go's
-tiny allocator can pack it beside another live object, preventing its finalizer
-from running even after repeated GC. Clear the binding's finalizer before
-explicitly releasing that transferred reference, or it may be released twice.
-This is sample ownership, not a requirement to wrap every `Buffer.Map` call.
+## GStreamer bindings
+
+Use the generated `go-gst/pkg/gst` and `go-gst/pkg/gstapp` APIs. GObjects such as
+elements, pads, bins, and pipelines are interfaces. Check boolean link/add results
+and `StateChangeReturn` values rather than treating them as Go errors.
+
+GObject properties require fixed-width numeric values: `int32` for `gint`,
+`uint32` for `guint`, and `uint64` for `guint64`. The new GValue conversion rejects
+Go `int` and `uint`.
+
+`MapInfo.Data()` is a view of native memory, valid only until `MapInfo.Unmap()`.
+Synchronous writers may consume it directly. Use `copyBufferData` when bytes
+escape into queues or caches; Pion's H264 payloader can retain SPS/PPS slices
+between calls. Use `newBufferFromBytes` for writable, Go-sourced payloads.
+
+Sample buffers and caps are borrowed getters that retain their sample through
+the binding's GC ownership mechanism. Do not explicitly unref a sample while its
+borrowed children remain in use. The bindings now handle sample finalization;
+callers must not install their own finalizers or repeat the old sample workaround.
+
+The published dependency pins include the opaque-owner tiny-allocation fix:
+[go-glib #37](https://github.com/go-gst/go-glib/pull/37) and
+[go-gst #228](https://github.com/go-gst/go-gst/pull/228). Remove the remote fork
+replacements when an upstream release contains both fixes.

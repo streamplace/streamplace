@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 )
@@ -317,27 +317,27 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 		return err
 	}
 	defer func() {
-		if e := pipeline.SetState(gst.StateNull); e != nil {
-			log.Error(ctx, "stream transcode: set null", "error", e)
+		if pipeline.SetState(gst.StateNull) == gst.StateChangeFailure {
+			log.Error(ctx, "stream transcode: set null failed")
 		}
 	}()
 
-	srcEle, err := pipeline.GetElementByName("src")
-	if err != nil {
-		return err
+	srcEle := pipeline.GetByName("src")
+	if srcEle == nil {
+		return fmt.Errorf("stream transcode: src element not found")
 	}
-	app.SrcFromElement(srcEle).SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedDataIncremental(ctx, feedR),
+	srcEle.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: ReaderNeedDataIncremental(ctx, feedR),
 	})
 
 	// appsink output → io.Pipe → muxl streaming segmenter.
 	muxR, muxW := io.Pipe()
-	sink, err := pipeline.GetElementByName("sink")
-	if err != nil {
-		return err
+	sink := pipeline.GetByName("sink")
+	if sink == nil {
+		return fmt.Errorf("stream transcode: sink element not found")
 	}
-	app.SinkFromElement(sink).SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, muxW),
+	sink.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, muxW),
 	})
 
 	eventCh := make(chan *muxl.MuxlEvent, 16)
@@ -354,8 +354,8 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 		busErr <- err
 	}()
 
-	if err := pipeline.SetState(gst.StatePlaying); err != nil {
-		return fmt.Errorf("stream transcode: set playing: %w", err)
+	if pipeline.SetState(gst.StatePlaying) == gst.StateChangeFailure {
+		return fmt.Errorf("stream transcode: set playing: state change failed")
 	}
 
 	// Consume per-GoP transcoded segments, pairing each 1:1 (in order) with the

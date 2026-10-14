@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-gst/go-glib/glib"
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-glib/pkg/glib/v2"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/skip2/go-qrcode"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
@@ -35,6 +35,38 @@ func SafePipe() (*os.File, *os.File, func(), error) {
 	}, nil
 }
 
+// newBufferFromBytes copies bs into a freshly allocated buffer.
+func newBufferFromBytes(bs []byte) (*gst.Buffer, error) {
+	buffer := gst.NewBufferAllocate(nil, uint(len(bs)), nil)
+	info, ok := buffer.Map(gst.MapWrite)
+	if !ok {
+		return nil, fmt.Errorf("failed to map buffer for writing")
+	}
+	defer info.Unmap()
+	copy(info.Data(), bs)
+	return buffer, nil
+}
+
+// copyBufferData returns a copy of the buffer's contents that stays valid
+// after the buffer is released.
+func copyBufferData(buffer *gst.Buffer) ([]byte, error) {
+	info, ok := buffer.Map(gst.MapRead)
+	if !ok {
+		return nil, fmt.Errorf("failed to map buffer for reading")
+	}
+	defer info.Unmap()
+	return bytes.Clone(info.Data()), nil
+}
+
+// clockTimeDuration converts a gst.ClockTime to a time.Duration; ok is false
+// when the time is unset (gst.ClockTimeNone).
+func clockTimeDuration(t gst.ClockTime) (d time.Duration, ok bool) {
+	if t == gst.ClockTimeNone {
+		return 0, false
+	}
+	return time.Duration(t), true
+}
+
 // basic test to make sure gstreamer functionality is working
 func SelfTest(ctx context.Context) error {
 	ctx = log.WithLogValues(ctx, "mediafunc", "SelfTest")
@@ -50,83 +82,52 @@ func SelfTest(ctx context.Context) error {
 		return fmt.Errorf("failed to read test file: %w", err)
 	}
 
-	pipeline, err := gst.NewPipeline("self-test")
-	if err != nil {
-		return fmt.Errorf("failed to create pipeline: %w", err)
-	}
+	pipeline := gst.NewPipeline("self-test").(gst.Pipeline)
 
-	srcele, err := gst.NewElementWithProperties("appsrc", map[string]interface{}{
+	srcele := gst.ElementFactoryMakeWithProperties("appsrc", map[string]any{
 		"name": "self-test-src",
 	})
-	if err != nil {
-		return fmt.Errorf("failed to create appsrc element: %w", err)
+	if srcele == nil {
+		return fmt.Errorf("failed to create appsrc element")
 	}
-	err = pipeline.Add(srcele)
-	if err != nil {
-		return fmt.Errorf("failed to add appsrc to pipeline: %w", err)
+	if !pipeline.Add(srcele) {
+		return fmt.Errorf("failed to add appsrc to pipeline")
 	}
 
-	sinkele, err := gst.NewElementWithProperties("appsink", map[string]interface{}{
+	sinkele := gst.ElementFactoryMakeWithProperties("appsink", map[string]any{
 		"name": "self-test-sink",
 		"sync": false,
 	})
-	if err != nil {
-		return fmt.Errorf("failed to create appsink element: %w", err)
+	if sinkele == nil {
+		return fmt.Errorf("failed to create appsink element")
 	}
-	err = pipeline.Add(sinkele)
-	if err != nil {
-		return fmt.Errorf("failed to add appsink to pipeline: %w", err)
-	}
-
-	err = srcele.Link(sinkele)
-	if err != nil {
-		return fmt.Errorf("failed to link appsrc to appsink: %w", err)
+	if !pipeline.Add(sinkele) {
+		return fmt.Errorf("failed to add appsink to pipeline")
 	}
 
-	// pipeline, err := gst.NewPipelineFromString("appsrc name=src ! appsink name=sink")
-	// if err != nil {
-	// 	return err
-	// }
+	if !srcele.Link(sinkele) {
+		return fmt.Errorf("failed to link appsrc to appsink")
+	}
 
-	src := app.SrcFromElement(srcele)
-	src.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: func(self *app.Source, _ uint) {
-			buffer := gst.NewBufferWithSize(int64(len(bs)))
-			buffer.Map(gst.MapWrite).WriteData(bs)
-			defer buffer.Unmap()
+	srcele.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: func(self app.AppSrc, _ uint) {
+			buffer, err := newBufferFromBytes(bs)
+			if err != nil {
+				log.Error(ctx, "failed to build buffer", "error", err)
+				cancel()
+				return
+			}
 			self.PushBuffer(buffer)
 			log.Debug(ctx, "ending stream")
-			self.EndStream()
+			self.EndOfStream()
 		},
 	})
 
 	output := &bytes.Buffer{}
 
-	if err != nil {
-		return fmt.Errorf("unexpected error: %w", err)
-	}
-
-	appsink := app.SinkFromElement(sinkele)
-	appsink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
-			sample := sink.PullSample()
-			if sample == nil {
-				return gst.FlowOK
-			}
-			// defer sample.Unref()
-
-			// Retrieve the buffer from the sample.
-			buffer := sample.GetBuffer()
-
-			_, err := io.Copy(output, buffer.Reader())
-
-			if err != nil {
-				panic(err)
-			}
-
-			return gst.FlowOK
-		},
-		EOSFunc: func(sink *app.Sink) {
+	sinkele.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, output),
+		EOS: func(sink app.AppSink) {
 			log.Debug(ctx, "EOSFunc")
 			cancel()
 		},
@@ -141,9 +142,8 @@ func SelfTest(ctx context.Context) error {
 
 	// Start the pipeline
 	log.Debug(ctx, "setting pipeline to playing state")
-	err = pipeline.SetState(gst.StatePlaying)
-	if err != nil {
-		return fmt.Errorf("failed to set pipeline to playing state: %w", err)
+	if ret := pipeline.SetState(gst.StatePlaying); ret == gst.StateChangeFailure {
+		return fmt.Errorf("failed to set pipeline to playing state")
 	}
 
 	<-ctx.Done()
@@ -152,9 +152,8 @@ func SelfTest(ctx context.Context) error {
 		return fmt.Errorf("got a zero-byte buffer from SelfTest")
 	}
 
-	err = pipeline.BlockSetState(gst.StateNull)
-	if err != nil {
-		return fmt.Errorf("failed to set pipeline to null state: %w", err)
+	if ret := pipeline.BlockSetState(gst.StateNull, gst.ClockTimeNone); ret == gst.StateChangeFailure {
+		return fmt.Errorf("failed to set pipeline to null state")
 	}
 
 	return nil
@@ -181,46 +180,47 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 		"audiotestsrc ! audioconvert ! opusenc inband-fec=true perfect-timestamp=true bitrate=128000 ! queue ! opusparse name=audioparse",
 	}
 
-	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
+	pipelineElem, err := gst.ParseLaunch(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
 		return fmt.Errorf("error creating TestSource pipeline: %w", err)
 	}
-
-	videoparse, err := pipeline.GetElementByName("videoparse")
-	if err != nil {
-		return err
+	pipeline, ok := pipelineElem.(gst.Pipeline)
+	if !ok {
+		return fmt.Errorf("error creating TestSource pipeline: not a pipeline")
 	}
 
-	audioparse, err := pipeline.GetElementByName("audioparse")
-	if err != nil {
-		return err
+	videoparse := pipeline.GetByName("videoparse")
+	if videoparse == nil {
+		return fmt.Errorf("videoparse element not found")
+	}
+
+	audioparse := pipeline.GetByName("audioparse")
+	if audioparse == nil {
+		return fmt.Errorf("audioparse element not found")
 	}
 
 	signer, err := mm.SegmentAndSignElem(ctx, ms)
 	if err != nil {
 		return err
 	}
-	if err := pipeline.Add(signer); err != nil {
-		return err
+	if !pipeline.Add(signer) {
+		return fmt.Errorf("failed to add signer to pipeline")
 	}
 
-	err = videoparse.Link(signer)
-	if err != nil {
-		return fmt.Errorf("link to signer failed: %w", err)
+	if !videoparse.Link(signer) {
+		return fmt.Errorf("link to signer failed")
 	}
-	err = audioparse.Link(signer)
-	if err != nil {
-		return fmt.Errorf("link to signer failed: %w", err)
+	if !audioparse.Link(signer) {
+		return fmt.Errorf("link to signer failed")
 	}
 
-	pngele, err := pipeline.GetElementByName("pngsrc")
-	if err != nil {
-		return err
+	pngele := pipeline.GetByName("pngsrc")
+	if pngele == nil {
+		return fmt.Errorf("pngsrc element not found")
 	}
 
-	src := app.SrcFromElement(pngele)
-	src.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: func(self *app.Source, _ uint) {
+	pngele.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: func(self app.AppSrc, _ uint) {
 			now := time.Now().UnixMilli()
 			data := QRData{Now: now}
 			bs, err := json.Marshal(data)
@@ -231,9 +231,10 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 			if err != nil {
 				panic(err)
 			}
-			buffer := gst.NewBufferWithSize(int64(len(png)))
-			buffer.Map(gst.MapWrite).WriteData(png)
-			defer buffer.Unmap()
+			buffer, err := newBufferFromBytes(png)
+			if err != nil {
+				panic(err)
+			}
 			self.PushBuffer(buffer)
 		},
 	})
@@ -241,22 +242,22 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 	if err != nil {
 		return err
 	}
-	timetext, err := pipeline.GetElementByName("timetext")
-	if err != nil {
-		return err
+	timetext := pipeline.GetByName("timetext")
+	if timetext == nil {
+		return fmt.Errorf("timetext element not found")
 	}
 
-	timesrc := app.SrcFromElement(timetext)
-	timesrc.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: func(self *app.Source, _ uint) {
+	timetext.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: func(self app.AppSrc, _ uint) {
 			aqt := aqtime.FromTime(time.Now())
 			png, err := tr.GenerateImage(aqt.String(), "#ffffff", "#000000", 36)
 			if err != nil {
 				panic(err)
 			}
-			buffer := gst.NewBufferWithSize(int64(len(png)))
-			buffer.Map(gst.MapWrite).WriteData(png)
-			defer buffer.Unmap()
+			buffer, err := newBufferFromBytes(png)
+			if err != nil {
+				panic(err)
+			}
 			self.PushBuffer(buffer)
 		},
 	})
@@ -264,8 +265,8 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 	defer cancel()
 	go func() {
 		<-ctx.Done()
-		if err := pipeline.BlockSetState(gst.StateNull); err != nil {
-			log.Log(ctx, "failed to set pipeline state", "error", err)
+		if ret := pipeline.BlockSetState(gst.StateNull, gst.ClockTimeNone); ret == gst.StateChangeFailure {
+			log.Log(ctx, "failed to set pipeline state", "error", ret.String())
 		}
 		mainLoop.Quit()
 	}()
@@ -278,8 +279,8 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 	}()
 
 	// Start the pipeline
-	if err := pipeline.SetState(gst.StatePlaying); err != nil {
-		log.Log(ctx, "failed to set pipeline state", "error", err)
+	if ret := pipeline.SetState(gst.StatePlaying); ret == gst.StateChangeFailure {
+		log.Log(ctx, "failed to set pipeline state", "error", ret.String())
 	}
 
 	g, _ := errgroup.WithContext(ctx)

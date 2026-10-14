@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-gst/go-glib/glib"
-	"github.com/go-gst/go-gst/gst"
+	"github.com/go-gst/go-glib/pkg/glib/v2"
+	"github.com/go-gst/go-gst/pkg/gst"
 )
 
 // Demonstration of a GStreamer (or go-gst idk) leak
@@ -40,18 +40,19 @@ func main() {
 }
 
 func RunPipeline(file string) error {
-	gst.Init(nil)
-	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("filesrc location=%s ! qtdemux ! fakesink", file))
+	gst.Init()
+	element, err := gst.ParseLaunch(fmt.Sprintf("filesrc location=%s ! qtdemux ! fakesink", file))
 	if err != nil {
 		return fmt.Errorf("failed to create pipeline: %w", err)
 	}
+	pipeline := element.(gst.Pipeline)
 
 	mainLoop := glib.NewMainLoop(glib.MainContextDefault(), false)
-	if err := pipeline.BlockSetState(gst.StatePlaying); err != nil {
-		return fmt.Errorf("failed to set pipeline state: %w", err)
+	if status := pipeline.BlockSetState(gst.StatePlaying, gst.ClockTimeNone); status != gst.StateChangeSuccess {
+		return fmt.Errorf("failed to set pipeline state: %s", status)
 	}
 
-	pipeline.GetBus().AddWatch(func(msg *gst.Message) bool {
+	pipeline.GetBus().AddWatchFull(0, func(_ gst.Bus, msg *gst.Message) bool {
 		if msg.Type() == gst.MessageEOS {
 			mainLoop.Quit()
 			return false
@@ -61,8 +62,8 @@ func RunPipeline(file string) error {
 
 	mainLoop.Run()
 
-	if err := pipeline.BlockSetState(gst.StateNull); err != nil {
-		return fmt.Errorf("failed to set pipeline state: %w", err)
+	if status := pipeline.BlockSetState(gst.StateNull, gst.ClockTimeNone); status != gst.StateChangeSuccess {
+		return fmt.Errorf("failed to set pipeline state: %s", status)
 	}
 
 	return nil

@@ -211,6 +211,12 @@ func startE2ELocalNode(ctx context.Context, self string, tlsEnv *e2eHTTPS, env e
 		}
 		ports[i] = port
 	}
+	// Every node binds MoQ on UDP :38443 by default, and the harness runs
+	// several on this host.
+	moqPort, err := freeUDPPort()
+	if err != nil {
+		return nil, err
+	}
 	proxyURL, err := tlsEnv.StartLocalProxy(ctx, env.PDSURL)
 	if err != nil {
 		return nil, fmt.Errorf("start local PDS observer: %w", err)
@@ -225,6 +231,7 @@ func startE2ELocalNode(ctx context.Context, self string, tlsEnv *e2eHTTPS, env e
 		"SP_HTTP_ADDR="+n.addr,
 		fmt.Sprintf("SP_HTTP_INTERNAL_ADDR=127.0.0.1:%d", ports[1]),
 		fmt.Sprintf("SP_RTMP_ADDR=127.0.0.1:%d", ports[2]),
+		fmt.Sprintf("SP_MOQ_ADDR=127.0.0.1:%d", moqPort),
 		"SP_DATA_DIR="+dir,
 		"SP_BROADCASTER_HOST="+n.addr,
 		"SP_WEBSOCKET_URL=ws://"+n.addr,

@@ -38,7 +38,6 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -728,40 +727,6 @@ export function PlayerControls({
                             </DropdownMenuRadioItem>
                           ))}
                         </DropdownMenuRadioGroup>
-                      </DropdownMenuGroup>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      {t("player-frame")}
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent
-                      portalContainer={containerRef.current}
-                    >
-                      <DropdownMenuGroup>
-                        <DropdownMenuLabel>
-                          {t("player-frame-paused")}
-                        </DropdownMenuLabel>
-                        <DropdownMenuItem
-                          disabled={
-                            playing ||
-                            !Number.isFinite(duration) ||
-                            duration <= 0
-                          }
-                          onClick={() => stepFrame(-1)}
-                        >
-                          {t("player-frame-previous")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={
-                            playing ||
-                            !Number.isFinite(duration) ||
-                            duration <= 0
-                          }
-                          onClick={() => stepFrame(1)}
-                        >
-                          {t("player-frame-next")}
-                        </DropdownMenuItem>
                       </DropdownMenuGroup>
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>

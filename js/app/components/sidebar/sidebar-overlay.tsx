@@ -468,6 +468,7 @@ export function SidebarOverlay() {
       href: "/video",
       matchPrefix: "/video",
     },
+    { icon: Search, label: "Search", href: "/search" },
   ];
 
   // Creator Dashboard — the creator-side counterparts to the public feed, under

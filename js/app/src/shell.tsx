@@ -33,7 +33,7 @@ import UploadProgressIndicator from "components/upload/upload-progress-indicator
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import usePlatform from "hooks/usePlatform";
 import { useIsLargeScreen, useSidebarControl } from "hooks/useSidebarControl";
-import { Clapperboard, Cog, Home, Video } from "lucide-react-native";
+import { Clapperboard, Cog, Home, Search, Video } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Platform, Pressable, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
@@ -41,6 +41,7 @@ import { SFSymbols7_0 } from "sf-symbols-typescript";
 import { lazyScreen } from "src/lazy-screen";
 import "src/navigation-types";
 import HomeScreen from "src/screens/home";
+
 import { useStore } from "store";
 import {
   useHydrated,
@@ -155,6 +156,7 @@ const PopoutMultistream = lazyScreen(
 const PopoutStreamMonitor = lazyScreen(
   () => import("src/screens/popout-stream-monitor"),
 );
+const SearchScreen = lazyScreen(() => import("src/screens/search"));
 const SupportScreen = lazyScreen(() => import("src/screens/support"));
 const UploadScreen = lazyScreen(() => import("src/screens/upload"));
 const UploadVideoScreen = lazyScreen(() =>
@@ -182,6 +184,7 @@ const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
 const HomeStack = createNativeStackNavigator();
 const VideosStack = createNativeStackNavigator();
+const SearchStack = createNativeStackNavigator();
 const SettingsStack = createNativeStackNavigator();
 
 function useBaseScreenOptions() {
@@ -364,43 +367,48 @@ function HomeNavigator() {
   );
 }
 
-// Videos stack navigator (global + per-user VOD listings). Unlike the pushed
-// Home screens, these are tab roots, so they always carry their own header.
-function VideosNavigator() {
+// Shared chrome for tab-root stacks (Videos, Search). Unlike the pushed Home
+// screens, these are tab roots, so they always carry their own header.
+function useTabRootScreenOptions(): NativeStackNavigationOptions {
   const baseScreenOptions = useBaseScreenOptions();
   const isNative = Platform.OS !== "web";
 
-  return (
-    <VideosStack.Navigator
-      screenOptions={{
-        ...baseScreenOptions,
-        headerLeft: isNative
-          ? undefined
-          : ({ canGoBack }: NativeStackHeaderBackProps) => (
-              <NavigationButton canGoBack={canGoBack} />
-            ),
-        headerRight: () => (
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <UploadButton />
-            <LGAvatarButton />
-          </View>
+  return {
+    ...baseScreenOptions,
+    headerLeft: isNative
+      ? undefined
+      : ({ canGoBack }: NativeStackHeaderBackProps) => (
+          <NavigationButton canGoBack={canGoBack} />
         ),
-        ...(Platform.OS === "ios" && {
-          unstable_headerRightItems: () => [
-            {
-              type: "custom",
-              hidesSharedBackground: true,
-              element: (
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <UploadButton />
-                  <LGAvatarButton />
-                </View>
-              ),
-            },
-          ],
-        }),
-      }}
-    >
+    headerRight: () => (
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <UploadButton />
+        <LGAvatarButton />
+      </View>
+    ),
+    ...(Platform.OS === "ios" && {
+      unstable_headerRightItems: () => [
+        {
+          type: "custom",
+          hidesSharedBackground: true,
+          element: (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <UploadButton />
+              <LGAvatarButton />
+            </View>
+          ),
+        },
+      ],
+    }),
+  };
+}
+
+// Videos stack navigator (global + per-user VOD listings)
+function VideosNavigator() {
+  const screenOptions = useTabRootScreenOptions();
+
+  return (
+    <VideosStack.Navigator screenOptions={screenOptions}>
       <VideosStack.Screen
         name="VideoList"
         component={VideoListScreen}
@@ -412,6 +420,21 @@ function VideosNavigator() {
         options={{ title: "Videos" }}
       />
     </VideosStack.Navigator>
+  );
+}
+
+// Search stack navigator (user search by handle prefix)
+function SearchNavigator() {
+  const screenOptions = useTabRootScreenOptions();
+
+  return (
+    <SearchStack.Navigator screenOptions={screenOptions}>
+      <SearchStack.Screen
+        name="Search"
+        component={SearchScreen}
+        options={{ title: "Search" }}
+      />
+    </SearchStack.Navigator>
   );
 }
 
@@ -545,11 +568,13 @@ function SettingsNavigator() {
 const IOS_ICONS: Record<string, SFSymbols7_0> = {
   Home: "house.fill",
   Videos: "play.rectangle.fill",
+  Search: "magnifyingglass",
   Settings: "gearshape.fill",
 };
 const ANDROID_ICONS = {
   Home: "home",
   Videos: "video_library",
+  Search: "search",
   Settings: "settings",
 };
 
@@ -633,6 +658,22 @@ function TabNavigator() {
             : {
                 tabBarIcon: ({ color, size }) => (
                   <Clapperboard size={size} color={color} />
+                ),
+              }),
+        }}
+      />
+      <Tab.Screen
+        name="SearchTab"
+        component={SearchNavigator}
+        options={{
+          title: "Search",
+          ...(isNative
+            ? {
+                tabBarIcon: getIcon("Search"),
+              }
+            : {
+                tabBarIcon: ({ color, size }) => (
+                  <Search size={size} color={color} />
                 ),
               }),
         }}

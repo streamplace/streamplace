@@ -312,6 +312,11 @@ could-not-load-videos = Couldn't load videos: { $error }
 ## Search Page
 no-results-for = No results for "{ $query }"
 find-streamers = Find streamers by name or handle
+search = Search
+search-users-label = Search users by handle
+search-users-placeholder = Start of a handle, e.g. alice
+search-users-hint = Find people by the start of their handle
+search-failed = Search failed
 
 ## Error Boundary
 something-went-wrong = Something went wrong

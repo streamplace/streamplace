@@ -41,10 +41,16 @@ export type VideosStackParamList = {
   UserVideoList: { did: string };
 };
 
+// Search tab navigator
+export type SearchStackParamList = {
+  Search: undefined;
+};
+
 // Main tab navigator
 export type TabParamList = {
   HomeTab: NavigatorScreenParams<HomeStackParamList>;
   VideosTab: NavigatorScreenParams<VideosStackParamList>;
+  SearchTab: NavigatorScreenParams<SearchStackParamList>;
   GoLiveTab: undefined;
   SettingsTab: NavigatorScreenParams<SettingsStackParamList>;
 };

@@ -1,0 +1,78 @@
+appId: ${APP_ID}
+---
+# Searches the harness node's real database for the harness account by a
+# mixed-case prefix of its handle ("sp-1a2b3c4d.<domain>" -> "SP-1A2B3C4D").
+# The result is matched by its testID pattern rather than the account's DID,
+# which the runner doesn't pass to Maestro.
+- evalScript: ${output.prefix = ACCOUNT_HANDLE.split('.')[0].toUpperCase()}
+- launchApp
+- extendedWaitUntil:
+    visible:
+      text: "Live now"
+    timeout: 30000
+- tapOn:
+    text: "Search"
+- extendedWaitUntil:
+    visible:
+      id: "search-hint"
+    timeout: 10000
+- takeScreenshot: user-search-initial
+
+# a query nobody matches
+- tapOn:
+    id: "search-input"
+- inputText: "nobody-matches-this"
+- tapOn:
+    id: "search-submit"
+- extendedWaitUntil:
+    visible:
+      id: "search-no-results"
+    timeout: 15000
+- assertNotVisible:
+    id: "search-result-.*"
+- takeScreenshot: user-search-no-results
+
+# case, a leading @ and trailing whitespace don't matter
+- tapOn:
+    id: "search-input"
+- eraseText: 100
+- inputText: "@${output.prefix} "
+- tapOn:
+    id: "search-submit"
+- extendedWaitUntil:
+    visible:
+      id: "search-result-.*"
+    timeout: 15000
+- assertVisible:
+    text: ".*${ACCOUNT_HANDLE}.*"
+- assertNotVisible:
+    id: "search-no-results"
+- takeScreenshot: user-search-result
+
+# emptying the box drops the stale result
+- tapOn:
+    id: "search-input"
+- eraseText: 100
+- extendedWaitUntil:
+    visible:
+      id: "search-hint"
+    timeout: 10000
+- assertNotVisible:
+    id: "search-result-.*"
+
+# the keyboard submits too
+- inputText: "${output.prefix}"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: "search-result-.*"
+    timeout: 15000
+
+# selecting the account opens its stream
+- tapOn:
+    id: "search-result-.*"
+- extendedWaitUntil:
+    visible:
+      text: ".*e2e test stream.*"
+    timeout: 30000
+- takeScreenshot: user-search-stream

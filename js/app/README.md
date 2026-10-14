@@ -4,6 +4,18 @@ Expo (SDK 55) app for iOS/Android. Native projects (`ios/`, `android/`) are
 gitignored and generated via `expo prebuild`; shared UI lives in
 `@streamplace/components` and logic in `@streamplace/core`.
 
+## User search
+
+Search is available without signing in from the native Search tab or the web
+sidebar at `/search`. Enter the beginning of a handle and press Search (or the
+keyboard's search/Enter key), then select a result to open that user's stream.
+Matching ignores case, surrounding whitespace, and a leading `@`.
+
+The shared screen uses `place.stream.live.searchActorsTypeahead` to search the
+current node's indexed users in its database. It shows up to 20 active accounts,
+ordered by handle; it does not search display names, videos, or the wider
+Bluesky network.
+
 ## Daily loop (iOS simulator)
 
 Three commands, first time only for the middle one:

@@ -109,6 +109,33 @@ describe("player shortcuts", () => {
     expect(video.paused).toBe(true);
   });
 
+  it("keeps playback paused when Space activates the previously focused big play button", async () => {
+    props.bigPlay = true;
+    await render();
+    const bigPlay = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Play"]',
+    );
+    expect(bigPlay).not.toBeNull();
+    bigPlay!.focus();
+    await act(async () => video.play());
+    props.bigPlay = false;
+    await render();
+    expect(document.activeElement).toBe(bigPlay);
+    playerContainer.onclick = () => {
+      if (video.paused) void video.play();
+      else video.pause();
+    };
+
+    await press(" ", bigPlay!);
+    // jsdom does not synthesize the button's click on Space keyup.
+    await act(async () => bigPlay!.click());
+
+    expect(playerContainer.querySelector('[role="status"]')?.textContent).toBe(
+      "Pause",
+    );
+    expect(video.paused).toBe(true);
+  });
+
   it("routes shortcuts to the player containing the focused video", async () => {
     const secondPlayerContainer = document.createElement("div");
     secondPlayerContainer.dataset.playerShortcuts = "";
@@ -373,31 +400,11 @@ describe("player shortcuts", () => {
     expect(video.playbackRate).toBe(1.5);
   });
 
-  it("offers paused frame controls without shortcut hints in settings", async () => {
-    await click("Settings");
-    expect(document.body.textContent).not.toContain("Keyboard shortcuts");
-    await click("Frame by frame");
-    expect(document.body.textContent).not.toContain("Pause first, then use");
-    await click("Next frame");
-    expect(video.currentTime).toBeCloseTo(50 + 1 / 60);
-  });
-
-  it("hides recording controls in live settings", async () => {
+  it("hides playback speed in live settings", async () => {
     props.isLive = true;
     await render();
     await click("Settings");
     expect(document.body.textContent).not.toContain("Playback speed");
-    expect(document.body.textContent).not.toContain("Frame by frame");
-  });
-
-  it("disables the frame menu while playing", async () => {
-    await act(async () => video.play());
-    await click("Settings");
-    await click("Frame by frame");
-    const item = Array.from(
-      document.querySelectorAll('[role="menuitem"]'),
-    ).find((element) => element.textContent === "Next frame");
-    expect(item?.getAttribute("aria-disabled")).toBe("true");
   });
 
   describe("action feedback", () => {

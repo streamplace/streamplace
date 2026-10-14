@@ -523,7 +523,10 @@ export function PlayerControls({
 
       <button
         type="button"
-        onClick={togglePlay}
+        onClick={(event) => {
+          event.stopPropagation();
+          togglePlay();
+        }}
         className={cn(
           "absolute inset-0 flex items-center justify-center transition-opacity duration-200 ease-out",
           bigPlay

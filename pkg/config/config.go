@@ -1552,7 +1552,15 @@ func (cli *CLI) CheckConfig() error {
 			errs = append(errs, fmt.Errorf("--upstream-station: %w", err))
 		}
 	}
-	if (cli.UpstreamStation != "" || cli.PublicOAuth) && !cli.Secure {
+	if cli.UpstreamStation != "" && !cli.Secure {
+		// The advertised URL maps a wildcard bind (":38080") to 127.0.0.1,
+		// so check the address the server actually listens on: plain-HTTP
+		// OAuth must not be reachable from other machines.
+		host, _, err := net.SplitHostPort(cli.HTTPAddr)
+		if err != nil || (host != "localhost" && !net.ParseIP(host).IsLoopback()) {
+			errs = append(errs, fmt.Errorf("local OAuth requires a loopback --http-addr (e.g. 127.0.0.1:38080) or --secure"))
+		}
+	} else if cli.PublicOAuth && !cli.Secure {
 		origin, err := url.Parse(cli.OwnPublicURL())
 		if err != nil || !net.ParseIP(origin.Hostname()).IsLoopback() {
 			errs = append(errs, fmt.Errorf("local OAuth requires a loopback --http-addr or --secure"))

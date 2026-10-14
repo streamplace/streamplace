@@ -100,31 +100,33 @@ export default function useWebRTC(
       );
     });
 
-    let lastFramesReceived = 0;
-    let lastAudioFramesReceived = 0;
+    // The last progress seen on each inbound stream, by stats id: with
+    // several audio tracks, one shared value flips between them forever.
+    const lastProgress = new Map<string, number>();
 
     const handle = setInterval(async () => {
       const stats = await peerConnection.getStats();
       stats.forEach((stat) => {
+        if (stat.type !== "inbound-rtp") {
+          return;
+        }
         const mediaType = stat.mediaType /* web */ ?? stat.kind; /* native */
-        if (stat.type === "inbound-rtp" && mediaType === "audio") {
-          const audioFramesReceived = stat.lastPacketReceivedTimestamp;
-          if (lastAudioFramesReceived !== audioFramesReceived) {
-            lastAudioFramesReceived = audioFramesReceived;
-            lastChange.current = Date.now();
-            setStatus(PlayerStatus.PLAYING);
-            setStuck(false);
-          }
+        const progress =
+          mediaType === "audio"
+            ? stat.lastPacketReceivedTimestamp
+            : mediaType === "video"
+              ? stat.framesReceived
+              : undefined;
+        if (
+          progress === undefined ||
+          (lastProgress.get(stat.id) ?? 0) === progress
+        ) {
+          return;
         }
-        if (stat.type === "inbound-rtp" && mediaType === "video") {
-          const framesReceived = stat.framesReceived;
-          if (lastFramesReceived !== framesReceived) {
-            lastFramesReceived = framesReceived;
-            lastChange.current = Date.now();
-            setStatus(PlayerStatus.PLAYING);
-            setStuck(false);
-          }
-        }
+        lastProgress.set(stat.id, progress);
+        lastChange.current = Date.now();
+        setStatus(PlayerStatus.PLAYING);
+        setStuck(false);
       });
       if (Date.now() - lastChange.current > 2000) {
         setStuck(true);

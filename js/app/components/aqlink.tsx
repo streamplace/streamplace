@@ -38,11 +38,14 @@ export default function AQLink({
   to,
   style,
   testID,
+  onPress,
 }: {
   children: React.ReactNode;
   to: LinkParams;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  // Runs before navigating, e.g. to dismiss the menu the link sits in.
+  onPress?: () => void;
 }) {
   const { isWeb } = usePlatform();
   const navigation = useNavigation();
@@ -65,6 +68,7 @@ export default function AQLink({
   };
 
   const handlePress = (e: any) => {
+    onPress?.();
     // Prevent default browser navigation on web (href is for a11y only)
     if (isWeb && e?.preventDefault) {
       e.preventDefault();

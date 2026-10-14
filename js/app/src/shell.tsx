@@ -22,6 +22,7 @@ import {
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
 import { SiteTitleLockup, useNodeTitle } from "components/brand/logo";
 import { LogoBrandMenu } from "components/brand/logo-brand-menu";
+import HeaderSearch from "components/header-search";
 import LoginModal from "components/login/login-modal";
 import PdsHostSelectorModal from "components/login/pds-host-selector-modal";
 import { MobileAppBanner } from "components/mobile-app-banner";
@@ -840,6 +841,10 @@ export default function Shell() {
   // scrolls under; the livestream keeps its own solid header.
   const isVodDetail =
     currentRouteName === "Video" || currentRouteName === "Vod" || videoPage;
+  // Embeds and OBS/popout utilities are not app chrome surfaces.
+  const showHeaderSearch =
+    sidebar.isActive &&
+    !/Embed|^Popout|^DanmuOBS$/.test(currentRouteName ?? "");
   useEffect(() => {
     setOverlay(isDetailView);
   }, [isDetailView, setOverlay]);
@@ -1062,6 +1067,7 @@ export default function Shell() {
             </LogoBrandMenu>
           </View>
         )}
+      {showHeaderSearch && <HeaderSearch key={currentRouteName} />}
       <LoginModal
         visible={showLoginModal}
         onClose={closeLoginModal}

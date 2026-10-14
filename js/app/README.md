@@ -6,17 +6,29 @@ gitignored and generated via `expo prebuild`; shared UI lives in
 
 ## User search
 
-Search is available without signing in from the native Search tab or the web
-sidebar at `/search`. Enter the beginning of a handle and press Search (or the
-keyboard's search/Enter key), then select a result to open that user's stream.
-Matching ignores case, surrounding whitespace, and a leading `@`.
-On mobile, submitting dismisses the keyboard to keep results and empty states
-visible.
+Search is available without signing in. Wide windows (981px and up, matching
+the sidebar breakpoint) have a persistent header Search field. Typing searches
+immediately, throttled to one request per 300ms with the latest query sent at
+the end of the interval. Results appear in a dropdown over the current page;
+only selecting an account navigates to its stream. Escape, an outside press,
+or clearing the query dismisses results. Embeds and OBS/popout utilities do
+not include app search chrome.
 
-The shared screen uses `place.stream.live.searchActorsTypeahead` to search the
-current node's indexed users in its database. It shows up to 20 active accounts,
-ordered by handle; it does not search display names, videos, or the wider
-Bluesky network.
+On smaller windows the header field is hidden entirely. The native Search tab
+and web sidebar/tab still open `/search`, where Search or the keyboard's
+search/Enter key submits the query. On mobile, submitting dismisses the keyboard
+to keep results and empty states visible.
+
+Both surfaces share `components/user-search.tsx` and use
+`place.stream.live.searchActorsTypeahead` to search the current node's indexed
+users in its database. Matching ignores case, surrounding whitespace, and a
+leading `@`. Up to 20 active accounts are shown, ordered by handle; search does
+not include display names, videos, or the wider Bluesky network.
+
+`header-user-search.spec.ts` covers automatic searches, unchanged routes,
+selection/dismissal, late responses, and responsive availability. The shared
+Maestro user-search flow retains native route coverage and checks that the
+header field is absent on phones.
 
 ## Daily loop (iOS simulator)
 

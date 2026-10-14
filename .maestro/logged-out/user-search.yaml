@@ -16,6 +16,10 @@ appId: ${APP_ID}
     visible:
       id: "search-hint"
     timeout: 10000
+# phones are below the wide-window breakpoint, so the header Search field is
+# absent and this tab is the way in
+- assertNotVisible:
+    id: "header-search-input"
 - takeScreenshot: user-search-initial
 
 # a query nobody matches

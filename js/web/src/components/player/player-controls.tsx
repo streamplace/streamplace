@@ -409,6 +409,7 @@ export function PlayerControls({
       const key = e.key.toLowerCase();
       if (key === " " || key === "k") {
         e.preventDefault();
+        if (e.repeat) return;
         togglePlay();
       } else if (key === "m") {
         e.preventDefault();

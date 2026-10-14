@@ -101,6 +101,14 @@ describe("player shortcuts", () => {
     expect(video.paused).toBe(true);
   });
 
+  it("does not resume playback on repeated space keydowns", async () => {
+    await act(async () => video.play());
+    await press(" ");
+    await press(" ", document.body, { repeat: true });
+
+    expect(video.paused).toBe(true);
+  });
+
   it("routes shortcuts to the player containing the focused video", async () => {
     const secondPlayerContainer = document.createElement("div");
     secondPlayerContainer.dataset.playerShortcuts = "";

@@ -25,18 +25,21 @@ for (const orientation of ["portrait", "landscape"] as const) {
     await page.goto("/");
     await page.getByTestId("home-stream-card").first().click();
     const video = page.locator("video").first();
-    await expect(video).toBeVisible();
-    await expect
-      .poll(() =>
-        video.evaluate((element: HTMLVideoElement) => element.readyState),
-      )
-      .toBeGreaterThanOrEqual(2);
 
     const revealControls = async () => {
-      const box = await video.boundingBox();
-      if (!box) throw new Error("player video has no bounding box");
       await page.mouse.move(0, 0);
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      // Resizing can remount the video. Wait for its replacement's geometry;
+      // the player overlay, not the video element, receives the pointer.
+      await expect(async () => {
+        const box = await video.boundingBox();
+        if (!box) throw new Error("player video has no bounding box");
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      }).toPass({ timeout: 30_000 });
+      await expect
+        .poll(() =>
+          video.evaluate((element: HTMLVideoElement) => element.readyState),
+        )
+        .toBeGreaterThanOrEqual(2);
     };
 
     const exerciseVolume = async () => {

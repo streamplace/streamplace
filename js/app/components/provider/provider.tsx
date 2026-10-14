@@ -1,5 +1,5 @@
 import { LinkingOptions } from "@react-navigation/native";
-import { VideoHostProvider } from "@streamplace/components/src/components/mobile-player/video-host";
+import { VideoHostProvider } from "@streamplace/components";
 import React, { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import SharedProvider from "./provider.shared";

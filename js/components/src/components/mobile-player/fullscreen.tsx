@@ -27,8 +27,6 @@ export function Fullscreen(props: {
   const protocol = usePlayerStore((x) => x.protocol, playerId);
   const fullscreen = usePlayerStore((x) => x.fullscreen, playerId);
   const setFullscreen = usePlayerStore((x) => x.setFullscreen, playerId);
-  const setSrc = usePlayerStore((x) => x.setSrc);
-  const setAutoplayFailed = usePlayerStore((x) => x.setAutoplayFailed);
 
   const danmuEnabled = useDanmuEnabled();
   const danmuOpacity = useDanmuOpacity();
@@ -48,11 +46,6 @@ export function Fullscreen(props: {
     }
     return null;
   };
-
-  useEffect(() => {
-    setSrc(props.src);
-    setAutoplayFailed(false);
-  }, [props.src]);
 
   useEffect(() => {
     if (!divRef.current) {
@@ -126,7 +119,7 @@ export function Fullscreen(props: {
       style={{ width: "100%", height: "100%", overflow: "hidden" }}
     >
       <HostedVideo>
-        <PlaybackSession src={props.src} />
+        <VideoSource src={props.src} />
         <VideoRetry>
           <Video
             objectFit={props.objectFit}
@@ -148,8 +141,16 @@ export function Fullscreen(props: {
 }
 
 // Hosted with the video, so a layout change that remounts this Fullscreen
-// doesn't drop the session and change the video's URL.
-function PlaybackSession(props: { src: string }) {
+// doesn't reset the video's state: its source (the streamer's playback
+// session is part of the URL), or a failed autoplay, which the surviving
+// video doesn't retry and only the play button can recover from.
+function VideoSource(props: { src: string }) {
+  const setSrc = usePlayerStore((x) => x.setSrc);
+  const setAutoplayFailed = usePlayerStore((x) => x.setAutoplayFailed);
+  useEffect(() => {
+    setSrc(props.src);
+    setAutoplayFailed(false);
+  }, [props.src]);
   usePlaybackSession(props.src);
   return null;
 }

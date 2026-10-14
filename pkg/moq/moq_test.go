@@ -264,9 +264,10 @@ func newFakeGroup(seq uint64, payload string) groupStream {
 
 // Groups arrive on independent streams in whatever order the network and
 // the transport's accept queue produce, and a subscription hands them out
-// in sequence order regardless: a straggler is waited for, a group the
-// publisher dropped is not, and one that never shows up is given up on
-// after gapTimeout rather than stalling the track forever.
+// in sequence order regardless: groups that outrun SUBSCRIBE_OK wait for
+// the start it names, a straggler is waited for, a group the publisher
+// dropped is not, and one that never shows up is given up on after
+// gapTimeout rather than stalling the track forever.
 func TestSubscriptionOrdersGroups(t *testing.T) {
 	gapTimeout = 100 * time.Millisecond
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -274,7 +275,7 @@ func TestSubscriptionOrdersGroups(t *testing.T) {
 	sctx, scancel := context.WithCancelCause(ctx)
 	defer scancel(nil)
 	s := &Session{ctx: sctx, cancel: scancel, subs: map[uint64]*Subscription{}}
-	sub := &Subscription{s: s, done: make(chan struct{}), frames: make(chan *Frame, 16), notify: make(chan struct{}, 1), started: true}
+	sub := &Subscription{s: s, done: make(chan struct{}), frames: make(chan *Frame, 16), notify: make(chan struct{}, 1)}
 	go sub.run()
 	defer sub.Close()
 
@@ -285,14 +286,24 @@ func TestSubscriptionOrdersGroups(t *testing.T) {
 		return f.Group
 	}
 
-	// Out of order: 2 and 1 wait for 0.
+	// Out of order, before SUBSCRIBE_OK: 2 and 1 wait for the answer, then
+	// for the 0 it names.
 	sub.enqueue(newFakeGroup(2, "g2"))
 	sub.enqueue(newFakeGroup(1, "g1"))
-	select {
-	case f := <-sub.frames:
-		t.Fatalf("group %d delivered before group 0", f.Group)
-	case <-time.After(50 * time.Millisecond):
+	noFrame := func() {
+		t.Helper()
+		select {
+		case f := <-sub.frames:
+			t.Fatalf("group %d delivered before group 0", f.Group)
+		case <-time.After(20 * time.Millisecond): // both well inside gapTimeout
+		}
 	}
+	noFrame()
+	sub.mu.Lock()
+	sub.next, sub.started = 0, true // SUBSCRIBE_OK naming group 0
+	sub.mu.Unlock()
+	sub.signal()
+	noFrame()
 	sub.enqueue(newFakeGroup(0, "g0"))
 	require.Equal(t, uint64(0), next())
 	require.Equal(t, uint64(1), next())

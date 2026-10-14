@@ -94,9 +94,9 @@ type Subscription struct {
 
 	mu sync.Mutex
 	// queue holds accepted group streams by ascending sequence; next is
-	// the sequence delivered next (once started, by SUBSCRIBE_OK or the
-	// first group), so queue[0].seq > next is a hole. active is the
-	// stream being read, so Close can cut a read short.
+	// the sequence delivered next (once started, by SUBSCRIBE_OK), so
+	// queue[0].seq > next is a hole. active is the stream being read, so
+	// Close can cut a read short.
 	queue   []groupStream
 	active  recvStream
 	next    uint64
@@ -279,10 +279,18 @@ const (
 func (sub *Subscription) pick() (groupStream, pickState) {
 	sub.mu.Lock()
 	defer sub.mu.Unlock()
-	// SUBSCRIBE_OK and the first group travel on different streams; if
-	// the group wins the race it resolves the start just as well.
-	if !sub.started && len(sub.queue) > 0 {
-		sub.next, sub.started = sub.queue[0].seq, true
+	// SUBSCRIBE_OK names the start group, but groups travel on their own
+	// streams and can arrive first: starting at whichever won the race
+	// would skip the groups before it. Wait for the answer; a publisher
+	// that never sends one gets the gap timeout (see skipGap).
+	if !sub.started {
+		if len(sub.queue) > 0 {
+			return groupStream{}, pickGap
+		}
+		if sub.ended {
+			return groupStream{}, pickOver
+		}
+		return groupStream{}, pickWait
 	}
 	// Groups the publisher dropped are not waited for; ranges may chain.
 	for advanced := true; advanced; {
@@ -316,14 +324,15 @@ func (sub *Subscription) pick() (groupStream, pickState) {
 	return groupStream{}, pickWait
 }
 
-// skipGap gives up on the group(s) delivery is waiting for: the next
-// queued group becomes next, or the track ends if nothing is queued.
+// skipGap gives up on the group(s) delivery is waiting for, SUBSCRIBE_OK
+// included: the next queued group becomes next, or the track ends if
+// nothing is queued.
 func (sub *Subscription) skipGap() {
 	sub.mu.Lock()
 	defer sub.mu.Unlock()
 	if len(sub.queue) > 0 {
 		log.Warn(sub.s.ctx, "moq: groups never arrived, skipping", "from", sub.next, "to", sub.queue[0].seq-1)
-		sub.next = sub.queue[0].seq
+		sub.next, sub.started = sub.queue[0].seq, true
 		return
 	}
 	if sub.ended {
@@ -382,7 +391,13 @@ func (sub *Subscription) watchControl(br *bufio.Reader) {
 		if err != nil {
 			sub.mu.Lock()
 			if !errors.Is(err, io.EOF) && sub.err == nil {
-				sub.err = fmt.Errorf("subscription reset: %w", err)
+				// The session ending also ends this stream; its cause, not
+				// the stream error it leaves, is why the subscription is over.
+				if serr := sub.s.Err(); serr != nil {
+					sub.err = serr
+				} else {
+					sub.err = fmt.Errorf("subscription reset: %w", err)
+				}
 			}
 			sub.ended = true
 			sub.mu.Unlock()

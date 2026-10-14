@@ -1520,6 +1520,11 @@ func (cli *CLI) CheckConfig() error {
 			errs = append(errs, fmt.Errorf("--signing-key: %w", err))
 		}
 	}
+	if cli.DisableSyndication && len(cli.Peers) > 0 {
+		// A node pushing to peers announces its streams, then refuses every
+		// subscription to them with syndication off: the peers retry forever.
+		errs = append(errs, fmt.Errorf("--peers pushes this node's streams, which --disable-syndication refuses to serve; drop one of them"))
+	}
 	if err := cli.validateVODCDN(); err != nil {
 		errs = append(errs, err)
 	}

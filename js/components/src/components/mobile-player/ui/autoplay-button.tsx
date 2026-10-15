@@ -55,6 +55,8 @@ export function AutoplayButton() {
     >
       <Pressable
         onPress={handlePlayButtonPress}
+        accessibilityRole="button"
+        accessibilityLabel="Play"
         style={[
           {
             flexDirection: "column",

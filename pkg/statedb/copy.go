@@ -59,7 +59,8 @@ func dialectorFor(dbURL string) (gorm.Dialector, DBType, io.Closer, error) {
 }
 
 // openSource opens a state database to read from: no AutoMigrate, nothing
-// written.
+// written. The closer releases what opening it claimed, and a failure here has
+// to do that itself: the caller has nothing to close.
 func openSource(dbURL string) (*gorm.DB, DBType, io.Closer, error) {
 	dial, dbType, closer, err := dialectorFor(dbURL)
 	if err != nil {
@@ -67,17 +68,30 @@ func openSource(dbURL string) (*gorm.DB, DBType, io.Closer, error) {
 	}
 	db, err := openDB(dial)
 	if err != nil {
-		if closer != nil {
-			closer.Close()
-		}
+		closeSource(nil, closer)
 		return nil, "", nil, fmt.Errorf("error opening source database: %w", err)
 	}
 	if dbType == DBTypeSQLite {
 		if err := sqlitePragmas(db); err != nil {
+			closeSource(db, closer)
 			return nil, "", nil, err
 		}
 	}
 	return db, dbType, closer, nil
+}
+
+// closeSource ends a source database and the store it was opened on, the SQL
+// handle first: SQLite's files are written through as the last connection goes
+// away, and a SlateDB store hands its write claim back only when it is closed.
+func closeSource(db *gorm.DB, closer io.Closer) {
+	if db != nil {
+		if sqlDB, err := db.DB(); err == nil {
+			_ = sqlDB.Close()
+		}
+	}
+	if closer != nil {
+		_ = closer.Close()
+	}
 }
 
 // CopyState copies every table in StatefulDBModels from fromURL into toURL.
@@ -91,9 +105,7 @@ func CopyState(ctx context.Context, fromURL, toURL string, batch int) ([]CopyRep
 	if err != nil {
 		return nil, err
 	}
-	if srcCloser != nil {
-		defer srcCloser.Close()
-	}
+	defer closeSource(src, srcCloser)
 	log.Log(ctx, "copy: source open", "url", redactDBURL(fromURL), "type", srcType)
 	dst, err := MakeDB(ctx, &config.CLI{DBURL: toURL}, nil, nil)
 	if err != nil {

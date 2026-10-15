@@ -26,6 +26,7 @@ import "C"
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -66,8 +67,14 @@ type Options struct {
 type Store struct {
 	handle *C.SlateDBStore
 
-	// name is the URL the store was opened from, for error messages.
+	// name is the database's URL with its credentials redacted, for error
+	// messages: the store's client quotes the URL it was given, and an error
+	// message ends up in a log line.
 	name string
+
+	// secrets are the values name has redacted, for taking them back out of
+	// text that came from the layer below.
+	secrets []string
 }
 
 var _ kvfs.Store = (*Store)(nil)
@@ -78,14 +85,17 @@ func Open(rawURL string, opts Options) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Everything that reports on this store from here on has to see the URL
+	// without the credentials a slatedb+ URL's options may carry.
+	store := &Store{name: kvfs.RedactURLSecrets(rawURL), secrets: kvfs.URLSecrets(rawURL)}
 	cStoreURL, err := cString(storeURL)
 	if err != nil {
-		return nil, fmt.Errorf("slatedb: opening %s: object store url: %w", rawURL, err)
+		return nil, fmt.Errorf("slatedb: opening %s: object store url: %w", store.name, err)
 	}
 	defer C.free(unsafe.Pointer(cStoreURL))
 	cPath, err := cString(path)
 	if err != nil {
-		return nil, fmt.Errorf("slatedb: opening %s: database path: %w", rawURL, err)
+		return nil, fmt.Errorf("slatedb: opening %s: database path: %w", store.name, err)
 	}
 	defer C.free(unsafe.Pointer(cPath))
 
@@ -96,9 +106,25 @@ func Open(rawURL string, opts Options) (*Store, error) {
 	)
 	status := C.slatedb_store_open(cStoreURL, cPath, C.uint64_t(opts.FlushInterval.Milliseconds()), &handle, &errPtr, &errLen)
 	if status != statusOK {
-		return nil, fmt.Errorf("slatedb: opening %s: %w", rawURL, cerror(errPtr, errLen))
+		return nil, fmt.Errorf("slatedb: opening %s: %w", store.name, store.scrub(cerror(errPtr, errLen)))
 	}
-	return &Store{handle: handle, name: rawURL}, nil
+	store.handle = handle
+	return store, nil
+}
+
+// scrub takes the URL's credentials back out of an error message that came from
+// the layer below: the object store's client quotes the URL it was given, and
+// the text of this error ends up in a log line, so the redaction cannot be left
+// to whoever prints it.
+func (s *Store) scrub(err error) error {
+	if err == nil || len(s.secrets) == 0 {
+		return err
+	}
+	text := err.Error()
+	for _, secret := range s.secrets {
+		text = strings.ReplaceAll(text, secret, "redacted")
+	}
+	return errors.New(text)
 }
 
 // Get returns the value stored under key, or false if the key is not there.
@@ -118,7 +144,7 @@ func (s *Store) Get(key []byte) ([]byte, bool, error) {
 	case statusNotFound:
 		return nil, false, nil
 	default:
-		return nil, false, fmt.Errorf("slatedb: %s: reading key %q: %w", s.name, key, cerror(errPtr, errLen))
+		return nil, false, fmt.Errorf("slatedb: %s: reading key %q: %w", s.name, key, s.scrub(cerror(errPtr, errLen)))
 	}
 }
 
@@ -136,7 +162,7 @@ func (s *Store) Write(mutations []kvfs.Mutation) error {
 	)
 	status := C.slatedb_store_write(s.handle, bytePtr(payload), C.size_t(len(payload)), &errPtr, &errLen)
 	if status != statusOK {
-		return fmt.Errorf("slatedb: %s: writing %d mutations: %w", s.name, len(mutations), cerror(errPtr, errLen))
+		return fmt.Errorf("slatedb: %s: writing %d mutations: %w", s.name, len(mutations), s.scrub(cerror(errPtr, errLen)))
 	}
 	return nil
 }
@@ -151,7 +177,7 @@ func (s *Store) Scan(prefix []byte) ([]kvfs.Row, error) {
 	)
 	status := C.slatedb_store_scan_prefix(s.handle, bytePtr(prefix), C.size_t(len(prefix)), &out, &outLen, &errPtr, &errLen)
 	if status != statusOK {
-		return nil, fmt.Errorf("slatedb: %s: scanning prefix %q: %w", s.name, prefix, cerror(errPtr, errLen))
+		return nil, fmt.Errorf("slatedb: %s: scanning prefix %q: %w", s.name, prefix, s.scrub(cerror(errPtr, errLen)))
 	}
 	payload := C.GoBytes(unsafe.Pointer(out), C.int(outLen))
 	C.slatedb_store_free(out, outLen)
@@ -166,7 +192,7 @@ func (s *Store) DeletePrefix(prefix []byte) error {
 	)
 	status := C.slatedb_store_delete_prefix(s.handle, bytePtr(prefix), C.size_t(len(prefix)), &errPtr, &errLen)
 	if status != statusOK {
-		return fmt.Errorf("slatedb: %s: deleting prefix %q: %w", s.name, prefix, cerror(errPtr, errLen))
+		return fmt.Errorf("slatedb: %s: deleting prefix %q: %w", s.name, prefix, s.scrub(cerror(errPtr, errLen)))
 	}
 	return nil
 }
@@ -179,7 +205,7 @@ func (s *Store) Flush() error {
 	)
 	status := C.slatedb_store_flush(s.handle, &errPtr, &errLen)
 	if status != statusOK {
-		return fmt.Errorf("slatedb: %s: flushing: %w", s.name, cerror(errPtr, errLen))
+		return fmt.Errorf("slatedb: %s: flushing: %w", s.name, s.scrub(cerror(errPtr, errLen)))
 	}
 	return nil
 }
@@ -198,28 +224,34 @@ func (s *Store) Close() error {
 	status := C.slatedb_store_close(s.handle, &errPtr, &errLen)
 	s.handle = nil
 	if status != statusOK {
-		return fmt.Errorf("slatedb: %s: closing: %w", s.name, cerror(errPtr, errLen))
+		return fmt.Errorf("slatedb: %s: closing: %w", s.name, s.scrub(cerror(errPtr, errLen)))
 	}
 	return nil
 }
 
 // parseURL splits a slatedb+ URL into the object store URL SlateDB's
-// object_store should open and the database's path within it.
+// object_store should open and the database's path within it. Errors name the
+// URL with its credentials redacted, and never the text url.Parse produced: it
+// quotes back what it was handed.
 func parseURL(rawURL string) (storeURL, path string, err error) {
+	label := kvfs.RedactURLSecrets(rawURL)
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return "", "", fmt.Errorf("slatedb: parsing %q: %w", rawURL, err)
+		// url.Parse's error quotes the URL it was handed, which is exactly the
+		// text that must not travel; the redacted label says what was wrong
+		// with it on its own.
+		return "", "", fmt.Errorf("slatedb: %s", label)
 	}
 	scheme, ok := strings.CutPrefix(u.Scheme, "slatedb+")
 	if !ok || scheme == "" {
-		return "", "", fmt.Errorf("slatedb: url %q must start with slatedb+ and an object store, like slatedb+s3://bucket/state", rawURL)
+		return "", "", fmt.Errorf("slatedb: %s must start with slatedb+ and an object store, like slatedb+s3://bucket/state", label)
 	}
 	if u.Host == "" {
-		return "", "", fmt.Errorf("slatedb: url %q names no bucket: the part after the scheme is the object store's bucket or name", rawURL)
+		return "", "", fmt.Errorf("slatedb: %s names no bucket: the part after the scheme is the object store's bucket or name", label)
 	}
 	path = strings.Trim(u.Path, "/")
 	if path == "" {
-		return "", "", fmt.Errorf("slatedb: url %q names no database: the path after the bucket is the database's prefix within it", rawURL)
+		return "", "", fmt.Errorf("slatedb: %s names no database: the path after the bucket is the database's prefix within it", label)
 	}
 	// The options travel with the bucket; the path is SlateDB's business.
 	store := url.URL{Scheme: scheme, Host: u.Host, RawQuery: u.RawQuery}

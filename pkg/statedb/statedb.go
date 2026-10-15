@@ -128,6 +128,17 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 		return nil, fmt.Errorf("unsupported database URL (most start with sqlite://, slatedb+s3:// or postgresql://): %s", redactDBURL(dbURL))
 	}
 
+	// Opening the store is not the finish line: everything from here on can
+	// still fail, and a slatedb+ store holds the database's single writer
+	// claim, which a process that leaks it cannot open again. Every path that
+	// gives the store up sets keepStore first.
+	keepStore := false
+	defer func() {
+		if !keepStore && storeCloser != nil {
+			_ = storeCloser.Close()
+		}
+	}()
+
 	db, err := openDB(dial)
 
 	if err != nil {
@@ -195,6 +206,7 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 			return nil, fmt.Errorf("error starting postgres locker connection: %w", err)
 		}
 	}
+	keepStore = true
 	return state, nil
 }
 
@@ -244,6 +256,8 @@ func slateDBDialector(dbURL string) (gorm.Dialector, io.Closer, error) {
 	}
 	vfs, err := kvfs.New(store, kvfs.Options{})
 	if err != nil {
+		// The store is already holding the database's writer claim.
+		_ = store.Close()
 		return nil, nil, err
 	}
 	return sqlite.Open(vfs.DSN(slateDBFile)), vfs, nil
@@ -395,9 +409,9 @@ func makePostgresDB(dbURL string) (*gorm.DB, error) {
 }
 
 // redactDBURL strips the secrets a database URL can carry before the URL goes
-// into a log line or an error: the password in the userinfo, and the secret
-// options object store URLs are written with (a slatedb+ state URL carries S3
-// credentials in its query string).
+// into a log line or an error: the password in the userinfo, and the store
+// options kvfs.RedactURLSecrets knows about (an object store URL carries its
+// credentials in the query string).
 func redactDBURL(dbURL string) string {
 	u, err := url.Parse(dbURL)
 	if err != nil {
@@ -405,17 +419,7 @@ func redactDBURL(dbURL string) string {
 	}
 	if u.User != nil {
 		u.User = url.UserPassword(u.User.Username(), "redacted")
+		dbURL = u.String()
 	}
-	query := u.Query()
-	redacted := false
-	for _, key := range []string{"secret_access_key", "session_token", "token", "password"} {
-		if query.Has(key) {
-			query.Set(key, "redacted")
-			redacted = true
-		}
-	}
-	if redacted {
-		u.RawQuery = query.Encode()
-	}
-	return u.String()
+	return kvfs.RedactURLSecrets(dbURL)
 }

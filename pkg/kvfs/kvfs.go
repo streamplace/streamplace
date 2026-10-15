@@ -30,6 +30,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -379,4 +381,76 @@ func checkName(name string) error {
 		return fmt.Errorf("kvfs: bad file name %q", name)
 	}
 	return nil
+}
+
+// secretQueryParams are the query parameters a database URL can carry
+// credentials in. An object store URL is written with its keys in the query
+// string (see pkg/kvfs/slatedb for the slatedb+ form), and a URL like that does
+// not stay in one place: it is parsed into the store's configuration and then
+// quoted back by the client when something fails, so it has to be redacted
+// before it reaches a log line or an error, not after.
+var secretQueryParams = []string{"secret_access_key", "session_token", "token", "password"}
+
+// RedactURLSecrets returns a database URL with the values of its credential
+// query parameters replaced: the only form of it that may be kept for an error
+// message or a log line. A URL that will not parse is replaced outright, since
+// there is no way to tell what it was carrying.
+func RedactURLSecrets(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "unparseable database URL"
+	}
+	// The query is taken apart by hand rather than through url.Values: a
+	// single bad escape anywhere in it makes the whole map come back short,
+	// and the parameter that falls out of it must not be the one with the
+	// credentials in it.
+	fields := strings.Split(u.RawQuery, "&")
+	redacted := false
+	for i, field := range fields {
+		name, _, ok := strings.Cut(field, "=")
+		if !ok || !isSecretParam(name) {
+			continue
+		}
+		fields[i] = name + "=redacted"
+		redacted = true
+	}
+	if !redacted {
+		return rawURL
+	}
+	u.RawQuery = strings.Join(fields, "&")
+	return u.String()
+}
+
+// URLSecrets returns the credentials a database URL carries in its query
+// string, for taking them back out of text that came from somewhere else: the
+// object store's client is free to quote the URL it was given, and those errors
+// reach logs. A value is returned both as it was written and decoded, when that
+// is different: a quoted URL may have been through either form.
+func URLSecrets(rawURL string) []string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil
+	}
+	var secrets []string
+	for _, field := range strings.Split(u.RawQuery, "&") {
+		name, value, ok := strings.Cut(field, "=")
+		if !ok || !isSecretParam(name) {
+			continue
+		}
+		secrets = append(secrets, value)
+		if decoded, err := url.QueryUnescape(value); err == nil && decoded != value {
+			secrets = append(secrets, decoded)
+		}
+	}
+	return secrets
+}
+
+// isSecretParam reports whether a query parameter name carries a credential.
+// The name is also compared decoded, which is how the object store's own URL
+// parser reads it.
+func isSecretParam(name string) bool {
+	if decoded, err := url.QueryUnescape(name); err == nil {
+		name = decoded
+	}
+	return slices.Contains(secretQueryParams, name)
 }

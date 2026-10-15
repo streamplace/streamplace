@@ -159,6 +159,30 @@ func TestOpenRejectsBadURLs(t *testing.T) {
 	// error naming what was being opened, not a hang or a bare status.
 	_, err = Open("slatedb+gopher://bucket/state", Options{})
 	require.ErrorContains(t, err, "slatedb: opening")
+
+	// A URL that will not parse at all is not quoted back at all: url.Parse's
+	// own error repeats the URL it was handed, secrets and all.
+	_, err = Open("slatedb+s3://bucket/st%zzate?secret_access_key=hunter2", Options{})
+	require.ErrorContains(t, err, "unparseable database URL")
+	require.NotContains(t, err.Error(), "hunter2")
+
+	// A query that will not percent-decode parses anyway, and the object
+	// store's client quotes the whole URL back when it rejects the store: the
+	// secret goes, from the label and from the text below it.
+	_, err = Open("slatedb+s3://bucket/state?secret_access_key=hunter2%zz", Options{})
+	require.ErrorContains(t, err, "open object store")
+	require.Contains(t, err.Error(), "secret_access_key=redacted")
+	require.NotContains(t, err.Error(), "hunter2")
+
+	// Credentials in a URL that does parse must not reach the error either:
+	// the object store's client quotes the URL it was given when it fails,
+	// and this text goes to a log.
+	_, err = Open("slatedb+gopher://bucket/state?access_key_id=key&secret_access_key=hunter2&session_token=toksecret", Options{})
+	require.ErrorContains(t, err, "slatedb: opening")
+	require.Contains(t, err.Error(), "secret_access_key=redacted")
+	require.NotContains(t, err.Error(), "hunter2")
+	require.NotContains(t, err.Error(), "toksecret")
+	require.Contains(t, err.Error(), "access_key_id=key", "the key's identifier is not a secret")
 }
 
 func TestDecodeRowsRejectsMalformed(t *testing.T) {

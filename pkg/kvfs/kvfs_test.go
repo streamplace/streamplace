@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"sync"
@@ -122,7 +123,9 @@ func (f *fakeStore) counters() (batches, flushes int) {
 
 // openTestDB opens state.db through a fresh VFS over store. One connection, as
 // a state database runs: exclusive locking means a second one would just wait
-// on the first.
+// on the first. The journal mode is write-ahead log, which is where the state
+// database runs every SQLite database (statedb's sqlitePragmas) and what makes
+// crash recovery a question about the log in the store.
 func openTestDB(t *testing.T, store Store, opts Options) *sql.DB {
 	t.Helper()
 	v, err := New(store, opts)
@@ -130,6 +133,8 @@ func openTestDB(t *testing.T, store Store, opts Options) *sql.DB {
 	db, err := sql.Open("sqlite3", v.DSN("state.db"))
 	require.NoError(t, err)
 	db.SetMaxOpenConns(1)
+	_, err = db.Exec("PRAGMA journal_mode = WAL")
+	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 	return db
 }
@@ -140,17 +145,15 @@ func TestRoundTrip(t *testing.T) {
 	store := newFakeStore()
 	db := openTestDB(t, store, Options{})
 
-	// The state database puts every SQLite database into write-ahead log
-	// mode (statedb's sqlitePragmas). That works over this VFS only because
-	// the DSN put the connection in exclusive locking mode: with no shared
-	// memory to map, SQLite keeps the wal-index in heap memory.
-	_, err := db.Exec("PRAGMA journal_mode = WAL")
-	require.NoError(t, err)
+	// The helper opens in write-ahead log mode, as the state database does.
+	// That works over this VFS only because the DSN put the connection in
+	// exclusive locking mode: with no shared memory to map, SQLite keeps the
+	// wal-index in heap memory.
 	var mode string
 	require.NoError(t, db.QueryRow("PRAGMA journal_mode").Scan(&mode))
 	require.Equal(t, "wal", mode)
 
-	_, err = db.Exec("CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT, blob BLOB)")
+	_, err := db.Exec("CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT, blob BLOB)")
 	require.NoError(t, err)
 
 	big := bytes.Repeat([]byte("streamplace"), 32*1024) // 352 KiB, many chunks
@@ -324,6 +327,31 @@ func TestTruncateDropsChunks(t *testing.T) {
 	require.Equal(t, make([]byte, 16), read[:16], "the gap before the new data is zeros")
 	require.Equal(t, tail, read[16:32])
 
+	// A file shorter than the chunk it ends in does not hand out the bytes
+	// past its length: a read stops at the end of the file, not at the end of
+	// the chunk holding it.
+	require.NoError(t, f.Truncate(100))
+	short := make([]byte, 256)
+	n, err = f.ReadAt(short, 0)
+	require.Equal(t, 100, n)
+	require.ErrorIs(t, err, io.EOF)
+	require.Equal(t, payload[:100], short[:100], "the bytes the file still has are the ones it reads")
+
+	// Shrinking into the middle of a chunk takes the bytes it cut out of the
+	// chunk itself, not just off the length: the store is told about them,
+	// and growing back over them reads zeros.
+	require.NoError(t, f.Sync(0))
+	stored, ok, err := store.Get([]byte("chunk/data.db/00000000"))
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, make([]byte, v.chunkSize-100), stored[100:], "the tail a truncate cut is zeroed in the store")
+
+	require.NoError(t, f.Truncate(v.chunkSize))
+	n, err = f.ReadAt(short[:100], 100)
+	require.NoError(t, err)
+	require.Equal(t, 100, n)
+	require.Equal(t, make([]byte, 100), short[:100], "the bytes a truncate cut do not come back")
+
 	require.NoError(t, f.Close())
 }
 
@@ -378,4 +406,36 @@ func TestFileLifecycle(t *testing.T) {
 	require.Equal(t, "scratch", string(buf[:n]))
 	require.NoError(t, temp.Close())
 	require.Empty(t, store.keys())
+}
+
+// TestRedactURLSecrets: a database URL's credentials live in its query string
+// (an object store URL is written with access keys and session tokens), and
+// everything that formats one - a log line, an error message built from an
+// error that quoted the URL back - has to take them out first.
+func TestRedactURLSecrets(t *testing.T) {
+	rawURL := "slatedb+s3://bucket/state?endpoint=http://localhost:9000&access_key_id=key&secret_access_key=hunter2&session_token=toksecret"
+	redacted := RedactURLSecrets(rawURL)
+	require.NotContains(t, redacted, "hunter2")
+	require.NotContains(t, redacted, "toksecret")
+	require.Contains(t, redacted, "access_key_id=key", "the key's identifier is not a secret")
+	require.Contains(t, redacted, "endpoint=", "the rest of the URL is what makes the message useful")
+
+	// The secrets come back on their own too, for scrubbing text that was not
+	// built here.
+	require.Equal(t, []string{"hunter2", "toksecret"}, URLSecrets(rawURL))
+
+	// A query that will not percent-decode still loses its secrets, and the
+	// value it wrote is still one to scrub for: a URL that is broken is
+	// exactly the one that must not be quoted whole.
+	broken := "slatedb+s3://bucket/state?access_key_id=key&secret_access_key=hunter2%zz"
+	require.Contains(t, RedactURLSecrets(broken), "secret_access_key=redacted")
+	require.NotContains(t, RedactURLSecrets(broken), "hunter2")
+	require.Equal(t, []string{"hunter2%zz"}, URLSecrets(broken))
+
+	// A URL with nothing to hide is returned as it was, and one that will not
+	// parse is not quoted back at all.
+	plain := "slatedb+memory://tests/one"
+	require.Equal(t, plain, RedactURLSecrets(plain))
+	require.Equal(t, "unparseable database URL", RedactURLSecrets("http://[::1"))
+	require.Empty(t, URLSecrets("http://[::1"))
 }

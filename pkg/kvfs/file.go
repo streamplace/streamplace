@@ -78,7 +78,12 @@ func (f *file) ReadAt(p []byte, off int64) (int, error) {
 		if err != nil {
 			return n, err
 		}
-		n += copy(p[n:], ch.data[pos%v.chunkSize:])
+		// Chunks are stored whole: a read stops at the end of the file and at the
+		// end of the chunk holding it, never past either, so the bytes a file
+		// has already lost do not come back.
+		start := pos % v.chunkSize
+		end := min(int64(len(p)-n), f.size-pos, v.chunkSize-start)
+		n += copy(p[n:n+int(end)], ch.data[start:start+end])
 	}
 	if n < len(p) {
 		// Short read: SQLite wants EOF and zeroes the rest itself.
@@ -158,6 +163,19 @@ func (f *file) Truncate(size int64) error {
 		start = end
 	}
 	f.allocated = keep
+	// The store keeps chunks whole, so the bytes the old length left in the
+	// last surviving chunk have to go with the rest: a file that shrinks and
+	// grows again reads zeros there, not what used to be there.
+	if rem := size % v.chunkSize; rem != 0 && keep > 0 {
+		index := uint32(keep - 1)
+		ch, err := f.chunkLocked(index)
+		if err != nil {
+			return err
+		}
+		clear(ch.data[rem:])
+		ch.dirty = true
+		f.dirty[index] = true
+	}
 	f.size = size
 	return nil
 }

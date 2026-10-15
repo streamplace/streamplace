@@ -11,7 +11,9 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -56,10 +58,21 @@ func TestMain(m *testing.M) {
 	}
 	fs, err := startTestService("rustfs", os.Getenv("STREAMPLACE_TEST_RUSTFS_COMMAND"), waitRustFSReady)
 	if err != nil {
+		pg.stop()
 		os.Exit(1)
 	}
 
 	code := m.Run()
+	// A service that exited before it was asked to was not the one answering
+	// the tests: something else was already listening on its port. The suite
+	// may well have passed against it, and that is not a pass.
+	for _, svc := range []*testService{pg, fs} {
+		if svc == nil || svc.running() {
+			continue
+		}
+		fmt.Printf("%s exited while the tests were running (%v): something else was already listening on its port, and the tests used it\n", svc.name, svc.exitErr)
+		code = 1
+	}
 	pg.stop()
 	fs.stop()
 	os.Exit(code)
@@ -68,7 +81,15 @@ func TestMain(m *testing.M) {
 // testService is a service the suite needs, running in the background.
 type testService struct {
 	name string
+	cmd  *exec.Cmd
+	// done is closed once the command has exited and been reaped; exitErr is
+	// what it exited with by then.
+	done    chan struct{}
+	exitErr error
 }
+
+// stopTimeout is how long a service gets to shut down before it is killed.
+var stopTimeout = 10 * time.Second
 
 // startTestService runs a shell command that keeps a service in the
 // foreground, and returns once ready says the service is up. A nil service
@@ -79,6 +100,11 @@ func startTestService(name, command string, ready func() error) (*testService, e
 	}
 	fmt.Printf("Starting %s process with command: %s\n", name, command)
 	cmd := exec.Command("bash", "-c", command)
+	// Its own process group, so a signal meant for the service does not reach
+	// the test binary. The service itself does not stay in it: sudo takes a
+	// session of its own for its pty, which is why stop looks at the process
+	// tree rather than the group.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	// Capture the output as well as stream it: a service that fails at
 	// startup (postgres can FATAL before it ever listens) otherwise leaves
 	// the tests with a misleading "connection refused" and no clue why.
@@ -88,25 +114,94 @@ func startTestService(name, command string, ready func() error) (*testService, e
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("starting %s: %w", name, err)
 	}
+	// Reap it from the start: a service that dies has to be noticed here, and
+	// one that is killed has to be waited for rather than left a zombie.
+	svc := &testService{name: name, cmd: cmd, done: make(chan struct{})}
+	go func() {
+		svc.exitErr = cmd.Wait()
+		close(svc.done)
+	}()
+
+	if !svc.running() {
+		fmt.Printf("%s exited at once: %v\n", name, svc.exitErr)
+		fmt.Printf("=== captured %s output ===\n%s\n=== end %s output ===\n", name, logs.String(), name)
+		return nil, fmt.Errorf("starting %s: %w", name, svc.exitErr)
+	}
 	if err := ready(); err != nil {
 		fmt.Printf("%s did not become ready: %v\n", name, err)
 		fmt.Printf("=== captured %s output ===\n%s\n=== end %s output ===\n", name, logs.String(), name)
-		_ = cmd.Process.Kill()
+		svc.stop()
 		return nil, err
 	}
-	return &testService{name: name}, nil
+	// Ready is not the same as still running: the port may have been answered
+	// by something else on this machine, with the command that was supposed to
+	// hold it dead.
+	if !svc.running() {
+		fmt.Printf("%s exited during startup: %v\n", name, svc.exitErr)
+		fmt.Printf("=== captured %s output ===\n%s\n=== end %s output ===\n", name, logs.String(), name)
+		svc.stop()
+		return nil, fmt.Errorf("starting %s: %w", name, svc.exitErr)
+	}
+	return svc, nil
 }
 
-// stop ends the service. The processes are found by name rather than by the
-// shell that started them because neither service is the shell's only
-// descendant: postgres is started through sudo, and RustFS may already have
-// been started by hand.
+// running reports whether the command is still going. A command that has
+// exited means the service the tests are talking to is somebody else's.
+func (s *testService) running() bool {
+	select {
+	case <-s.done:
+		return false
+	default:
+		return true
+	}
+}
+
+// stop ends the service and waits for it to be gone. Everything the command
+// started goes with it, found by walking the process tree: killing the shell
+// alone would leave the service holding its port for the next run, and killing
+// by process name would take a developer's own postgres or rustfs with it.
 func (s *testService) stop() {
 	if s == nil {
 		return
 	}
-	if err := exec.Command("pkill", s.name).Run(); err != nil {
-		fmt.Printf("Failed to kill %s: %v\n", s.name, err)
+	pids := append(descendants(s.cmd.Process.Pid), s.cmd.Process.Pid)
+	signalAll(pids, syscall.SIGTERM)
+	select {
+	case <-s.done:
+	case <-time.After(stopTimeout):
+		fmt.Printf("%s did not exit within %s, killing it\n", s.name, stopTimeout)
+		signalAll(pids, syscall.SIGKILL)
+		<-s.done
+	}
+}
+
+// descendants lists every process below pid, deepest first, by following
+// /proc's parent links.
+func descendants(pid int) []int {
+	var out []int
+	var walk func(pid int)
+	walk = func(pid int) {
+		raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/task/%d/children", pid, pid))
+		if err != nil {
+			return
+		}
+		for _, field := range strings.Fields(string(raw)) {
+			child, err := strconv.Atoi(field)
+			if err != nil {
+				continue
+			}
+			walk(child)
+			out = append(out, child)
+		}
+	}
+	walk(pid)
+	return out
+}
+
+// signalAll sends sig to every pid, ignoring the ones that are already gone.
+func signalAll(pids []int, sig syscall.Signal) {
+	for _, pid := range pids {
+		_ = syscall.Kill(pid, sig)
 	}
 }
 

@@ -139,8 +139,6 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		"RUST_LOG":                  os.Getenv("RUST_LOG"),
 		"SP_BROADCASTER_HOST":       fmt.Sprintf("%s.example.com", name),
 		"SP_WEBSOCKET_URL":          fmt.Sprintf("ws://127.0.0.1:%d", apiPort),
-		"SP_MOQ_ADDR":               fmt.Sprintf("127.0.0.1:%d", moqPort),
-		"SP_MOQ_URL":                fmt.Sprintf("moqt://127.0.0.1:%d", moqPort),
 	}
 	_, file, _, _ := runtime.Caller(0)
 	buildDir, err := filepath.Abs(filepath.Join(filepath.Dir(file), "..", "..", fmt.Sprintf("build-%s-%s", runtime.GOOS, runtime.GOARCH)))

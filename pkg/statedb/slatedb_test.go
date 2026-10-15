@@ -1,11 +1,20 @@
 package statedb
 
 import (
+	"bytes"
+	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/kvfs"
+	"stream.place/streamplace/pkg/kvfs/slatedb"
 )
 
 // TestSlateDBState runs the state database out of a real object store, which is
@@ -102,4 +111,140 @@ func TestCopyStateSlateDB(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	require.Equal(t, []byte("object storage"), got.Value)
+}
+
+// The two halves of the writer-fence test talk through the environment: the
+// test runs this binary again, once per role, because both processes have to be
+// alive at the same time for the second one's open to fence the first.
+const (
+	fenceURLEnv  = "STREAMPLACE_FENCE_TEST_URL"
+	fenceRoleEnv = "STREAMPLACE_FENCE_TEST_ROLE"
+)
+
+// TestSlateDBWriterFence pins what a slatedb+ URL does when two nodes share one
+// database, which is the reason the guide says object storage is a way to run a
+// node without a disk rather than a way to share state between nodes: SlateDB
+// has a single writer, and the newest opener takes the role. The second opener
+// does not fail — it fences the first, whose next write fails.
+func TestSlateDBWriterFence(t *testing.T) {
+	stateURL := requireSlateDBURL(t)
+
+	// The process that holds the database first.
+	hold := fenceChild(t, stateURL, "hold")
+	held := &syncBuffer{}
+	hold.Stdout = held
+	hold.Stderr = held
+	require.NoError(t, hold.Start())
+	t.Cleanup(func() {
+		if hold.Process != nil {
+			_ = hold.Process.Kill()
+		}
+	})
+	require.Eventually(t, func() bool {
+		return strings.Contains(held.String(), "first write ok")
+	}, 30*time.Second, 50*time.Millisecond, "the first process never wrote: %s", held.String())
+
+	// A second process opens the same database while the first is between
+	// writes, and takes the writer role.
+	steal := fenceChild(t, stateURL, "steal")
+	stealOut, err := steal.CombinedOutput()
+	require.NoError(t, err, "second opener: %s", stealOut)
+	require.Contains(t, string(stealOut), "write ok", "the second opener did not take over: %s", stealOut)
+
+	// The first one finds out on its next write rather than at startup, which
+	// is the operational shape of the tradeoff: a station with two nodes on one
+	// database gets write failures from the older node, not a refusal to start.
+	// The message ("detected newer DB client") is SlateDB's, so the assertion
+	// is on the shape of it: the older writer is closed out, not told it fenced
+	// itself.
+	require.NoError(t, hold.Wait())
+	require.Contains(t, held.String(), "second write failed", "the first writer was not fenced: %s", held.String())
+	lower := strings.ToLower(held.String())
+	require.True(t, strings.Contains(lower, "newer") || strings.Contains(lower, "fenced"),
+		"the first writer's error does not name a fence: %s", held.String())
+}
+
+// TestSlateDBWriterFenceChild is one of the two processes TestSlateDBWriterFence
+// needs. On its own it does nothing.
+func TestSlateDBWriterFenceChild(t *testing.T) {
+	url := os.Getenv(fenceURLEnv)
+	if url == "" {
+		t.Skip("run by TestSlateDBWriterFence, not on its own")
+	}
+	st, err := slatedb.Open(url, slatedb.Options{})
+	if err != nil {
+		fmt.Printf("open failed: %v\n", err)
+		t.FailNow()
+	}
+	defer func() { _ = st.Close() }()
+	put := func(key, value string) error {
+		if err := st.Write([]kvfs.Mutation{{Key: []byte(key), Value: []byte(value)}}); err != nil {
+			return err
+		}
+		return st.Flush()
+	}
+
+	switch role := os.Getenv(fenceRoleEnv); role {
+	case "hold":
+		if err := put("hold-1", "first"); err != nil {
+			fmt.Printf("first write failed: %v\n", err)
+			t.FailNow()
+		}
+		fmt.Println("first write ok")
+		// Long enough for the other process to start, open the database and
+		// write; the parent does not wait for a fixed time.
+		time.Sleep(8 * time.Second)
+		if err := put("hold-2", "second"); err != nil {
+			fmt.Printf("second write failed: %v\n", err)
+			return
+		}
+		fmt.Println("second write ok")
+	case "steal":
+		time.Sleep(2 * time.Second)
+		if err := put("steal-1", "stolen"); err != nil {
+			fmt.Printf("steal write failed: %v\n", err)
+			t.FailNow()
+		}
+		fmt.Println("steal write ok")
+	default:
+		fmt.Printf("unknown role %q\n", role)
+		t.FailNow()
+	}
+}
+
+// fenceChild is a fence test process: this binary, running only the child test,
+// with a role and a database to share. The child does not start the suite's
+// services — the parent is already running them.
+func fenceChild(t *testing.T, stateURL, role string) *exec.Cmd {
+	t.Helper()
+	cmd := exec.Command(os.Args[0], "-test.run=TestSlateDBWriterFenceChild")
+	env := []string{}
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "STREAMPLACE_TEST_RUSTFS_COMMAND=") ||
+			strings.HasPrefix(e, "STREAMPLACE_TEST_POSTGRES_COMMAND=") {
+			continue
+		}
+		env = append(env, e)
+	}
+	cmd.Env = append(env, fenceURLEnv+"="+stateURL, fenceRoleEnv+"="+role)
+	return cmd
+}
+
+// syncBuffer collects a child process's output for a test that reads it while
+// the process is still writing it.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }

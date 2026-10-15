@@ -57,7 +57,9 @@ the state database, not on disk. With a shared Postgres `SP_DB_URL`:
 A node with the default sqlite database keeps its certificates to itself, and so
 does one keeping its state in object storage with a `slatedb+s3://` URL: SlateDB
 is a single-writer database, a way to run a node without a disk rather than a
-way to share state between nodes.
+way to share state between nodes. Point two nodes at one database and the node
+that opened it last takes the writer role; the first one keeps running and fails
+its next write, so the second node does not join the first, it replaces it.
 
 ## Testing against staging
 

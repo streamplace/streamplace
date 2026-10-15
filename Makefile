@@ -24,6 +24,9 @@ MACOS_VERSION_FLAG=
 ifeq ($(BUILDOS),darwin)
 	export MACOSX_DEPLOYMENT_TARGET
 	MACOS_VERSION_FLAG=-mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
+	NATIVE_DYLIB_EXT=dylib
+else
+	NATIVE_DYLIB_EXT=so
 endif
 BUILDDIR?=build-$(BUILDOS)-$(BUILDARCH)
 PKG_CONFIG_PATH=$(shell pwd)/$(BUILDDIR)/meson-uninstalled:$(shell pwd)/$(BUILDDIR)/lib/pkgconfig:$(shell pwd)/$(BUILDDIR)/lib/gstreamer-1.0/pkgconfig
@@ -35,8 +38,6 @@ ifeq ($(BUILDOS),windows)
 else ifneq ($(BUILDOS),darwin)
 	NATIVE_CGO_LDFLAGS+= -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic
 endif
-NATIVE_PROFILE?=debug
-RUST_TRIPLE?=
 
 # Sentinel file that records when lexicons were last built
 LEXICON_STAMP := .build/lexicon-stamp
@@ -290,10 +291,6 @@ meson-compile:
 native-source:
 	meson subprojects download --sourcedir . moq
 
-.PHONY: native
-native: native-source
-	bash hack/build-native.sh "$(CURDIR)" "$(NATIVE_LIBDIR)" "$(NATIVE_PROFILE)" "$(RUST_TRIPLE)"
-
 
 #    _____ _______    _______ _____ _____
 #   / ____|__   __|/\|__   __|_   _/ ____|
@@ -390,14 +387,15 @@ dev-setup-meson-configure:
 .PHONY: dev-rust
 dev-rust: native-source .build/bin/uniffi-bindgen-go-forked
 	meson compile -C $(BUILDDIR) streamplace-native
-	EXT=so; \
-	if [ "$(BUILDOS)" = "darwin" ]; then EXT=dylib; fi; \
-	.build/bin/uniffi-bindgen-go-forked --crate iroh_streamplace --out-dir pkg/iroh/generated --library "$(NATIVE_LIBDIR)/libiroh_streamplace.$$EXT" \
-	&& mkdir -p $(BUILDDIR)/lib/ \
-	&& cp "$(NATIVE_LIBDIR)/libstreamplace_native.a" $(BUILDDIR)/lib/libstreamplace_native.a.tmp \
-	&& mv $(BUILDDIR)/lib/libstreamplace_native.a.tmp $(BUILDDIR)/lib/libstreamplace_native.a \
-	&& cp "$(NATIVE_LIBDIR)/libmoq_ffi.a" $(BUILDDIR)/lib/libmoq_ffi.a.tmp \
-	&& mv $(BUILDDIR)/lib/libmoq_ffi.a.tmp $(BUILDDIR)/lib/libmoq_ffi.a
+	$(MAKE) $(IROH_GO_BINDINGS)
+	mkdir -p $(BUILDDIR)/lib/
+	ln -f "$(NATIVE_LIBDIR)/libstreamplace_native.$(NATIVE_DYLIB_EXT)" $(BUILDDIR)/lib/
+
+# The generator reads the whole library, so it only runs when Cargo relinks it.
+IROH_GO_BINDINGS=pkg/iroh/generated/iroh_streamplace/iroh_streamplace.go
+$(IROH_GO_BINDINGS): $(NATIVE_LIBDIR)/libiroh_streamplace.$(NATIVE_DYLIB_EXT)
+	.build/bin/uniffi-bindgen-go-forked --crate iroh_streamplace --out-dir pkg/iroh/generated --library "$<"
+	touch $@
 
 .PHONY: dev-test
 dev-test:

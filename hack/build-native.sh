@@ -9,6 +9,7 @@ mkdir -p "$2"
 output_dir=$(cd "$2" && pwd -P)
 profile=${3:-release}
 triple=${4:-}
+crate_type=${5:-staticlib}
 
 # Resolve the rustup proxy once, before either Cargo invocation. Both graphs and
 # the final staticlib must use the same compiler, including its standard library.
@@ -49,32 +50,69 @@ cargo "${cargo_args[@]}" --manifest-path "$source_dir/Cargo.toml" \
 cargo "${cargo_args[@]}" --manifest-path "$source_dir/subprojects/moq/Cargo.toml" \
   --package moq-ffi --target-dir "$output_dir/moq"
 
-# Native C/C++ static dependencies are bundled in the rlibs; target system libs
-# are propagated by Meson's streamplacedeps.pc. Print rustc's complete list too,
-# so a dependency change can be checked against that explicit system-lib list.
-# With --target, proc-macro dylibs live in the separate host profile/deps
-# directories. rustc needs those too when loading either rlib's crate metadata.
-"$RUSTC" --edition=2021 --crate-name streamplace_native --crate-type staticlib \
-  --target "$triple" "${rustflags[@]}" --print native-static-libs \
-  -L "dependency=$output_dir/iroh/$triple/$profile/deps" \
-  -L "dependency=$output_dir/moq/$triple/$profile/deps" \
-  -L "dependency=$output_dir/iroh/$profile/deps" \
-  -L "dependency=$output_dir/moq/$profile/deps" \
-  --extern "iroh_streamplace=$output_dir/iroh/$triple/$profile/libiroh_streamplace.rlib" \
-  --extern "moq_ffi=$output_dir/moq/$triple/$profile/libmoq_ffi.rlib" \
-  "$source_dir/rust/streamplace-native/src/lib.rs" \
-  -o "$output_dir/libstreamplace_native.a.tmp"
-mv "$output_dir/libstreamplace_native.a.tmp" "$output_dir/libstreamplace_native.a"
-# Both names resolve to the same archive/object identities, not two runtimes.
-ln -f "$output_dir/libstreamplace_native.a" "$output_dir/libmoq_ffi.a.tmp"
-mv "$output_dir/libmoq_ffi.a.tmp" "$output_dir/libmoq_ffi.a"
-# The old generator only reads Iroh's UniFFI 0.28 metadata, never MoQ's 0.32.
 case "$triple" in
-  *-apple-darwin) ext=dylib ;;
-  *-linux-*) ext=so ;;
-  *) ext= ;;
+  *-apple-darwin) dylib_ext=dylib ;;
+  *-linux-*) dylib_ext=so ;;
+  *) dylib_ext= ;;
 esac
-if [[ -n "$ext" ]]; then
-  cp "$output_dir/iroh/$triple/$profile/libiroh_streamplace.$ext" \
-    "$output_dir/libiroh_streamplace.$ext"
+compose_args=()
+case "$crate_type" in
+  staticlib) ext=a ;;
+  cdylib)
+    ext=$dylib_ext
+    # One library under both names: link-time lookups of either resolve to
+    # this file, recorded once by its own name.
+    if [[ "$ext" == so ]]; then
+      compose_args+=(-C link-arg=-Wl,-soname,libstreamplace_native.so)
+    else
+      compose_args+=(-C "link-arg=-Wl,-install_name,$output_dir/libstreamplace_native.dylib")
+    fi
+    ;;
+  *)
+    echo "unsupported native crate type: $crate_type" >&2
+    exit 1
+    ;;
+esac
+out="$output_dir/libstreamplace_native.$ext"
+iroh_rlib="$output_dir/iroh/$triple/$profile/libiroh_streamplace.rlib"
+moq_rlib="$output_dir/moq/$triple/$profile/libmoq_ffi.rlib"
+
+# Composing is a full link of both graphs, so it only runs when Cargo rebuilt
+# an rlib or the composition itself changed.
+fresh=true
+for input in "$iroh_rlib" "$moq_rlib" "$source_dir/rust/streamplace-native/src/lib.rs" "${BASH_SOURCE[0]}"; do
+  [[ "$out" -nt "$input" ]] || fresh=false
+done
+if [[ "$fresh" != true ]]; then
+  # Native C/C++ static dependencies are bundled in the rlibs; target system
+  # libs are propagated by Meson's streamplacedeps.pc. A staticlib also prints
+  # rustc's complete list, so a dependency change can be checked against that
+  # explicit system-lib list. With --target, proc-macro dylibs live in the
+  # separate host profile/deps directories. rustc needs those too when loading
+  # either rlib's crate metadata.
+  "$RUSTC" --edition=2021 --crate-name streamplace_native --crate-type "$crate_type" \
+    --target "$triple" "${rustflags[@]}" ${compose_args[@]+"${compose_args[@]}"} --print native-static-libs \
+    -L "dependency=$output_dir/iroh/$triple/$profile/deps" \
+    -L "dependency=$output_dir/moq/$triple/$profile/deps" \
+    -L "dependency=$output_dir/iroh/$profile/deps" \
+    -L "dependency=$output_dir/moq/$profile/deps" \
+    --extern "iroh_streamplace=$iroh_rlib" \
+    --extern "moq_ffi=$moq_rlib" \
+    "$source_dir/rust/streamplace-native/src/lib.rs" \
+    -o "$out.tmp"
+  mv "$out.tmp" "$out"
+  # Both names resolve to the same objects, not two runtimes.
+  ln -f "$out" "$output_dir/libmoq_ffi.$ext.tmp"
+  mv "$output_dir/libmoq_ffi.$ext.tmp" "$output_dir/libmoq_ffi.$ext"
+fi
+# The other kind, from a build of the other type, must not shadow this one.
+for stale in a "$dylib_ext"; do
+  if [[ -n "$stale" && "$stale" != "$ext" ]]; then
+    rm -f "$output_dir/libstreamplace_native.$stale" "$output_dir/libmoq_ffi.$stale"
+  fi
+done
+# The old generator only reads Iroh's UniFFI 0.28 metadata, never MoQ's 0.32.
+if [[ -n "$dylib_ext" ]]; then
+  ln -f "$output_dir/iroh/$triple/$profile/libiroh_streamplace.$dylib_ext" \
+    "$output_dir/libiroh_streamplace.$dylib_ext"
 fi

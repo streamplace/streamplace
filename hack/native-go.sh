@@ -3,9 +3,13 @@ set -euo pipefail
 
 # Go's cache does not track external static-library contents. Changing a cgo
 # compiler flag invalidates native-dependent packages and their cached tests,
-# without rebuilding unrelated pure-Go packages with a global -a.
+# without rebuilding unrelated pure-Go packages with a global -a. A shared
+# library (development builds) is loaded at run time, so it needs nothing.
 archive="$1/libstreamplace_native.a"
 shift
+if [[ ! -f "$archive" ]]; then
+  exec "$@"
+fi
 if command -v sha256sum >/dev/null 2>&1; then
   digest=$(sha256sum "$archive")
 else

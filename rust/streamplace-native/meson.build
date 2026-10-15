@@ -4,8 +4,20 @@ subproject('moq')
 
 rust_triple = meson.get_external_property('RUST_TRIPLE', '')
 native_profile = 'release'
+# Development builds link a shared library: the Go binary loads it at run
+# time, so a Go-only change relinks against a small stub, not the whole debug
+# Rust graph. Shipped and cross builds stay static.
+native_crate_type = 'staticlib'
+native_libs_ext = 'a'
 if get_option('default_library') == 'shared'
   native_profile = 'debug'
+  if host_machine.system() == 'linux'
+    native_crate_type = 'cdylib'
+    native_libs_ext = 'so'
+  elif host_machine.system() == 'darwin'
+    native_crate_type = 'cdylib'
+    native_libs_ext = 'dylib'
+  endif
 endif
 
 # Cargo linker/cc-crate settings accept one executable, not an argv array.
@@ -49,7 +61,7 @@ endif
 native_libdir = meson.current_build_dir()
 native_libs = custom_target(
   'streamplace-native',
-  output: ['libstreamplace_native.a', 'libmoq_ffi.a'],
+  output: ['libstreamplace_native.' + native_libs_ext, 'libmoq_ffi.' + native_libs_ext],
   command: [
     find_program('bash'),
     files('../../hack/build-native.sh'),
@@ -57,6 +69,7 @@ native_libs = custom_target(
     native_libdir,
     native_profile,
     rust_triple,
+    native_crate_type,
   ],
   env: native_env,
   build_always_stale: true, # Cargo, not Ninja, tracks the two Rust source graphs.

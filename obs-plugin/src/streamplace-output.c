@@ -613,11 +613,29 @@ static void *send_thread(void *data)
 		darray_free(&bytes);
 	}
 
-	if (code == OBS_OUTPUT_SUCCESS)
-		do_log(LOG_INFO, "Stream ended; server responded with HTTP %ld", http_end_chunked_post(&sp->conn));
+	/* An error status at the end of the upload is shown to the streamer.
+	 * No response at all (HTTP 0) is normal: a detached ingest worker
+	 * never answers. */
+	bool upload_failed = false;
+	if (code == OBS_OUTPUT_SUCCESS) {
+		long status = http_end_chunked_post(&sp->conn);
+		upload_failed = status >= 400;
+		if (upload_failed) {
+			struct dstr msg = {0};
+			dstr_printf(&msg, "The Streamplace node reported an error when the stream ended (HTTP %ld)",
+				    status);
+			do_log(LOG_WARNING, "%s", msg.array);
+			obs_output_set_last_error(sp->output, msg.array);
+			dstr_free(&msg);
+		} else {
+			do_log(LOG_INFO, "Stream ended; server responded with HTTP %ld", status);
+		}
+	}
 	http_close(&sp->conn);
 
-	if (code == OBS_OUTPUT_SUCCESS || is_stopping(sp))
+	if (upload_failed)
+		obs_output_signal_stop(sp->output, OBS_OUTPUT_ERROR);
+	else if (code == OBS_OUTPUT_SUCCESS || is_stopping(sp))
 		obs_output_end_data_capture(sp->output);
 	else
 		obs_output_signal_stop(sp->output, code);

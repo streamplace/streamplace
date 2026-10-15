@@ -106,9 +106,10 @@ RUN curl --fail -L https://github.com/aptly-dev/aptly/releases/download/v${APTLY
   && rm -rf aptly.zip aptly_${APTLY_VERSION}_linux_amd64
 
 # RustFS is the S3 server the state database tests run against, the way the
-# postgres tests run against the postgres the image starts below.
+# postgres tests run against the postgres the image starts below. The musl
+# build is the one that runs on this image's glibc (the glibc build wants 2.38).
 ENV RUSTFS_VERSION 1.0.1
-RUN curl --fail -L https://github.com/rustfs/rustfs/releases/download/${RUSTFS_VERSION}/rustfs-linux-x86_64-gnu-v${RUSTFS_VERSION}.zip -o rustfs.zip \
+RUN curl --fail -L https://github.com/rustfs/rustfs/releases/download/${RUSTFS_VERSION}/rustfs-linux-x86_64-musl-v${RUSTFS_VERSION}.zip -o rustfs.zip \
   && unzip rustfs.zip \
   && mv rustfs /usr/local/bin/ \
   && rm -rf rustfs.zip rustfs-cli

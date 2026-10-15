@@ -117,8 +117,9 @@ func TestCopyStateSlateDB(t *testing.T) {
 // test runs this binary again, once per role, because both processes have to be
 // alive at the same time for the second one's open to fence the first.
 const (
-	fenceURLEnv  = "STREAMPLACE_FENCE_TEST_URL"
-	fenceRoleEnv = "STREAMPLACE_FENCE_TEST_ROLE"
+	fenceURLEnv     = "STREAMPLACE_FENCE_TEST_URL"
+	fenceRoleEnv    = "STREAMPLACE_FENCE_TEST_ROLE"
+	fenceProceedEnv = "STREAMPLACE_FENCE_TEST_PROCEED"
 )
 
 // TestSlateDBWriterFence pins what a slatedb+ URL does when two nodes share one
@@ -128,9 +129,14 @@ const (
 // does not fail — it fences the first, whose next write fails.
 func TestSlateDBWriterFence(t *testing.T) {
 	stateURL := requireSlateDBURL(t)
+	// The first process writes again when this file appears, which the parent
+	// creates once the second process has taken the database over. Nothing here
+	// waits on a clock, so a slow runner or a slow object store cannot decide
+	// the outcome.
+	proceed := filepath.Join(t.TempDir(), "proceed")
 
 	// The process that holds the database first.
-	hold := fenceChild(t, stateURL, "hold")
+	hold := fenceChild(t, stateURL, "hold", proceed)
 	held := &syncBuffer{}
 	hold.Stdout = held
 	hold.Stderr = held
@@ -142,14 +148,15 @@ func TestSlateDBWriterFence(t *testing.T) {
 	})
 	require.Eventually(t, func() bool {
 		return strings.Contains(held.String(), "first write ok")
-	}, 30*time.Second, 50*time.Millisecond, "the first process never wrote: %s", held.String())
+	}, 60*time.Second, 25*time.Millisecond, "the first process never wrote: %s", held.String())
 
 	// A second process opens the same database while the first is between
 	// writes, and takes the writer role.
-	steal := fenceChild(t, stateURL, "steal")
+	steal := fenceChild(t, stateURL, "steal", proceed)
 	stealOut, err := steal.CombinedOutput()
 	require.NoError(t, err, "second opener: %s", stealOut)
 	require.Contains(t, string(stealOut), "write ok", "the second opener did not take over: %s", stealOut)
+	require.NoError(t, os.WriteFile(proceed, nil, 0o600))
 
 	// The first one finds out on its next write rather than at startup, which
 	// is the operational shape of the tradeoff: a station with two nodes on one
@@ -191,16 +198,20 @@ func TestSlateDBWriterFenceChild(t *testing.T) {
 			t.FailNow()
 		}
 		fmt.Println("first write ok")
-		// Long enough for the other process to start, open the database and
-		// write; the parent does not wait for a fixed time.
-		time.Sleep(8 * time.Second)
+		// The other process takes the writer role before this one writes
+		// again, and the parent says when it has — a timing window here would
+		// fail the assertion on a loaded machine even though the database
+		// fenced correctly.
+		if err := waitForSignal(os.Getenv(fenceProceedEnv), 60*time.Second); err != nil {
+			fmt.Printf("no signal to write again: %v\n", err)
+			t.FailNow()
+		}
 		if err := put("hold-2", "second"); err != nil {
 			fmt.Printf("second write failed: %v\n", err)
 			return
 		}
 		fmt.Println("second write ok")
 	case "steal":
-		time.Sleep(2 * time.Second)
 		if err := put("steal-1", "stolen"); err != nil {
 			fmt.Printf("steal write failed: %v\n", err)
 			t.FailNow()
@@ -212,10 +223,27 @@ func TestSlateDBWriterFenceChild(t *testing.T) {
 	}
 }
 
+// waitForSignal returns once path exists, or an error after timeout.
+func waitForSignal(path string, timeout time.Duration) error {
+	if path == "" {
+		return fmt.Errorf("no signal path configured")
+	}
+	deadline := time.Now().Add(timeout)
+	for {
+		if _, err := os.Stat(path); err == nil {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("%s did not appear within %s", path, timeout)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+}
+
 // fenceChild is a fence test process: this binary, running only the child test,
 // with a role and a database to share. The child does not start the suite's
 // services — the parent is already running them.
-func fenceChild(t *testing.T, stateURL, role string) *exec.Cmd {
+func fenceChild(t *testing.T, stateURL, role, proceed string) *exec.Cmd {
 	t.Helper()
 	cmd := exec.Command(os.Args[0], "-test.run=TestSlateDBWriterFenceChild")
 	env := []string{}
@@ -226,7 +254,10 @@ func fenceChild(t *testing.T, stateURL, role string) *exec.Cmd {
 		}
 		env = append(env, e)
 	}
-	cmd.Env = append(env, fenceURLEnv+"="+stateURL, fenceRoleEnv+"="+role)
+	cmd.Env = append(env,
+		fenceURLEnv+"="+stateURL,
+		fenceRoleEnv+"="+role,
+		fenceProceedEnv+"="+proceed)
 	return cmd
 }
 

@@ -203,7 +203,11 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		<-nodeCtx.Done()
 		node.Shutdown(t)
 	}()
+	// The scraper must be done before shutdown kills the node: a scrape of a
+	// dead node after the test has completed fails it, which panics.
+	scraperDone := make(chan struct{})
 	go func() {
+		defer close(scraperDone)
 		for {
 			select {
 			case <-nodeCtx.Done():
@@ -235,6 +239,7 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		}
 		shuttingDown = true
 		nodeCancel()
+		<-scraperDone
 		_ = cmd.Process.Kill()
 		_, _ = cmd.Process.Wait()
 		// Wait for stdout/stderr readers to finish

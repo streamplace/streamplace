@@ -24,17 +24,31 @@ appId: ${APP_ID}
             text: ".*e2e test stream.*"
           timeout: 30000
       # tap on the video to show the player controls, then open the menu.
-      # The controls stop taking taps 3s after the last touch, and maestro
-      # otherwise waits ~2s for the UI to settle after a tap, which on a slow
-      # emulator lands the menu tap after they have gone; retry for the rest
+      # The controls stop taking taps 3s after the last touch. On CI's
+      # emulator a tap on an id lands ~3.5s after the one before it (one
+      # hierarchy dump to settle, another to find the element), so the cog
+      # is tapped by its point on the Android e2e device: [964,175][1027,238]
+      # of 1080x2400. Elsewhere the id tap opens it.
       - retry:
           maxRetries: 3
           commands:
             - tapOn:
                 point: 50%,20%
-                waitToSettleTimeoutMs: 300
             - tapOn:
-                id: "player-menu"
+                point: 92%,9%
+            # the sheet animates in; only fall back once it plainly hasn't
+            - extendedWaitUntil:
+                visible:
+                  text: "Audio"
+                timeout: 3000
+                optional: true
+            - runFlow:
+                when:
+                  notVisible:
+                    text: "Audio"
+                commands:
+                  - tapOn:
+                      id: "player-menu"
             - extendedWaitUntil:
                 visible:
                   text: "Audio"

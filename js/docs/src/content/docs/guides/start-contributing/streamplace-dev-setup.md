@@ -109,24 +109,6 @@ pnpm run start
 
 #### iOS Build
 
-iOS builds require full Xcode with the iOS SDK installed and CocoaPods on your
-`PATH`. Select the intended Xcode installation with `xcode-select`.
-
-For a Release device archive, run `make ios`. It rebuilds the frontend and native
-projects, selects the generated workspace and matching scheme (`Devplace` for
-development, the configured brand name for production), and writes an unsigned
-`.xcarchive` and `.xcarchive.tar.gz` under `bin/`. Set
-`SP_PRODUCTION_RELEASE=true` for the production app. Signing/exporting the archive
-for distribution is a separate step; installing on a physical device requires
-your Apple development team and provisioning profile.
-
-Prebuild also raises pod deployment targets below React Native's minimum,
-including privacy/resource bundles rejected by Xcode 27. Higher pod minimums are
-preserved. Regenerate with `pnpm app prebuild` after changing native configuration;
-do not edit generated Xcode projects or the Podfile.
-
-For a simulator or development-device build:
-
 ```shell
 pnpm run app ios
 ```

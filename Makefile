@@ -181,7 +181,7 @@ ios: app
 
 .PHONY: rtcrec
 rtcrec:
-	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" $(NATIVE_ENV) go build -o $(BUILDDIR)/rtcrec ./pkg/rtcrec/cmd/...
+	go build -o $(BUILDDIR)/rtcrec ./pkg/rtcrec/cmd/...
 
 # Go takes care of this automatically but we can speed up the build by downloading go deps while the build is running
 .PHONY: godeps

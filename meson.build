@@ -220,7 +220,7 @@ if host_machine.system() == 'darwin'
   streamplace_deps += [
     dependency(
       'appleframeworks',
-      modules: ['CoreFoundation', 'Security', 'SystemConfiguration'],
+      modules: ['CoreFoundation', 'IOKit', 'Security', 'SystemConfiguration'],
     ),
   ]
 endif

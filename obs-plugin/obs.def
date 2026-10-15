@@ -47,6 +47,7 @@ EXPORTS
     obs_encoder_get_frame_rate_divisor
     obs_encoder_get_height
     obs_encoder_get_name
+    obs_encoder_get_ref
     obs_encoder_get_sample_rate
     obs_encoder_get_settings
     obs_encoder_get_width

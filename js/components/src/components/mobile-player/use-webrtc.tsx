@@ -1,3 +1,4 @@
+import type { AudioTrackGroup } from "@streamplace/core";
 import { useEffect, useRef, useState } from "react";
 import * as sdpTransform from "sdp-transform";
 import { place, StreamplaceAgent } from "streamplace";
@@ -12,15 +13,46 @@ import {
 } from "../..";
 import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
 
+// The group of the audio track the node sends on an audio transceiver, from
+// its answer: stems are "audio-g<group>" (see media.WebRTCPlayback2) and the
+// full mix "audio". Undefined until the answer is set.
+function transceiverGroup(
+  pc: RTCPeerConnection,
+  transceiver: RTCRtpTransceiver,
+): AudioTrackGroup {
+  const sdp = pc.remoteDescription?.sdp;
+  if (!sdp || transceiver.mid === null) {
+    return undefined;
+  }
+  const media = sdpTransform
+    .parse(sdp)
+    .media.find((m) => String(m.mid) === transceiver.mid);
+  const track = (media as { msid?: string } | undefined)?.msid?.split(" ")[1];
+  if (track === "audio") {
+    return null;
+  }
+  const stem = track?.match(/^audio-g(\d+)$/);
+  return stem ? Number(stem[1]) : undefined;
+}
+
 export default function useWebRTC(
   streamer: string,
   rendition: string,
-): [MediaStream | null, boolean, (MediaStreamTrack | undefined)[]] {
+): [
+  MediaStream | null,
+  boolean,
+  (MediaStreamTrack | undefined)[],
+  AudioTrackGroup[],
+] {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   // The received audio tracks by transceiver: the full mix, then each stem.
   const [audioTracks, setAudioTracks] = useState<
     (MediaStreamTrack | undefined)[]
   >([]);
+  // Each audio transceiver's group, from the node's answer: the stems a
+  // connection carries are fixed when it is answered, whatever the stream's
+  // stems become later.
+  const [audioGroups, setAudioGroups] = useState<AudioTrackGroup[]>([]);
   const [stuck, setStuck] = useState<boolean>(false);
   const setStatus = usePlayerStore((x) => x.setStatus);
   let agent = usePossiblyUnauthedPDSAgent();
@@ -54,6 +86,20 @@ export default function useWebRTC(
       }),
     );
     const received: (MediaStreamTrack | undefined)[] = [];
+    // The first transceiver always carries the full mix; the others' groups
+    // come from the answer, which react-native-webrtc may set only after
+    // firing the track events, so they are read again once it is stable.
+    const syncGroups = () =>
+      setAudioGroups(
+        audioTransceivers.map((t, i) =>
+          i === 0 ? null : transceiverGroup(peerConnection, t),
+        ),
+      );
+    peerConnection.addEventListener("signalingstatechange", () => {
+      if (peerConnection.signalingState === "stable") {
+        syncGroups();
+      }
+    });
     peerConnection.addEventListener("track", (event) => {
       const track = event.track;
       if (!track) {
@@ -73,6 +119,7 @@ export default function useWebRTC(
       // A fresh array for every track, so consumers that also read the
       // stream's tracks catch up with each arrival.
       setAudioTracks([...received]);
+      syncGroups();
     });
     peerConnection.addEventListener("connectionstatechange", () => {
       console.log("connection state change", peerConnection.connectionState);
@@ -138,7 +185,7 @@ export default function useWebRTC(
       peerConnection.close();
     };
   }, [streamer, agent, isOwnStream, playbackWorkerUrl, rendition]);
-  return [mediaStream, stuck, audioTracks];
+  return [mediaStream, stuck, audioTracks, audioGroups];
 }
 
 /**

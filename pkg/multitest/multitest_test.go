@@ -3,6 +3,8 @@ package multitest
 import (
 	"bufio"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -102,29 +105,35 @@ type TestNode struct {
 	Ctx           context.Context // don't ever do this, it's just a test
 	Shutdown      func(t *testing.T)
 	ActiveStreams map[string]context.CancelFunc
+	Workers       *sync.WaitGroup
 	Name          string
 }
 
 func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *devenv.DevEnv) *TestNode {
+	t.Helper()
 	nodeCtx, nodeCancel := context.WithCancel(ctx)
+	t.Cleanup(nodeCancel)
 	dataDir := t.TempDir()
 	devAccountCreds := []string{}
 	for _, acct := range dev.Accounts {
 		devAccountCreds = append(devAccountCreds, fmt.Sprintf("%s=%s", acct.DID, acct.Password))
 	}
 	apiPort := nextPort()
-	// Every node listens for MoQ on UDP :38443 by default, and the nodes'
-	// broadcaster hosts don't resolve, so each gets its own port, advertised
-	// on loopback.
+	// Every isolated node needs its own advertised loopback MoQ port.
 	moqPort := nextPort()
 	env := map[string]string{
 		"SP_HTTP_ADDR":              fmt.Sprintf("127.0.0.1:%d", apiPort),
 		"SP_HTTP_INTERNAL_ADDR":     fmt.Sprintf("127.0.0.1:%d", nextPort()),
 		"SP_RTMP_ADDR":              fmt.Sprintf("127.0.0.1:%d", nextPort()),
+		"SP_MOQ_ADDR":               fmt.Sprintf("127.0.0.1:%d", moqPort),
+		"SP_MOQ_URL":                fmt.Sprintf("moqt://127.0.0.1:%d", moqPort),
 		"SP_RELAY_HOST":             strings.ReplaceAll(dev.PDSURL, "http://", "ws://"),
 		"SP_PLC_URL":                dev.PLCURL,
 		"SP_DATA_DIR":               dataDir,
 		"SP_DEV_ACCOUNT_CREDS":      strings.Join(devAccountCreds, ","),
+		"SP_TRUST_PRIVATE_NETWORK":  "true",
+		"SP_DEV_PUBLIC_OAUTH":       "true",
+		"SP_SYNDICATE":              "*",
 		"SP_STREAM_SESSION_TIMEOUT": "3s",
 		"SP_COLOR":                  "true",
 		"RUST_LOG":                  os.Getenv("RUST_LOG"),
@@ -134,20 +143,43 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		"SP_MOQ_URL":                fmt.Sprintf("moqt://127.0.0.1:%d", moqPort),
 	}
 	_, file, _, _ := runtime.Caller(0)
-	buildDir := fmt.Sprintf("build-%s-%s", runtime.GOOS, runtime.GOARCH)
-	abs, err := filepath.Abs(filepath.Join(filepath.Dir(file), "..", "..", buildDir, "streamplace"))
-	require.NoErrorf(t, err, "[%s] failed to resolve absolute binary path", name)
-	// Run the streamplace binary at abs with the environment env
-	cmd := exec.Command(abs)
+	buildDir, err := filepath.Abs(filepath.Join(filepath.Dir(file), "..", "..", fmt.Sprintf("build-%s-%s", runtime.GOOS, runtime.GOARCH)))
+	require.NoErrorf(t, err, "[%s] failed to resolve absolute build path", name)
+	abs := filepath.Join(buildDir, "libstreamplace")
+	if _, err := os.Stat(abs); os.IsNotExist(err) {
+		abs = filepath.Join(buildDir, "streamplace")
+	} else {
+		require.NoErrorf(t, err, "[%s] failed to inspect development binary", name)
+		// Bypass the development shell launcher: it invokes Go and enables
+		// frontend proxies that these isolated nodes do not need.
+		env["LD_LIBRARY_PATH"] = filepath.Join(buildDir, "lib")
+		if runtime.GOOS == "darwin" {
+			env["DYLD_LIBRARY_PATH"] = filepath.Join(buildDir, "lib")
+		}
+	}
+	cmd := exec.CommandContext(nodeCtx, abs)
+	cmd.WaitDelay = 5 * time.Second
+	// Keep runtime tools and libraries, but never inherit another node's config.
 	cmd.Env = []string{}
+	for _, kv := range os.Environ() {
+		key, _, _ := strings.Cut(kv, "=")
+		if _, overridden := env[key]; !strings.HasPrefix(key, "SP_") && !overridden {
+			cmd.Env = append(cmd.Env, kv)
+		}
+	}
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	require.NoErrorf(t, err, "[%s] failed to get stdout pipe", name)
+	t.Cleanup(func() { _ = stdoutPipe.Close() })
 	stderrPipe, err := cmd.StderrPipe()
 	require.NoErrorf(t, err, "[%s] failed to get stderr pipe", name)
+	t.Cleanup(func() { _ = stderrPipe.Close() })
+
+	err = cmd.Start()
+	require.NoErrorf(t, err, "[%s] failed to start streamplace process", name)
 
 	stdoutDone := make(chan struct{})
 	stderrDone := make(chan struct{})
@@ -175,21 +207,70 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		}
 	}()
 
-	err = cmd.Start()
-	require.NoErrorf(t, err, "[%s] failed to start streamplace process", name)
+	processDone := make(chan struct{})
+	var processErr error
+	var workers sync.WaitGroup
+	go func() {
+		processErr = cmd.Wait()
+		close(processDone)
+	}()
+	var shutdownOnce sync.Once
+	nodeShutdown := func(t *testing.T) {
+		shutdownOnce.Do(func() {
+			nodeCancel()
+			<-processDone
+			<-stdoutDone
+			<-stderrDone
+			workersDone := make(chan struct{})
+			go func() {
+				workers.Wait()
+				close(workersDone)
+			}()
+			select {
+			case <-workersDone:
+			case <-time.After(10 * time.Second):
+				t.Errorf("[%s] stream workers did not stop after cancellation", name)
+			}
+		})
+	}
+	// Register before readiness so startup failures also reap the process.
+	t.Cleanup(func() { nodeShutdown(t) })
 
-	// Wait for the streamplace node to be ready by polling the health endpoint
+	// Bound every request and the overall startup, and report an early exit.
+	startupCtx, startupCancel := context.WithTimeout(nodeCtx, time.Minute)
+	defer startupCancel()
 	healthz := fmt.Sprintf("http://%s/api/healthz", env["SP_HTTP_ADDR"])
 	client := &http.Client{Timeout: 2 * time.Second}
+	defer client.CloseIdleConnections()
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	var lastErr error
 	for {
-		resp, err := client.Get(healthz)
+		select {
+		case <-processDone:
+			t.Fatalf("[%s] streamplace exited before readiness: %v", name, processErr)
+		case <-startupCtx.Done():
+			t.Fatalf("[%s] streamplace startup failed: %v (last health check: %v)", name, startupCtx.Err(), lastErr)
+		default:
+		}
+		req, err := http.NewRequestWithContext(startupCtx, http.MethodGet, healthz, nil)
+		require.NoError(t, err)
+		resp, err := client.Do(req)
+		lastErr = err
 		if err == nil {
-			defer resp.Body.Close()
-			if resp.StatusCode == 200 {
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
 				break
 			}
+			lastErr = fmt.Errorf("GET %s: %s", healthz, resp.Status)
 		}
-		time.Sleep(200 * time.Millisecond)
+		select {
+		case <-processDone:
+			t.Fatalf("[%s] streamplace exited before readiness: %v", name, processErr)
+		case <-startupCtx.Done():
+			t.Fatalf("[%s] streamplace startup failed: %v (last health check: %v)", name, startupCtx.Err(), lastErr)
+		case <-ticker.C:
+		}
 	}
 	node := &TestNode{
 		Env:           env,
@@ -198,25 +279,42 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		Ctx:           nodeCtx,
 		ActiveStreams: make(map[string]context.CancelFunc),
 		Name:          name,
+		Shutdown:      nodeShutdown,
+		Workers:       &workers,
 	}
+	workers.Add(2)
 	go func() {
-		<-nodeCtx.Done()
-		node.Shutdown(t)
+		defer workers.Done()
+		select {
+		case <-nodeCtx.Done():
+		case <-processDone:
+			if nodeCtx.Err() == nil {
+				t.Errorf("[%s] streamplace exited unexpectedly: %v", name, processErr)
+				nodeCancel()
+			}
+		}
 	}()
-	// The scraper must be done before shutdown kills the node: a scrape of a
-	// dead node after the test has completed fails it, which panics.
-	scraperDone := make(chan struct{})
+	workers.Add(1)
 	go func() {
-		defer close(scraperDone)
+		defer workers.Done()
 		for {
 			select {
 			case <-nodeCtx.Done():
 				return
 			case <-time.After(1 * time.Second):
 				scrp, err := scraper.NewWebScraper(fmt.Sprintf("http://%s/metrics", env["SP_HTTP_INTERNAL_ADDR"]))
-				require.NoErrorf(t, err, "[%s] failed to create scraper", name)
+				if err != nil {
+					t.Errorf("[%s] failed to create scraper: %v", name, err)
+					return
+				}
 				data, err := scrp.ScrapeWeb()
-				require.NoErrorf(t, err, "[%s] failed to scrape metrics", name)
+				if nodeCtx.Err() != nil {
+					return
+				}
+				if err != nil {
+					t.Errorf("[%s] failed to scrape metrics: %v", name, err)
+					return
+				}
 				found := false
 				for _, metric := range data.Gauges {
 					if metric.Key == "streamplace_send_segment_calls" {
@@ -232,24 +330,6 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 			}
 		}
 	}()
-	shuttingDown := false
-	nodeShutdown := func(t *testing.T) {
-		if shuttingDown {
-			return
-		}
-		shuttingDown = true
-		nodeCancel()
-		<-scraperDone
-		_ = cmd.Process.Kill()
-		_, _ = cmd.Process.Wait()
-		// Wait for stdout/stderr readers to finish
-		<-stdoutDone
-		<-stderrDone
-	}
-	node.Shutdown = nodeShutdown
-	t.Cleanup(func() {
-		node.Shutdown(t)
-	})
 	return node
 }
 
@@ -271,6 +351,14 @@ func (node *TestNode) StartStream(t *testing.T, acct *devenv.DevEnvAccount) {
 	})
 	require.NoErrorf(t, err, "[%s] failed to create Repo record for DID %s", node.Name, acct.DID)
 	log.Log(context.Background(), "created stream key", "did", acct.DID, "pub", pub.DIDKey())
+	now := time.Now().UTC().Format(util.ISO8601)
+	livestream := placestream.Livestream{LexiconTypeID: "place.stream.livestream", CreatedAt: now, LastSeenAt: &now, Title: "multinode transport test"}
+	_, err = comatproto.RepoCreateRecord(streamCtx, acct.XRPC, &comatproto.RepoCreateRecord_Input{
+		Collection: "place.stream.livestream",
+		Repo:       acct.DID,
+		Record:     &glex.LexiconTypeDecoder{Val: &livestream},
+	})
+	require.NoErrorf(t, err, "[%s] failed to publish livestream for DID %s", node.Name, acct.DID)
 	time.Sleep(1 * time.Second)
 	whip := &cmd.WHIPClient{
 		StreamKey: priv,
@@ -279,10 +367,16 @@ func (node *TestNode) StartStream(t *testing.T, acct *devenv.DevEnvAccount) {
 		Count:     1,
 	}
 
-	g, ctx := errgroup.WithContext(streamCtx)
-	g.Go(func() error {
-		return whip.WHIP(ctx)
-	})
+	node.Workers.Add(1)
+	go func() {
+		defer node.Workers.Done()
+		err := whip.WHIP(streamCtx)
+		if err != nil && (streamCtx.Err() == nil || !errors.Is(err, context.Canceled)) {
+			t.Errorf("[%s] stream ingest failed did=%s: %v", node.Name, acct.DID, err)
+		} else if streamCtx.Err() == nil {
+			t.Errorf("[%s] stream ingest ended unexpectedly did=%s", node.Name, acct.DID)
+		}
+	}()
 }
 
 func (node *TestNode) StopStream(t *testing.T, acct *devenv.DevEnvAccount) {
@@ -295,6 +389,25 @@ func (node *TestNode) StopStream(t *testing.T, acct *devenv.DevEnvAccount) {
 }
 
 func (node *TestNode) PlayStream(t *testing.T, acct *devenv.DevEnvAccount) {
+	client := &http.Client{Timeout: 2 * time.Second}
+	defer client.CloseIdleConnections()
+	require.Eventually(t, func() bool {
+		resp, err := client.Get(fmt.Sprintf("http://%s/xrpc/place.stream.live.getLiveUsers?limit=50", node.Env["SP_HTTP_ADDR"]))
+		if err != nil {
+			return false
+		}
+		defer resp.Body.Close()
+		var body placestream.LiveGetLiveUsers_Output
+		if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&body) != nil {
+			return false
+		}
+		for _, stream := range body.Streams {
+			if stream.Author.Did == acct.DID {
+				return true
+			}
+		}
+		return false
+	}, time.Minute, 200*time.Millisecond, "target node must receive the stream before playback")
 	whep := &cmd.WHEPClient{
 		Endpoint: fmt.Sprintf("http://%s/api/playback/%s/webrtc", node.Env["SP_HTTP_ADDR"], acct.DID),
 		Count:    1,
@@ -317,7 +430,7 @@ func (node *TestNode) PlayStream(t *testing.T, acct *devenv.DevEnvAccount) {
 				videoStats := stats["video"]
 				audioStats := stats["audio"]
 				if videoStats.Total == prevVideoTotal || audioStats.Total == prevAudioTotal {
-					require.FailNow(t, fmt.Sprintf("[%s] stream playback stalled did=%s, video=%d, audio=%d, elapsed=%s", node.Name, acct.DID, videoStats.Total, audioStats.Total, time.Since(start)))
+					return fmt.Errorf("stream playback stalled did=%s, video=%d, audio=%d, elapsed=%s", acct.DID, videoStats.Total, audioStats.Total, time.Since(start))
 				}
 				prevVideoTotal = videoStats.Total
 				prevAudioTotal = audioStats.Total
@@ -325,4 +438,14 @@ func (node *TestNode) PlayStream(t *testing.T, acct *devenv.DevEnvAccount) {
 			}
 		}
 	})
+	node.Workers.Add(1)
+	go func() {
+		defer node.Workers.Done()
+		err := g.Wait()
+		if err != nil && (node.Ctx.Err() == nil || !errors.Is(err, context.Canceled)) {
+			t.Errorf("[%s] stream playback failed did=%s: %v", node.Name, acct.DID, err)
+		} else if node.Ctx.Err() == nil {
+			t.Errorf("[%s] stream playback ended unexpectedly did=%s", node.Name, acct.DID)
+		}
+	}()
 }

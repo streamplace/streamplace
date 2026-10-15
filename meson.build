@@ -210,7 +210,7 @@ endif
 
 subdir('rust/streamplace-native')
 env += {
-  'CC': native_linker,
+  'CC': native_cc,
   'CXX': native_cpp,
   # This must precede the module's bundled -L flags. Intel macOS also needs
   # the explicit library: the published FFI has no darwin/amd64 cgo directive.
@@ -329,6 +329,7 @@ if get_option('default_library') == 'static'
       'build',
       '-o', '@OUTPUT0@',
       '-buildmode', 'c-archive',
+      '-ldflags', '-extld=' + native_linker,
       '-tags', 'netgo,static,mainnet',
       '@INPUT@',
     ],
@@ -358,6 +359,7 @@ if get_option('default_library') == 'static'
         native_libdir,
         prog_go,
         'build',
+        '-ldflags', '-extld=' + native_linker,
         '-o', '@OUTPUT0@',
         '-tags', 'netgo,static,mainnet',
         'streamplace.go',
@@ -392,6 +394,7 @@ if get_option('default_library') == 'static'
         'test',
         '-p', '1',
         '-timeout', '600s',
+        '-ldflags', '-extld=' + native_linker,
         '@0@/pkg/...'.format(meson.current_source_dir()),
         '@0@/cmd/...'.format(meson.current_source_dir()),
       ],

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Preserve Meson's complete compiler/launcher command and target options.
+exec @COMMAND@ "$@"

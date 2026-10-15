@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-gst/go-gst/gst"
+	"github.com/go-gst/go-gst/pkg/gst"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/model"
@@ -72,9 +72,9 @@ func (mm *MediaManager) watchKeyRevocation(ctx context.Context, streamer, did st
 
 // HandleKeyRevocation shuts down an in-process ingest pipeline when the
 // streamer's signing key is revoked or they get banned.
-func (mm *MediaManager) HandleKeyRevocation(ctx context.Context, ms MediaSigner, pipeline *gst.Pipeline) {
+func (mm *MediaManager) HandleKeyRevocation(ctx context.Context, ms MediaSigner, pipeline gst.Pipeline) {
 	mm.watchKeyRevocation(ctx, ms.Streamer(), ms.DID(), func(reason string) {
 		err := fmt.Errorf("ending stream: %s", reason)
-		pipeline.Error(err.Error(), err)
+		pipeline.PostMessage(gst.NewMessageError(pipeline, err.Error(), err))
 	})
 }

@@ -22,7 +22,7 @@ import (
 	"github.com/bluenviron/gortmplib/pkg/bytecounter"
 	"github.com/bluenviron/gortmplib/pkg/message"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
-	"github.com/go-gst/go-gst/gst"
+	"github.com/go-gst/go-gst/pkg/gst"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	scraper "github.com/starttoaster/prometheus-exporter-scraper"
 	"github.com/stretchr/testify/require"
@@ -309,22 +309,23 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 	}()
 
 	gstinit.InitGST()
-	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf(
+	element, err := gst.ParseLaunch(fmt.Sprintf(
 		"flvmux name=mux streamable=true ! rtmp2sink sync=%t location=rtmp://%s%s "+
 			"videotestsrc num-buffers=300 ! video/x-raw,width=320,height=240,framerate=30/1 ! x264enc key-int-max=30 bframes=0 tune=zerolatency ! h264parse ! queue ! mux.video "+
 			"audiotestsrc num-buffers=470 samplesperbuffer=1024 ! audio/x-raw,rate=48000 ! audioconvert ! fdkaacenc ! aacparse ! queue ! mux.audio", paced, bridge.Addr(), publisherPath))
 	require.NoError(t, err)
-	defer pipeline.SetState(gst.StateNull) //nolint:errcheck
+	pipeline := element.(gst.Pipeline)
+	defer pipeline.SetState(gst.StateNull)
 	busDone := make(chan error, 1)
 	go func() { busDone <- media.HandleBusMessages(ctx, pipeline) }()
-	require.NoError(t, pipeline.SetState(gst.StatePlaying))
+	require.NotEqual(t, gst.StateChangeFailure, pipeline.SetState(gst.StatePlaying))
 	select {
 	case err := <-busDone:
 		require.NoError(t, err)
 	case <-ctx.Done():
 		t.Fatal("publisher timed out")
 	}
-	require.NoError(t, pipeline.SetState(gst.StateNull))
+	require.Equal(t, gst.StateChangeSuccess, pipeline.BlockSetState(gst.StateNull, gst.ClockTimeNone))
 	if paced {
 		// The TLS publisher has not sent EOF; progress cannot be deferred
 		// until worker completion. Encoding speed is irrelevant.

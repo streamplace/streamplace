@@ -7,94 +7,77 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 )
 
 // silly technique to avoid leaking pads
-func doNothing(self *gst.Element, pad *gst.Pad) {}
+func doNothing(self gst.Element, pad gst.Pad) {}
 
 // doNothing for signals without a pad argument
-func doNothingElement(self *gst.Element) {}
+func doNothingElement(self gst.Element) {}
 
 // Function for demuxing a single segment. Needs to be handled very carefully.
 // In particular: users of this MUST cancel the passed context when they're
 // done with the bin.
-func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.Bin, error) {
+func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (gst.Bin, error) {
 	ctx = log.WithLogValues(ctx, "func", "ConcatDemuxBin")
-	bin := gst.NewBin("seg-demux-bin")
+	bin := gst.NewBin("seg-demux-bin").(gst.Bin)
 
-	appSrc, err := gst.NewElementWithProperties("appsrc", map[string]interface{}{
+	appSrc := gst.ElementFactoryMakeWithProperties("appsrc", map[string]interface{}{
 		"name": "concat-appsrc",
 	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create appsrc element: %w", err)
+	if appSrc == nil {
+		return nil, fmt.Errorf("failed to create appsrc element")
 	}
-	err = bin.Add(appSrc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add appsrc to bin: %w", err)
+	if !bin.Add(appSrc) {
+		return nil, fmt.Errorf("failed to add appsrc to bin")
 	}
 
-	demux, err := gst.NewElementWithProperties("qtdemux", map[string]interface{}{
+	demux := gst.ElementFactoryMakeWithProperties("qtdemux", map[string]interface{}{
 		"name": "concat-demux",
 	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create qtdemux element: %w", err)
+	if demux == nil {
+		return nil, fmt.Errorf("failed to create qtdemux element")
 	}
-	err = bin.Add(demux)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add qtdemux to bin: %w", err)
-	}
-
-	err = appSrc.Link(demux)
-	if err != nil {
-		return nil, fmt.Errorf("failed to link appsrc to qtdemux: %w", err)
+	if !bin.Add(demux) {
+		return nil, fmt.Errorf("failed to add qtdemux to bin")
 	}
 
-	tmpl := demux.GetPadTemplates()
+	if !appSrc.Link(demux) {
+		return nil, fmt.Errorf("failed to link appsrc to qtdemux")
+	}
+
+	tmpl := demux.GetPadTemplateList()
 	if tmpl == nil {
 		return nil, fmt.Errorf("pad templates not found")
 	}
 
-	mq, err := gst.NewElementWithProperties("multiqueue", map[string]interface{}{
+	mq := gst.ElementFactoryMakeWithProperties("multiqueue", map[string]interface{}{
 		"name":             "concat-demux-multiqueue",
-		"max-size-time":    constants.QueueMaxSizeTime,
-		"max-size-bytes":   constants.QueueMaxSizeBytes,
-		"max-size-buffers": constants.QueueMaxSizeBuffers,
+		"max-size-time":    uint64(constants.QueueMaxSizeTime),
+		"max-size-bytes":   uint32(constants.QueueMaxSizeBytes),
+		"max-size-buffers": uint32(constants.QueueMaxSizeBuffers),
 	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create multiqueue element: %w", err)
+	if mq == nil {
+		return nil, fmt.Errorf("failed to create multiqueue element")
 	}
-	err = bin.Add(mq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add multiqueue to bin: %w", err)
+	if !bin.Add(mq) {
+		return nil, fmt.Errorf("failed to add multiqueue to bin")
 	}
-	// err = mq.SetProperty("max-size-time", uint64(200000000000))
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to set max-size-time: %w", err)
-	// }
-	// err = mq.SetProperty("max-size-bytes", uint(1048576000))
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to set max-size-bytes: %w", err)
-	// }
-	// err = mq.SetProperty("max-size-buffers", uint(500))
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to set max-size-buffers: %w", err)
-	// }
 
-	opusparse, err := gst.NewElementWithProperties("opusparse", map[string]interface{}{
+	opusparse := gst.ElementFactoryMakeWithProperties("opusparse", map[string]interface{}{
 		"name":                "concat-demux-opusparse",
 		"disable-passthrough": true,
 	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create opusparse element: %w", err)
+	if opusparse == nil {
+		return nil, fmt.Errorf("failed to create opusparse element")
 	}
-	err = bin.Add(opusparse)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add opusparse to bin: %w", err)
+	if !bin.Add(opusparse) {
+		return nil, fmt.Errorf("failed to add opusparse to bin")
 	}
 	opusparseSinkPad := opusparse.GetStaticPad("sink")
 	if opusparseSinkPad == nil {
@@ -105,12 +88,12 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 		return nil, fmt.Errorf("failed to get opusparse source pad")
 	}
 
-	mqVideoSink := mq.GetRequestPad("sink_%u")
+	mqVideoSink := mq.RequestPadSimple("sink_%u")
 	if mqVideoSink == nil {
 		return nil, fmt.Errorf("video sink pad not found")
 	}
 
-	mqAudioSink := mq.GetRequestPad("sink_%u")
+	mqAudioSink := mq.RequestPadSimple("sink_%u")
 	if mqAudioSink == nil {
 		return nil, fmt.Errorf("audio sink pad not found")
 	}
@@ -130,19 +113,18 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 		return nil, fmt.Errorf("failed to link opusparse sink pad to mq audio sink pad")
 	}
 
-	var videoGhost *gst.GhostPad
+	var videoGhost gst.Pad
 	if doH264Parse {
-		h264parse, err := gst.NewElementWithProperties("h264parse", map[string]interface{}{
+		h264parse := gst.ElementFactoryMakeWithProperties("h264parse", map[string]interface{}{
 			"name":                "concat-demux-h264parse",
-			"config-interval":     -1,
+			"config-interval":     int32(-1),
 			"disable-passthrough": true,
 		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create h264parse element: %w", err)
+		if h264parse == nil {
+			return nil, fmt.Errorf("failed to create h264parse element")
 		}
-		err = bin.Add(h264parse)
-		if err != nil {
-			return nil, fmt.Errorf("failed to add h264parse to bin: %w", err)
+		if !bin.Add(h264parse) {
+			return nil, fmt.Errorf("failed to add h264parse to bin")
 		}
 		h264parseSinkPad := h264parse.GetStaticPad("sink")
 		if h264parseSinkPad == nil {
@@ -186,8 +168,8 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 	// here is a data race; a mutex held across dispatch risks blocking the
 	// swap behind a stuck handler, pinning the closures).
 	var padAdded atomic.Value
-	padAdded.Store(func(self *gst.Element, pad *gst.Pad) {
-		var downstreamPad *gst.Pad
+	padAdded.Store(func(self gst.Element, pad gst.Pad) {
+		var downstreamPad gst.Pad
 		if strings.HasPrefix(pad.GetName(), "video_") {
 			downstreamPad = mqVideoSink
 			videoLinked = true
@@ -210,8 +192,8 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 			padAdded.Store(doNothing)
 		}
 	})
-	outerPadAdded := func(self *gst.Element, pad *gst.Pad) {
-		padAdded.Load().(func(self *gst.Element, pad *gst.Pad))(self, pad)
+	outerPadAdded := func(self gst.Element, pad gst.Pad) {
+		padAdded.Load().(func(self gst.Element, pad gst.Pad))(self, pad)
 	}
 
 	// Both branches are wired up before the demux runs, but the segment may
@@ -225,19 +207,19 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 	// drain. Fires on the demux's streaming thread, same as pad-added, so the
 	// linked flags need no synchronization.
 	var noMorePads atomic.Value
-	noMorePads.Store(func(self *gst.Element) {
+	noMorePads.Store(func(self gst.Element) {
 		if !videoLinked {
 			log.Warn(ctx, "segment has no video track; completing video branch with EOS")
-			mqVideoSink.SendEvent(gst.NewEOSEvent())
+			mqVideoSink.SendEvent(gst.NewEventEOS())
 		}
 		if !audioLinked {
 			log.Warn(ctx, "segment has no audio track; completing audio branch with EOS")
-			mqAudioSink.SendEvent(gst.NewEOSEvent())
+			mqAudioSink.SendEvent(gst.NewEventEOS())
 		}
 		noMorePads.Store(doNothingElement)
 	})
-	outerNoMorePads := func(self *gst.Element) {
-		noMorePads.Load().(func(self *gst.Element))(self)
+	outerNoMorePads := func(self gst.Element) {
+		noMorePads.Load().(func(self gst.Element))(self)
 	}
 
 	// Necessary to avoid leaking `mqVideoSink` and `mqAudioSink` from the
@@ -248,28 +230,22 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 		noMorePads.Store(doNothingElement)
 	}()
 
-	_, err = demux.Connect("pad-added", outerPadAdded)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect demux pad-added signal: %w", err)
-	}
-	_, err = demux.Connect("no-more-pads", outerNoMorePads)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect demux no-more-pads signal: %w", err)
-	}
+	demux.ConnectPadAdded(outerPadAdded)
+	demux.ConnectNoMorePads(outerNoMorePads)
 
-	ok := bin.AddPad(videoGhost.Pad)
+	ok := bin.AddPad(videoGhost)
 	if !ok {
 		return nil, fmt.Errorf("failed to add video ghost pad to bin")
 	}
 
-	ok = bin.AddPad(audioGhost.Pad)
+	ok = bin.AddPad(audioGhost)
 	if !ok {
 		return nil, fmt.Errorf("failed to add audio ghost pad to bin")
 	}
 
-	src := app.SrcFromElement(appSrc)
-	src.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedDataIncremental(ctx, bytes.NewReader(seg.Data)),
+	src := appSrc.(app.AppSrc)
+	src.SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: ReaderNeedDataIncremental(ctx, bytes.NewReader(seg.Data)),
 	})
 
 	return bin, nil

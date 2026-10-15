@@ -22,8 +22,8 @@ import (
 
 	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/decred/dcrd/dcrec/secp256k1"
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	slogGorm "github.com/orandin/slog-gorm"
 	"github.com/slok/go-http-metrics/middleware"
@@ -152,19 +152,22 @@ func TestCreateReportRouting(t *testing.T) {
 				mm, err = media.MakeMediaManager(ctx, cli, nil, nil, nil, nil, nil)
 				require.NoError(t, err)
 				// The MP4 ingest worker takes H264+AAC; the fixture has Opus audio.
-				pipeline, err := gst.NewPipelineFromString("appsrc name=source ! qtdemux name=d d. ! queue ! h264parse ! mp4mux name=mux fragment-duration=500 ! appsink name=sink d. ! queue ! opusdec ! audioconvert ! audioresample ! fdkaacenc ! aacparse ! mux.")
+				element, err := gst.ParseLaunch("appsrc name=source ! qtdemux name=d d. ! queue ! h264parse ! mp4mux name=mux fragment-duration=500 ! appsink name=sink d. ! queue ! opusdec ! audioconvert ! audioresample ! fdkaacenc ! aacparse ! mux.")
 				require.NoError(t, err)
-				defer func() { require.NoError(t, pipeline.SetState(gst.StateNull)) }()
-				source, err := pipeline.GetElementByName("source")
-				require.NoError(t, err)
-				app.SrcFromElement(source).SetCallbacks(&app.SourceCallbacks{NeedDataFunc: media.ReaderNeedDataIncremental(ctx, bytes.NewReader(fixture))})
-				sink, err := pipeline.GetElementByName("sink")
-				require.NoError(t, err)
+				pipeline := element.(gst.Pipeline)
+				defer func() {
+					require.Equal(t, gst.StateChangeSuccess, pipeline.BlockSetState(gst.StateNull, gst.ClockTimeNone))
+				}()
+				source := pipeline.GetByName("source")
+				require.NotNil(t, source)
+				source.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{NeedData: media.ReaderNeedDataIncremental(ctx, bytes.NewReader(fixture))})
+				sink := pipeline.GetByName("sink")
+				require.NotNil(t, sink)
 				var mp4 bytes.Buffer
-				app.SinkFromElement(sink).SetCallbacks(&app.SinkCallbacks{NewSampleFunc: media.WriterNewSample(ctx, &mp4)})
+				sink.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{NewSample: media.WriterNewSample(ctx, &mp4)})
 				busErr := make(chan error, 1)
 				go func() { busErr <- media.HandleBusMessages(ctx, pipeline) }()
-				require.NoError(t, pipeline.SetState(gst.StatePlaying))
+				require.NotEqual(t, gst.StateChangeFailure, pipeline.SetState(gst.StatePlaying))
 				require.NoError(t, <-busErr)
 				var frames bytes.Buffer
 				require.NoError(t, media.RunMP4IngestWorker(ctx, cfg, bytes.NewReader(mp4.Bytes()), ingestframe.NewWriter(&frames), func() []byte { return manifest }))

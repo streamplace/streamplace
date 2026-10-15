@@ -292,7 +292,6 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 			}
 		}
 	}()
-	workers.Add(1)
 	go func() {
 		defer workers.Done()
 		for {

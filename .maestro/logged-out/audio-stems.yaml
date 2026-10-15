@@ -23,14 +23,16 @@ appId: ${APP_ID}
           visible:
             text: ".*e2e test stream.*"
           timeout: 30000
-      # tap on the video to show the player controls, then open the menu;
-      # on a slow emulator the controls can hide again before the menu tap
-      # lands, so retry the pair
+      # tap on the video to show the player controls, then open the menu.
+      # The controls stop taking taps 3s after the last touch, and maestro
+      # otherwise waits ~2s for the UI to settle after a tap, which on a slow
+      # emulator lands the menu tap after they have gone; retry for the rest
       - retry:
           maxRetries: 3
           commands:
             - tapOn:
                 point: 50%,20%
+                waitToSettleTimeoutMs: 300
             - tapOn:
                 id: "player-menu"
             - extendedWaitUntil:

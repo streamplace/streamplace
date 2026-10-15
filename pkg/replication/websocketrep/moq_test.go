@@ -1,6 +1,7 @@
 package websocketrep
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -9,36 +10,15 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/moq"
 	"stream.place/streamplace/pkg/placestream"
 )
 
-// The announced inventory is the streams with recent local segments: a
-// streamer appears on its first segment, once, and is retracted when its
-// segments stop; a listener joining late gets the current set first.
-func TestLiveSetAnnounces(t *testing.T) {
-	l := newLiveSet(50 * time.Millisecond)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	early := l.announce(ctx, "")
-	l.touch("did:plc:a")
-	l.touch("did:plc:a")
-	late := l.announce(ctx, "did:plc:")
-	other := l.announce(ctx, "did:web:")
-
-	require.Equal(t, moq.Announcement{Path: "did:plc:a", Active: true}, <-early)
-	require.Equal(t, moq.Announcement{Path: "did:plc:a", Active: true}, <-late)
-	require.Empty(t, other, "a listener only hears paths under its prefix")
-
-	time.Sleep(80 * time.Millisecond)
-	l.expire()
-	require.Equal(t, moq.Announcement{Path: "did:plc:a"}, <-early)
-	require.Equal(t, moq.Announcement{Path: "did:plc:a"}, <-late)
-	require.Empty(t, early, "one announcement per change")
-
-	cancel()
-	_, open := <-early
-	require.False(t, open, "the channel closes with the listener's context")
+func TestDialMoqRejectsMalformedPin(t *testing.T) {
+	r := &WebsocketReplicator{}
+	_, err := r.dialMoq(context.Background(), "moqt://127.0.0.1:1?certhash=ab", nil)
+	require.ErrorContains(t, err, "SHA-256 fingerprint")
 }
 
 // A --peers entry naming a node's web origin resolves to the MoQ URL that
@@ -71,4 +51,34 @@ func TestResolvePeer(t *testing.T) {
 
 	_, err = r.resolvePeer(context.Background(), "ftp://peer.example")
 	require.Error(t, err)
+}
+
+func TestMoqPublicationDisabled(t *testing.T) {
+	r := NewWebsocketReplicator(&config.CLI{DisableSyndication: true}, nil, nil, nil, nil, nil)
+	require.NoError(t, r.PublishMoqSource(context.Background(), "did:plc:streamer", nil, nil, true))
+	require.Empty(t, r.moqBroadcasts)
+}
+
+func TestMoqRenditionRequiresAlignedSource(t *testing.T) {
+	did, payload := signedMoqArchiveSource(t, 3600)
+	r := archiveTestReplicator(t.TempDir())
+	defer closeArchiveTestReplicator(r)
+	ctx := context.Background()
+	meta, err := r.mm.ValidateArchivedMP4(ctx, bytes.NewReader(payload), did)
+	require.NoError(t, err)
+	timestamp := uint64(meta.StartTime.Time().UnixMicro())
+	require.ErrorContains(t, r.publishMoqSegment(ctx, did, moq.RenditionTrack(100), payload, timestamp, true, time.Time{}), "no archived source")
+	require.NoError(t, r.PublishMoqSource(ctx, did, payload, meta, true))
+	require.NoError(t, r.publishMoqSegment(ctx, did, moq.RenditionTrack(100), payload, timestamp, true, time.Time{}))
+	b := r.moqBroadcasts[did]
+	source, ok := b.tracks[moq.SourceTrack].archive.sequenceAt(timestamp)
+	require.True(t, ok)
+	rendition, ok := b.tracks[moq.RenditionTrack(100)].archive.sequenceAt(timestamp)
+	require.True(t, ok)
+	require.Equal(t, source, rendition)
+	stored, ok, err := b.tracks[moq.RenditionTrack(100)].archive.get(source)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, payload, stored.payload)
+	require.NoError(t, r.PublishMoqSource(ctx, did, payload, meta, true), "duplicate source keeps its sequence")
 }

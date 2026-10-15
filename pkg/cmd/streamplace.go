@@ -645,15 +645,18 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if cli.MoqAddr != "" && wsrep != nil {
 		switch {
 		case a.ACME != nil:
-			wsrep.MoqTLS = a.ACME.TLSConfig()
+			tlsConfig := a.ACME.TLSConfig()
+			wsrep.MoqTLS, err = moq.ManagedTLSFiles(cli.DataFilePath([]string{"moq-tls"}), func() (*tls.Certificate, error) {
+				host := (&url.URL{Host: cli.ServerHost}).Hostname()
+				return tlsConfig.GetCertificate(&tls.ClientHelloInfo{ServerName: host})
+			})
 		case cli.Secure:
-			cert, err := tls.LoadX509KeyPair(cli.TLSCertPath, cli.TLSKeyPath)
-			if err != nil {
-				return fmt.Errorf("loading tls certificate for moq: %w", err)
-			}
-			wsrep.MoqTLS = &tls.Config{Certificates: []tls.Certificate{cert}}
+			wsrep.MoqTLS = moq.StaticTLSFiles(cli.TLSCertPath, cli.TLSKeyPath)
 		default:
-			wsrep.MoqTLS = moqSelfSigned.TLSConfig()
+			wsrep.MoqTLS, err = moq.ManagedTLSFiles(cli.DataFilePath([]string{"moq-tls"}), moqSelfSigned.Certificate)
+		}
+		if err != nil {
+			return fmt.Errorf("preparing moq TLS: %w", err)
 		}
 	}
 

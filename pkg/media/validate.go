@@ -44,6 +44,19 @@ type segmentValidation struct {
 const replicatedMaxAge = 10 * time.Minute
 
 func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local bool) error {
+	return mm.validateMP4(ctx, input, local, "")
+}
+
+// ValidateReplicatedMP4 binds the signed creator to the announced stream before
+// deduplication or any live side effect, using the ordinary validation pipeline.
+func (mm *MediaManager) ValidateReplicatedMP4(ctx context.Context, input io.Reader, expectedDID string) error {
+	if expectedDID == "" {
+		return fmt.Errorf("replicated stream has no announced creator")
+	}
+	return mm.validateMP4(ctx, input, false, expectedDID)
+}
+
+func (mm *MediaManager) validateMP4(ctx context.Context, input io.Reader, local bool, expectedDID string) error {
 	tracer := otel.Tracer("signer")
 	ctx, span := tracer.Start(ctx, "ValidateMP4")
 	defer span.End()
@@ -56,7 +69,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		return fmt.Errorf("failed to read input: %w", err)
 	}
 
-	vs, err := mm.validateSource(ctx, buf, local)
+	vs, err := mm.validateSource(ctx, buf, local, expectedDID, false)
 	if err != nil {
 		return err
 	}
@@ -96,7 +109,7 @@ type validatedSegment struct {
 // streamer identity, and runs the dedup / distribution-policy / content /
 // allow-list checks. It returns the per-segment context, or (nil, nil) when the
 // segment is already known (dedup skip).
-func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bool) (*validatedSegment, error) {
+func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bool, expectedDID string, archiveOnly bool) (*validatedSegment, error) {
 	tracer := otel.Tracer("signer")
 
 	valid, err := ValidateMP4Media(ctx, buf)
@@ -105,6 +118,9 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 	}
 	meta := valid.Meta
 	pub := valid.Pub
+	if expectedDID != "" && meta.Creator != expectedDID {
+		return nil, fmt.Errorf("signed creator %s does not match announced stream %s", meta.Creator, expectedDID)
+	}
 
 	if valid.Manifest.Label == nil {
 		return nil, fmt.Errorf("segment manifest has no label")
@@ -118,13 +134,13 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 	// is generous because the clocks are the nodes' own. Checked before the
 	// dedup skip below: a replay of a segment this node already holds must
 	// not pass as a successful ingest either.
-	if !local {
+	if !local && !archiveOnly {
 		if age := time.Since(meta.StartTime.Time()); age > replicatedMaxAge || age < -replicatedMaxAge {
 			return nil, fmt.Errorf("replicated segment of %s starts at %s, %s from now; refusing a replay", meta.Creator, meta.StartTime.Time().Format(time.RFC3339), age.Round(time.Second))
 		}
 	}
 
-	if mm.model != nil {
+	if mm.model != nil && !archiveOnly {
 		_, dbSpan := tracer.Start(ctx, "ValidateMP4.LocalDB.GetSegment")
 		oldSeg, err := mm.localDB.GetSegment(label)
 		dbSpan.End()
@@ -149,6 +165,9 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 	var repoDID, signingKeyDID string
 	// special case for test signers that are only signed with a key
 	if strings.HasPrefix(meta.Creator, constants.DID_KEY_PREFIX) {
+		if meta.Creator != pub.DIDKey() {
+			return nil, fmt.Errorf("signed creator key %s does not match signing certificate %s", meta.Creator, pub.DIDKey())
+		}
 		signingKeyDID = meta.Creator
 		repoDID = meta.Creator
 	} else {
@@ -196,6 +215,20 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 			return nil, err
 		}
 	}
+	if archiveOnly {
+		if !meta.Published {
+			return nil, fmt.Errorf("unpublished segment is not eligible for MoQ backfill")
+		}
+		if meta.DistributionPolicy != nil && meta.DistributionPolicy.DeleteAfterSeconds != nil {
+			seconds := *meta.DistributionPolicy.DeleteAfterSeconds
+			if seconds > int64(^uint64(0)>>1)/int64(time.Second) {
+				return nil, fmt.Errorf("segment archival deadline exceeds supported duration")
+			}
+			if seconds >= 0 && !time.Now().Before(meta.StartTime.Time().Add(time.Duration(seconds)*time.Second)) {
+				return nil, fmt.Errorf("segment archival permission expired")
+			}
+		}
+	}
 
 	return &validatedSegment{
 		meta:          meta,
@@ -205,6 +238,24 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 		signingKeyDID: signingKeyDID,
 		local:         local,
 	}, nil
+}
+
+// ValidateArchivedMP4 validates a requested backfill without making its creator
+// live, transcoding audio, notifying recorders, or refreshing origin discovery.
+// The caller persists the input signed bytes only after this succeeds.
+func (mm *MediaManager) ValidateArchivedMP4(ctx context.Context, input io.Reader, expectedDID string) (*SegmentMetadata, error) {
+	if expectedDID == "" {
+		return nil, fmt.Errorf("archive stream has no announced creator")
+	}
+	buf, err := io.ReadAll(input)
+	if err != nil {
+		return nil, err
+	}
+	validated, err := mm.validateSource(ctx, buf, false, expectedDID, true)
+	if err != nil {
+		return nil, err
+	}
+	return validated.meta, nil
 }
 
 // streamerIsBanned reports whether repoDID currently carries an active ban
@@ -231,6 +282,11 @@ func (mm *MediaManager) streamerIsBanned(repoDID string) (bool, error) {
 // so it takes its own (non-request) context in the latter case.
 func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegment, seg []byte) error {
 	meta := vs.meta
+	if meta.Published && mm.moqPublisher != nil {
+		if err := mm.moqPublisher(ctx, vs.repoDID, seg, meta, vs.local); err != nil {
+			return fmt.Errorf("retain MoQ source before publication: %w", err)
+		}
+	}
 
 	// Retain the canonical segment in the in-memory moderation buffer (this
 	// replaces on-disk .m4s archival) so reports can clip the recent window.

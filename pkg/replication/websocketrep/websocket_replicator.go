@@ -3,7 +3,6 @@ package websocketrep
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net/url"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 	glex "github.com/streamplace/glex/runtime"
 	"golang.org/x/sync/errgroup"
+	official "moq.dev/moq"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
@@ -45,34 +45,39 @@ type WebsocketReplicator struct {
 	// serves, whose hash goes into the advertised URL for peers to pin;
 	// nil when the listener has a trusted certificate (or is off).
 	moqCert *moq.SelfSignedCert
-	// MoqTLS is the certificate the MoQ listener serves: set before Start
-	// when --moq-addr is on (see serveMoQ).
-	MoqTLS *tls.Config
-	// publisher serves the segment bus to subscribers; pushPublisher is the
-	// same with this node's live streams announced, for sessions to --peers.
-	publisher     *moqPublisher
-	pushPublisher *pushPublisher
+	// MoqTLS bridges Go-owned certificate renewal into official file-based TLS.
+	MoqTLS         *moq.TLSFiles
+	moqOrigin      *official.OriginProducer
+	moqLocalOrigin *official.OriginProducer
+	moqMu          sync.Mutex
+	moqBroadcasts  map[string]*moqBroadcast
 	// pushed counts the sessions currently pushing each streamer here.
-	pushedMu sync.Mutex
-	pushed   map[string]int
+	pushedMu       sync.Mutex
+	pushed         map[string]int
+	pushAdmissions int // reserved before starting push workers, guarded by pushedMu
 }
 
 func NewWebsocketReplicator(cli *config.CLI, bus *bus.Bus, mod model.Model, mm *media.MediaManager, state *statedb.StatefulDB, moqCert *moq.SelfSignedCert) *WebsocketReplicator {
-	publisher := &moqPublisher{bus: bus, cli: cli}
-	return &WebsocketReplicator{
-		bus:           bus,
-		cli:           cli,
-		mod:           mod,
-		state:         state,
-		conns:         make(map[string]bool),
-		connsMutex:    sync.RWMutex{},
-		latest:        make(map[string]latestOrigin),
-		mm:            mm,
-		moqCert:       moqCert,
-		publisher:     publisher,
-		pushPublisher: &pushPublisher{moqPublisher: publisher, live: newLiveSet(cli.StreamSessionTimeout)},
-		pushed:        map[string]int{},
+	r := &WebsocketReplicator{
+		bus:            bus,
+		cli:            cli,
+		mod:            mod,
+		state:          state,
+		conns:          make(map[string]bool),
+		connsMutex:     sync.RWMutex{},
+		latest:         make(map[string]latestOrigin),
+		mm:             mm,
+		moqCert:        moqCert,
+		moqOrigin:      official.NewOriginProducer(),
+		moqLocalOrigin: official.NewOriginProducer(),
+		moqBroadcasts:  map[string]*moqBroadcast{},
+		pushed:         map[string]int{},
 	}
+	if mm != nil {
+		mm.SetMoqPublisher(r.PublishMoqSource)
+		mm.SetMoqRenditionPublisher(r.PublishMoqRenditions)
+	}
+	return r
 }
 
 // latestOrigin is the newest broadcast origin heard for a streamer and when
@@ -131,24 +136,8 @@ func (r *WebsocketReplicator) Start(ctx context.Context, cli *config.CLI) error 
 			return r.serveMoQ(ctx)
 		})
 	}
-	if len(cli.Peers) > 0 {
-		// What this node is ingesting, for the peers it pushes to: every
-		// validated segment, like the director sees them.
-		r.group.Go(func() error {
-			segments := r.mm.NewSegment()
-			ticker := time.NewTicker(time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ctx.Done():
-					return nil
-				case not := <-segments:
-					_ = r.SendSegment(ctx, not)
-				case <-ticker.C:
-					r.pushPublisher.live.expire()
-				}
-			}
-		})
+	r.group.Go(func() error { return r.runMoqPublisher(ctx) })
+	if len(cli.Peers) > 0 && !cli.DisableSyndication {
 		for _, peer := range cli.Peers {
 			r.group.Go(func() error {
 				r.push(ctx, peer)
@@ -257,9 +246,13 @@ func (r *WebsocketReplicator) handleOriginMessage(ctx context.Context, view *pla
 		return fmt.Errorf("record is not a BroadcastOrigin")
 	}
 	ctx = log.WithLogValues(ctx, "streamer", view.Author.Did)
-	if origin.WebsocketURL == nil {
+	endpoint := origin.WebsocketURL
+	if origin.MoqURL != nil && *origin.MoqURL != "" {
+		endpoint = origin.MoqURL
+	}
+	if endpoint == nil || *endpoint == "" {
 		spmetrics.BroadcastOriginsTotal.WithLabelValues("no_url").Inc()
-		return fmt.Errorf("origin has no websocket URL author=%s", view.Author.Did)
+		return fmt.Errorf("origin has no replication URL author=%s", view.Author.Did)
 	}
 	if !r.cli.ShouldSyndicate(origin.Streamer) {
 		spmetrics.BroadcastOriginsTotal.WithLabelValues("not_syndicated").Inc()
@@ -267,12 +260,12 @@ func (r *WebsocketReplicator) handleOriginMessage(ctx context.Context, view *pla
 		return nil
 	}
 	myURL := r.getMyWebsocketURL()
-	u, err := url.Parse(*origin.WebsocketURL)
+	u, err := url.Parse(*endpoint)
 	if err != nil {
 		spmetrics.BroadcastOriginsTotal.WithLabelValues("no_url").Inc()
-		return fmt.Errorf("could not parse origin websocket URL: %w", err)
+		return fmt.Errorf("could not parse origin replication URL: %w", err)
 	}
-	if u.Host == myURL.Host {
+	if origin.Server == r.cli.ServerDID() || (origin.MoqURL == nil && u.Host == myURL.Host) {
 		spmetrics.BroadcastOriginsTotal.WithLabelValues("self").Inc()
 		log.Debug(ctx, "origin websocket URL is on this node, skipping")
 		return nil
@@ -287,7 +280,7 @@ func (r *WebsocketReplicator) handleOriginMessage(ctx context.Context, view *pla
 		return nil
 	}
 	spmetrics.BroadcastOriginsTotal.WithLabelValues("connect").Inc()
-	log.Log(ctx, "syndicating: pulling from origin", "streamer", origin.Streamer, "origin", *origin.WebsocketURL)
+	log.Log(ctx, "syndicating: pulling from origin", "streamer", origin.Streamer, "origin", *endpoint)
 	r.group.Go(func() error {
 		r.pull(ctx, origin.Streamer)
 		return nil
@@ -356,7 +349,7 @@ func (r *WebsocketReplicator) open(ctx context.Context, view *placestream.Broadc
 	if !ok {
 		return fmt.Errorf("record is not a BroadcastOrigin")
 	}
-	if origin.MoqURL != nil {
+	if origin.MoqURL != nil && *origin.MoqURL != "" {
 		return r.openMoq(ctx, origin)
 	}
 	return r.openWebsocket(ctx, origin)
@@ -373,7 +366,7 @@ func (r *WebsocketReplicator) openMoq(ctx context.Context, origin *placestream.B
 	}
 	defer sess.Close()
 	log.Log(ctx, "syndication: connected to origin (moq)", "origin", *origin.MoqURL)
-	return r.consume(ctx, sess, origin.Streamer, nil)
+	return r.consume(ctx, sess.Session().Consume(), origin.Streamer, nil)
 }
 
 // feedRenditions folds a rendition addendum the origin minted into this
@@ -466,15 +459,9 @@ func (r *WebsocketReplicator) removeConnection(origin string) {
 	delete(r.conns, origin)
 }
 
-// SendSegment notes a stream this node is ingesting, for the peers it
-// pushes to; replication itself is pull-based. A stream is announced once
-// its first segment is on the bus: a peer subscribes the moment it hears
-// of a stream, and a subscription to one the bus does not have yet is
-// refused, the notification running ahead of the director publishing it.
+// Source publication is synchronous through MediaManager's lossless hook.
+// SendSegment remains the replication.Replicator notification entrypoint.
 func (r *WebsocketReplicator) SendSegment(ctx context.Context, seg *media.NewSegmentNotification) error {
-	if seg.Local && r.bus.HasSegments(seg.Segment.RepoDID, MoqSourceTrack) {
-		r.pushPublisher.live.touch(seg.Segment.RepoDID)
-	}
 	return nil
 }
 

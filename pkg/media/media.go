@@ -79,6 +79,10 @@ type MediaManager struct {
 	// viewRecorder, when set, is told about every new playback session
 	// (see SetViewRecorder).
 	viewRecorder func(streamer string)
+	// Set before ingest starts; persistence failure prevents publication rather
+	// than dropping high-quality data in a best-effort segment notification queue.
+	moqPublisher          func(context.Context, string, []byte, *SegmentMetadata, bool) error
+	moqRenditionPublisher func(context.Context, string, []byte, uint64, bool) error
 
 	// Node S2PA transcode signer (cert + PKCS#8 key PEM), built once from the
 	// server-repo key. Used to sign transcode-completed audio tracks under the
@@ -111,6 +115,27 @@ type MediaManager struct {
 // transcoder built for an older one.
 func (mm *MediaManager) nextIngestSession() uint64 {
 	return mm.ingestSessionSeq.Add(1)
+}
+
+// SetMoqPublisher installs the synchronous signed-segment handoff before ingest
+// starts. The callback must retain bytes durably before returning success.
+func (mm *MediaManager) SetMoqPublisher(publish func(context.Context, string, []byte, *SegmentMetadata, bool) error) {
+	mm.moqPublisher = publish
+}
+
+// SetMoqRenditionPublisher installs the lossless signed-rendition handoff.
+// Its timestamp is the signed source's start time, not the completion time.
+func (mm *MediaManager) SetMoqRenditionPublisher(publish func(context.Context, string, []byte, uint64, bool) error) {
+	mm.moqRenditionPublisher = publish
+}
+
+// PublishMoqRenditions commits a completed public rendition before a producer
+// releases it to lossy live delivery. The caller propagates storage failures.
+func (mm *MediaManager) PublishMoqRenditions(ctx context.Context, streamer string, payload []byte, timestampUs uint64, local bool) error {
+	if mm.moqRenditionPublisher == nil {
+		return nil
+	}
+	return mm.moqRenditionPublisher(ctx, streamer, payload, timestampUs, local)
 }
 
 type NewSegmentNotification struct {

@@ -641,8 +641,11 @@ export function WebRTCPlayerInner({
   const playerEvent = usePlayerStore((x) => x.playerEvent);
   const spurl = useStreamplaceStore((x) => x.url);
 
-  const [mediaStream, stuck, audioTracks] = useWebRTC(src, selectedRendition);
-  const levels = useAudioTrackLevels();
+  const [mediaStream, stuck, audioTracks, audioGroups] = useWebRTC(
+    src,
+    selectedRendition,
+  );
+  const levels = useAudioTrackLevels(audioGroups);
   const playbackVideoRef = useRef<HTMLVideoElement | null>(null);
   const setPlaybackVideoRef = useCallback(
     (element: HTMLVideoElement | null) => {

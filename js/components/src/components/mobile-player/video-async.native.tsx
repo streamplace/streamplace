@@ -280,7 +280,10 @@ export function NativeWHEP(props?: {
 }) {
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const src = usePlayerStore((x) => x.src);
-  const [stream, stuck, audioTracks] = useWebRTC(src, selectedRendition);
+  const [stream, stuck, audioTracks, audioGroups] = useWebRTC(
+    src,
+    selectedRendition,
+  );
   const status = usePlayerStore((x) => x.status);
 
   const setPlayerWidth = usePlayerStore((x) => x.setPlayerWidth);
@@ -305,7 +308,7 @@ export function NativeWHEP(props?: {
   const setStatus = usePlayerStore((x) => x.setStatus);
   const muted = useMuted();
   const volume = useEffectiveVolume();
-  const levels = useAudioTrackLevels();
+  const levels = useAudioTrackLevels(audioGroups);
 
   useEffect(() => {
     if (stuck && status === PlayerStatus.PLAYING) {

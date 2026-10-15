@@ -27,6 +27,7 @@ test.xml
 js/app/src/build-info.json
 *.env
 muxl.wasm
+pkg/streamplacedeps/native_digest.go
 /moderation
 libstreamplace
 libstreamplace/

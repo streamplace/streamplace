@@ -210,6 +210,11 @@ if get_option('default_library') == 'static'
 endif
 
 subdir('rust/iroh-streamplace')
+subdir('rust/slatedb-store')
+
+# both Rust libraries ship inside streamplacedeps, so anything that links one
+# links the other
+rust_deps = [iroh_streamplace_dep, slatedb_store_dep]
 
 if host_machine.system() == 'darwin'
   streamplace_deps += [
@@ -236,7 +241,7 @@ endif
 pkg = import('pkgconfig')
 pkg.generate(
   name: 'streamplacedeps',
-  libraries: [streamplace_deps, iroh_streamplace_dep],
+  libraries: [streamplace_deps, iroh_streamplace_dep, slatedb_store_dep],
   description: 'all streamplace dependencies bundled for easy inclusion',
 )
 
@@ -247,7 +252,7 @@ executable(
   dependencies: [
     streamplace_deps,
   ],
-  link_with: [iroh_streamplace_dep],
+  link_with: rust_deps,
   install_tag: 'streamplacedeps',
 )
 
@@ -308,7 +313,7 @@ if get_option('default_library') == 'static'
       dependencies: [
         streamplace_deps,
       ],
-      link_with: [iroh_streamplace_dep],
+      link_with: rust_deps,
     )
 
     streamplace = custom_target(
@@ -333,7 +338,7 @@ if get_option('default_library') == 'static'
       dependencies: [
         streamplace_deps,
       ],
-      link_with: [iroh_streamplace_dep],
+      link_with: rust_deps,
     )
   endif
 

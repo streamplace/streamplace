@@ -105,9 +105,21 @@ RUN curl --fail -L https://github.com/aptly-dev/aptly/releases/download/v${APTLY
   && mv aptly_${APTLY_VERSION}_linux_amd64/aptly /usr/local/bin/ \
   && rm -rf aptly.zip aptly_${APTLY_VERSION}_linux_amd64
 
+# RustFS is the S3 server the state database tests run against, the way the
+# postgres tests run against the postgres the image starts below.
+ENV RUSTFS_VERSION 1.0.1
+RUN curl --fail -L https://github.com/rustfs/rustfs/releases/download/${RUSTFS_VERSION}/rustfs-linux-x86_64-gnu-v${RUSTFS_VERSION}.zip -o rustfs.zip \
+  && unzip rustfs.zip \
+  && mv rustfs /usr/local/bin/ \
+  && rm -rf rustfs.zip rustfs-cli
+
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=false
 ENV STREAMPLACE_TEST_POSTGRES_COMMAND="install -d -o postgres -g postgres -m 3775 /var/run/postgresql/14-main.pg_stat_tmp && sudo -u postgres /usr/lib/postgresql/14/bin/postgres -D /etc/postgresql/14/main/"
 ENV STREAMPLACE_TEST_POSTGRES_URL="postgresql://postgres:postgres@localhost:5432/streamplace"
+# The state database tests run against RustFS on localhost, with the same
+# bucket, endpoint and credentials the server is started with.
+ENV STREAMPLACE_TEST_RUSTFS_COMMAND="install -d /var/lib/rustfs && RUSTFS_ACCESS_KEY=streamplace RUSTFS_SECRET_KEY=streamplace RUSTFS_VOLUMES=/var/lib/rustfs /usr/local/bin/rustfs --address 127.0.0.1:9000"
+ENV STREAMPLACE_TEST_SLATEDB_URL="slatedb+s3://streamplace-state/state?region=auto&endpoint=http://127.0.0.1:9000&access_key_id=streamplace&secret_access_key=streamplace"
 # allow all postgres connections
 RUN bash -c 'echo -en "local   all             postgres                                peer\nhost    all             all             0.0.0.0/0            trust\n" > /etc/postgresql/14/main/pg_hba.conf'
 

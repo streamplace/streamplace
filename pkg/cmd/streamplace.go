@@ -1355,7 +1355,7 @@ func makeMigrateStateCommand() *urfavecli.Command {
 	var batch int
 	return &urfavecli.Command{
 		Name:  "migrate-statedb",
-		Usage: "copy the state database to another engine (sqlite → Postgres), then exit",
+		Usage: "copy the state database to another engine (sqlite, Postgres or slatedb+s3), then exit",
 		Flags: []urfavecli.Flag{
 			&urfavecli.StringFlag{Name: "from", Usage: "source state database URL, e.g. sqlite:///data/state.sqlite", Required: true, Destination: &from},
 			&urfavecli.StringFlag{Name: "to", Usage: "target state database URL, e.g. postgres://user:pass@host/streamplace (created if missing)", Required: true, Destination: &to},

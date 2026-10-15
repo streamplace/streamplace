@@ -407,7 +407,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:        "db-url",
-				Usage:       "URL of the database to use for storing private streamplace state",
+				Usage:       "URL of the database to use for storing private streamplace state: sqlite://$SP_DATA_DIR/state.sqlite, slatedb+s3://bucket/prefix?endpoint=... for a SQLite database whose files live in an S3-compatible object store, or postgresql://... for a database server",
 				Value:       "sqlite://$SP_DATA_DIR/state.sqlite",
 				Destination: &cli.DBURL,
 				Sources:     urfavecli.EnvVars("SP_DB_URL"),

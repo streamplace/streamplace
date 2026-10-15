@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 	"sync"
@@ -36,36 +37,47 @@ type CopyReport struct {
 	Target   int64 // rows in the target afterwards
 }
 
-// dialectorFor parses a state database URL the way MakeDB does.
-func dialectorFor(dbURL string) (gorm.Dialector, DBType, error) {
+// dialectorFor parses a state database URL the way MakeDB does. The closer
+// releases what opening it claimed: a SlateDB store holds a write claim in the
+// bucket until it is closed, and nil means there is nothing to release.
+func dialectorFor(dbURL string) (gorm.Dialector, DBType, io.Closer, error) {
 	switch {
 	case dbURL == ":memory:":
-		return sqlite.Open(":memory:"), DBTypeSQLite, nil
+		return sqlite.Open(":memory:"), DBTypeSQLite, nil, nil
 	case strings.HasPrefix(dbURL, "sqlite://"):
-		return sqlite.Open(dbURL[len("sqlite://"):]), DBTypeSQLite, nil
+		return sqlite.Open(dbURL[len("sqlite://"):]), DBTypeSQLite, nil, nil
+	case strings.HasPrefix(dbURL, "slatedb+"):
+		dial, closer, err := slateDBDialector(dbURL)
+		if err != nil {
+			return nil, "", nil, err
+		}
+		return dial, DBTypeSQLite, closer, nil
 	case strings.HasPrefix(dbURL, "postgres://") || strings.HasPrefix(dbURL, "postgresql://"):
-		return postgres.Open(dbURL), DBTypePostgres, nil
+		return postgres.Open(dbURL), DBTypePostgres, nil, nil
 	}
-	return nil, "", fmt.Errorf("unsupported database URL (most start with sqlite:// or postgresql://): %s", redactDBURL(dbURL))
+	return nil, "", nil, fmt.Errorf("unsupported database URL (most start with sqlite://, slatedb+s3:// or postgresql://): %s", redactDBURL(dbURL))
 }
 
 // openSource opens a state database to read from: no AutoMigrate, nothing
 // written.
-func openSource(dbURL string) (*gorm.DB, DBType, error) {
-	dial, dbType, err := dialectorFor(dbURL)
+func openSource(dbURL string) (*gorm.DB, DBType, io.Closer, error) {
+	dial, dbType, closer, err := dialectorFor(dbURL)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 	db, err := openDB(dial)
 	if err != nil {
-		return nil, "", fmt.Errorf("error opening source database: %w", err)
+		if closer != nil {
+			closer.Close()
+		}
+		return nil, "", nil, fmt.Errorf("error opening source database: %w", err)
 	}
 	if dbType == DBTypeSQLite {
 		if err := sqlitePragmas(db); err != nil {
-			return nil, "", err
+			return nil, "", nil, err
 		}
 	}
-	return db, dbType, nil
+	return db, dbType, closer, nil
 }
 
 // CopyState copies every table in StatefulDBModels from fromURL into toURL.
@@ -75,15 +87,19 @@ func CopyState(ctx context.Context, fromURL, toURL string, batch int) ([]CopyRep
 	if batch <= 0 {
 		batch = 500
 	}
-	src, srcType, err := openSource(fromURL)
+	src, srcType, srcCloser, err := openSource(fromURL)
 	if err != nil {
 		return nil, err
+	}
+	if srcCloser != nil {
+		defer srcCloser.Close()
 	}
 	log.Log(ctx, "copy: source open", "url", redactDBURL(fromURL), "type", srcType)
 	dst, err := MakeDB(ctx, &config.CLI{DBURL: toURL}, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error opening target database: %w", err)
 	}
+	defer dst.Close()
 	log.Log(ctx, "copy: target open", "url", redactDBURL(toURL), "type", dst.Type)
 
 	var reports []CopyReport

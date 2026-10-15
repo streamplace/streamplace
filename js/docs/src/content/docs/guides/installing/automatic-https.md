@@ -54,7 +54,10 @@ the state database, not on disk. With a shared Postgres `SP_DB_URL`:
 - Any node can answer a challenge another node started, so it does not
   matter which node the CA's request lands on behind a load balancer.
 
-A node with the default sqlite database keeps its certificates to itself.
+A node with the default sqlite database keeps its certificates to itself, and so
+does one keeping its state in object storage with a `slatedb+s3://` URL: SlateDB
+is a single-writer database, a way to run a node without a disk rather than a
+way to share state between nodes.
 
 ## Testing against staging
 

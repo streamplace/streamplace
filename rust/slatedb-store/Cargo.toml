@@ -1,0 +1,14 @@
+[package]
+name = "slatedb-store"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "slatedb_store"
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+slatedb = "0.17.0"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+url = "2"

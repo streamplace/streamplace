@@ -93,12 +93,13 @@ func TestNormalizeJSON(t *testing.T) {
 }
 
 func TestDialectorFor(t *testing.T) {
-	_, typ, err := dialectorFor("sqlite:///tmp/x.sqlite")
+	_, typ, closer, err := dialectorFor("sqlite:///tmp/x.sqlite")
 	require.NoError(t, err)
 	require.Equal(t, DBTypeSQLite, typ)
-	_, typ, err = dialectorFor("postgresql://u:p@h/db")
+	require.Nil(t, closer)
+	_, typ, _, err = dialectorFor("postgresql://u:p@h/db")
 	require.NoError(t, err)
 	require.Equal(t, DBTypePostgres, typ)
-	_, _, err = dialectorFor("mysql://nope")
+	_, _, _, err = dialectorFor("mysql://nope")
 	require.Error(t, err)
 }

@@ -3,6 +3,7 @@ package statedb
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 	"sync"
@@ -14,6 +15,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/plugin/prometheus"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/kvfs"
+	"stream.place/streamplace/pkg/kvfs/slatedb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
@@ -33,6 +36,10 @@ type StatefulDB struct {
 	locks *NamedLocks
 	noter notificationpkg.Notifier
 	model model.Model
+	// closer releases what the database was opened on when the SQL driver is
+	// not the only thing to close: a slatedb+ URL's store holds the object
+	// store's single writer claim until it is closed.
+	closer io.Closer
 	// pokeQueue is used to wake up the queue processor when a new task is enqueued
 	pokeQueue chan struct{}
 	// pgLockConn is used to hold a connection to the database for locking
@@ -96,17 +103,29 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 	log.Log(ctx, "starting stateful database", "dbURL", redactDBURL(dbURL))
 	var dial gorm.Dialector
 	var dbType DBType
+	var storeCloser io.Closer
 	if dbURL == ":memory:" {
 		dial = sqlite.Open(":memory:")
 		dbType = DBTypeSQLite
 	} else if strings.HasPrefix(dbURL, "sqlite://") {
 		dial = sqlite.Open(dbURL[len("sqlite://"):])
 		dbType = DBTypeSQLite
+	} else if strings.HasPrefix(dbURL, "slatedb+") {
+		// A SlateDB store: the SQLite database's files live in a key/value
+		// database in object storage, which is what lets a node keep state
+		// without a database server. Everything past the scheme is a URL the
+		// store understands, most usefully slatedb+s3.
+		var err error
+		dial, storeCloser, err = slateDBDialector(dbURL)
+		if err != nil {
+			return nil, err
+		}
+		dbType = DBTypeSQLite
 	} else if strings.HasPrefix(dbURL, "postgres://") || strings.HasPrefix(dbURL, "postgresql://") {
 		dial = postgres.Open(dbURL)
 		dbType = DBTypePostgres
 	} else {
-		return nil, fmt.Errorf("unsupported database URL (most start with sqlite:// or postgresql://): %s", redactDBURL(dbURL))
+		return nil, fmt.Errorf("unsupported database URL (most start with sqlite://, slatedb+s3:// or postgresql://): %s", redactDBURL(dbURL))
 	}
 
 	db, err := openDB(dial)
@@ -168,6 +187,7 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 		model:     model,
 		pokeQueue: make(chan struct{}, 1),
 		noter:     noter,
+		closer:    storeCloser,
 	}
 	if state.Type == DBTypePostgres {
 		err = state.startPostgresLockerConn(ctx)
@@ -176,6 +196,57 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 		}
 	}
 	return state, nil
+}
+
+// Close releases the state database, including whatever it was opened on
+// besides the SQL driver: a slatedb+ URL's store sits on the object store's
+// single writer claim, which has to be given back before the same database can
+// be opened again by this process.
+func (state *StatefulDB) Close() error {
+	sqlDB, err := state.DB.DB()
+	if err != nil {
+		return fmt.Errorf("error getting database: %w", err)
+	}
+	if err := sqlDB.Close(); err != nil {
+		return fmt.Errorf("error closing database: %w", err)
+	}
+	state.pgLockConnMu.Lock()
+	lockConn := state.pgLockConn
+	state.pgLockConn = nil
+	state.pgLockConnMu.Unlock()
+	if lockConn != nil {
+		if sqlDB, err := lockConn.DB(); err == nil {
+			_ = sqlDB.Close()
+		}
+	}
+	if state.closer != nil {
+		return state.closer.Close()
+	}
+	return nil
+}
+
+// slateDBFile is the name the SQLite database is stored under in a SlateDB
+// store: one store holds one state database.
+const slateDBFile = "state"
+
+// slateDBDialector opens the SlateDB database named by a slatedb+ URL and
+// returns the sqlite dialector that keeps the state database in it, plus the
+// closer that gives the store's write claim back. The rest of the URL is the
+// object store ("slatedb+s3://bucket/prefix?endpoint=..."): the bucket and
+// prefix say where in the store the database lives, and the query string
+// carries the connection options the object store's client wants. The VFS name
+// is generated, so callers get their data source name from the VFS rather than
+// the URL.
+func slateDBDialector(dbURL string) (gorm.Dialector, io.Closer, error) {
+	store, err := slatedb.Open(dbURL, slatedb.Options{})
+	if err != nil {
+		return nil, nil, err
+	}
+	vfs, err := kvfs.New(store, kvfs.Options{})
+	if err != nil {
+		return nil, nil, err
+	}
+	return sqlite.Open(vfs.DSN(slateDBFile)), vfs, nil
 }
 
 // postgresIndexFixes swaps indexes AutoMigrate builds as btrees for hash
@@ -323,6 +394,10 @@ func makePostgresDB(dbURL string) (*gorm.DB, error) {
 	return openDB(realDial)
 }
 
+// redactDBURL strips the secrets a database URL can carry before the URL goes
+// into a log line or an error: the password in the userinfo, and the secret
+// options object store URLs are written with (a slatedb+ state URL carries S3
+// credentials in its query string).
 func redactDBURL(dbURL string) string {
 	u, err := url.Parse(dbURL)
 	if err != nil {
@@ -330,6 +405,17 @@ func redactDBURL(dbURL string) string {
 	}
 	if u.User != nil {
 		u.User = url.UserPassword(u.User.Username(), "redacted")
+	}
+	query := u.Query()
+	redacted := false
+	for _, key := range []string{"secret_access_key", "session_token", "token", "password"} {
+		if query.Has(key) {
+			query.Set(key, "redacted")
+			redacted = true
+		}
+	}
+	if redacted {
+		u.RawQuery = query.Encode()
 	}
 	return u.String()
 }

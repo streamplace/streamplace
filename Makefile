@@ -375,6 +375,15 @@ dev-rust: .build/bin/uniffi-bindgen-go-forked
 	&& mv $(BUILDDIR)/rust/iroh-streamplace/libiroh_streamplace.$$EXT.tmp $(BUILDDIR)/rust/iroh-streamplace/libiroh_streamplace.$$EXT \
 	&& cp ./target/debug/libiroh_streamplace.$$EXT $(BUILDDIR)/lib/libiroh_streamplace.$$EXT.tmp \
 	&& mv $(BUILDDIR)/lib/libiroh_streamplace.$$EXT.tmp $(BUILDDIR)/lib/libiroh_streamplace.$$EXT
+	EXT=so; \
+	if [ "$(BUILDOS)" = "darwin" ]; then EXT=dylib; fi; \
+	cd rust/slatedb-store \
+	&& cargo build \
+	&& mkdir -p ../../$(BUILDDIR)/rust/slatedb-store/ ../../$(BUILDDIR)/lib/ \
+	&& cp target/debug/libslatedb_store.$$EXT ../../$(BUILDDIR)/rust/slatedb-store/libslatedb_store.$$EXT.tmp \
+	&& mv ../../$(BUILDDIR)/rust/slatedb-store/libslatedb_store.$$EXT.tmp ../../$(BUILDDIR)/rust/slatedb-store/libslatedb_store.$$EXT \
+	&& cp target/debug/libslatedb_store.$$EXT ../../$(BUILDDIR)/lib/libslatedb_store.$$EXT.tmp \
+	&& mv ../../$(BUILDDIR)/lib/libslatedb_store.$$EXT.tmp ../../$(BUILDDIR)/lib/libslatedb_store.$$EXT
 
 .PHONY: dev-test
 dev-test:
@@ -404,12 +413,16 @@ check: install
 	pnpm run check
 	if [ "`gofmt -l . | wc -l`" -gt 0 ]; then echo 'gofmt failed, run make fix'; exit 1; fi
 	RUSTFLAGS="-D warnings" cargo check
+	# rust/slatedb-store keeps its own Cargo.toml and Cargo.lock (it is not a
+	# member of this workspace), so the workspace commands above miss it.
+	RUSTFLAGS="-D warnings" cargo check --manifest-path rust/slatedb-store/Cargo.toml
 
 .PHONY: fix
 fix:
 	pnpm run fix
 	gofmt -w .
 	cargo fix --allow-dirty
+	cargo fix --allow-dirty --manifest-path rust/slatedb-store/Cargo.toml
 	go mod tidy
 
 .PHONY: golangci-lint

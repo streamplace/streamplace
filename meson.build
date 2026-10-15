@@ -37,7 +37,6 @@ if meson.is_cross_build()
     'GOOS': GOOS,
     'GOARCH': GOARCH,
     'CGO_ENABLED': '1',
-    'CC': meson.get_compiler('c', native: false).cmd_array()[0],
   }
 endif
 
@@ -209,13 +208,49 @@ if get_option('default_library') == 'static'
   ]
 endif
 
-subdir('rust/iroh-streamplace')
+subdir('rust/streamplace-native')
+env += {
+  'CC': native_linker,
+  'CXX': native_cpp,
+  # This must precede the module's bundled -L flags. Intel macOS also needs
+  # the explicit library: the published FFI has no darwin/amd64 cgo directive.
+  'CGO_LDFLAGS': '-L' + native_libdir + ' -lmoq_ffi',
+}
+
+native_system_libs = []
+if host_machine.system() == 'linux'
+  # Exact archive lookup is atomic. Meson deduplicates/reorders separate
+  # -Bstatic/-lstdc++/-Bdynamic arguments, which can silently select the DSO.
+  native_system_libs = ['-ldl', '-lm', '-lpthread', '-lrt', '-lutil', '-l:libstdc++.a']
+  env += {
+    'CGO_LDFLAGS': '-L' + native_libdir + ' -lmoq_ffi -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic',
+  }
+elif host_machine.system() == 'darwin'
+  native_system_libs = ['-lc++', '-lobjc', '-liconv']
+  env += {
+    'MACOSX_DEPLOYMENT_TARGET': '12.3',
+    'CGO_CFLAGS': '-mmacosx-version-min=12.3',
+    'CGO_LDFLAGS': '-L' + native_libdir + ' -lmoq_ffi -mmacosx-version-min=12.3',
+  }
+elif host_machine.system() == 'windows'
+  # GNU import libs, not the published MSVC archive/legacy_stdio_definitions.
+  # AWS-LC's MinGW backend uses pthread TLS/rwlocks; bundle winpthreads too.
+  native_system_libs = ['-lws2_32', '-luserenv', '-lbcrypt', '-lntdll', '-ldbghelp', '-ladvapi32', '-lcrypt32', '-liphlpapi', '-l:libstdc++.a', '-l:libwinpthread.a', '-static-libgcc']
+  env += {
+    'CGO_LDFLAGS': '-L' + native_libdir + ' -lmoq_ffi -Wl,-Bstatic -lstdc++ -lwinpthread -Wl,-Bdynamic -static-libgcc',
+  }
+endif
+streamplace_deps += declare_dependency(link_args: native_system_libs)
 
 if host_machine.system() == 'darwin'
   streamplace_deps += [
     dependency(
       'appleframeworks',
-      modules: ['CoreFoundation', 'Security', 'SystemConfiguration'],
+      modules: [
+        'CoreFoundation', 'Security', 'SystemConfiguration', 'CoreServices',
+        'Foundation', 'AVFoundation', 'CoreMedia', 'CoreVideo', 'VideoToolbox',
+        'ScreenCaptureKit', 'CoreGraphics', 'CoreAudio', 'Metal',
+      ],
     ),
   ]
 endif
@@ -236,7 +271,7 @@ endif
 pkg = import('pkgconfig')
 pkg.generate(
   name: 'streamplacedeps',
-  libraries: [streamplace_deps, iroh_streamplace_dep],
+  libraries: [streamplace_native_dep, streamplace_deps],
   description: 'all streamplace dependencies bundled for easy inclusion',
 )
 
@@ -247,7 +282,7 @@ executable(
   dependencies: [
     streamplace_deps,
   ],
-  link_with: [iroh_streamplace_dep],
+  link_with: [streamplace_native_dep],
   install_tag: 'streamplacedeps',
 )
 
@@ -288,6 +323,8 @@ if get_option('default_library') == 'static'
     input: [streamplace_go, flags],
     output: ['streamplace.a', 'streamplace.h'],
     command: [
+      prog_native_go,
+      native_libdir,
       prog_go,
       'build',
       '-o', '@OUTPUT0@',
@@ -297,6 +334,7 @@ if get_option('default_library') == 'static'
     ],
     build_always_stale: true,
     env: env,
+    depends: [native_libs],
   )
 
   if build_machine.system() == 'linux' and host_machine.system() == 'darwin'
@@ -308,7 +346,7 @@ if get_option('default_library') == 'static'
       dependencies: [
         streamplace_deps,
       ],
-      link_with: [iroh_streamplace_dep],
+      link_with: [streamplace_native_dep],
     )
 
     streamplace = custom_target(
@@ -316,6 +354,8 @@ if get_option('default_library') == 'static'
       input: [cstreamplace, flags],
       output: ['streamplace'],
       command: [
+        prog_native_go,
+        native_libdir,
         prog_go,
         'build',
         '-o', '@OUTPUT0@',
@@ -333,7 +373,7 @@ if get_option('default_library') == 'static'
       dependencies: [
         streamplace_deps,
       ],
-      link_with: [iroh_streamplace_dep],
+      link_with: [streamplace_native_dep],
     )
   endif
 
@@ -341,12 +381,14 @@ if get_option('default_library') == 'static'
   if not meson.is_cross_build()
     test(
       'go-tests',
-      prog_go,
+      prog_native_go,
       depends: [streamplace],
       env: env,
       verbose: true,
       timeout: 0,
       args: [
+        native_libdir,
+        prog_go.full_path(),
         'test',
         '-p', '1',
         '-timeout', '600s',

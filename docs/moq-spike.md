@@ -5,9 +5,11 @@ Branch: `gpt6astra/moq-go-spike`, based on `fable51/moq-push`
 
 ## Decision gate
 
-Do not cut over yet. The official transport works when built from source, but the
-published native artifacts do not fit Streamplace's release matrix, and even a
-locally rebuilt MoQ static library conflicts with `iroh_streamplace`.
+The published native artifacts do not fit Streamplace's release matrix, and
+independent MoQ/Iroh static libraries conflict. Eli approved consolidating the
+source builds into one native static artifact; that composition now builds for
+all five desktop targets. Product-level fallback/recording integration remains
+separate from the native-link proof.
 
 The spike is `hack/moq-spike`, an independent pinned Go module. It exercises real
 signed MUXL payloads over raw QUIC and WebTransport, separate low/high tracks,
@@ -70,6 +72,38 @@ not measured incremental size in a production Streamplace binary.
 Disabling native audio/video features is not a drop-in size fix: published Go
 bindings unconditionally reference their checksum/export symbols. Regenerating a
 transport-only binding also requires adapting the ergonomic wrapper.
+
+### Consolidated source build
+
+`hack/build-native.sh` builds Iroh and MoQ as rlibs under their separate, unchanged
+lockfiles, then one final rustc invocation emits `libstreamplace_native.a` and its
+`libmoq_ffi.a` alias. Separate Cargo graphs are necessary because Iroh's prerelease
+RustCrypto constraints conflict with MoQ's stable versions. Both use the exact same
+resolved compiler. The upstream source patch only enables rlib composition and
+Meson source metadata; no transport behavior or crypto semantics are patched.
+
+- Linux amd64: release/debug archives built; dual-runtime executable runs Iroh
+  constructor/destructor and pinned raw QUIC/WebTransport handshakes.
+- Linux arm64: same executable checks pass under QEMU.
+- Windows GNU amd64: executable checks pass under Wine after adding static
+  winpthreads for AWS-LC. No winpthread, libstdc++, or libgcc DLL imports.
+- Intel/ARM macOS: dual-runtime executables link with deployment target 12.3;
+  execution requires macOS and has not been exercised.
+- Linux static C++ linkage retains the existing five-line ldd baseline:
+  vdso, libm, libgcc_s, libc and loader. No Rust or C++ shared runtime is shipped.
+- Existing builder BFD 2.38 warns about Rust `-exclude-symbols` directives on
+  Windows; successful link and execution did not require suppressing diagnostics.
+- Full Linux release node: final Meson executable passes the five-line dependency
+  gate and `streamplace self-test`. Atomic `-l:libstdc++.a` lookup is required in
+  Meson metadata: separate Bstatic/Bdynamic arguments were reordered by Meson and
+  accidentally selected the shared C++ runtime.
+
+`hack/native-go.sh` incorporates the native archive's SHA-256 into cgo compiler
+flags, preventing Go's build/test cache from silently reusing stale static code.
+Meson compiler wrappers preserve complete compiler/launcher and target arguments.
+An isolated archive-change smoke rebuilt the same Go source twice using the same
+cache; changing only the native implementation changed observed output from 1 to
+2, confirming the digest invalidates the native-dependent Go action.
 
 ## TLS runtime proof
 
@@ -139,8 +173,8 @@ comes from the network runs, including a race-enabled smoke with no Go race repo
 
 Before production cutover:
 
-1. Choose a supported source-built native composition that avoids two independent
-   Rust static runtimes, and prove every release target. Do not add linker shims.
+1. Preserve the proven unified native composition; full release-package CI and
+   native macOS execution remain required beyond these dual-API executable probes.
 2. Eli selected **MoQ Lite** for the cutover; the current IETF FETCH limitation
    therefore does not block the selected protocol, but must remain documented.
 3. Eli selected **Desktop / OBS multitrack** encoding. Agree its signed

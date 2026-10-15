@@ -34,17 +34,36 @@ export function audioStems(
 }
 
 /**
- * The level (0-1, before the player volume) of each WebRTC audio track: the
- * full mix first, then one per stem. By default only the full mix plays; once
- * the viewer sets stem volumes (keyed by alternateGroup, 1 when unset), the
- * full mix is silent and every stem plays at its own level.
+ * A received WebRTC audio track's group: null for the full mix, the stem's
+ * alternateGroup, or undefined while unknown.
+ */
+export type AudioTrackGroup = number | null | undefined;
+
+/**
+ * The level (0-1, before the player volume) of each received WebRTC audio
+ * track, given its group. By default only the full mix plays; once the viewer
+ * sets stem volumes (keyed by alternateGroup, 1 when unset), the full mix is
+ * silent and every stem the stream still carries plays at its own level.
+ * Levels follow the track's group, not its position: a connection keeps the
+ * stems it was answered with while the stream's stems may change.
  */
 export function audioTrackLevels(
+  trackGroups: AudioTrackGroup[],
   stems: AudioStem[],
   stemVolumes: Record<number, number> | null,
 ): number[] {
-  if (stemVolumes === null || stems.length === 0) {
-    return [1, ...stems.map(() => 0)];
-  }
-  return [0, ...stems.map((s) => stemVolumes[s.alternateGroup] ?? 1)];
+  const mixing = stemVolumes !== null && stems.length > 0;
+  return trackGroups.map((group) => {
+    if (group === null) {
+      return mixing ? 0 : 1;
+    }
+    if (
+      group === undefined ||
+      stemVolumes === null ||
+      !stems.some((s) => s.alternateGroup === group)
+    ) {
+      return 0;
+    }
+    return stemVolumes[group] ?? 1;
+  });
 }

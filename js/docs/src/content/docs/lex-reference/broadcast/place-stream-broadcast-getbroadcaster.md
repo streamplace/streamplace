@@ -24,11 +24,12 @@ Get information about a Streamplace broadcaster.
 
 **Schema Type:** `object`
 
-| Name          | Type              | Req'd | Description                                                     | Constraints   |
-| ------------- | ----------------- | ----- | --------------------------------------------------------------- | ------------- |
-| `broadcaster` | `string`          | ✅    | DID of the Streamplace broadcaster to which this server belongs | Format: `did` |
-| `server`      | `string`          | ❌    | DID of this particular Streamplace server                       | Format: `did` |
-| `admins`      | Array of `string` | ❌    | Array of DIDs authorized as admins                              |               |
+| Name          | Type              | Req'd | Description                                                                                                                                                                                                                           | Constraints   |
+| ------------- | ----------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `broadcaster` | `string`          | ✅    | DID of the Streamplace broadcaster to which this server belongs                                                                                                                                                                       | Format: `did` |
+| `server`      | `string`          | ❌    | DID of this particular Streamplace server                                                                                                                                                                                             | Format: `did` |
+| `admins`      | Array of `string` | ❌    | Array of DIDs authorized as admins                                                                                                                                                                                                    |               |
+| `moqURL`      | `string`          | ❌    | moqt:// URL of this server's Media over QUIC listener, which peers push streams to and pull them from; a certhash query parameter pins the server certificate (SHA-256, hex) when it is self-signed. Absent when the listener is off. | Format: `uri` |
 
 ---
 
@@ -70,6 +71,11 @@ Get information about a Streamplace broadcaster.
                 "format": "did"
               },
               "description": "Array of DIDs authorized as admins"
+            },
+            "moqURL": {
+              "type": "string",
+              "format": "uri",
+              "description": "moqt:// URL of this server's Media over QUIC listener, which peers push streams to and pull them from; a certhash query parameter pins the server certificate (SHA-256, hex) when it is self-signed. Absent when the listener is off."
             }
           }
         }

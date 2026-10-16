@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/url"
 	"strings"
 	"sync"
@@ -14,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	glex "github.com/streamplace/glex/runtime"
 	"golang.org/x/sync/errgroup"
+	official "moq.dev/moq"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
@@ -49,11 +49,20 @@ type WebsocketReplicator struct {
 	// MoqTLS is the certificate the MoQ listener serves, as files: set
 	// before Start when --moq-addr is on (see serveMoQ).
 	MoqTLS *moq.TLSFiles
+	// pushOrigin is what this node's sessions to --peers publish: the
+	// streams it is ingesting, each announced while in live.
+	pushOrigin *official.OriginProducer
+	liveMu     sync.Mutex
+	live       map[string]*liveStream
+	// pushed counts the sessions currently pushing each streamer here.
+	pushedMu sync.Mutex
+	pushed   map[string]int
 }
 
-func NewWebsocketReplicator(bus *bus.Bus, mod model.Model, mm *media.MediaManager, state *statedb.StatefulDB, moqCert *moq.SelfSignedCert) *WebsocketReplicator {
+func NewWebsocketReplicator(cli *config.CLI, bus *bus.Bus, mod model.Model, mm *media.MediaManager, state *statedb.StatefulDB, moqCert *moq.SelfSignedCert) *WebsocketReplicator {
 	return &WebsocketReplicator{
 		bus:        bus,
+		cli:        cli,
 		mod:        mod,
 		state:      state,
 		conns:      make(map[string]bool),
@@ -61,6 +70,9 @@ func NewWebsocketReplicator(bus *bus.Bus, mod model.Model, mm *media.MediaManage
 		latest:     make(map[string]latestOrigin),
 		mm:         mm,
 		moqCert:    moqCert,
+		pushOrigin: official.NewOriginProducer(),
+		live:       map[string]*liveStream{},
+		pushed:     map[string]int{},
 	}
 }
 
@@ -106,7 +118,6 @@ func (r *WebsocketReplicator) latestFor(streamer string) (latestOrigin, bool) {
 }
 
 func (r *WebsocketReplicator) Start(ctx context.Context, cli *config.CLI) error {
-	r.cli = cli
 	_ = r.getMyWebsocketURL() // panic check
 	_ = r.getMyMoqURL()       // panic check
 	r.group, ctx = errgroup.WithContext(ctx)
@@ -121,7 +132,35 @@ func (r *WebsocketReplicator) Start(ctx context.Context, cli *config.CLI) error 
 			return r.serveMoQ(ctx)
 		})
 	}
-	return r.startBusSubscribe(ctx)
+	if len(cli.Peers) > 0 {
+		// What this node is ingesting, for the peers it pushes to: every
+		// validated segment, like the director sees them.
+		r.group.Go(func() error {
+			segments := r.mm.NewSegment()
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return nil
+				case not := <-segments:
+					_ = r.SendSegment(ctx, not)
+				case <-ticker.C:
+					r.expireLive()
+				}
+			}
+		})
+		for _, peer := range cli.Peers {
+			r.group.Go(func() error {
+				r.push(ctx, peer)
+				return nil
+			})
+		}
+	}
+	r.group.Go(func() error {
+		return r.startBusSubscribe(ctx)
+	})
+	return r.group.Wait()
 }
 
 // pollOrigins learns about origins from the station's shared statedb rather
@@ -334,7 +373,7 @@ func (r *WebsocketReplicator) open(ctx context.Context, view *placestream.Broadc
 // openMoq requests the streamer's broadcast from the origin over Media over
 // QUIC and feeds it through the same validation as openWebsocket.
 func (r *WebsocketReplicator) openMoq(ctx context.Context, origin *placestream.BroadcastOrigin) error {
-	client, err := r.dialMoq(ctx, *origin.MoqURL)
+	client, err := r.dialMoq(ctx, *origin.MoqURL, nil)
 	if err != nil {
 		return err
 	}
@@ -438,8 +477,15 @@ func (r *WebsocketReplicator) removeConnection(origin string) {
 	delete(r.conns, origin)
 }
 
-// we're pull-based, nothing to do here
+// SendSegment notes a stream this node is ingesting, for the peers it
+// pushes to; replication itself is pull-based. The stream is announced on
+// its first segment: the tracks a peer then asks for are fed from the bus,
+// which hands a subscriber that arrives before the director publishes the
+// segment everything from then on.
 func (r *WebsocketReplicator) SendSegment(ctx context.Context, seg *media.NewSegmentNotification) error {
+	if seg.Local {
+		r.touchLive(ctx, seg.Segment.RepoDID)
+	}
 	return nil
 }
 
@@ -458,38 +504,10 @@ func (r *WebsocketReplicator) BuildOriginRecord(origin *placestream.BroadcastOri
 	return nil
 }
 
-// getMyMoqURL is the moqt:// URL peers pull this node's streams from: the
-// --moq-url override or this host on --moq-addr's port, carrying the
-// self-signed certificate's hash for the peer to pin; "" with no listener.
+// getMyMoqURL is the moqt:// URL peers reach this node's MoQ listener at;
+// "" with no listener.
 func (r *WebsocketReplicator) getMyMoqURL() string {
-	if r.cli.MoqAddr == "" {
-		return ""
-	}
-	var u *url.URL
-	if r.cli.MoqURL != "" {
-		var err error
-		u, err = url.Parse(r.cli.MoqURL)
-		// chill to panic, we're going to check this on boot
-		if err != nil {
-			panic("invalid moq override URL: " + r.cli.MoqURL)
-		}
-	} else {
-		host := r.cli.ServerHost
-		if h, _, err := net.SplitHostPort(host); err == nil {
-			host = h
-		}
-		_, port, err := net.SplitHostPort(r.cli.MoqAddr)
-		if err != nil {
-			panic("invalid moq listen address: " + r.cli.MoqAddr)
-		}
-		u = &url.URL{Scheme: "moqt", Host: net.JoinHostPort(host, port)}
-	}
-	if r.moqCert != nil {
-		q := u.Query()
-		q.Set(moq.CertHashParam, r.moqCert.Hash())
-		u.RawQuery = q.Encode()
-	}
-	return u.String()
+	return AdvertisedMoqURL(r.cli, r.moqCert)
 }
 
 func (r *WebsocketReplicator) getMyWebsocketURL() *url.URL {

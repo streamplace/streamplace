@@ -1,8 +1,9 @@
 // React hooks for chat/moderation state. The pure reducer and types live
 // in @streamplace/core; these hooks bind them to the LivestreamStore and
 // to React lifecycle.
-import { ComAtprotoModerationCreateReport, RichText } from "@atproto/api";
+import { ComAtprotoModerationCreateReport } from "@atproto/api";
 import {
+  detectChatFacets,
   type LivestreamState,
   type NewChatMessage,
   reduceChat,
@@ -95,28 +96,14 @@ export const useCreateChatMessage = () => {
       throw new Error("Profile not found");
     }
 
-    const rt = new RichText({ text: msg.text });
-    await rt.detectFacets(pdsAgent);
-
-    // filter out any facets that aren't in the allowed list
-    rt.facets = rt.facets?.filter((facet) => {
-      return (
-        // if all features are in the allowed list
-        facet.features.every((feature) =>
-          [
-            "app.bsky.richtext.facet#link",
-            "app.bsky.richtext.facet#mention",
-          ].includes(feature.$type),
-        )
-      );
-    });
+    const facets = await detectChatFacets(pdsAgent, msg.text);
 
     const record: place.stream.chat.message.Main = {
       $type: "place.stream.chat.message",
       text: msg.text,
       createdAt: new Date().toISOString() as any,
       streamer: streamerProfile.did as any,
-      facets: rt.facets as place.stream.chat.message.Main["facets"],
+      facets,
       ...(msg.reply
         ? {
             reply: {

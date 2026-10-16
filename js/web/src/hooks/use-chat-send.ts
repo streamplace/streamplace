@@ -1,14 +1,13 @@
 // Optimistic chat send: adds a local message immediately, POSTs to PDS, rolls back on failure.
-import { RichText } from "@atproto/api";
-import { reduceChat, type LivestreamStore } from "@streamplace/core";
+import {
+  detectChatFacets,
+  reduceChat,
+  type ChatFacet,
+  type LivestreamStore,
+} from "@streamplace/core";
 import { useCallback } from "react";
 import { type ChatMessageViewHydrated } from "streamplace";
 import { useSession } from "../lib/session";
-
-const ALLOWED_FACET_TYPES = new Set([
-  "app.bsky.richtext.facet#link",
-  "app.bsky.richtext.facet#mention",
-]);
 
 export function useChatSend(store: LivestreamStore) {
   const { pdsAgent, did } = useSession();
@@ -35,15 +34,9 @@ export function useChatSend(store: LivestreamStore) {
       // Detect links and mentions so the message renders with rich
       // formatting for ourselves (optimistic) and for anyone who
       // receives the record afterwards.
-      let facets: unknown[] | undefined;
+      let facets: ChatFacet[] | undefined;
       try {
-        const rt = new RichText({ text: trimmed });
-        await rt.detectFacets(pdsAgent);
-        facets = rt.facets?.filter((f) =>
-          f.features.every((ft: { $type: string }) =>
-            ALLOWED_FACET_TYPES.has(ft.$type),
-          ),
-        );
+        facets = await detectChatFacets(pdsAgent, trimmed);
       } catch {
         // Non-fatal: ship the message without facets.
         facets = undefined;
@@ -69,9 +62,7 @@ export function useChatSend(store: LivestreamStore) {
           createdAt: createdAt as any,
           streamer: streamerDid as any,
           ...(replyRef ? { reply: replyRef } : {}),
-          ...(facets
-            ? { facets: facets as ChatMessageViewHydrated["record"]["facets"] }
-            : {}),
+          ...(facets ? { facets } : {}),
         },
         indexedAt: createdAt as any,
         ...(replyTo

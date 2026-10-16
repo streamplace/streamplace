@@ -1,0 +1,45 @@
+appId: ${APP_ID}
+---
+# A message whose text contains a URL has to be accepted, round-tripped
+# through the PDS and firehose, and rendered again on relaunch: the facets
+# the send path detects and stamps travel with the record. The runner
+# configures the harness and signs in before running any logged-in flow.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- tapOn:
+    id: "home-stream-card"
+# chat needs the stream's context, which arrives over its websocket along
+# with this system message
+- extendedWaitUntil:
+    visible:
+      text: ".*e2e test stream.*"
+    timeout: 30000
+# resend a send the page wasn't ready for, as in chat-reply
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "chat-input"
+      - eraseText: 50
+      - inputText: "read the https://dist.town/release.software docs"
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible:
+            # the row's text is the whole line, "@<handle>: <message>"
+            text: ".*: read the https://dist.town/release.software docs"
+          timeout: 15000
+- takeScreenshot: chat-facets-sent
+# Relaunch, so the message comes from the node's chat history: the chat box
+# echoes sends optimistically, and only a record that round-tripped through
+# the PDS and firehose can show up here.
+- launchApp
+- tapOn:
+    id: "home-stream-card"
+- extendedWaitUntil:
+    visible:
+      text: ".*: read the https://dist.town/release.software docs"
+    timeout: 30000
+- takeScreenshot: chat-facets-history

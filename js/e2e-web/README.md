@@ -88,9 +88,10 @@ and checks that later deletions still run while the commit watermark advances
 only after successful reprocessing.
 
 `syndication` plays the test stream from the harness's second node, which pulls
-it from the first over Media over QUIC (`SERVER2_URL`; see `docs/moq.md`). It is
-web-only: node-to-node transfer has no mobile surface, and the mobile flows play
-from the ingest node.
+it from the first over Media over QUIC (`SERVER2_URL`; see `docs/moq.md`).
+`push` plays it from the third node, which the first node pushes it to
+(`SERVER3_URL`, the first node's `--peers`). Both are web-only: node-to-node
+transfer has no mobile surface, and the mobile flows play from the ingest node.
 
 ## OAuth over real HTTPS
 

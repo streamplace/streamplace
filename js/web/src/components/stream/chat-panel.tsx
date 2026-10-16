@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import {
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -46,6 +47,10 @@ import {
 import { getAdjacentBadgeIndex } from "./badge-navigation";
 import { ChatMessageMenu } from "./chat-message-menu";
 import { initializeChatScroll } from "./chat-scroll";
+import {
+  StreamNotificationContext,
+  StreamNotificationProvider,
+} from "./stream-notification-provider";
 import { StreamNotifications } from "./stream-notifications";
 
 // Chat ages out on the hour, so a slow tick is plenty: it only exists so the
@@ -72,6 +77,7 @@ export function ChatPanel({
   hidePinnedComments?: boolean;
 }) {
   const { t } = useTranslation("common");
+  const notificationManager = useContext(StreamNotificationContext);
   const { chat, authors, replyToMessage, websocketConnected } = useStore(
     store,
     useShallow((s) => ({
@@ -199,10 +205,14 @@ export function ChatPanel({
 
   return (
     <div className="relative flex min-h-0 max-w-full flex-1 flex-col">
-      <StreamNotifications
-        store={store}
-        showPinnedComment={!hidePinnedComments}
-      />
+      {notificationManager ? (
+        <StreamNotificationProvider />
+      ) : (
+        <StreamNotifications
+          store={store}
+          showPinnedComment={!hidePinnedComments}
+        />
+      )}
       <div
         ref={scrollRef}
         onScroll={handleScroll}

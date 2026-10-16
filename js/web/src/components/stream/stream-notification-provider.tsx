@@ -1,31 +1,40 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import {
   type StreamNotification,
   type StreamNotificationManager,
 } from "../../lib/stream-notification";
 
+export const StreamNotificationContext =
+  createContext<StreamNotificationManager | null>(null);
+
+type Position = "top" | "bottom" | "top-right";
+
 export function StreamNotificationProvider({
-  manager,
   position = "top",
+  importantOnly = false,
 }: {
-  manager: StreamNotificationManager;
-  position?: "top" | "bottom";
+  position?: Position;
+  importantOnly?: boolean;
 }) {
+  const manager = useContext(StreamNotificationContext);
+  if (!manager) throw new Error("Stream notifications require a manager");
   const [notifications, setNotifications] = useState(manager.getAll());
 
   useEffect(() => manager.subscribe(setNotifications), [manager]);
 
   return (
     <div
-      className={`pointer-events-none absolute inset-x-3 z-40 mx-auto flex max-w-xl flex-col gap-2 ${position === "top" ? "top-3" : "bottom-3"}`}
+      className={`pointer-events-none absolute inset-x-3 z-40 flex flex-col gap-2 ${position === "top-right" ? "top-3 ml-auto max-w-sm" : `mx-auto max-w-xl ${position === "top" ? "top-3" : "bottom-3"}`}`}
     >
-      {notifications.map((notification) => (
-        <NotificationItem
-          key={notification.id}
-          notification={notification}
-          position={position}
-        />
-      ))}
+      {notifications.map((notification) =>
+        importantOnly && !notification.important ? null : (
+          <NotificationItem
+            key={notification.id}
+            notification={notification}
+            position={position}
+          />
+        ),
+      )}
     </div>
   );
 }
@@ -35,11 +44,12 @@ function NotificationItem({
   position,
 }: {
   notification: StreamNotification;
-  position: "top" | "bottom";
+  position: Position;
 }) {
   return (
     <div
-      className={`animate-in fade-in pointer-events-auto rounded-lg border border-(--color-border) shadow-lg duration-200 motion-reduce:animate-none ${position === "top" ? "slide-in-from-top-2" : "slide-in-from-bottom-2"} ${notification.render ? "" : "bg-(--color-bg-elevated) text-(--color-fg)"}`}
+      onClick={(event) => event.stopPropagation()}
+      className={`animate-in fade-in pointer-events-auto rounded-lg border border-(--color-border) shadow-lg duration-200 motion-reduce:animate-none ${position === "bottom" ? "slide-in-from-bottom-2" : "slide-in-from-top-2"} ${notification.render ? "" : "bg-(--color-bg-elevated) text-(--color-fg)"}`}
     >
       {notification.render ? (
         notification.render()

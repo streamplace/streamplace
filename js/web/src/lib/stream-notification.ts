@@ -5,6 +5,7 @@ export type StreamNotificationConfig = {
   message?: string;
   render?: () => ReactNode;
   duration?: number;
+  important?: boolean;
 };
 
 export type StreamNotification = StreamNotificationConfig;

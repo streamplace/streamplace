@@ -8,7 +8,13 @@ import {
   type FacetFeature,
 } from "@streamplace/core";
 import { EyeOff, Pin, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import type {
   ChatMessageViewHydrated,
@@ -21,7 +27,10 @@ import { useCanModerate } from "../../hooks/use-can-moderate";
 import { useModerationActions } from "../../hooks/use-moderation-actions";
 import { useSession } from "../../lib/session";
 import { StreamNotificationManager } from "../../lib/stream-notification";
-import { StreamNotificationProvider } from "./stream-notification-provider";
+import {
+  StreamNotificationContext,
+  StreamNotificationProvider,
+} from "./stream-notification-provider";
 
 function rgbColor(
   color?: { red: number; green: number; blue: number } | null,
@@ -33,9 +42,11 @@ function rgbColor(
 export function StreamNotifications({
   store,
   showPinnedComment = true,
+  children,
 }: {
   store: LivestreamStore;
   showPinnedComment?: boolean;
+  children?: ReactNode;
 }) {
   const state = useStore(
     store,
@@ -71,6 +82,7 @@ export function StreamNotifications({
     if (teleport) {
       manager.show({
         id: "teleport",
+        important: true,
         duration: 0,
         render: () => (
           <TeleportNotification
@@ -85,7 +97,11 @@ export function StreamNotifications({
     return hideTeleport;
   }, [manager, state.activeTeleport, store, hideTeleport]);
 
-  return <StreamNotificationProvider manager={manager} />;
+  return (
+    <StreamNotificationContext.Provider value={manager}>
+      {children ?? <StreamNotificationProvider />}
+    </StreamNotificationContext.Provider>
+  );
 }
 
 function PinnedNotification({

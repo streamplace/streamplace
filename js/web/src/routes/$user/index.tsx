@@ -4,6 +4,8 @@ import {
   CopyButton,
   StreamInfo,
 } from "@/components/stream/stream-info";
+import { StreamNotificationProvider } from "@/components/stream/stream-notification-provider";
+import { StreamNotifications } from "@/components/stream/stream-notifications";
 import { VideoSection } from "@/components/stream/video-section";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -107,7 +109,11 @@ function StreamPage() {
     );
   }
 
-  return <StreamBody store={store} user={user} />;
+  return (
+    <StreamNotifications store={store}>
+      <StreamBody store={store} user={user} />
+    </StreamNotifications>
+  );
 }
 
 function CreatorState({
@@ -151,7 +157,7 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
     [activeTeleport?.streamer],
   );
   const teleportProfiles = useAvatars(teleportDids);
-  const { theatre } = useFullscreen();
+  const { theatre, fullscreen } = useFullscreen();
 
   useEffect(() => {
     if (!activeTeleport || activeTeleport.streamer === livestreamDid) return;
@@ -193,10 +199,6 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   const wasOffline = useRef(isOffline);
   const userChangedChat = useRef(false);
 
-  useEffect(() => {
-    if (activeTeleport) setChatOpen(true);
-  }, [activeTeleport]);
-
   const toggleChat = useCallback(() => {
     userChangedChat.current = true;
     setChatOpen((prev) => {
@@ -220,10 +222,6 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   // during this visit. This covers false-offline startup results in any
   // orientation while preserving desktop preferences.
   useEffect(() => {
-    if (activeTeleport) {
-      wasOffline.current = isOffline;
-      return;
-    }
     const nextChatOpen = chatOpenAfterLivenessChange({
       isOffline,
       wasOffline: wasOffline.current,
@@ -235,7 +233,7 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
       setChatOpen(nextChatOpen);
     }
     wasOffline.current = isOffline;
-  }, [isOffline, chatOpen, activeTeleport]);
+  }, [isOffline, chatOpen]);
 
   return (
     <div className="flex h-full flex-col">
@@ -243,7 +241,19 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
         <div
           className={`wide:overflow-y-auto z-0 flex min-h-0 min-w-0 flex-1 flex-col transition-[margin] duration-300 ease-in-out ${chatOpen ? "wide:mr-90" : ""}`}
         >
-          <VideoSection store={store} user={user} liveness={liveness} />
+          <VideoSection
+            store={store}
+            user={user}
+            liveness={liveness}
+            overlay={
+              (!chatOpen || fullscreen) && (
+                <StreamNotificationProvider
+                  importantOnly
+                  position="top-right"
+                />
+              )
+            }
+          />
 
           {!theatre && (
             <div className="wide:block hidden">

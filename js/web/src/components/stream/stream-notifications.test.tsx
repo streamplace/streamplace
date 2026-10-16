@@ -2,6 +2,7 @@ import { makeLivestreamStore } from "@streamplace/core";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { StreamNotificationProvider } from "./stream-notification-provider";
 import { StreamNotifications } from "./stream-notifications";
 
 const { mockUseSession } = vi.hoisted(() => ({ mockUseSession: vi.fn() }));
@@ -96,6 +97,44 @@ describe("TeleportNotification", () => {
     expect(container.textContent).not.toContain("teleporting-to");
   });
 
+  it("shares important notices with the video while keeping pins in chat", async () => {
+    store.setState({
+      pinnedComment: pin("pinned message"),
+      activeTeleport: teleport(new Date(Date.now() + 1_000).toISOString()),
+    });
+    await act(async () =>
+      root.render(
+        <StreamNotifications store={store}>
+          <section id="video">
+            <StreamNotificationProvider importantOnly position="top-right" />
+          </section>
+          <section id="chat">
+            <StreamNotificationProvider />
+          </section>
+        </StreamNotifications>,
+      ),
+    );
+
+    expect(container.querySelector("#video")?.textContent).toContain(
+      "teleporting-to",
+    );
+    expect(container.querySelector("#video")?.textContent).not.toContain(
+      "pinned message",
+    );
+    expect(container.querySelector("#chat")?.textContent).toContain(
+      "pinned message",
+    );
+    expect(container.querySelector("#chat")?.textContent).toContain(
+      "teleporting-to",
+    );
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_000));
+    expect(container.querySelector("#video")?.textContent).toBe("");
+    expect(container.querySelector("#chat")?.textContent).toContain(
+      "pinned message",
+    );
+  });
+
   it("does not clear a newer teleport when an older cancellation completes", async () => {
     let finishDelete!: () => void;
     const deletion = new Promise<void>((resolve) => {
@@ -126,6 +165,24 @@ describe("TeleportNotification", () => {
 
     expect(store.getState().activeTeleport).toBe(newer);
     expect(store.getState().activeTeleportCID).toBe("new-cid");
+  });
+
+  it("does not send notification clicks to the player behind it", async () => {
+    let playerClicks = 0;
+    store.setState({
+      activeTeleport: teleport(new Date(Date.now() + 10_000).toISOString()),
+    });
+    await act(async () =>
+      root.render(
+        <section onClick={() => playerClicks++}>
+          <StreamNotifications store={store} />
+        </section>,
+      ),
+    );
+    const notice = container.querySelector("p");
+    expect(notice).not.toBeNull();
+    await act(async () => notice?.click());
+    expect(playerClicks).toBe(0);
   });
 
   it("keeps teleports visible when pins are hidden", async () => {

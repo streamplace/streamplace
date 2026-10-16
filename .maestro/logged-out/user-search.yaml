@@ -53,6 +53,13 @@ appId: ${APP_ID}
     timeout: 15000
 - assertVisible:
     text: ".*${ACCOUNT_HANDLE}.*"
+# the harness account is streaming, so its avatar says it is live (the node's
+# live-users poll can lag the result by a few seconds)
+- extendedWaitUntil:
+    visible:
+      id: "search-avatar-.*"
+      text: ".*Live.*"
+    timeout: 15000
 - assertNotVisible:
     id: "search-no-results"
 - takeScreenshot: user-search-result

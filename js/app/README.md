@@ -16,6 +16,12 @@ usable and clearing preserves keyboard focus. Wide headers reserve the title
 area for Search without changing browser tab titles. Embeds and OBS/popout
 utilities do not include app search chrome.
 
+Up/Down highlights results (wrapping at either end) and keeps the highlighted
+account in view; Enter opens it. Editing or dismissing clears the highlight.
+Short lists fit their content on first opening and reopening; long lists scroll
+within half the window height. The popup has no entrance layout animation,
+which would pin it to the loading state's height on web.
+
 On smaller windows the header field is hidden entirely. The native Search tab
 and web sidebar/tab still open `/search`, where Search or the keyboard's
 search/Enter key submits the query. On mobile, submitting dismisses the keyboard
@@ -27,10 +33,16 @@ users in its database. Matching ignores case, surrounding whitespace, and a
 leading `@`. Up to 20 active accounts are shown, ordered by handle; search does
 not include display names, videos, or the wider Bluesky network.
 
+Both surfaces use `components/search-results.tsx`, the existing profile cache
+and `useAvatars` hook, and the shared `Avatar` component. Profile pictures appear
+when available, with initials otherwise. The existing live-users poller supplies
+live status and the Avatar's red ring; search adds no separate polling.
+
 `header-user-search.spec.ts` covers automatic searches, unchanged routes,
-selection/dismissal, late responses, and responsive availability. The shared
-Maestro user-search flow retains native route coverage and checks that the
-header field is absent on phones.
+selection/dismissal, late responses, responsive availability, loading-to-results
+sizing, scrolling, keyboard selection, loaded profile images, and live rings.
+The shared Maestro user-search flow retains native route coverage, checks the
+live avatar, and checks that the header field is absent on phones.
 
 ## Daily loop (iOS simulator)
 

@@ -1,12 +1,13 @@
-import { Avatar, Button, Input, Text, useTheme } from "@streamplace/components";
+import { useLinkTo } from "@react-navigation/native";
+import { Button, Input, Text, useTheme } from "@streamplace/components";
 import {
   borderRadius,
   spacing,
   touchTargets,
 } from "@streamplace/components/src/lib/theme/tokens";
 import { usePossiblyUnauthedPDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
-import AQLink from "components/aqlink";
 import { EmptyState, EmptyStateTile } from "components/empty-state";
+import SearchResults, { SEARCH_RESULT_HEIGHT } from "components/search-results";
 import { AlertCircle, Search } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,7 +21,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import { getAbsolutePath, interpolateParams } from "src/linking-config";
 import { place } from "streamplace";
 
 const RESULT_LIMIT = 20;
@@ -106,39 +107,6 @@ function useActorSearch() {
   };
 
   return { state, search, throttledSearch, cancel };
-}
-
-function ResultLink({
-  actor,
-  testID,
-  avatarSize,
-  onPress,
-}: {
-  actor: Actor;
-  testID: string;
-  avatarSize: "md" | "lg";
-  onPress?: () => void;
-}) {
-  return (
-    <AQLink
-      testID={testID}
-      to={{ screen: "Stream", params: { user: actor.handle || actor.did } }}
-      onPress={onPress}
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: spacing[3],
-        minHeight: touchTargets.minimum,
-        padding: spacing[2],
-        borderRadius: borderRadius.md,
-      }}
-    >
-      <Avatar name={actor.handle} size={avatarSize} aria-hidden />
-      <Text numberOfLines={1} style={{ flex: 1 }}>
-        {`@${actor.handle}`}
-      </Text>
-    </AQLink>
-  );
 }
 
 export default function UserSearch(props: UserSearchProps) {
@@ -246,16 +214,7 @@ function PageSearch() {
       )}
 
       {state.status === "done" && state.actors.length > 0 && (
-        <View style={{ gap: spacing[1] }}>
-          {state.actors.map((actor) => (
-            <ResultLink
-              key={actor.did}
-              testID={`search-result-${actor.did}`}
-              actor={actor}
-              avatarSize="lg"
-            />
-          ))}
-        </View>
+        <SearchResults actors={state.actors} variant="page" />
       )}
     </>
   );
@@ -273,15 +232,22 @@ function DropdownSearch({
   const { height } = useWindowDimensions();
   const { state, throttledSearch, cancel } = useActorSearch();
   const [text, setText] = useState("");
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const resultsRef = useRef<ScrollView>(null);
+  const linkTo = useLinkTo();
+  const actors = open && state.status === "done" ? state.actors : undefined;
+  const activeActor = actors?.[activeIndex];
 
   // Opening (including refocusing retained text) starts a search. Edits while
   // open use the same throttle; empty queries never capture outside presses.
   useEffect(() => {
+    setActiveIndex(-1);
     if (open) throttledSearch(normalizeQuery(text));
     else cancel();
   }, [open]);
 
   const onChangeText = (value: string) => {
+    setActiveIndex(-1);
     setText(value);
     const q = normalizeQuery(value);
     if (q && open) throttledSearch(q);
@@ -294,12 +260,44 @@ function DropdownSearch({
   };
 
   const dismiss = () => {
+    setActiveIndex(-1);
     onOpenChange(false);
     if (Platform.OS !== "web") Keyboard.dismiss();
   };
 
   const onKeyPress = (e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
-    if (e.nativeEvent.key === "Escape") dismiss();
+    if ("isComposing" in e.nativeEvent && e.nativeEvent.isComposing) return;
+    const key = e.nativeEvent.key;
+    if (key === "Escape") {
+      e.preventDefault();
+      dismiss();
+    } else if (key === "ArrowDown" || key === "ArrowUp") {
+      if (!actors?.length) return;
+      e.preventDefault();
+      const next =
+        activeIndex < 0
+          ? key === "ArrowDown"
+            ? 0
+            : actors.length - 1
+          : (activeIndex + (key === "ArrowDown" ? 1 : -1) + actors.length) %
+            actors.length;
+      setActiveIndex(next);
+      resultsRef.current?.scrollTo({
+        y: Math.max(
+          0,
+          spacing[1] + (next + 0.5) * SEARCH_RESULT_HEIGHT - height / 4,
+        ),
+        animated: false,
+      });
+    } else if (key === "Enter" && activeActor) {
+      e.preventDefault();
+      dismiss();
+      linkTo(
+        interpolateParams(getAbsolutePath("Stream"), {
+          user: activeActor.handle || activeActor.did,
+        }),
+      );
+    }
   };
 
   return (
@@ -307,11 +305,18 @@ function DropdownSearch({
       <Input
         testID="header-search-input"
         accessibilityLabel={t("search")}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open && state.status !== "idle"}
+        aria-controls={open ? "header-search-results" : undefined}
+        aria-activedescendant={
+          activeActor ? `header-search-result-${activeActor.did}` : undefined
+        }
         placeholder={t("search")}
         value={text}
         onChangeText={onChangeText}
         onFocus={onFocus}
-        onPressIn={onFocus}
+        onPointerDown={onFocus}
         onKeyPress={onKeyPress}
         returnKeyType="search"
         autoCapitalize="none"
@@ -319,12 +324,11 @@ function DropdownSearch({
         containerStyle={{ minHeight: touchTargets.minimum }}
       />
       {open && state.status !== "idle" && (
-        <Animated.View
+        <View
           testID="header-search-dropdown"
-          entering={FadeInDown.duration(theme.motion.fast).withInitialValues({
-            opacity: 0,
-            transform: [{ translateY: -spacing[1] }],
-          })}
+          nativeID="header-search-results"
+          // @ts-expect-error react-native-web supports the ARIA listbox role.
+          role={Platform.OS === "web" ? "listbox" : "list"}
           style={{
             position: "absolute",
             top: "100%",
@@ -340,7 +344,8 @@ function DropdownSearch({
           }}
         >
           <ScrollView
-            style={{ maxHeight: height / 2 }}
+            ref={resultsRef}
+            style={{ maxHeight: height / 2, flexGrow: 0 }}
             contentContainerStyle={{ padding: spacing[1] }}
             keyboardShouldPersistTaps="handled"
           >
@@ -376,18 +381,16 @@ function DropdownSearch({
               </Text>
             )}
 
-            {state.status === "done" &&
-              state.actors.map((actor) => (
-                <ResultLink
-                  key={actor.did}
-                  testID={`header-search-result-${actor.did}`}
-                  actor={actor}
-                  avatarSize="md"
-                  onPress={dismiss}
-                />
-              ))}
+            {state.status === "done" && (
+              <SearchResults
+                actors={state.actors}
+                variant="dropdown"
+                activeIndex={activeIndex}
+                onSelect={dismiss}
+              />
+            )}
           </ScrollView>
-        </Animated.View>
+        </View>
       )}
     </View>
   );

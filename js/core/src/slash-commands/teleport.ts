@@ -1,29 +1,30 @@
 import { place, StreamplaceAgent } from "streamplace";
 import {
-  registerSlashCommand,
+  SlashCommand,
   SlashCommandHandler,
   SlashCommandResult,
 } from "../slash-commands";
 
-const TELEPORT_ERROR_CODES = [
-  "streamer-only",
-  "handle-format",
-  "countdown-number",
-  "countdown-range",
-  "self",
-  "resolve-handle",
-  "create",
-] as const;
-
-export type TeleportErrorCode = (typeof TELEPORT_ERROR_CODES)[number];
+export type TeleportErrorCode =
+  | "not-live"
+  | "streamer-only"
+  | "handle-format"
+  | "countdown-number"
+  | "countdown-range"
+  | "self"
+  | "resolve-handle"
+  | "create";
 
 export type TeleportErrorData = {
+  type: "teleport";
   code: TeleportErrorCode;
   params?: { handle?: string };
 };
 
-export function isTeleportErrorCode(code: string): code is TeleportErrorCode {
-  return TELEPORT_ERROR_CODES.some((knownCode) => knownCode === code);
+export function teleportErrorIdentifier(error: TeleportErrorData) {
+  return error.code === "countdown-range"
+    ? "teleport-countdown-error"
+    : `teleport-error-${error.code}`;
 }
 
 function teleportError(
@@ -124,7 +125,7 @@ export async function createTeleport(
   }
 }
 
-export function registerTeleportCommand(
+export function createTeleportCommands(
   pdsAgent: StreamplaceAgent,
   userDID: string,
   getLivestream?: () => {
@@ -134,13 +135,19 @@ export function registerTeleportCommand(
   } | null,
   onTeleportCreated?: (uri: string, targetDID: string) => void,
   onOpenModal?: () => void,
-): () => void {
+): SlashCommand[] {
   const teleportHandler: SlashCommandHandler = async (
     args,
     rawInput,
   ): Promise<SlashCommandResult> => {
     const livestream = getLivestream?.() ?? null;
-    if (!livestream || livestream.streamerDid !== userDID) {
+    if (!livestream) {
+      return teleportError(
+        "Start a livestream before starting a teleport",
+        "not-live",
+      );
+    }
+    if (livestream.streamerDid !== userDID) {
       return teleportError(
         "Only the streamer of the current livestream can start a teleport",
         "streamer-only",
@@ -173,8 +180,8 @@ export function registerTeleportCommand(
 
     let countdownSeconds = 10;
     if (args.length > 1) {
-      const parsedDuration = parseInt(args[1], 10);
-      if (isNaN(parsedDuration)) {
+      const parsedDuration = Number(args[1]);
+      if (!Number.isInteger(parsedDuration)) {
         return teleportError(
           "Countdown must be a number (seconds)",
           "countdown-number",
@@ -241,22 +248,18 @@ export function registerTeleportCommand(
     }
   };
 
-  const unregisterTeleport = registerSlashCommand({
-    name: "teleport",
-    description: "Start a teleport to another streamer",
-    usage: "/teleport @handle.bsky.social [duration_seconds]",
-    handler: teleportHandler,
-  });
-
-  const unregisterTp = registerSlashCommand({
-    name: "tp",
-    description: "Start a teleport to another streamer (alias for /teleport)",
-    usage: "/tp @handle.bsky.social [duration_seconds]",
-    handler: teleportHandler,
-  });
-
-  return () => {
-    unregisterTeleport();
-    unregisterTp();
-  };
+  return [
+    {
+      name: "teleport",
+      description: "Start a teleport to another streamer",
+      usage: "/teleport @handle.bsky.social [duration_seconds]",
+      handler: teleportHandler,
+    },
+    {
+      name: "tp",
+      description: "Start a teleport to another streamer (alias for /teleport)",
+      usage: "/tp @handle.bsky.social [duration_seconds]",
+      handler: teleportHandler,
+    },
+  ];
 }

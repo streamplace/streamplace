@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
 import {
-  streamNotificationManager,
   type StreamNotification,
+  type StreamNotificationManager,
 } from "../../lib/stream-notification";
 
 export function StreamNotificationProvider({
+  manager,
   position = "top",
 }: {
+  manager: StreamNotificationManager;
   position?: "top" | "bottom";
 }) {
-  const [notifications, setNotifications] = useState(
-    streamNotificationManager.getAll(),
-  );
+  const [notifications, setNotifications] = useState(manager.getAll());
 
-  useEffect(() => streamNotificationManager.subscribe(setNotifications), []);
+  useEffect(() => manager.subscribe(setNotifications), [manager]);
 
   return (
     <div

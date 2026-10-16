@@ -7,11 +7,9 @@ export type StreamNotificationConfig = {
   duration?: number;
 };
 
-export type StreamNotification = StreamNotificationConfig & {
-  startTime: number;
-};
+export type StreamNotification = StreamNotificationConfig;
 
-class StreamNotificationManager {
+export class StreamNotificationManager {
   private notifications: StreamNotification[] = [];
   private listeners = new Set<(notifications: StreamNotification[]) => void>();
   private dismissTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -29,7 +27,6 @@ class StreamNotificationManager {
     const notification = {
       ...config,
       duration: config.duration ?? 5,
-      startTime: Date.now(),
     };
     this.notifications = [...this.notifications, notification];
     this.notifyListeners();
@@ -73,11 +70,3 @@ class StreamNotificationManager {
     this.listeners.forEach((listener) => listener(this.notifications));
   }
 }
-
-export const streamNotificationManager = new StreamNotificationManager();
-
-export const streamNotification = {
-  show: (config: StreamNotificationConfig) =>
-    streamNotificationManager.show(config),
-  hide: (id: string) => streamNotificationManager.hide(id),
-};

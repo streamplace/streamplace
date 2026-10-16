@@ -94,6 +94,41 @@ describe("connectLivestreamWebsocket", () => {
     expect(FakeWebSocket.instances).toHaveLength(2);
   });
 
+  it.each(["onclose", "onerror"] as const)(
+    "drops teleport state and buffered messages on %s before reconnecting",
+    async (event) => {
+      const store = makeLivestreamStore();
+      const handle = connectLivestreamWebsocket(
+        store,
+        "wss://example.com/socket",
+        {
+          batchWindowMs: 50,
+        },
+      );
+      const ws = FakeWebSocket.instances[0];
+      const teleport = {
+        $type: "place.stream.live.teleport",
+        uri: "at://did:plc:source/place.stream.live.teleport/1",
+        cid: "teleport-cid",
+        streamer: "did:plc:target",
+        startsAt: new Date(Date.now() + 60_000).toISOString(),
+      };
+      ws.onmessage!({ data: JSON.stringify(teleport) });
+      await vi.advanceTimersByTimeAsync(50);
+      expect(store.getState().activeTeleportUri).toBe(teleport.uri);
+      ws.onmessage!({ data: JSON.stringify(teleport) });
+
+      ws[event]!();
+      await vi.advanceTimersByTimeAsync(3_000);
+
+      expect(store.getState().activeTeleport).toBeNull();
+      expect(store.getState().activeTeleportUri).toBeNull();
+      expect(store.getState().activeTeleportCID).toBeNull();
+      expect(store.getState().websocketConnected).toBe(false);
+      handle.disconnect();
+    },
+  );
+
   it("does not reconnect once disconnected", async () => {
     const store = makeLivestreamStore();
     const { disconnect } = connectLivestreamWebsocket(
@@ -103,9 +138,17 @@ describe("connectLivestreamWebsocket", () => {
     const ws = FakeWebSocket.instances[0];
 
     disconnect();
+    ws.onmessage!({
+      data: JSON.stringify({
+        $type: "place.stream.livestream#viewerCount",
+        count: 7,
+      }),
+    });
     ws.onclose!();
     await vi.advanceTimersByTimeAsync(3000);
     expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(store.getState().websocketConnected).toBe(false);
+    expect(store.getState().viewers).toBeNull();
   });
 
   it("calls onDisconnect once per drop even when error triggers close", async () => {

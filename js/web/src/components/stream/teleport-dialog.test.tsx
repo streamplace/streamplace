@@ -100,7 +100,9 @@ describe("TeleportDialog", () => {
   });
 
   it("translates typed teleport errors", async () => {
-    await act(async () => render(async () => ({ code: "self" })));
+    await act(async () =>
+      render(async () => ({ type: "teleport", code: "self" })),
+    );
     const streamerButton = Array.from(
       container.querySelectorAll("button"),
     ).find((button) => button.textContent?.includes("@streamer.example"));

@@ -4,7 +4,6 @@ import {
   CopyButton,
   StreamInfo,
 } from "@/components/stream/stream-info";
-import { StreamTeleportNotification } from "@/components/stream/stream-notifications";
 import { VideoSection } from "@/components/stream/video-section";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -232,7 +231,6 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
 
   return (
     <div className="flex h-full flex-col">
-      <StreamTeleportNotification store={store} />
       <div className="wide:h-full relative flex min-h-0 flex-1 flex-col">
         <div
           className={`wide:overflow-y-auto z-0 flex min-h-0 min-w-0 flex-1 flex-col transition-[margin] duration-300 ease-in-out ${chatOpen ? "wide:mr-90" : ""}`}

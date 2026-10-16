@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LivestreamState } from "./state";
+import { makeLivestreamStore } from "./store";
 import { handleWebSocketMessages } from "./websocket-consumer";
 
 function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
@@ -273,6 +274,30 @@ describe("handleWebSocketMessages: moderation permission views", () => {
 });
 
 describe("handleWebSocketMessages: teleport records", () => {
+  it("does not carry an older CID into a locally created teleport", () => {
+    const store = makeLivestreamStore();
+    store.setState({
+      activeTeleport: { streamer: "did:plc:old-target" } as never,
+      activeTeleportUri: "at://did:plc:streamer/place.stream.live.teleport/old",
+      activeTeleportCID: "old-cid",
+    });
+    const uri = "at://did:plc:streamer/place.stream.live.teleport/new";
+
+    store.getState().setActiveTeleportUri(uri);
+    const result = handleWebSocketMessages(store.getState(), [
+      {
+        $type: "place.stream.livestream#teleportCanceled",
+        teleportUri: uri,
+        cid: "new-cid",
+        reason: "deleted",
+      },
+    ]);
+
+    expect(result.activeTeleport).toBeNull();
+    expect(result.activeTeleportUri).toBeNull();
+    expect(result.activeTeleportCID).toBeNull();
+  });
+
   it("stores incoming teleport records as the active teleport", () => {
     const teleport = {
       $type: "place.stream.live.teleport",

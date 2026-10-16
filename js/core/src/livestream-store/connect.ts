@@ -47,6 +47,18 @@ export function connectLivestreamWebsocket(
 
   const scheduleReconnect = () => {
     if (disposed || reconnectTimeout) return;
+    currentConnectId++;
+    if (flushTimer) clearTimeout(flushTimer);
+    flushTimer = null;
+    messageBuffer = [];
+    // A cancellation may be missed while offline. Only a fresh snapshot can
+    // restore a pending teleport after the socket drops.
+    store.setState({
+      websocketConnected: false,
+      activeTeleport: null,
+      activeTeleportUri: null,
+      activeTeleportCID: null,
+    });
     options.onDisconnect?.();
     reconnectTimeout = setTimeout(connect, reconnectDelayMs);
   };
@@ -79,13 +91,11 @@ export function connectLivestreamWebsocket(
 
     ws.onclose = () => {
       if (connectId !== currentConnectId) return;
-      store.setState((s) => ({ ...s, websocketConnected: false }));
       scheduleReconnect();
     };
 
     ws.onerror = () => {
       if (connectId !== currentConnectId) return;
-      store.setState((s) => ({ ...s, websocketConnected: false }));
       ws?.close();
       scheduleReconnect();
     };
@@ -96,8 +106,16 @@ export function connectLivestreamWebsocket(
   return {
     disconnect: () => {
       disposed = true;
+      currentConnectId++;
+      messageBuffer = [];
       if (flushTimer) clearTimeout(flushTimer);
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      store.setState({
+        websocketConnected: false,
+        activeTeleport: null,
+        activeTeleportUri: null,
+        activeTeleportCID: null,
+      });
       ws?.close();
     },
   };

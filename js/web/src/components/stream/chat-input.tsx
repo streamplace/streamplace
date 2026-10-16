@@ -1,7 +1,7 @@
 import {
+  createTeleportCommands,
   handleSlashCommand,
-  isTeleportErrorCode,
-  registerTeleportCommand,
+  teleportErrorIdentifier,
   type LivestreamStore,
   type TeleportErrorData,
 } from "@streamplace/core";
@@ -14,7 +14,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { exitSuggestion, Suggestion } from "@tiptap/suggestion";
 import type { SkinTone } from "frimousse";
 import { Reply, Smile, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { ChatMessageViewHydrated } from "streamplace";
@@ -320,28 +320,28 @@ export function ChatInput({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [skinTone, setSkinTone] = useSkinTone();
   const [teleportOpen, setTeleportOpen] = useState(false);
-  const livestream = useStore(store, (s) => s.livestream);
-
-  useEffect(() => {
-    if (!pdsAgent || !did) return;
-    return registerTeleportCommand(
+  const commands = useMemo(() => {
+    if (!pdsAgent || !did) return [];
+    return createTeleportCommands(
       pdsAgent,
       did,
-      () =>
-        livestream && !livestream.record.endedAt
+      () => {
+        const livestream = store.getState().livestream;
+        return livestream && !livestream.record.endedAt
           ? {
               uri: livestream.uri,
               cid: livestream.cid,
               streamerDid: livestream.author.did,
             }
-          : null,
+          : null;
+      },
       (uri, targetDID) => {
-        store.setState({ activeTeleportUri: uri });
+        store.getState().setActiveTeleportUri(uri);
         onTeleportCreated?.(uri, targetDID);
       },
       () => setTeleportOpen(true),
     );
-  }, [did, livestream, pdsAgent, store, onTeleportCreated]);
+  }, [did, pdsAgent, store, onTeleportCreated]);
 
   // Keep module-level refs fresh so the suggestion items functions always
   // have up-to-date data without recreating the editor.
@@ -492,10 +492,17 @@ export function ChatInput({
     setSending(true);
     try {
       if (text.startsWith("/")) {
-        const result = await handleSlashCommand(text);
+        const result = await handleSlashCommand(text, commands);
         if (result.handled) {
           if (result.error) {
-            setError(result.error);
+            setError(
+              result.errorData
+                ? t(
+                    teleportErrorIdentifier(result.errorData),
+                    result.errorData.params,
+                  )
+                : result.error,
+            );
             return;
           }
           editor.commands.clearContent();
@@ -511,7 +518,7 @@ export function ChatInput({
     } finally {
       setSending(false);
     }
-  }, [editor, sending, send, store]);
+  }, [editor, sending, send, store, commands, t]);
 
   const submitTeleport = useCallback(
     async (
@@ -520,25 +527,14 @@ export function ChatInput({
     ): Promise<TeleportErrorData | undefined> => {
       const result = await handleSlashCommand(
         `/teleport @${handle} ${countdownSeconds}`,
+        commands,
       );
       if (!result.handled || result.error) {
-        const errorData = result.errorData;
-        if (
-          errorData?.type === "teleport" &&
-          isTeleportErrorCode(errorData.code)
-        ) {
-          return {
-            code: errorData.code,
-            ...(errorData.params?.handle
-              ? { params: { handle: errorData.params.handle } }
-              : {}),
-          };
-        }
-        return { code: "create" };
+        return result.errorData ?? { type: "teleport", code: "create" };
       }
       return undefined;
     },
-    [],
+    [commands],
   );
 
   // Keep the ref fresh so editorProps.handleKeyDown can call the latest onSubmit.

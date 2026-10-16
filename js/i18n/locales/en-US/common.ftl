@@ -303,6 +303,7 @@ teleport-selection-expired = That streamer is no longer live. Choose another str
 teleport-starting = Starting…
 teleport-start = Teleport
 teleport-error-streamer-only = Only the streamer of the current livestream can start a teleport.
+teleport-error-not-live = Start a livestream before starting a teleport.
 teleport-error-handle-format = Enter a valid handle, such as handle.bsky.social.
 teleport-error-countdown-number = Countdown must be a number of seconds.
 teleport-error-self = You cannot teleport to yourself.

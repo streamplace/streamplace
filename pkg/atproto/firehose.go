@@ -906,6 +906,8 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 }
 
 func (atsync *ATProtoSynchronizer) handleTeleportDelete(ctx context.Context, uri string) {
+	// The delete event only carries the URI; the indexed record identifies both
+	// recipients and the CID needed to cancel this version without clearing a newer one.
 	teleport, err := atsync.Model.GetTeleportByURI(uri)
 	if err != nil {
 		log.Error(ctx, "failed to get teleport before deleting", "err", err, "uri", uri)

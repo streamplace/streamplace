@@ -46,6 +46,7 @@ import {
 import { getAdjacentBadgeIndex } from "./badge-navigation";
 import { ChatMessageMenu } from "./chat-message-menu";
 import { initializeChatScroll } from "./chat-scroll";
+import { StreamNotifications } from "./stream-notifications";
 
 // Chat ages out on the hour, so a slow tick is plenty: it only exists so the
 // fade and the disappearance happen while the viewer watches, rather than
@@ -64,9 +65,11 @@ function useChatExpiryTick(): number {
 export function ChatPanel({
   store,
   reversed = false,
+  hidePinnedComments = false,
 }: {
   store: LivestreamStore;
   reversed?: boolean;
+  hidePinnedComments?: boolean;
 }) {
   const { t } = useTranslation("common");
   const { chat, authors, replyToMessage, websocketConnected } = useStore(
@@ -196,6 +199,10 @@ export function ChatPanel({
 
   return (
     <div className="relative flex min-h-0 max-w-full flex-1 flex-col">
+      <StreamNotifications
+        store={store}
+        showPinnedComment={!hidePinnedComments}
+      />
       <div
         ref={scrollRef}
         onScroll={handleScroll}

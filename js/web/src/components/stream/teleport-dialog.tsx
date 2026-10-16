@@ -9,33 +9,12 @@ import {
 } from "@/components/ui/dialog";
 import useAvatars from "@/hooks/use-avatars";
 import { useLiveUsers } from "@/hooks/use-live-users";
-import type { TeleportErrorData } from "@streamplace/core";
+import {
+  teleportErrorIdentifier,
+  type TeleportErrorData,
+} from "@streamplace/core";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-
-function translateTeleportError(
-  error: TeleportErrorData,
-  t: ReturnType<typeof useTranslation>["t"],
-) {
-  switch (error.code) {
-    case "streamer-only":
-      return t("teleport-error-streamer-only");
-    case "handle-format":
-      return t("teleport-error-handle-format");
-    case "countdown-number":
-      return t("teleport-error-countdown-number");
-    case "countdown-range":
-      return t("teleport-countdown-error");
-    case "self":
-      return t("teleport-error-self");
-    case "resolve-handle":
-      return t("teleport-error-resolve-handle", {
-        handle: error.params?.handle,
-      });
-    case "create":
-      return t("teleport-error-create");
-  }
-}
 
 export function TeleportDialog({
   open,
@@ -93,7 +72,7 @@ export function TeleportDialog({
 
   const submit = async () => {
     const stream = liveUsers.find((candidate) => candidate.uri === selected);
-    const seconds = Number.parseInt(countdown, 10);
+    const seconds = Number(countdown);
     if (!stream?.author?.handle) {
       setSelected(null);
       setError(t("teleport-selection-expired"));
@@ -108,7 +87,9 @@ export function TeleportDialog({
     try {
       const teleportError = await onSubmit(stream.author.handle, seconds);
       if (teleportError) {
-        setError(translateTeleportError(teleportError, t));
+        setError(
+          t(teleportErrorIdentifier(teleportError), teleportError.params),
+        );
         return;
       }
       close();

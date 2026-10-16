@@ -1,7 +1,7 @@
 import {
   createTeleport,
+  createTeleportCommands,
   handleSlashCommand,
-  registerTeleportCommand,
 } from "@streamplace/core";
 import Graphemer from "graphemer";
 import { AtSignIcon, ExternalLink, X } from "lucide-react-native";
@@ -118,9 +118,9 @@ export function ChatBox({
     (state) => state.setActiveTeleportUri,
   );
 
-  useEffect(() => {
-    if (!pdsAgent || !userDID) return;
-    return registerTeleportCommand(
+  const commands = useMemo(() => {
+    if (!pdsAgent || !userDID) return [];
+    return createTeleportCommands(
       pdsAgent,
       userDID,
       () =>
@@ -174,7 +174,9 @@ export function ChatBox({
     if (!linfo || linfo.record.endedAt || linfo.author.did !== userDID) {
       addSystemMessage(
         SystemMessages.commandError(
-          "Only the streamer of the current livestream can start a teleport",
+          !linfo || linfo.record.endedAt
+            ? "Start a livestream before starting a teleport"
+            : "Only the streamer of the current livestream can start a teleport",
         ),
       );
       return;
@@ -349,7 +351,7 @@ export function ChatBox({
     setReplyToMessage(null);
 
     if (messageText.startsWith("/")) {
-      const result = await handleSlashCommand(messageText);
+      const result = await handleSlashCommand(messageText, commands);
       if (result.handled) {
         if (result.error) {
           console.error("Slash command error:", result.error);
@@ -361,7 +363,7 @@ export function ChatBox({
     setSubmitting(true);
 
     try {
-      const result = await handleSlashCommand(messageText);
+      const result = await handleSlashCommand(messageText, commands);
 
       if (result.handled) {
         if (result.error) {

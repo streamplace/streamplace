@@ -20,7 +20,8 @@ import useAvatars from "../../hooks/use-avatars";
 import { useCanModerate } from "../../hooks/use-can-moderate";
 import { useModerationActions } from "../../hooks/use-moderation-actions";
 import { useSession } from "../../lib/session";
-import { streamNotification } from "../../lib/stream-notification";
+import { StreamNotificationManager } from "../../lib/stream-notification";
+import { StreamNotificationProvider } from "./stream-notification-provider";
 
 function rgbColor(
   color?: { red: number; green: number; blue: number } | null,
@@ -31,10 +32,10 @@ function rgbColor(
 
 export function StreamNotifications({
   store,
-  showTeleport = true,
+  showPinnedComment = true,
 }: {
   store: LivestreamStore;
-  showTeleport?: boolean;
+  showPinnedComment?: boolean;
 }) {
   const state = useStore(
     store,
@@ -44,40 +45,47 @@ export function StreamNotifications({
     })),
   );
 
-  return (
-    <>
-      {state.pinnedComment && (
-        <PinnedNotification store={store} comment={state.pinnedComment} />
-      )}
-      {showTeleport && state.activeTeleport && (
-        <TeleportNotification store={store} teleport={state.activeTeleport} />
-      )}
-    </>
-  );
-}
-
-export function StreamTeleportNotification({
-  store,
-}: {
-  store: LivestreamStore;
-}) {
-  const teleport = useStore(store, (s) => s.activeTeleport);
+  const [manager] = useState(() => new StreamNotificationManager());
+  const hideTeleport = useCallback(() => manager.hide("teleport"), [manager]);
 
   useEffect(() => {
-    if (!teleport) {
-      streamNotification.hide("teleport");
-      return;
+    const comment = state.pinnedComment;
+    if (showPinnedComment && comment) {
+      manager.show({
+        id: "pinned-comment",
+        duration: 0,
+        render: () => (
+          <PinnedNotification
+            key={comment.uri}
+            store={store}
+            comment={comment}
+          />
+        ),
+      });
     }
+    return () => manager.hide("pinned-comment");
+  }, [manager, showPinnedComment, state.pinnedComment, store]);
 
-    streamNotification.show({
-      id: "teleport",
-      duration: 0,
-      render: () => <TeleportNotification store={store} teleport={teleport} />,
-    });
-    return () => streamNotification.hide("teleport");
-  }, [store, teleport]);
+  useEffect(() => {
+    const teleport = state.activeTeleport;
+    if (teleport) {
+      manager.show({
+        id: "teleport",
+        duration: 0,
+        render: () => (
+          <TeleportNotification
+            key={teleport.startsAt}
+            store={store}
+            teleport={teleport}
+            onExpire={hideTeleport}
+          />
+        ),
+      });
+    }
+    return hideTeleport;
+  }, [manager, state.activeTeleport, store, hideTeleport]);
 
-  return null;
+  return <StreamNotificationProvider manager={manager} />;
 }
 
 function PinnedNotification({
@@ -234,17 +242,20 @@ function PinnedRichText({
 function TeleportNotification({
   store,
   teleport,
+  onExpire,
 }: {
   store: LivestreamStore;
   teleport: NonNullable<ReturnType<typeof store.getState>["activeTeleport"]>;
+  onExpire: () => void;
 }) {
   const { t } = useTranslation("common");
   const { pdsAgent, did } = useSession();
   const targetProfiles = useAvatars([teleport.streamer]);
-  const { activeTeleportUri, livestream } = useStore(
+  const { activeTeleportUri, activeTeleportCID, livestream } = useStore(
     store,
     useShallow((s) => ({
       activeTeleportUri: s.activeTeleportUri,
+      activeTeleportCID: s.activeTeleportCID,
       livestream: s.livestream,
     })),
   );
@@ -267,11 +278,16 @@ function TeleportNotification({
     if (!pdsAgent || !did || !activeTeleportUri) return;
     try {
       await deleteTeleport(pdsAgent, did, activeTeleportUri);
-      store.setState({
-        activeTeleportUri: null,
-        activeTeleportCID: null,
-        activeTeleport: null,
-      });
+      store.setState((state) =>
+        state.activeTeleportUri === activeTeleportUri &&
+        state.activeTeleportCID === activeTeleportCID
+          ? {
+              activeTeleportUri: null,
+              activeTeleportCID: null,
+              activeTeleport: null,
+            }
+          : state,
+      );
     } catch (error) {
       console.error("Failed to cancel teleport:", error);
     }
@@ -280,8 +296,8 @@ function TeleportNotification({
   const diff = Math.max(0, Math.ceil((startsAt - now) / 1000));
 
   useEffect(() => {
-    if (diff <= 0) streamNotification.hide("teleport");
-  }, [diff]);
+    if (!Number.isFinite(startsAt) || diff <= 0) onExpire();
+  }, [diff, startsAt, onExpire]);
 
   if (!Number.isFinite(startsAt) || diff <= 0) return null;
 

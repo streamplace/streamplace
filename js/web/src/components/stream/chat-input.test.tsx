@@ -1,4 +1,4 @@
-import { makeLivestreamStore, registerSlashCommand } from "@streamplace/core";
+import { makeLivestreamStore } from "@streamplace/core";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -87,14 +87,10 @@ describe("ChatInput slash commands", () => {
       record: { text: "original message" },
     } as never;
     store.setState({ replyToMessage: reply });
-    const unregister = registerSlashCommand({
-      name: "teleport",
-      description: "Start a teleport",
-      usage: "/teleport @handle",
-      handler: async () => ({
-        handled: true,
-        error: "Only the streamer can teleport",
-      }),
+    mockUseSession.mockReturnValue({
+      state: { status: "authenticated" },
+      pdsAgent: {},
+      did: "did:plc:streamer",
     });
 
     await act(async () => root.render(<ChatInput store={store} />));
@@ -124,8 +120,7 @@ describe("ChatInput slash commands", () => {
     expect(store.getState().replyToMessage).toBe(reply);
     expect(mockSend).not.toHaveBeenCalled();
     expect(container.querySelector('[role="alert"]')?.textContent).toBe(
-      "Only the streamer can teleport",
+      "teleport-error-not-live",
     );
-    unregister();
   });
 });

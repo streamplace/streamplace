@@ -39,6 +39,8 @@ func TestTeleportArrivalNotFromBackfill(t *testing.T) {
 	// Watch the streamer's topic, which is where an arrival is announced.
 	ch := b.Subscribe(streamer)
 	defer b.Unsubscribe(streamer, ch)
+	sourceCh := b.Subscribe(traveller)
+	defer b.Unsubscribe(traveller, sourceCh)
 	var mu sync.Mutex
 	var arrivals []bus.Message
 	go func() {
@@ -76,7 +78,11 @@ func TestTeleportArrivalNotFromBackfill(t *testing.T) {
 	// scheduled with no wait at all, so if it were scheduled we would see it.
 	past := time.Now().Add(-7 * 24 * time.Hour).UTC().Format(time.RFC3339)
 	index("3lteleportold0", past, true)
-	time.Sleep(250 * time.Millisecond)
+	select {
+	case <-sourceCh:
+		t.Fatal("an expired teleport must not redirect current viewers during backfill")
+	case <-time.After(250 * time.Millisecond):
+	}
 	require.Equal(t, 0, countArrivals(), "a backfilled teleport must not announce an arrival")
 	stored, err := mod.GetTeleportByURI("at://" + traveller + "/place.stream.live.teleport/3lteleportold0")
 	require.NoError(t, err)

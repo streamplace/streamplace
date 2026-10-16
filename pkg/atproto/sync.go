@@ -660,7 +660,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if rec.Livestream != nil {
 			teleportMessage["livestream"] = rec.Livestream
 		}
-		atsync.Bus.Publish(userDID, teleportMessage)
+		// Historical records are still indexed, but must not redirect current viewers.
+		if startsAt.After(time.Now()) {
+			atsync.Bus.Publish(userDID, teleportMessage)
+		}
 
 		if isFirstSync {
 			// A backfill reads history, and a teleport out of history has

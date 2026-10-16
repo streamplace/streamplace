@@ -13,6 +13,7 @@ type Subscription chan Message
 
 const maxQueuedMessages = 1000
 
+// Each subscriber drains one queue so a teleport cannot overtake its cancellation.
 type subscriber struct {
 	ch         Subscription
 	mu         sync.Mutex

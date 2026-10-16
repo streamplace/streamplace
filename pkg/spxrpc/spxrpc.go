@@ -65,6 +65,9 @@ type Server struct {
 	aliases           map[string]string
 	identityDirectory func() identity.Directory
 	identityRefreshes *cache.Cache
+	// MoqURL reports the node's Media over QUIC URL for getBroadcaster;
+	// nil when the node has no listener.
+	MoqURL func() string
 }
 
 // vodCDN returns the playlist-generation CDN settings.

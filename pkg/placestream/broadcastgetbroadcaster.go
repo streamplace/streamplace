@@ -18,6 +18,8 @@ type BroadcastGetBroadcaster_Output struct {
 	Admins []string `json:"admins,omitempty"`
 	// broadcaster: DID of the Streamplace broadcaster to which this server belongs
 	Broadcaster string `json:"broadcaster"`
+	// moqURL: moqt:// URL of this server's Media over QUIC listener, which peers push streams to and pull them from; a certhash query parameter pins the server certificate (SHA-256, hex) when it is self-signed. Absent when the listener is off.
+	MoqURL *string `json:"moqURL,omitempty"`
 	// server: DID of this particular Streamplace server
 	Server *string `json:"server,omitempty"`
 }

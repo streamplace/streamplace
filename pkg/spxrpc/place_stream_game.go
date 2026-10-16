@@ -95,7 +95,7 @@ func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, uri string) (
 	did, collection, rkey := parts[0], parts[1], parts[2]
 
 	// resolve the DID to get the PDS
-	did, svc, _, err := resolveRepoService(ctx, did)
+	did, svc, _, err := s.resolveRepoService(ctx, did)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "failed to resolve DID")
 	}

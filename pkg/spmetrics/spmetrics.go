@@ -162,13 +162,11 @@ var LabelerFirehosesConnected = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "number of currently connected labeler firehoses",
 }, []string{"labeler"})
 
-// FirehoseRelaysConnected is 1 while a relay's firehose is connected and 0
-// while it is reconnecting, labeled by relay host and protocol ("websocket" or
-// "moq"). With multi-relay support this shows at a glance how many of the
-// configured relays are currently feeding us.
+// FirehoseRelaysConnected counts active firehose connections per relay and
+// protocol. Upstream mode opens one sparse MoQ connection per local user.
 var FirehoseRelaysConnected = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "streamplace_firehose_relays_connected",
-	Help: "1 if the relay's firehose is currently connected, else 0",
+	Help: "Number of active firehose connections to the relay",
 }, []string{"relay", "protocol"})
 
 // FirehoseEventsReceivedTotal counts every event a relay delivered, before

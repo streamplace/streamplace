@@ -21,6 +21,10 @@ account in view; Enter opens it. Editing or dismissing clears the highlight.
 Short lists fit their content on first opening and reopening; long lists scroll
 within half the window height. The popup has no entrance layout animation,
 which would pin it to the loading state's height on web.
+Completed results stay visible and selectable while a replacement query is
+pending, including during the throttle interval. The loading placeholder only
+appears before a completed result exists. New responses replace the list and
+clear its keyboard highlight; clearing or dismissing still removes it immediately.
 
 On smaller windows the header field is hidden entirely. The native Search tab
 and web sidebar/tab still open `/search`, where Search or the keyboard's
@@ -39,8 +43,9 @@ when available, with initials otherwise. The existing live-users poller supplies
 live status and the Avatar's red ring; search adds no separate polling.
 
 `header-user-search.spec.ts` covers automatic searches, unchanged routes,
-selection/dismissal, late responses, responsive availability, loading-to-results
-sizing, scrolling, keyboard selection, loaded profile images, and live rings.
+selection/dismissal, late responses, retained results during pending queries,
+responsive availability, loading-to-results sizing, scrolling, keyboard selection,
+loaded profile images, and live rings.
 The shared Maestro user-search flow retains native route coverage, checks the
 live avatar, and checks that the header field is absent on phones.
 

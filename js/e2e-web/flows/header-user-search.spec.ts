@@ -195,6 +195,34 @@ test("header-user-search: Escape and an outside press close the results", async 
   await expect(page).toHaveURL(/\/settings$/);
 });
 
+test("header-user-search: retains results while the replacement query is pending", async ({
+  page,
+}) => {
+  const next = `${PREFIX}-nobody`;
+  const pending = await holdQuery(page, next);
+  await page.goto("/settings");
+  await input(page).fill(PREFIX);
+  await expect(result(page)).toBeVisible();
+  const before = await settledBox(dropdown(page));
+
+  await input(page).fill(next);
+  await pending.requested;
+  await expect(result(page)).toBeVisible();
+  await expect(page.getByTestId("header-search-loading")).toBeHidden();
+  expect((await settledBox(dropdown(page))).height).toBe(before.height);
+  // The retained list remains usable, not just a visual placeholder.
+  await input(page).press("ArrowDown");
+  await expectActive(page, [harnessActor], 0);
+
+  await deliver(page, next, pending.release);
+  await expect(result(page)).toBeHidden();
+  await expect(noResults(page)).toBeVisible();
+  await expect(input(page)).not.toHaveAttribute("aria-activedescendant", /./);
+  await input(page).fill(PREFIX);
+  await expect(result(page)).toBeVisible();
+  await expectActive(page, [harnessActor], null);
+});
+
 test("header-user-search: the latest query wins over an earlier held request", async ({
   page,
 }) => {

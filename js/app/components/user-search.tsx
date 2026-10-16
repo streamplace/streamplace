@@ -76,7 +76,10 @@ function useActorSearch() {
       setState({ status: "error" });
       return;
     }
-    setState({ status: "loading" });
+    // Keep the last completed result (including an empty list) until replaced.
+    setState((previous) =>
+      previous.status === "done" ? previous : { status: "loading" },
+    );
     try {
       const res = await agent.client.call(
         place.stream.live.searchActorsTypeahead,
@@ -94,7 +97,9 @@ function useActorSearch() {
   const throttledSearch = (q: string) => {
     clearTimeout(timer.current);
     requestId.current++;
-    setState({ status: "loading" });
+    setState((previous) =>
+      previous.status === "done" ? previous : { status: "loading" },
+    );
     const wait = lastSearchAt.current + THROTTLE_MS - Date.now();
     if (wait <= 0) search(q);
     else timer.current = setTimeout(() => search(q), wait);
@@ -238,10 +243,13 @@ function DropdownSearch({
   const actors = open && state.status === "done" ? state.actors : undefined;
   const activeActor = actors?.[activeIndex];
 
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [actors]);
+
   // Opening (including refocusing retained text) starts a search. Edits while
   // open use the same throttle; empty queries never capture outside presses.
   useEffect(() => {
-    setActiveIndex(-1);
     if (open) throttledSearch(normalizeQuery(text));
     else cancel();
   }, [open]);

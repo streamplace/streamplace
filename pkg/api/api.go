@@ -79,6 +79,10 @@ type StreamplaceAPI struct {
 	// ACME, when set, supplies TLS certificates for every TLS listener and
 	// answers HTTP-01 challenges on the redirect listener.
 	ACME *acme.Manager
+	// MoqURL is the moqt:// URL peers reach this node's Media over QUIC
+	// listener at, as place.stream.broadcast.getBroadcaster reports it;
+	// nil when --moq-addr is empty.
+	MoqURL func() string
 	// not thread-safe yet
 	Aliases  map[string]string
 	Bus      *bus.Bus
@@ -178,6 +182,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		return nil, err
 	}
 	a.XRPCServer = xrpc.(*spxrpc.Server)
+	a.XRPCServer.MoqURL = a.MoqURL
 	router := httprouter.New()
 
 	// Create our middleware factory with the default settings.

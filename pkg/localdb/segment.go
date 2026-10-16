@@ -322,11 +322,14 @@ func (m *LocalDatabase) LatestSegmentsForUser(user string, limit int, includeUnp
 	return segs, nil
 }
 
+// GetSegment returns the segment with the given id, or nil if it is not
+// known. Receiving a segment twice is normal (a MoQ subscription is primed
+// with recent segments on every reconnect), so this is the dedup check and
+// must not fail on a known segment.
 func (m *LocalDatabase) GetSegment(id string) (*Segment, error) {
 	var seg Segment
 
 	err := m.DB.Model(&Segment{}).
-		Preload("Repo").
 		Where("id = ?", id).
 		First(&seg).Error
 

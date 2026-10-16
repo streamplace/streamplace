@@ -59,6 +59,10 @@ func TestCheckConfig(t *testing.T) {
 	bad(CLI{TranscodeRenditions: "not-a-rendition",
 		FirebaseServiceAccountFile: filepath.Join(t.TempDir(), "nope.json")},
 		"--transcode-renditions", "--firebase-service-account-file")
+	// Pushing to peers needs syndication: a pushing node refuses the peers'
+	// subscriptions without it.
+	bad(CLI{DataDir: t.TempDir(), DisableSyndication: true, Peers: []string{"https://peer.example"}},
+		"--peers", "--disable-syndication")
 
 	// Multiple problems are reported together, not one at a time.
 	multi := CLI{LivepeerGateway: true, LivepeerGatewayURL: "http://127.0.0.1:8935",

@@ -312,6 +312,8 @@ could-not-load-videos = Couldn't load videos: { $error }
 ## Search Page
 no-results-for = No results for "{ $query }"
 find-streamers = Find streamers by name or handle
+search = Search
+search-failed = Search failed
 
 ## Error Boundary
 something-went-wrong = Something went wrong

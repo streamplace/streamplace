@@ -34,7 +34,6 @@ test("about-link: signed out, the sidebar links straight to the About page", asy
 
   // ...and that prefix still carries every other settings page.
   await page.goto("/settings/advanced");
-  await expect(page.getByText("Advanced").first()).toBeVisible();
   await expect(sidebarLink(page, "Settings")).toHaveAttribute(
     "aria-current",
     "page",

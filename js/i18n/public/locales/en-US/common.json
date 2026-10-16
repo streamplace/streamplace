@@ -246,6 +246,8 @@
   "could-not-load-videos": "Couldn't load videos: {$error}",
   "no-results-for": "No results for \"{$query}\"",
   "find-streamers": "Find streamers by name or handle",
+  "search": "Search",
+  "search-failed": "Search failed",
   "something-went-wrong": "Something went wrong",
   "unexpected-error": "An unexpected error occurred.",
   "upload-add-tag": "Add tag, press Enter",

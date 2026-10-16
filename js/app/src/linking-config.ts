@@ -111,6 +111,7 @@ export const SCREEN_PATHS = {
   UploadVideos: "upload/videos",
   VideoList: "video",
   UserVideoList: ":did/video",
+  Search: "search",
   // Settings screens
   MainSettings: "settings",
   AboutCategory: "settings/about",
@@ -219,6 +220,11 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
               screens: {
                 VideoList: SCREEN_PATHS.VideoList,
                 UserVideoList: SCREEN_PATHS.UserVideoList,
+              },
+            },
+            SearchTab: {
+              screens: {
+                Search: SCREEN_PATHS.Search,
               },
             },
             GoLiveTab: SCREEN_PATHS.GoLiveTab,

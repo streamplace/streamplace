@@ -129,6 +129,108 @@ describe("connectLivestreamWebsocket", () => {
     },
   );
 
+  it.each([0, 50])(
+    "resumes an imminent teleport across a drop with a %sms batch window",
+    async (batchWindowMs) => {
+      const store = makeLivestreamStore();
+      const handle = connectLivestreamWebsocket(
+        store,
+        "wss://example.com/socket?view=chat",
+        { batchWindowMs },
+      );
+      const teleport = {
+        $type: "place.stream.live.teleport",
+        uri: "at://did:plc:source/place.stream.live.teleport/1",
+        cid: "teleport-cid",
+        streamer: "did:plc:target",
+        startsAt: new Date(Date.now() + 1_000).toISOString(),
+      };
+      FakeWebSocket.instances[0].onmessage!({ data: JSON.stringify(teleport) });
+      if (batchWindowMs === 0) await vi.advanceTimersByTimeAsync(1);
+
+      FakeWebSocket.instances[0].onclose!();
+      await vi.advanceTimersByTimeAsync(3_000);
+      const resumed = FakeWebSocket.instances[1];
+      const url = new URL(resumed.url);
+      expect(url.searchParams.get("teleportUri")).toBe(teleport.uri);
+      expect(url.searchParams.get("teleportCid")).toBe(teleport.cid);
+      expect(url.searchParams.get("view")).toBe("chat");
+      expect(store.getState().activeTeleport).toBeNull();
+
+      resumed.onmessage!({ data: JSON.stringify(teleport) });
+      await vi.advanceTimersByTimeAsync(batchWindowMs + 1);
+      expect(store.getState().activeTeleport).toEqual(teleport);
+      handle.disconnect();
+    },
+  );
+
+  it.each([0, 50])(
+    "clears a canceled replacement's resume hint with a %sms batch window",
+    async (batchWindowMs) => {
+      const store = makeLivestreamStore();
+      const handle = connectLivestreamWebsocket(
+        store,
+        "wss://example.com/socket",
+        { batchWindowMs },
+      );
+      const teleport = {
+        $type: "place.stream.live.teleport",
+        uri: "at://did:plc:source/place.stream.live.teleport/1",
+        cid: "teleport-cid",
+        streamer: "did:plc:target",
+        startsAt: new Date(Date.now() + 10_000).toISOString(),
+      };
+      FakeWebSocket.instances[0].onmessage!({ data: JSON.stringify(teleport) });
+      await vi.advanceTimersByTimeAsync(batchWindowMs + 1);
+      FakeWebSocket.instances[0].onclose!();
+      await vi.advanceTimersByTimeAsync(3_000);
+
+      const resumed = FakeWebSocket.instances[1];
+      const replacement = {
+        ...teleport,
+        uri: teleport.uri + "2",
+        cid: "replacement-cid",
+      };
+      resumed.onmessage!({ data: JSON.stringify([teleport, replacement]) });
+      await vi.advanceTimersByTimeAsync(10_000);
+      resumed.onmessage!({
+        data: JSON.stringify({
+          $type: "place.stream.livestream#teleportCanceled",
+          teleportUri: replacement.uri,
+          cid: replacement.cid,
+        }),
+      });
+      if (batchWindowMs === 0) await vi.advanceTimersByTimeAsync(1);
+      resumed.onclose!();
+      await vi.advanceTimersByTimeAsync(3_000);
+
+      const url = new URL(FakeWebSocket.instances[2].url);
+      expect(url.searchParams.has("teleportUri")).toBe(false);
+      expect(url.searchParams.has("teleportCid")).toBe(false);
+      handle.disconnect();
+    },
+  );
+
+  it("keeps the resume identity across reconnects that fail before hydration", async () => {
+    const store = makeLivestreamStore();
+    const handle = connectLivestreamWebsocket(
+      store,
+      "wss://example.com/socket",
+    );
+    store.setState({
+      activeTeleportUri: "at://did:plc:source/place.stream.live.teleport/1",
+      activeTeleportCID: "teleport-cid",
+    });
+    FakeWebSocket.instances[0].onclose!();
+    await vi.advanceTimersByTimeAsync(3_000);
+    FakeWebSocket.instances[1].onclose!();
+    await vi.advanceTimersByTimeAsync(3_000);
+
+    const url = new URL(FakeWebSocket.instances[2].url);
+    expect(url.searchParams.get("teleportCid")).toBe("teleport-cid");
+    handle.disconnect();
+  });
+
   it("does not reconnect once disconnected", async () => {
     const store = makeLivestreamStore();
     const { disconnect } = connectLivestreamWebsocket(

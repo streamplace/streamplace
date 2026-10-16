@@ -193,6 +193,10 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   const wasOffline = useRef(isOffline);
   const userChangedChat = useRef(false);
 
+  useEffect(() => {
+    if (activeTeleport) setChatOpen(true);
+  }, [activeTeleport]);
+
   const toggleChat = useCallback(() => {
     userChangedChat.current = true;
     setChatOpen((prev) => {
@@ -216,6 +220,10 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   // during this visit. This covers false-offline startup results in any
   // orientation while preserving desktop preferences.
   useEffect(() => {
+    if (activeTeleport) {
+      wasOffline.current = isOffline;
+      return;
+    }
     const nextChatOpen = chatOpenAfterLivenessChange({
       isOffline,
       wasOffline: wasOffline.current,
@@ -227,7 +235,7 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
       setChatOpen(nextChatOpen);
     }
     wasOffline.current = isOffline;
-  }, [isOffline, chatOpen]);
+  }, [isOffline, chatOpen, activeTeleport]);
 
   return (
     <div className="flex h-full flex-col">

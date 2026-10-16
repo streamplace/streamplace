@@ -37,6 +37,7 @@ export function connectLivestreamWebsocket(
   let messageBuffer: unknown[] = [];
   let currentConnectId = 0;
   let disposed = false;
+  let reconnectURL = url;
 
   const flush = () => {
     flushTimer = null;
@@ -50,9 +51,19 @@ export function connectLivestreamWebsocket(
     currentConnectId++;
     if (flushTimer) clearTimeout(flushTimer);
     flushTimer = null;
+    const state = handleWebSocketMessages(store.getState(), messageBuffer);
     messageBuffer = [];
+    // Keep a prior hint only if this connection failed before receiving state.
+    if (state.websocketConnected) reconnectURL = url;
+    const { activeTeleportUri, activeTeleportCID } = state;
+    if (activeTeleportUri && activeTeleportCID) {
+      const resumeURL = new URL(reconnectURL);
+      resumeURL.searchParams.set("teleportUri", activeTeleportUri);
+      resumeURL.searchParams.set("teleportCid", activeTeleportCID);
+      reconnectURL = resumeURL.toString();
+    }
     // A cancellation may be missed while offline. Only a fresh snapshot can
-    // restore a pending teleport after the socket drops.
+    // restore the teleport, including one that started while disconnected.
     store.setState({
       websocketConnected: false,
       activeTeleport: null,
@@ -71,7 +82,7 @@ export function connectLivestreamWebsocket(
 
     const connectId = ++currentConnectId;
 
-    ws = new WebSocket(url);
+    ws = new WebSocket(reconnectURL);
 
     ws.onopen = () => {};
 

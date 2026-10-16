@@ -151,14 +151,15 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 
 			// Subscribe before reading the snapshot so changes during the lookup
 			// are buffered. Send the snapshot first, then consume those changes so
-			// a cancellation cannot be followed by the stale pending record.
-			teleport, err := a.Model.GetPendingTeleportForRepo(repoDID)
+			// a cancellation cannot be followed by the stale record.
+			teleport, err := a.Model.GetTeleportForViewer(repoDID,
+				req.URL.Query().Get("teleportUri"), req.URL.Query().Get("teleportCid"))
 			if err != nil {
-				log.Error(ctx, "could not get pending teleport", "error", err)
+				log.Error(ctx, "could not get teleport", "error", err)
 			} else if teleport != nil && teleport.Teleport != nil {
 				var record placestream.LiveTeleport
 				if err := record.UnmarshalCBOR(bytes.NewReader(*teleport.Teleport)); err != nil {
-					log.Error(ctx, "could not decode pending teleport", "error", err, "uri", teleport.URI)
+					log.Error(ctx, "could not decode teleport", "error", err, "uri", teleport.URI)
 				} else {
 					teleportMessage := map[string]any{
 						"$type":    record.RecordTypeID(),

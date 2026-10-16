@@ -162,9 +162,12 @@ if [ "${E2E_UPSTREAM_STATION:-}" = true ]; then
   }
   trap e2e_android_stop EXIT INT TERM
 fi
+# SP_E2E_INGEST also picks how the harness streams; flows that need the fMP4
+# push (audio stems) check it.
 MAESTRO_ARGS=(-e APP_ID="$APP_ID" -e SERVER_URL="$APP_SERVER_URL"
   -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD"
-  -e E2E_UPSTREAM_STATION="${E2E_UPSTREAM_STATION:-false}")
+  -e E2E_UPSTREAM_STATION="${E2E_UPSTREAM_STATION:-false}"
+  -e SP_E2E_INGEST="${SP_E2E_INGEST:-whip}")
 
 # --- run the flows ---------------------------------------------------------
 # takeScreenshot paths are relative to maestro's cwd, so run from the

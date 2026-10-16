@@ -22,6 +22,87 @@ import (
 func isAACCodec(codec string) bool  { return strings.HasPrefix(codec, "mp4a") }
 func isOpusCodec(codec string) bool { return strings.HasPrefix(codec, "opus") }
 
+// Audio track selection. A segment's audio tracks are grouped by their
+// catalog alternateGroup: tracks sharing a group carry the same sound in
+// different codecs (the AAC and Opus encodes of one mix), and different
+// groups are independent sounds — the OBS plugin's full mix and its stems
+// ("Music"). Tracks with no group (0) all share one group, which is every
+// segment that isn't the plugin's.
+//
+// The main audio is the lowest group. Every consumer that wants one audio
+// track — HLS, RTMP push, VOD, thumbnails, the WebRTC mix, codec completion —
+// picks from the main group by codec; the stems reach WebRTC viewers only
+// (see Packetize), who mix them at their own volumes.
+
+// maxStems bounds how many stem groups a segment contributes to playback:
+// the plugin sends at most two (six encoders per output, two per track).
+const maxStems = 2
+
+// audioTracks returns a catalog's audio renditions in track-id order.
+func audioTracks(cat *muxl.MuxlCatalog) []muxl.MuxlAudioConfig {
+	if cat == nil || cat.Audio == nil {
+		return nil
+	}
+	out := make([]muxl.MuxlAudioConfig, 0, len(cat.Audio.Renditions))
+	for _, a := range cat.Audio.Renditions {
+		out = append(out, a)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].TrackID() < out[j].TrackID() })
+	return out
+}
+
+// mainAudioGroup is the lowest alternateGroup among tracks: 0 for an
+// ungrouped segment.
+func mainAudioGroup(tracks []muxl.MuxlAudioConfig) uint32 {
+	var g uint32
+	for i, a := range tracks {
+		if i == 0 || a.AlternateGroup < g {
+			g = a.AlternateGroup
+		}
+	}
+	return g
+}
+
+// mainAudioTracks returns the main group's tracks (see mainAudioGroup), in
+// track-id order.
+func mainAudioTracks(tracks []muxl.MuxlAudioConfig) []muxl.MuxlAudioConfig {
+	g := mainAudioGroup(tracks)
+	var out []muxl.MuxlAudioConfig
+	for _, a := range tracks {
+		if a.AlternateGroup == g {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// stemOpusTracks returns one Opus track per stem group — the groups above the
+// main one, ascending, at most maxStems — in that order. WebRTC carries Opus
+// only, so a stem group without an Opus encode is skipped.
+func stemOpusTracks(tracks []muxl.MuxlAudioConfig) []muxl.MuxlAudioConfig {
+	main := mainAudioGroup(tracks)
+	byGroup := map[uint32]muxl.MuxlAudioConfig{}
+	var groups []uint32
+	for _, a := range tracks {
+		if a.AlternateGroup <= main || !isOpusCodec(a.Codec) {
+			continue
+		}
+		if _, seen := byGroup[a.AlternateGroup]; !seen {
+			groups = append(groups, a.AlternateGroup)
+			byGroup[a.AlternateGroup] = a
+		}
+	}
+	sort.Slice(groups, func(i, j int) bool { return groups[i] < groups[j] })
+	if len(groups) > maxStems {
+		groups = groups[:maxStems]
+	}
+	out := make([]muxl.MuxlAudioConfig, 0, len(groups))
+	for _, g := range groups {
+		out = append(out, byGroup[g])
+	}
+	return out
+}
+
 // transcodeManifest is the C2PA manifest for a transcode-completed audio
 // track: it opens the source segment as an ingredient and records a
 // c2pa.transcoded action referencing it, both by TranscodeIngredientLabel.
@@ -90,11 +171,20 @@ func (mm *MediaManager) audioCompletionTarget(ctx context.Context, seg []byte) (
 		return "", false
 	}
 	cat, _ := catalogAndTracks(events)
-	if cat == nil || cat.Audio == nil || cat.Video == nil {
+	return completionTarget(cat)
+}
+
+// completionTarget is audioCompletionTarget over an already-read catalog.
+// Only the main audio group is completed: a stem (a higher group) is
+// distributed as sent, since the plugin that labels stems encodes both codecs
+// for each, and no HLS or RTMP consumer ever picks a stem. A segment whose
+// main group already has both codecs needs nothing, whatever its stems carry.
+func completionTarget(cat *muxl.MuxlCatalog) (target string, need bool) {
+	if cat == nil || cat.Video == nil {
 		return "", false
 	}
 	var haveAAC, haveOpus bool
-	for _, a := range cat.Audio.Renditions {
+	for _, a := range mainAudioTracks(audioTracks(cat)) {
 		if isAACCodec(a.Codec) {
 			haveAAC = true
 		}
@@ -369,18 +459,36 @@ func concatTrackAcrossSegments(events []*muxl.MuxlEvent, tid uint32) []byte {
 // filterSegmentToCodec returns a bare canonical .m4s containing every video
 // track plus the single audio track matching the requested codec (Opus when
 // wantOpus, else AAC) — how an output consumer "asks for the audio it needs"
-// from a dual-codec segment. Track bytes are carried verbatim (signatures
-// intact) in ascending track-id order. If no audio matches the requested
-// codec, any one audio track is kept (degraded but playable); with no audio
-// info at all, the segment is returned unchanged.
+// from a dual-codec segment. See filterSegmentAudio.
 func filterSegmentToCodec(ctx context.Context, seg []byte, wantOpus bool) ([]byte, error) {
+	out, _, err := filterSegmentAudio(ctx, seg, wantOpus, false)
+	return out, err
+}
+
+// playbackAudio describes one audio track kept by filterSegmentAudio.
+type playbackAudio struct {
+	TrackID uint32
+	Group   uint32 // the track's alternateGroup
+	Main    bool   // the main group's track; the others are stems
+}
+
+// filterSegmentAudio returns a bare canonical .m4s containing every video
+// track plus the main group's audio track matching the requested codec (Opus
+// when wantOpus, else AAC) and, with stems, one Opus track per stem group
+// (see stemOpusTracks). Track bytes are carried verbatim (signatures intact)
+// in ascending track-id order; the kept audio tracks are described in that
+// same order, which is the order their streams appear in a presentation of
+// the result. If no main audio matches the requested codec, any one main
+// track is kept (degraded but playable); with no audio info at all, the
+// segment is returned unchanged.
+func filterSegmentAudio(ctx context.Context, seg []byte, wantOpus, stems bool) ([]byte, []playbackAudio, error) {
 	events, err := unwrapMuxlEvents(ctx, seg)
 	if err != nil {
-		return nil, fmt.Errorf("unwrap segment for codec filter: %w", err)
+		return nil, nil, fmt.Errorf("unwrap segment for codec filter: %w", err)
 	}
 	cat, tracks := catalogAndTracks(events)
 	if cat == nil {
-		return seg, nil
+		return seg, nil, nil
 	}
 
 	keep := map[uint32]bool{}
@@ -389,25 +497,26 @@ func filterSegmentToCodec(ctx context.Context, seg []byte, wantOpus bool) ([]byt
 			keep[v.TrackID()] = true
 		}
 	}
-	if cat.Audio != nil && len(cat.Audio.Renditions) > 0 {
-		var chosen uint32
-		found := false
-		for _, a := range cat.Audio.Renditions {
+	var audio []playbackAudio
+	all := audioTracks(cat)
+	if main := mainAudioTracks(all); len(main) > 0 {
+		chosen := main[0] // no exact codec match — keep some audio rather than none
+		for _, a := range main {
 			if (wantOpus && isOpusCodec(a.Codec)) || (!wantOpus && isAACCodec(a.Codec)) {
-				chosen, found = a.TrackID(), true
+				chosen = a
 				break
 			}
 		}
-		if !found { // no exact codec match — keep some audio rather than none
-			for _, a := range cat.Audio.Renditions {
-				chosen, found = a.TrackID(), true
-				break
-			}
-		}
-		if found {
-			keep[chosen] = true
+		keep[chosen.TrackID()] = true
+		audio = append(audio, playbackAudio{TrackID: chosen.TrackID(), Group: chosen.AlternateGroup, Main: true})
+	}
+	if stems {
+		for _, a := range stemOpusTracks(all) {
+			keep[a.TrackID()] = true
+			audio = append(audio, playbackAudio{TrackID: a.TrackID(), Group: a.AlternateGroup})
 		}
 	}
+	sort.Slice(audio, func(i, j int) bool { return audio[i].TrackID < audio[j].TrackID })
 
 	ids := make([]uint32, 0, len(keep))
 	for id := range keep {
@@ -420,7 +529,7 @@ func filterSegmentToCodec(ctx context.Context, seg []byte, wantOpus bool) ([]byt
 		out = append(out, tracks[strconv.FormatUint(uint64(id), 10)]...)
 	}
 	if len(out) == 0 {
-		return seg, nil
+		return seg, nil, nil
 	}
-	return out, nil
+	return out, audio, nil
 }

@@ -29,7 +29,10 @@ type SignSegmentStreamFunc func(ctx context.Context, input io.Reader, eventCh ch
 // produced here. Presentation headers are synthesized downstream (ValidateMP4
 // / playback) only when needed.
 func MuxlSignSegmentElem(ctx context.Context, cli *config.CLI, ms MediaSigner, onSegment func(ctx context.Context, segment []byte) error) (gst.Element, error) {
-	elem, _, err := muxlSignSegmentElem(ctx, cli, ms.SignSegmentStream, onSegment)
+	signStream := func(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
+		return ms.SignSegmentStream(ctx, input, eventCh, false)
+	}
+	elem, _, err := muxlSignSegmentElem(ctx, cli, signStream, onSegment)
 	return elem, err
 }
 

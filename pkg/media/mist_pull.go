@@ -54,11 +54,11 @@ func (mm *MediaManager) MistPullIngest(ctx context.Context, mistStreamName strin
 		// it survives a main restart) and serves signed segments back over its
 		// socket — the same machinery as the old hijacked inbound push, with
 		// the connection pointing the other way.
-		return mm.MP4IngestDetached(ctx, conn, prebuf, chunked, ms)
+		return mm.MP4IngestDetached(ctx, conn, prebuf, chunked, ms, "")
 	}
 	defer conn.Close()
 	body := WorkerInput(IngestWorkerConfig{Prebuf: prebuf, Chunked: chunked}, conn)
-	return mm.MP4Ingest(ctx, body, ms)
+	return mm.MP4Ingest(ctx, body, ms, "")
 }
 
 // mistPullConnect dials Mist's HTTP output and issues the GET by hand — not

@@ -112,6 +112,12 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 				Usage:   "bundle id of the mobile app under test, which the node hands OAuth logins back to (its --app-bundle-id)",
 				Sources: urfavecli.EnvVars("SP_E2E_APP_BUNDLE_ID"),
 			},
+			&urfavecli.StringFlag{
+				Name:    "ingest",
+				Usage:   "how the harness streams for the test account: whip (loop a fixture over WHIP), fmp4 (loop it through the OBS plugin's fragmented-MP4 ingest) or none (stream nothing; push with STREAM_KEY yourself, e.g. from OBS)",
+				Value:   "whip",
+				Sources: urfavecli.EnvVars("SP_E2E_INGEST"),
+			},
 		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
 			// Canonical form, so they compare equal to the SNI names the
@@ -124,7 +130,11 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			if cmd.Bool("upstream-station") && pdsHost == "" {
 				return errors.New("--upstream-station requires the HTTPS PDS and station hostnames")
 			}
-			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"), cmd.Bool("upstream-station"), cmd.String("atmoq-bin"))
+			ingest := cmd.String("ingest")
+			if ingest != "whip" && ingest != "fmp4" && ingest != "none" {
+				return fmt.Errorf("--ingest must be whip, fmp4 or none, not %q", ingest)
+			}
+			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"), cmd.Bool("upstream-station"), cmd.String("atmoq-bin"), ingest)
 		},
 	}
 }
@@ -182,7 +192,7 @@ func startNode(ctx context.Context, self string, env e2eDevEnv, dataDir string, 
 	return nodeCmd, nil
 }
 
-func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, httpsPort int, appBundleID string, upstream bool, atmoqBin string) error {
+func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, httpsPort int, appBundleID string, upstream bool, atmoqBin, ingest string) error {
 	// Ctrl-C / SIGTERM must unwind through the normal path, or none of the
 	// teardown below runs: Go's default handling exits immediately, which left
 	// the dev-env node, the forked node and the temp data dir behind.
@@ -566,20 +576,30 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	}
 	g, streamCtx := errgroup.WithContext(ctx)
 	g.Go(func() error {
+		if ingest == "none" {
+			return nil
+		}
 		for {
 			select {
 			case <-streamCtx.Done():
 				return nil
 			default:
 			}
-			whip := &WHIPClient{
-				StreamKey: priv,
-				File:      fixture,
-				Endpoint:  fmt.Sprintf("http://%s", ingestAddr),
-				Count:     1,
+			endpoint := fmt.Sprintf("http://%s", ingestAddr)
+			var err error
+			if ingest == "fmp4" {
+				err = pushFMP4(streamCtx, endpoint, priv, fixture)
+			} else {
+				whip := &WHIPClient{
+					StreamKey: priv,
+					File:      fixture,
+					Endpoint:  endpoint,
+					Count:     1,
+				}
+				err = whip.WHIP(streamCtx)
 			}
-			if err := whip.WHIP(streamCtx); err != nil && streamCtx.Err() == nil {
-				log.Log(streamCtx, "whip stream ended, restarting", "err", err)
+			if err != nil && streamCtx.Err() == nil {
+				log.Log(streamCtx, "test stream ended, restarting", "ingest", ingest, "err", err)
 			}
 			// Brief pause between restarts so we don't spin on errors.
 			select {
@@ -598,8 +618,8 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	if local != nil {
 		serverAddr = local.addr
 	}
-	vars := fmt.Sprintf("SERVER_URL=http://%s\nSERVER2_URL=http://%s\nSERVER3_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nE2E_FIXTURE_MP4=%s\n",
-		serverAddr, peerAddr, pushAddr, out.Handle, out.Did, password, videoURI, fixture)
+	vars := fmt.Sprintf("SERVER_URL=http://%s\nSERVER2_URL=http://%s\nSERVER3_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nE2E_FIXTURE_MP4=%s\nSTREAM_KEY=%s\n",
+		serverAddr, peerAddr, pushAddr, out.Handle, out.Did, password, videoURI, fixture, priv)
 	if tlsEnv != nil {
 		vars += fmt.Sprintf("PDS_HTTPS_URL=%s\nE2E_PROXY_URL=%s\nE2E_TLS_SPKI=%s\nE2E_TLS_CA=%s\n",
 			tlsEnv.PDSURL(), tlsEnv.ProxyURL(), tlsEnv.spki, tlsEnv.caPath)

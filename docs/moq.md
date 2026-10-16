@@ -4,9 +4,11 @@ Streamplace nodes hand live streams to each other over Media over QUIC,
 using the official implementation: `moq.dev/moq`, the Go wrapper over the
 Rust `moq-ffi` that Meson builds from source into the node (see
 `rust/streamplace-native`). `pkg/moq` holds only what Streamplace adds, the
-listener's certificate handling. The listener and the pull side live in the
-`websocketrep` replicator (`pkg/replication/websocketrep/moq.go`), which
-prefers an origin's MoQ URL over its websocket when one is advertised.
+listener's certificate handling. The listener and both directions of
+transfer live in the `websocketrep` replicator
+(`pkg/replication/websocketrep/moq.go`). A node pulls a stream from its
+origin, preferring the origin's MoQ URL over its websocket when one is
+advertised, and pushes its own streams to the nodes named in `--peers`.
 
 ## Wire convention
 
@@ -46,10 +48,11 @@ version by ALPN.
 
 ## Configuration
 
-| Flag         | Env           | Default  | Meaning                                                                                      |
-| ------------ | ------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `--moq-addr` | `SP_MOQ_ADDR` | `:38443` | UDP listen address; empty disables the listener.                                             |
-| `--moq-url`  | `SP_MOQ_URL`  |          | Override for the advertised `moqt://` URL (default: `--server-host` on `--moq-addr`'s port). |
+| Flag         | Env           | Default  | Meaning                                                                                                        |
+| ------------ | ------------- | -------- | -------------------------------------------------------------------------------------------------------------- |
+| `--moq-addr` | `SP_MOQ_ADDR` | `:38443` | UDP listen address; empty disables the listener.                                                               |
+| `--moq-url`  | `SP_MOQ_URL`  |          | Override for the advertised `moqt://` URL (default: `--server-host` on `--moq-addr`'s port).                   |
+| `--peers`    | `SP_PEERS`    |          | Nodes to push this node's live streams to: each an `https://` node origin or a `moqt://` URL, comma-separated. |
 
 The listener terminates TLS itself, even on a node behind an HTTPS proxy,
 reading its certificate from files (the data directory's `moq-tls`) that
@@ -71,3 +74,50 @@ The advertised URL travels two ways, like the websocket URL:
 - the `moq_url` column of the station's shared `broadcast_origins` table,
   written by the ingest node on every local segment, so nodes sharing a
   statedb find each other without a relay.
+
+## Push
+
+A node that cannot be reached, one beside a streamer's encoder behind NAT,
+pushes instead of waiting to be pulled from. For each `--peers` entry it
+keeps one session open for as long as it runs, publishing the streams it
+is ingesting: each is announced, one broadcast per streamer DID, from its
+first segment until the stream session times out, its tracks served from
+the bus exactly as the listener serves them. The peer gives every
+incoming session its own origin, so a pushed announcement never becomes
+a route it serves; it pulls each announced stream from that session and
+validates it exactly as it would a pull, and ignores announcements past 32
+streams or that are not DIDs. A pushed stream is a replicated stream on
+the peer (`Local: false`); while it flows the peer writes itself into the
+station's `broadcast_origins` table for it, so the nodes sharing its
+statedb pull the stream from the peer rather than from a pusher they
+cannot reach.
+
+An `https://` peer is asked for its current MoQ URL on every dial, through
+`place.stream.broadcast.getBroadcaster`'s `moqURL`: a node behind an HTTPS
+proxy serves MoQ with a self-signed certificate it rotates, so a fixed
+`moqt://…?certhash=` entry would go stale. A `moqt://` entry is dialled as
+given. A listener accepts any pushed stream its `--allowed-streams` would
+accept over RTMP; a frame that fails validation ends the session.
+Validation refuses a replicated segment whose start time is more than ten
+minutes from the node's clock, so a pusher cannot replay a public
+streamer's old signed segments to make them appear live (the same window
+applies to every replicated segment, `/api/segment` included).
+
+## Who records, multistreams and transcodes
+
+Recording a stream to S3, driving its multistream targets and transcoding
+its renditions must each happen on exactly one node, however many carry the
+stream. Every node with a session for a stream, whether it ingested the
+segments or received them from a peer, contends for each job it is equipped
+to do (S3 configured for recording, always for multistream) through a lease
+in the station's shared statedb (`leases`; `pkg/director/roles.go`). The
+holder renews the lease every 2 seconds; a node that dies stops, and the
+next contender takes the job over once the 6 second TTL has lapsed. A node
+that ends a session cleanly releases its leases, so a peer takes over at
+once. A node on its own statedb simply holds every lease.
+
+Transcoding is contended for only by a node that is an origin for the
+stream, one that ingests it or that a peer pushes it to, and that has a
+Livepeer gateway: peers take a stream's renditions from its origin, so
+renditions minted on a pull-only replica would reach nobody but its own
+viewers.

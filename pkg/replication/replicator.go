@@ -15,4 +15,8 @@ type Replicator interface {
 	SendSegment(context.Context, *media.NewSegmentNotification) error
 	// populate this origin record with whatever fields are pertinent to your replicator
 	BuildOriginRecord(*placestream.BroadcastOrigin) error
+	// ReceivesPush reports whether a peer is pushing streamer's stream to
+	// this node right now, which makes this node an origin for it: peers
+	// take the stream, renditions included, from here.
+	ReceivesPush(streamer string) bool
 }

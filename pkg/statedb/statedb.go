@@ -86,6 +86,7 @@ var StatefulDBModels = []any{
 	Upload{},
 	DraftVideo{},
 	CDNLogPart{},
+	Lease{},
 }
 
 var NoPostgresDatabaseCode = "3D000"

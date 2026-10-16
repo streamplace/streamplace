@@ -3,9 +3,12 @@ package websocketrep
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"slices"
 	"strconv"
@@ -13,12 +16,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	official "moq.dev/moq"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/moq"
 	"stream.place/streamplace/pkg/muxl"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // signedSegments signs the fragmented fixture the way live ingest does and
@@ -110,7 +115,7 @@ func TestMoqServesTheBus(t *testing.T) {
 	moqURL := fmt.Sprintf("moqt://%s?%s=%s", addr, moq.CertHashParam, cert.Hash())
 	var client *official.Client
 	require.Eventually(t, func() bool {
-		client, err = r.dialMoq(ctx, moqURL)
+		client, err = r.dialMoq(ctx, moqURL, nil)
 		return err == nil
 	}, 10*time.Second, 100*time.Millisecond, "the listener comes up")
 	defer client.Close()
@@ -206,4 +211,139 @@ func TestMoqGroupIsBounded(t *testing.T) {
 	frame := []byte{0, 0, 0, 8, 'u', 'u', 'i', 'd'}
 	require.NoError(t, read(frame, frame), "at the cap")
 	require.ErrorContains(t, read(frame, frame, frame), "over 16 bytes")
+}
+
+// A stream this node ingests is announced to the peers it pushes to from
+// its first segment, once, and retracted when its segments stop.
+func TestLiveStreamsAreAnnounced(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	b := bus.NewBus()
+	r := NewWebsocketReplicator(&config.CLI{StreamSessionTimeout: 50 * time.Millisecond}, b, nil, nil, nil, nil)
+	r.group, ctx = errgroup.WithContext(ctx)
+	announced, err := r.pushOrigin.Consume().Announced(official.AnnounceOptions{})
+	require.NoError(t, err)
+	defer announced.Cancel()
+
+	b.PublishSegment(ctx, "did:plc:a", moqSourceChannel, &bus.Seg{Muxl: signedSegments(t, ctx)[0], Published: true})
+	r.touchLive(ctx, "did:plc:a")
+	r.touchLive(ctx, "did:plc:a")
+	a, err := announced.Next(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "did:plc:a", a.Prefix())
+	require.True(t, a.Active())
+
+	r.expireLive()
+	require.Contains(t, r.live, "did:plc:a", "still live inside the session timeout")
+	time.Sleep(80 * time.Millisecond)
+	r.expireLive()
+	a, err = announced.Next(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "did:plc:a", a.Prefix())
+	require.False(t, a.Active(), "retracted, after one announcement")
+}
+
+// A peer this node pushes to gets each live stream announced on the session
+// and its segments served for as long as the stream is live, not just the
+// first one.
+func TestMoqPushesLiveStreams(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := pc.LocalAddr().String()
+	require.NoError(t, pc.Close())
+	cert, err := moq.NewSelfSignedCert()
+	require.NoError(t, err)
+	tlsFiles, err := moq.ManagedTLSFiles(t.TempDir(), cert.Certificate)
+	require.NoError(t, err)
+	require.NoError(t, tlsFiles.Sync())
+	// The peer: what acceptSession and acceptPush do, short of validation.
+	srv, err := official.Listen(ctx, addr, official.WithTLSCert(tlsFiles.CertPath), official.WithTLSKey(tlsFiles.KeyPath))
+	require.NoError(t, err)
+	defer srv.Close()
+	got := make(chan []byte, 8)
+	go func() {
+		for req, err := range srv.Requests(ctx) {
+			if err != nil {
+				return
+			}
+			pushed := official.NewOriginProducer()
+			if req.SetConsume(pushed) != nil {
+				return
+			}
+			sess, err := req.Accept(ctx)
+			if err != nil {
+				return
+			}
+			defer sess.Shutdown()
+			announced, err := pushed.Consume().AnnouncedBroadcast("did:plc:a")
+			if err != nil {
+				return
+			}
+			broadcast, err := announced.Available(ctx)
+			if err != nil {
+				return
+			}
+			_ = consumeBroadcast(ctx, broadcast, func(segment []byte) error {
+				got <- segment
+				return nil
+			}, nil)
+			return
+		}
+	}()
+
+	b := bus.NewBus()
+	r := NewWebsocketReplicator(&config.CLI{StreamSessionTimeout: time.Minute}, b, nil, nil, nil, nil)
+	r.group, ctx = errgroup.WithContext(ctx)
+	segments := signedSegments(t, ctx)
+	b.PublishSegment(ctx, "did:plc:a", moqSourceChannel, &bus.Seg{Muxl: segments[0], Published: true})
+	r.touchLive(ctx, "did:plc:a")
+	client, err := r.dialMoq(ctx, fmt.Sprintf("moqt://%s?%s=%s", addr, moq.CertHashParam, cert.Hash()), r.pushOrigin)
+	require.NoError(t, err)
+	defer client.Close()
+	next := func() []byte {
+		select {
+		case payload := <-got:
+			return payload
+		case <-ctx.Done():
+			t.Fatal("no segment arrived")
+		}
+		return nil
+	}
+	require.Equal(t, segments[0], next())
+	b.PublishSegment(ctx, "did:plc:a", moqSourceChannel, &bus.Seg{Muxl: segments[1], Published: true})
+	require.Equal(t, segments[1], next(), "segments keep coming after the first")
+}
+
+// A --peers entry naming a node's web origin resolves to the MoQ URL that
+// node currently reports; one with no listener is an error to retry, not a
+// session to open.
+func TestResolvePeer(t *testing.T) {
+	var moqURL string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		require.Equal(t, "/xrpc/place.stream.broadcast.getBroadcaster", req.URL.Path)
+		out := placestream.BroadcastGetBroadcaster_Output{Broadcaster: "did:web:peer"}
+		if moqURL != "" {
+			out.MoqURL = &moqURL
+		}
+		_ = json.NewEncoder(w).Encode(out)
+	}))
+	defer srv.Close()
+	r := &WebsocketReplicator{}
+
+	_, err := r.resolvePeer(context.Background(), srv.URL)
+	require.ErrorContains(t, err, "no moq listener")
+
+	moqURL = "moqt://127.0.0.1:38443?certhash=ab"
+	got, err := r.resolvePeer(context.Background(), srv.URL+"/ignored?x=1")
+	require.NoError(t, err)
+	require.Equal(t, moqURL, got)
+
+	got, err = r.resolvePeer(context.Background(), "moqt://peer.example:38443?certhash=cd")
+	require.NoError(t, err)
+	require.Equal(t, "moqt://peer.example:38443?certhash=cd", got)
+
+	_, err = r.resolvePeer(context.Background(), "ftp://peer.example")
+	require.Error(t, err)
 }

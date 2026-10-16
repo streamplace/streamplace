@@ -66,6 +66,18 @@ func TestValidateMP4MediaBareSegment(t *testing.T) {
 	require.NotEmpty(t, res.MediaData.Audio, "should parse an audio track")
 }
 
+// A peer naming one streamer must not get another creator's otherwise valid
+// segment ingested as theirs.
+func TestValidateReplicatedMP4BindsStreamer(t *testing.T) {
+	ctx := context.Background()
+	segment := sourceSegmentForTest(t)
+	mm, _ := getStaticTestMediaManager(t)
+	err := mm.ValidateReplicatedMP4(ctx, bytes.NewReader(segment), "did:plc:different-streamer")
+	require.ErrorContains(t, err, "not did:plc:different-streamer")
+	require.Nil(t, mm.GetLiveWindow("did:plc:different-streamer"))
+	require.ErrorContains(t, mm.ValidateReplicatedMP4(ctx, bytes.NewReader(segment), ""), "no named streamer")
+}
+
 // TestFeedLiveWindow signs the fixture per-segment, folds the resulting bare
 // .m4s into a MediaManager live-HLS window via feedLiveWindow, and confirms the
 // window is populated per track with retrievable signed segments + valid

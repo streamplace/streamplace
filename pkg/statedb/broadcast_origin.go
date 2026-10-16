@@ -8,6 +8,11 @@ type BroadcastOrigin struct {
 	StreamerRepoDID string    `gorm:"column:streamer_repo_did;primarykey;index:idx_streamer_repo_did_updated_at,priority:1"`
 	ServerDID       string    `gorm:"column:server_did;primarykey;index:idx_server_did_updated_at,priority:1"`
 	UpdatedAt       time.Time `gorm:"column:updated_at;index:idx_streamer_repo_did_updated_at,priority:2;index:idx_server_did_updated_at,priority:2"`
+	// MoqURL is where the ingest node serves the stream over Media over
+	// QUIC, with its certificate hash when self-signed: unlike the
+	// websocket URL it cannot be derived from the server DID, so the
+	// ingest node writes it. Empty from a node without a MoQ listener.
+	MoqURL string `gorm:"column:moq_url"`
 }
 
 func (m *BroadcastOrigin) TableName() string {
@@ -15,12 +20,13 @@ func (m *BroadcastOrigin) TableName() string {
 }
 
 // UpsertBroadcastOrigin inserts or updates a BroadcastOrigin entry.
-// If an entry with the same StreamerRepoDID and ServerRepoDID exists, it updates UpdatedAt.
+// If an entry with the same StreamerRepoDID and ServerRepoDID exists, it updates UpdatedAt and MoqURL.
 // Otherwise, it creates a new entry.
-func (state *StatefulDB) UpsertBroadcastOrigin(streamerRepoDID, serverRepoDID string, updatedAt time.Time) error {
+func (state *StatefulDB) UpsertBroadcastOrigin(streamerRepoDID, serverRepoDID, moqURL string, updatedAt time.Time) error {
 	broadcastOrigin := &BroadcastOrigin{
 		StreamerRepoDID: streamerRepoDID,
 		ServerDID:       serverRepoDID,
+		MoqURL:          moqURL,
 		UpdatedAt:       updatedAt,
 	}
 	// Uses GORM's upsert ("ON CONFLICT DO UPDATE") by providing primary keys and using Updates

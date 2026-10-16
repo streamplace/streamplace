@@ -113,6 +113,10 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		devAccountCreds = append(devAccountCreds, fmt.Sprintf("%s=%s", acct.DID, acct.Password))
 	}
 	apiPort := nextPort()
+	// Every node listens for MoQ on UDP :38443 by default, and the nodes'
+	// broadcaster hosts don't resolve, so each gets its own port, advertised
+	// on loopback.
+	moqPort := nextPort()
 	env := map[string]string{
 		"SP_HTTP_ADDR":              fmt.Sprintf("127.0.0.1:%d", apiPort),
 		"SP_HTTP_INTERNAL_ADDR":     fmt.Sprintf("127.0.0.1:%d", nextPort()),
@@ -126,6 +130,8 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		"RUST_LOG":                  os.Getenv("RUST_LOG"),
 		"SP_BROADCASTER_HOST":       fmt.Sprintf("%s.example.com", name),
 		"SP_WEBSOCKET_URL":          fmt.Sprintf("ws://127.0.0.1:%d", apiPort),
+		"SP_MOQ_ADDR":               fmt.Sprintf("127.0.0.1:%d", moqPort),
+		"SP_MOQ_URL":                fmt.Sprintf("moqt://127.0.0.1:%d", moqPort),
 	}
 	_, file, _, _ := runtime.Caller(0)
 	buildDir := fmt.Sprintf("build-%s-%s", runtime.GOOS, runtime.GOARCH)
@@ -197,7 +203,11 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		<-nodeCtx.Done()
 		node.Shutdown(t)
 	}()
+	// The scraper must be done before shutdown kills the node: a scrape of a
+	// dead node after the test has completed fails it, which panics.
+	scraperDone := make(chan struct{})
 	go func() {
+		defer close(scraperDone)
 		for {
 			select {
 			case <-nodeCtx.Done():
@@ -229,6 +239,7 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		}
 		shuttingDown = true
 		nodeCancel()
+		<-scraperDone
 		_ = cmd.Process.Kill()
 		_, _ = cmd.Process.Wait()
 		// Wait for stdout/stderr readers to finish

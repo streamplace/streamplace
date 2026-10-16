@@ -41,6 +41,7 @@ import (
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/moq"
 	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/replication"
@@ -416,8 +417,20 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			return err
 		}
 	}
+	// MoQ serves TLS itself even behind an HTTPS proxy: with --secure it
+	// uses the node's certificate, otherwise a self-signed one whose hash
+	// peers pin from the advertised URL (see moq.CertHashParam).
+	var moqSelfSigned *moq.SelfSignedCert
+	if cli.MoqAddr != "" && !cli.Secure {
+		moqSelfSigned, err = moq.NewSelfSignedCert()
+		if err != nil {
+			return err
+		}
+	}
+	var wsrep *websocketrep.WebsocketReplicator
 	if slices.Contains(cli.Replicators, config.ReplicatorWebsocket) {
-		replicator = websocketrep.NewWebsocketReplicator(b, mod, mm, state)
+		wsrep = websocketrep.NewWebsocketReplicator(b, mod, mm, state, moqSelfSigned)
+		replicator = wsrep
 	}
 
 	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb, atsync)
@@ -620,6 +633,26 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		group.Go(func() error {
 			return a.ServeRTMP(ctx)
 		})
+	}
+
+	// The MoQ listener is the websocket replicator's (see docs/moq.md). It
+	// reads its certificate from files, which Go keeps current.
+	if cli.MoqAddr != "" && wsrep != nil {
+		switch {
+		case a.ACME != nil:
+			tlsConfig := a.ACME.TLSConfig()
+			wsrep.MoqTLS, err = moq.ManagedTLSFiles(cli.DataFilePath([]string{"moq-tls"}), func() (*tls.Certificate, error) {
+				host := (&url.URL{Host: cli.ServerHost}).Hostname()
+				return tlsConfig.GetCertificate(&tls.ClientHelloInfo{ServerName: host})
+			})
+		case cli.Secure:
+			wsrep.MoqTLS = moq.StaticTLSFiles(cli.TLSCertPath, cli.TLSKeyPath)
+		default:
+			wsrep.MoqTLS, err = moq.ManagedTLSFiles(cli.DataFilePath([]string{"moq-tls"}), moqSelfSigned.Certificate)
+		}
+		if err != nil {
+			return fmt.Errorf("preparing moq TLS: %w", err)
+		}
 	}
 
 	group.Go(func() error {

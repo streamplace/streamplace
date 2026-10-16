@@ -13,6 +13,7 @@ import (
 	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/moq"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -107,7 +108,8 @@ func TestPullKeepsRetryingQuietOrigin(t *testing.T) {
 }
 
 // Rows from the shared statedb become origins to pull from, shaped like the
-// firehose's, with the URL a node at that server DID advertises.
+// firehose's, with the URL a node at that server DID advertises and the MoQ
+// URL the row carries, if any.
 func TestOriginViewForRow(t *testing.T) {
 	r := &WebsocketReplicator{cli: &config.CLI{ServerHost: "me.example", BehindHTTPSProxy: true}}
 	view := r.originViewForRow(statedb.BroadcastOrigin{StreamerRepoDID: "did:plc:s", ServerDID: "did:web:origin.example", UpdatedAt: time.Now()})
@@ -115,4 +117,24 @@ func TestOriginViewForRow(t *testing.T) {
 	require.Equal(t, "wss://origin.example/xrpc/place.stream.live.subscribeSegments?streamer=did%3Aplc%3As", *origin.WebsocketURL)
 	require.Equal(t, "did:plc:s", origin.Streamer)
 	require.Equal(t, "did:plc:s", view.Author.Did)
+	require.Nil(t, origin.MoqURL)
+
+	view = r.originViewForRow(statedb.BroadcastOrigin{StreamerRepoDID: "did:plc:s", ServerDID: "did:web:origin.example", MoqURL: "moqt://origin.example:443?certhash=ab", UpdatedAt: time.Now()})
+	require.Equal(t, "moqt://origin.example:443?certhash=ab", *view.Record.Val.(*placestream.BroadcastOrigin).MoqURL)
+}
+
+// The advertised MoQ URL is this host on the listener's port, carrying the
+// self-signed certificate's hash for peers to pin, and nothing without a
+// listener.
+func TestMyMoqURL(t *testing.T) {
+	cert, err := moq.NewSelfSignedCert()
+	require.NoError(t, err)
+	r := &WebsocketReplicator{cli: &config.CLI{ServerHost: "me.example:38090", MoqAddr: ":38443"}, moqCert: cert}
+	require.Equal(t, "moqt://me.example:38443?certhash="+cert.Hash(), r.getMyMoqURL())
+
+	r = &WebsocketReplicator{cli: &config.CLI{ServerHost: "me.example", MoqAddr: ":443", MoqURL: "moqt://edge.example"}}
+	require.Equal(t, "moqt://edge.example", r.getMyMoqURL())
+
+	r = &WebsocketReplicator{cli: &config.CLI{ServerHost: "me.example"}, moqCert: cert}
+	require.Equal(t, "", r.getMyMoqURL())
 }

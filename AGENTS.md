@@ -79,6 +79,11 @@ For the code you change, run targeted checks where practical:
 go test -count=1 ./pkg/<package>/...
 ```
 
+A test binary that links the MoQ transport needs the native archive's directory
+first in `CGO_LDFLAGS`, ahead of the prebuilt copy `moq.dev/moq-ffi` brings.
+Make's targets set it; for a direct `go test`, use the environment the
+[streamplace-docker skill](.claude/skills/streamplace-docker/SKILL.md) shows.
+
 `go vet ./pkg/<package>/...` is a fast sanity check, but it is much weaker than
 the lint in the commit gate (golangci-lint with staticcheck). A change that
 passes `go vet` can still fail CI tests! See [Checking your work](#checking-your-work).

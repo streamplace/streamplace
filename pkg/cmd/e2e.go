@@ -137,6 +137,80 @@ func freePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
+func freeUDPPort() (int, error) {
+	c, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer c.Close()
+	return c.LocalAddr().(*net.UDPAddr).Port, nil
+}
+
+// startNode forks this binary as a Streamplace node on the dev-env's PDS and
+// PLC, with extra on top of the configuration every harness node shares.
+func startNode(ctx context.Context, self string, env e2eDevEnv, dataDir string, extra []string) (*exec.Cmd, error) {
+	nodeCmd := exec.CommandContext(ctx, self)
+	// Inherit the parent environment (dev builds need LD_LIBRARY_PATH etc.)
+	// but strip any SP_ vars so the node only gets our config.
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, "SP_") {
+			nodeCmd.Env = append(nodeCmd.Env, kv)
+		}
+	}
+	nodeCmd.Env = append(nodeCmd.Env,
+		fmt.Sprintf("SP_RELAY_HOST=%s", strings.ReplaceAll(env.PDSURL, "http://", "ws://")),
+		fmt.Sprintf("SP_PLC_URL=%s", env.PLCURL),
+		fmt.Sprintf("SP_DATA_DIR=%s", dataDir),
+		"SP_STREAM_SESSION_TIMEOUT=30s",
+		"SP_TRUST_PRIVATE_NETWORK=true",
+	)
+	nodeCmd.Env = append(nodeCmd.Env, extra...)
+	nodeCmd.Stdout = os.Stderr
+	nodeCmd.Stderr = os.Stderr
+	// Own process group, so cleanup can take the whole tree down at once.
+	setNodeProcessGroup(nodeCmd)
+	if err := nodeCmd.Start(); err != nil {
+		return nil, fmt.Errorf("start node: %w", err)
+	}
+	return nodeCmd, nil
+}
+
+// waitForNode waits for the node at httpAddr to answer /api/healthz. Bounded,
+// so a node that never comes up reports why instead of hanging the harness
+// (and `make provision`) with no output forever.
+func waitForNode(ctx context.Context, httpAddr string) error {
+	healthURL := fmt.Sprintf("http://%s/api/healthz", httpAddr)
+	httpClient := &http.Client{Timeout: 2 * time.Second}
+	deadline := time.Now().Add(nodeReadyTimeout)
+	var lastErr error
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		resp, err := httpClient.Get(healthURL)
+		switch {
+		case err != nil:
+			lastErr = err
+		case resp.StatusCode == http.StatusOK:
+			// Close every response, not just the happy one: a body left open
+			// holds its connection out of the pool, so a node answering
+			// non-200 exhausts them.
+			resp.Body.Close()
+			return nil
+		default:
+			lastErr = fmt.Errorf("GET %s: %s", healthURL, resp.Status)
+			resp.Body.Close()
+		}
+		if time.Now().After(deadline) {
+			if lastErr == nil {
+				lastErr = errors.New("no response")
+			}
+			return fmt.Errorf("node was not ready after %s: %w", nodeReadyTimeout, lastErr)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
 func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, httpsPort int, appBundleID string) error {
 	// Ctrl-C / SIGTERM must unwind through the normal path, or none of the
 	// teardown below runs: Go's default handling exits immediately, which left
@@ -244,6 +318,10 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	if err != nil {
 		return err
 	}
+	moqPort, err := freeUDPPort()
+	if err != nil {
+		return err
+	}
 	httpAddr := fmt.Sprintf("127.0.0.1:%d", httpPort)
 	broadcasterHost := httpAddr
 	if tlsEnv != nil {
@@ -281,82 +359,83 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		return fmt.Errorf("break debug-recording sink: %w", err)
 	}
 
-	nodeCmd := exec.CommandContext(ctx, self)
-	// Inherit the parent environment (dev builds need LD_LIBRARY_PATH etc.)
-	// but strip any SP_ vars so the node only gets our config.
-	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "SP_") {
-			nodeCmd.Env = append(nodeCmd.Env, kv)
-		}
-	}
-	nodeCmd.Env = append(nodeCmd.Env,
+	nodeEnv := []string{
 		fmt.Sprintf("SP_HTTP_ADDR=%s", httpAddr),
 		fmt.Sprintf("SP_HTTP_INTERNAL_ADDR=127.0.0.1:%d", internalPort),
 		fmt.Sprintf("SP_RTMP_ADDR=127.0.0.1:%d", rtmpPort),
-		fmt.Sprintf("SP_RELAY_HOST=%s", strings.ReplaceAll(env.PDSURL, "http://", "ws://")),
-		fmt.Sprintf("SP_PLC_URL=%s", env.PLCURL),
-		fmt.Sprintf("SP_DATA_DIR=%s", dataDir),
+		fmt.Sprintf("SP_MOQ_ADDR=127.0.0.1:%d", moqPort),
 		fmt.Sprintf("SP_DEV_ACCOUNT_CREDS=%s=%s", out.Did, password),
 		// The account administers the node's branding, which web flows edit
 		// through Settings -> Branding.
 		fmt.Sprintf("SP_ADMIN_DIDS=%s", out.Did),
 		fmt.Sprintf("SP_BROADCASTER_HOST=%s", broadcasterHost),
 		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", httpAddr),
-		"SP_STREAM_SESSION_TIMEOUT=30s",
-		"SP_TRUST_PRIVATE_NETWORK=true",
-	)
+		fmt.Sprintf("SP_MOQ_URL=moqt://127.0.0.1:%d", moqPort),
+	}
 	if tlsEnv != nil {
-		nodeCmd.Env = append(nodeCmd.Env, tlsEnv.NodeEnv()...)
+		nodeEnv = append(nodeEnv, tlsEnv.NodeEnv()...)
 	}
 	if appBundleID != "" {
-		nodeCmd.Env = append(nodeCmd.Env, "SP_APP_BUNDLE_ID="+appBundleID)
+		nodeEnv = append(nodeEnv, "SP_APP_BUNDLE_ID="+appBundleID)
 	}
-	nodeCmd.Stdout = os.Stderr
-	nodeCmd.Stderr = os.Stderr
-	// Own process group, so cleanup can take the whole tree down at once.
-	setNodeProcessGroup(nodeCmd)
-	if err := nodeCmd.Start(); err != nil {
-		return fmt.Errorf("start node: %w", err)
+	nodeCmd, err := startNode(ctx, self, env, dataDir, nodeEnv)
+	if err != nil {
+		return err
 	}
 	// Kill the node *and* the ingest workers it detaches; the plain
 	// Process.Kill that used to be here left those behind.
 	defer killNode(ctx, nodeCmd, out.Did)
+	if err := waitForNode(ctx, httpAddr); err != nil {
+		return err
+	}
 
-	// Wait for the node to be ready. Bounded, so a node that never comes up
-	// reports why instead of hanging the harness (and `make provision`) with
-	// no output forever.
-	healthURL := fmt.Sprintf("http://%s/api/healthz", httpAddr)
-	httpClient := &http.Client{Timeout: 2 * time.Second}
-	deadline := time.Now().Add(nodeReadyTimeout)
-	ready := false
-	var lastErr error
-	for !ready {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		resp, err := httpClient.Get(healthURL)
-		switch {
-		case err != nil:
-			lastErr = err
-		case resp.StatusCode == http.StatusOK:
-			// Close every response, not just the happy one: a body left open
-			// holds its connection out of the pool, so a node answering
-			// non-200 exhausts them.
-			resp.Body.Close()
-			ready = true
-		default:
-			lastErr = fmt.Errorf("GET %s: %s", healthURL, resp.Status)
-			resp.Body.Close()
-		}
-		if !ready {
-			if time.Now().After(deadline) {
-				if lastErr == nil {
-					lastErr = errors.New("no response")
-				}
-				return fmt.Errorf("node was not ready after %s: %w", nodeReadyTimeout, lastErr)
-			}
-			time.Sleep(200 * time.Millisecond)
-		}
+	// A second node, a peer that syndicates whatever the first ingests: it
+	// hears the origin record on the shared PDS firehose and pulls the
+	// stream over MoQ (see docs/moq.md), and playing the stream from it is
+	// what proves that transfer end to end. Started now, before the records
+	// below, so it indexes the stream key as it is created like the first.
+	peerHTTPPort, err := freePort()
+	if err != nil {
+		return err
+	}
+	peerInternalPort, err := freePort()
+	if err != nil {
+		return err
+	}
+	peerRTMPPort, err := freePort()
+	if err != nil {
+		return err
+	}
+	peerMoqPort, err := freeUDPPort()
+	if err != nil {
+		return err
+	}
+	peerAddr := fmt.Sprintf("127.0.0.1:%d", peerHTTPPort)
+	peerDataDir, err := os.MkdirTemp("", "streamplace-e2e-peer-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(peerDataDir) //nolint:errcheck
+	peerEnv := []string{
+		fmt.Sprintf("SP_HTTP_ADDR=%s", peerAddr),
+		fmt.Sprintf("SP_HTTP_INTERNAL_ADDR=127.0.0.1:%d", peerInternalPort),
+		fmt.Sprintf("SP_RTMP_ADDR=127.0.0.1:%d", peerRTMPPort),
+		fmt.Sprintf("SP_MOQ_ADDR=127.0.0.1:%d", peerMoqPort),
+		fmt.Sprintf("SP_BROADCASTER_HOST=%s", peerAddr),
+		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", peerAddr),
+		"SP_SYNDICATE=*",
+	}
+	if tlsEnv != nil {
+		// The peer syncs the streamer's repo from the same HTTPS PDS.
+		peerEnv = append(peerEnv, tlsEnv.TrustEnv()...)
+	}
+	peerCmd, err := startNode(ctx, self, env, peerDataDir, peerEnv)
+	if err != nil {
+		return fmt.Errorf("peer: %w", err)
+	}
+	defer killNode(ctx, peerCmd, out.Did)
+	if err := waitForNode(ctx, peerAddr); err != nil {
+		return fmt.Errorf("peer: %w", err)
 	}
 
 	// Register a stream key for the test account.
@@ -452,8 +531,8 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	// poll for SERVER_URL and then read the whole file. E2E_FIXTURE_MP4 is
 	// the local file the ingest loop is streaming, which tests upload through
 	// the app to get themselves a playable VOD.
-	vars := fmt.Sprintf("SERVER_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nE2E_FIXTURE_MP4=%s\n",
-		httpAddr, out.Handle, out.Did, password, videoURI, fixture)
+	vars := fmt.Sprintf("SERVER_URL=http://%s\nSERVER2_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nE2E_FIXTURE_MP4=%s\n",
+		httpAddr, peerAddr, out.Handle, out.Did, password, videoURI, fixture)
 	if tlsEnv != nil {
 		// The same node over HTTPS at its public name, plus what clients
 		// need to reach and trust it (see e2e_https.go): a browser pins the

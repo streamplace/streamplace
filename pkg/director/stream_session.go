@@ -321,7 +321,17 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 
 	if notif.Local {
 		ss.Go(ctx, func() error {
-			return ss.statefulDB.UpsertBroadcastOrigin(spseg.Creator, ss.cli.ServerDID(), time.Now())
+			// The row carries what a peer cannot derive from our DID: where
+			// we serve this stream over MoQ (see websocketrep.originViewForRow).
+			origin := placestream.BroadcastOrigin{Streamer: spseg.Creator}
+			if err := ss.replicator.BuildOriginRecord(&origin); err != nil {
+				return fmt.Errorf("could not build origin record: %w", err)
+			}
+			var moqURL string
+			if origin.MoqURL != nil {
+				moqURL = *origin.MoqURL
+			}
+			return ss.statefulDB.UpsertBroadcastOrigin(spseg.Creator, ss.cli.ServerDID(), moqURL, time.Now())
 		})
 	}
 

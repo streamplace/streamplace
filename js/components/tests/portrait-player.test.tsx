@@ -200,6 +200,7 @@ async function bindings() {
     useTheme: () => ({ theme: tokens }),
     Player: View,
     PlayerUI: {
+      ActionFeedback: () => null,
       ViewerLoadingOverlay: () => null,
       ContextMenu: () => <span>Menu</span>,
       AutoplayButton: () => null,

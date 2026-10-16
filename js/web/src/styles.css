@@ -134,7 +134,6 @@ code {
   --color-fg: var(--color-foreground);
   --color-fg-muted: var(--color-muted-foreground);
   --color-fg-subtle: var(--color-muted-foreground);
-  --color-accent: var(--color-accent);
   --color-accent-hover: var(--color-accent);
   --color-accent-fg: var(--color-accent-foreground);
   --color-danger: var(--color-chart-1);

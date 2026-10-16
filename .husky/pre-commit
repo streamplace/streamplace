@@ -3,9 +3,9 @@ make golangci-lint
 pnpm run knip
 pnpm run lint
 pnpm run test:eslint
-cd js/app && pnpm run check
+(cd js/app && pnpm run check)
 
-unformatted=$(gofmt -l $(find . -name "*.go"))
+unformatted=$(bash hack/gofmt.sh -l)
 if [ -n "$unformatted" ]; then
   printf "The following files are not formatted.\n"
   printf "%s\n" "$unformatted"

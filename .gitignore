@@ -13,6 +13,7 @@ bin
 description.md
 lerna-debug.log
 build-*
+!hack/build-native.sh
 .ci/build.env
 *.log
 *.heap
@@ -26,6 +27,7 @@ test.xml
 js/app/src/build-info.json
 *.env
 muxl.wasm
+pkg/streamplacedeps/native_digest.go
 /moderation
 libstreamplace
 libstreamplace/

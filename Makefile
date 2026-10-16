@@ -18,12 +18,25 @@ endif
 ifeq ($(BUILDARCH),x86_64)
 		BUILDARCH=amd64
 endif
+# MoQ's default native codecs link ScreenCaptureKit, available since macOS 12.3.
+MACOSX_DEPLOYMENT_TARGET?=12.3
 MACOS_VERSION_FLAG=
 ifeq ($(BUILDOS),darwin)
-	MACOS_VERSION_FLAG=-mmacosx-version-min=$(shell sw_vers -productVersion)
+	export MACOSX_DEPLOYMENT_TARGET
+	MACOS_VERSION_FLAG=-mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
 endif
 BUILDDIR?=build-$(BUILDOS)-$(BUILDARCH)
-PKG_CONFIG_PATH=$(shell pwd)/$(BUILDDIR)/lib/pkgconfig:$(shell pwd)/$(BUILDDIR)/lib/gstreamer-1.0/pkgconfig:$(shell pwd)/$(BUILDDIR)/meson-uninstalled
+PKG_CONFIG_PATH=$(shell pwd)/$(BUILDDIR)/meson-uninstalled:$(shell pwd)/$(BUILDDIR)/lib/pkgconfig:$(shell pwd)/$(BUILDDIR)/lib/gstreamer-1.0/pkgconfig
+NATIVE_LIBDIR=$(abspath $(BUILDDIR)/rust/streamplace-native)
+NATIVE_ENV=bash "$(CURDIR)/hack/native-go.sh" "$(NATIVE_LIBDIR)"
+NATIVE_CGO_LDFLAGS=-L$(NATIVE_LIBDIR) -lmoq_ffi $(MACOS_VERSION_FLAG)
+ifeq ($(BUILDOS),windows)
+	NATIVE_CGO_LDFLAGS+= -Wl,-Bstatic -lstdc++ -lwinpthread -Wl,-Bdynamic -static-libgcc
+else ifneq ($(BUILDOS),darwin)
+	NATIVE_CGO_LDFLAGS+= -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic
+endif
+NATIVE_PROFILE?=debug
+RUST_TRIPLE?=
 
 # Sentinel file that records when lexicons were last built
 LEXICON_STAMP := .build/lexicon-stamp
@@ -274,6 +287,16 @@ meson-setup-static:
 meson-compile:
 	meson install -C $(BUILDDIR)
 
+# Source bootstrap is independent of Meson configuration and is a no-op once
+# the pinned checkout exists, so repeated/offline native builds do not fetch.
+.PHONY: native-source
+native-source:
+	meson subprojects download --sourcedir . moq
+
+.PHONY: native
+native: native-source
+	bash hack/build-native.sh "$(CURDIR)" "$(NATIVE_LIBDIR)" "$(NATIVE_PROFILE)" "$(RUST_TRIPLE)"
+
 
 #    _____ _______    _______ _____ _____
 #   / ____|__   __|/\|__   __|_   _/ ____|
@@ -292,7 +315,8 @@ static:
 static-test:
 	go install github.com/jstemmer/go-junit-report/v2@latest \
 	&& PKG_CONFIG_PATH=$(shell realpath $(BUILDDIR)/meson-uninstalled) \
-	bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
+	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
+	$(NATIVE_ENV) bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
 
 # Run `streamplace vod-test` against a known set of fixture VODs using
 # the static binary at ./build-linux-amd64/streamplace. Skips cleanly
@@ -344,8 +368,8 @@ dev: app-cached $(LEXICON_STAMP)
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
-	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
-	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
+	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
+	LD_LIBRARY_PATH=$(BUILDDIR)/lib $(NATIVE_ENV) go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
 
 .PHONY: dev-web
 dev-web: app-cached $(LEXICON_STAMP)
@@ -353,8 +377,8 @@ dev-web: app-cached $(LEXICON_STAMP)
 	cp ./util/streamplace-dev-web.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
-	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
-	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
+	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
+	LD_LIBRARY_PATH=$(BUILDDIR)/lib $(NATIVE_ENV) go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
 
 .PHONY: dev-setup-meson
 dev-setup-meson:
@@ -366,33 +390,39 @@ dev-setup-meson-configure:
 	meson setup --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 	meson configure --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 
+# Go's cache does not see static archive contents, and skips relinking while
+# no package's compiled output changes. Like hack/native-go.sh for Make's own
+# Go commands, the generated native_digest.go compiles the archive's digest
+# into a cgo object, so plain go build/test relink against a new one.
 .PHONY: dev-rust
-dev-rust: .build/bin/uniffi-bindgen-go-forked
-	cargo build
+dev-rust: native-source .build/bin/uniffi-bindgen-go-forked
+	meson compile -C $(BUILDDIR) streamplace-native
 	EXT=so; \
 	if [ "$(BUILDOS)" = "darwin" ]; then EXT=dylib; fi; \
-	.build/bin/uniffi-bindgen-go-forked --out-dir pkg/iroh/generated --library ./target/debug/libiroh_streamplace.$$EXT \
-	&& mkdir -p $(BUILDDIR)/rust/iroh-streamplace/ \
+	.build/bin/uniffi-bindgen-go-forked --crate iroh_streamplace --out-dir pkg/iroh/generated --library "$(NATIVE_LIBDIR)/libiroh_streamplace.$$EXT" \
 	&& mkdir -p $(BUILDDIR)/lib/ \
-	&& cp ./target/debug/libiroh_streamplace.$$EXT $(BUILDDIR)/rust/iroh-streamplace/libiroh_streamplace.$$EXT.tmp \
-	&& mv $(BUILDDIR)/rust/iroh-streamplace/libiroh_streamplace.$$EXT.tmp $(BUILDDIR)/rust/iroh-streamplace/libiroh_streamplace.$$EXT \
-	&& cp ./target/debug/libiroh_streamplace.$$EXT $(BUILDDIR)/lib/libiroh_streamplace.$$EXT.tmp \
-	&& mv $(BUILDDIR)/lib/libiroh_streamplace.$$EXT.tmp $(BUILDDIR)/lib/libiroh_streamplace.$$EXT
+	&& cp "$(NATIVE_LIBDIR)/libstreamplace_native.a" $(BUILDDIR)/lib/libstreamplace_native.a.tmp \
+	&& mv $(BUILDDIR)/lib/libstreamplace_native.a.tmp $(BUILDDIR)/lib/libstreamplace_native.a \
+	&& cp "$(NATIVE_LIBDIR)/libmoq_ffi.a" $(BUILDDIR)/lib/libmoq_ffi.a.tmp \
+	&& mv $(BUILDDIR)/lib/libmoq_ffi.a.tmp $(BUILDDIR)/lib/libmoq_ffi.a
+	digest=$$( (sha256sum $(BUILDDIR)/lib/libstreamplace_native.a 2>/dev/null || shasum -a 256 $(BUILDDIR)/lib/libstreamplace_native.a) | cut -d' ' -f1 ); \
+	printf '// Code generated by make dev-rust. DO NOT EDIT.\n\npackage streamplacedeps\n\n// __attribute__((used)) static const char streamplace_native_sha256[] = "%s";\nimport "C"\n' "$$digest" > pkg/streamplacedeps/native_digest.go
 
 .PHONY: dev-test
 dev-test:
 	go install github.com/jstemmer/go-junit-report/v2@latest \
 	&& PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
-	CGO_LDFLAGS="-lm" \
-	bash -euo pipefail -c "go test -p 1 -timeout 30m ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
+	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
+	$(NATIVE_ENV) bash -euo pipefail -c "go test -p 1 -timeout 30m ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
 
 .PHONY: iroh-test
 iroh-test:
 	$(MAKE) dev-rust
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
-	go build -o $(BUILDDIR)/iroh-test ./pkg/iroh/iroh_test/...
+	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
+	$(NATIVE_ENV) go build -o $(BUILDDIR)/iroh-test ./pkg/iroh/iroh_test/...
 
 #   _      _____ _   _ _______ _____ _   _  _____
 #  | |    |_   _| \ | |__   __|_   _| \ | |/ ____|
@@ -405,20 +435,21 @@ iroh-test:
 check: install
 	$(MAKE) golangci-lint
 	pnpm run check
-	if [ "`gofmt -l . | wc -l`" -gt 0 ]; then echo 'gofmt failed, run make fix'; exit 1; fi
+	@if [ -n "$$(bash hack/gofmt.sh -l)" ]; then echo 'gofmt failed, run make fix'; exit 1; fi
 	RUSTFLAGS="-D warnings" cargo check
 
 .PHONY: fix
 fix:
 	pnpm run fix
-	gofmt -w .
+	bash hack/gofmt.sh -w
 	cargo fix --allow-dirty
 	go mod tidy
 
 .PHONY: golangci-lint
 golangci-lint:
 	@PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
-	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint run -c ./.golangci.yaml
+	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
+	$(NATIVE_ENV) go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint run -c ./.golangci.yaml
 
 #   _      ________   _______ _____ ____  _   _  _____
 #  | |    |  ____\ \ / /_   _/ ____/ __ \| \ | |/ ____|
@@ -489,10 +520,10 @@ ci-lexicons:
 LINUX_LINK_COUNT=5
 .PHONY: link-test-linux
 link-test-linux:
-	count=$(shell ldd ./build-linux-amd64/streamplace | wc -l) \
+	count=$(shell ldd ./$(BUILDDIR)/streamplace | wc -l) \
 	&& echo $$count \
 	&& if [ "$$count" != "$(LINUX_LINK_COUNT)" ]; then echo "ldd reports new libaries linked! want $(LINUX_LINK_COUNT) got $$count" \
-		&& ldd ./build-linux-amd64/streamplace \
+		&& ldd ./$(BUILDDIR)/streamplace \
 		&& exit 1; \
 	fi
 
@@ -653,6 +684,7 @@ windows-amd64:
 	&& CC=x86_64-w64-mingw32-gcc \
 	LD=x86_64-w64-mingw32-ld \
 	CROSS_COMPILE=1 \
+	CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc \
 	MESON_SETUP_OPTS="--cross-file util/windows-amd64-gnu.ini" \
 	BUILDDIR=build-windows-amd64 \
 	$(MAKE) -j $(shell nproc) archive
@@ -666,6 +698,7 @@ darwin-amd64:
 	&& export CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER=x86_64-apple-darwin24.4-clang \
 	&& export LD=x86_64-apple-darwin24.4-ld \
 	&& export CROSS_COMPILE=1 \
+	&& export MACOSX_DEPLOYMENT_TARGET=12.3 \
 	&& export MESON_SETUP_OPTS="--cross-file util/osxcross-darwin-amd64.ini" \
 	&& export BUILDDIR=build-darwin-amd64 \
 	&& $(MAKE) -j $(shell nproc) streamplace \
@@ -684,6 +717,7 @@ darwin-arm64:
 	&& export CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=aarch64-apple-darwin24.4-clang \
 	&& export LD=aarch64-apple-darwin24.4-ld \
 	&& export CROSS_COMPILE=1 \
+	&& export MACOSX_DEPLOYMENT_TARGET=12.3 \
 	&& export MESON_SETUP_OPTS="--cross-file util/osxcross-darwin-arm64.ini" \
 	&& export BUILDDIR=build-darwin-arm64 \
 	&& $(MAKE) -j $(shell nproc) streamplace \
@@ -1011,7 +1045,6 @@ ci-download-file:
 
 .PHONY: c2pa-types
 c2pa-types:
-	$(MAKE) dev-rust
-	./target/debug/export_c2pa_schema
+	cargo run --package export_c2pa_schema
 	npx quicktype --lang go --src-lang schema --package c2patypes --out pkg/c2patypes/c2patypes.go ./target/schema/C2PA.schema.json
 	gofmt -w pkg/c2patypes/c2patypes.go

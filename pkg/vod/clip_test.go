@@ -129,9 +129,11 @@ func TestFindClip(t *testing.T) {
 	require.Equal(t, flatOracle(t, segs[1:]), clipBytes("did:plc:recorded", at(1).Add(-time.Millisecond), at(2), fakeBuffer{}))
 
 	// The recorder appends segments in arrival order, which can differ from
-	// start-time order; the clip is still in start-time order.
+	// start-time order; the clip is still in start-time order, and a range
+	// ending before the first-queued segment still finds the earlier one.
 	recordObject(t, state, store, "did:plc:reordered", "reordered.m4s", [][]byte{segs[1], segs[0]}, []time.Time{at(1), at(0)})
 	require.Equal(t, flatOracle(t, segs), clipBytes("did:plc:reordered", at(0), at(1), fakeBuffer{}))
+	require.Equal(t, flatOracle(t, segs[:1]), clipBytes("did:plc:reordered", at(0), at(0), fakeBuffer{}))
 }
 
 // TestFindClipOpenRecording covers the object still being recorded, which
@@ -170,6 +172,9 @@ func TestFindClipOpenRecording(t *testing.T) {
 		{Start: ago(2), Published: true, Data: segs[1]},
 	}
 	require.ErrorIs(t, clip(replica, ago(3), now), ErrClipUnavailable)
+	// A moderation clip takes what the replica has instead.
+	_, err = FindClip(ctx, state, store, replica, did, ago(3), now, true)
+	require.NoError(t, err)
 	// Video after the range doesn't decide it: here the streamer moved to
 	// another ingest node, whose segments now reach this one replicated.
 	moved := fakeBuffer{

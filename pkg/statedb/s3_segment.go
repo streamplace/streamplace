@@ -20,7 +20,10 @@ type S3Segment struct {
 	Bucket        string `gorm:"column:bucket;not null"`
 	Key           string `gorm:"column:key;not null"`
 	URL           string `gorm:"column:url"`
-	// StartedAt is the media start time of the object's first segment.
+	// StartedAt is the media start time of the object's earliest segment.
+	// Segments can reach the uploader slightly out of start-time order, so
+	// it's the first one queued until RecordComplete lowers it to the
+	// earliest in the index.
 	StartedAt   time.Time  `gorm:"column:started_at"`
 	CompletedAt *time.Time `gorm:"column:completed_at"`
 	// Segments indexes the object's segments, so a clip can range-read just
@@ -129,9 +132,17 @@ func (state *StatefulDB) CountOpenS3Segments(ctx context.Context, livestreamURI 
 // final part count, size and segment index. Implements s3.Recorder.
 func (state *StatefulDB) RecordComplete(ctx context.Context, id string, parts int32, size int64, segments []s3.RecordedSegment) error {
 	now := time.Now().UTC()
-	return state.DB.WithContext(ctx).Model(&S3Segment{ID: id}).
-		Select("completed_at", "size", "part_count", "segments").
-		Updates(&S3Segment{CompletedAt: &now, Size: size, PartCount: parts, Segments: segments}).Error
+	row := S3Segment{CompletedAt: &now, Size: size, PartCount: parts, Segments: segments}
+	cols := []string{"completed_at", "size", "part_count", "segments"}
+	if len(segments) > 0 {
+		earliest := segments[0].StartMs
+		for _, seg := range segments[1:] {
+			earliest = min(earliest, seg.StartMs)
+		}
+		row.StartedAt = time.UnixMilli(earliest)
+		cols = append(cols, "started_at")
+	}
+	return state.DB.WithContext(ctx).Model(&S3Segment{ID: id}).Select(cols).Updates(&row).Error
 }
 
 // RecordAbort removes the row of an aborted S3 multipart upload: the object

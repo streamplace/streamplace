@@ -53,9 +53,11 @@ type SegmentBuffer interface {
 // FindClip collects the segments of did's stream that start in [from, to]:
 // from completed recordings (skipped when state or store is nil) and from the
 // node's in-memory buffer, which holds what isn't readable from a recording
-// yet. Recordings only hold published segments; includeUnpublished also takes
-// pre-live segments from memory, for moderation.
-func FindClip(ctx context.Context, state *statedb.StatefulDB, store blob.Store, buf SegmentBuffer, did string, from, to time.Time, includeUnpublished bool) (*Clip, error) {
+// yet. Recordings only hold published segments. A moderation clip is
+// best-effort evidence: it also takes pre-live segments from memory, and
+// takes whatever this node has of an open recording rather than refusing a
+// range it can't vouch for.
+func FindClip(ctx context.Context, state *statedb.StatefulDB, store blob.Store, buf SegmentBuffer, did string, from, to time.Time, moderation bool) (*Clip, error) {
 	fromMs, toMs := from.UnixMilli(), to.UnixMilli()
 	buffered := buf.BufferedSegments(did)
 	c := &Clip{store: store}
@@ -63,8 +65,10 @@ func FindClip(ctx context.Context, state *statedb.StatefulDB, store blob.Store, 
 	if state != nil && store != nil {
 		// Open objects first: one that completes after this check is then
 		// in the completed listing below, rather than missed by both.
-		if err := checkOpenRecording(ctx, state, did, fromMs, toMs, buffered); err != nil {
-			return nil, err
+		if !moderation {
+			if err := checkOpenRecording(ctx, state, did, fromMs, toMs, buffered); err != nil {
+				return nil, err
+			}
 		}
 		objs, err := state.ListS3SegmentsInRange(ctx, did, from, to)
 		if err != nil {
@@ -86,7 +90,7 @@ func FindClip(ctx context.Context, state *statedb.StatefulDB, store blob.Store, 
 
 	for _, seg := range buffered {
 		ms := seg.Start.UnixMilli()
-		if ms < fromMs || ms > toMs || recorded[ms] || (!seg.Published && !includeUnpublished) {
+		if ms < fromMs || ms > toMs || recorded[ms] || (!seg.Published && !moderation) {
 			continue
 		}
 		c.parts = append(c.parts, clipPart{startMs: ms, data: seg.Data, size: int64(len(seg.Data))})

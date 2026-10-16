@@ -7,8 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/bluenviron/gortmplib"
@@ -25,20 +24,66 @@ func (replayRTMP) Write(p []byte) (int, error) { return len(p), nil }
 
 var errShadowIdleTimeout = errors.New("shadow RTMP input idle timeout")
 
+// Only a pending input Read is idle. Parsing buffered bytes, initializing native
+// media, and draining after EOF must not consume the publisher's idle allowance.
 type shadowIdleReader struct {
 	io.Reader
-	timer *time.Timer
+	mu       sync.Mutex
+	timer    *time.Timer
+	deadline time.Time
+	timedOut bool
+	cancel   context.CancelFunc
 }
 
-func (r shadowIdleReader) Read(p []byte) (int, error) {
-	n, err := r.Reader.Read(p)
-	if err != nil {
-		// Publisher EOF starts downstream drain, not another input deadline.
-		r.timer.Stop()
-	} else if n > 0 {
-		r.timer.Reset(RTMPTimeout)
+func newShadowIdleReader(input io.Reader, cancel context.CancelFunc) *shadowIdleReader {
+	r := &shadowIdleReader{Reader: input, cancel: cancel}
+	r.timer = time.AfterFunc(RTMPTimeout, r.expire)
+	r.timer.Stop()
+	return r
+}
+
+func (r *shadowIdleReader) expire() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.deadline.IsZero() {
+		return
 	}
+	if remaining := time.Until(r.deadline); remaining > 0 {
+		// Stop cannot retract a callback already queued by an earlier Read.
+		// That callback must honor the current Read's full idle allowance.
+		r.timer.Reset(remaining)
+		return
+	}
+	r.timedOut = true
+	r.cancel()
+}
+
+func (r *shadowIdleReader) Read(p []byte) (int, error) {
+	r.mu.Lock()
+	if r.timedOut {
+		r.mu.Unlock()
+		return 0, errShadowIdleTimeout
+	}
+	r.deadline = time.Now().Add(RTMPTimeout)
+	r.timer.Reset(RTMPTimeout)
+	r.mu.Unlock()
+	n, err := r.Reader.Read(p)
+	r.mu.Lock()
+	r.deadline = time.Time{}
+	r.timer.Stop()
+	if r.timedOut {
+		err = errShadowIdleTimeout
+	}
+	r.mu.Unlock()
 	return n, err
+}
+
+func (r *shadowIdleReader) stop() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.deadline = time.Time{}
+	r.timer.Stop()
+	return r.timedOut
 }
 
 // RunDuplicateMistWorker consumes the decrypted, client-only RTMP conversation.
@@ -58,19 +103,14 @@ func RunDuplicateMistWorker(parent context.Context, input io.Reader, progress io
 		}
 	})
 	defer stopInput()
-	var timedOut atomic.Bool
-	idle := time.AfterFunc(RTMPTimeout, func() {
-		timedOut.Store(true)
-		cancel()
-	})
+	inputReader := newShadowIdleReader(input, cancel)
 	defer func() {
-		idle.Stop()
-		if timedOut.Load() {
+		if inputReader.stop() {
 			retErr = errShadowIdleTimeout
 		}
 	}()
 
-	br := bufio.NewReader(shadowIdleReader{Reader: input, timer: idle})
+	br := bufio.NewReader(inputReader)
 	version, err := br.Peek(1)
 	if err != nil {
 		return fmt.Errorf("shadow RTMP handshake: %w", err)
@@ -88,11 +128,9 @@ func RunDuplicateMistWorker(parent context.Context, input io.Reader, progress io
 	if !sc.Publish {
 		return fmt.Errorf("shadow connection is not an RTMP publisher")
 	}
-	if !strings.HasPrefix(sc.URL.Path, RTMPPrefix) {
-		return fmt.Errorf("shadow publisher path must start with /live/")
-	}
-	// Never use the supplied stream key: the signer and session identity are
-	// throwaway, and only the media-only verifier consumes their output.
+	// Mist owns publisher routing and authentication; the shadow accepts any
+	// application path. Never use the supplied stream key: the signer and session
+	// identity are throwaway, and only the media-only verifier consumes their output.
 	ms, err := media.NewEphemeralMediaSigner("did:example:rtmp-shadow")
 	if err != nil {
 		return fmt.Errorf("shadow signer: %w", err)

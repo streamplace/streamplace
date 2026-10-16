@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/gstinit"
@@ -56,20 +56,21 @@ func makeH264AACFMP4(t *testing.T, ctx context.Context, srcMP4 string) []byte {
 		"d. ! queue ! h264parse ! mp4mux name=mux fragment-duration=500 ! appsink name=sink",
 		"d. ! queue ! opusdec ! audioconvert ! audioresample ! fdkaacenc ! aacparse ! mux.",
 	}, "\n")
-	pipeline, err := gst.NewPipelineFromString(desc)
+	launched, err := gst.ParseLaunch(desc)
 	require.NoError(t, err)
+	pipeline := launched.(gst.Pipeline)
 
-	sinkEle, err := pipeline.GetElementByName("sink")
-	require.NoError(t, err)
+	sinkEle := pipeline.GetByName("sink")
+	require.NotNil(t, sinkEle)
 	var buf bytes.Buffer
-	app.SinkFromElement(sinkEle).SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, &buf),
+	sinkEle.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, &buf),
 	})
 
 	busErr := make(chan error, 1)
 	go func() { busErr <- HandleBusMessages(ctx, pipeline) }()
-	require.NoError(t, pipeline.SetState(gst.StatePlaying))
-	defer func() { _ = pipeline.SetState(gst.StateNull) }()
+	require.NotEqual(t, gst.StateChangeFailure, pipeline.SetState(gst.StatePlaying))
+	defer func() { pipeline.SetState(gst.StateNull) }()
 	require.NoError(t, <-busErr, "remux to fragmented H264+AAC MP4")
 	require.NotEmpty(t, buf.Bytes(), "remux produced an fMP4")
 	return buf.Bytes()
@@ -85,20 +86,21 @@ func makeAudioOnlyAACFMP4(t *testing.T, ctx context.Context, seconds int) []byte
 	t.Helper()
 	gstinit.InitGST()
 	desc := fmt.Sprintf("audiotestsrc num-buffers=%d samplesperbuffer=1024 ! audio/x-raw,rate=48000,channels=2 ! audioconvert ! fdkaacenc ! aacparse ! mp4mux fragment-duration=500 ! appsink name=sink", seconds*47)
-	pipeline, err := gst.NewPipelineFromString(desc)
+	launched, err := gst.ParseLaunch(desc)
 	require.NoError(t, err)
+	pipeline := launched.(gst.Pipeline)
 
-	sinkEle, err := pipeline.GetElementByName("sink")
-	require.NoError(t, err)
+	sinkEle := pipeline.GetByName("sink")
+	require.NotNil(t, sinkEle)
 	var buf bytes.Buffer
-	app.SinkFromElement(sinkEle).SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, &buf),
+	sinkEle.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, &buf),
 	})
 
 	busErr := make(chan error, 1)
 	go func() { busErr <- HandleBusMessages(ctx, pipeline) }()
-	require.NoError(t, pipeline.SetState(gst.StatePlaying))
-	defer func() { _ = pipeline.SetState(gst.StateNull) }()
+	require.NotEqual(t, gst.StateChangeFailure, pipeline.SetState(gst.StatePlaying))
+	defer func() { pipeline.SetState(gst.StateNull) }()
 	require.NoError(t, <-busErr, "synthesize audio-only fMP4")
 	require.NotEmpty(t, buf.Bytes())
 	return buf.Bytes()

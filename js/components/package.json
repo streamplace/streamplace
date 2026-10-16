@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/components",
-  "version": "0.12.3",
+  "version": "0.12.6",
   "description": "Streamplace React (Native) Components",
   "main": "dist/index.js",
   "types": "src/index.tsx",
@@ -65,7 +65,6 @@
     "react-native-webrtc": "git+https://github.com/streamplace/react-native-webrtc.git#74fa32266e3a2fee180f5e01bb8753af2a92d9d3",
     "react-use-websocket": "^4.13.0",
     "streamplace": "workspace:*",
-    "viem": "^2.21.44",
     "zustand": "^5.0.5"
   },
   "peerDependencies": {

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
@@ -77,9 +77,13 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		fmt.Sprintf("%s name=audioparse ! opusparse ! appsink sync=false name=audioappsink", constants.Queue2Big),
 	}
 
-	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
+	pipelineElem, err := gst.ParseLaunch(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GStreamer pipeline: %w", err) //nolint:all
+	}
+	pipeline, ok := pipelineElem.(gst.Pipeline)
+	if !ok {
+		return nil, fmt.Errorf("failed to create GStreamer pipeline: not a pipeline")
 	}
 
 	demuxBin, err := ConcatDemuxBin(ctx, seg, true)
@@ -87,9 +91,8 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		return nil, fmt.Errorf("failed to create concat bin: %w", err)
 	}
 
-	err = pipeline.Add(demuxBin.Element)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add demux bin to bin: %w", err)
+	if !pipeline.Add(demuxBin) {
+		return nil, fmt.Errorf("failed to add demux bin to bin")
 	}
 
 	demuxBinPadVideoSrc := demuxBin.GetStaticPad("video_0")
@@ -102,14 +105,14 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		return nil, fmt.Errorf("failed to get demux bin audio src pad")
 	}
 
-	videoParse, err := pipeline.GetElementByName("videoparse")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get video parse element: %w", err)
+	videoParse := pipeline.GetByName("videoparse")
+	if videoParse == nil {
+		return nil, fmt.Errorf("failed to get video parse element")
 	}
 
-	audioParse, err := pipeline.GetElementByName("audioparse")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get audio parse element: %w", err)
+	audioParse := pipeline.GetByName("audioparse")
+	if audioParse == nil {
+		return nil, fmt.Errorf("failed to get audio parse element")
 	}
 
 	linked := demuxBinPadVideoSrc.Link(videoParse.GetStaticPad("sink"))
@@ -122,18 +125,12 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		return nil, fmt.Errorf("failed to link demux bin audio src pad to audio parse element: %v", linked)
 	}
 
-	videoSink, err := pipeline.GetElementByName("videoappsink")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get video appsink element: %w", err)
-	}
+	videoSink := pipeline.GetByName("videoappsink")
 	if videoSink == nil {
 		return nil, fmt.Errorf("failed to get video appsink element")
 	}
 
-	audioSink, err := pipeline.GetElementByName("audioappsink")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get audio appsink element: %w", err)
-	}
+	audioSink := pipeline.GetByName("audioappsink")
 	if audioSink == nil {
 		return nil, fmt.Errorf("failed to get audio appsink element")
 	}
@@ -154,9 +151,8 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 	// ride with and is dropped.
 	var pendingVideo []byte
 
-	videoappsink := app.SinkFromElement(videoSink)
-	videoappsink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
+	videoSink.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: func(sink app.AppSink) gst.FlowReturn {
 			sample := sink.PullSample()
 			if sample == nil {
 				return gst.FlowEOS
@@ -167,7 +163,13 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 				return gst.FlowError
 			}
 
-			samples := buffer.Bytes()
+			info, ok := buffer.Map(gst.MapRead)
+			if !ok {
+				log.Error(ctx, "failed to map video buffer")
+				return gst.FlowError
+			}
+			defer info.Unmap()
+			samples := info.Data()
 
 			if !hasVideoSlice(samples) {
 				pendingVideo = append(pendingVideo, samples...)
@@ -176,22 +178,24 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 			if pendingVideo != nil {
 				samples = append(pendingVideo, samples...)
 				pendingVideo = nil
+			} else {
+				// the mapping is gone once this callback returns
+				samples = bytes.Clone(samples)
 			}
 
 			videoOutput = append(videoOutput, newRawSample(samples, buffer))
 
 			return gst.FlowOK
 		},
-		EOSFunc: func(sink *app.Sink) {
+		EOS: func(sink app.AppSink) {
 			log.Debug(ctx, "videoappsink EOSFunc")
 		},
 	})
 
 	segDur := time.Duration(0)
 
-	audioappsink := app.SinkFromElement(audioSink)
-	audioappsink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
+	audioSink.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: func(sink app.AppSink) gst.FlowReturn {
 			sample := sink.PullSample()
 			if sample == nil {
 				log.Warn(ctx, "audioappsink NewSampleFunc EOS")
@@ -203,15 +207,18 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 				return gst.FlowError
 			}
 
-			samples := buffer.Bytes()
+			samples, err := copyBufferData(buffer)
+			if err != nil {
+				log.Error(ctx, "failed to read audio buffer", "error", err)
+				return gst.FlowError
+			}
 			// log.Warn(ctx, "audioappsink NewSampleFunc", "sample", len(samples))
 
 			audioOutput = append(audioOutput, newRawSample(samples, buffer))
 
-			clockTime := buffer.Duration()
-			dur := clockTime.AsDuration()
-			if dur != nil {
-				segDur += *dur
+			dur, ok := clockTimeDuration(buffer.Duration())
+			if ok {
+				segDur += dur
 			} else {
 				log.Error(ctx, "no audio duration", "samples", len(samples))
 				return gst.FlowError
@@ -219,7 +226,7 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 
 			return gst.FlowOK
 		},
-		EOSFunc: func(sink *app.Sink) {
+		EOS: func(sink app.AppSink) {
 			log.Debug(ctx, "audioappsink EOSFunc")
 		},
 	})
@@ -233,19 +240,16 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		busErr <- err
 	}()
 
-	err = pipeline.SetState(gst.StatePlaying)
-	if err != nil {
-		return nil, fmt.Errorf("failed to set pipeline to playing state: %w", err)
+	if ret := pipeline.SetState(gst.StatePlaying); ret == gst.StateChangeFailure {
+		return nil, fmt.Errorf("failed to set pipeline to playing state")
 	}
 
 	defer func() {
-		err = pipeline.SetState(gst.StateNull)
-		if err != nil {
-			log.Error(ctx, "failed to set pipeline to null state", "error", err)
+		if ret := pipeline.SetState(gst.StateNull); ret == gst.StateChangeFailure {
+			log.Error(ctx, "failed to set pipeline to null state")
 		}
-		err = pipeline.Remove(demuxBin.Element)
-		if err != nil {
-			log.Error(ctx, "failed to remove demux bin from bin", "error", err)
+		if !pipeline.Remove(demuxBin) {
+			log.Error(ctx, "failed to remove demux bin from bin")
 		}
 	}()
 
@@ -285,13 +289,13 @@ type rawSample struct {
 
 func newRawSample(data []byte, buffer *gst.Buffer) rawSample {
 	rs := rawSample{data: data}
-	if ts := buffer.DecodingTimestamp().AsDuration(); ts != nil {
-		rs.ts, rs.hasTS = *ts, true
-	} else if pts := buffer.PresentationTimestamp().AsDuration(); pts != nil {
-		rs.ts, rs.hasTS = *pts, true
+	if ts, ok := clockTimeDuration(buffer.DTS()); ok {
+		rs.ts, rs.hasTS = ts, true
+	} else if pts, ok := clockTimeDuration(buffer.PTS()); ok {
+		rs.ts, rs.hasTS = pts, true
 	}
-	if dur := buffer.Duration().AsDuration(); dur != nil {
-		rs.bufDur, rs.hasDur = *dur, true
+	if dur, ok := clockTimeDuration(buffer.Duration()); ok {
+		rs.bufDur, rs.hasDur = dur, true
 	}
 	return rs
 }

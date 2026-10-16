@@ -145,19 +145,22 @@ android-debug: .build/bundletool.jar android-keystore
 
 .PHONY: ios
 ios: app
-	xcodebuild \
-		-workspace ./js/app/ios/Streamplace.xcworkspace \
+	bash -eu -c ' \
+		set -- ./js/app/ios/*.xcworkspace; \
+		workspace="$$1"; \
+		scheme="$${workspace##*/}"; \
+		scheme="$${scheme%.xcworkspace}"; \
+		xcodebuild \
+		-workspace "$$workspace" \
 		-sdk iphoneos \
+		-destination "generic/platform=iOS" \
 		-configuration Release \
-		-scheme Streamplace \
+		-scheme "$$scheme" \
 		-archivePath ./bin/streamplace-$(VERSION)-ios-release.xcarchive \
-		CODE_SIGN_IDENTITY=- \
-		AD_HOC_CODE_SIGNING_ALLOWED=YES \
-		CODE_SIGN_STYLE=Automatic \
-		DEVELOPMENT_TEAM=ZZZZZZZZZZ \
-		clean archive | xcpretty \
+		CODE_SIGNING_ALLOWED=NO \
+		clean archive \
 	&& cd bin \
-	&& tar -czvf streamplace-$(VERSION)-ios-release.xcarchive.tar.gz streamplace-$(VERSION)-ios-release.xcarchive
+	&& tar -czvf streamplace-$(VERSION)-ios-release.xcarchive.tar.gz streamplace-$(VERSION)-ios-release.xcarchive'
 
 #    _____  ____
 #   / ____|/ __ \

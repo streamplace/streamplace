@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/pion/webrtc/v4"
 	pionmedia "github.com/pion/webrtc/v4/pkg/media"
 	"golang.org/x/sync/errgroup"
@@ -106,40 +106,38 @@ func (w *WHIPClient) WHIP(ctx context.Context) (retErr error) {
 		// "audio_tee. ! mux.audio_0",
 	}
 
-	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
+	element, err := gst.ParseLaunch(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
 		return err
 	}
+	pipeline := element.(gst.Pipeline)
 	defer func() {
 		cancel()
-		if err := pipeline.BlockSetState(gst.StateNull); err != nil && retErr == nil {
-			retErr = err
+		if status := pipeline.BlockSetState(gst.StateNull, gst.ClockTimeNone); status != gst.StateChangeSuccess && retErr == nil {
+			retErr = fmt.Errorf("stop WHIP pipeline: %s", status)
 		}
 	}()
 
-	fileSrc, err := pipeline.GetElementByName("filesrc")
-	if err != nil {
-		return err
+	fileSrc := pipeline.GetByName("filesrc")
+	if fileSrc == nil {
+		return fmt.Errorf("filesrc not found")
+	}
+	fileSrc.SetObjectProperty("location", w.File)
+
+	videoSink := pipeline.GetByName("videoappsink")
+	if videoSink == nil {
+		return fmt.Errorf("video appsink not found")
 	}
 
-	if err := fileSrc.Set("location", w.File); err != nil {
-		return err
-	}
-
-	videoSink, err := pipeline.GetElementByName("videoappsink")
-	if err != nil {
-		return err
-	}
-
-	audioSink, err := pipeline.GetElementByName("audioappsink")
-	if err != nil {
-		return err
+	audioSink := pipeline.GetByName("audioappsink")
+	if audioSink == nil {
+		return fmt.Errorf("audio appsink not found")
 	}
 
 	startTime := time.Now()
-	sinks := []*app.Sink{
-		app.SinkFromElement(videoSink),
-		app.SinkFromElement(audioSink),
+	sinks := []app.AppSink{
+		videoSink.(app.AppSink),
+		audioSink.(app.AppSink),
 	}
 	// Create accumulators for tracking elapsed duration
 	accumulators := make([]time.Duration, len(sinks))
@@ -236,8 +234,8 @@ func (w *WHIPClient) WHIP(ctx context.Context) (retErr error) {
 				trackType = "audio"
 			}
 
-			sink.SetCallbacks(&app.SinkCallbacks{
-				NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
+			sink.SetCallbacks(&app.AppSinkCallbacks{
+				NewSample: func(sink app.AppSink) gst.FlowReturn {
 
 					sample := sink.PullSample()
 					if sample == nil {
@@ -249,18 +247,24 @@ func (w *WHIPClient) WHIP(ctx context.Context) (retErr error) {
 						return gst.FlowError
 					}
 
-					samples := buffer.Map(gst.MapRead).Bytes()
-					defer buffer.Unmap()
+					mapped, ok := buffer.Map(gst.MapRead)
+					if !ok {
+						reportError(fmt.Errorf("%s buffer mapping failed", trackType))
+						return gst.FlowError
+					}
+					defer mapped.Unmap()
+					samples := mapped.Data()
+					if trackType == "video" {
+						// Pion may retain SPS/PPS slices between H264 samples.
+						samples = append([]byte(nil), samples...)
+					}
 
-					durationPtr := buffer.Duration().AsDuration()
-					var duration time.Duration
-					if durationPtr == nil {
+					clockDuration := buffer.Duration()
+					if clockDuration == gst.ClockTimeNone {
 						reportError(fmt.Errorf("%v duration: nil", trackType))
 						return gst.FlowError
-					} else {
-						// fmt.Printf("%v duration: %v\n", trackType, *durationPtr)
-						duration = *durationPtr
 					}
+					duration := time.Duration(clockDuration)
 
 					accumulators[i] += duration
 
@@ -295,8 +299,8 @@ func (w *WHIPClient) WHIP(ctx context.Context) (retErr error) {
 		cancel()
 	}()
 
-	if err = pipeline.SetState(gst.StatePlaying); err != nil {
-		return err
+	if pipeline.SetState(gst.StatePlaying) == gst.StateChangeFailure {
+		return fmt.Errorf("failed to start WHIP pipeline")
 	}
 	if w.Viewers > 0 {
 		whepG, ctx := errgroup.WithContext(ctx)

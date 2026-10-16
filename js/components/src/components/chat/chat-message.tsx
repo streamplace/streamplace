@@ -7,7 +7,15 @@ import { Facet, RichtextSegment, segmentize } from "@streamplace/core";
 import { memo, useCallback, useMemo } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
-import { flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
+import {
+  flex,
+  gap,
+  ml,
+  mr,
+  opacity,
+  pl,
+  selectableText,
+} from "../../lib/theme/atoms";
 import { tabularNums, textAlphas } from "../../lib/theme/tokens";
 import { formatHandleWithAt } from "../../utils/format-handle";
 import {
@@ -34,12 +42,9 @@ import {
 } from "./user-profile-card";
 import { VerifiedBadge } from "./verified-badge";
 
-// Deterministic per-user color, muted so a busy chat doesn't turn into a
-// rainbow, and clamped for contrast against the dark chat surface: colors
-// that are too dark get mixed toward white until they clear a minimum
-// luminance. Same input always yields the same output.
-const MIN_LUMA = 110; // 0-255 relative luminance floor
-const DESAT = 0.45; // how far to pull each color toward its own gray
+// Desaturate profile colors and brighten dark ones for the chat background.
+const MIN_LUMA = 110;
+const DESAT = 0.45;
 const clampChannel = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
 const getRgbColor = (color?: {
   red: number;
@@ -53,13 +58,12 @@ const getRgbColor = (color?: {
   green += (luma - green) * DESAT;
   blue += (luma - blue) * DESAT;
   if (luma < MIN_LUMA) {
-    // mix toward white just enough to reach the floor
     const t = (MIN_LUMA - luma) / (255 - luma || 1);
     red = red + (255 - red) * t;
     green = green + (255 - green) * t;
     blue = blue + (255 - blue) * t;
   }
-  return `rgb(${clampChannel(red)}, ${clampChannel(green)}, ${clampChannel(blue)})`; // eslint-disable-line streamplace/no-token-literals -- dynamic user color / soft shadow
+  return `rgb(${clampChannel(red)}, ${clampChannel(green)}, ${clampChannel(blue)})`; // eslint-disable-line streamplace/no-token-literals -- dynamic profile color
 };
 
 const LinkSegment = ({
@@ -74,6 +78,7 @@ const LinkSegment = ({
   return (
     <Text
       key={`link-${index}`}
+      selectable={Platform.OS === "web"}
       style={{ color: theme.colors.info, cursor: "pointer" }}
       // @ts-ignore href renders as <a> on web
       href={Platform.OS === "web" ? linkFtr.uri : undefined}
@@ -101,7 +106,11 @@ const renderSegment = (
   const ftr = seg.features?.[0];
 
   if (!ftr) {
-    return <Text key={`text-${index}`}>{seg.text}</Text>;
+    return (
+      <Text key={`text-${index}`} selectable={Platform.OS === "web"}>
+        {seg.text}
+      </Text>
+    );
   }
 
   if (ftr.$type === "app.bsky.richtext.facet#link") {
@@ -114,6 +123,7 @@ const renderSegment = (
     return (
       <Text
         key={`mention-${index}`}
+        selectable={Platform.OS === "web"}
         style={{ color: getRgbColor(profile?.color), cursor: "pointer" }}
         onPress={() =>
           Linking.openURL(
@@ -127,7 +137,11 @@ const renderSegment = (
       </Text>
     );
   }
-  return <Text key={`unknown-facet-${index}`}>{seg.text}</Text>;
+  return (
+    <Text key={`unknown-facet-${index}`} selectable={Platform.OS === "web"}>
+      {seg.text}
+    </Text>
+  );
 };
 
 export const RichTextMessage = ({
@@ -139,18 +153,15 @@ export const RichTextMessage = ({
 }) => {
   const profileUrl = useNetworkProfileUrl();
   const userCache = useLivestreamStore((state) => state.authors);
-  if (!facets?.length) return <Text>{text}</Text>;
+  if (!facets?.length)
+    return <Text selectable={Platform.OS === "web"}>{text}</Text>;
 
   let segs = segmentize(text, facets as Facet[]);
 
   return segs.map((seg, i) => renderSegment(seg, i, userCache, profileUrl));
 };
 
-// Web flows the whole message inline inside a single <Text>, with the badges and
-// handle rendered as an inline-block via display: "inline".
-// Chat is dense but legible: 14px (size base), handles in medium weight.
-// Branding key chatNameColors=off: names in the default text color instead
-// of each user's chosen chat color.
+// chatNameColors=off uses the default text color instead of the profile color.
 function useNameColor(): (
   color?: Parameters<typeof getRgbColor>[0],
 ) => string | undefined {
@@ -182,35 +193,43 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
   const dids = useMemo(() => [item.author.did], [item.author.did]);
   const profile = useAvatars(dids)[item.author.did];
   return (
-    <Text size="base" style={[flex.shrink[1], { minWidth: 0 }]}>
+    // Keep the handle and message in one text flow so the message wraps after
+    // the handle. Allow the row to shrink when a handle exceeds its width.
+    <Text size="base" style={[flex.shrink[1], { minWidth: 0 }, selectableText]}>
       <UserProfileCard uri={item.uri} author={item.author} badges={badges}>
         <View
-          style={
-            {
-              display: "inline",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              flexDirection: "row",
-              marginBottom: -6,
-            } as any
-          }
+          // @ts-expect-error first baseline is not supported on non-web platforms
+          style={{
+            alignItems: "first baseline",
+            justifyContent: "flex-end",
+            flexDirection: "row",
+            flexShrink: 1,
+            minWidth: 0,
+            marginBottom: -6,
+          }}
         >
           <BadgeDisplayRow badges={badges} />
           <Text
             size="base"
             weight="medium"
+            numberOfLines={1}
             style={{
               cursor: "pointer",
               color: nameColor(item.chatProfile?.color),
+              flexShrink: 1,
+              minWidth: 0,
             }}
           >
             {formatHandleWithAt(item.author)}
           </Text>
           <VerifiedBadge author={item.author} profile={profile} size={14} />
+          <Text size="base" color="default">
+            {":"}
+          </Text>
         </View>
       </UserProfileCard>
       <Text size="base" color="default">
-        {": "}
+        {" "}
       </Text>
       <RichTextMessage
         text={item.record.text}
@@ -220,9 +239,7 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
   );
 };
 
-// Native can't reliably nest views or images inside <Text>, so the badges sit in
-// a flex row beside the message instead of inline. Tapping the badges or the
-// handle opens the same profile bottom sheet via two triggers on one menu.
+// Native keeps badges beside the text because views cannot be nested in Text.
 const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
   const nameColor = useNameColor();
   const badges = useVisibleBadges(item.badges);
@@ -293,16 +310,10 @@ export function relativeAge(dateString: string): string {
   return `${Math.round(h / 24)}d`;
 }
 
-// The avatar layout (branding chatLayout=avatar): a post-style row with the
-// author's avatar, display name, handle and age on one line and the text
-// beneath, the way a social timeline shows a reply. Badges sit after the
-// name; the profile card opens from the name as it does in compact rows.
 const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
   const { theme } = useTheme();
   const badges = useVisibleBadges(item.badges);
   const author = item.author;
-  // Hydrated messages carry handle and display name but not the avatar;
-  // the profile cache batches getProfiles across visible rows.
   const dids = useMemo(() => [author.did], [author.did]);
   const profile = useAvatars(dids)[author.did];
   const avatar = profile?.avatar || author.avatar;
@@ -311,17 +322,12 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
   const name = displayName || handle;
   const nameColor = useNameColor()(item.chatProfile?.color);
   const meta = { fontSize: 15, lineHeight: 23, color: theme.colors.text2 };
-  // The name line is a flex row rather than nested <Text> so the badges (which
-  // are views) sit after the name on every platform, a long handle truncates
-  // instead of pushing the age off the edge, and native never nests views in
-  // text.
-  // Room the verified mark and badges take beside the name (see below).
+  // Keep badges outside Text so they render on native as well as web.
   const verified =
     author.verification?.verifiedStatus === "valid" ||
     profile?.verification?.verifiedStatus === "valid";
   const marksWidth =
     (verified ? 20 : 0) + (badges?.length ? 6 + badges.length * 22 : 0);
-  // text.
   return (
     <View
       style={[
@@ -337,12 +343,7 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
             { alignItems: "center", minWidth: 0, maxWidth: "100%" },
           ]}
         >
-          {/* Name, marks and handle share one box beside the time. The
-              handle is the only thing in it that shrinks, so it gives way
-              first; the name can't shrink at all on web and is instead
-              capped at the box minus the marks, so it only truncates once
-              the handle is gone. (Native's layout engine weights shrink by
-              the factor, so there the 1000x handle does the same job.) */}
+          {/* Reserve room for marks when truncating the name on web. */}
           <View
             style={[
               layout.flex.row,
@@ -418,8 +419,6 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
                 {handle}
               </Text>
             ) : null}
-            {/* The time follows the handle (left-aligned with the rest),
-                and never shrinks. */}
             <Text style={{ ...meta, marginLeft: 8, flexShrink: 0 }}>
               {"· " + relativeAge(item.record.createdAt)}
             </Text>

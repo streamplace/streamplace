@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -171,14 +170,10 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 	// can emit progress and notice a stall.
 	prog := newProgressWriter(out)
 
-	pipeline, err := gst.NewPipeline("vod-process")
-	if err != nil {
-		span.RecordError(err)
-		return result, fmt.Errorf("new pipeline: %w", err)
-	}
+	pipeline := gst.NewPipeline("vod-process").(gst.Pipeline)
 	defer func() {
-		if setErr := pipeline.BlockSetState(gst.StateNull); setErr != nil {
-			log.Error(ctx, "failed to set pipeline to null", "error", setErr)
+		if pipeline.BlockSetState(gst.StateNull, gst.ClockTimeNone) == gst.StateChangeFailure {
+			log.Error(ctx, "failed to set pipeline to null")
 		}
 	}()
 
@@ -186,22 +181,22 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 	if err != nil {
 		return result, fmt.Errorf("source bin: %w", err)
 	}
-	if err := pipeline.Add(srcBin.Element); err != nil {
-		return result, fmt.Errorf("add src bin: %w", err)
+	if !pipeline.Add(srcBin) {
+		return result, fmt.Errorf("add src bin to pipeline failed")
 	}
 
-	parsebin, err := gst.NewElementWithProperties("parsebin", map[string]any{
+	parsebin := gst.ElementFactoryMakeWithProperties("parsebin", map[string]any{
 		"name":               "vod-parsebin",
 		"expose-all-streams": true,
 	})
-	if err != nil {
-		return result, fmt.Errorf("create parsebin: %w", err)
+	if parsebin == nil {
+		return result, fmt.Errorf("create parsebin: element factory returned nil")
 	}
-	if err := pipeline.Add(parsebin); err != nil {
-		return result, fmt.Errorf("add parsebin: %w", err)
+	if !pipeline.Add(parsebin) {
+		return result, fmt.Errorf("add parsebin to pipeline failed")
 	}
-	if err := srcBin.Link(parsebin); err != nil {
-		return result, fmt.Errorf("link src bin -> parsebin: %w", err)
+	if !srcBin.Link(parsebin) {
+		return result, fmt.Errorf("link src bin -> parsebin failed")
 	}
 
 	// Tell parsebin's autoplug machinery to stop at the elementary-stream
@@ -216,51 +211,47 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 	// caps notify plugs aacparse-2, and so on until the cgo stack
 	// overflows and the process crashes. Stopping autoplug before any
 	// parser is added keeps that loop from ever starting.
-	autoplugID, err := parsebin.Connect("autoplug-continue", func(_ *gst.Element, _ *gst.Pad, caps *gst.Caps) bool {
+	autoplugID := parsebin.Connect("autoplug-continue", func(_ gst.Element, _ gst.Pad, caps *gst.Caps) bool {
 		if caps == nil {
 			return true
 		}
-		s := caps.GetStructureAt(0)
+		s := caps.GetStructure(0)
 		if s == nil {
 			return true
 		}
-		return !elementaryStreamCaps[s.Name()]
+		return !elementaryStreamCaps[s.GetName()]
 	})
-	if err != nil {
-		return result, fmt.Errorf("connect autoplug-continue: %w", err)
-	}
 	defer parsebin.HandlerDisconnect(autoplugID)
 
-	mp4mux, err := gst.NewElementWithProperties("mp4mux", map[string]any{
+	mp4mux := gst.ElementFactoryMakeWithProperties("mp4mux", map[string]any{
 		"name":              "vod-mp4mux",
-		"fragment-mode":     0,
-		"fragment-duration": 1,
+		"fragment-mode":     int32(0),
+		"fragment-duration": uint32(1),
 	})
-	if err != nil {
-		return result, fmt.Errorf("create mp4mux: %w", err)
+	if mp4mux == nil {
+		return result, fmt.Errorf("create mp4mux: element factory returned nil")
 	}
-	if err := pipeline.Add(mp4mux); err != nil {
-		return result, fmt.Errorf("add mp4mux: %w", err)
+	if !pipeline.Add(mp4mux) {
+		return result, fmt.Errorf("add mp4mux to pipeline failed")
 	}
 
-	appsink, err := gst.NewElementWithProperties("appsink", map[string]any{
+	appsink := gst.ElementFactoryMakeWithProperties("appsink", map[string]any{
 		"name":  "vod-appsink",
 		"sync":  false,
 		"async": false,
 	})
-	if err != nil {
-		return result, fmt.Errorf("create appsink: %w", err)
+	if appsink == nil {
+		return result, fmt.Errorf("create appsink: element factory returned nil")
 	}
-	if err := pipeline.Add(appsink); err != nil {
-		return result, fmt.Errorf("add appsink: %w", err)
+	if !pipeline.Add(appsink) {
+		return result, fmt.Errorf("add appsink to pipeline failed")
 	}
-	if err := mp4mux.Link(appsink); err != nil {
-		return result, fmt.Errorf("link mp4mux -> appsink: %w", err)
+	if !mp4mux.Link(appsink) {
+		return result, fmt.Errorf("link mp4mux -> appsink failed")
 	}
 
-	sink := app.SinkFromElement(appsink)
-	sink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, prog),
+	appsink.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, prog),
 	})
 
 	// padErr captures the first wiring error from pad-added so we can
@@ -278,7 +269,7 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 		audioCaps string
 	)
 
-	handlerID, err := parsebin.Connect("pad-added", func(_ *gst.Element, pad *gst.Pad) {
+	handlerID := parsebin.ConnectPadAdded(func(_ gst.Element, pad gst.Pad) {
 		mu.Lock()
 		defer mu.Unlock()
 		if padErr != nil {
@@ -289,12 +280,12 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 			log.Warn(ctx, "parsebin pad missing caps; ignoring", "pad", pad.GetName())
 			return
 		}
-		s := caps.GetStructureAt(0)
+		s := caps.GetStructure(0)
 		if s == nil {
 			log.Warn(ctx, "parsebin caps missing structure; ignoring", "pad", pad.GetName())
 			return
 		}
-		capsName := s.Name()
+		capsName := s.GetName()
 		padCtx := log.WithLogValues(ctx, "pad", pad.GetName(), "caps", capsName)
 		log.Debug(padCtx, "parsebin pad-added")
 		switch {
@@ -305,7 +296,7 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 			}
 			if err := wireVideoChain(padCtx, pipeline, mp4mux, pad, s); err != nil {
 				padErr = err
-				pipeline.Error("video chain failed", err)
+				pipeline.PostMessage(gst.NewMessageError(pipeline, "video chain failed", err))
 				return
 			}
 			gotVideo = true
@@ -326,7 +317,7 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 			transcoded, err := wireAudioChain(padCtx, pipeline, mp4mux, pad, s)
 			if err != nil {
 				padErr = err
-				pipeline.Error("audio chain failed", err)
+				pipeline.PostMessage(gst.NewMessageError(pipeline, "audio chain failed", err))
 				return
 			}
 			gotAudio = true
@@ -347,9 +338,6 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 			log.Warn(padCtx, "non-A/V parsebin pad; ignoring")
 		}
 	})
-	if err != nil {
-		return result, fmt.Errorf("connect pad-added: %w", err)
-	}
 	// Disconnecting before pipeline tear-down breaks the closure->pipeline
 	// reference cycle that would otherwise pin every element alive past
 	// the function's return.
@@ -358,9 +346,10 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 	busErr := make(chan error, 1)
 	go func() { busErr <- HandleBusMessages(ctx, pipeline) }()
 
-	if err := pipeline.SetState(gst.StatePlaying); err != nil {
+	if pipeline.SetState(gst.StatePlaying) == gst.StateChangeFailure {
+		err := fmt.Errorf("set playing: state change failed")
 		span.RecordError(err)
-		return result, fmt.Errorf("set playing: %w", err)
+		return result, err
 	}
 	log.Debug(ctx, "pipeline transitioned to PLAYING")
 
@@ -426,7 +415,7 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 	// Query the pipeline's duration before tearing it down. gstreamer
 	// reports it in nanoseconds (FormatTime); we expose milliseconds
 	// because that's what place.stream.video's duration field takes.
-	if ok, durNS := pipeline.QueryDuration(gst.FormatTime); ok {
+	if durNS, ok := pipeline.QueryDuration(gst.FormatTime); ok {
 		result.DurationMS = durNS / int64(time.Millisecond)
 		span.SetAttributes(attribute.Int64("duration_ms", result.DurationMS))
 		log.Debug(ctx, "queried pipeline duration", "duration_ms", result.DurationMS)
@@ -457,24 +446,17 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 }
 
 // extractVideoTrack pulls codec/dimensions/framerate out of a parsebin
-// video pad's caps Structure. The framerate is a GstFraction that
-// go-gst doesn't expose typed access for, so we stringify and parse
-// num/den ourselves — same workaround the existing media_data_parser
-// uses for live-segment probing.
+// video pad's caps Structure.
 func extractVideoTrack(capsName string, s *gst.Structure) *VODVideoTrack {
 	t := &VODVideoTrack{Codec: strings.TrimPrefix(capsName, "video/")}
-	if v, _ := s.GetValue("width"); v != nil {
-		if w, ok := v.(int); ok {
-			t.Width = w
-		}
+	if w, ok := s.GetInt("width"); ok {
+		t.Width = int(w)
 	}
-	if v, _ := s.GetValue("height"); v != nil {
-		if h, ok := v.(int); ok {
-			t.Height = h
-		}
+	if h, ok := s.GetInt("height"); ok {
+		t.Height = int(h)
 	}
-	if v, _ := s.GetValue("framerate"); v != nil {
-		t.FPSNum, t.FPSDen = parseFraction(v)
+	if num, den, ok := s.GetFraction("framerate"); ok {
+		t.FPSNum, t.FPSDen = int(num), int(den)
 	}
 	return t
 }
@@ -487,20 +469,14 @@ func extractVideoTrack(capsName string, s *gst.Structure) *VODVideoTrack {
 // what came in.
 func extractAudioTrack(capsName string, s *gst.Structure, transcoded bool) *VODAudioTrack {
 	t := &VODAudioTrack{Codec: strings.TrimPrefix(capsName, "audio/")}
-	if v, _ := s.GetValue("rate"); v != nil {
-		if r, ok := v.(int); ok {
-			t.Rate = r
-		}
+	if r, ok := s.GetInt("rate"); ok {
+		t.Rate = int(r)
 	}
-	if v, _ := s.GetValue("channels"); v != nil {
-		if c, ok := v.(int); ok {
-			t.Channels = c
-		}
+	if c, ok := s.GetInt("channels"); ok {
+		t.Channels = int(c)
 	}
-	if v, _ := s.GetValue("mpegversion"); v != nil {
-		if mv, ok := v.(int); ok {
-			t.MPEGVersion = mv
-		}
+	if mv, ok := s.GetInt("mpegversion"); ok {
+		t.MPEGVersion = int(mv)
 	}
 	if transcoded {
 		// The chain re-encoded to AAC; the final fMP4 carries AAC
@@ -511,36 +487,19 @@ func extractAudioTrack(capsName string, s *gst.Structure, transcoded bool) *VODA
 	return t
 }
 
-// parseFraction takes a GstFraction-shaped value from a caps Structure
-// (go-gst returns it as a stringer with "num/den" format) and returns
-// the numerator and denominator. Returns 0,0 on any parse failure.
-func parseFraction(v any) (num, den int) {
-	str := fmt.Sprintf("%v", v)
-	parts := strings.SplitN(str, "/", 2)
-	if len(parts) != 2 {
-		return 0, 0
-	}
-	n, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
-	d, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
-	if err1 != nil || err2 != nil {
-		return 0, 0
-	}
-	return n, d
-}
-
 type elemSpec struct {
 	name  string
 	props map[string]any
 }
 
-func wireVideoChain(ctx context.Context, pipeline *gst.Pipeline, mp4mux *gst.Element, pad *gst.Pad, caps *gst.Structure) error {
-	codec := caps.Name()
+func wireVideoChain(ctx context.Context, pipeline gst.Pipeline, mp4mux gst.Element, pad gst.Pad, caps *gst.Structure) error {
+	codec := caps.GetName()
 	if codec != "video/x-h264" {
 		return fmt.Errorf("%w: video codec %q (only h264 is supported)", ErrUnsupportedCodec, codec)
 	}
 	chain, err := buildChain(pipeline, "vod-video", []elemSpec{
 		{name: "queue"},
-		{name: "h264parse", props: map[string]any{"config-interval": 0, "disable-passthrough": true}},
+		{name: "h264parse", props: map[string]any{"config-interval": int32(0), "disable-passthrough": true}},
 	})
 	if err != nil {
 		return err
@@ -548,7 +507,7 @@ func wireVideoChain(ctx context.Context, pipeline *gst.Pipeline, mp4mux *gst.Ele
 	if err := linkChain(chain); err != nil {
 		return err
 	}
-	sinkPad := mp4mux.GetRequestPad("video_%u")
+	sinkPad := mp4mux.RequestPadSimple("video_%u")
 	if sinkPad == nil {
 		return fmt.Errorf("mp4mux: no video request pad")
 	}
@@ -565,8 +524,8 @@ func wireVideoChain(ctx context.Context, pipeline *gst.Pipeline, mp4mux *gst.Ele
 
 // wireAudioChain returns whether the chain inserted a transcode step
 // (i.e., the input wasn't already AAC).
-func wireAudioChain(ctx context.Context, pipeline *gst.Pipeline, mp4mux *gst.Element, pad *gst.Pad, caps *gst.Structure) (transcoded bool, err error) {
-	codec := caps.Name()
+func wireAudioChain(ctx context.Context, pipeline gst.Pipeline, mp4mux gst.Element, pad gst.Pad, caps *gst.Structure) (transcoded bool, err error) {
+	codec := caps.GetName()
 	specs, transcoded, err := audioChainSpec(codec, caps)
 	if err != nil {
 		return false, err
@@ -578,7 +537,7 @@ func wireAudioChain(ctx context.Context, pipeline *gst.Pipeline, mp4mux *gst.Ele
 	if err := linkChain(chain); err != nil {
 		return false, err
 	}
-	sinkPad := mp4mux.GetRequestPad("audio_%u")
+	sinkPad := mp4mux.RequestPadSimple("audio_%u")
 	if sinkPad == nil {
 		return false, fmt.Errorf("mp4mux: no audio request pad")
 	}
@@ -593,7 +552,7 @@ func wireAudioChain(ctx context.Context, pipeline *gst.Pipeline, mp4mux *gst.Ele
 	return transcoded, nil
 }
 
-func chainNames(elems []*gst.Element) []string {
+func chainNames(elems []gst.Element) []string {
 	names := make([]string, len(elems))
 	for i, e := range elems {
 		names[i] = e.GetName()
@@ -623,8 +582,7 @@ func audioChainSpec(codec string, caps *gst.Structure) (specs []elemSpec, transc
 	out := []elemSpec{{name: "queue"}}
 	switch codec {
 	case "audio/mpeg":
-		v, _ := caps.GetValue("mpegversion")
-		ver, _ := v.(int)
+		ver, _ := caps.GetInt("mpegversion")
 		if ver != 2 && ver != 4 {
 			return nil, false, fmt.Errorf("%w: audio/mpeg mpegversion=%d", ErrUnsupportedCodec, ver)
 		}
@@ -640,36 +598,36 @@ func audioChainSpec(codec string, caps *gst.Structure) (specs []elemSpec, transc
 	}
 }
 
-func buildChain(pipeline *gst.Pipeline, prefix string, specs []elemSpec) ([]*gst.Element, error) {
-	out := make([]*gst.Element, len(specs))
+func buildChain(pipeline gst.Pipeline, prefix string, specs []elemSpec) ([]gst.Element, error) {
+	out := make([]gst.Element, len(specs))
 	for i, spec := range specs {
 		props := map[string]any{}
 		for k, v := range spec.props {
 			props[k] = v
 		}
 		props["name"] = fmt.Sprintf("%s-%s-%d", prefix, spec.name, i)
-		e, err := gst.NewElementWithProperties(spec.name, props)
-		if err != nil {
-			return nil, fmt.Errorf("create %s: %w", spec.name, err)
+		e := gst.ElementFactoryMakeWithProperties(spec.name, props)
+		if e == nil {
+			return nil, fmt.Errorf("create %s: element factory returned nil", spec.name)
 		}
-		if err := pipeline.Add(e); err != nil {
-			return nil, fmt.Errorf("add %s: %w", spec.name, err)
+		if !pipeline.Add(e) {
+			return nil, fmt.Errorf("add %s to pipeline failed", spec.name)
 		}
 		out[i] = e
 	}
 	return out, nil
 }
 
-func linkChain(elems []*gst.Element) error {
+func linkChain(elems []gst.Element) error {
 	for i := 0; i < len(elems)-1; i++ {
-		if err := elems[i].Link(elems[i+1]); err != nil {
-			return fmt.Errorf("link %s -> %s: %w", elems[i].GetName(), elems[i+1].GetName(), err)
+		if !elems[i].Link(elems[i+1]) {
+			return fmt.Errorf("link %s -> %s failed", elems[i].GetName(), elems[i+1].GetName())
 		}
 	}
 	return nil
 }
 
-func syncAll(elems []*gst.Element) {
+func syncAll(elems []gst.Element) {
 	for _, e := range elems {
 		e.SyncStateWithParent()
 	}
@@ -680,7 +638,7 @@ func syncAll(elems []*gst.Element) {
 //
 //  1. GetCurrentCaps — fast path, works once a CAPS event has fixed
 //     the pad. For many inputs this is set at pad-added time.
-//  2. GetStream().Caps — parsebin attaches a GstStream to each
+//  2. GetStream().GetCaps — parsebin attaches a GstStream to each
 //     exposed pad with the codec caps from its internal parser,
 //     even before the downstream caps query has fixated. Works
 //     reliably for parsebin and decodebin3.
@@ -690,12 +648,12 @@ func syncAll(elems []*gst.Element) {
 //
 // Returns nil if all three fall short, in which case the caller
 // should log+ignore the pad — there's no productive way to wire it.
-func padCaps(pad *gst.Pad) *gst.Caps {
+func padCaps(pad gst.Pad) *gst.Caps {
 	if c := pad.GetCurrentCaps(); c != nil {
 		return c
 	}
 	if stream := pad.GetStream(); stream != nil {
-		if c := stream.Caps(); c != nil {
+		if c := stream.GetCaps(); c != nil {
 			return c
 		}
 	}

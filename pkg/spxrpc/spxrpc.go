@@ -189,7 +189,14 @@ func (s *Server) isServerPDS(ctx context.Context) bool {
 	return ec.Request().Host == s.cli.ServerHost
 }
 
+const repoProxyHeader = "X-Streamplace-Repo-Proxy"
+
 func makeUnauthenticatedRequest(ctx context.Context, service, method string, params map[string]interface{}, out interface{}) error {
+	// Only forward once: a stale PDS endpoint may route back to this node
+	// under an alias, or to another Streamplace node that would proxy again.
+	if ec, ok := ctx.Value(echoContextKey).(echo.Context); ok && ec.Request().Header.Get(repoProxyHeader) != "" {
+		return echo.NewHTTPError(http.StatusLoopDetected, "repository proxy loop detected")
+	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	u, err := url.Parse(fmt.Sprintf("%s/xrpc/%s", service, method))
@@ -210,6 +217,7 @@ func makeUnauthenticatedRequest(ctx context.Context, service, method string, par
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
+	req.Header.Set(repoProxyHeader, "true")
 
 	resp, err := aqhttp.Client.Do(req)
 	if err != nil {
@@ -217,6 +225,9 @@ func makeUnauthenticatedRequest(ctx context.Context, service, method string, par
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusLoopDetected {
+		return echo.NewHTTPError(http.StatusLoopDetected, "repository proxy loop detected")
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("upstream request failed with status %d", resp.StatusCode)
 	}

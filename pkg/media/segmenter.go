@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -27,24 +27,24 @@ import (
 var FatalSegmentationErrors = false
 
 // element that takes the input stream, muxes to mp4, and signs the result
-func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Parse bool, cb func(ctx context.Context, buf []byte, now int64) error) (*gst.Element, error) {
+func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Parse bool, cb func(ctx context.Context, buf []byte, now int64) error) (gst.Element, error) {
 	// elem, err := gst.NewElement("splitmuxsink name=splitter async-finalize=true sink-factory=appsink muxer-factory=matroskamux max-size-bytes=1")
-	elem, err := gst.NewElementWithProperties("splitmuxsink", map[string]any{
+	elem := gst.ElementFactoryMakeWithProperties("splitmuxsink", map[string]any{
 		"name":           "signer",
 		"async-finalize": true,
 		"sink-factory":   "appsink",
 		"muxer-factory":  "mp4mux",
-		"max-size-bytes": 1,
+		"max-size-bytes": uint64(1),
 	})
-	if err != nil {
-		return nil, err
+	if elem == nil {
+		return nil, fmt.Errorf("failed to create splitmuxsink element")
 	}
 
-	p := elem.GetRequestPad("video")
+	p := elem.RequestPadSimple("video")
 	if p == nil {
 		return nil, fmt.Errorf("failed to get video pad")
 	}
-	p = elem.GetRequestPad("audio_%u")
+	p = elem.RequestPadSimple("audio_%u")
 	if p == nil {
 		return nil, fmt.Errorf("failed to get audio pad")
 	}
@@ -60,7 +60,7 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 				continue
 			case <-time.After(time.Second * 30):
 				log.Warn(ctx, "no new segment for 30 seconds")
-				elem.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "No new segment for 30 seconds", "No new segment for 30 seconds (debug)")
+				elem.MessageError(gst.CoreErrorQuark(), int32(gst.CoreErrorFailed), "No new segment for 30 seconds", "No new segment for 30 seconds (debug)")
 				return
 			}
 		}
@@ -69,56 +69,32 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 	// we didn't need faststart but i'm leaving this commented here in case
 	// you want to change any other muxer properties in the future
 
-	_, err = elem.Connect("muxer-added", func(split, muxEle *gst.Element) {
-		err := muxEle.SetProperty("presentation-time", false)
-		if err != nil {
-			panic("error setting presentation-time to false: " + err.Error())
-		}
-		err = muxEle.SetProperty("interleave-bytes", InterleaveBytes)
-		if err != nil {
-			panic("error setting interleave-bytes" + err.Error())
-		}
-		err = muxEle.SetProperty("interleave-time", InterleaveTime)
-		if err != nil {
-			panic("error setting interleave-time" + err.Error())
-		}
-		err = muxEle.SetProperty("faststart", true)
-		if err != nil {
-			panic("error setting faststart" + err.Error())
-		}
-		err = muxEle.SetProperty("movie-timescale", uint(60000))
-		if err != nil {
-			panic("error setting movie-timescale" + err.Error())
-		}
-		err = muxEle.SetProperty("trak-timescale", uint(60000))
-		if err != nil {
-			panic("error setting trak-timescale" + err.Error())
-		}
+	elem.Connect("muxer-added", func(_ gst.Element, muxEle gst.Element) {
+		muxEle.SetObjectProperty("presentation-time", false)
+		muxEle.SetObjectProperty("interleave-bytes", InterleaveBytes)
+		muxEle.SetObjectProperty("interleave-time", InterleaveTime)
+		muxEle.SetObjectProperty("faststart", true)
+		muxEle.SetObjectProperty("movie-timescale", uint32(60000))
+		muxEle.SetObjectProperty("trak-timescale", uint32(60000))
 	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect muxer-added handler: %w", err)
-	}
 
 	// channel to make sure data is emitted in order
 	var ch chan struct{}
 
-	_, err = elem.Connect("sink-added", func(split, sinkEle *gst.Element) {
+	elem.Connect("sink-added", func(_ gst.Element, sinkEle gst.Element) {
 		previousSegCh := ch
 		mySegCh := make(chan struct{}, 1)
 		ch = mySegCh
 		buf := &bytes.Buffer{}
-		err := sinkEle.SetProperty("sync", false)
-		if err != nil {
-			panic("error setting sync to false: " + err.Error())
-		}
-		appsink := app.SinkFromElement(sinkEle)
-		if appsink == nil {
+		sinkEle.SetObjectProperty("sync", false)
+		appsink, ok := sinkEle.(app.AppSink)
+		if !ok {
 			panic("appsink should not be nil")
 		}
 
-		appsink.SetCallbacks(&app.SinkCallbacks{
-			NewSampleFunc: WriterNewSample(ctx, buf),
-			EOSFunc: func(sink *app.Sink) {
+		appsink.SetCallbacks(&app.AppSinkCallbacks{
+			NewSample: WriterNewSample(ctx, buf),
+			EOS: func(sink app.AppSink) {
 				// ctx, span := otel.Tracer("signer").Start(ctx, "SegmentAndSignElem", trace.WithAttributes(
 				// 	attribute.String("streamer", ms.Streamer()),
 				// ))
@@ -132,7 +108,7 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 				resetTimer <- struct{}{}
 				convergeAndSign := func() error {
 					log.Debug(ctx, "signing segment", "size", len(bs))
-					err = cb(ctx, bs, now)
+					err := cb(ctx, bs, now)
 					if err != nil {
 						return fmt.Errorf("error signing segment: %w", err)
 					}
@@ -150,7 +126,7 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 						return err
 					case <-time.After(time.Second * 3):
 						go func() {
-							err = cli.DataFileWrite([]string{"debug-recordings", streamer, fmt.Sprintf("converge-timeout-%d.mp4", now)}, bytes.NewReader(bs), true)
+							err := cli.DataFileWrite([]string{"debug-recordings", streamer, fmt.Sprintf("converge-timeout-%d.mp4", now)}, bytes.NewReader(bs), true)
 							if err != nil {
 								log.Error(ctx, "error writing debug recording", "error", err)
 							}
@@ -162,21 +138,18 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 				if err != nil {
 					log.Error(ctx, "error in segmenter", "error", err)
 					if FatalSegmentationErrors {
-						sink.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "error in segmenter", err.Error())
+						sink.MessageError(gst.CoreErrorQuark(), int32(gst.CoreErrorFailed), "error in segmenter", err.Error())
 						return
 					}
 				}
 			},
 		})
 	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect sink-added handler: %w", err)
-	}
 
 	return elem, nil
 }
 
-func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) (*gst.Element, error) {
+func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) (gst.Element, error) {
 	tracer := otel.Tracer("signer")
 	streamer := ms.Streamer()
 
@@ -234,22 +207,25 @@ func SegmentUnsigned(ctx context.Context, cli *config.CLI, streamer string, inpu
 		"demux. ! queue ! h264parse name=videoparse disable-passthrough=true config-interval=0",
 		"demux. ! queue ! opusparse name=audioparse",
 	}
-	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
+	launched, err := gst.ParseLaunch(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
 		return fmt.Errorf("error creating SegmentUnsigned pipeline: %w", err)
 	}
-
-	srcele, err := pipeline.GetElementByName("appsrc")
-	if err != nil {
-		return err
+	pipeline, ok := launched.(gst.Pipeline)
+	if !ok {
+		return fmt.Errorf("error creating SegmentUnsigned pipeline: parsed description is not a pipeline")
 	}
-	src := app.SrcFromElement(srcele)
-	src.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedDataIncremental(ctx, input),
+
+	srcele := pipeline.GetByName("appsrc")
+	if srcele == nil {
+		return fmt.Errorf("appsrc element not found")
+	}
+	srcele.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: ReaderNeedDataIncremental(ctx, input),
 	})
-	videoParseEle, err := pipeline.GetElementByName("videoparse")
-	if err != nil {
-		return err
+	videoParseEle := pipeline.GetByName("videoparse")
+	if videoParseEle == nil {
+		return fmt.Errorf("videoparse element not found")
 	}
 
 	segmenter, err := SegmentElem(ctx, cli, streamer, doH264Parse, func(ctx context.Context, buf []byte, now int64) error {
@@ -263,21 +239,18 @@ func SegmentUnsigned(ctx context.Context, cli *config.CLI, streamer string, inpu
 		return err
 	}
 
-	err = pipeline.Add(segmenter)
-	if err != nil {
-		return err
+	if !pipeline.Add(segmenter) {
+		return fmt.Errorf("failed to add segmenter to pipeline")
 	}
-	err = videoParseEle.Link(segmenter)
-	if err != nil {
-		return err
+	if !videoParseEle.Link(segmenter) {
+		return fmt.Errorf("failed to link videoparse to segmenter")
 	}
-	audioparse, err := pipeline.GetElementByName("audioparse")
-	if err != nil {
-		return err
+	audioparse := pipeline.GetByName("audioparse")
+	if audioparse == nil {
+		return fmt.Errorf("audioparse element not found")
 	}
-	err = audioparse.Link(segmenter)
-	if err != nil {
-		return err
+	if !audioparse.Link(segmenter) {
+		return fmt.Errorf("failed to link audioparse to segmenter")
 	}
 
 	busErr := make(chan error)
@@ -287,15 +260,13 @@ func SegmentUnsigned(ctx context.Context, cli *config.CLI, streamer string, inpu
 		busErr <- err
 	}()
 
-	err = pipeline.SetState(gst.StatePlaying)
-	if err != nil {
-		return err
+	if pipeline.SetState(gst.StatePlaying) == gst.StateChangeFailure {
+		return fmt.Errorf("error setting SegmentUnsigned pipeline to playing")
 	}
 
 	defer func() {
-		err := pipeline.SetState(gst.StateNull)
-		if err != nil {
-			log.Error(ctx, "error setting pipeline to null state", "error", err)
+		if pipeline.SetState(gst.StateNull) == gst.StateChangeFailure {
+			log.Error(ctx, "error setting pipeline to null state")
 		}
 	}()
 

@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/log"
 )
@@ -27,19 +27,18 @@ func TestRandomAccessSrcBin_Passthrough(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, fixture)
 
-		pipeline, err := gst.NewPipeline("ra-src-passthrough")
-		require.NoError(t, err)
+		pipeline := gst.NewPipeline("ra-src-passthrough").(gst.Pipeline)
 
 		srcBin, err := RandomAccessSrcBin(ctx, "ra-src", bytes.NewReader(fixture), int64(len(fixture)))
 		require.NoError(t, err)
-		require.NoError(t, pipeline.Add(srcBin.Element))
+		require.True(t, pipeline.Add(srcBin))
 
-		sinkEle, err := gst.NewElementWithProperties("appsink", map[string]interface{}{
+		sinkEle := gst.ElementFactoryMakeWithProperties("appsink", map[string]interface{}{
 			"name": "ra-sink",
 			"sync": false,
 		})
-		require.NoError(t, err)
-		require.NoError(t, pipeline.Add(sinkEle))
+		require.NotNil(t, sinkEle)
+		require.True(t, pipeline.Add(sinkEle))
 
 		ghostPad := srcBin.GetStaticPad("src")
 		require.NotNil(t, ghostPad)
@@ -48,17 +47,17 @@ func TestRandomAccessSrcBin_Passthrough(t *testing.T) {
 		require.Equal(t, gst.PadLinkOK, ghostPad.Link(sinkPad))
 
 		out := &bytes.Buffer{}
-		sink := app.SinkFromElement(sinkEle)
-		sink.SetCallbacks(&app.SinkCallbacks{
-			NewSampleFunc: WriterNewSample(ctx, out),
+		sink := sinkEle.(app.AppSink)
+		sink.SetCallbacks(&app.AppSinkCallbacks{
+			NewSample: WriterNewSample(ctx, out),
 		})
 
 		errCh := make(chan error, 1)
 		go func() { errCh <- HandleBusMessages(ctx, pipeline) }()
 
-		require.NoError(t, pipeline.SetState(gst.StatePlaying))
+		require.NotEqual(t, gst.StateChangeFailure, pipeline.SetState(gst.StatePlaying))
 		require.NoError(t, <-errCh)
-		require.NoError(t, pipeline.BlockSetState(gst.StateNull))
+		require.Equal(t, gst.StateChangeSuccess, pipeline.BlockSetState(gst.StateNull, gst.ClockTimeNone))
 
 		require.Equal(t, fixture, out.Bytes())
 	})
@@ -85,39 +84,38 @@ func TestRandomAccessSrcBin_Seek(t *testing.T) {
 		size := int64(len(fixture))
 
 		check := func(name string, offset, length int64) {
-			pipeline, err := gst.NewPipeline("ra-src-seek-" + name)
-			require.NoError(t, err)
+			pipeline := gst.NewPipeline("ra-src-seek-" + name).(gst.Pipeline)
 
 			srcBin, err := RandomAccessSrcBin(ctx, "ra-src", reader, size)
 			require.NoError(t, err)
-			require.NoError(t, pipeline.Add(srcBin.Element))
+			require.True(t, pipeline.Add(srcBin))
 
-			sinkEle, err := gst.NewElementWithProperties("appsink", map[string]interface{}{
+			sinkEle := gst.ElementFactoryMakeWithProperties("appsink", map[string]interface{}{
 				"name": "ra-sink",
 				"sync": false,
 			})
-			require.NoError(t, err)
-			require.NoError(t, pipeline.Add(sinkEle))
+			require.NotNil(t, sinkEle)
+			require.True(t, pipeline.Add(sinkEle))
 
 			require.Equal(t, gst.PadLinkOK, srcBin.GetStaticPad("src").Link(sinkEle.GetStaticPad("sink")))
 
 			out := &bytes.Buffer{}
-			sink := app.SinkFromElement(sinkEle)
-			sink.SetCallbacks(&app.SinkCallbacks{
-				NewSampleFunc: WriterNewSample(ctx, out),
+			sink := sinkEle.(app.AppSink)
+			sink.SetCallbacks(&app.AppSinkCallbacks{
+				NewSample: WriterNewSample(ctx, out),
 			})
 
 			errCh := make(chan error, 1)
 			go func() { errCh <- HandleBusMessages(ctx, pipeline) }()
-			require.NoError(t, pipeline.SetState(gst.StatePaused))
+			require.NotEqual(t, gst.StateChangeFailure, pipeline.SetState(gst.StatePaused))
 
 			// Issue a byte-format seek into the desired range.
-			ok := pipeline.SeekSimple(offset, gst.FormatBytes, gst.SeekFlagFlush)
+			ok := pipeline.SeekSimple(gst.FormatBytes, gst.SeekFlagFlush, offset)
 			require.True(t, ok, "%s: seek to %d failed", name, offset)
 
-			require.NoError(t, pipeline.SetState(gst.StatePlaying))
+			require.NotEqual(t, gst.StateChangeFailure, pipeline.SetState(gst.StatePlaying))
 			require.NoError(t, <-errCh)
-			require.NoError(t, pipeline.BlockSetState(gst.StateNull))
+			require.Equal(t, gst.StateChangeSuccess, pipeline.BlockSetState(gst.StateNull, gst.ClockTimeNone))
 
 			got := out.Bytes()
 			require.GreaterOrEqual(t, len(got), int(length), "%s: expected at least %d bytes, got %d", name, length, len(got))

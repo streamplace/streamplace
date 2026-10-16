@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/log"
@@ -36,10 +36,7 @@ func testBusHandlerCleanupInner(ctx context.Context, i int) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	pipeline, err := gst.NewPipeline(fmt.Sprintf("TestBusHandler-%d", i))
-	if err != nil {
-		return err
-	}
+	pipeline := gst.NewPipeline(fmt.Sprintf("TestBusHandler-%d", i)).(gst.Pipeline)
 
 	busDone := make(chan struct{})
 	go func() {
@@ -51,49 +48,45 @@ func testBusHandlerCleanupInner(ctx context.Context, i int) error {
 	defer func() {
 		cancel()
 		<-busDone
-		err = pipeline.SetState(gst.StateNull)
-		if err != nil {
-			panic(fmt.Sprintf("failed to set state to null: %s", err))
+		if pipeline.BlockSetState(gst.StateNull, gst.ClockTimeNone) != gst.StateChangeSuccess {
+			panic("failed to set state to null")
 		}
 	}()
 
-	fileSrc, err := gst.NewElementWithProperties("filesrc", map[string]any{
+	fileSrc := gst.ElementFactoryMakeWithProperties("filesrc", map[string]any{
 		"location": getFixture("5sec.mp4"),
 	})
-	if err != nil {
-		return err
+	if fileSrc == nil {
+		return fmt.Errorf("failed to create filesrc")
 	}
-	err = pipeline.Add(fileSrc)
-	if err != nil {
-		return err
+	if !pipeline.Add(fileSrc) {
+		return fmt.Errorf("failed to add filesrc")
 	}
 
-	demux, err := gst.NewElementWithProperties("qtdemux", map[string]any{
+	demux := gst.ElementFactoryMakeWithProperties("qtdemux", map[string]any{
 		"name": fmt.Sprintf("TestBusHandler-qtdemux-%d", i),
 	})
-	if err != nil {
-		return err
+	if demux == nil {
+		return fmt.Errorf("failed to create demux")
 	}
-	err = pipeline.Add(demux)
-	if err != nil {
-		return err
+	if !pipeline.Add(demux) {
+		return fmt.Errorf("failed to add demux")
 	}
 
-	appSink, err := gst.NewElementWithProperties("appsink", map[string]any{
+	appSink := gst.ElementFactoryMakeWithProperties("appsink", map[string]any{
 		"name": fmt.Sprintf("TestBusHandler-appsink-%d", i),
 		"sync": false,
 	})
-	if err != nil {
-		return err
+	if appSink == nil {
+		return fmt.Errorf("failed to create appsink")
 	}
-	err = pipeline.Add(appSink)
-	if err != nil {
-		return err
+	if !pipeline.Add(appSink) {
+		return fmt.Errorf("failed to add appsink")
 	}
 
-	sink := app.SinkFromElement(appSink)
-	sink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, nil),
+	sink := appSink.(app.AppSink)
+	sink.SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, nil),
 	})
 
 	return fmt.Errorf("test error")

@@ -127,7 +127,9 @@ function PlayerWithProvider(
       ? (videoBoxHeight ?? 0) +
         safeTop +
         (Platform.OS !== "web" ? Math.max(0, chromeFade.value * 68 - 12) : 0)
-      : screenHeight,
+      : Platform.OS === "web"
+        ? "100%"
+        : screenHeight,
   }));
 
   const websocketConnected = useLivestreamStore((x) => x.websocketConnected);

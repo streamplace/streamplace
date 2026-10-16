@@ -3,7 +3,7 @@
  * These provide direct access to static design tokens and support composition
  */
 
-import { Platform } from "react-native";
+import { Platform, TextStyle } from "react-native";
 import {
   animations,
   borderRadius,
@@ -268,6 +268,12 @@ export const backgrounds = pairify(rawColors, "backgroundColor");
 
 // Text color utilities
 export const textColors = pairify(rawColors, "color");
+
+// React Native supports `userSelect` at runtime (react-native-web maps it to
+// the DOM property), but its `ViewStyle` type only declares it on `TextStyle`,
+// so a View style object cannot name it directly. Type it as TextStyle so the
+// literal stays assignable to a View's style array.
+export const selectableText: TextStyle = { userSelect: "text" };
 
 // Percentage-based sizes
 const percentageSizes = {

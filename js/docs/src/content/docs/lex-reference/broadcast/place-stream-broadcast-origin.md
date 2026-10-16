@@ -19,14 +19,15 @@ Record indicating a livestream is published and available for replication at a g
 
 **Record Properties:**
 
-| Name           | Type     | Req'd | Description                                                                | Constraints        |
-| -------------- | -------- | ----- | -------------------------------------------------------------------------- | ------------------ |
-| `streamer`     | `string` | ✅    | DID of the streamer whose livestream is being published                    | Format: `did`      |
-| `server`       | `string` | ✅    | did of the server that's currently rebroadcasting the livestream           | Format: `did`      |
-| `broadcaster`  | `string` | ❌    | did of the broadcaster that operates the server syndicating the livestream | Format: `did`      |
-| `updatedAt`    | `string` | ✅    | Periodically updated timestamp when this origin last saw a livestream      | Format: `datetime` |
-| `irohTicket`   | `string` | ❌    | Iroh ticket that can be used to access the livestream from the server      | Max Length: 2048   |
-| `websocketURL` | `string` | ❌    | URL of the websocket endpoint for the livestream                           | Format: `uri`      |
+| Name           | Type     | Req'd | Description                                                                                                                                                                      | Constraints        |
+| -------------- | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `streamer`     | `string` | ✅    | DID of the streamer whose livestream is being published                                                                                                                          | Format: `did`      |
+| `server`       | `string` | ✅    | did of the server that's currently rebroadcasting the livestream                                                                                                                 | Format: `did`      |
+| `broadcaster`  | `string` | ❌    | did of the broadcaster that operates the server syndicating the livestream                                                                                                       | Format: `did`      |
+| `updatedAt`    | `string` | ✅    | Periodically updated timestamp when this origin last saw a livestream                                                                                                            | Format: `datetime` |
+| `irohTicket`   | `string` | ❌    | Iroh ticket that can be used to access the livestream from the server                                                                                                            | Max Length: 2048   |
+| `websocketURL` | `string` | ❌    | URL of the websocket endpoint for the livestream                                                                                                                                 | Format: `uri`      |
+| `moqURL`       | `string` | ❌    | moqt:// URL of the Media over QUIC endpoint serving the livestream's MUXL segments; a certhash query parameter pins the server certificate (SHA-256, hex) when it is self-signed | Format: `uri`      |
 
 ---
 
@@ -74,6 +75,11 @@ Record indicating a livestream is published and available for replication at a g
             "type": "string",
             "format": "uri",
             "description": "URL of the websocket endpoint for the livestream"
+          },
+          "moqURL": {
+            "type": "string",
+            "format": "uri",
+            "description": "moqt:// URL of the Media over QUIC endpoint serving the livestream's MUXL segments; a certhash query parameter pins the server certificate (SHA-256, hex) when it is self-signed"
           }
         }
       }

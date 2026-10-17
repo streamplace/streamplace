@@ -85,7 +85,7 @@ export function useFollow(subjectDID: string | undefined) {
   return {
     following: !!query.data?.uri,
     loading: enabled && (query.isPending || pending),
-    error: query.error,
+    error: query.isLoadingError ? query.error : null,
     toggle,
   };
 }

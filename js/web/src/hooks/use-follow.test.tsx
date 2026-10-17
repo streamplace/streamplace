@@ -1,7 +1,9 @@
+import { makeLivestreamStore } from "@streamplace/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { StreamInfo } from "../components/stream/stream-info";
 import { useFollow } from "./use-follow";
 
 const { mockUseSession } = vi.hoisted(() => ({ mockUseSession: vi.fn() }));
@@ -9,6 +11,9 @@ vi.mock("@/lib/session", () => ({ useSession: mockUseSession }));
 vi.mock("@/lib/store", () => ({
   useStore: (selector: (state: { url: string }) => unknown) =>
     selector({ url: "https://node.example" }),
+}));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
 }));
 
 const VIEWER = "did:plc:viewer";
@@ -61,7 +66,11 @@ describe("useFollow", () => {
       follow: vi.fn().mockResolvedValue({ uri: FOLLOW_URI }),
       deleteFollow: vi.fn().mockResolvedValue(undefined),
     };
-    mockUseSession.mockReturnValue({ did: VIEWER, pdsAgent: agent });
+    mockUseSession.mockReturnValue({
+      did: VIEWER,
+      pdsAgent: agent,
+      state: { status: "authenticated", session: { did: VIEWER } },
+    });
     client = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: Infinity } },
     });
@@ -253,6 +262,65 @@ describe("useFollow", () => {
     await act(async () => current.toggle());
     expect(agent.deleteFollow).toHaveBeenCalledWith(FOLLOW_URI);
     expect(container.textContent).toBe("Follow");
+  });
+
+  async function renderStreamInfo() {
+    const store = makeLivestreamStore();
+    store.setState({
+      livestream: { author: { did: STREAMER }, record: {} } as never,
+    });
+    await act(async () =>
+      root.render(
+        <QueryClientProvider client={client}>
+          <StreamInfo
+            store={store}
+            user="streamer.example"
+            liveness="live"
+            chatOpen={false}
+            onToggleChat={() => {}}
+          />
+        </QueryClientProvider>,
+      ),
+    );
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+  }
+
+  function followButton(label: string) {
+    const button = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === label,
+    );
+    expect(button).toBeDefined();
+    return button!;
+  }
+
+  it.each([null, FOLLOW_URI])(
+    "keeps the follow button usable after a failed refresh with cached status %s",
+    async (uri) => {
+      fetchMock.mockResolvedValueOnce(response(uri));
+      await renderStreamInfo();
+      fetchMock.mockRejectedValueOnce(new Error("node unavailable"));
+      await act(async () => {
+        await client.refetchQueries({
+          queryKey: ["follow", "https://node.example", VIEWER, STREAMER],
+        });
+        await vi.advanceTimersByTimeAsync(1);
+      });
+
+      const button = followButton(uri ? "following" : "follow");
+      expect(button.disabled).toBe(false);
+      expect(button.title).not.toBe("follow-status-failed");
+      await act(async () => button.click());
+      await act(async () => vi.advanceTimersByTimeAsync(1));
+      expect(followButton(uri ? "follow" : "following").disabled).toBe(false);
+    },
+  );
+
+  it("disables the follow button when the initial lookup fails", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("failed", { status: 500 }));
+    await renderStreamInfo();
+    const button = followButton("follow");
+    expect(button.disabled).toBe(true);
+    expect(button.title).toBe("follow-status-failed");
   });
 
   it("does not apply a late lookup to a different streamer", async () => {

@@ -27,10 +27,9 @@ test("stream: portrait player exposes playback controls", async ({ page }) => {
   const card = page.getByTestId("home-stream-card").first();
   await expect(card).toBeVisible({ timeout: 30_000 });
   await card.click();
-  await expect(
-    page.getByText("Now streaming - e2e test stream").first(),
-  ).toBeVisible({ timeout: 30_000 });
 
+  // Chat may virtualize its initial system message once history fills up.
+  // Playback controls depend on the player being ready, not that chat row.
   const video = page.locator("video").first();
   await expect(video).toBeVisible({ timeout: 30_000 });
   const videoBox = await video.boundingBox();

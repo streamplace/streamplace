@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { loginThroughPds } from "./login";
 
+// Native counterpart: .maestro/logged-in/chat-timezone.yaml checks the
+// sending device's offset against the actual record stored by the PDS.
 const HTTPS_URL = process.env.SERVER_HTTPS_URL;
 test.skip(!HTTPS_URL, "harness started without its HTTPS hostnames");
 

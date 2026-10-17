@@ -2,6 +2,8 @@
 export * from "./vod-store";
 
 export * from "./livestream-store";
+export * from "./slash-commands";
+export * from "./slash-commands/teleport";
 
 export * from "./hooks/use-actor-typeahead";
 export * from "./lib/badge-label";

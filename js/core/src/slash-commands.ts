@@ -1,6 +1,9 @@
+import type { TeleportErrorData } from "./slash-commands/teleport";
+
 export interface SlashCommandResult {
   handled: boolean;
   error?: string;
+  errorData?: TeleportErrorData;
 }
 
 export type SlashCommandHandler = (
@@ -15,18 +18,9 @@ export interface SlashCommand {
   handler: SlashCommandHandler;
 }
 
-const commands = new Map<string, SlashCommand>();
-
-export function registerSlashCommand(command: SlashCommand) {
-  commands.set(command.name, command);
-}
-
-export function unregisterSlashCommand(name: string) {
-  commands.delete(name);
-}
-
 export async function handleSlashCommand(
   input: string,
+  commands: SlashCommand[],
 ): Promise<SlashCommandResult> {
   const trimmed = input.trim();
   if (!trimmed.startsWith("/")) {
@@ -41,7 +35,7 @@ export async function handleSlashCommand(
     return { handled: false };
   }
 
-  const command = commands.get(commandName);
+  const command = commands.find((command) => command.name === commandName);
   if (!command) {
     return {
       // for now - return false
@@ -58,8 +52,4 @@ export async function handleSlashCommand(
       error: err instanceof Error ? err.message : "Command failed",
     };
   }
-}
-
-export function getRegisteredCommands(): SlashCommand[] {
-  return Array.from(commands.values());
 }

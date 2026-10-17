@@ -47,6 +47,31 @@ func (m *DBModel) GetLatestTeleportForRepo(repoDID string) (*Teleport, error) {
 	return &teleport, nil
 }
 
+// GetTeleportForViewer includes a known record when reconnecting after its start
+// time, without replaying historical teleports to a new viewer.
+func (m *DBModel) GetTeleportForViewer(repoDID, resumeURI, resumeCID string) (*Teleport, error) {
+	var teleport Teleport
+	now := time.Now().UTC()
+	query := m.DB.
+		Where("repo_did = ?", repoDID).
+		Where("denied = ?", false)
+	if resumeURI != "" && resumeCID != "" {
+		query = query.Where("(starts_at > ? OR (uri = ? AND cid = ?))", now, resumeURI, resumeCID)
+	} else {
+		query = query.Where("starts_at > ?", now)
+	}
+	err := query.
+		Order("uri DESC").
+		First(&teleport).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving teleport for viewer: %w", err)
+	}
+	return &teleport, nil
+}
+
 func (m *DBModel) GetActiveTeleportsForRepo(repoDID string) ([]Teleport, error) {
 	now := time.Now()
 	var teleports []Teleport

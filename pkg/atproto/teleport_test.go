@@ -39,6 +39,8 @@ func TestTeleportArrivalNotFromBackfill(t *testing.T) {
 	// Watch the streamer's topic, which is where an arrival is announced.
 	ch := b.Subscribe(streamer)
 	defer b.Unsubscribe(streamer, ch)
+	sourceCh := b.Subscribe(traveller)
+	defer b.Unsubscribe(traveller, sourceCh)
 	var mu sync.Mutex
 	var arrivals []bus.Message
 	go func() {
@@ -71,20 +73,57 @@ func TestTeleportArrivalNotFromBackfill(t *testing.T) {
 		require.NoError(t, atsync.handleCreateUpdate(ctx, traveller, syntax.RecordKey(rkey),
 			&recCBOR, rcid.String(), syntax.NSID("place.stream.live.teleport"), false, isFirstSync, ""))
 	}
+	assertOutgoing := func(rkey, startsAt string) {
+		t.Helper()
+		select {
+		case msg := <-sourceCh:
+			outgoing, ok := msg.(map[string]any)
+			require.True(t, ok)
+			require.Equal(t, "at://"+traveller+"/place.stream.live.teleport/"+rkey, outgoing["uri"])
+			require.Equal(t, startsAt, outgoing["startsAt"])
+			require.Equal(t, streamer, outgoing["streamer"])
+			require.NotEmpty(t, outgoing["cid"])
+		case <-time.After(5 * time.Second):
+			t.Fatal("source viewers did not receive the teleport")
+		}
+	}
 
 	// A teleport from last week, met during a backfill. The notification is
 	// scheduled with no wait at all, so if it were scheduled we would see it.
 	past := time.Now().Add(-7 * 24 * time.Hour).UTC().Format(time.RFC3339)
 	index("3lteleportold0", past, true)
-	time.Sleep(250 * time.Millisecond)
+	select {
+	case <-sourceCh:
+		t.Fatal("an expired teleport must not redirect current viewers during backfill")
+	case <-time.After(250 * time.Millisecond):
+	}
 	require.Equal(t, 0, countArrivals(), "a backfilled teleport must not announce an arrival")
 	stored, err := mod.GetTeleportByURI("at://" + traveller + "/place.stream.live.teleport/3lteleportold0")
 	require.NoError(t, err)
 	require.NotNil(t, stored, "the record is still indexed; only the announcement is live-only")
 
-	// The same record arriving live still announces: this is a guard on
-	// backfills, not a change to what a teleport does.
-	index("3lteleportnew0", past, false)
+	// A relay reconnect also replays history, without the backfill flag.
+	replayed := time.Now().Add(-5 * time.Minute).UTC().Format(time.RFC3339)
+	index("3lteleportreplay0", replayed, false)
+	select {
+	case <-sourceCh:
+		t.Fatal("an old relay event must not redirect current viewers")
+	case <-time.After(250 * time.Millisecond):
+	}
+	require.Equal(t, 0, countArrivals(), "an old relay event must not announce an arrival")
+	stored, err = mod.GetTeleportByURI("at://" + traveller + "/place.stream.live.teleport/3lteleportreplay0")
+	require.NoError(t, err)
+	require.NotNil(t, stored, "replayed history is still indexed")
+
+	// A late live event must still redirect source viewers and announce its arrival.
+	late := time.Now().Add(-15 * time.Second).UTC().Format(time.RFC3339)
+	index("3lteleportnew0", late, false)
+	assertOutgoing("3lteleportnew0", late)
 	require.Eventually(t, func() bool { return countArrivals() == 1 }, 5*time.Second, 10*time.Millisecond,
 		"a live teleport still announces an arrival")
+
+	// A future teleport found during backfill still has a countdown to show.
+	future := time.Now().Add(time.Minute).UTC().Format(time.RFC3339)
+	index("3lteleportpending0", future, true)
+	assertOutgoing("3lteleportpending0", future)
 }

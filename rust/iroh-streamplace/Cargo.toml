@@ -5,7 +5,7 @@ edition = "2024"
 
 [lib]
 name = "iroh_streamplace"
-crate-type = ["staticlib", "cdylib"]
+crate-type = ["rlib", "cdylib"]
 
 [dependencies]
 iroh = { version = "0.93", features = ["discovery-local-network"] }

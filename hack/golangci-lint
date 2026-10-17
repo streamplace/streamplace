@@ -15,7 +15,13 @@ OUT="$(mktemp)"
 ERR="$(mktemp)"
 trap 'rm -f "$OUT" "$ERR"' EXIT
 
-podman exec golangci-lint golangci-lint "$@" </dev/null >"$OUT" 2>"$ERR" &
+repo="$PWD"
+builddir="${BUILDDIR:-build-linux-amd64}"
+native="$repo/$builddir/rust/streamplace-native"
+podman exec -w "$repo" \
+  -e "CGO_LDFLAGS=-L$native -lmoq_ffi -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic" \
+  -e "PKG_CONFIG_PATH=$repo/$builddir/meson-uninstalled:$repo/$builddir/lib/pkgconfig:$repo/$builddir/lib/gstreamer-1.0/pkgconfig" \
+  golangci-lint bash "$repo/hack/native-go.sh" "$native" golangci-lint "$@" </dev/null >"$OUT" 2>"$ERR" &
 pid=$!
 
 seconds=0

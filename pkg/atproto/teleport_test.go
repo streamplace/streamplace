@@ -102,6 +102,19 @@ func TestTeleportArrivalNotFromBackfill(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, stored, "the record is still indexed; only the announcement is live-only")
 
+	// A relay reconnect also replays history, without the backfill flag.
+	replayed := time.Now().Add(-5 * time.Minute).UTC().Format(time.RFC3339)
+	index("3lteleportreplay0", replayed, false)
+	select {
+	case <-sourceCh:
+		t.Fatal("an old relay event must not redirect current viewers")
+	case <-time.After(250 * time.Millisecond):
+	}
+	require.Equal(t, 0, countArrivals(), "an old relay event must not announce an arrival")
+	stored, err = mod.GetTeleportByURI("at://" + traveller + "/place.stream.live.teleport/3lteleportreplay0")
+	require.NoError(t, err)
+	require.NotNil(t, stored, "replayed history is still indexed")
+
 	// A late live event must still redirect source viewers and announce its arrival.
 	late := time.Now().Add(-15 * time.Second).UTC().Format(time.RFC3339)
 	index("3lteleportnew0", late, false)

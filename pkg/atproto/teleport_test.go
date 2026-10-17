@@ -73,6 +73,20 @@ func TestTeleportArrivalNotFromBackfill(t *testing.T) {
 		require.NoError(t, atsync.handleCreateUpdate(ctx, traveller, syntax.RecordKey(rkey),
 			&recCBOR, rcid.String(), syntax.NSID("place.stream.live.teleport"), false, isFirstSync, ""))
 	}
+	assertOutgoing := func(rkey, startsAt string) {
+		t.Helper()
+		select {
+		case msg := <-sourceCh:
+			outgoing, ok := msg.(map[string]any)
+			require.True(t, ok)
+			require.Equal(t, "at://"+traveller+"/place.stream.live.teleport/"+rkey, outgoing["uri"])
+			require.Equal(t, startsAt, outgoing["startsAt"])
+			require.Equal(t, streamer, outgoing["streamer"])
+			require.NotEmpty(t, outgoing["cid"])
+		case <-time.After(5 * time.Second):
+			t.Fatal("source viewers did not receive the teleport")
+		}
+	}
 
 	// A teleport from last week, met during a backfill. The notification is
 	// scheduled with no wait at all, so if it were scheduled we would see it.
@@ -88,9 +102,15 @@ func TestTeleportArrivalNotFromBackfill(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, stored, "the record is still indexed; only the announcement is live-only")
 
-	// The same record arriving live still announces: this is a guard on
-	// backfills, not a change to what a teleport does.
-	index("3lteleportnew0", past, false)
+	// A late live event must still redirect source viewers and announce its arrival.
+	late := time.Now().Add(-15 * time.Second).UTC().Format(time.RFC3339)
+	index("3lteleportnew0", late, false)
+	assertOutgoing("3lteleportnew0", late)
 	require.Eventually(t, func() bool { return countArrivals() == 1 }, 5*time.Second, 10*time.Millisecond,
 		"a live teleport still announces an arrival")
+
+	// A future teleport found during backfill still has a countdown to show.
+	future := time.Now().Add(time.Minute).UTC().Format(time.RFC3339)
+	index("3lteleportpending0", future, true)
+	assertOutgoing("3lteleportpending0", future)
 }

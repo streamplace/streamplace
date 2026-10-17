@@ -660,8 +660,8 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if rec.Livestream != nil {
 			teleportMessage["livestream"] = rec.Livestream
 		}
-		// Historical records are still indexed, but must not redirect current viewers.
-		if startsAt.After(time.Now()) {
+		// Only backfilled history is suppressed. Relay lag can make live events late.
+		if !isFirstSync || startsAt.After(now) {
 			atsync.Bus.Publish(userDID, teleportMessage)
 		}
 

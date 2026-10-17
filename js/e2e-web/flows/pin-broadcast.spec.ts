@@ -68,7 +68,11 @@ for (const frontend of ["app", "web"]) {
       createdAt: new Date().toISOString(),
     });
 
-    await page.goto(`/${account.did}`);
+    // The public Bluesky appview cannot resolve harness accounts. The web
+    // popout opens the same chat and notifications directly against the node.
+    await page.goto(
+      frontend === "web" ? `/chat-popout/${account.did}` : `/${account.did}`,
+    );
     const pinned = page.getByTestId("pinned-message");
     await expect(pinned).toContainText("pin across chapters");
 

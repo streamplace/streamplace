@@ -264,6 +264,9 @@ func (s *Server) handlePlaceStreamModerationUpdateLivestream(ctx context.Context
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to decode livestream record")
 	}
 	livestream := *existing
+	if livestream.Broadcast == nil {
+		livestream.Broadcast = &input.LivestreamUri
+	}
 
 	// Create new record (don't edit existing - old records serve as "chapter markers")
 	// Copy fields from existing record and update title
@@ -363,11 +366,37 @@ func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input
 	if err := validateATURI(input.MessageUri); err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid messageUri: %v", err))
 	}
+	if input.Livestream != nil {
+		uri, err := syntax.ParseATURI(*input.Livestream)
+		if err != nil || uri.Authority().String() != input.Streamer || uri.Collection().String() != constants.PLACE_STREAM_LIVESTREAM || uri.RecordKey().String() == "" {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "livestream must reference the streamer's broadcast")
+		}
+	}
 
 	// Get delegated moderation context (validates OAuth, permission, and returns client)
 	modCtx, err := s.GetDelegatedModerationContext(ctx, input.Streamer, "createPin")
 	if err != nil {
 		return nil, err
+	}
+	if input.Livestream != nil {
+		latest, err := s.model.GetLatestLivestreamForRepo(input.Streamer)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to get current broadcast").SetInternal(err)
+		}
+		if latest == nil || latest.Livestream == nil {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "no current broadcast")
+		}
+		var rec placestream.Livestream
+		if err := glex.DecodeCBOR(*latest.Livestream, &rec); err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to decode current broadcast").SetInternal(err)
+		}
+		broadcast := latest.URI
+		if rec.Broadcast != nil {
+			broadcast = *rec.Broadcast
+		}
+		if rec.EndedAt != nil || broadcast != *input.Livestream {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "livestream is not the current active broadcast")
+		}
 	}
 
 	// Create the pinned record (old pins persist as history)
@@ -376,6 +405,7 @@ func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input
 		PinnedMessage: input.MessageUri,
 		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
 		ExpiresAt:     input.ExpiresAt,
+		Livestream:    input.Livestream,
 	}
 
 	createInput := comatproto.RepoCreateRecord_Input{

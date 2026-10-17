@@ -127,6 +127,7 @@ chat-close = Close chat
 chat-open = Open chat
 chat-moderation-menu = Message options
 chat-pin-until-stream-end = Until stream end
+chat-pin-forever = Until unpinned
 chat-pin-duration-minutes = { $count } min
 chat-hide-message = Hide message
 chat-block-user = Block user

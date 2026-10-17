@@ -58,7 +58,7 @@ export function useModerationActions() {
   const pinMessage = async (
     messageUri: string,
     streamerDid: string,
-    expiresAt?: string,
+    options?: { expiresAt?: string; livestream?: string },
   ) => {
     const agent = requireAgent();
     if (agent.did === streamerDid) {
@@ -69,14 +69,15 @@ export function useModerationActions() {
           $type: "place.stream.chat.pinnedRecord",
           pinnedMessage: messageUri,
           createdAt: new Date().toISOString(),
-          ...(expiresAt ? { expiresAt } : {}),
+          ...options,
         },
       });
     }
     return agent.client.call(place.stream.moderation.createPin, {
       streamer: streamerDid as any,
       messageUri: messageUri as any,
-      ...(expiresAt ? { expiresAt: expiresAt as any } : {}),
+      ...(options?.expiresAt ? { expiresAt: options.expiresAt as any } : {}),
+      ...(options?.livestream ? { livestream: options.livestream as any } : {}),
     });
   };
 
@@ -116,6 +117,7 @@ export function useModerationActions() {
         place.stream.livestream,
         {
           ...(value as object),
+          broadcast: (value.broadcast ?? livestreamUri) as any,
           title,
           createdAt: new Date().toISOString() as any,
         },

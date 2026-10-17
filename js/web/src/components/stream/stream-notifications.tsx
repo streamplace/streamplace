@@ -3,6 +3,7 @@ import type { Link as FacetLink } from "@atproto/api/dist/client/types/app/bsky/
 import type { LivestreamStore } from "@streamplace/core";
 import {
   deleteTeleport,
+  getActivePinnedComment,
   segmentize,
   type Facet,
   type FacetFeature,
@@ -51,7 +52,7 @@ export function StreamNotifications({
   const state = useStore(
     store,
     useShallow((s) => ({
-      pinnedComment: s.pinnedComment,
+      pinnedComment: getActivePinnedComment(s),
       activeTeleport: s.activeTeleport,
     })),
   );
@@ -136,10 +137,13 @@ function PinnedNotification({
   const [dismissed, setDismissed] = useState(false);
 
   // Handle TTL expiry
-  const expiresAt = record.expiresAt ? new Date(record.expiresAt) : null;
+  const expiresAt =
+    !record.livestream && record.expiresAt
+      ? Date.parse(record.expiresAt)
+      : null;
   useEffect(() => {
-    if (!expiresAt) return;
-    const remaining = expiresAt.getTime() - Date.now();
+    if (expiresAt === null) return;
+    const remaining = expiresAt - Date.now();
     if (remaining <= 0) {
       setDismissed(true);
       return;
@@ -175,7 +179,10 @@ function PinnedNotification({
   if (dismissed) return null;
 
   return (
-    <div className="overflow-hidden rounded-lg bg-neutral-900">
+    <div
+      data-testid="pinned-message"
+      className="overflow-hidden rounded-lg bg-neutral-900"
+    >
       <div className="flex items-center gap-2 px-3 py-2">
         <div style={{ transform: "rotate(-25deg)" }} className="shrink-0">
           <Pin

@@ -3,6 +3,7 @@
 // re-renders on changes. useLivestreamStoreOptional never throws when
 // there's no provider above (useful for mode-generic hooks like useTitle).
 import {
+  getActivePinnedComment,
   handleWebSocketMessages,
   makeLivestreamStore,
   type LivestreamState,
@@ -57,7 +58,7 @@ export const useHandleWebsocketMessages = () => {
 export const useChat = () => useLivestreamStore((x) => x.chat);
 
 export const usePinnedComment = () =>
-  useLivestreamStore((x) => x.pinnedComment);
+  useLivestreamStore(getActivePinnedComment);
 
 export const useProfile = () => useLivestreamStore((x) => x.profile);
 

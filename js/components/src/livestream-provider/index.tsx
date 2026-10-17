@@ -159,7 +159,13 @@ export function PinnedCommentWatcher() {
       StreamNotifications.pinnedComment({
         pinnedComment,
         onDismiss: () => {
-          store.setState({ pinnedComment: null });
+          const current = store.getState().pinnedComment;
+          if (
+            current?.uri === pinnedComment.uri &&
+            current.cid === pinnedComment.cid
+          ) {
+            store.setState({ pinnedComment: null });
+          }
         },
         onUnpin: () => {
           if (!streamerDID) return;

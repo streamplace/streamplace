@@ -19,12 +19,13 @@ Record pinning a chat message for prominent display.
 
 **Record Properties:**
 
-| Name            | Type     | Req'd | Description                                                                       | Constraints        |
-| --------------- | -------- | ----- | --------------------------------------------------------------------------------- | ------------------ |
-| `pinnedMessage` | `string` | ✅    | AT-URI of the pinned chat message.                                                | Format: `at-uri`   |
-| `pinnedBy`      | `string` | ❌    | DID of the user who pinned the message.                                           | Format: `did`      |
-| `createdAt`     | `string` | ✅    | When this pin was created.                                                        | Format: `datetime` |
-| `expiresAt`     | `string` | ❌    | Optional expiration time. If set, the pin is considered inactive after this time. | Format: `datetime` |
+| Name            | Type     | Req'd | Description                                                                                                                                                                                                                       | Constraints        |
+| --------------- | -------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `pinnedMessage` | `string` | ✅    | AT-URI of the pinned chat message.                                                                                                                                                                                                | Format: `at-uri`   |
+| `pinnedBy`      | `string` | ❌    | DID of the user who pinned the message.                                                                                                                                                                                           | Format: `did`      |
+| `createdAt`     | `string` | ✅    | When this pin was created.                                                                                                                                                                                                        | Format: `datetime` |
+| `expiresAt`     | `string` | ❌    | Optional expiration time, used when livestream is not set.                                                                                                                                                                        | Format: `datetime` |
+| `livestream`    | `string` | ❌    | AT-URI of the first chapter of the streamer's broadcast. The pin remains active across chapter changes until that broadcast ends. Takes precedence over expiresAt. Without either field, the pin remains until manually unpinned. | Format: `at-uri`   |
 
 ---
 
@@ -61,7 +62,12 @@ Record pinning a chat message for prominent display.
           "expiresAt": {
             "type": "string",
             "format": "datetime",
-            "description": "Optional expiration time. If set, the pin is considered inactive after this time."
+            "description": "Optional expiration time, used when livestream is not set."
+          },
+          "livestream": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "AT-URI of the first chapter of the streamer's broadcast. The pin remains active across chapter changes until that broadcast ends. Takes precedence over expiresAt. Without either field, the pin remains until manually unpinned."
           }
         }
       }

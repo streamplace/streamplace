@@ -5,6 +5,7 @@
 export * from "./chat-expiry";
 export * from "./chat-reducer";
 export * from "./connect";
+export * from "./pinned-comment";
 export * from "./problems";
 export * from "./state";
 export * from "./store";

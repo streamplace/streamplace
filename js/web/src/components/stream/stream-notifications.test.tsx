@@ -1,4 +1,7 @@
-import { makeLivestreamStore } from "@streamplace/core";
+import {
+  handleWebSocketMessages,
+  makeLivestreamStore,
+} from "@streamplace/core";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -70,16 +73,72 @@ describe("TeleportNotification", () => {
     expect(container.textContent).toBe("");
   });
 
-  function pin(text: string, expiresAt?: string) {
+  function pin(text: string, expiresAt?: string, livestream?: string) {
     return {
       uri: `at://did:plc:streamer/place.stream.chat.pinnedRecord/${text}`,
-      record: { expiresAt },
+      record: { expiresAt, livestream },
       message: {
         author: { did: "did:plc:author", handle: "author.example" },
         record: { text },
       },
     } as never;
   }
+
+  function livestream(broadcast: string, endedAt?: string) {
+    return {
+      $type: "place.stream.livestream#livestreamView",
+      uri: `${broadcast}-chapter`,
+      author: { did: "did:plc:streamer" },
+      record: { broadcast, endedAt },
+    } as never;
+  }
+
+  it("keeps a broadcast-scoped pin when its optional timestamp has expired", async () => {
+    store.setState({
+      livestream: livestream("at://did:plc:streamer/place.stream.livestream/1"),
+      pinnedComment: pin(
+        "broadcast pin",
+        new Date(Date.now() - 1_000).toISOString(),
+        "at://did:plc:streamer/place.stream.livestream/1",
+      ),
+    });
+    await act(async () => render());
+    expect(container.textContent).toContain("broadcast pin");
+  });
+
+  it("shows a reconnect pin after its matching chapter and hides it at broadcast end", async () => {
+    const broadcast = "at://did:plc:streamer/place.stream.livestream/2";
+    store.setState({
+      livestream: livestream("at://did:plc:streamer/place.stream.livestream/1"),
+      pinnedComment: pin("new broadcast pin", undefined, broadcast),
+    });
+    await act(async () => render());
+    expect(container.textContent).toBe("");
+
+    await act(async () => {
+      store.setState((state) =>
+        handleWebSocketMessages(state, [livestream(broadcast)]),
+      );
+    });
+    expect(container.textContent).toContain("new broadcast pin");
+
+    await act(async () => {
+      store.setState((state) =>
+        handleWebSocketMessages(state, [
+          livestream(broadcast, new Date().toISOString()),
+        ]),
+      );
+    });
+    expect(container.textContent).toBe("");
+  });
+
+  it("expires a timed pin even at the Unix epoch", async () => {
+    store.setState({
+      pinnedComment: pin("expired pin", new Date(0).toISOString()),
+    });
+    await act(async () => render());
+    expect(container.textContent).toBe("");
+  });
 
   it("keeps a pin visible when the teleport countdown expires", async () => {
     store.setState({

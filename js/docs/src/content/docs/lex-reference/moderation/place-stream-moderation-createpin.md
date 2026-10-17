@@ -24,11 +24,12 @@ Pin a chat message on behalf of a streamer. Requires 'message.pin' permission. C
 
 **Schema Type:** `object`
 
-| Name         | Type     | Req'd | Description                            | Constraints        |
-| ------------ | -------- | ----- | -------------------------------------- | ------------------ |
-| `streamer`   | `string` | ✅    | The DID of the streamer.               | Format: `did`      |
-| `messageUri` | `string` | ✅    | The AT-URI of the chat message to pin. | Format: `at-uri`   |
-| `expiresAt`  | `string` | ❌    | Optional expiration time for this pin. | Format: `datetime` |
+| Name         | Type     | Req'd | Description                                                                                                                                                                                                                | Constraints        |
+| ------------ | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `streamer`   | `string` | ✅    | The DID of the streamer.                                                                                                                                                                                                   | Format: `did`      |
+| `messageUri` | `string` | ✅    | The AT-URI of the chat message to pin.                                                                                                                                                                                     | Format: `at-uri`   |
+| `expiresAt`  | `string` | ❌    | Optional expiration time for this pin, used when livestream is not set.                                                                                                                                                    | Format: `datetime` |
+| `livestream` | `string` | ❌    | AT-URI of the first chapter of the streamer's current broadcast. The pin remains active across chapter changes until that broadcast ends. Without either livestream or expiresAt, the pin remains until manually unpinned. | Format: `at-uri`   |
 
 **Output:**
 
@@ -79,7 +80,12 @@ Pin a chat message on behalf of a streamer. Requires 'message.pin' permission. C
             "expiresAt": {
               "type": "string",
               "format": "datetime",
-              "description": "Optional expiration time for this pin."
+              "description": "Optional expiration time for this pin, used when livestream is not set."
+            },
+            "livestream": {
+              "type": "string",
+              "format": "at-uri",
+              "description": "AT-URI of the first chapter of the streamer's current broadcast. The pin remains active across chapter changes until that broadcast ends. Without either livestream or expiresAt, the pin remains until manually unpinned."
             }
           }
         }

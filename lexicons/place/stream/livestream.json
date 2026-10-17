@@ -26,6 +26,11 @@
             "format": "datetime",
             "description": "Client-declared timestamp when this livestream started."
           },
+          "broadcast": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "AT-URI of the first chapter in this continuous broadcast, owned by the same repo. Omitted on the first chapter, whose own URI identifies the broadcast. Later chapters preserve this reference; a separate broadcast starts with a new identity."
+          },
           "lastSeenAt": {
             "type": "string",
             "format": "datetime",

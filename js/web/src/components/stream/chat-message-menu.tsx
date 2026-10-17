@@ -15,6 +15,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ChatMessageViewHydrated } from "streamplace";
+import { useStore } from "zustand";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +53,11 @@ export function ChatMessageMenu({
   const { pdsAgent, did } = useSession();
   const toast = useToast();
   const { blockUser, hideMessage, pinMessage } = useModerationActions();
+  const livestream = useStore(store, (s) => s.livestream);
+  const broadcast =
+    livestream && !livestream.record.endedAt
+      ? (livestream.record.broadcast ?? livestream.uri)
+      : undefined;
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -124,10 +130,10 @@ export function ChatMessageMenu({
   ]);
 
   const handlePin = useCallback(
-    async (expiresAt?: string) => {
+    async (options?: { expiresAt?: string; livestream?: string }) => {
       if (!streamerDid) return;
       try {
-        await pinMessage(message.uri, streamerDid, expiresAt);
+        await pinMessage(message.uri, streamerDid, options);
         toast.show(t("moderation-message-pinned"), "", { duration: 3000 });
       } catch (e) {
         fail(t("moderation-pin-failed"), e);
@@ -183,18 +189,26 @@ export function ChatMessageMenu({
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
                 <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => handlePin()}>
+                  <DropdownMenuItem
+                    disabled={!broadcast}
+                    onClick={() => {
+                      if (broadcast) handlePin({ livestream: broadcast });
+                    }}
+                  >
                     {t("chat-pin-until-stream-end")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handlePin()}>
+                    {t("chat-pin-forever")}
                   </DropdownMenuItem>
                   {PIN_DURATIONS_MINUTES.map((minutes) => (
                     <DropdownMenuItem
                       key={minutes}
                       onClick={() =>
-                        handlePin(
-                          new Date(
+                        handlePin({
+                          expiresAt: new Date(
                             Date.now() + minutes * 60 * 1000,
                           ).toISOString(),
-                        )
+                        })
                       }
                     >
                       {t("chat-pin-duration-minutes", { count: minutes })}

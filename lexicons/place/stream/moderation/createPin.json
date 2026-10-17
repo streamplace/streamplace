@@ -24,7 +24,12 @@
             "expiresAt": {
               "type": "string",
               "format": "datetime",
-              "description": "Optional expiration time for this pin."
+              "description": "Optional expiration time for this pin, used when livestream is not set."
+            },
+            "livestream": {
+              "type": "string",
+              "format": "at-uri",
+              "description": "AT-URI of the first chapter of the streamer's current broadcast. The pin remains active across chapter changes until that broadcast ends. Without either livestream or expiresAt, the pin remains until manually unpinned."
             }
           }
         }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getActivePinnedComment } from "./pinned-comment";
 import type { LivestreamState } from "./state";
 import { makeLivestreamStore } from "./store";
 import { handleWebSocketMessages } from "./websocket-consumer";
@@ -39,6 +40,101 @@ function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
     ...overrides,
   } as LivestreamState;
 }
+
+describe("broadcast-scoped pins", () => {
+  const root = "at://did:plc:streamer/place.stream.livestream/1";
+  const chapter = "at://did:plc:streamer/place.stream.livestream/2";
+  const endedAt = "2026-01-01T01:00:00Z";
+  const livestream = (uri: string, broadcast?: string, ended?: string) => ({
+    $type: "place.stream.livestream#livestreamView",
+    uri,
+    cid: "chapter",
+    author: { did: "did:plc:streamer", handle: "streamer.test" },
+    indexedAt: "2026-01-01T00:00:00Z",
+    record: {
+      $type: "place.stream.livestream",
+      title: "chapter",
+      createdAt: "2026-01-01T00:00:00Z",
+      broadcast,
+      endedAt: ended,
+    },
+  });
+  const pin = (scope?: string) => ({
+    $type: "place.stream.chat.defs#pinnedRecordView",
+    uri: "at://did:plc:streamer/place.stream.chat.pinnedRecord/1",
+    cid: "pin",
+    indexedAt: "2026-01-01T00:00:00Z",
+    record: {
+      $type: "place.stream.chat.pinnedRecord",
+      pinnedMessage: "at://did:plc:viewer/place.stream.chat.message/1",
+      createdAt: "2026-01-01T00:00:00Z",
+      livestream: scope,
+    },
+  });
+
+  it.each([
+    {
+      name: "a new chapter",
+      scope: root,
+      next: livestream(chapter, root),
+      keep: true,
+    },
+    {
+      name: "the broadcast ending",
+      scope: root,
+      next: livestream(chapter, root, endedAt),
+      keep: false,
+    },
+    {
+      name: "a separate broadcast",
+      scope: root,
+      next: livestream(chapter),
+      keep: false,
+    },
+    {
+      name: "a permanent pin at stream end",
+      scope: undefined,
+      next: livestream(root, undefined, endedAt),
+      keep: true,
+    },
+  ])("handles $name for connected viewers", ({ scope, next, keep }) => {
+    const pinned = pin(scope);
+    const state = handleWebSocketMessages(makeState(), [
+      livestream(root),
+      pinned,
+    ]);
+    const result = handleWebSocketMessages(state, [next]);
+    expect(getActivePinnedComment(result)).toEqual(keep ? pinned : null);
+  });
+
+  it("ignores a scoped pin arriving after the broadcast has ended", () => {
+    const state = handleWebSocketMessages(makeState(), [
+      livestream(chapter, root, endedAt),
+    ]);
+    const result = handleWebSocketMessages(state, [pin(root)]);
+    expect(getActivePinnedComment(result)).toBeNull();
+  });
+
+  it("keeps a pin across an initial snapshot with the pin before its chapter", () => {
+    const pinned = pin(root);
+    const result = handleWebSocketMessages(makeState(), [
+      pinned,
+      livestream(chapter, root),
+    ]);
+    expect(getActivePinnedComment(result)).toEqual(pinned);
+  });
+
+  it("retains a new broadcast's pin before its reconnect chapter arrives", () => {
+    const pinned = pin(chapter);
+    const disconnected = handleWebSocketMessages(makeState(), [
+      livestream(root, undefined, endedAt),
+    ]);
+    const withPin = handleWebSocketMessages(disconnected, [pinned]);
+    expect(getActivePinnedComment(withPin)).toBeNull();
+    const reconnected = handleWebSocketMessages(withPin, [livestream(chapter)]);
+    expect(getActivePinnedComment(reconnected)).toEqual(pinned);
+  });
+});
 
 const MODERATOR_DID = "did:plc:mod";
 const OTHER_MODERATOR_DID = "did:plc:othermod";

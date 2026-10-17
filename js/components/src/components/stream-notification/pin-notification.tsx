@@ -1,6 +1,6 @@
 import { RichtextSegment, segmentize } from "@streamplace/core";
 import { EyeOff, Pin, X } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Linking, Pressable, View } from "react-native";
 import { PinnedRecordViewHydrated, place } from "streamplace";
 import {
@@ -67,13 +67,14 @@ export function PinnedCommentNotification({
 
   const messageRecord = message?.record as any;
 
-  const [expiresAt] = useState<Date | null>(
-    record.expiresAt ? new Date(record.expiresAt) : null,
-  );
+  const expiresAt =
+    !record.livestream && record.expiresAt
+      ? Date.parse(record.expiresAt)
+      : null;
 
   useEffect(() => {
-    if (!expiresAt) return;
-    const remaining = expiresAt.getTime() - Date.now();
+    if (expiresAt === null) return;
+    const remaining = expiresAt - Date.now();
     if (remaining <= 0) {
       onDismiss();
       return;
@@ -90,7 +91,10 @@ export function PinnedCommentNotification({
     : [];
 
   return (
-    <View style={[zero.bg.neutral[900], zero.r.lg, { overflow: "hidden" }]}>
+    <View
+      testID="pinned-message"
+      style={[zero.bg.neutral[900], zero.r.lg, { overflow: "hidden" }]}
+    >
       <View
         style={[
           zero.layout.flex.row,

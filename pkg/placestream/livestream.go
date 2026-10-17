@@ -26,6 +26,8 @@ type Livestream struct {
 	Activity *Livestream_Activity `json:"activity,omitempty"`
 	// agent: The source of the livestream, if available, in a User Agent format: `<product> / <product-version> <comment>` e.g. Streamplace/0.7.5 iOS
 	Agent *string `json:"agent,omitempty"`
+	// broadcast: AT-URI of the first chapter in this continuous broadcast, owned by the same repo. Omitted on the first chapter, whose own URI identifies the broadcast. Later chapters preserve this reference; a separate broadcast starts with a new identity.
+	Broadcast *string `json:"broadcast,omitempty"`
 	// canonicalUrl: The primary URL where this livestream can be viewed, if available.
 	CanonicalUrl *string `json:"canonicalUrl,omitempty"`
 	// createdAt: Client-declared timestamp when this livestream started.

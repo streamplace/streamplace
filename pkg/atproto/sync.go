@@ -309,6 +309,12 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		go atsync.Bus.Publish(userDID, streamplaceGate)
 
 	case *placestream.ChatPinnedRecord:
+		if rec.Livestream != nil {
+			uri, err := syntax.ParseATURI(*rec.Livestream)
+			if err != nil || uri.Authority().String() != userDID || uri.Collection().String() != constants.PLACE_STREAM_LIVESTREAM || uri.RecordKey().String() == "" {
+				return fmt.Errorf("pin livestream must reference the streamer's broadcast")
+			}
+		}
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
@@ -352,6 +358,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			CreatedAt:     createdAt,
 			Repo:          repo,
 			ExpiresAt:     expiresAt,
+		}
+		if rec.Livestream != nil {
+			pin.LivestreamURI = *rec.Livestream
 		}
 		err = atsync.Model.CreatePinnedRecord(ctx, pin)
 		if errors.Is(err, model.ErrAlreadyIndexed) {
@@ -525,6 +534,12 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if r == nil {
 			// we don't know about this repo
 			return nil
+		}
+		if rec.Broadcast != nil {
+			uri, err := syntax.ParseATURI(*rec.Broadcast)
+			if err != nil || uri.Authority().String() != userDID || uri.Collection().String() != constants.PLACE_STREAM_LIVESTREAM || uri.RecordKey().String() == "" {
+				return fmt.Errorf("broadcast must reference the streamer's first chapter")
+			}
 		}
 		createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
 		if err != nil {

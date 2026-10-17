@@ -261,6 +261,7 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
       url: finalUrl as any,
       createdAt: new Date().toISOString() as any,
       post: oldRecordValue.post,
+      broadcast: oldRecordValue.broadcast,
       thumb: thumbnail as any,
       activity: activity,
       tags: tags?.length ? tags : undefined,

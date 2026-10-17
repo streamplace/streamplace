@@ -73,6 +73,11 @@ export function ModMenuContent({
   const deleteChatMessage = useDeleteChatMessage();
   // Get the streamer's DID from the livestream profile
   const streamerDID = useLivestreamStore((x) => x.profile?.did);
+  const livestream = useLivestreamStore((x) => x.livestream);
+  const broadcastURI =
+    livestream && !livestream.record.endedAt
+      ? (livestream.record.broadcast ?? livestream.uri)
+      : undefined;
   // Check moderation permissions for the current user on this streamer's channel
   const modPermissions = useCanModerate(streamerDID);
 
@@ -95,6 +100,7 @@ export function ModMenuContent({
       modPermissions={modPermissions}
       agent={agent}
       streamerDID={streamerDID}
+      broadcastURI={broadcastURI}
       hasAvailableActions={hasAvailableActions}
       isHideLoading={isHideLoading}
       isBlockLoading={isBlockLoading}
@@ -149,6 +155,7 @@ interface ModViewContentProps {
   modPermissions: ModerationPermissions;
   agent: ReturnType<typeof usePDSAgent>;
   streamerDID?: string;
+  broadcastURI?: string;
   hasAvailableActions: boolean;
   isHideLoading: boolean;
   isBlockLoading: boolean;
@@ -156,11 +163,7 @@ interface ModViewContentProps {
   setMessageRemoved: (removed: boolean) => void;
   createHideChat: (uri: string, streamerDID?: string) => Promise<any>;
   createBlock: (did: string, streamerDID?: string) => Promise<any>;
-  pinChatMessage: (
-    messageUri: string,
-    streamerDID: string,
-    expiresAt?: string,
-  ) => Promise<any>;
+  pinChatMessage: ReturnType<typeof usePinChatMessage>;
   toast: ReturnType<typeof useToast>;
   setReportModalOpen: (open: boolean) => void;
   setReportSubject: (subject: any) => void;
@@ -172,6 +175,7 @@ function ModViewContent({
   modPermissions,
   agent,
   streamerDID,
+  broadcastURI,
   hasAvailableActions,
   isHideLoading,
   isBlockLoading,
@@ -189,6 +193,25 @@ function ModViewContent({
   const { theme } = useTheme();
   const profileUrl = useNetworkProfileUrl();
   const networkName = useNetworkName();
+
+  const pinMessage = (options?: {
+    expiresAt?: string;
+    livestream?: string;
+  }) => {
+    if (!streamerDID) return;
+    pinChatMessage(message.uri, streamerDID, options)
+      .then(() => {
+        toast.show("Comment pinned", "", { duration: 3 });
+        onOpenChange?.(false);
+      })
+      .catch((e) => {
+        toast.show(
+          "Error pinning comment",
+          e instanceof Error ? e.message : "Failed to pin",
+          { duration: 5 },
+        );
+      });
+  };
 
   return (
     <>
@@ -252,50 +275,25 @@ function ModViewContent({
                 <DropdownMenuSubContent>
                   <DropdownMenuGroup title="Pin duration">
                     <DropdownMenuItem
+                      disabled={!broadcastURI}
                       onPress={() => {
-                        if (!streamerDID) return;
-                        pinChatMessage(message.uri, streamerDID)
-                          .then(() => {
-                            toast.show("Comment pinned", "", { duration: 3 });
-                            onOpenChange?.(false);
-                          })
-                          .catch((e) => {
-                            toast.show(
-                              "Error pinning comment",
-                              e instanceof Error ? e.message : "Failed to pin",
-                              { duration: 5 },
-                            );
-                          });
+                        if (broadcastURI)
+                          pinMessage({ livestream: broadcastURI });
                       }}
                     >
                       <Text color="primary">Until stream end</Text>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onPress={() => pinMessage()}>
+                      <Text color="primary">Until unpinned</Text>
                     </DropdownMenuItem>
                     {[5, 10, 15, 30, 60].map((minutes) => (
                       <DropdownMenuItem
                         key={minutes}
                         onPress={() => {
-                          if (!streamerDID) return;
                           const expiresAt = new Date(
                             Date.now() + minutes * 60 * 1000,
                           );
-                          pinChatMessage(
-                            message.uri,
-                            streamerDID,
-                            expiresAt.toISOString(),
-                          )
-                            .then(() => {
-                              toast.show("Comment pinned", "", { duration: 3 });
-                              onOpenChange?.(false);
-                            })
-                            .catch((e) => {
-                              toast.show(
-                                "Error pinning comment",
-                                e instanceof Error
-                                  ? e.message
-                                  : "Failed to pin",
-                                { duration: 5 },
-                              );
-                            });
+                          pinMessage({ expiresAt: expiresAt.toISOString() });
                         }}
                       >
                         <Text color="primary">

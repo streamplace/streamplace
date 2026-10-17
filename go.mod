@@ -105,6 +105,7 @@ require (
 	gorm.io/driver/sqlite v1.5.7
 	gorm.io/plugin/prometheus v0.1.0
 	lukechampine.com/blake3 v1.4.1
+	moq.dev/moq v0.7.14
 )
 
 require (
@@ -589,6 +590,7 @@ require (
 	howett.net/plist v1.0.0 // indirect
 	modernc.org/knuth v0.5.5 // indirect
 	modernc.org/token v1.1.0 // indirect
+	moq.dev/moq-ffi v0.4.14 // indirect
 	mvdan.cc/gofumpt v0.8.0 // indirect
 	mvdan.cc/unparam v0.0.0-20250301125049-0df0534333a4 // indirect
 	star-tex.org/x/tex v0.7.1 // indirect

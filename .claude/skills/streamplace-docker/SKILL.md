@@ -108,13 +108,16 @@ docker exec -w "$REPO" "$CONTAINER" make app
 # Re-embed the bundles and rebuild the Go/Rust development binaries:
 docker exec -w "$REPO" "$CONTAINER" make dev
 
-# CI-shaped Go build:
-docker exec -w "$REPO" "$CONTAINER" env CGO_LDFLAGS=-lm go build ./pkg/... ./cmd/...
+# CI-shaped Go build. The native library's directory must come first: the
+# moq.dev/moq-ffi module also links its own prebuilt copy, whose Rust runtime
+# would collide with ours.
+GO_ENV="CGO_LDFLAGS=-L$REPO/build-linux-amd64/rust/streamplace-native -lmoq_ffi -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -lm"
+docker exec -w "$REPO" "$CONTAINER" env "$GO_ENV" go build ./pkg/... ./cmd/...
 ```
 
 For affected packages, run `go vet ./pkg/<package>/...` and
 `go test -count=1 ./pkg/<package>/...` using the same `docker exec` prefix and
-`CGO_LDFLAGS=-lm` environment. Use `-run` for focused media tests instead of
+`env "$GO_ENV"`. Use `-run` for focused media tests instead of
 assuming a whole media suite will be quick. Build-time cgo resolution needs
 `PKG_CONFIG_PATH`; running linked binaries needs `LD_LIBRARY_PATH`. Inspect both
 when adopting a container built by another workflow.

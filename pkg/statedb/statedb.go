@@ -2,12 +2,15 @@ package statedb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -90,6 +93,19 @@ var StatefulDBModels = []any{
 
 var NoPostgresDatabaseCode = "3D000"
 
+// Postgres becomes reachable in two stages: the postmaster starts listening
+// before it will run SQL, and in between (crash recovery, or a shutdown in
+// progress) every connection is refused with SQLSTATE 57P03 "the database
+// system is starting up". A node started alongside its database — including a
+// test that spawns postgres itself — would otherwise fail on that gap, so
+// opening the database retries with exponential backoff for this long before
+// surfacing the error.
+const (
+	postgresConnectTimeout      = 30 * time.Second
+	postgresConnectInitialDelay = 50 * time.Millisecond
+	postgresConnectMaxDelay     = 2 * time.Second
+)
+
 // Stateful database for storing private streamplace state
 func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier, model model.Model) (*StatefulDB, error) {
 	dbURL := cli.DBURL
@@ -109,17 +125,25 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 		return nil, fmt.Errorf("unsupported database URL (most start with sqlite:// or postgresql://): %s", redactDBURL(dbURL))
 	}
 
-	db, err := openDB(dial)
-
-	if err != nil {
-		if dbType == DBTypePostgres && strings.Contains(err.Error(), NoPostgresDatabaseCode) {
-			db, err = makePostgresDB(dbURL)
-			if err != nil {
-				return nil, fmt.Errorf("error creating streamplace database: %w", err)
+	var db *gorm.DB
+	var err error
+	if dbType == DBTypePostgres {
+		err = retryPostgresConnect(ctx, postgresConnectTimeout, func() error {
+			var openErr error
+			db, openErr = openDB(dial)
+			if openErr != nil && strings.Contains(openErr.Error(), NoPostgresDatabaseCode) {
+				db, openErr = makePostgresDB(dbURL)
+				if openErr != nil {
+					return fmt.Errorf("error creating streamplace database: %w", openErr)
+				}
 			}
-		} else {
-			return nil, fmt.Errorf("error starting database: %w", err)
-		}
+			return openErr
+		})
+	} else {
+		db, err = openDB(dial)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error starting database: %w", err)
 	}
 	if dbType == DBTypeSQLite {
 		if err := sqlitePragmas(db); err != nil {
@@ -245,6 +269,47 @@ func openDB(dial gorm.Dialector) (*gorm.DB, error) {
 		TranslateError:         true,
 		Logger:                 config.GormLogger,
 	})
+}
+
+// retryPostgresConnect calls f until it succeeds, returns an error that
+// another attempt cannot fix, or exhausts its budget. Only errors from a
+// server that is still coming up (or going down) are retried; authentication,
+// missing-role, and bad-URL errors surface immediately.
+func retryPostgresConnect(ctx context.Context, budget time.Duration, f func() error) error {
+	deadline := time.Now().Add(budget)
+	delay := postgresConnectInitialDelay
+	for {
+		err := f()
+		if err == nil || !isPostgresNotReady(err) {
+			return err
+		}
+		if time.Now().Add(delay).After(deadline) {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return err
+		case <-time.After(delay):
+		}
+		delay = min(delay*2, postgresConnectMaxDelay)
+	}
+}
+
+// isPostgresNotReady reports whether err means the server is reachable but not
+// yet able to run SQL: it is starting up, crashing, or shutting down (57P01,
+// 57P02, 57P03), or the postmaster has not started listening (connection
+// refused/reset). Postgres answers those with a SQLSTATE while the socket is
+// already open, so a successful TCP dial is not proof of readiness.
+func isPostgresNotReady(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "57P01", "57P02", "57P03":
+			return true
+		}
+		return false
+	}
+	return errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ECONNRESET)
 }
 
 // Postgres pool bounds. database/sql opens connections without limit by

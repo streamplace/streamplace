@@ -1,8 +1,12 @@
 package statedb
 
 import (
+	"fmt"
+	"syscall"
 	"testing"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/model"
@@ -58,4 +62,48 @@ func TestSQLiteBusyTimeout(t *testing.T) {
 	var timeout int
 	require.NoError(t, state.DB.Raw("PRAGMA busy_timeout").Scan(&timeout).Error)
 	require.Equal(t, int(model.SQLiteBusyTimeout.Milliseconds()), timeout)
+}
+
+// TestPostgresConnectRetry pins the two halves of the backoff: a server that
+// is still starting up (the CI flake this guards against) is waited out, while
+// an error no amount of waiting can fix fails immediately instead of hanging
+// the caller for the whole 30s budget.
+func TestPostgresConnectRetry(t *testing.T) {
+	startingUp := &pgconn.PgError{Code: "57P03", Message: "the database system is starting up"}
+
+	t.Run("retries while starting up", func(t *testing.T) {
+		attempts := 0
+		err := retryPostgresConnect(t.Context(), time.Second, func() error {
+			attempts++
+			if attempts < 3 {
+				return startingUp
+			}
+			return nil
+		})
+		require.NoError(t, err)
+		require.Equal(t, 3, attempts)
+	})
+
+	t.Run("retries while the socket is closed", func(t *testing.T) {
+		attempts := 0
+		err := retryPostgresConnect(t.Context(), time.Second, func() error {
+			attempts++
+			if attempts < 2 {
+				return fmt.Errorf("failed to connect: %w", syscall.ECONNREFUSED)
+			}
+			return nil
+		})
+		require.NoError(t, err)
+		require.Equal(t, 2, attempts)
+	})
+
+	t.Run("fails fast on permanent errors", func(t *testing.T) {
+		attempts := 0
+		err := retryPostgresConnect(t.Context(), time.Second, func() error {
+			attempts++
+			return &pgconn.PgError{Code: "28P01", Message: "password authentication failed"}
+		})
+		require.Error(t, err)
+		require.Equal(t, 1, attempts)
+	})
 }

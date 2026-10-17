@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"net/url"
 	"os"
 	"os/exec"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/driver/postgres"
@@ -24,8 +24,8 @@ import (
 
 var postgresURL string
 
-// postgresStartupTimeout caps how long we wait for postgres to accept
-// connections before giving up and dumping its logs.
+// postgresStartupTimeout caps how long we wait for postgres to accept SQL
+// before giving up and dumping its logs.
 var postgresStartupTimeout = 30 * time.Second
 
 func TestMain(m *testing.M) {
@@ -80,51 +80,41 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// waitPostgresReady polls the host/port parsed from postgresURL until a TCP
-// connection succeeds or the startup timeout elapses. It returns the first
-// dial error if postgres never comes up.
+// waitPostgresReady waits until postgres will actually run SQL, not merely
+// accept a TCP connection. During startup and crash recovery the postmaster
+// listens while rejecting every connection with FATAL 57P03 ("the database
+// system is starting up"), which is exactly the window in which a dial-only
+// check let tests start and then fail in MakeDB. It retries with exponential
+// backoff, on the maintenance database since the test databases do not exist
+// yet, up to postgresStartupTimeout.
 func waitPostgresReady() error {
-	host, port, err := postgresHostPort()
-	if err != nil {
+	u, err := url.Parse(postgresURL)
+	if postgresURL == "" {
+		u = &url.URL{Scheme: "postgresql", Host: "localhost:5432"}
+	} else if err != nil {
 		return fmt.Errorf("could not parse postgres URL for readiness check: %w", err)
 	}
-	address := net.JoinHostPort(host, port)
-	deadline := time.Now().Add(postgresStartupTimeout)
-	var lastErr error
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", address, time.Second)
-		if err == nil {
-			_ = conn.Close()
-			return nil
-		}
-		lastErr = err
-		time.Sleep(200 * time.Millisecond)
+	if u.Host == "" {
+		u.Host = "localhost:5432"
 	}
-	if lastErr == nil {
-		lastErr = fmt.Errorf("timed out after %s", postgresStartupTimeout)
-	}
-	return fmt.Errorf("postgres not accepting connections at %s: %w", address, lastErr)
-}
+	u.Path = "/postgres"
+	readyURL := u.String()
 
-// postgresHostPort extracts the host and port from postgresURL, falling back to
-// localhost:5432 when the URL is missing them.
-func postgresHostPort() (string, string, error) {
-	if postgresURL == "" {
-		return "localhost", "5432", nil
-	}
-	u, err := url.Parse(postgresURL)
+	err = retryPostgresConnect(context.Background(), postgresStartupTimeout, func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		conn, err := pgx.Connect(ctx, readyURL)
+		if err != nil {
+			return err
+		}
+		defer conn.Close(ctx)
+		_, err = conn.Exec(ctx, "SELECT 1")
+		return err
+	})
 	if err != nil {
-		return "", "", err
+		return fmt.Errorf("postgres not accepting SQL at %s: %w", redactDBURL(readyURL), err)
 	}
-	host := u.Hostname()
-	if host == "" {
-		host = "localhost"
-	}
-	port := u.Port()
-	if port == "" {
-		port = "5432"
-	}
-	return host, port, nil
+	return nil
 }
 
 func makePostgresURL(t *testing.T) string {

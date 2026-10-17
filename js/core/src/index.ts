@@ -11,6 +11,7 @@ export * from "./lib/browser";
 export * from "./lib/did";
 export * from "./lib/facet";
 export * from "./lib/game";
+export * from "./lib/local-timestamp";
 export * from "./lib/pds-hosts";
 export { getPlatform } from "./lib/platform";
 export type { CorePlatform } from "./lib/platform";

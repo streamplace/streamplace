@@ -38,3 +38,19 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
     community](https://discord.stream.place)
   </Card>
 </CardGrid>
+
+## Chat message timestamps
+
+Chat messages (`place.stream.chat.message`) sent by Streamplace include the
+sending device's local UTC offset in `createdAt`, for example
+`2026-10-17T13:30:00.123-07:00`. The offset is read at send time, including
+daylight-saving adjustments; there is no account-wide time zone setting. Devices
+set to UTC send `+00:00`. Existing records ending in `Z` remain valid.
+
+The node preserves the original timestamp in the record and compares instants
+for chat ordering and freshness. Consumers should parse RFC 3339 timestamps, not
+compare their strings or assume a trailing `Z`.
+
+The offset gives bots the sender's local wall-clock time, not an IANA time zone
+such as `America/Los_Angeles`. It cannot determine daylight-saving transitions
+for future scheduling; ask for a named zone when those rules matter.

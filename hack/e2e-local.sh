@@ -137,8 +137,16 @@ adb_ shell pm grant "$APP_ID" android.permission.POST_NOTIFICATIONS 2>/dev/null 
 # Chrome reads its command line and the trust store at startup
 adb_ shell am force-stop com.android.chrome || true
 
+# The app stamps chat records with the device's own UTC offset, in whatever
+# zone the device is set to; flows that check those records need it, as
+# RFC 3339 writes it (+HH:MM). Maestro runs on this host, so its scripts
+# read stored records from the PDS's plain-HTTP listener.
+device_offset="$(adb_ shell date +%z | tr -d '\r')"
+[[ "$device_offset" =~ ^[+-][0-9]{4}$ ]] || { echo "can't read $DEVICE's UTC offset: '$device_offset'"; exit 1; }
 MAESTRO_ARGS=(-e APP_ID="$APP_ID" -e SERVER_URL="$SERVER_HTTPS_URL"
-  -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD")
+  -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD"
+  -e ACCOUNT_DID="$ACCOUNT_DID" -e PDS_HTTP_URL="$PDS_HTTP_URL"
+  -e DEVICE_UTC_OFFSET="${device_offset:0:3}:${device_offset:3}")
 
 # --- run the flows ---------------------------------------------------------
 # takeScreenshot paths are relative to maestro's cwd, so run from the

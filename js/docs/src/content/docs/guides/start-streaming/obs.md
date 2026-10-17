@@ -41,10 +41,16 @@ sidebar:
      - If using `RTMP`, select `Custom...`.
      - If using `WHIP`, select `WHIP`.
    - Server:
-     - If using `RTMP`: `rtmps://stream.place:1935/live`
+     - If using `RTMP`: `rtmps://rtmp.stream.place:1935/live`
      - If using `WHIP`: `https://stream.place`
    - Stream Key (for RTMP) or Bearer Token (for WHIP): _Paste your copied stream
      key_
+
+If your Live Dashboard shows **Update your stream server**, replace the old
+`rtmps://stream.place:1935/live` server with
+`rtmps://rtmp.stream.place:1935/live`. Keep your existing stream key. The warning
+uses the ingest URL reported by the production MistServer `PUSH_REWRITE` trigger;
+native RTMP listeners do not report this warning.
 
 #### 2c. Output Configuration
 

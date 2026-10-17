@@ -7,22 +7,30 @@ import * as Sentry from "@sentry/react-native";
 import {
   BrandedThemeProvider,
   I18nProvider,
+  PortalHost,
   ThemeProvider,
   StreamplaceProvider as ZustandStreamplaceProvider,
 } from "@streamplace/components";
+import * as Font from "expo-font";
 import { useFonts } from "expo-font";
 import BlueskyProvider from "features/bluesky/blueskyProvider";
 import StreamplaceProvider from "features/streamplace/streamplaceProvider";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useStore } from "store";
 import { useOAuthSession } from "store/hooks";
 
-import { i18n } from "@streamplace/components";
+import { i18n, initI18next } from "@streamplace/components";
 import * as Application from "expo-application";
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
 import { Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+
+// Initialize the shared i18next instance: registers the React/Fluent/backend
+// plugins and loads the stored locale. Without this, the `i18n` instance
+// passed to I18nProvider below stays uninitialized and nothing translates.
+void initI18next();
 
 // get proper DSN for environment
 // on ios/android it's process.env.EXPO_PUBLIC_SENTRY_DSN
@@ -90,13 +98,22 @@ function ProviderInner({
   return (
     <SafeAreaProvider>
       <NavigationContainer theme={SPDarkTheme} linking={linking}>
-        <ThemeProvider forcedTheme="dark">
+        <ThemeProvider
+          forcedTheme="dark"
+          paintDocument={false}
+          portalHost={isWeb}
+        >
           <I18nProvider i18n={i18n}>
             <StreamplaceProvider>
               <BlueskyProvider>
                 <NewStreamplaceProvider>
                   <BrandedThemeProvider forcedTheme="dark">
-                    <FontProvider>{children}</FontProvider>
+                    <FontProvider>
+                      {children}
+                      {/* Native portals render in the host's context, not the
+                          trigger's. Keep store, i18n and branding available. */}
+                      {Platform.OS !== "web" && <PortalHost />}
+                    </FontProvider>
                   </BrandedThemeProvider>
                 </NewStreamplaceProvider>
               </BlueskyProvider>
@@ -115,30 +132,52 @@ export const NewStreamplaceProvider = ({
 }) => {
   const { url } = useStreamplaceNode();
   const oauthSession = useOAuthSession();
+  const openLoginModal = useStore((s) => s.openLoginModal);
   return (
-    <ZustandStreamplaceProvider url={url} oauthSession={oauthSession}>
+    <ZustandStreamplaceProvider
+      url={url}
+      oauthSession={oauthSession}
+      onNeedsLogin={openLoginModal ? () => openLoginModal() : undefined}
+    >
       {children}
     </ZustandStreamplaceProvider>
   );
 };
 
-export const FontProvider = ({ children }: { children: React.ReactNode }) => {
-  const [fontLoaded, fontError] = useFonts({
-    // Atkinson Hyperlegible Next (Sans Serif) fonts
-    "AtkinsonHyperlegibleNext-Regular": require("../../assets/fonts/AtkinsonHyperlegibleNext-Regular.ttf"),
-    "AtkinsonHyperlegibleNext-Light": require("../../assets/fonts/AtkinsonHyperlegibleNext-Light.ttf"),
-    "AtkinsonHyperlegibleNext-ExtraLight": require("../../assets/fonts/AtkinsonHyperlegibleNext-ExtraLight.ttf"),
-    "AtkinsonHyperlegibleNext-Medium": require("../../assets/fonts/AtkinsonHyperlegibleNext-Medium.ttf"),
-    "AtkinsonHyperlegibleNext-SemiBold": require("../../assets/fonts/AtkinsonHyperlegibleNext-SemiBold.ttf"),
-    "AtkinsonHyperlegibleNext-Bold": require("../../assets/fonts/AtkinsonHyperlegibleNext-Bold.ttf"),
-    "AtkinsonHyperlegibleNext-ExtraBold": require("../../assets/fonts/AtkinsonHyperlegibleNext-ExtraBold.ttf"),
+// Geist (Sans Serif) — the design system uses exactly three weights
+const GEIST = {
+  "Geist-Regular": require("../../assets/fonts/Geist-Regular.ttf"),
+  "Geist-Medium": require("../../assets/fonts/Geist-Medium.ttf"),
+  "Geist-SemiBold": require("../../assets/fonts/Geist-SemiBold.ttf"),
+};
+// Geist Mono — stream keys, ingest URLs, timers
+const GEIST_MONO = {
+  "GeistMono-Regular": require("../../assets/fonts/GeistMono-Regular.ttf"),
+  "GeistMono-Medium": require("../../assets/fonts/GeistMono-Medium.ttf"),
+  "GeistMono-SemiBold": require("../../assets/fonts/GeistMono-SemiBold.ttf"),
+};
 
-    // Atkinson Hyperlegible Mono fonts
-    "AtkinsonHyperlegibleMono-Regular": require("../../assets/fonts/AtkinsonHyperlegibleMono-Regular.ttf"),
-    "AtkinsonHyperlegibleMono-Medium": require("../../assets/fonts/AtkinsonHyperlegibleMono-Medium.ttf"),
-    "AtkinsonHyperlegibleMono-SemiBold": require("../../assets/fonts/AtkinsonHyperlegibleMono-SemiBold.ttf"),
-    "AtkinsonHyperlegibleMono-Bold": require("../../assets/fonts/AtkinsonHyperlegibleMono-Bold.ttf"),
-  });
+// The faces the first paint waits for. On web the mono (stream keys, ingest
+// URLs — nothing on a landing page) loads behind the paint and the browser
+// swaps it in when it arrives (@font-face); native can't swap, so it waits
+// for everything.
+function splitFonts() {
+  if (Platform.OS !== "web") {
+    return { first: { ...GEIST, ...GEIST_MONO }, later: {} };
+  }
+  return { first: GEIST, later: GEIST_MONO };
+}
+
+export const FontProvider = ({ children }: { children: React.ReactNode }) => {
+  const [{ first, later }] = useState(splitFonts);
+  const [fontLoaded, fontError] = useFonts(first);
+  useEffect(() => {
+    if (Object.keys(later).length) {
+      Font.loadAsync(later).catch((e) =>
+        console.warn("secondary fonts failed to load", e),
+      );
+    }
+  }, [later]);
 
   if (!fontLoaded && !fontError) {
     return null;

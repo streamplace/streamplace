@@ -3,6 +3,7 @@ package statedb
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -122,6 +123,56 @@ func (state *StatefulDB) SetUploadProcessed(ctx context.Context, id string, dura
 			"probe_json":          probeJSON,
 			"blob_size":           blobSize,
 		}).Error
+}
+
+// SetUploadTrackURIs remembers the published place.stream.media.track records
+// of a finished upload (JSON array of {"uri","cid"}), so a later publish of the
+// same upload reuses them instead of publishing a second set.
+func (state *StatefulDB) SetUploadTrackURIs(ctx context.Context, id string, trackURIs string) error {
+	return state.DB.WithContext(ctx).Model(&Upload{}).Where("id = ?", id).Updates(map[string]any{
+		"track_uris": trackURIs,
+		"updated_at": time.Now(),
+	}).Error
+}
+
+// ForgetUploadTracks clears the remembered track records of every upload
+// of the repo that references one of the given (now deleted) track URIs, so
+// the next publish from such an upload mints new track records instead of
+// pointing at deleted ones.
+func (state *StatefulDB) ForgetUploadTracks(ctx context.Context, did string, deleted []string) error {
+	uploads, err := state.ListUploadsForRepo(ctx, did)
+	if err != nil {
+		return err
+	}
+	gone := map[string]bool{}
+	for _, u := range deleted {
+		gone[u] = true
+	}
+	for _, u := range uploads {
+		if u.TrackURIs == "" {
+			continue
+		}
+		var refs []struct{ URI string }
+		if err := json.Unmarshal([]byte(u.TrackURIs), &refs); err != nil {
+			continue
+		}
+		for _, r := range refs {
+			if gone[r.URI] {
+				if err := state.SetUploadTrackURIs(ctx, u.ID, ""); err != nil {
+					return err
+				}
+				break
+			}
+		}
+	}
+	return nil
+}
+
+// ListUploadsForRepo lists a repo's uploads, newest first.
+func (state *StatefulDB) ListUploadsForRepo(ctx context.Context, did string) ([]Upload, error) {
+	var out []Upload
+	err := state.DB.WithContext(ctx).Where("user_did = ?", did).Order("created_at DESC").Find(&out).Error
+	return out, err
 }
 
 func (state *StatefulDB) SetUploadFailed(ctx context.Context, id string, errMsg string) error {

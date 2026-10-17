@@ -1,4 +1,4 @@
-import { Text, zero } from "@streamplace/components";
+import { Text, useTheme, zero } from "@streamplace/components";
 import { Pressable, View, ViewStyle } from "react-native";
 
 interface ButtonSelectorProps {
@@ -17,6 +17,7 @@ export default function ButtonSelector({
   style,
   ...props
 }: ButtonSelectorProps) {
+  const { theme } = useTheme();
   return (
     <View
       style={[{ alignItems: "flex-start" }, zero.gap.all[2], zero.pt[2], style]}
@@ -32,7 +33,7 @@ export default function ButtonSelector({
           zero.layout.flex.spaceAround,
           zero.gap.all[1],
           zero.w.percent[100],
-          zero.bg.gray[100],
+          { backgroundColor: theme.colors.surface2 },
           zero.r.xl,
         ]}
       >
@@ -46,7 +47,7 @@ export default function ButtonSelector({
               selectedValue === value
                 ? [
                     zero.borders.width.medium,
-                    zero.borders.color.gray[300],
+                    { borderColor: theme.colors.border },
                     zero.r.lg,
                   ]
                 : [],
@@ -58,8 +59,8 @@ export default function ButtonSelector({
                 {
                   color:
                     selectedValue === value
-                      ? zero.colors.gray[900]
-                      : zero.colors.gray[500],
+                      ? theme.colors.text1
+                      : theme.colors.text3,
                 },
               ]}
             >

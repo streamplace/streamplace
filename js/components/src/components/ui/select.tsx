@@ -2,6 +2,7 @@ import { Check, ChevronDown } from "lucide-react-native";
 import { forwardRef } from "react";
 import { View } from "react-native";
 import { useTheme } from "../../lib/theme/theme";
+import { typeScale } from "../../lib/theme/tokens";
 import { flex, gap, py } from "../../ui";
 import {
   DropdownMenu,
@@ -76,7 +77,7 @@ export const Select = forwardRef<View, SelectProps>(
             >
               <Text
                 style={{
-                  fontSize: 16,
+                  fontSize: typeScale.md.fontSize,
                   color: disabled
                     ? theme.colors.textDisabled
                     : theme.colors.text,

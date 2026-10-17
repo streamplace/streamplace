@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -29,6 +31,8 @@ import (
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/js/app"
+	web "stream.place/streamplace/js/web"
+	"stream.place/streamplace/pkg/acme"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
@@ -44,6 +48,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/rtmps"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/upload"
@@ -71,6 +76,9 @@ type StreamplaceAPI struct {
 	PlaybackStore blob.Store
 	ViewLog       *viewlog.Writer
 	XRPCServer    *spxrpc.Server
+	// ACME, when set, supplies TLS certificates for every TLS listener and
+	// answers HTTP-01 challenges on the redirect listener.
+	ACME *acme.Manager
 	// not thread-safe yet
 	Aliases  map[string]string
 	Bus      *bus.Bus
@@ -91,6 +99,10 @@ type StreamplaceAPI struct {
 	rtmpSessions             map[string]*media.RTMPSession
 	rtmpSessionsLock         sync.Mutex
 	rtmpInternalPlaybackAddr string
+
+	// IngestHosts tracks authorized Mist publishes by the hostname reported
+	// in PUSH_REWRITE, for the lifetime of their pull ingest.
+	IngestHosts *rtmps.IngestHosts
 }
 
 type WebsocketTracker struct {
@@ -125,6 +137,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		rtmpSessions:     make(map[string]*media.RTMPSession),
 		rtmpSessionsLock: sync.Mutex{},
 		LocalDB:          ldb,
+		IngestHosts:      rtmps.NewIngestHosts(cli.DeprecatedIngestHosts),
 	}
 	a.Mimes, err = updater.GetMimes()
 	if err != nil {
@@ -241,12 +254,31 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("PATCH", "/xrpc/*resource", xrpcHandler)
 	router.Handler("DELETE", "/xrpc/*resource", xrpcHandler)
 	// i wonder if there's a better way to do this?
+	router.GET("/linkbanner.png", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		if err := a.XRPCServer.HandleLinkBanner(echo.New().NewContext(r, w)); err != nil {
+			log.Error(ctx, "error handling linkbanner.png", "error", err)
+			w.WriteHeader(500)
+		}
+	})
 	router.GET("/favicon.ico", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		err := a.XRPCServer.HandleFaviconICO(echo.New().NewContext(r, w))
 		if err != nil {
 			log.Error(ctx, "error handling favicon.ico", "error", err)
 			w.WriteHeader(500)
 			return
+		}
+	})
+	router.GET("/favicon.png", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		err := a.XRPCServer.HandleFaviconPNG(echo.New().NewContext(r, w))
+		if err != nil {
+			log.Error(ctx, "error handling favicon.png", "error", err)
+			w.WriteHeader(500)
+			return
+		}
+	})
+	router.GET("/notification-icon", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		if err := a.XRPCServer.HandleNotificationIcon(echo.New().NewContext(r, w)); err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "failed to serve notification icon", err)
 		}
 	})
 	router.GET("/.well-known/did.json", a.HandleDidJSON(ctx))
@@ -259,6 +291,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 			return nil, err
 		}
 		log.Warn(ctx, "using frontend proxy instead of bundled frontend", "destination", a.CLI.FrontendProxy)
+		router.GET(devFrontendProxyStatusPath, a.HandleDevFrontendProxyStatus(ctx, u))
 		router.NotFound = &httputil.ReverseProxy{
 			Rewrite: func(r *httputil.ProxyRequest) {
 				// workaround for Expo disliking serving requests from 127.0.0.1 instead of localhost
@@ -266,25 +299,19 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 				r.Out.Header.Set("Origin", u.String())
 				r.SetURL(u)
 			},
+			// while `pnpm app start` is still booting, show a page that polls
+			// the status endpoint and reloads once the port is up
+			ErrorHandler: devFrontendProxyErrorHandler(ctx, renderDevFrontendProxyPage(u.String())),
 		}
 	} else {
-		files, err := app.Files()
+		// Always load both frontends. The NotFound dispatcher picks one per
+		// request based on the sp_web_beta cookie (or the --frontend CLI
+		// flag, which forces web for everyone).
+		frontends, err := a.loadFrontends(ctx)
 		if err != nil {
 			return nil, err
 		}
-		index, err := files.Open("index.html")
-		if err != nil {
-			return nil, err
-		}
-		bs, err := io.ReadAll(index)
-		if err != nil {
-			return nil, err
-		}
-		linker, err := linking.NewLinker(ctx, bs, a.StatefulDB, a.CLI)
-		if err != nil {
-			return nil, err
-		}
-		linkingHandler, err := a.NotFoundLinkingHandler(ctx, linker)
+		linkingHandler, err := a.NotFoundLinkingHandler(ctx, frontends, a.CLI.Frontend == "web")
 		if err != nil {
 			return nil, err
 		}
@@ -344,27 +371,117 @@ func copyHeader(dst, src http.Header) {
 	}
 }
 
-// handler that takes care of static files and otherwise returns the index.html with the correct link card data
-func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *linking.Linker) (http.HandlerFunc, error) {
-	files, err := app.Files()
+// frontendSet holds a per-frontend linking handler so the NotFound
+// dispatcher can pick which one to serve per request. The legacy RN app
+// and the new Vite web app each get their own; the sp_web_beta cookie
+// opts a user into the new one unless the operator forced it via
+// --frontend=web (in which case forceWeb is true on pick).
+type frontendSet struct {
+	app http.HandlerFunc
+	web http.HandlerFunc
+}
+
+func (f *frontendSet) pick(r *http.Request, forceWeb bool) http.HandlerFunc {
+	if forceWeb {
+		return f.web
+	}
+	if c, err := r.Cookie("sp_web_beta"); err == nil && c.Value == "1" {
+		return f.web
+	}
+	return f.app
+}
+
+func (a *StreamplaceAPI) loadFrontends(ctx context.Context) (*frontendSet, error) {
+	appHandler, err := a.buildLinkingHandler(ctx, app.Files)
+	if err != nil {
+		return nil, fmt.Errorf("loading app frontend: %w", err)
+	}
+	webHandler, err := a.buildLinkingHandler(ctx, web.Files)
+	if err != nil {
+		return nil, fmt.Errorf("loading web frontend: %w", err)
+	}
+	return &frontendSet{app: appHandler, web: webHandler}, nil
+}
+
+// assetExtensions are the file types a browser or player asks for by name.
+// A path ending in one of them that is not in the frontend bundle is a
+// missing file, not an app route to serve the shell for. Handles are routes
+// too and can end in a TLD (/live.example.eu), so this is a list, not "has an
+// extension".
+var assetExtensions = map[string]bool{
+	".mp4": true, ".m4s": true, ".m3u8": true, ".ts": true, ".webm": true, ".mp3": true, ".aac": true, ".ogg": true,
+	".json": true, ".js": true, ".mjs": true, ".css": true, ".map": true, ".wasm": true,
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".svg": true, ".ico": true, ".avif": true,
+	".woff": true, ".woff2": true, ".ttf": true, ".otf": true, ".txt": true, ".xml": true, ".pdf": true, ".zip": true,
+}
+
+func looksLikeAsset(path string) bool {
+	return assetExtensions[strings.ToLower(filepath.Ext(path))]
+}
+
+// buildLinkingHandler builds the static-file + link-card handler for a
+// single frontend.
+func (a *StreamplaceAPI) buildLinkingHandler(ctx context.Context, load func() (fs.FS, error)) (http.HandlerFunc, error) {
+	frontendFS, err := load()
 	if err != nil {
 		return nil, err
 	}
-	fs := AppHostingFS{http.FS(files)}
+	index, err := frontendFS.Open("index.html")
+	if err != nil {
+		return nil, err
+	}
+	bs, err := io.ReadAll(index)
+	if err != nil {
+		return nil, err
+	}
+	linker, err := linking.NewLinker(ctx, bs, a.StatefulDB, a.CLI)
+	if err != nil {
+		return nil, err
+	}
+	return a.notFoundLinkingHandler(ctx, linker, frontendFS)
+}
 
-	fileHandler := a.FileHandler(ctx, http.FileServer(fs))
+// NotFoundLinkingHandler dispatches to the per-frontend handler that
+// matches the current request. The sp_web_beta cookie opts users into the
+// new web frontend; forceWeb (driven by --frontend=web) makes it stick
+// for everyone. The dev proxy (--dev-frontend-proxy) is handled upstream
+// and never reaches this handler.
+func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, frontends *frontendSet, forceWeb bool) (http.HandlerFunc, error) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		frontends.pick(req, forceWeb)(w, req)
+	}, nil
+}
+
+// notFoundLinkingHandler serves static files and link cards for a single
+// frontend. Each frontend gets its own linker (built from that
+// frontend's index.html) so OpenGraph cards match the look of whichever
+// site the user is on.
+func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *linking.Linker, frontendFS fs.FS) (http.HandlerFunc, error) {
+	files := frontendFS
+	fsys := AppHostingFS{http.FS(files)}
+
+	fileHandler := a.FileHandler(ctx, http.FileServer(fsys))
 	defaultHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		f := strings.TrimPrefix(req.URL.Path, "/")
 		// under docs we need the index.html suffix due to astro rendering
 		if strings.HasPrefix(req.URL.Path, "/docs") && strings.HasSuffix(req.URL.Path, "/") {
 			f += "index.html"
 		}
-		_, err := fs.Open(f)
+		_, err := fsys.Open(f)
 		if err == nil {
 			fileHandler.ServeHTTP(w, req)
 			return
 		}
 		if errors.Is(err, ErrorIndex) || f == "" {
+			if looksLikeAsset(f) {
+				// A missing file, not an app route: a 404, so that a
+				// CDN in front of this node (a blob or segment URL that
+				// reached the app shell by mistake, a stale hashed
+				// asset) caches a short miss rather than the app page
+				// as a month-old "video".
+				apierrors.WriteHTTPNotFound(w, "file not found", nil)
+				return
+			}
 			bs, err := linker.GenerateDefaultCard(ctx, req.URL, a.CLI.SentryDSN)
 			if err != nil {
 				log.Error(ctx, "error generating default card", "error", err)
@@ -389,6 +506,22 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 		}
 		req.URL.Host = req.Host
 		req.URL.Scheme = proto
+
+		// The app's tabs each get their own card: the front page (live),
+		// /video (on demand) and /live (go live).
+		if page := linking.LandingPageFor(req.URL.Path); page != linking.LandingDefault {
+			bs, err := linker.GenerateLandingCard(ctx, req.URL, page, a.CLI.SentryDSN)
+			if err != nil {
+				log.Error(ctx, "error generating landing card", "path", req.URL.Path, "error", err)
+				defaultHandler.ServeHTTP(w, req)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html")
+			if _, err := w.Write(bs); err != nil {
+				log.Error(ctx, "error writing response", "error", err)
+			}
+			return
+		}
 
 		// VOD link cards live at /<user>/video/<tid>. Everything else with a
 		// slash in it falls through to static-file / default-card handling.
@@ -425,6 +558,7 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}
+		a.hydrateAuthorName(ctx, &lsv.Author)
 		bs, err := linker.GenerateStreamerCard(ctx, req.URL, lsv, a.CLI.SentryDSN)
 		if err != nil {
 			log.Error(ctx, "error generating html", "error", err)
@@ -457,6 +591,7 @@ func (a *StreamplaceAPI) writeVideoCard(ctx context.Context, w http.ResponseWrit
 	if vv == nil {
 		return false
 	}
+	a.hydrateAuthorName(ctx, &vv.Author)
 	bs, err := linker.GenerateVideoCard(ctx, req.URL, vv, a.CLI.SentryDSN)
 	if err != nil {
 		log.Error(ctx, "error generating video card", "uri", uri, "error", err)
@@ -467,6 +602,24 @@ func (a *StreamplaceAPI) writeVideoCard(ctx context.Context, w http.ResponseWrit
 		log.Error(ctx, "error writing response", "error", err)
 	}
 	return true
+}
+
+// hydrateAuthorName fills a card author's display name from their indexed
+// profile record (the same source the stream page's websocket names the
+// streamer from), so cards can say "Ada Lovelace is live" rather than
+// "@ada.example". Left empty when no profile is indexed; the card then
+// falls back to the handle.
+func (a *StreamplaceAPI) hydrateAuthorName(ctx context.Context, author *appbsky.ActorDefs_ProfileViewBasic) {
+	if author == nil || author.Did == "" || author.DisplayName != nil {
+		return
+	}
+	bp, err := a.Model.GetBskyProfile(ctx, author.Did, false)
+	if err != nil || bp == nil || bp.DisplayName == nil {
+		return
+	}
+	if name := strings.TrimSpace(*bp.DisplayName); name != "" {
+		author.DisplayName = &name
+	}
 }
 
 func (a *StreamplaceAPI) MistProxyHandler(ctx context.Context, tmpl string) httprouter.Handle {
@@ -922,6 +1075,9 @@ func (a *StreamplaceAPI) ServeHTTPRedirect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if a.ACME != nil {
+		handler = a.ACME.HTTPChallengeHandler(handler)
+	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
 		ln, err := getListenerFromFD("http")
 		if err != nil {
@@ -961,6 +1117,15 @@ func (a *StreamplaceAPI) ServeHTTPS(ctx context.Context) error {
 			a.HTTPRedirectTLSPort = &port443
 			log.Warn(ctx, "https server listening for https over systemd socket", "addr", ln.Addr())
 		}
+		if a.ACME != nil {
+			s.TLSConfig = a.ACME.TLSConfig()
+			s.TLSConfig.NextProtos = append([]string{"h2", "http/1.1"}, s.TLSConfig.NextProtos...)
+			log.Log(ctx, "https server starting",
+				"addr", ln.Addr(),
+				"acmeDomains", strings.Join(a.ACME.Domains(), ","),
+			)
+			return s.ServeTLS(ln, "", "")
+		}
 		log.Log(ctx, "https server starting",
 			"addr", ln.Addr(),
 			"certPath", a.CLI.TLSCertPath,
@@ -977,11 +1142,13 @@ func (a *StreamplaceAPI) ServerWithShutdown(ctx context.Context, handler http.Ha
 	// one NetworkTimeoutError warning per PATCH chunk (plus, more importantly,
 	// prevents tusd from extending the read deadline mid-upload so chunks
 	// taking longer than the default NetworkTimeout will fail). Skip gzip for
-	// /api/upload/*; compressing opaque upload bytes is pointless anyway.
+	// /api/upload/*; compressing opaque upload bytes is pointless anyway. Clips
+	// skip it too: already-compressed video gains nothing, and gzip would drop
+	// the Content-Length a downloader uses for progress.
 	raw := handler
 	gzipped := gziphandler.GzipHandler(handler)
 	handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, upload.BasePath) {
+		if strings.HasPrefix(r.URL.Path, upload.BasePath) || r.URL.Path == "/xrpc/place.stream.live.getClip" {
 			raw.ServeHTTP(w, r)
 			return
 		}

@@ -121,21 +121,81 @@ func TestSlidingWindowEvictsAndAdvancesMediaSequence(t *testing.T) {
 	}
 	tr := w.Track("1")
 	if len(tr.Segments) != 2 {
-		t.Fatalf("window=2 should cap the window at 2 segments, got %d", len(tr.Segments))
+		t.Fatalf("window=2 should advertise 2 segments, got %d", len(tr.Segments))
 	}
-	// 4 emitted, 2 retained → media sequences 2 and 3 remain.
+	// 4 emitted, 2 advertised → media sequences 2 and 3 are listed.
 	if tr.Segments[0].Seq != 2 || tr.Segments[1].Seq != 3 {
-		t.Errorf("expected retained seqs [2,3], got [%d,%d]", tr.Segments[0].Seq, tr.Segments[1].Seq)
+		t.Errorf("expected advertised seqs [2,3], got [%d,%d]", tr.Segments[0].Seq, tr.Segments[1].Seq)
 	}
-	if !strings.Contains(w.MediaPlaylist("1", "i", segURI), "#EXT-X-MEDIA-SEQUENCE:2") {
-		t.Errorf("expected EXT-X-MEDIA-SEQUENCE:2 after evicting 2 segments")
+	pl := w.MediaPlaylist("1", "i", segURI)
+	if !strings.Contains(pl, "#EXT-X-MEDIA-SEQUENCE:2") || strings.Contains(pl, "seg1.m4s") {
+		t.Errorf("expected the playlist to start at seq 2 and not list seq 1:\n%s", pl)
 	}
-	// Evicted segments are gone from memory; retained ones are served.
-	if w.SegmentData("1", 0) != nil {
-		t.Errorf("evicted segment 0 should no longer be retained")
+	// A segment that has left the playlist is still served for a while (a
+	// player a little behind asks for it), up to a playlist's worth of grace.
+	if w.SegmentData("1", 0) == nil || w.SegmentData("1", 1) == nil {
+		t.Errorf("segments just off the playlist must still be served")
 	}
 	if w.SegmentData("1", 3) == nil {
 		t.Errorf("segment 3 should still be retained")
+	}
+	for i := 4; i < 8; i++ {
+		_ = w.Observe(segEvent([]byte{byte(i)}, []byte{byte(i)}))
+	}
+	if w.SegmentData("1", 0) != nil || w.SegmentData("1", 3) != nil {
+		t.Errorf("beyond the grace (2×window) segments are dropped")
+	}
+	if w.SegmentData("1", 4) == nil {
+		t.Errorf("segment 4 is within the grace and still served")
+	}
+}
+
+// Signed segments shorter than the minimum fragment are joined into one
+// fragment, advertised only once it spans the minimum; the join is a byte
+// append and the fragment carries the summed timing.
+func TestMinFragmentJoinsTinySegments(t *testing.T) {
+	frame := func(b byte) *muxl.MuxlEvent {
+		ev := segEvent([]byte{b}, []byte{b})
+		ev.Durations = map[string]uint64{"1": 3000, "2": 1600} // one frame at 30fps
+		ev.SampleCounts = map[string]uint32{"1": 1, "2": 1}
+		return ev
+	}
+	w := NewWriter(WithWindow(12), WithMinFragment(500*time.Millisecond))
+	_ = w.Observe(initEvent())
+	_ = w.Observe(segEvent([]byte("A"), []byte("a"))) // 1s: a fragment on its own
+	for i := 0; i < 6; i++ {
+		_ = w.Observe(frame(byte('0' + i))) // 0.2s so far: open, not advertised
+	}
+	if got := len(w.Track("1").Segments); got != 1 {
+		t.Fatalf("an open fragment must not be advertised: want 1 listed, got %d", got)
+	}
+	if w.SegmentData("1", 1) != nil {
+		t.Errorf("an open fragment must not be served")
+	}
+	_ = w.Observe(segEvent([]byte("B"), []byte("b"))) // joins: 1.2s, closes
+	tr := w.Track("1")
+	if len(tr.Segments) != 2 {
+		t.Fatalf("want 2 fragments advertised, got %d", len(tr.Segments))
+	}
+	f := tr.Segments[1]
+	if f.Seq != 1 || f.SampleCount != 36 || f.DurationTicks != 6*3000+90000 {
+		t.Errorf("fragment timing wrong: seq=%d samples=%d ticks=%d", f.Seq, f.SampleCount, f.DurationTicks)
+	}
+	if got := string(w.SegmentData("1", 1)); got != "012345B" {
+		t.Errorf("fragment bytes are the pieces in order, got %q", got)
+	}
+	pl := w.MediaPlaylist("1", "i", segURI)
+	if !strings.Contains(pl, "#EXTINF:1.200000,\nseg1.m4s") || !strings.Contains(pl, "#EXT-X-TARGETDURATION:2") {
+		t.Errorf("playlist should carry the joined fragment:\n%s", pl)
+	}
+	// A stream that ends mid-fragment publishes what it has.
+	_ = w.Observe(frame('x'))
+	w.Finalize()
+	if n := len(w.Track("1").Segments); n != 3 {
+		t.Errorf("finalize closes the open fragment: want 3, got %d", n)
+	}
+	if got := string(w.SegmentData("1", 2)); got != "x" {
+		t.Errorf("closed tail fragment served, got %q", got)
 	}
 }
 
@@ -202,5 +262,80 @@ func TestPrimaryAudioTrackID(t *testing.T) {
 	got := w.PrimaryAudioTrackID()
 	if got != "2" {
 		t.Errorf("PrimaryAudioTrackID() = %q, want %q", got, "2")
+	}
+}
+
+// A run of tiny segments (an encoder keyframing every scene cut) must not
+// evict whole seconds of media out of a count window: with a duration floor
+// the window grows past the count until it again spans that much media.
+func TestMinDurationKeepsWindowFromShrinking(t *testing.T) {
+	short := func(frames uint64) *muxl.MuxlEvent {
+		ev := segEvent([]byte("v"), []byte("a"))
+		ev.Durations = map[string]uint64{"1": 3000 * frames, "2": 1600 * frames} // 1 frame at 30fps
+		ev.SampleCounts = map[string]uint32{"1": uint32(frames), "2": uint32(frames)}
+		return ev
+	}
+	w := NewWriter(WithWindow(4), WithMinDuration(3*time.Second))
+	_ = w.Observe(initEvent())
+	for i := 0; i < 4; i++ {
+		_ = w.Observe(segEvent([]byte("v"), []byte("a"))) // 4s of 1s segments
+	}
+	for i := 0; i < 6; i++ {
+		_ = w.Observe(short(1)) // six one-frame segments
+	}
+	tr := w.Track("1")
+	// Count alone would keep the last 4 (four frames, 0.13s of media). The
+	// floor keeps enough whole-second segments for 3s: 3 of them + 6 frames.
+	if len(tr.Segments) != 9 {
+		t.Fatalf("expected 9 segments retained (3 full + 6 frames), got %d", len(tr.Segments))
+	}
+	if tr.Segments[0].Seq != 1 {
+		t.Errorf("expected the window to start at seq 1, got %d", tr.Segments[0].Seq)
+	}
+	total := 0.0
+	for _, s := range tr.Segments {
+		total += s.seconds(tr.Timescale)
+	}
+	if total < 3 {
+		t.Errorf("window spans %.2fs, want at least 3s", total)
+	}
+	// Back to full-length segments: the count window applies again.
+	for i := 0; i < 6; i++ {
+		_ = w.Observe(segEvent([]byte("v"), []byte("a")))
+	}
+	if n := len(w.Track("1").Segments); n != 4 {
+		t.Errorf("expected the count window (4) once whole segments return, got %d", n)
+	}
+	// Without a timescale the floor can't be measured and count applies.
+	w2 := NewWriter(WithWindow(2), WithMinDuration(time.Hour))
+	for i := 0; i < 5; i++ {
+		_ = w2.Observe(short(1))
+	}
+	if n := len(w2.Track("1").Segments); n != 2 {
+		t.Errorf("no timescale: expected count window 2, got %d", n)
+	}
+}
+
+func TestVideoTracks(t *testing.T) {
+	w := NewWriter()
+	ev := initEvent()
+	ev.TrackInits["100"] = []byte("RINIT")
+	ev.Catalog.Video.Renditions["r"] = muxl.MuxlVideoConfig{Codec: "avc1.64001e", Container: muxl.MuxlContainer{Kind: "cmaf", Timescale: 90000, TrackID: 100}, CodedWidth: 640, CodedHeight: 360}
+	if err := w.Observe(ev); err != nil {
+		t.Fatal(err)
+	}
+	seg := segEvent([]byte{1}, []byte{2})
+	seg.Tracks["100"] = []byte{3}
+	seg.Durations["100"] = 90000
+	seg.SampleCounts["100"] = 30
+	if err := w.Observe(seg); err != nil {
+		t.Fatal(err)
+	}
+	got := w.VideoTracks()
+	if len(got) != 2 {
+		t.Fatalf("want 2 video tracks, got %+v", got)
+	}
+	if got[0].ID != "1" || got[0].Height != 720 || got[1].ID != "100" || got[1].Height != 360 || got[1].Codec != "avc1.64001e" {
+		t.Fatalf("unexpected tracks %+v", got)
 	}
 }

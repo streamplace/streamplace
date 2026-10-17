@@ -66,17 +66,21 @@ func (b *Bus) SubscribeSegmentBuf(ctx context.Context, user string, rendition st
 		chs = []*SegChan{}
 		b.segChans[key] = chs
 	}
-	ch := make(chan *Seg)
+	// Buffered, and fed in publication order by PublishSegment itself (no
+	// goroutine per segment, which delivered bursts in random order); a
+	// subscriber that falls chanSize segments behind loses segments rather
+	// than holding the publisher. The most recent segments are replayed
+	// into it first so a late subscriber can start at once.
+	ch := make(chan *Seg, chanSize)
 	b.segBufMutex.RLock()
 	defer b.segBufMutex.RUnlock()
 	curBuf, ok := b.segBuf[key]
-	myCh := make(chan *Seg, chanSize)
 	if ok {
 		if bufSize > len(curBuf) {
 			bufSize = len(curBuf)
 		}
 		for i := 0; i < bufSize; i += 1 {
-			myCh <- curBuf[len(curBuf)-bufSize+i]
+			ch <- curBuf[len(curBuf)-bufSize+i]
 		}
 	}
 	segChan := &SegChan{C: ch, Context: ctx}
@@ -127,17 +131,13 @@ func (b *Bus) PublishSegment(ctx context.Context, user string, rendition string,
 	if !ok {
 		return
 	}
-	for _, ch := range chs {
-		go func(segChan *SegChan) {
-			select {
-			case segChan.C <- seg:
-			case <-segChan.Context.Done():
-				return
-			case <-time.After(1 * time.Minute):
-				log.Warn(ctx, "failed to send segment to channel, timing out", "user", user, "rendition", rendition)
-			}
-
-		}(ch)
+	for _, segChan := range chs {
+		select {
+		case segChan.C <- seg:
+		case <-segChan.Context.Done():
+		default:
+			log.Warn(ctx, "segment subscriber is not keeping up, dropping a segment", "user", user, "rendition", rendition, "behind", len(segChan.C))
+		}
 	}
 }
 

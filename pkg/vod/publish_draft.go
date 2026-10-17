@@ -3,6 +3,7 @@ package vod
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -208,6 +209,24 @@ func publishTracksFromUpload(ctx context.Context, state *statedb.StatefulDB, cli
 	if upload == nil {
 		return nil, nil
 	}
+	return tracksForUpload(ctx, state, client, did, upload)
+}
+
+// tracksForUpload is a finished upload's source: its place.stream.media.track
+// records, published on first use from the probe and signing key stored at
+// processing time, and remembered on the upload row so that publishing the
+// same upload again (the operator repairing a video record, a retried
+// publish) reuses the same records rather than minting a second set. nil
+// when the upload has no probed streams.
+func tracksForUpload(ctx context.Context, state *statedb.StatefulDB, client XRPCClient, did string, upload *statedb.Upload) (*placestream.MediaDefs_SourceTracks, error) {
+	if refs, err := sourceTracksFromUpload(upload); err != nil {
+		return nil, err
+	} else if len(refs) > 0 {
+		return &placestream.MediaDefs_SourceTracks{
+			LexiconTypeID: "place.stream.media.defs#sourceTracks",
+			Tracks:        refs,
+		}, nil
+	}
 	probe, err := unmarshalProbe(upload.ProbeJSON)
 	if err != nil {
 		return nil, err
@@ -235,10 +254,23 @@ func publishTracksFromUpload(ctx context.Context, state *statedb.StatefulDB, cli
 	}
 	log.Log(ctx, "published media.track records (deferred to publish)",
 		"uploadId", upload.ID, "cid", upload.ContentCID, "tracks", len(tracks))
+	if b, err := json.Marshal(trackRefsJSON(tracks)); err == nil {
+		if err := state.SetUploadTrackURIs(ctx, upload.ID, string(b)); err != nil {
+			log.Warn(ctx, "could not remember published track records on the upload", "uploadId", upload.ID, "error", err)
+		}
+	}
 	return &placestream.MediaDefs_SourceTracks{
 		LexiconTypeID: "place.stream.media.defs#sourceTracks",
 		Tracks:        tracks,
 	}, nil
+}
+
+func trackRefsJSON(tracks []comatproto.RepoStrongRef) []trackRefJSON {
+	out := make([]trackRefJSON, 0, len(tracks))
+	for _, t := range tracks {
+		out = append(out, trackRefJSON{URI: t.Uri, CID: t.Cid})
+	}
+	return out
 }
 
 func derefInt64(p *int64) int64 {

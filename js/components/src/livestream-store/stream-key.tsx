@@ -1,20 +1,19 @@
-// Just to be 100% sure it's imported successfully
-import "../crypto-polyfill";
+// React-specific stream key generation flow. Uses useEffect/useState
+// to generate a Secp256k1 key, post it to the user's PDS, and cache the
+// result. Pure key/crypto utilities live in @streamplace/core.
+import "@streamplace/components/src/crypto-polyfill";
 
 import { bytesToMultibase, Secp256k1Keypair } from "@atproto/crypto";
+import { getBrowserName, getPlatform } from "@streamplace/core";
 import { useEffect, useState } from "react";
-import { Platform } from "react-native";
 import { place } from "streamplace";
-import { privateKeyToAccount } from "viem/accounts";
-import { getBrowserName } from "../lib/browser";
 import { usePDSAgent } from "../streamplace-store/xrpc";
-import { useLivestreamStore } from "./livestream-store";
+import { useLivestreamStore } from "./use-store";
 
 export const useStreamKey = (): {
   streamKey: {
     privateKey: string;
     did: string;
-    address: string;
   } | null;
   error: string | null;
 } => {
@@ -43,19 +42,14 @@ export const useStreamKey = (): {
       const didBytes = new TextEncoder().encode(did);
       const combinedKey = new Uint8Array([...exportedKey, ...didBytes]);
       const multibaseKey = bytesToMultibase(combinedKey, "base58btc");
-      const hexKey = Array.from(exportedKey)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
-      const account = privateKeyToAccount(`0x${hexKey}`);
       const newKey = {
         privateKey: multibaseKey,
         did: keypair.did(),
-        address: account.address.toLowerCase(),
       };
 
-      let platform: string = Platform.OS;
+      let platform: string = getPlatform();
       if (
-        Platform.OS === "web" &&
+        getPlatform() === "web" &&
         typeof window !== "undefined" &&
         window.navigator
       ) {
@@ -77,13 +71,16 @@ export const useStreamKey = (): {
         platform = "Windows";
       }
 
-      const record = {
-        signingKey: keypair.did(),
+      const record: place.stream.key.Main = {
+        $type: "place.stream.key",
+        signingKey: keypair.did() as any,
         createdAt: new Date().toISOString() as any,
         createdBy: "Streamplace on " + platform,
       };
-      await pdsAgent.client.create(place.stream.key, record, {
-        repo: did as any,
+      await pdsAgent.com.atproto.repo.createRecord({
+        repo: did,
+        collection: "place.stream.key",
+        record,
       });
 
       setStreamKey(JSON.stringify(newKey));

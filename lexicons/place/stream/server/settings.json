@@ -17,6 +17,10 @@
           "livestreamRecording": {
             "type": "boolean",
             "description": "Whether this node should record your livestreams into VODs that you can publish"
+          },
+          "autoPublishVods": {
+            "type": "boolean",
+            "description": "Whether this node should publish the VOD of each of your recorded livestreams as soon as it ends"
           }
         }
       }

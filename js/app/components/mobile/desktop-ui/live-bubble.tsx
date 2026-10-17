@@ -1,87 +1,51 @@
 import {
-  Code,
+  Badge,
+  LiveBadge,
   useLivestream,
   usePlayerStore,
   useSegment,
-  View,
-  zero,
 } from "@streamplace/components";
 import { useMemo } from "react";
 
-const { borders, gap, h, w, px, bg, text } = zero;
-
-export function LiveBubble() {
+export function LiveBubble({
+  /**
+   * True when the current user is the one broadcasting (ingest active). A
+   * broadcaster who just hit "Go live" but has no fresh frames yet is
+   * *connecting*, not "offline" — showing OFFLINE contradicts the connection
+   * HUD and the LIVE title badge.
+   */
+  broadcasting = false,
+}: {
+  broadcasting?: boolean;
+}) {
   // are we actually live? (is the most recent segment <= 10 seconds old?)
-  let seg = useSegment();
+  const seg = useSegment();
 
   const livestream = useLivestream();
 
-  let segDate = useMemo(() => {
+  const segDate = useMemo(() => {
     return seg?.startTime ? new Date(seg.startTime) : undefined;
   }, [seg?.startTime]);
 
-  let isLive = useMemo(() => {
+  const isLive = useMemo(() => {
     return segDate && Date.now() - segDate.getTime() <= 10 * 1000;
   }, [segDate]);
 
   const mode = usePlayerStore((x) => x.mode);
   if (mode === "vod") return null;
 
-  if (!isLive)
-    return (
-      <View style={[{ flexDirection: "row" }]}>
-        <View
-          style={[
-            { flexDirection: "row", alignItems: "center" },
-            gap.all[1],
-            px[2],
-            bg.gray[500],
-            borders.color.gray[800],
-            { paddingVertical: 3 },
-          ]}
-        >
-          <Code
-            size="xs"
-            style={[
-              text.white,
-              {
-                fontWeight: "600",
-                letterSpacing: 2,
-              },
-            ]}
-          >
-            OFFLINE
-          </Code>
-        </View>
-      </View>
-    );
+  // On air: segments are flowing AND the livestream record exists — the
+  // design-system LIVE badge (live-red fill, pulsing dot).
+  if (isLive && livestream) {
+    return <LiveBadge />;
+  }
 
-  return (
-    <View style={[{ flexDirection: "row" }]}>
-      <View
-        style={[
-          { flexDirection: "row", alignItems: "center" },
-          gap.all[1],
-          px[2],
-          livestream ? bg.destructive[500] : bg.gray[500],
-          borders.color.gray[800],
-          { paddingVertical: 3 },
-        ]}
-      >
-        <View style={[h[2], w[2], bg.white, { borderRadius: 999 }]} />
-        <Code
-          size="xs"
-          style={[
-            text.white,
-            {
-              fontWeight: "600",
-              letterSpacing: 2,
-            },
-          ]}
-        >
-          {livestream ? "LIVE" : "NOT LIVE"}
-        </Code>
-      </View>
-    </View>
-  );
+  // Broadcaster still establishing signal (no fresh frames yet) — "connecting",
+  // amber to agree with the connection HUD, never a bare "OFFLINE".
+  if (broadcasting) {
+    return <Badge variant="warning">CONNECTING</Badge>;
+  }
+
+  // Viewer side: the stream simply isn't live.
+  return <Badge variant="neutral">{isLive ? "NOT LIVE" : "OFFLINE"}</Badge>;
 }

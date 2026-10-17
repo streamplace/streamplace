@@ -1,4 +1,5 @@
 import { LinkingOptions } from "@react-navigation/native";
+import { VideoHostProvider } from "@streamplace/components";
 import React, { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import SharedProvider from "./provider.shared";
@@ -20,7 +21,10 @@ export default function Provider({
   }, []);
   return (
     <SafeAreaProvider>
-      <SharedProvider linking={linking}>{children}</SharedProvider>
+      <SharedProvider linking={linking}>
+        {/* Owns players' <video> elements so a layout change doesn't reload them. */}
+        <VideoHostProvider>{children}</VideoHostProvider>
+      </SharedProvider>
     </SafeAreaProvider>
   );
 }

@@ -1,8 +1,11 @@
 import { useNavigation } from "@react-navigation/native";
 import {
+  Avatar,
   ContentWarningBadge,
+  hexToRgba,
   PlayerStatus,
   PlayerUI,
+  ShareSheet,
   Slider,
   Text,
   Toast,
@@ -13,6 +16,7 @@ import {
   useLivestreamInfo,
   useLivestreamStore,
   useMuted,
+  useNetworkProfileUrl,
   usePlayerDimensions,
   usePlayerStore,
   useRotation,
@@ -24,6 +28,13 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import {
+  colors,
+  motion,
+  scrims,
+  statusColors,
+  textAlphas,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { px, py } from "@streamplace/components/src/ui";
 import { Image } from "expo-image";
 import {
@@ -37,7 +48,7 @@ import {
   VolumeX,
 } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
-import { Platform, Pressable } from "react-native";
+import { Linking, Platform, Pressable } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -48,9 +59,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MobileChatPanel } from "./chat";
+import { BottomControlBar } from "./desktop-ui/index";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
-const { borders, gap, h, layout, position, w, r } = zero;
+const { borders, bottom, gap, h, layout, p, position, right, w, r } = zero;
 
 export function MobileUi({
   setShowChat,
@@ -77,10 +89,19 @@ export function MobileUi({
     setRecordSubmitted,
     toggleGoLive,
     toggleStopStream,
+    profile: streamProfile,
   } = useLivestreamInfo();
   const { width, height } = usePlayerDimensions();
   const { isPlayerRatioGreater } = useSegmentDimensions();
   const { doSetIngestCamera } = useCameraToggle();
+  const profile = useAuthor();
+  const avatar = useAvatar();
+  const profileUrl = useNetworkProfileUrl();
+  const headerControlStyle = {
+    backgroundColor: scrims.light,
+    borderRadius: theme.borderRadius.md,
+    minHeight: theme.touchTargets.minimum,
+  };
 
   const mode = usePlayerStore((state) => state.mode);
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
@@ -103,11 +124,20 @@ export function MobileUi({
   const muted = useMuted();
   const setMuted = useSetMuted();
   const ls = useLivestream();
+  const segment = useLivestreamStore((x) => x.segment);
+  const contentWarnings =
+    (segment?.contentWarnings?.warnings as string[]) || [];
 
   const { shouldShowFloatingMetrics, shouldShowChatSidePanel, chatPanelWidth } =
     useResponsiveLayout();
 
   const [showLoading, setShowLoading] = useState(false);
+
+  const openChatOnlyMode = () => {
+    const user = streamProfile?.handle;
+    if (!user) return;
+    navigation.navigate("PopoutChat" as any, { user });
+  };
 
   useEffect(() => {
     if (recordSubmitted) setShowLoading(false);
@@ -117,32 +147,43 @@ export function MobileUi({
   const isSelfAndNotLive = ingest !== null && ls === null;
   const isSelfAndLive = ingest !== null && ls !== null;
 
-  const FADE_OUT_DELAY = 4000;
+  // Controls auto-hide after 3s of inactivity (design-system standard)
+  const FADE_OUT_DELAY = 3000;
   const internalFadeOpacity = useSharedValue(1);
   const fadeOpacity = sharedFadeOpacity ?? internalFadeOpacity;
-  const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
+  const fadeTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
+  const [controlsInteractive, setControlsInteractive] = useState(true);
   const selectedRendition = usePlayerStore((state) => state.selectedRendition);
 
   const resetFadeTimer = () => {
-    fadeOpacity.value = withTiming(1, { duration: 200 });
-    if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
+    setControlsInteractive(true);
+    fadeOpacity.value = withTiming(1, { duration: motion.base });
+    clearTimeout(fadeTimeout.current);
     if (selectedRendition === "audio") return;
     if (ingest !== null) return;
     fadeTimeout.current = setTimeout(() => {
-      fadeOpacity.value = withTiming(0, { duration: 400 });
+      fadeOpacity.value = withTiming(
+        0,
+        { duration: motion.slow },
+        (finished) => {
+          if (finished) {
+            runOnJS(setControlsInteractive)(false);
+          }
+        },
+      );
     }, FADE_OUT_DELAY);
   };
 
   useEffect(() => {
     resetFadeTimer();
     return () => {
-      if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
+      clearTimeout(fadeTimeout.current);
     };
   }, []);
 
   const showUI = () => {
     "worklet";
-    fadeOpacity.value = withTiming(1, { duration: 200 });
+    fadeOpacity.value = withTiming(1, { duration: motion.base });
   };
 
   const onPlayerHover = () => {
@@ -189,61 +230,186 @@ export function MobileUi({
           >
             {/* Main UI Overlay */}
             <View style={[h.percent[100], w.percent[100]]}>
-              <SafeAreaView
-                // VOD's container already insets the video below the notch, so
-                // the controls only need the small style padding; live fills
-                // the window and clears the notch with the top edge inset.
-                edges={mode === "vod" ? [] : ["top"]}
-                style={[
-                  px[2],
-                  py[2],
-                  layout.flex.row,
-                  layout.flex.spaceBetween,
-                  w.percent[100],
-                ]}
-              >
-                {/* Left Controls Column */}
-                <View
-                  style={[layout.flex.column, gap.all[2], { maxWidth: "70%" }]}
+              {ingest === null ? (
+                <SafeAreaView
+                  // VOD's container already insets the video below the notch, so
+                  // the controls only need the small style padding; live fills
+                  // the window and clears the notch with the top edge inset.
+                  edges={mode === "vod" ? [] : ["top"]}
+                  style={[
+                    layout.flex.column,
+                    py[2],
+                    px[2],
+                    gap.all[2],
+                    w.percent[100],
+                  ]}
                 >
-                  <LeftControlsPanel
-                    navigation={navigation}
-                    muted={muted}
-                    setMuted={setMuted}
-                    muteWasForced={muteWasForced}
-                    setMuteWasForced={setMuteWasForced}
-                  />
-                </View>
-
-                {/* Right Controls Column */}
-                <View
-                  style={[layout.flex.row, gap.all[2], layout.flex.align.start]}
-                >
-                  <View>
-                    <View
+                  <View
+                    style={[
+                      layout.flex.row,
+                      layout.flex.alignCenter,
+                      gap.all[2],
+                    ]}
+                  >
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Back"
+                      onPress={() => {
+                        navigation.canGoBack()
+                          ? navigation.goBack()
+                          : navigation.navigate("MainTabs" as any, {
+                              screen: "HomeTab",
+                            });
+                      }}
                       style={[
-                        {
-                          padding: 9,
-                          backgroundColor: "rgba(90,90,90, 0.3)",
-                          borderRadius: 12,
-                        },
-                        r[2],
+                        headerControlStyle,
+                        p[2],
+                        layout.flex.center,
+                        { minWidth: theme.touchTargets.minimum },
                       ]}
                     >
-                      <PlayerUI.Viewers />
+                      <ChevronLeft color={colors.white} />
+                    </Pressable>
+                    {profile ? (
+                      <Pressable
+                        accessibilityRole="link"
+                        accessibilityLabel={`Open profile for ${profile.handle || profile.did}`}
+                        onPress={() => Linking.openURL(profileUrl(profile))}
+                        style={[
+                          headerControlStyle,
+                          { flex: 1, minWidth: 0 },
+                          layout.flex.row,
+                          layout.flex.alignCenter,
+                          gap.all[2],
+                          p[2],
+                        ]}
+                      >
+                        <Avatar src={avatar} name={profile.handle} size="sm" />
+                        <Text
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                          size="sm"
+                          style={{
+                            color: colors.white,
+                            flexShrink: 1,
+                          }}
+                        >
+                          {profile.handle || profile.did}
+                        </Text>
+                      </Pressable>
+                    ) : (
+                      <View style={{ flex: 1 }} />
+                    )}
+                    <View
+                      style={[
+                        headerControlStyle,
+                        { flexShrink: 0 },
+                        layout.flex.row,
+                        layout.flex.alignCenter,
+                        gap.all[2],
+                        px[3],
+                        py[2],
+                      ]}
+                    >
+                      <ShareSheet />
+                      <PlayerUI.ContextMenu
+                        onOpenChat={
+                          streamProfile?.handle ? openChatOnlyMode : undefined
+                        }
+                      />
+                      {shouldShowChatSidePanel && setShowChat && (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            showChat ? "Hide chat" : "Show chat"
+                          }
+                          onPress={() => {
+                            setShowChat(!showChat);
+                          }}
+                        >
+                          {showChat ? (
+                            <ChevronRight color={colors.white} size={20} />
+                          ) : (
+                            <ChevronLeft color={colors.white} size={20} />
+                          )}
+                        </Pressable>
+                      )}
                     </View>
                   </View>
+                  {contentWarnings.length > 0 && (
+                    <View style={{ alignSelf: "flex-start", maxWidth: "100%" }}>
+                      <ContentWarningBadge
+                        warnings={contentWarnings}
+                        truncate
+                      />
+                    </View>
+                  )}
+                </SafeAreaView>
+              ) : (
+                <SafeAreaView
+                  // VOD's container already insets the video below the notch, so
+                  // the controls only need the small style padding; live fills
+                  // the window and clears the notch with the top edge inset.
+                  edges={mode === "vod" ? [] : ["top"]}
+                  style={[
+                    px[2],
+                    py[2],
+                    layout.flex.row,
+                    layout.flex.spaceBetween,
+                    w.percent[100],
+                  ]}
+                >
+                  {/* Left Controls Column */}
+                  <View
+                    style={[
+                      layout.flex.column,
+                      gap.all[2],
+                      { maxWidth: "70%" },
+                    ]}
+                  >
+                    <LeftControlsPanel
+                      navigation={navigation}
+                      muted={muted}
+                      setMuted={setMuted}
+                      muteWasForced={muteWasForced}
+                      setMuteWasForced={setMuteWasForced}
+                    />
+                  </View>
 
-                  <RightControlsPanel
-                    ingest={ingest}
-                    doSetIngestCamera={doSetIngestCamera}
-                    shouldShowChatSidePanel={shouldShowChatSidePanel}
-                    isPortrait={!shouldShowChatSidePanel}
-                    showChat={showChat}
-                    setShowChat={setShowChat}
-                  />
-                </View>
-              </SafeAreaView>
+                  {/* Right Controls Column */}
+                  <View
+                    style={[
+                      layout.flex.row,
+                      gap.all[2],
+                      layout.flex.align.start,
+                    ]}
+                  >
+                    <View>
+                      <View
+                        style={[
+                          {
+                            padding: 9,
+                            backgroundColor: scrims.light,
+                            borderRadius: 12,
+                          },
+                          r[2],
+                        ]}
+                      >
+                        <ShareSheet />
+                      </View>
+                    </View>
+
+                    <RightControlsPanel
+                      ingest={ingest}
+                      doSetIngestCamera={doSetIngestCamera}
+                      shouldShowChatSidePanel={shouldShowChatSidePanel}
+                      isPortrait={!shouldShowChatSidePanel}
+                      showChat={showChat}
+                      setShowChat={setShowChat}
+                    />
+                  </View>
+                </SafeAreaView>
+              )}
 
               {shouldShowFloatingMetrics && isSelfAndLive && (
                 <View
@@ -259,6 +425,13 @@ export function MobileUi({
                   <PlayerUI.MetricsPanel
                     showMetrics={shouldShowFloatingMetrics}
                   />
+                </View>
+              )}
+              {Platform.OS !== "web" && (
+                <View
+                  style={[layout.position.absolute, { bottom: 12, right: 12 }]}
+                >
+                  <RotateButton />
                 </View>
               )}
             </View>
@@ -300,6 +473,28 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
+      {Platform.OS === "web" && mode === "live" && ingest === null && (
+        <Animated.View
+          style={[
+            layout.position.absolute,
+            position.bottom[0],
+            w.percent[100],
+            { zIndex: 999 },
+            animatedFadeStyle,
+          ]}
+          pointerEvents={controlsInteractive ? "box-none" : "none"}
+        >
+          <BottomControlBar
+            ingest={ingest}
+            pipSupported={false}
+            pipActive={false}
+            showContextMenu={false}
+            volumeSliderWidth={80}
+            showChat={showChat ?? false}
+            setShowChat={setShowChat}
+          />
+        </Animated.View>
+      )}
       {/* VOD scrub/play controls live OUTSIDE the gesture detector so the seek
           bar's own pan gesture isn't swallowed by the overlay's tap/pan Race.
           They still fade with the rest of the UI via the shared opacity. */}
@@ -350,7 +545,7 @@ function LeftControlsPanel({
           {
             padding: 3,
             paddingRight: 8,
-            backgroundColor: "rgba(90,90,90, 0.25)",
+            backgroundColor: scrims.light,
             borderRadius: 12,
             alignSelf: "flex-start",
           },
@@ -365,7 +560,7 @@ function LeftControlsPanel({
                 : navigation.navigate("MainTabs" as any, { screen: "HomeTab" });
             }}
           >
-            <ChevronLeft color="white" />
+            <ChevronLeft color={colors.white} />
           </Pressable>
           <Image
             source={
@@ -411,14 +606,17 @@ function LeftControlsPanel({
             style={[
               {
                 padding: 4,
-                backgroundColor: "rgba(50, 30, 30, 0.4)",
+                backgroundColor: scrims.light,
                 borderRadius: 999,
                 borderWidth: 2,
-                borderColor: "rgba(255, 120, 120, 0.2)",
+                borderColor: hexToRgba(statusColors.dark.danger, 0.2),
               },
             ]}
           >
-            <VolumeX size="24" color="rgba(255,120,120,0.8)" />
+            <VolumeX
+              size="24"
+              color={hexToRgba(statusColors.dark.danger, 0.8)}
+            />
           </View>
           <Text color="muted" size="sm">
             Tap to unmute
@@ -426,7 +624,7 @@ function LeftControlsPanel({
         </Pressable>
       )}
       <View>
-        <ContentWarningBadge warnings={contentWarnings} />
+        <ContentWarningBadge warnings={contentWarnings} truncate />
       </View>
     </>
   );
@@ -454,7 +652,6 @@ function RightControlsPanel({
   const setMuted = useSetMuted();
   const fullscreen = usePlayerStore((x) => x.fullscreen);
   const setFullscreen = usePlayerStore((x) => x.setFullscreen);
-  const { toggleRotation, canRotate, currentOrientation } = useRotation();
 
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
 
@@ -485,7 +682,7 @@ function RightControlsPanel({
       <View
         style={[
           {
-            backgroundColor: "rgba(90,90,90, 0.3)",
+            backgroundColor: scrims.light,
             borderRadius: 12,
             paddingVertical: 2.25 * 4,
           },
@@ -529,35 +726,10 @@ function RightControlsPanel({
               )}
             </Pressable>
           </>
+        ) : ingest === null ? (
+          <PlayerUI.ContextMenu />
         ) : (
-          <View
-            style={[
-              isPortrait
-                ? { flexDirection: "column-reverse" }
-                : { flexDirection: "row" },
-              zero.layout.flex.center,
-              zero.gap.all[4],
-            ]}
-          >
-            {canRotate && (
-              <Pressable
-                onPress={() => {
-                  toggleRotation();
-                }}
-              >
-                {currentOrientation === 1 ? (
-                  <Maximize color={theme.colors.foreground} size={20} />
-                ) : (
-                  <Minimize color={theme.colors.foreground} size={20} />
-                )}
-              </Pressable>
-            )}
-            {ingest === null ? (
-              <PlayerUI.ContextMenu />
-            ) : (
-              <PlayerUI.StreamContextMenu />
-            )}
-          </View>
+          <PlayerUI.StreamContextMenu />
         )}
         {shouldShowChatSidePanel && setShowChat && (
           <Pressable
@@ -566,9 +738,9 @@ function RightControlsPanel({
             }}
           >
             {showChat ? (
-              <ChevronRight color="white" size={20} />
+              <ChevronRight color={colors.white} size={20} />
             ) : (
-              <ChevronLeft color="white" size={20} />
+              <ChevronLeft color={colors.white} size={20} />
             )}
           </Pressable>
         )}
@@ -579,7 +751,7 @@ function RightControlsPanel({
           style={[
             {
               padding: 10,
-              backgroundColor: "rgba(90,90,90, 0.9)",
+              backgroundColor: scrims.dark,
               borderRadius: 12,
               width: 150,
               height: 36,
@@ -610,7 +782,7 @@ function RightControlsPanel({
                 position: "absolute",
                 width: "100%",
                 height: 3,
-                backgroundColor: "rgba(255,255,255,0.3)",
+                backgroundColor: textAlphas.dark[4],
                 borderRadius: 999,
                 top: "50%",
                 transform: [{ translateY: -1.5 }],
@@ -619,7 +791,7 @@ function RightControlsPanel({
               <Slider.Range
                 style={{
                   position: "absolute",
-                  backgroundColor: "white",
+                  backgroundColor: colors.white,
                   borderRadius: 999,
                   height: 3,
                   top: 0,
@@ -631,7 +803,7 @@ function RightControlsPanel({
                   width: 16,
                   height: 16,
                   borderRadius: 8,
-                  backgroundColor: "white",
+                  backgroundColor: colors.white,
                   top: -6.5,
                   transform: [{ translateX: -8 }],
                 }}
@@ -640,6 +812,29 @@ function RightControlsPanel({
           </Slider.Root>
         </View>
       )}
+    </View>
+  );
+}
+
+/** Native fullscreen/rotation toggle, pinned to the player's bottom-right. */
+function RotateButton() {
+  const { theme } = useTheme();
+  const { toggleRotation, canRotate, currentOrientation } = useRotation();
+  if (!canRotate) return null;
+  return (
+    <View
+      style={[
+        { padding: 9, backgroundColor: scrims.light, borderRadius: 12 },
+        r[2],
+      ]}
+    >
+      <Pressable onPress={toggleRotation}>
+        {currentOrientation === 1 ? (
+          <Maximize color={theme.colors.foreground} size={20} />
+        ) : (
+          <Minimize color={theme.colors.foreground} size={20} />
+        )}
+      </Pressable>
     </View>
   );
 }

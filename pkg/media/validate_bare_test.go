@@ -3,57 +3,27 @@ package media
 import (
 	"bytes"
 	"context"
-	"crypto"
-	"crypto/ecdsa"
 	"fmt"
 	"os"
 	"sort"
 	"testing"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/atcrypto"
-	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/comatproto"
-	"stream.place/streamplace/pkg/crypto/aqpub"
-	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
 )
 
-// newBareSegmentSigner builds a MediaSignerLocal with a fresh ES256K key +
-// self-signed cert and a cawg.metadata-bearing prebuilt manifest — enough to
-// drive SignSegmentStream in tests.
+// newBareSegmentSigner is an ephemeral signer with the test streamer name,
+// enough to drive SignSegmentStream in tests.
 func newBareSegmentSigner(t *testing.T) *MediaSignerLocal {
 	t.Helper()
-	atPriv, err := atcrypto.GeneratePrivateKeyK256()
+	ms, err := NewEphemeralMediaSigner("test-streamer")
 	require.NoError(t, err)
-	secpPriv, _ := secp256k1.PrivKeyFromBytes(atPriv.Bytes())
-	require.NotNil(t, secpPriv)
-	var signer crypto.Signer = secpPriv.ToECDSA()
-	cert, err := signers.GenerateES256KCert(signer)
-	require.NoError(t, err)
-	pub, err := aqpub.FromPublicKey(secpPriv.ToECDSA().Public().(*ecdsa.PublicKey))
-	require.NoError(t, err)
-	return &MediaSignerLocal{
-		StreamerName: "test-streamer",
-		Signer:       signer,
-		AQPub:        pub,
-		Cert:         cert,
-		PrebuiltManifest: []byte(`{
-			"title": "bare segment test",
-			"assertions": [
-				{"label":"c2pa.actions","data":{"actions":[{"action":"c2pa.created"}]}},
-				{"label":"cawg.metadata","data":{
-					"@context":{"dc":"http://purl.org/dc/elements/1.1/"},
-					"dc:creator":"did:example","dc:title":"t",
-					"dc:date":"1970-01-01T00:00:00.000Z"
-				}}
-			]
-		}`),
-	}
+	return ms
 }
 
 // TestValidateMP4MediaBareSegment exercises the full .m4s-native validate
@@ -132,18 +102,29 @@ func TestFeedLiveWindow(t *testing.T) {
 
 	mm := &MediaManager{liveWindows: map[string]*livehls.Writer{}}
 
-	// Pre-live (unpublished) segments must NOT be folded into the live window —
-	// live HLS is unauthenticated, so anything in the window is world-readable.
-	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, false)
-	require.Nil(t, mm.GetLiveWindow("did:test:streamer"),
-		"unpublished segment must not create a live-HLS window")
+	// Pre-live (unpublished) segments are folded in for the streamer's own
+	// preview, and the window remembers that its latest segment is not
+	// public — the getLive* handlers keep it to holders of a playback token.
+	t0 := time.Now()
+	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, t0, false)
+	require.NotNil(t, mm.GetLiveWindow("did:test:streamer"), "pre-live segments make a window")
+	require.False(t, mm.LiveWindowPublished("did:test:streamer"), "…but it is not public")
 
-	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, true)
+	preLive := mm.GetLiveWindow("did:test:streamer")
+	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, t0.Add(2*time.Second), true)
+	require.True(t, mm.LiveWindowPublished("did:test:streamer"))
 
 	w := mm.GetLiveWindow("did:test:streamer")
 	require.NotNil(t, w, "window created on feed")
+	require.NotSame(t, preLive, w, "going public starts the window over: the preview segments are not served to the public")
 	tids := w.TrackIDs()
 	require.NotEmpty(t, tids, "window has tracks")
+	for _, tid := range tids {
+		require.Len(t, w.Track(tid).Segments, len(preLive.Track(tid).Segments), "track %s: only the published segment, none of the pre-live ones", tid)
+	}
+	// Once public, further segments extend the same window.
+	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, t0.Add(4*time.Second), true)
+	require.Same(t, w, mm.GetLiveWindow("did:test:streamer"))
 	for _, tid := range tids {
 		require.NotEmpty(t, w.InitSegment(tid), "track %s has an init segment", tid)
 		tr := w.Track(tid)
@@ -156,6 +137,21 @@ func TestFeedLiveWindow(t *testing.T) {
 		require.Contains(t, pl, "#EXTINF")
 	}
 	require.Contains(t, w.MasterPlaylist(func(tid string) string { return tid + ".m3u8" }), "#EXTM3U")
+
+	// Segments are fed concurrently, so a pre-live segment can finish
+	// validating after the stream went public. It is older than the window,
+	// so it is dropped: the public window neither restarts nor turns back
+	// into a preview under its viewers.
+	segs := len(w.Track(tids[0]).Segments)
+	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, t0.Add(time.Second), false)
+	require.Same(t, w, mm.GetLiveWindow("did:test:streamer"), "a late pre-live segment does not touch the public window")
+	require.True(t, mm.LiveWindowPublished("did:test:streamer"), "…and does not make it a preview")
+	require.Len(t, w.Track(tids[0]).Segments, segs, "…nor does it add to it")
+
+	// A pre-live segment newer than the window is the stream going back to
+	// preview (the streamer ended it but is still sending), and does flip it.
+	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, t0.Add(6*time.Second), false)
+	require.False(t, mm.LiveWindowPublished("did:test:streamer"), "a newer pre-live segment takes the stream back to preview")
 }
 
 // seedBanLabel writes an active ban label for did into the model.

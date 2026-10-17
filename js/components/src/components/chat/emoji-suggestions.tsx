@@ -3,6 +3,7 @@ import { Platform, Pressable } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { Code, Text, View } from "../..";
 import { bg, layout, left, right, zIndex } from "../../lib/theme/atoms";
+import { useTheme } from "../../lib/theme/theme";
 
 export interface EmojiData {
   emojis: { [key: string]: Emoji };
@@ -37,11 +38,8 @@ export function EmojiSuggestions({
   highlightedIndex,
   skinTone = 0,
 }: EmojiSuggestionsProps) {
-  if (!emojis || emojis.length === 0) {
-    return null;
-  }
-
   const itemRefs = useRef<Map<number, HTMLElement>>(new Map());
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -51,6 +49,10 @@ export function EmojiSuggestions({
       }
     }
   }, [highlightedIndex]);
+
+  if (!emojis || emojis.length === 0) {
+    return null;
+  }
 
   return (
     <View
@@ -63,7 +65,7 @@ export function EmojiSuggestions({
         {
           bottom: "100%",
           borderRadius: 8,
-          boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.1)",
+          boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.1)", // eslint-disable-line streamplace/no-token-literals -- dynamic user color / soft shadow
           maxHeight: 200,
         },
       ]}
@@ -84,7 +86,7 @@ export function EmojiSuggestions({
                 alignItems: "center",
                 backgroundColor:
                   index === highlightedIndex
-                    ? "rgba(255, 255, 255, 0.1)"
+                    ? theme.colors.surfaceHover
                     : "transparent",
               },
             ]}

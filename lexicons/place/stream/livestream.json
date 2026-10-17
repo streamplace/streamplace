@@ -98,14 +98,25 @@
       "type": "object",
       "required": ["uri", "cid", "author", "record", "indexedAt"],
       "properties": {
-        "uri": { "type": "string", "format": "at-uri" },
-        "cid": { "type": "string", "format": "cid" },
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
         "author": {
           "type": "ref",
           "ref": "app.bsky.actor.defs#profileViewBasic"
         },
-        "record": { "type": "unknown" },
-        "indexedAt": { "type": "string", "format": "datetime" },
+        "record": {
+          "type": "unknown"
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        },
         "viewerCount": {
           "type": "ref",
           "description": "The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly.",
@@ -117,7 +128,14 @@
       "type": "object",
       "required": ["count"],
       "properties": {
-        "count": { "type": "integer" }
+        "count": {
+          "type": "integer",
+          "description": "Viewers watching right now."
+        },
+        "total": {
+          "type": "integer",
+          "description": "Running number of playback sessions this livestream has had (cumulative, session-based; the X-style 'views' beside the concurrent count)."
+        }
       }
     },
     "teleportArrival": {

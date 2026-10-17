@@ -166,6 +166,7 @@ func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	for _, relay := range relays {
 		relay := relay
+		spmetrics.TouchRelay(relay, relayProtocol(relay))
 		g.Go(func() error {
 			atsync.consumeRelay(ctx, relay)
 			return nil
@@ -537,6 +538,7 @@ var CollectionFilter = []string{
 	constants.APP_BSKY_GRAPH_BLOCK,
 	constants.APP_BSKY_ACTOR_PROFILE,
 	constants.PLACE_STREAM_LIVE_RECOMMENDATIONS,
+	constants.APP_BSKY_GRAPH_VERIFICATION,
 }
 
 // indexedCollection reports whether we index anything in this collection: the
@@ -615,6 +617,7 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 		return false
 	}
 
+	complete := true
 	for _, op := range evt.Ops {
 		collection, rkey, err := syntax.ParseRepoPath(op.Path)
 		uri := fmt.Sprintf("at://%s/%s", evt.Repo, op.Path)
@@ -672,7 +675,7 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 			// tear down event processing for the whole node). The error is
 			// logged and the loop moves on to the next op.
 			err = log.Recover(ctx, func() error {
-				return atsync.handleCreateUpdate(ctx, evt.Repo, rkey, recCBOR, op.Cid.String(), collection, ek == repomgr.EvtKindUpdateRecord, false)
+				return atsync.handleCreateUpdate(ctx, evt.Repo, rkey, recCBOR, op.Cid.String(), collection, ek == repomgr.EvtKindUpdateRecord, false, evt.Rev)
 			})
 			if err != nil {
 				log.Error(ctx, "failed to handle create update", "err", err)
@@ -680,6 +683,13 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 			}
 
 		case repomgr.EvtKindDeleteRecord:
+			if collection.String() == constants.PLACE_STREAM_SERVER_SETTINGS {
+				if err := atsync.Model.DeleteServerSettings(ctx, rkey.String(), evt.Repo); err != nil {
+					log.Error(ctx, "failed to delete server settings", "err", err)
+					complete = false
+				}
+			}
+
 			if collection.String() == constants.APP_BSKY_GRAPH_FOLLOW {
 				if r == nil {
 					log.Debug(ctx, "no repo found for follow", "userDID", evt.Repo, "subjectDID", rkey.String())
@@ -724,6 +734,19 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 				atsync.Bus.Publish(evt.Repo, key)
 			}
 
+			if collection.String() == constants.APP_BSKY_GRAPH_VERIFICATION {
+				if err := atsync.Model.DeleteVerification(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete verification", "err", err)
+				}
+			}
+
+			if collection.String() == constants.PLACE_STREAM_CHAT_ACCESS {
+				if err := atsync.Model.DeleteChatAccessRule(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete chat access rule", "err", err)
+				}
+				atsync.NoteChatAccessRule(ctx, &model.ChatAccessRule{RepoDID: evt.Repo})
+			}
+
 			if collection.String() == constants.PLACE_STREAM_CHAT_MESSAGE {
 				msg, err := atsync.Model.GetChatMessage(uri)
 				if err != nil {
@@ -759,17 +782,19 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 
 			if collection.String() == constants.PLACE_STREAM_MODERATION_PERMISSION {
 				log.Debug(ctx, "deleting moderation delegation", "userDID", evt.Repo, "rkey", rkey.String())
-				err := atsync.Model.DeleteModerationDelegation(ctx, rkey.String())
+				err := atsync.Model.DeleteModerationDelegation(ctx, evt.Repo, rkey.String())
 				if err != nil {
 					log.Error(ctx, "failed to delete moderation delegation", "err", err)
+					continue
 				}
 				// Publish deletion to WebSocket bus for real-time updates
-				// Create a deleted record marker to notify frontend
 				deletedRecord := map[string]any{
-					"$type":    "place.stream.moderation.permission",
+					"$type":    constants.PLACE_STREAM_MODERATION_PERMISSION,
 					"deleted":  true,
+					"uri":      uri,
 					"rkey":     rkey.String(),
 					"streamer": evt.Repo,
+					"repoRev":  evt.Rev,
 				}
 				go atsync.Bus.Publish(evt.Repo, deletedRecord)
 			}
@@ -880,7 +905,7 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 		}
 	}
 
-	return true
+	return complete
 }
 
 // reviveRepo un-parks a repo we had written off. A commit event is proof the

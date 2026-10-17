@@ -1,5 +1,14 @@
+import { chatMessageOpacity } from "@streamplace/core";
 import { ChevronDown, Ellipsis, Reply } from "lucide-react-native";
-import { ComponentProps, memo, useEffect, useRef, useState } from "react";
+import {
+  ComponentProps,
+  memo,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Keyboard, Platform, Pressable } from "react-native";
 import { FlatList } from "react-native-gesture-handler";
 import Swipeable, {
@@ -13,8 +22,12 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { ChatMessageViewHydrated } from "streamplace";
 import {
+  DropdownMenu,
+  DropdownMenuTrigger,
   ErrorBoundary,
   getSystemMessageType,
+  ResponsiveDropdownMenuContent,
+  Skeleton,
   SystemMessage,
   SystemMessageType,
   Text,
@@ -24,12 +37,22 @@ import {
   useTheme,
   View,
 } from "../../";
-import { bg, flex, layout, mr, px, py } from "../../lib/theme/atoms";
+import {
+  flex,
+  gap,
+  layout,
+  mr,
+  px,
+  py,
+  selectableText,
+} from "../../lib/theme/atoms";
+import { borderRadius, colors, motion, spacing } from "../../lib/theme/tokens";
 import { RenderChatMessage } from "./chat-message";
-import { ModView } from "./mod-view";
+import { ModMenuContent, ModView } from "./mod-view";
 import { ProfileCardProvider } from "./user-profile-card";
 
-function RightAction(prog: SharedValue<number>, drag: SharedValue<number>) {
+function ReplyAction({ drag }: { drag: SharedValue<number> }) {
+  const { theme } = useTheme();
   const styleAnimation = useAnimatedStyle(() => {
     return {
       transform: [{ translateX: drag.value + 25 }],
@@ -38,9 +61,13 @@ function RightAction(prog: SharedValue<number>, drag: SharedValue<number>) {
 
   return (
     <Reanimated.View style={[styleAnimation]}>
-      <Reply color="white" />
+      <Reply color={theme.colors.text2} />
     </Reanimated.View>
   );
+}
+
+function RightAction(prog: SharedValue<number>, drag: SharedValue<number>) {
+  return <ReplyAction drag={drag} />;
 }
 
 function LeftAction(prog: SharedValue<number>, drag: SharedValue<number>) {
@@ -52,7 +79,7 @@ function LeftAction(prog: SharedValue<number>, drag: SharedValue<number>) {
 
   return (
     <Reanimated.View style={[styleAnimation]}>
-      <Ellipsis color="white" />
+      <Ellipsis color={colors.white} />
     </Reanimated.View>
   );
 }
@@ -61,8 +88,72 @@ function LeftAction(prog: SharedValue<number>, drag: SharedValue<number>) {
 const SHOWN_MSGS =
   Platform.OS === "ios" || Platform.OS === "android" ? 25 : 100;
 
+// Chat ages out on the hour, so a slow tick is plenty: it only exists so the
+// fade and the disappearance happen while the viewer watches, rather than
+// waiting for the next message to arrive and re-render the list.
+const CHAT_EXPIRY_TICK_MS = 30_000;
+
+function useChatExpiryTick(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), CHAT_EXPIRY_TICK_MS);
+    return () => clearInterval(timer);
+  }, []);
+  return now;
+}
+
 const keyExtractor = (item: ChatMessageViewHydrated, index: number) => {
   return `${item.uri}`;
+};
+
+// A message that has faded out is gone, not absent: it keeps the space the
+// list is scrolled over, so the history behind it stays reachable. It must not
+// stay tabbable, though. react-native-web drops unknown props, so on the web a
+// faded row gets a real DOM node carrying `inert`, which takes it out of
+// keyboard focus and the accessibility tree in one go.
+//
+// While focus is inside a row, it is neither: the viewer is interacting with
+// it, so it stays at full strength and stays reachable, and only goes quiet
+// once focus leaves. Hiding or blurring the control someone is using is worse
+// than letting a gone row linger a moment longer.
+const FadedRow = ({
+  opacity,
+  children,
+}: {
+  opacity: number;
+  children: ReactNode;
+}) => {
+  const [focused, setFocused] = useState(false);
+  const faded = opacity === 0 && !focused;
+  if (Platform.OS !== "web") {
+    return (
+      <View
+        style={{ opacity }}
+        pointerEvents={opacity === 0 ? "none" : "auto"}
+        aria-hidden={opacity === 0 || undefined}
+      >
+        {children}
+      </View>
+    );
+  }
+  return (
+    <div
+      inert={faded}
+      aria-hidden={faded || undefined}
+      style={{
+        opacity: focused ? 1 : opacity,
+        pointerEvents: faded ? "none" : undefined,
+      }}
+      onFocus={() => setFocused(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setFocused(false);
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
 };
 
 // Actions bar for larger screens
@@ -71,13 +162,15 @@ const ActionsBar = memo(
     item,
     visible,
     hoverTimeoutRef,
+    onMenuOpenChange,
   }: {
     item: ChatMessageViewHydrated;
     visible: boolean;
     hoverTimeoutRef: React.MutableRefObject<NodeJS.Timeout | null>;
+    onMenuOpenChange: (open: boolean) => void;
   }) => {
     const setReply = useSetReplyToMessage();
-    const setModMsg = usePlayerStore((state) => state.setModMessage);
+    const { theme } = useTheme();
 
     if (!visible) return null;
 
@@ -89,11 +182,12 @@ const ActionsBar = memo(
             top: -14,
             right: 8,
             flexDirection: "row",
-            backgroundColor: "rgba(180,180,180, 0.5)",
-            borderRadius: 6,
+            backgroundColor: theme.colors.surface3,
+            borderRadius: borderRadius.sm,
             borderWidth: 1,
+            borderColor: theme.colors.borderStrong,
             padding: 1,
-            gap: 4,
+            gap: spacing[1],
             zIndex: 10,
             maxWidth: 120,
             flexShrink: 0,
@@ -105,8 +199,7 @@ const ActionsBar = memo(
           style={[
             {
               padding: 6,
-              borderRadius: 4,
-              backgroundColor: "rgba(255, 255, 255, 0.1)",
+              borderRadius: borderRadius.sm,
             },
           ]}
           onHoverIn={() => {
@@ -117,37 +210,54 @@ const ActionsBar = memo(
             }
           }}
         >
-          <Reply color="white" size={16} />
+          <Reply color={theme.colors.text2} size={16} />
         </Pressable>
-        <Pressable
-          onPress={() => setModMsg(item)}
-          style={[
-            {
-              padding: 6,
-              borderRadius: 4,
-              backgroundColor: "rgba(255, 255, 255, 0.1)",
-            },
-          ]}
-          onHoverIn={() => {
-            // Keep the actions bar visible when hovering over it
-            if (hoverTimeoutRef.current) {
-              clearTimeout(hoverTimeoutRef.current);
-              hoverTimeoutRef.current = null;
-            }
-          }}
-        >
-          <Ellipsis color="white" size={16} />
-        </Pressable>
+        {/* The moderation / user-actions menu opens from the row itself,
+            anchored to this button, rather than from a hidden trigger at
+            the corner of the chat. */}
+        <DropdownMenu onOpenChange={onMenuOpenChange}>
+          <DropdownMenuTrigger asChild>
+            <Pressable
+              accessibilityLabel="Message actions"
+              style={[
+                {
+                  padding: 6,
+                  borderRadius: borderRadius.sm,
+                },
+              ]}
+              onHoverIn={() => {
+                if (hoverTimeoutRef.current) {
+                  clearTimeout(hoverTimeoutRef.current);
+                  hoverTimeoutRef.current = null;
+                }
+              }}
+            >
+              <Ellipsis color={theme.colors.text2} size={16} />
+            </Pressable>
+          </DropdownMenuTrigger>
+          <ResponsiveDropdownMenuContent align="end" sideOffset={6}>
+            <ModMenuContent message={item} />
+          </ResponsiveDropdownMenuContent>
+        </DropdownMenu>
       </View>
     );
   },
 );
 
-const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
+const ChatLine = memo(function ChatLine({
+  item,
+  opacity,
+}: {
+  item: ChatMessageViewHydrated;
+  /** 0..1 from chatMessageOpacity; 1 when the viewer is reading history. */
+  opacity: number;
+}) {
+  const { theme } = useTheme();
   const setReply = useSetReplyToMessage();
   const setModMsg = usePlayerStore((state) => state.setModMessage);
   const swipeableRef = useRef<SwipeableMethods | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleHoverIn = () => {
@@ -174,61 +284,72 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
 
   if (item.author.did === "did:sys:system") {
     return (
-      <SystemMessage
-        variant={getSystemMessageType(item) || SystemMessageType.notification}
-        timestamp={new Date(item.record.createdAt)}
-        title={item.record.text}
-        facets={item.record.facets}
-      />
+      <FadedRow opacity={opacity}>
+        <SystemMessage
+          variant={getSystemMessageType(item) || SystemMessageType.notification}
+          timestamp={new Date(item.record.createdAt)}
+          title={item.record.text}
+          facets={item.record.facets}
+        />
+      </FadedRow>
     );
   }
 
   if (Platform.OS === "web") {
     return (
-      <View
-        style={[
-          py[1],
-          px[2],
-          {
-            position: "relative",
-            borderRadius: 8,
-            minWidth: 0,
-            maxWidth: "100%",
-          },
-          isHovered && bg.gray[950],
-        ]}
-        onPointerEnter={handleHoverIn}
-        onPointerLeave={handleHoverOut}
-      >
-        <Pressable style={[{ minWidth: 0, maxWidth: "100%" }]}>
-          <RenderChatMessage item={item} />
-        </Pressable>
-        <ActionsBar
-          item={item}
-          visible={isHovered}
-          hoverTimeoutRef={hoverTimeoutRef}
-        />
-      </View>
+      <FadedRow opacity={opacity}>
+        <View
+          style={[
+            py[1],
+            px[2],
+            {
+              position: "relative",
+              borderRadius: borderRadius.md,
+              minWidth: 0,
+              maxWidth: "100%",
+            },
+            isHovered ? { backgroundColor: theme.colors.surfaceHover } : {},
+          ]}
+          onPointerEnter={handleHoverIn}
+          onPointerLeave={handleHoverOut}
+        >
+          {/* A plain View, not a Pressable: the row has no onPress, and the
+              Pressable's DOM node and press handler made the whole message
+              non-selectable. userSelect restores web text selection. */}
+          <View style={[{ minWidth: 0, maxWidth: "100%" }, selectableText]}>
+            <RenderChatMessage item={item} />
+          </View>
+          <ActionsBar
+            item={item}
+            visible={isHovered || menuOpen}
+            hoverTimeoutRef={hoverTimeoutRef}
+            onMenuOpenChange={setMenuOpen}
+          />
+        </View>
+      </FadedRow>
     );
   }
 
   return (
-    <>
+    <FadedRow opacity={opacity}>
       <Swipeable
-        containerStyle={[py[1]]}
+        containerStyle={[{ paddingVertical: 6 }]}
         friction={2}
         enableTrackpadTwoFingerGesture
         rightThreshold={40}
         leftThreshold={40}
-        renderRightActions={Platform.OS === "android" ? undefined : RightAction}
+        // Swiping left reveals the reply action on every platform; the
+        // swipe-right mod menu is still iOS-only.
+        renderRightActions={RightAction}
         renderLeftActions={Platform.OS === "android" ? undefined : LeftAction}
         overshootFriction={9}
         ref={swipeableRef}
         onSwipeableOpen={(r) => {
-          if (r === (Platform.OS === "android" ? "right" : "left")) {
+          // the direction the row was swiped, on every platform
+          if (r === "left") {
             setReply(item);
           }
-          if (r === (Platform.OS === "android" ? "left" : "right")) {
+          if (r === "right") {
             setModMsg(item);
           }
           // close this swipeable
@@ -240,7 +361,7 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
       >
         <RenderChatMessage item={item} />
       </Swipeable>
-    </>
+    </FadedRow>
   );
 });
 
@@ -249,20 +370,114 @@ export function Chat({
   style: propsStyle,
   reverse = false,
   hideAfter,
+  hideSystemMessages = false,
   ...props
 }: ComponentProps<typeof View> & {
   shownMessages?: number;
   style?: ComponentProps<typeof View>["style"];
   reverse?: boolean;
   hideAfter?: number;
+  /** Leave out the node's system notices ("now streaming" and the like). */
+  hideSystemMessages?: boolean;
 }) {
   const { theme } = useTheme();
   const chat = useChat();
   const [isScrolledUp, setIsScrolledUp] = useState(false);
+  // On phones the keyboard shrinks the viewport, and an inverted list that
+  // is re-laid out into a shorter box can end up showing its far (oldest)
+  // end. When the viewport resizes and the viewer wasn't reading history,
+  // pin the list back to the latest message.
+  const isScrolledUpRef = useRef(false);
+  isScrolledUpRef.current = isScrolledUp;
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    const onResize = () => {
+      if (isScrolledUpRef.current) return;
+      requestAnimationFrame(() =>
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: false }),
+      );
+    };
+    vv?.addEventListener("resize", onResize);
+    window.addEventListener("resize", onResize);
+    return () => {
+      vv?.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
   const [isVisible, setIsVisible] = useState(true);
   const flatListRef = useRef<FlatList>(null);
-  const latestMessageTime = chat?.[0]
-    ? new Date(chat[0].record.createdAt).getTime()
+  // On the web an inverted list is flipped with scaleY(-1), so native wheel
+  // scrolling would run backwards; react-native-web cancels every wheel event
+  // and moves scrollTop itself. Its handler loses trackpad scrolls, though:
+  //
+  // - The browser snaps each scrollTop write to a device pixel. A trackpad
+  //   sends many small, fractional deltas, and rounding favours one
+  //   direction: every half-pixel step toward the latest message can land
+  //   back where it started, so scrolling down stalls while scrolling up
+  //   works.
+  // - It lets the element under the pointer absorb the delta first if its
+  //   scrollHeight exceeds its clientHeight, which a truncated,
+  //   overflow-hidden name can do by a few pixels on every row.
+  //
+  // So the list handles its own wheel events first (capture phase, on the
+  // scroll node, ahead of react-native-web's bubbling listener), carries the
+  // part of each delta the browser rounded away into the next one, and
+  // scrolls only the list: chat rows have no scroll areas of their own.
+  //
+  // The list is only mounted (and inverted) once chat has loaded and is shown.
+  const invertedListShown = !reverse && isVisible && !!chat;
+  useEffect(() => {
+    if (Platform.OS !== "web" || !invertedListShown) return;
+    const node = (
+      flatListRef.current as unknown as { getScrollableNode?: () => unknown }
+    )?.getScrollableNode?.();
+    if (!(node instanceof HTMLElement)) return;
+    let carry = 0;
+    const onWheel = (ev: WheelEvent) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      // Pixels almost everywhere (Firefox too, once deltaY is read first), but
+      // e.g. Windows' "one screen at a time" setting reports pages.
+      let delta = ev.deltaY;
+      if (ev.deltaMode === WheelEvent.DOM_DELTA_LINE) delta *= 16;
+      if (ev.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+        delta *= node.clientHeight;
+      }
+      const wanted = node.scrollTop - delta + carry;
+      node.scrollTop = wanted;
+      carry = wanted - node.scrollTop;
+      // A whole pixel or more short means the list hit an end, not rounding.
+      if (Math.abs(carry) >= 1) carry = 0;
+    };
+    node.addEventListener("wheel", onWheel, { capture: true, passive: false });
+    return () => {
+      node.removeEventListener("wheel", onWheel, { capture: true });
+    };
+  }, [invertedListShown]);
+  const now = useChatExpiryTick();
+  const visibleMessages = useMemo(
+    () =>
+      !chat
+        ? []
+        : hideSystemMessages
+          ? chat.filter((m) => m.author.did !== "did:sys:system")
+          : chat,
+    [chat, hideSystemMessages],
+  );
+  // The store keeps chat oldest-first. An inverted FlatList renders index 0 at
+  // the bottom, so feed it newest-first to keep the latest message at the
+  // bottom (or at the top when reverse is set, where inverted is off).
+  //
+  // Expired messages stay in the list -- invisible, so the list is scrolled
+  // over them, and scrollable far enough back to reach the history the store
+  // still holds. Only their opacity says "gone".
+  const displayMessages = useMemo(
+    () => visibleMessages.slice(-shownMessages).reverse(),
+    [visibleMessages, shownMessages],
+  );
+  const latestMessageTime = displayMessages[0]
+    ? new Date(displayMessages[0].record.createdAt).getTime()
     : null;
 
   // Animation for scroll-to-bottom button
@@ -270,9 +485,11 @@ export function Chat({
   const buttonTranslateY = useSharedValue(20);
 
   useEffect(() => {
-    buttonOpacity.value = withTiming(isScrolledUp ? 1 : 0, { duration: 200 });
+    buttonOpacity.value = withTiming(isScrolledUp ? 1 : 0, {
+      duration: motion.base,
+    });
     buttonTranslateY.value = withTiming(isScrolledUp ? 0 : 50, {
-      duration: 200,
+      duration: motion.base,
     });
   }, [isScrolledUp]);
 
@@ -281,12 +498,8 @@ export function Chat({
     transform: [{ translateY: buttonTranslateY.value }],
   }));
 
-  const scrollToBottom = () => {
+  const scrollToLatest = () => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-  };
-
-  const scrollToTop = () => {
-    flatListRef.current?.scrollToEnd({ animated: true });
   };
 
   const handleScroll = (event: any) => {
@@ -326,8 +539,18 @@ export function Chat({
 
   if (!chat)
     return (
-      <View style={[flex.shrink[1], { minWidth: 0, maxWidth: "100%" }]}>
-        <Text>Loading chat...</Text>
+      <View
+        style={[
+          flex.values[1],
+          px[2],
+          py[2],
+          gap.all[3],
+          { minWidth: 0, maxWidth: "100%", justifyContent: "flex-end" },
+        ]}
+      >
+        {[78, 52, 88, 40, 64, 72].map((w, i) => (
+          <Skeleton key={i} shape="text" width={`${w}%`} height={13} />
+        ))}
       </View>
     );
 
@@ -346,17 +569,21 @@ export function Chat({
       <ProfileCardProvider>
         <FlatList
           ref={flatListRef}
+          testID="chat-list"
           style={[
             flex.grow[1],
             flex.shrink[1],
             { minWidth: 0, maxWidth: "100%" },
           ]}
-          data={chat.slice(0, shownMessages)}
+          data={displayMessages}
           inverted={!reverse}
           keyExtractor={keyExtractor}
           renderItem={({ item, index }) => (
             <ErrorBoundary>
-              <ChatLine item={item} />
+              <ChatLine
+                item={item}
+                opacity={isScrolledUp ? 1 : chatMessageOpacity(item, now)}
+              />
             </ErrorBoundary>
           )}
           removeClippedSubviews={true}
@@ -382,29 +609,26 @@ export function Chat({
         ]}
       >
         <Pressable
-          onPress={reverse ? scrollToTop : scrollToBottom}
+          onPress={scrollToLatest}
           style={[
             {
               pointerEvents: isScrolledUp ? "auto" : "none",
-              backgroundColor: theme.colors.primary,
-              opacity: 0.9,
-              borderRadius: 20,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.25,
-              shadowRadius: 4,
-              elevation: 5,
+              backgroundColor: theme.colors.surface3,
+              borderWidth: 1,
+              borderColor: theme.colors.borderStrong,
+              borderRadius: borderRadius.full,
+              ...theme.shadows.sm,
             },
             layout.flex.row,
             layout.flex.center,
-            px[2],
+            px[3],
             py[1],
-            { gap: 6 },
+            { gap: spacing[1] },
           ]}
         >
-          <ChevronDown size={24} style={{ marginTop: 2 }} color="white" />
-          <Text style={[mr[1]]}>
-            {reverse ? "Scroll to top" : "Scroll to bottom"}
+          <ChevronDown size={16} color={theme.colors.text1} />
+          <Text size="sm" weight="medium" style={[mr[1]]}>
+            {reverse ? "New messages above" : "New messages"}
           </Text>
         </Pressable>
       </Reanimated.View>

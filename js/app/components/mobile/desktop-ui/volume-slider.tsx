@@ -7,6 +7,7 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import { scrims } from "@streamplace/components/src/lib/theme/tokens";
 import { Volume2, VolumeX } from "lucide-react-native";
 import { useCallback, useRef } from "react";
 import { Pressable } from "react-native";
@@ -18,7 +19,7 @@ import Animated, {
 
 const { layout, p, r } = zero;
 
-export function VolumeSlider() {
+export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
   const muted = useMuted();
   const setMuted = useSetMuted();
   const volume = useVolume();
@@ -26,7 +27,7 @@ export function VolumeSlider() {
 
   const fadeAnim = useSharedValue(0);
   const widthAnim = useSharedValue(0);
-  const fadeOutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeOutTimer = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const fadeOut = useCallback(() => {
     fadeAnim.value = withTiming(0, { duration: 400 });
@@ -34,15 +35,15 @@ export function VolumeSlider() {
   }, [fadeAnim, widthAnim]);
 
   const scheduleFadeOut = useCallback(() => {
-    if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
+    clearTimeout(fadeOutTimer.current);
     fadeOutTimer.current = setTimeout(fadeOut, 1500);
   }, [fadeOut]);
 
   const onVolumeHover = useCallback(() => {
-    if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
+    clearTimeout(fadeOutTimer.current);
     fadeAnim.value = withTiming(1, { duration: 200 });
-    widthAnim.value = withTiming(200, { duration: 200 });
-  }, [fadeAnim, widthAnim]);
+    widthAnim.value = withTiming(sliderWidth, { duration: 200 });
+  }, [fadeAnim, sliderWidth, widthAnim]);
 
   // Toggle mute state
   const handleMuteToggle = useCallback(() => {
@@ -65,7 +66,12 @@ export function VolumeSlider() {
       onPointerLeave={fadeOut}
       style={[layout.flex.row, layout.flex.alignCenter, { height: 50 }]}
     >
-      <Pressable onPress={handleMuteToggle} style={[p[2], r[1]]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={muted ? "Unmute" : "Mute"}
+        onPress={handleMuteToggle}
+        style={[p[2], r[1]]}
+      >
         <VolumeIcon size={20} color="white" />
       </Pressable>
 
@@ -76,7 +82,7 @@ export function VolumeSlider() {
             display: "flex",
             alignItems: "center",
             flex: 1,
-            width: 200,
+            width: sliderWidth,
             height: 20,
           }}
           value={sliderValue}
@@ -96,6 +102,7 @@ export function VolumeSlider() {
           asChild
         >
           <Slider.Track
+            testID="player-volume-track"
             style={{
               flexGrow: 1,
               height: 30,
@@ -121,7 +128,7 @@ export function VolumeSlider() {
                 height: 16,
                 borderRadius: 8,
                 backgroundColor: "white",
-                boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
+                boxShadow: `0 2px 10px ${scrims.light}`,
                 transform: [{ translateX: -8 }, { translateY: 7 }],
               }}
             />

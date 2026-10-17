@@ -1,4 +1,4 @@
-import Hls from "hls.js";
+import type Hls from "hls.js";
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import {
   IngestMediaSource,
@@ -10,7 +10,8 @@ import {
   useSetMuted,
   useStreamplaceStore,
 } from "../..";
-import { borderRadius, colors, mt } from "../../lib/theme/atoms";
+import { borderRadius, mt } from "../../lib/theme/atoms";
+import { statusColors, surfaces } from "../../lib/theme/tokens";
 import { Text, View } from "../ui/index";
 import { Loader } from "../ui/loader";
 import { srcToUrl } from "./shared";
@@ -349,6 +350,22 @@ export function HLSPlayer(props: VideoProps) {
   );
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const mode = usePlayerStore((x) => x.mode);
+  const startTime = usePlayerStore((x) => x.startTime);
+  // The latest pick, for the manifest handler below: choosing a rendition
+  // changes the source URL, which recreates hls.js, and the new instance
+  // must pin the level once it knows the levels.
+  const selectedRenditionRef = useRef(selectedRendition);
+  selectedRenditionRef.current = selectedRendition;
+  const levelFor = (hls: Hls, rendition: string | undefined) => {
+    if (!rendition || rendition === "source" || rendition === "auto") {
+      return -1;
+    }
+    return hls.levels.findIndex((l) => {
+      const name =
+        l.height > 0 ? `${l.height}p` : `${Math.round(l.bitrate / 1000)}k`;
+      return name === rendition;
+    });
+  };
 
   // other players set some status on start, HLS doesn't, so
   // do this to make sure we we reset off of "error" state
@@ -358,25 +375,45 @@ export function HLSPlayer(props: VideoProps) {
   }, [setStatus]);
 
   useEffect(() => {
-    if (!localRef.current) {
+    const video = localRef.current;
+    if (!video) {
       return;
     }
-    if (Hls.isSupported()) {
-      var hls = new Hls({ maxAudioFramesDrift: 20 });
+    // hls.js is loaded on demand so it stays out of the main bundle. The
+    // effect may be cleaned up before the import resolves; `cancelled`
+    // stops a late setup, and `cleanup` tears down whatever was started.
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+    let importRetry: NodeJS.Timeout | undefined;
+    const startHlsJs = (HlsClass: typeof Hls) => {
+      const hls = new HlsClass({
+        maxAudioFramesDrift: 20,
+        // A `?t=` link starts a VOD partway in; hls.js clamps a position
+        // past the end onto the last fragment.
+        ...(mode === "vod" && startTime !== null && startTime > 0
+          ? { startPosition: startTime }
+          : {}),
+      });
       hlsRef.current = hls;
       hls.loadSource(props.url);
       try {
-        hls.attachMedia(localRef.current);
+        hls.attachMedia(video);
       } catch (e) {
-        console.error("error on attachMedia");
-        hls.stopLoad();
+        console.error("error on attachMedia", e);
+        hls.destroy();
+        hlsRef.current = null;
+        video.dispatchEvent(new Event("error"));
         return;
       }
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      hls.on(HlsClass.Events.MANIFEST_PARSED, () => {
         if (!localRef.current) {
           return;
         }
         localRef.current.play();
+        const pinned = levelFor(hls, selectedRenditionRef.current);
+        if (pinned !== -1) {
+          hls.currentLevel = pinned;
+        }
         if (mode === "vod" && hls.levels.length > 1) {
           setVodLevels(
             hls.levels.map((l) => ({
@@ -388,43 +425,117 @@ export function HLSPlayer(props: VideoProps) {
           );
         }
       });
-      hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+      hls.on(HlsClass.Events.LEVEL_SWITCHED, (_, data) => {
         const l = hls.levels[data.level];
         if (!l) return;
         const name =
           l.height > 0 ? `${l.height}p` : `${Math.round(l.bitrate / 1000)}k`;
         setPlayingVODRendition(name);
       });
+      // Before a stream is live its playlist is a 404, and a live window
+      // can briefly have nothing to serve; hls.js treats both as fatal and
+      // stops. Keep asking (every couple of seconds) until the stream is
+      // there, so a viewer waiting on the page starts playing when it
+      // begins — the same "pre-live" wait WebRTC gets from its reconnects.
+      let retry: ReturnType<typeof setTimeout> | null = null;
+      hls.on(HlsClass.Events.ERROR, (_, data) => {
+        if (!data.fatal || hlsRef.current !== hls) return;
+        if (data.type === HlsClass.ErrorTypes.NETWORK_ERROR) {
+          if (retry) clearTimeout(retry);
+          retry = setTimeout(() => {
+            retry = null;
+            if (hlsRef.current !== hls) return;
+            hls.loadSource(props.url);
+            hls.startLoad();
+          }, 2000);
+        } else if (data.type === HlsClass.ErrorTypes.MEDIA_ERROR) {
+          hls.recoverMediaError();
+        }
+      });
       return () => {
+        if (retry) clearTimeout(retry);
         hls.stopLoad();
+        hls.destroy();
         hlsRef.current = null;
         setVodLevels([]);
         setPlayingVODRendition(null);
       };
-    } else if (localRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-      localRef.current.src = props.url;
-      localRef.current.addEventListener("canplay", () => {
-        if (!localRef.current) {
-          return;
-        }
-        localRef.current.play();
-      });
-    }
-  }, [props.url]);
+    };
+    // Native HLS (iPhone Safari): the element gives up on a 404 too, so
+    // re-point it at the playlist until it plays.
+    const startNative = () => {
+      video.src = props.url;
+      // Native HLS has no hls.js config to carry the start position, so
+      // seek once the element knows how long the media is.
+      const onLoadedMetadata = () => {
+        if (mode !== "vod" || startTime === null || startTime <= 0) return;
+        video.currentTime = Number.isFinite(video.duration)
+          ? Math.min(startTime, Math.max(0, video.duration - 0.1))
+          : startTime;
+      };
+      const onCanPlay = () => {
+        video.play();
+      };
+      let retry: ReturnType<typeof setTimeout> | null = null;
+      const onError = () => {
+        if (retry) clearTimeout(retry);
+        retry = setTimeout(() => {
+          retry = null;
+          video.src = props.url;
+          video.load();
+        }, 2000);
+      };
+      video.addEventListener("loadedmetadata", onLoadedMetadata);
+      video.addEventListener("canplay", onCanPlay);
+      video.addEventListener("error", onError);
+      return () => {
+        if (retry) clearTimeout(retry);
+        video.removeEventListener("loadedmetadata", onLoadedMetadata);
+        video.removeEventListener("canplay", onCanPlay);
+        video.removeEventListener("error", onError);
+      };
+    };
+    const canPlayNative = () =>
+      video.canPlayType("application/vnd.apple.mpegurl") !== "";
+    const loadHls = () => {
+      import("hls.js").then(
+        ({ default: HlsClass }) => {
+          if (cancelled) return;
+          if (HlsClass.isSupported()) {
+            cleanup = startHlsJs(HlsClass);
+          } else if (canPlayNative()) {
+            cleanup = startNative();
+          }
+        },
+        (e) => {
+          if (cancelled) return;
+          console.error("failed to load hls.js", e);
+          if (canPlayNative()) {
+            cleanup = startNative();
+          } else {
+            video.dispatchEvent(new Event("error"));
+            // VODs do not use the live player's remount retries.
+            importRetry = setTimeout(loadHls, 2000);
+          }
+        },
+      );
+    };
+    loadHls();
+    return () => {
+      cancelled = true;
+      clearTimeout(importRetry);
+      cleanup?.();
+    };
+  }, [props.url, mode, startTime]);
 
+  // The quality menu drives hls.js levels: "auto"/"source" leave ABR to
+  // hls.js (it picks by measured bandwidth from the master playlist's
+  // variants), a named rendition pins that level. Live too, now that a
+  // live master playlist carries the node's transcoded renditions.
   useEffect(() => {
     const hls = hlsRef.current;
-    if (!hls || mode !== "vod") return;
-    if (selectedRendition === "source" || selectedRendition === "auto") {
-      hls.currentLevel = -1;
-      return;
-    }
-    const idx = hls.levels.findIndex((l) => {
-      const name =
-        l.height > 0 ? `${l.height}p` : `${Math.round(l.bitrate / 1000)}k`;
-      return name === selectedRendition;
-    });
-    if (idx !== -1) hls.currentLevel = idx;
+    if (!hls) return;
+    hls.currentLevel = levelFor(hls, selectedRendition);
   }, [selectedRendition, mode]);
 
   return <VideoElement {...props} ref={localRef} />;
@@ -463,7 +574,7 @@ export function WebRTCPlayer(
   if (webrtcError) {
     setProtocol(PlayerProtocol.HLS);
     return (
-      <View backgroundColor="#111">
+      <View backgroundColor={surfaces.dark[1]}>
         <View>
           <View>
             <Text>WebRTC Not Supported</Text>
@@ -586,7 +697,7 @@ export function WebRTCPlayerInner({
     const isError = connectionStatus === "connection-failed";
     return (
       <View
-        backgroundColor="#111"
+        backgroundColor={surfaces.dark[1]}
         style={{
           minWidth: "100%",
           minHeight: "100%",
@@ -705,7 +816,7 @@ export function WebcamIngestPlayer(props: VideoProps) {
   if (error) {
     return (
       <View
-        backgroundColor="#111"
+        backgroundColor={surfaces.dark[1]}
         style={{
           minWidth: "100%",
           minHeight: "100%",
@@ -715,7 +826,7 @@ export function WebcamIngestPlayer(props: VideoProps) {
         }}
       >
         <View
-          backgroundColor={colors.destructive[900]}
+          backgroundColor={statusColors.dark.danger}
           style={{
             borderRadius: borderRadius.md,
             padding: 24,

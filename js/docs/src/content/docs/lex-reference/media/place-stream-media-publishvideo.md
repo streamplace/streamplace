@@ -13,7 +13,7 @@ description: Reference for the place.stream.media.publishVideo lexicon
 
 **Type:** `procedure`
 
-Publish a place.stream.video record for a finished upload, server-side. The caller supplies the record it would otherwise putRecord itself; the server overrides the fields it is authoritative about (source tracks and durationMs, taken from the processed upload) and, if the record carries no thumb, generates one from the video and attaches it. The record is written to the authenticated user's repo.
+Publish a place.stream.video record for a finished upload, server-side. The caller supplies the record it would otherwise putRecord itself; the server overrides the fields it is authoritative about (source tracks and durationMs, taken from the processed upload) and, if the record carries no thumb, generates one from the video and attaches it. The record is written to the authenticated user's repo. The caller must own the upload, or hold livestream.manage from its owner; the record is written with the owner's session. Without a record, one is built from the upload's livestream(s) (title, tags, activity, connections) and the given title and description.
 
 **Parameters:** _(None defined)_
 
@@ -24,10 +24,13 @@ Publish a place.stream.video record for a finished upload, server-side. The call
 
 **Schema Type:** `object`
 
-| Name       | Type                                                      | Req'd | Description                                                                                                                                                                               | Constraints |
-| ---------- | --------------------------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `uploadId` | `string`                                                  | ✅    | The upload ID returned by place.stream.media.createUpload. Its processing must be complete (status 'done').                                                                               |             |
-| `record`   | [`place.stream.video`](/lex-reference/place-stream-video) | ✅    | A place.stream.video record. The server overrides `source` and `durationMs` from the processed upload, and fills in `thumb` with a generated thumbnail when the supplied record has none. |             |
+| Name          | Type                                                      | Req'd | Description                                                                                                                                                                               | Constraints       |
+| ------------- | --------------------------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `uploadId`    | `string`                                                  | ✅    | The upload ID returned by place.stream.media.createUpload. Its processing must be complete (status 'done').                                                                               |                   |
+| `record`      | [`place.stream.video`](/lex-reference/place-stream-video) | ❌    | A place.stream.video record. The server overrides `source` and `durationMs` from the processed upload, and fills in `thumb` with a generated thumbnail when the supplied record has none. |                   |
+| `livestreams` | Array of `string`                                         | ❌    | Livestream records the video came from, used to build the record when none is given; defaults to the upload's own livestream for a finalized recording.                                   |                   |
+| `title`       | `string`                                                  | ❌    | Title for a record built by the server; the first livestream's title when empty.                                                                                                          | Max Length: 1000  |
+| `description` | `string`                                                  | ❌    | Description for a record built by the server.                                                                                                                                             | Max Length: 10000 |
 
 **Output:**
 
@@ -57,12 +60,12 @@ Publish a place.stream.video record for a finished upload, server-side. The call
   "defs": {
     "main": {
       "type": "procedure",
-      "description": "Publish a place.stream.video record for a finished upload, server-side. The caller supplies the record it would otherwise putRecord itself; the server overrides the fields it is authoritative about (source tracks and durationMs, taken from the processed upload) and, if the record carries no thumb, generates one from the video and attaches it. The record is written to the authenticated user's repo.",
+      "description": "Publish a place.stream.video record for a finished upload, server-side. The caller supplies the record it would otherwise putRecord itself; the server overrides the fields it is authoritative about (source tracks and durationMs, taken from the processed upload) and, if the record carries no thumb, generates one from the video and attaches it. The record is written to the authenticated user's repo. The caller must own the upload, or hold livestream.manage from its owner; the record is written with the owner's session. Without a record, one is built from the upload's livestream(s) (title, tags, activity, connections) and the given title and description.",
       "input": {
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["uploadId", "record"],
+          "required": ["uploadId"],
           "properties": {
             "uploadId": {
               "type": "string",
@@ -72,6 +75,24 @@ Publish a place.stream.video record for a finished upload, server-side. The call
               "type": "ref",
               "ref": "place.stream.video",
               "description": "A place.stream.video record. The server overrides `source` and `durationMs` from the processed upload, and fills in `thumb` with a generated thumbnail when the supplied record has none."
+            },
+            "livestreams": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "at-uri"
+              },
+              "description": "Livestream records the video came from, used to build the record when none is given; defaults to the upload's own livestream for a finalized recording."
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "Title for a record built by the server; the first livestream's title when empty."
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 10000,
+              "description": "Description for a record built by the server."
             }
           }
         }

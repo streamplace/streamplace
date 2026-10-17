@@ -32,6 +32,10 @@ type FinalizeInput struct {
 	RepoDID string
 	// LivestreamURI selects which S3Segment objects belong to this stream.
 	LivestreamURI string
+	// LivestreamURIs, when set, selects the objects of several livestream
+	// records (one recording split across records) in recording order;
+	// empty means just LivestreamURI.
+	LivestreamURIs []string
 	// SigningKey is the did:key whose private half C2PA-signed the live
 	// segments (the streamer's place.stream.key). Recorded on each
 	// place.stream.media.track so playback can verify signatures.
@@ -60,13 +64,17 @@ func FinalizeLivestreamVOD(ctx context.Context, cli *config.CLI, state *statedb.
 	))
 	defer span.End()
 
-	segs, err := state.ListS3SegmentsForLivestream(ctx, in.LivestreamURI)
+	uris := in.LivestreamURIs
+	if len(uris) == 0 {
+		uris = []string{in.LivestreamURI}
+	}
+	segs, err := state.ListS3SegmentsForLivestreams(ctx, uris)
 	if err != nil {
 		recordErr(span, "list_segments", err)
 		return "", fmt.Errorf("list s3 segments: %w", err)
 	}
 	if len(segs) == 0 {
-		err := fmt.Errorf("no recorded S3 segments for livestream %s", in.LivestreamURI)
+		err := fmt.Errorf("no recorded S3 segments for livestream(s) %s", strings.Join(uris, ", "))
 		recordErr(span, "list_segments", err)
 		return "", err
 	}

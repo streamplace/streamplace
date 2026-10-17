@@ -1,5 +1,6 @@
 import { AlertTriangle, Eye, MessageCircle, Shield } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
+import { textAlphas, colors as tokensColors } from "../../lib/theme/tokens";
 import * as zero from "../../ui";
 
 const { flex, bg, r, borders, p, text, layout, gap, mb } = zero;
@@ -100,7 +101,7 @@ export default function ModActions({
           >
             <action.icon
               size={20}
-              color={canModerate ? "#ffffff" : "#6b7280"}
+              color={canModerate ? tokensColors.white : textAlphas.dark[3]}
             />
             <Text
               style={[

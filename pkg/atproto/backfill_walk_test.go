@@ -109,7 +109,7 @@ func TestBackfillWalk(t *testing.T) {
 	require.Equal(t, head.Rev, stored.Version)
 	require.Equal(t, head.Root.String(), stored.RootCID)
 
-	messages, err := mod.MostRecentChatMessages(user.DID)
+	messages, err := mod.MostRecentChatMessages(user.DID, time.Time{})
 	require.NoError(t, err)
 	require.Len(t, messages, 2)
 	texts := []string{
@@ -156,7 +156,7 @@ func TestBackfillWedgeHeals(t *testing.T) {
 		if repo.Version == "" {
 			return fmt.Errorf("repo still has no version")
 		}
-		messages, err := mod.MostRecentChatMessages(user.DID)
+		messages, err := mod.MostRecentChatMessages(user.DID, time.Time{})
 		if err != nil {
 			return err
 		}
@@ -244,7 +244,7 @@ func TestBackfillFallsBackToGetRepo(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		messages, err := mod.MostRecentChatMessages(user.DID)
+		messages, err := mod.MostRecentChatMessages(user.DID, time.Time{})
 		if err != nil {
 			return err
 		}
@@ -442,8 +442,10 @@ func TestWalkWithHeadRetry(t *testing.T) {
 			return h, nil
 		}
 		var walked []cid.Cid
-		walk := func(_ context.Context, root cid.Cid) error {
-			walked = append(walked, root)
+		var walkedRevs []string
+		walk := func(_ context.Context, head *reposync.Head) error {
+			walked = append(walked, head.Root)
+			walkedRevs = append(walkedRevs, head.Rev)
 			if len(walked) == 1 {
 				return gone
 			}
@@ -454,6 +456,7 @@ func TestWalkWithHeadRetry(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, heads[1], head, "the completed walk was against the new head")
 		require.Equal(t, []cid.Cid{heads[0].Root, heads[1].Root}, walked)
+		require.Equal(t, []string{heads[0].Rev, heads[1].Rev}, walkedRevs)
 		require.Equal(t, 2, fetches)
 	})
 
@@ -467,7 +470,7 @@ func TestWalkWithHeadRetry(t *testing.T) {
 			return head, nil
 		}
 		walks := 0
-		walk := func(context.Context, cid.Cid) error {
+		walk := func(context.Context, *reposync.Head) error {
 			walks++
 			return gone
 		}
@@ -488,7 +491,7 @@ func TestWalkWithHeadRetry(t *testing.T) {
 		}
 		walks := 0
 		bad := fmt.Errorf("walking: %w", reposync.ErrBlockMismatch)
-		walk := func(context.Context, cid.Cid) error {
+		walk := func(context.Context, *reposync.Head) error {
 			walks++
 			return bad
 		}
@@ -506,7 +509,7 @@ func TestWalkWithHeadRetry(t *testing.T) {
 			return testHead(t, fmt.Sprintf("3l%03d", fetches)), nil
 		}
 		walks := 0
-		walk := func(context.Context, cid.Cid) error {
+		walk := func(context.Context, *reposync.Head) error {
 			walks++
 			return gone
 		}
@@ -524,7 +527,7 @@ func TestWalkWithHeadRetry(t *testing.T) {
 		_, err := walkWithHeadRetry(ctx,
 			3, time.Millisecond,
 			func(context.Context) (*reposync.Head, error) { return nil, boom },
-			func(context.Context, cid.Cid) error { walks++; return nil },
+			func(context.Context, *reposync.Head) error { walks++; return nil },
 		)
 		require.ErrorIs(t, err, boom)
 		require.Zero(t, walks)
@@ -540,7 +543,7 @@ func TestWalkWithHeadRetry(t *testing.T) {
 		_, err := walkWithHeadRetry(ctx,
 			3, 30*time.Second,
 			func(context.Context) (*reposync.Head, error) { return testHead(t, "3laaa"), nil },
-			func(context.Context, cid.Cid) error { return gone },
+			func(context.Context, *reposync.Head) error { return gone },
 		)
 		require.Error(t, err)
 		require.Less(t, time.Since(start), 5*time.Second)
@@ -1029,7 +1032,7 @@ func TestBackfillBroadcastsOnlyLiveChat(t *testing.T) {
 
 	_, err := atsync.SyncBlueskyRepoCached(ctx, user.DID)
 	require.NoError(t, err)
-	messages, err := mod.MostRecentChatMessages(user.DID)
+	messages, err := mod.MostRecentChatMessages(user.DID, time.Time{})
 	require.NoError(t, err)
 	require.Len(t, messages, 2, "the walk indexed both messages")
 

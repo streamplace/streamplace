@@ -39,3 +39,61 @@ func (t *IngestDefs_Ingest) MarshalCBOR(w io.Writer) error {
 func (t *IngestDefs_Ingest) UnmarshalCBOR(r io.Reader) error {
 	return glex.UnmarshalCBOR(r, t)
 }
+
+// IngestDefs_Problem is a "problem" in the place.stream.ingest.defs schema.
+//
+// Something the streamer should fix about how they're connected.
+type IngestDefs_Problem struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	// code: Stable identifier for the kind of problem.
+	Code string `json:"code"`
+	// link: Where to read more.
+	Link *string `json:"link,omitempty"`
+	// message: What's wrong and how to fix it, for the streamer.
+	Message  string `json:"message"`
+	Severity string `json:"severity"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *IngestDefs_Problem) RecordTypeID() string { return "place.stream.ingest.defs#problem" }
+
+func (t *IngestDefs_Problem) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.ingest.defs#problem"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *IngestDefs_Problem) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// IngestDefs_Problems is a "problems" in the place.stream.ingest.defs schema.
+//
+// The problems a node currently sees with how a streamer is connected to it, sent over the livestream websocket whenever they change. An empty list clears earlier ones.
+type IngestDefs_Problems struct {
+	LexiconTypeID string               `json:"$type,omitempty"`
+	Problems      []IngestDefs_Problem `json:"problems"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *IngestDefs_Problems) RecordTypeID() string { return "place.stream.ingest.defs#problems" }
+
+func (t *IngestDefs_Problems) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.ingest.defs#problems"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *IngestDefs_Problems) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}

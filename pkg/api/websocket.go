@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -111,10 +113,18 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			pongCh <- struct{}{}
 			return nil
 		})
+		// The rendition list last sent to this viewer, as its joined names.
+		var sentRenditions atomic.Value
+		sentRenditions.Store("")
 		go func() {
 
 			ch := a.Bus.Subscribe(repoDID)
 			defer a.Bus.Unsubscribe(repoDID, ch)
+			// The ingest problems last sent to this viewer. Nothing matches
+			// this to begin with, so the first tick always sends the current
+			// list, even an empty one: a reconnecting client may still hold
+			// problems that have since cleared.
+			sentProblems := "\x00unsent"
 			// Create a ticker that fires every 3 seconds
 			ticker := time.NewTicker(3 * time.Second)
 			pingTicker := time.NewTicker(pingPeriod)
@@ -142,8 +152,26 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				case msg := <-initialBurst:
 					send(msg)
 				case <-ticker.C:
-					count := a.Bus.GetViewerCount(repoDID)
-					bs, err := json.Marshal(placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
+					// The renditions a viewer can pick are whatever this
+					// node's live window holds now: they appear a little
+					// after the stream starts (the transcoder's round trip),
+					// and on a syndicating node they arrive from the origin.
+					// Including the change to none: renditions age out of
+					// the window on their own when the transcoder stops,
+					// and the viewer's menu must lose them too.
+					names := a.MediaManager.LiveRenditionNames(repoDID)
+					if key := strings.Join(names, ","); sentRenditions.Swap(key) != key {
+						send(renditionsMessage(names))
+					}
+					// Problems with how the streamer is connected to this
+					// node, e.g. through a deprecated ingest hostname: they
+					// live as long as the connection, not in any segment,
+					// so they're sent when they change.
+					if probs := a.ingestProblems(ctx, repoDID); problemsKey(probs) != sentProblems {
+						sentProblems = problemsKey(probs)
+						send(probs)
+					}
+					bs, err := json.Marshal(a.viewerCountMessage(ctx, repoDID))
 					if err != nil {
 						log.Error(ctx, "could not marshal view count", "error", err)
 						continue
@@ -178,6 +206,22 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					"did":    repoDID,
 					"handle": profile.Handle,
 				}
+				// Display name and avatar from the indexed profile record, so
+				// the stream page names the streamer the way chat rows do
+				// without a trip to an app view.
+				if bp, err := a.Model.GetBskyProfile(ctx, repoDID, false); err == nil && bp != nil {
+					if bp.DisplayName != nil && *bp.DisplayName != "" {
+						p["displayName"] = *bp.DisplayName
+					}
+					if bp.Avatar != nil {
+						p["avatar"] = fmt.Sprintf("https://cdn.bsky.app/img/avatar/plain/%s/%s@jpeg", repoDID, bp.Avatar.Ref.String())
+					}
+				}
+				// The streamer's verified badge comes from the same place as
+				// chat authors'.
+				if state := a.ATSync.VerificationState(ctx, repoDID, repoDID); state != nil {
+					p["verification"] = state
+				}
 				initialBurst <- p
 			}
 		}()
@@ -194,28 +238,21 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				return
 			}
 			initialBurst <- spSeg
-			outRs := placestream.Defs_Renditions{
-				LexiconTypeID: "place.stream.defs#renditions",
-				Renditions:    []placestream.Defs_Rendition{},
-			}
-			if a.CLI.LivepeerGatewayURL != "" {
-				videoRenditions, err := renditions.GenerateRenditions(spSeg)
+			names := a.MediaManager.LiveRenditionNames(repoDID)
+			if len(names) == 0 && a.CLI.LivepeerGatewayURL != "" {
+				// This node transcodes but hasn't a rendition in its window
+				// yet: the profiles it is about to produce.
+				videoRenditions, err := renditions.GenerateRenditionsFrom(spSeg, a.CLI.RenditionLadder())
 				if err != nil {
 					log.Error(ctx, "could not generate renditions", "error", err)
 					return
 				}
 				for _, r := range videoRenditions {
-					outRs.Renditions = append(outRs.Renditions, placestream.Defs_Rendition{
-						LexiconTypeID: "place.stream.defs#rendition",
-						Name:          r.Name,
-					})
+					names = append(names, r.Name)
 				}
 			}
-			outRs.Renditions = append(outRs.Renditions, placestream.Defs_Rendition{
-				LexiconTypeID: "place.stream.defs#rendition",
-				Name:          renditions.AudioRendition.Name,
-			})
-			initialBurst <- outRs
+			sentRenditions.Store(strings.Join(names, ","))
+			initialBurst <- renditionsMessage(names)
 		}()
 
 		go func() {
@@ -237,12 +274,18 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 		}()
 
 		go func() {
-			count := a.Bus.GetViewerCount(repoDID)
-			initialBurst <- placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"}
+			initialBurst <- a.viewerCountMessage(ctx, repoDID)
 		}()
 
 		go func() {
-			messages, err := a.Model.MostRecentChatMessages(repoDID)
+			// Withhold chat older than the node's retention window: a viewer
+			// arriving the next day should land on an empty chat, not
+			// yesterday's conversation. A zero retention serves everything.
+			var since time.Time
+			if a.CLI.ChatMessageRetention > 0 {
+				since = time.Now().Add(-a.CLI.ChatMessageRetention)
+			}
+			messages, err := a.Model.MostRecentChatMessages(repoDID, since)
 			if err != nil {
 				log.Error(ctx, "could not get chat messages", "error", err)
 				return
@@ -251,10 +294,14 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			// Add mod badges to messages
 			issuerDID := fmt.Sprintf("did:web:%s", a.CLI.BroadcasterHost)
 			for _, message := range messages {
+				if !a.ATSync.ChatAllowed(ctx, repoDID, message.Author.Did) {
+					continue
+				}
 				err := atproto.AddModBadgeIfApplicable(ctx, &message, repoDID, issuerDID, a.Model)
 				if err != nil {
 					log.Error(ctx, "failed to add mod badge to message", "error", err)
 				}
+				a.ATSync.DecorateVerification(ctx, repoDID, &message)
 				if message.Author.Handle == "" || message.Author.Handle == "handle.invalid" {
 					message.Author.Handle = a.ATSync.ResolveAuthorHandle(ctx, message.Author.Did)
 				}
@@ -365,4 +412,47 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			log.Log(ctx, "received message", "messageType", messageType, "message", string(message))
 		}
 	}
+}
+
+// renditionsMessage is the place.stream.defs#renditions message listing the
+// video renditions a viewer can pick, plus the audio-only rendition every
+// stream has.
+func renditionsMessage(names []string) placestream.Defs_Renditions {
+	out := placestream.Defs_Renditions{
+		LexiconTypeID: "place.stream.defs#renditions",
+		Renditions:    make([]placestream.Defs_Rendition, 0, len(names)+1),
+	}
+	for _, n := range names {
+		out.Renditions = append(out.Renditions, placestream.Defs_Rendition{LexiconTypeID: "place.stream.defs#rendition", Name: n})
+	}
+	out.Renditions = append(out.Renditions, placestream.Defs_Rendition{LexiconTypeID: "place.stream.defs#rendition", Name: renditions.AudioRendition.Name})
+	return out
+}
+
+// viewerCountMessage is the viewerCount event: who is watching now (the
+// bus) and how many sessions this livestream has had (statedb's running
+// total, when the node keeps one).
+func (a *StreamplaceAPI) viewerCountMessage(ctx context.Context, repoDID string) placestream.Livestream_ViewerCount {
+	msg := placestream.Livestream_ViewerCount{
+		Count:         int64(a.Bus.GetViewerCount(repoDID)),
+		LexiconTypeID: "place.stream.livestream#viewerCount",
+	}
+	if a.StatefulDB == nil {
+		return msg
+	}
+	// The total of the streamer's current livestream record, looked up by
+	// its URI: the most recently counted-into row can still be the previous
+	// record's for a moment after a new record is indexed.
+	if ls, err := a.Model.GetLatestLivestreamForRepo(repoDID); err == nil && ls != nil {
+		if totals, err := a.StatefulDB.LivestreamViewTotals(ctx, []string{ls.URI}); err == nil {
+			if total := totals[ls.URI]; total > 0 {
+				msg.Total = &total
+			}
+			return msg
+		}
+	}
+	if total, _, err := a.StatefulDB.GetStreamViewTotal(ctx, repoDID); err == nil && total > 0 {
+		msg.Total = &total
+	}
+	return msg
 }

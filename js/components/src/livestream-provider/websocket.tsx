@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import useWebSocket from "react-use-websocket";
-import { useHandleWebsocketMessages } from "../livestream-store";
+import { useHandleWebsocketMessages } from "../livestream-store/use-store";
 import { useUrl } from "../streamplace-store";
 
 export function useLivestreamWebsocket(src: string) {
@@ -12,30 +12,17 @@ export function useLivestreamWebsocket(src: string) {
 
   const ref = useRef<any[]>([]);
   const handle = useRef<NodeJS.Timeout | null>(null);
-  const hasReceivedMessage = useRef(false);
-  const hasErrored = useRef(false);
 
-  const { readyState } = useWebSocket(`${wsUrl}/api/websocket/${src}`, {
+  useWebSocket(`${wsUrl}/api/websocket/${src}`, {
     reconnectInterval: 1000,
-    shouldReconnect: () => !hasErrored.current,
+    shouldReconnect: () => true,
 
     onOpen: () => {
       ref.current = [];
-      hasReceivedMessage.current = false;
     },
 
     onError: (e) => {
       console.log("onError", e);
-      if (!hasReceivedMessage.current) {
-        hasErrored.current = true;
-        handleWebSocketMessages([
-          {
-            $type: "place.stream.error",
-            code: "user_not_found",
-            message: "this stream doesn't exist or is unavailable",
-          },
-        ]);
-      }
     },
 
     // spamming the redux store with messages causes a zillion re-renders,
@@ -43,7 +30,6 @@ export function useLivestreamWebsocket(src: string) {
     onMessage: (msg) => {
       try {
         const data = JSON.parse(msg.data);
-        hasReceivedMessage.current = true;
         ref.current.push(data);
         if (handle.current) {
           return;

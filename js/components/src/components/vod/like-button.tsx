@@ -6,13 +6,12 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { useDID } from "../../streamplace-store/streamplace-store";
-import { gap, layout, useTheme } from "../../ui";
 import {
-  useCreateLike,
-  useDeleteLike,
-  useGetLikes,
-} from "../../vod-store/vod-interactions";
+  useDID,
+  useOnNeedsLogin,
+} from "../../streamplace-store/streamplace-store";
+import { gap, layout, useTheme } from "../../ui";
+import { useCreateLike, useDeleteLike, useGetLikes } from "../../vod-store";
 import { Text } from "../ui/text";
 
 export function LikeButton({ subjectUri }: { subjectUri: string }) {
@@ -22,6 +21,7 @@ export function LikeButton({ subjectUri }: { subjectUri: string }) {
   const [loading, setLoading] = useState(false);
 
   const userDID = useDID();
+  const onNeedsLogin = useOnNeedsLogin();
   const getLikes = useGetLikes();
   const createLike = useCreateLike();
   const deleteLike = useDeleteLike();
@@ -52,6 +52,10 @@ export function LikeButton({ subjectUri }: { subjectUri: string }) {
   }, [loadLikes]);
 
   const toggleLike = useCallback(async () => {
+    if (!userDID) {
+      onNeedsLogin?.();
+      return;
+    }
     scale.value = withSpring(1.05, { stiffness: 500, damping: 10 }, () => {
       scale.value = withSpring(1, { stiffness: 500 });
     });
@@ -65,7 +69,7 @@ export function LikeButton({ subjectUri }: { subjectUri: string }) {
       } else {
         const result = await createLike(subjectUri);
         setUserLiked(true);
-        setUserLikeUri(result.uri);
+        setUserLikeUri((result as any).uri ?? (result as any)?.data?.uri);
         setLikeCount((c) => c + 1);
       }
     } catch (e) {
@@ -73,7 +77,16 @@ export function LikeButton({ subjectUri }: { subjectUri: string }) {
     } finally {
       setLoading(false);
     }
-  }, [userLiked, userLikeUri, subjectUri, createLike, deleteLike, scale]);
+  }, [
+    userDID,
+    onNeedsLogin,
+    userLiked,
+    userLikeUri,
+    subjectUri,
+    createLike,
+    deleteLike,
+    scale,
+  ]);
 
   const heartColor = userLiked
     ? theme.colors.background

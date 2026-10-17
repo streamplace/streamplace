@@ -121,9 +121,9 @@ const DialogBottomSheet = forwardRef<
         onClose={handleClose}
         style={[overlayStyle]}
         backgroundStyle={{
-          backgroundColor: theme.colors.card,
+          backgroundColor: theme.colors.surface2,
           borderRadius: theme.borderRadius.lg,
-          ...theme.shadows.lg,
+          ...theme.shadows.xl,
         }}
         handleIndicatorStyle={{
           width: 48,
@@ -443,13 +443,19 @@ const DialogCloseIcon = () => {
 function createStyles(theme: any) {
   return StyleSheet.create({
     overlay: {
-      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      backgroundColor: theme.colors.overlay,
     },
 
     content: {
-      backgroundColor: theme.colors.card,
+      // surface2 is the overlay tier (popovers, menus, sheets) — a step above
+      // the surface1 cards behind the scrim, so the dialog reads as lifted
+      // rather than blending into the page. The hairline + deep shadow give it
+      // a defined edge against the scrim.
+      backgroundColor: theme.colors.surface2,
+      borderWidth: 1,
+      borderColor: theme.colors.borderStrong,
       borderRadius: theme.borderRadius.lg,
-      ...theme.shadows.lg,
+      ...theme.shadows.xl,
       maxHeight: "90%",
       maxWidth: "90%",
     },

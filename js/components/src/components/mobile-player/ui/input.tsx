@@ -1,8 +1,20 @@
 import { Keyboard, Pressable } from "react-native";
 import { useKeyboardSlide } from "../../../hooks";
 import * as atoms from "../../../lib/theme/atoms";
-import { Input, Text, View } from "../../ui";
-const { gap, h, layout, mt, p, position, px, py, sizes, w } = atoms;
+import {
+  borderAlphas,
+  borderRadius,
+  fontFamilies,
+  scrims,
+  spacing,
+  statusColors,
+  typeScale,
+} from "../../../lib/theme/tokens";
+import { Input, Text, useTheme, View } from "../../ui";
+const { gap, h, layout, mt, position, sizes, w } = atoms;
+
+// Over-video hairline, matched to the connection HUD.
+const HUD_BORDER = borderAlphas.dark.strong;
 
 type InputPanelProps = {
   title: string | undefined;
@@ -20,6 +32,9 @@ export function InputPanel({
   toggleStopStream,
 }: InputPanelProps) {
   const { slideKeyboard } = useKeyboardSlide();
+  const { theme } = useTheme();
+  const c = theme.colors;
+
   return (
     <View
       style={[
@@ -34,13 +49,20 @@ export function InputPanel({
       <View
         style={[
           layout.flex.column,
-          gap.all[2],
+          gap.all[3],
           sizes.maxWidth[80],
-          { padding: 10 },
+          { width: "100%", maxWidth: 420, padding: 10 },
         ]}
       >
         {!isLive && (
-          <View backgroundColor="rgba(64,64,64,0.8)" borderRadius={12}>
+          <View
+            style={{
+              backgroundColor: scrims.dark,
+              borderRadius: borderRadius.lg,
+              borderWidth: 1,
+              borderColor: HUD_BORDER,
+            }}
+          >
             <Input
               value={title}
               onChange={setTitle}
@@ -50,61 +72,76 @@ export function InputPanel({
           </View>
         )}
         {isLive ? (
-          <View style={[layout.flex.center]}>
-            <Pressable
-              onPress={toggleStopStream}
-              style={[
-                px[4],
-                py[2],
-                layout.flex.row,
-                layout.flex.center,
-                gap.all[1],
-                {
-                  backgroundColor: "rgba(64,64,64, 0.8)",
-                  borderRadius: 12,
-                },
-              ]}
+          <Pressable
+            onPress={toggleStopStream}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: spacing[2],
+              paddingVertical: spacing[3],
+              paddingHorizontal: spacing[4],
+              backgroundColor: c.danger,
+              borderRadius: borderRadius.lg,
+            }}
+          >
+            <View
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 2,
+                backgroundColor: c.liveForeground,
+              }}
+            />
+            <Text
+              style={{
+                color: c.liveForeground,
+                fontFamily: fontFamilies.semiBold,
+                fontWeight: "600",
+                fontSize: typeScale.md.fontSize,
+              }}
             >
-              <View
-                style={[
-                  p[2],
-                  {
-                    backgroundColor: "rgba(256,0,0, 0.8)",
-                    borderRadius: 12,
-                  },
-                ]}
-              />
-              <Text center>Stop Stream</Text>
-            </Pressable>
-          </View>
+              Stop stream
+            </Text>
+          </Pressable>
         ) : (
-          <View style={[layout.flex.center]}>
+          <View style={[layout.flex.center, gap.all[2]]}>
+            {/* Primary CTA: solid, high-contrast, with a live-red record dot —
+                the record button grammar broadcasters expect. */}
             <Pressable
               onPress={toggleGoLive}
-              style={[
-                px[4],
-                py[2],
-                layout.flex.row,
-                layout.flex.center,
-                gap.all[1],
-                {
-                  backgroundColor: "rgba(64,64,64, 0.8)",
-                  borderRadius: 12,
-                },
-              ]}
+              style={{
+                width: "100%",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: spacing[2],
+                paddingVertical: spacing[3],
+                paddingHorizontal: spacing[4],
+                backgroundColor: c.text,
+                borderRadius: borderRadius.lg,
+              }}
             >
               <View
-                style={[
-                  p[2],
-                  {
-                    backgroundColor: "rgba(256,0,0, 0.8)",
-                    borderRadius: 12,
-                  },
-                ]}
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: borderRadius.full,
+                  backgroundColor: statusColors.live,
+                }}
               />
-              <Text center>Go Live</Text>
+              <Text
+                style={{
+                  color: c.surface0,
+                  fontFamily: fontFamilies.semiBold,
+                  fontWeight: "600",
+                  fontSize: typeScale.md.fontSize,
+                }}
+              >
+                Go live
+              </Text>
             </Pressable>
-            <Text color="muted" size="xs" style={[mt[2]]}>
+            <Text color="muted" size="xs" style={[mt[1]]}>
               We'll announce that you're live on Bluesky.
             </Text>
           </View>

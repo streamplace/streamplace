@@ -29,14 +29,11 @@ function IdViewer({ reqid }) {
 
 export default function MultiScreen({ route }) {
   const config = route.params?.config;
-  if (typeof config !== "string") {
-    return <View />;
-  }
-
   const [rows, setRows] = useState<Partial<PlayerProps | null>[][]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (typeof config !== "string") return;
     try {
       let nearestSquareExpo = 1;
       const playerProps = JSON.parse(
@@ -64,6 +61,10 @@ export default function MultiScreen({ route }) {
       setError(e.message);
     }
   }, [config]);
+
+  if (typeof config !== "string") {
+    return <View />;
+  }
 
   if (error) {
     return <Text>{error}</Text>;

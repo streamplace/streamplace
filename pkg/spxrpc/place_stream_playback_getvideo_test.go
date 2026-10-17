@@ -2,11 +2,13 @@ package spxrpc
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
@@ -14,9 +16,9 @@ import (
 	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/blob"
+	"stream.place/streamplace/pkg/cdn/bunny"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
-	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/vod"
 )
 
@@ -103,7 +105,7 @@ func TestMasterPlaylist_PropagatesTimeRange(t *testing.T) {
 }
 
 func TestMediaPlaylist_Video(t *testing.T) {
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, "", nil, nil)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, vodCDN{}, nil, nil)
 	require.NoError(t, err)
 	require.Contains(t, pl, "#EXT-X-PLAYLIST-TYPE:VOD")
 	require.Contains(t, pl, "#EXT-X-INDEPENDENT-SEGMENTS")
@@ -157,7 +159,7 @@ func reconnectVideoMetafile() *vod.Metafile {
 }
 
 func TestMediaPlaylist_Discontinuity(t *testing.T) {
-	pl, err := mediaPlaylist(reconnectVideoMetafile(), "1", fixtureDID, fixtureSID, "", nil, nil)
+	pl, err := mediaPlaylist(reconnectVideoMetafile(), "1", fixtureDID, fixtureSID, vodCDN{}, nil, nil)
 	require.NoError(t, err)
 	// Exactly one inline EXT-X-DISCONTINUITY (its own line — distinct from the
 	// EXT-X-DISCONTINUITY-SEQUENCE header), and no sequence header for full play.
@@ -173,7 +175,7 @@ func TestMediaPlaylist_Discontinuity(t *testing.T) {
 
 func TestMediaPlaylist_DiscontinuityTrimmedToBoundary(t *testing.T) {
 	start := int64(1000) // ms — segment index 1 (the boundary) starts at 1s
-	pl, err := mediaPlaylist(reconnectVideoMetafile(), "1", fixtureDID, fixtureSID, "", &start, nil)
+	pl, err := mediaPlaylist(reconnectVideoMetafile(), "1", fixtureDID, fixtureSID, vodCDN{}, &start, nil)
 	require.NoError(t, err)
 	// The boundary is now the first served segment: reflected as a sequence
 	// bump, NOT an inline tag.
@@ -184,7 +186,7 @@ func TestMediaPlaylist_DiscontinuityTrimmedToBoundary(t *testing.T) {
 }
 
 func TestMediaPlaylist_UnknownTrack(t *testing.T) {
-	_, err := mediaPlaylist(fixtureMetafile(), "99", fixtureDID, fixtureSID, "", nil, nil)
+	_, err := mediaPlaylist(fixtureMetafile(), "99", fixtureDID, fixtureSID, vodCDN{}, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "TrackNotFound")
 }
@@ -194,7 +196,7 @@ func TestMediaPlaylist_TimeRangeFilters(t *testing.T) {
 	// ticks each). Ask for [1000ms, 2000ms): should keep only segment 1.
 	start := int64(1_000)
 	end := int64(2_000)
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, "", &start, &end)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, vodCDN{}, &start, &end)
 	require.NoError(t, err)
 	require.NotContains(t, pl, `#EXT-X-BYTERANGE:2000@100`)
 	require.Contains(t, pl, `#EXT-X-BYTERANGE:1800@2100`)
@@ -204,7 +206,7 @@ func TestMediaPlaylist_EmptySIDOmitsParam(t *testing.T) {
 	// Belt-and-suspenders for direct callers: passing an empty sid
 	// shouldn't put a stray `sid=` in the URLs (URL-builder uses
 	// url.Values.Set only when non-empty).
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, "", "", nil, nil)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, "", vodCDN{}, nil, nil)
 	require.NoError(t, err)
 	require.NotContains(t, pl, "sid=")
 }
@@ -215,7 +217,7 @@ func TestMediaPlaylist_EmptySIDOmitsParam(t *testing.T) {
 // The XRPC path must NOT appear.
 func TestMediaPlaylist_CDN(t *testing.T) {
 	const cdn = "https://cdn.example.com"
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, cdn, nil, nil)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, vodCDN{URL: cdn}, nil, nil)
 	require.NoError(t, err)
 	// Both the init segment and the content blob are served from the
 	// CDN — no /xrpc/place.stream.playback.getVideoBlob anywhere.
@@ -234,7 +236,7 @@ func TestMediaPlaylist_CDN(t *testing.T) {
 func TestMediaPlaylist_CDNTrailingSlashNormalized(t *testing.T) {
 	// `--vod-cdn-url=https://cdn.example.com/` shouldn't double-slash
 	// between the base and the baked-in blobs/ prefix.
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, "https://cdn.example.com/", nil, nil)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, vodCDN{URL: "https://cdn.example.com/"}, nil, nil)
 	require.NoError(t, err)
 	require.NotContains(t, pl, "//blobs/")
 	require.Contains(t, pl, "https://cdn.example.com/blobs/bafyblob.mp4?")
@@ -244,61 +246,75 @@ func TestBlobURL_CDNWithPathPrefix(t *testing.T) {
 	// A CDN URL with its own path is preserved verbatim; we still
 	// append the baked-in blobs/<cid>.mp4 layout under it. Lets ops
 	// front one CDN over multiple bucket sub-trees.
-	got := blobURL("https://cdn.example.com/vods", "did:plc:abc", "bafyblob", "tid123")
+	got := blobURL(vodCDN{URL: "https://cdn.example.com/vods"}, "did:plc:abc", "bafyblob", "tid123", time.Time{})
 	require.Equal(t, "https://cdn.example.com/vods/blobs/bafyblob.mp4?did=did%3Aplc%3Aabc&sid=tid123", got)
 }
 
 func TestBlobURL_SelfHosted(t *testing.T) {
 	// Empty cdnURL keeps the existing XRPC URL shape. The .m4s suffix
 	// stays at the end of the URL string for ffmpeg.
-	got := blobURL("", "did:plc:abc", "bafyblob", "tid123")
+	got := blobURL(vodCDN{}, "did:plc:abc", "bafyblob", "tid123", time.Time{})
 	require.Equal(t,
 		"/xrpc/place.stream.playback.getVideoBlob?did=did%3Aplc%3Aabc&sid=tid123&cid=bafyblob.m4s",
 		got)
 }
 
-func TestSessionIDOrNew(t *testing.T) {
-	t.Run("supplied is reused", func(t *testing.T) {
-		// A well-formed TID like the player would have gotten from a
-		// prior master-playlist response.
-		valid := spid.TID()
-		got, err := sessionIDOrNew(valid)
-		require.NoError(t, err)
-		require.Equal(t, valid, got)
-	})
-	t.Run("empty mints a fresh tid", func(t *testing.T) {
-		got, err := sessionIDOrNew("")
-		require.NoError(t, err)
-		// The fresh sid is itself a valid TID — players that round-trip
-		// it through ParseTID won't reject our output.
-		_, err = syntax.ParseTID(got)
-		require.NoError(t, err)
-		// TIDs embed a timestamp + random clock id, so back-to-back
-		// calls never collide.
-		got2, err := sessionIDOrNew("")
-		require.NoError(t, err)
-		require.NotEqual(t, got, got2)
-	})
-	t.Run("invalid is rejected", func(t *testing.T) {
-		for _, bad := range []string{
-			"has space",      // whitespace
-			"has/slash",      // URL-illegal char
-			"has?question",   // ditto
-			"tooshort",       // < 13 chars
-			"toolongtoolong", // > 13 chars
-			"1111111111111",  // 13 chars but '1' isn't in the TID alphabet
-			"zabcdefghijkl",  // 13 chars but 'z' isn't a valid first char
-		} {
-			_, err := sessionIDOrNew(bad)
-			require.Error(t, err, "expected %q to be rejected", bad)
-		}
-	})
+// TestBlobURL_Signed: with a provider signer configured the CDN URL
+// is handed to it with the did/sid params already in place. The bunny
+// hash itself is pinned in pkg/cdn/bunny; this checks the plumbing.
+func TestBlobURL_Signed(t *testing.T) {
+	c := vodCDN{URL: "https://cdn.example.com", Signer: bunny.Signer{Key: "secret-key"}}
+	got := blobURL(c, "did:plc:abc", "bafyblob", "tid123", time.Unix(1700000000, 0))
+	require.Equal(t,
+		"https://cdn.example.com/blobs/bafyblob.mp4?token=KIxqgRCnXmqKj07FcqY4y6jxhYQ47kyCj2QLdC-wlo4&did=did%3Aplc%3Aabc&sid=tid123&expires=1700000000",
+		got)
+
+	// A CDN path prefix survives, and an absent sid is omitted.
+	c.URL = "https://cdn.example.com/vods/"
+	got = blobURL(c, "did:plc:abc", "bafyblob", "", time.Unix(1700000000, 0))
+	require.Equal(t,
+		"https://cdn.example.com/vods/blobs/bafyblob.mp4?token=hSHnZu2PJHcclObmqnsI66szGuzpeePfHt_rYt327Fk&did=did%3Aplc%3Aabc&expires=1700000000",
+		got)
 }
 
-// TestResolveVideoBlob_SourceClip walks the playback-resolve path for
-// a clip record: the clip's `Video` field points at a parent video
-// whose sourceTracks lead to a real MediaTrack + blob CID. resolve
-// should return the parent's blob CID and surface the clip's bounds.
+func TestBlobURL_SignerWithoutCDNIsIgnored(t *testing.T) {
+	// A signer with no CDN URL can't happen via config (Validate
+	// refuses it) but the self-hosted URL must never be "signed".
+	got := blobURL(vodCDN{Signer: bunny.Signer{Key: "secret-key"}}, "did:plc:abc", "bafyblob", "tid123", time.Unix(1700000000, 0))
+	require.Equal(t,
+		"/xrpc/place.stream.playback.getVideoBlob?did=did%3Aplc%3Aabc&sid=tid123&cid=bafyblob.m4s",
+		got)
+}
+
+// TestMediaPlaylist_SignedCDN: with a signer configured, the init and
+// content blob URLs both carry a token + expiry, and the expiry
+// outlives the VOD by the slack plus twice its duration (fixture track
+// 1 is two 1s segments at timescale 6000).
+func TestMediaPlaylist_SignedCDN(t *testing.T) {
+	now := time.Unix(1700000000, 0)
+	c := vodCDN{URL: "https://cdn.example.com", Signer: bunny.Signer{Key: "secret-key"}, now: func() time.Time { return now }}
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, c, nil, nil)
+	require.NoError(t, err)
+	wantExpires := fmt.Sprintf("&expires=%d", now.Add(cdnTokenSlack+2*2*time.Second).Unix())
+	for _, line := range strings.Split(pl, "\n") {
+		if strings.Contains(line, "cdn.example.com") {
+			require.Contains(t, line, "?token=")
+			require.Contains(t, line, wantExpires)
+		}
+	}
+	require.Contains(t, pl, `#EXT-X-MAP:URI="https://cdn.example.com/blobs/bafyvideoinit.mp4?token=`)
+	require.Contains(t, pl, "https://cdn.example.com/blobs/bafyblob.mp4?token=")
+	require.NotContains(t, pl, "/xrpc/place.stream.playback.getVideoBlob")
+}
+
+func TestTicksToDuration(t *testing.T) {
+	require.Equal(t, 2*time.Second, ticksToDuration(12000, 6000))
+	require.Equal(t, 1500*time.Millisecond, ticksToDuration(72000, 48000))
+	require.Equal(t, time.Duration(0), ticksToDuration(12000, 0))
+	// 29 hours at 90 kHz overflows a naive ticks*time.Second.
+	require.Equal(t, 29*time.Hour, ticksToDuration(29*3600*90000, 90000))
+}
+
 func TestResolveVideoBlob_SourceClip(t *testing.T) {
 	ctx := context.Background()
 	m, err := model.MakeDB(":memory:")
@@ -525,9 +541,9 @@ func TestParseSingleRange(t *testing.T) {
 }
 
 // TestHandleGetVideoPlaylist_RejectsBadSID exercises the handler-side
-// validation. Validation runs before any DB / blob lookups, so the
-// test doesn't need a populated model or playbackStore content — just
-// the playbackStore presence check the handler does up front.
+// validation: a sid that is not even the shape of a signed session is
+// refused before any key, DB or blob lookup, so the test needs none of
+// them — just the playbackStore presence check the handler does up front.
 func TestHandleGetVideoPlaylist_RejectsBadSID(t *testing.T) {
 	store, err := blob.NewFileStore(t.TempDir())
 	require.NoError(t, err)
@@ -541,6 +557,8 @@ func TestHandleGetVideoPlaylist_RejectsBadSID(t *testing.T) {
 		{"contains slash", "has/slash"},
 		{"too long", strings.Repeat("x", 65)},
 		{"wrong tid alphabet", "1111111111111"},
+		{"a bare session id, unsigned", "3kabcdefghijk"},
+		{"unknown scope", "1.3kabcdefghijk.x.1.sig"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet,

@@ -1,13 +1,14 @@
 import { Eye } from "lucide-react-native";
 import { useViews } from "../../..";
 import * as atoms from "../../../lib/theme/atoms";
+import { colors, statusColors } from "../../../lib/theme/tokens";
 import { usePlayerStore } from "../../../player-store";
 import { View } from "../../ui";
 import ViewerCount from "./viewer-count";
 
 // red reads as "live"; anything else (VOD total views) shouldn't
-const LIVE_COLOR = "#fd5050";
-const VIEWS_COLOR = "#fff";
+const LIVE_COLOR = statusColors.live;
+const VIEWS_COLOR = colors.white;
 
 export function Viewers() {
   const views = useViews();

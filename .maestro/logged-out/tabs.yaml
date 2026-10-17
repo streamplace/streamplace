@@ -1,0 +1,27 @@
+appId: ${APP_ID}
+---
+- launchApp
+- takeScreenshot: tabs-home
+- assertVisible:
+    text: "Live now"
+# native builds hide the create controls (no Go Live tab, no Create button)
+- assertNotVisible:
+    text: "Go Live"
+
+- tapOn:
+    text: "Videos"
+- takeScreenshot: tabs-videos
+- assertNotVisible:
+    text: "Live now"
+
+- tapOn:
+    text: "Settings"
+- takeScreenshot: tabs-settings
+- assertVisible:
+    text: "Settings"
+
+- tapOn:
+    text: "Home"
+- takeScreenshot: tabs-home-return
+- assertVisible:
+    text: "Live now"

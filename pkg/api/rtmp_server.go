@@ -5,11 +5,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/bluenviron/gortmplib"
+	"github.com/bluenviron/gortmplib/pkg/h264conf"
+	"github.com/bluenviron/gortmplib/pkg/message"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/config"
@@ -58,45 +61,14 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 		close(session.EventChan)
 	}()
 
-	r := &gortmplib.Reader{
-		Conn: sc,
-	}
-	err = r.Initialize()
+	g, ctx := errgroup.WithContext(ctx)
+	r, err := initializeRTMPReader(ctx, sc, session)
 	if err != nil {
 		return err
 	}
 
-	for _, track := range r.Tracks() {
-		log.Log(ctx, "get track", "track", track)
-
-		switch track := track.(type) {
-		case *format.H264:
-			session.VideoTrack = track
-			r.OnDataH264(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
-				// log.Log(ctx, "got H264", "len", len(au), "pts", pts, "dts", dts)
-				session.EventChan <- &media.RTMPH264Data{
-					AU:  au,
-					PTS: pts,
-					DTS: dts,
-				}
-			})
-
-		case *format.MPEG4Audio:
-			session.AudioTrack = track
-			r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) {
-				// log.Log(ctx, "got MPEG4Au", "len", len(au), "pts", pts)
-				session.EventChan <- &media.RTMPAACData{
-					AU:  au,
-					PTS: pts,
-				}
-			})
-
-		default:
-			return fmt.Errorf("unsupported track type: %T", track)
-		}
-	}
-
-	g, ctx := errgroup.WithContext(ctx)
+	stopRead := context.AfterFunc(ctx, func() { _ = sc.RW.(net.Conn).Close() })
+	defer stopRead()
 	g.Go(func() error {
 		for {
 			if ctx.Err() != nil {
@@ -120,6 +92,37 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 	return g.Wait()
 }
 
+// initializeRTMPReader is shared by live publishers and the unpublished shadow.
+func initializeRTMPReader(ctx context.Context, sc *gortmplib.ServerConn, session *media.RTMPSession) (*gortmplib.Reader, error) {
+	r := &gortmplib.Reader{Conn: sc}
+	if err := r.Initialize(); err != nil {
+		return nil, err
+	}
+	send := func(event any) {
+		select {
+		case session.EventChan <- event:
+		case <-ctx.Done():
+		}
+	}
+	for _, track := range r.Tracks() {
+		switch track := track.(type) {
+		case *format.H264:
+			session.VideoTrack = track
+			r.OnDataH264(track, func(pts, dts time.Duration, au [][]byte) {
+				send(&media.RTMPH264Data{AU: au, PTS: pts, DTS: dts})
+			})
+		case *format.MPEG4Audio:
+			session.AudioTrack = track
+			r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) {
+				send(&media.RTMPAACData{AU: au, PTS: pts})
+			})
+		default:
+			return nil, fmt.Errorf("unsupported track type: %T", track)
+		}
+	}
+	return r, nil
+}
+
 func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.ServerConn) error {
 	if !strings.HasPrefix(sc.URL.Path, RTMPPrefix) {
 		return fmt.Errorf("RTMP publisher is not allowed to publish to %s (must start with %s)", sc.URL.String(), RTMPPrefix)
@@ -132,9 +135,23 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 		return fmt.Errorf("RTMP session not found for streamer %s", streamer)
 	}
 
+	return relayRTMPSession(ctx, sc, session)
+}
+
+// relayRTMPSession writes a publisher's session out to conn, the internal
+// playback connection the ingest pipeline reads with rtmp2src, until the
+// session closes or ctx ends.
+func relayRTMPSession(ctx context.Context, conn gortmplib.Conn, session *media.RTMPSession) error {
+	tracks := []format.Format{}
+	if session.VideoTrack != nil {
+		tracks = append(tracks, session.VideoTrack)
+	}
+	if session.AudioTrack != nil {
+		tracks = append(tracks, session.AudioTrack)
+	}
 	w := &gortmplib.Writer{
-		Conn:   sc,
-		Tracks: []format.Format{session.VideoTrack, session.AudioTrack},
+		Conn:   conn,
+		Tracks: tracks,
 	}
 	err := w.Initialize()
 	if err != nil {
@@ -146,10 +163,22 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 			return ctx.Err()
 		case event := <-session.EventChan:
 			if event == nil {
-				return fmt.Errorf("RTMP session closed")
+				return fmt.Errorf("RTMP session closed: %w", io.EOF)
 			}
 			switch event := event.(type) {
 			case *media.RTMPH264Data:
+				// gortmplib's reader hands on an AVC sequence header as an AU
+				// of just SPS and PPS, including the stream's first one, which
+				// it replays after reading ahead for the tracks. Written back as
+				// a frame, it takes the timestamp of the keyframe after it, and
+				// h264parse drops that keyframe's PTS, which fails the
+				// segmenter's muxer. Write it as the sequence header it was.
+				if msg, ok := h264ConfigMessage(event.AU, event.DTS); ok {
+					if err := conn.Write(msg); err != nil {
+						return fmt.Errorf("error writing H264 config: %w", err)
+					}
+					continue
+				}
 				err := w.WriteH264(session.VideoTrack, event.PTS, event.DTS, event.AU)
 				if err != nil {
 					return fmt.Errorf("error writing H264: %w", err)
@@ -298,14 +327,18 @@ func (a *StreamplaceAPI) ServeRTMPInternalPlayback(ctx context.Context) error {
 }
 
 func (a *StreamplaceAPI) ServeRTMPS(ctx context.Context, cli *config.CLI) error {
-	cert, err := tls.LoadX509KeyPair(cli.TLSCertPath, cli.TLSKeyPath)
-	if err != nil {
-		return fmt.Errorf("failed to load TLS certificate: %w", err)
-	}
-
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
+	var tlsConfig *tls.Config
+	if a.ACME != nil {
+		tlsConfig = a.ACME.TLSConfig()
+	} else {
+		cert, err := tls.LoadX509KeyPair(cli.TLSCertPath, cli.TLSKeyPath)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS certificate: %w", err)
+		}
+		tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		}
 	}
 
 	ln, err := tls.Listen("tcp", cli.RTMPSAddr, tlsConfig)
@@ -343,4 +376,46 @@ func (a *StreamplaceAPI) ServeRTMPS(ctx context.Context, cli *config.CLI) error 
 	})
 
 	return g.Wait()
+}
+
+// h264ConfigMessage returns the FLV sequence header for an H.264 access unit
+// that holds nothing but parameter sets (one SPS and one PPS), or false for
+// any other AU.
+func h264ConfigMessage(au [][]byte, dts time.Duration) (*message.Video, bool) {
+	var conf h264conf.Conf
+	for _, nalu := range au {
+		if len(nalu) == 0 {
+			return nil, false
+		}
+		switch nalu[0] & 0x1f {
+		case 7: // SPS
+			if conf.SPS != nil {
+				return nil, false
+			}
+			conf.SPS = nalu
+		case 8: // PPS
+			if conf.PPS != nil {
+				return nil, false
+			}
+			conf.PPS = nalu
+		default:
+			return nil, false
+		}
+	}
+	if conf.SPS == nil || conf.PPS == nil {
+		return nil, false
+	}
+	buf, err := conf.Marshal()
+	if err != nil {
+		return nil, false
+	}
+	return &message.Video{
+		ChunkStreamID:   message.VideoChunkStreamID,
+		MessageStreamID: 0x1000000,
+		Codec:           message.CodecH264,
+		IsKeyFrame:      true,
+		Type:            message.VideoTypeConfig,
+		Payload:         buf,
+		DTS:             dts,
+	}, true
 }

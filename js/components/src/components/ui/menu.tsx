@@ -22,7 +22,7 @@ import {
   px,
   py,
 } from "../../lib/theme/atoms";
-import { hexToRgba, mergeStyles, useTheme } from "../../ui";
+import { mergeStyles, useTheme } from "../../ui";
 import { Text } from "./text";
 
 export interface MenuContainerProps {
@@ -53,7 +53,13 @@ export const MenuGroup = forwardRef<View, MenuGroupProps>(
       <View
         ref={ref}
         style={[
-          { backgroundColor: hexToRgba(theme.colors.muted, 0.75) },
+          // Solid recessed card + hairline border, matching the app's card
+          // idiom (inputs, tiles, panels) rather than a muddy translucent fill.
+          {
+            backgroundColor: theme.colors.surface1,
+            borderWidth: 1,
+            borderColor: theme.colors.borderSubtle,
+          },
           Platform.OS === "web" ? [px[1], py[1]] : p[1],
           gap.all[1],
           { borderRadius: borderRadius.lg },
@@ -244,7 +250,7 @@ export const MenuSeparator = forwardRef<View, MenuSeparatorProps>(
           mx[2],
           {
             height: 1,
-            backgroundColor: theme.colors.border,
+            backgroundColor: theme.colors.borderSubtle,
             marginVertical: 0,
           },
           style,

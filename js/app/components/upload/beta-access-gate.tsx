@@ -114,9 +114,7 @@ export default function BetaAccessGate({
             disabled={submitting}
             style={{ marginTop: 4 }}
           >
-            <Text style={{ color: "#fff", fontWeight: "600" }}>
-              Request access
-            </Text>
+            Request access
           </Button>
         )}
 

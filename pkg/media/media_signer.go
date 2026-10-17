@@ -11,6 +11,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
+	"github.com/decred/dcrd/dcrec/secp256k1"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -89,6 +91,52 @@ func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, sign
 		AQPub:           pub,
 		did:             did.DIDKey(),
 		manifestBuilder: NewManifestBuilder(model, cli),
+	}, nil
+}
+
+// NewEphemeralMediaSigner builds a signer around a freshly generated
+// secp256k1 key with a self-signed cert and a fixed prebuilt manifest: a
+// signer no account stands behind, for tests and the --duplicate-mist-test
+// shadow ingest, whose segments must verify but never publish.
+func NewEphemeralMediaSigner(streamer string) (*MediaSignerLocal, error) {
+	atPriv, err := atcrypto.GeneratePrivateKeyK256()
+	if err != nil {
+		return nil, err
+	}
+	secpPriv, _ := secp256k1.PrivKeyFromBytes(atPriv.Bytes())
+	if secpPriv == nil {
+		return nil, fmt.Errorf("generated key is not a valid secp256k1 key")
+	}
+	var signer crypto.Signer = secpPriv.ToECDSA()
+	cert, err := signers.GenerateES256KCert(signer)
+	if err != nil {
+		return nil, err
+	}
+	pub, err := aqpub.FromPublicKey(signer.Public().(*ecdsa.PublicKey))
+	if err != nil {
+		return nil, err
+	}
+	did, err := atproto.ParsePubKey(signer.Public().(*ecdsa.PublicKey))
+	if err != nil {
+		return nil, err
+	}
+	return &MediaSignerLocal{
+		StreamerName: streamer,
+		Signer:       signer,
+		AQPub:        pub,
+		Cert:         cert,
+		did:          did.DIDKey(),
+		PrebuiltManifest: []byte(`{
+			"title": "Unpublished RTMP shadow",
+			"assertions": [
+				{"label":"c2pa.actions","data":{"actions":[{"action":"c2pa.created"}]}},
+				{"label":"cawg.metadata","data":{
+					"@context":{"dc":"http://purl.org/dc/elements/1.1/"},
+					"dc:creator":"did:example:rtmp-shadow","dc:title":"Unpublished RTMP shadow",
+					"dc:date":"1970-01-01T00:00:00.000Z"
+				}}
+			]
+		}`),
 	}, nil
 }
 

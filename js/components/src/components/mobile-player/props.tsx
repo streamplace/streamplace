@@ -14,6 +14,8 @@ export type PlayerProps = {
   reportingURL?: string;
   objectFit?: "contain" | "cover";
   pictureInPictureEnabled?: boolean;
+  /** Seconds into a VOD to start playback at (from a `?t=` URL param). */
+  startTime?: number;
 };
 
 export type VideoNativeProps = {

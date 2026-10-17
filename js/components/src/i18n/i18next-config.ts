@@ -1,5 +1,6 @@
-// TypeScript i18next configuration with Fluent and manifest integration
-// modified from https://github.com/inaturalist/iNaturalistReactNative/blob/main/src/i18n/initI18next.js
+// i18next configuration for React Native / Expo
+// Uses @streamplace/i18n for manifest, config, and locale utilities.
+// This file adds React plugin + platform-specific loaders + storage persistence.
 
 import i18next from "i18next";
 import Fluent from "i18next-fluent";
@@ -7,17 +8,18 @@ import resourcesToBackend from "i18next-resources-to-backend";
 import "intl-pluralrules";
 import { initReactI18next } from "react-i18next";
 
-// Import our manifest directly to avoid circular dependency
-import manifest from "../../locales/manifest.json";
+import {
+  getLocaleFromSystemLocale as baseGetLocaleFromSystemLocale,
+  createI18nextConfig,
+  manifest,
+  STORAGE_KEY,
+} from "@streamplace/i18n";
 import storage from "../storage";
-
-const LOCALE_STORAGE_KEY = "@streamplace/locale";
 
 // Try to import expo-localization, but make it optional
 let Localization: typeof import("expo-localization") | null = null;
 try {
   const localizationModule = require("expo-localization");
-  // Handle both default and named exports
   Localization = localizationModule.default
     ? localizationModule.default
     : localizationModule;
@@ -25,45 +27,24 @@ try {
   // expo-localization not available, will use browser/fallback detection
 }
 
-function cleanLocaleName(locale: string): string {
-  return locale.replace("_", "-").replace(/@.*/, "");
-}
-
+/**
+ * Detect the system locale using expo-localization (if available),
+ * falling back to the platform-agnostic detection from @streamplace/i18n.
+ */
 export function getLocaleFromSystemLocale(): string {
-  let systemLocale = "en";
-
-  // Try to get locale from expo-localization if available
   if (Localization && typeof Localization.getLocales === "function") {
     try {
       const locales = Localization.getLocales();
-      systemLocale = locales?.[0]?.languageTag || "en";
+      const deviceLocale = locales?.[0]?.languageTag;
+      if (deviceLocale) {
+        return baseGetLocaleFromSystemLocale(deviceLocale);
+      }
     } catch (error) {
       console.warn("Failed to get locales from expo-localization:", error);
     }
-  } else if (typeof navigator !== "undefined" && navigator.language) {
-    // Fallback to browser navigator.language
-    systemLocale = navigator.language;
   }
 
-  const candidateLocale = cleanLocaleName(systemLocale);
-
-  // Check if the full locale is supported (e.g., "en-US")
-  if (manifest.supportedLocales.includes(candidateLocale)) {
-    return candidateLocale;
-  }
-
-  // Check if the language part is supported (e.g., "en" from "en-GB")
-  const lang = candidateLocale.split("-")[0];
-  const matchingLocale = manifest.supportedLocales.find((locale) =>
-    locale.startsWith(lang + "-"),
-  );
-
-  if (matchingLocale) {
-    return matchingLocale;
-  }
-
-  // Fall back to default locale from manifest
-  return manifest.fallbackChain[0];
+  return baseGetLocaleFromSystemLocale();
 }
 
 // Cache for the current locale to avoid async lookups
@@ -74,7 +55,7 @@ export async function getCurrentLocale(): Promise<string> {
     return cachedLocale;
   }
 
-  const stored = await storage.getItem(LOCALE_STORAGE_KEY);
+  const stored = await storage.getItem(STORAGE_KEY);
   if (stored && manifest.supportedLocales.includes(stored)) {
     cachedLocale = stored;
     return stored;
@@ -90,63 +71,12 @@ export function getCurrentLocaleSync(): string {
   return cachedLocale || getLocaleFromSystemLocale();
 }
 
-// Enhanced fallback logic using manifest
-function getFallbackChain(code: string): string[] {
-  const fallbacks: string[] = [];
-
-  if (!code) return manifest.fallbackChain;
-
-  // Regional fallbacks
-  if (code.match(/^es-/)) {
-    fallbacks.push("es-ES"); // Spanish fallback
-  } else if (code.match(/^fr-/)) {
-    fallbacks.push("fr-FR"); // French fallback
-  } else if (code.match(/^pt-/)) {
-    fallbacks.push("pt-BR"); // Portuguese fallback
-  } else if (code.match(/^zh-/)) {
-    fallbacks.push("zh-Hant"); // Chinese fallback
-  }
-
-  // Add manifest fallback chain
-  return [...fallbacks, ...manifest.fallbackChain];
-}
-
 // Use sync version for initial config - will be updated when storage loads
 const LOCALE = getCurrentLocaleSync();
 
-export const I18NEXT_CONFIG = {
-  lng: LOCALE,
-  ns: ["common", "settings"], // Common should be first as it's most frequently used
-  defaultNS: "common",
-  interpolation: {
-    escapeValue: false, // React already safes from XSS
-  },
-  react: {
-    useSuspense: false, // Prevent Android crashes
-  },
-  i18nFormat: {
-    fluentBundleOptions: {
-      useIsolating: false,
-      functions: {
-        VOWORCON: ([txt]: [string]) =>
-          "aeiou".indexOf(txt[0].toLowerCase()) >= 0 ? "vow" : "con",
-        JOIN: (args: string[], opts: { separator?: string } = {}) =>
-          args
-            .filter(Boolean)
-            .filter((s) => typeof s === "string")
-            .join(opts.separator || ""),
-      },
-    },
-  },
-  load: "currentOnly",
-  cleanCode: true,
-  fallbackLng: getFallbackChain,
-  supportedLngs: [...manifest.supportedLocales],
-  debug: process.env.NODE_ENV === "development",
-};
+export const I18NEXT_CONFIG = createI18nextConfig({ lng: LOCALE });
 
 // Import platform-specific translation loader
-// Metro will use i18n-loader.native.ts for React Native, i18n-loader.ts for web
 import { loadTranslationData as platformLoadTranslationData } from "./i18n-loader";
 
 // Translation loading function with error handling
@@ -155,19 +85,13 @@ async function loadTranslationData(
   namespace: string,
 ): Promise<any> {
   try {
-    const translations = await platformLoadTranslationData(locale, namespace);
-    return translations;
+    return await platformLoadTranslationData(locale, namespace);
   } catch (error: any) {
     console.error(
       `Failed to load ${namespace} translations for ${locale}:`,
       error,
     );
-    // Return minimal fallback
-    return {
-      loading: "Loading...",
-      error: "Error",
-      cancel: "Cancel",
-    };
+    return { loading: "Loading...", error: "Error", cancel: "Cancel" };
   }
 }
 
@@ -177,12 +101,8 @@ let initPromise: Promise<typeof i18next> | null = null;
 export default async function initI18next(
   config: any = {},
 ): Promise<typeof i18next> {
-  // Return existing promise if already initializing
-  if (initPromise) {
-    return initPromise;
-  }
+  if (initPromise) return initPromise;
 
-  // Load stored locale from storage first
   const storedLocale = await getCurrentLocale();
 
   const finalConfig = {
@@ -196,7 +116,6 @@ export default async function initI18next(
     .use(Fluent)
     .use(
       resourcesToBackend((locale: string, namespace: string, callback: any) => {
-        // Load translations using our manifest-based namespace system
         loadTranslationData(locale, namespace)
           .then((translations) => callback(null, translations))
           .catch((error) => callback(error, null));
@@ -204,11 +123,11 @@ export default async function initI18next(
     )
     .init(finalConfig)
     .then(() => {
-      // Automatically persist language changes to storage
+      // Persist language changes to storage
       i18next.on("languageChanged", (lng) => {
         if (lng && manifest.supportedLocales.includes(lng)) {
           cachedLocale = lng;
-          storage.setItem(LOCALE_STORAGE_KEY, lng);
+          storage.setItem(STORAGE_KEY, lng);
         }
       });
       return i18next;
@@ -219,32 +138,21 @@ export default async function initI18next(
 
 // Utility functions for language management
 export async function changeLanguage(locale: string): Promise<void> {
-  // Storage is handled automatically via languageChanged event
   await i18next.changeLanguage(locale);
 }
 
 export function getCurrentLanguage(): string {
-  // Return the cached locale preference, not i18next's resolved language
-  // i18next.language may return just "zh" instead of "zh-Hant"
   return getCurrentLocaleSync();
 }
 
-export function getSupportedLocales(): string[] {
-  return [...manifest.supportedLocales];
-}
+// Re-export pure utilities from @streamplace/i18n for backwards compat
+export {
+  getFallbackChain,
+  getLanguageInfo,
+  getSupportedLocales,
+  isLocaleSupported,
+} from "@streamplace/i18n";
 
-export function getLanguageInfo(locale: string): any {
-  return manifest.languages[locale] || null;
-}
-
-export function isLocaleSupported(locale: string): boolean {
-  return manifest.supportedLocales.includes(locale);
-}
-
-// Auto-initialize i18next on module load
-// This ensures the instance is ready when used in providers
-initI18next().catch((error) => {
-  console.error("Failed to auto-initialize i18n:", error);
-});
+export { manifest };
 
 export { i18next };

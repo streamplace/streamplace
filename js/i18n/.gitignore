@@ -1,0 +1,3 @@
+# Compiled translation JSON — generated from locales/**/*.ftl by `pnpm compile`
+# (runs automatically via the root `prepare` script on install)
+public/

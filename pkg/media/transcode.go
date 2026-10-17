@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-gst/go-gst/gst"
+	"github.com/go-gst/go-gst/pkg/gst"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/signers"
@@ -27,8 +27,15 @@ func isOpusCodec(codec string) bool { return strings.HasPrefix(codec, "opus") }
 // c2pa.transcoded action referencing it, both by TranscodeIngredientLabel.
 // muxl-sign stamps the per-segment time into cawg.metadata as it signs.
 func transcodeManifest(creator string) []byte {
+	return transcodeManifestFor(creator, "transcoded audio")
+}
+
+// transcodeManifestFor is the C2PA manifest a transcoded track is signed
+// with: opened + transcoded actions over the source ingredient, and the
+// streamer as creator.
+func transcodeManifestFor(creator, title string) []byte {
 	return []byte(fmt.Sprintf(`{
-		"title": "transcoded audio",
+		"title": %q,
 		"assertions": [
 			{"label": "c2pa.actions", "data": {"actions": [
 				{"action": "c2pa.opened",     "parameters": {"org.cai.ingredientIds": [%q]}},
@@ -39,7 +46,7 @@ func transcodeManifest(creator string) []byte {
 				"dc:creator": %q
 			}}
 		]
-	}`, muxl.TranscodeIngredientLabel, muxl.TranscodeIngredientLabel, creator))
+	}`, title, muxl.TranscodeIngredientLabel, muxl.TranscodeIngredientLabel, creator))
 }
 
 // transcodeSigner returns the node's S2PA cert + PKCS#8 key PEM, built once
@@ -113,7 +120,7 @@ func (mm *MediaManager) audioCompletionTarget(ctx context.Context, seg []byte) (
 // callers keep the original signed video and use only the transcoded audio
 // track. Callers wire the `src`/`sink` callbacks and set the pipeline playing.
 // target is the codec being produced: "opus" (source AAC) or "aac" (source Opus).
-func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
+func buildAudioTranscodePipeline(target string) (gst.Pipeline, error) {
 	// Queue sizing: a single qtdemux feeds both branches, so if either queue
 	// hits a limit and blocks the demux, the sibling branch starves and mp4mux
 	// deadlocks waiting for it (then appsrc backpressures and the Feed blocks).
@@ -133,7 +140,7 @@ func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
 		return nil, fmt.Errorf("unsupported transcode target %q", target)
 	}
 
-	pipeline, err := gst.NewPipelineFromString(strings.Join([]string{
+	launched, err := gst.ParseLaunch(strings.Join([]string{
 		"appsrc name=src ! qtdemux name=demux",
 		constants.Queue2Big + " name=vq ! h264parse name=vparse",
 		audioChain,
@@ -141,42 +148,52 @@ func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create transcode pipeline: %w", err)
 	}
+	pipeline, ok := launched.(gst.Pipeline)
+	if !ok {
+		return nil, fmt.Errorf("create transcode pipeline: parsed description is not a pipeline")
+	}
 
 	// Fragmented muxer + appsink, built programmatically so we can set the
 	// enum fragment-mode and pre-request pads in video-then-audio order.
-	mux, err := gst.NewElementWithProperties("mp4mux", map[string]any{
+	mux := gst.ElementFactoryMakeWithProperties("mp4mux", map[string]any{
 		"name":              "mux",
-		"fragment-mode":     0,
-		"fragment-duration": 1,
+		"fragment-mode":     int32(0),
+		"fragment-duration": uint32(1),
 	})
-	if err != nil {
-		return nil, fmt.Errorf("create mp4mux: %w", err)
+	if mux == nil {
+		return nil, fmt.Errorf("create mp4mux: element factory returned nil")
 	}
-	sink, err := gst.NewElementWithProperties("appsink", map[string]any{"name": "sink", "sync": false})
-	if err != nil {
-		return nil, fmt.Errorf("create appsink: %w", err)
+	sink := gst.ElementFactoryMakeWithProperties("appsink", map[string]any{"name": "sink", "sync": false})
+	if sink == nil {
+		return nil, fmt.Errorf("create appsink: element factory returned nil")
 	}
-	if err := pipeline.AddMany(mux, sink); err != nil {
-		return nil, fmt.Errorf("add mux/sink: %w", err)
+	if !pipeline.AddMany(mux, sink) {
+		return nil, fmt.Errorf("add mux/sink to pipeline failed")
 	}
-	if err := mux.Link(sink); err != nil {
-		return nil, fmt.Errorf("link mux→sink: %w", err)
+	if !mux.Link(sink) {
+		return nil, fmt.Errorf("link mux→sink failed")
 	}
 
 	// Pre-request pads in order so the muxer assigns video=track 1, audio=2.
-	videoMuxPad := mux.GetRequestPad("video_%u")
-	audioMuxPad := mux.GetRequestPad("audio_%u")
+	videoMuxPad := mux.RequestPadSimple("video_%u")
+	audioMuxPad := mux.RequestPadSimple("audio_%u")
 	if videoMuxPad == nil || audioMuxPad == nil {
 		return nil, fmt.Errorf("failed to request mp4mux pads")
 	}
 
-	vparse, err := pipeline.GetElementByName("vparse")
-	if err != nil {
-		return nil, err
+	vparse := pipeline.GetByName("vparse")
+	if vparse == nil {
+		return nil, fmt.Errorf("vparse element not found")
 	}
-	aenc, err := pipeline.GetElementByName("aenc")
-	if err != nil {
-		return nil, err
+	// The passed-through video is muxl's cut clock for the transcoded
+	// audio: it must cut exactly where the source segments were cut,
+	// at IDRs only (see installIDRKeyframeProbe), or the audio chunks
+	// and the source segments pair up out of step and the completed
+	// track drifts from the video.
+	installIDRKeyframeProbe(context.Background(), vparse.GetStaticPad("src"), "completion")
+	aenc := pipeline.GetByName("aenc")
+	if aenc == nil {
+		return nil, fmt.Errorf("aenc element not found")
 	}
 	// Repair the passthrough video's timestamps before the muxer. Variable-frame-
 	// rate WHIP capture can emit several frames at one instant (observed: three
@@ -197,21 +214,21 @@ func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
 	var lastTS gst.ClockTime
 	haveLast := false
 	vparseSrc := vparse.GetStaticPad("src")
-	vparseSrc.AddProbe(gst.PadProbeTypeBuffer, func(_ *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+	vparseSrc.AddProbe(gst.PadProbeTypeBuffer, func(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
 		buf := info.GetBuffer()
 		if buf == nil {
 			return gst.PadProbeOK
 		}
-		ts := buf.PresentationTimestamp()
+		ts := buf.PTS()
 		if ts == gst.ClockTimeNone {
-			ts = buf.DecodingTimestamp()
+			ts = buf.DTS()
 		}
 		if haveLast && (ts == gst.ClockTimeNone || ts <= lastTS) {
 			ts = lastTS + tsStep // missing or non-monotonic → carry forward
 		} else if ts == gst.ClockTimeNone {
 			ts = 0 // very first buffer with no timestamp at all
 		}
-		buf.SetPresentationTimestamp(ts)
+		buf.SetPTS(ts)
 		if d := buf.Duration(); d == gst.ClockTimeNone || d == 0 {
 			buf.SetDuration(tsStep)
 		}
@@ -226,21 +243,21 @@ func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
 		return nil, fmt.Errorf("link audio chain → mux: %v", r)
 	}
 
-	vq, err := pipeline.GetElementByName("vq")
-	if err != nil {
-		return nil, err
+	vq := pipeline.GetByName("vq")
+	if vq == nil {
+		return nil, fmt.Errorf("vq element not found")
 	}
-	aq, err := pipeline.GetElementByName("aq")
-	if err != nil {
-		return nil, err
+	aq := pipeline.GetByName("aq")
+	if aq == nil {
+		return nil, fmt.Errorf("aq element not found")
 	}
-	demux, err := pipeline.GetElementByName("demux")
-	if err != nil {
-		return nil, err
+	demux := pipeline.GetByName("demux")
+	if demux == nil {
+		return nil, fmt.Errorf("demux element not found")
 	}
-	if _, err := demux.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
+	demux.ConnectPadAdded(func(_ gst.Element, pad gst.Pad) {
 		name := pad.GetName()
-		var dst *gst.Pad
+		var dst gst.Pad
 		switch {
 		case strings.HasPrefix(name, "video"):
 			dst = vq.GetStaticPad("sink")
@@ -253,9 +270,7 @@ func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
 			// non-fatal: a stray pad (e.g. a second audio track) is just dropped
 			fmt.Printf("transcode: failed to link demux pad %s: %v\n", name, r)
 		}
-	}); err != nil {
-		return nil, fmt.Errorf("connect demux pad-added: %w", err)
-	}
+	})
 
 	return pipeline, nil
 }

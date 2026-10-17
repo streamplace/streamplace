@@ -301,10 +301,10 @@ func (atsync *ATProtoSynchronizer) walkBackfill(ctx context.Context, ident *iden
 	}
 
 	records := 0
-	walk := func(ctx context.Context, root cid.Cid) error {
+	walk := func(ctx context.Context, head *reposync.Head) error {
 		records = 0
 		walker := &reposync.Walker{Fetcher: fetcher}
-		err := walker.WalkRanges(ctx, root, ranges, func(path string, rcid cid.Cid, rec []byte) error {
+		err := walker.WalkRanges(ctx, head.Root, ranges, func(path string, rcid cid.Cid, rec []byte) error {
 			nsid, rkey, err := syntax.ParseRepoPath(path)
 			if err != nil {
 				log.Warn(ctx, "failed to parse repo path", "k", path, "err", err)
@@ -313,7 +313,7 @@ func (atsync *ATProtoSynchronizer) walkBackfill(ctx context.Context, ident *iden
 			log.Debug(ctx, "record type", "key", path, "type", nsid.String())
 
 			bs := rec
-			err = atsync.handleCreateUpdate(ctx, did, rkey, &bs, rcid.String(), nsid, false, true)
+			err = atsync.handleCreateUpdate(ctx, did, rkey, &bs, rcid.String(), nsid, false, true, head.Rev)
 			if err != nil {
 				log.Warn(ctx, "failed to handle create update", "err", err)
 				// invalid CBOR and stuff should get ignored, so we don't return
@@ -370,14 +370,14 @@ func walkWithHeadRetry(
 	attempts int,
 	delay time.Duration,
 	fetchHead func(context.Context) (*reposync.Head, error),
-	walk func(context.Context, cid.Cid) error,
+	walk func(context.Context, *reposync.Head) error,
 ) (*reposync.Head, error) {
 	head, err := fetchHead(ctx)
 	if err != nil {
 		return nil, err
 	}
 	for attempt := 1; ; attempt++ {
-		err := walk(ctx, head.Root)
+		err := walk(ctx, head)
 		if err == nil {
 			return head, nil
 		}
@@ -464,7 +464,7 @@ func (atsync *ATProtoSynchronizer) legacyBackfill(ctx context.Context, ident *id
 		}
 		log.Debug(ctx, "record type", "key", k, "type", nsid.String())
 
-		err = atsync.handleCreateUpdate(ctx, signerDID.String(), rkey, bs, v.String(), nsid, false, true)
+		err = atsync.handleCreateUpdate(ctx, signerDID.String(), rkey, bs, v.String(), nsid, false, true, sc.Rev)
 		if err != nil {
 			log.Warn(ctx, "failed to handle create update", "err", err)
 			// invalid CBOR and stuff should get ignored, so

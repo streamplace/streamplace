@@ -1,0 +1,26 @@
+# Opens the first live stream, captures the player chrome, the compact
+# metadata, expands it, and captures again.
+# Screenshots land in artifacts/stream-meta.
+appId: tv.aquareum.dev
+---
+- launchApp
+- assertVisible: "Home"
+- extendedWaitUntil:
+    visible: "LIVE, .*"
+    timeout: 10000
+- tapOn:
+    text: "LIVE, .*"
+    index: 0
+- tapOn:
+    point: "50%,25%"
+- takeScreenshot: 00-chrome
+- tapOn: "Expand stream info"
+- extendedWaitUntil:
+    visible: "Collapse stream info"
+    timeout: 3000
+- takeScreenshot: 02-expanded
+- tapOn: "Collapse stream info"
+- extendedWaitUntil:
+    visible: "Expand stream info"
+    timeout: 3000
+- takeScreenshot: 03-collapsed-again

@@ -10,6 +10,11 @@ replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop 
 
 replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507
 
+// Opaque-owner finalization fixes: go-gst/go-glib#37 and go-gst/go-gst#228.
+replace github.com/go-gst/go-glib => github.com/iameli/go-glib v0.0.4-0.20261013211756-2f69802326f8
+
+replace github.com/go-gst/go-gst => github.com/iameli/go-gst v0.0.3-0.20261014114126-91d7afbbeddc
+
 tool github.com/bluesky-social/indigo/cmd/lexgen
 
 tool github.com/streamplace/glex/cmd/glex
@@ -27,6 +32,7 @@ require (
 	github.com/bluenviron/gortmplib v0.1.2
 	github.com/bluenviron/gortsplib/v5 v5.2.1
 	github.com/bluesky-social/indigo v0.0.0-20260629160527-dfe5578fd537
+	github.com/caddyserver/certmagic v0.25.4
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/decred/dcrd/dcrec/secp256k1 v1.0.4
@@ -34,8 +40,9 @@ require (
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/fxamacker/cbor/v2 v2.9.2
 	github.com/go-git/go-git/v5 v5.12.0
-	github.com/go-gst/go-glib v1.4.0
-	github.com/go-gst/go-gst v1.4.0
+	github.com/go-gst/go-glib v0.0.3
+	github.com/go-gst/go-gst v0.0.3-0.20261013180519-636b86bce9e8
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/glog v1.2.5
 	github.com/golangci/golangci-lint/v2 v2.1.6
@@ -70,8 +77,8 @@ require (
 	github.com/starttoaster/prometheus-exporter-scraper v0.0.1
 	github.com/streamplace/atmoq/go v0.0.4-0.20260701223355-13757de4ae08
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20260413212710-98956064d06c
-	github.com/streamplace/glex v0.0.0-20260716203108-f73ed7cc31c9
-	github.com/streamplace/muxl/go v0.3.5
+	github.com/streamplace/glex v0.0.0-20260820164827-814f46540f22
+	github.com/streamplace/muxl/go v0.3.6
 	github.com/streamplace/oatproxy v0.0.0-20260710202406-60d97b9d780b
 	github.com/stretchr/testify v1.11.1
 	github.com/tdewolff/canvas v0.0.0-20250728095813-50d4cb1eee71
@@ -85,6 +92,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.39.0
 	go.opentelemetry.io/otel/trace v1.39.0
 	go.uber.org/goleak v1.3.0
+	go.uber.org/zap v1.27.1
 	golang.org/x/image v0.30.0
 	golang.org/x/net v0.55.0
 	golang.org/x/sync v0.20.0
@@ -111,7 +119,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/mattn/go-sqlite3 v1.14.34 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -197,6 +205,7 @@ require (
 	github.com/breml/errchkjson v0.4.1 // indirect
 	github.com/butuzov/ireturn v0.4.0 // indirect
 	github.com/butuzov/mirror v1.3.0 // indirect
+	github.com/caddyserver/zerossl v0.1.5 // indirect
 	github.com/carlmjohnson/versioninfo v0.22.5 // indirect
 	github.com/catenacyber/perfsprint v0.9.1 // indirect
 	github.com/ccojocar/zxcvbn-go v1.0.2 // indirect
@@ -281,7 +290,6 @@ require (
 	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
@@ -378,6 +386,7 @@ require (
 	github.com/lestrrat-go/httprc v1.0.6 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
+	github.com/libdns/libdns v1.1.1 // indirect
 	github.com/livepeer/go-tools v0.3.6-0.20240130205227-92479de8531b // indirect
 	github.com/livepeer/joy4 v0.1.2-0.20191121080656-b2fea45cbded // indirect
 	github.com/livepeer/livepeer-data v0.7.5-0.20231004073737-06f1f383fb18 // indirect
@@ -392,9 +401,10 @@ require (
 	github.com/maratori/testpackage v1.1.1 // indirect
 	github.com/matoous/godox v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-pointer v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mgechev/revive v1.9.0 // indirect
+	github.com/mholt/acmez/v3 v3.1.6 // indirect
+	github.com/miekg/dns v1.1.72 // indirect
 	github.com/miekg/pkcs11 v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/minio/minio-go/v7 v7.0.66 // indirect
@@ -532,6 +542,7 @@ require (
 	github.com/yeya24/promlinter v0.3.0 // indirect
 	github.com/ykadowak/zerologlint v0.1.5 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
+	github.com/zeebo/blake3 v0.2.4 // indirect
 	gitlab.com/bosi/decorder v0.4.2 // indirect
 	gitlab.com/yawning/secp256k1-voi v0.0.0-20230925100816-f2616030848b // indirect
 	gitlab.com/yawning/tuplehash v0.0.0-20230713102510-df83abbf9a02 // indirect
@@ -551,7 +562,7 @@ require (
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/mock v0.5.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
+	go.uber.org/zap/exp v0.3.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/exp v0.0.0-20250813145105-42675adae3e6 // indirect

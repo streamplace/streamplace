@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/badges"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
@@ -14,7 +13,7 @@ import (
 )
 
 func (s *Server) handlePlaceStreamBadgeGetValidBadges(ctx context.Context, streamer string) (*placestream.BadgeGetValidBadges_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
@@ -30,7 +29,7 @@ func (s *Server) handlePlaceStreamBadgeGetValidBadges(ctx context.Context, strea
 }
 
 func (s *Server) handlePlaceStreamBadgeGetIssuedBadges(ctx context.Context, streamer string) (*placestream.BadgeGetIssuedBadges_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}

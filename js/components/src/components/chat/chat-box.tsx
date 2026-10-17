@@ -13,7 +13,6 @@ import {
 import { StreamNotifications } from "../../lib/stream-notifications";
 import { SystemMessages } from "../../lib/system-messages";
 import {
-  bg,
   borders,
   flex,
   gap,
@@ -39,6 +38,7 @@ import {
   useSetReplyToMessage,
 } from "../../livestream-store";
 import { useDID, usePDSAgent } from "../../streamplace-store";
+import { useNetworkName } from "../../streamplace-store/branding";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
 import {
@@ -81,6 +81,7 @@ export function ChatBox({
   hideLogin?: boolean;
   leftSlot?: ReactNode;
 }) {
+  const networkName = useNetworkName();
   const [submitting, setSubmitting] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const message = useChatDraft();
@@ -402,6 +403,7 @@ export function ChatBox({
       />
       {replyTo && (
         <View
+          testID="chat-reply-preview"
           style={[
             layout.flex.row,
             layout.flex.alignCenter,
@@ -422,6 +424,9 @@ export function ChatBox({
             />
           </View>
           <Pressable
+            testID="chat-reply-cancel"
+            accessibilityRole="button"
+            accessibilityLabel="Cancel reply"
             onPress={() => setReplyToMessage(null)}
             style={[
               layout.flex.row,
@@ -448,18 +453,20 @@ export function ChatBox({
                   layout.flex.alignCenter,
                   { flex: 1 },
                   borders.width.thin,
-                  borders.color.gray[400],
-                  bg.gray[900],
+                  { borderColor: theme.colors.borderSubtle },
+                  { backgroundColor: theme.colors.input },
                   chatBoxStyle,
                   isOverLimit
                     ? {
-                        borderColor: "#ef4444",
+                        borderColor: theme.colors.danger,
                         borderWidth: 2,
                         outline: "none",
                       }
                     : inputFocused
                       ? {
-                          borderColor: theme.colors.foreground,
+                          // Match every other field: focus lights the pink
+                          // ring, not a loud white border.
+                          borderColor: theme.colors.ring,
                           outline: "none",
                         }
                       : null,
@@ -471,6 +478,7 @@ export function ChatBox({
           {leftSlot}
           <Textarea
             ref={textAreaRef}
+            testID="chat-input"
             numberOfLines={1}
             value={message}
             enterKeyHint="send"
@@ -559,7 +567,7 @@ export function ChatBox({
                 : [
                     chatBoxStyle,
                     isOverLimit && {
-                      borderColor: "#ef4444",
+                      borderColor: theme.colors.danger,
                       borderWidth: 2,
                       outline: "none",
                     },
@@ -575,7 +583,7 @@ export function ChatBox({
             disabled={submitting}
             variant="secondary"
             width="min"
-            style={{ borderRadius: 16, height: 43 }}
+            style={{ borderRadius: theme.borderRadius.md, height: 43 }}
             onPress={submit}
           >
             {submitting ? <Loader /> : "Send"}
@@ -614,7 +622,7 @@ export function ChatBox({
           {env.NODE_ENV === "development" && (
             <Button
               variant="secondary"
-              style={{ borderRadius: 16 }}
+              style={{ borderRadius: theme.borderRadius.md }}
               width="min"
               onPress={() => {
                 StreamNotifications.teleport({
@@ -632,7 +640,11 @@ export function ChatBox({
           )}
           <Button
             variant="secondary"
-            style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
+            style={{
+              borderRadius: theme.borderRadius.md,
+              maxWidth: 44,
+              aspectRatio: 1,
+            }}
             aria-label="Insert Mention"
             onPress={() => {
               !message.endsWith("@") && setMessage(message + "@");
@@ -656,7 +668,11 @@ export function ChatBox({
               variant="secondary"
               id="web-emoji-picker-btn"
               aria-label="Insert Emoji"
-              style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
+              style={{
+                borderRadius: theme.borderRadius.md,
+                maxWidth: 44,
+                aspectRatio: 1,
+              }}
               onPress={() => {
                 onEmojiPickerToggle
                   ? onEmojiPickerToggle()
@@ -668,21 +684,30 @@ export function ChatBox({
           </Pressable>
           {!isPopout && (
             <Button
-              // @ts-ignore this should work fine on web and get ignored on mobile
-              href={`/chat-popout/${linfo?.author?.did}`}
               variant="secondary"
               aria-label="Popout Chat"
-              style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
+              testID="chat-popout-button"
+              style={{
+                borderRadius: theme.borderRadius.md,
+                maxWidth: 44,
+                aspectRatio: 1,
+              }}
               onPress={() => {
                 const did = linfo?.author?.did ?? profile?.did;
-                if (did) {
-                  const u = new URL(window.location.href);
-                  u.pathname = `/chat-popout/${did}`;
-                  window.open(
-                    u.toString(),
-                    "_blank",
-                    "popup=true,width=480,height=600",
-                  );
+                if (!did) return;
+                const u = new URL(window.location.href);
+                u.pathname = `/chat-popout/${did}`;
+                const popup = window.open(
+                  u.toString(),
+                  "_blank",
+                  "popup=true,width=480,height=600",
+                );
+                if (!popup) {
+                  // A blocked popup returns null. Don't hide the panel and
+                  // leave the viewer with no chat at all — send this tab to
+                  // the popout instead.
+                  window.location.assign(u.toString());
+                  return;
                 }
                 setIsChatVisible?.(false);
               }}

@@ -1,0 +1,6 @@
+appId: ${APP_ID}
+---
+- launchApp
+- takeScreenshot: smoke-home
+- assertVisible:
+    text: "Live now"

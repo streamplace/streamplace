@@ -3,6 +3,7 @@ export * from "./autoplay-button";
 export * from "./countdown";
 export * from "./input";
 export * from "./metrics";
+export * from "./report-menu-items";
 export * from "./seek-bar";
 export * from "./streamer-context-menu";
 export * from "./streamer-loading-overlay";

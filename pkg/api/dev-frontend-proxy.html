@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Waiting for frontend dev server…</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #0b0b0d;
+        color: #f5f5f5;
+        font-family:
+          ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+          sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      main {
+        max-width: 32rem;
+        padding: 2rem;
+        text-align: center;
+      }
+      .spinner {
+        width: 3rem;
+        height: 3rem;
+        margin: 0 auto 1.5rem;
+        border: 4px solid rgba(189, 110, 134, 0.25);
+        border-top-color: rgb(189, 110, 134);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      h1 {
+        margin: 0 0 0.75rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+      }
+      p {
+        margin: 0.25rem 0;
+        line-height: 1.5;
+        color: #a1a1aa;
+        font-size: 0.9rem;
+      }
+      code {
+        color: #f5f5f5;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 0.1rem 0.35rem;
+        border-radius: 0.25rem;
+        font-size: 0.85em;
+      }
+      #status {
+        margin-top: 1rem;
+        font-variant-numeric: tabular-nums;
+      }
+      #status.ready {
+        color: rgb(189, 110, 134);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="spinner"></div>
+      <h1>Waiting for the frontend dev server</h1>
+      <p>
+        Proxying to <code>UPSTREAM_REPLACE_ME</code>.
+      </p>
+      <p>
+        This page polls until the port is up, then reloads automatically. No need
+        to restart anything.
+      </p>
+      <p id="status">Checking…</p>
+    </main>
+    <script>
+      // Served locally by the node, never proxied upstream, so it answers even
+      // while the dev server is still booting.
+      const STATUS_URL = "/__dev_frontend_proxy/status";
+      const statusEl = document.getElementById("status");
+      const startedAt = Date.now();
+      let attempts = 0;
+
+      function describe() {
+        const secs = Math.round((Date.now() - startedAt) / 1000);
+        return `Still waiting… (${secs}s, ${attempts} ${attempts === 1 ? "check" : "checks"})`;
+      }
+
+      async function poll() {
+        attempts++;
+        try {
+          const res = await fetch(STATUS_URL, { cache: "no-store" });
+          if (res.ok) {
+            statusEl.classList.add("ready");
+            statusEl.textContent = "Dev server is up — reloading…";
+            location.reload();
+            return;
+          }
+        } catch (e) {
+          // node restarting; keep polling
+        }
+        statusEl.textContent = describe();
+        setTimeout(poll, 1000);
+      }
+
+      poll();
+    </script>
+  </body>
+</html>

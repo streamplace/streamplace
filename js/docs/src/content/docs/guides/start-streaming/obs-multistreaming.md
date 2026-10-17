@@ -44,7 +44,7 @@ during multistreaming:
 
 - **Protocol:** RTMP
 - **Server**: In live dashboard; for https://stream.place use
-  `rtmps://stream.place:1935/live`
+  `rtmps://rtmp.stream.place:1935/live`
 - **Audio Encoder:** _(Select an AAC encoder)_
 
 #### Alternative Configuration (WHIP)

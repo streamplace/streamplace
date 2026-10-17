@@ -52,7 +52,7 @@ func TestBackfillWindowedHistory(t *testing.T) {
 	plant(200*24*time.Hour, "two hundred days ago")
 
 	countMessages := func() int {
-		messages, err := mod.MostRecentChatMessages(user.DID)
+		messages, err := mod.MostRecentChatMessages(user.DID, time.Time{})
 		require.NoError(t, err)
 		return len(messages)
 	}
@@ -191,7 +191,7 @@ func TestSweepShallowThenDeepens(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, stored.Version, "%s should have been synced", did)
 		require.True(t, stored.BackfillDone, "%s should have been deepened to the end", did)
-		messages, err := mod.MostRecentChatMessages(did)
+		messages, err := mod.MostRecentChatMessages(did, time.Time{})
 		require.NoError(t, err, did)
 		require.Len(t, messages, 2, "both messages of %s should be indexed", did)
 	}
@@ -205,7 +205,7 @@ func TestSweepShallowThenDeepens(t *testing.T) {
 	// Idempotent: a second sweep is a few head fetches and nothing else.
 	require.NoError(t, atsync.Sweep(ctx))
 	for _, did := range []string{fresh.DID, legacy.DID} {
-		messages, err := mod.MostRecentChatMessages(did)
+		messages, err := mod.MostRecentChatMessages(did, time.Time{})
 		require.NoError(t, err)
 		require.Len(t, messages, 2, "a second sweep must not duplicate anything")
 	}

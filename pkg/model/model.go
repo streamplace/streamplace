@@ -79,12 +79,20 @@ type Model interface {
 	DenyTeleport(ctx context.Context, uri string) error
 
 	CreateBlock(ctx context.Context, block *Block) error
+	CreateVerification(ctx context.Context, v *Verification) error
+	DeleteVerification(ctx context.Context, uri string) error
+	DeleteMirroredLabels(ctx context.Context, labeler string) error
+	CreateChatAccessRule(ctx context.Context, row *ChatAccessRule) error
+	DeleteChatAccessRule(ctx context.Context, uri string) error
+	ListChatAccessRules(ctx context.Context, repoDID string) ([]ChatAccessRule, error)
+	ChatAccessSubjects(ctx context.Context) ([]string, map[string][]string, error)
+	VerificationsFor(ctx context.Context, subjectDIDs []string, issuerDIDs []string) (map[string][]Verification, error)
 	GetBlock(ctx context.Context, rkey string) (*Block, error)
 	GetUserBlock(ctx context.Context, userDID, subjectDID string) (*Block, error)
 	DeleteBlock(ctx context.Context, rkey string) error
 
 	CreateChatMessage(ctx context.Context, message *ChatMessage) error
-	MostRecentChatMessages(repoDID string) ([]placestream.ChatDefs_MessageView, error)
+	MostRecentChatMessages(repoDID string, since time.Time) ([]placestream.ChatDefs_MessageView, error)
 	GetChatMessage(uri string) (*ChatMessage, error)
 	DeleteChatMessage(ctx context.Context, uri string, deletedAt *time.Time) error
 
@@ -124,7 +132,7 @@ type Model interface {
 	DeleteMetadataConfiguration(ctx context.Context, repoDID string) error
 
 	CreateModerationDelegation(ctx context.Context, rec placestream.ModerationPermission, aturi syntax.ATURI) error
-	DeleteModerationDelegation(ctx context.Context, rkey string) error
+	DeleteModerationDelegation(ctx context.Context, repoDID, rkey string) error
 	GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*placestream.ModerationDefs_PermissionView, error)
 	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]placestream.ModerationDefs_PermissionView, error)
 	GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]placestream.ModerationDefs_PermissionView, error)
@@ -323,11 +331,16 @@ func MakeDBConns(dbURL string, conns int) (Model, error) {
 		VodComment{},
 		Like{},
 		VodGate{},
+		Verification{},
+		ChatAccessRule{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {
 			return nil, err
 		}
+	}
+	if err := migrateModerationDelegationKeys(context.Background(), db); err != nil {
+		return nil, fmt.Errorf("migrating moderation delegation keys: %w", err)
 	}
 	return &DBModel{DB: db}, nil
 }

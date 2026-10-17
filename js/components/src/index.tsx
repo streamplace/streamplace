@@ -2,6 +2,9 @@
 import "./crypto-polyfill";
 
 export * from "./livestream-provider";
+// React layer for the livestream store (hooks, context). The pure
+// state/factory/reducer is in @streamplace/core and re-exported through
+// this local barrel.
 export * from "./livestream-store";
 export * from "./player-store";
 export * from "./streamplace-provider";
@@ -9,7 +12,7 @@ export * from "./streamplace-store";
 export * from "./video-provider";
 export * from "./video-store";
 
-export { ErrorBoundary } from "./components/error-boundary";
+export { AppCrashScreen, ErrorBoundary } from "./components/error-boundary";
 
 export {
   PlayerProvider,
@@ -19,6 +22,7 @@ export { usePlayerContext } from "./player-store/player-store";
 
 export { Player, PlayerUI } from "./components/mobile-player/player";
 export { PlayerProps } from "./components/mobile-player/props";
+export { VideoHostProvider } from "./components/mobile-player/video-host";
 
 export * as ui from "./components/ui";
 
@@ -92,4 +96,7 @@ export * from "./components/vod/vod-comments";
 export * from "./components/vod/vod-mobile-metadata";
 export * from "./components/vod/vod-player";
 export * from "./components/vod/vod-section";
-export * from "./vod-store/vod-interactions";
+// React layer for vod-store (React hooks). Pure VOD interaction
+// functions are in @streamplace/core and re-exported through this
+// local barrel.
+export * from "./vod-store";

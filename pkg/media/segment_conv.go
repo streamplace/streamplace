@@ -6,8 +6,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/log"
 )
@@ -19,40 +19,57 @@ func MP4ToMPEGTSVideoMP4Audio(ctx context.Context, input io.Reader, videoOutput 
 		"appsrc name=appsrc ! qtdemux name=demux",
 		"mpegtsmux name=videomux ! appsink name=videoappsink sync=false",
 		"mp4mux name=audiomux ! appsink name=audioappsink sync=false",
-		"demux.video_0 ! h264parse ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue",
-		"demux.audio_0 ! opusparse ! queue name=audioqueue",
+		// config-interval=-1: SPS/PPS before every IDR, taken from the MP4's
+		// avcC. A transcoder decodes each pushed segment with a fresh
+		// decoder, so a segment without them ("Could not find codec
+		// parameters") kills its session — encoders that don't repeat the
+		// headers in-band (most) produced exactly that.
+		// Unlimited queues: a muxer holds its first video buffers until the
+		// audio pad has data too, and a 1s 1080p60 segment with B-frame
+		// reordering fills the default 1s queue before the demuxer gets to
+		// the audio — the pipeline deadlocked and produced nothing.
+		"demux.video_0 ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue max-size-time=0 max-size-buffers=0 max-size-bytes=0",
+		// parsebin plugs the parser the audio actually needs (opusparse for a
+		// WHIP/Opus ingest, aacparse for RTMP/AAC); a hard-wired opusparse
+		// never linked for AAC and the pipeline hung on it, wedging every
+		// transcode behind the in-flight guard.
+		"demux.audio_0 ! parsebin ! queue name=audioqueue max-size-time=0 max-size-buffers=0 max-size-bytes=0",
 	}, " ")
 
-	pipeline, err := gst.NewPipelineFromString(pipelineStr)
+	pipelineElem, err := gst.ParseLaunch(pipelineStr)
 	if err != nil {
 		return err
+	}
+	pipeline, ok := pipelineElem.(gst.Pipeline)
+	if !ok {
+		return fmt.Errorf("failed to create pipeline: not a pipeline")
 	}
 
-	videomux, err := pipeline.GetElementByName("videomux")
-	if err != nil {
-		return err
+	videomux := pipeline.GetByName("videomux")
+	if videomux == nil {
+		return fmt.Errorf("failed to get video mux element")
 	}
-	muxVideoSinkPad := videomux.GetRequestPad("sink_%d")
+	muxVideoSinkPad := videomux.RequestPadSimple("sink_%d")
 	if muxVideoSinkPad == nil {
 		return fmt.Errorf("failed to get video sink pad")
 	}
 
-	audiomux, err := pipeline.GetElementByName("audiomux")
-	if err != nil {
-		return err
+	audiomux := pipeline.GetByName("audiomux")
+	if audiomux == nil {
+		return fmt.Errorf("failed to get audio mux element")
 	}
-	muxAudioSinkPad := audiomux.GetRequestPad("audio_%u")
+	muxAudioSinkPad := audiomux.RequestPadSimple("audio_%u")
 	if muxAudioSinkPad == nil {
 		return fmt.Errorf("failed to get audio sink pad")
 	}
 
-	videoQueue, err := pipeline.GetElementByName("videoqueue")
-	if err != nil {
-		return err
+	videoQueue := pipeline.GetByName("videoqueue")
+	if videoQueue == nil {
+		return fmt.Errorf("failed to get video queue element")
 	}
-	audioQueue, err := pipeline.GetElementByName("audioqueue")
-	if err != nil {
-		return err
+	audioQueue := pipeline.GetByName("audioqueue")
+	if audioQueue == nil {
+		return fmt.Errorf("failed to get audio queue element")
 	}
 
 	videoQueueSrcPad := videoQueue.GetStaticPad("src")
@@ -64,56 +81,52 @@ func MP4ToMPEGTSVideoMP4Audio(ctx context.Context, input io.Reader, videoOutput 
 		return fmt.Errorf("failed to get audio queue source pad")
 	}
 
-	ok := videoQueueSrcPad.Link(muxVideoSinkPad)
-	if ok != gst.PadLinkOK {
-		return fmt.Errorf("failed to link video queue source pad to mux video sink pad: %v", ok)
+	linked := videoQueueSrcPad.Link(muxVideoSinkPad)
+	if linked != gst.PadLinkOK {
+		return fmt.Errorf("failed to link video queue source pad to mux video sink pad: %v", linked)
 	}
-	ok = audioQueueSrcPad.Link(muxAudioSinkPad)
-	if ok != gst.PadLinkOK {
-		return fmt.Errorf("failed to link audio queue source pad to mux audio sink pad: %v", ok)
+	linked = audioQueueSrcPad.Link(muxAudioSinkPad)
+	if linked != gst.PadLinkOK {
+		return fmt.Errorf("failed to link audio queue source pad to mux audio sink pad: %v", linked)
 	}
 
 	// Get elements
-	appsrc, err := pipeline.GetElementByName("appsrc")
-	if err != nil {
-		return err
+	appsrc := pipeline.GetByName("appsrc")
+	if appsrc == nil {
+		return fmt.Errorf("failed to get appsrc element")
 	}
-	videoappsink, err := pipeline.GetElementByName("videoappsink")
-	if err != nil {
-		return err
+	videoappsink := pipeline.GetByName("videoappsink")
+	if videoappsink == nil {
+		return fmt.Errorf("failed to get video appsink element")
 	}
-	audioappsink, err := pipeline.GetElementByName("audioappsink")
-	if err != nil {
-		return err
+	audioappsink := pipeline.GetByName("audioappsink")
+	if audioappsink == nil {
+		return fmt.Errorf("failed to get audio appsink element")
 	}
-
-	source := app.SrcFromElement(appsrc)
-	videoSink := app.SinkFromElement(videoappsink)
-	audioSink := app.SinkFromElement(audioappsink)
 
 	// Set up source callbacks
-	source.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedDataIncremental(ctx, input),
-		EnoughDataFunc: func(self *app.Source) {
+	appsrc.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: ReaderNeedDataIncremental(ctx, input),
+		EnoughData: func(self app.AppSrc) {
 			// Nothing to do here
 		},
-		SeekDataFunc: func(self *app.Source, offset uint64) bool {
+		SeekData: func(self app.AppSrc, offset uint64) bool {
 			return false // We don't support seeking
 		},
 	})
 
 	// Set up sink callbacks
-	videoSink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, videoOutput),
-		NewPrerollFunc: func(self *app.Sink) gst.FlowReturn {
+	videoappsink.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, videoOutput),
+		NewPreroll: func(self app.AppSink) gst.FlowReturn {
 			return gst.FlowOK
 		},
 	})
 
 	// Set up sink callbacks
-	audioSink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, audioOutput),
-		NewPrerollFunc: func(self *app.Sink) gst.FlowReturn {
+	audioappsink.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, audioOutput),
+		NewPreroll: func(self app.AppSink) gst.FlowReturn {
 			return gst.FlowOK
 		},
 	})
@@ -130,18 +143,16 @@ func MP4ToMPEGTSVideoMP4Audio(ctx context.Context, input io.Reader, videoOutput 
 	})
 
 	// Start the pipeline
-	err = pipeline.SetState(gst.StatePlaying)
-	if err != nil {
-		return fmt.Errorf("failed to set pipeline state to playing: %w", err)
+	if ret := pipeline.SetState(gst.StatePlaying); ret == gst.StateChangeFailure {
+		return fmt.Errorf("failed to set pipeline state to playing")
 	}
 
 	// Wait for the pipeline to finish or context to be canceled
 	<-ctx.Done()
 
 	// Clean up
-	err = pipeline.SetState(gst.StateNull)
-	if err != nil {
-		return fmt.Errorf("failed to set pipeline state to null: %w", err)
+	if ret := pipeline.SetState(gst.StateNull); ret == gst.StateChangeFailure {
+		return fmt.Errorf("failed to set pipeline state to null")
 	}
 
 	return g.Wait()
@@ -153,35 +164,39 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 		"appsrc name=videoappsrc ! tsdemux name=videodemux",
 		"appsrc name=audioappsrc ! qtdemux name=audiodemux",
 		"mp4mux name=mux ! appsink name=appsink sync=false",
-		"h264parse name=videoparse ! video/x-h264,stream-format=avc ! queue name=videoqueue",
-		"audiodemux.audio_0 ! opusparse ! queue name=audioqueue",
+		"h264parse name=videoparse ! video/x-h264,stream-format=avc ! queue name=videoqueue max-size-time=0 max-size-buffers=0 max-size-bytes=0",
+		"audiodemux.audio_0 ! parsebin ! queue name=audioqueue max-size-time=0 max-size-buffers=0 max-size-bytes=0",
 	}, " ")
 
-	pipeline, err := gst.NewPipelineFromString(pipelineStr)
+	pipelineElem, err := gst.ParseLaunch(pipelineStr)
 	if err != nil {
 		return err
+	}
+	pipeline, ok := pipelineElem.(gst.Pipeline)
+	if !ok {
+		return fmt.Errorf("failed to create pipeline: not a pipeline")
 	}
 
-	mux, err := pipeline.GetElementByName("mux")
-	if err != nil {
-		return err
+	mux := pipeline.GetByName("mux")
+	if mux == nil {
+		return fmt.Errorf("failed to get mux element")
 	}
-	muxVideoSinkPad := mux.GetRequestPad("video_%u")
+	muxVideoSinkPad := mux.RequestPadSimple("video_%u")
 	if muxVideoSinkPad == nil {
 		return fmt.Errorf("failed to get video sink pad")
 	}
-	muxAudioSinkPad := mux.GetRequestPad("audio_%u")
+	muxAudioSinkPad := mux.RequestPadSimple("audio_%u")
 	if muxAudioSinkPad == nil {
 		return fmt.Errorf("failed to get audio sink pad")
 	}
 
-	videoQueue, err := pipeline.GetElementByName("videoqueue")
-	if err != nil {
-		return err
+	videoQueue := pipeline.GetByName("videoqueue")
+	if videoQueue == nil {
+		return fmt.Errorf("failed to get video queue element")
 	}
-	audioQueue, err := pipeline.GetElementByName("audioqueue")
-	if err != nil {
-		return err
+	audioQueue := pipeline.GetByName("audioqueue")
+	if audioQueue == nil {
+		return fmt.Errorf("failed to get audio queue element")
 	}
 
 	videoQueueSrcPad := videoQueue.GetStaticPad("src")
@@ -193,22 +208,22 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 		return fmt.Errorf("failed to get audio queue source pad")
 	}
 
-	ok := videoQueueSrcPad.Link(muxVideoSinkPad)
-	if ok != gst.PadLinkOK {
-		return fmt.Errorf("failed to link video queue source pad to mux video sink pad: %v", ok)
+	linked := videoQueueSrcPad.Link(muxVideoSinkPad)
+	if linked != gst.PadLinkOK {
+		return fmt.Errorf("failed to link video queue source pad to mux video sink pad: %v", linked)
 	}
-	ok = audioQueueSrcPad.Link(muxAudioSinkPad)
-	if ok != gst.PadLinkOK {
-		return fmt.Errorf("failed to link audio queue source pad to mux audio sink pad: %v", ok)
+	linked = audioQueueSrcPad.Link(muxAudioSinkPad)
+	if linked != gst.PadLinkOK {
+		return fmt.Errorf("failed to link audio queue source pad to mux audio sink pad: %v", linked)
 	}
 
-	videodemux, err := pipeline.GetElementByName("videodemux")
-	if err != nil {
-		return err
+	videodemux := pipeline.GetByName("videodemux")
+	if videodemux == nil {
+		return fmt.Errorf("failed to get video demux element")
 	}
-	videoparse, err := pipeline.GetElementByName("videoparse")
-	if err != nil {
-		return err
+	videoparse := pipeline.GetByName("videoparse")
+	if videoparse == nil {
+		return fmt.Errorf("failed to get video parse element")
 	}
 	videoParseSinkPad := videoparse.GetStaticPad("sink")
 	if videoParseSinkPad == nil {
@@ -216,40 +231,36 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 	}
 
 	// Get elements
-	videoappsrc, err := pipeline.GetElementByName("videoappsrc")
-	if err != nil {
-		return err
+	videoappsrc := pipeline.GetByName("videoappsrc")
+	if videoappsrc == nil {
+		return fmt.Errorf("failed to get video appsrc element")
 	}
-	audioappsrc, err := pipeline.GetElementByName("audioappsrc")
-	if err != nil {
-		return err
+	audioappsrc := pipeline.GetByName("audioappsrc")
+	if audioappsrc == nil {
+		return fmt.Errorf("failed to get audio appsrc element")
 	}
-	appsink, err := pipeline.GetElementByName("appsink")
-	if err != nil {
-		return err
+	appsink := pipeline.GetByName("appsink")
+	if appsink == nil {
+		return fmt.Errorf("failed to get appsink element")
 	}
-
-	videoSource := app.SrcFromElement(videoappsrc)
-	audioSource := app.SrcFromElement(audioappsrc)
-	sink := app.SinkFromElement(appsink)
 
 	// Set up source callbacks
-	videoSource.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedDataIncremental(ctx, videoInput),
-		EnoughDataFunc: func(self *app.Source) {
+	videoappsrc.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: ReaderNeedDataIncremental(ctx, videoInput),
+		EnoughData: func(self app.AppSrc) {
 			// Nothing to do here
 		},
-		SeekDataFunc: func(self *app.Source, offset uint64) bool {
+		SeekData: func(self app.AppSrc, offset uint64) bool {
 			return false // We don't support seeking
 		},
 	})
 
-	audioSource.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedDataIncremental(ctx, audioInput),
-		EnoughDataFunc: func(self *app.Source) {
+	audioappsrc.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: ReaderNeedDataIncremental(ctx, audioInput),
+		EnoughData: func(self app.AppSrc) {
 			// Nothing to do here
 		},
-		SeekDataFunc: func(self *app.Source, offset uint64) bool {
+		SeekData: func(self app.AppSrc, offset uint64) bool {
 			return false // We don't support seeking
 		},
 	})
@@ -257,8 +268,8 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 	wroteAnything := false
 
 	// Set up sink callbacks
-	sink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
+	appsink.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: func(sink app.AppSink) gst.FlowReturn {
 			sample := sink.PullSample()
 			if sample == nil {
 				return gst.FlowOK
@@ -266,10 +277,14 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 
 			// Retrieve the buffer from the sample.
 			buffer := sample.GetBuffer()
-			bs := buffer.Map(gst.MapRead).Bytes()
-			defer buffer.Unmap()
+			info, ok := buffer.Map(gst.MapRead)
+			if !ok {
+				log.Error(ctx, "failed to map buffer")
+				return gst.FlowError
+			}
+			defer info.Unmap()
 
-			_, err := output.Write(bs)
+			_, err := output.Write(info.Data())
 
 			if err != nil {
 				log.Error(ctx, "error writing to output", "error", err)
@@ -280,7 +295,7 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 
 			return gst.FlowOK
 		},
-		NewPrerollFunc: func(self *app.Sink) gst.FlowReturn {
+		NewPreroll: func(self app.AppSink) gst.FlowReturn {
 			return gst.FlowOK
 		},
 	})
@@ -288,8 +303,8 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	onPadAdded := func(element *gst.Element, pad *gst.Pad) {
-		if pad.GetDirection() == gst.PadDirectionSource {
+	onPadAdded := func(element gst.Element, pad gst.Pad) {
+		if pad.GetDirection() == gst.PadSrc {
 			ok := pad.Link(videoParseSinkPad)
 			if ok != gst.PadLinkOK {
 				log.Error(ctx, "failed to link video parse sink pad to video demux pad", "error", ok)
@@ -297,9 +312,7 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 			}
 		}
 	}
-	if _, err := videodemux.Connect("pad-added", onPadAdded); err != nil {
-		return fmt.Errorf("failed connect pad-added handler: %w", err)
-	}
+	videodemux.ConnectPadAdded(onPadAdded)
 
 	errCh := make(chan error)
 	go func() {
@@ -309,15 +322,13 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 	}()
 
 	// Start the pipeline
-	err = pipeline.SetState(gst.StatePlaying)
-	if err != nil {
-		return fmt.Errorf("failed to set pipeline state to playing: %w", err)
+	if ret := pipeline.SetState(gst.StatePlaying); ret == gst.StateChangeFailure {
+		return fmt.Errorf("failed to set pipeline state to playing")
 	}
 
 	defer func() {
-		err = pipeline.SetState(gst.StateNull)
-		if err != nil {
-			log.Error(ctx, "failed to set pipeline state to null", "error", err)
+		if ret := pipeline.SetState(gst.StateNull); ret == gst.StateChangeFailure {
+			log.Error(ctx, "failed to set pipeline state to null")
 		}
 		videoParseSinkPad = nil
 	}()

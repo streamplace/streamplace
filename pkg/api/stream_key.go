@@ -28,6 +28,9 @@ func (a *StreamplaceAPI) MakeMediaSigner(ctx context.Context, keyStr string) (me
 		if err != nil {
 			return nil, fmt.Errorf("invalid authorization key (not a base58btc string)")
 		}
+		if len(decoded) < 32 {
+			return nil, fmt.Errorf("invalid authorization key (too short)")
+		}
 		addrBytes = decoded[:32]
 		didBytes = decoded[32:]
 		priv, err = atcrypto.ParsePrivateBytesK256(addrBytes)
@@ -45,7 +48,6 @@ func (a *StreamplaceAPI) MakeMediaSigner(ctx context.Context, keyStr string) (me
 	if err != nil {
 		return nil, fmt.Errorf("invalid authorization key (could not parse as atproto): %w", err)
 	}
-
 	did := string(didBytes)
 
 	if did != "" {

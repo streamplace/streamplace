@@ -1,5 +1,5 @@
-import { Text, zero } from "@streamplace/components";
-import { Pressable, View } from "react-native";
+import { Button, Text, zero } from "@streamplace/components";
+import { View } from "react-native";
 
 export default function (props: { onRetry: () => void }) {
   return (
@@ -10,18 +10,9 @@ export default function (props: { onRetry: () => void }) {
       ]}
     >
       <Text>Unable to contact server.</Text>
-      <Pressable
-        style={[
-          zero.bg.primary[500],
-          zero.px[4],
-          zero.py[2],
-          zero.r.md,
-          zero.mt[2],
-        ]}
-        onPress={props.onRetry}
-      >
-        <Text style={[{ color: "white" }]}>Retry?</Text>
-      </Pressable>
+      <Button onPress={props.onRetry} width="min" style={zero.mt[2]}>
+        Retry
+      </Button>
     </View>
   );
 }

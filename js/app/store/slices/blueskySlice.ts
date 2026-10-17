@@ -14,7 +14,6 @@ import { Platform } from "react-native";
 import { AppStore } from "store";
 import { place, StreamplaceAgent } from "streamplace";
 import clearQueryParams from "utils/clear-query-params";
-import { privateKeyToAccount } from "viem/accounts";
 import { StateCreator } from "zustand";
 import createOAuthClient from "../../features/bluesky/oauthClient";
 import { OAuthClient } from "../../features/bluesky/oauthClientImport";
@@ -80,7 +79,8 @@ export interface BlueskySlice {
   refreshSessionScope: () => Promise<void>;
   logout: () => Promise<void>;
   getProfile: (actor: string) => Promise<void>;
-  getProfiles: (actors: string[]) => Promise<void>;
+  // resolves false if the lookup failed, as opposed to finding nothing
+  getProfiles: (actors: string[]) => Promise<boolean>;
   oauthCallback: (url: string) => Promise<void>;
   setReturnRoute: (route: { name: string; params?: any } | null) => void;
   showLoginModal: boolean;
@@ -450,18 +450,24 @@ export const createBlueskySlice: StateCreator<
       const bskyAgent = new Agent("https://public.api.bsky.app");
       const payload = await bskyAgent.getProfiles({ actors });
       let parsedProfiles = {};
-      console.log(payload);
       payload.data.profiles.forEach((p) => {
         parsedProfiles[p.did] = p;
       });
+      // an unchanged cache must stay the same object, or every subscriber
+      // re-renders for nothing
+      if (Object.keys(parsedProfiles).length === 0) {
+        return true;
+      }
       set((s) => ({
         profileCache: {
           ...(s as BlueskySlice).profileCache,
           ...parsedProfiles,
         },
       }));
+      return true;
     } catch (error) {
       console.error("getProfiles error", error);
+      return false;
     }
   },
 
@@ -629,14 +635,9 @@ export const createBlueskySlice: StateCreator<
       const didBytes = new TextEncoder().encode(did);
       const combinedKey = new Uint8Array([...exportedKey, ...didBytes]);
       const multibaseKey = bytesToMultibase(combinedKey, "base58btc");
-      const hexKey = Array.from(exportedKey)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
-      const account = await privateKeyToAccount(`0x${hexKey}`);
       const newKey = {
         privateKey: multibaseKey,
         did: keypair.did(),
-        address: account.address.toLowerCase(),
       };
 
       let platform: string = Platform.OS;

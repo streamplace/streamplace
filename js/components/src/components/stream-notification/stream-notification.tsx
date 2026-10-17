@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Text, useTheme } from "../../";
+import { colors as tokensColors } from "../../lib/theme/tokens";
 import {
   StreamNotification,
   streamNotificationManager,
@@ -195,7 +196,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     padding: 12,
-    shadowColor: "#000",
+    shadowColor: tokensColors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

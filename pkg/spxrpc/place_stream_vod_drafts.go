@@ -8,11 +8,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
-	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	placestream "stream.place/streamplace/pkg/placestream"
-	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/vod"
 )
 
@@ -48,7 +45,7 @@ func (s *Server) loadOwnedDraft(ctx context.Context, uri, did string) (*placestr
 // handlers ─────────────────────────────────────────────────────────────────
 
 func (s *Server) handlePlaceStreamVodListDrafts(ctx context.Context, cursor string, limit int) (*placestream.VodListDrafts_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
@@ -73,7 +70,7 @@ func (s *Server) handlePlaceStreamVodListDrafts(ctx context.Context, cursor stri
 }
 
 func (s *Server) handlePlaceStreamVodGetDraft(ctx context.Context, uri string) (*placestream.VodGetDraft_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
@@ -85,7 +82,7 @@ func (s *Server) handlePlaceStreamVodGetDraft(ctx context.Context, uri string) (
 }
 
 func (s *Server) handlePlaceStreamVodUpdateDraft(ctx context.Context, body *placestream.VodUpdateDraft_Input) (*placestream.VodUpdateDraft_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
@@ -141,7 +138,7 @@ func (s *Server) handlePlaceStreamVodUpdateDraft(ctx context.Context, body *plac
 }
 
 func (s *Server) handlePlaceStreamVodDeleteDraft(ctx context.Context, body *placestream.VodDeleteDraft_Input) (*placestream.VodDeleteDraft_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
@@ -168,7 +165,7 @@ func (s *Server) handlePlaceStreamVodDeleteDraft(ctx context.Context, body *plac
 // fills this draft. Lets the user edit metadata while the upload runs and
 // supports re-upload (a failed upload leaves the draft intact).
 func (s *Server) handlePlaceStreamVodCreateDraft(ctx context.Context, body *placestream.VodCreateDraft_Input) (*placestream.VodCreateDraft_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session := GetCaller(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
@@ -220,52 +217,6 @@ func (s *Server) handlePlaceStreamVodPublishDraft(ctx context.Context, body *pla
 		}
 	}
 	return &placestream.VodPublishDraft_Output{VideoUri: videoURI, VideoCid: videoCID}, nil
-}
-
-// createLivestreamDraft builds a 'processing'-state draft that inherits the
-// livestream's title/activity/tags and links back to the livestream record via
-// connections. Called by the finalizeLivestream handler at kickoff so the user
-// can navigate straight to the draft while processing runs server-side.
-func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string, ls *model.Livestream) (*statedb.DraftVideo, error) {
-	view, err := ls.ToLivestreamView()
-	if err != nil {
-		return nil, err
-	}
-	rec, ok := view.Record.Val.(*placestream.Livestream)
-	if !ok {
-		return nil, errors.New("livestream record is not a place.stream.livestream")
-	}
-
-	title := rec.Title
-	if title == "" {
-		title = "Livestream"
-	}
-	draftRec := placestream.VodDraftVideo{
-		LexiconTypeID: "place.stream.vod.draftVideo",
-		Title:         title,
-		Status:        "processing",
-		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
-	}
-	if rec.Activity != nil {
-		draftRec.Activity = livestreamActivityToDraft(rec.Activity)
-	}
-	if len(rec.Tags) > 0 {
-		draftRec.Tags = rec.Tags
-	}
-	// Link back to the source livestream so a published VOD carries the
-	// connection (the existing UI uses this to flip a finalized row to
-	// "View VOD").
-	draftRec.Connections = []placestream.VodDraftVideo_Connections_Elem{{
-		Video_Connection: &placestream.Video_Connection{
-			LexiconTypeID: "place.stream.video#connection",
-			Ref: &comatproto.RepoStrongRef{
-				Uri: ls.URI,
-				Cid: ls.CID,
-			},
-		},
-	}}
-
-	return s.statefulDB.CreateDraft(ctx, did, uploadID, &draftRec)
 }
 
 // livestreamActivityToDraft maps a livestream's activity union onto the draft's

@@ -98,7 +98,7 @@ func TestHandleCreateUpdateRedelivery(t *testing.T) {
 	rkey := syntax.RecordKey("3lmsg000000000")
 	index := func() error {
 		bs := recCBOR
-		return atsync.handleCreateUpdate(ctx, did, rkey, &bs, rcid.String(), collection, false, false)
+		return atsync.handleCreateUpdate(ctx, did, rkey, &bs, rcid.String(), collection, false, false, "")
 	}
 
 	require.NoError(t, index())
@@ -111,7 +111,7 @@ func TestHandleCreateUpdateRedelivery(t *testing.T) {
 	time.Sleep(250 * time.Millisecond)
 	require.Equal(t, 1, countPublished(), "a redelivered chat message must not be published again")
 
-	messages, err := mod.MostRecentChatMessages(did)
+	messages, err := mod.MostRecentChatMessages(did, time.Time{})
 	require.NoError(t, err)
 	require.Len(t, messages, 1, "a redelivered chat message must not be indexed again")
 	require.Equal(t, "hello twice", messages[0].Record.Val.(*placestream.ChatMessage).Text)

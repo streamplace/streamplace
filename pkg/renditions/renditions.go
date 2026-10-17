@@ -3,6 +3,7 @@ package renditions
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"stream.place/streamplace/pkg/placestream"
 )
@@ -43,34 +44,28 @@ type JSONProfile struct {
 	Quality uint   `json:"quality,omitempty"`
 }
 
+// ToLivepeerProfile is the rendition as the gateway's transcode
+// configuration wants it. Both dimensions are sent: GenerateRenditions has
+// already fitted them to the source's aspect, and a gateway handed one
+// dimension takes it as the width (a "720p" asked for by height alone came
+// back 720 pixels wide). Dimensions are rounded to even for the encoder.
 func (r Rendition) ToLivepeerProfile() JSONProfile {
-	p := JSONProfile{
+	return JSONProfile{
 		Name:    r.Name,
+		Width:   even(r.Width),
+		Height:  even(r.Height),
 		Bitrate: r.Bitrate,
 		FPS:     r.Framerate.Num,
 		FPSDen:  r.Framerate.Den,
 		Profile: r.Profile,
 	}
-	if r.Parent == nil {
-		p.Width = int(r.Width)
-		p.Height = int(r.Height)
-	} else {
-		// We want to set the dimension that is the same as the parent
-		if r.Width < r.Height {
-			if r.Parent.Width == r.Height {
-				p.Height = int(r.Parent.Width)
-			} else {
-				p.Width = int(r.Parent.Height)
-			}
-		} else {
-			if r.Parent.Height == r.Height {
-				p.Height = int(r.Parent.Height)
-			} else {
-				p.Width = int(r.Parent.Width)
-			}
-		}
+}
+
+func even(n int64) int {
+	if n%2 != 0 {
+		n++
 	}
-	return p
+	return int(n)
 }
 
 type Renditions []Rendition
@@ -141,14 +136,59 @@ var DesiredRenditions = []Rendition{
 	},
 }
 
-// GenerateRenditions generates renditions for a given spseg
+// Ladder resolves a comma-separated selection of rendition names ("240p,160p")
+// from DesiredRenditions, in ladder order; empty means the whole ladder. An
+// unknown name is an error.
+func Ladder(spec string) ([]Rendition, error) {
+	spec = strings.TrimSpace(spec)
+	if spec == "" {
+		return DesiredRenditions, nil
+	}
+	want := map[string]bool{}
+	for _, n := range strings.Split(spec, ",") {
+		n = strings.TrimSpace(n)
+		if n == "" {
+			continue
+		}
+		known := false
+		for _, r := range DesiredRenditions {
+			if r.Name == n {
+				known = true
+			}
+		}
+		if !known {
+			names := make([]string, 0, len(DesiredRenditions))
+			for _, r := range DesiredRenditions {
+				names = append(names, r.Name)
+			}
+			return nil, fmt.Errorf("unknown rendition %q (known: %s)", n, strings.Join(names, ", "))
+		}
+		want[n] = true
+	}
+	out := make([]Rendition, 0, len(want))
+	for _, r := range DesiredRenditions {
+		if want[r.Name] {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
+// GenerateRenditions generates renditions for a given spseg from the whole
+// ladder.
 func GenerateRenditions(spseg *placestream.Segment) (Renditions, error) {
+	return GenerateRenditionsFrom(spseg, DesiredRenditions)
+}
+
+// GenerateRenditionsFrom generates the renditions of ladder (see Ladder)
+// that fit under spseg's video.
+func GenerateRenditionsFrom(spseg *placestream.Segment, ladder []Rendition) (Renditions, error) {
 	if len(spseg.Video) == 0 {
 		return nil, fmt.Errorf("no video stream found")
 	}
 	vid := spseg.Video[0]
 	rs := []Rendition{}
-	for _, r := range DesiredRenditions {
+	for _, r := range ladder {
 		vidWidth := int64(vid.Width)
 		vidHeight := int64(vid.Height)
 		vertical := vid.Height > vid.Width

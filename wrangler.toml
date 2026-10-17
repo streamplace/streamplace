@@ -6,4 +6,4 @@ directory = "./js/docs/dist/"
 not_found_handling = "404-page"
 
 [build]
-command = "pnpm install --filter=streamplace-docs... && cd js/docs && astro build --outDir ./dist/docs && cp ./_redirects ./dist/_redirects && cp ./src/assets/cube.png ./dist/favicon.ico"
+command = "pnpm install --filter=streamplace-docs... --filter=@streamplace/brand && pnpm --filter @streamplace/brand generate && cd js/docs && astro build --outDir ./dist/docs && cp ./_redirects ./dist/_redirects && cp ../desktop/assets/images/streamplace-logo.ico ./dist/favicon.ico"

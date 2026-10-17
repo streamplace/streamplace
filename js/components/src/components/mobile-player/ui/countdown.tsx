@@ -6,6 +6,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { scrims } from "../../../lib/theme/tokens";
 
 type CountdownOverlayProps = {
   visible: boolean;
@@ -96,7 +97,7 @@ export function CountdownOverlay({
         left: 0,
         width,
         height,
-        backgroundColor: "rgba(0,0,0,0.7)",
+        backgroundColor: scrims.dark,
         alignItems: "center",
         justifyContent: "center",
         zIndex: 1000,

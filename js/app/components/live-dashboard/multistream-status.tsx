@@ -1,7 +1,21 @@
-import { Loader, Text, View, zero } from "@streamplace/components";
+import { useNavigation } from "@react-navigation/native";
+import {
+  Button,
+  Loader,
+  Switch,
+  Text,
+  View,
+  zero,
+} from "@streamplace/components";
+import {
+  borderAlphas,
+  surfaces,
+  textAlphas,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { Plus } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
-import { Switch } from "react-native";
+import { useTranslation } from "react-i18next";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -20,6 +34,8 @@ interface MultistreamTargetViewHydrated
 
 export default function MultistreamStatus() {
   const agent = usePDSAgent();
+  const navigation = useNavigation();
+  const { t } = useTranslation("settings");
   const [targets, setTargets] = useState<MultistreamTargetViewHydrated[]>([]);
   const [loading, setLoading] = useState(true);
   const [togglingTargets, setTogglingTargets] = useState<Set<string>>(
@@ -135,76 +151,96 @@ export default function MultistreamStatus() {
     }
   };
 
-  if (loading && targets.length === 0) {
-    return (
-      <View style={[p[3]]}>
-        <Text style={[text.gray[400], { fontSize: 14 }]}>
-          Loading multistream...
-        </Text>
-      </View>
-    );
-  }
-
-  if (targets.length === 0) {
-    return (
-      <View style={[p[3]]}>
-        <Text style={[text.gray[400], { fontSize: 14 }]}>
-          No multistream targets configured
-        </Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={[p[3], gap.all[2]]}>
-      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-        <Text size="xl" style={[text.white]}>
-          Multistream {loading && <Loader size="small" />}
-        </Text>
-      </View>
-
-      {targets.map((target) => (
-        <View
-          key={target.uri}
-          style={[
-            layout.flex.row,
-            layout.flex.alignCenter,
-            layout.flex.spaceBetween,
-            p[2],
-            bg.neutral[800],
-            r.md,
-            borders.width.thin,
-            borders.color.neutral[700],
-          ]}
-        >
-          <View style={[flex.values[1]]}>
-            <View
-              style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
-            >
-              <Text>{getTargetName(target)}</Text>
-              {target.record.name && getTargetHostname(target) && (
-                <Text color="muted">{getTargetHostname(target)}</Text>
-              )}
-            </View>
-            {target.latestEvent && (
-              <Animated.Text
-                style={[
-                  getStatusColor(target),
-                  { fontSize: 11 },
-                  target.latestEvent.status === "pending" && animatedStyle,
-                ]}
-              >
-                {target.latestEvent.status}
-              </Animated.Text>
-            )}
-          </View>
-          <Switch
-            value={target.record.active}
-            onValueChange={(active) => toggleTarget(target, active)}
-            disabled={togglingTargets.has(target.uri)}
-          />
+    <View
+      testID="live-stream-destinations"
+      style={[
+        { backgroundColor: surfaces.dark[1] },
+        r.lg,
+        borders.width.thin,
+        { borderColor: borderAlphas.dark.strong },
+      ]}
+    >
+      {loading && targets.length === 0 ? (
+        <View style={[p[4]]}>
+          <Loader size="small" />
         </View>
-      ))}
+      ) : targets.length === 0 ? (
+        <View style={[p[4], { gap: 12, alignItems: "flex-start" }]}>
+          <View style={{ gap: 2 }}>
+            <Text
+              style={{
+                color: textAlphas.dark[2],
+                fontSize: 13,
+                fontWeight: "500",
+              }}
+            >
+              {t("no-multistream-destinations")}
+            </Text>
+            <Text style={{ color: textAlphas.dark[3], fontSize: 12 }}>
+              Restream to Twitch, YouTube, and more.
+            </Text>
+          </View>
+          <Button
+            size="sm"
+            width="min"
+            variant="secondary"
+            leftIcon={<Plus size={14} />}
+            onPress={() =>
+              (navigation as any).navigate("SettingsTab", {
+                screen: "MultistreamCategory",
+              })
+            }
+          >
+            Add destination
+          </Button>
+        </View>
+      ) : (
+        <View style={[p[3], gap.all[2]]}>
+          {targets.map((target) => (
+            <View
+              key={target.uri}
+              style={[
+                layout.flex.row,
+                layout.flex.alignCenter,
+                layout.flex.spaceBetween,
+                p[2],
+                { backgroundColor: surfaces.dark[2] },
+                r.md,
+                borders.width.thin,
+                { borderColor: borderAlphas.dark.strong },
+              ]}
+            >
+              <View style={[flex.values[1]]}>
+                <View
+                  style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+                >
+                  <Text>{getTargetName(target)}</Text>
+                  {target.record.name && getTargetHostname(target) && (
+                    <Text color="muted">{getTargetHostname(target)}</Text>
+                  )}
+                </View>
+                {target.latestEvent && (
+                  <Animated.Text
+                    style={[
+                      getStatusColor(target),
+                      { fontSize: 11 },
+                      target.latestEvent.status === "pending" && animatedStyle,
+                    ]}
+                  >
+                    {target.latestEvent.status}
+                  </Animated.Text>
+                )}
+              </View>
+              <Switch
+                value={target.record.active}
+                onValueChange={(active) => toggleTarget(target, active)}
+                disabled={togglingTargets.has(target.uri)}
+              />
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }

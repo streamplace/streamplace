@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	pionmedia "github.com/pion/webrtc/v4/pkg/media"
 
 	"github.com/pion/webrtc/v4"
@@ -114,21 +114,23 @@ func produceWHIPMedia(t *testing.T, ctx context.Context, video, audio *webrtc.Tr
 		"videotestsrc is-live=true ! video/x-raw,width=320,height=240,framerate=30/1 ! x264enc key-int-max=15 tune=zerolatency speed-preset=ultrafast ! h264parse ! video/x-h264,stream-format=byte-stream,alignment=au ! appsink name=vsink",
 		"audiotestsrc is-live=true ! audioconvert ! audioresample ! opusenc ! opusparse ! appsink name=asink",
 	}, "\n")
-	pipeline, err := gst.NewPipelineFromString(desc)
+	pipelineElem, err := gst.ParseLaunch(desc)
 	require.NoError(t, err)
+	pipeline := pipelineElem.(gst.Pipeline)
 
 	pump := func(name string, track *webrtc.TrackLocalStaticSample, dur time.Duration) {
-		ele, gerr := pipeline.GetElementByName(name)
-		require.NoError(t, gerr)
-		app.SinkFromElement(ele).SetCallbacks(&app.SinkCallbacks{
-			NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
+		ele := pipeline.GetByName(name)
+		require.NotNil(t, ele)
+		ele.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+			NewSample: func(sink app.AppSink) gst.FlowReturn {
 				sample := sink.PullSample()
 				if sample == nil {
 					return gst.FlowEOS
 				}
-				buf := sample.GetBuffer()
-				data := buf.Map(gst.MapRead).Bytes()
-				buf.Unmap()
+				data, cerr := copyBufferData(sample.GetBuffer())
+				if cerr != nil {
+					return gst.FlowError
+				}
 				if werr := track.WriteSample(pionmedia.Sample{Data: data, Duration: dur}); werr != nil {
 					return gst.FlowError
 				}
@@ -143,7 +145,7 @@ func produceWHIPMedia(t *testing.T, ctx context.Context, video, audio *webrtc.Tr
 		<-ctx.Done()
 		_ = pipeline.SetState(gst.StateNull)
 	}()
-	require.NoError(t, pipeline.SetState(gst.StatePlaying))
+	require.NotEqual(t, gst.StateChangeFailure, pipeline.SetState(gst.StatePlaying))
 }
 
 // TestWHIPWorkerLoopback is the full WHIP media path: a pion client offers,

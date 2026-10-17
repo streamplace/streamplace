@@ -202,8 +202,12 @@ func (w *WHEPClient) StartWHEPConnection(ctx context.Context, stats map[string]*
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 201 {
-		return nil, fmt.Errorf("status code: %d", resp.StatusCode)
+	// WHEP proper answers 201 Created (the /api/playback/.../webrtc route);
+	// the XRPC method place.stream.playback.whep goes through the generated
+	// handler, which can only write 200. Either carries the SDP answer.
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return nil, fmt.Errorf("status code: %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	// Read and process the answer
@@ -264,105 +268,6 @@ func (w *WHEPClient) WHEP(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// if err := g.Wait(); err != nil {
-	// if err := g.Wait(); err != nil {
-	// 	return err
-	// }
-	// // Start a ticker to print elapsed duration every second
-	// go func() {
-	// 	ticker := time.NewTicker(time.Second)
-	// 	defer ticker.Stop()
-
-	// 	for {
-	// 		<-ticker.C
-	// 		for i, duration := range accumulators {
-	// 			trackType := "video"
-	// 			if i == 1 {
-	// 				trackType = "audio"
-	// 			}
-	// 			target := startTime.Add(time.Duration(accumulators[i]))
-	// 			diff := time.Since(target)
-	// 			log.Debug(ctx, "elapsed duration", "track", trackType, "duration", duration, "diff", diff)
-	// 		}
-	// 	}
-	// }()
-
-	// errCh := make(chan error, 1)
-
-	// for i, _ := range sinks {
-	// 	func(i int) {
-	// 		sink := sinks[i]
-	// 		trackType := "video"
-	// 		if i == 1 {
-	// 			trackType = "audio"
-	// 		}
-
-	// 		sink.SetCallbacks(&app.SinkCallbacks{
-	// 			NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
-
-	// 				sample := sink.PullSample()
-	// 				if sample == nil {
-	// 					return gst.FlowEOS
-	// 				}
-
-	// 				buffer := sample.GetBuffer()
-	// 				if buffer == nil {
-	// 					return gst.FlowError
-	// 				}
-
-	// 				samples := buffer.Map(gst.MapRead).Bytes()
-	// 				defer buffer.Unmap()
-
-	// 				durationPtr := buffer.Duration().AsDuration()
-	// 				var duration time.Duration
-	// 				if durationPtr == nil {
-	// 					errCh <- fmt.Errorf("%v duration: nil", trackType)
-	// 					return gst.FlowError
-	// 				} else {
-	// 					// fmt.Printf("%v duration: %v\n", trackType, *durationPtr)
-	// 					duration = *durationPtr
-	// 				}
-
-	// 				accumulators[i] += duration
-
-	// 				if w.FreezeAfter == 0 || time.Since(startTime) < w.FreezeAfter {
-	// 					for _, conn := range conns {
-	// 						if trackType == "video" {
-	// 							if err := conn.videoTrack.WriteSample(pionmedia.Sample{Data: samples, Duration: duration}); err != nil {
-	// 								log.Log(ctx, "error writing video sample", "error", err)
-	// 								errCh <- err
-	// 								return gst.FlowError
-	// 							}
-	// 						} else {
-	// 							if err := conn.audioTrack.WriteSample(pionmedia.Sample{Data: samples, Duration: duration}); err != nil {
-	// 								log.Log(ctx, "error writing video sample", "error", err)
-	// 								errCh <- err
-	// 								return gst.FlowError
-	// 							}
-	// 						}
-	// 					}
-	// 				}
-
-	// 				return gst.FlowOK
-	// 			},
-	// 		})
-	// 	}(i)
-	// }
-
-	// go func() {
-	// 	media.HandleBusMessages(ctx, pipeline)
-	// 	cancel()
-	// }()
-
-	// if err = pipeline.SetState(gst.StatePlaying); err != nil {
-	// 	return err
-	// }
-	// select {
-	// case err := <-errCh:
-	// 	return err
-	// case <-ctx.Done():
-	// 	return ctx.Err()
-	// }
 
 	return nil
 }

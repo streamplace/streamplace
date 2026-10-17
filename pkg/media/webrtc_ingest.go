@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/google/uuid"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
@@ -40,7 +40,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 // worker passes a muxlSignSegmentElem wired to its frame socket and a nil
 // keyRevSigner. The cancellable ctx and signerElem are built by the caller (the
 // signer element's goroutines are tied to ctx).
-func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context.CancelFunc, offer *webrtc.SessionDescription, peerConnection rtcrec.PeerConnection, signerElem *gst.Element, keyRevSigner MediaSigner, done chan error) (*webrtc.SessionDescription, error) {
+func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context.CancelFunc, offer *webrtc.SessionDescription, peerConnection rtcrec.PeerConnection, signerElem gst.Element, keyRevSigner MediaSigner, done chan error) (*webrtc.SessionDescription, error) {
 	// Allow us to receive 1 audio track, and 1 video track
 	if _, err := peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio); err != nil {
 		return nil, fmt.Errorf("failed to add audio transceiver: %w", err)
@@ -50,45 +50,50 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 
 	pipelineSlice := []string{
 		"multiqueue name=queue",
-		"appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! capsfilter caps=video/x-h264,stream-format=byte-stream,alignment=nal ! h264parse disable-passthrough=true config-interval=-1 ! h264timestamper ! identity ! queue.sink_0",
+		"appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! capsfilter caps=video/x-h264,stream-format=byte-stream,alignment=nal ! h264parse name=videoparse disable-passthrough=true config-interval=-1 ! h264timestamper ! identity ! queue.sink_0",
 		"appsrc format=time do-timestamp=true name=audiosrc ! capsfilter caps=application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! rtpopusdepay ! opusparse ! queue.sink_1",
 	}
 
-	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
+	pipelineElem, err := gst.ParseLaunch(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GStreamer pipeline: %w", err)
 	}
-
-	queue, err := pipeline.GetElementByName("queue")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get queue element from pipeline: %w", err)
+	pipeline, ok := pipelineElem.(gst.Pipeline)
+	if !ok {
+		return nil, fmt.Errorf("failed to create GStreamer pipeline: not a pipeline")
 	}
 
-	// err = queue.Link(signerElem)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to link queue to signer element: %w", err)
-	// }
-	videoSrcPads, err := queue.GetSrcPads()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get videoSrcPads from queue: %w", err)
+	// Only an IDR starts a segment (see installIDRKeyframeProbe).
+	if parseEle := pipeline.GetByName("videoparse"); parseEle != nil {
+		streamer := "whip"
+		if keyRevSigner != nil {
+			streamer = keyRevSigner.Streamer()
+		}
+		installIDRKeyframeProbe(ctx, parseEle.GetStaticPad("src"), streamer)
 	}
-	if len(videoSrcPads) != 2 {
+	queue := pipeline.GetByName("queue")
+	if queue == nil {
+		return nil, fmt.Errorf("failed to get queue element from pipeline")
+	}
+
+	// multiqueue pairs sink_N with src_N: video is sink_0, audio is sink_1.
+	videoSrcPad := queue.GetStaticPad("src_0")
+	audioSrcPad := queue.GetStaticPad("src_1")
+	if videoSrcPad == nil || audioSrcPad == nil {
 		return nil, fmt.Errorf("failed to get videoSrcPads from queue")
 	}
-	videoSrcPad := videoSrcPads[0]
-	audioSrcPad := videoSrcPads[1]
 
-	videoSrcElem, err := pipeline.GetElementByName("videosrc")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get videoSrcElem element from pipeline: %w", err)
+	videoSrcElem := pipeline.GetByName("videosrc")
+	if videoSrcElem == nil {
+		return nil, fmt.Errorf("failed to get videoSrcElem element from pipeline")
 	}
-	videoSrc := app.SrcFromElement(videoSrcElem)
+	videoSrc := videoSrcElem.(app.AppSrc)
 
-	audioSrcElem, err := pipeline.GetElementByName("audiosrc")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get audioSrcElem element from pipeline: %w", err)
+	audioSrcElem := pipeline.GetByName("audiosrc")
+	if audioSrcElem == nil {
+		return nil, fmt.Errorf("failed to get audioSrcElem element from pipeline")
 	}
-	audioSrc := app.SrcFromElement(audioSrcElem)
+	audioSrc := audioSrcElem.(app.AppSrc)
 
 	// Set the remote SessionDescription
 	if err = peerConnection.SetRemoteDescription(*offer); err != nil {
@@ -110,22 +115,17 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 	gatherComplete := rtcrec.GatheringCompletePromise(peerConnection)
 
 	// cancel + signerElem are provided by the caller.
-	err = pipeline.Add(signerElem)
-	if err != nil {
+	if !pipeline.Add(signerElem) {
 		cancel()
-		return nil, fmt.Errorf("failed to add signer element to pipeline: %w", err)
+		return nil, fmt.Errorf("failed to add signer element to pipeline")
 	}
-	signerElemPads, err := signerElem.GetPads()
-	if err != nil {
-		cancel()
-		return nil, fmt.Errorf("failed to get signerElemPads from signer element: %w", err)
-	}
-	if len(signerElemPads) != 2 {
+	// The signer bin exposes its sink pads as video_0 and audio_0.
+	signerElemVideoPad := signerElem.GetStaticPad("video_0")
+	signerElemAudioPad := signerElem.GetStaticPad("audio_0")
+	if signerElemVideoPad == nil || signerElemAudioPad == nil {
 		cancel()
 		return nil, fmt.Errorf("failed to get signerElemPads from signer element")
 	}
-	signerElemVideoPad := signerElemPads[0]
-	signerElemAudioPad := signerElemPads[1]
 	linked := videoSrcPad.Link(signerElemVideoPad)
 	if linked != gst.PadLinkOK {
 		cancel()
@@ -181,9 +181,8 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 		log.Debug(ctx, "starting pipeline")
 
 		// Start the pipeline
-		err = pipeline.SetState(gst.StatePlaying)
-		if err != nil {
-			log.Log(ctx, "failed to set pipeline state", "error", err)
+		if ret := pipeline.SetState(gst.StatePlaying); ret == gst.StateChangeFailure {
+			log.Log(ctx, "failed to set pipeline state")
 			cancel()
 		}
 
@@ -240,7 +239,7 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 					i, _, readErr := track.Read(buf)
 					if readErr != nil {
 						log.Log(ctx, "failed to read track", "error", readErr)
-						videoSrc.EndStream()
+						videoSrc.EndOfStream()
 						return
 					}
 					// if ctx.Err() != nil {
@@ -251,9 +250,12 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 						log.Debug(ctx, "got video data", "len", len(buf[:i]))
 					}
 
-					gbuf := gst.NewBufferWithSize(int64(len(buf[:i])))
-					gbuf.Map(gst.MapWrite).WriteData(buf[:i])
-					gbuf.Unmap()
+					gbuf, bufErr := newBufferFromBytes(buf[:i])
+					if bufErr != nil {
+						log.Log(ctx, "failed to build buffer", "error", bufErr)
+						cancel()
+						return
+					}
 
 					ret := videoSrc.PushBuffer(gbuf)
 					if ret != gst.FlowOK {
@@ -279,7 +281,7 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 					i, _, readErr := track.Read(buf)
 					if readErr != nil {
 						log.Log(ctx, "failed to read track", "error", readErr)
-						audioSrc.EndStream()
+						audioSrc.EndOfStream()
 						return
 					}
 					// if ctx.Err() != nil {
@@ -290,9 +292,12 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 						log.Debug(ctx, "got audio data", "len", len(buf[:i]))
 					}
 
-					gbuf := gst.NewBufferWithSize(int64(len(buf[:i])))
-					gbuf.Map(gst.MapWrite).WriteData(buf[:i])
-					gbuf.Unmap()
+					gbuf, bufErr := newBufferFromBytes(buf[:i])
+					if bufErr != nil {
+						log.Log(ctx, "failed to build buffer", "error", bufErr)
+						cancel()
+						return
+					}
 					ret := audioSrc.PushBuffer(gbuf)
 					if ret != gst.FlowOK {
 						log.Log(ctx, "failed to push buffer", "error", ret)
@@ -311,16 +316,16 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 
 		<-ctx.Done()
 
-		if err := pipeline.BlockSetState(gst.StateNull); err != nil {
-			log.Log(ctx, "failed to set pipeline state to null", "error", err)
+		if ret := pipeline.BlockSetState(gst.StateNull, gst.ClockTimeNone); ret == gst.StateChangeFailure {
+			log.Log(ctx, "failed to set pipeline state to null")
 		}
 
-		if err := audioSrcElem.SetState(gst.StateNull); err != nil {
-			log.Log(ctx, "failed to set audioSrcElem state to null", "error", err)
+		if ret := audioSrcElem.SetState(gst.StateNull); ret == gst.StateChangeFailure {
+			log.Log(ctx, "failed to set audioSrcElem state to null")
 		}
 
-		if err := videoSrcElem.SetState(gst.StateNull); err != nil {
-			log.Log(ctx, "failed to set videoSrcElem state to null", "error", err)
+		if ret := videoSrcElem.SetState(gst.StateNull); ret == gst.StateChangeFailure {
+			log.Log(ctx, "failed to set videoSrcElem state to null")
 		}
 
 		log.Log(ctx, "webrtc ingest pipeline done")

@@ -22,6 +22,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Circle, Svg } from "react-native-svg";
 import { useTheme } from "../../lib/theme/theme";
+import { motion, shadows } from "../../lib/theme/tokens";
 import { Button } from "./button";
 import { Text } from "./text";
 
@@ -426,13 +427,15 @@ export function AndMore({ more }: { more: number }) {
       style={{
         padding: theme.spacing[2],
         paddingHorizontal: theme.spacing[4],
-        backgroundColor: theme.colors.muted,
-        borderRadius: theme.borderRadius.xl,
+        backgroundColor: theme.colors.surface2,
+        borderColor: theme.colors.borderStrong,
+        borderWidth: 1,
+        borderRadius: theme.borderRadius.full,
         marginTop: theme.spacing[2],
         alignSelf: "center",
       }}
     >
-      <Text size="sm" style={{ color: theme.colors.mutedForeground }}>
+      <Text size="sm" style={{ color: theme.colors.text3 }}>
         and {more} more notification
         {more === 1 ? "" : "s"}
       </Text>
@@ -483,7 +486,7 @@ function CloseButton({
         viewBox={`0 0 ${RADIUS * 2 + 2} ${RADIUS * 2 + 2}`}
       >
         <AnimatedCircle
-          stroke={theme.colors.border}
+          stroke={theme.colors.borderStrong}
           fill="transparent"
           strokeWidth="2"
           r={RADIUS}
@@ -508,7 +511,7 @@ function CloseButton({
         )}
       </Svg>
       <View style={{ position: "absolute" }}>
-        <X color={theme.colors.foreground} size={12} />
+        <X color={theme.colors.text2} size={12} />
       </View>
     </Pressable>
   );
@@ -590,8 +593,10 @@ export function Toast({
 
     if (!open) {
       // Close animation
-      opacity.value = withTiming(0, { duration: 250 });
-      translateY.value = withTiming(isTop ? -100 : 100, { duration: 250 });
+      opacity.value = withTiming(0, { duration: motion.base });
+      translateY.value = withTiming(isTop ? -100 : 100, {
+        duration: motion.base,
+      });
       return;
     }
 
@@ -609,31 +614,31 @@ export function Toast({
       translateY.value = withTiming(
         isTop ? cumulativeHeight : -cumulativeHeight,
         {
-          duration: 750,
-          easing: Easing.out(Easing.exp),
+          duration: motion.slow,
+          easing: Easing.bezier(...motion.bezier),
         },
       );
       scale.value = withTiming(1, {
-        duration: 750,
-        easing: Easing.out(Easing.exp),
+        duration: motion.slow,
+        easing: Easing.bezier(...motion.bezier),
       });
       opacity.value = withTiming(1, {
-        duration: 750,
-        easing: Easing.out(Easing.exp),
+        duration: motion.slow,
+        easing: Easing.bezier(...motion.bezier),
       });
     } else {
       // Compact stacked view when not hovered
       translateY.value = withTiming((isTop ? index : -index) * 15, {
-        duration: 750,
-        easing: Easing.out(Easing.exp),
+        duration: motion.slow,
+        easing: Easing.bezier(...motion.bezier),
       });
       scale.value = withTiming(1 - index * 0.1, {
-        duration: 750,
-        easing: Easing.out(Easing.exp),
+        duration: motion.slow,
+        easing: Easing.bezier(...motion.bezier),
       });
       opacity.value = withTiming(isLatest ? 1 : 0.95, {
-        duration: 750,
-        easing: Easing.out(Easing.exp),
+        duration: motion.slow,
+        easing: Easing.bezier(...motion.bezier),
       });
     }
   }, [open, isHovered, index, isLatest, measuredHeight, duration, id]);
@@ -686,14 +691,14 @@ export function Toast({
         // Dismiss - slide out in expansion direction
         dismissTranslateY.value = withTiming(
           isTop ? -200 : 200,
-          { duration: 250 },
+          { duration: motion.base },
           (finished) => {
             if (finished) {
               runOnJS(onOpenChange)(false);
             }
           },
         );
-        opacity.value = withTiming(0, { duration: 250 });
+        opacity.value = withTiming(0, { duration: motion.base });
       } else {
         // Spring back
         dismissTranslateY.value = withTiming(0, { duration: 200 });
@@ -714,14 +719,14 @@ export function Toast({
       if (event.translationX < -100 || event.velocityX < -500) {
         dismissTranslateX.value = withTiming(
           -400,
-          { duration: 250 },
+          { duration: motion.base },
           (finished) => {
             if (finished) {
               runOnJS(onOpenChange)(false);
             }
           },
         );
-        opacity.value = withTiming(0, { duration: 250 });
+        opacity.value = withTiming(0, { duration: motion.base });
       } else {
         // Spring back
         dismissTranslateX.value = withTiming(0, { duration: 200 });
@@ -751,24 +756,19 @@ export function Toast({
     };
   });
 
-  const variantStyles = {
-    default: {
-      backgroundColor: theme.colors.secondary,
-      borderColor: theme.colors.border,
-    },
-    success: {
-      backgroundColor: theme.colors.success,
-      borderColor: theme.colors.success,
-    },
-    error: {
-      backgroundColor: theme.colors.destructive,
-      borderColor: theme.colors.destructive,
-    },
-    info: {
-      backgroundColor: theme.colors.info,
-      borderColor: theme.colors.info,
-    },
+  // One neutral elevated surface for every variant. The state reads through
+  // the accent-colored left icon, not a flooded background — matches the
+  // restrained, surface-based chrome used across the app.
+  const toastSurface = {
+    backgroundColor: theme.colors.surface2,
+    borderColor: theme.colors.borderStrong,
   };
+  const accentColor = {
+    default: theme.colors.text3,
+    success: theme.colors.success,
+    error: theme.colors.destructive,
+    info: theme.colors.info,
+  }[variant];
 
   const buttonTypeMap = {
     default: "primary",
@@ -797,15 +797,17 @@ export function Toast({
           disabled={!onToastPress}
           style={[
             styles.toast,
+            shadows.lg,
             {
-              borderRadius: theme.borderRadius.xl,
+              borderRadius: theme.borderRadius.lg,
               flexDirection: "column",
               justifyContent: "space-between",
               alignItems: "center",
-              padding: theme.spacing[4],
+              paddingVertical: theme.spacing[3],
+              paddingHorizontal: theme.spacing[4],
               width: "100%",
             },
-            variantStyles[variant],
+            toastSurface,
           ]}
         >
           {render ? (
@@ -815,27 +817,36 @@ export function Toast({
               <View
                 style={{
                   flexDirection: "row",
-                  alignItems: "flex-start",
+                  alignItems: "center",
                   justifyContent: "space-between",
                   width: "100%",
-                  gap: theme.spacing[4],
+                  gap: theme.spacing[3],
                 }}
               >
                 <View
                   style={{
                     flexDirection: "row",
                     flex: 1,
+                    alignItems: description ? "flex-start" : "center",
                     gap: theme.spacing[3],
                   }}
                 >
                   {FinalIconLeft && (
-                    <View style={{ paddingTop: 2 }}>
-                      <FinalIconLeft color={theme.colors.foreground} />
-                    </View>
+                    <FinalIconLeft
+                      color={accentColor}
+                      size={18}
+                      style={description ? { marginTop: 1 } : undefined}
+                    />
                   )}
-                  <View style={{ flex: 1 }}>
-                    <Text size="lg">{title}</Text>
-                    {description ? <Text>{description}</Text> : null}
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text size="sm" weight="medium">
+                      {title}
+                    </Text>
+                    {description ? (
+                      <Text size="sm" style={{ color: theme.colors.text3 }}>
+                        {description}
+                      </Text>
+                    ) : null}
                   </View>
                 </View>
                 {FinalIconRight && !onAction ? (
@@ -847,7 +858,7 @@ export function Toast({
                     }}
                   >
                     <Pressable onPress={onToastPress}>
-                      <FinalIconRight color={theme.colors.foreground} />
+                      <FinalIconRight color={theme.colors.text2} size={18} />
                     </Pressable>
                     <CloseButton
                       onPress={() => onOpenChange(false)}
@@ -880,23 +891,23 @@ export function Toast({
                     width: "100%",
                   }}
                 >
+                  {/* No explicit label color: Text inherits the variant's
+                      foreground via ButtonTextColorContext — an override
+                      painted text1 onto the Paper/Ink primary fill, making
+                      the label invisible. */}
                   <Button
                     width="min"
                     variant={buttonTypeMap[variant]}
                     onPress={onAction}
                   >
-                    <Text style={{ color: theme.colors.foreground }}>
-                      {actionLabel}
-                    </Text>
+                    <Text>{actionLabel}</Text>
                   </Button>
                   <Button
                     variant="secondary"
                     width="min"
                     onPress={() => onOpenChange(false)}
                   >
-                    <Text style={{ color: theme.colors.foreground }}>
-                      Close
-                    </Text>
+                    <Text>Close</Text>
                   </Button>
                 </View>
               )}

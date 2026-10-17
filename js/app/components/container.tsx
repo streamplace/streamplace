@@ -1,30 +1,14 @@
 import { zero } from "@streamplace/components";
+import { spacing } from "@streamplace/components/src/lib/theme/tokens";
 import { View, ViewStyle, useWindowDimensions } from "react-native";
 
-const maxContainerWidths = {
-  xxs: 440,
-  xs: 440,
-  sm: 440,
-  md: 660,
-  lg: 740,
-  xl: 800,
-  twoXl: 1260,
-  threeXl: 1660,
-};
+// Content well: fluid with comfortable gutters, capped for very wide
+// displays so line lengths and grids stay composed.
+const MAX_CONTENT_WIDTH = 1680;
 
 interface ContainerProps {
   children: React.ReactNode;
   style?: ViewStyle;
-}
-
-function getMaxWidth(width: number): number {
-  if (width >= 1660) return maxContainerWidths.threeXl;
-  if (width >= 1260) return maxContainerWidths.twoXl;
-  if (width >= 800) return maxContainerWidths.xl;
-  if (width >= 740) return maxContainerWidths.lg;
-  if (width >= 660) return maxContainerWidths.md;
-  if (width >= 440) return width;
-  return maxContainerWidths.sm;
 }
 
 export default function Container({
@@ -33,7 +17,6 @@ export default function Container({
   ...props
 }: ContainerProps) {
   const { width } = useWindowDimensions();
-  const maxWidth = getMaxWidth(width);
   const isMobile = width < 768;
 
   return (
@@ -47,9 +30,9 @@ export default function Container({
       <View
         style={[
           zero.w.percent[100],
-          isMobile ? zero.px[2] : zero.px[8],
+          { paddingHorizontal: isMobile ? spacing[4] : spacing[6] },
           { marginHorizontal: "auto" },
-          { maxWidth },
+          { maxWidth: MAX_CONTENT_WIDTH },
           style,
         ]}
         {...props}

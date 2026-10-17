@@ -5,6 +5,10 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import {
+  scrims,
+  textAlphas,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { useEffect, useState } from "react";
 
 const { gap, h, layout, position, w } = zero;
@@ -65,7 +69,7 @@ export function OfflineCounter({ isMobile = false }: OfflineCounterProps) {
         h.percent[100],
         w.percent[100],
         {
-          backgroundColor: "rgba(0, 0, 0, 0.85)",
+          backgroundColor: scrims.dark,
           zIndex: 1000,
         },
       ]}
@@ -87,7 +91,7 @@ export function OfflineCounter({ isMobile = false }: OfflineCounterProps) {
           style={[
             {
               fontSize: subtitleFontSize,
-              color: "rgba(255, 255, 255, 0.8)",
+              color: textAlphas.dark[1],
               textAlign: "center",
               fontVariant: ["tabular-nums"],
             },
@@ -99,7 +103,7 @@ export function OfflineCounter({ isMobile = false }: OfflineCounterProps) {
           style={[
             {
               fontSize: descriptionFontSize,
-              color: "rgba(255, 255, 255, 0.6)",
+              color: textAlphas.dark[2],
               textAlign: "center",
               marginTop: descriptionMarginTop,
               maxWidth,

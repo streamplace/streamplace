@@ -1,5 +1,5 @@
-import { AlertTriangle, ChevronDown } from "lucide-react-native";
-import { View } from "react-native";
+import { AlertTriangle } from "lucide-react-native";
+import { TextStyle, View } from "react-native";
 import { zero } from "../..";
 import { C2PA_WARNING_LABELS } from "../../lib/metadata-constants";
 import { useTheme } from "../../lib/theme/theme";
@@ -15,9 +15,13 @@ const { px, py, gap, layout } = zero;
 
 export interface ContentWarningBadgeProps {
   warnings: string[];
+  truncate?: boolean;
 }
 
-export function ContentWarningBadge({ warnings }: ContentWarningBadgeProps) {
+export function ContentWarningBadge({
+  warnings,
+  truncate = false,
+}: ContentWarningBadgeProps) {
   const { theme } = useTheme();
 
   const getWarningLabel = (warning: string): string => {
@@ -28,29 +32,37 @@ export function ContentWarningBadge({ warnings }: ContentWarningBadgeProps) {
     return null;
   }
 
+  const labelStyle: TextStyle = truncate
+    ? {
+        color: theme.colors.mutedForeground,
+        flexShrink: 1,
+        minWidth: 0,
+        overflow: "hidden",
+      }
+    : { color: theme.colors.mutedForeground };
+
   return (
-    <DropdownMenu>
+    <DropdownMenu style={truncate ? { flexShrink: 1, minWidth: 0 } : undefined}>
       <DropdownMenuTrigger>
         <View
           style={[
             layout.flex.row,
             layout.flex.align.center,
             gap.all[2],
-            px[3],
+            px[2],
             py[2],
             r.md,
-            { backgroundColor: hexToRgba(theme.colors.warning, 0.13) },
+            { backgroundColor: hexToRgba(theme.colors.muted, 0.53) },
           ]}
         >
-          <AlertTriangle size={14} color={theme.colors.warningForeground} />
+          <AlertTriangle size={14} color={theme.colors.mutedForeground} />
           <Text
             size="sm"
-            weight="semibold"
-            style={{ color: theme.colors.warningForeground }}
+            numberOfLines={truncate ? 1 : undefined}
+            style={labelStyle}
           >
             Intended for certain audiences
           </Text>
-          <ChevronDown size={14} color={theme.colors.warningForeground} />
         </View>
       </DropdownMenuTrigger>
 

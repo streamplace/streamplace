@@ -1,0 +1,13 @@
+# Opens the first live stream from the home feed and captures the player.
+# Screenshots land in artifacts/stream (see scripts/ui-shoot.sh).
+appId: tv.aquareum.dev
+---
+- launchApp
+- assertVisible: "Home"
+- takeScreenshot: 01-home
+- tapOn:
+    text: "LIVE, .*"
+    index: 0
+- takeScreenshot: 02-player
+- back
+- takeScreenshot: 03-home-return

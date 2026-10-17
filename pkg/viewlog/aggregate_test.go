@@ -569,3 +569,101 @@ func TestAggregateWindowMissingMetafileDoesNotPoison(t *testing.T) {
 	require.Equal(t, int64(1), res.VideoCounts[0].Count)
 	require.Empty(t, res.VideoCounts[0].Tracks, "no metafile ⇒ no per-track credit")
 }
+
+// TestAggregateWindowFlatHeaderOffset: node-logged Ranges are absolute
+// within the blob, which stores the fragments behind a synthesized
+// flat-MP4 header; the metafile's offsets are fragment-relative. A
+// request for the first video segment therefore arrives shifted by
+// FlatHeaderSize and must still credit exactly that segment.
+func TestAggregateWindowFlatHeaderOffset(t *testing.T) {
+	root := t.TempDir()
+	now := time.Date(2026, 5, 17, 12, 0, 0, 0, time.UTC)
+	w := newAggTestWriter(t, root, "did:web:node1", now)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go w.Run(ctx)
+
+	const header = 1000
+	w.Log(ctx, Event{Ts: now, Type: EventTypeManifestRequest, VideoURI: "at://did:plc:alice/place.stream.video/v1", SID: "s"})
+	w.Log(ctx, Event{Ts: now.Add(time.Second), Type: EventTypeSegmentRequest, CID: "bafyfixture", SID: "s", RangeStart: header + 0, RangeEnd: header + 399})
+	require.NoError(t, w.Close())
+
+	store, err := blob.NewFileStore(root)
+	require.NoError(t, err)
+	refs := fixtureTrackRefs()
+	res, err := AggregateWindow(context.Background(), store, AggregateInput{
+		WindowStart: now.Add(-time.Minute),
+		WindowEnd:   now.Add(time.Minute),
+		FetchMetafile: func(ctx context.Context, cid string) (*vod.Metafile, error) {
+			m := fixtureMetafile()
+			m.FlatHeaderSize = header
+			return m, nil
+		},
+		FetchTrackRefs: func(ctx context.Context, cid string) (map[string]comatproto.RepoStrongRef, error) { return refs, nil },
+	})
+	require.NoError(t, err)
+	require.Len(t, res.VideoCounts, 1)
+	require.Len(t, res.VideoCounts[0].Tracks, 1, "only the video track was touched")
+	require.Equal(t, TrackUsage{Track: refs["1"], Bytes: 400, DurationMS: 2000}, res.VideoCounts[0].Tracks[0])
+}
+
+func TestProrateInTrack(t *testing.T) {
+	meta := fixtureMetafile()
+	total := metafileBodyBytes(meta)
+	require.Equal(t, int64(1500), total)
+
+	// A CDN-logged request for 300 bytes with no Range: video holds
+	// 1200/1500 of the body, audio 300/1500. Each track gets that
+	// share of the bytes and the matching share of its own duration.
+	b, d := prorateInTrack(300, total, meta.Tracks["1"])
+	require.Equal(t, int64(240), b)
+	require.Equal(t, int64(1200), d, "6000ms of video * 300/1500")
+	b, d = prorateInTrack(300, total, meta.Tracks["2"])
+	require.Equal(t, int64(60), b)
+	require.Equal(t, int64(1200), d)
+
+	// Bytes beyond the body (a whole-blob fetch that included the flat
+	// header) are capped at the body.
+	b, d = prorateInTrack(99999, total, meta.Tracks["1"])
+	require.Equal(t, int64(1200), b)
+	require.Equal(t, int64(6000), d)
+
+	b, d = prorateInTrack(0, total, meta.Tracks["1"])
+	require.Zero(t, b)
+	require.Zero(t, d)
+}
+
+// TestAggregateWindowBytesSentEvents: CDN-ingested events (BytesSent,
+// no Range) count toward the sid view and are prorated, alongside a
+// node-logged Range event for the same session.
+func TestAggregateWindowBytesSentEvents(t *testing.T) {
+	root := t.TempDir()
+	now := time.Date(2026, 5, 17, 12, 0, 0, 0, time.UTC)
+	w := newAggTestWriter(t, root, "did:web:node1", now)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go w.Run(ctx)
+
+	w.Log(ctx, Event{Ts: now, Type: EventTypeManifestRequest, VideoURI: "at://did:plc:alice/place.stream.video/v1", SID: "s"})
+	w.Log(ctx, Event{Ts: now.Add(time.Second), Type: EventTypeSegmentRequest, CID: "bafyfixture", SID: "s", BytesSent: 1500})
+	require.NoError(t, w.Close())
+
+	store, err := blob.NewFileStore(root)
+	require.NoError(t, err)
+	refs := fixtureTrackRefs()
+	res, err := AggregateWindow(context.Background(), store, AggregateInput{
+		WindowStart:    now.Add(-time.Minute),
+		WindowEnd:      now.Add(time.Minute),
+		FetchMetafile:  func(ctx context.Context, cid string) (*vod.Metafile, error) { return fixtureMetafile(), nil },
+		FetchTrackRefs: func(ctx context.Context, cid string) (map[string]comatproto.RepoStrongRef, error) { return refs, nil },
+	})
+	require.NoError(t, err)
+	require.Len(t, res.VideoCounts, 1)
+	require.Equal(t, int64(1), res.VideoCounts[0].Count)
+	byURI := map[string]TrackUsage{}
+	for _, tu := range res.VideoCounts[0].Tracks {
+		byURI[tu.Track.Uri] = tu
+	}
+	require.Equal(t, TrackUsage{Track: refs["1"], Bytes: 1200, DurationMS: 6000}, byURI[refs["1"].Uri])
+	require.Equal(t, TrackUsage{Track: refs["2"], Bytes: 300, DurationMS: 6000}, byURI[refs["2"].Uri])
+}

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -eu
-printf "variables:\n  DOCKERFILE_HASH: $(git hash-object docker/build.Dockerfile)" > .ci/dockerfile-hash.yaml
+make dockerfile-hash-precommit
 git add .ci/dockerfile-hash.yaml
 if ! git diff-index --quiet --cached HEAD --; then
   git commit --amend -C HEAD --no-verify

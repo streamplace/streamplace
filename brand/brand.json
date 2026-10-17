@@ -1,0 +1,15 @@
+{
+  "name": "Streamplace",
+  "wordmark": "stream.place",
+  "monochrome": false,
+  "colors": {
+    "ink": "#0A0A0B",
+    "paper": "#ffffff",
+    "iconBackground": "#ffffff",
+    "adaptiveIconBackground": "#111113",
+    "splashBackground": "#ffffff",
+    "tileBackground": "#111113",
+    "tileForeground": "#ffffff",
+    "bannerBackground": "#ffffff"
+  }
+}

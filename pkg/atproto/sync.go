@@ -32,13 +32,19 @@ import (
 // skew does not eat a genuinely live message.
 const chatLiveWindow = 2 * time.Minute
 
+// The commit revision orders permission updates and deletions on the client.
+type moderationPermissionViewEvent struct {
+	placestream.ModerationDefs_PermissionView
+	RepoRev string `json:"repoRev,omitempty"`
+}
+
 // handleCreateUpdate indexes one record. It is called at least once per record
 // -- firehose cursor replay, a backfill walk restarting against a new head, and
 // the same commit arriving from several relays all deliver records we already
 // have -- so every write it makes has to be idempotent, and every side effect
 // (bus fanout, notification tasks) has to be skipped when nothing changed. The
 // model layer signals that with [model.ErrAlreadyIndexed]; see pkg/model/indexed.go.
-func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID, isUpdate bool, isFirstSync bool) error {
+func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID, isUpdate bool, isFirstSync bool, repoRev string) error {
 	ctx = log.WithLogValues(ctx, "func", "handleCreateUpdate", "userDID", userDID, "rkey", rkey.String(), "cid", cid, "collection", collection.String())
 	now := time.Now()
 	r, err := atsync.Model.GetRepo(userDID)
@@ -102,6 +108,29 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to convert block to streamplace block: %w", err)
 		}
 		go atsync.Bus.Publish(userDID, streamplaceBlock)
+
+	case *appbsky.GraphVerification:
+		// Indexed from any repo, known or not: verifiers are few, and which
+		// ones this node trusts is decided by branding after the fact.
+		v := &model.Verification{
+			URI:         aturi.String(),
+			CID:         cid,
+			IssuerDID:   userDID,
+			SubjectDID:  rec.Subject,
+			Handle:      rec.Handle,
+			DisplayName: rec.DisplayName,
+		}
+		if created, err := aqtime.FromString(rec.CreatedAt); err == nil {
+			v.CreatedAt = created.Time()
+		}
+		err := atsync.Model.CreateVerification(ctx, v)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("failed to create verification: %w", err)
+		}
+		return nil
 
 	case *appbsky.ActorProfile:
 		if r == nil {
@@ -222,6 +251,12 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 
 		if scm.Author.Handle == "" || scm.Author.Handle == "handle.invalid" {
 			scm.Author.Handle = atsync.ResolveAuthorHandle(ctx, scm.Author.Did)
+		}
+		atsync.DecorateVerification(ctx, rec.Streamer, scm)
+		if !atsync.ChatAllowed(ctx, rec.Streamer, scm.Author.Did) {
+			// The streamer's chat access rules refuse this author: the message
+			// is indexed (the rules may change) but not shown.
+			return nil
 		}
 
 		go atsync.Bus.Publish(rec.Streamer, scm)
@@ -507,6 +542,25 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			ls.PostCID = rec.Post.Cid
 			ls.PostURI = rec.Post.Uri
 		}
+		// Whether this version is the node seeing the livestream end: the
+		// version it had indexed, if any, had not ended. Read before indexing
+		// replaces it.
+		seenEnding := false
+		if rec.EndedAt != nil && !isFirstSync {
+			prev, err := atsync.Model.GetLivestream(aturi.String())
+			if err != nil {
+				return fmt.Errorf("failed to get livestream: %w", err)
+			}
+			seenEnding = prev == nil
+			if prev != nil {
+				prevView, err := prev.ToLivestreamView()
+				if err != nil {
+					return fmt.Errorf("failed to decode indexed livestream: %w", err)
+				}
+				prevRec, ok := prevView.Record.Val.(*placestream.Livestream)
+				seenEnding = ok && prevRec.EndedAt == nil
+			}
+		}
 		err = atsync.Model.CreateLivestream(ctx, ls)
 		if errors.Is(err, model.ErrAlreadyIndexed) {
 			// Re-announcing an unchanged livestream would light the red circle
@@ -529,6 +583,16 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if !isFirstSync {
 			if atsync.CLI.StreamIsAllowed(userDID) != nil {
 				// they're live somewhere but they don't have nothin' to do with us
+				return nil
+			}
+			if seenEnding {
+				// Publish its VOD if the streamer has that on now. Only on
+				// seeing it end, never for an ended record seen again (a
+				// redelivery, an edit, a backfilled one), so turning it on
+				// later doesn't publish an old recording.
+				if err := atsync.StatefulDB.ScheduleAutoPublishVOD(ctx, userDID, aturi.String()); err != nil {
+					return fmt.Errorf("failed to schedule automatic VOD publishing: %w", err)
+				}
 				return nil
 			}
 			log.Debug(ctx, "stream is allowed, queuing finalize task")
@@ -687,6 +751,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			log.Error(ctx, "failed to update broadcast origin", "err", err)
 		}
+		log.Log(ctx, "indexed broadcast origin", "streamer", rec.Streamer, "server", rec.Server)
 		view := placestream.BroadcastDefs_BroadcastOriginView{
 			Uri: aturi.String(),
 			Cid: cid,
@@ -715,6 +780,28 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to create metadata configuration", "err", err)
 		}
 
+	case *placestream.ChatAccess:
+		if _, err := atsync.SyncBlueskyRepoCached(ctx, userDID); err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		row, err := model.ChatAccessRuleFromRecord(rec, aturi)
+		if errors.Is(err, model.ErrChatAccessSubjectUnknown) {
+			log.Warn(ctx, "chat access rule with an unknown subject type, skipping", "uri", aturi.String())
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("invalid chat access rule: %w", err)
+		}
+		err = atsync.Model.CreateChatAccessRule(ctx, row)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("failed to index chat access rule: %w", err)
+		}
+		atsync.NoteChatAccessRule(ctx, row)
+		log.Log(ctx, "indexed chat access rule", "streamer", userDID, "action", row.Action, "subject", row.SubjectType, "did", row.SubjectDID)
+
 	case *placestream.ModerationPermission:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
@@ -731,8 +818,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 		view := placestream.ModerationDefs_PermissionView{
-			Uri: aturi.String(),
-			Cid: cid,
+			LexiconTypeID: "place.stream.moderation.defs#permissionView",
+			Uri:           aturi.String(),
+			Cid:           cid,
 			Author: appbsky.ActorDefs_ProfileViewBasic{
 				Did:    userDID,
 				Handle: repo.Handle,
@@ -741,7 +829,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		// Publish moderation permission view to WebSocket bus for real-time updates
 		// This allows moderators to see their permissions instantly without page refresh
-		go atsync.Bus.Publish(userDID, view)
+		go atsync.Bus.Publish(userDID, moderationPermissionViewEvent{
+			ModerationDefs_PermissionView: view,
+			RepoRev:                       repoRev,
+		})
 
 	case *placestream.LiveViewerCount:
 		log.Debug(ctx, "indexing view count", "streamer", rec.Streamer, "server", rec.Server, "count", rec.Count)

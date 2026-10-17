@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd js/app && npx expo start --web --port 38081 -c"
+      ],
+      "port": 38081
+    }
+  ]
+}

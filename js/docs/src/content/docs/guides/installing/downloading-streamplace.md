@@ -54,6 +54,18 @@ SP_TLS_CERT=/tls/tls.crt
 SP_TLS_KEY=/tls/tls.key
 ```
 
+### Reusing a former PDS hostname
+
+A Streamplace node does not host the accounts from a PDS that previously ran at
+the same hostname. If their DID documents still point there, repository reads
+return HTTP 508 (Loop Detected) rather than repeatedly proxying back to the node.
+Restore the PDS or update those accounts' PDS endpoints to make their records
+available again.
+
+Repository reads forwarded by Streamplace carry `X-Streamplace-Repo-Proxy`.
+Reverse proxies must preserve this header: a node can serve its own repository
+to a forwarded request, but will not forward that request again.
+
 ### Docker
 
 Running Streamplace from a Docker image works great except for Docker
@@ -72,7 +84,7 @@ host networking. So that command would look something like:
     -e SP_ALLOWED_STREAMS=did:web:example.com,did:plc:rbvrr34edl5ddpuwcubjiost \
     -v /var/lib/streamplace:/var/lib/streamplace \
     --net=host \
-    oci.stream.place/streamplace
+    ghcr.io/streamplace/streamplace
 ```
 
 ## Download a binary

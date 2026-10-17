@@ -1,4 +1,5 @@
-import { Text } from "@streamplace/components";
+import { Button, Text, useTheme } from "@streamplace/components";
+import { colors, scrims } from "@streamplace/components/src/lib/theme/tokens";
 import { Image } from "expo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, TouchableOpacity, View } from "react-native";
@@ -8,6 +9,7 @@ export default function ThumbnailSelector({
   onThumbnailSelected,
   thumbnailUrl,
 }: ThumbnailSelectorProps) {
+  const { theme } = useTheme();
   const [selectedImage, setSelectedImage] = useState<string | null>(
     thumbnailUrl || null,
   );
@@ -154,7 +156,7 @@ export default function ThumbnailSelector({
               position: "relative",
               height: 300,
               width: "100%",
-              backgroundColor: "#333",
+              backgroundColor: theme.colors.surface2,
               borderRadius: 8,
             },
           ]}
@@ -189,7 +191,7 @@ export default function ThumbnailSelector({
             <TouchableOpacity
               style={[
                 {
-                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  backgroundColor: scrims.dark,
                   borderRadius: 8,
                   paddingHorizontal: 16,
                   paddingVertical: 12,
@@ -201,14 +203,14 @@ export default function ThumbnailSelector({
               onPress={captureWebFrame}
             >
               <Text style={[{ fontSize: 16 }]}>📷</Text>
-              <Text style={[{ color: "#fff", fontWeight: "600" }]}>
+              <Text style={[{ color: colors.white, fontWeight: "600" }]}>
                 Capture
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 {
-                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  backgroundColor: scrims.dark,
                   borderRadius: 8,
                   paddingHorizontal: 16,
                   paddingVertical: 12,
@@ -229,7 +231,9 @@ export default function ThumbnailSelector({
               }}
             >
               <Text style={[{ fontSize: 16 }]}>×</Text>
-              <Text style={[{ color: "#fff", fontWeight: "600" }]}>Cancel</Text>
+              <Text style={[{ color: colors.white, fontWeight: "600" }]}>
+                Cancel
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -255,14 +259,14 @@ export default function ThumbnailSelector({
                 width: 24,
                 height: 24,
                 borderRadius: 12,
-                backgroundColor: "rgba(0, 0, 0, 0.7)",
+                backgroundColor: scrims.dark,
                 alignItems: "center",
                 justifyContent: "center",
               },
             ]}
             onPress={clearThumbnail}
           >
-            <Text style={[{ fontSize: 16, color: "#fff" }]}>×</Text>
+            <Text style={[{ fontSize: 16, color: colors.white }]}>×</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -271,61 +275,41 @@ export default function ThumbnailSelector({
             {
               height: 150,
               width: "100%",
-              backgroundColor: "#333",
+              backgroundColor: theme.colors.surface2,
               borderRadius: 8,
               justifyContent: "center",
               alignItems: "center",
             },
           ]}
         >
-          <Text style={[{ color: "#fff" }]}>No thumbnail selected</Text>
+          <Text style={[{ color: theme.colors.text1 }]}>
+            No thumbnail selected
+          </Text>
         </View>
       )}
 
       {!showWebCamera && (
         <View style={[{ flexDirection: "row", gap: 8, marginTop: 8 }]}>
-          <TouchableOpacity
-            style={[
-              { flex: 1 },
-              {
-                backgroundColor: "#007AFF",
-                borderRadius: 8,
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-              },
-            ]}
-            onPress={pickImage}
-          >
-            <Text style={[{ fontSize: 16 }]}>🖼️</Text>
-            <Text style={[{ color: "#fff", fontWeight: "600" }]}>
+          {/* Two equal utility actions → secondary (tonal), so neither reads as
+              a competing Paper primary. */}
+          <View style={{ flex: 1 }}>
+            <Button
+              variant="secondary"
+              onPress={pickImage}
+              leftIcon={<Text style={{ fontSize: 16 }}>🖼️</Text>}
+            >
               Choose Image
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              { flex: 1 },
-              {
-                backgroundColor: "#007AFF",
-                borderRadius: 8,
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-              },
-            ]}
-            onPress={takePhoto}
-          >
-            <Text style={[{ fontSize: 16 }]}>📷</Text>
-            <Text style={[{ color: "#fff", fontWeight: "600" }]}>
+            </Button>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              variant="secondary"
+              onPress={takePhoto}
+              leftIcon={<Text style={{ fontSize: 16 }}>📷</Text>}
+            >
               Take Photo
-            </Text>
-          </TouchableOpacity>
+            </Button>
+          </View>
         </View>
       )}
 

@@ -1,23 +1,35 @@
 import {
   ACTIVITY_LABEL_DISPLAY,
+  Skeleton,
   Text,
+  useBrandingAsset,
+  useDefaultStreamer,
+  useDefaultVideo,
   useStreamplaceStore,
+  useTheme,
   zero,
 } from "@streamplace/components";
+import { spacing } from "@streamplace/components/src/lib/theme/tokens";
 import AQLink from "components/aqlink";
 import Container from "components/container";
+import { EmptyState } from "components/empty-state";
 import ErrorBox from "components/error/error";
 import StreamCardHorizontal, { StreamCardSize } from "components/home/cards";
 import LiveDot from "components/home/live-dot";
-import Loading from "components/loading/loading";
 import PullToRefreshScrollView from "components/pull-to-refresh";
-import Title from "components/title";
 import { Image } from "expo-image";
 import useAvatars from "hooks/useAvatars";
+import { useFrontDoorReload } from "hooks/useDefaultStreamerReload";
 import { useEffect, useState } from "react";
 import { Platform, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { lazyScreen } from "src/lazy-screen";
+import { useStore } from "store";
 import { place } from "streamplace";
+
+// Only rendered when the node sets a default streamer/video for its front door.
+const MobileStream = lazyScreen(() => import("./mobile-stream"));
+const VideoScreen = lazyScreen(() => import("./video"));
 
 function getStreamActivity(
   record: place.stream.livestream.Main,
@@ -33,11 +45,6 @@ function getStreamActivity(
   }
   return undefined;
 }
-
-// as we're not using a specific grid library these are necessary
-// to constrain the cards
-const FIRST_ROW_MAGIC_RATIO = 0.95;
-const LAST_ROW_MAGIC_RATIO = 1.16;
 
 type StreamRecord = {
   createdAt: Date;
@@ -88,17 +95,12 @@ function getHomeScreenItemSize(width: number): StreamCardSize {
   return "xs"; // sm and below
 }
 
+// Uniform responsive grid, YouTube-style. Cards stay large — YouTube
+// shows 3 columns on a laptop, 4 on a big display.
 function getHomeScreenCols(width: number): number {
-  if (width >= 1550) return 4;
-  if (width >= 1280) return 3;
-  if (width >= 1024) return 2;
-  if (width >= 768) return 2;
-  return 1;
-}
-
-// Get the ratio for the first card based on column count
-function getPadPercentage(cols: number): number {
-  if (cols >= 3) return 2.07;
+  if (width >= 1900) return 4;
+  if (width >= 1400) return 3;
+  if (width >= 900) return 2;
   return 1;
 }
 
@@ -118,6 +120,7 @@ function HomeScreenItem({
   const user = item.author.handle || item.author.did;
   return (
     <AQLink
+      testID="home-stream-card"
       to={{
         screen: "Stream",
         params: {
@@ -150,25 +153,63 @@ function HomeScreenItem({
   );
 }
 
-function PlaceholderItem() {
+function StreamCardSkeleton() {
   return (
-    <View style={[{ flex: 1 }, { opacity: 0, pointerEvents: "none" }]}>
-      <StreamCardHorizontal
-        size={"sm"}
-        title={"you found a secret :)"}
-        horizontal={false}
-        thumbnailUrl={``}
-        avatarUrl={
-          "https://cdn.bsky.app/img/avatar/plain/did:plc:4ukwiehjoytl56ysom2pdwko/bafkreieal2i74ynzrvofia6fa3efqnyxmox76ohrfldt5kvls73lbspzdm@jpeg"
-        }
-        streamerName={
-          "hi! im here to pad out the grid so it doesn't look all wacky"
-        }
-        category={[]}
-        viewers={0}
-        isLive={false}
+    <View style={{ flex: 1, gap: spacing[3] }}>
+      <Skeleton
+        radius="lg"
+        height={undefined}
+        style={{ aspectRatio: 16 / 9 }}
       />
+      <View style={{ flexDirection: "row", gap: spacing[3] }}>
+        <Skeleton shape="circle" width={40} />
+        <View style={{ flex: 1, gap: spacing[2] }}>
+          <Skeleton shape="text" width="85%" />
+          <Skeleton shape="text" width="45%" />
+        </View>
+      </View>
     </View>
+  );
+}
+
+// Full-page skeleton grid matching the real column layout so nothing
+// shifts when data arrives.
+function HomeSkeletonGrid() {
+  const { width } = useWindowDimensions();
+  const cols = getHomeScreenCols(width);
+  const rows = 3;
+  return (
+    <Container>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing[3],
+          marginVertical: spacing[8],
+        }}
+      >
+        <Skeleton shape="circle" width={12} />
+        <Skeleton shape="text" width={180} height={20} />
+      </View>
+      {Array(rows)
+        .fill(null)
+        .map((_, r) => (
+          <View
+            key={r}
+            style={{
+              flexDirection: "row",
+              gap: spacing[6],
+              marginBottom: spacing[6],
+            }}
+          >
+            {Array(cols)
+              .fill(null)
+              .map((_, c) => (
+                <StreamCardSkeleton key={c} />
+              ))}
+          </View>
+        ))}
+    </Container>
   );
 }
 
@@ -186,6 +227,7 @@ export default function HomeScreen({
   );
   const liveUsersError = useStreamplaceStore((state) => state.liveUsersError);
   const [manualRefresh, setManualRefresh] = useState(false);
+  const { theme } = useTheme();
   const { width } = useWindowDimensions();
 
   // Use mock data for development/testing if needed
@@ -194,6 +236,27 @@ export default function HomeScreen({
   // const segments = realSegments; // Comment this line out if using mock data
 
   const avis = useAvatars((segments || []).map((s) => s.author.did));
+  // Single-user node: the front door is that streamer's page. The branding
+  // key defaultStreamer (a handle or DID) has meant this for a while; this is
+  // where it finally takes effect. (Every hook above this line runs on every
+  // render: the early returns below come and go with the live-users fetch,
+  // and a hook after them would change the hook count between renders.)
+  const defaultStreamer = useDefaultStreamer();
+  // A default video (branding key defaultVideo) is the front door while
+  // set, over the streamer: a replay to send everyone to after an event.
+  const defaultVideo = useDefaultVideo();
+  const defaultVideoRaw = useBrandingAsset("defaultVideo")?.data;
+  // ...and the page follows both: an operator who points the node at
+  // another streamer or a video moves everyone on this page there.
+  useFrontDoorReload(defaultStreamer, defaultVideoRaw);
+  // Showing the default video, this page is a video page: tell the shell,
+  // which otherwise keeps the docked sidebar and the feed column the home
+  // grid lives in, and clips the player to it.
+  const setVideoPage = useStore((s) => s.setVideoPage);
+  useEffect(() => {
+    setVideoPage(!!defaultVideo);
+    return () => setVideoPage(false);
+  }, [defaultVideo, setVideoPage]);
 
   useEffect(() => {
     if (!liveUsersLoading) {
@@ -201,9 +264,16 @@ export default function HomeScreen({
     }
   }, [liveUsersLoading]);
 
+  if (defaultVideo) {
+    return <VideoScreen route={{ params: defaultVideo }} />;
+  }
+  if (defaultStreamer) {
+    return <MobileStream route={{ params: { user: defaultStreamer } }} />;
+  }
+
   if (liveUsersError) {
     if (liveUsersLoading) {
-      return <Loading />;
+      return <HomeSkeletonGrid />;
     }
     if (!segments) {
       return <ErrorBox onRetry={refreshLiveUsers} />;
@@ -212,7 +282,7 @@ export default function HomeScreen({
 
   if (segments === null) {
     // Only show loading if not using mock data and no segments yet
-    return <Loading />;
+    return <HomeSkeletonGrid />;
   }
 
   let cols = getHomeScreenCols(width);
@@ -220,21 +290,14 @@ export default function HomeScreen({
 
   // Use horizontal (SBS) layout for all items on single-column breakpoint
   const useHorizontalAll = cols === 1;
-  // Only use horizontal layout for first card when we have enough columns (3+)
-  const useHorizontalFirst = cols >= 3;
-  const firstRowCols = useHorizontalFirst ? cols - 1 : cols;
-
-  const firstRowItems = segments.slice(0, firstRowCols);
-  let cutSegs = segments.slice(firstRowCols);
 
   let rows: (place.stream.livestream.LivestreamView | null)[][] = [];
 
   if (!useHorizontalAll) {
-    for (let i = 0; i < cutSegs.length; i += cols) {
-      let row = cutSegs.slice(i, i + cols);
-      if (i + cols >= cutSegs.length && row.length < cols) {
-        const paddingNeeded = cols - row.length;
-        row = [...row, ...Array(paddingNeeded).fill(null)];
+    for (let i = 0; i < segments.length; i += cols) {
+      let row = segments.slice(i, i + cols);
+      if (row.length < cols) {
+        row = [...row, ...Array(cols - row.length).fill(null)];
       }
       rows.push(row);
     }
@@ -248,23 +311,23 @@ export default function HomeScreen({
         <View>
           <Container
             style={{
-              backgroundColor: "#774316",
-              borderRadius: 8,
-              borderColor: "#99889988",
-              borderWidth: 2,
+              backgroundColor: theme.colors.surface2,
+              borderRadius: zero.borderRadius.md,
+              borderColor: theme.colors.warning,
+              borderWidth: 1,
               height: "auto",
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "flex-start",
-              paddingHorizontal: 12,
-              paddingVertical: 12,
-              gap: 12,
+              paddingHorizontal: spacing[3],
+              paddingVertical: spacing[3],
+              gap: spacing[3],
             }}
           >
-            <Text style={{ fontSize: 24, minWidth: 24, color: "white" }}>
+            <Text size="xl" style={{ minWidth: 24 }}>
               ⚠️
             </Text>
-            <Text style={{ color: "white" }}>
+            <Text size="sm">
               There was an error fetching the latest streams. You might be
               offline? code: {liveUsersError || "nocode"}
             </Text>
@@ -279,7 +342,13 @@ export default function HomeScreen({
           },
           Platform.OS === "ios" ? zero.pt[24] : zero.pt[0],
         ]}
-        contentContainerStyle={contentContainerStyle}
+        contentContainerStyle={[
+          // When empty, fill the viewport so the Container centers the empty
+          // state vertically (matching Videos / My Videos). Populated feeds
+          // keep their natural top-aligned scroll.
+          segments.length === 0 && { flexGrow: 1 },
+          contentContainerStyle,
+        ]}
         refreshing={manualRefresh}
         onRefresh={() => {
           refreshLiveUsers();
@@ -293,45 +362,49 @@ export default function HomeScreen({
               style={[
                 { flexDirection: "row" },
                 { alignItems: "center" },
-                { gap: 12 },
-                zero.my[8],
-                zero.px[0],
+                { justifyContent: "space-between" },
+                { gap: spacing[3] },
+                {
+                  marginTop: spacing[8],
+                  marginBottom: spacing[6],
+                  paddingRight: spacing[4],
+                },
               ]}
             >
-              <LiveDot />
-              <Title>
-                {segments.length} {segments.length === 1 ? "person" : "people"}{" "}
-                live now
-              </Title>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: spacing[2],
+                }}
+              >
+                <LiveDot />
+                <Text size="xl">Live now</Text>
+              </View>
+              <Text size="base" tabular style={{ color: theme.colors.text3 }}>
+                {segments.length}{" "}
+                {segments.length === 1 ? "streamer" : "streamers"}
+              </Text>
             </View>
           )}
 
           {segments.length === 0 && (
-            <View
-              style={[
-                { flex: 1 },
-                { justifyContent: "center" },
-                { alignItems: "center" },
-                { minHeight: "auto", paddingVertical: 42 },
-              ]}
-            >
-              <Image
-                source={require("../../assets/images/jelly.png")}
-                style={{ height: 64, width: 64 }}
-              />
-              <Text
-                style={[{ fontSize: 20, fontWeight: "bold", marginTop: 12 }]}
-              >
-                No one is streaming right now
-              </Text>
-              <Text style={{ marginTop: 8 }}>Check back later?</Text>
-            </View>
+            <EmptyState
+              illustration={
+                <Image
+                  source={require("../../assets/images/jelly.png")}
+                  style={{ height: 64, width: 64 }}
+                />
+              }
+              title="No one is streaming right now"
+              subtitle="Check back later?"
+            />
           )}
           {useHorizontalAll
             ? segments.map((item) => (
                 <View
                   key={item.cid}
-                  style={{ width: "100%", marginBottom: 12 }}
+                  style={{ width: "100%", marginBottom: spacing[4] }}
                 >
                   <HomeScreenItem
                     item={item}
@@ -344,49 +417,6 @@ export default function HomeScreen({
               ))
             : null}
 
-          {!useHorizontalAll && firstRowItems.length > 0 && (
-            <View
-              style={[
-                { flexDirection: "row" },
-                { gap: 24, marginBottom: 24, width: "100%" },
-              ]}
-            >
-              {firstRowItems.map((item, itemIndex) => (
-                <View
-                  key={item.cid || `item${itemIndex}`}
-                  style={[
-                    {
-                      flex:
-                        itemIndex == 0 && useHorizontalFirst
-                          ? getPadPercentage(cols)
-                          : 1,
-                    },
-                    { justifyContent: "center" },
-                  ]}
-                >
-                  <HomeScreenItem
-                    item={item}
-                    size={size}
-                    avatarUrl={avis[item.author.did]?.avatar}
-                    horizontal={itemIndex == 0 && useHorizontalFirst}
-                    showAvatar={true}
-                  />
-                </View>
-              ))}
-              {Array(
-                useHorizontalFirst
-                  ? cols - firstRowItems.length - 1
-                  : cols - firstRowItems.length,
-              )
-                .fill(null)
-                .map((_, i) => (
-                  <View key={`item-${i}`} style={{ flex: 1 }}>
-                    <PlaceholderItem />
-                  </View>
-                ))}
-            </View>
-          )}
-
           {!useHorizontalAll && segments.length > 0 && (
             <View>
               {rows.map((row, rowIndex) => (
@@ -394,7 +424,7 @@ export default function HomeScreen({
                   key={`row-${rowIndex}`}
                   style={[
                     { flexDirection: "row" },
-                    { gap: 24, marginBottom: 24 },
+                    { gap: spacing[4], marginBottom: spacing[8] },
                   ]}
                 >
                   {row.map((item, itemIndex) =>
@@ -413,11 +443,9 @@ export default function HomeScreen({
                       </View>
                     ) : (
                       <View
-                        key={`item-${rowIndex}-${itemIndex}`}
+                        key={`spacer-${rowIndex}-${itemIndex}`}
                         style={{ flex: 1 }}
-                      >
-                        <PlaceholderItem />
-                      </View>
+                      />
                     ),
                   )}
                 </View>

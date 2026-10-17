@@ -33,6 +33,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/moderation"
 	placestream "stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/s3"
 )
 
@@ -57,33 +58,41 @@ func (b BuildFlags) BuildTimeStrExpo() string {
 }
 
 type CLI struct {
-	AdminAccount                string
-	Build                       *BuildFlags
-	DataDir                     string
-	DBURL                       string
-	LocalDBURL                  string
-	EthAccountAddr              string
-	EthKeystorePath             string
-	EthPassword                 string
-	FirebaseServiceAccount      string
-	FirebaseServiceAccountFile  string
-	GitLabURL                   string
-	HTTPAddr                    string
-	HTTPInternalAddr            string
-	HTTPSAddr                   string
-	RTMPAddr                    string
-	RTMPSAddr                   string
-	RTMPSAddonAddr              string
-	Secure                      bool
-	NoMist                      bool
-	IsolatedIngest              bool
-	MistAdminPort               int
-	MistHTTPPort                int
-	MistRTMPPort                int
-	SigningKeyPath              string
-	TAURL                       string
-	TLSCertPath                 string
-	TLSKeyPath                  string
+	AdminAccount               string
+	Build                      *BuildFlags
+	DataDir                    string
+	DBURL                      string
+	DBMaxOpenConns             int
+	LocalDBURL                 string
+	EthAccountAddr             string
+	EthKeystorePath            string
+	EthPassword                string
+	FirebaseServiceAccount     string
+	FirebaseServiceAccountFile string
+	GitLabURL                  string
+	HTTPAddr                   string
+	HTTPInternalAddr           string
+	HTTPSAddr                  string
+	RTMPAddr                   string
+	RTMPSAddr                  string
+	RTMPSAddonAddr             string
+	Secure                     bool
+	NoMist                     bool
+	DuplicateMistTest          bool
+	IsolatedIngest             bool
+	MistAdminPort              int
+	MistHTTPPort               int
+	MistRTMPPort               int
+	SigningKeyPath             string
+	TAURL                      string
+	TLSCertPath                string
+	TLSKeyPath                 string
+	// ACME enables automatic TLS certificates from an ACME CA (Let\'s Encrypt)
+	// stored in statedb; see pkg/acme.
+	ACME                        bool
+	ACMEEmail                   string
+	ACMECA                      string
+	ACMEDomains                 []string
 	PKCS11ModulePath            string
 	PKCS11Pin                   string
 	PKCS11TokenSlot             string
@@ -100,17 +109,20 @@ type CLI struct {
 	Redirects                   map[string]string
 	TestStream                  bool
 	FrontendProxy               string
+	Frontend                    string
 	PublicOAuth                 bool
 	AppBundleID                 string
 	NoFirehose                  bool
 	PrintChat                   bool
 	Color                       string
 	LivepeerGatewayURL          string
+	TranscodeRenditions         string
 	LivepeerGateway             bool
 	WHIPTest                    string
 	Thumbnail                   bool
 	ExternalSigning             bool
 	RTMPServerAddon             string
+	DeprecatedIngestHosts       []string
 	TracingEndpoint             string
 	BroadcasterHost             string
 	XXDeprecatedPublicHost      string
@@ -143,6 +155,7 @@ type CLI struct {
 	StreamSessionTimeout        time.Duration
 	LegacySegmentCleaner        bool
 	SegmentArchiveRetention     time.Duration
+	ChatMessageRetention        time.Duration
 	Replicators                 []string
 	WebsocketURL                string
 	BehindHTTPSProxy            bool
@@ -158,6 +171,17 @@ type CLI struct {
 	S3SecretAccessKey           string
 	S3Region                    string
 	VODCDNURL                   string
+	VODCDNProvider              string
+	BunnyTokenAuthKey           string
+	BunnyPullZone               string
+	BunnyLogStorageZone         string
+	BunnyLogStorageEndpoint     string
+	BunnyLogStorageKey          string
+	CDNLogIngestInterval        time.Duration
+	LiveCDNURL                  string
+	LiveCDNProvider             string
+	LiveBunnyTokenAuthKey       string
+	LiveCDNTokenTTL             time.Duration
 	DisableSyndication          bool
 	MuxlInitialMemoryMB         int
 	MuxlMaxMemoryMB             int
@@ -188,6 +212,16 @@ type CLI struct {
 // within that. Any lower buys hours of detection latency for a proportional
 // increase in traffic against every PDS on the network.
 const DefaultSweepInterval = 6 * time.Hour
+
+// DefaultChatMessageRetention is how much chat history a node serves when
+// --chat-message-retention is unset.
+//
+// Chat is a live conversation, not an archive: viewers who arrive the next day
+// should land on an empty chat rather than a wall of stale messages. A day is
+// long enough that a viewer rejoining the same day still sees what was said,
+// and short enough that the backlog stays a conversation. The rows themselves
+// stay in the index; this only bounds what the websocket backlog hands out.
+const DefaultChatMessageRetention = 24 * time.Hour
 
 // DefaultSweepConcurrency is how many PDS hosts the atproto backfill sweep
 // works on at once when --sweep-concurrency is unset or zero.
@@ -314,6 +348,12 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Destination: &cli.IsolatedIngest,
 				Sources:     urfavecli.EnvVars("SP_ISOLATED_INGEST"),
 			},
+			&urfavecli.BoolFlag{
+				Name:        "duplicate-mist-test",
+				Usage:       "Shadow-test the native RTMP ingest in an isolated process while forwarding RTMPS to Mist (never publishes shadow output)",
+				Destination: &cli.DuplicateMistTest,
+				Sources:     urfavecli.EnvVars("SP_DUPLICATE_MIST_TEST"),
+			},
 			&urfavecli.StringFlag{
 				Name:        "tls-cert",
 				Usage:       fmt.Sprintf(`Path to TLS certificate (default: "%s")`, filepath.Join(SPDataDir, "tls", "tls.crt")),
@@ -328,6 +368,37 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       filepath.Join(SPDataDir, "tls", "tls.key"),
 				Sources:     urfavecli.EnvVars("SP_TLS_KEY"),
 			},
+			&urfavecli.BoolFlag{
+				Name:        "acme",
+				Usage:       "With --secure, obtain and renew the node's TLS certificates automatically from an ACME CA (Let's Encrypt by default) instead of reading --tls-cert/--tls-key. Certificates are kept in the state database so every node in a station shares them. The CA must be able to reach this node on port 80 (HTTP-01) or 443 (TLS-ALPN-01) at --broadcaster-host and --server-host. Using this means you agree to the CA's terms of service.",
+				Value:       false,
+				Destination: &cli.ACME,
+				Sources:     urfavecli.EnvVars("SP_ACME"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "acme-email",
+				Usage:       "Contact email registered with the ACME CA (expiry warnings, account recovery)",
+				Destination: &cli.ACMEEmail,
+				Sources:     urfavecli.EnvVars("SP_ACME_EMAIL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "acme-ca",
+				Usage:       `ACME directory URL, or "letsencrypt" / "letsencrypt-staging" (default: letsencrypt)`,
+				Destination: &cli.ACMECA,
+				Sources:     urfavecli.EnvVars("SP_ACME_CA"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "acme-domains",
+				Usage: `comma-separated extra hostnames to hold certificates for, on top of --broadcaster-host and --server-host (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					cli.ACMEDomains = strings.Split(s, ",")
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_ACME_DOMAINS"),
+			},
 			&urfavecli.StringFlag{
 				Name:        "signing-key",
 				Usage:       "Path to signing key for pushing OTA updates to the app",
@@ -340,6 +411,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       "sqlite://$SP_DATA_DIR/state.sqlite",
 				Destination: &cli.DBURL,
 				Sources:     urfavecli.EnvVars("SP_DB_URL"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "db-max-open-conns",
+				Usage:       "most connections this node holds to a Postgres state database (one of them is the advisory-lock connection); requests wait for a free one rather than opening more. Size it so nodes × this stays under the server's max_connections. Ignored for sqlite",
+				Value:       30,
+				Destination: &cli.DBMaxOpenConns,
+				Sources:     urfavecli.EnvVars("SP_DB_MAX_OPEN_CONNS"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "admin-account",
@@ -460,6 +538,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 					return nil
 				},
 			},
+			&urfavecli.StringFlag{
+				Name:        "frontend",
+				Usage:       "which bundled frontend to serve: 'app' (legacy Expo) or 'web' (Vite)",
+				Value:       "app",
+				Destination: &cli.Frontend,
+				Sources:     urfavecli.EnvVars("SP_FRONTEND"),
+			},
 			&urfavecli.BoolFlag{
 				Name:        "dev-public-oauth",
 				Usage:       "(FOR DEVELOPMENT ONLY) enable public oauth login for http://127.0.0.1 development",
@@ -472,6 +557,12 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "URL of the Livepeer Gateway to use for transcoding",
 				Destination: &cli.LivepeerGatewayURL,
 				Sources:     urfavecli.EnvVars("SP_LIVEPEER_GATEWAY_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "transcode-renditions",
+				Usage:       "the renditions to transcode, comma-separated names from the ladder (1080p,720p,360p,240p,160p); only those smaller than the source are made. Default: the whole ladder",
+				Destination: &cli.TranscodeRenditions,
+				Sources:     urfavecli.EnvVars("SP_TRANSCODE_RENDITIONS"),
 			},
 			&urfavecli.BoolFlag{
 				Name:        "livepeer-gateway",
@@ -665,6 +756,17 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "address of external RTMP server to forward streams to",
 				Destination: &cli.RTMPServerAddon,
 				Sources:     urfavecli.EnvVars("SP_RTMP_SERVER_ADDON"),
+			},
+			&urfavecli.StringFlag{
+				Name:    "deprecated-ingest-hosts",
+				Usage:   "comma-separated deprecated hostnames for Mist RTMPS ingest. Authorized publishes whose PUSH_REWRITE URL hostname matches are counted in streamplace_rtmp_ingest_connections and flagged on the streamer's dashboard until their pull ingest ends",
+				Sources: urfavecli.EnvVars("SP_DEPRECATED_INGEST_HOSTS"),
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s != "" {
+						cli.DeprecatedIngestHosts = strings.Split(s, ",")
+					}
+					return nil
+				},
 			},
 			&urfavecli.StringFlag{
 				Name:        "rtmps-addon-addr",
@@ -958,6 +1060,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Destination: &cli.SegmentArchiveRetention,
 				Sources:     urfavecli.EnvVars("SP_SEGMENT_ARCHIVE_RETENTION"),
 			},
+			&urfavecli.DurationFlag{
+				Name:        "chat-message-retention",
+				Usage:       "how much chat history a node serves to newly connected viewers. Messages older than this are withheld from the chat backlog, so a viewer arriving later lands on an empty chat. 0 serves the full backlog.",
+				Value:       DefaultChatMessageRetention,
+				Destination: &cli.ChatMessageRetention,
+				Sources:     urfavecli.EnvVars("SP_CHAT_MESSAGE_RETENTION"),
+			},
 			&urfavecli.StringFlag{
 				Name:    "replicators",
 				Usage:   "comma-separated list of replication protocols to use (websocket, iroh)",
@@ -1075,6 +1184,75 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "Static CDN URL fronting the VOD blob store. When set, HLS playlists emit segment + init-segment URLs of the form <vod-cdn-url>/<cid>.mp4?did=...&sid=... instead of the self-hosted getVideoBlob endpoint. Omit for self-contained deployments.",
 				Destination: &cli.VODCDNURL,
 				Sources:     urfavecli.EnvVars("SP_VOD_CDN_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "vod-cdn-provider",
+				Usage:       "Which CDN product sits at --vod-cdn-url, selecting URL signing + access-log ingestion. Empty means a plain static CDN over a public bucket: unsigned URLs, and no way to count segment views. Supported: bunny (configure with the --bunny-* flags).",
+				Destination: &cli.VODCDNProvider,
+				Sources:     urfavecli.EnvVars("SP_VOD_CDN_PROVIDER"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "bunny-token-auth-key",
+				Usage:       "bunny.net: the pull zone's Token Authentication key. When set, every blob URL in an HLS playlist is signed (token + expires query params) so the CDN only serves blobs this node handed out; the token is bound to the blob path and expires well after the VOD's duration. Requires --vod-cdn-provider=bunny.",
+				Destination: &cli.BunnyTokenAuthKey,
+				Sources:     urfavecli.EnvVars("SP_BUNNY_TOKEN_AUTH_KEY"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "bunny-pull-zone",
+				Usage:       "bunny.net: the pull zone's name, as it appears in the Permanent Log Storage path (pullzone-logs/<name>/...). Required with --bunny-log-storage-zone.",
+				Destination: &cli.BunnyPullZone,
+				Sources:     urfavecli.EnvVars("SP_BUNNY_PULL_ZONE"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "bunny-log-storage-zone",
+				Usage:       "bunny.net: the Edge Storage zone the pull zone's Permanent Log Storage writes into. When set, the node periodically ingests archived access logs so segment requests served by the CDN count toward views. Requires --vod-cdn-provider=bunny, --bunny-pull-zone and --bunny-log-storage-key.",
+				Destination: &cli.BunnyLogStorageZone,
+				Sources:     urfavecli.EnvVars("SP_BUNNY_LOG_STORAGE_ZONE"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "bunny-log-storage-endpoint",
+				Usage:       "bunny.net: Edge Storage API endpoint for the log storage zone's region (e.g. https://ny.storage.bunnycdn.com).",
+				Value:       "https://storage.bunnycdn.com",
+				Destination: &cli.BunnyLogStorageEndpoint,
+				Sources:     urfavecli.EnvVars("SP_BUNNY_LOG_STORAGE_ENDPOINT"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "bunny-log-storage-key",
+				Usage:       "bunny.net: access key (password) for the log storage zone. A read-only key is sufficient.",
+				Destination: &cli.BunnyLogStorageKey,
+				Sources:     urfavecli.EnvVars("SP_BUNNY_LOG_STORAGE_KEY"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "cdn-log-ingest-interval",
+				Usage:       "How often to pull newly archived CDN access logs into the view-log store and re-aggregate the view-count windows they touch. Only meaningful when the --vod-cdn-provider has a log source configured. Set to 0 to disable.",
+				Value:       15 * time.Minute,
+				Destination: &cli.CDNLogIngestInterval,
+				Sources:     urfavecli.EnvVars("SP_CDN_LOG_INGEST_INTERVAL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "live-cdn-url",
+				Usage:       "CDN URL fronting this node's live HLS segments (a pull zone whose origin is this node's public URL). When set, live media playlists emit segment URLs of the form <live-cdn-url>/live/<did>/<track>/<seq>.m4s instead of the self-hosted getLiveSegment endpoint; playlists and init segments stay on the node. Typically a different domain from --vod-cdn-url, since the origin is the node rather than the blob store. Omit for self-contained deployments.",
+				Destination: &cli.LiveCDNURL,
+				Sources:     urfavecli.EnvVars("SP_LIVE_CDN_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "live-cdn-provider",
+				Usage:       "Which CDN product sits at --live-cdn-url, selecting URL signing. Empty means a plain CDN: unsigned URLs. Supported: bunny (configure with --live-bunny-token-auth-key). Live view counting rides on the playlist requests the node keeps serving, so no access-log ingestion is needed here.",
+				Destination: &cli.LiveCDNProvider,
+				Sources:     urfavecli.EnvVars("SP_LIVE_CDN_PROVIDER"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "live-bunny-token-auth-key",
+				Usage:       "bunny.net: the live pull zone's Token Authentication key (a separate zone from VOD means a separate key). When set, every live segment URL in a media playlist is signed so the CDN only serves segments this node handed out. Requires --live-cdn-provider=bunny.",
+				Destination: &cli.LiveBunnyTokenAuthKey,
+				Sources:     urfavecli.EnvVars("SP_LIVE_BUNNY_TOKEN_AUTH_KEY"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "live-cdn-token-ttl",
+				Usage:       "How long a signed live segment URL stays valid. Expiry is rounded to this interval so every playlist rendered within it carries identical URLs and the CDN can cache them; a URL is therefore valid for between one and two intervals. A live player refetches its playlist every few seconds, so this only needs to outlive the segment window.",
+				Value:       5 * time.Minute,
+				Destination: &cli.LiveCDNTokenTTL,
+				Sources:     urfavecli.EnvVars("SP_LIVE_CDN_TOKEN_TTL"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "beta-invite-did",
@@ -1272,13 +1450,77 @@ func EnableSQLLogging() {
 	)
 }
 
+// Validate checks the configuration and applies the in-memory defaults a
+// starting node needs. The flag-combination checks live in CheckConfig so
+// they can also run on their own; streamplace validate-config uses that to
+// tell an operator what is wrong before a restart. Anything this method does
+// beyond checking is in-memory only: no files written, no listeners opened.
+//
+// Call this exactly once per parsed configuration. The checks must run
+// against pristine flag values, because PrepareConfig fills in values (the
+// gateway URL, the firebase account) that a second pass would mistake for
+// operator-set conflicts. Every command gets this: NewCommand's Before hook
+// for subcommands, runMain for the node — which is why callers further down
+// the action path must not call Validate again.
 func (cli *CLI) Validate(cmd *urfavecli.Command) error {
+	if err := cli.CheckConfig(); err != nil {
+		return err
+	}
+	return cli.PrepareConfig()
+}
+
+// CheckConfig reports every configuration problem it can find, all at once,
+// without changing anything: no defaults are applied, nothing is read from
+// disk except to prove a configured path is usable, no loggers are swapped.
+// It is the single home for "this flag combination will take the node down"
+// checks. If a startup crash can be caused by flags or the environment alone,
+// it belongs here, so `streamplace validate-config` can catch it before a
+// restart does.
+func (cli *CLI) CheckConfig() error {
+	var errs []error
 	if cli.DataDir == "" {
-		return fmt.Errorf("could not determine default data dir (no $HOME) and none provided, please set --data-dir")
+		errs = append(errs, fmt.Errorf("could not determine default data dir (no $HOME) and none provided, please set --data-dir"))
+	}
+	if cli.DuplicateMistTest && (!cli.Secure || cli.RTMPServerAddon == "") {
+		errs = append(errs, fmt.Errorf("--duplicate-mist-test requires --secure and --rtmp-server-addon pointing to Mist"))
 	}
 	if cli.LivepeerGateway && cli.LivepeerGatewayURL != "" {
-		return fmt.Errorf("defining both livepeer-gateway and livepeer-gateway-url doesn't make sense. do you want an embedded gateway or an external one?")
+		errs = append(errs, fmt.Errorf("defining both livepeer-gateway and livepeer-gateway-url doesn't make sense. do you want an embedded gateway or an external one?"))
 	}
+	if _, err := renditions.Ladder(cli.TranscodeRenditions); err != nil {
+		errs = append(errs, fmt.Errorf("--transcode-renditions: %w", err))
+	}
+	if cli.FirebaseServiceAccount != "" && cli.FirebaseServiceAccountFile != "" {
+		errs = append(errs, fmt.Errorf("defining both firebase-service-account and firebase-service-account-file doesn't make sense. do you want a base64-encoded string or a file?"))
+	}
+	if cli.FirebaseServiceAccountFile != "" {
+		// Read-only proof that the configured path is usable. PrepareConfig
+		// reads the file again to actually load the account.
+		if _, err := os.ReadFile(cli.FirebaseServiceAccountFile); err != nil {
+			errs = append(errs, fmt.Errorf("--firebase-service-account-file: %w", err))
+		}
+	}
+	if cli.SigningKeyPath != "" {
+		if _, err := cli.ParseSigningKey(); err != nil {
+			errs = append(errs, fmt.Errorf("--signing-key: %w", err))
+		}
+	}
+	if err := cli.validateVODCDN(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cli.validateLiveCDN(); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
+
+// PrepareConfig applies the defaults and process-level setup that used to be
+// interleaved with the checks in Validate: data-dir substitution, SQL logging
+// verbosity, host fallbacks, the firebase service account file, and the
+// default replicator list. Everything here is in-memory or process-local, so
+// callers that only want to know whether the configuration is sound can call
+// CheckConfig instead.
+func (cli *CLI) PrepareConfig() error {
 	if cli.LivepeerGateway {
 		log.MonkeypatchStderr()
 		// Livepeer gateway configuration will be handled in the caller
@@ -1302,9 +1544,6 @@ func (cli *CLI) Validate(cmd *urfavecli.Command) error {
 	if cli.PublicOAuth {
 		log.Warn(context.Background(), "--dev-public-oauth is set, this is not recommended for production")
 	}
-	if cli.FirebaseServiceAccount != "" && cli.FirebaseServiceAccountFile != "" {
-		return fmt.Errorf("defining both firebase-service-account and firebase-service-account-file doesn't make sense. do you want a base64-encoded string or a file?")
-	}
 	if cli.FirebaseServiceAccountFile != "" {
 		bs, err := os.ReadFile(cli.FirebaseServiceAccountFile)
 		if err != nil {
@@ -1315,6 +1554,53 @@ func (cli *CLI) Validate(cmd *urfavecli.Command) error {
 	// Set default replicator if none specified
 	if len(cli.Replicators) == 0 {
 		cli.Replicators = []string{ReplicatorWebsocket}
+	}
+	return nil
+}
+
+// validateLiveCDN is validateVODCDN for the live segment CDN: a key
+// without its provider, or a provider without a URL, is refused.
+func (cli *CLI) validateLiveCDN() error {
+	switch cli.LiveCDNProvider {
+	case "":
+		if cli.LiveBunnyTokenAuthKey != "" {
+			return fmt.Errorf("--live-bunny-token-auth-key is set but --live-cdn-provider is not; set --live-cdn-provider=bunny")
+		}
+	case "bunny":
+		if cli.LiveCDNURL == "" {
+			return fmt.Errorf("--live-cdn-provider=bunny requires --live-cdn-url (the pull zone hostname)")
+		}
+	default:
+		return fmt.Errorf("unknown --live-cdn-provider %q (supported: bunny)", cli.LiveCDNProvider)
+	}
+	if cli.LiveCDNURL != "" && cli.LiveCDNTokenTTL <= 0 {
+		return fmt.Errorf("--live-cdn-token-ttl must be positive")
+	}
+	return nil
+}
+
+// validateVODCDN refuses half-configured CDN setups: provider flags
+// without their provider, a provider without a CDN URL, or a log
+// source missing one of its parts. Anything that passes here is a
+// combination cdn.FromConfig can assemble without surprises.
+func (cli *CLI) validateVODCDN() error {
+	bunnyFlags := cli.BunnyTokenAuthKey != "" || cli.BunnyPullZone != "" ||
+		cli.BunnyLogStorageZone != "" || cli.BunnyLogStorageKey != ""
+	switch cli.VODCDNProvider {
+	case "":
+		if bunnyFlags {
+			return fmt.Errorf("--bunny-* flags are set but --vod-cdn-provider is not; set --vod-cdn-provider=bunny")
+		}
+	case "bunny":
+		if cli.VODCDNURL == "" {
+			return fmt.Errorf("--vod-cdn-provider=bunny requires --vod-cdn-url (the pull zone hostname)")
+		}
+		logFlags := cli.BunnyPullZone != "" || cli.BunnyLogStorageZone != "" || cli.BunnyLogStorageKey != ""
+		if logFlags && (cli.BunnyPullZone == "" || cli.BunnyLogStorageZone == "" || cli.BunnyLogStorageKey == "") {
+			return fmt.Errorf("bunny log ingestion needs all of --bunny-pull-zone, --bunny-log-storage-zone and --bunny-log-storage-key")
+		}
+	default:
+		return fmt.Errorf("unknown --vod-cdn-provider %q (supported: bunny)", cli.VODCDNProvider)
 	}
 	return nil
 }
@@ -1621,4 +1907,14 @@ func (cli *CLI) ShouldSyndicate(did string) bool {
 		}
 	}
 	return false
+}
+
+// RenditionLadder is the rendition ladder this node transcodes
+// (--transcode-renditions), validated at startup.
+func (cli *CLI) RenditionLadder() []renditions.Rendition {
+	ladder, err := renditions.Ladder(cli.TranscodeRenditions)
+	if err != nil {
+		return renditions.DesiredRenditions
+	}
+	return ladder
 }

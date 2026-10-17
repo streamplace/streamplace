@@ -9,3 +9,6 @@ lexicons/com
 lexicons/tools
 lexicons/games
 js/app/assets/emoji-data-stripped.json
+js/web/public/emoji-data.json
+**/routeTree.gen.ts
+*.html

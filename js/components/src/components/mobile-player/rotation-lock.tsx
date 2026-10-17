@@ -157,7 +157,6 @@ export const RotationProvider: React.FC<RotationProviderProps> = ({
     return () => {
       subscription?.remove();
       if (ScreenOrientation) {
-        ScreenOrientation.removeOrientationChangeListeners();
         ScreenOrientation.unlockAsync().catch(() => {});
       }
     };

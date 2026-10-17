@@ -5,6 +5,8 @@ import {
   Loader,
   Text,
   Tooltip,
+  useLoginPlaceholder,
+  useNetworkName,
   useTheme,
   useTranslation,
   zero,
@@ -35,6 +37,8 @@ export default function LoginForm({
 }: LoginFormProps) {
   const { theme } = useTheme();
   const { t } = useTranslation("common");
+  const network = useNetworkName();
+  const loginPlaceholder = useLoginPlaceholder();
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
   const authStatus = useStore((state) => state.authStatus);
@@ -144,12 +148,14 @@ export default function LoginForm({
           <Info size={16} style={{ paddingTop: 4 }} color={theme.colors.ring} />
         </Pressable>
         <Text style={[{ color: theme.colors.textMuted }]}>
-          (e.g. your Bluesky handle)
+          (e.g. your {network} handle)
         </Text>
       </View>
 
       <View style={[zero.mb[4], { position: "relative" }]}>
-        <Text style={[{ color: "#aaa", marginBottom: 8 }]}>Handle</Text>
+        <Text style={[{ color: theme.colors.text3, marginBottom: 8 }]}>
+          Handle
+        </Text>
         <View style={{ position: "relative" }}>
           {completionText && suggestion?.handle !== handle ? (
             <View
@@ -169,7 +175,7 @@ export default function LoginForm({
               <Text
                 style={[
                   {
-                    color: "#555",
+                    color: theme.colors.text4,
                     pointerEvents: "none",
                     zIndex: 1000000,
                     fontSize: 16,
@@ -189,7 +195,7 @@ export default function LoginForm({
               {isMobile ? (
                 <CornerDownLeft
                   height={18}
-                  color="#555"
+                  color={theme.colors.text4}
                   style={{
                     bottom: 2,
                   }}
@@ -197,7 +203,7 @@ export default function LoginForm({
               ) : (
                 <ArrowRightToLine
                   height={18}
-                  color="#555"
+                  color={theme.colors.text4}
                   style={{
                     paddingBottom: 1,
                   }}
@@ -258,11 +264,12 @@ export default function LoginForm({
                   alignItems: "center",
                 }}
               >
-                <AtSign size={20} color="#eee" />
+                <AtSign size={20} color={theme.colors.text2} />
               </View>
             )}
           </View>
           <Input
+            testID="login-handle"
             value={handle}
             onChangeText={(text) =>
               setHandle(
@@ -272,7 +279,7 @@ export default function LoginForm({
                   .trim(),
               )
             }
-            placeholder="jcsalterego.bsky.social"
+            placeholder={loginPlaceholder ?? "jcsalterego.bsky.social"}
             onKeyPress={onKeyPress}
             onSubmitEditing={submit}
             autoCapitalize="none"
@@ -324,7 +331,7 @@ export default function LoginForm({
                   backgroundColor: theme.colors.muted,
                 }}
               >
-                <AtSign size={22} color="#eee" />
+                <AtSign size={22} color={theme.colors.text2} />
               </View>
             )}
           </View>
@@ -351,14 +358,14 @@ export default function LoginForm({
           </View>
         </View>
         <Tooltip
-          content={t("login-show-live-on-bluesky-description")}
+          content={t("login-show-live-on-bluesky-description", { network })}
           position="top"
           style={{ flex: 1 }}
         >
           <Checkbox
             checked={blueskyPermissions}
             onCheckedChange={setBlueskyPermissions}
-            label={t("login-show-live-on-bluesky")}
+            label={t("login-show-live-on-bluesky", { network })}
           />
         </Tooltip>
       </View>
@@ -371,16 +378,17 @@ export default function LoginForm({
         ]}
       >
         <Button width="min" onPress={() => onSignup()} variant="ghost">
-          <Text style={[{ color: "white" }]}>Sign Up</Text>
+          Sign Up
         </Button>
         <Button
+          testID="login-submit"
           onPress={submit}
           disabled={loginState.loading}
           style={[zero.px[6]]}
           width="min"
           loading={loginState.loading}
         >
-          <Text style={[{ color: "white" }]}>Log In</Text>
+          Log In
         </Button>
       </View>
     </>

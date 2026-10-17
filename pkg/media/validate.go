@@ -212,16 +212,22 @@ func (mm *MediaManager) streamerIsBanned(repoDID string) (bool, error) {
 func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegment, seg []byte) error {
 	meta := vs.meta
 
-	// Retain the canonical segment in the in-memory moderation buffer (this
-	// replaces on-disk .m4s archival) so reports can clip the recent window.
-	mm.feedModerationBuffer(vs.repoDID, meta.StartTime.Time(), seg)
+	// Hold the canonical segment in the stream's in-memory buffer, the recent
+	// part of the stream that clips (and moderation reports) draw on.
+	mm.bufferSegment(vs.repoDID, meta.StartTime.Time(), meta.Published, vs.local, seg)
 
 	// Fold the validated segment into the streamer's live-HLS window, off the
 	// critical path. This runs for every segment — locally signed or replicated
 	// from another node — so any node that validates a stream's segments can
 	// serve its live HLS. WithoutCancel keeps the feed alive past this request.
-	// Only published segments are actually folded in (see feedLiveWindow).
-	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.Published)
+	// Pre-live segments are folded in too; the handlers gate them on a
+	// playback token (see feedLiveWindow).
+	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.StartTime.Time(), meta.Published)
+	if !vs.local {
+		// A replicated stream's renditions arrive separately; keep this
+		// segment's audio to pair them with (see PublishRenditionsForPlayback).
+		mm.rememberSourceAudio(ctx, vs.repoDID, seg)
+	}
 
 	// Segments are no longer written to disk, but a Segment DB row is still kept
 	// (dedup, /segment metadata, live playlists). delete_after governs when that
@@ -269,27 +275,13 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 		return fmt.Errorf("wrap segment for distribution: %w", err)
 	}
 
-	mm.newSegmentSubsMutex.RLock()
-	defer mm.newSegmentSubsMutex.RUnlock()
-	not := &NewSegmentNotification{
+	mm.notifySubscribers(ctx, &NewSegmentNotification{
 		Segment:  dbSeg,
 		Data:     playable.Bytes(),
 		Muxl:     seg,
 		Metadata: meta,
 		Local:    vs.local,
-	}
-	for _, ch := range mm.newSegmentSubs {
-		go func() {
-			select {
-			case ch <- not:
-			case <-ctx.Done():
-				return
-			case <-time.After(1 * time.Minute):
-				log.Warn(ctx, "failed to send segment to channel, timing out", "streamer", vs.repoDID, "signingKey", vs.signingKeyDID, "segmentID", vs.label)
-				return
-			}
-		}()
-	}
+	})
 	aqt := aqtime.FromTime(meta.StartTime.Time())
 	log.Log(ctx, "successfully ingested segment", "user", vs.repoDID, "signingKey", vs.signingKeyDID, "timestamp", aqt.FileSafeString(), "segmentID", vs.label)
 	return nil

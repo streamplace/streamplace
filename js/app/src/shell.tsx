@@ -2,80 +2,47 @@ import {
   BottomTabIcon,
   createBottomTabNavigator,
 } from "@react-navigation/bottom-tabs";
-import { useLinkTo } from "@react-navigation/native";
+import { useLinkTo, useNavigation } from "@react-navigation/native";
 import {
   createNativeStackNavigator,
   NativeStackHeaderBackProps,
+  NativeStackNavigationOptions,
 } from "@react-navigation/native-stack";
 import {
   Text,
   useAccentColor,
+  useBrandingSettled,
   useDID,
   usePrimaryColor,
-  useSiteTitle,
+  useStreamplaceStore,
   useTheme,
+  withAlpha,
   zero,
 } from "@streamplace/components";
-import { Settings } from "components";
-import Login from "components/login/login";
+import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
+import { SiteTitleLockup, useNodeTitle } from "components/brand/logo";
+import { LogoBrandMenu } from "components/brand/logo-brand-menu";
+import HeaderSearch from "components/header-search";
 import LoginModal from "components/login/login-modal";
 import PdsHostSelectorModal from "components/login/pds-host-selector-modal";
 import { MobileAppBanner } from "components/mobile-app-banner";
-import { AboutCategorySettings } from "components/settings/about-category-settings";
-import { AccountCategorySettings } from "components/settings/account-category-settings";
-import { AdvancedCategorySettings } from "components/settings/advanced-category-settings";
-import { BackupSettings } from "components/settings/backup-settings";
-import { BadgeIssuerPanel } from "components/settings/badge-issuer-panel";
-import { BadgeSelectionManager } from "components/settings/badge-selection-manager";
-import { BrandingAdmin } from "components/settings/branding-admin";
-import { DanmuCategorySettings } from "components/settings/danmu-category-settings";
-import KeyManager from "components/settings/key-manager";
-import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
-import MultistreamManager from "components/settings/multistream-manager";
-import { NotificationsCategorySettings } from "components/settings/notifications-category-settings";
-import { PrivacyCategorySettings } from "components/settings/privacy-category-settings";
-import RecommendationsManager from "components/settings/recommendations-manager";
-import { StreamingCategorySettings } from "components/settings/streaming-category-settings";
-import WebhookManager from "components/settings/webhook-manager";
-import { SidebarOverlay } from "components/sidebar/sidebar-overlay";
+import {
+  SidebarOverlay,
+  SidebarToggle,
+} from "components/sidebar/sidebar-overlay";
 import UploadProgressIndicator from "components/upload/upload-progress-indicator";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import usePlatform from "hooks/usePlatform";
 import { useIsLargeScreen, useSidebarControl } from "hooks/useSidebarControl";
-import { Clapperboard, Cog, Home, Video } from "lucide-react-native";
-import { useEffect } from "react";
-import { Platform, StatusBar, View } from "react-native";
+import { Clapperboard, Cog, Home, Search, Video } from "lucide-react-native";
+import { useEffect, useState } from "react";
+import { Platform, Pressable, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { SFSymbols7_0 } from "sf-symbols-typescript";
+import { lazyScreen } from "src/lazy-screen";
 import "src/navigation-types";
-import AboutScreen from "src/screens/about";
-import AppReturnScreen from "src/screens/app-return";
-import PopoutChat from "src/screens/chat-popout";
-import DanmuOBSScreen from "src/screens/danmu-obs";
-import DownloadScreen from "src/screens/download";
-import EmbedScreen from "src/screens/embed";
 import HomeScreen from "src/screens/home";
-import InfoWidgetEmbed from "src/screens/info-widget-embed";
-import LaunchGoLive from "src/screens/launch-go-live";
-import LiveDashboard from "src/screens/live-dashboard";
-import MobileGoLive from "src/screens/mobile-go-live";
-import MobileStream from "src/screens/mobile-stream";
-import MultiScreen from "src/screens/multi";
-import PopoutInfoWidget from "src/screens/popout-info-widget";
-import PopoutLivestream from "src/screens/popout-livestream";
-import PopoutMultistream from "src/screens/popout-multistream";
-import PopoutStreamMonitor from "src/screens/popout-stream-monitor";
-import SupportScreen from "src/screens/support";
-import UploadScreen, {
-  UploadDraftsScreen,
-  UploadLivestreamsScreen,
-  UploadVideoScreen,
-  UploadVideosScreen,
-} from "src/screens/upload";
-import VideoScreen from "src/screens/video";
-import VideoListScreen from "src/screens/video-list";
-import VodScreen from "src/screens/vod";
-import VodEmbedScreen from "src/screens/vod-embed";
+
 import { useStore } from "store";
 import {
   useHydrated,
@@ -89,38 +56,174 @@ import {
   UploadButton,
 } from "./router";
 
+// Every screen except the home feed is code-split, so its module (and
+// dependencies) only load when the route is first visited.
+const Login = lazyScreen(() => import("components/login/login"));
+const Settings = lazyScreen(() =>
+  import("components/settings/settings").then((m) => ({ default: m.Settings })),
+);
+const AboutCategorySettings = lazyScreen(() =>
+  import("components/settings/about-category-settings").then((m) => ({
+    default: m.AboutCategorySettings,
+  })),
+);
+const AccountCategorySettings = lazyScreen(() =>
+  import("components/settings/account-category-settings").then((m) => ({
+    default: m.AccountCategorySettings,
+  })),
+);
+const AdvancedCategorySettings = lazyScreen(() =>
+  import("components/settings/advanced-category-settings").then((m) => ({
+    default: m.AdvancedCategorySettings,
+  })),
+);
+const BackupSettings = lazyScreen(() =>
+  import("components/settings/backup-settings").then((m) => ({
+    default: m.BackupSettings,
+  })),
+);
+const BadgeIssuerPanel = lazyScreen(() =>
+  import("components/settings/badge-issuer-panel").then((m) => ({
+    default: m.BadgeIssuerPanel,
+  })),
+);
+const BadgeSelectionManager = lazyScreen(() =>
+  import("components/settings/badge-selection-manager").then((m) => ({
+    default: m.BadgeSelectionManager,
+  })),
+);
+const BrandingAdmin = lazyScreen(() =>
+  import("components/settings/branding-admin").then((m) => ({
+    default: m.BrandingAdmin,
+  })),
+);
+const DanmuCategorySettings = lazyScreen(() =>
+  import("components/settings/danmu-category-settings").then((m) => ({
+    default: m.DanmuCategorySettings,
+  })),
+);
+const KeyManager = lazyScreen(() => import("components/settings/key-manager"));
+const LanguagesCategorySettings = lazyScreen(() =>
+  import("components/settings/languages-category-settings").then((m) => ({
+    default: m.LanguagesCategorySettings,
+  })),
+);
+const MultistreamManager = lazyScreen(
+  () => import("components/settings/multistream-manager"),
+);
+const NotificationsCategorySettings = lazyScreen(() =>
+  import("components/settings/notifications-category-settings").then((m) => ({
+    default: m.NotificationsCategorySettings,
+  })),
+);
+const PrivacyCategorySettings = lazyScreen(() =>
+  import("components/settings/privacy-category-settings").then((m) => ({
+    default: m.PrivacyCategorySettings,
+  })),
+);
+const RecommendationsManager = lazyScreen(
+  () => import("components/settings/recommendations-manager"),
+);
+const StreamingCategorySettings = lazyScreen(() =>
+  import("components/settings/streaming-category-settings").then((m) => ({
+    default: m.StreamingCategorySettings,
+  })),
+);
+const WebhookManager = lazyScreen(
+  () => import("components/settings/webhook-manager"),
+);
+const AppReturnScreen = lazyScreen(() => import("src/screens/app-return"));
+const PopoutChat = lazyScreen(() => import("src/screens/chat-popout"));
+const DanmuOBSScreen = lazyScreen(() => import("src/screens/danmu-obs"));
+const DownloadScreen = lazyScreen(() => import("src/screens/download"));
+const EmbedScreen = lazyScreen(() => import("src/screens/embed"));
+const InfoWidgetEmbed = lazyScreen(
+  () => import("src/screens/info-widget-embed"),
+);
+const LaunchGoLive = lazyScreen(() => import("src/screens/launch-go-live"));
+const LiveDashboard = lazyScreen(() => import("src/screens/live-dashboard"));
+const MobileGoLive = lazyScreen(() => import("src/screens/mobile-go-live"));
+const MobileStream = lazyScreen(() => import("src/screens/mobile-stream"));
+const MultiScreen = lazyScreen(() => import("src/screens/multi"));
+const PopoutInfoWidget = lazyScreen(
+  () => import("src/screens/popout-info-widget"),
+);
+const PopoutLivestream = lazyScreen(
+  () => import("src/screens/popout-livestream"),
+);
+const PopoutMultistream = lazyScreen(
+  () => import("src/screens/popout-multistream"),
+);
+const PopoutStreamMonitor = lazyScreen(
+  () => import("src/screens/popout-stream-monitor"),
+);
+const SearchScreen = lazyScreen(() => import("src/screens/search"));
+const SupportScreen = lazyScreen(() => import("src/screens/support"));
+const UploadScreen = lazyScreen(() => import("src/screens/upload"));
+const UploadVideoScreen = lazyScreen(() =>
+  import("src/screens/upload").then((m) => ({ default: m.UploadVideoScreen })),
+);
+const UploadDraftsScreen = lazyScreen(() =>
+  import("src/screens/upload").then((m) => ({ default: m.UploadDraftsScreen })),
+);
+const UploadLivestreamsScreen = lazyScreen(() =>
+  import("src/screens/upload").then((m) => ({
+    default: m.UploadLivestreamsScreen,
+  })),
+);
+const UploadVideosScreen = lazyScreen(() =>
+  import("src/screens/upload").then((m) => ({ default: m.UploadVideosScreen })),
+);
+const VideoScreen = lazyScreen(() => import("src/screens/video"));
+const VideoListScreen = lazyScreen(() => import("src/screens/video-list"));
+const VodScreen = lazyScreen(() => import("src/screens/vod"));
+const VodEmbedScreen = lazyScreen(() => import("src/screens/vod-embed"));
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
 const HomeStack = createNativeStackNavigator();
 const VideosStack = createNativeStackNavigator();
+const SearchStack = createNativeStackNavigator();
 const SettingsStack = createNativeStackNavigator();
 
 function useBaseScreenOptions() {
   const z = useTheme();
+  const isLargeScreen = useIsLargeScreen();
   return {
     headerShown: true,
+    // Wide headers reserve the title area for Search; retain browser titles.
+    headerTitle: isLargeScreen ? "" : undefined,
     headerTransparent: Platform.OS === "ios",
     headerBackButtonDisplayMode: "minimal" as const,
+    // Slim, quiet chrome: 15px medium title on surface0 with a hairline
     headerTitleStyle: {
-      fontFamily: z.theme.typography.universal["2xl"].fontFamily,
+      fontFamily: z.theme.typography.universal.xl.fontFamily,
+      fontSize: 15,
+      fontWeight: "500" as const,
+      color: z.theme.colors.text1,
     },
     headerStyle: {
-      backgroundColor: z.theme.colors.background,
-      borderBottomColor: z.theme.colors.border,
+      backgroundColor:
+        Platform.OS === "web" ? z.theme.colors.surface0 : undefined,
+      borderBottomColor: z.theme.colors.borderSubtle,
       borderBottomWidth: 1,
+      // Slimmer bar, aligned with the 56px sidebar brand row.
+      height: 56,
     },
   };
 }
 
 // Home navigator (contains home + all general navigation screens)
 function HomeNavigator() {
-  const title = useSiteTitle() || "Streamplace Station";
+  const title = useNodeTitle();
   const baseScreenOptions = useBaseScreenOptions();
   const isNative = Platform.OS !== "web";
   const z = useTheme();
   const did = useDID();
 
-  const headerScreenOptions = {
+  const headerScreenOptions: NativeStackNavigationOptions = {
     headerShown: !isNative,
     headerLeft: isNative
       ? undefined
@@ -136,8 +239,25 @@ function HomeNavigator() {
     ...(isNative && {
       headerTransparent: true,
     }),
+    ...(Platform.OS === "ios" && {
+      unstable_headerRightItems: () => [
+        {
+          type: "custom",
+          hidesSharedBackground: true,
+          element: (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <UploadButton />
+              <LGAvatarButton />
+            </View>
+          ),
+        },
+      ],
+    }),
     headerTitleStyle: {
-      fontFamily: z.theme.typography.universal.base.fontFamily,
+      fontFamily: z.theme.typography.universal.xl.fontFamily,
+      fontSize: 15,
+      fontWeight: "500" as const,
+      color: z.theme.colors.text1,
     },
   };
 
@@ -147,17 +267,20 @@ function HomeNavigator() {
         name="HomeMain"
         component={HomeScreen}
         options={{
-          title: "Streamplace",
+          // `title` drives the browser tab. Narrow headers show Home (or the
+          // node title on iOS); wide headers reserve that space for Search.
+          title,
           headerTitle:
-            Platform.OS === "ios"
+            baseScreenOptions.headerTitle ??
+            (Platform.OS === "ios"
               ? (props) => (
                   <View style={{ flex: 1, alignItems: "flex-start" }}>
-                    <Text size="3xl" style={[zero.ml[4]]}>
+                    <Text size="2xl" style={[zero.ml[4]]}>
                       {title}
                     </Text>
                   </View>
                 )
-              : undefined,
+              : "Home"),
           headerLeft:
             Platform.OS !== "ios"
               ? ({ canGoBack }) => <NavigationButton canGoBack={canGoBack} />
@@ -185,14 +308,6 @@ function HomeNavigator() {
         }}
       />
       <HomeStack.Screen
-        name="About"
-        component={AboutScreen}
-        options={{
-          title: "What's Streamplace?",
-          ...headerScreenOptions,
-        }}
-      />
-      <HomeStack.Screen
         name="Download"
         component={DownloadScreen}
         options={{ title: "Download", ...headerScreenOptions }}
@@ -200,7 +315,7 @@ function HomeNavigator() {
       <HomeStack.Screen
         name="LiveDashboard"
         component={LiveDashboard}
-        options={{ title: "Live Dashboard", ...headerScreenOptions }}
+        options={{ title: "Live streaming", ...headerScreenOptions }}
       />
       <HomeStack.Screen
         name="Login"
@@ -256,33 +371,48 @@ function HomeNavigator() {
   );
 }
 
-// Videos stack navigator (global + per-user VOD listings). Unlike the pushed
-// Home screens, these are tab roots, so they always carry their own header.
-function VideosNavigator() {
+// Shared chrome for tab-root stacks (Videos, Search). Unlike the pushed Home
+// screens, these are tab roots, so they always carry their own header.
+function useTabRootScreenOptions(): NativeStackNavigationOptions {
   const baseScreenOptions = useBaseScreenOptions();
   const isNative = Platform.OS !== "web";
-  const z = useTheme();
+
+  return {
+    ...baseScreenOptions,
+    headerLeft: isNative
+      ? undefined
+      : ({ canGoBack }: NativeStackHeaderBackProps) => (
+          <NavigationButton canGoBack={canGoBack} />
+        ),
+    headerRight: () => (
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <UploadButton />
+        <LGAvatarButton />
+      </View>
+    ),
+    ...(Platform.OS === "ios" && {
+      unstable_headerRightItems: () => [
+        {
+          type: "custom",
+          hidesSharedBackground: true,
+          element: (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <UploadButton />
+              <LGAvatarButton />
+            </View>
+          ),
+        },
+      ],
+    }),
+  };
+}
+
+// Videos stack navigator (global + per-user VOD listings)
+function VideosNavigator() {
+  const screenOptions = useTabRootScreenOptions();
 
   return (
-    <VideosStack.Navigator
-      screenOptions={{
-        ...baseScreenOptions,
-        headerLeft: isNative
-          ? undefined
-          : ({ canGoBack }: NativeStackHeaderBackProps) => (
-              <NavigationButton canGoBack={canGoBack} />
-            ),
-        headerRight: () => (
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <UploadButton />
-            <LGAvatarButton />
-          </View>
-        ),
-        headerTitleStyle: {
-          fontFamily: z.theme.typography.universal.base.fontFamily,
-        },
-      }}
-    >
+    <VideosStack.Navigator screenOptions={screenOptions}>
       <VideosStack.Screen
         name="VideoList"
         component={VideoListScreen}
@@ -297,29 +427,51 @@ function VideosNavigator() {
   );
 }
 
+// Search stack navigator (user search by handle prefix)
+function SearchNavigator() {
+  const screenOptions = useTabRootScreenOptions();
+
+  return (
+    <SearchStack.Navigator screenOptions={screenOptions}>
+      <SearchStack.Screen
+        name="Search"
+        component={SearchScreen}
+        options={{ title: "Search" }}
+      />
+    </SearchStack.Navigator>
+  );
+}
+
 // Settings stack navigator
 function SettingsNavigator() {
   const baseScreenOptions = useBaseScreenOptions();
-  const z = useTheme();
-  const isNative = Platform.OS !== "web";
-  const headerScreenOptions = {
+  const headerScreenOptions: NativeStackNavigationOptions = {
     ...baseScreenOptions,
     headerTransparent: Platform.OS === "ios",
     headerBackButtonDisplayMode: "minimal" as const,
     headerShown: true,
-    // headerLeft: isNative
-    //   ? undefined
-    //   : ({ canGoBack }: NativeStackHeaderBackProps) => (
-    //       <NavigationButton canGoBack={canGoBack} />
-    //     ),
-    // headerRight: () => <LGAvatarButton />,
-    // ...(isNative && {
-    //   headerTransparent: true,
-    // }),
-    // headerTitleStyle: {
-    //   fontFamily: z.theme.typography.universal.base.fontFamily,
-    //   marginBottom: 100,
-    // },
+    // Same Create + avatar cluster as the other navigators, so the header
+    // controls don't vanish on Settings screens.
+    headerRight: () => (
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <UploadButton />
+        <LGAvatarButton />
+      </View>
+    ),
+    ...(Platform.OS === "ios" && {
+      unstable_headerRightItems: () => [
+        {
+          type: "custom",
+          hidesSharedBackground: true,
+          element: (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <UploadButton />
+              <LGAvatarButton />
+            </View>
+          ),
+        },
+      ],
+    }),
   };
   return (
     <SettingsStack.Navigator
@@ -420,13 +572,13 @@ function SettingsNavigator() {
 const IOS_ICONS: Record<string, SFSymbols7_0> = {
   Home: "house.fill",
   Videos: "play.rectangle.fill",
-  GoLive: "video.fill",
+  Search: "magnifyingglass",
   Settings: "gearshape.fill",
 };
 const ANDROID_ICONS = {
   Home: "home",
   Videos: "video_library",
-  GoLive: "videocam",
+  Search: "search",
   Settings: "settings",
 };
 
@@ -461,11 +613,19 @@ function TabNavigator() {
         headerShown: false,
         // Hide tab bar on web and < 800px
         tabBarStyle: isNative
-          ? undefined
+          ? {
+              backgroundColor: z.theme.colors.surface1,
+              borderTopColor: z.theme.colors.borderSubtle,
+            }
           : !isLargeScreen
-            ? undefined
+            ? {
+                backgroundColor: z.theme.colors.surface1,
+                borderTopColor: z.theme.colors.borderSubtle,
+              }
             : { display: "none" },
-        tabBarActiveTintColor: accentColor || primaryColor || "#06f",
+        tabBarActiveTintColor:
+          accentColor || primaryColor || z.theme.colors.primary,
+        tabBarInactiveTintColor: z.theme.colors.text3,
         headerTitleStyle: {
           fontFamily: z.theme.typography.universal["2xl"].fontFamily,
         },
@@ -507,23 +667,35 @@ function TabNavigator() {
         }}
       />
       <Tab.Screen
-        name="GoLiveTab"
-        component={LaunchGoLive}
+        name="SearchTab"
+        component={SearchNavigator}
         options={{
-          title: "Go Live",
+          title: "Search",
           ...(isNative
             ? {
-                tabBarIcon: getIcon("GoLive"),
+                tabBarIcon: getIcon("Search"),
               }
             : {
                 tabBarIcon: ({ color, size }) => (
-                  <Video size={size} color={color} />
+                  <Search size={size} color={color} />
                 ),
               }),
-          headerShown: true,
-          headerTransparent: true,
         }}
       />
+      {!isNative && (
+        <Tab.Screen
+          name="GoLiveTab"
+          component={LaunchGoLive}
+          options={{
+            title: "Go Live",
+            tabBarIcon: ({ color, size }) => (
+              <Video size={size} color={color} />
+            ),
+            headerShown: true,
+            headerTransparent: true,
+          }}
+        />
+      )}
       <Tab.Screen
         name="SettingsTab"
         component={SettingsNavigator}
@@ -545,9 +717,21 @@ function TabNavigator() {
   );
 }
 
+// Walk the (possibly nested) navigation state to the deepest active route, so
+// checks against leaf screen names like "LiveDashboard" resolve correctly —
+// getState().routes[index].name alone only yields the top-level route
+// (e.g. "MainTabs"), so nested screens never match.
+function getActiveLeafRouteName(state: any): string | undefined {
+  if (!state?.routes) return undefined;
+  const route = state.routes[state.index ?? 0];
+  if (route?.state) return getActiveLeafRouteName(route.state) ?? route.name;
+  return route?.name;
+}
+
 export default function Shell() {
   const { isNative } = usePlatform();
   const sidebar = useSidebarControl();
+  const navigation = useNavigation();
   const hydrate = useStore((state) => state.hydrate);
   const initPushNotifications = useStore(
     (state) => state.initPushNotifications,
@@ -565,6 +749,7 @@ export default function Shell() {
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
   const z = useTheme();
+  const baseScreenOptions = useBaseScreenOptions();
 
   // Top-level hydration and initialization
   useEffect(() => {
@@ -576,6 +761,19 @@ export default function Shell() {
   const did = useStore((state) => state.oauthSession?.did);
   const hydrated = useHydrated();
 
+  // Two more things the first frame waits for (bounded by the same timeout):
+  // the OAuth session restore, so a signed-in viewer never sees the wall
+  // that the anonymous status answer would paint; and branding, so the
+  // default mark and title never flash before the node's own.
+  const sessionRestoring = useStreamplaceStore(
+    (s) => s.oauthSession === undefined,
+  );
+  const brandingSettled = useBrandingSettled();
+  const [bootTimedOut, setBootTimedOut] = useState(false);
+  useEffect(() => {
+    const handle = setTimeout(() => setBootTimedOut(true), 6000);
+    return () => clearTimeout(handle);
+  }, []);
   // Re-register when the token changes OR once the logged-in DID resolves, so a
   // token acquired before the OAuth session finishes restoring still gets its
   // repoDID association registered (otherwise the user is excluded from
@@ -609,17 +807,72 @@ export default function Shell() {
 
   useBlueskyNotifications();
 
-  // Animate content margin when sidebar is active (web only)
+  // Track current route
+  const [currentRouteName, setCurrentRouteName] = useState<string | undefined>(
+    () => {
+      try {
+        return getActiveLeafRouteName(navigation.getState());
+      } catch {
+        return undefined;
+      }
+    },
+  );
+
+  useEffect(() => {
+    const update = () => {
+      const name = getActiveLeafRouteName(navigation.getState());
+      if (name) setCurrentRouteName(name);
+    };
+    update(); // seed on mount so direct loads (e.g. a stream URL) resolve now
+    const unsubscribe = navigation.addListener("state", update);
+    return unsubscribe;
+  }, [navigation]);
+
+  // Detail views (watching a stream or video) take the sidebar out of the flow
+  // so it opens as an overlay drawer over dimmed content instead of pushing.
+  const setOverlay = useStore((state) => state.setOverlay);
+  const closeDrawer = useStore((state) => state.closeDrawer);
+  // A video page reports itself while mounted (the front door showing the
+  // default video is one the route name doesn't reveal).
+  const videoPage = useStore((state) => state.videoPage);
+  const isDetailView =
+    currentRouteName === "Stream" ||
+    currentRouteName === "Video" ||
+    currentRouteName === "Vod" ||
+    videoPage;
+  // Video pages get a YouTube-style sticky translucent header the content
+  // scrolls under; the livestream keeps its own solid header.
+  const isVodDetail =
+    currentRouteName === "Video" || currentRouteName === "Vod" || videoPage;
+  // Embeds and OBS/popout utilities are not app chrome surfaces.
+  const showHeaderSearch =
+    sidebar.isActive &&
+    !/Embed|^Popout|^DanmuOBS$/.test(currentRouteName ?? "");
+  useEffect(() => {
+    setOverlay(isDetailView);
+  }, [isDetailView, setOverlay]);
+
+  // Animate content margin when sidebar is active (web only). In overlay mode
+  // the content stays full width (margin 0) and the drawer floats over it.
   const animatedContentStyle = useAnimatedStyle(() => {
     if (isNative || !sidebar.isActive) {
       return { marginLeft: 0 };
     }
     return {
-      marginLeft: sidebar.animatedWidth.value,
+      marginLeft: sidebar.animatedContentMargin.value,
     };
   });
 
+  // Scrim that dims content behind the overlay drawer.
+  const scrimStyle = useAnimatedStyle(() => ({
+    opacity: sidebar.animatedScrim.value,
+  }));
+
   if (!hydrated) {
+    return <View />;
+  }
+
+  if ((sessionRestoring || !brandingSettled) && !bootTimedOut) {
     return <View />;
   }
 
@@ -631,6 +884,10 @@ export default function Shell() {
       <Animated.View style={[{ flex: 1 }, animatedContentStyle]}>
         <RootStack.Navigator
           screenOptions={{
+            // Reuse the shared chrome (surface0 + hairline, 15px title) so
+            // pushed screens like Stream don't render a differently-colored
+            // header than the HomeStack.
+            ...baseScreenOptions,
             headerShown: !isNative,
             headerLeft: ({ canGoBack }) => (
               <NavigationButton canGoBack={canGoBack} />
@@ -644,12 +901,6 @@ export default function Shell() {
             ...(isNative && {
               headerTransparent: true,
             }),
-            headerTitleStyle: {
-              fontFamily: z.theme.typography.universal.base.fontFamily,
-            },
-            headerStyle: {
-              backgroundColor: z.theme.colors.background,
-            },
           }}
         >
           {/* Main tabs (initial screen for all platforms) */}
@@ -737,6 +988,89 @@ export default function Shell() {
           />
         </RootStack.Navigator>
       </Animated.View>
+      {/* Scrim behind the overlay drawer (detail views only) */}
+      {!isNative && (
+        <AnimatedPressable
+          accessibilityLabel="Close menu"
+          pointerEvents={
+            sidebar.overlay && sidebar.drawerOpen ? "auto" : "none"
+          }
+          onPress={closeDrawer}
+          style={[
+            scrimStyle,
+            {
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "#000", // eslint-disable-line streamplace/no-token-literals -- overlay scrim
+              zIndex: 127000,
+            },
+          ]}
+        />
+      )}
+      {/* Header cluster on detail views: hamburger + logo, sitting exactly where
+          the drawer's brand row will appear so it stays put as the drawer opens. */}
+      {!isNative &&
+        sidebar.isActive &&
+        sidebar.overlay &&
+        !sidebar.drawerOpen && (
+          <View
+            style={[
+              {
+                position: "absolute",
+                top: 0,
+                height: 56,
+                flexDirection: "row",
+                alignItems: "center",
+                // Match the sidebar brand row (gap 0) so the logo sits in the
+                // same spot when navigating between the sidebar and detail-view
+                // headers.
+                gap: 0,
+                zIndex: 128001,
+              },
+              isVodDetail
+                ? // Full-width liquid-glass bar the video scrolls under.
+                  ({
+                    left: 0,
+                    right: 0,
+                    paddingHorizontal: spacing[2],
+                    backgroundColor: withAlpha(z.theme.colors.surface0, 0.55),
+                    backdropFilter: "blur(18px)",
+                    WebkitBackdropFilter: "blur(18px)",
+                    borderBottomWidth: 1,
+                    borderBottomColor: z.theme.colors.borderSubtle,
+                  } as any)
+                : { left: spacing[2] },
+            ]}
+          >
+            <SidebarToggle label="Open menu" onPress={sidebar.toggle} />
+            <LogoBrandMenu>
+              <Pressable
+                // @ts-ignore renders as <a> on web
+                href="/"
+                style={{ flexShrink: 1, minWidth: 0 }}
+                onPress={(e: any) => {
+                  e?.preventDefault?.();
+                  navigation.navigate("MainTabs" as any, {
+                    screen: "HomeTab",
+                    params: { screen: "HomeMain" },
+                  });
+                }}
+              >
+                <SiteTitleLockup
+                  size={19}
+                  weight="semibold"
+                  letterSpacing={0}
+                  markColor={colors.white}
+                  color={colors.white}
+                />
+              </Pressable>
+            </LogoBrandMenu>
+          </View>
+        )}
+      {showHeaderSearch && <HeaderSearch key={currentRouteName} />}
       <LoginModal
         visible={showLoginModal}
         onClose={closeLoginModal}

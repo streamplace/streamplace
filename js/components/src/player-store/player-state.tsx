@@ -47,9 +47,18 @@ export interface PlayerState {
   setPlayingVODRendition: (name: string | null) => void;
   protocol: PlayerProtocol;
   setProtocol: (protocol: PlayerProtocol) => void;
+  /** The stream being watched has B-frames, which WebRTC playback can't
+   *  handle, so the player is held on HLS regardless of the viewer's
+   *  low-latency preference (which stays stored for other streams). */
+  streamForcesHLS: boolean;
+  setStreamForcesHLS: (forced: boolean) => void;
 
   /** Source (streamer did) */
   src: string;
+  /** The streamer's own playback session (getPlaybackSession) for their
+   *  unpublished stream, threaded onto the HLS playlist URL. */
+  playbackSession?: string;
+  setPlaybackSession: (sid: string | undefined) => void;
 
   /** Function to set the source URL */
   setSrc: (src: string) => void;
@@ -102,6 +111,16 @@ export interface PlayerState {
 
   /** Seek the video element to a specific time */
   seekTo: (time: number) => void;
+
+  /**
+   * Seconds into a VOD to start playback at, set from a `?t=` URL param.
+   * The active backend seeks there once per source, after it has loaded;
+   * later scrubbing is left alone.
+   */
+  startTime: number | null;
+
+  /** Function to set the requested initial playback time */
+  setStartTime: (startTime: number | null) => void;
 
   /** Reference to the video element for direct manipulation (used for PiP) */
   videoRef:

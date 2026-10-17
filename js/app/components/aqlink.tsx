@@ -2,6 +2,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useDID } from "@streamplace/components";
 import usePlatform from "hooks/usePlatform";
 import { useEffect } from "react";
+import type { PressableProps } from "react-native";
 import { Pressable, StyleProp, ViewStyle } from "react-native";
 import { interpolateParams, SCREEN_PATHS } from "src/linking-config";
 import { useStore } from "store";
@@ -12,6 +13,7 @@ import {
 import type {
   HomeStackParamList,
   RootStackParamList,
+  SearchStackParamList,
   SettingsStackParamList,
   TabParamList,
 } from "../src/navigation-types";
@@ -20,6 +22,7 @@ import Loading from "./loading/loading";
 // Union type of all screens across all navigators
 type AllScreens = RootStackParamList &
   HomeStackParamList &
+  SearchStackParamList &
   SettingsStackParamList &
   TabParamList;
 
@@ -35,11 +38,17 @@ export default function AQLink({
   children,
   to,
   style,
+  testID,
+  onPress,
+  ...accessibilityProps
 }: {
   children: React.ReactNode;
   to: LinkParams;
   style?: StyleProp<ViewStyle>;
-}) {
+  testID?: string;
+  // Runs before navigating, e.g. to dismiss the menu the link sits in.
+  onPress?: () => void;
+} & Pick<PressableProps, "nativeID" | "role" | "aria-selected">) {
   const { isWeb } = usePlatform();
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
@@ -61,6 +70,7 @@ export default function AQLink({
   };
 
   const handlePress = (e: any) => {
+    onPress?.();
     // Prevent default browser navigation on web (href is for a11y only)
     if (isWeb && e?.preventDefault) {
       e.preventDefault();
@@ -116,6 +126,8 @@ export default function AQLink({
     <Pressable
       style={[baseStyle, style]}
       onPress={handlePress}
+      testID={testID}
+      {...accessibilityProps}
       // @ts-ignore - href prop makes this render as <a> on web
       href={isWeb ? href : undefined}
     >

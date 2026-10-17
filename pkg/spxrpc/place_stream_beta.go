@@ -6,7 +6,6 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 
 	placestream "stream.place/streamplace/pkg/placestream"
 )
@@ -24,7 +23,7 @@ func (s *Server) handlePlaceStreamBetaGetStatus(ctx context.Context, did, featur
 
 	subject := did
 	if subject == "" {
-		session, _ := oatproxy.GetOAuthSession(ctx)
+		session := GetCaller(ctx)
 		if session == nil {
 			return nil, echo.NewHTTPError(http.StatusBadRequest, "DidRequired")
 		}

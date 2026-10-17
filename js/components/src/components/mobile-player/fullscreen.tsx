@@ -11,8 +11,10 @@ import {
   usePlayerStore,
 } from "../..";
 import { View } from "../../components/ui";
+import { usePlaybackSession } from "./playback-session";
 import { AudioOnlyOverlay } from "./ui/audio-only-overlay";
 import Video from "./video";
+import { HostedVideo } from "./video-host";
 import VideoRetry from "./video-retry";
 
 export function Fullscreen(props: {
@@ -25,8 +27,6 @@ export function Fullscreen(props: {
   const protocol = usePlayerStore((x) => x.protocol, playerId);
   const fullscreen = usePlayerStore((x) => x.fullscreen, playerId);
   const setFullscreen = usePlayerStore((x) => x.setFullscreen, playerId);
-  const setSrc = usePlayerStore((x) => x.setSrc);
-  const setAutoplayFailed = usePlayerStore((x) => x.setAutoplayFailed);
 
   const danmuEnabled = useDanmuEnabled();
   const danmuOpacity = useDanmuOpacity();
@@ -36,11 +36,16 @@ export function Fullscreen(props: {
 
   const divRef = useRef<RNView>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  useEffect(() => {
-    setSrc(props.src);
-    setAutoplayFailed(false);
-  }, [props.src]);
+  // iPhone Safari has no Element.requestFullscreen, only the video
+  // element's own webkitEnterFullscreen; the store holds that element.
+  const storeVideoRef = usePlayerStore((x) => x.videoRef, playerId);
+  const videoElement = (): HTMLVideoElement | null => {
+    if (videoRef.current) return videoRef.current;
+    if (storeVideoRef && typeof storeVideoRef !== "function") {
+      return storeVideoRef.current ?? null;
+    }
+    return null;
+  };
 
   useEffect(() => {
     if (!divRef.current) {
@@ -52,16 +57,12 @@ export function Fullscreen(props: {
           const div = divRef.current as unknown as HTMLDivElement;
           if (typeof div.requestFullscreen === "function") {
             await div.requestFullscreen();
-          } else if (videoRef.current) {
-            if (
-              typeof (videoRef.current as any).webkitEnterFullscreen ===
-              "function"
-            ) {
-              await (videoRef.current as any).webkitEnterFullscreen();
-            } else if (
-              typeof videoRef.current.requestFullscreen === "function"
-            ) {
-              await videoRef.current.requestFullscreen();
+          } else if (videoElement()) {
+            const v = videoElement() as any;
+            if (typeof v.webkitEnterFullscreen === "function") {
+              await v.webkitEnterFullscreen();
+            } else if (typeof v.requestFullscreen === "function") {
+              await v.requestFullscreen();
             }
           }
           setFullscreen(true);
@@ -84,28 +85,48 @@ export function Fullscreen(props: {
 
   useEffect(() => {
     const listener = () => {
-      console.log("fullscreenchange", document.fullscreenElement);
       setFullscreen(!!document.fullscreenElement);
     };
-    document.body.addEventListener("fullscreenchange", listener);
-    document.body.addEventListener("webkitfullscreenchange", listener);
+    document.addEventListener("fullscreenchange", listener);
+    document.addEventListener("webkitfullscreenchange", listener);
     return () => {
-      document.body.removeEventListener("fullscreenchange", listener);
-      document.body.removeEventListener("webkitfullscreenchange", listener);
+      document.removeEventListener("fullscreenchange", listener);
+      document.removeEventListener("webkitfullscreenchange", listener);
     };
   }, []);
+
+  // iPhone Safari goes fullscreen on the video element itself, and reports
+  // it with the video's own webkit events rather than document.fullscreen*;
+  // without these the store still says "fullscreen" after the viewer swipes
+  // out, and the button needs a second tap to work again.
+  useEffect(() => {
+    const v = videoElement();
+    if (!v) return;
+    const began = () => setFullscreen(true);
+    const ended = () => setFullscreen(false);
+    v.addEventListener("webkitbeginfullscreen", began);
+    v.addEventListener("webkitendfullscreen", ended);
+    return () => {
+      v.removeEventListener("webkitbeginfullscreen", began);
+      v.removeEventListener("webkitendfullscreen", ended);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeVideoRef, props.src]);
 
   return (
     <View
       ref={divRef}
       style={{ width: "100%", height: "100%", overflow: "hidden" }}
     >
-      <VideoRetry>
-        <Video
-          objectFit={props.objectFit}
-          pictureInPictureEnabled={props.pictureInPictureEnabled}
-        />
-      </VideoRetry>
+      <HostedVideo>
+        <VideoSource src={props.src} />
+        <VideoRetry>
+          <Video
+            objectFit={props.objectFit}
+            pictureInPictureEnabled={props.pictureInPictureEnabled}
+          />
+        </VideoRetry>
+      </HostedVideo>
       <AudioOnlyOverlay />
       <DanmuOverlay
         enabled={danmuEnabled}
@@ -117,4 +138,19 @@ export function Fullscreen(props: {
       {props.children}
     </View>
   );
+}
+
+// Hosted with the video, so a layout change that remounts this Fullscreen
+// doesn't reset the video's state: its source (the streamer's playback
+// session is part of the URL), or a failed autoplay, which the surviving
+// video doesn't retry and only the play button can recover from.
+function VideoSource(props: { src: string }) {
+  const setSrc = usePlayerStore((x) => x.setSrc);
+  const setAutoplayFailed = usePlayerStore((x) => x.setAutoplayFailed);
+  useEffect(() => {
+    setSrc(props.src);
+    setAutoplayFailed(false);
+  }, [props.src]);
+  usePlaybackSession(props.src);
+  return null;
 }

@@ -75,6 +75,8 @@ func (d *Director) Start(ctx context.Context) error {
 					cli:         d.cli,
 					bus:         d.bus,
 					segmentChan: make(chan struct{}),
+					sourceLane:  newLane(),
+					renditions:  newLane(),
 					op:          d.op,
 					packets:     make([]bus.PacketizedSegment, 0),
 					started:     make(chan struct{}),

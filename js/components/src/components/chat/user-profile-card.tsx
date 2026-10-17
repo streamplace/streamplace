@@ -1,5 +1,6 @@
 import { ProfileViewBasic } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { TriggerRef } from "@rn-primitives/dropdown-menu";
+import { formatBadgeIssuer, formatBadgeLabel } from "@streamplace/core";
 import { Image } from "expo-image";
 import {
   createContext,
@@ -14,7 +15,6 @@ import { Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { zero } from "../..";
 import { useAvatars } from "../../hooks/useAvatars";
-import IconBsky from "../../icons/icon-bsky";
 import {
   borders,
   gap,
@@ -29,8 +29,10 @@ import {
 } from "../../lib/theme/atoms";
 import { useLivestreamStore } from "../../livestream-store";
 import { useUrl } from "../../streamplace-store";
+import { useNetworkProfileUrl } from "../../streamplace-store/branding";
 import { useTheme } from "../../ui";
 import { formatHandleWithAt } from "../../utils/format-handle";
+import { NetworkIcon } from "../icons/network-icon";
 import { Button, MenuGroup } from "../ui";
 import {
   DropdownMenu,
@@ -42,7 +44,6 @@ import { Badge } from "./badge";
 
 interface BadgeMeta {
   label: string;
-  description?: string;
   issuedBy?: string;
 }
 
@@ -53,14 +54,12 @@ const BADGE_META: Record<string, BadgeMeta> = {
   },
   "place.stream.badge.defs#bot": {
     label: "Bot",
-    description: "This account has been marked as automated by its owner.",
   },
   "place.stream.badge.defs#streamer": {
     label: "Streamer",
   },
   "place.stream.badge.defs#vip": {
     label: "VIP",
-    description: "This user is clearly a very important person.",
   },
 };
 
@@ -141,14 +140,17 @@ const BadgeRow = ({
 }) => {
   const isServiceIssued = badge.issuer === serviceDid;
   const meta = BADGE_META[badge.badgeType];
-  const label = meta?.label ?? badge.name ?? badge.badgeType.split("#")[1];
-  const description = meta?.description ?? badge.description;
-
+  const fallbackLabel =
+    meta?.label ?? badge.name ?? badge.badgeType.split("#")[1];
+  const label = formatBadgeLabel({
+    badgeType: badge.badgeType,
+    badgeName: badge.name,
+    fallbackLabel,
+    vipLabel: BADGE_META["place.stream.badge.defs#vip"].label,
+  });
   let issuerLabel = isServiceIssued
     ? "Streamplace"
-    : issuerProfiles[badge.issuer]?.handle
-      ? `@${issuerProfiles[badge.issuer].handle}`
-      : badge.issuer;
+    : formatBadgeIssuer(badge.issuer, issuerProfiles[badge.issuer]?.handle);
   const issuedByTemplate = meta?.issuedBy ?? "Issued by {issuer}";
   issuerLabel = issuedByTemplate
     .replace("{issuer}", issuerLabel)
@@ -171,11 +173,6 @@ const BadgeRow = ({
         <Text size="xs" color="muted">
           {issuerLabel}
         </Text>
-        {description && (
-          <Text size="xs" color="muted">
-            {description}
-          </Text>
-        )}
       </View>
     </View>
   );
@@ -188,10 +185,11 @@ export const ProfileCardContent = ({
   data: ProfileCardData;
   theme: ReturnType<typeof useTheme>["theme"];
 }) => {
+  const profileUrl = useNetworkProfileUrl();
   const { author, profile, profiles, serviceDid, allBadges, streamer } = data;
 
   return (
-    <View style={[zero.pb[1]]}>
+    <View style={[zero.pb[1]]} testID="chat-profile-card">
       {profile?.banner ? (
         <Image
           source={{ uri: profile.banner }}
@@ -250,7 +248,7 @@ export const ProfileCardContent = ({
             gap.all[2],
           ]}
         >
-          <Text>@{author.handle}</Text>
+          <Text testID="chat-profile-handle">@{author.handle}</Text>
           {Platform.OS === "web" && (
             <View style={{ position: "absolute", right: 2, bottom: 7 }}>
               <Button
@@ -258,10 +256,10 @@ export const ProfileCardContent = ({
                 variant="secondary"
                 style={{ aspectRatio: 1 }}
                 onPress={() => {
-                  Linking.openURL(`https://bsky.app/profile/${author.handle}`);
+                  Linking.openURL(profileUrl(author));
                 }}
               >
-                <IconBsky size={18} />
+                <NetworkIcon size={18} />
               </Button>
             </View>
           )}
@@ -288,7 +286,7 @@ export const ProfileCardContent = ({
             variant="secondary"
             size="sm"
             onPress={() => {
-              Linking.openURL(`https://bsky.app/profile/${author.handle}`);
+              Linking.openURL(profileUrl(author));
             }}
           >
             <View
@@ -298,7 +296,7 @@ export const ProfileCardContent = ({
                 zero.layout.flex.alignCenter,
               ]}
             >
-              <IconBsky size={20} />
+              <NetworkIcon size={20} />
               <Text>View Profile</Text>
             </View>
           </Button>
@@ -347,6 +345,7 @@ const ProfileCardOverlay = ({
     <>
       {/* Invisible backdrop — clicking outside closes the card */}
       <Pressable
+        testID="chat-profile-backdrop"
         onPress={onClose}
         style={{
           position: "fixed" as any,
@@ -450,6 +449,7 @@ export const UserProfileCard = ({
   return (
     <Pressable
       ref={triggerRef}
+      testID={`chat-profile-trigger-${author.handle}`}
       onPress={openWebCard}
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}
@@ -464,7 +464,13 @@ export const UserProfileCard = ({
           marginLeft: -3,
           marginRight: -2,
           marginBottom: -4,
-          ...(hovered ? { backgroundColor: "rgba(255,255,255,0.15)" } : {}),
+          // A View inside a Text is an inline-level flex box, so its
+          // shrink-to-fit width is driven by its max-content unless it is
+          // capped here. The compact chat row's handle lives in this box, so
+          // without the cap a handle longer than the row would size this box
+          // past the chat column and take the message with it.
+          maxWidth: "100%",
+          ...(hovered ? { backgroundColor: theme.colors.surfaceHover } : {}),
         },
       ]}
     >

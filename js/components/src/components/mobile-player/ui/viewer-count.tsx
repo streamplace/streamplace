@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { StyleSheet, TextStyle } from "react-native";
+import { useTheme } from "../../ui";
 import { Text } from "../../ui/text";
 
 export interface ViewerCountProps {
@@ -18,9 +19,13 @@ export function ViewerCount({
   const formattedNumber = useMemo(() => {
     return new Intl.NumberFormat(locales, numberFormat).format(count || 0);
   }, [numberFormat, count]);
+  const { theme } = useTheme();
 
   return (
-    <Text leading="snug" style={[styles.label, style]}>
+    <Text
+      leading="snug"
+      style={[styles.label, { color: theme.colors.live }, style]}
+    >
       {formattedNumber}
     </Text>
   );
@@ -28,7 +33,6 @@ export function ViewerCount({
 
 const styles = StyleSheet.create({
   label: {
-    color: "#fd5050",
     textShadowColor: "black",
     textShadowRadius: 3,
     fontSize: 16,

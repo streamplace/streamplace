@@ -1,0 +1,137 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.media.listVideos",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A streamer's place.stream.video records (read from their PDS) and this node's uploads for them: everything updateVideo, deleteVideo and publishVideo take. The caller must be the streamer or hold livestream.manage from them.",
+      "parameters": {
+        "type": "params",
+        "required": ["repo"],
+        "properties": {
+          "repo": {
+            "type": "string",
+            "format": "did",
+            "description": "The streamer's DID."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["repoDID", "videos", "uploads"],
+          "properties": {
+            "repoDID": {
+              "type": "string",
+              "format": "did"
+            },
+            "videos": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "#video"
+              }
+            },
+            "uploads": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "#upload"
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotPermitted",
+          "description": "The caller is neither the streamer nor a moderator with livestream.manage from them."
+        }
+      ]
+    },
+    "video": {
+      "type": "object",
+      "required": ["uri", "cid", "title", "tracks"],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "durationMs": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "tracks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "at-uri"
+          },
+          "description": "The track records the video's source points at."
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "at-uri"
+          },
+          "description": "The livestream records the video is connected to."
+        },
+        "thumb": {
+          "type": "boolean",
+          "description": "Whether the record carries a thumbnail."
+        }
+      }
+    },
+    "upload": {
+      "type": "object",
+      "required": ["uploadId", "status", "backend"],
+      "properties": {
+        "uploadId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "description": "Processing status: pending, processing, done or error."
+        },
+        "error": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string",
+          "description": "For a finalized recording, the livestream record it came from."
+        },
+        "contentCid": {
+          "type": "string"
+        },
+        "durationMs": {
+          "type": "integer"
+        },
+        "blobSize": {
+          "type": "integer"
+        },
+        "tracks": {
+          "type": "integer",
+          "description": "How many track records the upload has published."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    }
+  }
+}

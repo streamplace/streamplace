@@ -1,11 +1,19 @@
 import { useState } from "react";
 import { LayoutChangeEvent, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { colors, textAlphas } from "../../../lib/theme/tokens";
 import { usePlayerStore } from "../../../player-store";
+import { useTheme } from "../../ui";
 
 const TRACK_HEIGHT = 3;
 const THUMB_SIZE = 14;
 const TOUCH_HEIGHT = 16;
+// hitSlop that extends the gesture area to a 44pt touch target without
+// changing the rendered layout.
+const TOUCH_SLOP = {
+  top: (44 - TOUCH_HEIGHT) / 2,
+  bottom: (44 - TOUCH_HEIGHT) / 2,
+};
 
 // Native VOD scrub bar. The old implementation leaned on @rn-primitives/slider
 // driven by web pointer events (onPointerUp/onPointerEnter), which never fire
@@ -19,6 +27,7 @@ export function SeekBar() {
   const duration = usePlayerStore((x) => x.duration);
   const bufferedEnd = usePlayerStore((x) => x.bufferedEnd);
   const seekTo = usePlayerStore((x) => x.seekTo);
+  const { theme } = useTheme();
 
   const [trackWidth, setTrackWidth] = useState(0);
   const [scrubbing, setScrubbing] = useState(false);
@@ -36,6 +45,7 @@ export function SeekBar() {
 
   const pan = Gesture.Pan()
     .runOnJS(true)
+    .hitSlop(TOUCH_SLOP)
     .onBegin((e) => {
       setScrubbing(true);
       setScrubTime(timeAt(e.x));
@@ -52,6 +62,7 @@ export function SeekBar() {
 
   const tap = Gesture.Tap()
     .runOnJS(true)
+    .hitSlop(TOUCH_SLOP)
     .onEnd((e) => {
       seekTo(timeAt(e.x));
     });
@@ -75,7 +86,7 @@ export function SeekBar() {
             style={{
               height: TRACK_HEIGHT,
               borderRadius: 999,
-              backgroundColor: "rgba(255,255,255,0.25)",
+              backgroundColor: textAlphas.dark[4],
             }}
           >
             <View
@@ -86,7 +97,7 @@ export function SeekBar() {
                 left: 0,
                 width: `${bufferedPct}%`,
                 borderRadius: 999,
-                backgroundColor: "rgba(255,255,255,0.4)",
+                backgroundColor: textAlphas.dark[3],
               }}
             />
             <View
@@ -97,7 +108,7 @@ export function SeekBar() {
                 left: 0,
                 width: `${progressPct}%`,
                 borderRadius: 999,
-                backgroundColor: "#fff",
+                backgroundColor: theme.colors.primary,
               }}
             />
           </View>
@@ -109,7 +120,7 @@ export function SeekBar() {
               width: THUMB_SIZE,
               height: THUMB_SIZE,
               borderRadius: THUMB_SIZE / 2,
-              backgroundColor: "#fff",
+              backgroundColor: colors.white,
             }}
           />
         </View>

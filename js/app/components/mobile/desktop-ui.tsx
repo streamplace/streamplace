@@ -11,7 +11,11 @@ import {
   View,
   zero,
 } from "@streamplace/components";
-import { AnimatedGradient } from "components/ui/gradient";
+import {
+  borderAlphas,
+  motion,
+  scrims,
+} from "@streamplace/components/src/lib/theme/tokens";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -30,7 +34,7 @@ import {
 import { PlayPauseIndicator } from "./desktop-ui/play-pause-indicator";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
-const { h, layout, position, w, px, py, r, p } = zero;
+const { h, layout, position, w, px, py, p } = zero;
 
 function isRefObject(
   ref: any,
@@ -83,27 +87,31 @@ export function DesktopUi({
   const segment = useSegment();
 
   const [isControlsVisible, setIsControlsVisible] = useState(true);
+  const controlsVisibleRef = useRef(true);
   const [pipSupported, setPipSupported] = useState(false);
   const [pipActive, setPipActive] = useState(false);
   const fadeOpacity = useSharedValue(1);
   const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
-  const FADE_OUT_DELAY = 2500;
+  // Controls auto-hide after 3s of inactivity (design-system standard)
+  const FADE_OUT_DELAY = 3000;
 
   const isSelfAndNotLive = ingest === "new";
   const isActivelyLive = ingest !== null && ingest !== "new";
 
   const resetFadeTimer = useCallback(() => {
-    fadeOpacity.value = withTiming(1, { duration: 200 });
+    fadeOpacity.value = withTiming(1, { duration: motion.base });
     if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
     setIsControlsVisible(true);
+    controlsVisibleRef.current = true;
 
     if (selectedRendition === "audio") return;
     if (ingest !== null) return;
     if (status === PlayerStatus.PAUSE) return;
 
     fadeTimeout.current = setTimeout(() => {
-      fadeOpacity.value = withTiming(0, { duration: 400 });
+      fadeOpacity.value = withTiming(0, { duration: motion.slow });
       setIsControlsVisible(false);
+      controlsVisibleRef.current = false;
     }, FADE_OUT_DELAY);
   }, [fadeOpacity, selectedRendition, ingest, status]);
 
@@ -202,9 +210,24 @@ export function DesktopUi({
 
   const togglePlayPause = usePlayerStore((x) => x.togglePlayPause);
 
+  const mode = usePlayerStore((x) => x.mode);
   const handleSingleClick = useCallback(() => {
+    // Touch screens have no hover: once the controls have faded (and stopped
+    // taking taps), the first tap brings them back rather than toggling
+    // playback, so the fullscreen and quality buttons stay reachable.
+    if (!controlsVisibleRef.current) {
+      resetFadeTimer();
+      return;
+    }
+    // Click-to-pause is for on-demand video. A live stream has nothing to
+    // pause into, and on phones the tap that reaches for a control button
+    // was landing here and pausing the stream instead.
+    if (mode !== "vod") {
+      resetFadeTimer();
+      return;
+    }
     togglePlayPause();
-  }, [togglePlayPause]);
+  }, [togglePlayPause, resetFadeTimer, mode]);
 
   const handleDoubleClick = useCallback(() => {
     toggleFullscreen();
@@ -253,27 +276,21 @@ export function DesktopUi({
           </Animated.View>
 
           {isActivelyLive && isControlsVisible && (
-            <View
+            <Animated.View
               style={[
                 layout.position.absolute,
                 {
-                  transform: [{ translateX: -100 }, { translateY: -25 }],
+                  top: safeAreaInsets.top + 64,
+                  left: 16,
                 },
+                animatedFadeStyle,
               ]}
             >
-              <Animated.View
-                style={[
-                  {
-                    padding: 12,
-                    backgroundColor: "rgba(0, 0, 0, 0.5)",
-                  },
-                  r[3],
-                  animatedFadeStyle,
-                ]}
-              >
-                <PlayerUI.MetricsPanel showMetrics={isActivelyLive} />
-              </Animated.View>
-            </View>
+              {/* Connection-health HUD. `showMetrics` (debug flag) gates the
+                  raw Δ/mean/range readout — never shown to broadcasters by
+                  default; the pill itself is always visible while live. */}
+              <PlayerUI.MetricsPanel showMetrics={showMetrics} />
+            </Animated.View>
           )}
 
           {isSelfAndNotLive && (
@@ -310,10 +327,10 @@ export function DesktopUi({
                 px[4],
                 py[2],
                 {
-                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  backgroundColor: scrims.dark,
                   borderRadius: 8,
                   borderWidth: 1,
-                  borderColor: "#374151",
+                  borderColor: borderAlphas.dark.strong,
                 },
               ]}
             >
@@ -334,21 +351,19 @@ export function DesktopUi({
           { pointerEvents: isControlsVisible ? "auto" : "none" },
         ]}
       >
-        <AnimatedGradient
-          fromColor="#00000080"
-          toColor="#000000"
-          opacityColor1={0}
-        >
+        {/* No full-width scrim: the bars carry their own translucent pills
+            around the buttons, so the video stays visible behind them. */}
+        <View style={{ paddingBottom: 12 }}>
           <BottomControlBar
             ingest={ingest}
             pipSupported={pipSupported}
             pipActive={pipActive}
             onHandlePip={handlePip}
-            dropdownPortalContainer={fullscreen && portalContainerID}
+            dropdownPortalContainer={fullscreen ? portalContainerID : undefined}
             showChat={isChatOpen || false}
             setShowChat={setIsChatOpen || undefined}
           />
-        </AnimatedGradient>
+        </View>
       </Animated.View>
       {fullscreen && <PortalHost name={portalContainerID} />}
     </>

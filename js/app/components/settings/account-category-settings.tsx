@@ -6,6 +6,7 @@ import {
   MenuGroup,
   MenuSeparator,
   Text,
+  useNetworkName,
   useTheme,
   useTranslation,
   View,
@@ -27,6 +28,7 @@ import {
 export function AccountCategorySettings() {
   const { theme, zero: z } = useTheme();
   const { t } = useTranslation("settings");
+  const network = useNetworkName();
   const { t: tn } = useTranslation();
   const logout = useStore((state) => state.logout);
   const chatProfile = useChatProfile();
@@ -70,7 +72,7 @@ export function AccountCategorySettings() {
 
   let rgb =
     chatProfile.profile?.color &&
-    `rgb(${chatProfile.profile?.color?.red},${chatProfile.profile?.color?.green},${chatProfile.profile?.color?.blue})`;
+    `rgb(${chatProfile.profile?.color?.red},${chatProfile.profile?.color?.green},${chatProfile.profile?.color?.blue})`; // eslint-disable-line streamplace/no-token-literals -- dynamic name color
 
   return (
     <ScrollView>
@@ -107,7 +109,14 @@ export function AccountCategorySettings() {
                 return (
                   <>
                     {parts[0]}
-                    <Text size="3xl" style={{ color: rgb || "#bd6e86" }}>
+                    <Text
+                      size="3xl"
+                      style={{
+                        color:
+                          rgb ||
+                          "#bd6e86" /* eslint-disable-line streamplace/no-token-literals -- default name color */,
+                      }}
+                    >
                       {handle}
                     </Text>
                     {parts[1]}
@@ -121,7 +130,7 @@ export function AccountCategorySettings() {
             <MenuGroup>
               <SettingsExternalItem
                 LeftIcon={Edit3}
-                title={t("edit-profile-bluesky")}
+                title={t("edit-profile-bluesky", { network })}
                 link={`https://bsky.app/profile/${userProfile.handle}`}
               />
             </MenuGroup>

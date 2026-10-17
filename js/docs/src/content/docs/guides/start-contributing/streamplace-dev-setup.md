@@ -51,8 +51,11 @@ The node will be accessible at [http://127.0.0.1:38080](http://127.0.0.1:38080).
 
 By default, the `make dev` Streamplace node will proxy incoming requests
 front-end requests — basically every endpoint that's not at `/api` or `/xrpc` —
-through to the Streamplace app dev server. Usually, you'll want to be hacking on
-both of those things at once. If this isn't the case — like you're making
+through to the Streamplace app dev server. While that dev server is still
+booting, the node serves a waiting page that polls the port and reloads on its
+own, so a slow `pnpm app start` doesn't leave you staring at a 502. Usually,
+you'll want to be hacking on both of those things at once. If this isn't the
+case — like you're making
 exclusively backend changes — and you want to launch the node with the embedded
 frontend, you can override the pertinent command line argument:
 

@@ -52,9 +52,41 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
       storage.setItem(PROTOCOL_STORAGE_KEY, protocol).catch(console.error);
       set((state) => ({ ...state, protocol: protocol }));
     },
+    streamForcesHLS: false,
+    setStreamForcesHLS: (forced: boolean) => {
+      if (forced) {
+        // Hold on HLS without touching the stored preference.
+        set((state) => ({
+          ...state,
+          streamForcesHLS: true,
+          protocol: PlayerProtocol.HLS,
+        }));
+        return;
+      }
+      set((state) => ({ ...state, streamForcesHLS: false }));
+      // Back to whatever the viewer had chosen.
+      storage
+        .getItem(PROTOCOL_STORAGE_KEY)
+        .then((stored) => {
+          if (
+            stored &&
+            Object.values(PlayerProtocol).includes(stored as PlayerProtocol)
+          ) {
+            set((state) =>
+              state.streamForcesHLS
+                ? state
+                : { ...state, protocol: stored as PlayerProtocol },
+            );
+          }
+        })
+        .catch(console.error);
+    },
 
     src: "",
     setSrc: (src: string) => set(() => ({ src })),
+    playbackSession: undefined,
+    setPlaybackSession: (playbackSession: string | undefined) =>
+      set(() => ({ playbackSession })),
 
     ingestMediaSource: undefined,
     setIngestMediaSource: (ingestMediaSource: IngestMediaSource | undefined) =>
@@ -111,6 +143,9 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
         }
         return { playTime: time };
       }),
+
+    startTime: null,
+    setStartTime: (startTime: number | null) => set(() => ({ startTime })),
 
     videoRef: undefined,
     setVideoRef: (
@@ -309,10 +344,10 @@ export function usePlayerStore<U>(
   selector: (state: PlayerState) => U,
   playerId?: string,
 ): U {
-  if (!playerId) {
-    playerId = Object.keys(usePlayerContext().players)[0];
-  }
-  const store = getPlayerStoreById(playerId);
+  // Always read the context so the hook count is the same with or without
+  // an explicit id.
+  const players = usePlayerContext().players;
+  const store = getPlayerStoreById(playerId ?? Object.keys(players)[0]);
   return useStore(store, selector);
 }
 

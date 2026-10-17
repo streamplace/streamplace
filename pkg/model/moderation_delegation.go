@@ -17,7 +17,10 @@ import (
 )
 
 type ModerationDelegation struct {
-	RKey         string    `gorm:"primaryKey;column:rkey"`
+	// AT record keys are scoped to a repo; IndexKey namespaces them in the
+	// existing primary-key column so existing databases can migrate in place.
+	IndexKey     string    `gorm:"primaryKey;column:rkey"`
+	RKey         string    `gorm:"column:record_key"`
 	CID          string    `gorm:"column:cid"`
 	RepoDID      string    `json:"repoDID" gorm:"column:repo_did;index:idx_repo_moderator,priority:1"`
 	Repo         *Repo     `json:"repo,omitempty" gorm:"foreignKey:DID;references:RepoDID"`
@@ -71,6 +74,7 @@ func (m *DBModel) CreateModerationDelegation(ctx context.Context, rec placestrea
 	now := aqtime.FromTime(time.Now().UTC())
 
 	delegation := &ModerationDelegation{
+		IndexKey:     repoDID.String() + "/" + rkey,
 		RKey:         rkey,
 		CID:          cid.String(),
 		RepoDID:      repoDID.String(),
@@ -80,11 +84,21 @@ func (m *DBModel) CreateModerationDelegation(ctx context.Context, rec placestrea
 		IndexedAt:    now.Time().UTC(),
 	}
 
-	return createOrVerify(ctx, m, delegation, map[string]any{"rkey": rkey})
+	return createOrVerify(ctx, m, delegation, map[string]any{"rkey": delegation.IndexKey})
 }
 
-func (m *DBModel) DeleteModerationDelegation(ctx context.Context, rkey string) error {
-	return m.DB.WithContext(ctx).Where("rkey = ?", rkey).Delete(&ModerationDelegation{}).Error
+func (m *DBModel) DeleteModerationDelegation(ctx context.Context, repoDID, rkey string) error {
+	return m.DB.WithContext(ctx).
+		Where("repo_did = ? AND record_key = ?", repoDID, rkey).
+		Delete(&ModerationDelegation{}).Error
+}
+
+func migrateModerationDelegationKeys(ctx context.Context, db *gorm.DB) error {
+	return db.WithContext(ctx).Exec(`
+		UPDATE moderation_delegations
+		SET record_key = rkey, rkey = repo_did || '/' || rkey
+		WHERE record_key IS NULL OR record_key = ''
+	`).Error
 }
 
 func (m *DBModel) GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*placestream.ModerationDefs_PermissionView, error) {

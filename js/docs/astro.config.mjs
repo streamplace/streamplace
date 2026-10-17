@@ -29,7 +29,8 @@ export default defineConfig({
         },
       ],
       logo: {
-        src: "/src/assets/cube.png",
+        light: "/src/assets/logo-light.png",
+        dark: "/src/assets/logo-dark.png",
         alt: "Streamplace Logo",
       },
       favicon: "/favicon.ico",

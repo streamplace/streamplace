@@ -37,7 +37,7 @@ Keep this key private. It's like a password, but for your stream.
 Open OBS and go to **Settings → Stream**:
 
 - **Service**: `Custom...`
-- **Server**: `rtmps://stream.place:1935/live`
+- **Server**: `rtmps://rtmp.stream.place:1935/live`
 - **Stream Key**: Paste what you copied in Step 2
 
 Then go to **Settings → Output → Streaming**:

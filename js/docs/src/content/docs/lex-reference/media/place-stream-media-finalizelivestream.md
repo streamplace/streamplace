@@ -13,7 +13,7 @@ description: Reference for the place.stream.media.finalizeLivestream lexicon
 
 **Type:** `procedure`
 
-Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records. Processing completes server-side and creates a draft VOD; the client does not need to poll or publish — the user publishes the draft later via place.stream.vod.publishDraft. Returns the draft's ats:// URI so the client can navigate to it, alongside an uploadId for backwards compatibility.
+Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream(s) into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records. By default it leaves a draft VOD the streamer publishes later via place.stream.vod.publishDraft; with publish set it publishes the place.stream.video record as soon as the VOD is finalized. The caller must be the streamer, or a moderator they have granted livestream.manage; every record is written with the streamer's session.
 
 **Parameters:** _(None defined)_
 
@@ -24,9 +24,14 @@ Turn a finished livestream into a VOD. The server concatenates the MUXL segments
 
 **Schema Type:** `object`
 
-| Name         | Type     | Req'd | Description                                                                                                 | Constraints      |
-| ------------ | -------- | ----- | ----------------------------------------------------------------------------------------------------------- | ---------------- |
-| `livestream` | `string` | ✅    | AT-URI of the place.stream.livestream record to finalize into a VOD. Must belong to the authenticated user. | Format: `at-uri` |
+| Name            | Type              | Req'd | Description                                                                                                                                                                                                                                                                   | Constraints       |
+| --------------- | ----------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `livestream`    | `string`          | ❌    | AT-URI of the place.stream.livestream record to finalize into a VOD. Either this or livestreams is required.                                                                                                                                                                  | Format: `at-uri`  |
+| `livestreams`   | Array of `string` | ❌    | Several livestream records whose recordings make up one VOD: a streamer who started a new record mid-stream splits the recording across them. Recordings are concatenated in the records' creation order, whatever order they are listed in. All must belong to one streamer. |                   |
+| `title`         | `string`          | ❌    | Title of the video record; the first livestream's title when empty.                                                                                                                                                                                                           | Max Length: 1000  |
+| `description`   | `string`          | ❌    | Description of the video record.                                                                                                                                                                                                                                              | Max Length: 10000 |
+| `publish`       | `boolean`         | ❌    | Publish the place.stream.video record as soon as the VOD is finalized, instead of leaving a draft.                                                                                                                                                                            | Default: `false`  |
+| `endLivestream` | `boolean`         | ❌    | Also end any of the livestream records that were never stopped, so the streamer's page stops reading as live.                                                                                                                                                                 | Default: `false`  |
 
 **Output:**
 
@@ -35,15 +40,19 @@ Turn a finished livestream into a VOD. The server concatenates the MUXL segments
 
 **Schema Type:** `object`
 
-| Name       | Type     | Req'd | Description                                                                                                                                                                                         | Constraints |
-| ---------- | -------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `uploadId` | `string` | ✅    | Identifier for the finalize job. Retained for backwards compatibility; the draft flow no longer requires the client to poll getUploadStatus.                                                        |             |
-| `draftUri` | `string` | ✅    | The ats:// URI of the draft VOD created for this finalize. The draft reaches status 'ready' when processing completes; the user publishes it from the Drafts tab via place.stream.vod.publishDraft. |             |
+| Name          | Type              | Req'd | Description                                                                                                                                     | Constraints |
+| ------------- | ----------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `uploadId`    | `string`          | ✅    | Identifier for the finalize job. Retained for backwards compatibility; the draft flow no longer requires the client to poll getUploadStatus.    |             |
+| `draftUri`    | `string`          | ❌    | The ats:// URI of the draft VOD created for this finalize, when publish is not set. The draft reaches status 'ready' when processing completes. |             |
+| `livestreams` | Array of `string` | ❌    | The livestream records the VOD is made of, in recording order.                                                                                  |             |
+| `objects`     | `integer`         | ❌    | How many recorded objects will be concatenated.                                                                                                 |             |
+| `ended`       | Array of `string` | ❌    | Livestream records that are now ended (already, or by endLivestream).                                                                           |             |
 
 **Possible Errors:**
 
-- `LivestreamNotFound`: No livestream with the given URI is known, or it does not belong to the authenticated user.
+- `LivestreamNotFound`: No livestream with the given URI is known to this node, or the livestreams belong to different streamers.
 - `NoRecording`: The livestream has no recorded MUXL segments to finalize (recording was not enabled, or none completed).
+- `NotPermitted`: The caller is neither the streamer nor a moderator with livestream.manage from them.
 
 ---
 
@@ -56,17 +65,45 @@ Turn a finished livestream into a VOD. The server concatenates the MUXL segments
   "defs": {
     "main": {
       "type": "procedure",
-      "description": "Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records. Processing completes server-side and creates a draft VOD; the client does not need to poll or publish — the user publishes the draft later via place.stream.vod.publishDraft. Returns the draft's ats:// URI so the client can navigate to it, alongside an uploadId for backwards compatibility.",
+      "description": "Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream(s) into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records. By default it leaves a draft VOD the streamer publishes later via place.stream.vod.publishDraft; with publish set it publishes the place.stream.video record as soon as the VOD is finalized. The caller must be the streamer, or a moderator they have granted livestream.manage; every record is written with the streamer's session.",
       "input": {
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["livestream"],
+          "required": [],
           "properties": {
             "livestream": {
               "type": "string",
               "format": "at-uri",
-              "description": "AT-URI of the place.stream.livestream record to finalize into a VOD. Must belong to the authenticated user."
+              "description": "AT-URI of the place.stream.livestream record to finalize into a VOD. Either this or livestreams is required."
+            },
+            "livestreams": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "at-uri"
+              },
+              "description": "Several livestream records whose recordings make up one VOD: a streamer who started a new record mid-stream splits the recording across them. Recordings are concatenated in the records' creation order, whatever order they are listed in. All must belong to one streamer."
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "Title of the video record; the first livestream's title when empty."
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 10000,
+              "description": "Description of the video record."
+            },
+            "publish": {
+              "type": "boolean",
+              "default": false,
+              "description": "Publish the place.stream.video record as soon as the VOD is finalized, instead of leaving a draft."
+            },
+            "endLivestream": {
+              "type": "boolean",
+              "default": false,
+              "description": "Also end any of the livestream records that were never stopped, so the streamer's page stops reading as live."
             }
           }
         }
@@ -75,7 +112,7 @@ Turn a finished livestream into a VOD. The server concatenates the MUXL segments
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["uploadId", "draftUri"],
+          "required": ["uploadId"],
           "properties": {
             "uploadId": {
               "type": "string",
@@ -83,7 +120,27 @@ Turn a finished livestream into a VOD. The server concatenates the MUXL segments
             },
             "draftUri": {
               "type": "string",
-              "description": "The ats:// URI of the draft VOD created for this finalize. The draft reaches status 'ready' when processing completes; the user publishes it from the Drafts tab via place.stream.vod.publishDraft."
+              "description": "The ats:// URI of the draft VOD created for this finalize, when publish is not set. The draft reaches status 'ready' when processing completes."
+            },
+            "livestreams": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "at-uri"
+              },
+              "description": "The livestream records the VOD is made of, in recording order."
+            },
+            "objects": {
+              "type": "integer",
+              "description": "How many recorded objects will be concatenated."
+            },
+            "ended": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "at-uri"
+              },
+              "description": "Livestream records that are now ended (already, or by endLivestream)."
             }
           }
         }
@@ -91,11 +148,15 @@ Turn a finished livestream into a VOD. The server concatenates the MUXL segments
       "errors": [
         {
           "name": "LivestreamNotFound",
-          "description": "No livestream with the given URI is known, or it does not belong to the authenticated user."
+          "description": "No livestream with the given URI is known to this node, or the livestreams belong to different streamers."
         },
         {
           "name": "NoRecording",
           "description": "The livestream has no recorded MUXL segments to finalize (recording was not enabled, or none completed)."
+        },
+        {
+          "name": "NotPermitted",
+          "description": "The caller is neither the streamer nor a moderator with livestream.manage from them."
         }
       ]
     }

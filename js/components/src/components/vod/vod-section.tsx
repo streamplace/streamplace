@@ -1,80 +1,69 @@
 import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { borders, px, py, useTheme } from "../../ui";
+import { spacing } from "../../lib/theme/tokens";
+import { useTheme } from "../../ui";
 import { useVideoStore } from "../../video-store/video-store";
+import { VodComments } from "./vod-comments";
 import { VodDescription } from "./vod-description";
 import { VodMobileMetadata } from "./vod-mobile-metadata";
 
-// VodSection is the VOD metadata block (title, author, likes, view count)
-// plus the description below a divider line.
+// Below-the-player detail column (YouTube grammar): title + channel/actions
+// row, then the description card, then comments.
 //
-// With scrollDescription (mobile), the metadata header stays fixed and only the
-// description scrolls, so the video above is always visible and a long
-// description can't shrink the player. Without it (desktop), everything flows
-// in the surrounding scroll view.
+// scrollDescription (mobile) keeps the metadata header fixed and scrolls the
+// rest, so the video above is always visible. Desktop flows in the surrounding
+// scroll view.
 export function VodSection({
   scrollDescription = false,
 }: {
   scrollDescription?: boolean;
 }) {
   const aturi = useVideoStore((x) => x.aturi);
+  const video = useVideoStore((x) => x.video);
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
-  if (!aturi) {
-    return null;
-  }
+  if (!aturi) return null;
+  const videoUri = video?.uri ?? aturi;
 
-  const header = (
-    <View
-      style={[
-        py[4],
-        borders.bottom.width.thin,
-        { borderBottomColor: theme.colors.border, width: "100%" },
-      ]}
-    >
-      <View
-        style={[
-          px[4],
-          { maxWidth: 720, alignSelf: "center" as const, width: "100%" },
-        ]}
-      >
-        <VodMobileMetadata />
-      </View>
-    </View>
-  );
-
-  const description = (
-    <View
-      style={[
-        px[4],
-        py[4],
-        { maxWidth: 720, alignSelf: "center" as const, width: "100%" },
-      ]}
-    >
-      <VodDescription />
-    </View>
-  );
-
-  if (scrollDescription) {
+  if (!scrollDescription) {
     return (
-      <View style={{ flex: 1, width: "100%" }}>
-        {header}
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: insets.bottom }}
-          showsVerticalScrollIndicator={false}
-        >
-          {description}
-        </ScrollView>
+      <View style={{ width: "100%", paddingTop: spacing[4] }}>
+        {/* Full width — matches the player above. When related videos land,
+            this becomes the left column with the related rail on the right. */}
+        <View style={{ width: "100%", gap: spacing[5] }}>
+          <VodMobileMetadata />
+          <VodDescription />
+          {video ? <VodComments videoUri={videoUri} /> : null}
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={{ width: "100%" }}>
-      {header}
-      {description}
+    <View style={{ flex: 1, width: "100%" }}>
+      <View
+        style={{
+          paddingHorizontal: spacing[4],
+          paddingVertical: spacing[3],
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.borderSubtle,
+        }}
+      >
+        <VodMobileMetadata />
+      </View>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          padding: spacing[4],
+          paddingBottom: insets.bottom + spacing[6],
+          gap: spacing[5],
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <VodDescription />
+        {video ? <VodComments videoUri={videoUri} /> : null}
+      </ScrollView>
     </View>
   );
 }

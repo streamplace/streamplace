@@ -31,11 +31,15 @@ export function usePossiblyUnauthedPDSAgent(): StreamplaceAgent | null {
   // - SessionManager when logged in
   return useMemo(() => {
     if (!oauthSession) {
+      // Constructing an agent with an undefined URL throws synchronously
+      // and takes down the whole app; degrade to null instead (callers
+      // already handle a null agent).
+      if (!nodeUrl) return null;
       return new StreamplaceAgent(nodeUrl);
     }
 
     return new StreamplaceAgent(oauthSession);
-  }, [oauthSession]);
+  }, [oauthSession, nodeUrl]);
 }
 
 // always returns an unauthenticated agent pointed at the public bluesky API

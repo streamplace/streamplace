@@ -1,4 +1,4 @@
-import { zero } from "@streamplace/components";
+import { useTheme, zero } from "@streamplace/components";
 import { ActivityIndicator, View } from "react-native";
 
 export default function () {
@@ -15,5 +15,6 @@ export default function () {
 }
 
 export function Spinner() {
-  return <ActivityIndicator size="large" color={zero.colors.primary[500]} />;
+  const { theme } = useTheme();
+  return <ActivityIndicator size="large" color={theme.colors.primary} />;
 }

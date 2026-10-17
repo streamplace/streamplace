@@ -1,17 +1,16 @@
-import { Text, View } from "@streamplace/components";
+import { Button, Text, View, useBrandingAsset } from "@streamplace/components";
 import {
   bg,
   borders,
-  colors,
   flex,
   gap,
   layout,
   px,
   py,
-  r,
 } from "@streamplace/components/src/lib/theme/atoms";
+import { textAlphas } from "@streamplace/components/src/lib/theme/tokens";
+import { LogoTile } from "components/brand/logo";
 import { STORE_LABELS, STORE_URLS } from "constants/store-urls";
-import { Image } from "expo-image";
 import usePlatform from "hooks/usePlatform.native";
 import { X } from "lucide-react-native";
 import { useState } from "react";
@@ -31,8 +30,11 @@ export function MobileAppBanner() {
 
   const insets = useSafeAreaInsets();
   const platform = usePlatform();
+  // A node that is its own product turns the suggestion off in Branding.
+  const disabled = useBrandingAsset("mobileAppBanner")?.data === "off";
 
   if (
+    disabled ||
     dismissed ||
     !((platform.isWebIOS && !platform.isMobileSafari) || platform.isWebAndroid)
   )
@@ -60,10 +62,7 @@ export function MobileAppBanner() {
         { paddingTop: insets.top + 8, paddingBottom: 8 },
       ]}
     >
-      <Image
-        source={require("../assets/images/cube_small.png")}
-        style={[{ width: 36, height: 36 }, r.md]}
-      />
+      <LogoTile size={36} />
       <View style={[flex.values[1]]}>
         <Text weight="semibold" size="sm">
           Get the Streamplace app
@@ -72,16 +71,15 @@ export function MobileAppBanner() {
           Better experience on mobile
         </Text>
       </View>
-      <Pressable
+      <Button
+        size="sm"
+        width="min"
         onPress={() => Linking.openURL(STORE_URLS[mobilePlatform])}
-        style={[bg.primary[500], r.md, px[3], py[1]]}
       >
-        <Text size="sm" weight="semibold">
-          {STORE_LABELS[mobilePlatform]}
-        </Text>
-      </Pressable>
+        {STORE_LABELS[mobilePlatform]}
+      </Button>
       <Pressable onPress={dismiss} style={[py[1], px[1]]}>
-        <X size={16} color={colors.gray[400]} />
+        <X size={16} color={textAlphas.dark[3]} />
       </Pressable>
     </View>
   );

@@ -129,7 +129,7 @@ export function StreamplaceUpdatesRow() {
           style={[
             {
               marginTop: 8,
-              backgroundColor: "#007AFF",
+              backgroundColor: theme.theme.colors.primary,
               borderRadius: 8,
               paddingHorizontal: 16,
               paddingVertical: 12,

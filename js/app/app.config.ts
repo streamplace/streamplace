@@ -1,9 +1,13 @@
 import {
   ConfigPlugin,
   withAndroidManifest,
+  withDangerousMod,
   withEntitlementsPlist,
+  withPodfile,
   withXcodeProject,
 } from "expo/config-plugins";
+import fs from "fs";
+import path from "path";
 import streamplaceReactNativeWebRTC from "../config-react-native-webrtc";
 export const withNotificationsIOS: ConfigPlugin = (config) => {
   config = withEntitlementsPlist(config, (config) => {
@@ -20,6 +24,30 @@ export const withoutNotificationsIOS: ConfigPlugin = (config) => {
   });
   return config;
 };
+
+// React Native normalizes library targets, but not their privacy/resource bundles.
+// Xcode 27 rejects those bundles' older deployment targets.
+const withMinimumIOSDeploymentTarget: ConfigPlugin = (config) =>
+  withPodfile(config, (config) => {
+    const hook = "post_install do |installer|";
+    if (!config.modResults.contents.includes(hook)) {
+      throw new Error("Missing CocoaPods post_install hook");
+    }
+    config.modResults.contents = config.modResults.contents.replace(
+      hook,
+      `${hook}
+    minimum = Gem::Version.new(min_ios_version_supported)
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        current = build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        if current && Gem::Version.new(current) < minimum
+          build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = minimum.to_s
+        end
+      end
+    end`,
+    );
+    return config;
+  });
 
 const withAndroidProfileable = (config) => {
   return withAndroidManifest(config, (config) => {
@@ -41,6 +69,46 @@ const withAndroidProfileable = (config) => {
       },
     ];
 
+    return config;
+  });
+};
+
+// For e2e builds only (SP_E2E_BUILD=true, `make android-e2e`): trust CAs in
+// the device's user store, where hack/e2e-local.sh installs the e2e harness's
+// throwaway CA so the app can reach its HTTPS station and PDS. Never ship
+// this — it lets whoever can add a user CA intercept the app's traffic.
+// Cleartext stays off, as in a release build (targetSdk 28+ default).
+const withE2EUserTrust: ConfigPlugin = (config) => {
+  config = withDangerousMod(config, [
+    "android",
+    async (config) => {
+      const dir = path.join(
+        config.modRequest.platformProjectRoot,
+        "app/src/main/res/xml",
+      );
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, "e2e_network_security_config.xml"),
+        `<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <certificates src="system" />
+      <certificates src="user" />
+    </trust-anchors>
+  </base-config>
+</network-security-config>
+`,
+      );
+      return config;
+    },
+  ]);
+  return withAndroidManifest(config, (config) => {
+    const app = config.modResults.manifest.application?.[0];
+    if (!app) {
+      throw new Error("No application found in AndroidManifest.xml");
+    }
+    app.$["android:networkSecurityConfig"] = "@xml/e2e_network_security_config";
     return config;
   });
 };
@@ -85,8 +153,20 @@ export default function () {
   const isProd =
     process.env["SP_PRODUCTION_RELEASE"] === "true" || !!process.env.CI;
   const enableSentry = process.env["SP_ENABLE_SENTRY"] === "true";
+  const isE2E = process.env["SP_E2E_BUILD"] === "true";
   const pkg = require("./package.json");
-  const name = isProd ? "Streamplace" : "Devplace";
+  // Brand imagery and colors are generated from the active brand directory
+  // (see brand/README.md); expo prebuild derives every native icon format
+  // from the generated PNGs.
+  let brand;
+  try {
+    brand = require("./assets/generated/brand.json");
+  } catch {
+    throw new Error(
+      "Missing generated brand assets — run `pnpm run brand` from the repo root.",
+    );
+  }
+  const name = isProd ? brand.name : "Devplace";
   let bundle = isProd ? "tv.aquareum" : "tv.aquareum.dev";
   if (process.env["SP_BUNDLE_OVERRIDE"]) {
     bundle = process.env["SP_BUNDLE_OVERRIDE"];
@@ -101,13 +181,13 @@ export default function () {
       // Only rev this to the current version when native dependencies change!
       runtimeVersion: pkg.runtimeVersion,
       orientation: "default",
-      icon: "./assets/images/icon.png",
+      icon: "./assets/generated/icon.png",
       scheme: scheme,
       userInterfaceStyle: "automatic",
       splash: {
-        image: "./assets/images/splash.png",
+        image: "./assets/generated/splash.png",
         resizeMode: "contain",
-        backgroundColor: "#ffffff",
+        backgroundColor: brand.colors.splashBackground,
       },
       assetBundlePatterns: ["**/*"],
       ios: {
@@ -134,8 +214,8 @@ export default function () {
       },
       android: {
         adaptiveIcon: {
-          foregroundImage: "./assets/images/adaptive-icon.png",
-          backgroundColor: "#ffffff",
+          foregroundImage: "./assets/generated/adaptive-icon.png",
+          backgroundColor: brand.colors.adaptiveIconBackground,
         },
         package: bundle,
         edgeToEdgeEnabled: true,
@@ -191,7 +271,6 @@ export default function () {
       web: {
         bundler: "metro",
         output: "single",
-        favicon: "./assets/images/favicon.png",
       },
       plugins: [
         withAndroidProfileable,
@@ -213,18 +292,13 @@ export default function () {
           "expo-font",
           {
             fonts: [
-              "./assets/fonts/AtkinsonHyperlegibleNext-Regular.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleNext-Light.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleNext-ExtraLight.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleNext-Medium.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleNext-SemiBold.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleNext-Bold.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleNext-ExtraBold.ttf",
+              "./assets/fonts/Geist-Regular.ttf",
+              "./assets/fonts/Geist-Medium.ttf",
+              "./assets/fonts/Geist-SemiBold.ttf",
 
-              "./assets/fonts/AtkinsonHyperlegibleMono-Regular.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleMono-Medium.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleMono-SemiBold.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleMono-Bold.ttf",
+              "./assets/fonts/GeistMono-Regular.ttf",
+              "./assets/fonts/GeistMono-Medium.ttf",
+              "./assets/fonts/GeistMono-SemiBold.ttf",
             ],
           },
         ],
@@ -248,6 +322,7 @@ export default function () {
             },
           },
         ],
+        withMinimumIOSDeploymentTarget,
         [
           "expo-asset",
           {
@@ -283,20 +358,24 @@ export default function () {
               ],
             ]
           : []),
+        ...(isE2E ? [withE2EUserTrust] : []),
       ],
-      updates: isProd
-        ? {
-            url: `https://stream.place/api/manifest`,
-            enabled: true,
-            checkAutomatically: "ON_LOAD",
-            fallbackToCacheTimeout: 30000,
-            codeSigningCertificate: "./code-signing/certs/certificate.pem",
-            codeSigningMetadata: {
-              keyid: "main",
-              alg: "rsa-v1_5-sha256",
-            },
-          }
-        : {},
+      // e2e builds must run the JS they were built with, not whatever
+      // production update the manifest serves
+      updates:
+        isProd && !isE2E
+          ? {
+              url: `https://stream.place/api/manifest`,
+              enabled: true,
+              checkAutomatically: "ON_LOAD",
+              fallbackToCacheTimeout: 30000,
+              codeSigningCertificate: "./code-signing/certs/certificate.pem",
+              codeSigningMetadata: {
+                keyid: "main",
+                alg: "rsa-v1_5-sha256",
+              },
+            }
+          : {},
     },
   };
 }

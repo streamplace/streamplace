@@ -11,6 +11,8 @@ export type PlayerProps = {
   setFullscreen: (isFullscreen: boolean) => void;
   ingest?: boolean;
   embedded?: boolean;
+  /** Seconds into a VOD to start playback at (from a `?t=` URL param). */
+  startTime?: number;
   videoRef:
     | React.MutableRefObject<HTMLVideoElement | null>
     | ((instance: HTMLVideoElement | null) => void)

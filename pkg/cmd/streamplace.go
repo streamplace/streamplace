@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -16,6 +17,8 @@ import (
 	"runtime/pprof"
 	"slices"
 	"strconv"
+	"stream.place/streamplace/pkg/acme"
+	"stream.place/streamplace/pkg/branding"
 	"strings"
 	"syscall"
 	"time"
@@ -29,6 +32,7 @@ import (
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/cdn/providers"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/director"
 	"stream.place/streamplace/pkg/gstinit"
@@ -54,8 +58,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 
-	_ "github.com/go-gst/go-glib/glib"
-	_ "github.com/go-gst/go-gst/gst"
+	_ "github.com/go-gst/go-glib/pkg/glib/v2"
+	_ "github.com/go-gst/go-gst/pkg/gst"
 	"stream.place/streamplace/pkg/api"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/model"
@@ -78,6 +82,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeStreamCommand(build),
 		makeIngestWorkerCommand(build),
 		makeRTMPPushWorkerCommand(build),
+		makeDuplicateMistWorkerCommand(),
 		makeLiveCommand(build),
 		makeWhepCommand(build),
 		makeWhipCommand(build),
@@ -85,7 +90,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeSplitCommand(build),
 		makeLivepeerCommand(build),
 		makeMigrateCommand(build),
+		makeMigrateStateCommand(),
 		makeSyncCommand(build),
+		makeBrandingCommand(build),
+		makeValidateConfigCommand(build),
+		makeE2eCommand(build),
 	}
 	// Add the verbosity flag
 	// app.Flags = append(app.Flags, &urfavecli.StringFlag{
@@ -94,6 +103,14 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	// 	Value: "3",
 	// })
 	app.Before = func(ctx context.Context, cmd *urfavecli.Command) (context.Context, error) {
+		// validate-config must run wherever the binary runs, media stack or
+		// not: diagnosing a crashloop with a broken gstreamer install is
+		// exactly when you want pure config validation.
+		// The shadow initializes only its ingest; a node-wide self-test per
+		// publisher would add unrelated work to production diagnostics.
+		if cmd.Name == "validate-config" || cmd.Name == "duplicate-mist-worker" {
+			return ctx, nil
+		}
 		// Run self-test before starting
 		selfTest := cmd.Name == "self-test"
 		err := media.RunSelfTest(ctx)
@@ -272,6 +289,17 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
+	// Every new playback session counts toward the streamer's running view
+	// total, filed under their current livestream record.
+	mm.SetViewRecorder(func(streamer string) {
+		uri := ""
+		if ls, err := mod.GetLatestLivestreamForRepo(streamer); err == nil && ls != nil {
+			uri = ls.URI
+		}
+		if _, err := state.AddStreamView(ctx, streamer, uri); err != nil {
+			log.Warn(ctx, "failed to count a view", "streamer", streamer, "err", err)
+		}
+	})
 	if cli.IsolatedIngest && !media.IngestIsolationSupported() {
 		// The worker transport needs Unix fd-passing + Setsid (Linux today); fall
 		// back to in-process ingest elsewhere rather than break.
@@ -348,6 +376,10 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	// it, and at full speed it is what buries a boot. It trickles in at
 	// --deepen-rate windows a minute for as long as this node runs.
 	go atsync.DeepenForever(ctx)
+	// Trusted verifiers' records predate this node; pull them at boot and
+	// hourly, the firehose keeps them current in between.
+	go atsync.SeedVerificationsForever(ctx)
+	go atsync.SeedLabelsForever(ctx)
 
 	var replicator replication.Replicator = nil
 	if slices.Contains(cli.Replicators, config.ReplicatorIroh) {
@@ -385,7 +417,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		}
 	}
 	if slices.Contains(cli.Replicators, config.ReplicatorWebsocket) {
-		replicator = websocketrep.NewWebsocketReplicator(b, mod, mm)
+		replicator = websocketrep.NewWebsocketReplicator(b, mod, mm, state)
 	}
 
 	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb, atsync)
@@ -438,16 +470,37 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	// (where the model is in scope) so pkg/vod stays free of pkg/model, then
 	// concatenates the recorded MUXL objects into a VOD.
 	state.SetLivestreamVODFinalizer(func(ctx context.Context, t statedb.FinalizeLivestreamVODTask) (string, error) {
+		// The finalize route refuses banned accounts up front; automatic
+		// publishing (statedb.AutoPublishVODTask) has no caller to refuse.
+		labels, err := mod.GetActiveLabels(t.RepoDID)
+		if err != nil {
+			return "", fmt.Errorf("finalize-livestream-vod: check account labels: %w", err)
+		}
+		if atproto.IsBanned(labels...) {
+			return "", fmt.Errorf("finalize-livestream-vod: account %s is banned; skipping upload %s", t.RepoDID, t.UploadID)
+		}
 		signingKey, err := resolveLiveSigningKey(mod, t.RepoDID)
 		if err != nil {
 			return "", fmt.Errorf("finalize-livestream-vod: resolve signing key: %w", err)
 		}
 		return vod.FinalizeLivestreamVOD(ctx, cli, state, vodStore, vod.FinalizeInput{
-			UploadID:      t.UploadID,
-			RepoDID:       t.RepoDID,
-			LivestreamURI: t.LivestreamURI,
-			SigningKey:    signingKey,
+			UploadID:       t.UploadID,
+			RepoDID:        t.RepoDID,
+			LivestreamURI:  t.LivestreamURI,
+			LivestreamURIs: t.LivestreamURIs,
+			SigningKey:     signingKey,
 		})
+	})
+	// Publishes the video record right after a finalize the operator asked
+	// to publish (the finalize route), with the streamer's stored session.
+	state.SetVideoPublisher(func(ctx context.Context, t statedb.FinalizeLivestreamVODTask) (string, string, error) {
+		if t.Publish == nil {
+			return "", "", nil
+		}
+		if vodStore == nil {
+			return "", "", fmt.Errorf("finalize-livestream-vod: no VOD store configured")
+		}
+		return vod.PublishVideo(ctx, state, vodStore, t.RepoDID, t.UploadID, t.Publish.Record())
 	})
 	// View-count aggregator runs the log → record pipeline for one
 	// window. Same function-pointer pattern as the VOD processor so
@@ -506,6 +559,9 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			})
 		})
 	}
+	if err := wireCDNLogIngest(ctx, cli, state, vodStore, viewLog, ldb, group); err != nil {
+		return err
+	}
 	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um, vodStore, viewLog)
 	if err != nil {
 		return err
@@ -527,7 +583,22 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		})
 	}
 
+	if cli.ACME && !cli.Secure {
+		log.Warn(ctx, "--acme has no effect without --secure; TLS is terminated elsewhere")
+	}
 	if cli.Secure {
+		var rtmpsTLS *tls.Config
+		if cli.ACME {
+			mgr, err := acme.New(ctx, cli, state)
+			if err != nil {
+				return err
+			}
+			a.ACME = mgr
+			rtmpsTLS = mgr.TLSConfig()
+			group.Go(func() error {
+				return mgr.Manage(ctx)
+			})
+		}
 		group.Go(func() error {
 			return a.ServeHTTPS(ctx)
 		})
@@ -536,7 +607,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		})
 		if cli.RTMPServerAddon != "" {
 			group.Go(func() error {
-				return rtmps.ServeRTMPSAddon(ctx, cli)
+				return rtmps.ServeRTMPSAddon(ctx, cli, rtmpsTLS)
 			})
 		}
 		group.Go(func() error {
@@ -747,6 +818,62 @@ func makeVODStore(ctx context.Context, cli *config.CLI) (blob.Store, error) {
 	return blob.NewFileStore(root)
 }
 
+// wireCDNLogIngest installs the CDN access-log ingester when the
+// configured --vod-cdn-provider has a log source, and warns loudly
+// when a CDN is configured without one: segment fetches then bypass
+// the node entirely and every VOD's view count silently reads zero.
+func wireCDNLogIngest(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB, vodStore blob.Store, viewLog *viewlog.Writer, ldb localdb.LocalDB, group *TimeoutGroup) error {
+	provider, err := providers.FromConfig(cli)
+	if err != nil {
+		return err
+	}
+	if provider == nil {
+		return nil
+	}
+	if provider.Logs == nil {
+		log.Warn(ctx, "VOD CDN is configured without an access-log source: segment requests served by the CDN are invisible to view counting, so view counts for CDN-served VODs will be zero. Configure the provider's log ingestion (e.g. --bunny-log-storage-zone) or accept the gap.",
+			"vod_cdn_url", cli.VODCDNURL, "provider", cli.VODCDNProvider)
+		return nil
+	}
+	if vodStore == nil || cli.ViewCountAggregateInterval <= 0 {
+		log.Warn(ctx, "VOD CDN log source configured but view-count aggregation is off; not ingesting CDN logs")
+		return nil
+	}
+	if cli.CDNLogIngestInterval <= 0 {
+		log.Log(ctx, "cdn log ingest: disabled (cdn-log-ingest-interval=0)")
+		return nil
+	}
+	var salts *viewlog.SaltManager
+	if viewLog != nil {
+		salts = viewLog.Salts()
+	} else {
+		salts = viewlog.NewSaltManager(ldb)
+	}
+	sourceName := provider.Name
+	state.SetCDNLogIngester(func(ctx context.Context) error {
+		_, err := viewlog.RunIngest(ctx, viewlog.IngestInput{
+			Store:      vodStore,
+			Source:     provider.Logs,
+			SourceName: sourceName,
+			Salts:      salts,
+			Cursor:     state,
+			Window:     cli.ViewCountAggregateInterval,
+			Reaggregate: func(ctx context.Context, partID string, start, end time.Time) error {
+				_, err := state.EnqueueTask(ctx, statedb.TaskViewCountAggregate,
+					statedb.ViewCountAggregateTask{WindowStart: start, WindowEnd: end},
+					statedb.WithTaskKey(viewlog.ReaggregateTaskKey(start, end, partID)))
+				return err
+			},
+		})
+		return err
+	})
+	group.Go(func() error {
+		return viewlog.ScheduleIngest(ctx, state, cli.CDNLogIngestInterval)
+	})
+	log.Log(ctx, "cdn log ingest: enabled", "provider", sourceName, "interval", cli.CDNLogIngestInterval)
+	return nil
+}
+
 // makeViewLog returns the configured view-event log writer, or nil if
 // the operator has disabled it (--view-log-flush-interval=0) or there's
 // no place to write logs to (no VOD store). The writer reuses the VOD
@@ -816,6 +943,26 @@ func makeSelfTestCommand(build *config.BuildFlags) *urfavecli.Command {
 	}
 }
 
+// makeValidateConfigCommand checks the current flags and environment exactly
+// the way a starting node would (cli.Validate) and exits without opening any
+// listeners, databases, or media pipelines. Point deploy tooling at it: it
+// fails before a misconfiguration can crashloop the node on restart.
+func makeValidateConfigCommand(build *config.BuildFlags) *urfavecli.Command {
+	cli := config.CLI{Build: build}
+	cmd := cli.NewCommand("validate-config")
+	cmd.Usage = "validate configuration and exit without starting the node"
+	// NewCommand's Before hook runs cli.Validate, so a bad configuration
+	// fails the command before we ever get here. Do not check again in this
+	// action: the checks must run against pristine flag values, and any
+	// second pass would see the defaults PrepareConfig filled in as
+	// operator-set conflicts.
+	cmd.Action = func(ctx context.Context, cmd *urfavecli.Command) error {
+		fmt.Println("configuration OK")
+		return nil
+	}
+	return cmd
+}
+
 // makeVODTestCommand runs the VOD gstreamer pipeline on a local file
 // and prints probe results. Useful for reproducing gstreamer-side
 // crashes against the static binary without needing the full server
@@ -882,6 +1029,21 @@ func makeStreamCommand(build *config.BuildFlags) *urfavecli.Command {
 				return fmt.Errorf("usage: streamplace stream [user]")
 			}
 			return Stream(args.First())
+		},
+	}
+}
+
+// The shadow uses an ephemeral signer and has no node, database, or storage.
+// stdout carries only the per-segment progress bytes; all logs go to stderr.
+func makeDuplicateMistWorkerCommand() *urfavecli.Command {
+	return &urfavecli.Command{
+		Name:   "duplicate-mist-worker",
+		Usage:  "internal: replay a duplicated Mist publisher through native ingest",
+		Hidden: true,
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			_ = flag.Set("logtostderr", "true")
+			_ = flag.Set("v", "3")
+			return api.RunDuplicateMistWorker(ctx, os.Stdin, os.Stdout)
 		},
 	}
 }
@@ -1078,7 +1240,7 @@ func makeWhipCommand(build *config.BuildFlags) *urfavecli.Command {
 			},
 			&urfavecli.DurationFlag{
 				Name:  "duration",
-				Usage: "duration of the stream",
+				Usage: "total duration of the stream, including retries",
 			},
 			&urfavecli.StringFlag{
 				Name:     "file",
@@ -1094,8 +1256,14 @@ func makeWhipCommand(build *config.BuildFlags) *urfavecli.Command {
 				Name:  "freeze-after",
 				Usage: "freeze the stream after the given duration",
 			},
+			&urfavecli.DurationFlag{
+				Name:  "retry",
+				Usage: "restart after EOF or failure with this delay (e.g. 1s; 0 disables retries)",
+			},
 		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+			defer stop()
 			return WHIP(
 				ctx,
 				cmd.String("stream-key"),
@@ -1105,6 +1273,7 @@ func makeWhipCommand(build *config.BuildFlags) *urfavecli.Command {
 				cmd.String("file"),
 				cmd.String("endpoint"),
 				cmd.Duration("freeze-after"),
+				cmd.Duration("retry"),
 			)
 		},
 	}
@@ -1176,6 +1345,33 @@ func makeMigrateCommand(build *config.BuildFlags) *urfavecli.Command {
 	}
 }
 
+// makeMigrateStateCommand copies the state database from one engine to
+// another — the sqlite → Postgres move. Run it once while the old node is
+// still up to prove the target out, stop the node, run it again for the
+// delta (it is idempotent), then start the node with --db-url pointing at
+// the target.
+func makeMigrateStateCommand() *urfavecli.Command {
+	var from, to string
+	var batch int
+	return &urfavecli.Command{
+		Name:  "migrate-statedb",
+		Usage: "copy the state database to another engine (sqlite → Postgres), then exit",
+		Flags: []urfavecli.Flag{
+			&urfavecli.StringFlag{Name: "from", Usage: "source state database URL, e.g. sqlite:///data/state.sqlite", Required: true, Destination: &from},
+			&urfavecli.StringFlag{Name: "to", Usage: "target state database URL, e.g. postgres://user:pass@host/streamplace (created if missing)", Required: true, Destination: &to},
+			&urfavecli.IntFlag{Name: "batch-size", Usage: "rows per INSERT", Value: 500, Destination: &batch},
+		},
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			reports, err := statedb.CopyState(ctx, from, to, batch)
+			fmt.Fprintf(os.Stderr, "\n%-28s %10s %10s %10s\n", "table", "source", "inserted", "target")
+			for _, r := range reports {
+				fmt.Fprintf(os.Stderr, "%-28s %10d %10d %10d\n", r.Table, r.Source, r.Inserted, r.Target)
+			}
+			return err
+		},
+	}
+}
+
 // makeSyncCommand runs the backfill sweep to completion and exits, without
 // starting a node. It is for the case where a new index revision has to be warm
 // before traffic reaches it: run this, wait for it to finish, then start the
@@ -1196,9 +1392,8 @@ func makeSyncCommand(build *config.BuildFlags) *urfavecli.Command {
 // manager, no firehose: this process talks to other people's PDSes and to the
 // two databases, and then it is done.
 func runSync(ctx context.Context, build *config.BuildFlags, cmd *urfavecli.Command, cli *config.CLI) error {
-	if err := cli.Validate(cmd); err != nil {
-		return err
-	}
+	// The sync command's Before hook already ran cli.Validate; calling it
+	// again would see PrepareConfig's defaults as operator-set conflicts.
 	log.SetColorLogger(cli.Color)
 	ctx = log.WithDebugValue(ctx, cli.Debug)
 	log.Log(ctx, "streamplace sync", "version", build.Version, "dataDir", cli.DataDir)
@@ -1250,4 +1445,94 @@ func resolveLiveSigningKey(mod model.Model, repoDID string) (string, error) {
 		return "", fmt.Errorf("no active signing key for repo %s", repoDID)
 	}
 	return best.DID, nil
+}
+
+// makeBrandingCommand exports and imports branding bundles straight against
+// the state database, without a running node or a signed-in admin: the way
+// to seed a fresh node before anyone can log in, or to copy a look between
+// hosts from a terminal.
+func makeBrandingCommand(build *config.BuildFlags) *urfavecli.Command {
+	cli := config.CLI{Build: build}
+	root := cli.NewCommand("branding")
+	root.Usage = "export or import the node's branding as a bundle (zip with branding.yaml)"
+	open := func(ctx context.Context, cmd *urfavecli.Command) (*statedb.StatefulDB, string, error) {
+		// The branding command's Before hook already ran cli.Validate; see
+		// runSync for why a second pass would be wrong.
+		log.SetColorLogger(cli.Color)
+		mod, err := model.MakeDBConns(cli.DataFilePath([]string{"index"}), cli.IndexDBConnections)
+		if err != nil {
+			return nil, "", err
+		}
+		state, err := statedb.MakeDB(ctx, &cli, nil, mod)
+		if err != nil {
+			return nil, "", err
+		}
+		return state, cli.BroadcasterDID(), nil
+	}
+	exportCmd := &urfavecli.Command{
+		Name:      "export",
+		Usage:     "write the node's branding to a bundle",
+		ArgsUsage: "<out.zip>",
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			if cmd.Args().Len() != 1 {
+				return fmt.Errorf("usage: streamplace branding export <out.zip>")
+			}
+			state, bid, err := open(ctx, cmd)
+			if err != nil {
+				return err
+			}
+			bs, err := branding.Export(ctx, state, bid)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(cmd.Args().First(), bs, 0o644); err != nil {
+				return err
+			}
+			log.Log(ctx, "branding exported", "broadcaster", bid, "file", cmd.Args().First(), "bytes", len(bs))
+			return nil
+		},
+	}
+	var merge, dryRun bool
+	importCmd := &urfavecli.Command{
+		Name:      "import",
+		Usage:     "apply a bundle to the node (replaces branding unless --merge)",
+		ArgsUsage: "<in.zip>",
+		Flags: []urfavecli.Flag{
+			&urfavecli.BoolFlag{Name: "merge", Usage: "keep keys the bundle does not mention", Destination: &merge},
+			&urfavecli.BoolFlag{Name: "dry-run", Usage: "report what would change without writing", Destination: &dryRun},
+		},
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			if cmd.Args().Len() != 1 {
+				return fmt.Errorf("usage: streamplace branding import [--merge] [--dry-run] <in.zip>")
+			}
+			bs, err := os.ReadFile(cmd.Args().First())
+			if err != nil {
+				return err
+			}
+			state, bid, err := open(ctx, cmd)
+			if err != nil {
+				return err
+			}
+			report, err := branding.Import(ctx, state, bid, bs, merge, dryRun)
+			if err != nil {
+				return err
+			}
+			for _, c := range report.Changes {
+				if c.Detail != "" {
+					fmt.Printf("%-10s %-24s %s\n", c.Action, c.Key, c.Detail)
+				} else {
+					fmt.Printf("%-10s %s\n", c.Action, c.Key)
+				}
+			}
+			for _, w := range report.Warnings {
+				fmt.Printf("warning: %s\n", w)
+			}
+			if !report.Applied {
+				fmt.Println("dry run: nothing written")
+			}
+			return nil
+		},
+	}
+	root.Commands = append(root.Commands, exportCmd, importCmd)
+	return root
 }

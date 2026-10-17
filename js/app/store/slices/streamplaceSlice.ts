@@ -3,7 +3,13 @@ import { Platform } from "react-native";
 import { place } from "streamplace";
 import { StateCreator } from "zustand";
 
-let DEFAULT_URL = process.env.EXPO_PUBLIC_STREAMPLACE_URL as string;
+// Fall back to the public production node when no build-time URL was
+// injected. Without this, a build where EXPO_PUBLIC_STREAMPLACE_URL is
+// unset (e.g. an iOS bundle built without NODE_ENV=production) leaves
+// DEFAULT_URL undefined, and constructing an agent with it crashes the
+// app at startup.
+let DEFAULT_URL =
+  (process.env.EXPO_PUBLIC_STREAMPLACE_URL as string) || "https://stream.place";
 if (Platform.OS === "web" && process.env.EXPO_PUBLIC_WEB_TRY_LOCAL === "true") {
   try {
     DEFAULT_URL = `${window.location.protocol}//${window.location.host}`;
@@ -17,6 +23,7 @@ export { DEFAULT_URL };
 const USER_MUTED_KEY = "streamplaceUserMuted";
 const URL_KEY = "streamplaceUrl";
 const CHAT_WARNING_KEY = "streamplaceChatWarning2";
+const CHAT_VISIBLE_KEY = "streamplaceChatVisible";
 
 export interface Identity {
   id: string;
@@ -30,12 +37,15 @@ export interface StreamplaceSlice {
   initialized: boolean;
   userMuted: boolean | null;
   chatWarned: boolean;
+  /** Whether the channel chat side-panel is shown. Persisted across reloads. */
+  chatVisible: boolean;
   mySegments: place.stream.segment.SegmentView[];
   // actions
   initialize: () => Promise<void>;
   setURL: (url: string) => void;
   userMute: (muted: boolean) => void;
   chatWarn: (warned: boolean) => void;
+  setChatVisible: (visible: boolean) => void;
   getIdentity: () => Promise<void>;
   pollMySegments: () => Promise<void>;
   getRecommendations: (userDID: string) => Promise<{
@@ -58,13 +68,17 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
   initialized: false,
   userMuted: null,
   chatWarned: false,
+  chatVisible: true,
   mySegments: [],
   initialize: async () => {
-    let [url, userMutedStr, chatWarningStr] = await Promise.all([
-      storage.getItem(URL_KEY),
-      storage.getItem(USER_MUTED_KEY),
-      storage.getItem(CHAT_WARNING_KEY),
-    ]);
+    let [url, userMutedStr, chatWarningStr, chatVisibleStr] = await Promise.all(
+      [
+        storage.getItem(URL_KEY),
+        storage.getItem(USER_MUTED_KEY),
+        storage.getItem(CHAT_WARNING_KEY),
+        storage.getItem(CHAT_VISIBLE_KEY),
+      ],
+    );
     if (!url) {
       url = DEFAULT_URL;
     }
@@ -79,7 +93,12 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
     if (typeof chatWarningStr === "string") {
       chatWarned = chatWarningStr === "true";
     }
-    set({ url, userMuted, chatWarned, initialized: true });
+    // Default the chat panel to shown for first-ever visits; otherwise restore.
+    let chatVisible = true;
+    if (typeof chatVisibleStr === "string") {
+      chatVisible = chatVisibleStr === "true";
+    }
+    set({ url, userMuted, chatWarned, chatVisible, initialized: true });
   },
   setURL: (url: string) => {
     console.log("setURL", url);
@@ -99,6 +118,12 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
       console.error("chatWarn error", err);
     });
     set({ chatWarned: warned });
+  },
+  setChatVisible: (visible: boolean) => {
+    storage.setItem(CHAT_VISIBLE_KEY, JSON.stringify(visible)).catch((err) => {
+      console.error("setChatVisible error", err);
+    });
+    set({ chatVisible: visible });
   },
   getIdentity: async () => {
     const state = get() as StreamplaceSlice;

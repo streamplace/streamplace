@@ -535,7 +535,10 @@ func (t *Livestream_TeleportCanceled) UnmarshalCBOR(r io.Reader) error {
 // Livestream_ViewerCount is a "viewerCount" in the place.stream.livestream schema.
 type Livestream_ViewerCount struct {
 	LexiconTypeID string `json:"$type,omitempty"`
-	Count         int64  `json:"count"`
+	// count: Viewers watching right now.
+	Count int64 `json:"count"`
+	// total: Running number of playback sessions this livestream has had (cumulative, session-based; the X-style 'views' beside the concurrent count).
+	Total *int64 `json:"total,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.

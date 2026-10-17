@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/labstack/echo/v4"
 	"github.com/patrickmn/go-cache"
 	"github.com/slok/go-http-metrics/middleware"
@@ -19,6 +21,7 @@ import (
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/cdn/providers"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
@@ -39,6 +42,7 @@ type Server struct {
 	ScoreCache      *cache.Cache
 	ATSync          *atproto.ATProtoSynchronizer
 	statefulDB      *statedb.StatefulDB
+	sessionKeyCache atomic.Pointer[[]byte]
 	bus             *bus.Bus
 	op              *oatproxy.OATProxy
 	localDB         localdb.LocalDB
@@ -52,14 +56,43 @@ type Server struct {
 	// fetches) for later view-count aggregation. Optional; nil when
 	// --view-log-flush-interval is 0 or no playback store is wired.
 	viewLog *viewlog.Writer
-	aliases map[string]string
+	// cdn is the VOD CDN configuration playlists are generated
+	// against (URL + URL signer). Zero-valued for self-hosted.
+	cdn vodCDN
+	// live is the live-segment CDN configuration media playlists are
+	// generated against. Zero-valued for self-hosted.
+	live              liveCDN
+	aliases           map[string]string
+	identityDirectory func() identity.Directory
+	identityRefreshes *cache.Cache
 }
+
+// vodCDN returns the playlist-generation CDN settings.
+func (s *Server) vodCDN() vodCDN { return s.cdn }
 
 func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer, aliases map[string]string) (*Server, error) {
 	e := echo.New()
+	provider, err := providers.FromConfig(cli)
+	if err != nil {
+		return nil, err
+	}
+	var vcdn vodCDN
+	if provider != nil {
+		vcdn = vodCDN{URL: cli.VODCDNURL, Signer: provider.Signer}
+	}
+	liveProvider, err := providers.LiveFromConfig(cli)
+	if err != nil {
+		return nil, err
+	}
+	var lcdn liveCDN
+	if liveProvider != nil {
+		lcdn = liveCDN{URL: cli.LiveCDNURL, Signer: liveProvider.Signer, TTL: cli.LiveCDNTokenTTL}
+	}
 	s := &Server{
 		e:               e,
 		cli:             cli,
+		cdn:             vcdn,
+		live:            lcdn,
 		model:           model,
 		OGImageCache:    cache.New(5*time.Minute, 10*time.Minute),
 		LiveUsersCache:  cache.New(30*time.Second, 60*time.Second),
@@ -76,12 +109,15 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		viewLog:         viewLog,
 		aliases:         aliases,
 	}
+	s.identityRefreshes = newIdentityRefreshCache()
+	if atsync != nil {
+		s.identityDirectory = atsync.IdentityDirectory
+	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())
 	e.Use(echomiddleware.Handler("", mdlw))
-	e.Use(s.ServiceAuthMiddleware())
-	e.Use(op.OAuthMiddleware)
-	err := s.RegisterHandlersPlacestream(e)
+	s.useAuthMiddleware(e)
+	err = s.RegisterHandlersPlacestream(e)
 	if err != nil {
 		return nil, err
 	}
@@ -102,6 +138,8 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	})
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.handleComAtprotoSyncSubscribeRepos)
 	e.GET("/xrpc/place.stream.live.subscribeSegments", s.handlePlaceStreamLiveSubscribeSegments)
+	// Reports select a labeler and attach evidence before forwarding to the PDS.
+	e.POST("/xrpc/com.atproto.moderation.createReport", s.HandleComAtprotoModerationCreateReport)
 	// Override the auto-generated playback stubs: the wrapper in
 	// stubs.go hard-codes status 200 + content-type, but we need
 	// 206 Partial Content for HTTP Range on getVideoBlob and the
@@ -114,6 +152,11 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	// in-memory live window instead of a stored metafile.
 	e.GET("/xrpc/place.stream.playback.getLivePlaylist", s.HandleGetLivePlaylist)
 	e.GET("/xrpc/place.stream.playback.getLiveSegment", s.HandleGetLiveSegment)
+	// The same segments under a path-shaped URL, for a CDN pulling from
+	// this node (see liveCDN): one cacheable, signable path per segment.
+	e.GET(liveSegmentPathRoute, s.HandleGetLiveSegmentPath)
+	// Clips stream with a Content-Length the generated stub can't set.
+	e.GET("/xrpc/place.stream.live.getClip", s.HandleGetClip)
 	// glex code-generated these but we want them just passed upstream
 	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleWildcard)
 	e.POST("/xrpc/com.atproto.repo.putRecord", s.HandleWildcard)
@@ -148,7 +191,14 @@ func (s *Server) isServerPDS(ctx context.Context) bool {
 	return ec.Request().Host == s.cli.ServerHost
 }
 
+const repoProxyHeader = "X-Streamplace-Repo-Proxy"
+
 func makeUnauthenticatedRequest(ctx context.Context, service, method string, params map[string]interface{}, out interface{}) error {
+	// Only forward once: a stale PDS endpoint may route back to this node
+	// under an alias, or to another Streamplace node that would proxy again.
+	if ec, ok := ctx.Value(echoContextKey).(echo.Context); ok && ec.Request().Header.Get(repoProxyHeader) != "" {
+		return echo.NewHTTPError(http.StatusLoopDetected, "repository proxy loop detected")
+	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	u, err := url.Parse(fmt.Sprintf("%s/xrpc/%s", service, method))
@@ -169,6 +219,7 @@ func makeUnauthenticatedRequest(ctx context.Context, service, method string, par
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
+	req.Header.Set(repoProxyHeader, "true")
 
 	resp, err := aqhttp.Client.Do(req)
 	if err != nil {
@@ -176,6 +227,9 @@ func makeUnauthenticatedRequest(ctx context.Context, service, method string, par
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusLoopDetected {
+		return echo.NewHTTPError(http.StatusLoopDetected, "repository proxy loop detected")
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("upstream request failed with status %d", resp.StatusCode)
 	}
@@ -207,7 +261,7 @@ func (s *Server) ErrorHandlingMiddleware() echo.MiddlewareFunc {
 			}
 			// this can mean we missed a PDS migration and need to refresh identity
 			if strings.Contains(err.Error(), AccountDeactivated) {
-				session, _ := oatproxy.GetOAuthSession(c.Request().Context())
+				session := GetCaller(c.Request().Context())
 				if session != nil {
 					_, err := s.ATSync.RefreshIdentity(c.Request().Context(), session.DID)
 					if err != nil {

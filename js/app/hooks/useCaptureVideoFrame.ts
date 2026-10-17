@@ -13,15 +13,10 @@ import { captureVideoFrame } from "utils/videoCapture";
 export function useCaptureVideoFrame() {
   const ref = usePlayerStore((state) => state.videoRef);
 
-  // if ref is a function return null
-  if (typeof ref === "function") {
-    console.warn(
-      "Video ref is a function (native player), cannot capture frame",
-    );
-    return null;
-  }
-
-  const videoElement = ref?.current;
+  // A function ref is the native player: no element to capture from. The
+  // hook below still runs so the hook count never changes.
+  const isNative = typeof ref === "function";
+  const videoElement = isNative ? null : ref?.current;
 
   const captureFrame = useCallback(
     async (maxWidth = 1280, quality = 0.85): Promise<Blob | null> => {
@@ -40,5 +35,11 @@ export function useCaptureVideoFrame() {
     [videoElement],
   );
 
+  if (isNative) {
+    console.warn(
+      "Video ref is a function (native player), cannot capture frame",
+    );
+    return null;
+  }
   return captureFrame;
 }

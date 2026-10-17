@@ -1,4 +1,9 @@
 import { Text, useTheme, zero } from "@streamplace/components";
+import {
+  colors,
+  motion,
+  scrims,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { Image } from "expo-image";
 import { VideoView } from "hooks/useVideoList";
 import { View } from "react-native";
@@ -58,7 +63,7 @@ export default function VideoCard({
               source={{ uri: thumbnailUrl }}
               style={{ width: "100%", height: "100%" }}
               contentFit="cover"
-              transition={150}
+              transition={motion.fast}
             />
           ) : (
             <Image
@@ -73,7 +78,7 @@ export default function VideoCard({
                 position: "absolute",
                 bottom: 6,
                 right: 6,
-                backgroundColor: "rgba(0, 0, 0, 0.8)",
+                backgroundColor: scrims.dark,
                 borderRadius: 4,
                 paddingHorizontal: 4,
                 paddingVertical: 1,
@@ -81,7 +86,7 @@ export default function VideoCard({
             >
               <Text
                 size="xs"
-                style={{ color: "#fff", fontVariant: ["tabular-nums"] }}
+                style={{ color: colors.white, fontVariant: ["tabular-nums"] }}
               >
                 {duration}
               </Text>

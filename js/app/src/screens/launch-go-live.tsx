@@ -23,9 +23,9 @@ export default function LaunchGoLive() {
         ]}
       >
         <View style={[zero.r.full]}>
-          <Video size={48} color="white" />
+          <Video size={48} color={theme.theme.colors.text1} />
         </View>
-        <Text size="3xl" weight="bold" center>
+        <Text size="2xl" weight="semibold" center>
           Ready to go live?
         </Text>
       </View>
@@ -36,7 +36,7 @@ export default function LaunchGoLive() {
           onPress={() => {
             navigation.navigate("MobileGoLive");
           }}
-          leftIcon={<RadioTower style={[theme.zero.text.foreground]} />}
+          leftIcon={<RadioTower color={theme.theme.colors.primaryForeground} />}
         >
           Start streaming
         </Button>

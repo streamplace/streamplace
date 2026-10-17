@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 import { place } from "streamplace";
-import { useLivestreamStore } from "../livestream-store/livestream-store";
+import { useLivestreamStore } from "../livestream-store";
 import { usePDSAgent } from "./xrpc";
+
+function permissionRecordsFromListRecords(
+  records: Array<{ uri?: string; value?: any }>,
+): place.stream.moderation.permission.Main[] {
+  return records
+    .filter(
+      (record) => record.value?.$type === "place.stream.moderation.permission",
+    )
+    .map((record) => ({ ...record.value, uri: record.uri }));
+}
 
 export interface ModerationPermissions {
   canBan: boolean;
@@ -69,21 +79,15 @@ export function useCanModerate(
 
       try {
         // Use authenticated agent to list permission records from the streamer's repo
-        const result = await agent.client.list(
-          place.stream.moderation.permission,
-          {
-            repo: streamerDID as any,
-            limit: 100,
-          },
-        );
+        const result = await agent.com.atproto.repo.listRecords({
+          repo: streamerDID,
+          collection: "place.stream.moderation.permission",
+          limit: 100,
+        });
 
-        const records = result.records || [];
-        const permissionRecords: place.stream.moderation.permission.Main[] =
-          records
-            .map((r: { value: any }) => r.value)
-            .filter(
-              (v: any) => v && v.$type === "place.stream.moderation.permission",
-            );
+        const permissionRecords = permissionRecordsFromListRecords(
+          result.data.records || [],
+        );
 
         // Store all permissions in the livestream store
         // WebSocket updates will keep this in sync
@@ -115,22 +119,15 @@ export function useCanModerate(
     ) {
       const fetchDelegation = async () => {
         try {
-          const result = await agent.client.list(
-            place.stream.moderation.permission,
-            {
-              repo: streamerDID as any,
-              limit: 100,
-            },
-          );
+          const result = await agent.com.atproto.repo.listRecords({
+            repo: streamerDID,
+            collection: "place.stream.moderation.permission",
+            limit: 100,
+          });
 
-          const records = result.records || [];
-          const permissionRecords: place.stream.moderation.permission.Main[] =
-            records
-              .map((r: { value: any }) => r.value)
-              .filter(
-                (v: any) =>
-                  v && v.$type === "place.stream.moderation.permission",
-              );
+          const permissionRecords = permissionRecordsFromListRecords(
+            result.data.records || [],
+          );
 
           setModerationPermissions(permissionRecords);
         } catch (err) {

@@ -30,6 +30,7 @@ import (
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/rtcrec"
 	v0 "stream.place/streamplace/pkg/schema/v0"
+	"stream.place/streamplace/pkg/vod"
 )
 
 func (a *StreamplaceAPI) ServeInternalHTTP(ctx context.Context) error {
@@ -65,6 +66,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		if err != nil {
 			return "", err
 		}
+		release := a.IngestHosts.Open(ctx, payload.URL.Hostname(), mediaSigner.Streamer())
 
 		ms := time.Now().UnixMilli()
 		out := fmt.Sprintf("%s+%s_%d", mistconfig.StreamName, mediaSigner.Streamer(), ms)
@@ -80,6 +82,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		// Mist accepts the push right after this trigger returns, so the pull
 		// retries briefly while the stream boots (mistPullConnect).
 		go func() {
+			defer release()
 			if perr := a.MediaManager.MistPullIngest(serverCtx, out, mediaSigner); perr != nil {
 				log.Error(serverCtx, "mist pull ingest ended", "mist-stream", out, "streamer", mediaSigner.Streamer(), "error", perr)
 			} else {
@@ -114,7 +117,6 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	// Pull a VOD blob from another Streamplace node into our playback
 	// store and attest to it via place.stream.media.origin.
 	router.POST("/vod-transfer", a.HandleVODTransfer(ctx))
-
 	// Rebuild the local media.origin index from our own server repo, for
 	// blobs we host but never indexed (a dropped firehose event, or a
 	// --secure node whose self-subscription never connected).
@@ -541,12 +543,15 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			}
 			secs = parsedSecs
 		}
-		after := time.Now().Add(-time.Duration(secs) * time.Second)
-		w.Header().Set("Content-Type", "video/mp4")
-		err = a.MediaManager.ClipUser(ctx, user, w, nil, &after)
+		now := time.Now()
+		clip, err := vod.FindClip(ctx, a.StatefulDB, a.PlaybackStore, a.MediaManager, user, now.Add(-time.Duration(secs)*time.Second), now, true)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to clip user", err)
 			return
+		}
+		w.Header().Set("Content-Type", "video/mp4")
+		if err := clip.WriteMP4(ctx, w); err != nil {
+			log.Error(ctx, "error writing clip", "error", err)
 		}
 	})
 

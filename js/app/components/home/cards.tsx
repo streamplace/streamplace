@@ -1,30 +1,21 @@
-import { LiquidGlassView } from "@callstack/liquid-glass";
 import {
-  hexToRgba,
-  PlayerUI,
+  Avatar,
+  LiveBadge,
   Text,
   useTheme,
   zero,
 } from "@streamplace/components";
+import {
+  borderRadius,
+  motion,
+  spacing,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { Image } from "expo-image";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { Platform, View } from "react-native";
 
 export type StreamCardSize = "xs" | "sm" | "md" | "lg" | "xl";
-
-const displayTag = (tag: string): string => {
-  // could be top level but we want to make sure RN polyfill runs first
-  const langNames = new Intl.DisplayNames(["en"], { type: "language" });
-  if (tag.startsWith("lang:")) {
-    try {
-      return langNames.of(tag.slice(5)) ?? tag;
-    } catch {
-      return tag;
-    }
-  }
-  return tag;
-};
 
 interface StreamCardProps {
   size?: StreamCardSize;
@@ -41,6 +32,20 @@ interface StreamCardProps {
   showAvatar?: boolean;
 }
 
+// 11400 -> "11K", 1350 -> "1.3K", 942 -> "942"
+function formatViewers(n: number): string {
+  if (n >= 1_000_000)
+    return `${(n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0)}M`;
+  if (n >= 10_000) return `${Math.round(n / 1000)}K`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return `${n}`;
+}
+
+/**
+ * YouTube-grammar stream card: a rounded 16:9 thumbnail with a LIVE chip
+ * bottom-right, then a clean three-line meta stack — title (16px medium,
+ * 2 lines), handle, activity · viewers. No chips, no noise.
+ */
 const StreamCard = ({
   size = "sm",
   horizontal = false,
@@ -60,66 +65,37 @@ const StreamCard = ({
   const { url } = useStreamplaceNode();
   const { theme } = useTheme();
   const isWeb = Platform.OS === "web";
+  const [hovered, setHovered] = useState(false);
 
-  const tagItems = tags.length > 0 ? tags : category;
-  const tagsKey = tagItems.join(",");
+  const webTransition = isWeb
+    ? ({
+        transitionDuration: `${motion.fast}ms`,
+        transitionTimingFunction: motion.easingCss,
+        transitionProperty: "transform, border-color",
+      } as any)
+    : null;
 
-  const [rowWidth, setRowWidth] = useState(0);
-  const [itemWidths, setItemWidths] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    setItemWidths({});
-  }, [activity, tagsKey]);
-
-  const visibleTagCount = useMemo(() => {
-    if (rowWidth === 0) return tagItems.length;
-    const activityW = activity ? (itemWidths["activity"] ?? 0) : 0;
-    let used = activityW;
-    let count = 0;
-    for (let i = 0; i < tagItems.length; i++) {
-      const w = itemWidths[`tag-${i}`];
-      if (w === undefined) {
-        count++;
-        continue;
-      }
-      const gap = used > 0 ? 6 : 0;
-      if (used + gap + w <= rowWidth) {
-        used += gap + w;
-        count++;
-      } else {
-        break;
-      }
-    }
-    return count;
-  }, [rowWidth, itemWidths, tagItems, activity]);
-
-  // Define dynamic styles
-  const borderRadius = 12;
-  const contentPaddingHoriz = 12;
-  const contentPaddingVertical = 2.65;
-  const avatarSize = 40;
-  const livePillHeight = inMobileMode ? 20 : 30;
-  const livePillPaddingHorizontal = inMobileMode ? 2 : 4;
-
-  const contentSectionHeight = avatarSize + 2 * contentPaddingVertical;
-  const contentSectionWidth = avatarSize * 2 + contentPaddingHoriz;
+  const watchingLine = [
+    activity,
+    isLive && viewers > 0 ? `${formatViewers(viewers)} watching` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <LiquidGlassView
-      interactive
+    <View
       style={[
         inMobileMode ? { alignSelf: "stretch" } : zero.flex.values[1],
         {
-          borderCurve: "continuous",
-          backgroundColor: theme.colors.muted,
-          borderRadius,
-          overflow: "hidden",
-          borderColor: theme.colors.mutedForeground + 80,
-          borderWidth: isWeb ? 1 : 0,
           alignItems: layoutHorizontal ? "center" : "stretch",
           flexDirection: layoutHorizontal ? "row" : "column",
+          gap: spacing[3],
         },
       ]}
+      {...(isWeb && {
+        onPointerEnter: () => setHovered(true),
+        onPointerLeave: () => setHovered(false),
+      })}
     >
       {/* Thumbnail */}
       <View
@@ -132,12 +108,19 @@ const StreamCard = ({
                 : "63%"
               : "100%",
             maxWidth: layoutHorizontal ? "40%" : undefined,
-            // native seems to be unable to adjust widths properly?
-            maxHeight: !isWeb ? (inMobileMode ? "100%" : "76.5%") : "100%",
             position: "relative",
             alignSelf: layoutHorizontal ? "auto" : "center",
-            backgroundColor: theme.colors.card,
+            backgroundColor: theme.colors.surface1,
+            borderRadius: borderRadius.lg,
+            borderCurve: "continuous",
+            borderWidth: 1,
+            borderColor: hovered
+              ? theme.colors.borderStrong
+              : theme.colors.borderSubtle,
+            overflow: "hidden",
+            transform: [{ scale: hovered ? 1.02 : 1 }],
           },
+          webTransition,
         ]}
       >
         <Image
@@ -148,116 +131,56 @@ const StreamCard = ({
             aspectRatio: 16 / 9,
           }}
           contentFit="contain"
+          transition={100}
         />
         {isLive && (
           <View
-            style={[
-              {
-                position: "absolute",
-                top: contentPaddingVertical * 2,
-                right: contentPaddingVertical * 2,
-                backgroundColor: "rgba(0, 0, 0, 0.75)",
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: "rgba(119, 119, 119, 0.25)",
-                paddingHorizontal: livePillPaddingHorizontal,
-                height: livePillHeight,
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 0,
-                flexDirection: "row",
-              },
-            ]}
+            style={{
+              position: "absolute",
+              bottom: spacing[2],
+              right: spacing[2],
+            }}
           >
-            <PlayerUI.DehydratedViewers
-              viewers={viewers}
-              size={inMobileMode ? "sm" : "md"}
-            />
+            <LiveBadge />
           </View>
         )}
       </View>
 
-      {/* Content */}
+      {/* Meta: avatar + three-line stack */}
       <View
         style={[
           {
-            paddingHorizontal: contentPaddingHoriz,
-            paddingVertical: contentPaddingVertical,
-            alignItems: layoutHorizontal ? "flex-start" : "center",
-            justifyContent: "flex-end",
-            gap: contentPaddingHoriz,
-            width: layoutHorizontal ? contentSectionWidth : "auto",
+            paddingHorizontal: layoutHorizontal ? 0 : spacing[1],
+            alignItems: "flex-start",
+            gap: spacing[3],
             flex: 1,
-            flexDirection: layoutHorizontal ? "column" : "row",
+            flexDirection: "row",
+            width: layoutHorizontal ? undefined : "auto",
           },
         ]}
       >
-        {/* Avatar */}
         {showAvatar && (
-          <View
-            style={[
-              {
-                width: avatarSize,
-                height: avatarSize,
-                marginVertical: layoutHorizontal
-                  ? 0
-                  : contentPaddingVertical * 4,
-                borderRadius: avatarSize / 2,
-                overflow: "hidden",
-                flexShrink: 0,
-              },
-            ]}
-          >
-            {/* dynamically switching between these src crashes android */}
-            {avatarUrl && (
-              <View style={[zero.flex.values[1]]} key="avatar">
-                <Image
-                  key="avatar"
-                  source={{
-                    uri: avatarUrl,
-                  }}
-                  style={{ width: "100%", height: "100%" }}
-                  contentFit="cover"
-                />
-              </View>
-            )}
-            {!avatarUrl && (
-              <View key="avatar-placeholder">
-                <Image
-                  key="avatar"
-                  source={require("./../../assets/images/goose.png")}
-                  style={{ width: "100%", height: "100%" }}
-                  contentFit="cover"
-                />
-              </View>
-            )}
-          </View>
+          <Avatar src={avatarUrl} name={streamerName} size="lg" live={isLive} />
         )}
 
-        {/* Text content */}
         <View
           style={[
             zero.flex.values[1],
-            { justifyContent: "center" },
-            { alignItems: "flex-start" },
             {
-              gap: contentPaddingHoriz / 4,
-              width: layoutHorizontal ? "100%" : 0,
+              alignItems: "flex-start",
+              gap: 2,
               minHeight: 0,
-              zIndex: 12,
+              minWidth: 0,
             },
           ]}
         >
           {title && (
             <Text
-              style={[
-                {
-                  lineHeight: 16,
-                },
-              ]}
-              size={showAvatar ? "base" : "base"}
-              numberOfLines={1}
+              size={inMobileMode ? "base" : "lg"}
+              weight="medium"
+              numberOfLines={2}
               ellipsizeMode="tail"
+              style={{ alignSelf: "stretch" }}
             >
               {title}
             </Text>
@@ -265,100 +188,27 @@ const StreamCard = ({
           {streamerName && (
             <Text
               size="sm"
-              style={[
-                {
-                  lineHeight: 16,
-                },
-              ]}
               numberOfLines={1}
               ellipsizeMode="tail"
-              leading="tight"
+              style={{ color: theme.colors.text3 }}
             >
               @{streamerName}
             </Text>
           )}
-          {((activity && category.length > 0) || tags.length > 0) && (
-            <View
-              style={{
-                flexWrap: inMobileMode ? "wrap" : "nowrap",
-                gap: inMobileMode ? 4 : 8,
-                alignItems: "center",
-                alignSelf: "stretch",
-                flexDirection: "row",
-                overflow: "hidden",
-                maxHeight: inMobileMode ? 40 : undefined,
-              }}
-              onLayout={(e) => {
-                const width = e.nativeEvent?.layout?.width;
-                if (!width) {
-                  return;
-                }
-                setRowWidth(width);
-              }}
+          {watchingLine.length > 0 && (
+            <Text
+              size="sm"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              tabular
+              style={{ color: theme.colors.text3 }}
             >
-              {activity && (
-                <Text
-                  size="sm"
-                  style={{ flexShrink: 0 }}
-                  color={hexToRgba(theme.colors.accentForeground, 0.85)}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  onLayout={(e) => {
-                    const width = e.nativeEvent?.layout?.width;
-                    if (!width) {
-                      return;
-                    }
-                    setItemWidths((prev) => ({
-                      ...prev,
-                      activity: width,
-                    }));
-                  }}
-                >
-                  {activity}
-                </Text>
-              )}
-              {(inMobileMode
-                ? tagItems
-                : tagItems.slice(0, visibleTagCount)
-              ).map((cat, index) => (
-                <View
-                  key={index}
-                  style={[
-                    zero.r.full,
-                    {
-                      borderWidth: 1,
-                      borderColor: theme.colors.border,
-                      backgroundColor: hexToRgba(theme.colors.secondary, 0.3),
-                      paddingHorizontal: 8,
-                      flexShrink: 0,
-                    },
-                  ]}
-                  onLayout={(e) => {
-                    const width = e.nativeEvent?.layout?.width;
-                    if (!width) {
-                      return;
-                    }
-                    setItemWidths((prev) => ({
-                      ...prev,
-                      [`tag-${index}`]: width,
-                    }));
-                  }}
-                >
-                  <Text
-                    size={inMobileMode ? "xs" : "sm"}
-                    color={hexToRgba(theme.colors.primaryForeground, 0.85)}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {displayTag(cat)}
-                  </Text>
-                </View>
-              ))}
-            </View>
+              {watchingLine}
+            </Text>
           )}
         </View>
       </View>
-    </LiquidGlassView>
+    </View>
   );
 };
 

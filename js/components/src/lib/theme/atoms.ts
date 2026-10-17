@@ -3,11 +3,12 @@
  * These provide direct access to static design tokens and support composition
  */
 
-import { Platform } from "react-native";
+import { Platform, TextStyle } from "react-native";
 import {
   animations,
   borderRadius,
   colors as rawColors,
+  scrims,
   shadows,
   spacing,
   touchTargets,
@@ -267,6 +268,12 @@ export const backgrounds = pairify(rawColors, "backgroundColor");
 
 // Text color utilities
 export const textColors = pairify(rawColors, "color");
+
+// React Native supports `userSelect` at runtime (react-native-web maps it to
+// the DOM property), but its `ViewStyle` type only declares it on `TextStyle`,
+// so a View style object cannot name it directly. Type it as TextStyle so the
+// literal stays assignable to a View's style array.
+export const selectableText: TextStyle = { userSelect: "text" };
 
 // Percentage-based sizes
 const percentageSizes = {
@@ -702,7 +709,8 @@ export const layouts = {
     alignItems: "center" as const,
   },
 
-  // Centered modal/overlay
+  // Centered modal/overlay (scrim color: prefer theme.colors.overlay so the
+  // scrim adapts to the color scheme)
   overlay: {
     position: "absolute" as const,
     top: 0,
@@ -711,7 +719,7 @@ export const layouts = {
     bottom: 0,
     justifyContent: "center" as const,
     alignItems: "center" as const,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: scrims.dark,
   },
 
   // Safe area friendly

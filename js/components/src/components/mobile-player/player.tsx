@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { flex, h, layout, w, zIndex } from "../../lib/theme/atoms";
+import { useLivestreamStoreOptional } from "../../livestream-store/use-store";
 import {
   PlayerStatus,
   PlayerStatusTracker,
@@ -29,6 +30,7 @@ export function Player(
   const setReportingURL = usePlayerStore((x) => x.setReportingURL);
   const setEmbedded = usePlayerStore((x) => x.setEmbedded);
   const setMode = usePlayerStore((x) => x.setMode);
+  const setStartTime = usePlayerStore((x) => x.setStartTime);
 
   const reportModalOpen = usePlayerStore((x) => x.reportModalOpen);
   const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
@@ -36,6 +38,23 @@ export function Player(
 
   const setMuted = useSetMuted();
   const muted = useMuted();
+  // A stream whose segments carry B-frames can't play over WebRTC (the
+  // encoder can't always be talked out of them), so hold such a stream on
+  // HLS. The segment record says; the viewer's low-latency preference is
+  // kept for streams that can use it.
+  const streamHasBFrames = useLivestreamStoreOptional(
+    (x) => x.segment?.video?.[0]?.bframes === true,
+  );
+  const streamForcesHLS = usePlayerStore((x) => x.streamForcesHLS);
+  const setStreamForcesHLS = usePlayerStore((x) => x.setStreamForcesHLS);
+  const protocol = usePlayerStore((x) => x.protocol);
+  useEffect(() => {
+    if (streamHasBFrames && (!streamForcesHLS || protocol !== "hls")) {
+      setStreamForcesHLS(true);
+    } else if (!streamHasBFrames && streamForcesHLS) {
+      setStreamForcesHLS(false);
+    }
+  }, [streamHasBFrames, streamForcesHLS, protocol, setStreamForcesHLS]);
 
   // if we set muted, set it and restore after
   useEffect(() => {
@@ -63,11 +82,25 @@ export function Player(
     setMode(props.mode ?? "live");
   }, [props.mode]);
 
+  useEffect(() => {
+    setStartTime(props.startTime ?? null);
+  }, [props.startTime, setStartTime]);
+
   // Will call back every few seconds to send health updates
   usePlayerStatus();
 
+  // A Player remounting over a hosted video that's already ingesting keeps
+  // that connection, and its state.
+  const ingestState = usePlayerStore((x) => x.ingestConnectionState);
   useEffect(() => {
-    setIngest(props.ingest ? "new" : null);
+    if (!props.ingest) setIngest(null);
+    else if (ingestState === null) setIngest("new");
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearControlsTimeout();
+    };
   }, []);
 
   if (typeof props.src !== "string") {
@@ -77,12 +110,6 @@ export function Player(
       </View>
     );
   }
-
-  useEffect(() => {
-    return () => {
-      clearControlsTimeout();
-    };
-  }, []);
 
   return (
     <>

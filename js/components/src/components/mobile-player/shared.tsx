@@ -1,5 +1,6 @@
 import { AtUri } from "@atproto/syntax";
 import { useMemo } from "react";
+import { usePlayerStore } from "../../player-store";
 import { PlayerProtocol } from "../../player-store/player-state";
 import { useStreamplaceStore } from "../../streamplace-store";
 
@@ -21,6 +22,9 @@ export function srcToUrl(
   protocol: string;
 } {
   const url = useStreamplaceStore((x) => x.url);
+  // The streamer's own playback session, when their player holds one; it
+  // opens their pre-live stream. Anyone else gets a session from the node.
+  const playbackSession = usePlayerStore((x) => x.playbackSession);
   return useMemo(() => {
     if (props.src.startsWith("at://")) {
       const aturi = new AtUri(props.src);
@@ -54,6 +58,9 @@ export function srcToUrl(
       } else {
         outUrl = `${url}/xrpc/place.stream.playback.getLivePlaylist?streamer=${props.src}`;
       }
+      if (playbackSession) {
+        outUrl += `&sid=${encodeURIComponent(playbackSession)}`;
+      }
     } else if (protocol === PlayerProtocol.PROGRESSIVE_MP4) {
       outUrl = `${url}/api/playback/${props.src}/stream.mp4`;
     } else if (protocol === PlayerProtocol.PROGRESSIVE_WEBM) {
@@ -67,5 +74,5 @@ export function srcToUrl(
       protocol: protocol,
       url: outUrl,
     };
-  }, [props.src, props.selectedRendition, protocol, url]);
+  }, [props.src, props.selectedRendition, protocol, url, playbackSession]);
 }

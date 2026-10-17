@@ -1,0 +1,18 @@
+# Sweeps the native app shell and verifies the disabled create controls stay hidden.
+# Screenshots are captured per step and land in artifacts/home (see scripts/ui-shoot.sh).
+appId: tv.aquareum.dev
+---
+- launchApp
+- assertVisible: "Home"
+- assertNotVisible: "Create"
+- assertNotVisible: "Go Live"
+- takeScreenshot: 01-home
+- tapOn: "Videos"
+- assertVisible: "Videos"
+- takeScreenshot: 02-videos
+- tapOn: "Settings"
+- assertVisible: "Settings"
+- takeScreenshot: 03-settings
+- tapOn: "Home"
+- assertVisible: "Home"
+- takeScreenshot: 04-home-return

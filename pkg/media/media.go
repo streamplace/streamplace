@@ -10,6 +10,7 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pion/webrtc/v4"
@@ -43,15 +44,26 @@ type MediaManager struct {
 	cli            *config.CLI
 	liveWindows    map[string]*livehls.Writer
 	liveWindowsMut sync.Mutex
-	// modBuffers holds a short in-memory ring of each live user's most recent
-	// canonical segments, the source for moderation/report clips now that
-	// segments are no longer archived to disk. Keyed by repoDID. See
-	// moderation_buffer.go.
-	modBuffers          map[string]*modBuffer
-	modBuffersMut       sync.Mutex
-	httpPipes           map[string]io.Writer
-	httpPipesMutex      sync.Mutex
-	newSegmentSubs      []chan *NewSegmentNotification
+	// liveWindowPublished is, per streamer, whether the latest segment fed
+	// into the window was published; guarded by liveWindowsMut.
+	liveWindowPublished map[string]bool
+	// liveWindowLatest is, per streamer, the start time of the newest
+	// segment fed into the window; guarded by liveWindowsMut. Feeds run
+	// concurrently, so it is how a late pre-live segment is told apart
+	// from the stream going back to preview.
+	liveWindowLatest map[string]time.Time
+	// segBuffers holds each stream's recent canonical segments in memory: the
+	// part of a stream this node can clip that no recording holds yet. Keyed
+	// by repoDID. See segment_buffer.go.
+	segBuffers     map[string]*segmentBuffer
+	segBuffersMut  sync.Mutex
+	httpPipes      map[string]io.Writer
+	httpPipesMutex sync.Mutex
+	newSegmentSubs []*segmentSubscriber
+	// Recent replicated source segments' Opus tracks, for pairing with the
+	// rendition addenda that follow them (see PublishRenditionsForPlayback).
+	sourceAudios        map[string][]sourceAudio
+	sourceAudioMu       sync.Mutex
 	newSegmentSubsMutex sync.RWMutex
 	model               model.Model
 	bus                 *bus.Bus
@@ -63,6 +75,9 @@ type MediaManager struct {
 	// hlsSessions tracks live HLS playback sessions by (streamer, sid) so
 	// stateless HLS requests feed the viewer count. See hls_sessions.go.
 	hlsSessions *hlsSessionTracker
+	// viewRecorder, when set, is told about every new playback session
+	// (see SetViewRecorder).
+	viewRecorder func(streamer string)
 
 	// Node S2PA transcode signer (cert + PKCS#8 key PEM), built once from the
 	// server-repo key. Used to sign transcode-completed audio tracks under the
@@ -76,8 +91,11 @@ type MediaManager struct {
 	// Per-stream continuous audio transcoders, keyed by repoDID. A single-codec
 	// stream's segments are fed here in order; each completed dual-codec segment
 	// is distributed asynchronously (~1 GoP later). See transcode_stream.go.
-	transcoders   map[string]*streamTranscoder
-	transcodersMu sync.Mutex
+	transcoders map[string]*streamTranscoder
+	// renditionVideoTID remembers, per rendition name, the track id a
+	// transcoder's MP4s carry their video under (see canonicalRenditionTrack).
+	renditionVideoTID renditionTIDCache
+	transcodersMu     sync.Mutex
 
 	// Monotonic ingest-session epoch. Each live ingest session (one
 	// SegmentAndSignElem) claims a fresh value, stamped onto its context, so the
@@ -124,17 +142,19 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		return nil, err
 	}
 	mm := &MediaManager{
-		cli:          cli,
-		liveWindows:  map[string]*livehls.Writer{},
-		modBuffers:   map[string]*modBuffer{},
-		httpPipes:    map[string]io.Writer{},
-		model:        mod,
-		bus:          bus,
-		atsync:       atsync,
-		webrtcAPI:    api,
-		webrtcConfig: config,
-		localDB:      ldb,
-		transcoders:  map[string]*streamTranscoder{},
+		cli:                 cli,
+		liveWindows:         map[string]*livehls.Writer{},
+		liveWindowPublished: map[string]bool{},
+		liveWindowLatest:    map[string]time.Time{},
+		segBuffers:          map[string]*segmentBuffer{},
+		httpPipes:           map[string]io.Writer{},
+		model:               mod,
+		bus:                 bus,
+		atsync:              atsync,
+		webrtcAPI:           api,
+		webrtcConfig:        config,
+		localDB:             ldb,
+		transcoders:         map[string]*streamTranscoder{},
 	}
 	mm.hlsSessions = newHLSSessionTracker(hlsSessionTTL,
 		func(streamer string) { mm.IncrementViewerCount(streamer, "hls") },
@@ -177,13 +197,54 @@ func (mm *MediaManager) GetHTTPPipeWriter(uu string) io.Writer {
 	return mm.httpPipes[uu]
 }
 
+// segmentQueueSize is how many validated segments may wait for one
+// subscriber before further ones are dropped for it.
+const segmentQueueSize = 256
+
+// A segmentSubscriber receives every validated segment, in validation
+// order: notifications queue per subscriber and one goroutine forwards
+// them. (A goroutine per notification, as before, handed a burst of tiny
+// segments to the director in whatever order the scheduler ran them.)
+type segmentSubscriber struct {
+	ch    chan *NewSegmentNotification
+	queue chan *NewSegmentNotification
+}
+
+func (s *segmentSubscriber) forward() {
+	for not := range s.queue {
+		select {
+		case s.ch <- not:
+		case <-time.After(time.Minute):
+			log.Warn(context.Background(), "segment subscriber did not take a segment within a minute, dropping it", "streamer", not.Segment.RepoDID, "segmentID", not.Segment.ID)
+		}
+	}
+}
+
 // register a handler for all new segments that come in
 func (mm *MediaManager) NewSegment() <-chan *NewSegmentNotification {
-	ch := make(chan *NewSegmentNotification)
+	sub := &segmentSubscriber{
+		ch:    make(chan *NewSegmentNotification),
+		queue: make(chan *NewSegmentNotification, segmentQueueSize),
+	}
+	go sub.forward()
 	mm.newSegmentSubsMutex.Lock()
 	defer mm.newSegmentSubsMutex.Unlock()
-	mm.newSegmentSubs = append(mm.newSegmentSubs, ch)
-	return ch
+	mm.newSegmentSubs = append(mm.newSegmentSubs, sub)
+	return sub.ch
+}
+
+// notifySubscribers hands a validated segment to every subscriber, in
+// order, without waiting on any of them.
+func (mm *MediaManager) notifySubscribers(ctx context.Context, not *NewSegmentNotification) {
+	mm.newSegmentSubsMutex.RLock()
+	defer mm.newSegmentSubsMutex.RUnlock()
+	for _, sub := range mm.newSegmentSubs {
+		select {
+		case sub.queue <- not:
+		default:
+			log.Error(ctx, "segment subscriber is not keeping up, dropping a segment", "streamer", not.Segment.RepoDID, "segmentID", not.Segment.ID, "behind", len(sub.queue))
+		}
+	}
 }
 
 type obj map[string]any
@@ -479,4 +540,16 @@ func extractLivestream(mani *c2patypes.Manifest) *placestream.Livestream {
 		return nil
 	}
 	return &livestream
+}
+
+// NewOffline is a MediaManager with no node behind it — just the
+// configuration and the in-memory windows — for harnesses that run the
+// transcode and rendition code paths against stored segments.
+func NewOffline(cli *config.CLI) *MediaManager {
+	return &MediaManager{
+		cli:                 cli,
+		liveWindows:         map[string]*livehls.Writer{},
+		liveWindowPublished: map[string]bool{},
+		liveWindowLatest:    map[string]time.Time{},
+	}
 }

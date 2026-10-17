@@ -70,23 +70,26 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 	video.LexiconTypeID = constants.PLACE_STREAM_VIDEO
 	video.DurationMs = upload.DurationMS
 	video.CreatedAt = time.Now().UTC().Format(time.RFC3339)
-	tracks, err := sourceTracksFromUpload(upload)
-	if err != nil {
-		span.RecordError(err)
-		return "", "", err
-	}
-	video.Source = placestream.Video_Source{
-		MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
-			LexiconTypeID: "place.stream.media.defs#sourceTracks",
-			Tracks:        tracks,
-		},
-	}
 
 	client, err := getUserXRPCClient(ctx, state, did)
 	if err != nil {
 		span.RecordError(err)
 		return "", "", fmt.Errorf("get user xrpc client: %w", err)
 	}
+
+	// The track records are published here, at publish time, like the
+	// draft path does (processing no longer publishes them, so the upload
+	// row carries none until now): a video record whose source names no
+	// tracks is one nothing can play.
+	tracks, err := tracksForUpload(ctx, state, client, did, upload)
+	if err != nil {
+		span.RecordError(err)
+		return "", "", fmt.Errorf("publish tracks: %w", err)
+	}
+	if tracks == nil {
+		return "", "", fmt.Errorf("upload %s has no playable streams to publish tracks for", uploadID)
+	}
+	video.Source = placestream.Video_Source{MediaDefs_SourceTracks: tracks}
 
 	// Backfill a thumbnail when the client didn't supply one. Non-fatal:
 	// publish without it on any failure, matching the old inline behavior.

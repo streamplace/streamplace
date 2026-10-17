@@ -1,0 +1,336 @@
+import { AppBskyActorDefs } from "@atproto/api";
+import {
+  ChatMessageViewHydrated,
+  LivestreamViewHydrated,
+  PinnedRecordViewHydrated,
+  place,
+} from "streamplace";
+import { formatHandleWithAt } from "../lib/format-handle";
+import { SystemMessages } from "../lib/system-messages";
+import { reduceChat } from "./chat-reducer";
+import { findProblems } from "./problems";
+import {
+  LivestreamModerationPermission,
+  LivestreamProblem,
+  LivestreamState,
+} from "./state";
+
+const MAX_RECENT_SEGMENTS = 10;
+const MODERATION_PERMISSION_TYPE = "place.stream.moderation.permission";
+
+type ModerationPermissionDeletion = {
+  $type?: unknown;
+  deleted?: unknown;
+  uri?: unknown;
+  streamer?: unknown;
+  rkey?: unknown;
+  repoRev?: unknown;
+};
+
+function moderationPermissionURI(
+  message: ModerationPermissionDeletion,
+): string | null {
+  if (typeof message.uri === "string" && message.uri.length > 0) {
+    return message.uri;
+  }
+
+  if (
+    typeof message.streamer === "string" &&
+    typeof message.rkey === "string" &&
+    message.streamer.length > 0 &&
+    message.rkey.length > 0
+  ) {
+    return `at://${message.streamer}/${MODERATION_PERMISSION_TYPE}/${message.rkey}`;
+  }
+
+  return null;
+}
+
+const toLivestreamProblem = (
+  p: place.stream.ingest.defs.Problem,
+): LivestreamProblem => ({
+  code: p.code,
+  message: p.message,
+  severity:
+    p.severity === "error"
+      ? "error"
+      : p.severity === "info"
+        ? "info"
+        : "warning",
+  link: p.link,
+});
+
+export const handleWebSocketMessages = (
+  state: LivestreamState,
+  messages: any[],
+): LivestreamState => {
+  for (let message of messages) {
+    if (message.$type === "place.stream.error") {
+      // Dedupe by code: the server re-emits the same error on every offending
+      // segment (e.g. a stream that keeps reconnecting over the bitrate limit),
+      // so replace any existing problem of this code rather than stacking copies.
+      state = {
+        ...state,
+        problems: [
+          ...state.problems.filter((p) => p.code !== message.code),
+          {
+            code: message.code,
+            message: message.message,
+            severity: "error",
+          },
+        ],
+      };
+    } else {
+      if (!state.websocketConnected) {
+        state = {
+          ...state,
+          websocketConnected: true,
+        };
+      }
+
+      if (place.stream.livestream.livestreamView.isTypeOf(message)) {
+        const newLivestream = message as LivestreamViewHydrated;
+        const oldLivestream = state.livestream;
+
+        // check if this is actually new
+        if (!oldLivestream || oldLivestream.uri !== newLivestream.uri) {
+          const streamTitle = newLivestream.record.title || "something cool!";
+          const systemMessage = SystemMessages.streamStart(streamTitle);
+          // set proper times
+          systemMessage.indexedAt = newLivestream.indexedAt;
+          systemMessage.record.createdAt = newLivestream.record.createdAt;
+
+          state = reduceChat(state, [systemMessage], []);
+        }
+
+        state = {
+          ...state,
+          livestream: newLivestream,
+        };
+      } else if (place.stream.livestream.viewerCount.isTypeOf(message)) {
+        message = message as place.stream.livestream.ViewerCount;
+        state = {
+          ...state,
+          viewers: message.count,
+          viewTotal: message.total ?? state.viewTotal,
+        };
+      } else if (place.stream.chat.defs.messageView.isTypeOf(message)) {
+        message = message as place.stream.chat.defs.MessageView;
+        // Explicitly map MessageView to MessageViewHydrated
+        const hydrated: ChatMessageViewHydrated = {
+          uri: message.uri,
+          cid: message.cid,
+          author: message.author,
+          record: message.record as place.stream.chat.message.Main,
+          indexedAt: message.indexedAt,
+          chatProfile: (message as any).chatProfile,
+          replyTo: (message as any).replyTo,
+          deleted: message.deleted,
+          badges: message.badges,
+        };
+        state = reduceChat(state, [hydrated], [], []);
+      } else if (place.stream.segment.$isTypeOf(message)) {
+        const newRecentSegments = [...state.recentSegments];
+        newRecentSegments.unshift(message);
+        if (newRecentSegments.length > MAX_RECENT_SEGMENTS) {
+          newRecentSegments.pop();
+        }
+        state = {
+          ...state,
+          segment: message as place.stream.segment.Main,
+          recentSegments: newRecentSegments,
+          problems: [
+            ...findProblems(newRecentSegments),
+            ...state.ingestProblems,
+          ],
+          hasReceivedSegment: true,
+        };
+      } else if (place.stream.defs.blockView.isTypeOf(message)) {
+        const block = message as place.stream.defs.BlockView;
+        state = reduceChat(state, [], [block], []);
+      } else if (place.stream.ingest.defs.problems.isTypeOf(message)) {
+        // The node sends its whole current list whenever it changes, and
+        // these outlive any segment: swap out the last list, keeping the
+        // segment-derived problems.
+        const ingestProblems = (
+          message as place.stream.ingest.defs.Problems
+        ).problems.map(toLivestreamProblem);
+        const stale = new Set(state.ingestProblems.map((p) => p.code));
+        state = {
+          ...state,
+          ingestProblems,
+          problems: [
+            ...state.problems.filter((p) => !stale.has(p.code)),
+            ...ingestProblems,
+          ],
+        };
+      } else if (place.stream.defs.renditions.isTypeOf(message)) {
+        message = message as place.stream.defs.Renditions;
+        state = {
+          ...state,
+          renditions: message.renditions,
+        };
+      } else if (AppBskyActorDefs.isProfileViewBasic(message)) {
+        state = {
+          ...state,
+          profile: message,
+        };
+      } else if (place.stream.chat.gate.$isTypeOf(message)) {
+        const hideRecord = message as place.stream.chat.gate.Main;
+        const hiddenMessageUri = hideRecord.hiddenMessage;
+        const newPendingHides = [...state.pendingHides];
+        if (!newPendingHides.includes(hiddenMessageUri)) {
+          newPendingHides.push(hiddenMessageUri);
+        }
+
+        state = {
+          ...state,
+          pendingHides: newPendingHides,
+        };
+        state = reduceChat(state, [], [], [hiddenMessageUri]);
+      } else if (place.stream.chat.defs.pinnedRecordView.isTypeOf(message)) {
+        const pinnedView = message as PinnedRecordViewHydrated;
+        state = {
+          ...state,
+          pinnedComment: pinnedView,
+        };
+      } else if (
+        (message as any).$type === "place.stream.chat.pinnedRecord" &&
+        (message as any).deleted === true
+      ) {
+        state = {
+          ...state,
+          pinnedComment: null,
+        };
+      } else if (
+        (message as ModerationPermissionDeletion).$type ===
+          MODERATION_PERMISSION_TYPE &&
+        (message as ModerationPermissionDeletion).deleted === true
+      ) {
+        const repoRev = (message as ModerationPermissionDeletion).repoRev;
+        const deletedURI = moderationPermissionURI(
+          message as ModerationPermissionDeletion,
+        );
+        if (deletedURI) {
+          const previousRev = state.moderationPermissionRevisions[deletedURI];
+          if (
+            previousRev &&
+            typeof repoRev === "string" &&
+            repoRev <= previousRev
+          ) {
+            continue;
+          }
+          state = {
+            ...state,
+            moderationPermissionRevisions:
+              typeof repoRev === "string"
+                ? {
+                    ...state.moderationPermissionRevisions,
+                    [deletedURI]: repoRev,
+                  }
+                : state.moderationPermissionRevisions,
+            deletedModerationPermissionURIs:
+              state.deletedModerationPermissionURIs.includes(deletedURI)
+                ? state.deletedModerationPermissionURIs
+                : [...state.deletedModerationPermissionURIs, deletedURI],
+            moderationPermissions: state.moderationPermissions.filter(
+              (permission) => permission.uri !== deletedURI,
+            ),
+          };
+        }
+      } else if (
+        place.stream.moderation.defs.permissionView.isTypeOf(message)
+      ) {
+        const view = message as place.stream.moderation.defs.PermissionView;
+        const repoRev = (message as { repoRev?: unknown }).repoRev;
+        const record = {
+          ...(view.record as unknown as place.stream.moderation.permission.Main),
+          uri: view.uri,
+        } as LivestreamModerationPermission;
+        if (record?.moderator) {
+          const previousRev = record.uri
+            ? state.moderationPermissionRevisions[record.uri]
+            : undefined;
+          const wasDeleted = state.deletedModerationPermissionURIs.includes(
+            record.uri ?? "",
+          );
+          if (
+            (previousRev &&
+              (typeof repoRev !== "string" || repoRev <= previousRev)) ||
+            (wasDeleted &&
+              (!previousRev ||
+                typeof repoRev !== "string" ||
+                repoRev <= previousRev))
+          ) {
+            continue;
+          }
+          const withoutRecord = state.moderationPermissions.filter((perm) =>
+            record.uri
+              ? perm.uri !== record.uri
+              : !(
+                  perm.moderator === record.moderator &&
+                  perm.createdAt === record.createdAt
+                ),
+          );
+          state = {
+            ...state,
+            moderationPermissionRevisions:
+              record.uri && typeof repoRev === "string"
+                ? {
+                    ...state.moderationPermissionRevisions,
+                    [record.uri]: repoRev,
+                  }
+                : state.moderationPermissionRevisions,
+            deletedModerationPermissionURIs: record.uri
+              ? state.deletedModerationPermissionURIs.filter(
+                  (uri) => uri !== record.uri,
+                )
+              : state.deletedModerationPermissionURIs,
+            moderationPermissions: [...withoutRecord, record],
+          };
+        }
+      } else if (place.stream.live.teleport.$isTypeOf(message)) {
+        const teleportRecord = message as place.stream.live.teleport.Main;
+        state = {
+          ...state,
+          activeTeleport: teleportRecord,
+        };
+      } else if (place.stream.livestream.teleportArrival.isTypeOf(message)) {
+        // teleport has succeeded, we are now at the target stream
+        const arrival = message as place.stream.livestream.TeleportArrival;
+
+        // add the teleporter's chat profile to the authors cache FIRST so mention rendering works
+        if (arrival.chatProfile && arrival.source.did) {
+          state = {
+            ...state,
+            authors: {
+              ...state.authors,
+              [arrival.source.did]: arrival.chatProfile,
+            },
+          };
+        }
+
+        const systemMessage = SystemMessages.teleportArrival(
+          formatHandleWithAt(arrival.source),
+          arrival.source.did,
+          arrival.viewerCount,
+          arrival.chatProfile,
+          arrival.teleportUri,
+        );
+        // set proper times
+        systemMessage.indexedAt = arrival.startsAt;
+        systemMessage.record.createdAt = arrival.startsAt;
+
+        state = reduceChat(state, [systemMessage], []);
+      } else if (place.stream.livestream.teleportCanceled.isTypeOf(message)) {
+        // teleport was canceled (deleted or denied)
+        state = {
+          ...state,
+          activeTeleport: null,
+          activeTeleportUri: null,
+        };
+      }
+    }
+  }
+  return reduceChat(state, [], [], []);
+};

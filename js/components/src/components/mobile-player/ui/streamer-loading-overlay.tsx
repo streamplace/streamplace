@@ -7,6 +7,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { pt } from "../../../lib/theme/atoms";
+import { scrims, textAlphas } from "../../../lib/theme/tokens";
 
 type LoadingOverlayProps = {
   visible: boolean;
@@ -126,7 +127,7 @@ export function LoadingOverlay({
           left: 0,
           width,
           height,
-          backgroundColor: "rgba(0,0,0,0.7)",
+          backgroundColor: scrims.dark,
           alignItems: "center",
           justifyContent: "center",
           zIndex: 1000,
@@ -146,7 +147,7 @@ export function LoadingOverlay({
       >
         {messages[currentIndex]}
       </Animated.Text>
-      <Animated.Text style={[pt[5], { color: "#a0a0a0" }]}>
+      <Animated.Text style={[pt[5], { color: textAlphas.dark[2] }]}>
         {subtitle}
       </Animated.Text>
     </Animated.View>

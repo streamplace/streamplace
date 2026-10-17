@@ -83,11 +83,12 @@ export function DanmuOverlay({
   useEffect(() => {
     if (!enabled || !chat || containerWidth === 0) return;
 
-    // only check new messages since last render (chat is sorted newest first)
+    // Only check messages appended since last render. The store keeps chat
+    // oldest-first, so the newest messages are at the end of the array.
     const newMessageCount = chat.length - lastChatLength.current;
     if (newMessageCount <= 0) return;
 
-    const messagesToCheck = chat.slice(0, newMessageCount);
+    const messagesToCheck = chat.slice(-newMessageCount);
     lastChatLength.current = chat.length;
 
     const newMessages = messagesToCheck.filter((msg) => {

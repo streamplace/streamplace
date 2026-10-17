@@ -35,18 +35,21 @@ var cases = []struct {
 			[
 				{
 					"name": "1080p",
+					"width": 1920,
 					"height": 1080,
 					"bitrate": 6000000,
 					"profile": "h264constrainedhigh"
 				},
 				{
 					"name": "720p",
+					"width": 1280,
 					"height": 720,
 					"bitrate": 3000000,
 					"profile": "h264constrainedhigh"
 				},
 				{
 					"name": "360p",
+					"width": 640,
 					"height": 360,
 					"bitrate": 1000000,
 					"profile": "h264constrainedhigh",
@@ -55,6 +58,7 @@ var cases = []struct {
 				},
 				{
 					"name": "240p",
+					"width": 426,
 					"height": 240,
 					"bitrate": 500000,
 					"profile": "h264constrainedhigh",
@@ -63,6 +67,7 @@ var cases = []struct {
 				},
 				{
 					"name": "160p",
+					"width": 284,
 					"height": 160,
 					"bitrate": 250000,
 					"profile": "h264baseline",
@@ -79,18 +84,21 @@ var cases = []struct {
 			[
 				{
 					"name": "1080p",
+					"width": 1620,
 					"height": 1080,
 					"bitrate": 6000000,
 					"profile": "h264constrainedhigh"
 				},
 				{
 					"name": "720p",
+					"width": 1080,
 					"height": 720,
 					"bitrate": 3000000,
 					"profile": "h264constrainedhigh"
 				},
 				{
 					"name": "360p",
+					"width": 540,
 					"height": 360,
 					"bitrate": 1000000,
 					"profile": "h264constrainedhigh",
@@ -99,6 +107,7 @@ var cases = []struct {
 				},
 				{
 					"name": "240p",
+					"width": 360,
 					"height": 240,
 					"bitrate": 500000,
 					"profile": "h264constrainedhigh",
@@ -107,6 +116,7 @@ var cases = []struct {
 				},
 				{
 					"name": "160p",
+					"width": 240,
 					"height": 160,
 					"bitrate": 250000,
 					"profile": "h264baseline",
@@ -123,6 +133,7 @@ var cases = []struct {
 			[
 				{
 					"name": "360p",
+					"width": 640,
 					"height": 360,
 					"bitrate": 1000000,
 					"profile": "h264constrainedhigh",
@@ -131,6 +142,7 @@ var cases = []struct {
 				},
 				{
 					"name": "240p",
+					"width": 426,
 					"height": 240,
 					"bitrate": 500000,
 					"profile": "h264constrainedhigh",
@@ -139,6 +151,7 @@ var cases = []struct {
 				},
 				{
 					"name": "160p",
+					"width": 284,
 					"height": 160,
 					"bitrate": 250000,
 					"profile": "h264baseline",
@@ -155,18 +168,21 @@ var cases = []struct {
 			[
 				{
 					"name": "360p",
+					"width": 640,
 					"height": 360,
 					"bitrate": 1000000,
 					"profile": "h264constrainedhigh"
 				},
 				{
 					"name": "240p",
+					"width": 426,
 					"height": 240,
 					"bitrate": 500000,
 					"profile": "h264constrainedhigh"
 				},
 				{
 					"name": "160p",
+					"width": 284,
 					"height": 160,
 					"bitrate": 250000,
 					"profile": "h264baseline"
@@ -181,18 +197,21 @@ var cases = []struct {
 			[
 				{
 					"name": "360p",
+					"width": 640,
 					"height": 360,
 					"bitrate": 1000000,
 					"profile": "h264constrainedhigh"
 				},
 				{
 					"name": "240p",
+					"width": 426,
 					"height": 240,
 					"bitrate": 500000,
 					"profile": "h264constrainedhigh"
 				},
 				{
 					"name": "160p",
+					"width": 284,
 					"height": 160,
 					"bitrate": 250000,
 					"profile": "h264baseline"
@@ -208,6 +227,7 @@ var cases = []struct {
 				{
 					"name": "360p",
 					"width": 360,
+					"height": 480,
 					"bitrate": 1000000,
 					"profile": "h264constrainedhigh",
 					"fps": 60,
@@ -216,6 +236,7 @@ var cases = []struct {
 				{
 					"name": "240p",
 					"width": 240,
+					"height": 320,
 					"bitrate": 500000,
 					"profile": "h264constrainedhigh",
 					"fps": 60,
@@ -224,6 +245,7 @@ var cases = []struct {
 				{
 					"name": "160p",
 					"width": 160,
+					"height": 214,
 					"bitrate": 250000,
 					"profile": "h264baseline",
 					"fps": 60,
@@ -260,6 +282,7 @@ var singleCases = []struct {
 		lp: `
 			{
 				"name": "1080p",
+				"width": 1084,
 				"height": 1080,
 				"bitrate": 6000000,
 				"profile": "h264constrainedhigh"
@@ -274,6 +297,7 @@ var singleCases = []struct {
 			{
 				"name": "1080p",
 				"width": 1080,
+				"height": 1084,
 				"bitrate": 6000000,
 				"profile": "h264constrainedhigh"
 			}
@@ -287,6 +311,7 @@ var singleCases = []struct {
 			{
 				"name": "1080p",
 				"width": 1920,
+				"height": 830,
 				"bitrate": 6000000,
 				"profile": "h264constrainedhigh"
 			}
@@ -299,6 +324,7 @@ var singleCases = []struct {
 		lp: `
 			{
 				"name": "1080p",
+				"width": 830,
 				"height": 1920,
 				"bitrate": 6000000,
 				"profile": "h264constrainedhigh"
@@ -320,4 +346,22 @@ func TestSingleRendition(t *testing.T) {
 			require.JSONEq(t, c.lp, string(bs))
 		})
 	}
+}
+
+func TestLadder(t *testing.T) {
+	all, err := Ladder("")
+	require.NoError(t, err)
+	require.Equal(t, DesiredRenditions, all)
+	two, err := Ladder("160p, 240p")
+	require.NoError(t, err)
+	require.Equal(t, []string{"240p", "160p"}, []string{two[0].Name, two[1].Name}, "ladder order, whatever the order given")
+	_, err = Ladder("240p,4k")
+	require.ErrorContains(t, err, `unknown rendition "4k"`)
+
+	src := seg(1920, 1080, 30, 1)
+	rs, err := GenerateRenditionsFrom(src, two)
+	require.NoError(t, err)
+	require.Len(t, rs, 2)
+	require.Equal(t, "240p", rs[0].Name)
+	require.Equal(t, "160p", rs[1].Name)
 }

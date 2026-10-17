@@ -61,7 +61,7 @@ app: install
 
 .PHONY: app-cached
 app-cached:
-	if [ ! -f js/app/dist/index.html ]; then $(MAKE) app; else echo "js/app/dist/index.html exists, not rebuilding, run make app to rebuild"; fi
+	if [ ! -f js/app/dist/index.html ] || [ ! -f js/web/dist/index.html ]; then $(MAKE) app; else echo "frontends already built, run make app to rebuild"; fi
 
 .PHONY: ci-ios
 ci-ios: version install app
@@ -104,6 +104,10 @@ android: app .build/bundletool.jar
 
 .PHONY: android-release
 android-release: .build/bundletool.jar android-keystore
+	@if grep -q e2e_network_security_config js/app/android/app/src/main/AndroidManifest.xml; then \
+		echo "js/app/android was prebuilt for e2e (make android-e2e); run 'cd js/app && pnpm run prebuild' before a release build"; \
+		exit 1; \
+	fi
 	export NODE_ENV=production \
 	&& cd ./js/app/android \
 	&& ./gradlew :app:bundleRelease \
@@ -112,6 +116,21 @@ android-release: .build/bundletool.jar android-keystore
 	&& cd bin \
 	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-release.aab --output=streamplace-$(VERSION)-android-release.apks --mode=universal \
 	&& unzip streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb
+
+# The release build for the Maestro suite (hack/e2e-local.sh): it trusts
+# user-installed CAs and never takes OTA updates (SP_E2E_BUILD in
+# js/app/app.config.ts). For testing only; never ship it.
+.PHONY: android-e2e
+android-e2e: .build/bundletool.jar android-keystore
+	cd js/app && SP_E2E_BUILD=true pnpm run prebuild
+	export NODE_ENV=production \
+	&& cd ./js/app/android \
+	&& ./gradlew :app:bundleRelease \
+	&& cd - \
+	&& mv ./js/app/android/app/build/outputs/bundle/release/app-release.aab ./bin/streamplace-$(VERSION)-android-e2e.aab \
+	&& cd bin \
+	&& java -jar ../.build/bundletool.jar build-apks --overwrite --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-e2e.aab --output=streamplace-$(VERSION)-android-e2e.apks --mode=universal \
+	&& unzip -o streamplace-$(VERSION)-android-e2e.apks && mv universal.apk streamplace-$(VERSION)-android-e2e.apk && rm toc.pb
 
 .PHONY: android-debug
 android-debug: .build/bundletool.jar android-keystore
@@ -126,19 +145,22 @@ android-debug: .build/bundletool.jar android-keystore
 
 .PHONY: ios
 ios: app
-	xcodebuild \
-		-workspace ./js/app/ios/Streamplace.xcworkspace \
+	bash -eu -c ' \
+		set -- ./js/app/ios/*.xcworkspace; \
+		workspace="$$1"; \
+		scheme="$${workspace##*/}"; \
+		scheme="$${scheme%.xcworkspace}"; \
+		xcodebuild \
+		-workspace "$$workspace" \
 		-sdk iphoneos \
+		-destination "generic/platform=iOS" \
 		-configuration Release \
-		-scheme Streamplace \
+		-scheme "$$scheme" \
 		-archivePath ./bin/streamplace-$(VERSION)-ios-release.xcarchive \
-		CODE_SIGN_IDENTITY=- \
-		AD_HOC_CODE_SIGNING_ALLOWED=YES \
-		CODE_SIGN_STYLE=Automatic \
-		DEVELOPMENT_TEAM=ZZZZZZZZZZ \
-		clean archive | xcpretty \
+		CODE_SIGNING_ALLOWED=NO \
+		clean archive \
 	&& cd bin \
-	&& tar -czvf streamplace-$(VERSION)-ios-release.xcarchive.tar.gz streamplace-$(VERSION)-ios-release.xcarchive
+	&& tar -czvf streamplace-$(VERSION)-ios-release.xcarchive.tar.gz streamplace-$(VERSION)-ios-release.xcarchive'
 
 #    _____  ____
 #   / ____|/ __ \
@@ -289,6 +311,29 @@ test-vod:
 
 # Local builds of Streamplace with node and app.
 
+# The long-running build container for this checkout: named after the
+# checkout directory (streamplace-N), with the whole parent directory
+# bind-mounted at the same path so sibling checkouts are visible. Both
+# targets are idempotent and adopt a container that already exists (under
+# either name) or is stopped. See .claude/skills/streamplace-docker/SKILL.md.
+.PHONY: container
+container:
+	bash hack/container.sh ensure
+
+# The one command a fresh checkout needs: make sure the container is up, then
+# build the dev environment inside it. Run inside the container it degrades to
+# plain `make dev-setup`.
+.PHONY: dev-container
+dev-container:
+	bash hack/container.sh dev-setup
+
+# Cold checkout to a proven dev environment: container, dependencies, embedded
+# frontends, dev binaries, Playwright browser and a passing e2e run. Idempotent
+# — re-run it after a branch switch and it redoes only what went stale.
+.PHONY: provision
+provision:
+	bash hack/provision.sh
+
 .PHONY: dev-setup
 dev-setup:
 	$(MAKE) -j16 app-cached dev-setup-meson
@@ -297,6 +342,15 @@ dev-setup:
 dev: app-cached $(LEXICON_STAMP)
 	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
+	$(MAKE) dev-rust
+	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
+	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
+	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
+
+.PHONY: dev-web
+dev-web: app-cached $(LEXICON_STAMP)
+	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
+	cp ./util/streamplace-dev-web.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
@@ -621,7 +675,7 @@ darwin-amd64:
 	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-amd64.tar.gz ./streamplace \
 	&& cd -
 
-.PHONY: darwin-arm64gofmt -w .
+.PHONY: darwin-arm64
 darwin-arm64:
 	export CC=aarch64-apple-darwin24.4-clang \
 	&& export CC_AARCH64_APPLE_DARWIN=aarch64-apple-darwin24.4-clang \
@@ -710,9 +764,12 @@ docker-build-builder:
 .PHONY: precommit
 precommit: dockerfile-hash-precommit
 
-.PHONY: dockefile-hash-precommit
+.PHONY: dockerfile-hash-precommit
 dockerfile-hash-precommit:
-	@bash -c 'printf "variables:\n  DOCKERFILE_HASH: `git hash-object docker/build.Dockerfile`" > .ci/dockerfile-hash.yaml' \
+	# Hash every file the builder image bakes in (docker/build.Dockerfile plus
+	# its ADD inputs), so a change to any of them changes DOCKERFILE_HASH and
+	# publishes a new builder-<hash> tag instead of mutating the pinned one.
+	@bash -c 'printf "variables:\n  DOCKERFILE_HASH: `cat docker/build.Dockerfile docker/sources.list docker/winehq.key docker/llvm-snapshot.key | git hash-object --stdin`" > .ci/dockerfile-hash.yaml' \
 	&& git add .ci/dockerfile-hash.yaml
 
 # tricks the github action for golangci-lint to run inside a container
@@ -728,6 +785,8 @@ golangci-lint-container: docker-build-builder
 		tail -f /dev/null
 	podman exec golangci-lint mkdir -p js/app/dist
 	podman exec golangci-lint touch js/app/dist/index.html
+	podman exec golangci-lint mkdir -p js/web/dist
+	podman exec golangci-lint touch js/web/dist/index.html
 	podman exec golangci-lint mkdir -p .build
 	podman exec golangci-lint touch .build/lexicon-stamp
 	podman exec golangci-lint make dev
@@ -745,24 +804,6 @@ in-container: docker-build-builder
 .PHONY: docker-shell
 docker-shell:
 	$(MAKE) in-container IN_CONTAINER_CMD="bash" DOCKER_OPTS="-it -v $$(pwd):$$(pwd) -w $$(pwd)"
-
-STREAMPLACE_URL?=https://git.stream.place/streamplace/streamplace/-/package_files/10122/download
-.PHONY: docker-release
-docker-release:
-	cd docker \
-	&& docker build -f release.Dockerfile \
-	  --build-arg TARGETARCH=$(BUILDARCH) \
-		--build-arg STREAMPLACE_URL=$(STREAMPLACE_URL) \
-		-t dist.stream.place/streamplace/streamplace \
-		.
-
-.PHONY: docker-mistserver
-docker-mistserver:
-	cd docker \
-	&& docker build -f mistserver.Dockerfile \
-	  --build-arg TARGETARCH=$(BUILDARCH) \
-		--build-arg STREAMPLACE_URL=$(STREAMPLACE_URL) \
-		-t dist.stream.place/streamplace/streamplace:mistserver \
 
 #   _____ _____  _____ _______ _____   ____
 #  |  __ \_   _|/ ____|__   __|  __ \ / __ \

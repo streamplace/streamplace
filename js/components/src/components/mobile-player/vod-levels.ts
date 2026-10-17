@@ -23,3 +23,15 @@ export function vodLevelsFromHls(
 export function vodQualityChoices(levels: VodLevel[]): VodLevel[] {
   return levels.length > 1 ? levels : [];
 }
+
+export function vodFrameRateForQuality(
+  levels: VodLevel[],
+  quality: string,
+  playingRendition: string | null,
+): number {
+  const rendition = quality === "source" ? playingRendition : quality;
+  const frameRate = levels.find((level) => level.name === rendition)?.frameRate;
+  return frameRate && Number.isFinite(frameRate) && frameRate > 0
+    ? frameRate
+    : 30;
+}

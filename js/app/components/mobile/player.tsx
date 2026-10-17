@@ -489,6 +489,7 @@ export function PlayerInner(
         )
       )}
       <PlayerUI.ViewerLoadingOverlay />
+      <PlayerUI.PlayerKeyboardShortcuts />
       {props.mode !== "vod" && !props.showUnavailable && (
         <OfflineCounter isMobile={true} />
       )}

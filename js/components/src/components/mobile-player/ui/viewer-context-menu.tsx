@@ -1,5 +1,5 @@
 import { Cog } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Platform, View } from "react-native";
 import Animated, {
   Easing,
@@ -29,7 +29,7 @@ import {
   Text,
   useTheme,
 } from "../../ui";
-import { vodQualityChoices } from "../vod-levels";
+import { vodFrameRateForQuality, vodQualityChoices } from "../vod-levels";
 import { ReportMenuItems } from "./report-menu-items";
 
 const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -99,14 +99,11 @@ export function ContextMenu({
     ? `(${highestLength}p${fps > 0 ? fps : ""})`
     : "(Original Quality)";
 
-  const frameRateName = quality === "source" ? playingVODRendition : quality;
-  const vodFrameRate = vodLevels.find(
-    (level) => level.name === frameRateName,
-  )?.frameRate;
-  const frameRate =
-    vodFrameRate && Number.isFinite(vodFrameRate) && vodFrameRate > 0
-      ? vodFrameRate
-      : 30;
+  const frameRate = vodFrameRateForQuality(
+    vodLevels,
+    quality,
+    playingVODRendition,
+  );
   const canStepFrames =
     quality !== "audio" &&
     status !== PlayerStatus.PLAYING &&
@@ -161,76 +158,6 @@ export function ContextMenu({
       showFeedback,
     ],
   );
-
-  useEffect(() => {
-    if (
-      Platform.OS !== "web" ||
-      mode !== "vod" ||
-      typeof window === "undefined"
-    ) {
-      return;
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.altKey ||
-        event.isComposing
-      ) {
-        return;
-      }
-      const target = event.target as HTMLElement | null;
-      if (
-        target?.isContentEditable ||
-        target?.closest?.(
-          'input, textarea, select, button, a, [contenteditable], [role="textbox"], [role="slider"], [role="menu"], [role="dialog"]',
-        ) ||
-        isOpen
-      ) {
-        return;
-      }
-
-      const key = event.key.toLowerCase();
-      if (key === "<" || key === ">") {
-        event.preventDefault();
-        changePlaybackRate(playbackRate + (key === ">" ? 0.25 : -0.25));
-      } else if ((key === "," || key === ".") && canStepFrames) {
-        event.preventDefault();
-        stepFrame(key === "." ? "forward" : "back");
-      } else if (
-        (key === "arrowleft" || key === "arrowright") &&
-        Number.isFinite(duration) &&
-        duration > 0
-      ) {
-        const currentTime =
-          videoRef && typeof videoRef === "object" && "current" in videoRef
-            ? (videoRef.current?.currentTime ?? playTime)
-            : playTime;
-        event.preventDefault();
-        seekTo(
-          Math.max(
-            0,
-            Math.min(duration, currentTime + (key === "arrowright" ? 5 : -5)),
-          ),
-        );
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [
-    mode,
-    isOpen,
-    playbackRate,
-    canStepFrames,
-    changePlaybackRate,
-    stepFrame,
-    duration,
-    videoRef,
-    playTime,
-    seekTo,
-  ]);
 
   // are we on mobile? then do dropdowns
   const isMobile = Platform.OS === "ios" || Platform.OS === "android";

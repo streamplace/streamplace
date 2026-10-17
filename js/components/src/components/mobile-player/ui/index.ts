@@ -4,6 +4,7 @@ export * from "./autoplay-button";
 export * from "./countdown";
 export * from "./input";
 export * from "./metrics";
+export * from "./player-keyboard-shortcuts";
 export * from "./report-menu-items";
 export * from "./seek-bar";
 export * from "./streamer-context-menu";

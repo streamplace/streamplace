@@ -10,8 +10,9 @@
 # the stream from the first over MoQ), SERVER3_URL (a third node the first
 # pushes the stream to over MoQ), ACCOUNT_HANDLE, ACCOUNT_DID,
 # ACCOUNT_PASSWORD, VIDEO_URI (the account's test VOD), E2E_FIXTURE_MP4 (the
-# local file the harness streams into the node), PDS_HTTP_URL (the PDS's
-# plain-HTTP listener, for checking stored records from the host), and in
+# local file the harness streams into the node), STREAM_KEY (the account's
+# stream key), PDS_HTTP_URL (the PDS's plain-HTTP listener, for checking
+# stored records from the host), and in
 # HTTPS mode also SERVER_HTTPS_URL, PDS_HTTPS_URL,
 # E2E_PROXY_URL, E2E_TLS_SPKI and E2E_TLS_CA. An EXIT trap stops it; a caller
 # with its own EXIT work calls e2e_harness_stop from its trap instead.
@@ -83,7 +84,7 @@ e2e_harness_start() {
   # shellcheck disable=SC1090
   . "$E2E_ENVFILE"
   export SERVER_URL SERVER2_URL SERVER3_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD VIDEO_URI
-  export E2E_FIXTURE_MP4 PDS_HTTP_URL
+  export E2E_FIXTURE_MP4 STREAM_KEY PDS_HTTP_URL
   # Every node's log, for specs that check how something happened.
   export E2E_LOGFILE
   # only set in HTTPS mode

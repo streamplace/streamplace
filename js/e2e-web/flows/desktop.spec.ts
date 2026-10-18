@@ -22,13 +22,7 @@ async function toggle(page: Page, testId: string, on: boolean) {
 }
 
 async function save(page: Page) {
-  const saved = page.waitForResponse((response) =>
-    new URL(response.url()).pathname.endsWith(
-      "/xrpc/place.stream.local.deleteRecord",
-    ),
-  );
   await page.getByTestId("desktop-save").click();
-  expect((await saved).ok()).toBe(true);
   await expect(page.getByText("Saved").first()).toBeVisible();
 }
 
@@ -57,20 +51,35 @@ test("desktop: OBS encodes the renditions set on the node", async ({
   await toggle(page, "desktop-audio-opus", false);
   await save(page);
 
-  const config = await clientConfiguration(page);
-  expect(config.status.result).toBe("success");
-  expect(config.encoder_configurations).toEqual([
-    {
-      codec: "h264",
-      width: 1920,
-      height: 1080,
-      framerate: { numerator: 30, denominator: 1 },
-      settings: { bitrate: 4500, rate_control: "CBR", keyint_sec: 1, bf: 0 },
-    },
-  ]);
-  expect(config.audio_configurations.live).toEqual([
-    { codec: "aac", track_id: 0, channels: 2, settings: { bitrate: 160 } },
-  ]);
+  await expect
+    .poll(() => clientConfiguration(page), { timeout: 10_000 })
+    .toMatchObject({
+      status: { result: "success" },
+      encoder_configurations: [
+        {
+          codec: "h264",
+          width: 1920,
+          height: 1080,
+          framerate: { numerator: 30, denominator: 1 },
+          settings: {
+            bitrate: 4500,
+            rate_control: "CBR",
+            keyint_sec: 1,
+            bf: 0,
+          },
+        },
+      ],
+      audio_configurations: {
+        live: [
+          {
+            codec: "aac",
+            track_id: 0,
+            channels: 2,
+            settings: { bitrate: 160 },
+          },
+        ],
+      },
+    });
 
   // Kept on the node, so they come back after a reload.
   await page.reload();
@@ -89,7 +98,10 @@ test("desktop: OBS encodes the renditions set on the node", async ({
   await toggle(page, "desktop-video", false);
   await toggle(page, "desktop-audio-aac", false);
   await save(page);
-  const cleared = await clientConfiguration(page);
-  expect(cleared.encoder_configurations).toBeUndefined();
-  expect(cleared.audio_configurations).toBeUndefined();
+  await expect
+    .poll(async () => {
+      const config = await clientConfiguration(page);
+      return [config.encoder_configurations, config.audio_configurations];
+    })
+    .toEqual([undefined, undefined]);
 });

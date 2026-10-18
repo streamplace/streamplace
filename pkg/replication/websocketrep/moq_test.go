@@ -223,6 +223,22 @@ func TestMoqGroupIsBounded(t *testing.T) {
 	require.ErrorContains(t, read(3), "over 1 MiB")
 }
 
+// A peer rotating rendition names through its catalog, each update within
+// the limit, can't keep getting fresh readers: every name the session has
+// listed counts.
+func TestMoqTrackLimitSpansCatalogUpdates(t *testing.T) {
+	seen := map[string]bool{}
+	src := []string{"video1", "audio2"}
+	added, err := admitMoqTracks(seen, src, []string{"video100"}, 3)
+	require.NoError(t, err)
+	require.Equal(t, []string{"video100"}, added)
+	added, err = admitMoqTracks(seen, src, []string{"video100"}, 3)
+	require.NoError(t, err)
+	require.Empty(t, added, "a name already read starts no second reader")
+	_, err = admitMoqTracks(seen, src, []string{"video101"}, 3)
+	require.ErrorContains(t, err, "catalog lists 4 tracks, over the limit of 3")
+}
+
 // A stream this node ingests is announced to the peers it pushes to from
 // its first segment, once, and retracted when its segments stop.
 func TestLiveStreamsAreAnnounced(t *testing.T) {

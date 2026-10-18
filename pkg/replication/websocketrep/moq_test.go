@@ -246,6 +246,44 @@ func TestLiveStreamsAreAnnounced(t *testing.T) {
 	require.False(t, a.Active(), "retracted, after one announcement")
 }
 
+// A pushed broadcast that ends on its own, as one does when a track's codec
+// config changes, is announced afresh from the stream's next segment
+// instead of staying retracted while the stream goes on.
+func TestEndedPushIsAnnouncedAgain(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	b := bus.NewBus()
+	r := NewWebsocketReplicator(&config.CLI{StreamSessionTimeout: time.Minute}, b, nil, nil, nil, nil)
+	r.group, ctx = errgroup.WithContext(ctx)
+	announced, err := r.pushOrigin.Consume().Announced(official.AnnounceOptions{})
+	require.NoError(t, err)
+	defer announced.Cancel()
+	next := func() bool {
+		a, err := announced.Next(ctx)
+		require.NoError(t, err)
+		return a.Active()
+	}
+	segments := signedSegments(t, ctx)
+	publish := func(segment []byte) {
+		b.PublishSegment(ctx, "did:plc:a", moqSourceChannel, &bus.Seg{Muxl: segment, Published: true})
+	}
+
+	publish(segments[0])
+	r.touchLive(ctx, "did:plc:a")
+	require.True(t, next())
+	publish([]byte("not a segment the broadcast can carry"))
+	require.False(t, next(), "the broadcast ended")
+	require.Eventually(t, func() bool {
+		r.liveMu.Lock()
+		defer r.liveMu.Unlock()
+		return r.live["did:plc:a"] == nil
+	}, 5*time.Second, 10*time.Millisecond, "and was forgotten")
+	publish(segments[0])
+	publish(segments[1])
+	r.touchLive(ctx, "did:plc:a")
+	require.True(t, next(), "announced again")
+}
+
 // A peer this node pushes to gets each live stream announced on the session
 // and its segments served for as long as the stream is live, not just the
 // first one.

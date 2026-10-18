@@ -21,13 +21,17 @@ const VIDEO = "place.stream.ingest.videoRendition";
 const AUDIO = "place.stream.ingest.audioRendition";
 type Collection = typeof VIDEO | typeof AUDIO;
 
-// Video sizes by height. One video track for now; the records are a list so
-// a second encode (AV1) is another record, not a new shape.
-const SIZES: Record<string, { width: number; height: number }> = {
-  "720": { width: 1280, height: 720 },
-  "1080": { width: 1920, height: 1080 },
-  "1440": { width: 2560, height: 1440 },
-  "2160": { width: 3840, height: 2160 },
+// Video sizes as "WxH" and frame rates as "numerator/denominator", so a saved
+// value that isn't one of these (60000/1001, say) survives a save. One video
+// track for now; the records are a list so a second encode (AV1) is another
+// record, not a new shape.
+const SIZES = ["1280x720", "1920x1080", "2560x1440", "3840x2160"];
+const FRAMERATES = ["30/1", "60/1"];
+const withLoaded = (options: string[], loaded: string) =>
+  options.includes(loaded) ? options : [...options, loaded];
+const fpsLabel = (rate: string) => {
+  const [n, d] = rate.split("/").map(Number);
+  return `${Number.isInteger(n / d) ? n / d : (n / d).toFixed(2)} fps`;
 };
 
 const AUDIO_BITRATES = { aac: 160, opus: 128 } as const;
@@ -44,12 +48,19 @@ interface Settings {
 
 const DEFAULTS: Settings = {
   video: false,
-  size: "1080",
-  fps: "60",
+  size: "1920x1080",
+  fps: "60/1",
   bitrate: "6000",
   aac: false,
   opus: false,
 };
+
+// The record keys the form stands for: saving writes these, and deletes
+// whatever else it found, so it never leaves a record it doesn't show.
+interface Keys {
+  video: string[];
+  audio: { rkey: string; codec: string }[];
+}
 
 /**
  * The renditions OBS encodes when it streams to this node, kept on the node
@@ -62,6 +73,7 @@ export function RenditionSettings() {
   const agent = usePDSAgent();
   const did = agent?.did as `did:${string}:${string}` | undefined;
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [keys, setKeys] = useState<Keys>({ video: [], audio: [] });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -74,18 +86,26 @@ export function RenditionSettings() {
             collection,
           });
         const [video, audio] = await Promise.all([list(VIDEO), list(AUDIO)]);
+        const rkey = (uri: string) => uri.split("/").pop()!;
         const v = video.records[0]?.value as any;
-        const codecs = audio.records.map((r) => (r.value as any).codec);
+        const loaded: Keys = {
+          video: video.records.map((r) => rkey(r.uri)),
+          audio: audio.records.map((r) => ({
+            rkey: rkey(r.uri),
+            codec: (r.value as any).codec,
+          })),
+        };
+        setKeys(loaded);
         setSettings({
           ...DEFAULTS,
           ...(v && {
             video: true,
-            size: String(v.height),
-            fps: String(v.framerate.numerator / v.framerate.denominator),
+            size: `${v.width}x${v.height}`,
+            fps: `${v.framerate.numerator}/${v.framerate.denominator}`,
             bitrate: String(v.bitrate),
           }),
-          aac: codecs.includes("aac"),
-          opus: codecs.includes("opus"),
+          aac: loaded.audio.some((a) => a.codec === "aac"),
+          opus: loaded.audio.some((a) => a.codec === "opus"),
         });
       } catch (e: any) {
         toast.show("Couldn't load renditions", e.message, { variant: "error" });
@@ -117,23 +137,41 @@ export function RenditionSettings() {
         collection,
         rkey,
       });
+    const [numerator, denominator] = settings.fps.split("/").map(Number);
+    const next: Keys = {
+      video: settings.video ? [keys.video[0] ?? "main"] : [],
+      audio: (Object.keys(AUDIO_BITRATES) as AudioCodec[])
+        .filter((codec) => settings[codec])
+        .map((codec) => ({
+          codec,
+          rkey: keys.audio.find((a) => a.codec === codec)?.rkey ?? codec,
+        })),
+    };
     try {
-      await (settings.video
-        ? put(VIDEO, "main", {
-            codec: "h264",
-            ...SIZES[settings.size],
-            framerate: {
-              numerator: parseInt(settings.fps, 10),
-              denominator: 1,
-            },
-            bitrate,
-          })
-        : del(VIDEO, "main"));
-      for (const codec of Object.keys(AUDIO_BITRATES) as AudioCodec[]) {
-        await (settings[codec]
-          ? put(AUDIO, codec, { codec, bitrate: AUDIO_BITRATES[codec] })
-          : del(AUDIO, codec));
+      for (const rkey of keys.video.filter((k) => !next.video.includes(k))) {
+        await del(VIDEO, rkey);
       }
+      for (const { rkey } of keys.audio.filter(
+        (a) => !next.audio.some((n) => n.rkey === a.rkey),
+      )) {
+        await del(AUDIO, rkey);
+      }
+      for (const rkey of next.video) {
+        await put(VIDEO, rkey, {
+          codec: "h264",
+          width: Number(settings.size.split("x")[0]),
+          height: Number(settings.size.split("x")[1]),
+          framerate: { numerator, denominator },
+          bitrate,
+        });
+      }
+      for (const { rkey, codec } of next.audio) {
+        await put(AUDIO, rkey, {
+          codec,
+          bitrate: AUDIO_BITRATES[codec as AudioCodec],
+        });
+      }
+      setKeys(next);
       toast.show("Saved", "OBS picks these up the next time it goes live.");
     } catch (e: any) {
       toast.show("Couldn't save renditions", e.message, { variant: "error" });
@@ -162,14 +200,14 @@ export function RenditionSettings() {
               <Select
                 value={settings.size}
                 onValueChange={(size) => set({ size })}
-                items={Object.keys(SIZES).map((h) => ({
-                  label: `${h}p`,
-                  value: h,
+                items={withLoaded(SIZES, settings.size).map((size) => ({
+                  label: `${size.split("x")[1]}p`,
+                  value: size,
                 }))}
               />
               <SegmentedTabs
-                options={["30", "60"].map((fps) => ({
-                  label: `${fps} fps`,
+                options={withLoaded(FRAMERATES, settings.fps).map((fps) => ({
+                  label: fpsLabel(fps),
                   value: fps,
                 }))}
                 value={settings.fps}

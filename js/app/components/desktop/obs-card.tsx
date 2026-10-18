@@ -64,6 +64,13 @@ export function ObsCard() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+  // Setting up the stream needs OBS closed; notice when it is.
+  const obsRunning = status?.obsRunning;
+  useEffect(() => {
+    if (!obsRunning) return;
+    const timer = setInterval(refresh, 3000);
+    return () => clearInterval(timer);
+  }, [obsRunning, refresh]);
 
   if (!bridge || !status) {
     return null;

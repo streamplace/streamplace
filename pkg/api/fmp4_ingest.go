@@ -28,6 +28,10 @@ type clientConfigurationRequest struct {
 		// AudioTracks names the OBS mixer tracks: track_id 0..5, name empty
 		// when the streamer left the track unnamed.
 		AudioTracks []audioTrackPreference `json:"audio_tracks"`
+		// Canvases are OBS's video outputs; the plugin sends one.
+		Canvases []struct {
+			Framerate placestream.IngestDefs_Framerate `json:"framerate"`
+		} `json:"canvases"`
 	} `json:"preferences"`
 }
 
@@ -106,10 +110,11 @@ var defaultAudioRenditions = []*placestream.IngestAudioRendition{
 }
 
 // audioConfigurations lists the audio encoders the plugin should create: one
-// per rendition (or the defaults) for track 0 (the full mix) and for each
-// mixer track the streamer named beyond the first, in track order, up to
-// maxStems of them. With no renditions and no named tracks it returns nil,
-// and the plugin keeps the encoder from OBS's output settings.
+// per codec the streamer chose (or the defaults) for track 0 (the full mix)
+// and for each mixer track the streamer named beyond the first, in track
+// order, up to maxStems of them; two codecs over three tracks is OBS's limit
+// of six. With no renditions and no named tracks it returns nil, and the
+// plugin keeps the encoder from OBS's output settings.
 func audioConfigurations(tracks []audioTrackPreference, renditions []*placestream.IngestAudioRendition) []audioConfiguration {
 	var stems []int
 	for _, t := range tracks {
@@ -123,11 +128,17 @@ func audioConfigurations(tracks []audioTrackPreference, renditions []*placestrea
 	if len(renditions) == 0 {
 		renditions = defaultAudioRenditions
 	}
+	var codecs []*placestream.IngestAudioRendition
+	for _, r := range renditions {
+		if !slices.ContainsFunc(codecs, func(c *placestream.IngestAudioRendition) bool { return c.Codec == r.Codec }) {
+			codecs = append(codecs, r)
+		}
+	}
 	slices.Sort(stems)
 	ids := append([]int{0}, stems[:min(len(stems), maxStems)]...)
 	var out []audioConfiguration
 	for _, id := range ids {
-		for _, r := range renditions {
+		for _, r := range codecs {
 			cfg := audioConfiguration{Codec: r.Codec, TrackID: id, Channels: 2}
 			cfg.Settings.Bitrate = r.Bitrate
 			out = append(out, cfg)
@@ -138,10 +149,14 @@ func audioConfigurations(tracks []audioTrackPreference, renditions []*placestrea
 
 // videoConfigurations lists the video encoders the plugin should create from
 // the streamer's renditions: none, and the plugin keeps OBS's own. A stream
-// has one video track for now, so only the first rendition is encoded.
-func videoConfigurations(renditions []*placestream.IngestVideoRendition) []videoConfiguration {
-	var out []videoConfiguration
+// has one video track for now, so only the first rendition is encoded. OBS
+// can only drop whole frames from its canvas, so a rate the canvas (when
+// known) can't be divided into is refused with a problem for the streamer.
+func videoConfigurations(renditions []*placestream.IngestVideoRendition, canvas *placestream.IngestDefs_Framerate) (out []videoConfiguration, problem string) {
 	for _, r := range renditions[:min(len(renditions), 1)] {
+		if canvas != nil && !dividesFramerate(*canvas, r.Framerate) {
+			return nil, fmt.Sprintf("OBS runs at %s fps, which can't be encoded at the %s fps set in Streamplace Desktop. Pick a frame rate OBS's divides into, or change OBS's.", fps(*canvas), fps(r.Framerate))
+		}
 		cfg := videoConfiguration{Codec: r.Codec, Width: r.Width, Height: r.Height, Framerate: r.Framerate}
 		cfg.Settings.Bitrate = r.Bitrate
 		cfg.Settings.RateControl = "CBR"
@@ -150,7 +165,24 @@ func videoConfigurations(renditions []*placestream.IngestVideoRendition) []video
 		cfg.Settings.BFrames = 0
 		out = append(out, cfg)
 	}
-	return out
+	return out, ""
+}
+
+// dividesFramerate reports whether rate is canvas divided by a whole number,
+// the only rates OBS can encode from it.
+func dividesFramerate(canvas, rate placestream.IngestDefs_Framerate) bool {
+	if canvas.Numerator < 1 || canvas.Denominator < 1 {
+		return true // OBS didn't say
+	}
+	n, d := canvas.Numerator*rate.Denominator, canvas.Denominator*rate.Numerator
+	return d > 0 && n >= d && n%d == 0
+}
+
+func fps(f placestream.IngestDefs_Framerate) string {
+	if f.Denominator == 1 {
+		return fmt.Sprint(f.Numerator)
+	}
+	return fmt.Sprintf("%.2f", float64(f.Numerator)/float64(f.Denominator))
 }
 
 // localRecords returns repoDID's records of collection kept on this node,
@@ -222,8 +254,14 @@ func (a *StreamplaceAPI) HandleClientConfiguration(ctx context.Context) http.Han
 				errors.WriteHTTPInternalServerError(w, "could not read audio renditions", err)
 				return
 			}
-			config.EncoderConfigurations = videoConfigurations(video)
-			if live := audioConfigurations(req.Preferences.AudioTracks, audio); live != nil {
+			var canvas *placestream.IngestDefs_Framerate
+			if len(req.Preferences.Canvases) > 0 {
+				canvas = &req.Preferences.Canvases[0].Framerate
+			}
+			config.EncoderConfigurations, problem = videoConfigurations(video, canvas)
+			if problem != "" {
+				config = clientConfiguration{Meta: config.Meta, Status: clientConfigurationStatus{Result: "error", HTMLEnUS: problem}}
+			} else if live := audioConfigurations(req.Preferences.AudioTracks, audio); live != nil {
 				config.AudioConfigurations = map[string][]audioConfiguration{"live": live}
 			}
 		}

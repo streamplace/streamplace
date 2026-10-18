@@ -48,6 +48,10 @@ export default async function makeNode(opts: {
       ...process.env,
       SP_HTTP_ADDR: addr,
       SP_HTTP_INTERNAL_ADDR: internalAddr,
+      // Every listener on loopback: the node takes any valid stream key, so
+      // it must only hear this machine's encoders.
+      SP_RTMP_ADDR: "127.0.0.1:1935",
+      SP_MOQ_ADDR: "127.0.0.1:38443",
       ...opts.env,
     },
     windowsHide: true,

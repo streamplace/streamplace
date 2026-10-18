@@ -1,0 +1,40 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.local.listRecords",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "List the caller's records of a collection kept on this node, in record-key order. Shaped like com.atproto.repo.listRecords.",
+      "parameters": {
+        "type": "params",
+        "required": ["repo", "collection"],
+        "properties": {
+          "repo": { "type": "string", "format": "did" },
+          "collection": { "type": "string", "format": "nsid" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["records"],
+          "properties": {
+            "records": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "#record" }
+            }
+          }
+        }
+      }
+    },
+    "record": {
+      "type": "object",
+      "required": ["uri", "cid", "value"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "value": { "type": "unknown" }
+      }
+    }
+  }
+}

@@ -1,6 +1,7 @@
 package statedb
 
 import (
+	"context"
 	"fmt"
 	"syscall"
 	"testing"
@@ -73,7 +74,7 @@ func TestPostgresConnectRetry(t *testing.T) {
 
 	t.Run("retries while starting up", func(t *testing.T) {
 		attempts := 0
-		err := retryPostgresConnect(t.Context(), time.Second, func() error {
+		err := retryPostgresConnect(t.Context(), time.Second, func(context.Context) error {
 			attempts++
 			if attempts < 3 {
 				return startingUp
@@ -86,7 +87,7 @@ func TestPostgresConnectRetry(t *testing.T) {
 
 	t.Run("retries while the socket is closed", func(t *testing.T) {
 		attempts := 0
-		err := retryPostgresConnect(t.Context(), time.Second, func() error {
+		err := retryPostgresConnect(t.Context(), time.Second, func(context.Context) error {
 			attempts++
 			if attempts < 2 {
 				return fmt.Errorf("failed to connect: %w", syscall.ECONNREFUSED)
@@ -97,9 +98,19 @@ func TestPostgresConnectRetry(t *testing.T) {
 		require.Equal(t, 2, attempts)
 	})
 
+	t.Run("bounds each attempt to the budget", func(t *testing.T) {
+		start := time.Now()
+		err := retryPostgresConnect(t.Context(), 100*time.Millisecond, func(ctx context.Context) error {
+			<-ctx.Done()
+			return ctx.Err()
+		})
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		require.Less(t, time.Since(start), time.Second)
+	})
+
 	t.Run("fails fast on permanent errors", func(t *testing.T) {
 		attempts := 0
-		err := retryPostgresConnect(t.Context(), time.Second, func() error {
+		err := retryPostgresConnect(t.Context(), time.Second, func(context.Context) error {
 			attempts++
 			return &pgconn.PgError{Code: "28P01", Message: "password authentication failed"}
 		})

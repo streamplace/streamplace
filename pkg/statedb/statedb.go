@@ -128,11 +128,11 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 	var db *gorm.DB
 	var err error
 	if dbType == DBTypePostgres {
-		err = retryPostgresConnect(ctx, postgresConnectTimeout, func() error {
+		err = retryPostgresConnect(ctx, postgresConnectTimeout, func(attemptCtx context.Context) error {
 			var openErr error
-			db, openErr = openDB(dial)
+			db, openErr = openDBContext(attemptCtx, dial)
 			if openErr != nil && strings.Contains(openErr.Error(), NoPostgresDatabaseCode) {
-				db, openErr = makePostgresDB(dbURL)
+				db, openErr = makePostgresDB(attemptCtx, dbURL)
 				if openErr != nil {
 					return fmt.Errorf("error creating streamplace database: %w", openErr)
 				}
@@ -271,15 +271,43 @@ func openDB(dial gorm.Dialector) (*gorm.DB, error) {
 	})
 }
 
+// openDBContext is openDB with the connection check under the caller's
+// context. gorm's automatic ping has no deadline, so a server that accepts the
+// socket but never answers would outlive a retry budget and ignore
+// cancellation; this opens without that ping and pings under ctx instead.
+func openDBContext(ctx context.Context, dial gorm.Dialector) (*gorm.DB, error) {
+	db, err := gorm.Open(dial, &gorm.Config{
+		SkipDefaultTransaction: true,
+		TranslateError:         true,
+		Logger:                 config.GormLogger,
+		DisableAutomaticPing:   true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("error getting database: %w", err)
+	}
+	if err := sqlDB.PingContext(ctx); err != nil {
+		_ = sqlDB.Close()
+		return nil, err
+	}
+	return db, nil
+}
+
 // retryPostgresConnect calls f until it succeeds, returns an error that
-// another attempt cannot fix, or exhausts its budget. Only errors from a
-// server that is still coming up (or going down) are retried; authentication,
-// missing-role, and bad-URL errors surface immediately.
-func retryPostgresConnect(ctx context.Context, budget time.Duration, f func() error) error {
+// another attempt cannot fix, or exhausts its budget. Each attempt runs under
+// the remaining budget, so a hung connection cannot outlive it. Only errors
+// from a server that is still coming up (or going down) are retried;
+// authentication, missing-role, and bad-URL errors surface immediately.
+func retryPostgresConnect(ctx context.Context, budget time.Duration, f func(context.Context) error) error {
 	deadline := time.Now().Add(budget)
 	delay := postgresConnectInitialDelay
 	for {
-		err := f()
+		attemptCtx, cancel := context.WithDeadline(ctx, deadline)
+		err := f(attemptCtx)
+		cancel()
 		if err == nil || !isPostgresNotReady(err) {
 			return err
 		}
@@ -354,7 +382,7 @@ func boundPostgresPool(ctx context.Context, db *gorm.DB, maxOpen int) error {
 }
 
 // helper function for creating the requested postgres database
-func makePostgresDB(dbURL string) (*gorm.DB, error) {
+func makePostgresDB(ctx context.Context, dbURL string) (*gorm.DB, error) {
 	u, err := url.Parse(dbURL)
 	if err != nil {
 		return nil, err
@@ -364,13 +392,13 @@ func makePostgresDB(dbURL string) (*gorm.DB, error) {
 
 	rootDial := postgres.Open(u.String())
 
-	db, err := openDB(rootDial)
+	db, err := openDBContext(ctx, rootDial)
 	if err != nil {
 		return nil, err
 	}
 
 	// postgres doesn't support prepared statements for CREATE DATABASE. don't SQL inject yourself.
-	err = db.Exec(fmt.Sprintf("CREATE DATABASE %s;", dbName)).Error
+	err = db.WithContext(ctx).Exec(fmt.Sprintf("CREATE DATABASE %s;", dbName)).Error
 	// The bootstrap connection to the maintenance database isn't needed
 	// again; left open it would count against max_connections for the
 	// life of the process.
@@ -385,7 +413,7 @@ func makePostgresDB(dbURL string) (*gorm.DB, error) {
 
 	realDial := postgres.Open(dbURL)
 
-	return openDB(realDial)
+	return openDBContext(ctx, realDial)
 }
 
 func redactDBURL(dbURL string) string {

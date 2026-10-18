@@ -100,8 +100,8 @@ func waitPostgresReady() error {
 	u.Path = "/postgres"
 	readyURL := u.String()
 
-	err = retryPostgresConnect(context.Background(), postgresStartupTimeout, func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	err = retryPostgresConnect(context.Background(), postgresStartupTimeout, func(attemptCtx context.Context) error {
+		ctx, cancel := context.WithTimeout(attemptCtx, 5*time.Second)
 		defer cancel()
 		conn, err := pgx.Connect(ctx, readyURL)
 		if err != nil {

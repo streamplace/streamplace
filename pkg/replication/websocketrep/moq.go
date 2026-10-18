@@ -655,7 +655,9 @@ type liveStream struct {
 
 // touchLive notes a local segment of streamer's. On the first, the stream
 // is announced on pushOrigin, its tracks served from the bus like the
-// listener's; it is retracted once expireLive finds it quiet.
+// listener's; it is retracted once expireLive finds it quiet, or when its
+// broadcast ends on its own (a track's codec config changed), after which
+// the next segment announces it afresh.
 func (r *WebsocketReplicator) touchLive(ctx context.Context, streamer string) {
 	r.liveMu.Lock()
 	defer r.liveMu.Unlock()
@@ -669,10 +671,17 @@ func (r *WebsocketReplicator) touchLive(ctx context.Context, streamer string) {
 		return
 	}
 	ctx, stop := context.WithCancel(ctx)
-	r.live[streamer] = &liveStream{last: time.Now(), stop: stop}
+	s := &liveStream{last: time.Now(), stop: stop}
+	r.live[streamer] = s
 	r.group.Go(func() error {
-		defer broadcast.Close()
 		r.serveTracks(ctx, streamer, broadcast, func() error { return broadcast.Announce(official.Route{}) })
+		_ = broadcast.Close()
+		r.liveMu.Lock()
+		if r.live[streamer] == s {
+			delete(r.live, streamer)
+		}
+		r.liveMu.Unlock()
+		stop()
 		return nil
 	})
 }

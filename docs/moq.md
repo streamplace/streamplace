@@ -42,7 +42,11 @@ plus a check that the segment's signed creator is the streamer it asked
 for. A source track with no group at a segment's sequence has no part in
 that segment. Each rendition track's group is a single-track addendum,
 verified with `muxl verify` and folded into the live window on its own.
-Anything that is not MUXL ends the session.
+Anything that is not MUXL ends the session. So does a catalog listing more
+than `--moq-max-tracks` tracks (default 32) or a group over
+`--moq-max-group-mb` (default 16 MiB): a subscriber buffers a whole group
+before it can verify it, so these bound what one peer's stream can make a
+node hold. Either is off at 0.
 
 A node's listener advertises one route covering every path and serves a
 broadcast when a peer requests it: a request for a stream that is not live

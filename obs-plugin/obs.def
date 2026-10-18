@@ -26,6 +26,7 @@ EXPORTS
     obs_data_array_item
     obs_data_array_push_back
     obs_data_array_release
+    obs_data_apply
     obs_data_create
     obs_data_create_from_json
     obs_data_get_array
@@ -41,6 +42,7 @@ EXPORTS
     obs_data_set_string
     obs_encoder_audio
     obs_encoder_get_codec
+    obs_encoder_get_id
     obs_encoder_get_extra_data
     obs_encoder_get_frame_rate_divisor
     obs_encoder_get_height

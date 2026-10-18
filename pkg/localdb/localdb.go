@@ -27,6 +27,9 @@ type LocalDB interface {
 	GetViewLogSalt(date string) ([]byte, error)
 	PutViewLogSalt(date string, salt []byte) error
 	DeleteViewLogSaltsBefore(date string) error
+	PutLocalRecord(record *LocalRecord) error
+	ListLocalRecords(repoDID, collection string) ([]LocalRecord, error)
+	DeleteLocalRecord(repoDID, collection, rkey string) error
 }
 
 type LocalDatabase struct {
@@ -72,6 +75,7 @@ func MakeDB(dbURL string) (LocalDB, error) {
 	for _, model := range []any{
 		Segment{},
 		ViewLogSalt{},
+		LocalRecord{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

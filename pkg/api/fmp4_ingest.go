@@ -10,9 +10,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
+	glex "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // The Streamplace OBS plugin asks for its stream configuration with the same
@@ -38,10 +40,33 @@ type clientConfiguration struct {
 	Meta            clientConfigurationMeta   `json:"meta"`
 	Status          clientConfigurationStatus `json:"status"`
 	IngestEndpoints []ingestEndpoint          `json:"ingest_endpoints,omitempty"`
+	// EncoderConfigurations lists the video encoders the plugin creates, one
+	// track each; absent, the plugin keeps the encoder from OBS's own output
+	// settings.
+	EncoderConfigurations []videoConfiguration `json:"encoder_configurations,omitempty"`
 	// AudioConfigurations lists the audio encoders the plugin creates, keyed
 	// by the output they feed ("live"); absent, the plugin keeps the encoder
 	// from OBS's own output settings.
 	AudioConfigurations map[string][]audioConfiguration `json:"audio_configurations,omitempty"`
+}
+
+// videoConfiguration is a GoLiveApi encoder configuration, except that it
+// names a codec rather than an OBS encoder type, a Streamplace extension:
+// which encoders exist is the streamer's machine's business, so the plugin
+// picks one (the streamer's own streaming encoder when it is that codec).
+type videoConfiguration struct {
+	Codec     string                           `json:"codec"`
+	Width     int64                            `json:"width"`
+	Height    int64                            `json:"height"`
+	Framerate placestream.IngestDefs_Framerate `json:"framerate"`
+	// Settings are the encoder settings the plugin applies over the
+	// encoder's own; OBS's H.264 encoders share these names.
+	Settings struct {
+		Bitrate     int64  `json:"bitrate"`
+		RateControl string `json:"rate_control"`
+		KeyintSec   int    `json:"keyint_sec"`
+		BFrames     int    `json:"bf"`
+	} `json:"settings"`
 }
 
 type audioConfiguration struct {
@@ -49,7 +74,7 @@ type audioConfiguration struct {
 	TrackID  int    `json:"track_id"`
 	Channels int    `json:"channels"`
 	Settings struct {
-		Bitrate int `json:"bitrate"`
+		Bitrate int64 `json:"bitrate"`
 	} `json:"settings"`
 }
 
@@ -73,42 +98,93 @@ type ingestEndpoint struct {
 // OBS allows six audio encoders per output, and each track takes two.
 const maxStems = 2
 
-// stemAudioConfigurations lists the encoders the plugin should create when
-// the streamer named mixer tracks beyond the first: an AAC and an Opus
-// encode of track 0 (the full mix) and of each named track in track order,
-// up to maxStems of them. With no named track it returns nil, and the plugin
-// keeps the encoder from OBS's output settings: one audio track, as today.
-func stemAudioConfigurations(tracks []audioTrackPreference) []audioConfiguration {
+// defaultAudioRenditions are the codecs each audio track is encoded in when
+// the streamer hasn't chosen (place.stream.ingest.audioRendition).
+var defaultAudioRenditions = []*placestream.IngestAudioRendition{
+	{Codec: "aac", Bitrate: 160},
+	{Codec: "opus", Bitrate: 128},
+}
+
+// audioConfigurations lists the audio encoders the plugin should create: one
+// per rendition (or the defaults) for track 0 (the full mix) and for each
+// mixer track the streamer named beyond the first, in track order, up to
+// maxStems of them. With no renditions and no named tracks it returns nil,
+// and the plugin keeps the encoder from OBS's output settings.
+func audioConfigurations(tracks []audioTrackPreference, renditions []*placestream.IngestAudioRendition) []audioConfiguration {
 	var stems []int
 	for _, t := range tracks {
 		if t.TrackID >= 1 && t.TrackID <= 5 && t.Name != "" {
 			stems = append(stems, t.TrackID)
 		}
 	}
-	if len(stems) == 0 {
+	if len(stems) == 0 && len(renditions) == 0 {
 		return nil
+	}
+	if len(renditions) == 0 {
+		renditions = defaultAudioRenditions
 	}
 	slices.Sort(stems)
 	ids := append([]int{0}, stems[:min(len(stems), maxStems)]...)
 	var out []audioConfiguration
 	for _, id := range ids {
-		for _, c := range []struct {
-			codec   string
-			bitrate int
-		}{{"aac", 160}, {"opus", 128}} {
-			cfg := audioConfiguration{Codec: c.codec, TrackID: id, Channels: 2}
-			cfg.Settings.Bitrate = c.bitrate
+		for _, r := range renditions {
+			cfg := audioConfiguration{Codec: r.Codec, TrackID: id, Channels: 2}
+			cfg.Settings.Bitrate = r.Bitrate
 			out = append(out, cfg)
 		}
 	}
 	return out
 }
 
+// videoConfigurations lists the video encoders the plugin should create from
+// the streamer's renditions: none, and the plugin keeps OBS's own. A stream
+// has one video track for now, so only the first rendition is encoded.
+func videoConfigurations(renditions []*placestream.IngestVideoRendition) []videoConfiguration {
+	var out []videoConfiguration
+	for _, r := range renditions[:min(len(renditions), 1)] {
+		cfg := videoConfiguration{Codec: r.Codec, Width: r.Width, Height: r.Height, Framerate: r.Framerate}
+		cfg.Settings.Bitrate = r.Bitrate
+		cfg.Settings.RateControl = "CBR"
+		// Segments are a GoP each, and MUXL takes no B-frames.
+		cfg.Settings.KeyintSec = 1
+		cfg.Settings.BFrames = 0
+		out = append(out, cfg)
+	}
+	return out
+}
+
+// localRecords returns repoDID's records of collection kept on this node,
+// as T.
+func localRecords[T any, PT interface {
+	*T
+	glex.Record
+}](a *StreamplaceAPI, repoDID, collection string) ([]*T, error) {
+	rows, err := a.LocalDB.ListLocalRecords(repoDID, collection)
+	if err != nil {
+		return nil, err
+	}
+	var out []*T
+	for _, row := range rows {
+		value := &glex.LexiconTypeDecoder{}
+		if err := value.UnmarshalCBOR(row.Record); err != nil {
+			return nil, fmt.Errorf("decoding %s: %w", row.URI(), err)
+		}
+		rec, err := glex.RecordAs[T, PT](value.Val)
+		if err != nil {
+			return nil, fmt.Errorf("decoding %s: %w", row.URI(), err)
+		}
+		out = append(out, rec)
+	}
+	return out, nil
+}
+
 // HandleClientConfiguration answers the plugin's configuration request. A bad
 // stream key is reported in status, as GoLiveApi clients expect, so OBS shows
-// the message. Unless the streamer named mixer tracks (see
-// stemAudioConfigurations) the response names no encoders, so the plugin keeps
-// the encoders from OBS's output settings: one video and one audio track.
+// the message. The encoders come from the streamer's renditions kept on this
+// node (place.stream.ingest.*Rendition) and their named mixer tracks (see
+// audioConfigurations); with none of either the response names no
+// encoders, so the plugin keeps the encoders from OBS's output settings: one
+// video and one audio track.
 func (a *StreamplaceAPI) HandleClientConfiguration(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req clientConfigurationRequest
@@ -124,7 +200,8 @@ func (a *StreamplaceAPI) HandleClientConfiguration(ctx context.Context) http.Han
 			},
 			Status: clientConfigurationStatus{Result: "success"},
 		}
-		if problem := a.streamKeyProblem(r.Context(), req.Authentication); problem != "" {
+		streamer, problem := a.streamKeyStreamer(r.Context(), req.Authentication)
+		if problem != "" {
 			config.Status = clientConfigurationStatus{Result: "error", HTMLEnUS: problem}
 		} else {
 			scheme := "http"
@@ -135,7 +212,18 @@ func (a *StreamplaceAPI) HandleClientConfiguration(ctx context.Context) http.Han
 				Protocol:    "FMP4",
 				URLTemplate: fmt.Sprintf("%s://%s/api/ingest/fmp4/{stream_key}", scheme, r.Host),
 			}}
-			if live := stemAudioConfigurations(req.Preferences.AudioTracks); live != nil {
+			video, err := localRecords[placestream.IngestVideoRendition](a, streamer, "place.stream.ingest.videoRendition")
+			if err != nil {
+				errors.WriteHTTPInternalServerError(w, "could not read video renditions", err)
+				return
+			}
+			audio, err := localRecords[placestream.IngestAudioRendition](a, streamer, "place.stream.ingest.audioRendition")
+			if err != nil {
+				errors.WriteHTTPInternalServerError(w, "could not read audio renditions", err)
+				return
+			}
+			config.EncoderConfigurations = videoConfigurations(video)
+			if live := audioConfigurations(req.Preferences.AudioTracks, audio); live != nil {
 				config.AudioConfigurations = map[string][]audioConfiguration{"live": live}
 			}
 		}
@@ -146,17 +234,17 @@ func (a *StreamplaceAPI) HandleClientConfiguration(ctx context.Context) http.Han
 	}
 }
 
-// streamKeyProblem explains to the streamer why key may not stream, or returns
-// "" if it may.
-func (a *StreamplaceAPI) streamKeyProblem(ctx context.Context, key string) string {
+// streamKeyStreamer returns whose key it is, or explains to the streamer why
+// key may not stream.
+func (a *StreamplaceAPI) streamKeyStreamer(ctx context.Context, key string) (streamer, problem string) {
 	ms, err := a.MakeMediaSigner(ctx, key)
 	if err != nil {
-		return "This stream key isn't valid. Copy a fresh one from your Streamplace dashboard."
+		return "", "This stream key isn't valid. Copy a fresh one from your Streamplace dashboard."
 	}
 	if err := a.checkBanned(ctx, ms.Streamer()); err != nil {
-		return "This account can't stream right now."
+		return "", "This account can't stream right now."
 	}
-	return ""
+	return ms.Streamer(), ""
 }
 
 // HandleFMP4Ingest accepts the OBS plugin's push: a chunked POST of fragmented

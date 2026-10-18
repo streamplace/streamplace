@@ -54,4 +54,42 @@ func TestAudioConfigurations(t *testing.T) {
 	require.JSONEq(t, `[
 		{"codec":"opus","track_id":0,"channels":2,"settings":{"bitrate":96}},
 		{"codec":"opus","track_id":4,"channels":2,"settings":{"bitrate":96}}]`, string(got))
+
+	// One encode per codec, so two stems stay within OBS's six encoders even
+	// with a second record of a codec.
+	three := []*placestream.IngestAudioRendition{{Codec: "aac", Bitrate: 160}, {Codec: "opus", Bitrate: 128}, {Codec: "aac", Bitrate: 96}}
+	require.Len(t, audioConfigurations(named.Preferences.AudioTracks, three), 6)
+}
+
+// OBS encodes a rendition by dropping whole frames from its canvas, so only
+// rates the canvas divides into evenly can be asked for.
+func TestVideoConfigurationsFramerate(t *testing.T) {
+	rate := func(n, d int64) placestream.IngestDefs_Framerate {
+		return placestream.IngestDefs_Framerate{Numerator: n, Denominator: d}
+	}
+	at := func(r placestream.IngestDefs_Framerate) []*placestream.IngestVideoRendition {
+		return []*placestream.IngestVideoRendition{{Codec: "h264", Width: 1920, Height: 1080, Framerate: r, Bitrate: 6000}}
+	}
+	for _, tc := range []struct {
+		canvas, rendition placestream.IngestDefs_Framerate
+		ok                bool
+	}{
+		{rate(60, 1), rate(60, 1), true},
+		{rate(60, 1), rate(30, 1), true},
+		{rate(60000, 1001), rate(30000, 1001), true},
+		{rate(60, 1), rate(24, 1), false},
+		{rate(30, 1), rate(60, 1), false},
+		{rate(0, 0), rate(24, 1), true}, // OBS didn't say
+	} {
+		configs, problem := videoConfigurations(at(tc.rendition), &tc.canvas)
+		if tc.ok {
+			require.Empty(t, problem, "%v from %v", tc.rendition, tc.canvas)
+			require.Len(t, configs, 1)
+		} else {
+			require.Contains(t, problem, "can't be encoded", "%v from %v", tc.rendition, tc.canvas)
+		}
+	}
+	configs, problem := videoConfigurations(at(rate(24, 1)), nil)
+	require.Empty(t, problem, "no canvas, no check")
+	require.Len(t, configs, 1)
 }

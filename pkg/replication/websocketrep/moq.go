@@ -380,7 +380,7 @@ func requestMoqBroadcast(ctx context.Context, client *official.Client, streamer 
 func (r *WebsocketReplicator) consume(ctx context.Context, broadcast *official.BroadcastConsumer, streamer string) error {
 	spmetrics.ReplicationOutboundOpen.WithLabelValues(streamer).Inc()
 	defer spmetrics.ReplicationOutboundOpen.WithLabelValues(streamer).Dec()
-	return consumeBroadcast(ctx, broadcast, r.validateSource(streamer, nil),
+	return r.consumeBroadcast(ctx, broadcast, r.validateSource(streamer, nil),
 		func(ctx context.Context, addendum []byte) error {
 			return r.feedRenditions(ctx, streamer, addendum)
 		})
@@ -403,8 +403,10 @@ func (r *WebsocketReplicator) validateSource(streamer string, onSource func()) f
 // consumeBroadcast hands each source segment the broadcast's catalog
 // leads to, reassembled, to source, and each rendition track's segments to
 // rendition (none, when nil), until something fails or the broadcast or
-// ctx ends; a broadcast its publisher ends is errMoqTrackEnded.
-func consumeBroadcast(ctx context.Context, broadcast *official.BroadcastConsumer, source func([]byte) error, rendition func(context.Context, []byte) error) error {
+// ctx ends; a broadcast its publisher ends is errMoqTrackEnded. A catalog
+// listing more tracks than --moq-max-tracks ends it: the catalog is the
+// peer's, unsigned, and each track is a reader buffering unverified bytes.
+func (r *WebsocketReplicator) consumeBroadcast(ctx context.Context, broadcast *official.BroadcastConsumer, source func([]byte) error, rendition func(context.Context, []byte) error) error {
 	catalogs, err := broadcast.SubscribeCatalog(ctx)
 	if err != nil {
 		spmetrics.ReplicationConnectErrorsTotal.Inc()
@@ -420,12 +422,15 @@ func consumeBroadcast(ctx context.Context, broadcast *official.BroadcastConsumer
 				return fmt.Errorf("catalog: %w", err)
 			}
 			src, ren := moqTrackSets(catalog)
+			if limit := r.cli.MoqMaxTracks; limit > 0 && len(src)+len(ren) > limit {
+				return fmt.Errorf("catalog lists %d tracks, over the limit of %d", len(src)+len(ren), limit)
+			}
 			// The origin's first catalog already holds a source segment's
 			// whole track set (see serveTracks); one that changes it
 			// starts a new session, which reads the new set.
 			if sourceTracks == nil && len(src) > 0 {
 				sourceTracks = src
-				g.Go(func() error { return consumeSource(gctx, broadcast, src, source) })
+				g.Go(func() error { return r.consumeSource(gctx, broadcast, src, source) })
 			} else if !slices.Equal(src, sourceTracks) {
 				return fmt.Errorf("source tracks changed from %v to %v", sourceTracks, src)
 			}
@@ -435,7 +440,7 @@ func consumeBroadcast(ctx context.Context, broadcast *official.BroadcastConsumer
 				}
 				renditions[name] = true
 				g.Go(func() error {
-					return consumeTrack(gctx, broadcast, name, moqRenditionPriority, func(addendum []byte) error {
+					return r.consumeTrack(gctx, broadcast, name, moqRenditionPriority, func(addendum []byte) error {
 						return rendition(gctx, addendum)
 					})
 				})
@@ -476,7 +481,7 @@ func moqTrackSets(catalog *official.Catalog) (source, renditions []string) {
 // in track-id order) and hands each to handle. A segment's tracks share a
 // group sequence, which the first track leads; a track with no group at a
 // segment's sequence has no part in that segment.
-func consumeSource(ctx context.Context, broadcast *official.BroadcastConsumer, names []string, handle func([]byte) error) error {
+func (r *WebsocketReplicator) consumeSource(ctx context.Context, broadcast *official.BroadcastConsumer, names []string, handle func([]byte) error) error {
 	tracks := make([]*official.TrackConsumer, len(names))
 	for i, name := range names {
 		track, err := subscribeMoqTrack(ctx, broadcast, name, moqSourcePriority)
@@ -501,7 +506,7 @@ func consumeSource(ctx context.Context, broadcast *official.BroadcastConsumer, n
 			return err
 		}
 		sequence := lead.Sequence()
-		segment, err := readMoqGroup(ctx, lead)
+		segment, err := r.readMoqGroup(ctx, lead)
 		if err != nil {
 			return fmt.Errorf("%s track: %w", names[0], err)
 		}
@@ -520,7 +525,7 @@ func consumeSource(ctx context.Context, broadcast *official.BroadcastConsumer, n
 				ahead[i] = group
 				continue
 			}
-			part, err := readMoqGroup(ctx, group)
+			part, err := r.readMoqGroup(ctx, group)
 			if err != nil {
 				return fmt.Errorf("%s track: %w", names[i], err)
 			}
@@ -535,7 +540,7 @@ func consumeSource(ctx context.Context, broadcast *official.BroadcastConsumer, n
 // consumeTrack hands each group of a track, one track's canonical segment,
 // to handle in sequence order, until the track ends, handle fails or ctx
 // ends.
-func consumeTrack(ctx context.Context, broadcast *official.BroadcastConsumer, name string, priority uint8, handle func([]byte) error) error {
+func (r *WebsocketReplicator) consumeTrack(ctx context.Context, broadcast *official.BroadcastConsumer, name string, priority uint8, handle func([]byte) error) error {
 	track, err := subscribeMoqTrack(ctx, broadcast, name, priority)
 	if err != nil {
 		return err
@@ -546,7 +551,7 @@ func consumeTrack(ctx context.Context, broadcast *official.BroadcastConsumer, na
 		if err != nil {
 			return err
 		}
-		segment, err := readMoqGroup(ctx, group)
+		segment, err := r.readMoqGroup(ctx, group)
 		if err != nil {
 			return fmt.Errorf("%s track: %w", name, err)
 		}
@@ -576,15 +581,12 @@ func nextMoqGroup(ctx context.Context, track *official.TrackConsumer, name strin
 	return group, nil
 }
 
-// moqMaxGroupBytes bounds a group read from a peer, which nothing has
-// checked yet: one track's segment for one GoP, a few megabytes at the
-// highest bitrate Streamplace recommends.
-var moqMaxGroupBytes = 64 << 20
-
 // readMoqGroup reads a group's frames, the CMAF fragments of one track's
-// canonical segment, back into that segment.
-func readMoqGroup(ctx context.Context, group *official.GroupConsumer) ([]byte, error) {
+// canonical segment, back into that segment. A group over --moq-max-group-mb
+// is refused: nothing has checked its bytes yet.
+func (r *WebsocketReplicator) readMoqGroup(ctx context.Context, group *official.GroupConsumer) ([]byte, error) {
 	defer group.Cancel()
+	limit := r.cli.MoqMaxGroupMB << 20
 	var segment []byte
 	for {
 		frame, err := group.ReadFrame(ctx)
@@ -594,8 +596,8 @@ func readMoqGroup(ctx context.Context, group *official.GroupConsumer) ([]byte, e
 		if frame == nil {
 			break
 		}
-		if len(segment)+len(frame.Payload) > moqMaxGroupBytes {
-			return nil, fmt.Errorf("group %d is over %d bytes", group.Sequence(), moqMaxGroupBytes)
+		if limit > 0 && len(segment)+len(frame.Payload) > limit {
+			return nil, fmt.Errorf("group %d is over %d MiB", group.Sequence(), r.cli.MoqMaxGroupMB)
 		}
 		segment = append(segment, frame.Payload...)
 	}
@@ -890,7 +892,7 @@ func (r *WebsocketReplicator) acceptPush(ctx context.Context, pushed *official.O
 			// its own (see startTranscodeRole).
 			broadcast, err := pushed.RequestBroadcast(sctx, streamer)
 			if err == nil {
-				err = consumeBroadcast(sctx, broadcast, r.validateSource(streamer, r.originAdvertiser(sctx, streamer)), nil)
+				err = r.consumeBroadcast(sctx, broadcast, r.validateSource(streamer, r.originAdvertiser(sctx, streamer)), nil)
 			}
 			if sctx.Err() != nil || errors.Is(err, errMoqTrackEnded) {
 				// Retracted or finished by the peer, or the session is over.

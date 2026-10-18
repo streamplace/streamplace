@@ -422,8 +422,9 @@ func (r *WebsocketReplicator) consumeBroadcast(ctx context.Context, broadcast *o
 				return fmt.Errorf("catalog: %w", err)
 			}
 			src, ren := moqTrackSets(catalog)
-			if limit := r.cli.MoqMaxTracks; limit > 0 && len(src)+len(ren) > limit {
-				return fmt.Errorf("catalog lists %d tracks, over the limit of %d", len(src)+len(ren), limit)
+			added, err := admitMoqTracks(renditions, src, ren, r.cli.MoqMaxTracks)
+			if err != nil {
+				return err
 			}
 			// The origin's first catalog already holds a source segment's
 			// whole track set (see serveTracks); one that changes it
@@ -434,11 +435,10 @@ func (r *WebsocketReplicator) consumeBroadcast(ctx context.Context, broadcast *o
 			} else if !slices.Equal(src, sourceTracks) {
 				return fmt.Errorf("source tracks changed from %v to %v", sourceTracks, src)
 			}
-			for _, name := range ren {
-				if rendition == nil || renditions[name] {
+			for _, name := range added {
+				if rendition == nil {
 					continue
 				}
-				renditions[name] = true
 				g.Go(func() error {
 					return r.consumeTrack(gctx, broadcast, name, moqRenditionPriority, func(addendum []byte) error {
 						return rendition(gctx, addendum)
@@ -449,6 +449,28 @@ func (r *WebsocketReplicator) consumeBroadcast(ctx context.Context, broadcast *o
 		return fmt.Errorf("catalog: %w", errMoqTrackEnded)
 	})
 	return g.Wait()
+}
+
+// admitMoqTracks records the rendition names a catalog lists in seen and
+// returns the ones it has not listed before. It refuses a catalog that would
+// take the session past limit tracks (0 for none), counting every rendition
+// the session has ever listed: a reader runs until its track or the session
+// ends, so a peer rotating names through its catalog must not get a new one
+// each time. A real origin never drops a rendition mid-broadcast.
+func admitMoqTracks(seen map[string]bool, src, ren []string, limit int) ([]string, error) {
+	var added []string
+	for _, name := range ren {
+		if !seen[name] {
+			added = append(added, name)
+		}
+	}
+	if total := len(src) + len(seen) + len(added); limit > 0 && total > limit {
+		return nil, fmt.Errorf("catalog lists %d tracks, over the limit of %d", total, limit)
+	}
+	for _, name := range added {
+		seen[name] = true
+	}
+	return added, nil
 }
 
 // moqTrackSets sorts a catalog's tracks, named by their MUXL rendition

@@ -527,6 +527,11 @@ func nextMoqGroup(ctx context.Context, track *official.TrackConsumer, name strin
 	return group, nil
 }
 
+// moqMaxGroupBytes bounds a group read from a peer, which nothing has
+// checked yet: one track's segment for one GoP, a few megabytes at the
+// highest bitrate Streamplace recommends.
+var moqMaxGroupBytes = 64 << 20
+
 // readMoqGroup reads a group's frames, the CMAF fragments of one track's
 // canonical segment, back into that segment.
 func readMoqGroup(ctx context.Context, group *official.GroupConsumer) ([]byte, error) {
@@ -539,6 +544,9 @@ func readMoqGroup(ctx context.Context, group *official.GroupConsumer) ([]byte, e
 		}
 		if frame == nil {
 			break
+		}
+		if len(segment)+len(frame.Payload) > moqMaxGroupBytes {
+			return nil, fmt.Errorf("group %d is over %d bytes", group.Sequence(), moqMaxGroupBytes)
 		}
 		segment = append(segment, frame.Payload...)
 	}

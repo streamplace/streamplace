@@ -174,3 +174,36 @@ func TestMoqServesTheBus(t *testing.T) {
 		t.Fatal("the broadcast outlived its stream")
 	}
 }
+
+// A peer's group is refused once it grows past the cap, before the node
+// holds more of what nothing has verified yet.
+func TestMoqGroupIsBounded(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	limit := moqMaxGroupBytes
+	moqMaxGroupBytes = 16
+	t.Cleanup(func() { moqMaxGroupBytes = limit })
+	broadcast, err := official.NewBroadcastProducer()
+	require.NoError(t, err)
+	defer broadcast.Close()
+	track, err := broadcast.PublishTrack("video1", nil)
+	require.NoError(t, err)
+	read := func(frames ...[]byte) error {
+		consumer, err := track.Consume(nil)
+		require.NoError(t, err)
+		defer consumer.Cancel()
+		group, err := track.AppendGroup()
+		require.NoError(t, err)
+		for _, frame := range frames {
+			require.NoError(t, group.WriteFrame(official.Frame{Payload: frame}))
+		}
+		require.NoError(t, group.Finish())
+		g, err := consumer.NextGroup(ctx)
+		require.NoError(t, err)
+		_, err = readMoqGroup(ctx, g)
+		return err
+	}
+	frame := []byte{0, 0, 0, 8, 'u', 'u', 'i', 'd'}
+	require.NoError(t, read(frame, frame), "at the cap")
+	require.ErrorContains(t, read(frame, frame, frame), "over 16 bytes")
+}

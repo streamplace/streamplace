@@ -62,7 +62,9 @@ image uploads are already limited to the web.
 `stream` also covers the narrow portrait web layout at 320 × 568, where the
 live video sits above chat. It reveals the player chrome, exercises mute and
 fullscreen entry/exit, and verifies that faded controls reveal instead of
-accepting an unseen tap.
+accepting an unseen tap. Its readiness check uses the video itself: accumulated
+chat history can virtualize the stream's initial system message, so that row is
+not a reliable player prerequisite.
 
 `player-viewport` opts into the Vite web beta and exercises the real harness
 stream at phone, tablet, square, midscale (including 1080px), and desktop

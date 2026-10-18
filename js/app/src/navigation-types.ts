@@ -68,6 +68,7 @@ export type RootStackParamList = {
   InfoWidgetEmbed: undefined;
   DanmuOBS: { user: string };
   PopoutStreamMonitor: undefined;
+  Desktop: undefined;
   PopoutInfoWidget: undefined;
   PopoutMultistream: undefined;
   PopoutLivestream: undefined;

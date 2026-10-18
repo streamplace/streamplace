@@ -212,16 +212,6 @@ static bool find_ingest_url(obs_data_t *config, const char *key, struct dstr *ur
 	return !dstr_is_empty(url);
 }
 
-static bool encoder_type_available(const char *type)
-{
-	const char *id;
-	for (size_t i = 0; obs_enum_encoder_types(i, &id); i++) {
-		if (strcmp(id, type) == 0)
-			return true;
-	}
-	return false;
-}
-
 static const char *audio_encoder_for_codec(const char *codec)
 {
 	const char *id;
@@ -260,22 +250,52 @@ static int lookup_enum(const struct enum_name *names, const char *name, int fall
 	return fallback;
 }
 
-static obs_encoder_t *create_video_encoder(obs_data_t *config, size_t idx, const struct obs_video_info *ovi,
-					   struct dstr *err)
+/* The server names a codec rather than an OBS encoder type (a Streamplace
+ * extension to GoLiveApi): which encoders exist is this machine's business.
+ * The streamer's own streaming encoder wins when it is that codec, keeping
+ * their choice of hardware and settings; otherwise the first usable encoder of
+ * the codec does. *settings gets a copy of the settings to start from. */
+static const char *video_encoder_for_codec(obs_encoder_t *own, const char *codec, obs_data_t **settings)
 {
-	const char *type = obs_data_get_string(config, "type");
-	if (!encoder_type_available(type)) {
-		dstr_printf(err, "Video encoder '%s' is not available in this OBS", type);
+	*settings = obs_data_create();
+	if (own && strcmp(obs_encoder_get_codec(own), codec) == 0) {
+		obs_data_t *own_settings = obs_encoder_get_settings(own);
+		obs_data_apply(*settings, own_settings);
+		obs_data_release(own_settings);
+		return obs_encoder_get_id(own);
+	}
+	const char *id;
+	for (size_t i = 0; obs_enum_encoder_types(i, &id); i++) {
+		if (obs_get_encoder_type(id) == OBS_ENCODER_VIDEO && strcmp(obs_get_encoder_codec(id), codec) == 0 &&
+		    !(obs_get_encoder_caps(id) & (OBS_ENCODER_CAP_DEPRECATED | OBS_ENCODER_CAP_INTERNAL)))
+			return id;
+	}
+	return NULL;
+}
+
+static obs_encoder_t *create_video_encoder(struct sp_output *sp, obs_data_t *config, size_t idx,
+					   const struct obs_video_info *ovi, struct dstr *err)
+{
+	const char *codec = obs_data_get_string(config, "codec");
+	if (strcmp(codec, "h264") != 0) {
+		dstr_printf(err, "The server asked for '%s' video; this plugin only sends H.264", codec);
 		return NULL;
 	}
-	if (strcmp(obs_get_encoder_codec(type), "h264") != 0) {
-		dstr_printf(err, "Video encoder '%s' is not H.264, the only video codec Streamplace accepts", type);
+	obs_data_t *settings;
+	const char *type = video_encoder_for_codec(sp->obs_video, codec, &settings);
+	if (!type) {
+		obs_data_release(settings);
+		dstr_printf(err, "No %s video encoder is available in this OBS", codec);
 		return NULL;
 	}
 
-	obs_data_t *settings = obs_data_get_obj(config, "settings");
-	if (!settings)
-		settings = obs_data_create();
+	/* The server's settings (bitrate, keyframe interval, ...) go over the
+	 * encoder's own. */
+	obs_data_t *server_settings = obs_data_get_obj(config, "settings");
+	if (server_settings) {
+		obs_data_apply(settings, server_settings);
+		obs_data_release(server_settings);
+	}
 	/* Keeps keyframes aligned across renditions. */
 	obs_data_set_bool(settings, "disable_scenecut", true);
 
@@ -331,7 +351,7 @@ static bool create_video_encoders(struct sp_output *sp, obs_data_array_t *config
 	bool ok = true;
 	for (size_t i = 0; ok && i < count; i++) {
 		obs_data_t *config = obs_data_array_item(configs, i);
-		encoders[i] = create_video_encoder(config, i, &ovi, err);
+		encoders[i] = create_video_encoder(sp, config, i, &ovi, err);
 		ok = encoders[i] && obs_encoder_set_group(encoders[i], group);
 		obs_data_release(config);
 	}

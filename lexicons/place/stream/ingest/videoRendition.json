@@ -1,0 +1,40 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.ingest.videoRendition",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "description": "A video track the streamer's encoder sends to the node they stream to, which tells the encoder about it when it connects (the Streamplace OBS plugin asks). A node keeps these locally (place.stream.local.putRecord).",
+      "record": {
+        "type": "object",
+        "required": [
+          "codec",
+          "width",
+          "height",
+          "framerate",
+          "bitrate",
+          "createdAt"
+        ],
+        "properties": {
+          "codec": {
+            "type": "string",
+            "knownValues": ["h264"]
+          },
+          "width": { "type": "integer", "minimum": 1 },
+          "height": { "type": "integer", "minimum": 1 },
+          "framerate": {
+            "type": "ref",
+            "ref": "place.stream.ingest.defs#framerate"
+          },
+          "bitrate": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Target bitrate, in kbps."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

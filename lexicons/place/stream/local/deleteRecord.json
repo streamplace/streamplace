@@ -1,0 +1,30 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.local.deleteRecord",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Delete a record the caller keeps on this node. Shaped like com.atproto.repo.deleteRecord; deleting one that doesn't exist succeeds.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["repo", "collection", "rkey"],
+          "properties": {
+            "repo": { "type": "string", "format": "did" },
+            "collection": { "type": "string", "format": "nsid" },
+            "rkey": {
+              "type": "string",
+              "format": "record-key",
+              "maxLength": 512
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "object", "properties": {} }
+      }
+    }
+  }
+}

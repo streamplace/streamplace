@@ -2,6 +2,15 @@
   "lexicon": 1,
   "id": "place.stream.ingest.defs",
   "defs": {
+    "framerate": {
+      "type": "object",
+      "description": "A frame rate as a fraction, like 60/1 or 30000/1001.",
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": { "type": "integer", "minimum": 1 },
+        "denominator": { "type": "integer", "minimum": 1 }
+      }
+    },
     "ingest": {
       "type": "object",
       "description": "An ingest URL for a Streamplace station.",

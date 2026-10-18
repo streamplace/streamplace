@@ -127,7 +127,7 @@ func TestMoqServesTheBus(t *testing.T) {
 	unexpected := func([]byte) error { return errors.New("a segment of a stream that is not live") }
 	offline, err := requestMoqBroadcast(ctx, client, "did:plc:offline")
 	if err == nil {
-		err = consumeBroadcast(ctx, offline, unexpected, func(_ context.Context, b []byte) error { return unexpected(b) })
+		err = r.consumeBroadcast(ctx, offline, unexpected, func(_ context.Context, b []byte) error { return unexpected(b) })
 	}
 	require.Error(t, err, "a stream that is not live is refused")
 	require.NotContains(t, err.Error(), "a segment of", "a stream that is not live is refused")
@@ -143,7 +143,7 @@ func TestMoqServesTheBus(t *testing.T) {
 	renditions := make(chan []byte, 8)
 	done := make(chan error, 1)
 	go func() {
-		done <- consumeBroadcast(ctx, broadcast,
+		done <- r.consumeBroadcast(ctx, broadcast,
 			func(segment []byte) error { got <- segment; return nil },
 			func(_ context.Context, addendum []byte) error { renditions <- addendum; return nil })
 	}()
@@ -159,6 +159,14 @@ func TestMoqServesTheBus(t *testing.T) {
 		return nil
 	}
 	require.Equal(t, segments[1], next(got), "primed with the bus's recent published segment, reassembled from its tracks")
+
+	// A peer listing more tracks than this node takes is dropped, rather
+	// than given a reader, and its unverified bytes a buffer, per track.
+	strict := &WebsocketReplicator{cli: &config.CLI{MoqMaxTracks: 1}}
+	again, err := requestMoqBroadcast(ctx, client, streamer)
+	require.NoError(t, err)
+	err = strict.consumeBroadcast(ctx, again, func([]byte) error { return nil }, nil)
+	require.ErrorContains(t, err, "catalog lists 2 tracks, over the limit of 1")
 
 	catalog, err := broadcast.Catalog(ctx)
 	require.NoError(t, err)
@@ -183,37 +191,36 @@ func TestMoqServesTheBus(t *testing.T) {
 	}
 }
 
-// A peer's group is refused once it grows past the cap, before the node
-// holds more of what nothing has verified yet.
+// A peer's group is refused once it grows past --moq-max-group-mb, before
+// the node holds more of what nothing has verified yet.
 func TestMoqGroupIsBounded(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	limit := moqMaxGroupBytes
-	moqMaxGroupBytes = 16
-	t.Cleanup(func() { moqMaxGroupBytes = limit })
+	r := &WebsocketReplicator{cli: &config.CLI{MoqMaxGroupMB: 1}}
 	broadcast, err := official.NewBroadcastProducer()
 	require.NoError(t, err)
 	defer broadcast.Close()
 	track, err := broadcast.PublishTrack("video1", nil)
 	require.NoError(t, err)
-	read := func(frames ...[]byte) error {
+	read := func(frames int) error {
 		consumer, err := track.Consume(nil)
 		require.NoError(t, err)
 		defer consumer.Cancel()
 		group, err := track.AppendGroup()
 		require.NoError(t, err)
-		for _, frame := range frames {
+		frame := make([]byte, 512<<10)
+		copy(frame, []byte{0, 0, 0, 8, 'u', 'u', 'i', 'd'})
+		for range frames {
 			require.NoError(t, group.WriteFrame(official.Frame{Payload: frame}))
 		}
 		require.NoError(t, group.Finish())
 		g, err := consumer.NextGroup(ctx)
 		require.NoError(t, err)
-		_, err = readMoqGroup(ctx, g)
+		_, err = r.readMoqGroup(ctx, g)
 		return err
 	}
-	frame := []byte{0, 0, 0, 8, 'u', 'u', 'i', 'd'}
-	require.NoError(t, read(frame, frame), "at the cap")
-	require.ErrorContains(t, read(frame, frame, frame), "over 16 bytes")
+	require.NoError(t, read(2), "at the cap")
+	require.ErrorContains(t, read(3), "over 1 MiB")
 }
 
 // A stream this node ingests is announced to the peers it pushes to from
@@ -306,6 +313,7 @@ func TestMoqPushesLiveStreams(t *testing.T) {
 	require.NoError(t, err)
 	defer srv.Close()
 	got := make(chan []byte, 8)
+	peer := &WebsocketReplicator{cli: &config.CLI{}}
 	go func() {
 		for req, err := range srv.Requests(ctx) {
 			if err != nil {
@@ -328,7 +336,7 @@ func TestMoqPushesLiveStreams(t *testing.T) {
 			if err != nil {
 				return
 			}
-			_ = consumeBroadcast(ctx, broadcast, func(segment []byte) error {
+			_ = peer.consumeBroadcast(ctx, broadcast, func(segment []byte) error {
 				got <- segment
 				return nil
 			}, nil)

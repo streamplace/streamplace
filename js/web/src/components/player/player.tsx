@@ -55,10 +55,10 @@ export type PlayerProps = {
   /** Toggle the danmu overlay. */
   onShowDanmuChange?: (show: boolean) => void;
   /**
-   * Danmu overlay node rendered inside the player container so it
+   * Overlay node rendered inside the player container so it
    * travels with the video into fullscreen.
    */
-  danmuOverlay?: ReactNode;
+  overlay?: ReactNode;
   /** Content-warning labels associated with the current video or stream. */
   contentWarnings?: string[];
   /** Whether the current user is the stream owner. */
@@ -172,7 +172,7 @@ export function Player({
   onPlaying,
   showDanmu = false,
   onShowDanmuChange,
-  danmuOverlay,
+  overlay,
   contentWarnings = [],
   isStreamer,
 }: PlayerProps) {
@@ -415,7 +415,7 @@ export function Player({
         </div>
       )}
 
-      {active && danmuOverlay}
+      {active && overlay}
 
       {active && (
         <ContentWarningOverlay

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
@@ -127,14 +127,18 @@ func (mm *MediaManager) runRTMPPushPipeline(ctx context.Context, source io.Reade
 		fmt.Sprintf("%s name=audioqueue ! aacparse ! muxer.audio", constants.Queue2Big),
 	}
 
-	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
+	pipelineElem, err := gst.ParseLaunch(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
 		return fmt.Errorf("failed to create GStreamer pipeline: %w", err) //nolint:all
 	}
+	pipeline, ok := pipelineElem.(gst.Pipeline)
+	if !ok {
+		return fmt.Errorf("failed to create GStreamer pipeline: not a pipeline")
+	}
 
-	rtmp2sink, err := pipeline.GetElementByName("rtmp2sink")
-	if err != nil {
-		return fmt.Errorf("failed to get rtmp2sink element from pipeline: %w", err)
+	rtmp2sink := pipeline.GetByName("rtmp2sink")
+	if rtmp2sink == nil {
+		return fmt.Errorf("failed to get rtmp2sink element from pipeline")
 	}
 
 	// rtmp2sink can't speak rtmps and doesn't do TLS, so we always point it at a
@@ -157,9 +161,7 @@ func (mm *MediaManager) runRTMPPushPipeline(ctx context.Context, source io.Reade
 	}
 	local := fmt.Sprintf("rtmp://%s%s", localAddr, u.Path)
 	log.Debug(ctx, "running forwarder", "localAddr", local)
-	if err := rtmp2sink.SetProperty("location", local); err != nil {
-		return fmt.Errorf("failed to set rtmp2sink location: %w", err)
-	}
+	rtmp2sink.SetObjectProperty("location", local)
 
 	// Poll the sink and report "active" once the destination acks bytes; back off
 	// once it's flowing so we don't spam the status channel.
@@ -170,11 +172,7 @@ func (mm *MediaManager) runRTMPPushPipeline(ctx context.Context, source io.Reade
 			case <-ctx.Done():
 				return
 			case <-time.After(pollFreq):
-				prop, err := rtmp2sink.GetProperty("stats")
-				if err != nil {
-					log.Error(ctx, "error getting rtmp2sink stats", "error", err)
-					continue
-				}
+				prop := rtmp2sink.ObjectProperty("stats")
 				if prop == nil {
 					log.Error(ctx, "failed to get rtmp2sink stats", "prop", prop)
 					continue
@@ -184,14 +182,9 @@ func (mm *MediaManager) runRTMPPushPipeline(ctx context.Context, source io.Reade
 					log.Error(ctx, "failed to convert rtmp2sink stats", "prop", prop)
 					continue
 				}
-				outBytesAcked, err := propVal.GetValue("out-bytes-acked")
-				if err != nil {
-					log.Error(ctx, "failed to get rtmp2sink out-bytes-acked", "error", err)
-					continue
-				}
-				outBytesAckedVal, ok := outBytesAcked.(uint64)
+				outBytesAckedVal, ok := propVal.GetUint64("out-bytes-acked")
 				if !ok {
-					log.Error(ctx, "failed to convert rtmp2sink out-bytes-acked", "prop", prop)
+					log.Error(ctx, "failed to get rtmp2sink out-bytes-acked", "prop", prop)
 					continue
 				}
 				if outBytesAckedVal > 0 {
@@ -204,32 +197,32 @@ func (mm *MediaManager) runRTMPPushPipeline(ctx context.Context, source io.Reade
 		}
 	}()
 
-	muxlSrc, err := pipeline.GetElementByName("muxlsrc")
-	if err != nil {
-		return fmt.Errorf("failed to get appsrc element from pipeline: %w", err)
+	muxlSrc := pipeline.GetByName("muxlsrc")
+	if muxlSrc == nil {
+		return fmt.Errorf("failed to get appsrc element from pipeline")
 	}
-	app.SrcFromElement(muxlSrc).SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedDataIncremental(ctx, source),
+	muxlSrc.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: ReaderNeedDataIncremental(ctx, source),
 	})
 
-	videoQueue, err := pipeline.GetElementByName("videoqueue")
-	if err != nil {
-		return fmt.Errorf("failed to get video parse element from pipeline: %w", err)
+	videoQueue := pipeline.GetByName("videoqueue")
+	if videoQueue == nil {
+		return fmt.Errorf("failed to get video parse element from pipeline")
 	}
-	audioQueue, err := pipeline.GetElementByName("audioqueue")
-	if err != nil {
-		return fmt.Errorf("failed to get audio parse element from pipeline: %w", err)
+	audioQueue := pipeline.GetByName("audioqueue")
+	if audioQueue == nil {
+		return fmt.Errorf("failed to get audio parse element from pipeline")
 	}
 
 	// qtdemux exposes its track pads only after parsing the moov, so link them
 	// on pad-added: video → h264parse, audio → aacparse.
-	demux, err := pipeline.GetElementByName("demux")
-	if err != nil {
-		return fmt.Errorf("failed to get demux element from pipeline: %w", err)
+	demux := pipeline.GetByName("demux")
+	if demux == nil {
+		return fmt.Errorf("failed to get demux element from pipeline")
 	}
-	if _, err := demux.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
+	demux.ConnectPadAdded(func(self gst.Element, pad gst.Pad) {
 		name := pad.GetName()
-		var sink *gst.Pad
+		var sink gst.Pad
 		switch {
 		case strings.HasPrefix(name, "video_"):
 			sink = videoQueue.GetStaticPad("sink")
@@ -242,9 +235,7 @@ func (mm *MediaManager) runRTMPPushPipeline(ctx context.Context, source io.Reade
 		if linked := pad.Link(sink); linked != gst.PadLinkOK {
 			log.Error(ctx, "failed to link demux pad", "name", name, "result", linked)
 		}
-	}); err != nil {
-		return fmt.Errorf("failed to connect demux pad-added: %w", err)
-	}
+	})
 
 	errCh := make(chan error)
 	go func() {
@@ -253,15 +244,14 @@ func (mm *MediaManager) runRTMPPushPipeline(ctx context.Context, source io.Reade
 		errCh <- err
 	}()
 
-	err = pipeline.SetState(gst.StatePlaying)
-	if err != nil {
-		return fmt.Errorf("failed to set pipeline state to playing: %w", err)
+	if ret := pipeline.SetState(gst.StatePlaying); ret == gst.StateChangeFailure {
+		return fmt.Errorf("failed to set pipeline state to playing")
 	}
 
 	defer func() {
 		log.Log(ctx, "shutting down RTMP push pipeline")
-		if err := pipeline.SetState(gst.StateNull); err != nil {
-			log.Error(ctx, "failed to set pipeline state to null", "error", err)
+		if ret := pipeline.SetState(gst.StateNull); ret == gst.StateChangeFailure {
+			log.Error(ctx, "failed to set pipeline state to null")
 		}
 	}()
 

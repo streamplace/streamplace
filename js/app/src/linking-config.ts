@@ -99,7 +99,6 @@ function resolveAtUriNavigation(
 export const SCREEN_PATHS = {
   // HomeTab screens
   HomeMain: "",
-  About: "about",
   Download: "download",
   LiveDashboard: "live",
   Login: "login",
@@ -112,6 +111,7 @@ export const SCREEN_PATHS = {
   UploadVideos: "upload/videos",
   VideoList: "video",
   UserVideoList: ":did/video",
+  Search: "search",
   // Settings screens
   MainSettings: "settings",
   AboutCategory: "settings/about",
@@ -204,7 +204,6 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
             HomeTab: {
               screens: {
                 HomeMain: SCREEN_PATHS.HomeMain,
-                About: SCREEN_PATHS.About,
                 Download: SCREEN_PATHS.Download,
                 LiveDashboard: SCREEN_PATHS.LiveDashboard,
                 Login: SCREEN_PATHS.Login,
@@ -221,6 +220,11 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
               screens: {
                 VideoList: SCREEN_PATHS.VideoList,
                 UserVideoList: SCREEN_PATHS.UserVideoList,
+              },
+            },
+            SearchTab: {
+              screens: {
+                Search: SCREEN_PATHS.Search,
               },
             },
             GoLiveTab: SCREEN_PATHS.GoLiveTab,

@@ -63,11 +63,11 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
-    // Firefox runs only the flows that cover a Firefox-specific bug, and none
-    // that log in: the harness's certificate pinning above is a Chromium flag.
+    // Firefox covers browser-specific behavior and the bare web bootstrap.
+    // No login flows: the harness's certificate pinning above is a Chromium flag.
     {
       name: "firefox",
-      testMatch: /chat-wheel-scroll\.spec\.ts$/,
+      testMatch: /(?:chat-wheel-scroll|bootstrap)\.spec\.ts$/,
       use: {
         ...devices["Desktop Firefox"],
         // the launch flags above are Chromium's

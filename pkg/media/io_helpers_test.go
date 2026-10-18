@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"testing"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/log"
@@ -42,25 +43,43 @@ func TestWriterNewSample(t *testing.T) {
 	})
 }
 
+// A live tiny allocation can pin a neighboring GstSample wrapper indefinitely.
+// Keep the writer's markers alive through the native leak check, not just EOS.
+func TestWriterNewSampleTinyAllocations(t *testing.T) {
+	writer := &tinyAllocWriter{}
+	withNoGSTLeaks(t, func() {
+		require.NoError(t, writerNewSampleInner(context.Background(), 0, writer))
+	})
+	runtime.KeepAlive(writer)
+}
+
+type tinyAllocWriter struct {
+	bytes.Buffer
+	markers []*uint64
+}
+
+func (w *tinyAllocWriter) Write(p []byte) (int, error) {
+	marker := new(uint64)
+	*marker = uint64(len(p))
+	w.markers = append(w.markers, marker)
+	return w.Buffer.Write(p)
+}
+
 func writerNewSampleInner(ctx context.Context, i int, w io.Writer) error {
 	ctx = log.WithLogValues(ctx, "func", "TestWriterNewSample")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	pipeline, err := gst.NewPipeline(fmt.Sprintf("TestWriterNewSample-%d", i))
-	if err != nil {
-		return err
-	}
+	pipeline := gst.NewPipeline(fmt.Sprintf("TestWriterNewSample-%d", i)).(gst.Pipeline)
 
-	fileSrc, err := gst.NewElementWithProperties("filesrc", map[string]any{
+	fileSrc := gst.ElementFactoryMakeWithProperties("filesrc", map[string]any{
 		"location": getFixture("5sec.mp4"),
 	})
-	if err != nil {
-		return err
+	if fileSrc == nil {
+		return fmt.Errorf("failed to create filesrc")
 	}
-	err = pipeline.Add(fileSrc)
-	if err != nil {
-		return err
+	if !pipeline.Add(fileSrc) {
+		return fmt.Errorf("failed to add filesrc")
 	}
 
 	var busErr error
@@ -69,38 +88,34 @@ func writerNewSampleInner(ctx context.Context, i int, w io.Writer) error {
 		cancel()
 	}()
 
-	appSink, err := gst.NewElementWithProperties("appsink", map[string]any{
+	appSink := gst.ElementFactoryMakeWithProperties("appsink", map[string]any{
 		"name": fmt.Sprintf("TestWriterNewSample-appsink-%d", i),
 		"sync": false,
 	})
-	if err != nil {
-		return err
+	if appSink == nil {
+		return fmt.Errorf("failed to create appsink")
 	}
-	err = pipeline.Add(appSink)
-	if err != nil {
-		return err
+	if !pipeline.Add(appSink) {
+		return fmt.Errorf("failed to add appsink")
 	}
 
-	sink := app.SinkFromElement(appSink)
-	sink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, w),
+	sink := appSink.(app.AppSink)
+	sink.SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, w),
 	})
 
-	err = fileSrc.Link(appSink)
-	if err != nil {
-		return err
+	if !fileSrc.Link(appSink) {
+		return fmt.Errorf("failed to link filesrc to appsink")
 	}
 
-	err = pipeline.SetState(gst.StatePlaying)
-	if err != nil {
-		return err
+	if pipeline.SetState(gst.StatePlaying) == gst.StateChangeFailure {
+		return fmt.Errorf("failed to start writer pipeline")
 	}
 
 	<-ctx.Done()
 
-	err = pipeline.SetState(gst.StateNull)
-	if err != nil {
-		return err
+	if pipeline.BlockSetState(gst.StateNull, gst.ClockTimeNone) != gst.StateChangeSuccess {
+		return fmt.Errorf("failed to stop writer pipeline")
 	}
 
 	return busErr

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
@@ -51,12 +51,12 @@ func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms Media
 
 	go mm.HandleKeyRevocation(ctx, ms, pipeline)
 
-	if err := pipeline.SetState(gst.StatePlaying); err != nil {
-		return err
+	if pipeline.SetState(gst.StatePlaying) == gst.StateChangeFailure {
+		return fmt.Errorf("error setting MP4Ingest pipeline to playing")
 	}
 	defer func() {
-		if err := pipeline.SetState(gst.StateNull); err != nil {
-			log.Error(ctx, "error setting pipeline to null state", "error", err)
+		if pipeline.SetState(gst.StateNull) == gst.StateChangeFailure {
+			log.Error(ctx, "error setting pipeline to null state")
 		}
 	}()
 
@@ -104,7 +104,7 @@ func rejectMatroska(input io.Reader) (io.Reader, error) {
 	return br, nil
 }
 
-func buildMP4IngestPipeline(ctx context.Context, input io.Reader, signerElem *gst.Element, streamer string) (*gst.Pipeline, error) {
+func buildMP4IngestPipeline(ctx context.Context, input io.Reader, signerElem gst.Element, streamer string) (gst.Pipeline, error) {
 	input, err := rejectMatroska(input)
 	if err != nil {
 		return nil, err
@@ -125,35 +125,39 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, signerElem *gs
 		"demux. ! " + constants.Queue2Big + " ! h264parse name=videoout",
 		"demux. ! " + constants.Queue2Big + " ! fdkaacdec ! audioresample ! opusenc name=audioenc",
 	}
-	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
+	launched, err := gst.ParseLaunch(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
 		return nil, fmt.Errorf("error creating MP4Ingest pipeline: %w", err)
 	}
-	srcele, err := pipeline.GetElementByName("streamsrc")
-	if err != nil {
-		return nil, err
+	pipeline, ok := launched.(gst.Pipeline)
+	if !ok {
+		return nil, fmt.Errorf("error creating MP4Ingest pipeline: parsed description is not a pipeline")
 	}
-	app.SrcFromElement(srcele).SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedDataIncremental(ctx, input),
+	srcele := pipeline.GetByName("streamsrc")
+	if srcele == nil {
+		return nil, fmt.Errorf("streamsrc element not found")
+	}
+	srcele.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: ReaderNeedDataIncremental(ctx, input),
 	})
-	parseEle, err := pipeline.GetElementByName("videoout")
-	if err != nil {
-		return nil, err
+	parseEle := pipeline.GetByName("videoout")
+	if parseEle == nil {
+		return nil, fmt.Errorf("videoout element not found")
 	}
 	// Only an IDR starts a segment (see installIDRKeyframeProbe).
 	installIDRKeyframeProbe(ctx, parseEle.GetStaticPad("src"), streamer)
-	if err := pipeline.Add(signerElem); err != nil {
-		return nil, err
+	if !pipeline.Add(signerElem) {
+		return nil, fmt.Errorf("failed to add signer element to pipeline")
 	}
-	if err := parseEle.Link(signerElem); err != nil {
-		return nil, err
+	if !parseEle.Link(signerElem) {
+		return nil, fmt.Errorf("failed to link h264parse to signer element")
 	}
-	audioenc, err := pipeline.GetElementByName("audioenc")
-	if err != nil {
-		return nil, err
+	audioenc := pipeline.GetByName("audioenc")
+	if audioenc == nil {
+		return nil, fmt.Errorf("audioenc element not found")
 	}
-	if err := audioenc.Link(signerElem); err != nil {
-		return nil, err
+	if !audioenc.Link(signerElem) {
+		return nil, fmt.Errorf("failed to link opusenc to signer element")
 	}
 	return pipeline, nil
 }

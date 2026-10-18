@@ -7,8 +7,8 @@ import (
 	"io"
 	"sort"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
@@ -29,7 +29,7 @@ type SignSegmentStreamFunc func(ctx context.Context, input io.Reader, eventCh ch
 // is exactly what gets stored, verified, and replicated; no flat MP4 is
 // produced here. Presentation headers are synthesized downstream (ValidateMP4
 // / playback) only when needed.
-func MuxlSignSegmentElem(ctx context.Context, cli *config.CLI, ms MediaSigner, onSegment func(ctx context.Context, segment []byte) error) (*gst.Element, error) {
+func MuxlSignSegmentElem(ctx context.Context, cli *config.CLI, ms MediaSigner, onSegment func(ctx context.Context, segment []byte) error) (gst.Element, error) {
 	elem, _, err := muxlSignSegmentElem(ctx, cli, ms.SignSegmentStream, onSegment)
 	return elem, err
 }
@@ -40,22 +40,22 @@ func MuxlSignSegmentElem(ctx context.Context, cli *config.CLI, ms MediaSigner, o
 // has finished and the event loop has emptied). The isolated ingest worker waits
 // on it to guarantee all segment frames are flushed before it signals a clean
 // end-of-stream.
-func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSegmentStreamFunc, onSegment func(ctx context.Context, segment []byte) error) (*gst.Element, <-chan struct{}, error) {
+func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSegmentStreamFunc, onSegment func(ctx context.Context, segment []byte) error) (gst.Element, <-chan struct{}, error) {
 	ctx = log.WithLogValues(ctx, "func", "MuxlSignSegmentElem")
-	bin := gst.NewBin("muxl-segment-bin")
-	elem, err := gst.NewElementWithProperties("mp4mux", map[string]any{
+	bin := gst.NewBin("muxl-segment-bin").(gst.Bin)
+	elem := gst.ElementFactoryMakeWithProperties("mp4mux", map[string]any{
 		"name":              "fmp4mux",
-		"fragment-mode":     0,
-		"fragment-duration": 1,
+		"fragment-mode":     int32(0),
+		"fragment-duration": uint32(1),
 	})
-	if err != nil {
-		return nil, nil, err
+	if elem == nil {
+		return nil, nil, fmt.Errorf("failed to create mp4mux element")
 	}
-	if err := bin.Add(elem); err != nil {
-		return nil, nil, fmt.Errorf("failed to add mp4mux to bin: %w", err)
+	if !bin.Add(elem) {
+		return nil, nil, fmt.Errorf("failed to add mp4mux to bin")
 	}
 
-	videoPad := elem.GetRequestPad("video_%u")
+	videoPad := elem.RequestPadSimple("video_%u")
 	if videoPad == nil {
 		return nil, nil, fmt.Errorf("failed to get video pad")
 	}
@@ -63,7 +63,7 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 	if videoGhost == nil {
 		return nil, nil, fmt.Errorf("failed to create video ghost pad")
 	}
-	audioPad := elem.GetRequestPad("audio_%u")
+	audioPad := elem.RequestPadSimple("audio_%u")
 	if audioPad == nil {
 		return nil, nil, fmt.Errorf("failed to get audio pad")
 	}
@@ -71,10 +71,10 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 	if audioGhost == nil {
 		return nil, nil, fmt.Errorf("failed to create audio ghost pad")
 	}
-	if ok := bin.AddPad(videoGhost.Pad); !ok {
+	if ok := bin.AddPad(videoGhost); !ok {
 		return nil, nil, fmt.Errorf("failed to add video ghost pad to bin")
 	}
-	if ok := bin.AddPad(audioGhost.Pad); !ok {
+	if ok := bin.AddPad(audioGhost); !ok {
 		return nil, nil, fmt.Errorf("failed to add audio ghost pad to bin")
 	}
 
@@ -84,18 +84,18 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 	// harmless for a live source arriving at 1x, but it throttled tests/replays
 	// and kept the graph's queues near-full for no benefit. Every other appsink
 	// in the tree already sets this.
-	appsink, err := gst.NewElementWithProperties("appsink", map[string]any{
+	appsink := gst.ElementFactoryMakeWithProperties("appsink", map[string]any{
 		"name": "muxl-appsink",
 		"sync": false,
 	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create appsink element: %w", err)
+	if appsink == nil {
+		return nil, nil, fmt.Errorf("failed to create appsink element")
 	}
-	if err := bin.Add(appsink); err != nil {
-		return nil, nil, fmt.Errorf("failed to add appsink to bin: %w", err)
+	if !bin.Add(appsink) {
+		return nil, nil, fmt.Errorf("failed to add appsink to bin")
 	}
-	if err := elem.Link(appsink); err != nil {
-		return nil, nil, fmt.Errorf("failed to link mp4mux to appsink: %w", err)
+	if !elem.Link(appsink) {
+		return nil, nil, fmt.Errorf("failed to link mp4mux to appsink")
 	}
 
 	r, w := io.Pipe()
@@ -140,12 +140,11 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 		}
 	}()
 
-	sink := app.SinkFromElement(appsink)
-	sink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, w),
+	appsink.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, w),
 	})
 
-	return bin.Element, done, nil
+	return bin, done, nil
 }
 
 // concatTracksSorted joins the per-track canonical segment bytes for one GoP

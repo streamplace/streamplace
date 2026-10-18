@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/log"
 )
@@ -68,7 +68,7 @@ func thumbnailFromMP4(ctx context.Context, flat []byte, w io.Writer, format stri
 		encoder = "jpegenc"
 	}
 
-	pipeline, err := gst.NewPipelineFromString(strings.Join([]string{
+	launched, err := gst.ParseLaunch(strings.Join([]string{
 		"appsrc name=src ! decodebin ! videoconvert ! videoscale ! videorate ! capsfilter caps=video/x-raw,width=[1,1280],height=[1,720],pixel-aspect-ratio=1/1,framerate=1/999999 ! ",
 		encoder,
 		" ! appsink sync=false name=appsink",
@@ -76,23 +76,27 @@ func thumbnailFromMP4(ctx context.Context, flat []byte, w io.Writer, format stri
 	if err != nil {
 		return fmt.Errorf("create thumbnail pipeline: %w", err)
 	}
+	pipeline, ok := launched.(gst.Pipeline)
+	if !ok {
+		return fmt.Errorf("create thumbnail pipeline: parsed description is not a pipeline")
+	}
 	defer func() {
-		if e := pipeline.SetState(gst.StateNull); e != nil {
-			log.Error(ctx, "thumbnail: failed to set pipeline to null", "error", e)
+		if pipeline.SetState(gst.StateNull) == gst.StateChangeFailure {
+			log.Error(ctx, "thumbnail: failed to set pipeline to null")
 		}
 	}()
 
-	srcEle, err := pipeline.GetElementByName("src")
-	if err != nil {
-		return fmt.Errorf("thumbnail: get appsrc: %w", err)
+	srcEle := pipeline.GetByName("src")
+	if srcEle == nil {
+		return fmt.Errorf("thumbnail: get appsrc: element not found")
 	}
-	app.SrcFromElement(srcEle).SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedDataIncremental(ctx, bytes.NewReader(flat)),
+	srcEle.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: ReaderNeedDataIncremental(ctx, bytes.NewReader(flat)),
 	})
 
-	appsink, err := pipeline.GetElementByName("appsink")
-	if err != nil {
-		return fmt.Errorf("thumbnail: get appsink: %w", err)
+	appsink := pipeline.GetByName("appsink")
+	if appsink == nil {
+		return fmt.Errorf("thumbnail: get appsink: element not found")
 	}
 
 	errCh := make(chan error, 1)
@@ -100,16 +104,19 @@ func thumbnailFromMP4(ctx context.Context, flat []byte, w io.Writer, format stri
 
 	thumbCh := make(chan struct{})
 	var once sync.Once
-	app.SinkFromElement(appsink).SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
+	appsink.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: func(sink app.AppSink) gst.FlowReturn {
 			sample := sink.PullSample()
 			if sample == nil {
 				return gst.FlowOK
 			}
-			buffer := sample.GetBuffer()
-			bs := buffer.Map(gst.MapRead).Bytes()
-			defer buffer.Unmap()
-			if _, err := w.Write(bs); err != nil {
+			info, ok := sample.GetBuffer().Map(gst.MapRead)
+			if !ok {
+				log.Error(ctx, "thumbnail: failed to map buffer")
+				return gst.FlowError
+			}
+			defer info.Unmap()
+			if _, err := w.Write(info.Data()); err != nil {
 				log.Error(ctx, "thumbnail: error writing output", "error", err)
 				return gst.FlowError
 			}
@@ -118,14 +125,14 @@ func thumbnailFromMP4(ctx context.Context, flat []byte, w io.Writer, format stri
 		},
 	})
 
-	if err := pipeline.SetState(gst.StatePlaying); err != nil {
-		return fmt.Errorf("thumbnail: set playing: %w", err)
+	if pipeline.SetState(gst.StatePlaying) == gst.StateChangeFailure {
+		return fmt.Errorf("thumbnail: set playing: state change failed")
 	}
 
 	select {
 	case <-thumbCh:
 		// Got the frame; wind the pipeline down so HandleBusMessages returns.
-		pipeline.Error(ErrPipelineDone.Error(), ErrPipelineDone)
+		pipeline.PostMessage(gst.NewMessageError(pipeline, ErrPipelineDone.Error(), ErrPipelineDone))
 		<-errCh
 		return nil
 	case err := <-errCh:
@@ -169,9 +176,13 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) err
 		"fakesink name=audiofakesink sync=false",
 	}
 
-	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
+	launched, err := gst.ParseLaunch(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
 		return fmt.Errorf("error creating Thumbnail pipeline: %w", err)
+	}
+	pipeline, ok := launched.(gst.Pipeline)
+	if !ok {
+		return fmt.Errorf("error creating Thumbnail pipeline: parsed description is not a pipeline")
 	}
 
 	demuxBin, err := ConcatDemuxBin(ctx, seg, false)
@@ -179,9 +190,8 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) err
 		return fmt.Errorf("failed to create demux bin: %w", err)
 	}
 
-	err = pipeline.Add(demuxBin.Element)
-	if err != nil {
-		return fmt.Errorf("failed to add demux bin to pipeline: %w", err)
+	if !pipeline.Add(demuxBin) {
+		return fmt.Errorf("failed to add demux bin to pipeline")
 	}
 
 	demuxBinPadVideoSrc := demuxBin.GetStaticPad("video_0")
@@ -194,14 +204,14 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) err
 		return fmt.Errorf("failed to get demux bin audio src pad")
 	}
 
-	decode, err := pipeline.GetElementByName("decode")
-	if err != nil {
-		return fmt.Errorf("failed to get decodebin element: %w", err)
+	decode := pipeline.GetByName("decode")
+	if decode == nil {
+		return fmt.Errorf("failed to get decodebin element")
 	}
 
-	audioFakeSink, err := pipeline.GetElementByName("audiofakesink")
-	if err != nil {
-		return fmt.Errorf("failed to get audio fakesink element: %w", err)
+	audioFakeSink := pipeline.GetByName("audiofakesink")
+	if audioFakeSink == nil {
+		return fmt.Errorf("failed to get audio fakesink element")
 	}
 
 	linked := demuxBinPadVideoSrc.Link(decode.GetStaticPad("sink"))
@@ -215,19 +225,17 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) err
 	}
 
 	defer func() {
-		err := pipeline.SetState(gst.StateNull)
-		if err != nil {
-			log.Error(ctx, "failed to set pipeline state to null", "error", err)
+		if pipeline.SetState(gst.StateNull) == gst.StateChangeFailure {
+			log.Error(ctx, "failed to set pipeline state to null")
 		}
-		err = pipeline.Remove(demuxBin.Element)
-		if err != nil {
-			log.Error(ctx, "failed to remove demux bin from pipeline", "error", err)
+		if !pipeline.Remove(demuxBin) {
+			log.Error(ctx, "failed to remove demux bin from pipeline")
 		}
 	}()
 
-	appsink, err := pipeline.GetElementByName("appsink")
-	if err != nil {
-		return err
+	appsink := pipeline.GetByName("appsink")
+	if appsink == nil {
+		return fmt.Errorf("failed to get appsink element")
 	}
 
 	errCh := make(chan error)
@@ -239,19 +247,22 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) err
 
 	thumbCh := make(chan struct{})
 
-	sink := app.SinkFromElement(appsink)
-	sink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
+	appsink.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: func(sink app.AppSink) gst.FlowReturn {
 			sample := sink.PullSample()
 			if sample == nil {
 				return gst.FlowOK
 			}
 
 			// Retrieve the buffer from the sample.
-			buffer := sample.GetBuffer()
-			bs := buffer.Map(gst.MapRead).Bytes()
-			defer buffer.Unmap()
+			info, ok := sample.GetBuffer().Map(gst.MapRead)
+			if !ok {
+				log.Error(ctx, "failed to map buffer")
+				return gst.FlowError
+			}
+			defer info.Unmap()
 
+			bs := info.Data()
 			_, err := w.Write(bs)
 			log.Debug(ctx, "wrote buffer", "length", len(bs))
 
@@ -266,13 +277,13 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) err
 		},
 	})
 
-	if err := pipeline.SetState(gst.StatePlaying); err != nil {
-		return fmt.Errorf("error setting pipeline state: %w", err)
+	if pipeline.SetState(gst.StatePlaying) == gst.StateChangeFailure {
+		return fmt.Errorf("error setting pipeline state to playing")
 	}
 
 	<-thumbCh
 	// signals the pipeline to clean up cleanly
-	pipeline.Error(ErrPipelineDone.Error(), ErrPipelineDone)
+	pipeline.PostMessage(gst.NewMessageError(pipeline, ErrPipelineDone.Error(), ErrPipelineDone))
 
 	busErr := <-errCh
 

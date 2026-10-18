@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
-	"github.com/go-gst/go-gst/gst"
+	"github.com/go-gst/go-gst/pkg/gst"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
@@ -97,7 +97,7 @@ func RTMPIngestUnpublished(ctx context.Context, cli *config.CLI, rtmpURL string,
 
 // newRTMPIngestPipeline pulls rtmpURL with rtmp2src and feeds its H.264 and
 // AAC tracks into the signer element.
-func newRTMPIngestPipeline(rtmpURL string, signer *gst.Element) (*gst.Pipeline, error) {
+func newRTMPIngestPipeline(rtmpURL string, signer gst.Element) (gst.Pipeline, error) {
 	// Mint the source audio: RTMP/FLV audio is already AAC, so pass it through
 	// (aacparse) rather than transcoding to Opus. The validate path completes
 	// each segment to also carry Opus when a consumer (WebRTC) needs it — so
@@ -107,51 +107,50 @@ func newRTMPIngestPipeline(rtmpURL string, signer *gst.Element) (*gst.Pipeline, 
 		"demux.audio ! queue ! aacparse name=audioenc",
 		"demux.video ! queue ! h264parse name=parse",
 	}
-	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
+	pipelineElem, err := gst.ParseLaunch(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
 		return nil, fmt.Errorf("error creating RTMPIngest pipeline: %w", err)
 	}
-
-	parseEle, err := pipeline.GetElementByName("parse")
-	if err != nil {
-		return nil, err
+	pipeline, ok := pipelineElem.(gst.Pipeline)
+	if !ok {
+		return nil, fmt.Errorf("error creating RTMPIngest pipeline: not a pipeline")
 	}
 
-	err = pipeline.Add(signer)
-	if err != nil {
-		return nil, err
+	parseEle := pipeline.GetByName("parse")
+	if parseEle == nil {
+		return nil, fmt.Errorf("failed to get parse element")
 	}
-	err = parseEle.Link(signer)
-	if err != nil {
-		return nil, err
+
+	if !pipeline.Add(signer) {
+		return nil, fmt.Errorf("failed to add signer to pipeline")
 	}
-	audioenc, err := pipeline.GetElementByName("audioenc")
-	if err != nil {
-		return nil, err
+	if !parseEle.Link(signer) {
+		return nil, fmt.Errorf("failed to link parse to signer")
 	}
-	err = audioenc.Link(signer)
-	if err != nil {
-		return nil, err
+	audioenc := pipeline.GetByName("audioenc")
+	if audioenc == nil {
+		return nil, fmt.Errorf("failed to get audioenc element")
+	}
+	if !audioenc.Link(signer) {
+		return nil, fmt.Errorf("failed to link audioenc to signer")
 	}
 	return pipeline, nil
 }
 
 // runRTMPIngestPipeline plays pipeline until it ends or ctx does.
-func runRTMPIngestPipeline(ctx context.Context, pipeline *gst.Pipeline) error {
+func runRTMPIngestPipeline(ctx context.Context, pipeline gst.Pipeline) error {
 	busErr := make(chan error, 1)
 	go func() {
 		busErr <- HandleBusMessages(ctx, pipeline)
 	}()
 
-	err := pipeline.SetState(gst.StatePlaying)
-	if err != nil {
-		return err
+	if ret := pipeline.SetState(gst.StatePlaying); ret == gst.StateChangeFailure {
+		return fmt.Errorf("failed to set pipeline to playing state")
 	}
 
 	defer func() {
-		err := pipeline.SetState(gst.StateNull)
-		if err != nil {
-			log.Error(ctx, "error setting pipeline to null state", "error", err)
+		if ret := pipeline.SetState(gst.StateNull); ret == gst.StateChangeFailure {
+			log.Error(ctx, "error setting pipeline to null state")
 		}
 	}()
 

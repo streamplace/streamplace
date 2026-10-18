@@ -22,6 +22,7 @@ import {
   VideoRetry,
 } from "../..";
 import { colors, surfaces } from "../../lib/theme/tokens";
+import { usePlaybackSession } from "./playback-session";
 import { AudioOnlyOverlay } from "./ui/audio-only-overlay";
 import Video from "./video.native";
 
@@ -31,6 +32,7 @@ export function Fullscreen(props: {
   objectFit?: "contain" | "cover";
   pictureInPictureEnabled?: boolean;
 }) {
+  usePlaybackSession(props.src);
   const ref = useRef<VideoView>(null);
   const insets = useSafeAreaInsets();
   const dimensions = useWindowDimensions();

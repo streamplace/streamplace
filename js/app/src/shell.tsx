@@ -20,29 +20,12 @@ import {
   zero,
 } from "@streamplace/components";
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
-import { Settings } from "components";
 import { SiteTitleLockup, useNodeTitle } from "components/brand/logo";
 import { LogoBrandMenu } from "components/brand/logo-brand-menu";
-import Login from "components/login/login";
+import HeaderSearch from "components/header-search";
 import LoginModal from "components/login/login-modal";
 import PdsHostSelectorModal from "components/login/pds-host-selector-modal";
 import { MobileAppBanner } from "components/mobile-app-banner";
-import { AboutCategorySettings } from "components/settings/about-category-settings";
-import { AccountCategorySettings } from "components/settings/account-category-settings";
-import { AdvancedCategorySettings } from "components/settings/advanced-category-settings";
-import { BackupSettings } from "components/settings/backup-settings";
-import { BadgeIssuerPanel } from "components/settings/badge-issuer-panel";
-import { BadgeSelectionManager } from "components/settings/badge-selection-manager";
-import { BrandingAdmin } from "components/settings/branding-admin";
-import { DanmuCategorySettings } from "components/settings/danmu-category-settings";
-import KeyManager from "components/settings/key-manager";
-import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
-import MultistreamManager from "components/settings/multistream-manager";
-import { NotificationsCategorySettings } from "components/settings/notifications-category-settings";
-import { PrivacyCategorySettings } from "components/settings/privacy-category-settings";
-import RecommendationsManager from "components/settings/recommendations-manager";
-import { StreamingCategorySettings } from "components/settings/streaming-category-settings";
-import WebhookManager from "components/settings/webhook-manager";
 import {
   SidebarOverlay,
   SidebarToggle,
@@ -51,40 +34,15 @@ import UploadProgressIndicator from "components/upload/upload-progress-indicator
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import usePlatform from "hooks/usePlatform";
 import { useIsLargeScreen, useSidebarControl } from "hooks/useSidebarControl";
-import { Clapperboard, Cog, Home, Video } from "lucide-react-native";
+import { Clapperboard, Cog, Home, Search, Video } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Platform, Pressable, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { SFSymbols7_0 } from "sf-symbols-typescript";
+import { lazyScreen } from "src/lazy-screen";
 import "src/navigation-types";
-import AboutScreen from "src/screens/about";
-import AppReturnScreen from "src/screens/app-return";
-import PopoutChat from "src/screens/chat-popout";
-import DanmuOBSScreen from "src/screens/danmu-obs";
-import DownloadScreen from "src/screens/download";
-import EmbedScreen from "src/screens/embed";
 import HomeScreen from "src/screens/home";
-import InfoWidgetEmbed from "src/screens/info-widget-embed";
-import LaunchGoLive from "src/screens/launch-go-live";
-import LiveDashboard from "src/screens/live-dashboard";
-import MobileGoLive from "src/screens/mobile-go-live";
-import MobileStream from "src/screens/mobile-stream";
-import MultiScreen from "src/screens/multi";
-import PopoutInfoWidget from "src/screens/popout-info-widget";
-import PopoutLivestream from "src/screens/popout-livestream";
-import PopoutMultistream from "src/screens/popout-multistream";
-import PopoutStreamMonitor from "src/screens/popout-stream-monitor";
-import SupportScreen from "src/screens/support";
-import UploadScreen, {
-  UploadDraftsScreen,
-  UploadLivestreamsScreen,
-  UploadVideoScreen,
-  UploadVideosScreen,
-} from "src/screens/upload";
-import VideoScreen from "src/screens/video";
-import VideoListScreen from "src/screens/video-list";
-import VodScreen from "src/screens/vod";
-import VodEmbedScreen from "src/screens/vod-embed";
+
 import { useStore } from "store";
 import {
   useHydrated,
@@ -98,18 +56,145 @@ import {
   UploadButton,
 } from "./router";
 
+// Every screen except the home feed is code-split, so its module (and
+// dependencies) only load when the route is first visited.
+const Login = lazyScreen(() => import("components/login/login"));
+const Settings = lazyScreen(() =>
+  import("components/settings/settings").then((m) => ({ default: m.Settings })),
+);
+const AboutCategorySettings = lazyScreen(() =>
+  import("components/settings/about-category-settings").then((m) => ({
+    default: m.AboutCategorySettings,
+  })),
+);
+const AccountCategorySettings = lazyScreen(() =>
+  import("components/settings/account-category-settings").then((m) => ({
+    default: m.AccountCategorySettings,
+  })),
+);
+const AdvancedCategorySettings = lazyScreen(() =>
+  import("components/settings/advanced-category-settings").then((m) => ({
+    default: m.AdvancedCategorySettings,
+  })),
+);
+const BackupSettings = lazyScreen(() =>
+  import("components/settings/backup-settings").then((m) => ({
+    default: m.BackupSettings,
+  })),
+);
+const BadgeIssuerPanel = lazyScreen(() =>
+  import("components/settings/badge-issuer-panel").then((m) => ({
+    default: m.BadgeIssuerPanel,
+  })),
+);
+const BadgeSelectionManager = lazyScreen(() =>
+  import("components/settings/badge-selection-manager").then((m) => ({
+    default: m.BadgeSelectionManager,
+  })),
+);
+const BrandingAdmin = lazyScreen(() =>
+  import("components/settings/branding-admin").then((m) => ({
+    default: m.BrandingAdmin,
+  })),
+);
+const DanmuCategorySettings = lazyScreen(() =>
+  import("components/settings/danmu-category-settings").then((m) => ({
+    default: m.DanmuCategorySettings,
+  })),
+);
+const KeyManager = lazyScreen(() => import("components/settings/key-manager"));
+const LanguagesCategorySettings = lazyScreen(() =>
+  import("components/settings/languages-category-settings").then((m) => ({
+    default: m.LanguagesCategorySettings,
+  })),
+);
+const MultistreamManager = lazyScreen(
+  () => import("components/settings/multistream-manager"),
+);
+const NotificationsCategorySettings = lazyScreen(() =>
+  import("components/settings/notifications-category-settings").then((m) => ({
+    default: m.NotificationsCategorySettings,
+  })),
+);
+const PrivacyCategorySettings = lazyScreen(() =>
+  import("components/settings/privacy-category-settings").then((m) => ({
+    default: m.PrivacyCategorySettings,
+  })),
+);
+const RecommendationsManager = lazyScreen(
+  () => import("components/settings/recommendations-manager"),
+);
+const StreamingCategorySettings = lazyScreen(() =>
+  import("components/settings/streaming-category-settings").then((m) => ({
+    default: m.StreamingCategorySettings,
+  })),
+);
+const WebhookManager = lazyScreen(
+  () => import("components/settings/webhook-manager"),
+);
+const AppReturnScreen = lazyScreen(() => import("src/screens/app-return"));
+const PopoutChat = lazyScreen(() => import("src/screens/chat-popout"));
+const DanmuOBSScreen = lazyScreen(() => import("src/screens/danmu-obs"));
+const DownloadScreen = lazyScreen(() => import("src/screens/download"));
+const EmbedScreen = lazyScreen(() => import("src/screens/embed"));
+const InfoWidgetEmbed = lazyScreen(
+  () => import("src/screens/info-widget-embed"),
+);
+const LaunchGoLive = lazyScreen(() => import("src/screens/launch-go-live"));
+const LiveDashboard = lazyScreen(() => import("src/screens/live-dashboard"));
+const MobileGoLive = lazyScreen(() => import("src/screens/mobile-go-live"));
+const MobileStream = lazyScreen(() => import("src/screens/mobile-stream"));
+const MultiScreen = lazyScreen(() => import("src/screens/multi"));
+const PopoutInfoWidget = lazyScreen(
+  () => import("src/screens/popout-info-widget"),
+);
+const PopoutLivestream = lazyScreen(
+  () => import("src/screens/popout-livestream"),
+);
+const PopoutMultistream = lazyScreen(
+  () => import("src/screens/popout-multistream"),
+);
+const PopoutStreamMonitor = lazyScreen(
+  () => import("src/screens/popout-stream-monitor"),
+);
+const SearchScreen = lazyScreen(() => import("src/screens/search"));
+const SupportScreen = lazyScreen(() => import("src/screens/support"));
+const UploadScreen = lazyScreen(() => import("src/screens/upload"));
+const UploadVideoScreen = lazyScreen(() =>
+  import("src/screens/upload").then((m) => ({ default: m.UploadVideoScreen })),
+);
+const UploadDraftsScreen = lazyScreen(() =>
+  import("src/screens/upload").then((m) => ({ default: m.UploadDraftsScreen })),
+);
+const UploadLivestreamsScreen = lazyScreen(() =>
+  import("src/screens/upload").then((m) => ({
+    default: m.UploadLivestreamsScreen,
+  })),
+);
+const UploadVideosScreen = lazyScreen(() =>
+  import("src/screens/upload").then((m) => ({ default: m.UploadVideosScreen })),
+);
+const VideoScreen = lazyScreen(() => import("src/screens/video"));
+const VideoListScreen = lazyScreen(() => import("src/screens/video-list"));
+const VodScreen = lazyScreen(() => import("src/screens/vod"));
+const VodEmbedScreen = lazyScreen(() => import("src/screens/vod-embed"));
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
 const HomeStack = createNativeStackNavigator();
 const VideosStack = createNativeStackNavigator();
+const SearchStack = createNativeStackNavigator();
 const SettingsStack = createNativeStackNavigator();
 
 function useBaseScreenOptions() {
   const z = useTheme();
+  const isLargeScreen = useIsLargeScreen();
   return {
     headerShown: true,
+    // Wide headers reserve the title area for Search; retain browser titles.
+    headerTitle: isLargeScreen ? "" : undefined,
     headerTransparent: Platform.OS === "ios",
     headerBackButtonDisplayMode: "minimal" as const,
     // Slim, quiet chrome: 15px medium title on surface0 with a hairline
@@ -182,12 +267,12 @@ function HomeNavigator() {
         name="HomeMain"
         component={HomeScreen}
         options={{
-          // `title` drives the browser tab: the node's title (runtime
-          // branding, else the brand default). The visible web header shows
-          // the contextual "Home", not a repeat of it.
+          // `title` drives the browser tab. Narrow headers show Home (or the
+          // node title on iOS); wide headers reserve that space for Search.
           title,
           headerTitle:
-            Platform.OS === "ios"
+            baseScreenOptions.headerTitle ??
+            (Platform.OS === "ios"
               ? (props) => (
                   <View style={{ flex: 1, alignItems: "flex-start" }}>
                     <Text size="2xl" style={[zero.ml[4]]}>
@@ -195,7 +280,7 @@ function HomeNavigator() {
                     </Text>
                   </View>
                 )
-              : "Home",
+              : "Home"),
           headerLeft:
             Platform.OS !== "ios"
               ? ({ canGoBack }) => <NavigationButton canGoBack={canGoBack} />
@@ -220,14 +305,6 @@ function HomeNavigator() {
               },
             ],
           }),
-        }}
-      />
-      <HomeStack.Screen
-        name="About"
-        component={AboutScreen}
-        options={{
-          title: "What's Streamplace?",
-          ...headerScreenOptions,
         }}
       />
       <HomeStack.Screen
@@ -294,43 +371,48 @@ function HomeNavigator() {
   );
 }
 
-// Videos stack navigator (global + per-user VOD listings). Unlike the pushed
-// Home screens, these are tab roots, so they always carry their own header.
-function VideosNavigator() {
+// Shared chrome for tab-root stacks (Videos, Search). Unlike the pushed Home
+// screens, these are tab roots, so they always carry their own header.
+function useTabRootScreenOptions(): NativeStackNavigationOptions {
   const baseScreenOptions = useBaseScreenOptions();
   const isNative = Platform.OS !== "web";
 
-  return (
-    <VideosStack.Navigator
-      screenOptions={{
-        ...baseScreenOptions,
-        headerLeft: isNative
-          ? undefined
-          : ({ canGoBack }: NativeStackHeaderBackProps) => (
-              <NavigationButton canGoBack={canGoBack} />
-            ),
-        headerRight: () => (
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <UploadButton />
-            <LGAvatarButton />
-          </View>
+  return {
+    ...baseScreenOptions,
+    headerLeft: isNative
+      ? undefined
+      : ({ canGoBack }: NativeStackHeaderBackProps) => (
+          <NavigationButton canGoBack={canGoBack} />
         ),
-        ...(Platform.OS === "ios" && {
-          unstable_headerRightItems: () => [
-            {
-              type: "custom",
-              hidesSharedBackground: true,
-              element: (
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <UploadButton />
-                  <LGAvatarButton />
-                </View>
-              ),
-            },
-          ],
-        }),
-      }}
-    >
+    headerRight: () => (
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <UploadButton />
+        <LGAvatarButton />
+      </View>
+    ),
+    ...(Platform.OS === "ios" && {
+      unstable_headerRightItems: () => [
+        {
+          type: "custom",
+          hidesSharedBackground: true,
+          element: (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <UploadButton />
+              <LGAvatarButton />
+            </View>
+          ),
+        },
+      ],
+    }),
+  };
+}
+
+// Videos stack navigator (global + per-user VOD listings)
+function VideosNavigator() {
+  const screenOptions = useTabRootScreenOptions();
+
+  return (
+    <VideosStack.Navigator screenOptions={screenOptions}>
       <VideosStack.Screen
         name="VideoList"
         component={VideoListScreen}
@@ -342,6 +424,21 @@ function VideosNavigator() {
         options={{ title: "Videos" }}
       />
     </VideosStack.Navigator>
+  );
+}
+
+// Search stack navigator (user search by handle prefix)
+function SearchNavigator() {
+  const screenOptions = useTabRootScreenOptions();
+
+  return (
+    <SearchStack.Navigator screenOptions={screenOptions}>
+      <SearchStack.Screen
+        name="Search"
+        component={SearchScreen}
+        options={{ title: "Search" }}
+      />
+    </SearchStack.Navigator>
   );
 }
 
@@ -475,11 +572,13 @@ function SettingsNavigator() {
 const IOS_ICONS: Record<string, SFSymbols7_0> = {
   Home: "house.fill",
   Videos: "play.rectangle.fill",
+  Search: "magnifyingglass",
   Settings: "gearshape.fill",
 };
 const ANDROID_ICONS = {
   Home: "home",
   Videos: "video_library",
+  Search: "search",
   Settings: "settings",
 };
 
@@ -563,6 +662,22 @@ function TabNavigator() {
             : {
                 tabBarIcon: ({ color, size }) => (
                   <Clapperboard size={size} color={color} />
+                ),
+              }),
+        }}
+      />
+      <Tab.Screen
+        name="SearchTab"
+        component={SearchNavigator}
+        options={{
+          title: "Search",
+          ...(isNative
+            ? {
+                tabBarIcon: getIcon("Search"),
+              }
+            : {
+                tabBarIcon: ({ color, size }) => (
+                  <Search size={size} color={color} />
                 ),
               }),
         }}
@@ -729,6 +844,10 @@ export default function Shell() {
   // scrolls under; the livestream keeps its own solid header.
   const isVodDetail =
     currentRouteName === "Video" || currentRouteName === "Vod" || videoPage;
+  // Embeds and OBS/popout utilities are not app chrome surfaces.
+  const showHeaderSearch =
+    sidebar.isActive &&
+    !/Embed|^Popout|^DanmuOBS$/.test(currentRouteName ?? "");
   useEffect(() => {
     setOverlay(isDetailView);
   }, [isDetailView, setOverlay]);
@@ -951,6 +1070,7 @@ export default function Shell() {
             </LogoBrandMenu>
           </View>
         )}
+      {showHeaderSearch && <HeaderSearch key={currentRouteName} />}
       <LoginModal
         visible={showLoginModal}
         onClose={closeLoginModal}

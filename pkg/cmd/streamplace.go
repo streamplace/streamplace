@@ -58,8 +58,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 
-	_ "github.com/go-gst/go-glib/glib"
-	_ "github.com/go-gst/go-gst/gst"
+	_ "github.com/go-gst/go-glib/pkg/glib/v2"
+	_ "github.com/go-gst/go-gst/pkg/gst"
 	"stream.place/streamplace/pkg/api"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/model"

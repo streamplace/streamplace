@@ -10,6 +10,11 @@ replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop 
 
 replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507
 
+// Opaque-owner finalization fixes: go-gst/go-glib#37 and go-gst/go-gst#228.
+replace github.com/go-gst/go-glib => github.com/iameli/go-glib v0.0.4-0.20261013211756-2f69802326f8
+
+replace github.com/go-gst/go-gst => github.com/iameli/go-gst v0.0.3-0.20261014114126-91d7afbbeddc
+
 tool github.com/bluesky-social/indigo/cmd/lexgen
 
 tool github.com/streamplace/glex/cmd/glex
@@ -35,8 +40,8 @@ require (
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/fxamacker/cbor/v2 v2.9.2
 	github.com/go-git/go-git/v5 v5.12.0
-	github.com/go-gst/go-glib v1.4.0
-	github.com/go-gst/go-gst v1.4.0
+	github.com/go-gst/go-glib v0.0.3
+	github.com/go-gst/go-gst v0.0.3-0.20261013180519-636b86bce9e8
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/glog v1.2.5
@@ -73,7 +78,7 @@ require (
 	github.com/streamplace/atmoq/go v0.0.4-0.20260701223355-13757de4ae08
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20260413212710-98956064d06c
 	github.com/streamplace/glex v0.0.0-20260820164827-814f46540f22
-	github.com/streamplace/muxl/go v0.3.5
+	github.com/streamplace/muxl/go v0.3.6
 	github.com/streamplace/oatproxy v0.0.0-20260710202406-60d97b9d780b
 	github.com/stretchr/testify v1.11.1
 	github.com/tdewolff/canvas v0.0.0-20250728095813-50d4cb1eee71
@@ -396,7 +401,6 @@ require (
 	github.com/maratori/testpackage v1.1.1 // indirect
 	github.com/matoous/godox v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-pointer v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mgechev/revive v1.9.0 // indirect
 	github.com/mholt/acmez/v3 v3.1.6 // indirect

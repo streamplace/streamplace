@@ -30,6 +30,7 @@ import (
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/rtcrec"
 	v0 "stream.place/streamplace/pkg/schema/v0"
+	"stream.place/streamplace/pkg/vod"
 )
 
 func (a *StreamplaceAPI) ServeInternalHTTP(ctx context.Context) error {
@@ -542,12 +543,15 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			}
 			secs = parsedSecs
 		}
-		after := time.Now().Add(-time.Duration(secs) * time.Second)
-		w.Header().Set("Content-Type", "video/mp4")
-		err = a.MediaManager.ClipUser(ctx, user, w, nil, &after)
+		now := time.Now()
+		clip, err := vod.FindClip(ctx, a.StatefulDB, a.PlaybackStore, a.MediaManager, user, now.Add(-time.Duration(secs)*time.Second), now, true)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to clip user", err)
 			return
+		}
+		w.Header().Set("Content-Type", "video/mp4")
+		if err := clip.WriteMP4(ctx, w); err != nil {
+			log.Error(ctx, "error writing clip", "error", err)
 		}
 	})
 

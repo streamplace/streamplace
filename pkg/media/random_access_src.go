@@ -8,8 +8,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -80,33 +80,33 @@ func newReadTracer(ctx context.Context) func(pos, size int64) {
 // The context is captured for the bin's lifetime. Callers MUST cancel ctx
 // when they're done with the bin so any in-flight ReadAt — particularly the
 // S3 case, where ReadAt is an HTTP request — can abort cleanly.
-func RandomAccessSrcBin(ctx context.Context, name string, src io.ReaderAt, size int64) (*gst.Bin, error) {
+func RandomAccessSrcBin(ctx context.Context, name string, src io.ReaderAt, size int64) (gst.Bin, error) {
 	ctx = log.WithLogValues(ctx, "func", "RandomAccessSrcBin")
 	if size < 0 {
 		return nil, fmt.Errorf("size must be non-negative, got %d", size)
 	}
-	bin := gst.NewBin(name + "-bin")
+	bin := gst.NewBin(name + "-bin").(gst.Bin)
 
-	appSrc, err := gst.NewElementWithProperties("appsrc", map[string]interface{}{
+	appSrc := gst.ElementFactoryMakeWithProperties("appsrc", map[string]interface{}{
 		"name": name,
 	})
-	if err != nil {
-		return nil, fmt.Errorf("create appsrc: %w", err)
+	if appSrc == nil {
+		return nil, fmt.Errorf("create appsrc")
 	}
-	if err := bin.Add(appSrc); err != nil {
-		return nil, fmt.Errorf("add appsrc to bin: %w", err)
+	if !bin.Add(appSrc) {
+		return nil, fmt.Errorf("add appsrc to bin")
 	}
 
-	source := app.SrcFromElement(appSrc)
+	source := appSrc.(app.AppSrc)
 	// appsrc defaults to GST_FORMAT_BYTES, which is what we want for byte-
 	// offset seeking. SetSize lets downstream elements (parsebin, qtdemux)
 	// query a duration in bytes and seek to the end of the stream.
 	source.SetSize(size)
 	source.SetStreamType(app.AppStreamTypeRandomAccess)
 
-	// pos tracks where the next NeedDataFunc read should start. eos is a
+	// pos tracks where the next NeedData read should start. eos is a
 	// local guard against pushing past end-of-stream after we've already
-	// emitted it; SeekDataFunc clears it so post-EOS seeks (which qtdemux
+	// emitted it; SeekData clears it so post-EOS seeks (which qtdemux
 	// performs after parsing moov) can resume reads.
 	//
 	// appsrc serializes its own callbacks, so no mutex is needed.
@@ -115,10 +115,10 @@ func RandomAccessSrcBin(ctx context.Context, name string, src io.ReaderAt, size 
 
 	trace := newReadTracer(ctx)
 
-	source.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: func(self *app.Source, length uint) {
+	source.SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: func(self app.AppSrc, length uint) {
 			if ctx.Err() != nil {
-				self.EndStream()
+				self.EndOfStream()
 				return
 			}
 			if eos {
@@ -126,7 +126,7 @@ func RandomAccessSrcBin(ctx context.Context, name string, src io.ReaderAt, size 
 			}
 			remaining := size - pos
 			if remaining <= 0 {
-				self.EndStream()
+				self.EndOfStream()
 				eos = true
 				return
 			}
@@ -141,9 +141,12 @@ func RandomAccessSrcBin(ctx context.Context, name string, src io.ReaderAt, size 
 			trace(pos, n)
 			read, err := src.ReadAt(buf, pos)
 			if read > 0 {
-				gbuf := gst.NewBufferWithSize(int64(read))
-				gbuf.Map(gst.MapWrite).WriteData(buf[:read])
-				gbuf.Unmap()
+				gbuf, copyErr := newBufferFromBytes(buf[:read])
+				if copyErr != nil {
+					self.PostMessage(gst.NewMessageError(self, "copy input", copyErr))
+					eos = true
+					return
+				}
 				if ret := self.PushBuffer(gbuf); ret != gst.FlowOK {
 					log.Debug(ctx, "RandomAccessSrcBin: push buffer non-OK", "ret", ret.String())
 				}
@@ -151,16 +154,16 @@ func RandomAccessSrcBin(ctx context.Context, name string, src io.ReaderAt, size 
 			}
 			if err != nil && !errors.Is(err, io.EOF) {
 				log.Error(ctx, "RandomAccessSrcBin: read failed", "offset", pos, "error", err)
-				self.Error("read failed", err)
+				self.PostMessage(gst.NewMessageError(self, "read failed", err))
 				eos = true
 				return
 			}
 			if errors.Is(err, io.EOF) || pos >= size {
-				self.EndStream()
+				self.EndOfStream()
 				eos = true
 			}
 		},
-		SeekDataFunc: func(self *app.Source, offset uint64) bool {
+		SeekData: func(self app.AppSrc, offset uint64) bool {
 			if ctx.Err() != nil {
 				return false
 			}
@@ -182,7 +185,7 @@ func RandomAccessSrcBin(ctx context.Context, name string, src io.ReaderAt, size 
 	if ghost == nil {
 		return nil, fmt.Errorf("create ghost pad")
 	}
-	if !bin.AddPad(ghost.Pad) {
+	if !bin.AddPad(ghost) {
 		return nil, fmt.Errorf("add ghost pad to bin")
 	}
 

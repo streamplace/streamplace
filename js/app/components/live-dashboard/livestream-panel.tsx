@@ -63,6 +63,14 @@ const { flex, p, px, py, gap, layout, bg, borders, text, r, w, typography } =
 
 const isWeb = Platform.OS === "web";
 
+function isSameNodeUrl(candidate: string, nodeUrl: string): boolean {
+  try {
+    return new URL(candidate).origin === new URL(nodeUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
 export const LANG_TAG_PREFIX = "lang:";
 
 export const LANGUAGES = [
@@ -368,7 +376,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
 
       if (
         livestream.record.canonicalUrl &&
-        livestream.record.canonicalUrl !== defaultCanonicalUrl
+        !isSameNodeUrl(livestream.record.canonicalUrl, url)
       ) {
         setCanonicalUrl(livestream.record.canonicalUrl);
       }
@@ -384,7 +392,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
 
       setCreatePost(typeof livestream.record.post !== "undefined");
     }
-  }, [livestream, defaultCanonicalUrl]);
+  }, [livestream, url]);
 
   const handleModeChange = useCallback(
     (newMode: "create" | "metadata" | "moderation") => {
@@ -791,6 +799,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                     onChange={(value) => setCanonicalUrl(value)}
                     placeholder={defaultCanonicalUrl}
                     variant="filled"
+                    testID="live-canonical-url"
                     inputStyle={[
                       p[3],
                       r.md,

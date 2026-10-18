@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 
-	"github.com/go-gst/go-gst/gst"
+	"github.com/go-gst/go-gst/pkg/gst"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spmetrics"
 )
@@ -62,21 +62,21 @@ func auHasIDR(b []byte) bool {
 // packetizer finds no frame in it, and an HLS player joining there stalls.
 // Clearing the flag keeps such frames inside the GoP of the IDR before
 // them.
-func installIDRKeyframeProbe(ctx context.Context, pad *gst.Pad, streamer string) {
+func installIDRKeyframeProbe(ctx context.Context, pad gst.Pad, streamer string) {
 	if pad == nil {
 		return
 	}
-	pad.AddProbe(gst.PadProbeTypeBuffer, func(_ *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+	pad.AddProbe(gst.PadProbeTypeBuffer, func(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
 		buf := info.GetBuffer()
 		if buf == nil || buf.HasFlags(gst.BufferFlagDeltaUnit) {
 			return gst.PadProbeOK
 		}
-		m := buf.Map(gst.MapRead)
-		if m == nil {
+		m, ok := buf.Map(gst.MapRead)
+		if !ok {
 			return gst.PadProbeOK
 		}
-		idr := auHasIDR(m.Bytes())
-		buf.Unmap()
+		idr := auHasIDR(m.Data())
+		m.Unmap()
 		if !idr {
 			buf.SetFlags(gst.BufferFlagDeltaUnit)
 			spmetrics.IngestNonIDRKeyframesTotal.WithLabelValues(streamer).Inc()

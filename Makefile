@@ -560,7 +560,8 @@ ci-desktop-darwin: version install
 		&& ./streamplace --version \
 		&& ./streamplace self-test \
 		&& mkdir -p build-darwin-$$arch \
-		&& mv ./streamplace ./build-darwin-$$arch/streamplace; \
+		&& mv ./streamplace ./build-darwin-$$arch/streamplace \
+		&& $(MAKE) ci-download-file download_file=obs-streamplace-$(VERSION)-darwin-$$arch.tar.gz; \
 	done \
 	&& $(MAKE) desktop-darwin \
 	&& for arch in amd64 arm64; do \
@@ -622,6 +623,7 @@ node-all-platforms: app
 	$(MAKE) linux-arm64
 	$(MAKE) windows-amd64
 	$(MAKE) windows-amd64-startup-test
+	$(MAKE) obs-plugin-linux-amd64 obs-plugin-linux-arm64 obs-plugin-windows-amd64
 	$(MAKE) desktop-linux
 	$(MAKE) desktop-windows-amd64
 

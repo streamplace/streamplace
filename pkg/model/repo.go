@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -232,11 +233,19 @@ func (m *DBModel) TerminalRepoDIDs(ctx context.Context) ([]string, error) {
 	return dids, nil
 }
 
+var handleSearchEscaper = strings.NewReplacer("!", "!!", "%", "!%", "_", "!_")
+
 func (m *DBModel) SearchReposByHandle(query string, limit int) ([]Repo, error) {
+	query = strings.TrimPrefix(strings.TrimSpace(query), "@")
+	if query == "" {
+		return nil, nil
+	}
 	var repos []Repo
-	// Search for repos where handle starts with the query (case-insensitive)
-	// Use LIKE with LOWER for sqlite/postgres compatibility
-	res := m.DB.Where("LOWER(handle) LIKE LOWER(?)", query+"%").Limit(limit).Find(&repos)
+	res := m.DB.
+		Where("LOWER(handle) LIKE LOWER(?) ESCAPE '!'", handleSearchEscaper.Replace(query)+"%").
+		Where("status = ? OR status IS NULL", RepoStatusOK).
+		Order("LOWER(handle), did").
+		Limit(limit).Find(&repos)
 	if res.Error != nil {
 		return nil, res.Error
 	}

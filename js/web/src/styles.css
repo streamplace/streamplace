@@ -56,7 +56,7 @@ code {
 .dark {
   --background: oklch(0.18 0.03 308.5);
   --foreground: oklch(0.9498 0.0183 336.6);
-  --card: oklch(0.2432 0.03 326.7);
+  --card: oklch(0.2432 0.0375 326.7);
   --card-foreground: oklch(0.9498 0.0183 336.6);
   --popover: oklch(0.2123 0.0376 318);
   --popover-foreground: oklch(0.9498 0.0183 336.6);
@@ -78,7 +78,7 @@ code {
   --chart-3: oklch(0.46 0.08 250);
   --chart-4: oklch(0.48 0.035 65);
   --chart-5: oklch(0.44 0.045 155);
-  --sidebar: oklch(0.26 0.02 326.7);
+  --sidebar: oklch(0.2432 0.0375 326.7);
   --sidebar-foreground: oklch(0.9498 0.0183 336.6);
   --sidebar-primary: oklch(0.6803 0.2158 339.7);
   --sidebar-primary-foreground: oklch(0.1841 0.0279 308.5);
@@ -134,7 +134,6 @@ code {
   --color-fg: var(--color-foreground);
   --color-fg-muted: var(--color-muted-foreground);
   --color-fg-subtle: var(--color-muted-foreground);
-  --color-accent: var(--color-accent);
   --color-accent-hover: var(--color-accent);
   --color-accent-fg: var(--color-accent-foreground);
   --color-danger: var(--color-chart-1);
@@ -488,6 +487,37 @@ body {
   }
   to {
     opacity: 0.2;
+  }
+}
+
+@keyframes teleport-warning-stripes {
+  0% {
+    opacity: 1;
+    transform: translateX(-45%) skewX(-12deg);
+  }
+  75% {
+    opacity: 1;
+    transform: translateX(0) skewX(-12deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(110%) skewX(-12deg);
+  }
+}
+
+.teleport-warning-stripes {
+  width: 160%;
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-chart-4) 0 16px,
+    var(--color-bg) 16px 32px
+  );
+  animation: teleport-warning-stripes 2s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .teleport-warning-stripes {
+    display: none;
   }
 }
 

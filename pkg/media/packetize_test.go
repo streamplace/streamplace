@@ -12,8 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-glib/pkg/glib/v2"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
@@ -119,13 +120,14 @@ func makeTrailingCaptionSEIFlatMP4(t *testing.T, ctx context.Context, frames, se
 	}
 	aus := []au{}
 	var vcaps *gst.Caps
-	encPipeline, err := gst.NewPipelineFromString(fmt.Sprintf(
+	encElem, err := gst.ParseLaunch(fmt.Sprintf(
 		"videotestsrc num-buffers=%d ! video/x-raw,width=320,height=240,framerate=30/1 ! x264enc tune=zerolatency speed-preset=ultrafast key-int-max=30 ! h264parse ! video/x-h264,stream-format=avc,alignment=au ! appsink name=sink", frames))
 	require.NoError(t, err)
-	sinkEle, err := encPipeline.GetElementByName("sink")
-	require.NoError(t, err)
-	app.SinkFromElement(sinkEle).SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
+	encPipeline := encElem.(gst.Pipeline)
+	sinkEle := encPipeline.GetByName("sink")
+	require.NotNil(t, sinkEle)
+	sinkEle.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: func(sink app.AppSink) gst.FlowReturn {
 			sample := sink.PullSample()
 			if sample == nil {
 				return gst.FlowEOS
@@ -134,19 +136,23 @@ func makeTrailingCaptionSEIFlatMP4(t *testing.T, ctx context.Context, frames, se
 				vcaps = sample.GetCaps()
 			}
 			buffer := sample.GetBuffer()
+			data, err := copyBufferData(buffer)
+			if err != nil {
+				return gst.FlowError
+			}
 			aus = append(aus, au{
-				data: append([]byte{}, buffer.Bytes()...),
-				pts:  gst.ClockTime(buffer.PresentationTimestamp()),
-				dur:  gst.ClockTime(buffer.Duration()),
+				data: data,
+				pts:  buffer.PTS(),
+				dur:  buffer.Duration(),
 			})
 			return gst.FlowOK
 		},
 	})
 	busErr := make(chan error, 1)
 	go func() { busErr <- HandleBusMessages(ctx, encPipeline) }()
-	require.NoError(t, encPipeline.SetState(gst.StatePlaying))
+	require.NotEqual(t, gst.StateChangeFailure, encPipeline.SetState(gst.StatePlaying))
 	require.NoError(t, <-busErr)
-	require.NoError(t, encPipeline.SetState(gst.StateNull))
+	require.NotEqual(t, gst.StateChangeFailure, encPipeline.SetState(gst.StateNull))
 	require.Len(t, aus, frames)
 	require.NotNil(t, vcaps)
 
@@ -181,41 +187,42 @@ func makeTrailingCaptionSEIFlatMP4(t *testing.T, ctx context.Context, frames, se
 	// Pad names are explicit: the appsrc's caps aren't known at parse time, so
 	// without them gst-parse guesses which mux request pad to link (and
 	// guesses wrong).
-	muxPipeline, err := gst.NewPipelineFromString(strings.Join([]string{
+	muxElem, err := gst.ParseLaunch(strings.Join([]string{
 		"mp4mux name=mux fragment-duration=500 ! appsink name=sink",
 		"appsrc name=vsrc format=time ! mux.video_0",
 		fmt.Sprintf("audiotestsrc num-buffers=%d samplesperbuffer=1024 ! audio/x-raw,rate=48000,channels=2 ! audioconvert ! opusenc ! mux.audio_0", audioBuffers),
 	}, "\n"))
 	require.NoError(t, err)
-	vsrcEle, err := muxPipeline.GetElementByName("vsrc")
-	require.NoError(t, err)
-	require.NoError(t, vsrcEle.SetProperty("caps", vcaps))
+	muxPipeline := muxElem.(gst.Pipeline)
+	vsrcEle := muxPipeline.GetByName("vsrc")
+	require.NotNil(t, vsrcEle)
+	vsrcEle.SetObjectProperty("caps", vcaps)
 	idx := 0
-	app.SrcFromElement(vsrcEle).SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: func(self *app.Source, _ uint) {
+	vsrcEle.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: func(self app.AppSrc, _ uint) {
 			if idx >= len(aus) {
-				self.EndStream()
+				self.EndOfStream()
 				return
 			}
 			a := aus[idx]
 			idx++
-			buffer := gst.NewBufferFromBytes(a.data)
-			buffer.SetPresentationTimestamp(a.pts)
+			buffer := gst.NewBufferWrappedBytes(glib.NewBytes(a.data))
+			buffer.SetPTS(a.pts)
 			buffer.SetDuration(a.dur)
 			self.PushBuffer(buffer)
 		},
 	})
-	outSinkEle, err := muxPipeline.GetElementByName("sink")
-	require.NoError(t, err)
+	outSinkEle := muxPipeline.GetByName("sink")
+	require.NotNil(t, outSinkEle)
 	var out bytes.Buffer
-	app.SinkFromElement(outSinkEle).SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, &out),
+	outSinkEle.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, &out),
 	})
 	busErr2 := make(chan error, 1)
 	go func() { busErr2 <- HandleBusMessages(ctx, muxPipeline) }()
-	require.NoError(t, muxPipeline.SetState(gst.StatePlaying))
+	require.NotEqual(t, gst.StateChangeFailure, muxPipeline.SetState(gst.StatePlaying))
 	require.NoError(t, <-busErr2)
-	require.NoError(t, muxPipeline.SetState(gst.StateNull))
+	require.NotEqual(t, gst.StateChangeFailure, muxPipeline.SetState(gst.StateNull))
 	require.NotEmpty(t, out.Bytes())
 	return out.Bytes(), seiCount
 }

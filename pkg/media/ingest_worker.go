@@ -8,7 +8,7 @@ import (
 	"net/http/httputil"
 	"sync"
 
-	"github.com/go-gst/go-gst/gst"
+	"github.com/go-gst/go-gst/pkg/gst"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
@@ -260,12 +260,12 @@ func RunMP4IngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 		busErr <- HandleBusMessages(ctx, pipeline)
 	}()
 
-	if err := pipeline.SetState(gst.StatePlaying); err != nil {
-		return fmt.Errorf("set playing: %w", err)
+	if pipeline.SetState(gst.StatePlaying) == gst.StateChangeFailure {
+		return fmt.Errorf("set playing: state change failed")
 	}
 	defer func() {
-		if err := pipeline.SetState(gst.StateNull); err != nil {
-			log.Error(ctx, "ingest worker: set null", "error", err)
+		if pipeline.SetState(gst.StateNull) == gst.StateChangeFailure {
+			log.Error(ctx, "ingest worker: set null failed")
 		}
 	}()
 

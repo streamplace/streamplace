@@ -54,6 +54,8 @@ function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
     setStreamKey: () => {},
     activeTeleport: null,
     activeTeleportUri: null,
+    activeTeleportCID: null,
+    canceledTeleportURIs: [],
     setActiveTeleportUri: () => {},
     websocketConnected: false,
     hasReceivedSegment: false,

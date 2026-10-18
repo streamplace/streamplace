@@ -72,6 +72,7 @@ type Model interface {
 
 	CreateTeleport(ctx context.Context, tp *Teleport) error
 	GetLatestTeleportForRepo(repoDID string) (*Teleport, error)
+	GetTeleportForViewer(repoDID, resumeURI, resumeCID string) (*Teleport, error)
 	GetActiveTeleportsForRepo(repoDID string) ([]Teleport, error)
 	GetActiveTeleportsToRepo(targetDID string) ([]Teleport, error)
 	GetTeleportByURI(uri string) (*Teleport, error)

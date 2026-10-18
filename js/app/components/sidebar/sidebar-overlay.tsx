@@ -29,6 +29,7 @@ import {
   Download,
   Hash,
   Home,
+  Info,
   Library,
   Link as LinkIcon,
   List,
@@ -467,6 +468,7 @@ export function SidebarOverlay() {
       href: "/video",
       matchPrefix: "/video",
     },
+    { icon: Search, label: "Search", href: "/search" },
   ];
 
   // Creator Dashboard — the creator-side counterparts to the public feed, under
@@ -494,6 +496,15 @@ export function SidebarOverlay() {
   // the sidebar — this row is just the logged-out "Log in" entry.
   const secondaryItems: SidebarNavItem[] = [
     { icon: LogIn, label: "Log in", href: "/login", hidden: !!did },
+    {
+      icon: Info,
+      // Signed out, About gets a top-level entry instead of hiding two levels
+      // deep under Settings; signed in it stays in the settings menu, where the
+      // rest of the account chrome lives.
+      label: "About",
+      href: "/settings/about",
+      hidden: !!did,
+    },
     {
       icon: SettingsIcon,
       label: "Settings",
@@ -553,8 +564,13 @@ export function SidebarOverlay() {
       </Text>
     );
 
-  const renderItems = (items: SidebarNavItem[]) =>
-    items.map((item) => {
+  const renderItems = (items: SidebarNavItem[]) => {
+    // A prefix match (Settings spans /settings/*) yields when a sibling entry
+    // matches the current path exactly, so only the page you're on lights up.
+    const onExactEntry = items.some(
+      (item) => !item.hidden && item.href === currentPath,
+    );
+    return items.map((item) => {
       if (item.hidden) return null;
       return (
         <SidebarItem
@@ -562,7 +578,11 @@ export function SidebarOverlay() {
           icon={item.icon}
           href={item.href}
           label={item.label}
-          active={isItemActive(item.href, item.matchPrefix)}
+          active={
+            onExactEntry && item.href !== currentPath
+              ? false
+              : isItemActive(item.href, item.matchPrefix)
+          }
           collapsed={collapsed}
           onPress={(e) => {
             e.preventDefault();
@@ -571,6 +591,7 @@ export function SidebarOverlay() {
         />
       );
     });
+  };
 
   return (
     <Animated.View

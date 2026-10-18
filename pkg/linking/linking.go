@@ -66,11 +66,9 @@ const inlineBrandingImageLimit = 96 * 1024
 // theme accepts, so a stored value can be dropped straight into a style.
 var hexColor = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$`)
 
-// bodyBackground returns the node's branded dark background color, if any,
-// so the page can paint it before the bundle loads instead of the default
-// then re-painting (the "flash of unbranded content").
-func (l *Linker) bodyBackground() string {
-	v := l.brandingText("backgroundColor")
+// brandingColor returns a validated node color safe to embed in CSS.
+func (l *Linker) brandingColor(key string) string {
+	v := l.brandingText(key)
 	if !hexColor.MatchString(v) {
 		return ""
 	}
@@ -572,18 +570,33 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 	// element too, since that is what mobile browsers show behind their
 	// translucent bars and in overscroll, and as theme-color for the bars
 	// themselves.
-	if bg := l.bodyBackground(); bg != "" {
-		style := &html.Node{Type: html.ElementNode, Data: "style"}
-		head.AppendChild(style)
-		style.AppendChild(&html.Node{Type: html.TextNode, Data: "html,body{background-color:" + bg + "}"})
+	background := l.brandingColor("backgroundColor")
+	primary := l.brandingColor("primaryColor")
+	var css strings.Builder
+	if background != "" {
+		css.WriteString("html{--bootstrap-background:")
+		css.WriteString(background)
+		css.WriteString("}html,body{background-color:")
+		css.WriteString(background)
+		css.WriteString("}")
 		head.AppendChild(&html.Node{
 			Type: html.ElementNode,
 			Data: "meta",
 			Attr: []html.Attribute{
 				{Key: "name", Val: "theme-color"},
-				{Key: "content", Val: bg},
+				{Key: "content", Val: background},
 			},
 		})
+	}
+	if primary != "" {
+		css.WriteString("html{--bootstrap-primary:")
+		css.WriteString(primary)
+		css.WriteString("}")
+	}
+	if css.Len() > 0 {
+		style := &html.Node{Type: html.ElementNode, Data: "style"}
+		style.AppendChild(&html.Node{Type: html.TextNode, Data: css.String()})
+		head.AppendChild(style)
 	}
 
 	// Add Sentry DSN script if configured

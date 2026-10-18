@@ -88,8 +88,6 @@ export interface BlueskySlice {
     blue: number,
     selfLabels?: string[],
   ) => Promise<void>;
-  followUser: (subjectDID: string) => Promise<void>;
-  unfollowUser: (subjectDID: string, followUri?: string) => Promise<void>;
   getServerSettingsFromPDS: () => Promise<void>;
   createServerSettingsRecord: (
     patch: Partial<Omit<place.stream.server.settings.Main, "$type">>,
@@ -490,8 +488,6 @@ export const createBlueskySlice: StateCreator<
     }
   },
 
-  // TODO: needs @atproto/crypto + viem. The keypair code would also
-  // be shared with createLivestreamRecord (not yet implemented).
   createStreamKeyRecord: async (store: boolean) => {
     const state = get() as BlueskySlice;
     if (!state.pdsAgent) throw new Error("No agent");
@@ -500,17 +496,12 @@ export const createBlueskySlice: StateCreator<
 
     const { Secp256k1Keypair, bytesToMultibase } =
       await import("@atproto/crypto");
-    const { privateKeyToAccount } = await import("viem/accounts");
 
     const keypair = await Secp256k1Keypair.create({ exportable: true });
     const exportedKey = await keypair.export();
     const didBytes = new TextEncoder().encode(did);
     const combinedKey = new Uint8Array([...exportedKey, ...didBytes]);
     const multibaseKey = bytesToMultibase(combinedKey, "base58btc");
-    const hexKey = Array.from(exportedKey)
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-    const account = privateKeyToAccount(`0x${hexKey}`);
 
     let userAgent = "";
     if (typeof navigator !== "undefined") {
@@ -535,7 +526,6 @@ export const createBlueskySlice: StateCreator<
     const newKey = {
       privateKey: multibaseKey,
       did: keypair.did(),
-      address: account.address.toLowerCase(),
     };
 
     set({ newKey });
@@ -810,48 +800,6 @@ export const createBlueskySlice: StateCreator<
           profile: null,
         },
       });
-    }
-  },
-
-  followUser: async (subjectDID: string) => {
-    const state = get() as BlueskySlice;
-    if (!state.pdsAgent) {
-      throw new Error("No agent");
-    }
-    const did = state.oauthSession?.did;
-    if (!did) {
-      throw new Error("No DID");
-    }
-    await state.pdsAgent.follow(subjectDID);
-  },
-
-  unfollowUser: async (subjectDID: string, followUri?: string) => {
-    const state = get() as BlueskySlice;
-    if (!state.pdsAgent) {
-      throw new Error("No agent");
-    }
-    const did = state.oauthSession?.did;
-    if (!did) {
-      throw new Error("No DID");
-    }
-
-    if (followUri) {
-      await state.pdsAgent.deleteFollow(followUri);
-    } else {
-      const streamplaceUrl = get().url;
-      const res = await fetch(
-        `${streamplaceUrl}/xrpc/place.stream.graph.getFollowingUser?subjectDID=${encodeURIComponent(subjectDID)}&userDID=${encodeURIComponent(did)}`,
-        {
-          credentials: "include",
-        },
-      );
-      const data = await res.json();
-
-      if (!data.follow || !data.follow.uri) {
-        throw new Error("Follow record not found");
-      }
-
-      await state.pdsAgent.deleteFollow(data.follow.uri);
     }
   },
 

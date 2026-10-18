@@ -86,6 +86,9 @@ func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string)
 	// finalized VOD blobs (blobs/) and anything else in the bucket.
 	keyPrefix := liveRecPrefix + repoDID + "/"
 	ss.s3Uploader = s3.NewS3Uploader(cfg, repoDID, keyPrefix, s3.DefaultCutoverEvery, ss.statefulDB)
+	// The object being uploaded can't be read back until it completes, so
+	// hold the stream's segments in memory that long for clips to draw on.
+	ss.mm.RetainSegments(repoDID, s3.MaxOpenObjectAge)
 	// Best-effort initial resolve of the livestream URI so the very first
 	// object is tagged. The director treats "latest livestream for repo" as
 	// the current stream everywhere (notification blast, idle finalize), so we
@@ -106,7 +109,7 @@ func (ss *StreamSession) s3Upload(ctx context.Context, notif *media.NewSegmentNo
 	ss.Go(ctx, func() error {
 		// notif.Muxl is the bare canonical segment; it concatenates directly
 		// (the S3 uploader synthesizes one init and prepends it per object).
-		return ss.s3Uploader.AddSegment(ctx, notif.Muxl)
+		return ss.s3Uploader.AddSegment(ctx, notif.Muxl, notif.Segment.StartTime)
 	})
 }
 

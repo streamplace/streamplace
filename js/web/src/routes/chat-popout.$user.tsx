@@ -9,7 +9,6 @@
 //   hidePinnedComments=true  Hide pinned comment notifications
 import { ChatInput } from "@/components/stream/chat-input";
 import { ChatPanel } from "@/components/stream/chat-panel";
-import { StreamNotifications } from "@/components/stream/stream-notifications";
 import { useLivestreamStore } from "@/hooks/use-livestream-store";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -85,9 +84,12 @@ function ChatPopoutPage() {
         hidden ? { opacity: 0, pointerEvents: "none" as const } : undefined
       }
     >
-      {!hidePinnedCommentsVal && <StreamNotifications store={store} />}
       <div className="flex min-h-0 flex-1 flex-col">
-        <ChatPanel store={store} reversed={reverseVal} />
+        <ChatPanel
+          store={store}
+          reversed={reverseVal}
+          hidePinnedComments={hidePinnedCommentsVal}
+        />
       </div>
       {!hideChatBoxVal && (
         <div className="border-t p-2">

@@ -22,7 +22,6 @@ const SETTINGS_SCREENS = [
 // Screens that are in the HomeTab stack
 const HOME_TAB_SCREENS = [
   "HomeMain",
-  "About",
   "Download",
   "LiveDashboard",
   "Login",
@@ -92,6 +91,19 @@ export function convertNavigationParams(to: LinkParams): LinkParams {
       screen: "MainTabs",
       params: {
         screen: "VideosTab",
+        params: {
+          screen: to.screen,
+          params: to.params,
+        },
+      },
+    };
+  }
+
+  if (to.screen === "Search") {
+    return {
+      screen: "MainTabs",
+      params: {
+        screen: "SearchTab",
         params: {
           screen: to.screen,
           params: to.params,

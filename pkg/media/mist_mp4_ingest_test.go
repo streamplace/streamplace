@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/gstinit"
@@ -87,20 +87,21 @@ func runMP4ThroughIngestWorkerSegments(t *testing.T, mp4 []byte, transcode bool)
 func runSynthPipeline(t *testing.T, ctx context.Context, desc string) []byte {
 	t.Helper()
 	gstinit.InitGST()
-	pipeline, err := gst.NewPipelineFromString(desc)
+	launched, err := gst.ParseLaunch(desc)
 	require.NoError(t, err)
+	pipeline := launched.(gst.Pipeline)
 
-	sinkEle, err := pipeline.GetElementByName("sink")
-	require.NoError(t, err)
+	sinkEle := pipeline.GetByName("sink")
+	require.NotNil(t, sinkEle)
 	var buf bytes.Buffer
-	app.SinkFromElement(sinkEle).SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, &buf),
+	sinkEle.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, &buf),
 	})
 
 	busErr := make(chan error, 1)
 	go func() { busErr <- HandleBusMessages(ctx, pipeline) }()
-	require.NoError(t, pipeline.SetState(gst.StatePlaying))
-	defer func() { _ = pipeline.SetState(gst.StateNull) }()
+	require.NotEqual(t, gst.StateChangeFailure, pipeline.SetState(gst.StatePlaying))
+	defer func() { pipeline.SetState(gst.StateNull) }()
 	require.NoError(t, <-busErr, "synthesize test stream")
 	require.NotEmpty(t, buf.Bytes())
 	return buf.Bytes()
@@ -162,26 +163,27 @@ func videoPTSDTSOffsets(t *testing.T, ctx context.Context, segment []byte) []tim
 		"demux.video_0 ! queue ! h264parse ! appsink name=sink sync=false",
 		"demux.audio_0 ! queue ! fakesink sync=false",
 	}, "\n")
-	pipeline, err := gst.NewPipelineFromString(desc)
+	launched, err := gst.ParseLaunch(desc)
 	require.NoError(t, err)
+	pipeline := launched.(gst.Pipeline)
 
-	srcEle, err := pipeline.GetElementByName("src")
-	require.NoError(t, err)
-	app.SrcFromElement(srcEle).SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedDataIncremental(ctx, bytes.NewReader(flat.Bytes())),
+	srcEle := pipeline.GetByName("src")
+	require.NotNil(t, srcEle)
+	srcEle.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
+		NeedData: ReaderNeedDataIncremental(ctx, bytes.NewReader(flat.Bytes())),
 	})
 
-	sinkEle, err := pipeline.GetElementByName("sink")
-	require.NoError(t, err)
+	sinkEle := pipeline.GetByName("sink")
+	require.NotNil(t, sinkEle)
 	var offsets []time.Duration
-	app.SinkFromElement(sinkEle).SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
+	sinkEle.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: func(sink app.AppSink) gst.FlowReturn {
 			sample := sink.PullSample()
 			if sample == nil {
 				return gst.FlowEOS
 			}
 			buf := sample.GetBuffer()
-			pts, dts := buf.PresentationTimestamp(), buf.DecodingTimestamp()
+			pts, dts := buf.PTS(), buf.DTS()
 			if pts != gst.ClockTimeNone && dts != gst.ClockTimeNone {
 				offsets = append(offsets, time.Duration(int64(pts)-int64(dts)))
 			}
@@ -191,8 +193,8 @@ func videoPTSDTSOffsets(t *testing.T, ctx context.Context, segment []byte) []tim
 
 	busErr := make(chan error, 1)
 	go func() { busErr <- HandleBusMessages(ctx, pipeline) }()
-	require.NoError(t, pipeline.SetState(gst.StatePlaying))
-	defer func() { _ = pipeline.SetState(gst.StateNull) }()
+	require.NotEqual(t, gst.StateChangeFailure, pipeline.SetState(gst.StatePlaying))
+	defer func() { pipeline.SetState(gst.StateNull) }()
 	require.NoError(t, <-busErr, "demux flat-wrapped segment")
 	require.NotEmpty(t, offsets, "segment has video samples with timestamps")
 	return offsets

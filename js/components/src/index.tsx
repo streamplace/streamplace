@@ -22,6 +22,7 @@ export { usePlayerContext } from "./player-store/player-store";
 
 export { Player, PlayerUI } from "./components/mobile-player/player";
 export { PlayerProps } from "./components/mobile-player/props";
+export { VideoHostProvider } from "./components/mobile-player/video-host";
 
 export * as ui from "./components/ui";
 

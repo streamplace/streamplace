@@ -1,0 +1,36 @@
+appId: ${APP_ID}
+---
+# iOS and Android keep dynamic imports in their installed bundle. Exercise
+# first-use category loading and cold deep links, not web-only chunk requests.
+- launchApp
+- openLink: ${APP_ID}://
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- tapOn:
+    text: "Settings"
+- extendedWaitUntil:
+    visible:
+      text: "Advanced"
+    timeout: 30000
+- tapOn:
+    text: "Advanced"
+- extendedWaitUntil:
+    visible:
+      id: "settings-use-custom-node"
+    timeout: 30000
+- takeScreenshot: lazy-navigation-advanced
+- stopApp
+- openLink: ${APP_ID}://settings/advanced
+- extendedWaitUntil:
+    visible:
+      id: "settings-use-custom-node"
+    timeout: 30000
+- takeScreenshot: lazy-navigation-deep-link
+- tapOn:
+    text: "Home"
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000

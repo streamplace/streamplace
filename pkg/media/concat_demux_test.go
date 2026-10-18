@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/pkg/gst"
+	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
@@ -33,10 +33,7 @@ func innerTestConcatDemuxBin(t *testing.T) error {
 	ctx := log.WithDebugValue(context.Background(), map[string]map[string]int{"func": {"ConcatStream": 9, "TestConcat2": 9, "SegDemuxBin": 9}})
 	ctx = log.WithLogValues(ctx, "func", "TestConcat2")
 
-	pipeline, err := gst.NewPipeline("TestConcat2")
-	if err != nil {
-		return fmt.Errorf("failed to create pipeline: %w", err)
-	}
+	pipeline := gst.NewPipeline("TestConcat2").(gst.Pipeline)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -69,9 +66,8 @@ func innerTestConcatDemuxBin(t *testing.T) error {
 		return fmt.Errorf("failed to create concat bin: %w", err)
 	}
 
-	err = pipeline.Add(concatBin.Element)
-	if err != nil {
-		return fmt.Errorf("failed to add concat bin to pipeline: %w", err)
+	if !pipeline.Add(concatBin) {
+		return fmt.Errorf("failed to add concat bin to pipeline")
 	}
 
 	videoPad := concatBin.GetStaticPad("video_0")
@@ -84,17 +80,16 @@ func innerTestConcatDemuxBin(t *testing.T) error {
 		return fmt.Errorf("audio pad not found")
 	}
 
-	videoAppSink, err := gst.NewElementWithProperties("appsink", map[string]interface{}{
+	videoAppSink := gst.ElementFactoryMakeWithProperties("appsink", map[string]interface{}{
 		"name": "videoappsink",
 		"sync": false,
 	})
-	if err != nil {
-		return fmt.Errorf("failed to create video appsink: %w", err)
+	if videoAppSink == nil {
+		return fmt.Errorf("failed to create video appsink")
 	}
 
-	err = pipeline.Add(videoAppSink)
-	if err != nil {
-		return fmt.Errorf("failed to add video appsink to pipeline: %w", err)
+	if !pipeline.Add(videoAppSink) {
+		return fmt.Errorf("failed to add video appsink to pipeline")
 	}
 
 	videoAppSinkPadSink := videoAppSink.GetStaticPad("sink")
@@ -102,17 +97,16 @@ func innerTestConcatDemuxBin(t *testing.T) error {
 		return fmt.Errorf("video appsink pad not found")
 	}
 
-	audioAppSink, err := gst.NewElementWithProperties("appsink", map[string]interface{}{
+	audioAppSink := gst.ElementFactoryMakeWithProperties("appsink", map[string]interface{}{
 		"name": "audioappsink",
 		"sync": false,
 	})
-	if err != nil {
-		return fmt.Errorf("failed to create audio appsink: %w", err)
+	if audioAppSink == nil {
+		return fmt.Errorf("failed to create audio appsink")
 	}
 
-	err = pipeline.Add(audioAppSink)
-	if err != nil {
-		return fmt.Errorf("failed to add audio appsink to pipeline: %w", err)
+	if !pipeline.Add(audioAppSink) {
+		return fmt.Errorf("failed to add audio appsink to pipeline")
 	}
 
 	audioAppSinkPadSink := audioAppSink.GetStaticPad("sink")
@@ -133,29 +127,27 @@ func innerTestConcatDemuxBin(t *testing.T) error {
 	videoBuf := bytes.Buffer{}
 	audioBuf := bytes.Buffer{}
 
-	videoappsink := app.SinkFromElement(videoAppSink)
-	videoappsink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, &videoBuf),
+	videoappsink := videoAppSink.(app.AppSink)
+	videoappsink.SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, &videoBuf),
 	})
 
-	audioappsink := app.SinkFromElement(audioAppSink)
-	audioappsink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, &audioBuf),
+	audioappsink := audioAppSink.(app.AppSink)
+	audioappsink.SetCallbacks(&app.AppSinkCallbacks{
+		NewSample: WriterNewSample(ctx, &audioBuf),
 	})
 
 	// Start the pipeline
-	err = pipeline.SetState(gst.StatePlaying)
-	if err != nil {
-		return fmt.Errorf("failed to set pipeline to playing state: %w", err)
+	if pipeline.SetState(gst.StatePlaying) == gst.StateChangeFailure {
+		return fmt.Errorf("failed to set pipeline to playing state")
 	}
 
 	defer func() {
 		if err != nil {
 			t.Errorf("bus handler error: %v", err)
 		}
-		err = pipeline.BlockSetState(gst.StateNull)
-		if err != nil {
-			t.Errorf("failed to set pipeline to null state: %v", err)
+		if pipeline.BlockSetState(gst.StateNull, gst.ClockTimeNone) != gst.StateChangeSuccess {
+			t.Error("failed to set pipeline to null state")
 		}
 		require.Equal(t, 987291, videoBuf.Len())
 		require.Equal(t, 6440, audioBuf.Len())

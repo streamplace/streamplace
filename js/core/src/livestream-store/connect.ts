@@ -37,6 +37,7 @@ export function connectLivestreamWebsocket(
   let messageBuffer: unknown[] = [];
   let currentConnectId = 0;
   let disposed = false;
+  let reconnectURL = url;
 
   const flush = () => {
     flushTimer = null;
@@ -47,6 +48,28 @@ export function connectLivestreamWebsocket(
 
   const scheduleReconnect = () => {
     if (disposed || reconnectTimeout) return;
+    currentConnectId++;
+    if (flushTimer) clearTimeout(flushTimer);
+    flushTimer = null;
+    const state = handleWebSocketMessages(store.getState(), messageBuffer);
+    messageBuffer = [];
+    // Keep a prior hint only if this connection failed before receiving state.
+    if (state.websocketConnected) reconnectURL = url;
+    const { activeTeleportUri, activeTeleportCID } = state;
+    if (activeTeleportUri && activeTeleportCID) {
+      const resumeURL = new URL(reconnectURL);
+      resumeURL.searchParams.set("teleportUri", activeTeleportUri);
+      resumeURL.searchParams.set("teleportCid", activeTeleportCID);
+      reconnectURL = resumeURL.toString();
+    }
+    // A cancellation may be missed while offline. Only a fresh snapshot can
+    // restore the teleport, including one that started while disconnected.
+    store.setState({
+      websocketConnected: false,
+      activeTeleport: null,
+      activeTeleportUri: null,
+      activeTeleportCID: null,
+    });
     options.onDisconnect?.();
     reconnectTimeout = setTimeout(connect, reconnectDelayMs);
   };
@@ -59,7 +82,7 @@ export function connectLivestreamWebsocket(
 
     const connectId = ++currentConnectId;
 
-    ws = new WebSocket(url);
+    ws = new WebSocket(reconnectURL);
 
     ws.onopen = () => {};
 
@@ -79,13 +102,11 @@ export function connectLivestreamWebsocket(
 
     ws.onclose = () => {
       if (connectId !== currentConnectId) return;
-      store.setState((s) => ({ ...s, websocketConnected: false }));
       scheduleReconnect();
     };
 
     ws.onerror = () => {
       if (connectId !== currentConnectId) return;
-      store.setState((s) => ({ ...s, websocketConnected: false }));
       ws?.close();
       scheduleReconnect();
     };
@@ -96,8 +117,16 @@ export function connectLivestreamWebsocket(
   return {
     disconnect: () => {
       disposed = true;
+      currentConnectId++;
+      messageBuffer = [];
       if (flushTimer) clearTimeout(flushTimer);
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      store.setState({
+        websocketConnected: false,
+        activeTeleport: null,
+        activeTeleportUri: null,
+        activeTeleportCID: null,
+      });
       ws?.close();
     },
   };

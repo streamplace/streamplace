@@ -102,6 +102,7 @@ export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
           asChild
         >
           <Slider.Track
+            testID="player-volume-track"
             style={{
               flexGrow: 1,
               height: 30,

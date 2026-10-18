@@ -6,7 +6,6 @@ import { useShallow } from "zustand/react/shallow";
 import { SidebarContent, SidebarFooter, SidebarHeader } from "../ui/sidebar";
 import { ChatInput } from "./chat-input";
 import { ChatPanel } from "./chat-panel";
-import { StreamNotifications } from "./stream-notifications";
 
 export function ChatSidebar({
   store,
@@ -69,8 +68,6 @@ export function ChatSidebar({
           </div>
         </div>
       </SidebarHeader>
-
-      <StreamNotifications store={store} />
 
       <SidebarContent className="overflow-hidden p-0!">
         <ChatPanel store={store} />

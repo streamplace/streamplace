@@ -7,7 +7,6 @@ import { bytesToMultibase, Secp256k1Keypair } from "@atproto/crypto";
 import { getBrowserName, getPlatform } from "@streamplace/core";
 import { useEffect, useState } from "react";
 import { place } from "streamplace";
-import { privateKeyToAccount } from "viem/accounts";
 import { usePDSAgent } from "../streamplace-store/xrpc";
 import { useLivestreamStore } from "./use-store";
 
@@ -15,7 +14,6 @@ export const useStreamKey = (): {
   streamKey: {
     privateKey: string;
     did: string;
-    address: string;
   } | null;
   error: string | null;
 } => {
@@ -44,14 +42,9 @@ export const useStreamKey = (): {
       const didBytes = new TextEncoder().encode(did);
       const combinedKey = new Uint8Array([...exportedKey, ...didBytes]);
       const multibaseKey = bytesToMultibase(combinedKey, "base58btc");
-      const hexKey = Array.from(exportedKey)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
-      const account = privateKeyToAccount(`0x${hexKey}`);
       const newKey = {
         privateKey: multibaseKey,
         did: keypair.did(),
-        address: account.address.toLowerCase(),
       };
 
       let platform: string = getPlatform();

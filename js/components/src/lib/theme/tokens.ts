@@ -822,6 +822,13 @@ export const motion = {
   sheetSpring: { damping: 30, stiffness: 300 },
 } as const;
 
+// Match React Native Web's large ActivityIndicator before React is available.
+export const loadingIndicator = {
+  size: 36,
+  duration: 750,
+  trackOpacity: 0.2,
+} as const;
+
 /** @deprecated use `motion` (fast/base/slow) */
 export const animations = {
   fast: motion.fast,

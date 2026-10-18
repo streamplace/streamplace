@@ -76,3 +76,33 @@ pds-selector-handle-policy-checkbox = Li e concordo com a <policyLink>política 
 ## Login
 login-show-live-on-bluesky = Mostrar quando estou ao vivo no Bluesky
 login-show-live-on-bluesky-description = Adiciona o anel vermelho LIVE ao seu avatar do Bluesky enquanto você transmite e permite que o Streamplace publique anúncios por você. Desmarque para entrar sem conceder nenhum acesso à sua conta do Bluesky.
+
+## Stream notifications
+teleporting-in = Teletransportando em
+teleporting-to = Teletransportando para @{ $handle }
+
+## Teleport dialog
+teleport-dialog-title = Teletransportar para outro streamer ao vivo
+teleport-dialog-description = Selecione um streamer para enviar seus espectadores ao canal dele.
+teleport-unknown-streamer = Streamer desconhecido
+teleport-search-label = Buscar transmissões ao vivo
+teleport-search-placeholder = Buscar por @ ou título
+teleport-loading-streamers = Carregando streamers ao vivo…
+teleport-empty-streamers = Nenhum streamer ao vivo encontrado.
+teleport-no-matching-streamers = Nenhum streamer ao vivo corresponde à busca.
+teleport-viewer-count = { $count ->
+    [one] { $count } espectador
+   *[other] { $count } espectadores
+}
+teleport-countdown = Contagem regressiva
+teleport-seconds-range = segundos (5–300)
+teleport-countdown-error = A contagem deve ficar entre 5 e 300 segundos.
+teleport-selection-expired = Esse streamer não está mais ao vivo. Escolha outro.
+teleport-starting = Iniciando…
+teleport-start = Teletransportar
+teleport-error-streamer-only = Apenas o streamer da transmissão atual pode iniciar um teletransporte.
+teleport-error-handle-format = Digite um identificador válido, como handle.bsky.social.
+teleport-error-countdown-number = A contagem deve ser um número de segundos.
+teleport-error-self = Você não pode se teletransportar para si mesmo.
+teleport-error-resolve-handle = Não foi possível encontrar @{ $handle }.
+teleport-error-create = Não foi possível iniciar o teletransporte.

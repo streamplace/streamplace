@@ -319,6 +319,10 @@ export function MobileUi({
                       />
                       {shouldShowChatSidePanel && setShowChat && (
                         <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            showChat ? "Hide chat" : "Show chat"
+                          }
                           onPress={() => {
                             setShowChat(!showChat);
                           }}

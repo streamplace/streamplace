@@ -45,14 +45,17 @@ export function EmptyState({
   title,
   subtitle,
   action,
+  testID,
 }: {
   illustration: ReactNode;
   title: string;
   subtitle?: string;
   action?: ReactNode;
+  testID?: string;
 }) {
   return (
     <View
+      testID={testID}
       style={{
         flex: 1,
         minHeight: 320,

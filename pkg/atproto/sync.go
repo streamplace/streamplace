@@ -647,7 +647,27 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to create teleport: %w", err)
 		}
-		go atsync.Bus.Publish(userDID, rec)
+		// Relay reconnects can replay history; only tolerate brief delivery delays.
+		if startsAt.Before(now.Add(-30 * time.Second)) {
+			return nil
+		}
+		teleportMessage := map[string]any{
+			"$type":    rec.RecordTypeID(),
+			"uri":      aturi.String(),
+			"cid":      cid,
+			"streamer": rec.Streamer,
+			"startsAt": rec.StartsAt,
+		}
+		if rec.DurationSeconds != nil {
+			teleportMessage["durationSeconds"] = *rec.DurationSeconds
+		}
+		if rec.Livestream != nil {
+			teleportMessage["livestream"] = rec.Livestream
+		}
+		// Backfills restore pending countdowns; live events may be slightly late.
+		if !isFirstSync || startsAt.After(now) {
+			atsync.Bus.Publish(userDID, teleportMessage)
+		}
 
 		if isFirstSync {
 			// A backfill reads history, and a teleport out of history has

@@ -290,9 +290,13 @@ meson-compile:
 
 # Source bootstrap is independent of Meson configuration and is a no-op once
 # the pinned checkout exists, so repeated/offline native builds do not fetch.
+# A checkout of an older pin (moq.wrap's revision changed) is moved to the new
+# one, patches reapplied.
 .PHONY: native-source
 native-source:
 	meson subprojects download --sourcedir . moq
+	@[ "$$(git -C subprojects/moq rev-parse HEAD)" = "$$(sed -n 's/^revision = //p' subprojects/moq.wrap)" ] || \
+		meson subprojects update --reset --sourcedir . moq
 
 
 #    _____ _______    _______ _____ _____

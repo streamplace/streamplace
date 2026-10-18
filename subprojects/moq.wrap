@@ -1,5 +1,5 @@
 [wrap-git]
-url = https://github.com/moq-dev/moq.git
-revision = 7dccdbd37db632bff51f5be86d768ae9e0092dec
+url = https://github.com/streamplace/moq.git
+revision = 0014d50204dd10920d25cfb6b64cdbe9299d4465
 depth = 1
 diff_files = moq/rlib.patch

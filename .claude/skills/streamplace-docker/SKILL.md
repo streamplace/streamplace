@@ -108,9 +108,8 @@ docker exec -w "$REPO" "$CONTAINER" make app
 # Re-embed the bundles and rebuild the Go/Rust development binaries:
 docker exec -w "$REPO" "$CONTAINER" make dev
 
-# CI-shaped Go build. The native library's directory must come first: the
-# moq.dev/moq-ffi module also links its own prebuilt copy, whose Rust runtime
-# would collide with ours.
+# CI-shaped Go build. moq.dev/moq-ffi (Streamplace's fork) carries no
+# prebuilt library: link the one `make dev` built.
 GO_ENV="CGO_LDFLAGS=-L$REPO/build-linux-amd64/rust/streamplace-native -lmoq_ffi -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -lm"
 docker exec -w "$REPO" "$CONTAINER" env "$GO_ENV" go build ./pkg/... ./cmd/...
 ```

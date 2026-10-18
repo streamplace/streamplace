@@ -350,6 +350,37 @@ func concatTracksByID(tracks map[string][]byte) []byte {
 	return out
 }
 
+// MuxlTracks splits a bare canonical segment into each track's canonical
+// segment, bytes and signatures verbatim, keyed by the track's MUXL
+// rendition name ("video1", "audio2").
+func MuxlTracks(ctx context.Context, seg []byte) (map[string][]byte, error) {
+	events, err := unwrapMuxlEvents(ctx, seg)
+	if err != nil {
+		return nil, err
+	}
+	cat, tracks := catalogAndTracks(events)
+	if cat == nil || len(tracks) == 0 {
+		return nil, fmt.Errorf("segment has no MUXL tracks")
+	}
+	out := map[string][]byte{}
+	add := func(name string, id uint32) {
+		if b := tracks[strconv.FormatUint(uint64(id), 10)]; len(b) > 0 {
+			out[name] = b
+		}
+	}
+	if cat.Video != nil {
+		for name, v := range cat.Video.Renditions {
+			add(name, v.TrackID())
+		}
+	}
+	if cat.Audio != nil {
+		for name, a := range cat.Audio.Renditions {
+			add(name, a.TrackID())
+		}
+	}
+	return out, nil
+}
+
 // concatTrackAcrossSegments returns one track's bytes concatenated across EVERY
 // segment event in a muxl event stream. catalogAndTracks deliberately returns
 // only the first segment's tracks, so it silently drops data whenever a wrapper

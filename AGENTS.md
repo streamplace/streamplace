@@ -80,8 +80,8 @@ go test -count=1 ./pkg/<package>/...
 ```
 
 A test binary that links the MoQ transport needs the native library's directory
-(`build-linux-amd64/rust/streamplace-native`) first in `CGO_LDFLAGS`, ahead of
-the prebuilt copy `moq.dev/moq-ffi` brings.
+(`build-linux-amd64/rust/streamplace-native`) in `CGO_LDFLAGS`: Streamplace's
+`moq.dev/moq-ffi` fork carries no prebuilt library, so this is the only copy.
 Make's targets set it; for a direct `go test`, use the environment the
 [streamplace-docker skill](.claude/skills/streamplace-docker/SKILL.md) shows.
 

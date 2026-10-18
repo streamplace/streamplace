@@ -10,33 +10,56 @@ prefers an origin's MoQ URL over its websocket when one is advertised.
 
 ## Wire convention
 
-The payload is MUXL and nothing else.
+Every byte a broadcast carries is signed MUXL, laid out the way the rest of
+the MoQ ecosystem reads media: a hang catalog and one CMAF track per media
+track. The MoQ tools (`moq export`, `moq play`) and the `@moq/watch` player
+can play a Streamplace broadcast, and a Streamplace node reassembles the
+exact signed segments and verifies them as before.
 
-| MoQ                | Streamplace                                                             |
-| ------------------ | ----------------------------------------------------------------------- |
-| broadcast path     | the streamer's DID (`did:plc:...`)                                      |
-| track `source`     | the stream's signed source segments                                     |
-| track `renditions` | the rendition addenda the ingest node mints (`media.RenditionsChannel`) |
-| group              | one segment (one GoP)                                                   |
-| frame              | the bare canonical MUXL segment, the bytes `bus.Seg.Muxl` carries       |
-| timestamp          | the publish time in Unix microseconds                                   |
+| MoQ                                         | Streamplace                                                                                                 |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| broadcast path                              | the streamer's DID (`did:plc:...`)                                                                          |
+| `catalog.json`, `catalog.json.z`, `catalog` | the hang and MSF catalogs, one CMAF rendition per track                                                     |
+| track                                       | one MUXL track, named by its MUXL rendition (`video1`, `audio2`, `audio3`; renditions `video100` up)        |
+| group                                       | that track's canonical segment for one GoP                                                                  |
+| frame                                       | one `moof`+`mdat`, the first also carrying the segment's leading `uuid` boxes (C2PA manifest, MUXL catalog) |
+| timestamp                                   | the fragment's first presentation time, on the track's timescale                                            |
 
-A subscriber reads each track in sequence order and validates every source
-frame with `MediaManager.ValidateReplicatedMP4`: the websocket path's
-validation, plus a check that the segment's signed creator is the streamer
-it asked for. It verifies every rendition addendum with `muxl verify`. A
-frame that is not MUXL, or a group holding more than one, ends the session;
-the publisher ends a track rather than send a segment that does not lead
-with a `uuid` box at all.
+A group's frames concatenate back to the track's canonical segment, byte
+for byte. Each catalog rendition's CMAF `init` is the track's own init
+segment, synthesized from its MUXL catalog (`muxl wrap --init-only`); the
+hang codec fields are derived from that init by `moq-mux`. The catalog is
+unsigned: a node uses it only to find the tracks, and verifies the bytes.
+
+The source segment's tracks (MUXL track ids below
+`media.RenditionTrackID(0)`) share one group sequence per segment. A
+subscriber reads each in sequence order, concatenates one segment's
+groups in track-id order, and validates the result with
+`MediaManager.ValidateReplicatedMP4`: the websocket path's validation,
+plus a check that the segment's signed creator is the streamer it asked
+for. A source track with no group at a segment's sequence has no part in
+that segment. Each rendition track's group is a single-track addendum,
+verified with `muxl verify` and folded into the live window on its own.
+Anything that is not MUXL ends the session.
 
 A node's listener advertises one route covering every path and serves a
 broadcast when a peer requests it: a request for a stream that is not live
 on its segment bus is refused, and a served broadcast ends with the
-stream's session. The transport shares one served broadcast among all its
-subscribers. Each requested track is fed from the bus for as long as the
-broadcast lasts, and a new subscriber starts from the newest segment, like
-`place.stream.live.subscribeSegments`'s priming. The source track has the
-higher priority, and a subscriber more than ten seconds behind skips ahead.
+stream's session, or when a track's codec config changes (its MUXL catalog
+box differs), since the catalog entry describes the old one; the next
+request starts afresh. The transport shares one served broadcast among all
+its subscribers. A track is published the first time a segment carries it,
+and a new subscriber starts from the newest segment, like
+`place.stream.live.subscribeSegments`'s priming. The source tracks have the
+higher subscriber priority, and a subscriber that falls behind skips ahead.
+
+To watch or dump a broadcast with the MoQ CLI (pin a self-signed node's
+certificate with the `certhash` from its MoQ URL):
+
+```sh
+moq --connect moqt://host:38443 --connect-tls-fingerprint <certhash> \
+    --broadcast did:plc:... export fmp4 > stream.mp4
+```
 
 ## Bindings
 

@@ -52,6 +52,7 @@ require (
 	github.com/ipfs/go-cid v0.6.1
 	github.com/ipfs/go-ipld-cbor v0.2.0
 	github.com/ipld/go-car v0.6.1-0.20230509095817-92d28eb23ba4
+	github.com/jackc/pgx/v5 v5.5.5
 	github.com/johncgriffin/overflow v0.0.0-20211019200055-46fa312c352c
 	github.com/juju/ratelimit v1.0.2
 	github.com/julienschmidt/httprouter v1.3.0
@@ -351,7 +352,6 @@ require (
 	github.com/ipld/go-ipld-prime v0.21.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20231201235250-de7065d80cb9 // indirect
-	github.com/jackc/pgx/v5 v5.5.5 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/jaypipes/ghw v0.10.0 // indirect
 	github.com/jaypipes/pcidb v1.0.0 // indirect

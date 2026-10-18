@@ -16,5 +16,5 @@ new file mode 100644
 +++ b/meson.build
 @@ -0,0 +1,3 @@
 +# Source-only subproject. Streamplace's Cargo megazord builds moq-ffi.
-+project('moq-source', version: '0.4.14')
++project('moq-source', version: '0.4.17')
 +

@@ -23,6 +23,8 @@ type BroadcastOrigin struct {
 	Broadcaster *string `json:"broadcaster,omitempty"`
 	// irohTicket: Iroh ticket that can be used to access the livestream from the server
 	IrohTicket *string `json:"irohTicket,omitempty"`
+	// moqURL: moqt:// URL of the Media over QUIC endpoint serving the livestream's MUXL segments; a certhash query parameter pins the server certificate (SHA-256, hex) when it is self-signed
+	MoqURL *string `json:"moqURL,omitempty"`
 	// server: did of the server that's currently rebroadcasting the livestream
 	Server string `json:"server"`
 	// streamer: DID of the streamer whose livestream is being published

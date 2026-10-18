@@ -79,6 +79,12 @@ For the code you change, run targeted checks where practical:
 go test -count=1 ./pkg/<package>/...
 ```
 
+A test binary that links the MoQ transport needs the native library's directory
+(`build-linux-amd64/rust/streamplace-native`) in `CGO_LDFLAGS`: Streamplace's
+`moq.dev/moq-ffi` fork carries no prebuilt library, so this is the only copy.
+Make's targets set it; for a direct `go test`, use the environment the
+[streamplace-docker skill](.claude/skills/streamplace-docker/SKILL.md) shows.
+
 `go vet ./pkg/<package>/...` is a fast sanity check, but it is much weaker than
 the lint in the commit gate (golangci-lint with staticcheck). A change that
 passes `go vet` can still fail CI tests! See [Checking your work](#checking-your-work).

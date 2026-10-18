@@ -106,6 +106,7 @@ require (
 	gorm.io/driver/sqlite v1.5.7
 	gorm.io/plugin/prometheus v0.1.0
 	lukechampine.com/blake3 v1.4.1
+	moq.dev/moq v0.7.17
 )
 
 require (
@@ -589,7 +590,16 @@ require (
 	howett.net/plist v1.0.0 // indirect
 	modernc.org/knuth v0.5.5 // indirect
 	modernc.org/token v1.1.0 // indirect
+	moq.dev/moq-ffi v0.4.17 // indirect
 	mvdan.cc/gofumpt v0.8.0 // indirect
 	mvdan.cc/unparam v0.0.0-20250301125049-0df0534333a4 // indirect
 	star-tex.org/x/tex v0.7.1 // indirect
+)
+
+// Streamplace's moq-ffi fork (branch streamplace/cmaf-passthrough): v0.4.17
+// plus PublishCMAF, until upstream takes it. Keep in step with
+// subprojects/moq.wrap, which builds the native library from the same commit.
+replace (
+	moq.dev/moq => github.com/streamplace/moq/go/wrapper v0.0.0-20261017225858-0014d50204dd
+	moq.dev/moq-ffi => github.com/streamplace/moq/go/ffi v0.0.0-20261017225858-0014d50204dd
 )

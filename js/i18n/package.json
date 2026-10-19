@@ -10,7 +10,7 @@
     "compile": "node scripts/compile-translations.js",
     "compile:watch": "nodemon --watch 'locales/**/*.ftl' --exec 'node scripts/compile-translations.js'",
     "extract": "i18next-cli extract && node scripts/migrate-i18n.js",
-    "test": "echo \"no tests yet\" && exit 0"
+    "test": "node --test scripts/*.test.js"
   },
   "dependencies": {
     "i18next": "^25.4.2",

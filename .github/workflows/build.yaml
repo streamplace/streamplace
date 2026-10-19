@@ -127,11 +127,14 @@ jobs:
   # Reuse the binary built by linux-amd64 instead of provisioning another
   # frontend and native build just to run Playwright.
   e2e-web:
-    name: e2e-web
+    name: e2e-web (${{ matrix.mode }})
     runs-on: ubuntu-latest
     # The web suite alone takes about 18 minutes.
     timeout-minutes: 35
     needs: linux-amd64
+    strategy:
+      matrix:
+        mode: [standalone, upstream]
     steps:
       - name: Check out code
         uses: actions/checkout@v4.1.7
@@ -148,6 +151,7 @@ jobs:
         run:
           npm install -g corepack@latest && corepack enable && pnpm install
           --filter @streamplace/e2e-web --filter @atcute/internal-dev-env
+          --filter streamplace-desktop --filter @streamplace/brand
           --frozen-lockfile
 
       - name: Download streamplace binary
@@ -168,8 +172,23 @@ jobs:
           "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/playwright-browsers" pnpm
           --filter @streamplace/e2e-web install-browser
 
+      - name: Install atmoq relay fixture
+        if: matrix.mode == 'upstream'
+        run: |
+          cargo install --git https://github.com/streamplace/atmoq --rev 09a604b0b00b1eb063295746de1878a258e88d5b --locked --root "$RUNNER_TEMP/atmoq-bin" atmoq
+          echo "$RUNNER_TEMP/atmoq-bin/bin" >> "$GITHUB_PATH"
+      - name: Build Desktop e2e entry point
+        if: matrix.mode == 'upstream'
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          pnpm --filter streamplace-desktop package
       - name: Run web e2e tests
-        run: hack/e2e-web-local.sh
+        run: |
+          if [ "${{ matrix.mode }}" = upstream ]; then
+            E2E_DESKTOP_MAIN="$PWD/js/desktop/.webpack/x64/main/index.cjs" xvfb-run -a hack/e2e-web-local.sh --upstream-station -- upstream-station.spec.ts
+          else
+            hack/e2e-web-local.sh
+          fi
 
       # The stream specs again, with the harness pushing the way the OBS plugin
       # does (/api/ingest/client-configuration, then fragmented MP4 with a
@@ -185,7 +204,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-web-${{ github.event.pull_request.head.sha || github.sha }}
+          name:
+            e2e-web-${{ matrix.mode }}-${{ github.event.pull_request.head.sha ||
+            github.sha }}
           path: |
             js/e2e-web/test-results/
             js/e2e-web/playwright-report/
@@ -240,6 +261,10 @@ jobs:
           echo "3440825f514f537c6a96bcf5de995780c2a4a7f83a43208fdc95d4f1fecfad3b  /tmp/maestro.zip" | sha256sum -c -
           unzip -q /tmp/maestro.zip -d "$HOME/.maestro-dist"
           echo "$HOME/.maestro-dist/maestro/bin" >> $GITHUB_PATH
+      - name: Install atmoq relay fixture
+        run: |
+          cargo install --git https://github.com/streamplace/atmoq --rev 09a604b0b00b1eb063295746de1878a258e88d5b --locked --root "$RUNNER_TEMP/atmoq-bin" atmoq
+          echo "$RUNNER_TEMP/atmoq-bin/bin" >> "$GITHUB_PATH"
 
       - uses: actions/cache@v4
         id: avd-cache
@@ -290,6 +315,26 @@ jobs:
             SP_E2E_INGEST=fmp4
             E2E_HARNESS_LOG=$PWD/.maestro/artifacts/harness.log bash
             hack/e2e-local.sh android
+      - name: Run upstream station Maestro flow
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          cores: 4
+          ram-size: 6144M
+          heap-size: 576M
+          emulator-options:
+            -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
+            -no-boot-anim -camera-back none
+          disable-animations: true
+          script:
+            E2E_ARTIFACTS=$PWD/.maestro/artifacts/upstream
+            E2E_HARNESS_LOG=$PWD/.maestro/artifacts/upstream/harness.log
+            E2E_FLOWS=logged-in/upstream-station.yaml bash hack/e2e-local.sh
+            android --upstream-station
 
       - name: upload maestro artifacts
         if: always()

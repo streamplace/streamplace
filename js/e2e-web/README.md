@@ -160,6 +160,74 @@ popout tests establish their own login using the HTTPS URLs. Run with
 `E2E_HTTPS_PDS_HOSTNAME=` to skip HTTPS; those tests then skip themselves.
 Details are in `pkg/cmd/e2e_https.go`.
 
+## Upstream-station topology
+
+This is opt-in; the ordinary single-node suite is unchanged. Build the real
+atmoq relay at commit `09a604b0b00b1eb063295746de1878a258e88d5b` with locked
+Cargo dependencies, as CI does:
+
+```bash
+cargo install --git https://github.com/streamplace/atmoq \
+  --rev 09a604b0b00b1eb063295746de1878a258e88d5b --locked atmoq
+```
+
+This includes the certificate-watcher fix from
+[atmoq#20](https://github.com/streamplace/atmoq/pull/20): v0.1.1 treats Linux
+certificate reads as changes, causing a continuous reload loop that can starve
+live indexing. Build in an isolated directory rather than changing a sibling
+checkout. Set `SP_E2E_ATMOQ_BIN` to the executable when it is not on `PATH`.
+
+```bash
+# Inside the pinned builder, after make app && make dev:
+SP_E2E_ATMOQ_BIN=/path/to/atmoq \
+  hack/e2e-web-local.sh --upstream-station -- upstream-station.spec.ts
+# Equivalent flag source:
+SP_E2E_UPSTREAM_STATION=true SP_E2E_ATMOQ_BIN=/path/to/atmoq \
+  hack/e2e-web-local.sh upstream-station.spec.ts
+```
+
+The harness starts the existing PDS/PLC, an HTTPS upstream station, a separate
+HTTP loopback node configured with `SP_UPSTREAM_STATION=did:web:<station>`,
+and `atmoq serve` bridging the PDS's actual WebSocket firehose to QUIC.
+The station advertises the bridge through `SP_ATMOQ_RELAY`. QUIC verifies the
+throwaway CA and the leaf's loopback IP SAN; there is no insecure TLS override,
+mock frame source or fake protocol server. The bridge uses a one-frame group
+for sparse per-user traffic. URLs printed as evidence are `SERVER_URL`,
+`UPSTREAM_STATION_URL` and `ATMOQ_RELAY_URL`.
+
+The browser completes local → station → PDS login and consent, writes through
+both independently DPoP-bound proxies, and verifies the exact returned record
+URI appears in the local durable index after initial login sync. It checks the
+real indexed PDS remains the PDS, while the local OAuth session targets the
+station. A separately created, followed-but-unrelated account emits real PDS
+commits before and after login. The local transport audit checks it is neither
+scraped nor enumerated, and the local DB checks it is not indexed. Released
+relay logs must show the user's DID track and no aggregate `atproto` track:
+bandwidth selection comes from these per-DID subscriptions, not from merely
+replacing WebSocket with MoQ. The bridge itself still ingests its PDS firehose.
+
+Renewal coverage uses the actual browser's persisted DPoP key and local
+`/oauth/token`. Only the stored access-token renewal timestamps are advanced
+to make genuine station/PDS refresh deterministic; keys, tokens and protocol
+responses are never faked. A grant-scoped fixture trigger keeps the old token's
+timestamp expired through concurrent nonce writes; genuine token rotation ends
+that override. Each attempt replaces the trigger so CI retries can reuse the
+harness databases. A harness-stdin `restart-local` command restarts the real Go node
+with its on-disk sessions and acknowledges readiness in a private file.
+Authenticated writes and indexed history must survive that restart.
+Real browser logout revokes the local downstream session and stops the final
+local DID subscription without destroying the station's confidential PDS grant.
+Chat submission waits for the restored OAuth session and initial streamer
+profile; Enter during initialization leaves the draft intact rather than
+clearing a message that cannot yet be sent.
+
+Prerequisites additionally include Python 3 with SQLite support (for fixture
+inspection), a POSIX shell with `mkfifo`, free loopback HTTPS/TCP/UDP ports, and
+the HTTPS DNS/trust prerequisites above. The FIFO, child process groups, TLS
+keys, temporary databases and relay store are owned by and removed with the run.
+Browser traces may contain temporary test-account credentials; treat the test
+artifacts as sensitive and do not reuse these accounts outside the harness.
+
 ## Run it locally
 
 ```bash

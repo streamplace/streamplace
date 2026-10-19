@@ -48,12 +48,14 @@ appId: ${APP_ID}
 - takeScreenshot: server-setup-saved
 - tapOn:
     text: "Home"
-# The harness's own stream in the feed proves the app is talking to the
-# custom node; any card would also match production's feed, which is what
-# the app shows until the new node takes effect. Matched as a substring
-# because iOS collapses the card into one element with a concatenated label.
-- extendedWaitUntil:
-    visible:
-      text: ".*e2e test stream.*"
-    timeout: 30000
+# Standalone nodes already index the fixture stream. Upstream local nodes
+# intentionally have no indexed users until the following OAuth login flow.
+- runFlow:
+    when:
+      true: ${E2E_UPSTREAM_STATION != "true"}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: ".*e2e test stream.*"
+          timeout: 30000
 - takeScreenshot: server-setup-home

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -21,6 +22,7 @@ import (
 
 	"math/rand/v2"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
 	"github.com/lmittmann/tint"
@@ -102,6 +104,8 @@ type CLI struct {
 	PKCS11KeypairID             string
 	StreamerName                string
 	RelayHost                   string
+	UpstreamStation             string
+	AtmoqRelay                  string
 	Debug                       map[string]map[string]int
 	AllowedStreams              []string
 	WideOpen                    bool
@@ -685,6 +689,18 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       "wss://bsky.network",
 				Destination: &cli.RelayHost,
 				Sources:     urfavecli.EnvVars("SP_RELAY_HOST"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "upstream-station",
+				Usage:       "DID of an upstream Streamplace station; consume its MoQ firehose, delegate OAuth to it, and scrape only locally authenticated users",
+				Destination: &cli.UpstreamStation,
+				Sources:     urfavecli.EnvVars("SP_UPSTREAM_STATION"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "atmoq-relay",
+				Usage:       "MoQ firehose URL to advertise in this station's DID document for upstream-station clients",
+				Destination: &cli.AtmoqRelay,
+				Sources:     urfavecli.EnvVars("SP_ATMOQ_RELAY"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "color",
@@ -1407,7 +1423,7 @@ func (cli *CLI) OwnPublicURL() string {
 	host, port, _ := net.SplitHostPort(addr)
 
 	ip := net.ParseIP(host)
-	if host == "" || ip.IsUnspecified() {
+	if host == "" || host == "localhost" || ip.IsUnspecified() {
 		host = "127.0.0.1"
 	}
 	return fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(host, port))
@@ -1550,7 +1566,45 @@ func (cli *CLI) CheckConfig() error {
 	if err := cli.validateLiveCDN(); err != nil {
 		errs = append(errs, err)
 	}
+	if cli.UpstreamStation != "" {
+		if _, err := syntax.ParseDID(cli.UpstreamStation); err != nil {
+			errs = append(errs, fmt.Errorf("--upstream-station: %w", err))
+		}
+	}
+	if cli.UpstreamStation != "" && !cli.Secure {
+		// The advertised URL maps a wildcard bind (":38080") to 127.0.0.1,
+		// so check the address the server actually listens on: plain-HTTP
+		// OAuth must not be reachable from other machines.
+		host, _, err := net.SplitHostPort(cli.HTTPAddr)
+		if err != nil || (host != "localhost" && !net.ParseIP(host).IsLoopback()) {
+			errs = append(errs, fmt.Errorf("local OAuth requires a loopback --http-addr (e.g. 127.0.0.1:38080) or --secure"))
+		}
+	} else if cli.PublicOAuth && !cli.Secure {
+		origin, err := url.Parse(cli.OwnPublicURL())
+		if err != nil || !net.ParseIP(origin.Hostname()).IsLoopback() {
+			errs = append(errs, fmt.Errorf("local OAuth requires a loopback --http-addr or --secure"))
+		}
+	}
+	if cli.AtmoqRelay != "" {
+		if err := ValidateMoQOrigin(cli.AtmoqRelay); err != nil {
+			errs = append(errs, fmt.Errorf("--atmoq-relay: %w", err))
+		}
+	}
 	return errors.Join(errs...)
+}
+
+// ValidateMoQOrigin rejects endpoints the raw-QUIC firehose consumer cannot use.
+func ValidateMoQOrigin(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+		return fmt.Errorf("invalid MoQ firehose origin %q", raw)
+	}
+	switch u.Scheme {
+	case "moqt", "moql", "moq", "moqs":
+		return nil
+	default:
+		return fmt.Errorf("firehose %q must use a MoQ transport", raw)
+	}
 }
 
 // PrepareConfig applies the defaults and process-level setup that used to be

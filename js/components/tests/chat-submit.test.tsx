@@ -102,13 +102,13 @@ vi.mock("../src/livestream-store", () => ({
   useAddSystemMessage: () => vi.fn(),
   useLivestream: () => null,
   useLivestreamStore: () => vi.fn(),
-  useProfile: () => null,
+  useProfile: () => ({ did: "did:plc:viewer" }),
   useReplyToMessage: () => null,
   useSetReplyToMessage: () => vi.fn(),
 }));
 vi.mock("../src/streamplace-store", () => ({
-  useDID: () => null,
-  usePDSAgent: () => null,
+  useDID: () => "did:plc:viewer",
+  usePDSAgent: () => ({}),
 }));
 vi.mock("../src/streamplace-store/branding", () => ({
   useNetworkName: () => "Streamplace",

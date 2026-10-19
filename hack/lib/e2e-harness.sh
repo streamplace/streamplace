@@ -16,6 +16,11 @@
 # HTTPS mode also SERVER_HTTPS_URL, PDS_HTTPS_URL,
 # E2E_PROXY_URL, E2E_TLS_SPKI and E2E_TLS_CA. An EXIT trap stops it; a caller
 # with its own EXIT work calls e2e_harness_stop from its trap instead.
+# Upstream mode (SP_E2E_UPSTREAM_STATION=true) additionally exports the local
+# node SERVER_URL, UPSTREAM_STATION_URL, ATMOQ_RELAY_URL and private fixture
+# paths used by the scoped-indexing/lifecycle tests. SP_E2E_ATMOQ_BIN selects
+# the real released bridge executable. E2E_CONTROL_FIFO feeds harness stdin;
+# writing restart-local restarts only this run's local node.
 #
 # HTTPS mode (for the OAuth flows) is on by default and needs permission to
 # bind 127.0.0.1:443 (root, as in the build container). The harness serves the
@@ -69,10 +74,20 @@ e2e_harness_start() {
       --https-station-hostname "$E2E_HTTPS_STATION_HOSTNAME"
       --https-port "${E2E_HTTPS_PORT:-443}")
   fi
+  local input=/dev/null
+  if [ "${SP_E2E_UPSTREAM_STATION:-false}" = true ]; then
+    E2E_CONTROL_DIR="$(mktemp -d)"
+    E2E_CONTROL_FIFO="$E2E_CONTROL_DIR/control"
+    mkfifo "$E2E_CONTROL_FIFO"
+    # Hold both ends open so the harness scanner survives between commands.
+    exec 9<>"$E2E_CONTROL_FIFO"
+    input="$E2E_CONTROL_FIFO"
+    export E2E_CONTROL_FIFO
+  fi
   if command -v setsid >/dev/null 2>&1; then
-    setsid "$BUILDDIR/streamplace" "${args[@]}" > "$E2E_ENVFILE" 2> "$E2E_LOGFILE" &
+    setsid "$BUILDDIR/streamplace" "${args[@]}" < "$input" > "$E2E_ENVFILE" 2> "$E2E_LOGFILE" &
   else
-    "$BUILDDIR/streamplace" "${args[@]}" > "$E2E_ENVFILE" 2> "$E2E_LOGFILE" &
+    "$BUILDDIR/streamplace" "${args[@]}" < "$input" > "$E2E_ENVFILE" 2> "$E2E_LOGFILE" &
   fi
   E2E_HARNESS_PID=$!
   trap e2e_harness_stop EXIT INT TERM
@@ -89,6 +104,12 @@ e2e_harness_start() {
   export E2E_LOGFILE
   # only set in HTTPS mode
   export SERVER_HTTPS_URL PDS_HTTPS_URL E2E_PROXY_URL E2E_TLS_SPKI E2E_TLS_CA
+  export E2E_UPSTREAM_STATION UPSTREAM_STATION_URL ATMOQ_RELAY_URL E2E_ATMOQ_LOG
+  export E2E_LOCAL_DATA_DIR E2E_LOCAL_PDS_AUDIT E2E_STATION_DATA_DIR
+  export UNRELATED_ACCOUNT_DID UNRELATED_ACCOUNT_HANDLE UNRELATED_ACCESS_JWT E2E_PDS_INTERNAL_URL E2E_PLC_URL
+  if [ "${E2E_UPSTREAM_STATION:-}" = true ]; then
+    echo "upstream topology: local=$SERVER_URL station=$UPSTREAM_STATION_URL relay=$ATMOQ_RELAY_URL"
+  fi
   echo "harness up: SERVER_URL=$SERVER_URL ACCOUNT_HANDLE=$ACCOUNT_HANDLE${SERVER_HTTPS_URL:+ SERVER_HTTPS_URL=$SERVER_HTTPS_URL}"
 }
 
@@ -104,5 +125,10 @@ e2e_harness_stop() {
   done
   rm -f "$E2E_ENVFILE"
   [ -n "$E2E_KEEP_LOG" ] || rm -f "$E2E_LOGFILE"
+  if [ -n "${E2E_CONTROL_DIR:-}" ]; then
+    exec 9>&-
+    rm -rf "$E2E_CONTROL_DIR"
+    E2E_CONTROL_DIR=
+  fi
   E2E_HARNESS_PID=
 }

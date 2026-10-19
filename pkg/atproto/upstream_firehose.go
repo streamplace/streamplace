@@ -12,14 +12,14 @@ import (
 
 const OAuthSessionTopic = "atproto:oauth-sessions"
 
-// The set of users comes from persisted successful local logins. The map here
-// owns only live subscriptions, never authorization or an independent allowlist.
-func (atsync *ATProtoSynchronizer) startUpstreamFirehose(ctx context.Context) error {
-	if atsync.UpstreamStation == nil {
-		return fmt.Errorf("upstream station has not been resolved")
+// startUpstreamFirehose subscribes to each logged-in user's per-DID track on
+// every relay. The set of users comes from persisted successful local logins;
+// the map here owns only live subscriptions, never authorization or an
+// independent allowlist.
+func (atsync *ATProtoSynchronizer) startUpstreamFirehose(ctx context.Context, relays []string) error {
+	for _, relay := range relays {
+		spmetrics.TouchRelay(relay, relayProtocol(relay))
 	}
-	relay := atsync.UpstreamStation.FirehoseURL
-	spmetrics.TouchRelay(relay, "moq")
 	changes := atsync.Bus.Subscribe(OAuthSessionTopic)
 	defer atsync.Bus.Unsubscribe(OAuthSessionTopic, changes)
 	// Login and revocation wake immediately; the timer also observes session
@@ -55,12 +55,14 @@ func (atsync *ATProtoSynchronizer) startUpstreamFirehose(ctx context.Context) er
 			}
 			userCtx, cancel := context.WithCancel(ctx)
 			active[did] = cancel
-			workers.Add(1)
-			go func() {
-				defer workers.Done()
-				atsync.consumeRelay(userCtx, relay, did)
-			}()
-			log.Log(ctx, "subscribing to upstream user", "did", did, "relay", relay)
+			for _, relay := range relays {
+				workers.Add(1)
+				go func() {
+					defer workers.Done()
+					atsync.consumeRelay(userCtx, relay, did)
+				}()
+			}
+			log.Log(ctx, "subscribing to upstream user", "did", did, "relays", relays)
 		}
 		select {
 		case <-ctx.Done():

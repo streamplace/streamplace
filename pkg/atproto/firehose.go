@@ -56,7 +56,6 @@ type ATProtoSynchronizer struct {
 	CachedPLCDirectory identity.Directory
 	dirMu              sync.Mutex
 	OATProxy           *oatproxy.OATProxy
-	UpstreamStation    *UpstreamStation
 	// LivestreamEnded, if set, is called when this node first sees a
 	// streamer's livestream record end (see the livestream case in
 	// handleCreateUpdate).
@@ -99,14 +98,9 @@ func sinceNanos(ns int64) time.Duration {
 }
 
 // relayHosts returns the de-duplicated relay list: --relay-host, plus our own
-// firehose when we have a listener, so local records are indexed immediately.
+// firehose when we have a listener, so local records are indexed immediately
+// (never with an upstream station, whose users publish to their own PDSes).
 func (atsync *ATProtoSynchronizer) relayHosts() []string {
-	if atsync.CLI.UpstreamStation != "" {
-		if atsync.UpstreamStation == nil {
-			return nil
-		}
-		return []string{atsync.UpstreamStation.FirehoseURL}
-	}
 	seen := map[string]struct{}{}
 	var hosts []string
 	add := func(h string) {
@@ -123,7 +117,7 @@ func (atsync *ATProtoSynchronizer) relayHosts() []string {
 	for _, h := range strings.Split(atsync.CLI.RelayHost, ",") {
 		add(h)
 	}
-	if self := atsync.selfRelayURL(); self != "" {
+	if self := atsync.selfRelayURL(); self != "" && !atsync.upstreamMode() {
 		add(self)
 	}
 	return hosts
@@ -162,7 +156,7 @@ func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
 	atsync.markSeen()
 	atsync.markEvent(time.Now())
 	if atsync.upstreamMode() {
-		return atsync.startUpstreamFirehose(ctx)
+		return atsync.startUpstreamFirehose(ctx, relays)
 	}
 
 	log.Log(ctx, "starting firehose consumers", "relays", relays)

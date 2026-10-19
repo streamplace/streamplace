@@ -285,15 +285,19 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		if err != nil {
 			return err
 		}
-		log.Log(ctx, "using upstream station", "did", upstreamStation.DID, "url", upstreamStation.URL, "firehose", upstreamStation.FirehoseURL)
+		// The station is where this node's streams go out from: push them
+		// there, as a node behind NAT has to (see docs/moq.md).
+		if len(cli.Peers) == 0 {
+			cli.Peers = []string{upstreamStation.URL}
+		}
+		log.Log(ctx, "using upstream station", "did", upstreamStation.DID, "url", upstreamStation.URL, "relays", cli.RelayHost, "peers", cli.Peers)
 	}
 	atsync := &atproto.ATProtoSynchronizer{
-		CLI:             cli,
-		Model:           mod,
-		StatefulDB:      state,
-		Noter:           noter,
-		Bus:             b,
-		UpstreamStation: upstreamStation,
+		CLI:        cli,
+		Model:      mod,
+		StatefulDB: state,
+		Noter:      noter,
+		Bus:        b,
 	}
 	mm, err := media.MakeMediaManager(ctx, cli, signer, mod, b, atsync, ldb)
 	if err != nil {

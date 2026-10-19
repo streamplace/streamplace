@@ -14,7 +14,7 @@ import (
 var ErrRepoNotLocal = errors.New("repo has no authenticated local session")
 
 func (atsync *ATProtoSynchronizer) upstreamMode() bool {
-	return atsync.UpstreamStation != nil || (atsync.CLI != nil && atsync.CLI.UpstreamStation != "")
+	return atsync.CLI != nil && atsync.CLI.UpstreamStation != ""
 }
 
 // indexingDID authorizes before identity resolution or a cache hit. Resolve

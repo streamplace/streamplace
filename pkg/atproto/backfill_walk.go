@@ -270,6 +270,9 @@ func (atsync *ATProtoSynchronizer) backfillRepo(ctx context.Context, ident *iden
 // every record in range to the same indexing path the firehose uses.
 func (atsync *ATProtoSynchronizer) walkBackfill(ctx context.Context, ident *identity.Identity, xrpcc *xrpc.Client, ranges []reposync.KeyRange) (string, string, error) {
 	did := ident.DID.String()
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
+		return "", "", err
+	}
 
 	// The *uncached* directory on purpose: a signing key cached from before a
 	// rotation would fail commit verification, and backfills are rare enough
@@ -281,18 +284,31 @@ func (atsync *ATProtoSynchronizer) walkBackfill(ctx context.Context, ident *iden
 	// a client with the hint-capturing transport installed, which is what
 	// [SyncHTTPClient] is for -- callers build xrpcc with it.
 	retry := reposync.RetryPolicy{Hints: pdsBackoffHints}
+	var authorize func(context.Context) error
+	if atsync.upstreamMode() {
+		authorize = func(ctx context.Context) error {
+			_, err := atsync.indexingDID(ctx, did)
+			return err
+		}
+	}
 
 	fetcher := &reposync.CachedFetcher{
 		// Bounded lifetime: one cache per backfill, so the head fetch and the
 		// walk share blocks without holding a repo in memory afterwards.
 		Cache: reposync.NewMemoryBlockCache(),
 		Inner: &pdsLockedFetcher{
-			lock:  pdsLocks.GetLock(ident.PDSEndpoint()),
-			inner: &reposync.XRPCBlockFetcher{Client: xrpcc, DID: did, Retry: retry},
+			lock:      pdsLocks.GetLock(ident.PDSEndpoint()),
+			inner:     &reposync.XRPCBlockFetcher{Client: xrpcc, DID: did, Retry: retry},
+			authorize: authorize,
 		},
 	}
 
 	fetchHead := func(ctx context.Context) (*reposync.Head, error) {
+		if authorize != nil {
+			if err := authorize(ctx); err != nil {
+				return nil, err
+			}
+		}
 		head, err := reposync.FetchVerifiedHead(ctx, xrpcc, fetcher, dir, did, retry)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch verified head for %s from PDS %s: %w", did, xrpcc.Host, err)
@@ -315,6 +331,9 @@ func (atsync *ATProtoSynchronizer) walkBackfill(ctx context.Context, ident *iden
 			bs := rec
 			err = atsync.handleCreateUpdate(ctx, did, rkey, &bs, rcid.String(), nsid, false, true, head.Rev)
 			if err != nil {
+				if errors.Is(err, ErrRepoNotLocal) {
+					return err
+				}
 				log.Warn(ctx, "failed to handle create update", "err", err)
 				// invalid CBOR and stuff should get ignored, so we don't return
 			}
@@ -429,6 +448,10 @@ func (atsync *ATProtoSynchronizer) legacyBackfill(ctx context.Context, ident *id
 	rev := ""
 	pdsLock := pdsLocks.GetLock(ident.PDSEndpoint())
 	pdsLock.Lock()
+	if _, err := atsync.indexingDID(ctx, ident.DID.String()); err != nil {
+		pdsLock.Unlock()
+		return "", err
+	}
 	repoBytes, err := SyncGetRepo(ctx, xrpcc, ident.DID.String(), rev)
 	pdsLock.Unlock()
 	if err != nil {
@@ -525,8 +548,9 @@ func newSyncHTTPClient() *http.Client {
 // the host itself asked for ([pdsBackoffHints]) rather than a guess.
 // reposync.DefaultRetryMaxDelay is what keeps that pause bounded.
 type pdsLockedFetcher struct {
-	lock  *sync.Mutex
-	inner reposync.BlockFetcher
+	lock      *sync.Mutex
+	inner     reposync.BlockFetcher
+	authorize func(context.Context) error
 }
 
 var _ reposync.BlockFetcher = (*pdsLockedFetcher)(nil)
@@ -534,6 +558,11 @@ var _ reposync.BlockFetcher = (*pdsLockedFetcher)(nil)
 func (f *pdsLockedFetcher) GetBlocks(ctx context.Context, cids []cid.Cid) (map[cid.Cid][]byte, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
+	if f.authorize != nil {
+		if err := f.authorize(ctx); err != nil {
+			return nil, err
+		}
+	}
 	return f.inner.GetBlocks(ctx, cids)
 }
 

@@ -12,7 +12,6 @@ export async function pointAppAtNode(page: Page, url: string) {
   // toggle "use custom node" on, which reveals the URL field + save button
   const toggle = page.getByTestId("settings-use-custom-node");
   await expect(toggle).toBeVisible({ timeout: 60_000 });
-  await toggle.click();
 
   // the react-native-web TextInput renders as an <input>; fill it
   const urlField = page
@@ -20,6 +19,7 @@ export async function pointAppAtNode(page: Page, url: string) {
       '[data-testid="settings-custom-node-url"], [data-testid="settings-custom-node-url"] input',
     )
     .first();
+  if (!(await urlField.isVisible())) await toggle.click();
   await expect(urlField).toBeVisible();
   await urlField.fill(url);
 

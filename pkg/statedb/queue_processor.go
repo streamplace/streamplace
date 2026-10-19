@@ -31,6 +31,7 @@ var TaskFinalizeLivestreamVOD = "finalize_livestream_vod"
 var TaskVODProcess = "vod_process"
 var TaskViewCountAggregate = "view_count_aggregate"
 var TaskCDNLogIngest = "cdn_log_ingest"
+var TaskAutoPublishVOD = "auto_publish_vod"
 
 // nonVODTaskTypes is every task type handled by the general queue worker.
 // VOD processing runs on its own dedicated pool (see ProcessQueue) so a
@@ -45,6 +46,7 @@ var nonVODTaskTypes = []string{
 	TaskFinalizeLivestream,
 	TaskViewCountAggregate,
 	TaskCDNLogIngest,
+	TaskAutoPublishVOD,
 }
 
 type NotificationTask struct {
@@ -107,7 +109,9 @@ type FinalizeLivestreamVODTask struct {
 	// Publish, when set, describes the place.stream.video record to
 	// publish in the streamer's repo (with their stored session) as soon
 	// as the VOD is finalized, instead of leaving a draft for them to
-	// publish from the app. Set by the operator's finalize route.
+	// publish from the app (unless publishing fails). Set by the
+	// operator's finalize route and by automatic VOD publishing
+	// (AutoPublishVODTask).
 	Publish *VideoDraft `json:"publish,omitempty"`
 }
 
@@ -248,6 +252,8 @@ func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
 		return state.processViewCountAggregateTask(ctx, task)
 	case TaskCDNLogIngest:
 		return state.processCDNLogIngestTask(ctx, task)
+	case TaskAutoPublishVOD:
+		return state.processAutoPublishVODTask(ctx, task)
 	default:
 		return fmt.Errorf("unknown task type: %s", task.Type)
 	}
@@ -369,15 +375,26 @@ func (state *StatefulDB) processFinalizeLivestreamVODTask(ctx context.Context, t
 	}
 	log.Log(ctx, "livestream VOD finalized", "uploadId", t.UploadID, "cid", cid)
 	if t.Publish != nil {
-		// The VOD is finalized either way: a failed publish leaves an upload
-		// the streamer can still publish from the app, so it is logged, not
-		// retried (a retry would finalize and publish the tracks again).
+		// The VOD is finalized either way, so a failed publish is not
+		// retried (a retry would finalize the recording again). It leaves
+		// the streamer a ready draft instead, to publish from the Drafts tab;
+		// the publish remembers any track records it got as far as minting on
+		// the upload, and the draft's publish reuses them.
+		var perr error
 		if state.videoPublisher == nil {
-			log.Error(ctx, "finalize-livestream-vod: publish requested but no video publisher configured", "uploadId", t.UploadID)
-		} else if uri, vcid, perr := state.videoPublisher(ctx, t); perr != nil {
-			log.Error(ctx, "finalize-livestream-vod: VOD finalized but publishing the video record failed", "uploadId", t.UploadID, "error", perr)
+			perr = errors.New("no video publisher configured")
+		} else if uri, vcid, err := state.videoPublisher(ctx, t); err != nil {
+			perr = err
 		} else {
 			log.Log(ctx, "livestream VOD published", "uploadId", t.UploadID, "uri", uri, "cid", vcid)
+		}
+		if perr != nil {
+			log.Error(ctx, "finalize-livestream-vod: VOD finalized but publishing the video record failed; leaving a draft", "uploadId", t.UploadID, "error", perr)
+			if _, err := state.CreateLivestreamDraft(ctx, t.RepoDID, t.UploadID, t.Publish); err != nil {
+				log.Error(ctx, "finalize-livestream-vod: could not create a draft for the unpublished VOD", "uploadId", t.UploadID, "error", err)
+			} else if err := state.markDraftReadyFromUpload(ctx, t.UploadID); err != nil {
+				log.Warn(ctx, "failed to mark draft ready", "uploadId", t.UploadID, "error", err)
+			}
 		}
 	}
 	return state.CompleteTask(ctx, task.ID)

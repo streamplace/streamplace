@@ -159,7 +159,7 @@ func (a *StreamplaceAPI) HandlePublishVideo(ctx context.Context) httprouter.Hand
 		if len(uris) == 0 && strings.HasPrefix(upload.Location, "at://") {
 			uris = []string{upload.Location}
 		}
-		var items []livestreamItem
+		var items []statedb.LivestreamItem
 		if len(uris) > 0 {
 			var herr *httpError
 			items, herr = a.livestreamItems(uris)
@@ -167,14 +167,14 @@ func (a *StreamplaceAPI) HandlePublishVideo(ctx context.Context) httprouter.Hand
 				herr.write(w)
 				return
 			}
-			if items[0].ls.RepoDID != upload.RepoDID {
+			if items[0].Livestream.RepoDID != upload.RepoDID {
 				sperrors.WriteHTTPBadRequest(w, "the livestreams belong to a different streamer than the upload", nil)
 				return
 			}
 		}
 		var draft *statedb.VideoDraft
 		if len(items) > 0 {
-			draft = videoDraftForLivestreams(items, req.Title, req.Description)
+			draft = statedb.VideoDraftForLivestreams(items, req.Title, req.Description)
 		} else {
 			title := strings.TrimSpace(req.Title)
 			if title == "" {
@@ -230,7 +230,7 @@ func (a *StreamplaceAPI) HandleUpdateVideo(ctx context.Context) httprouter.Handl
 				herr.write(w)
 				return
 			}
-			up.Connections = livestreamConnections(items)
+			up.Connections = statedb.VideoDraftForLivestreams(items, "", "").Connections
 		}
 		cid, err := vod.UpdateVideo(ctx, a.StatefulDB, a.PlaybackStore, req.URI, up)
 		if err != nil {

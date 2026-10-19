@@ -19,10 +19,11 @@ Record containing user settings for a particular Streamplace node
 
 **Record Properties:**
 
-| Name                  | Type      | Req'd | Description                                                                     | Constraints |
-| --------------------- | --------- | ----- | ------------------------------------------------------------------------------- | ----------- |
-| `debugRecording`      | `boolean` | ❌    | Whether this node may archive your livestream for improving the service         |             |
-| `livestreamRecording` | `boolean` | ❌    | Whether this node should record your livestreams into VODs that you can publish |             |
+| Name                  | Type      | Req'd | Description                                                                                      | Constraints |
+| --------------------- | --------- | ----- | ------------------------------------------------------------------------------------------------ | ----------- |
+| `debugRecording`      | `boolean` | ❌    | Whether this node may archive your livestream for improving the service                          |             |
+| `livestreamRecording` | `boolean` | ❌    | Whether this node should record your livestreams into VODs that you can publish                  |             |
+| `autoPublishVods`     | `boolean` | ❌    | Whether this node should publish the VOD of each of your recorded livestreams as soon as it ends |             |
 
 ---
 
@@ -48,6 +49,10 @@ Record containing user settings for a particular Streamplace node
           "livestreamRecording": {
             "type": "boolean",
             "description": "Whether this node should record your livestreams into VODs that you can publish"
+          },
+          "autoPublishVods": {
+            "type": "boolean",
+            "description": "Whether this node should publish the VOD of each of your recorded livestreams as soon as it ends"
           }
         }
       }

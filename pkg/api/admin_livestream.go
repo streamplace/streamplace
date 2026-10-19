@@ -5,14 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"sort"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
-	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -59,13 +56,6 @@ type finalizeLivestreamResponse struct {
 	TaskQueue   string   `json:"taskQueue"`
 }
 
-// livestreamItem is one livestream record: the indexed row and its decoded
-// record.
-type livestreamItem struct {
-	ls  *model.Livestream
-	rec *placestream.Livestream
-}
-
 // HandleFinalizeLivestream (internal API, POST /finalize-livestream) turns a
 // recorded livestream into a VOD and, by default, publishes it on the
 // streamer's channel: the operator's counterpart of the app's Livestreams
@@ -100,24 +90,24 @@ func (a *StreamplaceAPI) HandleFinalizeLivestream(ctx context.Context) httproute
 			herr.write(w)
 			return
 		}
-		repoDID := items[0].ls.RepoDID
+		repoDID := items[0].Livestream.RepoDID
 		ordered := make([]string, len(items))
 		for i, it := range items {
-			ordered[i] = it.ls.URI
+			ordered[i] = it.Livestream.URI
 		}
 		// endRecords ends the listed records the streamer never stopped,
 		// noting each outcome on the response.
 		endRecords := func(resp *finalizeLivestreamResponse) {
 			for _, it := range items {
-				if it.rec.EndedAt != nil {
-					resp.Ended = append(resp.Ended, it.ls.URI)
+				if it.Record.EndedAt != nil {
+					resp.Ended = append(resp.Ended, it.Livestream.URI)
 					continue
 				}
-				if err := a.StatefulDB.EndLivestreamRecord(ctx, it.ls, it.rec); err != nil {
-					log.Error(ctx, "operator finalize: could not end livestream record", "livestream", it.ls.URI, "error", err)
-					resp.EndErrors = append(resp.EndErrors, it.ls.URI+": "+err.Error())
+				if err := a.StatefulDB.EndLivestreamRecord(ctx, it.Livestream, it.Record); err != nil {
+					log.Error(ctx, "operator finalize: could not end livestream record", "livestream", it.Livestream.URI, "error", err)
+					resp.EndErrors = append(resp.EndErrors, it.Livestream.URI+": "+err.Error())
 				} else {
-					resp.Ended = append(resp.Ended, it.ls.URI)
+					resp.Ended = append(resp.Ended, it.Livestream.URI)
 				}
 			}
 		}
@@ -162,18 +152,12 @@ func (a *StreamplaceAPI) HandleFinalizeLivestream(ctx context.Context) httproute
 			return
 		}
 		uploadID := uu.String()
-		if err := a.StatefulDB.CreateUpload(ctx, &statedb.Upload{
-			ID:       uploadID,
-			RepoDID:  repoDID,
-			MimeType: "video/mp4",
-			Backend:  "live",
-			Location: ordered[0],
-		}); err != nil {
+		if err := a.StatefulDB.CreateLivestreamUpload(ctx, uploadID, repoDID, ordered[0]); err != nil {
 			errors.WriteHTTPInternalServerError(w, "create upload", err)
 			return
 		}
 		task := statedb.FinalizeLivestreamVODTask{UploadID: uploadID, RepoDID: repoDID, LivestreamURI: ordered[0], LivestreamURIs: ordered}
-		video := videoDraftForLivestreams(items, req.Title, req.Description)
+		video := statedb.VideoDraftForLivestreams(items, req.Title, req.Description)
 		if publish {
 			task.Publish = video
 		}
@@ -187,8 +171,8 @@ func (a *StreamplaceAPI) HandleFinalizeLivestream(ctx context.Context) httproute
 			endRecords(&resp)
 		} else {
 			for _, it := range items {
-				if it.rec.EndedAt != nil {
-					resp.Ended = append(resp.Ended, it.ls.URI)
+				if it.Record.EndedAt != nil {
+					resp.Ended = append(resp.Ended, it.Livestream.URI)
 				}
 			}
 		}
@@ -217,8 +201,8 @@ func (e *httpError) write(w http.ResponseWriter) {
 // livestreamItems resolves livestream URIs to their indexed rows and decoded
 // records, checks they belong to one streamer, and orders them by creation:
 // recording order is record order, whatever order the caller listed them in.
-func (a *StreamplaceAPI) livestreamItems(uris []string) ([]livestreamItem, *httpError) {
-	items := make([]livestreamItem, 0, len(uris))
+func (a *StreamplaceAPI) livestreamItems(uris []string) ([]statedb.LivestreamItem, *httpError) {
+	items := make([]statedb.LivestreamItem, 0, len(uris))
 	for _, u := range uris {
 		ls, err := a.Model.GetLivestream(u)
 		if err != nil {
@@ -235,14 +219,14 @@ func (a *StreamplaceAPI) livestreamItems(uris []string) ([]livestreamItem, *http
 		if !ok {
 			return nil, &httpError{http.StatusInternalServerError, "record is not a place.stream.livestream: " + u, nil}
 		}
-		items = append(items, livestreamItem{ls: ls, rec: rec})
+		items = append(items, statedb.LivestreamItem{Livestream: ls, Record: rec})
 	}
 	for _, it := range items[1:] {
-		if it.ls.RepoDID != items[0].ls.RepoDID {
+		if it.Livestream.RepoDID != items[0].Livestream.RepoDID {
 			return nil, &httpError{http.StatusBadRequest, "the livestreams belong to different streamers", nil}
 		}
 	}
-	sort.SliceStable(items, func(i, j int) bool { return items[i].rec.CreatedAt < items[j].rec.CreatedAt })
+	sort.SliceStable(items, func(i, j int) bool { return items[i].Record.CreatedAt < items[j].Record.CreatedAt })
 	return items, nil
 }
 
@@ -253,52 +237,4 @@ func contains(list []string, v string) bool {
 		}
 	}
 	return false
-}
-
-// livestreamConnections is a video record's connections to the livestream
-// records it is the recording of.
-func livestreamConnections(items []livestreamItem) []placestream.Video_Connections_Elem {
-	out := make([]placestream.Video_Connections_Elem, 0, len(items))
-	for _, it := range items {
-		out = append(out, placestream.Video_Connections_Elem{
-			Video_Connection: &placestream.Video_Connection{
-				LexiconTypeID: "place.stream.video#connection",
-				Ref:           &comatproto.RepoStrongRef{Uri: it.ls.URI, Cid: it.ls.CID},
-			},
-		})
-	}
-	return out
-}
-
-// videoDraftForLivestreams describes the place.stream.video record for the
-// VOD of one or more livestream records: the first one's title (or the given
-// one), description, tags and activity, connected to every livestream record
-// the way the app's draft is connected to its one. Duration, source tracks
-// and thumbnail are filled in at publish time from the finalized upload.
-func videoDraftForLivestreams(items []livestreamItem, title, description string) *statedb.VideoDraft {
-	first := items[0].rec
-	title = strings.TrimSpace(title)
-	if title == "" {
-		title = strings.TrimSpace(first.Title)
-	}
-	if title == "" {
-		title = "Livestream"
-	}
-	v := &statedb.VideoDraft{
-		Title: title,
-		Tags:  first.Tags,
-	}
-	v.Connections = livestreamConnections(items)
-	if d := strings.TrimSpace(description); d != "" {
-		v.Description = &d
-	}
-	if first.Activity != nil {
-		switch {
-		case first.Activity.Defs_ActivityGame != nil:
-			v.Activity = &placestream.Video_Activity{Defs_ActivityGame: first.Activity.Defs_ActivityGame}
-		case first.Activity.Defs_ActivityLabel != nil:
-			v.Activity = &placestream.Video_Activity{Defs_ActivityLabel: first.Activity.Defs_ActivityLabel}
-		}
-	}
-	return v
 }

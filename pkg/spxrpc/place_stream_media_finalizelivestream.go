@@ -46,20 +46,12 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 		return nil, echo.NewHTTPError(http.StatusNotFound, "livestream not found")
 	}
 
-	// Synthetic Upload row so the client reuses the getUploadStatus /
-	// publishVideo flow it already has for resumable uploads.
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	uploadID := uu.String()
-	if err := s.statefulDB.CreateUpload(ctx, &statedb.Upload{
-		ID:       uploadID,
-		RepoDID:  session.DID,
-		MimeType: "video/mp4",
-		Backend:  "live",
-		Location: body.Livestream,
-	}); err != nil {
+	if err := s.statefulDB.CreateLivestreamUpload(ctx, uploadID, session.DID, body.Livestream); err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -67,7 +59,16 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 	// metadata and linking back to it via connections. The client no longer polls
 	// or publishes — the draft reaches 'ready' server-side and the user
 	// publishes it later from the Drafts tab.
-	draft, err := s.createLivestreamDraft(ctx, session.DID, uploadID, ls)
+	view, err := ls.ToLivestreamView()
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	rec, ok := view.Record.Val.(*placestream.Livestream)
+	if !ok {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "livestream record is not a place.stream.livestream")
+	}
+	video := statedb.VideoDraftForLivestreams([]statedb.LivestreamItem{{Livestream: ls, Record: rec}}, "", "")
+	draft, err := s.statefulDB.CreateLivestreamDraft(ctx, session.DID, uploadID, video)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

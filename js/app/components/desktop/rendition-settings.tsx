@@ -55,11 +55,12 @@ const DEFAULTS: Settings = {
   opus: false,
 };
 
-// The record keys the form stands for: saving writes these, and deletes
-// whatever else it found, so it never leaves a record it doesn't show.
+// The records the form stands for: saving writes these, and deletes whatever
+// else it found, so it never leaves a record it doesn't show. Audio keeps
+// each record's bitrate, which the form doesn't edit.
 interface Keys {
   video: string[];
-  audio: { rkey: string; codec: string }[];
+  audio: { rkey: string; codec: string; bitrate: number }[];
 }
 
 /**
@@ -93,6 +94,7 @@ export function RenditionSettings() {
           audio: audio.records.map((r) => ({
             rkey: rkey(r.uri),
             codec: (r.value as any).codec,
+            bitrate: (r.value as any).bitrate,
           })),
         };
         setKeys(loaded);
@@ -138,14 +140,27 @@ export function RenditionSettings() {
         rkey,
       });
     const [numerator, denominator] = settings.fps.split("/").map(Number);
+    // A new record's key is its codec, or the first free variant of it: a
+    // loaded record may hold another codec under that name.
+    const taken = new Set(keys.audio.map((a) => a.rkey));
+    const freeKey = (codec: string) => {
+      let key = codec;
+      for (let n = 2; taken.has(key); n++) key = `${codec}-${n}`;
+      taken.add(key);
+      return key;
+    };
     const next: Keys = {
       video: settings.video ? [keys.video[0] ?? "main"] : [],
       audio: (Object.keys(AUDIO_BITRATES) as AudioCodec[])
         .filter((codec) => settings[codec])
-        .map((codec) => ({
-          codec,
-          rkey: keys.audio.find((a) => a.codec === codec)?.rkey ?? codec,
-        })),
+        .map(
+          (codec) =>
+            keys.audio.find((a) => a.codec === codec) ?? {
+              codec,
+              rkey: freeKey(codec),
+              bitrate: AUDIO_BITRATES[codec],
+            },
+        ),
     };
     try {
       for (const rkey of keys.video.filter((k) => !next.video.includes(k))) {
@@ -165,11 +180,8 @@ export function RenditionSettings() {
           bitrate,
         });
       }
-      for (const { rkey, codec } of next.audio) {
-        await put(AUDIO, rkey, {
-          codec,
-          bitrate: AUDIO_BITRATES[codec as AudioCodec],
-        });
+      for (const { rkey, codec, bitrate } of next.audio) {
+        await put(AUDIO, rkey, { codec, bitrate });
       }
       setKeys(next);
       toast.show("Saved", "OBS picks these up the next time it goes live.");

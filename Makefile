@@ -1104,7 +1104,7 @@ download_file?=""
 .PHONY: ci-download-file
 ci-download-file:
 	curl \
-		--fail-with-body \
+		--fail-with-body --create-dirs \
 		--header "JOB-TOKEN: $$CI_JOB_TOKEN" \
 		-o bin/$(download_file) \
 		"$$CI_API_V4_URL/projects/$$CI_PROJECT_ID/packages/generic/$(BRANCH)/$(VERSION)/$(download_file)";

@@ -134,14 +134,23 @@ export const installPluginDir = async (
   // Staged inside root, so swapping it in is a rename on one filesystem. OBS
   // doesn't load from here: the module sits one directory too deep.
   const stage = await mkdtemp(join(root, ".obs-streamplace-"));
+  const target = join(root, basename(bundled));
+  const old = join(stage, "old");
+  let movedOld = false;
   try {
-    const target = join(root, basename(bundled));
     await cp(bundled, join(stage, "new"), { recursive: true });
     // On Windows this fails while OBS has the DLL loaded, before anything changes.
-    await rename(target, join(stage, "old")).catch((e) => {
-      if (e.code !== "ENOENT") throw e;
+    await rename(target, old).then(
+      () => (movedOld = true),
+      (e) => {
+        if (e.code !== "ENOENT") throw e;
+      },
+    );
+    await rename(join(stage, "new"), target).catch(async (e) => {
+      // Put the working copy back rather than leave OBS without one.
+      if (movedOld) await rename(old, target);
+      throw e;
     });
-    await rename(join(stage, "new"), target);
   } finally {
     await rm(stage, { recursive: true, force: true });
   }

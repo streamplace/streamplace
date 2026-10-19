@@ -62,6 +62,7 @@ test("desktop-upstream-station: login and writes survive closing Desktop", async
     AQD_NODE_FRONTEND: "true",
     AQD_NO_UPDATE: "true",
     SP_UPSTREAM_STATION: `did:web:${new URL(process.env.UPSTREAM_STATION_URL!).hostname}`,
+    SP_RELAY_HOST: process.env.ATMOQ_RELAY_URL!,
     SP_HTTP_ADDR: localHost,
     SP_HTTP_INTERNAL_ADDR: `127.0.0.1:${await freePort()}`,
     SP_RTMP_ADDR: `127.0.0.1:${await freePort()}`,
@@ -105,7 +106,7 @@ test("desktop-upstream-station: login and writes survive closing Desktop", async
   try {
     app = await launch();
     let page = await app.firstWindow();
-    await expect(page).toHaveURL(nodeURL + "/", { timeout: 60_000 });
+    await expect(page).toHaveURL(nodeURL + "/desktop", { timeout: 60_000 });
     await loginThroughPds(page, nodeURL);
     await page.goto(nodeURL + "/settings/privacy");
     const toggleName = `Allow ${localHost} to record your livestream for debugging and improving the service`;

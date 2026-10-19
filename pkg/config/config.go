@@ -105,7 +105,6 @@ type CLI struct {
 	StreamerName                string
 	RelayHost                   string
 	UpstreamStation             string
-	AtmoqRelay                  string
 	Debug                       map[string]map[string]int
 	AllowedStreams              []string
 	WideOpen                    bool
@@ -692,15 +691,9 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:        "upstream-station",
-				Usage:       "DID of an upstream Streamplace station; consume its MoQ firehose, delegate OAuth to it, and scrape only locally authenticated users",
+				Usage:       "DID of an upstream Streamplace station, for a node that indexes only its own logged-in users: OAuth goes through the station, streams are pushed to it (unless --peers is set), and those users' firehose events come from per-DID tracks on the MoQ --relay-host",
 				Destination: &cli.UpstreamStation,
 				Sources:     urfavecli.EnvVars("SP_UPSTREAM_STATION"),
-			},
-			&urfavecli.StringFlag{
-				Name:        "atmoq-relay",
-				Usage:       "MoQ firehose URL to advertise in this station's DID document for upstream-station clients",
-				Destination: &cli.AtmoqRelay,
-				Sources:     urfavecli.EnvVars("SP_ATMOQ_RELAY"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "color",
@@ -1575,6 +1568,13 @@ func (cli *CLI) CheckConfig() error {
 		if _, err := syntax.ParseDID(cli.UpstreamStation); err != nil {
 			errs = append(errs, fmt.Errorf("--upstream-station: %w", err))
 		}
+		// Only a MoQ relay can serve one account's events (a per-DID track);
+		// a WebSocket relay would hand this node every account's.
+		for _, relay := range strings.Split(cli.RelayHost, ",") {
+			if err := ValidateMoQOrigin(strings.TrimSpace(relay)); err != nil {
+				errs = append(errs, fmt.Errorf("--upstream-station needs MoQ --relay-host entries: %w", err))
+			}
+		}
 	}
 	if cli.UpstreamStation != "" && !cli.Secure {
 		// The advertised URL maps a wildcard bind (":38080") to 127.0.0.1,
@@ -1588,11 +1588,6 @@ func (cli *CLI) CheckConfig() error {
 		origin, err := url.Parse(cli.OwnPublicURL())
 		if err != nil || !net.ParseIP(origin.Hostname()).IsLoopback() {
 			errs = append(errs, fmt.Errorf("local OAuth requires a loopback --http-addr or --secure"))
-		}
-	}
-	if cli.AtmoqRelay != "" {
-		if err := ValidateMoQOrigin(cli.AtmoqRelay); err != nil {
-			errs = append(errs, fmt.Errorf("--atmoq-relay: %w", err))
 		}
 	}
 	return errors.Join(errs...)

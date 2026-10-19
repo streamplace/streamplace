@@ -191,7 +191,7 @@ SP_E2E_UPSTREAM_STATION=true SP_E2E_ATMOQ_BIN=/path/to/atmoq \
 The harness starts the existing PDS/PLC, an HTTPS upstream station, a separate
 HTTP loopback node configured with `SP_UPSTREAM_STATION=did:web:<station>`,
 and `atmoq serve` bridging the PDS's actual WebSocket firehose to QUIC.
-The station advertises the bridge through `SP_ATMOQ_RELAY`. QUIC verifies the
+The loopback node takes the bridge as its `SP_RELAY_HOST`. QUIC verifies the
 throwaway CA and the leaf's loopback IP SAN; there is no insecure TLS override,
 mock frame source or fake protocol server. The bridge uses a one-frame group
 for sparse per-user traffic. URLs printed as evidence are `SERVER_URL`,

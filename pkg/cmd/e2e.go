@@ -416,9 +416,6 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	if tlsEnv != nil {
 		nodeEnv = append(nodeEnv, tlsEnv.NodeEnv()...)
 	}
-	if upstream {
-		nodeEnv = append(nodeEnv, "SP_ATMOQ_RELAY="+bridgeURL)
-	}
 	if appBundleID != "" {
 		nodeEnv = append(nodeEnv, "SP_APP_BUNDLE_ID="+appBundleID)
 	}
@@ -516,7 +513,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	var local *e2eLocalNode
 	var unrelated *e2eUnrelatedAccount
 	if upstream {
-		local, err = startE2ELocalNode(ctx, self, tlsEnv, env, out.Did, appBundleID)
+		local, err = startE2ELocalNode(ctx, self, tlsEnv, env, out.Did, appBundleID, bridgeURL)
 		if err != nil {
 			return err
 		}

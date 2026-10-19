@@ -46,20 +46,30 @@ export default async function makeNode(opts: {
     opts.env.SP_HTTP_INTERNAL_ADDR ??
     process.env.SP_HTTP_INTERNAL_ADDR ??
     "127.0.0.1:39092";
+  // A single-user node: it indexes only the accounts logged into it, signs
+  // them in and pushes their streams through the station, and takes their
+  // firehose events from per-DID tracks on the station's MoQ relay. An empty
+  // SP_UPSTREAM_STATION runs an ordinary standalone node instead.
+  const upstreamStation =
+    opts.env.SP_UPSTREAM_STATION ??
+    process.env.SP_UPSTREAM_STATION ??
+    "did:web:stream.place";
+  const relayHost =
+    opts.env.SP_RELAY_HOST ??
+    process.env.SP_RELAY_HOST ??
+    (upstreamStation ? "moqt://streamplace.network" : undefined);
   const proc = spawn(exe, [], {
     stdio: "inherit",
     env: {
       ...process.env,
-      SP_UPSTREAM_STATION:
-        opts.env.SP_UPSTREAM_STATION ??
-        process.env.SP_UPSTREAM_STATION ??
-        "did:web:stream.place",
+      SP_UPSTREAM_STATION: upstreamStation,
+      ...(relayHost !== undefined && { SP_RELAY_HOST: relayHost }),
       SP_HTTP_ADDR: addr,
       SP_HTTP_INTERNAL_ADDR: internalAddr,
-      // Every listener on loopback: the node takes any valid stream key, so
-      // it must only hear this machine's encoders.
-      SP_RTMP_ADDR: "127.0.0.1:1935",
-      SP_MOQ_ADDR: "127.0.0.1:38443",
+      // Every listener on loopback by default: the node takes any valid
+      // stream key, so it must only hear this machine's encoders.
+      SP_RTMP_ADDR: process.env.SP_RTMP_ADDR ?? "127.0.0.1:1935",
+      SP_MOQ_ADDR: process.env.SP_MOQ_ADDR ?? "127.0.0.1:38443",
       ...opts.env,
     },
     windowsHide: true,

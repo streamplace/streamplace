@@ -19,6 +19,6 @@ if [ ! -f "$REPO_ROOT/go.mod" ] || [ ! -f "$REPO_ROOT/pkg/config/git/git.go" ]; 
 fi
 STREAMPLACE_DEV_VERSION=$(cd -- "$REPO_ROOT" && go run ./pkg/config/git/git.go -v) \
 LD_LIBRARY_PATH="$SCRIPT_DIR/lib" \
-SP_DEV_FRONTEND_PROXY="http://127.0.0.1:38081" \
+SP_DEV_FRONTEND_PROXY="${SP_DEV_FRONTEND_PROXY-http://127.0.0.1:38081}" \
 SP_DEV_PUBLIC_OAUTH="${SP_DEV_PUBLIC_OAUTH:-true}" \
   exec "$SCRIPT_DIR/libstreamplace" "$@"

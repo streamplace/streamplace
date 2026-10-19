@@ -22,7 +22,7 @@ func (a *StreamplaceAPI) HandleDidJSON(ctx context.Context) httprouter.Handle {
 			host = a.CLI.BroadcasterHost
 			pubKey = atproto.LexiconPubMultibase
 		}
-		didJSON := atproto.DIDDoc(host, pubKey)
+		didJSON := atproto.DIDDoc(host, pubKey, a.CLI.AtmoqRelay)
 		w.WriteHeader(200)
 		w.Header().Set("Content-Type", "application/json")
 		bs, err := json.Marshal(didJSON)

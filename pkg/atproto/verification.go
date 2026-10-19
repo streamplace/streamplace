@@ -340,6 +340,9 @@ type listRecordsOut struct {
 }
 
 func (atsync *ATProtoSynchronizer) seedVerifier(ctx context.Context, did string) error {
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
+		return err
+	}
 	ident, err := atsync.resolveIdent(ctx, did, true)
 	if err != nil {
 		return err
@@ -351,6 +354,9 @@ func (atsync *ATProtoSynchronizer) seedVerifier(ctx context.Context, did string)
 	cursor := ""
 	total := 0
 	for {
+		if _, err := atsync.indexingDID(ctx, did); err != nil {
+			return err
+		}
 		params := map[string]any{
 			"repo":       did,
 			"collection": constants.APP_BSKY_GRAPH_VERIFICATION,

@@ -1,0 +1,72 @@
+appId: ${APP_ID}
+tags:
+  - upstream-station
+---
+# The generated plan first runs server-setup and the real OAuth login flow.
+# SERVER_URL is the local HTTP loopback node, not the HTTPS station. Android
+# uses adb reverse; iOS Simulator reaches host loopback directly. Both hop
+# through the station's HTTPS OAuth and the PDS's genuine consent pages.
+- assertTrue: ${E2E_UPSTREAM_STATION == "true"}
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 60000
+- tapOn:
+    id: "home-stream-card"
+- extendedWaitUntil:
+    visible:
+      text: ".*e2e test stream.*"
+    timeout: 30000
+- tapOn:
+    id: "chat-input"
+- inputText: "upstream-station native write"
+- extendedWaitUntil:
+    visible:
+      text: "Send"
+      enabled: true
+    timeout: 30000
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      text: ".*: upstream-station native write"
+    timeout: 30000
+- takeScreenshot: upstream-station-write
+# Kill the app process, not merely its navigation. The reloaded history is
+# served by the local index from the selected user's MoQ track, not the
+# optimistic chat bubble. The persisted OAuth client must still write.
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 60000
+- tapOn:
+    id: "home-stream-card"
+- extendedWaitUntil:
+    visible:
+      text: ".*: upstream-station native write"
+    timeout: 30000
+- tapOn:
+    id: "chat-input"
+- inputText: "upstream-station native write after relaunch"
+- extendedWaitUntil:
+    visible:
+      text: "Send"
+      enabled: true
+    timeout: 30000
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      text: ".*: upstream-station native write after relaunch"
+    timeout: 30000
+- stopApp
+- launchApp
+- tapOn:
+    id: "home-stream-card"
+- extendedWaitUntil:
+    visible:
+      text: ".*: upstream-station native write after relaunch"
+    timeout: 30000
+- takeScreenshot: upstream-station-history-after-relaunch

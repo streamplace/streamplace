@@ -3,7 +3,7 @@
 # Run the headless-web e2e suite (Playwright) against a self-contained
 # `streamplace e2e` harness — the web counterpart to hack/e2e-local.sh.
 #
-#   hack/e2e-web-local.sh [-- <extra playwright args>]
+#   hack/e2e-web-local.sh [--upstream-station] [-- <extra playwright args>]
 #
 # Prerequisites:
 #   * A streamplace binary with the embedded web bundle (`make dev`).
@@ -24,9 +24,17 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 REPO="$PWD"
 
+if [ "${1:-}" = "--upstream-station" ]; then
+  export SP_E2E_UPSTREAM_STATION=true
+  shift
+fi
+[ "${1:-}" != "--" ] || shift
 # shellcheck source=hack/lib/e2e-harness.sh
 . hack/lib/e2e-harness.sh
 e2e_harness_start
+if [ "${E2E_UPSTREAM_STATION:-}" = true ] && [ $# -eq 0 ]; then
+  set -- upstream-station.spec.ts
+fi
 
 # --- run the flows ---------------------------------------------------------
 # No `exec` here: that would replace this shell and discard the EXIT trap,

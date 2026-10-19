@@ -7,6 +7,7 @@ import (
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/model"
 )
 
 // literals instead of the pkg/atproto constants: that package imports
@@ -81,5 +82,41 @@ func TestGetSessionByDIDWithScope(t *testing.T) {
 		got, err = state.GetSessionByDIDWithScope(legacyDID, scopeBskyActorStatus)
 		require.NoError(t, err)
 		require.Equal(t, "jkt-legacy", got.DownstreamDPoPJKT)
+	})
+}
+
+func TestLoadOAuthSessionReadyPDSBinding(t *testing.T) {
+	WithAllDatabases(t, func(state *StatefulDB) {
+		const did = "did:plc:oauth-ready-binding"
+		require.NoError(t, state.model.UpdateRepo(&model.Repo{DID: did, PDS: "https://actual-pds.example"}))
+		ready := &oatproxy.OAuthSession{DID: did, DownstreamDPoPJKT: "ready-binding", DownstreamAccessToken: "access", PDSUrl: "https://old-pds.example"}
+		require.NoError(t, state.CreateOAuthSession(ready.DownstreamDPoPJKT, ready))
+		_, err := state.LoadOAuthSession(ready.DownstreamDPoPJKT)
+		require.ErrorContains(t, err, "pds mismatch", "ready sessions must execute the previously unreachable PDS check")
+		now := time.Now()
+		ready.DownstreamRevokedAt = &now
+		require.NoError(t, state.UpdateOAuthSession(ready.DownstreamDPoPJKT, ready))
+		_, err = state.LoadOAuthSession(ready.DownstreamDPoPJKT)
+		require.ErrorContains(t, err, "pds mismatch", "retained upstream sessions are also PDS-bound")
+		state.CLI.UpstreamStation = "did:web:station.example"
+		delegated, err := state.LoadOAuthSession(ready.DownstreamDPoPJKT)
+		require.NoError(t, err)
+		require.Equal(t, ready.PDSUrl, delegated.PDSUrl, "station delegation does not overwrite indexed identity")
+		repo, err := state.model.GetRepo(did)
+		require.NoError(t, err)
+		require.Equal(t, "https://actual-pds.example", repo.PDS)
+	})
+}
+
+func TestLoadOAuthSessionBeforeInitialSync(t *testing.T) {
+	WithAllDatabases(t, func(state *StatefulDB) {
+		session := &oatproxy.OAuthSession{DID: "did:plc:new-oauth-user", DownstreamDPoPJKT: "initial-sync", DownstreamAccessToken: "access", PDSUrl: "https://pds.example"}
+		require.NoError(t, state.CreateOAuthSession(session.DownstreamDPoPJKT, session))
+		loaded, err := state.LoadOAuthSession(session.DownstreamDPoPJKT)
+		require.NoError(t, err, "successful login is persisted before initial asynchronous indexing")
+		require.Equal(t, session.DID, loaded.DID)
+		missing, err := state.LoadOAuthSession("never-created")
+		require.NoError(t, err)
+		require.Nil(t, missing)
 	})
 }

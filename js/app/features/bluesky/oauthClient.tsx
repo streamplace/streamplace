@@ -5,7 +5,7 @@ import {
   clientMetadataSchema,
   OAuthClient,
 } from "./oauthClientImport";
-import { StreamplaceOAuthResolver } from "./oauthResolver";
+import { routeOAuthThroughStreamplace } from "./oauthResolver";
 
 export default async function createOAuthClient(
   streamplaceUrl: string,
@@ -15,63 +15,55 @@ export default async function createOAuthClient(
     throw new Error("streamplaceUrl is required");
   }
 
-  // Will be set after we create the custom resolver
-  let customResolver: StreamplaceOAuthResolver | null = null;
+  let getLoginHint: (() => string | null) | null = null;
 
   let meta: ClientMetadata;
 
-  const redirectURI =
-    Platform.OS === "web"
-      ? `${streamplaceUrl}/login`
-      : `${streamplaceUrl}/api/app-return`;
+  const nodeUrl = new URL(streamplaceUrl);
+  const isLoopback =
+    nodeUrl.protocol === "http:" &&
+    (nodeUrl.hostname === "localhost" ||
+      nodeUrl.hostname === "127.0.0.1" ||
+      nodeUrl.hostname === "[::1]");
+  const callbackUrl = new URL(nodeUrl.toString());
+  if (isLoopback && callbackUrl.hostname === "localhost") {
+    callbackUrl.hostname = "127.0.0.1";
+  }
+  if (Platform.OS === "web") {
+    callbackUrl.pathname = "/login";
+  } else if (isLoopback) {
+    const scheme = Constants.expoConfig?.scheme;
+    if (!scheme) {
+      throw new Error("unable to resolve scheme for oauth redirect");
+    }
+    callbackUrl.pathname = `/app-return/${scheme}`;
+  } else {
+    callbackUrl.pathname = "/api/app-return";
+  }
+  const redirectURI = callbackUrl.toString();
   const res = await fetch(
     `${streamplaceUrl}/oauth/downstream/client-metadata.json?redirect_uri=${encodeURIComponent(redirectURI)}`,
   );
   meta = await res.json();
 
+  // Legacy public dev nodes advertise a HTTPS redirect wrapper even for their
+  // HTTP loopback client. New local nodes advertise the actual redirect.
   if (
-    streamplaceUrl.startsWith("http://localhost") ||
-    streamplaceUrl.startsWith("http://127.0.0.1")
+    isLoopback &&
+    meta.client_id?.startsWith("http://localhost?") &&
+    !meta.redirect_uris?.some((uri) => uri === redirectURI)
   ) {
     if (!meta.scope) {
       throw new Error("meta.scope is required");
     }
-    const isWeb = Platform.OS === "web";
-    const u = new URL(streamplaceUrl);
-    let hostname = u.hostname;
-    if (hostname == "localhost") {
-      hostname = "127.0.0.1";
-    }
-    let redirect = `${u.protocol}//${hostname}`;
-    if (u.port !== "") {
-      redirect = `${redirect}:${u.port}`;
-    }
-    if (isWeb) {
-      redirect = `${redirect}/login`;
-    } else {
-      const scheme = Constants.expoConfig?.scheme;
-      if (!scheme) {
-        throw new Error("unable to resolve scheme for oauth redirect");
-      }
-      redirect = `${redirect}/app-return/${scheme}`;
-    }
     const queryParams = new URLSearchParams();
     queryParams.set("scope", meta.scope);
-    queryParams.set("redirect_uri", redirect);
+    queryParams.set("redirect_uri", redirectURI);
     meta = {
+      ...meta,
       client_id: `http://localhost?${queryParams.toString()}`,
-      redirect_uris: [redirect as any],
-      scope: meta.scope,
-      token_endpoint_auth_method: "none",
-      client_name: "Loopback client",
-      response_types: ["code"],
-      grant_types: ["authorization_code", "refresh_token"],
-      // > There is a special exception for the localhost development workflow [ ... ]
-      // > These clients use web URLs, but have application_type set to native in the generated client metadata.
+      redirect_uris: [redirectURI as ClientMetadata["redirect_uris"][number]],
       application_type: "native",
-      dpop_bound_access_tokens: true,
-      subject_type: "public",
-      authorization_signed_response_alg: "ES256",
     };
   }
   try {
@@ -92,11 +84,11 @@ export default async function createOAuthClient(
 
       // Add login_hint parameter to PAR requests
       if (
-        customResolver &&
+        getLoginHint &&
         request.url.includes("/oauth/par") &&
         request.method === "POST"
       ) {
-        const resourceServer = customResolver.getCurrentResourceServer();
+        const resourceServer = getLoginHint();
         if (resourceServer) {
           const clonedRequest = request.clone();
           const body = await clonedRequest.text();
@@ -110,63 +102,9 @@ export default async function createOAuthClient(
         }
       }
 
-      if (streamplaceUrl.startsWith("http://127.0.0.1")) {
-        // everything other than PDS resolution gets rewritten to the host
-        if (
-          request.url.includes("plc.directory") ||
-          request.url.endsWith("did.json") ||
-          request.url.endsWith("/.well-known/oauth-protected-resource") ||
-          request.url.endsWith("/.well-known/oauth-authorization-server")
-        ) {
-          return fetch(request, init) as any;
-        }
-        const newUrl = new URL(request.url.toString());
-        newUrl.protocol = "http:";
-        newUrl.host = "127.0.0.1:38080";
-        let newRequest: Request;
-        if (request.method === "POST") {
-          const data = await request.blob();
-          newRequest = new Request(newUrl.toString(), {
-            body: data,
-            method: "POST",
-            headers: request.headers,
-          });
-        } else if (request.method === "GET") {
-          newRequest = new Request(newUrl.toString(), {
-            method: "GET",
-            headers: request.headers,
-          });
-        } else {
-          throw new Error("Unsupported method: " + request.method);
-        }
-        return fetch(newRequest) as any;
-      } else {
-        // Lie to the oauth client and use our upstream server instead
-        if (
-          request.url.includes("plc.directory") ||
-          request.url.endsWith("did.json")
-        ) {
-          const res = await fetch(request, init);
-          if (!res.ok) {
-            return res;
-          }
-          const data = await res.json();
-          const service = data.service.find(
-            (s: any) => s.id === "#atproto_pds",
-          );
-          if (!service) {
-            return res;
-          }
-          service.serviceEndpoint = streamplaceUrl;
-          return new Response(JSON.stringify(data), {
-            status: res.status,
-            headers: res.headers,
-          });
-        } else {
-          return fetch(request, init);
-        }
-      }
+      return fetch(request, init);
     },
+    allowHttp: isLoopback,
     handleResolver: streamplaceUrl,
     responseMode: "query", // or "fragment" (frontend only) or "form_post" (backend only)
 
@@ -175,15 +113,10 @@ export default async function createOAuthClient(
     clientMetadata: meta,
   });
 
-  // Replace the default OAuth resolver with our custom one
-  customResolver = new StreamplaceOAuthResolver(
+  getLoginHint = routeOAuthThroughStreamplace(
+    client.oauthResolver,
     streamplaceUrl,
-    client.oauthResolver.identityResolver,
-    client.oauthResolver.protectedResourceMetadataResolver,
-    client.oauthResolver.authorizationServerMetadataResolver,
   );
-  // @ts-ignore override readonly property
-  client.oauthResolver = customResolver;
 
   return client;
 }

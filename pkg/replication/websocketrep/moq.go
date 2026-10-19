@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"slices"
 	"strconv"
@@ -72,7 +73,13 @@ func (r *WebsocketReplicator) serveMoQ(ctx context.Context) error {
 		return err
 	}
 	defer requests.Cancel()
-	srv, err := official.Listen(ctx, r.cli.MoqAddr,
+	// Go's ":port" means every interface, which the transport only takes
+	// spelled out; its "[::]" socket is dual-stack.
+	bind := r.cli.MoqAddr
+	if host, port, err := net.SplitHostPort(bind); err == nil && host == "" {
+		bind = net.JoinHostPort("::", port)
+	}
+	srv, err := official.Listen(ctx, bind,
 		official.WithTLSCert(r.MoqTLS.CertPath), official.WithTLSKey(r.MoqTLS.KeyPath),
 		official.WithServerPublishOrigin(origin))
 	if err != nil {

@@ -98,7 +98,10 @@ func TestMoqServesTheBus(t *testing.T) {
 	tlsFiles, err := moq.ManagedTLSFiles(t.TempDir(), cert.Certificate)
 	require.NoError(t, err)
 	b := bus.NewBus()
-	r := &WebsocketReplicator{bus: b, cli: &config.CLI{MoqAddr: addr}, MoqTLS: tlsFiles}
+	// Listening the way --moq-addr defaults, with no host.
+	_, port, err := net.SplitHostPort(addr)
+	require.NoError(t, err)
+	r := &WebsocketReplicator{bus: b, cli: &config.CLI{MoqAddr: ":" + port}, MoqTLS: tlsFiles}
 	served := make(chan error, 1)
 	go func() { served <- r.serveMoQ(ctx) }()
 	defer func() {

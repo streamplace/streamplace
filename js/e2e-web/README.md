@@ -62,7 +62,9 @@ image uploads are already limited to the web.
 `stream` also covers the narrow portrait web layout at 320 × 568, where the
 live video sits above chat. It reveals the player chrome, exercises mute and
 fullscreen entry/exit, and verifies that faded controls reveal instead of
-accepting an unseen tap.
+accepting an unseen tap. Its readiness check uses the video itself: accumulated
+chat history can virtualize the stream's initial system message, so that row is
+not a reliable player prerequisite.
 
 `player-viewport` opts into the Vite web beta and starts the real harness's HLS
 stream at phone, tablet, square, and desktop sizes. After confirming playback,
@@ -99,6 +101,11 @@ automatic publishing consent; the PDS-backed regression for that index deletion
 lives in `pkg/atproto/auto_publish_vod_test.go`. It also injects a deletion failure
 and checks that later deletions still run while the commit watermark advances
 only after successful reprocessing.
+
+`syndication` plays the test stream from the harness's second node, which pulls
+it from the first over Media over QUIC (`SERVER2_URL`; see `docs/moq.md`). It is
+web-only: node-to-node transfer has no mobile surface, and the mobile flows play
+from the ingest node.
 
 ## OAuth over real HTTPS
 

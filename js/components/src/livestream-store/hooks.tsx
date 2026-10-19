@@ -4,6 +4,7 @@
 import { ComAtprotoModerationCreateReport } from "@atproto/api";
 import {
   detectChatFacets,
+  formatLocalTimestamp,
   type LivestreamState,
   type NewChatMessage,
   reduceChat,
@@ -97,11 +98,14 @@ export const useCreateChatMessage = () => {
     }
 
     const facets = await detectChatFacets(pdsAgent, msg.text);
+    // The formatter constructs an RFC 3339 datetime from the device clock.
+    const createdAt =
+      formatLocalTimestamp() as place.stream.chat.message.Main["createdAt"];
 
     const record: place.stream.chat.message.Main = {
       $type: "place.stream.chat.message",
       text: msg.text,
-      createdAt: new Date().toISOString() as any,
+      createdAt,
       streamer: streamerProfile.did as any,
       facets,
       ...(msg.reply

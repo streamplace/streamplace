@@ -46,6 +46,22 @@ The organization and generated config are platform-neutral; the current runner
 only provisions Android. No native Go Live scenario exists: native builds hide
 those controls, and `logged-out/tabs.yaml` checks they stay hidden.
 
+## Chat timestamp coverage
+
+`logged-in/chat-timezone.yaml` sends a unique message, verifies it survives a
+relaunch, then reads the actual `place.stream.chat.message` record from the PDS.
+It requires a numeric RFC 3339 offset matching the device, and checks that the
+timestamp represents the send instant rather than UTC mislabeled as local time.
+The shared flow works on iOS and Android; the Android runner supplies
+`ACCOUNT_DID`, `PDS_HTTP_URL` (the harness's loopback PDS listener), and
+`DEVICE_UTC_OFFSET` (`+HH:MM`, read with `adb shell date +%z`).
+Maestro's JavaScript runs on the host, so its own local time zone is not a device
+offset oracle. An iOS invocation must supply the same variables using the
+simulator's offset (normally the Mac host's).
+
+The Web counterpart, `js/e2e-web/flows/chat-timezone.spec.ts`, exercises both the
+Expo and Vite send paths in Los Angeles, Kathmandu, and UTC.
+
 ## Profile coverage
 
 `logged-in/chat-profile.yaml` taps the signed-in chat author's name, checks that the profile

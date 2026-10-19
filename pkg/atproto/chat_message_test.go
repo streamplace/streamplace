@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluesky-social/indigo/util"
 	"github.com/cenkalti/backoff"
 	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
@@ -79,10 +78,18 @@ func TestChatMessage(t *testing.T) {
 		}
 	}()
 
+	// Each client stamps createdAt in its own device-local offset. The strings
+	// sort opposite to the instants -- the earliest message has the lexically
+	// largest string -- so anything ordering by string, or reading an offset
+	// as Z, gets this wrong.
+	const localLayout = "2006-01-02T15:04:05.000Z07:00"
+	nepal := time.FixedZone("", 5*3600+45*60)
+	newfoundland := time.FixedZone("", -(3*3600 + 30*60))
+	now := time.Now()
 	msg := placestream.ChatMessage{
 		LexiconTypeID: "place.stream.chat.message",
 		Text:          "Hello, world!",
-		CreatedAt:     time.Now().Add(-time.Second).Format(util.ISO8601),
+		CreatedAt:     now.Add(-2 * time.Second).In(nepal).Format(localLayout),
 		Streamer:      user.DID,
 	}
 
@@ -96,7 +103,7 @@ func TestChatMessage(t *testing.T) {
 	msg2 := placestream.ChatMessage{
 		LexiconTypeID: "place.stream.chat.message",
 		Text:          "Hello, world 2!",
-		CreatedAt:     time.Now().Format(util.ISO8601),
+		CreatedAt:     now.In(newfoundland).Format(localLayout),
 		Streamer:      user.DID,
 	}
 
@@ -107,48 +114,51 @@ func TestChatMessage(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	// Legacy clients still stamp UTC with a Z.
+	msg3 := placestream.ChatMessage{
+		LexiconTypeID: "place.stream.chat.message",
+		Text:          "Hello, world 3!",
+		CreatedAt:     now.Add(-time.Second).UTC().Format(localLayout),
+		Streamer:      user.DID,
+	}
+
+	_, err = comatproto.RepoCreateRecord(ctx, user2.XRPC, &comatproto.RepoCreateRecord_Input{
+		Collection: "place.stream.chat.message",
+		Repo:       user2.DID,
+		Record:     &glex.LexiconTypeDecoder{Val: &msg3},
+	})
+	require.NoError(t, err)
+
 	messages := []placestream.ChatDefs_MessageView{}
 	err = untilNoErrors(t, func() error {
 		messages, err = mod.MostRecentChatMessages(user.DID, time.Time{})
 		if err != nil {
 			return err
 		}
-		if len(messages) != 2 {
-			return fmt.Errorf("expected 2 messages, got %d", len(messages))
+		if len(messages) != 3 {
+			return fmt.Errorf("expected 3 messages, got %d", len(messages))
 		}
-		if n := len(snapshotBus()); n != 2 {
-			return fmt.Errorf("expected 2 bus messages, got %d", n)
+		if n := len(snapshotBus()); n != 3 {
+			return fmt.Errorf("expected 3 bus messages, got %d", n)
 		}
 		return nil
 	})
-	// Reverse the messages slice to match expected order (most recent first)
-	slices.SortFunc(messages, func(a, b placestream.ChatDefs_MessageView) int {
-		aTime := a.Record.Val.(*placestream.ChatMessage).CreatedAt
-		bTime := b.Record.Val.(*placestream.ChatMessage).CreatedAt
-		if aTime < bTime {
-			return -1
-		} else if aTime > bTime {
-			return 1
-		}
-		return 0
-	})
+	require.NoError(t, err)
+	// History is newest first by instant. Live publication is asynchronous;
+	// sort only the bus snapshot to match, preserving the ordering assertion.
 	busSnapshot := snapshotBus()
 	slices.SortFunc(busSnapshot, func(a, b bus.Message) int {
-		aTime := a.(*placestream.ChatDefs_MessageView).Record.Val.(*placestream.ChatMessage).CreatedAt
-		bTime := b.(*placestream.ChatDefs_MessageView).Record.Val.(*placestream.ChatMessage).CreatedAt
-		if aTime < bTime {
-			return -1
-		} else if aTime > bTime {
-			return 1
-		}
-		return 0
+		return chatInstant(t, b.(*placestream.ChatDefs_MessageView).Record.Val.(*placestream.ChatMessage)).
+			Compare(chatInstant(t, a.(*placestream.ChatDefs_MessageView).Record.Val.(*placestream.ChatMessage)))
 	})
-	require.Equal(t, msg.Text, messages[0].Record.Val.(*placestream.ChatMessage).Text)
-	require.Equal(t, msg2.Text, messages[1].Record.Val.(*placestream.ChatMessage).Text)
-	busMessage1 := busSnapshot[0].(*placestream.ChatDefs_MessageView)
-	busMessage2 := busSnapshot[1].(*placestream.ChatDefs_MessageView)
-	require.Equal(t, msg.Text, busMessage1.Record.Val.(*placestream.ChatMessage).Text)
-	require.Equal(t, msg2.Text, busMessage2.Record.Val.(*placestream.ChatMessage).Text)
+	for i, want := range []placestream.ChatMessage{msg2, msg3, msg} {
+		got := messages[i].Record.Val.(*placestream.ChatMessage)
+		require.Equal(t, want.Text, got.Text)
+		require.Equal(t, want.CreatedAt, got.CreatedAt)
+		busGot := busSnapshot[i].(*placestream.ChatDefs_MessageView).Record.Val.(*placestream.ChatMessage)
+		require.Equal(t, want.Text, busGot.Text)
+		require.Equal(t, want.CreatedAt, busGot.CreatedAt)
+	}
 
 	rkey := strings.TrimPrefix(rec1.Uri, fmt.Sprintf("at://%s/place.stream.chat.message/", user.DID))
 
@@ -165,18 +175,20 @@ func TestChatMessage(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(messages) != 1 {
-			return fmt.Errorf("expected 1 message, got %d", len(messages))
+		if len(messages) != 2 {
+			return fmt.Errorf("expected 2 messages, got %d", len(messages))
 		}
-		if n := len(snapshotBus()); n != 3 {
-			return fmt.Errorf("expected 3 bus messages, got %d", n)
+		if n := len(snapshotBus()); n != 4 {
+			return fmt.Errorf("expected 4 bus messages, got %d", n)
 		}
 		return nil
 	})
 	require.NoError(t, err)
+	// MostRecentChatMessages is newest first, by instant.
 	require.Equal(t, msg2.Text, messages[0].Record.Val.(*placestream.ChatMessage).Text)
-	busMessage3 := snapshotBus()[2].(*placestream.ChatDefs_MessageView)
-	require.Equal(t, true, *busMessage3.Deleted)
+	require.Equal(t, msg3.Text, messages[1].Record.Val.(*placestream.ChatMessage).Text)
+	busMessage4 := snapshotBus()[3].(*placestream.ChatDefs_MessageView)
+	require.Equal(t, true, *busMessage4.Deleted)
 
 	cancel()
 	<-done
@@ -196,4 +208,11 @@ func untilNoErrors(t *testing.T, f func() error) error {
 		}
 	}
 	return err
+}
+
+func chatInstant(t *testing.T, rec *placestream.ChatMessage) time.Time {
+	t.Helper()
+	instant, err := time.Parse(time.RFC3339Nano, rec.CreatedAt)
+	require.NoError(t, err)
+	return instant
 }

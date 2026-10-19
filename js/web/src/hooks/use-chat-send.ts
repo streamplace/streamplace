@@ -1,6 +1,7 @@
 // Optimistic chat send: adds a local message immediately, POSTs to PDS, rolls back on failure.
 import {
   detectChatFacets,
+  formatLocalTimestamp,
   reduceChat,
   type ChatFacet,
   type LivestreamStore,
@@ -43,7 +44,9 @@ export function useChatSend(store: LivestreamStore) {
       }
 
       const localUri = `local-${Date.now()}`;
-      const createdAt = new Date().toISOString();
+      // The formatter constructs an RFC 3339 datetime from the device clock.
+      const createdAt =
+        formatLocalTimestamp() as ChatMessageViewHydrated["record"]["createdAt"];
 
       const replyRef = replyTo
         ? {
@@ -59,12 +62,12 @@ export function useChatSend(store: LivestreamStore) {
         record: {
           $type: "place.stream.chat.message",
           text: trimmed,
-          createdAt: createdAt as any,
+          createdAt,
           streamer: streamerDid as any,
           ...(replyRef ? { reply: replyRef } : {}),
           ...(facets ? { facets } : {}),
         },
-        indexedAt: createdAt as any,
+        indexedAt: createdAt,
         ...(replyTo
           ? {
               replyTo: {

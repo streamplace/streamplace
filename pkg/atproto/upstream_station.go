@@ -6,16 +6,12 @@ import (
 	"net/url"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"stream.place/streamplace/pkg/config"
 )
-
-const AtmoqServiceID = "atmoq"
 
 // UpstreamStation is resolved once before any relay or OAuth session is opened.
 type UpstreamStation struct {
-	DID         string
-	URL         string
-	FirehoseURL string
+	DID string
+	URL string
 }
 
 // ResolveUpstreamStation looks the station up through plcURL's directory, the
@@ -35,13 +31,8 @@ func ResolveUpstreamStation(ctx context.Context, plcURL, did string) (*UpstreamS
 	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
 		return nil, fmt.Errorf("upstream station %s must advertise an HTTPS origin in #%s", did, StreamplaceServiceID)
 	}
-	firehoseURL := ident.GetServiceEndpoint(AtmoqServiceID)
-	if err := config.ValidateMoQOrigin(firehoseURL); err != nil {
-		return nil, fmt.Errorf("upstream station %s service #%s: %w", did, AtmoqServiceID, err)
-	}
 	return &UpstreamStation{
-		DID:         did,
-		URL:         u.Scheme + "://" + u.Host,
-		FirehoseURL: firehoseURL,
+		DID: did,
+		URL: u.Scheme + "://" + u.Host,
 	}, nil
 }

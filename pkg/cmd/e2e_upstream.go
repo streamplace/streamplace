@@ -202,7 +202,7 @@ func (n *e2eLocalNode) Control(ctx context.Context, did string) {
 	}
 }
 
-func startE2ELocalNode(ctx context.Context, self string, tlsEnv *e2eHTTPS, env e2eDevEnv, did, appBundleID string) (*e2eLocalNode, error) {
+func startE2ELocalNode(ctx context.Context, self string, tlsEnv *e2eHTTPS, env e2eDevEnv, did, appBundleID, relayURL string) (*e2eLocalNode, error) {
 	ports := make([]int, 3)
 	for i := range ports {
 		port, err := freePort()
@@ -237,6 +237,7 @@ func startE2ELocalNode(ctx context.Context, self string, tlsEnv *e2eHTTPS, env e
 		"SP_WEBSOCKET_URL=ws://"+n.addr,
 		"SP_PLC_URL="+env.PLCURL,
 		"SP_UPSTREAM_STATION=did:web:"+tlsEnv.stationHost,
+		"SP_RELAY_HOST="+relayURL,
 		"SP_TRUST_PRIVATE_NETWORK=true",
 		"SP_ADMIN_DIDS="+did,
 		"SP_STREAM_SESSION_TIMEOUT=30s",

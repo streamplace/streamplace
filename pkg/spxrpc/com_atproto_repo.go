@@ -97,7 +97,7 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 		if err != nil {
 			return nil, fmt.Errorf("list server repo collections: %w", err)
 		}
-		didDoc, err := glex.Unknown(atproto.DIDDoc(s.cli.ServerHost, atproto.ServerPubMultibase, s.cli.AtmoqRelay))
+		didDoc, err := glex.Unknown(atproto.DIDDoc(s.cli.ServerHost, atproto.ServerPubMultibase))
 		if err != nil {
 			return nil, fmt.Errorf("marshal did doc: %w", err)
 		}
@@ -110,7 +110,7 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 		}, nil
 	}
 
-	didDoc, err := glex.Unknown(atproto.DIDDoc(s.cli.BroadcasterHost, atproto.LexiconPubMultibase, s.cli.AtmoqRelay))
+	didDoc, err := glex.Unknown(atproto.DIDDoc(s.cli.BroadcasterHost, atproto.LexiconPubMultibase))
 	if err != nil {
 		return nil, fmt.Errorf("marshal did doc: %w", err)
 	}

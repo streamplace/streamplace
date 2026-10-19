@@ -105,7 +105,7 @@ jobs:
           # and the 20260726 runner image update made that pairing fatal.
           sudo curl -fsSL -o /usr/bin/crun https://github.com/containers/crun/releases/download/1.28/crun-1.28-linux-amd64
           sudo chmod +x /usr/bin/crun
-          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_PWD_MOUNT_PATH=/app DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="make linux-amd64 && make test-vod && make static-test && make check && make ci-lexicons"
+          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_PWD_MOUNT_PATH=/app DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="make linux-amd64 && make obs-plugin-linux-amd64 && make test-vod && make static-test && make check && make ci-lexicons"
 
       - name: Publish Test Report
         if: success() || failure()
@@ -122,6 +122,14 @@ jobs:
         with:
           name: streamplace-linux-amd64-${{ github.run_id }}
           path: ./build-linux-amd64/streamplace
+          retention-days: 1
+
+      # Desktop bundles the plugin, so the upstream e2e needs it to package.
+      - name: Upload OBS plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: obs-plugin-linux-amd64-${{ github.run_id }}
+          path: ./bin/obs-streamplace-*-linux-amd64.tar.gz
           retention-days: 1
 
   # Reuse the binary built by linux-amd64 instead of provisioning another
@@ -177,6 +185,12 @@ jobs:
         run: |
           cargo install --git https://github.com/streamplace/atmoq --rev 09a604b0b00b1eb063295746de1878a258e88d5b --locked --root "$RUNNER_TEMP/atmoq-bin" atmoq
           echo "$RUNNER_TEMP/atmoq-bin/bin" >> "$GITHUB_PATH"
+      - name: Download OBS plugin
+        if: matrix.mode == 'upstream'
+        uses: actions/download-artifact@v4
+        with:
+          name: obs-plugin-linux-amd64-${{ github.run_id }}
+          path: ./bin
       - name: Build Desktop e2e entry point
         if: matrix.mode == 'upstream'
         run: |
@@ -195,6 +209,7 @@ jobs:
       # "Music" stem), so that ingest path and audio stems are covered from
       # push to web playback.
       - name: Run web stream e2e tests over fMP4 ingest
+        if: matrix.mode == 'standalone'
         run:
           hack/e2e-web-local.sh flows/stream.spec.ts flows/audio-stems.spec.ts
         env:

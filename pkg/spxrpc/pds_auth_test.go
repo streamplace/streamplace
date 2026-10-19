@@ -425,7 +425,7 @@ func TestAuthMiddlewareStack(t *testing.T) {
 }
 
 func TestDIDDocAdvertisesStreamplaceService(t *testing.T) {
-	doc := atproto.DIDDoc(pdsAuthTestHost, "zQ3shRvJrnKp4SWvoxkFyZqijahHcmvJLdViKzkwQKj7cWxVm", "")
+	doc := atproto.DIDDoc(pdsAuthTestHost, "zQ3shRvJrnKp4SWvoxkFyZqijahHcmvJLdViKzkwQKj7cWxVm")
 	services, ok := doc["service"].([]map[string]any)
 	require.True(t, ok)
 	require.Contains(t, services, map[string]any{

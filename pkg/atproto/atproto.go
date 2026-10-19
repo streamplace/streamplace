@@ -522,31 +522,7 @@ func (atsync *ATProtoSynchronizer) IdentityDirectory() identity.Directory {
 	return atsync.directory(true)
 }
 
-func DIDDoc(host string, pubMultibase string, atmoqRelay string) map[string]any {
-	services := []map[string]any{
-		{
-			"id":              "#bsky_fg",
-			"type":            "BskyFeedGenerator",
-			"serviceEndpoint": fmt.Sprintf("https://%s", host),
-		},
-		{
-			"id":              "#atproto_pds",
-			"type":            "AtprotoPersonalDataServer",
-			"serviceEndpoint": fmt.Sprintf("https://%s", host),
-		},
-		{
-			"id":              "#" + StreamplaceServiceID,
-			"type":            "StreamplaceServer",
-			"serviceEndpoint": fmt.Sprintf("https://%s", host),
-		},
-	}
-	if atmoqRelay != "" {
-		services = append(services, map[string]any{
-			"id":              "#" + AtmoqServiceID,
-			"type":            "AtprotoMoQRelay",
-			"serviceEndpoint": atmoqRelay,
-		})
-	}
+func DIDDoc(host string, pubMultibase string) map[string]any {
 	return map[string]any{
 		"@context": []string{
 			"https://www.w3.org/ns/did/v1",
@@ -555,7 +531,23 @@ func DIDDoc(host string, pubMultibase string, atmoqRelay string) map[string]any 
 		},
 		"id":          fmt.Sprintf("did:web:%s", host),
 		"alsoKnownAs": []string{},
-		"service":     services,
+		"service": []map[string]any{
+			{
+				"id":              "#bsky_fg",
+				"type":            "BskyFeedGenerator",
+				"serviceEndpoint": fmt.Sprintf("https://%s", host),
+			},
+			{
+				"id":              "#atproto_pds",
+				"type":            "AtprotoPersonalDataServer",
+				"serviceEndpoint": fmt.Sprintf("https://%s", host),
+			},
+			{
+				"id":              "#" + StreamplaceServiceID,
+				"type":            "StreamplaceServer",
+				"serviceEndpoint": fmt.Sprintf("https://%s", host),
+			},
+		},
 		"verificationMethod": []map[string]any{
 			{
 				"id":                 fmt.Sprintf("did:web:%s#atproto", host),

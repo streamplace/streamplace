@@ -15,26 +15,24 @@ import (
 )
 
 func TestResolveUpstreamStation(t *testing.T) {
-	var stationURL, firehoseURL string
-	var advertiseRelay = true
+	stationEndpoint := "https://station.streamplace.team"
 	station := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/.well-known/did.json" {
 			t.Errorf("unexpected discovery request: %s", r.URL.Path)
 			http.NotFound(w, r)
 			return
 		}
-		relay := firehoseURL
-		if !advertiseRelay {
-			relay = ""
+		doc := DIDDoc("station.streamplace.team", "zQ3shRvJrnKp4SWvoxkFyZqijahHcmvJLdViKzkwQKj7cWxVm")
+		for _, svc := range doc["service"].([]map[string]any) {
+			if svc["id"] == "#"+StreamplaceServiceID {
+				svc["serviceEndpoint"] = stationEndpoint
+			}
 		}
-		doc := DIDDoc("station.streamplace.team", "zQ3shRvJrnKp4SWvoxkFyZqijahHcmvJLdViKzkwQKj7cWxVm", relay)
 		if err := json.NewEncoder(w).Encode(doc); err != nil {
 			t.Error(err)
 		}
 	}))
 	defer station.Close()
-	stationURL = "https://station.streamplace.team"
-	firehoseURL = "moqt://127.0.0.1:4443"
 	original := aqhttp.Client
 	client := station.Client()
 	transport := client.Transport.(*http.Transport).Clone()
@@ -51,26 +49,23 @@ func TestResolveUpstreamStation(t *testing.T) {
 
 	resolved, err := ResolveUpstreamStation(context.Background(), "", did)
 	require.NoError(t, err)
-	require.Equal(t, stationURL, resolved.URL)
-	require.Equal(t, firehoseURL, resolved.FirehoseURL)
+	require.Equal(t, "https://station.streamplace.team", resolved.URL)
 
-	// A missing/bad advertisement must not quietly select the global firehose.
-	advertiseRelay = false
-	_, err = ResolveUpstreamStation(context.Background(), "", did)
-	require.Error(t, err)
-	advertiseRelay = true
-	firehoseURL = "wss://bsky.network"
-	_, err = ResolveUpstreamStation(context.Background(), "", did)
-	require.Error(t, err)
+	// OAuth is delegated to this origin, so anything but a bare HTTPS origin
+	// stops startup.
+	for _, endpoint := range []string{"http://station.streamplace.team", "https://station.streamplace.team/oauth", ""} {
+		stationEndpoint = endpoint
+		_, err = ResolveUpstreamStation(context.Background(), "", did)
+		require.Error(t, err, endpoint)
+	}
 }
 
-func TestUpstreamRelayNeverFallsBack(t *testing.T) {
-	atsync := &ATProtoSynchronizer{CLI: &config.CLI{
-		UpstreamStation: "did:web:station.example",
-		RelayHost:       "wss://bsky.network",
-		HTTPAddr:        "127.0.0.1:38080",
-	}}
-	require.Empty(t, atsync.relayHosts())
-	atsync.UpstreamStation = &UpstreamStation{FirehoseURL: "moqt://station.example"}
-	require.Equal(t, []string{"moqt://station.example"}, atsync.relayHosts())
+// With an upstream station the node's own PDS firehose is left out: its
+// users' records live on their own PDSes, reached through the MoQ relay.
+func TestUpstreamRelayHosts(t *testing.T) {
+	cli := &config.CLI{RelayHost: "moqt://streamplace.network", HTTPAddr: "127.0.0.1:38080"}
+	atsync := &ATProtoSynchronizer{CLI: cli}
+	require.Equal(t, []string{"moqt://streamplace.network", "ws://127.0.0.1:38080"}, atsync.relayHosts())
+	cli.UpstreamStation = "did:web:station.example"
+	require.Equal(t, []string{"moqt://streamplace.network"}, atsync.relayHosts())
 }

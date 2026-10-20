@@ -132,7 +132,7 @@ build-android-release:
     - 'echo "xcodeproj --version: $(xcodeproj --version)"'
     - "$(which xcodeproj) --version"
     - >
-      export GOTOOLCHAIN=go1.26.5
+      export GOTOOLCHAIN=go1.26.10
       && python3 -m pip install virtualenv
       && python3 -m virtualenv ~/venv
       && source ~/venv/bin/activate

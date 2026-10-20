@@ -2,7 +2,6 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 // Vite web beta only: these DOM controls are not the Expo/native player.
 // Run against the real looping harness stream, opting in through its beta cookie.
-// Each viewport exercises both chat states and fullscreen, not a single action.
 test.setTimeout(180_000);
 
 const viewports = [
@@ -46,11 +45,7 @@ async function expectUsable(control: Locator) {
           box.x + box.width / 2,
           box.y + box.height / 2,
         );
-        return (
-          opacity > 0.99 &&
-          !!hit &&
-          (element.contains(hit) || hit.contains(element))
-        );
+        return opacity > 0.99 && !!hit && element.contains(hit);
       }),
     )
     .toBe(true);
@@ -139,9 +134,7 @@ for (const viewport of viewports) {
           }),
         );
         const playerWidth = (await player.boundingBox())!.width;
-        const volume = player.locator(
-          '[data-slot="slider"][aria-label="Volume"]',
-        );
+        const volume = player.locator('[data-slot="slider"]');
         // Expanded chrome needs 384px of content width plus 24px padding.
         // Desktop-sized viewports must expose volume even with chat open.
         if (viewport.width >= 1024 || playerWidth >= 408) {
@@ -190,6 +183,28 @@ for (const viewport of viewports) {
           page.getByRole("menuitemcheckbox", { name: "Danmu", exact: true }),
         ).toBeVisible();
         await page.keyboard.press("Escape");
+        await revealControls(page);
+        await player
+          .getByRole("button", { name: "Fullscreen", exact: true })
+          .click();
+        await expect
+          .poll(() => page.evaluate(() => !!document.fullscreenElement))
+          .toBe(true);
+        await expectUsable(
+          player.getByRole("button", { name: "Exit fullscreen", exact: true }),
+        );
+        for (const name of ["Settings", "Picture-in-picture"]) {
+          await expectUsable(player.getByRole("button", { name, exact: true }));
+        }
+        if (viewport.width >= 408) {
+          await expectUsable(volume);
+        }
+        await player
+          .getByRole("button", { name: "Exit fullscreen", exact: true })
+          .click();
+        await expect
+          .poll(() => page.evaluate(() => !!document.fullscreenElement))
+          .toBe(false);
         if (chatOpen) {
           await page
             .getByRole("button", { name: "Close chat", exact: true })
@@ -201,21 +216,61 @@ for (const viewport of viewports) {
         }
       });
     }
-    await revealControls(page);
-    await player
-      .getByRole("button", { name: "Fullscreen", exact: true })
-      .click();
-    await expect
-      .poll(() => page.evaluate(() => !!document.fullscreenElement))
-      .toBe(true);
-    await expectUsable(
-      player.getByRole("button", { name: "Exit fullscreen", exact: true }),
-    );
-    await player
-      .getByRole("button", { name: "Exit fullscreen", exact: true })
-      .click();
-    await expect
-      .poll(() => page.evaluate(() => !!document.fullscreenElement))
-      .toBe(false);
   });
 }
+
+test.describe("player viewport touch targets", () => {
+  test.use({ hasTouch: true, viewport: { width: 768, height: 1024 } });
+
+  test("expanded portrait controls remain easy to tap", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    if (!baseURL || !process.env.ACCOUNT_DID)
+      throw new Error("harness URL and ACCOUNT_DID required");
+    await context.addCookies([
+      { name: "sp_web_beta", value: "1", url: baseURL },
+    ]);
+    await page.addInitScript(() => {
+      localStorage.setItem("player-transport", "hls");
+    });
+    // The embed loads the real harness stream directly, without public identity discovery.
+    await page.goto(`/embed/${process.env.ACCOUNT_DID}`);
+    const video = page.locator("video").first();
+    const player = video.locator("..");
+    await expect
+      .poll(() =>
+        video.evaluate((element: HTMLVideoElement) => element.currentTime),
+      )
+      .toBeGreaterThan(0);
+    await page.keyboard.press("Space");
+    await expect
+      .poll(() => video.evaluate((element: HTMLVideoElement) => element.paused))
+      .toBe(true);
+    for (const width of [408, 768]) {
+      await page.setViewportSize({ width, height: 1024 });
+      const buttons = player
+        .getByRole("button", { name: "Settings", exact: true })
+        .locator("..")
+        .getByRole("button");
+      for (const button of await buttons.all()) {
+        await expectUsable(button);
+        const box = (await button.boundingBox())!;
+        expect(box.width).toBeGreaterThanOrEqual(44);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+      }
+      const volume = player.locator('[data-slot="slider"]');
+      await expectUsable(volume);
+      const box = (await volume.boundingBox())!;
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      const targetVolume = width === 408 ? 0.25 : 0.75;
+      await volume.tap({ position: { x: box.width * targetVolume, y: 5 } });
+      await expect
+        .poll(() =>
+          video.evaluate((element: HTMLVideoElement) => element.volume),
+        )
+        .toBeCloseTo(targetVolume, 1);
+    }
+  });
+});

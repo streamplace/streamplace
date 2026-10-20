@@ -333,7 +333,7 @@ export function PlayerControls({
           <button
             type="button"
             onClick={togglePlay}
-            className="flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80 @sm:size-auto @sm:p-1"
+            className="flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80 @sm:pointer-fine:size-auto @sm:pointer-fine:p-1"
             aria-label={playing ? t("player-pause") : t("player-play")}
             title={playing ? t("player-pause") : t("player-play")}
           >
@@ -360,7 +360,7 @@ export function PlayerControls({
             <button
               type="button"
               onClick={toggleMute}
-              className="flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80 @sm:size-auto @sm:p-1"
+              className="flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80 @sm:pointer-fine:size-auto @sm:pointer-fine:p-1"
               aria-label={muted ? t("player-unmute") : t("player-mute")}
               title={muted ? t("player-unmute") : t("player-mute")}
             >
@@ -371,7 +371,7 @@ export function PlayerControls({
               )}
             </button>
             <Slider
-              className="hidden w-20 @sm:flex @sm:w-24"
+              className="hidden w-20 @sm:flex @sm:w-24 pointer-coarse:[&>div]:min-h-11"
               min={0}
               max={1}
               step={0.01}
@@ -388,7 +388,7 @@ export function PlayerControls({
               type="button"
               onClick={togglePiP}
               className={cn(
-                "flex size-11 items-center justify-center rounded-md transition-colors hover:bg-white/10 @sm:size-auto @sm:p-1",
+                "flex size-11 items-center justify-center rounded-md transition-colors hover:bg-white/10 @sm:pointer-fine:size-auto @sm:pointer-fine:p-1",
                 isPiP ? "text-white" : "text-white/40 hover:text-white/80",
               )}
               aria-label={isPiP ? t("player-exit-pip") : t("player-pip")}
@@ -402,7 +402,7 @@ export function PlayerControls({
             type="button"
             onClick={() => setTheatre(!theatre)}
             className={cn(
-              "hidden transition-colors @sm:flex @sm:p-1",
+              "hidden size-11 items-center justify-center transition-colors @sm:flex @sm:pointer-fine:size-auto @sm:pointer-fine:p-1",
               theatre ? "text-white" : "text-white/40 hover:text-white/80",
             )}
             aria-label={
@@ -417,7 +417,7 @@ export function PlayerControls({
             type="button"
             onClick={() => onShowDanmuChange(!showDanmu)}
             className={cn(
-              "hidden transition-colors @sm:flex @sm:p-1",
+              "hidden size-11 items-center justify-center transition-colors @sm:flex @sm:pointer-fine:size-auto @sm:pointer-fine:p-1",
               showDanmu ? "text-white" : "text-white/40 hover:text-white/80",
             )}
             aria-label={
@@ -432,7 +432,7 @@ export function PlayerControls({
 
           <DropdownMenu onOpenChange={setSettingsOpen}>
             <DropdownMenuTrigger
-              className="flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80 @sm:size-auto @sm:p-1"
+              className="flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80 @sm:pointer-fine:size-auto @sm:pointer-fine:p-1"
               aria-label={t("player-settings")}
               title={t("player-settings")}
             >
@@ -510,7 +510,7 @@ export function PlayerControls({
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80 @sm:size-auto @sm:p-1"
+            className="flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80 @sm:pointer-fine:size-auto @sm:pointer-fine:p-1"
             aria-label={
               isFullscreen
                 ? t("player-exit-fullscreen")

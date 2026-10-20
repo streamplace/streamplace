@@ -66,20 +66,18 @@ accepting an unseen tap. Its readiness check uses the video itself: accumulated
 chat history can virtualize the stream's initial system message, so that row is
 not a reliable player prerequisite.
 
-`player-viewport` opts into the Vite web beta and exercises the real harness
-stream at phone, tablet, square, midscale (including 1080px), and desktop
-viewports, with chat open and closed. It checks playback, mute, volume,
-picture-in-picture, settings, theatre, danmu, and fullscreen controls for
-visibility, full viewport containment, opacity, and pointer occlusion, then
-changes volume to distinct values across chat states, opens settings, and
-enters/exits fullscreen. It starts real HLS playback, then pauses via the normal
-keyboard shortcut so idle hiding and WebRTC reconnects do not race layout
-inspection. Cases straddle the square-layout boundary and the player-content
-breakpoint. Controls respond to the space inside the player rather than viewport
-orientation; compact players retain theatre and danmu in Settings. Only public
-AppView identity
-discovery is substituted, because the harness account is not publicly indexed.
-This is web-only: iOS and Android use the separate Expo/native player.
+`player-viewport` opts into the Vite web beta and starts the real harness's HLS
+stream at phone, tablet, square, and desktop sizes. After confirming playback,
+it pauses through the normal shortcut and checks control visibility, viewport
+containment, opacity, and pointer hit targets with chat open and closed. It
+changes volume in both states, opens Settings, and checks fullscreen entry/exit
+and control availability in fullscreen. Cases straddle the square-layout and
+player-width boundaries; compact players retain theatre and danmu in Settings.
+The touch case uses the embed player to verify 44px buttons and a working volume
+hit area at narrow and tablet widths. Public AppView identity discovery is
+substituted in the chat cases because the harness account is not publicly
+indexed. The embed test uses real services throughout. This is web-only: iOS
+and Android use the separate Expo/native player.
 
 `player-breakpoints` exercises live playback at 23 widths in portrait and
 landscape, including 1080 × 722 and immediately below, at, and above the theme

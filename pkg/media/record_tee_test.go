@@ -75,7 +75,7 @@ func TestRecordTeeSurvivesRecorderCreateFailure(t *testing.T) {
 	mm := recordingTeeTestManager(t, srv.URL)
 	payload := recordingTeePayload(1 << 20)
 
-	input, finalize := mm.recordTee(context.Background(), bytes.NewReader(payload), "did:plc:test", ".rtmp.mp4")
+	input, finalize := mm.recordTee(context.Background(), bytes.NewReader(payload), "did:plc:test")
 	defer finalize()
 
 	require.Equal(t, payload, readTeeWithin(t, input, 15*time.Second), "the ingest stream reaches its consumer verbatim")
@@ -146,7 +146,7 @@ func TestRecordTeeSurvivesRecorderMidStreamFailure(t *testing.T) {
 	// 18 MB puts the first part on the wire with 6 MB still to come: exactly the
 	// in-flight stream a dead recorder used to strand.
 	payload := recordingTeePayload(24 << 20)
-	input, finalize := mm.recordTee(context.Background(), midStreamInput(payload, fake), "did:plc:test", ".rtmp.mp4")
+	input, finalize := mm.recordTee(context.Background(), midStreamInput(payload, fake), "did:plc:test")
 	defer finalize()
 
 	require.Equal(t, payload, readTeeWithin(t, input, 30*time.Second), "the ingest stream reaches its consumer verbatim")
@@ -171,7 +171,7 @@ func TestRecordTeeSurvivesRecorderCleanupStall(t *testing.T) {
 
 	mm := recordingTeeTestManager(t, srv.URL)
 	payload := recordingTeePayload(24 << 20)
-	input, finalize := mm.recordTee(context.Background(), midStreamInput(payload, fake), "did:plc:test", ".rtmp.mp4")
+	input, finalize := mm.recordTee(context.Background(), midStreamInput(payload, fake), "did:plc:test")
 	// Unblock the stalled request before the dump finishes and before the server
 	// closes (httptest's Close waits on outstanding handlers).
 	defer finalize()

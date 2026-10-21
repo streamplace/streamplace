@@ -60,6 +60,8 @@ darwin-*)
 </plist>
 EOF
   tar -czf "$OUT/$NAME-$VERSION-$TARGET.tar.gz" -C "$STAGE" "$NAME.plugin"
+  cd $OUT
+  tar -xzf $NAME-$VERSION-$TARGET.tar.gz
   ;;
 *)
   echo "unknown target $TARGET" >&2

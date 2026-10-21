@@ -15,9 +15,12 @@ for (const shell of ["expo", "vite"] as const) {
     context,
     baseURL,
   }) => {
+    // Vite creates its search agent from OAuth metadata, which requires HTTPS.
+    const origin =
+      shell === "vite" ? process.env.SERVER_HTTPS_URL || baseURL! : baseURL!;
     if (shell === "vite") {
       await context.addCookies([
-        { name: "sp_web_beta", value: "1", url: baseURL! },
+        { name: "sp_web_beta", value: "1", url: origin },
       ]);
       await page.addInitScript(() => {
         localStorage.setItem("player-transport", "hls");
@@ -40,7 +43,7 @@ for (const shell of ["expo", "vite"] as const) {
     );
 
     await withInvalidHandle(async () => {
-      await page.goto("/");
+      await page.goto(`${origin}/`);
       const card = page
         .getByRole("link")
         .filter({ hasText: "e2e test stream" })
@@ -66,7 +69,7 @@ for (const shell of ["expo", "vite"] as const) {
 
       if (shell === "vite") {
         await context.grantPermissions(["clipboard-read", "clipboard-write"], {
-          origin: new URL(baseURL!).origin,
+          origin: new URL(origin).origin,
         });
         await page.getByRole("button", { name: "Copy", exact: true }).click();
         await page
@@ -74,10 +77,10 @@ for (const shell of ["expo", "vite"] as const) {
           .click();
         await expect
           .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-          .toBe(`${baseURL}/${encodeURIComponent(DID)}`);
+          .toBe(`${origin}/${encodeURIComponent(DID)}`);
       }
 
-      await page.goto("/search");
+      await page.goto(`${origin}/search`);
       if (shell === "expo") {
         await page.getByTestId("search-input").fill("broken");
         await page.getByTestId("search-submit").click();

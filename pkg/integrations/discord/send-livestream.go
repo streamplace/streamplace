@@ -31,8 +31,12 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string,
 		content = strings.ReplaceAll(content, rewrite.From, rewrite.To)
 	}
 
+	name := model.HandleOrDID(lsv.Author.Handle, lsv.Author.Did)
+	if model.IsUsableHandle(lsv.Author.Handle) {
+		name = "@" + name
+	}
 	payload := discordtypes.Payload{
-		Username: fmt.Sprintf("@%s", lsv.Author.Handle),
+		Username: name,
 		Content:  fmt.Sprintf("%s%s%s", w.Prefix, content, w.Suffix),
 	}
 
@@ -70,7 +74,7 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string,
 		}
 	}
 
-	payload.Embeds[0].Title = fmt.Sprintf("@%s is LIVE%s", lsv.Author.Handle, suffix)
+	payload.Embeds[0].Title = fmt.Sprintf("%s is LIVE%s", name, suffix)
 
 	if ls.Thumb != nil {
 		u, err := url.Parse(fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob", pdsURL))

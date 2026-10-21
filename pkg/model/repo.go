@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -103,27 +104,33 @@ func (m *DBModel) GetAllRepos() ([]Repo, error) {
 	return repos, nil
 }
 
+// ErrAmbiguousHandle is returned when more than one indexed account claims a
+// handle. Resolving it is an identity refresh's job, not a lookup's.
+var ErrAmbiguousHandle = errors.New("handle is claimed by more than one indexed account")
+
 // GetRepoByHandle finds the account that claims handle. Handles are stored as
 // the identity directory reports them, which is normalized (lowercase), so the
 // lookup is lowercased to match and still uses the handle index. The empty and
 // invalid handles match nobody: many rows share them, so "first match" would
-// hand back an arbitrary account. Duplicate claims also match nobody until an
-// authoritative identity refresh settles ownership.
+// hand back an arbitrary account. Duplicate claims are an error rather than a
+// nil: a nil tells callers to go and index the handle, and the cached
+// directory would hand them whichever owner it last saw.
 func (m *DBModel) GetRepoByHandle(handle string) (*Repo, error) {
 	if !IsUsableHandle(handle) {
 		return nil, nil
 	}
-	var repoModel Repo
-	res := m.DB.Where("handle = ?", strings.ToLower(handle)).
-		Where("NOT EXISTS (SELECT 1 FROM repos AS other WHERE other.handle = repos.handle AND other.did <> repos.did)").
-		First(&repoModel)
-	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+	var rows [2]Repo
+	repos := rows[:0]
+	if err := m.DB.Where("handle = ?", strings.ToLower(handle)).Limit(2).Find(&repos).Error; err != nil {
+		return nil, err
+	}
+	switch len(repos) {
+	case 0:
 		return nil, nil
+	case 1:
+		return &repos[0], nil
 	}
-	if res.Error != nil {
-		return nil, res.Error
-	}
-	return &repoModel, nil
+	return nil, fmt.Errorf("%w: %s", ErrAmbiguousHandle, handle)
 }
 
 func (m *DBModel) GetRepoBySigningKey(signingKey string) (*Repo, error) {
@@ -158,9 +165,11 @@ func (m *DBModel) UpdateRepo(repo *Repo) error {
 // A usable handle verified for this DID is not verified for anyone else, so
 // any other row still claiming it is stale (a handle that changed hands, or an
 // account the sweep no longer visits). Those rows are blanked rather than
-// left to compete for the handle; the next sweep re-resolves them.
-func (m *DBModel) UpdateRepoIdentity(did, handle, pds string) error {
-	return m.DB.Transaction(func(tx *gorm.DB) error {
+// left to compete for the handle; the next sweep re-resolves them. Their DIDs
+// are returned so the caller can drop whatever it has cached about them.
+func (m *DBModel) UpdateRepoIdentity(did, handle, pds string) ([]string, error) {
+	var evicted []string
+	err := m.DB.Transaction(func(tx *gorm.DB) error {
 		// Rechecking an unchanged identity should not dirty the row. IS NOT
 		// compares SQLite's nullable columns as well as ordinary strings.
 		if err := tx.Model(&Repo{}).
@@ -171,9 +180,17 @@ func (m *DBModel) UpdateRepoIdentity(did, handle, pds string) error {
 		if !IsUsableHandle(handle) {
 			return nil
 		}
-		return tx.Model(&Repo{}).Where("handle = ? AND did <> ?", handle, did).
+		if err := tx.Model(&Repo{}).Where("handle = ? AND did <> ?", handle, did).
+			Pluck("did", &evicted).Error; err != nil {
+			return err
+		}
+		if len(evicted) == 0 {
+			return nil
+		}
+		return tx.Model(&Repo{}).Where("did IN ?", evicted).
 			Select("Handle").Updates(&Repo{Handle: ""}).Error
 	})
+	return evicted, err
 }
 
 // SetRepoStatus parks (or un-parks) a repo's account lifecycle state without

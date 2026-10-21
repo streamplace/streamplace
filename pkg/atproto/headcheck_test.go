@@ -3,6 +3,8 @@ package atproto
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -13,6 +15,57 @@ import (
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 )
+
+// TestSweepCheckRefreshesIdentityBeforeHeadRequest: the head check's resolve
+// is what heals a row's identity, and the host request after it can wait a
+// long time -- behind the per-host lock, or on a slow answer. The row must be
+// written before that wait, not after it, or the resolution is stale by the
+// time it lands. And the host's answer, even a terminal one, must not undo the
+// repair: the row ends up parked with its fresh identity and its sync state.
+func TestSweepCheckRefreshesIdentityBeforeHeadRequest(t *testing.T) {
+	ctx := context.Background()
+	atsync, mod, _ := offlineSynchronizer(t)
+	const did = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"
+	asked := make(chan struct{})
+	answer := make(chan struct{})
+	host := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(asked)
+		<-answer
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `{"error":"RepoDeactivated","message":"Repo has been deactivated"}`)
+	}))
+	defer host.Close()
+	require.NoError(t, mod.UpdateRepo(&model.Repo{
+		DID: did, Handle: "stale.example", PDS: "https://old-pds.example.invalid",
+		Version: "3lrev00000000", BackfillDone: true,
+	}))
+	dir := identity.NewMockDirectory()
+	dir.Insert(mockIdentity(did, "fresh.example", host.URL))
+	atsync.PLCDirectory = &dir
+
+	done := make(chan bool)
+	go func() {
+		done <- atsync.sweepCheck(ctx, &sweepProgress{}, func(sweepItem) {
+			t.Error("a parked repo is not enqueued for repair")
+		}, sweepStep{sweepItem: sweepItem{DID: did, Check: true}})
+	}()
+	<-asked
+	// The host has been asked and has not answered; the row is already current.
+	mid, err := mod.GetRepo(did)
+	require.NoError(t, err)
+	require.Equal(t, "fresh.example", mid.Handle, "the identity is written before the host is waited on")
+	require.Equal(t, host.URL, mid.PDS)
+	close(answer)
+	require.False(t, <-done)
+
+	got, err := mod.GetRepo(did)
+	require.NoError(t, err)
+	require.Equal(t, "fresh.example", got.Handle, "the host's answer does not undo the repair")
+	require.Equal(t, host.URL, got.PDS)
+	require.Equal(t, model.RepoStatusDeactivated, got.Status, "and the answer itself is acted on")
+	require.Equal(t, "3lrev00000000", got.Version, "sync state is left alone")
+	require.True(t, got.BackfillDone)
+}
 
 // TestHeadCheckHealsSilentGap is the test the whole reconciliation loop exists
 // for.
@@ -75,7 +128,9 @@ func TestHeadCheckHealsSilentGap(t *testing.T) {
 	stale, err := mod.GetRepo(user.DID)
 	require.NoError(t, err)
 	require.Equal(t, indexed.Version, stale.Version, "nothing has told the index anything")
-	hostRev, _, err := atsync.headRev(ctx, user.DID)
+	hostIdent, err := atsync.resolveIdent(ctx, user.DID, false)
+	require.NoError(t, err)
+	hostRev, err := atsync.headRev(ctx, hostIdent)
 	require.NoError(t, err)
 	require.NotEqual(t, stale.Version, hostRev, "the repo really did move")
 
@@ -124,7 +179,8 @@ func TestSweepRefreshesDriftedIdentity(t *testing.T) {
 
 	// Behind our back: from this node's point of view, an identity change it
 	// never heard about is exactly a row that disagrees with the directory.
-	require.NoError(t, mod.UpdateRepoIdentity(user.DID, "stale.handle.invalid", "https://old-pds.example.invalid"))
+	_, err = mod.UpdateRepoIdentity(user.DID, "stale.handle.invalid", "https://old-pds.example.invalid")
+	require.NoError(t, err)
 
 	require.NoError(t, atsync.Sweep(ctx))
 	healed, err := mod.GetRepo(user.DID)
@@ -178,7 +234,8 @@ func TestSweepHealsIdentityBehindCache(t *testing.T) {
 		_, err = atsync.resolveIdent(ctx, tc.user.DID, true)
 		require.NoError(t, err)
 		authoritative.Insert(now)
-		require.NoError(t, mod.UpdateRepoIdentity(tc.user.DID, tc.recorded.String(), ident.PDSEndpoint()))
+		_, err = mod.UpdateRepoIdentity(tc.user.DID, tc.recorded.String(), ident.PDSEndpoint())
+		require.NoError(t, err)
 	}
 	// A parked previous owner is never swept, so the current owner's refresh
 	// must release its stale claim even when the current row already agrees.

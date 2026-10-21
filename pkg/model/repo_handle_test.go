@@ -55,12 +55,15 @@ func TestUpdateRepoIdentityEvictsStaleHandleOwner(t *testing.T) {
 	require.NoError(t, db.UpdateRepo(next))
 
 	// A newly indexed owner can expose a stale claim before either identity
-	// has been refreshed. Ambiguity must not route to an arbitrary account.
-	ambiguous, err := db.GetRepoByHandleOrDID("alice.example")
-	require.NoError(t, err)
-	require.Nil(t, ambiguous)
+	// has been refreshed. Ambiguity must not route to an arbitrary account,
+	// and it must not look like "nobody": a nil sends callers off to index the
+	// handle through a cache that may still name the old owner.
+	_, err := db.GetRepoByHandleOrDID("alice.example")
+	require.ErrorIs(t, err, ErrAmbiguousHandle)
 
-	require.NoError(t, db.UpdateRepoIdentity("did:plc:new", "alice.example", "https://new-pds.example"))
+	evicted, err := db.UpdateRepoIdentity("did:plc:new", "alice.example", "https://new-pds.example")
+	require.NoError(t, err)
+	require.Equal(t, []string{"did:plc:old"}, evicted, "the caller is told whose cache to drop")
 
 	got, err := db.GetRepoByHandleOrDID("alice.example")
 	require.NoError(t, err)
@@ -70,19 +73,23 @@ func TestUpdateRepoIdentityEvictsStaleHandleOwner(t *testing.T) {
 	require.Equal(t, next.Version, got.Version, "identity writes leave the sync state alone")
 	require.Equal(t, next.BackfillFloor, got.BackfillFloor)
 
-	evicted, err := db.GetRepo("did:plc:old")
+	stale, err := db.GetRepo("did:plc:old")
 	require.NoError(t, err)
-	require.Empty(t, evicted.Handle, "the stale owner no longer claims the handle")
-	require.Equal(t, old.Version, evicted.Version, "and keeps everything else")
+	require.Empty(t, stale.Handle, "the stale owner no longer claims the handle")
+	require.Equal(t, old.Version, stale.Version, "and keeps everything else")
 
 	// A broken handle claims nothing, so it evicts nobody...
-	require.NoError(t, db.UpdateRepoIdentity("did:plc:old", "handle.invalid", old.PDS))
+	evicted, err = db.UpdateRepoIdentity("did:plc:old", "handle.invalid", old.PDS)
+	require.NoError(t, err)
+	require.Empty(t, evicted)
 	got, err = db.GetRepoByHandleOrDID("alice.example")
 	require.NoError(t, err)
 	require.Equal(t, "did:plc:new", got.DID)
 
 	// ...and an identity refresh is not how an account gets indexed.
-	require.NoError(t, db.UpdateRepoIdentity("did:plc:stranger", "carol.example", "https://pds.example"))
+	evicted, err = db.UpdateRepoIdentity("did:plc:stranger", "carol.example", "https://pds.example")
+	require.NoError(t, err)
+	require.Empty(t, evicted)
 	stranger, err := db.GetRepo("did:plc:stranger")
 	require.NoError(t, err)
 	require.Nil(t, stranger)

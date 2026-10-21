@@ -43,10 +43,11 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 
 Handles can temporarily fail AT Protocol's bidirectional verification after a
 rename, domain change, or handle swap. Streamplace displays the account's DID
-instead of `handle.invalid` (or an absent handle), and keeps its stream, video,
-profile and share links DID-addressable. A DID is not prefixed with `@`. API
-identity responses retain the protocol's `handle.invalid` sentinel; clients must
-apply the same display and link fallback rather than treating it as a name.
+instead of `handle.invalid` (or an absent handle), including chat, push and
+Discord notifications, and keeps its stream, video, profile and share links
+DID-addressable. A DID is not prefixed with `@`. API identity responses retain
+the protocol's `handle.invalid` sentinel; clients must apply the same display
+and link fallback rather than treating it as a name.
 
 The existing atproto sweep rechecks successfully indexed, active accounts
 against the identity directory without using its cached answer. A corrected

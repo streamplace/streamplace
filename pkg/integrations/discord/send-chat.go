@@ -11,6 +11,7 @@ import (
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -26,8 +27,12 @@ func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *pla
 		log.Warn(ctx, "failed to get avatar URL", "err", err)
 	}
 
+	name := model.HandleOrDID(scm.Author.Handle, scm.Author.Did)
+	if model.IsUsableHandle(scm.Author.Handle) {
+		name = "@" + name
+	}
 	payload := discordtypes.Payload{
-		Username: fmt.Sprintf("@%s", scm.Author.Handle),
+		Username: name,
 		Content:  fmt.Sprintf("%s%s%s", w.Prefix, msg.Text, w.Suffix),
 	}
 	if avatarURL != "" {

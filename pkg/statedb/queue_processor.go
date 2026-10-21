@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -620,11 +621,16 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 	}
 
 	if state.noter != nil {
+		user := model.HandleOrDID(lsv.Author.Handle, userDID)
+		name := user
+		if model.IsUsableHandle(lsv.Author.Handle) {
+			name = "@" + name
+		}
 		nb := &notificationpkg.NotificationBlast{
-			Title: fmt.Sprintf("🔴 @%s is LIVE!", lsv.Author.Handle),
+			Title: fmt.Sprintf("🔴 %s is LIVE!", name),
 			Body:  rec.Title,
 			Data: map[string]string{
-				"path": fmt.Sprintf("/%s", lsv.Author.Handle),
+				"path": "/" + url.PathEscape(user),
 			},
 		}
 		targets := make([]notificationpkg.NotificationTarget, len(notifications))

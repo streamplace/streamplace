@@ -24,6 +24,7 @@ import (
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/spmetrics"
 
@@ -603,11 +604,11 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 	}
 
 	handle := session.DID
-	if repo != nil && repo.Handle != "" {
-		handle = repo.Handle
+	if repo != nil {
+		handle = model.HandleOrDID(repo.Handle, session.DID)
 	}
 
-	canonicalUrl := fmt.Sprintf("https://%s/%s", s.cli.BroadcasterHost, handle)
+	canonicalUrl := fmt.Sprintf("https://%s/%s", s.cli.BroadcasterHost, url.PathEscape(handle))
 	if livestream.CanonicalUrl != nil && *livestream.CanonicalUrl != "" {
 		canonicalUrl = *livestream.CanonicalUrl
 	}

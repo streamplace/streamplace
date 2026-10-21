@@ -17,6 +17,7 @@ import useAvatars from "@/hooks/use-avatars";
 import { cn } from "@/lib/utils";
 import { DragDropProvider } from "@dnd-kit/react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
+import { formatHandleWithAt } from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Check,
@@ -74,6 +75,7 @@ function SortableStreamerRow({
 }: SortableStreamerRowProps) {
   const { ref, isDragging, handleRef } = useSortable({ id, index });
   const isEditing = editingIndex === index;
+  const label = formatHandleWithAt({ did: streamer, handle: resolvedHandle });
 
   return (
     <div
@@ -135,11 +137,10 @@ function SortableStreamerRow({
           <span
             className={cn(
               "flex-1 truncate",
-              !resolvedHandle && "font-mono text-sm",
+              label.startsWith("did:") && "font-mono text-sm",
             )}
           >
-            {resolvedHandle ? "@" : ""}
-            {resolvedHandle || streamer || "(empty)"}
+            {label || "(empty)"}
           </span>
           <button
             type="button"
@@ -412,7 +413,7 @@ function RecommendationsManager() {
                     disabled={alreadyAdded}
                     className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-(--color-bg) disabled:opacity-50"
                   >
-                    <span className="text-sm">@{actor.handle}</span>
+                    <span className="text-sm">{formatHandleWithAt(actor)}</span>
                     {alreadyAdded && (
                       <span className="text-xs text-(--color-fg-muted)">
                         Added

@@ -1,5 +1,7 @@
 import {
   createTeleportCommands,
+  formatHandle,
+  formatHandleWithAt,
   handleSlashCommand,
   teleportErrorIdentifier,
   type LivestreamStore,
@@ -74,6 +76,7 @@ function getMentionSuggestions(
     const did = msg.author.did;
     if (seen.has(did)) continue;
     seen.add(did);
+    if (!msg.author.handle || formatHandle(msg.author) === did) continue;
     const profile = authors[did];
     items.push({
       did,
@@ -94,7 +97,7 @@ function createMentionSuggestion() {
       const q = query.toLowerCase();
       return mentionDataRef.allItems.filter(
         (item) =>
-          item.handle.toLowerCase().includes(q) ||
+          formatHandle(item).toLowerCase().includes(q) ||
           item.displayName.toLowerCase().includes(q),
       );
     },
@@ -109,8 +112,8 @@ function createMentionSuggestion() {
               items: props.items,
               command: (item: MentionItem) => {
                 props.command({
-                  id: item.handle,
-                  label: `@${item.handle}`,
+                  id: formatHandle(item),
+                  label: formatHandleWithAt(item),
                   did: item.did,
                   handle: item.handle,
                   displayName: item.displayName,
@@ -144,8 +147,8 @@ function createMentionSuggestion() {
             items: props.items,
             command: (item: MentionItem) => {
               props.command({
-                id: item.handle,
-                label: `@${item.handle}`,
+                id: formatHandle(item),
+                label: formatHandleWithAt(item),
                 did: item.did,
                 handle: item.handle,
                 displayName: item.displayName,
@@ -526,7 +529,7 @@ export function ChatInput({
       countdownSeconds: number,
     ): Promise<TeleportErrorData | undefined> => {
       const result = await handleSlashCommand(
-        `/teleport @${handle} ${countdownSeconds}`,
+        `/teleport ${handle} ${countdownSeconds}`,
         commands,
       );
       if (!result.handled || result.error) {
@@ -581,8 +584,7 @@ export function ChatInput({
           <span className="min-w-0 flex-1 truncate text-(--color-fg-muted)">
             <span className="font-medium">
               {t("chat-replying-to", {
-                handle:
-                  replyToMessage.author.handle || replyToMessage.author.did,
+                handle: formatHandle(replyToMessage.author),
               })}
             </span>
             {" · "}

@@ -18,6 +18,7 @@ import {
   surfaces,
   textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
+import { formatHandle } from "@streamplace/core";
 import { DesktopUi } from "components/mobile/desktop-ui";
 import { OfflineCounter } from "components/mobile/offline-counter";
 import { Image } from "expo-image";
@@ -145,7 +146,8 @@ export default function StreamMonitor({
   const [currentThumbnail, setCurrentThumbnail] = useState<null | string>(null);
 
   // Mock thumbnails - in a real implementation, these would come from your stream service
-  const thumbnails = "/api/playback/" + profile?.did + "/stream.jpg";
+  const thumbnails =
+    "/api/playback/" + encodeURIComponent(profile?.did ?? "") + "/stream.jpg";
 
   // Rotate thumbnails every 30 seconds when stream is hidden
   useEffect(() => {
@@ -220,7 +222,7 @@ export default function StreamMonitor({
           numberOfLines={1}
           ellipsizeMode="tail"
         >
-          {userProfile?.handle || userProfile?.displayName || "Not live"}
+          {userProfile ? formatHandle(userProfile) : "Not live"}
         </Text>
       );
     }

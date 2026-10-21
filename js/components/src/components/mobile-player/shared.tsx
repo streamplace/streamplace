@@ -1,4 +1,4 @@
-import { AtUri } from "@atproto/syntax";
+import { ensureValidAtUri } from "@atproto/syntax";
 import { useMemo } from "react";
 import { usePlayerStore } from "../../player-store";
 import { PlayerProtocol } from "../../player-store/player-state";
@@ -27,15 +27,16 @@ export function srcToUrl(
   const playbackSession = usePlayerStore((x) => x.playbackSession);
   return useMemo(() => {
     if (props.src.startsWith("at://")) {
-      const aturi = new AtUri(props.src);
-      if (aturi.collection === "place.stream.video") {
+      ensureValidAtUri(props.src);
+      const collection = props.src.split("/")[3];
+      if (collection === "place.stream.video") {
         return {
-          url: `${url}/xrpc/place.stream.playback.getVideoPlaylist?uri=${props.src}&ext=hls.m3u8`,
+          url: `${url}/xrpc/place.stream.playback.getVideoPlaylist?uri=${encodeURIComponent(props.src)}&ext=hls.m3u8`,
           protocol: PlayerProtocol.HLS,
         };
       } else {
         throw new Error(
-          `this player doesn't know how to play ${aturi.collection} records (${props.src})`,
+          `this player doesn't know how to play ${collection} records (${props.src})`,
         );
       }
     }
@@ -47,6 +48,7 @@ export function srcToUrl(
         protocol: protocolSuffixes[suffix] ?? PlayerProtocol.HLS,
       };
     }
+    const source = encodeURIComponent(props.src);
     let outUrl: string;
     if (protocol === PlayerProtocol.HLS) {
       if (
@@ -54,19 +56,19 @@ export function srcToUrl(
         props.selectedRendition !== "auto" &&
         props.selectedRendition !== "source"
       ) {
-        outUrl = `${url}/xrpc/place.stream.playback.getLivePlaylist?streamer=${props.src}&rendition=${props.selectedRendition}`;
+        outUrl = `${url}/xrpc/place.stream.playback.getLivePlaylist?streamer=${source}&rendition=${props.selectedRendition}`;
       } else {
-        outUrl = `${url}/xrpc/place.stream.playback.getLivePlaylist?streamer=${props.src}`;
+        outUrl = `${url}/xrpc/place.stream.playback.getLivePlaylist?streamer=${source}`;
       }
       if (playbackSession) {
         outUrl += `&sid=${encodeURIComponent(playbackSession)}`;
       }
     } else if (protocol === PlayerProtocol.PROGRESSIVE_MP4) {
-      outUrl = `${url}/api/playback/${props.src}/stream.mp4`;
+      outUrl = `${url}/api/playback/${source}/stream.mp4`;
     } else if (protocol === PlayerProtocol.PROGRESSIVE_WEBM) {
-      outUrl = `${url}/api/playback/${props.src}/stream.webm`;
+      outUrl = `${url}/api/playback/${source}/stream.webm`;
     } else if (protocol === PlayerProtocol.WEBRTC) {
-      outUrl = `${url}/api/playback/${props.src}/webrtc?rendition=${props.selectedRendition || "source"}`;
+      outUrl = `${url}/api/playback/${source}/webrtc?rendition=${props.selectedRendition || "source"}`;
     } else {
       throw new Error(`unknown playback protocol: ${protocol}`);
     }

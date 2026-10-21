@@ -1,0 +1,48 @@
+appId: ${APP_ID}
+# The harness account's handle stops verifying while its stream stays live.
+# onFlowComplete puts the verified handle back even when the flow fails, and
+# doesn't rely on anything onFlowStart did.
+onFlowStart:
+  - runScript:
+      file: invalid-handle.js
+      env:
+        INVALID_HANDLE_STEP: invalidate
+onFlowComplete:
+  - runScript:
+      file: invalid-handle.js
+      env:
+        INVALID_HANDLE_STEP: restore
+  # Later flows expect the verified handle. The node's live feed caches
+  # identities for 30 seconds, and the app polls it every 3.
+  - launchApp
+  - extendedWaitUntil:
+      visible:
+        text: ".*@${ACCOUNT_HANDLE}.*"
+      timeout: 60000
+---
+- launchApp
+# Until the feed cache expires the card still shows the verified handle; then
+# it names the account by its bare DID. Matched as a substring because iOS
+# collapses the card into one element with a concatenated label.
+- extendedWaitUntil:
+    visible:
+      text: ".*${ACCOUNT_DID}.*"
+    timeout: 60000
+- assertNotVisible:
+    text: '.*handle\.invalid.*'
+- assertNotVisible:
+    text: ".*@did:.*"
+- takeScreenshot: invalid-handle-home
+# The card routes by DID; the stream's chat system message proves its
+# context loaded.
+- tapOn:
+    text: ".*${ACCOUNT_DID}.*"
+- extendedWaitUntil:
+    visible:
+      text: ".*Now streaming - e2e test stream.*"
+    timeout: 30000
+- assertNotVisible:
+    text: '.*handle\.invalid.*'
+- assertNotVisible:
+    text: ".*@did:.*"
+- takeScreenshot: invalid-handle-stream

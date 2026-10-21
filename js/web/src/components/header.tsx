@@ -1,3 +1,4 @@
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Search, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -27,8 +28,10 @@ export default function Header() {
 
   const did = state.status === "authenticated" ? state.session.did : null;
   const avatar = userProfile?.avatar;
-  const handle = userProfile?.handle;
-  const displayName = userProfile?.displayName || handle;
+  const handle = userProfile ? formatHandleWithAt(userProfile) : undefined;
+  const displayName =
+    userProfile?.displayName ||
+    (userProfile ? formatHandle(userProfile) : undefined);
 
   const agent = usePDSAgent();
   const navigate = useNavigate();
@@ -95,7 +98,7 @@ export default function Header() {
       setQuery("");
       setResults([]);
       setOpen(false);
-      navigate({ to: "/$user", params: { user: actor.handle } });
+      navigate({ to: "/$user", params: { user: formatHandle(actor) } });
     },
     [navigate],
   );
@@ -241,17 +244,17 @@ export default function Header() {
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-(--color-border) bg-(--color-bg-overlay) text-xs font-medium text-(--color-fg-muted)">
                         {(
                           actor.displayName?.[0] ||
-                          actor.handle[0] ||
+                          formatHandle(actor)[0] ||
                           "?"
                         ).toUpperCase()}
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium text-(--color-fg)">
-                        {actor.displayName || actor.handle}
+                        {actor.displayName || formatHandle(actor)}
                       </div>
                       <div className="truncate text-xs text-(--color-fg-muted)">
-                        @{actor.handle}
+                        {formatHandleWithAt(actor)}
                       </div>
                     </div>
                   </Button>

@@ -3,8 +3,6 @@ import {
   ContentRights,
   ContentWarnings,
   formatActivity,
-  formatHandle,
-  formatHandleWithAt,
   IconButton,
   layout,
   LiveBadge,
@@ -25,6 +23,7 @@ import {
   motion,
   statusColors,
 } from "@streamplace/components/src/lib/theme/tokens";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import AQLink from "components/aqlink";
 import FollowButton from "components/follow-button";
 import {
@@ -189,9 +188,9 @@ export function BottomMetadata({
           <View style={{ flexShrink: 1, minWidth: 0 }}>
             <Pressable
               onPress={() => {
-                if (profile?.handle) {
+                if (profile?.did) {
                   Linking.openURL(
-                    `https://bsky.app/profile/${formatHandle(profile)}`,
+                    `https://bsky.app/profile/${encodeURIComponent(formatHandle(profile))}`,
                   );
                 }
               }}
@@ -469,9 +468,9 @@ function CompactStreamInfo() {
           ) : null}
           <Pressable
             onPress={() => {
-              if (profile?.handle) {
+              if (profile?.did) {
                 Linking.openURL(
-                  `https://bsky.app/profile/${formatHandle(profile)}`,
+                  `https://bsky.app/profile/${encodeURIComponent(formatHandle(profile))}`,
                 );
               }
             }}

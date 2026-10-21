@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { CardMenuSection } from "@/components/ui/card";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ChevronRight, ExternalLink, LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -40,13 +41,13 @@ function AccountSettings() {
           />
         )}
         <h1 className="font-display text-xl font-semibold">
-          @{userProfile.handle}
+          {formatHandleWithAt(userProfile)}
         </h1>
       </div>
 
       <CardMenuSection>
         <a
-          href={`https://bsky.app/profile/${userProfile.handle}`}
+          href={`https://bsky.app/profile/${encodeURIComponent(formatHandle(userProfile))}`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-(--color-bg)"

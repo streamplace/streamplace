@@ -1,6 +1,10 @@
 import { ProfileViewBasic } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { TriggerRef } from "@rn-primitives/dropdown-menu";
-import { formatBadgeIssuer, formatBadgeLabel } from "@streamplace/core";
+import {
+  formatBadgeIssuer,
+  formatBadgeLabel,
+  formatHandleWithAt,
+} from "@streamplace/core";
 import { Image } from "expo-image";
 import {
   createContext,
@@ -31,7 +35,6 @@ import { useLivestreamStore } from "../../livestream-store";
 import { useUrl } from "../../streamplace-store";
 import { useNetworkProfileUrl } from "../../streamplace-store/branding";
 import { useTheme } from "../../ui";
-import { formatHandleWithAt } from "../../utils/format-handle";
 import { NetworkIcon } from "../icons/network-icon";
 import { Button, MenuGroup } from "../ui";
 import {
@@ -248,7 +251,7 @@ export const ProfileCardContent = ({
             gap.all[2],
           ]}
         >
-          <Text testID="chat-profile-handle">@{author.handle}</Text>
+          <Text testID="chat-profile-handle">{formatHandleWithAt(author)}</Text>
           {Platform.OS === "web" && (
             <View style={{ position: "absolute", right: 2, bottom: 7 }}>
               <Button

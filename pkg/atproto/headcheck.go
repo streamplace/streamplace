@@ -16,12 +16,16 @@ import (
 // the host then failed to answer), because the caller has a second use for it:
 // see [ATProtoSynchronizer.refreshDriftedIdentity].
 //
-// One request, nothing verified: see [reposync.LatestCommit] for why that is
-// the right trade for a drift check. It goes through the same per-host lock and
-// the same backoff memory as every other sync request, so a pass over thousands
-// of repos is as polite to a host as a backfill is.
+// The resolve is authoritative, not cached: this is the node's scheduled,
+// once-per-sweep look at the account, and a cached answer would let an
+// identity change hide behind an entry that agrees with the stale row for up
+// to a day.
+//
+// The head request checks only the revision: see [reposync.LatestCommit] for
+// that drift-check tradeoff. It shares the sync engine's per-host lock and
+// backoff memory.
 func (atsync *ATProtoSynchronizer) headRev(ctx context.Context, did string) (string, *identity.Identity, error) {
-	ident, err := atsync.resolveIdent(ctx, did, true)
+	ident, err := atsync.resolveIdent(ctx, did, false)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to resolve %s: %w", did, err)
 	}
@@ -49,29 +53,24 @@ func (atsync *ATProtoSynchronizer) headRev(ctx context.Context, did string) (str
 // window, or deliberately skip a replay too old to be worth it. Missed commits
 // are healed by the head check, but a missed identity event used to stay wrong
 // until the account happened to emit another one. So: the head check resolves
-// every servable repo's identity anyway, to find its host — if what it resolved
-// disagrees with the row, something is stale. Confirm against an authoritative
-// (uncached) resolve before writing, because the disagreement could equally be
-// the identity cache lagging a row a live event already updated. Either way the
-// cache entry is purged, so the next cached resolve serves what we just
-// learned.
+// every servable repo's identity authoritatively anyway, to find its host, and
+// whatever it learned about the handle or PDS is written to the row. That
+// covers a stale handle or PDS as well as one recorded as broken
+// ("handle.invalid") that the owner has since fixed. Purging the cache even
+// when the row agrees also repairs a cache entry that is stale on its own.
 func (atsync *ATProtoSynchronizer) refreshDriftedIdentity(ctx context.Context, repo *model.Repo, ident *identity.Identity) {
-	if ident == nil || (ident.Handle.String() == repo.Handle && ident.PDSEndpoint() == repo.PDS) {
+	if ident == nil {
 		return
 	}
-	fresh, err := atsync.resolveIdent(ctx, repo.DID, false)
-	if err != nil {
-		log.Warn(ctx, "failed to confirm drifted identity", "did", repo.DID, "handle", repo.Handle, "err", err)
-		return
-	}
-	handle, pds := fresh.Handle.String(), fresh.PDSEndpoint()
+	handle, pds := ident.Handle.String(), ident.PDSEndpoint()
 	if handle != repo.Handle || pds != repo.PDS {
 		log.Log(ctx, "repo identity has drifted; refreshing", "did", repo.DID,
 			"oldHandle", repo.Handle, "handle", handle, "oldPDS", repo.PDS, "pds", pds)
-		if err := atsync.Model.UpdateRepoIdentity(repo.DID, handle, pds); err != nil {
-			log.Error(ctx, "failed to refresh repo identity", "did", repo.DID, "handle", handle, "err", err)
-			return
-		}
+	}
+	// Even an unchanged identity can have a stale competing handle claim.
+	if err := atsync.Model.UpdateRepoIdentity(repo.DID, handle, pds); err != nil {
+		log.Error(ctx, "failed to refresh repo identity", "did", repo.DID, "handle", handle, "err", err)
+		return
 	}
 	atsync.purgeIdentCache(ctx, repo.DID)
 }

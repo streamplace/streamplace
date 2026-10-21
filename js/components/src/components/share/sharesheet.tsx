@@ -1,10 +1,10 @@
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Code, Copy, Link2, Share, Share2 } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import { Clipboard, Linking, Platform, View } from "react-native";
 import { textAlphas } from "../../lib/theme/tokens";
 import { useLivestreamStore } from "../../livestream-store";
 import { useNetworkName, useUrl } from "../../streamplace-store";
-import { formatHandle } from "../../utils/format-handle";
 import { BlueskyIcon } from "../icons/bluesky-icon";
 import {
   DropdownMenu,
@@ -40,13 +40,18 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
   // Get the current stream URL
   const getStreamUrl = useCallback(() => {
     if (target) return target.url;
-    return url + (profile ? `/${formatHandle(profile)}` : "");
+    return (
+      url + (profile ? `/${encodeURIComponent(formatHandle(profile))}` : "")
+    );
   }, [target, url, profile]);
 
   // Get the embed URL
   const getEmbedUrl = useCallback(() => {
     if (target) return target.embedUrl;
-    return url + (profile ? `/embed/${formatHandle(profile)}` : "");
+    return (
+      url +
+      (profile ? `/embed/${encodeURIComponent(formatHandle(profile))}` : "")
+    );
   }, [target, url, profile]);
 
   // Get embed code
@@ -81,8 +86,8 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
     const streamUrl = getStreamUrl();
     const text = target?.message
       ? `${target.message} ${streamUrl}`
-      : profile && profile.handle
-        ? `Check out @${profile.handle} live on Streamplace! ${streamUrl}`
+      : profile
+        ? `Check out ${formatHandleWithAt(profile)} live on Streamplace! ${streamUrl}`
         : `Check out this stream on Streamplace! ${streamUrl}`;
     const blueskyUrl = `https://bsky.app/intent/compose?text=${encodeURIComponent(text)}`;
     Linking.openURL(blueskyUrl);
@@ -94,8 +99,8 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
     const streamUrl = getStreamUrl();
     const text = target?.message
       ? target.message
-      : profile && profile.handle
-        ? `Check out @${profile.handle} live on Streamplace!`
+      : profile
+        ? `Check out ${formatHandleWithAt(profile)} live on Streamplace!`
         : `Check out this stream on Streamplace!`;
 
     if (Platform.OS === "web" && navigator.share) {

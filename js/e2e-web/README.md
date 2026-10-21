@@ -46,6 +46,22 @@ smoke, navigation, and stream coverage correspond to
 `.maestro/setup/oauth-login.yaml`; authenticated chat/profile behavior is covered
 on mobile by `.maestro/logged-in/{chat-reply,chat-profile}.yaml`.
 
+`invalid-handle` runs against both Expo web and the Vite beta. It moves the
+harness account to a real `.test` handle, which cannot pass public
+bidirectional verification, and calls `com.atproto.identity.refreshIdentity`.
+The home feed must display the DID without `@`, open its DID-addressed stream,
+and play real media. It also exercises an invalid typeahead result. Only public
+AppView discovery (the harness account is not publicly indexed) and that search
+boundary are substituted; the feed, PDS/PLC, refresh endpoint, websocket and
+playback remain real. Cleanup restores the original verified handle and waits
+for the live-feed cache to catch up, including after a failed assertion.
+The corresponding shared native flow is
+`.maestro/logged-out/invalid-handle.yaml`.
+The login typeahead case changes an invalid result back to a verified handle
+without changing its DID or avatar, then accepts the corrected completion. It
+covers the shared login hook; the public AppView boundary is substituted because
+the local PDS account is not publicly searchable.
+
 The web app renders the **desktop layout** (a sidebar of nav links), not the
 mobile tab bar, so `tabs` drives Home ↔ Settings through the sidebar.
 `go-live` checks that the Live Dashboard (`/live`) requires login; this is

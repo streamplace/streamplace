@@ -73,17 +73,21 @@ export async function createTeleport(
     };
   }
 
-  let targetDID: string;
-  try {
-    const resolution = await pdsAgent.resolveHandle({
-      handle: targetHandle,
-    });
-    targetDID = resolution.data.did;
-  } catch (err) {
-    return {
-      success: false,
-      error: `Could not resolve handle: ${targetHandle}`,
-    };
+  // a streamer without a verified handle is named by its DID, which needs no
+  // resolution
+  let targetDID = targetHandle;
+  if (!targetHandle.startsWith("did:")) {
+    try {
+      const resolution = await pdsAgent.resolveHandle({
+        handle: targetHandle,
+      });
+      targetDID = resolution.data.did;
+    } catch (err) {
+      return {
+        success: false,
+        error: `Could not resolve handle: ${targetHandle}`,
+      };
+    }
   }
 
   if (targetDID === userDID) {
@@ -171,7 +175,7 @@ export function createTeleportCommands(
       targetHandle = targetHandle.slice(1);
     }
 
-    if (!targetHandle.includes(".")) {
+    if (!targetHandle.startsWith("did:") && !targetHandle.includes(".")) {
       return teleportError(
         "Invalid handle format. Expected: handle.bsky.social",
         "handle-format",
@@ -200,18 +204,20 @@ export function createTeleportCommands(
     // stream so the server can end exactly that record on arrival. When absent
     // the teleport still sends viewers over; the server just won't end a
     // source stream.
-    let targetDID: string;
-    try {
-      const resolution = await pdsAgent.resolveHandle({
-        handle: targetHandle,
-      });
-      targetDID = resolution.data.did;
-    } catch (err) {
-      return teleportError(
-        `Could not resolve handle: ${targetHandle}`,
-        "resolve-handle",
-        { handle: targetHandle },
-      );
+    let targetDID = targetHandle;
+    if (!targetHandle.startsWith("did:")) {
+      try {
+        const resolution = await pdsAgent.resolveHandle({
+          handle: targetHandle,
+        });
+        targetDID = resolution.data.did;
+      } catch (err) {
+        return teleportError(
+          `Could not resolve handle: ${targetHandle}`,
+          "resolve-handle",
+          { handle: targetHandle },
+        );
+      }
     }
 
     if (targetDID === userDID) {

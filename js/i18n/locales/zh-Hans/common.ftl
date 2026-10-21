@@ -47,11 +47,11 @@ notification-count = { $count ->
 ## Offline User
 user-offline = 用户离线
 user-offline-message = { $source ->
-    [streamer] 看起来 <1>@{ $handle } 离线</1>了，但他们推荐观看：
-   *[default] 看起来 <1>@{ $handle } 离线</1>了，但我们推荐观看：
+    [streamer] 看起来 <1>{ $handle } 离线</1>了，但他们推荐观看：
+   *[default] 看起来 <1>{ $handle } 离线</1>了，但我们推荐观看：
 }
 user-offline-no-recommendations =
-  看起来 <1>@{ $handle } 离线</1>了。
+  看起来 <1>{ $handle } 离线</1>了。
   请稍后再来看看。
 streaming-title = 正在直播 { $title }
 viewer-count = { $count } 位观众
@@ -74,7 +74,7 @@ login-show-live-on-bluesky-description = 直播时为您的 Bluesky 头像加上
 
 ## Stream notifications
 teleporting-in = 传送倒计时
-teleporting-to = 正在传送至 @{ $handle }
+teleporting-to = 正在传送至 { $handle }
 
 ## Teleport dialog
 teleport-dialog-title = 传送至其他直播主播

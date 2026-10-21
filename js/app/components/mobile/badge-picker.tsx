@@ -4,7 +4,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  formatHandleWithAt,
   hexToRgba,
   ResponsiveDropdownMenuContent,
   Text,
@@ -21,6 +20,7 @@ import {
 import { borderRadius as radiusTokens } from "@streamplace/components/src/lib/theme/tokens";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { p } from "@streamplace/components/src/ui";
+import { formatHandleWithAt } from "@streamplace/core";
 import { useNameColorPicker } from "components/name-color-picker/name-color-picker";
 import { Image } from "expo-image";
 import { Check, SwatchBook } from "lucide-react-native";
@@ -241,7 +241,7 @@ export function BadgePicker() {
                         />
                       )}
                     </View>
-                    @{me?.handle || me?.did || "yourhand.le"}
+                    {me ? formatHandleWithAt(me) : "@yourhand.le"}
                   </Text>
                   : what is a bluesky account
                 </Text>

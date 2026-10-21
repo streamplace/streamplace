@@ -84,7 +84,7 @@ log-out = Log out
 optional = optional
 
 ## Account Settings
-account-greeting = Hey, @{ $handle }.
+account-greeting = Hey, { $handle }.
 edit-profile-bluesky = Edit profile (on { $network })
 change-name-color = Change name color
 

@@ -1,4 +1,8 @@
-import { RichtextSegment, segmentize } from "@streamplace/core";
+import {
+  formatHandleWithAt,
+  RichtextSegment,
+  segmentize,
+} from "@streamplace/core";
 import { EyeOff, Pin, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
@@ -11,7 +15,6 @@ import {
   zero,
 } from "../../";
 import * as tokens from "../../lib/theme/tokens";
-import { formatHandleWithAt } from "../../utils/format-handle";
 
 // static link accent — this overlay can render outside a ThemeProvider (OBS)
 const LINK_ACCENT = tokens.colors.primary[400]; // eslint-disable-line streamplace/no-token-literals

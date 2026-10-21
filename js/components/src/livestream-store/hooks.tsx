@@ -129,7 +129,8 @@ export const useCreateChatMessage = () => {
       cid: "" as any,
       author: {
         did: userDID as any,
-        handle: (userHandle || userDID) as any,
+        // formatHandle shows the DID until the handle is known
+        handle: (userHandle || "") as any,
       },
       record: record,
       indexedAt: new Date().toISOString() as any,

@@ -10,6 +10,7 @@ import {
   motion,
   spacing,
 } from "@streamplace/components/src/lib/theme/tokens";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Image } from "expo-image";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useState } from "react";
@@ -23,7 +24,7 @@ interface StreamCardProps {
   thumbnailUrl: string;
   avatarUrl?: string;
   title?: string;
-  streamerName?: string;
+  streamer?: { did: string; handle?: string | null };
   viewers?: number;
   category: string[];
   activity?: string;
@@ -53,7 +54,7 @@ const StreamCard = ({
   thumbnailUrl,
   avatarUrl,
   title,
-  streamerName,
+  streamer,
   viewers = 0,
   category = [],
   activity,
@@ -160,7 +161,12 @@ const StreamCard = ({
         ]}
       >
         {showAvatar && (
-          <Avatar src={avatarUrl} name={streamerName} size="lg" live={isLive} />
+          <Avatar
+            src={avatarUrl}
+            name={streamer && formatHandle(streamer)}
+            size="lg"
+            live={isLive}
+          />
         )}
 
         <View
@@ -185,14 +191,14 @@ const StreamCard = ({
               {title}
             </Text>
           )}
-          {streamerName && (
+          {streamer && (
             <Text
               size="sm"
               numberOfLines={1}
               ellipsizeMode="tail"
               style={{ color: theme.colors.text3 }}
             >
-              @{streamerName}
+              {formatHandleWithAt(streamer)}
             </Text>
           )}
           {watchingLine.length > 0 && (

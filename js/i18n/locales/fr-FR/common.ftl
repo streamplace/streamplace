@@ -48,11 +48,11 @@ notification-count = { $count ->
 ## Offline User
 user-offline = utilisateur hors ligne
 user-offline-message = { $source ->
-    [streamer] On dirait que <1>@{ $handle } est hors ligne</1>, mais ils recommandent de regarder :
-   *[default] On dirait que <1>@{ $handle } est hors ligne</1>, mais nous recommandons de regarder :
+    [streamer] On dirait que <1>{ $handle } est hors ligne</1>, mais ils recommandent de regarder :
+   *[default] On dirait que <1>{ $handle } est hors ligne</1>, mais nous recommandons de regarder :
 }
 user-offline-no-recommendations = 
-  On dirait que <1>@{ $handle } est hors ligne</1> maintenant.
+  On dirait que <1>{ $handle } est hors ligne</1> maintenant.
   Revenez plus tard.
 streaming-title = diffusion de { $title }
 viewer-count = { $count ->
@@ -79,7 +79,7 @@ login-show-live-on-bluesky-description = Ajoute l'anneau rouge LIVE à votre ava
 
 ## Stream notifications
 teleporting-in = Téléportation dans
-teleporting-to = Téléportation vers @{ $handle }
+teleporting-to = Téléportation vers { $handle }
 
 ## Teleport dialog
 teleport-dialog-title = Téléporter vers un autre streamer en direct

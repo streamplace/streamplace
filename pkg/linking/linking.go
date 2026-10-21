@@ -17,6 +17,7 @@ import (
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/branding"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -248,16 +249,17 @@ func siteName(values map[string]string) string {
 }
 
 // expandCard fills a card template's placeholders: {site}, and for a page
-// about one account {name} (display name, falling back to the handle) and
-// {handle}.
+// about one account {name} (display name, falling back to handle or DID) and
+// {handle} (the DID when no verified handle is available).
 func expandCard(tmpl string, values map[string]string, author *appbsky.ActorDefs_ProfileViewBasic) string {
 	r := []string{"{site}", siteName(values)}
 	if author != nil {
-		name := author.Handle
+		handle := model.HandleOrDID(author.Handle, author.Did)
+		name := handle
 		if author.DisplayName != nil && strings.TrimSpace(*author.DisplayName) != "" {
 			name = strings.TrimSpace(*author.DisplayName)
 		}
-		r = append(r, "{name}", name, "{handle}", author.Handle)
+		r = append(r, "{name}", name, "{handle}", handle)
 	}
 	return strings.TrimSpace(strings.NewReplacer(r...).Replace(tmpl))
 }
@@ -305,7 +307,7 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *plac
 
 	thumbURL, _ := url.Parse(u.String())
 	thumbURL.Path = "/xrpc/place.stream.live.getProfileCard"
-	thumbURL.RawQuery = fmt.Sprintf("id=%s", lsv.Author.Did)
+	thumbURL.RawQuery = "id=" + url.QueryEscape(lsv.Author.Did)
 
 	brandMetas, values := l.brandMetas(ctx)
 	title := expandCard(cardText(values, "cardLiveTitle"), values, &lsv.Author)
@@ -353,7 +355,7 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestr
 	} else {
 		cardURL, _ := url.Parse(u.String())
 		cardURL.Path = "/xrpc/place.stream.live.getProfileCard"
-		cardURL.RawQuery = fmt.Sprintf("id=%s", authorDid)
+		cardURL.RawQuery = "id=" + url.QueryEscape(authorDid)
 		imageURL = cardURL.String()
 	}
 

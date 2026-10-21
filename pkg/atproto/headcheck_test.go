@@ -10,6 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/devenv"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -132,6 +133,103 @@ func TestSweepRefreshesDriftedIdentity(t *testing.T) {
 	require.Equal(t, indexed.PDS, healed.PDS, "and the drifted PDS")
 	require.Equal(t, indexed.Version, healed.Version, "identity refresh left the sync state alone")
 	require.Equal(t, indexed.BackfillDone, healed.BackfillDone)
+}
+
+// The sweep must heal broken handles, missed renames, and a stale cache even
+// when the indexed row is already current. Still-broken accounts remain
+// reachable by DID, never by the shared sentinel.
+func TestSweepHealsIdentityBehindCache(t *testing.T) {
+	dev := devenv.WithDevEnv(t)
+	ctx := context.Background()
+	atsync, mod := backfillTestSynchronizer(t, dev)
+
+	fixed, renamed, broken, current := dev.CreateAccount(t), dev.CreateAccount(t), dev.CreateAccount(t), dev.CreateAccount(t)
+	users := []*devenv.DevEnvAccount{fixed, renamed, broken, current}
+	for _, user := range users {
+		require.NoError(t, atsync.StatefulDB.AddRepo(user.DID))
+	}
+	require.NoError(t, atsync.Sweep(ctx))
+	indexed := make(map[string]*model.Repo, len(users))
+	for _, user := range users {
+		row, err := mod.GetRepo(user.DID)
+		require.NoError(t, err)
+		require.NotEmpty(t, row.Version)
+		indexed[user.DID] = row
+	}
+
+	realDirectory := atsync.directory(false)
+	authoritative := identity.NewMockDirectory()
+	atsync.PLCDirectory = &authoritative
+	atsync.CachedPLCDirectory = nil
+	for _, tc := range []struct {
+		user                      *devenv.DevEnvAccount
+		recorded, cached, current syntax.Handle
+	}{
+		{fixed, syntax.HandleInvalid, syntax.HandleInvalid, "fixed.example.test"},
+		{renamed, "old.example.test", "old.example.test", "renamed.example.test"},
+		{broken, syntax.HandleInvalid, syntax.HandleInvalid, syntax.HandleInvalid},
+		{current, "current.example.test", "cached.example.test", "current.example.test"},
+	} {
+		ident, err := realDirectory.LookupDID(ctx, syntax.DID(tc.user.DID))
+		require.NoError(t, err)
+		was, now := *ident, *ident
+		was.Handle, now.Handle = tc.cached, tc.current
+		authoritative.Insert(was)
+		_, err = atsync.resolveIdent(ctx, tc.user.DID, true)
+		require.NoError(t, err)
+		authoritative.Insert(now)
+		require.NoError(t, mod.UpdateRepoIdentity(tc.user.DID, tc.recorded.String(), ident.PDSEndpoint()))
+	}
+	// A parked previous owner is never swept, so the current owner's refresh
+	// must release its stale claim even when the current row already agrees.
+	const parkedDID = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"
+	require.NoError(t, mod.UpdateRepo(&model.Repo{
+		DID: parkedDID, Handle: "current.example.test", Status: model.RepoStatusDeactivated,
+	}))
+	require.NoError(t, atsync.StatefulDB.AddRepo(parkedDID))
+
+	byHandle, err := mod.GetRepoByHandleOrDID("handle.invalid")
+	require.NoError(t, err)
+	require.Nil(t, byHandle, "a broken handle names nobody")
+
+	require.NoError(t, atsync.Sweep(ctx))
+
+	for did, want := range map[string]string{
+		fixed.DID:   "fixed.example.test",
+		renamed.DID: "renamed.example.test",
+		broken.DID:  "handle.invalid",
+		current.DID: "current.example.test",
+	} {
+		got, err := mod.GetRepo(did)
+		require.NoError(t, err)
+		require.Equal(t, want, got.Handle)
+		require.Equal(t, indexed[did].Version, got.Version, "identity refresh left the sync state alone")
+		require.Equal(t, indexed[did].BackfillDone, got.BackfillDone)
+		byDID, err := mod.GetRepoByHandleOrDID(did)
+		require.NoError(t, err)
+		require.NotNil(t, byDID, "reachable by DID")
+		resolved, err := atsync.resolveIdent(ctx, did, true)
+		require.NoError(t, err)
+		require.Equal(t, want, resolved.Handle.String(), "cached consumers see the repaired identity")
+	}
+	byHandle, err = mod.GetRepoByHandleOrDID("renamed.example.test")
+	require.NoError(t, err)
+	require.NotNil(t, byHandle)
+	require.Equal(t, renamed.DID, byHandle.DID)
+	byHandle, err = mod.GetRepoByHandleOrDID("current.example.test")
+	require.NoError(t, err)
+	require.NotNil(t, byHandle)
+	require.Equal(t, current.DID, byHandle.DID)
+	parked, err := mod.GetRepo(parkedDID)
+	require.NoError(t, err)
+	require.Empty(t, parked.Handle)
+	require.Equal(t, model.RepoStatusDeactivated, parked.Status)
+	byHandle, err = mod.GetRepoByHandleOrDID("old.example.test")
+	require.NoError(t, err)
+	require.Nil(t, byHandle, "the old handle no longer routes anywhere")
+	byHandle, err = mod.GetRepoByHandleOrDID("handle.invalid")
+	require.NoError(t, err)
+	require.Nil(t, byHandle)
 }
 
 // TestResetIdentCacheDropsCachedResolutions proves the reset is real: a warm

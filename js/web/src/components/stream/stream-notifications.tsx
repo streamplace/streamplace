@@ -3,6 +3,8 @@ import type { Link as FacetLink } from "@atproto/api/dist/client/types/app/bsky/
 import type { LivestreamStore } from "@streamplace/core";
 import {
   deleteTeleport,
+  formatHandle,
+  formatHandleWithAt,
   segmentize,
   type Facet,
   type FacetFeature,
@@ -123,7 +125,7 @@ function PinnedNotification({
   const record = comment.record;
   const authorColor = rgbColor(message?.chatProfile?.color);
   const authorName = message
-    ? message.author.displayName || message.author.handle || message.author.did
+    ? message.author.displayName || formatHandle(message.author)
     : "unknown";
   const messageRecord = message?.record as
     | ChatMessageViewHydrated["record"]
@@ -277,8 +279,10 @@ function TeleportNotification({
   );
   const [now, setNow] = useState(Date.now());
   const startsAt = new Date(teleport.startsAt).getTime();
-  const targetHandle =
-    targetProfiles[teleport.streamer]?.handle || teleport.streamer;
+  const targetHandle = formatHandleWithAt({
+    did: teleport.streamer,
+    handle: targetProfiles[teleport.streamer]?.handle,
+  });
   const initialTimeLeft = useMemo(
     () => Math.max(0, startsAt - Date.now()),
     [startsAt],

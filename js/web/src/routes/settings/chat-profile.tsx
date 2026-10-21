@@ -7,6 +7,7 @@ import {
   ColorPickerSelection,
 } from "@/components/ui/color-picker";
 import { Switch } from "@/components/ui/switch";
+import { formatHandleWithAt } from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -128,7 +129,7 @@ function ChatProfileSettings() {
             {/* Preview */}
             <div className="flex items-center gap-2 rounded-md bg-(--color-bg) px-3 py-2">
               <span className="text-sm" style={{ color }}>
-                @{userProfile.handle}
+                {formatHandleWithAt(userProfile)}
               </span>
               <span className="text-sm text-(--color-fg-muted)">
                 {t("chat-profile-preview-message")}

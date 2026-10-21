@@ -13,6 +13,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { formatHandleWithAt } from "@streamplace/core";
 import { EmptyState, EmptyStateTile } from "components/empty-state";
 import Loading from "components/loading/loading";
 import {
@@ -392,7 +393,7 @@ export default function RecommendationsManager() {
                                 ]}
                               >
                                 <View style={{ flex: 1 }}>
-                                  <Text>@{actor.handle}</Text>
+                                  <Text>{formatHandleWithAt(actor)}</Text>
                                 </View>
                                 {alreadyAdded && (
                                   <Text

@@ -1,10 +1,3 @@
-export function getAuthorHandle(
-  author: { handle?: string; displayName?: string } | null | undefined,
-  fallback: string,
-): string {
-  return author?.handle?.trim() || fallback;
-}
-
 export function buildVodShareLinks(origin: string, user: string, tid: string) {
   const base = new URL(origin).origin;
   const route = `${encodeURIComponent(user)}/video/${encodeURIComponent(tid)}`;

@@ -6,6 +6,7 @@ import {
   touchTargets,
 } from "@streamplace/components/src/lib/theme/tokens";
 import { usePossiblyUnauthedPDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { formatHandle } from "@streamplace/core";
 import { EmptyState, EmptyStateTile } from "components/empty-state";
 import SearchResults, { SEARCH_RESULT_HEIGHT } from "components/search-results";
 import { AlertCircle, Search } from "lucide-react-native";
@@ -302,7 +303,7 @@ function DropdownSearch({
       dismiss();
       linkTo(
         interpolateParams(getAbsolutePath("Stream"), {
-          user: activeActor.handle || activeActor.did,
+          user: formatHandle(activeActor),
         }),
       );
     }

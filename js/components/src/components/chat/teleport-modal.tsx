@@ -1,3 +1,4 @@
+import { formatHandle } from "@streamplace/core";
 import { Image } from "expo-image";
 import { Check, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
@@ -47,7 +48,7 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
     // filter by handle or stream title
     return liveUsers.filter(
       (stream) =>
-        stream.author?.handle?.toLowerCase().includes(query) ||
+        formatHandle(stream.author).toLowerCase().includes(query) ||
         stream.record.title?.toString().toLowerCase().includes(query),
     );
   }, [liveUsers, searchQuery]);
@@ -60,14 +61,14 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
   };
 
   const handleSubmit = () => {
-    if (!selectedStream?.author?.handle) return;
+    if (!selectedStream) return;
 
     const countdown = parseInt(countdownSeconds, 10);
     if (isNaN(countdown) || countdown < 5 || countdown > 300) {
       return;
     }
 
-    onSubmit(selectedStream.author.handle, countdown);
+    onSubmit(formatHandle(selectedStream.author), countdown);
     handleCancel();
   };
 
@@ -167,7 +168,7 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
                           source={{
                             uri:
                               "/api/playback/" +
-                              stream.author.did +
+                              encodeURIComponent(stream.author.did) +
                               "/stream.jpg",
                           }}
                           style={{
@@ -261,7 +262,7 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
                         {/* Text */}
                         <View style={[{ flex: 1, minWidth: 0 }]}>
                           <Text numberOfLines={1} ellipsizeMode="tail">
-                            {stream.author?.handle}
+                            {formatHandle(stream.author)}
                           </Text>
                           {stream.record.title ? (
                             <Text

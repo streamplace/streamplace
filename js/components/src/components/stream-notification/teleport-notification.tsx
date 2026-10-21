@@ -1,3 +1,4 @@
+import { formatHandleWithAt } from "@streamplace/core";
 import { useEffect, useState } from "react";
 import { useWindowDimensions, View } from "react-native";
 import Animated, {
@@ -11,12 +12,14 @@ import { Button, Text, useTheme, zero } from "../../";
 
 export function TeleportNotification({
   targetHandle,
+  targetDID,
   countdown,
   canCancel,
   startTime,
   onDismiss,
 }: {
-  targetHandle: string;
+  targetHandle?: string;
+  targetDID: string;
   countdown: number;
   canCancel: boolean;
   startTime?: number;
@@ -120,7 +123,8 @@ export function TeleportNotification({
         ]}
       >
         <Text size={w > 650 ? "xl" : "base"}>
-          Teleporting to @{targetHandle}
+          Teleporting to{" "}
+          {formatHandleWithAt({ did: targetDID, handle: targetHandle })}
         </Text>
         <View
           style={[

@@ -1,7 +1,7 @@
 import type { StreamplaceAgent } from "streamplace";
 import { describe, expect, it, vi } from "vitest";
 import { handleSlashCommand, type SlashCommand } from "../slash-commands";
-import { createTeleportCommands } from "./teleport";
+import { createTeleport, createTeleportCommands } from "./teleport";
 
 describe("teleport slash command errors", () => {
   let commands: SlashCommand[];
@@ -30,7 +30,6 @@ describe("teleport slash command errors", () => {
     );
 
     expect(result.errorData).toEqual({ type: "teleport", code: "not-live" });
-    expect(result.error).toBe("Start a livestream before starting a teleport");
   });
 
   it("distinguishes a viewer from an offline streamer", async () => {
@@ -108,6 +107,40 @@ describe("teleport slash command errors", () => {
       type: "teleport",
       code: "resolve-handle",
       params: { handle: "missing.example" },
+    });
+  });
+
+  it("accepts a DID from the live-stream picker", async () => {
+    const create = vi.fn().mockResolvedValue({
+      uri: "at://did:plc:streamer/place.stream.live.teleport/3mteleport",
+    });
+    register({ client: { create } } as unknown as StreamplaceAgent);
+
+    await handleSlashCommand("/teleport did:plc:target 10", commands);
+
+    expect(create.mock.calls[0]?.[1]).toMatchObject({
+      streamer: "did:plc:target",
+    });
+  });
+});
+
+describe("createTeleport", () => {
+  it("targets a streamer by DID without resolving a handle", async () => {
+    const resolveHandle = vi.fn();
+    const create = vi.fn().mockResolvedValue({ uri: "at://teleport" });
+    const agent = { resolveHandle, client: { create } };
+
+    const result = await createTeleport(
+      agent as unknown as StreamplaceAgent,
+      "did:plc:streamer",
+      "did:plc:target",
+      10,
+    );
+
+    expect(result).toEqual({ success: true });
+    expect(resolveHandle).not.toHaveBeenCalled();
+    expect(create.mock.calls[0][1]).toMatchObject({
+      streamer: "did:plc:target",
     });
   });
 });

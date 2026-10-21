@@ -316,40 +316,17 @@ func syncInFlight(did string) bool {
 	return syncsInFlight.dids[did] > 0
 }
 
+// RefreshIdentity re-resolves an identity straight from the directory and
+// brings the indexed row's handle and PDS in line with it. Only those columns
+// are written, and only on a row that already exists: the sync state on the
+// rest of the row is not this call's to touch, and an identity event or an
+// XRPC caller is not a request to index the account.
 func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did string) (*identity.Identity, error) {
 	id, err := atsync.resolveIdent(ctx, did, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve ident: %w", err)
 	}
-	newRepo := model.Repo{
-		DID:    id.DID.String(),
-		PDS:    id.PDSEndpoint(),
-		Handle: id.Handle.String(),
-	}
-	// UpdateRepo writes every column, so carry the sync state over: blanking
-	// Version here would mark the repo as never-backfilled and (now that an
-	// empty Version means "re-sync me") make every identity event trigger a
-	// pointless full re-index.
-	oldRepo, err := atsync.Model.GetRepo(id.DID.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get repo: %w", err)
-	}
-	if oldRepo != nil {
-		newRepo.Version = oldRepo.Version
-		newRepo.RootCID = oldRepo.RootCID
-		// Same reasoning for Status: an identity event is not evidence the
-		// account came back, and blanking it here would put every deactivated
-		// repo back in the boot-time sync sweep.
-		newRepo.Status = oldRepo.Status
-		// And for the backfill watermark: losing it would make the sweep walk
-		// this repo's whole history again from the top of the ladder.
-		newRepo.BackfillFloor = oldRepo.BackfillFloor
-		newRepo.BackfillDone = oldRepo.BackfillDone
-		// And for the repair watermark, which is how a pending repair knows
-		// which span of history it is there to re-read.
-		newRepo.RepairFrom = oldRepo.RepairFrom
-	}
-	err = atsync.Model.UpdateRepo(&newRepo)
+	err = atsync.Model.UpdateRepoIdentity(id.DID.String(), id.Handle.String(), id.PDSEndpoint())
 	if err != nil {
 		return nil, fmt.Errorf("failed to update repo: %w", err)
 	}

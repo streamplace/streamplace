@@ -48,11 +48,11 @@ notification-count = { $count ->
 ## Offline User
 user-offline = utilizatorul este offline
 user-offline-message = { $source ->
-    [streamer] Se pare că <1>@{ $handle } este offline</1>, dar recomandă să vizionați:
-   *[default] Se pare că <1>@{ $handle } este offline</1>, dar vă recomandăm să vizionați:
+    [streamer] Se pare că <1>{ $handle } este offline</1>, dar recomandă să vizionați:
+   *[default] Se pare că <1>{ $handle } este offline</1>, dar vă recomandăm să vizionați:
 }
 user-offline-no-recommendations =
-  Se pare că <1>@{ $handle } este offline</1> acum.
+  Se pare că <1>{ $handle } este offline</1> acum.
   Reveniți mai târziu.
 streaming-title = transmisie în direct { $title }
 viewer-count = { $count ->
@@ -79,7 +79,7 @@ login-show-live-on-bluesky-description = Adaugă inelul roșu LIVE avatarului dv
 
 ## Stream notifications
 teleporting-in = Teleportare în
-teleporting-to = Teleportare către @{ $handle }
+teleporting-to = Teleportare către { $handle }
 
 ## Teleport dialog
 teleport-dialog-title = Teleportează-te la un alt streamer live

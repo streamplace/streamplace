@@ -87,6 +87,41 @@ These focused tests use native presentation adapters; the Maestro flow exercises
 the actual native sheet and portal. The component tests also run in
 `pnpm run check`.
 
+## Invalid handle coverage
+
+`logged-out/invalid-handle.yaml` covers an account whose handle no longer
+verifies, while its DID and live stream stay the same. Its `onFlowStart` hook
+runs `invalid-handle.js` on the host. The script signs in to the harness PDS as
+the harness account and moves it to a fresh `invalid-<base36>.test` handle.
+Public resolution can't verify that handle, so when the script asks the node to
+`com.atproto.identity.refreshIdentity` the account, the node must report the
+`handle.invalid` sentinel.
+
+The flow waits up to 60 seconds for the home card to name the account by its
+bare DID. The node's live feed caches identities for 30 seconds, and the app
+polls it every 3. The flow then checks that the screen shows no sentinel and no
+`@did:` label, opens the stream from that card, and waits for the "Now streaming"
+chat system message.
+
+`onFlowComplete` runs even when the flow or its setup fails. It moves the account
+back to `ACCOUNT_HANDLE` and requires the node to verify that handle again. It
+then relaunches the app and waits for the card to show `@<handle>`, so later
+flows see the verified handle.
+
+The flow is shared by iOS and Android. It needs `ACCOUNT_DID`, `ACCOUNT_HANDLE`,
+`ACCOUNT_PASSWORD`, `PDS_HTTP_URL`, and `SERVER_HTTP_URL`. `SERVER_HTTP_URL` is
+the node's plain-HTTP loopback URL, which is the harness's own `SERVER_URL`.
+Maestro's `SERVER_URL` is the HTTPS name the app uses, and the host's JavaScript
+doesn't trust the harness CA. The harness must accept `.test` handles on its PDS,
+as `js/dev-env` configures it to. To run the flow alone:
+
+```bash
+E2E_FLOWS=".maestro/logged-out/invalid-handle.yaml" hack/e2e-local.sh android
+```
+
+The Web counterpart, `js/e2e-web/flows/invalid-handle.spec.ts`, covers the Expo
+and Vite shells with the same fixture.
+
 ## HTTPS, and logging in
 
 The app reaches the harness over HTTPS only: release builds refuse cleartext,

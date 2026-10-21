@@ -13,7 +13,7 @@ export function useLivestreamWebsocket(src: string) {
   const ref = useRef<any[]>([]);
   const handle = useRef<NodeJS.Timeout | null>(null);
 
-  useWebSocket(`${wsUrl}/api/websocket/${src}`, {
+  useWebSocket(`${wsUrl}/api/websocket/${encodeURIComponent(src)}`, {
     reconnectInterval: 1000,
     shouldReconnect: () => true,
 

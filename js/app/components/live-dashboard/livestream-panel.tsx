@@ -7,7 +7,6 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  formatHandle,
   getBlob,
   hexToRgba,
   Input,
@@ -36,6 +35,7 @@ import {
   surfaces,
   textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
+import { formatHandle } from "@streamplace/core";
 import { Image } from "expo-image";
 import { ChevronsUpDown, Globe, ImagePlus, Lock, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

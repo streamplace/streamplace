@@ -108,7 +108,7 @@ update = Atualizar
 log-out = Sair
 
 ## Configurações da Conta
-account-greeting = Olá, @{ $handle }.
+account-greeting = Olá, { $handle }.
 edit-profile-bluesky = Editar perfil (no Bluesky)
 change-name-color = Mudar cor do nome
 

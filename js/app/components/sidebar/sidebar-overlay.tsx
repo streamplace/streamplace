@@ -16,6 +16,7 @@ import {
 import { BlueskyIcon } from "@streamplace/components/src/components/icons/bluesky-icon";
 import { DiscordIcon } from "@streamplace/components/src/components/icons/discord-icon";
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
+import { formatHandle } from "@streamplace/core";
 import { decodeDataUrlText, SiteTitleLockup } from "components/brand/logo";
 import { LogoBrandMenu } from "components/brand/logo-brand-menu";
 import { Image } from "expo-image";
@@ -185,7 +186,12 @@ export function resolveNavUrl(
     }
   }
   return url
-    .replace("{handle}", encodeURIComponent(viewer.handle || viewer.did))
+    .replace(
+      "{handle}",
+      encodeURIComponent(
+        formatHandle({ did: viewer.did, handle: viewer.handle }),
+      ),
+    )
     .replace("{did}", encodeURIComponent(viewer.did));
 }
 

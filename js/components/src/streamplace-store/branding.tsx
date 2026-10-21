@@ -1,3 +1,4 @@
+import { formatHandle } from "@streamplace/core";
 import { useCallback, useEffect, useMemo } from "react";
 import { place } from "streamplace";
 import storage from "../storage";
@@ -352,7 +353,9 @@ export function useNetworkProfileUrl(): (author: {
     template
       .replace(
         "{handle}",
-        encodeURIComponent(author.handle || author.did || ""),
+        encodeURIComponent(
+          formatHandle({ did: author.did ?? "", handle: author.handle }),
+        ),
       )
       .replace("{did}", encodeURIComponent(author.did || ""));
 }

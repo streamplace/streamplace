@@ -3,6 +3,7 @@
 // expo-image, and React Native). Shows thumbnail, viewer count,
 // avatar, title, handle, activity label, and tags. Links to /$user.
 
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Link } from "@tanstack/react-router";
 import {
   useEffect,
@@ -68,12 +69,12 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
   const { t } = useTranslation("common");
   const streamplaceUrl = useStreamplaceUrl();
   const record = stream.record as place.stream.livestream.Main;
-  const handle = stream.author.handle || stream.author.did;
+  const user = formatHandle(stream.author);
   const title = record.title || t("default-stream-title");
   const activity = getStreamActivity(record, t);
   const tags = record.tags ?? [];
   const viewers = stream.viewerCount?.count;
-  const user = handle;
+  const handleWithAt = formatHandleWithAt(stream.author);
 
   // Keep a streamer's accent stable even if their handle changes.
   const borderColor = useMemo(
@@ -151,7 +152,7 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
         style={{ "--tw-ring-color": borderColor } as CSSProperties}
       >
         <img
-          src={`${streamplaceUrl}/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
+          src={`${streamplaceUrl}/api/playback/${encodeURIComponent(user)}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-50 blur-sm"
           onError={(e) => {
@@ -159,7 +160,7 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
           }}
         />
         <img
-          src={`${streamplaceUrl}/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
+          src={`${streamplaceUrl}/api/playback/${encodeURIComponent(user)}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
           alt=""
           className="absolute inset-0 h-full w-full object-contain"
           onError={(e) => {
@@ -194,7 +195,7 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-xs font-medium text-(--color-fg-muted)">
-              {handle[0]?.toUpperCase() ?? "?"}
+              {user[0]?.toUpperCase() ?? "?"}
             </div>
           )}
         </div>
@@ -205,7 +206,7 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
             {title}
           </div>
           <div className="truncate text-sm text-(--color-fg-muted)">
-            @{handle}
+            {handleWithAt}
           </div>
           {(activity || tags.length > 0) && (
             <div

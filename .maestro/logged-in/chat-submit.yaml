@@ -25,9 +25,7 @@ appId: ${APP_ID}
           visible:
             text: ".*: keyboard send from chat-submit"
           timeout: 15000
-# Do not erase between sends: a leftover draft would prefix the next message.
-- tapOn:
-    id: "chat-input"
+# Do not erase or refocus between sends: the draft must clear and focus stay.
 - inputText: "button send from chat-submit"
 - tapOn:
     id: "chat-send"
@@ -35,8 +33,6 @@ appId: ${APP_ID}
     visible:
       text: ".*: button send from chat-submit"
     timeout: 15000
-- tapOn:
-    id: "chat-input"
 - inputText: "next keyboard send from chat-submit"
 - pressKey: Enter
 - extendedWaitUntil:

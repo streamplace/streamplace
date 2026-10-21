@@ -194,6 +194,9 @@ it.each([
     });
     if (platform === "ios") {
       expect(fixture.send).not.toHaveBeenCalled();
+      // Restore focus in the Send gesture, before the delayed native event.
+      // Waiting until onEndEditing leaves time for keyboard dismissal.
+      expect(fixture.focused).toBe(true);
       // UIKit commits the correction while ending editing, after the Send
       // gesture. The React draft can still be stale when this event arrives.
       await act(async () => {

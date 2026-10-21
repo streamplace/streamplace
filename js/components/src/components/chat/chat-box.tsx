@@ -401,6 +401,9 @@ export function ChatBox({
       // when onEndEditing supplies that final text, not the React draft.
       submitAfterEditing.current = true;
       textAreaRef.current.blur();
+      // Queue both responder changes together instead of leaving the keyboard
+      // dismissed for the native event's round trip back to JavaScript.
+      textAreaRef.current.focus();
       return;
     }
     submit();
@@ -511,7 +514,6 @@ export function ChatBox({
               if (!submitAfterEditing.current) return;
               submitAfterEditing.current = false;
               submit(e.nativeEvent.text);
-              textAreaRef.current?.focus();
             }}
             multiline={false}
             onChangeText={(text) => {

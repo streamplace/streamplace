@@ -49,21 +49,26 @@ those controls, and `logged-out/tabs.yaml` checks they stay hidden.
 ## Chat submission coverage
 
 `logged-in/chat-submit.yaml` sends with keyboard Return, then the chat Send
-button, then Return again without erasing between messages. Exact message rows
-and server history catch a sent draft being retained and prepended to the next
-message. The flow is shared by iOS and Android; `oauth-login.spec.ts` covers
+button, then Return again without erasing or tapping the input between messages.
+Exact message rows and server history catch a sent draft being retained and
+prepended to the next message. The flow is shared by iOS and Android;
+`oauth-login.spec.ts` covers
 keyboard/button sending and empty fields on Web.
 
 The component regression exercises stale React drafts, final native text,
-single submission, the 300-grapheme limit, and preservation of the next draft.
-On iOS both Send controls end editing to commit pending autocorrection, submit
-the `onEndEditing` text, clear, and restore focus. Ordinary blur does not send.
+single submission, the 300-grapheme limit, preservation of the next draft, and
+focus restoration before the delayed native end-editing event.
+On iOS both Send controls end editing to commit pending autocorrection and
+immediately queue focus again in the same Send gesture. Submission still waits
+for the final `onEndEditing` text before clearing. Waiting for that event before
+refocusing leaves time for the keyboard to dismiss. Ordinary blur does not send.
 
 Maestro `inputText` does not drive UIKit's autocorrection UI. On a real iOS
 keyboard with Auto-Correction enabled, type a sentence ending in a misspelling
 with a visible correction suggestion, without adding a trailing space. Test the
 keyboard Send key and the app's Send button separately. Each must send exactly
-one corrected message, leave an empty input, and allow a fresh next message.
+one corrected message, leave an empty input, and allow a fresh next message
+without the keyboard dropping down and reopening.
 Moving focus away without pressing either Send control must not send anything.
 
 ## Chat timestamp coverage

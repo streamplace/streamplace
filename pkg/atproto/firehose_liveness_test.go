@@ -49,4 +49,18 @@ func TestFirehoseLivenessCountsUnindexedCommits(t *testing.T) {
 	// before dedup: a duplicate is still evidence of what the relay sent.
 	require.NoError(t, rsc.RepoCommit(commit(evtTime.Add(-time.Minute))))
 	require.Equal(t, evtTime.UnixNano(), atsync.lastEvent.get())
+
+	// A relay with a clock running ahead must not pin the mark into the
+	// future: that would silence lag reporting until the bogus stamp caught
+	// up. The observation folds to the receive time, so a later, correctly
+	// dated event still advances it.
+	require.NoError(t, rsc.RepoCommit(commit(time.Now().Add(time.Hour))))
+	require.LessOrEqual(t, atsync.lastEvent.get(), time.Now().UnixNano(),
+		"a future stamp must not push the position past the wall clock")
+	before := atsync.lastEvent.get()
+	time.Sleep(2 * time.Millisecond)
+	require.NoError(t, rsc.RepoCommit(commit(time.Now())))
+	require.Greater(t, atsync.lastEvent.get(), before,
+		"correctly dated events keep advancing after a bogus future one")
+	require.Less(t, sinceNanos(atsync.lastEvent.get()), time.Minute)
 }

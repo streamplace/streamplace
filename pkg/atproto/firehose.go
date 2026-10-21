@@ -455,8 +455,17 @@ func (atsync *ATProtoSynchronizer) repoStreamCallbacks(ctx context.Context, rela
 		if err != nil {
 			return
 		}
-		atsync.markEvent(aqt.Time())
-		cursor.observeTime(aqt.Time())
+		at := aqt.Time()
+		// A relay with a clock running ahead must not pin either mark into the
+		// future: max-wins would then blank out lag reporting (and make the
+		// replay cursor look eternally fresh) until that stamp catches up.
+		// Fold it to the receive time instead -- that is still evidence the
+		// relay is delivering, so a later, correctly dated event moves on.
+		if now := time.Now(); at.After(now) {
+			at = now
+		}
+		atsync.markEvent(at)
+		cursor.observeTime(at)
 	}
 	return &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *indigoatproto.SyncSubscribeRepos_Commit) error {

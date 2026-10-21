@@ -28,7 +28,7 @@ func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms Media
 	if shouldRecord {
 		log.Log(ctx, "recording ingest stream to file", "streamer", ms.Streamer())
 		var finalize func()
-		input, finalize = mm.recordTee(ctx, input, ms.Streamer(), ".rtmp.mp4")
+		input, finalize = mm.recordTee(ctx, input, ms.Streamer())
 		defer finalize()
 	} else {
 		log.Log(ctx, "not recording ingest stream to file", "streamer", ms.Streamer())
@@ -200,7 +200,7 @@ const debugRecordingFlushTimeout = 5 * time.Minute
 // cleanup, which for S3 waits on every outstanding request) and
 // recordingTeeWriter drops every later write. The failure is logged; losing a
 // recording is acceptable, stalling a broadcast is not.
-func (mm *MediaManager) recordTee(ctx context.Context, r io.Reader, user string, filesuffix string) (io.Reader, func()) {
+func (mm *MediaManager) recordTee(ctx context.Context, r io.Reader, user string) (io.Reader, func()) {
 	pr, pw := io.Pipe()
 	done := make(chan struct{})
 	// stopIngest is how the dump releases the live stream: it closes the tee's
@@ -208,7 +208,7 @@ func (mm *MediaManager) recordTee(ctx context.Context, r io.Reader, user string,
 	stopIngest := func(err error) { _ = pw.CloseWithError(err) }
 	go func() {
 		defer close(done)
-		if err := mm.dumpToFile(ctx, pr, user, filesuffix, stopIngest); err != nil {
+		if err := mm.dumpToFile(ctx, pr, user, stopIngest); err != nil {
 			log.Error(ctx, "debug recording failed; continuing without it", "error", err, "streamer", user)
 		}
 	}()
@@ -240,9 +240,8 @@ func (t recordingTeeWriter) Write(p []byte) (int, error) {
 // S3 Close commits the upload (flushing a final part and waiting on every
 // outstanding request, bounded only by the s3 package's per-operation timeouts),
 // and the live ingest stream must not sit behind that wait.
-func (mm *MediaManager) dumpToFile(ctx context.Context, r io.Reader, user string, filesuffix string, stopIngest func(error)) error {
-	now := aqtime.FromTime(time.Now())
-	filename := fmt.Sprintf("%s%s", now.FileSafeString(), filesuffix)
+func (mm *MediaManager) dumpToFile(ctx context.Context, r io.Reader, user string, stopIngest func(error)) error {
+	filename := aqtime.FromTime(time.Now()).FileSafeString() + ".mp4"
 	// Streams to S3 when configured (production), else a local file under DataDir
 	// (dev). Close finalizes either target — for S3 it commits the upload.
 	f, err := mm.cli.DebugRecordingCreate(ctx, []string{"debug-recordings", user, filename}, "video/mp4", false)

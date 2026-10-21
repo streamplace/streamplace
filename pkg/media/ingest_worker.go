@@ -248,7 +248,7 @@ func RunMP4IngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 	if cfg.Record {
 		log.Log(ctx, "recording ingest media to file", "streamer", cfg.StreamerDID)
 		var finalize func()
-		media, finalize = mm.recordTee(ctx, stdin, cfg.StreamerDID, ".rtmp.mp4")
+		media, finalize = mm.recordTee(ctx, stdin, cfg.StreamerDID)
 		// Registered before the pipeline's SetState(Null) defer, so it runs after
 		// the pipeline stops reading — and before this worker process exits, which
 		// would otherwise strand an uncommitted S3 upload.

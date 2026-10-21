@@ -230,7 +230,7 @@ func TestRunMP4IngestWorkerFMP4DirectKeepsTracks(t *testing.T) {
 
 // TestRunMP4IngestWorkerRecords proves debug recording works INSIDE the worker:
 // with cfg.Record set and a DataDir handed over, the worker tees its ingest
-// media to debug-recordings/<did>/<ts>.rtmp.mp4. This is what keeps debug
+// media to debug-recordings/<did>/<ts>.mp4. This is what keeps debug
 // recording working on the isolated paths where main is out of the data path
 // (it can't tee the bytes itself), so main decides and the worker records.
 func TestRunMP4IngestWorkerRecords(t *testing.T) {
@@ -258,10 +258,10 @@ func TestRunMP4IngestWorkerRecords(t *testing.T) {
 	// Frames are irrelevant here (recording is on the input side); discard them.
 	require.NoError(t, RunMP4IngestWorker(ctx, cfg, bytes.NewReader(mp4), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest }))
 
-	// The recording lands at debug-recordings/<sanitized-did>/<ts>.rtmp.mp4 and
+	// The recording lands at debug-recordings/<sanitized-did>/<ts>.mp4 and
 	// must contain exactly the media the worker ingested. The dump goroutine
 	// flushes asynchronously, so allow it a moment to finish the last write.
-	glob := filepath.Join(dataDir, "debug-recordings", "*", "*.rtmp.mp4")
+	glob := filepath.Join(dataDir, "debug-recordings", "*", "*.mp4")
 	require.Eventually(t, func() bool {
 		matches, _ := filepath.Glob(glob)
 		if len(matches) != 1 {
@@ -420,11 +420,11 @@ func TestRunMP4IngestWorkerRecordsToS3(t *testing.T) {
 	require.NoError(t, RunMP4IngestWorker(ctx, cfg, bytes.NewReader(mp4), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest }))
 
 	// The upload commits asynchronously (the dump goroutine's Close); the object
-	// must appear at debug-bucket/debug-recordings/<did>/<ts>.rtmp.mp4 holding
+	// must appear at debug-bucket/debug-recordings/<did>/<ts>.mp4 holding
 	// exactly the ingested media.
 	wantPrefix := "debug-bucket/debug-recordings/" + ms.Streamer() + "/"
 	require.Eventually(t, func() bool {
-		got, ok := fake.objectWithPrefix(wantPrefix, ".rtmp.mp4")
+		got, ok := fake.objectWithPrefix(wantPrefix, ".mp4")
 		return ok && bytes.Equal(got, mp4)
 	}, 10*time.Second, 25*time.Millisecond, "worker streams the recording to the S3 bucket verbatim")
 

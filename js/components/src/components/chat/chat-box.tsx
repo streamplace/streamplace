@@ -19,6 +19,8 @@ import {
   h,
   layout,
   mb,
+  opacity,
+  p,
   pl,
   pr,
   py,
@@ -111,6 +113,7 @@ export function ChatBox({
   const replyTo = useReplyToMessage();
   const setReplyToMessage = useSetReplyToMessage();
   const textAreaRef = useRef<TextInput>(null);
+  const autocorrectFocusRef = useRef<TextInput>(null);
   const submitAfterEditing = useRef(false);
 
   const pdsAgent = usePDSAgent();
@@ -396,13 +399,16 @@ export function ChatBox({
 
   const requestSubmit = () => {
     if (submitAfterEditing.current) return;
-    if (Platform.OS === "ios" && textAreaRef.current?.isFocused()) {
-      // Ending editing commits UIKit's pending autocorrection. Send only
-      // when onEndEditing supplies that final text, not the React draft.
+    if (
+      Platform.OS === "ios" &&
+      textAreaRef.current?.isFocused() &&
+      autocorrectFocusRef.current
+    ) {
+      // Transfer the responder instead of blurring into a no-input state.
+      // UIKit commits the correction, while another text input keeps its
+      // keyboard active. The final text still comes from onEndEditing.
       submitAfterEditing.current = true;
-      textAreaRef.current.blur();
-      // Queue both responder changes together instead of leaving the keyboard
-      // dismissed for the native event's round trip back to JavaScript.
+      autocorrectFocusRef.current.focus();
       textAreaRef.current.focus();
       return;
     }
@@ -421,6 +427,19 @@ export function ChatBox({
         onOpenChange={setShowTeleportModal}
         onSubmit={handleTeleportSubmit}
       />
+      {Platform.OS === "ios" && (
+        <Textarea
+          ref={autocorrectFocusRef}
+          testID="chat-autocorrect-focus"
+          accessible={false}
+          accessibilityElementsHidden
+          multiline={false}
+          numberOfLines={1}
+          enterKeyHint="send"
+          submitBehavior="submit"
+          style={[layout.position.absolute, w[0], h[0], p[0], opacity[0]]}
+        />
+      )}
       {replyTo && (
         <View
           testID="chat-reply-preview"

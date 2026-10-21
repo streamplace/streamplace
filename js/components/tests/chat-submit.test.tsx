@@ -20,6 +20,7 @@ interface NativeInput {
 
 interface ComposerInput {
   ref: Ref<NativeInput>;
+  testID: string;
   value: string;
   onChangeText(text: string): void;
   onKeyPress?(event: {
@@ -36,7 +37,7 @@ interface ComposerInput {
 const fixture = vi.hoisted(() => ({
   platform: "ios",
   draft: "",
-  focused: true,
+  focusHistory: ["chat-input"] as Array<string | null>,
   listeners: new Set<() => void>(),
   input: {} as ComposerInput,
   send: vi.fn(),
@@ -127,22 +128,23 @@ vi.mock("../src/components/chat/teleport-modal", () => ({
 }));
 vi.mock("../src/components/ui/textarea", () => ({
   Textarea: (props: ComposerInput) => {
-    fixture.input = props;
+    if (props.testID === "chat-input") fixture.input = props;
     const input = useRef<HTMLInputElement>(null);
     useImperativeHandle(props.ref, () => ({
       clear() {
         if (input.current) input.current.value = "";
       },
       focus() {
-        fixture.focused = true;
+        fixture.focusHistory.push(props.testID);
       },
       blur() {
-        fixture.focused = false;
+        fixture.focusHistory.push(null);
       },
-      isFocused: () => fixture.focused,
+      isFocused: () => fixture.focusHistory.at(-1) === props.testID,
     }));
     return createElement("input", {
       ref: input,
+      "data-testid": props.testID,
       value: props.value,
       onChange: (event: { target: { value: string } }) =>
         props.onChangeText(event.target.value),
@@ -151,17 +153,21 @@ vi.mock("../src/components/ui/textarea", () => ({
 }));
 
 let container: HTMLDivElement;
+let chatInput: HTMLInputElement;
 let root: Root;
 beforeEach(async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   fixture.platform = "ios";
   fixture.draft = "hello teh";
-  fixture.focused = true;
+  fixture.focusHistory = ["chat-input"];
   fixture.send.mockReset();
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
   await act(async () => root.render(<ChatBox emojiData={null} />));
+  chatInput = container.querySelector<HTMLInputElement>(
+    '[data-testid="chat-input"]',
+  )!;
 });
 afterEach(async () => {
   await act(async () => root.unmount());
@@ -179,7 +185,7 @@ it.each([
     await act(async () => {
       if (control === "button twice") {
         container.querySelector("button")!.click();
-        // The first press has requested blur, but onEndEditing is still pending.
+        // The first handoff is requested, but onEndEditing is still pending.
         container.querySelector("button")!.click();
       } else {
         fixture.input.onKeyPress?.({
@@ -194,23 +200,23 @@ it.each([
     });
     if (platform === "ios") {
       expect(fixture.send).not.toHaveBeenCalled();
-      // Restore focus in the Send gesture, before the delayed native event.
-      // Waiting until onEndEditing leaves time for keyboard dismissal.
-      expect(fixture.focused).toBe(true);
+      // Switching responders must never leave the keyboard with no input.
+      expect(fixture.focusHistory).not.toContain(null);
+      expect(fixture.focusHistory.at(-1)).toBe("chat-input");
       // UIKit commits the correction while ending editing, after the Send
       // gesture. The React draft can still be stale when this event arrives.
       await act(async () => {
         fixture.input.onChangeText("hello the");
         fixture.input.onEndEditing({ nativeEvent: { text: "hello the" } });
       });
-      expect(fixture.focused).toBe(true);
+      expect(fixture.focusHistory.at(-1)).toBe("chat-input");
     }
     expect(fixture.send.mock.calls).toEqual([
       [{ text: "hello the", reply: undefined }],
     ]);
-    expect(container.querySelector("input")!.value).toBe("");
+    expect(chatInput.value).toBe("");
     await act(async () => fixture.input.onChangeText("next message"));
-    expect(container.querySelector("input")!.value).toBe("next message");
+    expect(chatInput.value).toBe("next message");
     // A later ordinary blur must neither resend nor clear the new draft.
     await act(async () =>
       fixture.input.onEndEditing({
@@ -218,7 +224,7 @@ it.each([
       }),
     );
     expect(fixture.send).toHaveBeenCalledTimes(1);
-    expect(container.querySelector("input")!.value).toBe("next message");
+    expect(chatInput.value).toBe("next message");
     if (control === "button twice") {
       await act(async () => container.querySelector("button")!.click());
       expect(fixture.send).toHaveBeenCalledTimes(1);
@@ -231,8 +237,12 @@ it.each([
         [{ text: "hello the", reply: undefined }],
         [{ text: "next message", reply: undefined }],
       ]);
-      expect(container.querySelector("input")!.value).toBe("");
+      expect(chatInput.value).toBe("");
     }
+    expect(container.querySelector('[data-testid="chat-input"]')).toBe(
+      chatInput,
+    );
+    expect(fixture.focusHistory).not.toContain(null);
   },
 );
 
@@ -247,5 +257,5 @@ it("validates the submitted native text rather than the stale draft", async () =
     });
   });
   expect(fixture.send).not.toHaveBeenCalled();
-  expect(container.querySelector("input")!.value).toBe("hello teh");
+  expect(chatInput.value).toBe("hello teh");
 });

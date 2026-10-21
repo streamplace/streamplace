@@ -111,6 +111,7 @@ export function ChatBox({
   const replyTo = useReplyToMessage();
   const setReplyToMessage = useSetReplyToMessage();
   const textAreaRef = useRef<TextInput>(null);
+  const submitAfterEditing = useRef(false);
 
   const pdsAgent = usePDSAgent();
   const userDID = useDID();
@@ -332,9 +333,9 @@ export function ChatBox({
     }
   };
 
-  const submit = async () => {
-    if (!message.trim()) return;
-    if (graphemer.countGraphemes(message) > 300) {
+  const submit = async (messageText = message) => {
+    if (!messageText.trim()) return;
+    if (graphemer.countGraphemes(messageText) > 300) {
       toast.show(
         "Message too long",
         "Please limit your message to 300 characters.",
@@ -346,7 +347,7 @@ export function ChatBox({
       return;
     }
 
-    const messageText = message;
+    textAreaRef.current?.clear();
     setMessage("");
     setReplyToMessage(null);
 
@@ -391,6 +392,18 @@ export function ChatBox({
         textAreaRef.current?.focus();
       });
     }
+  };
+
+  const requestSubmit = () => {
+    if (submitAfterEditing.current) return;
+    if (Platform.OS === "ios" && textAreaRef.current?.isFocused()) {
+      // Ending editing commits UIKit's pending autocorrection. Send only
+      // when onEndEditing supplies that final text, not the React draft.
+      submitAfterEditing.current = true;
+      textAreaRef.current.blur();
+      return;
+    }
+    submit();
   };
   useEffect(() => {
     if (replyTo && textAreaRef.current) {
@@ -488,7 +501,17 @@ export function ChatBox({
             enterKeyHint="send"
             onSubmitEditing={(e) => {
               e.preventDefault();
-              submit();
+              if (Platform.OS === "ios") {
+                requestSubmit();
+              } else {
+                submit(e.nativeEvent.text);
+              }
+            }}
+            onEndEditing={(e) => {
+              if (!submitAfterEditing.current) return;
+              submitAfterEditing.current = false;
+              submit(e.nativeEvent.text);
+              textAreaRef.current?.focus();
             }}
             multiline={false}
             onChangeText={(text) => {
@@ -496,6 +519,9 @@ export function ChatBox({
               updateSuggestions(text);
             }}
             onKeyPress={(k) => {
+              // Native Return is handled only by onSubmitEditing.
+              // Web needs these shortcuts.
+              if (Platform.OS !== "web") return;
               if (k.nativeEvent.key === "Enter") {
                 if (showSuggestions) {
                   k.preventDefault();
@@ -577,18 +603,19 @@ export function ChatBox({
                     },
                   ]
             }
-            // "submit" won't blur on enter
+            // iOS explicitly ends editing to commit autocorrection before send.
             submitBehavior="submit"
             placeholder="Type a message..."
           />
         </View>
         <View>
           <Button
+            testID="chat-send"
             disabled={submitting}
             variant="secondary"
             width="min"
             style={{ borderRadius: theme.borderRadius.md, height: 43 }}
-            onPress={submit}
+            onPress={requestSubmit}
           >
             {submitting ? <Loader /> : "Send"}
           </Button>

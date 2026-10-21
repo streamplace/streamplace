@@ -52,7 +52,7 @@ func TestBackfillWalk(t *testing.T) {
 	bskyProfile := createBackfillRecord(t, user, "app.bsky.actor.profile", "self", &appbsky.ActorProfile{DisplayName: &displayName})
 	// Out of range, and adjacent to the app.bsky.actor.profile/ range on the
 	// side where an off-by-one prefix bound would leak.
-	createBackfillRecord(t, user, "app.bsky.actor.status", "", rawBackfillRecord(t, "app.bsky.actor.status", map[string]any{
+	createBackfillRecord(t, user, "app.bsky.actor.status", "self", rawBackfillRecord(t, "app.bsky.actor.status", map[string]any{
 		"status":    "app.bsky.actor.status#live",
 		"createdAt": time.Now().UTC().Format(util.ISO8601),
 	}))

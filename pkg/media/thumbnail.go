@@ -133,7 +133,7 @@ func thumbnailFromMP4(ctx context.Context, flat []byte, w io.Writer, format stri
 	case <-thumbCh:
 		// Got the frame; wind the pipeline down so HandleBusMessages returns.
 		pipeline.PostMessage(gst.NewMessageError(pipeline, ErrPipelineDone.Error(), ErrPipelineDone))
-		<-errCh
+		<-errCh //nolint:errcheck // the pipeline was told to stop
 		return nil
 	case err := <-errCh:
 		if err != nil {

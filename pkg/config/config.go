@@ -1445,7 +1445,7 @@ func DefaultDataDir() string {
 }
 
 var GormLogger = slogGorm.New(
-	slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
+	slogGorm.WithHandler(tint.NewTextHandler(os.Stderr, &tint.Options{
 		TimeFormat: time.RFC3339,
 	})),
 	slogGorm.WithTraceAll(),
@@ -1453,7 +1453,7 @@ var GormLogger = slogGorm.New(
 
 func DisableSQLLogging() {
 	GormLogger = slogGorm.New(
-		slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
+		slogGorm.WithHandler(tint.NewTextHandler(os.Stderr, &tint.Options{
 			TimeFormat: time.RFC3339,
 		})),
 	)
@@ -1461,7 +1461,7 @@ func DisableSQLLogging() {
 
 func EnableSQLLogging() {
 	GormLogger = slogGorm.New(
-		slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
+		slogGorm.WithHandler(tint.NewTextHandler(os.Stderr, &tint.Options{
 			TimeFormat: time.RFC3339,
 		})),
 		slogGorm.WithTraceAll(),

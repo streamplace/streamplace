@@ -106,7 +106,7 @@ func TestMoqServesTheBus(t *testing.T) {
 	go func() { served <- r.serveMoQ(ctx) }()
 	defer func() {
 		cancel()
-		<-served
+		<-served //nolint:errcheck // cancelled on purpose
 	}()
 
 	// Dialled the way a pull dials: the advertised URL, certificate pinned.

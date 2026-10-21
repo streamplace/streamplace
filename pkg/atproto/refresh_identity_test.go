@@ -186,7 +186,9 @@ func TestRefreshIdentitySerializesWriters(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 	first <- &stale
+	(<-gate.lookups) <- &stale // ownership is checked under the handle's lock
 	require.NoError(t, <-errs)
+	(<-gate.lookups) <- &fresh
 	(<-gate.lookups) <- &fresh
 	require.NoError(t, <-errs)
 
@@ -279,4 +281,79 @@ func TestSyncBlueskyRepoCachedSettlesAmbiguousHandle(t *testing.T) {
 	// The sentinel never names anyone, however many rows carry it.
 	_, err = atsync.SyncBlueskyRepoCached(ctx, syntax.HandleInvalid.String())
 	require.Error(t, err)
+}
+
+type delayedIdentityDirectory struct {
+	identity.Directory
+	stale   identity.Identity
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (d *delayedIdentityDirectory) Lookup(ctx context.Context, id syntax.AtIdentifier) (*identity.Identity, error) {
+	if id.String() != d.stale.DID.String() {
+		return d.Directory.Lookup(ctx, id)
+	}
+	close(d.entered)
+	select {
+	case <-d.release:
+		return &d.stale, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func TestRefreshIdentityRejectsDelayedOldOwner(t *testing.T) {
+	atsync, mod, _ := offlineSynchronizer(t)
+	const old, next = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa", "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb"
+	require.NoError(t, mod.UpdateRepo(&model.Repo{DID: old, Handle: "alice.example", Version: "3lrev00000000"}))
+	require.NoError(t, mod.UpdateRepo(&model.Repo{DID: next, Version: "3lrev00000001"}))
+	dir := identity.NewMockDirectory()
+	dir.Insert(mockIdentity(old, "alice.example", "https://pds.example"))
+	delayed := &delayedIdentityDirectory{
+		Directory: &dir, stale: mockIdentity(old, "alice.example", "https://pds.example"),
+		entered: make(chan struct{}), release: make(chan struct{}),
+	}
+	atsync.PLCDirectory = delayed
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		_, err := atsync.RefreshIdentity(ctx, old)
+		done <- err
+	}()
+	<-delayed.entered
+	dir.Insert(mockIdentity(old, "handle.invalid", "https://pds.example"))
+	dir.Insert(mockIdentity(next, "alice.example", "https://pds.example"))
+	_, err := atsync.RefreshIdentity(ctx, next)
+	require.NoError(t, err)
+	close(delayed.release)
+	require.Error(t, <-done, "the old resolution cannot reclaim a handle that changed owners")
+	owner, err := mod.GetRepoByHandle("alice.example")
+	require.NoError(t, err)
+	require.Equal(t, next, owner.DID)
+	loser, err := mod.GetRepo(old)
+	require.NoError(t, err)
+	require.Empty(t, loser.Handle)
+}
+
+func TestSyncBlueskyRepoCachedRejectsChangedHandle(t *testing.T) {
+	atsync, mod, _ := offlineSynchronizer(t)
+	const old, next = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa", "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb"
+	for _, did := range []string{old, next} {
+		require.NoError(t, mod.UpdateRepo(&model.Repo{DID: did, Handle: "alice.example", Version: "3lrev00000000"}))
+	}
+	inner := identity.NewMockDirectory()
+	gate := &gatedDirectory{Directory: &inner, lookups: make(chan chan *identity.Identity)}
+	atsync.PLCDirectory = gate
+	done := make(chan error, 1)
+	go func() {
+		_, err := atsync.SyncBlueskyRepoCached(t.Context(), "alice.example")
+		done <- err
+	}()
+	first := mockIdentity(old, "alice.example", "https://pds.example")
+	(<-gate.lookups) <- &first
+	last := mockIdentity(old, "handle.invalid", "https://pds.example")
+	(<-gate.lookups) <- &last
+	require.Error(t, <-done, "a handle request must not return a DID that no longer verifies for it")
 }

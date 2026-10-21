@@ -338,7 +338,9 @@ func syncInFlight(did string) bool {
 // Resolve and write under the stable DID's lock, including requests made by
 // handle. Otherwise an older resolution could write after a newer refresh.
 func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, identifier string) (*identity.Identity, error) {
+	requestedHandle := ""
 	if !strings.HasPrefix(identifier, "did:") {
+		requestedHandle = identifier
 		// Find the account first; re-resolve under its DID lock so a handle
 		// request and a firehose/sweep refresh cannot write out of order.
 		ident, err := atsync.resolveIdent(ctx, identifier, false)
@@ -356,6 +358,24 @@ func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, identifi
 		return nil, fmt.Errorf("failed to resolve ident: %w", err)
 	}
 	did, handle := id.DID.String(), id.Handle.String()
+	if requestedHandle != "" && !strings.EqualFold(requestedHandle, handle) {
+		return nil, fmt.Errorf("handle %s no longer verifies for %s", requestedHandle, did)
+	}
+	if model.IsUsableHandle(handle) {
+		// Different DIDs can race to claim the same handle. Check ownership
+		// under its own lock, held through the write: a delayed old answer
+		// must not evict an account that has already claimed the handle.
+		ownership := identityLocks.GetLock(handle)
+		ownership.Lock()
+		defer ownership.Unlock()
+		owner, err := atsync.resolveIdent(ctx, handle, false)
+		if err != nil {
+			return nil, fmt.Errorf("failed to verify handle ownership: %w", err)
+		}
+		if owner.DID != id.DID {
+			return nil, fmt.Errorf("handle %s no longer verifies for %s", handle, did)
+		}
+	}
 	evicted, err := atsync.Model.UpdateRepoIdentity(did, handle, id.PDSEndpoint())
 	if err != nil {
 		return nil, fmt.Errorf("failed to update repo: %w", err)

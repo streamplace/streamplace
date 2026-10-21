@@ -60,9 +60,12 @@ type ATProtoSynchronizer struct {
 	OATProxy           *oatproxy.OATProxy
 
 	// firehose liveness, written from every relay consumer concurrently
-	// (unix nanos).
+	// (unix nanos). lastSeen is when we last received anything; lastEvent is
+	// the newest event stamp among those receptions, which is what "behind
+	// real time" measures. Both must cover the whole stream, not just the
+	// events we index -- see observeTime in repoStreamCallbacks.
 	lastSeen  atomic.Int64
-	lastEvent atomic.Int64
+	lastEvent highWater
 	// events seen across all relays, pre-dedup (for the periodic in-sync ping).
 	seenEvents atomic.Int64
 
@@ -81,8 +84,12 @@ func (atsync *ATProtoSynchronizer) markSeen() {
 	atsync.seenEvents.Add(1)
 }
 
+// markEvent records the stamp of an event we received. Max-wins because the
+// relays and the workers within each relay write it concurrently: a slow relay
+// replaying history must not walk the node-wide position backwards past a
+// fresher event another relay already delivered.
 func (atsync *ATProtoSynchronizer) markEvent(t time.Time) {
-	atsync.lastEvent.Store(t.UnixNano())
+	atsync.lastEvent.observe(t.UnixNano())
 }
 
 func sinceNanos(ns int64) time.Duration {
@@ -436,11 +443,19 @@ func (atsync *ATProtoSynchronizer) repoStreamCallbacks(ctx context.Context, rela
 	// carried it — and it is recorded before dedup, because a duplicate is
 	// still proof of how far along this relay is. One small parse per event; an
 	// unparsable stamp is simply not an observation.
+	//
+	// It feeds the node-wide mark too, and that is the only place that mark is
+	// written. The firehose's position is defined by what the relays send, not
+	// by what we index: the overwhelming majority of the stream is collections
+	// we skip, so marking only indexed commits made a healthy but quiet node
+	// report ever-growing lag (and kicked pointless sweeps if it also fed the
+	// cursor; it does not — that is the per-relay value below).
 	observeTime := func(t string) {
 		aqt, err := aqtime.FromString(t)
 		if err != nil {
 			return
 		}
+		atsync.markEvent(aqt.Time())
 		cursor.observeTime(aqt.Time())
 	}
 	return &events.RepoStreamCallbacks{
@@ -504,16 +519,21 @@ func (atsync *ATProtoSynchronizer) monitorFirehose(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			since := sinceNanos(atsync.lastEvent.Load())
+			since := sinceNanos(atsync.lastEvent.get())
 			goroutines := runtime.NumGoroutine()
-			if since > 10*time.Second {
-				log.Warn(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
-			} else {
-				log.Debug(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
-			}
 			dry := sinceNanos(atsync.lastSeen.Load())
-			if dry > 10*time.Second {
-				log.Warn(ctx, fmt.Sprintf("firehose dry; no new events for %s", dry))
+			// "Behind" only means something while events arrive: it is the
+			// distance between the newest stamp we have been handed and now, so
+			// it detects a replay lagging behind real time. With nothing
+			// arriving at all the position cannot advance, and the honest
+			// diagnosis is the dry line rather than an ever-growing "behind".
+			switch {
+			case dry > 10*time.Second:
+				log.Warn(ctx, fmt.Sprintf("firehose dry; no new events for %s", dry), "goroutines", goroutines)
+			case since > 10*time.Second:
+				log.Warn(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
+			default:
+				log.Debug(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
 			}
 			// Periodic in-sync ping: healthy operation is otherwise Debug-only,
 			// so surface a heartbeat at Info once a minute. An unhealthy stretch
@@ -631,13 +651,15 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 			continue
 		}
 
+		// opTime stamps deletes below. The commit's stamp is already an
+		// observation for the firehose position (observeTime runs before dedup,
+		// for every event), so the liveness mark is not this loop's business.
 		aqt, err := aqtime.FromString(evt.Time)
 		if err != nil {
 			log.Error(ctx, "failed to parse time", "err", err)
 			continue
 		}
 		opTime := aqt.Time()
-		atsync.markEvent(opTime)
 
 		r, err := atsync.Model.GetRepo(evt.Repo)
 		if err != nil {

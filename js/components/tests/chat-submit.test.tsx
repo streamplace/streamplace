@@ -170,14 +170,16 @@ afterEach(async () => {
 
 it.each([
   ["ios", "keyboard"],
-  ["ios", "button"],
+  ["ios", "button twice"],
   ["android", "keyboard"],
 ])(
   "%s %s sends final native text once, clears, and keeps the next draft",
   async (platform, control) => {
     fixture.platform = platform;
     await act(async () => {
-      if (control === "button") {
+      if (control === "button twice") {
+        container.querySelector("button")!.click();
+        // The first press has requested blur, but onEndEditing is still pending.
         container.querySelector("button")!.click();
       } else {
         fixture.input.onKeyPress?.({
@@ -214,6 +216,20 @@ it.each([
     );
     expect(fixture.send).toHaveBeenCalledTimes(1);
     expect(container.querySelector("input")!.value).toBe("next message");
+    if (control === "button twice") {
+      await act(async () => container.querySelector("button")!.click());
+      expect(fixture.send).toHaveBeenCalledTimes(1);
+      await act(async () =>
+        fixture.input.onEndEditing({
+          nativeEvent: { text: "next message" },
+        }),
+      );
+      expect(fixture.send.mock.calls).toEqual([
+        [{ text: "hello the", reply: undefined }],
+        [{ text: "next message", reply: undefined }],
+      ]);
+      expect(container.querySelector("input")!.value).toBe("");
+    }
   },
 );
 

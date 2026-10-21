@@ -35,6 +35,13 @@ func TestSweepCheckRefreshesIdentityBeforeHeadRequest(t *testing.T) {
 		fmt.Fprint(w, `{"error":"RepoDeactivated","message":"Repo has been deactivated"}`)
 	}))
 	defer host.Close()
+	defer func() {
+		select {
+		case <-answer:
+		default:
+			close(answer)
+		}
+	}()
 	require.NoError(t, mod.UpdateRepo(&model.Repo{
 		DID: did, Handle: "stale.example", PDS: "https://old-pds.example.invalid",
 		Version: "3lrev00000000", BackfillDone: true,

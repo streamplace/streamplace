@@ -190,7 +190,7 @@ export function BottomMetadata({
               onPress={() => {
                 if (profile?.did) {
                   Linking.openURL(
-                    `https://bsky.app/profile/${encodeURIComponent(formatHandle(profile))}`,
+                    `https://bsky.app/profile/${formatHandle(profile)}`,
                   );
                 }
               }}
@@ -470,7 +470,7 @@ function CompactStreamInfo() {
             onPress={() => {
               if (profile?.did) {
                 Linking.openURL(
-                  `https://bsky.app/profile/${encodeURIComponent(formatHandle(profile))}`,
+                  `https://bsky.app/profile/${formatHandle(profile)}`,
                 );
               }
             }}

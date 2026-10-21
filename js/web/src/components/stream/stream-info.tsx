@@ -259,9 +259,8 @@ export function CopyButton({
   const { t } = useTranslation("common");
   const [copied, setCopied] = useState(false);
   const origin = nodeBaseURL ? new URL(nodeBaseURL).origin : undefined;
-  const identifier = encodeURIComponent(user);
-  const share = origin ? `${origin}/${identifier}` : undefined;
-  const embedShare = origin ? `${origin}/embed/${identifier}` : undefined;
+  const share = origin ? `${origin}/${user}` : undefined;
+  const embedShare = origin ? `${origin}/embed/${user}` : undefined;
 
   const handleCopy = (link: string) => {
     navigator.clipboard

@@ -134,7 +134,7 @@ const renderSegment = (
           Linking.openURL(
             profileUrl
               ? profileUrl({ did: mtnFtr.did })
-              : `https://bsky.app/profile/${encodeURIComponent(mtnFtr.did || "")}`,
+              : `https://bsky.app/profile/${mtnFtr.did || ""}`,
           )
         }
       >

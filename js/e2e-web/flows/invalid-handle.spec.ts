@@ -77,7 +77,7 @@ for (const shell of ["expo", "vite"] as const) {
           .click();
         await expect
           .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-          .toBe(`${origin}/${encodeURIComponent(DID)}`);
+          .toBe(`${origin}/${DID}`);
       }
 
       await page.goto(`${origin}/search`);

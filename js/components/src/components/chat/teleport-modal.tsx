@@ -168,7 +168,7 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
                           source={{
                             uri:
                               "/api/playback/" +
-                              encodeURIComponent(stream.author.did) +
+                              stream.author.did +
                               "/stream.jpg",
                           }}
                           style={{

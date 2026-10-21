@@ -545,7 +545,7 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 	if model.IsUsableHandle(repo.Handle) {
 		mention = "@" + name
 	}
-	canonicalUrl := fmt.Sprintf("https://%s/%s", ss.cli.BroadcasterHost, url.PathEscape(name))
+	canonicalUrl := fmt.Sprintf("https://%s/%s", ss.cli.BroadcasterHost, name)
 
 	if lsr.CanonicalUrl != nil {
 		canonicalUrl = *lsr.CanonicalUrl

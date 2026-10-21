@@ -152,7 +152,7 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
         style={{ "--tw-ring-color": borderColor } as CSSProperties}
       >
         <img
-          src={`${streamplaceUrl}/api/playback/${encodeURIComponent(user)}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
+          src={`${streamplaceUrl}/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-50 blur-sm"
           onError={(e) => {
@@ -160,7 +160,7 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
           }}
         />
         <img
-          src={`${streamplaceUrl}/api/playback/${encodeURIComponent(user)}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
+          src={`${streamplaceUrl}/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
           alt=""
           className="absolute inset-0 h-full w-full object-contain"
           onError={(e) => {

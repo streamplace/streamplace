@@ -49,6 +49,10 @@ DID-addressable. A DID is not prefixed with `@`. API identity responses retain
 the protocol's `handle.invalid` sentinel; clients must apply the same display
 and link fallback rather than treating it as a name.
 
+Supported identifiers are `did:plc` and hostname-level `did:web` DIDs without
+ports. Path-based `did:web` DIDs and the localhost-only encoded-port extension
+are not supported by Streamplace.
+
 The existing atproto sweep rechecks successfully indexed, active accounts
 against the identity directory without using its cached answer. A corrected
 handle or moved PDS is picked up when the next sweep reaches that account, even

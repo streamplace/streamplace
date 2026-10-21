@@ -95,7 +95,7 @@ async function buildGoLivePost(
   agent: StreamplaceAgent,
 ): Promise<AppBskyFeedPost.Record> {
   const now = new Date();
-  const user = encodeURIComponent(formatHandle(profile));
+  const user = formatHandle(profile);
   const linkUrl = `${url.protocol}//${url.host}/${user}?${params.toString()}`;
   const prefix = `🔴 LIVE `;
   const textUrl = `${url.protocol}//${url.host}/${user}`;

@@ -40,18 +40,13 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
   // Get the current stream URL
   const getStreamUrl = useCallback(() => {
     if (target) return target.url;
-    return (
-      url + (profile ? `/${encodeURIComponent(formatHandle(profile))}` : "")
-    );
+    return url + (profile ? `/${formatHandle(profile)}` : "");
   }, [target, url, profile]);
 
   // Get the embed URL
   const getEmbedUrl = useCallback(() => {
     if (target) return target.embedUrl;
-    return (
-      url +
-      (profile ? `/embed/${encodeURIComponent(formatHandle(profile))}` : "")
-    );
+    return url + (profile ? `/embed/${formatHandle(profile)}` : "");
   }, [target, url, profile]);
 
   // Get embed code

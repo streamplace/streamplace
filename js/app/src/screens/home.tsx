@@ -139,7 +139,7 @@ function HomeScreenItem({
         }
         horizontal={horizontal}
         showAvatar={showAvatar}
-        thumbnailUrl={`/api/playback/${encodeURIComponent(user)}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
+        thumbnailUrl={`/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
         avatarUrl={avatarUrl}
         streamer={item.author}
         category={[]}

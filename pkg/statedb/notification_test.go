@@ -3,7 +3,6 @@ package statedb
 import (
 	"context"
 	"encoding/json"
-	"net/url"
 	"testing"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -143,7 +142,7 @@ func (n *identityNotifier) Blast(_ context.Context, _ []notificationpkg.Notifica
 
 func TestInvalidHandleNotification(t *testing.T) {
 	WithAllDatabases(t, func(state *StatefulDB) {
-		const did = "did:web:streamer.example%3A8443"
+		const did = "did:web:streamer.example"
 		noter := &identityNotifier{}
 		state.SetNotifier(noter)
 		payload, err := json.Marshal(NotificationTask{
@@ -157,8 +156,6 @@ func TestInvalidHandleNotification(t *testing.T) {
 		require.NotNil(t, noter.blast)
 		require.Contains(t, noter.blast.Title, did)
 		require.NotContains(t, noter.blast.Title, "@did:")
-		path, err := url.PathUnescape(noter.blast.Data["path"])
-		require.NoError(t, err)
-		require.Equal(t, "/"+did, path, "notification clicks preserve the account's DID")
+		require.Equal(t, "/"+did, noter.blast.Data["path"], "notification clicks preserve the account's DID")
 	})
 }

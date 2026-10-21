@@ -26,7 +26,7 @@ export function LivestreamProvider({
 
   // WebSocket connection
   useEffect(() => {
-    const wsUrl = `${getStreamplaceUrl()}/api/websocket/${encodeURIComponent(user)}`;
+    const wsUrl = `${getStreamplaceUrl()}/api/websocket/${user}`;
 
     let ws: WebSocket | null = null;
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;

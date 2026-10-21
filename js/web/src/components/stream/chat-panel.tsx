@@ -485,7 +485,7 @@ function RichTextMessage({
               key={i}
               href={
                 mtnFtr.did
-                  ? `https://bsky.app/profile/${encodeURIComponent(mtnFtr.did)}`
+                  ? `https://bsky.app/profile/${mtnFtr.did}`
                   : undefined
               }
               target="_blank"
@@ -662,7 +662,7 @@ function ProfileCardContent({
             <div className="truncate">{formatHandleWithAt(author)}</div>
           </div>
           <a
-            href={`https://bsky.app/profile/${encodeURIComponent(handle)}`}
+            href={`https://bsky.app/profile/${handle}`}
             target="_blank"
             rel="noopener noreferrer"
             className="shrink-0 rounded-sm text-[#0F73FF] hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent)"

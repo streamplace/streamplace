@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -630,7 +629,7 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 			Title: fmt.Sprintf("🔴 %s is LIVE!", name),
 			Body:  rec.Title,
 			Data: map[string]string{
-				"path": "/" + url.PathEscape(user),
+				"path": fmt.Sprintf("/%s", user),
 			},
 		}
 		targets := make([]notificationpkg.NotificationTarget, len(notifications))

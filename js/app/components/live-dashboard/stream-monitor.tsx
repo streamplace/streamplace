@@ -146,8 +146,7 @@ export default function StreamMonitor({
   const [currentThumbnail, setCurrentThumbnail] = useState<null | string>(null);
 
   // Mock thumbnails - in a real implementation, these would come from your stream service
-  const thumbnails =
-    "/api/playback/" + encodeURIComponent(profile?.did ?? "") + "/stream.jpg";
+  const thumbnails = "/api/playback/" + profile?.did + "/stream.jpg";
 
   // Rotate thumbnails every 30 seconds when stream is hidden
   useEffect(() => {

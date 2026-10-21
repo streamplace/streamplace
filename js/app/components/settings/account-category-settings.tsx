@@ -130,7 +130,7 @@ export function AccountCategorySettings() {
               <SettingsExternalItem
                 LeftIcon={Edit3}
                 title={t("edit-profile-bluesky", { network })}
-                link={`https://bsky.app/profile/${encodeURIComponent(formatHandle(userProfile))}`}
+                link={`https://bsky.app/profile/${formatHandle(userProfile)}`}
               />
             </MenuGroup>
 

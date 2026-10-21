@@ -28,7 +28,7 @@ export function useLivestreamStore(
 
   useEffect(() => {
     if (!enabled) return;
-    const wsUrl = `${getStreamplaceUrl()}/api/websocket/${encodeURIComponent(user)}`;
+    const wsUrl = `${getStreamplaceUrl()}/api/websocket/${user}`;
     const { disconnect } = connectLivestreamWebsocket(store, wsUrl, {
       reconnectDelayMs: 3000,
     });

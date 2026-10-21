@@ -47,7 +47,7 @@ function AccountSettings() {
 
       <CardMenuSection>
         <a
-          href={`https://bsky.app/profile/${encodeURIComponent(formatHandle(userProfile))}`}
+          href={`https://bsky.app/profile/${formatHandle(userProfile)}`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-(--color-bg)"

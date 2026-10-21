@@ -307,7 +307,7 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *plac
 
 	thumbURL, _ := url.Parse(u.String())
 	thumbURL.Path = "/xrpc/place.stream.live.getProfileCard"
-	thumbURL.RawQuery = "id=" + url.QueryEscape(lsv.Author.Did)
+	thumbURL.RawQuery = fmt.Sprintf("id=%s", lsv.Author.Did)
 
 	brandMetas, values := l.brandMetas(ctx)
 	title := expandCard(cardText(values, "cardLiveTitle"), values, &lsv.Author)
@@ -355,7 +355,7 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestr
 	} else {
 		cardURL, _ := url.Parse(u.String())
 		cardURL.Path = "/xrpc/place.stream.live.getProfileCard"
-		cardURL.RawQuery = "id=" + url.QueryEscape(authorDid)
+		cardURL.RawQuery = fmt.Sprintf("id=%s", authorDid)
 		imageURL = cardURL.String()
 	}
 

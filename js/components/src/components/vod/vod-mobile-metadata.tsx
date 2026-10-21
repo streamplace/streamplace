@@ -44,8 +44,8 @@ export function VodMobileMetadata() {
   // The video's canonical page + embed URLs, so Share actually links to this
   // VOD rather than the bare site root.
   const shareTarget = {
-    url: `${baseUrl}/${encodeURIComponent(userSeg)}/video/${rkey}`,
-    embedUrl: `${baseUrl}/embed/${encodeURIComponent(userSeg)}/video/${rkey}`,
+    url: `${baseUrl}/${userSeg}/video/${rkey}`,
+    embedUrl: `${baseUrl}/embed/${userSeg}/video/${rkey}`,
     message: `Check out "${title || "this video"}" on Streamplace!`,
   };
 

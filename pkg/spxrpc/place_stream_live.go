@@ -608,7 +608,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 		handle = model.HandleOrDID(repo.Handle, session.DID)
 	}
 
-	canonicalUrl := fmt.Sprintf("https://%s/%s", s.cli.BroadcasterHost, url.PathEscape(handle))
+	canonicalUrl := fmt.Sprintf("https://%s/%s", s.cli.BroadcasterHost, handle)
 	if livestream.CanonicalUrl != nil && *livestream.CanonicalUrl != "" {
 		canonicalUrl = *livestream.CanonicalUrl
 	}

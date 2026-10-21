@@ -513,7 +513,7 @@ function MobileStreamDetailsContent({
         </div>
         {author && (
           <a
-            href={`https://bsky.app/profile/${encodeURIComponent(formatHandle(author))}`}
+            href={`https://bsky.app/profile/${formatHandle(author)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex size-11 items-center justify-center rounded-lg text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"

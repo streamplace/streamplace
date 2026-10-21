@@ -555,7 +555,7 @@ export const createBlueskySlice: StateCreator<
       time: new Date().toISOString(),
     });
 
-    const user = encodeURIComponent(formatHandle(profile));
+    const user = formatHandle(profile);
     const linkUrl = `${u.protocol}//${u.host}/${user}?${params.toString()}`;
     const prefix = `🔴 LIVE `;
     const textUrl = `${u.protocol}//${u.host}/${user}`;
@@ -848,10 +848,10 @@ export const createBlueskySlice: StateCreator<
           for (; tries < 3; tries++) {
             try {
               console.log(
-                `Fetching thumbnail from ${u.protocol}//${u.host}/api/playback/${encodeURIComponent(formatHandle(profile))}/stream.png`,
+                `Fetching thumbnail from ${u.protocol}//${u.host}/api/playback/${formatHandle(profile)}/stream.png`,
               );
               const thumbnailRes = await fetch(
-                `${u.protocol}//${u.host}/api/playback/${encodeURIComponent(formatHandle(profile))}/stream.png`,
+                `${u.protocol}//${u.host}/api/playback/${formatHandle(profile)}/stream.png`,
               );
               if (!thumbnailRes.ok) {
                 throw new Error(

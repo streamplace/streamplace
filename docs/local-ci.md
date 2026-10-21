@@ -37,6 +37,58 @@ The tag-only publishing jobs (`npm-release`, `release`, `deb-release`,
 `homebrew-release`) are not run: they need CI credentials and should not fire
 by accident.
 
+## Building and signing separately
+
+The macOS artifacts need the Developer ID certificate after they are compiled:
+both the Go binary and every Mach-O inside the Electron app gain a signature.
+To keep the certificate off the build machine:
+
+```sh
+# Big machine (builder container):
+make build-signable
+
+# Signing machine (certificate + rcodesign):
+make sign SIGN_INPUT=dist/streamplace-<version>-sign-input.tar.gz
+```
+
+`build-signable` compiles the two darwin binaries with `SKIP_SIGN=1`, packages
+both Electron `.app` bundles with `STREAMPLACE_SKIP_SIGNING=1`, and writes
+`dist/streamplace-<version>-sign-input.tar.gz` plus a `.sha256`. The tarball
+contains the unsigned binaries, unsigned app bundles, `VERSION`, `COMMIT`, a
+`SHA256SUMS` file, and a `SYMLINKS` listing. The build machine does not need
+any Apple credentials.
+
+`sign` verifies `SHA256SUMS` and `SYMLINKS`, signs each binary and app with
+`rcodesign`, optionally notarizes and staples, and writes the release artifacts
+to `bin/`:
+
+- `streamplace-<version>-darwin-{amd64,arm64}.tar.gz`
+- `streamplace-desktop-<version>-darwin-{amd64,arm64}.{zip,dmg}`
+- `streamplace-<version>-SHA256SUMS`
+
+Without `SIGN_INPUT`, `make sign` signs the in-place `build-darwin-*` and
+`js/desktop/out` trees (that mode needs Go to compute the version). The signing
+machine needs the checkout for `hack/` and `js/desktop/entitlements.plist`.
+
+Signing offline is supported with `SIGN_OFFLINE=1`. Note that Apple notarization
+requires a secure timestamp from Apple's timestamp server, so an offline
+signature is **not** notarizable without re-signing with the certificate while
+online. If the signing machine can reach Apple, leave `SIGN_OFFLINE` unset and
+set `APPLE_CODESIGN_API_KEY` to notarize in the same pass.
+
+Relevant environment:
+
+- `DEVELOPER_CERTIFICATE_BASE64`, `DEVELOPER_CERTIFICATE_PASSWORD` — required
+  for a real signature; `ALLOW_ADHOC=1` permits an ad-hoc build instead.
+- `APPLE_CODESIGN_API_KEY` — App Store Connect API key JSON, enables
+  notarization (`SIGN_NOTARIZE=auto` by default).
+- `SIGN_NOTARIZE=0|1|auto` — override notarization.
+- `SIGN_TIMESTAMP_URL` — rcodesign timestamp server; `none` disables it.
+- `SIGN_OFFLINE=1` — implies `SIGN_TIMESTAMP_URL=none` and `SIGN_NOTARIZE=0`.
+
+`make all` still builds and signs in one go on the build machine; the split is
+for moving the certificate to a separate environment.
+
 ## iOS on a macOS machine
 
 Set `MAC_HOST` to an SSH destination whose checkout is at the same commit:

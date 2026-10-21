@@ -4,6 +4,8 @@ $(shell mkdir -p $(OUT_DIR))
 .PHONY: default
 default: streamplace
 
+# build-signable sets this so the darwin targets stop after compiling.
+SKIP_SIGN?=0
 VERSION?=$(shell go run ./pkg/config/git/git.go -v)
 VERSION_NO_V=$(subst v,,$(VERSION))
 VERSION_ELECTRON=$(subst -,-z,$(subst v,,$(VERSION)))
@@ -552,6 +554,17 @@ link-test-windows:
 all:
 	bash hack/all.sh
 
+# Split build/sign workflow: build the macOS inputs here, sign them wherever
+# the Developer ID certificate lives, then publish from bin/.
+SIGN_INPUT?=
+.PHONY: build-signable
+build-signable:
+	bash hack/sign-input.sh
+
+.PHONY: sign
+sign:
+	bash hack/sign-release.sh "$(SIGN_INPUT)"
+
 .PHONY: ci
 ci: version install app node-all-platforms ci-upload-node
 
@@ -707,11 +720,15 @@ darwin-amd64:
 	&& export MESON_SETUP_OPTS="--cross-file util/osxcross-darwin-amd64.ini" \
 	&& export BUILDDIR=build-darwin-amd64 \
 	&& $(MAKE) -j $(shell nproc) streamplace \
-	&& ./util/osxcross-codesign.sh ./build-darwin-amd64/streamplace \
-	&& mkdir -p bin \
-	&& cd build-darwin-amd64 \
-	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-amd64.tar.gz ./streamplace \
-	&& cd -
+	&& if [ "$(SKIP_SIGN)" = "1" ]; then \
+		echo "SKIP_SIGN=1: leaving build-darwin-amd64/streamplace unsigned"; \
+	else \
+		./util/osxcross-codesign.sh ./build-darwin-amd64/streamplace \
+		&& mkdir -p bin \
+		&& cd build-darwin-amd64 \
+		&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-amd64.tar.gz ./streamplace \
+		&& cd -; \
+	fi
 
 .PHONY: darwin-arm64
 darwin-arm64:
@@ -726,11 +743,15 @@ darwin-arm64:
 	&& export MESON_SETUP_OPTS="--cross-file util/osxcross-darwin-arm64.ini" \
 	&& export BUILDDIR=build-darwin-arm64 \
 	&& $(MAKE) -j $(shell nproc) streamplace \
-	&& ./util/osxcross-codesign.sh ./build-darwin-arm64/streamplace \
-	&& mkdir -p bin \
-	&& cd build-darwin-arm64 \
-	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-arm64.tar.gz ./streamplace \
-	&& cd -
+	&& if [ "$(SKIP_SIGN)" = "1" ]; then \
+		echo "SKIP_SIGN=1: leaving build-darwin-arm64/streamplace unsigned"; \
+	else \
+		./util/osxcross-codesign.sh ./build-darwin-arm64/streamplace \
+		&& mkdir -p bin \
+		&& cd build-darwin-arm64 \
+		&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-arm64.tar.gz ./streamplace \
+		&& cd -; \
+	fi
 
 # unbuffer here is a workaround for wine trying to pop up a terminal window and failing
 .PHONY: windows-amd64-startup-test

@@ -24,7 +24,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 REPO="$PWD"
-NAME="$(basename "$REPO")"
 TEST_BUILDDIR="${TEST_BUILDDIR:-build-test-linux-amd64}"
 SKIPPED=()
 
@@ -37,26 +36,7 @@ if [ "$(uname -s)" != "Linux" ]; then
   exit 1
 fi
 
-CONTAINER=""
-if [ -f /.dockerenv ] || [ -f /run/.containerenv ]; then
-  echo "already inside a container; running in place"
-else
-  if [[ "$NAME" != streamplace* ]]; then
-    echo "refusing: $REPO is not a streamplace-* checkout" >&2
-    exit 1
-  fi
-  step "container (hack/container.sh ensure)"
-  bash hack/container.sh ensure
-  CONTAINER="$(bash hack/container.sh name)"
-fi
-
-run() {
-  if [ -z "$CONTAINER" ]; then
-    "$@"
-  else
-    docker exec -w "$REPO" "$CONTAINER" "$@"
-  fi
-}
+. hack/lib/container.sh
 
 # ---------------------------------------------------------------------------
 # test job

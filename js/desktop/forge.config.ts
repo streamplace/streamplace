@@ -15,78 +15,9 @@ import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { MakerAppImage } from "@reforged/maker-appimage";
 import child_process from "child_process";
 import fs from "fs";
-import os from "os";
 import path from "path";
 import { mainConfig } from "./webpack.main.config";
 import { rendererConfig } from "./webpack.renderer.config";
-
-// Sign (and optionally notarize) a packaged macOS .app on a non-macOS host.
-// Electron Forge's built-in osxSign/osxNotarize shells out to Apple's codesign
-// and notarytool, so Linux uses rcodesign (apple-codesign) instead. The bundle
-// is signed recursively, including the nested Electron helper apps/frameworks.
-function signDarwinApp(appPath: string) {
-  const args = [
-    "sign",
-    "--code-signature-flags",
-    "runtime",
-    "--entitlements-xml-path",
-    path.join(__dirname, "entitlements.plist"),
-  ];
-  let p12Dir: string | undefined;
-  try {
-    if (process.env.DEVELOPER_CERTIFICATE_BASE64) {
-      p12Dir = fs.mkdtempSync(path.join(os.tmpdir(), "streamplace-p12-"));
-      const p12File = path.join(p12Dir, "certificate.p12");
-      fs.writeFileSync(
-        p12File,
-        Buffer.from(process.env.DEVELOPER_CERTIFICATE_BASE64, "base64"),
-      );
-      args.push(
-        "--p12-file",
-        p12File,
-        "--p12-password",
-        process.env.DEVELOPER_CERTIFICATE_PASSWORD ?? "",
-      );
-    }
-    args.push(appPath);
-    console.log(`signing ${appPath} with rcodesign`);
-    child_process.execFileSync("rcodesign", args, { stdio: "inherit" });
-  } finally {
-    if (p12Dir) fs.rmSync(p12Dir, { recursive: true, force: true });
-  }
-
-  if (process.env.APPLE_CODESIGN_API_KEY) {
-    // Apple only accepts archives, so submit a zip and then staple the ticket
-    // to the bundle that the makers distribute.
-    const notarizeDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "streamplace-notarize-"),
-    );
-    try {
-      const zipPath = path.join(notarizeDir, "Streamplace.zip");
-      child_process.execFileSync(
-        "zip",
-        ["-qry", zipPath, path.basename(appPath)],
-        { cwd: path.dirname(appPath), stdio: "inherit" },
-      );
-      child_process.execFileSync(
-        "rcodesign",
-        [
-          "notary-submit",
-          "--api-key-file",
-          process.env.APPLE_CODESIGN_API_KEY,
-          "--wait",
-          zipPath,
-        ],
-        { stdio: "inherit" },
-      );
-      child_process.execFileSync("rcodesign", ["staple", appPath], {
-        stdio: "inherit",
-      });
-    } finally {
-      fs.rmSync(notarizeDir, { recursive: true, force: true });
-    }
-  }
-}
 
 export default async function () {
   // go get the version from the actual script
@@ -159,7 +90,12 @@ export default async function () {
         // macOS uses the built-in osxSign/osxNotarize above. Elsewhere (the
         // builder container) sign each .app with rcodesign so fuses, signing,
         // and notarization all still happen before the makers run.
-        if (process.platform === "darwin") {
+        // STREAMPLACE_SKIP_SIGNING produces unsigned .app bundles for the
+        // split build/sign workflow (make build-signable / make sign).
+        if (
+          process.platform === "darwin" ||
+          process.env.STREAMPLACE_SKIP_SIGNING === "1"
+        ) {
           return;
         }
         for (const outputPath of packageResult.outputPaths) {
@@ -167,7 +103,11 @@ export default async function () {
             .readdirSync(outputPath)
             .find((entry) => entry.endsWith(".app"));
           if (app) {
-            signDarwinApp(path.join(outputPath, app));
+            child_process.execFileSync(
+              path.join(__dirname, "../../hack/rcodesign-app.sh"),
+              [path.join(outputPath, app)],
+              { stdio: "inherit" },
+            );
           }
         }
       },

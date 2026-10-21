@@ -45,3 +45,4 @@ js/web/.tanstack/
 
 # maestro screenshots, logs and reports (hack/e2e-local.sh)
 .maestro/artifacts/
+obs-plugin/.cache

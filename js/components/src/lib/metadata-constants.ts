@@ -37,8 +37,7 @@ export const ACTIVITY_LABEL_DISPLAY: Record<string, string> =
 
 export function formatActivity(
   activity: (
-    | place.stream.defs.ActivityGame
-    | place.stream.defs.ActivityLabel
+    place.stream.defs.ActivityGame | place.stream.defs.ActivityLabel
   ) & {
     $type?: string;
   },

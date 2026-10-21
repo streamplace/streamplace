@@ -12,8 +12,7 @@ import Animated, {
 const { bg, borders, gap, layout, p, py, r, text } = zero;
 
 export type SelectedEmoji =
-  | { type: "standard"; native: string }
-  | { type: "custom"; name: string };
+  { type: "standard"; native: string } | { type: "custom"; name: string };
 
 export interface CustomEmojiEntry {
   name: string;

@@ -8,8 +8,7 @@ type PublicActor = {
 };
 
 export type ActorLookupResult =
-  | { status: "found"; actor: PublicActor }
-  | { status: "not-found" };
+  { status: "found"; actor: PublicActor } | { status: "not-found" };
 
 type FetchActor = (
   input: RequestInfo | URL,
@@ -48,9 +47,7 @@ export async function resolvePublicActor(
 }
 
 type ActorLookupState =
-  | { status: "loading" }
-  | ActorLookupResult
-  | { status: "error" };
+  { status: "loading" } | ActorLookupResult | { status: "error" };
 
 export function useActorLookup(actor: string) {
   const [attempt, setAttempt] = useState(0);

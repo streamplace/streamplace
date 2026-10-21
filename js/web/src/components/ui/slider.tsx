@@ -10,11 +10,14 @@ function Slider({
   max = 100,
   ...props
 }: SliderPrimitive.Root.Props) {
+  // One thumb per value; a scalar value is a single-thumb slider.
   const _values = Array.isArray(value)
     ? value
     : Array.isArray(defaultValue)
       ? defaultValue
-      : [min, max];
+      : value !== undefined || defaultValue !== undefined
+        ? [value ?? defaultValue]
+        : [min, max];
 
   return (
     <SliderPrimitive.Root

@@ -1,4 +1,4 @@
-import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
+import { AppBskyActorDefs } from "@atproto/api";
 import { useEffect, useRef } from "react";
 import { useStore } from "store";
 import { useCachedProfiles } from "store/hooks";
@@ -6,7 +6,8 @@ import { useCachedProfiles } from "store/hooks";
 // Hack: Easy way to cache and get avatars
 export default function useAvatars(dids: string[]) {
   const getProfiles = useStore((state) => state.getProfiles);
-  const profiles: Record<string, ProfileViewDetailed> = useCachedProfiles();
+  const profiles: Record<string, AppBskyActorDefs.ProfileViewDetailed> =
+    useCachedProfiles();
 
   // Ask for each DID once. Callers pass a fresh array every render, and a DID
   // the Bluesky app view doesn't know (an account on another PDS with no

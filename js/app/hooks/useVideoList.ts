@@ -63,7 +63,6 @@ export function useVideoList(repo?: string) {
     setCursor(undefined);
     setHasMore(true);
     fetchPage(undefined, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, repo]);
 
   const loadMore = useCallback(() => {

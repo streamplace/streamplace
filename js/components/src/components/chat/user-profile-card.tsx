@@ -1,4 +1,4 @@
-import { ProfileViewBasic } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
+import { AppBskyActorDefs } from "@atproto/api";
 import { TriggerRef } from "@rn-primitives/dropdown-menu";
 import {
   formatBadgeIssuer,
@@ -68,7 +68,7 @@ const BADGE_META: Record<string, BadgeMeta> = {
 
 interface OpenCardData {
   uri: string;
-  author: ProfileViewBasic;
+  author: AppBskyActorDefs.ProfileViewBasic;
   badges: ChatMessageViewHydrated["badges"];
   anchorX: number;
   anchorY: number;
@@ -86,16 +86,16 @@ const OpenCardContext = createContext<OpenCardContextValue>({
 
 // All hook-derived data needed to render the card — computed outside any Modal boundary.
 interface ProfileCardData {
-  author: ProfileViewBasic;
+  author: AppBskyActorDefs.ProfileViewBasic;
   profile: ReturnType<typeof useAvatars>[string] | undefined;
   profiles: ReturnType<typeof useAvatars>;
   serviceDid: string | null;
   allBadges: NonNullable<ChatMessageViewHydrated["badges"]>;
-  streamer: ProfileViewBasic | undefined;
+  streamer: AppBskyActorDefs.ProfileViewBasic | undefined;
 }
 
 export function useProfileCardData(
-  author: ProfileViewBasic,
+  author: AppBskyActorDefs.ProfileViewBasic,
   badges: ChatMessageViewHydrated["badges"],
 ): ProfileCardData {
   const nodeUrl = useUrl();
@@ -138,7 +138,7 @@ const BadgeRow = ({
 }: {
   badge: NonNullable<ChatMessageViewHydrated["badges"]>[number];
   serviceDid: string;
-  streamer?: ProfileViewBasic;
+  streamer?: AppBskyActorDefs.ProfileViewBasic;
   issuerProfiles: ReturnType<typeof useAvatars>;
 }) => {
   const isServiceIssued = badge.issuer === serviceDid;
@@ -407,7 +407,7 @@ export const UserProfileCard = ({
   children,
 }: {
   uri: string;
-  author: ProfileViewBasic;
+  author: AppBskyActorDefs.ProfileViewBasic;
   badges: ChatMessageViewHydrated["badges"];
   children: React.ReactNode;
 }) => {

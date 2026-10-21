@@ -207,8 +207,7 @@ function MetadataSection() {
   useEffect(() => {
     if (!livestream) return;
     const cw = (livestream.record as any)?.contentWarnings?.warnings as
-      | string[]
-      | undefined;
+      string[] | undefined;
     if (cw && selectedWarnings.size === 0) {
       setSelectedWarnings(new Set(cw));
     }

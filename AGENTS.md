@@ -224,8 +224,8 @@ Run `make check`, or the relevant part of it, before you treat work as done. Do 
 bypass the hook with `--no-verify`. When the hook fails, fix the cause.
 
 `pnpm run check` runs `knip`, the ESLint lint, the `js/app` and `e2e-web`
-typechecks, and a `prettier --check` over all tracked files. `knip` only looks at
-the `js/streamplace` package; see `knip.json` for its narrow reach.
+typechecks, and a `prettier --check` over all tracked files. `knip` only reports
+unlisted dependencies, in the workspaces `knip.json` does not ignore.
 
 ### golangci-lint exclusions
 

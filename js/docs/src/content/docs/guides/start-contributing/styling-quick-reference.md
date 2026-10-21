@@ -492,16 +492,12 @@ export function useCustomTheme() {
 ```tsx
 const myLightTheme = {
   colors: { primary: "#ff6b6b", background: "#fff" },
-  spacing: {
-    /* custom spacing */
-  },
+  spacing: {/* custom spacing */},
 };
 
 const myDarkTheme = {
   colors: { primary: "#ff8787", background: "#1a1a1a" },
-  spacing: {
-    /* custom spacing */
-  },
+  spacing: {/* custom spacing */},
 };
 
 function App() {

@@ -546,8 +546,7 @@ export function ChatInput({
   const handleEmojiSelect = useCallback(
     (
       emoji:
-        | { type: "standard"; native: string }
-        | { type: "custom"; name: string },
+        { type: "standard"; native: string } | { type: "custom"; name: string },
     ) => {
       if (editor) {
         const text =

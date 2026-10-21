@@ -391,11 +391,7 @@ export interface DialogFooterProps {
   children?: React.ReactNode;
   direction?: "row" | "column";
   justify?:
-    | "flex-start"
-    | "center"
-    | "flex-end"
-    | "space-between"
-    | "space-around";
+    "flex-start" | "center" | "flex-end" | "space-between" | "space-around";
   withBorder?: boolean;
   style?: any;
 }

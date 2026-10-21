@@ -1,8 +1,4 @@
-import { $Typed } from "@atproto/api";
-import {
-  Link as FacetLink,
-  Mention,
-} from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
+import { $Typed, AppBskyRichtextFacet } from "@atproto/api";
 import type { LivestreamStore } from "@streamplace/core";
 import {
   chatMessageOpacity,
@@ -463,7 +459,7 @@ function RichTextMessage({
           );
         }
         if (ftr.$type === "app.bsky.richtext.facet#link") {
-          const linkFtr = ftr as $Typed<FacetLink>;
+          const linkFtr = ftr as $Typed<AppBskyRichtextFacet.Link>;
           return (
             <a
               key={i}
@@ -477,7 +473,7 @@ function RichTextMessage({
           );
         }
         if (ftr.$type === "app.bsky.richtext.facet#mention") {
-          const mtnFtr = ftr as $Typed<Mention>;
+          const mtnFtr = ftr as $Typed<AppBskyRichtextFacet.Mention>;
           const profile = authors?.[mtnFtr.did];
           const color = profile?.color;
           return (
@@ -724,8 +720,7 @@ function ReplyBanner({
   const text = msg.record?.text || "";
   const handle = msg.author ? formatHandleWithAt(msg.author) : "@...";
   const facets = msg.record?.facets as
-    | ChatMessageViewHydrated["record"]["facets"]
-    | undefined;
+    ChatMessageViewHydrated["record"]["facets"] | undefined;
 
   return (
     <div className="mb-0.5 flex items-center gap-1 truncate text-[11px] text-(--color-fg-subtle)">

@@ -19,3 +19,9 @@ onlyBuiltDependencies:
 patchedDependencies:
   core-js: patches/core-js.patch
   lex-md: patches/lex-md.patch
+overrides:
+  # Expo SDK 55 peers on typescript ^5; without this, optional typescript peers
+  # resolve to 6.x.
+  typescript: ~5.9.3
+  # lerna pulls in this deprecated stub, which breaks tsc's implicit @types.
+  "@types/parse-path": "-"

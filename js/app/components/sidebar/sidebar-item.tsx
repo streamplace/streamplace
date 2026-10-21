@@ -21,9 +21,7 @@ export default function SidebarItem({
   href,
 }: {
   icon:
-    | React.ComponentType<any>
-    | React.ReactElement
-    | (() => React.ReactElement);
+    React.ComponentType<any> | React.ReactElement | (() => React.ReactElement);
   label: string | ReactNode;
   collapsed: boolean;
   active: boolean;

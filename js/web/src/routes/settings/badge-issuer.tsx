@@ -14,8 +14,7 @@ export const Route = createFileRoute("/settings/badge-issuer")({
 });
 
 type BadgeType =
-  | "place.stream.badge.defs#vip"
-  | "place.stream.badge.defs#event";
+  "place.stream.badge.defs#vip" | "place.stream.badge.defs#event";
 
 const BADGE_TYPE_OPTIONS: { label: string; value: BadgeType }[] = [
   { label: "VIP", value: "place.stream.badge.defs#vip" },

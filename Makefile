@@ -547,6 +547,11 @@ link-test-windows:
 		&& exit 1; \
 	fi
 
+# Run the GitLab build pipeline locally in the builder container.
+.PHONY: all
+all:
+	bash hack/all.sh
+
 .PHONY: ci
 ci: version install app node-all-platforms ci-upload-node
 
@@ -740,8 +745,22 @@ desktop-darwin-amd64:
 desktop-darwin-arm64:
 	echo "TODO"
 
+# On macOS Forge signs and notarizes with the platform tools. Elsewhere the
+# postPackage hook signs with rcodesign and hack/make-dmg.sh builds the DMG.
 .PHONY: desktop-darwin
 desktop-darwin:
+	@if [ "$$(uname -s)" = "Darwin" ]; then \
+		$(MAKE) desktop-darwin-macos; \
+	else \
+		$(MAKE) desktop-darwin-linux; \
+	fi
+
+.PHONY: desktop-darwin-linux
+desktop-darwin-linux:
+	bash hack/desktop-darwin-linux.sh
+
+.PHONY: desktop-darwin-macos
+desktop-darwin-macos:
 	export DEBUG="electron-osx-sign*" \
 	&& cd js/desktop \
 	&& pnpm run make --platform darwin --arch arm64 \

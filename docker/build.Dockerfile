@@ -36,12 +36,23 @@ RUN apt update \
   nasm gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 mingw-w64-tools zip bison flex expect \
   mono-runtime nuget mono-xsp4 squashfs-tools \
   libc6:arm64 libstdc++6:arm64 \
-  cmake libssl-dev libssl-dev:arm64 \
+  cmake libssl-dev libssl-dev:arm64 libbz2-dev zlib1g-dev hfsprogs hfsplus \
   ruby-rubygems postgresql sudo \
   && pip install meson==1.11.2 tomli \
   && curl -L --fail https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz -o go.tar.gz \
   && tar -C /usr/local -xf go.tar.gz \
   && rm go.tar.gz
+
+# Builds DMGs from macOS app bundles on Linux (hack/make-dmg.sh), so the
+# desktop-darwin job no longer needs a Mac. hfsprogs/hfsplus create the HFS+
+# image; libdmg-hfsplus wraps it in a UDIF.
+RUN git clone https://github.com/mozilla/libdmg-hfsplus /tmp/libdmg-hfsplus \
+  && cd /tmp/libdmg-hfsplus \
+  && git checkout e18579b391950589b9ed16ee630c54ce4319bb29 \
+  && cmake . \
+  && make -j"$(nproc)" \
+  && make install \
+  && rm -rf /tmp/libdmg-hfsplus
 
 RUN echo 'deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/winehq-archive.key] https://storage.googleapis.com/streamplace-crap/dl.winehq.org/wine-builds/ubuntu/ jammy main' >> /etc/apt/sources.list \
   && echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/llvm-snapshot.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-21 main' >> /etc/apt/sources.list \

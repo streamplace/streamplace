@@ -58,6 +58,12 @@ contains the unsigned binaries, unsigned app bundles, `VERSION`, `COMMIT`, a
 `SHA256SUMS` file, and a `SYMLINKS` listing. The build machine does not need
 any Apple credentials.
 
+`build-signable` needs the pinned builder container (Go, Node/pnpm, Meson,
+Rust, osxcross) and nothing else: no prior `make dev`, no Apple credentials,
+and no macOS. `sign` is the opposite: it needs `rcodesign`, `zip`, and the
+host DMG tool (`hdiutil`, or hfsprogs/libdmg-hfsplus on Linux), but not the
+build toolchain.
+
 `sign` verifies `SHA256SUMS` and `SYMLINKS`, signs each binary and app with
 `rcodesign`, optionally notarizes and staples, and writes the release artifacts
 to `bin/`:

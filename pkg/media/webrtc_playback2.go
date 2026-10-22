@@ -30,7 +30,13 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 	if audioOnly {
 		busRendition = "source"
 	}
-	videoMime := playbackVideoMimeType(mm.bus.LatestSegment(user, busRendition), offer)
+	offered := offeredVideoMimeTypes(offer)
+	videoMime := webrtc.MimeTypeH264
+	if latest := mm.bus.LatestSegment(user, busRendition); latest != nil {
+		if mime := offeredVideo(latest.PacketizedData, offered); mime != "" {
+			videoMime = mime
+		}
+	}
 
 	// Create a new RTCPeerConnection
 	peerConnection, err := mm.webrtcAPIs[videoMime].NewPeerConnection(mm.webrtcConfig)
@@ -137,8 +143,11 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		}
 	}
 
+	// The session's context: the answer below waits on it too, as a session
+	// can end before ICE gathering completes (see the codec check).
+	session, cancel := context.WithCancel(ctx)
 	go func() {
-		ctx, cancel := context.WithCancel(ctx)
+		ctx := session
 		defer cancel()
 		defer markDone()
 
@@ -186,14 +195,22 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					g, _ := errgroup.WithContext(ctx)
 					wroteAny := false
 
-					// The session's one codec only: a segment without it
-					// (the stream dropped that rendition) has its video
-					// skipped.
+					// The session's one codec only. A segment without it
+					// that the viewer could take in another means the
+					// session's codec was a guess made before the stream
+					// had a segment, or the stream changed codec: end the
+					// session, and the viewer reconnects into the codec the
+					// stream has. Otherwise (the stream dropped that
+					// rendition) its video is skipped.
 					if video := packet.VideoSamples(videoMime); !audioOnly && len(video) > 0 {
 						wroteAny = true
 						g.Go(func() error {
 							return writeSamples(ctx, videoTrack, video, scalar)
 						})
+					} else if mime := offeredVideo(packet, offered); !audioOnly && mime != "" && mime != videoMime {
+						log.Log(ctx, "stream's video isn't in this session's codec, ending the session", "session", videoMime, "stream", mime)
+						cancel()
+						return
 					} else if !audioOnly {
 						log.Warn(ctx, "no video samples to write", "codec", videoMime)
 					}
@@ -305,8 +322,8 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 	select {
 	case <-gatherComplete:
 		return peerConnection.LocalDescription(), nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	case <-session.Done():
+		return nil, fmt.Errorf("playback session ended before answering: %w", context.Cause(session))
 	}
 }
 
@@ -327,21 +344,20 @@ func offeredAudioTracks(offer *webrtc.SessionDescription) int {
 	return max(n, 1)
 }
 
-// playbackVideoMimeType picks the video codec of a viewer's session: the
-// first codec of the stream's latest packetized segment (the source's, then
-// the fallbacks) that the viewer's offer takes, else H.264, which is also the
-// pick before the stream has a segment.
-func playbackVideoMimeType(latest *bus.Seg, offer *webrtc.SessionDescription) string {
-	if latest == nil || latest.PacketizedData == nil {
-		return webrtc.MimeTypeH264
+// offeredVideo is the first video codec of a packetized segment (the
+// source's, then the fallbacks') in offered (see offeredVideoMimeTypes), or
+// "" when there's none. A viewer's session takes the first codec of the
+// stream's latest segment its offer takes, H.264 before the stream has one.
+func offeredVideo(p *bus.PacketizedSegment, offered map[string]bool) string {
+	if p == nil {
+		return ""
 	}
-	offered := offeredVideoMimeTypes(offer)
-	for _, v := range latest.PacketizedData.Video {
+	for _, v := range p.Video {
 		if offered[strings.ToLower(v.MimeType)] {
 			return v.MimeType
 		}
 	}
-	return webrtc.MimeTypeH264
+	return ""
 }
 
 // stemGroupsFor lists the stem groups a playback session sends, ascending:

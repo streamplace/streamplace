@@ -2,11 +2,12 @@
 
 Cross-platform Maestro flows for the mobile app, run against a self-contained
 `streamplace e2e` harness (a local PDS and PLC, a Streamplace node and a
-looping test stream). `hack/e2e-local.sh android` runs them on an emulator,
-and so does the `android-e2e` job in `.github/workflows/build.yaml`. iOS only has
-a smoke run: the `ios` job there builds `make ios-simulator` and
-`hack/ios-smoke.sh` runs `js/app/maestro/home.yaml` on a simulator. The web suite
-(`js/e2e-web`, `hack/e2e-web-local.sh`) mirrors these flows.
+looping test stream). `hack/e2e-local.sh android` runs them on an emulator;
+`hack/e2e-local.sh ios` runs the same suite in a disposable iOS Simulator.
+Android also runs in the `android-e2e` CI job. The `ios` CI job builds
+`make ios-simulator` and runs the basic `js/app/maestro/home.yaml` smoke flow
+through `hack/ios-smoke.sh`; the full iOS suite runs locally.
+The web suite (`js/e2e-web`, `hack/e2e-web-local.sh`) mirrors these flows.
 
 ## Organization and prerequisites
 
@@ -34,8 +35,8 @@ screen and create its own test data; it must not depend on another scenario's
 messages or navigation. A flow must leave its phase's session state intact.
 Reusable prerequisite flows belong in `setup/`, outside scenario discovery.
 
-Use `hack/e2e-local.sh android` rather than running the directory without its
-generated config. For a subset, prerequisites are included automatically:
+Use `hack/e2e-local.sh android` or `hack/e2e-local.sh ios`, rather than running
+the directory without its generated config. Subsets include prerequisites:
 
 ```bash
 E2E_FLOWS=".maestro/logged-in/chat-profile.yaml" hack/e2e-local.sh android
@@ -43,9 +44,9 @@ E2E_FLOWS=".maestro/logged-in/chat-profile.yaml" hack/e2e-local.sh android
 bash hack/maestro-config.sh .maestro/logged-in/chat-profile.yaml
 ```
 
-The organization and generated config are platform-neutral; the current runner
-only provisions Android. No native Go Live scenario exists: native builds hide
-those controls, and `logged-out/tabs.yaml` checks they stay hidden.
+The organization and generated config work on both platforms, including macOS's
+stock Bash. No native Go Live scenario exists: native builds hide those controls,
+and `logged-out/tabs.yaml` checks they stay hidden.
 
 ## Live avatar coverage
 
@@ -87,12 +88,11 @@ Moving focus away without pressing either Send control must not send anything.
 relaunch, then reads the actual `place.stream.chat.message` record from the PDS.
 It requires a numeric RFC 3339 offset matching the device, and checks that the
 timestamp represents the send instant rather than UTC mislabeled as local time.
-The shared flow works on iOS and Android; the Android runner supplies
-`ACCOUNT_DID`, `PDS_HTTP_URL` (the harness's loopback PDS listener), and
-`DEVICE_UTC_OFFSET` (`+HH:MM`, read with `adb shell date +%z`).
-Maestro's JavaScript runs on the host, so its own local time zone is not a device
-offset oracle. An iOS invocation must supply the same variables using the
-simulator's offset (normally the Mac host's).
+Both platform runners supply `ACCOUNT_DID`, `PDS_HTTP_URL` (the harness's loopback
+PDS listener), and `DEVICE_UTC_OFFSET` (`+HH:MM`). Android reads the offset with
+`adb shell date +%z`; iOS runs a small Foundation executable inside the selected
+Simulator. Maestro's JavaScript runs on the host, so its own local time zone is
+not a device offset oracle.
 
 The Web counterpart, `js/e2e-web/flows/chat-timezone.spec.ts`, exercises both the
 Expo and Vite send paths in Los Angeles, Kathmandu, and UTC.
@@ -172,9 +172,9 @@ and Vite shells with the same fixture.
 The app reaches the harness over HTTPS only: release builds refuse cleartext,
 and `setup/oauth-login.yaml` signs in to the harness's own PDS through the real atproto
 OAuth flow (the node's OAuth proxy, then the PDS's sign-in and consent pages
-in a Chrome Custom Tab). So the harness runs in its HTTPS mode, serving public
-names for 127.0.0.1 with a throwaway CA (see `pkg/cmd/e2e_https.go`), and the
-runner sets the emulator up, as root, to reach and trust it:
+in a Chrome Custom Tab on Android or an authentication session on iOS). The
+harness serves public names for 127.0.0.1 with a throwaway CA
+(see `pkg/cmd/e2e_https.go`). On Android, the runner configures the rooted emulator:
 
 - a hosts file maps the harness's names, and `plc.directory` (the app
   resolves `did:plc` there itself), to the host at 10.0.2.2;
@@ -183,7 +183,59 @@ runner sets the emulator up, as root, to reach and trust it:
   `js/app/app.config.ts`, which also turns off OTA updates so the run tests
   the JS it was built with). Never ship that build.
 
+On iOS, the runner creates a fresh Simulator, installs the CA in that Simulator's
+trusted root store, installs the standalone Release `.app`, and pre-grants
+notifications. It deletes that Simulator at exit, including its trust store and
+account data. It never changes the Mac's hosts file, DNS, or keychain.
+
+### PLC directory override
+
+Frontend DID and OAuth resolution use `EXPO_PUBLIC_PLC_URL`, defaulting to
+`https://plc.directory`. Vite also accepts `VITE_PLC_URL`. These are build-time
+settings: rebuild the app after changing them.
+
+`make ios-e2e` defaults to
+`https://plc.localhost-pds.streamplace.network`; its public DNS resolves to
+loopback, so the Simulator needs no hosts override. The runner sets the matching
+`E2E_HTTPS_PLC_HOSTNAME`, forwarded as the harness's `--https-plc-hostname`.
+For a custom hostname, set `E2E_HTTPS_PLC_HOSTNAME` for **both** the build and run;
+it must resolve to 127.0.0.1.
+
+Backend identity resolution already uses `SP_PLC_URL` (the harness supplies its
+local PLC endpoint). The pinned oatproxy dependency still hardcodes
+`plc.directory`; the harness's process-local CONNECT proxy routes that name to
+the same local PLC. Its certificate covers both names. No system proxy or DNS
+configuration is required.
+
 ## Run it locally
+
+### iOS Simulator (macOS)
+
+Install Xcode and an iOS Simulator runtime, Node 22, the workspace dependencies,
+CocoaPods, Maestro, and notification-permission tooling:
+
+```bash
+brew install wix/brew/applesimutils
+make dev
+make ios-e2e       # bin/streamplace-*-ios-e2e.app; embeds JS, no Metro or signing
+hack/e2e-local.sh ios
+```
+
+The runner creates a disposable iPhone matching a booted iPhone's runtime/type,
+or uses the newest installed iOS runtime if none is booted. To select a template:
+
+```bash
+IOS_SIMULATOR_UDID=<existing-iphone-udid> hack/e2e-local.sh ios
+E2E_FLOWS=".maestro/logged-in/chat-timezone.yaml" hack/e2e-local.sh ios
+```
+
+`IOS_SIMULATOR_UDID` selects a template; the original device is never erased or
+installed into. `IOS_APP` can select a specific e2e `.app`. Rebuild with
+`make ios-e2e` after app changes; the runner installs but does not rebuild it.
+The build regenerates `js/app/ios`, leaving Android untouched. Never ship e2e
+builds.
+
+### Android
 
 ```bash
 make dev           # harness binary
@@ -195,9 +247,9 @@ emulator -avd e2e-api34 -no-window -no-audio -no-snapshot-save &
 hack/e2e-local.sh android
 ```
 
-The runner starts the harness, installs the APK, prepares the emulator, runs
-the flows and tears everything down. Screenshots, maestro's logs and the
-report land in `.maestro/artifacts/`.
+The runner starts the harness, installs the app, prepares the device, runs
+the flows and tears the harness down. Screenshots, Maestro's logs and reports
+land in `.maestro/artifacts/` (override with `E2E_ARTIFACTS`).
 
 The runner runs on the host, not in the build container: the emulator has to
 reach the harness.

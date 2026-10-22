@@ -1,3 +1,4 @@
+import { PLC_DIRECTORY_URL } from "@streamplace/core";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import {
@@ -73,6 +74,7 @@ export default async function createOAuthClient(
     throw e;
   }
   const client = new OAuthClient({
+    plcDirectoryUrl: PLC_DIRECTORY_URL,
     fetch: async (input, init) => {
       // Normalize input to a Request object
       let request: Request;

@@ -1,5 +1,19 @@
 // DID-document resolution helpers. Pure fetch, platform-agnostic.
 
+// Expo inlines this exact property access; Vite bridges its VITE_PLC_URL here.
+export const PLC_DIRECTORY_URL =
+  process.env.EXPO_PUBLIC_PLC_URL || "https://plc.directory";
+
+const plcDirectoryUrl = new URL(PLC_DIRECTORY_URL);
+
+export function isPlcDirectoryRequest(requestUrl: string): boolean {
+  const url = new URL(requestUrl);
+  return (
+    url.origin === plcDirectoryUrl.origin &&
+    /^\/did(?::|%3[aA])plc(?::|%3[aA])[^/]+$/.test(url.pathname)
+  );
+}
+
 export interface DIDDocument {
   id: string;
   service?: Array<{
@@ -18,8 +32,8 @@ export async function resolveDIDDocument(did: string): Promise<DIDDocument> {
     const domain = did.replace("did:web:", "").replace(/:/g, "/");
     didDocUrl = `https://${domain}/.well-known/did.json`;
   } else if (did.startsWith("did:plc:")) {
-    // For did:plc, use plc.directory
-    didDocUrl = `https://plc.directory/${did}`;
+    // Match atproto's PLC resolver: DID documents live at the directory root.
+    didDocUrl = new URL(`/${encodeURIComponent(did)}`, plcDirectoryUrl).href;
   } else {
     throw new Error(`Unsupported DID method: ${did}`);
   }

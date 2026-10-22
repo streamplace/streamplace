@@ -86,6 +86,9 @@ e2e_harness_start() {
     input="$E2E_CONTROL_FIFO"
     export E2E_CONTROL_FIFO
   fi
+  if [ -n "${E2E_HTTPS_PLC_HOSTNAME:-}" ]; then
+    args+=(--https-plc-hostname "$E2E_HTTPS_PLC_HOSTNAME")
+  fi
   if command -v setsid >/dev/null 2>&1; then
     setsid "$BUILDDIR/streamplace" "${args[@]}" < "$input" > "$E2E_ENVFILE" 2> "$E2E_LOGFILE" &
   else

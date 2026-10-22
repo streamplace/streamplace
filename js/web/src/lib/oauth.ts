@@ -5,6 +5,7 @@ import {
   type ClientMetadata,
   clientMetadataSchema,
 } from "@atproto/oauth-client-browser";
+import { PLC_DIRECTORY_URL } from "@streamplace/core";
 import { routeOAuthThroughStreamplace } from "./oauth-resolver";
 import { getCallbackUrl } from "./streamplace-callback";
 
@@ -65,6 +66,7 @@ export default async function createOAuthClient(
   }
 
   const client = new BrowserOAuthClient({
+    plcDirectoryUrl: PLC_DIRECTORY_URL,
     fetch: async (input, init) => {
       let request: Request;
       if (typeof input === "string" || input instanceof URL) {

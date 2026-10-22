@@ -110,6 +110,9 @@ for arch in amd64 arm64; do
   hack/rcodesign-app.sh "$APP"
   (
     cd "$(dirname "$APP")"
+    # zip updates an existing archive instead of replacing it, so remove the
+    # previous build's entries before signing a rebuilt app.
+    rm -f "$OUT_DIR/streamplace-desktop-$VERSION-darwin-$arch.zip"
     zip -qry "$OUT_DIR/streamplace-desktop-$VERSION-darwin-$arch.zip" \
       "$(basename "$APP")"
   )

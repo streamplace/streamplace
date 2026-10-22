@@ -48,10 +48,18 @@ rm -rf "$CERT_DIR"
 CERT_DIR=""
 
 NOTARIZE="${SIGN_NOTARIZE:-auto}"
-if [[ -z "${APPLE_CODESIGN_API_KEY:-}" ]]; then
-  NOTARIZE=0
+if [[ "$NOTARIZE" == "auto" ]]; then
+  if [[ -n "${APPLE_CODESIGN_API_KEY:-}" ]]; then
+    NOTARIZE=1
+  else
+    NOTARIZE=0
+  fi
 fi
 if [[ "$NOTARIZE" == "1" ]]; then
+  if [[ -z "${APPLE_CODESIGN_API_KEY:-}" ]]; then
+    echo "APPLE_CODESIGN_API_KEY is required for notarization" >&2
+    exit 1
+  fi
   if [[ "${SIGN_TIMESTAMP_URL:-http://timestamp.apple.com/ts01}" == "none" ]]; then
     echo "refusing to notarize an untimestamped signature (SIGN_TIMESTAMP_URL=none)" >&2
     exit 1

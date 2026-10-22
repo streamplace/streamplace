@@ -93,11 +93,14 @@ target darwin-arm64
 # ---------------------------------------------------------------------------
 # android jobs
 # ---------------------------------------------------------------------------
+# `make app` above already ran `expo prebuild`, so build the bundles directly.
+# The ci-android-* targets also upload to the GitLab package registry, which
+# needs CI_JOB_TOKEN and fails on a local machine.
 step "android-debug"
-run make ci-android-debug
+run make android-debug
 
 step "android-release"
-run make ci-android-release
+run make android-release
 
 # ---------------------------------------------------------------------------
 # macOS desktop app (packages and signs with rcodesign on Linux)

@@ -899,6 +899,10 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	if err != nil {
 		return fmt.Errorf("failed to generated renditions: %w", err)
 	}
+	if len(rs) == 0 {
+		log.Debug(ctx, "transcode: skipped, no rendition to make")
+		return nil
+	}
 
 	if ss.lp == nil {
 		var err error
@@ -1039,6 +1043,14 @@ func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *placestream.Seg
 		return nil
 	}
 	ss.bus.PublishSegment(ctx, spseg.Creator, rendition, seg)
+	if rendition != "source" {
+		return nil
+	}
+	// The renditions the streamer sent inside the source segment play by
+	// name, like the transcoder's (which leaves those names to them).
+	for name, packet := range packet.Renditions() {
+		ss.bus.PublishSegment(ctx, spseg.Creator, name, &bus.Seg{PacketizedData: packet, Published: seg.Published})
+	}
 	return nil
 }
 

@@ -132,12 +132,11 @@ func videoTracks(cat *muxl.MuxlCatalog) []muxl.MuxlVideoConfig {
 }
 
 // pickVideoTrack returns the first of a catalog's video tracks, in track-id
-// order, whose codec accept takes; a nil accept takes any codec Streamplace
-// knows.
-func pickVideoTrack(cat *muxl.MuxlCatalog, accept func(VideoCodec) bool) (muxl.MuxlVideoConfig, VideoCodec, bool) {
+// order, that accept takes; a nil accept takes any codec Streamplace knows.
+func pickVideoTrack(cat *muxl.MuxlCatalog, accept func(muxl.MuxlVideoConfig, VideoCodec) bool) (muxl.MuxlVideoConfig, VideoCodec, bool) {
 	for _, v := range videoTracks(cat) {
 		c, ok := VideoCodecForCatalog(v.Codec)
-		if ok && (accept == nil || accept(c)) {
+		if ok && (accept == nil || accept(v, c)) {
 			return v, c, true
 		}
 	}
@@ -146,7 +145,7 @@ func pickVideoTrack(cat *muxl.MuxlCatalog, accept func(VideoCodec) bool) (muxl.M
 
 // onlyH264 is a pickVideoTrack accept for the consumers H.264 is all they can
 // take: RTMP push, the transcoder.
-func onlyH264(c VideoCodec) bool { return c.Name == VideoH264.Name }
+func onlyH264(_ muxl.MuxlVideoConfig, c VideoCodec) bool { return c.Name == VideoH264.Name }
 
 // errNoVideoTrack is the error of a consumer that found no video track in a
 // codec it takes (see pickVideoTrack).

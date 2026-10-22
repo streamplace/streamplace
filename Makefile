@@ -569,14 +569,20 @@ sign:
 ci: version install app node-all-platforms ci-upload-node
 
 
+# The darwin binaries are cross-compiled by build-darwin-* and downloaded here.
+# The Electron app is packaged and signed on Linux by the Forge postPackage
+# hook (hack/rcodesign-app.sh); no macOS keychain or util/mac-codesign.sh is
+# involved. The self-test only runs when this target is invoked on macOS, since
+# a darwin binary cannot execute on the Linux builder.
 .PHONY: ci-desktop-darwin
 ci-desktop-darwin: version install
-	./util/mac-codesign.sh \
-	&& for arch in amd64 arm64; do \
+	for arch in amd64 arm64; do \
 		curl -v --fail-with-body -O "$$CI_API_V4_URL/projects/$$CI_PROJECT_ID/packages/generic/$(BRANCH)/$(VERSION)/streamplace-$(VERSION)-darwin-$$arch.tar.gz" || exit 1 \
 		&& tar -xzvf streamplace-$(VERSION)-darwin-$$arch.tar.gz \
-		&& ./streamplace --version \
-		&& ./streamplace self-test \
+		&& if [ "$$(uname -s)" = "Darwin" ]; then \
+			./streamplace --version \
+			&& ./streamplace self-test; \
+		fi \
 		&& mkdir -p build-darwin-$$arch \
 		&& mv ./streamplace ./build-darwin-$$arch/streamplace; \
 	done \

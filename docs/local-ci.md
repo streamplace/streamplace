@@ -31,7 +31,8 @@ is `hack/all.sh`.
   libdmg-hfsplus). Without `DEVELOPER_CERTIFICATE_BASE64` the app is ad-hoc
   signed; with `APPLE_CODESIGN_API_KEY` it is notarized and stapled.
 - `build-ios`: `make ios` on a macOS machine. This is the only job that cannot
-  run on Linux, because it needs Xcode.
+  run on Linux, because it needs Xcode. GitLab's `build-ios` job is commented
+  out until a macOS runner exists; build it locally and upload by hand.
 
 The tag-only publishing jobs (`npm-release`, `release`, `deb-release`,
 `homebrew-release`) are not run: they need CI credentials and should not fire

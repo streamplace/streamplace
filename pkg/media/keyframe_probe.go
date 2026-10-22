@@ -53,16 +53,16 @@ func auHasIDR(b []byte) bool {
 	return false
 }
 
-// installIDRKeyframeProbe makes the H.264 buffers passing pad carry the
-// keyframe flag only when they hold an IDR slice. h264parse marks every
-// I-slice as a keyframe, and a broadcast encoder that emits open-GOP
-// I-frames (non-IDR, no SPS/PPS, seen at scene cuts) then gets those
-// written as sync samples, on which the segmenter starts a new signed
-// segment — one no decoder can start on: the transcoder rejects it, the
-// packetizer finds no frame in it, and an HLS player joining there stalls.
-// Clearing the flag keeps such frames inside the GoP of the IDR before
-// them.
-func installIDRKeyframeProbe(ctx context.Context, pad gst.Pad, streamer string) {
+// installKeyframeProbe makes the video buffers passing pad carry the
+// keyframe flag only when they hold a frame a decoder can start on (see
+// VideoCodec.IsKeyframe). h264parse marks every I-slice as a keyframe, and a
+// broadcast encoder that emits open-GOP I-frames (non-IDR, no SPS/PPS, seen
+// at scene cuts) then gets those written as sync samples; av1parse does the
+// same with AV1's hidden key frames. On those the segmenter would start a new
+// signed segment — one no decoder can start on: the transcoder rejects it,
+// the packetizer finds no frame in it, and an HLS player joining there
+// stalls. Clearing the flag keeps such frames inside the GoP before them.
+func installKeyframeProbe(ctx context.Context, codec VideoCodec, pad gst.Pad, streamer string) {
 	if pad == nil {
 		return
 	}
@@ -75,12 +75,12 @@ func installIDRKeyframeProbe(ctx context.Context, pad gst.Pad, streamer string) 
 		if !ok {
 			return gst.PadProbeOK
 		}
-		idr := auHasIDR(m.Data())
+		key := codec.IsKeyframe(m.Data())
 		m.Unmap()
-		if !idr {
+		if !key {
 			buf.SetFlags(gst.BufferFlagDeltaUnit)
 			spmetrics.IngestNonIDRKeyframesTotal.WithLabelValues(streamer).Inc()
-			log.Debug(ctx, "ingest: keyframe-flagged frame without an IDR slice kept inside its GoP", "streamer", streamer)
+			log.Debug(ctx, "ingest: keyframe-flagged frame no decoder can start on kept inside its GoP", "streamer", streamer, "codec", codec.Name)
 		}
 		return gst.PadProbeOK
 	})

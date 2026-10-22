@@ -266,6 +266,48 @@ func TestStreamTranscoderGapless(t *testing.T) {
 		"transcoded AAC total drifts from source Opus beyond priming + boundary quantization")
 }
 
+// TestStreamTranscoderAV1 completes an AV1 stream's audio either way: the
+// passthrough cut clock is parsed as the AV1 it is, and every completed
+// segment carries both codecs and verifies.
+func TestStreamTranscoderAV1(t *testing.T) {
+	for _, tc := range []struct{ fixture, target string }{
+		{"av1-opus-frag.mp4", "aac"},
+		{"av1-aac-frag.mp4", "opus"},
+	} {
+		t.Run(tc.target, func(t *testing.T) {
+			ctx := context.Background()
+			ms := newBareSegmentSigner(t)
+			segs := allSignedBareSegments(t, ctx, ms, getFixture(tc.fixture))
+			keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+			require.NoError(t, err)
+
+			mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "test.example.com"}}
+			var mu sync.Mutex
+			var completed [][]byte
+			tr := mm.newStreamTranscoder(ctx, tc.target, ms.Cert, keyPEM, func(_ any, c []byte) {
+				mu.Lock()
+				completed = append(completed, c)
+				mu.Unlock()
+			})
+			for i, s := range segs {
+				require.NoError(t, tr.Feed(s, i), "feed segment %d", i)
+			}
+			require.NoError(t, tr.Close())
+
+			mu.Lock()
+			defer mu.Unlock()
+			require.NotEmpty(t, completed, "transcoder emitted completed segments")
+			for i, c := range completed {
+				codecs := audioCodecsOf(t, ctx, c)
+				require.Len(t, codecs, 2, "segment %d carries both codecs (got %v)", i, codecs)
+				out, err := muxl.RunMuxlVerify(ctx, bytes.NewReader(c))
+				require.NoError(t, err, "segment %d verify", i)
+				require.NotContains(t, out, `"validation_state":"Invalid"`, "segment %d must validate", i)
+			}
+		})
+	}
+}
+
 // TestStreamTranscoderDegenerateTimestamps feeds a real WHIP-captured segment
 // whose source video carries degenerate timestamps — several frames sharing a
 // PTS, plus zero/N/A frame durations (a variable-frame-rate capture artifact

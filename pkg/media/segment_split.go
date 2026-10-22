@@ -168,7 +168,7 @@ func SplitSegments(ctx context.Context, cli *config.CLI, input io.ReadSeeker, cb
 		if err != nil {
 			return fmt.Errorf("failed to seek to start: %w", err)
 		}
-		err = SegmentUnsigned(ctx, cli, streamer, input, true, unsignedCh)
+		err = SegmentUnsigned(ctx, cli, streamer, input, unsignedCh)
 		if err != nil {
 			return fmt.Errorf("failed to segment file: %w", err)
 		}

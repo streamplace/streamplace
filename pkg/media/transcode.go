@@ -204,12 +204,13 @@ func completionTarget(cat *muxl.MuxlCatalog) (target string, need bool) {
 
 // buildAudioTranscodePipeline constructs the audio-transcode pipeline shared by
 // the per-segment ([transcodeAudioSegment]) and continuous ([streamTranscoder])
-// paths: an `appsrc` of fMP4 → qtdemux → video (h264parse passthrough) + audio
-// (decode → re-encode to target) → fragmented mp4mux → `appsink`. Video rides
-// along only so muxl can anchor the canonical segment on the video keyframe;
-// callers keep the original signed video and use only the transcoded audio
-// track. Callers wire the `src`/`sink` callbacks and set the pipeline playing.
-// target is the codec being produced: "opus" (source AAC) or "aac" (source Opus).
+// paths: an `appsrc` of fMP4 → qtdemux → video (its codec's parser,
+// passthrough) + audio (decode → re-encode to target) → fragmented mp4mux →
+// `appsink`. Video rides along only so muxl can anchor the canonical segment on
+// the video keyframe; callers keep the original signed video and use only the
+// transcoded audio track. Callers wire the `src`/`sink` callbacks and set the
+// pipeline playing. target is the codec being produced: "opus" (source AAC) or
+// "aac" (source Opus).
 func buildAudioTranscodePipeline(target string) (gst.Pipeline, error) {
 	// Queue sizing: a single qtdemux feeds both branches, so if either queue
 	// hits a limit and blocks the demux, the sibling branch starves and mp4mux
@@ -232,7 +233,7 @@ func buildAudioTranscodePipeline(target string) (gst.Pipeline, error) {
 
 	launched, err := gst.ParseLaunch(strings.Join([]string{
 		"appsrc name=src ! qtdemux name=demux",
-		constants.Queue2Big + " name=vq ! h264parse name=vparse",
+		"identity name=vclock",
 		audioChain,
 	}, "\n"))
 	if err != nil {
@@ -271,16 +272,10 @@ func buildAudioTranscodePipeline(target string) (gst.Pipeline, error) {
 		return nil, fmt.Errorf("failed to request mp4mux pads")
 	}
 
-	vparse := pipeline.GetByName("vparse")
-	if vparse == nil {
-		return nil, fmt.Errorf("vparse element not found")
+	vclock := pipeline.GetByName("vclock")
+	if vclock == nil {
+		return nil, fmt.Errorf("vclock element not found")
 	}
-	// The passed-through video is muxl's cut clock for the transcoded
-	// audio: it must cut exactly where the source segments were cut,
-	// at IDRs only (see installIDRKeyframeProbe), or the audio chunks
-	// and the source segments pair up out of step and the completed
-	// track drifts from the video.
-	installIDRKeyframeProbe(context.Background(), vparse.GetStaticPad("src"), "completion")
 	aenc := pipeline.GetByName("aenc")
 	if aenc == nil {
 		return nil, fmt.Errorf("aenc element not found")
@@ -303,8 +298,8 @@ func buildAudioTranscodePipeline(target string) (gst.Pipeline, error) {
 	const tsStep = gst.ClockTime(1_000_000) // 1 ms — ≥1 tick at any sane video timescale
 	var lastTS gst.ClockTime
 	haveLast := false
-	vparseSrc := vparse.GetStaticPad("src")
-	vparseSrc.AddProbe(gst.PadProbeTypeBuffer, func(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+	vclockSrc := vclock.GetStaticPad("src")
+	vclockSrc.AddProbe(gst.PadProbeTypeBuffer, func(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
 		buf := info.GetBuffer()
 		if buf == nil {
 			return gst.PadProbeOK
@@ -326,17 +321,13 @@ func buildAudioTranscodePipeline(target string) (gst.Pipeline, error) {
 		haveLast = true
 		return gst.PadProbeOK
 	})
-	if r := vparseSrc.Link(videoMuxPad); r != gst.PadLinkOK {
+	if r := vclockSrc.Link(videoMuxPad); r != gst.PadLinkOK {
 		return nil, fmt.Errorf("link video chain → mux: %v", r)
 	}
 	if r := aenc.GetStaticPad("src").Link(audioMuxPad); r != gst.PadLinkOK {
 		return nil, fmt.Errorf("link audio chain → mux: %v", r)
 	}
 
-	vq := pipeline.GetByName("vq")
-	if vq == nil {
-		return nil, fmt.Errorf("vq element not found")
-	}
 	aq := pipeline.GetByName("aq")
 	if aq == nil {
 		return nil, fmt.Errorf("aq element not found")
@@ -345,24 +336,44 @@ func buildAudioTranscodePipeline(target string) (gst.Pipeline, error) {
 	if demux == nil {
 		return nil, fmt.Errorf("demux element not found")
 	}
-	demux.ConnectPadAdded(func(_ gst.Element, pad gst.Pad) {
+	demux.ConnectPadAdded(func(demux gst.Element, pad gst.Pad) {
 		name := pad.GetName()
-		var dst gst.Pad
 		switch {
-		case strings.HasPrefix(name, "video"):
-			dst = vq.GetStaticPad("sink")
+		case name == "video_0":
+			if err := plugCutClock(demux, pad, vclock); err != nil {
+				demux.PostMessage(gst.NewMessageError(demux, err.Error(), err))
+			}
 		case strings.HasPrefix(name, "audio"):
-			dst = aq.GetStaticPad("sink")
-		default:
-			return
-		}
-		if r := pad.Link(dst); r != gst.PadLinkOK {
-			// non-fatal: a stray pad (e.g. a second audio track) is just dropped
-			fmt.Printf("transcode: failed to link demux pad %s: %v\n", name, r)
+			if r := pad.Link(aq.GetStaticPad("sink")); r != gst.PadLinkOK {
+				// non-fatal: a stray pad (e.g. a second audio track) is just dropped
+				fmt.Printf("transcode: failed to link demux pad %s: %v\n", name, r)
+			}
 		}
 	})
 
 	return pipeline, nil
+}
+
+// plugCutClock links pad, the transcode input's video track, through its
+// codec's parser into vclock. The passed-through video is muxl's cut clock for
+// the transcoded audio: it must cut exactly where the source segments were
+// cut, at frames a decoder can start on only (see installKeyframeProbe), or
+// the audio chunks and the source segments pair up out of step and the
+// completed track drifts from the video.
+func plugCutClock(demux gst.Element, pad gst.Pad, vclock gst.Element) error {
+	codec, err := padVideoCodec(pad)
+	if err != nil {
+		return err
+	}
+	parse, err := plugDemuxBin(demux, pad, constants.Queue2Big+" ! "+codec.ParserLaunch("", ""))
+	if err != nil {
+		return err
+	}
+	installKeyframeProbe(context.Background(), codec, parse.GetStaticPad("src"), "completion")
+	if !parse.Link(vclock) {
+		return fmt.Errorf("link %s → vclock failed", codec.Parser)
+	}
+	return nil
 }
 
 // --- muxl event helpers ---
@@ -487,12 +498,13 @@ func concatTrackAcrossSegments(events []*muxl.MuxlEvent, tid uint32) []byte {
 	return out
 }
 
-// filterSegmentToCodec returns a bare canonical .m4s containing every video
-// track plus the single audio track matching the requested codec (Opus when
-// wantOpus, else AAC) — how an output consumer "asks for the audio it needs"
-// from a dual-codec segment. See filterSegmentAudio.
-func filterSegmentToCodec(ctx context.Context, seg []byte, wantOpus bool) ([]byte, error) {
-	out, _, err := filterSegmentAudio(ctx, seg, wantOpus, false)
+// filterSegmentToCodec returns a bare canonical .m4s containing the first
+// video track video accepts plus the single audio track matching the
+// requested codec (Opus when wantOpus, else AAC) — how an output consumer
+// "asks for the media it needs" from a multi-track segment. See
+// filterSegmentAudio.
+func filterSegmentToCodec(ctx context.Context, seg []byte, wantOpus bool, video func(VideoCodec) bool) ([]byte, error) {
+	out, _, err := filterSegmentAudio(ctx, seg, wantOpus, false, video)
 	return out, err
 }
 
@@ -503,8 +515,9 @@ type playbackAudio struct {
 	Main    bool   // the main group's track; the others are stems
 }
 
-// filterSegmentAudio returns a bare canonical .m4s containing every video
-// track plus the main group's audio track matching the requested codec (Opus
+// filterSegmentAudio returns a bare canonical .m4s containing the first video
+// track video accepts (see pickVideoTrack; every video track when video is
+// nil) plus the main group's audio track matching the requested codec (Opus
 // when wantOpus, else AAC) and, with stems, one Opus track per stem group
 // (see stemOpusTracks). Track bytes are carried verbatim (signatures intact)
 // in ascending track-id order; the kept audio tracks are described in that
@@ -512,7 +525,7 @@ type playbackAudio struct {
 // the result. If no main audio matches the requested codec, any one main
 // track is kept (degraded but playable); with no audio info at all, the
 // segment is returned unchanged.
-func filterSegmentAudio(ctx context.Context, seg []byte, wantOpus, stems bool) ([]byte, []playbackAudio, error) {
+func filterSegmentAudio(ctx context.Context, seg []byte, wantOpus, stems bool, video func(VideoCodec) bool) ([]byte, []playbackAudio, error) {
 	events, err := unwrapMuxlEvents(ctx, seg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unwrap segment for codec filter: %w", err)
@@ -523,10 +536,14 @@ func filterSegmentAudio(ctx context.Context, seg []byte, wantOpus, stems bool) (
 	}
 
 	keep := map[uint32]bool{}
-	if cat.Video != nil {
-		for _, v := range cat.Video.Renditions {
+	if video == nil {
+		for _, v := range videoTracks(cat) {
 			keep[v.TrackID()] = true
 		}
+	} else if v, _, ok := pickVideoTrack(cat, video); ok {
+		keep[v.TrackID()] = true
+	} else {
+		return nil, nil, errNoVideoTrack
 	}
 	var audio []playbackAudio
 	all := audioTracks(cat)

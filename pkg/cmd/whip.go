@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/abema/go-mp4"
 	"github.com/go-gst/go-gst/pkg/gst"
 	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/pion/webrtc/v4"
@@ -90,6 +92,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) (retErr error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	codec := fileVideoCodec(w.File)
 	pipelineSlice := []string{
 		"filesrc name=filesrc ! qtdemux name=demux",
 		"demux.video_0 ! tee name=video_tee",
@@ -99,7 +102,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) (retErr error) {
 		// so it plays as a live stream — WriteSample pushes to WebRTC
 		// immediately, so without clock sync the whole file would blast
 		// through in one burst.
-		"video_tee. ! queue ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream ! appsink sync=true name=videoappsink",
+		fmt.Sprintf("video_tee. ! queue ! %s ! %s ! appsink sync=true name=videoappsink", codec.ParserLaunch("", "config-interval=-1"), codec.SampleCaps),
 		"audio_tee. ! queue ! opusparse ! appsink sync=true name=audioappsink",
 		// "matroskamux name=mux ! fakesink name=fakesink sync=true",
 		// "video_tee. ! mux.video_0",
@@ -170,7 +173,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) (retErr error) {
 		}
 
 		g.Go(func() error {
-			conn, err := w.StartWHIPConnection(ctx, streamKey, did)
+			conn, err := w.StartWHIPConnection(ctx, streamKey, did, codec)
 			if err != nil {
 				cancel()
 				return err
@@ -334,7 +337,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) (retErr error) {
 	return ctx.Err()
 }
 
-func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, did string) (*WHIPConnection, error) {
+func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, did string, codec media.VideoCodec) (*WHIPConnection, error) {
 
 	// Prepare the configuration
 	config := webrtc.Configuration{}
@@ -361,13 +364,17 @@ func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, 
 		return nil, err
 	}
 
-	// Create a video track
-	videoTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "video/h264"}, "video", "pion2")
+	// Create a video track, offered in its codec only: the server answers
+	// H.264 whenever an offer has it.
+	videoTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: codec.MimeType}, "video", "pion2")
 	if err != nil {
 		return nil, err
 	}
-	_, err = peerConnection.AddTrack(videoTrack)
+	videoSender, err := peerConnection.AddTrack(videoTrack)
 	if err != nil {
+		return nil, err
+	}
+	if err := offerOnly(peerConnection, videoSender, codec.MimeType); err != nil {
 		return nil, err
 	}
 
@@ -438,4 +445,38 @@ func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, 
 
 	connected = true
 	return conn, nil
+}
+
+// offerOnly narrows the offer for sender's track to the codecs of mimeType.
+func offerOnly(pc *webrtc.PeerConnection, sender *webrtc.RTPSender, mimeType string) error {
+	var keep []webrtc.RTPCodecParameters
+	for _, c := range sender.GetParameters().Codecs {
+		if strings.EqualFold(c.MimeType, mimeType) {
+			keep = append(keep, c)
+		}
+	}
+	for _, t := range pc.GetTransceivers() {
+		if t.Sender() == sender {
+			return t.SetCodecPreferences(keep)
+		}
+	}
+	return fmt.Errorf("no transceiver for the %s track", mimeType)
+}
+
+// fileVideoCodec is the codec of an MP4 file's first video track: its first
+// sample entry in a codec Streamplace knows. H.264 when it can't tell; a file
+// that can't be read fails in the pipeline, which says why.
+func fileVideoCodec(path string) media.VideoCodec {
+	f, err := os.Open(path)
+	if err != nil {
+		return media.VideoH264
+	}
+	defer f.Close()
+	entries, _ := mp4.ExtractBox(f, nil, mp4.BoxPath{mp4.BoxTypeMoov(), mp4.BoxTypeTrak(), mp4.BoxTypeMdia(), mp4.BoxTypeMinf(), mp4.BoxTypeStbl(), mp4.BoxTypeStsd(), mp4.BoxTypeAny()})
+	for _, e := range entries {
+		if c, ok := media.VideoCodecForCatalog(e.Type.String()); ok {
+			return c
+		}
+	}
+	return media.VideoH264
 }

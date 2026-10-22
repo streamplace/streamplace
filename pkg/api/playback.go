@@ -118,7 +118,7 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 				return
 			}
 		} else {
-			pc, pcErr := a.MediaManager.NewPeerConnection(ctx, mediaSigner.Streamer())
+			pc, pcErr := a.MediaManager.NewPeerConnection(ctx, mediaSigner.Streamer(), &offer)
 			if pcErr != nil {
 				errors.WriteHTTPInternalServerError(w, "unable to create peer connection", pcErr)
 				return

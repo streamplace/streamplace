@@ -1,7 +1,6 @@
 package director
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -446,7 +445,7 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 	}
 
 	return ss.cli.ThumbnailWrite(repoDID, func(w io.Writer) error {
-		return media.Thumbnail(ctx, bytes.NewReader(not.Data), w, "jpeg")
+		return media.SegmentThumbnail(ctx, not.Muxl, w, "jpeg")
 	})
 }
 
@@ -880,6 +879,11 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	// Released on every exit: a segment that is skipped or fails must not
 	// hold the ones behind it.
 	defer tn.release()
+	if renditions.H264Source(spseg) == nil {
+		spmetrics.TranscodeSkippedNoH264Total.Inc()
+		log.Debug(ctx, "transcode: skipped, segment has no h264 video track")
+		return nil
+	}
 	data := notif.Data
 	if len(notif.Muxl) > 0 {
 		// Hand the transcoder the Opus presentation: it muxes that audio
@@ -1214,6 +1218,11 @@ func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, targetView 
 			if err != nil {
 				log.Error(ctx, "failed to create multistream event", "error", err)
 			}
+		}
+		if errors.Is(err, media.ErrNoH264Video) {
+			// Retrying would reconnect to the target every few seconds only
+			// to fail the same way; the next stream session tries again.
+			return nil
 		}
 		select {
 		case <-ctx.Done():

@@ -254,6 +254,42 @@ func TestMasterPlaylist(t *testing.T) {
 	}
 }
 
+// A multi-track push (AV1 source plus an H.264 fallback) is two variants, each
+// with its own codec, so a player that can't decode AV1 picks the H.264 one.
+func TestMasterPlaylistAV1AndH264(t *testing.T) {
+	w := NewWriter()
+	ev := initEvent()
+	ev.TrackInits = map[string][]byte{"1": []byte("AV1INIT"), "2": []byte("VINIT"), "3": []byte("AINIT")}
+	ev.Catalog.Video.Renditions = map[string]muxl.MuxlVideoConfig{
+		"av1":  {Codec: "av01.0.12M.08", Container: muxl.MuxlContainer{Kind: "cmaf", Timescale: 90000, TrackID: 1}, CodedWidth: 3840, CodedHeight: 2160},
+		"h264": {Codec: "avc1.640028", Container: muxl.MuxlContainer{Kind: "cmaf", Timescale: 90000, TrackID: 2}, CodedWidth: 1920, CodedHeight: 1080},
+	}
+	ev.Catalog.Audio.Renditions = map[string]muxl.MuxlAudioConfig{
+		"a": {Codec: "opus", Container: muxl.MuxlContainer{Kind: "cmaf", Timescale: 48000, TrackID: 3}, SampleRate: 48000, NumberOfChannels: 2},
+	}
+	if err := w.Observe(ev); err != nil {
+		t.Fatal(err)
+	}
+	seg := &muxl.MuxlEvent{
+		Type:         "segment",
+		Tracks:       map[string][]byte{"1": {1}, "2": {2}, "3": {3}},
+		Durations:    map[string]uint64{"1": 90000, "2": 90000, "3": 48000},
+		SampleCounts: map[string]uint32{"1": 120, "2": 60, "3": 50},
+	}
+	if err := w.Observe(seg); err != nil {
+		t.Fatal(err)
+	}
+	m := w.MasterPlaylist(func(tid string) string { return "track" + tid + ".m3u8" })
+	for _, want := range []string{
+		`CODECS="av01.0.12M.08,opus",RESOLUTION=3840x2160` + "\ntrack1.m3u8",
+		`CODECS="avc1.640028,opus",RESOLUTION=1920x1080` + "\ntrack2.m3u8",
+	} {
+		if !strings.Contains(m, want) {
+			t.Errorf("master playlist missing %q:\n%s", want, m)
+		}
+	}
+}
+
 func TestPrimaryAudioTrackID(t *testing.T) {
 	w := NewWriter()
 	_ = w.Observe(initEvent())

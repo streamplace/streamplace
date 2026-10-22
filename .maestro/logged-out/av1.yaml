@@ -2,7 +2,8 @@ appId: ${APP_ID}
 ---
 # Under SP_E2E_VIDEO=av1 the harness streams an AV1 source track and, over
 # fMP4 ingest, an H.264 fallback track. The stream must play whether or not
-# the device decodes AV1: one that doesn't gets the H.264 track. Web, which
+# the device decodes AV1: one that doesn't gets the H.264 track. Over fMP4
+# the H.264 track is also a quality of its own (240p) to pick. Web, which
 # also checks the codec each viewer gets: js/e2e-web/flows/av1.spec.ts.
 - runFlow:
     when:
@@ -29,3 +30,43 @@ appId: ${APP_ID}
             id: "player-video"
           timeout: 30000
       - takeScreenshot: av1-playing
+      - runFlow:
+          when:
+            true:
+              ${typeof SP_E2E_INGEST !== "undefined" && SP_E2E_INGEST == "fmp4"}
+          commands:
+            # open the player menu as audio-stems.yaml does (see there for
+            # why the cog is tapped by its point first). Substring matches:
+            # iOS merges a menu row's texts into one element.
+            - retry:
+                maxRetries: 3
+                commands:
+                  - tapOn:
+                      point: 50%,20%
+                  - tapOn:
+                      point: 92%,9%
+                  - extendedWaitUntil:
+                      visible:
+                        text: "Quality.*"
+                      timeout: 3000
+                      optional: true
+                  - runFlow:
+                      when:
+                        notVisible:
+                          text: "Quality.*"
+                      commands:
+                        - tapOn:
+                            id: "player-menu"
+                  - extendedWaitUntil:
+                      visible:
+                        text: "Quality.*"
+                      timeout: 10000
+            - tapOn:
+                text: "Quality.*"
+            - tapOn:
+                text: ".*240p.*"
+            - extendedWaitUntil:
+                visible:
+                  id: "player-video"
+                timeout: 30000
+            - takeScreenshot: av1-240p-playing

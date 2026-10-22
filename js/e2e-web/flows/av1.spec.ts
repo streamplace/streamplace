@@ -23,11 +23,13 @@ async function capturePeerConnections(page: Page) {
   });
 }
 
-// The received video's codec and decoded frame count.
+// The received video's codec and decoded frame count, on the newest open
+// connection (picking a quality replaces the playback connection).
 function inboundVideo(page: Page) {
   return page.evaluate(async () => {
     const pcs: RTCPeerConnection[] = (window as any).__spPeerConnections;
-    for (const pc of pcs) {
+    for (const pc of [...pcs].reverse()) {
+      if (pc.connectionState === "closed") continue;
       const byId = new Map<string, any>();
       (await pc.getStats()).forEach((s) => byId.set(s.id, s));
       for (const s of byId.values()) {
@@ -110,6 +112,27 @@ test("av1: a viewer without AV1 gets the H.264 fallback over WebRTC", async ({
     };
   });
   await openStream(page);
+  await expectWebRTCPlays(page, "video/H264", 426);
+});
+
+test("av1: a viewer can pick the H.264 track as a quality over WebRTC", async ({
+  page,
+}) => {
+  test.skip(!HAS_FALLBACK, "only the fMP4 push carries an H.264 track");
+  await capturePeerConnections(page);
+  await openStream(page);
+  await expectWebRTCPlays(page, "video/AV1", 640);
+
+  // moving the mouse onto the video reveals the player controls
+  const box = await page.locator("video").first().boundingBox();
+  if (!box) {
+    throw new Error("player video has no bounding box");
+  }
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height + 16);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.locator('[data-testid="player-menu"]:visible').first().click();
+  await page.getByText("Quality", { exact: true }).click();
+  await page.getByText("240p", { exact: true }).click();
   await expectWebRTCPlays(page, "video/H264", 426);
 });
 

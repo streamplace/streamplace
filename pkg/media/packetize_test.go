@@ -81,7 +81,8 @@ func innerTestPacketize(t *testing.T, filename string, expectedVideo int, expect
 }
 
 // A segment with AV1 and H.264 video packetizes both, the source (the first
-// track, AV1) first, so each WebRTC viewer can get the one its offer takes.
+// track, AV1) first, so each WebRTC viewer can get the one its offer takes,
+// each under the rendition name it plays by.
 func TestPacketizeMultiVideo(t *testing.T) {
 	withNoGSTLeaks(t, func() {
 		// AV1 640x360 track 1, H.264 426x240 track 2, 1 s GoPs at 30 fps.
@@ -94,6 +95,7 @@ func TestPacketizeMultiVideo(t *testing.T) {
 		require.Len(t, packet.Video, 2)
 		require.Equal(t, VideoAV1.MimeType, packet.Video[0].MimeType)
 		require.Equal(t, VideoH264.MimeType, packet.Video[1].MimeType)
+		require.Equal(t, []string{"360p", "240p"}, []string{packet.Video[0].Name, packet.Video[1].Name})
 		av1, h264 := packet.Video[0].Samples, packet.Video[1].Samples
 		require.Len(t, av1, 30)
 		require.Len(t, h264, 30)

@@ -343,6 +343,16 @@ func TestRenditionsFromH264Track(t *testing.T) {
 	rs, err = GenerateRenditions(&placestream.Segment{Video: []placestream.Segment_Video{av1}})
 	require.NoError(t, err)
 	require.Empty(t, rs)
+
+	// A rung the streamer sent a track for is left to that track.
+	h1080 := seg(1920, 1080, 60, 1).Video[0]
+	rs, err = GenerateRenditions(&placestream.Segment{Video: []placestream.Segment_Video{av1, h1080, h264}})
+	require.NoError(t, err)
+	names = []string{}
+	for _, r := range rs {
+		names = append(names, r.Name)
+	}
+	require.Equal(t, []string{"360p", "240p", "160p"}, names, "720p is the streamer's own")
 }
 
 var singleCases = []struct {

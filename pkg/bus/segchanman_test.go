@@ -60,3 +60,21 @@ func TestPublishSegmentDropsForStalledSubscriber(t *testing.T) {
 	<-done
 	require.Len(t, sub.C, chanSize)
 }
+
+// The tracks a streamer sent alongside the source play by name, each with
+// every codec it came in; the source's own name stays the source's.
+func TestPacketizedRenditions(t *testing.T) {
+	audio := []PacketizedSample{{Data: []byte("opus")}}
+	p := &PacketizedSegment{Audio: audio, Video: []PacketizedVideo{
+		{MimeType: "video/AV1", Name: "2160p"},
+		{MimeType: "video/H264", Name: "2160p"},
+		{MimeType: "video/AV1", Name: "720p"},
+		{MimeType: "video/H264", Name: "1080p"},
+		{MimeType: "video/H264", Name: "720p"},
+	}}
+	rs := p.Renditions()
+	require.Len(t, rs, 2)
+	require.Equal(t, []PacketizedVideo{{MimeType: "video/H264", Name: "1080p"}}, rs["1080p"].Video)
+	require.Equal(t, []PacketizedVideo{{MimeType: "video/AV1", Name: "720p"}, {MimeType: "video/H264", Name: "720p"}}, rs["720p"].Video)
+	require.Equal(t, audio, rs["720p"].Audio)
+}

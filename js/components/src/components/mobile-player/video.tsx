@@ -170,7 +170,7 @@ const VideoElement = forwardRef<
     console.log("Sending", evType, "status to", url);
     playerEvent(url, now.toISOString(), evType, {});
   };
-  const [firstAttempt, setFirstAttempt] = useState(true);
+  const firstAttempt = useRef(true);
   const setAutoplayFailed = usePlayerStore((x) => x.setAutoplayFailed);
 
   const localVideoRef = props.videoRef ?? useRef<HTMLVideoElement | null>(null);
@@ -199,47 +199,63 @@ const VideoElement = forwardRef<
     };
   }, []);
 
-  const canPlayThrough = (e) => {
-    console.log("canPlayThrough called", {
-      firstAttempt,
-      videoRef: !!localVideoRef.current,
-    });
-    setStatus(PlayerStatus.PLAYING);
-    event("canplaythrough")(e);
-    if (firstAttempt && localVideoRef.current) {
-      setFirstAttempt(false);
-      console.log("Attempting to play video");
-      localVideoRef.current.play().catch((err) => {
-        console.log("error playing video", err.name);
-        if (err.name === "NotAllowedError") {
-          if (mode === "vod") {
-            setAutoplayFailed(true);
-          } else if (localVideoRef.current) {
-            console.log("Setting muted and retrying");
-            setMuted(true);
-            localVideoRef.current.muted = true;
-            localVideoRef.current
-              .play()
-              .then(() => {
-                console.log("Muted play succeeded");
-                setMuteWasForced(true);
-              })
-              .catch((err) => {
-                console.error("Muted play also failed", err);
-                setAutoplayFailed(true);
-              });
-          }
-        } else {
-          // For other errors (not NotAllowedError), also show play button
+  const attemptInitialPlayback = () => {
+    const video = localVideoRef.current;
+    if (!firstAttempt.current || !video) return;
+
+    firstAttempt.current = false;
+    console.log("Attempting to play video");
+    video.play().catch((err) => {
+      console.log("error playing video", err.name);
+      if (err.name === "NotAllowedError") {
+        if (mode === "vod") {
           setAutoplayFailed(true);
+        } else if (localVideoRef.current) {
+          console.log("Setting muted and retrying");
+          setMuted(true);
+          localVideoRef.current.muted = true;
+          localVideoRef.current
+            .play()
+            .then(() => {
+              console.log("Muted play succeeded");
+              setMuteWasForced(true);
+            })
+            .catch((err) => {
+              console.error("Muted play also failed", err);
+              setAutoplayFailed(true);
+            });
         }
-      });
+      } else {
+        // For other errors (not NotAllowedError), also show play button
+        setAutoplayFailed(true);
+      }
+    });
+  };
+
+  const canPlay = (e) => {
+    if (localVideoRef.current && !localVideoRef.current.paused) {
+      setStatus(PlayerStatus.PLAYING);
     }
+    event("canplay")(e);
+    attemptInitialPlayback();
+  };
+
+  const canPlayThrough = (e) => {
+    if (localVideoRef.current && !localVideoRef.current.paused) {
+      setStatus(PlayerStatus.PLAYING);
+    }
+    event("canplaythrough")(e);
+    attemptInitialPlayback();
   };
 
   const handlePlaying = (e) => {
     setAutoplayFailed(false);
     event("playing")(e);
+  };
+
+  const handlePause = (e) => {
+    firstAttempt.current = false;
+    event("pause")(e);
   };
 
   useEffect(() => {
@@ -292,7 +308,7 @@ const VideoElement = forwardRef<
       onMouseMove={setUserInteraction}
       onClick={setUserInteraction}
       onAbort={event("abort")}
-      onCanPlay={eventLogger}
+      onCanPlay={canPlay}
       onCanPlayThroughCapture={eventLogger}
       onCanPlayThrough={canPlayThrough}
       onEmptied={event("emptied")}
@@ -302,7 +318,7 @@ const VideoElement = forwardRef<
       onLoadedData={event("loadeddata")}
       onLoadedMetadata={event("loadedmetadata")}
       onLoadStart={event("loadstart")}
-      onPause={event("pause")}
+      onPause={handlePause}
       onPlay={event("play")}
       onPlaying={handlePlaying}
       onRateChange={event("ratechange")}
@@ -415,7 +431,6 @@ export function HLSPlayer(props: VideoProps) {
         if (!localRef.current) {
           return;
         }
-        localRef.current.play();
         const pinned = levelFor(hls, selectedRenditionRef.current);
         if (pinned !== -1) {
           hls.currentLevel = pinned;
@@ -470,9 +485,6 @@ export function HLSPlayer(props: VideoProps) {
           ? Math.min(startTime, Math.max(0, video.duration - 0.1))
           : startTime;
       };
-      const onCanPlay = () => {
-        video.play();
-      };
       let retry: ReturnType<typeof setTimeout> | null = null;
       const onError = () => {
         if (retry) clearTimeout(retry);
@@ -483,12 +495,10 @@ export function HLSPlayer(props: VideoProps) {
         }, 2000);
       };
       video.addEventListener("loadedmetadata", onLoadedMetadata);
-      video.addEventListener("canplay", onCanPlay);
       video.addEventListener("error", onError);
       return () => {
         if (retry) clearTimeout(retry);
         video.removeEventListener("loadedmetadata", onLoadedMetadata);
-        video.removeEventListener("canplay", onCanPlay);
         video.removeEventListener("error", onError);
       };
     };

@@ -1,6 +1,7 @@
 import type { LivestreamStore } from "@streamplace/core";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import type { place } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { Player } from "../../components/player/player";
@@ -31,7 +32,7 @@ function writeDanmuPreference(enabled: boolean) {
   }
 }
 
-type Segment = { width: number; height: number } | null;
+type Segment = place.stream.segment.Video | null;
 type Problem = { code: string; severity: string; message: string };
 
 export function VideoSection({
@@ -192,6 +193,7 @@ export function VideoSectionInner({
             >
               <Player
                 src={playlistUrl}
+                video={segment}
                 poster={thumbnailUrl}
                 active
                 mode={mode}

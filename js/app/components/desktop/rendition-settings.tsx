@@ -22,11 +22,10 @@ const AUDIO = "place.stream.ingest.audioRendition";
 type Collection = typeof VIDEO | typeof AUDIO;
 
 // Video sizes as "WxH" and frame rates as "numerator/denominator", so a saved
-// value that isn't one of these (60000/1001, say) survives a save. One video
-// track for now; the records are a list so a second encode (AV1) is another
-// record, not a new shape.
+// value that isn't one of these (60000/1001, say) survives a save.
+const VIDEO_CODECS = { h264: "H.264", av1: "AV1" } as const;
 const SIZES = ["1280x720", "1920x1080", "2560x1440", "3840x2160"];
-const FRAMERATES = ["30/1", "60/1"];
+const FRAMERATES = ["30/1", "60/1", "120/1"];
 const withLoaded = (options: string[], loaded: string) =>
   options.includes(loaded) ? options : [...options, loaded];
 const fpsLabel = (rate: string) => {
@@ -34,11 +33,46 @@ const fpsLabel = (rate: string) => {
   return `${Number.isInteger(n / d) ? n / d : (n / d).toFixed(2)} fps`;
 };
 
+interface Video {
+  codec: string;
+  width: number;
+  height: number;
+  framerate: { numerator: number; denominator: number };
+  bitrate: number;
+}
+
+// With AV1, OBS also encodes an H.264 copy for devices that can't decode AV1;
+// the node takes the first video record as the source, so it's written after
+// (rkeys sort in order). At most 1080p, at the AV1 rate halved until it's at
+// most 60 fps (so it still divides OBS's), at 6000 kbps for 1080p60 scaled by
+// its pixel rate.
+const h264Fallback = ({ width, height, framerate }: Video): Video => {
+  const scale = Math.min(1, 1080 / height);
+  const w = 2 * Math.round((width * scale) / 2);
+  const h = 2 * Math.round((height * scale) / 2);
+  let { numerator, denominator } = framerate;
+  while (numerator / denominator > 60) {
+    if (numerator % 2 === 0) numerator /= 2;
+    else denominator *= 2;
+  }
+  return {
+    codec: "h264",
+    width: w,
+    height: h,
+    framerate: { numerator, denominator },
+    bitrate: Math.max(
+      1,
+      100 * Math.round((w * h * numerator) / (1920 * 1080 * denominator)),
+    ),
+  };
+};
+
 const AUDIO_BITRATES = { aac: 160, opus: 128 } as const;
 type AudioCodec = keyof typeof AUDIO_BITRATES;
 
 interface Settings {
   video: boolean;
+  codec: string;
   size: string;
   fps: string;
   bitrate: string;
@@ -48,6 +82,7 @@ interface Settings {
 
 const DEFAULTS: Settings = {
   video: false,
+  codec: "h264",
   size: "1920x1080",
   fps: "60/1",
   bitrate: "6000",
@@ -102,6 +137,7 @@ export function RenditionSettings() {
           ...DEFAULTS,
           ...(v && {
             video: true,
+            codec: v.codec,
             size: `${v.width}x${v.height}`,
             fps: `${v.framerate.numerator}/${v.framerate.denominator}`,
             bitrate: String(v.bitrate),
@@ -122,6 +158,25 @@ export function RenditionSettings() {
     setSettings({ ...settings, ...patch });
   const bitrate = parseInt(settings.bitrate, 10);
   const valid = !settings.video || bitrate > 0;
+  const [width, height] = settings.size.split("x").map(Number);
+  const [numerator, denominator] = settings.fps.split("/").map(Number);
+  const source: Video = {
+    codec: settings.codec,
+    width,
+    height,
+    framerate: { numerator, denominator },
+    bitrate,
+  };
+  const fallback = settings.codec === "av1" ? h264Fallback(source) : null;
+  const main = keys.video[0] ?? "main";
+  const video: [string, Video][] = !settings.video
+    ? []
+    : fallback
+      ? [
+          [main, source],
+          [`${main}-h264`, fallback],
+        ]
+      : [[main, source]];
 
   const save = async () => {
     setSaving(true);
@@ -139,7 +194,6 @@ export function RenditionSettings() {
         collection,
         rkey,
       });
-    const [numerator, denominator] = settings.fps.split("/").map(Number);
     // A new record's key is its codec, or the first free variant of it: a
     // loaded record may hold another codec under that name.
     const taken = new Set(keys.audio.map((a) => a.rkey));
@@ -150,7 +204,7 @@ export function RenditionSettings() {
       return key;
     };
     const next: Keys = {
-      video: settings.video ? [keys.video[0] ?? "main"] : [],
+      video: video.map(([rkey]) => rkey),
       audio: (Object.keys(AUDIO_BITRATES) as AudioCodec[])
         .filter((codec) => settings[codec])
         .map(
@@ -176,15 +230,9 @@ export function RenditionSettings() {
         await del(AUDIO, a.rkey);
         held.audio = held.audio.filter((h) => h !== a);
       }
-      for (const rkey of next.video) {
-        await put(VIDEO, rkey, {
-          codec: "h264",
-          width: Number(settings.size.split("x")[0]),
-          height: Number(settings.size.split("x")[1]),
-          framerate: { numerator, denominator },
-          bitrate,
-        });
-        held.video = [rkey];
+      for (const [rkey, record] of video) {
+        await put(VIDEO, rkey, record);
+        if (!held.video.includes(rkey)) held.video.push(rkey);
       }
       for (const a of next.audio) {
         await put(AUDIO, a.rkey, { codec: a.codec, bitrate: a.bitrate });
@@ -213,9 +261,18 @@ export function RenditionSettings() {
         {settings.video && (
           <MenuItem>
             <View style={{ flex: 1, gap: theme.spacing[3] }}>
-              <Text size="sm" color="muted">
-                H.264
-              </Text>
+              <SegmentedTabs
+                options={withLoaded(
+                  Object.keys(VIDEO_CODECS),
+                  settings.codec,
+                ).map((codec) => ({
+                  label:
+                    VIDEO_CODECS[codec as keyof typeof VIDEO_CODECS] ?? codec,
+                  value: codec,
+                }))}
+                value={settings.codec}
+                onChange={(codec) => set({ codec })}
+              />
               <Select
                 value={settings.size}
                 onValueChange={(size) => set({ size })}
@@ -240,6 +297,11 @@ export function RenditionSettings() {
                 error={valid ? undefined : "Enter a bitrate in kbps"}
                 testID="desktop-video-bitrate"
               />
+              {fallback && (
+                <Text size="sm" color="muted">
+                  {`Also H.264 ${fallback.height}p ${fpsLabel(`${fallback.framerate.numerator}/${fallback.framerate.denominator}`)} at ${fallback.bitrate} kbps, for devices that can't play AV1.`}
+                </Text>
+              )}
             </View>
           </MenuItem>
         )}

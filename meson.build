@@ -6,7 +6,7 @@ project(
     'cpp_std': 'c++11',
     'default_library': 'static',
     'auto_features': 'disabled',
-    'force_fallback_for': 'gio-2.0,gstreamer-controller-1.0,gstreamer-app-1.0,gstreamer-pbutils-1.0,glib-2.0,gobject-2.0,gio-2.0,gio-unix-2.0,fdk-aac,zlib,libffi,pcre2,intl,proxy-libintl,x264,freetype2,libpng,libjpeg,fontconfig,pango,opus,fribidi,harfbuzz,nettle,cairo,pixman,expat,openssl',
+    'force_fallback_for': 'gio-2.0,gstreamer-controller-1.0,gstreamer-app-1.0,gstreamer-pbutils-1.0,glib-2.0,gobject-2.0,gio-2.0,gio-unix-2.0,fdk-aac,zlib,libffi,pcre2,intl,proxy-libintl,x264,freetype2,libpng,libjpeg,fontconfig,pango,opus,fribidi,harfbuzz,nettle,cairo,pixman,expat,openssl,dav1d,json-glib-1.0',
     'buildtype': 'debugoptimized',
     'prefix': meson.current_build_dir(), # otherwise mac meson will try and do /opt/homebrew sometimes
     'libdir': 'lib'
@@ -60,6 +60,12 @@ x264_proj = subproject(
 proxy_libintl_proj = subproject(
   'proxy-libintl',
   default_options: {},
+)
+
+# The library behind FFmpeg's libdav1d decoder; its CLI and tests aren't needed.
+dav1d_proj = subproject(
+  'dav1d',
+  default_options: {'enable_tools': false, 'enable_tests': false},
 )
 
 ffmpeg_opts = {
@@ -144,6 +150,10 @@ ffmpeg_opts = {
   'libx264': 'enabled',
   'libx264_encoder': 'enabled',
   'libx264rgb_encoder': 'enabled',
+  # AV1 decoding: avdec_libdav1d. gst-libav skips FFmpeg's native av1 decoder
+  # (hardware only) and lib* decoders; see packagefiles/gstreamer-full/libav-dav1d.patch.
+  'libdav1d': 'enabled',
+  'libdav1d_decoder': 'enabled',
   'mpegtsraw_demuxer': 'enabled',
   'adts_muxer': 'enabled',
   'latm_muxer': 'enabled',

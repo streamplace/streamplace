@@ -3,7 +3,7 @@
   "productName": "streamplace-desktop",
   "version": "0.12.11",
   "description": "Streamplace Desktop Application",
-  "main": ".webpack/main",
+  "main": ".webpack/main/index.cjs",
   "scripts": {
     "start": "PORT=38082 electron-forge start",
     "start-with-node": "electron-forge start",

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/abema/go-mp4"
 	"github.com/go-gst/go-gst/pkg/gst"
 	app "github.com/go-gst/go-gst/pkg/gstapp"
 	pionmedia "github.com/pion/webrtc/v4/pkg/media"
@@ -279,7 +280,9 @@ func TestWHIPWorkerLoopback(t *testing.T) {
 
 			// Read signed segments; require at least one valid dual-codec one,
 			// its video in the publisher's codec and, for AV1, timed by the RTP
-			// timestamps: 30 fps.
+			// timestamps (30 fps) and described by an av1C carrying the
+			// publisher's sequence header: given no codec_data, qtmux writes one
+			// of its own without it (and with two bytes it never initializes).
 			_ = conn.SetReadDeadline(time.Now().Add(45 * time.Second))
 			var segs int
 			for segs == 0 {
@@ -299,6 +302,12 @@ func TestWHIPWorkerLoopback(t *testing.T) {
 					for i, s := range video[:len(video)-1] {
 						require.InDelta(t, time.Second/30, s.Duration, float64(time.Millisecond), "frame %d", i)
 					}
+					var flat bytes.Buffer
+					require.NoError(t, muxl.RunMuxlWrap(ctx, bytes.NewReader(payload), "flat", &flat))
+					boxes, err := mp4.ExtractBoxWithPayload(bytes.NewReader(flat.Bytes()), nil, mp4.BoxPath{mp4.BoxTypeMoov(), mp4.BoxTypeTrak(), mp4.BoxTypeMdia(), mp4.BoxTypeMinf(), mp4.BoxTypeStbl(), mp4.BoxTypeStsd(), mp4.BoxTypeAv01(), mp4.BoxTypeAv1C()})
+					require.NoError(t, err)
+					require.Len(t, boxes, 1)
+					require.NotNil(t, tuSequenceHeader(boxes[0].Payload.(*mp4.Av1C).ConfigOBUs))
 				}
 				segs++
 			}

@@ -1,10 +1,15 @@
 package media
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 
+	"github.com/abema/go-mp4"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/av1"
 	"github.com/pion/webrtc/v4"
 	"stream.place/streamplace/pkg/muxl"
 )
@@ -227,4 +232,71 @@ func tuHasShownKeyFrame(tu []byte) bool {
 		return true
 	})
 	return key
+}
+
+// tuSequenceHeader returns the sequence header OBU of a run of sized OBUs (a
+// temporal unit, an av1C's configOBUs), with its header and size, or nil when
+// it has none.
+func tuSequenceHeader(tu []byte) []byte {
+	var seq []byte
+	av1OBUs(tu, func(typ int, p []byte) bool {
+		if typ != obuSequenceHeader {
+			return true
+		}
+		// obu_type, obu_has_size_field, then the leb128 obu_size
+		seq = binary.AppendUvarint([]byte{obuSequenceHeader<<3 | 0x02}, uint64(len(p)))
+		seq = append(seq, p...)
+		return false
+	})
+	return seq
+}
+
+// AV1CodecConfig is the AV1CodecConfigurationRecord (av1C) of a stream whose
+// sequence header OBU is seq (with or without its size field): an av01 sample
+// entry's configuration, and AV1 caps' codec_data. Without codec_data in its
+// caps, qtmux writes an av1C of its own with level 1, no sequence header and
+// two bytes it never initializes.
+func AV1CodecConfig(seq []byte) (*mp4.Av1C, error) {
+	var sh av1.SequenceHeader
+	if err := sh.Unmarshal(seq); err != nil {
+		return nil, fmt.Errorf("invalid AV1 sequence header: %w", err)
+	}
+	configOBUs, err := av1.Bitstream{seq}.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("invalid AV1 sequence header: %w", err)
+	}
+	bit := func(b bool) uint8 {
+		if b {
+			return 1
+		}
+		return 0
+	}
+	return &mp4.Av1C{
+		Marker:               1,
+		Version:              1,
+		SeqProfile:           sh.SeqProfile,
+		SeqLevelIdx0:         sh.SeqLevelIdx[0],
+		SeqTier0:             bit(sh.SeqTier[0]),
+		HighBitdepth:         bit(sh.ColorConfig.HighBitDepth),
+		TwelveBit:            bit(sh.ColorConfig.TwelveBit),
+		Monochrome:           bit(sh.ColorConfig.MonoChrome),
+		ChromaSubsamplingX:   bit(sh.ColorConfig.SubsamplingX),
+		ChromaSubsamplingY:   bit(sh.ColorConfig.SubsamplingY),
+		ChromaSamplePosition: uint8(sh.ColorConfig.ChromaSamplePosition),
+		ConfigOBUs:           configOBUs,
+	}, nil
+}
+
+// av1CodecDataCaps is VideoAV1.SampleCaps with the av1C of sequence header
+// OBU seq (see AV1CodecConfig) as codec_data.
+func av1CodecDataCaps(seq []byte) (string, error) {
+	av1C, err := AV1CodecConfig(seq)
+	if err != nil {
+		return "", err
+	}
+	var b bytes.Buffer
+	if _, err := mp4.Marshal(&b, av1C, mp4.Context{}); err != nil {
+		return "", fmt.Errorf("marshal av1C: %w", err)
+	}
+	return fmt.Sprintf("%s,codec_data=(buffer)%x", VideoAV1.SampleCaps, b.Bytes()), nil
 }

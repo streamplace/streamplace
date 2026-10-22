@@ -3,7 +3,6 @@ package media
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"slices"
 	"sort"
@@ -76,17 +75,7 @@ func av1ConfigSequenceHeader(caps *gst.Caps) []byte {
 	if err != nil || len(av1C) < 4 {
 		return nil
 	}
-	var seq []byte
-	av1OBUs(av1C[4:], func(typ int, p []byte) bool {
-		if typ != obuSequenceHeader {
-			return true
-		}
-		// obu_type, obu_has_size_field, then the leb128 obu_size
-		seq = binary.AppendUvarint([]byte{obuSequenceHeader<<3 | 0x02}, uint64(len(p)))
-		seq = append(seq, p...)
-		return false
-	})
-	return seq
+	return tuSequenceHeader(av1C[4:])
 }
 
 // Packetize demuxes a segment into WebRTC samples: the video, once per video

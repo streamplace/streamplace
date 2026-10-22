@@ -1,0 +1,31 @@
+appId: ${APP_ID}
+---
+# Under SP_E2E_VIDEO=av1 the harness streams an AV1 source track and, over
+# fMP4 ingest, an H.264 fallback track. The stream must play whether or not
+# the device decodes AV1: one that doesn't gets the H.264 track. Web, which
+# also checks the codec each viewer gets: js/e2e-web/flows/av1.spec.ts.
+- runFlow:
+    when:
+      true: ${typeof SP_E2E_VIDEO !== "undefined" && SP_E2E_VIDEO == "av1"}
+    commands:
+      - launchApp
+      # matched by testID because the card's link wrapper collapses its
+      # subtree on iOS
+      - extendedWaitUntil:
+          visible:
+            id: "home-stream-card"
+          timeout: 30000
+      - tapOn:
+          id: "home-stream-card"
+      - waitForAnimationToEnd
+      - extendedWaitUntil:
+          visible:
+            text: ".*e2e test stream.*"
+          timeout: 30000
+      # the player shows its spinner from when it mounts (before the chat
+      # message above) until media arrives, and again whenever it stalls
+      - extendedWaitUntil:
+          notVisible:
+            id: "player-loading"
+          timeout: 30000
+      - takeScreenshot: av1-playing

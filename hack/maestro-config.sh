@@ -39,24 +39,28 @@ fi
 
 # Subset argument order must not change the phase's reporting order.
 if [ ${#logged_out[@]} -gt 1 ]; then
-  mapfile -t logged_out < <(printf '%s\n' "${logged_out[@]}" | sort)
+  sorted=()
+  while IFS= read -r file; do sorted+=("$file"); done < <(printf '%s\n' "${logged_out[@]}" | sort)
+  logged_out=("${sorted[@]}")
 fi
 if [ ${#logged_in[@]} -gt 1 ]; then
-  mapfile -t logged_in < <(printf '%s\n' "${logged_in[@]}" | sort)
+  sorted=()
+  while IFS= read -r file; do sorted+=("$file"); done < <(printf '%s\n' "${logged_in[@]}" | sort)
+  logged_in=("${sorted[@]}")
 fi
 
-flows=(setup/server-setup.yaml "${logged_out[@]}")
+flows=(setup/server-setup.yaml ${logged_out[@]+"${logged_out[@]}"})
 if [ $# -eq 0 ] || [ ${#logged_in[@]} -gt 0 ] || [ "${login:-false}" = true ]; then
-  flows+=(setup/oauth-login.yaml "${logged_in[@]}")
+  flows+=(setup/oauth-login.yaml ${logged_in[@]+"${logged_in[@]}"})
 fi
 
-declare -A names=()
+names=" "
 for file in "${flows[@]}"; do
   name="${file##*/}"
   name="${name%.yaml}"
   [[ "$name" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || { echo "use a lowercase kebab-case Maestro filename: $file" >&2; exit 1; }
-  [ -z "${names[$name]:-}" ] || { echo "duplicate Maestro flow name: $name" >&2; exit 1; }
-  names[$name]=1
+  case "$names" in *" $name "*) echo "duplicate Maestro flow name: $name" >&2; exit 1 ;; esac
+  names="$names$name "
 done
 
 printf 'flows:\n'

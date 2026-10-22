@@ -1,0 +1,13 @@
+#pragma once
+
+#cmakedefine OBS_DATA_PATH "@OBS_DATA_PATH@"
+#cmakedefine OBS_PLUGIN_PATH "@OBS_PLUGIN_PATH@"
+#cmakedefine OBS_PLUGIN_DESTINATION "@OBS_PLUGIN_DESTINATION@"
+
+#cmakedefine GIO_FOUND
+#cmakedefine PULSEAUDIO_FOUND
+#cmakedefine XCB_XINPUT_FOUND
+#cmakedefine ENABLE_WAYLAND
+
+#define OBS_RELEASE_CANDIDATE @OBS_RELEASE_CANDIDATE@
+#define OBS_BETA @OBS_BETA@

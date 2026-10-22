@@ -1,0 +1,63 @@
+# EditorConfig is awesome: http://EditorConfig.org
+# Since OBS follows the Linux kernel coding style I have started this file to
+# help with automatically setting various text editors to those requirements.
+
+# top-most EditorConfig file
+root = true
+
+# Unix-style newlines with a newline ending every file.
+[*]
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+indent_style = tab
+indent_size = 8
+
+# As per notr1ch, for 3rd party code that's a part of obs-outputs.
+[plugins/obs-outputs/librtmp/*.{cpp,c,h}]
+indent_style = space
+indent_size = 4
+
+[CMakeLists.txt]
+indent_style = space
+indent_size = 2
+
+[**/CMakeLists.txt]
+indent_style = space
+indent_size = 2
+
+[cmake/**/*.cmake]
+indent_style = space
+indent_size = 2
+
+[plugins/{rtmp-services,win-capture}/data/**/*.json]
+indent_style = space
+indent_size = 4
+
+[*.qss]
+indent_style = space
+indent_size = 4
+
+[build-aux/**/*.json]
+indent_style = space
+indent_size = 4
+
+[*.py]
+indent_style = space
+indent_size = 4
+
+[*.yaml]
+indent_style = space
+indent_size = 2
+
+[{*.zsh,.*.zsh,build-aux/.functions/*,.github/scripts/utils.zsh/*}]
+indent_style = space
+indent_size = 2
+
+[*.ui]
+indent_style = space
+indent_size = 1
+
+[{*.obt,*.oha,*.ovt}]
+indent_style = space
+indent_size = 4

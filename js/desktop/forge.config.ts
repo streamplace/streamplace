@@ -15,6 +15,7 @@ import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { MakerAppImage } from "@reforged/maker-appimage";
 import child_process from "child_process";
 import fs from "fs";
+import path from "path";
 import { mainConfig } from "./webpack.main.config";
 import { rendererConfig } from "./webpack.renderer.config";
 
@@ -85,6 +86,31 @@ export default async function () {
         packageJson.version = version;
         return packageJson;
       },
+      postPackage: async (_config, packageResult) => {
+        // macOS uses the built-in osxSign/osxNotarize above. Elsewhere (the
+        // builder container) sign each .app with rcodesign so fuses, signing,
+        // and notarization all still happen before the makers run.
+        // STREAMPLACE_SKIP_SIGNING produces unsigned .app bundles for the
+        // split build/sign workflow (make build-signable / make sign).
+        if (
+          process.platform === "darwin" ||
+          process.env.STREAMPLACE_SKIP_SIGNING === "1"
+        ) {
+          return;
+        }
+        for (const outputPath of packageResult.outputPaths) {
+          const app = fs
+            .readdirSync(outputPath)
+            .find((entry) => entry.endsWith(".app"));
+          if (app) {
+            child_process.execFileSync(
+              path.join(__dirname, "../../hack/rcodesign-app.sh"),
+              [path.join(outputPath, app)],
+              { stdio: "inherit" },
+            );
+          }
+        }
+      },
     },
     rebuildConfig: {},
     makers: [
@@ -93,13 +119,19 @@ export default async function () {
           "https://git.stream.place/-/project/1/uploads/2e5899ffd2b4799ce661cf9b8675e610/streamplace-logo-256.ico",
         setupIcon: "./assets/images/streamplace-logo.ico",
       }),
-      new MakerDMG(
-        {
-          icon: "./assets/images/streamplace-logo.icns",
-          appPath: "./Streamplace.app",
-        },
-        ["darwin"],
-      ),
+      // @electron-forge/maker-dmg requires hdiutil, so non-macOS hosts build
+      // the DMG from the signed bundle with hack/make-dmg.sh instead.
+      ...(process.platform === "darwin"
+        ? [
+            new MakerDMG(
+              {
+                icon: "./assets/images/streamplace-logo.icns",
+                appPath: "./Streamplace.app",
+              },
+              ["darwin"],
+            ),
+          ]
+        : []),
       new MakerZIP({}, ["darwin"]),
       // new MakerRpm({}),
       new MakerAppImage({

@@ -1,0 +1,6 @@
+#!/bin/sh
+# @electron/fuses calls `codesign` to reset the ad-hoc signature after flipping
+# fuses. On Linux the packaged .app is signed afterwards by rcodesign in the
+# Forge postPackage hook, so there is nothing to do here. Keep this on PATH
+# (see hack/desktop-darwin-linux.sh) only while packaging for darwin.
+exit 0

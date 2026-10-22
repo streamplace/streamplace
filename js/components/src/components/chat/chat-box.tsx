@@ -1,6 +1,7 @@
 import {
   createTeleport,
   createTeleportCommands,
+  formatHandle,
   handleSlashCommand,
 } from "@streamplace/core";
 import Graphemer from "graphemer";
@@ -145,8 +146,11 @@ export function ChatBox({
     return chat.reduce((acc, msg) => {
       // our fake system user "did"
       if (msg.author.did === "did:sys:system") return acc;
-      if (acc.has(msg.author.handle)) return acc;
-      acc.set(msg.author.handle, msg.chatProfile);
+      // without a verified handle (formatHandle falls back to the DID) an
+      // author can't be @-mentioned
+      const handle = formatHandle(msg.author);
+      if (handle === msg.author.did || acc.has(handle)) return acc;
+      acc.set(handle, msg.chatProfile);
       return acc;
     }, new Map<string, ChatMessageViewHydrated["chatProfile"]>());
   }, [chat]);

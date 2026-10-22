@@ -48,11 +48,11 @@ notification-count = { $count ->
 ## Offline User
 user-offline = usuario desconectado
 user-offline-message = { $source ->
-    [streamer] Parece que <1>@{ $handle } está desconectado</1>, pero ellos recomiendan ver:
-   *[default] Parece que <1>@{ $handle } está desconectado</1>, pero te recomendamos ver:
+    [streamer] Parece que <1>{ $handle } está desconectado</1>, pero ellos recomiendan ver:
+   *[default] Parece que <1>{ $handle } está desconectado</1>, pero te recomendamos ver:
 }
 user-offline-no-recommendations = 
-  Parece que <1>@{ $handle } está desconectado</1> ahora mismo.
+  Parece que <1>{ $handle } está desconectado</1> ahora mismo.
   Vuelve más tarde.
 streaming-title = transmitiendo { $title }
 viewer-count = { $count ->
@@ -79,7 +79,7 @@ login-show-live-on-bluesky-description = Añade el anillo rojo LIVE a tu avatar 
 
 ## Stream notifications
 teleporting-in = Teletransportando en
-teleporting-to = Teletransportando a @{ $handle }
+teleporting-to = Teletransportando a { $handle }
 
 ## Teleport dialog
 teleport-dialog-title = Teletransportarse a otra persona en directo

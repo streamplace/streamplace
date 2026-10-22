@@ -1,3 +1,4 @@
+import { formatHandleWithAt } from "@streamplace/core";
 import { Image } from "expo-image";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
@@ -212,7 +213,7 @@ export function VodComments({ videoUri }: { videoUri: string }) {
                     }}
                   >
                     <Text size="sm" weight="semibold">
-                      {author?.handle ? `@${author.handle}` : author?.did}
+                      {author && formatHandleWithAt(author)}
                     </Text>
                     <Text size="xs" style={{ color: theme.colors.text3 }}>
                       {timeAgo(item.indexedAt)}

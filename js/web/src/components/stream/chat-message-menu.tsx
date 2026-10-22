@@ -3,7 +3,7 @@ import { useModerationActions } from "@/hooks/use-moderation-actions";
 import { useToast } from "@/hooks/use-toast";
 import { useSession } from "@/lib/session";
 import type { LivestreamStore } from "@streamplace/core";
-import { reduceChat } from "@streamplace/core";
+import { formatHandle, reduceChat } from "@streamplace/core";
 import {
   EyeOff,
   Flag,
@@ -106,22 +106,14 @@ export function ChatMessageMenu({
     try {
       await blockUser(authorDid, streamerDid);
       toast.show(
-        t("moderation-user-blocked", { handle: message.author.handle }),
+        t("moderation-user-blocked", { handle: formatHandle(message.author) }),
         "",
         { duration: 3000 },
       );
     } catch (e) {
       fail(t("moderation-block-failed"), e);
     }
-  }, [
-    authorDid,
-    blockUser,
-    fail,
-    message.author.handle,
-    streamerDid,
-    t,
-    toast,
-  ]);
+  }, [authorDid, blockUser, fail, message.author, streamerDid, t, toast]);
 
   const handlePin = useCallback(
     async (expiresAt?: string) => {

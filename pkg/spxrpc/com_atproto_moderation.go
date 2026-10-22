@@ -16,6 +16,7 @@ import (
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/vod"
 )
 
@@ -90,7 +91,7 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 				repo, err := s.model.GetRepo(did)
 				if err != nil {
 					log.Warn(ctx, "failed to get streamer for chat report", "error", err)
-				} else if repo != nil && repo.Handle != "" {
+				} else if repo != nil && model.IsUsableHandle(repo.Handle) {
 					chatContext = fmt.Sprintf("in chat of @%s (%s)", repo.Handle, did)
 				}
 				if reportReasonFits(*body.Reason, chatContext) {

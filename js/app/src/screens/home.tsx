@@ -10,6 +10,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { spacing } from "@streamplace/components/src/lib/theme/tokens";
+import { formatHandle } from "@streamplace/core";
 import AQLink from "components/aqlink";
 import Container from "components/container";
 import { EmptyState } from "components/empty-state";
@@ -117,7 +118,7 @@ function HomeScreenItem({
   horizontal?: boolean;
   showAvatar?: boolean;
 }) {
-  const user = item.author.handle || item.author.did;
+  const user = formatHandle(item.author);
   return (
     <AQLink
       testID="home-stream-card"
@@ -140,7 +141,7 @@ function HomeScreenItem({
         showAvatar={showAvatar}
         thumbnailUrl={`/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
         avatarUrl={avatarUrl}
-        streamerName={user}
+        streamer={item.author}
         category={[]}
         activity={getStreamActivity(
           item.record as place.stream.livestream.Main,

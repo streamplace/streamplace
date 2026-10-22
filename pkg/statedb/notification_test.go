@@ -1,9 +1,15 @@
 package statedb
 
 import (
+	"context"
+	"encoding/json"
 	"testing"
 
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/appbsky"
+	notificationpkg "stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // TestNotificationRepoDIDPreserved guards against the regression where
@@ -122,5 +128,34 @@ func TestNotificationTypeAndDelete(t *testing.T) {
 			require.NotEqual(t, webToken, n.Token)
 		}
 		require.NoError(t, state.DeleteNotification("never-existed"))
+	})
+}
+
+type identityNotifier struct {
+	blast *notificationpkg.NotificationBlast
+}
+
+func (n *identityNotifier) Blast(_ context.Context, _ []notificationpkg.NotificationTarget, blast *notificationpkg.NotificationBlast) error {
+	n.blast = blast
+	return nil
+}
+
+func TestInvalidHandleNotification(t *testing.T) {
+	WithAllDatabases(t, func(state *StatefulDB) {
+		const did = "did:web:streamer.example"
+		noter := &identityNotifier{}
+		state.SetNotifier(noter)
+		payload, err := json.Marshal(NotificationTask{
+			Livestream: placestream.Livestream_LivestreamView{
+				Author: appbsky.ActorDefs_ProfileViewBasic{Did: did, Handle: "handle.invalid"},
+				Record: &glex.LexiconTypeDecoder{Val: &placestream.Livestream{Title: "Live"}},
+			},
+		})
+		require.NoError(t, err)
+		require.NoError(t, state.processNotificationTask(t.Context(), &AppTask{Payload: payload}))
+		require.NotNil(t, noter.blast)
+		require.Contains(t, noter.blast.Title, did)
+		require.NotContains(t, noter.blast.Title, "@did:")
+		require.Equal(t, "/"+did, noter.blast.Data["path"], "notification clicks preserve the account's DID")
 	})
 }

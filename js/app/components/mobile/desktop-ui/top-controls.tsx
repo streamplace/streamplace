@@ -17,6 +17,7 @@ import {
   surfaces,
   textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
+import { formatHandle } from "@streamplace/core";
 import { LogoTile } from "components/brand/logo";
 import { Image } from "expo-image";
 import { ChevronLeft, MessageSquare, SwitchCamera } from "lucide-react-native";
@@ -116,7 +117,9 @@ export function TopControlBar({
 
                 <View style={[layout.flex.column]}>
                   <Text weight="semibold">{title}</Text>
-                  <Text leading="tight">{profile?.handle}</Text>
+                  <Text leading="tight">
+                    {profile && formatHandle(profile)}
+                  </Text>
                 </View>
               </View>
             </View>

@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { VideoView } from "@/hooks/use-video-record";
 import { useVodLike } from "@/hooks/use-vod-like";
 import { cn } from "@/lib/utils";
+import { formatHandle } from "@streamplace/core";
 import { Link } from "@tanstack/react-router";
 import {
   Check,
@@ -37,15 +38,10 @@ import {
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { place } from "streamplace";
-import {
-  buildVodShareLinks,
-  getAuthorHandle,
-  shouldCollapseDescription,
-} from "./vod-watch";
+import { buildVodShareLinks, shouldCollapseDescription } from "./vod-watch";
 
 type VodWatchHeaderProps = {
   video: VideoView;
-  routeUser: string;
   tid: string;
   downloading: boolean;
   onDownload: () => void;
@@ -53,7 +49,6 @@ type VodWatchHeaderProps = {
 
 export function VodWatchHeader({
   video,
-  routeUser,
   tid,
   downloading,
   onDownload,
@@ -67,8 +62,7 @@ export function VodWatchHeader({
   const dids = useMemo(() => [video.author.did], [video.author.did]);
   const profiles = useAvatars(dids);
   const profile = profiles[video.author.did];
-  const authorHandle = getAuthorHandle(video.author, routeUser);
-  const authorRoute = video.author.handle || video.author.did;
+  const authorHandle = formatHandle(video.author);
   const avatar = profile?.avatar ?? video.author.avatar;
   const showAvatar = avatar && failedAvatar !== avatar;
   const description = record.description?.trim() ?? "";
@@ -90,7 +84,7 @@ export function VodWatchHeader({
     typeof window === "undefined"
       ? "https://stream.place"
       : window.location.origin,
-    routeUser,
+    authorHandle,
     tid,
   );
   const like = useVodLike({
@@ -171,7 +165,7 @@ export function VodWatchHeader({
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Link
           to="/$user"
-          params={{ user: authorRoute }}
+          params={{ user: authorHandle }}
           className="group flex min-w-56 flex-1 items-center gap-3 rounded-lg py-1 outline-none focus-visible:ring-3 focus-visible:ring-(--color-accent)/40"
           aria-label={t("view-profile", {
             handle: authorHandle,

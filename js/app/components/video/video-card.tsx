@@ -4,6 +4,7 @@ import {
   motion,
   scrims,
 } from "@streamplace/components/src/lib/theme/tokens";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Image } from "expo-image";
 import { VideoView } from "hooks/useVideoList";
 import { View } from "react-native";
@@ -35,7 +36,7 @@ export default function VideoCard({
   const { theme } = useTheme();
   const record = video.record as place.stream.video.Main;
   const author = video.author;
-  const user = author.handle || author.did;
+  const user = formatHandle(author);
   const tid = getTidFromAtUri(video.uri);
   const title = record.title || "Untitled";
   const thumbnailUrl = getVideoThumbnailUrl(record, author.did);
@@ -135,7 +136,7 @@ export default function VideoCard({
               style={{ color: theme.colors.textMuted }}
               numberOfLines={1}
             >
-              @{user}
+              {formatHandleWithAt(author)}
             </Text>
             <Text size="sm" style={{ color: theme.colors.textMuted }}>
               {formatCount(viewCount)} view{viewCount === 1 ? "" : "s"} ·{" "}

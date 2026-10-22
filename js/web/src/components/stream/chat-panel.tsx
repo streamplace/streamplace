@@ -8,6 +8,8 @@ import {
   chatMessageOpacity,
   formatBadgeIssuer,
   formatBadgeLabel,
+  formatHandle,
+  formatHandleWithAt,
   segmentize,
   type Facet,
   type FacetFeature,
@@ -522,7 +524,7 @@ function UserHandle({
   badges?: place.stream.badge.defs.BadgeView[];
   issuerProfiles: ReturnType<typeof useAvatars>;
 }) {
-  const name = author.displayName || author.handle || author.did;
+  const name = author.displayName || formatHandle(author);
 
   return (
     <HoverCard trigger="click">
@@ -573,8 +575,8 @@ function ProfileCardContent({
   const backButtonRef = useRef<HTMLButtonElement | null>(null);
   const detailWasOpenRef = useRef(false);
   const lastSelectedBadgeIndexRef = useRef(0);
-  const name = author.displayName || author.handle || author.did;
-  const handle = author.handle;
+  const handle = formatHandle(author);
+  const name = author.displayName || handle;
 
   useLayoutEffect(() => {
     const detailIsOpen = selectedBadgeIndex !== null;
@@ -657,19 +659,17 @@ function ProfileCardContent({
                 {name}
               </div>
             )}
-            {handle && <div className="truncate">@{handle}</div>}
+            <div className="truncate">{formatHandleWithAt(author)}</div>
           </div>
-          {handle && (
-            <a
-              href={`https://bsky.app/profile/${handle}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 rounded-sm text-[#0F73FF] hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent)"
-              aria-label={t("chat-view-profile-bluesky")}
-            >
-              <BskyIcon size={20} />
-            </a>
-          )}
+          <a
+            href={`https://bsky.app/profile/${handle}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-sm text-[#0F73FF] hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent)"
+            aria-label={t("chat-view-profile-bluesky")}
+          >
+            <BskyIcon size={20} />
+          </a>
         </div>
 
         {badges.length > 0 && (
@@ -722,7 +722,7 @@ function ReplyBanner({
   if (parent.$type !== "place.stream.chat.defs#messageView") return null;
   const msg = parent as ChatMessageViewHydrated;
   const text = msg.record?.text || "";
-  const handle = msg.author?.handle || "...";
+  const handle = msg.author ? formatHandleWithAt(msg.author) : "@...";
   const facets = msg.record?.facets as
     | ChatMessageViewHydrated["record"]["facets"]
     | undefined;
@@ -730,7 +730,7 @@ function ReplyBanner({
   return (
     <div className="mb-0.5 flex items-center gap-1 truncate text-[11px] text-(--color-fg-subtle)">
       <Reply className="h-3 w-3 shrink-0" />
-      <span className="shrink-0 font-medium">@{handle}</span>
+      <span className="shrink-0 font-medium">{handle}</span>
       <span className="truncate">
         <RichTextMessage text={text} facets={facets} authors={authors} />
       </span>

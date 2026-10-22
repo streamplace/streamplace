@@ -14,6 +14,7 @@ import {
   useTheme,
 } from "@streamplace/components";
 import { statusColors } from "@streamplace/components/src/lib/theme/tokens";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import Provider from "components/provider/provider";
 import { ImageBackground } from "expo-image";
 import { useLiveUser } from "hooks/useLiveUser";
@@ -291,9 +292,8 @@ export const AvatarButton = () => {
 
   if (userProfile) {
     source = userProfile.avatar ? { uri: userProfile.avatar } : undefined;
-    const handle = userProfile.handle;
-    const name = userProfile.displayName?.trim() || handle;
-    const channelUser = handle || userProfile.did;
+    const channelUser = formatHandle(userProfile);
+    const name = userProfile.displayName?.trim() || channelUser;
     const avatar = (
       <ImageBackground
         key={source?.uri ?? "default"}
@@ -380,12 +380,12 @@ export const AvatarButton = () => {
                 >
                   {name}
                 </Text>
-                {handle ? (
+                {userProfile.did ? (
                   <Text
                     numberOfLines={1}
                     style={{ color: c.text3, fontSize: 12.5 }}
                   >
-                    @{handle}
+                    {formatHandleWithAt(userProfile)}
                   </Text>
                 ) : null}
               </View>

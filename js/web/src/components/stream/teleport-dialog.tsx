@@ -10,6 +10,8 @@ import {
 import useAvatars from "@/hooks/use-avatars";
 import { useLiveUsers } from "@/hooks/use-live-users";
 import {
+  formatHandle,
+  formatHandleWithAt,
   teleportErrorIdentifier,
   type TeleportErrorData,
 } from "@streamplace/core";
@@ -55,7 +57,8 @@ export function TeleportDialog({
     if (!filter) return liveUsers;
     return liveUsers.filter(
       (stream) =>
-        stream.author?.handle?.toLowerCase().includes(filter) ||
+        (stream.author &&
+          formatHandle(stream.author).toLowerCase().includes(filter)) ||
         String(stream.record.title || "")
           .toLowerCase()
           .includes(filter),
@@ -73,7 +76,7 @@ export function TeleportDialog({
   const submit = async () => {
     const stream = liveUsers.find((candidate) => candidate.uri === selected);
     const seconds = Number(countdown);
-    if (!stream?.author?.handle) {
+    if (!stream?.author?.did) {
       setSelected(null);
       setError(t("teleport-selection-expired"));
       return;
@@ -85,7 +88,10 @@ export function TeleportDialog({
     setSubmitting(true);
     setError(null);
     try {
-      const teleportError = await onSubmit(stream.author.handle, seconds);
+      const teleportError = await onSubmit(
+        formatHandle(stream.author),
+        seconds,
+      );
       if (teleportError) {
         setError(
           t(teleportErrorIdentifier(teleportError), teleportError.params),
@@ -136,10 +142,9 @@ export function TeleportDialog({
             <div className="grid max-h-80 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
               {filteredUsers.map((stream) => {
                 const did = stream.author?.did;
-                const handle =
-                  stream.author?.handle ||
-                  did ||
-                  t("teleport-unknown-streamer");
+                const label = stream.author
+                  ? formatHandleWithAt(stream.author)
+                  : t("teleport-unknown-streamer");
                 const profile = did ? profiles[did] : undefined;
                 const isSelected = stream.uri === selected;
                 return (
@@ -164,7 +169,7 @@ export function TeleportDialog({
                     )}
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">
-                        @{handle}
+                        {label}
                       </span>
                       {stream.record.title && (
                         <span className="block truncate text-xs text-(--color-fg-muted)">
@@ -214,7 +219,7 @@ export function TeleportDialog({
           </Button>
           <Button
             onClick={submit}
-            disabled={!selectedStream?.author?.handle || submitting}
+            disabled={!selectedStream?.author?.did || submitting}
           >
             {submitting ? t("teleport-starting") : t("teleport-start")}
           </Button>

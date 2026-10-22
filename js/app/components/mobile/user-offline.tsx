@@ -13,6 +13,7 @@ import {
 } from "@streamplace/components";
 import { overflow } from "@streamplace/components/src/lib/theme/atoms";
 import { scrims } from "@streamplace/components/src/lib/theme/tokens";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Image } from "expo-image";
 import { ChevronLeft } from "lucide-react-native";
 import { memo, useEffect, useMemo, useState } from "react";
@@ -166,7 +167,7 @@ export const UserOffline = memo(() => {
                   borders.color.gray[700],
                 ]}
               />
-              <Text>{profile?.handle}</Text>
+              <Text>{profile && formatHandle(profile)}</Text>
             </View>
           </View>
         )}
@@ -221,7 +222,7 @@ export const UserOffline = memo(() => {
               <Trans
                 i18nKey="user-offline-no-recommendations"
                 ns="common"
-                values={{ handle: profile.handle }}
+                values={{ handle: formatHandleWithAt(profile) }}
                 components={{
                   1: (
                     <Text
@@ -297,7 +298,7 @@ export const UserOffline = memo(() => {
                 borders.color.gray[700],
               ]}
             />
-            <Text>{profile?.handle}</Text>
+            <Text>{profile && formatHandle(profile)}</Text>
           </View>
         </View>
       )}
@@ -355,7 +356,7 @@ export const UserOffline = memo(() => {
                   i18nKey="user-offline-message"
                   ns="common"
                   values={{
-                    handle: profile.handle,
+                    handle: formatHandleWithAt(profile),
                     source: recommendedSource.source,
                   }}
                   components={{
@@ -422,6 +423,7 @@ const RecommendedSourceInfo = memo(() => {
 
   const pfp = useAvatars(profile?.did ? [profile.did] : []);
   const detailedProfile = profile?.did ? pfp[profile.did] : null;
+  const author = detailedProfile ?? profile;
 
   return (
     <View
@@ -443,9 +445,7 @@ const RecommendedSourceInfo = memo(() => {
             ]}
           />
           <View style={[flex.values[1]]}>
-            <Text weight="bold">
-              @{detailedProfile?.handle || profile?.handle}
-            </Text>
+            <Text weight="bold">{author && formatHandleWithAt(author)}</Text>
             <Text style={[text.gray[300]]} size="base">
               {t("viewer-count", { count: viewers || 0 })}
             </Text>

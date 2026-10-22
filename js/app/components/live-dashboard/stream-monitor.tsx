@@ -18,6 +18,7 @@ import {
   surfaces,
   textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
+import { formatHandle } from "@streamplace/core";
 import { DesktopUi } from "components/mobile/desktop-ui";
 import { OfflineCounter } from "components/mobile/offline-counter";
 import { Image } from "expo-image";
@@ -220,7 +221,7 @@ export default function StreamMonitor({
           numberOfLines={1}
           ellipsizeMode="tail"
         >
-          {userProfile?.handle || userProfile?.displayName || "Not live"}
+          {userProfile ? formatHandle(userProfile) : "Not live"}
         </Text>
       );
     }

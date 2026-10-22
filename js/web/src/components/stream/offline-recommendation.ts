@@ -12,7 +12,7 @@ export function validateOfflineRecommendation(
   profile: { did: string; handle: string } | null | undefined,
   offlineDid: string | undefined,
 ): ResolvedOfflineRecommendation | null {
-  if (!recommendation || !profile?.handle) return null;
+  if (!recommendation || !profile?.did) return null;
   if (recommendation.did !== profile.did) return null;
   if (recommendation.did === offlineDid) return null;
   return { ...recommendation, handle: profile.handle };

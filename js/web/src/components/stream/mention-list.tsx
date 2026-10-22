@@ -1,3 +1,4 @@
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import {
   forwardRef,
   useCallback,
@@ -144,11 +145,11 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
                 className="truncate text-sm font-medium"
                 style={colorStr ? { color: colorStr } : undefined}
               >
-                {item.displayName || item.handle}
+                {item.displayName || formatHandle(item)}
               </span>
-              {item.displayName && item.handle && (
+              {item.displayName && (
                 <span className="truncate text-xs text-(--color-fg-muted)">
-                  @{item.handle}
+                  {formatHandleWithAt(item)}
                 </span>
               )}
             </button>

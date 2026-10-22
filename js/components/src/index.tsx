@@ -50,7 +50,6 @@ export * from "./components/stream-notification";
 export * from "./lib/stream-notifications";
 
 export * from "./utils/did";
-export * from "./utils/format-handle";
 
 export { DanmuOverlay } from "./components/danmu/danmu-overlay";
 export { DanmuOverlayOBS } from "./components/danmu/danmu-overlay-obs";

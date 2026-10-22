@@ -8,6 +8,7 @@ import {
 } from "@/lib/moderation";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { formatHandleWithAt } from "@streamplace/core";
 import { Plus, Shield, ShieldOff, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -213,7 +214,7 @@ function handleFor(
   did: string,
   profiles: ReturnType<typeof useAvatars>,
 ): string {
-  return profiles[did]?.handle ?? did;
+  return formatHandleWithAt({ did, handle: profiles[did]?.handle });
 }
 
 function ModeratorRow({
@@ -242,7 +243,7 @@ function ModeratorRow({
         />
       )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">@{handle}</p>
+        <p className="truncate text-sm font-medium">{handle}</p>
         <div className="mt-1 flex flex-wrap gap-1">
           {moderator.permissions?.map((perm) => (
             <span

@@ -1,4 +1,5 @@
 import { TriggerRef, useRootContext } from "@rn-primitives/dropdown-menu";
+import { formatHandleWithAt } from "@streamplace/core";
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { gap, mr, w } from "../../lib/theme/atoms";
 import { usePlayerStore } from "../../player-store";
@@ -24,7 +25,6 @@ import {
   useNetworkName,
   useNetworkProfileUrl,
 } from "../../streamplace-store/branding";
-import { formatHandleWithAt } from "../../utils/format-handle";
 import {
   DropdownMenu,
   DropdownMenuGroup,

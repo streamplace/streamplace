@@ -1,4 +1,5 @@
 import type { LivestreamStore } from "@streamplace/core";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -46,7 +47,9 @@ export function PlayerOffline({
   const detailed = profile?.did ? avatars[profile.did] : null;
   const banner = detailed?.banner;
   const avatar = detailed?.avatar || profile?.avatar;
-  const handle = profile?.handle || user;
+  const authorLabel = formatHandleWithAt(
+    profile ?? { did: user, handle: user.startsWith("did:") ? "" : user },
+  );
 
   const [recommendation, setRecommendation] = useState<{
     did: string;
@@ -134,12 +137,14 @@ export function PlayerOffline({
             <p className="text-sm text-white">
               {validatedRecommendation ? (
                 <>
-                  Looks like <span className="font-semibold">@{handle}</span> is
+                  Looks like{" "}
+                  <span className="font-semibold">{authorLabel}</span> is
                   offline, but they recommend checking out:
                 </>
               ) : (
                 <>
-                  Looks like <span className="font-semibold">@{handle}</span> is
+                  Looks like{" "}
+                  <span className="font-semibold">{authorLabel}</span> is
                   offline right now. Check back later.
                 </>
               )}
@@ -151,7 +156,9 @@ export function PlayerOffline({
                   alt=""
                   className="h-5 w-5 rounded-full border border-white/20 object-cover"
                 />
-                <p className="text-xs font-medium text-white/80">@{handle}</p>
+                <p className="text-xs font-medium text-white/80">
+                  {authorLabel}
+                </p>
               </div>
             )}
           </div>
@@ -164,13 +171,13 @@ export function PlayerOffline({
             {validatedRecommendation ? (
               <p className="text-2xl text-white">
                 Looks like{" "}
-                <span className="text-2xl font-semibold">@{handle}</span> is
+                <span className="text-2xl font-semibold">{authorLabel}</span> is
                 offline, but they recommend checking out:
               </p>
             ) : (
               <p className="text-base text-white">
-                Looks like <span className="font-semibold">@{handle}</span> is
-                offline right now. Check back later.
+                Looks like <span className="font-semibold">{authorLabel}</span>{" "}
+                is offline right now. Check back later.
               </p>
             )}
             {avatar && (
@@ -180,7 +187,9 @@ export function PlayerOffline({
                   alt=""
                   className="h-5 w-5 rounded-full border border-white/20 object-cover"
                 />
-                <p className="text-xs font-medium text-white/80">@{handle}</p>
+                <p className="text-xs font-medium text-white/80">
+                  {authorLabel}
+                </p>
               </div>
             )}
           </div>
@@ -213,6 +222,7 @@ function RecommendationEmbed({
   handle: string;
   avatar?: string;
 }) {
+  const user = formatHandle({ did, handle });
   const { playlistUrl, thumbnailUrl } = useMemo(() => {
     const base = getStreamplaceUrl();
     return {
@@ -238,8 +248,8 @@ function RecommendationEmbed({
             play/pause. */}
         <Link
           to="/$user"
-          params={{ user: handle }}
-          aria-label={`Watch ${handle}`}
+          params={{ user }}
+          aria-label={`Watch ${user}`}
           className="group absolute inset-0 z-10 mb-12 cursor-pointer bg-linear-to-t from-transparent via-black/20 to-black/20 opacity-0 transition-opacity duration-300 hover:opacity-100"
         >
           <div className="absolute right-4 bottom-2 flex shrink-0 items-center gap-1 rounded-full bg-black/50 px-3 py-1 text-left opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
@@ -253,7 +263,10 @@ function RecommendationEmbed({
               <div className="h-6 w-6 shrink-0 rounded-full border border-white/20 bg-white/10" />
             )}
             <p className="min-w-0 truncate text-sm text-white">
-              You're going to <span className="font-semibold">@{handle}</span>
+              You're going to{" "}
+              <span className="font-semibold">
+                {formatHandleWithAt({ did, handle })}
+              </span>
             </p>
             <ChevronRight className="size-5" />
           </div>

@@ -95,6 +95,8 @@ export function useActorTypeahead(query: string): TypeaheadResult {
             newActors.some(
               (actor, i) =>
                 actor.did !== actorsRef.current[i]?.did ||
+                actor.handle !== actorsRef.current[i]?.handle ||
+                actor.displayName !== actorsRef.current[i]?.displayName ||
                 actor.avatar !== actorsRef.current[i]?.avatar,
             );
 

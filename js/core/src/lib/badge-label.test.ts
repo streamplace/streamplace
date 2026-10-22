@@ -52,4 +52,10 @@ describe("formatBadgeIssuer", () => {
   it("shortens the DID while its profile is unavailable", () => {
     expect(formatBadgeIssuer("did:plc:abcdefghijklmnop")).toBe("did:plc:abcd…");
   });
+
+  it("shortens the DID when the issuer's handle is invalid", () => {
+    expect(
+      formatBadgeIssuer("did:plc:abcdefghijklmnop", "handle.invalid"),
+    ).toBe("did:plc:abcd…");
+  });
 });

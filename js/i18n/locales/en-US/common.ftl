@@ -47,7 +47,7 @@ go-home = Go home
 try-again = Try again
 completing-sign-in = Completing sign-in…
 already-logged-in = You're already logged in.
-signed-in-as = Signed in as @{ $handle }
+signed-in-as = Signed in as { $handle }
 signed-in-as-code = Signed in as { $handle }
 sign-in-description = Sign in with your Atmosphere account, such as your { $network } account.
 handle-label = Handle
@@ -65,11 +65,11 @@ notification-count = { $count ->
 ## Offline User
 user-offline = user is offline
 user-offline-message = { $source ->
-    [streamer] Looks like <1>@{ $handle } is offline</1>, but they recommend checking out:
-   *[default] Looks like <1>@{ $handle } is offline</1>, but we recommend checking out:
+    [streamer] Looks like <1>{ $handle } is offline</1>, but they recommend checking out:
+   *[default] Looks like <1>{ $handle } is offline</1>, but we recommend checking out:
 }
 user-offline-no-recommendations =
-  Looks like <1>@{ $handle } is offline</1> right now.
+  Looks like <1>{ $handle } is offline</1> right now.
   Check back later.
 streaming-title = streaming { $title }
 viewer-count = { $count ->
@@ -92,7 +92,7 @@ pds-selector-different-policies = Streamplace has separate moderation policies. 
 pds-selector-read-policies = Read { $label }'s <tosLink>Terms of Service</tosLink> and <privacyLink>Privacy Policy</privacyLink> before continuing.
 pds-selector-handle-policy-checkbox = I have read and agree to the <policyLink>handle policy</policyLink>
 creator-not-found-title = Creator not found
-creator-not-found-description = We couldn't find an Atmosphere account for @{ $handle }.
+creator-not-found-description = We couldn't find an Atmosphere account for { $handle }.
 creator-lookup-failed-title = We couldn't load this creator
 creator-lookup-failed-description = The Atmosphere directory isn't responding right now. Try again in a moment.
 
@@ -281,7 +281,7 @@ theatre-exit = Exit theatre mode
 
 ## Notifications
 teleporting-in = Teleporting in
-teleporting-to = Teleporting to @{ $handle }
+teleporting-to = Teleporting to { $handle }
 
 ## Teleport dialog
 teleport-dialog-title = Teleport to another live streamer

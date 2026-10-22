@@ -10,6 +10,7 @@ export * from "./lib/badge-label";
 export * from "./lib/browser";
 export * from "./lib/did";
 export * from "./lib/facet";
+export * from "./lib/format-handle";
 export * from "./lib/game";
 export * from "./lib/local-timestamp";
 export * from "./lib/pds-hosts";

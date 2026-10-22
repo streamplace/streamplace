@@ -10,6 +10,7 @@ import { OutputSchema } from "@atproto/api/dist/client/types/com/atproto/repo/li
 import { bytesToMultibase, Secp256k1Keypair } from "@atproto/crypto";
 import { OAuthSession } from "@atproto/oauth-client";
 import { storage } from "@streamplace/components";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Platform } from "react-native";
 import { AppStore } from "store";
 import { place, StreamplaceAgent } from "streamplace";
@@ -554,9 +555,10 @@ export const createBlueskySlice: StateCreator<
       time: new Date().toISOString(),
     });
 
-    const linkUrl = `${u.protocol}//${u.host}/${profile.handle}?${params.toString()}`;
+    const user = formatHandle(profile);
+    const linkUrl = `${u.protocol}//${u.host}/${user}?${params.toString()}`;
     const prefix = `🔴 LIVE `;
-    const textUrl = `${u.protocol}//${u.host}/${profile.handle}`;
+    const textUrl = `${u.protocol}//${u.host}/${user}`;
     const suffix = ` ${text}`;
     const content = prefix + textUrl + suffix;
 
@@ -579,7 +581,7 @@ export const createBlueskySlice: StateCreator<
       external: {
         description: text,
         thumb: thumbnail,
-        title: `@${profile.handle} is 🔴LIVE on ${u.host}!`,
+        title: `${formatHandleWithAt(profile)} is 🔴LIVE on ${u.host}!`,
         uri: linkUrl,
       },
     };
@@ -846,10 +848,10 @@ export const createBlueskySlice: StateCreator<
           for (; tries < 3; tries++) {
             try {
               console.log(
-                `Fetching thumbnail from ${u.protocol}//${u.host}/api/playback/${profile.handle}/stream.png`,
+                `Fetching thumbnail from ${u.protocol}//${u.host}/api/playback/${formatHandle(profile)}/stream.png`,
               );
               const thumbnailRes = await fetch(
-                `${u.protocol}//${u.host}/api/playback/${profile.handle}/stream.png`,
+                `${u.protocol}//${u.host}/api/playback/${formatHandle(profile)}/stream.png`,
               );
               if (!thumbnailRes.ok) {
                 throw new Error(

@@ -11,8 +11,8 @@ import {
   useTranslation,
   zero,
 } from "@streamplace/components";
+import { formatHandle, useActorTypeahead } from "@streamplace/core";
 import { Image } from "expo-image";
-import useActorTypeahead from "hooks/useActorTypeahead";
 import {
   ArrowRightToLine,
   AtSign,
@@ -48,8 +48,9 @@ export default function LoginForm({
   const [blueskyPermissions, setBlueskyPermissions] = useState(true);
   const { actors } = useActorTypeahead(handle);
 
+  // an unverifiable account formats as its DID, so it can't complete a handle
   const filteredActors = useMemo(
-    () => actors.filter((actor) => actor.handle.startsWith(handle)),
+    () => actors.filter((actor) => formatHandle(actor).startsWith(handle)),
     [actors, handle],
   );
 

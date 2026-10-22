@@ -9,6 +9,7 @@ import {
   spacing,
   touchTargets,
 } from "@streamplace/components/src/lib/theme/tokens";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import AQLink from "components/aqlink";
 import useAvatars from "hooks/useAvatars";
 import { useMemo } from "react";
@@ -52,6 +53,7 @@ export default function SearchResults({
         const testID = `${prefix}-result-${actor.did}`;
         const liveAuthor = liveAuthors.get(actor.did);
         const live = Boolean(liveAuthor);
+        const user = formatHandle(actor);
         return (
           <AQLink
             key={actor.did}
@@ -61,7 +63,7 @@ export default function SearchResults({
             aria-selected={dropdown ? index === activeIndex : undefined}
             to={{
               screen: "Stream",
-              params: { user: actor.handle || actor.did },
+              params: { user },
             }}
             onPress={onSelect}
             style={{
@@ -78,19 +80,17 @@ export default function SearchResults({
           >
             <Avatar
               testID={`${prefix}-avatar-${actor.did}`}
-              name={actor.handle}
+              name={user}
               src={profiles[actor.did]?.avatar ?? liveAuthor?.avatar}
               size={dropdown ? "md" : "lg"}
               live={live}
               accessible
               accessibilityRole="image"
-              accessibilityLabel={
-                live ? `${actor.handle}, ${t("live-badge")}` : actor.handle
-              }
+              accessibilityLabel={live ? `${user}, ${t("live-badge")}` : user}
               style={live ? undefined : { margin: spacing[1] }}
             />
             <Text numberOfLines={1} style={{ flex: 1 }}>
-              {`@${actor.handle}`}
+              {formatHandleWithAt(actor)}
             </Text>
           </AQLink>
         );

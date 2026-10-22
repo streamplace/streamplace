@@ -1,3 +1,4 @@
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Image } from "expo-image";
 import { ScrollView, useWindowDimensions, View } from "react-native";
 import { useAuthor } from "../../hooks/useAuthor";
@@ -35,10 +36,9 @@ export function VodMobileMetadata() {
   if (!video || !aturi) return null;
 
   const wide = width >= NARROW_BREAKPOINT;
-  const handle = author?.handle ?? video.author.handle;
-  const did = author?.did ?? video.author.did;
-  const displayName = author?.displayName || handle || did;
-  const userSeg = handle || did;
+  const profile = author ?? video.author;
+  const userSeg = formatHandle(profile);
+  const displayName = author?.displayName || userSeg;
   const rkey = rkeyFromAturi(aturi);
 
   // The video's canonical page + embed URLs, so Share actually links to this
@@ -86,13 +86,13 @@ export function VodMobileMetadata() {
         <Text weight="semibold" numberOfLines={1}>
           {displayName}
         </Text>
-        {handle ? (
+        {profile.did ? (
           <Text
             size="sm"
             numberOfLines={1}
             style={{ color: theme.colors.text3 }}
           >
-            @{handle}
+            {formatHandleWithAt(profile)}
           </Text>
         ) : null}
       </View>

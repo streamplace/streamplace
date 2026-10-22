@@ -1,5 +1,6 @@
 import { AppBskyFeedPost, BlobRef, RichText } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { LivestreamViewHydrated, place, StreamplaceAgent } from "streamplace";
 import { useUrl } from "./streamplace-store";
 import { usePDSAgent } from "./xrpc";
@@ -94,9 +95,10 @@ async function buildGoLivePost(
   agent: StreamplaceAgent,
 ): Promise<AppBskyFeedPost.Record> {
   const now = new Date();
-  const linkUrl = `${url.protocol}//${url.host}/${profile.handle}?${params.toString()}`;
+  const user = formatHandle(profile);
+  const linkUrl = `${url.protocol}//${url.host}/${user}?${params.toString()}`;
   const prefix = `🔴 LIVE `;
-  const textUrl = `${url.protocol}//${url.host}/${profile.handle}`;
+  const textUrl = `${url.protocol}//${url.host}/${user}`;
   const suffix = ` ${text}`;
   const content = prefix + textUrl + suffix;
 
@@ -118,7 +120,7 @@ async function buildGoLivePost(
     external: {
       description: text,
       thumb: thumbnail,
-      title: `@${profile.handle} is 🔴LIVE on ${url.host}!`,
+      title: `${formatHandleWithAt(profile)} is 🔴LIVE on ${url.host}!`,
       uri: linkUrl,
     },
   };

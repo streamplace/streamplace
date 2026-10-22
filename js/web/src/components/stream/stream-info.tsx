@@ -2,6 +2,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useStreamplaceUrl } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
 import type { LivestreamStore } from "@streamplace/core";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import {
   Check,
   ChevronRight,
@@ -97,6 +98,8 @@ export function StreamInfo({
   const toast = useToast();
   const record = state.livestream?.record;
   const author = state.livestream?.author;
+  const authorLabel =
+    author?.displayName || (author ? formatHandle(author) : user);
   const title = record?.title || user;
   const activity = activityLabel(record?.activity, t);
   const tags = record?.tags;
@@ -123,18 +126,16 @@ export function StreamInfo({
       <div className="flex items-start gap-3">
         <StreamAvatar
           avatar={avatar ?? author?.avatar}
-          label={author?.displayName || author?.handle || user}
+          label={authorLabel}
           className="h-11 w-11"
         />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="truncate font-medium">
-              {author?.displayName || author?.handle || user}
-            </span>
-            {author?.handle && author.displayName && (
+            <span className="truncate font-medium">{authorLabel}</span>
+            {author && author.displayName && (
               <span className="truncate text-sm text-(--color-fg-muted)">
-                @{author.handle}
+                {formatHandleWithAt(author)}
               </span>
             )}
             {isLive && state.viewers != null && (
@@ -209,7 +210,10 @@ export function StreamInfo({
                   : t("follow")}
               </Button>
             )}
-          <CopyButton type="live" nodeBaseURL={node} />
+          <CopyButton
+            user={author ? formatHandle(author) : user}
+            nodeBaseURL={node}
+          />
           <StreamReportMenu store={store} />
           <Button
             type="button"
@@ -238,47 +242,25 @@ export function StreamInfo({
   );
 }
 
-function assembleShareLink(
-  nodeBaseUrl: string,
-  type: "vod" | "live",
-  embed?: boolean,
-  rkey?: string,
-): string {
-  const url = new URL(nodeBaseUrl);
-  if (type === "vod" && rkey) {
-    url.pathname = `/${type}/vod/${rkey}`;
-  } else {
-    url.pathname = `/${type}`;
-  }
-  url.pathname += embed ? "/embed" : "";
-  return url.toString();
-}
-
-// copy button that has a dropdown for multiple platforms
+// Share the stream's public page or embed URL.
 export function CopyButton({
   nodeBaseURL,
-  type,
-  rkey,
+  user,
   className,
   variant = "outline",
   size = "icon-lg",
 }: {
   nodeBaseURL?: string;
-  type: "vod" | "live";
-  rkey?: string;
+  user: string;
   className?: string;
   variant?: "outline" | "ghost";
   size?: "icon-lg" | "icon-touch";
 }) {
   const { t } = useTranslation("common");
   const [copied, setCopied] = useState(false);
-  const share = nodeBaseURL
-    ? assembleShareLink(nodeBaseURL, type, false, rkey)
-    : undefined;
-
-  const embedShare = nodeBaseURL
-    ? assembleShareLink(nodeBaseURL, type, true, rkey)
-    : undefined;
+  const origin = nodeBaseURL ? new URL(nodeBaseURL).origin : undefined;
+  const share = origin ? `${origin}/${user}` : undefined;
+  const embedShare = origin ? `${origin}/embed/${user}` : undefined;
 
   const handleCopy = (link: string) => {
     navigator.clipboard

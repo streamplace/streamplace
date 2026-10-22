@@ -76,7 +76,6 @@ function VodPage() {
               {video && (
                 <VodWatchHeader
                   video={video}
-                  routeUser={user}
                   tid={tid}
                   downloading={downloading}
                   onDownload={handleDownload}

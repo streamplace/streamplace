@@ -23,6 +23,7 @@ import { useLivestreamStore } from "@/hooks/use-livestream-store";
 import { useStreamAvatar } from "@/hooks/use-stream-avatar";
 import { useStreamplaceUrl } from "@/lib/store/hooks";
 import type { LivestreamStore } from "@streamplace/core";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ExternalLink,
@@ -58,7 +59,9 @@ function StreamPage() {
     return (
       <CreatorState
         title={t("creator-not-found-title")}
-        description={t("creator-not-found-description", { handle: user })}
+        description={t("creator-not-found-description", {
+          handle: user.startsWith("did:") ? user : `@${user}`,
+        })}
       >
         <Link
           to="/search"
@@ -166,7 +169,10 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
     if (!Number.isFinite(startsAt)) return;
     const timer = setTimeout(
       () => {
-        const target = teleportProfiles[targetDid]?.handle || targetDid;
+        const target = formatHandle({
+          did: targetDid,
+          handle: teleportProfiles[targetDid]?.handle,
+        });
         void navigate({ to: "/$user", params: { user: target } });
       },
       Math.max(0, startsAt - Date.now()),
@@ -328,7 +334,8 @@ function MobileStreamBar({
   const author = state.livestream?.author;
   const record = state.livestream?.record;
   const title = record?.title || user;
-  const authorLabel = author?.displayName || author?.handle || user;
+  const authorLabel =
+    author?.displayName || (author ? formatHandle(author) : user);
   const node = useStreamplaceUrl();
 
   return (
@@ -350,7 +357,11 @@ function MobileStreamBar({
           )}
         </div>
         <div className="truncate text-xs text-(--color-fg-muted)">
-          {author?.handle ? `@${author.handle}` : authorLabel}
+          {author
+            ? formatHandleWithAt(author)
+            : user.startsWith("did:")
+              ? user
+              : `@${user}`}
         </div>
       </div>
 
@@ -384,7 +395,7 @@ function MobileStreamBar({
       )}
 
       <CopyButton
-        type="live"
+        user={author ? formatHandle(author) : user}
         nodeBaseURL={node}
         variant="ghost"
         size="icon-touch"
@@ -450,7 +461,8 @@ function MobileStreamDetailsContent({
 
   const author = state.livestream?.author;
   const record = state.livestream?.record;
-  const authorLabel = author?.displayName || author?.handle || user;
+  const authorLabel =
+    author?.displayName || (author ? formatHandle(author) : user);
   const activity = activityLabel(record?.activity, t);
   const tags = record?.tags ?? [];
   const description = (
@@ -493,15 +505,15 @@ function MobileStreamDetailsContent({
           <div className="truncate font-medium text-(--color-fg)">
             {authorLabel}
           </div>
-          {author?.handle && (
+          {author && (
             <div className="truncate text-sm text-(--color-fg-muted)">
-              @{author.handle}
+              {formatHandleWithAt(author)}
             </div>
           )}
         </div>
-        {author?.handle && (
+        {author && (
           <a
-            href={`https://bsky.app/profile/${author.handle}`}
+            href={`https://bsky.app/profile/${formatHandle(author)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex size-11 items-center justify-center rounded-lg text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
@@ -514,7 +526,7 @@ function MobileStreamDetailsContent({
       </div>
 
       <a
-        href={`/chat-popout/${encodeURIComponent(author?.handle || user)}`}
+        href={`/chat-popout/${encodeURIComponent(author ? formatHandle(author) : user)}`}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"

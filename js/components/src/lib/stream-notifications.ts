@@ -43,6 +43,7 @@ export const StreamNotifications = {
       render: (isExiting, onDismiss, startTime) => {
         return React.createElement(TeleportNotification, {
           targetHandle: params.targetHandle,
+          targetDID: params.targetDID,
           countdown: params.countdown,
           canCancel: params.canCancel,
           startTime: startTime,
@@ -57,15 +58,6 @@ export const StreamNotifications = {
 
   teleportCancelled: () => {
     streamNotification.hide("teleport");
-  },
-
-  teleportNow: (targetHandle: string) => {
-    streamNotification.show({
-      id: "teleport-now",
-      message: `Teleporting to @${targetHandle}...`,
-      duration: 2,
-      variant: "info",
-    });
   },
 
   activate: (message: string) => {

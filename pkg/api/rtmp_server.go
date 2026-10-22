@@ -523,37 +523,14 @@ func h264ConfigMessage(au [][]byte, dts time.Duration) (*message.Video, bool) {
 // with sequence header OBU seq (as gortmplib splits OBUs: no size field): the
 // AV1CodecConfigurationRecord flvdemux hands on as the stream's codec_data.
 func av1ConfigMessage(seq []byte) (*message.VideoExSequenceStart, error) {
-	var sh av1.SequenceHeader
-	if err := sh.Unmarshal(seq); err != nil {
-		return nil, fmt.Errorf("invalid AV1 sequence header: %w", err)
-	}
-	configOBUs, err := av1.Bitstream{seq}.Marshal()
+	av1C, err := media.AV1CodecConfig(seq)
 	if err != nil {
-		return nil, fmt.Errorf("invalid AV1 sequence header: %w", err)
-	}
-	bit := func(b bool) uint8 {
-		if b {
-			return 1
-		}
-		return 0
+		return nil, err
 	}
 	return &message.VideoExSequenceStart{
 		ChunkStreamID:   message.VideoChunkStreamID,
 		MessageStreamID: 0x1000000,
 		FourCC:          message.FourCCAV1,
-		AV1Config: &mp4.Av1C{
-			Marker:               1,
-			Version:              1,
-			SeqProfile:           sh.SeqProfile,
-			SeqLevelIdx0:         sh.SeqLevelIdx[0],
-			SeqTier0:             bit(sh.SeqTier[0]),
-			HighBitdepth:         bit(sh.ColorConfig.HighBitDepth),
-			TwelveBit:            bit(sh.ColorConfig.TwelveBit),
-			Monochrome:           bit(sh.ColorConfig.MonoChrome),
-			ChromaSubsamplingX:   bit(sh.ColorConfig.SubsamplingX),
-			ChromaSubsamplingY:   bit(sh.ColorConfig.SubsamplingY),
-			ChromaSamplePosition: uint8(sh.ColorConfig.ChromaSamplePosition),
-			ConfigOBUs:           configOBUs,
-		},
+		AV1Config:       av1C,
 	}, nil
 }

@@ -363,7 +363,9 @@ const av1MaxLatePackets = 1 << 14
 // pushAV1 depacketizes an AV1 track in Go, as the build has no rtpav1depay:
 // a sample builder reorders the RTP and assembles temporal units, which go to
 // src stamped from their RTP timestamps, starting at src's running time at
-// the first one (the clock the audio's do-timestamp stamps by).
+// the first one (the clock the audio's do-timestamp stamps by). Nothing goes
+// before the first sequence header, whose av1C src's caps then carry as
+// codec_data (see AV1CodecConfig): no decoder could start sooner anyway.
 func pushAV1(ctx context.Context, cancel context.CancelFunc, track rtcrec.TrackRemote, src app.AppSrc) {
 	sb := samplebuilder.New(av1MaxLatePackets, &codecs.AV1Depacketizer{}, 90000, samplebuilder.WithMaxTimeDelay(time.Second/2))
 	var base time.Duration
@@ -390,6 +392,16 @@ func pushAV1(ctx context.Context, cancel context.CancelFunc, track rtcrec.TrackR
 				continue
 			}
 			if !started {
+				seq := tuSequenceHeader(s.Data)
+				if seq == nil {
+					continue
+				}
+				caps, err := av1CodecDataCaps(seq)
+				if err != nil {
+					log.Log(ctx, "dropping AV1 temporal unit", "error", err)
+					continue
+				}
+				src.AppSrcSetCaps(gst.CapsFromString(caps))
 				started = true
 				base, _ = clockTimeDuration(src.GetCurrentRunningTime())
 			} else {

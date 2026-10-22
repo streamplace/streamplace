@@ -62,7 +62,8 @@ func TestPublishSegmentDropsForStalledSubscriber(t *testing.T) {
 }
 
 // The tracks a streamer sent alongside the source play by name, each with
-// every codec it came in; the source's own name stays the source's.
+// every codec it came in; the source's own name stays the source's, and a
+// name sent only in AV1 is left to the transcoder.
 func TestPacketizedRenditions(t *testing.T) {
 	audio := []PacketizedSample{{Data: []byte("opus")}}
 	p := &PacketizedSegment{Audio: audio, Video: []PacketizedVideo{
@@ -71,6 +72,7 @@ func TestPacketizedRenditions(t *testing.T) {
 		{MimeType: "video/AV1", Name: "720p"},
 		{MimeType: "video/H264", Name: "1080p"},
 		{MimeType: "video/H264", Name: "720p"},
+		{MimeType: "video/AV1", Name: "480p"},
 	}}
 	rs := p.Renditions()
 	require.Len(t, rs, 2)

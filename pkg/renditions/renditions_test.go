@@ -353,6 +353,17 @@ func TestRenditionsFromH264Track(t *testing.T) {
 		names = append(names, r.Name)
 	}
 	require.Equal(t, []string{"360p", "240p", "160p"}, names, "720p is the streamer's own")
+
+	// One only an AV1 track goes by is still made, in H.264.
+	a720 := h264
+	a720.Codec = "av1"
+	rs, err = GenerateRenditions(&placestream.Segment{Video: []placestream.Segment_Video{av1, h1080, a720}})
+	require.NoError(t, err)
+	names = []string{}
+	for _, r := range rs {
+		names = append(names, r.Name)
+	}
+	require.Equal(t, []string{"720p", "360p", "240p", "160p"}, names, "the streamer's 720p is AV1 only")
 }
 
 var singleCases = []struct {

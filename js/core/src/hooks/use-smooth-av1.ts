@@ -11,9 +11,9 @@ const AV1_BITS_PER_PIXEL = 20_000_000 / (3840 * 2160 * 30);
  * software decoder can stutter on a 4K120 source; then the player should
  * offer without AV1 (see offerWithoutAV1) so the node sends the stream's
  * H.264 fallback. Where the device can't tell (React Native, browsers
- * without MediaCapabilities for WebRTC), it takes the fallback when the
- * stream has one: phones decode H.264 in hardware. True for non-AV1
- * sources and before a segment arrives.
+ * without MediaCapabilities for WebRTC), it takes the fallback too: phones
+ * decode H.264 in hardware. A stream without a fallback keeps AV1 either
+ * way. True for non-AV1 sources and before a segment arrives.
  */
 export function useSmoothAV1(
   videos: place.stream.segment.Video[] | null | undefined,
@@ -63,10 +63,12 @@ export function useSmoothAV1(
           if (cancelled) {
             return;
           }
+          // Without a fallback, a struggling decoder still beats no video.
+          const take = info.smooth || !hasH264;
           console.log(
-            `AV1 ${width}x${height}@${framerate}: ${info.smooth ? "smooth, offering AV1" : "not smooth, offering without AV1"}`,
+            `AV1 ${width}x${height}@${framerate}: ${info.smooth ? "smooth" : "not smooth"}, ${take ? "offering AV1" : "offering without AV1 for the H.264 fallback"}`,
           );
-          setSmooth(info.smooth);
+          setSmooth(take);
         },
         (err) => {
           if (!cancelled) {

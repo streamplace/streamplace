@@ -22,10 +22,10 @@ appId: ${APP_ID}
           visible:
             text: ".*e2e test stream.*"
           timeout: 30000
-      # the player shows its spinner from when it mounts (before the chat
-      # message above) until media arrives, and again whenever it stalls
+      # the native player tags its video view player-video once video frames
+      # arrive (its loading overlay also clears on audio alone)
       - extendedWaitUntil:
-          notVisible:
-            id: "player-loading"
+          visible:
+            id: "player-video"
           timeout: 30000
       - takeScreenshot: av1-playing

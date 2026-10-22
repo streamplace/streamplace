@@ -299,7 +299,7 @@ async function bindings() {
         </>
       ),
     },
-    VideoRetry: View,
+    VideoRetry: ({ children }: { children: ReactNode }) => <>{children}</>,
     VodSection: View,
     PlayerProtocol: { WEBRTC: "webrtc" },
     usePlayerStore: (select: (state: any) => unknown) =>

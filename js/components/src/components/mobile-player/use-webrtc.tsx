@@ -52,6 +52,7 @@ export default function useWebRTC(
   boolean,
   (MediaStreamTrack | undefined)[],
   AudioTrackGroup[],
+  boolean,
 ] {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   // The received audio tracks by transceiver: the full mix, then each stem.
@@ -63,6 +64,9 @@ export default function useWebRTC(
   // stems become later.
   const [audioGroups, setAudioGroups] = useState<AudioTrackGroup[]>([]);
   const [stuck, setStuck] = useState<boolean>(false);
+  // Whether this connection has received video frames: playing (above) also
+  // counts audio, which flows without a picture.
+  const [videoFrames, setVideoFrames] = useState<boolean>(false);
   const setStatus = usePlayerStore((x) => x.setStatus);
   let agent = usePossiblyUnauthedPDSAgent();
   const myDID = useDID();
@@ -87,6 +91,7 @@ export default function useWebRTC(
     if (!agent) {
       return;
     }
+    setVideoFrames(false);
     const peerConnection = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
     });
@@ -192,6 +197,9 @@ export default function useWebRTC(
         lastChange.current = Date.now();
         setStatus(PlayerStatus.PLAYING);
         setStuck(false);
+        if (mediaType === "video") {
+          setVideoFrames(true);
+        }
       });
       if (Date.now() - lastChange.current > 2000) {
         setStuck(true);
@@ -203,7 +211,7 @@ export default function useWebRTC(
       peerConnection.close();
     };
   }, [streamer, agent, isOwnStream, playbackWorkerUrl, rendition, smoothAV1]);
-  return [mediaStream, stuck, audioTracks, audioGroups];
+  return [mediaStream, stuck, audioTracks, audioGroups, videoFrames];
 }
 
 /**

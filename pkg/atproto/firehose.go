@@ -41,8 +41,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// dedupWindow bounds how long a key is remembered. Relays run within seconds of
-// each other, so a few minutes covers all realistic skew.
+// dedupWindow bounds how long a key is remembered; relays skew by seconds.
 const dedupWindow = 5 * time.Minute
 
 type ATProtoSynchronizer struct {
@@ -51,22 +50,19 @@ type ATProtoSynchronizer struct {
 	StatefulDB *statedb.StatefulDB
 	Noter      notificationpkg.Notifier
 	Bus        *bus.Bus
-	// The identity directories, built on first use behind dirMu; read them
-	// through [ATProtoSynchronizer.directory] rather than directly. Set them
-	// before the synchronizer is used and they are taken as given.
+	// Identity directories, built on first use behind dirMu; read them through
+	// [ATProtoSynchronizer.directory].
 	PLCDirectory       identity.Directory
 	CachedPLCDirectory identity.Directory
 	dirMu              sync.Mutex
 	OATProxy           *oatproxy.OATProxy
 
-	// firehose liveness, written from every relay consumer concurrently
-	// (unix nanos). lastSeen is when we last received anything; lastEvent is
-	// the newest event stamp among those receptions, which is what "behind
-	// real time" measures. Both must cover the whole stream, not just the
-	// events we index -- see observeTime in repoStreamCallbacks.
+	// Liveness, written concurrently by every relay consumer (unix nanos).
+	// lastSeen is the last reception; lastEvent is the newest event stamp,
+	// which is what "behind real time" measures.
 	lastSeen  atomic.Int64
 	lastEvent highWater
-	// events seen across all relays, pre-dedup (for the periodic in-sync ping).
+	// Events seen across all relays, pre-dedup (for the in-sync ping).
 	seenEvents atomic.Int64
 
 	// cross-relay dedup, shared by every relay consumer. Initialized at the
@@ -84,10 +80,8 @@ func (atsync *ATProtoSynchronizer) markSeen() {
 	atsync.seenEvents.Add(1)
 }
 
-// markEvent records the stamp of an event we received. Max-wins because the
-// relays and the workers within each relay write it concurrently: a slow relay
-// replaying history must not walk the node-wide position backwards past a
-// fresher event another relay already delivered.
+// markEvent records the newest event stamp. Max-wins, so a relay replaying
+// history cannot drag the position back past a fresher event.
 func (atsync *ATProtoSynchronizer) markEvent(t time.Time) {
 	atsync.lastEvent.observe(t.UnixNano())
 }
@@ -99,12 +93,8 @@ func sinceNanos(ns int64) time.Duration {
 	return time.Since(time.Unix(0, ns))
 }
 
-// relayHosts returns the ordered, de-duplicated list of relay websocket URLs to
-// consume: the comma-separated --relay-host list, plus our own PDS firehose so
-// records published to our built-in PDS are always indexed immediately (rather
-// than waiting for an external relay to crawl them back to us). We only add
-// ourselves when we actually have an HTTP listener to dial — i.e. never in
-// tests that run without the server.
+// relayHosts returns the de-duplicated relay list: --relay-host, plus our own
+// firehose when we have a listener, so local records are indexed immediately.
 func (atsync *ATProtoSynchronizer) relayHosts() []string {
 	seen := map[string]struct{}{}
 	var hosts []string
@@ -128,10 +118,7 @@ func (atsync *ATProtoSynchronizer) relayHosts() []string {
 	return hosts
 }
 
-// selfRelayURL is the websocket URL of our own firehose listener, or ""
-// when there's no HTTP listener to dial (e.g. tests run without the
-// server). Used both to add ourselves to the relay set and to recognize
-// that connection in connectRelay so we can present the right Host header.
+// selfRelayURL is our own firehose URL, or "" when there is no listener.
 func (atsync *ATProtoSynchronizer) selfRelayURL() string {
 	if atsync.CLI.HTTPAddr == "" {
 		return ""
@@ -149,12 +136,8 @@ func httpToWSURL(u string) string {
 	return u
 }
 
-// StartFirehose subscribes to every configured relay (plus our own PDS, if
-// enabled) concurrently, de-duplicating the overlapping event streams so each
-// commit is indexed exactly once. It returns only when ctx is cancelled; a
-// single relay flapping is logged and retried forever rather than taking the
-// node down, since surviving relay outages is the whole point of running more
-// than one.
+// StartFirehose consumes every configured relay concurrently, deduplicating
+// overlapping streams. It returns only when ctx is cancelled.
 func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
 	ctx = log.WithLogValues(ctx, "func", "StartFirehose")
 
@@ -186,10 +169,8 @@ func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
 	return g.Wait()
 }
 
-// consumeRelay keeps a single relay's firehose connected, reconnecting with
-// capped exponential backoff. It never returns an error: an unhealthy relay
-// must not disturb the others (or crash the node), so it just loops until ctx
-// is cancelled.
+// consumeRelay keeps one relay connected, backing off between attempts. It
+// never returns an error: a bad relay must not disturb the others.
 func (atsync *ATProtoSynchronizer) consumeRelay(ctx context.Context, relay string) {
 	ctx = log.WithLogValues(ctx, "relay", relay)
 
@@ -250,9 +231,8 @@ func (atsync *ATProtoSynchronizer) consumeRelay(ctx context.Context, relay strin
 	}
 }
 
-// firehoseReplayWindow is how stale a stored relay cursor may be and still be
-// worth replaying from. Zero (or negative) disables the cap, so every connect
-// resumes from whatever is stored.
+// firehoseReplayWindow is how stale a stored cursor may be and still be
+// replayed; zero or negative disables the cap.
 func (atsync *ATProtoSynchronizer) firehoseReplayWindow() time.Duration {
 	if atsync.CLI == nil {
 		return config.DefaultFirehoseReplayWindow
@@ -260,23 +240,14 @@ func (atsync *ATProtoSynchronizer) firehoseReplayWindow() time.Duration {
 	return atsync.CLI.FirehoseReplayWindow
 }
 
-// dropStaleCursor abandons a relay cursor too old to be worth replaying from,
-// and orders a sweep to heal the gap that leaves.
-//
-// The kick matters: without it the gap sits there until the next scheduled
-// sweep, up to --sweep-interval away, which is the one way dropping the cursor
-// could be worse than replaying it. sweepOnce skips if a sweep is already
-// running, so several relays deciding this at once costs nothing.
+// dropStaleCursor abandons a cursor too old to replay and kicks a sweep to
+// heal the gap. sweepOnce ignores a kick while one is already running.
 func (atsync *ATProtoSynchronizer) dropStaleCursor(ctx context.Context, cursor *relayCursor) {
 	if !cursor.dropIfStale(ctx, atsync.firehoseReplayWindow()) {
 		return
 	}
-	// The skipped span may hold #identity events as well as commits. Commits
-	// the head check finds by asking hosts, but identity drift it can only see
-	// by resolving — and a cached resolution from before the gap agrees with
-	// the equally-stale repo row, hiding the change until the cache entry ages
-	// out. Starting the cache over makes the healing sweep's resolutions
-	// authoritative.
+	// Drop cached identities: a pre-gap resolution would agree with the stale
+	// repo row and hide the change from the sweep.
 	atsync.resetIdentCache()
 	if atsync.StatefulDB == nil {
 		// No index to sweep (tests that exercise the firehose on its own).
@@ -286,25 +257,17 @@ func (atsync *ATProtoSynchronizer) dropStaleCursor(ctx context.Context, cursor *
 	go atsync.sweepOnce(ctx, atsync.Sweep)
 }
 
-// connectRelay dials one relay and pumps its firehose until the connection
-// drops or ctx is cancelled. Event handlers run on the parent ctx (not the
-// per-connection one) so an in-flight commit keeps indexing across a reconnect
-// — important because dedup has already claimed it, so no other relay will
-// re-deliver it to us.
+// connectRelay pumps one relay until it drops. Handlers use the parent ctx so
+// an in-flight commit survives a reconnect; dedup has already claimed it.
 func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay string, cursor *relayCursor) error {
 	u, err := url.Parse(relay)
 	if err != nil {
 		return fmt.Errorf("invalid relay URI %q: %w", relay, err)
 	}
-	// A cursor whose newest event is hours old asks the relay to re-send hours
-	// of the whole network's traffic, at full speed, to a node that indexes a
-	// fraction of a percent of it. Checked here rather than once at load
-	// because a long backoff stretch ages a cursor that was fresh when we
-	// started.
+	// An old cursor would ask the relay to replay hours of traffic; check on
+	// every attempt because backoff ages a cursor that was fresh at load.
 	atsync.dropStaleCursor(ctx, cursor)
-	// MoQ relays (moqt:// and aliases) are consumed over QUIC instead of
-	// WebSocket. Everything downstream of frame-decode — dedup, cursor,
-	// handlers, backoff — is shared, so this is just a transport swap.
+	// MoQ relays use QUIC; everything after frame decode is shared.
 	switch u.Scheme {
 	case "moqt", "moql", "moq", "moqs":
 		return atsync.connectRelayMoq(ctx, relay, cursor)
@@ -317,17 +280,9 @@ func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay strin
 	}
 
 	header := http.Header{"User-Agent": []string{aqhttp.UserAgent}}
-	// Our own loopback listener serves both the broadcaster and the
-	// server-repo firehoses on one port and disambiguates them by the
-	// request Host (see Server.isServerPDS). Dialing loopback sends
-	// Host: 127.0.0.1, which lands us on the broadcaster firehose, so the
-	// server repo's own records — most importantly place.stream.media.origin,
-	// which getVideoList's "can this node serve it" filter depends on —
-	// would never get indexed locally. Force Host to ServerHost so the
-	// self-subscription gets the server-PDS firehose, matching what a
-	// single-node (ServerHost == BroadcasterHost) deployment gets for free.
-	// gorilla/websocket pulls the "Host" header out and uses it as the
-	// HTTP Host while still dialing the loopback address in u.
+	// Our listener picks the broadcaster or server-repo firehose by Host, and
+	// dialing loopback sends 127.0.0.1. Present ServerHost to get the server
+	// repo, whose media.origin records getVideoList depends on.
 	isSelf := relay == atsync.selfRelayURL()
 	if isSelf && atsync.CLI.ServerHost != "" {
 		header.Set("Host", atsync.CLI.ServerHost)
@@ -335,11 +290,8 @@ func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay strin
 
 	dialer := websocket.DefaultDialer
 	if isSelf && u.Scheme == "wss" {
-		// Under --secure the self-subscription dials wss://127.0.0.1:<https-port>,
-		// but our cert is issued for ServerHost, not for the loopback IP we dial
-		// (and in dev it's frequently self-signed on top of that), so verification
-		// would fail on hostname every time. Skipping it is not a trust decision:
-		// the peer on the other end of this loopback socket is this same process.
+		// The cert is issued for ServerHost, not the loopback IP we dial. The
+		// peer is this same process, so skipping verification trusts nothing.
 		d := *websocket.DefaultDialer
 		d.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		dialer = &d
@@ -364,8 +316,7 @@ func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay strin
 	return events.HandleRepoStream(streamCtx, con, scheduler, nil)
 }
 
-// relayProtocol classifies a relay URL as "moq" (moqt:// and aliases) or
-// "websocket" (everything else), for per-protocol metric labels.
+// relayProtocol is the metric label for a relay's transport.
 func relayProtocol(relay string) string {
 	if u, err := url.Parse(relay); err == nil {
 		switch u.Scheme {
@@ -376,57 +327,18 @@ func relayProtocol(relay string) string {
 	return "websocket"
 }
 
-// repoStreamCallbacks builds the event callbacks shared by the WebSocket and
-// MoQ transports: per-relay metrics, liveness marking, cursor advance,
-// cross-relay dedup, and running the indexing handlers. cancel ends the current
-// connection when the relay sends an error frame.
+// repoStreamCallbacks builds the callbacks shared by the WebSocket and MoQ
+// transports. cancel ends the connection on an error frame.
 //
-// The handlers run INLINE, on the callback's own goroutine, which is one of
-// indigo's parallel-scheduler workers. That is deliberate and load-bearing.
-// Spawning a goroutine per event here — which this used to do — returns from
-// the callback instantly and so defeats every bound the scheduler exists to
-// provide. Running them inline gets all three back:
-//
-//   - Concurrency is capped at the scheduler's worker count, instead of one
-//     goroutine per event. A relay replaying a backlog at full send rate is
-//     what turned that into millions of goroutines all queued behind a single
-//     sqlite write connection.
-//   - Events for one repo are handled in the order the relay sent them: the
-//     scheduler chains same-DID tasks through a per-repo queue, so at most one
-//     is in flight per repo. The per-event goroutines had silently dropped that
-//     guarantee. It is per-relay, not global — each relay has its own scheduler,
-//     so see revCASAttempts for the cross-relay race that remains.
-//   - Backpressure. The scheduler's feeder channel is unbuffered, so once every
-//     worker is busy, AddWork for a new repo blocks, HandleRepoStream (or the
-//     moq read loop) stops reading the socket, and TCP tells the relay to slow
-//     down. Overload degrades to "the firehose lags", which the sweep covers,
-//     instead of to an OOM.
-//
-// Both transports feed the same scheduler (connectRelayMoq → dispatchMoqFrame →
-// scheduler.AddWork), so this holds for websocket and moq alike.
-//
-// The handlers keep using the captured ctx rather than the one the scheduler
-// hands them: parallel workers call the event handler with context.TODO(), and
-// the captured ctx is where our log values and shutdown cancellation live. It
-// is the parent ctx and not the per-connection one so an in-flight commit keeps
-// indexing across a reconnect.
-//
-// The tradeoff, accepted: on disconnect both transports defer
-// scheduler.Shutdown(), which lets in-flight handlers finish but drops tasks
-// still queued behind them — whose dedup claim has already been made, so no
-// other relay will re-deliver them. That is a small silent gap, and healing
-// exactly this kind of gap is what the head check and sweep are for.
+// Handlers run inline on the scheduler's workers, not in per-event goroutines:
+// that bounds concurrency, preserves per-repo ordering, and applies
+// backpressure. They use the captured parent ctx (not the scheduler's
+// context.TODO()) so an in-flight commit survives a reconnect.
 func (atsync *ATProtoSynchronizer) repoStreamCallbacks(ctx context.Context, relay string, cursor *relayCursor, cancel context.CancelFunc) *events.RepoStreamCallbacks {
 	protocol := relayProtocol(relay)
-	// observeSeq advances the cursor and republishes the per-relay high-water
-	// seq gauge; both relays carry the upstream's seq, so the gauge's cross-relay
-	// difference measures how far apart the relays are.
-	//
-	// On a moq relay only the gauge gets the upstream seq: there the resume
-	// cursor holds MoQ group sequences (observeGroup in connectRelayMoq), and
-	// upstream at-seqs are orders of magnitude larger, so feeding them into the
-	// same max-wins cursor would bury the group cursor — the next SubscribeFrom
-	// would then wait forever on a group the relay will never produce.
+	// observeSeq advances the cursor and the per-relay seq gauge. On a moq relay
+	// the cursor holds group sequences, so the upstream at-seq feeds the gauge
+	// only; mixing them would bury the cursor and stall the next resume.
 	moq := protocol == "moq"
 	var gaugeHigh highWater // upstream-seq high-water for the moq gauge only
 	observeSeq := func(seq int64) {
@@ -438,29 +350,17 @@ func (atsync *ATProtoSynchronizer) repoStreamCallbacks(ctx context.Context, rela
 		cursor.observe(seq)
 		spmetrics.FirehoseRelayHighSeq.WithLabelValues(relay, protocol).Set(float64(cursor.highSeq()))
 	}
-	// observeTime records how current this relay is. Unlike the seq it applies
-	// to every transport — an event's stamp means the same thing whoever
-	// carried it — and it is recorded before dedup, because a duplicate is
-	// still proof of how far along this relay is. One small parse per event; an
-	// unparsable stamp is simply not an observation.
-	//
-	// It feeds the node-wide mark too, and that is the only place that mark is
-	// written. The firehose's position is defined by what the relays send, not
-	// by what we index: the overwhelming majority of the stream is collections
-	// we skip, so marking only indexed commits made a healthy but quiet node
-	// report ever-growing lag (and kicked pointless sweeps if it also fed the
-	// cursor; it does not — that is the per-relay value below).
+	// observeTime updates the per-relay position and the node-wide mark, before
+	// dedup: a duplicate still proves how current the relay is. It follows what
+	// the relays send, not what we index.
 	observeTime := func(t string) {
 		aqt, err := aqtime.FromString(t)
 		if err != nil {
 			return
 		}
 		at := aqt.Time()
-		// A relay with a clock running ahead must not pin either mark into the
-		// future: max-wins would then blank out lag reporting (and make the
-		// replay cursor look eternally fresh) until that stamp catches up.
-		// Fold it to the receive time instead -- that is still evidence the
-		// relay is delivering, so a later, correctly dated event moves on.
+		// Fold a future stamp to the receive time: max-wins would otherwise
+		// pin both marks ahead of the clock and hide real lag.
 		if now := time.Now(); at.After(now) {
 			at = now
 		}
@@ -499,12 +399,8 @@ func (atsync *ATProtoSynchronizer) repoStreamCallbacks(ctx context.Context, rela
 	}
 }
 
-// identityDedupKey distinguishes a single identity broadcast (so the same one
-// relayed by several relays collapses) from genuinely separate updates to the
-// same DID (a later handle change must NOT be dropped). The originating Time is
-// preserved as the event is relayed, so (did, time, handle) is stable for one
-// broadcast yet distinct across real changes. seq is deliberately excluded — it
-// is assigned per-relay and so differs for the very duplicates we want to fold.
+// identityDedupKey folds one relayed broadcast across relays without dropping
+// real updates: (did, time, handle) is stable per broadcast. seq is per-relay.
 func identityDedupKey(evt *indigoatproto.SyncSubscribeRepos_Identity) string {
 	handle := ""
 	if evt.Handle != nil {
@@ -513,9 +409,7 @@ func identityDedupKey(evt *indigoatproto.SyncSubscribeRepos_Identity) string {
 	return evt.Did + "\x00" + evt.Time + "\x00" + handle
 }
 
-// firehoseSyncPingInterval is how often monitorFirehose emits its Info-level
-// "in sync" heartbeat while healthy. Trouble is still reported within the 5s
-// tick; this only spaces out the all-is-well line so it doesn't spam.
+// firehoseSyncPingInterval spaces out the Info-level "in sync" heartbeat.
 const firehoseSyncPingInterval = 60 * time.Second
 
 func (atsync *ATProtoSynchronizer) monitorFirehose(ctx context.Context) {
@@ -531,11 +425,8 @@ func (atsync *ATProtoSynchronizer) monitorFirehose(ctx context.Context) {
 			since := sinceNanos(atsync.lastEvent.get())
 			goroutines := runtime.NumGoroutine()
 			dry := sinceNanos(atsync.lastSeen.Load())
-			// "Behind" only means something while events arrive: it is the
-			// distance between the newest stamp we have been handed and now, so
-			// it detects a replay lagging behind real time. With nothing
-			// arriving at all the position cannot advance, and the honest
-			// diagnosis is the dry line rather than an ever-growing "behind".
+			// "Behind" is only meaningful while events arrive; a silent stream is
+			// dry, not behind.
 			switch {
 			case dry > 10*time.Second:
 				log.Warn(ctx, fmt.Sprintf("firehose dry; no new events for %s", dry), "goroutines", goroutines)
@@ -544,9 +435,7 @@ func (atsync *ATProtoSynchronizer) monitorFirehose(ctx context.Context) {
 			default:
 				log.Debug(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
 			}
-			// Periodic in-sync ping: healthy operation is otherwise Debug-only,
-			// so surface a heartbeat at Info once a minute. An unhealthy stretch
-			// (warns above) just delays the next ping; the ping never lies.
+			// Healthy operation is otherwise Debug-only, so heartbeat at Info.
 			if since <= 10*time.Second && dry <= 10*time.Second &&
 				time.Since(lastPing) >= firehoseSyncPingInterval {
 				seen := atsync.seenEvents.Load()
@@ -570,10 +459,8 @@ var CollectionFilter = []string{
 	constants.APP_BSKY_GRAPH_VERIFICATION,
 }
 
-// indexedCollection reports whether we index anything in this collection: the
-// explicit [CollectionFilter] list plus everything under place.stream., which is
-// our own namespace and always ours to index. An empty filter means "index
-// everything", as it always has.
+// indexedCollection is [CollectionFilter] plus our own place.stream.* space.
+// An empty filter means "index everything".
 func indexedCollection(collection string) bool {
 	if len(CollectionFilter) == 0 {
 		return true
@@ -584,17 +471,9 @@ func indexedCollection(collection string) bool {
 	return strings.HasPrefix(collection, "place.stream.")
 }
 
-// commitHasIndexedOps reports whether a commit touches anything we index, from
-// the op paths alone — no CAR parsing.
-//
-// This is what lets handleCommitEventOps skip the CAR parse for the large
-// majority of firehose traffic (the whole network's posts, likes and follows on
-// repos we have never heard of). Handlers run on a bounded worker pool now, so
-// that parse is no longer paid by a throwaway goroutine: it is paid out of the
-// pool, and directly caps how fast the node can catch up.
-//
-// An op whose path does not parse counts as indexed, so that the main loop
-// reaches it and logs the same error it always has.
+// commitHasIndexedOps reports from op paths alone whether a commit touches
+// anything we index, so most of the stream skips the CAR parse. An unparsable
+// path counts as indexed, so the main loop can log it.
 func commitHasIndexedOps(evt *indigoatproto.SyncSubscribeRepos_Commit) bool {
 	for _, op := range evt.Ops {
 		collection, _, err := syntax.ParseRepoPath(op.Path)
@@ -616,29 +495,20 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 		return
 	}
 
-	// A commit with nothing we index still has to be tracked: trackCommitRev
-	// follows the rev chain for repos we DO track, and a tracked repo posting a
-	// like is a commit whose ops are all filtered. Skipping it there would
-	// leave our stored rev behind, and the next commit we did care about would
-	// look like a hole and order a pointless repair. So the ops are what get
-	// skipped, not the event — and trackCommitRev never needed the CAR anyway.
+	// Filtered commits still advance the rev chain (which needs no CAR);
+	// skipping them would make the next real commit look like a hole.
 	if commitHasIndexedOps(evt) && !atsync.handleIndexedOps(ctx, evt) {
 		return
 	}
 
-	// Every op in this commit is indexed, so the index can claim this commit.
-	// Only reached on a clean pass: an event we bailed out of half-applied
-	// leaves the stored rev where it was, and the next commit for that repo
-	// notices the hole and orders a repair.
+	// Only a clean pass may claim the commit; a bail-out leaves the rev for
+	// the next event to notice and repair.
 	atsync.trackCommitRev(ctx, evt)
 }
 
-// handleIndexedOps reads the commit's CAR and applies the ops we index,
-// reporting whether it got all the way through. It is split out of
-// handleCommitEventOps so that a commit with nothing for us can skip the CAR
-// parse entirely while still having its rev tracked; a bail-out here (an
-// unreadable CAR, an unparsable path) reports false and so leaves the repo's
-// stored rev where it was, exactly as before, so the next commit finds the hole.
+// handleIndexedOps reads the CAR and applies the ops we index, reporting
+// whether it got all the way through. False leaves the rev unclaimed so the
+// next commit repairs the gap.
 func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *indigoatproto.SyncSubscribeRepos_Commit) bool {
 	rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
 	if err != nil {
@@ -660,9 +530,7 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 			continue
 		}
 
-		// opTime stamps deletes below. The commit's stamp is already an
-		// observation for the firehose position (observeTime runs before dedup,
-		// for every event), so the liveness mark is not this loop's business.
+		// opTime stamps the deletes below.
 		aqt, err := aqtime.FromString(evt.Time)
 		if err != nil {
 			log.Error(ctx, "failed to parse time", "err", err)
@@ -676,14 +544,10 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 			continue
 		}
 		if r != nil {
-			// One enrichment here gives every line under this op a handle to go
-			// with the DID -- the dispatch switch below, the contiguity checks,
-			// and everything reviveRepo and handleCreateUpdate log through ctx
-			// -- without any of them doing a lookup of their own.
+			// Enrich once so every log line below carries the handle.
 			ctx = log.WithLogValues(ctx, "handle", r.Handle)
 		}
 		atsync.reviveRepo(ctx, r)
-		// log.Warn(ctx, "got record we care about", "collection", collection, "rkey", rkey)
 
 		ek := repomgr.EventKind(op.Action)
 		switch ek {
@@ -699,12 +563,7 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 				break
 			}
 
-			// Defense-in-depth: handleCreateUpdate decodes arbitrary CBOR
-			// and dispatches across every record type, so a malformed record
-			// or a bug in any one handler can panic. Recover it so one bad
-			// event can't crash the firehose consumer goroutine (which would
-			// tear down event processing for the whole node). The error is
-			// logged and the loop moves on to the next op.
+			// One malformed record must not panic the whole firehose consumer.
 			err = log.Recover(ctx, func() error {
 				return atsync.handleCreateUpdate(ctx, evt.Repo, rkey, recCBOR, op.Cid.String(), collection, ek == repomgr.EvtKindUpdateRecord, false, evt.Rev)
 			})
@@ -937,8 +796,8 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 }
 
 func (atsync *ATProtoSynchronizer) handleTeleportDelete(ctx context.Context, uri string) {
-	// The delete event only carries the URI; the indexed record identifies both
-	// recipients and the CID needed to cancel this version without clearing a newer one.
+	// The delete only carries the URI; the record identifies the recipients and
+	// the CID, so a newer version is not cleared.
 	teleport, err := atsync.Model.GetTeleportByURI(uri)
 	if err != nil {
 		log.Error(ctx, "failed to get teleport before deleting", "err", err, "uri", uri)
@@ -963,13 +822,8 @@ func (atsync *ATProtoSynchronizer) handleTeleportDelete(ctx context.Context, uri
 	atsync.Bus.Publish(teleport.TargetDID, cancelMsg)
 }
 
-// reviveRepo un-parks a repo we had written off. A commit event is proof the
-// account is back -- a deactivated, suspended, or deleted repo cannot write --
-// so the terminal status goes away and the ordinary wedge logic (an empty
-// Version means "backfill me") takes it from there.
-//
-// It is called from the commit path with the row that path already loaded, so
-// the common case costs one comparison and no query at all.
+// reviveRepo clears a terminal status: a commit proves the account is back.
+// The caller passes the row it already loaded, so the common case is free.
 func (atsync *ATProtoSynchronizer) reviveRepo(ctx context.Context, r *model.Repo) {
 	if !r.TerminalStatus() {
 		return

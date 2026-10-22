@@ -261,11 +261,17 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) err
 	}()
 
 	thumbCh := make(chan struct{})
+	// The first frame is the thumbnail. Another sample can still arrive
+	// before the pipeline is torn down (on a loaded machine); it's dropped,
+	// neither appended to w nor closing thumbCh twice, which panicked the
+	// node. Samples arrive on the appsink's one streaming thread, so a plain
+	// bool will do.
+	done := false
 
 	appsink.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
 		NewSample: func(sink app.AppSink) gst.FlowReturn {
 			sample := sink.PullSample()
-			if sample == nil {
+			if sample == nil || done {
 				return gst.FlowOK
 			}
 
@@ -286,6 +292,7 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) err
 				return gst.FlowError
 			}
 
+			done = true
 			close(thumbCh)
 
 			return gst.FlowOK

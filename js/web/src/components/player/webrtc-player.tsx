@@ -26,10 +26,10 @@ export type WebRTCPlayerProps = {
   /** Called roughly once per second with a stats snapshot. */
   onStatsChange?: (stats: PlayerStats) => void;
   /**
-   * The latest segment's first video track: the stream's source, which the
-   * node sends when the offer lists its codec.
+   * The latest segment's video tracks: the stream's source first, which the
+   * node sends when the offer lists its codec, then its fallbacks.
    */
-  video?: place.stream.segment.Video | null;
+  videos?: place.stream.segment.Video[] | null;
 };
 
 const RECONNECT_DELAY_MS = 3000;
@@ -92,7 +92,7 @@ export function WebRTCPlayer({
   videoRef,
   src,
   active,
-  video,
+  videos,
   onError,
   onStatsChange,
 }: WebRTCPlayerProps & {
@@ -127,9 +127,9 @@ export function WebRTCPlayer({
   onErrorRef.current = onError;
   onStatsChangeRef.current = onStatsChange;
   const { t } = useTranslation();
-  // A connection is made again if this device turns out to decode the
-  // stream's AV1 source poorly, without AV1 so the node sends H.264.
-  const smoothAV1 = useSmoothAV1(video);
+  // A connection is made again if this device turns out not to take the
+  // stream's AV1 source, without AV1 so the node sends the H.264 fallback.
+  const smoothAV1 = useSmoothAV1(videos);
 
   useEffect(() => {
     if (!active) return;
@@ -362,7 +362,7 @@ export function WebRTCPlayer({
         direction: "recvonly",
       });
       if (!smoothAV1) {
-        offerWithoutAV1(videoTransceiver);
+        offerWithoutAV1(videoTransceiver, RTCRtpReceiver);
       }
       peerConnection.addTransceiver("audio", { direction: "recvonly" });
 

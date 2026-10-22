@@ -503,7 +503,7 @@ func concatTrackAcrossSegments(events []*muxl.MuxlEvent, tid uint32) []byte {
 // requested codec (Opus when wantOpus, else AAC) — how an output consumer
 // "asks for the media it needs" from a multi-track segment. See
 // filterSegmentAudio.
-func filterSegmentToCodec(ctx context.Context, seg []byte, wantOpus bool, video func(VideoCodec) bool) ([]byte, error) {
+func filterSegmentToCodec(ctx context.Context, seg []byte, wantOpus bool, video func(muxl.MuxlVideoConfig, VideoCodec) bool) ([]byte, error) {
 	out, _, err := filterSegmentAudio(ctx, seg, wantOpus, false, video)
 	return out, err
 }
@@ -525,7 +525,7 @@ type playbackAudio struct {
 // the result. If no main audio matches the requested codec, any one main
 // track is kept (degraded but playable); with no audio info at all, the
 // segment is returned unchanged.
-func filterSegmentAudio(ctx context.Context, seg []byte, wantOpus, stems bool, video func(VideoCodec) bool) ([]byte, []playbackAudio, error) {
+func filterSegmentAudio(ctx context.Context, seg []byte, wantOpus, stems bool, video func(muxl.MuxlVideoConfig, VideoCodec) bool) ([]byte, []playbackAudio, error) {
 	events, err := unwrapMuxlEvents(ctx, seg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unwrap segment for codec filter: %w", err)

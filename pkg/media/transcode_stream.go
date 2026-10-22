@@ -262,7 +262,7 @@ func (t *streamTranscoder) Feed(src []byte, token any) error {
 	// keyframes the segments were cut at. The job keeps the whole source to
 	// append the result to.
 	wantOpus := t.target == "aac"
-	input, err := filterSegmentToCodec(t.ctx, src, wantOpus, func(VideoCodec) bool { return true })
+	input, err := filterSegmentToCodec(t.ctx, src, wantOpus, func(muxl.MuxlVideoConfig, VideoCodec) bool { return true })
 	if err != nil {
 		return fmt.Errorf("select transcoder source audio: %w", err)
 	}

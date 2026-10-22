@@ -78,10 +78,10 @@ func av1ConfigSequenceHeader(caps *gst.Caps) []byte {
 	return tuSequenceHeader(av1C[4:])
 }
 
-// Packetize demuxes a segment into WebRTC samples: the video, once per video
-// codec the segment carries (see bus.PacketizedSegment), the main audio (the
-// full mix) and, for a segment with stems, one Opus track per stem group (see
-// filterSegmentAudio), all on the segment's one timeline.
+// Packetize demuxes a segment into WebRTC samples: each video track (see
+// bus.PacketizedSegment), the main audio (the full mix) and, for a segment
+// with stems, one Opus track per stem group (see filterSegmentAudio), all on
+// the segment's one timeline.
 func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.PacketizedSegment, error) {
 
 	uu, err := uuid.NewV7()
@@ -93,39 +93,46 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 
 	ctx = log.WithLogValues(ctx, "func", "Packetize", "uuid", uu.String())
 
-	// A demux yields one video track, so each video codec gets a demux of its
-	// own: the codec's first track, with the audio. The first is the
-	// source's, and its audio is the one kept. A presentation without muxl
-	// bytes (a rendition, a fixture) has no catalog to say; its video is
-	// H.264. A segment without video still gets one demux, for its audio.
-	codecs, byCodec := []VideoCodec{VideoH264}, false
+	// A demux yields one video track, so each video track gets a demux of
+	// its own, with the audio. The first is the source's, and its audio is
+	// the one kept. A presentation without muxl bytes (a rendition, a
+	// fixture) has no catalog to say; its video is H.264. A segment without
+	// video still gets one demux, for its audio.
+	type packetTrack struct {
+		codec VideoCodec
+		name  string
+		video func(muxl.MuxlVideoConfig, VideoCodec) bool
+	}
+	tracks := []packetTrack{{codec: VideoH264}}
 	if len(seg.Muxl) > 0 {
 		events, err := unwrapMuxlEvents(ctx, seg.Muxl)
 		if err != nil {
 			return nil, fmt.Errorf("read segment catalog: %w", err)
 		}
 		cat, _ := catalogAndTracks(events)
-		var found []VideoCodec
+		var found []packetTrack
 		for _, v := range videoTracks(cat) {
 			c, ok := VideoCodecForCatalog(v.Codec)
-			if ok && !slices.ContainsFunc(found, func(f VideoCodec) bool { return f.Name == c.Name }) {
-				found = append(found, c)
+			if !ok {
+				continue
 			}
+			id := v.TrackID()
+			found = append(found, packetTrack{
+				codec: c,
+				name:  RenditionName(v.CodedWidth, v.CodedHeight),
+				video: func(t muxl.MuxlVideoConfig, _ VideoCodec) bool { return t.TrackID() == id },
+			})
 		}
 		if len(found) > 0 {
-			codecs, byCodec = found, true
+			tracks = found
 		}
 	}
-	demuxes := make([]*packetDemux, len(codecs))
+	demuxes := make([]*packetDemux, len(tracks))
 	g, gctx := errgroup.WithContext(ctx)
-	for i, codec := range codecs {
-		var video func(VideoCodec) bool
-		if byCodec {
-			video = func(c VideoCodec) bool { return c.Name == codec.Name }
-		}
+	for i, t := range tracks {
 		g.Go(func() error {
 			var err error
-			demuxes[i], err = demuxForPacketize(gctx, cli, uu, seg, codec, video)
+			demuxes[i], err = demuxForPacketize(gctx, cli, fmt.Sprintf("packetize-input-%s-%d-%s.mp4", uu, i, t.codec.Name), seg, t.codec, t.video)
 			return err
 		})
 	}
@@ -137,7 +144,7 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 	packet := &bus.PacketizedSegment{Duration: src.segDur}
 	for i, d := range demuxes {
 		if video := finalizeSampleDurations(d.video, src.segDur); len(video) > 0 {
-			packet.Video = append(packet.Video, bus.PacketizedVideo{MimeType: codecs[i].MimeType, Samples: video})
+			packet.Video = append(packet.Video, bus.PacketizedVideo{MimeType: tracks[i].codec.MimeType, Name: tracks[i].name, Samples: video})
 		}
 	}
 	// segDur is audio-derived; a video-only segment would report Duration 0,
@@ -170,10 +177,10 @@ type packetDemux struct {
 	segDur      time.Duration // the main audio's span
 }
 
-// demuxForPacketize demuxes seg's first video track in codec, among those
-// video takes (see filterSegmentAudio), and its audio streams into raw
-// samples.
-func demuxForPacketize(ctx context.Context, cli *config.CLI, uu uuid.UUID, seg *bus.Seg, codec VideoCodec, video func(VideoCodec) bool) (*packetDemux, error) {
+// demuxForPacketize demuxes the video track video takes (see
+// filterSegmentAudio), in codec, and seg's audio streams into raw samples.
+// The MP4 it demuxes is dumped as debugName.
+func demuxForPacketize(ctx context.Context, cli *config.CLI, debugName string, seg *bus.Seg, codec VideoCodec, video func(muxl.MuxlVideoConfig, VideoCodec) bool) (*packetDemux, error) {
 	// WebRTC playback needs Opus. From a multi-track segment select video, the
 	// main group's Opus track and each stem's, and present them as a flat MP4,
 	// so the demux below yields exactly one Opus pad per kept track for
@@ -195,7 +202,7 @@ func demuxForPacketize(ctx context.Context, cli *config.CLI, uu uuid.UUID, seg *
 		}
 	}
 
-	cli.DumpDebugSegment(ctx, fmt.Sprintf("packetize-input-%s-%s.mp4", uu.String(), codec.Name), bytes.NewReader(seg.Data))
+	cli.DumpDebugSegment(ctx, debugName, bytes.NewReader(seg.Data))
 
 	pipelineSlice := []string{
 		fmt.Sprintf("%s name=videoparse ! %s ! %s ! appsink sync=false name=videoappsink", constants.Queue2Big, codec.Parser, codec.SampleCaps),

@@ -246,7 +246,7 @@ func PresentationWithOpus(ctx context.Context, seg []byte) ([]byte, error) {
 
 // presentationWithOpus is PresentationWithOpus with the first video track
 // video accepts (every video track for nil).
-func presentationWithOpus(ctx context.Context, seg []byte, video func(VideoCodec) bool) ([]byte, error) {
+func presentationWithOpus(ctx context.Context, seg []byte, video func(muxl.MuxlVideoConfig, VideoCodec) bool) ([]byte, error) {
 	opus, err := filterSegmentToCodec(ctx, seg, true, video)
 	if err != nil {
 		return nil, err

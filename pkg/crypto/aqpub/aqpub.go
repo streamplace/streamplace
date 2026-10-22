@@ -2,7 +2,6 @@ package aqpub
 
 import (
 	"crypto/ecdsa"
-	"math/big"
 
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/ethereum/go-ethereum/common"
@@ -41,11 +40,6 @@ func FromBytes(bs []byte) (Pub, error) {
 	}
 	addr := crypto.PubkeyToAddress(*pubkey.ToECDSA())
 	return &pub{addr}, nil
-}
-
-func FromPoints(x, y *big.Int) (Pub, error) {
-	key := ecdsa.PublicKey{Curve: secp256k1.S256(), X: x, Y: y}
-	return FromPublicKey(&key)
 }
 
 func (p *pub) Address() common.Address {

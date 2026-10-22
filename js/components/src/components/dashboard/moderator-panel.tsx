@@ -424,10 +424,7 @@ function AddModeratorDialog({
     const selectedPermissions = Object.entries(permissions)
       .filter(([_, enabled]) => enabled)
       .map(([perm]) => perm) as (
-      | "ban"
-      | "hide"
-      | "livestream.manage"
-      | "message.pin"
+      "ban" | "hide" | "livestream.manage" | "message.pin"
     )[];
 
     if (selectedPermissions.length === 0) {

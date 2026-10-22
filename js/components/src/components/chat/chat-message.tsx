@@ -1,8 +1,4 @@
-import { $Typed } from "@atproto/api";
-import {
-  Link,
-  Mention,
-} from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
+import { $Typed, AppBskyRichtextFacet } from "@atproto/api";
 import {
   Facet,
   formatHandle,
@@ -79,7 +75,7 @@ const LinkSegment = ({
   index: number;
 }) => {
   const { theme } = useTheme();
-  const linkFtr = seg.features?.[0] as $Typed<Link>;
+  const linkFtr = seg.features?.[0] as $Typed<AppBskyRichtextFacet.Link>;
   return (
     <Text
       key={`link-${index}`}
@@ -123,7 +119,7 @@ const renderSegment = (
   }
 
   if (ftr.$type === "app.bsky.richtext.facet#mention") {
-    const mtnFtr = ftr as $Typed<Mention>;
+    const mtnFtr = ftr as $Typed<AppBskyRichtextFacet.Mention>;
     const profile = userCache?.[mtnFtr.did];
     return (
       <Text

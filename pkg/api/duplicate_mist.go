@@ -122,7 +122,7 @@ func RunDuplicateMistWorker(parent context.Context, input io.Reader, progress io
 	if err := sc.Initialize(); err != nil {
 		return shadowProtocolError("initialize", err)
 	}
-	if err := sc.Accept(); err != nil {
+	if err := sc.AcceptConn(); err != nil {
 		return shadowProtocolError("accept", err)
 	}
 	if !sc.Publish {

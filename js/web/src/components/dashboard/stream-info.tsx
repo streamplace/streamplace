@@ -595,8 +595,7 @@ function ContentWarningsQuickEdit({
     liveStore,
     (s) =>
       (s.livestream?.record as any)?.contentWarnings?.warnings as
-        | string[]
-        | undefined,
+        string[] | undefined,
   );
 
   const [open, setOpen] = useState(false);

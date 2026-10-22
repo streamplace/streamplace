@@ -41,8 +41,7 @@ const CATEGORY_ICONS: { label: string; Icon: LucideIcon }[] = [
 ];
 
 export type SelectedEmoji =
-  | { type: "standard"; native: string }
-  | { type: "custom"; name: string };
+  { type: "standard"; native: string } | { type: "custom"; name: string };
 
 interface EmojiPickerProps {
   isOpen: boolean;

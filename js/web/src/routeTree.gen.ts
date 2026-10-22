@@ -9,59 +9,44 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as VideosRouteImport } from './routes/videos'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as SearchRouteImport } from './routes/search'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SettingsIndexRouteImport } from './routes/settings/index'
-import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as SearchRouteImport } from './routes/search'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as VideosRouteImport } from './routes/videos'
 import { Route as UserIndexRouteImport } from './routes/$user/index'
-import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
-import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
-import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
-import { Route as SettingsDanmuRouteImport } from './routes/settings/danmu'
-import { Route as SettingsChatProfileRouteImport } from './routes/settings/chat-profile'
-import { Route as SettingsBrandingRouteImport } from './routes/settings/branding'
-import { Route as SettingsBadgesRouteImport } from './routes/settings/badges'
-import { Route as SettingsBadgeIssuerRouteImport } from './routes/settings/badge-issuer'
-import { Route as SettingsBackupRouteImport } from './routes/settings/backup'
-import { Route as SettingsAdvancedRouteImport } from './routes/settings/advanced'
-import { Route as SettingsAccountRouteImport } from './routes/settings/account'
-import { Route as SettingsAboutRouteImport } from './routes/settings/about'
-import { Route as DashboardVideosRouteImport } from './routes/dashboard/videos'
-import { Route as DashboardUploadRouteImport } from './routes/dashboard/upload'
 import { Route as ChatPopoutUserRouteImport } from './routes/chat-popout.$user'
-import { Route as EmbedUserIndexRouteImport } from './routes/embed/$user/index'
-import { Route as DashboardWebhooksIndexRouteImport } from './routes/dashboard/webhooks/index'
-import { Route as DashboardStreamIndexRouteImport } from './routes/dashboard/stream/index'
-import { Route as DashboardRecommendationsIndexRouteImport } from './routes/dashboard/recommendations/index'
-import { Route as DashboardMultistreamIndexRouteImport } from './routes/dashboard/multistream/index'
-import { Route as DashboardKeysIndexRouteImport } from './routes/dashboard/keys/index'
-import { Route as EmbedInfoWidgetUserRouteImport } from './routes/embed/info-widget/$user'
-import { Route as EmbedDanmuObsUserRouteImport } from './routes/embed/danmu-obs/$user'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as DashboardUploadRouteImport } from './routes/dashboard/upload'
+import { Route as DashboardVideosRouteImport } from './routes/dashboard/videos'
+import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsAboutRouteImport } from './routes/settings/about'
+import { Route as SettingsAccountRouteImport } from './routes/settings/account'
+import { Route as SettingsAdvancedRouteImport } from './routes/settings/advanced'
+import { Route as SettingsBackupRouteImport } from './routes/settings/backup'
+import { Route as SettingsBadgeIssuerRouteImport } from './routes/settings/badge-issuer'
+import { Route as SettingsBadgesRouteImport } from './routes/settings/badges'
+import { Route as SettingsBrandingRouteImport } from './routes/settings/branding'
+import { Route as SettingsChatProfileRouteImport } from './routes/settings/chat-profile'
+import { Route as SettingsDanmuRouteImport } from './routes/settings/danmu'
+import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
+import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
+import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
 import { Route as UserVideoTidRouteImport } from './routes/$user/video/$tid'
+import { Route as DashboardKeysIndexRouteImport } from './routes/dashboard/keys/index'
+import { Route as DashboardMultistreamIndexRouteImport } from './routes/dashboard/multistream/index'
+import { Route as DashboardRecommendationsIndexRouteImport } from './routes/dashboard/recommendations/index'
+import { Route as DashboardStreamIndexRouteImport } from './routes/dashboard/stream/index'
+import { Route as DashboardWebhooksIndexRouteImport } from './routes/dashboard/webhooks/index'
+import { Route as EmbedUserIndexRouteImport } from './routes/embed/$user/index'
+import { Route as EmbedDanmuObsUserRouteImport } from './routes/embed/danmu-obs/$user'
+import { Route as EmbedInfoWidgetUserRouteImport } from './routes/embed/info-widget/$user'
 import { Route as EmbedUserVideoTidRouteImport } from './routes/embed/$user/video/$tid'
 
-const VideosRoute = VideosRouteImport.update({
-  id: '/videos',
-  path: '/videos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SearchRoute = SearchRouteImport.update({
-  id: '/search',
-  path: '/search',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRouteRoute = DashboardRouteRouteImport.update({
@@ -69,89 +54,39 @@ const DashboardRouteRoute = DashboardRouteRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsIndexRoute = SettingsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => SettingsRoute,
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardIndexRoute = DashboardIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => DashboardRouteRoute,
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VideosRoute = VideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const UserIndexRoute = UserIndexRouteImport.update({
   id: '/$user/',
   path: '/$user/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsPrivacyRoute = SettingsPrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => SettingsRoute,
+const ChatPopoutUserRoute = ChatPopoutUserRouteImport.update({
+  id: '/chat-popout/$user',
+  path: '/chat-popout/$user',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsLanguagesRoute = SettingsLanguagesRouteImport.update({
-  id: '/languages',
-  path: '/languages',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsDanmuRoute = SettingsDanmuRouteImport.update({
-  id: '/danmu',
-  path: '/danmu',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsChatProfileRoute = SettingsChatProfileRouteImport.update({
-  id: '/chat-profile',
-  path: '/chat-profile',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsBrandingRoute = SettingsBrandingRouteImport.update({
-  id: '/branding',
-  path: '/branding',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsBadgesRoute = SettingsBadgesRouteImport.update({
-  id: '/badges',
-  path: '/badges',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsBadgeIssuerRoute = SettingsBadgeIssuerRouteImport.update({
-  id: '/badge-issuer',
-  path: '/badge-issuer',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsBackupRoute = SettingsBackupRouteImport.update({
-  id: '/backup',
-  path: '/backup',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsAdvancedRoute = SettingsAdvancedRouteImport.update({
-  id: '/advanced',
-  path: '/advanced',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsAccountRoute = SettingsAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsAboutRoute = SettingsAboutRouteImport.update({
-  id: '/about',
-  path: '/about',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const DashboardVideosRoute = DashboardVideosRouteImport.update({
-  id: '/videos',
-  path: '/videos',
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardUploadRoute = DashboardUploadRouteImport.update({
@@ -159,46 +94,111 @@ const DashboardUploadRoute = DashboardUploadRouteImport.update({
   path: '/upload',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const ChatPopoutUserRoute = ChatPopoutUserRouteImport.update({
-  id: '/chat-popout/$user',
-  path: '/chat-popout/$user',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EmbedUserIndexRoute = EmbedUserIndexRouteImport.update({
-  id: '/embed/$user/',
-  path: '/embed/$user/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardWebhooksIndexRoute = DashboardWebhooksIndexRouteImport.update({
-  id: '/webhooks/',
-  path: '/webhooks/',
+const DashboardVideosRoute = DashboardVideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardStreamIndexRoute = DashboardStreamIndexRouteImport.update({
-  id: '/stream/',
-  path: '/stream/',
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAboutRoute = SettingsAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAccountRoute = SettingsAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAdvancedRoute = SettingsAdvancedRouteImport.update({
+  id: '/advanced',
+  path: '/advanced',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsBackupRoute = SettingsBackupRouteImport.update({
+  id: '/backup',
+  path: '/backup',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsBadgeIssuerRoute = SettingsBadgeIssuerRouteImport.update({
+  id: '/badge-issuer',
+  path: '/badge-issuer',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsBadgesRoute = SettingsBadgesRouteImport.update({
+  id: '/badges',
+  path: '/badges',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsBrandingRoute = SettingsBrandingRouteImport.update({
+  id: '/branding',
+  path: '/branding',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsChatProfileRoute = SettingsChatProfileRouteImport.update({
+  id: '/chat-profile',
+  path: '/chat-profile',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsDanmuRoute = SettingsDanmuRouteImport.update({
+  id: '/danmu',
+  path: '/danmu',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsLanguagesRoute = SettingsLanguagesRouteImport.update({
+  id: '/languages',
+  path: '/languages',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsPrivacyRoute = SettingsPrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const UserVideoTidRoute = UserVideoTidRouteImport.update({
+  id: '/$user/video/$tid',
+  path: '/$user/video/$tid',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardKeysIndexRoute = DashboardKeysIndexRouteImport.update({
+  id: '/keys/',
+  path: '/keys/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardRecommendationsIndexRoute =
-  DashboardRecommendationsIndexRouteImport.update({
-    id: '/recommendations/',
-    path: '/recommendations/',
-    getParentRoute: () => DashboardRouteRoute,
-  } as any)
 const DashboardMultistreamIndexRoute =
   DashboardMultistreamIndexRouteImport.update({
     id: '/multistream/',
     path: '/multistream/',
     getParentRoute: () => DashboardRouteRoute,
   } as any)
-const DashboardKeysIndexRoute = DashboardKeysIndexRouteImport.update({
-  id: '/keys/',
-  path: '/keys/',
+const DashboardRecommendationsIndexRoute =
+  DashboardRecommendationsIndexRouteImport.update({
+    id: '/recommendations/',
+    path: '/recommendations/',
+    getParentRoute: () => DashboardRouteRoute,
+  } as any)
+const DashboardStreamIndexRoute = DashboardStreamIndexRouteImport.update({
+  id: '/stream/',
+  path: '/stream/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const EmbedInfoWidgetUserRoute = EmbedInfoWidgetUserRouteImport.update({
-  id: '/embed/info-widget/$user',
-  path: '/embed/info-widget/$user',
+const DashboardWebhooksIndexRoute = DashboardWebhooksIndexRouteImport.update({
+  id: '/webhooks/',
+  path: '/webhooks/',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const EmbedUserIndexRoute = EmbedUserIndexRouteImport.update({
+  id: '/embed/$user/',
+  path: '/embed/$user/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmbedDanmuObsUserRoute = EmbedDanmuObsUserRouteImport.update({
@@ -206,9 +206,9 @@ const EmbedDanmuObsUserRoute = EmbedDanmuObsUserRouteImport.update({
   path: '/embed/danmu-obs/$user',
   getParentRoute: () => rootRouteImport,
 } as any)
-const UserVideoTidRoute = UserVideoTidRouteImport.update({
-  id: '/$user/video/$tid',
-  path: '/$user/video/$tid',
+const EmbedInfoWidgetUserRoute = EmbedInfoWidgetUserRouteImport.update({
+  id: '/embed/info-widget/$user',
+  path: '/embed/info-widget/$user',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmbedUserVideoTidRoute = EmbedUserVideoTidRouteImport.update({
@@ -451,32 +451,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/videos': {
-      id: '/videos'
-      path: '/videos'
-      fullPath: '/videos'
-      preLoaderRoute: typeof VideosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/search': {
-      id: '/search'
-      path: '/search'
-      fullPath: '/search'
-      preLoaderRoute: typeof SearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -486,26 +465,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings/': {
-      id: '/settings/'
-      path: '/'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof SettingsIndexRouteImport
-      parentRoute: typeof SettingsRoute
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/dashboard/': {
-      id: '/dashboard/'
-      path: '/'
-      fullPath: '/dashboard/'
-      preLoaderRoute: typeof DashboardIndexRouteImport
-      parentRoute: typeof DashboardRouteRoute
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/videos': {
+      id: '/videos'
+      path: '/videos'
+      fullPath: '/videos'
+      preLoaderRoute: typeof VideosRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/$user/': {
       id: '/$user/'
@@ -514,95 +500,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings/privacy': {
-      id: '/settings/privacy'
-      path: '/privacy'
-      fullPath: '/settings/privacy'
-      preLoaderRoute: typeof SettingsPrivacyRouteImport
-      parentRoute: typeof SettingsRoute
+    '/chat-popout/$user': {
+      id: '/chat-popout/$user'
+      path: '/chat-popout/$user'
+      fullPath: '/chat-popout/$user'
+      preLoaderRoute: typeof ChatPopoutUserRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/settings/notifications': {
-      id: '/settings/notifications'
-      path: '/notifications'
-      fullPath: '/settings/notifications'
-      preLoaderRoute: typeof SettingsNotificationsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/languages': {
-      id: '/settings/languages'
-      path: '/languages'
-      fullPath: '/settings/languages'
-      preLoaderRoute: typeof SettingsLanguagesRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/danmu': {
-      id: '/settings/danmu'
-      path: '/danmu'
-      fullPath: '/settings/danmu'
-      preLoaderRoute: typeof SettingsDanmuRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/chat-profile': {
-      id: '/settings/chat-profile'
-      path: '/chat-profile'
-      fullPath: '/settings/chat-profile'
-      preLoaderRoute: typeof SettingsChatProfileRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/branding': {
-      id: '/settings/branding'
-      path: '/branding'
-      fullPath: '/settings/branding'
-      preLoaderRoute: typeof SettingsBrandingRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/badges': {
-      id: '/settings/badges'
-      path: '/badges'
-      fullPath: '/settings/badges'
-      preLoaderRoute: typeof SettingsBadgesRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/badge-issuer': {
-      id: '/settings/badge-issuer'
-      path: '/badge-issuer'
-      fullPath: '/settings/badge-issuer'
-      preLoaderRoute: typeof SettingsBadgeIssuerRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/backup': {
-      id: '/settings/backup'
-      path: '/backup'
-      fullPath: '/settings/backup'
-      preLoaderRoute: typeof SettingsBackupRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/advanced': {
-      id: '/settings/advanced'
-      path: '/advanced'
-      fullPath: '/settings/advanced'
-      preLoaderRoute: typeof SettingsAdvancedRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/account': {
-      id: '/settings/account'
-      path: '/account'
-      fullPath: '/settings/account'
-      preLoaderRoute: typeof SettingsAccountRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/about': {
-      id: '/settings/about'
-      path: '/about'
-      fullPath: '/settings/about'
-      preLoaderRoute: typeof SettingsAboutRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/dashboard/videos': {
-      id: '/dashboard/videos'
-      path: '/videos'
-      fullPath: '/dashboard/videos'
-      preLoaderRoute: typeof DashboardVideosRouteImport
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/upload': {
@@ -612,39 +521,116 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardUploadRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/chat-popout/$user': {
-      id: '/chat-popout/$user'
-      path: '/chat-popout/$user'
-      fullPath: '/chat-popout/$user'
-      preLoaderRoute: typeof ChatPopoutUserRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/embed/$user/': {
-      id: '/embed/$user/'
-      path: '/embed/$user'
-      fullPath: '/embed/$user/'
-      preLoaderRoute: typeof EmbedUserIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard/webhooks/': {
-      id: '/dashboard/webhooks/'
-      path: '/webhooks'
-      fullPath: '/dashboard/webhooks/'
-      preLoaderRoute: typeof DashboardWebhooksIndexRouteImport
+    '/dashboard/videos': {
+      id: '/dashboard/videos'
+      path: '/videos'
+      fullPath: '/dashboard/videos'
+      preLoaderRoute: typeof DashboardVideosRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/stream/': {
-      id: '/dashboard/stream/'
-      path: '/stream'
-      fullPath: '/dashboard/stream/'
-      preLoaderRoute: typeof DashboardStreamIndexRouteImport
-      parentRoute: typeof DashboardRouteRoute
+    '/settings/': {
+      id: '/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof SettingsRoute
     }
-    '/dashboard/recommendations/': {
-      id: '/dashboard/recommendations/'
-      path: '/recommendations'
-      fullPath: '/dashboard/recommendations/'
-      preLoaderRoute: typeof DashboardRecommendationsIndexRouteImport
+    '/settings/about': {
+      id: '/settings/about'
+      path: '/about'
+      fullPath: '/settings/about'
+      preLoaderRoute: typeof SettingsAboutRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/account': {
+      id: '/settings/account'
+      path: '/account'
+      fullPath: '/settings/account'
+      preLoaderRoute: typeof SettingsAccountRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/advanced': {
+      id: '/settings/advanced'
+      path: '/advanced'
+      fullPath: '/settings/advanced'
+      preLoaderRoute: typeof SettingsAdvancedRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/backup': {
+      id: '/settings/backup'
+      path: '/backup'
+      fullPath: '/settings/backup'
+      preLoaderRoute: typeof SettingsBackupRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/badge-issuer': {
+      id: '/settings/badge-issuer'
+      path: '/badge-issuer'
+      fullPath: '/settings/badge-issuer'
+      preLoaderRoute: typeof SettingsBadgeIssuerRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/badges': {
+      id: '/settings/badges'
+      path: '/badges'
+      fullPath: '/settings/badges'
+      preLoaderRoute: typeof SettingsBadgesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/branding': {
+      id: '/settings/branding'
+      path: '/branding'
+      fullPath: '/settings/branding'
+      preLoaderRoute: typeof SettingsBrandingRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/chat-profile': {
+      id: '/settings/chat-profile'
+      path: '/chat-profile'
+      fullPath: '/settings/chat-profile'
+      preLoaderRoute: typeof SettingsChatProfileRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/danmu': {
+      id: '/settings/danmu'
+      path: '/danmu'
+      fullPath: '/settings/danmu'
+      preLoaderRoute: typeof SettingsDanmuRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/languages': {
+      id: '/settings/languages'
+      path: '/languages'
+      fullPath: '/settings/languages'
+      preLoaderRoute: typeof SettingsLanguagesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/notifications': {
+      id: '/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof SettingsNotificationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/privacy': {
+      id: '/settings/privacy'
+      path: '/privacy'
+      fullPath: '/settings/privacy'
+      preLoaderRoute: typeof SettingsPrivacyRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/$user/video/$tid': {
+      id: '/$user/video/$tid'
+      path: '/$user/video/$tid'
+      fullPath: '/$user/video/$tid'
+      preLoaderRoute: typeof UserVideoTidRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/keys/': {
+      id: '/dashboard/keys/'
+      path: '/keys'
+      fullPath: '/dashboard/keys/'
+      preLoaderRoute: typeof DashboardKeysIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/multistream/': {
@@ -654,18 +640,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardMultistreamIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/keys/': {
-      id: '/dashboard/keys/'
-      path: '/keys'
-      fullPath: '/dashboard/keys/'
-      preLoaderRoute: typeof DashboardKeysIndexRouteImport
+    '/dashboard/recommendations/': {
+      id: '/dashboard/recommendations/'
+      path: '/recommendations'
+      fullPath: '/dashboard/recommendations/'
+      preLoaderRoute: typeof DashboardRecommendationsIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/embed/info-widget/$user': {
-      id: '/embed/info-widget/$user'
-      path: '/embed/info-widget/$user'
-      fullPath: '/embed/info-widget/$user'
-      preLoaderRoute: typeof EmbedInfoWidgetUserRouteImport
+    '/dashboard/stream/': {
+      id: '/dashboard/stream/'
+      path: '/stream'
+      fullPath: '/dashboard/stream/'
+      preLoaderRoute: typeof DashboardStreamIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/webhooks/': {
+      id: '/dashboard/webhooks/'
+      path: '/webhooks'
+      fullPath: '/dashboard/webhooks/'
+      preLoaderRoute: typeof DashboardWebhooksIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/embed/$user/': {
+      id: '/embed/$user/'
+      path: '/embed/$user'
+      fullPath: '/embed/$user/'
+      preLoaderRoute: typeof EmbedUserIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/embed/danmu-obs/$user': {
@@ -675,11 +675,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EmbedDanmuObsUserRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/$user/video/$tid': {
-      id: '/$user/video/$tid'
-      path: '/$user/video/$tid'
-      fullPath: '/$user/video/$tid'
-      preLoaderRoute: typeof UserVideoTidRouteImport
+    '/embed/info-widget/$user': {
+      id: '/embed/info-widget/$user'
+      path: '/embed/info-widget/$user'
+      fullPath: '/embed/info-widget/$user'
+      preLoaderRoute: typeof EmbedInfoWidgetUserRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/embed/$user/video/$tid': {

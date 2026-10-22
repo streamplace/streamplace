@@ -378,9 +378,7 @@ function getTargetTabAndScreen(href: string): {
 
 export interface SidebarNavItem {
   icon:
-    | React.ComponentType<any>
-    | React.ReactElement
-    | (() => React.ReactElement);
+    React.ComponentType<any> | React.ReactElement | (() => React.ReactElement);
   label: string;
   href: string;
   hidden?: boolean;

@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eli Mallon <eli@aquareum.tv>
+Date: Fri, 20 Jun 2025 18:26:39 -0700
+Subject: [PATCH 2/3] gst-libav: add glib_assert meson option
+
+Previously there was no way to disable the
+assertions in this project. Now there is!
+---
+ subprojects/gst-libav/meson.build   | 5 +++++
+ subprojects/gst-libav/meson.options | 2 ++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/subprojects/gst-libav/meson.build b/subprojects/gst-libav/meson.build
+index 38869319..e0921fcf 100644
+--- a/subprojects/gst-libav/meson.build
++++ b/subprojects/gst-libav/meson.build
+@@ -194,6 +194,11 @@ else
+   message('GStreamer debug system is enabled')
+ endif
+ 
++if not get_option('glib_assert')
++  message('Disabling GLib asserts')
++  add_project_arguments('-DG_DISABLE_ASSERT', language: 'c')
++endif
++
+ # NOTE: Keep entries alphabetically sorted
+ warning_flags = [
+   '-Waddress',
+diff --git a/subprojects/gst-libav/meson.options b/subprojects/gst-libav/meson.options
+index 9d8a7015..b08abf95 100644
+--- a/subprojects/gst-libav/meson.options
++++ b/subprojects/gst-libav/meson.options
+@@ -6,3 +6,5 @@ option('package-origin', type : 'string',
+ option('doc', type : 'feature', value : 'auto', yield: true,
+        description: 'Enable documentation.')
+ option('tests', type : 'feature', value : 'auto', yield : true)
++option('glib_assert', type : 'boolean', value : true, yield : true,
++       description : 'Enable GLib assertion (see docs/macros.txt)')

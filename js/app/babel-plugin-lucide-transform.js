@@ -35,7 +35,7 @@ function getIconMapping(baseDir) {
     while (searchDir !== path.dirname(searchDir)) {
       const candidatePath = path.join(
         searchDir,
-        "node_modules/lucide-react-native/dist/esm/lucide-react-native.js",
+        "node_modules/lucide-react-native/dist/esm/lucide-react-native.mjs",
       );
       if (fs.existsSync(candidatePath)) {
         lucideExportsPath = candidatePath;
@@ -46,7 +46,7 @@ function getIconMapping(baseDir) {
 
     if (!lucideExportsPath) {
       const err = new Error(
-        `Could not find lucide-react-native/dist/esm/lucide-react-native.js in node_modules. Searched from: ${baseDir}`,
+        `Could not find lucide-react-native/dist/esm/lucide-react-native.mjs in node_modules. Searched from: ${baseDir}`,
       );
       console.error(err.message);
       throw err;
@@ -54,7 +54,7 @@ function getIconMapping(baseDir) {
 
     const content = fs.readFileSync(lucideExportsPath, "utf8");
 
-    // Match lines like: export { default as User2, default as UserRound } from './icons/user-round.js';
+    // Match lines like: export { default as User2, default as UserRound } from './icons/user-round.mjs';
     // Split by lines and parse each line individually
     const lines = content.split("\n");
     let matchCount = 0;
@@ -66,7 +66,7 @@ function getIconMapping(baseDir) {
         if (iconsIndex === -1) continue;
 
         const filenameStart = iconsIndex + "from './icons/".length;
-        const filenameEnd = line.indexOf(".js'", filenameStart);
+        const filenameEnd = line.indexOf(".mjs'", filenameStart);
         if (filenameEnd === -1) continue;
 
         const filename = line.substring(filenameStart, filenameEnd);
@@ -124,9 +124,7 @@ function lucideTransformPlugin({ types: t }) {
               imports.push(
                 t.importDeclaration(
                   [t.importDefaultSpecifier(t.identifier(localName))],
-                  t.stringLiteral(
-                    `lucide-react-native/dist/esm/icons/${filename}`,
-                  ),
+                  t.stringLiteral(`lucide-react-native/icons/${filename}`),
                 ),
               );
             }

@@ -20,8 +20,8 @@ import (
 
 	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortmplib/pkg/bytecounter"
+	"github.com/bluenviron/gortmplib/pkg/codecs"
 	"github.com/bluenviron/gortmplib/pkg/message"
-	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/go-gst/go-gst/pkg/gst"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	scraper "github.com/starttoaster/prometheus-exporter-scraper"
@@ -171,13 +171,17 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 			primaryResult <- err
 			return
 		}
-		if err := sc.Accept(); err != nil {
+		if err := sc.AcceptConn(); err != nil {
 			primaryResult <- err
 			return
 		}
 		if corrupt {
 			// Mist is a byte sink here: it must keep receiving traffic
 			// after the shadow parser rejects the injected corruption.
+			if err := sc.AcceptAction(); err != nil {
+				primaryResult <- err
+				return
+			}
 			n, err := io.Copy(io.Discard, conn)
 			primaryBytes.Store(n)
 			primaryResult <- err
@@ -190,10 +194,10 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 		}
 		var videoEnd, audioEnd time.Duration
 		for _, track := range r.Tracks() {
-			switch track := track.(type) {
-			case *format.H264:
+			switch track.Codec.(type) {
+			case *codecs.H264:
 				r.OnDataH264(track, func(pts, dts time.Duration, au [][]byte) { videoEnd = dts })
-			case *format.MPEG4Audio:
+			case *codecs.MPEG4Audio:
 				r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) { audioEnd = pts })
 			}
 		}
@@ -265,7 +269,8 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 			// Keep the actual TLS publisher active until live verification,
 			// even when encoding reaches EOS before a slow worker catches up.
 			counter := bytecounter.NewWriter(server)
-			keepalive := message.NewWriter(counter, counter, false)
+			keepalive := &message.Writer{BW: counter, BCW: counter}
+			keepalive.Initialize()
 			err = func() error {
 				ticker := time.NewTicker(time.Second)
 				defer ticker.Stop()

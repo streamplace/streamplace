@@ -1,12 +1,12 @@
 import {
   Agent,
+  AppBskyActorDefs,
   AppBskyFeedPost,
   AppBskyGraphBlock,
   BlobRef,
+  ComAtprotoRepoListRecords,
   RichText,
 } from "@atproto/api";
-import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
-import { OutputSchema } from "@atproto/api/dist/client/types/com/atproto/repo/listRecords";
 import { bytesToMultibase, Secp256k1Keypair } from "@atproto/crypto";
 import { OAuthSession } from "@atproto/oauth-client";
 import { storage } from "@streamplace/components";
@@ -36,8 +36,8 @@ export interface BlueskySlice {
   sessionScope: null | string;
   pdsAgent: null | StreamplaceAgent;
   anonPDSAgent: null | StreamplaceAgent;
-  profiles: { [key: string]: ProfileViewDetailed };
-  profileCache: { [key: string]: ProfileViewDetailed };
+  profiles: { [key: string]: AppBskyActorDefs.ProfileViewDetailed };
+  profileCache: { [key: string]: AppBskyActorDefs.ProfileViewDetailed };
   client: null | OAuthClient;
   loginState: {
     loading: boolean;
@@ -54,7 +54,7 @@ export interface BlueskySlice {
   streamKeysResponse: {
     loading: boolean;
     error: null | string;
-    records: null | OutputSchema;
+    records: null | ComAtprotoRepoListRecords.OutputSchema;
   };
   newLivestream: null | NewLivestream;
   chatProfile: {
@@ -131,7 +131,7 @@ const uploadThumbnail = async (
   handle: string,
   u: URL,
   pdsAgent: StreamplaceAgent,
-  profile: ProfileViewDetailed,
+  profile: AppBskyActorDefs.ProfileViewDetailed,
   customThumbnail?: Blob,
 ) => {
   if (customThumbnail) {

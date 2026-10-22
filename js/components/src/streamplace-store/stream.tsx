@@ -1,5 +1,9 @@
-import { AppBskyFeedPost, BlobRef, RichText } from "@atproto/api";
-import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
+import {
+  AppBskyActorDefs,
+  AppBskyFeedPost,
+  BlobRef,
+  RichText,
+} from "@atproto/api";
 import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { LivestreamViewHydrated, place, StreamplaceAgent } from "streamplace";
 import { useUrl } from "./streamplace-store";
@@ -89,7 +93,7 @@ async function createNewPost(
 async function buildGoLivePost(
   text: string,
   url: URL,
-  profile: ProfileViewDetailed,
+  profile: AppBskyActorDefs.ProfileViewDetailed,
   params: URLSearchParams,
   thumbnail: BlobRef | undefined,
   agent: StreamplaceAgent,

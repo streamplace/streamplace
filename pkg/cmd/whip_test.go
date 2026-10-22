@@ -42,7 +42,7 @@ func TestWHIPRetryStartsAnotherSession(t *testing.T) {
 		"retry should have started a second WHIP session")
 	cancel()
 	select {
-	case <-done:
+	case <-done: //nolint:errcheck // only the exit matters
 	case <-time.After(10 * time.Second):
 		t.Fatal("client did not exit after cancellation")
 	}

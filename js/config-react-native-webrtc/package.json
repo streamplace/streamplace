@@ -12,7 +12,7 @@
     "rtcaudiodevice": "git+https://github.com/streamplace/RTCAudioDevice.git#38bf55484ca14366e4322c565aa4ed025107734b"
   },
   "devDependencies": {
-    "typescript": "~5.3.3"
+    "typescript": "~5.9.3"
   },
   "main": "./dist/config-react-native-webrtc.js",
   "src": "./src/config-react-native-webrtc.ts",

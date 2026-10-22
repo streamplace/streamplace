@@ -1,6 +1,8 @@
-import { Agent } from "@atproto/api";
-import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
-import { OutputSchema } from "@atproto/api/dist/client/types/com/atproto/repo/listRecords";
+import {
+  Agent,
+  AppBskyActorDefs,
+  ComAtprotoRepoListRecords,
+} from "@atproto/api";
 import { OAuthSession } from "@atproto/oauth-client-browser";
 import { getBrowserName } from "@streamplace/core";
 import { StreamplaceAgent, place } from "streamplace";
@@ -22,8 +24,8 @@ export interface BlueskySlice {
   oauthSession?: null | OAuthSession;
   pdsAgent: null | StreamplaceAgent;
   anonPDSAgent: null | StreamplaceAgent;
-  profiles: { [key: string]: ProfileViewDetailed };
-  profileCache: { [key: string]: ProfileViewDetailed };
+  profiles: { [key: string]: AppBskyActorDefs.ProfileViewDetailed };
+  profileCache: { [key: string]: AppBskyActorDefs.ProfileViewDetailed };
   profileError: string | null;
   client: null | Awaited<ReturnType<typeof createOAuthClient>>;
   loginState: {
@@ -41,7 +43,7 @@ export interface BlueskySlice {
   streamKeysResponse: {
     loading: boolean;
     error: null | string;
-    records: null | OutputSchema;
+    records: null | ComAtprotoRepoListRecords.OutputSchema;
   };
   newLivestream: null | NewLivestream;
   chatProfile: {

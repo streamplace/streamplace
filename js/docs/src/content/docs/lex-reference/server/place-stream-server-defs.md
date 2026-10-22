@@ -61,10 +61,10 @@ S3 storage configuration for backups.
 
 **Properties:**
 
-| Name       | Type      | Req'd | Description                                                                                   | Constraints |
-| ---------- | --------- | ----- | --------------------------------------------------------------------------------------------- | ----------- |
-| `url`      | `string`  | ✅    | S3 storage URL with masked secret key in format: s3+https://ACCESS_KEY:\*\*\*@endpoint/bucket |             |
-| `isActive` | `boolean` | ✅    | Whether backup storage is currently active.                                                   |             |
+| Name       | Type      | Req'd | Description                                                                                | Constraints |
+| ---------- | --------- | ----- | ------------------------------------------------------------------------------------------ | ----------- |
+| `url`      | `string`  | ✅    | S3 storage URL with masked secret key in format: s3+https://ACCESS_KEY:***@endpoint/bucket |             |
+| `isActive` | `boolean` | ✅    | Whether backup storage is currently active.                                                |             |
 
 ---
 

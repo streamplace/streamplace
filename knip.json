@@ -1,7 +1,10 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema.json",
-  "project": ["js/streamplace/src/**/*.ts"],
-  "entry": ["js/streamplace/src/index.ts"],
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    "js/streamplace": {
+      "project": ["src/**/*.ts"]
+    }
+  },
   "ignoreWorkspaces": [
     "js/app",
     "js/brand",

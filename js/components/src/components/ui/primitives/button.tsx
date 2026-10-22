@@ -219,11 +219,7 @@ export interface ButtonContentProps extends ViewProps {
   direction?: "row" | "column";
   align?: "flex-start" | "center" | "flex-end";
   justify?:
-    | "flex-start"
-    | "center"
-    | "flex-end"
-    | "space-between"
-    | "space-around";
+    "flex-start" | "center" | "flex-end" | "space-between" | "space-around";
 }
 
 export const ButtonContent = forwardRef<View, ButtonContentProps>(

@@ -68,8 +68,7 @@ export function ContextMenu({
 
   // ugh i hate this
   const frames = videoRendition?.framerate as
-    | { num: number; den: number }
-    | undefined;
+    { num: number; den: number } | undefined;
   let fps =
     frames?.num && frames?.den
       ? Math.round((frames.num / frames.den) * 100) / 100

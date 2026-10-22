@@ -83,6 +83,12 @@ Only when native code changes:
 Then run `pnpm app ios` (or `pnpm app android`). Bump `runtimeVersion` in
 `package.json` only when native dependencies change (it gates expo-updates).
 
+Packages with native code, and React and React Native themselves, are pinned
+to exact versions so that dependency updates keep OTA bundles compatible with
+the shipped binaries. Move them only together with a `runtimeVersion` bump.
+`npx @expo/fingerprint fingerprint:generate --platform ios` (and `android`) in
+`js/app` should report the same native sources before and after an update.
+
 ## Web bundle splitting and Atlas
 
 Secondary screens use module-scope `lazyScreen` imports with screen-local

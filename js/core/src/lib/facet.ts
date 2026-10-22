@@ -1,13 +1,12 @@
 // Taken from ATcute's richtext-segmenter
 // https://github.com/mary-ext/atcute/blob/trunk/packages/bluesky/richtext-segmenter/lib/index.ts
 // repoed b/c we need to import types from @atproto/api not @atcute/bsky
-import { RichText } from "@atproto/api";
-import { Main } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
+import { AppBskyRichtextFacet, RichText } from "@atproto/api";
 import type { place } from "streamplace";
 
 type UnwrapArray<T> = T extends (infer V)[] ? V : never;
 
-export type Facet = Main;
+export type Facet = AppBskyRichtextFacet.Main;
 export type FacetFeature = UnwrapArray<Facet["features"]>;
 
 export interface RichtextSegment {

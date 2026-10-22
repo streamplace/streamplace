@@ -50,7 +50,7 @@ func MakeFirebaseNotifier(ctx context.Context, serviceAccountJSONb64 string) (Fi
 	conf := &firebase.Config{
 		ProjectID: cred.ProjectID,
 	}
-	opt := option.WithCredentialsJSON([]byte(serviceAccountJSON))
+	opt := option.WithAuthCredentialsJSON(option.ServiceAccount, []byte(serviceAccountJSON))
 	app, err := firebase.NewApp(ctx, conf, opt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Firebase app: %w", err)
@@ -81,7 +81,8 @@ func (f *FirebaseNotifierS) BlastTokens(ctx context.Context, tokens []string, bl
 	}
 
 	notification := &messaging.MulticastMessage{
-		Tokens: tokens,
+		// The shipped apps register FCM tokens, not installation IDs.
+		Tokens: tokens, //nolint:staticcheck // moving to Fids needs a native app release
 		Data:   blast.Data,
 		Notification: &messaging.Notification{
 			Title: blast.Title,

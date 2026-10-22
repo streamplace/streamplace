@@ -263,10 +263,14 @@ STATIC_OPTS = \
 	-D "gstreamer-full:gst-full-target-type=static_library" \
 	-D "gstreamer:registry=false"
 
+# GStreamer 1.28.8 skips its docs, and so the plugins_cache_generator the
+# plugin modules' docs ask it for, unless gstcheck is built. Static builds
+# skip the docs entirely.
 SHARED_OPTS = \
 	$(BASE_OPTS) \
 	-D "FFmpeg:default_library=shared" \
-	-D "gstreamer:registry=true"
+	-D "gstreamer:registry=true" \
+	-D "gstreamer:check=enabled"
 
 .PHONY: meson
 meson:

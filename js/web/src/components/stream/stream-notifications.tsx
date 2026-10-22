@@ -1,5 +1,4 @@
-import { $Typed } from "@atproto/api";
-import type { Link as FacetLink } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
+import { $Typed, AppBskyRichtextFacet } from "@atproto/api";
 import type { LivestreamStore } from "@streamplace/core";
 import {
   deleteTeleport,
@@ -128,8 +127,7 @@ function PinnedNotification({
     ? message.author.displayName || formatHandle(message.author)
     : "unknown";
   const messageRecord = message?.record as
-    | ChatMessageViewHydrated["record"]
-    | undefined;
+    ChatMessageViewHydrated["record"] | undefined;
   const text = messageRecord?.text || "";
   const facets = messageRecord?.facets;
 
@@ -239,7 +237,7 @@ function PinnedRichText({
     return <span>{segment.text}</span>;
   }
   if (ftr.$type === "app.bsky.richtext.facet#link") {
-    const linkFtr = ftr as $Typed<FacetLink>;
+    const linkFtr = ftr as $Typed<AppBskyRichtextFacet.Link>;
     return (
       <a
         href={linkFtr.uri}

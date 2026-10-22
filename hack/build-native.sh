@@ -89,7 +89,9 @@ if [[ "$fresh" != true ]]; then
   # rustc's complete list, so a dependency change can be checked against that
   # explicit system-lib list. With --target, proc-macro dylibs live in the
   # separate host profile/deps directories. rustc needs those too when loading
-  # either rlib's crate metadata.
+  # either rlib's crate metadata. Release builds of the same crate version
+  # from both graphs collide (rustc: "colliding StableCrateId values"), so
+  # Cargo.lock keeps rustversion at a different version than MoQ's lockfile.
   "$RUSTC" --edition=2021 --crate-name streamplace_native --crate-type "$crate_type" \
     --target "$triple" "${rustflags[@]}" ${compose_args[@]+"${compose_args[@]}"} --print native-static-libs \
     -L "dependency=$output_dir/iroh/$triple/$profile/deps" \

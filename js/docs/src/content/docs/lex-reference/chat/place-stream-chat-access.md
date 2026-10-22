@@ -53,10 +53,10 @@ Accounts carrying this label from this labeler. A node that sees a rule naming a
 
 **Properties:**
 
-| Name      | Type     | Req'd | Description                                                                     | Constraints     |
-| --------- | -------- | ----- | ------------------------------------------------------------------------------- | --------------- |
-| `labeler` | `string` | ✅    | The labeler's DID.                                                              | Format: `did`   |
-| `value`   | `string` | ✅    | The label value that matches; a trailing \* matches any label with that prefix. | Max Length: 128 |
+| Name      | Type     | Req'd | Description                                                                    | Constraints     |
+| --------- | -------- | ----- | ------------------------------------------------------------------------------ | --------------- |
+| `labeler` | `string` | ✅    | The labeler's DID.                                                             | Format: `did`   |
+| `value`   | `string` | ✅    | The label value that matches; a trailing * matches any label with that prefix. | Max Length: 128 |
 
 ---
 

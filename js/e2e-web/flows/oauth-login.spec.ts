@@ -42,6 +42,7 @@ test("oauth-login: log in, chat, and reopen a profile", async ({ page }) => {
       timeout: 10_000,
     });
   }).toPass({ timeout: 45_000 });
+  await expect(chatInput).toHaveValue("");
   const response = await messageCreateResponse;
   expect(
     response.ok(),
@@ -78,10 +79,11 @@ test("oauth-login: log in, chat, and reopen a profile", async ({ page }) => {
   // existing chat session usable. Reload only afterward to prove persistence.
   const afterProfileMessage = `chat after profile ${Date.now()}`;
   await chatInput.fill(afterProfileMessage);
-  await chatInput.press("Enter");
+  await page.getByTestId("chat-send").click();
   await expect(page.getByText(afterProfileMessage).first()).toBeVisible({
     timeout: 15_000,
   });
+  await expect(chatInput).toHaveValue("");
   await page.reload();
   await expect(page.getByText(afterProfileMessage).first()).toBeVisible({
     timeout: 30_000,

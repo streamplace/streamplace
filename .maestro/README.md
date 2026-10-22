@@ -46,6 +46,33 @@ The organization and generated config are platform-neutral; the current runner
 only provisions Android. No native Go Live scenario exists: native builds hide
 those controls, and `logged-out/tabs.yaml` checks they stay hidden.
 
+## Chat submission coverage
+
+`logged-in/chat-submit.yaml` sends with keyboard Return, then the chat Send
+button, then Return again without erasing or tapping the input between messages.
+Exact message rows and server history catch a sent draft being retained and
+prepended to the next message. The flow is shared by iOS and Android;
+`oauth-login.spec.ts` covers keyboard/button sending and empty fields on Web.
+
+The component regression exercises stale React drafts, final native text,
+single submission, the 300-grapheme limit, preservation of the next draft,
+composer identity, and text-responder continuity.
+On iOS both Send controls transfer focus to a permanently mounted, nonvisible
+companion input and back to the composer. That ends editing to commit pending
+autocorrection without explicitly dismissing the keyboard. Both inputs use the
+same textarea wrapper and keyboard traits, including bottom-sheet integration.
+Submission still waits for the composer's final `onEndEditing` text before
+clearing. The companion is excluded from touch and accessibility navigation.
+Ordinary blur does not send.
+
+Maestro `inputText` does not drive UIKit's autocorrection UI. On a real iOS
+keyboard with Auto-Correction enabled, type a sentence ending in a misspelling
+with a visible correction suggestion, without adding a trailing space. Test the
+keyboard Send key and the app's Send button separately. Each must send exactly
+one corrected message, leave an empty input, and allow a fresh next message
+without the keyboard dropping down and reopening.
+Moving focus away without pressing either Send control must not send anything.
+
 ## Chat timestamp coverage
 
 `logged-in/chat-timezone.yaml` sends a unique message, verifies it survives a

@@ -29,8 +29,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENTITLEMENTS="${ENTITLEMENTS:-$ROOT/js/desktop/entitlements.plist}"
 
 if [ "${SIGN_OFFLINE:-0}" = "1" ]; then
-  SIGN_TIMESTAMP_URL="${SIGN_TIMESTAMP_URL:-none}"
-  SIGN_NOTARIZE="${SIGN_NOTARIZE:-0}"
+  # Offline means no timestamp server and no notarization. Override any online
+  # settings exported for a previous run instead of only supplying defaults.
+  SIGN_TIMESTAMP_URL=none
+  SIGN_NOTARIZE=0
 fi
 
 TIMESTAMP_ARGS=()

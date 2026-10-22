@@ -328,6 +328,8 @@ func TestRelayCursorObserveTimeFromCallbacks(t *testing.T) {
 	require.NoError(t, rsc.RepoCommit(commit))
 	require.Equal(t, want.Unix(), moqCursor.lastEventTime(),
 		"event time is transport-independent, unlike the seq")
+	require.Equal(t, want.UnixMilli()*int64(time.Millisecond), atsync.lastEvent.get(),
+		"and feeds the node-wide position, whether or not the event gets indexed (normalized to ms)")
 
 	identity := &indigoatproto.SyncSubscribeRepos_Identity{
 		Seq:  5_000_000_001,

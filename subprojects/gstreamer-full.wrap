@@ -2,4 +2,4 @@
 url = https://gitlab.freedesktop.org/gstreamer/gstreamer.git
 revision = 1.28.8
 depth = 1
-diff_files = gstreamer-full/0001-temp-remove-qtdemux-hack.patch, gstreamer-full/0002-gst-libav-add-glib_assert-meson-option.patch, gstreamer-full/0003-hack-isomp4-hardcode-creation_time-to-0-for-determin.patch
+diff_files = gstreamer-full/0001-temp-remove-qtdemux-hack.patch, gstreamer-full/0002-gst-libav-add-glib_assert-meson-option.patch, gstreamer-full/0003-hack-isomp4-hardcode-creation_time-to-0-for-determin.patch, gstreamer-full/flvdemux-av1.patch, gstreamer-full/libav-dav1d.patch, gstreamer-full/av1parse-caps.patch

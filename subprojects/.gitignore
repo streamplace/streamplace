@@ -9,3 +9,4 @@
 !packagefiles/**
 !iroh_streamplace.wrap
 !moq.wrap
+!dav1d.wrap

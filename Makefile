@@ -294,13 +294,17 @@ meson-compile:
 
 # Source bootstrap is independent of Meson configuration and is a no-op once
 # the pinned checkout exists, so repeated/offline native builds do not fetch.
-# A checkout of an older pin (moq.wrap's revision changed) is moved to the new
-# one, patches reapplied.
+# A checkout whose wrap changed since it was fetched (a new pin or diff_files)
+# is moved to the wrap's revision, patches reapplied. Fresh checkouts are left
+# to `meson setup`, and `make link-gstreamer` symlinks to your own tree.
 .PHONY: native-source
 native-source:
 	meson subprojects download --sourcedir . moq
-	@[ "$$(git -C subprojects/moq rev-parse HEAD)" = "$$(sed -n 's/^revision = //p' subprojects/moq.wrap)" ] || \
-		meson subprojects update --reset --sourcedir . moq
+	@for p in moq gstreamer-full; do \
+		[ ! -d subprojects/$$p ] || [ -L subprojects/$$p ] || \
+		[ "$$(cat subprojects/$$p/.meson-subproject-wrap-hash.txt 2>/dev/null)" = "$$(shasum -a 256 < subprojects/$$p.wrap | cut -d ' ' -f 1)" ] || \
+		meson subprojects update --reset --sourcedir . $$p || exit 1; \
+	done
 
 
 #    _____ _______    _______ _____ _____

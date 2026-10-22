@@ -1,0 +1,8 @@
+[wrap-file]
+directory = dav1d-1.5.3
+source_url = https://download.videolan.org/pub/videolan/dav1d/1.5.3/dav1d-1.5.3.tar.xz
+source_filename = dav1d-1.5.3.tar.xz
+source_hash = 732010aa5ef461fa93355ed2c6c5fedb48ddc4b74e697eaabe8907eaeb943011
+
+[provide]
+dav1d = dav1d_dep

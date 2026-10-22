@@ -1,0 +1,20 @@
+diff --git a/subprojects/gst-plugins-bad/gst/videoparsers/gstav1parse.c b/subprojects/gst-plugins-bad/gst/videoparsers/gstav1parse.c
+index f19bf8d..e740d54 100644
+--- a/subprojects/gst-plugins-bad/gst/videoparsers/gstav1parse.c
++++ b/subprojects/gst-plugins-bad/gst/videoparsers/gstav1parse.c
+@@ -1068,8 +1068,13 @@ gst_av1_parse_set_sink_caps (GstBaseParse * parse, GstCaps * caps)
+       && default_stream_format)
+     self->detect_annex_b = TRUE;
+ 
+-  gst_av1_parser_reset (self->parser,
+-      self->in_stream_format == GST_AV1_PARSE_STREAM_FORMAT_ANNEX_B);
++  /* A caps update in the same stream format (qtdemux refreshes caps when it
++   * reads each new fragment) must keep the parsed sequence header, else every
++   * frame up to the next sequence header fails as a missing reference. */
++  if (self->parser->annex_b !=
++      (self->in_stream_format == GST_AV1_PARSE_STREAM_FORMAT_ANNEX_B))
++    gst_av1_parser_reset (self->parser,
++        self->in_stream_format == GST_AV1_PARSE_STREAM_FORMAT_ANNEX_B);
+ 
+   return TRUE;
+ }

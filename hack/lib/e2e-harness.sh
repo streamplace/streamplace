@@ -21,6 +21,8 @@
 # paths used by the scoped-indexing/lifecycle tests. SP_E2E_ATMOQ_BIN selects
 # the real released bridge executable. E2E_CONTROL_FIFO feeds harness stdin;
 # writing restart-local restarts only this run's local node.
+# SP_E2E_INGEST (whip, fmp4, none) and SP_E2E_VIDEO (h264, av1) pick how and
+# what the harness streams; see `streamplace e2e --help`.
 #
 # HTTPS mode (for the OAuth flows) is on by default and needs permission to
 # bind 127.0.0.1:443 (root, as in the build container). The harness serves the

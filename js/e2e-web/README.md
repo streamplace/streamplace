@@ -15,7 +15,10 @@ is mobile-only.
   `SERVER_URL`. `SP_E2E_INGEST=fmp4` loops the stream through the OBS plugin's
   fragmented-MP4 ingest instead (CI runs `flows/stream.spec.ts` that way too),
   and `SP_E2E_INGEST=none` streams nothing, so you can push with `STREAM_KEY`
-  from OBS yourself.
+  from OBS yourself. `SP_E2E_VIDEO=av1` streams
+  `test/fixtures/av1-h264-opus.mp4` instead: an AV1 source track with an H.264
+  fallback track over fMP4, the AV1 track alone over WHIP. `flows/av1.spec.ts`
+  runs only then (CI runs it both ways, `flows/stream.spec.ts` too over fMP4).
 - **Shared testIDs:** react-native-web maps `testID` -> `data-testid`, so the
   very same IDs the Maestro flows use (`home-stream-card`,
   `settings-use-custom-node`, `settings-custom-node-url`, `settings-save-node`)

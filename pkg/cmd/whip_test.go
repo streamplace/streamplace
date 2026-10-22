@@ -5,12 +5,14 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/media"
 )
 
 // whipTestServer counts the WHIP requests it receives and fails every one, so a
@@ -107,7 +109,7 @@ func TestWHIPConnectionCancellation(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		client := &WHIPClient{Endpoint: server.URL}
-		_, err := client.StartWHIPConnection(ctx, "test", "")
+		_, err := client.StartWHIPConnection(ctx, "test", "", media.VideoH264)
 		done <- err
 	}()
 	select {
@@ -121,5 +123,17 @@ func TestWHIPConnectionCancellation(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled)
 	case <-time.After(2 * time.Second):
 		t.Fatal("cancellation did not interrupt stalled WHIP request")
+	}
+}
+
+// `streamplace whip` publishes an input's first video track in its own codec:
+// the e2e harness's AV1 run sends av1-h264-opus.mp4's AV1 track.
+func TestFileVideoCodec(t *testing.T) {
+	for fixture, want := range map[string]media.VideoCodec{
+		"av1-h264-opus.mp4":  media.VideoAV1,
+		"h264-opus-frag.mp4": media.VideoH264,
+		"does-not-exist.mp4": media.VideoH264,
+	} {
+		require.Equal(t, want.Name, fileVideoCodec(filepath.Join("..", "..", "test", "fixtures", fixture)).Name, fixture)
 	}
 }

@@ -33,10 +33,11 @@ func sourceOpus(ctx context.Context, seg []byte) (uint64, map[string][]byte, boo
 	if cat == nil || cat.Video == nil || cat.Audio == nil || tracks == nil {
 		return 0, nil, false
 	}
+	// The renditions are transcoded from, and retimed onto, the source's
+	// first H.264 track.
 	var videoID string
-	for _, v := range cat.Video.Renditions {
+	if v, _, ok := pickVideoTrack(cat, onlyH264); ok {
 		videoID = strconv.FormatUint(uint64(v.TrackID()), 10)
-		break
 	}
 	all := audioTracks(cat)
 	var opusIDs []uint32

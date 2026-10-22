@@ -58,10 +58,16 @@ func nodeSignerForTest(t *testing.T) (cert, keyPEM []byte) {
 
 // The fixture signed as a streamer's source segment (the first GoP).
 func sourceSegmentForTest(t *testing.T) []byte {
+	return fixtureSegmentForTest(t, "h264-opus-frag.mp4")
+}
+
+// fixtureSegmentForTest is a fragmented fixture's first GoP signed as a
+// streamer's source segment.
+func fixtureSegmentForTest(t *testing.T, fixture string) []byte {
 	t.Helper()
 	ctx := context.Background()
 	ms := newBareSegmentSigner(t)
-	frag, err := os.ReadFile(getFixture("h264-opus-frag.mp4"))
+	frag, err := os.ReadFile(getFixture(fixture))
 	require.NoError(t, err)
 	eventCh := make(chan *muxl.MuxlEvent, 16)
 	errCh := make(chan error, 1)

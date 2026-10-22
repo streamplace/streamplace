@@ -14,12 +14,16 @@ import (
 	"stream.place/streamplace/pkg/placestream"
 )
 
+// SegmentMediadataVideo is one video track. Codec is the lexicon's name
+// ("h264", "av1"); a row written before the codec was recorded has none, and
+// every such segment's video was H.264.
 type SegmentMediadataVideo struct {
-	Width   int  `json:"width"`
-	Height  int  `json:"height"`
-	FPSNum  int  `json:"fpsNum"`
-	FPSDen  int  `json:"fpsDen"`
-	BFrames bool `json:"bframes"`
+	Codec   string `json:"codec,omitempty"`
+	Width   int    `json:"width"`
+	Height  int    `json:"height"`
+	FPSNum  int    `json:"fpsNum"`
+	FPSDen  int    `json:"fpsDen"`
+	BFrames bool   `json:"bframes"`
 }
 
 // SegmentMediadataAudio is one audio track. Codec is the lexicon's name
@@ -199,6 +203,27 @@ func (s *Segment) ToStreamplaceSegment() (*placestream.Segment, error) {
 		}
 	}
 
+	video := make([]placestream.Segment_Video, 0, len(s.MediaData.Video))
+	for _, v := range s.MediaData.Video {
+		if v == nil {
+			continue
+		}
+		codec := v.Codec
+		if codec == "" {
+			codec = "h264"
+		}
+		video = append(video, placestream.Segment_Video{
+			Codec:  codec,
+			Width:  int64(v.Width),
+			Height: int64(v.Height),
+			Framerate: &placestream.Segment_Framerate{
+				Num: int64(v.FPSNum),
+				Den: int64(v.FPSDen),
+			},
+			Bframes: &v.BFrames,
+		})
+	}
+
 	audio := make([]placestream.Segment_Audio, 0, len(s.MediaData.Audio))
 	for _, a := range s.MediaData.Audio {
 		codec := a.Codec
@@ -234,19 +259,8 @@ func (s *Segment) ToStreamplaceSegment() (*placestream.Segment, error) {
 		ContentRights:      contentRights,
 		ContentWarnings:    contentWarnings,
 		DistributionPolicy: distributionPolicy,
-		Video: []placestream.Segment_Video{
-			{
-				Codec:  "h264",
-				Width:  int64(s.MediaData.Video[0].Width),
-				Height: int64(s.MediaData.Video[0].Height),
-				Framerate: &placestream.Segment_Framerate{
-					Num: int64(s.MediaData.Video[0].FPSNum),
-					Den: int64(s.MediaData.Video[0].FPSDen),
-				},
-				Bframes: &s.MediaData.Video[0].BFrames,
-			},
-		},
-		Audio: audio,
+		Video:              video,
+		Audio:              audio,
 	}, nil
 }
 

@@ -29,6 +29,7 @@ func TestLocalRecords(t *testing.T) {
 		return `{"$type":"` + video + `","codec":"` + codec + `","width":1920,"height":1080,"framerate":{"numerator":60,"denominator":1},"bitrate":6000,"createdAt":"2026-10-18T00:00:00Z"}`
 	}
 
+	require.NoError(t, put(`{"repo":"`+me+`","collection":"`+video+`","rkey":"main","record":`+record("av1")+`}`))
 	require.NoError(t, put(`{"repo":"`+me+`","collection":"`+video+`","rkey":"main","record":`+record("h264")+`}`))
 	require.ErrorContains(t, put(`{"repo":"did:plc:other","collection":"`+video+`","rkey":"main","record":`+record("h264")+`}`), "your own repo")
 	require.ErrorContains(t, put(`{"repo":"`+me+`","collection":"place.stream.livestream","rkey":"main","record":`+record("h264")+`}`), "InvalidCollection")
@@ -41,7 +42,7 @@ func TestLocalRecords(t *testing.T) {
 	require.Equal(t, "at://"+me+"/"+video+"/main", list.Records[0].Uri)
 	got, err := json.Marshal(list.Records[0].Value)
 	require.NoError(t, err)
-	require.JSONEq(t, record("h264"), string(got), "the record as written, h264 kept over the refused vp8")
+	require.JSONEq(t, record("h264"), string(got), "the last record written, h264 kept over the refused vp8")
 
 	_, err = s.handlePlaceStreamLocalDeleteRecord(ctx, &placestream.LocalDeleteRecord_Input{Repo: me, Collection: video, Rkey: "main"})
 	require.NoError(t, err)

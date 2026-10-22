@@ -3,6 +3,7 @@ package media
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -143,6 +144,20 @@ func thumbnailFromMP4(ctx context.Context, flat []byte, w io.Writer, format stri
 	}
 }
 
+// SegmentThumbnail renders a thumbnail of a live source segment (a bare
+// canonical .m4s) from its first H.264 track, the cheap one to decode, or,
+// with none (an AV1-only stream), from its first video track.
+func SegmentThumbnail(ctx context.Context, seg []byte, w io.Writer, format string) error {
+	pres, err := presentationWithOpus(ctx, seg, onlyH264)
+	if errors.Is(err, errNoVideoTrack) {
+		pres, err = presentationWithOpus(ctx, seg, nil)
+	}
+	if err != nil {
+		return fmt.Errorf("select thumbnail video: %w", err)
+	}
+	return Thumbnail(ctx, bytes.NewReader(pres), w, format)
+}
+
 func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) error {
 	ctx = log.WithLogValues(ctx, "function", "Thumbnail")
 	ctx, cancel := context.WithCancel(ctx)
@@ -185,7 +200,7 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) err
 		return fmt.Errorf("error creating Thumbnail pipeline: parsed description is not a pipeline")
 	}
 
-	demuxBin, err := ConcatDemuxBin(ctx, seg, false, 1)
+	demuxBin, err := ConcatDemuxBin(ctx, seg, VideoCodec{}, 1)
 	if err != nil {
 		return fmt.Errorf("failed to create demux bin: %w", err)
 	}

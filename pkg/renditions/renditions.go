@@ -180,13 +180,29 @@ func GenerateRenditions(spseg *placestream.Segment) (Renditions, error) {
 	return GenerateRenditionsFrom(spseg, DesiredRenditions)
 }
 
+// H264Source is the video track the transcoder takes from spseg: its first
+// H.264 track (Livepeer only takes H.264, and a segment's first track, the
+// source, may be AV1), or nil.
+func H264Source(spseg *placestream.Segment) *placestream.Segment_Video {
+	for i := range spseg.Video {
+		if spseg.Video[i].Codec == "h264" {
+			return &spseg.Video[i]
+		}
+	}
+	return nil
+}
+
 // GenerateRenditionsFrom generates the renditions of ladder (see Ladder)
-// that fit under spseg's video.
+// that fit under spseg's H.264 video (see H264Source); none when it has no
+// H.264 track.
 func GenerateRenditionsFrom(spseg *placestream.Segment, ladder []Rendition) (Renditions, error) {
 	if len(spseg.Video) == 0 {
 		return nil, fmt.Errorf("no video stream found")
 	}
-	vid := spseg.Video[0]
+	vid := H264Source(spseg)
+	if vid == nil {
+		return Renditions{}, nil
+	}
 	rs := []Rendition{}
 	for _, r := range ladder {
 		vidWidth := int64(vid.Width)
@@ -236,16 +252,17 @@ func GenerateRenditionsFrom(spseg *placestream.Segment, ladder []Rendition) (Ren
 		// 	outR.Width = r.Width
 		// 	outR.Height = int64(float64(vid.Width) * (9.0 / 16.0) * ratio)
 		// }
-		if vid.Framerate.Den > 0 {
-			vidFPS := float64(vid.Framerate.Num) / float64(vid.Framerate.Den)
+		// Halve the source rate until it fits the rung's: a 120 fps source
+		// becomes 60 fps on a 60 fps rung and 30 fps on a 30 fps one.
+		if vid.Framerate.Num > 0 && vid.Framerate.Den > 0 {
 			rFPS := float64(r.Framerate.Num) / float64(r.Framerate.Den)
-			delta := rFPS / vidFPS
-
-			if rFPS < vidFPS {
-				if delta < 0.75 {
-					outR.Framerate.Num = uint(vid.Framerate.Num)
-					outR.Framerate.Den = uint(vid.Framerate.Den * 2)
-				}
+			den := vid.Framerate.Den
+			for rFPS > 0 && rFPS/(float64(vid.Framerate.Num)/float64(den)) < 0.75 {
+				den *= 2
+			}
+			if den != vid.Framerate.Den {
+				outR.Framerate.Num = uint(vid.Framerate.Num)
+				outR.Framerate.Den = uint(den)
 			}
 		}
 

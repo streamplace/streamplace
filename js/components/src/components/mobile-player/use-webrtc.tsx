@@ -1,4 +1,8 @@
-import type { AudioTrackGroup } from "@streamplace/core";
+import {
+  offerWithoutAV1,
+  useSmoothAV1,
+  type AudioTrackGroup,
+} from "@streamplace/core";
 import { useEffect, useRef, useState } from "react";
 import * as sdpTransform from "sdp-transform";
 import { place, StreamplaceAgent } from "streamplace";
@@ -11,6 +15,7 @@ import {
   useStreamKey,
   useStreamplaceStore,
 } from "../..";
+import { useLivestreamStoreOptional } from "../../livestream-store/use-store";
 import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
 
 // The group of the audio track the node sends on an audio transceiver, from
@@ -65,6 +70,12 @@ export default function useWebRTC(
     myDID &&
     (streamer === myDID || streamer === myHandle)
   );
+  // The stream's source track, which the node sends when the offer lists
+  // its codec; a connection is made again if this device turns out to
+  // decode it poorly.
+  const smoothAV1 = useSmoothAV1(
+    useLivestreamStoreOptional((x) => x.segment?.video?.[0]),
+  );
 
   const lastChange = useRef<number>(0);
 
@@ -75,9 +86,12 @@ export default function useWebRTC(
     const peerConnection = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
     });
-    peerConnection.addTransceiver("video", {
+    const videoTransceiver = peerConnection.addTransceiver("video", {
       direction: "recvonly",
     });
+    if (!smoothAV1) {
+      offerWithoutAV1(videoTransceiver);
+    }
     // The node sends the full mix on the first audio transceiver and up to
     // two stems on the others.
     const audioTransceivers = [0, 1, 2].map(() =>
@@ -184,7 +198,7 @@ export default function useWebRTC(
       clearInterval(handle);
       peerConnection.close();
     };
-  }, [streamer, agent, isOwnStream, playbackWorkerUrl, rendition]);
+  }, [streamer, agent, isOwnStream, playbackWorkerUrl, rendition, smoothAV1]);
   return [mediaStream, stuck, audioTracks, audioGroups];
 }
 

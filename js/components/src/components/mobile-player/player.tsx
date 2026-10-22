@@ -40,10 +40,11 @@ export function Player(
   const muted = useMuted();
   // A stream whose segments carry B-frames can't play over WebRTC (the
   // encoder can't always be talked out of them), so hold such a stream on
-  // HLS. The segment record says; the viewer's low-latency preference is
-  // kept for streams that can use it.
+  // HLS. The segment record says, per video track: a viewer may get any of
+  // them. The viewer's low-latency preference is kept for streams that can
+  // use it.
   const streamHasBFrames = useLivestreamStoreOptional(
-    (x) => x.segment?.video?.[0]?.bframes === true,
+    (x) => x.segment?.video?.some((v) => v.bframes === true) === true,
   );
   const streamForcesHLS = usePlayerStore((x) => x.streamForcesHLS);
   const setStreamForcesHLS = usePlayerStore((x) => x.setStreamForcesHLS);

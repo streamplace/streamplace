@@ -8,6 +8,7 @@ export interface WebRTCDiagnostics {
   getUserMedia: boolean;
   getDisplayMedia: boolean;
   isHwH264Supported: boolean;
+  isAV1Supported: boolean;
   errors: string[];
   warnings: string[];
 }
@@ -21,6 +22,7 @@ export function useWebRTCDiagnostics(): WebRTCDiagnostics {
     getUserMedia: false,
     getDisplayMedia: false,
     isHwH264Supported: false,
+    isAV1Supported: false,
     errors: [],
     warnings: [],
   });
@@ -28,23 +30,6 @@ export function useWebRTCDiagnostics(): WebRTCDiagnostics {
   useEffect(() => {
     const errors: string[] = [];
     const warnings: string[] = [];
-
-    const checkH264Support = async (): Promise<boolean> => {
-      try {
-        const pc = new RTCPeerConnection();
-        const offer = await pc.createOffer();
-        pc.close();
-
-        if (offer.sdp) {
-          const h264Match = offer.sdp.search(/rtpmap:([0-9]+) H264/g);
-          return h264Match !== -1;
-        }
-        return false;
-      } catch (error) {
-        console.warn("Failed to check H.264 support:", error);
-        return false;
-      }
-    };
 
     // Check if we're in a browser environment
     if (typeof window === "undefined") {
@@ -57,6 +42,7 @@ export function useWebRTCDiagnostics(): WebRTCDiagnostics {
         getUserMedia: false,
         getDisplayMedia: false,
         isHwH264Supported: false,
+        isAV1Supported: false,
         errors,
         warnings,
       });
@@ -125,26 +111,34 @@ export function useWebRTCDiagnostics(): WebRTCDiagnostics {
 
     const browserSupport = rtcPeerConnection && rtcSessionDescription;
 
-    // Check H.264 support asynchronously
+    // Check video codec support asynchronously
     if (rtcPeerConnection) {
-      checkH264Support().then((isHwH264Supported) => {
-        if (!isHwH264Supported) {
-          warnings.push(
-            "H.264 hardware acceleration is not supported\n In Firefox, try enabling 'media.webrtc.hw.h264.enabled' in about:config",
-          );
-        }
-        setDiagnostics({
-          done: true,
-          browserSupport,
-          rtcPeerConnection,
-          rtcSessionDescription,
-          getUserMedia,
-          getDisplayMedia,
-          isHwH264Supported,
-          errors,
-          warnings,
+      videoCodecSupport()
+        .catch((error) => {
+          console.warn("Failed to check video codec support:", error);
+          return { h264: false, av1: false };
+        })
+        .then(({ h264, av1 }) => {
+          // The node sends AV1 when the stream has it and the viewer offers
+          // it, else H.264.
+          if (!h264) {
+            warnings.push(
+              `H.264 is not supported${av1 ? ", so only streams with AV1 play" : ""}\n In Firefox, try enabling 'media.webrtc.hw.h264.enabled' in about:config`,
+            );
+          }
+          setDiagnostics({
+            done: true,
+            browserSupport,
+            rtcPeerConnection,
+            rtcSessionDescription,
+            getUserMedia,
+            getDisplayMedia,
+            isHwH264Supported: h264,
+            isAV1Supported: av1,
+            errors,
+            warnings,
+          });
         });
-      });
     } else {
       setDiagnostics({
         done: true,
@@ -154,6 +148,7 @@ export function useWebRTCDiagnostics(): WebRTCDiagnostics {
         getUserMedia,
         getDisplayMedia,
         isHwH264Supported: false,
+        isAV1Supported: false,
         errors,
         warnings,
       });
@@ -161,6 +156,20 @@ export function useWebRTCDiagnostics(): WebRTCDiagnostics {
   }, []);
 
   return diagnostics;
+}
+
+// The video codecs this browser offers to receive over WebRTC.
+async function videoCodecSupport(): Promise<{ h264: boolean; av1: boolean }> {
+  const pc = new RTCPeerConnection();
+  try {
+    const { sdp = "" } = await pc.createOffer({ offerToReceiveVideo: true });
+    return {
+      h264: /rtpmap:\d+ H264\//.test(sdp),
+      av1: /rtpmap:\d+ AV1/.test(sdp),
+    };
+  } finally {
+    pc.close();
+  }
 }
 
 export async function logWebRTCDiagnostics() {
@@ -178,29 +187,14 @@ export async function logWebRTCDiagnostics() {
   console.log("Host:", location.hostname);
   console.groupEnd();
   if (window.RTCPeerConnection) {
+    console.group("WebRTC Peer Connection Test");
     try {
-      const pc = new RTCPeerConnection();
-      // Check H.264 support
-      try {
-        const offer = await pc.createOffer({ offerToReceiveVideo: true });
-        const isHwH264Supported = offer.sdp
-          ? offer.sdp.search(/rtpmap:([0-9]+) H264/g) !== -1
-          : false;
-        console.group("WebRTC Peer Connection Test");
-        console.log("RTCPeerConnection creation: ✓ Success");
-        console.log(
-          "H.264 support:",
-          isHwH264Supported ? "✓ Supported" : "✗ Not supported",
-        );
-      } catch (error) {
-        console.group("WebRTC Peer Connection Test");
-        console.error("H.264 check failed:", error);
-      }
-
-      pc.close();
+      const { h264, av1 } = await videoCodecSupport();
+      console.log("RTCPeerConnection creation: ✓ Success");
+      console.log("H.264 support:", h264 ? "✓ Supported" : "✗ Not supported");
+      console.log("AV1 support:", av1 ? "✓ Supported" : "✗ Not supported");
     } catch (error) {
-      console.group("WebRTC Peer Connection Test");
-      console.error("RTCPeerConnection creation: ✗ Failed", error);
+      console.error("Video codec check failed:", error);
     }
   }
   console.groupEnd();

@@ -23,5 +23,8 @@ overrides:
   # Expo SDK 55 peers on typescript ^5; without this, optional typescript peers
   # resolve to 6.x.
   typescript: ~5.9.3
+  # jsdom 30 needs Node 22.22; the builder runs 22.15. Without this, vitest's
+  # optional jsdom peer resolves to 30 in workspaces that don't list jsdom.
+  jsdom: ^29.1.1
   # lerna pulls in this deprecated stub, which breaks tsc's implicit @types.
   "@types/parse-path": "-"

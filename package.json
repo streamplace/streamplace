@@ -38,8 +38,8 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "^9.1.6",
     "knip": "^6.42.1",
-    "lerna": "^10.1.1",
-    "lint-staged": "^17.6.0",
+    "lerna": "~10.0.1",
+    "lint-staged": "^16.4.0",
     "prettier": "3.9.10",
     "typescript": "^5.9.3"
   },

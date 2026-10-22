@@ -59,7 +59,7 @@ describe("video notification overlays", () => {
         <VideoSectionInner
           user="streamer.example"
           liveness={liveness}
-          segment={null}
+          videos={null}
           problems={[]}
           playlistUrl="https://node.example/playlist.m3u8"
           thumbnailUrl="https://node.example/poster.jpg"

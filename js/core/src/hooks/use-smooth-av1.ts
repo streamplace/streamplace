@@ -6,30 +6,43 @@ import type { place } from "streamplace";
 const AV1_BITS_PER_PIXEL = 20_000_000 / (3840 * 2160 * 30);
 
 /**
- * Whether this device decodes the stream's AV1 source track smoothly over
- * WebRTC, given the latest segment's first video track. A software decoder
- * can stutter on a 4K120 source; then the player should offer without AV1
- * (see offerWithoutAV1) so the node sends the stream's H.264 fallback.
- * True for non-AV1 tracks, before a segment arrives, and where the browser
- * can't tell (React Native, older browsers).
+ * Whether this device should take the stream's AV1 source track over
+ * WebRTC, given the latest segment's video tracks (the source first). A
+ * software decoder can stutter on a 4K120 source; then the player should
+ * offer without AV1 (see offerWithoutAV1) so the node sends the stream's
+ * H.264 fallback. Where the device can't tell (React Native, browsers
+ * without MediaCapabilities for WebRTC), it takes the fallback when the
+ * stream has one: phones decode H.264 in hardware. True for non-AV1
+ * sources and before a segment arrives.
  */
 export function useSmoothAV1(
-  video: place.stream.segment.Video | null | undefined,
+  videos: place.stream.segment.Video[] | null | undefined,
 ): boolean {
   const [smooth, setSmooth] = useState(true);
-  const av1 = video?.codec === "av1";
-  const width = video?.width ?? 0;
-  const height = video?.height ?? 0;
-  const num = video?.framerate?.num ?? 0;
-  const den = video?.framerate?.den ?? 0;
+  const source = videos?.[0];
+  const av1 = source?.codec === "av1";
+  const hasH264 = !!videos?.some((v) => v.codec === "h264");
+  const width = source?.width ?? 0;
+  const height = source?.height ?? 0;
+  const num = source?.framerate?.num ?? 0;
+  const den = source?.framerate?.den ?? 0;
 
   useEffect(() => {
+    if (!av1) {
+      setSmooth(true);
+      return;
+    }
+    const cantTell = (why: string) => {
+      console.log(
+        `AV1 ${width}x${height}: ${why}, ${hasH264 ? "offering without AV1 for the H.264 fallback" : "offering AV1, the stream has no fallback"}`,
+      );
+      setSmooth(!hasH264);
+    };
     if (
-      !av1 ||
       typeof navigator === "undefined" ||
       !navigator.mediaCapabilities?.decodingInfo
     ) {
-      setSmooth(true);
+      cantTell("no MediaCapabilities");
       return;
     }
     let cancelled = false;
@@ -55,22 +68,30 @@ export function useSmoothAV1(
           );
           setSmooth(info.smooth);
         },
-        (err) => console.warn("AV1 decodingInfo failed", err),
+        (err) => {
+          if (!cancelled) {
+            cantTell(`decodingInfo failed (${err})`);
+          }
+        },
       );
     return () => {
       cancelled = true;
     };
-  }, [av1, width, height, num, den]);
+  }, [av1, hasH264, width, height, num, den]);
 
   return smooth;
 }
 
-/** Leaves AV1 out of a playback offer's video codecs, where the browser can. */
-export function offerWithoutAV1(transceiver: RTCRtpTransceiver) {
-  const codecs =
-    typeof RTCRtpReceiver === "undefined"
-      ? undefined
-      : RTCRtpReceiver.getCapabilities("video")?.codecs;
+/**
+ * Leaves AV1 out of a playback offer's video codecs, where the platform can.
+ * receiver is the platform's RTCRtpReceiver (react-native-webrtc's on
+ * native, where it isn't a global).
+ */
+export function offerWithoutAV1(
+  transceiver: RTCRtpTransceiver,
+  receiver: Pick<typeof RTCRtpReceiver, "getCapabilities"> | undefined,
+) {
+  const codecs = receiver?.getCapabilities("video")?.codecs;
   if (!codecs || !transceiver.setCodecPreferences) {
     return;
   }

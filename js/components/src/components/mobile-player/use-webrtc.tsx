@@ -16,7 +16,11 @@ import {
   useStreamplaceStore,
 } from "../..";
 import { useLivestreamStoreOptional } from "../../livestream-store/use-store";
-import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
+import {
+  RTCPeerConnection,
+  RTCRtpReceiver,
+  RTCSessionDescription,
+} from "./webrtc-primitives";
 
 // The group of the audio track the node sends on an audio transceiver, from
 // its answer: stems are "audio-g<group>" (see media.WebRTCPlayback2) and the
@@ -70,11 +74,11 @@ export default function useWebRTC(
     myDID &&
     (streamer === myDID || streamer === myHandle)
   );
-  // The stream's source track, which the node sends when the offer lists
-  // its codec; a connection is made again if this device turns out to
-  // decode it poorly.
+  // The stream's video tracks, the source first: the node sends the source
+  // when the offer lists its codec, else the H.264 fallback. A connection is
+  // made again if this device turns out not to take the AV1 source.
   const smoothAV1 = useSmoothAV1(
-    useLivestreamStoreOptional((x) => x.segment?.video?.[0]),
+    useLivestreamStoreOptional((x) => x.segment?.video),
   );
 
   const lastChange = useRef<number>(0);
@@ -90,7 +94,7 @@ export default function useWebRTC(
       direction: "recvonly",
     });
     if (!smoothAV1) {
-      offerWithoutAV1(videoTransceiver);
+      offerWithoutAV1(videoTransceiver, RTCRtpReceiver);
     }
     // The node sends the full mix on the first audio transceiver and up to
     // two stems on the others.

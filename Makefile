@@ -741,6 +741,7 @@ $(addprefix obs-plugin-,$(OBS_PLUGIN_TARGETS)): obs-plugin-%:
 	cd obs-plugin \
 	&& meson setup --reconfigure build-$* $(OBS_PLUGIN_CROSS_FILE_$*) -Dplugin_version=$(VERSION) \
 	&& meson compile -C build-$*
+	./obs-plugin/package.sh $* $(VERSION) $(OUT_DIR)
 
 # local obs plugin build for whatever you're on
 .PHONY: obs-plugin

@@ -187,12 +187,14 @@ func renditionEdge(width, height uint32) uint32 {
 
 // renditionNames names the video tracks, highest first, once per name, but
 // for the source's: the first track, whose fallbacks in other codecs go by
-// its name.
+// its name. A name needs an H.264 track, as WebRTC plays a name only then
+// (see bus.PacketizedSegment.Renditions).
 func renditionNames(tracks []livehls.VideoTrack) []string {
 	type named struct {
 		id   uint64
 		edge uint32
 		name string
+		h264 bool
 	}
 	var rs []named
 	for _, t := range tracks {
@@ -200,7 +202,8 @@ func renditionNames(tracks []livehls.VideoTrack) []string {
 		if err != nil || t.Height == 0 {
 			continue
 		}
-		rs = append(rs, named{id: id, edge: renditionEdge(t.Width, t.Height), name: RenditionName(t.Width, t.Height)})
+		c, _ := VideoCodecForCatalog(t.Codec)
+		rs = append(rs, named{id: id, edge: renditionEdge(t.Width, t.Height), name: RenditionName(t.Width, t.Height), h264: c.Name == VideoH264.Name})
 	}
 	if len(rs) == 0 {
 		return nil
@@ -209,7 +212,7 @@ func renditionNames(tracks []livehls.VideoTrack) []string {
 	sort.SliceStable(rs, func(i, j int) bool { return rs[i].edge > rs[j].edge })
 	var names []string
 	for _, r := range rs {
-		if r.name != source && !slices.Contains(names, r.name) {
+		if r.h264 && r.name != source && !slices.Contains(names, r.name) {
 			names = append(names, r.name)
 		}
 	}

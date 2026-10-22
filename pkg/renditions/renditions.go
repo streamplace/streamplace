@@ -194,8 +194,9 @@ func H264Source(spseg *placestream.Segment) *placestream.Segment_Video {
 
 // GenerateRenditionsFrom generates the renditions of ladder (see Ladder)
 // that fit under spseg's H.264 video (see H264Source); none when it has no
-// H.264 track. A rung one of spseg's video tracks already goes by (the
-// streamer encoded it) is left to that track.
+// H.264 track. A rung one of spseg's H.264 tracks already goes by (the
+// streamer encoded it) is left to that track; one only an AV1 track goes by
+// is still made, for viewers that can't take AV1.
 func GenerateRenditionsFrom(spseg *placestream.Segment, ladder []Rendition) (Renditions, error) {
 	if len(spseg.Video) == 0 {
 		return nil, fmt.Errorf("no video stream found")
@@ -206,7 +207,9 @@ func GenerateRenditionsFrom(spseg *placestream.Segment, ladder []Rendition) (Ren
 	}
 	carried := map[string]bool{}
 	for _, v := range spseg.Video {
-		carried[fmt.Sprintf("%dp", min(v.Width, v.Height))] = true
+		if v.Codec == "h264" {
+			carried[fmt.Sprintf("%dp", min(v.Width, v.Height))] = true
+		}
 	}
 	rs := []Rendition{}
 	for _, r := range ladder {

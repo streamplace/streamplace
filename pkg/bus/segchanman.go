@@ -3,6 +3,7 @@ package bus
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -69,7 +70,10 @@ func (p *PacketizedSegment) VideoSamples(mimeType string) []PacketizedSample {
 
 // Renditions splits off the video tracks the streamer sent alongside the
 // source under another name: one segment per name, keyed by it, with that
-// name's tracks (each codec it was encoded in) and the source's audio.
+// name's tracks (each codec it was encoded in) and the source's audio. A
+// name needs an H.264 track, which every viewer can take; one the streamer
+// sent only in AV1 is the transcoder's to make (see
+// renditions.GenerateRenditionsFrom).
 func (p *PacketizedSegment) Renditions() map[string]*PacketizedSegment {
 	out := map[string]*PacketizedSegment{}
 	for _, v := range p.Video {
@@ -82,6 +86,11 @@ func (p *PacketizedSegment) Renditions() map[string]*PacketizedSegment {
 			out[v.Name] = r
 		}
 		r.Video = append(r.Video, v)
+	}
+	for name, r := range out {
+		if !slices.ContainsFunc(r.Video, func(v PacketizedVideo) bool { return v.MimeType == "video/H264" }) {
+			delete(out, name)
+		}
 	}
 	return out
 }

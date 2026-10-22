@@ -81,7 +81,7 @@ func TestVideoConfigurationsFramerate(t *testing.T) {
 		{rate(30, 1), rate(60, 1), false},
 		{rate(0, 0), rate(24, 1), true}, // OBS didn't say
 	} {
-		configs, problem := videoConfigurations(at(tc.rendition), &tc.canvas)
+		configs, problem := videoConfigurations(at(tc.rendition), []string{"h264"}, &tc.canvas)
 		if tc.ok {
 			require.Empty(t, problem, "%v from %v", tc.rendition, tc.canvas)
 			require.Len(t, configs, 1)
@@ -89,7 +89,34 @@ func TestVideoConfigurationsFramerate(t *testing.T) {
 			require.Contains(t, problem, "can't be encoded", "%v from %v", tc.rendition, tc.canvas)
 		}
 	}
-	configs, problem := videoConfigurations(at(rate(24, 1)), nil)
+	configs, problem := videoConfigurations(at(rate(24, 1)), []string{"h264"}, nil)
 	require.Empty(t, problem, "no canvas, no check")
 	require.Len(t, configs, 1)
+}
+
+// Every rendition becomes a track, in record order, but only in codecs the
+// plugin advertises: plugins before AV1 support get the H.264 renditions, or
+// are told to update when there are none.
+func TestVideoConfigurationsCodecs(t *testing.T) {
+	renditions := []*placestream.IngestVideoRendition{
+		{Codec: "av1", Width: 3840, Height: 2160, Framerate: placestream.IngestDefs_Framerate{Numerator: 120, Denominator: 1}},
+		{Codec: "h264", Width: 1920, Height: 1080, Framerate: placestream.IngestDefs_Framerate{Numerator: 60, Denominator: 1}},
+	}
+	codecs := func(configs []videoConfiguration) (out []string) {
+		for _, c := range configs {
+			out = append(out, c.Codec)
+		}
+		return out
+	}
+
+	configs, problem := videoConfigurations(renditions, []string{"h264", "av1"}, nil)
+	require.Empty(t, problem)
+	require.Equal(t, []string{"av1", "h264"}, codecs(configs))
+
+	configs, problem = videoConfigurations(renditions, []string{"h264"}, nil)
+	require.Empty(t, problem)
+	require.Equal(t, []string{"h264"}, codecs(configs))
+
+	_, problem = videoConfigurations(renditions[:1], []string{"h264"}, nil)
+	require.Contains(t, problem, "Update the plugin")
 }

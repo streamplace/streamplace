@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -213,13 +214,20 @@ func assembleViaWriter(ctx context.Context, store blob.Store, header []byte, key
 
 // metafileToVODResult derives the probe metadata publishTrack needs from the
 // regenerated metafile, standing in for the gstreamer probe that an upload
-// would have produced. publishTrack hardcodes the video codec to h264 and only
-// uses width/height (+ optional framerate), so we leave framerate unset.
+// would have produced. publishTrack only uses the codec and width/height (+
+// optional framerate), so we leave framerate unset. The video is the first
+// video track (lowest track id), the stream's source.
 func metafileToVODResult(meta *Metafile) media.VODResult {
 	var res media.VODResult
-	for _, t := range meta.Tracks {
+	videoID := 0
+	for id, t := range meta.Tracks {
 		switch t.Type {
 		case "video":
+			n, _ := strconv.Atoi(id)
+			if res.Video != nil && n > videoID {
+				break
+			}
+			videoID = n
 			res.Video = &media.VODVideoTrack{
 				Codec:  t.Codec,
 				Width:  int(t.Width),

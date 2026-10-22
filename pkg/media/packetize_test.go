@@ -20,6 +20,7 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/test/remote"
 )
 
@@ -74,9 +75,42 @@ func innerTestPacketize(t *testing.T, filename string, expectedVideo int, expect
 	packet, err := Packetize(context.Background(), &config.CLI{}, testSeg)
 	require.NoError(t, err)
 	require.NotNil(t, packet)
-	require.Equal(t, expectedVideo, len(packet.Video))
+	require.Equal(t, expectedVideo, len(packet.VideoSamples(VideoH264.MimeType)))
 	require.Equal(t, expectedAudio, len(packet.Audio))
 	require.Equal(t, expectedDuration, packet.Duration)
+}
+
+// A segment with AV1 and H.264 video packetizes both, the source (the first
+// track, AV1) first, so each WebRTC viewer can get the one its offer takes.
+func TestPacketizeMultiVideo(t *testing.T) {
+	withNoGSTLeaks(t, func() {
+		// AV1 640x360 track 1, H.264 426x240 track 2, 1 s GoPs at 30 fps.
+		flat, err := os.ReadFile(getFixture("av1-h264-opus.mp4"))
+		require.NoError(t, err)
+		multi, err := muxl.RunMuxlCanonicalize(context.Background(), flat, nil)
+		require.NoError(t, err)
+		packet, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{Muxl: multi})
+		require.NoError(t, err)
+		require.Len(t, packet.Video, 2)
+		require.Equal(t, VideoAV1.MimeType, packet.Video[0].MimeType)
+		require.Equal(t, VideoH264.MimeType, packet.Video[1].MimeType)
+		av1, h264 := packet.Video[0].Samples, packet.Video[1].Samples
+		require.Len(t, av1, 30)
+		require.Len(t, h264, 30)
+		require.True(t, VideoAV1.IsKeyframe(av1[0].Data))
+		require.True(t, tuHasOBU(av1[0].Data, obuSequenceHeader), "a joining decoder needs the sequence header")
+		require.True(t, VideoH264.IsKeyframe(h264[0].Data))
+		require.NotEmpty(t, packet.Audio)
+	})
+}
+
+// The sequence header Packetize puts in an AV1 key frame that lacks one
+// comes out of the av1C codec_data whole: header, size and payload.
+func TestAV1ConfigSequenceHeader(t *testing.T) {
+	gstinit.InitGST()
+	caps := gst.CapsFromString("video/x-av1,codec_data=(buffer)81000c000a0b000000043cffbc02f80040")
+	require.Equal(t, []byte{0x0a, 0x0b, 0x00, 0x00, 0x00, 0x04, 0x3c, 0xff, 0xbc, 0x02, 0xf8, 0x00, 0x40}, av1ConfigSequenceHeader(caps))
+	require.Nil(t, av1ConfigSequenceHeader(gst.CapsFromString("video/x-av1")))
 }
 
 // captionSEINAL builds a minimal valid closed-caption SEI NAL (payload_type 4,
@@ -270,15 +304,16 @@ func TestPacketizeTrailingCaptionSEI(t *testing.T) {
 
 		// Exactly one output sample per input frame — caption SEIs must not
 		// become frames of their own.
-		require.Equal(t, frames, len(packet.Video))
+		video := packet.VideoSamples(VideoH264.MimeType)
+		require.Equal(t, frames, len(video))
 		totalSEIs := 0
-		for i, v := range packet.Video {
+		for i, v := range video {
 			require.True(t, hasVideoSlice(v.Data), "video sample %d has no picture", i)
 			totalSEIs += countCaptionSEIs(v.Data)
 			// Real per-sample timing: ~33ms at 30fps, no sample burned by a
 			// zero-length caption "frame". The last sample is exempt — it
 			// stretches to cover the (audio-derived) segment end.
-			if i < len(packet.Video)-1 {
+			if i < len(video)-1 {
 				require.InDelta(t, 33*time.Millisecond, v.Duration, float64(10*time.Millisecond),
 					"video sample %d duration", i)
 			}
@@ -364,7 +399,7 @@ func TestPacketizeSingleTrackSegment(t *testing.T) {
 				"videotestsrc num-buffers=30 ! video/x-raw,width=320,height=240,framerate=30/1 ! x264enc tune=zerolatency speed-preset=ultrafast ! h264parse ! mp4mux fragment-duration=500 ! appsink name=sink")
 			packet, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{Data: flat})
 			require.NoError(t, err)
-			require.Equal(t, 30, len(packet.Video))
+			require.Equal(t, 30, len(packet.VideoSamples(VideoH264.MimeType)))
 			require.Empty(t, packet.Audio)
 			// Duration falls back to the video span when there's no audio to
 			// derive it from — the sender's latency accounting needs the time

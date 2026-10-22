@@ -31,14 +31,36 @@ type PacketizedSample struct {
 	Duration time.Duration
 }
 
-// PacketizedSegment is a segment demuxed into WebRTC samples: the video and
-// the main audio (the full mix), plus one Opus track per stem the stream
-// carries (see media.Packetize), all on the segment's one timeline.
+// PacketizedSegment is a segment demuxed into WebRTC samples: the video, once
+// per video codec the segment carries, and the main audio (the full mix), plus
+// one Opus track per stem the stream carries (see media.Packetize), all on
+// the segment's one timeline.
 type PacketizedSegment struct {
-	Video    []PacketizedSample
+	// Video is the first video track in each codec, in track order: Video[0]
+	// is the source, the rest are fallbacks for viewers that can't take it
+	// (an AV1 source with an H.264 rendition alongside).
+	Video    []PacketizedVideo
 	Audio    []PacketizedSample
 	Stems    []PacketizedStem // ascending by group
 	Duration time.Duration
+}
+
+// PacketizedVideo is one video track's samples, in the codec its WebRTC MIME
+// type names (video/H264, video/AV1).
+type PacketizedVideo struct {
+	MimeType string
+	Samples  []PacketizedSample
+}
+
+// VideoSamples returns the segment's video samples in the codec mimeType
+// names, nil when it carries none.
+func (p *PacketizedSegment) VideoSamples(mimeType string) []PacketizedSample {
+	for _, v := range p.Video {
+		if v.MimeType == mimeType {
+			return v.Samples
+		}
+	}
+	return nil
 }
 
 // PacketizedStem is one stem's Opus samples, identified by its audio

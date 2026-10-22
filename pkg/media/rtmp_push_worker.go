@@ -141,9 +141,12 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 
 	// Feed the worker the continuous fMP4 source stream (bus → AAC select →
 	// init+concat). Closing stdin on source EOF/cancel is the worker's EOS.
+	srcErr := make(chan error, 1)
 	go func() {
 		defer stdin.Close()
-		if serr := mm.writeRTMPSource(ctx, user, rendition, stdin); serr != nil && ctx.Err() == nil {
+		serr := mm.writeRTMPSource(ctx, user, rendition, stdin)
+		srcErr <- serr
+		if serr != nil && ctx.Err() == nil && !errors.Is(serr, ErrNoH264Video) {
 			log.Error(ctx, "rtmp push source ended", "error", serr)
 		}
 	}()
@@ -165,19 +168,20 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 	logsWG.Wait()
 	werr := cmd.Wait()
 
+	var pushErr error
 	switch {
 	case ctx.Err() != nil:
 		// Target disabled (cancel) — a clean stop, mirroring in-process RTMPPush
 		// returning ctx.Err() from the bus handler.
 		return ctx.Err()
 	case workerErr != nil:
-		return fmt.Errorf("rtmp push worker stream: %w", workerErr)
+		pushErr = fmt.Errorf("rtmp push worker stream: %w", workerErr)
 	case werr != nil:
 		// A non-zero exit without a clean end means the worker died — contained to
 		// the subprocess; StartMultistreamTarget records it and retries.
-		return fmt.Errorf("rtmp push worker exited: %w", werr)
+		pushErr = fmt.Errorf("rtmp push worker exited: %w", werr)
 	}
-	return nil
+	return rtmpSourceErr(srcErr, pushErr)
 }
 
 // consumePushEvents reads status frames from the worker and hands each to

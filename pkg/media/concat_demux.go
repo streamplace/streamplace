@@ -22,12 +22,14 @@ func doNothing(self gst.Element, pad gst.Pad) {}
 func doNothingElement(self gst.Element) {}
 
 // ConcatDemuxBin demuxes a single segment (seg.Data, a presentation MP4) into
-// a "video_0" pad and one "audio_<k>" Opus pad per audio stream, k in order of
-// the file's audio tracks, for audioTracks of them (at least one; a stream the
-// segment lacks ends with EOS, one it has beyond audioTracks is dropped).
+// a "video_0" pad carrying its first video track, parsed by parse's parser (the
+// zero VideoCodec leaves it unparsed; any later video track is dropped), and
+// one "audio_<k>" Opus pad per audio stream, k in order of the file's audio
+// tracks, for audioTracks of them (at least one; a stream the segment lacks
+// ends with EOS, one it has beyond audioTracks is dropped).
 // Needs to be handled very carefully. In particular: users of this MUST
 // cancel the passed context when they're done with the bin.
-func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool, audioTracks int) (gst.Bin, error) {
+func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, parse VideoCodec, audioTracks int) (gst.Bin, error) {
 	audioTracks = max(audioTracks, 1)
 	ctx = log.WithLogValues(ctx, "func", "ConcatDemuxBin")
 	bin := gst.NewBin("seg-demux-bin").(gst.Bin)
@@ -123,32 +125,35 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool, audioTr
 	}
 
 	var videoGhost gst.Pad
-	if doH264Parse {
-		h264parse := gst.ElementFactoryMakeWithProperties("h264parse", map[string]interface{}{
-			"name":                "concat-demux-h264parse",
-			"config-interval":     int32(-1),
+	if parse.Parser != "" {
+		props := map[string]interface{}{
+			"name":                "concat-demux-videoparse",
 			"disable-passthrough": true,
-		})
-		if h264parse == nil {
-			return nil, fmt.Errorf("failed to create h264parse element")
 		}
-		if !bin.Add(h264parse) {
-			return nil, fmt.Errorf("failed to add h264parse to bin")
+		if parse.Name == VideoH264.Name {
+			props["config-interval"] = int32(-1)
 		}
-		h264parseSinkPad := h264parse.GetStaticPad("sink")
-		if h264parseSinkPad == nil {
-			return nil, fmt.Errorf("failed to get h264parse sink pad")
+		parser := gst.ElementFactoryMakeWithProperties(parse.Parser, props)
+		if parser == nil {
+			return nil, fmt.Errorf("failed to create %s element", parse.Parser)
 		}
-		h264parseSrcPad := h264parse.GetStaticPad("src")
-		if h264parseSrcPad == nil {
-			return nil, fmt.Errorf("failed to get h264parse source pad")
+		if !bin.Add(parser) {
+			return nil, fmt.Errorf("failed to add %s to bin", parse.Parser)
 		}
-		linked := mqVideoSrc.Link(h264parseSinkPad)
+		parserSinkPad := parser.GetStaticPad("sink")
+		if parserSinkPad == nil {
+			return nil, fmt.Errorf("failed to get %s sink pad", parse.Parser)
+		}
+		parserSrcPad := parser.GetStaticPad("src")
+		if parserSrcPad == nil {
+			return nil, fmt.Errorf("failed to get %s source pad", parse.Parser)
+		}
+		linked := mqVideoSrc.Link(parserSinkPad)
 		if linked != gst.PadLinkOK {
-			return nil, fmt.Errorf("failed to link h264parse sink pad to mq video sink pad")
+			return nil, fmt.Errorf("failed to link %s sink pad to mq video sink pad", parse.Parser)
 		}
 
-		videoGhost = gst.NewGhostPad("video_0", h264parseSrcPad)
+		videoGhost = gst.NewGhostPad("video_0", parserSrcPad)
 		if videoGhost == nil {
 			return nil, fmt.Errorf("failed to create video ghost pad")
 		}
@@ -175,9 +180,12 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool, audioTr
 	padAdded.Store(func(self gst.Element, pad gst.Pad) {
 		var downstreamPad gst.Pad
 		name := pad.GetName()
-		if strings.HasPrefix(name, "video_") {
+		if name == "video_0" {
 			downstreamPad = mqVideoSink
 			videoLinked = true
+		} else if strings.HasPrefix(name, "video_") {
+			log.Warn(ctx, "dropping video stream beyond the first", "name", name)
+			return
 		} else if k, ok := strings.CutPrefix(name, "audio_"); ok {
 			// qtdemux numbers its audio pads in the file's track order.
 			idx, err := strconv.Atoi(k)

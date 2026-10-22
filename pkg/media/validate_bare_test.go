@@ -13,6 +13,7 @@ import (
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/livehls"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
 )
@@ -60,10 +61,25 @@ func TestValidateMP4MediaBareSegment(t *testing.T) {
 	res, err := ValidateMP4Media(ctx, m4s)
 	require.NoError(t, err)
 	require.NotNil(t, res.MediaData)
-	require.NotEmpty(t, res.MediaData.Video, "should parse a video track")
+	require.Len(t, res.MediaData.Video, 1, "should parse a video track")
+	require.Equal(t, "h264", res.MediaData.Video[0].Codec)
 	require.Greater(t, res.MediaData.Video[0].Width, 0, "video width from qtdemux")
 	require.Greater(t, res.MediaData.Video[0].Height, 0, "video height from qtdemux")
 	require.NotEmpty(t, res.MediaData.Audio, "should parse an audio track")
+}
+
+// An AV1 4K120 stream validates and records what it is: codec, size and
+// frame rate, and no B-frames.
+func TestValidateMP4MediaAV1_4K120(t *testing.T) {
+	ctx := context.Background()
+	segs := allSignedBareSegments(t, ctx, newBareSegmentSigner(t), getFixture("av1-4k120-opus-frag.mp4"))
+	require.GreaterOrEqual(t, len(segs), 2, "a 2s stream with 1s GoPs signs into several segments")
+	for i, seg := range segs {
+		res, err := ValidateMP4Media(ctx, seg)
+		require.NoError(t, err, "segment %d", i)
+		require.Equal(t, []*localdb.SegmentMediadataVideo{{Codec: "av1", Width: 3840, Height: 2160, FPSNum: 120, FPSDen: 1}}, res.MediaData.Video, "segment %d", i)
+		require.Greater(t, res.MediaData.Duration, int64(0), "segment %d", i)
+	}
 }
 
 // A peer naming one streamer must not get another creator's otherwise valid

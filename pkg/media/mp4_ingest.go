@@ -18,9 +18,10 @@ import (
 	"stream.place/streamplace/pkg/muxl"
 )
 
-// ingest a fragmented-MP4 stream: H264+AAC through the demux pipeline (the
-// MistServer live .mp4 output, or an fMP4 push to /live), or, with transport
-// IngestTransportFMP4Direct, signed as-is (the OBS plugin's push).
+// ingest a fragmented-MP4 stream: H.264 or AV1 video and AAC audio through
+// the demux pipeline (the MistServer live .mp4 output, or an fMP4 push to
+// /live), or, with transport IngestTransportFMP4Direct, signed as-is (the OBS
+// plugin's push).
 func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms MediaSigner, transport string) error {
 	shouldRecord, err := mm.shouldRecord(ctx, ms.Streamer())
 	if err != nil {
@@ -78,12 +79,12 @@ func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms Media
 	return <-busErr
 }
 
-// buildMP4IngestPipeline builds the H264+AAC fragmented-MP4 demux graph (video
-// → h264parse, audio → Opus re-encode) and links both branches into signerElem
-// — the muxl signing bin that emits one bare canonical .m4s per GoP. Shared by
-// the in-process MP4Ingest and the isolated ingest worker, which differ only in
-// where signerElem routes its segments (ValidateMP4 vs. a frame writer to the
-// main process).
+// buildMP4IngestPipeline builds the fragmented-MP4 demux graph (the first
+// video track → its codec's parser, audio → Opus re-encode) and links both
+// branches into signerElem — the muxl signing bin that emits one bare
+// canonical .m4s per GoP. Shared by the in-process MP4Ingest and the isolated
+// ingest worker, which differ only in where signerElem routes its segments
+// (ValidateMP4 vs. a frame writer to the main process).
 //
 // The source is fMP4, not MKV, very much on purpose: MP4 track fragments carry
 // both decode (tfdt/trun) and presentation (ctts) timestamps, so qtdemux hands
@@ -137,8 +138,7 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, signerElem gst
 	// demux-fed pipelines (transcode, rtmp_push, packetize, media_data_parser).
 	pipelineSlice := []string{
 		"appsrc name=streamsrc ! qtdemux name=demux",
-		"demux. ! " + constants.Queue2Big + " ! h264parse name=videoout",
-		"demux. ! " + constants.Queue2Big + " ! fdkaacdec ! audioresample ! opusenc name=audioenc",
+		"demux.audio_0 ! " + constants.Queue2Big + " ! fdkaacdec ! audioresample ! opusenc name=audioenc",
 	}
 	launched, err := gst.ParseLaunch(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
@@ -155,17 +155,8 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, signerElem gst
 	srcele.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
 		NeedData: ReaderNeedDataIncremental(ctx, input),
 	})
-	parseEle := pipeline.GetByName("videoout")
-	if parseEle == nil {
-		return nil, fmt.Errorf("videoout element not found")
-	}
-	// Only an IDR starts a segment (see installIDRKeyframeProbe).
-	installIDRKeyframeProbe(ctx, parseEle.GetStaticPad("src"), streamer)
 	if !pipeline.Add(signerElem) {
 		return nil, fmt.Errorf("failed to add signer element to pipeline")
-	}
-	if !parseEle.Link(signerElem) {
-		return nil, fmt.Errorf("failed to link h264parse to signer element")
 	}
 	audioenc := pipeline.GetByName("audioenc")
 	if audioenc == nil {
@@ -174,7 +165,75 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, signerElem gst
 	if !audioenc.Link(signerElem) {
 		return nil, fmt.Errorf("failed to link opusenc to signer element")
 	}
+	demux := pipeline.GetByName("demux")
+	if demux == nil {
+		return nil, fmt.Errorf("demux element not found")
+	}
+	// Only the video pad's caps name its codec, so its parser is plugged when
+	// the pad appears.
+	demux.ConnectPadAdded(func(demux gst.Element, pad gst.Pad) {
+		if pad.GetName() != "video_0" {
+			return
+		}
+		err := func() error {
+			codec, err := padVideoCodec(pad)
+			if err != nil {
+				return err
+			}
+			parse, err := plugDemuxBin(demux, pad, constants.Queue2Big+" ! "+codec.ParserLaunch("", ""))
+			if err != nil {
+				return err
+			}
+			// Only a frame a decoder can start on starts a segment (see installKeyframeProbe).
+			installKeyframeProbe(ctx, codec, parse.GetStaticPad("src"), streamer)
+			if !parse.Link(signerElem) {
+				return fmt.Errorf("failed to link %s to signer element", codec.Parser)
+			}
+			return nil
+		}()
+		if err != nil {
+			demux.PostMessage(gst.NewMessageError(demux, err.Error(), err))
+		}
+	})
 	return pipeline, nil
+}
+
+// padVideoCodec is the codec of a demuxer's video pad, which its caps name.
+func padVideoCodec(pad gst.Pad) (VideoCodec, error) {
+	caps := pad.GetCurrentCaps()
+	if caps == nil || caps.GetStructure(0) == nil {
+		return VideoCodec{}, fmt.Errorf("video pad %s has no caps", pad.GetName())
+	}
+	name := caps.GetStructure(0).GetName()
+	codec, ok := VideoCodecForCaps(name)
+	if !ok {
+		return VideoCodec{}, fmt.Errorf("unsupported video codec %s on pad %s", name, pad.GetName())
+	}
+	return codec, nil
+}
+
+// plugDemuxBin builds desc into a bin (its unlinked pads ghosted), adds it
+// next to demux, links pad into it and brings it to the pipeline's state: how
+// a pad-added handler plugs a chain it picked from the pad's caps. The caller
+// links the bin's src pad, if any, in the same handler, before the demuxer
+// pushes data on pad.
+func plugDemuxBin(demux gst.Element, pad gst.Pad, desc string) (gst.Bin, error) {
+	parent, ok := demux.GetParent().(gst.Bin)
+	if !ok {
+		return nil, fmt.Errorf("demuxer %s is not in a bin", demux.GetName())
+	}
+	bin, err := gst.ParseBinFromDescription(desc, true)
+	if err != nil {
+		return nil, fmt.Errorf("create %q: %w", desc, err)
+	}
+	if !parent.Add(bin) {
+		return nil, fmt.Errorf("add %q", desc)
+	}
+	if r := pad.Link(bin.GetStaticPad("sink")); r != gst.PadLinkOK {
+		return nil, fmt.Errorf("link %s to %q: %v", pad.GetName(), desc, r)
+	}
+	bin.SyncStateWithParent()
+	return bin, nil
 }
 
 // debugRecordingFlushTimeout bounds how long ingest teardown waits for a debug

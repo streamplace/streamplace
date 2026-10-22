@@ -29,14 +29,15 @@ var vodPipelineTracer = otel.Tracer("vod-pipeline")
 // Keep this in sync with the codecs handled there.
 var elementaryStreamCaps = map[string]bool{
 	"video/x-h264": true,
+	"video/x-av1":  true,
 	"video/x-h265": true, // unsupported; we want a clean ErrUnsupportedCodec, not a crash
 	"audio/mpeg":   true, // AAC (only — MP3 has no decoder linked, will fail in audioChainSpec)
 	"audio/x-opus": true,
 }
 
 // ErrUnsupportedCodec is returned by RunVODPipeline when the input
-// contains a stream we can't process. Currently: any non-h264 video,
-// or audio that isn't AAC or Opus. Opus is the only audio codec we
+// contains a stream we can't process. Currently: video that isn't H.264 or
+// AV1, or audio that isn't AAC or Opus. Opus is the only audio codec we
 // transcode (to AAC via fdkaacenc); AAC passes through.
 var ErrUnsupportedCodec = errors.New("unsupported codec")
 
@@ -142,7 +143,7 @@ type VODAudioTrack struct {
 // source media from src (size bytes total), parse it via parsebin,
 // re-mux it to fragmented MP4, and write that fMP4 to out. Audio is
 // transcoded to AAC via fdkaacenc when not already AAC; video must be
-// h264 — anything else returns ErrUnsupportedCodec.
+// H.264 or AV1 — anything else returns ErrUnsupportedCodec.
 //
 // The function blocks until the input is fully consumed or an error
 // occurs. out is written from a gstreamer streaming thread, so it must
@@ -494,13 +495,15 @@ type elemSpec struct {
 
 func wireVideoChain(ctx context.Context, pipeline gst.Pipeline, mp4mux gst.Element, pad gst.Pad, caps *gst.Structure) error {
 	codec := caps.GetName()
-	if codec != "video/x-h264" {
-		return fmt.Errorf("%w: video codec %q (only h264 is supported)", ErrUnsupportedCodec, codec)
+	vc, ok := VideoCodecForCaps(codec)
+	if !ok {
+		return fmt.Errorf("%w: video codec %q (only h264 and av1 are supported)", ErrUnsupportedCodec, codec)
 	}
-	chain, err := buildChain(pipeline, "vod-video", []elemSpec{
-		{name: "queue"},
-		{name: "h264parse", props: map[string]any{"config-interval": int32(0), "disable-passthrough": true}},
-	})
+	parser := elemSpec{name: vc.Parser, props: map[string]any{"disable-passthrough": true}}
+	if vc.Name == VideoH264.Name {
+		parser.props["config-interval"] = int32(0)
+	}
+	chain, err := buildChain(pipeline, "vod-video", []elemSpec{{name: "queue"}, parser})
 	if err != nil {
 		return err
 	}

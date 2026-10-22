@@ -40,7 +40,7 @@ const MaxWaiting = 2
 // it cannot decode such a segment and, worse, a go-livepeer gateway drops
 // its orchestrator session over the failure. The segment is skipped (a
 // gap in the renditions) rather than pushed. The ingest path keeps such
-// frames inside their GoP (media.installIDRKeyframeProbe); this guards the
+// frames inside their GoP (media.installKeyframeProbe); this guards the
 // transcoder from any other source of them.
 var ErrNoKeyframe = errors.New("segment does not start with an IDR and its parameter sets")
 
@@ -157,6 +157,10 @@ func (ls *LivepeerSession) noteResult(ctx context.Context, ok bool) {
 
 func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte, spseg *placestream.Segment, rs renditions.Renditions) ([][]byte, error) {
 	ctx = log.WithLogValues(ctx, "func", "PostSegmentToGateway")
+	vid := renditions.H264Source(spseg)
+	if vid == nil {
+		return nil, fmt.Errorf("no h264 video in segment")
+	}
 	lpProfiles := rs.ToLivepeerProfiles()
 	tsSeg := bytes.Buffer{}
 	audioSeg := bytes.Buffer{}
@@ -209,7 +213,6 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 	durationMs := int(dur.Milliseconds())
 	log.Debug(ctx, "posting segment to livepeer gateway", "duration_ms", durationMs, "url", url)
 
-	vid := spseg.Video[0]
 	width := int(vid.Width)
 	height := int(vid.Height)
 

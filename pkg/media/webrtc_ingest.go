@@ -1,6 +1,7 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -10,7 +11,10 @@ import (
 	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/google/uuid"
 	"github.com/pion/rtcp"
+	"github.com/pion/rtp"
+	"github.com/pion/rtp/codecs"
 	"github.com/pion/webrtc/v4"
+	"github.com/pion/webrtc/v4/pkg/media/samplebuilder"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/rtcrec"
 )
@@ -48,9 +52,18 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 		return nil, fmt.Errorf("failed to add video transceiver: %w", err)
 	}
 
+	// The peer connection takes this one video codec (see NewPeerConnection).
+	videoCodec := ingestVideoCodec(offer)
+	videoBranch := "appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! capsfilter caps=video/x-h264,stream-format=byte-stream,alignment=nal ! h264parse name=videoparse disable-passthrough=true config-interval=-1 ! h264timestamper ! identity ! queue.sink_0"
+	if videoCodec.Name == VideoAV1.Name {
+		// The build has no rtpav1depay: OnTrack depacketizes AV1 in Go (see
+		// pushAV1) and pushes whole temporal units, stamped from their RTP
+		// timestamps.
+		videoBranch = fmt.Sprintf("appsrc format=time is-live=true name=videosrc caps=\"%s\" ! %s ! queue.sink_0", VideoAV1.SampleCaps, VideoAV1.ParserLaunch("videoparse", ""))
+	}
 	pipelineSlice := []string{
 		"multiqueue name=queue",
-		"appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! capsfilter caps=video/x-h264,stream-format=byte-stream,alignment=nal ! h264parse name=videoparse disable-passthrough=true config-interval=-1 ! h264timestamper ! identity ! queue.sink_0",
+		videoBranch,
 		"appsrc format=time do-timestamp=true name=audiosrc ! capsfilter caps=application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! rtpopusdepay ! opusparse ! queue.sink_1",
 	}
 
@@ -63,13 +76,13 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 		return nil, fmt.Errorf("failed to create GStreamer pipeline: not a pipeline")
 	}
 
-	// Only an IDR starts a segment (see installIDRKeyframeProbe).
+	// Only a frame a decoder can start on starts a segment (see installKeyframeProbe).
 	if parseEle := pipeline.GetByName("videoparse"); parseEle != nil {
 		streamer := "whip"
 		if keyRevSigner != nil {
 			streamer = keyRevSigner.Streamer()
 		}
-		installIDRKeyframeProbe(ctx, parseEle.GetStaticPad("src"), streamer)
+		installKeyframeProbe(ctx, videoCodec, parseEle.GetStaticPad("src"), streamer)
 	}
 	queue := pipeline.GetByName("queue")
 	if queue == nil {
@@ -233,7 +246,10 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 				codecName := strings.Split(track.Codec().MimeType, "/")[1]
 				log.Log(ctx, "Track has started", "payloadType", track.PayloadType(), "codecName", codecName)
 
-				// appSrc := pipelineForCodec(track, codecName)
+				if strings.EqualFold(track.Codec().MimeType, VideoAV1.MimeType) {
+					pushAV1(ctx, cancel, track, videoSrc)
+					return
+				}
 				buf := make([]byte, 1400)
 				for {
 					i, _, readErr := track.Read(buf)
@@ -336,5 +352,64 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 		return peerConnection.LocalDescription(), nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
+	}
+}
+
+// av1MaxLatePackets is how many packets the AV1 sample builder holds while a
+// temporal unit is incomplete: more than a 4K key frame spans, which would
+// otherwise lose its head before its tail arrives.
+const av1MaxLatePackets = 1 << 14
+
+// pushAV1 depacketizes an AV1 track in Go, as the build has no rtpav1depay:
+// a sample builder reorders the RTP and assembles temporal units, which go to
+// src stamped from their RTP timestamps, starting at src's running time at
+// the first one (the clock the audio's do-timestamp stamps by).
+func pushAV1(ctx context.Context, cancel context.CancelFunc, track rtcrec.TrackRemote, src app.AppSrc) {
+	sb := samplebuilder.New(av1MaxLatePackets, &codecs.AV1Depacketizer{}, 90000, samplebuilder.WithMaxTimeDelay(time.Second/2))
+	var base time.Duration
+	var ticks int64 // 90 kHz, since the first temporal unit
+	var last uint32
+	started := false
+	buf := make([]byte, 1500)
+	for {
+		n, _, err := track.Read(buf)
+		if err != nil {
+			log.Log(ctx, "failed to read track", "error", err)
+			src.EndOfStream()
+			return
+		}
+		pkt := &rtp.Packet{}
+		// The sample builder keeps the packet, so it gets bytes of its own.
+		if err := pkt.Unmarshal(bytes.Clone(buf[:n])); err != nil {
+			log.Debug(ctx, "dropping malformed RTP packet", "error", err)
+			continue
+		}
+		sb.Push(pkt)
+		for s := sb.Pop(); s != nil; s = sb.Pop() {
+			if len(s.Data) == 0 {
+				continue
+			}
+			if !started {
+				started = true
+				base, _ = clockTimeDuration(src.GetCurrentRunningTime())
+			} else {
+				ticks += int64(int32(s.PacketTimestamp - last))
+			}
+			last = s.PacketTimestamp
+			gbuf, err := newBufferFromBytes(s.Data)
+			if err != nil {
+				log.Log(ctx, "failed to build buffer", "error", err)
+				cancel()
+				return
+			}
+			pts := gst.ClockTime(base + time.Duration(ticks/90000)*time.Second + time.Duration(ticks%90000)*time.Second/90000)
+			gbuf.SetPTS(pts)
+			gbuf.SetDTS(pts)
+			if ret := src.PushBuffer(gbuf); ret != gst.FlowOK {
+				log.Log(ctx, "failed to push buffer", "error", ret)
+				cancel()
+				return
+			}
+		}
 	}
 }

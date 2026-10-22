@@ -3,6 +3,7 @@ package media
 import (
 	"context"
 
+	"github.com/pion/webrtc/v4"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/rtcrec"
 )
@@ -25,13 +26,15 @@ func (mm *MediaManager) shouldRecord(ctx context.Context, user string) (bool, er
 	return shouldRecord, nil
 }
 
-func (mm *MediaManager) NewPeerConnection(ctx context.Context, user string) (rtcrec.PeerConnection, error) {
+// NewPeerConnection builds the peer connection of a WHIP publisher's session,
+// for the video codec its offer gets (see ingestVideoCodec).
+func (mm *MediaManager) NewPeerConnection(ctx context.Context, user string, offer *webrtc.SessionDescription) (rtcrec.PeerConnection, error) {
 	ctx = log.WithLogValues(ctx, "func", "NewPeerConnection", "streamer", user)
 	shouldRecord, err := mm.shouldRecord(ctx, user)
 	if err != nil {
 		return nil, err
 	}
-	pionpc, err := mm.webrtcAPI.NewPeerConnection(mm.webrtcConfig)
+	pionpc, err := mm.webrtcAPIs[ingestVideoCodec(offer).MimeType].NewPeerConnection(mm.webrtcConfig)
 	if err != nil {
 		return nil, err
 	}

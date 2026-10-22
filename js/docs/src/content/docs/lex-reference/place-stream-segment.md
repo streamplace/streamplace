@@ -61,13 +61,13 @@ Media file representing a segment of a livestream
 
 **Properties:**
 
-| Name        | Type                       | Req'd | Description | Constraints  |
-| ----------- | -------------------------- | ----- | ----------- | ------------ |
-| `codec`     | `string`                   | ✅    |             | Enum: `h264` |
-| `width`     | `integer`                  | ✅    |             |              |
-| `height`    | `integer`                  | ✅    |             |              |
-| `framerate` | [`#framerate`](#framerate) | ❌    |             |              |
-| `bframes`   | `boolean`                  | ❌    |             |              |
+| Name        | Type                       | Req'd | Description | Constraints         |
+| ----------- | -------------------------- | ----- | ----------- | ------------------- |
+| `codec`     | `string`                   | ✅    |             | Enum: `h264`, `av1` |
+| `width`     | `integer`                  | ✅    |             |                     |
+| `height`    | `integer`                  | ✅    |             |                     |
+| `framerate` | [`#framerate`](#framerate) | ❌    |             |                     |
+| `bframes`   | `boolean`                  | ❌    |             |                     |
 
 ---
 
@@ -203,7 +203,7 @@ Media file representing a segment of a livestream
       "properties": {
         "codec": {
           "type": "string",
-          "enum": ["h264"]
+          "enum": ["h264", "av1"]
         },
         "width": {
           "type": "integer"

@@ -42,3 +42,27 @@ func TestToStreamplaceSegmentListsEveryAudioTrack(t *testing.T) {
 	require.Nil(t, record.Audio[0].AlternateGroup, "an ungrouped track carries no group")
 	require.Nil(t, record.Audio[0].Label)
 }
+
+// The segment record lists every video track with its codec; a row written
+// before the codec was recorded still reads as the H.264 it was.
+func TestToStreamplaceSegmentListsEveryVideoTrack(t *testing.T) {
+	seg := &Segment{
+		ID: "seg", RepoDID: "did:plc:test", StartTime: time.Now(),
+		MediaData: &SegmentMediaData{
+			Video: []*SegmentMediadataVideo{
+				{Codec: "av1", Width: 3840, Height: 2160, FPSNum: 120, FPSDen: 1},
+				{Width: 1920, Height: 1080, FPSNum: 60, FPSDen: 1, BFrames: true},
+			},
+			Audio: []*SegmentMediadataAudio{{Codec: "opus", Rate: 48000, Channels: 2}},
+		},
+	}
+	record, err := seg.ToStreamplaceSegment()
+	require.NoError(t, err)
+	require.Len(t, record.Video, 2)
+	require.Equal(t, "av1", record.Video[0].Codec)
+	require.Equal(t, int64(3840), record.Video[0].Width)
+	require.Equal(t, int64(120), record.Video[0].Framerate.Num)
+	require.False(t, *record.Video[0].Bframes)
+	require.Equal(t, "h264", record.Video[1].Codec, "a legacy row's video was H.264")
+	require.True(t, *record.Video[1].Bframes)
+}

@@ -19,7 +19,7 @@
         "properties": {
           "codec": {
             "type": "string",
-            "knownValues": ["h264"]
+            "knownValues": ["h264", "av1"]
           },
           "width": { "type": "integer", "minimum": 1 },
           "height": { "type": "integer", "minimum": 1 },

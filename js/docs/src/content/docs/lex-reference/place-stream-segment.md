@@ -43,11 +43,13 @@ Media file representing a segment of a livestream
 
 **Properties:**
 
-| Name       | Type      | Req'd | Description | Constraints         |
-| ---------- | --------- | ----- | ----------- | ------------------- |
-| `codec`    | `string`  | ✅    |             | Enum: `opus`, `aac` |
-| `rate`     | `integer` | ✅    |             |                     |
-| `channels` | `integer` | ✅    |             |                     |
+| Name             | Type      | Req'd | Description                                                                                                                                                                                                                                                                               | Constraints                           |
+| ---------------- | --------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `codec`          | `string`  | ✅    |                                                                                                                                                                                                                                                                                           | Enum: `opus`, `aac`                   |
+| `rate`           | `integer` | ✅    |                                                                                                                                                                                                                                                                                           |                                       |
+| `channels`       | `integer` | ✅    |                                                                                                                                                                                                                                                                                           |                                       |
+| `alternateGroup` | `integer` | ❌    | Audio tracks sharing this value carry the same sound in different codecs. Tracks with different values are independent and play together: the lowest group is the full mix, and higher groups are stems a viewer can mix in. Absent when the stream doesn't distinguish its audio tracks. | Min: 1                                |
+| `label`          | `string`  | ❌    | The streamer's name for this audio track, such as "Music".                                                                                                                                                                                                                                | Max Length: 640<br/>Max Graphemes: 64 |
 
 ---
 
@@ -181,6 +183,17 @@ Media file representing a segment of a livestream
         },
         "channels": {
           "type": "integer"
+        },
+        "alternateGroup": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Audio tracks sharing this value carry the same sound in different codecs. Tracks with different values are independent and play together: the lowest group is the full mix, and higher groups are stems a viewer can mix in. Absent when the stream doesn't distinguish its audio tracks."
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 640,
+          "maxGraphemes": 64,
+          "description": "The streamer's name for this audio track, such as \"Music\"."
         }
       }
     },

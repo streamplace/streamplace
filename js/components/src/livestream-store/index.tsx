@@ -31,6 +31,7 @@ export {
 export { useStreamKey } from "./stream-key";
 export {
   getStoreFromContext,
+  useAudioStems,
   useChat,
   useHandleWebsocketMessages,
   useLivestream,

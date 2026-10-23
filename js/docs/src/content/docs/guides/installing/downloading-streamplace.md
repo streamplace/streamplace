@@ -91,3 +91,38 @@ host networking. So that command would look something like:
 
 Binaries for all platforms are available to download from
 [our GitLab server](https://git.stream.place/streamplace/streamplace/-/releases).
+
+## Single-user node with an upstream station
+
+```shell
+streamplace --http-addr=127.0.0.1:38080 \
+  --upstream-station=did:web:stream.place \
+  --relay-host=moqt://streamplace.network
+```
+
+`SP_UPSTREAM_STATION` and `SP_RELAY_HOST` are the environment equivalents.
+Without a station, normal server indexing and relay selection remain unchanged.
+With one, the node is a single-user AppView: it runs the usual indexing, but
+only for the accounts logged into it.
+
+- It takes each logged-in account's events from that account's per-DID track
+  on every `--relay-host`, which must all be MoQ relays: an
+  [atmoq](https://github.com/streamplace/atmoq) relay serves a per-DID track on
+  demand. There is no aggregate firehose, no `bsky.network` and no local PDS
+  firehose.
+- It indexes only users with a successfully completed, non-revoked local OAuth
+  grant. Pending logins, unrelated followed users and repos left over from a
+  previous standalone run do not permit PDS scraping. Per-DID subscriptions
+  start at login and end when the last eligible grant ends. Reconnects
+  reconcile the same scoped users with their actual PDS; historical records
+  remain on disk after logout.
+- It signs users in through the station: the `#streamplace` HTTPS origin in
+  the station's DID document. The local node delegates to the station using
+  its own DPoP key; the station independently authenticates to the PDS using
+  its public HTTPS callback. Local HTTP OAuth requires a loopback listener; no
+  public callback or development-only OAuth flag is needed on the local node.
+- It pushes the streams it ingests to the station over MoQ, unless `--peers`
+  names other nodes.
+
+Deploy the station's chained-OAuth support before releasing Desktop clients
+that default to `did:web:stream.place`.

@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -18,6 +19,8 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -64,11 +67,16 @@ type e2eHTTPS struct {
 	dir         string
 	caPath      string
 	trustDir    string
+	leafPath    string
+	keyPath     string
+	auditPath   string
 	cert        tls.Certificate
 	spki        string
 
-	frontLn net.Listener // 127.0.0.1:443, or whatever loopback 443 redirects to
-	proxyLn net.Listener // CONNECT proxy
+	frontLn      net.Listener // 127.0.0.1:443, or whatever loopback 443 redirects to
+	proxyLn      net.Listener // CONNECT proxy
+	localProxyLn net.Listener
+	localPDSLn   net.Listener
 }
 
 const e2ePLCHost = "plc.directory"
@@ -108,7 +116,7 @@ func newE2EHTTPS(pdsHost, stationHost string, port int) (*e2eHTTPS, error) {
 }
 
 func (h *e2eHTTPS) Close() {
-	for _, ln := range []net.Listener{h.frontLn, h.proxyLn} {
+	for _, ln := range []net.Listener{h.frontLn, h.proxyLn, h.localProxyLn, h.localPDSLn} {
 		if ln != nil {
 			ln.Close() //nolint:errcheck
 		}
@@ -209,6 +217,7 @@ func (h *e2eHTTPS) mintCerts() error {
 		SerialNumber: randomSerial(),
 		Subject:      pkix.Name{CommonName: h.pdsHost},
 		DNSNames:     []string{h.pdsHost, "*." + h.pdsHost, h.stationHost, e2ePLCHost},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
 		NotBefore:    now.Add(-time.Hour),
 		NotAfter:     now.Add(7 * 24 * time.Hour),
 		KeyUsage:     x509.KeyUsageDigitalSignature,
@@ -353,4 +362,94 @@ func pipeConns(a, b net.Conn) {
 	}()
 	io.Copy(b, a) //nolint:errcheck
 	once.Do(closeBoth)
+}
+
+// BridgeTLS writes the leaf and key only for a real atmoq serve child. Its
+// station DNS SAN permits verified TLS with the SNI required by raw MoQ.
+func (h *e2eHTTPS) BridgeTLS() error {
+	// atmoq watches the certificate directory. Keep logs and its cursor outside
+	// it so their writes do not trigger a certificate-reload feedback loop.
+	dir := filepath.Join(h.dir, "atmoq-tls")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		return err
+	}
+	h.leafPath = filepath.Join(dir, "cert.pem")
+	h.keyPath = filepath.Join(dir, "key.pem")
+	if err := os.WriteFile(h.leafPath, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: h.cert.Certificate[0]}), 0o600); err != nil {
+		return err
+	}
+	keyDER, err := x509.MarshalPKCS8PrivateKey(h.cert.PrivateKey)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(h.keyPath, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}), 0o600)
+}
+
+// StartLocalProxy forwards genuine local-node PDS requests and records their
+// method/path/query. The upstream station uses the original proxy, so its
+// ordinary global indexing cannot mask forbidden local account scraping.
+// This is harness-only transport observation, not a production test endpoint.
+func (h *e2eHTTPS) StartLocalProxy(ctx context.Context, pdsURL string) (string, error) {
+	target, err := url.Parse(pdsURL)
+	if err != nil {
+		return "", err
+	}
+	h.auditPath = filepath.Join(h.dir, "local-pds-requests.jsonl")
+	audit, err := os.OpenFile(h.auditPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return "", err
+	}
+	h.localPDSLn, err = net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		audit.Close() //nolint:errcheck
+		return "", err
+	}
+	h.localProxyLn, err = net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		audit.Close() //nolint:errcheck
+		return "", err
+	}
+	reverse := httputil.NewSingleHostReverseProxy(target)
+	var mu sync.Mutex
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		entry := struct {
+			Method string `json:"method"`
+			Path   string `json:"path"`
+			Query  string `json:"query"`
+		}{r.Method, r.URL.Path, r.URL.RawQuery}
+		mu.Lock()
+		err := json.NewEncoder(audit).Encode(entry)
+		mu.Unlock()
+		if err != nil {
+			log.Error(ctx, "write local PDS audit", "err", err)
+			http.Error(w, "harness audit failed", http.StatusInternalServerError)
+			return
+		}
+		reverse.ServeHTTP(w, r)
+	})
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+	go func() {
+		err := srv.Serve(tls.NewListener(h.localPDSLn, &tls.Config{Certificates: []tls.Certificate{h.cert}, MinVersion: tls.VersionTLS12}))
+		if err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) && ctx.Err() == nil {
+			log.Error(ctx, "local PDS observer failed", "err", err)
+		}
+	}()
+	go func() {
+		<-ctx.Done()
+		srv.Close()   //nolint:errcheck
+		audit.Close() //nolint:errcheck
+	}()
+	go serveConnectProxy(ctx, h.localProxyLn, func(hostport string) string {
+		host, port, err := net.SplitHostPort(hostport)
+		if err == nil && port == "443" {
+			switch {
+			case host == h.pdsHost || strings.HasSuffix(host, "."+h.pdsHost):
+				return h.localPDSLn.Addr().String()
+			case host == h.stationHost || host == e2ePLCHost:
+				return h.frontLn.Addr().String()
+			}
+		}
+		return hostport
+	})
+	return "http://" + h.localProxyLn.Addr().String(), nil
 }

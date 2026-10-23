@@ -26,6 +26,9 @@ func (atsync *ATProtoSynchronizer) headRev(ctx context.Context, ident *identity.
 	lock := pdsLocks.GetLock(host)
 	lock.Lock()
 	defer lock.Unlock()
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
+		return "", err
+	}
 	latest, err := reposync.LatestCommit(ctx, xrpcc, did, reposync.RetryPolicy{Hints: pdsBackoffHints})
 	if err != nil {
 		return "", err

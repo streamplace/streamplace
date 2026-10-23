@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/url"
@@ -14,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -128,22 +131,44 @@ type e2eDevEnv struct {
 	LexiconPassword string `json:"lexicon-password"`
 }
 
+// Harness ports come from below the kernel's ephemeral range (Linux
+// 32768-60999, macOS 49152-65535). One picked there and released can't go
+// to a listener on :0, which every node opens, or to an outgoing
+// connection before the node it was picked for binds it.
+const harnessPortMin, harnessPortMax = 20000, 32000
+
+var (
+	pickedMu sync.Mutex
+	picked   = map[int]bool{}
+)
+
 func freePort() (int, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
+	return pickPort(func(addr string) (io.Closer, error) { return net.Listen("tcp", addr) })
 }
 
 func freeUDPPort() (int, error) {
-	c, err := net.ListenPacket("udp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
+	return pickPort(func(addr string) (io.Closer, error) { return net.ListenPacket("udp", addr) })
+}
+
+// pickPort finds a port in the harness range that listen can bind and no
+// earlier pick holds.
+func pickPort(listen func(addr string) (io.Closer, error)) (int, error) {
+	pickedMu.Lock()
+	defer pickedMu.Unlock()
+	for range 100 {
+		port := harnessPortMin + rand.IntN(harnessPortMax-harnessPortMin)
+		if picked[port] {
+			continue
+		}
+		l, err := listen(fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			continue
+		}
+		l.Close() //nolint:errcheck
+		picked[port] = true
+		return port, nil
 	}
-	defer c.Close()
-	return c.LocalAddr().(*net.UDPAddr).Port, nil
+	return 0, errors.New("no free port in the harness range")
 }
 
 // startNode forks this binary as a Streamplace node on the dev-env's PDS and

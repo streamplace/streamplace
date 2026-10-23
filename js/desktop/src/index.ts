@@ -94,20 +94,33 @@ if (require("electron-squirrel-startup")) {
     }
     const mainWindow = await makeWindow();
 
-    // For the OBS setup screen, through SP_ELECTRON.obs in preload.ts.
-    const server = loadAddr ?? "http://127.0.0.1:38082";
-    ipcMain.handle("obs:status", () => obsStatus());
-    ipcMain.handle("obs:installPlugin", () => installPlugin());
-    ipcMain.handle("obs:configureStream", (_e, streamKey: string) =>
-      configureStream(server, streamKey),
-    );
-
     let startPath;
     if (nodeFrontend) {
       startPath = `${loadAddr}${args.path}`;
     } else {
       startPath = `http://127.0.0.1:38081${args.path}`;
     }
+
+    // For the OBS setup screen, through SP_ELECTRON.obs in preload.ts. Only
+    // the app's own pages may call it: signing in sends this window to the
+    // PDS, whose pages get the same preload.
+    const server = loadAddr ?? "http://127.0.0.1:38082";
+    const appOrigin = new URL(startPath).origin;
+    const handleObs = <A extends unknown[]>(
+      channel: string,
+      fn: (...args: A) => unknown,
+    ) =>
+      ipcMain.handle(channel, (e, ...args) => {
+        if (e.senderFrame?.origin !== appOrigin) {
+          throw new Error(`${channel} is only available to ${appOrigin}`);
+        }
+        return fn(...(args as A));
+      });
+    handleObs("obs:status", () => obsStatus());
+    handleObs("obs:installPlugin", () => installPlugin());
+    handleObs("obs:configureStream", (streamKey: string) =>
+      configureStream(server, streamKey),
+    );
     console.log(`opening ${startPath}`);
     mainWindow.loadURL(startPath);
 

@@ -441,10 +441,10 @@ export function PlayerControls({
           let time: number;
           switch (key) {
             case "arrowleft":
-              time = video.currentTime - 5;
+              time = video.currentTime - 15;
               break;
             case "arrowright":
-              time = video.currentTime + 5;
+              time = video.currentTime + 15;
               break;
             case "j":
               time = video.currentTime - 10;

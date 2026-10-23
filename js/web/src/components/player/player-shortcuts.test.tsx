@@ -234,21 +234,29 @@ describe("player shortcuts", () => {
     expect(video.playbackRate).toBe(0.25);
   });
 
-  it("seeks by five or ten seconds and clamps at the ends", async () => {
+  it("seeks by 15 or 10 seconds and clamps at the ends", async () => {
     await press("ArrowLeft");
-    expect(video.currentTime).toBe(45);
+    expect(video.currentTime).toBe(35);
     await press("l");
-    expect(video.currentTime).toBe(55);
+    expect(video.currentTime).toBe(45);
     await press("ArrowRight");
     expect(video.currentTime).toBe(60);
     await press("j");
     expect(video.currentTime).toBe(50);
     video.currentTime = 2;
+    await press("ArrowLeft");
+    expect(video.currentTime).toBe(0);
+    video.currentTime = 2;
     await press("j");
     expect(video.currentTime).toBe(0);
     video.currentTime = 98;
+    await press("ArrowRight");
+    expect(video.currentTime).toBe(100);
+    video.currentTime = 98;
     await press("l");
     expect(video.currentTime).toBe(100);
+    expect(video.paused).toBe(true);
+    expect(video.play).not.toHaveBeenCalled();
   });
 
   it("jumps to percentages and the beginning or end", async () => {

@@ -134,6 +134,16 @@ describe("app player keyboard shortcuts", () => {
     expect(video.currentTime).toBeCloseTo(10);
   });
 
+  it("seeks 15 seconds in either direction without starting playback", async () => {
+    await press("ArrowRight");
+    expect(video.currentTime).toBe(25);
+
+    await press("ArrowLeft");
+    expect(video.currentTime).toBe(10);
+    expect(video.paused).toBe(true);
+    expect(video.play).not.toHaveBeenCalled();
+  });
+
   it("steps frames when a player control still has focus", async () => {
     const pauseButton = document.createElement("button");
     document.body.append(pauseButton);

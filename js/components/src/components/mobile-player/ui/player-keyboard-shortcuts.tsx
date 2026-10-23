@@ -123,7 +123,7 @@ export function PlayerKeyboardShortcuts() {
         seekTo(
           Math.max(
             0,
-            Math.min(duration, currentTime + (key === "arrowright" ? 5 : -5)),
+            Math.min(duration, currentTime + (key === "arrowright" ? 15 : -15)),
           ),
         );
       }

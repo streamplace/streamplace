@@ -20,7 +20,9 @@ jobs:
           - name: linux-arm64
             cmd: "make linux-arm64"
           - name: windows-amd64
-            cmd: "make windows-amd64 && make desktop-windows-amd64"
+            cmd:
+              "make windows-amd64 && make obs-plugin-windows-amd64 && make
+              desktop-windows-amd64"
           # The e2e build of the release APK (see `make android-e2e`), which
           # android-e2e runs. Shipped releases are built by GitLab.
           - name: android

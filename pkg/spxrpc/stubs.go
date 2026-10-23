@@ -444,6 +444,9 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.live.searchActorsTypeahead", s.HandlePlaceStreamLiveSearchActorsTypeahead)
 	e.POST("/xrpc/place.stream.live.startLivestream", s.HandlePlaceStreamLiveStartLivestream)
 	e.POST("/xrpc/place.stream.live.stopLivestream", s.HandlePlaceStreamLiveStopLivestream)
+	e.POST("/xrpc/place.stream.local.deleteRecord", s.HandlePlaceStreamLocalDeleteRecord)
+	e.GET("/xrpc/place.stream.local.listRecords", s.HandlePlaceStreamLocalListRecords)
+	e.POST("/xrpc/place.stream.local.putRecord", s.HandlePlaceStreamLocalPutRecord)
 	e.POST("/xrpc/place.stream.media.createUpload", s.HandlePlaceStreamMediaCreateUpload)
 	e.POST("/xrpc/place.stream.media.deleteVideo", s.HandlePlaceStreamMediaDeleteVideo)
 	e.POST("/xrpc/place.stream.media.finalizeLivestream", s.HandlePlaceStreamMediaFinalizeLivestream)
@@ -914,6 +917,55 @@ func (s *Server) HandlePlaceStreamLiveStopLivestream(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamLiveStopLivestream(ctx context.Context,body *placestream.LiveStopLivestream_Input) (*placestream.LiveStopLivestream_Output, error)
 	out, handleErr = s.handlePlaceStreamLiveStopLivestream(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamLocalDeleteRecord(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLocalDeleteRecord")
+	defer span.End()
+	var body placestream.LocalDeleteRecord_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.LocalDeleteRecord_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamLocalDeleteRecord(ctx context.Context,body *placestream.LocalDeleteRecord_Input) (*placestream.LocalDeleteRecord_Output, error)
+	out, handleErr = s.handlePlaceStreamLocalDeleteRecord(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamLocalListRecords(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLocalListRecords")
+	defer span.End()
+	collection := c.QueryParam("collection")
+	repo := c.QueryParam("repo")
+	var out *placestream.LocalListRecords_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamLocalListRecords(ctx context.Context,collection string,repo string) (*placestream.LocalListRecords_Output, error)
+	out, handleErr = s.handlePlaceStreamLocalListRecords(ctx, collection, repo)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamLocalPutRecord(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLocalPutRecord")
+	defer span.End()
+	var body placestream.LocalPutRecord_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.LocalPutRecord_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamLocalPutRecord(ctx context.Context,body *placestream.LocalPutRecord_Input) (*placestream.LocalPutRecord_Output, error)
+	out, handleErr = s.handlePlaceStreamLocalPutRecord(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

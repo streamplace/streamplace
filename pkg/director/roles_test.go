@@ -83,9 +83,11 @@ func TestRoleFailsOverBetweenNodes(t *testing.T) {
 
 	// b dies without releasing: its lease stays on the books until it
 	// lapses, and a new node gets the job then, not before. (A clean
-	// cancel would release it, so the dead node's lease is put back.)
+	// cancel would release it, so the dead node's lease is put back, once
+	// that release, which follows the stop, is done.)
 	b.cancel()
 	b.expect(t, "b.example stop", time.Second)
+	require.NoError(t, b.ss.g.Wait())
 	held, err := state.AcquireLease(t.Context(), "stream:record:did:plc:streamer", "did:web:b.example", roleLeaseTTL)
 	require.NoError(t, err)
 	require.True(t, held)

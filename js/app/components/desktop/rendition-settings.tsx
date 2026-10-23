@@ -162,14 +162,19 @@ export function RenditionSettings() {
             },
         ),
     };
+    // What the node holds, updated as each write lands, so the keys still
+    // match it when a save fails partway.
+    const held: Keys = { video: [...keys.video], audio: [...keys.audio] };
     try {
       for (const rkey of keys.video.filter((k) => !next.video.includes(k))) {
         await del(VIDEO, rkey);
+        held.video = held.video.filter((k) => k !== rkey);
       }
-      for (const { rkey } of keys.audio.filter(
+      for (const a of keys.audio.filter(
         (a) => !next.audio.some((n) => n.rkey === a.rkey),
       )) {
-        await del(AUDIO, rkey);
+        await del(AUDIO, a.rkey);
+        held.audio = held.audio.filter((h) => h !== a);
       }
       for (const rkey of next.video) {
         await put(VIDEO, rkey, {
@@ -179,15 +184,17 @@ export function RenditionSettings() {
           framerate: { numerator, denominator },
           bitrate,
         });
+        held.video = [rkey];
       }
-      for (const { rkey, codec, bitrate } of next.audio) {
-        await put(AUDIO, rkey, { codec, bitrate });
+      for (const a of next.audio) {
+        await put(AUDIO, a.rkey, { codec: a.codec, bitrate: a.bitrate });
+        held.audio = [...held.audio.filter((h) => h.rkey !== a.rkey), a];
       }
-      setKeys(next);
       toast.show("Saved", "OBS picks these up the next time it goes live.");
     } catch (e: any) {
       toast.show("Couldn't save renditions", e.message, { variant: "error" });
     } finally {
+      setKeys(held);
       setSaving(false);
     }
   };

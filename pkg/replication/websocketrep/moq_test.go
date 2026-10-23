@@ -230,12 +230,14 @@ func TestLiveStreamsAreAnnounced(t *testing.T) {
 
 	b.PublishSegment(ctx, "did:plc:a", moqSourceChannel, &bus.Seg{Muxl: signedSegments(t, ctx)[0], Published: true})
 	r.touchLive(ctx, "did:plc:a")
-	r.touchLive(ctx, "did:plc:a")
 	a, err := announced.Next(ctx)
 	require.NoError(t, err)
 	require.Equal(t, "did:plc:a", a.Prefix())
 	require.True(t, a.Active())
 
+	// A later segment, just now: waiting on the announcement above can take
+	// longer than the session timeout on a loaded runner.
+	r.touchLive(ctx, "did:plc:a")
 	r.expireLive()
 	require.Contains(t, r.live, "did:plc:a", "still live inside the session timeout")
 	time.Sleep(80 * time.Millisecond)

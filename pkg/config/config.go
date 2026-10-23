@@ -160,6 +160,8 @@ type CLI struct {
 	WebsocketURL                string
 	MoqAddr                     string
 	MoqURL                      string
+	MoqMaxTracks                int
+	MoqMaxGroupMB               int
 	BehindHTTPSProxy            bool
 	SegmentDebugDir             string
 	AdminDIDs                   []string
@@ -1102,6 +1104,20 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "override the moqt:// url peers use to reach this node's Media over QUIC listener (default: server-host on moq-addr's port)",
 				Destination: &cli.MoqURL,
 				Sources:     urfavecli.EnvVars("SP_MOQ_URL"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "moq-max-tracks",
+				Usage:       "most tracks a peer's Media over QUIC broadcast may list before this node drops it, bounding how many readers one stream can open; 0 disables the limit",
+				Value:       32,
+				Destination: &cli.MoqMaxTracks,
+				Sources:     urfavecli.EnvVars("SP_MOQ_MAX_TRACKS"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "moq-max-group-mb",
+				Usage:       "largest Media over QUIC group (one track's segment for one GoP) this node buffers from a peer before verifying it, in MiB; 0 disables the limit",
+				Value:       16,
+				Destination: &cli.MoqMaxGroupMB,
+				Sources:     urfavecli.EnvVars("SP_MOQ_MAX_GROUP_MB"),
 			},
 			&urfavecli.BoolFlag{
 				Name:        "behind-https-proxy",

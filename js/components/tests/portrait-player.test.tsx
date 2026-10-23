@@ -206,7 +206,7 @@ async function bindings() {
       CountdownOverlay: () => null,
       LoadingOverlay: () => null,
     },
-    VideoRetry: View,
+    VideoRetry: ({ children }: { children: ReactNode }) => <>{children}</>,
     VodSection: View,
     PlayerProtocol: { WEBRTC: "webrtc" },
     usePlayerStore: (select: (state: any) => unknown) =>

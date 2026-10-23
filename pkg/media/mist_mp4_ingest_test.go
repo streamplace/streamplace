@@ -17,6 +17,7 @@ import (
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/ingestframe"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/test/remote"
 )
@@ -283,6 +284,24 @@ func TestMP4IngestBFramesValidate(t *testing.T) {
 	require.True(t, sawBFrames, "synthesized stream actually contains B-frames — if this fails the test no longer exercises the reorder path")
 	require.True(t, sawReorderOffset, "B-frame stream keeps its real PTS−DTS reorder offsets through ingest")
 	t.Logf("B-frame stream: %d segments, all validated", len(segs))
+}
+
+// TestMP4IngestAV1Validate: an AV1 + AAC fMP4 (an Enhanced-RTMP AV1 push
+// through MistServer) ingests through the demux path, parsed by av1parse, and
+// every segment validates as the AV1 it is.
+func TestMP4IngestAV1Validate(t *testing.T) {
+	ctx := context.Background()
+	mp4, err := os.ReadFile(getFixture("av1-aac-frag.mp4"))
+	require.NoError(t, err)
+
+	segs, err := runMP4ThroughIngestWorkerSegments(t, mp4, false)
+	require.NoError(t, err, "AV1 stream ingests cleanly")
+	require.GreaterOrEqual(t, len(segs), 2, "a 2s stream with 1s GoPs signs into several segments")
+	for i, seg := range segs {
+		res, err := ValidateMP4Media(ctx, seg)
+		require.NoError(t, err, "segment %d validates", i)
+		require.Equal(t, []*localdb.SegmentMediadataVideo{{Codec: "av1", Width: 320, Height: 240, FPSNum: 30, FPSDen: 1}}, res.MediaData.Video, "segment %d", i)
+	}
 }
 
 // TestMP4IngestRejectsMatroskaWithDiagnosis: an MKV stream landing on the

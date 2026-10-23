@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/test/remote"
 )
@@ -53,6 +54,21 @@ func TestMediaDataParserBFrames(t *testing.T) {
 		require.NotNil(t, mediaData)
 		require.True(t, mediaData.Video[0].BFrames, "Video should have BFrames")
 		require.Greater(t, mediaData.Duration, int64(0), "Video duration should not be empty")
+	})
+}
+
+// Every video track is recorded, in track order, with its codec.
+func TestMediaDataParserEveryVideoTrack(t *testing.T) {
+	withNoGSTLeaks(t, func() {
+		bs, err := os.ReadFile(getFixture("av1-h264-opus.mp4"))
+		require.NoError(t, err)
+		mediaData, err := ParseSegmentMediaData(context.Background(), bs)
+		require.NoError(t, err)
+		require.Equal(t, []*localdb.SegmentMediadataVideo{
+			{Codec: "av1", Width: 640, Height: 360, FPSNum: 30, FPSDen: 1},
+			{Codec: "h264", Width: 426, Height: 240, FPSNum: 30, FPSDen: 1},
+		}, mediaData.Video)
+		require.Greater(t, mediaData.Duration, int64(0))
 	})
 }
 

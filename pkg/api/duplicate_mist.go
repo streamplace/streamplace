@@ -200,7 +200,7 @@ func RunDuplicateMistWorker(parent context.Context, input io.Reader, progress io
 	var lastProgress time.Time
 	report := [1]byte{1}
 	g.Go(func() error {
-		err := media.RTMPIngestUnpublished(groupCtx, &config.CLI{}, "rtmp://"+ln.Addr().String()+"/live/"+ms.Streamer(), ms, func(c context.Context, segment []byte) error {
+		err := media.RTMPIngestUnpublished(groupCtx, &config.CLI{}, "rtmp://"+ln.Addr().String()+"/live/"+ms.Streamer(), ms, session.VideoCodec(), func(c context.Context, segment []byte) error {
 			if _, err := media.ValidateMP4Media(c, segment); err != nil {
 				return fmt.Errorf("shadow signed segment validation: %w", err)
 			}

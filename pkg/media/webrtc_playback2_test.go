@@ -2,13 +2,18 @@ package media
 
 import (
 	"context"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
+	"stream.place/streamplace/pkg/bus"
 )
 
+// Before the stream's first segment a viewer gets H.264, and an offer
+// without it (this Firefox takes only AV1) can't be answered.
 func TestWebRTCPlayback2(t *testing.T) {
 	mm, _ := getStaticTestMediaManager(t)
 	ignore := goleak.IgnoreCurrent()
@@ -20,6 +25,120 @@ func TestWebRTCPlayback2(t *testing.T) {
 	answer, err := mm.WebRTCPlayback2(context.Background(), "test-user", "test-rendition", offer, "")
 	require.ErrorContains(t, err, "RTPSender created with no codecs")
 	require.Nil(t, answer)
+}
+
+// With the stream carrying AV1, a viewer whose offer takes only AV1 (a
+// Firefox without H.264) gets an answer, and AV1 video.
+func TestWebRTCPlayback2AV1Viewer(t *testing.T) {
+	mm, _ := getStaticTestMediaManager(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	mm.bus.PublishSegment(ctx, "streamer", "source", &bus.Seg{Published: true, PacketizedData: &bus.PacketizedSegment{
+		Duration: time.Second,
+		Video:    []bus.PacketizedVideo{{MimeType: webrtc.MimeTypeAV1}, {MimeType: webrtc.MimeTypeH264}},
+	}})
+	answer, err := mm.WebRTCPlayback2(ctx, "streamer", "source", &webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: firefoxNoH264SDP}, "")
+	require.NoError(t, err)
+	require.Contains(t, answer.SDP, "AV1/90000")
+}
+
+// A viewer who connects before the stream's first segment gets H.264; when
+// the stream turns out to be AV1 only, the session ends, so the viewer
+// reconnects into AV1 rather than sitting on audio without a picture.
+func TestWebRTCPlayback2EndsSessionWithoutItsCodec(t *testing.T) {
+	mm, _ := getStaticTestMediaManager(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{}) // pion's defaults: H.264 and AV1
+	require.NoError(t, err)
+	defer pc.Close()
+	for _, kind := range []webrtc.RTPCodecType{webrtc.RTPCodecTypeVideo, webrtc.RTPCodecTypeAudio} {
+		_, err = pc.AddTransceiverFromKind(kind, webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionRecvonly})
+		require.NoError(t, err)
+	}
+	connected, ended := make(chan struct{}), make(chan struct{})
+	var connectOnce, endOnce sync.Once
+	pc.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
+		switch s {
+		case webrtc.PeerConnectionStateConnected:
+			connectOnce.Do(func() { close(connected) })
+		case webrtc.PeerConnectionStateDisconnected, webrtc.PeerConnectionStateFailed, webrtc.PeerConnectionStateClosed:
+			endOnce.Do(func() { close(ended) })
+		}
+	})
+	offer, err := pc.CreateOffer(nil)
+	require.NoError(t, err)
+	gathered := webrtc.GatheringCompletePromise(pc)
+	require.NoError(t, pc.SetLocalDescription(offer))
+	<-gathered
+
+	answer, err := mm.WebRTCPlayback2(ctx, "streamer", "source", pc.LocalDescription(), "")
+	require.NoError(t, err)
+	require.Contains(t, answer.SDP, "H264/90000", "no segment yet: H.264")
+	require.NoError(t, pc.SetRemoteDescription(*answer))
+	select {
+	case <-connected:
+	case <-time.After(10 * time.Second):
+		t.Fatal("viewer never connected")
+	}
+
+	mm.bus.PublishSegment(ctx, "streamer", "source", &bus.Seg{Published: true, PacketizedData: &bus.PacketizedSegment{
+		Duration: time.Second,
+		Video:    []bus.PacketizedVideo{{MimeType: webrtc.MimeTypeAV1}},
+	}})
+	select {
+	case <-ended:
+	case <-time.After(20 * time.Second):
+		t.Fatal("session kept going without video in its codec")
+	}
+}
+
+// A viewer gets the first of the stream's video codecs (the source's, then
+// the fallbacks) its offer takes.
+func TestOfferedVideo(t *testing.T) {
+	offer := func(api *webrtc.API) *webrtc.SessionDescription {
+		pc, err := api.NewPeerConnection(webrtc.Configuration{})
+		require.NoError(t, err)
+		defer pc.Close()
+		_, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionRecvonly})
+		require.NoError(t, err)
+		o, err := pc.CreateOffer(nil)
+		require.NoError(t, err)
+		return &o
+	}
+	h264Engine := &webrtc.MediaEngine{}
+	require.NoError(t, h264Engine.RegisterCodec(webrtc.RTPCodecParameters{
+		RTPCodecCapability: webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264, ClockRate: 90000},
+		PayloadType:        102,
+	}, webrtc.RTPCodecTypeVideo))
+	h264Only := offer(webrtc.NewAPI(webrtc.WithMediaEngine(h264Engine)))
+	both := offer(webrtc.NewAPI()) // pion's default codecs: H.264, AV1, VP8, VP9
+	av1Only := &webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: firefoxNoH264SDP}
+
+	seg := func(mimeTypes ...string) *bus.PacketizedSegment {
+		p := &bus.PacketizedSegment{}
+		for _, m := range mimeTypes {
+			p.Video = append(p.Video, bus.PacketizedVideo{MimeType: m})
+		}
+		return p
+	}
+	av1Source := seg(webrtc.MimeTypeAV1, webrtc.MimeTypeH264)
+	for _, tc := range []struct {
+		name   string
+		packet *bus.PacketizedSegment
+		offer  *webrtc.SessionDescription
+		want   string
+	}{
+		{"no segment yet", nil, both, ""},
+		{"AV1 source, offer takes both", av1Source, both, webrtc.MimeTypeAV1},
+		{"AV1 source, offer takes AV1", av1Source, av1Only, webrtc.MimeTypeAV1},
+		{"AV1 source, offer takes H.264", av1Source, h264Only, webrtc.MimeTypeH264},
+		{"H.264 stream, offer takes AV1", seg(webrtc.MimeTypeH264), av1Only, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, offeredVideo(tc.packet, offeredVideoMimeTypes(tc.offer)))
+		})
+	}
 }
 
 var firefoxNoH264SDP = `v=0

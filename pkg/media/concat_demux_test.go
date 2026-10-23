@@ -61,7 +61,7 @@ func innerTestConcatDemuxBin(t *testing.T) error {
 		Filepath: filename,
 	}
 
-	concatBin, err := ConcatDemuxBin(ctx, testSeg, true, 1)
+	concatBin, err := ConcatDemuxBin(ctx, testSeg, VideoH264, 1)
 	if err != nil {
 		return fmt.Errorf("failed to create concat bin: %w", err)
 	}

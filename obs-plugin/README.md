@@ -51,7 +51,8 @@ When you start streaming, the plugin does three things in order.
    the shape of OBS's
    [GoLiveApi `PostData`](https://github.com/obsproject/obs-studio/blob/master/frontend/utility/models/multitrack-video.hpp).
    `authentication` carries the stream key, and `client.supported_codecs` is
-   `["h264"]`. As a Streamplace extension, `preferences.audio_tracks` lists
+   `["h264", "av1"]` (older plugins send `["h264"]`, and the server only asks
+   them for H.264). As a Streamplace extension, `preferences.audio_tracks` lists
    OBS's six mixer tracks as `{"track_id", "name"}`, with the names set in
    Settings → Output → Audio (empty when unnamed), so the server can ask for
    named tracks as stems.
@@ -61,7 +62,7 @@ When you start streaming, the plugin does three things in order.
      `FMP4`, replacing `{stream_key}` in its `url_template`.
    - `encoder_configurations` replaces the encoders from OBS's output settings
      with one video encoder per entry, each becoming one video track. As a
-     Streamplace extension an entry names a `codec` (`h264`) instead of an OBS
+     Streamplace extension an entry names a `codec` (`h264` or `av1`) instead of an OBS
      encoder `type`: the plugin uses the encoder from OBS's output settings
      when it is that codec, with its settings under the entry's `settings`,
      and otherwise the first available encoder of the codec. `width`,
@@ -77,7 +78,9 @@ When you start streaming, the plugin does three things in order.
 3. It sends `POST` to the ingest URL with `Transfer-Encoding: chunked` and a
    `video/mp4` body:
    - First comes an init segment (`ftyp` + `moov`) with every video track,
-     then every audio track.
+     then every audio track. H.264 tracks are `avc1`, AV1 tracks `av01` with an
+     `av1C` built from the encoder's sequence header; AV1 samples are the
+     encoder's temporal units without their temporal delimiter OBUs.
    - After that it sends one `moof` + `mdat` fragment per frame of the first
      video track. Each fragment holds every sample completed since the last one.
    - Sample durations come from the real gaps between timestamps, so frames

@@ -121,6 +121,12 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 				Value:   "whip",
 				Sources: urfavecli.EnvVars("SP_E2E_INGEST"),
 			},
+			&urfavecli.StringFlag{
+				Name:    "video",
+				Usage:   "the test stream's video: h264 (an H.264 fixture) or av1 (test/fixtures/av1-h264-opus.mp4, read from the working directory: an AV1 source track with an H.264 fallback track, both sent over fmp4, the AV1 track alone over whip)",
+				Value:   "h264",
+				Sources: urfavecli.EnvVars("SP_E2E_VIDEO"),
+			},
 		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
 			// Canonical form, so they compare equal to the SNI names the
@@ -137,7 +143,25 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			if cmd.Bool("upstream-station") && pdsHost == "" {
 				return errors.New("--upstream-station requires the HTTPS PDS and station hostnames")
 			}
-			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"), ingest, cmd.Bool("upstream-station"), cmd.String("atmoq-bin"))
+			var fixture string
+			switch video := cmd.String("video"); video {
+			case "h264":
+				fixture = remote.RemoteFixture("3188c071b354f2e548d7f2d332699758e8e3ab1600280e5b07cb67eedc64f274/BigBuckBunny_1sGOP_240p30_NoBframes.mp4")
+			case "av1":
+				// Checked in rather than in the remote fixture bucket; the
+				// harness runs from the repo root.
+				abs, err := filepath.Abs("test/fixtures/av1-h264-opus.mp4")
+				if err != nil {
+					return err
+				}
+				if _, err := os.Stat(abs); err != nil {
+					return fmt.Errorf("--video av1 streams a fixture from the repo, so run from its root: %w", err)
+				}
+				fixture = abs
+			default:
+				return fmt.Errorf("--video must be h264 or av1, not %q", video)
+			}
+			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"), ingest, fixture, cmd.Bool("upstream-station"), cmd.String("atmoq-bin"))
 		},
 	}
 }
@@ -217,7 +241,7 @@ func startNode(ctx context.Context, self string, env e2eDevEnv, dataDir string, 
 	return nodeCmd, nil
 }
 
-func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, httpsPort int, appBundleID, ingest string, upstream bool, atmoqBin string) error {
+func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, httpsPort int, appBundleID, ingest, fixture string, upstream bool, atmoqBin string) error {
 	// Ctrl-C / SIGTERM must unwind through the normal path, or none of the
 	// teardown below runs: Go's default handling exits immediately, which left
 	// the dev-env node, the forked node and the temp data dir behind.
@@ -590,8 +614,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	// Give the node a moment to index the key before we start streaming.
 	time.Sleep(1 * time.Second)
 
-	// Stream a test fixture in a loop so it outlasts any Maestro test run.
-	fixture := remote.RemoteFixture("3188c071b354f2e548d7f2d332699758e8e3ab1600280e5b07cb67eedc64f274/BigBuckBunny_1sGOP_240p30_NoBframes.mp4")
+	// Stream the test fixture in a loop so it outlasts any Maestro test run.
 	ingestAddr := httpAddr
 	if local != nil {
 		ingestAddr = local.addr

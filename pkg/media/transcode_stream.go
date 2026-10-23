@@ -257,10 +257,12 @@ func (t *streamTranscoder) Feed(src []byte, token any) error {
 	t.mu.Unlock()
 
 	// The pipeline re-encodes the demux's first audio stream, so hand it only
-	// video and the main group's source track: a stem may precede it in
-	// track-id order. The job keeps the whole source to append the result to.
+	// the main group's source track (a stem may precede it in track-id order)
+	// and one video track, its cut clock: the first, the source, whose
+	// keyframes the segments were cut at. The job keeps the whole source to
+	// append the result to.
 	wantOpus := t.target == "aac"
-	input, err := filterSegmentToCodec(t.ctx, src, wantOpus)
+	input, err := filterSegmentToCodec(t.ctx, src, wantOpus, func(muxl.MuxlVideoConfig, VideoCodec) bool { return true })
 	if err != nil {
 		return fmt.Errorf("select transcoder source audio: %w", err)
 	}

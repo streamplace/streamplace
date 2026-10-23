@@ -9,6 +9,7 @@ import {
   type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
+import type { place } from "streamplace";
 import { cn } from "../../lib/utils";
 import { Loader } from "../ui/loader";
 import { ContentWarningOverlay } from "./content-warning-overlay";
@@ -25,6 +26,11 @@ import { WebRTCPlayer } from "./webrtc-player";
 export type PlayerProps = {
   /** Full URL to the media source. Scheme/route is dispatched to a backend. */
   src: string;
+  /**
+   * The live stream's latest segment's video tracks, the source first, for
+   * WebRTC's codec choice; see WebRTCPlayer.
+   */
+  videos?: place.stream.segment.Video[] | null;
   /** Live streams hide the scrubber; VODs get a seek bar. */
   mode?: "live" | "vod";
   /**
@@ -168,6 +174,7 @@ export function Player({
   poster,
   fallbackPoster,
   active,
+  videos,
   onError,
   onPlaying,
   showDanmu = false,
@@ -395,6 +402,7 @@ export function Player({
           lowLatency={lowLatency}
           videoRef={videoRef}
           active={active}
+          videos={videos}
           onError={surfaceError}
           onQualitiesChange={setQualities}
           onCurrentQualityChange={setCurrentQuality}
@@ -481,6 +489,7 @@ function PlayerBackend({
   lowLatency,
   videoRef,
   active,
+  videos,
   onError,
   onQualitiesChange,
   onCurrentQualityChange,
@@ -494,6 +503,7 @@ function PlayerBackend({
   lowLatency: boolean;
   videoRef: RefObject<HTMLVideoElement | null>;
   active: boolean;
+  videos?: place.stream.segment.Video[] | null;
   onError: (msg: string) => void;
   onQualitiesChange: (qualities: QualityOption[]) => void;
   onCurrentQualityChange: (index: number) => void;
@@ -507,6 +517,7 @@ function PlayerBackend({
         videoRef={videoRef}
         src={src}
         active={active}
+        videos={videos}
         onError={onError}
         onStatsChange={onStatsChange}
       />

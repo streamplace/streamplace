@@ -54,7 +54,7 @@ func TestRotatesManifestAfterRefusals(t *testing.T) {
 	require.NoError(t, err)
 	first := ls.SessionID
 	dur := int64(1e9)
-	spseg := &placestream.Segment{Creator: "did:plc:test", Duration: &dur, Video: []placestream.Segment_Video{{Width: 320, Height: 240}}}
+	spseg := &placestream.Segment{Creator: "did:plc:test", Duration: &dur, Video: []placestream.Segment_Video{{Codec: "h264", Width: 320, Height: 240}}}
 	rs := renditions.Renditions{{Name: "160p", Width: 284, Height: 160, Bitrate: 250000}}
 
 	for i := 0; i < RotateAfterFailures; i++ {

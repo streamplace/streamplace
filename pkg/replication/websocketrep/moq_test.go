@@ -26,13 +26,13 @@ import (
 	"stream.place/streamplace/pkg/placestream"
 )
 
-// signedSegments signs the fragmented fixture the way live ingest does and
+// signedSegments signs a fragmented fixture the way live ingest does and
 // returns each GoP's bare canonical segment (video1 + audio2).
-func signedSegments(t *testing.T, ctx context.Context) [][]byte {
+func signedSegments(t *testing.T, ctx context.Context, fixture string) [][]byte {
 	t.Helper()
 	ms, err := media.NewEphemeralMediaSigner("test-streamer")
 	require.NoError(t, err)
-	frag, err := os.ReadFile("../../../test/fixtures/h264-opus-frag.mp4")
+	frag, err := os.ReadFile("../../../test/fixtures/" + fixture)
 	require.NoError(t, err)
 	events := make(chan *muxl.MuxlEvent, 16)
 	signed := make(chan error, 1)
@@ -91,7 +91,7 @@ func TestMoqServesTheBus(t *testing.T) {
 	interval := moqLivenessInterval
 	moqLivenessInterval = 10 * time.Millisecond
 	t.Cleanup(func() { moqLivenessInterval = interval })
-	segments := signedSegments(t, ctx)
+	segments := signedSegments(t, ctx, "h264-opus-frag.mp4")
 	rendition := renditionOf(t, ctx, segments[0])
 
 	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
@@ -191,6 +191,30 @@ func TestMoqServesTheBus(t *testing.T) {
 	}
 }
 
+// An AV1 track is served as a CMAF track whose init carries its av1C: the
+// hang catalog names AV1 by its codec string alone (no description, unlike
+// H.264's avcC), so the init is where a player gets the sequence header.
+func TestMoqServesAV1(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	segments := signedSegments(t, ctx, "av1-opus-frag.mp4")
+	broadcast, err := official.NewBroadcastProducer()
+	require.NoError(t, err)
+	defer broadcast.Close()
+	tracks := moqTracks{}
+	defer tracks.finish()
+	require.NoError(t, tracks.publish(ctx, broadcast, segments[0], (*official.CMAFProducer).AppendGroup))
+	consumer, err := broadcast.Consume()
+	require.NoError(t, err)
+	catalog, err := consumer.Catalog(ctx)
+	require.NoError(t, err)
+	video := catalog.Video["video1"]
+	require.Contains(t, video.Codec, "av01.")
+	cmaf, ok := video.Container.(official.ContainerCmaf)
+	require.True(t, ok, "AV1 is a CMAF track")
+	require.Contains(t, string(cmaf.Init), "av1C")
+}
+
 // A peer's group is refused once it grows past --moq-max-group-mb, before
 // the node holds more of what nothing has verified yet.
 func TestMoqGroupIsBounded(t *testing.T) {
@@ -251,7 +275,7 @@ func TestLiveStreamsAreAnnounced(t *testing.T) {
 	require.NoError(t, err)
 	defer announced.Cancel()
 
-	b.PublishSegment(ctx, "did:plc:a", moqSourceChannel, &bus.Seg{Muxl: signedSegments(t, ctx)[0], Published: true})
+	b.PublishSegment(ctx, "did:plc:a", moqSourceChannel, &bus.Seg{Muxl: signedSegments(t, ctx, "h264-opus-frag.mp4")[0], Published: true})
 	r.touchLive(ctx, "did:plc:a")
 	a, err := announced.Next(ctx)
 	require.NoError(t, err)
@@ -288,7 +312,7 @@ func TestEndedPushIsAnnouncedAgain(t *testing.T) {
 		require.NoError(t, err)
 		return a.Active()
 	}
-	segments := signedSegments(t, ctx)
+	segments := signedSegments(t, ctx, "h264-opus-frag.mp4")
 	publish := func(segment []byte) {
 		b.PublishSegment(ctx, "did:plc:a", moqSourceChannel, &bus.Seg{Muxl: segment, Published: true})
 	}
@@ -363,7 +387,7 @@ func TestMoqPushesLiveStreams(t *testing.T) {
 	b := bus.NewBus()
 	r := NewWebsocketReplicator(&config.CLI{StreamSessionTimeout: time.Minute}, b, nil, nil, nil, nil)
 	r.group, ctx = errgroup.WithContext(ctx)
-	segments := signedSegments(t, ctx)
+	segments := signedSegments(t, ctx, "h264-opus-frag.mp4")
 	b.PublishSegment(ctx, "did:plc:a", moqSourceChannel, &bus.Seg{Muxl: segments[0], Published: true})
 	r.touchLive(ctx, "did:plc:a")
 	client, err := r.dialMoq(ctx, fmt.Sprintf("moqt://%s?%s=%s", addr, moq.CertHashParam, cert.Hash()), r.pushOrigin)

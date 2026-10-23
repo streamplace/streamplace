@@ -280,7 +280,7 @@ export function NativeWHEP(props?: {
 }) {
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const src = usePlayerStore((x) => x.src);
-  const [stream, stuck, audioTracks, audioGroups] = useWebRTC(
+  const [stream, stuck, audioTracks, audioGroups, videoFrames] = useWebRTC(
     src,
     selectedRendition,
   );
@@ -354,6 +354,9 @@ export function NativeWHEP(props?: {
   return (
     <>
       <RTCView
+        // Tagged once video frames arrive, which e2e flows wait on: the
+        // loading overlay also clears on audio alone.
+        testID={videoFrames ? "player-video" : undefined}
         mirror={false}
         objectFit={props?.objectFit || "contain"}
         streamURL={mediaStream.toURL()}

@@ -59,7 +59,9 @@ DEVICE="${ANDROID_SERIAL:-$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1
 [ -n "$DEVICE" ] || { echo "no android emulator running"; exit 1; }
 adb_() { "$ADB" -s "$DEVICE" "$@"; }
 
-APK="${APK:-$(ls -t "$REPO"/bin/streamplace-*-android-e2e.apk "$REPO"/bin/streamplace-*-android-release.apk 2>/dev/null | head -1 || true)}"
+# Newest by ctime: the APK comes out of bundletool's zip with the zip's fixed
+# 1980s mtime, so mtime can't tell builds apart.
+APK="${APK:-$(ls -tc "$REPO"/bin/streamplace-*-android-e2e.apk "$REPO"/bin/streamplace-*-android-release.apk 2>/dev/null | head -1 || true)}"
 [ -f "$APK" ] || { echo "no APK in bin/ — run 'make android-e2e'"; exit 1; }
 AAPT2="$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1 || true)"
 if [ -z "${APP_ID:-}" ]; then
@@ -166,14 +168,15 @@ if [ "${E2E_UPSTREAM_STATION:-}" = true ]; then
 else
   APP_SERVER_URL="$SERVER_HTTPS_URL"
 fi
-# SP_E2E_INGEST also picks how the harness streams; flows that need the fMP4
-# push (audio stems) check it.
+# SP_E2E_INGEST and SP_E2E_VIDEO also pick how and what the harness streams;
+# flows that need the fMP4 push (audio stems) or the AV1 stream check them.
 MAESTRO_ARGS=(-e APP_ID="$APP_ID" -e SERVER_URL="$APP_SERVER_URL"
   -e SERVER_HTTP_URL="$SERVER_URL"
   -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD"
   -e ACCOUNT_DID="$ACCOUNT_DID" -e PDS_HTTP_URL="$PDS_HTTP_URL"
   -e DEVICE_UTC_OFFSET="${device_offset:0:3}:${device_offset:3}"
   -e SP_E2E_INGEST="${SP_E2E_INGEST:-whip}"
+  -e SP_E2E_VIDEO="${SP_E2E_VIDEO:-h264}"
   -e E2E_UPSTREAM_STATION="${E2E_UPSTREAM_STATION:-false}")
 
 # --- run the flows ---------------------------------------------------------

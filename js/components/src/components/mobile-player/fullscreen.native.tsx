@@ -138,10 +138,12 @@ export function Fullscreen(props: {
             },
           ]}
         >
-          <Video
-            objectFit={props.objectFit}
-            pictureInPictureEnabled={props.pictureInPictureEnabled}
-          />
+          <VideoRetry>
+            <Video
+              objectFit={props.objectFit}
+              pictureInPictureEnabled={props.pictureInPictureEnabled}
+            />
+          </VideoRetry>
           <AudioOnlyOverlay />
           <DanmuOverlay
             enabled={danmuEnabled}

@@ -9,10 +9,13 @@ is mobile-only.
 
 - **Harness:** `streamplace e2e` (see `pkg/cmd/e2e.go`) boots a node + local
   PDS/PLC + a looping WHIP test stream and prints `SERVER_URL` /
-  `ACCOUNT_HANDLE` / `ACCOUNT_DID` (and `E2E_FIXTURE_MP4`, the local file it
-  streams). The node also serves the web app (embedded
+  `ACCOUNT_HANDLE` / `ACCOUNT_DID` / `STREAM_KEY` (and `E2E_FIXTURE_MP4`, the
+  local file it streams). The node also serves the web app (embedded
   via `//go:embed all:dist/**`), so Playwright just points a browser at
-  `SERVER_URL`.
+  `SERVER_URL`. `SP_E2E_INGEST=fmp4` loops the stream through the OBS plugin's
+  fragmented-MP4 ingest instead (CI runs `flows/stream.spec.ts` that way too),
+  and `SP_E2E_INGEST=none` streams nothing, so you can push with `STREAM_KEY`
+  from OBS yourself.
 - **Shared testIDs:** react-native-web maps `testID` -> `data-testid`, so the
   very same IDs the Maestro flows use (`home-stream-card`,
   `settings-use-custom-node`, `settings-custom-node-url`, `settings-save-node`)

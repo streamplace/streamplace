@@ -95,6 +95,25 @@ func TestFaviconRoutesServeBranding(t *testing.T) {
 		})
 	}
 
+	// Byte limits alone do not bound decoded memory. This highly compressed
+	// image exceeds the raster conversion limit despite its small file size.
+	var oversized bytes.Buffer
+	require.NoError(t, png.Encode(&oversized, image.NewGray(image.Rect(0, 0, 2049, 2048))))
+	for _, tc := range []struct {
+		mime string
+		data []byte
+	}{
+		{"image/png", oversized.Bytes()},
+		{"image/png", []byte("broken PNG")},
+		{"image/svg+xml", []byte("broken SVG")},
+		{"image/x-icon", []byte{0, 0, 1, 0, 1, 0}},
+	} {
+		require.NoError(t, sdb.PutBrandingBlob("did:web:example.com", "favicon", tc.mime, tc.data, nil, nil))
+		rec := serve(s.HandleFaviconICO, "/favicon.ico")
+		require.Equal(t, "image/x-icon", rec.Header().Get("Content-Type"))
+		require.Equal(t, bundledFile(t, "favicon.ico"), rec.Body.Bytes())
+	}
+
 	// Already encoded ICOs are not decoded/re-encoded, and deletion drops
 	// any cached conversion immediately.
 	bundledICO := bundledFile(t, "favicon.ico")

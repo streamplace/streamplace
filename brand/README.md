@@ -40,7 +40,8 @@ also works before JavaScript loads. `/favicon.ico` is the generic legacy-client
 fallback and always serves `image/x-icon`: the backend rasterizes SVG and raster
 uploads into a 64×64 PNG-backed ICO, preserving aspect ratio and transparency.
 Uploaded ICO files pass through unchanged. No re-upload is needed for existing
-branding, and the bundled ICO is used when no default is configured.
+branding. Missing, unreadable, or oversized artwork uses the bundled ICO;
+raster conversions are limited to 4,194,304 source pixels before decoding.
 These routes cache for five minutes; the open admin tab reflects uploads and
 deletions immediately.
 Hydrated fallback links use fresh URLs on branding changes so a deleted upload

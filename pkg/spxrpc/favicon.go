@@ -8,15 +8,18 @@ import (
 	_ "image/gif"
 	"image/png"
 	"math"
+	"sync"
 
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers/rasterizer"
 	"golang.org/x/image/draw"
 )
 
-// Keep only the current conversion; the source digest makes uploads, bundle
-// imports and deletions take effect without separate cache invalidation paths.
+// Keep only the current conversion; serialize misses to bound decode memory.
+// The source digest handles uploads, bundle imports and deletion without
+// invalidation hooks. A nil result caches failed conversions too.
 type encodedFavicon struct {
+	mu     sync.Mutex
 	source [32]byte
 	mime   string
 	data   []byte
@@ -55,6 +58,15 @@ func encodeFaviconICO(data []byte, mime string) ([]byte, error) {
 		art.RenderViewTo(renderer, canvas.Identity.Translate((size-w*scale)/2, (size-h*scale)/2).Scale(scale, scale))
 		renderer.Close()
 	} else {
+		cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+		if err != nil {
+			return nil, fmt.Errorf("read favicon dimensions: %w", err)
+		}
+		// The upload byte limit does not bound decompressed image memory.
+		const maxPixels = 4 * 1024 * 1024
+		if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width > maxPixels/cfg.Height {
+			return nil, fmt.Errorf("favicon raster exceeds %d pixels", maxPixels)
+		}
 		art, _, err := image.Decode(bytes.NewReader(data))
 		if err != nil {
 			return nil, fmt.Errorf("decode favicon: %w", err)

@@ -284,17 +284,21 @@ func (s *Server) HandleFaviconICO(c echo.Context) error {
 		return s.handleBrandingImage(c, nil, "favicon.ico", "image/x-icon")
 	}
 	source := sha256.Sum256(data)
-	encoded := s.favicon.Load()
-	if encoded == nil || encoded.source != source || encoded.mime != mimeType {
+	s.favicon.mu.Lock()
+	if s.favicon.source != source || s.favicon.mime != mimeType {
 		ico, err := encodeFaviconICO(data, mimeType)
 		if err != nil {
-			return fmt.Errorf("convert branding favicon to ICO: %w", err)
+			log.Warn(c.Request().Context(), "unable to convert branding favicon; using bundled ICO", "err", err)
 		}
-		encoded = &encodedFavicon{source: source, mime: mimeType, data: ico}
-		s.favicon.Store(encoded)
+		s.favicon.source, s.favicon.mime, s.favicon.data = source, mimeType, ico
+	}
+	ico := s.favicon.data
+	s.favicon.mu.Unlock()
+	if ico == nil {
+		return s.handleBrandingImage(c, nil, "favicon.ico", "image/x-icon")
 	}
 	c.Response().Header().Set("Cache-Control", "public, max-age=300")
-	return c.Blob(http.StatusOK, "image/x-icon", encoded.data)
+	return c.Blob(http.StatusOK, "image/x-icon", ico)
 }
 
 // HandleFaviconPNG serves the generic favicon. ?scheme=light|dark prefers

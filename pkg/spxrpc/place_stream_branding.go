@@ -3,6 +3,7 @@ package spxrpc
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	_ "embed"
 	"encoding/base64"
 	"errors"
@@ -275,10 +276,25 @@ func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input 
 	}, nil
 }
 
-// HandleFaviconICO serves /favicon.ico: the node's branded favicon, else
-// the bundled one.
+// HandleFaviconICO serves a real ICO, converting the node's generic branding
+// image on demand and retaining the bundled ICO when no image is configured.
 func (s *Server) HandleFaviconICO(c echo.Context) error {
-	return s.handleBrandingImage(c, []string{"favicon"}, "favicon.ico", "image/x-icon")
+	data, mimeType, _, _, err := s.GetBrandingBlob(c.Request().Context(), s.cli.BroadcasterDID(), "favicon")
+	if err != nil || len(data) == 0 || !strings.HasPrefix(mimeType, "image/") {
+		return s.handleBrandingImage(c, nil, "favicon.ico", "image/x-icon")
+	}
+	source := sha256.Sum256(data)
+	encoded := s.favicon.Load()
+	if encoded == nil || encoded.source != source || encoded.mime != mimeType {
+		ico, err := encodeFaviconICO(data, mimeType)
+		if err != nil {
+			return fmt.Errorf("convert branding favicon to ICO: %w", err)
+		}
+		encoded = &encodedFavicon{source: source, mime: mimeType, data: ico}
+		s.favicon.Store(encoded)
+	}
+	c.Response().Header().Set("Cache-Control", "public, max-age=300")
+	return c.Blob(http.StatusOK, "image/x-icon", encoded.data)
 }
 
 // HandleFaviconPNG serves the generic favicon. ?scheme=light|dark prefers

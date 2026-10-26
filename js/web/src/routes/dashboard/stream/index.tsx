@@ -287,7 +287,7 @@ function MetadataSection() {
       };
 
       if (livestreamRef) {
-        await updateContentMetadata({ rkey, livestreamRef, ...params });
+        await updateContentMetadata({ livestreamRef, ...params });
       } else {
         await createContentMetadata(params);
       }

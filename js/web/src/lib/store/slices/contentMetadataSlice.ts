@@ -23,7 +23,6 @@ export interface ContentMetadataSlice {
     };
   }) => Promise<void>;
   updateContentMetadata: (params: {
-    rkey?: string;
     livestreamRef?: { uri: string; cid: string };
     contentWarnings?: string[];
     distributionPolicy?: {
@@ -126,7 +125,6 @@ export const createContentMetadataSlice: StateCreator<
   },
 
   updateContentMetadata: async ({
-    rkey,
     livestreamRef,
     contentWarnings = [],
     distributionPolicy = { deleteAfter: undefined },
@@ -172,7 +170,7 @@ export const createContentMetadataSlice: StateCreator<
       const result = await pdsAgent.com.atproto.repo.putRecord({
         repo: did,
         collection: "place.stream.metadata.configuration",
-        rkey: rkey || "self",
+        rkey: "self",
         record: metadataRecord,
       });
 
@@ -181,9 +179,7 @@ export const createContentMetadataSlice: StateCreator<
         error: null,
         lastCreatedRecord: {
           record: metadataRecord,
-          uri: `at://${did}/place.stream.metadata.configuration/${
-            rkey || "self"
-          }`,
+          uri: result.data.uri,
           cid: result.data.cid,
         },
       });

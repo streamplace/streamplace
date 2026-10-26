@@ -1528,6 +1528,11 @@ func (cli *CLI) CheckConfig() error {
 		// subscription to them with syndication off: the peers retry forever.
 		errs = append(errs, fmt.Errorf("--peers pushes this node's streams, which --disable-syndication refuses to serve; drop one of them"))
 	}
+	if len(cli.Peers) > 0 && len(cli.Replicators) > 0 && !slices.Contains(cli.Replicators, ReplicatorWebsocket) {
+		// The websocket replicator runs the MoQ listener and the pushes;
+		// without it --peers would be ignored.
+		errs = append(errs, fmt.Errorf("--peers needs the %s replicator (--replicators)", ReplicatorWebsocket))
+	}
 	if err := cli.validateVODCDN(); err != nil {
 		errs = append(errs, err)
 	}

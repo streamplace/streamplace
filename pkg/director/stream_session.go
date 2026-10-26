@@ -148,7 +148,7 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	// exactly one node: every node carrying the stream contends for them,
 	// and the leases decide (see roles.go).
 	ss.startRoles(notif.Segment.RepoDID)
-	if notif.Local {
+	if ss.ingestOrigin(notif.Local) {
 		ss.startTranscodeRole(notif.Segment.RepoDID)
 	}
 
@@ -206,6 +206,15 @@ func (ss *StreamSession) Go(ctx context.Context, f func() error) {
 	})
 }
 
+// ingestOrigin reports whether this node is the origin of a stream it
+// ingests (local): it is unless it pushes its streams to --peers. Those
+// peers are then the origin, the nodes the station pulls the stream from
+// and that transcode it; the pusher is typically behind NAT, out of their
+// reach (see docs/moq.md).
+func (ss *StreamSession) ingestOrigin(local bool) bool {
+	return local && len(ss.cli.Peers) == 0
+}
+
 func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegmentNotification) error {
 	<-ss.started
 	go func() {
@@ -260,7 +269,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	// either kind. Transcoding is contended for only once this node is an
 	// origin for the stream (see startTranscodeRole).
 	ss.startRoles(spseg.Creator)
-	if notif.Local || ss.replicator.ReceivesPush(spseg.Creator) {
+	if ss.ingestOrigin(notif.Local) || ss.replicator.ReceivesPush(spseg.Creator) {
 		ss.startTranscodeRole(spseg.Creator)
 	}
 
@@ -306,7 +315,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		}, sourceTurn)
 	})
 
-	if notif.Local {
+	if ss.ingestOrigin(notif.Local) {
 		ss.Go(ctx, func() error {
 			// The row carries what a peer cannot derive from our DID: where
 			// we serve this stream over MoQ (see websocketrep.originViewForRow).

@@ -115,8 +115,10 @@ from a pusher, whose signer could be anyone: as the stream's origin it mints
 its own. A pushed stream is a replicated stream on
 the peer (`Local: false`); while it flows the peer writes itself into the
 station's `broadcast_origins` table for it, so the nodes sharing its
-statedb pull the stream from the peer rather than from a pusher they
-cannot reach.
+statedb pull the stream from the peer. The pusher hands its streams' origin
+duties to its peers: it writes no `broadcast_origins` row of its own and
+does not contend for transcoding (below), so a pusher on the same statedb
+as its peer, out of the other nodes' reach, is never chosen over it.
 
 An `https://` peer is asked for its current MoQ URL on every dial, through
 `place.stream.broadcast.getBroadcaster`'s `moqURL`: a node behind an HTTPS
@@ -140,10 +142,14 @@ in the station's shared statedb (`leases`; `pkg/director/roles.go`). The
 holder renews the lease every 2 seconds; a node that dies stops, and the
 next contender takes the job over once the 6 second TTL has lapsed. A node
 that ends a session cleanly releases its leases, so a peer takes over at
-once. A node on its own statedb simply holds every lease.
+once. A node that wins a job but cannot take it up (a failed lookup before
+recording) releases the lease at once and asks again after 10 seconds; one
+that will not do it for this stream (the streamer turned recording off)
+releases it and stops asking. A node on its own statedb simply holds every
+lease.
 
 Transcoding is contended for only by a node that is an origin for the
-stream, one that ingests it or that a peer pushes it to, and that has a
-Livepeer gateway: peers take a stream's renditions from its origin, so
-renditions minted on a pull-only replica would reach nobody but its own
-viewers.
+stream, one that ingests it without pushing it to `--peers` or that a peer
+pushes it to, and that has a Livepeer gateway: peers take a stream's
+renditions from its origin, so renditions minted anywhere else would reach
+nobody but that node's own viewers.

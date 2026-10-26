@@ -183,7 +183,11 @@ export default async function () {
       }),
     ],
   };
+  // Only the macOS host uses @electron/packager's built-in signing and
+  // notarization. Elsewhere the postPackage hook signs with rcodesign; setting
+  // osxNotarize here would make packager invoke Apple's notarytool on Linux.
   if (
+    process.platform === "darwin" &&
     process.env.NOTARIZATION_TEAM_ID &&
     process.env.NOTARIZATION_EMAIL &&
     process.env.NOTARIZATION_PASSWORD

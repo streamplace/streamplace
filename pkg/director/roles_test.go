@@ -2,6 +2,7 @@ package director
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -13,14 +14,15 @@ import (
 )
 
 // contender is a session on one node, contending for a role, with its
-// start/stop calls recorded.
+// start/stop calls recorded. A start returns startErr: nil takes the job
+// up, anything else fails to.
 type contender struct {
 	ss     *StreamSession
 	cancel context.CancelFunc
 	events chan string
 }
 
-func newContender(t *testing.T, state *statedb.StatefulDB, node string) *contender {
+func newContender(t *testing.T, state *statedb.StatefulDB, node string, startErr error) *contender {
 	ctx, cancel := context.WithCancel(context.Background())
 	g, ctx := errgroup.WithContext(ctx)
 	started := make(chan struct{})
@@ -31,9 +33,12 @@ func newContender(t *testing.T, state *statedb.StatefulDB, node string) *contend
 		events: make(chan string, 16),
 	}
 	c.ss.contend(ctx, "did:plc:streamer", role{
-		name:  "record",
-		start: func(context.Context) { c.events <- node + " start" },
-		stop:  func() { c.events <- node + " stop" },
+		name: "record",
+		start: func(context.Context) error {
+			c.events <- node + " start"
+			return startErr
+		},
+		stop: func() { c.events <- node + " stop" },
 	})
 	t.Cleanup(func() {
 		cancel()
@@ -61,19 +66,25 @@ func (c *contender) quiet(t *testing.T, d time.Duration) {
 	}
 }
 
-// Two nodes carrying one stream: the first to ask does the job and keeps
-// it while it renews; when it goes away the other takes over, at once on
-// a clean exit (the lease is released) and within the TTL otherwise.
-func TestRoleFailsOverBetweenNodes(t *testing.T) {
-	roleLeaseTTL, roleLeaseRenew = 150*time.Millisecond, 30*time.Millisecond
+// leaseDB is a statedb for role tests, with leases short enough to watch.
+func leaseDB(t *testing.T) *statedb.StatefulDB {
+	roleLeaseTTL, roleLeaseRenew, roleRetryAfter = 150*time.Millisecond, 30*time.Millisecond, 300*time.Millisecond
 	mod, err := model.MakeDB(":memory:")
 	require.NoError(t, err)
 	state, err := statedb.MakeDB(t.Context(), &config.CLI{DBURL: ":memory:"}, nil, mod)
 	require.NoError(t, err)
+	return state
+}
 
-	a := newContender(t, state, "a.example")
+// Two nodes carrying one stream: the first to ask does the job and keeps
+// it while it renews; when it goes away the other takes over, at once on
+// a clean exit (the lease is released) and within the TTL otherwise.
+func TestRoleFailsOverBetweenNodes(t *testing.T) {
+	state := leaseDB(t)
+
+	a := newContender(t, state, "a.example", nil)
 	a.expect(t, "a.example start", time.Second)
-	b := newContender(t, state, "b.example")
+	b := newContender(t, state, "b.example", nil)
 	b.quiet(t, 3*roleLeaseTTL)
 
 	// a ends cleanly: its stop runs and b has the job before the TTL.
@@ -91,7 +102,39 @@ func TestRoleFailsOverBetweenNodes(t *testing.T) {
 	held, err := state.AcquireLease(t.Context(), "stream:record:did:plc:streamer", "did:web:b.example", roleLeaseTTL)
 	require.NoError(t, err)
 	require.True(t, held)
-	c := newContender(t, state, "c.example")
+	c := newContender(t, state, "c.example", nil)
 	c.quiet(t, roleLeaseTTL/2)
 	c.expect(t, "c.example start", 3*roleLeaseTTL)
+}
+
+// A node that wins a job but cannot take it up (recording's lookups
+// failed) hands the lease straight back, so a healthy peer does the job
+// rather than nobody, and asks again later.
+func TestRoleNotTakenUpGoesToAPeer(t *testing.T) {
+	state := leaseDB(t)
+
+	a := newContender(t, state, "a.example", errors.New("lookup failed"))
+	a.expect(t, "a.example start", time.Second)
+	b := newContender(t, state, "b.example", nil)
+	b.expect(t, "b.example start", roleLeaseRenew)
+	a.quiet(t, 2*roleRetryAfter)
+
+	// a still asks: once b is gone, it tries the job again.
+	b.cancel()
+	b.expect(t, "b.example stop", time.Second)
+	a.expect(t, "a.example start", roleRetryAfter+3*roleLeaseRenew)
+}
+
+// A node that declines a job for this stream hands the lease back and
+// stops asking for it.
+func TestRoleDeclinedIsLeftToPeers(t *testing.T) {
+	state := leaseDB(t)
+
+	a := newContender(t, state, "a.example", errRoleDeclined)
+	a.expect(t, "a.example start", time.Second)
+	b := newContender(t, state, "b.example", nil)
+	b.expect(t, "b.example start", roleLeaseRenew)
+	b.cancel()
+	b.expect(t, "b.example stop", time.Second)
+	a.quiet(t, 3*roleRetryAfter)
 }

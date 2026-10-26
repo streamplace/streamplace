@@ -63,6 +63,10 @@ func TestCheckConfig(t *testing.T) {
 	// subscriptions without it.
 	bad(CLI{DataDir: t.TempDir(), DisableSyndication: true, Peers: []string{"https://peer.example"}},
 		"--peers", "--disable-syndication")
+	// Only the websocket replicator pushes: --peers would be ignored.
+	bad(CLI{DataDir: t.TempDir(), Replicators: []string{ReplicatorIroh}, Peers: []string{"https://peer.example"}},
+		"--peers", "--replicators")
+	ok(CLI{DataDir: t.TempDir(), Replicators: []string{ReplicatorIroh, ReplicatorWebsocket}, Peers: []string{"https://peer.example"}})
 
 	// Multiple problems are reported together, not one at a time.
 	multi := CLI{LivepeerGateway: true, LivepeerGatewayURL: "http://127.0.0.1:8935",

@@ -86,6 +86,44 @@ async function expectShown(
     .toEqual(expected);
 }
 
+// Decode the actual ICO as a browser image, not just a renamed SVG/PNG.
+async function readICO(page: Page, pixel?: number[]): Promise<string> {
+  const result = await page.evaluate(async () => {
+    const response = await fetch("/favicon.ico", { cache: "no-store" });
+    const blob = await response.blob();
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const url = URL.createObjectURL(blob);
+    try {
+      const image = new Image();
+      image.src = url;
+      await image.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(image, 0, 0);
+      let binary = "";
+      for (const byte of bytes) binary += String.fromCharCode(byte);
+      return {
+        status: response.status,
+        type: response.headers.get("content-type"),
+        header: Array.from(bytes.slice(0, 4)),
+        pixel: Array.from(
+          ctx.getImageData(canvas.width >> 1, canvas.height >> 1, 1, 1).data,
+        ),
+        body: btoa(binary),
+      };
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  });
+  expect(result.status).toBe(200);
+  expect(result.type).toBe("image/x-icon");
+  expect(result.header).toEqual([0, 0, 1, 0]);
+  if (pixel) expect(result.pixel).toEqual(pixel);
+  return result.body;
+}
+
 async function uploadIcon(page: Page, key: string) {
   const updated = page.waitForResponse(xrpc("updateBlob"));
   const chooser = page.waitForEvent("filechooser");
@@ -138,11 +176,13 @@ test("branding-favicons: light and dark favicons follow the color scheme", async
     .poll(async () => (await shownIcon(page, "dom")).type)
     .toBe("image/png");
   const bundled = await shownIcon(page, "dom");
+  const bundledICO = await readICO(page);
 
   // The background-backed default works in either scheme on its own.
   await uploadIcon(page, "favicon");
   await expectShown(page, "light", icon("favicon"));
   await expectShown(page, "dark", icon("favicon"));
+  await readICO(page, [128, 128, 128, 255]);
 
   // Transparent variants override it independently without altering the files.
   for (const key of ["faviconLight", "faviconDark"])
@@ -151,6 +191,8 @@ test("branding-favicons: light and dark favicons follow the color scheme", async
   // Each scheme gets its own icon, live: no reload between the switches.
   await expectShown(page, "light", icon("faviconLight"));
   await expectShown(page, "dark", icon("faviconDark"));
+  // Theme variants must not replace the generic legacy-client ICO.
+  await readICO(page, [128, 128, 128, 255]);
 
   const screenshot = test.info().outputPath("branding-favicons.png");
   await page
@@ -161,6 +203,7 @@ test("branding-favicons: light and dark favicons follow the color scheme", async
 
   // Persisted on the node: a fresh page load, both hydrated and as served.
   await page.reload();
+  await readICO(page, [128, 128, 128, 255]);
   for (const source of ["dom", "html"] as const) {
     await expectShown(page, "dark", icon("faviconDark"), source);
     await expectShown(page, "light", icon("faviconLight"), source);
@@ -181,6 +224,7 @@ test("branding-favicons: light and dark favicons follow the color scheme", async
 
   // ...and without that, to the bundled one.
   await removeIcon(page, "favicon");
+  expect(await readICO(page)).toBe(bundledICO);
   await expectShown(page, "dark", bundled);
   await expectShown(page, "light", icon("faviconLight"));
 });

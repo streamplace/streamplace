@@ -43,6 +43,7 @@ type Server struct {
 	ATSync          *atproto.ATProtoSynchronizer
 	statefulDB      *statedb.StatefulDB
 	sessionKeyCache atomic.Pointer[[]byte]
+	favicon         encodedFavicon
 	bus             *bus.Bus
 	op              *oatproxy.OATProxy
 	localDB         localdb.LocalDB

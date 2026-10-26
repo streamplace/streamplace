@@ -24,7 +24,7 @@ are cached for five minutes, so runtime logo changes can take that long to appea
 In **Settings → Branding**, upload three independent icons: **Default favicon**,
 **Light mode favicon**, and **Dark mode favicon**. Each accepts SVG, PNG, or ICO
 up to 100 KiB. Use an icon with a background for the default and transparent
-light/dark overrides if desired; uploads are served unchanged. Override selection
+light/dark overrides if desired; theme-aware icon uploads are served unchanged. Override selection
 follows the browser/OS `prefers-color-scheme`, not the app's theme setting, and
 changes without reloading the page.
 
@@ -36,9 +36,14 @@ the branding CLI or XRPC. No custom frontend build is needed for uploads.
 
 The HTML declares a generic `/favicon.png` link before media-qualified
 `/favicon.png?scheme=light` and `/favicon.png?scheme=dark` links, so selection
-also works before JavaScript loads. `/favicon.ico` remains the generic fallback.
-These routes serve uploads with their declared image MIME type and cache for
-five minutes; the open admin tab reflects uploads and deletions immediately.
+also works before JavaScript loads. `/favicon.ico` is the generic legacy-client
+fallback and always serves `image/x-icon`: the backend rasterizes SVG and raster
+uploads into a 64×64 PNG-backed ICO, preserving aspect ratio and transparency.
+Uploaded ICO files pass through unchanged. No re-upload is needed for existing
+branding. Missing, unreadable, or oversized artwork uses the bundled ICO;
+raster conversions are limited to 4,194,304 source pixels before decoding.
+These routes cache for five minutes; the open admin tab reflects uploads and
+deletions immediately.
 Hydrated fallback links use fresh URLs on branding changes so a deleted upload
 cannot return from the browser's cache.
 The brand generator owns the bundled PNG and ICO, rather than Expo injecting

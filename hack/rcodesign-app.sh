@@ -56,13 +56,22 @@ if [ -n "${DEVELOPER_CERTIFICATE_BASE64:-}" ]; then
 fi
 
 echo "signing $APP with rcodesign"
-# `main:` applies the setting to the bundle's main executable *and* every
-# nested Mach-O. Without it the helpers get signatures without the hardened
-# runtime flag, and Apple rejects the archive during notarization with
-# "The executable does not have the hardened runtime enabled."
+# --for-notarization enables the hardened runtime flag on every Mach-O in the
+# bundle, including nested helpers; plain --code-signature-flags only applies
+# to the main target. It requires a Developer ID certificate and a timestamp
+# server, so fall back to the single-target flag for ad-hoc/offline signing.
+SIGN_ARGS=()
+if [ -n "${APPLE_CODESIGN_API_KEY:-}" ] &&
+  [ "${SIGN_NOTARIZE:-auto}" != "0" ] &&
+  [ "${SIGN_TIMESTAMP_URL:-}" != "none" ]; then
+  SIGN_ARGS+=(--for-notarization)
+else
+  SIGN_ARGS+=(--code-signature-flags runtime)
+fi
+
 rcodesign sign \
-  --code-signature-flags main:runtime \
-  --entitlements-xml-path "main:$ENTITLEMENTS" \
+  "${SIGN_ARGS[@]}" \
+  --entitlements-xml-path "$ENTITLEMENTS" \
   ${TIMESTAMP_ARGS[@]+"${TIMESTAMP_ARGS[@]}"} \
   ${CERT_ARGS[@]+"${CERT_ARGS[@]}"} \
   "$APP"

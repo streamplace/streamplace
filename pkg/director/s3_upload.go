@@ -2,6 +2,7 @@ package director
 
 import (
 	"context"
+	"fmt"
 
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
@@ -30,50 +31,53 @@ const vodInviteFeature = "vod"
 //     the opposite of debugRecording — so only an explicit `false` opts out.
 //
 // Evaluated once at stream start (like debugRecording in media.shouldRecord); a
-// mid-stream settings change takes effect on the streamer's next session. On
-// any lookup error we fail closed (do not record).
-func (ss *StreamSession) shouldRecordLivestream(ctx context.Context, repoDID string) bool {
+// mid-stream settings change takes effect on the streamer's next session. A
+// lookup error is returned, not taken as a no: the record role hands the job
+// to a peer and asks again later (see contend).
+func (ss *StreamSession) shouldRecordLivestream(ctx context.Context, repoDID string) (bool, error) {
 	inBeta := false
 	if ss.cli.BetaInviteDID != "" {
 		has, err := ss.mod.HasBetaInvite(ctx, ss.cli.BetaInviteDID, repoDID, vodInviteFeature)
 		if err != nil {
-			log.Error(ctx, "live recording: failed to check VOD beta invite", "error", err, "repoDID", repoDID)
-			return false
+			return false, fmt.Errorf("live recording: failed to check VOD beta invite: %w", err)
 		}
 		inBeta = has
 	} else {
 		inBeta = ss.cli.StreamIsAllowed(repoDID) == nil
 	}
 	if !inBeta {
-		return false
+		return false, nil
 	}
 
 	settings, err := ss.mod.GetServerSettings(ctx, ss.cli.BroadcasterHost, repoDID)
 	if err != nil {
-		log.Error(ctx, "live recording: failed to load server settings", "error", err, "repoDID", repoDID)
-		return false
+		return false, fmt.Errorf("live recording: failed to load server settings: %w", err)
 	}
 	if settings == nil {
 		// No settings record at all: default on for beta users.
-		return true
+		return true, nil
 	}
 	spsettings, err := settings.ToStreamplaceServerSettings()
 	if err != nil {
-		log.Error(ctx, "live recording: failed to decode server settings", "error", err, "repoDID", repoDID)
-		return false
+		return false, fmt.Errorf("live recording: failed to decode server settings: %w", err)
 	}
 	// Default on: record unless the streamer explicitly set the flag to false.
-	return spsettings.LivestreamRecording == nil || *spsettings.LivestreamRecording
+	return spsettings.LivestreamRecording == nil || *spsettings.LivestreamRecording, nil
 }
 
-// startS3Upload takes up recording the stream: the record role's start.
-func (ss *StreamSession) startS3Upload(ctx context.Context, repoDID string) {
-	if !ss.shouldRecordLivestream(ctx, repoDID) {
+// startS3Upload takes up recording the stream: the record role's start. It
+// installs the uploader last, so on an error there is nothing to put down.
+func (ss *StreamSession) startS3Upload(ctx context.Context, repoDID string) error {
+	record, err := ss.shouldRecordLivestream(ctx, repoDID)
+	if err != nil {
+		return err
+	}
+	if !record {
 		// Info, not Debug: this fires once per stream session, and it's the
 		// answer to "why does this streamer have no recording?" — a question
 		// that once cost a production debugging session at Debug level.
 		log.Log(ctx, "live recording disabled for streamer (not in VOD beta, or recording turned off in settings)", "repoDID", repoDID)
-		return
+		return errRoleDeclined
 	}
 	cfg := ss.cli.S3Config()
 	// live-rec/ namespaces the in-progress livestream recordings away from the
@@ -97,6 +101,7 @@ func (ss *StreamSession) startS3Upload(ctx context.Context, repoDID string) {
 	ss.s3Uploader = u
 	ss.s3Mu.Unlock()
 	log.Log(ctx, "S3 upload enabled", "bucket", ss.cli.S3Bucket, "endpoint", ss.cli.S3Endpoint, "repoDID", repoDID)
+	return nil
 }
 
 // uploader is the live recording, or nil while this node is not recording.

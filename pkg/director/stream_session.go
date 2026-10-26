@@ -1151,30 +1151,35 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 				log.Error(ctx, "failed to convert multistream target to streamplace multistream target", "uri", targetView.Uri)
 				continue
 			}
+			key := fmt.Sprintf("%s:%s", targetView.Uri, rec.Url)
+			currentRunning[key] = true
+			if running[key] != nil {
+				continue
+			}
+			// The worker only stops with its context: nothing would restart
+			// it, and this node holds the multistream lease. A target that
+			// cannot start now is tried again on the next pass.
 			uu, err := uuid.NewV7()
 			if err != nil {
-				return err
+				log.Error(ctx, "failed to make a multistream push id", "error", err)
+				continue
 			}
 			ctx := log.WithLogValues(ctx, "url", sanitizeMultistreamTargetURL(rec.Url), "pushID", uu.String())
-			key := fmt.Sprintf("%s:%s", targetView.Uri, rec.Url)
-			if running[key] == nil {
-				childCtx, childCancel := context.WithCancel(ctx)
-				ss.Go(ctx, func() error {
-					log.Log(ctx, "starting multistream target", "uri", targetView.Uri)
-					err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, "starting multistream target", "pending")
-					if err != nil {
-						log.Error(ctx, "failed to create multistream event", "error", err)
-					}
-					return ss.StartMultistreamTarget(childCtx, &targetView)
-				})
-				running[key] = &runningMultistream{
-					cancel: childCancel,
-					key:    key,
-					pushID: uu.String(),
-					url:    sanitizeMultistreamTargetURL(rec.Url),
+			childCtx, childCancel := context.WithCancel(ctx)
+			ss.Go(ctx, func() error {
+				log.Log(ctx, "starting multistream target", "uri", targetView.Uri)
+				err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, "starting multistream target", "pending")
+				if err != nil {
+					log.Error(ctx, "failed to create multistream event", "error", err)
 				}
+				return ss.StartMultistreamTarget(childCtx, &targetView)
+			})
+			running[key] = &runningMultistream{
+				cancel: childCancel,
+				key:    key,
+				pushID: uu.String(),
+				url:    sanitizeMultistreamTargetURL(rec.Url),
 			}
-			currentRunning[key] = true
 		}
 		for key := range running {
 			if !currentRunning[key] {

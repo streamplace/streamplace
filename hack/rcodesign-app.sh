@@ -56,9 +56,13 @@ if [ -n "${DEVELOPER_CERTIFICATE_BASE64:-}" ]; then
 fi
 
 echo "signing $APP with rcodesign"
+# `main:` applies the setting to the bundle's main executable *and* every
+# nested Mach-O. Without it the helpers get signatures without the hardened
+# runtime flag, and Apple rejects the archive during notarization with
+# "The executable does not have the hardened runtime enabled."
 rcodesign sign \
-  --code-signature-flags runtime \
-  --entitlements-xml-path "$ENTITLEMENTS" \
+  --code-signature-flags main:runtime \
+  --entitlements-xml-path "main:$ENTITLEMENTS" \
   ${TIMESTAMP_ARGS[@]+"${TIMESTAMP_ARGS[@]}"} \
   ${CERT_ARGS[@]+"${CERT_ARGS[@]}"} \
   "$APP"

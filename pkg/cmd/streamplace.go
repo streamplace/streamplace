@@ -429,11 +429,12 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 	var wsrep *websocketrep.WebsocketReplicator
 	if slices.Contains(cli.Replicators, config.ReplicatorWebsocket) {
-		wsrep = websocketrep.NewWebsocketReplicator(b, mod, mm, state, moqSelfSigned)
+		wsrep = websocketrep.NewWebsocketReplicator(cli, b, mod, mm, state, moqSelfSigned)
 		replicator = wsrep
 	}
 
 	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb, atsync)
+	atsync.LivestreamEnded = d.CutoverLiveRecording
 	um, err := upload.New(ctx, cli, state)
 	if err != nil {
 		return err
@@ -579,6 +580,11 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
+	// Before any server builds its handler: getBroadcaster reports this
+	// URL, which is how a peer pushing streams here finds the listener.
+	if cli.MoqAddr != "" && wsrep != nil {
+		a.MoqURL = func() string { return websocketrep.AdvertisedMoqURL(cli, moqSelfSigned) }
+	}
 
 	ctx = log.WithLogValues(ctx, "version", build.Version)
 
@@ -635,8 +641,8 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		})
 	}
 
-	// The MoQ listener is the websocket replicator's (see docs/moq.md). It
-	// reads its certificate from files, which Go keeps current.
+	// The MoQ listener is the websocket replicator's: node-to-node
+	// transfer in both directions runs through it (see docs/moq.md).
 	if cli.MoqAddr != "" && wsrep != nil {
 		switch {
 		case a.ACME != nil:

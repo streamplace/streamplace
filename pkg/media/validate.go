@@ -37,6 +37,12 @@ type segmentValidation struct {
 	ValidationState   string                      `json:"validation_state"`
 }
 
+// replicatedMaxAge is how far a replicated (non-local) segment's start time
+// may be from this node's clock before it is refused as a replay; see
+// validateSource. A live segment is seconds old; the slack is for clock
+// skew between nodes and a pull that resumes after an outage.
+const replicatedMaxAge = 10 * time.Minute
+
 func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local bool) error {
 	return mm.validateMP4(ctx, input, local, "")
 }
@@ -122,6 +128,20 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 		return nil, fmt.Errorf("segment manifest has no label")
 	}
 	label := *valid.Manifest.Label
+	// A replicated segment is live by definition: it reached us over a
+	// peer's subscription, a push, or /api/segment, all of which carry what
+	// a streamer is producing now. One from the past is a replay: anyone can
+	// fetch a public streamer's old signed segments, and without this a
+	// node would take them as that streamer going live again. The window
+	// is generous because the clocks are the nodes' own. Checked before the
+	// dedup skip below: a replay of a segment this node already holds must
+	// not pass as a successful ingest either.
+	if !local {
+		if age := time.Since(meta.StartTime.Time()); age > replicatedMaxAge || age < -replicatedMaxAge {
+			return nil, fmt.Errorf("replicated segment of %s starts at %s, %s from now; refusing a replay", meta.Creator, meta.StartTime.Time().Format(time.RFC3339), age.Round(time.Second))
+		}
+	}
+
 	if mm.model != nil {
 		_, dbSpan := tracer.Start(ctx, "ValidateMP4.LocalDB.GetSegment")
 		oldSeg, err := mm.localDB.GetSegment(label)

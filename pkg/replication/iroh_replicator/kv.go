@@ -126,6 +126,11 @@ func (swarm *IrohSwarm) BuildOriginRecord(origin *placestream.BroadcastOrigin) e
 	return nil
 }
 
+// ReceivesPush: the swarm has no push; a stream is local or gossiped.
+func (swarm *IrohSwarm) ReceivesPush(string) bool {
+	return false
+}
+
 func (swarm *IrohSwarm) Start(ctx context.Context, cli *config.CLI) error {
 	if len(cli.Tickets) > 0 {
 		err := swarm.Node.JoinPeers(cli.Tickets)

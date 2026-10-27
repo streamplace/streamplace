@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/url"
@@ -14,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -128,22 +131,44 @@ type e2eDevEnv struct {
 	LexiconPassword string `json:"lexicon-password"`
 }
 
+// Harness ports come from below the kernel's ephemeral range (Linux
+// 32768-60999, macOS 49152-65535). One picked there and released can't go
+// to a listener on :0, which every node opens, or to an outgoing
+// connection before the node it was picked for binds it.
+const harnessPortMin, harnessPortMax = 20000, 32000
+
+var (
+	pickedMu sync.Mutex
+	picked   = map[int]bool{}
+)
+
 func freePort() (int, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
+	return pickPort(func(addr string) (io.Closer, error) { return net.Listen("tcp", addr) })
 }
 
 func freeUDPPort() (int, error) {
-	c, err := net.ListenPacket("udp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
+	return pickPort(func(addr string) (io.Closer, error) { return net.ListenPacket("udp", addr) })
+}
+
+// pickPort finds a port in the harness range that listen can bind and no
+// earlier pick holds.
+func pickPort(listen func(addr string) (io.Closer, error)) (int, error) {
+	pickedMu.Lock()
+	defer pickedMu.Unlock()
+	for range 100 {
+		port := harnessPortMin + rand.IntN(harnessPortMax-harnessPortMin)
+		if picked[port] {
+			continue
+		}
+		l, err := listen(fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			continue
+		}
+		l.Close() //nolint:errcheck
+		picked[port] = true
+		return port, nil
 	}
-	defer c.Close()
-	return c.LocalAddr().(*net.UDPAddr).Port, nil
+	return 0, errors.New("no free port in the harness range")
 }
 
 // startNode forks this binary as a Streamplace node on the dev-env's PDS and
@@ -359,6 +384,29 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		return fmt.Errorf("break debug-recording sink: %w", err)
 	}
 
+	// A third node, fed by push: the first node pushes its streams to it
+	// over MoQ (--peers, see docs/moq.md), the way a node beside a
+	// streamer's encoder hands off to a server. Its ports are picked now so
+	// the first node can be told where it will be; it starts after the
+	// first, which retries the push until it is up.
+	pushHTTPPort, err := freePort()
+	if err != nil {
+		return err
+	}
+	pushInternalPort, err := freePort()
+	if err != nil {
+		return err
+	}
+	pushRTMPPort, err := freePort()
+	if err != nil {
+		return err
+	}
+	pushMoqPort, err := freeUDPPort()
+	if err != nil {
+		return err
+	}
+	pushAddr := fmt.Sprintf("127.0.0.1:%d", pushHTTPPort)
+
 	nodeEnv := []string{
 		fmt.Sprintf("SP_HTTP_ADDR=%s", httpAddr),
 		fmt.Sprintf("SP_HTTP_INTERNAL_ADDR=127.0.0.1:%d", internalPort),
@@ -371,6 +419,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		fmt.Sprintf("SP_BROADCASTER_HOST=%s", broadcasterHost),
 		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", httpAddr),
 		fmt.Sprintf("SP_MOQ_URL=moqt://127.0.0.1:%d", moqPort),
+		fmt.Sprintf("SP_PEERS=http://%s", pushAddr),
 	}
 	if tlsEnv != nil {
 		nodeEnv = append(nodeEnv, tlsEnv.NodeEnv()...)
@@ -438,6 +487,33 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	defer killNode(ctx, peerCmd, out.Did)
 	if err := waitForNode(ctx, peerAddr); err != nil {
 		return fmt.Errorf("peer: %w", err)
+	}
+
+	// The push-fed node syndicates nothing itself: the only way the stream
+	// reaches it is the first node pushing it.
+	pushDataDir, err := os.MkdirTemp("", "streamplace-e2e-push-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(pushDataDir) //nolint:errcheck
+	pushEnv := []string{
+		fmt.Sprintf("SP_HTTP_ADDR=%s", pushAddr),
+		fmt.Sprintf("SP_HTTP_INTERNAL_ADDR=127.0.0.1:%d", pushInternalPort),
+		fmt.Sprintf("SP_RTMP_ADDR=127.0.0.1:%d", pushRTMPPort),
+		fmt.Sprintf("SP_MOQ_ADDR=127.0.0.1:%d", pushMoqPort),
+		fmt.Sprintf("SP_BROADCASTER_HOST=%s", pushAddr),
+		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", pushAddr),
+	}
+	if tlsEnv != nil {
+		pushEnv = append(pushEnv, tlsEnv.TrustEnv()...)
+	}
+	pushCmd, err := startNode(ctx, self, env, pushDataDir, pushEnv)
+	if err != nil {
+		return fmt.Errorf("push node: %w", err)
+	}
+	defer killNode(ctx, pushCmd, out.Did)
+	if err := waitForNode(ctx, pushAddr); err != nil {
+		return fmt.Errorf("push node: %w", err)
 	}
 
 	// Register a stream key for the test account.
@@ -534,8 +610,8 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	// the local file the ingest loop is streaming, which tests upload through
 	// the app to get themselves a playable VOD. PDS_HTTP_URL is the PDS's own
 	// plain-HTTP listener, for host-side checks of the records it stores.
-	vars := fmt.Sprintf("SERVER_URL=http://%s\nSERVER2_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nE2E_FIXTURE_MP4=%s\nPDS_HTTP_URL=%s\n",
-		httpAddr, peerAddr, out.Handle, out.Did, password, videoURI, fixture, env.PDSURL)
+	vars := fmt.Sprintf("SERVER_URL=http://%s\nSERVER2_URL=http://%s\nSERVER3_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nE2E_FIXTURE_MP4=%s\nPDS_HTTP_URL=%s\n",
+		httpAddr, peerAddr, pushAddr, out.Handle, out.Did, password, videoURI, fixture, env.PDSURL)
 	if tlsEnv != nil {
 		// The same node over HTTPS at its public name, plus what clients
 		// need to reach and trust it (see e2e_https.go): a browser pins the

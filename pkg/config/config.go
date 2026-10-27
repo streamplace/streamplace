@@ -597,7 +597,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:  "peers",
-				Usage: `other streamplace nodes to replicate to (default: "")`,
+				Usage: `comma-separated nodes to push this node's live streams to over Media over QUIC, each a node's https:// origin (its MoQ URL is looked up) or a moqt:// URL (default: "")`,
 				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
 					if s == "" {
 						return nil
@@ -1522,6 +1522,16 @@ func (cli *CLI) CheckConfig() error {
 		if _, err := cli.ParseSigningKey(); err != nil {
 			errs = append(errs, fmt.Errorf("--signing-key: %w", err))
 		}
+	}
+	if cli.DisableSyndication && len(cli.Peers) > 0 {
+		// A node pushing to peers announces its streams, then refuses every
+		// subscription to them with syndication off: the peers retry forever.
+		errs = append(errs, fmt.Errorf("--peers pushes this node's streams, which --disable-syndication refuses to serve; drop one of them"))
+	}
+	if len(cli.Peers) > 0 && len(cli.Replicators) > 0 && !slices.Contains(cli.Replicators, ReplicatorWebsocket) {
+		// The websocket replicator runs the MoQ listener and the pushes;
+		// without it --peers would be ignored.
+		errs = append(errs, fmt.Errorf("--peers needs the %s replicator (--replicators)", ReplicatorWebsocket))
 	}
 	if err := cli.validateVODCDN(); err != nil {
 		errs = append(errs, err)

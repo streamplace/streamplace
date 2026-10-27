@@ -56,6 +56,10 @@ type ATProtoSynchronizer struct {
 	CachedPLCDirectory identity.Directory
 	dirMu              sync.Mutex
 	OATProxy           *oatproxy.OATProxy
+	// LivestreamEnded, if set, is called when this node first sees a
+	// streamer's livestream record end (see the livestream case in
+	// handleCreateUpdate).
+	LivestreamEnded func(ctx context.Context, streamerDID string)
 
 	// Liveness, written concurrently by every relay consumer (unix nanos).
 	// lastSeen is the last reception; lastEvent is the newest event stamp,

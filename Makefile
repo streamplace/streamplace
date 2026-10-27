@@ -416,6 +416,7 @@ dev-test:
 	&& PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
 	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
+	BUILDDIR=$(BUILDDIR) \
 	$(NATIVE_ENV) bash -euo pipefail -c "go test -p 1 -timeout 30m ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
 
 .PHONY: iroh-test

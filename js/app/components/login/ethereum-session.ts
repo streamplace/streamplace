@@ -5,11 +5,9 @@ export interface EthereumSignInProof {
   chainId: number;
 }
 
-export interface EthereumSignInOptions {
-  projectId: string;
-  siteTitle: string;
-  themeMode: "dark" | "light";
-  accent: string;
+/** An injected wallet's EIP-1193 provider. */
+export interface Eip1193Provider {
+  request(args: { method: string; params?: unknown[] }): Promise<any>;
 }
 
 // The backend that turns a signed SIWE message into a session on the

@@ -1,5 +1,5 @@
 const lucideTransformPlugin = require("./babel-plugin-lucide-transform");
-const walletLibsPlugin = require("./babel-plugin-wallet-libs");
+const inlineImportsPlugin = require("./babel-plugin-inline-imports");
 
 module.exports = (api) => {
   api.cache(true);
@@ -12,9 +12,9 @@ module.exports = (api) => {
     ],
     overrides: [
       {
-        // Sign in with Ethereum's libraries; see babel-plugin-wallet-libs.js
-        test: /node_modules[\\/](@reown|@walletconnect|@wagmi|wagmi|viem|ox|valtio|zustand)[\\/]/,
-        plugins: [walletLibsPlugin],
+        // Sign in with Ethereum's libraries; see babel-plugin-inline-imports.js
+        test: /node_modules[\\/](viem|ox)[\\/]/,
+        plugins: [inlineImportsPlugin],
       },
     ],
   };

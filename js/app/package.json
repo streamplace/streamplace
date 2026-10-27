@@ -59,14 +59,12 @@
     "@react-navigation/drawer": "8.0.0-alpha.16",
     "@react-navigation/native": "8.0.0-alpha.14",
     "@react-navigation/native-stack": "8.0.0-alpha.17",
-    "@reown/appkit": "^1.8.24",
-    "@reown/appkit-adapter-wagmi": "^1.8.24",
     "@sentry/cli": "^3.8.1",
     "@sentry/react-native": "7.13.0",
     "@streamplace/components": "workspace:*",
     "@streamplace/core": "workspace:*",
     "@tanstack/react-query": "^5.104.5",
-    "@wagmi/core": "^3.6.7",
+    "@walletconnect/sign-client": "^2.26.0",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
     "abortcontroller-polyfill": "^1.7.6",
@@ -135,7 +133,6 @@
     "ua-parser-js": "^2.0.10",
     "uuid": "^14.0.3",
     "viem": "^2.57.8",
-    "wagmi": "^3.7.9",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

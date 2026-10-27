@@ -1,0 +1,27 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.ingest.audioRendition",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "description": "An audio codec the streamer's encoder sends each of its audio tracks in (the full mix and any stems). A node keeps these locally (place.stream.local.putRecord).",
+      "record": {
+        "type": "object",
+        "required": ["codec", "bitrate", "createdAt"],
+        "properties": {
+          "codec": {
+            "type": "string",
+            "knownValues": ["aac", "opus"]
+          },
+          "bitrate": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Target bitrate, in kbps."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

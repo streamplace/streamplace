@@ -83,8 +83,11 @@ type StreamSession struct {
 	// originRoles is separate: it starts on the first segment that makes
 	// this node an origin for the stream (see startOriginRoles).
 	roles, originRoles sync.Once
-	// transcoding is whether this node holds the transcode role.
-	transcoding atomic.Bool
+	// transcoding is the transcode role's context while this node holds the
+	// role, nil otherwise. Transcodes run under it, so a node that loses
+	// the role drops the ones in flight rather than pay for them alongside
+	// the new holder.
+	transcoding atomic.Pointer[context.Context]
 }
 
 // bitrateMargin is the wiggle room over the configured maximum before a stream
@@ -350,11 +353,14 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	ss.UpdateViewCount(ctx)
 	// Transcoding is a job for the node holding the transcode role; every
 	// other node carrying the stream receives the renditions from it.
-	if ss.cli.LivepeerGatewayURL != "" && ss.transcoding.Load() {
+	if role := ss.transcoding.Load(); role != nil {
 		// Claimed in arrival order: the renditions publish in it however
 		// the gateway's round trips finish.
 		renditionTurn := ss.renditions.turn()
 		ss.Go(ctx, func() error {
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			defer context.AfterFunc(*role, cancel)()
 			start := time.Now()
 			err := ss.Transcode(ctx, spseg, notif, renditionTurn)
 			took := time.Since(start)
@@ -915,6 +921,11 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	}
 	spmetrics.TranscodeAttemptsTotal.Inc()
 	segs, err := ss.lp.PostSegmentToGateway(ctx, data, spseg, rs)
+	if ctx.Err() != nil {
+		// The transcode role was lost mid-request: its new holder does
+		// the job.
+		return nil
+	}
 	if errors.Is(err, livepeer.ErrBacklog) {
 		spmetrics.TranscodeSkippedTotal.Inc()
 		log.Debug(ctx, "transcode: skipped, transcoder is behind")
@@ -987,10 +998,11 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	}
 	_ = pg.Wait()
 
-	if !tn.wait(ctx) {
-		// The segments behind this one gave up waiting and published; a
-		// rendition published now would arrive after newer ones.
-		log.Warn(ctx, "rendition abandoned by later segments, not published", "rendition", "all")
+	if !tn.wait(ctx) || ctx.Err() != nil {
+		// The segments behind this one gave up waiting and published, and
+		// a rendition published now would arrive after newer ones; or the
+		// transcode role was lost, and its new holder publishes.
+		log.Warn(ctx, "rendition abandoned, not published", "rendition", "all", "roleLost", ctx.Err() != nil)
 		return nil
 	}
 	if addendum != nil {

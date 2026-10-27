@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortmplib"
+	"github.com/bluenviron/gortmplib/pkg/codecs"
 	"github.com/go-gst/go-gst/pkg/gst"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
@@ -21,26 +22,46 @@ type RTMPH264Data struct {
 	DTS time.Duration
 }
 
+// RTMPAV1Data is one AV1 temporal unit, as OBUs.
+type RTMPAV1Data struct {
+	TU  [][]byte
+	PTS time.Duration
+}
+
 type RTMPAACData struct {
 	AU  []byte
 	PTS time.Duration
 }
 
 type RTMPSession struct {
-	EventChan   chan any
-	VideoTrack  *gortmplib.Track
-	AudioTrack  *gortmplib.Track
-	MediaSigner MediaSigner
+	EventChan chan any
+	// VideoTrack's codec is a *codecs.H264 or a *codecs.AV1.
+	VideoTrack *gortmplib.Track
+	AudioTrack *gortmplib.Track
+	// AV1SequenceHeader is the sequence header OBU of the publisher's AV1
+	// sequence start, if it carried one.
+	AV1SequenceHeader []byte
+	MediaSigner       MediaSigner
 }
 
-func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms MediaSigner) error {
+// VideoCodec is the codec of the session's video track.
+func (s *RTMPSession) VideoCodec() VideoCodec {
+	if s.VideoTrack != nil {
+		if _, ok := s.VideoTrack.Codec.(*codecs.AV1); ok {
+			return VideoAV1
+		}
+	}
+	return VideoH264
+}
+
+func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms MediaSigner, codec VideoCodec) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	signer, err := mm.SegmentAndSignElem(ctx, ms)
 	if err != nil {
 		return err
 	}
-	pipeline, err := newRTMPIngestPipeline(rtmpURL, signer)
+	pipeline, err := newRTMPIngestPipeline(ctx, rtmpURL, signer, codec, ms.Streamer())
 	if err != nil {
 		return err
 	}
@@ -53,7 +74,7 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 // but every signed segment goes to onSegment instead of being validated
 // and published, and no streamer state is watched. It returns once the
 // stream has ended and the last signed segment has reached onSegment.
-func RTMPIngestUnpublished(ctx context.Context, cli *config.CLI, rtmpURL string, ms MediaSigner, onSegment func(ctx context.Context, segment []byte) error) error {
+func RTMPIngestUnpublished(ctx context.Context, cli *config.CLI, rtmpURL string, ms MediaSigner, codec VideoCodec, onSegment func(ctx context.Context, segment []byte) error) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	// Pipeline cancellation must stop GStreamer before closing the signer's
@@ -81,7 +102,7 @@ func RTMPIngestUnpublished(ctx context.Context, cli *config.CLI, rtmpURL string,
 	if err != nil {
 		return err
 	}
-	pipeline, err := newRTMPIngestPipeline(rtmpURL, signer)
+	pipeline, err := newRTMPIngestPipeline(ctx, rtmpURL, signer, codec, ms.Streamer())
 	if err != nil {
 		return err
 	}
@@ -95,9 +116,9 @@ func RTMPIngestUnpublished(ctx context.Context, cli *config.CLI, rtmpURL string,
 	return err
 }
 
-// newRTMPIngestPipeline pulls rtmpURL with rtmp2src and feeds its H.264 and
-// AAC tracks into the signer element.
-func newRTMPIngestPipeline(rtmpURL string, signer gst.Element) (gst.Pipeline, error) {
+// newRTMPIngestPipeline pulls rtmpURL with rtmp2src and feeds its video
+// track, in codec, and its AAC track into the signer element.
+func newRTMPIngestPipeline(ctx context.Context, rtmpURL string, signer gst.Element, codec VideoCodec, streamer string) (gst.Pipeline, error) {
 	// Mint the source audio: RTMP/FLV audio is already AAC, so pass it through
 	// (aacparse) rather than transcoding to Opus. The validate path completes
 	// each segment to also carry Opus when a consumer (WebRTC) needs it — so
@@ -105,7 +126,7 @@ func newRTMPIngestPipeline(rtmpURL string, signer gst.Element) (gst.Pipeline, er
 	pipelineSlice := []string{
 		fmt.Sprintf("rtmp2src location=%s ! flvdemux name=demux", rtmpURL),
 		"demux.audio ! queue ! aacparse name=audioenc",
-		"demux.video ! queue ! h264parse name=parse",
+		"demux.video ! queue ! " + codec.ParserLaunch("parse", ""),
 	}
 	pipelineElem, err := gst.ParseLaunch(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
@@ -120,6 +141,8 @@ func newRTMPIngestPipeline(rtmpURL string, signer gst.Element) (gst.Pipeline, er
 	if parseEle == nil {
 		return nil, fmt.Errorf("failed to get parse element")
 	}
+	// Only a frame a decoder can start on starts a segment (see installKeyframeProbe).
+	installKeyframeProbe(ctx, codec, parseEle.GetStaticPad("src"), streamer)
 
 	if !pipeline.Add(signer) {
 		return nil, fmt.Errorf("failed to add signer to pipeline")

@@ -21,6 +21,7 @@ import (
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/ingestframe"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/s3"
 )
@@ -226,6 +227,56 @@ func TestRunMP4IngestWorkerFMP4DirectKeepsTracks(t *testing.T) {
 		segs++
 	}
 	require.GreaterOrEqual(t, segs, 2, "a 3s stream with 1s GoPs signs into several segments")
+}
+
+// TestRunMP4IngestWorkerFMP4DirectMultiVideo covers the OBS plugin pushing
+// every video rendition in one stream, an AV1 source and its H.264 fallback:
+// every signed segment validates and records both video tracks, in track
+// order, with their codecs (the transcoder finds its H.264 source by it).
+func TestRunMP4IngestWorkerFMP4DirectMultiVideo(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	manifest, err := ms.buildManifest(ctx, time.Now().UnixMilli())
+	require.NoError(t, err)
+	cfg := IngestWorkerConfig{
+		StreamerDID: ms.Streamer(),
+		KeyPEM:      keyPEM,
+		CertPEM:     ms.Cert,
+		Manifest:    manifest,
+		Transport:   IngestTransportFMP4Direct,
+	}
+
+	mp4 := runSynthPipeline(t, ctx, strings.Join([]string{
+		"filesrc location=" + getFixture("av1-h264-opus.mp4") + " ! qtdemux name=d",
+		"d.video_0 ! queue ! av1parse ! mp4mux name=mux fragment-duration=500 ! appsink name=sink",
+		"d.video_1 ! queue ! h264parse ! mux.",
+		"d.audio_0 ! queue ! opusparse ! mux.",
+	}, "\n"))
+
+	var buf bytes.Buffer
+	require.NoError(t, RunMP4IngestWorker(ctx, cfg, bytes.NewReader(mp4), ingestframe.NewWriter(&buf), func() []byte { return cfg.Manifest }))
+
+	r := ingestframe.NewReader(&buf)
+	var segs int
+	for {
+		typ, payload, err := r.ReadFrame()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		require.Equal(t, ingestframe.Segment, typ)
+
+		res, err := ValidateMP4Media(ctx, payload)
+		require.NoError(t, err, "segment %d validates", segs)
+		require.Equal(t, []*localdb.SegmentMediadataVideo{
+			{Codec: "av1", Width: 640, Height: 360, FPSNum: 30, FPSDen: 1},
+			{Codec: "h264", Width: 426, Height: 240, FPSNum: 30, FPSDen: 1},
+		}, res.MediaData.Video, "segment %d", segs)
+		segs++
+	}
+	require.GreaterOrEqual(t, segs, 10, "a 20s stream with 1s GoPs signs into many segments")
 }
 
 // TestRunMP4IngestWorkerRecords proves debug recording works INSIDE the worker:

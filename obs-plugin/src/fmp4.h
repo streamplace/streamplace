@@ -14,6 +14,7 @@
 
 enum fmp4_codec {
 	FMP4_H264,
+	FMP4_AV1,
 	FMP4_AAC,
 	FMP4_OPUS,
 };
@@ -34,7 +35,8 @@ struct fmp4_track {
 	uint32_t width, height;
 	uint32_t channels, sample_rate;
 	uint32_t bitrate;
-	/* avcC payload for H.264, AudioSpecificConfig for AAC, OpusHead for Opus. */
+	/* avcC payload for H.264, av1C for AV1, AudioSpecificConfig for AAC,
+	 * OpusHead for Opus. */
 	uint8_t *config;
 	size_t config_size;
 	/* tkhd.alternate_group: tracks sharing a nonzero value are the same
@@ -65,7 +67,7 @@ void fmp4_free(struct fmp4_mux *mux);
 /* Copies the track description and its config bytes. Returns the track index. */
 size_t fmp4_add_track(struct fmp4_mux *mux, const struct fmp4_track *info);
 /* Takes ownership of a packet whose data was ref'd or allocated by libobs.
- * Video packets must already be length-prefixed (AVCC). */
+ * Video packets must already be ISO BMFF samples (AVCC H.264, AV1 OBUs). */
 void fmp4_push(struct fmp4_mux *mux, size_t track_idx, struct encoder_packet *packet);
 /* Writes the init segment once possible, then every sample with a known
  * duration; no-op when there is nothing to write. */

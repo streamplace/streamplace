@@ -25,7 +25,7 @@ static const char service_entry[] = "{"
 				    "\"more_info_link\": \"https://stream.place/about\","
 				    "\"stream_key_link\": \"https://stream.place/live\","
 				    "\"servers\": [{\"name\": \"Local Streamplace node\", \"url\": \"http://127.0.0.1:38080\"}],"
-				    "\"supported video codecs\": [\"h264\"],"
+				    "\"supported video codecs\": [\"h264\", \"av1\"],"
 				    "\"supported audio codecs\": [\"aac\", \"opus\"],"
 				    "\"recommended\": {\"keyint\": 1, \"bframes\": 0}"
 				    "}";

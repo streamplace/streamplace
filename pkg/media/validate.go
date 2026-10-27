@@ -430,7 +430,7 @@ func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error
 
 func ValidateMP4MediaData(ctx context.Context, buf []byte) (*localdb.SegmentMediaData, error) {
 	tracer := otel.Tracer("signer")
-	// Drives a gst pipeline (qtdemux + h264parse + opusparse + appsinks) —
+	// Drives a gst pipeline (qtdemux + h2642json + appsinks) —
 	// any tail here means a gst element is misbehaving, not the c2pa
 	// signing stack.
 	mdCtx, mdSpan := tracer.Start(ctx, "ValidateMP4Media.ParseSegmentMediaData")

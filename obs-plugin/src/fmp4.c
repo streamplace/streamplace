@@ -55,7 +55,7 @@ static void write_matrix(struct serializer *s)
 
 static bool is_video(const struct fmp4_track *track)
 {
-	return track->codec == FMP4_H264;
+	return track->codec == FMP4_H264 || track->codec == FMP4_AV1;
 }
 
 void fmp4_free(struct fmp4_mux *mux)
@@ -163,9 +163,11 @@ static void write_dinf(struct serializer *s)
 	box_end(s, dinf);
 }
 
-static void write_avc1(struct serializer *s, const struct fmp4_track *track)
+/* entry is avc1 or av01, config_box its avcC or av1C. */
+static void write_visual_sample_entry(struct serializer *s, const struct fmp4_track *track, const char *entry,
+				      const char *config_box)
 {
-	int64_t start = box_begin(s, "avc1");
+	int64_t start = box_begin(s, entry);
 	write_zeros(s, 6); // reserved
 	s_wb16(s, 1);      // data_reference_index
 	write_zeros(s, 16); // pre_defined, reserved
@@ -179,9 +181,9 @@ static void write_avc1(struct serializer *s, const struct fmp4_track *track)
 	s_wb16(s, 0x0018);     // depth
 	s_wb16(s, 0xFFFF);     // pre_defined
 
-	int64_t avcc = box_begin(s, "avcC");
+	int64_t config = box_begin(s, config_box);
 	s_write(s, track->config, track->config_size);
-	box_end(s, avcc);
+	box_end(s, config);
 	box_end(s, start);
 }
 
@@ -273,7 +275,10 @@ static void write_stbl(struct serializer *s, const struct fmp4_track *track)
 	s_wb32(s, 1); // entry_count
 	switch (track->codec) {
 	case FMP4_H264:
-		write_avc1(s, track);
+		write_visual_sample_entry(s, track, "avc1", "avcC");
+		break;
+	case FMP4_AV1:
+		write_visual_sample_entry(s, track, "av01", "av1C");
 		break;
 	case FMP4_AAC:
 		write_mp4a(s, track);
@@ -362,6 +367,12 @@ static void write_init(struct fmp4_mux *mux, struct serializer *s)
 	s_wb32(s, 0);          // minor_version
 	s_write(s, "iso6", 4);
 	s_write(s, "mp41", 4);
+	for (size_t i = 0; i < mux->tracks.num; i++) {
+		if (mux->tracks.array[i].codec == FMP4_AV1) {
+			s_write(s, "av01", 4);
+			break;
+		}
+	}
 	box_end(s, ftyp);
 
 	int64_t moov = box_begin(s, "moov");

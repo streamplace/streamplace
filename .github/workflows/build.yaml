@@ -137,8 +137,9 @@ jobs:
   e2e-web:
     name: e2e-web (${{ matrix.mode }})
     runs-on: ubuntu-latest
-    # The web suite alone takes about 18 minutes.
-    timeout-minutes: 35
+    # The suite runs once over WHIP, then the stream specs again over fMP4
+    # ingest and with AV1; the first alone takes about 18 minutes.
+    timeout-minutes: 40
     needs: linux-amd64
     strategy:
       matrix:
@@ -203,6 +204,8 @@ jobs:
           else
             hack/e2e-web-local.sh
           fi
+        env:
+          E2E_HARNESS_LOG: ${{ runner.temp }}/harness-web.log
 
       # The stream specs again, with the harness pushing the way the OBS plugin
       # does (/api/ingest/client-configuration, then fragmented MP4 with a
@@ -214,6 +217,24 @@ jobs:
           hack/e2e-web-local.sh flows/stream.spec.ts flows/audio-stems.spec.ts
         env:
           SP_E2E_INGEST: fmp4
+          E2E_HARNESS_LOG: ${{ runner.temp }}/harness-fmp4.log
+
+      # The AV1 harness: over fMP4 an AV1 source track with an H.264 fallback
+      # track (each viewer gets one it can play, HLS lists both), and over
+      # WHIP a single AV1 track.
+      - name: Run web AV1 e2e tests over fMP4 ingest
+        if: matrix.mode == 'standalone'
+        run: hack/e2e-web-local.sh flows/av1.spec.ts flows/stream.spec.ts
+        env:
+          SP_E2E_INGEST: fmp4
+          SP_E2E_VIDEO: av1
+          E2E_HARNESS_LOG: ${{ runner.temp }}/harness-av1-fmp4.log
+      - name: Run web AV1 e2e tests over WHIP
+        if: matrix.mode == 'standalone'
+        run: hack/e2e-web-local.sh flows/av1.spec.ts
+        env:
+          SP_E2E_VIDEO: av1
+          E2E_HARNESS_LOG: ${{ runner.temp }}/harness-av1-whip.log
 
       - name: Upload e2e-web artifacts
         if: failure()
@@ -225,6 +246,7 @@ jobs:
           path: |
             js/e2e-web/test-results/
             js/e2e-web/playwright-report/
+            ${{ runner.temp }}/harness-*.log
           retention-days: 7
 
   # The Maestro suite (.maestro/) on an Android emulator, OAuth login included:
@@ -330,6 +352,28 @@ jobs:
             SP_E2E_INGEST=fmp4
             E2E_HARNESS_LOG=$PWD/.maestro/artifacts/harness.log bash
             hack/e2e-local.sh android
+      # The AV1 stream, with its H.264 fallback track, must play on the
+      # device whether or not it decodes AV1.
+      - name: Run AV1 Maestro flow
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          cores: 4
+          ram-size: 6144M
+          heap-size: 576M
+          emulator-options:
+            -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
+            -no-boot-anim -camera-back none
+          disable-animations: true
+          script:
+            SP_E2E_INGEST=fmp4 SP_E2E_VIDEO=av1
+            E2E_ARTIFACTS=$PWD/.maestro/artifacts/av1
+            E2E_HARNESS_LOG=$PWD/.maestro/artifacts/av1/harness.log
+            E2E_FLOWS=logged-out/av1.yaml bash hack/e2e-local.sh android
       - name: Run upstream station Maestro flow
         uses: reactivecircus/android-emulator-runner@v2
         with:

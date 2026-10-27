@@ -2,8 +2,10 @@ package media
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"time"
@@ -154,11 +156,12 @@ func (mm *MediaManager) FeedLiveRenditions(ctx context.Context, did string, adde
 	mm.feedLiveWindow(ctx, did, addendum, start, published)
 }
 
-// LiveRenditionNames lists the transcoded renditions the streamer's live
-// window currently carries, highest first, named the way the player and
-// the transcode profiles name them ("720p"): what a viewer of this node can
-// actually pick, whether the node transcoded them or received them from
-// the origin. Empty when the stream has no window or no renditions yet.
+// LiveRenditionNames lists the renditions the streamer's live window
+// currently carries besides the source, highest first, named the way the
+// player and the transcode profiles name them ("720p"): what a viewer of
+// this node can actually pick, whether the streamer sent them alongside
+// the source, the node transcoded them or received them from the origin.
+// Empty when the stream has no window or no renditions yet.
 func (mm *MediaManager) LiveRenditionNames(did string) []string {
 	w := mm.GetLiveWindow(did)
 	if w == nil {
@@ -182,21 +185,36 @@ func renditionEdge(width, height uint32) uint32 {
 	return height
 }
 
+// renditionNames names the video tracks, highest first, once per name, but
+// for the source's: the first track, whose fallbacks in other codecs go by
+// its name. A name needs an H.264 track, as WebRTC plays a name only then
+// (see bus.PacketizedSegment.Renditions).
 func renditionNames(tracks []livehls.VideoTrack) []string {
-	var rs []livehls.VideoTrack
+	type named struct {
+		id   uint64
+		edge uint32
+		name string
+		h264 bool
+	}
+	var rs []named
 	for _, t := range tracks {
 		id, err := strconv.ParseUint(t.ID, 10, 32)
-		if err != nil || uint32(id) < renditionTrackBase || t.Height == 0 {
+		if err != nil || t.Height == 0 {
 			continue
 		}
-		rs = append(rs, t)
+		c, _ := VideoCodecForCatalog(t.Codec)
+		rs = append(rs, named{id: id, edge: renditionEdge(t.Width, t.Height), name: RenditionName(t.Width, t.Height), h264: c.Name == VideoH264.Name})
 	}
-	sort.Slice(rs, func(i, j int) bool {
-		return renditionEdge(rs[i].Width, rs[i].Height) > renditionEdge(rs[j].Width, rs[j].Height)
-	})
-	names := make([]string, 0, len(rs))
-	for _, t := range rs {
-		names = append(names, RenditionName(t.Width, t.Height))
+	if len(rs) == 0 {
+		return nil
+	}
+	source := slices.MinFunc(rs, func(a, b named) int { return cmp.Compare(a.id, b.id) }).name
+	sort.SliceStable(rs, func(i, j int) bool { return rs[i].edge > rs[j].edge })
+	var names []string
+	for _, r := range rs {
+		if r.h264 && r.name != source && !slices.Contains(names, r.name) {
+			names = append(names, r.name)
+		}
 	}
 	return names
 }

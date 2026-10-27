@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"image/jpeg"
 	"io"
 	"os"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/test/remote"
 )
 
@@ -130,6 +132,37 @@ func TestThumbnailFromSegment(t *testing.T) {
 					})
 				}
 				require.NoError(t, g.Wait())
+			})
+		})
+	}
+}
+
+// A live segment's thumbnail decodes its first H.264 track, cheap to decode,
+// and an AV1-only stream's its AV1 track (dav1d).
+func TestSegmentThumbnail(t *testing.T) {
+	// AV1 640x360 first, H.264 426x240 second; flat, so canonicalized
+	// rather than signed (nothing here verifies).
+	flat, err := os.ReadFile(getFixture("av1-h264-opus.mp4"))
+	require.NoError(t, err)
+	multi, err := muxl.RunMuxlCanonicalize(context.Background(), flat, nil)
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		name  string
+		seg   []byte
+		width int
+	}{
+		{"AV1", fixtureSegmentForTest(t, "av1-opus-frag.mp4"), 320},
+		{"AV1+H.264", multi, 426},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			withNoGSTLeaks(t, func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				var thumbnail bytes.Buffer
+				require.NoError(t, SegmentThumbnail(ctx, tc.seg, &thumbnail, "jpeg"))
+				cfg, err := jpeg.DecodeConfig(&thumbnail)
+				require.NoError(t, err)
+				require.Equal(t, tc.width, cfg.Width)
 			})
 		})
 	}

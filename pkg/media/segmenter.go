@@ -27,7 +27,7 @@ import (
 var FatalSegmentationErrors = false
 
 // element that takes the input stream, muxes to mp4, and signs the result
-func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Parse bool, cb func(ctx context.Context, buf []byte, now int64) error) (gst.Element, error) {
+func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, cb func(ctx context.Context, buf []byte, now int64) error) (gst.Element, error) {
 	// elem, err := gst.NewElement("splitmuxsink name=splitter async-finalize=true sink-factory=appsink muxer-factory=matroskamux max-size-bytes=1")
 	elem := gst.ElementFactoryMakeWithProperties("splitmuxsink", map[string]any{
 		"name":           "signer",
@@ -203,16 +203,15 @@ func SegmentFileUnsigned(ctx context.Context, cli *config.CLI, streamer string, 
 		return fmt.Errorf("failed to read file: %w", err)
 	}
 	defer fd.Close()
-	return SegmentUnsigned(ctx, cli, streamer, fd, false, ch)
+	return SegmentUnsigned(ctx, cli, streamer, fd, ch)
 }
 
-func SegmentUnsigned(ctx context.Context, cli *config.CLI, streamer string, input io.Reader, doH264Parse bool, ch chan *SplitSegment) error {
+func SegmentUnsigned(ctx context.Context, cli *config.CLI, streamer string, input io.Reader, ch chan *SplitSegment) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	pipelineSlice := []string{
 		"appsrc name=appsrc ! qtdemux name=demux",
-		"demux. ! queue ! h264parse name=videoparse disable-passthrough=true config-interval=0",
-		"demux. ! queue ! opusparse name=audioparse",
+		"demux.audio_0 ! queue ! opusparse name=audioparse",
 	}
 	launched, err := gst.ParseLaunch(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
@@ -230,12 +229,8 @@ func SegmentUnsigned(ctx context.Context, cli *config.CLI, streamer string, inpu
 	srcele.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
 		NeedData: ReaderNeedDataIncremental(ctx, input),
 	})
-	videoParseEle := pipeline.GetByName("videoparse")
-	if videoParseEle == nil {
-		return fmt.Errorf("videoparse element not found")
-	}
 
-	segmenter, err := SegmentElem(ctx, cli, streamer, doH264Parse, func(ctx context.Context, buf []byte, now int64) error {
+	segmenter, err := SegmentElem(ctx, cli, streamer, func(ctx context.Context, buf []byte, now int64) error {
 		ch <- &SplitSegment{
 			Filename: fmt.Sprintf("%d.mp4", now),
 			Data:     buf,
@@ -249,16 +244,43 @@ func SegmentUnsigned(ctx context.Context, cli *config.CLI, streamer string, inpu
 	if !pipeline.Add(segmenter) {
 		return fmt.Errorf("failed to add segmenter to pipeline")
 	}
-	if !videoParseEle.Link(segmenter) {
-		return fmt.Errorf("failed to link videoparse to segmenter")
-	}
 	audioparse := pipeline.GetByName("audioparse")
 	if audioparse == nil {
 		return fmt.Errorf("audioparse element not found")
 	}
-	if !audioparse.Link(segmenter) {
-		return fmt.Errorf("failed to link audioparse to segmenter")
+	// Link by pad name: splitmuxsink's request pads take any caps, so
+	// linking by element would hand the audio the video pad.
+	if r := audioparse.GetStaticPad("src").Link(segmenter.GetStaticPad("audio_0")); r != gst.PadLinkOK {
+		return fmt.Errorf("failed to link audioparse to segmenter: %v", r)
 	}
+	demux := pipeline.GetByName("demux")
+	if demux == nil {
+		return fmt.Errorf("demux element not found")
+	}
+	// Only the video pad's caps name its codec, so its parser is plugged when
+	// the pad appears.
+	demux.ConnectPadAdded(func(demux gst.Element, pad gst.Pad) {
+		if pad.GetName() != "video_0" {
+			return
+		}
+		err := func() error {
+			codec, err := padVideoCodec(pad)
+			if err != nil {
+				return err
+			}
+			parse, err := plugDemuxBin(demux, pad, "queue ! "+codec.ParserLaunch("", "disable-passthrough=true config-interval=0"))
+			if err != nil {
+				return err
+			}
+			if r := parse.GetStaticPad("src").Link(segmenter.GetStaticPad("video")); r != gst.PadLinkOK {
+				return fmt.Errorf("failed to link %s to segmenter: %v", codec.Parser, r)
+			}
+			return nil
+		}()
+		if err != nil {
+			demux.PostMessage(gst.NewMessageError(demux, err.Error(), err))
+		}
+	})
 
 	busErr := make(chan error)
 	go func() {

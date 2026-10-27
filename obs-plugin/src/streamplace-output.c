@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "av1.h"
+
 #include <obs-avc.h>
 #include <obs-frontend-api.h>
 #include <util/array-serializer.h>
@@ -89,7 +91,7 @@ static obs_data_t *build_config_request(struct sp_output *sp, const char *key)
 	obs_data_set_string(client, "name", "obs-studio");
 	obs_data_set_string(client, "version", obs_get_version_string());
 	obs_data_set_string(client, "plugin_version", PLUGIN_VERSION);
-	obs_data_set_string(client, "supported_codecs", "h264");
+	obs_data_set_string(client, "supported_codecs", "h264,av1");
 	obs_data_set_obj(post, "client", client);
 	obs_data_release(client);
 
@@ -142,7 +144,7 @@ static char *config_request_json(struct sp_output *sp, const char *key)
 	obs_data_t *post = build_config_request(sp, key);
 	struct dstr json = {0};
 	dstr_copy(&json, obs_data_get_json(post));
-	dstr_replace(&json, "\"supported_codecs\":\"h264\"", "\"supported_codecs\":[\"h264\"]");
+	dstr_replace(&json, "\"supported_codecs\":\"h264,av1\"", "\"supported_codecs\":[\"h264\",\"av1\"]");
 	obs_data_release(post);
 	return json.array;
 }
@@ -277,8 +279,8 @@ static obs_encoder_t *create_video_encoder(struct sp_output *sp, obs_data_t *con
 					   const struct obs_video_info *ovi, struct dstr *err)
 {
 	const char *codec = obs_data_get_string(config, "codec");
-	if (strcmp(codec, "h264") != 0) {
-		dstr_printf(err, "The server asked for '%s' video; this plugin only sends H.264", codec);
+	if (strcmp(codec, "h264") != 0 && strcmp(codec, "av1") != 0) {
+		dstr_printf(err, "The server asked for '%s' video; this plugin sends H.264 or AV1", codec);
 		return NULL;
 	}
 	obs_data_t *settings;
@@ -290,7 +292,7 @@ static obs_encoder_t *create_video_encoder(struct sp_output *sp, obs_data_t *con
 	}
 
 	/* The server's settings (bitrate, keyframe interval, ...) go over the
-	 * encoder's own. */
+	 * encoder's own; keys an encoder does not have are ignored. */
 	obs_data_t *server_settings = obs_data_get_obj(config, "settings");
 	if (server_settings) {
 		obs_data_apply(settings, server_settings);
@@ -487,8 +489,10 @@ static bool add_video_track(struct sp_output *sp, obs_encoder_t *encoder, struct
 {
 	uint8_t *extra;
 	size_t extra_size;
-	if (strcmp(obs_encoder_get_codec(encoder), "h264") != 0) {
-		dstr_printf(err, "Streamplace only accepts H.264 video, not %s", obs_encoder_get_codec(encoder));
+	const char *codec = obs_encoder_get_codec(encoder);
+	bool av1 = strcmp(codec, "av1") == 0;
+	if (!av1 && strcmp(codec, "h264") != 0) {
+		dstr_printf(err, "Streamplace only accepts H.264 or AV1 video, not %s", codec);
 		return false;
 	}
 	if (!obs_encoder_get_extra_data(encoder, &extra, &extra_size)) {
@@ -500,13 +504,18 @@ static bool add_video_track(struct sp_output *sp, obs_encoder_t *encoder, struct
 	 * fps_den is already one encoded frame in 1/fps_num ticks. */
 	const struct video_output_info *voi = video_output_get_info(obs_encoder_video(encoder));
 	struct fmp4_track track = {
-		.codec = FMP4_H264,
+		.codec = av1 ? FMP4_AV1 : FMP4_H264,
 		.timescale = voi->fps_num,
 		.frame_duration = voi->fps_den,
 		.width = obs_encoder_get_width(encoder),
 		.height = obs_encoder_get_height(encoder),
 	};
-	track.config_size = obs_parse_avc_header(&track.config, extra, extra_size);
+	track.config_size = av1 ? av1_parse_header(&track.config, extra, extra_size)
+				: obs_parse_avc_header(&track.config, extra, extra_size);
+	if (!track.config_size) {
+		dstr_printf(err, "Video encoder '%s' has unusable codec headers", obs_encoder_get_name(encoder));
+		return false;
+	}
 	fmp4_add_track(&sp->mux, &track);
 	bfree(track.config);
 	return true;
@@ -617,7 +626,9 @@ static void sp_encoded_packet(void *data, struct encoder_packet *packet)
 	size_t track_count = video ? sp->video_tracks : sp->audio_tracks;
 	if (sp->mux_started && packet->track_idx < track_count) {
 		struct encoder_packet owned;
-		if (video)
+		if (video && sp->mux.tracks.array[packet->track_idx].codec == FMP4_AV1)
+			av1_parse_packet(&owned, packet);
+		else if (video)
 			obs_parse_avc_packet(&owned, packet);
 		else
 			obs_encoder_packet_ref(&owned, packet);
@@ -894,7 +905,7 @@ struct obs_output_info streamplace_output_info = {
 	.id = "streamplace_output",
 	.flags = OBS_OUTPUT_AV | OBS_OUTPUT_ENCODED | OBS_OUTPUT_SERVICE | OBS_OUTPUT_MULTI_TRACK_AV,
 	.protocols = STREAMPLACE_PROTOCOL,
-	.encoded_video_codecs = "h264",
+	.encoded_video_codecs = "h264;av1",
 	.encoded_audio_codecs = "aac;opus",
 	.get_name = sp_get_name,
 	.create = sp_create,

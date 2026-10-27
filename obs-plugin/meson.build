@@ -39,6 +39,7 @@ shared_module(
   'src/plugin-main.c',
   'src/streamplace-output.c',
   'src/fmp4.c',
+  'src/av1.c',
   'src/http.c',
   name_prefix: '',
   c_args: c_args,

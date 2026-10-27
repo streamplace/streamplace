@@ -1,5 +1,6 @@
 import {
   Button,
+  Loader,
   Text,
   useSiteTitle,
   useTheme,
@@ -8,9 +9,12 @@ import {
 } from "@streamplace/components";
 import { Image } from "expo-image";
 import { useEffect, useState } from "react";
-import { Linking, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 import type { Eip1193Provider } from "./ethereum-session";
 import { LoginQr } from "./login-qr";
+import { OrDivider } from "./or-divider";
+
+const QR_SIZE = 200;
 
 // EIP-6963: each browser wallet announces itself with a name and icon.
 interface InjectedWallet {
@@ -54,9 +58,10 @@ function useInjectedWallets(fallbackName: string) {
 // The user turned the request down in their wallet: EIP-1193's 4001, or
 // WalletConnect's 5000 for a rejected session.
 const isRejection = (e: any) => e?.code === 4001 || e?.code === 5000;
+const message = (e: any) => e?.message ?? String(e);
 
-// Sign in with Ethereum's wallet choice (web only): the browser's own
-// wallets, and WalletConnect when the node has a project id for it.
+// Sign in with Ethereum (web only): a WalletConnect QR code, shown at once
+// when the node has a project id for it, then the browser's own wallets.
 export function EthereumWallets({
   walletConnectProjectId,
   onBack,
@@ -70,6 +75,7 @@ export function EthereumWallets({
   const wallets = useInjectedWallets(t("login-browser-wallet"));
   const [busy, setBusy] = useState<string | null>(null);
   const [uri, setUri] = useState<string | null>(null);
+  const [qrError, setQrError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // aborted when the user leaves the list (Back unmounts it), so a wallet
   // still connecting then doesn't go on to ask for a signature
@@ -77,93 +83,107 @@ export function EthereumWallets({
   useEffect(() => () => left.abort(), [left]);
   const square = { borderRadius: theme.borderRadius.none };
 
-  const run = async (
-    id: string,
-    signIn: (eth: typeof import("./ethereum-sign-in")) => Promise<void>,
-  ) => {
+  // pair with a wallet app as soon as the panel opens
+  useEffect(() => {
+    if (!walletConnectProjectId) return;
+    import("./ethereum-sign-in")
+      .then((eth) =>
+        eth.signInWithWalletConnect({
+          projectId: walletConnectProjectId,
+          siteTitle,
+          onUri: setUri,
+          signal: left.signal,
+        }),
+      )
+      .catch((e) => {
+        if (!left.signal.aborted) setQrError(message(e));
+      });
+  }, [walletConnectProjectId, siteTitle, left]);
+
+  const connectInjected = async ({ info, provider }: InjectedWallet) => {
     setError(null);
-    setBusy(id);
+    setBusy(info.uuid);
     try {
-      await signIn(await import("./ethereum-sign-in"));
+      const eth = await import("./ethereum-sign-in");
+      await eth.signInWithInjected(provider, siteTitle, left.signal);
     } catch (e: any) {
-      if (!isRejection(e)) setError(e?.message ?? String(e));
+      if (!isRejection(e)) setError(message(e));
     } finally {
       setBusy(null);
-      setUri(null);
     }
   };
 
-  const walletConnect = () =>
-    run("walletconnect", (eth) =>
-      eth.signInWithWalletConnect({
-        projectId: walletConnectProjectId!,
-        siteTitle,
-        onUri: setUri,
-        signal: left.signal,
-      }),
-    );
-
   return (
     <View style={zero.gap.all[4]}>
-      {uri ? (
-        <View style={[zero.layout.flex.alignCenter, zero.gap.all[3]]}>
-          <LoginQr value={uri} size={200} />
-          <Text size="sm" color="muted">
-            {t("login-walletconnect-scan")}
-          </Text>
-          <Button
-            variant="secondary"
-            onPress={() => Linking.openURL(uri)}
-            style={square}
-          >
-            {t("login-walletconnect-open")}
-          </Button>
-        </View>
-      ) : (
+      {walletConnectProjectId && (
+        <>
+          <View style={[zero.layout.flex.alignCenter, zero.gap.all[3]]}>
+            <Text size="sm" color="muted">
+              {t("login-walletconnect-scan")}
+            </Text>
+            <View
+              style={[
+                zero.layout.flex.alignCenter,
+                zero.layout.flex.justifyCenter,
+                { width: QR_SIZE, height: QR_SIZE },
+              ]}
+            >
+              {qrError ? (
+                <Text
+                  size="sm"
+                  color={theme.colors.danger}
+                  style={{ textAlign: "center" }}
+                >
+                  {qrError}
+                </Text>
+              ) : uri ? (
+                // on a phone the QR can't scan itself: tapping it opens the
+                // wallet app instead
+                <Pressable
+                  testID="login-walletconnect-qr"
+                  accessibilityRole="link"
+                  accessibilityLabel={t("login-walletconnect-open")}
+                  onPress={() => Linking.openURL(uri)}
+                >
+                  <LoginQr value={uri} size={QR_SIZE} />
+                </Pressable>
+              ) : (
+                <Loader />
+              )}
+            </View>
+          </View>
+          {wallets.length > 0 && <OrDivider />}
+        </>
+      )}
+      {wallets.length > 0 && (
         <View style={zero.gap.all[2]}>
-          {wallets.map(({ info, provider }) => (
+          {wallets.map((wallet) => (
             <Button
-              key={info.uuid}
-              testID={`login-wallet-${info.rdns}`}
+              key={wallet.info.uuid}
+              testID={`login-wallet-${wallet.info.rdns}`}
               variant="secondary"
               leftIcon={
-                info.icon ? (
+                wallet.info.icon ? (
                   <Image
-                    source={{ uri: info.icon }}
+                    source={{ uri: wallet.info.icon }}
                     style={{ width: 18, height: 18 }}
                   />
                 ) : undefined
               }
-              onPress={() =>
-                run(info.uuid, (eth) =>
-                  eth.signInWithInjected(provider, siteTitle, left.signal),
-                )
-              }
-              loading={busy === info.uuid}
+              onPress={() => connectInjected(wallet)}
+              loading={busy === wallet.info.uuid}
               disabled={!!busy}
               style={square}
             >
-              {info.name}
+              {t("login-connect-wallet", { wallet: wallet.info.name })}
             </Button>
           ))}
-          {walletConnectProjectId && (
-            <Button
-              testID="login-walletconnect"
-              variant="secondary"
-              onPress={walletConnect}
-              loading={busy === "walletconnect"}
-              disabled={!!busy}
-              style={square}
-            >
-              {t("login-walletconnect")}
-            </Button>
-          )}
-          {!wallets.length && !walletConnectProjectId && (
-            <Text size="sm" color="muted">
-              {t("login-no-browser-wallet")}
-            </Text>
-          )}
         </View>
+      )}
+      {!wallets.length && !walletConnectProjectId && (
+        <Text size="sm" color="muted">
+          {t("login-no-browser-wallet")}
+        </Text>
       )}
       {error ? (
         <Text testID="login-error" size="sm" color={theme.colors.danger}>

@@ -4,7 +4,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   TouchableOpacity,
   View,
@@ -49,7 +48,7 @@ export default function LoginModal({ visible, onClose }: LoginModalProps) {
           },
         ]}
       >
-        <Pressable
+        <View
           style={{
             backgroundColor: theme.colors.surface1,
             borderWidth: 1,
@@ -59,7 +58,6 @@ export default function LoginModal({ visible, onClose }: LoginModalProps) {
             maxWidth: "92%",
             maxHeight: "90%",
           }}
-          onPress={(e) => e.stopPropagation()}
         >
           <ScrollView
             style={{ flexGrow: 0 }}
@@ -84,7 +82,7 @@ export default function LoginModal({ visible, onClose }: LoginModalProps) {
             </View>
             <LoginForm onSuccess={onClose} />
           </ScrollView>
-        </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );

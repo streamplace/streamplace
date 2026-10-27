@@ -60,13 +60,61 @@ function useInjectedWallets(fallbackName: string) {
 const isRejection = (e: any) => e?.code === 4001 || e?.code === 5000;
 const message = (e: any) => e?.message ?? String(e);
 
-// Sign in with Ethereum (web only): a WalletConnect QR code, shown at once
-// when the node has a project id for it, then the browser's own wallets.
+export interface WalletConnectPairing {
+  uri: string | null;
+  error: string | null;
+  /** Drop this pairing and start a fresh one (the user left the panel). */
+  restart: () => void;
+}
+
+// A WalletConnect pairing started in the background while the login form is
+// up, so the QR code is ready when the user opens the Ethereum panel. It
+// re-pairs when a proposal expires (after five minutes) or the wallet turns
+// it down. Null without a project id.
+export function useWalletConnectPairing(
+  projectId: string | undefined,
+): WalletConnectPairing | null {
+  const siteTitle = useSiteTitle();
+  const [attempt, setAttempt] = useState(0);
+  const [uri, setUri] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!projectId) return;
+    // aborted when this pairing is dropped, so a wallet that approves it
+    // afterwards isn't asked for a signature
+    const pairing = new AbortController();
+    setUri(null);
+    setError(null);
+    import("./ethereum-sign-in")
+      .then((eth) =>
+        eth.signInWithWalletConnect({
+          projectId,
+          siteTitle,
+          onUri: setUri,
+          signal: pairing.signal,
+        }),
+      )
+      .catch((e) => {
+        if (pairing.signal.aborted) return;
+        if (isRejection(e) || /expired/i.test(message(e))) {
+          setAttempt((n) => n + 1);
+        } else {
+          setError(message(e));
+        }
+      });
+    return () => pairing.abort();
+  }, [projectId, siteTitle, attempt]);
+  if (!projectId) return null;
+  return { uri, error, restart: () => setAttempt((n) => n + 1) };
+}
+
+// Sign in with Ethereum (web only): the WalletConnect QR code when the node
+// has a project id for it, then the browser's own wallets.
 export function EthereumWallets({
-  walletConnectProjectId,
+  walletConnect,
   onBack,
 }: {
-  walletConnectProjectId?: string;
+  walletConnect: WalletConnectPairing | null;
   onBack: () => void;
 }) {
   const { theme } = useTheme();
@@ -74,31 +122,13 @@ export function EthereumWallets({
   const siteTitle = useSiteTitle();
   const wallets = useInjectedWallets(t("login-browser-wallet"));
   const [busy, setBusy] = useState<string | null>(null);
-  const [uri, setUri] = useState<string | null>(null);
-  const [qrError, setQrError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // aborted when the user leaves the list (Back unmounts it), so a wallet
   // still connecting then doesn't go on to ask for a signature
   const [left] = useState(() => new AbortController());
   useEffect(() => () => left.abort(), [left]);
   const square = { borderRadius: theme.borderRadius.none };
-
-  // pair with a wallet app as soon as the panel opens
-  useEffect(() => {
-    if (!walletConnectProjectId) return;
-    import("./ethereum-sign-in")
-      .then((eth) =>
-        eth.signInWithWalletConnect({
-          projectId: walletConnectProjectId,
-          siteTitle,
-          onUri: setUri,
-          signal: left.signal,
-        }),
-      )
-      .catch((e) => {
-        if (!left.signal.aborted) setQrError(message(e));
-      });
-  }, [walletConnectProjectId, siteTitle, left]);
+  const uri = walletConnect?.uri;
 
   const connectInjected = async ({ info, provider }: InjectedWallet) => {
     setError(null);
@@ -115,7 +145,7 @@ export function EthereumWallets({
 
   return (
     <View style={zero.gap.all[4]}>
-      {walletConnectProjectId && (
+      {walletConnect && (
         <>
           <View style={[zero.layout.flex.alignCenter, zero.gap.all[3]]}>
             <Text size="sm" color="muted">
@@ -128,13 +158,13 @@ export function EthereumWallets({
                 { width: QR_SIZE, height: QR_SIZE },
               ]}
             >
-              {qrError ? (
+              {walletConnect.error ? (
                 <Text
                   size="sm"
                   color={theme.colors.danger}
                   style={{ textAlign: "center" }}
                 >
-                  {qrError}
+                  {walletConnect.error}
                 </Text>
               ) : uri ? (
                 // on a phone the QR can't scan itself: tapping it opens the
@@ -180,7 +210,7 @@ export function EthereumWallets({
           ))}
         </View>
       )}
-      {!wallets.length && !walletConnectProjectId && (
+      {!wallets.length && !walletConnect && (
         <Text size="sm" color="muted">
           {t("login-no-browser-wallet")}
         </Text>

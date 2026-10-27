@@ -447,7 +447,7 @@ login-or = or
 login-handle = Handle
 login-handle-or-email = Handle or email
 login-email-needs-entryway = This server signs in with a handle, not an email address.
-login-scan-qr = Scan with the Streamplace app on your phone to sign in.
+login-scan-qr = Scan with Streamplace Mobile
 login-no-account = No account?
 login-sign-up-on = Sign up on { $host }
 

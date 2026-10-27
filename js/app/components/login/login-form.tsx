@@ -25,7 +25,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
 import { useStore } from "store";
 import { useLogin } from "store/hooks";
-import { EthereumWallets } from "./ethereum-wallets";
+import { EthereumWallets, useWalletConnectPairing } from "./ethereum-wallets";
 import { LoginQr } from "./login-qr";
 import { OrDivider } from "./or-divider";
 import { AppleIcon, EthereumIcon, GoogleIcon } from "./provider-icons";
@@ -91,6 +91,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const showEthereum = Platform.OS === "web" && methods.includes("ethereum");
   // the QR is for the app to scan, so only a browser shows it
   const showQr = Platform.OS === "web" && methods.includes("qr");
+  const walletConnect = useWalletConnectPairing(
+    showEthereum ? walletConnectProjectId : undefined,
+  );
   const signUpUrl = entryway ?? DEFAULT_SIGN_UP;
   const square = { borderRadius: theme.borderRadius.none };
   const shownError = error ?? loginState.error;
@@ -154,8 +157,12 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   if (ethereumOpen) {
     return (
       <EthereumWallets
-        walletConnectProjectId={walletConnectProjectId}
-        onBack={() => setEthereumOpen(false)}
+        walletConnect={walletConnect}
+        onBack={() => {
+          setEthereumOpen(false);
+          // a pairing whose QR has been on screen may be in a wallet's hands
+          walletConnect?.restart();
+        }}
       />
     );
   }
@@ -181,6 +188,20 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
   return (
     <View style={zero.gap.all[4]}>
+      {showQr && (
+        <>
+          <View
+            testID="login-qr"
+            style={[zero.layout.flex.alignCenter, zero.gap.all[3]]}
+          >
+            <LoginQr value={`${url}/login`} size={160} />
+            <Text size="sm" color="muted">
+              {t("login-scan-qr")}
+            </Text>
+          </View>
+          <OrDivider />
+        </>
+      )}
       {(providers.length > 0 || showEthereum) && (
         <>
           <View style={[zero.layout.flex.row, zero.gap.all[2]]}>
@@ -456,24 +477,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       >
         {t("continue")}
       </Button>
-
-      {showQr && (
-        <View
-          testID="login-qr"
-          style={[
-            zero.layout.flex.row,
-            zero.layout.flex.alignCenter,
-            zero.gap.all[4],
-            zero.pt[4],
-            { borderTopWidth: 1, borderTopColor: theme.colors.borderSubtle },
-          ]}
-        >
-          <LoginQr value={`${url}/login`} size={96} />
-          <Text size="sm" color="muted" style={{ flex: 1 }}>
-            {t("login-scan-qr")}
-          </Text>
-        </View>
-      )}
 
       <View
         style={[

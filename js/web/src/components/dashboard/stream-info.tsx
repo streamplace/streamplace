@@ -641,7 +641,6 @@ function ContentWarningsQuickEdit({
 
       if (livestreamRef) {
         await updateContentMetadata({
-          rkey,
           livestreamRef,
           contentWarnings: Array.from(selected),
         });

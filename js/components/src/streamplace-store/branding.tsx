@@ -187,7 +187,7 @@ export function useFetchBranding() {
   );
 }
 
-async function fetchBrandingOnce({
+export async function fetchBrandingOnce({
   force,
   broadcasterDID,
   streamplaceAgent,
@@ -210,9 +210,14 @@ async function fetchBrandingOnce({
     // an upload) still asks the node.
     const fromPage = getAllMetaBranding();
     if (fromPage && !force) {
-      if (!store.getState().branding) {
-        store.setState({ branding: fromPage });
+      // The page is the branding as of when it was rendered. Once the store
+      // has some (this snapshot, or a fetch since), it is at least as fresh:
+      // putting the snapshot back would undo an admin's edits.
+      if (store.getState().branding) {
+        store.setState({ brandingLoading: false });
+        return;
       }
+      store.setState({ branding: fromPage });
       const pending = Object.values(fromPage).filter((a) => !a.data && a.url);
       await Promise.all(
         pending.map(async (asset) => {
@@ -223,11 +228,11 @@ async function fetchBrandingOnce({
           }
         }),
       );
-      store.setState({
-        branding: { ...fromPage },
-        brandingLoading: false,
-        brandingError: null,
-      });
+      // unless a refresh landed while the images loaded
+      if (store.getState().branding === fromPage) {
+        store.setState({ branding: { ...fromPage } });
+      }
+      store.setState({ brandingLoading: false, brandingError: null });
       return;
     }
 
@@ -364,6 +369,44 @@ export function useNetworkProfileUrl(): (author: {
  *  loginPlaceholder), or undefined for the app's own. */
 export function useLoginPlaceholder(): string | undefined {
   return useBrandingAsset("loginPlaceholder")?.data?.trim() || undefined;
+}
+
+export type LoginMethod = "apple" | "google" | "ethereum" | "qr";
+const LOGIN_METHODS: LoginMethod[] = ["apple", "google", "ethereum", "qr"];
+
+export interface LoginOptions {
+  /** The PDS email and provider sign-ins go to (branding key loginEntryway). */
+  entryway?: string;
+  /** Extra sign-in options (loginMethods); always empty without an entryway. */
+  methods: LoginMethod[];
+  /** Reown project id (walletConnectProjectId), for ethereum. */
+  walletConnectProjectId?: string;
+}
+
+/** The node's sign-in options, from the loginEntryway, loginMethods and
+ *  walletConnectProjectId branding keys. */
+export function useLoginOptions(): LoginOptions {
+  const entryway = useBrandingAsset("loginEntryway")?.data?.trim();
+  const methods = useBrandingAsset("loginMethods")?.data;
+  const projectId = useBrandingAsset("walletConnectProjectId")?.data?.trim();
+  return useMemo(() => {
+    if (!entryway || !/^https?:\/\/[^/\s]+/.test(entryway)) {
+      return { methods: [] };
+    }
+    let parsed: unknown = [];
+    try {
+      parsed = JSON.parse(methods || "[]");
+    } catch {
+      // a malformed list is no extra methods
+    }
+    return {
+      entryway,
+      methods: LOGIN_METHODS.filter(
+        (m) => Array.isArray(parsed) && parsed.includes(m),
+      ),
+      walletConnectProjectId: projectId || undefined,
+    };
+  }, [entryway, methods, projectId]);
 }
 
 // convenience hook for main logo

@@ -147,6 +147,7 @@ MAESTRO_ARGS=(-e APP_ID="$APP_ID" -e SERVER_URL="$SERVER_HTTPS_URL"
   -e SERVER_HTTP_URL="$SERVER_URL"
   -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD"
   -e ACCOUNT_DID="$ACCOUNT_DID" -e PDS_HTTP_URL="$PDS_HTTP_URL"
+  -e PDS_URL="$PDS_HTTPS_URL"
   -e DEVICE_UTC_OFFSET="${device_offset:0:3}:${device_offset:3}")
 
 # --- run the flows ---------------------------------------------------------

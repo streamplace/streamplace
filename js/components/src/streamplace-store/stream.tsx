@@ -56,7 +56,7 @@ const useUploadThumbnail = () => {
       } catch (e) {
         if (signal.aborted) {
           console.warn("Upload aborted");
-          return undefined;
+          throw e;
         }
         lastError = e;
         console.warn(`Error uploading thumbnail (attempt ${tries + 1}): ${e}`);
@@ -212,7 +212,6 @@ export function useCreateStreamRecord() {
 
 export function useUpdateStreamRecord(customUrl: string | null = null) {
   let agent = usePDSAgent();
-  let url = useUrl();
   const uploadThumbnail = useUploadThumbnail();
 
   return async (
@@ -234,14 +233,18 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
       throw new Error("No latest record");
     }
 
-    // Use customUrl if provided, otherwise fall back to the store URL
-    const finalUrl = customUrl || url;
-
     let rkey = livestream.uri.split("/").pop();
-    let oldRecordValue: place.stream.livestream.Main = livestream.record;
 
     if (!rkey) {
       throw new Error("No rkey?");
+    }
+
+    const { value: oldRecordValue, cid } = await agent.client.get(
+      place.stream.livestream,
+      { repo: agent.did as any, rkey },
+    );
+    if (!cid) {
+      throw new Error("No record CID found");
     }
 
     let thumbnail: BlobRef | undefined = oldRecordValue.thumb as any;
@@ -256,11 +259,9 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
     }
 
     const record: place.stream.livestream.Main = {
-      $type: "place.stream.livestream",
+      ...oldRecordValue,
       title: title,
-      url: finalUrl as any,
-      createdAt: new Date().toISOString() as any,
-      post: oldRecordValue.post,
+      url: (customUrl || oldRecordValue.url) as any,
       thumb: thumbnail as any,
       activity: activity,
       tags: tags?.length ? tags : undefined,
@@ -269,6 +270,7 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
     await agent.client.put(place.stream.livestream, record, {
       repo: agent.did as any,
       rkey,
+      swapRecord: cid,
     });
 
     return record;

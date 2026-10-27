@@ -95,7 +95,7 @@ func makeGit() error {
 		}
 		return nil
 	}
-	r, err := git.PlainOpenWithOptions(".", &git.PlainOpenOptions{DetectDotGit: true})
+	r, err := PlainOpen(".")
 	if err != nil {
 		return err
 	}
@@ -116,11 +116,7 @@ func makeGit() error {
 	if err != nil {
 		return err
 	}
-	g, err := PlainOpen(".")
-	if err != nil {
-		return err
-	}
-	desc, err := g.Describe(ref)
+	desc, err := r.Describe(ref)
 	if err != nil {
 		return err
 	}
@@ -265,7 +261,10 @@ type Git struct {
 // repository is bare or a normal one. If the path doesn't contain a valid
 // repository ErrRepositoryNotExists is returned
 func PlainOpen(path string) (*Git, error) {
-	r, err := git.PlainOpenWithOptions(path, &git.PlainOpenOptions{DetectDotGit: true})
+	r, err := git.PlainOpenWithOptions(path, &git.PlainOpenOptions{
+		DetectDotGit:          true,
+		EnableDotGitCommonDir: true,
+	})
 	return &Git{
 		make(map[plumbing.Hash]*plumbing.Reference),
 		r,

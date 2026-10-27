@@ -60,8 +60,13 @@ func nodeSignerForTest(t *testing.T) (cert, keyPEM []byte) {
 // The fixture signed as a streamer's source segment (the first GoP).
 func sourceSegmentForTest(t *testing.T) []byte {
 	t.Helper()
+	return sourceSegmentSignedBy(t, newBareSegmentSigner(t))
+}
+
+// The fixture's first GoP, signed by ms.
+func sourceSegmentSignedBy(t *testing.T, ms *MediaSignerLocal) []byte {
+	t.Helper()
 	ctx := context.Background()
-	ms := newBareSegmentSigner(t)
 	frag, err := os.ReadFile(getFixture("h264-opus-frag.mp4"))
 	require.NoError(t, err)
 	eventCh := make(chan *muxl.MuxlEvent, 16)
@@ -266,33 +271,38 @@ func TestReplicatedRenditionsNeedATrustedTranscoder(t *testing.T) {
 // A segment a peer sends carries only tracks the streamer signed, or
 // transcodes (a codec its ingest node completed) by a transcoder this node
 // trusts: one spliced in by anybody else refuses the whole segment, unless
-// --trusted-transcoders names its signer.
+// --trusted-transcoders names its signer. A node's own ingest is not checked.
 func TestReplicatedSegmentTracksNeedATrustedTranscoder(t *testing.T) {
 	ctx := context.Background()
-	src := sourceSegmentForTest(t)
+	// A streamer identified by its key, so validation needs no repo sync.
+	ms := newBareSegmentSigner(t)
+	ms.PrebuiltManifest = bytes.ReplaceAll(ms.PrebuiltManifest, []byte("did:example:rtmp-shadow"), []byte(ms.did))
+	src := sourceSegmentSignedBy(t, ms)
 	r160 := renditionMP4(t, 160, 120)
-	const streamer = "did:plc:streamerstreamerstreamer"
 	stationCert, stationKey := nodeSignerForTest(t)
-	cli := &config.CLI{BroadcasterHost: "node.test"}
+	cli := &config.CLI{BroadcasterHost: "node.test", WideOpen: true}
 	mm := &MediaManager{cli: cli, nodeCert: stationCert, nodeKeyPEM: stationKey}
 	mm.nodeSignerOnce.Do(func() {})
-	completed := func(cert, keyPEM []byte) *ValidationResult {
+	completed := func(cert, keyPEM []byte) []byte {
 		t.Helper()
 		track, err := mm.mintVideoRenditions(ctx, src, []RenditionInput{{Name: "160p", MP4: r160}}, cert, keyPEM)
 		require.NoError(t, err)
-		valid, err := ValidateMP4Media(ctx, append(append([]byte{}, src...), track...))
-		require.NoError(t, err)
-		return valid
+		return append(append([]byte{}, src...), track...)
 	}
 
-	require.NoError(t, mm.trustSegmentTracks(ctx, completed(stationCert, stationKey), streamer), "completed by this node's station")
+	_, err := mm.validateSource(ctx, completed(stationCert, stationKey), false, ms.did)
+	require.NoError(t, err, "completed by this node's station")
 
 	otherCert, otherKey := nodeSignerForTest(t)
 	spliced := completed(otherCert, otherKey)
-	require.ErrorIs(t, mm.trustSegmentTracks(ctx, spliced, streamer), ErrUntrustedTranscoder, "a track from anybody else")
+	_, err = mm.validateSource(ctx, spliced, false, ms.did)
+	require.ErrorIs(t, err, ErrUntrustedTranscoder, "a track from anybody else")
+	_, err = mm.validateSource(ctx, spliced, true, "")
+	require.NoError(t, err, "this node's own ingest")
 
 	other, err := signers.ParseES256KCert(otherCert)
 	require.NoError(t, err)
 	cli.TrustedTranscoders = []string{other.DIDKey()}
-	require.NoError(t, mm.trustSegmentTracks(ctx, spliced, streamer), "a transcoder this node was told to trust")
+	_, err = mm.validateSource(ctx, spliced, false, ms.did)
+	require.NoError(t, err, "a transcoder this node was told to trust")
 }

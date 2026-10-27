@@ -1142,12 +1142,14 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			&urfavecli.StringFlag{
 				Name: "trusted-transcoders",
 				Usage: `transcoders whose renditions and completed tracks of other nodes' streams we take, besides the streamer's and our own station's: ` +
-					`station did:webs (by the key their DID document publishes) or did:keys, comma-separated (default: "` + DefaultTrustedTranscoder + `")`,
+					`station did:webs (by the key their DID document publishes) or did:keys, comma-separated; empty for none (default: "` + DefaultTrustedTranscoder + `")`,
 				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
-					if s == "" {
-						return nil
+					// Set but empty is none, not the default: a node that
+					// trusts only streamers and its own station.
+					cli.TrustedTranscoders = []string{}
+					if s != "" {
+						cli.TrustedTranscoders = strings.Split(s, ",")
 					}
-					cli.TrustedTranscoders = strings.Split(s, ",")
 					return nil
 				},
 				Sources: urfavecli.EnvVars("SP_TRUSTED_TRANSCODERS"),
@@ -1591,7 +1593,7 @@ func (cli *CLI) PrepareConfig() error {
 	if len(cli.Replicators) == 0 {
 		cli.Replicators = []string{ReplicatorWebsocket}
 	}
-	if len(cli.TrustedTranscoders) == 0 {
+	if cli.TrustedTranscoders == nil {
 		cli.TrustedTranscoders = []string{DefaultTrustedTranscoder}
 	}
 	return nil

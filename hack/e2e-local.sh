@@ -4,7 +4,7 @@
 # harness on a running Android emulator — the mobile counterpart to
 # hack/e2e-web-local.sh.
 #
-#   hack/e2e-local.sh android [-- <extra maestro test args>]
+#   hack/e2e-local.sh android [--upstream-station] [-- <extra maestro test args>]
 #
 # Prerequisites (build once, or again when app or native code changes):
 #   * The harness binary: make dev
@@ -36,6 +36,10 @@ REPO="$PWD"
 
 PLATFORM="${1:-android}"
 [ $# -gt 0 ] && shift
+if [ "${1:-}" = "--upstream-station" ]; then
+  export SP_E2E_UPSTREAM_STATION=true
+  shift
+fi
 [ "${1:-}" = "--" ] && shift
 case "$PLATFORM" in
   android) ;;
@@ -94,18 +98,22 @@ adb_ shell settings put secure stylus_handwriting_enabled 0 || true
 # otherwise float over the app and eat maestro's taps
 adb_ shell settings put global hide_error_dialogs 1 || true
 
-if [ -z "${SERVER_HTTPS_URL:-}" ]; then
+if [ "${E2E_UPSTREAM_STATION:-}" = true ]; then
+  : "${UPSTREAM_STATION_URL:?upstream mode requires the station HTTPS URL}"
+  : "${PDS_HTTPS_URL:?upstream mode requires the PDS HTTPS URL}"
+elif [ -z "${SERVER_HTTPS_URL:-}" ]; then
   echo "the Android suite needs the harness's HTTPS mode (release builds refuse cleartext); unset E2E_HTTPS_PDS_HOSTNAME"
   exit 1
 fi
 
-# The emulator reaches the host's loopback at 10.0.2.2. plc.directory
-# comes along because the app resolves did:plc there itself.
+# Default to the emulator's host alias. An unprivileged host using a high
+# HTTPS port can instead map the fixture through adb reverse on port 443.
+# E2E_ANDROID_HOST_ADDR then selects device loopback without changing issuers.
 hosts="127.0.0.1 localhost
 ::1 ip6-localhost"
 for name in "$E2E_HTTPS_STATION_HOSTNAME" "$E2E_HTTPS_PDS_HOSTNAME" "$ACCOUNT_HANDLE" plc.directory; do
   hosts="$hosts
-10.0.2.2 $name"
+${E2E_ANDROID_HOST_ADDR:-10.0.2.2} $name"
 done
 printf '%s\n' "$hosts" | adb_ shell 'while grep -q " /system/etc/hosts " /proc/mounts; do umount /system/etc/hosts; done
   cat > /data/local/tmp/sp-e2e-hosts
@@ -143,14 +151,30 @@ adb_ shell am force-stop com.android.chrome || true
 # read stored records from the PDS's plain-HTTP listener.
 device_offset="$(adb_ shell date +%z | tr -d '\r')"
 [[ "$device_offset" =~ ^[+-][0-9]{4}$ ]] || { echo "can't read $DEVICE's UTC offset: '$device_offset'"; exit 1; }
+
+if [ "${E2E_UPSTREAM_STATION:-}" = true ]; then
+  # Keep the issuer and callback loopback names identical on host and device.
+  # Merely substituting 10.0.2.2 would change the DPoP-bound request target.
+  local_port="${SERVER_URL##*:}"
+  adb_ reverse "tcp:$local_port" "tcp:$local_port"
+  APP_SERVER_URL="$SERVER_URL"
+  e2e_android_stop() {
+    adb_ reverse --remove "tcp:$local_port" 2>/dev/null || true
+    e2e_harness_stop
+  }
+  trap e2e_android_stop EXIT INT TERM
+else
+  APP_SERVER_URL="$SERVER_HTTPS_URL"
+fi
 # SP_E2E_INGEST also picks how the harness streams; flows that need the fMP4
 # push (audio stems) check it.
-MAESTRO_ARGS=(-e APP_ID="$APP_ID" -e SERVER_URL="$SERVER_HTTPS_URL"
+MAESTRO_ARGS=(-e APP_ID="$APP_ID" -e SERVER_URL="$APP_SERVER_URL"
   -e SERVER_HTTP_URL="$SERVER_URL"
   -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD"
   -e ACCOUNT_DID="$ACCOUNT_DID" -e PDS_HTTP_URL="$PDS_HTTP_URL"
   -e DEVICE_UTC_OFFSET="${device_offset:0:3}:${device_offset:3}"
-  -e SP_E2E_INGEST="${SP_E2E_INGEST:-whip}")
+  -e SP_E2E_INGEST="${SP_E2E_INGEST:-whip}"
+  -e E2E_UPSTREAM_STATION="${E2E_UPSTREAM_STATION:-false}")
 
 # --- run the flows ---------------------------------------------------------
 # takeScreenshot paths are relative to maestro's cwd, so run from the
@@ -160,6 +184,11 @@ mkdir -p "$ARTIFACTS"
 ARTIFACTS="$(cd "$ARTIFACTS" && pwd)"
 # Maestro's flowsOrder accepts names, not phase globs. Generate its order
 # from the selected files so new scenarios never edit a shared manifest.
+if [ "${E2E_UPSTREAM_STATION:-}" = true ] && [ -z "${E2E_FLOWS:-}" ]; then
+  # Upstream local nodes have no logged-out feed before successful local OAuth.
+  # The generated plan includes server setup and OAuth before this scenario.
+  E2E_FLOWS=".maestro/logged-in/upstream-station.yaml"
+fi
 bash "$REPO/hack/maestro-config.sh" ${E2E_FLOWS:-} > "$ARTIFACTS/workspace.yaml"
 cd "$ARTIFACTS"
 MAESTRO_CLI_NO_ANALYTICS=1 "$MAESTRO" --device "$DEVICE" test \

@@ -117,6 +117,27 @@ func TestHeadCheckHealsSilentGap(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, messages, 1)
 
+	// A periodic sweep has checked this repo but is still busy elsewhere
+	// when the sparse subscription drops. Its snapshot predates the gap.
+	checked, release, finished := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	sweepErr := make(chan error, 1)
+	go func() {
+		defer close(finished)
+		atsync.sweepOnce(ctx, func(ctx context.Context) error {
+			err := atsync.sweep(ctx, false)
+			sweepErr <- err
+			close(checked)
+			<-release
+			return err
+		})
+	}()
+	t.Cleanup(func() {
+		close(release)
+		<-finished
+	})
+	<-checked
+	require.NoError(t, <-sweepErr)
+
 	// Behind our back: no firehose is running in this test, so nothing at all
 	// tells the index that this happened.
 	createBackfillRecord(t, user, "place.stream.chat.message", "", chatMessageRecord(user.DID, "after the gap"))
@@ -141,8 +162,22 @@ func TestHeadCheckHealsSilentGap(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, stale.Version, hostRev, "the repo really did move")
 
-	// The sweep's head-check pass finds the drift and repairs it.
-	require.NoError(t, atsync.Sweep(ctx))
+	// The reconnect repair queues behind that pass rather than disappearing.
+	repaired := make(chan error, 1)
+	go func() { repaired <- atsync.repairSubscribedRepo(ctx, user.DID) }()
+	select {
+	case err := <-repaired:
+		t.Fatalf("reconnect repair returned before the active sweep finished: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	// Release the sweep without closing its channel twice in cleanup.
+	release <- struct{}{}
+	select {
+	case err := <-repaired:
+		require.NoError(t, err)
+	case <-time.After(30 * time.Second):
+		t.Fatal("reconnect repair did not finish after the periodic sweep")
+	}
 
 	healed, err := mod.GetRepo(user.DID)
 	require.NoError(t, err)

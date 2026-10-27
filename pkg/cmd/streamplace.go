@@ -279,6 +279,19 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	cli.ServiceAuthKey = serviceAuthKey
 
 	b := bus.NewBus()
+	var upstreamStation *atproto.UpstreamStation
+	if cli.UpstreamStation != "" {
+		upstreamStation, err = atproto.ResolveUpstreamStation(ctx, cli.PLCURL, cli.UpstreamStation)
+		if err != nil {
+			return err
+		}
+		// The station is where this node's streams go out from: push them
+		// there, as a node behind NAT has to (see docs/moq.md).
+		if len(cli.Peers) == 0 {
+			cli.Peers = []string{upstreamStation.URL}
+		}
+		log.Log(ctx, "using upstream station", "did", upstreamStation.DID, "url", upstreamStation.URL, "relays", cli.RelayHost, "peers", cli.Peers)
+	}
 	atsync := &atproto.ATProtoSynchronizer{
 		CLI:        cli,
 		Model:      mod,
@@ -320,12 +333,17 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 
 	var clientMetadata *oatproxy.OAuthClientMetadata
 	var host string
-	if cli.PublicOAuth {
+	var oauthBaseURL, oauthUpstreamURL string
+	if upstreamStation != nil {
+		oauthUpstreamURL = upstreamStation.URL
+	}
+	if cli.PublicOAuth || upstreamStation != nil {
 		u, err := url.Parse(cli.OwnPublicURL())
 		if err != nil {
 			return err
 		}
 		host = u.Host
+		oauthBaseURL = cli.OwnPublicURL()
 		clientMetadata = &oatproxy.OAuthClientMetadata{
 			Scope:      atproto.OAuthString,
 			ClientName: "Streamplace",
@@ -349,14 +367,44 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	op := oatproxy.New(&oatproxy.Config{
 		Host:               host,
 		CreateOAuthSession: state.CreateOAuthSession,
-		UpdateOAuthSession: state.UpdateOAuthSession,
-		GetOAuthSession:    state.LoadOAuthSession,
-		Lock:               state.GetNamedLock,
-		Scope:              atproto.OAuthString,
-		UpstreamJWK:        cli.JWK,
-		DownstreamJWK:      cli.AccessJWK,
-		ClientMetadata:     clientMetadata,
-		Public:             cli.PublicOAuth,
+		UpdateOAuthSession: func(id string, session *oatproxy.OAuthSession) error {
+			if upstreamStation == nil {
+				return state.UpdateOAuthSession(id, session)
+			}
+			previous, err := state.LoadOAuthSession(id)
+			if err != nil {
+				return err
+			}
+			if err := state.UpdateOAuthSession(id, session); err != nil {
+				return err
+			}
+			if previous != nil && ((previous.RevokedAt == nil && session.RevokedAt != nil) ||
+				(previous.DownstreamRevokedAt == nil && session.DownstreamRevokedAt != nil)) {
+				b.Publish(atproto.OAuthSessionTopic, nil)
+			}
+			if session.Status() == oatproxy.OAuthSessionStateReady &&
+				(previous == nil || previous.DownstreamAccessToken == "") {
+				b.Publish(atproto.OAuthSessionTopic, nil)
+				// Persistence opens the user-scoped indexing gate. Never sync while
+				// the OAuth library may hold this session's refresh lock.
+				did := session.DID
+				go func() {
+					if _, err := atsync.SyncBlueskyRepoCached(ctx, did); err != nil {
+						log.Warn(ctx, "failed to sync newly authenticated repo", "did", did, "err", err)
+					}
+				}()
+			}
+			return nil
+		},
+		GetOAuthSession: state.LoadOAuthSession,
+		Lock:            state.GetNamedLock,
+		Scope:           atproto.OAuthString,
+		UpstreamJWK:     cli.JWK,
+		DownstreamJWK:   cli.AccessJWK,
+		ClientMetadata:  clientMetadata,
+		Public:          cli.PublicOAuth,
+		BaseURL:         oauthBaseURL,
+		UpstreamURL:     oauthUpstreamURL,
 	})
 	state.OATProxy = op
 	// The synchronizer uses stored sessions to act as a streamer (e.g. ending
@@ -683,10 +731,12 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			}
 		}()
 	}
-	for _, labeler := range cli.Labelers {
-		group.Go(func() error {
-			return atsync.StartLabelerFirehose(ctx, labeler)
-		})
+	if upstreamStation == nil {
+		for _, labeler := range cli.Labelers {
+			group.Go(func() error {
+				return atsync.StartLabelerFirehose(ctx, labeler)
+			})
+		}
 	}
 
 	group.Go(func() error {

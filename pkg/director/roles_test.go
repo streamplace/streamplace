@@ -15,7 +15,9 @@ import (
 
 // contender is a session on one node, contending for a role, with its
 // start/stop calls recorded. Its start runs start, if set: nil from it
-// takes the job up, an error fails to.
+// takes the job up, an error fails to. A stop while the context the job
+// was taken up with is still live is recorded as such: work running
+// under it (a transcode) would outlive the role.
 type contender struct {
 	ss     *StreamSession
 	cancel context.CancelFunc
@@ -32,16 +34,24 @@ func newContender(t *testing.T, state *statedb.StatefulDB, node string, start fu
 		cancel: cancel,
 		events: make(chan string, 16),
 	}
+	var roleCtx context.Context
 	c.ss.contend(ctx, "did:plc:streamer", role{
 		name: "record",
-		start: func(context.Context) error {
+		start: func(rctx context.Context) error {
+			roleCtx = rctx
 			c.events <- node + " start"
 			if start == nil {
 				return nil
 			}
 			return start()
 		},
-		stop: func() { c.events <- node + " stop" },
+		stop: func() {
+			if roleCtx.Err() == nil {
+				c.events <- node + " stop, role context live"
+				return
+			}
+			c.events <- node + " stop"
+		},
 	})
 	t.Cleanup(func() {
 		cancel()
@@ -161,4 +171,20 @@ func TestRoleStartOutlastingTheLeaseIsPutDown(t *testing.T) {
 	b := newContender(t, state, "b.example", nil)
 	b.expect(t, "b.example start", roleLeaseRenew)
 	a.quiet(t, 3*roleLeaseRenew)
+}
+
+// A node whose lease another holder has (here, taken over between two of
+// its renewals) puts the job down, and ends the job's context first: work
+// running under it, a transcode, stops with the role.
+func TestRoleLostEndsItsContext(t *testing.T) {
+	state := leaseDB(t)
+
+	a := newContender(t, state, "a.example", nil)
+	a.expect(t, "a.example start", time.Second)
+	name, other := "stream:record:did:plc:streamer", "did:web:other.example"
+	require.NoError(t, state.ReleaseLease(t.Context(), name, "did:web:a.example"))
+	held, err := state.AcquireLease(t.Context(), name, other, time.Minute)
+	require.NoError(t, err)
+	require.True(t, held)
+	a.expect(t, "a.example stop", 3*roleLeaseRenew)
 }

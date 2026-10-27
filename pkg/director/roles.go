@@ -88,11 +88,11 @@ func (ss *StreamSession) startOriginRoles(repoDID string) {
 		if ss.cli.LivepeerGatewayURL != "" {
 			ss.contend(ctx, repoDID, role{
 				name: roleTranscode,
-				start: func(context.Context) error {
-					ss.transcoding.Store(true)
+				start: func(rctx context.Context) error {
+					ss.transcoding.Store(&rctx)
 					return nil
 				},
-				stop: func() { ss.transcoding.Store(false) },
+				stop: func() { ss.transcoding.Store(nil) },
 			})
 		}
 	})

@@ -145,7 +145,8 @@ lane_android() {
 
 lane_darwin() {
   # The two darwin node builds have separate build dirs; the desktop package
-  # consumes both and only starts after they finish.
+  # consumes both and only starts after they finish. Forge/DMG packaging is
+  # serial inside desktop-darwin-linux because it shares js/desktop/out.
   if [ "${ALL_SERIAL:-0}" = "1" ]; then
     target darwin-amd64
     target darwin-arm64

@@ -66,17 +66,8 @@ package_arch() {
     "bin/streamplace-desktop-$VERSION-darwin-$arch.dmg"
 }
 
-pids=()
+# Forge and the DMG tooling share js/desktop/out (and rename intermediate
+# artifacts there), so package the architectures serially.
 for arch in amd64 arm64; do
-  package_arch "$arch" &
-  pids+=("$!")
-done
-for pid in "${pids[@]}"; do
-  if ! wait "$pid"; then
-    for other in "${pids[@]}"; do
-      kill "$other" 2>/dev/null || true
-    done
-    wait || true
-    exit 1
-  fi
+  package_arch "$arch"
 done

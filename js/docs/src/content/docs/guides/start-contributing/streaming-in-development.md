@@ -10,6 +10,23 @@ stream into it. While you can use OBS or browser streaming like Streamplace
 users will, there are also some techniques for streaming from the command line
 to save yourself some time.
 
+## Local OAuth login
+
+For a node served over `http://127.0.0.1`, enable `--dev-public-oauth` (or
+`SP_DEV_PUBLIC_OAUTH=true`). OATProxy still maintains a server-side session for
+actions such as updating livestream records, but its upstream OAuth client uses
+the `http://localhost` client-ID exception and public authentication (`none`).
+DPoP and PKCE remain enabled; public authentication means no client assertion,
+not an unauthenticated session. Production HTTPS nodes continue to use
+`private_key_jwt`.
+
+If PAR fails with `invalid_client` on VLPDS and the server reports
+`client authentication not expected for public clients`, update Streamplace.
+Older OATProxy versions sent a confidential-client assertion even in public
+mode. The fix requires OATProxy commit `61e9b11` or later and
+`atproto-oauth-golang` commit `e9bac335` or later; both are pinned by Streamplace.
+Keep this development option disabled in production.
+
 ## `streamplace whip`
 
 Streamplace itself has a built-in WHIP client, capable of streaming in MP4 files

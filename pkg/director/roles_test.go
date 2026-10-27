@@ -14,15 +14,15 @@ import (
 )
 
 // contender is a session on one node, contending for a role, with its
-// start/stop calls recorded. A start returns startErr: nil takes the job
-// up, anything else fails to.
+// start/stop calls recorded. Its start runs start, if set: nil from it
+// takes the job up, an error fails to.
 type contender struct {
 	ss     *StreamSession
 	cancel context.CancelFunc
 	events chan string
 }
 
-func newContender(t *testing.T, state *statedb.StatefulDB, node string, startErr error) *contender {
+func newContender(t *testing.T, state *statedb.StatefulDB, node string, start func() error) *contender {
 	ctx, cancel := context.WithCancel(context.Background())
 	g, ctx := errgroup.WithContext(ctx)
 	started := make(chan struct{})
@@ -36,7 +36,10 @@ func newContender(t *testing.T, state *statedb.StatefulDB, node string, startErr
 		name: "record",
 		start: func(context.Context) error {
 			c.events <- node + " start"
-			return startErr
+			if start == nil {
+				return nil
+			}
+			return start()
 		},
 		stop: func() { c.events <- node + " stop" },
 	})
@@ -113,7 +116,7 @@ func TestRoleFailsOverBetweenNodes(t *testing.T) {
 func TestRoleNotTakenUpGoesToAPeer(t *testing.T) {
 	state := leaseDB(t)
 
-	a := newContender(t, state, "a.example", errors.New("lookup failed"))
+	a := newContender(t, state, "a.example", func() error { return errors.New("lookup failed") })
 	a.expect(t, "a.example start", time.Second)
 	b := newContender(t, state, "b.example", nil)
 	b.expect(t, "b.example start", roleLeaseRenew)
@@ -130,11 +133,32 @@ func TestRoleNotTakenUpGoesToAPeer(t *testing.T) {
 func TestRoleDeclinedIsLeftToPeers(t *testing.T) {
 	state := leaseDB(t)
 
-	a := newContender(t, state, "a.example", errRoleDeclined)
+	a := newContender(t, state, "a.example", func() error { return errRoleDeclined })
 	a.expect(t, "a.example start", time.Second)
 	b := newContender(t, state, "b.example", nil)
 	b.expect(t, "b.example start", roleLeaseRenew)
 	b.cancel()
 	b.expect(t, "b.example stop", time.Second)
 	a.quiet(t, 3*roleRetryAfter)
+}
+
+// A node whose taking up a job outlasts the lease it won (recording's
+// lookups were slow) puts the job down at once rather than do it
+// alongside a peer that took the lapsed lease meanwhile.
+func TestRoleStartOutlastingTheLeaseIsPutDown(t *testing.T) {
+	state := leaseDB(t)
+
+	slow := true
+	a := newContender(t, state, "a.example", func() error {
+		if slow {
+			slow = false
+			time.Sleep(2 * roleLeaseTTL)
+		}
+		return nil
+	})
+	a.expect(t, "a.example start", time.Second)
+	a.expect(t, "a.example stop", roleLeaseRenew/3)
+	b := newContender(t, state, "b.example", nil)
+	b.expect(t, "b.example start", roleLeaseRenew)
+	a.quiet(t, 3*roleLeaseRenew)
 }

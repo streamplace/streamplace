@@ -154,6 +154,15 @@ func (ss *StreamSession) contend(ctx context.Context, repoDID string, r role) {
 				retryAt = time.Now().Add(roleRetryAfter)
 				return true
 			}
+			if time.Since(renewed) >= roleLeaseTTL {
+				// Taking the job up (recording's lookups) outlasted the
+				// lease, so a peer may hold it by now: put it straight back
+				// down rather than do it alongside, and ask again.
+				log.Warn(ctx, "taking up stream role outlasted its lease; putting it down", "took", time.Since(asked))
+				stop()
+				r.stop()
+				return true
+			}
 			held, cancel = true, stop
 			log.Log(ctx, "taking up stream role")
 		case !ok && held:

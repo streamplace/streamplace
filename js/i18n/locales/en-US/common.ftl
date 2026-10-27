@@ -435,6 +435,16 @@ select-license = Select a license…
 ## Login
 login-show-live-on-bluesky = Show when I'm live on { $network }
 login-show-live-on-bluesky-description = Gives your { $network } avatar the red LIVE ring while you stream and lets Streamplace post announcements for you. Uncheck to sign in without granting any access to your { $network } account.
+login-continue-with-apple = Continue with Apple
+login-continue-with-google = Continue with Google
+login-continue-with-ethereum = Continue with Ethereum
+login-or = or
+login-handle = Handle
+login-handle-or-email = Handle or email
+login-email-needs-entryway = This server signs in with a handle, not an email address.
+login-scan-qr = Scan with the Streamplace app on your phone to sign in.
+login-no-account = No account?
+login-sign-up-on = Sign up on { $host }
 
 ## Video Player - Controls
 player-play = Play

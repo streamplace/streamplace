@@ -744,7 +744,6 @@ export default function Shell() {
   const showLoginModal = useStore((state) => state.showLoginModal);
   const closeLoginModal = useStore((state) => state.closeLoginModal);
   const showPdsModal = useStore((state) => state.showPdsModal);
-  const openPdsModal = useStore((state) => state.openPdsModal);
   const closePdsModal = useStore((state) => state.closePdsModal);
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
@@ -1071,11 +1070,7 @@ export default function Shell() {
           </View>
         )}
       {showHeaderSearch && <HeaderSearch key={currentRouteName} />}
-      <LoginModal
-        visible={showLoginModal}
-        onClose={closeLoginModal}
-        onOpenPdsModal={openPdsModal}
-      />
+      <LoginModal visible={showLoginModal} onClose={closeLoginModal} />
       <PdsHostSelectorModal
         open={showPdsModal}
         onOpenChange={closePdsModal}

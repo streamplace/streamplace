@@ -1,0 +1,8 @@
+// WalletConnect's typings reference @types/node, which retypes timers and
+// process.env app-wide, so its one importer is checked in a program of its own.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "incremental": false },
+  "include": ["components/login/ethereum-sign-in.web.ts"],
+  "exclude": []
+}

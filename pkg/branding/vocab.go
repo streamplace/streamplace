@@ -65,6 +65,9 @@ var Specs = []Spec{
 	{Key: "cardGoLiveTitle", Kind: KindText, Default: "Go live on {site}", MaxSize: textMax, Doc: "Link-card title of the go-live tab (/live)."},
 	{Key: "cardGoLiveDescription", Kind: KindText, Default: "Set up and start your live stream on {site}.", MaxSize: textMax, Doc: "Link-card description of the go-live tab."},
 	{Key: "loginPlaceholder", Kind: KindText, MaxSize: textMax, Doc: "Example handle shown in the login form's empty handle field."},
+	{Key: "loginEntryway", Kind: KindText, MaxSize: textMax, Doc: "URL of the PDS the login form signs new and email users in to (e.g. https://streamplace.com); unset shows only the handle field. loginMethods needs it."},
+	{Key: "loginMethods", Kind: KindJSON, MaxSize: textMax, Doc: "Extra sign-in options on the login form, a JSON list from apple, google, ethereum, qr. apple and google are also the entryway's provider ids."},
+	{Key: "walletConnectProjectId", Kind: KindText, MaxSize: textMax, Doc: "Reown (WalletConnect) project id for Sign in with Ethereum; loginMethods' ethereum needs it."},
 	{Key: "defaultStreamer", Kind: KindText, MaxSize: textMax, Doc: "Handle or DID whose stream page is the node's front door (single-user nodes)."},
 	{Key: "defaultVideo", Kind: KindText, MaxSize: textMax, Doc: "A video whose page is the node's front door while set, over defaultStreamer: its at:// URI (at://did/place.stream.video/rkey) or its path (<handle-or-did>/video/<rkey>). Clear it to return the front door to the streamer."},
 	{Key: "primaryColor", Kind: KindColor, Default: "#6366f1", MaxSize: textMax, Doc: "Buttons, links, focus rings."},
@@ -200,10 +203,11 @@ func Normalize(key string, value []byte) ([]byte, error) {
 // without further checks, so a value of the wrong shape (an object where a
 // list is documented) would crash it rather than be ignored.
 var jsonShapes = map[string]func([]byte) error{
-	"navLinks":    linkList("label", "url"),
-	"socialLinks": linkList("label", "url"),
-	"legalLinks":  linkList("text", "url"),
-	"navCta":      linkObject("label", "url"),
+	"navLinks":     linkList("label", "url"),
+	"socialLinks":  linkList("label", "url"),
+	"legalLinks":   linkList("text", "url"),
+	"navCta":       linkObject("label", "url"),
+	"loginMethods": stringSet("apple", "google", "ethereum", "qr"),
 }
 
 // linkList accepts a JSON array of objects whose named fields are
@@ -232,6 +236,22 @@ func linkObject(fields ...string) func([]byte) error {
 			return fmt.Errorf("must be a JSON object")
 		}
 		return hasStringFields(item, fields)
+	}
+}
+
+// stringSet accepts a JSON array of strings, each one of allowed.
+func stringSet(allowed ...string) func([]byte) error {
+	return func(b []byte) error {
+		var items []string
+		if err := json.Unmarshal(b, &items); err != nil {
+			return fmt.Errorf("must be a JSON list of strings")
+		}
+		for _, item := range items {
+			if !slices.Contains(allowed, item) {
+				return fmt.Errorf("%q is not one of %s", item, strings.Join(allowed, ", "))
+			}
+		}
+		return nil
 	}
 }
 

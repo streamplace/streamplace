@@ -5,10 +5,13 @@ import {
   Loader,
   Text,
   Tooltip,
+  useLoginOptions,
   useLoginPlaceholder,
   useNetworkName,
+  useSiteTitle,
   useTheme,
   useTranslation,
+  useUrl,
   zero,
 } from "@streamplace/components";
 import { formatHandle, useActorTypeahead } from "@streamplace/core";
@@ -20,25 +23,29 @@ import {
   Info,
 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Linking, Platform, Pressable, View } from "react-native";
+import { Linking, Platform, Pressable, View } from "react-native";
 import { useStore } from "store";
 import { useLogin } from "store/hooks";
+import { LoginQr } from "./login-qr";
+import { AppleIcon, EthereumIcon, GoogleIcon } from "./provider-icons";
+
+// An email address means the entryway's own email + password sign-in.
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const DEFAULT_SIGN_UP = "https://streamplace.com";
+const isMobile = Platform.OS === "ios" || Platform.OS === "android";
 
 interface LoginFormProps {
   onSuccess?: () => void;
-  onCloseModal?: () => void;
-  onOpenPdsModal?: () => void;
 }
 
-export default function LoginForm({
-  onSuccess,
-  onCloseModal,
-  onOpenPdsModal,
-}: LoginFormProps) {
-  const { theme } = useTheme();
+export default function LoginForm({ onSuccess }: LoginFormProps) {
+  const { theme, isDark } = useTheme();
   const { t } = useTranslation("common");
   const network = useNetworkName();
   const loginPlaceholder = useLoginPlaceholder();
+  const { entryway, methods, walletConnectProjectId } = useLoginOptions();
+  const siteTitle = useSiteTitle();
+  const url = useUrl();
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
   const authStatus = useStore((state) => state.authStatus);
@@ -46,7 +53,10 @@ export default function LoginForm({
   const [handle, setHandle] = useState("");
   const [imageLoading, setImageLoading] = useState(false);
   const [blueskyPermissions, setBlueskyPermissions] = useState(true);
-  const { actors } = useActorTypeahead(handle);
+  const [error, setError] = useState<string | null>(null);
+  const [ethereumLoading, setEthereumLoading] = useState(false);
+  const isEmail = EMAIL.test(handle);
+  const { actors } = useActorTypeahead(isEmail ? "" : handle);
 
   // an unverifiable account formats as its DID, so it can't complete a handle
   const filteredActors = useMemo(
@@ -74,14 +84,61 @@ export default function LoginForm({
 
   const avatarUri = useMemo(() => suggestion?.avatar, [suggestion?.avatar]);
 
+  const providers = (["apple", "google"] as const).filter((m) =>
+    methods.includes(m),
+  );
+  const showEthereum =
+    Platform.OS === "web" &&
+    methods.includes("ethereum") &&
+    !!walletConnectProjectId;
+  // the QR is for the app to scan, so only a browser shows it
+  const showQr = Platform.OS === "web" && methods.includes("qr");
+  const signUpUrl = entryway ?? DEFAULT_SIGN_UP;
+  const square = { borderRadius: theme.borderRadius.none };
+  const shownError = error ?? loginState.error;
+
   const submit = () => {
     if (completionText && isMobile) {
       acceptSuggestion();
       return;
     }
-    let clean = handle;
-    if (handle.startsWith("@")) clean = handle.slice(1);
+    setError(null);
+    const clean = handle.startsWith("@") ? handle.slice(1) : handle;
+    if (EMAIL.test(clean)) {
+      if (!entryway) {
+        setError(t("login-email-needs-entryway"));
+        return;
+      }
+      loginAction(entryway, openLoginLink, {
+        blueskyPermissions,
+        screen: "sign-in",
+      });
+      return;
+    }
     loginAction(clean, openLoginLink, { blueskyPermissions });
+  };
+
+  const signInWithProvider = (provider: "apple" | "google") => {
+    setError(null);
+    loginAction(entryway!, openLoginLink, { blueskyPermissions, provider });
+  };
+
+  const signInWithEthereum = async () => {
+    setError(null);
+    setEthereumLoading(true);
+    try {
+      const ethereum = await import("./ethereum-sign-in");
+      await ethereum.signInWithEthereum({
+        projectId: walletConnectProjectId!,
+        siteTitle,
+        themeMode: isDark ? "dark" : "light",
+        accent: theme.colors.primary,
+      });
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setEthereumLoading(false);
+    }
   };
 
   const acceptSuggestion = () => {
@@ -89,13 +146,6 @@ export default function LoginForm({
       setHandle(suggestion.handle);
     }
   };
-
-  const onSignup = () => {
-    onCloseModal?.();
-    onOpenPdsModal?.();
-  };
-
-  const isMobile = Platform.OS === "ios" || Platform.OS === "android";
 
   const onKeyPress = (e: any) => {
     if (e.nativeEvent.key === "Enter") {
@@ -116,47 +166,94 @@ export default function LoginForm({
   };
 
   useEffect(() => {
-    if (loginState?.error) {
-      Alert.alert("Login error", loginState.error);
-    }
-  }, [loginState?.error]);
-
-  useEffect(() => {
     if (authStatus === "loggedIn" && onSuccess) {
       onSuccess();
     }
   }, [authStatus, onSuccess]);
 
-  return (
-    <>
-      <View
-        style={[
-          zero.layout.flex.row,
-          { flexWrap: "wrap" },
-          zero.gap.all[1],
-          zero.mb[4],
-        ]}
-      >
-        <Text style={[{ color: theme.colors.textMuted }]}>
-          Sign in using your handle on the AT Protocol
-        </Text>
-        <Pressable
-          onPress={() => {
-            const u = new URL("https://atmosphereaccount.com/");
-            Linking.openURL(u.toString());
-          }}
-        >
-          <Info size={16} style={{ paddingTop: 4 }} color={theme.colors.ring} />
-        </Pressable>
-        <Text style={[{ color: theme.colors.textMuted }]}>
-          (e.g. your {network} handle)
-        </Text>
-      </View>
+  const hairline = (
+    <View
+      style={{ flex: 1, height: 1, backgroundColor: theme.colors.borderSubtle }}
+    />
+  );
 
-      <View style={[zero.mb[4], { position: "relative" }]}>
-        <Text style={[{ color: theme.colors.text3, marginBottom: 8 }]}>
-          Handle
-        </Text>
+  return (
+    <View style={zero.gap.all[4]}>
+      {(providers.length > 0 || showEthereum) && (
+        <>
+          <View style={zero.gap.all[2]}>
+            {providers.includes("apple") && (
+              <Button
+                testID="login-apple"
+                variant="secondary"
+                leftIcon={<AppleIcon size={18} />}
+                onPress={() => signInWithProvider("apple")}
+                disabled={loginState.loading}
+                style={square}
+              >
+                {t("login-continue-with-apple")}
+              </Button>
+            )}
+            {providers.includes("google") && (
+              <Button
+                testID="login-google"
+                variant="secondary"
+                leftIcon={<GoogleIcon size={18} />}
+                onPress={() => signInWithProvider("google")}
+                disabled={loginState.loading}
+                style={square}
+              >
+                {t("login-continue-with-google")}
+              </Button>
+            )}
+            {showEthereum && (
+              <Button
+                testID="login-ethereum"
+                variant="secondary"
+                leftIcon={<EthereumIcon size={18} />}
+                onPress={signInWithEthereum}
+                loading={ethereumLoading}
+                style={square}
+              >
+                {t("login-continue-with-ethereum")}
+              </Button>
+            )}
+          </View>
+          <View
+            style={[
+              zero.layout.flex.row,
+              zero.layout.flex.alignCenter,
+              zero.gap.all[3],
+            ]}
+          >
+            {hairline}
+            <Text size="sm" color="muted">
+              {t("login-or")}
+            </Text>
+            {hairline}
+          </View>
+        </>
+      )}
+
+      <View style={zero.gap.all[2]}>
+        <View
+          style={[
+            zero.layout.flex.row,
+            zero.layout.flex.alignCenter,
+            zero.gap.all[1],
+          ]}
+        >
+          <Text size="sm" color="muted">
+            {entryway ? t("login-handle-or-email") : t("login-handle")}
+          </Text>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={t("sign-in-description", { network })}
+            onPress={() => Linking.openURL("https://atmosphereaccount.com/")}
+          >
+            <Info size={14} color={theme.colors.text3} />
+          </Pressable>
+        </View>
         <View style={{ position: "relative" }}>
           {completionText && suggestion?.handle !== handle ? (
             <View
@@ -285,21 +382,23 @@ export default function LoginForm({
             onSubmitEditing={submit}
             autoCapitalize="none"
             autoCorrect={false}
-            keyboardType="url"
+            keyboardType="email-address"
             placeholderTextColor={theme.colors.textMuted}
-            containerStyle={{
-              paddingLeft: 46,
-            }}
+            containerStyle={[square, { paddingLeft: 46 }]}
           />
         </View>
+        {shownError ? (
+          <Text testID="login-error" size="sm" color={theme.colors.danger}>
+            {shownError}
+          </Text>
+        ) : null}
       </View>
 
       <View
         style={[
           zero.layout.flex.row,
+          zero.layout.flex.alignCenter,
           zero.gap.all[3],
-          zero.mb[4],
-          { alignItems: "center" },
         ]}
       >
         {/* preview of the Bluesky LIVE ring the user gets while streaming */}
@@ -310,7 +409,9 @@ export default function LoginForm({
               height: 48,
               borderRadius: 999,
               borderWidth: 2.5,
-              borderColor: blueskyPermissions ? "red" : theme.colors.border,
+              borderColor: blueskyPermissions
+                ? theme.colors.live
+                : theme.colors.border,
               padding: 2,
               justifyContent: "center",
               alignItems: "center",
@@ -339,8 +440,8 @@ export default function LoginForm({
           <View
             style={{
               marginTop: -8,
-              backgroundColor: "red",
-              borderRadius: 4,
+              backgroundColor: theme.colors.live,
+              borderRadius: theme.borderRadius.sm,
               paddingHorizontal: 4,
               paddingVertical: 1,
               opacity: blueskyPermissions ? 1 : 0,
@@ -348,7 +449,7 @@ export default function LoginForm({
           >
             <Text
               style={{
-                color: "white",
+                color: theme.colors.liveForeground,
                 fontSize: 9,
                 fontWeight: "700",
                 letterSpacing: 0.5,
@@ -371,27 +472,55 @@ export default function LoginForm({
         </Tooltip>
       </View>
 
+      <Button
+        testID="login-submit"
+        onPress={submit}
+        disabled={loginState.loading}
+        loading={loginState.loading}
+        style={square}
+      >
+        {t("continue")}
+      </Button>
+
+      {showQr && (
+        <View
+          testID="login-qr"
+          style={[
+            zero.layout.flex.row,
+            zero.layout.flex.alignCenter,
+            zero.gap.all[4],
+            zero.pt[4],
+            { borderTopWidth: 1, borderTopColor: theme.colors.borderSubtle },
+          ]}
+        >
+          <LoginQr value={`${url}/login`} size={96} />
+          <Text size="sm" color="muted" style={{ flex: 1 }}>
+            {t("login-scan-qr")}
+          </Text>
+        </View>
+      )}
+
       <View
         style={[
           zero.layout.flex.row,
-          { justifyContent: "flex-end", zIndex: -32 },
-          zero.gap.all[3],
+          zero.layout.flex.justifyCenter,
+          zero.gap.all[1],
+          { flexWrap: "wrap" },
         ]}
       >
-        <Button width="min" onPress={() => onSignup()} variant="ghost">
-          Sign Up
-        </Button>
-        <Button
-          testID="login-submit"
-          onPress={submit}
-          disabled={loginState.loading}
-          style={[zero.px[6]]}
-          width="min"
-          loading={loginState.loading}
+        <Text size="sm" color="muted">
+          {t("login-no-account")}
+        </Text>
+        <Pressable
+          testID="login-sign-up"
+          accessibilityRole="link"
+          onPress={() => Linking.openURL(signUpUrl)}
         >
-          Log In
-        </Button>
+          <Text size="sm" color={theme.colors.primary}>
+            {t("login-sign-up-on", { host: new URL(signUpUrl).host })}
+          </Text>
+        </Pressable>
       </View>
-    </>
+    </View>
   );
 }

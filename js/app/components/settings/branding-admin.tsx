@@ -1218,6 +1218,13 @@ export function BrandingAdmin() {
                           for (const { key } of SIGN_IN_TEXT_KEYS) {
                             if (brandingValue(key)) await deleteBlob(key);
                           }
+                          setChromeInputs((prev) => {
+                            const next = { ...prev };
+                            for (const { key } of SIGN_IN_TEXT_KEYS) {
+                              delete next[key];
+                            }
+                            return next;
+                          });
                         }}
                         disabled={
                           uploading ||

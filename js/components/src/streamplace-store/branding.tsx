@@ -390,9 +390,7 @@ export function useLoginOptions(): LoginOptions {
   const methods = useBrandingAsset("loginMethods")?.data;
   const projectId = useBrandingAsset("walletConnectProjectId")?.data?.trim();
   return useMemo(() => {
-    if (!entryway || !/^https?:\/\/[^/\s]+/.test(entryway)) {
-      return { methods: [] };
-    }
+    if (!entryway || !isHttpUrl(entryway)) return { methods: [] };
     let parsed: unknown = [];
     try {
       parsed = JSON.parse(methods || "[]");
@@ -407,6 +405,17 @@ export function useLoginOptions(): LoginOptions {
       walletConnectProjectId: projectId || undefined,
     };
   }, [entryway, methods, projectId]);
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "https:" || url.protocol === "http:") && !!url.host
+    );
+  } catch {
+    return false;
+  }
 }
 
 // convenience hook for main logo

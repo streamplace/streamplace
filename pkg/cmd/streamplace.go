@@ -434,6 +434,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 
 	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb, atsync)
+	atsync.LivestreamEnded = d.CutoverLiveRecording
 	um, err := upload.New(ctx, cli, state)
 	if err != nil {
 		return err

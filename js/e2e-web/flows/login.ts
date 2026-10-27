@@ -12,16 +12,24 @@ import { pointAppAtNode } from "../server-setup";
 // gate on SERVER_HTTPS_URL themselves and skip when it is unset.
 export async function loginThroughPds(page: Page): Promise<void> {
   const httpsUrl = process.env.SERVER_HTTPS_URL!;
+  await pointAppAtNode(page, httpsUrl);
+  await page.goto(`${httpsUrl}/login`);
+  await completePdsLogin(page);
+  await expect(
+    page.getByText(`@${process.env.ACCOUNT_HANDLE}`).first(),
+  ).toBeVisible({
+    timeout: 30_000,
+  });
+}
+
+export async function completePdsLogin(page: Page): Promise<void> {
+  const httpsUrl = process.env.SERVER_HTTPS_URL!;
   const pdsUrl = process.env.PDS_HTTPS_URL!;
   const handle = process.env.ACCOUNT_HANDLE!;
   const password = process.env.ACCOUNT_PASSWORD!;
   const appOrigin = new URL(httpsUrl).origin;
   const pdsOrigin = new URL(pdsUrl).origin;
 
-  // This origin is new to the browser, so point the app at the node again.
-  await pointAppAtNode(page, httpsUrl);
-
-  await page.goto(`${httpsUrl}/login`);
   const handleField = page
     .locator('[data-testid="login-handle"], [data-testid="login-handle"] input')
     .first();
@@ -46,10 +54,6 @@ export async function loginThroughPds(page: Page): Promise<void> {
     page.waitForURL((u) => u.origin === appOrigin, { timeout: 60_000 }),
   ]);
 
-  // back through the node's /oauth/return to the app's /login, which lands a
-  // logged-in user on their account settings
+  // Return through the node's OAuth callback to the app's requested destination.
   await page.waitForURL((u) => u.origin === appOrigin, { timeout: 60_000 });
-  await expect(page.getByText(`@${handle}`).first()).toBeVisible({
-    timeout: 30_000,
-  });
 }

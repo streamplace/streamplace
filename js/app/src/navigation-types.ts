@@ -50,8 +50,13 @@ export type TabParamList = {
 };
 
 // Root stack navigator
+export type CreatorStackParamList = {
+  CreatorControlPanel: undefined;
+};
+
 export type RootStackParamList = {
   MainTabs: NavigatorScreenParams<TabParamList>;
+  Creator: NavigatorScreenParams<CreatorStackParamList>;
 
   Stream: { user: string };
   MobileGoLive: undefined;

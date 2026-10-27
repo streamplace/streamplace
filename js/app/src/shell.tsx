@@ -9,6 +9,7 @@ import {
   NativeStackNavigationOptions,
 } from "@react-navigation/native-stack";
 import {
+  Button,
   Text,
   useAccentColor,
   useBrandingSettled,
@@ -57,6 +58,7 @@ import { Platform, Pressable, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { SFSymbols7_0 } from "sf-symbols-typescript";
 import "src/navigation-types";
+import type { CreatorStackParamList } from "src/navigation-types";
 import AppReturnScreen from "src/screens/app-return";
 import PopoutChat from "src/screens/chat-popout";
 import DanmuOBSScreen from "src/screens/danmu-obs";
@@ -65,7 +67,7 @@ import EmbedScreen from "src/screens/embed";
 import HomeScreen from "src/screens/home";
 import InfoWidgetEmbed from "src/screens/info-widget-embed";
 import LaunchGoLive from "src/screens/launch-go-live";
-import LiveDashboard from "src/screens/live-dashboard";
+import LiveDashboard, { LiveDashboardView } from "src/screens/live-dashboard";
 import MobileGoLive from "src/screens/mobile-go-live";
 import MobileStream from "src/screens/mobile-stream";
 import MultiScreen from "src/screens/multi";
@@ -104,6 +106,21 @@ const RootStack = createNativeStackNavigator();
 const HomeStack = createNativeStackNavigator();
 const VideosStack = createNativeStackNavigator();
 const SettingsStack = createNativeStackNavigator();
+const CreatorStack = createNativeStackNavigator<CreatorStackParamList>();
+
+function CreatorNavigator() {
+  return (
+    <LiveDashboard>
+      <CreatorStack.Navigator screenOptions={{ headerShown: false }}>
+        <CreatorStack.Screen
+          name="CreatorControlPanel"
+          component={LiveDashboardView}
+          options={{ title: "Creator dashboard" }}
+        />
+      </CreatorStack.Navigator>
+    </LiveDashboard>
+  );
+}
 
 function useBaseScreenOptions() {
   const z = useTheme();
@@ -226,11 +243,13 @@ function HomeNavigator() {
         component={DownloadScreen}
         options={{ title: "Download", ...headerScreenOptions }}
       />
-      <HomeStack.Screen
-        name="LiveDashboard"
-        component={LiveDashboard}
-        options={{ title: "Live streaming", ...headerScreenOptions }}
-      />
+      {isNative && (
+        <HomeStack.Screen
+          name="LiveDashboard"
+          component={LiveDashboard}
+          options={{ title: "Live streaming", ...headerScreenOptions }}
+        />
+      )}
       <HomeStack.Screen
         name="Login"
         component={Login}
@@ -715,6 +734,7 @@ export default function Shell() {
     currentRouteName === "Stream" ||
     currentRouteName === "Video" ||
     currentRouteName === "Vod" ||
+    currentRouteName === "CreatorControlPanel" ||
     videoPage;
   // Video pages get a YouTube-style sticky translucent header the content
   // scrolls under; the livestream keeps its own solid header.
@@ -781,6 +801,34 @@ export default function Shell() {
             component={TabNavigator}
             options={{ headerShown: false }}
           />
+
+          {!isNative && (
+            <RootStack.Screen
+              name="Creator"
+              component={CreatorNavigator}
+              options={{
+                title: "Creator dashboard",
+                headerTitle: "",
+                headerLeft: () =>
+                  sidebar.isActive ? (
+                    <NavigationButton />
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      width="min"
+                      onPress={() =>
+                        navigation.navigate("MainTabs", {
+                          screen: "HomeTab",
+                          params: { screen: "HomeMain" },
+                        })
+                      }
+                    >
+                      Home
+                    </Button>
+                  ),
+              }}
+            />
+          )}
 
           {/* Full-screen screens that should NOT have tab bar accessible on mobile */}
           <RootStack.Screen

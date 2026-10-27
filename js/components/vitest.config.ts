@@ -8,6 +8,7 @@ export default defineConfig({
       hooks: resolve(import.meta.dirname, "../app/hooks"),
       store: resolve(import.meta.dirname, "../app/store"),
       components: resolve(import.meta.dirname, "../app/components"),
+      contexts: resolve(import.meta.dirname, "../app/contexts"),
       utils: resolve(import.meta.dirname, "../app/utils"),
     },
   },

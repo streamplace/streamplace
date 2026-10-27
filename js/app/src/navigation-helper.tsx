@@ -1,4 +1,5 @@
 import type { LinkParams } from "components/aqlink";
+import { Platform } from "react-native";
 
 const SETTINGS_SCREENS = [
   "MainSettings",
@@ -39,6 +40,7 @@ const VIDEOS_TAB_SCREENS = ["VideoList", "UserVideoList"];
 
 // Screens at root stack level (need special navigation from nested navigators)
 export const ROOT_SCREENS = [
+  "Creator",
   "Stream",
   "MobileGoLive",
   "AppReturn",
@@ -57,6 +59,20 @@ export const ROOT_SCREENS = [
  * Stream and MobileGoLive are at root stack level.
  */
 export function convertNavigationParams(to: LinkParams): LinkParams {
+  if (
+    Platform.OS === "web" &&
+    (to.screen === "LiveDashboard" || to.screen === "CreatorControlPanel")
+  ) {
+    return {
+      screen: "Creator",
+      params: { screen: "CreatorControlPanel", params: to.params },
+    };
+  }
+
+  if (to.screen === "CreatorControlPanel") {
+    to = { screen: "LiveDashboard", params: to.params };
+  }
+
   // Handle settings screens - nest them in SettingsTab
   if (SETTINGS_SCREENS.includes(to.screen)) {
     return {

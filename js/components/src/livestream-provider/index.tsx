@@ -1,5 +1,5 @@
 import { makeLivestreamStore } from "@streamplace/core";
-import React, { useContext, useEffect, useRef } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { useAvatars } from "../hooks";
 import { deleteTeleport } from "../lib/slash-commands/teleport";
 import { StreamNotifications } from "../lib/stream-notifications";
@@ -25,7 +25,7 @@ export function LivestreamProvider({
   ignoreOuterContext?: boolean;
 }) {
   const context = useContext(LivestreamContext);
-  const store = useRef(makeLivestreamStore()).current;
+  const [store] = useState(makeLivestreamStore);
   if (context) {
     // this is ok, there's use cases for having one in another
     // like having a player component that's independently usable
@@ -34,7 +34,6 @@ export function LivestreamProvider({
       return <>{children}</>;
     }
   }
-  (window as any).livestreamStore = store;
   return (
     <LivestreamContext.Provider value={{ store: store }}>
       <LivestreamPoller src={src} onTeleport={onTeleport}>

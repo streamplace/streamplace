@@ -18,6 +18,7 @@
   "author": "Streamplace",
   "license": "MIT",
   "devDependencies": {
+    "@react-navigation/core": "8.0.0-alpha.6",
     "@types/react-dom": "^19.2.3",
     "@types/sdp-transform": "^2.15.0",
     "jsdom": "^29.1.1",

@@ -1,5 +1,6 @@
 import {
   CommonActions,
+  getActionFromState,
   getPathFromState,
   useNavigation,
 } from "@react-navigation/native";
@@ -208,6 +209,7 @@ export function SidebarToggle({
       onHoverIn={() => setHover(true)}
       onHoverOut={() => setHover(false)}
       accessibilityLabel={label}
+      accessibilityRole="button"
     >
       <View
         style={{
@@ -484,7 +486,8 @@ export function SidebarOverlay() {
     {
       icon: Radio,
       label: "Live streaming",
-      href: "/live",
+      href: "/dashboard",
+      matchPrefix: "/dashboard",
       // Creator Dashboard is logged-in only; with both items hidden the whole
       // section (header included) collapses via the `some(!hidden)` guard below.
       hidden: isNative || !did,
@@ -523,12 +526,16 @@ export function SidebarOverlay() {
 
   const navigate = (href: string) => {
     closeDrawer();
-    const state = getStreamplaceStateFromPath(href);
+    const action = getActionFromState(
+      getStreamplaceStateFromPath(href),
+      streamplaceLinkingOptions.config,
+    );
+    if (!action) return;
+    // Sidebar links add a visit so browser Back returns to the previous page.
     navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: state.routes,
-      }),
+      action.type === "NAVIGATE"
+        ? CommonActions.navigate({ ...action.payload, pop: false })
+        : action,
     );
   };
 

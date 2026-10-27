@@ -57,7 +57,7 @@ useStore.getState().loadStateFromStorage();
 
 // On web, seed overlay mode from the initial URL so a direct load of a detail
 // view (stream/video) renders full-width immediately — no docked-then-snap flash.
-const DETAIL_ROUTES = ["Stream", "Video", "Vod"];
+const DETAIL_ROUTES = ["Stream", "Video", "Vod", "CreatorControlPanel"];
 // getStateFromPath nests routes, so walk the active chain to find the leaf.
 function pathHasDetailRoute(state: any): boolean {
   const routes = state?.routes;

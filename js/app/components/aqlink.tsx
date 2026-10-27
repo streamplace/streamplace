@@ -10,6 +10,7 @@ import {
   ROOT_SCREENS,
 } from "../src/navigation-helper";
 import type {
+  CreatorStackParamList,
   HomeStackParamList,
   RootStackParamList,
   SettingsStackParamList,
@@ -19,6 +20,7 @@ import Loading from "./loading/loading";
 
 // Union type of all screens across all navigators
 type AllScreens = RootStackParamList &
+  CreatorStackParamList &
   HomeStackParamList &
   SettingsStackParamList &
   TabParamList;

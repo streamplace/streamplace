@@ -10,6 +10,7 @@ import {
   PartialState,
 } from "@react-navigation/native";
 import * as ExpoLinking from "expo-linking";
+import { Platform } from "react-native";
 
 const AT_URI_PREFIX = "at://";
 
@@ -100,7 +101,9 @@ export const SCREEN_PATHS = {
   // HomeTab screens
   HomeMain: "",
   Download: "download",
-  LiveDashboard: "live",
+  LiveDashboard: Platform.OS === "web" ? "dashboard" : "live",
+  Creator: "dashboard",
+  CreatorControlPanel: "dashboard",
   Login: "login",
   Multi: "multi/:config",
   Support: "support",
@@ -204,7 +207,12 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
               screens: {
                 HomeMain: SCREEN_PATHS.HomeMain,
                 Download: SCREEN_PATHS.Download,
-                LiveDashboard: SCREEN_PATHS.LiveDashboard,
+                ...(Platform.OS !== "web" && {
+                  LiveDashboard: {
+                    path: "live",
+                    alias: ["dashboard"],
+                  },
+                }),
                 Login: SCREEN_PATHS.Login,
                 Multi: SCREEN_PATHS.Multi,
                 Support: SCREEN_PATHS.Support,
@@ -246,6 +254,17 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
           },
         },
         // Root stack screens (outside tabs - full-screen experiences)
+        ...(Platform.OS === "web" && {
+          Creator: {
+            path: "dashboard",
+            screens: {
+              CreatorControlPanel: {
+                path: "",
+                alias: [{ path: "live", exact: true }],
+              },
+            },
+          },
+        }),
         Stream: {
           path: SCREEN_PATHS.Stream,
         },

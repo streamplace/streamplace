@@ -80,9 +80,9 @@ type StreamSession struct {
 	// s3Pending counts the s3Uploader's queued segment workers.
 	s3Pending sync.WaitGroup
 	// roles enters the session into the stream's jobs once; see startRoles.
-	// transcodeRole is separate: it starts on the first segment that makes
-	// this node an origin for the stream.
-	roles, transcodeRole sync.Once
+	// originRoles is separate: it starts on the first segment that makes
+	// this node an origin for the stream (see startOriginRoles).
+	roles, originRoles sync.Once
 	// transcoding is whether this node holds the transcode role.
 	transcoding atomic.Bool
 }
@@ -145,11 +145,11 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 
 	close(ss.started)
 	// Live recording, multistream targets and transcoding are jobs for
-	// exactly one node: every node carrying the stream contends for them,
-	// and the leases decide (see roles.go).
+	// exactly one node: the nodes carrying the stream that can do one
+	// contend for it, and the leases decide (see roles.go).
 	ss.startRoles(notif.Segment.RepoDID)
 	if ss.ingestOrigin(notif.Local) {
-		ss.startTranscodeRole(notif.Segment.RepoDID)
+		ss.startOriginRoles(notif.Segment.RepoDID)
 	}
 
 	// Start background workers for status, origin, and livestream updates
@@ -266,11 +266,11 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	// A session that began with replicated segments (this node syndicated
 	// the stream) and then receives local ones is already in the running
 	// for the stream's jobs: contention starts on the first segment of
-	// either kind. Transcoding is contended for only once this node is an
-	// origin for the stream (see startTranscodeRole).
+	// either kind. Recording and transcoding are contended for only once
+	// this node is an origin for the stream (see startOriginRoles).
 	ss.startRoles(spseg.Creator)
 	if ss.ingestOrigin(notif.Local) || ss.replicator.ReceivesPush(spseg.Creator) {
-		ss.startTranscodeRole(spseg.Creator)
+		ss.startOriginRoles(spseg.Creator)
 	}
 
 	// stream.received is enqueued once per StreamSession when the first local media segment is accepted.

@@ -887,7 +887,7 @@ func (r *WebsocketReplicator) acceptPush(ctx context.Context, pushed *official.O
 			}()
 			// Only the source: renditions a pusher sends are signed by
 			// whoever it is, and this node, the stream's origin now, mints
-			// its own (see startTranscodeRole).
+			// its own (see director's startOriginRoles).
 			broadcast, err := pushed.RequestBroadcast(sctx, streamer)
 			if err == nil {
 				err = consumeBroadcast(sctx, broadcast, r.validateSource(streamer, r.originAdvertiser(sctx, streamer)), nil)

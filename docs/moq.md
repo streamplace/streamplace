@@ -135,10 +135,8 @@ applies to every replicated segment, `/api/segment` included).
 
 Recording a stream to S3, driving its multistream targets and transcoding
 its renditions must each happen on exactly one node, however many carry the
-stream. Every node with a session for a stream, whether it ingested the
-segments or received them from a peer, contends for each job it is equipped
-to do (S3 configured for recording, always for multistream) through a lease
-in the station's shared statedb (`leases`; `pkg/director/roles.go`). The
+stream. The nodes that can do a job contend for it through a lease in the
+station's shared statedb (`leases`; `pkg/director/roles.go`). The
 holder renews the lease every 2 seconds; a node that dies stops, and the
 next contender takes the job over once the 6 second TTL has lapsed. A node
 that ends a session cleanly releases its leases, so a peer takes over at
@@ -148,8 +146,15 @@ that will not do it for this stream (the streamer turned recording off)
 releases it and stops asking. A node on its own statedb simply holds every
 lease.
 
-Transcoding is contended for only by a node that is an origin for the
-stream, one that ingests it without pushing it to `--peers` or that a peer
-pushes it to, and that has a Livepeer gateway: peers take a stream's
-renditions from its origin, so renditions minted anywhere else would reach
-nobody but that node's own viewers.
+Any node with a session for a stream contends for its multistream targets.
+Recording (S3 configured) and transcoding (a Livepeer gateway) are
+contended for only by a node that is an origin for the stream, one that
+ingests it without pushing it to `--peers` or that a peer pushes it to: both
+want the stream at its live edge. Peers take a stream's renditions from its
+origin, so renditions minted anywhere else would reach nobody but that
+node's own viewers; and a pull replica, seconds behind, that took the
+recording over would record again segments its predecessor had saved.
+
+A pusher whose `--peers` names two nodes of one station gives that station
+two origins, of which one transcodes. The other gets the renditions only by
+pulling the stream from it, so such a station needs `--syndicate`.

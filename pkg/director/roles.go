@@ -10,12 +10,13 @@ import (
 
 // The jobs a live stream needs doing exactly once however many nodes carry
 // it: recording it to S3 for live-to-VOD, driving its multistream targets,
-// transcoding its renditions. Every node with a session for the stream,
-// whether it ingested the segments or received them from a peer, competes
-// for each job it is equipped to do through a lease in the station's shared
-// statedb. The holder renews the lease; a holder that dies stops renewing,
-// and the next node to ask after roleLeaseTTL takes the job over. A node on
-// its own statedb simply holds every lease.
+// transcoding its renditions. The nodes with a session for the stream that
+// can do a job compete for it through a lease in the station's shared
+// statedb: any of them for multistream, only the stream's origins for
+// recording and transcoding (see startOriginRoles). The holder renews the
+// lease; a holder that dies stops renewing, and the next node to ask after
+// roleLeaseTTL takes the job over. A node on its own statedb simply holds
+// every lease.
 const (
 	roleRecord      = "record"
 	roleMultistream = "multistream"
@@ -46,22 +47,16 @@ type role struct {
 	stop  func()
 }
 
-// startRoles enters the session into contention for the stream's jobs.
-// Once per session, on the first segment of either provenance. For the
-// session's first segment the director runs Start in the background and
-// NewSegment right after it, so the two calls can race; sync.Once lets one
-// of them do the work and the other return. The loops run on the
-// session's context, so ending the session puts every job down.
+// startRoles enters the session into contention for driving the stream's
+// multistream targets, which any node carrying it can do. Once per session,
+// on the first segment of either provenance. For the session's first
+// segment the director runs Start in the background and NewSegment right
+// after it, so the two calls can race; sync.Once lets one of them do the
+// work and the other return. The loops run on the session's context, so
+// ending the session puts every job down.
 func (ss *StreamSession) startRoles(repoDID string) {
 	ss.roles.Do(func() {
 		ctx := ss.ctx
-		if ss.cli.S3Configured() {
-			ss.contend(ctx, repoDID, role{
-				name:  roleRecord,
-				start: func(context.Context) error { return ss.startS3Upload(ctx, repoDID) },
-				stop:  func() { ss.s3Close(ctx) },
-			})
-		}
 		ss.contend(ctx, repoDID, role{
 			name: roleMultistream,
 			start: func(rctx context.Context) error {
@@ -73,25 +68,33 @@ func (ss *StreamSession) startRoles(repoDID string) {
 	})
 }
 
-// startTranscodeRole enters the session into contention for transcoding,
-// once, and only on a node that is an origin for the stream: one that
-// ingests it without pushing it on (see ingestOrigin), or that a peer
-// pushes it to. Peers take a stream's
-// renditions from its origin, so renditions minted anywhere else would
-// reach nobody but that node's own viewers.
-func (ss *StreamSession) startTranscodeRole(repoDID string) {
-	if ss.cli.LivepeerGatewayURL == "" {
-		return
-	}
-	ss.transcodeRole.Do(func() {
-		ss.contend(ss.ctx, repoDID, role{
-			name: roleTranscode,
-			start: func(context.Context) error {
-				ss.transcoding.Store(true)
-				return nil
-			},
-			stop: func() { ss.transcoding.Store(false) },
-		})
+// startOriginRoles enters the session into contention for recording and
+// transcoding, once, and only on a node that is an origin for the stream:
+// one that ingests it without pushing it on (see ingestOrigin), or that a
+// peer pushes it to. Both jobs want the stream at its live edge. Peers take
+// a stream's renditions from its origin, so renditions minted anywhere else
+// would reach nobody but that node's own viewers; and a recorder lagging
+// the one it takes over from would record again what that one had saved.
+func (ss *StreamSession) startOriginRoles(repoDID string) {
+	ss.originRoles.Do(func() {
+		ctx := ss.ctx
+		if ss.cli.S3Configured() {
+			ss.contend(ctx, repoDID, role{
+				name:  roleRecord,
+				start: func(context.Context) error { return ss.startS3Upload(ctx, repoDID) },
+				stop:  func() { ss.s3Close(ctx) },
+			})
+		}
+		if ss.cli.LivepeerGatewayURL != "" {
+			ss.contend(ctx, repoDID, role{
+				name: roleTranscode,
+				start: func(context.Context) error {
+					ss.transcoding.Store(true)
+					return nil
+				},
+				stop: func() { ss.transcoding.Store(false) },
+			})
+		}
 	})
 }
 

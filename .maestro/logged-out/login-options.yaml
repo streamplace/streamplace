@@ -1,0 +1,65 @@
+appId: ${APP_ID}
+# Sign-in options the node turns on in its branding (loginEntryway,
+# loginMethods, walletConnectProjectId). Web counterpart:
+# js/e2e-web/flows/login-options.spec.ts, which also checks what each option
+# asks the node's OAuth proxy for.
+onFlowStart:
+  - runScript:
+      file: login-options.js
+      env:
+        LOGIN_OPTIONS_STEP: enable
+onFlowComplete:
+  - runScript:
+      file: login-options.js
+      env:
+        LOGIN_OPTIONS_STEP: restore
+  # Later flows expect the node's usual branding, not this flow's cached copy.
+  - launchApp:
+      clearState: true
+  # clearState also resets the notification permission the runner granted
+  - tapOn:
+      text: "Allow"
+      optional: true
+  - runFlow: ../setup/server-setup.yaml
+---
+# The app keeps branding for an hour, so start it afresh to read the options
+# just set.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Allow"
+    optional: true
+- runFlow: ../setup/server-setup.yaml
+- tapOn:
+    text: "Log in"
+- extendedWaitUntil:
+    visible:
+      id: "login-apple"
+    timeout: 30000
+- assertVisible:
+    id: "login-google"
+# WalletConnect and the QR code (for this app to scan) are web-only
+- assertNotVisible:
+    id: "login-ethereum"
+- assertNotVisible:
+    id: "login-qr"
+- takeScreenshot: login-options-modal
+# An email address goes to the entryway's own email + password sign-in
+- tapOn:
+    id: "login-handle"
+- inputText: "nobody@example.com"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      text: "Password"
+    timeout: 60000
+- takeScreenshot: login-options-entryway-sign-in
+# leave the Custom Tab / auth session without signing in
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- tapOn:
+    text: "Cancel"
+    optional: true

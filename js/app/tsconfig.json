@@ -8,5 +8,7 @@
     // maps and .js->.ts import extensions without CJS/ESM interop errors.
     "moduleResolution": "bundler"
   },
-  "include": ["**/*.ts", "**/*.tsx"]
+  "include": ["**/*.ts", "**/*.tsx"],
+  // the wallet module is checked by tsconfig.wallet.json instead
+  "exclude": ["node_modules", "components/login/ethereum-sign-in.web.ts"]
 }

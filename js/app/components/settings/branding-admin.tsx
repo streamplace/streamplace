@@ -64,7 +64,7 @@ function bytesToBase64(bytes: Uint8Array): string {
 // The login form's sign-in options (pkg/branding vocab).
 const SIGN_IN_TEXT_KEYS: { key: string; placeholder: string }[] = [
   { key: "loginEntryway", placeholder: "https://streamplace.com" },
-  { key: "walletConnectProjectId", placeholder: "Reown project ID" },
+  { key: "walletConnectProjectId", placeholder: "WalletConnect project ID" },
 ];
 const LOGIN_METHODS = ["apple", "google", "ethereum", "qr"];
 

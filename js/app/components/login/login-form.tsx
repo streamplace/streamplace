@@ -8,7 +8,6 @@ import {
   useLoginOptions,
   useLoginPlaceholder,
   useNetworkName,
-  useSiteTitle,
   useTheme,
   useTranslation,
   useUrl,
@@ -26,6 +25,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
 import { useStore } from "store";
 import { useLogin } from "store/hooks";
+import { EthereumWallets } from "./ethereum-wallets";
 import { LoginQr } from "./login-qr";
 import { AppleIcon, EthereumIcon, GoogleIcon } from "./provider-icons";
 
@@ -39,12 +39,11 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ onSuccess }: LoginFormProps) {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const { t } = useTranslation("common");
   const network = useNetworkName();
   const loginPlaceholder = useLoginPlaceholder();
   const { entryway, methods, walletConnectProjectId } = useLoginOptions();
-  const siteTitle = useSiteTitle();
   const url = useUrl();
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
@@ -54,7 +53,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [imageLoading, setImageLoading] = useState(false);
   const [blueskyPermissions, setBlueskyPermissions] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [ethereumLoading, setEthereumLoading] = useState(false);
+  const [ethereumOpen, setEthereumOpen] = useState(false);
   const isEmail = EMAIL.test(handle);
   const { actors } = useActorTypeahead(isEmail ? "" : handle);
 
@@ -87,10 +86,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const providers = (["apple", "google"] as const).filter((m) =>
     methods.includes(m),
   );
-  const showEthereum =
-    Platform.OS === "web" &&
-    methods.includes("ethereum") &&
-    !!walletConnectProjectId;
+  // browser wallets and WalletConnect's web flow; the app gets its own later
+  const showEthereum = Platform.OS === "web" && methods.includes("ethereum");
   // the QR is for the app to scan, so only a browser shows it
   const showQr = Platform.OS === "web" && methods.includes("qr");
   const signUpUrl = entryway ?? DEFAULT_SIGN_UP;
@@ -123,24 +120,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     loginAction(entryway!, openLoginLink, { blueskyPermissions, provider });
   };
 
-  const signInWithEthereum = async () => {
-    setError(null);
-    setEthereumLoading(true);
-    try {
-      const ethereum = await import("./ethereum-sign-in");
-      await ethereum.signInWithEthereum({
-        projectId: walletConnectProjectId!,
-        siteTitle,
-        themeMode: isDark ? "dark" : "light",
-        accent: theme.colors.primary,
-      });
-    } catch (e: any) {
-      setError(e?.message ?? String(e));
-    } finally {
-      setEthereumLoading(false);
-    }
-  };
-
   const acceptSuggestion = () => {
     if (suggestion) {
       setHandle(suggestion.handle);
@@ -170,6 +149,15 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       onSuccess();
     }
   }, [authStatus, onSuccess]);
+
+  if (ethereumOpen) {
+    return (
+      <EthereumWallets
+        walletConnectProjectId={walletConnectProjectId}
+        onBack={() => setEthereumOpen(false)}
+      />
+    );
+  }
 
   const hairline = (
     <View
@@ -211,8 +199,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
                 testID="login-ethereum"
                 variant="secondary"
                 leftIcon={<EthereumIcon size={18} />}
-                onPress={signInWithEthereum}
-                loading={ethereumLoading}
+                onPress={() => setEthereumOpen(true)}
                 style={square}
               >
                 {t("login-continue-with-ethereum")}

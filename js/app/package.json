@@ -64,6 +64,7 @@
     "@streamplace/components": "workspace:*",
     "@streamplace/core": "workspace:*",
     "@tanstack/react-query": "^5.105.3",
+    "@walletconnect/sign-client": "^2.26.0",
     "@zoontek/react-native-navigation-bar": "^2.0.2",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",

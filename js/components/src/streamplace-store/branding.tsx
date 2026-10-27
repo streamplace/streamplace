@@ -361,7 +361,8 @@ export interface LoginOptions {
   entryway?: string;
   /** Extra sign-in options (loginMethods); always empty without an entryway. */
   methods: LoginMethod[];
-  /** Reown project id (walletConnectProjectId), for ethereum. */
+  /** WalletConnect project id (walletConnectProjectId); without it Sign in
+   *  with Ethereum offers browser wallets only. */
   walletConnectProjectId?: string;
 }
 

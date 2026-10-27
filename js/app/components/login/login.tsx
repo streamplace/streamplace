@@ -1,11 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
-import {
-  storage,
-  Text,
-  useTheme,
-  useTranslation,
-  zero,
-} from "@streamplace/components";
+import { storage, useTheme, zero } from "@streamplace/components";
 import { Redirect } from "components/aqlink";
 import Loading from "components/loading/loading";
 import { useEffect, useState } from "react";
@@ -18,7 +12,6 @@ import LoginForm from "./login-form";
 
 export default function Login() {
   const { theme } = useTheme();
-  const { t } = useTranslation("common");
   const closeLoginModal = useStore((state) => state.closeLoginModal);
   const userProfile = useUserProfile();
   const navigation = useNavigation();
@@ -117,12 +110,8 @@ export default function Login() {
                 width: "100%",
                 maxWidth: 400,
               },
-              zero.gap.all[6],
             ]}
           >
-            <Text size="2xl" weight="semibold">
-              {t("log-in")}
-            </Text>
             <LoginForm />
           </View>
         </View>

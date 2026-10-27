@@ -21,12 +21,13 @@ import {
   CornerDownLeft,
   Info,
 } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
 import { useStore } from "store";
 import { useLogin } from "store/hooks";
 import { EthereumWallets } from "./ethereum-wallets";
 import { LoginQr } from "./login-qr";
+import { OrDivider } from "./or-divider";
 import { AppleIcon, EthereumIcon, GoogleIcon } from "./provider-icons";
 
 // An email address means the entryway's own email + password sign-in.
@@ -159,66 +160,53 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     );
   }
 
-  const hairline = (
-    <View
-      style={{ flex: 1, height: 1, backgroundColor: theme.colors.borderSubtle }}
-    />
+  // logo-only, side by side; the label is for screen readers
+  const providerButton = (
+    testID: string,
+    label: string,
+    icon: ReactNode,
+    onPress: () => void,
+  ) => (
+    <Button
+      testID={testID}
+      accessibilityLabel={label}
+      variant="secondary"
+      onPress={onPress}
+      disabled={loginState.loading}
+      style={[square, { flex: 1, width: "auto" }]}
+    >
+      {icon}
+    </Button>
   );
 
   return (
     <View style={zero.gap.all[4]}>
       {(providers.length > 0 || showEthereum) && (
         <>
-          <View style={zero.gap.all[2]}>
-            {providers.includes("apple") && (
-              <Button
-                testID="login-apple"
-                variant="secondary"
-                leftIcon={<AppleIcon size={18} />}
-                onPress={() => signInWithProvider("apple")}
-                disabled={loginState.loading}
-                style={square}
-              >
-                {t("login-continue-with-apple")}
-              </Button>
-            )}
-            {providers.includes("google") && (
-              <Button
-                testID="login-google"
-                variant="secondary"
-                leftIcon={<GoogleIcon size={18} />}
-                onPress={() => signInWithProvider("google")}
-                disabled={loginState.loading}
-                style={square}
-              >
-                {t("login-continue-with-google")}
-              </Button>
-            )}
-            {showEthereum && (
-              <Button
-                testID="login-ethereum"
-                variant="secondary"
-                leftIcon={<EthereumIcon size={18} />}
-                onPress={() => setEthereumOpen(true)}
-                style={square}
-              >
-                {t("login-continue-with-ethereum")}
-              </Button>
-            )}
+          <View style={[zero.layout.flex.row, zero.gap.all[2]]}>
+            {providers.includes("apple") &&
+              providerButton(
+                "login-apple",
+                t("login-continue-with-apple"),
+                <AppleIcon size={20} color={theme.colors.text1} />,
+                () => signInWithProvider("apple"),
+              )}
+            {providers.includes("google") &&
+              providerButton(
+                "login-google",
+                t("login-continue-with-google"),
+                <GoogleIcon size={20} />,
+                () => signInWithProvider("google"),
+              )}
+            {showEthereum &&
+              providerButton(
+                "login-ethereum",
+                t("login-continue-with-ethereum"),
+                <EthereumIcon size={20} color={theme.colors.text1} />,
+                () => setEthereumOpen(true),
+              )}
           </View>
-          <View
-            style={[
-              zero.layout.flex.row,
-              zero.layout.flex.alignCenter,
-              zero.gap.all[3],
-            ]}
-          >
-            {hairline}
-            <Text size="sm" color="muted">
-              {t("login-or")}
-            </Text>
-            {hairline}
-          </View>
+          <OrDivider />
         </>
       )}
 

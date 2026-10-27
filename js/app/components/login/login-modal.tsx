@@ -1,4 +1,4 @@
-import { Text, useTheme, useTranslation, zero } from "@streamplace/components";
+import { useTheme, useTranslation, zero } from "@streamplace/components";
 import { X } from "lucide-react-native";
 import {
   KeyboardAvoidingView,
@@ -69,14 +69,10 @@ export default function LoginModal({ visible, onClose }: LoginModalProps) {
             <View
               style={[
                 zero.layout.flex.row,
-                zero.layout.flex.spaceBetween,
-                zero.layout.flex.alignCenter,
-                zero.mb[6],
+                zero.layout.flex.justify.end,
+                zero.mb[2],
               ]}
             >
-              <Text size="2xl" weight="semibold">
-                {t("log-in")}
-              </Text>
               <TouchableOpacity
                 testID="login-close"
                 accessibilityLabel={t("close")}

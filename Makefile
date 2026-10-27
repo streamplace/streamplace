@@ -130,8 +130,8 @@ android-release: .build/bundletool.jar android-keystore
 	&& cd - \
 	&& mv ./js/app/android/app/build/outputs/bundle/release/app-release.aab ./bin/streamplace-$(VERSION)-android-release.aab \
 	&& cd bin \
-	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-release.aab --output=streamplace-$(VERSION)-android-release.apks --mode=universal \
-	&& unzip streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb
+	&& java -jar ../.build/bundletool.jar build-apks --overwrite --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-release.aab --output=streamplace-$(VERSION)-android-release.apks --mode=universal \
+	&& unzip -o streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb
 
 # The release build for the Maestro suite (hack/e2e-local.sh): it trusts
 # user-installed CAs and never takes OTA updates (SP_E2E_BUILD in
@@ -156,8 +156,8 @@ android-debug: .build/bundletool.jar android-keystore
 	&& cd - \
 	&& mv ./js/app/android/app/build/outputs/bundle/debug/app-debug.aab ./bin/streamplace-$(VERSION)-android-debug.aab \
 	&& cd bin \
-	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-debug.aab --output=streamplace-$(VERSION)-android-debug.apks --mode=universal \
-	&& unzip streamplace-$(VERSION)-android-debug.apks && mv universal.apk streamplace-$(VERSION)-android-debug.apk && rm toc.pb
+	&& java -jar ../.build/bundletool.jar build-apks --overwrite --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-debug.aab --output=streamplace-$(VERSION)-android-debug.apks --mode=universal \
+	&& unzip -o streamplace-$(VERSION)-android-debug.apks && mv universal.apk streamplace-$(VERSION)-android-debug.apk && rm toc.pb
 
 .PHONY: ios
 ios: app
@@ -554,6 +554,19 @@ link-test-windows:
 .PHONY: all
 all:
 	bash hack/all.sh
+
+# ATProto publishing is separate from `release` (the lerna version-cut target).
+# VERSION= (or RELEASE_VERSION=) overrides the version across every producer.
+# RELEASE_ARTIFACTS defaults to bin; RELEASE_DRY_RUN=1 previews without PDS auth.
+.PHONY: release-atproto publish-atproto ci-release-atproto
+release-atproto:
+	bash hack/release-atproto.sh build
+
+publish-atproto:
+	bash hack/release-atproto.sh publish
+
+ci-release-atproto:
+	bash hack/release-atproto.sh ci
 
 # Split build/sign workflow: build the macOS inputs here, sign them wherever
 # the Developer ID certificate lives, then publish from bin/.
@@ -1061,12 +1074,14 @@ ci-upload-android: android
 .PHONY: ci-upload-android-debug
 ci-upload-android-debug:
 	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.apk \
-	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.aab
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.aab \
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.apks
 
 .PHONY: ci-upload-android-release
 ci-upload-android-release:
 	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.apk \
-	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.aab
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.aab \
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.apks
 
 .PHONY: ci-upload-ios
 ci-upload-ios: ios

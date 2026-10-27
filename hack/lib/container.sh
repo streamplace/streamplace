@@ -9,6 +9,11 @@ PARENT="$(dirname "$REPO")"
 NAME="$(basename "$REPO")"
 CONTAINER=""
 
+# make version writes branch metadata too, even for a local-only build.
+if [ -z "${CI_COMMIT_TAG:-}${CI_COMMIT_BRANCH:-}" ]; then
+  export CI_COMMIT_BRANCH="$(git -C "$REPO" symbolic-ref --quiet --short HEAD || printf local)"
+fi
+
 if [ -f /.dockerenv ] || [ -f /run/.containerenv ]; then
   echo "already inside a container; running in place"
 else
@@ -26,6 +31,7 @@ fi
 # producing ad-hoc artifacts. Kept to an allowlist: don't leak unrelated host
 # variables into the builder.
 PASS_ENV=(
+  STREAMPLACE_VERSION_OVERRIDE
   CI_COMMIT_TAG
   CI_COMMIT_BRANCH
   STREAMPLACE_RUN_DIR
@@ -50,7 +56,10 @@ run() {
     # elsewhere, copy it into that mount and forward the container-visible
     # path; rcodesign opens the path itself and cannot see the host's home.
     local key_dir=""
-    local key_path="${APPLE_CODESIGN_API_KEY:-}"
+    local key_path=""
+    if [[ " ${PASS_ENV[*]} " == *" APPLE_CODESIGN_API_KEY "* ]]; then
+      key_path="${APPLE_CODESIGN_API_KEY:-}"
+    fi
     if [ -n "$key_path" ]; then
       case "$key_path" in
         /*) ;;
@@ -73,11 +82,9 @@ run() {
     local name
     for name in "${PASS_ENV[@]}"; do
       if [ -n "${!name+x}" ]; then
-        local value="${!name}"
-        if [ "$name" = "APPLE_CODESIGN_API_KEY" ]; then
-          value="$key_path"
-        fi
-        env_args+=(-e "$name=$value")
+        # Docker accepts -e NAME, reading the value from its own environment.
+        # Keep credentials out of the docker exec argument list.
+        env_args+=(-e "$name")
       fi
     done
 
@@ -91,9 +98,9 @@ run() {
     fi
 
     if [ -n "$key_dir" ]; then
-      ( trap 'rm -rf "$key_dir"' EXIT; docker exec -w "$REPO" "${env_args[@]}" "$CONTAINER" "${run_args[@]}" )
+      ( trap 'rm -rf "$key_dir"' EXIT; APPLE_CODESIGN_API_KEY="$key_path" docker exec -w "$REPO" "${env_args[@]}" "$CONTAINER" "${run_args[@]}" )
     else
-      docker exec -w "$REPO" "${env_args[@]}" "$CONTAINER" "${run_args[@]}"
+      APPLE_CODESIGN_API_KEY="$key_path" docker exec -w "$REPO" "${env_args[@]}" "$CONTAINER" "${run_args[@]}"
     fi
   fi
 }

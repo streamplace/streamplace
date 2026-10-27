@@ -23,16 +23,17 @@ is `hack/all.sh`.
 - `linux-amd64`, `linux-arm64`, `windows-amd64`, `darwin-amd64`,
   `darwin-arm64`: the node build, `test-vod` (where the binary can run),
   `desktop-$TARGET`, and `pkg-$TARGET`.
-- `android-debug` and `android-release`: `make ci-android-debug` and
-  `make ci-android-release`.
+- `android-debug` and `android-release`: build APKs, AABs, and bundletool `.apks`
+  archives directly, without the GitLab registry upload steps.
 - `desktop-darwin`: `make desktop-darwin-linux` packages both architectures
   with Electron Forge, signs each `.app` with `rcodesign` in the Forge
   `postPackage` hook, and builds the DMG with `hack/make-dmg.sh` (hfsprogs +
   libdmg-hfsplus). Without `DEVELOPER_CERTIFICATE_BASE64` the app is ad-hoc
   signed; with `APPLE_CODESIGN_API_KEY` it is notarized and stapled.
 - `build-ios`: `make ios` on a macOS machine. This is the only job that cannot
-  run on Linux, because it needs Xcode. GitLab's `build-ios` job is commented
-  out until a macOS runner exists; build it locally and upload by hand.
+  run on Linux, because it needs Xcode. With `MAC_HOST`, `make all` checks the
+  remote commit and retrieves the resulting archive into the local `bin/`.
+  GitLab's `build-ios` job remains disabled until a macOS runner exists.
 
 The tag-only publishing jobs (`npm-release`, `release`, `deb-release`,
 `homebrew-release`) are not run: they need CI credentials and should not fire
@@ -58,6 +59,124 @@ git show v0.12.12:js/app/package.json | grep -E '"(version|runtimeVersion)"'
 the same commit; the script verifies that and passes the tag/branch metadata
 into the remote `make version`. If the tag was created after the remote clone,
 run `git fetch --tags` there; the script checks that the remote has the tag.
+
+## Publishing releases on ATProto
+
+After configuring a PDS app password, one command builds the supported pipeline,
+uploads the release files as PDS blobs, and publishes release records:
+
+```sh
+export SP_RELEASE_PDS=https://your-pds.example
+export SP_RELEASE_PASSWORD=your-app-password
+
+# Development build: the existing DESC version, published to next.
+make release-atproto
+
+# Stable build: run at the commit identified by this existing tag.
+make release-atproto RELEASE_VERSION=v0.12.12
+```
+
+Build-and-publish requires a clean checkout, including nonignored untracked files,
+so the source commit actually identifies the code being built. It reuses
+`make all`, including its signing configuration; it does not cut a tag or publish
+to npm, Homebrew, or the Debian repository. Stable versions must match their tag;
+development versions must contain the source commit's hash prefix and an ancestor
+version tag. Stable releases use `latest`; development builds use `next`.
+
+Both the Linux and GitLab pipelines publish 19 standard distributables plus two
+bundletool `.apks` archives. Missing required outputs fail before publication. iOS requires
+`MAC_HOST` and optionally `MAC_REPO`; without a Mac it is explicitly reported as
+skipped, just as with `make all`. `ALL_STRICT=1` makes that skip fatal. Existing
+signing credentials and `SIGN_OFFLINE` behavior are unchanged.
+
+To publish already-built or separately signed artifacts without rebuilding:
+
+```sh
+make publish-atproto \
+  RELEASE_VERSION=v0.12.5 \
+  RELEASE_COMMIT=29e8e011091d3a5c1d2aac73a42f85786e0b16e2 \
+  RELEASE_ARTIFACTS=/path/to/release-artifacts
+```
+
+The source commit and tags must exist locally. A historical commit is supported
+in this prebuilt mode; build and CI modes require the producers' checkout commit.
+The artifact directory may contain other versions and known build intermediates:
+only the exact version's deliverables are staged. Supplied iOS archives and
+bundletool archives are included when present. Unknown matching-version files,
+missing standard outputs, ambiguous Windows update packages, and invalid registry
+checksums fail rather than publishing an incomplete release.
+
+Add `RELEASE_DRY_RUN=1` to preview the records without PDS credentials or network
+access to the PDS. This does not skip a requested build or GitLab download.
+`RELEASE_CHANNEL` overrides the channel and `RELEASE_CHANGELOG` supplies a canonical
+changelog URL. Omit the changelog if none is available; it cannot be added to an
+immutable version later.
+
+### Records and account
+
+The default publisher is stream.place,
+`did:plc:rbvrr34edl5ddpuwcubjiost`. Override `SP_RELEASE_DID` for another account;
+`SP_RELEASE_IDENTIFIER` optionally supplies a different login identifier. The
+authenticated DID must equal the publishing DID. Keep credentials in environment
+variables, not command-line arguments.
+
+The publisher uses the draft from
+[`did:plc:zimrxnxvvkwixvtkazpx3zfx`](https://pds.kart.sh/xrpc/com.atproto.repo.listRecords?repo=did:plc:zimrxnxvvkwixvtkazpx3zfx&collection=com.atproto.lexicon.schema),
+pinned in `js/streamplace/scripts/release-schemas.json`. It validates record bodies
+and artifact fragments locally before publishing:
+
+- `streamplace` owns node/mobile artifacts; `streamplace-desktop` is its child.
+- Each manifest includes a pinned `software.release.defs#gitRevision` and native
+  `software.release.defs#blobArtifact` fragments, with runtime targets.
+- macOS targets use `macos`; architectures use `amd64` and `arm64`. Android and
+  iOS architectures are unspecified rather than inferred from build flavors.
+- Version keys are `streamplace.<version>` and
+  `streamplace-desktop.<version>`; channel keys similarly use dots, with the
+  draft's `channel` field. Manifest keys are TIDs.
+
+Uploads are streamed, verified against local SHA-256 blob CIDs and sizes, and
+retain the MIME type returned by the PDS. Once all uploads succeed, projects,
+manifests, versions, and channels are written in one atomic repository commit.
+Conflicting repository writes fail safely. Identical reruns are no-ops; changing
+an already published release fails, and rerunning an older release does not roll
+its channel back.
+
+Choose one build/publisher for each version. Independent rebuilds are not
+necessarily byte-identical, especially after signing, and cannot replace an
+existing immutable release. Reuse its original artifacts for reruns, with the
+same optional iOS artifact set.
+
+The PDS must support large release files. The reference PDS defaults to 5 MiB per
+blob; configure a suitable limit, for example `PDS_BLOB_UPLOAD_LIMIT=1073741824`,
+along with reverse-proxy limits and sufficient storage for multiple gigabytes per
+release. An advertised upload limit is checked before any upload.
+
+### GitLab
+
+The tag-only `release-atproto` job waits for every enabled producer, including
+Windows, and the test job. Configure `SP_RELEASE_PDS` and `SP_RELEASE_PASSWORD` as
+masked/protected CI variables, plus account overrides if needed. The job runs:
+
+```sh
+make ci-release-atproto
+```
+
+This collects the exact generic-package name and version using `CI_JOB_TOKEN`,
+paginates package/file lists, and verifies downloaded sizes and SHA-256 hashes
+before using the same publisher as the host command. Registry credentials are
+not forwarded across origin-changing redirects. Existing GitLab releases and
+other distribution jobs remain enabled.
+
+The lower-level Node publisher can also run directly on a host with workspace
+dependencies installed; `node js/streamplace/scripts/release.mjs` prints its
+required flags. Unlike the Make wrappers, it publishes the supplied subset of
+files and does not enforce the full producer matrix.
+
+Run release regressions against an isolated local PDS with:
+
+```sh
+pnpm --filter @atcute/internal-dev-env test:release
+```
 
 ## Building and signing separately
 
@@ -119,7 +238,7 @@ for moving the certificate to a separate environment.
 
 ## iOS on a macOS machine
 
-Set `MAC_HOST` to an SSH destination whose checkout is at the same commit:
+Set `MAC_HOST` to an SSH destination whose checkout is clean and at the same commit:
 
 ```sh
 MAC_HOST=admin@mac-mini MAC_REPO=/Users/admin/streamplace make all

@@ -7,7 +7,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { Image } from "expo-image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Linking, View } from "react-native";
 import type { Eip1193Provider } from "./ethereum-session";
 import { LoginQr } from "./login-qr";
@@ -71,8 +71,10 @@ export function EthereumWallets({
   const [busy, setBusy] = useState<string | null>(null);
   const [uri, setUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const pairing = useRef<AbortController | null>(null);
-  useEffect(() => () => pairing.current?.abort(), []);
+  // aborted when the user leaves the list (Back unmounts it), so a wallet
+  // still connecting then doesn't go on to ask for a signature
+  const [left] = useState(() => new AbortController());
+  useEffect(() => () => left.abort(), [left]);
   const square = { borderRadius: theme.borderRadius.none };
 
   const run = async (
@@ -91,23 +93,15 @@ export function EthereumWallets({
     }
   };
 
-  const walletConnect = () => {
-    pairing.current?.abort();
-    const signal = (pairing.current = new AbortController()).signal;
+  const walletConnect = () =>
     run("walletconnect", (eth) =>
       eth.signInWithWalletConnect({
         projectId: walletConnectProjectId!,
         siteTitle,
         onUri: setUri,
-        signal,
+        signal: left.signal,
       }),
     );
-  };
-
-  const back = () => {
-    pairing.current?.abort();
-    onBack();
-  };
 
   return (
     <View style={zero.gap.all[4]}>
@@ -142,7 +136,7 @@ export function EthereumWallets({
               }
               onPress={() =>
                 run(info.uuid, (eth) =>
-                  eth.signInWithInjected(provider, siteTitle),
+                  eth.signInWithInjected(provider, siteTitle, left.signal),
                 )
               }
               loading={busy === info.uuid}
@@ -179,7 +173,7 @@ export function EthereumWallets({
       <Button
         testID="login-ethereum-back"
         variant="ghost"
-        onPress={back}
+        onPress={onBack}
         style={square}
       >
         {t("back")}

@@ -7,5 +7,6 @@ export * from "./chat-reducer";
 export * from "./connect";
 export * from "./problems";
 export * from "./state";
+export * from "./status";
 export * from "./store";
 export * from "./websocket-consumer";

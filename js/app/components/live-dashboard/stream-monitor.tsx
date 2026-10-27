@@ -5,8 +5,6 @@ import {
   Text,
   useLivestream,
   useLivestreamStore,
-  usePlayerStore,
-  useSegmentTiming,
   useTheme,
   zero,
 } from "@streamplace/components";
@@ -14,29 +12,29 @@ import {
   borderAlphas,
   fontFamilies,
   scrims,
-  statusColors,
   surfaces,
   textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
 import { DesktopUi } from "components/mobile/desktop-ui";
-import { OfflineCounter } from "components/mobile/offline-counter";
 import { Image } from "expo-image";
-import { Eye, EyeOff, Signal, Wifi, WifiOff } from "lucide-react-native";
+import type { LiveDashboardStatus } from "hooks/useLiveDashboardStatus";
+import { Eye, EyeOff } from "lucide-react-native";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { useLiveUser } from "../../hooks/useLiveUser";
 import StreamScreen from "./live-selector";
 
 const { flex, bg, r, borders, layout, p, text, w, h, mt } = zero;
 
 interface StreamMonitorProps {
   userProfile?: any;
-  isLive?: boolean;
+  status: LiveDashboardStatus;
   videoRef?: any;
 }
 
-function PreviewOverlay() {
+function PreviewOverlay({ ended }: { ended: boolean }) {
   const { theme } = useTheme();
+  const { t } = useTranslation("common");
   return (
     <View
       style={{
@@ -105,7 +103,7 @@ function PreviewOverlay() {
               lineHeight: 19,
             }}
           >
-            Only you can see this preview.
+            {t(ended ? "creator-status-ended" : "creator-status-ready")}
           </Text>
           <Text
             style={{
@@ -116,7 +114,11 @@ function PreviewOverlay() {
               marginTop: 2,
             }}
           >
-            Press “Start Livestream” to go live for everyone.
+            {t(
+              ended
+                ? "creator-status-ended-detail"
+                : "creator-status-ready-detail",
+            )}
           </Text>
         </View>
       </View>
@@ -126,18 +128,18 @@ function PreviewOverlay() {
 
 export default function StreamMonitor({
   userProfile: propUserProfile,
-  isLive: propIsLive,
+  status,
   videoRef,
 }: StreamMonitorProps) {
-  // Get data from hooks - use props as fallback if provided
-  const isUserLive = useLiveUser();
+  const { theme } = useTheme();
+  const { t } = useTranslation("common");
   const profile = useLivestreamStore((x) => x.profile);
-  const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
-  let ls = useLivestream();
-  const segmentTiming = useSegmentTiming();
+  const segment = useLivestreamStore((x) => x.segment);
+  const ls = useLivestream(true);
 
   // Use hook data primarily, fallback to props
-  const isLive = propIsLive ?? isUserLive;
+  const canPreview =
+    status.incoming === true || (status.incoming === null && !!segment);
   const userProfile = propUserProfile ?? profile;
 
   // State for hiding/showing stream and thumbnail rotation
@@ -149,67 +151,21 @@ export default function StreamMonitor({
 
   // Rotate thumbnails every 30 seconds when stream is hidden
   useEffect(() => {
-    if (!isStreamVisible && isLive) {
+    if (!isStreamVisible && canPreview) {
       const interval = setInterval(() => {
         setCurrentThumbnail(thumbnails + "?ts=" + String(Date.now()));
       }, 30000); // 30 seconds
 
       return () => clearInterval(interval);
     }
-  }, [isStreamVisible, isLive, thumbnails.length]);
-
-  // Connection quality indicator
-  const getConnectionIcon = () => {
-    if (!isLive) return null;
-    if (!ls) return <Wifi size={16} color={textAlphas.dark[2]} />;
-
-    switch (segmentTiming.connectionQuality) {
-      case "good":
-        return <Wifi size={16} color={statusColors.dark.success} />;
-      case "degraded":
-        return <Signal size={16} color={statusColors.dark.warning} />;
-      case "poor":
-        return <WifiOff size={16} color={statusColors.dark.danger} />;
-      default:
-        return <WifiOff size={16} color={textAlphas.dark[3]} />;
-    }
-  };
-
-  const getConnectionColor = () => {
-    if (!isLive) return "red";
-    if (!ls) return "blue";
-
-    switch (segmentTiming.connectionQuality) {
-      case "good":
-        return "green";
-      case "degraded":
-        return "yellow";
-      case "poor":
-        return "red";
-      default:
-        return "red";
-    }
-  };
-
-  const getStreamStatus = () => {
-    if (!isLive) return "OFFLINE";
-    if (!ls) return "NOT LIVE";
-    return "LIVE";
-  };
+  }, [isStreamVisible, canPreview, thumbnails]);
 
   const getStatusDotColor = () => {
-    if (!isLive) return textAlphas.dark[3];
-    if (!ls) return textAlphas.dark[2];
-    switch (segmentTiming.connectionQuality) {
-      case "good":
-        return statusColors.dark.success;
-      case "degraded":
-        return statusColors.dark.warning;
-      case "poor":
-        return statusColors.dark.danger;
-      default:
-        return textAlphas.dark[3];
-    }
+    if (status.phase === "reconnecting") return theme.colors.warning;
+    if (status.phase === "live")
+      return status.readingsStale ? theme.colors.warning : theme.colors.live;
+    if (status.phase === "ready") return theme.colors.success;
+    return theme.colors.textMuted;
   };
 
   const getStreamTitle = () => {
@@ -254,7 +210,7 @@ export default function StreamMonitor({
           { backgroundColor: surfaces.dark[1] },
         ]}
       >
-        {isLive && userProfile ? (
+        {canPreview && userProfile ? (
           isStreamVisible ? (
             <View
               style={{ position: "relative", width: "100%", height: "100%" }}
@@ -266,9 +222,11 @@ export default function StreamMonitor({
               >
                 <DesktopUi />
                 <PlayerUI.ViewerLoadingOverlay />
-                <OfflineCounter isMobile={true} />
               </Player>
-              {!ls && <PreviewOverlay />}
+              {(!ls || ls.record.endedAt !== undefined) &&
+                status.incoming !== null && (
+                  <PreviewOverlay ended={status.phase === "ended"} />
+                )}
             </View>
           ) : (
             <View
@@ -302,6 +260,10 @@ export default function StreamMonitor({
               </View>
             </View>
           )
+        ) : status.incoming === null ? (
+          <Text size="sm" color="muted">
+            {t(`creator-status-${status.phase}`)}
+          </Text>
         ) : (
           <StreamScreen route={profile?.did} />
         )}
@@ -332,7 +294,7 @@ export default function StreamMonitor({
               { gap: 8, flexShrink: 0 },
             ]}
           >
-            {isLive && userProfile && (
+            {canPreview && userProfile && (
               <IconButton
                 size="sm"
                 accessibilityLabel={
@@ -359,6 +321,7 @@ export default function StreamMonitor({
                 ]}
               />
               <Text
+                testID="creator-stream-status"
                 style={{
                   color: textAlphas.dark[2],
                   fontSize: 12,
@@ -366,12 +329,29 @@ export default function StreamMonitor({
                   letterSpacing: 0.4,
                 }}
               >
-                {getStreamStatus()}
+                {t(`creator-status-${status.phase}`)}
               </Text>
             </View>
           </View>
         </View>
       </View>
+      {(status.phase === "reconnecting" ||
+        (status.phase === "live" && status.readingsStale)) && (
+        <Text
+          size="xs"
+          style={{
+            color: theme.colors.textMuted,
+            paddingHorizontal: theme.spacing[4],
+            paddingBottom: theme.spacing[4],
+          }}
+        >
+          {t(
+            status.phase === "live"
+              ? "creator-status-live-waiting-detail"
+              : `creator-status-${status.phase}-detail`,
+          )}
+        </Text>
+      )}
     </View>
   );
 }

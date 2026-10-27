@@ -8,7 +8,6 @@ import {
 import BentoGrid from "components/live-dashboard/bento-grid";
 import Loading from "components/loading/loading";
 import { VideoElementProvider } from "contexts/VideoElementContext";
-import { useLiveUser } from "hooks/useLiveUser";
 import { ReactNode, useCallback, useEffect, useState } from "react";
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
@@ -47,7 +46,6 @@ export default function LiveDashboard({ children }: { children?: ReactNode }) {
 }
 
 export function LiveDashboardView() {
-  const isLive = useLiveUser();
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
   );
@@ -58,7 +56,7 @@ export function LiveDashboardView() {
   return (
     <VideoElementProvider videoElement={videoElement}>
       <PlayerProvider>
-        <BentoGrid isLive={isLive} videoRef={videoRef} />
+        <BentoGrid videoRef={videoRef} />
       </PlayerProvider>
     </VideoElementProvider>
   );

@@ -4,6 +4,7 @@ import { spacing } from "@streamplace/components/src/lib/theme/tokens";
 import Loading from "components/loading/loading";
 import { ArrowLeft, Camera, MonitorPlay, Radio } from "lucide-react-native";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Linking, Pressable, View } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
@@ -73,6 +74,7 @@ function SourceCard({
 }
 
 export default function StreamScreen({ route }: { route?: any }) {
+  const { t } = useTranslation("common");
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
   const isReady = useIsReady();
   const userProfile = useUserProfile();
@@ -189,10 +191,10 @@ export default function StreamScreen({ route }: { route?: any }) {
             weight="semibold"
             style={{ color: theme.colors.text1 }}
           >
-            You're offline
+            {t("creator-status-waiting")}
           </Text>
           <Text size="sm" style={{ color: theme.colors.text3 }}>
-            Connect a source to go live
+            {t("creator-status-waiting-detail")}
           </Text>
         </View>
       </View>

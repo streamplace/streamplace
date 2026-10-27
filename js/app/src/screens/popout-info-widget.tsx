@@ -5,12 +5,23 @@ import {
   zero,
 } from "@streamplace/components";
 import Loading from "components/loading/loading";
+import { useLiveDashboardStatus } from "hooks/useLiveDashboardStatus";
 import { useEffect } from "react";
 import { View } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
 
 const { flex, layout, p } = zero;
+
+function StreamHealth() {
+  const status = useLiveDashboardStatus();
+  return (
+    <Dashboard.InformationWidget
+      readingsStale={status.readingsStale}
+      connectionQuality={status.connectionQuality}
+    />
+  );
+}
 
 export default function PopoutInfoWidget() {
   const isReady = useIsReady();
@@ -43,7 +54,7 @@ export default function PopoutInfoWidget() {
             p[1],
           ]}
         >
-          <Dashboard.InformationWidget />
+          <StreamHealth />
         </View>
       </PlayerProvider>
     </LivestreamProvider>

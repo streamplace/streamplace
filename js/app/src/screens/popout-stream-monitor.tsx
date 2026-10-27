@@ -5,7 +5,7 @@ import {
 } from "@streamplace/components";
 import StreamMonitor from "components/live-dashboard/stream-monitor";
 import Loading from "components/loading/loading";
-import { useLiveUser } from "hooks/useLiveUser";
+import { useLiveDashboardStatus } from "hooks/useLiveDashboardStatus";
 import { useEffect } from "react";
 import { View } from "react-native";
 import { useStore } from "store";
@@ -14,7 +14,7 @@ import { useIsReady, useUserProfile } from "store/hooks";
 const { flex } = zero;
 
 function PopoutStreamMonitorInner() {
-  const isLive = useLiveUser();
+  const status = useLiveDashboardStatus();
   const profile = useUserProfile();
   const hideSidebar = useStore((x) => x.setSidebarHidden);
   const showSidebar = useStore((x) => x.setSidebarUnhidden);
@@ -28,7 +28,7 @@ function PopoutStreamMonitorInner() {
 
   return (
     <View style={[flex.values[1]]}>
-      <StreamMonitor isLive={isLive} userProfile={profile} />
+      <StreamMonitor status={status} userProfile={profile} />
     </View>
   );
 }

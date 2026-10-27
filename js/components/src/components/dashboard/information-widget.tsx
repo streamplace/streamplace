@@ -1,3 +1,4 @@
+import { getSegmentMetrics } from "@streamplace/core";
 import {
   Car,
   ChevronDown,
@@ -10,6 +11,7 @@ import {
   Zap,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   LayoutChangeEvent,
   Pressable,
@@ -19,6 +21,8 @@ import {
 } from "react-native";
 import Svg, { Path, Line as SvgLine, Text as SvgText } from "react-native-svg";
 import { useAQState } from "../../hooks";
+import type { ConnectionQuality } from "../../hooks/useSegmentTiming";
+import { useTheme } from "../../lib/theme/theme";
 import {
   borderAlphas,
   colors,
@@ -40,6 +44,8 @@ interface InformationWidgetProps {
   embedMode?: boolean;
   wideMode?: boolean;
   showChart?: boolean;
+  readingsStale?: boolean;
+  connectionQuality?: ConnectionQuality;
   /** Re-open the "Optimize Your Stream" panel (relocated here from the old header). */
   onShowProblems?: () => void;
 }
@@ -52,11 +58,13 @@ export default function InformationWidget({
   embedMode = false,
   wideMode, // Optional override
   showChart = true,
+  readingsStale = false,
+  connectionQuality,
   onShowProblems,
 }: InformationWidgetProps) {
-  const [bitrateHistory, setBitrateHistory] = useState<number[]>(
-    Array.from({ length: BITRATE_HISTORY_LENGTH }, () => 0),
-  );
+  const { theme } = useTheme();
+  const { t } = useTranslation("common");
+  const [bitrateHistory, setBitrateHistory] = useState<number[]>([]);
   const [showViewers, setShowViewers] = useAQState("showViewers", true);
   const [componentWidth, setComponentWidth] = useState<number>(220);
   const [componentHeight, setComponentHeight] = useState<number>(400);
@@ -82,40 +90,16 @@ export default function InformationWidget({
   const viewers = useViewers();
   const problems = useLivestreamStore((x) => x.problems);
 
-  const getBitrate = useCallback((): number => {
-    if (!seg?.size || !seg?.duration) return 0;
-    const kbps =
-      (seg.size * 8) / ((seg.duration || 1000000000) / 1000000000) / 1000;
-    return kbps;
-  }, [seg?.size, seg?.duration]);
-
-  const getMediaInfo = useMemo(() => {
-    const videoTrack = seg?.video?.[0];
-    const audioTrack = seg?.audio?.[0];
-    return {
-      resolution:
-        videoTrack?.width && videoTrack?.height
-          ? `${videoTrack.width}x${videoTrack.height}`
-          : "Unknown",
-      fps: (() => {
-        const fr = videoTrack?.framerate;
-        if (!fr?.num || !fr?.den) return "Unknown";
-        const v = fr.num / fr.den;
-        // Guard against NaN/Infinity (e.g. a momentary 0-denominator segment)
-        // so the tile never shows a literal "NaN FPS".
-        return Number.isFinite(v) ? `${v.toFixed(2)} FPS` : "Unknown";
-      })(),
-      videoCodec: videoTrack?.codec
-        ? videoTrack.codec.toUpperCase()
-        : "Unknown",
-    };
-  }, [seg?.video, seg?.audio]);
-
-  const currentBitrate = getBitrate();
+  const metrics = useMemo(() => getSegmentMetrics(seg), [seg]);
+  const currentBitrate = metrics.bitrateKbps;
 
   useEffect(() => {
-    setBitrateHistory((prev) => [...prev.slice(1), currentBitrate]);
-  }, [currentBitrate]);
+    if (readingsStale || currentBitrate === null) return;
+    setBitrateHistory((prev) => [
+      ...prev.slice(-(BITRATE_HISTORY_LENGTH - 1)),
+      currentBitrate,
+    ]);
+  }, [seg, currentBitrate, readingsStale]);
 
   useEffect(() => {
     if (seg?.startTime && !streamStartTime) {
@@ -124,6 +108,7 @@ export default function InformationWidget({
   }, [seg?.startTime, streamStartTime]);
 
   const getBitrateStatus = (): "good" | "warning" | "error" | "neutral" => {
+    if (readingsStale || currentBitrate === null) return "neutral";
     if (currentBitrate > 2000) return "good";
     if (currentBitrate > 1000) return "warning";
     if (currentBitrate > 0) return "error";
@@ -131,7 +116,16 @@ export default function InformationWidget({
   };
 
   const getConnectionStatus = (): "good" | "warning" | "error" | "neutral" => {
-    if (!seg) return "error";
+    if (readingsStale || currentBitrate === null) return "neutral";
+    if (connectionQuality) {
+      return connectionQuality === "good"
+        ? "good"
+        : connectionQuality === "degraded"
+          ? "warning"
+          : connectionQuality === "poor"
+            ? "error"
+            : "neutral";
+    }
     if (currentBitrate > 1500) return "good";
     if (currentBitrate > 500) return "warning";
     return "error";
@@ -149,11 +143,15 @@ export default function InformationWidget({
     ? Math.floor((seg.duration / 1000000000) * 2)
     : 0;
 
-  const displayBitrate = `${(currentBitrate / 1000).toFixed(2)} Mbps`;
-  const displayResolution = getMediaInfo.resolution;
-  const displayFps = getMediaInfo.fps;
+  const displayBitrate =
+    currentBitrate === null
+      ? "—"
+      : `${(currentBitrate / 1000).toFixed(2)} Mbps`;
+  const displayResolution = metrics.resolution ?? "—";
+  const displayFps =
+    metrics.fps === null ? "—" : `${metrics.fps.toFixed(2)} FPS`;
   const streamTitle = livestream?.record?.title || "Untitled Stream";
-  const viewerCount = viewers ?? 0;
+  const viewerCount = viewers;
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -185,6 +183,11 @@ export default function InformationWidget({
         },
       ]}
     >
+      {readingsStale && seg && (
+        <Text style={{ color: theme.colors.warning }}>
+          {t("creator-readings-stale")}
+        </Text>
+      )}
       <View
         style={[
           layout.flex.row,
@@ -205,13 +208,16 @@ export default function InformationWidget({
                 width: 8,
                 height: 8,
                 borderRadius: 4,
-                backgroundColor: !livestream
-                  ? colors.primary[400] // eslint-disable-line streamplace/no-token-literals -- static accent, may render outside ThemeProvider (OBS)
-                  : getConnectionStatus() === "good"
-                    ? statusColors.dark.success
-                    : getConnectionStatus() === "warning"
-                      ? statusColors.dark.warning
-                      : statusColors.dark.danger,
+                backgroundColor:
+                  getConnectionStatus() === "neutral"
+                    ? theme.colors.textMuted
+                    : !livestream
+                      ? colors.primary[400] // eslint-disable-line streamplace/no-token-literals -- static accent, may render outside ThemeProvider (OBS)
+                      : getConnectionStatus() === "good"
+                        ? statusColors.dark.success
+                        : getConnectionStatus() === "warning"
+                          ? statusColors.dark.warning
+                          : statusColors.dark.danger,
               },
             ]}
           />
@@ -256,7 +262,7 @@ export default function InformationWidget({
                 { fontSize: 14, fontWeight: "600", textAlign: "center" },
               ]}
             >
-              {showViewers ? `${viewerCount}` : "..."} viewer
+              {showViewers ? `${viewerCount ?? "—"}` : "..."} viewer
               {showViewers && viewerCount !== 1 ? "s" : ""}
             </Text>
           </View>
@@ -316,7 +322,7 @@ export default function InformationWidget({
                       >
                         {avgBitrate > 0
                           ? `${(avgBitrate / 1000).toFixed(1)}M`
-                          : "0M"}
+                          : "—"}
                       </Text>
                     </View>
                     <View style={[layout.flex.alignCenter]}>
@@ -336,7 +342,7 @@ export default function InformationWidget({
                       >
                         {peakBitrate > 0
                           ? `${(peakBitrate / 1000).toFixed(1)}M`
-                          : "0M"}
+                          : "—"}
                       </Text>
                     </View>
                     <View style={[layout.flex.alignCenter]}>
@@ -407,7 +413,7 @@ export default function InformationWidget({
                     { fontSize: 13, fontWeight: "600" },
                   ]}
                 >
-                  {showViewers ? `${viewerCount} watching` : "•••"}
+                  {showViewers ? `${viewerCount ?? "—"} watching` : "•••"}
                 </Text>
                 {showViewers ? (
                   <ChevronUp size={14} color={textAlphas.dark[3]} />
@@ -464,11 +470,13 @@ export default function InformationWidget({
               icon={Signal}
               label="Connection"
               value={
-                getConnectionStatus() === "good"
-                  ? "Excellent"
-                  : getConnectionStatus() === "warning"
-                    ? "Good"
-                    : "Poor"
+                getConnectionStatus() === "neutral"
+                  ? "—"
+                  : getConnectionStatus() === "good"
+                    ? "Excellent"
+                    : getConnectionStatus() === "warning"
+                      ? "Good"
+                      : "Poor"
               }
               status={getConnectionStatus()}
             />
@@ -521,7 +529,8 @@ function BitrateChart({
 
   const points = data
     .map((value, index) => {
-      const x = chartStartX + (index / (data.length - 1)) * chartWidth;
+      const x =
+        chartStartX + (index / Math.max(1, data.length - 1)) * chartWidth;
       // Clamp value to chart range and plot against the smart scale
       const clampedValue = Math.max(minValue, Math.min(maxValue, value));
       const y =
@@ -575,14 +584,16 @@ function BitrateChart({
         >
           mbits/s
         </SvgText>
-        <Path
-          d={pathData}
-          stroke={color}
-          strokeWidth="2"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        {data.length > 1 && (
+          <Path
+            d={pathData}
+            stroke={color}
+            strokeWidth="2"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
       </Svg>
     </View>
   );

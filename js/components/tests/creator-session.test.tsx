@@ -56,7 +56,6 @@ vi.mock("store/hooks", () => ({
   useIsReady: () => session.ready,
   useUserProfile: () => (session.did ? { did: session.did } : null),
 }));
-vi.mock("hooks/useLiveUser", () => ({ useLiveUser: () => false }));
 vi.mock("components/loading/loading", () => ({ default: () => "Loading" }));
 vi.mock("components/live-dashboard/bento-grid", () => ({
   default: () => null,

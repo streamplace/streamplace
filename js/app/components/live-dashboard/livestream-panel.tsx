@@ -37,6 +37,7 @@ import {
   textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
 import { Image } from "expo-image";
+import type { LiveDashboardStatus } from "hooks/useLiveDashboardStatus";
 import { ChevronsUpDown, Globe, ImagePlus, Lock, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -55,7 +56,6 @@ import {
   scopeGrants,
 } from "../../features/bluesky/scopes";
 import { useCaptureVideoFrame } from "../../hooks/useCaptureVideoFrame";
-import { useLiveUser } from "../../hooks/useLiveUser";
 import ActivityPicker from "../activity-picker";
 
 const { flex, p, px, py, gap, layout, bg, borders, text, r, w, typography } =
@@ -281,9 +281,15 @@ const ImageUploadComponent = ({
   );
 };
 
-function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
+function LivestreamPanel({
+  status,
+  scrollable = true,
+}: {
+  status: LiveDashboardStatus;
+  scrollable?: boolean;
+}) {
   const toast = useToast();
-  const userIsLive = useLiveUser();
+  const userIsLive = status.incoming === true;
   const captureFrame = useCaptureVideoFrame();
   const profile = useUserProfile();
   const livestream = useLivestream(true);
@@ -293,6 +299,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const url = useUrl();
   const [endingLivestream, setEndingLivestream] = useState(false);
   const { t } = useTranslation("settings");
+  const { t: common } = useTranslation("common");
   const agent = useStore((state) => state.pdsAgent);
   const { status: vodBetaStatus } = useBetaStatus("vod");
   const serverSettings = useServerSettings();
@@ -538,22 +545,30 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
 
   const { theme } = useTheme();
   const disabled = useMemo(
-    () => !userIsLive || loading || title.trim() === "",
-    [userIsLive, loading, title],
+    () => !status.canAnnounce || loading || title.trim() === "",
+    [status.canAnnounce, loading, title],
   );
 
   const buttonText = useMemo(() => {
     if (loading) return "Loading...";
-    if (!userIsLive) {
-      return mode === "create"
-        ? "Waiting for stream to start..."
-        : "Waiting for stream to start...";
+    if (status.incoming === null) {
+      return common(`creator-status-${status.phase}`);
+    }
+    if (!status.canAnnounce) {
+      return common("creator-status-waiting");
     }
     if (!livestream || livestream.record.endedAt !== undefined) {
-      return "Start Livestream!";
+      return common("creator-announce");
     }
     return "Update Livestream!";
-  }, [loading, userIsLive, mode, livestream]);
+  }, [
+    loading,
+    status.incoming,
+    status.phase,
+    status.canAnnounce,
+    livestream,
+    common,
+  ]);
 
   const Wrapper = scrollable ? ScrollView : View;
   const wrapperProps = scrollable
@@ -929,6 +944,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
         >
           {/* Hero action → Paper (system primary), not pink. */}
           <Button
+            testID="creator-announce"
             disabled={disabled}
             onPress={handleSubmit}
             style={[py[3], { opacity: disabled ? 0.5 : 1 }]}
@@ -940,7 +956,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
               variant="danger"
               onPress={handleEndLivestream}
               style={[py[3]]}
-              disabled={endingLivestream}
+              disabled={endingLivestream || status.incoming === null}
             >
               {endingLivestream ? "Ending..." : "End Livestream"}
             </Button>

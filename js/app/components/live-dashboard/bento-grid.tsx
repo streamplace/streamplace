@@ -3,7 +3,6 @@ import {
   Button,
   Dashboard,
   useLivestreamStore,
-  usePlayerStore,
   useProfile,
   useTheme,
   zero,
@@ -14,6 +13,7 @@ import {
 } from "@streamplace/components/src/components/dashboard/problems";
 import { surfaces } from "@streamplace/components/src/lib/theme/tokens";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
+import { useLiveDashboardStatus } from "hooks/useLiveDashboardStatus";
 import { ArrowRight } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Platform, ScrollView, View } from "react-native";
@@ -26,11 +26,11 @@ import StreamMonitor from "./stream-monitor";
 const { flex, p, gap, layout, bg } = zero;
 
 interface BentoGridProps {
-  isLive: boolean;
   videoRef: any;
 }
 
-export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
+export default function BentoGrid({ videoRef }: BentoGridProps) {
+  const status = useLiveDashboardStatus();
   const navigation = useNavigation();
   const isWeb = Platform.OS === "web";
   const problemsRef = useRef<ProblemsWrapperRef>(null);
@@ -70,11 +70,10 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
   // Get data from hooks for Dashboard components
   const profile = useProfile();
   const chat = useLivestreamStore((x) => x.chat);
-  const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
   const emojiData = useEmojiData();
 
   // Calculate derived values
-  const isConnected = ingestConnectionState === "connected";
+  const isConnected = status.incoming !== null;
 
   // Calculate messages per minute
   const messagesPerMinute = useMemo((): number => {
@@ -127,7 +126,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
                 ]}
               >
                 <StreamMonitor
-                  isLive={isLive}
+                  status={status}
                   userProfile={profile}
                   videoRef={videoRef}
                 />
@@ -142,6 +141,8 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
                 ]}
               >
                 <Dashboard.InformationWidget
+                  readingsStale={status.readingsStale}
+                  connectionQuality={status.connectionQuality}
                   onShowProblems={() => problemsRef.current?.setDismiss(false)}
                 />
               </View>
@@ -158,7 +159,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
             >
               <MultistreamStatus />
               <Dashboard.ChatPanel
-                isLive={isLive}
+                isLive={status.phase === "live"}
                 isConnected={isConnected}
                 messagesPerMinute={messagesPerMinute}
                 emojiData={emojiData}
@@ -182,7 +183,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
                 { maxWidth: 600, minHeight: 0 },
               ]}
             >
-              <LivestreamPanel />
+              <LivestreamPanel status={status} />
             </View>
           </View>
         </View>
@@ -201,7 +202,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
             {/* Stream Monitor Panel */}
             <View style={[{ height: screenHeight * 0.35 }]}>
               <StreamMonitor
-                isLive={isLive}
+                status={status}
                 userProfile={profile}
                 videoRef={videoRef}
               />
@@ -217,7 +218,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
               Go to chat
             </Button>
             <View>
-              <LivestreamPanel scrollable={false} />
+              <LivestreamPanel status={status} scrollable={false} />
             </View>
           </View>
         </ScrollView>

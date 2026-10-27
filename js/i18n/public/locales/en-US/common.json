@@ -381,5 +381,18 @@
   "upload-error-not-logged-in": "Not logged in",
   "upload-title-untitled": "Untitled",
   "emoji-skin-tone": "Skin tone",
-  "emoji-search": "Search emoji…"
+  "emoji-search": "Search emoji…",
+  "creator-status-connecting": "Connecting",
+  "creator-status-waiting": "Waiting for OBS",
+  "creator-status-ready": "Ready to announce",
+  "creator-status-live": "Live",
+  "creator-status-reconnecting": "Reconnecting",
+  "creator-status-ended": "Announcement ended",
+  "creator-status-waiting-detail": "Connect OBS or another source to send video.",
+  "creator-status-ready-detail": "Video is arriving. Announce your stream when you're ready.",
+  "creator-status-reconnecting-detail": "Dashboard connection lost. Last readings may be stale.",
+  "creator-status-ended-detail": "This announcement has ended. Incoming video is independent.",
+  "creator-status-live-waiting-detail": "Waiting for incoming video. Your announcement is still active.",
+  "creator-readings-stale": "Readings stale",
+  "creator-announce": "Announce stream"
 }

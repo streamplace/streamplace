@@ -1,3 +1,4 @@
+import { isSegmentFresh } from "@streamplace/core";
 import { useStore } from "store";
 import { place } from "streamplace";
 
@@ -11,8 +12,5 @@ export const useLiveUser = (): boolean => {
     return false;
   }
   const record = mySegments[0].record as place.stream.segment.Main;
-  if (Date.now() - new Date(record.startTime).getTime() < 1000 * 10) {
-    return true;
-  }
-  return false;
+  return isSegmentFresh(record.startTime, Date.now());
 };

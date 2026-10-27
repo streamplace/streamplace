@@ -26,8 +26,8 @@ export function useSegmentTiming() {
   const prevTimestampRef = useRef<number | null>(null);
   const ls = useLivestream();
 
-  // Dummy state to force update every second
-  const [, setNow] = useState(Date.now());
+  const [, setNow] = useState(Date.now);
+  const now = Date.now();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -51,11 +51,12 @@ export function useSegmentTiming() {
 
   // The most recent time between segments
   const timeBetweenSegments =
-    segmentDeltas.length > 0
-      ? segmentDeltas[segmentDeltas.length - 1]
-      : prevTimestampRef.current
-        ? Date.now() - prevTimestampRef.current
-        : null;
+    prevTimestampRef.current !== null
+      ? Math.max(
+          segmentDeltas[segmentDeltas.length - 1] ?? 0,
+          now - prevTimestampRef.current,
+        )
+      : null;
 
   // Calculate mean and range of deltas
   const mean =
@@ -72,18 +73,17 @@ export function useSegmentTiming() {
       : null;
 
   let to_ret = {
+    now,
     segmentDeltas,
     timeBetweenSegments,
     mean,
     range,
-    connectionQuality: "poor",
+    connectionQuality: getLiveConnectionQuality(
+      timeBetweenSegments,
+      range,
+      segmentDeltas.length,
+    ),
   };
-
-  to_ret.connectionQuality = getLiveConnectionQuality(
-    timeBetweenSegments,
-    range,
-    segmentDeltas.length,
-  );
 
   if (!ls) {
     to_ret.connectionQuality = "pre-live";

@@ -13,23 +13,20 @@ onFlowComplete:
       file: login-options.js
       env:
         LOGIN_OPTIONS_STEP: restore
-  # Later flows expect the node's usual branding, not this flow's cached copy.
-  - launchApp:
-      clearState: true
-  # clearState also resets the notification permission the runner granted
-  - tapOn:
-      text: "Allow"
-      optional: true
-  - runFlow: ../setup/server-setup.yaml
+  # Relaunch so the app saves the restored branding before later flows start
+  # from its saved copy.
+  - launchApp
+  - extendedWaitUntil:
+      visible:
+        id: "home-stream-card"
+      timeout: 30000
 ---
-# The app keeps branding for an hour, so start it afresh to read the options
-# just set.
-- launchApp:
-    clearState: true
-- tapOn:
-    text: "Allow"
-    optional: true
-- runFlow: ../setup/server-setup.yaml
+# A relaunch reads the node's branding again, picking up the options just set.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
 - tapOn:
     text: "Log in"
 - extendedWaitUntil:

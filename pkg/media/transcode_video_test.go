@@ -19,6 +19,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/livehls"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
 )
 
@@ -219,4 +220,79 @@ func TestMintVideoRenditionsRetimes(t *testing.T) {
 	require.Equal(t, want, renBase, "rendition starts where the source segment starts")
 	_, err = muxl.RunMuxlVerify(ctx, bytes.NewReader(addendum))
 	require.NoError(t, err, "re-timed before signing, so it still verifies")
+}
+
+// Renditions a peer sends for a stream are taken only from a transcoder this
+// node trusts: its own station or the streamer. One validly signed by anybody
+// else is refused as untrusted (the puller drops it and keeps the source);
+// one whose signature fails is refused outright.
+func TestReplicatedRenditionsNeedATrustedTranscoder(t *testing.T) {
+	ctx := context.Background()
+	src := sourceSegmentForTest(t)
+	r160 := renditionMP4(t, 160, 120)
+	const streamer = "did:plc:streamerstreamerstreamer"
+	mod, err := model.MakeDB(":memory:")
+	require.NoError(t, err)
+	stationCert, stationKey := nodeSignerForTest(t)
+	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "node.test"}, model: mod, nodeCert: stationCert, nodeKeyPEM: stationKey}
+	mm.nodeSignerOnce.Do(func() {})
+	mint := func(cert, keyPEM []byte) []byte {
+		t.Helper()
+		addendum, err := mm.mintVideoRenditions(ctx, src, []RenditionInput{{Name: "160p", MP4: r160}}, cert, keyPEM)
+		require.NoError(t, err)
+		return addendum
+	}
+
+	require.NoError(t, mm.ValidateReplicatedRenditions(ctx, mint(stationCert, stationKey), streamer), "own station")
+
+	streamerCert, streamerKey := nodeSignerForTest(t)
+	pub, err := signers.ParseES256KCert(streamerCert)
+	require.NoError(t, err)
+	require.NoError(t, mod.UpdateSigningKey(&model.SigningKey{DID: pub.DIDKey(), RepoDID: streamer, CreatedAt: time.Now()}))
+	require.NoError(t, mm.ValidateReplicatedRenditions(ctx, mint(streamerCert, streamerKey), streamer), "the streamer")
+	require.ErrorIs(t, mm.ValidateReplicatedRenditions(ctx, mint(streamerCert, streamerKey), "did:plc:someoneelsesomeoneelsesom"), ErrUntrustedTranscoder, "another streamer's key")
+
+	otherCert, otherKey := nodeSignerForTest(t)
+	other := mint(otherCert, otherKey)
+	require.ErrorIs(t, mm.ValidateReplicatedRenditions(ctx, other, streamer), ErrUntrustedTranscoder, "anybody else")
+
+	tampered := mint(stationCert, stationKey)
+	tampered[len(tampered)-1] ^= 0xff
+	err = mm.ValidateReplicatedRenditions(ctx, tampered, streamer)
+	require.Error(t, err, "a broken signature")
+	require.NotErrorIs(t, err, ErrUntrustedTranscoder)
+}
+
+// A segment a peer sends carries only tracks the streamer signed, or
+// transcodes (a codec its ingest node completed) by a transcoder this node
+// trusts: one spliced in by anybody else refuses the whole segment, unless
+// --trusted-transcoders names its signer.
+func TestReplicatedSegmentTracksNeedATrustedTranscoder(t *testing.T) {
+	ctx := context.Background()
+	src := sourceSegmentForTest(t)
+	r160 := renditionMP4(t, 160, 120)
+	const streamer = "did:plc:streamerstreamerstreamer"
+	stationCert, stationKey := nodeSignerForTest(t)
+	cli := &config.CLI{BroadcasterHost: "node.test"}
+	mm := &MediaManager{cli: cli, nodeCert: stationCert, nodeKeyPEM: stationKey}
+	mm.nodeSignerOnce.Do(func() {})
+	completed := func(cert, keyPEM []byte) *ValidationResult {
+		t.Helper()
+		track, err := mm.mintVideoRenditions(ctx, src, []RenditionInput{{Name: "160p", MP4: r160}}, cert, keyPEM)
+		require.NoError(t, err)
+		valid, err := ValidateMP4Media(ctx, append(append([]byte{}, src...), track...))
+		require.NoError(t, err)
+		return valid
+	}
+
+	require.NoError(t, mm.trustSegmentTracks(ctx, completed(stationCert, stationKey), streamer), "completed by this node's station")
+
+	otherCert, otherKey := nodeSignerForTest(t)
+	spliced := completed(otherCert, otherKey)
+	require.ErrorIs(t, mm.trustSegmentTracks(ctx, spliced, streamer), ErrUntrustedTranscoder, "a track from anybody else")
+
+	other, err := signers.ParseES256KCert(otherCert)
+	require.NoError(t, err)
+	cli.TrustedTranscoders = []string{other.DIDKey()}
+	require.NoError(t, mm.trustSegmentTracks(ctx, spliced, streamer), "a transcoder this node was told to trust")
 }

@@ -21,7 +21,6 @@ import (
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/moq"
-	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
@@ -351,10 +350,16 @@ func (r *WebsocketReplicator) openMoq(ctx context.Context, origin *placestream.B
 // feedRenditions folds a rendition addendum the origin minted into this
 // node's live window and playback bus, once its signatures check out.
 func (r *WebsocketReplicator) feedRenditions(ctx context.Context, streamer string, addendum []byte) error {
-	// Rendition tracks the origin minted for this stream: checked (every
-	// track is a signed transcoded asset) and folded into our live window
-	// as HLS variants. Not a segment, so not validated or archived as one.
-	if _, err := muxl.RunMuxlVerify(context.Background(), bytes.NewReader(addendum)); err != nil {
+	// Rendition tracks the origin minted for this stream, folded into our
+	// live window as HLS variants. Not a segment, so not validated or
+	// archived as one: taken only when every track is validly signed by a
+	// transcoder this node trusts. Renditions from any other are dropped and
+	// the source goes on; an invalid signature ends the pull.
+	if err := r.mm.ValidateReplicatedRenditions(ctx, addendum, streamer); err != nil {
+		if errors.Is(err, media.ErrUntrustedTranscoder) {
+			log.Debug(ctx, "dropping renditions from an untrusted transcoder", "streamer", streamer, "error", err)
+			return nil
+		}
 		return fmt.Errorf("rendition addendum failed verification: %w", err)
 	}
 	// Only public streams are syndicated, so the ordering check that

@@ -107,11 +107,10 @@ test("login-options: branding gates the sign-in options", async ({
   await page.goto(`${HTTPS_URL}/settings/branding`);
   const reset = page.getByTestId("branding-reset-sign-in");
   try {
+    // No WalletConnect project id: with one, the Ethereum panel pairs with
+    // WalletConnect's relay as it opens, which needs a real id.
     await page.getByTestId("branding-input-loginEntryway").fill(PDS_URL!);
-    await page
-      .getByTestId("branding-input-walletConnectProjectId")
-      .fill("e2e-project");
-    await brandingWrites(page, 2, () =>
+    await brandingWrites(page, 1, () =>
       page.getByTestId("branding-update-sign-in").click(),
     );
     // One after another as each write lands, the way a person ticks a list:
@@ -146,8 +145,8 @@ test("login-options: branding gates the sign-in options", async ({
       }
     });
     await visitor.getByTestId("login-ethereum").click();
-    await expect(visitor.getByTestId("login-walletconnect")).toBeVisible();
-    await visitor.getByTestId("login-wallet-test.e2e").click();
+    await expect(visitor.getByTestId("login-walletconnect-qr")).toHaveCount(0);
+    await visitor.getByText("Connect E2E Wallet").click();
     await expect(visitor.getByTestId("login-error")).toHaveText(
       "Sign in with Ethereum isn't available on this server yet.",
     );

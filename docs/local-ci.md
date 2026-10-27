@@ -38,6 +38,27 @@ The tag-only publishing jobs (`npm-release`, `release`, `deb-release`,
 `homebrew-release`) are not run: they need CI credentials and should not fire
 by accident.
 
+## Tag checkouts
+
+`make all` detects an exact tag with `git describe --tags --exact-match` and
+sets `CI_COMMIT_TAG`, so `make version` produces `vX.Y.Z` instead of a
+`vX.Y.Z-<hash>` snapshot and the embedded update URLs use the `latest`
+channel. The checkout must be exactly at the tag and clean; one commit past it
+is a branch build.
+
+The mobile app's `version`, `runtimeVersion`, and Android `versionCode` come
+from `js/app/package.json` at that tag, not from the tag name. Verify the tag
+contains the intended release bump:
+
+```sh
+git show v0.12.12:js/app/package.json | grep -E '"(version|runtimeVersion)"'
+```
+
+`make all` skips iOS unless `MAC_HOST` is set. The remote checkout must be at
+the same commit; the script verifies that and passes the tag/branch metadata
+into the remote `make version`. If the tag was created after the remote clone,
+run `git fetch --tags` there; the script checks that the remote has the tag.
+
 ## Building and signing separately
 
 The macOS artifacts need the Developer ID certificate after they are compiled:

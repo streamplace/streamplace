@@ -37,11 +37,12 @@ if [ "$(uname -s)" != "Linux" ]; then
 fi
 
 # GitLab always defines one of these; a local checkout does not. Derive the
-# same value so `make version` can build the update URLs outside CI.
-if [ -z "${CI_COMMIT_TAG:-}" ] && [ -z "${CI_COMMIT_BRANCH:-}" ]; then
+# same value so `make version` can build the update URLs outside CI. An exact
+# tag wins over a preset branch so `git checkout vX.Y.Z` builds a release.
+if [ -z "${CI_COMMIT_TAG:-}" ]; then
   if tag="$(git describe --tags --exact-match 2>/dev/null)"; then
     export CI_COMMIT_TAG="$tag"
-  else
+  elif [ -z "${CI_COMMIT_BRANCH:-}" ]; then
     export CI_COMMIT_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)"
   fi
 fi
@@ -125,8 +126,19 @@ if [ -n "${MAC_HOST:-}" ]; then
   step "ios on $MAC_HOST"
   COMMIT="$(git rev-parse HEAD)"
   MAC_REPO="${MAC_REPO:-$REPO}"
-  # The remote checkout must be at the same commit; --make all does not push.
-  ssh "$MAC_HOST" "cd '$MAC_REPO' && test \"\$(git rev-parse HEAD)\" = '$COMMIT' && make version install app ios"
+  # The remote runs `make version` directly, so it needs the same CI metadata
+  # the local wrapper derived; otherwise a tag checkout panics there.
+  REMOTE_CI=""
+  REMOTE_TAG_CHECK=""
+  if [ -n "${CI_COMMIT_TAG:-}" ]; then
+    REMOTE_CI="CI_COMMIT_TAG='$CI_COMMIT_TAG'"
+    REMOTE_TAG_CHECK="git rev-parse -q --verify 'refs/tags/$CI_COMMIT_TAG' >/dev/null || { echo 'remote checkout is missing tag $CI_COMMIT_TAG; run git fetch --tags there' >&2; exit 1; };"
+  fi
+  if [ -n "${CI_COMMIT_BRANCH:-}" ]; then
+    REMOTE_CI="$REMOTE_CI CI_COMMIT_BRANCH='$CI_COMMIT_BRANCH'"
+  fi
+  # The remote checkout must be at the same commit; make all does not push.
+  ssh "$MAC_HOST" "cd '$MAC_REPO' && test \"\$(git rev-parse HEAD)\" = '$COMMIT' && $REMOTE_TAG_CHECK $REMOTE_CI make version install app ios"
 else
   SKIPPED+=("build-ios: needs macOS; set MAC_HOST=user@host (and MAC_REPO=/path/to/checkout)")
 fi

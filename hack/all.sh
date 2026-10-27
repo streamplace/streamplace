@@ -36,6 +36,16 @@ if [ "$(uname -s)" != "Linux" ]; then
   exit 1
 fi
 
+# GitLab always defines one of these; a local checkout does not. Derive the
+# same value so `make version` can build the update URLs outside CI.
+if [ -z "${CI_COMMIT_TAG:-}" ] && [ -z "${CI_COMMIT_BRANCH:-}" ]; then
+  if tag="$(git describe --tags --exact-match 2>/dev/null)"; then
+    export CI_COMMIT_TAG="$tag"
+  else
+    export CI_COMMIT_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)"
+  fi
+fi
+
 . hack/lib/container.sh
 
 # ---------------------------------------------------------------------------

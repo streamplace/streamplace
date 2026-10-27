@@ -26,6 +26,8 @@ fi
 # producing ad-hoc artifacts. Kept to an allowlist: don't leak unrelated host
 # variables into the builder.
 PASS_ENV=(
+  CI_COMMIT_TAG
+  CI_COMMIT_BRANCH
   DEVELOPER_CERTIFICATE_BASE64
   DEVELOPER_CERTIFICATE_PASSWORD
   APPLE_CODESIGN_API_KEY

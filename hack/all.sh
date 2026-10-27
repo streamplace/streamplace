@@ -20,16 +20,48 @@
 # A fresh checkout is assumed, like a CI runner. `make all` reconfigures
 # build-linux-amd64 for the static release build; the test job uses
 # build-test-linux-amd64 so the two native builds do not fight.
+#
+# After the shared version/frontend/lexicon phase, the test, node targets,
+# Android, and iOS jobs run concurrently. JOBS caps the number of lanes
+# (default 4); ALL_SERIAL=1 restores one-at-a-time execution.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 REPO="$PWD"
 TEST_BUILDDIR="${TEST_BUILDDIR:-build-test-linux-amd64}"
+JOBS="${JOBS:-4}"
+if [ "${ALL_SERIAL:-0}" = "1" ]; then
+  JOBS=1
+fi
 SKIPPED=()
+pids=()
 
+STEP_NAME=""
+STEP_START=$SECONDS
 step() {
+  local now=$SECONDS
+  if [ -n "$STEP_NAME" ]; then
+    printf '== %s (%ds)\n' "$STEP_NAME" "$((now - STEP_START))"
+  fi
+  STEP_NAME="$*"
+  STEP_START=$now
   printf '\n==> %s\n' "$*"
 }
+
+finish_step() {
+  if [ -n "$STEP_NAME" ]; then
+    printf '== %s (%ds)\n' "$STEP_NAME" "$((SECONDS - STEP_START))"
+    STEP_NAME=""
+  fi
+}
+
+cleanup_lanes() {
+  local pid
+  for pid in "${pids[@]:-}"; do
+    kill "$pid" 2>/dev/null || true
+  done
+}
+trap 'finish_step; cleanup_lanes' EXIT
 
 if [ "$(uname -s)" != "Linux" ]; then
   echo "make all runs the Linux pipeline; run it on Linux (or in the builder container)." >&2
@@ -43,26 +75,21 @@ if [ -z "${CI_COMMIT_TAG:-}" ]; then
   if tag="$(git describe --tags --exact-match 2>/dev/null)"; then
     export CI_COMMIT_TAG="$tag"
   elif [ -z "${CI_COMMIT_BRANCH:-}" ]; then
-    export CI_COMMIT_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)"
+    CI_COMMIT_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)"
+    export CI_COMMIT_BRANCH
   fi
 fi
 
 . hack/lib/container.sh
 
 # ---------------------------------------------------------------------------
-# test job
+# shared phase: everything below consumes the frontend bundles and lexicons
 # ---------------------------------------------------------------------------
 step "version and frontends"
 run make version
 # Build the embedded bundles from the current source; `make dev` would reuse a
 # stale dist directory left by a previous branch.
 run make app
-
-step "test (dev build and Go tests)"
-# Separate build directory: the release target below wants a static
-# build-linux-amd64, while dev/tests want a shared one.
-run make dev BUILDDIR="$TEST_BUILDDIR"
-run env STREAMPLACE_TEST_COUNT=1 make dev-test BUILDDIR="$TEST_BUILDDIR"
 
 step "lexicons are up to date"
 # `make ci-lexicons` compares the whole tree with git, which fails on any
@@ -80,7 +107,7 @@ if [ "$(tree_state)" != "$LEXICON_STATE" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# node jobs: build the target, then its desktop package and distro package
+# lanes
 # ---------------------------------------------------------------------------
 target() {
   local target="$1"
@@ -95,35 +122,47 @@ target() {
   run make "pkg-$target"
 }
 
-target linux-amd64
-target linux-arm64
-target windows-amd64
-target darwin-amd64
-target darwin-arm64
+lane_test() {
+  step "test (dev build and Go tests)"
+  # Separate build directory: the release targets want a static
+  # build-linux-amd64, while dev/tests want a shared one.
+  run make dev BUILDDIR="$TEST_BUILDDIR"
+  run env STREAMPLACE_TEST_COUNT=1 make dev-test BUILDDIR="$TEST_BUILDDIR"
+}
 
-# ---------------------------------------------------------------------------
-# android jobs
-# ---------------------------------------------------------------------------
-# `make app` above already ran `expo prebuild`, so build the bundles directly.
-# The ci-android-* targets also upload to the GitLab package registry, which
-# needs CI_JOB_TOKEN and fails on a local machine.
-step "android-debug"
-run make android-debug
+lane_target() {
+  target "$1"
+}
 
-step "android-release"
-run make android-release
+lane_android() {
+  # `make app` above already ran `expo prebuild`, so build the bundles
+  # directly. Debug and release share js/app/android and stay serial.
+  step "android-debug"
+  run make android-debug
+  step "android-release"
+  run make android-release
+}
 
-# ---------------------------------------------------------------------------
-# macOS desktop app (packages and signs with rcodesign on Linux)
-# ---------------------------------------------------------------------------
-step "desktop-darwin"
-run make desktop-darwin-linux
+lane_darwin() {
+  # The two darwin node builds have separate build dirs; the desktop package
+  # consumes both and only starts after they finish.
+  if [ "${ALL_SERIAL:-0}" = "1" ]; then
+    target darwin-amd64
+    target darwin-arm64
+  else
+    target darwin-amd64 &
+    local amd64_pid=$!
+    target darwin-arm64 &
+    local arm64_pid=$!
+    wait "$amd64_pid" "$arm64_pid"
+  fi
+  step "desktop-darwin"
+  run make desktop-darwin-linux
+}
 
-# ---------------------------------------------------------------------------
-# iOS: requires Xcode, so it stays on macOS
-# ---------------------------------------------------------------------------
-if [ -n "${MAC_HOST:-}" ]; then
+lane_ios() {
   step "ios on $MAC_HOST"
+  local COMMIT MAC_REPO REMOTE_CI REMOTE_CHECK REMOTE_TAG_CHECK
   COMMIT="$(git rev-parse HEAD)"
   MAC_REPO="${MAC_REPO:-$REPO}"
   # The remote runs `make version` directly, so it needs the same CI metadata
@@ -140,9 +179,55 @@ if [ -n "${MAC_HOST:-}" ]; then
   fi
   # The remote checkout must be at the same commit; make all does not push.
   ssh "$MAC_HOST" "cd '$MAC_REPO' && $REMOTE_CHECK $REMOTE_TAG_CHECK $REMOTE_CI make version install app ios"
+}
+
+# ---------------------------------------------------------------------------
+# bounded lane pool
+# ---------------------------------------------------------------------------
+reap() {
+  local alive=() pid
+  for pid in "${pids[@]}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      alive+=("$pid")
+    fi
+  done
+  pids=("${alive[@]}")
+}
+
+start_lane() {
+  local name="$1"
+  shift
+  while [ "${#pids[@]}" -ge "$JOBS" ]; do
+    if ! wait -n; then
+      echo "a lane failed while starting $name; stopping remaining lanes" >&2
+      local pid
+      for pid in "${pids[@]}"; do
+        kill "$pid" 2>/dev/null || true
+      done
+      wait || true
+      exit 1
+    fi
+    reap
+  done
+  # The lane subshell only reports its last step; the main shell owns the
+  # pids/trap and is the one that kills the remaining lanes on failure.
+  ( trap 'finish_step' EXIT; "$@" ) &
+  pids+=("$!")
+}
+
+if [ -n "${MAC_HOST:-}" ]; then
+  start_lane ios lane_ios
 else
   SKIPPED+=("build-ios: needs macOS; set MAC_HOST=user@host (and MAC_REPO=/path/to/checkout)")
 fi
+start_lane test lane_test
+start_lane linux-amd64 lane_target linux-amd64
+start_lane linux-arm64 lane_target linux-arm64
+start_lane windows-amd64 lane_target windows-amd64
+start_lane android lane_android
+start_lane darwin lane_darwin
+
+wait
 
 # ---------------------------------------------------------------------------
 # report

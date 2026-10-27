@@ -40,7 +40,8 @@ fi
 
 mkdir -p bin
 
-for arch in amd64 arm64; do
+package_arch() {
+  local arch="$1" forge_arch zip_file app
   case "$arch" in
     amd64) forge_arch=x64 ;;
     arm64) forge_arch=arm64 ;;
@@ -63,4 +64,19 @@ for arch in amd64 arm64; do
   app="js/desktop/out/Streamplace-darwin-$forge_arch/Streamplace.app"
   hack/make-dmg.sh "$app" "Streamplace $VERSION" \
     "bin/streamplace-desktop-$VERSION-darwin-$arch.dmg"
+}
+
+pids=()
+for arch in amd64 arm64; do
+  package_arch "$arch" &
+  pids+=("$!")
+done
+for pid in "${pids[@]}"; do
+  if ! wait "$pid"; then
+    for other in "${pids[@]}"; do
+      kill "$other" 2>/dev/null || true
+    done
+    wait || true
+    exit 1
+  fi
 done

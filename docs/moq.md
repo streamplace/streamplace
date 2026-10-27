@@ -153,7 +153,11 @@ ingests it without pushing it to `--peers` or that a peer pushes it to: both
 want the stream at its live edge. Peers take a stream's renditions from its
 origin, so renditions minted anywhere else would reach nobody but that
 node's own viewers; and a pull replica, seconds behind, that took the
-recording over would record again segments its predecessor had saved.
+recording over would record again segments its predecessor had saved. A
+recorder completes its current object when the stream stops being
+published, so the recording can be finalized at once: an ingest node on its
+first unpublished segment, a push receiver, which is pushed no unpublished
+segments, on seeing the streamer's livestream record end.
 
 A pusher whose `--peers` names two nodes of one station gives that station
 two origins, of which one transcodes. The other gets the renditions only by

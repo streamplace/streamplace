@@ -586,6 +586,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				return nil
 			}
 			if seenEnding {
+				if atsync.LivestreamEnded != nil {
+					atsync.LivestreamEnded(context.WithoutCancel(ctx), userDID)
+				}
 				// Publish its VOD if the streamer has that on now. Only on
 				// seeing it end, never for an ended record seen again (a
 				// redelivery, an edit, a backfilled one), so turning it on

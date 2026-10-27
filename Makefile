@@ -4,6 +4,8 @@ $(shell mkdir -p $(OUT_DIR))
 .PHONY: default
 default: streamplace
 
+# build-signable sets this so the darwin targets stop after compiling.
+SKIP_SIGN?=0
 VERSION?=$(shell go run ./pkg/config/git/git.go -v)
 VERSION_NO_V=$(subst v,,$(VERSION))
 VERSION_ELECTRON=$(subst -,-z,$(subst v,,$(VERSION)))
@@ -547,18 +549,40 @@ link-test-windows:
 		&& exit 1; \
 	fi
 
+# Run the GitLab build pipeline locally in the builder container.
+.PHONY: all
+all:
+	bash hack/all.sh
+
+# Split build/sign workflow: build the macOS inputs here, sign them wherever
+# the Developer ID certificate lives, then publish from bin/.
+SIGN_INPUT?=
+.PHONY: build-signable
+build-signable:
+	bash hack/sign-input.sh
+
+.PHONY: sign
+sign:
+	bash hack/sign-release.sh "$(SIGN_INPUT)"
+
 .PHONY: ci
 ci: version install app node-all-platforms ci-upload-node
 
 
+# The darwin binaries are cross-compiled by build-darwin-* and downloaded here.
+# The Electron app is packaged and signed on Linux by the Forge postPackage
+# hook (hack/rcodesign-app.sh); no macOS keychain or util/mac-codesign.sh is
+# involved. The self-test only runs when this target is invoked on macOS, since
+# a darwin binary cannot execute on the Linux builder.
 .PHONY: ci-desktop-darwin
 ci-desktop-darwin: version install
-	./util/mac-codesign.sh \
-	&& for arch in amd64 arm64; do \
+	for arch in amd64 arm64; do \
 		curl -v --fail-with-body -O "$$CI_API_V4_URL/projects/$$CI_PROJECT_ID/packages/generic/$(BRANCH)/$(VERSION)/streamplace-$(VERSION)-darwin-$$arch.tar.gz" || exit 1 \
 		&& tar -xzvf streamplace-$(VERSION)-darwin-$$arch.tar.gz \
-		&& ./streamplace --version \
-		&& ./streamplace self-test \
+		&& if [ "$$(uname -s)" = "Darwin" ]; then \
+			./streamplace --version \
+			&& ./streamplace self-test; \
+		fi \
 		&& mkdir -p build-darwin-$$arch \
 		&& mv ./streamplace ./build-darwin-$$arch/streamplace; \
 	done \
@@ -702,11 +726,15 @@ darwin-amd64:
 	&& export MESON_SETUP_OPTS="--cross-file util/osxcross-darwin-amd64.ini" \
 	&& export BUILDDIR=build-darwin-amd64 \
 	&& $(MAKE) -j $(shell nproc) streamplace \
-	&& ./util/osxcross-codesign.sh ./build-darwin-amd64/streamplace \
-	&& mkdir -p bin \
-	&& cd build-darwin-amd64 \
-	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-amd64.tar.gz ./streamplace \
-	&& cd -
+	&& if [ "$(SKIP_SIGN)" = "1" ]; then \
+		echo "SKIP_SIGN=1: leaving build-darwin-amd64/streamplace unsigned"; \
+	else \
+		./util/osxcross-codesign.sh ./build-darwin-amd64/streamplace \
+		&& mkdir -p bin \
+		&& cd build-darwin-amd64 \
+		&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-amd64.tar.gz ./streamplace \
+		&& cd -; \
+	fi
 
 .PHONY: darwin-arm64
 darwin-arm64:
@@ -721,11 +749,15 @@ darwin-arm64:
 	&& export MESON_SETUP_OPTS="--cross-file util/osxcross-darwin-arm64.ini" \
 	&& export BUILDDIR=build-darwin-arm64 \
 	&& $(MAKE) -j $(shell nproc) streamplace \
-	&& ./util/osxcross-codesign.sh ./build-darwin-arm64/streamplace \
-	&& mkdir -p bin \
-	&& cd build-darwin-arm64 \
-	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-arm64.tar.gz ./streamplace \
-	&& cd -
+	&& if [ "$(SKIP_SIGN)" = "1" ]; then \
+		echo "SKIP_SIGN=1: leaving build-darwin-arm64/streamplace unsigned"; \
+	else \
+		./util/osxcross-codesign.sh ./build-darwin-arm64/streamplace \
+		&& mkdir -p bin \
+		&& cd build-darwin-arm64 \
+		&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-arm64.tar.gz ./streamplace \
+		&& cd -; \
+	fi
 
 # unbuffer here is a workaround for wine trying to pop up a terminal window and failing
 .PHONY: windows-amd64-startup-test
@@ -740,8 +772,22 @@ desktop-darwin-amd64:
 desktop-darwin-arm64:
 	echo "TODO"
 
+# On macOS Forge signs and notarizes with the platform tools. Elsewhere the
+# postPackage hook signs with rcodesign and hack/make-dmg.sh builds the DMG.
 .PHONY: desktop-darwin
 desktop-darwin:
+	@if [ "$$(uname -s)" = "Darwin" ]; then \
+		$(MAKE) desktop-darwin-macos; \
+	else \
+		$(MAKE) desktop-darwin-linux; \
+	fi
+
+.PHONY: desktop-darwin-linux
+desktop-darwin-linux:
+	bash hack/desktop-darwin-linux.sh
+
+.PHONY: desktop-darwin-macos
+desktop-darwin-macos:
 	export DEBUG="electron-osx-sign*" \
 	&& cd js/desktop \
 	&& pnpm run make --platform darwin --arch arm64 \

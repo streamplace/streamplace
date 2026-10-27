@@ -11,12 +11,16 @@ import {
   type Eip1193Provider,
 } from "./ethereum-session";
 
+// Asks the wallet to sign this site's SIWE message, unless the user has left
+// the wallet list (signal) while the wallet was still connecting.
 async function signIn(
   account: string,
   chainId: number,
   siteTitle: string,
+  signal: AbortSignal,
   personalSign: (hexMessage: string, address: string) => Promise<string>,
 ) {
+  if (signal.aborted) return;
   const address = getAddress(account);
   const message = createSiweMessage({
     address,
@@ -39,10 +43,11 @@ async function signIn(
 export async function signInWithInjected(
   provider: Eip1193Provider,
   siteTitle: string,
+  signal: AbortSignal,
 ) {
   const [account] = await provider.request({ method: "eth_requestAccounts" });
   const chainId = Number(await provider.request({ method: "eth_chainId" }));
-  await signIn(account, chainId, siteTitle, (hex, address) =>
+  await signIn(account, chainId, siteTitle, signal, (hex, address) =>
     provider.request({ method: "personal_sign", params: [hex, address] }),
   );
 }
@@ -105,15 +110,19 @@ export async function signInWithWalletConnect(opts: {
   if (uri) opts.onUri(uri);
   const session = await approval();
   try {
-    if (opts.signal.aborted) return;
     // accounts are CAIP-10: eip155:<chain>:<address>
     const [, chain, account] = session.namespaces.eip155.accounts[0].split(":");
-    await signIn(account, Number(chain), opts.siteTitle, (hex, address) =>
-      c.request({
-        topic: session.topic,
-        chainId: `eip155:${chain}`,
-        request: { method: "personal_sign", params: [hex, address] },
-      }),
+    await signIn(
+      account,
+      Number(chain),
+      opts.siteTitle,
+      opts.signal,
+      (hex, address) =>
+        c.request({
+          topic: session.topic,
+          chainId: `eip155:${chain}`,
+          request: { method: "personal_sign", params: [hex, address] },
+        }),
     );
   } finally {
     // a sign-in needs one signature, not a standing session in the wallet

@@ -12,6 +12,7 @@ const webOnly = () =>
 export const signInWithInjected = (
   _provider: Eip1193Provider,
   _siteTitle: string,
+  _signal: AbortSignal,
 ): Promise<void> => webOnly();
 
 export const signInWithWalletConnect = (_opts: {

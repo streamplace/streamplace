@@ -54,6 +54,11 @@ SP_TLS_CERT=/tls/tls.crt
 SP_TLS_KEY=/tls/tls.key
 ```
 
+Set `SP_ATPROTO_DID=did:plc:...` (or `--atproto-did`) to override the DID returned
+by `/.well-known/atproto-did` on all node hosts, including the broadcaster host
+in a multi-node cluster. Without an override, discovery returns the host-specific
+`did:web` identity. This does not change the node's repository DIDs or DID documents.
+
 ### Reusing a former PDS hostname
 
 A Streamplace node does not host the accounts from a PDS that previously ran at

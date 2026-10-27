@@ -422,6 +422,8 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		fmt.Sprintf("SP_RTMP_ADDR=127.0.0.1:%d", peerRTMPPort),
 		fmt.Sprintf("SP_MOQ_ADDR=127.0.0.1:%d", peerMoqPort),
 		fmt.Sprintf("SP_BROADCASTER_HOST=%s", peerAddr),
+		// Exercise the discovery override without changing the peer's repo DID.
+		fmt.Sprintf("SP_ATPROTO_DID=%s", out.Did),
 		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", peerAddr),
 		"SP_SYNDICATE=*",
 	}

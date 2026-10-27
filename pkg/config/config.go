@@ -831,7 +831,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:        "atproto-did",
-				Usage:       "atproto did to respond to on /.well-known/atproto-did (default did:web:PUBLIC_HOST)",
+				Usage:       "override DID served by /.well-known/atproto-did on all hosts (default: host-specific did:web)",
 				Destination: &cli.AtprotoDID,
 				Sources:     urfavecli.EnvVars("SP_ATPROTO_DID"),
 			},

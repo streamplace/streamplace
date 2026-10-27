@@ -16,6 +16,7 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/muxl"
 )
 
 func padProbeEmpty(_ gst.Pad, _ *gst.PadProbeInfo) gst.PadProbeReturn {
@@ -277,6 +278,32 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 	meta.Duration = videoDuration.Nanoseconds()
 
 	return meta, nil
+}
+
+// audioMediaData describes a catalog's audio tracks for the segment record:
+// every track, in track-id order, with the lexicon's codec name ("aac",
+// "opus") and its alternateGroup and label when the stream carries them. The
+// gst parse in ParseSegmentMediaData reads only the first audio track, so
+// this is what a segment with stems lists them from.
+func audioMediaData(cat *muxl.MuxlCatalog) []*localdb.SegmentMediadataAudio {
+	var out []*localdb.SegmentMediadataAudio
+	for _, a := range audioTracks(cat) {
+		codec := a.Codec
+		switch {
+		case isAACCodec(codec):
+			codec = "aac"
+		case isOpusCodec(codec):
+			codec = "opus"
+		}
+		out = append(out, &localdb.SegmentMediadataAudio{
+			Codec:          codec,
+			Rate:           int(a.SampleRate),
+			Channels:       int(a.NumberOfChannels),
+			AlternateGroup: a.AlternateGroup,
+			Label:          a.Label,
+		})
+	}
+	return out
 }
 
 func ParseSegmentMediaDataSinkNewSampleFunc(ctx context.Context, foundThisTrack *bool, duration *time.Duration) func(sink app.AppSink) gst.FlowReturn {

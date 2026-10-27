@@ -143,11 +143,14 @@ adb_ shell am force-stop com.android.chrome || true
 # read stored records from the PDS's plain-HTTP listener.
 device_offset="$(adb_ shell date +%z | tr -d '\r')"
 [[ "$device_offset" =~ ^[+-][0-9]{4}$ ]] || { echo "can't read $DEVICE's UTC offset: '$device_offset'"; exit 1; }
+# SP_E2E_INGEST also picks how the harness streams; flows that need the fMP4
+# push (audio stems) check it.
 MAESTRO_ARGS=(-e APP_ID="$APP_ID" -e SERVER_URL="$SERVER_HTTPS_URL"
   -e SERVER_HTTP_URL="$SERVER_URL"
   -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD"
   -e ACCOUNT_DID="$ACCOUNT_DID" -e PDS_HTTP_URL="$PDS_HTTP_URL"
-  -e DEVICE_UTC_OFFSET="${device_offset:0:3}:${device_offset:3}")
+  -e DEVICE_UTC_OFFSET="${device_offset:0:3}:${device_offset:3}"
+  -e SP_E2E_INGEST="${SP_E2E_INGEST:-whip}")
 
 # --- run the flows ---------------------------------------------------------
 # takeScreenshot paths are relative to maestro's cwd, so run from the

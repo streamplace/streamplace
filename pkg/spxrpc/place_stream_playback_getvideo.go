@@ -639,9 +639,10 @@ func trackPlaylistURL(uri, track, sid string, startMS, endMS *int64) string {
 func masterPlaylist(meta *vod.Metafile, uri, sid string, startMS, endMS *int64) string {
 	lines := []string{"#EXTM3U", "#EXT-X-VERSION:6", ""}
 
-	// Collect audio tracks in deterministic order, pick a default
-	// (prefer AAC since Safari is fussy about it).
-	audioIDs := tracksOfType(meta, "audio")
+	// Collect the full mix's audio tracks (stems are WebRTC-only, as in
+	// live HLS) in deterministic order, pick a default (prefer AAC since
+	// Safari is fussy about it).
+	audioIDs := mainAudioIDs(meta, tracksOfType(meta, "audio"))
 	defaultAudio := pickDefaultAudio(meta, audioIDs)
 	for _, tid := range audioIDs {
 		t := meta.Tracks[tid]
@@ -883,6 +884,22 @@ func tracksOfType(meta *vod.Metafile, t string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// mainAudioIDs keeps the full mix's tracks among audioIDs: those in the
+// lowest audio group.
+func mainAudioIDs(meta *vod.Metafile, audioIDs []string) []string {
+	var main []string
+	for _, id := range audioIDs {
+		g := meta.Tracks[id].Group
+		switch {
+		case len(main) == 0 || g < meta.Tracks[main[0]].Group:
+			main = []string{id}
+		case g == meta.Tracks[main[0]].Group:
+			main = append(main, id)
+		}
+	}
+	return main
 }
 
 // pickDefaultAudio prefers an AAC track (Safari requires it) and

@@ -6,6 +6,7 @@ export * from "./slash-commands";
 export * from "./slash-commands/teleport";
 
 export * from "./hooks/use-actor-typeahead";
+export * from "./lib/audio-stems";
 export * from "./lib/badge-label";
 export * from "./lib/browser";
 export * from "./lib/did";

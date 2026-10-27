@@ -18,15 +18,29 @@ import (
 // aliases, so values (events, catalogs, signer inputs) flow between this package
 // and upstream with no conversion and the existing call sites are unchanged.
 type (
-	MuxlEvent        = upstream.Event
-	MuxlCatalog      = upstream.Catalog
-	MuxlCatalogVideo = upstream.CatalogVideo
-	MuxlCatalogAudio = upstream.CatalogAudio
-	MuxlVideoConfig  = upstream.VideoConfig
-	MuxlAudioConfig  = upstream.AudioConfig
-	MuxlContainer    = upstream.Container
-	SignerInput      = upstream.SignerInput
-	TranscodeInput   = upstream.TranscodeInput
+	MuxlEvent           = upstream.Event
+	MuxlCatalog         = upstream.Catalog
+	MuxlCatalogVideo    = upstream.CatalogVideo
+	MuxlCatalogAudio    = upstream.CatalogAudio
+	MuxlVideoConfig     = upstream.VideoConfig
+	MuxlAudioConfig     = upstream.AudioConfig
+	MuxlContainer       = upstream.Container
+	SignerInput         = upstream.SignerInput
+	TranscodeInput      = upstream.TranscodeInput
+	TrackMeta           = upstream.TrackMeta
+	SegmentEventsOption = upstream.SegmentEventsOption
+	CanonicalizeOption  = upstream.CanonicalizeOption
+)
+
+// Audio track metadata options: an alternateGroup and label per OUTPUT track
+// id, set explicitly (WithSegmentTrackMeta while segmenting, WithTrackMeta
+// while canonicalizing) or read from the source's tkhd.alternate_group and
+// trak/udta/name (WithSegmentSourceTrackMeta, or SignerInput.SourceTrackMeta
+// while signing). See the upstream docs.
+var (
+	WithSegmentTrackMeta       = upstream.WithSegmentTrackMeta
+	WithSegmentSourceTrackMeta = upstream.WithSegmentSourceTrackMeta
+	WithTrackMeta              = upstream.WithTrackMeta
 )
 
 // TranscodeIngredientLabel is the C2PA ingredient label SignTranscode assigns
@@ -196,12 +210,12 @@ func RunMuxlReadSegmentsAtFileOffset(ctx context.Context, src io.ReaderAt, size,
 
 // RunMuxlSegmenterEvents segments an fMP4 stream into per-GoP canonical MUXL
 // events (unsigned).
-func RunMuxlSegmenterEvents(ctx context.Context, input io.Reader, eventCh chan *MuxlEvent) error {
+func RunMuxlSegmenterEvents(ctx context.Context, input io.Reader, eventCh chan *MuxlEvent, opts ...SegmentEventsOption) error {
 	eng, err := getEngine()
 	if err != nil {
 		return err
 	}
-	return eng.SegmentEvents(ctx, input, eventCh)
+	return eng.SegmentEvents(ctx, input, eventCh, opts...)
 }
 
 // RunMuxlSignSegment segments an fMP4 stream and S2PA-signs each canonical
@@ -218,12 +232,12 @@ func RunMuxlSignSegment(ctx context.Context, input io.Reader, in SignerInput, in
 // output) into a canonical MUXL fMP4. trackRemap (may be nil) reassigns track
 // IDs in the output — used to mint a transcoded rendition at a free id so it
 // can join the source's tracks in one multi-track segment without colliding.
-func RunMuxlCanonicalize(ctx context.Context, mp4 []byte, trackRemap map[uint32]uint32) ([]byte, error) {
+// opts (e.g. WithTrackMeta) apply to the remapped ids.
+func RunMuxlCanonicalize(ctx context.Context, mp4 []byte, trackRemap map[uint32]uint32, opts ...CanonicalizeOption) ([]byte, error) {
 	eng, err := getEngine()
 	if err != nil {
 		return nil, err
 	}
-	var opts []upstream.CanonicalizeOption
 	if len(trackRemap) > 0 {
 		opts = append(opts, upstream.WithTrackRemap(trackRemap))
 	}

@@ -1,14 +1,23 @@
 import type Hls from "hls.js";
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   IngestMediaSource,
   PlayerProtocol,
   PlayerStatus,
+  useAudioTrackLevels,
   useEffectiveVolume,
   useMuted,
   usePlayerStore,
   useSetMuted,
   useStreamplaceStore,
+  useVolume,
 } from "../..";
 import { borderRadius, mt } from "../../lib/theme/atoms";
 import { statusColors, surfaces } from "../../lib/theme/tokens";
@@ -631,7 +640,39 @@ export function WebRTCPlayerInner({
   const playerEvent = usePlayerStore((x) => x.playerEvent);
   const spurl = useStreamplaceStore((x) => x.url);
 
-  const [mediaStream, stuck] = useWebRTC(src, selectedRendition);
+  const [mediaStream, stuck, audioTracks, audioGroups] = useWebRTC(
+    src,
+    selectedRendition,
+  );
+  const levels = useAudioTrackLevels(audioGroups);
+  const playbackVideoRef = useRef<HTMLVideoElement | null>(null);
+  const setPlaybackVideoRef = useCallback(
+    (element: HTMLVideoElement | null) => {
+      playbackVideoRef.current = element;
+      assignVideoRef(videoRef, element);
+    },
+    [videoRef],
+  );
+  const [fullMix, ...stems] = audioTracks;
+
+  // The video element gets the video and the full mix; each stem the viewer
+  // mixes in plays from its own audio element below. A new array of audio
+  // tracks also means the stream has gained a track.
+  const videoStream = useMemo(
+    () =>
+      mediaStream &&
+      new MediaStream([
+        ...mediaStream.getVideoTracks(),
+        ...(fullMix ? [fullMix] : []),
+      ]),
+    [mediaStream, audioTracks],
+  );
+
+  useEffect(() => {
+    if (fullMix) {
+      fullMix.enabled = levels[0] > 0;
+    }
+  }, [fullMix, levels]);
 
   useEffect(() => {
     if (stuck) {
@@ -687,11 +728,10 @@ export function WebRTCPlayerInner({
   }, [mediaStream]);
 
   useEffect(() => {
-    if (!videoRef || !videoRef.current) {
-      return;
+    if (playbackVideoRef.current) {
+      playbackVideoRef.current.srcObject = videoStream;
     }
-    videoRef.current.srcObject = mediaStream;
-  }, [mediaStream]);
+  }, [videoStream]);
 
   if (!mediaStream) {
     const isError = connectionStatus === "connection-failed";
@@ -722,7 +762,74 @@ export function WebRTCPlayerInner({
       </View>
     );
   }
-  return <VideoElement url={url} ref={videoRef} />;
+  return (
+    <>
+      <VideoElement url={url} ref={setPlaybackVideoRef} />
+      {stems.map(
+        (track, i) =>
+          track &&
+          levels[i + 1] > 0 && (
+            <StemAudio
+              key={track.id}
+              track={track}
+              level={levels[i + 1]}
+              videoRef={playbackVideoRef}
+            />
+          ),
+      )}
+    </>
+  );
+}
+
+// One stem, playing at its own level under the player's volume and mute.
+function StemAudio({
+  track,
+  level,
+  videoRef,
+}: {
+  track: MediaStreamTrack;
+  level: number;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+}) {
+  const ref = useRef<HTMLAudioElement | null>(null);
+  const volume = useVolume();
+  const muted = useMuted();
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.srcObject = new MediaStream([track]);
+    }
+  }, [track]);
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.volume = volume * level;
+    }
+  }, [volume, level]);
+
+  // The video is the player's playback clock. In particular, pausing a live
+  // video must pause its separately rendered stem audio too.
+  useEffect(() => {
+    const video = videoRef.current;
+    const audio = ref.current;
+    if (!video || !audio) return;
+    const syncPlayback = () => {
+      if (video.paused) {
+        audio.pause();
+      } else {
+        audio.play().catch(console.error);
+      }
+    };
+    video.addEventListener("play", syncPlayback);
+    video.addEventListener("pause", syncPlayback);
+    syncPlayback();
+    return () => {
+      video.removeEventListener("play", syncPlayback);
+      video.removeEventListener("pause", syncPlayback);
+    };
+  }, [videoRef]);
+
+  return <audio ref={ref} muted={muted} data-testid="player-stem-audio" />;
 }
 
 export function WebcamIngestPlayer(props: VideoProps) {

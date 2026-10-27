@@ -1,0 +1,5 @@
+; obs-frontend-api functions the plugin calls. The Windows build links against an
+; import library generated from this list; a missing entry fails that link.
+LIBRARY obs-frontend-api.dll
+EXPORTS
+    obs_frontend_get_profile_config

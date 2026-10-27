@@ -21,10 +21,10 @@ import { rendererConfig } from "./webpack.renderer.config";
 
 export default async function () {
   // go get the version from the actual script
-  let version = child_process
+  const gitVersion = child_process
     .execSync("go run ../../pkg/config/git/git.go -v")
-    .toString()
-    .slice(1);
+    .toString();
+  let version = gitVersion.slice(1);
 
   let versionCode = child_process
     .execSync("go run ../../pkg/config/git/git.go --js")
@@ -77,9 +77,39 @@ export default async function () {
         if (!config.packagerConfig.extraResource) {
           config.packagerConfig.extraResource = [];
         }
+        // The OBS plugin from this same build, unpacked, for src/obs.ts to
+        // install from.
+        const target = `${platform}-${architecture}`;
+        const pluginArchive = `../../bin/obs-streamplace-${gitVersion}-${target}.${platform === "windows" ? "zip" : "tar.gz"}`;
+        if (!fs.existsSync(pluginArchive)) {
+          throw new Error(
+            `could not find ${pluginArchive} while building electron bundle. do you need to run make obs-plugin-${target}?`,
+          );
+        }
+        const pluginDir = `./out/obs-plugin/${target}`;
+        fs.rmSync(pluginDir, { recursive: true, force: true });
+        fs.mkdirSync(pluginDir, { recursive: true });
+        if (platform === "windows") {
+          child_process.execFileSync("unzip", [
+            "-q",
+            pluginArchive,
+            "-d",
+            pluginDir,
+          ]);
+        } else {
+          child_process.execFileSync("tar", [
+            "-xzf",
+            pluginArchive,
+            "-C",
+            pluginDir,
+          ]);
+        }
+        const plugin = `${pluginDir}/obs-streamplace${platform === "darwin" ? ".plugin" : ""}`;
+
         config.packagerConfig.extraResource = [
           ...config.packagerConfig.extraResource,
           binary,
+          plugin,
         ];
       },
       readPackageJson: async (forgeConfig, packageJson) => {

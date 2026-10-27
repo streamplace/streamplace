@@ -1,6 +1,5 @@
 import { BrowserWindow, session, WebFrameMain, webFrameMain } from "electron";
 import { v7 as uuidv7 } from "uuid";
-import { MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY } from "../env";
 import { E2ETest, TestEnv } from "./test-env";
 import { delay, PlayerReport } from "./util";
 

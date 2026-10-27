@@ -157,6 +157,7 @@ const PopoutMultistream = lazyScreen(
 const PopoutStreamMonitor = lazyScreen(
   () => import("src/screens/popout-stream-monitor"),
 );
+const Desktop = lazyScreen(() => import("src/screens/desktop"));
 const SearchScreen = lazyScreen(() => import("src/screens/search"));
 const SupportScreen = lazyScreen(() => import("src/screens/support"));
 const UploadScreen = lazyScreen(() => import("src/screens/upload"));
@@ -844,10 +845,11 @@ export default function Shell() {
   // scrolls under; the livestream keeps its own solid header.
   const isVodDetail =
     currentRouteName === "Video" || currentRouteName === "Vod" || videoPage;
-  // Embeds and OBS/popout utilities are not app chrome surfaces.
+  // Embeds, OBS/popout utilities and Streamplace Desktop's screen are not
+  // app chrome surfaces.
   const showHeaderSearch =
     sidebar.isActive &&
-    !/Embed|^Popout|^DanmuOBS$/.test(currentRouteName ?? "");
+    !/Embed|^Popout|^DanmuOBS$|^Desktop$/.test(currentRouteName ?? "");
   useEffect(() => {
     setOverlay(isDetailView);
   }, [isDetailView, setOverlay]);
@@ -969,6 +971,11 @@ export default function Shell() {
           <RootStack.Screen
             name="PopoutStreamMonitor"
             component={PopoutStreamMonitor}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="Desktop"
+            component={Desktop}
             options={{ headerShown: false }}
           />
           <RootStack.Screen

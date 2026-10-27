@@ -584,7 +584,8 @@ ci-desktop-darwin: version install
 			&& ./streamplace self-test; \
 		fi \
 		&& mkdir -p build-darwin-$$arch \
-		&& mv ./streamplace ./build-darwin-$$arch/streamplace; \
+		&& mv ./streamplace ./build-darwin-$$arch/streamplace \
+		&& $(MAKE) ci-download-file download_file=obs-streamplace-$(VERSION)-darwin-$$arch.tar.gz; \
 	done \
 	&& $(MAKE) desktop-darwin \
 	&& for arch in amd64 arm64; do \
@@ -646,6 +647,7 @@ node-all-platforms: app
 	$(MAKE) linux-arm64
 	$(MAKE) windows-amd64
 	$(MAKE) windows-amd64-startup-test
+	$(MAKE) obs-plugin-linux-amd64 obs-plugin-linux-arm64 obs-plugin-windows-amd64
 	$(MAKE) desktop-linux
 	$(MAKE) desktop-windows-amd64
 
@@ -772,6 +774,14 @@ $(addprefix obs-plugin-,$(OBS_PLUGIN_TARGETS)): obs-plugin-%:
 	&& meson setup --reconfigure build-$* $(OBS_PLUGIN_CROSS_FILE_$*) -Dplugin_version=$(VERSION) \
 	&& meson compile -C build-$*
 	./obs-plugin/package.sh $* $(VERSION) $(OUT_DIR)
+
+# local obs plugin build for whatever you're on
+.PHONY: obs-plugin
+obs-plugin:
+	cd obs-plugin \
+	&& meson setup --reconfigure build-$(BUILDOS)-$(BUILDARCH) -Dplugin_version=$(VERSION) \
+	&& meson compile -C build-$(BUILDOS)-$(BUILDARCH)
+	./obs-plugin/package.sh $(BUILDOS)-$(BUILDARCH) $(VERSION) $(OUT_DIR)
 
 # unbuffer here is a workaround for wine trying to pop up a terminal window and failing
 .PHONY: windows-amd64-startup-test
@@ -1102,7 +1112,7 @@ download_file?=""
 .PHONY: ci-download-file
 ci-download-file:
 	curl \
-		--fail-with-body \
+		--fail-with-body --create-dirs \
 		--header "JOB-TOKEN: $$CI_JOB_TOKEN" \
 		-o bin/$(download_file) \
 		"$$CI_API_V4_URL/projects/$$CI_PROJECT_ID/packages/generic/$(BRANCH)/$(VERSION)/$(download_file)";

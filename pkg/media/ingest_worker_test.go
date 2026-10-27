@@ -176,9 +176,61 @@ func TestRunMP4IngestWorkerProducesValidSignedFrames(t *testing.T) {
 	t.Logf("worker emitted %d valid dual-codec segments", segs)
 }
 
+// TestRunMP4IngestWorkerFMP4DirectKeepsTracks covers the OBS plugin's
+// transport: the worker signs the pushed fMP4 as-is, so a stream with an AAC
+// and an Opus track comes out with both, unconverted. The demux pipeline keeps
+// one audio track and re-encodes it to Opus, which is exactly what multitrack
+// audio must not do.
+func TestRunMP4IngestWorkerFMP4DirectKeepsTracks(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	manifest, err := ms.buildManifest(ctx, time.Now().UnixMilli())
+	require.NoError(t, err)
+	cfg := IngestWorkerConfig{
+		StreamerDID: ms.Streamer(),
+		KeyPEM:      keyPEM,
+		CertPEM:     ms.Cert,
+		Manifest:    manifest,
+		Transport:   IngestTransportFMP4Direct,
+	}
+
+	mp4 := runSynthPipeline(t, ctx, strings.Join([]string{
+		"videotestsrc num-buffers=90 ! video/x-raw,width=320,height=240,framerate=30/1 ! x264enc key-int-max=30 tune=zerolatency speed-preset=ultrafast ! h264parse ! mp4mux name=mux fragment-duration=500 ! appsink name=sink",
+		"audiotestsrc num-buffers=141 samplesperbuffer=1024 ! audio/x-raw,rate=48000,channels=2 ! audioconvert ! fdkaacenc ! aacparse ! mux.",
+		"audiotestsrc num-buffers=150 samplesperbuffer=960 ! audio/x-raw,rate=48000,channels=2 ! audioconvert ! opusenc ! opusparse ! mux.",
+	}, "\n"))
+
+	var buf bytes.Buffer
+	require.NoError(t, RunMP4IngestWorker(ctx, cfg, bytes.NewReader(mp4), ingestframe.NewWriter(&buf), func() []byte { return cfg.Manifest }))
+
+	r := ingestframe.NewReader(&buf)
+	var segs int
+	for {
+		typ, payload, err := r.ReadFrame()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		require.Equal(t, ingestframe.Segment, typ)
+
+		out, err := muxl.RunMuxlVerify(ctx, bytes.NewReader(payload))
+		require.NoError(t, err, "segment %d verify", segs)
+		require.NotContains(t, out, `"validation_state":"Invalid"`, "segment %d must validate", segs)
+
+		codecs := audioCodecsOf(t, ctx, payload)
+		require.Len(t, codecs, 2, "segment %d keeps both audio tracks (got %v)", segs, codecs)
+		require.True(t, isAACCodec(codecs[0]), "segment %d keeps the AAC track as AAC (got %v)", segs, codecs)
+		require.True(t, isOpusCodec(codecs[1]), "segment %d keeps the Opus track (got %v)", segs, codecs)
+		segs++
+	}
+	require.GreaterOrEqual(t, segs, 2, "a 3s stream with 1s GoPs signs into several segments")
+}
+
 // TestRunMP4IngestWorkerRecords proves debug recording works INSIDE the worker:
 // with cfg.Record set and a DataDir handed over, the worker tees its ingest
-// media to debug-recordings/<did>/<ts>.rtmp.mp4. This is what keeps debug
+// media to debug-recordings/<did>/<ts>.mp4. This is what keeps debug
 // recording working on the isolated paths where main is out of the data path
 // (it can't tee the bytes itself), so main decides and the worker records.
 func TestRunMP4IngestWorkerRecords(t *testing.T) {
@@ -206,10 +258,10 @@ func TestRunMP4IngestWorkerRecords(t *testing.T) {
 	// Frames are irrelevant here (recording is on the input side); discard them.
 	require.NoError(t, RunMP4IngestWorker(ctx, cfg, bytes.NewReader(mp4), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest }))
 
-	// The recording lands at debug-recordings/<sanitized-did>/<ts>.rtmp.mp4 and
+	// The recording lands at debug-recordings/<sanitized-did>/<ts>.mp4 and
 	// must contain exactly the media the worker ingested. The dump goroutine
 	// flushes asynchronously, so allow it a moment to finish the last write.
-	glob := filepath.Join(dataDir, "debug-recordings", "*", "*.rtmp.mp4")
+	glob := filepath.Join(dataDir, "debug-recordings", "*", "*.mp4")
 	require.Eventually(t, func() bool {
 		matches, _ := filepath.Glob(glob)
 		if len(matches) != 1 {
@@ -368,11 +420,11 @@ func TestRunMP4IngestWorkerRecordsToS3(t *testing.T) {
 	require.NoError(t, RunMP4IngestWorker(ctx, cfg, bytes.NewReader(mp4), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest }))
 
 	// The upload commits asynchronously (the dump goroutine's Close); the object
-	// must appear at debug-bucket/debug-recordings/<did>/<ts>.rtmp.mp4 holding
+	// must appear at debug-bucket/debug-recordings/<did>/<ts>.mp4 holding
 	// exactly the ingested media.
 	wantPrefix := "debug-bucket/debug-recordings/" + ms.Streamer() + "/"
 	require.Eventually(t, func() bool {
-		got, ok := fake.objectWithPrefix(wantPrefix, ".rtmp.mp4")
+		got, ok := fake.objectWithPrefix(wantPrefix, ".mp4")
 		return ok && bytes.Equal(got, mp4)
 	}, 10*time.Second, 25*time.Millisecond, "worker streams the recording to the S3 bucket verbatim")
 

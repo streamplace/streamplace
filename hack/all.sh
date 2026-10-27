@@ -224,6 +224,7 @@ lane_ios() {
   fi
   REMOTE_CI="$REMOTE_CI STREAMPLACE_VERSION_OVERRIDE=$(shell_quote "$IOS_VERSION")"
   # The remote checkout must be clean and at the same commit; this does not push.
+  REMOTE_CI="$REMOTE_CI SP_PRODUCTION_RELEASE=$(shell_quote "${SP_PRODUCTION_RELEASE:-}")"
   ssh "$MAC_HOST" "cd $(shell_quote "$MAC_REPO") && $REMOTE_CHECK $REMOTE_TAG_CHECK test -z \"\$(git status --porcelain --untracked-files=normal)\" && $REMOTE_CI make version install app ios"
   IOS_ARCHIVE="streamplace-$IOS_VERSION-ios-release.xcarchive.tar.gz"
   mkdir -p bin

@@ -60,6 +60,9 @@ if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     exit 1
   fi
   CHANNEL="${RELEASE_CHANNEL:-latest}"
+  if [ "$MODE" = build ]; then
+    export SP_PRODUCTION_RELEASE=true
+  fi
 elif [[ "$VERSION" =~ ^(v[0-9]+\.[0-9]+\.[0-9]+)-([0-9a-f]{8,40})$ ]]; then
   BASE="${BASH_REMATCH[1]}"
   HASH="${BASH_REMATCH[2]}"

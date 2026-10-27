@@ -82,6 +82,9 @@ so the source commit actually identifies the code being built. It reuses
 to npm, Homebrew, or the Debian repository. Stable versions must match their tag;
 development versions must contain the source commit's hash prefix and an ancestor
 version tag. Stable releases use `latest`; development builds use `next`.
+Stable build-and-publish also sets `SP_PRODUCTION_RELEASE=true` for the builder
+and remote Mac, selecting Streamplace's production mobile identity (`tv.aquareum`)
+instead of the standalone development identity (`tv.aquareum.dev`).
 
 Both the Linux and GitLab pipelines publish 19 standard distributables plus two
 bundletool `.apks` archives. Missing required outputs fail before publication. iOS requires

@@ -61,12 +61,39 @@ async function brandingWrites(
   await done;
 }
 
+// A browser wallet that announces itself over EIP-6963, as MetaMask does,
+// and records what it's asked to sign. Runs in the page.
+const WALLET_ADDRESS = "0x8ba1f109551bD432803012645Ac136ddd64DBA72";
+function fakeWallet(address: string) {
+  const provider = {
+    request: async ({ method, params }: { method: string; params?: any }) => {
+      if (method === "eth_requestAccounts") return [address];
+      if (method === "eth_chainId") return "0x1";
+      if (method === "personal_sign") {
+        (window as any).e2eSigned = params;
+        return `0x${"11".repeat(65)}`;
+      }
+      throw new Error(`unexpected ${method}`);
+    },
+  };
+  const info = { uuid: "e2e", name: "E2E Wallet", icon: "", rdns: "test.e2e" };
+  const announce = () =>
+    window.dispatchEvent(
+      new CustomEvent("eip6963:announceProvider", {
+        detail: Object.freeze({ info, provider }),
+      }),
+    );
+  window.addEventListener("eip6963:requestProvider", announce);
+  announce();
+}
+
 test("login-options: branding gates the sign-in options", async ({
   page,
   browser,
 }) => {
   test.setTimeout(4 * 60_000);
   const visitor = await browser.newPage();
+  await visitor.addInitScript(fakeWallet, WALLET_ADDRESS);
   await pointAppAtNode(visitor, HTTPS_URL!);
 
   // Unset, the form is the handle field alone.
@@ -108,6 +135,31 @@ test("login-options: branding gates the sign-in options", async ({
     const screenshot = test.info().outputPath("login-options.png");
     await visitor.screenshot({ path: screenshot });
     await test.info().attach("login-options", { path: screenshot });
+
+    // Sign in with Ethereum through the browser wallet gets as far as a SIWE
+    // signature for this site (the backend that takes it is still to come),
+    // without asking any wallet vendor's servers for anything.
+    const vendorRequests: string[] = [];
+    visitor.on("request", (r) => {
+      if (/walletconnect|reown|coinbase/.test(new URL(r.url()).hostname)) {
+        vendorRequests.push(r.url());
+      }
+    });
+    await visitor.getByTestId("login-ethereum").click();
+    await expect(visitor.getByTestId("login-walletconnect")).toBeVisible();
+    await visitor.getByTestId("login-wallet-test.e2e").click();
+    await expect(visitor.getByTestId("login-error")).toHaveText(
+      "Sign in with Ethereum isn't available on this server yet.",
+    );
+    const [hexMessage, signer] = await visitor.evaluate(
+      () => (window as any).e2eSigned,
+    );
+    expect(Buffer.from(hexMessage.slice(2), "hex").toString()).toContain(
+      `${new URL(HTTPS_URL!).host} wants you to sign in with your Ethereum account:\n${WALLET_ADDRESS}`,
+    );
+    expect(signer).toBe(WALLET_ADDRESS);
+    expect(vendorRequests).toEqual([]);
+    await visitor.getByTestId("login-ethereum-back").click();
 
     const apple = await authorizeParams(visitor, () =>
       visitor.getByTestId("login-apple").click(),

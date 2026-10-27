@@ -44,14 +44,16 @@ onFlowComplete:
 - assertNotVisible:
     id: "login-qr"
 - takeScreenshot: login-options-modal
-# An email address goes to the entryway's own email + password sign-in
+# An email address goes to the entryway's own sign-in. vlpds opens its email
+# + password form (screen=sign-in); the harness's PDS ignores that and shows
+# its welcome page. Both offer "Sign in"; the app's form doesn't.
 - tapOn:
     id: "login-handle"
 - inputText: "nobody@example.com"
 - pressKey: Enter
 - extendedWaitUntil:
     visible:
-      text: "Password"
+      text: "Sign in"
     timeout: 60000
 - takeScreenshot: login-options-entryway-sign-in
 # leave the Custom Tab / auth session without signing in

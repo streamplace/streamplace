@@ -236,29 +236,17 @@ export async function fetchBrandingOnce({
       return;
     }
 
-    // check localStorage first
+    // Paint what we had last time right away, then refresh: the
+    // alternative is a flash of default branding on every cold start (no
+    // server-injected meta on native or behind the dev proxy). Always ask
+    // the node too, so an operator's change shows on the next launch.
     const cacheKey = `branding:${broadcasterDID}`;
     const cached = await storage.getItem(cacheKey);
-    if (cached) {
+    if (cached && !store.getState().branding) {
       try {
-        const parsed = JSON.parse(cached);
-        const fresh = Date.now() - parsed.timestamp < 60 * 60 * 1000;
-        if (!force && fresh) {
-          store.setState({
-            branding: parsed.data,
-            brandingLoading: false,
-            brandingError: null,
-          });
-          return;
-        }
-        // Paint what we had last time right away, then refresh: the
-        // alternative is a flash of default branding on every cold start
-        // (no server-injected meta on native or behind the dev proxy).
-        if (parsed.data && !store.getState().branding) {
-          store.setState({ branding: parsed.data });
-        }
+        const { data } = JSON.parse(cached);
+        if (data) store.setState({ branding: data });
       } catch (e) {
-        // invalid cache, continue to fetch
         console.warn("Invalid branding cache, refetching", e);
       }
     }
@@ -290,13 +278,7 @@ export async function fetchBrandingOnce({
     );
 
     // cache in localStorage
-    storage.setItem(
-      cacheKey,
-      JSON.stringify({
-        timestamp: Date.now(),
-        data: brandingMap,
-      }),
-    );
+    storage.setItem(cacheKey, JSON.stringify({ data: brandingMap }));
 
     store.setState({
       branding: brandingMap,

@@ -93,7 +93,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const showEthereum = Platform.OS === "web" && methods.includes("ethereum");
   // the QR is for the app to scan, so only a browser shows it
   const showQr = Platform.OS === "web" && methods.includes("qr");
-  const qrUrl = useQrLogin(showQr, blueskyPermissions);
+  const qrUrl = useQrLogin(blueskyPermissions);
   const walletConnect = useWalletConnectPairing(
     showEthereum ? walletConnectProjectId : undefined,
   );

@@ -31,3 +31,7 @@ appId: ${APP_ID}
       QR_LOGIN_STEP: check
 - tapOn:
     id: "qr-login-done"
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000

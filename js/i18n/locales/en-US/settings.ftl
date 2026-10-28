@@ -87,6 +87,7 @@ optional = optional
 account-greeting = Hey, { $handle }.
 edit-profile-bluesky = Edit profile (on { $network })
 change-name-color = Change name color
+scan-qr-code = Scan a sign-in code
 
 ## Key Management
 key-management = Key Management

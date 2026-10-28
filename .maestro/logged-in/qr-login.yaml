@@ -3,6 +3,9 @@ appId: ${APP_ID}
 # opens the app's approval screen with the request's details. Denying
 # answers it from this signed-in device. Web counterpart (which approves):
 # js/e2e-web/flows/login-options.spec.ts.
+# The app's own scan buttons (settings, and Android's account menu) open the
+# OS's scanner, which goes to the same screen. The scanner itself can't run
+# here: the emulator's Play services can't fetch Google's code scanner module.
 ---
 - runScript:
     file: qr-login.js
@@ -35,3 +38,23 @@ appId: ${APP_ID}
     visible:
       id: "home-stream-card"
     timeout: 30000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: "account-menu"
+      - tapOn:
+          id: "account-menu-scan-qr"
+      # the menu closes for the scanner
+      - extendedWaitUntil:
+          notVisible:
+            text: "Your channel"
+          timeout: 10000
+- tapOn:
+    text: "Settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-scan-qr"
+    timeout: 30000
+- takeScreenshot: qr-login-scan-button

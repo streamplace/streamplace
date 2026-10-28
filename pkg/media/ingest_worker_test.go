@@ -121,15 +121,13 @@ func TestRunMP4IngestWorkerProducesValidSignedFrames(t *testing.T) {
 	manifest, err := ms.buildManifest(ctx, time.Now().UnixMilli())
 	require.NoError(t, err)
 
-	// Provide the node transcode signer (the same test key serves both roles
-	// here, as in the transcoder tests) so the worker completes to dual-codec.
+	// The worker completes to dual-codec, signing the added track with the
+	// streamer's key.
 	cfg := IngestWorkerConfig{
 		StreamerDID:     ms.Streamer(),
 		KeyPEM:          keyPEM,
 		CertPEM:         ms.Cert,
 		Manifest:        manifest,
-		NodeCertPEM:     ms.Cert,
-		NodeKeyPEM:      keyPEM,
 		BroadcasterHost: "test.example.com",
 	}
 

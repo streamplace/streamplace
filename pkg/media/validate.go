@@ -76,14 +76,15 @@ func (mm *MediaManager) validateMP4(ctx context.Context, input io.Reader, local 
 
 	// Complete the segment to carry both AAC and Opus. A single-codec segment is
 	// fed to the stream's continuous transcoder, which distributes the completed
-	// dual-codec segment asynchronously (~1 GoP later, gapless). Everything else
-	// — already dual-codec, no audio, audio-only, an exotic codec, or no node
-	// signer — is distributed as-is, immediately.
+	// dual-codec segment asynchronously (~1 GoP later, gapless), the added track
+	// signed by completionSigner. Everything else — already dual-codec, no
+	// audio, audio-only, an exotic codec, or no signer — is distributed as-is,
+	// immediately.
 	if target, need := mm.audioCompletionTarget(ctx, buf); need {
-		if cert, keyPEM, serr := mm.transcodeSigner(); serr == nil {
-			return mm.feedStreamTranscoder(ctx, vs, buf, target, cert, keyPEM)
+		if signer, serr := mm.completionSigner(ctx, local); serr == nil {
+			return mm.feedStreamTranscoder(ctx, vs, buf, target, signer)
 		} else {
-			log.Warn(ctx, "node transcode signer unavailable, distributing single-codec", "error", serr)
+			log.Warn(ctx, "completion signer unavailable, distributing single-codec", "error", serr)
 		}
 	}
 	return mm.distributeSegment(ctx, vs, buf)

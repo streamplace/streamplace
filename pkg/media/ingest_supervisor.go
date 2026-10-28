@@ -287,14 +287,5 @@ func (mm *MediaManager) buildWorkerConfig(ctx context.Context, ms MediaSigner) (
 			cfg.S3 = &s3cfg
 		}
 	}
-	// Node transcode signer lets the worker complete to dual-codec itself. If it's
-	// unavailable, the worker emits single-codec (the node doesn't re-transcode the
-	// worker's output) — an acceptable, logged fallback rather than a hard failure.
-	if nodeCert, nodeKeyPEM, serr := mm.transcodeSigner(); serr == nil {
-		cfg.NodeCertPEM = nodeCert
-		cfg.NodeKeyPEM = nodeKeyPEM
-	} else {
-		log.Warn(ctx, "node transcode signer unavailable; isolated worker will emit single-codec", "error", serr)
-	}
 	return cfg, nil
 }

@@ -246,6 +246,8 @@ test("login-options: QR login signs a browser in from a signed-in device", async
     await expect(page.getByTestId("qr-login-result")).toHaveText(
       "Signed in on your browser",
     );
+    await page.getByTestId("qr-login-done").click();
+    await expect(page.getByTestId("home-stream-card").first()).toBeVisible();
 
     // the browser picks the approval up and signs in, and its session can
     // write to the PDS through the approver's upstream session

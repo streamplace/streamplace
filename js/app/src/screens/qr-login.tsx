@@ -90,7 +90,10 @@ export default function QrLoginScreen() {
   };
 
   const done = () =>
-    (navigation as any).navigate("HomeTab", { screen: "HomeMain" });
+    (navigation as any).navigate("MainTabs", {
+      screen: "HomeTab",
+      params: { screen: "HomeMain" },
+    });
   const square = { borderRadius: theme.borderRadius.none };
 
   let body;

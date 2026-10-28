@@ -1,6 +1,7 @@
 import { LiquidGlassView } from "@callstack/liquid-glass";
 import "@expo/metro-runtime";
 import { useNavigation } from "@react-navigation/native";
+import { useRootContext } from "@rn-primitives/dropdown-menu";
 import {
   AppCrashScreen,
   Button,
@@ -16,6 +17,7 @@ import {
 } from "@streamplace/components";
 import { statusColors } from "@streamplace/components/src/lib/theme/tokens";
 import { formatHandle, formatHandleWithAt } from "@streamplace/core";
+import { scanQrLogin } from "components/login/scan-qr-login";
 import Provider from "components/provider/provider";
 import { ImageBackground } from "expo-image";
 import { useLiveUser } from "hooks/useLiveUser";
@@ -25,6 +27,7 @@ import {
   LogOut,
   Plus,
   Radio,
+  ScanQrCode,
   Settings,
   SquarePlay,
   User,
@@ -33,6 +36,7 @@ import { useState } from "react";
 import {
   ImageSourcePropType,
   Platform,
+  Pressable,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -260,6 +264,32 @@ const AccountMenuItem = ({
   );
 };
 
+// Opens the OS's QR scanner for a browser's sign-in code, closing the menu
+// first: native menu items don't close it themselves.
+const ScanQrLoginButton = ({ onScan }: { onScan: (id: string) => void }) => {
+  const { theme } = useTheme();
+  const { onOpenChange } = useRootContext();
+  return (
+    <Pressable
+      testID="account-menu-scan-qr"
+      accessibilityRole="button"
+      accessibilityLabel="Scan a sign-in code"
+      onPress={() => {
+        onOpenChange(false);
+        scanQrLogin?.(onScan);
+      }}
+      style={{
+        width: theme.touchTargets.minimum,
+        height: theme.touchTargets.minimum,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <ScanQrCode size={20} color={theme.colors.text2} />
+    </Pressable>
+  );
+};
+
 export const AvatarButton = () => {
   const userProfile = useUserProfile();
   const userIsLive = useLiveUser();
@@ -325,7 +355,7 @@ export const AvatarButton = () => {
     return (
       <View style={{ marginRight: 12 }}>
         <DropdownMenu onOpenChange={setMenuOpen}>
-          <DropdownMenuTrigger>
+          <DropdownMenuTrigger testID="account-menu">
             {userIsLive ? (
               // On-air: the red ring replaces the old "You are live!" toast.
               <View
@@ -394,6 +424,9 @@ export const AvatarButton = () => {
                   </Text>
                 ) : null}
               </View>
+              {scanQrLogin && (
+                <ScanQrLoginButton onScan={(id) => go("QrLogin", { id })()} />
+              )}
             </View>
 
             <View

@@ -134,12 +134,24 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		"SP_MOQ_URL":                fmt.Sprintf("moqt://127.0.0.1:%d", moqPort),
 	}
 	_, file, _, _ := runtime.Caller(0)
-	buildDir := fmt.Sprintf("build-%s-%s", runtime.GOOS, runtime.GOARCH)
-	abs, err := filepath.Abs(filepath.Join(filepath.Dir(file), "..", "..", buildDir, "streamplace"))
+	buildDir := os.Getenv("BUILDDIR")
+	if buildDir == "" {
+		buildDir = fmt.Sprintf("build-%s-%s", runtime.GOOS, runtime.GOARCH)
+	}
+	repoRoot := filepath.Join(filepath.Dir(file), "..", "..")
+	abs, err := filepath.Abs(filepath.Join(repoRoot, buildDir, "streamplace"))
 	require.NoErrorf(t, err, "[%s] failed to resolve absolute binary path", name)
-	// Run the streamplace binary at abs with the environment env
+	// Run the streamplace binary at abs with the environment env. The dev
+	// wrapper runs `go run` for its version, so expose the toolchain env while
+	// keeping the node configuration explicit.
 	cmd := exec.Command(abs)
-	cmd.Env = []string{}
+	cmd.Dir = repoRoot
+	cmd.Env = []string{
+		"PATH=" + os.Getenv("PATH"),
+		"HOME=" + os.Getenv("HOME"),
+		"GOCACHE=" + os.Getenv("GOCACHE"),
+		"GOMODCACHE=" + os.Getenv("GOMODCACHE"),
+	}
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}

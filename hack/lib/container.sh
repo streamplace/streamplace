@@ -26,6 +26,9 @@ fi
 # producing ad-hoc artifacts. Kept to an allowlist: don't leak unrelated host
 # variables into the builder.
 PASS_ENV=(
+  CI_COMMIT_TAG
+  CI_COMMIT_BRANCH
+  STREAMPLACE_RUN_DIR
   DEVELOPER_CERTIFICATE_BASE64
   DEVELOPER_CERTIFICATE_PASSWORD
   APPLE_CODESIGN_API_KEY
@@ -78,10 +81,19 @@ run() {
       fi
     done
 
-    if [ -n "$key_dir" ]; then
-      ( trap 'rm -rf "$key_dir"' EXIT; docker exec -w "$REPO" "${env_args[@]}" "$CONTAINER" "$@" )
+    local run_args=()
+    if [ -n "${STREAMPLACE_RUN_DIR:-}" ]; then
+      # Run the command in its own session and record the session leader PID so
+      # the caller can stop exactly this run's process tree.
+      run_args=(bash -c 'setsid bash -c '\''echo $$ > "$STREAMPLACE_RUN_DIR/pid.$$"; exec "$@"'\'' bash "$@"' bash "$@")
     else
-      docker exec -w "$REPO" "${env_args[@]}" "$CONTAINER" "$@"
+      run_args=("$@")
+    fi
+
+    if [ -n "$key_dir" ]; then
+      ( trap 'rm -rf "$key_dir"' EXIT; docker exec -w "$REPO" "${env_args[@]}" "$CONTAINER" "${run_args[@]}" )
+    else
+      docker exec -w "$REPO" "${env_args[@]}" "$CONTAINER" "${run_args[@]}"
     fi
   fi
 }

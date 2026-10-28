@@ -828,6 +828,9 @@ importers:
       '@atproto/lex':
         specifier: ^0.3.14
         version: 0.3.14
+      '@atproto/lex-cbor':
+        specifier: ^0.1.7
+        version: 0.1.7
       '@atproto/lexicon':
         specifier: ^0.7.17
         version: 0.7.17

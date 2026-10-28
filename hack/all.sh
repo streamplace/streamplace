@@ -7,8 +7,8 @@
 #
 # This mirrors the jobs in .gitlab-ci.yml: the test job, every cross-compiled
 # node target (with its desktop package), both Android APKs, the macOS desktop
-# app, and iOS. Artifacts land in bin/ as the CI jobs leave them; the iOS
-# archive stays on the macOS machine that builds it.
+# app, and optionally iOS. Artifacts land in bin/ as the CI jobs leave them;
+# the iOS archive is retrieved from the macOS machine that builds it.
 #
 # The tag-only release/upload jobs (npm, GitLab release, deb, Homebrew) are
 # deliberately not run: they publish and need CI credentials.
@@ -116,6 +116,7 @@ run make version
 # stale dist directory left by a previous branch.
 run make app
 
+
 step "lexicons are up to date"
 # `make ci-lexicons` compares the whole tree with git, which fails on any
 # unrelated local edit. Check instead that running the generator does not
@@ -164,6 +165,7 @@ lane_test() {
   # build-linux-amd64, while dev/tests want a shared one.
   run make dev BUILDDIR="$TEST_BUILDDIR"
   run env STREAMPLACE_TEST_COUNT=1 make dev-test BUILDDIR="$TEST_BUILDDIR"
+  run pnpm --filter @atcute/internal-dev-env test:release
 }
 
 lane_target() {
@@ -204,9 +206,10 @@ lane_darwin() {
 
 lane_ios() {
   step "ios on $MAC_HOST"
-  local COMMIT MAC_REPO REMOTE_CI REMOTE_CHECK REMOTE_TAG_CHECK
+  local COMMIT REMOTE_CI REMOTE_CHECK REMOTE_TAG_CHECK IOS_VERSION IOS_ARCHIVE IOS_TEMP
   COMMIT="$(git rev-parse HEAD)"
-  MAC_REPO="${MAC_REPO:-$REPO}"
+  IOS_VERSION="$(run go run ./pkg/config/git/git.go -v)"
+  local MAC_REPO="${MAC_REPO:-$REPO}"
   # The remote runs `make version` directly, so it needs the same CI metadata
   # the local wrapper derived; otherwise a tag checkout panics there.
   REMOTE_CI=""
@@ -219,8 +222,21 @@ lane_ios() {
   if [ -n "${CI_COMMIT_BRANCH:-}" ]; then
     REMOTE_CI="$REMOTE_CI CI_COMMIT_BRANCH=$(shell_quote "$CI_COMMIT_BRANCH")"
   fi
-  # The remote checkout must be at the same commit; make all does not push.
-  ssh "$MAC_HOST" "cd $(shell_quote "$MAC_REPO") && $REMOTE_CHECK $REMOTE_TAG_CHECK $REMOTE_CI make version install app ios"
+  REMOTE_CI="$REMOTE_CI STREAMPLACE_VERSION_OVERRIDE=$(shell_quote "$IOS_VERSION")"
+  # The remote checkout must be clean and at the same commit; this does not push.
+  REMOTE_CI="$REMOTE_CI SP_PRODUCTION_RELEASE=$(shell_quote "${SP_PRODUCTION_RELEASE:-}")"
+  ssh "$MAC_HOST" "cd $(shell_quote "$MAC_REPO") && $REMOTE_CHECK $REMOTE_TAG_CHECK test -z \"\$(git status --porcelain --untracked-files=normal)\" && $REMOTE_CI make version install app ios"
+  IOS_ARCHIVE="streamplace-$IOS_VERSION-ios-release.xcarchive.tar.gz"
+  mkdir -p bin
+  IOS_TEMP="$(mktemp "bin/.ios-release.XXXXXX")"
+  # Stream via SSH so remote paths with spaces are not interpreted by scp.
+  if ssh "$MAC_HOST" "cat $(shell_quote "$MAC_REPO/bin/$IOS_ARCHIVE")" >"$IOS_TEMP" && [ -s "$IOS_TEMP" ]; then
+    mv "$IOS_TEMP" "bin/$IOS_ARCHIVE"
+  else
+    rm -f "$IOS_TEMP"
+    echo "failed to retrieve the iOS archive" >&2
+    exit 1
+  fi
 }
 
 # ---------------------------------------------------------------------------

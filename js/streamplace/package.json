@@ -29,6 +29,7 @@
   "dependencies": {
     "@atproto/api": "^0.29.1",
     "@atproto/lex": "^0.3.14",
+    "@atproto/lex-cbor": "^0.1.7",
     "@atproto/lexicon": "^0.7.17",
     "@atproto/xrpc": "^0.8.16",
     "multiformats": "^14.0.5",

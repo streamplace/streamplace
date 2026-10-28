@@ -18,6 +18,7 @@
     ".": "./dist/index.js"
   },
   "scripts": {
-    "prepare": "tsc"
+    "prepare": "tsc",
+    "test:release": "tsc && node --test release.test.mjs ../streamplace/scripts/release-lib.test.mjs"
   }
 }

@@ -72,6 +72,7 @@ test:
   script:
     - git fetch --unshallow || echo 'already unshallow'
     - make dev-setup && make dev && make dev-test && make ci-lexicons
+    - pnpm --filter @atcute/internal-dev-env test:release
   artifacts:
     when: always
     paths:
@@ -193,6 +194,7 @@ build-desktop-darwin:
     # jobs download from the package registry, so they must finish first.
     - build-linux-amd64
     - build-linux-arm64
+    - build-windows-amd64
     - build-darwin-amd64
     - build-darwin-arm64
     - build-android-debug
@@ -215,6 +217,16 @@ release:
     - .release-template
   script:
     - make ci-release
+
+# Keep GitLab releases, npm, Debian and Homebrew distribution above/below.
+# ATProto publication consumes the same exact-version generic package files.
+release-atproto:
+  extends:
+    - .release-template
+  script:
+    - git fetch --unshallow || echo 'already unshallow'
+    - pnpm install --frozen-lockfile
+    - make ci-release-atproto
 
 deb-release:
   extends:

@@ -3,12 +3,28 @@ package statedb
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/gorm"
 )
 
+// abandonedOAuthSessionAge is how long a session that never logged anyone in
+// is kept: far longer than any login takes.
+const abandonedOAuthSessionAge = time.Hour
+
+// CreateOAuthSession stores the session a new pushed authorization request
+// starts. Those come without authentication (the web app makes one for every
+// logged-out visitor, for QR login), so it also drops sessions that never
+// logged anyone in: no downstream tokens and no upstream session of their
+// own, untouched for over abandonedOAuthSessionAge.
 func (state *StatefulDB) CreateOAuthSession(id string, session *oatproxy.OAuthSession) error {
+	err := state.DB.
+		Where("downstream_access_token = '' AND upstream_refresh_token = '' AND updated_at < ?", time.Now().Add(-abandonedOAuthSessionAge)).
+		Delete(&oatproxy.OAuthSession{}).Error
+	if err != nil {
+		return fmt.Errorf("failed to prune abandoned oauth sessions: %w", err)
+	}
 	return state.DB.Create(session).Error
 }
 

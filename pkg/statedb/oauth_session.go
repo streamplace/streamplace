@@ -55,9 +55,16 @@ func (state *StatefulDB) ListOAuthSessions() ([]oatproxy.OAuthSession, error) {
 	return sessions, nil
 }
 
+// rootSessionsForDID selects the DID's valid sessions that hold their own
+// upstream session. Linked sessions (QR logins) borrow a root's upstream
+// session, so acting as the user server-side goes through the root.
+func (state *StatefulDB) rootSessionsForDID(did string) *gorm.DB {
+	return state.DB.Where("repo_did = ? AND revoked_at IS NULL AND (upstream_jkt IS NULL OR upstream_jkt = '')", did).Order("updated_at DESC")
+}
+
 func (state *StatefulDB) GetSessionByDID(did string) (*oatproxy.OAuthSession, error) {
 	var session oatproxy.OAuthSession
-	if err := state.DB.Where("repo_did = ? AND revoked_at IS NULL", did).Order("updated_at DESC").First(&session).Error; err != nil {
+	if err := state.rootSessionsForDID(did).First(&session).Error; err != nil {
 		return nil, err
 	}
 	return &session, nil
@@ -73,7 +80,7 @@ var ErrNoSessionWithScope = errors.New("no session with required scope")
 // Sessions from before scope tracking count as full grants.
 func (state *StatefulDB) GetSessionByDIDWithScope(did string, scope string) (*oatproxy.OAuthSession, error) {
 	var sessions []oatproxy.OAuthSession
-	if err := state.DB.Where("repo_did = ? AND revoked_at IS NULL", did).Order("updated_at DESC").Find(&sessions).Error; err != nil {
+	if err := state.rootSessionsForDID(did).Find(&sessions).Error; err != nil {
 		return nil, err
 	}
 	if len(sessions) == 0 {

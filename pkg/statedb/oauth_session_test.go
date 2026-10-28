@@ -24,10 +24,11 @@ func TestGetSessionByDIDWithScope(t *testing.T) {
 
 		mkSession := func(jkt, scope string, updatedAt time.Time, revoked bool) {
 			session := &oatproxy.OAuthSession{
-				DID:               did,
-				DownstreamDPoPJKT: jkt,
-				DownstreamScope:   scope,
-				UpstreamScope:     scope,
+				DID:                   did,
+				DownstreamDPoPJKT:     jkt,
+				DownstreamScope:       scope,
+				UpstreamScope:         scope,
+				DownstreamAccessToken: "at-" + jkt,
 			}
 			if revoked {
 				now := time.Now()
@@ -114,5 +115,34 @@ func TestGetSessionByDIDSkipsLinkedSessions(t *testing.T) {
 		got, err = state.GetSessionByDIDWithScope(did, scopeBskyActorStatus)
 		require.NoError(t, err)
 		require.Equal(t, "jkt-root", got.DownstreamDPoPJKT)
+	})
+}
+
+// Pushed authorization requests come without authentication, so making one
+// prunes sessions that never logged anyone in; nothing else.
+func TestCreateOAuthSessionPrunesAbandonedSessions(t *testing.T) {
+	WithAllDatabases(t, func(state *StatefulDB) {
+		old := time.Now().Add(-2 * time.Hour)
+		mk := func(session *oatproxy.OAuthSession, updatedAt time.Time) {
+			require.NoError(t, state.CreateOAuthSession(session.DownstreamDPoPJKT, session))
+			require.NoError(t, state.DB.Model(&oatproxy.OAuthSession{}).
+				Where("downstream_dpop_jkt = ?", session.DownstreamDPoPJKT).
+				Update("updated_at", updatedAt).Error)
+		}
+		// a PAR nobody followed, and a QR login approved but never redeemed
+		mk(&oatproxy.OAuthSession{DownstreamDPoPJKT: "jkt-abandoned", DownstreamPARRequestURI: "urn:abandoned"}, old)
+		mk(&oatproxy.OAuthSession{DownstreamDPoPJKT: "jkt-unredeemed", DID: "did:plc:prune", UpstreamJKT: "jkt-ready", DownstreamAuthorizationCode: "code"}, old)
+		// a login under way
+		mk(&oatproxy.OAuthSession{DownstreamDPoPJKT: "jkt-recent", DownstreamPARRequestURI: "urn:recent"}, time.Now())
+		// logged in, and logged out with upstream still good
+		mk(&oatproxy.OAuthSession{DownstreamDPoPJKT: "jkt-ready", DID: "did:plc:prune", DownstreamAccessToken: "at", UpstreamRefreshToken: "rt"}, old)
+		mk(&oatproxy.OAuthSession{DownstreamDPoPJKT: "jkt-ready-upstream", DID: "did:plc:prune", UpstreamRefreshToken: "rt"}, old)
+
+		require.NoError(t, state.CreateOAuthSession("jkt-new", &oatproxy.OAuthSession{DownstreamDPoPJKT: "jkt-new"}))
+
+		var left []string
+		require.NoError(t, state.DB.Model(&oatproxy.OAuthSession{}).
+			Order("downstream_dpop_jkt").Pluck("downstream_dpop_jkt", &left).Error)
+		require.Equal(t, []string{"jkt-new", "jkt-ready", "jkt-ready-upstream", "jkt-recent"}, left)
 	})
 }

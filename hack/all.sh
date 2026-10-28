@@ -206,10 +206,10 @@ lane_darwin() {
 
 lane_ios() {
   step "ios on $MAC_HOST"
-  local COMMIT MAC_REPO REMOTE_CI REMOTE_CHECK REMOTE_TAG_CHECK IOS_VERSION IOS_ARCHIVE IOS_TEMP
+  local COMMIT REMOTE_CI REMOTE_CHECK REMOTE_TAG_CHECK IOS_VERSION IOS_ARCHIVE IOS_TEMP
   COMMIT="$(git rev-parse HEAD)"
   IOS_VERSION="$(run go run ./pkg/config/git/git.go -v)"
-  MAC_REPO="${MAC_REPO:-$REPO}"
+  local MAC_REPO="${MAC_REPO:-$REPO}"
   # The remote runs `make version` directly, so it needs the same CI metadata
   # the local wrapper derived; otherwise a tag checkout panics there.
   REMOTE_CI=""

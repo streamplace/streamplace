@@ -250,6 +250,8 @@ MAC_HOST=admin@mac-mini MAC_REPO=/Users/admin/streamplace make all
 The remote needs the same toolchain the CI macOS job installs (Go, Node 22,
 Meson, Rust, Xcode 26). Without `MAC_HOST`, `make all` prints the skipped iOS
 job and exits successfully; set `ALL_STRICT=1` to make that a failure.
+`MAC_REPO` overrides the remote checkout path, including paths with spaces or
+quotes; it defaults to the local checkout's absolute path.
 
 There is no way to build the iOS archive on Linux or Windows: `xcodebuild`
 and the iOS SDK only exist on macOS. On an AMD/Threadripper host, the practical
@@ -264,6 +266,9 @@ so no Apple account is needed for the build itself.
   configured for the shared dev build, `make all` reconfigures it for the
   static release build. Run the release targets manually with a different
   `BUILDDIR` if you need to keep that dev build intact.
+- Container build sessions are awaited before returning their exit status, so
+  failed commands stop their lane and temporary signing keys remain available
+  until the command finishes.
 - The builder image must be the one pinned in `.ci/dockerfile-hash.yaml`.
   `hack/container.sh` warns if an existing container runs a different image;
   recreate it after the pin changes.

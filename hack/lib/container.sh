@@ -93,7 +93,7 @@ run() {
     if [ -n "${STREAMPLACE_RUN_DIR:-}" ]; then
       # Run the command in its own session and record the session leader PID so
       # the caller can stop exactly this run's process tree.
-      run_args=(bash -c 'setsid bash -c '\''echo $$ > "$STREAMPLACE_RUN_DIR/pid.$$"; exec "$@"'\'' bash "$@"' bash "$@")
+      run_args=(bash -c 'setsid --wait bash -c '\''echo $$ > "$STREAMPLACE_RUN_DIR/pid.$$"; exec "$@"'\'' bash "$@"' bash "$@")
     else
       run_args=("$@")
     fi

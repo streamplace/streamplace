@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { sendChatMessage } from "./chat";
 import { loginThroughPds } from "./login";
 
 // Login counterpart to .maestro/setup/oauth-login.yaml, with chat/profile
@@ -16,38 +17,8 @@ test("oauth-login: log in, chat, and reopen a profile", async ({ page }) => {
   // Now act as the user. A chat message is a record the node writes to the
   // user's PDS through oatproxy's upstream (DPoP-bound) session. Loading the
   // app afresh also restores the session from browser storage.
-  await page.goto(`${HTTPS_URL}/`);
-  await page.getByTestId("home-stream-card").first().click();
-  // chat needs the streamer's profile, which arrives over the stream's
-  // websocket along with this system message
-  await expect(
-    page.getByText("Now streaming - e2e test stream").first(),
-  ).toBeVisible({ timeout: 30_000 });
-  const chatInput = page.getByPlaceholder("Type a message...");
   const message = `hello from oauth-login ${Date.now()}`;
-  const messageCreateResponse = page.waitForResponse((response) => {
-    const request = response.request();
-    return (
-      request.method() === "POST" &&
-      new URL(response.url()).pathname ===
-        "/xrpc/com.atproto.repo.createRecord" &&
-      request.postData()?.includes(message) === true
-    );
-  });
-  // a send the page wasn't ready for clears the box and is dropped; resend
-  await expect(async () => {
-    await chatInput.fill(message);
-    await chatInput.press("Enter");
-    await expect(page.getByText(message).first()).toBeVisible({
-      timeout: 10_000,
-    });
-  }).toPass({ timeout: 45_000 });
-  await expect(chatInput).toHaveValue("");
-  const response = await messageCreateResponse;
-  expect(
-    response.ok(),
-    `chat record creation returned ${response.status()}`,
-  ).toBe(true);
+  await sendChatMessage(page, HTTPS_URL!, message);
 
   // The box shows sends optimistically, so reload: only the node's chat
   // history can put the message back, and it only has what the firehose
@@ -78,6 +49,7 @@ test("oauth-login: log in, chat, and reopen a profile", async ({ page }) => {
   // Do not reload or retry the send here: closing the profile must leave the
   // existing chat session usable. Reload only afterward to prove persistence.
   const afterProfileMessage = `chat after profile ${Date.now()}`;
+  const chatInput = page.getByPlaceholder("Type a message...");
   await chatInput.fill(afterProfileMessage);
   await page.getByTestId("chat-send").click();
   await expect(page.getByText(afterProfileMessage).first()).toBeVisible({

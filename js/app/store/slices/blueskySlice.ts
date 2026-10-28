@@ -85,6 +85,9 @@ export interface BlueskySlice {
     openLoginLink: (url: string) => Promise<void>,
     options?: LoginOptions,
   ) => Promise<void>;
+  // a pushed authorization request for identifier, as the URL to send the
+  // user to; QR login keeps it and never sends them
+  authorizeUrl: (identifier: string, options?: LoginOptions) => Promise<URL>;
   refreshSessionScope: () => Promise<void>;
   logout: () => Promise<void>;
   getProfile: (actor: string) => Promise<void>;
@@ -366,29 +369,8 @@ export const createBlueskySlice: StateCreator<
       },
     });
     try {
-      const state = get() as BlueskySlice;
-      await state.loadOAuthClient();
-      const updatedState = get() as BlueskySlice;
-      if (!updatedState.client) {
-        throw new Error("No client");
-      }
-      console.log("Authorizing");
-      const authorizeOptions: { scope?: string } = {};
-      if (options?.blueskyPermissions === false) {
-        const fullScope = updatedState.client.clientMetadata.scope;
-        if (fullScope) {
-          authorizeOptions.scope = withoutBlueskyScopes(fullScope);
-        }
-      }
-      const u = await updatedState.client.authorize(handle, authorizeOptions);
-      if (
-        typeof document !== "undefined" &&
-        document.location.href.startsWith("http://127.0.0.1")
-      ) {
-        const hostUrl = new URL(document.location.href);
-        u.host = hostUrl.host;
-        u.protocol = hostUrl.protocol;
-      }
+      await (get() as BlueskySlice).loadOAuthClient();
+      const u = await (get() as BlueskySlice).authorizeUrl(handle, options);
       // The node's OAuth proxy passes these on to the entryway PDS, as its
       // /oauth/federated/start?provider= and /oauth/authorize?screen=.
       // Appended by hand: React Native's URL repeats the whole query when
@@ -421,6 +403,35 @@ export const createBlueskySlice: StateCreator<
         },
       });
     }
+  },
+
+  authorizeUrl: async (identifier: string, options?: LoginOptions) => {
+    // the client loaded at startup: reloading resets authStatus, which
+    // remounts the login form this is called from
+    if (!(get() as BlueskySlice).client) {
+      await (get() as BlueskySlice).loadOAuthClient();
+    }
+    const client = (get() as BlueskySlice).client;
+    if (!client) {
+      throw new Error("No client");
+    }
+    const authorizeOptions: { scope?: string } = {};
+    if (options?.blueskyPermissions === false) {
+      const fullScope = client.clientMetadata.scope;
+      if (fullScope) {
+        authorizeOptions.scope = withoutBlueskyScopes(fullScope);
+      }
+    }
+    const u = await client.authorize(identifier, authorizeOptions);
+    if (
+      typeof document !== "undefined" &&
+      document.location.href.startsWith("http://127.0.0.1")
+    ) {
+      const hostUrl = new URL(document.location.href);
+      u.host = hostUrl.host;
+      u.protocol = hostUrl.protocol;
+    }
+    return u;
   },
 
   logout: async () => {

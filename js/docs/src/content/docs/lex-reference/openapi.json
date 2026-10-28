@@ -3440,6 +3440,200 @@
         }
       }
     },
+    "/xrpc/place.stream.login.completeQRLogin": {
+      "post": {
+        "summary": "Approve or deny a QR login attempt. Requires an OAuth session on this node: approving signs the waiting browser in as the caller, sharing the caller's session with their PDS.",
+        "operationId": "place.stream.login.completeQRLogin",
+        "tags": ["place.stream.login"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/place.stream.login.defs_qrLogin"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotFound"
+                        },
+                        {
+                          "const": "AlreadyCompleted"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "approve": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["id", "approve"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.login.createQRLogin": {
+      "post": {
+        "summary": "Start a QR login: a browser that has made an OAuth pushed authorization request asks for a code that the Streamplace app, already signed in to this node, can scan and approve. The browser's user agent and IP address are recorded to show the approver.",
+        "operationId": "place.stream.login.createQRLogin",
+        "tags": ["place.stream.login"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Identifies this login attempt to getQRLogin and completeQRLogin."
+                    },
+                    "url": {
+                      "type": "string",
+                      "description": "What the QR code encodes: the attempt's approval page, which the app opens.",
+                      "format": "uri"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": ["id", "url", "expiresAt"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "QRLoginUnavailable"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "requestUri": {
+                    "type": "string",
+                    "description": "The request_uri the node's OAuth server returned for the browser's pushed authorization request."
+                  }
+                },
+                "required": ["requestUri"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.login.getQRLogin": {
+      "get": {
+        "summary": "Get a QR login attempt: who is asking, for the approver, and its outcome, for the browser waiting on it. Once approved it carries the OAuth authorization response the browser completes its login with.",
+        "operationId": "place.stream.login.getQRLogin",
+        "tags": ["place.stream.login"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/place.stream.login.defs_qrLogin"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.live.denyTeleport": {
       "post": {
         "summary": "Deny an incoming teleport request.",
@@ -7619,6 +7813,61 @@
       },
       "place.stream.video": {
         "description": "Unknown type"
+      },
+      "place.stream.login.defs_qrLogin": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "userAgent": {
+            "type": "string",
+            "description": "The User-Agent of the browser asking to sign in."
+          },
+          "ip": {
+            "type": "string",
+            "description": "The IP address the browser asked from."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "authorization": {
+            "$ref": "#/components/schemas/place.stream.login.defs_authorizationResponse",
+            "description": "Set once approved."
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "userAgent",
+          "ip",
+          "createdAt",
+          "expiresAt"
+        ]
+      },
+      "place.stream.login.defs_authorizationResponse": {
+        "type": "object",
+        "description": "The OAuth authorization response for the browser's pushed authorization request, as its redirect would have carried it. Redeeming the code still takes the browser's PKCE verifier and DPoP key.",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "iss": {
+            "type": "string"
+          }
+        },
+        "required": ["code", "state", "iss"]
       },
       "place.stream.livestream_livestreamView": {
         "type": "object",

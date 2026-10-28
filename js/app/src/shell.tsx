@@ -144,6 +144,7 @@ const LaunchGoLive = lazyScreen(() => import("src/screens/launch-go-live"));
 const LiveDashboard = lazyScreen(() => import("src/screens/live-dashboard"));
 const MobileGoLive = lazyScreen(() => import("src/screens/mobile-go-live"));
 const MobileStream = lazyScreen(() => import("src/screens/mobile-stream"));
+const QrLoginScreen = lazyScreen(() => import("src/screens/qr-login"));
 const MultiScreen = lazyScreen(() => import("src/screens/multi"));
 const PopoutInfoWidget = lazyScreen(
   () => import("src/screens/popout-info-widget"),
@@ -939,6 +940,11 @@ export default function Shell() {
             name="AppReturn"
             component={AppReturnScreen}
             options={{ title: "Returning to app..." }}
+          />
+          <RootStack.Screen
+            name="QrLogin"
+            component={QrLoginScreen}
+            options={{ headerShown: false }}
           />
           <RootStack.Screen
             name="PopoutChat"

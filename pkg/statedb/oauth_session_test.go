@@ -83,3 +83,36 @@ func TestGetSessionByDIDWithScope(t *testing.T) {
 		require.Equal(t, "jkt-legacy", got.DownstreamDPoPJKT)
 	})
 }
+
+// A linked session (QR login) borrows its root's upstream session, so a
+// server-side job acting as the user must get the root even when the linked
+// one was used more recently. The root is a row from before the column
+// existed: its upstream_jkt is NULL rather than empty.
+func TestGetSessionByDIDSkipsLinkedSessions(t *testing.T) {
+	WithAllDatabases(t, func(state *StatefulDB) {
+		did := "did:plc:linktest"
+		require.NoError(t, state.CreateOAuthSession("jkt-root", &oatproxy.OAuthSession{
+			DID:               did,
+			DownstreamDPoPJKT: "jkt-root",
+		}))
+		require.NoError(t, state.CreateOAuthSession("jkt-linked", &oatproxy.OAuthSession{
+			DID:               did,
+			DownstreamDPoPJKT: "jkt-linked",
+			UpstreamJKT:       "jkt-root",
+		}))
+		require.NoError(t, state.DB.Model(&oatproxy.OAuthSession{}).
+			Where("downstream_dpop_jkt = ?", "jkt-root").
+			Update("upstream_jkt", gorm.Expr("NULL")).Error)
+		require.NoError(t, state.DB.Model(&oatproxy.OAuthSession{}).
+			Where("downstream_dpop_jkt = ?", "jkt-linked").
+			Update("updated_at", time.Now().Add(time.Hour)).Error)
+
+		got, err := state.GetSessionByDID(did)
+		require.NoError(t, err)
+		require.Equal(t, "jkt-root", got.DownstreamDPoPJKT)
+
+		got, err = state.GetSessionByDIDWithScope(did, scopeBskyActorStatus)
+		require.NoError(t, err)
+		require.Equal(t, "jkt-root", got.DownstreamDPoPJKT)
+	})
+}

@@ -1,0 +1,33 @@
+appId: ${APP_ID}
+# QR login, the app's half: a browser's code links to login/qr/<id>, which
+# opens the app's approval screen with the request's details. Denying
+# answers it from this signed-in device. Web counterpart (which approves):
+# js/e2e-web/flows/login-options.spec.ts.
+---
+- runScript:
+    file: qr-login.js
+    env:
+      QR_LOGIN_STEP: create
+# what scanning the code does, through the app's own scheme (the https link
+# only opens the app on stream.place)
+- openLink: ${APP_ID}://login/qr/${output.qrLoginId}
+- extendedWaitUntil:
+    visible:
+      text: "Sign in on another device?"
+    timeout: 30000
+- assertVisible:
+    text: "Chrome on macOS"
+- takeScreenshot: qr-login-request
+- tapOn:
+    id: "qr-login-deny"
+- extendedWaitUntil:
+    visible:
+      text: "Request declined"
+    timeout: 30000
+- takeScreenshot: qr-login-declined
+- runScript:
+    file: qr-login.js
+    env:
+      QR_LOGIN_STEP: check
+- tapOn:
+    id: "qr-login-done"

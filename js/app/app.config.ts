@@ -257,6 +257,19 @@ export default function () {
             ],
             category: ["BROWSABLE", "DEFAULT"],
           },
+          // QR login: a browser's code for the app to scan and approve
+          {
+            action: "VIEW",
+            autoVerify: true,
+            data: [
+              {
+                scheme: "https",
+                host: "stream.place",
+                pathPrefix: "/login/qr/",
+              },
+            ],
+            category: ["BROWSABLE", "DEFAULT"],
+          },
         ],
         ...(isProd
           ? {

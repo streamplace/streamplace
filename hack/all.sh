@@ -55,11 +55,24 @@ finish_step() {
   fi
 }
 
+# Quote a value for the remote POSIX shell used by the iOS SSH step. Git ref
+# names and paths can contain quotes and shell metacharacters.
+shell_quote() {
+  printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
 cleanup_lanes() {
   local pid
   for pid in "${pids[@]:-}"; do
     kill "$pid" 2>/dev/null || true
   done
+  # Killing the lane shell does not necessarily stop make/docker exec or the
+  # build inside the shared container. Stop the toolchains too, then wait.
+  if [ "${#pids[@]}" -gt 0 ] && [ -n "${CONTAINER:-}" ]; then
+    docker exec "$CONTAINER" pkill -TERM -f '[m]ake |[g]radle|[p]npm|[e]lectron-forge|[m]eson|[n]inja|[c]argo|[r]ustc|[g]o ' 2>/dev/null || true
+    sleep 1
+    docker exec "$CONTAINER" pkill -KILL -f '[m]ake |[g]radle|[p]npm|[e]lectron-forge|[m]eson|[n]inja|[c]argo|[r]ustc|[g]o ' 2>/dev/null || true
+  fi
 }
 trap 'finish_step; cleanup_lanes' EXIT
 
@@ -109,6 +122,17 @@ fi
 # ---------------------------------------------------------------------------
 # lanes
 # ---------------------------------------------------------------------------
+# Forge repacks js/desktop and rewrites src/version.ts/.webpack/brand assets;
+# serialize every desktop build across lanes.
+run_desktop() {
+  local target="$1"
+  mkdir -p .build
+  (
+    flock 9
+    run make "$target"
+  ) 9>.build/desktop.lock
+}
+
 target() {
   local target="$1"
   step "$target"
@@ -118,7 +142,7 @@ target() {
   if [ "$target" = "linux-amd64" ]; then
     run make test-vod
   fi
-  run make "desktop-$target"
+  run_desktop "desktop-$target"
   run make "pkg-$target"
 }
 
@@ -155,10 +179,15 @@ lane_darwin() {
     local amd64_pid=$!
     target darwin-arm64 &
     local arm64_pid=$!
-    wait "$amd64_pid" "$arm64_pid"
+    local failed=0
+    wait "$amd64_pid" || failed=1
+    wait "$arm64_pid" || failed=1
+    if [ "$failed" -ne 0 ]; then
+      exit 1
+    fi
   fi
   step "desktop-darwin"
-  run make desktop-darwin-linux
+  run_desktop "desktop-darwin-linux"
 }
 
 lane_ios() {
@@ -172,14 +201,14 @@ lane_ios() {
   REMOTE_CHECK="test \"\$(git rev-parse HEAD)\" = '$COMMIT' || { echo 'remote checkout is not at $COMMIT' >&2; exit 1; };"
   REMOTE_TAG_CHECK=""
   if [ -n "${CI_COMMIT_TAG:-}" ]; then
-    REMOTE_CI="CI_COMMIT_TAG='$CI_COMMIT_TAG'"
-    REMOTE_TAG_CHECK="git rev-parse -q --verify 'refs/tags/$CI_COMMIT_TAG' >/dev/null || { echo 'remote checkout is missing tag $CI_COMMIT_TAG; run git fetch --tags there' >&2; exit 1; };"
+    REMOTE_CI="CI_COMMIT_TAG=$(shell_quote "$CI_COMMIT_TAG")"
+    REMOTE_TAG_CHECK="git rev-parse -q --verify $(shell_quote "refs/tags/$CI_COMMIT_TAG") >/dev/null || { echo $(shell_quote "remote checkout is missing tag $CI_COMMIT_TAG; run git fetch --tags there") >&2; exit 1; };"
   fi
   if [ -n "${CI_COMMIT_BRANCH:-}" ]; then
-    REMOTE_CI="$REMOTE_CI CI_COMMIT_BRANCH='$CI_COMMIT_BRANCH'"
+    REMOTE_CI="$REMOTE_CI CI_COMMIT_BRANCH=$(shell_quote "$CI_COMMIT_BRANCH")"
   fi
   # The remote checkout must be at the same commit; make all does not push.
-  ssh "$MAC_HOST" "cd '$MAC_REPO' && $REMOTE_CHECK $REMOTE_TAG_CHECK $REMOTE_CI make version install app ios"
+  ssh "$MAC_HOST" "cd $(shell_quote "$MAC_REPO") && $REMOTE_CHECK $REMOTE_TAG_CHECK $REMOTE_CI make version install app ios"
 }
 
 # ---------------------------------------------------------------------------
@@ -228,7 +257,17 @@ start_lane windows-amd64 lane_target windows-amd64
 start_lane android lane_android
 start_lane darwin lane_darwin
 
-wait
+failed=0
+for pid in "${pids[@]}"; do
+  if ! wait "$pid"; then
+    failed=1
+  fi
+done
+if [ "$failed" -ne 0 ]; then
+  echo "a build lane failed" >&2
+  exit 1
+fi
+pids=()
 
 # ---------------------------------------------------------------------------
 # report

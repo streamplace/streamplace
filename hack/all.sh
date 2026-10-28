@@ -35,6 +35,9 @@ if [ "${ALL_SERIAL:-0}" = "1" ]; then
 fi
 SKIPPED=()
 pids=()
+RUN_DIR=".build/all-run.$$"
+mkdir -p "$RUN_DIR"
+export STREAMPLACE_RUN_DIR="$RUN_DIR"
 
 STEP_NAME=""
 STEP_START=$SECONDS
@@ -62,17 +65,26 @@ shell_quote() {
 }
 
 cleanup_lanes() {
-  local pid
+  local pid pidfile
   for pid in "${pids[@]:-}"; do
     kill "$pid" 2>/dev/null || true
   done
-  # Killing the lane shell does not necessarily stop make/docker exec or the
-  # build inside the shared container. Stop the toolchains too, then wait.
-  if [ "${#pids[@]}" -gt 0 ] && [ -n "${CONTAINER:-}" ]; then
-    docker exec "$CONTAINER" pkill -TERM -f '[m]ake |[g]radle|[p]npm|[e]lectron-forge|[m]eson|[n]inja|[c]argo|[r]ustc|[g]o ' 2>/dev/null || true
+  # Killing the lane shell does not stop make/docker exec or the build inside
+  # the shared container. Stop only sessions started by this run, then wait.
+  if [ -n "${CONTAINER:-}" ]; then
+    for pidfile in "$RUN_DIR"/pid.*; do
+      [ -f "$pidfile" ] || continue
+      pid="$(cat "$pidfile" 2>/dev/null || true)"
+      [ -n "$pid" ] && docker exec "$CONTAINER" kill -TERM -- -"$pid" 2>/dev/null || true
+    done
     sleep 1
-    docker exec "$CONTAINER" pkill -KILL -f '[m]ake |[g]radle|[p]npm|[e]lectron-forge|[m]eson|[n]inja|[c]argo|[r]ustc|[g]o ' 2>/dev/null || true
+    for pidfile in "$RUN_DIR"/pid.*; do
+      [ -f "$pidfile" ] || continue
+      pid="$(cat "$pidfile" 2>/dev/null || true)"
+      [ -n "$pid" ] && docker exec "$CONTAINER" kill -KILL -- -"$pid" 2>/dev/null || true
+    done
   fi
+  rm -rf "$RUN_DIR"
 }
 trap 'finish_step; cleanup_lanes' EXIT
 

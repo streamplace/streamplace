@@ -207,7 +207,9 @@ test("login-options: branding gates the sign-in options", async ({
 // QR login: the browser shows a code; a signed-in device opens what it links
 // to and approves; the browser is then signed in, sharing that device's
 // session with the PDS. The harness node has an app bundle id, which is what
-// makes it offer QR login. Mobile counterpart: .maestro/logged-in/qr-login.yaml.
+// makes it offer QR login. A logged-out browser keeps an attempt ready, so
+// the login form shows it at once. Mobile counterpart:
+// .maestro/logged-in/qr-login.yaml.
 test("login-options: QR login signs a browser in from a signed-in device", async ({
   page,
   browser,
@@ -225,13 +227,28 @@ test("login-options: QR login signs a browser in from a signed-in device", async
     await brandingWrites(page, 1, () =>
       page.getByTestId("branding-login-method-qr").click(),
     );
+    // a signed-in browser never prepares one, even as a page loads
+    const signedInAttempts: string[] = [];
+    page.on("request", (r) => {
+      if (r.url().includes("/xrpc/place.stream.login.createQRLogin")) {
+        signedInAttempts.push(r.url());
+      }
+    });
 
+    // made in the background, before any login form is open
     const created = visitor.waitForResponse((r) =>
       r.url().includes("/xrpc/place.stream.login.createQRLogin"),
     );
-    await openLogin(visitor);
+    await visitor.goto(HTTPS_URL!);
     const { url } = await (await created).json();
-    await expect(visitor.getByTestId("login-qr")).toBeVisible();
+    await expect(handleField(visitor)).toHaveCount(0);
+    await visitor.getByRole("button", { name: "Log in" }).first().click();
+    await expect(handleField(visitor)).toBeVisible();
+    // the code is up as soon as the form is, not a spinner (count() doesn't
+    // wait; the spinner draws no rect)
+    expect(
+      await visitor.getByTestId("login-qr").locator("svg rect").count(),
+    ).toBe(1);
 
     await page.goto(url);
     await expect(page.getByText("Sign in on another device?")).toBeVisible({
@@ -248,6 +265,7 @@ test("login-options: QR login signs a browser in from a signed-in device", async
     );
     await page.getByTestId("qr-login-done").click();
     await expect(page.getByTestId("home-stream-card").first()).toBeVisible();
+    expect(signedInAttempts).toEqual([]);
 
     // the browser picks the approval up and signs in, and its session can
     // write to the PDS through the approver's upstream session

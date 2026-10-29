@@ -37,7 +37,6 @@ const NODE = [
   "android-debug.aab",
   "android-release.apk",
   "android-release.aab",
-  "android-release.apks",
 ];
 const DESKTOP = [
   "darwin-amd64.dmg",
@@ -76,6 +75,8 @@ describe("inventory", () => {
       `streamplace-desktop-${VERSION}-windows-amd64.nupkg.sha1`,
       `streamplace-${VERSION}-android-e2e.apks`,
       `streamplace-${VERSION}-android-e2e.apk`,
+      `streamplace-${VERSION}-android-debug.apks`,
+      `streamplace-${VERSION}-android-release.apks`,
       `streamplace-${VERSION}-5269a091-android-release.apk`,
       "streamplace-v1.2.30-linux-amd64.deb",
       "streamplace-v1.2.2-linux-amd64.deb",

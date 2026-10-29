@@ -115,6 +115,7 @@ if [ "$MODE" != ci ] && [ -n "$CONTAINER" ] && [[ "$ARTIFACTS" != "$PARENT"/* ]]
   shopt -s nullglob
   for file in "$ARTIFACTS/streamplace-$VERSION-"* "$ARTIFACTS/streamplace-desktop-$VERSION-"*; do
     case "${file##*/}" in
+      "streamplace-$VERSION-android-debug.apks"|"streamplace-$VERSION-android-release.apks") continue ;;
       "streamplace-$VERSION-sign-input.tar.gz"|"streamplace-$VERSION-sign-input"|"streamplace-$VERSION-ios-release.xcarchive"|"streamplace-$VERSION-SHA256SUMS") continue ;;
     esac
     if [ -L "$file" ] || [ ! -f "$file" ]; then

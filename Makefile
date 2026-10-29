@@ -694,11 +694,11 @@ desktop-windows-amd64:
 
 .PHONY: streamplace
 streamplace: app-cached meson-setup-static
-	meson compile -C $(BUILDDIR) streamplace | grep -v drectve
+	meson compile -C $(BUILDDIR) streamplace
 
 .PHONY: archive
 archive: app-cached meson-setup-static godeps
-	meson compile -C $(BUILDDIR) archive | grep -v drectve
+	meson compile -C $(BUILDDIR) archive
 
 .PHONY: linux-amd64
 linux-amd64:
@@ -1074,14 +1074,12 @@ ci-upload-android: android
 .PHONY: ci-upload-android-debug
 ci-upload-android-debug:
 	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.apk \
-	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.aab \
-	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.apks
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.aab
 
 .PHONY: ci-upload-android-release
 ci-upload-android-release:
 	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.apk \
-	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.aab \
-	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.apks
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.aab
 
 .PHONY: ci-upload-ios
 ci-upload-ios: ios

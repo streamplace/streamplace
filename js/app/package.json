@@ -20,7 +20,7 @@
     "build:web": "pnpm --filter @streamplace/i18n compile && pnpm run brand && node scripts/generate-build-info.js && pnpm run export && node exportClientExpoConfig.js > dist/expoConfig.json",
     "export": "(expo export --dump-sourcemap || expo export --dump-sourcemap) && node scripts/bootstrap-web.mjs",
     "analyze:web": "pnpm run brand && EXPO_ATLAS=true expo export --platform web --output-dir .expo/atlas-web --dump-sourcemap && node scripts/bootstrap-web.mjs .expo/atlas-web && expo-atlas --no-open",
-    "check": "pnpm --filter @streamplace/i18n compile && bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
+    "check": "pnpm --filter @streamplace/i18n compile && bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; npx tsc -p tsconfig.wallet.json --noEmit; rm -rf $OUT'",
     "prebuild": "pnpm run brand && EXPO_NO_GIT_STATUS=1 expo prebuild --clean && sed -i.bak 's/org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m/org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m/' android/gradle.properties && pnpm run find-node",
     "prepare": "which pod && pnpm run prepare-ios || echo 'not a mac, not installing pods' && mkdir -p ./public && cp -r ../i18n/public/locales ./public/",
     "prepare-ios": "cd ios && pod install && pnpm run find-node",
@@ -64,6 +64,7 @@
     "@streamplace/components": "workspace:*",
     "@streamplace/core": "workspace:*",
     "@tanstack/react-query": "^5.104.5",
+    "@walletconnect/sign-client": "^2.26.0",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
     "abortcontroller-polyfill": "^1.7.6",
@@ -131,6 +132,7 @@
     "tus-js-client": "^4.3.1",
     "ua-parser-js": "^2.0.10",
     "uuid": "^14.0.3",
+    "viem": "^2.57.8",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

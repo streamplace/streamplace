@@ -1,5 +1,6 @@
 import {
   Button,
+  Checkbox,
   DEFAULT_CHROME,
   Input,
   MenuContainer,
@@ -60,6 +61,13 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+// The login form's sign-in options (pkg/branding vocab).
+const SIGN_IN_TEXT_KEYS: { key: string; placeholder: string }[] = [
+  { key: "loginEntryway", placeholder: "https://streamplace.com" },
+  { key: "walletConnectProjectId", placeholder: "WalletConnect project ID" },
+];
+const LOGIN_METHODS = ["apple", "google", "ethereum", "qr"];
+
 // The link-card templates (pkg/branding vocab): {site} is cardSiteName over
 // the site title; {name} and {handle} the account a page is about. The
 // placeholders show each template's default.
@@ -108,6 +116,9 @@ export function BrandingAdmin() {
   const [defaultVideo, setDefaultVideo] = useState("");
   const [broadcasterDID, setBroadcasterDID] = useState("");
   const [uploading, setUploading] = useState(false);
+  // the sign-in method toggles wait for the refetch, not just the write, so
+  // each one starts from what the node has
+  const [savingMethods, setSavingMethods] = useState(false);
   const [legalLinkText, setLegalLinkText] = useState("");
   const [legalLinkUrl, setLegalLinkUrl] = useState("");
   const [editingLinkIndex, setEditingLinkIndex] = useState<number | null>(null);
@@ -336,6 +347,8 @@ export function BrandingAdmin() {
         case "networkName":
         case "networkProfileUrl":
         case "loginPlaceholder":
+        case "loginEntryway":
+        case "walletConnectProjectId":
         case "cardSiteName":
         case "cardLiveTitle":
         case "cardHomeTitle":
@@ -346,7 +359,9 @@ export function BrandingAdmin() {
         case "cardGoLiveTitle":
         case "cardGoLiveDescription":
         case "chatLayout":
-          setChromeInputs((prev) => ({ ...prev, [key]: "" }));
+          // drop the edit, so the field shows its fallback (mostly the saved
+          // value) again
+          setChromeInputs(({ [key]: _saved, ...rest }) => rest);
           break;
         case "defaultStreamer":
           setDefaultStreamer("");
@@ -1136,6 +1151,134 @@ export function BrandingAdmin() {
                         {t("branding-reset")}
                       </Button>
                     </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-sign-in")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-sign-in-description")}
+                    </Text>
+                    {SIGN_IN_TEXT_KEYS.map(({ key, placeholder }) => (
+                      <View
+                        key={key}
+                        style={[
+                          zero.layout.flex.direction.row,
+                          zero.layout.flex.alignCenter,
+                          zero.gap.all[2],
+                        ]}
+                      >
+                        <View style={{ width: 160 }}>
+                          <Text size="xs" color="muted">
+                            {key}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Input
+                            testID={`branding-input-${key}`}
+                            placeholder={placeholder}
+                            value={chromeInputs[key] ?? brandingValue(key)}
+                            onChangeText={(v) =>
+                              setChromeInputs((prev) => ({
+                                ...prev,
+                                [key]: v,
+                              }))
+                            }
+                          />
+                        </View>
+                      </View>
+                    ))}
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        testID="branding-update-sign-in"
+                        onPress={async () => {
+                          for (const { key } of SIGN_IN_TEXT_KEYS) {
+                            const v = (
+                              chromeInputs[key] ?? brandingValue(key)
+                            ).trim();
+                            if (v === brandingValue(key)) continue;
+                            // a field cleared out removes its setting
+                            if (v) await uploadText(key, v);
+                            else await deleteBlob(key);
+                          }
+                        }}
+                        disabled={uploading}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        testID="branding-reset-sign-in"
+                        variant="secondary"
+                        onPress={async () => {
+                          for (const { key } of SIGN_IN_TEXT_KEYS) {
+                            if (brandingValue(key)) await deleteBlob(key);
+                          }
+                          setChromeInputs((prev) => {
+                            const next = { ...prev };
+                            for (const { key } of SIGN_IN_TEXT_KEYS) {
+                              delete next[key];
+                            }
+                            return next;
+                          });
+                        }}
+                        disabled={
+                          uploading ||
+                          !SIGN_IN_TEXT_KEYS.some(({ key }) =>
+                            brandingValue(key),
+                          )
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    {LOGIN_METHODS.map((method) => {
+                      let enabled: unknown[] = [];
+                      try {
+                        const parsed = JSON.parse(
+                          brandingValue("loginMethods") || "[]",
+                        );
+                        if (Array.isArray(parsed)) enabled = parsed;
+                      } catch {
+                        // a malformed list (or not a list) reads as none
+                      }
+                      return (
+                        <Checkbox
+                          key={method}
+                          testID={`branding-login-method-${method}`}
+                          label={t(`branding-login-method-${method}`)}
+                          checked={enabled.includes(method)}
+                          disabled={uploading || savingMethods}
+                          onCheckedChange={async (on) => {
+                            const next = LOGIN_METHODS.filter((m) =>
+                              m === method ? on : enabled.includes(m),
+                            );
+                            setSavingMethods(true);
+                            try {
+                              await (next.length
+                                ? uploadText(
+                                    "loginMethods",
+                                    JSON.stringify(next),
+                                  )
+                                : deleteBlob("loginMethods"));
+                              await fetchBranding({ force: true });
+                            } finally {
+                              setSavingMethods(false);
+                            }
+                          }}
+                        />
+                      );
+                    })}
                   </View>
                 </SettingsRowItem>
               </MenuItem>

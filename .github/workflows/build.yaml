@@ -127,7 +127,8 @@ jobs:
   e2e-web:
     name: e2e-web
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The suite runs 17-20 minutes on its own.
+    timeout-minutes: 30
     needs: linux-amd64
     steps:
       - name: Check out code

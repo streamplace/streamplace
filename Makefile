@@ -4,6 +4,8 @@ $(shell mkdir -p $(OUT_DIR))
 .PHONY: default
 default: streamplace
 
+# build-signable sets this so the darwin targets stop after compiling.
+SKIP_SIGN?=0
 VERSION?=$(shell go run ./pkg/config/git/git.go -v)
 VERSION_NO_V=$(subst v,,$(VERSION))
 VERSION_ELECTRON=$(subst -,-z,$(subst v,,$(VERSION)))
@@ -18,12 +20,26 @@ endif
 ifeq ($(BUILDARCH),x86_64)
 		BUILDARCH=amd64
 endif
+# MoQ's default native codecs link ScreenCaptureKit, available since macOS 12.3.
+MACOSX_DEPLOYMENT_TARGET?=12.3
 MACOS_VERSION_FLAG=
 ifeq ($(BUILDOS),darwin)
-	MACOS_VERSION_FLAG=-mmacosx-version-min=$(shell sw_vers -productVersion)
+	export MACOSX_DEPLOYMENT_TARGET
+	MACOS_VERSION_FLAG=-mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
+	NATIVE_DYLIB_EXT=dylib
+else
+	NATIVE_DYLIB_EXT=so
 endif
 BUILDDIR?=build-$(BUILDOS)-$(BUILDARCH)
-PKG_CONFIG_PATH=$(shell pwd)/$(BUILDDIR)/lib/pkgconfig:$(shell pwd)/$(BUILDDIR)/lib/gstreamer-1.0/pkgconfig:$(shell pwd)/$(BUILDDIR)/meson-uninstalled
+PKG_CONFIG_PATH=$(shell pwd)/$(BUILDDIR)/meson-uninstalled:$(shell pwd)/$(BUILDDIR)/lib/pkgconfig:$(shell pwd)/$(BUILDDIR)/lib/gstreamer-1.0/pkgconfig
+NATIVE_LIBDIR=$(abspath $(BUILDDIR)/rust/streamplace-native)
+NATIVE_ENV=bash "$(CURDIR)/hack/native-go.sh" "$(NATIVE_LIBDIR)"
+NATIVE_CGO_LDFLAGS=-L$(NATIVE_LIBDIR) -lmoq_ffi $(MACOS_VERSION_FLAG)
+ifeq ($(BUILDOS),windows)
+	NATIVE_CGO_LDFLAGS+= -Wl,-Bstatic -lstdc++ -lwinpthread -Wl,-Bdynamic -static-libgcc
+else ifneq ($(BUILDOS),darwin)
+	NATIVE_CGO_LDFLAGS+= -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic
+endif
 
 # Sentinel file that records when lexicons were last built
 LEXICON_STAMP := .build/lexicon-stamp
@@ -114,8 +130,8 @@ android-release: .build/bundletool.jar android-keystore
 	&& cd - \
 	&& mv ./js/app/android/app/build/outputs/bundle/release/app-release.aab ./bin/streamplace-$(VERSION)-android-release.aab \
 	&& cd bin \
-	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-release.aab --output=streamplace-$(VERSION)-android-release.apks --mode=universal \
-	&& unzip streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb
+	&& java -jar ../.build/bundletool.jar build-apks --overwrite --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-release.aab --output=streamplace-$(VERSION)-android-release.apks --mode=universal \
+	&& unzip -o streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb
 
 # The release build for the Maestro suite (hack/e2e-local.sh): it trusts
 # user-installed CAs and never takes OTA updates (SP_E2E_BUILD in
@@ -140,8 +156,8 @@ android-debug: .build/bundletool.jar android-keystore
 	&& cd - \
 	&& mv ./js/app/android/app/build/outputs/bundle/debug/app-debug.aab ./bin/streamplace-$(VERSION)-android-debug.aab \
 	&& cd bin \
-	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-debug.aab --output=streamplace-$(VERSION)-android-debug.apks --mode=universal \
-	&& unzip streamplace-$(VERSION)-android-debug.apks && mv universal.apk streamplace-$(VERSION)-android-debug.apk && rm toc.pb
+	&& java -jar ../.build/bundletool.jar build-apks --overwrite --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-debug.aab --output=streamplace-$(VERSION)-android-debug.apks --mode=universal \
+	&& unzip -o streamplace-$(VERSION)-android-debug.apks && mv universal.apk streamplace-$(VERSION)-android-debug.apk && rm toc.pb
 
 .PHONY: ios
 ios: app
@@ -249,10 +265,14 @@ STATIC_OPTS = \
 	-D "gstreamer-full:gst-full-target-type=static_library" \
 	-D "gstreamer:registry=false"
 
+# GStreamer 1.28.8 skips its docs, and so the plugins_cache_generator the
+# plugin modules' docs ask it for, unless gstcheck is built. Static builds
+# skip the docs entirely.
 SHARED_OPTS = \
 	$(BASE_OPTS) \
 	-D "FFmpeg:default_library=shared" \
-	-D "gstreamer:registry=true"
+	-D "gstreamer:registry=true" \
+	-D "gstreamer:check=enabled"
 
 .PHONY: meson
 meson:
@@ -274,6 +294,16 @@ meson-setup-static:
 meson-compile:
 	meson install -C $(BUILDDIR)
 
+# Source bootstrap is independent of Meson configuration and is a no-op once
+# the pinned checkout exists, so repeated/offline native builds do not fetch.
+# A checkout of an older pin (moq.wrap's revision changed) is moved to the new
+# one, patches reapplied.
+.PHONY: native-source
+native-source:
+	meson subprojects download --sourcedir . moq
+	@[ "$$(git -C subprojects/moq rev-parse HEAD)" = "$$(sed -n 's/^revision = //p' subprojects/moq.wrap)" ] || \
+		meson subprojects update --reset --sourcedir . moq
+
 
 #    _____ _______    _______ _____ _____
 #   / ____|__   __|/\|__   __|_   _/ ____|
@@ -292,7 +322,8 @@ static:
 static-test:
 	go install github.com/jstemmer/go-junit-report/v2@latest \
 	&& PKG_CONFIG_PATH=$(shell realpath $(BUILDDIR)/meson-uninstalled) \
-	bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
+	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
+	$(NATIVE_ENV) bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
 
 # Run `streamplace vod-test` against a known set of fixture VODs using
 # the static binary at ./build-linux-amd64/streamplace. Skips cleanly
@@ -344,8 +375,8 @@ dev: app-cached $(LEXICON_STAMP)
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
-	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
-	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
+	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
+	LD_LIBRARY_PATH=$(BUILDDIR)/lib $(NATIVE_ENV) go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
 
 .PHONY: dev-web
 dev-web: app-cached $(LEXICON_STAMP)
@@ -353,8 +384,8 @@ dev-web: app-cached $(LEXICON_STAMP)
 	cp ./util/streamplace-dev-web.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
-	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
-	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
+	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
+	LD_LIBRARY_PATH=$(BUILDDIR)/lib $(NATIVE_ENV) go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
 
 .PHONY: dev-setup-meson
 dev-setup-meson:
@@ -367,32 +398,34 @@ dev-setup-meson-configure:
 	meson configure --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 
 .PHONY: dev-rust
-dev-rust: .build/bin/uniffi-bindgen-go-forked
-	cargo build
-	EXT=so; \
-	if [ "$(BUILDOS)" = "darwin" ]; then EXT=dylib; fi; \
-	.build/bin/uniffi-bindgen-go-forked --out-dir pkg/iroh/generated --library ./target/debug/libiroh_streamplace.$$EXT \
-	&& mkdir -p $(BUILDDIR)/rust/iroh-streamplace/ \
-	&& mkdir -p $(BUILDDIR)/lib/ \
-	&& cp ./target/debug/libiroh_streamplace.$$EXT $(BUILDDIR)/rust/iroh-streamplace/libiroh_streamplace.$$EXT.tmp \
-	&& mv $(BUILDDIR)/rust/iroh-streamplace/libiroh_streamplace.$$EXT.tmp $(BUILDDIR)/rust/iroh-streamplace/libiroh_streamplace.$$EXT \
-	&& cp ./target/debug/libiroh_streamplace.$$EXT $(BUILDDIR)/lib/libiroh_streamplace.$$EXT.tmp \
-	&& mv $(BUILDDIR)/lib/libiroh_streamplace.$$EXT.tmp $(BUILDDIR)/lib/libiroh_streamplace.$$EXT
+dev-rust: native-source .build/bin/uniffi-bindgen-go-forked
+	meson compile -C $(BUILDDIR) streamplace-native
+	$(MAKE) $(IROH_GO_BINDINGS)
+	mkdir -p $(BUILDDIR)/lib/
+	ln -f "$(NATIVE_LIBDIR)/libstreamplace_native.$(NATIVE_DYLIB_EXT)" $(BUILDDIR)/lib/
+
+# The generator reads the whole library, so it only runs when Cargo relinks it.
+IROH_GO_BINDINGS=pkg/iroh/generated/iroh_streamplace/iroh_streamplace.go
+$(IROH_GO_BINDINGS): $(NATIVE_LIBDIR)/libiroh_streamplace.$(NATIVE_DYLIB_EXT)
+	.build/bin/uniffi-bindgen-go-forked --crate iroh_streamplace --out-dir pkg/iroh/generated --library "$<"
+	touch $@
 
 .PHONY: dev-test
 dev-test:
 	go install github.com/jstemmer/go-junit-report/v2@latest \
 	&& PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
-	CGO_LDFLAGS="-lm" \
-	bash -euo pipefail -c "go test -p 1 -timeout 30m ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
+	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
+	BUILDDIR=$(BUILDDIR) \
+	$(NATIVE_ENV) bash -euo pipefail -c "go test -p 1 -timeout 30m ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
 
 .PHONY: iroh-test
 iroh-test:
 	$(MAKE) dev-rust
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
-	go build -o $(BUILDDIR)/iroh-test ./pkg/iroh/iroh_test/...
+	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
+	$(NATIVE_ENV) go build -o $(BUILDDIR)/iroh-test ./pkg/iroh/iroh_test/...
 
 #   _      _____ _   _ _______ _____ _   _  _____
 #  | |    |_   _| \ | |__   __|_   _| \ | |/ ____|
@@ -405,20 +438,21 @@ iroh-test:
 check: install
 	$(MAKE) golangci-lint
 	pnpm run check
-	if [ "`gofmt -l . | wc -l`" -gt 0 ]; then echo 'gofmt failed, run make fix'; exit 1; fi
+	@if [ -n "$$(bash hack/gofmt.sh -l)" ]; then echo 'gofmt failed, run make fix'; exit 1; fi
 	RUSTFLAGS="-D warnings" cargo check
 
 .PHONY: fix
 fix:
 	pnpm run fix
-	gofmt -w .
+	bash hack/gofmt.sh -w
 	cargo fix --allow-dirty
 	go mod tidy
 
 .PHONY: golangci-lint
 golangci-lint:
 	@PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
-	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint run -c ./.golangci.yaml
+	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
+	$(NATIVE_ENV) go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint run -c ./.golangci.yaml
 
 #   _      ________   _______ _____ ____  _   _  _____
 #  | |    |  ____\ \ / /_   _/ ____/ __ \| \ | |/ ____|
@@ -489,10 +523,10 @@ ci-lexicons:
 LINUX_LINK_COUNT=5
 .PHONY: link-test-linux
 link-test-linux:
-	count=$(shell ldd ./build-linux-amd64/streamplace | wc -l) \
+	count=$(shell ldd ./$(BUILDDIR)/streamplace | wc -l) \
 	&& echo $$count \
 	&& if [ "$$count" != "$(LINUX_LINK_COUNT)" ]; then echo "ldd reports new libaries linked! want $(LINUX_LINK_COUNT) got $$count" \
-		&& ldd ./build-linux-amd64/streamplace \
+		&& ldd ./$(BUILDDIR)/streamplace \
 		&& exit 1; \
 	fi
 
@@ -516,18 +550,53 @@ link-test-windows:
 		&& exit 1; \
 	fi
 
+# Run the GitLab build pipeline locally in the builder container.
+.PHONY: all
+all:
+	bash hack/all.sh
+
+# ATProto publishing is separate from `release` (the lerna version-cut target).
+# VERSION= (or RELEASE_VERSION=) overrides the version across every producer.
+# RELEASE_ARTIFACTS defaults to bin; RELEASE_DRY_RUN=1 previews without PDS auth.
+.PHONY: release-atproto publish-atproto ci-release-atproto
+release-atproto:
+	bash hack/release-atproto.sh build
+
+publish-atproto:
+	bash hack/release-atproto.sh publish
+
+ci-release-atproto:
+	bash hack/release-atproto.sh ci
+
+# Split build/sign workflow: build the macOS inputs here, sign them wherever
+# the Developer ID certificate lives, then publish from bin/.
+SIGN_INPUT?=
+.PHONY: build-signable
+build-signable:
+	bash hack/sign-input.sh
+
+.PHONY: sign
+sign:
+	bash hack/sign-release.sh "$(SIGN_INPUT)"
+
 .PHONY: ci
 ci: version install app node-all-platforms ci-upload-node
 
 
+# The darwin binaries are cross-compiled by build-darwin-* and downloaded here.
+# The Electron app is packaged and signed on Linux by the Forge postPackage
+# hook (hack/rcodesign-app.sh); no macOS keychain or util/mac-codesign.sh is
+# involved. The self-test only runs when this target is invoked on macOS, since
+# a darwin binary cannot execute on the Linux builder.
 .PHONY: ci-desktop-darwin
 ci-desktop-darwin: version install
-	./util/mac-codesign.sh \
-	&& for arch in amd64 arm64; do \
+	for arch in amd64 arm64; do \
 		curl -v --fail-with-body -O "$$CI_API_V4_URL/projects/$$CI_PROJECT_ID/packages/generic/$(BRANCH)/$(VERSION)/streamplace-$(VERSION)-darwin-$$arch.tar.gz" || exit 1 \
 		&& tar -xzvf streamplace-$(VERSION)-darwin-$$arch.tar.gz \
-		&& ./streamplace --version \
-		&& ./streamplace self-test \
+		&& if [ "$$(uname -s)" = "Darwin" ]; then \
+			./streamplace --version \
+			&& ./streamplace self-test; \
+		fi \
 		&& mkdir -p build-darwin-$$arch \
 		&& mv ./streamplace ./build-darwin-$$arch/streamplace; \
 	done \
@@ -653,6 +722,7 @@ windows-amd64:
 	&& CC=x86_64-w64-mingw32-gcc \
 	LD=x86_64-w64-mingw32-ld \
 	CROSS_COMPILE=1 \
+	CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc \
 	MESON_SETUP_OPTS="--cross-file util/windows-amd64-gnu.ini" \
 	BUILDDIR=build-windows-amd64 \
 	$(MAKE) -j $(shell nproc) archive
@@ -666,14 +736,19 @@ darwin-amd64:
 	&& export CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER=x86_64-apple-darwin24.4-clang \
 	&& export LD=x86_64-apple-darwin24.4-ld \
 	&& export CROSS_COMPILE=1 \
+	&& export MACOSX_DEPLOYMENT_TARGET=12.3 \
 	&& export MESON_SETUP_OPTS="--cross-file util/osxcross-darwin-amd64.ini" \
 	&& export BUILDDIR=build-darwin-amd64 \
 	&& $(MAKE) -j $(shell nproc) streamplace \
-	&& ./util/osxcross-codesign.sh ./build-darwin-amd64/streamplace \
-	&& mkdir -p bin \
-	&& cd build-darwin-amd64 \
-	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-amd64.tar.gz ./streamplace \
-	&& cd -
+	&& if [ "$(SKIP_SIGN)" = "1" ]; then \
+		echo "SKIP_SIGN=1: leaving build-darwin-amd64/streamplace unsigned"; \
+	else \
+		./util/osxcross-codesign.sh ./build-darwin-amd64/streamplace \
+		&& mkdir -p bin \
+		&& cd build-darwin-amd64 \
+		&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-amd64.tar.gz ./streamplace \
+		&& cd -; \
+	fi
 
 .PHONY: darwin-arm64
 darwin-arm64:
@@ -684,14 +759,19 @@ darwin-arm64:
 	&& export CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=aarch64-apple-darwin24.4-clang \
 	&& export LD=aarch64-apple-darwin24.4-ld \
 	&& export CROSS_COMPILE=1 \
+	&& export MACOSX_DEPLOYMENT_TARGET=12.3 \
 	&& export MESON_SETUP_OPTS="--cross-file util/osxcross-darwin-arm64.ini" \
 	&& export BUILDDIR=build-darwin-arm64 \
 	&& $(MAKE) -j $(shell nproc) streamplace \
-	&& ./util/osxcross-codesign.sh ./build-darwin-arm64/streamplace \
-	&& mkdir -p bin \
-	&& cd build-darwin-arm64 \
-	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-arm64.tar.gz ./streamplace \
-	&& cd -
+	&& if [ "$(SKIP_SIGN)" = "1" ]; then \
+		echo "SKIP_SIGN=1: leaving build-darwin-arm64/streamplace unsigned"; \
+	else \
+		./util/osxcross-codesign.sh ./build-darwin-arm64/streamplace \
+		&& mkdir -p bin \
+		&& cd build-darwin-arm64 \
+		&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-arm64.tar.gz ./streamplace \
+		&& cd -; \
+	fi
 
 # unbuffer here is a workaround for wine trying to pop up a terminal window and failing
 .PHONY: windows-amd64-startup-test
@@ -706,8 +786,22 @@ desktop-darwin-amd64:
 desktop-darwin-arm64:
 	echo "TODO"
 
+# On macOS Forge signs and notarizes with the platform tools. Elsewhere the
+# postPackage hook signs with rcodesign and hack/make-dmg.sh builds the DMG.
 .PHONY: desktop-darwin
 desktop-darwin:
+	@if [ "$$(uname -s)" = "Darwin" ]; then \
+		$(MAKE) desktop-darwin-macos; \
+	else \
+		$(MAKE) desktop-darwin-linux; \
+	fi
+
+.PHONY: desktop-darwin-linux
+desktop-darwin-linux:
+	bash hack/desktop-darwin-linux.sh
+
+.PHONY: desktop-darwin-macos
+desktop-darwin-macos:
 	export DEBUG="electron-osx-sign*" \
 	&& cd js/desktop \
 	&& pnpm run make --platform darwin --arch arm64 \
@@ -980,12 +1074,14 @@ ci-upload-android: android
 .PHONY: ci-upload-android-debug
 ci-upload-android-debug:
 	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.apk \
-	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.aab
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.aab \
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.apks
 
 .PHONY: ci-upload-android-release
 ci-upload-android-release:
 	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.apk \
-	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.aab
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.aab \
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.apks
 
 .PHONY: ci-upload-ios
 ci-upload-ios: ios
@@ -1011,7 +1107,6 @@ ci-download-file:
 
 .PHONY: c2pa-types
 c2pa-types:
-	$(MAKE) dev-rust
-	./target/debug/export_c2pa_schema
+	cargo run --package export_c2pa_schema
 	npx quicktype --lang go --src-lang schema --package c2patypes --out pkg/c2patypes/c2patypes.go ./target/schema/C2PA.schema.json
 	gofmt -w pkg/c2patypes/c2patypes.go

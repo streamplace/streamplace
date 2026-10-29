@@ -415,7 +415,7 @@ func TestRunMP4IngestWorkerSelfWatchdog(t *testing.T) {
 		done <- RunMP4IngestWorker(ctx, cfg, bytes.NewReader(wedge), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest })
 	}()
 	select {
-	case <-done:
+	case <-done: //nolint:errcheck // only the exit time matters
 		elapsed := time.Since(start)
 		require.Less(t, elapsed, 25*time.Second, "watchdog bounded the wedge")
 		t.Logf("worker self-terminated on wedge in %s", elapsed.Round(time.Second))

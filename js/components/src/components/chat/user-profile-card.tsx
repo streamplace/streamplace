@@ -1,6 +1,10 @@
-import { ProfileViewBasic } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
+import { AppBskyActorDefs } from "@atproto/api";
 import { TriggerRef } from "@rn-primitives/dropdown-menu";
-import { formatBadgeIssuer, formatBadgeLabel } from "@streamplace/core";
+import {
+  formatBadgeIssuer,
+  formatBadgeLabel,
+  formatHandleWithAt,
+} from "@streamplace/core";
 import { Image } from "expo-image";
 import {
   createContext,
@@ -31,7 +35,6 @@ import { useLivestreamStore } from "../../livestream-store";
 import { useUrl } from "../../streamplace-store";
 import { useNetworkProfileUrl } from "../../streamplace-store/branding";
 import { useTheme } from "../../ui";
-import { formatHandleWithAt } from "../../utils/format-handle";
 import { NetworkIcon } from "../icons/network-icon";
 import { Button, MenuGroup } from "../ui";
 import {
@@ -65,7 +68,7 @@ const BADGE_META: Record<string, BadgeMeta> = {
 
 interface OpenCardData {
   uri: string;
-  author: ProfileViewBasic;
+  author: AppBskyActorDefs.ProfileViewBasic;
   badges: ChatMessageViewHydrated["badges"];
   anchorX: number;
   anchorY: number;
@@ -83,16 +86,16 @@ const OpenCardContext = createContext<OpenCardContextValue>({
 
 // All hook-derived data needed to render the card — computed outside any Modal boundary.
 interface ProfileCardData {
-  author: ProfileViewBasic;
+  author: AppBskyActorDefs.ProfileViewBasic;
   profile: ReturnType<typeof useAvatars>[string] | undefined;
   profiles: ReturnType<typeof useAvatars>;
   serviceDid: string | null;
   allBadges: NonNullable<ChatMessageViewHydrated["badges"]>;
-  streamer: ProfileViewBasic | undefined;
+  streamer: AppBskyActorDefs.ProfileViewBasic | undefined;
 }
 
 export function useProfileCardData(
-  author: ProfileViewBasic,
+  author: AppBskyActorDefs.ProfileViewBasic,
   badges: ChatMessageViewHydrated["badges"],
 ): ProfileCardData {
   const nodeUrl = useUrl();
@@ -135,7 +138,7 @@ const BadgeRow = ({
 }: {
   badge: NonNullable<ChatMessageViewHydrated["badges"]>[number];
   serviceDid: string;
-  streamer?: ProfileViewBasic;
+  streamer?: AppBskyActorDefs.ProfileViewBasic;
   issuerProfiles: ReturnType<typeof useAvatars>;
 }) => {
   const isServiceIssued = badge.issuer === serviceDid;
@@ -248,7 +251,7 @@ export const ProfileCardContent = ({
             gap.all[2],
           ]}
         >
-          <Text testID="chat-profile-handle">@{author.handle}</Text>
+          <Text testID="chat-profile-handle">{formatHandleWithAt(author)}</Text>
           {Platform.OS === "web" && (
             <View style={{ position: "absolute", right: 2, bottom: 7 }}>
               <Button
@@ -404,7 +407,7 @@ export const UserProfileCard = ({
   children,
 }: {
   uri: string;
-  author: ProfileViewBasic;
+  author: AppBskyActorDefs.ProfileViewBasic;
   badges: ChatMessageViewHydrated["badges"];
   children: React.ReactNode;
 }) => {

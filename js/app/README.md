@@ -4,6 +4,51 @@ Expo (SDK 55) app for iOS/Android. Native projects (`ios/`, `android/`) are
 gitignored and generated via `expo prebuild`; shared UI lives in
 `@streamplace/components` and logic in `@streamplace/core`.
 
+## User search
+
+Search is available without signing in. Wide windows (981px and up, matching
+the sidebar breakpoint) have a persistent header Search field. Typing searches
+immediately, throttled to one request per 300ms with the latest query sent at
+the end of the interval. Results appear in a dropdown over the current page;
+only selecting an account navigates to its stream. Escape, an outside press,
+or clearing the query dismisses results. An empty field leaves page controls
+usable and clearing preserves keyboard focus. Wide headers reserve the title
+area for Search without changing browser tab titles. Embeds and OBS/popout
+utilities do not include app search chrome.
+
+Up/Down highlights results (wrapping at either end) and keeps the highlighted
+account in view; Enter opens it. Editing or dismissing clears the highlight.
+Short lists fit their content on first opening and reopening; long lists scroll
+within half the window height. The popup has no entrance layout animation,
+which would pin it to the loading state's height on web.
+Completed results stay visible and selectable while a replacement query is
+pending, including during the throttle interval. The loading placeholder only
+appears before a completed result exists. New responses replace the list and
+clear its keyboard highlight; clearing or dismissing still removes it immediately.
+
+On smaller windows the header field is hidden entirely. The native Search tab
+and web sidebar/tab still open `/search`, where Search or the keyboard's
+search/Enter key submits the query. On mobile, submitting dismisses the keyboard
+to keep results and empty states visible.
+
+Both surfaces share `components/user-search.tsx` and use
+`place.stream.live.searchActorsTypeahead` to search the current node's indexed
+users in its database. Matching ignores case, surrounding whitespace, and a
+leading `@`. Up to 20 active accounts are shown, ordered by handle; search does
+not include display names, videos, or the wider Bluesky network.
+
+Both surfaces use `components/search-results.tsx`, the existing profile cache
+and `useAvatars` hook, and the shared `Avatar` component. Profile pictures appear
+when available, with initials otherwise. The existing live-users poller supplies
+live status and the Avatar's red ring; search adds no separate polling.
+
+`header-user-search.spec.ts` covers automatic searches, unchanged routes,
+selection/dismissal, late responses, retained results during pending queries,
+responsive availability, loading-to-results sizing, scrolling, keyboard selection,
+loaded profile images, and live rings.
+The shared Maestro user-search flow retains native route coverage, checks the
+live avatar, and checks that the header field is absent on phones.
+
 ## Daily loop (iOS simulator)
 
 Three commands, first time only for the middle one:
@@ -37,6 +82,12 @@ Only when native code changes:
 
 Then run `pnpm app ios` (or `pnpm app android`). Bump `runtimeVersion` in
 `package.json` only when native dependencies change (it gates expo-updates).
+
+Packages with native code, and React and React Native themselves, are pinned
+to exact versions so that dependency updates keep OTA bundles compatible with
+the shipped binaries. Move them only together with a `runtimeVersion` bump.
+`npx @expo/fingerprint fingerprint:generate --platform ios` (and `android`) in
+`js/app` should report the same native sources before and after an update.
 
 ## Web bundle splitting and Atlas
 

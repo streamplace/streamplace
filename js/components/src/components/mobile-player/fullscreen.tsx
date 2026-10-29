@@ -110,7 +110,6 @@ export function Fullscreen(props: {
       v.removeEventListener("webkitbeginfullscreen", began);
       v.removeEventListener("webkitendfullscreen", ended);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeVideoRef, props.src]);
 
   return (

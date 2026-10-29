@@ -2,8 +2,10 @@ package atproto
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +25,17 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, ha
 	ctx, span := otel.Tracer("signer").Start(ctx, "SyncBlueskyRepoCached")
 	defer span.End()
 	repo, err := atsync.Model.GetRepoByHandleOrDID(handle)
+	if errors.Is(err, model.ErrAmbiguousHandle) {
+		// More than one indexed row claims the handle. The directory knows
+		// which account it verifies for; refreshing that account releases the
+		// others' claims. Falling through to the cached directory instead
+		// would hand back whichever owner it last saw.
+		ident, rerr := atsync.RefreshIdentity(ctx, handle)
+		if rerr != nil {
+			return nil, fmt.Errorf("%w: %w", err, rerr)
+		}
+		repo, err = atsync.Model.GetRepo(ident.DID.String())
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo for %s: %w", handle, err)
 	}
@@ -316,46 +329,70 @@ func syncInFlight(did string) bool {
 	return syncsInFlight.dids[did] > 0
 }
 
-func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did string) (*identity.Identity, error) {
-	id, err := atsync.resolveIdent(ctx, did, false)
+// RefreshIdentity re-resolves an identity straight from the directory and
+// brings the indexed row's handle and PDS in line with it. Only those columns
+// are written, and only on a row that already exists: the sync state on the
+// rest of the row is not this call's to touch, and an identity event or an
+// XRPC caller is not a request to index the account.
+//
+// Resolve and write under the stable DID's lock, including requests made by
+// handle. Otherwise an older resolution could write after a newer refresh.
+func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, identifier string) (*identity.Identity, error) {
+	requestedHandle := ""
+	if !strings.HasPrefix(identifier, "did:") {
+		requestedHandle = identifier
+		// Find the account first; re-resolve under its DID lock so a handle
+		// request and a firehose/sweep refresh cannot write out of order.
+		ident, err := atsync.resolveIdent(ctx, identifier, false)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve ident: %w", err)
+		}
+		identifier = ident.DID.String()
+	}
+	lock := identityLocks.GetLock(identifier)
+	lock.Lock()
+	defer lock.Unlock()
+
+	id, err := atsync.resolveIdent(ctx, identifier, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve ident: %w", err)
 	}
-	newRepo := model.Repo{
-		DID:    id.DID.String(),
-		PDS:    id.PDSEndpoint(),
-		Handle: id.Handle.String(),
+	did, handle := id.DID.String(), id.Handle.String()
+	if requestedHandle != "" && !strings.EqualFold(requestedHandle, handle) {
+		return nil, fmt.Errorf("handle %s no longer verifies for %s", requestedHandle, did)
 	}
-	// UpdateRepo writes every column, so carry the sync state over: blanking
-	// Version here would mark the repo as never-backfilled and (now that an
-	// empty Version means "re-sync me") make every identity event trigger a
-	// pointless full re-index.
-	oldRepo, err := atsync.Model.GetRepo(id.DID.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get repo: %w", err)
+	if model.IsUsableHandle(handle) {
+		// Different DIDs can race to claim the same handle. Check ownership
+		// under its own lock, held through the write: a delayed old answer
+		// must not evict an account that has already claimed the handle.
+		ownership := identityLocks.GetLock(handle)
+		ownership.Lock()
+		defer ownership.Unlock()
+		owner, err := atsync.resolveIdent(ctx, handle, false)
+		if err != nil {
+			return nil, fmt.Errorf("failed to verify handle ownership: %w", err)
+		}
+		if owner.DID != id.DID {
+			return nil, fmt.Errorf("handle %s no longer verifies for %s", handle, did)
+		}
 	}
-	if oldRepo != nil {
-		newRepo.Version = oldRepo.Version
-		newRepo.RootCID = oldRepo.RootCID
-		// Same reasoning for Status: an identity event is not evidence the
-		// account came back, and blanking it here would put every deactivated
-		// repo back in the boot-time sync sweep.
-		newRepo.Status = oldRepo.Status
-		// And for the backfill watermark: losing it would make the sweep walk
-		// this repo's whole history again from the top of the ladder.
-		newRepo.BackfillFloor = oldRepo.BackfillFloor
-		newRepo.BackfillDone = oldRepo.BackfillDone
-		// And for the repair watermark, which is how a pending repair knows
-		// which span of history it is there to re-read.
-		newRepo.RepairFrom = oldRepo.RepairFrom
-	}
-	err = atsync.Model.UpdateRepo(&newRepo)
+	evicted, err := atsync.Model.UpdateRepoIdentity(did, handle, id.PDSEndpoint())
 	if err != nil {
 		return nil, fmt.Errorf("failed to update repo: %w", err)
 	}
 	// Drop the cached identity so subsequent cached resolves pick up the new
-	// PDS/handle instead of serving the stale entry for up to 24h.
-	atsync.purgeIdentCache(ctx, id.DID.String())
+	// PDS/handle instead of serving the stale entry for up to 24h. The same
+	// goes for every account that just lost its claim to the handle: a cached
+	// entry would keep naming it by a handle it no longer has. And the handle
+	// itself is purged so a cached lookup by name stops at the old owner.
+	atsync.purgeIdentCache(ctx, did)
+	for _, stale := range evicted {
+		log.Log(ctx, "released stale handle claim", "did", stale, "handle", handle, "owner", did)
+		atsync.purgeIdentCache(ctx, stale)
+	}
+	if model.IsUsableHandle(handle) {
+		atsync.purgeIdentCache(ctx, handle)
+	}
 	return id, nil
 }
 

@@ -46,6 +46,22 @@ smoke, navigation, and stream coverage correspond to
 `.maestro/setup/oauth-login.yaml`; authenticated chat/profile behavior is covered
 on mobile by `.maestro/logged-in/{chat-reply,chat-profile}.yaml`.
 
+`invalid-handle` runs against both Expo web and the Vite beta. It moves the
+harness account to a real `.test` handle, which cannot pass public
+bidirectional verification, and calls `com.atproto.identity.refreshIdentity`.
+The home feed must display the DID without `@`, open its DID-addressed stream,
+and play real media. It also exercises an invalid typeahead result. Only public
+AppView discovery (the harness account is not publicly indexed) and that search
+boundary are substituted; the feed, PDS/PLC, refresh endpoint, websocket and
+playback remain real. Cleanup restores the original verified handle and waits
+for the live-feed cache to catch up, including after a failed assertion.
+The corresponding shared native flow is
+`.maestro/logged-out/invalid-handle.yaml`.
+The login typeahead case changes an invalid result back to a verified handle
+without changing its DID or avatar, then accepts the corrected completion. It
+covers the shared login hook; the public AppView boundary is substituted because
+the local PDS account is not publicly searchable.
+
 The web app renders the **desktop layout** (a sidebar of nav links), not the
 mobile tab bar, so `tabs` drives Home ↔ Settings through the sidebar.
 `go-live` checks that the Live Dashboard (`/live`) requires login; this is
@@ -56,13 +72,30 @@ was reported there. `vod` opens the VOD the harness publishes and checks both th
 page title and the app's tab title; document titles have no native counterpart.
 `branding-favicons` exercises authenticated light/dark favicon uploads, scheme
 switches, persistence and deletion fallbacks, including the HTML before
-hydration. It is web-only: native apps have no browser tab favicon, and branding
-image uploads are already limited to the web.
+hydration. It also decodes `/favicon.ico` as a browser image, verifying the ICO
+signature, MIME type, branded pixels and bundled fallback after deletion.
+It is web-only: native apps have no browser tab favicon, and branding image
+uploads are already limited to the web.
 
 `stream` also covers the narrow portrait web layout at 320 × 568, where the
 live video sits above chat. It reveals the player chrome, exercises mute and
 fullscreen entry/exit, and verifies that faded controls reveal instead of
-accepting an unseen tap.
+accepting an unseen tap. Its readiness check uses the video itself: accumulated
+chat history can virtualize the stream's initial system message, so that row is
+not a reliable player prerequisite.
+
+`player-viewport` opts into the Vite web beta and starts the real harness's HLS
+stream at phone, tablet, square, and desktop sizes. After confirming playback,
+it pauses through the normal shortcut and checks control visibility, viewport
+containment, opacity, and pointer hit targets with chat open and closed. It
+changes volume in both states, opens Settings, and checks fullscreen entry/exit
+and control availability in fullscreen. Cases straddle the square-layout and
+player-width boundaries; compact players retain theatre and danmu in Settings.
+The touch case uses the embed player to verify 44px buttons and a working volume
+hit area at narrow and tablet widths. Public AppView identity discovery is
+substituted in the chat cases because the harness account is not publicly
+indexed. The embed test uses real services throughout. This is web-only: iOS
+and Android use the separate Expo/native player.
 
 `player-breakpoints` exercises live playback at 23 widths in portrait and
 landscape, including 1080 × 722 and immediately below, at, and above the theme
@@ -86,6 +119,11 @@ automatic publishing consent; the PDS-backed regression for that index deletion
 lives in `pkg/atproto/auto_publish_vod_test.go`. It also injects a deletion failure
 and checks that later deletions still run while the commit watermark advances
 only after successful reprocessing.
+
+`syndication` plays the test stream from the harness's second node, which pulls
+it from the first over Media over QUIC (`SERVER2_URL`; see `docs/moq.md`). It is
+web-only: node-to-node transfer has no mobile surface, and the mobile flows play
+from the ingest node.
 
 ## OAuth over real HTTPS
 

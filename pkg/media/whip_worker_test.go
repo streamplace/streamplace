@@ -100,7 +100,7 @@ func TestWHIPWorkerAnswersOffer(t *testing.T) {
 
 	cancel()
 	select {
-	case <-serveDone:
+	case <-serveDone: //nolint:errcheck // only the exit matters
 	case <-time.After(25 * time.Second):
 		t.Fatal("worker did not exit after cancel")
 	}
@@ -235,7 +235,7 @@ func TestWHIPWorkerLoopback(t *testing.T) {
 	conn.Close()
 	cancel()
 	select {
-	case <-serveDone:
+	case <-serveDone: //nolint:errcheck // only the exit matters
 	case <-time.After(25 * time.Second):
 		t.Fatal("worker did not exit after cancel")
 	}

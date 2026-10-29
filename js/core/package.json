@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/core",
-  "version": "0.12.6",
+  "version": "0.12.13",
   "private": true,
   "description": "Streamplace platform-agnostic core (data layer, providers, i18n, theme tokens, hooks). No React Native or Expo dependencies.",
   "main": "./src/index.ts",
@@ -17,14 +17,14 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "vitest": "^4.1.9"
+    "vitest": "^5.0.5"
   },
   "dependencies": {
-    "@atproto/api": "^0.19.3",
+    "@atproto/api": "^0.29.1",
     "@streamplace/components": "workspace:*",
     "react": "*",
     "streamplace": "workspace:*",
-    "zustand": "^5.0.5"
+    "zustand": "^5.0.15"
   },
   "peerDependencies": {
     "react": "*"

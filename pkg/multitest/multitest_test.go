@@ -113,6 +113,10 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		devAccountCreds = append(devAccountCreds, fmt.Sprintf("%s=%s", acct.DID, acct.Password))
 	}
 	apiPort := nextPort()
+	// Every node listens for MoQ on UDP :38443 by default, and the nodes'
+	// broadcaster hosts don't resolve, so each gets its own port, advertised
+	// on loopback.
+	moqPort := nextPort()
 	env := map[string]string{
 		"SP_HTTP_ADDR":              fmt.Sprintf("127.0.0.1:%d", apiPort),
 		"SP_HTTP_INTERNAL_ADDR":     fmt.Sprintf("127.0.0.1:%d", nextPort()),
@@ -126,14 +130,28 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		"RUST_LOG":                  os.Getenv("RUST_LOG"),
 		"SP_BROADCASTER_HOST":       fmt.Sprintf("%s.example.com", name),
 		"SP_WEBSOCKET_URL":          fmt.Sprintf("ws://127.0.0.1:%d", apiPort),
+		"SP_MOQ_ADDR":               fmt.Sprintf("127.0.0.1:%d", moqPort),
+		"SP_MOQ_URL":                fmt.Sprintf("moqt://127.0.0.1:%d", moqPort),
 	}
 	_, file, _, _ := runtime.Caller(0)
-	buildDir := fmt.Sprintf("build-%s-%s", runtime.GOOS, runtime.GOARCH)
-	abs, err := filepath.Abs(filepath.Join(filepath.Dir(file), "..", "..", buildDir, "streamplace"))
+	buildDir := os.Getenv("BUILDDIR")
+	if buildDir == "" {
+		buildDir = fmt.Sprintf("build-%s-%s", runtime.GOOS, runtime.GOARCH)
+	}
+	repoRoot := filepath.Join(filepath.Dir(file), "..", "..")
+	abs, err := filepath.Abs(filepath.Join(repoRoot, buildDir, "streamplace"))
 	require.NoErrorf(t, err, "[%s] failed to resolve absolute binary path", name)
-	// Run the streamplace binary at abs with the environment env
+	// Run the streamplace binary at abs with the environment env. The dev
+	// wrapper runs `go run` for its version, so expose the toolchain env while
+	// keeping the node configuration explicit.
 	cmd := exec.Command(abs)
-	cmd.Env = []string{}
+	cmd.Dir = repoRoot
+	cmd.Env = []string{
+		"PATH=" + os.Getenv("PATH"),
+		"HOME=" + os.Getenv("HOME"),
+		"GOCACHE=" + os.Getenv("GOCACHE"),
+		"GOMODCACHE=" + os.Getenv("GOMODCACHE"),
+	}
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
@@ -197,7 +215,11 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		<-nodeCtx.Done()
 		node.Shutdown(t)
 	}()
+	// The scraper must be done before shutdown kills the node: a scrape of a
+	// dead node after the test has completed fails it, which panics.
+	scraperDone := make(chan struct{})
 	go func() {
+		defer close(scraperDone)
 		for {
 			select {
 			case <-nodeCtx.Done():
@@ -229,6 +251,7 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 		}
 		shuttingDown = true
 		nodeCancel()
+		<-scraperDone
 		_ = cmd.Process.Kill()
 		_, _ = cmd.Process.Wait()
 		// Wait for stdout/stderr readers to finish

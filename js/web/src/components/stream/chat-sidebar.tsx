@@ -1,4 +1,5 @@
 import type { LivestreamStore } from "@streamplace/core";
+import { formatHandle } from "@streamplace/core";
 import { ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
@@ -6,7 +7,6 @@ import { useShallow } from "zustand/react/shallow";
 import { SidebarContent, SidebarFooter, SidebarHeader } from "../ui/sidebar";
 import { ChatInput } from "./chat-input";
 import { ChatPanel } from "./chat-panel";
-import { StreamNotifications } from "./stream-notifications";
 
 export function ChatSidebar({
   store,
@@ -34,7 +34,7 @@ export function ChatSidebar({
           <div className="flex-1 pl-2">Stream Chat</div>
           <div className="flex items-center gap-1">
             <a
-              href={`/chat-popout/${encodeURIComponent(author?.handle || "")}`}
+              href={`/chat-popout/${encodeURIComponent(author ? formatHandle(author) : "")}`}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded p-1 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
@@ -69,8 +69,6 @@ export function ChatSidebar({
           </div>
         </div>
       </SidebarHeader>
-
-      <StreamNotifications store={store} />
 
       <SidebarContent className="overflow-hidden p-0!">
         <ChatPanel store={store} />

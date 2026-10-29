@@ -109,7 +109,7 @@ update = 更新
 log-out = 登出
 
 ## 帳戶設定
-account-greeting = 嗨，@{ $handle }。
+account-greeting = 嗨，{ $handle }。
 edit-profile-bluesky = 編輯個人資料（在 Bluesky）
 change-name-color = 變更名稱顏色
 

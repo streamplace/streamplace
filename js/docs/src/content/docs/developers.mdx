@@ -21,7 +21,7 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 
 <Card title="Self-Hosting" icon="seti:config">
   Run your own Streamplace infrastructure. - [Installation
-  guide](/docs/guides/installing/installing-streamplace)
+  guide](/docs/guides/installing/downloading-streamplace)
 </Card>
 
 {" "}
@@ -38,3 +38,54 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
     community](https://discord.stream.place)
   </Card>
 </CardGrid>
+
+## Account handles and identity repair
+
+Handles can temporarily fail AT Protocol's bidirectional verification after a
+rename, domain change, or handle swap. Streamplace displays the account's DID
+instead of `handle.invalid` (or an absent handle), including chat, push and
+Discord notifications, and keeps its stream, video, profile and share links
+DID-addressable. A DID is not prefixed with `@`. API identity responses retain
+the protocol's `handle.invalid` sentinel; clients must apply the same display
+and link fallback rather than treating it as a name.
+
+Supported identifiers are `did:plc` and hostname-level `did:web` DIDs without
+ports. Path-based `did:web` DIDs and the localhost-only encoded-port extension
+are not supported by Streamplace.
+
+The existing atproto sweep rechecks successfully indexed, active accounts
+against the identity directory without using its cached answer. A corrected
+handle or moved PDS is picked up when the next sweep reaches that account, even
+if the node missed its firehose identity event. The default interval is six
+hours, configured with `--sweep-interval` / `SP_SWEEP_INTERVAL`; `0` disables
+periodic sweeps. Shorter intervals increase directory, DNS and PDS traffic.
+Identity refresh updates only identity fields, preserving indexing progress.
+Lookup failures leave the last known identity intact.
+
+To refresh one account immediately, use its stable DID:
+
+```sh
+curl -X POST https://YOUR_NODE/xrpc/com.atproto.identity.refreshIdentity \
+  -H 'Content-Type: application/json' \
+  -d '{"identifier":"did:plc:YOUR_ACCOUNT"}'
+```
+
+Refreshing an identity does not index an unknown account. Empty or invalid
+handles, and ambiguous cached handle claims, never select an arbitrary indexed
+account; use the DID while handle ownership is being repaired.
+
+## Chat message timestamps
+
+Chat messages (`place.stream.chat.message`) sent by Streamplace include the
+sending device's local UTC offset in `createdAt`, for example
+`2026-10-17T13:30:00.123-07:00`. The offset is read at send time, including
+daylight-saving adjustments; there is no account-wide time zone setting. Devices
+set to UTC send `+00:00`. Existing records ending in `Z` remain valid.
+
+The node preserves the original timestamp in the record and compares instants
+for chat ordering and freshness. Consumers should parse RFC 3339 timestamps, not
+compare their strings or assume a trailing `Z`.
+
+The offset gives bots the sender's local wall-clock time, not an IANA time zone
+such as `America/Los_Angeles`. It cannot determine daylight-saving transitions
+for future scheduling; ask for a named zone when those rules matter.

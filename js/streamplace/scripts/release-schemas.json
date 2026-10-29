@@ -1,0 +1,262 @@
+{
+  "authority": "did:plc:zimrxnxvvkwixvtkazpx3zfx",
+  "lexicons": [
+    {
+      "defs": {
+        "main": {
+          "description": "A mutable named pointer to a version. Resolve the manifest through the referenced version. The record key is '{projectName}.{channelName}', making uniqueness per (project, name) mechanical and enabling AppView-free resolution. Channel names follow the project-name grammar (lowercase alphanumerics, interior hyphens, no dots). Valid only when same-DID with the referenced project and version.",
+          "key": "any",
+          "record": {
+            "properties": {
+              "channel": {
+                "description": "Channel name (e.g. latest, next). Follows the project-name grammar. MUST match the record rkey after the first dot.",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              "project": {
+                "description": "The software.release.project this pointer belongs to. Must be same-DID.",
+                "format": "at-uri",
+                "type": "string"
+              },
+              "version": {
+                "description": "Strong reference to the software.release.version this channel currently points to. Must belong to the same project.",
+                "ref": "com.atproto.repo.strongRef#main",
+                "type": "ref"
+              }
+            },
+            "required": ["project", "channel", "version"],
+            "type": "object"
+          },
+          "type": "record"
+        }
+      },
+      "id": "software.release.channel",
+      "lexicon": 1
+    },
+    {
+      "defs": {
+        "blobArtifact": {
+          "description": "A named downloadable file stored as a blob in the manifest publisher's PDS. Consumers MUST verify downloaded bytes against the blob CID. Target metadata is optional and describes coarse runtime compatibility, not installation instructions.",
+          "properties": {
+            "blob": {
+              "accept": ["*/*"],
+              "description": "The artifact bytes. The blob reference supplies the content CID, MIME type, and size. No artifact-specific size limit is imposed; hosting services may impose their own limits.",
+              "type": "blob"
+            },
+            "fileName": {
+              "description": "Suggested download filename, not a path. MUST NOT contain slashes, backslashes, or control characters, and MUST NOT be dot or dot-dot. Consumers MUST handle it as untrusted input and ensure it is safe for the destination filesystem. Filenames do not define target compatibility.",
+              "maxLength": 255,
+              "minLength": 1,
+              "type": "string"
+            },
+            "metadata": {
+              "description": "Typed ecosystem-specific metadata fragments. Metadata supplements core artifact fields and MUST NOT override or contradict them. Consumers may display or offer downloads of artifacts with unknown fragment types, but MUST NOT assume those fragments impose no additional requirements for automated installation. Unknown fragment types do not establish compatibility or suitability for automated installation.",
+              "items": {
+                "closed": false,
+                "refs": [],
+                "type": "union"
+              },
+              "type": "array"
+            },
+            "target": {
+              "description": "Intended runtime target. Omission means compatibility is unspecified, not universal.",
+              "ref": "#target",
+              "type": "ref"
+            }
+          },
+          "required": ["fileName", "blob"],
+          "type": "object"
+        },
+        "gitCommit": {
+          "properties": {
+            "algorithm": {
+              "description": "Git object hash algorithm. Consumers must report unsupported algorithms rather than treating the input as verified.",
+              "knownValues": ["sha1", "sha256"],
+              "minLength": 1,
+              "type": "string"
+            },
+            "digest": {
+              "description": "Full lowercase hexadecimal commit object ID, never abbreviated. Exactly 40 characters for sha1 or 64 for sha256. This hashes the Git commit object, not the source archive bytes.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": ["algorithm", "digest"],
+          "type": "object"
+        },
+        "gitRepository": {
+          "description": "A project's Git source location, independent of any particular forge. This describes development sources rather than a pinned release input.",
+          "properties": {
+            "directory": {
+              "description": "Repository-relative directory using slash separators. No leading or trailing slash, backslashes, empty segments, or dot or dot-dot segments. Omit for the repository root.",
+              "minLength": 1,
+              "type": "string"
+            },
+            "ref": {
+              "description": "Fully qualified Git ref, such as refs/heads/main. Must satisfy Git ref syntax. May move over time.",
+              "type": "string"
+            },
+            "repository": {
+              "description": "Cloneable repository URI, such as an HTTPS or ssh:// clone URI, not an arbitrary forge page. Git's scp-like shorthand is not a URI.",
+              "format": "uri",
+              "type": "string"
+            }
+          },
+          "required": ["repository"],
+          "type": "object"
+        },
+        "gitRevision": {
+          "description": "A pinned Git source input for a release. The commit is authoritative; an optional ref supplies context only.",
+          "properties": {
+            "commit": {
+              "ref": "#gitCommit",
+              "type": "ref"
+            },
+            "directory": {
+              "description": "Repository-relative directory using slash separators. No leading or trailing slash, backslashes, empty segments, or dot or dot-dot segments. Omit for the repository root.",
+              "minLength": 1,
+              "type": "string"
+            },
+            "ref": {
+              "description": "Fully qualified Git ref, such as refs/tags/v1.2.3. Must satisfy Git ref syntax. This is descriptive context and never overrides the pinned commit.",
+              "type": "string"
+            },
+            "repository": {
+              "description": "Cloneable repository URI, not an arbitrary forge page. Git's scp-like shorthand is not a URI.",
+              "format": "uri",
+              "type": "string"
+            }
+          },
+          "required": ["repository", "commit"],
+          "type": "object"
+        },
+        "target": {
+          "description": "Coarse runtime compatibility for an artifact, not its build host. This is not a complete compatibility guarantee: OS versions, ABI, libc, and CPU features may impose additional requirements. Unknown values MUST NOT be treated as compatibility matches by consumers that do not understand them.",
+          "properties": {
+            "architectures": {
+              "description": "Supported runtime CPU architectures, with no duplicates. Each entry is an alternative supported architecture, not a simultaneous requirement. Architecture identifiers follow Go GOARCH naming as adopted by the OCI Image Specification's platform.architecture field (https://github.com/opencontainers/image-spec/blob/v1.0.2/image-index.md). Publishers SHOULD use canonical identifiers where applicable, such as amd64, arm64, and 386 rather than x86_64, aarch64, and x86. Omission means unspecified, not architecture-independent.",
+              "items": {
+                "knownValues": ["amd64", "arm64", "386"],
+                "minLength": 1,
+                "type": "string"
+              },
+              "minLength": 1,
+              "type": "array"
+            },
+            "os": {
+              "description": "Intended runtime operating system. Use canonical known values where applicable, such as macos rather than darwin. Omission means unspecified, not support for every OS.",
+              "knownValues": ["linux", "macos", "windows", "android", "ios"],
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "id": "software.release.defs",
+      "lexicon": 1
+    },
+    {
+      "defs": {
+        "main": {
+          "description": "An immutable collection of release artifacts. Written once and never updated: all facts (artifact digests, sizes, locations) are fixed at creation. Lifecycle changes use software.release.status records and software.release.channel moves. Any update to an existing release record is treated by indexers as a probable-compromise signal. Valid only when this record's DID matches the referenced project's DID.",
+          "key": "tid",
+          "record": {
+            "properties": {
+              "artifacts": {
+                "description": "Typed release artifact fragments. Distribution and integrity rules are specified by each artifact's schema.",
+                "items": {
+                  "closed": false,
+                  "refs": [],
+                  "type": "union"
+                },
+                "type": "array"
+              },
+              "project": {
+                "description": "The software.release.project this release belongs to. Must be same-DID.",
+                "format": "at-uri",
+                "type": "string"
+              }
+            },
+            "required": ["project", "artifacts"],
+            "type": "object"
+          },
+          "type": "record"
+        }
+      },
+      "id": "software.release.manifest",
+      "lexicon": 1
+    },
+    {
+      "defs": {
+        "main": {
+          "description": "A software project. The record key is the project name itself, making duplicate names per repo impossible and enabling AppView-free resolution. Name grammar (normative prose): 1 to 64 lowercase ASCII alphanumerics and interior hyphens only, no dots or colons, no leading or trailing hyphen.",
+          "key": "any",
+          "record": {
+            "properties": {
+              "name": {
+                "description": "Machine name of the project. MUST equal the record key. Serves as URL segment, uniqueness key, display fallback, and install token.",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              "parent": {
+                "description": "An AT URI to a software.release.project that this project either derives or descends from.",
+                "format": "at-uri",
+                "type": "string"
+              },
+              "renamedTo": {
+                "description": "When set, this project has been renamed: the record persists as a permanent alias to the successor software.release.project. Record keys are immutable, so rename is never an in-place edit and an old name is never reusable.",
+                "format": "at-uri",
+                "type": "string"
+              }
+            },
+            "required": ["name"],
+            "type": "object"
+          },
+          "type": "record"
+        }
+      },
+      "id": "software.release.project",
+      "lexicon": 1
+    },
+    {
+      "defs": {
+        "main": {
+          "description": "An immutable named pointer to a manifest. The record key is '{projectName}.{version}', making uniqueness per (project, version) mechanical and enabling AppView-free resolution. Version strings follow the project-name grammar (lowercase alphanumerics, interior hyphens) but allow dots. Target is never expected to be updated. Valid only when same-DID with the referenced project, and only when target references a manifest of that same project.",
+          "key": "any",
+          "record": {
+            "properties": {
+              "changelog": {
+                "description": "Canonical site.standard.document or website changelog linked at version creation. The document may be published by a different DID. This URI does not pin the document's contents.",
+                "format": "uri",
+                "type": "string"
+              },
+              "manifest": {
+                "description": "Strong reference to the software.release.manifest this version stamps. Must belong to the same project.",
+                "ref": "com.atproto.repo.strongRef#main",
+                "type": "ref"
+              },
+              "project": {
+                "description": "The software.release.project this pointer belongs to. Must be same-DID.",
+                "format": "at-uri",
+                "type": "string"
+              },
+              "version": {
+                "description": "Version string (e.g. v1.0.0, 2026.10.13). Follows the project-name grammar, minus colons. Should match the record rkey after the first dot.",
+                "maxLength": 64,
+                "type": "string"
+              }
+            },
+            "required": ["project", "version", "manifest"],
+            "type": "object"
+          },
+          "type": "record"
+        }
+      },
+      "id": "software.release.version",
+      "lexicon": 1
+    }
+  ]
+}

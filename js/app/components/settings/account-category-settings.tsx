@@ -12,6 +12,7 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { useNameColorPicker } from "components/name-color-picker/name-color-picker";
 import { Image } from "expo-image";
 import { Award, Edit3, LogOut, Palette, X } from "lucide-react-native";
@@ -101,10 +102,8 @@ export function AccountCategorySettings() {
             )}
             <Text size="3xl" style={{ textAlign: "center" }}>
               {(() => {
-                const greeting = t("account-greeting", {
-                  handle: userProfile.handle,
-                });
-                const handle = `@${userProfile.handle}`;
+                const handle = formatHandleWithAt(userProfile);
+                const greeting = t("account-greeting", { handle });
                 const parts = greeting.split(handle);
                 return (
                   <>
@@ -131,7 +130,7 @@ export function AccountCategorySettings() {
               <SettingsExternalItem
                 LeftIcon={Edit3}
                 title={t("edit-profile-bluesky", { network })}
-                link={`https://bsky.app/profile/${userProfile.handle}`}
+                link={`https://bsky.app/profile/${formatHandle(userProfile)}`}
               />
             </MenuGroup>
 

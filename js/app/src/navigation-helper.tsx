@@ -99,6 +99,19 @@ export function convertNavigationParams(to: LinkParams): LinkParams {
     };
   }
 
+  if (to.screen === "Search") {
+    return {
+      screen: "MainTabs",
+      params: {
+        screen: "SearchTab",
+        params: {
+          screen: to.screen,
+          params: to.params,
+        },
+      },
+    };
+  }
+
   // GoLiveTab
   if (to.screen === "GoLiveTab") {
     return {

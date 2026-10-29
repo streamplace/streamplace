@@ -15,7 +15,14 @@ const lexiconPassword = "lexicons";
 (async () => {
   const network = await TestNetwork.create(
     hostname
-      ? { pds: { hostname, serviceHandleDomains: [`.${hostname}`] } }
+      ? {
+          pds: {
+            hostname,
+            // .test accounts deliberately fail public handle verification,
+            // while their DID and PDS stay reachable over the HTTPS harness.
+            serviceHandleDomains: [`.${hostname}`, ".test"],
+          },
+        }
       : {},
   );
   const out = { "pds-url": network.pds.url, "plc-url": network.plc.url };

@@ -23,7 +23,6 @@ export interface ContentMetadataSlice {
     };
   }) => Promise<void>;
   updateContentMetadata: (params: {
-    rkey?: string;
     livestreamRef?: { uri: string; cid: string };
     contentWarnings?: string[];
     distributionPolicy?: {
@@ -126,11 +125,10 @@ export const createContentMetadataSlice: StateCreator<
   },
 
   updateContentMetadata: async ({
-    rkey,
     livestreamRef,
-    contentWarnings = [],
-    distributionPolicy = { deleteAfter: undefined },
-    contentRights = {},
+    contentWarnings,
+    distributionPolicy,
+    contentRights,
   }) => {
     set({ updating: true, error: null });
     try {
@@ -144,35 +142,59 @@ export const createContentMetadataSlice: StateCreator<
         throw new Error("No DID");
       }
 
-      const metadataRecord = {
+      let existingRecord: Record<string, unknown> | undefined;
+      try {
+        const result = await pdsAgent.com.atproto.repo.getRecord({
+          repo: did,
+          collection: "place.stream.metadata.configuration",
+          rkey: "self",
+        });
+        existingRecord = result.data.value;
+      } catch (error: any) {
+        if (error?.error !== "RecordNotFound") {
+          throw error;
+        }
+      }
+
+      const metadataRecord: Record<string, unknown> = {
+        ...existingRecord,
         $type: "place.stream.metadata.configuration",
         ...(livestreamRef && { livestreamRef }),
         createdAt: new Date().toISOString(),
-        ...(contentWarnings.length > 0 && {
-          contentWarnings: { warnings: contentWarnings },
-        }),
-        ...((distributionPolicy.deleteAfter !== undefined ||
-          (distributionPolicy.allowedBroadcasters &&
-            distributionPolicy.allowedBroadcasters.length > 0)) && {
-          distributionPolicy: {
-            ...(distributionPolicy.deleteAfter !== undefined && {
-              deleteAfter: distributionPolicy.deleteAfter,
-            }),
-            ...(distributionPolicy.allowedBroadcasters && {
-              allowedBroadcasters: distributionPolicy.allowedBroadcasters,
-            }),
-          },
-        }),
-        ...(contentRights &&
-          Object.keys(contentRights).length > 0 && {
-            contentRights,
-          }),
       };
+
+      if (contentWarnings !== undefined) {
+        if (contentWarnings.length > 0) {
+          metadataRecord.contentWarnings = { warnings: contentWarnings };
+        } else {
+          delete metadataRecord.contentWarnings;
+        }
+      }
+
+      if (distributionPolicy !== undefined) {
+        const { deleteAfter, allowedBroadcasters } = distributionPolicy;
+        if (deleteAfter !== undefined || allowedBroadcasters?.length) {
+          metadataRecord.distributionPolicy = {
+            ...(deleteAfter !== undefined && { deleteAfter }),
+            ...(allowedBroadcasters && { allowedBroadcasters }),
+          };
+        } else {
+          delete metadataRecord.distributionPolicy;
+        }
+      }
+
+      if (contentRights !== undefined) {
+        if (Object.keys(contentRights).length > 0) {
+          metadataRecord.contentRights = contentRights;
+        } else {
+          delete metadataRecord.contentRights;
+        }
+      }
 
       const result = await pdsAgent.com.atproto.repo.putRecord({
         repo: did,
         collection: "place.stream.metadata.configuration",
-        rkey: rkey || "self",
+        rkey: "self",
         record: metadataRecord,
       });
 
@@ -181,9 +203,7 @@ export const createContentMetadataSlice: StateCreator<
         error: null,
         lastCreatedRecord: {
           record: metadataRecord,
-          uri: `at://${did}/place.stream.metadata.configuration/${
-            rkey || "self"
-          }`,
+          uri: result.data.uri,
           cid: result.data.cid,
         },
       });

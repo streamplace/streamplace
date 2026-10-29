@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/gortmplib"
 	"github.com/go-gst/go-gst/pkg/gst"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
@@ -28,8 +28,8 @@ type RTMPAACData struct {
 
 type RTMPSession struct {
 	EventChan   chan any
-	VideoTrack  *format.H264
-	AudioTrack  *format.MPEG4Audio
+	VideoTrack  *gortmplib.Track
+	AudioTrack  *gortmplib.Track
 	MediaSigner MediaSigner
 }
 

@@ -46,6 +46,49 @@ The organization and generated config are platform-neutral; the current runner
 only provisions Android. No native Go Live scenario exists: native builds hide
 those controls, and `logged-out/tabs.yaml` checks they stay hidden.
 
+## Chat submission coverage
+
+`logged-in/chat-submit.yaml` sends with keyboard Return, then the chat Send
+button, then Return again without erasing or tapping the input between messages.
+Exact message rows and server history catch a sent draft being retained and
+prepended to the next message. The flow is shared by iOS and Android;
+`oauth-login.spec.ts` covers keyboard/button sending and empty fields on Web.
+
+The component regression exercises stale React drafts, final native text,
+single submission, the 300-grapheme limit, preservation of the next draft,
+composer identity, and text-responder continuity.
+On iOS both Send controls transfer focus to a permanently mounted, nonvisible
+companion input and back to the composer. That ends editing to commit pending
+autocorrection without explicitly dismissing the keyboard. Both inputs use the
+same textarea wrapper and keyboard traits, including bottom-sheet integration.
+Submission still waits for the composer's final `onEndEditing` text before
+clearing. The companion is excluded from touch and accessibility navigation.
+Ordinary blur does not send.
+
+Maestro `inputText` does not drive UIKit's autocorrection UI. On a real iOS
+keyboard with Auto-Correction enabled, type a sentence ending in a misspelling
+with a visible correction suggestion, without adding a trailing space. Test the
+keyboard Send key and the app's Send button separately. Each must send exactly
+one corrected message, leave an empty input, and allow a fresh next message
+without the keyboard dropping down and reopening.
+Moving focus away without pressing either Send control must not send anything.
+
+## Chat timestamp coverage
+
+`logged-in/chat-timezone.yaml` sends a unique message, verifies it survives a
+relaunch, then reads the actual `place.stream.chat.message` record from the PDS.
+It requires a numeric RFC 3339 offset matching the device, and checks that the
+timestamp represents the send instant rather than UTC mislabeled as local time.
+The shared flow works on iOS and Android; the Android runner supplies
+`ACCOUNT_DID`, `PDS_HTTP_URL` (the harness's loopback PDS listener), and
+`DEVICE_UTC_OFFSET` (`+HH:MM`, read with `adb shell date +%z`).
+Maestro's JavaScript runs on the host, so its own local time zone is not a device
+offset oracle. An iOS invocation must supply the same variables using the
+simulator's offset (normally the Mac host's).
+
+The Web counterpart, `js/e2e-web/flows/chat-timezone.spec.ts`, exercises both the
+Expo and Vite send paths in Los Angeles, Kathmandu, and UTC.
+
 ## Profile coverage
 
 `logged-in/chat-profile.yaml` taps the signed-in chat author's name, checks that the profile
@@ -70,6 +113,41 @@ dismissal/reopening, and preservation of the surrounding screen's unsent draft.
 These focused tests use native presentation adapters; the Maestro flow exercises
 the actual native sheet and portal. The component tests also run in
 `pnpm run check`.
+
+## Invalid handle coverage
+
+`logged-out/invalid-handle.yaml` covers an account whose handle no longer
+verifies, while its DID and live stream stay the same. Its `onFlowStart` hook
+runs `invalid-handle.js` on the host. The script signs in to the harness PDS as
+the harness account and moves it to a fresh `invalid-<base36>.test` handle.
+Public resolution can't verify that handle, so when the script asks the node to
+`com.atproto.identity.refreshIdentity` the account, the node must report the
+`handle.invalid` sentinel.
+
+The flow waits up to 60 seconds for the home card to name the account by its
+bare DID. The node's live feed caches identities for 30 seconds, and the app
+polls it every 3. The flow then checks that the screen shows no sentinel and no
+`@did:` label, opens the stream from that card, and waits for the "Now streaming"
+chat system message.
+
+`onFlowComplete` runs even when the flow or its setup fails. It moves the account
+back to `ACCOUNT_HANDLE` and requires the node to verify that handle again. It
+then relaunches the app and waits for the card to show `@<handle>`, so later
+flows see the verified handle.
+
+The flow is shared by iOS and Android. It needs `ACCOUNT_DID`, `ACCOUNT_HANDLE`,
+`ACCOUNT_PASSWORD`, `PDS_HTTP_URL`, and `SERVER_HTTP_URL`. `SERVER_HTTP_URL` is
+the node's plain-HTTP loopback URL, which is the harness's own `SERVER_URL`.
+Maestro's `SERVER_URL` is the HTTPS name the app uses, and the host's JavaScript
+doesn't trust the harness CA. The harness must accept `.test` handles on its PDS,
+as `js/dev-env` configures it to. To run the flow alone:
+
+```bash
+E2E_FLOWS=".maestro/logged-out/invalid-handle.yaml" hack/e2e-local.sh android
+```
+
+The Web counterpart, `js/e2e-web/flows/invalid-handle.spec.ts`, covers the Expo
+and Vite shells with the same fixture.
 
 ## HTTPS, and logging in
 

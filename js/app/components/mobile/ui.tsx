@@ -36,6 +36,7 @@ import {
   textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
 import { px, py } from "@streamplace/components/src/ui";
+import { formatHandle } from "@streamplace/core";
 import { Image } from "expo-image";
 import {
   ChevronLeft,
@@ -134,7 +135,7 @@ export function MobileUi({
   const [showLoading, setShowLoading] = useState(false);
 
   const openChatOnlyMode = () => {
-    const user = streamProfile?.handle;
+    const user = streamProfile && formatHandle(streamProfile);
     if (!user) return;
     navigation.navigate("PopoutChat" as any, { user });
   };
@@ -273,7 +274,7 @@ export function MobileUi({
                     {profile ? (
                       <Pressable
                         accessibilityRole="link"
-                        accessibilityLabel={`Open profile for ${profile.handle || profile.did}`}
+                        accessibilityLabel={`Open profile for ${formatHandle(profile)}`}
                         onPress={() => Linking.openURL(profileUrl(profile))}
                         style={[
                           headerControlStyle,
@@ -284,7 +285,11 @@ export function MobileUi({
                           p[2],
                         ]}
                       >
-                        <Avatar src={avatar} name={profile.handle} size="sm" />
+                        <Avatar
+                          src={avatar}
+                          name={formatHandle(profile)}
+                          size="sm"
+                        />
                         <Text
                           numberOfLines={1}
                           ellipsizeMode="tail"
@@ -294,7 +299,7 @@ export function MobileUi({
                             flexShrink: 1,
                           }}
                         >
-                          {profile.handle || profile.did}
+                          {formatHandle(profile)}
                         </Text>
                       </Pressable>
                     ) : (
@@ -314,7 +319,7 @@ export function MobileUi({
                       <ShareSheet />
                       <PlayerUI.ContextMenu
                         onOpenChat={
-                          streamProfile?.handle ? openChatOnlyMode : undefined
+                          streamProfile ? openChatOnlyMode : undefined
                         }
                       />
                       {shouldShowChatSidePanel && setShowChat && (
@@ -578,7 +583,7 @@ function LeftControlsPanel({
             ]}
           />
           <Text numberOfLines={1} ellipsizeMode="tail">
-            {profile?.handle}
+            {profile && formatHandle(profile)}
           </Text>
         </View>
       </View>

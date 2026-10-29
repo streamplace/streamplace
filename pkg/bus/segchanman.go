@@ -109,6 +109,15 @@ func (b *Bus) UnsubscribeSegment(ctx context.Context, user string, rendition str
 	b.segChans[key] = chs
 }
 
+// HasSegments reports whether user's rendition has published a segment in
+// its current session: the buffer a late subscriber is primed from is
+// non-empty until EndSession clears it.
+func (b *Bus) HasSegments(user string, rendition string) bool {
+	b.segBufMutex.RLock()
+	defer b.segBufMutex.RUnlock()
+	return len(b.segBuf[segChanKey(user, rendition)]) > 0
+}
+
 func (b *Bus) PublishSegment(ctx context.Context, user string, rendition string, seg *Seg) {
 	ctx, span := otel.Tracer("signer").Start(ctx, "PublishSegment")
 	defer span.End()

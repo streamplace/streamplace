@@ -1,0 +1,51 @@
+appId: ${APP_ID}
+---
+# Shared iOS/Android send-and-clear coverage. inputText does not exercise
+# UIKit autocorrection; that still needs a real iOS keyboard check.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- tapOn:
+    id: "home-stream-card"
+- extendedWaitUntil:
+    visible:
+      text: ".*e2e test stream.*"
+    timeout: 30000
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "chat-input"
+      - eraseText: 100
+      - inputText: "keyboard send from chat-submit"
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible:
+            text: ".*: keyboard send from chat-submit"
+          timeout: 15000
+# Do not erase or refocus between sends: the draft must clear and focus stay.
+- inputText: "button send from chat-submit"
+- tapOn:
+    id: "chat-send"
+- extendedWaitUntil:
+    visible:
+      text: ".*: button send from chat-submit"
+    timeout: 15000
+- inputText: "next keyboard send from chat-submit"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      text: ".*: next keyboard send from chat-submit"
+    timeout: 15000
+- launchApp
+- tapOn:
+    id: "home-stream-card"
+- extendedWaitUntil:
+    visible:
+      text: ".*: button send from chat-submit"
+    timeout: 30000
+- assertVisible:
+    text: ".*: next keyboard send from chat-submit"
+- takeScreenshot: chat-submit-history

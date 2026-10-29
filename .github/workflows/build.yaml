@@ -351,7 +351,7 @@ jobs:
         run: |
           npm install -g corepack@latest \
           && corepack enable \
-          && export GOTOOLCHAIN=go1.26.5 \
+          && export GOTOOLCHAIN=go1.26.10 \
           && brew install go llvm \
           && rustup target add wasm32-wasip1 \
           && rustup target add wasm32-unknown-unknown \

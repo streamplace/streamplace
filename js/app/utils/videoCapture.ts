@@ -15,8 +15,7 @@ const isWeb = typeof window !== "undefined";
  */
 export const captureVideoFrame = async (
   videoRefOrElement:
-    | React.MutableRefObject<HTMLVideoElement | null>
-    | HTMLVideoElement,
+    React.MutableRefObject<HTMLVideoElement | null> | HTMLVideoElement,
   maxWidth = 1280,
   quality = 0.85,
 ): Promise<Blob> => {

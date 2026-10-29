@@ -4,6 +4,8 @@ import {
   CopyButton,
   StreamInfo,
 } from "@/components/stream/stream-info";
+import { StreamNotificationProvider } from "@/components/stream/stream-notification-provider";
+import { StreamNotifications } from "@/components/stream/stream-notifications";
 import { VideoSection } from "@/components/stream/video-section";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -15,12 +17,14 @@ import {
 } from "@/components/ui/sheet";
 import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useActorLookup } from "@/hooks/actor-lookup";
+import useAvatars from "@/hooks/use-avatars";
 import { useLivenessState } from "@/hooks/use-liveness-state";
 import { useLivestreamStore } from "@/hooks/use-livestream-store";
 import { useStreamAvatar } from "@/hooks/use-stream-avatar";
 import { useStreamplaceUrl } from "@/lib/store/hooks";
 import type { LivestreamStore } from "@streamplace/core";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ExternalLink,
   House,
@@ -29,7 +33,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
@@ -55,7 +59,9 @@ function StreamPage() {
     return (
       <CreatorState
         title={t("creator-not-found-title")}
-        description={t("creator-not-found-description", { handle: user })}
+        description={t("creator-not-found-description", {
+          handle: user.startsWith("did:") ? user : `@${user}`,
+        })}
       >
         <Link
           to="/search"
@@ -106,7 +112,11 @@ function StreamPage() {
     );
   }
 
-  return <StreamBody store={store} user={user} />;
+  return (
+    <StreamNotifications store={store}>
+      <StreamBody store={store} user={user} />
+    </StreamNotifications>
+  );
 }
 
 function CreatorState({
@@ -140,9 +150,35 @@ function CreatorState({
 }
 
 function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
+  const navigate = useNavigate();
   const liveness = useLivenessState(store);
   const avatar = useStreamAvatar(store);
-  const { theatre } = useFullscreen();
+  const activeTeleport = useStore(store, (s) => s.activeTeleport);
+  const livestreamDid = useStore(store, (s) => s.livestream?.author.did);
+  const teleportDids = useMemo(
+    () => (activeTeleport ? [activeTeleport.streamer] : []),
+    [activeTeleport?.streamer],
+  );
+  const teleportProfiles = useAvatars(teleportDids);
+  const { theatre, fullscreen } = useFullscreen();
+
+  useEffect(() => {
+    if (!activeTeleport || activeTeleport.streamer === livestreamDid) return;
+    const targetDid = activeTeleport.streamer;
+    const startsAt = new Date(activeTeleport.startsAt).getTime();
+    if (!Number.isFinite(startsAt)) return;
+    const timer = setTimeout(
+      () => {
+        const target = formatHandle({
+          did: targetDid,
+          handle: teleportProfiles[targetDid]?.handle,
+        });
+        void navigate({ to: "/$user", params: { user: target } });
+      },
+      Math.max(0, startsAt - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [activeTeleport, livestreamDid, navigate, teleportProfiles]);
   // Offline streams default to a closed chat; the chat has nothing
   // to show, and the shorter offline player should take the page
   // width. Live streams honor the user's saved preference.
@@ -211,7 +247,19 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
         <div
           className={`wide:overflow-y-auto z-0 flex min-h-0 min-w-0 flex-1 flex-col transition-[margin] duration-300 ease-in-out ${chatOpen ? "wide:mr-90" : ""}`}
         >
-          <VideoSection store={store} user={user} liveness={liveness} />
+          <VideoSection
+            store={store}
+            user={user}
+            liveness={liveness}
+            overlay={
+              (!chatOpen || fullscreen) && (
+                <StreamNotificationProvider
+                  importantOnly
+                  position="top-right"
+                />
+              )
+            }
+          />
 
           {!theatre && (
             <div className="wide:block hidden">
@@ -286,7 +334,8 @@ function MobileStreamBar({
   const author = state.livestream?.author;
   const record = state.livestream?.record;
   const title = record?.title || user;
-  const authorLabel = author?.displayName || author?.handle || user;
+  const authorLabel =
+    author?.displayName || (author ? formatHandle(author) : user);
   const node = useStreamplaceUrl();
 
   return (
@@ -308,7 +357,11 @@ function MobileStreamBar({
           )}
         </div>
         <div className="truncate text-xs text-(--color-fg-muted)">
-          {author?.handle ? `@${author.handle}` : authorLabel}
+          {author
+            ? formatHandleWithAt(author)
+            : user.startsWith("did:")
+              ? user
+              : `@${user}`}
         </div>
       </div>
 
@@ -342,7 +395,7 @@ function MobileStreamBar({
       )}
 
       <CopyButton
-        type="live"
+        user={author ? formatHandle(author) : user}
         nodeBaseURL={node}
         variant="ghost"
         size="icon-touch"
@@ -408,7 +461,8 @@ function MobileStreamDetailsContent({
 
   const author = state.livestream?.author;
   const record = state.livestream?.record;
-  const authorLabel = author?.displayName || author?.handle || user;
+  const authorLabel =
+    author?.displayName || (author ? formatHandle(author) : user);
   const activity = activityLabel(record?.activity, t);
   const tags = record?.tags ?? [];
   const description = (
@@ -451,15 +505,15 @@ function MobileStreamDetailsContent({
           <div className="truncate font-medium text-(--color-fg)">
             {authorLabel}
           </div>
-          {author?.handle && (
+          {author && (
             <div className="truncate text-sm text-(--color-fg-muted)">
-              @{author.handle}
+              {formatHandleWithAt(author)}
             </div>
           )}
         </div>
-        {author?.handle && (
+        {author && (
           <a
-            href={`https://bsky.app/profile/${author.handle}`}
+            href={`https://bsky.app/profile/${formatHandle(author)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex size-11 items-center justify-center rounded-lg text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
@@ -472,7 +526,7 @@ function MobileStreamDetailsContent({
       </div>
 
       <a
-        href={`/chat-popout/${encodeURIComponent(author?.handle || user)}`}
+        href={`/chat-popout/${encodeURIComponent(author ? formatHandle(author) : user)}`}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"

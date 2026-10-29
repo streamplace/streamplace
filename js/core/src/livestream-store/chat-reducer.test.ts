@@ -54,6 +54,8 @@ function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
     setStreamKey: () => {},
     activeTeleport: null,
     activeTeleportUri: null,
+    activeTeleportCID: null,
+    canceledTeleportURIs: [],
     setActiveTeleportUri: () => {},
     websocketConnected: false,
     hasReceivedSegment: false,
@@ -85,16 +87,16 @@ describe("reduceChat", () => {
     expect(key).toContain("1704067200000");
   });
 
-  it("sorts messages by timestamp", () => {
+  it("sorts messages by instant across local UTC offsets", () => {
     const state = makeState();
     const early = makeMsg({
       text: "first",
-      createdAt: "2024-01-01T00:00:01.000Z",
+      createdAt: "2024-01-01T05:45:01.000+05:45",
       uri: "at://a/1",
     });
     const late = makeMsg({
       text: "second",
-      createdAt: "2024-01-01T00:00:02.000Z",
+      createdAt: "2023-12-31T20:30:02.000-03:30",
       uri: "at://a/2",
     });
     const result = reduceChat(state, [late, early], [], []);

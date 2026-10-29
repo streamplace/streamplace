@@ -1,4 +1,6 @@
+import { useToast } from "@/hooks/use-toast";
 import type { LivestreamStore } from "@streamplace/core";
+import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
@@ -12,6 +14,8 @@ import { ChatPanel as ChatMessages } from "../stream/chat-panel";
  */
 export function ChatPanelWidget({ store }: { store: LivestreamStore }) {
   const { t } = useTranslation("common");
+  const toast = useToast();
+  const navigate = useNavigate();
   const state = useStore(
     store,
     useShallow((s) => ({
@@ -46,7 +50,21 @@ export function ChatPanelWidget({ store }: { store: LivestreamStore }) {
 
       {/* Input */}
       <div className="shrink-0 border-t border-(--color-border)">
-        <ChatInput store={store} />
+        <ChatInput
+          store={store}
+          onTeleportCreated={(_uri, targetDID) => {
+            toast.show("Teleport started", "Visit the receiving livestream.", {
+              variant: "success",
+              actionLabel: "Go to livestream",
+              onAction: () => {
+                void navigate({
+                  to: "/$user",
+                  params: { user: targetDID },
+                });
+              },
+            });
+          }}
+        />
       </div>
     </div>
   );

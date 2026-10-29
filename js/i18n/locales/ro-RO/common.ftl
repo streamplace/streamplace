@@ -48,11 +48,11 @@ notification-count = { $count ->
 ## Offline User
 user-offline = utilizatorul este offline
 user-offline-message = { $source ->
-    [streamer] Se pare că <1>@{ $handle } este offline</1>, dar recomandă să vizionați:
-   *[default] Se pare că <1>@{ $handle } este offline</1>, dar vă recomandăm să vizionați:
+    [streamer] Se pare că <1>{ $handle } este offline</1>, dar recomandă să vizionați:
+   *[default] Se pare că <1>{ $handle } este offline</1>, dar vă recomandăm să vizionați:
 }
 user-offline-no-recommendations =
-  Se pare că <1>@{ $handle } este offline</1> acum.
+  Se pare că <1>{ $handle } este offline</1> acum.
   Reveniți mai târziu.
 streaming-title = transmisie în direct { $title }
 viewer-count = { $count ->
@@ -76,3 +76,33 @@ pds-selector-handle-policy-checkbox = Am citit și sunt de acord cu <policyLink>
 ## Login
 login-show-live-on-bluesky = Arată când sunt live pe Bluesky
 login-show-live-on-bluesky-description = Adaugă inelul roșu LIVE avatarului dvs. de Bluesky în timp ce transmiteți și permite Streamplace să publice anunțuri în numele dvs. Debifați pentru a vă conecta fără a acorda niciun acces la contul dvs. de Bluesky.
+
+## Stream notifications
+teleporting-in = Teleportare în
+teleporting-to = Teleportare către { $handle }
+
+## Teleport dialog
+teleport-dialog-title = Teleportează-te la un alt streamer live
+teleport-dialog-description = Alege un streamer către care să-ți teleportezi spectatorii.
+teleport-unknown-streamer = Streamer necunoscut
+teleport-search-label = Caută transmisiuni live
+teleport-search-placeholder = Caută după handle sau titlu
+teleport-loading-streamers = Se încarcă streamerii live…
+teleport-empty-streamers = Nu s-au găsit streameri live.
+teleport-no-matching-streamers = Niciun streamer live nu corespunde căutării.
+teleport-viewer-count = { $count ->
+    [one] { $count } spectator
+   *[other] { $count } spectatori
+}
+teleport-countdown = Numărătoare inversă
+teleport-seconds-range = secunde (5–300)
+teleport-countdown-error = Numărătoarea trebuie să fie între 5 și 300 de secunde.
+teleport-selection-expired = Acest streamer nu mai este live. Alege altul.
+teleport-starting = Se pornește…
+teleport-start = Teleportează
+teleport-error-streamer-only = Doar streamerul transmisiunii curente poate porni o teleportare.
+teleport-error-handle-format = Introdu un handle valid, de exemplu handle.bsky.social.
+teleport-error-countdown-number = Numărătoarea trebuie să fie un număr de secunde.
+teleport-error-self = Nu te poți teleporta la tine însuți.
+teleport-error-resolve-handle = Nu s-a putut găsi @{ $handle }.
+teleport-error-create = Nu s-a putut porni teleportarea.

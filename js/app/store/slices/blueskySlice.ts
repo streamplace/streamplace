@@ -1,15 +1,16 @@
 import {
   Agent,
+  AppBskyActorDefs,
   AppBskyFeedPost,
   AppBskyGraphBlock,
   BlobRef,
+  ComAtprotoRepoListRecords,
   RichText,
 } from "@atproto/api";
-import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
-import { OutputSchema } from "@atproto/api/dist/client/types/com/atproto/repo/listRecords";
 import { bytesToMultibase, Secp256k1Keypair } from "@atproto/crypto";
 import { OAuthSession } from "@atproto/oauth-client";
 import { storage } from "@streamplace/components";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Platform } from "react-native";
 import { AppStore } from "store";
 import { place, StreamplaceAgent } from "streamplace";
@@ -35,8 +36,8 @@ export interface BlueskySlice {
   sessionScope: null | string;
   pdsAgent: null | StreamplaceAgent;
   anonPDSAgent: null | StreamplaceAgent;
-  profiles: { [key: string]: ProfileViewDetailed };
-  profileCache: { [key: string]: ProfileViewDetailed };
+  profiles: { [key: string]: AppBskyActorDefs.ProfileViewDetailed };
+  profileCache: { [key: string]: AppBskyActorDefs.ProfileViewDetailed };
   client: null | OAuthClient;
   loginState: {
     loading: boolean;
@@ -53,7 +54,7 @@ export interface BlueskySlice {
   streamKeysResponse: {
     loading: boolean;
     error: null | string;
-    records: null | OutputSchema;
+    records: null | ComAtprotoRepoListRecords.OutputSchema;
   };
   newLivestream: null | NewLivestream;
   chatProfile: {
@@ -130,7 +131,7 @@ const uploadThumbnail = async (
   handle: string,
   u: URL,
   pdsAgent: StreamplaceAgent,
-  profile: ProfileViewDetailed,
+  profile: AppBskyActorDefs.ProfileViewDetailed,
   customThumbnail?: Blob,
 ) => {
   if (customThumbnail) {
@@ -554,9 +555,10 @@ export const createBlueskySlice: StateCreator<
       time: new Date().toISOString(),
     });
 
-    const linkUrl = `${u.protocol}//${u.host}/${profile.handle}?${params.toString()}`;
+    const user = formatHandle(profile);
+    const linkUrl = `${u.protocol}//${u.host}/${user}?${params.toString()}`;
     const prefix = `🔴 LIVE `;
-    const textUrl = `${u.protocol}//${u.host}/${profile.handle}`;
+    const textUrl = `${u.protocol}//${u.host}/${user}`;
     const suffix = ` ${text}`;
     const content = prefix + textUrl + suffix;
 
@@ -579,7 +581,7 @@ export const createBlueskySlice: StateCreator<
       external: {
         description: text,
         thumb: thumbnail,
-        title: `@${profile.handle} is 🔴LIVE on ${u.host}!`,
+        title: `${formatHandleWithAt(profile)} is 🔴LIVE on ${u.host}!`,
         uri: linkUrl,
       },
     };
@@ -846,10 +848,10 @@ export const createBlueskySlice: StateCreator<
           for (; tries < 3; tries++) {
             try {
               console.log(
-                `Fetching thumbnail from ${u.protocol}//${u.host}/api/playback/${profile.handle}/stream.png`,
+                `Fetching thumbnail from ${u.protocol}//${u.host}/api/playback/${formatHandle(profile)}/stream.png`,
               );
               const thumbnailRes = await fetch(
-                `${u.protocol}//${u.host}/api/playback/${profile.handle}/stream.png`,
+                `${u.protocol}//${u.host}/api/playback/${formatHandle(profile)}/stream.png`,
               );
               if (!thumbnailRes.ok) {
                 throw new Error(

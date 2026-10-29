@@ -38,6 +38,20 @@ type segmentValidation struct {
 }
 
 func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local bool) error {
+	return mm.validateMP4(ctx, input, local, "")
+}
+
+// ValidateReplicatedMP4 validates a segment a peer sent as streamer's,
+// refusing one signed by anyone else before it is deduplicated or has any
+// effect: whatever a peer names, only the signature says whose it is.
+func (mm *MediaManager) ValidateReplicatedMP4(ctx context.Context, input io.Reader, streamer string) error {
+	if streamer == "" {
+		return fmt.Errorf("replicated segment has no named streamer")
+	}
+	return mm.validateMP4(ctx, input, false, streamer)
+}
+
+func (mm *MediaManager) validateMP4(ctx context.Context, input io.Reader, local bool, streamer string) error {
 	tracer := otel.Tracer("signer")
 	ctx, span := tracer.Start(ctx, "ValidateMP4")
 	defer span.End()
@@ -50,7 +64,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		return fmt.Errorf("failed to read input: %w", err)
 	}
 
-	vs, err := mm.validateSource(ctx, buf, local)
+	vs, err := mm.validateSource(ctx, buf, local, streamer)
 	if err != nil {
 		return err
 	}
@@ -89,8 +103,9 @@ type validatedSegment struct {
 // validateSource verifies + media-parses a bare canonical .m4s, resolves the
 // streamer identity, and runs the dedup / distribution-policy / content /
 // allow-list checks. It returns the per-segment context, or (nil, nil) when the
-// segment is already known (dedup skip).
-func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bool) (*validatedSegment, error) {
+// segment is already known (dedup skip). A non-empty streamer must be the
+// segment's signed creator.
+func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bool, streamer string) (*validatedSegment, error) {
 	tracer := otel.Tracer("signer")
 
 	valid, err := ValidateMP4Media(ctx, buf)
@@ -99,6 +114,9 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 	}
 	meta := valid.Meta
 	pub := valid.Pub
+	if streamer != "" && meta.Creator != streamer {
+		return nil, fmt.Errorf("segment signed by %s, not %s", meta.Creator, streamer)
+	}
 
 	if valid.Manifest.Label == nil {
 		return nil, fmt.Errorf("segment manifest has no label")
@@ -212,9 +230,9 @@ func (mm *MediaManager) streamerIsBanned(repoDID string) (bool, error) {
 func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegment, seg []byte) error {
 	meta := vs.meta
 
-	// Retain the canonical segment in the in-memory moderation buffer (this
-	// replaces on-disk .m4s archival) so reports can clip the recent window.
-	mm.feedModerationBuffer(vs.repoDID, meta.StartTime.Time(), seg)
+	// Hold the canonical segment in the stream's in-memory buffer, the recent
+	// part of the stream that clips (and moderation reports) draw on.
+	mm.bufferSegment(vs.repoDID, meta.StartTime.Time(), meta.Published, vs.local, seg)
 
 	// Fold the validated segment into the streamer's live-HLS window, off the
 	// critical path. This runs for every segment — locally signed or replicated

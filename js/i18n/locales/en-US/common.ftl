@@ -47,7 +47,7 @@ go-home = Go home
 try-again = Try again
 completing-sign-in = Completing sign-in…
 already-logged-in = You're already logged in.
-signed-in-as = Signed in as @{ $handle }
+signed-in-as = Signed in as { $handle }
 signed-in-as-code = Signed in as { $handle }
 sign-in-description = Sign in with your Atmosphere account, such as your { $network } account.
 handle-label = Handle
@@ -65,11 +65,11 @@ notification-count = { $count ->
 ## Offline User
 user-offline = user is offline
 user-offline-message = { $source ->
-    [streamer] Looks like <1>@{ $handle } is offline</1>, but they recommend checking out:
-   *[default] Looks like <1>@{ $handle } is offline</1>, but we recommend checking out:
+    [streamer] Looks like <1>{ $handle } is offline</1>, but they recommend checking out:
+   *[default] Looks like <1>{ $handle } is offline</1>, but we recommend checking out:
 }
 user-offline-no-recommendations =
-  Looks like <1>@{ $handle } is offline</1> right now.
+  Looks like <1>{ $handle } is offline</1> right now.
   Check back later.
 streaming-title = streaming { $title }
 viewer-count = { $count ->
@@ -92,7 +92,7 @@ pds-selector-different-policies = Streamplace has separate moderation policies. 
 pds-selector-read-policies = Read { $label }'s <tosLink>Terms of Service</tosLink> and <privacyLink>Privacy Policy</privacyLink> before continuing.
 pds-selector-handle-policy-checkbox = I have read and agree to the <policyLink>handle policy</policyLink>
 creator-not-found-title = Creator not found
-creator-not-found-description = We couldn't find an Atmosphere account for @{ $handle }.
+creator-not-found-description = We couldn't find an Atmosphere account for { $handle }.
 creator-lookup-failed-title = We couldn't load this creator
 creator-lookup-failed-description = The Atmosphere directory isn't responding right now. Try again in a moment.
 
@@ -281,6 +281,34 @@ theatre-exit = Exit theatre mode
 
 ## Notifications
 teleporting-in = Teleporting in
+teleporting-to = Teleporting to { $handle }
+
+## Teleport dialog
+teleport-dialog-title = Teleport to another live streamer
+teleport-dialog-description = Select a streamer to teleport your viewers to their stream.
+teleport-unknown-streamer = Unknown streamer
+teleport-search-label = Search live streams
+teleport-search-placeholder = Search by handle or title
+teleport-loading-streamers = Loading live streamers…
+teleport-empty-streamers = No live streamers found.
+teleport-no-matching-streamers = No matching live streamers found.
+teleport-viewer-count = { $count ->
+    [one] { $count } viewer
+   *[other] { $count } viewers
+}
+teleport-countdown = Countdown
+teleport-seconds-range = seconds (5–300)
+teleport-countdown-error = Countdown must be between 5 and 300 seconds.
+teleport-selection-expired = That streamer is no longer live. Choose another streamer.
+teleport-starting = Starting…
+teleport-start = Teleport
+teleport-error-streamer-only = Only the streamer of the current livestream can start a teleport.
+teleport-error-not-live = Start a livestream before starting a teleport.
+teleport-error-handle-format = Enter a valid handle, such as handle.bsky.social.
+teleport-error-countdown-number = Countdown must be a number of seconds.
+teleport-error-self = You cannot teleport to yourself.
+teleport-error-resolve-handle = Could not find @{ $handle }.
+teleport-error-create = Could not start the teleport.
 
 ## Video Card
 views-count = { $count ->
@@ -312,6 +340,8 @@ could-not-load-videos = Couldn't load videos: { $error }
 ## Search Page
 no-results-for = No results for "{ $query }"
 find-streamers = Find streamers by name or handle
+search = Search
+search-failed = Search failed
 
 ## Error Boundary
 something-went-wrong = Something went wrong
@@ -439,7 +469,7 @@ player-latency = Latency
 player-quality-auto = Auto
 
 ## Video Player - Stats panel
-player-stats = Player stats
+player-stats = Stats for Nerds
 player-stats-resolution = Resolution
 player-stats-viewport = Viewport
 player-stats-bitrate = Bitrate

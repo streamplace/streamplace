@@ -358,7 +358,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
                   <button
                     type="button"
                     onClick={() => handleRemoveTag(tag)}
-                    className="hover:text-(--color-accent-fg)"
+                    className="hover:text-(--color-fg)"
                   >
                     <X className="size-3" />
                   </button>
@@ -595,8 +595,7 @@ function ContentWarningsQuickEdit({
     liveStore,
     (s) =>
       (s.livestream?.record as any)?.contentWarnings?.warnings as
-        | string[]
-        | undefined,
+        string[] | undefined,
   );
 
   const [open, setOpen] = useState(false);
@@ -642,7 +641,6 @@ function ContentWarningsQuickEdit({
 
       if (livestreamRef) {
         await updateContentMetadata({
-          rkey,
           livestreamRef,
           contentWarnings: Array.from(selected),
         });

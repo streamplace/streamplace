@@ -1,11 +1,12 @@
 // Taken from ATcute's richtext-segmenter
 // https://github.com/mary-ext/atcute/blob/trunk/packages/bluesky/richtext-segmenter/lib/index.ts
 // repoed b/c we need to import types from @atproto/api not @atcute/bsky
-import { Main } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
+import { AppBskyRichtextFacet, RichText } from "@atproto/api";
+import type { place } from "streamplace";
 
 type UnwrapArray<T> = T extends (infer V)[] ? V : never;
 
-export type Facet = Main;
+export type Facet = AppBskyRichtextFacet.Main;
 export type FacetFeature = UnwrapArray<Facet["features"]>;
 
 export interface RichtextSegment {
@@ -125,4 +126,46 @@ export const segmentize = (
   }
 
   return segments;
+};
+
+/** The facet-level $type the place.stream.richtext.facet lexicon requires. */
+const CHAT_FACET_TYPE = "place.stream.richtext.facet";
+
+/** A chat facet: the place.stream.richtext.facet the chat lexicons require. */
+export type ChatFacet = place.stream.richtext.facet.Main;
+
+/** Feature types its features union allows: the app.bsky link and mention defs. */
+const CHAT_FACET_FEATURE_TYPES: Record<string, true> = {
+  "app.bsky.richtext.facet#link": true,
+  "app.bsky.richtext.facet#mention": true,
+};
+
+/**
+ * The facets for a chat message body: links and mentions, each stamped with
+ * the facet-level $type the chat lexicon requires.
+ *
+ * detectFacets types facets as app.bsky's (on mentions) or leaves the field
+ * off entirely (on links, and so on any facet it builds itself). A record
+ * carrying either fails validation against place.stream.richtext.facet, which
+ * requires that literal: "Expected place.stream.richtext.facet (got
+ * app.bsky.richtext.facet)". Normalize here, where chat facets are made.
+ */
+export const detectChatFacets = async (
+  agent: Parameters<RichText["detectFacets"]>[0],
+  text: string,
+): Promise<ChatFacet[] | undefined> => {
+  const rt = new RichText({ text });
+  await rt.detectFacets(agent);
+  const facets = rt.facets
+    ?.filter((facet) =>
+      facet.features.every(
+        (feature) => CHAT_FACET_FEATURE_TYPES[feature.$type] === true,
+      ),
+    )
+    .map(
+      // detectFacets hands back plain strings where the generated facet types
+      // want did:/scheme: templates; the lexicon validator checks those, not tsc.
+      (facet) => ({ ...facet, $type: CHAT_FACET_TYPE }) as ChatFacet,
+    );
+  return facets?.length ? facets : undefined;
 };

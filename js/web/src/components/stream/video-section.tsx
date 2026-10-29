@@ -1,5 +1,5 @@
 import type { LivestreamStore } from "@streamplace/core";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
@@ -38,10 +38,12 @@ export function VideoSection({
   store,
   user,
   liveness,
+  overlay,
 }: {
   store: LivestreamStore;
   user: string;
   liveness: Liveness;
+  overlay?: ReactNode;
 }) {
   const [showDanmu, setShowDanmu] = useState(readDanmuPreference);
 
@@ -95,6 +97,7 @@ export function VideoSection({
       danmuLaneCount={danmuLaneCount}
       danmuMaxMessages={danmuMaxMessages}
       isStreamer={isStreamer}
+      overlay={overlay}
     />
   );
 }
@@ -121,6 +124,7 @@ export function VideoSectionInner({
   danmuLaneCount = 12,
   danmuMaxMessages = 50,
   isStreamer = false,
+  overlay,
 }: {
   user: string;
   liveness: Liveness;
@@ -140,6 +144,7 @@ export function VideoSectionInner({
   danmuLaneCount?: number;
   danmuMaxMessages?: number;
   isStreamer?: boolean;
+  overlay?: ReactNode;
 }) {
   const { t } = useTranslation("common");
   const { theatre } = useFullscreen();
@@ -195,17 +200,20 @@ export function VideoSectionInner({
                 showDanmu={showDanmu}
                 onShowDanmuChange={onShowDanmuChange}
                 onError={(message) => captureError(message, { user, mode })}
-                danmuOverlay={
-                  store ? (
-                    <DanmuOverlay
-                      store={store}
-                      enabled={showDanmu && showPlayer}
-                      opacity={danmuOpacity}
-                      speed={danmuSpeed}
-                      laneCount={danmuLaneCount}
-                      maxMessages={danmuMaxMessages}
-                    />
-                  ) : undefined
+                overlay={
+                  <>
+                    {store && (
+                      <DanmuOverlay
+                        store={store}
+                        enabled={showDanmu && showPlayer}
+                        opacity={danmuOpacity}
+                        speed={danmuSpeed}
+                        laneCount={danmuLaneCount}
+                        maxMessages={danmuMaxMessages}
+                      />
+                    )}
+                    {overlay}
+                  </>
                 }
               />
             </div>
@@ -230,6 +238,7 @@ export function VideoSectionInner({
         )}
 
         {neverLive && <UserOffline user={user} />}
+        {!showPlayer && overlay}
 
         {showPlayer &&
           isStreamer &&

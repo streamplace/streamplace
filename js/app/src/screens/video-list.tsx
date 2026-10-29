@@ -1,5 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import { Button, useTheme, zero } from "@streamplace/components";
+import { formatHandleWithAt } from "@streamplace/core";
 import { EmptyState, EmptyStateTile } from "components/empty-state";
 import Title from "components/title";
 import VideoCard from "components/video/video-card";
@@ -53,7 +54,7 @@ export default function VideoListScreen({
   // "Videos", so a second "Videos" heading would just be redundant.
   const heading =
     repo && videos[0]?.author
-      ? `@${videos[0].author.handle || repo}`
+      ? formatHandleWithAt(videos[0].author)
       : undefined;
 
   const renderItem = ({ item }: { item: VideoView }) => (

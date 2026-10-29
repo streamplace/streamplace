@@ -1142,11 +1142,13 @@ func (a *StreamplaceAPI) ServerWithShutdown(ctx context.Context, handler http.Ha
 	// one NetworkTimeoutError warning per PATCH chunk (plus, more importantly,
 	// prevents tusd from extending the read deadline mid-upload so chunks
 	// taking longer than the default NetworkTimeout will fail). Skip gzip for
-	// /api/upload/*; compressing opaque upload bytes is pointless anyway.
+	// /api/upload/*; compressing opaque upload bytes is pointless anyway. Clips
+	// skip it too: already-compressed video gains nothing, and gzip would drop
+	// the Content-Length a downloader uses for progress.
 	raw := handler
 	gzipped := gziphandler.GzipHandler(handler)
 	handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, upload.BasePath) {
+		if strings.HasPrefix(r.URL.Path, upload.BasePath) || r.URL.Path == "/xrpc/place.stream.live.getClip" {
 			raw.ServeHTTP(w, r)
 			return
 		}

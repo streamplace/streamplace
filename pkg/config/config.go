@@ -158,6 +158,8 @@ type CLI struct {
 	ChatMessageRetention        time.Duration
 	Replicators                 []string
 	WebsocketURL                string
+	MoqAddr                     string
+	MoqURL                      string
 	BehindHTTPSProxy            bool
 	SegmentDebugDir             string
 	AdminDIDs                   []string
@@ -205,12 +207,15 @@ type CLI struct {
 // DefaultSweepInterval is how often the atproto sweep re-runs when
 // --sweep-interval is unset.
 //
-// The sweep's first pass over a repo that is up to date is a single
-// getLatestCommit, so this is a per-repo request budget: six hours means an
-// indexed account is asked about four times a day, and drift -- a gap in the
-// firehose, a span missed while this node was down -- is found and repaired
-// within that. Any lower buys hours of detection latency for a proportional
-// increase in traffic against every PDS on the network.
+// The sweep refreshes the directory identity and asks the host for a single
+// getLatestCommit on an up-to-date repo. Six hours means each indexed account
+// is checked about four times a day; shorter intervals increase directory,
+// DNS and PDS traffic proportionally.
+//
+// The same pass re-resolves each repo's identity from the directory, so a
+// handle or PDS that changed unseen -- or a handle recorded as broken
+// ("handle.invalid") that its owner has since fixed -- is picked up when the
+// next sweep reaches that account.
 const DefaultSweepInterval = 6 * time.Hour
 
 // DefaultChatMessageRetention is how much chat history a node serves when
@@ -826,7 +831,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:        "atproto-did",
-				Usage:       "atproto did to respond to on /.well-known/atproto-did (default did:web:PUBLIC_HOST)",
+				Usage:       "override DID served by /.well-known/atproto-did on all hosts (default: host-specific did:web)",
 				Destination: &cli.AtprotoDID,
 				Sources:     urfavecli.EnvVars("SP_ATPROTO_DID"),
 			},
@@ -1020,7 +1025,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.DurationFlag{
 				Name:        "sweep-interval",
-				Usage:       "how often to re-run the atproto sweep, which asks every indexed repo's host whether our copy is still current and repairs the ones that are not. 0 disables re-running; the sweep at startup always happens",
+				Usage:       "how often to re-run the atproto sweep, which refreshes indexed account identities, checks their repo heads, and repairs drift. 0 disables re-running; the sweep at startup always happens",
 				Value:       DefaultSweepInterval,
 				Destination: &cli.SweepInterval,
 				Sources:     urfavecli.EnvVars("SP_SWEEP_INTERVAL"),
@@ -1084,6 +1089,19 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "override the websocket (ws:// or wss://) url to use for replication (normally not necessary, used for testing)",
 				Destination: &cli.WebsocketURL,
 				Sources:     urfavecli.EnvVars("SP_WEBSOCKET_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "moq-addr",
+				Usage:       "UDP address of the Media over QUIC listener that serves this node's MUXL segments to peers (raw QUIC and WebTransport); empty disables it",
+				Value:       ":38443",
+				Destination: &cli.MoqAddr,
+				Sources:     urfavecli.EnvVars("SP_MOQ_ADDR"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "moq-url",
+				Usage:       "override the moqt:// url peers use to reach this node's Media over QUIC listener (default: server-host on moq-addr's port)",
+				Destination: &cli.MoqURL,
+				Sources:     urfavecli.EnvVars("SP_MOQ_URL"),
 			},
 			&urfavecli.BoolFlag{
 				Name:        "behind-https-proxy",
@@ -1427,7 +1445,7 @@ func DefaultDataDir() string {
 }
 
 var GormLogger = slogGorm.New(
-	slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
+	slogGorm.WithHandler(tint.NewTextHandler(os.Stderr, &tint.Options{
 		TimeFormat: time.RFC3339,
 	})),
 	slogGorm.WithTraceAll(),
@@ -1435,7 +1453,7 @@ var GormLogger = slogGorm.New(
 
 func DisableSQLLogging() {
 	GormLogger = slogGorm.New(
-		slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
+		slogGorm.WithHandler(tint.NewTextHandler(os.Stderr, &tint.Options{
 			TimeFormat: time.RFC3339,
 		})),
 	)
@@ -1443,7 +1461,7 @@ func DisableSQLLogging() {
 
 func EnableSQLLogging() {
 	GormLogger = slogGorm.New(
-		slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
+		slogGorm.WithHandler(tint.NewTextHandler(os.Stderr, &tint.Options{
 			TimeFormat: time.RFC3339,
 		})),
 		slogGorm.WithTraceAll(),

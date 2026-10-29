@@ -1,13 +1,11 @@
-import { $Typed } from "@atproto/api";
-import {
-  Link as FacetLink,
-  Mention,
-} from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
+import { $Typed, AppBskyRichtextFacet } from "@atproto/api";
 import type { LivestreamStore } from "@streamplace/core";
 import {
   chatMessageOpacity,
   formatBadgeIssuer,
   formatBadgeLabel,
+  formatHandle,
+  formatHandleWithAt,
   segmentize,
   type Facet,
   type FacetFeature,
@@ -22,6 +20,7 @@ import {
 } from "lucide-react";
 import {
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -46,6 +45,11 @@ import {
 import { getAdjacentBadgeIndex } from "./badge-navigation";
 import { ChatMessageMenu } from "./chat-message-menu";
 import { initializeChatScroll } from "./chat-scroll";
+import {
+  StreamNotificationContext,
+  StreamNotificationProvider,
+} from "./stream-notification-provider";
+import { StreamNotifications } from "./stream-notifications";
 
 // Chat ages out on the hour, so a slow tick is plenty: it only exists so the
 // fade and the disappearance happen while the viewer watches, rather than
@@ -64,11 +68,14 @@ function useChatExpiryTick(): number {
 export function ChatPanel({
   store,
   reversed = false,
+  hidePinnedComments = false,
 }: {
   store: LivestreamStore;
   reversed?: boolean;
+  hidePinnedComments?: boolean;
 }) {
   const { t } = useTranslation("common");
+  const notificationManager = useContext(StreamNotificationContext);
   const { chat, authors, replyToMessage, websocketConnected } = useStore(
     store,
     useShallow((s) => ({
@@ -196,6 +203,14 @@ export function ChatPanel({
 
   return (
     <div className="relative flex min-h-0 max-w-full flex-1 flex-col">
+      {notificationManager ? (
+        <StreamNotificationProvider />
+      ) : (
+        <StreamNotifications
+          store={store}
+          showPinnedComment={!hidePinnedComments}
+        />
+      )}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -444,7 +459,7 @@ function RichTextMessage({
           );
         }
         if (ftr.$type === "app.bsky.richtext.facet#link") {
-          const linkFtr = ftr as $Typed<FacetLink>;
+          const linkFtr = ftr as $Typed<AppBskyRichtextFacet.Link>;
           return (
             <a
               key={i}
@@ -458,7 +473,7 @@ function RichTextMessage({
           );
         }
         if (ftr.$type === "app.bsky.richtext.facet#mention") {
-          const mtnFtr = ftr as $Typed<Mention>;
+          const mtnFtr = ftr as $Typed<AppBskyRichtextFacet.Mention>;
           const profile = authors?.[mtnFtr.did];
           const color = profile?.color;
           return (
@@ -505,7 +520,7 @@ function UserHandle({
   badges?: place.stream.badge.defs.BadgeView[];
   issuerProfiles: ReturnType<typeof useAvatars>;
 }) {
-  const name = author.displayName || author.handle || author.did;
+  const name = author.displayName || formatHandle(author);
 
   return (
     <HoverCard trigger="click">
@@ -556,8 +571,8 @@ function ProfileCardContent({
   const backButtonRef = useRef<HTMLButtonElement | null>(null);
   const detailWasOpenRef = useRef(false);
   const lastSelectedBadgeIndexRef = useRef(0);
-  const name = author.displayName || author.handle || author.did;
-  const handle = author.handle;
+  const handle = formatHandle(author);
+  const name = author.displayName || handle;
 
   useLayoutEffect(() => {
     const detailIsOpen = selectedBadgeIndex !== null;
@@ -640,19 +655,17 @@ function ProfileCardContent({
                 {name}
               </div>
             )}
-            {handle && <div className="truncate">@{handle}</div>}
+            <div className="truncate">{formatHandleWithAt(author)}</div>
           </div>
-          {handle && (
-            <a
-              href={`https://bsky.app/profile/${handle}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 rounded-sm text-[#0F73FF] hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent)"
-              aria-label={t("chat-view-profile-bluesky")}
-            >
-              <BskyIcon size={20} />
-            </a>
-          )}
+          <a
+            href={`https://bsky.app/profile/${handle}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-sm text-[#0F73FF] hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent)"
+            aria-label={t("chat-view-profile-bluesky")}
+          >
+            <BskyIcon size={20} />
+          </a>
         </div>
 
         {badges.length > 0 && (
@@ -702,18 +715,17 @@ function ReplyBanner({
   authors: { [key: string]: ChatMessageViewHydrated["chatProfile"] };
 }) {
   if (!parent) return null;
-  if (parent.$type !== "place.stream.chat.message") return null;
+  if (parent.$type !== "place.stream.chat.defs#messageView") return null;
   const msg = parent as ChatMessageViewHydrated;
   const text = msg.record?.text || "";
-  const handle = msg.author?.handle || "...";
+  const handle = msg.author ? formatHandleWithAt(msg.author) : "@...";
   const facets = msg.record?.facets as
-    | ChatMessageViewHydrated["record"]["facets"]
-    | undefined;
+    ChatMessageViewHydrated["record"]["facets"] | undefined;
 
   return (
     <div className="mb-0.5 flex items-center gap-1 truncate text-[11px] text-(--color-fg-subtle)">
       <Reply className="h-3 w-3 shrink-0" />
-      <span className="shrink-0 font-medium">@{handle}</span>
+      <span className="shrink-0 font-medium">{handle}</span>
       <span className="truncate">
         <RichTextMessage text={text} facets={facets} authors={authors} />
       </span>

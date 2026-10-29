@@ -1,6 +1,8 @@
-import { Agent } from "@atproto/api";
-import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
-import { OutputSchema } from "@atproto/api/dist/client/types/com/atproto/repo/listRecords";
+import {
+  Agent,
+  AppBskyActorDefs,
+  ComAtprotoRepoListRecords,
+} from "@atproto/api";
 import { OAuthSession } from "@atproto/oauth-client-browser";
 import { getBrowserName } from "@streamplace/core";
 import { StreamplaceAgent, place } from "streamplace";
@@ -22,8 +24,8 @@ export interface BlueskySlice {
   oauthSession?: null | OAuthSession;
   pdsAgent: null | StreamplaceAgent;
   anonPDSAgent: null | StreamplaceAgent;
-  profiles: { [key: string]: ProfileViewDetailed };
-  profileCache: { [key: string]: ProfileViewDetailed };
+  profiles: { [key: string]: AppBskyActorDefs.ProfileViewDetailed };
+  profileCache: { [key: string]: AppBskyActorDefs.ProfileViewDetailed };
   profileError: string | null;
   client: null | Awaited<ReturnType<typeof createOAuthClient>>;
   loginState: {
@@ -41,7 +43,7 @@ export interface BlueskySlice {
   streamKeysResponse: {
     loading: boolean;
     error: null | string;
-    records: null | OutputSchema;
+    records: null | ComAtprotoRepoListRecords.OutputSchema;
   };
   newLivestream: null | NewLivestream;
   chatProfile: {
@@ -88,8 +90,6 @@ export interface BlueskySlice {
     blue: number,
     selfLabels?: string[],
   ) => Promise<void>;
-  followUser: (subjectDID: string) => Promise<void>;
-  unfollowUser: (subjectDID: string, followUri?: string) => Promise<void>;
   getServerSettingsFromPDS: () => Promise<void>;
   createServerSettingsRecord: (
     patch: Partial<Omit<place.stream.server.settings.Main, "$type">>,
@@ -802,48 +802,6 @@ export const createBlueskySlice: StateCreator<
           profile: null,
         },
       });
-    }
-  },
-
-  followUser: async (subjectDID: string) => {
-    const state = get() as BlueskySlice;
-    if (!state.pdsAgent) {
-      throw new Error("No agent");
-    }
-    const did = state.oauthSession?.did;
-    if (!did) {
-      throw new Error("No DID");
-    }
-    await state.pdsAgent.follow(subjectDID);
-  },
-
-  unfollowUser: async (subjectDID: string, followUri?: string) => {
-    const state = get() as BlueskySlice;
-    if (!state.pdsAgent) {
-      throw new Error("No agent");
-    }
-    const did = state.oauthSession?.did;
-    if (!did) {
-      throw new Error("No DID");
-    }
-
-    if (followUri) {
-      await state.pdsAgent.deleteFollow(followUri);
-    } else {
-      const streamplaceUrl = get().url;
-      const res = await fetch(
-        `${streamplaceUrl}/xrpc/place.stream.graph.getFollowingUser?subjectDID=${encodeURIComponent(subjectDID)}&userDID=${encodeURIComponent(did)}`,
-        {
-          credentials: "include",
-        },
-      );
-      const data = await res.json();
-
-      if (!data.follow || !data.follow.uri) {
-        throw new Error("Follow record not found");
-      }
-
-      await state.pdsAgent.deleteFollow(data.follow.uri);
     }
   },
 

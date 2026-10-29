@@ -91,13 +91,7 @@ export interface TextPrimitiveProps extends Omit<RNTextProps, "style"> {
 
   // Letter spacing
   tracking?:
-    | "tighter"
-    | "tight"
-    | "normal"
-    | "wide"
-    | "wider"
-    | "widest"
-    | number;
+    "tighter" | "tight" | "normal" | "wide" | "wider" | "widest" | number;
 
   // Text transform
   transform?: "none" | "capitalize" | "uppercase" | "lowercase";

@@ -35,8 +35,7 @@ export default [
       // Warn, not error: the codebase has 15 pre-existing violations that need
       // a dedicated refactor before this can block the commit gate.
       "react-hooks/rules-of-hooks": "warn",
-      // Off by design, matching js/app/biome.json. Registering the plugin keeps
-      // the existing `react-hooks/exhaustive-deps` directives resolvable.
+      // Off by design, matching js/app/biome.json.
       "react-hooks/exhaustive-deps": "off",
     },
   },

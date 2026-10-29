@@ -3,6 +3,7 @@ import { place } from "streamplace";
 // results as profile cards linking to their streams.
 import useAvatars from "@/hooks/use-avatars";
 import { useStore } from "@/lib/store";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -133,7 +134,7 @@ function SearchPage() {
             <Link
               key={actor.did}
               to="/$user"
-              params={{ user: actor.handle }}
+              params={{ user: formatHandle(actor) }}
               className="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-(--color-bg-elevated)"
             >
               {avatars[actor.did]?.avatar ? (
@@ -146,17 +147,17 @@ function SearchPage() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-full border border-(--color-border) bg-(--color-bg-overlay) text-sm font-medium text-(--color-fg-muted)">
                   {(
                     actor.displayName?.[0] ||
-                    actor.handle[0] ||
+                    formatHandle(actor)[0] ||
                     "?"
                   ).toUpperCase()}
                 </div>
               )}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium text-(--color-fg)">
-                  {actor.displayName || actor.handle}
+                  {actor.displayName || formatHandle(actor)}
                 </div>
                 <div className="truncate text-xs text-(--color-fg-muted)">
-                  @{actor.handle}
+                  {formatHandleWithAt(actor)}
                 </div>
               </div>
             </Link>

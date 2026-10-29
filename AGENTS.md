@@ -79,6 +79,12 @@ For the code you change, run targeted checks where practical:
 go test -count=1 ./pkg/<package>/...
 ```
 
+A test binary that links the MoQ transport needs the native library's directory
+(`build-linux-amd64/rust/streamplace-native`) in `CGO_LDFLAGS`: Streamplace's
+`moq.dev/moq-ffi` fork carries no prebuilt library, so this is the only copy.
+Make's targets set it; for a direct `go test`, use the environment the
+[streamplace-docker skill](.claude/skills/streamplace-docker/SKILL.md) shows.
+
 `go vet ./pkg/<package>/...` is a fast sanity check, but it is much weaker than
 the lint in the commit gate (golangci-lint with staticcheck). A change that
 passes `go vet` can still fail CI tests! See [Checking your work](#checking-your-work).
@@ -218,8 +224,8 @@ Run `make check`, or the relevant part of it, before you treat work as done. Do 
 bypass the hook with `--no-verify`. When the hook fails, fix the cause.
 
 `pnpm run check` runs `knip`, the ESLint lint, the `js/app` and `e2e-web`
-typechecks, and a `prettier --check` over all tracked files. `knip` only looks at
-the `js/streamplace` package; see `knip.json` for its narrow reach.
+typechecks, and a `prettier --check` over all tracked files. `knip` only reports
+unlisted dependencies, in the workspaces `knip.json` does not ignore.
 
 ### golangci-lint exclusions
 

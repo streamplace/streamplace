@@ -59,11 +59,13 @@ export default defineConfig({
               items: [
                 {
                   label: "Start Streaming",
-                  autogenerate: { directory: "guides/start-streaming" },
+                  items: [
+                    { autogenerate: { directory: "guides/start-streaming" } },
+                  ],
                 },
                 {
                   label: "Features",
-                  autogenerate: { directory: "features" },
+                  items: [{ autogenerate: { directory: "features" } }],
                 },
               ],
             },
@@ -75,27 +77,31 @@ export default defineConfig({
               items: [
                 {
                   label: "Start Contributing",
-                  autogenerate: { directory: "guides/start-contributing" },
+                  items: [
+                    {
+                      autogenerate: { directory: "guides/start-contributing" },
+                    },
+                  ],
                 },
                 {
                   label: "Installing Streamplace",
-                  autogenerate: { directory: "guides/installing" },
+                  items: [{ autogenerate: { directory: "guides/installing" } }],
                 },
                 {
                   label: "Features (Dev)",
-                  autogenerate: { directory: "features-dev" },
+                  items: [{ autogenerate: { directory: "features-dev" } }],
                 },
                 {
                   label: "Video Metadata",
-                  autogenerate: { directory: "video-metadata" },
+                  items: [{ autogenerate: { directory: "video-metadata" } }],
                 },
                 {
                   label: "Components",
-                  autogenerate: { directory: "components" },
+                  items: [{ autogenerate: { directory: "components" } }],
                 },
                 {
                   label: "Localize Streamplace",
-                  autogenerate: { directory: "guides/localizing" },
+                  items: [{ autogenerate: { directory: "guides/localizing" } }],
                 },
               ],
             },
@@ -107,7 +113,7 @@ export default defineConfig({
               items: [
                 {
                   label: "Lexicon Reference",
-                  autogenerate: { directory: "lex-reference" },
+                  items: [{ autogenerate: { directory: "lex-reference" } }],
                 },
                 ...openAPISidebarGroups,
               ],

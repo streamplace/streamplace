@@ -1,10 +1,5 @@
-import {
-  Button,
-  formatHandleWithAt,
-  Text,
-  useTheme,
-  zero,
-} from "@streamplace/components";
+import { Button, Text, useTheme, zero } from "@streamplace/components";
+import { formatHandleWithAt } from "@streamplace/core";
 import ActivityPicker from "components/activity-picker";
 import ThumbnailSelector from "components/thumbnail-selector";
 import { useCaptureVideoFrame } from "hooks/useCaptureVideoFrame";

@@ -1124,9 +1124,7 @@ const myLightTheme = {
     text: "#333333",
     // ... other colors
   },
-  spacing: {
-    /* custom spacing */
-  },
+  spacing: {/* custom spacing */},
   // ... other tokens
 };
 
@@ -1137,9 +1135,7 @@ const myDarkTheme = {
     text: "#ffffff",
     // ... other colors
   },
-  spacing: {
-    /* custom spacing */
-  },
+  spacing: {/* custom spacing */},
   // ... other tokens
 };
 

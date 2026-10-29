@@ -38,13 +38,13 @@ func (a *StreamplaceAPI) HandleDidJSON(ctx context.Context) httprouter.Handle {
 
 func (a *StreamplaceAPI) HandleAtprotoDID(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		// Single-node: always server DID. Multi-node: route by Host.
+		// An explicit override takes precedence over host-based DID routing.
 		did := a.CLI.AtprotoDID
 		if did == "" {
 			did = a.CLI.ServerDID()
-		}
-		if a.CLI.ServerHost != a.CLI.BroadcasterHost && req.Host != a.CLI.ServerHost {
-			did = a.CLI.BroadcasterDID()
+			if a.CLI.ServerHost != a.CLI.BroadcasterHost && req.Host != a.CLI.ServerHost {
+				did = a.CLI.BroadcasterDID()
+			}
 		}
 		_, err := fmt.Fprintf(w, "%s", did)
 		if err != nil {

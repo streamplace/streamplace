@@ -12,6 +12,7 @@ import {
   useSegment,
   zero,
 } from "@streamplace/components";
+import { formatHandle } from "@streamplace/core";
 import LiveDot from "components/home/live-dot";
 import { ArrowLeft } from "lucide-react-native";
 import { useCallback, useEffect, useRef } from "react";
@@ -150,7 +151,7 @@ export function PopoutChatInner({ user }: { user: string }) {
                 />
               )}
               <Text style={[zero.text.white]}>
-                {streamProfile?.handle || user}
+                {streamProfile ? formatHandle(streamProfile) : user}
               </Text>
             </View>
             <View

@@ -8,7 +8,7 @@ import {
 import { saveAuthReturnPath } from "@/lib/auth-return";
 import { useSession } from "@/lib/session";
 import { useStore } from "@/lib/store";
-import { useActorTypeahead, type Actor } from "@streamplace/core";
+import { formatHandle, useActorTypeahead, type Actor } from "@streamplace/core";
 import { AtSign, CornerDownLeft } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,6 +32,7 @@ export function LoginModal() {
     if (handle.length < MIN_TYPEAHEAD_LENGTH) return null;
     const match = actors.find(
       (actor) =>
+        formatHandle(actor) === actor.handle &&
         actor.handle.toLowerCase().startsWith(handle.toLowerCase()) &&
         actor.handle.toLowerCase() !== handle.toLowerCase(),
     );

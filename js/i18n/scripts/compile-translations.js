@@ -2,6 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { randomUUID } = require("crypto");
 const { parse: parseFtl } = require("@fluent/syntax");
 
 // Load language manifest
@@ -11,6 +12,14 @@ const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf-8"));
 // Configuration
 const LOCALES_SOURCE_DIR = path.join(__dirname, "..", "locales");
 const LOCALES_OUTPUT_DIR = path.join(__dirname, "..", "public", "locales");
+const TEMPORARY_OUTPUT_PATH = path.join(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  ".build",
+  `translations-${randomUUID()}.json`,
+);
 
 /**
  * Find all .ftl files in a directory (non-recursive, just top-level)
@@ -150,6 +159,14 @@ function compileTranslations() {
     fs.mkdirSync(LOCALES_OUTPUT_DIR, { recursive: true });
   }
 
+  const outputDirs = [LOCALES_OUTPUT_DIR];
+  for (const consumer of ["app", "web"]) {
+    const publicDir = path.join(__dirname, "..", "..", consumer, "public");
+    if (fs.existsSync(publicDir)) {
+      outputDirs.push(path.join(publicDir, "locales"));
+    }
+  }
+
   // Get supported locales from manifest
   const manifestLocales = manifest.supportedLocales;
   const locales = manifestLocales.filter((locale) => {
@@ -162,18 +179,20 @@ function compileTranslations() {
     process.exit(1);
   }
 
+  fs.mkdirSync(path.dirname(TEMPORARY_OUTPUT_PATH), { recursive: true });
+
   let totalFiles = 0;
 
   // Process each locale
   for (const locale of locales) {
     const localeSourceDir = path.join(LOCALES_SOURCE_DIR, locale);
-    const localeOutputDir = path.join(LOCALES_OUTPUT_DIR, locale);
+    const localeOutputDirs = outputDirs.map((dir) => path.join(dir, locale));
 
     console.log(`📦 Processing locale: ${locale}`);
 
-    // Create locale output directory
-    if (!fs.existsSync(localeOutputDir)) {
-      fs.mkdirSync(localeOutputDir, { recursive: true });
+    // Create locale output directories
+    for (const dir of localeOutputDirs) {
+      fs.mkdirSync(dir, { recursive: true });
     }
 
     // Find all .ftl files for this locale
@@ -195,20 +214,22 @@ function compileTranslations() {
           continue;
         }
 
-        // Write namespace JSON file
-        const outputPath = path.join(localeOutputDir, `${namespace}.json`);
-        fs.writeFileSync(
-          outputPath,
-          JSON.stringify(messages, null, 2) + "\n",
-          "utf-8",
-        );
+        // Publish complete JSON without removing files another build is using.
+        // Staging stays outside public so bundlers cannot copy unfinished files.
+        const json = JSON.stringify(messages, null, 2) + "\n";
+        for (const dir of localeOutputDirs) {
+          fs.writeFileSync(TEMPORARY_OUTPUT_PATH, json, "utf-8");
+          fs.renameSync(
+            TEMPORARY_OUTPUT_PATH,
+            path.join(dir, `${namespace}.json`),
+          );
+        }
 
-        console.log(
-          `  ✅ ${namespace}: ${Object.keys(messages).length} keys → ${path.relative(process.cwd(), outputPath)}`,
-        );
+        console.log(`  ✅ ${namespace}: ${Object.keys(messages).length} keys`);
         totalFiles++;
       } catch (error) {
         console.error(`❌ Error processing ${ftlPath}:`, error.message);
+        throw error;
       }
     }
   }
@@ -218,34 +239,9 @@ function compileTranslations() {
   );
 }
 
-/**
- * Copy compiled translations to app/public/locales and web/public/locales
- */
-function copyToConsumers() {
-  const targets = [
-    path.join(__dirname, "..", "..", "app", "public", "locales"),
-    path.join(__dirname, "..", "..", "web", "public", "locales"),
-  ];
-
-  for (const target of targets) {
-    const targetDir = path.dirname(target);
-    if (!fs.existsSync(targetDir)) continue;
-
-    console.log(
-      `\n📋 Copying translations to ${path.relative(process.cwd(), target)}...`,
-    );
-
-    if (fs.existsSync(target)) {
-      fs.rmSync(target, { recursive: true, force: true });
-    }
-
-    fs.cpSync(LOCALES_OUTPUT_DIR, target, { recursive: true });
-    console.log(`✅ Copied to ${path.relative(process.cwd(), target)}`);
-  }
-}
-
 // Run the compilation
-compileTranslations();
-
-// Copy to consumers if they exist
-copyToConsumers();
+try {
+  compileTranslations();
+} finally {
+  fs.rmSync(TEMPORARY_OUTPUT_PATH, { force: true });
+}

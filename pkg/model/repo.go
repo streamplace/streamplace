@@ -3,7 +3,10 @@ package model
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"gorm.io/gorm"
 )
 
@@ -50,6 +53,23 @@ func (r *Repo) TerminalStatus() bool {
 	return r != nil && r.Status != RepoStatusOK
 }
 
+// IsUsableHandle reports whether handle names an account. An empty handle is
+// one we never learned, and "handle.invalid" is the atproto sentinel for a
+// handle that did not verify against its DID: neither identifies anyone, so
+// neither may be looked up, shown, or put in a link.
+func IsUsableHandle(handle string) bool {
+	return handle != "" && !syntax.Handle(handle).IsInvalidHandle()
+}
+
+// HandleOrDID is the name to show or link for an account: its handle, or its
+// DID when it has no usable one.
+func HandleOrDID(handle, did string) string {
+	if IsUsableHandle(handle) {
+		return handle
+	}
+	return did
+}
+
 func (Repo) TableName() string {
 	return "repos"
 }
@@ -84,16 +104,33 @@ func (m *DBModel) GetAllRepos() ([]Repo, error) {
 	return repos, nil
 }
 
+// ErrAmbiguousHandle is returned when more than one indexed account claims a
+// handle. Resolving it is an identity refresh's job, not a lookup's.
+var ErrAmbiguousHandle = errors.New("handle is claimed by more than one indexed account")
+
+// GetRepoByHandle finds the account that claims handle. Handles are stored as
+// the identity directory reports them, which is normalized (lowercase), so the
+// lookup is lowercased to match and still uses the handle index. The empty and
+// invalid handles match nobody: many rows share them, so "first match" would
+// hand back an arbitrary account. Duplicate claims are an error rather than a
+// nil: a nil tells callers to go and index the handle, and the cached
+// directory would hand them whichever owner it last saw.
 func (m *DBModel) GetRepoByHandle(handle string) (*Repo, error) {
-	var repoModel Repo
-	res := m.DB.Where("handle = ?", handle).First(&repoModel)
-	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+	if !IsUsableHandle(handle) {
 		return nil, nil
 	}
-	if res.Error != nil {
-		return nil, res.Error
+	var rows [2]Repo
+	repos := rows[:0]
+	if err := m.DB.Where("handle = ?", strings.ToLower(handle)).Limit(2).Find(&repos).Error; err != nil {
+		return nil, err
 	}
-	return &repoModel, nil
+	switch len(repos) {
+	case 0:
+		return nil, nil
+	case 1:
+		return &repos[0], nil
+	}
+	return nil, fmt.Errorf("%w: %s", ErrAmbiguousHandle, handle)
 }
 
 func (m *DBModel) GetRepoBySigningKey(signingKey string) (*Repo, error) {
@@ -109,14 +146,10 @@ func (m *DBModel) GetRepoBySigningKey(signingKey string) (*Repo, error) {
 }
 
 func (m *DBModel) GetRepoByHandleOrDID(arg string) (*Repo, error) {
-	repo, err := m.GetRepoByHandle(arg)
-	if err != nil {
-		return nil, err
+	if strings.HasPrefix(arg, "did:") {
+		return m.GetRepo(arg)
 	}
-	if repo != nil {
-		return repo, nil
-	}
-	return m.GetRepo(arg)
+	return m.GetRepoByHandle(arg)
 }
 
 func (m *DBModel) UpdateRepo(repo *Repo) error {
@@ -126,10 +159,38 @@ func (m *DBModel) UpdateRepo(repo *Repo) error {
 // UpdateRepoIdentity writes just a repo's identity columns. Everything else on
 // the row belongs to the sync engine — Version is CAS-advanced by the firehose,
 // the backfill columns by the sweep — so a full-row Save here could stomp a
-// concurrent advance; a two-column update cannot.
-func (m *DBModel) UpdateRepoIdentity(did, handle, pds string) error {
-	return m.DB.Model(&Repo{}).Where("did = ?", did).
-		Select("Handle", "PDS").Updates(&Repo{Handle: handle, PDS: pds}).Error
+// concurrent advance; a two-column update cannot. A DID with no row is left
+// without one: identity refreshes must not index accounts.
+//
+// A usable handle verified for this DID is not verified for anyone else, so
+// any other row still claiming it is stale (a handle that changed hands, or an
+// account the sweep no longer visits). Those rows are blanked rather than
+// left to compete for the handle; the next sweep re-resolves them. Their DIDs
+// are returned so the caller can drop whatever it has cached about them.
+func (m *DBModel) UpdateRepoIdentity(did, handle, pds string) ([]string, error) {
+	var evicted []string
+	err := m.DB.Transaction(func(tx *gorm.DB) error {
+		// Rechecking an unchanged identity should not dirty the row. IS NOT
+		// compares SQLite's nullable columns as well as ordinary strings.
+		if err := tx.Model(&Repo{}).
+			Where("did = ? AND (handle IS NOT ? OR pds IS NOT ?)", did, handle, pds).
+			Select("Handle", "PDS").Updates(&Repo{Handle: handle, PDS: pds}).Error; err != nil {
+			return err
+		}
+		if !IsUsableHandle(handle) {
+			return nil
+		}
+		if err := tx.Model(&Repo{}).Where("handle = ? AND did <> ?", handle, did).
+			Pluck("did", &evicted).Error; err != nil {
+			return err
+		}
+		if len(evicted) == 0 {
+			return nil
+		}
+		return tx.Model(&Repo{}).Where("did IN ?", evicted).
+			Select("Handle").Updates(&Repo{Handle: ""}).Error
+	})
+	return evicted, err
 }
 
 // SetRepoStatus parks (or un-parks) a repo's account lifecycle state without
@@ -232,11 +293,20 @@ func (m *DBModel) TerminalRepoDIDs(ctx context.Context) ([]string, error) {
 	return dids, nil
 }
 
+var handleSearchEscaper = strings.NewReplacer("!", "!!", "%", "!%", "_", "!_")
+
 func (m *DBModel) SearchReposByHandle(query string, limit int) ([]Repo, error) {
+	query = strings.TrimPrefix(strings.TrimSpace(query), "@")
+	if query == "" {
+		return nil, nil
+	}
 	var repos []Repo
-	// Search for repos where handle starts with the query (case-insensitive)
-	// Use LIKE with LOWER for sqlite/postgres compatibility
-	res := m.DB.Where("LOWER(handle) LIKE LOWER(?)", query+"%").Limit(limit).Find(&repos)
+	res := m.DB.
+		Where("LOWER(handle) LIKE LOWER(?) ESCAPE '!'", handleSearchEscaper.Replace(query)+"%").
+		Where("handle <> ?", syntax.HandleInvalid.String()).
+		Where("status = ? OR status IS NULL", RepoStatusOK).
+		Order("LOWER(handle), did").
+		Limit(limit).Find(&repos)
 	if res.Error != nil {
 		return nil, res.Error
 	}

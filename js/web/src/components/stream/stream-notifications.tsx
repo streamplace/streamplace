@@ -1,9 +1,21 @@
-import { $Typed } from "@atproto/api";
-import type { Link as FacetLink } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
+import { $Typed, AppBskyRichtextFacet } from "@atproto/api";
 import type { LivestreamStore } from "@streamplace/core";
-import { segmentize, type Facet, type FacetFeature } from "@streamplace/core";
+import {
+  deleteTeleport,
+  formatHandle,
+  formatHandleWithAt,
+  segmentize,
+  type Facet,
+  type FacetFeature,
+} from "@streamplace/core";
 import { EyeOff, Pin, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import type {
   ChatMessageViewHydrated,
@@ -11,9 +23,15 @@ import type {
 } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
+import useAvatars from "../../hooks/use-avatars";
 import { useCanModerate } from "../../hooks/use-can-moderate";
 import { useModerationActions } from "../../hooks/use-moderation-actions";
 import { useSession } from "../../lib/session";
+import { StreamNotificationManager } from "../../lib/stream-notification";
+import {
+  StreamNotificationContext,
+  StreamNotificationProvider,
+} from "./stream-notification-provider";
 
 function rgbColor(
   color?: { red: number; green: number; blue: number } | null,
@@ -22,7 +40,15 @@ function rgbColor(
   return `rgb(${color.red}, ${color.green}, ${color.blue})`;
 }
 
-export function StreamNotifications({ store }: { store: LivestreamStore }) {
+export function StreamNotifications({
+  store,
+  showPinnedComment = true,
+  children,
+}: {
+  store: LivestreamStore;
+  showPinnedComment?: boolean;
+  children?: ReactNode;
+}) {
   const state = useStore(
     store,
     useShallow((s) => ({
@@ -31,15 +57,51 @@ export function StreamNotifications({ store }: { store: LivestreamStore }) {
     })),
   );
 
+  const [manager] = useState(() => new StreamNotificationManager());
+  const hideTeleport = useCallback(() => manager.hide("teleport"), [manager]);
+
+  useEffect(() => {
+    const comment = state.pinnedComment;
+    if (showPinnedComment && comment) {
+      manager.show({
+        id: "pinned-comment",
+        duration: 0,
+        render: () => (
+          <PinnedNotification
+            key={comment.uri}
+            store={store}
+            comment={comment}
+          />
+        ),
+      });
+    }
+    return () => manager.hide("pinned-comment");
+  }, [manager, showPinnedComment, state.pinnedComment, store]);
+
+  useEffect(() => {
+    const teleport = state.activeTeleport;
+    if (teleport) {
+      manager.show({
+        id: "teleport",
+        important: true,
+        duration: 0,
+        render: () => (
+          <TeleportNotification
+            key={teleport.startsAt}
+            store={store}
+            teleport={teleport}
+            onExpire={hideTeleport}
+          />
+        ),
+      });
+    }
+    return hideTeleport;
+  }, [manager, state.activeTeleport, store, hideTeleport]);
+
   return (
-    <>
-      {state.pinnedComment && (
-        <PinnedNotification store={store} comment={state.pinnedComment} />
-      )}
-      {state.activeTeleport && (
-        <TeleportNotification teleport={state.activeTeleport} />
-      )}
-    </>
+    <StreamNotificationContext.Provider value={manager}>
+      {children ?? <StreamNotificationProvider />}
+    </StreamNotificationContext.Provider>
   );
 }
 
@@ -62,11 +124,10 @@ function PinnedNotification({
   const record = comment.record;
   const authorColor = rgbColor(message?.chatProfile?.color);
   const authorName = message
-    ? message.author.displayName || message.author.handle || message.author.did
+    ? message.author.displayName || formatHandle(message.author)
     : "unknown";
   const messageRecord = message?.record as
-    | ChatMessageViewHydrated["record"]
-    | undefined;
+    ChatMessageViewHydrated["record"] | undefined;
   const text = messageRecord?.text || "";
   const facets = messageRecord?.facets;
 
@@ -176,7 +237,7 @@ function PinnedRichText({
     return <span>{segment.text}</span>;
   }
   if (ftr.$type === "app.bsky.richtext.facet#link") {
-    const linkFtr = ftr as $Typed<FacetLink>;
+    const linkFtr = ftr as $Typed<AppBskyRichtextFacet.Link>;
     return (
       <a
         href={linkFtr.uri}
@@ -194,19 +255,69 @@ function PinnedRichText({
   return <span>{segment.text}</span>;
 }
 
-function TeleportNotification({ teleport }: { teleport: any }) {
+function TeleportNotification({
+  store,
+  teleport,
+  onExpire,
+}: {
+  store: LivestreamStore;
+  teleport: NonNullable<ReturnType<typeof store.getState>["activeTeleport"]>;
+  onExpire: () => void;
+}) {
   const { t } = useTranslation("common");
-  const targetDid = teleport.target;
-  const startsAt = teleport.startsAt
-    ? new Date(teleport.startsAt).getTime()
-    : null;
+  const { pdsAgent, did } = useSession();
+  const targetProfiles = useAvatars([teleport.streamer]);
+  const { activeTeleportUri, activeTeleportCID, livestream } = useStore(
+    store,
+    useShallow((s) => ({
+      activeTeleportUri: s.activeTeleportUri,
+      activeTeleportCID: s.activeTeleportCID,
+      livestream: s.livestream,
+    })),
+  );
+  const [now, setNow] = useState(Date.now());
+  const startsAt = new Date(teleport.startsAt).getTime();
+  const targetHandle = formatHandleWithAt({
+    did: teleport.streamer,
+    handle: targetProfiles[teleport.streamer]?.handle,
+  });
+  const initialTimeLeft = useMemo(
+    () => Math.max(0, startsAt - Date.now()),
+    [startsAt],
+  );
+  const canCancel = !!did && did === livestream?.author.did;
 
-  if (!startsAt) return null;
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-  const now = Date.now();
+  const cancel = async () => {
+    if (!pdsAgent || !did || !activeTeleportUri) return;
+    try {
+      await deleteTeleport(pdsAgent, did, activeTeleportUri);
+      store.setState((state) =>
+        state.activeTeleportUri === activeTeleportUri &&
+        state.activeTeleportCID === activeTeleportCID
+          ? {
+              activeTeleportUri: null,
+              activeTeleportCID: null,
+              activeTeleport: null,
+            }
+          : state,
+      );
+    } catch (error) {
+      console.error("Failed to cancel teleport:", error);
+    }
+  };
+
   const diff = Math.max(0, Math.ceil((startsAt - now) / 1000));
 
-  if (diff <= 0) return null;
+  useEffect(() => {
+    if (!Number.isFinite(startsAt) || diff <= 0) onExpire();
+  }, [diff, startsAt, onExpire]);
+
+  if (!Number.isFinite(startsAt) || diff <= 0) return null;
 
   const mins = Math.floor(diff / 60);
   const secs = diff % 60;
@@ -216,13 +327,56 @@ function TeleportNotification({ teleport }: { teleport: any }) {
       : `0:${String(secs).padStart(2, "0")}`;
 
   return (
-    <div className="border-b border-(--color-border) bg-(--color-info)/10 px-3 py-2">
-      <p className="text-xs text-(--color-fg-muted)">
-        {t("teleporting-in")}{" "}
-        <span className="font-mono font-medium text-(--color-fg)">
-          {display}
-        </span>
-      </p>
+    <div className="relative isolate overflow-hidden rounded-lg bg-(--color-bg-elevated) text-(--color-fg)">
+      <div className="relative z-10 flex items-center justify-between gap-3 px-3 py-2">
+        <p className="min-w-0 truncate text-sm font-medium">
+          {t("teleporting-to", { handle: targetHandle })}
+        </p>
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="font-mono text-sm text-(--color-fg-muted)">
+            {display}
+          </span>
+          {canCancel && activeTeleportUri && (
+            <button
+              type="button"
+              onClick={cancel}
+              className="rounded px-2 py-1 text-xs text-(--color-fg-muted) hover:bg-(--color-bg-overlay) hover:text-(--color-fg) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent)"
+            >
+              {t("cancel")}
+            </button>
+          )}
+        </div>
+      </div>
+      <div
+        className="h-1 overflow-hidden bg-(--color-bg)"
+        role="progressbar"
+        aria-label={t("teleporting-in")}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={
+          initialTimeLeft > 0
+            ? Math.round((Math.max(0, startsAt - now) / initialTimeLeft) * 100)
+            : 0
+        }
+      >
+        <div
+          className="h-full bg-(--color-accent) transition-[width] duration-1000 ease-linear motion-reduce:transition-none"
+          style={{
+            width: `${
+              initialTimeLeft > 0
+                ? Math.max(
+                    0,
+                    Math.min(100, ((startsAt - now) / initialTimeLeft) * 100),
+                  )
+                : 0
+            }%`,
+          }}
+        />
+      </div>
+      <div
+        className="teleport-warning-stripes pointer-events-none absolute inset-0 z-0 motion-reduce:hidden"
+        aria-hidden="true"
+      />
     </div>
   );
 }

@@ -254,6 +254,7 @@ func decodeIrohMessage(key, value []byte) (any, error) {
 func (swarm *IrohSwarm) startBusSubscribe(ctx context.Context) error {
 	// start subscription first so we're buffering new origins
 	busCh := swarm.bus.Subscribe("")
+	defer swarm.bus.Unsubscribe("", busCh)
 	originViews, err := swarm.mod.GetRecentBroadcastOrigins(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get recent broadcast origins: %w", err)

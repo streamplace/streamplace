@@ -72,6 +72,7 @@ test:
   script:
     - git fetch --unshallow || echo 'already unshallow'
     - make dev-setup && make dev && make dev-test && make ci-lexicons
+    - pnpm --filter @atcute/internal-dev-env test:release
   artifacts:
     when: always
     paths:
@@ -132,7 +133,7 @@ build-android-release:
     - 'echo "xcodeproj --version: $(xcodeproj --version)"'
     - "$(which xcodeproj) --version"
     - >
-      export GOTOOLCHAIN=go1.26.5
+      export GOTOOLCHAIN=go1.26.10
       && python3 -m pip install virtualenv
       && python3 -m virtualenv ~/venv
       && source ~/venv/bin/activate
@@ -140,20 +141,33 @@ build-android-release:
       && ${=COMMAND}
     # ^^ zsh-ism for running command with spaces
 
-build-ios:
-  extends:
-    - .build-on-mac
-  variables:
-    COMMAND: make ci-ios -j16
+# The iOS build needs a macOS runner, which this project does not have yet.
+# Build the archive locally on a Mac with `make ci-ios` and upload it by hand.
+# build-ios:
+#   extends:
+#     - .build-on-mac
+#   variables:
+#     COMMAND: make ci-ios -j16
 
+# Runs on the Linux builder image. The darwin binaries arrive as package
+# registry artifacts from build-darwin-*, and the Electron app is packaged and
+# signed with rcodesign in the Forge postPackage hook. No macOS runner needed.
 build-desktop-darwin:
-  extends:
-    - .build-on-mac
+  stage: build
+  interruptible: true
+  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
+  timeout: 2 hours
+  variables:
+    NODE_OPTIONS: "--max_old_space_size=4096"
   needs:
     - build-darwin-amd64
     - build-darwin-arm64
-  variables:
-    COMMAND: make ci-desktop-darwin
+  script:
+    - git fetch --unshallow || echo 'already unshallow'
+    - make ci-desktop-darwin -j$(nproc)
+  artifacts:
+    reports:
+      dotenv: .ci/build.env
 
 # windows-selftest:
 #   interruptible: true
@@ -180,12 +194,13 @@ build-desktop-darwin:
     # jobs download from the package registry, so they must finish first.
     - build-linux-amd64
     - build-linux-arm64
+    - build-windows-amd64
     - build-darwin-amd64
     - build-darwin-arm64
     - build-android-debug
     - build-android-release
     - build-desktop-darwin
-    - build-ios
+    # - build-ios  # no macOS runner yet; see the commented job above
     - test
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+$/'
@@ -202,6 +217,16 @@ release:
     - .release-template
   script:
     - make ci-release
+
+# Keep GitLab releases, npm, Debian and Homebrew distribution above/below.
+# ATProto publication consumes the same exact-version generic package files.
+release-atproto:
+  extends:
+    - .release-template
+  script:
+    - git fetch --unshallow || echo 'already unshallow'
+    - pnpm install --frozen-lockfile
+    - make ci-release-atproto
 
 deb-release:
   extends:

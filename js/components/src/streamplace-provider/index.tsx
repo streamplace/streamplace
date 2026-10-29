@@ -1,4 +1,3 @@
-import { SessionManager } from "@atproto/api/dist/session-manager";
 import { useEffect, useRef } from "react";
 import { ProfileCacheProvider } from "../context/profile-cache";
 import { useDocumentTitle } from "../hooks";
@@ -8,7 +7,10 @@ import {
   useFetchEnvConfig,
   useGetChatProfile,
 } from "../streamplace-store";
-import { makeStreamplaceStore } from "../streamplace-store/streamplace-store";
+import {
+  makeStreamplaceStore,
+  SessionManager,
+} from "../streamplace-store/streamplace-store";
 import { StreamplaceContext } from "./context";
 import Poller from "./poller";
 

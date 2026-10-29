@@ -24,6 +24,7 @@ import (
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/spmetrics"
 
@@ -60,10 +61,11 @@ func (s *Server) handlePlaceStreamLiveDenyTeleport(ctx context.Context, input *p
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to deny teleport")
 	}
 
-	cancelMsg := placestream.Livestream_TeleportCanceled{
-		LexiconTypeID: "place.stream.livestream#teleportCanceled",
-		TeleportUri:   input.Uri,
-		Reason:        "denied",
+	cancelMsg := map[string]any{
+		"$type":       "place.stream.livestream#teleportCanceled",
+		"teleportUri": input.Uri,
+		"cid":         teleport.CID,
+		"reason":      "denied",
 	}
 
 	s.bus.Publish(teleport.RepoDID, cancelMsg)
@@ -602,8 +604,8 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 	}
 
 	handle := session.DID
-	if repo != nil && repo.Handle != "" {
-		handle = repo.Handle
+	if repo != nil {
+		handle = model.HandleOrDID(repo.Handle, session.DID)
 	}
 
 	canonicalUrl := fmt.Sprintf("https://%s/%s", s.cli.BroadcasterHost, handle)

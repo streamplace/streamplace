@@ -1,4 +1,12 @@
-import type { LivestreamStore } from "@streamplace/core";
+import {
+  createTeleportCommands,
+  formatHandle,
+  formatHandleWithAt,
+  handleSlashCommand,
+  teleportErrorIdentifier,
+  type LivestreamStore,
+  type TeleportErrorData,
+} from "@streamplace/core";
 import { Extension } from "@tiptap/core";
 import MentionBase from "@tiptap/extension-mention";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -29,6 +37,7 @@ import { Button } from "../ui/button";
 import { EmojiList } from "./emoji-list";
 import { EmojiPicker } from "./emoji-picker";
 import { MentionList, type MentionItem } from "./mention-list";
+import { TeleportDialog } from "./teleport-dialog";
 
 const MAX_LENGTH = 300;
 
@@ -67,6 +76,7 @@ function getMentionSuggestions(
     const did = msg.author.did;
     if (seen.has(did)) continue;
     seen.add(did);
+    if (!msg.author.handle || formatHandle(msg.author) === did) continue;
     const profile = authors[did];
     items.push({
       did,
@@ -87,7 +97,7 @@ function createMentionSuggestion() {
       const q = query.toLowerCase();
       return mentionDataRef.allItems.filter(
         (item) =>
-          item.handle.toLowerCase().includes(q) ||
+          formatHandle(item).toLowerCase().includes(q) ||
           item.displayName.toLowerCase().includes(q),
       );
     },
@@ -102,8 +112,8 @@ function createMentionSuggestion() {
               items: props.items,
               command: (item: MentionItem) => {
                 props.command({
-                  id: item.handle,
-                  label: `@${item.handle}`,
+                  id: formatHandle(item),
+                  label: formatHandleWithAt(item),
                   did: item.did,
                   handle: item.handle,
                   displayName: item.displayName,
@@ -137,8 +147,8 @@ function createMentionSuggestion() {
             items: props.items,
             command: (item: MentionItem) => {
               props.command({
-                id: item.handle,
-                label: `@${item.handle}`,
+                id: formatHandle(item),
+                label: formatHandleWithAt(item),
                 did: item.did,
                 handle: item.handle,
                 displayName: item.displayName,
@@ -294,9 +304,15 @@ function createEmojiSuggestion({ getSkinTone }: EmojiSuggestionProps) {
   };
 }
 
-export function ChatInput({ store }: { store: LivestreamStore }) {
+export function ChatInput({
+  store,
+  onTeleportCreated,
+}: {
+  store: LivestreamStore;
+  onTeleportCreated?: (uri: string, targetDID: string) => void;
+}) {
   const { t } = useTranslation("common");
-  const { state } = useSession();
+  const { state, pdsAgent, did } = useSession();
   const isAuthed = state.status === "authenticated";
   const send = useChatSend(store);
   const replyToMessage = useStore(store, (s) => s.replyToMessage);
@@ -306,6 +322,29 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
   const [sending, setSending] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [skinTone, setSkinTone] = useSkinTone();
+  const [teleportOpen, setTeleportOpen] = useState(false);
+  const commands = useMemo(() => {
+    if (!pdsAgent || !did) return [];
+    return createTeleportCommands(
+      pdsAgent,
+      did,
+      () => {
+        const livestream = store.getState().livestream;
+        return livestream && !livestream.record.endedAt
+          ? {
+              uri: livestream.uri,
+              cid: livestream.cid,
+              streamerDid: livestream.author.did,
+            }
+          : null;
+      },
+      (uri, targetDID) => {
+        store.getState().setActiveTeleportUri(uri);
+        onTeleportCreated?.(uri, targetDID);
+      },
+      () => setTeleportOpen(true),
+    );
+  }, [did, pdsAgent, store, onTeleportCreated]);
 
   // Keep module-level refs fresh so the suggestion items functions always
   // have up-to-date data without recreating the editor.
@@ -455,6 +494,25 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
     setError(null);
     setSending(true);
     try {
+      if (text.startsWith("/")) {
+        const result = await handleSlashCommand(text, commands);
+        if (result.handled) {
+          if (result.error) {
+            setError(
+              result.errorData
+                ? t(
+                    teleportErrorIdentifier(result.errorData),
+                    result.errorData.params,
+                  )
+                : result.error,
+            );
+            return;
+          }
+          editor.commands.clearContent();
+          store.setState((s) => ({ ...s, replyToMessage: null }));
+          return;
+        }
+      }
       await send(text);
       editor.commands.clearContent();
     } catch (error) {
@@ -463,7 +521,24 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
     } finally {
       setSending(false);
     }
-  }, [editor, sending, send]);
+  }, [editor, sending, send, store, commands, t]);
+
+  const submitTeleport = useCallback(
+    async (
+      handle: string,
+      countdownSeconds: number,
+    ): Promise<TeleportErrorData | undefined> => {
+      const result = await handleSlashCommand(
+        `/teleport ${handle} ${countdownSeconds}`,
+        commands,
+      );
+      if (!result.handled || result.error) {
+        return result.errorData ?? { type: "teleport", code: "create" };
+      }
+      return undefined;
+    },
+    [commands],
+  );
 
   // Keep the ref fresh so editorProps.handleKeyDown can call the latest onSubmit.
   onSubmitRef.current = () => onSubmit();
@@ -471,8 +546,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
   const handleEmojiSelect = useCallback(
     (
       emoji:
-        | { type: "standard"; native: string }
-        | { type: "custom"; name: string },
+        { type: "standard"; native: string } | { type: "custom"; name: string },
     ) => {
       if (editor) {
         const text =
@@ -506,10 +580,14 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
       {replyToMessage && (
         <div className="mb-1 flex items-center gap-2 rounded border border-(--color-border) bg-(--color-bg-overlay) px-2 py-1 text-xs">
           <Reply className="h-3 w-3 shrink-0 text-(--color-fg-muted)" />
-          <span className="flex-1 truncate text-(--color-fg-muted)">
-            {t("chat-replying-to", {
-              handle: replyToMessage.author.handle || replyToMessage.author.did,
-            })}
+          <span className="min-w-0 flex-1 truncate text-(--color-fg-muted)">
+            <span className="font-medium">
+              {t("chat-replying-to", {
+                handle: formatHandle(replyToMessage.author),
+              })}
+            </span>
+            {" · "}
+            {replyToMessage.record.text}
           </span>
           <Button
             type="button"
@@ -570,6 +648,14 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
           skinTone={skinTone}
           onSkinToneChange={setSkinTone}
           anchorRef={smileButtonRef}
+        />
+      )}
+
+      {teleportOpen && (
+        <TeleportDialog
+          open={teleportOpen}
+          onOpenChange={setTeleportOpen}
+          onSubmit={submitTeleport}
         />
       )}
 

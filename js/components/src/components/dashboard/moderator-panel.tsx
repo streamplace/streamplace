@@ -1,3 +1,4 @@
+import { formatHandleWithAt } from "@streamplace/core";
 import { Check, Shield, Trash2, UserPlus } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -18,7 +19,6 @@ import {
   useListModerators,
   useRemoveModerator,
 } from "../../streamplace-store/moderator-management";
-import { formatHandleWithAt } from "../../utils/format-handle";
 
 const { flex, r, borders, p, layout, gap, mb, my, px, py } = atoms;
 
@@ -424,10 +424,7 @@ function AddModeratorDialog({
     const selectedPermissions = Object.entries(permissions)
       .filter(([_, enabled]) => enabled)
       .map(([perm]) => perm) as (
-      | "ban"
-      | "hide"
-      | "livestream.manage"
-      | "message.pin"
+      "ban" | "hide" | "livestream.manage" | "message.pin"
     )[];
 
     if (selectedPermissions.length === 0) {

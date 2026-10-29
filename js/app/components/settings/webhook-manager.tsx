@@ -84,11 +84,7 @@ interface WebhookFormData {
 }
 
 type WebhookEvent =
-  | "livestream"
-  | "chat"
-  | "follow"
-  | "mention"
-  | "stream.received";
+  "livestream" | "chat" | "follow" | "mention" | "stream.received";
 
 const VALID_WEBHOOK_EVENTS: WebhookEvent[] = [
   "livestream",

@@ -71,7 +71,7 @@ log-out = Deconectare
 optional = opțional
 
 ## Account Settings
-account-greeting = Hei, @{ $handle }.
+account-greeting = Hei, { $handle }.
 edit-profile-bluesky = Editare profil (pe Bluesky)
 change-name-color = Schimbați culoarea numelui
 

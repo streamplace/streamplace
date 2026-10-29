@@ -1,3 +1,5 @@
+import { formatHandle } from "./format-handle";
+
 const VIP_BADGE_TYPE = "place.stream.badge.defs#vip";
 
 export function formatBadgeLabel({
@@ -19,8 +21,12 @@ export function formatBadgeLabel({
 }
 
 export function formatBadgeIssuer(issuer: string, handle?: string): string {
-  const normalizedHandle = handle?.trim().replace(/^@/, "");
-  if (normalizedHandle) return `@${normalizedHandle}`;
+  const label = formatHandle(
+    { did: issuer, handle: handle?.trim().replace(/^@/, "") },
+    "@",
+  );
+  // formatHandle falls back to the issuer DID when there's no usable handle
+  if (label !== issuer) return label;
   if (issuer.length <= 16) return issuer;
   return `${issuer.slice(0, 12)}…`;
 }

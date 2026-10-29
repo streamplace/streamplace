@@ -1,10 +1,5 @@
-import {
-  Button,
-  formatHandleWithAt,
-  Text,
-  useTheme,
-  zero,
-} from "@streamplace/components";
+import { Button, Text, useTheme, zero } from "@streamplace/components";
+import { formatHandleWithAt } from "@streamplace/core";
 import { Palette, SwatchBook, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
@@ -153,7 +148,7 @@ export function useNameColorPicker() {
           </View>
 
           {/* Preview — your handle in the chosen color */}
-          {profile?.handle && (
+          {profile?.did && (
             <View
               style={{
                 alignItems: "center",

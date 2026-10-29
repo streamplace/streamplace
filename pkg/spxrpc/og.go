@@ -308,9 +308,7 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 			imageURL = *profileData.Avatar
 		}
 
-		if profileData.Handle != "" {
-			handle = profileData.Handle
-		}
+		handle = model.HandleOrDID(profileData.Handle, profileData.Did)
 
 		if profileData.Description != nil && *profileData.Description != "" {
 			desc := *profileData.Description
@@ -504,7 +502,11 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 		canvasCtx.DrawImage(imageX, imageY, maskedAvatar, canvas.DPMM(canvasDPMM))
 	}
 
-	joinUserContent := fmt.Sprintf("Join @%s", handle)
+	joinUserContent := "Join "
+	if !strings.HasPrefix(handle, "did:") {
+		joinUserContent += "@"
+	}
+	joinUserContent += handle
 
 	availableWidth := textAvailableWidth
 	joinText := createResponsiveJoinText(fontAHN, joinUserContent, availableWidth, userColor)

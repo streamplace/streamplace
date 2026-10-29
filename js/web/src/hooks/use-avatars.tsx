@@ -1,12 +1,12 @@
 // Cache and batch-fetch profile data for a list of DIDs.
-import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
+import { AppBskyActorDefs } from "@atproto/api";
 import { useEffect, useMemo } from "react";
 import { useStore } from "../lib/store";
 import { useCachedProfiles } from "../lib/store/hooks";
 
 export default function useAvatars(
   dids: string[],
-): Record<string, ProfileViewDetailed> {
+): Record<string, AppBskyActorDefs.ProfileViewDetailed> {
   const getProfiles = useStore((state) => state.getProfiles);
   const profiles = useCachedProfiles();
 

@@ -1,36 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildVodShareLinks,
-  getAuthorHandle,
   getOptimisticLikeState,
   shouldCollapseDescription,
 } from "./vod-watch";
-
-describe("getAuthorHandle", () => {
-  it("uses the handle as the creator's only identifier", () => {
-    expect(
-      getAuthorHandle(
-        { handle: "chicago.at", displayName: "chicago.at" },
-        "chicago.at",
-      ),
-    ).toBe("chicago.at");
-  });
-
-  it("ignores a distinct display name", () => {
-    expect(
-      getAuthorHandle(
-        { handle: "chicago.at", displayName: "Chicago" },
-        "did:plc:chicago",
-      ),
-    ).toBe("chicago.at");
-  });
-
-  it("falls back to the route identifier while profile data loads", () => {
-    expect(getAuthorHandle({ displayName: "Chicago" }, "chicago.at")).toBe(
-      "chicago.at",
-    );
-  });
-});
 
 describe("buildVodShareLinks", () => {
   it("builds canonical, embed, and iframe targets", () => {

@@ -11,6 +11,7 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import { formatHandleWithAt } from "@streamplace/core";
 import {
   SettingsNavigationItem,
   SettingsRowItem,
@@ -87,7 +88,7 @@ export function Settings() {
                     </LiquidGlassView>
                     <View style={{ flex: 1 }}>
                       <Text size="2xl" leading="tight">
-                        @{userProfile.handle}
+                        {formatHandleWithAt(userProfile)}
                       </Text>
                     </View>
                   </View>

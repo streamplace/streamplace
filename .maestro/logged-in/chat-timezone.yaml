@@ -1,0 +1,54 @@
+appId: ${APP_ID}
+---
+# A chat record's createdAt carries the sending device's own UTC offset
+# (+HH:MM, never Z) and still names the instant it was sent. The runner passes
+# the offset of whatever zone the device is in; this flow never changes it.
+# chat-timezone.js reads the record back from the PDS, so neither the
+# optimistic echo nor the app's rendering can pass it. The runner configures
+# the harness and signs in before running any logged-in flow.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- tapOn:
+    id: "home-stream-card"
+# chat needs the stream's context, which arrives over its websocket along
+# with this system message
+- extendedWaitUntil:
+    visible:
+      text: ".*e2e test stream.*"
+    timeout: 30000
+# The earliest the record can be stamped, which also makes the message unique
+# among the account's records.
+- evalScript: ${output.timezoneSentAfter = Date.now()}
+# resend a send the page wasn't ready for, as in chat-reply
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "chat-input"
+      - eraseText: 50
+      - inputText: "timezone check ${output.timezoneSentAfter}"
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible:
+            # the row's text is the whole line, "@<handle>: <message>"
+            text: ".*: timezone check ${output.timezoneSentAfter}"
+          timeout: 15000
+- takeScreenshot: chat-timezone-sent
+# Relaunch, so the message comes from the node's chat history: only a record
+# that round-tripped through the PDS and firehose can show up here.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- tapOn:
+    id: "home-stream-card"
+- extendedWaitUntil:
+    visible:
+      text: ".*: timezone check ${output.timezoneSentAfter}"
+    timeout: 30000
+- takeScreenshot: chat-timezone-history
+- runScript: chat-timezone.js

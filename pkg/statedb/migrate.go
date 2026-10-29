@@ -17,7 +17,7 @@ import (
 
 func Migrate(cli *config.CLI) error {
 	gormLogger := slogGorm.New(
-		slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
+		slogGorm.WithHandler(tint.NewTextHandler(os.Stderr, &tint.Options{
 			TimeFormat: time.RFC3339,
 		})),
 		// slogGorm.WithTraceAll(),

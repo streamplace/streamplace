@@ -3,6 +3,7 @@
 // badge, avatar, title, handle, view/like count. Links to
 // /$user/vod/:tid.
 
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Link } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
@@ -26,7 +27,7 @@ export function VideoCard({
   const { t } = useTranslation("common");
   const record = video.record as place.stream.video.Main;
   const author = video.author;
-  const user = author.handle || author.did;
+  const user = formatHandle(author);
   const tid = getTidFromAtUri(video.uri);
   const title = record.title || t("untitled");
   const thumbnailUrl = getVideoThumbnailUrl(record, author.did);
@@ -99,7 +100,7 @@ export function VideoCard({
             {title}
           </div>
           <div className="mt-0.5 truncate text-sm text-(--color-fg-muted)">
-            @{user}
+            {formatHandleWithAt(author)}
           </div>
           {(isPositiveCount(viewCount) || isPositiveCount(likeCount)) && (
             <div className="text-xs text-(--color-fg-muted)">

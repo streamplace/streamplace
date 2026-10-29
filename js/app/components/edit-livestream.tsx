@@ -1,11 +1,11 @@
 import {
   Button,
-  formatHandleWithAt,
   Text,
   useLivestream,
   useTheme,
   zero,
 } from "@streamplace/components";
+import { formatHandleWithAt } from "@streamplace/core";
 import ActivityPicker from "components/activity-picker";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useEffect, useState } from "react";

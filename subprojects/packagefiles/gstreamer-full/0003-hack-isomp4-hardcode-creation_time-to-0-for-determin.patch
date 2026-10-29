@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eli Mallon <eli@iame.li>
+Date: Sun, 21 Sep 2025 14:39:46 -0700
+Subject: [PATCH 3/3] hack(isomp4): hardcode creation_time to 0 for determinism
+
+---
+ subprojects/gst-plugins-good/gst/isomp4/atoms.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/subprojects/gst-plugins-good/gst/isomp4/atoms.c b/subprojects/gst-plugins-good/gst/isomp4/atoms.c
+index a3fa5156..7ceb42bb 100644
+--- a/subprojects/gst-plugins-good/gst/isomp4/atoms.c
++++ b/subprojects/gst-plugins-good/gst/isomp4/atoms.c
+@@ -81,11 +81,13 @@ atoms_context_free (AtomsContext * context)
+ guint64
+ atoms_get_current_qt_time (void)
+ {
+-  gint64 curtime_s = g_get_real_time () / G_USEC_PER_SEC;
++  // TODO: streamplace hack for determinstic muxing. should be an optional prop
++  return 0;
++  // gint64 curtime_s = g_get_real_time () / G_USEC_PER_SEC;
+ 
+-  /* FIXME this should use UTC coordinated time */
+-  return curtime_s + (((1970 - 1904) * (guint64) 365) +
+-      LEAP_YEARS_FROM_1904_TO_1970) * SECS_PER_DAY;
++  // /* FIXME this should use UTC coordinated time */
++  // return curtime_s + (((1970 - 1904) * (guint64) 365) +
++  //     LEAP_YEARS_FROM_1904_TO_1970) * SECS_PER_DAY;
+ }
+ 
+ static void

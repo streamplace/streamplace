@@ -1,7 +1,10 @@
-import { makeLivestreamStore } from "@streamplace/core";
+import {
+  deleteTeleport,
+  formatHandle,
+  makeLivestreamStore,
+} from "@streamplace/core";
 import React, { useContext, useEffect, useRef } from "react";
 import { useAvatars } from "../hooks";
-import { deleteTeleport } from "../lib/slash-commands/teleport";
 import { StreamNotifications } from "../lib/stream-notifications";
 import { LivestreamContext } from "../livestream-store/context";
 import { useUnpinChatMessage } from "../livestream-store/hooks";
@@ -74,15 +77,15 @@ export function TeleportWatcher({
       Math.floor((startsAt.getTime() - now.getTime()) / 1000),
     );
 
-    // resolve the DID to a handle for display
-    const targetHandle =
-      profile[activeTeleport.streamer]?.handle || activeTeleport.streamer;
+    // the route names the target by handle, or by DID without a verified one
+    const target = profile[activeTeleport.streamer];
+    const targetHandle = formatHandle(target);
 
     // check if the current user is the streamer of the current livestream
     const canCancel = livestreamProfile?.did === userDID;
 
     StreamNotifications.teleport({
-      targetHandle: targetHandle,
+      targetHandle: target.handle,
       targetDID: activeTeleport.streamer,
       countdown: countdown,
       canCancel: canCancel,

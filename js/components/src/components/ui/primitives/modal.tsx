@@ -257,11 +257,7 @@ export interface ModalFooterProps extends ViewProps {
   withBorder?: boolean;
   direction?: "row" | "column";
   justify?:
-    | "flex-start"
-    | "center"
-    | "flex-end"
-    | "space-between"
-    | "space-around";
+    "flex-start" | "center" | "flex-end" | "space-between" | "space-around";
 }
 
 export const ModalFooter = forwardRef<View, ModalFooterProps>(

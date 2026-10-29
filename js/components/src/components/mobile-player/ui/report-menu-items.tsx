@@ -7,8 +7,7 @@ import { LivestreamViewHydrated } from "streamplace";
 import { DropdownMenuGroup, DropdownMenuItem, Text } from "../../ui";
 
 type ReportSubject =
-  | ComAtprotoModerationCreateReport.InputSchema["subject"]
-  | null;
+  ComAtprotoModerationCreateReport.InputSchema["subject"] | null;
 
 export interface ReportMenuItemsProps {
   livestream: LivestreamViewHydrated | null;

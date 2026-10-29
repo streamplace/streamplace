@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/abema/go-mp4"
 	"github.com/bluenviron/gortmplib"
-	"github.com/bluenviron/gortmplib/pkg/h264conf"
+	"github.com/bluenviron/gortmplib/pkg/codecs"
 	"github.com/bluenviron/gortmplib/pkg/message"
-	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
@@ -105,19 +105,19 @@ func initializeRTMPReader(ctx context.Context, sc *gortmplib.ServerConn, session
 		}
 	}
 	for _, track := range r.Tracks() {
-		switch track := track.(type) {
-		case *format.H264:
+		switch track.Codec.(type) {
+		case *codecs.H264:
 			session.VideoTrack = track
 			r.OnDataH264(track, func(pts, dts time.Duration, au [][]byte) {
 				send(&media.RTMPH264Data{AU: au, PTS: pts, DTS: dts})
 			})
-		case *format.MPEG4Audio:
+		case *codecs.MPEG4Audio:
 			session.AudioTrack = track
 			r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) {
 				send(&media.RTMPAACData{AU: au, PTS: pts})
 			})
 		default:
-			return nil, fmt.Errorf("unsupported track type: %T", track)
+			return nil, fmt.Errorf("unsupported track codec: %T", track.Codec)
 		}
 	}
 	return r, nil
@@ -142,7 +142,7 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 // playback connection the ingest pipeline reads with rtmp2src, until the
 // session closes or ctx ends.
 func relayRTMPSession(ctx context.Context, conn gortmplib.Conn, session *media.RTMPSession) error {
-	tracks := []format.Format{}
+	tracks := []*gortmplib.Track{}
 	if session.VideoTrack != nil {
 		tracks = append(tracks, session.VideoTrack)
 	}
@@ -209,7 +209,7 @@ func (a *StreamplaceAPI) HandleRTMPPublishConn(ctx context.Context, conn net.Con
 		return err
 	}
 
-	err = sc.Accept()
+	err = sc.AcceptConn()
 	if err != nil {
 		return err
 	}
@@ -234,7 +234,7 @@ func (a *StreamplaceAPI) HandleRTMPPlaybackConn(ctx context.Context, conn net.Co
 		return err
 	}
 
-	err = sc.Accept()
+	err = sc.AcceptConn()
 	if err != nil {
 		return err
 	}
@@ -382,40 +382,51 @@ func (a *StreamplaceAPI) ServeRTMPS(ctx context.Context, cli *config.CLI) error 
 // that holds nothing but parameter sets (one SPS and one PPS), or false for
 // any other AU.
 func h264ConfigMessage(au [][]byte, dts time.Duration) (*message.Video, bool) {
-	var conf h264conf.Conf
+	var sps, pps []byte
 	for _, nalu := range au {
 		if len(nalu) == 0 {
 			return nil, false
 		}
 		switch nalu[0] & 0x1f {
 		case 7: // SPS
-			if conf.SPS != nil {
+			if sps != nil {
 				return nil, false
 			}
-			conf.SPS = nalu
+			sps = nalu
 		case 8: // PPS
-			if conf.PPS != nil {
+			if pps != nil {
 				return nil, false
 			}
-			conf.PPS = nalu
+			pps = nalu
 		default:
 			return nil, false
 		}
 	}
-	if conf.SPS == nil || conf.PPS == nil {
+	// profile_idc, constraint flags and level_idc follow the NAL header
+	if len(sps) < 4 || pps == nil {
 		return nil, false
 	}
-	buf, err := conf.Marshal()
-	if err != nil {
-		return nil, false
+	avcc := &mp4.AVCDecoderConfiguration{
+		ConfigurationVersion:       1,
+		Profile:                    sps[1],
+		ProfileCompatibility:       sps[2],
+		Level:                      sps[3],
+		Reserved:                   0b111111,
+		LengthSizeMinusOne:         3,
+		Reserved2:                  0b111,
+		NumOfSequenceParameterSets: 1,
+		SequenceParameterSets:      []mp4.AVCParameterSet{{Length: uint16(len(sps)), NALUnit: sps}},
+		NumOfPictureParameterSets:  1,
+		PictureParameterSets:       []mp4.AVCParameterSet{{Length: uint16(len(pps)), NALUnit: pps}},
 	}
+	avcc.SetType(mp4.BoxTypeAvcC())
 	return &message.Video{
 		ChunkStreamID:   message.VideoChunkStreamID,
 		MessageStreamID: 0x1000000,
 		Codec:           message.CodecH264,
-		IsKeyFrame:      true,
-		Type:            message.VideoTypeConfig,
-		Payload:         buf,
+		FrameType:       message.VideoFrameTypeKeyFrame,
+		PacketType:      message.VideoPacketTypeConfig,
+		AVCConfig:       avcc,
 		DTS:             dts,
 	}, true
 }

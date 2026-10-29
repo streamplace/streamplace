@@ -73,7 +73,7 @@ log-out = 登出
 optional = 选填
 
 ## Account Settings
-account-greeting = 嗨，@{ $handle }。
+account-greeting = 嗨，{ $handle }。
 edit-profile-bluesky = 在 Bluesky 编辑个人数据
 change-name-color = 更改名称颜色
 

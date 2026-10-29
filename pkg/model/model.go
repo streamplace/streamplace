@@ -39,7 +39,7 @@ type Model interface {
 	CountRepos() (int64, error)
 	SearchReposByHandle(query string, limit int) ([]Repo, error)
 	UpdateRepo(repo *Repo) error
-	UpdateRepoIdentity(did, handle, pds string) error
+	UpdateRepoIdentity(did, handle, pds string) ([]string, error)
 	AdvanceRepoBackfill(ctx context.Context, did, version, rootCID, floor string, done bool) (bool, error)
 	AdvanceRepoVersion(ctx context.Context, did, from, to string) (bool, error)
 	MarkRepoForRepair(ctx context.Context, did, from string) (bool, error)
@@ -72,6 +72,7 @@ type Model interface {
 
 	CreateTeleport(ctx context.Context, tp *Teleport) error
 	GetLatestTeleportForRepo(repoDID string) (*Teleport, error)
+	GetTeleportForViewer(repoDID, resumeURI, resumeCID string) (*Teleport, error)
 	GetActiveTeleportsForRepo(repoDID string) ([]Teleport, error)
 	GetActiveTeleportsToRepo(targetDID string) ([]Teleport, error)
 	GetTeleportByURI(uri string) (*Teleport, error)

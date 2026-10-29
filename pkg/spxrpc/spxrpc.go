@@ -43,6 +43,7 @@ type Server struct {
 	ATSync          *atproto.ATProtoSynchronizer
 	statefulDB      *statedb.StatefulDB
 	sessionKeyCache atomic.Pointer[[]byte]
+	favicon         encodedFavicon
 	bus             *bus.Bus
 	op              *oatproxy.OATProxy
 	localDB         localdb.LocalDB
@@ -155,6 +156,8 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	// The same segments under a path-shaped URL, for a CDN pulling from
 	// this node (see liveCDN): one cacheable, signable path per segment.
 	e.GET(liveSegmentPathRoute, s.HandleGetLiveSegmentPath)
+	// Clips stream with a Content-Length the generated stub can't set.
+	e.GET("/xrpc/place.stream.live.getClip", s.HandleGetClip)
 	// glex code-generated these but we want them just passed upstream
 	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleWildcard)
 	e.POST("/xrpc/com.atproto.repo.putRecord", s.HandleWildcard)

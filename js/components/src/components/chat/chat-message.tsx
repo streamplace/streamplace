@@ -1,9 +1,11 @@
-import { $Typed } from "@atproto/api";
+import { $Typed, AppBskyRichtextFacet } from "@atproto/api";
 import {
-  Link,
-  Mention,
-} from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
-import { Facet, RichtextSegment, segmentize } from "@streamplace/core";
+  Facet,
+  formatHandle,
+  formatHandleWithAt,
+  RichtextSegment,
+  segmentize,
+} from "@streamplace/core";
 import { memo, useCallback, useMemo } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
@@ -17,7 +19,6 @@ import {
   selectableText,
 } from "../../lib/theme/atoms";
 import { tabularNums, textAlphas } from "../../lib/theme/tokens";
-import { formatHandleWithAt } from "../../utils/format-handle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,8 +38,8 @@ import { Text } from "../ui/text";
 import { Badge, BadgeDisplayRow } from "./badge";
 import {
   ProfileCardContent,
-  UserProfileCard,
   useProfileCardData,
+  UserProfileCard,
 } from "./user-profile-card";
 import { VerifiedBadge } from "./verified-badge";
 
@@ -74,7 +75,7 @@ const LinkSegment = ({
   index: number;
 }) => {
   const { theme } = useTheme();
-  const linkFtr = seg.features?.[0] as $Typed<Link>;
+  const linkFtr = seg.features?.[0] as $Typed<AppBskyRichtextFacet.Link>;
   return (
     <Text
       key={`link-${index}`}
@@ -118,7 +119,7 @@ const renderSegment = (
   }
 
   if (ftr.$type === "app.bsky.richtext.facet#mention") {
-    const mtnFtr = ftr as $Typed<Mention>;
+    const mtnFtr = ftr as $Typed<AppBskyRichtextFacet.Mention>;
     const profile = userCache?.[mtnFtr.did];
     return (
       <Text
@@ -335,7 +336,11 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
         { gap: 12, minWidth: 0, maxWidth: "100%", paddingVertical: 4 },
       ]}
     >
-      <Avatar src={avatar} name={displayName || author.handle} size={42} />
+      <Avatar
+        src={avatar}
+        name={displayName || formatHandle(author)}
+        size={42}
+      />
       <View style={[flex.shrink[1], { flex: 1, minWidth: 0 }]}>
         <View
           style={[

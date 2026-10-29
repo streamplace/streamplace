@@ -1,10 +1,13 @@
-import { SessionManager } from "@atproto/api/dist/session-manager";
+import type { Agent } from "@atproto/api";
 import { useContext } from "react";
 import { place } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
 import storage from "../storage";
 import { StreamplaceContext } from "../streamplace-provider/context";
 import { BrandingAsset } from "./branding";
+
+// @atproto/api does not export SessionManager itself.
+export type SessionManager = Agent["sessionManager"];
 
 export interface ContentMetadataResult {
   record: any;

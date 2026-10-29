@@ -109,10 +109,13 @@ test("login-options: branding gates the sign-in options", async ({
   try {
     // No WalletConnect project id: with one, the Ethereum panel pairs with
     // WalletConnect's relay as it opens, which needs a real id.
-    await page.getByTestId("branding-input-loginEntryway").fill(PDS_URL!);
+    const entryway = page.getByTestId("branding-input-loginEntryway");
+    await entryway.fill(PDS_URL!);
     await brandingWrites(page, 1, () =>
       page.getByTestId("branding-update-sign-in").click(),
     );
+    // what's saved stays in the field
+    await expect(entryway).toHaveValue(PDS_URL!);
     // One after another as each write lands, the way a person ticks a list:
     // every toggle has to start from the ones before it.
     for (const m of METHODS) {
@@ -172,6 +175,13 @@ test("login-options: branding gates the sign-in options", async ({
     );
     expect(email.get("screen")).toBe("sign-in");
     expect(email.get("provider")).toBeNull();
+
+    // clearing the field and updating removes the setting
+    await entryway.fill("");
+    await brandingWrites(page, 1, () =>
+      page.getByTestId("branding-update-sign-in").click(),
+    );
+    await expect(reset).toBeDisabled();
   } finally {
     await visitor.close();
     await page.goto(`${HTTPS_URL}/settings/branding`);

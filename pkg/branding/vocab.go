@@ -243,7 +243,8 @@ func linkObject(fields ...string) func([]byte) error {
 func stringSet(allowed ...string) func([]byte) error {
 	return func(b []byte) error {
 		var items []string
-		if err := json.Unmarshal(b, &items); err != nil {
+		// null unmarshals without error, to no list at all
+		if err := json.Unmarshal(b, &items); err != nil || items == nil {
 			return fmt.Errorf("must be a JSON list of strings")
 		}
 		for _, item := range items {

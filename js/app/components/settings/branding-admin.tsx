@@ -359,7 +359,9 @@ export function BrandingAdmin() {
         case "cardGoLiveTitle":
         case "cardGoLiveDescription":
         case "chatLayout":
-          setChromeInputs((prev) => ({ ...prev, [key]: "" }));
+          // drop the edit, so the field shows its fallback (mostly the saved
+          // value) again
+          setChromeInputs(({ [key]: _saved, ...rest }) => rest);
           break;
         case "defaultStreamer":
           setDefaultStreamer("");
@@ -1201,8 +1203,10 @@ export function BrandingAdmin() {
                             const v = (
                               chromeInputs[key] ?? brandingValue(key)
                             ).trim();
-                            if (v && v !== brandingValue(key))
-                              await uploadText(key, v);
+                            if (v === brandingValue(key)) continue;
+                            // a field cleared out removes its setting
+                            if (v) await uploadText(key, v);
+                            else await deleteBlob(key);
                           }
                         }}
                         disabled={uploading}
@@ -1239,13 +1243,14 @@ export function BrandingAdmin() {
                       </Button>
                     </View>
                     {LOGIN_METHODS.map((method) => {
-                      let enabled: string[] = [];
+                      let enabled: unknown[] = [];
                       try {
-                        enabled = JSON.parse(
+                        const parsed = JSON.parse(
                           brandingValue("loginMethods") || "[]",
                         );
+                        if (Array.isArray(parsed)) enabled = parsed;
                       } catch {
-                        // a malformed list reads as none
+                        // a malformed list (or not a list) reads as none
                       }
                       return (
                         <Checkbox

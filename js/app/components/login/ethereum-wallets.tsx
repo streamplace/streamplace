@@ -90,7 +90,10 @@ export function useWalletConnectPairing(
         eth.signInWithWalletConnect({
           projectId,
           siteTitle,
-          onUri: setUri,
+          // an aborted attempt's link would pair with nothing that signs
+          onUri: (uri) => {
+            if (!pairing.signal.aborted) setUri(uri);
+          },
           signal: pairing.signal,
         }),
       )

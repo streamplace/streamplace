@@ -47,6 +47,8 @@ export interface BlueskySlice {
   profiles: { [key: string]: AppBskyActorDefs.ProfileViewDetailed };
   profileCache: { [key: string]: AppBskyActorDefs.ProfileViewDetailed };
   client: null | OAuthClient;
+  // the node the client was made for: authorization requests go there
+  clientUrl: null | string;
   loginState: {
     loading: boolean;
     error: null | string;
@@ -193,6 +195,7 @@ export const createBlueskySlice: StateCreator<
   profiles: {},
   profileCache: {},
   client: null,
+  clientUrl: null,
   loginState: {
     loading: false,
     error: null,
@@ -297,6 +300,7 @@ export const createBlueskySlice: StateCreator<
         });
         set({
           client,
+          clientUrl: streamplaceUrl,
           authStatus: "loggedIn",
           oauthSession: session,
           pdsAgent: new StreamplaceAgent(session),
@@ -308,6 +312,7 @@ export const createBlueskySlice: StateCreator<
           oauthSession: session,
           authStatus: "loggedOut",
           client,
+          clientUrl: streamplaceUrl,
           anonPDSAgent,
         });
       }
@@ -406,9 +411,11 @@ export const createBlueskySlice: StateCreator<
   },
 
   authorizeUrl: async (identifier: string, options?: LoginOptions) => {
-    // the client loaded at startup: reloading resets authStatus, which
-    // remounts the login form this is called from
-    if (!(get() as BlueskySlice).client) {
+    // the client loaded at startup, unless the node has changed since:
+    // reloading resets authStatus, which remounts the login form this is
+    // called from
+    const { client: current, clientUrl } = get() as BlueskySlice;
+    if (!current || clientUrl !== get().url) {
       await (get() as BlueskySlice).loadOAuthClient();
     }
     const client = (get() as BlueskySlice).client;
@@ -529,6 +536,7 @@ export const createBlueskySlice: StateCreator<
         });
         set({
           client,
+          clientUrl: streamplaceUrl,
           oauthSession: ret.session,
           pdsAgent: new StreamplaceAgent(ret.session),
           authStatus: "loggedIn",

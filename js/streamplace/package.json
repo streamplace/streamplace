@@ -1,6 +1,6 @@
 {
   "name": "streamplace",
-  "version": "0.12.13",
+  "version": "0.12.14",
   "description": "Live video on the AT Protocol",
   "type": "module",
   "main": "dist/index.js",

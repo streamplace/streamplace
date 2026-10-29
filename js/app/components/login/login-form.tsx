@@ -29,9 +29,11 @@ import { EthereumWallets, useWalletConnectPairing } from "./ethereum-wallets";
 import { LoginQr } from "./login-qr";
 import { OrDivider } from "./or-divider";
 import { AppleIcon, EthereumIcon, GoogleIcon } from "./provider-icons";
+import { useQrLogin } from "./use-qr-login";
 
 // An email address means the entryway's own email + password sign-in.
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const QR_SIZE = 160;
 const DEFAULT_SIGN_UP = "https://streamplace.com";
 const isMobile = Platform.OS === "ios" || Platform.OS === "android";
 
@@ -91,6 +93,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const showEthereum = Platform.OS === "web" && methods.includes("ethereum");
   // the QR is for the app to scan, so only a browser shows it
   const showQr = Platform.OS === "web" && methods.includes("qr");
+  const qrUrl = useQrLogin(blueskyPermissions);
   const walletConnect = useWalletConnectPairing(
     showEthereum ? walletConnectProjectId : undefined,
   );
@@ -188,13 +191,21 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
   return (
     <View style={zero.gap.all[4]}>
-      {showQr && (
+      {showQr && qrUrl !== null && (
         <>
           <View
             testID="login-qr"
             style={[zero.layout.flex.alignCenter, zero.gap.all[3]]}
           >
-            <LoginQr value={`${url}/login`} size={160} />
+            <View
+              style={[
+                zero.layout.flex.alignCenter,
+                zero.layout.flex.justifyCenter,
+                { width: QR_SIZE, height: QR_SIZE },
+              ]}
+            >
+              {qrUrl ? <LoginQr value={qrUrl} size={QR_SIZE} /> : <Loader />}
+            </View>
             <Text size="sm" color="muted">
               {t("login-scan-qr")}
             </Text>

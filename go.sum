@@ -1457,8 +1457,8 @@ github.com/streamplace/moq/go/wrapper v0.0.0-20261017225858-0014d50204dd h1:eoAa
 github.com/streamplace/moq/go/wrapper v0.0.0-20261017225858-0014d50204dd/go.mod h1:byuivIHyq+guVzIq5jSpxZ1h6KXQ2jG4FuCSoFZDiOA=
 github.com/streamplace/muxl/go v0.3.6 h1:lyWnY15nft/0GK3LBA4OkD2aHrLV9RRqI+YcDRPFk3g=
 github.com/streamplace/muxl/go v0.3.6/go.mod h1:aCyYTW3o6c1Kush9UJ/Yv6EYMUbj8l8GTD7cHKcSxw8=
-github.com/streamplace/oatproxy v0.0.0-20260908211910-61e9b11edc74 h1:c2z0cTx9+yw6FgVPjaev/XzTbgmdsvjrEfebBdzYdzE=
-github.com/streamplace/oatproxy v0.0.0-20260908211910-61e9b11edc74/go.mod h1:wpY+T/wE00jrUhgh2dKXbbE91D36u86KGlENK/hWFkE=
+github.com/streamplace/oatproxy v0.0.0-20261028000643-7dab2e593206 h1:CQjjumnQiOUv6p5iPYhfrYTu64gkCng2IBg4rtQqymY=
+github.com/streamplace/oatproxy v0.0.0-20261028000643-7dab2e593206/go.mod h1:wpY+T/wE00jrUhgh2dKXbbE91D36u86KGlENK/hWFkE=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=

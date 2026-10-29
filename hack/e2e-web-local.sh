@@ -26,6 +26,9 @@ REPO="$PWD"
 
 # shellcheck source=hack/lib/e2e-harness.sh
 . hack/lib/e2e-harness.sh
+# An app bundle id is what makes the node offer QR login (the browser shows a
+# code for the app to scan); the web suite approves it from a signed-in page.
+export SP_E2E_APP_BUNDLE_ID="${SP_E2E_APP_BUNDLE_ID:-tv.aquareum.dev}"
 e2e_harness_start
 
 # --- run the flows ---------------------------------------------------------

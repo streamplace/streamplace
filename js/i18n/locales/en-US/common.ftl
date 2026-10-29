@@ -450,6 +450,17 @@ login-email-needs-entryway = This server signs in with a handle, not an email ad
 login-scan-qr = Scan with Streamplace Mobile
 login-no-account = No account?
 login-sign-up-on = Sign up on { $host }
+qr-login-title = Sign in on another device?
+qr-login-device = Device
+qr-login-ip = IP address
+qr-login-requested = Requested
+qr-login-warning = Only approve if you started this sign-in yourself. Whoever is at that browser gets your account.
+qr-login-approve = Approve
+qr-login-deny = Deny
+qr-login-approved = Signed in on your browser
+qr-login-denied = Request declined
+qr-login-gone = This sign-in request has expired or was already answered.
+qr-login-done = Done
 
 ## Video Player - Controls
 player-play = Play

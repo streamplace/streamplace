@@ -79,12 +79,13 @@ export default function QrLoginScreen() {
     setBusy(true);
     setError(null);
     try {
-      setLogin(
-        await agent.client.call(place.stream.login.completeQRLogin, {
-          id: login.id,
-          approve,
-        }),
+      const answered = await agent.client.call(
+        place.stream.login.completeQRLogin,
+        { id: login.id, approve },
       );
+      // only while it's still the one on screen: another link may have
+      // replaced it while this was out
+      setLogin((shown) => (shown?.id === answered.id ? answered : shown));
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {

@@ -56,20 +56,23 @@ let client: { projectId: string; client: Promise<SignClient> } | null = null;
 
 function getClient(projectId: string, siteTitle: string) {
   if (client?.projectId !== projectId) {
-    client = {
+    const init = SignClient.init({
       projectId,
-      client: SignClient.init({
-        projectId,
-        metadata: {
-          name: siteTitle,
-          description: siteTitle,
-          url: window.location.origin,
-          icons: [],
-        },
-        // no usage events to WalletConnect's analytics (pulse)
-        telemetryEnabled: false,
-      }),
-    };
+      metadata: {
+        name: siteTitle,
+        description: siteTitle,
+        url: window.location.origin,
+        icons: [],
+      },
+      // no usage events to WalletConnect's analytics (pulse)
+      telemetryEnabled: false,
+    });
+    client = { projectId, client: init };
+    // a failed start (the relay unreachable) isn't kept: the next attempt
+    // starts afresh
+    init.catch(() => {
+      if (client?.client === init) client = null;
+    });
   }
   return client.client;
 }

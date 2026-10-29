@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/lestrrat-go/jwx/v2/jwk"
@@ -84,7 +85,14 @@ func TestQRLoginLifecycle(t *testing.T) {
 		_, err := start(t, noApp, "browser-noapp")
 		he := requireHTTPError(t, err)
 		require.Equal(t, http.StatusNotImplemented, he.Code)
-		require.Equal(t, "QRLoginUnavailable", he.Message)
+		// on the wire it's a named XRPC error, which the browser hides QR
+		// login for (rather than retrying)
+		e := echo.New()
+		rec := httptest.NewRecorder()
+		e.DefaultHTTPErrorHandler(he, e.NewContext(httptest.NewRequest(http.MethodPost, "/", nil), rec))
+		var body xrpc.XRPCError
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		require.Equal(t, "QRLoginUnavailable", body.ErrStr)
 	})
 
 	t.Run("approve", func(t *testing.T) {

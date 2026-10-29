@@ -61,6 +61,8 @@ export default function QrLoginScreen() {
 
   useEffect(() => {
     if (authStatus !== "loggedIn" || !anonAgent || !id) return;
+    // the route's id can change under a mounted screen (another link)
+    setLogin(undefined);
     let cancelled = false;
     anonAgent.client
       .call(place.stream.login.getQRLogin, { id })
@@ -71,14 +73,15 @@ export default function QrLoginScreen() {
     };
   }, [authStatus, anonAgent, id]);
 
+  // completes the request on screen, whatever the route says by now
   const complete = async (approve: boolean) => {
-    if (!agent) return;
+    if (!agent || !login) return;
     setBusy(true);
     setError(null);
     try {
       setLogin(
         await agent.client.call(place.stream.login.completeQRLogin, {
-          id,
+          id: login.id,
           approve,
         }),
       );
@@ -97,7 +100,12 @@ export default function QrLoginScreen() {
   const square = { borderRadius: theme.borderRadius.none };
 
   let body;
-  if (authStatus !== "loggedIn" || login === undefined) {
+  // a request for another id is never shown, not even for a frame
+  if (
+    authStatus !== "loggedIn" ||
+    login === undefined ||
+    (login !== null && login.id !== id)
+  ) {
     body = <Loader />;
   } else if (login?.status === "pending") {
     const rows: [string, string][] = [

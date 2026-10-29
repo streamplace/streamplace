@@ -17,6 +17,8 @@ const POLL_MS = 2000;
 const REFRESH_BEFORE_EXPIRY_MS = 30_000;
 // whatever the clocks say, don't replace attempts more often than this
 const MIN_REFRESH_MS = 60_000;
+// a failed attempt (not an unavailable one) is tried again after this long
+const RETRY_MS = 10_000;
 
 interface Attempt {
   id: string;
@@ -84,9 +86,16 @@ export function QrLoginProvider({ children }: { children: ReactNode }) {
           Math.max(refreshIn, MIN_REFRESH_MS),
         );
       } catch (e) {
-        // QRLoginUnavailable on nodes without an app to approve with
-        console.warn("qr login unavailable", e);
-        if (!stopped) setAttempt(null);
+        if (stopped) return;
+        // nodes without an app to approve with say so; nothing to show there
+        if ((e as { error?: string }).error === "QRLoginUnavailable") {
+          setAttempt(null);
+          return;
+        }
+        // anything else (a dropped connection) is worth another go; a code
+        // already up stays up meanwhile
+        console.warn("qr login attempt failed", e);
+        timer = setTimeout(() => setGeneration((n) => n + 1), RETRY_MS);
       }
     })();
     return () => {
@@ -96,7 +105,10 @@ export function QrLoginProvider({ children }: { children: ReactNode }) {
   }, [enabled, agent, url, blueskyPermissions, generation, authorizeUrl]);
 
   useEffect(() => {
-    if (!shown || !attempt || !agent || !url) return;
+    // one made for other permissions is never redeemed, even if approved
+    if (!shown || !attempt || attempt.blueskyPermissions !== blueskyPermissions)
+      return;
+    if (!agent || !url) return;
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async () => {
@@ -128,7 +140,7 @@ export function QrLoginProvider({ children }: { children: ReactNode }) {
       stopped = true;
       clearTimeout(timer);
     };
-  }, [shown, attempt, agent, url, oauthCallback]);
+  }, [shown, attempt, blueskyPermissions, agent, url, oauthCallback]);
 
   return (
     <QrLoginContext.Provider

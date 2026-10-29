@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/placestream"
@@ -26,7 +27,12 @@ func (s *Server) handlePlaceStreamLoginCreateQRLogin(ctx context.Context, body *
 	// Only the Streamplace app approves QR logins, and linking a session needs
 	// this node to be a confidential OAuth client, which public mode isn't.
 	if s.cli.AppBundleID == "" || s.cli.PublicOAuth {
-		return nil, echo.NewHTTPError(http.StatusNotImplemented, "QRLoginUnavailable")
+		// rendered as an XRPC error body, so clients can tell it apart from a
+		// failure worth retrying
+		return nil, echo.NewHTTPError(http.StatusNotImplemented, xrpc.XRPCError{
+			ErrStr:  "QRLoginUnavailable",
+			Message: "this node has no Streamplace app configured to approve QR logins",
+		})
 	}
 	if body.RequestUri == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "requestUri is required")

@@ -4,9 +4,10 @@
 // still introspect the raw lexicon docs at runtime, so we keep exporting it.
 //
 // Run via `make js-lexicons`. Do not edit the generated output by hand.
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readLexiconDocs } from "./lexicon-docs.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..", "..");
@@ -16,21 +17,7 @@ const roots = [
   join(repoRoot, "lexicons", "games"),
 ];
 
-function walk(dir) {
-  const out = [];
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) out.push(...walk(full));
-    else if (name.endsWith(".json")) out.push(full);
-  }
-  return out;
-}
-
-const docs = roots
-  .flatMap(walk)
-  .map((f) => JSON.parse(readFileSync(f, "utf8")))
-  .filter((doc) => typeof doc?.id === "string")
-  .sort((a, b) => a.id.localeCompare(b.id));
+const docs = readLexiconDocs(roots);
 
 const body = `/**
  * GENERATED CODE - DO NOT MODIFY

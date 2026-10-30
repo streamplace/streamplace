@@ -749,6 +749,41 @@ it.each(["ios", "android", "web"])(
   },
 );
 
+it.each([
+  [1440, 1100, 1920, 1080],
+  [1920, 800, 2560, 1080],
+  [1440, 1100, 1080, 1920],
+])(
+  "fits a %sx%s desktop around a %sx%s stream without an outer gutter",
+  async (windowWidth, windowHeight, videoWidth, videoHeight) => {
+    fixture.platform = "web";
+    fixture.window = { width: windowWidth, height: windowHeight };
+    fixture.video = { width: videoWidth, height: videoHeight };
+    fixture.insets = { top: 0, bottom: 0, left: 0, right: 0 };
+    await act(async () =>
+      root.render(
+        <PlayerInner
+          showChat={false}
+          setShowChat={() => {}}
+          showUnavailable={false}
+        />,
+      ),
+    );
+    const controls = container.querySelector("button")!;
+    let frame = controls.parentElement!;
+    while (typeof JSON.parse(frame.dataset.style!).width !== "number")
+      frame = frame.parentElement!;
+    const style = JSON.parse(frame.dataset.style!);
+    const scrollStyle = JSON.parse(frame.parentElement!.dataset.style!);
+    expect(scrollStyle.maxWidth).toBe(windowWidth);
+    expect(style.width).toBeLessThanOrEqual(windowWidth);
+    expect(style.height).toBeLessThanOrEqual(windowHeight);
+    if (videoWidth / videoHeight > windowWidth / windowHeight)
+      expect(style.width).toBe(windowWidth);
+    expect(style.width / style.height).toBeCloseTo(videoWidth / videoHeight);
+  },
+);
+
 it("keeps the detached landscape controls from appearing twice", async () => {
   await act(async () =>
     root.render(

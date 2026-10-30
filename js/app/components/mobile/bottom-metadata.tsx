@@ -5,8 +5,6 @@ import {
   formatActivity,
   IconButton,
   layout,
-  LiveBadge,
-  PlayerUI,
   ShareSheet,
   Text,
   useAuthor,
@@ -16,12 +14,15 @@ import {
   usePlayerStore,
   useTheme,
   useTitle,
+  useTranslation,
   useViews,
   zero,
 } from "@streamplace/components";
 import {
   motion,
+  spacing,
   statusColors,
+  tabularNums,
 } from "@streamplace/components/src/lib/theme/tokens";
 import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import AQLink from "components/aqlink";
@@ -32,7 +33,7 @@ import {
   ChevronRight,
   ChevronUp,
 } from "lucide-react-native";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Linking, Pressable, ScrollView, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -94,9 +95,8 @@ function AtMoCoNav({ currentHandle }: { currentHandle: string }) {
 }
 
 /**
- * The metadata block below the player — YouTube grammar: title on top,
- * streamer identity row (avatar with live ring, handle, follow) beneath,
- * viewer count and actions on the right.
+ * Stream identity and wrapping tags below the player. Rights stay in Details
+ * so they remain accessible without competing with the title and creator.
  */
 export function BottomMetadata({
   setShowChat,
@@ -113,111 +113,141 @@ export function BottomMetadata({
     did,
     title,
     avatarUri,
-    isLive,
+    isLive: isLiveMode,
+    livestream,
+    segment,
     views,
-    activityLabel,
     tags,
-    hasMeta,
-    contentWarnings,
     contentRights,
-    displayName,
     handleStr,
     streamerName,
     streamerSubtitle,
   } = useStreamMeta();
   const { theme } = useTheme();
+  const { t } = useTranslation("common");
+  const [showDetails, setShowDetails] = useState(false);
+  const [now, setNow] = useState(Date.now);
+  const latestActivity = Math.max(
+    Date.parse(segment?.startTime ?? "") +
+      Math.max(0, segment?.duration ?? 0) / 1e6 || -Infinity,
+    Date.parse(livestream?.record.lastSeenAt ?? "") || -Infinity,
+  );
+  const liveUntil = latestActivity + 10_000;
+  const isLive =
+    isLiveMode &&
+    livestream !== null &&
+    !livestream.record.endedAt &&
+    Number.isFinite(latestActivity) &&
+    liveUntil > Math.max(now, Date.now());
+
+  // A channel page can remain in live playback mode after its media stops.
+  // Expire presence even if the websocket sends no further store updates.
+  useEffect(() => {
+    if (compact || !isLive) return;
+    const timeout = setTimeout(
+      () => setNow(Date.now()),
+      liveUntil - Date.now(),
+    );
+    return () => clearTimeout(timeout);
+  }, [compact, isLive, liveUntil]);
+
+  const hasRights =
+    contentRights?.license ||
+    contentRights?.copyrightNotice ||
+    contentRights?.copyrightYear ||
+    contentRights?.creditLine;
 
   if (compact) {
     return <CompactStreamInfo />;
   }
 
   return (
-    <View
-      style={[
-        layout.position.relative,
-        // Desktop: flush with the player's rounded edges, no divider box —
-        // the metadata reads as part of the video composition (YouTube).
-        px[0],
-        py[3],
-      ]}
-    >
-      {/* LIVE status + watching count (YouTube-style live indicator) */}
-      {isLive ? (
-        <View style={[py[1]]}>
-          <LiveBadge count={views ?? undefined} />
-        </View>
-      ) : null}
-
-      {/* Title */}
-      {title ? (
-        <Text
-          numberOfLines={2}
-          ellipsizeMode="tail"
-          size="lg"
-          weight="semibold"
-          style={[py[1]]}
-        >
-          {title}
-        </Text>
-      ) : null}
-
+    <View style={[layout.position.relative, px[4], py[3], gap.all[2]]}>
       <View
         style={[
           layout.flex.row,
           layout.flex.spaceBetween,
-          layout.flex.alignCenter,
+          layout.flex.align.start,
           gap.all[3],
+          { flexWrap: "wrap" },
         ]}
       >
-        {/* Left: streamer identity row */}
+        <View style={[gap.all[2], { flex: 1, minWidth: "50%" }]}>
+          {title ? (
+            <Text
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              size="lg"
+              weight="semibold"
+              style={[py[1]]}
+            >
+              {title}
+            </Text>
+          ) : null}
+          <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
+            <Avatar
+              src={avatarUri}
+              name={profile ? formatHandle(profile) : undefined}
+              size="lg"
+              live={isLive}
+              style={{ width: spacing[12], height: spacing[12] }}
+            />
+
+            <View style={{ flexShrink: 1, minWidth: 0 }}>
+              <View
+                style={[
+                  layout.flex.row,
+                  layout.flex.alignCenter,
+                  gap.all[3],
+                  { flexWrap: "wrap" },
+                ]}
+              >
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open profile for ${handleStr}`}
+                  onPress={() => {
+                    if (profile?.did) {
+                      Linking.openURL(
+                        `https://bsky.app/profile/${formatHandle(profile)}`,
+                      );
+                    }
+                  }}
+                  style={{ flexShrink: 1, minWidth: 0 }}
+                >
+                  <Text numberOfLines={1} weight="medium">
+                    {streamerName}
+                  </Text>
+                </Pressable>
+                {isLive && views !== null && (
+                  <Text size="xs" color="muted" style={tabularNums}>
+                    {t("watching-count", { count: views })}
+                  </Text>
+                )}
+              </View>
+              {streamerSubtitle ? (
+                <Text numberOfLines={1} size="sm" color="muted">
+                  {streamerSubtitle}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        </View>
+
+        {/* Stream actions remain available when a channel goes offline. */}
         <View
           style={[
             layout.flex.row,
             layout.flex.alignCenter,
-            gap.all[3],
-            { flex: 1, minWidth: 0 },
+            gap.all[2],
+            { flexWrap: "wrap" },
           ]}
         >
-          <Avatar
-            src={avatarUri}
-            name={profile ? formatHandle(profile) : undefined}
-            size="xl"
-            live={isLive}
-          />
-
-          <View style={{ flexShrink: 1, minWidth: 0 }}>
-            <Pressable
-              onPress={() => {
-                if (profile?.did) {
-                  Linking.openURL(
-                    `https://bsky.app/profile/${formatHandle(profile)}`,
-                  );
-                }
-              }}
-              style={{ flexShrink: 1, minWidth: 0 }}
-            >
-              <Text numberOfLines={1} weight="medium">
-                {streamerName}
-              </Text>
-            </Pressable>
-            {streamerSubtitle ? (
-              <Text numberOfLines={1} size="sm" color="muted">
-                {streamerSubtitle}
-              </Text>
-            ) : null}
-          </View>
-
           {did && profile && (
             <FollowButton streamerDID={profile.did} currentUserDID={did} />
           )}
-        </View>
-
-        {/* Right: viewers + actions */}
-        <View style={[layout.flex.row, layout.flex.align.center, gap.all[2]]}>
-          {!isLive ? <PlayerUI.Viewers /> : null}
           <ShareSheet />
           <KebabMenu />
-          {isLive && (
+          {isLiveMode && (
             <IconButton
               variant="secondary"
               size="sm"
@@ -225,9 +255,9 @@ export function BottomMetadata({
               onPress={() => setShowChat(!showChat)}
             >
               {showChat ? (
-                <ChevronRight color={theme.colors.text2} size={16} />
+                <ChevronRight color={theme.colors.text2} size={spacing[4]} />
               ) : (
-                <ChevronLeft color={theme.colors.text2} size={16} />
+                <ChevronLeft color={theme.colors.text2} size={spacing[4]} />
               )}
             </IconButton>
           )}
@@ -235,21 +265,22 @@ export function BottomMetadata({
       </View>
 
       {/* Tags */}
-      {hasMeta && tags && tags.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[gap.all[2], layout.flex.alignCenter, py[1]]}
+      {tags && tags.length > 0 && (
+        <View
+          style={[
+            layout.flex.row,
+            layout.flex.alignCenter,
+            gap.all[1],
+            { flexWrap: "wrap" },
+          ]}
         >
           {tags.map((tag) => (
             <View
               key={tag}
               style={[
-                r.full,
-                px[2],
+                r.sm,
+                px[1],
                 {
-                  borderWidth: 1,
-                  borderColor: theme.colors.borderSubtle,
                   backgroundColor: theme.colors.surface2,
                 },
               ]}
@@ -259,15 +290,36 @@ export function BottomMetadata({
               </Text>
             </View>
           ))}
-        </ScrollView>
+        </View>
       )}
 
-      {/* Content metadata */}
-      {(contentWarnings.length > 0 ||
-        (contentRights && Object.keys(contentRights).length > 0)) && (
-        <View style={[py[2]]}>
-          <ContentWarnings warnings={contentWarnings} compact={true} />
-          {contentRights && (
+      {hasRights && (
+        <View style={[gap.all[1]]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showDetails }}
+            onPress={() => setShowDetails(!showDetails)}
+            style={[
+              layout.flex.row,
+              layout.flex.alignCenter,
+              gap.all[1],
+              py[1],
+              {
+                alignSelf: "flex-start",
+                minHeight: theme.touchTargets.minimum,
+              },
+            ]}
+          >
+            <Text size="xs" color="muted">
+              {t(showDetails ? "less-details" : "more-details")}
+            </Text>
+            {showDetails ? (
+              <ChevronUp color={theme.colors.text2} size={spacing[3]} />
+            ) : (
+              <ChevronDown color={theme.colors.text2} size={spacing[3]} />
+            )}
+          </Pressable>
+          {showDetails && contentRights && (
             <ContentRights contentRights={contentRights} compact={true} />
           )}
         </View>
@@ -311,7 +363,6 @@ function useStreamMeta() {
     }
     return tag;
   });
-  const hasMeta = activityLabel || (tags && tags.length > 0);
   const isLive = mode === "live";
 
   // YouTube leads with the channel's display name; the handle is secondary.
@@ -324,6 +375,8 @@ function useStreamMeta() {
 
   return {
     profile,
+    livestream: ls,
+    segment,
     did,
     title,
     avatarUri,
@@ -331,10 +384,8 @@ function useStreamMeta() {
     views,
     activityLabel,
     tags,
-    hasMeta,
     contentWarnings,
     contentRights,
-    displayName,
     handleStr,
     streamerName,
     streamerSubtitle,

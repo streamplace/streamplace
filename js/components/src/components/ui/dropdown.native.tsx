@@ -374,7 +374,11 @@ export const DropdownMenuSubTrigger = forwardRef<
     <ButtonPrimitive.Root
       {...props}
       ref={ref}
-      style={[menuRowStyle, style]}
+      disabled={props.disabled ?? false}
+      style={(state) => [
+        menuRowStyle,
+        typeof style === "function" ? style(state) : style,
+      ]}
       hoverStyle={{ backgroundColor: theme.colors.surfaceHover }}
       pressedStyle={{ backgroundColor: theme.colors.surface3 }}
       onPress={(event) => {
@@ -487,7 +491,11 @@ export const DropdownMenuItem = forwardRef<
       {...props}
       ref={ref}
       disabled={disabled}
-      style={[menuRowStyle, style]}
+      onPress={props.onPress ?? undefined}
+      style={(state) => [
+        menuRowStyle,
+        typeof style === "function" ? style(state) : style,
+      ]}
       hoverStyle={{ backgroundColor: theme.colors.surfaceHover }}
       pressedStyle={{ backgroundColor: theme.colors.surface3 }}
     >
@@ -537,8 +545,12 @@ export const DropdownMenuCheckboxItem = forwardRef<
       {...props}
       ref={ref}
       accessibilityRole="checkbox"
+      disabled={props.disabled ?? false}
       accessibilityState={{ ...props.accessibilityState, checked }}
-      style={[menuRowStyle, style]}
+      style={(state) => [
+        menuRowStyle,
+        typeof style === "function" ? style(state) : style,
+      ]}
       hoverStyle={{ backgroundColor: theme.colors.surfaceHover }}
       pressedStyle={{ backgroundColor: theme.colors.surface3 }}
       onPress={(e) => {
@@ -596,8 +608,12 @@ export const DropdownMenuRadioItem = forwardRef<
       {...props}
       ref={ref}
       accessibilityRole="radio"
+      disabled={props.disabled ?? false}
       accessibilityState={{ ...props.accessibilityState, checked: isSelected }}
-      style={[menuRowStyle, style]}
+      style={(state) => [
+        menuRowStyle,
+        typeof style === "function" ? style(state) : style,
+      ]}
       hoverStyle={{ backgroundColor: theme.colors.surfaceHover }}
       pressedStyle={{ backgroundColor: theme.colors.surface3 }}
       onPress={(e) => {

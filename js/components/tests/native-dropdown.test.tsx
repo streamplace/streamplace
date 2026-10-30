@@ -26,7 +26,7 @@ vi.mock("react-native", () => {
       create: (styles: unknown) => styles,
       flatten: (styles: any) => Object.assign({}, ...[styles].flat(Infinity)),
     },
-    Pressable: ({ children, disabled, onPress, ...props }: any) => {
+    Pressable: ({ children, disabled, onPress, style, ...props }: any) => {
       const [pressed, setPressed] = useState(false);
       return createElement(
         "button",
@@ -38,6 +38,12 @@ vi.mock("react-native", () => {
           onMouseLeave: () => setPressed(false),
           "aria-label": props.accessibilityLabel,
           "aria-checked": props.accessibilityState?.checked,
+          style: Object.assign(
+            {},
+            ...[typeof style === "function" ? style({ pressed }) : style].flat(
+              Infinity,
+            ),
+          ),
         },
         typeof children === "function" ? children({ pressed }) : children,
       );
@@ -99,6 +105,31 @@ it.each([DropdownMenuItem, DropdownMenuSubTrigger])(
     expect(container.textContent).toBe("Idle");
   },
 );
+
+it.each([
+  DropdownMenuItem,
+  DropdownMenuSubTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioItem,
+])("evaluates a menu row's caller style with its press state", async (Item) => {
+  await act(async () =>
+    root.render(
+      <Item style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+        Action
+      </Item>,
+    ),
+  );
+  const button = container.querySelector("button")!;
+  expect(button.style.opacity).toBe("1");
+  await act(async () =>
+    button.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })),
+  );
+  expect(button.style.opacity).toBe("0.5");
+  await act(async () =>
+    button.dispatchEvent(new MouseEvent("mouseup", { bubbles: true })),
+  );
+  expect(button.style.opacity).toBe("1");
+});
 
 it("prevents disabled menu actions", async () => {
   function Menu() {

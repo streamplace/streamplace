@@ -1,11 +1,11 @@
 import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Share2 } from "lucide-react-native";
-import { useWindowDimensions, View } from "react-native";
+import { Linking, Pressable, useWindowDimensions, View } from "react-native";
 import { useAuthor } from "../../hooks/useAuthor";
 import { useAvatar } from "../../hooks/useAvatar";
 import { useTitle } from "../../hooks/useTitle";
 import { spacing } from "../../lib/theme/tokens";
-import { useUrl } from "../../streamplace-store";
+import { useNetworkProfileUrl, useUrl } from "../../streamplace-store";
 import { gap, layout, useTheme } from "../../ui";
 import { useVideoStore } from "../../video-store/video-store";
 import { ShareSheet } from "../share/sharesheet";
@@ -29,6 +29,7 @@ export function VodMobileMetadata() {
   const author = useAuthor();
   const avatar = useAvatar();
   const baseUrl = useUrl();
+  const profileUrl = useNetworkProfileUrl();
   const { width } = useWindowDimensions();
   const { theme } = useTheme();
 
@@ -54,7 +55,10 @@ export function VodMobileMetadata() {
   );
 
   const channel = (
-    <View
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={`Open profile for ${userSeg}`}
+      onPress={() => Linking.openURL(profileUrl(profile))}
       style={[
         layout.flex.row,
         layout.flex.alignCenter,
@@ -71,7 +75,7 @@ export function VodMobileMetadata() {
       >
         {formatHandleWithAt(profile)}
       </Text>
-    </View>
+    </Pressable>
   );
 
   const actions = (

@@ -46,8 +46,7 @@ type streamTranscoder struct {
 	// session rebuilds it (registry-owned: set under transcodersMu before the
 	// transcoder is published to the map, read only by needsReset under the same
 	// lock, so it needs no separate synchronization).
-	cert       []byte
-	keyPEM     []byte
+	signer     trackSigner
 	onComplete func(token any, completed []byte)
 
 	ctx    context.Context
@@ -91,10 +90,45 @@ func ingestSessionFromContext(ctx context.Context) uint64 {
 	return epoch
 }
 
+// trackSigner signs the track a node adds to complete a segment's audio. For a
+// segment this node ingested it is the segment's own signer (see
+// MediaSignerLocal.trackSigner), so the added track is the streamer's like
+// the rest of the segment and every node takes it; for one pulled from a
+// peer, this node's station.
+type trackSigner struct {
+	creator string // the manifest's dc:creator
+	cert    []byte
+	keyPEM  []byte                       // signed with in-wasm when set,
+	sign    func([]byte) ([]byte, error) // else through this host callback
+}
+
+// segmentSignerKey carries the signer of an ingest session's segments down the
+// validate path, beside its epoch (see ingestSessionKey): SegmentAndSignElem
+// stamps both, so a session's signer never changes under a running transcoder.
+type segmentSignerKey struct{}
+
+func withSegmentSigner(ctx context.Context, ms MediaSigner) context.Context {
+	return context.WithValue(ctx, segmentSignerKey{}, ms)
+}
+
+// completionSigner is the trackSigner for completing a segment validated on
+// ctx: the segment's own signer when this node ingested it in-process, else
+// the station's.
+func (mm *MediaManager) completionSigner(ctx context.Context, local bool) (trackSigner, error) {
+	if ms, ok := ctx.Value(segmentSignerKey{}).(*MediaSignerLocal); ok && local {
+		return ms.trackSigner()
+	}
+	cert, keyPEM, err := mm.transcodeSigner()
+	if err != nil {
+		return trackSigner{}, err
+	}
+	return trackSigner{creator: mm.cli.BroadcasterDID(), cert: cert, keyPEM: keyPEM}, nil
+}
+
 // feedStreamTranscoder routes one source segment into the stream's continuous
 // transcoder, creating it on first use. The completed dual-codec segment is
 // distributed asynchronously (≈1 GoP later) via distributeSegment.
-func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedSegment, src []byte, target string, cert, keyPEM []byte) error {
+func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedSegment, src []byte, target string, signer trackSigner) error {
 	did := vs.repoDID
 	sessionID := ingestSessionFromContext(ctx)
 	mm.transcodersMu.Lock()
@@ -127,7 +161,7 @@ func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedS
 		// The transcoder outlives any single request; carry log values but not
 		// cancellation, and cancel explicitly on reap.
 		streamCtx := context.WithoutCancel(ctx)
-		t = mm.newStreamTranscoder(streamCtx, target, cert, keyPEM, func(token any, completed []byte) {
+		t = mm.newStreamTranscoder(streamCtx, target, signer, func(token any, completed []byte) {
 			v := token.(*validatedSegment)
 			if err := mm.distributeSegment(context.WithoutCancel(streamCtx), v, completed); err != nil {
 				log.Error(streamCtx, "distribute completed segment failed", "streamer", v.repoDID, "error", err)
@@ -192,13 +226,13 @@ func (mm *MediaManager) reapStreamTranscoder(did string, t *streamTranscoder) {
 }
 
 // newStreamTranscoder starts a per-stream continuous transcoder. target is the
-// codec to add. cert/keyPEM are the node's S2PA signer. onComplete is invoked,
+// codec to add; signer signs the track it adds. onComplete is invoked,
 // in order, with each completed dual-codec segment (and its feed token).
-func (mm *MediaManager) newStreamTranscoder(parent context.Context, target string, cert, keyPEM []byte, onComplete func(token any, completed []byte)) *streamTranscoder {
+func (mm *MediaManager) newStreamTranscoder(parent context.Context, target string, signer trackSigner, onComplete func(token any, completed []byte)) *streamTranscoder {
 	ctx, cancel := context.WithCancel(parent)
 	feedR, feedW := io.Pipe()
 	t := &streamTranscoder{
-		mm: mm, target: target, cert: cert, keyPEM: keyPEM, onComplete: onComplete,
+		mm: mm, target: target, signer: signer, onComplete: onComplete,
 		ctx: ctx, cancel: cancel, feedW: feedW,
 		jobs: make(chan transcodeJob, 16), done: make(chan struct{}),
 	}
@@ -396,7 +430,7 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 		// and canonicalize needs the video keyframe as its cut clock to emit one
 		// segment per GoP. Audio by itself has no keyframes to anchor on.
 		transSeg := concatTracksByID(ev.Tracks)
-		completed, err := t.mm.finishTranscodedSegment(ctx, job.src, transSeg, audioTID, t.cert, t.keyPEM)
+		completed, err := t.mm.finishTranscodedSegment(ctx, job.src, transSeg, audioTID, t.signer)
 		if err != nil {
 			log.Error(ctx, "stream transcode: finish segment failed", "error", err)
 			continue
@@ -431,7 +465,7 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 // the audio cutting out for the back half of each segment). Carrying the
 // passed-through video as the cut clock makes canonicalize emit one segment per
 // GoP, exactly like the source track.
-func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, transSeg []byte, transTID uint32, cert, keyPEM []byte) ([]byte, error) {
+func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, transSeg []byte, transTID uint32, signer trackSigner) ([]byte, error) {
 	events, err := unwrapMuxlEvents(ctx, srcSeg)
 	if err != nil {
 		return nil, fmt.Errorf("unwrap source segment: %w", err)
@@ -481,9 +515,10 @@ func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, tra
 	signed, err := muxl.RunMuxlSignTranscode(ctx, muxl.TranscodeInput{
 		Output:   output,
 		Source:   sourceAudio,
-		CertPEM:  cert,
-		KeyPEM:   keyPEM,
-		Manifest: transcodeManifest(mm.cli.BroadcasterDID()),
+		CertPEM:  signer.cert,
+		KeyPEM:   signer.keyPEM,
+		Sign:     signer.sign,
+		Manifest: transcodeManifest(signer.creator),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("sign transcoded track: %w", err)

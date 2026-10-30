@@ -54,3 +54,20 @@ func TestSweepConcurrencyFlag(t *testing.T) {
 	t.Setenv("SP_SWEEP_CONCURRENCY", "12")
 	require.Equal(t, 12, run(t).SweepConcurrency)
 }
+
+// TestTrustedTranscodersFlag: unset, a node takes stream.place's transcodes;
+// an operator can name others, or none at all (only streamers and its own
+// station), and an explicit empty value must not fall back to the default.
+func TestTrustedTranscodersFlag(t *testing.T) {
+	prepared := func(cli *CLI) []string {
+		t.Helper()
+		require.NoError(t, cli.PrepareConfig())
+		return cli.TrustedTranscoders
+	}
+	require.Equal(t, []string{DefaultTrustedTranscoder}, prepared(flagRun(t)), "unset is the default")
+	require.Equal(t, []string{"did:web:a.example", "did:key:zQ3sh"}, prepared(flagRun(t, "--trusted-transcoders=did:web:a.example,did:key:zQ3sh")))
+	require.Empty(t, prepared(flagRun(t, "--trusted-transcoders=")), "explicitly none")
+
+	t.Setenv("SP_TRUSTED_TRANSCODERS", "")
+	require.Empty(t, prepared(flagRun(t)), "explicitly none, from the environment")
+}

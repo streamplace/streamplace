@@ -89,7 +89,7 @@ func TestFeedStreamTranscoderRebuildsOnNewSession(t *testing.T) {
 				meta:    &SegmentMetadata{StartTime: aqtime.FromTime(base.Add(time.Duration(startIdx+i) * time.Second))},
 				local:   true,
 			}
-			require.NoError(t, mm.feedStreamTranscoder(sctx, vs, seg, "aac", ms.Cert, keyPEM),
+			require.NoError(t, mm.feedStreamTranscoder(sctx, vs, seg, "aac", trackSigner{creator: ms.Streamer(), cert: ms.Cert, keyPEM: keyPEM}),
 				"feed session %d segment %d", epoch, i)
 		}
 	}
@@ -200,7 +200,7 @@ func TestStreamTranscoderGapless(t *testing.T) {
 
 	var mu sync.Mutex
 	var completed [][]byte
-	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, func(_ any, c []byte) {
+	tr := mm.newStreamTranscoder(ctx, "aac", trackSigner{creator: ms.Streamer(), cert: ms.Cert, keyPEM: keyPEM}, func(_ any, c []byte) {
 		mu.Lock()
 		completed = append(completed, c)
 		mu.Unlock()
@@ -288,7 +288,7 @@ func TestStreamTranscoderDegenerateTimestamps(t *testing.T) {
 
 	var mu sync.Mutex
 	var completed [][]byte
-	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, func(_ any, c []byte) {
+	tr := mm.newStreamTranscoder(ctx, "aac", trackSigner{creator: ms.Streamer(), cert: ms.Cert, keyPEM: keyPEM}, func(_ any, c []byte) {
 		mu.Lock()
 		completed = append(completed, c)
 		mu.Unlock()
@@ -325,4 +325,48 @@ func TestStreamTranscoderDegenerateTimestamps(t *testing.T) {
 	o, a := audioDurationsSeconds(t, ctx, c)
 	require.Greater(t, a, 0.65*o,
 		"transcoded AAC %.3fs far short of source Opus %.3fs", a, o)
+}
+
+// A node completes a segment it ingested under the segment's own signer, so
+// the added track is the streamer's like the rest and a node of any other
+// station takes it; a segment it did not ingest is completed as its station.
+func TestCompletionSignedAsTheSegment(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+	segs := allSignedBareSegments(t, ctx, ms, getFixture("h264-opus-frag.mp4"))
+	stationCert, stationKey := nodeSignerForTest(t)
+	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "test.example.com"}, nodeCert: stationCert, nodeKeyPEM: stationKey}
+	mm.nodeSignerOnce.Do(func() {})
+	// Another station's node, trusting nobody but the streamer.
+	otherCert, otherKey := nodeSignerForTest(t)
+	other := &MediaManager{cli: &config.CLI{BroadcasterHost: "other.test", TrustedTranscoders: []string{}}, nodeCert: otherCert, nodeKeyPEM: otherKey}
+	other.nodeSignerOnce.Do(func() {})
+	complete := func(signer trackSigner) *ValidationResult {
+		t.Helper()
+		var mu sync.Mutex
+		var completed [][]byte
+		tr := mm.newStreamTranscoder(ctx, "aac", signer, func(_ any, c []byte) {
+			mu.Lock()
+			completed = append(completed, c)
+			mu.Unlock()
+		})
+		for i, s := range segs {
+			require.NoError(t, tr.Feed(s, i))
+		}
+		require.NoError(t, tr.Close())
+		mu.Lock()
+		defer mu.Unlock()
+		require.NotEmpty(t, completed)
+		valid, err := ValidateMP4Media(ctx, completed[0])
+		require.NoError(t, err)
+		return valid
+	}
+
+	ingested, err := mm.completionSigner(withSegmentSigner(ctx, ms), true)
+	require.NoError(t, err)
+	require.NoError(t, other.trustSegmentTracks(ctx, complete(ingested), ms.Streamer()), "ingested here: signed as the streamer")
+
+	pulled, err := mm.completionSigner(withSegmentSigner(ctx, ms), false)
+	require.NoError(t, err)
+	require.ErrorIs(t, other.trustSegmentTracks(ctx, complete(pulled), ms.Streamer()), ErrUntrustedTranscoder, "not ingested here: signed as the station")
 }

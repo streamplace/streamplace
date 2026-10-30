@@ -52,8 +52,6 @@ func TestDetachedWorkerZeroDowntime(t *testing.T) {
 		KeyPEM:          keyPEM,
 		CertPEM:         ms.Cert,
 		Manifest:        manifest,
-		NodeCertPEM:     ms.Cert,
-		NodeKeyPEM:      keyPEM,
 		BroadcasterHost: "test.example.com",
 		SocketPath:      sock,
 		InputFD:         4,

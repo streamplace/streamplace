@@ -216,19 +216,41 @@ func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Read
 		TrackManifestFn:   fetchManifest,
 		WrapperManifestFn: fetchManifest,
 	}
-	if _, ok := ms.Signer.(*ecdsa.PrivateKey); ok {
-		keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
-		if err != nil {
-			return fmt.Errorf("failed to marshal signing key: %w", err)
-		}
-		in.KeyPEM = keyPEM
+	var err error
+	if in.KeyPEM, in.Sign, err = ms.muxlKey(); err != nil {
+		return err
+	}
+	if in.KeyPEM != nil {
 		span.SetAttributes(attribute.String("backend", "pem"))
 	} else {
-		in.Sign = muxl.SignerToCallback(ms.Signer, 32)
 		span.SetAttributes(attribute.String("backend", "host-callback"))
 	}
 
 	return muxl.RunMuxlSignSegment(ctx, input, in, nil, nil, eventCh)
+}
+
+// muxlKey is ms's key the way muxl takes it: a software key as a PEM it signs
+// with in-wasm, anything else as a host callback that keeps the key out of
+// the sandbox.
+func (ms *MediaSignerLocal) muxlKey() (keyPEM []byte, sign func([]byte) ([]byte, error), err error) {
+	if _, ok := ms.Signer.(*ecdsa.PrivateKey); ok {
+		keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to marshal signing key: %w", err)
+		}
+		return keyPEM, nil, nil
+	}
+	return nil, muxl.SignerToCallback(ms.Signer, 32), nil
+}
+
+// trackSigner signs tracks this node adds to the segments ms signs (a
+// completed audio codec) as the streamer, like the rest of the segment.
+func (ms *MediaSignerLocal) trackSigner() (trackSigner, error) {
+	keyPEM, sign, err := ms.muxlKey()
+	if err != nil {
+		return trackSigner{}, err
+	}
+	return trackSigner{creator: ms.Streamer(), cert: ms.Cert, keyPEM: keyPEM, sign: sign}, nil
 }
 
 // don't call externally! this is used as a callback for the rust library

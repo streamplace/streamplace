@@ -18,6 +18,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/google/uuid"
@@ -388,6 +389,10 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	if err := waitForNode(ctx, httpAddr); err != nil {
 		return err
 	}
+	stationKey, err := e2eStationKey(ctx, httpAddr)
+	if err != nil {
+		return fmt.Errorf("station key: %w", err)
+	}
 
 	// A second node, a peer that syndicates whatever the first ingests: it
 	// hears the origin record on the shared PDS firehose and pulls the
@@ -426,6 +431,9 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		fmt.Sprintf("SP_ATPROTO_DID=%s", out.Did),
 		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", peerAddr),
 		"SP_SYNDICATE=*",
+		// The peer is a station of its own: it takes the first node's
+		// transcodes (the codec it completes) only because it is told to.
+		"SP_TRUSTED_TRANSCODERS=" + stationKey,
 	}
 	if tlsEnv != nil {
 		// The peer syncs the streamer's repo from the same HTTPS PDS.
@@ -581,4 +589,36 @@ func publishLexicons(ctx context.Context, env e2eDevEnv) error {
 		}
 	}
 	return nil
+}
+
+// e2eStationKey is the did:key the node at httpAddr signs its transcodes
+// with: the key its DID document publishes (see atproto.StationCryptoSigner).
+// A peer is given it as a bare did:key because the harness's nodes serve
+// plain HTTP, which did:web resolution does not do.
+func e2eStationKey(ctx context.Context, httpAddr string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/.well-known/did.json", httpAddr), nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close() //nolint:errcheck
+	var doc struct {
+		VerificationMethod []struct {
+			PublicKeyMultibase string `json:"publicKeyMultibase"`
+		} `json:"verificationMethod"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		return "", fmt.Errorf("decode did.json: %w", err)
+	}
+	if len(doc.VerificationMethod) == 0 {
+		return "", fmt.Errorf("did.json publishes no key")
+	}
+	pub, err := atcrypto.ParsePublicMultibase(doc.VerificationMethod[0].PublicKeyMultibase)
+	if err != nil {
+		return "", err
+	}
+	return pub.DIDKey(), nil
 }

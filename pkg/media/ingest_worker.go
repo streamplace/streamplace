@@ -63,12 +63,7 @@ type IngestWorkerConfig struct {
 	// control channel and is tracked as future work.
 	Manifest []byte `json:"manifest"`
 
-	// Node transcode signer + broadcaster identity. When set, the worker completes
-	// each single-codec source segment to dual-codec (Opus+AAC) itself — the
-	// transcode runs in this isolated process too — signing the added track under
-	// the node identity. Empty → the worker emits single-codec source segments.
-	NodeCertPEM     []byte `json:"node_cert_pem,omitempty"`
-	NodeKeyPEM      []byte `json:"node_key_pem,omitempty"`
+	// BroadcasterHost is the station the worker's MediaManager runs for.
 	BroadcasterHost string `json:"broadcaster_host,omitempty"`
 
 	// SocketPath, when set, switches the worker to the detach/reattach transport:
@@ -163,19 +158,17 @@ func workerSignStream(cfg IngestWorkerConfig, getManifest func() []byte) SignSeg
 }
 
 // workerSegmentSink returns the onSegment handler a worker hands to
-// muxlSignSegmentElem, plus a flush to call once the signer has drained. With a
-// node transcode key it completes each single-codec source segment to dual-codec
-// via an in-process transcoder (its completion callback frames the finished
-// segment); flush Closes that transcoder so its ~1-GoP tail is framed before the
-// worker exits. The transcoder runs on a non-cancellable context so draining the
-// signer can't kill it early. One process == one session, so the per-DID
+// muxlSignSegmentElem, plus a flush to call once the signer has drained. It
+// completes each single-codec source segment to dual-codec via an in-process
+// transcoder (its completion callback frames the finished segment), the added
+// track signed with the streamer's key like the rest of the segment; flush
+// Closes that transcoder so its ~1-GoP tail is framed before the worker exits.
+// The transcoder runs on a non-cancellable context so draining the signer
+// can't kill it early. One process == one session, so the per-DID
 // transcoder-reuse hazard can't arise. Shared by the MP4 and WHIP workers.
 func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerConfig, frames FrameWriter) (onSegment func(context.Context, []byte) error, flush func()) {
 	var transcoder *streamTranscoder
 	onSegment = func(_ context.Context, segment []byte) error {
-		if len(cfg.NodeKeyPEM) == 0 {
-			return frames.Segment(segment) // no node signer → single-codec
-		}
 		if transcoder == nil {
 			// WithoutCancel for the same reason as the transcoder below: this
 			// runs from the signer's post-cancel drain, and a muxl unwrap
@@ -185,7 +178,8 @@ func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerC
 			if !need {
 				return frames.Segment(segment) // already dual-codec / no audio track
 			}
-			transcoder = mm.newStreamTranscoder(context.WithoutCancel(ctx), target, cfg.NodeCertPEM, cfg.NodeKeyPEM,
+			signer := trackSigner{creator: cfg.StreamerDID, cert: cfg.CertPEM, keyPEM: cfg.KeyPEM}
+			transcoder = mm.newStreamTranscoder(context.WithoutCancel(ctx), target, signer,
 				func(_ any, completed []byte) {
 					if ferr := frames.Segment(completed); ferr != nil {
 						log.Error(ctx, "ingest worker: frame completed segment", "error", ferr)

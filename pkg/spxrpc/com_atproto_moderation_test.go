@@ -143,7 +143,7 @@ func TestCreateReportRouting(t *testing.T) {
 				manifest := []byte(fmt.Sprintf(`{"title":"report clip","assertions":[{"label":"c2pa.actions","data":{"actions":[{"action":"c2pa.created"}]}},{"label":"cawg.metadata","data":{"@context":{"dc":"http://purl.org/dc/elements/1.1/"},"dc:creator":%q,"dc:title":"report clip","dc:date":%q}}]}`, streamerDID, time.Now().UTC().Format(time.RFC3339Nano)))
 				cfg := media.IngestWorkerConfig{
 					StreamerDID: streamerDID, KeyPEM: keyPEM, CertPEM: localSigner.Cert, Manifest: manifest,
-					NodeKeyPEM: keyPEM, NodeCertPEM: localSigner.Cert, BroadcasterHost: "stream.example",
+					BroadcasterHost: "stream.example",
 				}
 				fixture, err := test.Files.ReadFile("fixtures/h264-opus-frag.mp4")
 				require.NoError(t, err)

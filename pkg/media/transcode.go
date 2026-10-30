@@ -49,15 +49,15 @@ func transcodeManifestFor(creator, title string) []byte {
 	}`, title, muxl.TranscodeIngredientLabel, muxl.TranscodeIngredientLabel, creator))
 }
 
-// transcodeSigner returns the node's S2PA cert + PKCS#8 key PEM, built once
-// from the server-repo key. The transcode-completed track is signed under the
-// node's own did:web identity (it vouches for its transcode), declaring the
-// streamer's source track as a parentOf ingredient. The node key is software,
-// so it's signed in-wasm via KeyPEM — the same proven path MediaSignerLocal
-// uses for ecdsa keys.
+// transcodeSigner returns the station's S2PA cert + PKCS#8 key PEM, built
+// once from the key its did:web publishes. A transcoded track is signed under
+// the station's identity (it vouches for its transcode; see
+// ValidateReplicatedRenditions), declaring the streamer's source track as a
+// parentOf ingredient. The key is software, so it's signed in-wasm via KeyPEM
+// — the same proven path MediaSignerLocal uses for ecdsa keys.
 func (mm *MediaManager) transcodeSigner() (cert []byte, keyPEM []byte, err error) {
 	mm.nodeSignerOnce.Do(func() {
-		signer, e := atproto.ServerCryptoSigner()
+		signer, e := atproto.StationCryptoSigner(mm.cli)
 		if e != nil {
 			mm.nodeSignerErr = fmt.Errorf("node transcode signer: %w", e)
 			return

@@ -164,6 +164,7 @@ type CLI struct {
 	SegmentDebugDir             string
 	AdminDIDs                   []string
 	Syndicate                   []string
+	TrustedTranscoders          []string
 	PlayerTelemetry             bool
 	PlaybackWorkerURL           string
 	Ingests                     *placestream.IngestGetIngestUrls_Output
@@ -302,6 +303,10 @@ const (
 	ReplicatorWebsocket string = "websocket"
 	ReplicatorIroh      string = "iroh"
 )
+
+// DefaultTrustedTranscoder is the station every node takes transcodes from
+// unless --trusted-transcoders says otherwise.
+const DefaultTrustedTranscoder = "did:web:stream.place"
 
 var LivepeerFlagSet *flag.FlagSet
 var LivepeerConfig starter.LivepeerConfig
@@ -1134,6 +1139,21 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				},
 				Sources: urfavecli.EnvVars("SP_SYNDICATE"),
 			},
+			&urfavecli.StringFlag{
+				Name: "trusted-transcoders",
+				Usage: `transcoders whose renditions and completed tracks of other nodes' streams we take, besides the streamer's and our own station's: ` +
+					`station did:webs (by the key their DID document publishes) or did:keys, comma-separated; empty for none (default: "` + DefaultTrustedTranscoder + `")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					// Set but empty is none, not the default: a node that
+					// trusts only streamers and its own station.
+					cli.TrustedTranscoders = []string{}
+					if s != "" {
+						cli.TrustedTranscoders = strings.Split(s, ",")
+					}
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_TRUSTED_TRANSCODERS"),
+			},
 			&urfavecli.BoolFlag{
 				Name:        "disable-syndication",
 				Usage:       `entirely disable syndication in both directions. useful for local development.`,
@@ -1572,6 +1592,9 @@ func (cli *CLI) PrepareConfig() error {
 	// Set default replicator if none specified
 	if len(cli.Replicators) == 0 {
 		cli.Replicators = []string{ReplicatorWebsocket}
+	}
+	if cli.TrustedTranscoders == nil {
+		cli.TrustedTranscoders = []string{DefaultTrustedTranscoder}
 	}
 	return nil
 }

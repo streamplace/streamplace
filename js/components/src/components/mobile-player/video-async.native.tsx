@@ -88,12 +88,12 @@ export function NativeVideo(props?: {
   const setPlayTime = usePlayerStore((x) => x.setPlayTime);
   const setDuration = usePlayerStore((x) => x.setDuration);
   const setBufferedEnd = usePlayerStore((x) => x.setBufferedEnd);
-  const playTime = usePlayerStore((x) => x.playTime);
+  const setSeekTo = usePlayerStore((x) => x.setSeekTo);
   const startTime = usePlayerStore((x) => x.startTime);
   const setTogglePlayPause = usePlayerStore((x) => x.setTogglePlayPause);
   const status = usePlayerStore((x) => x.status);
   const statusRef = useRef(status);
-  const lastReportedTimeRef = useRef(0);
+  const endedRef = useRef(false);
   // Source+time already seeked to, so a status change never re-seeks.
   const appliedStartRef = useRef<string | null>(null);
 
@@ -120,13 +120,6 @@ export function NativeVideo(props?: {
   }, [setStatus]);
 
   const player = useVideoPlayer({ uri: url, contentType: "hls" }, (player) => {
-    player.addListener("playingChange", ({ isPlaying }) => {
-      if (isPlaying) {
-        setStatus(PlayerStatus.PLAYING);
-      } else {
-        setStatus(PlayerStatus.WAITING);
-      }
-    });
     player.loop = mode !== "vod";
     player.muted = muted;
     player.play();
@@ -146,6 +139,7 @@ export function NativeVideo(props?: {
 
   useEffect(() => {
     player.loop = mode !== "vod";
+    endedRef.current = false;
   }, [player, mode]);
 
   useEffect(() => {
@@ -153,18 +147,26 @@ export function NativeVideo(props?: {
       if (statusRef.current === PlayerStatus.PLAYING) {
         player.pause();
       } else {
+        if (
+          mode === "vod" &&
+          (endedRef.current ||
+            (player.duration > 0 && player.currentTime >= player.duration))
+        ) {
+          endedRef.current = false;
+          player.currentTime = 0;
+          setPlayTime(0);
+        }
         player.play();
       }
     });
     return () => setTogglePlayPause(() => {});
-  }, [player, setTogglePlayPause]);
+  }, [player, setTogglePlayPause, mode, setPlayTime]);
 
   useEffect(() => {
     if (mode !== "vod") return;
     const interval = setInterval(() => {
-      const currentTime = player.currentTime;
       const duration = player.duration;
-      lastReportedTimeRef.current = currentTime;
+      const currentTime = endedRef.current ? duration : player.currentTime;
       setPlayTime(currentTime);
       if (isFinite(duration) && duration > 0) {
         setDuration(duration);
@@ -178,12 +180,13 @@ export function NativeVideo(props?: {
   }, [mode, player, setPlayTime, setDuration, setBufferedEnd]);
 
   useEffect(() => {
-    if (mode !== "vod") return;
-    const diff = Math.abs(playTime - lastReportedTimeRef.current);
-    if (diff > 1.0) {
-      player.seekBy(playTime - player.currentTime);
-    }
-  }, [playTime, mode, player]);
+    setSeekTo((time) => {
+      endedRef.current = false;
+      player.currentTime = time;
+      setPlayTime(time);
+    });
+    return () => setSeekTo(() => {});
+  }, [player, setSeekTo, setPlayTime]);
 
   // Start a VOD where a `?t=` link asked. The player only accepts a
   // position once the source is loaded, so wait for readyToPlay; the ref
@@ -222,6 +225,17 @@ export function NativeVideo(props?: {
       return player.addListener(evType, (...args) => {
         const now = new Date();
         console.log("video native event", evType);
+        if (evType === "sourceChange") endedRef.current = false;
+        if (
+          evType === "playToEnd" &&
+          mode === "vod" &&
+          Number.isFinite(player.duration) &&
+          player.duration > 0
+        ) {
+          endedRef.current = true;
+          setPlayTime(player.duration);
+          setStatus(PlayerStatus.PAUSE);
+        }
         if (evType === "statusChange") {
           console.log("player.status", ...args, { url });
         }
@@ -234,7 +248,12 @@ export function NativeVideo(props?: {
         if (isPlaying) {
           setStatus(PlayerStatus.PLAYING);
         } else {
-          setStatus(PlayerStatus.WAITING);
+          setStatus(
+            mode === "vod" &&
+              (endedRef.current || player.status === "readyToPlay")
+              ? PlayerStatus.PAUSE
+              : PlayerStatus.WAITING,
+          );
         }
       }),
     );
@@ -244,7 +263,7 @@ export function NativeVideo(props?: {
         sub.remove();
       }
     };
-  }, [player, playerEvent, setStatus, spurl]);
+  }, [player, playerEvent, setStatus, spurl, mode, setPlayTime]);
 
   return (
     <>

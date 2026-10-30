@@ -1,6 +1,6 @@
 import { formatHandle, formatHandleWithAt } from "@streamplace/core";
-import { Image } from "expo-image";
-import { ScrollView, useWindowDimensions, View } from "react-native";
+import { Share2 } from "lucide-react-native";
+import { useWindowDimensions, View } from "react-native";
 import { useAuthor } from "../../hooks/useAuthor";
 import { useAvatar } from "../../hooks/useAvatar";
 import { useTitle } from "../../hooks/useTitle";
@@ -9,7 +9,7 @@ import { useUrl } from "../../streamplace-store";
 import { gap, layout, useTheme } from "../../ui";
 import { useVideoStore } from "../../video-store/video-store";
 import { ShareSheet } from "../share/sharesheet";
-import { Button } from "../ui";
+import { Avatar, Button } from "../ui";
 import { Text } from "../ui/text";
 import { LikeButton } from "./like-button";
 
@@ -21,8 +21,7 @@ function rkeyFromAturi(aturi: string): string {
   return aturi.split("/").pop() ?? "";
 }
 
-// YouTube-grammar VOD header: a prominent title, then a channel identity row
-// (avatar + name + handle) with the actions — like, share — on the right.
+// A title and creator handle with the video's own like and share actions.
 export function VodMobileMetadata() {
   const video = useVideoStore((x) => x.video);
   const aturi = useVideoStore((x) => x.aturi);
@@ -38,7 +37,6 @@ export function VodMobileMetadata() {
   const wide = width >= NARROW_BREAKPOINT;
   const profile = author ?? video.author;
   const userSeg = formatHandle(profile);
-  const displayName = author?.displayName || userSeg;
   const rkey = rkeyFromAturi(aturi);
 
   // The video's canonical page + embed URLs, so Share actually links to this
@@ -50,7 +48,7 @@ export function VodMobileMetadata() {
   };
 
   const titleEl = (
-    <Text size={wide ? "xl" : "lg"} weight="semibold" numberOfLines={2}>
+    <Text size="base" weight="semibold" numberOfLines={2}>
       {title || "Untitled"}
     </Text>
   );
@@ -60,42 +58,19 @@ export function VodMobileMetadata() {
       style={[
         layout.flex.row,
         layout.flex.alignCenter,
-        gap.all[3],
+        gap.all[2],
         { flexShrink: 1, minWidth: 0 },
       ]}
     >
-      <View
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 999,
-          overflow: "hidden",
-          backgroundColor: theme.colors.surface2,
-          flexShrink: 0,
-        }}
+      <Avatar src={avatar} name={userSeg} size="md" />
+      <Text
+        size="sm"
+        weight="medium"
+        numberOfLines={1}
+        style={{ flexShrink: 1, minWidth: 0 }}
       >
-        {avatar ? (
-          <Image
-            source={{ uri: avatar }}
-            style={{ width: "100%", height: "100%" }}
-            contentFit="cover"
-          />
-        ) : null}
-      </View>
-      <View style={{ flexShrink: 1, minWidth: 0 }}>
-        <Text weight="semibold" numberOfLines={1}>
-          {displayName}
-        </Text>
-        {profile.did ? (
-          <Text
-            size="sm"
-            numberOfLines={1}
-            style={{ color: theme.colors.text3 }}
-          >
-            {formatHandleWithAt(profile)}
-          </Text>
-        ) : null}
-      </View>
+        {formatHandleWithAt(profile)}
+      </Text>
     </View>
   );
 
@@ -104,20 +79,23 @@ export function VodMobileMetadata() {
       style={[
         layout.flex.row,
         layout.flex.alignCenter,
-        gap.all[2],
+        gap.all[4],
         { flexShrink: 0 },
       ]}
     >
-      <Button variant="secondary" size="pill" width="min">
-        <LikeButton subjectUri={video.uri} />
-      </Button>
-      <ShareSheet target={shareTarget} />
+      <LikeButton subjectUri={video.uri} />
+      <ShareSheet target={shareTarget}>
+        <Button variant="secondary" size="sm" width="min">
+          <Share2 size={spacing[4]} color={theme.colors.foreground} />
+          <Text size="sm">Share</Text>
+        </Button>
+      </ShareSheet>
     </View>
   );
 
   if (wide) {
     return (
-      <View style={{ gap: spacing[3] }}>
+      <View style={{ gap: spacing[2] }}>
         {titleEl}
         <View
           style={[
@@ -138,13 +116,7 @@ export function VodMobileMetadata() {
     <View style={{ gap: spacing[2] }}>
       {titleEl}
       {channel}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: spacing[2], alignItems: "center" }}
-      >
-        {actions}
-      </ScrollView>
+      {actions}
     </View>
   );
 }

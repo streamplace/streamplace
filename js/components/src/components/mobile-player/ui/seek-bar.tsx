@@ -1,27 +1,25 @@
 import { useState } from "react";
 import { LayoutChangeEvent, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { colors, textAlphas } from "../../../lib/theme/tokens";
+import {
+  borderRadius,
+  colors,
+  spacing,
+  textAlphas,
+  touchTargets,
+} from "../../../lib/theme/tokens";
 import { usePlayerStore } from "../../../player-store";
 import { useTheme } from "../../ui";
 
-const TRACK_HEIGHT = 3;
-const THUMB_SIZE = 14;
-const TOUCH_HEIGHT = 16;
-// hitSlop that extends the gesture area to a 44pt touch target without
-// changing the rendered layout.
-const TOUCH_SLOP = {
-  top: (44 - TOUCH_HEIGHT) / 2,
-  bottom: (44 - TOUCH_HEIGHT) / 2,
-};
+const TRACK_HEIGHT = spacing[1];
+const THUMB_SIZE = spacing[3];
 
-// Native VOD scrub bar. The old implementation leaned on @rn-primitives/slider
-// driven by web pointer events (onPointerUp/onPointerEnter), which never fire
-// on Android — so it didn't scrub and its tall internal layout floated the bar
-// toward the middle. This is a plain gesture-handler Pan/Tap over a measured
-// track: drag updates a local scrub position, release commits via seekTo (which
-// drives the native player through the store).
-export function SeekBar() {
+// Preview a drag locally, then commit its final position to the native player.
+export function SeekBar({
+  onScrubbingChange,
+}: {
+  onScrubbingChange?: (active: boolean) => void;
+}) {
   const mode = usePlayerStore((x) => x.mode);
   const playTime = usePlayerStore((x) => x.playTime);
   const duration = usePlayerStore((x) => x.duration);
@@ -45,9 +43,9 @@ export function SeekBar() {
 
   const pan = Gesture.Pan()
     .runOnJS(true)
-    .hitSlop(TOUCH_SLOP)
     .onBegin((e) => {
       setScrubbing(true);
+      onScrubbingChange?.(true);
       setScrubTime(timeAt(e.x));
     })
     .onUpdate((e) => {
@@ -58,13 +56,14 @@ export function SeekBar() {
     })
     .onFinalize(() => {
       setScrubbing(false);
+      onScrubbingChange?.(false);
     });
 
   const tap = Gesture.Tap()
     .runOnJS(true)
-    .hitSlop(TOUCH_SLOP)
     .onEnd((e) => {
       seekTo(timeAt(e.x));
+      onScrubbingChange?.(false);
     });
 
   const gesture = Gesture.Race(pan, tap);
@@ -74,18 +73,41 @@ export function SeekBar() {
   const bufferedPct = Math.max(0, Math.min(1, bufferedEnd / duration)) * 100;
 
   return (
-    <View style={{ paddingHorizontal: 16, paddingTop: 2, marginBottom: -2 }}>
+    <View style={{ paddingHorizontal: spacing[4] }}>
       <GestureDetector gesture={gesture}>
         <View
+          accessible
+          accessibilityRole="adjustable"
+          accessibilityLabel="Playback position"
+          accessibilityValue={{ min: 0, max: duration, now: current }}
+          accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+          onAccessibilityAction={({ nativeEvent: { actionName } }) => {
+            if (actionName !== "increment" && actionName !== "decrement")
+              return;
+            seekTo(
+              Math.max(
+                0,
+                Math.min(
+                  duration,
+                  playTime + (actionName === "increment" ? 10 : -10),
+                ),
+              ),
+            );
+            onScrubbingChange?.(false);
+          }}
           onLayout={(e: LayoutChangeEvent) =>
             setTrackWidth(e.nativeEvent.layout.width)
           }
-          style={{ height: TOUCH_HEIGHT, justifyContent: "center" }}
+          style={{
+            height: touchTargets.minimum,
+            justifyContent: "flex-end",
+            paddingBottom: spacing[2],
+          }}
         >
           <View
             style={{
               height: TRACK_HEIGHT,
-              borderRadius: 999,
+              borderRadius: borderRadius.full,
               backgroundColor: textAlphas.dark[4],
             }}
           >
@@ -96,7 +118,7 @@ export function SeekBar() {
                 bottom: 0,
                 left: 0,
                 width: `${bufferedPct}%`,
-                borderRadius: 999,
+                borderRadius: borderRadius.full,
                 backgroundColor: textAlphas.dark[3],
               }}
             />
@@ -107,7 +129,7 @@ export function SeekBar() {
                 bottom: 0,
                 left: 0,
                 width: `${progressPct}%`,
-                borderRadius: 999,
+                borderRadius: borderRadius.full,
                 backgroundColor: theme.colors.primary,
               }}
             />
@@ -115,11 +137,12 @@ export function SeekBar() {
           <View
             style={{
               position: "absolute",
+              bottom: spacing[2] - (THUMB_SIZE - TRACK_HEIGHT) / 2,
               left: `${progressPct}%`,
               marginLeft: -THUMB_SIZE / 2,
               width: THUMB_SIZE,
               height: THUMB_SIZE,
-              borderRadius: THUMB_SIZE / 2,
+              borderRadius: borderRadius.full,
               backgroundColor: colors.white,
             }}
           />

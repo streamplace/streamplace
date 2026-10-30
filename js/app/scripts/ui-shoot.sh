@@ -4,7 +4,8 @@
 # This is the agent's visual feedback loop: edit code, hot-reload, re-shoot,
 # then read the PNGs in artifacts/<flow>.
 #
-# Usage: bash scripts/ui-shoot.sh <flow>   (flow name = maestro/<flow>.yaml)
+# Usage: bash scripts/ui-shoot.sh <flow> [maestro options...]
+# Flow name = maestro/<flow>.yaml.
 # Env:   SP_METRO_PORT / SP_APP_SCHEME / SP_BUNDLE_OVERRIDE (passed to dev-ios.sh)
 
 set -euo pipefail
@@ -54,7 +55,7 @@ sleep 1
 
 set +e
 cd "$OUT"
-"$MAESTRO" test "$FLOW_FILE"
+"$MAESTRO" test "$FLOW_FILE" "${@:2}"
 MAESTRO_EXIT=$?
 set -e
 

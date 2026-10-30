@@ -119,18 +119,13 @@ function PlayerWithProvider(
     ? Math.round((screenWidth * segDims.height) / segDims.width)
     : undefined;
 
-  // Shared with MobileUi so the band reserved above the video collapses as
-  // the controls fade out; the video slides up with it.
-  const chromeFade = useSharedValue(1);
-  const chromeBandStyle = useAnimatedStyle(() => ({
+  const chromeBandStyle = {
     height: isPortraitLandscapeCase
-      ? (videoBoxHeight ?? 0) +
-        safeTop +
-        (Platform.OS !== "web" ? Math.max(0, chromeFade.value * 68 - 12) : 0)
+      ? (videoBoxHeight ?? 0) + safeTop
       : Platform.OS === "web"
-        ? "100%"
+        ? ("100%" as const)
         : screenHeight,
-  }));
+  };
 
   const websocketConnected = useLivestreamStore((x) => x.websocketConnected);
   const hasReceivedSegment = useLivestreamStore((x) => x.hasReceivedSegment);
@@ -325,11 +320,7 @@ function PlayerWithProvider(
                 />
               </View>
               {isPortraitLandscapeCase && (
-                <MobileUi
-                  hideMobileChat={true}
-                  showChat
-                  sharedFadeOpacity={chromeFade}
-                />
+                <MobileUi hideMobileChat={true} showChat />
               )}
             </Reanimated.View>
             {chatSection}
@@ -506,9 +497,8 @@ export function PlayerInner(
     </PlayerInnerInner>
   );
 
-  // Mobile inline VOD: keep the video + metadata header fixed and scroll only
-  // the description below the line, so the video is always visible and a long
-  // description can't flex-shrink the player.
+  // Keep the video visible while title, creator, description and comments
+  // share the remaining scroll area.
   if (props.mode === "vod" && !showFullDesktopMode && !fullscreen) {
     return (
       <View style={{ flex: 1, paddingTop: safeAreaInsets.top + vodHeaderPad }}>
@@ -528,7 +518,6 @@ export function PlayerInner(
         >
           {videoContent}
         </Reanimated.View>
-        {/* will get pushed below the video if landscape so probably fine? */}
         <VodSection scrollDescription />
       </View>
     );

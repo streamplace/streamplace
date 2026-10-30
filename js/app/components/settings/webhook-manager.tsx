@@ -857,7 +857,10 @@ export default function WebhookManager() {
 
   return (
     <>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: "center" }}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ flexGrow: 1, alignItems: "center" }}
+      >
         <View
           style={{
             width: "100%",

@@ -12,12 +12,18 @@ const fixture = vi.hoisted(() => ({
   insets: { top: 47, bottom: 34, left: 0, right: 0 },
   fullscreen: false,
   platform: "ios",
+  mode: "live",
+  status: "playing",
+  rendition: "audio",
+  screenReader: false,
+  canRotate: false,
   profile: { did: "did:plc:streamer", handle: "streamer.example" } as {
     did: string;
     handle: string;
   } | null,
   warnings: ["nudity"],
   openURL: vi.fn(),
+  tap: (_event: unknown, _success: boolean) => {},
 }));
 
 // Only presentation bindings and external screen/stream inputs are replaced.
@@ -44,7 +50,23 @@ function View({
     children,
   );
 }
+function canPress(element: HTMLElement) {
+  for (
+    let node: HTMLElement | null = element;
+    node;
+    node = node.parentElement
+  ) {
+    const style = JSON.parse(node.dataset.style ?? "{}");
+    if (node.dataset.pointerEvents === "none" || style.opacity === 0)
+      return false;
+  }
+  return true;
+}
 vi.mock("react-native", () => ({
+  AccessibilityInfo: {
+    isScreenReaderEnabled: async () => fixture.screenReader,
+    addEventListener: () => ({ remove() {} }),
+  },
   View,
   Pressable: ({ children, onPress, accessibilityLabel, style }: any) =>
     createElement(
@@ -72,28 +94,41 @@ vi.mock("react-native", () => ({
   useWindowDimensions: () => fixture.window,
   BackHandler: { addEventListener: () => ({ remove() {} }) },
 }));
-vi.mock("react-native-reanimated", () => ({
-  default: { View, createAnimatedComponent: () => View },
-  useSharedValue: (value: unknown) => ({ value }),
-  useAnimatedStyle: (style: () => unknown) => style(),
-  withTiming: (value: unknown) => value,
-  withSpring: (value: unknown) => value,
-  runOnJS: (callback: unknown) => callback,
-  interpolate: () => 1,
-  Extrapolation: { CLAMP: "clamp" },
-  Easing: {
-    bezier() {},
-    out() {},
-    in() {},
-    cubic() {},
-  },
-}));
+vi.mock("react-native-reanimated", async () => {
+  const { useRef } = await import("react");
+  return {
+    default: { View, createAnimatedComponent: () => View },
+    useSharedValue: (value: unknown) => useRef({ value }).current,
+    useAnimatedStyle: (style: () => unknown) => style(),
+    withTiming: (
+      value: unknown,
+      _options: unknown,
+      done?: (finished: boolean) => void,
+    ) => {
+      done?.(true);
+      return value;
+    },
+    withSpring: (value: unknown) => value,
+    runOnJS: (callback: unknown) => callback,
+    interpolate: () => 1,
+    Extrapolation: { CLAMP: "clamp" },
+    Easing: {
+      bezier() {},
+      out() {},
+      in() {},
+      cubic() {},
+    },
+  };
+});
 vi.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => fixture.insets,
   SafeAreaView: View,
 }));
 vi.mock("react-native-gesture-handler", () => {
   const gesture = {
+    runOnJS() {
+      return this;
+    },
     onChange() {
       return this;
     },
@@ -111,7 +146,13 @@ vi.mock("react-native-gesture-handler", () => {
     Gesture: {
       Hover: () => gesture,
       Pan: () => gesture,
-      Tap: () => gesture,
+      Tap: () => ({
+        ...gesture,
+        onEnd(handler: typeof fixture.tap) {
+          fixture.tap = handler;
+          return this;
+        },
+      }),
       Race() {},
     },
     GestureDetector: View,
@@ -131,6 +172,7 @@ vi.mock("@streamplace/components/src/streamplace-store/xrpc", () => ({
 }));
 vi.mock("components/emoji-picker/emoji-picker", () => ({ EmojiPicker: View }));
 vi.mock("components/mobile/badge-picker", () => ({ BadgePicker: View }));
+vi.mock("components/ui/gradient", () => ({ default: View }));
 vi.mock("utils/emoji", () => ({ useEmojiData: () => ({}) }));
 vi.mock(
   "@streamplace/components/src/ui",
@@ -201,10 +243,27 @@ async function bindings() {
     Player: View,
     PlayerUI: {
       ViewerLoadingOverlay: () => null,
-      ContextMenu: () => <span>Menu</span>,
+      ContextMenu: ({ onOpenChange }: any) => (
+        <>
+          <button onClick={() => onOpenChange?.(true)}>Open settings</button>
+          <button onClick={() => onOpenChange?.(false)}>Close settings</button>
+        </>
+      ),
       AutoplayButton: () => null,
       CountdownOverlay: () => null,
       LoadingOverlay: () => null,
+      SeekBar: ({ onScrubbingChange }: any) => (
+        <>
+          <button onClick={() => onScrubbingChange(true)}>Begin seeking</button>
+          <button onClick={() => onScrubbingChange(false)}>End seeking</button>
+        </>
+      ),
+      VodControls: ({ children }: any) => (
+        <>
+          <button>Recorded playback controls</button>
+          {children}
+        </>
+      ),
     },
     VideoRetry: View,
     VodSection: View,
@@ -215,9 +274,9 @@ async function bindings() {
         fullscreen: fixture.fullscreen,
         setFullscreen() {},
         setSrc() {},
-        mode: "live",
-        status: "playing",
-        selectedRendition: "audio",
+        mode: fixture.mode,
+        status: fixture.status,
+        selectedRendition: fixture.rendition,
       }),
     usePlayerDimensions: () => fixture.window,
     useSegmentDimensions: () => fixture.video,
@@ -225,15 +284,19 @@ async function bindings() {
       select?.({
         segment: { contentWarnings: { warnings: fixture.warnings } },
       }),
-    PlayerStatus: { PLAYING: "playing" },
+    PlayerStatus: { PLAYING: "playing", PAUSE: "pause" },
     useLivestreamInfo: () => ({ ingest: null, profile: fixture.profile }),
     useAuthor: () => fixture.profile,
+    useTitle: () => "From the studio",
     useAvatar: () => undefined,
     useCameraToggle: () => ({}),
     useLivestream: () => null,
     useMuted: () => false,
     useSetMuted: () => () => {},
-    useRotation: () => ({ canRotate: false }),
+    useRotation: () => ({
+      canRotate: fixture.canRotate,
+      currentOrientation: 1,
+    }),
     useNetworkProfileUrl: () => () => "https://network.example/streamer",
     Text: ({ children }: { children: ReactNode }) => <span>{children}</span>,
     Avatar: () => <span>Avatar</span>,
@@ -248,7 +311,9 @@ async function bindings() {
     DanmuOverlay: () => null,
     Chat: () => null,
     Loader: () => null,
-    IconButton: View,
+    IconButton: ({ children, accessibilityLabel }: any) => (
+      <button aria-label={accessibilityLabel}>{children}</button>
+    ),
   };
 }
 vi.mock("@streamplace/components", async () => {
@@ -272,6 +337,11 @@ beforeEach(() => {
   fixture.insets = { top: 47, bottom: 34, left: 0, right: 0 };
   fixture.fullscreen = false;
   fixture.platform = "ios";
+  fixture.mode = "live";
+  fixture.status = "playing";
+  fixture.rendition = "audio";
+  fixture.screenReader = false;
+  fixture.canRotate = false;
   fixture.profile = { did: "did:plc:streamer", handle: "streamer.example" };
   fixture.warnings = ["nudity"];
   fixture.openURL.mockClear();
@@ -286,7 +356,7 @@ it.each(["ios", "web"])(
     const { MobileUi } = await vi.importActual<
       typeof import("../../app/components/mobile/ui")
     >("../../app/components/mobile/ui");
-    await act(async () => root.render(<MobileUi hideMobileChat />));
+    await act(async () => root.render(<MobileUi />));
     const profile = container.querySelector<HTMLButtonElement>(
       '[aria-label="Open profile for streamer.example"]',
     );
@@ -311,6 +381,187 @@ afterEach(async () => {
   vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllGlobals();
+});
+
+it("allows six seconds to use playing controls before they fade", async () => {
+  vi.useFakeTimers();
+  fixture.mode = "vod";
+  fixture.rendition = "source";
+  const { MobileUi } = await vi.importActual<
+    typeof import("../../app/components/mobile/ui")
+  >("../../app/components/mobile/ui");
+  await act(async () => root.render(<MobileUi hideMobileChat />));
+  const controls = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Recorded playback controls",
+  )!;
+  await act(async () => vi.advanceTimersByTime(5900));
+  expect(canPress(controls)).toBe(true);
+  await act(async () => vi.advanceTimersByTime(200));
+  expect(canPress(controls)).toBe(false);
+});
+
+it("keeps paused recorded controls visible after the inactivity timeout", async () => {
+  vi.useFakeTimers();
+  fixture.mode = "vod";
+  fixture.status = "pause";
+  fixture.rendition = "source";
+  const { MobileUi } = await vi.importActual<
+    typeof import("../../app/components/mobile/ui")
+  >("../../app/components/mobile/ui");
+  await act(async () => root.render(<MobileUi hideMobileChat />));
+  await act(async () => vi.advanceTimersByTime(7000));
+  const controls = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Recorded playback controls",
+  )!;
+  expect(canPress(controls)).toBe(true);
+});
+
+it("keeps playback controls discoverable with a screen reader enabled", async () => {
+  vi.useFakeTimers();
+  fixture.mode = "vod";
+  fixture.rendition = "source";
+  fixture.screenReader = true;
+  const { MobileUi } = await vi.importActual<
+    typeof import("../../app/components/mobile/ui")
+  >("../../app/components/mobile/ui");
+  await act(async () => root.render(<MobileUi hideMobileChat />));
+  await act(async () => vi.advanceTimersByTime(7000));
+  const controls = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Recorded playback controls",
+  )!;
+  expect(canPress(controls)).toBe(true);
+});
+
+it("names the native fullscreen action", async () => {
+  fixture.canRotate = true;
+  const { MobileUi } = await vi.importActual<
+    typeof import("../../app/components/mobile/ui")
+  >("../../app/components/mobile/ui");
+  await act(async () => root.render(<MobileUi hideMobileChat />));
+  expect(
+    container.querySelector('[aria-label="Enter fullscreen"]'),
+  ).not.toBeNull();
+});
+
+it("requires revealing faded recorded controls before they accept a press", async () => {
+  vi.useFakeTimers();
+  fixture.mode = "vod";
+  fixture.rendition = "source";
+  const { MobileUi } = await vi.importActual<
+    typeof import("../../app/components/mobile/ui")
+  >("../../app/components/mobile/ui");
+  await act(async () => root.render(<MobileUi hideMobileChat />));
+  await act(async () => vi.advanceTimersByTime(7000));
+  const controls = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Recorded playback controls",
+  )!;
+  expect(canPress(controls)).toBe(false);
+});
+
+it.each(["vod", "live"])(
+  "fades and reveals back with the %s controls",
+  async (mode) => {
+    vi.useFakeTimers();
+    fixture.mode = mode;
+    fixture.rendition = "source";
+    const { MobileUi } = await vi.importActual<
+      typeof import("../../app/components/mobile/ui")
+    >("../../app/components/mobile/ui");
+    await act(async () => root.render(<MobileUi hideMobileChat />));
+    const back = container.querySelector<HTMLElement>('[aria-label="Back"]');
+    expect(back).not.toBeNull();
+    expect(canPress(back!)).toBe(true);
+    await act(async () => vi.advanceTimersByTime(7000));
+    expect(canPress(back!)).toBe(false);
+    await act(async () => fixture.tap({}, true));
+    expect(canPress(back!)).toBe(true);
+  },
+);
+
+it.each(["playing", "pause"])(
+  "toggles %s controls on a completed tap and starts a fresh timeout on reveal",
+  async (status) => {
+    vi.useFakeTimers();
+    fixture.mode = "vod";
+    fixture.status = status;
+    fixture.rendition = "source";
+    const { MobileUi } = await vi.importActual<
+      typeof import("../../app/components/mobile/ui")
+    >("../../app/components/mobile/ui");
+    await act(async () => root.render(<MobileUi hideMobileChat />));
+    const back = container.querySelector<HTMLElement>('[aria-label="Back"]')!;
+    const controls = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Recorded playback controls",
+    )!;
+    await act(async () => fixture.tap({}, false));
+    expect(canPress(back)).toBe(true);
+    expect(canPress(controls)).toBe(true);
+    await act(async () => vi.advanceTimersByTime(3000));
+    await act(async () => fixture.tap({}, true));
+    expect(canPress(back)).toBe(false);
+    expect(canPress(controls)).toBe(false);
+    await act(async () => vi.advanceTimersByTime(500));
+    await act(async () => fixture.tap({}, true));
+    await act(async () => vi.advanceTimersByTime(5900));
+    expect(canPress(back)).toBe(true);
+    expect(canPress(controls)).toBe(true);
+    await act(async () => vi.advanceTimersByTime(200));
+    expect(canPress(back)).toBe(status === "pause");
+    expect(canPress(controls)).toBe(status === "pause");
+  },
+);
+
+it.each([
+  ["Open settings", "Close settings"],
+  ["Begin seeking", "End seeking"],
+])(
+  "holds playback controls during %s and resumes the timeout afterwards",
+  async (begin, end) => {
+    vi.useFakeTimers();
+    fixture.mode = "vod";
+    fixture.rendition = "source";
+    const { MobileUi } = await vi.importActual<
+      typeof import("../../app/components/mobile/ui")
+    >("../../app/components/mobile/ui");
+    await act(async () => root.render(<MobileUi hideMobileChat />));
+    const button = (label: string) =>
+      [...container.querySelectorAll("button")].find(
+        (node) => node.textContent === label,
+      )!;
+    await act(async () => button(begin).click());
+    await act(async () => vi.advanceTimersByTime(7000));
+    expect(canPress(button("Recorded playback controls"))).toBe(true);
+    await act(async () => button(end).click());
+    await act(async () => vi.advanceTimersByTime(7000));
+    expect(canPress(button("Recorded playback controls"))).toBe(false);
+  },
+);
+
+it("leaves recorded creator identity and sharing to the watch-page metadata", async () => {
+  fixture.mode = "vod";
+  const { MobileUi } = await vi.importActual<
+    typeof import("../../app/components/mobile/ui")
+  >("../../app/components/mobile/ui");
+  await act(async () => root.render(<MobileUi hideMobileChat />));
+  expect(
+    container.querySelector('[aria-label="Open profile for streamer.example"]'),
+  ).toBeNull();
+  expect(container.textContent).not.toContain("Share");
+});
+
+it("shows the title and handle in landscape without a recorded-chat toggle", async () => {
+  fixture.window = { width: 844, height: 390 };
+  fixture.mode = "vod";
+  const { MobileUi } = await vi.importActual<
+    typeof import("../../app/components/mobile/ui")
+  >("../../app/components/mobile/ui");
+  await act(async () =>
+    root.render(<MobileUi hideMobileChat showChat setShowChat={() => {}} />),
+  );
+  expect(container.textContent).toContain("From the studio");
+  expect(container.textContent).toContain("@streamer.example");
+  expect(container.querySelector('[aria-label="Hide chat"]')).toBeNull();
+  expect(container.querySelector('[aria-label="Show chat"]')).toBeNull();
 });
 
 it.each(["portrait", "landscape"])(

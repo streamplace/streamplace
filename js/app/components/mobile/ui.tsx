@@ -3,6 +3,7 @@ import {
   Avatar,
   ContentWarningBadge,
   hexToRgba,
+  IconButton,
   PlayerStatus,
   PlayerUI,
   ShareSheet,
@@ -24,6 +25,7 @@ import {
   useSetMuted,
   useSetVolume,
   useTheme,
+  useTitle,
   useVolume,
   View,
   zero,
@@ -35,8 +37,8 @@ import {
   statusColors,
   textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
-import { px, py } from "@streamplace/components/src/ui";
-import { formatHandle } from "@streamplace/core";
+import { formatHandle, formatHandleWithAt } from "@streamplace/core";
+import Gradient from "components/ui/gradient";
 import { Image } from "expo-image";
 import {
   ChevronLeft,
@@ -48,12 +50,17 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react-native";
-import { useEffect, useRef, useState } from "react";
-import { Linking, Platform, Pressable } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  AccessibilityInfo,
+  Linking,
+  Platform,
+  Pressable,
+  useWindowDimensions,
+} from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
-  SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -63,20 +70,17 @@ import { MobileChatPanel } from "./chat";
 import { BottomControlBar } from "./desktop-ui/index";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
-const { borders, bottom, gap, h, layout, p, position, right, w, r } = zero;
-
+const { borders, gap, h, layout, p, position, w, r, ml, pb, px, py, pl } = zero;
 export function MobileUi({
   setShowChat,
   showChat,
   hideMobileChat,
   embed = false,
-  sharedFadeOpacity,
 }: {
   setShowChat?: (show: boolean) => void;
   showChat?: boolean;
   hideMobileChat?: boolean;
   embed?: boolean;
-  sharedFadeOpacity?: SharedValue<number>;
 }) {
   const { theme } = useTheme();
   const navigation = useNavigation();
@@ -96,15 +100,19 @@ export function MobileUi({
   const { isPlayerRatioGreater } = useSegmentDimensions();
   const { doSetIngestCamera } = useCameraToggle();
   const profile = useAuthor();
+  const watchTitle = useTitle();
+  const window = useWindowDimensions();
+  const isLandscape = window.width > window.height;
   const avatar = useAvatar();
   const profileUrl = useNetworkProfileUrl();
   const headerControlStyle = {
-    backgroundColor: scrims.light,
     borderRadius: theme.borderRadius.md,
     minHeight: theme.touchTargets.minimum,
   };
 
   const mode = usePlayerStore((state) => state.mode);
+  const status = usePlayerStore((state) => state.status);
+  const hasMetadataBelow = mode === "vod" || hideMobileChat;
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
   const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
   const [playerIsReady, setPlayerIsReady] = useState(false);
@@ -148,39 +156,64 @@ export function MobileUi({
   const isSelfAndNotLive = ingest !== null && ls === null;
   const isSelfAndLive = ingest !== null && ls !== null;
 
-  // Controls auto-hide after 3s of inactivity (design-system standard)
-  const FADE_OUT_DELAY = 3000;
-  const internalFadeOpacity = useSharedValue(1);
-  const fadeOpacity = sharedFadeOpacity ?? internalFadeOpacity;
+  // Leave time to discover and reach playback controls before they fade.
+  const FADE_OUT_DELAY = 6000;
+  const fadeOpacity = useSharedValue(1);
   const fadeTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
   const [controlsInteractive, setControlsInteractive] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [scrubbing, setScrubbing] = useState(false);
+  const [controlsFocused, setControlsFocused] = useState(false);
+  const [screenReaderEnabled, setScreenReaderEnabled] = useState(false);
+  useEffect(() => {
+    void AccessibilityInfo.isScreenReaderEnabled().then(setScreenReaderEnabled);
+    const subscription = AccessibilityInfo.addEventListener(
+      "screenReaderChanged",
+      setScreenReaderEnabled,
+    );
+    return () => subscription.remove();
+  }, []);
   const selectedRendition = usePlayerStore((state) => state.selectedRendition);
 
-  const resetFadeTimer = () => {
+  const hideControls = useCallback(() => {
+    clearTimeout(fadeTimeout.current);
+    setControlsInteractive(false);
+    fadeOpacity.value = withTiming(0, { duration: motion.slow });
+  }, [fadeOpacity]);
+
+  const resetFadeTimer = useCallback(() => {
     setControlsInteractive(true);
     fadeOpacity.value = withTiming(1, { duration: motion.base });
     clearTimeout(fadeTimeout.current);
     if (selectedRendition === "audio") return;
     if (ingest !== null) return;
-    fadeTimeout.current = setTimeout(() => {
-      fadeOpacity.value = withTiming(
-        0,
-        { duration: motion.slow },
-        (finished) => {
-          if (finished) {
-            runOnJS(setControlsInteractive)(false);
-          }
-        },
-      );
-    }, FADE_OUT_DELAY);
-  };
+    if (
+      status === PlayerStatus.PAUSE ||
+      settingsOpen ||
+      scrubbing ||
+      controlsFocused ||
+      screenReaderEnabled
+    )
+      return;
+    fadeTimeout.current = setTimeout(hideControls, FADE_OUT_DELAY);
+  }, [
+    fadeOpacity,
+    hideControls,
+    selectedRendition,
+    ingest,
+    status,
+    settingsOpen,
+    scrubbing,
+    controlsFocused,
+    screenReaderEnabled,
+  ]);
 
   useEffect(() => {
     resetFadeTimer();
     return () => {
       clearTimeout(fadeTimeout.current);
     };
-  }, []);
+  }, [resetFadeTimer]);
 
   const showUI = () => {
     "worklet";
@@ -196,12 +229,17 @@ export function MobileUi({
 
   const animatedFadeStyle = useAnimatedStyle(() => ({
     opacity: fadeOpacity.value,
-    transform: isPortrait ? [{ translateY: (fadeOpacity.value - 1) * 40 }] : [],
   }));
 
   const hover = Gesture.Hover().onChange(onPlayerHover);
   const pan = Gesture.Pan().onChange(onPlayerHover);
-  const tap = Gesture.Tap().onEnd(onPlayerHover);
+  const tap = Gesture.Tap()
+    .runOnJS(true)
+    .onEnd((_event, success) => {
+      if (!success) return;
+      if (controlsInteractive && ingest === null) hideControls();
+      else resetFadeTimer();
+    });
   let chatSection: React.ReactNode = null;
   if (
     mode !== "vod" &&
@@ -217,21 +255,40 @@ export function MobileUi({
   const combined = Gesture.Race(hover, pan, tap);
   return (
     <>
-      <GestureDetector gesture={combined}>
-        <View
-          style={[layout.position.absolute, h.percent[100], w.percent[100]]}
+      <View
+        pointerEvents="box-none"
+        style={[layout.position.absolute, h.percent[100], w.percent[100]]}
+      >
+        <GestureDetector gesture={combined}>
+          <View
+            style={[layout.position.absolute, h.percent[100], w.percent[100]]}
+          />
+        </GestureDetector>
+        <Animated.View
+          pointerEvents={controlsInteractive ? "box-none" : "none"}
+          accessibilityElementsHidden={!controlsInteractive}
+          importantForAccessibility={
+            controlsInteractive ? "auto" : "no-hide-descendants"
+          }
+          style={[
+            layout.position.absolute,
+            h.percent[100],
+            w.percent[100],
+            animatedFadeStyle,
+          ]}
         >
-          <Animated.View
-            style={[
-              layout.position.absolute,
-              h.percent[100],
-              w.percent[100],
-              animatedFadeStyle,
-            ]}
+          {/* Main UI Overlay */}
+          <View
+            pointerEvents="box-none"
+            style={[h.percent[100], w.percent[100]]}
           >
-            {/* Main UI Overlay */}
-            <View style={[h.percent[100], w.percent[100]]}>
-              {ingest === null ? (
+            {ingest === null ? (
+              <Gradient
+                pointerEvents="box-none"
+                fromColor={scrims.dark}
+                toColor={colors.black}
+                opacityColor2={0}
+              >
                 <SafeAreaView
                   // VOD's container already insets the video below the notch, so
                   // the controls only need the small style padding; live fills
@@ -239,7 +296,7 @@ export function MobileUi({
                   edges={mode === "vod" ? [] : ["top"]}
                   style={[
                     layout.flex.column,
-                    py[2],
+                    mode === "vod" ? py[2] : pb[2],
                     px[2],
                     gap.all[2],
                     w.percent[100],
@@ -250,28 +307,47 @@ export function MobileUi({
                       layout.flex.row,
                       layout.flex.alignCenter,
                       gap.all[2],
+                      pl[2],
                     ]}
                   >
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Back"
-                      onPress={() => {
-                        navigation.canGoBack()
-                          ? navigation.goBack()
-                          : navigation.navigate("MainTabs" as any, {
-                              screen: "HomeTab",
-                            });
-                      }}
-                      style={[
-                        headerControlStyle,
-                        p[2],
-                        layout.flex.center,
-                        { minWidth: theme.touchTargets.minimum },
-                      ]}
-                    >
-                      <ChevronLeft color={colors.white} />
-                    </Pressable>
-                    {profile ? (
+                    {!embed && (
+                      <IconButton
+                        size="sm"
+                        accessibilityLabel="Back"
+                        onPress={() => {
+                          navigation.canGoBack()
+                            ? navigation.goBack()
+                            : navigation.navigate("MainTabs" as any, {
+                                screen: "HomeTab",
+                              });
+                        }}
+                        style={{ backgroundColor: scrims.light }}
+                      >
+                        <ChevronLeft color={colors.white} />
+                      </IconButton>
+                    )}
+                    {isLandscape ? (
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text
+                          size="base"
+                          weight="semibold"
+                          numberOfLines={1}
+                          style={{ color: colors.white }}
+                        >
+                          {watchTitle ||
+                            (mode === "vod" ? "Untitled" : "Live stream")}
+                        </Text>
+                        {profile && (
+                          <Text
+                            size="sm"
+                            numberOfLines={1}
+                            style={{ color: textAlphas.dark[2] }}
+                          >
+                            {formatHandleWithAt(profile)}
+                          </Text>
+                        )}
+                      </View>
+                    ) : !hasMetadataBelow && profile ? (
                       <Pressable
                         accessibilityRole="link"
                         accessibilityLabel={`Open profile for ${formatHandle(profile)}`}
@@ -311,34 +387,36 @@ export function MobileUi({
                         { flexShrink: 0 },
                         layout.flex.row,
                         layout.flex.alignCenter,
-                        gap.all[2],
-                        px[3],
-                        py[2],
+                        mode !== "vod" ? px[2] : px[0],
                       ]}
                     >
-                      <ShareSheet />
+                      {mode !== "vod" && <ShareSheet />}
                       <PlayerUI.ContextMenu
+                        onOpenChange={setSettingsOpen}
                         onOpenChat={
                           streamProfile ? openChatOnlyMode : undefined
                         }
                       />
-                      {shouldShowChatSidePanel && setShowChat && (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={
-                            showChat ? "Hide chat" : "Show chat"
-                          }
-                          onPress={() => {
-                            setShowChat(!showChat);
-                          }}
-                        >
-                          {showChat ? (
-                            <ChevronRight color={colors.white} size={20} />
-                          ) : (
-                            <ChevronLeft color={colors.white} size={20} />
-                          )}
-                        </Pressable>
-                      )}
+                      {mode !== "vod" &&
+                        shouldShowChatSidePanel &&
+                        setShowChat && (
+                          <IconButton
+                            size="sm"
+                            accessibilityLabel={
+                              showChat ? "Hide chat" : "Show chat"
+                            }
+                            onPress={() => {
+                              setShowChat(!showChat);
+                            }}
+                            style={[ml[1]]}
+                          >
+                            {showChat ? (
+                              <ChevronRight color={colors.white} size={20} />
+                            ) : (
+                              <ChevronLeft color={colors.white} size={20} />
+                            )}
+                          </IconButton>
+                        )}
                     </View>
                   </View>
                   {contentWarnings.length > 0 && (
@@ -350,134 +428,129 @@ export function MobileUi({
                     </View>
                   )}
                 </SafeAreaView>
-              ) : (
-                <SafeAreaView
-                  // VOD's container already insets the video below the notch, so
-                  // the controls only need the small style padding; live fills
-                  // the window and clears the notch with the top edge inset.
-                  edges={mode === "vod" ? [] : ["top"]}
-                  style={[
-                    px[2],
-                    py[2],
-                    layout.flex.row,
-                    layout.flex.spaceBetween,
-                    w.percent[100],
-                  ]}
-                >
-                  {/* Left Controls Column */}
-                  <View
-                    style={[
-                      layout.flex.column,
-                      gap.all[2],
-                      { maxWidth: "70%" },
-                    ]}
-                  >
-                    <LeftControlsPanel
-                      navigation={navigation}
-                      muted={muted}
-                      setMuted={setMuted}
-                      muteWasForced={muteWasForced}
-                      setMuteWasForced={setMuteWasForced}
-                    />
-                  </View>
-
-                  {/* Right Controls Column */}
-                  <View
-                    style={[
-                      layout.flex.row,
-                      gap.all[2],
-                      layout.flex.align.start,
-                    ]}
-                  >
-                    <View>
-                      <View
-                        style={[
-                          {
-                            padding: 9,
-                            backgroundColor: scrims.light,
-                            borderRadius: 12,
-                          },
-                          r[2],
-                        ]}
-                      >
-                        <ShareSheet />
-                      </View>
-                    </View>
-
-                    <RightControlsPanel
-                      ingest={ingest}
-                      doSetIngestCamera={doSetIngestCamera}
-                      shouldShowChatSidePanel={shouldShowChatSidePanel}
-                      isPortrait={!shouldShowChatSidePanel}
-                      showChat={showChat}
-                      setShowChat={setShowChat}
-                    />
-                  </View>
-                </SafeAreaView>
-              )}
-
-              {shouldShowFloatingMetrics && isSelfAndLive && (
+              </Gradient>
+            ) : (
+              <SafeAreaView
+                // VOD's container already insets the video below the notch, so
+                // the controls only need the small style padding; live fills
+                // the window and clears the notch with the top edge inset.
+                edges={mode === "vod" ? [] : ["top"]}
+                style={[
+                  px[2],
+                  py[2],
+                  layout.flex.row,
+                  layout.flex.spaceBetween,
+                  w.percent[100],
+                ]}
+              >
+                {/* Left Controls Column */}
                 <View
-                  style={[
-                    layout.position.absolute,
-                    position.top[32],
-                    position.left[0],
-                    position.right[0],
-                    layout.flex.column,
-                    layout.flex.center,
-                  ]}
+                  style={[layout.flex.column, gap.all[2], { maxWidth: "70%" }]}
                 >
-                  <PlayerUI.MetricsPanel
-                    showMetrics={shouldShowFloatingMetrics}
+                  <LeftControlsPanel
+                    navigation={navigation}
+                    muted={muted}
+                    setMuted={setMuted}
+                    muteWasForced={muteWasForced}
+                    setMuteWasForced={setMuteWasForced}
                   />
                 </View>
-              )}
-              {Platform.OS !== "web" && (
+
+                {/* Right Controls Column */}
                 <View
-                  style={[layout.position.absolute, { bottom: 12, right: 12 }]}
+                  style={[layout.flex.row, gap.all[2], layout.flex.align.start]}
                 >
-                  <RotateButton />
+                  <View>
+                    <View
+                      style={[
+                        {
+                          padding: 9,
+                          backgroundColor: scrims.light,
+                          borderRadius: 12,
+                        },
+                        r[2],
+                      ]}
+                    >
+                      <ShareSheet />
+                    </View>
+                  </View>
+
+                  <RightControlsPanel
+                    ingest={ingest}
+                    doSetIngestCamera={doSetIngestCamera}
+                    shouldShowChatSidePanel={shouldShowChatSidePanel}
+                    isPortrait={!shouldShowChatSidePanel}
+                    showChat={showChat}
+                    setShowChat={setShowChat}
+                  />
                 </View>
-              )}
-            </View>
-            {isSelfAndNotLive && (
-              <PlayerUI.InputPanel
-                title={title}
-                setTitle={setTitle}
-                toggleGoLive={toggleGoLive}
-                isLive={isSelfAndLive}
-              />
+              </SafeAreaView>
             )}
 
-            <PlayerUI.CountdownOverlay
-              visible={showCountdown}
-              width={width}
-              height={height - 150}
-              onDone={() => {
-                if (!recordSubmitted && title != "") {
-                  setShowLoading(true);
-                }
-                setShowCountdown(false);
-              }}
+            {shouldShowFloatingMetrics && isSelfAndLive && (
+              <View
+                style={[
+                  layout.position.absolute,
+                  position.top[32],
+                  position.left[0],
+                  position.right[0],
+                  layout.flex.column,
+                  layout.flex.center,
+                ]}
+              >
+                <PlayerUI.MetricsPanel
+                  showMetrics={shouldShowFloatingMetrics}
+                />
+              </View>
+            )}
+            {Platform.OS !== "web" && mode !== "vod" && (
+              <View
+                style={[
+                  layout.position.absolute,
+                  { bottom: theme.spacing[2], right: theme.spacing[2] },
+                ]}
+              >
+                <RotateButton />
+              </View>
+            )}
+          </View>
+          {isSelfAndNotLive && (
+            <PlayerUI.InputPanel
+              title={title}
+              setTitle={setTitle}
+              toggleGoLive={toggleGoLive}
+              isLive={isSelfAndLive}
             />
-            <PlayerUI.LoadingOverlay
-              visible={showLoading}
-              width={width}
-              height={height - 150}
-              subtitle="We're setting up your stream."
-            />
+          )}
 
-            <Toast
-              open={recordSubmitted}
-              onOpenChange={setRecordSubmitted}
-              title="You're live!"
-              description="We're notifying your followers that you just went live."
-              duration={5}
-            />
-          </Animated.View>
-          <PlayerUI.AutoplayButton />
-        </View>
-      </GestureDetector>
+          <PlayerUI.CountdownOverlay
+            visible={showCountdown}
+            width={width}
+            height={height - 150}
+            onDone={() => {
+              if (!recordSubmitted && title != "") {
+                setShowLoading(true);
+              }
+              setShowCountdown(false);
+            }}
+          />
+          <PlayerUI.LoadingOverlay
+            visible={showLoading}
+            width={width}
+            height={height - 150}
+            subtitle="We're setting up your stream."
+          />
+
+          <Toast
+            open={recordSubmitted}
+            onOpenChange={setRecordSubmitted}
+            title="You're live!"
+            description="We're notifying your followers that you just went live."
+            duration={5}
+          />
+        </Animated.View>
+        <PlayerUI.AutoplayButton />
+      </View>
       {Platform.OS === "web" && mode === "live" && ingest === null && (
         <Animated.View
           style={[
@@ -506,15 +579,42 @@ export function MobileUi({
       {mode === "vod" && (
         <Animated.View
           style={[
-            { position: "absolute", bottom: 8, left: 0, right: 0 },
+            {
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+            },
             animatedFadeStyle,
           ]}
           // Let taps on empty space fall through to the overlay's tap-to-reveal
           // gesture; only the controls themselves capture touches.
-          pointerEvents="box-none"
+          pointerEvents={controlsInteractive ? "box-none" : "none"}
+          accessibilityElementsHidden={!controlsInteractive}
+          importantForAccessibility={
+            controlsInteractive ? "auto" : "no-hide-descendants"
+          }
+          onFocus={() => setControlsFocused(true)}
+          onBlur={() => setControlsFocused(false)}
         >
-          <PlayerUI.SeekBar />
-          <PlayerUI.VodControls />
+          <Gradient
+            pointerEvents="box-none"
+            fromColor={colors.black}
+            toColor={scrims.dark}
+            opacityColor1={0}
+            style={{ paddingBottom: theme.spacing[2] }}
+          >
+            <PlayerUI.SeekBar
+              onScrubbingChange={(active) => {
+                setScrubbing(active);
+                if (!active) resetFadeTimer();
+              }}
+            />
+            <PlayerUI.VodControls>
+              <View style={{ flex: 1 }} />
+              {Platform.OS !== "web" && <RotateButton />}
+            </PlayerUI.VodControls>
+          </Gradient>
         </Animated.View>
       )}
       {chatSection}
@@ -827,19 +927,18 @@ function RotateButton() {
   const { toggleRotation, canRotate, currentOrientation } = useRotation();
   if (!canRotate) return null;
   return (
-    <View
-      style={[
-        { padding: 9, backgroundColor: scrims.light, borderRadius: 12 },
-        r[2],
-      ]}
+    <IconButton
+      size="md"
+      accessibilityLabel={
+        currentOrientation === 1 ? "Enter fullscreen" : "Exit fullscreen"
+      }
+      onPress={toggleRotation}
     >
-      <Pressable onPress={toggleRotation}>
-        {currentOrientation === 1 ? (
-          <Maximize color={theme.colors.foreground} size={20} />
-        ) : (
-          <Minimize color={theme.colors.foreground} size={20} />
-        )}
-      </Pressable>
-    </View>
+      {currentOrientation === 1 ? (
+        <Maximize color={colors.white} size={theme.spacing[6]} />
+      ) : (
+        <Minimize color={colors.white} size={theme.spacing[6]} />
+      )}
+    </IconButton>
   );
 }

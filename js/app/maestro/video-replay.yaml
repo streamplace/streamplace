@@ -1,0 +1,18 @@
+# Supply a recording deep link with ?t= set just before its end.
+appId: tv.aquareum.dev
+---
+- setOrientation: PORTRAIT
+- launchApp
+- openLink: ${VIDEO_URL}
+- extendedWaitUntil:
+    visible: "Replay"
+    timeout: 30000
+- takeScreenshot: 01-ended
+- tapOn:
+    text: "Replay"
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 500
+- assertVisible: "Pause"
+- assertNotVisible: "Replay"
+- assertVisible: "0:0[0-9]"
+- takeScreenshot: 02-replaying

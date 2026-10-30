@@ -164,6 +164,10 @@ masked/protected CI variables, plus account overrides if needed. The job runs:
 make ci-release-atproto
 ```
 
+CI publication runs directly in the job's configured build environment; it does
+not require Docker, Podman, or container marker files. Standalone build and
+prebuilt-artifact commands retain the existing builder-container workflow.
+
 This collects the exact generic-package name and version using `CI_JOB_TOKEN`,
 paginates package/file lists, and verifies downloaded sizes and SHA-256 hashes
 before using the same publisher as the host command. Registry credentials are

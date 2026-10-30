@@ -42,8 +42,14 @@ if [ -n "${CI_COMMIT_TAG:-}" ] && [ "$(git rev-parse --verify "refs/tags/$CI_COM
   exit 1
 fi
 
-# Use the same DESC generator as make version, inside the existing builder.
-. hack/lib/container.sh >&2
+# CI already has its configured build environment. Kubernetes runners need not
+# expose Docker/Podman marker files, and publishing does not need nested Docker.
+if [ "$MODE" = ci ]; then
+  CONTAINER=""
+  run() { "$@"; }
+else
+  . hack/lib/container.sh >&2
+fi
 # Version lookup does not need any signing or publishing credentials.
 PASS_ENV=(STREAMPLACE_VERSION_OVERRIDE CI_COMMIT_TAG)
 VERSION="${RELEASE_VERSION:-${VERSION:-${STREAMPLACE_VERSION_OVERRIDE:-}}}"

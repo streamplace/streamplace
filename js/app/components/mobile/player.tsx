@@ -97,6 +97,11 @@ function PlayerWithProvider(
   let { top: safeTop, left: safeLeft, right: safeRight } = useSafeAreaInsets();
   const { currentOrientation } = useRotation();
   const segDims = useSegmentDimensions();
+  const [showUnavailable, setShowUnavailable] = useState(false);
+  const videoAspectRatio =
+    !showUnavailable && segDims.width > 0 && segDims.height > 0
+      ? segDims.width / segDims.height
+      : 16 / 9;
   const isPortrait = screenHeight > screenWidth;
   // LANDSCAPE_RIGHT (4) means the home indicator is on the right, which puts
   // the notch on the left. LANDSCAPE_LEFT (3) puts it on the right.
@@ -107,12 +112,12 @@ function PlayerWithProvider(
   // if the screen is portrait and video is landscaps
   const isPortraitLandscapeCase =
     isPortrait &&
-    segDims.width > segDims.height &&
+    videoAspectRatio > 1 &&
     !shouldShowChatSidePanel &&
     !props.ingest &&
     props.mode !== "vod";
   const videoBoxHeight = isPortraitLandscapeCase
-    ? Math.round((screenWidth * segDims.height) / segDims.width)
+    ? Math.round(screenWidth / videoAspectRatio)
     : undefined;
 
   const chromeBandStyle = {
@@ -125,7 +130,6 @@ function PlayerWithProvider(
 
   const websocketConnected = useLivestreamStore((x) => x.websocketConnected);
   const hasReceivedSegment = useLivestreamStore((x) => x.hasReceivedSegment);
-  const [showUnavailable, setShowUnavailable] = useState(false);
   const segs = useSegment();
 
   // periodically check if segment has become stale
@@ -197,9 +201,7 @@ function PlayerWithProvider(
     // video on top, title/streamer row beneath, chat below that.
     chatSection = (
       <>
-        {!props.ingest && !showUnavailable && (
-          <BottomMetadata compact setShowChat={setShowChat} showChat />
-        )}
+        <BottomMetadata compact setShowChat={setShowChat} showChat />
         <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
       </>
     );
@@ -315,7 +317,7 @@ function PlayerWithProvider(
                   hideInlineMobileUi={isPortraitLandscapeCase}
                 />
               </View>
-              {isPortraitLandscapeCase && (
+              {isPortraitLandscapeCase && !showUnavailable && (
                 <MobileUi hideMobileChat={true} showChat />
               )}
             </Reanimated.View>
@@ -453,7 +455,7 @@ export function PlayerInner(
   });
 
   const videoContent = props.showUnavailable ? (
-    <UserOffline />
+    <UserOffline compact={props.hideInlineMobileUi} />
   ) : (
     <PlayerInnerInner {...props}>
       {showFullDesktopMode || fullscreen ? (

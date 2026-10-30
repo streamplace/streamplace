@@ -117,13 +117,12 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 		// The rendition list last sent to this viewer, as its joined names.
 		var sentRenditions atomic.Value
 		sentRenditions.Store("")
+		ch := a.Bus.SubscribeViewer(repoDID, func() {
+			conn.Close()
+			cancel()
+		})
+		defer a.Bus.Unsubscribe(repoDID, ch)
 		go func() {
-
-			ch := a.Bus.SubscribeWithBacklogLimit(repoDID, func() {
-				conn.Close()
-				cancel()
-			})
-			defer a.Bus.Unsubscribe(repoDID, ch)
 			// The ingest problems last sent to this viewer. Nothing matches
 			// this to begin with, so the first tick always sends the current
 			// list, even an empty one: a reconnecting client may still hold
@@ -463,11 +462,13 @@ func renditionsMessage(names []string) placestream.Defs_Renditions {
 }
 
 // viewerCountMessage is the viewerCount event: who is watching now (the
-// bus) and how many sessions this livestream has had (statedb's running
-// total, when the node keeps one).
+// bus), current channel connections, and how many sessions this livestream
+// has had (statedb's running total, when the node keeps one).
 func (a *StreamplaceAPI) viewerCountMessage(ctx context.Context, repoDID string) placestream.Livestream_ViewerCount {
+	presence := int64(a.Bus.GetPresenceCount(repoDID))
 	msg := placestream.Livestream_ViewerCount{
 		Count:         int64(a.Bus.GetViewerCount(repoDID)),
+		Presence:      &presence,
 		LexiconTypeID: "place.stream.livestream#viewerCount",
 	}
 	if a.StatefulDB == nil {

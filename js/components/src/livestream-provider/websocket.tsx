@@ -1,25 +1,40 @@
-import { useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import useWebSocket from "react-use-websocket";
-import { useHandleWebsocketMessages } from "../livestream-store/use-store";
+import {
+  getStoreFromContext,
+  useHandleWebsocketMessages,
+} from "../livestream-store/use-store";
 import { useUrl } from "../streamplace-store";
 
 export function useLivestreamWebsocket(src: string) {
   const url = useUrl();
   const handleWebSocketMessages = useHandleWebsocketMessages();
+  const store = getStoreFromContext();
 
   let wsUrl = url.replace(/^http\:/, "ws:");
   wsUrl = wsUrl.replace(/^https\:/, "wss:");
 
   const ref = useRef<any[]>([]);
   const handle = useRef<NodeJS.Timeout | null>(null);
+  const resetConnection = useCallback(
+    (connected: boolean) => {
+      ref.current = [];
+      if (handle.current) clearTimeout(handle.current);
+      handle.current = null;
+      store.setState({ websocketConnected: connected, presence: null });
+    },
+    [store],
+  );
+  useEffect(() => () => resetConnection(false), [src, url, resetConnection]);
 
   useWebSocket(`${wsUrl}/api/websocket/${src}`, {
     reconnectInterval: 1000,
     shouldReconnect: () => true,
 
     onOpen: () => {
-      ref.current = [];
+      resetConnection(true);
     },
+    onClose: () => resetConnection(false),
 
     onError: (e) => {
       console.log("onError", e);

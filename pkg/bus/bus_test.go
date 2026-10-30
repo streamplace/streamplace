@@ -3,7 +3,32 @@ package bus
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
+
+func TestChannelPresence(t *testing.T) {
+	b := NewBus()
+	internal := b.Subscribe("repo")
+	t.Cleanup(func() { b.Unsubscribe("repo", internal) })
+	require.Zero(t, b.GetPresenceCount("repo"))
+
+	first := b.SubscribeViewer("repo", nil)
+	second := b.SubscribeViewer("repo", nil)
+	other := b.SubscribeViewer("other", nil)
+	t.Cleanup(func() { b.Unsubscribe("repo", first) })
+	t.Cleanup(func() { b.Unsubscribe("repo", second) })
+	t.Cleanup(func() { b.Unsubscribe("other", other) })
+	require.Equal(t, 2, b.GetPresenceCount("repo"))
+	require.Equal(t, 1, b.GetPresenceCount("other"))
+	require.Zero(t, b.GetPresenceCount("unknown"))
+
+	b.Unsubscribe("repo", first)
+	b.Unsubscribe("repo", first)
+	require.Equal(t, 1, b.GetPresenceCount("repo"))
+	b.Unsubscribe("repo", second)
+	require.Zero(t, b.GetPresenceCount("repo"))
+}
 
 func TestPublishPreservesSubscriptionOrder(t *testing.T) {
 	b := NewBus()
@@ -28,7 +53,7 @@ func TestPublishPreservesSubscriptionOrder(t *testing.T) {
 func TestPublishCallsOverflowForSlowSubscriber(t *testing.T) {
 	b := NewBus()
 	overflowed := false
-	ch := b.SubscribeWithBacklogLimit("repo", func() {
+	ch := b.SubscribeViewer("repo", func() {
 		overflowed = true
 	})
 	b.mu.Lock()
@@ -43,6 +68,7 @@ func TestPublishCallsOverflowForSlowSubscriber(t *testing.T) {
 	if !overflowed {
 		t.Fatal("overflow callback was not called")
 	}
+	require.Zero(t, b.GetPresenceCount("repo"))
 	sub.mu.Lock()
 	defer sub.mu.Unlock()
 	if !sub.closed {

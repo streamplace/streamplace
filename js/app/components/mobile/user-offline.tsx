@@ -1,5 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import {
+  IconButton,
   LivestreamProvider,
   Player,
   PlayerProvider,
@@ -7,6 +8,7 @@ import {
   Trans,
   useAvatars,
   useLivestreamStore,
+  useTheme,
   useTranslation,
   View,
   zero,
@@ -30,9 +32,11 @@ interface SourceType {
   source: string;
 }
 
-export const UserOffline = memo(() => {
+export const UserOffline = memo((props: { compact?: boolean }) => {
+  const compact = props.compact ?? false;
   console.log("rendering offline");
   const { t } = useTranslation("common");
+  const { theme } = useTheme();
   const navigation = useNavigation();
   const profile = useLivestreamStore((x) => x.profile);
   const { width, height } = useWindowDimensions();
@@ -59,7 +63,7 @@ export const UserOffline = memo(() => {
   const detailedProfile = profile ? pfp[profile?.did] : null;
 
   useEffect(() => {
-    if (!profile?.did) return;
+    if (compact || !profile?.did) return;
 
     let mounted = true;
 
@@ -94,7 +98,39 @@ export const UserOffline = memo(() => {
     return () => {
       mounted = false;
     };
-  }, [profile?.did, getRecommendations]);
+  }, [compact, profile?.did, getRecommendations]);
+
+  const goBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "MainTabs", params: { screen: "Home" } }],
+      });
+    }
+  };
+
+  if (compact) {
+    return (
+      <View style={[flex.values[1], layout.flex.center, px[4]]}>
+        {Platform.OS !== "web" && (
+          <View
+            style={[
+              layout.position.absolute,
+              position.top[2],
+              position.left[4],
+            ]}
+          >
+            <IconButton accessibilityLabel={t("back")} onPress={goBack}>
+              <ChevronLeft color={theme.colors.text1} size={theme.spacing[5]} />
+            </IconButton>
+          </View>
+        )}
+        <Text color="muted">{t("user-offline")}</Text>
+      </View>
+    );
+  }
 
   if (!profile) {
     return (
@@ -134,20 +170,7 @@ export const UserOffline = memo(() => {
             ]}
           >
             <View style={[layout.flex.row, layout.flex.center, gap.all[2]]}>
-              <Pressable
-                onPress={() => {
-                  if (navigation.canGoBack()) {
-                    navigation.goBack();
-                  } else {
-                    navigation.reset({
-                      index: 0,
-                      routes: [
-                        { name: "MainTabs", params: { screen: "Home" } },
-                      ],
-                    });
-                  }
-                }}
-              >
+              <Pressable onPress={goBack}>
                 <ChevronLeft color="white" />
               </Pressable>
               <Image
@@ -267,18 +290,7 @@ export const UserOffline = memo(() => {
           ]}
         >
           <View style={[layout.flex.row, layout.flex.center, gap.all[2]]}>
-            <Pressable
-              onPress={() => {
-                if (navigation.canGoBack()) {
-                  navigation.goBack();
-                } else {
-                  navigation.reset({
-                    index: 0,
-                    routes: [{ name: "MainTabs", params: { screen: "Home" } }],
-                  });
-                }
-              }}
-            >
+            <Pressable onPress={goBack}>
               <ChevronLeft color="white" />
             </Pressable>
             <Image

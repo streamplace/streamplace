@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { PlayerInner } from "../../app/components/mobile/player";
+import { Player, PlayerInner } from "../../app/components/mobile/player";
 import { Fullscreen } from "../src/components/mobile-player/fullscreen.native";
 import { streamNotificationManager } from "../src/components/stream-notification/stream-notification-manager";
 
@@ -26,6 +26,7 @@ const fixture = vi.hoisted(() => ({
   warnings: ["nudity"],
   openURL: vi.fn(),
   tap: (_event: unknown, _success: boolean) => {},
+  goBack: vi.fn(),
 }));
 
 // Only presentation bindings and external screen/stream inputs are replaced.
@@ -95,7 +96,7 @@ vi.mock("react-native", () => ({
     ),
   Linking: { openURL: fixture.openURL },
   ScrollView: View,
-  StatusBar: () => null,
+  StatusBar: Object.assign(() => null, { setHidden() {} }),
   Platform: {
     get OS() {
       return fixture.platform;
@@ -215,7 +216,9 @@ vi.mock("lucide-react-native", () => ({
   Volume2: View,
   VolumeX: View,
 }));
-vi.mock("@react-navigation/native", () => ({ useNavigation: () => ({}) }));
+vi.mock("@react-navigation/native", () => ({
+  useNavigation: () => ({ canGoBack: () => true, goBack: fixture.goBack }),
+}));
 vi.mock("hooks/useLiveUser", () => ({ useLiveUser: () => false }));
 vi.mock("hooks/useSidebarControl", () => ({
   useSidebarControl: () => ({ contentMargin: 0, isActive: false }),
@@ -229,7 +232,9 @@ vi.mock("../../app/src/navigation-helper", () => ({
   convertNavigationParams() {},
 }));
 vi.mock("../../app/components/mobile/bottom-metadata", () => ({
-  BottomMetadata: View,
+  BottomMetadata: ({ compact }: { compact?: boolean }) => (
+    <span>{compact ? "Compact stream info" : "Full stream info"}</span>
+  ),
 }));
 vi.mock("../../app/components/mobile/chat", () => ({
   DesktopChatPanel: View,
@@ -242,7 +247,7 @@ vi.mock("../../app/components/mobile/offline-counter", () => ({
   OfflineCounter: () => null,
 }));
 vi.mock("../../app/components/mobile/user-offline", () => ({
-  UserOffline: View,
+  UserOffline: () => <span>Channel offline</span>,
 }));
 vi.mock("../../app/components/mobile/ui", () => ({
   MobileUi: () => <button>Mobile controls and chat</button>,
@@ -265,6 +270,9 @@ async function bindings() {
     zero: atoms,
     useTheme: () => ({ theme: tokens }),
     Player: View,
+    LivestreamProvider: View,
+    PlayerProvider: View,
+    RotationProvider: View,
     PlayerUI: {
       ViewerLoadingOverlay: () => null,
       ContextMenu: ({ onOpenChange }: any) => (
@@ -308,13 +316,18 @@ async function bindings() {
     useSegmentDimensions: () => fixture.video,
     useLivestreamStore: (select?: (state: any) => unknown) =>
       select?.({
+        websocketConnected: true,
+        hasReceivedSegment: false,
         segment: { contentWarnings: { warnings: fixture.warnings } },
       }),
+    useSegment: () => undefined,
     PlayerStatus: { PLAYING: "playing", PAUSE: "pause" },
     useLivestreamInfo: () => ({ ingest: null, profile: fixture.profile }),
     useAuthor: () => fixture.profile,
     useTitle: () => "From the studio",
     useAvatar: () => undefined,
+    useAvatars: () => ({}),
+    useTranslation: () => ({ t: (key: string) => key }),
     useCameraToggle: () => ({}),
     useLivestream: () => null,
     useMuted: () => false,
@@ -342,8 +355,10 @@ async function bindings() {
     DanmuOverlay: () => null,
     Chat: () => null,
     Loader: () => null,
-    IconButton: ({ children, accessibilityLabel }: any) => (
-      <button aria-label={accessibilityLabel}>{children}</button>
+    IconButton: ({ children, onPress, accessibilityLabel }: any) => (
+      <button onClick={onPress} aria-label={accessibilityLabel}>
+        {children}
+      </button>
     ),
   };
 }
@@ -377,6 +392,7 @@ beforeEach(() => {
   fixture.profile = { did: "did:plc:streamer", handle: "streamer.example" };
   fixture.warnings = ["nudity"];
   fixture.openURL.mockClear();
+  fixture.goBack.mockClear();
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -796,6 +812,38 @@ it("keeps the detached landscape controls from appearing twice", async () => {
     ),
   );
   expect(container.querySelector("button")).toBeNull();
+});
+
+it.each([
+  [0, 0],
+  [1080, 1920],
+  [1920, 1080],
+])(
+  "keeps phone metadata available offline after a %sx%s stream",
+  async (width, height) => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    fixture.video = { width, height };
+    await act(async () => root.render(<Player src="streamer.example" />));
+    await act(async () => vi.advanceTimersByTime(500));
+    expect(container.textContent).toContain("Channel offline");
+    expect(container.textContent).toContain("Compact stream info");
+  },
+);
+
+it("fits the offline notice above phone metadata and keeps back navigation", async () => {
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  const { UserOffline } = await vi.importActual<
+    typeof import("../../app/components/mobile/user-offline")
+  >("../../app/components/mobile/user-offline");
+  await act(async () => root.render(<UserOffline compact />));
+  expect(container.textContent).toContain("user-offline");
+  expect(container.textContent).not.toContain("streamer.example");
+  const back = container.querySelector<HTMLButtonElement>(
+    '[aria-label="back"]',
+  )!;
+  await act(async () => back.click());
+  expect(fixture.goBack).toHaveBeenCalledOnce();
 });
 
 it.each([

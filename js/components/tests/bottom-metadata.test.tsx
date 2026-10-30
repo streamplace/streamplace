@@ -14,12 +14,19 @@ const fixture = vi.hoisted(() => ({
 }));
 // The store subscriptions, avatar ring, presence expiry and Details state run
 // unchanged; native presentation bindings and unrelated actions are replaced.
-function View({ children, style, accessibilityLabel, testID }: any) {
+function View({
+  children,
+  style,
+  accessibilityLabel,
+  accessibilityElementsHidden,
+  testID,
+}: any) {
   return createElement(
     "div",
     {
       "aria-label": accessibilityLabel,
       "data-testid": testID,
+      hidden: accessibilityElementsHidden,
       "data-style": JSON.stringify(
         Object.assign({}, ...[style].flat(Infinity)),
       ),
@@ -27,10 +34,19 @@ function View({ children, style, accessibilityLabel, testID }: any) {
     children,
   );
 }
-function Pressable({ children, onPress, accessibilityLabel }: any) {
+function Pressable({
+  children,
+  onPress,
+  accessibilityLabel,
+  accessibilityState,
+}: any) {
   return createElement(
     "button",
-    { onClick: onPress, "aria-label": accessibilityLabel },
+    {
+      onClick: onPress,
+      "aria-label": accessibilityLabel,
+      "aria-expanded": accessibilityState?.expanded,
+    },
     children,
   );
 }
@@ -70,10 +86,13 @@ vi.mock("../src/lib/theme/theme", async () => {
           live: tokens.statusColors.live,
           text2: tokens.textAlphas.dark[2],
           surface2: tokens.surfaces.dark[2],
+          surface3: tokens.surfaces.dark[3],
           borderSubtle: tokens.borderAlphas.dark.subtle,
         },
       },
-      zero: {},
+      zero: {
+        border: { border: { borderColor: tokens.borderAlphas.dark.default } },
+      },
     }),
   };
 });
@@ -96,11 +115,13 @@ vi.mock("@streamplace/components", async () => {
     useTheme: (await import("../src/lib/theme/theme")).useTheme,
     useTranslation: () => ({
       t: (key: string, options?: { count: number }) =>
-        key === "watching-count"
-          ? `${options!.count} watching`
-          : key === "less-details"
-            ? "Less details"
-            : "More details",
+        key === "watching-count" || key === "here-count"
+          ? `${options!.count} ${key === "watching-count" ? "watching" : "here"}`
+          : key === "stream-details"
+            ? "Stream details"
+            : key === "less-details"
+              ? "Less details"
+              : "More details",
     }),
     useAuthor: () => useStore(fixture.store!, (state) => state.profile),
     useAvatar: () => null,
@@ -173,9 +194,11 @@ afterEach(async () => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
-async function render() {
+async function render(compact = false) {
   await act(async () =>
-    root.render(<BottomMetadata setShowChat={() => {}} showChat />),
+    root.render(
+      <BottomMetadata compact={compact} setShowChat={() => {}} showChat />,
+    ),
   );
 }
 function hasRing() {
@@ -325,4 +348,83 @@ it("does not offer empty Details when there are no displayable rights", async ()
   });
   await render();
   expect(container.textContent).not.toMatch(/details/i);
+});
+
+it("opens a compact summary into creator, full title and all tags, then closes it", async () => {
+  await render(true);
+  const summary = container.querySelector<HTMLButtonElement>(
+    '[aria-label="Stream info"]',
+  )!;
+  expect(summary.textContent).toContain("A creator's live stream");
+  expect(summary.textContent).toContain("@creator.example");
+  const expand = container.querySelector<HTMLButtonElement>(
+    '[aria-label="Expand stream info"]',
+  )!;
+  expect(expand.getAttribute("aria-expanded")).toBe("false");
+  await act(async () => expand.click());
+  const profile = container.querySelector<HTMLButtonElement>(
+    '[aria-label="Open profile for @creator.example"]',
+  )!;
+  expect(profile.textContent).toContain("Creator name");
+  expect(container.textContent).toContain("24 watching");
+  expect(container.querySelector('[data-testid="scrolling-tags"]')).toBeNull();
+  expect(container.textContent).not.toContain("Repeated content warnings");
+  for (const tag of tags)
+    expect(container.textContent).toContain(
+      tag === "lang:en" ? "English" : tag,
+    );
+  expect(container.textContent).not.toContain("CC BY-NC-SA");
+  const details = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Stream details",
+  )!;
+  await act(async () => details.click());
+  expect(container.textContent).toContain("CC BY-NC-SA 4.0");
+  const collapse = container.querySelector<HTMLButtonElement>(
+    '[aria-label="Collapse stream info"]',
+  )!;
+  await act(async () => collapse.click());
+  expect(container.querySelector('[aria-label="Stream info"]')).not.toBeNull();
+  expect(
+    container
+      .querySelector('[aria-label="Expand stream info"]')
+      ?.getAttribute("aria-expanded"),
+  ).toBe("false");
+});
+
+it.each([0, 3, null])(
+  "uses offline room presence (%s), rather than stale playback viewers",
+  async (presence) => {
+    fixture.store!.setState({
+      presence,
+      websocketConnected: true,
+      segment: {
+        startTime: new Date(Date.now() - 60_000).toISOString(),
+      } as any,
+    });
+    await render(true);
+    expectNotLive();
+    const expand = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Expand stream info"]',
+    )!;
+    await act(async () => expand.click());
+    expect(container.textContent?.includes("here")).toBe(presence !== null);
+    if (presence !== null)
+      expect(container.textContent).toContain(`${presence} here`);
+    expect(container.textContent).not.toContain("24 watching");
+  },
+);
+
+it("does not show disconnected presence in the compact panel", async () => {
+  fixture.store!.setState({
+    presence: 3,
+    websocketConnected: false,
+    segment: null,
+  });
+  await render(true);
+  await act(async () =>
+    container
+      .querySelector<HTMLButtonElement>('[aria-label="Expand stream info"]')!
+      .click(),
+  );
+  expect(container.textContent).not.toContain("here");
 });

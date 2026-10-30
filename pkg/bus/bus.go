@@ -21,6 +21,7 @@ type subscriber struct {
 	queue      []Message
 	limit      int
 	onOverflow func()
+	viewer     bool
 	closed     bool
 	done       chan struct{}
 }
@@ -131,25 +132,44 @@ func NewBus() *Bus {
 }
 
 func (b *Bus) Subscribe(user string) <-chan Message {
-	return b.subscribeWithOverflow(user, 0, nil)
+	return b.subscribeWithOverflow(user, 0, nil, false)
 }
 
-// SubscribeWithBacklogLimit bounds queued messages and calls onOverflow when a
-// consumer falls behind. Use this for clients that can reconnect and receive a
-// fresh snapshot after overflow.
-func (b *Bus) SubscribeWithBacklogLimit(user string, onOverflow func()) <-chan Message {
-	return b.subscribeWithOverflow(user, maxQueuedMessages, onOverflow)
+// SubscribeViewer counts a channel connection and bounds its backlog. A slow
+// viewer is disconnected through onOverflow and can reconnect for a snapshot.
+func (b *Bus) SubscribeViewer(user string, onOverflow func()) <-chan Message {
+	return b.subscribeWithOverflow(user, maxQueuedMessages, onOverflow, true)
 }
 
-func (b *Bus) subscribeWithOverflow(user string, limit int, onOverflow func()) <-chan Message {
+func (b *Bus) subscribeWithOverflow(user string, limit int, onOverflow func(), viewer bool) <-chan Message {
 	if b == nil {
 		return make(<-chan Message)
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	sub := newSubscriber(limit, onOverflow)
+	sub.viewer = viewer
 	b.clients[user] = append(b.clients[user], sub)
 	return sub.ch
+}
+
+// GetPresenceCount counts connections in the channel on this node, including
+// offline channels. Internal subscriptions and closed viewers aren't present.
+func (b *Bus) GetPresenceCount(user string) int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	count := 0
+	for _, sub := range b.clients[user] {
+		if !sub.viewer {
+			continue
+		}
+		sub.mu.Lock()
+		if !sub.closed {
+			count++
+		}
+		sub.mu.Unlock()
+	}
+	return count
 }
 
 func (b *Bus) Unsubscribe(user string, ch <-chan Message) {

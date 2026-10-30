@@ -55,7 +55,6 @@ export type ModViewRef = {
 function useModMenuContent(message: ChatMessageViewHydrated | null) {
   const toast = useToast();
   const agent = usePDSAgent();
-  const [messageRemoved, setMessageRemoved] = useState(false);
   const { createBlock, isLoading: isBlockLoading } = useCreateBlockRecord();
   const { createHideChat, isLoading: isHideLoading } =
     useCreateHideChatRecord();
@@ -67,10 +66,6 @@ function useModMenuContent(message: ChatMessageViewHydrated | null) {
   const streamerDID = useLivestreamStore((x) => x.profile?.did);
   // Check moderation permissions for the current user on this streamer's channel
   const modPermissions = useCanModerate(streamerDID);
-
-  useEffect(() => {
-    setMessageRemoved(false);
-  }, [message]);
 
   if (!message) return null;
 
@@ -85,6 +80,7 @@ function useModMenuContent(message: ChatMessageViewHydrated | null) {
 
   return (
     <ModViewContent
+      key={message.uri}
       message={message}
       modPermissions={modPermissions}
       agent={agent}
@@ -92,8 +88,6 @@ function useModMenuContent(message: ChatMessageViewHydrated | null) {
       hasAvailableActions={hasAvailableActions}
       isHideLoading={isHideLoading}
       isBlockLoading={isBlockLoading}
-      messageRemoved={messageRemoved}
-      setMessageRemoved={setMessageRemoved}
       createHideChat={createHideChat}
       createBlock={createBlock}
       pinChatMessage={pinChatMessage}
@@ -155,8 +149,6 @@ interface ModViewContentProps {
   hasAvailableActions: boolean;
   isHideLoading: boolean;
   isBlockLoading: boolean;
-  messageRemoved: boolean;
-  setMessageRemoved: (removed: boolean) => void;
   createHideChat: (uri: string, streamerDID?: string) => Promise<any>;
   createBlock: (did: string, streamerDID?: string) => Promise<any>;
   pinChatMessage: (
@@ -178,8 +170,6 @@ function ModViewContent({
   hasAvailableActions,
   isHideLoading,
   isBlockLoading,
-  messageRemoved,
-  setMessageRemoved,
   createHideChat,
   createBlock,
   pinChatMessage,
@@ -188,6 +178,7 @@ function ModViewContent({
   setReportSubject,
   deleteChatMessage,
 }: ModViewContentProps) {
+  const [messageRemoved, setMessageRemoved] = useState(false);
   const { onOpenChange } = useRootContext();
   const { theme } = useTheme();
   const profileUrl = useNetworkProfileUrl();

@@ -50,6 +50,9 @@ test("stream: portrait player exposes playback controls", async ({ page }) => {
 
   await page.getByLabel("Mute").click();
   await expect(page.getByLabel("Unmute")).toBeVisible();
+  await expect
+    .poll(() => video.evaluate((element: HTMLVideoElement) => element.muted))
+    .toBe(true);
 
   const unmuteButton = page.getByLabel("Unmute");
   const unmuteBox = await unmuteButton.boundingBox();
@@ -58,11 +61,16 @@ test("stream: portrait player exposes playback controls", async ({ page }) => {
   }
   await expect
     .poll(() =>
-      unmuteButton.evaluate(
-        (element) => getComputedStyle(element).pointerEvents,
+      Promise.all(
+        [unmuteButton, page.getByLabel("Back", { exact: true })].map(
+          (control) =>
+            control.evaluate(
+              (element) => getComputedStyle(element).pointerEvents,
+            ),
+        ),
       ),
     )
-    .toBe("none");
+    .toEqual(["none", "none"]);
   await page.mouse.click(
     unmuteBox.x + unmuteBox.width / 2,
     unmuteBox.y + unmuteBox.height / 2,
@@ -80,6 +88,9 @@ test("stream: portrait player exposes playback controls", async ({ page }) => {
       }),
     )
     .toBeGreaterThan(0.99);
+  await expect
+    .poll(() => video.evaluate((element: HTMLVideoElement) => element.muted))
+    .toBe(true);
 
   await page.getByLabel("Enter fullscreen").click();
   await expect

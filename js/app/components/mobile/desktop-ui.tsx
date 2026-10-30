@@ -336,13 +336,13 @@ export function DesktopUi({
           ]}
         >
           <Gradient
-            pointerEvents="box-none"
+            pointerEvents={isControlsVisible ? "box-none" : "none"}
             fromColor={scrims.dark}
             toColor={colors.black}
             opacityColor2={0}
           >
             <View
-              pointerEvents="box-none"
+              pointerEvents={isControlsVisible ? "box-none" : "none"}
               style={{
                 paddingTop: safeAreaInsets.top + spacing[1],
                 paddingHorizontal: spacing[2],
@@ -446,7 +446,7 @@ export function DesktopUi({
         ]}
       >
         <Gradient
-          pointerEvents="box-none"
+          pointerEvents={isControlsVisible ? "box-none" : "none"}
           fromColor={colors.black}
           toColor={scrims.dark}
           opacityColor1={0}

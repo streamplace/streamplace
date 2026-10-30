@@ -292,12 +292,12 @@ export function MobileUi({
         >
           {/* Main UI Overlay */}
           <View
-            pointerEvents="box-none"
+            pointerEvents={controlsInteractive ? "box-none" : "none"}
             style={[h.percent[100], w.percent[100]]}
           >
             {ingest === null ? (
               <Gradient
-                pointerEvents="box-none"
+                pointerEvents={controlsInteractive ? "box-none" : "none"}
                 fromColor={scrims.dark}
                 toColor={colors.black}
                 opacityColor2={0}
@@ -579,7 +579,7 @@ export function MobileUi({
           onBlur={() => setControlsFocused(false)}
         >
           <Gradient
-            pointerEvents="box-none"
+            pointerEvents={controlsInteractive ? "box-none" : "none"}
             fromColor={colors.black}
             toColor={scrims.dark}
             opacityColor1={0}

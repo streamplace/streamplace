@@ -166,6 +166,8 @@ export function MobileUi({
   const [controlsFocused, setControlsFocused] = useState(false);
   const [screenReaderEnabled, setScreenReaderEnabled] = useState(false);
   useEffect(() => {
+    // React Native Web's screen-reader query is a constant true stub.
+    if (Platform.OS === "web") return;
     void AccessibilityInfo.isScreenReaderEnabled().then(setScreenReaderEnabled);
     const subscription = AccessibilityInfo.addEventListener(
       "screenReaderChanged",

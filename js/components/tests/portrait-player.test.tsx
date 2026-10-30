@@ -64,7 +64,8 @@ function canPress(element: HTMLElement) {
 }
 vi.mock("react-native", () => ({
   AccessibilityInfo: {
-    isScreenReaderEnabled: async () => fixture.screenReader,
+    isScreenReaderEnabled: async () =>
+      fixture.platform === "web" || fixture.screenReader,
     addEventListener: () => ({ remove() {} }),
   },
   View,
@@ -431,6 +432,24 @@ it("keeps playback controls discoverable with a screen reader enabled", async ()
   )!;
   expect(canPress(controls)).toBe(true);
 });
+
+it.each(["live", "vod"])(
+  "fades web %s controls despite the screen-reader API's constant true result",
+  async (mode) => {
+    vi.useFakeTimers();
+    fixture.platform = "web";
+    fixture.mode = mode;
+    fixture.rendition = "source";
+    const { MobileUi } = await vi.importActual<
+      typeof import("../../app/components/mobile/ui")
+    >("../../app/components/mobile/ui");
+    await act(async () => root.render(<MobileUi hideMobileChat />));
+    const back = container.querySelector<HTMLElement>('[aria-label="Back"]')!;
+    expect(canPress(back)).toBe(true);
+    await act(async () => vi.advanceTimersByTime(6100));
+    expect(canPress(back)).toBe(false);
+  },
+);
 
 it("names the native fullscreen action", async () => {
   fixture.canRotate = true;

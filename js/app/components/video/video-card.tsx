@@ -50,11 +50,7 @@ export default function VideoCard({
   const likeCount = video.likeCount ?? 0;
 
   return (
-    <AQLink
-      testID="video-card"
-      to={{ screen: "Video", params: { user, tid } }}
-      style={{ flex: 1 }}
-    >
+    <AQLink to={{ screen: "Video", params: { user, tid } }} style={{ flex: 1 }}>
       <View
         style={[
           zero.flex.values[1],

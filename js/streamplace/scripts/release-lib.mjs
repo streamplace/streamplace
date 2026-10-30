@@ -61,7 +61,6 @@ const ARTIFACTS = {
         "application/vnd.android.package-archive",
       ),
       artifact(`android-${flavor}.aab`, "android", undefined, BINARY),
-      artifact(`android-${flavor}.apks`, "android", undefined, ZIP),
     ]),
     artifact("ios-release.xcarchive.tar.gz", "ios", undefined, GZIP),
   ],
@@ -92,6 +91,7 @@ const ARTIFACTS = {
 const BUILD_HELPERS = [
   /^windows-amd64\.nupkg(\.sha1)?$/,
   /^android-e2e\.(apk|aab|apks)$/,
+  /^android-(debug|release)\.apks$/,
   /^sign-input(\.tar\.gz)?$/,
   /^ios-release\.xcarchive$/,
   /^SHA256SUMS$/,

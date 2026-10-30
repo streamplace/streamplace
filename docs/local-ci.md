@@ -12,6 +12,10 @@ Run it from a Linux host (or WSL2) with Docker. On the host it calls
 `hack/container.sh`; inside the builder container it runs in place. The script
 is `hack/all.sh`.
 
+Native compiler failures stop the build before downstream packaging. Artifacts
+already present after a failed run may be stale; rebuild rather than treating
+existing `.deb` files as proof that the matching archives compiled successfully.
+
 ## What runs
 
 - `test`: `make dev`, the Go test suite with `STREAMPLACE_TEST_COUNT=1`, and a
@@ -86,8 +90,9 @@ Stable build-and-publish also sets `SP_PRODUCTION_RELEASE=true` for the builder
 and remote Mac, selecting Streamplace's production mobile identity (`tv.aquareum`)
 instead of the standalone development identity (`tv.aquareum.dev`).
 
-Both the Linux and GitLab pipelines publish 19 standard distributables plus two
-bundletool `.apks` archives. Missing required outputs fail before publication. iOS requires
+Both the Linux and GitLab pipelines publish 19 standard distributables, including
+Android APKs and AABs. Bundletool `.apks` archives are build intermediates and are
+not published. Missing required outputs fail before publication. iOS requires
 `MAC_HOST` and optionally `MAC_REPO`; without a Mac it is explicitly reported as
 skipped, just as with `make all`. `ALL_STRICT=1` makes that skip fatal. Existing
 signing credentials and `SIGN_OFFLINE` behavior are unchanged.
@@ -104,10 +109,11 @@ make publish-atproto \
 The source commit and tags must exist locally. A historical commit is supported
 in this prebuilt mode; build and CI modes require the producers' checkout commit.
 The artifact directory may contain other versions and known build intermediates:
-only the exact version's deliverables are staged. Supplied iOS archives and
-bundletool archives are included when present. Unknown matching-version files,
-missing standard outputs, ambiguous Windows update packages, and invalid registry
-checksums fail rather than publishing an incomplete release.
+only the exact version's deliverables are staged. Supplied iOS archives are
+included when present; bundletool `.apks` archives are ignored. Unknown
+matching-version files, missing standard outputs, ambiguous Windows update
+packages, and invalid registry checksums fail rather than publishing an
+incomplete release.
 
 Add `RELEASE_DRY_RUN=1` to preview the records without PDS credentials or network
 access to the PDS. This does not skip a requested build or GitLab download.

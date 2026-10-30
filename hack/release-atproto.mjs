@@ -41,11 +41,8 @@ const required = [
   ),
 ];
 const ios = `${nodePrefix}ios-release.xcarchive.tar.gz`;
-const apks = ["debug", "release"].map(
-  (flavor) => `${nodePrefix}android-${flavor}.apks`,
-);
 const sidecar = `${desktopPrefix}windows-amd64.nupkg.sha1`;
-const known = new Set([...required, ...apks, ios]);
+const known = new Set([...required, ios]);
 const isNupkg = (name) =>
   name.startsWith(`${desktopPrefix}windows-amd64.`) &&
   /^[0-9a-f]{40}\.nupkg$/.test(
@@ -220,7 +217,6 @@ async function stage(source, destination) {
     staged.add(name);
   }
   const expected = [...required];
-  if (mode === "build" || mode === "ci") expected.push(...apks);
   if (mode === "build" && macHost) expected.push(ios);
   const missing = expected.filter((name) => !staged.has(name));
   if (missing.length)

@@ -108,7 +108,7 @@ test(
         Buffer.from("windows desktop"),
       );
       for (const flavor of ["debug", "release"]) {
-        for (const ext of ["apk", "aab", "apks"]) {
+        for (const ext of ["apk", "aab"]) {
           files.set(
             `streamplace-${version}-android-${flavor}.${ext}`,
             Buffer.from(flavor + ext),
@@ -125,6 +125,8 @@ test(
         `streamplace-${version}-android-e2e.apk`,
         `streamplace-${version}-android-e2e.aab`,
         `streamplace-${version}-android-e2e.apks`,
+        `streamplace-${version}-android-debug.apks`,
+        `streamplace-${version}-android-release.apks`,
         `streamplace-${version}-SHA256SUMS`,
         `streamplace-desktop-${version}-windows-amd64.nupkg`,
         `streamplace-${version}-12345678-linux-amd64.tar.gz`,

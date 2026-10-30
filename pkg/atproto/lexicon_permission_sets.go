@@ -1,11 +1,11 @@
 package atproto
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/lexicon"
+	"stream.place/streamplace/lexicons"
 )
 
 // Scope values for acting on the user's Bluesky account. Users may decline
@@ -16,23 +16,30 @@ const (
 	ScopeBskyActorStatus = "repo?collection=app.bsky.actor.status"
 )
 
-func generatePermissionSets(ctx context.Context, lexs []*lexicon.SchemaFile) ([]*lexicon.SchemaFile, error) {
-	recordLexicons := []*lexicon.SchemaFile{}
+// oauthScope is the OAuth scope Streamplace requests: the fixed atproto and
+// Bluesky grants, plus place.stream.authFull both as an include and spelled
+// out collection by collection, read from the generated permission set in
+// lexs so the scope and the published lexicon cannot drift apart.
+func oauthScope(lexs []*lexicon.SchemaFile) (string, error) {
+	var authFull *lexicon.SchemaPermissionSet
 	for _, lex := range lexs {
-		main, ok := lex.Defs["main"]
-		if !ok {
+		if lex.ID != lexicons.AuthFullID {
 			continue
 		}
-		switch main.Inner.(type) {
-		case lexicon.SchemaRecord:
-			recordLexicons = append(recordLexicons, lex)
-		case lexicon.SchemaPermissionSet:
-			return nil, fmt.Errorf("unexpected permission set in `lexicons` directory: %s", lex.ID)
+		if authFull != nil {
+			return "", fmt.Errorf("more than one %s lexicon", lexicons.AuthFullID)
 		}
+		set, ok := lex.Defs["main"].Inner.(lexicon.SchemaPermissionSet)
+		if !ok {
+			return "", fmt.Errorf("%s is not a permission set", lexicons.AuthFullID)
+		}
+		authFull = &set
+	}
+	if authFull == nil {
+		return "", fmt.Errorf("%s lexicon missing, run `make lexicons`", lexicons.AuthFullID)
 	}
 
-	allRecords := []string{}
-	allCollectionStrings := []string{
+	scopes := []string{
 		"atproto",
 		"blob:*/*",
 		ScopeBskyPostCreate,
@@ -42,42 +49,16 @@ func generatePermissionSets(ctx context.Context, lexs []*lexicon.SchemaFile) ([]
 		"repo?collection=app.bsky.actor.profile",
 		"rpc:app.bsky.actor.getProfile?aud=did:web:api.bsky.app%23bsky_appview",
 		"rpc:app.bsky.actor.getProfiles?aud=did:web:api.bsky.app%23bsky_appview",
-		"include:place.stream.authFull",
+		"include:" + lexicons.AuthFullID,
 		"rpc:com.atproto.moderation.createReport?aud=*",
 	}
-	for _, record := range recordLexicons {
-		allRecords = append(allRecords, record.ID)
-		allCollectionStrings = append(allCollectionStrings, fmt.Sprintf("repo?collection=%s", record.ID))
+	for _, perm := range authFull.Permissions {
+		if perm.Resource != "repo" {
+			continue
+		}
+		for _, collection := range perm.Collection {
+			scopes = append(scopes, "repo?collection="+collection)
+		}
 	}
-
-	OAuthString = strings.Join(allCollectionStrings, " ")
-	permissionSets := []*lexicon.SchemaFile{}
-
-	// place.stream.authFull
-	authFullTitle := "Full Streamplace Access"
-	authFullDetail := "Full access to all Streamplace features and data."
-	authFullSet := &lexicon.SchemaPermissionSet{
-		Type:   "permission-set",
-		Title:  &authFullTitle,
-		Detail: &authFullDetail,
-		Permissions: []lexicon.SchemaPermission{
-			{
-				Type:       "permission",
-				Resource:   "repo",
-				Collection: allRecords,
-			},
-		},
-	}
-	authFull := &lexicon.SchemaFile{
-		Lexicon: 1,
-		ID:      "place.stream.authFull",
-		Defs: map[string]lexicon.SchemaDef{
-			"main": {
-				Inner: authFullSet,
-			},
-		},
-	}
-	permissionSets = append(permissionSets, authFull)
-
-	return permissionSets, nil
+	return strings.Join(scopes, " "), nil
 }

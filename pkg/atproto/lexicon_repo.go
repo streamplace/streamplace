@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
@@ -40,28 +39,6 @@ var CarStore carstore.CarStore
 var ActionCreate = "create"
 var ActionUpdate = "update"
 var ActionDelete = "delete"
-
-func walkLexicons(ctx context.Context, bundle fs.FS, path string) ([][]byte, error) {
-	ret := [][]byte{}
-	err := fs.WalkDir(bundle, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		if !strings.HasSuffix(path, ".json") {
-			return nil
-		}
-		lex, err := fs.ReadFile(bundle, path)
-		if err != nil {
-			return err
-		}
-		ret = append(ret, lex)
-		return nil
-	})
-	return ret, err
-}
 
 type SchemaFileWrapper struct {
 	LexiconTypeID string `json:"$type,const=com.atproto.lexicon.schema" cborgen:"$type,const=com.atproto.lexicon.schema"`
@@ -134,34 +111,20 @@ func (c *NoopCloser) Close() error {
 }
 
 // PublishedLexicons is every lexicon a lexicon authority for place.stream
-// publishes: the place.stream schemas, plus the OAuth permission sets
-// generated from them.
+// publishes: the place.stream schemas, including the generated
+// place.stream.authFull permission set. It also sets OAuthString from that
+// permission set.
 func PublishedLexicons(ctx context.Context) ([]*lexicon.SchemaFile, error) {
-	lexs, err := walkLexicons(ctx, AllFiles, "/")
+	lexs, err := lexicons.PlaceStream(AllFiles)
 	if err != nil {
-		return nil, fmt.Errorf("failed to walk lexicon files: %w", err)
+		return nil, fmt.Errorf("failed to read lexicon files: %w", err)
 	}
-
-	lexSchemas := []*lexicon.SchemaFile{}
-
-	for _, lex := range lexs {
-		lexFile := lexicon.SchemaFile{}
-		err := json.Unmarshal(lex, &lexFile)
-		if err != nil {
-			return nil, err
-		}
-		if !strings.HasPrefix(lexFile.ID, "place.stream") {
-			continue
-		}
-		lexSchemas = append(lexSchemas, &lexFile)
-	}
-
-	permissionSchemas, err := generatePermissionSets(ctx, lexSchemas)
+	scope, err := oauthScope(lexs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate permission sets: %w", err)
+		return nil, err
 	}
-
-	return append(lexSchemas, permissionSchemas...), nil
+	OAuthString = scope
+	return lexs, nil
 }
 
 func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, state *statedb.StatefulDB) (Closer, error) {

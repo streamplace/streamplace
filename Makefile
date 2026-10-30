@@ -465,9 +465,16 @@ golangci-lint:
 
 .PHONY: lexicons
 lexicons:
-	$(MAKE) go-lexicons \
+	$(MAKE) authfull-lexicon \
+	&& $(MAKE) go-lexicons \
 	&& $(MAKE) js-lexicons \
 	&& $(MAKE) md-lexicons
+
+# place.stream.authFull is generated from the place.stream record lexicons,
+# so it must exist before the Go, JS, and docs codegen below read lexicons/.
+.PHONY: authfull-lexicon
+authfull-lexicon:
+	go run ./lexicons/gen_authfull.go
 
 # glex is the standalone Go lexicon codegen tool (github.com/streamplace/glex).
 # It generates Go types that serialize as canonical DAG-CBOR via go-dasl,

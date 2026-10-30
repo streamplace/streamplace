@@ -53,6 +53,21 @@ func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *
 	}
 }
 
+// CutoverLiveRecording completes the current object of streamer's live
+// recording, if this node is recording it, so the recording is finalize-able
+// at once: the atsync.LivestreamEnded hook. A node that ingests the stream
+// sees its next segment unpublished and cuts over on its own; a node a peer
+// pushes to gets no unpublished segments (they are not pushed), and would
+// otherwise hold its last object open until the session timed out.
+func (d *Director) CutoverLiveRecording(ctx context.Context, streamer string) {
+	d.streamSessionsMu.Lock()
+	ss := d.streamSessions[streamer]
+	d.streamSessionsMu.Unlock()
+	if ss != nil {
+		ss.s3Cutover(ctx)
+	}
+}
+
 func (d *Director) Start(ctx context.Context) error {
 	newSeg := d.mm.NewSegment()
 	ctx, cancel := context.WithCancel(ctx)

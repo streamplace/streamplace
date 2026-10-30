@@ -51,19 +51,10 @@ export type ModViewRef = {
   close: () => void;
 };
 
-/**
- * The moderation / user-actions menu for one message, gathering every hook
- * it needs so any dropdown can host it: the per-row "…" trigger on web, or
- * the store-driven singleton below that native's swipe gesture opens.
- */
-export function ModMenuContent({
-  message,
-}: {
-  message: ChatMessageViewHydrated;
-}) {
+// Read scoped stores before the native dropdown moves content to its portal.
+function useModMenuContent(message: ChatMessageViewHydrated | null) {
   const toast = useToast();
   const agent = usePDSAgent();
-  const [messageRemoved, setMessageRemoved] = useState(false);
   const { createBlock, isLoading: isBlockLoading } = useCreateBlockRecord();
   const { createHideChat, isLoading: isHideLoading } =
     useCreateHideChatRecord();
@@ -76,9 +67,7 @@ export function ModMenuContent({
   // Check moderation permissions for the current user on this streamer's channel
   const modPermissions = useCanModerate(streamerDID);
 
-  useEffect(() => {
-    setMessageRemoved(false);
-  }, [message]);
+  if (!message) return null;
 
   // Check if any moderation actions are actually available for this message
   // This must match the individual action checks inside the DropdownMenuGroup
@@ -91,6 +80,7 @@ export function ModMenuContent({
 
   return (
     <ModViewContent
+      key={message.uri}
       message={message}
       modPermissions={modPermissions}
       agent={agent}
@@ -98,8 +88,6 @@ export function ModMenuContent({
       hasAvailableActions={hasAvailableActions}
       isHideLoading={isHideLoading}
       isBlockLoading={isBlockLoading}
-      messageRemoved={messageRemoved}
-      setMessageRemoved={setMessageRemoved}
       createHideChat={createHideChat}
       createBlock={createBlock}
       pinChatMessage={pinChatMessage}
@@ -111,12 +99,21 @@ export function ModMenuContent({
   );
 }
 
+export function ModMenuContent({
+  message,
+}: {
+  message: ChatMessageViewHydrated;
+}) {
+  return useModMenuContent(message);
+}
+
 // Store-driven singleton with a hidden trigger, for platforms where the
 // menu isn't opened from a row of its own (native's swipe gesture).
 export const ModView = forwardRef<ModViewRef, ModViewProps>(function ModView() {
   const triggerRef = useRef<TriggerRef>(null);
   const message = usePlayerStore((state) => state.modMessage);
   const setModMessage = usePlayerStore((x) => x.setModMessage);
+  const menuContent = useModMenuContent(message);
 
   useEffect(() => {
     if (message) {
@@ -138,7 +135,7 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(function ModView() {
         <View />
       </DropdownMenuTrigger>
       <ResponsiveDropdownMenuContent>
-        {message && <ModMenuContent message={message} />}
+        {menuContent}
       </ResponsiveDropdownMenuContent>
     </DropdownMenu>
   );
@@ -152,8 +149,6 @@ interface ModViewContentProps {
   hasAvailableActions: boolean;
   isHideLoading: boolean;
   isBlockLoading: boolean;
-  messageRemoved: boolean;
-  setMessageRemoved: (removed: boolean) => void;
   createHideChat: (uri: string, streamerDID?: string) => Promise<any>;
   createBlock: (did: string, streamerDID?: string) => Promise<any>;
   pinChatMessage: (
@@ -175,8 +170,6 @@ function ModViewContent({
   hasAvailableActions,
   isHideLoading,
   isBlockLoading,
-  messageRemoved,
-  setMessageRemoved,
   createHideChat,
   createBlock,
   pinChatMessage,
@@ -185,6 +178,7 @@ function ModViewContent({
   setReportSubject,
   deleteChatMessage,
 }: ModViewContentProps) {
+  const [messageRemoved, setMessageRemoved] = useState(false);
   const { onOpenChange } = useRootContext();
   const { theme } = useTheme();
   const profileUrl = useNetworkProfileUrl();

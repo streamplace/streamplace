@@ -1,4 +1,5 @@
 import {
+  IconButton,
   Slider,
   useMuted,
   useSetMuted,
@@ -7,17 +8,22 @@ import {
   View,
   zero,
 } from "@streamplace/components";
-import { scrims } from "@streamplace/components/src/lib/theme/tokens";
+import {
+  borderRadius,
+  colors,
+  motion,
+  spacing,
+  touchTargets,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { Volume2, VolumeX } from "lucide-react-native";
 import { useCallback, useRef } from "react";
-import { Pressable } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
 
-const { layout, p, r } = zero;
+const { layout } = zero;
 
 export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
   const muted = useMuted();
@@ -30,8 +36,8 @@ export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
   const fadeOutTimer = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const fadeOut = useCallback(() => {
-    fadeAnim.value = withTiming(0, { duration: 400 });
-    widthAnim.value = withTiming(0, { duration: 400 });
+    fadeAnim.value = withTiming(0, { duration: motion.slow });
+    widthAnim.value = withTiming(0, { duration: motion.slow });
   }, [fadeAnim, widthAnim]);
 
   const scheduleFadeOut = useCallback(() => {
@@ -41,8 +47,8 @@ export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
 
   const onVolumeHover = useCallback(() => {
     clearTimeout(fadeOutTimer.current);
-    fadeAnim.value = withTiming(1, { duration: 200 });
-    widthAnim.value = withTiming(sliderWidth, { duration: 200 });
+    fadeAnim.value = withTiming(1, { duration: motion.base });
+    widthAnim.value = withTiming(sliderWidth, { duration: motion.base });
   }, [fadeAnim, sliderWidth, widthAnim]);
 
   // Toggle mute state
@@ -64,26 +70,38 @@ export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
     <View
       onPointerEnter={onVolumeHover}
       onPointerLeave={fadeOut}
-      style={[layout.flex.row, layout.flex.alignCenter, { height: 50 }]}
+      style={[
+        layout.flex.row,
+        layout.flex.alignCenter,
+        { height: touchTargets.minimum },
+      ]}
     >
-      <Pressable
-        accessibilityRole="button"
+      <IconButton
         accessibilityLabel={muted ? "Unmute" : "Mute"}
         onPress={handleMuteToggle}
-        style={[p[2], r[1]]}
+        style={{
+          width: touchTargets.minimum,
+          height: touchTargets.minimum,
+        }}
       >
-        <VolumeIcon size={20} color="white" />
-      </Pressable>
+        <VolumeIcon size={spacing[6]} color={colors.white} />
+      </IconButton>
 
-      <Animated.View style={[{ height: 30 }, animatedStyle]}>
+      <Animated.View
+        style={[
+          { height: touchTargets.minimum, overflow: "hidden" },
+          animatedStyle,
+        ]}
+      >
         <Slider.Root
           style={{
             position: "relative",
             display: "flex",
             alignItems: "center",
             flex: 1,
-            width: sliderWidth,
-            height: 20,
+            width: sliderWidth - spacing[4],
+            marginHorizontal: spacing[2],
+            height: touchTargets.minimum,
           }}
           value={sliderValue}
           min={0}
@@ -105,7 +123,7 @@ export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
             testID="player-volume-track"
             style={{
               flexGrow: 1,
-              height: 30,
+              height: touchTargets.minimum,
               position: "relative",
               flex: 1,
             }}
@@ -113,23 +131,29 @@ export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
             <Slider.Range
               style={{
                 position: "absolute",
-                backgroundColor: "white",
-                borderRadius: 999,
-                height: 3,
+                backgroundColor: colors.white,
+                borderRadius: borderRadius.full,
+                height: spacing[1],
                 flex: 1,
                 width: "100%",
-                transform: [{ translateY: 14 }],
+                transform: [
+                  {
+                    translateY: (touchTargets.minimum - spacing[1]) / 2,
+                  },
+                ],
               }}
             />
             <Slider.Thumb
               style={{
                 position: "absolute",
-                width: 16,
-                height: 16,
-                borderRadius: 8,
-                backgroundColor: "white",
-                boxShadow: `0 2px 10px ${scrims.light}`,
-                transform: [{ translateX: -8 }, { translateY: 7 }],
+                width: spacing[3],
+                height: spacing[3],
+                borderRadius: borderRadius.full,
+                backgroundColor: colors.white,
+                transform: [
+                  { translateX: -spacing[3] / 2 },
+                  { translateY: (touchTargets.minimum - spacing[3]) / 2 },
+                ],
               }}
             />
           </Slider.Track>

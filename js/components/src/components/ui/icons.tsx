@@ -1,5 +1,6 @@
 import { type LucideProps } from "lucide-react-native";
 import React from "react";
+import { View } from "react-native";
 import { useTheme } from "../../lib/theme/theme";
 
 // Simple icon wrapper that integrates with theme
@@ -13,7 +14,7 @@ export interface IconProps {
     | "success"
     | "warning";
   size?: number | "sm" | "md" | "lg" | "xl";
-  color?: string;
+  color?: LucideProps["color"];
 }
 
 // Size mapping
@@ -24,41 +25,44 @@ const sizeMap = {
   xl: 32,
 } as const;
 
-// HOC to create themed icons
-export function createThemedIcon(
-  IconComponent: React.ComponentType<LucideProps>,
-): React.FC<IconProps> {
-  return ({ variant = "default", size = "md", color, ...restProps }) => {
-    let theme = useTheme(); // Ensure theme is available
-    // Calculate size
-    const iconSize = typeof size === "number" ? size : sizeMap[size];
+type IconSource = React.ComponentType<LucideProps> | React.ReactElement<any>;
 
-    // Calculate color if not provided using atoms
-    const iconColor =
-      color ||
-      theme.theme.colors[variant] ||
-      theme.theme.colors.secondaryForeground;
-
-    return (
-      <IconComponent
-        size={iconSize}
-        color={iconColor}
-        {...(restProps as Omit<LucideProps, "size" | "color">)}
-      />
-    );
-  };
+export function createThemedIcon(icon: IconSource): React.FC<IconProps> {
+  return (props) => <Icon icon={icon} {...props} />;
 }
 
-// usage of createThemedIcon
 export function Icon({
   icon,
   variant = "default",
   size = "md",
   color,
   ...restProps
-}: { icon: React.ComponentType<LucideProps> } & IconProps) {
-  const ThemedIcon = createThemedIcon(icon);
+}: { icon: IconSource } & IconProps) {
+  const { theme } = useTheme();
+  const iconSize = typeof size === "number" ? size : sizeMap[size];
+  const iconColor =
+    color || theme.colors[variant] || theme.colors.secondaryForeground;
+
+  // Theme text colors carry alpha. Composite it once after the SVG paths
+  // are drawn, so intersecting strokes keep the same visual weight.
+  const rgba =
+    typeof iconColor === "string"
+      ? iconColor.match(/^(rgba\(.+),\s*([\d.]+)\)$/)
+      : null;
+  const props = {
+    ...restProps,
+    size: iconSize,
+    color: rgba ? `${rgba[1]},1)` : iconColor,
+  };
+
   return (
-    <ThemedIcon variant={variant} size={size} color={color} {...restProps} />
+    <View
+      needsOffscreenAlphaCompositing={rgba !== null}
+      style={{ opacity: rgba ? Number(rgba[2]) : 1 }}
+    >
+      {React.isValidElement(icon)
+        ? React.cloneElement(icon, props)
+        : React.createElement(icon as React.ComponentType<LucideProps>, props)}
+    </View>
   );
 }

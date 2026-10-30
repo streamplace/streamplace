@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { LayoutChangeEvent, View } from "react-native";
+import { KeyboardEvent, useState } from "react";
+import { LayoutChangeEvent, Platform, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   borderRadius,
@@ -80,6 +80,36 @@ export function SeekBar({
           accessibilityRole="adjustable"
           accessibilityLabel="Playback position"
           accessibilityValue={{ min: 0, max: duration, now: current }}
+          {...(Platform.OS === "web" && {
+            tabIndex: 0,
+            "aria-valuemin": 0,
+            "aria-valuemax": duration,
+            "aria-valuenow": current,
+            onKeyDown: (event: KeyboardEvent) => {
+              let time: number;
+              switch (event.key) {
+                case "ArrowLeft":
+                case "ArrowDown":
+                  time = playTime - 10;
+                  break;
+                case "ArrowRight":
+                case "ArrowUp":
+                  time = playTime + 10;
+                  break;
+                case "Home":
+                  time = 0;
+                  break;
+                case "End":
+                  time = duration;
+                  break;
+                default:
+                  return;
+              }
+              event.preventDefault();
+              seekTo(Math.max(0, Math.min(duration, time)));
+              onScrubbingChange?.(false);
+            },
+          })}
           accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
           onAccessibilityAction={({ nativeEvent: { actionName } }) => {
             if (actionName !== "increment" && actionName !== "decrement")

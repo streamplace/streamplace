@@ -1,31 +1,37 @@
 import {
   Button,
-  PlayerStatus,
+  IconButton,
   PlayerUI,
-  Text,
   View,
   useDanmuEnabled,
   useDanmuUnlocked,
   usePlayerStore,
   useSetDanmuEnabled,
-  useTheme,
   zero,
 } from "@streamplace/components";
+import {
+  colors,
+  spacing,
+  touchTargets,
+} from "@streamplace/components/src/lib/theme/tokens";
 import {
   ChevronLeft,
   ChevronRight,
   Fullscreen,
   Minimize,
-  Pause,
   PictureInPicture2,
-  Play,
 } from "lucide-react-native";
-import { Platform, Pressable } from "react-native";
+import { Platform } from "react-native";
 import { useIsSidebarCollapsed } from "store/hooks";
 import { Mu } from "./mu";
 import { VolumeSlider } from "./volume-slider";
 
-const { gap, layout, p, r, px } = zero;
+const { gap, layout, px } = zero;
+
+const controlTarget = {
+  width: touchTargets.minimum,
+  height: touchTargets.minimum,
+};
 
 interface BottomControlBarProps {
   ingest: string | null;
@@ -34,6 +40,8 @@ interface BottomControlBarProps {
   onHandlePip?: () => void;
   dropdownPortalContainer?: string;
   showContextMenu?: boolean;
+  onMenuOpenChange?: (open: boolean) => void;
+  onScrubbingChange?: (active: boolean) => void;
   volumeSliderWidth?: number;
   showChat: boolean;
   setShowChat?: (show: boolean) => void;
@@ -46,74 +54,72 @@ function PipButton({
   pipActive: boolean;
   onHandlePip: () => void;
 }) {
-  const { theme } = useTheme();
   if (Platform.OS !== "web") return null;
   return (
-    <Pressable onPress={onHandlePip} disabled={pipActive}>
+    <IconButton
+      accessibilityLabel="Picture in picture"
+      onPress={onHandlePip}
+      disabled={pipActive}
+      style={controlTarget}
+    >
       <View style={{ opacity: pipActive ? 0.5 : 1 }}>
-        <PictureInPicture2 color={theme.colors.text} />
+        <PictureInPicture2 size={spacing[6]} color={colors.white} />
       </View>
-    </Pressable>
+    </IconButton>
   );
 }
 
 function DanmuButton() {
-  const { theme } = useTheme();
   const danmuUnlocked = useDanmuUnlocked();
   const danmuEnabled = useDanmuEnabled();
   const setDanmuEnabled = useSetDanmuEnabled();
   if (!danmuUnlocked) return null;
   return (
-    <Pressable
+    <IconButton
+      accessibilityLabel={danmuEnabled ? "Disable danmu" : "Enable danmu"}
       onPress={() => setDanmuEnabled(!danmuEnabled)}
-      style={[px[2], r[1]]}
+      style={controlTarget}
     >
       <Mu
-        size={22}
-        color={theme.colors.text}
+        size={spacing[6]}
+        color={colors.white}
         style={{ opacity: danmuEnabled ? 1 : 0.5 }}
       />
-    </Pressable>
+    </IconButton>
   );
 }
 
 function ContextMenuButton({
   dropdownPortalContainer,
+  onMenuOpenChange,
 }: {
   dropdownPortalContainer?: any;
+  onMenuOpenChange?: (open: boolean) => void;
 }) {
   return (
-    <PlayerUI.ContextMenu dropdownPortalContainer={dropdownPortalContainer} />
+    <PlayerUI.ContextMenu
+      dropdownPortalContainer={dropdownPortalContainer}
+      onOpenChange={onMenuOpenChange}
+    />
   );
 }
 
-// YouTube-style: a translucent rounded field hugging each button cluster,
-// rather than a scrim across the whole width of the player.
-const pill = {
-  backgroundColor: "rgba(0,0,0,0.45)", // eslint-disable-line streamplace/no-token-literals -- over video
-  borderRadius: 999,
-  paddingHorizontal: 10,
-  paddingVertical: 4,
-} as const;
-
 function FullscreenButton() {
-  const { theme } = useTheme();
   const fullscreen = usePlayerStore((state) => state.fullscreen);
   const setFullscreen = usePlayerStore((state) => state.setFullscreen);
   if (Platform.OS !== "web") return null;
   return (
-    <Pressable
-      accessibilityRole="button"
+    <IconButton
       accessibilityLabel={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
       onPress={() => setFullscreen(!fullscreen)}
-      style={[p[2], r[1]]}
+      style={controlTarget}
     >
       {fullscreen ? (
-        <Minimize color={theme.colors.text} />
+        <Minimize size={spacing[6]} color={colors.white} />
       ) : (
-        <Fullscreen color={theme.colors.text} />
+        <Fullscreen size={spacing[6]} color={colors.white} />
       )}
-    </Pressable>
+    </IconButton>
   );
 }
 
@@ -132,22 +138,12 @@ function CollapseChatButton({
       onPress={() => setShowChat(!showChat)}
     >
       {showChat ? (
-        <ChevronRight color="white" size={16} />
+        <ChevronRight color={colors.white} size={spacing[4]} />
       ) : (
-        <ChevronLeft color="white" size={16} />
+        <ChevronLeft color={colors.white} size={spacing[4]} />
       )}
     </Button>
   );
-}
-
-function formatTime(seconds: number): string {
-  const s = Math.floor(seconds);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  if (h > 0) return `${h}:${pad(m)}:${pad(sec)}`;
-  return `${m}:${pad(sec)}`;
 }
 
 export function BottomControlBar({
@@ -157,73 +153,41 @@ export function BottomControlBar({
   onHandlePip,
   dropdownPortalContainer,
   showContextMenu = true,
+  onMenuOpenChange,
+  onScrubbingChange,
   volumeSliderWidth = 200,
   showChat,
   setShowChat,
 }: BottomControlBarProps) {
-  const th = useTheme();
   const sidebarCollapsed = useIsSidebarCollapsed();
   const playbackMode = usePlayerStore((x) => x.mode);
-  const togglePlayPause = usePlayerStore((x) => x.togglePlayPause);
-
-  const playTime = usePlayerStore((x) => x.playTime);
-  const duration = usePlayerStore((x) => x.duration);
-
-  const status = usePlayerStore((x) => x.status);
-  const PlayPause = status === PlayerStatus.PLAYING ? Pause : Play;
+  const volume = (
+    <VolumeSlider
+      key={String(sidebarCollapsed)}
+      sliderWidth={volumeSliderWidth}
+    />
+  );
 
   return (
     <View>
-      <PlayerUI.SeekBar />
+      <PlayerUI.SeekBar onScrubbingChange={onScrubbingChange} />
       <View
         style={[
           layout.flex.row,
           layout.flex.spaceBetween,
           layout.flex.alignCenter,
-          zero.px[4],
+          px[2],
         ]}
       >
-        <View
-          style={[layout.flex.row, layout.flex.alignCenter, gap.all[4], pill]}
-        >
-          {playbackMode === "vod" && (
-            <Pressable onPress={togglePlayPause}>
-              <PlayPause
-                color={th.theme.colors.primaryForeground}
-                fill={th.theme.colors.primaryForeground}
-              />
-            </Pressable>
-          )}
-          <VolumeSlider
-            key={String(sidebarCollapsed)}
-            sliderWidth={volumeSliderWidth}
-          />
-          {playbackMode === "vod" && (
-            <View style={[layout.flex.row, zero.gap.all[1]]}>
-              <Text
-                // @ts-expect-error web-only
-                style={{
-                  fontVariant: "tabular-nums",
-                }}
-              >
-                {formatTime(playTime)}
-              </Text>
-              <Text>/</Text>
-              <Text
-                // @ts-expect-error web-only
-                style={{
-                  fontVariant: "tabular-nums",
-                }}
-              >
-                {formatTime(duration)}
-              </Text>
-            </View>
+        <View style={[layout.flex.row, layout.flex.alignCenter]}>
+          {playbackMode === "vod" ? (
+            <PlayerUI.VodControls>{volume}</PlayerUI.VodControls>
+          ) : (
+            volume
           )}
         </View>
 
-        <View
-          style={[layout.flex.row, layout.flex.alignCenter, gap.all[3], pill]}
-        >
+        <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[1]]}>
           {pipSupported && onHandlePip && (
             <PipButton pipActive={pipActive} onHandlePip={onHandlePip} />
           )}
@@ -231,6 +195,7 @@ export function BottomControlBar({
           {ingest === null && showContextMenu && (
             <ContextMenuButton
               dropdownPortalContainer={dropdownPortalContainer}
+              onMenuOpenChange={onMenuOpenChange}
             />
           )}
           <FullscreenButton />

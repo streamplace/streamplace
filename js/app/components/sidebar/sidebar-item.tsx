@@ -1,4 +1,4 @@
-import { Text, useTheme, zero } from "@streamplace/components";
+import { Icon, Text, useTheme, zero } from "@streamplace/components";
 import { motion, spacing } from "@streamplace/components/src/lib/theme/tokens";
 import React, { ReactNode, useState } from "react";
 import { GestureResponderEvent, Platform, Pressable, View } from "react-native";
@@ -32,30 +32,6 @@ export default function SidebarItem({
   const { theme } = useTheme();
 
   const iconColor = active || hover ? theme.colors.text1 : theme.colors.text2;
-
-  const renderIcon = () => {
-    if (!icon) return null;
-    if (React.isValidElement(icon)) {
-      return React.cloneElement(icon as any, {
-        color: iconColor,
-        size: ICON_SIZE,
-      });
-    }
-    if (typeof icon === "function") {
-      const IconComponent = icon;
-      return <IconComponent color={iconColor} size={ICON_SIZE} />;
-    }
-    if ((icon as any).$$typeof === Symbol.for("react.memo")) {
-      const MemoizedIcon = (icon as any).type;
-      return <MemoizedIcon color={iconColor} size={ICON_SIZE} />;
-    }
-    // forwardRef components (e.g. lucide icons) are objects, not functions
-    if (typeof icon === "object") {
-      const IconComponent = icon as any;
-      return <IconComponent color={iconColor} size={ICON_SIZE} />;
-    }
-    return null;
-  };
 
   const webTransition =
     Platform.OS === "web"
@@ -105,7 +81,7 @@ export default function SidebarItem({
             justifyContent: "center",
           }}
         >
-          {renderIcon()}
+          {icon && <Icon icon={icon} color={iconColor} size={ICON_SIZE} />}
         </View>
         {!collapsed && (
           <View style={{ flex: 1, minWidth: 0 }}>

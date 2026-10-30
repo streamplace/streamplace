@@ -11,6 +11,7 @@ import {
   IconButton,
   ResponsiveDropdownMenuContent,
   Text,
+  Icon as ThemedIcon,
   useTheme,
 } from "@streamplace/components";
 import { statusColors } from "@streamplace/components/src/lib/theme/tokens";
@@ -244,7 +245,7 @@ const AccountMenuItem = ({
             : "transparent",
         }}
       >
-        <Icon size={18} color={iconColor ?? fg} />
+        <ThemedIcon icon={Icon} size={18} color={iconColor ?? fg} />
         <Text
           style={{
             color: fg,
@@ -371,7 +372,11 @@ export const AvatarButton = () => {
                   alignItems: "center",
                 }}
               >
-                <User size={20} color={c.text3} style={{ zIndex: -2 }} />
+                <ThemedIcon
+                  icon={<User style={{ zIndex: -2 }} />}
+                  size={20}
+                  color={c.text3}
+                />
               </ImageBackground>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text
@@ -448,7 +453,7 @@ export const AvatarButton = () => {
         accessibilityLabel="Log in"
         style={{ marginRight: 10, marginLeft: "auto" }}
       >
-        <LogIn size={18} color={theme.colors.text2} />
+        <ThemedIcon icon={LogIn} size={18} color={theme.colors.text2} />
       </IconButton>
     );
   }
@@ -541,7 +546,7 @@ const CreateMenuItem = ({
           backgroundColor: active ? c.surface3 : "transparent",
         }}
       >
-        <Icon size={20} color={active ? c.text1 : c.text3} />
+        <ThemedIcon icon={Icon} size={20} color={active ? c.text1 : c.text3} />
         <View style={{ gap: 1 }}>
           <Text
             style={{

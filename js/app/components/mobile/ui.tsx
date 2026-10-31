@@ -172,6 +172,7 @@ export function MobileUi({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scrubbing, setScrubbing] = useState(false);
   const [controlsFocused, setControlsFocused] = useState(false);
+  const keyboardInput = useRef(false);
   const [screenReaderEnabled, setScreenReaderEnabled] = useState(false);
   useEffect(() => {
     // React Native Web's screen-reader query is a constant true stub.
@@ -202,7 +203,7 @@ export function MobileUi({
       hasEnded ||
       settingsOpen ||
       scrubbing ||
-      controlsFocused ||
+      (controlsFocused && (Platform.OS !== "web" || keyboardInput.current)) ||
       screenReaderEnabled
     )
       return;
@@ -226,6 +227,21 @@ export function MobileUi({
       clearTimeout(fadeTimeout.current);
     };
   }, [resetFadeTimer]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const onKeyDown = () => {
+      keyboardInput.current = true;
+      if (controlsFocused) resetFadeTimer();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [controlsFocused, resetFadeTimer]);
+
+  const onPointerDown = () => {
+    keyboardInput.current = false;
+    resetFadeTimer();
+  };
 
   const showUI = () => {
     "worklet";
@@ -277,6 +293,9 @@ export function MobileUi({
           />
         </GestureDetector>
         <Animated.View
+          onPointerDown={onPointerDown}
+          onFocus={() => setControlsFocused(true)}
+          onBlur={() => setControlsFocused(false)}
           pointerEvents={controlsInteractive ? "box-none" : "none"}
           aria-hidden={!controlsInteractive}
           accessibilityElementsHidden={!controlsInteractive}
@@ -575,6 +594,7 @@ export function MobileUi({
           ]}
           pointerEvents={controlsInteractive ? "box-none" : "none"}
           aria-hidden={!controlsInteractive}
+          onPointerDown={onPointerDown}
           onFocus={() => setControlsFocused(true)}
           onBlur={() => setControlsFocused(false)}
         >

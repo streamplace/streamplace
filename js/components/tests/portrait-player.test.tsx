@@ -35,12 +35,18 @@ function View({
   style,
   edges,
   pointerEvents,
+  onFocus,
+  onBlur,
+  onPointerDown,
   "aria-hidden": ariaHidden,
 }: {
   children?: ReactNode;
   style?: any;
   edges?: string[];
   pointerEvents?: string;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  onPointerDown?: () => void;
   "aria-hidden"?: boolean;
 }) {
   const flattenedStyle = Object.assign({}, ...[style].flat(Infinity));
@@ -51,6 +57,9 @@ function View({
       "data-edges": edges?.join(","),
       "data-pointer-events": pointerEvents ?? flattenedStyle.pointerEvents,
       "aria-hidden": ariaHidden,
+      onFocus,
+      onBlur,
+      onPointerDown,
     },
     children,
   );
@@ -369,6 +378,7 @@ beforeEach(() => {
   fixture.warnings = ["nudity"];
   fixture.openURL.mockClear();
   container = document.createElement("div");
+  document.body.appendChild(container);
   root = createRoot(container);
 });
 
@@ -399,6 +409,7 @@ it.each(["ios", "web"])(
 );
 afterEach(async () => {
   await act(async () => root.unmount());
+  container.remove();
   if (streamNotificationManager.getAll().length)
     streamNotificationManager.hide("pinned-comment");
   vi.restoreAllMocks();
@@ -615,6 +626,37 @@ it.each(["live", "vod"])(
       await act(async () => fixture.tap({}, true));
       expect(canPress(control!)).toBe(true);
     }
+  },
+);
+
+it.each(["live", "vod"])(
+  "allows web %s controls to hide after pointer focus, then holds keyboard interaction",
+  async (mode) => {
+    vi.useFakeTimers();
+    fixture.platform = "web";
+    fixture.mode = mode;
+    fixture.rendition = "source";
+    const { MobileUi } = await vi.importActual<
+      typeof import("../../app/components/mobile/ui")
+    >("../../app/components/mobile/ui");
+    await act(async () => root.render(<MobileUi hideMobileChat />));
+    const mute = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Mute"]',
+    )!;
+    await act(async () => {
+      mute.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      mute.focus();
+    });
+    await act(async () => vi.advanceTimersByTime(6100));
+    expect(canPress(mute)).toBe(false);
+    await act(async () =>
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })),
+    );
+    await act(async () => vi.advanceTimersByTime(7000));
+    expect(canPress(mute)).toBe(true);
+    await act(async () => mute.blur());
+    await act(async () => vi.advanceTimersByTime(6100));
+    expect(canPress(mute)).toBe(false);
   },
 );
 

@@ -1,5 +1,6 @@
 import { Pause, Play, RotateCcw } from "lucide-react-native";
 import { ReactNode } from "react";
+import { Platform } from "react-native";
 import {
   colors,
   spacing,
@@ -44,6 +45,14 @@ export function VodControls({ children }: { children?: ReactNode }) {
     >
       <IconButton
         size="md"
+        style={
+          Platform.OS === "web"
+            ? {
+                minWidth: touchTargets.minimum,
+                minHeight: touchTargets.minimum,
+              }
+            : undefined
+        }
         accessibilityLabel={hasEnded ? "Replay" : isPlaying ? "Pause" : "Play"}
         onPress={togglePlayPause}
       >

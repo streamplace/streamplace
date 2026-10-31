@@ -9,6 +9,7 @@ import {
   NativeStackNavigationOptions,
 } from "@react-navigation/native-stack";
 import {
+  Icon,
   Text,
   useAccentColor,
   useBrandingSettled,
@@ -645,7 +646,7 @@ function TabNavigator() {
               }
             : {
                 tabBarIcon: ({ color, size }) => (
-                  <Home size={size} color={color} />
+                  <Icon icon={Home} size={size} color={color} />
                 ),
               }),
         }}
@@ -661,7 +662,7 @@ function TabNavigator() {
               }
             : {
                 tabBarIcon: ({ color, size }) => (
-                  <Clapperboard size={size} color={color} />
+                  <Icon icon={Clapperboard} size={size} color={color} />
                 ),
               }),
         }}
@@ -677,7 +678,7 @@ function TabNavigator() {
               }
             : {
                 tabBarIcon: ({ color, size }) => (
-                  <Search size={size} color={color} />
+                  <Icon icon={Search} size={size} color={color} />
                 ),
               }),
         }}
@@ -688,8 +689,9 @@ function TabNavigator() {
           component={LaunchGoLive}
           options={{
             title: "Go Live",
+            tabBarItemStyle: { display: "none" },
             tabBarIcon: ({ color, size }) => (
-              <Video size={size} color={color} />
+              <Icon icon={Video} size={size} color={color} />
             ),
             headerShown: true,
             headerTransparent: true,
@@ -707,7 +709,7 @@ function TabNavigator() {
               }
             : {
                 tabBarIcon: ({ color, size }) => (
-                  <Cog size={size} color={color} />
+                  <Icon icon={Cog} size={size} color={color} />
                 ),
               }),
           headerShown: false,

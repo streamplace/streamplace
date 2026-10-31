@@ -14,6 +14,8 @@ const fixture = vi.hoisted(() => ({
   platform: "ios",
   mode: "live",
   status: "playing",
+  duration: 36,
+  playTime: 0,
   rendition: "audio",
   screenReader: false,
   canRotate: false,
@@ -33,11 +35,19 @@ function View({
   style,
   edges,
   pointerEvents,
+  onFocus,
+  onBlur,
+  onPointerDown,
+  "aria-hidden": ariaHidden,
 }: {
   children?: ReactNode;
   style?: any;
   edges?: string[];
   pointerEvents?: string;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  onPointerDown?: () => void;
+  "aria-hidden"?: boolean;
 }) {
   const flattenedStyle = Object.assign({}, ...[style].flat(Infinity));
   return createElement(
@@ -46,6 +56,10 @@ function View({
       "data-style": JSON.stringify(flattenedStyle),
       "data-edges": edges?.join(","),
       "data-pointer-events": pointerEvents ?? flattenedStyle.pointerEvents,
+      "aria-hidden": ariaHidden,
+      onFocus,
+      onBlur,
+      onPointerDown,
     },
     children,
   );
@@ -179,9 +193,11 @@ vi.mock(
   "@streamplace/components/src/ui",
   () => import("../src/lib/theme/atoms"),
 );
-vi.mock("../../app/components/mobile/desktop-ui/index", () => ({
-  BottomControlBar: () => null,
-}));
+vi.mock(
+  "../../app/components/mobile/desktop-ui/index",
+  () => import("../../app/components/mobile/desktop-ui/bottom-controls"),
+);
+vi.mock("../../app/components/mobile/desktop-ui/mu", () => ({ Mu: View }));
 vi.mock("react-native-edge-to-edge", () => ({
   SystemBars: { setHidden() {} },
 }));
@@ -194,13 +210,20 @@ vi.mock("lucide-react-native", () => ({
   ChevronsRight: View,
   Maximize: View,
   Minimize: View,
+  Fullscreen: View,
+  PictureInPicture2: View,
+  Volume2: View,
+  VolumeX: View,
 }));
 vi.mock("@react-navigation/native", () => ({ useNavigation: () => ({}) }));
 vi.mock("hooks/useLiveUser", () => ({ useLiveUser: () => false }));
 vi.mock("hooks/useSidebarControl", () => ({
   useSidebarControl: () => ({ contentMargin: 0, isActive: false }),
 }));
-vi.mock("store/hooks", () => ({ useUserProfile: () => null }));
+vi.mock("store/hooks", () => ({
+  useUserProfile: () => null,
+  useIsSidebarCollapsed: () => false,
+}));
 vi.mock("store", () => ({ useStore: () => () => {} }));
 vi.mock("../../app/src/navigation-helper", () => ({
   convertNavigationParams() {},
@@ -277,6 +300,8 @@ async function bindings() {
         setSrc() {},
         mode: fixture.mode,
         status: fixture.status,
+        duration: fixture.duration,
+        playTime: fixture.playTime,
         selectedRendition: fixture.rendition,
       }),
     usePlayerDimensions: () => fixture.window,
@@ -294,6 +319,9 @@ async function bindings() {
     useLivestream: () => null,
     useMuted: () => false,
     useSetMuted: () => () => {},
+    useVolume: () => 1,
+    useSetVolume: () => () => {},
+    Slider: { Root: View, Track: View, Range: View, Thumb: View },
     useRotation: () => ({
       canRotate: fixture.canRotate,
       currentOrientation: 1,
@@ -305,6 +333,8 @@ async function bindings() {
     Toast: () => null,
     ContentWarningBadge: () => <span>Intended for certain audiences</span>,
     useDanmuEnabled: () => false,
+    useDanmuUnlocked: () => false,
+    useSetDanmuEnabled: () => () => {},
     useDanmuOpacity: () => 1,
     useDanmuSpeed: () => 1,
     useDanmuLaneCount: () => 1,
@@ -340,6 +370,7 @@ beforeEach(() => {
   fixture.platform = "ios";
   fixture.mode = "live";
   fixture.status = "playing";
+  fixture.playTime = 0;
   fixture.rendition = "audio";
   fixture.screenReader = false;
   fixture.canRotate = false;
@@ -347,6 +378,7 @@ beforeEach(() => {
   fixture.warnings = ["nudity"];
   fixture.openURL.mockClear();
   container = document.createElement("div");
+  document.body.appendChild(container);
   root = createRoot(container);
 });
 
@@ -377,6 +409,7 @@ it.each(["ios", "web"])(
 );
 afterEach(async () => {
   await act(async () => root.unmount());
+  container.remove();
   if (streamNotificationManager.getAll().length)
     streamNotificationManager.hide("pinned-comment");
   vi.restoreAllMocks();
@@ -401,21 +434,25 @@ it("allows six seconds to use playing controls before they fade", async () => {
   expect(canPress(controls)).toBe(false);
 });
 
-it("keeps paused recorded controls visible after the inactivity timeout", async () => {
-  vi.useFakeTimers();
-  fixture.mode = "vod";
-  fixture.status = "pause";
-  fixture.rendition = "source";
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
-  await act(async () => root.render(<MobileUi hideMobileChat />));
-  await act(async () => vi.advanceTimersByTime(7000));
-  const controls = [...container.querySelectorAll("button")].find(
-    (button) => button.textContent === "Recorded playback controls",
-  )!;
-  expect(canPress(controls)).toBe(true);
-});
+it.each(["paused", "ended"])(
+  "keeps %s recorded controls visible after the inactivity timeout",
+  async (state) => {
+    vi.useFakeTimers();
+    fixture.mode = "vod";
+    fixture.status = state === "paused" ? "pause" : "suspend";
+    if (state === "ended") fixture.playTime = fixture.duration;
+    fixture.rendition = "source";
+    const { MobileUi } = await vi.importActual<
+      typeof import("../../app/components/mobile/ui")
+    >("../../app/components/mobile/ui");
+    await act(async () => root.render(<MobileUi hideMobileChat />));
+    await act(async () => vi.advanceTimersByTime(7000));
+    const controls = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Recorded playback controls",
+    )!;
+    expect(canPress(controls)).toBe(true);
+  },
+);
 
 it("keeps playback controls discoverable with a screen reader enabled", async () => {
   vi.useFakeTimers();
@@ -568,6 +605,61 @@ it("leaves recorded creator identity and sharing to the watch-page metadata", as
   expect(container.textContent).not.toContain("Share");
 });
 
+it.each(["live", "vod"])(
+  "keeps mute and fullscreen available on narrow web %s playback",
+  async (mode) => {
+    fixture.platform = "web";
+    fixture.mode = mode;
+    const { MobileUi } = await vi.importActual<
+      typeof import("../../app/components/mobile/ui")
+    >("../../app/components/mobile/ui");
+    await act(async () => root.render(<MobileUi hideMobileChat />));
+    for (const label of ["Back", "Mute", "Enter fullscreen"]) {
+      const control = container.querySelector<HTMLElement>(
+        `[aria-label="${label}"]`,
+      );
+      expect(control, label).not.toBeNull();
+      expect(canPress(control!)).toBe(true);
+      await act(async () => fixture.tap({}, true));
+      expect(canPress(control!)).toBe(false);
+      expect(control!.closest('[aria-hidden="true"]')).not.toBeNull();
+      await act(async () => fixture.tap({}, true));
+      expect(canPress(control!)).toBe(true);
+    }
+  },
+);
+
+it.each(["live", "vod"])(
+  "allows web %s controls to hide after pointer focus, then holds keyboard interaction",
+  async (mode) => {
+    vi.useFakeTimers();
+    fixture.platform = "web";
+    fixture.mode = mode;
+    fixture.rendition = "source";
+    const { MobileUi } = await vi.importActual<
+      typeof import("../../app/components/mobile/ui")
+    >("../../app/components/mobile/ui");
+    await act(async () => root.render(<MobileUi hideMobileChat />));
+    const mute = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Mute"]',
+    )!;
+    await act(async () => {
+      mute.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      mute.focus();
+    });
+    await act(async () => vi.advanceTimersByTime(6100));
+    expect(canPress(mute)).toBe(false);
+    await act(async () =>
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })),
+    );
+    await act(async () => vi.advanceTimersByTime(7000));
+    expect(canPress(mute)).toBe(true);
+    await act(async () => mute.blur());
+    await act(async () => vi.advanceTimersByTime(6100));
+    expect(canPress(mute)).toBe(false);
+  },
+);
+
 it("shows the title and handle in landscape without a recorded-chat toggle", async () => {
   fixture.window = { width: 844, height: 390 };
   fixture.mode = "vod";
@@ -581,6 +673,21 @@ it("shows the title and handle in landscape without a recorded-chat toggle", asy
   expect(container.textContent).toContain("@streamer.example");
   expect(container.querySelector('[aria-label="Hide chat"]')).toBeNull();
   expect(container.querySelector('[aria-label="Show chat"]')).toBeNull();
+});
+
+it("keeps wide web identity below the player until fullscreen", async () => {
+  fixture.platform = "web";
+  fixture.window = { width: 1024, height: 768 };
+  fixture.mode = "vod";
+  const { MobileUi } = await vi.importActual<
+    typeof import("../../app/components/mobile/ui")
+  >("../../app/components/mobile/ui");
+  await act(async () => root.render(<MobileUi hideMobileChat />));
+  expect(container.textContent).not.toContain("From the studio");
+  fixture.fullscreen = true;
+  await act(async () => root.render(<MobileUi hideMobileChat />));
+  expect(container.textContent).toContain("From the studio");
+  expect(container.textContent).toContain("@streamer.example");
 });
 
 it.each(["portrait", "landscape"])(

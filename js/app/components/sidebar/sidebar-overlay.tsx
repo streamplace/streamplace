@@ -6,6 +6,7 @@ import {
 import {
   Button,
   Text,
+  Icon as ThemedIcon,
   useBrandingAsset,
   useDID,
   useSidebarBackgroundImage,
@@ -228,7 +229,8 @@ export function SidebarToggle({
         <View
           style={{ width: 24, alignItems: "center", justifyContent: "center" }}
         >
-          <Menu
+          <ThemedIcon
+            icon={Menu}
             size={24}
             color={hover ? theme.colors.text1 : theme.colors.text2}
           />
@@ -279,7 +281,7 @@ function UploadedSocialIcon({
       />
     );
   }
-  return <LinkIcon size={size} color={color} />;
+  return <ThemedIcon icon={LinkIcon} size={size} color={color} />;
 }
 
 function SocialIconButton({
@@ -321,9 +323,13 @@ function SocialIconButton({
         ]}
       >
         {slot ? (
-          <UploadedSocialIcon slot={slot} size={24} color={color} />
+          <ThemedIcon
+            icon={<UploadedSocialIcon slot={slot} size={24} color={color} />}
+            size={24}
+            color={color}
+          />
         ) : (
-          <Icon size={24} color={color} />
+          <ThemedIcon icon={Icon} size={24} color={color} />
         )}
       </View>
     </Pressable>

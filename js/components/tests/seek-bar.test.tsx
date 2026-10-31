@@ -8,11 +8,17 @@ import { makePlayerStore } from "../src/player-store/player-store";
 const native = vi.hoisted(() => ({
   views: [] as any[],
   gestures: {} as Record<string, Record<string, (event?: any) => void>>,
+  platform: "ios",
 }));
 
 // Native layout and accessibility events enter through these adapters. Seeking
 // uses the real player store, including its update to the video element.
 vi.mock("react-native", () => ({
+  Platform: {
+    get OS() {
+      return native.platform;
+    },
+  },
   View: (props: any) => {
     native.views.push(props);
     return createElement("div", null, props.children);
@@ -64,6 +70,7 @@ beforeEach(async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   native.views = [];
   native.gestures = {};
+  native.platform = "ios";
   container = document.createElement("div");
   root = createRoot(container);
   video = document.createElement("video");
@@ -95,6 +102,36 @@ async function render() {
     ),
   );
 }
+
+it.each([
+  ["ArrowLeft", 5, 0],
+  ["ArrowDown", 25, 15],
+  ["ArrowRight", 55, 60],
+  ["ArrowUp", 25, 35],
+  ["Home", 25, 0],
+  ["End", 25, 60],
+  ["Tab", 25, 25],
+])(
+  "seeks with web key %s without leaving the recording",
+  async (key, start, expected) => {
+    native.platform = "web";
+    store.setState({ playTime: start as number });
+    video.currentTime = start as number;
+    await render();
+    const slider = native.views.find(
+      (view) => view.accessibilityRole === "adjustable",
+    );
+    expect(slider.tabIndex).toBe(0);
+    expect(slider["aria-valuemin"]).toBe(0);
+    expect(slider["aria-valuemax"]).toBe(60);
+    expect(slider["aria-valuenow"]).toBe(start);
+    const event = { key, preventDefault: vi.fn() };
+    await act(async () => slider.onKeyDown(event));
+    expect(store.getState().playTime).toBe(expected);
+    expect(video.currentTime).toBe(expected);
+    expect(event.preventDefault).toHaveBeenCalledTimes(key === "Tab" ? 0 : 1);
+  },
+);
 
 it("exposes an adjustable playback position with a real touch target", async () => {
   await render();

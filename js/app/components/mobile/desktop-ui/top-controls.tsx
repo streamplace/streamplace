@@ -8,16 +8,18 @@ import {
   useAvatar,
   useCameraToggle,
   useLivestreamStore,
+  usePlayerStore,
   useTheme,
   useTitle,
   zero,
 } from "@streamplace/components";
 import {
+  borderRadius,
   scrims,
-  surfaces,
+  spacing,
   textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
-import { formatHandle } from "@streamplace/core";
+import { formatHandleWithAt } from "@streamplace/core";
 import { LogoTile } from "components/brand/logo";
 import { Image } from "expo-image";
 import { ChevronLeft, MessageSquare, SwitchCamera } from "lucide-react-native";
@@ -54,6 +56,8 @@ export function TopControlBar({
   const profile = useAuthor();
   const { doSetIngestCamera } = useCameraToggle();
   const avatar = useAvatar();
+  const fullscreen = usePlayerStore((state) => state.fullscreen);
+  const showIdentity = embedded || (Platform.OS === "web" && fullscreen);
   const { width } = useWindowDimensions();
   const isTinyScreen = width < 450;
   const isSmallScreen = width < 600;
@@ -74,7 +78,14 @@ export function TopControlBar({
           layout.flex.alignCenter,
         ]}
       >
-        <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
+        <View
+          style={[
+            layout.flex.row,
+            layout.flex.alignCenter,
+            gap.all[3],
+            { flex: 1, minWidth: 0 },
+          ]}
+        >
           {Platform.OS !== "web" && !embedded && (
             <Pressable
               onPress={() => {
@@ -92,40 +103,55 @@ export function TopControlBar({
               <ChevronLeft color="white" size={24} />
             </Pressable>
           )}
-          {embedded && (
-            <View style={[gap.all[2]]}>
+          {showIdentity && (
+            <View style={[gap.all[2], { flex: 1, minWidth: 0 }]}>
               <View
                 style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
               >
-                <Image
-                  source={
-                    avatar
-                      ? { uri: avatar }
-                      : require("assets/images/goose.png")
-                  }
-                  style={[
-                    {
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: surfaces.dark[2],
-                    },
-                    borders.width.thin,
-                    borders.color.gray[700],
-                  ]}
-                />
+                {embedded && (
+                  <Image
+                    source={
+                      avatar
+                        ? { uri: avatar }
+                        : require("assets/images/goose.png")
+                    }
+                    style={[
+                      {
+                        width: spacing[8],
+                        height: spacing[8],
+                        borderRadius: borderRadius.full,
+                        backgroundColor: theme.colors.surface2,
+                        borderColor: theme.colors.border,
+                      },
+                      borders.width.thin,
+                    ]}
+                  />
+                )}
 
-                <View style={[layout.flex.column]}>
-                  <Text weight="semibold">{title}</Text>
-                  <Text leading="tight">
-                    {profile && formatHandle(profile)}
+                <View style={[layout.flex.column, { flex: 1, minWidth: 0 }]}>
+                  <Text
+                    numberOfLines={1}
+                    size="sm"
+                    weight="medium"
+                    style={{ color: colors.white }}
+                  >
+                    {title}
                   </Text>
+                  {profile && (
+                    <Text
+                      numberOfLines={1}
+                      size="xs"
+                      style={{ color: textAlphas.dark[2] }}
+                    >
+                      {formatHandleWithAt(profile)}
+                    </Text>
+                  )}
                 </View>
               </View>
             </View>
           )}
 
-          {!embedded && <ContentWarningBadge warnings={contentWarnings} />}
+          {!showIdentity && <ContentWarningBadge warnings={contentWarnings} />}
         </View>
 
         <View
@@ -181,7 +207,7 @@ export function TopControlBar({
           )}
         </View>
       </View>
-      {embedded && (
+      {showIdentity && contentWarnings.length > 0 && (
         <View
           style={[
             layout.flex.row,

@@ -1,4 +1,5 @@
 import {
+  Icon,
   MenuContainer,
   MenuGroup,
   MenuInfo,
@@ -113,7 +114,7 @@ export function Settings() {
                         justifyContent: "center",
                       }}
                     >
-                      <LogIn size={24} color={theme.colors.text3} />
+                      <Icon icon={LogIn} size={24} color={theme.colors.text3} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text size="xl" style={{ fontWeight: "600" }}>

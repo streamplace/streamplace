@@ -112,6 +112,14 @@ export function MobileUi({
 
   const mode = usePlayerStore((state) => state.mode);
   const status = usePlayerStore((state) => state.status);
+  const fullscreen = usePlayerStore((state) => state.fullscreen);
+  const hasEnded = usePlayerStore(
+    (state) =>
+      state.mode === "vod" &&
+      state.status !== PlayerStatus.PLAYING &&
+      state.duration > 0 &&
+      state.playTime >= state.duration,
+  );
   const hasMetadataBelow = mode === "vod" || hideMobileChat;
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
   const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
@@ -164,6 +172,7 @@ export function MobileUi({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scrubbing, setScrubbing] = useState(false);
   const [controlsFocused, setControlsFocused] = useState(false);
+  const keyboardInput = useRef(false);
   const [screenReaderEnabled, setScreenReaderEnabled] = useState(false);
   useEffect(() => {
     // React Native Web's screen-reader query is a constant true stub.
@@ -191,9 +200,10 @@ export function MobileUi({
     if (ingest !== null) return;
     if (
       status === PlayerStatus.PAUSE ||
+      hasEnded ||
       settingsOpen ||
       scrubbing ||
-      controlsFocused ||
+      (controlsFocused && (Platform.OS !== "web" || keyboardInput.current)) ||
       screenReaderEnabled
     )
       return;
@@ -204,6 +214,7 @@ export function MobileUi({
     selectedRendition,
     ingest,
     status,
+    hasEnded,
     settingsOpen,
     scrubbing,
     controlsFocused,
@@ -216,6 +227,21 @@ export function MobileUi({
       clearTimeout(fadeTimeout.current);
     };
   }, [resetFadeTimer]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const onKeyDown = () => {
+      keyboardInput.current = true;
+      if (controlsFocused) resetFadeTimer();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [controlsFocused, resetFadeTimer]);
+
+  const onPointerDown = () => {
+    keyboardInput.current = false;
+    resetFadeTimer();
+  };
 
   const showUI = () => {
     "worklet";
@@ -267,7 +293,11 @@ export function MobileUi({
           />
         </GestureDetector>
         <Animated.View
+          onPointerDown={onPointerDown}
+          onFocus={() => setControlsFocused(true)}
+          onBlur={() => setControlsFocused(false)}
           pointerEvents={controlsInteractive ? "box-none" : "none"}
+          aria-hidden={!controlsInteractive}
           accessibilityElementsHidden={!controlsInteractive}
           importantForAccessibility={
             controlsInteractive ? "auto" : "no-hide-descendants"
@@ -281,12 +311,12 @@ export function MobileUi({
         >
           {/* Main UI Overlay */}
           <View
-            pointerEvents="box-none"
+            pointerEvents={controlsInteractive ? "box-none" : "none"}
             style={[h.percent[100], w.percent[100]]}
           >
             {ingest === null ? (
               <Gradient
-                pointerEvents="box-none"
+                pointerEvents={controlsInteractive ? "box-none" : "none"}
                 fromColor={scrims.dark}
                 toColor={colors.black}
                 opacityColor2={0}
@@ -328,7 +358,7 @@ export function MobileUi({
                         <ChevronLeft color={colors.white} />
                       </IconButton>
                     )}
-                    {isLandscape ? (
+                    {isLandscape && (Platform.OS !== "web" || fullscreen) ? (
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text
                           size="base"
@@ -553,7 +583,7 @@ export function MobileUi({
         </Animated.View>
         <PlayerUI.AutoplayButton />
       </View>
-      {Platform.OS === "web" && mode === "live" && ingest === null && (
+      {Platform.OS === "web" && ingest === null && (
         <Animated.View
           style={[
             layout.position.absolute,
@@ -563,22 +593,35 @@ export function MobileUi({
             animatedFadeStyle,
           ]}
           pointerEvents={controlsInteractive ? "box-none" : "none"}
+          aria-hidden={!controlsInteractive}
+          onPointerDown={onPointerDown}
+          onFocus={() => setControlsFocused(true)}
+          onBlur={() => setControlsFocused(false)}
         >
-          <BottomControlBar
-            ingest={ingest}
-            pipSupported={false}
-            pipActive={false}
-            showContextMenu={false}
-            volumeSliderWidth={80}
-            showChat={showChat ?? false}
-            setShowChat={setShowChat}
-          />
+          <Gradient
+            pointerEvents={controlsInteractive ? "box-none" : "none"}
+            fromColor={colors.black}
+            toColor={scrims.dark}
+            opacityColor1={0}
+            style={{ paddingBottom: theme.spacing[2] }}
+          >
+            <BottomControlBar
+              ingest={ingest}
+              pipSupported={false}
+              pipActive={false}
+              showContextMenu={false}
+              onScrubbingChange={setScrubbing}
+              volumeSliderWidth={80}
+              showChat={showChat ?? false}
+              setShowChat={setShowChat}
+            />
+          </Gradient>
         </Animated.View>
       )}
       {/* VOD scrub/play controls live OUTSIDE the gesture detector so the seek
           bar's own pan gesture isn't swallowed by the overlay's tap/pan Race.
           They still fade with the rest of the UI via the shared opacity. */}
-      {mode === "vod" && (
+      {mode === "vod" && Platform.OS !== "web" && (
         <Animated.View
           style={[
             {
@@ -614,7 +657,7 @@ export function MobileUi({
             />
             <PlayerUI.VodControls>
               <View style={{ flex: 1 }} />
-              {Platform.OS !== "web" && <RotateButton />}
+              <RotateButton />
             </PlayerUI.VodControls>
           </Gradient>
         </Animated.View>

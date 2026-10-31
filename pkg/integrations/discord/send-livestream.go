@@ -63,14 +63,19 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string,
 		},
 	}
 
+	streamURL := ls.Url
+	if ls.CanonicalUrl != nil && *ls.CanonicalUrl != "" {
+		streamURL = ls.CanonicalUrl
+	}
+
 	suffix := "!"
-	if ls.Url != nil {
-		u, err := url.Parse(*ls.Url)
+	if streamURL != nil {
+		u, err := url.Parse(*streamURL)
 		if err != nil {
 			log.Warn(ctx, "failed to parse URL", "err", err)
 		} else {
 			suffix = fmt.Sprintf(" on %s!", u.Host)
-			payload.Embeds[0].URL = *ls.Url
+			payload.Embeds[0].URL = *streamURL
 		}
 	}
 

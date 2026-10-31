@@ -617,7 +617,7 @@ export function MobileUi({
                 pipActive={false}
                 showContextMenu={false}
                 onScrubbingChange={setScrubbing}
-                volumeSliderWidth={mode === "live" ? 0 : 80}
+                volumeSliderWidth={80}
                 liveStats={mode === "live" ? <LiveStats /> : undefined}
                 showChat={showChat ?? false}
                 setShowChat={setShowChat}

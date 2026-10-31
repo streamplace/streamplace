@@ -22,11 +22,7 @@ import {
   VodSection,
 } from "@streamplace/components";
 import { gap, h, pt, w } from "@streamplace/components/src/lib/theme/atoms";
-import {
-  motion,
-  borderRadius as radiusTokens,
-  spacing as spacingTokens,
-} from "@streamplace/components/src/lib/theme/tokens";
+import { motion } from "@streamplace/components/src/lib/theme/tokens";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import { ArrowLeft } from "lucide-react-native";
@@ -101,6 +97,11 @@ function PlayerWithProvider(
   let { top: safeTop, left: safeLeft, right: safeRight } = useSafeAreaInsets();
   const { currentOrientation } = useRotation();
   const segDims = useSegmentDimensions();
+  const [showUnavailable, setShowUnavailable] = useState(false);
+  const videoAspectRatio =
+    !showUnavailable && segDims.width > 0 && segDims.height > 0
+      ? segDims.width / segDims.height
+      : 16 / 9;
   const isPortrait = screenHeight > screenWidth;
   // LANDSCAPE_RIGHT (4) means the home indicator is on the right, which puts
   // the notch on the left. LANDSCAPE_LEFT (3) puts it on the right.
@@ -111,12 +112,12 @@ function PlayerWithProvider(
   // if the screen is portrait and video is landscaps
   const isPortraitLandscapeCase =
     isPortrait &&
-    segDims.width > segDims.height &&
+    videoAspectRatio > 1 &&
     !shouldShowChatSidePanel &&
     !props.ingest &&
     props.mode !== "vod";
   const videoBoxHeight = isPortraitLandscapeCase
-    ? Math.round((screenWidth * segDims.height) / segDims.width)
+    ? Math.round(screenWidth / videoAspectRatio)
     : undefined;
 
   const chromeBandStyle = {
@@ -129,7 +130,6 @@ function PlayerWithProvider(
 
   const websocketConnected = useLivestreamStore((x) => x.websocketConnected);
   const hasReceivedSegment = useLivestreamStore((x) => x.hasReceivedSegment);
-  const [showUnavailable, setShowUnavailable] = useState(false);
   const segs = useSegment();
 
   // periodically check if segment has become stale
@@ -201,9 +201,7 @@ function PlayerWithProvider(
     // video on top, title/streamer row beneath, chat below that.
     chatSection = (
       <>
-        {!props.ingest && !showUnavailable && (
-          <BottomMetadata compact setShowChat={setShowChat} showChat />
-        )}
+        <BottomMetadata compact setShowChat={setShowChat} showChat />
         <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
       </>
     );
@@ -319,7 +317,7 @@ function PlayerWithProvider(
                   hideInlineMobileUi={isPortraitLandscapeCase}
                 />
               </View>
-              {isPortraitLandscapeCase && (
+              {isPortraitLandscapeCase && !showUnavailable && (
                 <MobileUi hideMobileChat={true} showChat />
               )}
             </Reanimated.View>
@@ -398,11 +396,10 @@ export function PlayerInner(
   // Calculate aspect ratio and determine if we're in desktop mode
   const aspectRatio = width > 0 && height > 0 ? width / height : 16 / 9;
 
-  // The VOD box is sized to the real video aspect ratio (so portrait and other
-  // shapes aren't forced into 16:9), falling back to 16:9 until the track
-  // metadata loads.
+  // Size the desktop frame and inline VOD to the media, rather than the window,
+  // so the frame doesn't add letterboxing between the video and its metadata.
   const segDims = useSegmentDimensions();
-  const vodAspectRatio =
+  const videoAspectRatio =
     segDims.width > 0 && segDims.height > 0
       ? segDims.width / segDims.height
       : 16 / 9;
@@ -419,18 +416,10 @@ export function PlayerInner(
       setSidebarUnhidden();
     };
   }, [width, height]);
-  // should cover full width on mobile?
-  const isDesktopMode = shouldShowChatSidePanel || screenWidth > 1200;
-  // Calculate optimal height for desktop mode (90% of available height)
-  const maxDesktopHeight = availableHeight * 0.8;
   const chatVisible = shouldShowChatSidePanel && props.showChat;
 
   const showFullDesktopMode = aspectRatio > 1 && screenWidth > 1200;
   const isLandscape = aspectRatio > 1;
-
-  // Desktop theater framing: the player floats in a padded well with
-  // rounded corners (YouTube grammar) instead of running edge-to-edge.
-  const playerPad = showFullDesktopMode && !fullscreen ? spacingTokens[6] : 0;
 
   // Web VOD pages have a sticky translucent header (56px) rendered by the shell;
   // reserve space so the video starts below it and scrolls under it.
@@ -439,13 +428,14 @@ export function PlayerInner(
       ? 56
       : 0;
 
-  const calculatedWidth =
-    (chatVisible ? contentWidth - chatPanelWidth : contentWidth) -
-    playerPad * 2;
-
-  const calculatedHeight = isDesktopMode
-    ? Math.min(calculatedWidth / aspectRatio, maxDesktopHeight)
-    : height;
+  const calculatedWidth = chatVisible
+    ? contentWidth - chatPanelWidth
+    : contentWidth;
+  const desktopVideoWidth = Math.min(
+    calculatedWidth,
+    availableHeight * 0.8 * videoAspectRatio,
+  );
+  const calculatedHeight = desktopVideoWidth / videoAspectRatio;
 
   // When fullscreen or the device is rotated to landscape, a width-100% +
   // aspectRatio VOD box is taller than the screen and clips off the bottom.
@@ -465,7 +455,7 @@ export function PlayerInner(
   });
 
   const videoContent = props.showUnavailable ? (
-    <UserOffline />
+    <UserOffline compact={props.hideInlineMobileUi} />
   ) : (
     <PlayerInnerInner {...props}>
       {showFullDesktopMode || fullscreen ? (
@@ -505,13 +495,14 @@ export function PlayerInner(
         <Reanimated.View
           style={{
             width: "100%",
-            aspectRatio: vodAspectRatio,
+            aspectRatio: videoAspectRatio,
             // Cap so a landscape video fits (letterboxed via objectFit:contain)
             // instead of clipping; flexShrink:0 keeps it from collapsing.
             maxHeight: isLandscape ? winHeight : winHeight * 0.7,
             // center the video horizontally when in landscape since it won't fill the full width
             marginHorizontal: isLandscape
-              ? (winWidth - Math.min(winWidth, winHeight * vodAspectRatio)) / 2
+              ? (winWidth - Math.min(winWidth, winHeight * videoAspectRatio)) /
+                2
               : 0,
             flexShrink: 0,
           }}
@@ -528,7 +519,7 @@ export function PlayerInner(
   // collapse below full height after rotating from portrait to landscape.
   if (props.mode !== "vod" && !showFullDesktopMode) {
     return (
-      <View style={{ flex: 1, maxWidth: calculatedWidth + playerPad * 2 }}>
+      <View style={{ flex: 1, maxWidth: calculatedWidth }}>
         <Reanimated.View
           style={[
             { flex: 1 },
@@ -551,7 +542,7 @@ export function PlayerInner(
       style={{
         height: showFullDesktopMode ? "100%" : undefined,
         flex: 1,
-        maxWidth: calculatedWidth + playerPad * 2,
+        maxWidth: calculatedWidth,
       }}
       contentContainerStyle={
         showFullDesktopMode
@@ -561,8 +552,7 @@ export function PlayerInner(
               ...(fullscreen
                 ? {}
                 : {
-                    paddingHorizontal: playerPad,
-                    paddingTop: spacingTokens[4] + vodHeaderPad,
+                    paddingTop: vodHeaderPad,
                   }),
             }
           : props.mode === "vod"
@@ -582,13 +572,8 @@ export function PlayerInner(
         style={[
           showFullDesktopMode
             ? {
-                width: calculatedWidth,
-                ...(fullscreen
-                  ? {}
-                  : {
-                      borderRadius: radiusTokens.lg,
-                      overflow: "hidden" as const,
-                    }),
+                width: desktopVideoWidth,
+                alignSelf: "center",
               }
             : props.mode === "vod"
               ? vodFillScreen
@@ -602,7 +587,7 @@ export function PlayerInner(
                     // contentWidth collapsed to full-window on Android when
                     // contentWidth measured 0.)
                     width: "100%" as any,
-                    aspectRatio: vodAspectRatio,
+                    aspectRatio: videoAspectRatio,
                   }
               : {
                   flex: 1,

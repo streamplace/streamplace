@@ -1,31 +1,30 @@
 import {
   Avatar,
   ContentRights,
-  ContentWarnings,
   formatActivity,
   IconButton,
   layout,
-  LiveBadge,
-  PlayerUI,
   ShareSheet,
   Text,
   useAuthor,
   useAvatar,
   useDID,
   useLivestreamStore,
-  usePlayerStore,
   useTheme,
   useTitle,
+  useTranslation,
   useViews,
   zero,
 } from "@streamplace/components";
 import {
   motion,
-  statusColors,
+  spacing,
+  tabularNums,
 } from "@streamplace/components/src/lib/theme/tokens";
 import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import AQLink from "components/aqlink";
 import FollowButton from "components/follow-button";
+import { useLiveStatus } from "hooks/useLiveStatus";
 import {
   ChevronDown,
   ChevronLeft,
@@ -33,7 +32,7 @@ import {
   ChevronUp,
 } from "lucide-react-native";
 import { useRef, useState } from "react";
-import { Linking, Pressable, ScrollView, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -94,9 +93,8 @@ function AtMoCoNav({ currentHandle }: { currentHandle: string }) {
 }
 
 /**
- * The metadata block below the player — YouTube grammar: title on top,
- * streamer identity row (avatar with live ring, handle, follow) beneath,
- * viewer count and actions on the right.
+ * Stream identity and wrapping tags below the player. Rights stay in Details
+ * so they remain accessible without competing with the title and creator.
  */
 export function BottomMetadata({
   setShowChat,
@@ -108,116 +106,137 @@ export function BottomMetadata({
   /** Tighter paddings and no chat toggle — mobile below-player placement */
   compact?: boolean;
 }) {
+  return compact ? (
+    <CompactStreamInfo />
+  ) : (
+    <FullStreamInfo setShowChat={setShowChat} showChat={showChat} />
+  );
+}
+
+function FullStreamInfo({
+  setShowChat,
+  showChat,
+}: {
+  setShowChat: (show: boolean) => void;
+  showChat: boolean;
+}) {
   const {
     profile,
     did,
     title,
     avatarUri,
+    isLiveMode,
     isLive,
     views,
-    activityLabel,
     tags,
-    hasMeta,
-    contentWarnings,
     contentRights,
-    displayName,
     handleStr,
     streamerName,
     streamerSubtitle,
   } = useStreamMeta();
   const { theme } = useTheme();
+  const { t } = useTranslation("common");
+  const [showDetails, setShowDetails] = useState(false);
 
-  if (compact) {
-    return <CompactStreamInfo />;
-  }
+  const hasRights =
+    contentRights?.license ||
+    contentRights?.copyrightNotice ||
+    contentRights?.copyrightYear ||
+    contentRights?.creditLine;
 
   return (
-    <View
-      style={[
-        layout.position.relative,
-        // Desktop: flush with the player's rounded edges, no divider box —
-        // the metadata reads as part of the video composition (YouTube).
-        px[0],
-        py[3],
-      ]}
-    >
-      {/* LIVE status + watching count (YouTube-style live indicator) */}
-      {isLive ? (
-        <View style={[py[1]]}>
-          <LiveBadge count={views ?? undefined} />
-        </View>
-      ) : null}
-
-      {/* Title */}
-      {title ? (
-        <Text
-          numberOfLines={2}
-          ellipsizeMode="tail"
-          size="lg"
-          weight="semibold"
-          style={[py[1]]}
-        >
-          {title}
-        </Text>
-      ) : null}
-
+    <View style={[layout.position.relative, px[4], py[3], gap.all[2]]}>
       <View
         style={[
           layout.flex.row,
           layout.flex.spaceBetween,
-          layout.flex.alignCenter,
+          layout.flex.align.start,
           gap.all[3],
+          { flexWrap: "wrap" },
         ]}
       >
-        {/* Left: streamer identity row */}
+        <View style={[gap.all[2], { flex: 1, minWidth: "50%" }]}>
+          {title ? (
+            <Text
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              size="lg"
+              weight="semibold"
+              style={[py[1]]}
+            >
+              {title}
+            </Text>
+          ) : null}
+          <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
+            <View
+              style={[
+                layout.flex.center,
+                { width: spacing[12], height: spacing[12] },
+              ]}
+            >
+              <Avatar
+                src={avatarUri}
+                name={profile ? formatHandle(profile) : undefined}
+                size="lg"
+                live={isLive}
+              />
+            </View>
+
+            <View style={{ flexShrink: 1, minWidth: 0 }}>
+              <View
+                style={[
+                  layout.flex.row,
+                  layout.flex.alignCenter,
+                  gap.all[3],
+                  { flexWrap: "wrap" },
+                ]}
+              >
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open profile for ${handleStr}`}
+                  onPress={() => {
+                    if (profile?.did) {
+                      Linking.openURL(
+                        `https://bsky.app/profile/${formatHandle(profile)}`,
+                      );
+                    }
+                  }}
+                  style={{ flexShrink: 1, minWidth: 0 }}
+                >
+                  <Text numberOfLines={1} weight="medium">
+                    {streamerName}
+                  </Text>
+                </Pressable>
+                {isLive && views !== null && (
+                  <Text size="xs" color="muted" style={tabularNums}>
+                    {t("watching-count", { count: views })}
+                  </Text>
+                )}
+              </View>
+              {streamerSubtitle ? (
+                <Text numberOfLines={1} size="sm" color="muted">
+                  {streamerSubtitle}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        </View>
+
+        {/* Stream actions remain available when a channel goes offline. */}
         <View
           style={[
             layout.flex.row,
             layout.flex.alignCenter,
-            gap.all[3],
-            { flex: 1, minWidth: 0 },
+            gap.all[2],
+            { flexWrap: "wrap" },
           ]}
         >
-          <Avatar
-            src={avatarUri}
-            name={profile ? formatHandle(profile) : undefined}
-            size="xl"
-            live={isLive}
-          />
-
-          <View style={{ flexShrink: 1, minWidth: 0 }}>
-            <Pressable
-              onPress={() => {
-                if (profile?.did) {
-                  Linking.openURL(
-                    `https://bsky.app/profile/${formatHandle(profile)}`,
-                  );
-                }
-              }}
-              style={{ flexShrink: 1, minWidth: 0 }}
-            >
-              <Text numberOfLines={1} weight="medium">
-                {streamerName}
-              </Text>
-            </Pressable>
-            {streamerSubtitle ? (
-              <Text numberOfLines={1} size="sm" color="muted">
-                {streamerSubtitle}
-              </Text>
-            ) : null}
-          </View>
-
-          {did && profile && (
+          {profile && (
             <FollowButton streamerDID={profile.did} currentUserDID={did} />
           )}
-        </View>
-
-        {/* Right: viewers + actions */}
-        <View style={[layout.flex.row, layout.flex.align.center, gap.all[2]]}>
-          {!isLive ? <PlayerUI.Viewers /> : null}
           <ShareSheet />
           <KebabMenu />
-          {isLive && (
+          {isLiveMode && (
             <IconButton
               variant="secondary"
               size="sm"
@@ -225,9 +244,9 @@ export function BottomMetadata({
               onPress={() => setShowChat(!showChat)}
             >
               {showChat ? (
-                <ChevronRight color={theme.colors.text2} size={16} />
+                <ChevronRight color={theme.colors.text2} size={spacing[4]} />
               ) : (
-                <ChevronLeft color={theme.colors.text2} size={16} />
+                <ChevronLeft color={theme.colors.text2} size={spacing[4]} />
               )}
             </IconButton>
           )}
@@ -235,11 +254,14 @@ export function BottomMetadata({
       </View>
 
       {/* Tags */}
-      {hasMeta && tags && tags.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[gap.all[2], layout.flex.alignCenter, py[1]]}
+      {tags && tags.length > 0 && (
+        <View
+          style={[
+            layout.flex.row,
+            layout.flex.alignCenter,
+            gap.all[1],
+            { flexWrap: "wrap" },
+          ]}
         >
           {tags.map((tag) => (
             <View
@@ -248,9 +270,7 @@ export function BottomMetadata({
                 r.full,
                 px[2],
                 {
-                  borderWidth: 1,
-                  borderColor: theme.colors.borderSubtle,
-                  backgroundColor: theme.colors.surface2,
+                  backgroundColor: theme.colors.surface3,
                 },
               ]}
             >
@@ -259,15 +279,36 @@ export function BottomMetadata({
               </Text>
             </View>
           ))}
-        </ScrollView>
+        </View>
       )}
 
-      {/* Content metadata */}
-      {(contentWarnings.length > 0 ||
-        (contentRights && Object.keys(contentRights).length > 0)) && (
-        <View style={[py[2]]}>
-          <ContentWarnings warnings={contentWarnings} compact={true} />
-          {contentRights && (
+      {hasRights && (
+        <View style={[gap.all[1]]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showDetails }}
+            onPress={() => setShowDetails(!showDetails)}
+            style={[
+              layout.flex.row,
+              layout.flex.alignCenter,
+              gap.all[1],
+              py[1],
+              {
+                alignSelf: "flex-start",
+                minHeight: theme.touchTargets.minimum,
+              },
+            ]}
+          >
+            <Text size="xs" color="muted">
+              {t(showDetails ? "less-details" : "more-details")}
+            </Text>
+            {showDetails ? (
+              <ChevronUp color={theme.colors.text2} size={spacing[3]} />
+            ) : (
+              <ChevronDown color={theme.colors.text2} size={spacing[3]} />
+            )}
+          </Pressable>
+          {showDetails && contentRights && (
             <ContentRights contentRights={contentRights} compact={true} />
           )}
         </View>
@@ -285,16 +326,16 @@ export function BottomMetadata({
 /** Shared derived stream metadata for both metadata layouts. */
 function useStreamMeta() {
   const profile = useAuthor();
-  const ls = useLivestreamStore((x) => x.livestream);
-  const segment = useLivestreamStore((x) => x.segment);
-  const mode = usePlayerStore((x) => x.mode);
+  const { livestream: ls, segment, mode, isLive } = useLiveStatus();
   const did = useDID();
   const title = useTitle();
   const avatarUri = useAvatar();
   const views = useViews();
+  const presence = useLivestreamStore((x) =>
+    x.websocketConnected ? x.presence : null,
+  );
+  const isLiveMode = mode === "live";
 
-  const contentWarnings =
-    (segment?.contentWarnings?.warnings as string[]) || [];
   const contentRights = segment?.contentRights;
 
   const activity = ls?.record.activity as
@@ -311,10 +352,7 @@ function useStreamMeta() {
     }
     return tag;
   });
-  const hasMeta = activityLabel || (tags && tags.length > 0);
-  const isLive = mode === "live";
 
-  // YouTube leads with the channel's display name; the handle is secondary.
   const displayName = profile?.displayName?.trim();
   const handleStr = profile ? formatHandleWithAt(profile) : "@user";
   const streamerName = displayName || handleStr;
@@ -328,13 +366,12 @@ function useStreamMeta() {
     title,
     avatarUri,
     isLive,
+    isLiveMode,
     views,
+    presence,
     activityLabel,
     tags,
-    hasMeta,
-    contentWarnings,
     contentRights,
-    displayName,
     handleStr,
     streamerName,
     streamerSubtitle,
@@ -342,28 +379,36 @@ function useStreamMeta() {
 }
 
 /**
- * Compact stream summary for mobile: status row, one-line title, handle row,
- * sitting transparently on the page background. Tapping the title or the
- * chevron expands tags, actions, and content notices; only that explicit
- * expansion changes the page geometry.
+ * The phone summary expands from a title and handle into creator identity,
+ * the full title, wrapping tags and optional stream rights.
  */
 function CompactStreamInfo() {
-  const { theme, zero: z } = useTheme();
+  const { theme } = useTheme();
+  const { t } = useTranslation("common");
   const {
     profile,
     did,
     title,
     avatarUri,
     isLive,
-    views,
+    presence,
     activityLabel,
     tags,
-    contentWarnings,
     contentRights,
     handleStr,
+    streamerName,
   } = useStreamMeta();
 
+  let metadataTags = tags;
+  if (activityLabel) {
+    metadataTags = [activityLabel];
+    for (const tag of tags ?? []) {
+      if (tag !== activityLabel) metadataTags.push(tag);
+    }
+  }
+
   const [expanded, setExpanded] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const expandHeight = useSharedValue(0);
   const contentHeight = useRef(0);
 
@@ -376,97 +421,155 @@ function CompactStreamInfo() {
 
   const expandedStyle = useAnimatedStyle(() => ({
     height: expandHeight.value,
-    opacity: Math.min(1, expandHeight.value / 48),
+    opacity: Math.min(1, expandHeight.value / theme.spacing[12]),
   }));
 
   const chevronColor = theme.colors.text2;
   const expandLabel = "Expand stream info";
   const collapseLabel = "Collapse stream info";
+  const countLabel =
+    !isLive && presence !== null
+      ? t("here-count", { count: presence })
+      : undefined;
+  const hasRights =
+    contentRights?.license ||
+    contentRights?.copyrightNotice ||
+    contentRights?.copyrightYear ||
+    contentRights?.creditLine;
 
   return (
-    <View style={[px[4], py[2], borders.bottom.width.thin, z.border.border]}>
+    <View
+      style={[
+        px[4],
+        py[2],
+        borders.bottom.width.thin,
+        { borderColor: theme.colors.border },
+      ]}
+    >
       {/* single-line summary — tap to expand */}
       <View
         style={[layout.flex.row, layout.flex.alignCenter, gap.all[2], py[1]]}
       >
-        <Avatar
-          src={avatarUri}
-          name={profile ? formatHandle(profile) : undefined}
-          size="md"
-          live={isLive}
-        />
+        <View
+          style={[
+            layout.flex.center,
+            {
+              width: theme.touchTargets.minimum,
+              height: theme.touchTargets.minimum,
+            },
+          ]}
+        >
+          <Avatar
+            src={avatarUri}
+            name={profile ? formatHandle(profile) : undefined}
+            size="md"
+            live={isLive}
+          />
+        </View>
         {!expanded && (
           <Pressable
             onPress={() => setExpandedAnimated(!expanded)}
             accessibilityRole="button"
-            accessibilityLabel="Stream info"
-            style={{ flex: 1 }}
+            accessibilityLabel={
+              countLabel ? `Stream info, ${countLabel}` : "Stream info"
+            }
+            style={{ flex: 1, minWidth: 0 }}
           >
             <Text
               numberOfLines={1}
               ellipsizeMode="tail"
-              size="base"
+              size="sm"
               weight="semibold"
             >
               {title || handleStr}
             </Text>
-            <Text numberOfLines={1} ellipsizeMode="tail" size="base">
-              {handleStr}
-            </Text>
+            <View style={[layout.flex.row, layout.flex.alignCenter]}>
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="xs"
+                color="muted"
+                style={{ flexShrink: 1 }}
+              >
+                {handleStr}
+              </Text>
+              {countLabel !== undefined && (
+                <Text
+                  size="xs"
+                  color="muted"
+                  style={[tabularNums, { flexShrink: 0 }]}
+                >
+                  {" · "}
+                  {countLabel}
+                </Text>
+              )}
+            </View>
           </Pressable>
         )}
         {expanded && (
-          <Pressable
-            accessibilityRole="link"
-            accessibilityLabel={`Open profile for ${handleStr}`}
-            onPress={() => {
-              if (profile?.did) {
-                Linking.openURL(
-                  `https://bsky.app/profile/${formatHandle(profile)}`,
-                );
-              }
-            }}
-            style={{ flex: 1, minWidth: 0 }}
-          >
-            <Text numberOfLines={1} weight="semibold">
-              {handleStr}
-            </Text>
-          </Pressable>
-        )}
-        {isLive ? (
-          <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[1]]}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <View
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: statusColors.live,
-              }}
-            />
-            {(views ?? 0) > 0 && (
-              <Text size="sm" color="muted">
-                {views}
+              style={[
+                layout.flex.row,
+                layout.flex.alignCenter,
+                gap.all[2],
+                { flexWrap: "wrap" },
+              ]}
+            >
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel={`Open profile for ${handleStr}`}
+                onPress={() =>
+                  profile?.did &&
+                  Linking.openURL(
+                    `https://bsky.app/profile/${formatHandle(profile)}`,
+                  )
+                }
+                style={{ flexShrink: 1, minWidth: 0 }}
+              >
+                <Text numberOfLines={1} size="sm" weight="semibold">
+                  {streamerName}
+                </Text>
+              </Pressable>
+              {countLabel !== undefined && (
+                <Text size="xs" color="muted" style={tabularNums}>
+                  {countLabel}
+                </Text>
+              )}
+            </View>
+            {streamerName !== handleStr && (
+              <Text numberOfLines={1} size="xs" color="muted">
+                {handleStr}
               </Text>
             )}
           </View>
-        ) : null}
-        <Pressable
+        )}
+        {profile && (
+          <FollowButton
+            streamerDID={profile.did}
+            currentUserDID={did}
+            iconOnly
+          />
+        )}
+        <IconButton
           onPress={() => setExpandedAnimated(!expanded)}
-          accessibilityRole="button"
           accessibilityLabel={expanded ? collapseLabel : expandLabel}
+          accessibilityState={{ expanded }}
         >
           {expanded ? (
-            <ChevronUp size={18} color={chevronColor} />
+            <ChevronUp size={spacing[4]} color={chevronColor} />
           ) : (
-            <ChevronDown size={18} color={chevronColor} />
+            <ChevronDown size={spacing[4]} color={chevronColor} />
           )}
-        </Pressable>
+        </IconButton>
       </View>
 
       {/* expanded details */}
       <Animated.View
         style={[expandedStyle, { overflow: "hidden" }]}
         pointerEvents={expanded ? "auto" : "none"}
+        accessibilityElementsHidden={!expanded}
+        importantForAccessibility={expanded ? "auto" : "no-hide-descendants"}
       >
         <View
           style={[gap.all[2], pb[2]]}
@@ -479,39 +582,28 @@ function CompactStreamInfo() {
           }}
         >
           {title ? (
-            <Text size="lg" weight="semibold">
+            <Text size="base" weight="semibold">
               {title}
             </Text>
           ) : null}
-          {did && profile && (
-            <FollowButton streamerDID={profile.did} currentUserDID={did} />
-          )}
-          {tags && tags.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={[gap.all[2], layout.flex.alignCenter]}
+          {metadataTags && metadataTags.length > 0 && (
+            <View
+              style={[
+                layout.flex.row,
+                layout.flex.alignCenter,
+                gap.all[1],
+                { flexWrap: "wrap" },
+              ]}
             >
-              {activityLabel ? (
-                <Text
-                  numberOfLines={1}
-                  size="sm"
-                  color="muted"
-                  style={{ flexShrink: 1 }}
-                >
-                  {activityLabel}
-                </Text>
-              ) : null}
-              {tags.map((tag) => (
+              {metadataTags.map((tag) => (
                 <View
                   key={tag}
                   style={[
                     r.full,
                     px[2],
                     {
-                      borderWidth: 1,
-                      borderColor: theme.colors.borderSubtle,
-                      backgroundColor: theme.colors.surface2,
+                      backgroundColor: theme.colors.surface3,
+                      maxWidth: "100%",
                     },
                   ]}
                 >
@@ -520,13 +612,34 @@ function CompactStreamInfo() {
                   </Text>
                 </View>
               ))}
-            </ScrollView>
+            </View>
           )}
-          {(contentWarnings.length > 0 ||
-            (contentRights && Object.keys(contentRights).length > 0)) && (
+          {hasRights && (
             <View>
-              <ContentWarnings warnings={contentWarnings} compact={true} />
-              {contentRights && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showDetails }}
+                onPress={() => setShowDetails(!showDetails)}
+                style={[
+                  layout.flex.row,
+                  layout.flex.alignCenter,
+                  gap.all[1],
+                  {
+                    minHeight: theme.touchTargets.minimum,
+                    alignSelf: "flex-start",
+                  },
+                ]}
+              >
+                <Text size="xs" color="muted">
+                  {t("stream-details")}
+                </Text>
+                {showDetails ? (
+                  <ChevronUp size={spacing[3]} color={chevronColor} />
+                ) : (
+                  <ChevronDown size={spacing[3]} color={chevronColor} />
+                )}
+              </Pressable>
+              {showDetails && contentRights && (
                 <ContentRights contentRights={contentRights} compact={true} />
               )}
             </View>

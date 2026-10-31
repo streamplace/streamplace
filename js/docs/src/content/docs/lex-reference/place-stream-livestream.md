@@ -78,10 +78,11 @@ Record announcing a livestream is happening
 
 **Properties:**
 
-| Name    | Type      | Req'd | Description                                                                                                                               | Constraints |
-| ------- | --------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `count` | `integer` | ✅    | Viewers watching right now.                                                                                                               |             |
-| `total` | `integer` | ❌    | Running number of playback sessions this livestream has had (cumulative, session-based; the X-style 'views' beside the concurrent count). |             |
+| Name       | Type      | Req'd | Description                                                                                                                                           | Constraints |
+| ---------- | --------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `count`    | `integer` | ✅    | Viewers watching right now.                                                                                                                           |             |
+| `presence` | `integer` | ❌    | Current channel WebSocket connections on this node, including while offline. Counts connections, not unique people, separately from playback viewers. | Min: 0      |
+| `total`    | `integer` | ❌    | Running number of playback sessions this livestream has had (cumulative, session-based; the X-style 'views' beside the concurrent count).             |             |
 
 ---
 
@@ -268,6 +269,11 @@ Record announcing a livestream is happening
         "count": {
           "type": "integer",
           "description": "Viewers watching right now."
+        },
+        "presence": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Current channel WebSocket connections on this node, including while offline. Counts connections, not unique people, separately from playback viewers."
         },
         "total": {
           "type": "integer",

@@ -7653,6 +7653,11 @@
             "type": "integer",
             "description": "Viewers watching right now."
           },
+          "presence": {
+            "type": "integer",
+            "description": "Current channel WebSocket connections on this node, including while offline. Counts connections, not unique people, separately from playback viewers.",
+            "minimum": 0
+          },
           "total": {
             "type": "integer",
             "description": "Running number of playback sessions this livestream has had (cumulative, session-based; the X-style 'views' beside the concurrent count)."

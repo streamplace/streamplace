@@ -1,11 +1,5 @@
-import {
-  Badge,
-  LiveBadge,
-  useLivestream,
-  usePlayerStore,
-  useSegment,
-} from "@streamplace/components";
-import { useMemo } from "react";
+import { Badge, LiveBadge } from "@streamplace/components";
+import { useLiveStatus } from "hooks/useLiveStatus";
 
 export function LiveBubble({
   /**
@@ -18,25 +12,10 @@ export function LiveBubble({
 }: {
   broadcasting?: boolean;
 }) {
-  // are we actually live? (is the most recent segment <= 10 seconds old?)
-  const seg = useSegment();
-
-  const livestream = useLivestream();
-
-  const segDate = useMemo(() => {
-    return seg?.startTime ? new Date(seg.startTime) : undefined;
-  }, [seg?.startTime]);
-
-  const isLive = useMemo(() => {
-    return segDate && Date.now() - segDate.getTime() <= 10 * 1000;
-  }, [segDate]);
-
-  const mode = usePlayerStore((x) => x.mode);
+  const { isLive, mode } = useLiveStatus();
   if (mode === "vod") return null;
 
-  // On air: segments are flowing AND the livestream record exists — the
-  // design-system LIVE badge (live-red fill, pulsing dot).
-  if (isLive && livestream) {
+  if (isLive) {
     return <LiveBadge />;
   }
 
@@ -47,5 +26,5 @@ export function LiveBubble({
   }
 
   // Viewer side: the stream simply isn't live.
-  return <Badge variant="neutral">{isLive ? "NOT LIVE" : "OFFLINE"}</Badge>;
+  return <Badge variant="neutral">OFFLINE</Badge>;
 }

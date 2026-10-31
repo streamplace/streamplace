@@ -68,6 +68,7 @@ import Animated, {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MobileChatPanel } from "./chat";
 import { BottomControlBar } from "./desktop-ui/index";
+import { LiveStats } from "./live-stats";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
 const { borders, gap, h, layout, p, position, w, r, ml, pb, px, py, pl } = zero;
@@ -535,7 +536,7 @@ export function MobileUi({
                 />
               </View>
             )}
-            {Platform.OS !== "web" && mode !== "vod" && (
+            {Platform.OS !== "web" && mode !== "vod" && ingest !== null && (
               <View
                 style={[
                   layout.position.absolute,
@@ -583,7 +584,7 @@ export function MobileUi({
         </Animated.View>
         <PlayerUI.AutoplayButton />
       </View>
-      {Platform.OS === "web" && ingest === null && (
+      {ingest === null && (Platform.OS === "web" || mode === "live") && (
         <Animated.View
           style={[
             layout.position.absolute,
@@ -594,6 +595,10 @@ export function MobileUi({
           ]}
           pointerEvents={controlsInteractive ? "box-none" : "none"}
           aria-hidden={!controlsInteractive}
+          accessibilityElementsHidden={!controlsInteractive}
+          importantForAccessibility={
+            controlsInteractive ? "auto" : "no-hide-descendants"
+          }
           onPointerDown={onPointerDown}
           onFocus={() => setControlsFocused(true)}
           onBlur={() => setControlsFocused(false)}
@@ -605,16 +610,35 @@ export function MobileUi({
             opacityColor1={0}
             style={{ paddingBottom: theme.spacing[2] }}
           >
-            <BottomControlBar
-              ingest={ingest}
-              pipSupported={false}
-              pipActive={false}
-              showContextMenu={false}
-              onScrubbingChange={setScrubbing}
-              volumeSliderWidth={80}
-              showChat={showChat ?? false}
-              setShowChat={setShowChat}
-            />
+            {Platform.OS === "web" ? (
+              <BottomControlBar
+                ingest={ingest}
+                pipSupported={false}
+                pipActive={false}
+                showContextMenu={false}
+                onScrubbingChange={setScrubbing}
+                volumeSliderWidth={80}
+                liveStats={mode === "live" ? <LiveStats /> : undefined}
+                showChat={showChat ?? false}
+                setShowChat={setShowChat}
+              />
+            ) : (
+              <SafeAreaView
+                edges={hideMobileChat ? [] : ["bottom"]}
+                pointerEvents="box-none"
+                style={[
+                  layout.flex.row,
+                  layout.flex.alignCenter,
+                  layout.flex.spaceBetween,
+                  px[2],
+                ]}
+              >
+                <View pointerEvents="box-none" style={{ flex: 1 }}>
+                  <LiveStats />
+                </View>
+                <RotateButton />
+              </SafeAreaView>
+            )}
           </Gradient>
         </Animated.View>
       )}

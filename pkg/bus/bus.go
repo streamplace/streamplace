@@ -21,7 +21,7 @@ type subscriber struct {
 	queue      []Message
 	limit      int
 	onOverflow func()
-	viewer     bool
+	present    bool
 	closed     bool
 	done       chan struct{}
 }
@@ -38,11 +38,11 @@ func newSubscriber(limit int, onOverflow func()) *subscriber {
 	return s
 }
 
-func (s *subscriber) enqueue(msg Message) {
+func (s *subscriber) enqueue(msg Message) bool {
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
-		return
+		return false
 	}
 	if s.limit > 0 && len(s.queue) >= s.limit {
 		s.closed = true
@@ -54,11 +54,12 @@ func (s *subscriber) enqueue(msg Message) {
 		if onOverflow != nil {
 			onOverflow()
 		}
-		return
+		return false
 	}
 	s.queue = append(s.queue, msg)
 	s.cond.Signal()
 	s.mu.Unlock()
+	return true
 }
 
 func (s *subscriber) close() {
@@ -106,6 +107,7 @@ type ViewerCountUpdate struct {
 type Bus struct {
 	mu                       sync.Mutex
 	clients                  map[string][]*subscriber
+	presence                 map[string]int
 	segChans                 map[string][]*SegChan
 	segChansMutex            sync.Mutex
 	segBuf                   map[string][]*Seg
@@ -123,6 +125,7 @@ type Bus struct {
 func NewBus() *Bus {
 	return &Bus{
 		clients:                  make(map[string][]*subscriber),
+		presence:                 make(map[string]int),
 		segChans:                 make(map[string][]*SegChan),
 		segBuf:                   make(map[string][]*Seg),
 		viewerCounts:             make(map[string]map[string]int),
@@ -148,7 +151,10 @@ func (b *Bus) subscribeWithOverflow(user string, limit int, onOverflow func(), v
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	sub := newSubscriber(limit, onOverflow)
-	sub.viewer = viewer
+	sub.present = viewer
+	if viewer {
+		b.presence[user]++
+	}
 	b.clients[user] = append(b.clients[user], sub)
 	return sub.ch
 }
@@ -158,18 +164,7 @@ func (b *Bus) subscribeWithOverflow(user string, limit int, onOverflow func(), v
 func (b *Bus) GetPresenceCount(user string) int {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	count := 0
-	for _, sub := range b.clients[user] {
-		if !sub.viewer {
-			continue
-		}
-		sub.mu.Lock()
-		if !sub.closed {
-			count++
-		}
-		sub.mu.Unlock()
-	}
-	return count
+	return b.presence[user]
 }
 
 func (b *Bus) Unsubscribe(user string, ch <-chan Message) {
@@ -186,6 +181,9 @@ func (b *Bus) Unsubscribe(user string, ch <-chan Message) {
 
 	for i, sub := range subs {
 		if sub.ch == ch {
+			if sub.present {
+				b.presence[user]--
+			}
 			// Remove the subscription by replacing it with the last element
 			// and then truncating the slice
 			subs[i] = subs[len(subs)-1]
@@ -212,7 +210,10 @@ func (b *Bus) Publish(user string, msg Message) {
 		return
 	}
 	for _, sub := range subs {
-		sub.enqueue(msg)
+		if !sub.enqueue(msg) && sub.present {
+			b.presence[user]--
+			sub.present = false
+		}
 	}
 }
 

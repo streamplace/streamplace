@@ -2,6 +2,7 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useStore } from "zustand";
+import { LiveBubble } from "../../app/components/mobile/desktop-ui/live-bubble";
 import { LiveStats } from "../../app/components/mobile/live-stats";
 import { makeLivestreamStore } from "../../core/src/livestream-store/store";
 import { spacing, typeScale } from "../src/lib/theme/tokens";
@@ -35,6 +36,10 @@ vi.mock("@streamplace/components", async () => {
   return {
     Text,
     View,
+    Badge: ({ children }: any) => (
+      <span data-testid="live-status">{children}</span>
+    ),
+    LiveBadge: () => <span data-testid="live-status">LIVE</span>,
     zero: atoms,
     useLivestreamStore: (select: any) => useStore(fixture.store!, select),
     usePlayerStore: (select: any) => select({ mode: fixture.mode }),
@@ -124,5 +129,52 @@ it("hides the viewer count when live activity expires", async () => {
   await render();
   expect(container.textContent).toBe("12");
   await act(async () => vi.advanceTimersByTime(10_000));
+  expect(container.textContent).toBe("");
+});
+
+it("keeps the player badge and viewer count in sync when activity expires and resumes", async () => {
+  await act(async () =>
+    root.render(
+      <>
+        <LiveBubble />
+        <LiveStats />
+      </>,
+    ),
+  );
+  const status = () =>
+    container.querySelector('[data-testid="live-status"]')?.textContent;
+  expect(status()).toBe("LIVE");
+  await act(async () => vi.advanceTimersByTime(10_000));
+  expect(status()).toBe("OFFLINE");
+  expect(container.querySelector('[aria-label="12 watching"]')).toBeNull();
+
+  await act(async () => {
+    const livestream = fixture.store!.getState().livestream!;
+    fixture.store!.setState({
+      livestream: {
+        ...livestream,
+        record: { ...livestream.record, lastSeenAt: new Date().toISOString() },
+      },
+    });
+  });
+  expect(status()).toBe("LIVE");
+  expect(container.querySelector('[aria-label="12 watching"]')).not.toBeNull();
+});
+
+it.each([false, true])(
+  "keeps an ended stream offline or connecting (broadcasting=%s)",
+  async (broadcasting) => {
+    fixture.store!.getState().livestream!.record.endedAt =
+      new Date().toISOString() as any;
+    await act(async () =>
+      root.render(<LiveBubble broadcasting={broadcasting} />),
+    );
+    expect(container.textContent).toBe(broadcasting ? "CONNECTING" : "OFFLINE");
+  },
+);
+
+it("does not show a live badge during recorded playback", async () => {
+  fixture.mode = "vod";
+  await act(async () => root.render(<LiveBubble />));
   expect(container.textContent).toBe("");
 });

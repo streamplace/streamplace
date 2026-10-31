@@ -26,7 +26,6 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   a,
-  borderRadius,
   fontSize,
   gap,
   layout,
@@ -40,8 +39,11 @@ import {
   py,
   right,
 } from "../../lib/theme/atoms";
+import { spacing, touchTargets } from "../../lib/theme/tokens";
 import { useTheme } from "../../ui";
 import { DropdownContent } from "./dropdown-content";
+import { MenuGroup } from "./menu";
+import { ButtonPrimitive } from "./primitives/button";
 import {
   objectFromObjects,
   TextContext as TextClassContext,
@@ -89,6 +91,11 @@ interface RadioGroupContextValue {
 }
 
 const RadioGroupContext = createContext<RadioGroupContextValue | null>(null);
+
+const menuRowStyle = [
+  a.radius.all.sm,
+  { minHeight: touchTargets.minimum, justifyContent: "flex-start" as const },
+];
 
 export const DropdownMenu = DropdownMenuPrimitive.Root;
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
@@ -261,6 +268,7 @@ export const DropdownMenuBottomSheet = forwardRef<
       <NavigationStackContext.Provider value={{ stack, push, pop, isNested }}>
         <BottomSheet
           ref={sheetRef}
+          accessible={false}
           enablePanDownToClose
           enableDynamicSizing
           detached={isWide}
@@ -348,9 +356,9 @@ export const DropdownMenuSubTrigger = forwardRef<
     inset?: boolean;
     children?: React.ReactNode;
   }
->(({ inset, children, subMenuTitle, ...props }, ref) => {
+>(({ inset, children, subMenuTitle, onPress, style, ...props }, ref) => {
   const subMenuContext = useContext(SubMenuContext);
-  const { icons } = useTheme();
+  const { icons, theme } = useTheme();
 
   React.useEffect(() => {
     if (
@@ -363,35 +371,47 @@ export const DropdownMenuSubTrigger = forwardRef<
   }, [subMenuContext, subMenuTitle]);
 
   return (
-    <Pressable
-      onPress={() => {
-        subMenuContext?.trigger();
-      }}
+    <ButtonPrimitive.Root
       {...props}
+      ref={ref}
+      disabled={props.disabled ?? false}
+      style={(state) => [
+        menuRowStyle,
+        typeof style === "function" ? style(state) : style,
+      ]}
+      hoverStyle={{ backgroundColor: theme.colors.surfaceHover }}
+      pressedStyle={{ backgroundColor: theme.colors.surface3 }}
+      onPress={(event) => {
+        subMenuContext?.trigger();
+        onPress?.(event);
+      }}
     >
-      <View
-        style={[
-          inset && gap[2],
-          layout.flex.row,
-          layout.flex.alignCenter,
-          a.radius.all.sm,
-          py[1],
-          pl[2],
-          pr[2],
-        ]}
-      >
-        {typeof children === "function" ? (
-          children({ pressed: true })
-        ) : typeof children === "string" ? (
-          <Text>{children}</Text>
-        ) : (
-          children
-        )}
-        <View style={[a.layout.position.absolute, a.position.right[1]]}>
-          <ChevronRight size={18} color={icons.color.muted} />
+      {({ pressed }) => (
+        <View
+          style={[
+            inset && gap[2],
+            layout.flex.row,
+            layout.flex.alignCenter,
+            { flex: 1 },
+            a.radius.all.sm,
+            py[1],
+            pl[2],
+            pr[8],
+          ]}
+        >
+          {typeof children === "function" ? (
+            children({ pressed })
+          ) : typeof children === "string" ? (
+            <Text>{children}</Text>
+          ) : (
+            children
+          )}
+          <View style={[a.layout.position.absolute, right[2]]}>
+            <ChevronRight size={spacing[4]} color={icons.color.muted} />
+          </View>
         </View>
-      </View>
-    </Pressable>
+      )}
+    </ButtonPrimitive.Root>
   );
 });
 
@@ -467,35 +487,47 @@ export const DropdownMenuItem = forwardRef<
 >(({ inset, disabled, style, children, ...props }, ref) => {
   const { theme } = useTheme();
   return (
-    <Pressable {...props}>
-      <TextClassContext.Provider
-        value={objectFromObjects([
-          { color: theme.colors.popoverForeground },
-          a.fontSize.base,
-        ])}
-      >
-        <View
-          style={[
-            a.layout.flex.row,
-            a.layout.flex.alignCenter,
-            a.radius.all.sm,
-            py[1],
-            pl[2],
-            pr[2],
-          ]}
+    <ButtonPrimitive.Root
+      {...props}
+      ref={ref}
+      disabled={disabled}
+      onPress={props.onPress ?? undefined}
+      style={(state) => [
+        menuRowStyle,
+        typeof style === "function" ? style(state) : style,
+      ]}
+      hoverStyle={{ backgroundColor: theme.colors.surfaceHover }}
+      pressedStyle={{ backgroundColor: theme.colors.surface3 }}
+    >
+      {({ pressed }) => (
+        <TextClassContext.Provider
+          value={objectFromObjects([
+            { color: theme.colors.popoverForeground },
+            a.fontSize.base,
+          ])}
         >
-          {typeof children === "function" ? (
-            children({ pressed: true })
-          ) : typeof children === "string" ? (
-            <Text style={[inset && gap[2], disabled && { opacity: 0.5 }]}>
-              {children}
-            </Text>
-          ) : (
-            children
-          )}
-        </View>
-      </TextClassContext.Provider>
-    </Pressable>
+          <View
+            style={[
+              a.layout.flex.row,
+              a.layout.flex.alignCenter,
+              { flex: 1 },
+              a.radius.all.sm,
+              py[1],
+              pl[2],
+              pr[2],
+            ]}
+          >
+            {typeof children === "function" ? (
+              children({ pressed })
+            ) : typeof children === "string" ? (
+              <Text style={[inset && gap[2]]}>{children}</Text>
+            ) : (
+              children
+            )}
+          </View>
+        </TextClassContext.Provider>
+      )}
+    </ButtonPrimitive.Root>
   );
 });
 
@@ -505,21 +537,32 @@ export const DropdownMenuCheckboxItem = forwardRef<
     ref?: React.RefObject<DropdownMenuPrimitive.CheckboxItemRef>;
     children?: React.ReactNode;
   }
->(({ children, checked, ...props }, ref) => {
+>(({ children, checked, onCheckedChange, onPress, style, ...props }, ref) => {
   const { theme } = useTheme();
 
   return (
-    <Pressable
-      onPress={(e) => {
-        props.onCheckedChange?.(!checked);
-        props.onPress?.(e);
-      }}
+    <ButtonPrimitive.Root
       {...props}
+      ref={ref}
+      accessibilityRole="checkbox"
+      disabled={props.disabled ?? false}
+      accessibilityState={{ ...props.accessibilityState, checked }}
+      style={(state) => [
+        menuRowStyle,
+        typeof style === "function" ? style(state) : style,
+      ]}
+      hoverStyle={{ backgroundColor: theme.colors.surfaceHover }}
+      pressedStyle={{ backgroundColor: theme.colors.surface3 }}
+      onPress={(e) => {
+        onCheckedChange?.(!checked);
+        onPress?.(e);
+      }}
     >
       <View
         style={[
           a.layout.flex.row,
           a.layout.flex.alignCenter,
+          { flex: 1 },
           a.radius.all.sm,
           py[1],
           pl[2],
@@ -528,23 +571,23 @@ export const DropdownMenuCheckboxItem = forwardRef<
         ]}
       >
         {children}
-        <View style={[pl[1], layout.position.absolute, right[1]]}>
+        <View style={[layout.position.absolute, right[2]]}>
           {checked ? (
             <CheckCircle
-              size={14}
+              size={spacing[4]}
               strokeWidth={3}
               color={theme.colors.foreground}
             />
           ) : (
             <Circle
-              size={14}
+              size={spacing[4]}
               strokeWidth={3}
               color={theme.colors.mutedForeground}
             />
           )}
         </View>
       </View>
-    </Pressable>
+    </ButtonPrimitive.Root>
   );
 });
 
@@ -555,25 +598,36 @@ export const DropdownMenuRadioItem = forwardRef<
     children?: React.ReactNode;
     value?: string;
   }
->(({ children, value, ...props }, ref) => {
+>(({ children, value, onPress, style, ...props }, ref) => {
   const { theme } = useTheme();
   const radioGroupContext = useContext(RadioGroupContext);
   const isSelected = radioGroupContext?.value === value;
 
   return (
-    <Pressable
+    <ButtonPrimitive.Root
+      {...props}
+      ref={ref}
+      accessibilityRole="radio"
+      disabled={props.disabled ?? false}
+      accessibilityState={{ ...props.accessibilityState, checked: isSelected }}
+      style={(state) => [
+        menuRowStyle,
+        typeof style === "function" ? style(state) : style,
+      ]}
+      hoverStyle={{ backgroundColor: theme.colors.surfaceHover }}
+      pressedStyle={{ backgroundColor: theme.colors.surface3 }}
       onPress={(e) => {
         if (value && radioGroupContext?.onValueChange) {
           radioGroupContext.onValueChange(value);
         }
-        props.onPress?.(e);
+        onPress?.(e);
       }}
-      {...props}
     >
       <View
         style={[
           a.layout.flex.row,
           a.layout.flex.alignCenter,
+          { flex: 1 },
           a.radius.all.sm,
           py[1],
           pl[2],
@@ -582,12 +636,16 @@ export const DropdownMenuRadioItem = forwardRef<
       >
         {children}
         {isSelected && (
-          <View style={[pl[1], layout.position.absolute, right[1]]}>
-            <Check size={14} strokeWidth={3} color={theme.colors.foreground} />
+          <View style={[layout.position.absolute, right[2]]}>
+            <Check
+              size={spacing[4]}
+              strokeWidth={3}
+              color={theme.colors.foreground}
+            />
           </View>
         )}
       </View>
-    </Pressable>
+    </ButtonPrimitive.Root>
   );
 });
 
@@ -661,16 +719,7 @@ export const DropdownMenuGroup = forwardRef<
           {title}
         </Text>
       )}
-      <View
-        style={[
-          { backgroundColor: theme.colors.muted },
-          p[2],
-          gap.all[1],
-          { borderRadius: borderRadius.lg },
-        ]}
-      >
-        {children}
-      </View>
+      <MenuGroup>{children}</MenuGroup>
     </View>
   );
 });

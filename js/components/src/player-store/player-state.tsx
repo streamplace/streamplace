@@ -106,11 +106,12 @@ export interface PlayerState {
   /** Current playback time in seconds */
   playTime: number;
 
-  /** Function to set the current playback time */
+  /** Report playback progress; use seekTo to request a seek. */
   setPlayTime: (playTime: number) => void;
 
   /** Seek the video element to a specific time */
   seekTo: (time: number) => void;
+  setSeekTo: (fn: (time: number) => void) => void;
 
   /**
    * Seconds into a VOD to start playback at, set from a `?t=` URL param.

@@ -143,6 +143,7 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
         }
         return { playTime: time };
       }),
+    setSeekTo: (fn) => set(() => ({ seekTo: fn })),
 
     startTime: null,
     setStartTime: (startTime: number | null) => set(() => ({ startTime })),

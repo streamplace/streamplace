@@ -2,6 +2,7 @@
 // Posted by TOPKAT, modified by community. See post 'Timeline' for change history
 // Retrieved 2026-02-18, License - CC BY-SA 4.0
 
+import { useState } from "react";
 import { StyleSheet, View, ViewProps } from "react-native";
 import Animated from "react-native-reanimated";
 import Svg, {
@@ -29,8 +30,11 @@ function Gradient({
   opacityColor1 = 1,
   opacityColor2 = 1,
   style,
+  onLayout,
   ...otherViewProps
 }: GradientProps) {
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const gradientHeight = height === "100%" ? size.height : height;
   const gradientUniqueId = `grad${fromColor}+${toColor}`.replace(
     /[^a-zA-Z0-9 ]/g,
     "",
@@ -38,10 +42,20 @@ function Gradient({
   return (
     <View
       style={[{ position: "relative", zIndex: 0 }, style]}
+      onLayout={(event) => {
+        const { width, height } = event.nativeEvent.layout;
+        setSize((previous) =>
+          previous.width === width && previous.height === height
+            ? previous
+            : { width, height },
+        );
+        onLayout?.(event);
+      }}
       {...otherViewProps}
     >
       <Svg
-        height={height}
+        pointerEvents="none"
+        height={gradientHeight}
         width="100%"
         style={[StyleSheet.absoluteFill, { zIndex: -1 }]}
       >
@@ -61,7 +75,11 @@ function Gradient({
             <Stop offset="1" stopColor={toColor} stopOpacity={opacityColor2} />
           </LinearGradient>
         </Defs>
-        <Rect width="100%" height="100%" fill={`url(#${gradientUniqueId})`} />
+        <Rect
+          width={size.width}
+          height={gradientHeight}
+          fill={`url(#${gradientUniqueId})`}
+        />
       </Svg>
       {children}
     </View>

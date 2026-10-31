@@ -57,12 +57,10 @@ test("stream: portrait player exposes playback controls", async ({ page }) => {
     throw new Error("portrait player mute button has no bounding box");
   }
   await expect
-    .poll(
-      () =>
-        unmuteButton.evaluate(
-          (element) => getComputedStyle(element).pointerEvents,
-        ),
-      { timeout: 5_000 },
+    .poll(() =>
+      unmuteButton.evaluate(
+        (element) => getComputedStyle(element).pointerEvents,
+      ),
     )
     .toBe("none");
   await page.mouse.click(

@@ -1,8 +1,8 @@
 import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Code, Copy, Link2, Share, Share2 } from "lucide-react-native";
-import { useCallback, useState } from "react";
+import { ReactNode, useCallback, useState } from "react";
 import { Clipboard, Linking, Platform, View } from "react-native";
-import { textAlphas } from "../../lib/theme/tokens";
+import { textAlphas, touchTargets } from "../../lib/theme/tokens";
 import { useLivestreamStore } from "../../livestream-store";
 import { useNetworkName, useUrl } from "../../streamplace-store";
 import { BlueskyIcon } from "../icons/bluesky-icon";
@@ -28,11 +28,16 @@ export interface ShareTarget {
 }
 
 export interface ShareSheetProps {
+  children?: ReactNode;
   onShare?: (action: string, success: boolean) => void;
   target?: ShareTarget;
 }
 
-export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
+export function ShareSheet({
+  children,
+  onShare,
+  target,
+}: ShareSheetProps = {}) {
   const profile = useLivestreamStore((x) => x.profile);
   const [isCopying, setIsCopying] = useState(false);
   const url = useUrl();
@@ -115,8 +120,21 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>
-        <Share size={22} color={textAlphas.dark[1]} />
+      <DropdownMenuTrigger
+        asChild={!!children}
+        accessibilityLabel={target ? "Share video" : "Share stream"}
+        style={
+          children
+            ? undefined
+            : {
+                minHeight: touchTargets.minimum,
+                minWidth: touchTargets.minimum,
+                alignItems: "center",
+                justifyContent: "center",
+              }
+        }
+      >
+        {children ?? <Share size={22} color={textAlphas.dark[1]} />}
       </DropdownMenuTrigger>
       <ResponsiveDropdownMenuContent>
         <DropdownMenuGroup title="Share">

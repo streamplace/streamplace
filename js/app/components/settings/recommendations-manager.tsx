@@ -307,7 +307,10 @@ export default function RecommendationsManager() {
 
   return (
     <>
-      <ScrollView contentContainerStyle={{ alignItems: "center" }}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ alignItems: "center" }}
+      >
         <View
           style={[{ maxWidth: 800, width: "100%" }, zero.px[8], zero.py[6]]}
         >

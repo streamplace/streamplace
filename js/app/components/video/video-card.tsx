@@ -1,8 +1,11 @@
 import { Text, useTheme, zero } from "@streamplace/components";
 import {
+  borderRadius,
   colors,
   motion,
   scrims,
+  spacing,
+  tabularNums,
 } from "@streamplace/components/src/lib/theme/tokens";
 import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import { Image } from "expo-image";
@@ -29,9 +32,11 @@ function formatCount(count: number): string {
 export default function VideoCard({
   video,
   avatarUrl,
+  compact = false,
 }: {
   video: VideoView;
   avatarUrl?: string;
+  compact?: boolean;
 }) {
   const { theme } = useTheme();
   const record = video.record as place.stream.video.Main;
@@ -46,13 +51,19 @@ export default function VideoCard({
 
   return (
     <AQLink to={{ screen: "Video", params: { user, tid } }} style={{ flex: 1 }}>
-      <View style={[zero.flex.values[1], zero.gap.all[2]]}>
+      <View
+        style={[
+          zero.flex.values[1],
+          zero.gap.all[3],
+          compact && { flexDirection: "row", alignItems: "flex-start" },
+        ]}
+      >
         {/* Thumbnail */}
         <View
           style={{
-            width: "100%",
+            width: compact ? "40%" : "100%",
             aspectRatio: 16 / 9,
-            borderRadius: 12,
+            borderRadius: borderRadius.lg,
             borderCurve: "continuous",
             overflow: "hidden",
             backgroundColor: theme.colors.muted,
@@ -77,18 +88,14 @@ export default function VideoCard({
             <View
               style={{
                 position: "absolute",
-                bottom: 6,
-                right: 6,
+                bottom: spacing[1],
+                right: spacing[1],
                 backgroundColor: scrims.dark,
-                borderRadius: 4,
-                paddingHorizontal: 4,
-                paddingVertical: 1,
+                borderRadius: borderRadius.sm,
+                paddingHorizontal: spacing[1],
               }}
             >
-              <Text
-                size="xs"
-                style={{ color: colors.white, fontVariant: ["tabular-nums"] }}
-              >
+              <Text size="xs" style={[{ color: colors.white }, tabularNums]}>
                 {duration}
               </Text>
             </View>
@@ -97,38 +104,40 @@ export default function VideoCard({
 
         {/* Metadata */}
         <View
-          style={[zero.layout.flex.row, zero.gap.all[3], { paddingRight: 4 }]}
+          style={[
+            zero.layout.flex.row,
+            zero.gap.all[3],
+            { flex: 1, minWidth: 0 },
+          ]}
         >
-          <View
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              overflow: "hidden",
-              flexShrink: 0,
-              backgroundColor: theme.colors.muted,
-            }}
-          >
-            {avatarUrl ? (
-              <Image
-                source={{ uri: avatarUrl }}
-                style={{ width: "100%", height: "100%" }}
-                contentFit="cover"
-              />
-            ) : (
-              <Image
-                source={require("../../assets/images/goose.png")}
-                style={{ width: "100%", height: "100%" }}
-                contentFit="cover"
-              />
-            )}
-          </View>
-          <View style={[zero.flex.values[1], { minWidth: 0 }]}>
-            <Text
-              weight="semibold"
-              numberOfLines={2}
-              style={{ lineHeight: 18 }}
+          {!compact && (
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                overflow: "hidden",
+                flexShrink: 0,
+                backgroundColor: theme.colors.muted,
+              }}
             >
+              {avatarUrl ? (
+                <Image
+                  source={{ uri: avatarUrl }}
+                  style={{ width: "100%", height: "100%" }}
+                  contentFit="cover"
+                />
+              ) : (
+                <Image
+                  source={require("../../assets/images/goose.png")}
+                  style={{ width: "100%", height: "100%" }}
+                  contentFit="cover"
+                />
+              )}
+            </View>
+          )}
+          <View style={[zero.flex.values[1], { minWidth: 0 }]}>
+            <Text weight="semibold" numberOfLines={2}>
               {title}
             </Text>
             <Text
@@ -138,10 +147,18 @@ export default function VideoCard({
             >
               {formatHandleWithAt(author)}
             </Text>
-            <Text size="sm" style={{ color: theme.colors.textMuted }}>
-              {formatCount(viewCount)} view{viewCount === 1 ? "" : "s"} ·{" "}
-              {formatCount(likeCount)} like{likeCount === 1 ? "" : "s"}
-            </Text>
+            {(viewCount > 0 || likeCount > 0) && (
+              <Text
+                size="xs"
+                style={[{ color: theme.colors.text3 }, tabularNums]}
+              >
+                {viewCount > 0 &&
+                  `${formatCount(viewCount)} view${viewCount === 1 ? "" : "s"}`}
+                {viewCount > 0 && likeCount > 0 && " · "}
+                {likeCount > 0 &&
+                  `${formatCount(likeCount)} like${likeCount === 1 ? "" : "s"}`}
+              </Text>
+            )}
           </View>
         </View>
       </View>

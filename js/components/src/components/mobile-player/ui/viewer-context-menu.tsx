@@ -7,6 +7,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useLivestreamInfo, useStreamplaceStore, zero } from "../../..";
+import { touchTargets } from "../../../lib/theme/tokens";
 import { useLivestreamStore } from "../../../livestream-store";
 import { PlayerProtocol, usePlayerStore } from "../../../player-store/";
 import {
@@ -30,9 +31,11 @@ import { ReportMenuItems } from "./report-menu-items";
 export function ContextMenu({
   dropdownPortalContainer,
   onOpenChat,
+  onOpenChange,
 }: {
   dropdownPortalContainer?: string;
   onOpenChat?: () => void;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const th = useTheme();
   const quality = usePlayerStore((x) => x.selectedRendition);
@@ -114,8 +117,23 @@ export function ContextMenu({
 
   // rerender when dropdown portal container changes so we swap portals 'seamlessly'
   return (
-    <DropdownMenu onOpenChange={setIsOpen} key={dropdownPortalContainer}>
-      <DropdownMenuTrigger>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        setIsOpen(open);
+        onOpenChange?.(open);
+      }}
+      key={dropdownPortalContainer}
+    >
+      <DropdownMenuTrigger
+        accessibilityRole="button"
+        accessibilityLabel="Playback settings"
+        style={{
+          minWidth: touchTargets.minimum,
+          minHeight: touchTargets.minimum,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         <Animated.View style={[iconRotate]}>
           <Cog color={th.theme.colors.foreground} />
         </Animated.View>
@@ -133,7 +151,7 @@ export function ContextMenu({
                   zero.flex.values[1],
                   isMobile ? zero.layout.flex.row : zero.layout.flex.column,
                   zero.layout.flex.spaceBetween,
-                  zero.pr[4],
+                  !isMobile && zero.pr[4],
                 ]}
               >
                 <Text>Quality</Text>

@@ -415,7 +415,24 @@ function CompactStreamInfo() {
             </Text>
           </Pressable>
         )}
-        {expanded && <View style={{ flex: 1 }} />}
+        {expanded && (
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={`Open profile for ${handleStr}`}
+            onPress={() => {
+              if (profile?.did) {
+                Linking.openURL(
+                  `https://bsky.app/profile/${formatHandle(profile)}`,
+                );
+              }
+            }}
+            style={{ flex: 1, minWidth: 0 }}
+          >
+            <Text numberOfLines={1} weight="semibold">
+              {handleStr}
+            </Text>
+          </Pressable>
+        )}
         {isLive ? (
           <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[1]]}>
             <View
@@ -466,20 +483,6 @@ function CompactStreamInfo() {
               {title}
             </Text>
           ) : null}
-          <Pressable
-            onPress={() => {
-              if (profile?.did) {
-                Linking.openURL(
-                  `https://bsky.app/profile/${formatHandle(profile)}`,
-                );
-              }
-            }}
-            style={{ alignSelf: "flex-start" }}
-          >
-            <Text numberOfLines={1} color="muted">
-              {handleStr}
-            </Text>
-          </Pressable>
           {did && profile && (
             <FollowButton streamerDID={profile.did} currentUserDID={did} />
           )}

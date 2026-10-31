@@ -1,5 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import { Button, useTheme, zero } from "@streamplace/components";
+import { spacing } from "@streamplace/components/src/lib/theme/tokens";
 import { formatHandleWithAt } from "@streamplace/core";
 import { EmptyState, EmptyStateTile } from "components/empty-state";
 import Title from "components/title";
@@ -17,7 +18,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const GAP = 16;
+const GAP = spacing[4];
 const MAX_WIDTH = 1600;
 
 function getColumns(width: number): number {
@@ -40,12 +41,14 @@ export default function VideoListScreen({
   const { videos, loading, refreshing, error, hasMore, loadMore, refresh } =
     useVideoList(repo);
 
-  const columns = getColumns(Math.min(width, MAX_WIDTH));
+  const columns =
+    Platform.OS === "web" ? getColumns(Math.min(width, MAX_WIDTH)) : 1;
 
   // Bulk-resolve author avatars so individual cards don't each fire a fetch.
   const dids = useMemo(
-    () => Array.from(new Set(videos.map((v) => v.author.did))),
-    [videos],
+    () =>
+      columns === 1 ? [] : Array.from(new Set(videos.map((v) => v.author.did))),
+    [videos, columns],
   );
   const avatars = useAvatars(dids);
 
@@ -59,12 +62,17 @@ export default function VideoListScreen({
 
   const renderItem = ({ item }: { item: VideoView }) => (
     <View style={{ flex: 1 / columns }}>
-      <VideoCard video={item} avatarUrl={avatars[item.author.did]?.avatar} />
+      <VideoCard
+        video={item}
+        avatarUrl={avatars[item.author.did]?.avatar}
+        compact={columns === 1}
+      />
     </View>
   );
 
   return (
     <FlatList
+      contentInsetAdjustmentBehavior="automatic"
       // numColumns can't change without a fresh list instance
       key={`vlist-${columns}`}
       data={videos}
@@ -79,8 +87,10 @@ export default function VideoListScreen({
         gap: GAP,
         paddingHorizontal: GAP,
         paddingBottom:
-          (Platform.OS !== "web" ? 64 : 0) + safeAreaInsets.bottom + GAP,
-        paddingTop: Platform.OS === "ios" ? 96 : GAP,
+          Platform.OS === "ios"
+            ? GAP
+            : (Platform.OS !== "web" ? 64 : 0) + safeAreaInsets.bottom + GAP,
+        paddingTop: GAP,
         maxWidth: MAX_WIDTH,
         width: "100%",
         alignSelf: "center",

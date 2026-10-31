@@ -20,8 +20,8 @@ export interface AvatarProps extends ViewProps {
   name?: string;
   size?: keyof typeof AVATAR_SIZES | number;
   /**
-   * Live ring: 2px live-red ring with a 2px gap. Reserved for accounts
-   * that are actually live right now.
+   * Live ring and matching gap scale with the image size. Reserved for
+   * accounts that are actually live right now.
    */
   live?: boolean;
 }
@@ -31,8 +31,8 @@ export const Avatar = forwardRef<View, AvatarProps>(
   ({ src, name, size = "md", live = false, style, ...props }, ref) => {
     const { theme } = useTheme();
     const side = typeof size === "number" ? size : AVATAR_SIZES[size];
-    // ring geometry: 2px ring + 2px gap on every side
-    const ringInset = live ? 4 : 0;
+    // Use the md avatar as the baseline for equal ring and gap widths.
+    const ringInset = live ? (side / AVATAR_SIZES.md) * theme.spacing[1] : 0;
     const outerSide = side + ringInset * 2;
 
     return (
@@ -47,7 +47,7 @@ export const Avatar = forwardRef<View, AvatarProps>(
             alignItems: "center",
             justifyContent: "center",
             ...(live && {
-              borderWidth: 2,
+              borderWidth: ringInset / 2,
               borderColor: theme.colors.live,
             }),
           },

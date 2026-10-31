@@ -10,7 +10,6 @@ import {
   useAvatar,
   useDID,
   useLivestreamStore,
-  usePlayerStore,
   useTheme,
   useTitle,
   useTranslation,
@@ -25,13 +24,14 @@ import {
 import { formatHandle, formatHandleWithAt } from "@streamplace/core";
 import AQLink from "components/aqlink";
 import FollowButton from "components/follow-button";
+import { useLiveStatus } from "hooks/useLiveStatus";
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
 } from "lucide-react-native";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -168,13 +168,19 @@ function FullStreamInfo({
             </Text>
           ) : null}
           <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
-            <Avatar
-              src={avatarUri}
-              name={profile ? formatHandle(profile) : undefined}
-              size="lg"
-              live={isLive}
-              style={{ width: spacing[12], height: spacing[12] }}
-            />
+            <View
+              style={[
+                layout.flex.center,
+                { width: spacing[12], height: spacing[12] },
+              ]}
+            >
+              <Avatar
+                src={avatarUri}
+                name={profile ? formatHandle(profile) : undefined}
+                size="lg"
+                live={isLive}
+              />
+            </View>
 
             <View style={{ flexShrink: 1, minWidth: 0 }}>
               <View
@@ -225,7 +231,7 @@ function FullStreamInfo({
             { flexWrap: "wrap" },
           ]}
         >
-          {did && profile && (
+          {profile && (
             <FollowButton streamerDID={profile.did} currentUserDID={did} />
           )}
           <ShareSheet />
@@ -320,9 +326,7 @@ function FullStreamInfo({
 /** Shared derived stream metadata for both metadata layouts. */
 function useStreamMeta() {
   const profile = useAuthor();
-  const ls = useLivestreamStore((x) => x.livestream);
-  const segment = useLivestreamStore((x) => x.segment);
-  const mode = usePlayerStore((x) => x.mode);
+  const { livestream: ls, segment, mode, isLive } = useLiveStatus();
   const did = useDID();
   const title = useTitle();
   const avatarUri = useAvatar();
@@ -330,30 +334,7 @@ function useStreamMeta() {
   const presence = useLivestreamStore((x) =>
     x.websocketConnected ? x.presence : null,
   );
-  const [now, setNow] = useState(Date.now);
-  const latestActivity = Math.max(
-    Date.parse(segment?.startTime ?? "") +
-      Math.max(0, segment?.duration ?? 0) / 1e6 || -Infinity,
-    Date.parse(ls?.record.lastSeenAt ?? "") || -Infinity,
-  );
-  const liveUntil = latestActivity + 10_000;
   const isLiveMode = mode === "live";
-  const isLive =
-    isLiveMode &&
-    ls !== null &&
-    !ls.record.endedAt &&
-    Number.isFinite(latestActivity) &&
-    liveUntil > Math.max(now, Date.now());
-  // Live playback mode can outlast the media; expire the signal without
-  // waiting for another store event, including on an offline channel page.
-  useEffect(() => {
-    if (!isLive) return;
-    const timeout = setTimeout(
-      () => setNow(Date.now()),
-      liveUntil - Date.now(),
-    );
-    return () => clearTimeout(timeout);
-  }, [isLive, liveUntil]);
 
   const contentRights = segment?.contentRights;
 
@@ -388,6 +369,7 @@ function useStreamMeta() {
     isLiveMode,
     views,
     presence,
+    activityLabel,
     tags,
     contentRights,
     handleStr,
@@ -409,14 +391,21 @@ function CompactStreamInfo() {
     title,
     avatarUri,
     isLive,
-    views,
     presence,
+    activityLabel,
     tags,
     contentRights,
     handleStr,
     streamerName,
-    streamerSubtitle,
   } = useStreamMeta();
+
+  let metadataTags = tags;
+  if (activityLabel) {
+    metadataTags = [activityLabel];
+    for (const tag of tags ?? []) {
+      if (tag !== activityLabel) metadataTags.push(tag);
+    }
+  }
 
   const [expanded, setExpanded] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -438,11 +427,10 @@ function CompactStreamInfo() {
   const chevronColor = theme.colors.text2;
   const expandLabel = "Expand stream info";
   const collapseLabel = "Collapse stream info";
-  const count = isLive ? views : presence;
   const countLabel =
-    count === null
-      ? undefined
-      : t(isLive ? "watching-count" : "here-count", { count });
+    !isLive && presence !== null
+      ? t("here-count", { count: presence })
+      : undefined;
   const hasRights =
     contentRights?.license ||
     contentRights?.copyrightNotice ||
@@ -462,21 +450,29 @@ function CompactStreamInfo() {
       <View
         style={[layout.flex.row, layout.flex.alignCenter, gap.all[2], py[1]]}
       >
-        <Avatar
-          src={avatarUri}
-          name={profile ? formatHandle(profile) : undefined}
-          size="md"
-          live={isLive}
-          style={{
-            width: theme.touchTargets.minimum,
-            height: theme.touchTargets.minimum,
-          }}
-        />
+        <View
+          style={[
+            layout.flex.center,
+            {
+              width: theme.touchTargets.minimum,
+              height: theme.touchTargets.minimum,
+            },
+          ]}
+        >
+          <Avatar
+            src={avatarUri}
+            name={profile ? formatHandle(profile) : undefined}
+            size="md"
+            live={isLive}
+          />
+        </View>
         {!expanded && (
           <Pressable
             onPress={() => setExpandedAnimated(!expanded)}
             accessibilityRole="button"
-            accessibilityLabel="Stream info"
+            accessibilityLabel={
+              countLabel ? `Stream info, ${countLabel}` : "Stream info"
+            }
             style={{ flex: 1, minWidth: 0 }}
           >
             <Text
@@ -487,14 +483,27 @@ function CompactStreamInfo() {
             >
               {title || handleStr}
             </Text>
-            <Text
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              size="xs"
-              color="muted"
-            >
-              {handleStr}
-            </Text>
+            <View style={[layout.flex.row, layout.flex.alignCenter]}>
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="xs"
+                color="muted"
+                style={{ flexShrink: 1 }}
+              >
+                {handleStr}
+              </Text>
+              {countLabel !== undefined && (
+                <Text
+                  size="xs"
+                  color="muted"
+                  style={[tabularNums, { flexShrink: 0 }]}
+                >
+                  {" · "}
+                  {countLabel}
+                </Text>
+              )}
+            </View>
           </Pressable>
         )}
         {expanded && (
@@ -528,41 +537,19 @@ function CompactStreamInfo() {
                 </Text>
               )}
             </View>
-            {streamerSubtitle && (
+            {streamerName !== handleStr && (
               <Text numberOfLines={1} size="xs" color="muted">
-                {streamerSubtitle}
+                {handleStr}
               </Text>
             )}
           </View>
         )}
-        {did && profile && (
+        {profile && (
           <FollowButton
             streamerDID={profile.did}
             currentUserDID={did}
             iconOnly
           />
-        )}
-        {!expanded && count !== null && (
-          <View
-            accessibilityLabel={countLabel}
-            style={[layout.flex.row, layout.flex.alignCenter, gap.all[1]]}
-          >
-            {isLive && (
-              <View
-                style={[
-                  r.full,
-                  {
-                    width: spacing[1],
-                    height: spacing[1],
-                    backgroundColor: theme.colors.live,
-                  },
-                ]}
-              />
-            )}
-            <Text size="sm" color="muted" style={tabularNums}>
-              {count}
-            </Text>
-          </View>
         )}
         <IconButton
           onPress={() => setExpandedAnimated(!expanded)}
@@ -599,7 +586,7 @@ function CompactStreamInfo() {
               {title}
             </Text>
           ) : null}
-          {tags && tags.length > 0 && (
+          {metadataTags && metadataTags.length > 0 && (
             <View
               style={[
                 layout.flex.row,
@@ -608,7 +595,7 @@ function CompactStreamInfo() {
                 { flexWrap: "wrap" },
               ]}
             >
-              {tags.map((tag) => (
+              {metadataTags.map((tag) => (
                 <View
                   key={tag}
                   style={[
@@ -616,6 +603,7 @@ function CompactStreamInfo() {
                     px[2],
                     {
                       backgroundColor: theme.colors.surface3,
+                      maxWidth: "100%",
                     },
                   ]}
                 >

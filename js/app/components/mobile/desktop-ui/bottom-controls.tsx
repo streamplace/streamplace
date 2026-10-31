@@ -21,6 +21,7 @@ import {
   Minimize,
   PictureInPicture2,
 } from "lucide-react-native";
+import type { ReactNode } from "react";
 import { Platform } from "react-native";
 import { useIsSidebarCollapsed } from "store/hooks";
 import { Mu } from "./mu";
@@ -43,6 +44,7 @@ interface BottomControlBarProps {
   onMenuOpenChange?: (open: boolean) => void;
   onScrubbingChange?: (active: boolean) => void;
   volumeSliderWidth?: number;
+  liveStats?: ReactNode;
   showChat: boolean;
   setShowChat?: (show: boolean) => void;
 }
@@ -156,6 +158,7 @@ export function BottomControlBar({
   onMenuOpenChange,
   onScrubbingChange,
   volumeSliderWidth = 200,
+  liveStats,
   showChat,
   setShowChat,
 }: BottomControlBarProps) {
@@ -183,11 +186,12 @@ export function BottomControlBar({
           {playbackMode === "vod" ? (
             <PlayerUI.VodControls>{volume}</PlayerUI.VodControls>
           ) : (
-            volume
+            (liveStats ?? volume)
           )}
         </View>
 
         <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[1]]}>
+          {liveStats && volume}
           {pipSupported && onHandlePip && (
             <PipButton pipActive={pipActive} onHandlePip={onHandlePip} />
           )}

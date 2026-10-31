@@ -9,6 +9,12 @@ const fixture = vi.hoisted(() => ({
   release: null as (() => void) | null,
   pending: false,
   toasts: [] as string[],
+  loginOpen: false,
+  returnRoute: null as { name: string; params?: any } | null,
+}));
+const streamRoute = { name: "Stream", params: { user: "creator.example" } };
+vi.mock("@react-navigation/native", () => ({
+  useRoute: () => streamRoute,
 }));
 function Button({
   children,
@@ -67,6 +73,10 @@ vi.mock("store/hooks", () => ({
 vi.mock("store", () => ({
   useStore: (select: any) =>
     select({
+      openLoginModal: (route: { name: string; params?: any }) => {
+        fixture.loginOpen = true;
+        fixture.returnRoute = route;
+      },
       followUser: async (did: string) => {
         if (fixture.pending)
           await new Promise<void>((resolve) => {
@@ -90,14 +100,19 @@ beforeEach(() => {
   fixture.pending = false;
   fixture.release = null;
   fixture.toasts = [];
-  vi.stubGlobal("fetch", async () => ({
-    ok: true,
-    json: async () => ({
-      follow: fixture.following.has("creator")
-        ? { uri: "at://viewer/app.bsky.graph.follow/test" }
-        : null,
-    }),
-  }));
+  fixture.loginOpen = false;
+  fixture.returnRoute = null;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        follow: fixture.following.has("creator")
+          ? { uri: "at://viewer/app.bsky.graph.follow/test" }
+          : null,
+      }),
+    })),
+  );
   container = document.createElement("div");
   root = createRoot(container);
 });
@@ -135,21 +150,55 @@ it("uses an accessible plus and check while preserving real follow state", async
   expect(container.querySelector("button")!.textContent).toBe("Plus");
 });
 
-it.each([undefined, "creator"])(
-  "hides the follow action for %s",
-  async (currentUser) => {
+it.each([false, true])(
+  "keeps the unfollowed appearance and opens login when signed out (iconOnly=%s)",
+  async (iconOnly) => {
     await act(async () =>
-      root.render(
-        <FollowButton
-          streamerDID="creator"
-          currentUserDID={currentUser}
-          iconOnly
-        />,
-      ),
+      root.render(<FollowButton streamerDID="creator" iconOnly={iconOnly} />),
     );
-    expect(container.querySelector("button")).toBeNull();
+    const button = container.querySelector("button")!;
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toBe(iconOnly ? "Plus" : "PlusFollow");
+    await act(async () => button.click());
+    expect(fixture.loginOpen).toBe(true);
+    expect(fixture.returnRoute).toEqual(streamRoute);
+    expect(fixture.following.size).toBe(0);
+    expect(fetch).not.toHaveBeenCalled();
   },
 );
+
+it("hides the follow action on your own stream", async () => {
+  await render("creator");
+  expect(container.querySelector("button")).toBeNull();
+});
+
+it("switches from login to following once signed in", async () => {
+  await act(async () =>
+    root.render(<FollowButton streamerDID="creator" iconOnly />),
+  );
+  await act(async () => container.querySelector("button")!.click());
+  await render();
+  expect(fixture.following.size).toBe(0);
+  expect(container.querySelector("button")!.getAttribute("aria-label")).toBe(
+    "Follow",
+  );
+  await act(async () => container.querySelector("button")!.click());
+  expect(fixture.following.has("creator")).toBe(true);
+});
+
+it("returns to the unfollowed appearance after signing out without unfollowing", async () => {
+  fixture.following.add("creator");
+  await render();
+  await act(async () =>
+    root.render(<FollowButton streamerDID="creator" iconOnly />),
+  );
+  const button = container.querySelector("button")!;
+  expect(button.textContent).toBe("Plus");
+  expect(button.disabled).toBe(false);
+  await act(async () => button.click());
+  expect(fixture.loginOpen).toBe(true);
+  expect(fixture.following.has("creator")).toBe(true);
+});
 
 it("keeps the full button's text presentation", async () => {
   fixture.following.add("creator");

@@ -135,7 +135,7 @@ vi.mock("@streamplace/components", async () => {
 });
 vi.mock("components/aqlink", () => ({ default: View }));
 vi.mock("components/follow-button", () => ({
-  default: () => <button>Following</button>,
+  default: () => <button>Follow</button>,
 }));
 vi.mock("../../app/components/mobile/desktop-ui/kebab", () => ({
   KebabMenu: () => <button>More stream actions</button>,
@@ -176,7 +176,15 @@ beforeEach(() => {
     livestream: {
       uri: "at://did:plc:creator/place.stream.livestream/test",
       author: { did: "did:plc:creator" },
-      record: { title: "A creator's live stream", tags },
+      record: {
+        title: "A creator's live stream",
+        tags,
+        activity: {
+          $type: "place.stream.defs#activityGame",
+          uri: "at://did:plc:catalog/app.gamesgamesgamesgames.game/ffxi",
+          name: "Final Fantasy XI Online",
+        },
+      },
     } as any,
     segment: {
       startTime: new Date(Date.now() - 2_000).toISOString(),
@@ -353,10 +361,11 @@ it("does not offer empty Details when there are no displayable rights", async ()
 it("opens a compact summary into creator, full title and all tags, then closes it", async () => {
   await render(true);
   const summary = container.querySelector<HTMLButtonElement>(
-    '[aria-label="Stream info"]',
+    '[aria-label^="Stream info"]',
   )!;
   expect(summary.textContent).toContain("A creator's live stream");
   expect(summary.textContent).toContain("@creator.example");
+  expect(summary.textContent).not.toContain("watching");
   const expand = container.querySelector<HTMLButtonElement>(
     '[aria-label="Expand stream info"]',
   )!;
@@ -366,8 +375,9 @@ it("opens a compact summary into creator, full title and all tags, then closes i
     '[aria-label="Open profile for @creator.example"]',
   )!;
   expect(profile.textContent).toContain("Creator name");
-  expect(container.textContent).toContain("24 watching");
+  expect(container.textContent).not.toContain("watching");
   expect(container.querySelector('[data-testid="scrolling-tags"]')).toBeNull();
+  expect(container.textContent).toContain("Final Fantasy XI Online");
   expect(container.textContent).not.toContain("Repeated content warnings");
   for (const tag of tags)
     expect(container.textContent).toContain(
@@ -383,7 +393,7 @@ it("opens a compact summary into creator, full title and all tags, then closes i
     '[aria-label="Collapse stream info"]',
   )!;
   await act(async () => collapse.click());
-  expect(container.querySelector('[aria-label="Stream info"]')).not.toBeNull();
+  expect(container.querySelector('[aria-label^="Stream info"]')).not.toBeNull();
   expect(
     container
       .querySelector('[aria-label="Expand stream info"]')
@@ -403,6 +413,10 @@ it.each([0, 3, null])(
     });
     await render(true);
     expectNotLive();
+    const summary = container.querySelector('[aria-label^="Stream info"]')!;
+    expect(summary.textContent?.includes("here")).toBe(presence !== null);
+    if (presence !== null)
+      expect(summary.textContent).toContain(`${presence} here`);
     const expand = container.querySelector<HTMLButtonElement>(
       '[aria-label="Expand stream info"]',
     )!;
@@ -428,3 +442,16 @@ it("does not show disconnected presence in the compact panel", async () => {
   );
   expect(container.textContent).not.toContain("here");
 });
+
+it.each([false, true])(
+  "keeps the follow entry point visible when signed out (compact=%s)",
+  async (compact) => {
+    fixture.did = null;
+    await render(compact);
+    expect(
+      [...container.querySelectorAll("button")].some(
+        (button) => button.textContent === "Follow",
+      ),
+    ).toBe(true);
+  },
+);

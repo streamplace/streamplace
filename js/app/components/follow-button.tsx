@@ -1,3 +1,4 @@
+import { useRoute } from "@react-navigation/native";
 import {
   Button,
   Icon,
@@ -43,8 +44,12 @@ const FollowButton: React.FC<FollowButtonProps> = ({
   const { theme } = useTheme();
   const { t } = useTranslation("common");
   const streamplaceUrl = useStreamplaceUrl();
+  const route = useRoute();
+  const openLoginModal = useStore((state) => state.openLoginModal);
   const followUser = useStore((state) => state.followUser);
   const unfollowUser = useStore((state) => state.unfollowUser);
+  const following = !!currentUserDID && isFollowing === true;
+  const checkingFollow = !!currentUserDID && isFollowing === null;
 
   // Fetch initial follow state using xrpc
   useEffect(() => {
@@ -92,14 +97,17 @@ const FollowButton: React.FC<FollowButtonProps> = ({
   }, [currentUserDID, streamerDID, streamplaceUrl]);
 
   useEffect(() => {
-    if (iconOnly && error)
+    if (iconOnly && currentUserDID && error)
       toast.show(t("follow-update-failed"), error, { variant: "error" });
-  }, [iconOnly, error, t]);
+  }, [iconOnly, currentUserDID, error, t]);
 
-  // Hide button if not logged in or viewing own stream
-  if (!currentUserDID || currentUserDID === streamerDID) return null;
+  if (currentUserDID === streamerDID) return null;
 
   const handleFollow = async () => {
+    if (!currentUserDID) {
+      openLoginModal({ name: route.name, params: route.params });
+      return;
+    }
     setError(null);
     setUpdating(true);
     setIsFollowing(true); // Optimistic
@@ -146,38 +154,38 @@ const FollowButton: React.FC<FollowButtonProps> = ({
     >
       {iconOnly ? (
         <IconButton
-          accessibilityLabel={t(isFollowing ? "unfollow" : "follow")}
-          accessibilityState={{ selected: isFollowing === true }}
-          onPress={isFollowing ? handleUnfollow : handleFollow}
-          loading={isFollowing === null || updating}
+          accessibilityLabel={t(following ? "unfollow" : "follow")}
+          accessibilityState={{ selected: following }}
+          onPress={following ? handleUnfollow : handleFollow}
+          loading={!!currentUserDID && (checkingFollow || updating)}
         >
-          {isFollowing === null ? (
+          {checkingFollow ? (
             <Loader size="small" />
           ) : (
-            <Icon icon={isFollowing ? Check : Plus} size="md" />
+            <Icon icon={following ? Check : Plus} size="md" />
           )}
         </IconButton>
       ) : (
         <Button
-          onPress={isFollowing ? handleUnfollow : handleFollow}
-          variant={isFollowing ? "secondary" : "primary"}
+          onPress={following ? handleUnfollow : handleFollow}
+          variant={following ? "secondary" : "primary"}
           size="pill"
           width="min"
-          disabled={isFollowing === null}
-          loading={isFollowing === null || updating}
-          leftIcon={!isFollowing && <Icon icon={Plus} size="sm" />}
+          disabled={checkingFollow}
+          loading={!!currentUserDID && (checkingFollow || updating)}
+          leftIcon={!following && <Icon icon={Plus} size="sm" />}
           hoverStyle={
-            isFollowing ? { backgroundColor: theme.colors.danger } : undefined
+            following ? { backgroundColor: theme.colors.danger } : undefined
           }
         >
-          {isFollowing === null
+          {checkingFollow
             ? t("loading")
-            : isFollowing
+            : following
               ? t("following")
               : t("follow")}
         </Button>
       )}
-      {!iconOnly && error && (
+      {!iconOnly && currentUserDID && error && (
         <Text style={[{ color: theme.colors.danger }, zero.ml[2]]}>
           {error}
         </Text>

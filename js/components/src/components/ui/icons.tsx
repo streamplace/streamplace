@@ -38,10 +38,9 @@ export function Icon({
   color,
   ...restProps
 }: { icon: IconSource } & IconProps) {
-  const { theme } = useTheme();
+  const { icons } = useTheme();
   const iconSize = typeof size === "number" ? size : sizeMap[size];
-  const iconColor =
-    color || theme.colors[variant] || theme.colors.secondaryForeground;
+  const iconColor = color || icons.color[variant];
 
   // Theme text colors carry alpha. Composite it once after the SVG paths
   // are drawn, so intersecting strokes keep the same visual weight.

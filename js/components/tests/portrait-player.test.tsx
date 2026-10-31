@@ -199,6 +199,9 @@ vi.mock(
   () => import("../../app/components/mobile/desktop-ui/bottom-controls"),
 );
 vi.mock("../../app/components/mobile/desktop-ui/mu", () => ({ Mu: View }));
+vi.mock("../../app/components/mobile/live-stats", () => ({
+  LiveStats: () => <span>Live viewers</span>,
+}));
 vi.mock("react-native-edge-to-edge", () => ({
   SystemBars: { setHidden() {} },
 }));
@@ -485,6 +488,27 @@ it("keeps playback controls discoverable with a screen reader enabled", async ()
   )!;
   expect(canPress(controls)).toBe(true);
 });
+
+it.each(["ios", "web"])(
+  "fades and reveals the live readout with the %s player controls",
+  async (platform) => {
+    vi.useFakeTimers();
+    fixture.platform = platform;
+    fixture.rendition = "source";
+    const { MobileUi } = await vi.importActual<
+      typeof import("../../app/components/mobile/ui")
+    >("../../app/components/mobile/ui");
+    await act(async () => root.render(<MobileUi hideMobileChat />));
+    const readout = [...container.querySelectorAll("span")].find(
+      (node) => node.textContent === "Live viewers",
+    )!;
+    expect(canPress(readout)).toBe(true);
+    await act(async () => vi.advanceTimersByTime(6100));
+    expect(canPress(readout)).toBe(false);
+    await act(async () => fixture.tap({}, true));
+    expect(canPress(readout)).toBe(true);
+  },
+);
 
 it.each(["live", "vod"])(
   "fades web %s controls despite the screen-reader API's constant true result",

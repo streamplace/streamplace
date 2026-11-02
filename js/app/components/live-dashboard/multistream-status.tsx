@@ -16,6 +16,7 @@ import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc"
 import { Plus } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Platform } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -23,6 +24,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
+import { getStreamplaceNavigationAction } from "src/linking-config";
 import { place } from "streamplace";
 
 const { flex, p, gap, layout, bg, borders, text, r } = zero;
@@ -38,6 +40,8 @@ export default function MultistreamStatus() {
   const { t } = useTranslation("settings");
   const [targets, setTargets] = useState<MultistreamTargetViewHydrated[]>([]);
   const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState(false);
+  const [toggleErrors, setToggleErrors] = useState<Set<string>>(new Set());
   const [togglingTargets, setTogglingTargets] = useState<Set<string>>(
     new Set(),
   );
@@ -72,9 +76,14 @@ export default function MultistreamStatus() {
         { limit: 50 },
       );
       setTargets(targetViews.targets as MultistreamTargetViewHydrated[]);
+      setListError(false);
     } catch (error) {
-      console.error("Failed to load multistream targets:", error);
-      setTargets([]);
+      if (Platform.OS === "web") {
+        setListError(true);
+      } else {
+        console.error("Failed to load multistream targets:", error);
+        setTargets([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -85,16 +94,40 @@ export default function MultistreamStatus() {
       if (!agent) return;
       try {
         setTogglingTargets((prev) => new Set(prev).add(target.uri));
-        await agent.client.call(place.stream.multistream.putTarget, {
-          multistreamTarget: {
-            ...target.record,
-            active: newActiveState,
+        if (Platform.OS === "web") {
+          setToggleErrors((prev) => {
+            const next = new Set(prev);
+            next.delete(target.uri);
+            return next;
+          });
+        }
+        const updated = await agent.client.call(
+          place.stream.multistream.putTarget,
+          {
+            multistreamTarget: {
+              ...target.record,
+              active: newActiveState,
+            },
+            rkey: target.uri.split("/").pop() || "",
           },
-          rkey: target.uri.split("/").pop() || "",
-        });
-        await loadTargets();
+        );
+        if (Platform.OS === "web") {
+          setTargets((previous) =>
+            previous.map((item) =>
+              item.uri === target.uri
+                ? (updated as MultistreamTargetViewHydrated)
+                : item,
+            ),
+          );
+        } else {
+          await loadTargets();
+        }
       } catch (error) {
-        console.error("Failed to toggle multistream target:", error);
+        if (Platform.OS === "web") {
+          setToggleErrors((previous) => new Set(previous).add(target.uri));
+        } else {
+          console.error("Failed to toggle multistream target:", error);
+        }
       } finally {
         setTogglingTargets((prev) => {
           const newSet = new Set(prev);
@@ -109,9 +142,6 @@ export default function MultistreamStatus() {
   useEffect(() => {
     loadTargets();
   }, [loadTargets]);
-
-  const activeTargets = targets.filter((t) => t.record.active);
-  const inactiveTargets = targets.filter((t) => !t.record.active);
 
   const getTargetName = (target: MultistreamTargetViewHydrated) => {
     if (target.record.name) return target.record.name;
@@ -161,11 +191,25 @@ export default function MultistreamStatus() {
         { borderColor: borderAlphas.dark.strong },
       ]}
     >
+      {listError && (
+        <View style={[p[4], gap.all[2], { alignItems: "flex-start" }]}>
+          <Text color="destructive">Could not load destinations</Text>
+          <Button
+            size="sm"
+            width="min"
+            variant="secondary"
+            onPress={loadTargets}
+            disabled={loading || togglingTargets.size > 0}
+          >
+            Retry
+          </Button>
+        </View>
+      )}
       {loading && targets.length === 0 ? (
         <View style={[p[4]]}>
           <Loader size="small" />
         </View>
-      ) : targets.length === 0 ? (
+      ) : targets.length === 0 && !listError ? (
         <View style={[p[4], { gap: 12, alignItems: "flex-start" }]}>
           <View style={{ gap: 2 }}>
             <Text
@@ -186,16 +230,23 @@ export default function MultistreamStatus() {
             width="min"
             variant="secondary"
             leftIcon={<Plus size={14} />}
-            onPress={() =>
-              (navigation as any).navigate("SettingsTab", {
-                screen: "MultistreamCategory",
-              })
-            }
+            onPress={() => {
+              if (Platform.OS === "web") {
+                const action = getStreamplaceNavigationAction(
+                  "/settings/streaming/multistream",
+                );
+                if (action) navigation.dispatch(action);
+              } else {
+                (navigation as any).navigate("SettingsTab", {
+                  screen: "MultistreamCategory",
+                });
+              }
+            }}
           >
             Add destination
           </Button>
         </View>
-      ) : (
+      ) : targets.length > 0 ? (
         <View style={[p[3], gap.all[2]]}>
           {targets.map((target) => (
             <View
@@ -204,6 +255,7 @@ export default function MultistreamStatus() {
                 layout.flex.row,
                 layout.flex.alignCenter,
                 layout.flex.spaceBetween,
+                Platform.OS === "web" ? gap.all[2] : {},
                 p[2],
                 { backgroundColor: surfaces.dark[2] },
                 r.md,
@@ -211,36 +263,66 @@ export default function MultistreamStatus() {
                 { borderColor: borderAlphas.dark.strong },
               ]}
             >
-              <View style={[flex.values[1]]}>
+              <View
+                style={[
+                  flex.values[1],
+                  Platform.OS === "web" ? { minWidth: 0 } : {},
+                ]}
+              >
                 <View
-                  style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+                  style={
+                    Platform.OS === "web"
+                      ? [layout.flex.column]
+                      : [layout.flex.row, layout.flex.alignCenter, gap.all[2]]
+                  }
                 >
-                  <Text>{getTargetName(target)}</Text>
+                  <Text numberOfLines={Platform.OS === "web" ? 1 : undefined}>
+                    {getTargetName(target)}
+                  </Text>
                   {target.record.name && getTargetHostname(target) && (
-                    <Text color="muted">{getTargetHostname(target)}</Text>
+                    <Text
+                      color="muted"
+                      numberOfLines={Platform.OS === "web" ? 1 : undefined}
+                    >
+                      {getTargetHostname(target)}
+                    </Text>
                   )}
                 </View>
-                {target.latestEvent && (
+                {(target.latestEvent ||
+                  (Platform.OS === "web" && !target.record.active)) && (
                   <Animated.Text
                     style={[
                       getStatusColor(target),
                       { fontSize: 11 },
-                      target.latestEvent.status === "pending" && animatedStyle,
+                      (Platform.OS !== "web" || target.record.active) &&
+                        target.latestEvent?.status === "pending" &&
+                        animatedStyle,
                     ]}
                   >
-                    {target.latestEvent.status}
+                    {Platform.OS === "web" && !target.record.active
+                      ? t("inactive")
+                      : target.latestEvent?.status}
                   </Animated.Text>
+                )}
+                {toggleErrors.has(target.uri) && (
+                  <Text color="destructive">Could not update destination</Text>
                 )}
               </View>
               <Switch
                 value={target.record.active}
+                accessibilityLabel={
+                  Platform.OS === "web" ? getTargetName(target) : undefined
+                }
                 onValueChange={(active) => toggleTarget(target, active)}
-                disabled={togglingTargets.has(target.uri)}
+                disabled={
+                  togglingTargets.has(target.uri) ||
+                  (Platform.OS === "web" && loading)
+                }
               />
             </View>
           ))}
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

@@ -11,7 +11,8 @@ export function useLiveDashboardStatus() {
   const hasReceivedSegment = useLivestreamStore(
     (state) => state.hasReceivedSegment,
   );
-  const { now, connectionQuality } = useSegmentTiming();
+  const { now, connectionQuality, timeBetweenSegments, segmentDeltas } =
+    useSegmentTiming();
 
   return {
     ...deriveLivestreamStatus(
@@ -19,6 +20,8 @@ export function useLiveDashboardStatus() {
       now,
     ),
     connectionQuality,
+    timeBetweenSegments,
+    hasTimingReadings: segmentDeltas.length > 0,
   };
 }
 

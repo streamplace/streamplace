@@ -10,7 +10,7 @@ const { flex, bg, r, borders, p, px, py, text, layout } = zero;
 interface ChatPanelProps {
   isLive: boolean;
   isConnected: boolean;
-  messagesPerMinute?: number;
+  messagesPerMinute?: number | null;
   shownMessages?: number;
   emojiData?: any;
   emojiPicker?: (
@@ -60,7 +60,7 @@ export default function ChatPanel({
             ]}
           />
           <Text style={[text.gray[400], { fontSize: 12, marginLeft: 8 }]}>
-            {messagesPerMinute} msg/min
+            {messagesPerMinute ?? "—"} msg/min
           </Text>
         </View>
       </View>

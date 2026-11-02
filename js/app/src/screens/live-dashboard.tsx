@@ -9,6 +9,7 @@ import {
   useUrl,
 } from "@streamplace/components";
 import CreatorDashboard from "components/live-dashboard/creator-dashboard";
+import CreatorMetricsProvider from "components/live-dashboard/creator-metrics-provider";
 import Loading from "components/loading/loading";
 import { VideoElementProvider } from "contexts/VideoElementContext";
 import { ReactNode, useCallback, useEffect, useState } from "react";
@@ -55,7 +56,9 @@ export default function LiveDashboard({ children }: { children?: ReactNode }) {
       src={userProfile.did}
       ignoreOuterContext
     >
-      {children ?? <LiveDashboardView />}
+      <CreatorMetricsProvider>
+        {children ?? <LiveDashboardView />}
+      </CreatorMetricsProvider>
     </LivestreamProvider>
   );
 }

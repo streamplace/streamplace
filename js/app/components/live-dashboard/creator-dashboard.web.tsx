@@ -1,19 +1,15 @@
-import {
-  Dashboard,
-  useLivestreamStore,
-  useProfile,
-  useTheme,
-} from "@streamplace/components";
+import { Dashboard, useProfile, useTheme } from "@streamplace/components";
 import {
   ProblemsWrapper,
   ProblemsWrapperRef,
 } from "@streamplace/components/src/components/dashboard/problems";
 import { breakpoints } from "@streamplace/components/src/lib/theme/tokens";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
-import { useLiveDashboardStatus } from "hooks/useLiveDashboardStatus";
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import { ScrollView, useWindowDimensions, View } from "react-native";
 import { useEmojiData } from "utils/emoji";
+import CreatorHealth from "./creator-health.web";
+import { useCreatorMetrics } from "./creator-metrics-provider.web";
 import LivestreamPanel from "./livestream-panel";
 import MultistreamStatus from "./multistream-status";
 import StreamMonitor from "./stream-monitor";
@@ -22,18 +18,11 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   const { theme } = useTheme();
   const { width, height } = useWindowDimensions();
   const stacked = width < breakpoints.xl;
-  const status = useLiveDashboardStatus();
+  const { status, history } = useCreatorMetrics();
   const profile = useProfile();
-  const chat = useLivestreamStore((state) => state.chat);
   const emojiData = useEmojiData();
   const problemsRef = useRef<ProblemsWrapperRef>(null);
-  const messagesPerMinute = useMemo(() => {
-    const cutoff = Date.now() - 60_000;
-    return (
-      chat?.filter((message) => new Date(message.indexedAt).getTime() > cutoff)
-        .length ?? 0
-    );
-  }, [chat]);
+  const messagesPerMinute = history[history.length - 1]?.chatRate ?? null;
   const spacing = theme.spacing[4];
 
   return (
@@ -82,9 +71,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                   : { flex: 2, minHeight: 0 }
               }
             >
-              <Dashboard.InformationWidget
-                readingsStale={status.readingsStale}
-                connectionQuality={status.connectionQuality}
+              <CreatorHealth
                 onShowProblems={() => problemsRef.current?.setDismiss(false)}
               />
             </View>

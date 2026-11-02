@@ -111,9 +111,12 @@ it("ages a live reading without another store event and releases its clock", asy
 it("degrades segment quality when arrivals stall", async () => {
   store.setState({ livestream: { record: { title: "Live" } } as any });
   await render(<Status />);
+  expect(status.hasTimingReadings).toBe(false);
   await emit();
+  expect(status.hasTimingReadings).toBe(false);
   await act(async () => vi.advanceTimersByTime(1000));
   await emit();
+  expect(status.hasTimingReadings).toBe(true);
   expect(status.connectionQuality).toBe("good");
   await act(async () => vi.advanceTimersByTime(4000));
   expect(status.connectionQuality).toBe("poor");

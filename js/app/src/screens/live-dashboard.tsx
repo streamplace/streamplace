@@ -1,14 +1,19 @@
 import { useIsFocused, useRoute } from "@react-navigation/native";
 import {
+  Button,
   LivestreamProvider,
   PlayerProvider,
+  Text,
   useStreamplaceStore,
+  useTheme,
   useUrl,
 } from "@streamplace/components";
-import BentoGrid from "components/live-dashboard/bento-grid";
+import CreatorDashboard from "components/live-dashboard/creator-dashboard";
 import Loading from "components/loading/loading";
 import { VideoElementProvider } from "contexts/VideoElementContext";
 import { ReactNode, useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Platform, View } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
 
@@ -30,6 +35,16 @@ export default function LiveDashboard({ children }: { children?: ReactNode }) {
 
   if (!isFocused) return null;
 
+  if (ready && !userProfile && Platform.OS === "web") {
+    return (
+      <DashboardLoginPrompt
+        onLogin={() =>
+          openLoginModal({ name: route.name, params: route.params })
+        }
+      />
+    );
+  }
+
   if (!ready || !userProfile || oauthSession?.did !== userProfile.did) {
     return <Loading />;
   }
@@ -45,6 +60,32 @@ export default function LiveDashboard({ children }: { children?: ReactNode }) {
   );
 }
 
+function DashboardLoginPrompt({ onLogin }: { onLogin: () => void }) {
+  const { theme } = useTheme();
+  const { t } = useTranslation("common");
+  return (
+    <View
+      style={{
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        gap: theme.spacing[4],
+        padding: theme.spacing[4],
+        backgroundColor: theme.colors.surface0,
+      }}
+    >
+      <Text>
+        {t("creator-login-required", {
+          defaultValue: "Log in to access the creator dashboard.",
+        })}
+      </Text>
+      <Button width="min" onPress={onLogin}>
+        {t("log-in")}
+      </Button>
+    </View>
+  );
+}
+
 export function LiveDashboardView() {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
@@ -56,7 +97,7 @@ export function LiveDashboardView() {
   return (
     <VideoElementProvider videoElement={videoElement}>
       <PlayerProvider>
-        <BentoGrid videoRef={videoRef} />
+        <CreatorDashboard videoRef={videoRef} />
       </PlayerProvider>
     </VideoElementProvider>
   );

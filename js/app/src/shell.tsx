@@ -9,7 +9,6 @@ import {
   NativeStackNavigationOptions,
 } from "@react-navigation/native-stack";
 import {
-  Button,
   Text,
   useAccentColor,
   useBrandingSettled,
@@ -24,6 +23,7 @@ import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
 import { Settings } from "components";
 import { SiteTitleLockup, useNodeTitle } from "components/brand/logo";
 import { LogoBrandMenu } from "components/brand/logo-brand-menu";
+import CreatorChrome from "components/live-dashboard/creator-chrome";
 import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
 import PdsHostSelectorModal from "components/login/pds-host-selector-modal";
@@ -110,15 +110,17 @@ const CreatorStack = createNativeStackNavigator<CreatorStackParamList>();
 
 function CreatorNavigator() {
   return (
-    <LiveDashboard>
-      <CreatorStack.Navigator screenOptions={{ headerShown: false }}>
-        <CreatorStack.Screen
-          name="CreatorControlPanel"
-          component={LiveDashboardView}
-          options={{ title: "Creator dashboard" }}
-        />
-      </CreatorStack.Navigator>
-    </LiveDashboard>
+    <CreatorChrome>
+      <LiveDashboard>
+        <CreatorStack.Navigator screenOptions={{ headerShown: false }}>
+          <CreatorStack.Screen
+            name="CreatorControlPanel"
+            component={LiveDashboardView}
+            options={{ title: "Creator dashboard" }}
+          />
+        </CreatorStack.Navigator>
+      </LiveDashboard>
+    </CreatorChrome>
   );
 }
 
@@ -730,6 +732,9 @@ export default function Shell() {
   // A video page reports itself while mounted (the front door showing the
   // default video is one the route name doesn't reveal).
   const videoPage = useStore((state) => state.videoPage);
+  const isCreator =
+    currentRouteName === "Creator" ||
+    currentRouteName === "CreatorControlPanel";
   const isDetailView =
     currentRouteName === "Stream" ||
     currentRouteName === "Video" ||
@@ -771,8 +776,8 @@ export default function Shell() {
   return (
     <View style={{ flex: 1 }}>
       <StatusBar barStyle="light-content" />
-      {!isNative && <SidebarOverlay />}
-      {!isNative && <MobileAppBanner />}
+      {!isNative && !isCreator && <SidebarOverlay />}
+      {!isNative && !isCreator && <MobileAppBanner />}
       <Animated.View style={[{ flex: 1 }, animatedContentStyle]}>
         <RootStack.Navigator
           screenOptions={{
@@ -806,27 +811,7 @@ export default function Shell() {
             <RootStack.Screen
               name="Creator"
               component={CreatorNavigator}
-              options={{
-                title: "Creator dashboard",
-                headerTitle: "",
-                headerLeft: () =>
-                  sidebar.isActive ? (
-                    <NavigationButton />
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      width="min"
-                      onPress={() =>
-                        navigation.navigate("MainTabs", {
-                          screen: "HomeTab",
-                          params: { screen: "HomeMain" },
-                        })
-                      }
-                    >
-                      Home
-                    </Button>
-                  ),
-              }}
+              options={{ headerShown: false }}
             />
           )}
 
@@ -909,7 +894,7 @@ export default function Shell() {
         </RootStack.Navigator>
       </Animated.View>
       {/* Scrim behind the overlay drawer (detail views only) */}
-      {!isNative && (
+      {!isNative && !isCreator && (
         <AnimatedPressable
           accessibilityLabel="Close menu"
           pointerEvents={
@@ -933,6 +918,7 @@ export default function Shell() {
       {/* Header cluster on detail views: hamburger + logo, sitting exactly where
           the drawer's brand row will appear so it stays put as the drawer opens. */}
       {!isNative &&
+        !isCreator &&
         sidebar.isActive &&
         sidebar.overlay &&
         !sidebar.drawerOpen && (

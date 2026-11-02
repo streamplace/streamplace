@@ -35,6 +35,7 @@ vi.mock("@react-navigation/native", () => ({
   }),
   useIsFocused: () => session.focused,
 }));
+vi.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 vi.mock("@streamplace/components", async () => ({
   ...(await import("../src/livestream-provider")),
   PlayerProvider: ({ children }: { children: ReactNode }) => children,

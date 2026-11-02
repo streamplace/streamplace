@@ -34,11 +34,10 @@ test("creator host: login return, restored session, and socket lifetime", async 
   await expect(chat).toHaveValue("Unsent creator draft");
   expect(sockets.size).toBe(1);
 
-  await page.getByRole("button", { name: "Open menu", exact: true }).click();
   await expect(
-    page.getByRole("link", { name: "Live streaming", exact: true }),
+    page.getByRole("link", { name: /^control panel$/i }),
   ).toHaveAttribute("aria-current", "page");
-  await page.getByRole("link", { name: "Home", exact: true }).click();
+  await page.getByRole("link", { name: "Back to Streamplace" }).click();
   await expect.poll(() => sockets.size).toBe(0);
   await page.goBack();
   await expect(form).toBeVisible();
@@ -55,7 +54,8 @@ test("creator host: login return, restored session, and socket lifetime", async 
   await expect.poll(() => sockets.size).toBe(1);
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Home", exact: true }).click();
+  await page.getByRole("button", { name: "Open creator navigation" }).click();
+  await page.getByRole("link", { name: "Back to Streamplace" }).click();
   await expect(page).toHaveURL(`${url}/`);
   await expect.poll(() => sockets.size).toBe(0);
   await page.goBack();

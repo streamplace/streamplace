@@ -5,6 +5,7 @@ import {
   type APIRequestContext,
   type Page,
 } from "@playwright/test";
+import { loginThroughPds } from "./login";
 
 // The web chat row renders the handle, the colon and the message as one inline
 // flow. The trigger box around the handle could not shrink, so it stayed at its
@@ -231,4 +232,49 @@ test("chat-long-handle: an unbreakable word in the body stays inside the column"
   }
 
   await pds.dispose();
+});
+
+test("creator phone chat keeps a long handle and its colon inside the column", async ({
+  page,
+}) => {
+  const message = `creator phone handle ${Date.now()}`;
+  const author = await seedLongHandleMessage(message);
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginThroughPds(page);
+    await page.goto(`${process.env.SERVER_HTTPS_URL}/dashboard`);
+    const list = page.getByTestId("chat-list").first();
+    await expect(list.getByText(message, { exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expectNoHorizontalOverflow(page);
+    const trigger = list
+      .getByTestId(`chat-profile-trigger-${author.handle}`)
+      .first();
+    const handle = trigger.getByText(`@${author.handle}`, { exact: true });
+    const colon = trigger.getByText(":", { exact: true });
+    const [handleBox, colonBox, listBox] = await Promise.all([
+      handle.boundingBox(),
+      colon.boundingBox(),
+      list.boundingBox(),
+    ]);
+    expect(handleBox).not.toBeNull();
+    expect(colonBox).not.toBeNull();
+    expect(listBox).not.toBeNull();
+    expect(
+      await handle.evaluate((el) => getComputedStyle(el).textOverflow),
+    ).toBe("ellipsis");
+    expect(handleBox!.x + handleBox!.width).toBeLessThanOrEqual(
+      listBox!.x + listBox!.width + 1,
+    );
+    expect(colonBox!.x + colonBox!.width).toBeLessThanOrEqual(
+      listBox!.x + listBox!.width + 1,
+    );
+    expect(Math.abs(colonBox!.y - handleBox!.y)).toBeLessThan(
+      handleBox!.height,
+    );
+  } finally {
+    await author.cleanup();
+    await author.pds.dispose();
+  }
 });

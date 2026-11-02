@@ -4,6 +4,8 @@
  */
 
 import {
+  CommonActions,
+  getActionFromState,
   getStateFromPath,
   LinkingOptions,
   NavigationState,
@@ -293,4 +295,14 @@ export function getStreamplaceStateFromPath(path: string) {
     throw new Error(`Invalid path: ${path}`);
   }
   return ret;
+}
+
+export function getStreamplaceNavigationAction(path: string) {
+  const action = getActionFromState(
+    getStreamplaceStateFromPath(path),
+    streamplaceLinkingOptions.config,
+  );
+  return action?.type === "NAVIGATE"
+    ? CommonActions.navigate({ ...action.payload, pop: false })
+    : action;
 }

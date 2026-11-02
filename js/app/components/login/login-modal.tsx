@@ -1,5 +1,6 @@
 import { Text, useTheme, zero } from "@streamplace/components";
 import { X } from "lucide-react-native";
+import { useEffect } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -22,6 +23,15 @@ export default function LoginModal({
   onOpenPdsModal,
 }: LoginModalProps) {
   const { theme } = useTheme();
+
+  useEffect(() => {
+    if (!visible || Platform.OS !== "web") return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [visible, onClose]);
 
   if (!visible) {
     return null;
@@ -81,6 +91,8 @@ export default function LoginModal({
               Log in
             </Text>
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Close login"
               onPress={onClose}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >

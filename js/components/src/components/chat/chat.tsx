@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { Keyboard, Platform, Pressable } from "react-native";
 import { FlatList } from "react-native-gesture-handler";
 import Swipeable, {
@@ -38,6 +39,7 @@ import {
   View,
 } from "../../";
 import {
+  borders,
   flex,
   gap,
   layout,
@@ -118,12 +120,21 @@ const keyExtractor = (item: ChatMessageViewHydrated, index: number) => {
 // than letting a gone row linger a moment longer.
 const FadedRow = ({
   opacity,
+  focused,
+  setFocused,
+  focusable,
+  focusColor,
+  testID,
   children,
 }: {
   opacity: number;
+  focused: boolean;
+  setFocused: (focused: boolean) => void;
+  focusable?: boolean;
+  focusColor?: string;
+  testID?: string;
   children: ReactNode;
 }) => {
-  const [focused, setFocused] = useState(false);
   const faded = opacity === 0 && !focused;
   if (Platform.OS !== "web") {
     return (
@@ -138,11 +149,18 @@ const FadedRow = ({
   }
   return (
     <div
+      data-testid={testID}
+      tabIndex={focusable ? 0 : undefined}
       inert={faded}
       aria-hidden={faded || undefined}
       style={{
         opacity: focused ? 1 : opacity,
         pointerEvents: faded ? "none" : undefined,
+        outline:
+          focused && focusColor
+            ? `${borders.width.medium.borderWidth}px solid ${focusColor}`
+            : undefined,
+        outlineOffset: borders.width.medium.borderWidth,
       }}
       onFocus={() => setFocused(true)}
       onBlur={(event) => {
@@ -171,6 +189,7 @@ const ActionsBar = memo(
   }) => {
     const setReply = useSetReplyToMessage();
     const { theme } = useTheme();
+    const { t } = useTranslation("common");
 
     if (!visible) return null;
 
@@ -195,6 +214,8 @@ const ActionsBar = memo(
         ]}
       >
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("chat-reply-to-message")}
           onPress={() => setReply(item)}
           style={[
             {
@@ -218,6 +239,7 @@ const ActionsBar = memo(
         <DropdownMenu onOpenChange={onMenuOpenChange}>
           <DropdownMenuTrigger asChild>
             <Pressable
+              accessibilityRole="button"
               accessibilityLabel="Message actions"
               style={[
                 {
@@ -257,6 +279,7 @@ const ChatLine = memo(function ChatLine({
   const setModMsg = usePlayerStore((state) => state.setModMessage);
   const swipeableRef = useRef<SwipeableMethods | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -284,7 +307,7 @@ const ChatLine = memo(function ChatLine({
 
   if (item.author.did === "did:sys:system") {
     return (
-      <FadedRow opacity={opacity}>
+      <FadedRow opacity={opacity} focused={focused} setFocused={setFocused}>
         <SystemMessage
           variant={getSystemMessageType(item) || SystemMessageType.notification}
           timestamp={new Date(item.record.createdAt)}
@@ -297,7 +320,14 @@ const ChatLine = memo(function ChatLine({
 
   if (Platform.OS === "web") {
     return (
-      <FadedRow opacity={opacity}>
+      <FadedRow
+        opacity={opacity}
+        focused={focused}
+        setFocused={setFocused}
+        focusable
+        focusColor={theme.colors.focus}
+        testID={`chat-message-${item.uri}`}
+      >
         <View
           style={[
             py[1],
@@ -321,7 +351,7 @@ const ChatLine = memo(function ChatLine({
           </View>
           <ActionsBar
             item={item}
-            visible={isHovered || menuOpen}
+            visible={isHovered || focused || menuOpen}
             hoverTimeoutRef={hoverTimeoutRef}
             onMenuOpenChange={setMenuOpen}
           />
@@ -331,7 +361,7 @@ const ChatLine = memo(function ChatLine({
   }
 
   return (
-    <FadedRow opacity={opacity}>
+    <FadedRow opacity={opacity} focused={focused} setFocused={setFocused}>
       <Swipeable
         containerStyle={[{ paddingVertical: 6 }]}
         friction={2}

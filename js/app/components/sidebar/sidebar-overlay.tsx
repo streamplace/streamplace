@@ -1,9 +1,4 @@
-import {
-  CommonActions,
-  getActionFromState,
-  getPathFromState,
-  useNavigation,
-} from "@react-navigation/native";
+import { getPathFromState, useNavigation } from "@react-navigation/native";
 import {
   Button,
   Text,
@@ -49,6 +44,7 @@ import { Linking, Platform, Pressable, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { SvgXml } from "react-native-svg";
 import {
+  getStreamplaceNavigationAction,
   getStreamplaceStateFromPath,
   streamplaceLinkingOptions,
 } from "src/linking-config";
@@ -526,17 +522,10 @@ export function SidebarOverlay() {
 
   const navigate = (href: string) => {
     closeDrawer();
-    const action = getActionFromState(
-      getStreamplaceStateFromPath(href),
-      streamplaceLinkingOptions.config,
-    );
+    const action = getStreamplaceNavigationAction(href);
     if (!action) return;
     // Sidebar links add a visit so browser Back returns to the previous page.
-    navigation.dispatch(
-      action.type === "NAVIGATE"
-        ? CommonActions.navigate({ ...action.payload, pop: false })
-        : action,
-    );
+    navigation.dispatch(action);
   };
 
   // Quiet section label, Linear-style: title case, same 14px size as its items

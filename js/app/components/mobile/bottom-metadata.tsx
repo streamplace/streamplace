@@ -128,6 +128,7 @@ function FullStreamInfo({
     isLiveMode,
     isLive,
     views,
+    presence,
     tags,
     contentRights,
     handleStr,
@@ -137,6 +138,7 @@ function FullStreamInfo({
   const { theme } = useTheme();
   const { t } = useTranslation("common");
   const [showDetails, setShowDetails] = useState(false);
+  const count = isLive ? views : presence;
 
   const hasRights =
     contentRights?.license ||
@@ -207,9 +209,9 @@ function FullStreamInfo({
                     {streamerName}
                   </Text>
                 </Pressable>
-                {isLive && views !== null && (
+                {isLiveMode && count !== null && (
                   <Text size="xs" color="muted" style={tabularNums}>
-                    {t("watching-count", { count: views })}
+                    {t(isLive ? "watching-count" : "here-count", { count })}
                   </Text>
                 )}
               </View>

@@ -34,7 +34,10 @@ export function useLivestreamWebsocket(src: string) {
     onOpen: () => {
       resetConnection(true);
     },
-    onClose: () => resetConnection(false),
+    onClose: () => {
+      handleWebSocketMessages(ref.current);
+      resetConnection(false);
+    },
 
     onError: (e) => {
       console.log("onError", e);

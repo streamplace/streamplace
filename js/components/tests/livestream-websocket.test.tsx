@@ -52,7 +52,7 @@ it("clears presence when a connection opens or closes", async () => {
   expect(store.getState().websocketConnected).toBe(false);
 });
 
-it("discards queued counts after disconnect rather than restoring stale presence", async () => {
+it("clears queued presence on disconnect without a delayed update restoring it", async () => {
   fixture.options.onMessage({
     data: JSON.stringify({
       $type: "place.stream.livestream#viewerCount",
@@ -65,6 +65,59 @@ it("discards queued counts after disconnect rather than restoring stale presence
   expect(store.getState().presence).toBeNull();
   expect(store.getState().websocketConnected).toBe(false);
 });
+
+it.each(["delete", "hide"])(
+  "applies a queued chat %s before disconnecting and keeps it removed on reconnect",
+  async (removal) => {
+    const message = {
+      $type: "place.stream.chat.defs#messageView",
+      uri: "at://did:plc:author/place.stream.chat.message/test",
+      cid: "bafytest",
+      author: { did: "did:plc:author", handle: "author.example" },
+      indexedAt: new Date().toISOString(),
+      record: {
+        $type: "place.stream.chat.message",
+        text: "A message that must be removed",
+        createdAt: new Date().toISOString(),
+      },
+    };
+    fixture.options.onMessage({ data: JSON.stringify(message) });
+    await act(async () => vi.advanceTimersByTime(250));
+    expect(store.getState().chat.map((chat) => chat.uri)).toEqual([
+      message.uri,
+    ]);
+
+    fixture.options.onMessage({
+      data: JSON.stringify(
+        removal === "delete"
+          ? { ...message, deleted: true }
+          : {
+              $type: "place.stream.chat.gate",
+              hiddenMessage: message.uri,
+              createdAt: new Date().toISOString(),
+            },
+      ),
+    });
+    fixture.options.onMessage({
+      data: JSON.stringify({
+        $type: "place.stream.livestream#viewerCount",
+        count: 7,
+        presence: 5,
+      }),
+    });
+    await act(async () => fixture.options.onClose());
+    expect(store.getState().chat).toEqual([]);
+    expect(store.getState().presence).toBeNull();
+    expect(store.getState().websocketConnected).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+
+    await act(async () => fixture.options.onOpen());
+    await act(async () => vi.advanceTimersByTime(250));
+    expect(store.getState().chat).toEqual([]);
+    expect(store.getState().presence).toBeNull();
+    expect(store.getState().websocketConnected).toBe(true);
+  },
+);
 
 it("cancels queued updates on unmount", async () => {
   fixture.options.onMessage({

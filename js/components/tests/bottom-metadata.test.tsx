@@ -1,4 +1,4 @@
-import { act, createElement } from "react";
+import { act, createElement, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useStore } from "zustand";
@@ -11,6 +11,7 @@ const fixture = vi.hoisted(() => ({
   mode: "live",
   did: "did:plc:viewer" as string | null,
   openURL: vi.fn(),
+  contentHeight: 120,
 }));
 // The store subscriptions, avatar ring, presence expiry and Details state run
 // unchanged; native presentation bindings and unrelated actions are replaced.
@@ -20,16 +21,23 @@ function View({
   accessibilityLabel,
   accessibilityElementsHidden,
   testID,
+  onLayout,
 }: any) {
+  useLayoutEffect(() => {
+    onLayout?.({
+      nativeEvent: { layout: { height: fixture.contentHeight } },
+    });
+  }, [onLayout]);
+  const flattenedStyle = Object.assign({}, ...[style].flat(Infinity));
   return createElement(
     "div",
     {
       "aria-label": accessibilityLabel,
       "data-testid": testID,
       hidden: accessibilityElementsHidden,
-      "data-style": JSON.stringify(
-        Object.assign({}, ...[style].flat(Infinity)),
-      ),
+      "aria-hidden": accessibilityElementsHidden,
+      style: flattenedStyle,
+      "data-style": JSON.stringify(flattenedStyle),
     },
     children,
   );
@@ -61,10 +69,20 @@ vi.mock("react-native", () => ({
 }));
 vi.mock("expo-image", () => ({ Image: () => null }));
 vi.mock("react-native-reanimated", async () => {
-  const { useRef } = await import("react");
+  const { useState } = await import("react");
   return {
     default: { View },
-    useSharedValue: (value: unknown) => useRef({ value }).current,
+    useSharedValue: (value: unknown) => {
+      const [current, setCurrent] = useState(value);
+      return {
+        get value() {
+          return current;
+        },
+        set value(next: unknown) {
+          setCurrent(next);
+        },
+      };
+    },
     useAnimatedStyle: (style: () => unknown) => style(),
     withTiming: (value: unknown) => value,
   };
@@ -165,6 +183,7 @@ beforeEach(() => {
   fixture.mode = "live";
   fixture.did = "did:plc:viewer";
   fixture.openURL.mockClear();
+  fixture.contentHeight = 120;
   fixture.store = makeLivestreamStore();
   fixture.store.setState({
     profile: {
@@ -360,6 +379,8 @@ it("does not offer empty Details when there are no displayable rights", async ()
 
 it("opens a compact summary into creator, full title and all tags, then closes it", async () => {
   await render(true);
+  const panel = container.querySelector<HTMLElement>("[aria-hidden]")!;
+  expect(panel.style.height).toBe("0px");
   const summary = container.querySelector<HTMLButtonElement>(
     '[aria-label^="Stream info"]',
   )!;
@@ -371,6 +392,8 @@ it("opens a compact summary into creator, full title and all tags, then closes i
   )!;
   expect(expand.getAttribute("aria-expanded")).toBe("false");
   await act(async () => expand.click());
+  expect(panel.style.height).toBe("120px");
+  expect(panel.style.opacity).toBe("1");
   const profile = container.querySelector<HTMLButtonElement>(
     '[aria-label="Open profile for @creator.example"]',
   )!;
@@ -387,12 +410,19 @@ it("opens a compact summary into creator, full title and all tags, then closes i
   const details = [...container.querySelectorAll("button")].find(
     (button) => button.textContent === "Stream details",
   )!;
+  fixture.contentHeight = 200;
   await act(async () => details.click());
   expect(container.textContent).toContain("CC BY-NC-SA 4.0");
+  expect(panel.style.height).toBe("200px");
+  fixture.contentHeight = 120;
+  await act(async () => details.click());
+  expect(container.textContent).not.toContain("CC BY-NC-SA");
+  expect(panel.style.height).toBe("120px");
   const collapse = container.querySelector<HTMLButtonElement>(
     '[aria-label="Collapse stream info"]',
   )!;
   await act(async () => collapse.click());
+  expect(panel.style.height).toBe("0px");
   expect(container.querySelector('[aria-label^="Stream info"]')).not.toBeNull();
   expect(
     container
@@ -400,6 +430,37 @@ it("opens a compact summary into creator, full title and all tags, then closes i
       ?.getAttribute("aria-expanded"),
   ).toBe("false");
 });
+
+it.each([0, 3, null])(
+  "shows known offline room presence (%s) in the full panel",
+  async (presence) => {
+    fixture.store!.setState({
+      presence,
+      websocketConnected: true,
+      segment: null,
+    });
+    await render();
+    expectNotLive();
+    expect(container.textContent?.includes("here")).toBe(presence !== null);
+    if (presence !== null)
+      expect(container.textContent).toContain(`${presence} here`);
+  },
+);
+
+it.each([false, true])(
+  "hides offline room presence in the full panel when disconnected or recorded (recording=%s)",
+  async (recording) => {
+    fixture.mode = recording ? "vod" : "live";
+    fixture.store!.setState({
+      presence: 3,
+      websocketConnected: recording,
+      segment: null,
+    });
+    await render();
+    expectNotLive();
+    expect(container.textContent).not.toContain("here");
+  },
+);
 
 it.each([0, 3, null])(
   "uses offline room presence (%s), rather than stale playback viewers",

@@ -113,9 +113,26 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
               flex: stacked ? undefined : 2,
               minWidth: 0,
               minHeight: 0,
+              gap: spacing,
             }}
           >
-            <LivestreamPanel status={status} scrollable={!stacked} />
+            <View style={stacked ? undefined : { flex: 3, minHeight: 0 }}>
+              <LivestreamPanel
+                status={status}
+                scrollable={!stacked}
+                showModerators={false}
+              />
+            </View>
+            <View
+              testID="creator-moderators"
+              style={
+                stacked
+                  ? { height: theme.spacing[16] * 4 }
+                  : { flex: 2, minHeight: 0 }
+              }
+            >
+              <Dashboard.ModeratorPanel isLive={status.incoming === true} />
+            </View>
           </View>
         </View>
       </ScrollView>

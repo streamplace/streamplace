@@ -146,6 +146,10 @@ test("creator status: reconnects without writes and ends only the announcement",
   await page
     .getByRole("button", { name: "End Livestream", exact: true })
     .click();
+  await page
+    .getByRole("dialog", { name: "End livestream?" })
+    .getByRole("button", { name: "End livestream", exact: true })
+    .click();
   await expect(status).toHaveText("Announcement ended");
   await expect(
     page.getByText(

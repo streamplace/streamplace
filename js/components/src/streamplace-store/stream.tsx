@@ -220,6 +220,7 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
     customThumbnail?: Blob,
     activity?: place.stream.livestream.Main["activity"],
     tags?: string[],
+    options?: { canonicalUrl?: string | null; idleTimeoutSeconds?: number },
   ) => {
     if (!agent) {
       throw new Error("No PDS agent found");
@@ -266,6 +267,13 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
       activity: activity,
       tags: tags?.length ? tags : undefined,
     };
+
+    if (options?.canonicalUrl !== undefined) {
+      record.canonicalUrl = (options.canonicalUrl || undefined) as any;
+    }
+    if (options?.idleTimeoutSeconds !== undefined) {
+      record.idleTimeoutSeconds = options.idleTimeoutSeconds;
+    }
 
     await agent.client.put(place.stream.livestream, record, {
       repo: agent.did as any,

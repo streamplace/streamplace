@@ -4,6 +4,8 @@ import {
   Checkbox,
   ContentMetadataForm,
   Dashboard,
+  Dialog,
+  DialogFooter,
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -284,9 +286,11 @@ const ImageUploadComponent = ({
 function LivestreamPanel({
   status,
   scrollable = true,
+  showModerators = true,
 }: {
   status: LiveDashboardStatus;
   scrollable?: boolean;
+  showModerators?: boolean;
 }) {
   const toast = useToast();
   const userIsLive = status.incoming === true;
@@ -298,6 +302,7 @@ function LivestreamPanel({
   const endLivestream = useEndLivestream();
   const url = useUrl();
   const [endingLivestream, setEndingLivestream] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const { t } = useTranslation("settings");
   const { t: common } = useTranslation("common");
   const agent = useStore((state) => state.pdsAgent);
@@ -332,6 +337,7 @@ function LivestreamPanel({
   };
 
   const initializedRef = useRef(false);
+  const editedFields = useRef(new Set<string>());
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<
@@ -354,6 +360,7 @@ function LivestreamPanel({
   const [idleTimeout, setIdleTimeout] = useState(true);
   const [sendPushNotification, setSendPushNotification] = useState(true);
   const [canonicalUrl, setCanonicalUrl] = useState<string>("");
+  const originalOptions = useRef({ canonicalUrl: "", idleTimeout: true });
   const defaultCanonicalUrl = useMemo(() => {
     return `${url}/${profile && formatHandle(profile)}`;
   }, [url, profile?.handle]);
@@ -366,18 +373,27 @@ function LivestreamPanel({
     if (!initializedRef.current) {
       initializedRef.current = true;
 
-      if (livestream.record.title) {
+      if (
+        livestream.record.title &&
+        (!isWeb || !editedFields.current.has("title"))
+      ) {
         setTitle(livestream.record.title);
       }
 
-      if (livestream.record.activity) {
+      if (
+        livestream.record.activity &&
+        (!isWeb || !editedFields.current.has("activity"))
+      ) {
         setActivity(
           livestream.record
             .activity as place.stream.livestream.Main["activity"],
         );
       }
 
-      if (livestream.record.tags) {
+      if (
+        livestream.record.tags &&
+        (!isWeb || !editedFields.current.has("tags"))
+      ) {
         setTags(livestream.record.tags as string[]);
       }
 
@@ -385,21 +401,37 @@ function LivestreamPanel({
         livestream.record.canonicalUrl &&
         !isSameNodeUrl(livestream.record.canonicalUrl, url)
       ) {
-        setCanonicalUrl(livestream.record.canonicalUrl);
+        if (!isWeb || !editedFields.current.has("canonicalUrl")) {
+          setCanonicalUrl(livestream.record.canonicalUrl);
+        }
+        originalOptions.current.canonicalUrl = livestream.record.canonicalUrl;
+      }
+
+      if (isWeb && typeof livestream.record.idleTimeoutSeconds === "number") {
+        const enabled = livestream.record.idleTimeoutSeconds !== 0;
+        if (!editedFields.current.has("idleTimeout")) setIdleTimeout(enabled);
+        originalOptions.current.idleTimeout = enabled;
       }
 
       if (
         typeof livestream.record.notificationSettings?.pushNotification ===
         "boolean"
       ) {
-        setSendPushNotification(
-          livestream.record.notificationSettings.pushNotification,
-        );
+        if (!isWeb || !editedFields.current.has("sendPushNotification")) {
+          setSendPushNotification(
+            livestream.record.notificationSettings.pushNotification,
+          );
+        }
       }
 
-      setCreatePost(typeof livestream.record.post !== "undefined");
+      if (!isWeb || !editedFields.current.has("createPost")) {
+        setCreatePost(typeof livestream.record.post !== "undefined");
+      }
     }
   }, [livestream, url]);
+
+  const updating =
+    isWeb && !!livestream && livestream.record.endedAt === undefined;
 
   const handleModeChange = useCallback(
     (newMode: "create" | "metadata" | "moderation") => {
@@ -417,7 +449,13 @@ function LivestreamPanel({
       let thumbnailToUse = selectedImage;
 
       // Auto-capture frame if no custom thumbnail and we have capture capability
-      if (!thumbnailToUse && mode === "create" && captureFrame && isWeb) {
+      if (
+        !thumbnailToUse &&
+        !updating &&
+        mode === "create" &&
+        captureFrame &&
+        isWeb
+      ) {
         try {
           const capturedFrame = await captureFrame(1280, 0.85);
           if (capturedFrame) {
@@ -428,7 +466,7 @@ function LivestreamPanel({
         }
       }
 
-      if (mode === "create") {
+      if (!updating) {
         await createStreamRecord({
           title: title.trim(),
           customThumbnail: thumbnailToUse as Blob | undefined,
@@ -441,6 +479,7 @@ function LivestreamPanel({
           activity,
           tags,
         });
+        if (isWeb) originalOptions.current = { canonicalUrl, idleTimeout };
       } else {
         await updateStreamRecord(
           title.trim(),
@@ -448,12 +487,22 @@ function LivestreamPanel({
           thumbnailToUse as Blob | undefined,
           activity,
           tags,
+          {
+            ...(canonicalUrl !== originalOptions.current.canonicalUrl
+              ? { canonicalUrl: canonicalUrl || null }
+              : {}),
+            ...(idleTimeout !== originalOptions.current.idleTimeout
+              ? { idleTimeoutSeconds: idleTimeout ? 300 : 0 }
+              : {}),
+          },
         );
+        originalOptions.current = { canonicalUrl, idleTimeout };
       }
 
       // Show success message
-      const toastTitle =
-        mode === "create" ? "Livestream announced" : "Livestream updated";
+      const toastTitle = updating
+        ? "Livestream updated"
+        : "Livestream announced";
 
       toast.show(toastTitle, title.trim(), { duration: 4 });
     } catch (error) {
@@ -467,10 +516,9 @@ function LivestreamPanel({
             ? errorMessage.substring(0, 200) + "..."
             : errorMessage;
 
-        const errorTitle =
-          mode === "create"
-            ? "Error creating livestream"
-            : "Error updating livestream";
+        const errorTitle = updating
+          ? "Error updating livestream"
+          : "Error creating livestream";
 
         toast.show(errorTitle, truncatedError, { duration: 5 });
       } catch (toastError) {
@@ -483,9 +531,19 @@ function LivestreamPanel({
     title,
     selectedImage,
     mode,
+    updating,
     createStreamRecord,
     updateStreamRecord,
     livestream,
+    captureFrame,
+    createPost,
+    canPostToBluesky,
+    sendPushNotification,
+    canonicalUrl,
+    idleTimeout,
+    activity,
+    tags,
+    toast,
   ]);
 
   const handleEndLivestream = useCallback(async () => {
@@ -495,6 +553,7 @@ function LivestreamPanel({
       await endLivestream();
     } catch (error) {
       console.error("Error ending livestream:", error);
+      setEndingLivestream(false);
       toast.show("Error", "Failed to end livestream", {
         duration: 3,
       });
@@ -643,7 +702,9 @@ function LivestreamPanel({
         ) : mode === "moderation" ? (
           // Moderation view
           <View style={[flex.values[1], { minHeight: 400 }]}>
-            <Dashboard.ModeratorPanel isLive={userIsLive} embedded={true} />
+            {showModerators && (
+              <Dashboard.ModeratorPanel isLive={userIsLive} embedded={true} />
+            )}
             <Dashboard.ChatAccessPanel embedded={true} />
           </View>
         ) : (
@@ -658,7 +719,10 @@ function LivestreamPanel({
                 </Text>
                 <Textarea
                   value={title}
-                  onChangeText={setTitle}
+                  onChangeText={(value) => {
+                    editedFields.current.add("title");
+                    setTitle(value);
+                  }}
                   placeholder="Enter your stream title..."
                   maxLength={140}
                   multiline
@@ -697,7 +761,13 @@ function LivestreamPanel({
                 <Text size="sm" color="muted">
                   Activity
                 </Text>
-                <ActivityPicker value={activity} onChange={setActivity} />
+                <ActivityPicker
+                  value={activity}
+                  onChange={(value) => {
+                    editedFields.current.add("activity");
+                    setActivity(value);
+                  }}
+                />
               </View>
 
               {/* Tags + language */}
@@ -712,7 +782,13 @@ function LivestreamPanel({
                   <Text size="sm" color="muted">
                     Tags
                   </Text>
-                  <LanguagePicker tags={tags} onTagsChange={setTags} />
+                  <LanguagePicker
+                    tags={tags}
+                    onTagsChange={(value) => {
+                      editedFields.current.add("tags");
+                      setTags(value);
+                    }}
+                  />
                 </View>
                 {tags.length < 10 && (
                   <Input
@@ -725,6 +801,7 @@ function LivestreamPanel({
                     onSubmitEditing={(e) => {
                       const trimmed = tagInput.trim();
                       if (trimmed && !tags.includes(trimmed)) {
+                        editedFields.current.add("tags");
                         setTags([...tags, trimmed]);
                       }
                       setTagInput("");
@@ -761,7 +838,10 @@ function LivestreamPanel({
                       .map((tag) => (
                         <Pressable
                           key={tag}
-                          onPress={() => setTags(tags.filter((t) => t !== tag))}
+                          onPress={() => {
+                            editedFields.current.add("tags");
+                            setTags(tags.filter((t) => t !== tag));
+                          }}
                           style={{
                             flexDirection: "row",
                             alignItems: "center",
@@ -811,7 +891,10 @@ function LivestreamPanel({
                   </Text>
                   <Input
                     value={canonicalUrl}
-                    onChange={(value) => setCanonicalUrl(value)}
+                    onChange={(value) => {
+                      editedFields.current.add("canonicalUrl");
+                      setCanonicalUrl(value);
+                    }}
                     placeholder={defaultCanonicalUrl}
                     variant="filled"
                     testID="live-canonical-url"
@@ -839,51 +922,62 @@ function LivestreamPanel({
                   { borderColor: borderAlphas.dark.strong },
                 ]}
               >
-                <Tooltip
-                  content={
-                    canPostToBluesky
-                      ? `Create a ${networkName} post announcing you're live with a link to the stream.`
-                      : `You signed in without granting ${networkName} permissions, so Streamplace can't post to your account. Log out and back in to change this.`
-                  }
-                  position="top"
-                >
-                  <View
-                    style={[
-                      layout.flex.row,
-                      { alignItems: "center" },
-                      gap.all[1],
-                    ]}
+                {!updating && (
+                  <Tooltip
+                    content={
+                      canPostToBluesky
+                        ? `Create a ${networkName} post announcing you're live with a link to the stream.`
+                        : `You signed in without granting ${networkName} permissions, so Streamplace can't post to your account. Log out and back in to change this.`
+                    }
+                    position="top"
+                  >
+                    <View
+                      style={[
+                        layout.flex.row,
+                        { alignItems: "center" },
+                        gap.all[1],
+                      ]}
+                    >
+                      <Checkbox
+                        checked={createPost && canPostToBluesky}
+                        onCheckedChange={(checked) => {
+                          editedFields.current.add("createPost");
+                          setCreatePost(checked);
+                        }}
+                        disabled={!canPostToBluesky}
+                        label={`Create ${networkName} post`}
+                      />
+                      {!canPostToBluesky && (
+                        <Lock size={14} color={theme.colors.textMuted} />
+                      )}
+                    </View>
+                  </Tooltip>
+                )}
+                {!updating && (
+                  <Tooltip
+                    content="Send a push notification to your followers on the Streamplace iOS/Android app."
+                    position="top"
                   >
                     <Checkbox
-                      checked={createPost && canPostToBluesky}
-                      onCheckedChange={(checked) => setCreatePost(checked)}
-                      disabled={!canPostToBluesky}
-                      label={`Create ${networkName} post`}
+                      checked={sendPushNotification}
+                      onCheckedChange={(checked) => {
+                        editedFields.current.add("sendPushNotification");
+                        setSendPushNotification(checked);
+                      }}
+                      label="Send push notification"
                     />
-                    {!canPostToBluesky && (
-                      <Lock size={14} color={theme.colors.textMuted} />
-                    )}
-                  </View>
-                </Tooltip>
-                <Tooltip
-                  content="Send a push notification to your followers on the Streamplace iOS/Android app."
-                  position="top"
-                >
-                  <Checkbox
-                    checked={sendPushNotification}
-                    onCheckedChange={(checked) =>
-                      setSendPushNotification(checked)
-                    }
-                    label="Send push notification"
-                  />
-                </Tooltip>
+                  </Tooltip>
+                )}
                 <Tooltip
                   content="Enabling this setting will turn your livestream off after 5 minutes of inactivity, and you'll need to press the 'Start Livestream' button again to start it again next time you stream."
                   position="top"
                 >
                   <Checkbox
                     checked={idleTimeout}
-                    onCheckedChange={(checked) => setIdleTimeout(checked)}
+                    onCheckedChange={(checked) => {
+                      editedFields.current.add("idleTimeout");
+                      setIdleTimeout(checked);
+                    }}
                     label="End livestream automatically"
                   />
                 </Tooltip>
@@ -954,7 +1048,9 @@ function LivestreamPanel({
           {canEndLivestream && (
             <Button
               variant="danger"
-              onPress={handleEndLivestream}
+              onPress={() =>
+                isWeb ? setConfirmEnd(true) : handleEndLivestream()
+              }
               style={[py[3]]}
               disabled={endingLivestream || status.incoming === null}
             >
@@ -962,6 +1058,39 @@ function LivestreamPanel({
             </Button>
           )}
         </View>
+      )}
+      {isWeb && (
+        <Dialog
+          open={confirmEnd}
+          onOpenChange={setConfirmEnd}
+          title="End livestream?"
+          description="This ends the announcement. Incoming video will continue."
+        >
+          <DialogFooter>
+            <Button
+              width="min"
+              variant="secondary"
+              onPress={() => setConfirmEnd(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              width="min"
+              variant="danger"
+              disabled={
+                endingLivestream ||
+                status.incoming === null ||
+                !canEndLivestream
+              }
+              onPress={() => {
+                setConfirmEnd(false);
+                void handleEndLivestream();
+              }}
+            >
+              End livestream
+            </Button>
+          </DialogFooter>
+        </Dialog>
       )}
     </View>
   );

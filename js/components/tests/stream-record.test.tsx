@@ -181,6 +181,29 @@ it("still clears activity and tags when the form clears them", async () => {
   expect(saved).toEqual({ ...rest, title: "Edited title" });
 });
 
+it("updates explicitly changed stream options without disturbing other fields", async () => {
+  const update = await updateAction();
+  const original = streamRecord();
+  await update(
+    "Edited title",
+    view(),
+    undefined,
+    original.activity,
+    original.tags,
+    {
+      canonicalUrl: null,
+      idleTimeoutSeconds: 300,
+    },
+  );
+
+  const { canonicalUrl: _canonicalUrl, ...rest } = original;
+  expect(saved).toEqual({
+    ...rest,
+    title: "Edited title",
+    idleTimeoutSeconds: 300,
+  });
+});
+
 it("applies an explicit URL and a newly uploaded thumbnail", async () => {
   const log = vi.spyOn(console, "log").mockImplementation(() => {});
   const update = await updateAction("https://creator.example/alternate");

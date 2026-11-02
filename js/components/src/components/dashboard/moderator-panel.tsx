@@ -1,6 +1,6 @@
 import { Check, Shield, Trash2, UserPlus } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import {
   Button,
   Dialog,
@@ -245,6 +245,7 @@ function ModeratorCard({
 
   return (
     <View
+      testID={`moderator-${moderator.value.moderator}`}
       style={[
         layout.flex.row,
         layout.flex.spaceBetween,
@@ -327,6 +328,8 @@ function ModeratorCard({
       <Pressable
         onPress={() => setShowConfirm(true)}
         disabled={isLoading}
+        accessibilityRole="button"
+        accessibilityLabel="Remove moderator"
         style={[
           p[2],
           r.md,
@@ -392,6 +395,24 @@ function AddModeratorDialog({
   });
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+
+  const togglePermission = (permission: keyof typeof permissions) => {
+    setPermissions((previous) => ({
+      ...previous,
+      [permission]: !previous[permission],
+    }));
+  };
+  const keyboardToggle = (permission: keyof typeof permissions) =>
+    Platform.OS === "web"
+      ? {
+          onKeyDown: (event: { key: string; preventDefault: () => void }) => {
+            if (event.key === " ") {
+              event.preventDefault();
+              togglePermission(permission);
+            }
+          },
+        }
+      : {};
 
   // Reset form when dialog closes
   useEffect(() => {
@@ -493,7 +514,11 @@ function AddModeratorDialog({
         </Text>
         <View style={[gap.all[2]]}>
           <Pressable
-            onPress={() => setPermissions((p) => ({ ...p, ban: !p.ban }))}
+            accessibilityRole="checkbox"
+            accessibilityLabel="Ban Users"
+            aria-checked={permissions.ban}
+            {...keyboardToggle("ban")}
+            onPress={() => togglePermission("ban")}
             style={[
               layout.flex.row,
               layout.flex.alignCenter,
@@ -538,7 +563,11 @@ function AddModeratorDialog({
           </Pressable>
 
           <Pressable
-            onPress={() => setPermissions((p) => ({ ...p, hide: !p.hide }))}
+            accessibilityRole="checkbox"
+            accessibilityLabel="Hide Messages"
+            aria-checked={permissions.hide}
+            {...keyboardToggle("hide")}
+            onPress={() => togglePermission("hide")}
             style={[
               layout.flex.row,
               layout.flex.alignCenter,
@@ -587,12 +616,11 @@ function AddModeratorDialog({
           </Pressable>
 
           <Pressable
-            onPress={() =>
-              setPermissions((p) => ({
-                ...p,
-                "livestream.manage": !p["livestream.manage"],
-              }))
-            }
+            accessibilityRole="checkbox"
+            accessibilityLabel="Manage Livestream"
+            aria-checked={permissions["livestream.manage"]}
+            {...keyboardToggle("livestream.manage")}
+            onPress={() => togglePermission("livestream.manage")}
             style={[
               layout.flex.row,
               layout.flex.alignCenter,
@@ -641,12 +669,11 @@ function AddModeratorDialog({
           </Pressable>
 
           <Pressable
-            onPress={() =>
-              setPermissions((p) => ({
-                ...p,
-                "message.pin": !p["message.pin"],
-              }))
-            }
+            accessibilityRole="checkbox"
+            accessibilityLabel="Pin Messages"
+            aria-checked={permissions["message.pin"]}
+            {...keyboardToggle("message.pin")}
+            onPress={() => togglePermission("message.pin")}
             style={[
               layout.flex.row,
               layout.flex.alignCenter,

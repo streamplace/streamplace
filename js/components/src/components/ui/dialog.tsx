@@ -247,6 +247,7 @@ export const Dialog = forwardRef<any, DialogProps>(
         onOpenChange={onOpenChange}
         presentationStyle={presentationStyle}
         animationType={animationType}
+        accessibilityLabel={Platform.OS === "web" ? title : undefined}
         {...props}
       >
         <ModalPrimitive.Overlay
@@ -266,6 +267,11 @@ export const Dialog = forwardRef<any, DialogProps>(
               size === "lg" && styles.lgContent,
               size === "xl" && styles.xlContent,
               size === "full" && styles.fullContent,
+              Platform.OS === "web" &&
+                variant === "default" && {
+                  minWidth: 0,
+                  maxWidth: size === "full" ? "95%" : "90%",
+                },
             ]}
           >
             {(title || showCloseButton) && (

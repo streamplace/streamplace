@@ -229,7 +229,11 @@ func makeUnauthenticatedRequest(ctx context.Context, service, method string, par
 		return echo.NewHTTPError(http.StatusLoopDetected, "repository proxy loop detected")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("upstream request failed with status %d", resp.StatusCode)
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+		if err == nil && json.Valid(body) {
+			return echo.NewHTTPError(resp.StatusCode, json.RawMessage(body))
+		}
+		return echo.NewHTTPError(resp.StatusCode, fmt.Sprintf("upstream request failed with status %d", resp.StatusCode))
 	}
 
 	body, err := io.ReadAll(resp.Body)

@@ -109,6 +109,54 @@ func TestRepoProxyLocalRecord(t *testing.T) {
 	require.Equal(t, 7, record.Value.Count)
 }
 
+func TestRepoProxyPreservesMissingRecord(t *testing.T) {
+	var did, service string
+	s := &Server{cli: &config.CLI{ServerHost: "node.example", BroadcasterHost: "node.example"}}
+	e := echo.New()
+	e.Use(s.ContextPreservingMiddleware())
+	require.NoError(t, s.RegisterHandlersComatproto(e))
+	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/"+did {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": did,
+				"service": []map[string]string{{
+					"id": "#atproto_pds", "type": "AtprotoPersonalDataServer", "serviceEndpoint": service,
+				}},
+			})
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "RecordNotFound", "message": "record not found"})
+	}))
+	defer upstream.Close()
+	service = upstream.URL
+	did = "did:plc:ho26ynsdw2ey7l56xx4owjzd"
+	repoTestClients(t, upstream)
+	params := url.Values{"repo": {did}, "collection": {"place.stream.metadata.configuration"}, "rkey": {"self"}}
+	req := httptest.NewRequest(http.MethodGet, "/xrpc/com.atproto.repo.getRecord?"+params.Encode(), nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	var response map[string]string
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Equal(t, "RecordNotFound", response["error"])
+	require.Equal(t, "record not found", response["message"])
+}
+
+func TestRepoProxyNonJSONUpstreamError(t *testing.T) {
+	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "gateway unavailable", http.StatusBadGateway)
+	}))
+	defer upstream.Close()
+	repoTestClients(t, upstream)
+	err := makeUnauthenticatedRequest(context.Background(), upstream.URL, "com.atproto.repo.getRecord", nil, nil)
+	var httpErr *echo.HTTPError
+	require.ErrorAs(t, err, &httpErr)
+	require.Equal(t, http.StatusBadGateway, httpErr.Code)
+	require.Equal(t, "upstream request failed with status 502", httpErr.Message)
+}
+
 func repoTestClients(t *testing.T, upstream *httptest.Server) {
 	t.Helper()
 	originalClient, originalDefault := aqhttp.Client, http.DefaultClient

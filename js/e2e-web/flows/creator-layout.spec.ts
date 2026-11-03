@@ -92,7 +92,13 @@ test("a legacy nested layout and unknown widget survive until explicitly removed
   await page.getByRole("button", { name: "Remove future-widget" }).click();
   await page.getByRole("button", { name: "Add widget" }).click();
   await page.getByRole("button", { name: "Add Stream Health" }).click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "There is not enough room to place these widgets there.",
+  );
+  await page.setViewportSize({ width: 1920, height: 1800 });
+  await page.getByRole("button", { name: "Add Stream Health" }).click();
   await expect(page.getByTestId("creator-health")).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 720 });
   const stored = await page.evaluate(() =>
     localStorage.getItem("dashboard:layout"),
   );
@@ -171,6 +177,14 @@ test("the add menu can be dismissed with the keyboard", async ({ page }) => {
   await expect(add).toBeFocused();
   await add.click();
   await page.getByRole("button", { name: "Add Problems" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("alert")).toHaveText(
+    "There is not enough room to place these widgets there.",
+  );
+  await expect(
+    page.getByRole("button", { name: "Add Problems" }),
+  ).toBeFocused();
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await page.keyboard.press("Enter");
   await expect(page.getByText("No current problems")).toBeVisible();
   await page.getByRole("button", { name: "Remove Problems" }).click();

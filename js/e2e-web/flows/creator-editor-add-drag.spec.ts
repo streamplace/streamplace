@@ -66,3 +66,39 @@ test("do not add a widget where it would make its neighbor too small", async ({
     page.getByRole("region", { name: "Problems widget" }),
   ).toHaveCount(0);
 });
+
+test("selecting a widget does not squeeze the last panel below its minimum", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 700 });
+  await loginThroughPds(page);
+  await page.goto(`${url}/dashboard`);
+  await page.getByRole("button", { name: "Customize dashboard" }).click();
+  await page.getByRole("button", { name: "Add widget" }).click();
+  await page.getByRole("button", { name: "Add Problems" }).click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "There is not enough room to place these widgets there.",
+  );
+  await expect(
+    page.getByRole("region", { name: "Problems widget" }),
+  ).toHaveCount(0);
+});
+
+test("selecting a widget uses another panel when the last one is too small", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await loginThroughPds(page);
+  await page.goto(`${url}/dashboard`);
+  const moderators = page.getByRole("region", { name: "Moderators widget" });
+  await page.getByRole("button", { name: "Customize dashboard" }).click();
+  await page.getByRole("button", { name: "Add widget" }).click();
+  const originalHeight = (await moderators.boundingBox())!.height;
+  await page.getByRole("button", { name: "Add Problems" }).click();
+  await expect(
+    page.getByRole("region", { name: "Problems widget" }),
+  ).toBeVisible();
+  expect((await moderators.boundingBox())!.height).toBeGreaterThanOrEqual(
+    originalHeight - 1,
+  );
+});

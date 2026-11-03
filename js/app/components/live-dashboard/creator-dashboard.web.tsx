@@ -89,7 +89,7 @@ const widgets = new Map([
   ["chat", { title: "Chat", icon: MessageSquare, minWidth: 4, minHeight: 5 }],
   [
     "stream-info",
-    { title: "Stream Info", icon: Radio, minWidth: 4, minHeight: 5 },
+    { title: "Stream Info", icon: Radio, minWidth: 3.5, minHeight: 3.5 },
   ],
   [
     "multistream",
@@ -101,7 +101,7 @@ const widgets = new Map([
   ],
   [
     "moderators",
-    { title: "Moderators", icon: Shield, minWidth: 5, minHeight: 3.5 },
+    { title: "Moderators", icon: Shield, minWidth: 3.5, minHeight: 2.5 },
   ],
 ]);
 const widgetChoices = [...widgets].map(([key, { title }]) => ({ key, title }));
@@ -302,14 +302,18 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   }
 
   function add(key: string) {
-    const widget: WidgetNode = { type: "leaf", widget: key };
-    const target = placements
+    const targets = placements
       .filter(({ width, height }) => width > 0 && height > 0)
-      .at(-1)!;
-    const next = insertWidget(layout, target.path, widget, "vertical", false);
-    updateLayout(next, `${widgets.get(key)?.title} added`);
-    setAdding(false);
-    requestAnimationFrame(() => addRef.current?.focus());
+      .reverse();
+    const sourceId = `available-${key}`;
+    const target =
+      targets.find(
+        ({ widget }) =>
+          preparePlacement(sourceId, widgetId(widget), "vertical", false)?.fits,
+      ) ?? targets[0];
+    if (target && place(sourceId, widgetId(target.widget), "vertical", false)) {
+      requestAnimationFrame(() => addRef.current?.focus());
+    }
   }
 
   function preparePlacement(
@@ -365,12 +369,12 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     first: boolean,
   ) {
     const candidate = preparePlacement(sourceId, targetId, direction, first);
-    if (!candidate) return;
+    if (!candidate) return false;
     if (!candidate.fits) {
       setPlacementError(
         "There is not enough room to place these widgets there.",
       );
-      return;
+      return false;
     }
     setPlacementError("");
     updateLayout(
@@ -378,6 +382,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
       `${widgets.get(candidate.source.widget)?.title ?? candidate.source.widget} ${candidate.adding ? "added" : "moved"}`,
     );
     if (candidate.adding) setAdding(false);
+    return true;
   }
 
   function dropAt(operation: DropOperation) {
@@ -910,8 +915,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
             )}
             {available.length > 0 && (
               <span style={{ alignSelf: "center", color: theme.colors.text2 }}>
-                Drag to place a widget, or select it to add after the last
-                widget.
+                Drag to place a widget, or select it to add where there is room.
               </span>
             )}
           </div>

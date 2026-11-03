@@ -1,0 +1,48 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.authFull",
+  "defs": {
+    "main": {
+      "type": "permission-set",
+      "title": "Full Streamplace Access",
+      "detail": "Full access to all Streamplace features and data.",
+      "permissions": [
+        {
+          "type": "permission",
+          "resource": "repo",
+          "collection": [
+            "place.stream.badge.def",
+            "place.stream.badge.issuance",
+            "place.stream.beta.invite",
+            "place.stream.beta.request",
+            "place.stream.broadcast.origin",
+            "place.stream.broadcast.syndication",
+            "place.stream.chat.access",
+            "place.stream.chat.gate",
+            "place.stream.chat.message",
+            "place.stream.chat.pinnedRecord",
+            "place.stream.chat.profile",
+            "place.stream.key",
+            "place.stream.like",
+            "place.stream.live.recommendations",
+            "place.stream.live.teleport",
+            "place.stream.live.viewerCount",
+            "place.stream.livestream",
+            "place.stream.media.origin",
+            "place.stream.media.track",
+            "place.stream.media.viewCount",
+            "place.stream.metadata.configuration",
+            "place.stream.moderation.permission",
+            "place.stream.multistream.target",
+            "place.stream.segment",
+            "place.stream.server.settings",
+            "place.stream.video",
+            "place.stream.vod.comment",
+            "place.stream.vod.draftVideo",
+            "place.stream.vod.gate"
+          ]
+        }
+      ]
+    }
+  }
+}

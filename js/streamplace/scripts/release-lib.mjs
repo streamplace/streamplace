@@ -11,7 +11,9 @@ import { createHash } from "node:crypto";
 import { createReadStream, readFileSync } from "node:fs";
 import { lstat, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual as sameValue } from "node:util";
+import { readLexiconDocs } from "./lexicon-docs.mjs";
 
 export const DEFAULT_DID = "did:plc:rbvrr34edl5ddpuwcubjiost";
 export const DEFAULT_REPOSITORY =
@@ -22,8 +24,35 @@ export const PROJECT = `${NS}.project`;
 export const MANIFEST = `${NS}.manifest`;
 export const VERSION = `${NS}.version`;
 export const CHANNEL = `${NS}.channel`;
+
 const BLOB_ARTIFACT = `${NS}.defs#blobArtifact`;
 const GIT_REVISION = `${NS}.defs#gitRevision`;
+
+// Streamplace's own lexicons (including the generated authFull permission set)
+// are published beside the release as lexicon schema records keyed by NSID.
+export const SCHEMA = "com.atproto.lexicon.schema";
+const SCHEMA_NAMESPACE = "place.stream.";
+// Generated from the record lexicons by `make lexicons`, never hand-written.
+const AUTH_FULL = "place.stream.authFull";
+const SCHEMA_ROOT = fileURLToPath(
+  new URL("../../../lexicons/place/stream", import.meta.url),
+);
+
+/** This checkout's place.stream.* lexicon documents, exactly as in their files. */
+export function readSchemaDocs() {
+  const docs = readLexiconDocs([SCHEMA_ROOT]);
+  for (const { id } of docs) {
+    if (!id.startsWith(SCHEMA_NAMESPACE)) {
+      throw new Error(`${id} is not a ${SCHEMA_NAMESPACE}* lexicon`);
+    }
+  }
+  if (!docs.some(({ id }) => id === AUTH_FULL)) {
+    throw new Error(
+      `${AUTH_FULL} is missing from the checkout; run make lexicons`,
+    );
+  }
+  return docs;
+}
 
 // `streamplace-desktop` is a child of `streamplace`. A project's files are named
 // `<project>-<version>-<rest>`; `rest` is matched against ARTIFACTS below.
@@ -404,10 +433,13 @@ function manifestDiff(have, want) {
  *   projects[name]  -> record | undefined
  *   versions[name]  -> {record, cid, manifest: {record, cid}} | undefined
  *   channels[name]  -> record | undefined
+ *   schemas[id]     -> record | undefined
  * `blobs` maps fileName to the blob ref to publish. Published versions and their
  * manifests are immutable: identical inputs are left alone, anything else
  * throws. A channel only moves when this run publishes a new version, so
- * re-running an old release never points a channel back at it.
+ * re-running an old release never points a channel back at it. Lexicon schemas
+ * (`schemaDocs`) are mutable: they are created or updated to match, and left
+ * alone when identical, whatever the state of the release.
  *
  * Returns {writes, created, notes}; `created` names the projects whose new
  * version needs its blobs uploaded.
@@ -420,13 +452,13 @@ export function planRelease({
   source,
   projects,
   blobs,
+  schemaDocs,
   existing,
 }) {
   const writes = [];
   const created = [];
   const notes = [];
-  const write = (action, collection, rkey, value) => {
-    validateRecord(value);
+  const push = (action, collection, rkey, value) => {
     writes.push({
       action,
       collection,
@@ -436,6 +468,10 @@ export function planRelease({
       value,
     });
     return writes.at(-1);
+  };
+  const write = (action, collection, rkey, value) => {
+    validateRecord(value);
+    return push(action, collection, rkey, value);
   };
 
   for (const name of PROJECTS) {
@@ -546,6 +582,13 @@ export function planRelease({
         channelRecord(did, name, channel, versionRef),
       );
     }
+  }
+
+  for (const doc of schemaDocs) {
+    const want = { $type: SCHEMA, ...doc };
+    const have = existing.schemas[doc.id];
+    if (!have) push("create", SCHEMA, doc.id, want);
+    else if (!sameValue(have, want)) push("update", SCHEMA, doc.id, want);
   }
   return { writes, created, notes };
 }

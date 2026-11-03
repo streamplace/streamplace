@@ -145,10 +145,26 @@ and artifact fragments locally before publishing:
 
 Uploads are streamed, verified against local SHA-256 blob CIDs and sizes, and
 retain the MIME type returned by the PDS. Once all uploads succeed, projects,
-manifests, versions, and channels are written in one atomic repository commit.
+manifests, versions, channels, and changed lexicon schemas are written in one
+atomic repository commit.
 Conflicting repository writes fail safely. Identical reruns are no-ops; changing
 an already published release fails, and rerunning an older release does not roll
 its channel back.
+
+The same publisher maintains `com.atproto.lexicon.schema` records for every
+`place.stream.*` definition in the current checkout, keyed by its full NSID.
+Imported namespaces are not republished. Unlike immutable release manifests,
+schema records represent the current namespace definitions: missing records are
+created, changed records are updated, and identical records are left untouched.
+An identical release can repair its schema records without uploading artifacts
+again. Publishing historical prebuilt artifacts still uses the current checkout's
+schemas, not a historical schema snapshot.
+
+Run `make lexicons` after changing definitions. It generates
+`lexicons/place/stream/authFull.json` from Streamplace's record collections before
+generating bindings and documentation; commit those generated outputs. Neither
+generation nor schema publication starts Streamplace or its internal PDS.
+Publication does not change DNS lexicon-authority configuration.
 
 Choose one build/publisher for each version. Independent rebuilds are not
 necessarily byte-identical, especially after signing, and cannot replace an

@@ -10,8 +10,11 @@
 // DIR holds the version's deliverables (usually bin/). Two projects are
 // published: `streamplace` and its child `streamplace-desktop`; each gets an
 // immutable manifest, an immutable version record `<project>.<version>`, and
-// moves the mutable channel record `<project>.<channel>`. Everything lands in a
-// single atomic applyWrites, after the blobs are uploaded.
+// moves the mutable channel record `<project>.<channel>`. The checkout's
+// place.stream.* lexicons (lexicons/place/stream, including the generated
+// authFull permission set) are published as com.atproto.lexicon.schema records
+// keyed by NSID. Everything lands in a single atomic applyWrites, after the
+// blobs are uploaded.
 //
 // --dry-run is offline: it hashes the files and prints the records that would
 // be written, assuming an empty repo, as JSON on stdout. Nothing is read from
@@ -30,6 +33,8 @@
 //
 // Re-running a published version is a no-op if its contents are identical and
 // fails if they are not; it never moves a channel back to an old version.
+// Schema records are mutable: they are created or updated to match the checkout
+// even when the release itself is already published.
 import { AtpAgent, AtUri, lexToJson } from "@atproto/api";
 import { execFileSync } from "node:child_process";
 import { createReadStream } from "node:fs";
@@ -47,6 +52,8 @@ import {
   planRelease,
   PROJECT,
   PROJECTS,
+  readSchemaDocs,
+  SCHEMA,
   validateInputs,
   VERSION,
 } from "./release-lib.mjs";
@@ -115,8 +122,12 @@ async function getRecord(agent, repo, collection, rkey) {
 }
 
 /** Reads the records the plan depends on, in the shape planRelease expects. */
-async function loadExisting(agent, did, { version, channel, projects }) {
-  const existing = { projects: {}, versions: {}, channels: {} };
+async function loadExisting(
+  agent,
+  did,
+  { version, channel, projects, schemaDocs },
+) {
+  const existing = { projects: {}, versions: {}, channels: {}, schemas: {} };
   for (const name of PROJECTS) {
     existing.projects[name] = (
       await getRecord(agent, did, PROJECT, name)
@@ -148,6 +159,11 @@ async function loadExisting(agent, did, { version, channel, projects }) {
       await getRecord(agent, did, CHANNEL, `${name}.${channel}`)
     )?.value;
   }
+  await Promise.all(
+    schemaDocs.map(async ({ id }) => {
+      existing.schemas[id] = (await getRecord(agent, did, SCHEMA, id))?.value;
+    }),
+  );
   return existing;
 }
 
@@ -201,9 +217,10 @@ async function main() {
     dir: values.artifacts,
     version,
   });
+  const schemaDocs = readSchemaDocs();
   const files = projects.flatMap((p) => p.files);
   log(
-    `${version}: ${files.length} artifacts in ${projects.map((p) => p.name).join(", ")}`,
+    `${version}: ${files.length} artifacts in ${projects.map((p) => p.name).join(", ")}, ${schemaDocs.length} lexicon schemas`,
   );
 
   const source = gitRevision({
@@ -219,6 +236,7 @@ async function main() {
     changelog: values.changelog,
     source,
     projects,
+    schemaDocs,
   };
   const emit = (summary) =>
     process.stdout.write(
@@ -229,7 +247,7 @@ async function main() {
     const plan = planRelease({
       ...input,
       blobs,
-      existing: { projects: {}, versions: {}, channels: {} },
+      existing: { projects: {}, versions: {}, channels: {}, schemas: {} },
     });
     emit({
       dryRun: true,
@@ -258,7 +276,12 @@ async function main() {
   const preflight = planRelease({
     ...input,
     blobs,
-    existing: await loadExisting(agent, did, { version, channel, projects }),
+    existing: await loadExisting(agent, did, {
+      version,
+      channel,
+      projects,
+      schemaDocs,
+    }),
   });
   if (preflight.writes.length === 0) {
     for (const note of preflight.notes) log(note);
@@ -297,7 +320,12 @@ async function main() {
   const plan = planRelease({
     ...input,
     blobs,
-    existing: await loadExisting(agent, did, { version, channel, projects }),
+    existing: await loadExisting(agent, did, {
+      version,
+      channel,
+      projects,
+      schemaDocs,
+    }),
   });
   if (plan.created.some((name) => !preflight.created.includes(name))) {
     throw new Error("the repo changed while uploading; run again");

@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -12,10 +19,11 @@ import { TestNetwork } from "./dist/index.js";
 const exec = promisify(execFile);
 const repo = fileURLToPath(new URL("../../", import.meta.url));
 const publisher = join(repo, "hack/release-atproto.mjs");
+const SCHEMA = "com.atproto.lexicon.schema";
 
 test(
-  "release publication preserves native artifacts and immutable history",
-  { timeout: 120_000 },
+  "release publication preserves native artifacts, immutable history and lexicon schemas",
+  { timeout: 180_000 },
   async (t) => {
     const directory = await mkdtemp(join(tmpdir(), "streamplace-release-"));
     t.after(() => rm(directory, { recursive: true, force: true }));
@@ -35,7 +43,7 @@ test(
       },
     );
     assert.equal(created.status, 200, await created.clone().text());
-    const { did } = await created.json();
+    const { did, accessJwt } = await created.json();
     const { stdout } = await exec("git", ["rev-parse", "HEAD"], { cwd: repo });
     const commit = stdout.trim();
     const env = {
@@ -71,6 +79,62 @@ test(
       const response = await fetch(url);
       assert.equal(response.status, 200);
       return (await response.json()).records;
+    }
+    async function schemas() {
+      const found = new Map();
+      let cursor;
+      do {
+        const url = new URL(
+          "/xrpc/com.atproto.repo.listRecords",
+          network.pds.url,
+        );
+        url.search = new URLSearchParams({
+          repo: did,
+          collection: SCHEMA,
+          limit: "100",
+          ...(cursor && { cursor }),
+        });
+        const response = await fetch(url);
+        assert.equal(response.status, 200);
+        const page = await response.json();
+        for (const record of page.records) {
+          found.set(record.uri.split("/").at(-1), record.value);
+        }
+        cursor = page.cursor;
+      } while (cursor);
+      return found;
+    }
+    async function head() {
+      const url = new URL(
+        "/xrpc/com.atproto.sync.getLatestCommit",
+        network.pds.url,
+      );
+      url.search = new URLSearchParams({ did });
+      const response = await fetch(url);
+      assert.equal(response.status, 200);
+      return response.json();
+    }
+    async function releaseRecords() {
+      return Promise.all(
+        ["project", "manifest", "version", "channel"].map((name) =>
+          records(`software.release.${name}`),
+        ),
+      );
+    }
+    // Edits the publishing account's repo directly, as a stand-in for drift.
+    async function edit(method, body) {
+      const response = await fetch(
+        new URL(`/xrpc/com.atproto.repo.${method}`, network.pds.url),
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${accessJwt}`,
+          },
+          body: JSON.stringify({ repo: did, collection: SCHEMA, ...body }),
+        },
+      );
+      assert.equal(response.status, 200, await response.clone().text());
     }
     async function fixture(version) {
       const path = join(directory, version);
@@ -238,6 +302,59 @@ test(
     }
     assert.deepEqual(seen, new Set(first.files.keys()));
 
+    // Publish the full source documents for this checkout's place.stream.*
+    // namespace, without republishing imported schemas.
+    const sourceRoot = join(repo, "lexicons");
+    const sources = (
+      await Promise.all(
+        (await readdir(sourceRoot, { recursive: true }))
+          .filter((name) => name.endsWith(".json"))
+          .map(async (name) =>
+            JSON.parse(await readFile(join(sourceRoot, name), "utf8")),
+          ),
+      )
+    ).filter((doc) => typeof doc.id === "string");
+    const own = sources.filter((doc) => doc.id.startsWith("place.stream."));
+    const expected = new Map(
+      own.map((doc) => [doc.id, { $type: SCHEMA, ...doc }]),
+    );
+    const published = await schemas();
+    assert.deepEqual(published, expected);
+    // The generated permission set lists the record collections that exist.
+    const recordIds = own
+      .filter((doc) => doc.defs.main?.type === "record")
+      .map((doc) => doc.id);
+    assert.ok(recordIds.includes("place.stream.livestream"));
+    const permission = published
+      .get("place.stream.authFull")
+      .defs.main.permissions.find((item) => item.resource === "repo");
+    assert.deepEqual([...permission.collection].sort(), recordIds.sort());
+
+    // The offline preview shows the full schema bodies, not just their CIDs.
+    const preview = await exec(
+      process.execPath,
+      [
+        publisher,
+        "publish",
+        first.path,
+        version,
+        commit,
+        "latest",
+        "",
+        "1",
+        "",
+      ],
+      { cwd: repo, env, maxBuffer: 64 * 1024 * 1024 },
+    );
+    assert.deepEqual(
+      new Map(
+        JSON.parse(preview.stdout)
+          .writes.filter((write) => write.uri.includes(`/${SCHEMA}/`))
+          .map((write) => [write.uri.split("/").at(-1), write.value]),
+      ),
+      expected,
+    );
+
     const secondVersion = `v0.0.1-release-${randomUUID()}`;
     const second = await fixture(secondVersion);
     await publish(secondVersion, second.path);
@@ -247,17 +364,31 @@ test(
         item.value.version.uri.endsWith(`.${secondVersion}`),
       ),
     );
+    const settled = await head();
     await publish(version, first.path);
+    assert.deepEqual(await head(), settled);
     assert.deepEqual(await records("software.release.channel"), newerChannels);
     assert.equal((await records("software.release.manifest")).length, 4);
     assert.equal((await records("software.release.version")).length, 4);
 
-    const modified = join(first.path, first.files.keys().next().value);
+    // Drift in the schema registry, then a changed immutable release: the
+    // rejected run must write nothing, schema repairs included.
+    const removed = "place.stream.key";
+    const rewritten = "place.stream.like";
+    await edit("deleteRecord", { rkey: removed });
+    await edit("putRecord", {
+      rkey: rewritten,
+      record: { $type: SCHEMA, lexicon: 1, id: rewritten, defs: {} },
+    });
+    const drifted = await head();
+    const name = first.files.keys().next().value;
+    const modified = join(first.path, name);
     await writeFile(
       modified,
       Buffer.concat([await readFile(modified), Buffer.from("changed")]),
     );
     await assert.rejects(publish(version, first.path));
+    assert.deepEqual(await head(), drifted);
     assert.deepEqual(await records("software.release.channel"), newerChannels);
     assert.equal((await records("software.release.manifest")).length, 4);
     assert.deepEqual(
@@ -266,6 +397,26 @@ test(
       ),
       versions,
     );
+
+    // With the release identical again, the same command repairs only the
+    // drifted schemas: no uploads, and immutable records and channels stay put.
+    await writeFile(modified, first.files.get(name));
+    const releaseBefore = await releaseRecords();
+    const repaired = await publish(version, first.path);
+    assert.deepEqual(
+      JSON.parse(repaired.stdout)
+        .writes.map(({ action, uri }) => `${action} ${uri}`)
+        .sort(),
+      [
+        `create at://${did}/${SCHEMA}/${removed}`,
+        `update at://${did}/${SCHEMA}/${rewritten}`,
+      ],
+    );
+    assert.deepEqual(await releaseRecords(), releaseBefore);
+    assert.deepEqual(await schemas(), expected);
+    const repairedHead = await head();
+    await publish(version, first.path);
+    assert.deepEqual(await head(), repairedHead);
 
     await assert.rejects(
       publish(secondVersion, second.path, {

@@ -198,7 +198,12 @@ describe("planRelease", () => {
     name,
     files: [file(name, `${name}-${VERSION}-linux-amd64.tar.gz`, i + 1)],
   }));
-  const empty = () => ({ projects: {}, versions: {}, channels: {} });
+  const empty = () => ({
+    projects: {},
+    versions: {},
+    channels: {},
+    schemas: {},
+  });
   const run = (existing, extra = {}, files = projects) =>
     planRelease({
       did: DID,
@@ -209,6 +214,7 @@ describe("planRelease", () => {
       blobs: new Map(
         files.flatMap((p) => p.files).map((f) => [f.fileName, localBlobRef(f)]),
       ),
+      schemaDocs: [],
       existing,
       ...extra,
     });
@@ -265,6 +271,7 @@ describe("planRelease", () => {
           .flatMap((p) => p.files)
           .map((f) => [f.fileName, localBlobRef(f)]),
       ),
+      schemaDocs: [],
       existing: { ...published, versions: {} },
     });
     assert.deepEqual(

@@ -1,5 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
-import { Text, useTheme } from "@streamplace/components";
+import { Text, useTheme, zero } from "@streamplace/components";
 import { breakpoints } from "@streamplace/components/src/lib/theme/tokens";
 import SidebarItem from "components/sidebar/sidebar-item";
 import {
@@ -15,7 +15,16 @@ import {
   Webhook,
   X,
 } from "lucide-react-native";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
 import { getStreamplaceNavigationAction } from "src/linking-config";
@@ -45,6 +54,18 @@ const settingsLinks = [
   { labelKey: "webhooks", href: "/settings/streaming/webhooks", icon: Webhook },
 ];
 
+const CreatorTheatreContext = createContext<{
+  theatre: boolean;
+  setTheatre: (value: boolean) => void;
+  entryRef: RefObject<HTMLButtonElement | null>;
+} | null>(null);
+
+export function useCreatorTheatre() {
+  const context = useContext(CreatorTheatreContext);
+  if (!context) throw new Error("Creator theatre requires creator chrome");
+  return context;
+}
+
 export default function CreatorChrome({ children }: { children: ReactNode }) {
   const { theme } = useTheme();
   const { t } = useTranslation("settings");
@@ -53,9 +74,46 @@ export default function CreatorChrome({ children }: { children: ReactNode }) {
   const narrow = width < breakpoints.md;
   const [collapsed, setCollapsed] = useState(false);
   const [open, setOpen] = useState(false);
+  const entryRef = useRef<HTMLButtonElement>(null);
+  const exitRef = useRef<HTMLButtonElement>(null);
+  const moveFocus = useRef(false);
+  const [theatre, setTheatreState] = useState(() => {
+    try {
+      return localStorage.getItem("streamplace:theatre") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const setTheatre = useCallback((value: boolean) => {
+    moveFocus.current = true;
+    setTheatreState(value);
+    try {
+      localStorage.setItem("streamplace:theatre", String(value));
+    } catch {
+      // The current session still works if storage is unavailable.
+    }
+  }, []);
   const openButton = useRef<HTMLButtonElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const nav = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (moveFocus.current) {
+      (theatre ? exitRef : entryRef).current?.focus();
+      moveFocus.current = false;
+    }
+  }, [theatre]);
+
+  useEffect(() => {
+    if (!theatre) return;
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      setTheatre(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [theatre, setTheatre]);
 
   useEffect(() => {
     if (narrow && open) closeButton.current?.focus();
@@ -107,9 +165,9 @@ export default function CreatorChrome({ children }: { children: ReactNode }) {
       </div>
     ));
 
-  return (
+  const chrome = (
     <View style={{ flex: 1, flexDirection: "row", minHeight: 0 }}>
-      {narrow && open && (
+      {!theatre && narrow && open && (
         <button
           type="button"
           aria-label="Dismiss creator navigation"
@@ -124,7 +182,7 @@ export default function CreatorChrome({ children }: { children: ReactNode }) {
           }}
         />
       )}
-      {(!narrow || open) && (
+      {!theatre && (!narrow || open) && (
         <nav
           ref={nav}
           data-testid="creator-navigation"
@@ -219,8 +277,34 @@ export default function CreatorChrome({ children }: { children: ReactNode }) {
           <View>{links(settingsLinks)}</View>
         </nav>
       )}
-      <View style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
-        {narrow && (
+      <View
+        style={{ flex: 1, minWidth: 0, minHeight: 0, position: "relative" }}
+      >
+        {theatre && (
+          <button
+            ref={exitRef}
+            type="button"
+            aria-label="Exit theatre mode"
+            onClick={() => setTheatre(false)}
+            style={{
+              ...buttonStyle,
+              position: "absolute",
+              top: theme.spacing[2],
+              right: theme.spacing[2],
+              zIndex: zero.atoms.zIndex[10].zIndex,
+              padding: `0 ${theme.spacing[3]}px`,
+              gap: theme.spacing[2],
+              background: theme.colors.surface2,
+              color: theme.colors.text1,
+              ...theme.typography.universal.xs,
+              lineHeight: `${theme.typography.universal.xs.lineHeight}px`,
+            }}
+          >
+            <X size={theme.spacing[4]} aria-hidden />
+            Exit theatre
+          </button>
+        )}
+        {!theatre && narrow && (
           <View
             style={{
               flexDirection: "row",
@@ -248,5 +332,10 @@ export default function CreatorChrome({ children }: { children: ReactNode }) {
         {children}
       </View>
     </View>
+  );
+  return (
+    <CreatorTheatreContext.Provider value={{ theatre, setTheatre, entryRef }}>
+      {chrome}
+    </CreatorTheatreContext.Provider>
   );
 }

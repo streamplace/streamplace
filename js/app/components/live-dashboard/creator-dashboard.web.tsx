@@ -32,6 +32,7 @@ import {
   MessageSquare,
   Plus,
   Radio,
+  RectangleHorizontal,
   Shield,
   SlidersHorizontal,
   Video,
@@ -47,6 +48,7 @@ import {
 } from "react";
 import { useWindowDimensions, View } from "react-native";
 import { useEmojiData } from "utils/emoji";
+import { useCreatorTheatre } from "./creator-chrome.web";
 import CreatorHealth from "./creator-health.web";
 import {
   DEFAULT_LAYOUT,
@@ -151,7 +153,6 @@ const dragAccessibility = Accessibility.configure({
           : undefined,
   },
 });
-
 const dragFeedback = Feedback.configure({
   dropAnimation: { duration: 0 },
   keyboardTransition: null,
@@ -159,6 +160,7 @@ const dragFeedback = Feedback.configure({
 
 export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   const { theme } = useTheme();
+  const { theatre, setTheatre, entryRef } = useCreatorTheatre();
   const { width, height } = useWindowDimensions();
   const stacked = width < breakpoints.xl;
   const { status, history } = useCreatorMetrics();
@@ -631,7 +633,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
           role="toolbar"
           aria-label="Creator dashboard controls"
           style={{
-            display: "flex",
+            display: theatre ? "none" : "flex",
             flexWrap: "wrap",
             alignItems: "center",
             gap: theme.spacing[2],
@@ -659,6 +661,26 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
               )}
             </span>
             {editing ? "Done customizing" : "Customize dashboard"}
+          </button>
+          <button
+            ref={entryRef}
+            type="button"
+            aria-label="Theatre mode"
+            title="Theatre mode"
+            style={buttonStyle}
+            onClick={() => {
+              setEditing(false);
+              setAdding(false);
+              setLayoutsOpen(false);
+              setNamingLayout(false);
+              setPlacementError("");
+              setTheatre(true);
+            }}
+          >
+            <span aria-hidden="true">
+              <RectangleHorizontal size={theme.spacing[4]} />
+            </span>
+            Theatre
           </button>
           {editing && (
             <button

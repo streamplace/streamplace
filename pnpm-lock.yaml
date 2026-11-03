@@ -95,6 +95,9 @@ importers:
       '@bacons/text-decoder':
         specifier: ^0.0.0
         version: 0.0.0(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))
+      '@dnd-kit/react':
+        specifier: ^0.4.0
+        version: 0.4.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@fluent/bundle':
         specifier: ^0.19.1
         version: 0.19.1

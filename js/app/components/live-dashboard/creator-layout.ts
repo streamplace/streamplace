@@ -14,6 +14,26 @@ export interface SplitNode {
 export type LayoutNode = WidgetNode | SplitNode;
 export type LayoutPreset = { name: string; layout: LayoutNode };
 
+export function getDropSide(
+  x: number,
+  y: number,
+): { direction: SplitNode["direction"]; first: boolean } | null {
+  if (
+    !Number.isFinite(x) ||
+    !Number.isFinite(y) ||
+    x < 0 ||
+    x > 1 ||
+    y < 0 ||
+    y > 1
+  )
+    return null;
+  const horizontal = Math.abs(x - 0.5) >= Math.abs(y - 0.5);
+  return {
+    direction: horizontal ? "horizontal" : "vertical",
+    first: horizontal ? x < 0.5 : y < 0.5,
+  };
+}
+
 export type WidgetPlacement = {
   widget: WidgetNode;
   path: number[];

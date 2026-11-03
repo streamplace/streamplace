@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_LAYOUT,
+  getDropSide,
   getWidgetPlacements,
   insertWidget,
   moveWidget,
@@ -88,6 +89,28 @@ describe("creator layout validation", () => {
 });
 
 describe("creator layout edits", () => {
+  it("chooses the split side from the pointer position", () => {
+    expect(getDropSide(0.1, 0.5)).toEqual({
+      direction: "horizontal",
+      first: true,
+    });
+    expect(getDropSide(0.9, 0.5)).toEqual({
+      direction: "horizontal",
+      first: false,
+    });
+    expect(getDropSide(0.5, 0.1)).toEqual({
+      direction: "vertical",
+      first: true,
+    });
+    expect(getDropSide(0.5, 0.9)).toEqual({
+      direction: "vertical",
+      first: false,
+    });
+    expect(getDropSide(0, 0)).toEqual({ direction: "horizontal", first: true });
+    expect(getDropSide(-0.1, 0.5)).toBeNull();
+    expect(getDropSide(0.5, Number.NaN)).toBeNull();
+    expect(getDropSide(Number.POSITIVE_INFINITY, 0.5)).toBeNull();
+  });
   it("places nested leaves in their saved order and proportions", () => {
     const layout = validateLayout(split)!;
     expect(getWidgetPlacements(layout)).toEqual([

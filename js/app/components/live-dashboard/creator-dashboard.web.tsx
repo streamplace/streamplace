@@ -1,3 +1,4 @@
+import { DragDropProvider, type DragMoveEvent } from "@dnd-kit/react";
 import {
   Dashboard,
   useLivestreamStore,
@@ -23,33 +24,53 @@ import {
   Shield,
   SlidersHorizontal,
   Video,
-  X,
 } from "lucide-react-native";
 import { useRef, useState } from "react";
 import { useWindowDimensions, View } from "react-native";
 import { useEmojiData } from "utils/emoji";
 import CreatorHealth from "./creator-health.web";
 import {
+  getDropSide,
   getWidgetPlacements,
   insertWidget,
+  moveWidget,
   removeWidget,
   type LayoutNode,
   type WidgetNode,
 } from "./creator-layout";
 import { loadLayout, saveLayout } from "./creator-layout-storage";
 import { useCreatorMetrics } from "./creator-metrics-provider.web";
+import CreatorWidgetFrame from "./creator-widget-frame.web";
 import LivestreamPanel from "./livestream-panel";
 import MultistreamStatus from "./multistream-status";
 import StreamMonitor from "./stream-monitor";
 
 const widgets = new Map([
-  ["stream-monitor", { title: "Stream Monitor", icon: Video }],
-  ["stream-health", { title: "Stream Health", icon: Activity }],
-  ["chat", { title: "Chat", icon: MessageSquare }],
-  ["stream-info", { title: "Stream Info", icon: Radio }],
-  ["multistream", { title: "Multistream", icon: Globe }],
-  ["problems", { title: "Problems", icon: AlertTriangle }],
-  ["moderators", { title: "Moderators", icon: Shield }],
+  [
+    "stream-monitor",
+    { title: "Stream Monitor", icon: Video, minWidth: 5, minHeight: 3 },
+  ],
+  [
+    "stream-health",
+    { title: "Stream Health", icon: Activity, minWidth: 4, minHeight: 4 },
+  ],
+  ["chat", { title: "Chat", icon: MessageSquare, minWidth: 4, minHeight: 5 }],
+  [
+    "stream-info",
+    { title: "Stream Info", icon: Radio, minWidth: 4, minHeight: 5 },
+  ],
+  [
+    "multistream",
+    { title: "Multistream", icon: Globe, minWidth: 4, minHeight: 2 },
+  ],
+  [
+    "problems",
+    { title: "Problems", icon: AlertTriangle, minWidth: 4, minHeight: 2 },
+  ],
+  [
+    "moderators",
+    { title: "Moderators", icon: Shield, minWidth: 5, minHeight: 3.5 },
+  ],
 ]);
 
 export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
@@ -62,11 +83,22 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   const emojiData = useEmojiData();
   const problemsRef = useRef<ProblemsWrapperRef>(null);
   const addRef = useRef<HTMLButtonElement>(null);
+  const moveSelectRef = useRef<HTMLSelectElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const widgetIds = useRef(new WeakMap<WidgetNode, number>());
   const nextId = useRef(0);
   const [layout, setLayout] = useState(loadLayout);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [moving, setMoving] = useState<WidgetNode | null>(null);
+  const [moveTarget, setMoveTarget] = useState("");
+  const [drop, setDrop] = useState<{
+    id: string;
+    direction: "horizontal" | "vertical";
+    first: boolean;
+    allowed: boolean;
+  } | null>(null);
+  const [placementError, setPlacementError] = useState("");
   const [saveFailed, setSaveFailed] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const messagesPerMinute = history[history.length - 1]?.chatRate ?? null;
@@ -75,6 +107,14 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   const available = [...widgets].filter(
     ([key]) => !placements.some(({ widget }) => widget.widget === key),
   );
+  const widgetId = (widget: WidgetNode) => {
+    if (!widgetIds.current.has(widget))
+      widgetIds.current.set(widget, nextId.current++);
+    return `widget-${widgetIds.current.get(widget)}`;
+  };
+  const targetOptions = moving
+    ? placements.filter(({ widget }) => widget !== moving)
+    : [];
   const buttonStyle = {
     minHeight: theme.touchTargets.minimum,
     padding: `0 ${theme.spacing[3]}px`,
@@ -109,6 +149,109 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     updateLayout(next, `${widgets.get(key)?.title} added`);
     setAdding(false);
     requestAnimationFrame(() => addRef.current?.focus());
+  }
+
+  function openMove(widget: WidgetNode) {
+    const target = placements.find((item) => item.widget !== widget);
+    if (!target) return;
+    setMoving(widget);
+    setMoveTarget(widgetId(target.widget));
+    setAdding(false);
+    setPlacementError("");
+    requestAnimationFrame(() => moveSelectRef.current?.focus());
+  }
+
+  function closeMove(widget: WidgetNode) {
+    setMoving(null);
+    setPlacementError("");
+    requestAnimationFrame(() =>
+      document
+        .querySelector<HTMLButtonElement>(
+          `[data-move-widget="${widgetId(widget)}"]`,
+        )
+        ?.focus(),
+    );
+  }
+
+  function prepareMove(
+    sourceId: string,
+    targetId: string,
+    direction: "horizontal" | "vertical",
+    first: boolean,
+  ) {
+    const source = placements.find(
+      ({ widget }) => widgetId(widget) === sourceId,
+    );
+    const target = placements.find(
+      ({ widget }) => widgetId(widget) === targetId,
+    );
+    if (!source || !target || source.widget === target.widget) return null;
+    const next = moveWidget(layout, source.path, target.path, direction, first);
+    if (next === layout) return null;
+    const bounds = canvasRef.current?.getBoundingClientRect();
+    const fits = stacked
+      ? direction === "vertical"
+      : !!bounds &&
+        getWidgetPlacements(next)
+          .filter(
+            ({ widget }) =>
+              widget === source.widget || widget === target.widget,
+          )
+          .every(({ widget, width, height }) => {
+            const meta = widgets.get(widget.widget);
+            if (!meta) return true;
+            return (
+              bounds.width * width - spacing >=
+                meta.minWidth * theme.spacing[16] &&
+              bounds.height * height - spacing >=
+                meta.minHeight * theme.spacing[16]
+            );
+          });
+    return { next, source: source.widget, fits };
+  }
+
+  function move(
+    sourceId: string,
+    targetId: string,
+    direction: "horizontal" | "vertical",
+    first: boolean,
+  ): boolean {
+    const candidate = prepareMove(sourceId, targetId, direction, first);
+    if (!candidate) return false;
+    if (!candidate.fits) {
+      setPlacementError(
+        "There is not enough room to place these widgets there.",
+      );
+      return false;
+    }
+    setPlacementError("");
+    updateLayout(
+      candidate.next,
+      `${widgets.get(candidate.source.widget)?.title ?? candidate.source.widget} moved`,
+    );
+    return true;
+  }
+
+  function dropAt(operation: DragMoveEvent["operation"]) {
+    const { source, target, position } = operation;
+    if (!source || !target || source.id === target.id || !target.element)
+      return null;
+    const rect = target.element.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    const side = getDropSide(
+      (position.current.x - rect.left) / rect.width,
+      (position.current.y - rect.top) / rect.height,
+    );
+    if (!side) return null;
+    const candidate = prepareMove(
+      String(source.id),
+      String(target.id),
+      side.direction,
+      side.first,
+    );
+    return candidate
+      ? { id: String(target.id), ...side, allowed: candidate.fits }
+      : null;
   }
 
   function renderWidget(key: string) {
@@ -206,10 +349,9 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     }
   }
 
-  return (
+  const dashboard = (
     <ProblemsWrapper ref={problemsRef}>
       <div
-        className="creator-dashboard"
         style={{
           display: "flex",
           flexDirection: "column",
@@ -221,7 +363,6 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
           lineHeight: `${theme.typography.universal.xs.lineHeight}px`,
         }}
       >
-        <style>{`.creator-dashboard button:focus-visible { outline: ${zero.borders.width.medium.borderWidth}px solid ${theme.colors.focus}; outline-offset: ${zero.borders.width.medium.borderWidth}px; }`}</style>
         <div
           role="toolbar"
           aria-label="Creator dashboard controls"
@@ -241,6 +382,8 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
             onClick={() => {
               setEditing(!editing);
               setAdding(false);
+              setMoving(null);
+              setPlacementError("");
             }}
           >
             <span aria-hidden="true">
@@ -258,7 +401,10 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
               type="button"
               style={buttonStyle}
               aria-expanded={adding}
-              onClick={() => setAdding(!adding)}
+              onClick={() => {
+                setAdding(!adding);
+                setMoving(null);
+              }}
             >
               <span aria-hidden="true">
                 <Plus size={theme.spacing[4]} />
@@ -329,6 +475,70 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
             )}
           </div>
         )}
+        {editing && moving && (
+          <div
+            role="group"
+            aria-label={`Move ${widgets.get(moving.widget)?.title ?? moving.widget}`}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") closeMove(moving);
+            }}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: theme.spacing[2],
+              padding: `${theme.spacing[2]}px ${spacing}px`,
+            }}
+          >
+            <strong>
+              Moving {widgets.get(moving.widget)?.title ?? moving.widget}
+            </strong>
+            <label>
+              Move next to{" "}
+              <select
+                ref={moveSelectRef}
+                aria-label="Move next to"
+                value={moveTarget}
+                onChange={(event) => setMoveTarget(event.target.value)}
+                style={buttonStyle}
+              >
+                {targetOptions.map(({ widget }) => (
+                  <option key={widgetId(widget)} value={widgetId(widget)}>
+                    {widgets.get(widget.widget)?.title ??
+                      (widget.widget === "blank" ? "Empty" : widget.widget)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {(
+              [
+                ["left", "horizontal", true],
+                ["right", "horizontal", false],
+                ["above", "vertical", true],
+                ["below", "vertical", false],
+              ] as const
+            ).map(([label, direction, first]) => (
+              <button
+                key={label}
+                type="button"
+                style={buttonStyle}
+                onClick={() => {
+                  if (move(widgetId(moving), moveTarget, direction, first))
+                    closeMove(moving);
+                }}
+              >
+                Move {label}
+              </button>
+            ))}
+            <button
+              type="button"
+              style={buttonStyle}
+              onClick={() => closeMove(moving)}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         {saveFailed && (
           <div
             role="alert"
@@ -339,6 +549,17 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
           >
             Could not save your dashboard layout. Changes will last until you
             leave this page.
+          </div>
+        )}
+        {placementError && (
+          <div
+            role="alert"
+            style={{
+              padding: `${theme.spacing[2]}px ${spacing}px`,
+              color: theme.colors.warning,
+            }}
+          >
+            {placementError}
           </div>
         )}
         <span
@@ -354,9 +575,15 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
           {announcement}
         </span>
         <div
-          style={{ flex: 1, minHeight: 0, overflow: "auto", padding: spacing }}
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: "auto",
+            padding: spacing,
+          }}
         >
           <div
+            ref={canvasRef}
             style={{
               position: "relative",
               display: stacked ? "flex" : "block",
@@ -375,8 +602,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                 width: widgetWidth,
                 height: widgetHeight,
               }) => {
-                if (!widgetIds.current.has(widget))
-                  widgetIds.current.set(widget, nextId.current++);
+                const id = widgetId(widget);
                 const meta = widgets.get(widget.widget);
                 const label =
                   meta?.title ??
@@ -391,9 +617,17 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                         ? theme.spacing[16] * 4
                         : undefined;
                 return (
-                  <section
-                    key={widgetIds.current.get(widget)}
-                    aria-label={`${label} widget`}
+                  <CreatorWidgetFrame
+                    key={id}
+                    id={id}
+                    label={label}
+                    icon={Icon}
+                    editing={editing}
+                    blank={widget.widget === "blank"}
+                    canMove={placements.length > 1}
+                    dropSide={drop?.id === id ? drop : null}
+                    onMove={() => openMove(widget)}
+                    onRemove={() => remove(path, label)}
                     style={{
                       display: "flex",
                       flexDirection: "column",
@@ -413,56 +647,8 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                           }),
                     }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: theme.spacing[2],
-                        minHeight: theme.spacing[8],
-                        background: theme.colors.surface1,
-                        border: `${zero.borders.width.thin.borderWidth}px solid ${theme.colors.borderSubtle}`,
-                        borderRadius: `${theme.borderRadius.md}px ${theme.borderRadius.md}px 0 0`,
-                        paddingLeft: theme.spacing[3],
-                        color: theme.colors.text2,
-                      }}
-                    >
-                      <span aria-hidden="true">
-                        <Icon size={theme.spacing[4]} />
-                      </span>
-                      <strong style={{ flex: 1, color: theme.colors.text1 }}>
-                        {label}
-                      </strong>
-                      {editing && widget.widget !== "blank" && (
-                        <button
-                          type="button"
-                          aria-label={`Remove ${label}`}
-                          style={{
-                            ...buttonStyle,
-                            border: 0,
-                            background: "transparent",
-                            padding: `0 ${theme.spacing[3]}px`,
-                          }}
-                          onClick={() => remove(path, label)}
-                        >
-                          <span aria-hidden="true">
-                            <X size={theme.spacing[4]} />
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        flex: 1,
-                        minHeight: 0,
-                        minWidth: 0,
-                        overflow: stacked ? "visible" : "auto",
-                      }}
-                    >
-                      {renderWidget(widget.widget)}
-                    </div>
-                  </section>
+                    {renderWidget(widget.widget)}
+                  </CreatorWidgetFrame>
                 );
               },
             )}
@@ -470,5 +656,25 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
         </div>
       </div>
     </ProblemsWrapper>
+  );
+
+  return (
+    <DragDropProvider
+      onDragMove={({ operation }) => setDrop(dropAt(operation))}
+      onDragOver={({ operation }) => setDrop(dropAt(operation))}
+      onDragEnd={({ operation, canceled }) => {
+        const side = canceled ? null : dropAt(operation);
+        if (side && operation.source)
+          move(
+            String(operation.source.id),
+            side.id,
+            side.direction,
+            side.first,
+          );
+        setDrop(null);
+      }}
+    >
+      {dashboard}
+    </DragDropProvider>
   );
 }

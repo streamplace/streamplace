@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useState } from "react";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import { Linking, Pressable, ScrollView, View } from "react-native";
 import {
   CONTENT_WARNINGS,
@@ -36,12 +36,21 @@ export interface ContentMetadataFormProps {
     metadata: place.stream.metadata.configuration.Main,
   ) => void;
   initialMetadata?: place.stream.metadata.configuration.Main;
+  scrollable?: boolean;
+  warningsOnly?: boolean;
   style?: any;
 }
 
 export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
   (
-    { showUpdateButton = false, onMetadataChange, initialMetadata, style },
+    {
+      showUpdateButton = false,
+      onMetadataChange,
+      initialMetadata,
+      scrollable = true,
+      warningsOnly = false,
+      style,
+    },
     ref,
   ) => {
     const pdsAgent = usePDSAgent();
@@ -50,6 +59,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const saveContentMetadata = useSaveContentMetadata();
     const toast = useToast();
     const th = zero.useTheme();
+    const Container = scrollable ? ScrollView : View;
 
     // Local state for metadata
     const [contentWarnings, setContentWarnings] = useState<string[]>([]);
@@ -61,6 +71,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const [customLicenseText, setCustomLicenseText] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [hasMetadata, setHasMetadata] = useState(false);
+    const editedSections = useRef(new Set<string>());
+    const editRevision = useRef(0);
 
     // State for section toggles
     const [activeSection, setActiveSection] =
@@ -99,15 +111,24 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
           const metadata = await getContentMetadata();
           if (metadata?.record) {
             setHasMetadata(true);
-            if (metadata.record.contentWarnings?.warnings) {
+            if (
+              metadata.record.contentWarnings?.warnings &&
+              !editedSections.current.has("warnings")
+            ) {
               setContentWarnings(
                 metadata.record.contentWarnings.warnings as string[],
               );
             }
-            if (metadata.record.distributionPolicy) {
+            if (
+              metadata.record.distributionPolicy &&
+              !editedSections.current.has("distribution")
+            ) {
               setDistributionPolicy(metadata.record.distributionPolicy);
             }
-            if (metadata.record.contentRights) {
+            if (
+              metadata.record.contentRights &&
+              !editedSections.current.has("rights")
+            ) {
               setContentRights(metadata.record.contentRights);
               setSelectedLicense(metadata.record.contentRights.license || "");
             }
@@ -123,6 +144,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
 
     const handleContentWarningChange = useCallback(
       (warning: string, checked: boolean) => {
+        editedSections.current.add("warnings");
+        editRevision.current++;
         const newWarnings = checked
           ? [...contentWarnings, warning]
           : contentWarnings.filter((w) => w !== warning);
@@ -164,6 +187,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
         allowedBroadcasters?: string;
         allowGenAiTraining?: boolean;
       }) => {
+        editedSections.current.add("distribution");
+        editRevision.current++;
         let newDistributionPolicy: place.stream.metadata.distributionPolicy.Main =
           {
             ...distributionPolicy,
@@ -210,6 +235,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     // Handle content rights changes
     const handleContentRightsChange = useCallback(
       (field: string, value: any) => {
+        editedSections.current.add("rights");
+        editRevision.current++;
         const newRights = { ...contentRights, [field]: value };
         setContentRights(newRights);
 
@@ -228,14 +255,51 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const handleSave = useCallback(async () => {
       setLoading(true);
       try {
+        const revision = editRevision.current;
+        const edits = new Set(editedSections.current);
+        const current = await getContentMetadata();
+        if (warningsOnly) {
+          await saveContentMetadata(
+            {
+              ...current?.record,
+              $type: "place.stream.metadata.configuration",
+              contentWarnings:
+                edits.has("warnings") || !current?.record
+                  ? contentWarnings.length
+                    ? {
+                        ...current?.record?.contentWarnings,
+                        warnings: contentWarnings,
+                      }
+                    : undefined
+                  : current.record.contentWarnings,
+            },
+            current,
+          );
+          if (revision === editRevision.current) {
+            editedSections.current.clear();
+            if (!edits.has("warnings"))
+              setContentWarnings(
+                current?.record?.contentWarnings?.warnings ?? [],
+              );
+          }
+          setHasMetadata(true);
+          toast.show(
+            "Content metadata updated",
+            "Your settings have been saved successfully",
+          );
+          return;
+        }
         // Build the metadata object, only including non-empty fields
         const metadata: place.stream.metadata.configuration.Main = {
+          ...current?.record,
           $type: "place.stream.metadata.configuration",
         };
 
         // Only include contentWarnings if it has values
-        if (contentWarnings && contentWarnings.length > 0) {
-          metadata.contentWarnings = { warnings: contentWarnings };
+        if (!current?.record || edits.has("warnings")) {
+          metadata.contentWarnings = contentWarnings.length
+            ? { ...current?.record?.contentWarnings, warnings: contentWarnings }
+            : undefined;
         }
 
         // Only include contentRights if it has actual values
@@ -265,29 +329,41 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
             .filter(([_, value]) => value !== undefined),
         );
 
-        if (Object.keys(filteredRights).length > 0) {
-          metadata.contentRights = filteredRights;
+        if (!current?.record || edits.has("rights")) {
+          metadata.contentRights =
+            Object.keys(filteredRights).length > 0 ? filteredRights : undefined;
         }
 
         // AI training is opt-in: absent an explicit choice, save the record
         // with training disallowed.
-        metadata.distributionPolicy = {
-          allowGenAiTraining: false,
-          ...distributionPolicy,
-        };
-
-        if (distributionPolicy?.allowedBroadcasters) {
-          const filteredBs = distributionPolicy.allowedBroadcasters.filter(
-            (broadcaster) => broadcaster !== "",
-          );
-          metadata.distributionPolicy.allowedBroadcasters = filteredBs;
-          setDistributionPolicy({
+        if (!current?.record || edits.has("distribution")) {
+          metadata.distributionPolicy = {
+            allowGenAiTraining: false,
             ...distributionPolicy,
-            allowedBroadcasters: filteredBs,
-          });
+          };
+
+          if (distributionPolicy?.allowedBroadcasters) {
+            const filteredBs = distributionPolicy.allowedBroadcasters.filter(
+              (broadcaster) => broadcaster !== "",
+            );
+            metadata.distributionPolicy.allowedBroadcasters = filteredBs;
+            if (revision === editRevision.current) {
+              setDistributionPolicy({
+                ...distributionPolicy,
+                allowedBroadcasters: filteredBs,
+              });
+            }
+          }
         }
 
-        await saveContentMetadata(metadata);
+        await saveContentMetadata(metadata, current);
+        if (revision === editRevision.current) {
+          editedSections.current.clear();
+          if (!edits.has("warnings"))
+            setContentWarnings(
+              current?.record?.contentWarnings?.warnings ?? [],
+            );
+        }
         setHasMetadata(true);
         // Show success toast
         toast.show(
@@ -295,9 +371,19 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
           "Your settings have been saved successfully",
         );
       } catch (error) {
-        console.error("Failed to save metadata:", error);
-        // Show error toast
-        toast.show("Failed to save metadata", "Please try again later");
+        if (
+          error instanceof Error &&
+          "error" in error &&
+          error.error === "InvalidSwap"
+        ) {
+          toast.show(
+            "Settings changed elsewhere",
+            "Save again to apply your edits.",
+          );
+        } else {
+          console.error("Failed to save metadata:", error);
+          toast.show("Failed to save metadata", "Please try again later");
+        }
       } finally {
         setLoading(false);
       }
@@ -308,30 +394,37 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       selectedLicense,
       customLicenseText,
       hasMetadata,
+      warningsOnly,
+      getContentMetadata,
       saveContentMetadata,
+      toast,
     ]);
 
     return (
       <>
-        <ScrollView
+        <Container
           ref={ref}
-          style={[{ flex: 1 }, style]}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ flexGrow: 1 }}
+          style={[scrollable && { flex: 1 }, style]}
+          {...(scrollable && {
+            showsVerticalScrollIndicator: false,
+            contentContainerStyle: { flexGrow: 1 },
+          })}
         >
           <View style={[gap.all[8], w.percent[100], { alignItems: "stretch" }]}>
             {/* Section Selector */}
-            <View style={[gap.all[4], w.percent[100]]}>
-              <SegmentedTabs
-                options={[
-                  { label: "Warnings", value: "contentWarnings" },
-                  { label: "Rights", value: "contentRights" },
-                  { label: "Distribution", value: "distribution" },
-                ]}
-                value={activeSection}
-                onChange={setActiveSection}
-              />
-            </View>
+            {!warningsOnly && (
+              <View style={[gap.all[4], w.percent[100]]}>
+                <SegmentedTabs
+                  options={[
+                    { label: "Warnings", value: "contentWarnings" },
+                    { label: "Rights", value: "contentRights" },
+                    { label: "Distribution", value: "distribution" },
+                  ]}
+                  value={activeSection}
+                  onChange={setActiveSection}
+                />
+              </View>
+            )}
 
             {/* Content Warnings Section */}
             {activeSection === "contentWarnings" && (
@@ -855,7 +948,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
               </Button>
             </View>
           </View>
-        </ScrollView>
+        </Container>
       </>
     );
   },

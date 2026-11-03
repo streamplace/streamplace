@@ -36,55 +36,34 @@ export const useSaveContentMetadata = () => {
   const did = useDID();
   const setContentMetadata = useSetContentMetadata();
 
-  return async (metadataRecord: place.stream.metadata.configuration.Main) => {
+  return async (
+    metadataRecord: place.stream.metadata.configuration.Main,
+    previous: ContentMetadataResult | null,
+  ) => {
     if (!pdsAgent || !did) {
       throw new Error("No PDS agent or DID available");
     }
 
-    try {
-      // Try to update existing record first
-      const result = await pdsAgent.client.put(
-        place.stream.metadata.configuration,
-        metadataRecord,
-        { repo: did as any, rkey: "self" },
-      );
-
-      const contentMetadata: ContentMetadataResult = {
-        record: metadataRecord as any,
-        uri: result.uri,
-        cid: result.cid || "",
-        rkey: "self",
-      };
-
-      setContentMetadata(contentMetadata);
-      return contentMetadata;
-    } catch (error) {
-      // If record doesn't exist, create it
-      if (
-        error instanceof Error &&
-        (error.message?.includes("not found") ||
-          error.message?.includes("RecordNotFound") ||
-          error.message?.includes("mst: not found") ||
-          (error as any)?.status === 404)
-      ) {
-        const createResult = await pdsAgent.client.create(
+    const result = previous
+      ? await pdsAgent.client.put(
+          place.stream.metadata.configuration,
+          metadataRecord,
+          { repo: did as any, rkey: "self", swapRecord: previous.cid },
+        )
+      : await pdsAgent.client.create(
           place.stream.metadata.configuration,
           metadataRecord,
           { repo: did as any, rkey: "self" },
         );
 
-        const contentMetadata: ContentMetadataResult = {
-          record: metadataRecord as any,
-          uri: createResult.uri,
-          cid: createResult.cid || "",
-          rkey: "self",
-        };
-
-        setContentMetadata(contentMetadata);
-        return contentMetadata;
-      }
-      throw error;
-    }
+    const contentMetadata: ContentMetadataResult = {
+      record: metadataRecord as any,
+      uri: result.uri,
+      cid: result.cid || "",
+      rkey: "self",
+    };
+    setContentMetadata(contentMetadata);
+    return contentMetadata;
   };
 };
 
@@ -125,7 +104,8 @@ export const useGetContentMetadata = () => {
       // Handle record not found - this is normal for new users
       if (
         error instanceof Error &&
-        (error.message?.includes("not found") ||
+        (("error" in error && error.error === "RecordNotFound") ||
+          error.message?.includes("not found") ||
           error.message?.includes("RecordNotFound") ||
           error.message?.includes("mst: not found") ||
           (error as any)?.status === 404)

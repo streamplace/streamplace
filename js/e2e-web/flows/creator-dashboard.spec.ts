@@ -29,8 +29,8 @@ test("creator host: login return, restored session, and socket lifetime", async 
 
   const chat = page.getByPlaceholder("Type a message...");
   await chat.fill("Unsent creator draft");
-  await form.getByText("Metadata", { exact: true }).click();
-  await form.getByText("Create", { exact: true }).click();
+  await form.getByRole("button", { name: "Edit content warnings" }).click();
+  await form.getByRole("button", { name: "Back to Stream Info" }).click();
   await expect(chat).toHaveValue("Unsent creator draft");
   expect(sockets.size).toBe(1);
 

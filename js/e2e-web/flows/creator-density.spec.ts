@@ -40,9 +40,12 @@ test("stream settings use the widget title without losing their controls", async
   ).toBeVisible();
   await expect(
     widget.getByText("Stream Settings", { exact: true }),
-  ).toHaveCount(0);
-  await widget.getByText("Metadata", { exact: true }).click();
-  await widget.getByText("Create", { exact: true }).click();
+  ).toHaveCount(1);
+  await expect(
+    widget.getByRole("link", { name: "Stream Settings" }),
+  ).toHaveCount(1);
+  await widget.getByRole("button", { name: "Edit content warnings" }).click();
+  await widget.getByRole("button", { name: "Back to Stream Info" }).click();
   await expect(
     widget.getByPlaceholder("Enter your stream title..."),
   ).toBeVisible();

@@ -578,6 +578,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
             scrollable={!stacked}
             showModerators={false}
             showTitle={false}
+            dashboardWeb
             style={attachedPanelStyle}
           />
         );

@@ -1,13 +1,22 @@
 import {
+  Button,
+  ContentMetadataForm,
+  Dashboard,
   MenuContainer,
   MenuGroup,
   MenuSeparator,
+  Text,
   View,
+  useStreamplaceStore,
+  useTheme,
   zero,
 } from "@streamplace/components";
+import Loading from "components/loading/loading";
 import { Globe, Heart, Key, Webhook } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
-import { ScrollView } from "react-native";
+import { Platform, ScrollView } from "react-native";
+import { useStore } from "store";
+import { useIsReady, useUserProfile } from "store/hooks";
 import { SettingsNavigationItem } from "./components/settings-navigation-item";
 
 export function StreamingCategorySettings() {
@@ -52,7 +61,46 @@ export function StreamingCategorySettings() {
             </MenuGroup>
           </MenuContainer>
         </View>
+        {Platform.OS === "web" && <CreatorStreamSettings />}
       </View>
     </ScrollView>
+  );
+}
+
+function CreatorStreamSettings() {
+  const { theme } = useTheme();
+  const isReady = useIsReady();
+  const profile = useUserProfile();
+  const session = useStreamplaceStore((state) => state.oauthSession);
+  const openLoginModal = useStore((state) => state.openLoginModal);
+  if (
+    !isReady ||
+    session === undefined ||
+    (profile && session?.did !== profile.did)
+  ) {
+    return <Loading />;
+  }
+  if (!profile) {
+    return (
+      <Button onPress={() => openLoginModal({ name: "StreamingCategory" })}>
+        Log in to manage stream settings
+      </Button>
+    );
+  }
+  return (
+    <View
+      style={{
+        width: "100%",
+        maxWidth: theme.spacing[96] * 2,
+        gap: theme.spacing[6],
+        paddingVertical: theme.spacing[6],
+      }}
+    >
+      <View style={{ gap: theme.spacing[4] }}>
+        <Text size="lg">Content metadata</Text>
+        <ContentMetadataForm scrollable={false} />
+      </View>
+      <Dashboard.ChatAccessPanel />
+    </View>
   );
 }

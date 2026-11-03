@@ -57,8 +57,8 @@ test("updating stream details saves the existing announcement", async ({
 
   await title.fill(editedTitle);
   const form = page.getByTestId("live-stream-form");
-  await form.getByText("Metadata", { exact: true }).click();
-  await form.getByText("Create", { exact: true }).click();
+  await form.getByRole("button", { name: "Edit content warnings" }).click();
+  await form.getByRole("button", { name: "Back to Stream Info" }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(title).toHaveValue(editedTitle);
   await page.setViewportSize({ width: 1280, height: 720 });

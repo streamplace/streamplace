@@ -289,12 +289,14 @@ function LivestreamPanel({
   scrollable = true,
   showModerators = true,
   showTitle = true,
+  dashboardWeb = false,
   style,
 }: {
   status: LiveDashboardStatus;
   scrollable?: boolean;
   showModerators?: boolean;
   showTitle?: boolean;
+  dashboardWeb?: boolean;
   style?: ViewStyle;
 }) {
   const toast = useToast();
@@ -308,6 +310,9 @@ function LivestreamPanel({
   const url = useUrl();
   const [endingLivestream, setEndingLivestream] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const [warningsOpened, setWarningsOpened] = useState(false);
+  const bodyRef = useRef<ScrollView>(null);
   const { t } = useTranslation("settings");
   const { t: common } = useTranslation("common");
   const agent = useStore((state) => state.pdsAgent);
@@ -440,9 +445,15 @@ function LivestreamPanel({
 
   const handleModeChange = useCallback(
     (newMode: "create" | "metadata" | "moderation") => {
+      if (dashboardWeb && newMode === "metadata") setWarningsOpened(true);
       setMode(newMode);
+      if (dashboardWeb && scrollable) {
+        requestAnimationFrame(() =>
+          bodyRef.current?.scrollTo({ y: 0, animated: false }),
+        );
+      }
     },
-    [],
+    [dashboardWeb, scrollable],
   );
 
   const handleSubmit = useCallback(async () => {
@@ -664,34 +675,48 @@ function LivestreamPanel({
       ]}
     >
       {/* Fixed header */}
-      <View
-        style={[
-          px[4],
-          showTitle ? py[4] : py[2],
-          borders.bottom.width.thin,
-          { borderBottomColor: borderAlphas.dark.strong, gap: 12 },
-        ]}
-      >
-        {showTitle && (
-          <Text style={[text.white, { fontSize: 15, fontWeight: "600" }]}>
-            Stream Settings
-          </Text>
-        )}
-        <SegmentedTabs
-          fullWidth
-          size="sm"
-          options={[
-            { label: "Create", value: "create" },
-            { label: "Metadata", value: "metadata" },
-            { label: "Moderation", value: "moderation" },
+      {(!dashboardWeb || mode !== "create") && (
+        <View
+          style={[
+            px[4],
+            showTitle ? py[4] : py[2],
+            borders.bottom.width.thin,
+            { borderBottomColor: borderAlphas.dark.strong, gap: 12 },
           ]}
-          value={mode}
-          onChange={handleModeChange as any}
-        />
-      </View>
+        >
+          {showTitle && (
+            <Text style={[text.white, { fontSize: 15, fontWeight: "600" }]}>
+              Stream Settings
+            </Text>
+          )}
+          {dashboardWeb ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              width="min"
+              onPress={() => handleModeChange("create")}
+            >
+              Back to Stream Info
+            </Button>
+          ) : (
+            <SegmentedTabs
+              fullWidth
+              size="sm"
+              options={[
+                { label: "Create", value: "create" },
+                { label: "Metadata", value: "metadata" },
+                { label: "Moderation", value: "moderation" },
+              ]}
+              value={mode}
+              onChange={handleModeChange as any}
+            />
+          )}
+        </View>
+      )}
 
       {/* Scrollable body */}
       <Wrapper
+        ref={scrollable ? bodyRef : undefined}
         style={
           scrollable
             ? { flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0 }
@@ -699,14 +724,21 @@ function LivestreamPanel({
         }
         {...wrapperProps}
       >
-        {mode === "metadata" ? (
-          // Metadata view
-          <View style={[flex.values[1], p[4]]}>
-            <ContentMetadataForm
-              showUpdateButton={!userIsLive}
-              style={{ flex: 1, height: "100%" }}
-            />
+        {dashboardWeb && warningsOpened && (
+          <View style={[p[4], mode !== "metadata" && { display: "none" }]}>
+            <ContentMetadataForm scrollable={false} warningsOnly />
           </View>
+        )}
+        {mode === "metadata" ? (
+          !dashboardWeb && (
+            // Metadata view
+            <View style={[flex.values[1], p[4]]}>
+              <ContentMetadataForm
+                showUpdateButton={!userIsLive}
+                style={{ flex: 1, height: "100%" }}
+              />
+            </View>
+          )
         ) : mode === "moderation" ? (
           // Moderation view
           <View style={[flex.values[1], { minHeight: 400 }]}>
@@ -888,122 +920,157 @@ function LivestreamPanel({
                 )}
               </View>
 
-              {/* Canonical URL */}
-              <Tooltip
-                content="Set this to have the livestream announced with a link to this URL instead of the default URL."
-                position="top"
-              >
-                <View style={[gap.all[1]]}>
-                  <Text size="sm" color="muted">
-                    Canonical URL
-                  </Text>
-                  <Input
-                    value={canonicalUrl}
-                    onChange={(value) => {
-                      editedFields.current.add("canonicalUrl");
-                      setCanonicalUrl(value);
-                    }}
-                    placeholder={defaultCanonicalUrl}
-                    variant="filled"
-                    testID="live-canonical-url"
-                    inputStyle={[
-                      p[3],
-                      r.md,
-                      { backgroundColor: surfaces.dark[2] },
-                      text.white,
-                      borders.width.thin,
-                      { borderColor: borderAlphas.dark.strong },
-                      w.percent[100],
-                      { fontSize: 15 },
-                    ]}
-                  />
+              {dashboardWeb && (
+                <View style={[gap.all[3]]}>
+                  <Button
+                    variant="secondary"
+                    onPress={() => handleModeChange("metadata")}
+                  >
+                    Edit content warnings
+                  </Button>
+                  <Admonition variant="info" size="sm">
+                    <Text size="sm">
+                      Looking for content metadata or chat settings? Find them
+                      in{" "}
+                      <a
+                        href="/settings/streaming"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: theme.colors.primary }}
+                      >
+                        Stream Settings
+                      </a>{" "}
+                      (opens in a new tab).
+                    </Text>
+                  </Admonition>
+                  <Button
+                    variant="secondary"
+                    onPress={() => setShowOptions(!showOptions)}
+                  >
+                    {showOptions ? "Hide stream options" : "Stream options"}
+                  </Button>
                 </View>
-              </Tooltip>
-
-              {/* Options */}
-              <View
-                style={[
-                  gap.all[2],
-                  p[3],
-                  r.md,
-                  borders.width.thin,
-                  { borderColor: borderAlphas.dark.strong },
-                ]}
-              >
-                {!updating && (
+              )}
+              {(!dashboardWeb || showOptions) && (
+                <>
+                  {/* Canonical URL */}
                   <Tooltip
-                    content={
-                      canPostToBluesky
-                        ? `Create a ${networkName} post announcing you're live with a link to the stream.`
-                        : `You signed in without granting ${networkName} permissions, so Streamplace can't post to your account. Log out and back in to change this.`
-                    }
+                    content="Set this to have the livestream announced with a link to this URL instead of the default URL."
                     position="top"
                   >
-                    <View
-                      style={[
-                        layout.flex.row,
-                        { alignItems: "center" },
-                        gap.all[1],
-                      ]}
-                    >
-                      <Checkbox
-                        checked={createPost && canPostToBluesky}
-                        onCheckedChange={(checked) => {
-                          editedFields.current.add("createPost");
-                          setCreatePost(checked);
+                    <View style={[gap.all[1]]}>
+                      <Text size="sm" color="muted">
+                        Canonical URL
+                      </Text>
+                      <Input
+                        value={canonicalUrl}
+                        onChange={(value) => {
+                          editedFields.current.add("canonicalUrl");
+                          setCanonicalUrl(value);
                         }}
-                        disabled={!canPostToBluesky}
-                        label={`Create ${networkName} post`}
+                        placeholder={defaultCanonicalUrl}
+                        variant="filled"
+                        testID="live-canonical-url"
+                        inputStyle={[
+                          p[3],
+                          r.md,
+                          { backgroundColor: surfaces.dark[2] },
+                          text.white,
+                          borders.width.thin,
+                          { borderColor: borderAlphas.dark.strong },
+                          w.percent[100],
+                          { fontSize: 15 },
+                        ]}
                       />
-                      {!canPostToBluesky && (
-                        <Lock size={14} color={theme.colors.textMuted} />
-                      )}
                     </View>
                   </Tooltip>
-                )}
-                {!updating && (
-                  <Tooltip
-                    content="Send a push notification to your followers on the Streamplace iOS/Android app."
-                    position="top"
+
+                  {/* Options */}
+                  <View
+                    style={[
+                      gap.all[2],
+                      p[3],
+                      r.md,
+                      borders.width.thin,
+                      { borderColor: borderAlphas.dark.strong },
+                    ]}
                   >
-                    <Checkbox
-                      checked={sendPushNotification}
-                      onCheckedChange={(checked) => {
-                        editedFields.current.add("sendPushNotification");
-                        setSendPushNotification(checked);
-                      }}
-                      label="Send push notification"
-                    />
-                  </Tooltip>
-                )}
-                <Tooltip
-                  content="Enabling this setting will turn your livestream off after 5 minutes of inactivity, and you'll need to press the 'Start Livestream' button again to start it again next time you stream."
-                  position="top"
-                >
-                  <Checkbox
-                    checked={idleTimeout}
-                    onCheckedChange={(checked) => {
-                      editedFields.current.add("idleTimeout");
-                      setIdleTimeout(checked);
-                    }}
-                    label="End livestream automatically"
-                  />
-                </Tooltip>
-                {vodBetaStatus === "granted" && (
-                  <Tooltip
-                    content={t("auto-publish-vods-stream-description")}
-                    position="top"
-                  >
-                    <Checkbox
-                      checked={serverSettings?.autoPublishVods === true}
-                      onCheckedChange={setAutoPublishVods}
-                      disabled={!agent || settingsLoading || saving}
-                      label={t("auto-publish-vods-stream-label")}
-                      testID="live-auto-publish-vods"
-                    />
-                  </Tooltip>
-                )}
-              </View>
+                    {!updating && (
+                      <Tooltip
+                        content={
+                          canPostToBluesky
+                            ? `Create a ${networkName} post announcing you're live with a link to the stream.`
+                            : `You signed in without granting ${networkName} permissions, so Streamplace can't post to your account. Log out and back in to change this.`
+                        }
+                        position="top"
+                      >
+                        <View
+                          style={[
+                            layout.flex.row,
+                            { alignItems: "center" },
+                            gap.all[1],
+                          ]}
+                        >
+                          <Checkbox
+                            checked={createPost && canPostToBluesky}
+                            onCheckedChange={(checked) => {
+                              editedFields.current.add("createPost");
+                              setCreatePost(checked);
+                            }}
+                            disabled={!canPostToBluesky}
+                            label={`Create ${networkName} post`}
+                          />
+                          {!canPostToBluesky && (
+                            <Lock size={14} color={theme.colors.textMuted} />
+                          )}
+                        </View>
+                      </Tooltip>
+                    )}
+                    {!updating && (
+                      <Tooltip
+                        content="Send a push notification to your followers on the Streamplace iOS/Android app."
+                        position="top"
+                      >
+                        <Checkbox
+                          checked={sendPushNotification}
+                          onCheckedChange={(checked) => {
+                            editedFields.current.add("sendPushNotification");
+                            setSendPushNotification(checked);
+                          }}
+                          label="Send push notification"
+                        />
+                      </Tooltip>
+                    )}
+                    <Tooltip
+                      content="Enabling this setting will turn your livestream off after 5 minutes of inactivity, and you'll need to press the 'Start Livestream' button again to start it again next time you stream."
+                      position="top"
+                    >
+                      <Checkbox
+                        checked={idleTimeout}
+                        onCheckedChange={(checked) => {
+                          editedFields.current.add("idleTimeout");
+                          setIdleTimeout(checked);
+                        }}
+                        label="End livestream automatically"
+                      />
+                    </Tooltip>
+                    {vodBetaStatus === "granted" && (
+                      <Tooltip
+                        content={t("auto-publish-vods-stream-description")}
+                        position="top"
+                      >
+                        <Checkbox
+                          checked={serverSettings?.autoPublishVods === true}
+                          onCheckedChange={setAutoPublishVods}
+                          disabled={!agent || settingsLoading || saving}
+                          label={t("auto-publish-vods-stream-label")}
+                          testID="live-auto-publish-vods"
+                        />
+                      </Tooltip>
+                    )}
+                  </View>
+                </>
+              )}
             </View>
 
             {/* Thumbnail */}

@@ -24,6 +24,12 @@ async function setSetting(page: Page, testId: string, on: boolean) {
   await expect(toggle).toHaveAttribute("aria-checked", String(on));
 
   await page.reload();
+  if (
+    testId === "live-auto-publish-vods" &&
+    new URL(page.url()).pathname === "/live"
+  ) {
+    await page.getByRole("button", { name: "Stream options" }).click();
+  }
   await expect(page.getByTestId(testId)).toHaveAttribute(
     "aria-checked",
     String(on),
@@ -101,14 +107,15 @@ test("auto-publish-vods: stream form and privacy share the saved preference", as
 }) => {
   await loginThroughPds(page);
   await page.goto(`${HTTPS_URL}/live`);
+  const form = page.getByTestId("live-stream-form");
+  await form.getByRole("button", { name: "Stream options" }).click();
   const toggle = page.getByTestId("live-auto-publish-vods");
   await expect(toggle).toBeVisible({ timeout: 30_000 });
   await expect(toggle).toBeEnabled();
   const initial = (await toggle.getAttribute("aria-checked")) === "true";
-  const form = page.getByTestId("live-stream-form");
-  await form.getByText("Metadata", { exact: true }).click();
+  await form.getByRole("button", { name: "Edit content warnings" }).click();
   await expect(toggle).toBeHidden();
-  await form.getByText("Create", { exact: true }).click();
+  await form.getByRole("button", { name: "Back to Stream Info" }).click();
   await expect(toggle).toBeVisible();
 
   await setSetting(page, "live-auto-publish-vods", !initial);
@@ -125,6 +132,7 @@ test("auto-publish-vods: stream form and privacy share the saved preference", as
   await page.goto(`${HTTPS_URL}/settings/privacy`);
   await setSetting(page, "settings-auto-publish-vods", initial);
   await page.goto(`${HTTPS_URL}/live`);
+  await form.getByRole("button", { name: "Stream options" }).click();
   await expect(toggle).toHaveAttribute("aria-checked", String(initial), {
     timeout: 30_000,
   });
@@ -141,6 +149,7 @@ test("auto-publish-vods: stream form and privacy share the saved preference", as
     ),
     page.reload(),
   ]);
+  await form.getByRole("button", { name: "Stream options" }).click();
   await expect(
     page.getByRole("checkbox", {
       name: "End livestream automatically",

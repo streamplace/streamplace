@@ -58,7 +58,7 @@ test("stream settings keep content metadata and chat access available", async ({
     page.getByText("Content metadata", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Chat access", { exact: true })).toBeVisible();
-  await page.getByText("Rights", { exact: true }).click();
+  await expect(page.getByText("Content Rights", { exact: true })).toBeVisible();
   const notice = page.getByPlaceholder("Enter your copyright notice...");
   await notice.fill("A creator's copyright notice");
   const save = page.waitForResponse(
@@ -75,7 +75,7 @@ test("stream settings keep content metadata and chat access available", async ({
     .click();
   expect((await save).ok()).toBe(true);
   await page.reload();
-  await page.getByText("Rights", { exact: true }).click();
+  await expect(page.getByText("Content Rights", { exact: true })).toBeVisible();
   await expect(notice).toHaveValue("A creator's copyright notice");
   await notice.fill("");
   await page
@@ -85,7 +85,7 @@ test("stream settings keep content metadata and chat access available", async ({
     page.getByText(/content metadata (created|updated)/i),
   ).toBeVisible();
   await page.reload();
-  await page.getByText("Rights", { exact: true }).click();
+  await expect(page.getByText("Content Rights", { exact: true })).toBeVisible();
   await expect(notice).toHaveValue("");
 });
 
@@ -114,7 +114,7 @@ test("quick content warnings preserve the rest of the saved metadata", async ({
 }) => {
   await loginThroughPds(page);
   await page.goto(`${url}/settings/streaming`);
-  await page.getByText("Rights", { exact: true }).click();
+  await expect(page.getByText("Content Rights", { exact: true })).toBeVisible();
   const notice = page.getByPlaceholder("Enter your copyright notice...");
   await notice.fill("Retain this notice");
   await page
@@ -138,7 +138,9 @@ test("quick content warnings preserve the rest of the saved metadata", async ({
   await expect(warning).toBeChecked();
   const settings = await page.context().newPage();
   await settings.goto(`${url}/settings/streaming`);
-  await settings.getByText("Rights", { exact: true }).click();
+  await expect(
+    settings.getByText("Content Rights", { exact: true }),
+  ).toBeVisible();
   await settings
     .getByPlaceholder("Enter your copyright notice...")
     .fill("Updated while editing warnings");
@@ -157,9 +159,11 @@ test("quick content warnings preserve the rest of the saved metadata", async ({
   await widget.getByRole("button", { name: "Back to Stream Info" }).click();
   await expect(title).toHaveValue("Keep this draft");
   await page.goto(`${url}/settings/streaming`);
-  await page.getByText("Rights", { exact: true }).click();
+  await expect(page.getByText("Content Rights", { exact: true })).toBeVisible();
   await expect(notice).toHaveValue("Updated while editing warnings");
-  await page.getByText("Warnings", { exact: true }).click();
+  await expect(
+    page.getByText("Content Warnings", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("checkbox", { name: "Death" })).toBeChecked();
 });
 
@@ -174,7 +178,7 @@ test("saving metadata preserves warnings changed in another tab", async ({
   await expect(
     page.getByText(/content metadata (created|updated)/i),
   ).toBeVisible();
-  await page.getByText("Rights", { exact: true }).click();
+  await expect(page.getByText("Content Rights", { exact: true })).toBeVisible();
   await page
     .getByPlaceholder("Enter your copyright notice...")
     .fill("New notice");
@@ -227,7 +231,7 @@ test("a concurrent metadata save cannot silently overwrite a newer record", asyn
   await expect(
     page.getByText(/content metadata (created|updated)/i),
   ).toBeVisible();
-  await page.getByText("Rights", { exact: true }).click();
+  await expect(page.getByText("Content Rights", { exact: true })).toBeVisible();
   const notice = page.getByPlaceholder("Enter your copyright notice...");
   await notice.fill("Unsent notice");
 

@@ -118,7 +118,7 @@ function CreatorStreamSettings() {
     >
       <View style={{ gap: theme.spacing[4] }}>
         <Text size="lg">Content metadata</Text>
-        <ContentMetadataForm scrollable={false} />
+        <ContentMetadataForm scrollable={false} showAllSections />
       </View>
       <Dashboard.ChatAccessPanel />
     </View>

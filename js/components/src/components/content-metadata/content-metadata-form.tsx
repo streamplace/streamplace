@@ -1,9 +1,16 @@
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
-import { Linking, Pressable, ScrollView, View } from "react-native";
+import {
+  Linking,
+  Pressable,
+  ScrollView,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import {
   CONTENT_WARNINGS,
   LICENSE_OPTIONS,
 } from "../../lib/metadata-constants";
+import { breakpoints } from "../../lib/theme/tokens";
 
 import { ExternalLink } from "lucide-react-native";
 import { place } from "streamplace";
@@ -38,6 +45,7 @@ export interface ContentMetadataFormProps {
   initialMetadata?: place.stream.metadata.configuration.Main;
   scrollable?: boolean;
   warningsOnly?: boolean;
+  showAllSections?: boolean;
   style?: any;
 }
 
@@ -49,6 +57,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       initialMetadata,
       scrollable = true,
       warningsOnly = false,
+      showAllSections = false,
       style,
     },
     ref,
@@ -59,6 +68,24 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const saveContentMetadata = useSaveContentMetadata();
     const toast = useToast();
     const th = zero.useTheme();
+    const { width } = useWindowDimensions();
+    const allSections = showAllSections && !warningsOnly;
+    const stackedFields = allSections && width < breakpoints.md;
+    const stackedFieldStyle = stackedFields
+      ? { flexDirection: "column" as const, alignItems: "stretch" as const }
+      : undefined;
+    const fieldLabelStyle = allSections
+      ? {
+          minWidth: stackedFields ? th.theme.spacing[0] : th.theme.spacing[32],
+          maxWidth: stackedFields ? ("100%" as const) : th.theme.spacing[32],
+          paddingBottom: stackedFields
+            ? th.theme.spacing[1]
+            : th.theme.spacing[0],
+          paddingRight: stackedFields
+            ? th.theme.spacing[0]
+            : th.theme.spacing[2],
+        }
+      : undefined;
     const Container = scrollable ? ScrollView : View;
 
     // Local state for metadata
@@ -412,7 +439,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
         >
           <View style={[gap.all[8], w.percent[100], { alignItems: "stretch" }]}>
             {/* Section Selector */}
-            {!warningsOnly && (
+            {!warningsOnly && !allSections && (
               <View style={[gap.all[4], w.percent[100]]}>
                 <SegmentedTabs
                   options={[
@@ -427,7 +454,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
             )}
 
             {/* Content Warnings Section */}
-            {activeSection === "contentWarnings" && (
+            {(allSections || activeSection === "contentWarnings") && (
               <View style={[gap.all[3], w.percent[100]]}>
                 <View
                   style={[
@@ -439,9 +466,30 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 >
                   <Text size="lg">Content Warnings</Text>
                 </View>
-                <View style={[gap.all[2], w.percent[100]]}>
+                <View
+                  style={[
+                    gap.all[2],
+                    w.percent[100],
+                    allSections &&
+                      width >= breakpoints.lg && {
+                        flexDirection: "row",
+                        flexWrap: "wrap",
+                        columnGap: th.theme.spacing[0],
+                      },
+                  ]}
+                >
                   {CONTENT_WARNINGS.map((warning) => (
-                    <View key={warning.value} style={[w.percent[100]]}>
+                    <View
+                      key={warning.value}
+                      style={[
+                        w.percent[100],
+                        allSections &&
+                          width >= breakpoints.lg && {
+                            width: "50%",
+                            paddingRight: th.theme.spacing[2],
+                          },
+                      ]}
+                    >
                       <Tooltip content={warning.description} position="top">
                         <Checkbox
                           checked={contentWarnings.includes(warning.value)}
@@ -486,7 +534,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
             )}
 
             {/* Content Rights Section */}
-            {activeSection === "contentRights" && (
+            {(allSections || activeSection === "contentRights") && (
               <View style={[gap.all[3], w.percent[100]]}>
                 <View
                   style={[
@@ -496,7 +544,9 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                     gap.all[2],
                   ]}
                 >
-                  <Text>Content Rights</Text>
+                  <Text size={allSections ? "lg" : undefined}>
+                    Content Rights
+                  </Text>
                   <Text muted>(optional)</Text>
                 </View>
 
@@ -506,6 +556,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                       layout.flex.row,
                       layout.flex.alignCenter,
                       w.percent[100],
+                      stackedFieldStyle,
                     ]}
                   >
                     <Text
@@ -517,11 +568,14 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                           paddingBottom: 8,
                           fontSize: 14,
                         },
+                        fieldLabelStyle,
                       ]}
                     >
                       Copyright Year
                     </Text>
-                    <View style={[flex.values[1]]}>
+                    <View
+                      style={[flex.values[1], stackedFields && { flex: 0 }]}
+                    >
                       <Input
                         value={contentRights.copyrightYear?.toString() || ""}
                         onChange={(value) =>
@@ -547,6 +601,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                       layout.flex.row,
                       layout.flex.alignCenter,
                       w.percent[100],
+                      stackedFieldStyle,
                     ]}
                   >
                     <Text
@@ -558,11 +613,14 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                           paddingBottom: 8,
                           fontSize: 14,
                         },
+                        fieldLabelStyle,
                       ]}
                     >
                       License
                     </Text>
-                    <View style={[flex.values[1]]}>
+                    <View
+                      style={[flex.values[1], stackedFields && { flex: 0 }]}
+                    >
                       <Select
                         value={selectedLicense}
                         onValueChange={(value) => {
@@ -598,6 +656,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                         layout.flex.row,
                         layout.flex.alignCenter,
                         w.percent[100],
+                        stackedFieldStyle,
                       ]}
                     >
                       <Text
@@ -609,11 +668,14 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                             paddingBottom: 8,
                             fontSize: 14,
                           },
+                          fieldLabelStyle,
                         ]}
                       >
                         Custom License
                       </Text>
-                      <View style={[flex.values[1]]}>
+                      <View
+                        style={[flex.values[1], stackedFields && { flex: 0 }]}
+                      >
                         <Textarea
                           value={customLicenseText}
                           onChangeText={(value) => {
@@ -631,6 +693,10 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                             borders.width.thin,
                             borders.color.neutral[600],
                             w.percent[100],
+                            stackedFields && {
+                              flex: 0,
+                              minHeight: th.theme.spacing[24],
+                            },
                           ]}
                         />
                       </View>
@@ -642,6 +708,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                       layout.flex.row,
                       layout.flex.alignCenter,
                       w.percent[100],
+                      stackedFieldStyle,
                     ]}
                   >
                     <Text
@@ -653,11 +720,14 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                           paddingBottom: 8,
                           fontSize: 14,
                         },
+                        fieldLabelStyle,
                       ]}
                     >
                       Copyright Notice
                     </Text>
-                    <View style={[flex.values[1]]}>
+                    <View
+                      style={[flex.values[1], stackedFields && { flex: 0 }]}
+                    >
                       <Textarea
                         value={contentRights.copyrightNotice || ""}
                         onChangeText={(value: string) =>
@@ -672,6 +742,10 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                           borders.width.thin,
                           borders.color.neutral[600],
                           w.percent[100],
+                          stackedFields && {
+                            flex: 0,
+                            minHeight: th.theme.spacing[24],
+                          },
                         ]}
                       />
                     </View>
@@ -682,6 +756,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                       layout.flex.row,
                       layout.flex.alignCenter,
                       w.percent[100],
+                      stackedFieldStyle,
                     ]}
                   >
                     <Text
@@ -693,11 +768,14 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                           paddingBottom: 8,
                           fontSize: 14,
                         },
+                        fieldLabelStyle,
                       ]}
                     >
                       Credit Line
                     </Text>
-                    <View style={[flex.values[1]]}>
+                    <View
+                      style={[flex.values[1], stackedFields && { flex: 0 }]}
+                    >
                       <Textarea
                         value={contentRights.creditLine || ""}
                         onChangeText={(value: string) =>
@@ -712,6 +790,10 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                           borders.width.thin,
                           borders.color.neutral[600],
                           w.percent[100],
+                          stackedFields && {
+                            flex: 0,
+                            minHeight: th.theme.spacing[24],
+                          },
                         ]}
                       />
                     </View>
@@ -721,7 +803,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
             )}
 
             {/* Distribution Section */}
-            {activeSection === "distribution" && (
+            {(allSections || activeSection === "distribution") && (
               <View style={[gap.all[3], w.percent[100]]}>
                 <View
                   style={[
@@ -731,7 +813,9 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                     gap.all[2],
                   ]}
                 >
-                  <Text>Distribution</Text>
+                  <Text size={allSections ? "lg" : undefined}>
+                    Distribution
+                  </Text>
                   <Text muted>(optional)</Text>
                 </View>
 
@@ -765,6 +849,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                         layout.flex.row,
                         layout.flex.alignCenter,
                         w.percent[100],
+                        stackedFieldStyle,
                       ]}
                     >
                       <Text
@@ -778,11 +863,14 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                             paddingBottom: 8,
                             fontSize: 14,
                           },
+                          fieldLabelStyle,
                         ]}
                       >
                         Allowed Broadcasters
                       </Text>
-                      <View style={[flex.values[1]]}>
+                      <View
+                        style={[flex.values[1], stackedFields && { flex: 0 }]}
+                      >
                         <Text
                           style={[
                             text.gray[500],
@@ -869,6 +957,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                         layout.flex.row,
                         layout.flex.alignCenter,
                         w.percent[100],
+                        stackedFieldStyle,
                       ]}
                     >
                       <Text
@@ -880,11 +969,14 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                             paddingBottom: 8,
                             fontSize: 14,
                           },
+                          fieldLabelStyle,
                         ]}
                       >
                         Delete After
                       </Text>
-                      <View style={[flex.values[1]]}>
+                      <View
+                        style={[flex.values[1], stackedFields && { flex: 0 }]}
+                      >
                         <Text
                           style={[
                             text.gray[500],

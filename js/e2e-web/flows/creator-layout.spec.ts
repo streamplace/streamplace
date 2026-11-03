@@ -170,7 +170,8 @@ test("the add menu can be dismissed with the keyboard", async ({ page }) => {
   ).toHaveCount(0);
   await expect(add).toBeFocused();
   await add.click();
-  await page.getByRole("button", { name: "Add Problems" }).click();
+  await page.getByRole("button", { name: "Add Problems" }).focus();
+  await page.keyboard.press("Enter");
   await expect(page.getByText("No current problems")).toBeVisible();
   await page.getByRole("button", { name: "Remove Problems" }).click();
 });

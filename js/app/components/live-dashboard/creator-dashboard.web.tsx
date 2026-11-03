@@ -1,4 +1,8 @@
-import { DragDropProvider, type DragMoveEvent } from "@dnd-kit/react";
+import {
+  DragDropProvider,
+  useDraggable,
+  type DragMoveEvent,
+} from "@dnd-kit/react";
 import {
   Dashboard,
   useLivestreamStore,
@@ -18,14 +22,23 @@ import {
   Check,
   CircleHelp,
   Globe,
+  GripVertical,
   MessageSquare,
   Plus,
   Radio,
   Shield,
   SlidersHorizontal,
   Video,
+  type LucideIcon,
 } from "lucide-react-native";
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import {
+  useCallback,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
 import { useWindowDimensions, View } from "react-native";
 import { useEmojiData } from "utils/emoji";
 import CreatorHealth from "./creator-health.web";
@@ -186,7 +199,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     );
   }
 
-  function prepareMove(
+  function preparePlacement(
     sourceId: string,
     targetId: string,
     direction: "horizontal" | "vertical",
@@ -198,8 +211,17 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     const target = placements.find(
       ({ widget }) => widgetId(widget) === targetId,
     );
-    if (!source || !target || source.widget === target.widget) return null;
-    const next = moveWidget(layout, source.path, target.path, direction, first);
+    const key = sourceId.startsWith("available-") ? sourceId.slice(10) : "";
+    if (
+      !target ||
+      (!source && !available.some(([id]) => id === key)) ||
+      source?.widget === target.widget
+    )
+      return null;
+    const widget: WidgetNode = source?.widget ?? { type: "leaf", widget: key };
+    const next = source
+      ? moveWidget(layout, source.path, target.path, direction, first)
+      : insertWidget(layout, target.path, widget, direction, first);
     if (next === layout) return null;
     const bounds = canvasRef.current?.getBoundingClientRect();
     const fits = stacked
@@ -207,8 +229,8 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
       : !!bounds &&
         getLayoutGeometry(next)
           .widgets.filter(
-            ({ widget }) =>
-              widget === source.widget || widget === target.widget,
+            ({ widget: placed }) =>
+              placed === widget || placed === target.widget,
           )
           .every(({ widget, width, height }) => {
             const meta = widgets.get(widget.widget);
@@ -220,16 +242,16 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                 meta.minHeight * theme.spacing[16]
             );
           });
-    return { next, source: source.widget, fits };
+    return { next, source: widget, fits, adding: !source };
   }
 
-  function move(
+  function place(
     sourceId: string,
     targetId: string,
     direction: "horizontal" | "vertical",
     first: boolean,
   ): boolean {
-    const candidate = prepareMove(sourceId, targetId, direction, first);
+    const candidate = preparePlacement(sourceId, targetId, direction, first);
     if (!candidate) return false;
     if (!candidate.fits) {
       setPlacementError(
@@ -240,8 +262,9 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     setPlacementError("");
     updateLayout(
       candidate.next,
-      `${widgets.get(candidate.source.widget)?.title ?? candidate.source.widget} moved`,
+      `${widgets.get(candidate.source.widget)?.title ?? candidate.source.widget} ${candidate.adding ? "added" : "moved"}`,
     );
+    if (candidate.adding) setAdding(false);
     return true;
   }
 
@@ -256,7 +279,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
       (position.current.y - rect.top) / rect.height,
     );
     if (!side) return null;
-    const candidate = prepareMove(
+    const candidate = preparePlacement(
       String(source.id),
       String(target.id),
       side.direction,
@@ -600,25 +623,23 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
             }}
           >
             {available.length ? (
-              available.map(([key, { title, icon: Icon }]) => (
-                <button
+              available.map(([key, { title, icon }]) => (
+                <AvailableWidget
                   key={key}
-                  type="button"
+                  widgetKey={key}
+                  title={title}
+                  icon={icon}
                   style={buttonStyle}
                   onClick={() => add(key)}
-                >
-                  <span aria-hidden="true">
-                    <Icon size={theme.spacing[4]} />
-                  </span>
-                  Add {title}
-                </button>
+                />
               ))
             ) : (
               <span>All widgets added</span>
             )}
             {available.length > 0 && (
               <span style={{ alignSelf: "center", color: theme.colors.text2 }}>
-                New widgets appear after the last widget.
+                Drag to place a widget, or select it to add after the last
+                widget.
               </span>
             )}
           </div>
@@ -671,7 +692,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                 type="button"
                 style={buttonStyle}
                 onClick={() => {
-                  if (move(widgetId(moving), moveTarget, direction, first))
+                  if (place(widgetId(moving), moveTarget, direction, first))
                     closeMove(moving);
                 }}
               >
@@ -891,7 +912,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
       onDragEnd={({ operation, canceled }) => {
         const side = canceled ? null : dropAt(operation);
         if (side && operation.source)
-          move(
+          place(
             String(operation.source.id),
             side.id,
             side.direction,
@@ -902,5 +923,66 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     >
       {dashboard}
     </DragDropProvider>
+  );
+}
+
+function AvailableWidget({
+  widgetKey,
+  title,
+  icon: Icon,
+  style,
+  onClick,
+}: {
+  widgetKey: string;
+  title: string;
+  icon: LucideIcon;
+  style: CSSProperties;
+  onClick: () => void;
+}) {
+  const { theme } = useTheme();
+  const { ref, handleRef, isDragging } = useDraggable({
+    id: `available-${widgetKey}`,
+  });
+  const setHandle = useCallback(
+    (element: HTMLButtonElement | null) => {
+      ref(element);
+      handleRef(element);
+    },
+    [ref, handleRef],
+  );
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        opacity: isDragging ? zero.atoms.opacity[50].opacity : undefined,
+      }}
+    >
+      <button
+        ref={setHandle}
+        type="button"
+        aria-label={`Drag ${title} to add`}
+        style={{
+          ...style,
+          cursor: "grab",
+          borderRight: 0,
+          borderRadius: `${theme.borderRadius.md}px 0 0 ${theme.borderRadius.md}px`,
+        }}
+      >
+        <GripVertical size={theme.spacing[4]} aria-hidden />
+      </button>
+      <button
+        type="button"
+        style={{
+          ...style,
+          borderRadius: `0 ${theme.borderRadius.md}px ${theme.borderRadius.md}px 0`,
+        }}
+        onClick={onClick}
+      >
+        <span aria-hidden="true">
+          <Icon size={theme.spacing[4]} />
+        </span>
+        Add {title}
+      </button>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_LAYOUT,
+  getWidgetPlacements,
   insertWidget,
   moveWidget,
   removeWidget,
@@ -87,6 +88,28 @@ describe("creator layout validation", () => {
 });
 
 describe("creator layout edits", () => {
+  it("places nested leaves in their saved order and proportions", () => {
+    const layout = validateLayout(split)!;
+    expect(getWidgetPlacements(layout)).toEqual([
+      { widget: monitor, path: [0], x: 0, y: 0, width: 2 / 3, height: 1 },
+      {
+        widget: chat,
+        path: [1, 0],
+        x: 2 / 3,
+        y: 0,
+        width: 1 / 3,
+        height: 0.25,
+      },
+      {
+        widget: health,
+        path: [1, 1],
+        x: 2 / 3,
+        y: 0.25,
+        width: 1 / 3,
+        height: 0.75,
+      },
+    ]);
+  });
   it("inserts beside a nested leaf without discarding its configuration", () => {
     const original = validateLayout(split)!;
     const result = insertWidget(

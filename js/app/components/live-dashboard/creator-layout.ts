@@ -14,6 +14,58 @@ export interface SplitNode {
 export type LayoutNode = WidgetNode | SplitNode;
 export type LayoutPreset = { name: string; layout: LayoutNode };
 
+export type WidgetPlacement = {
+  widget: WidgetNode;
+  path: number[];
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export function getWidgetPlacements(layout: LayoutNode): WidgetPlacement[] {
+  const placements: WidgetPlacement[] = [];
+  const visit = (
+    node: LayoutNode,
+    path: number[],
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) => {
+    if (node.type === "leaf") {
+      placements.push({ widget: node, path, x, y, width, height });
+      return;
+    }
+    let offset = 0;
+    node.children.forEach((child, index) => {
+      const fraction = node.ratio[index];
+      if (node.direction === "horizontal") {
+        visit(
+          child,
+          [...path, index],
+          x + width * offset,
+          y,
+          width * fraction,
+          height,
+        );
+      } else {
+        visit(
+          child,
+          [...path, index],
+          x,
+          y + height * offset,
+          width,
+          height * fraction,
+        );
+      }
+      offset += fraction;
+    });
+  };
+  visit(layout, [], 0, 0, 1, 1);
+  return placements;
+}
+
 export const DEFAULT_LAYOUT: LayoutNode = {
   type: "split",
   direction: "horizontal",
@@ -31,7 +83,7 @@ export const DEFAULT_LAYOUT: LayoutNode = {
     {
       type: "split",
       direction: "vertical",
-      ratio: [0.15, 0.85],
+      ratio: [0.25, 0.75],
       children: [
         { type: "leaf", widget: "multistream" },
         { type: "leaf", widget: "chat" },

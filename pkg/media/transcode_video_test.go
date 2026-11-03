@@ -227,10 +227,8 @@ func TestMintVideoRenditionsRetimes(t *testing.T) {
 	require.NoError(t, err, "re-timed before signing, so it still verifies")
 }
 
-// Renditions a peer sends for a stream are taken only from a transcoder this
-// node trusts: its own station or the streamer. One validly signed by anybody
-// else is refused as untrusted (the puller drops it and keeps the source);
-// one whose signature fails is refused outright.
+// Renditions are accepted only from the streamer or a trusted transcoder;
+// an untrusted signer is refused, and a bad signature rejected outright.
 func TestReplicatedRenditionsNeedATrustedTranscoder(t *testing.T) {
 	ctx := context.Background()
 	src := sourceSegmentForTest(t)
@@ -268,10 +266,8 @@ func TestReplicatedRenditionsNeedATrustedTranscoder(t *testing.T) {
 	require.NotErrorIs(t, err, ErrUntrustedTranscoder)
 }
 
-// A segment a peer sends carries only tracks the streamer signed, or
-// transcodes (a codec its ingest node completed) by a transcoder this node
-// trusts: one spliced in by anybody else refuses the whole segment, unless
-// --trusted-transcoders names its signer. A node's own ingest is not checked.
+// A spliced-in track must come from the streamer or a trusted transcoder,
+// else the whole segment is refused. A node's own ingest is not checked.
 func TestReplicatedSegmentTracksNeedATrustedTranscoder(t *testing.T) {
 	ctx := context.Background()
 	// A streamer identified by its key, so validation needs no repo sync.

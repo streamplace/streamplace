@@ -48,12 +48,7 @@ var serverRepoSigner func(ctx context.Context, did string, sb []byte) ([]byte, e
 var serverRepoPriv *atcrypto.PrivateKeyK256
 
 // StationCryptoSigner returns a crypto.Signer for the key the station's DID
-// (cli.BroadcasterDID()) publishes, as HandleDidJSON serves it: the server
-// repo's key on a node that is its own station (ServerHost ==
-// BroadcasterHost), else the lexicon repo's, which every node of the
-// station shares through the statedb. Used to S2PA-sign node-produced
-// artifacts (transcoded tracks), so that a peer can tell which station
-// transcoded them. Errors if the key hasn't been initialized yet.
+// publishes, used to sign node-produced transcodes so peers can attribute them.
 func StationCryptoSigner(cli *config.CLI) (gocrypto.Signer, error) {
 	priv := lexiconRepoPriv
 	if cli.ServerHost == cli.BroadcasterHost {

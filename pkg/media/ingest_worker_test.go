@@ -121,8 +121,7 @@ func TestRunMP4IngestWorkerProducesValidSignedFrames(t *testing.T) {
 	manifest, err := ms.buildManifest(ctx, time.Now().UnixMilli())
 	require.NoError(t, err)
 
-	// The worker completes to dual-codec, signing the added track with the
-	// streamer's key.
+	// The worker completes to dual-codec, signing the added track as the streamer.
 	cfg := IngestWorkerConfig{
 		StreamerDID:     ms.Streamer(),
 		KeyPEM:          keyPEM,

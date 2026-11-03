@@ -55,9 +55,8 @@ func TestSweepConcurrencyFlag(t *testing.T) {
 	require.Equal(t, 12, run(t).SweepConcurrency)
 }
 
-// TestTrustedTranscodersFlag: unset, a node takes stream.place's transcodes;
-// an operator can name others, or none at all (only streamers and its own
-// station), and an explicit empty value must not fall back to the default.
+// TestTrustedTranscodersFlag: unset takes stream.place's transcodes; an explicit
+// empty value means none and must not fall back to the default.
 func TestTrustedTranscodersFlag(t *testing.T) {
 	prepared := func(cli *CLI) []string {
 		t.Helper()

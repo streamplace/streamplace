@@ -90,11 +90,8 @@ func ingestSessionFromContext(ctx context.Context) uint64 {
 	return epoch
 }
 
-// trackSigner signs the track a node adds to complete a segment's audio. For a
-// segment this node ingested it is the segment's own signer (see
-// MediaSignerLocal.trackSigner), so the added track is the streamer's like
-// the rest of the segment and every node takes it; for one pulled from a
-// peer, this node's station.
+// trackSigner signs the track a node adds to complete a segment: the segment's
+// own signer when ingested here, else this node's station.
 type trackSigner struct {
 	creator string // the manifest's dc:creator
 	cert    []byte
@@ -102,18 +99,16 @@ type trackSigner struct {
 	sign    func([]byte) ([]byte, error) // else through this host callback
 }
 
-// segmentSignerKey carries the signer of an ingest session's segments down the
-// validate path, beside its epoch (see ingestSessionKey): SegmentAndSignElem
-// stamps both, so a session's signer never changes under a running transcoder.
+// segmentSignerKey carries an ingest session's signer down the validate path,
+// alongside its epoch.
 type segmentSignerKey struct{}
 
 func withSegmentSigner(ctx context.Context, ms MediaSigner) context.Context {
 	return context.WithValue(ctx, segmentSignerKey{}, ms)
 }
 
-// completionSigner is the trackSigner for completing a segment validated on
-// ctx: the segment's own signer when this node ingested it in-process, else
-// the station's.
+// completionSigner returns the segment's own signer for a local ingest, else
+// this node's station.
 func (mm *MediaManager) completionSigner(ctx context.Context, local bool) (trackSigner, error) {
 	if ms, ok := ctx.Value(segmentSignerKey{}).(*MediaSignerLocal); ok && local {
 		return ms.trackSigner()

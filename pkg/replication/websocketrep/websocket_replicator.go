@@ -350,11 +350,8 @@ func (r *WebsocketReplicator) openMoq(ctx context.Context, origin *placestream.B
 // feedRenditions folds a rendition addendum the origin minted into this
 // node's live window and playback bus, once its signatures check out.
 func (r *WebsocketReplicator) feedRenditions(ctx context.Context, streamer string, addendum []byte) error {
-	// Rendition tracks the origin minted for this stream, folded into our
-	// live window as HLS variants. Not a segment, so not validated or
-	// archived as one: taken only when every track is validly signed by a
-	// transcoder this node trusts. Renditions from any other are dropped and
-	// the source goes on; an invalid signature ends the pull.
+	// Renditions are taken only when every track is signed by a trusted
+	// transcoder; an untrusted one is dropped, an invalid signature ends the pull.
 	if err := r.mm.ValidateReplicatedRenditions(ctx, addendum, streamer); err != nil {
 		if errors.Is(err, media.ErrUntrustedTranscoder) {
 			log.Debug(ctx, "dropping renditions from an untrusted transcoder", "streamer", streamer, "error", err)

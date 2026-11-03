@@ -229,9 +229,8 @@ func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Read
 	return muxl.RunMuxlSignSegment(ctx, input, in, nil, nil, eventCh)
 }
 
-// muxlKey is ms's key the way muxl takes it: a software key as a PEM it signs
-// with in-wasm, anything else as a host callback that keeps the key out of
-// the sandbox.
+// muxlKey returns ms's key as muxl takes it: PEM for software keys, else a host
+// callback that keeps the key out of the sandbox.
 func (ms *MediaSignerLocal) muxlKey() (keyPEM []byte, sign func([]byte) ([]byte, error), err error) {
 	if _, ok := ms.Signer.(*ecdsa.PrivateKey); ok {
 		keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
@@ -243,8 +242,7 @@ func (ms *MediaSignerLocal) muxlKey() (keyPEM []byte, sign func([]byte) ([]byte,
 	return nil, muxl.SignerToCallback(ms.Signer, 32), nil
 }
 
-// trackSigner signs tracks this node adds to the segments ms signs (a
-// completed audio codec) as the streamer, like the rest of the segment.
+// trackSigner signs tracks this node adds to ms's segments, as the streamer.
 func (ms *MediaSignerLocal) trackSigner() (trackSigner, error) {
 	keyPEM, sign, err := ms.muxlKey()
 	if err != nil {

@@ -158,8 +158,7 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 	// new live session (RTMP/WHIP (re)connect) restarts the media timeline; the
 	// per-DID continuous transcoder keys on this epoch and rebuilds rather than
 	// feeding the restarted timeline into the previous session's encoder. The
-	// session's signer rides along, so the audio codec completion adds is
-	// signed by the streamer too (see completionSigner).
+	// session signer rides along so audio completions are signed as the streamer.
 	ctx = withSegmentSigner(withIngestSession(ctx, mm.nextIngestSession()), ms)
 
 	// muxl path: stream the fMP4 through the per-segment signer. Each GoP

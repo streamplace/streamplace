@@ -49,12 +49,8 @@ func transcodeManifestFor(creator, title string) []byte {
 	}`, title, muxl.TranscodeIngredientLabel, muxl.TranscodeIngredientLabel, creator))
 }
 
-// transcodeSigner returns the station's S2PA cert + PKCS#8 key PEM, built
-// once from the key its did:web publishes. A transcoded track is signed under
-// the station's identity (it vouches for its transcode; see
-// ValidateReplicatedRenditions), declaring the streamer's source track as a
-// parentOf ingredient. The key is software, so it's signed in-wasm via KeyPEM
-// — the same proven path MediaSignerLocal uses for ecdsa keys.
+// transcodeSigner returns the station's S2PA cert + key PEM for signing
+// transcoded tracks, declaring the streamer's source track as an ingredient.
 func (mm *MediaManager) transcodeSigner() (cert []byte, keyPEM []byte, err error) {
 	mm.nodeSignerOnce.Do(func() {
 		signer, e := atproto.StationCryptoSigner(mm.cli)

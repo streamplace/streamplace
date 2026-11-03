@@ -157,15 +157,8 @@ func workerSignStream(cfg IngestWorkerConfig, getManifest func() []byte) SignSeg
 	}
 }
 
-// workerSegmentSink returns the onSegment handler a worker hands to
-// muxlSignSegmentElem, plus a flush to call once the signer has drained. It
-// completes each single-codec source segment to dual-codec via an in-process
-// transcoder (its completion callback frames the finished segment), the added
-// track signed with the streamer's key like the rest of the segment; flush
-// Closes that transcoder so its ~1-GoP tail is framed before the worker exits.
-// The transcoder runs on a non-cancellable context so draining the signer
-// can't kill it early. One process == one session, so the per-DID
-// transcoder-reuse hazard can't arise. Shared by the MP4 and WHIP workers.
+// workerSegmentSink returns the onSegment handler and flush for
+// muxlSignSegmentElem; flush drains the transcoder's ~1-GoP tail before exit.
 func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerConfig, frames FrameWriter) (onSegment func(context.Context, []byte) error, flush func()) {
 	var transcoder *streamTranscoder
 	onSegment = func(_ context.Context, segment []byte) error {

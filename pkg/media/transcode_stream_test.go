@@ -327,9 +327,8 @@ func TestStreamTranscoderDegenerateTimestamps(t *testing.T) {
 		"transcoded AAC %.3fs far short of source Opus %.3fs", a, o)
 }
 
-// A node completes a segment it ingested under the segment's own signer, so
-// the added track is the streamer's like the rest and a node of any other
-// station takes it; a segment it did not ingest is completed as its station.
+// A locally ingested segment completes under its own signer (as the streamer);
+// a pulled one completes as this node's station.
 func TestCompletionSignedAsTheSegment(t *testing.T) {
 	ctx := context.Background()
 	ms := newBareSegmentSigner(t)

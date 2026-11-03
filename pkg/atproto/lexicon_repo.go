@@ -35,9 +35,8 @@ import (
 var LexiconRepo *atrepo.Repo
 var LexiconPubMultibase string
 
-// lexiconRepoPriv is the key behind the station's did:web (cli.BroadcasterDID())
-// on a multi-node station, shared by its nodes through the statedb; captured by
-// MakeLexiconRepo. See StationCryptoSigner.
+// lexiconRepoPriv is the station did:web key on a multi-node station, shared
+// through the statedb; captured by MakeLexiconRepo. See StationCryptoSigner.
 var lexiconRepoPriv *atcrypto.PrivateKeyK256
 var OAuthString string
 var RepoUser models.Uid = models.Uid(1)

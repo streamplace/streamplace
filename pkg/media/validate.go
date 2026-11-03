@@ -76,10 +76,9 @@ func (mm *MediaManager) validateMP4(ctx context.Context, input io.Reader, local 
 
 	// Complete the segment to carry both AAC and Opus. A single-codec segment is
 	// fed to the stream's continuous transcoder, which distributes the completed
-	// dual-codec segment asynchronously (~1 GoP later, gapless), the added track
-	// signed by completionSigner. Everything else — already dual-codec, no
-	// audio, audio-only, an exotic codec, or no signer — is distributed as-is,
-	// immediately.
+	// dual-codec segment asynchronously (~1 GoP later, gapless), signed by
+	// completionSigner. Everything else — already dual-codec, no audio,
+	// audio-only, exotic codec, or no signer — is distributed as-is.
 	if target, need := mm.audioCompletionTarget(ctx, buf); need {
 		if signer, serr := mm.completionSigner(ctx, local); serr == nil {
 			return mm.feedStreamTranscoder(ctx, vs, buf, target, signer)
@@ -367,8 +366,7 @@ type ValidationResult struct {
 	MediaData *localdb.SegmentMediaData
 	Manifest  *c2patypes.Manifest
 	Cert      string
-	// TrackSigners is the did:key that signed each track's segment, in the
-	// segment's track order; the first is Pub's.
+	// TrackSigners is the did:key that signed each track, in track order.
 	TrackSigners []string
 }
 
@@ -430,8 +428,6 @@ func ValidateMP4MediaC2PA(ctx context.Context, buf []byte) (*ValidationResult, e
 	}
 
 	// The primary (first) segment carries the segment-level metadata + cert.
-	// All tracks share the same manifest body (segment == wrapper manifest at
-	// sign time), so this preserves the old wrapper-manifest semantics.
 	primary := segments[0]
 
 	_, certSpan := tracer.Start(ctx, "ValidateMP4Media.ParseES256KCert")
@@ -467,9 +463,8 @@ func ValidateMP4MediaC2PA(ctx context.Context, buf []byte) (*ValidationResult, e
 	}, nil
 }
 
-// verifySegments verifies every per-track signed segment in buf and returns
-// their validations, refusing the lot if any track fails: a tampered audio
-// track fails the whole GoP, not just the primary one.
+// verifySegments verifies every per-track signed segment in buf, refusing the
+// lot if any track fails.
 func verifySegments(ctx context.Context, buf []byte) ([]segmentValidation, error) {
 	tracer := otel.Tracer("signer")
 	// Validate every canonical segment entirely inside the muxl wasm. `verify`
@@ -477,7 +472,7 @@ func verifySegments(ctx context.Context, buf []byte) ([]segmentValidation, error
 	// signed flat MP4 — into its per-track signed segments and runs c2pa-rs's
 	// Reader over each as the standalone "m4s" asset it was signed as. This
 	// replaces the iroh-streamplace get_manifest_and_cert binding: the c2pa
-	// dependency no longer leaves the wasm sandbox. A signature that fails is
+	// dependency no longer leaves the wasm sandbox. Signature failures are
 	// reported in the result, not as an error.
 	_, verifySpan := tracer.Start(ctx, "ValidateMP4Media.muxl.Verify")
 	out, err := muxl.RunMuxlVerify(ctx, bytes.NewReader(buf))
@@ -512,17 +507,12 @@ func verifySegments(ctx context.Context, buf []byte) ([]segmentValidation, error
 	return doc.Segments, nil
 }
 
-// ErrUntrustedTranscoder is ValidateReplicatedRenditions refusing renditions
-// that are validly signed, but by a transcoder this node does not take
-// renditions from.
+// ErrUntrustedTranscoder reports a rendition signed by a transcoder this node
+// does not trust.
 var ErrUntrustedTranscoder = errors.New("untrusted transcoder")
 
-// ValidateReplicatedRenditions verifies a rendition addendum a peer sent for
-// streamer's stream before it is served as that stream: every track must be
-// validly signed by a transcoder this node trusts. Anybody can claim to be a
-// stream's origin and send renditions; unlike the source, which only the
-// streamer can sign, a rendition is whatever its transcoder made, so the
-// transcoder is what is trusted (see trustTranscoder).
+// ValidateReplicatedRenditions checks that every track in a rendition addendum
+// was signed by a transcoder this node trusts.
 func (mm *MediaManager) ValidateReplicatedRenditions(ctx context.Context, addendum []byte, streamer string) error {
 	segments, err := verifySegments(ctx, addendum)
 	if err != nil {
@@ -540,11 +530,8 @@ func (mm *MediaManager) ValidateReplicatedRenditions(ctx context.Context, addend
 	return nil
 }
 
-// trustSegmentTracks refuses a segment a peer sent for streamer with a track
-// that is neither the streamer's (signed like its first track) nor a
-// transcode (a codec its ingest node completed) by a transcoder this node
-// trusts (see trustTranscoder): a peer cannot splice a track of its own into
-// the streamer's segment.
+// trustSegmentTracks refuses a segment carrying a track neither signed by the
+// streamer nor a transcode from a trusted transcoder.
 func (mm *MediaManager) trustSegmentTracks(ctx context.Context, valid *ValidationResult, streamer string) error {
 	for _, key := range valid.TrackSigners[1:] {
 		if key == valid.Pub.DIDKey() {
@@ -557,11 +544,8 @@ func (mm *MediaManager) trustSegmentTracks(ctx context.Context, valid *Validatio
 	return nil
 }
 
-// trustTranscoder returns nil when key belongs to a transcoder this node
-// takes streamer's transcodes from: the streamer itself (one of its
-// place.stream.key signing keys), this node's own station, or one of
-// --trusted-transcoders, a station by the key its did:web document publishes
-// or a did:key. Otherwise it returns an ErrUntrustedTranscoder.
+// trustTranscoder reports whether key may transcode streamer's stream: the
+// streamer, this node's station, or one of --trusted-transcoders.
 func (mm *MediaManager) trustTranscoder(ctx context.Context, key, streamer string) error {
 	// This node's own station: the key it signs its own transcodes with.
 	if cert, _, err := mm.transcodeSigner(); err == nil {

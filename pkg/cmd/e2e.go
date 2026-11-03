@@ -431,8 +431,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		fmt.Sprintf("SP_ATPROTO_DID=%s", out.Did),
 		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", peerAddr),
 		"SP_SYNDICATE=*",
-		// The peer is a station of its own: it takes the first node's
-		// transcodes (the codec it completes) only because it is told to.
+		// The peer is its own station, so trust the first node's transcodes explicitly.
 		"SP_TRUSTED_TRANSCODERS=" + stationKey,
 	}
 	if tlsEnv != nil {
@@ -591,10 +590,8 @@ func publishLexicons(ctx context.Context, env e2eDevEnv) error {
 	return nil
 }
 
-// e2eStationKey is the did:key the node at httpAddr signs its transcodes
-// with: the key its DID document publishes (see atproto.StationCryptoSigner).
-// A peer is given it as a bare did:key because the harness's nodes serve
-// plain HTTP, which did:web resolution does not do.
+// e2eStationKey returns the did:key the node at httpAddr signs transcodes with,
+// as a bare did:key because the harness's nodes serve plain HTTP.
 func e2eStationKey(ctx context.Context, httpAddr string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/.well-known/did.json", httpAddr), nil)
 	if err != nil {

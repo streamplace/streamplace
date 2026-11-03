@@ -46,7 +46,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
-import { useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View, type ViewStyle } from "react-native";
 import { useEmojiData } from "utils/emoji";
 import { useCreatorTheatre } from "./creator-chrome.web";
 import CreatorHealth from "./creator-health.web";
@@ -105,6 +105,10 @@ const widgets = new Map([
   ],
 ]);
 const widgetChoices = [...widgets].map(([key, { title }]) => ({ key, title }));
+const attachedPanelStyle: ViewStyle = {
+  borderTopLeftRadius: zero.atoms.borderRadius.none,
+  borderTopRightRadius: zero.atoms.borderRadius.none,
+};
 
 function dropSide(operation: DragMoveEvent["operation"]) {
   const { source, target, position } = operation;
@@ -529,6 +533,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
             status={status}
             userProfile={profile}
             videoRef={videoRef}
+            style={attachedPanelStyle}
           />
         );
       case "stream-health":
@@ -541,6 +546,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
         return (
           <Dashboard.ChatPanel
             showTitle={false}
+            style={attachedPanelStyle}
             isLive={status.phase === "live"}
             isConnected={status.incoming !== null}
             messagesPerMinute={messagesPerMinute}
@@ -562,16 +568,18 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
             scrollable={!stacked}
             showModerators={false}
             showTitle={false}
+            style={attachedPanelStyle}
           />
         );
       case "multistream":
-        return <MultistreamStatus />;
+        return <MultistreamStatus style={attachedPanelStyle} />;
       case "moderators":
         return (
           <View testID="creator-moderators" style={{ flex: 1, minHeight: 0 }}>
             <Dashboard.ModeratorPanel
               isLive={status.incoming === true}
               showTitle={false}
+              style={attachedPanelStyle}
             />
           </View>
         );

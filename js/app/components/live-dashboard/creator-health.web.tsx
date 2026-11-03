@@ -165,6 +165,8 @@ export default function CreatorHealth({
         background: theme.colors.surface1,
         border: `${borderWidth}px solid ${theme.colors.borderSubtle}`,
         borderRadius: theme.borderRadius.lg,
+        borderTopLeftRadius: zero.atoms.borderRadius.none,
+        borderTopRightRadius: zero.atoms.borderRadius.none,
         color: theme.colors.text1,
         ...theme.typography.universal.xs,
         lineHeight: `${theme.typography.universal.xs.lineHeight}px`,

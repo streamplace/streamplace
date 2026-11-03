@@ -49,6 +49,7 @@ import {
   ScrollView,
   TouchableOpacity,
   View,
+  type ViewStyle,
 } from "react-native";
 import { useStore } from "store";
 import { useServerSettings, useUserProfile } from "store/hooks";
@@ -288,11 +289,13 @@ function LivestreamPanel({
   scrollable = true,
   showModerators = true,
   showTitle = true,
+  style,
 }: {
   status: LiveDashboardStatus;
   scrollable?: boolean;
   showModerators?: boolean;
   showTitle?: boolean;
+  style?: ViewStyle;
 }) {
   const toast = useToast();
   const userIsLive = status.incoming === true;
@@ -657,6 +660,7 @@ function LivestreamPanel({
         // Clip the scroll body to the rounded corners — only in the desktop
         // sticky-footer layout; the mobile inline layout must not be clipped.
         scrollable && { overflow: "hidden" },
+        style,
       ]}
     >
       {/* Fixed header */}

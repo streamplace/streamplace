@@ -1,6 +1,13 @@
 import { Check, Shield, Trash2, UserPlus } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  type ViewStyle,
+} from "react-native";
 import {
   Button,
   Dialog,
@@ -26,12 +33,14 @@ interface ModeratorPanelProps {
   isLive?: boolean;
   embedded?: boolean; // If true, removes outer container styling (for use inside other panels)
   showTitle?: boolean;
+  style?: ViewStyle;
 }
 
 export default function ModeratorPanel({
   isLive,
   embedded = false,
   showTitle = true,
+  style,
 }: ModeratorPanelProps) {
   const { theme } = useTheme();
   const { moderators, isLoading, error, refresh } = useListModerators();
@@ -55,7 +64,7 @@ export default function ModeratorPanel({
       ];
 
   return (
-    <View style={containerStyle}>
+    <View style={[containerStyle, style]}>
       {/* Header */}
       <View
         style={[

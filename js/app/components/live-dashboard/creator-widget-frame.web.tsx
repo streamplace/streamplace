@@ -104,12 +104,12 @@ export default function CreatorWidgetFrame({
             aria-label={`Drag ${label}`}
             style={{ ...iconButton, cursor: "grab" }}
           >
-            <span aria-hidden="true">
+            <span aria-hidden="true" style={{ display: "inline-flex" }}>
               <GripVertical size={theme.spacing[4]} />
             </span>
           </button>
         )}
-        <span aria-hidden="true">
+        <span aria-hidden="true" style={{ display: "inline-flex" }}>
           <Icon size={theme.spacing[4]} />
         </span>
         {editing ? (

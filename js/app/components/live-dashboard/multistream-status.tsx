@@ -16,7 +16,7 @@ import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc"
 import { Plus } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Platform } from "react-native";
+import { Platform, type ViewStyle } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -28,13 +28,18 @@ import { getStreamplaceNavigationAction } from "src/linking-config";
 import { place } from "streamplace";
 
 const { flex, p, gap, layout, bg, borders, text, r } = zero;
+const defaultPanelStyle: ViewStyle = {};
 
 interface MultistreamTargetViewHydrated
   extends place.stream.multistream.defs.TargetView {
   record: any;
 }
 
-export default function MultistreamStatus() {
+export default function MultistreamStatus({
+  style = defaultPanelStyle,
+}: {
+  style?: ViewStyle;
+}) {
   const agent = usePDSAgent();
   const navigation = useNavigation();
   const { t } = useTranslation("settings");
@@ -189,6 +194,7 @@ export default function MultistreamStatus() {
         r.lg,
         borders.width.thin,
         { borderColor: borderAlphas.dark.strong },
+        style,
       ]}
     >
       {listError && (

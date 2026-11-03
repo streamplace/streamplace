@@ -21,7 +21,7 @@ import type { LiveDashboardStatus } from "hooks/useLiveDashboardStatus";
 import { Eye, EyeOff } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewStyle } from "react-native";
 import StreamScreen from "./live-selector";
 
 const { flex, bg, r, borders, layout, p, text, w, h, mt } = zero;
@@ -30,6 +30,7 @@ interface StreamMonitorProps {
   userProfile?: any;
   status: LiveDashboardStatus;
   videoRef?: any;
+  style?: ViewStyle;
 }
 
 function PreviewOverlay({ ended }: { ended: boolean }) {
@@ -130,6 +131,7 @@ export default function StreamMonitor({
   userProfile: propUserProfile,
   status,
   videoRef,
+  style,
 }: StreamMonitorProps) {
   const { theme } = useTheme();
   const { t } = useTranslation("common");
@@ -201,6 +203,7 @@ export default function StreamMonitor({
         { borderColor: borderAlphas.dark.strong },
         layout.flex.column,
         { overflow: "hidden" },
+        style,
       ]}
     >
       <View

@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { Text, View, type ViewStyle } from "react-native";
 import { borderAlphas, surfaces } from "../../lib/theme/tokens";
 import * as zero from "../../ui";
 import { Chat } from "../chat/chat";
@@ -13,6 +13,7 @@ interface ChatPanelProps {
   messagesPerMinute?: number | null;
   shownMessages?: number;
   showTitle?: boolean;
+  style?: ViewStyle;
   emojiData?: any;
   emojiPicker?: (
     isOpen: boolean,
@@ -27,6 +28,7 @@ export default function ChatPanel({
   messagesPerMinute = 0,
   shownMessages = 50,
   showTitle = true,
+  style,
   emojiData = null,
   emojiPicker,
 }: ChatPanelProps) {
@@ -39,6 +41,7 @@ export default function ChatPanel({
         { borderColor: borderAlphas.dark.strong },
         layout.flex.column,
         r.lg,
+        style,
       ]}
     >
       <View

@@ -102,7 +102,7 @@ test("dashboard links to stream settings without losing a draft", async ({
   const popupPromise = page.waitForEvent("popup");
   await settings.click();
   const popup = await popupPromise;
-  await expect(popup).toHaveURL(`${url}/settings/streaming`);
+  await expect(popup).toHaveURL(`${url}/dashboard/stream`);
   await expect(
     popup.getByText("Content metadata", { exact: true }),
   ).toBeVisible();

@@ -33,6 +33,8 @@ vi.mock("@react-navigation/native", () => ({
     name: "Creator",
     params: { screen: "CreatorControlPanel" },
   }),
+  getFocusedRouteNameFromRoute: (route: { params?: { screen?: string } }) =>
+    route.params?.screen,
   useIsFocused: () => session.focused,
 }));
 vi.mock("react-native", () => ({ Platform: { OS: "ios" } }));

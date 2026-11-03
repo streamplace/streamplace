@@ -67,6 +67,26 @@ export function StreamingCategorySettings() {
   );
 }
 
+export function CreatorStreamingSettings() {
+  const { theme } = useTheme();
+  return (
+    <ScrollView>
+      <View
+        style={{
+          alignItems: "center",
+          paddingHorizontal: theme.spacing[4],
+          paddingTop: theme.spacing[6],
+        }}
+      >
+        <View style={{ width: "100%", maxWidth: theme.spacing[96] * 2 }}>
+          <Text size="xl">Stream Settings</Text>
+          <CreatorStreamSettings />
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
 function CreatorStreamSettings() {
   const { theme } = useTheme();
   const isReady = useIsReady();

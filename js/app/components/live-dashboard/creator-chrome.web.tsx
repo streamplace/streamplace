@@ -1,4 +1,8 @@
-import { useNavigation } from "@react-navigation/native";
+import {
+  getFocusedRouteNameFromRoute,
+  useNavigation,
+  useNavigationState,
+} from "@react-navigation/native";
 import { Text, useTheme, zero } from "@streamplace/components";
 import { breakpoints } from "@streamplace/components/src/lib/theme/tokens";
 import SidebarItem from "components/sidebar/sidebar-item";
@@ -38,7 +42,7 @@ const mainLinks = [
   { labelKey: "my-videos", href: "/upload/videos", icon: Video },
 ];
 const settingsLinks = [
-  { labelKey: "stream-settings", href: "/settings/streaming", icon: Radio },
+  { labelKey: "stream-settings", href: "/dashboard/stream", icon: Radio },
   {
     labelKey: "key-manager",
     href: "/settings/streaming/key-management",
@@ -73,6 +77,17 @@ export default function CreatorChrome({ children }: { children: ReactNode }) {
   const { theme } = useTheme();
   const { t } = useTranslation("settings");
   const navigation = useNavigation();
+  const currentScreen = useNavigationState((state) => {
+    const route = state.routes[state.index];
+    return (
+      getFocusedRouteNameFromRoute(route) ??
+      (route.params as { screen?: string } | undefined)?.screen
+    );
+  });
+  const currentHref =
+    currentScreen === "CreatorStreamSettings"
+      ? "/dashboard/stream"
+      : "/dashboard";
   const { width } = useWindowDimensions();
   const narrow = width < breakpoints.md;
   const collapsed = useStore((state) => state.isCollapsed);
@@ -159,10 +174,10 @@ export default function CreatorChrome({ children }: { children: ReactNode }) {
           href={item.href}
           label={t(item.labelKey)}
           collapsed={!narrow && collapsed}
-          active={item.href === "/dashboard"}
+          active={item.href === currentHref}
           onPress={(event) => {
             event.preventDefault();
-            if (item.href !== "/dashboard") navigate(item.href);
+            if (item.href !== currentHref) navigate(item.href);
             else if (narrow) close();
           }}
         />

@@ -933,7 +933,7 @@ function LivestreamPanel({
                       Looking for content metadata or chat settings? Find them
                       in{" "}
                       <a
-                        href="/settings/streaming"
+                        href="/dashboard/stream"
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ color: theme.colors.primary }}

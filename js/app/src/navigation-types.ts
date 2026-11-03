@@ -52,6 +52,7 @@ export type TabParamList = {
 // Root stack navigator
 export type CreatorStackParamList = {
   CreatorControlPanel: undefined;
+  CreatorStreamSettings: undefined;
 };
 
 export type RootStackParamList = {

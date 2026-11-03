@@ -42,7 +42,10 @@ import MultistreamManager from "components/settings/multistream-manager";
 import { NotificationsCategorySettings } from "components/settings/notifications-category-settings";
 import { PrivacyCategorySettings } from "components/settings/privacy-category-settings";
 import RecommendationsManager from "components/settings/recommendations-manager";
-import { StreamingCategorySettings } from "components/settings/streaming-category-settings";
+import {
+  CreatorStreamingSettings,
+  StreamingCategorySettings,
+} from "components/settings/streaming-category-settings";
 import WebhookManager from "components/settings/webhook-manager";
 import {
   SidebarOverlay,
@@ -117,6 +120,11 @@ function CreatorNavigator() {
             name="CreatorControlPanel"
             component={LiveDashboardView}
             options={{ title: "Creator dashboard" }}
+          />
+          <CreatorStack.Screen
+            name="CreatorStreamSettings"
+            component={CreatorStreamingSettings}
+            options={{ title: "Stream Settings" }}
           />
         </CreatorStack.Navigator>
       </LiveDashboard>
@@ -734,12 +742,14 @@ export default function Shell() {
   const videoPage = useStore((state) => state.videoPage);
   const isCreator =
     currentRouteName === "Creator" ||
-    currentRouteName === "CreatorControlPanel";
+    currentRouteName === "CreatorControlPanel" ||
+    currentRouteName === "CreatorStreamSettings";
   const isDetailView =
     currentRouteName === "Stream" ||
     currentRouteName === "Video" ||
     currentRouteName === "Vod" ||
     currentRouteName === "CreatorControlPanel" ||
+    currentRouteName === "CreatorStreamSettings" ||
     videoPage;
   // Video pages get a YouTube-style sticky translucent header the content
   // scrolls under; the livestream keeps its own solid header.

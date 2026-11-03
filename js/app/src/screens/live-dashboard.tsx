@@ -1,4 +1,8 @@
-import { useIsFocused, useRoute } from "@react-navigation/native";
+import {
+  getFocusedRouteNameFromRoute,
+  useIsFocused,
+  useRoute,
+} from "@react-navigation/native";
 import {
   Button,
   LivestreamProvider,
@@ -12,7 +16,7 @@ import CreatorDashboard from "components/live-dashboard/creator-dashboard";
 import CreatorMetricsProvider from "components/live-dashboard/creator-metrics-provider";
 import Loading from "components/loading/loading";
 import { VideoElementProvider } from "contexts/VideoElementContext";
-import { ReactNode, useCallback, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Platform, View } from "react-native";
 import { useStore } from "store";
@@ -26,24 +30,29 @@ export default function LiveDashboard({ children }: { children?: ReactNode }) {
   const isFocused = useIsFocused();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const route = useRoute();
+  const creatorScreen = getFocusedRouteNameFromRoute(route);
+  const returnRoute = useMemo(
+    () => ({
+      name: route.name,
+      params:
+        route.name === "Creator" && creatorScreen
+          ? { ...(route.params as object), screen: creatorScreen }
+          : route.params,
+    }),
+    [route.name, route.params, creatorScreen],
+  );
   const ready = isReady && oauthSession !== undefined;
 
   useEffect(() => {
     if (isFocused && ready && !userProfile) {
-      openLoginModal({ name: route.name, params: route.params });
+      openLoginModal(returnRoute);
     }
-  }, [isFocused, ready, userProfile, openLoginModal, route.name, route.params]);
+  }, [isFocused, ready, userProfile, openLoginModal, returnRoute]);
 
   if (!isFocused) return null;
 
   if (ready && !userProfile && Platform.OS === "web") {
-    return (
-      <DashboardLoginPrompt
-        onLogin={() =>
-          openLoginModal({ name: route.name, params: route.params })
-        }
-      />
-    );
+    return <DashboardLoginPrompt onLogin={() => openLoginModal(returnRoute)} />;
   }
 
   if (!ready || !userProfile || oauthSession?.did !== userProfile.did) {

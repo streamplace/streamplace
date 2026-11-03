@@ -48,7 +48,7 @@ test("stream settings show all metadata sections and save edits together", async
   await aiTraining.hover();
   await expect(
     page.getByText(
-      "Off by default. Your choice is included in the metadata of each streamed segment.",
+      "Your video's metadata signals whether you want your content used to train generative AI.",
     ),
   ).toBeVisible();
   const aiTrainingInitiallyChecked = await aiTraining.isChecked();

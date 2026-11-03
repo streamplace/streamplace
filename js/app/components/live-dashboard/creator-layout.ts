@@ -113,6 +113,30 @@ export function getLayoutGeometry(layout: LayoutNode): {
   return { widgets, boundaries };
 }
 
+export function reuseWidgets(
+  current: LayoutNode,
+  saved: LayoutNode,
+): LayoutNode {
+  const available = getLayoutGeometry(current).widgets.map(
+    ({ widget }) => widget,
+  );
+  function visit(node: LayoutNode): LayoutNode {
+    if (node.type === "leaf") {
+      const index = available.findIndex(
+        (widget) =>
+          widget.widget === node.widget &&
+          JSON.stringify(widget.config) === JSON.stringify(node.config),
+      );
+      return index < 0 ? node : available.splice(index, 1)[0];
+    }
+    const children = node.children.map(visit);
+    return children.every((child, index) => child === node.children[index])
+      ? node
+      : { ...node, children };
+  }
+  return visit(saved);
+}
+
 export const DEFAULT_LAYOUT: LayoutNode = {
   type: "split",
   direction: "horizontal",

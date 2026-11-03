@@ -28,19 +28,27 @@ export function saveLayout(layout: LayoutNode): boolean {
   }
 }
 
-export function loadPresets(): LayoutPreset[] {
+export function loadPresets(): {
+  presets: LayoutPreset[];
+  unreadable: boolean;
+} {
   try {
     const stored = localStorage.getItem(PRESETS_KEY);
-    const value = stored ? JSON.parse(stored) : [];
-    if (!Array.isArray(value)) return [];
-    return value.flatMap((item) => {
-      if (!item || typeof item !== "object" || typeof item.name !== "string")
-        return [];
-      const layout = validateLayout(item.layout);
-      return layout ? [{ name: item.name, layout }] : [];
-    });
+    const value = stored === null ? [] : JSON.parse(stored);
+    if (!Array.isArray(value)) return { presets: [], unreadable: true };
+    const presets: LayoutPreset[] = [];
+    let unreadable = false;
+    for (const item of value) {
+      const layout =
+        item && typeof item === "object" && typeof item.name === "string"
+          ? validateLayout(item.layout)
+          : null;
+      if (layout) presets.push({ name: item.name, layout });
+      else unreadable = true;
+    }
+    return { presets, unreadable };
   } catch {
-    return [];
+    return { presets: [], unreadable: true };
   }
 }
 

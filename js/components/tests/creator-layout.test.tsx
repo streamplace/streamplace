@@ -8,6 +8,7 @@ import {
   removeWidget,
   replaceWidget,
   resizeAdjacent,
+  reuseWidgets,
   updateRatio,
   validateLayout,
 } from "../../app/components/live-dashboard/creator-layout";
@@ -91,6 +92,37 @@ describe("creator layout validation", () => {
 });
 
 describe("creator layout edits", () => {
+  it("reuses matching widgets when loading a saved layout without losing its configuration or positions", () => {
+    const current = validateLayout(split)!;
+    const saved = validateLayout({ ...split, ratio: [1, 2] })!;
+    const currentWidgets = getLayoutGeometry(current).widgets;
+    const result = reuseWidgets(current, saved);
+    const loadedWidgets = getLayoutGeometry(result).widgets;
+    expect(result).toMatchObject({ ratio: [1 / 3, 2 / 3] });
+    expect(loadedWidgets.map(({ widget }) => widget)).toEqual(
+      currentWidgets.map(({ widget }) => widget),
+    );
+    loadedWidgets.forEach(({ widget }, index) =>
+      expect(widget).toBe(currentWidgets[index].widget),
+    );
+    const changed = validateLayout({
+      type: "leaf",
+      widget: "chat",
+      config: { filter: "everyone" },
+    })!;
+    expect(reuseWidgets(current, changed)).toBe(changed);
+    const duplicate = validateLayout({
+      type: "split",
+      direction: "horizontal",
+      ratio: [1, 1],
+      children: [chat, chat],
+    })!;
+    const duplicatedWidgets = getLayoutGeometry(
+      reuseWidgets(current, duplicate),
+    ).widgets;
+    expect(duplicatedWidgets[0].widget).toBe(currentWidgets[1].widget);
+    expect(duplicatedWidgets[1].widget).not.toBe(currentWidgets[1].widget);
+  });
   it("replaces one widget in place without changing siblings or its configuration", () => {
     const root = validateLayout(split)!;
     const before = getLayoutGeometry(root).widgets;
@@ -352,19 +384,21 @@ describe("creator layout storage", () => {
       ]),
     );
     const presets = [{ name: "old", layout: validateLayout(split)! }];
-    expect(loadPresets()).toEqual(presets);
+    expect(loadPresets()).toEqual({ presets, unreadable: true });
     expect(savePresets(presets)).toBe(true);
-    expect(loadPresets()).toEqual(presets);
+    expect(loadPresets()).toEqual({ presets, unreadable: false });
   });
 
   it("ignores malformed preset storage", () => {
+    localStorage.setItem("dashboard:presets", "");
+    expect(loadPresets()).toEqual({ presets: [], unreadable: true });
     localStorage.setItem("dashboard:presets", "{broken");
-    expect(loadPresets()).toEqual([]);
+    expect(loadPresets()).toEqual({ presets: [], unreadable: true });
     localStorage.setItem(
       "dashboard:presets",
       JSON.stringify({ name: "not a list" }),
     );
-    expect(loadPresets()).toEqual([]);
+    expect(loadPresets()).toEqual({ presets: [], unreadable: true });
   });
 
   it("survives storage access failures and reports unsuccessful saves", () => {
@@ -377,7 +411,7 @@ describe("creator layout storage", () => {
       },
     });
     expect(loadLayout()).toEqual(DEFAULT_LAYOUT);
-    expect(loadPresets()).toEqual([]);
+    expect(loadPresets()).toEqual({ presets: [], unreadable: true });
     expect(saveLayout(DEFAULT_LAYOUT)).toBe(false);
     expect(savePresets([])).toBe(false);
   });

@@ -87,6 +87,9 @@ test("a keyboard user can move a widget beside another", async ({ page }) => {
     .toBe(true);
   await expect(drag).toBeFocused();
   await page.keyboard.press("Space");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Picked up Moderators" }),
+  ).toHaveCount(1);
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Escape");
   await expect(

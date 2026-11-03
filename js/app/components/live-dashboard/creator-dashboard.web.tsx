@@ -1,5 +1,6 @@
 import {
   Accessibility,
+  Feedback,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/dom";
@@ -149,6 +150,11 @@ const dragAccessibility = Accessibility.configure({
           ? "No drop target."
           : undefined,
   },
+});
+
+const dragFeedback = Feedback.configure({
+  dropAnimation: { duration: 0 },
+  keyboardTransition: null,
 });
 
 export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
@@ -1083,7 +1089,11 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     <DragDropProvider
       plugins={(defaults) =>
         defaults.map((plugin) =>
-          plugin === Accessibility ? dragAccessibility : plugin,
+          plugin === Accessibility
+            ? dragAccessibility
+            : plugin === Feedback
+              ? dragFeedback
+              : plugin,
         )
       }
       onDragMove={({ operation }) => setDrop(dropAt(operation))}

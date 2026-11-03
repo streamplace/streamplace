@@ -3,7 +3,6 @@ import { useTheme, zero } from "@streamplace/components";
 import {
   ChevronDown,
   GripVertical,
-  Move,
   X,
   type LucideIcon,
 } from "lucide-react-native";
@@ -18,10 +17,8 @@ export default function CreatorWidgetFrame({
   icon: Icon,
   editing,
   blank,
-  canMove,
   dropSide,
   style,
-  onMove,
   onRemove,
   onReplace,
   children,
@@ -33,14 +30,12 @@ export default function CreatorWidgetFrame({
   icon: LucideIcon;
   editing: boolean;
   blank: boolean;
-  canMove: boolean;
   dropSide: {
     direction: SplitNode["direction"];
     first: boolean;
     allowed: boolean;
   } | null;
   style: CSSProperties;
-  onMove: () => void;
   onRemove: () => void;
   onReplace: (key: string) => void;
   children: ReactNode;
@@ -52,9 +47,14 @@ export default function CreatorWidgetFrame({
     isDragging,
   } = useDraggable({
     id,
+    data: { label },
     disabled: !editing || blank,
   });
-  const { ref: dropRef } = useDroppable({ id, disabled: !editing });
+  const { ref: dropRef } = useDroppable({
+    id,
+    data: { label },
+    disabled: !editing,
+  });
   const setHandle = useCallback(
     (element: HTMLButtonElement | null) => {
       dragRef(element);
@@ -171,20 +171,6 @@ export default function CreatorWidgetFrame({
           >
             {label}
           </strong>
-        )}
-        {editing && !blank && (
-          <button
-            type="button"
-            aria-label={`Move ${label}`}
-            data-move-widget={id}
-            disabled={!canMove}
-            style={iconButton}
-            onClick={onMove}
-          >
-            <span aria-hidden="true">
-              <Move size={theme.spacing[4]} />
-            </span>
-          </button>
         )}
         {editing && !blank && (
           <button

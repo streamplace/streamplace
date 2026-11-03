@@ -1,4 +1,9 @@
 import {
+  Accessibility,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/dom";
+import {
   DragDropProvider,
   useDraggable,
   type DragMoveEvent,
@@ -43,6 +48,7 @@ import { useWindowDimensions, View } from "react-native";
 import { useEmojiData } from "utils/emoji";
 import CreatorHealth from "./creator-health.web";
 import {
+  DEFAULT_LAYOUT,
   getDropSide,
   getLayoutGeometry,
   insertWidget,
@@ -50,12 +56,18 @@ import {
   removeWidget,
   replaceWidget,
   resizeAdjacent,
+  reuseWidgets,
   type LayoutNode,
   type SplitBoundary,
   type SplitNode,
   type WidgetNode,
 } from "./creator-layout";
-import { loadLayout, saveLayout } from "./creator-layout-storage";
+import {
+  loadLayout,
+  loadPresets,
+  saveLayout,
+  savePresets,
+} from "./creator-layout-storage";
 import { useCreatorMetrics } from "./creator-metrics-provider.web";
 import CreatorWidgetFrame from "./creator-widget-frame.web";
 import LivestreamPanel from "./livestream-panel";
@@ -91,6 +103,54 @@ const widgets = new Map([
 ]);
 const widgetChoices = [...widgets].map(([key, { title }]) => ({ key, title }));
 
+function dropSide(operation: DragMoveEvent["operation"]) {
+  const { source, target, position } = operation;
+  if (!source || !target || source.id === target.id || !target.element) return;
+  const rect = target.element.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  return getDropSide(
+    (position.current.x - rect.left) / rect.width,
+    (position.current.y - rect.top) / rect.height,
+  );
+}
+
+function describeDrop(operation: DragMoveEvent["operation"]) {
+  const { source, target } = operation;
+  const side = dropSide(operation);
+  if (!source) return;
+  if (!side || !target)
+    return `Moving ${source.data?.label ?? "widget"}. No drop target.`;
+  const direction =
+    side.direction === "horizontal"
+      ? side.first
+        ? "left of"
+        : "right of"
+      : side.first
+        ? "above"
+        : "below";
+  return `Moving ${source.data?.label ?? "widget"} ${direction} ${target.data?.label ?? "widget"}.`;
+}
+
+const dragAccessibility = Accessibility.configure({
+  screenReaderInstructions: {
+    draggable:
+      "Press space to pick up a widget. Use arrow keys to move it, and hold shift to move faster. Press space to drop it, or escape to cancel.",
+  },
+  announcements: {
+    dragstart: ({ operation }: DragStartEvent) =>
+      `Picked up ${operation.source?.data?.label ?? "widget"}.`,
+    dragmove: ({ operation }: DragMoveEvent) => describeDrop(operation),
+    dragover: ({ operation }: DragMoveEvent) =>
+      dropSide(operation) ? describeDrop(operation) : undefined,
+    dragend: ({ operation, canceled }: DragEndEvent) =>
+      canceled
+        ? "Move canceled."
+        : !dropSide(operation)
+          ? "No drop target."
+          : undefined,
+  },
+});
+
 export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   const { theme } = useTheme();
   const { width, height } = useWindowDimensions();
@@ -101,7 +161,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   const emojiData = useEmojiData();
   const problemsRef = useRef<ProblemsWrapperRef>(null);
   const addRef = useRef<HTMLButtonElement>(null);
-  const moveSelectRef = useRef<HTMLSelectElement>(null);
+  const layoutsRef = useRef<HTMLButtonElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const resizing = useRef<{
     pointerId: number;
@@ -116,10 +176,14 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   const widgetIds = useRef(new WeakMap<WidgetNode, number>());
   const nextId = useRef(0);
   const [layout, setLayout] = useState(loadLayout);
+  const [presetStorage] = useState(loadPresets);
+  const [presets, setPresets] = useState(presetStorage.presets);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [moving, setMoving] = useState<WidgetNode | null>(null);
-  const [moveTarget, setMoveTarget] = useState("");
+  const [layoutsOpen, setLayoutsOpen] = useState(false);
+  const [namingLayout, setNamingLayout] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const [presetSaveFailed, setPresetSaveFailed] = useState(false);
   const [drop, setDrop] = useState<{
     id: string;
     direction: "horizontal" | "vertical";
@@ -140,9 +204,6 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
       widgetIds.current.set(widget, nextId.current++);
     return `widget-${widgetIds.current.get(widget)}`;
   };
-  const targetOptions = moving
-    ? placements.filter(({ widget }) => widget !== moving)
-    : [];
   const buttonStyle = {
     minHeight: theme.touchTargets.minimum,
     padding: `0 ${theme.spacing[3]}px`,
@@ -161,6 +222,40 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     setLayout(next);
     setSaveFailed(!saveLayout(next));
     setAnnouncement(message);
+  }
+
+  function applySavedLayout(saved: LayoutNode, message: string) {
+    updateLayout(reuseWidgets(layout, saved), message);
+    setAdding(false);
+    setPlacementError("");
+  }
+
+  function savePreset() {
+    const name = presetName.trim();
+    if (!name || presetStorage.unreadable) return;
+    const next = [
+      ...presets.filter((preset) => preset.name !== name),
+      { name, layout },
+    ];
+    setPresets(next);
+    const saved = savePresets(next);
+    setPresetSaveFailed(!saved);
+    setPresetName("");
+    setNamingLayout(false);
+    setAnnouncement(saved ? `${name} saved` : `${name} kept for this session`);
+    requestAnimationFrame(() => layoutsRef.current?.focus());
+  }
+
+  function deletePreset(name: string) {
+    if (presetStorage.unreadable) return;
+    const next = presets.filter((preset) => preset.name !== name);
+    setPresets(next);
+    const saved = savePresets(next);
+    setPresetSaveFailed(!saved);
+    setAnnouncement(
+      saved ? `${name} deleted` : `${name} removed for this session`,
+    );
+    requestAnimationFrame(() => layoutsRef.current?.focus());
   }
 
   function remove(path: number[], label: string) {
@@ -197,28 +292,6 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     updateLayout(next, `${widgets.get(key)?.title} added`);
     setAdding(false);
     requestAnimationFrame(() => addRef.current?.focus());
-  }
-
-  function openMove(widget: WidgetNode) {
-    const target = placements.find((item) => item.widget !== widget);
-    if (!target) return;
-    setMoving(widget);
-    setMoveTarget(widgetId(target.widget));
-    setAdding(false);
-    setPlacementError("");
-    requestAnimationFrame(() => moveSelectRef.current?.focus());
-  }
-
-  function closeMove(widget: WidgetNode) {
-    setMoving(null);
-    setPlacementError("");
-    requestAnimationFrame(() =>
-      document
-        .querySelector<HTMLButtonElement>(
-          `[data-move-widget="${widgetId(widget)}"]`,
-        )
-        ?.focus(),
-    );
   }
 
   function preparePlacement(
@@ -272,14 +345,14 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     targetId: string,
     direction: "horizontal" | "vertical",
     first: boolean,
-  ): boolean {
+  ) {
     const candidate = preparePlacement(sourceId, targetId, direction, first);
-    if (!candidate) return false;
+    if (!candidate) return;
     if (!candidate.fits) {
       setPlacementError(
         "There is not enough room to place these widgets there.",
       );
-      return false;
+      return;
     }
     setPlacementError("");
     updateLayout(
@@ -287,20 +360,12 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
       `${widgets.get(candidate.source.widget)?.title ?? candidate.source.widget} ${candidate.adding ? "added" : "moved"}`,
     );
     if (candidate.adding) setAdding(false);
-    return true;
   }
 
   function dropAt(operation: DragMoveEvent["operation"]) {
-    const { source, target, position } = operation;
-    if (!source || !target || source.id === target.id || !target.element)
-      return null;
-    const rect = target.element.getBoundingClientRect();
-    if (!rect.width || !rect.height) return null;
-    const side = getDropSide(
-      (position.current.x - rect.left) / rect.width,
-      (position.current.y - rect.top) / rect.height,
-    );
-    if (!side) return null;
+    const { source, target } = operation;
+    const side = dropSide(operation);
+    if (!side || !source || !target) return null;
     const candidate = preparePlacement(
       String(source.id),
       String(target.id),
@@ -575,7 +640,8 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
             onClick={() => {
               setEditing(!editing);
               setAdding(false);
-              setMoving(null);
+              setLayoutsOpen(false);
+              setNamingLayout(false);
               setPlacementError("");
             }}
           >
@@ -596,13 +662,31 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
               aria-expanded={adding}
               onClick={() => {
                 setAdding(!adding);
-                setMoving(null);
+                setLayoutsOpen(false);
+                setNamingLayout(false);
+                setPlacementError("");
               }}
             >
               <span aria-hidden="true">
                 <Plus size={theme.spacing[4]} />
               </span>
               Add widget
+            </button>
+          )}
+          {editing && (
+            <button
+              ref={layoutsRef}
+              type="button"
+              style={buttonStyle}
+              aria-expanded={layoutsOpen}
+              onClick={() => {
+                setLayoutsOpen(!layoutsOpen);
+                setNamingLayout(false);
+                setAdding(false);
+                setPlacementError("");
+              }}
+            >
+              Layouts
             </button>
           )}
           {editing &&
@@ -627,6 +711,113 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                 </button>
               ))}
         </div>
+        {editing && layoutsOpen && (
+          <div
+            role="group"
+            aria-label="Saved layouts"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                if (namingLayout) setNamingLayout(false);
+                else setLayoutsOpen(false);
+                layoutsRef.current?.focus();
+              }
+            }}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: theme.spacing[2],
+              padding: `${theme.spacing[2]}px ${spacing}px`,
+            }}
+          >
+            {presets.length > 0 && (
+              <select
+                aria-label="Load layout"
+                value=""
+                style={buttonStyle}
+                onChange={(event) => {
+                  const preset = presets.find(
+                    ({ name }) => name === event.target.value,
+                  );
+                  if (preset)
+                    applySavedLayout(preset.layout, `${preset.name} loaded`);
+                }}
+              >
+                <option value="">Load layout…</option>
+                {presets.map((preset, index) => (
+                  <option key={`${preset.name}-${index}`} value={preset.name}>
+                    {preset.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {namingLayout ? (
+              <form
+                style={{ display: "flex", gap: theme.spacing[2] }}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  savePreset();
+                }}
+              >
+                <input
+                  autoFocus
+                  aria-label="Layout name"
+                  value={presetName}
+                  onChange={(event) => setPresetName(event.target.value)}
+                  placeholder="Layout name"
+                  style={{ ...buttonStyle, cursor: "text" }}
+                />
+                <button
+                  type="submit"
+                  style={buttonStyle}
+                  disabled={!presetName.trim()}
+                >
+                  Save
+                </button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                style={buttonStyle}
+                disabled={presetStorage.unreadable}
+                onClick={() => setNamingLayout(true)}
+              >
+                Save layout
+              </button>
+            )}
+            {namingLayout &&
+              presets.some(({ name }) => name === presetName.trim()) && (
+                <span style={{ color: theme.colors.text2 }}>
+                  Saving will replace the existing layout.
+                </span>
+              )}
+            {presets.map((preset, index) => (
+              <button
+                key={`${preset.name}-${index}`}
+                type="button"
+                style={buttonStyle}
+                disabled={presetStorage.unreadable}
+                aria-label={`Delete ${preset.name}`}
+                onClick={() => deletePreset(preset.name)}
+              >
+                Delete {preset.name}
+              </button>
+            ))}
+            <button
+              type="button"
+              style={buttonStyle}
+              onClick={() =>
+                applySavedLayout(DEFAULT_LAYOUT, "Default layout restored")
+              }
+            >
+              Reset layout
+            </button>
+            <span style={{ color: theme.colors.text2 }}>
+              Layouts are saved in this browser.
+            </span>
+          </div>
+        )}
         {editing && adding && (
           <div
             role="group"
@@ -666,68 +857,28 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
             )}
           </div>
         )}
-        {editing && moving && (
+        {presetStorage.unreadable && (
           <div
-            role="group"
-            aria-label={`Move ${widgets.get(moving.widget)?.title ?? moving.widget}`}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") closeMove(moving);
-            }}
+            role="alert"
             style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: theme.spacing[2],
               padding: `${theme.spacing[2]}px ${spacing}px`,
+              color: theme.colors.warning,
             }}
           >
-            <strong>
-              Moving {widgets.get(moving.widget)?.title ?? moving.widget}
-            </strong>
-            <label>
-              Move next to{" "}
-              <select
-                ref={moveSelectRef}
-                aria-label="Move next to"
-                value={moveTarget}
-                onChange={(event) => setMoveTarget(event.target.value)}
-                style={buttonStyle}
-              >
-                {targetOptions.map(({ widget }) => (
-                  <option key={widgetId(widget)} value={widgetId(widget)}>
-                    {widgets.get(widget.widget)?.title ??
-                      (widget.widget === "blank" ? "Empty" : widget.widget)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {(
-              [
-                ["left", "horizontal", true],
-                ["right", "horizontal", false],
-                ["above", "vertical", true],
-                ["below", "vertical", false],
-              ] as const
-            ).map(([label, direction, first]) => (
-              <button
-                key={label}
-                type="button"
-                style={buttonStyle}
-                onClick={() => {
-                  if (place(widgetId(moving), moveTarget, direction, first))
-                    closeMove(moving);
-                }}
-              >
-                Move {label}
-              </button>
-            ))}
-            <button
-              type="button"
-              style={buttonStyle}
-              onClick={() => closeMove(moving)}
-            >
-              Cancel
-            </button>
+            Could not read all saved layouts. Your stored layouts were left
+            unchanged.
+          </div>
+        )}
+        {presetSaveFailed && (
+          <div
+            role="alert"
+            style={{
+              padding: `${theme.spacing[2]}px ${spacing}px`,
+              color: theme.colors.warning,
+            }}
+          >
+            Could not save your layouts. Changes will last until you leave this
+            page.
           </div>
         )}
         {saveFailed && (
@@ -817,9 +968,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                     icon={Icon}
                     editing={editing}
                     blank={widget.widget === "blank"}
-                    canMove={placements.length > 1}
                     dropSide={drop?.id === id ? drop : null}
-                    onMove={() => openMove(widget)}
                     onRemove={() => remove(path, label)}
                     onReplace={(key) => replace(path, key)}
                     style={{
@@ -932,6 +1081,11 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
 
   return (
     <DragDropProvider
+      plugins={(defaults) =>
+        defaults.map((plugin) =>
+          plugin === Accessibility ? dragAccessibility : plugin,
+        )
+      }
       onDragMove={({ operation }) => setDrop(dropAt(operation))}
       onDragOver={({ operation }) => setDrop(dropAt(operation))}
       onDragEnd={({ operation, canceled }) => {
@@ -967,6 +1121,7 @@ function AvailableWidget({
   const { theme } = useTheme();
   const { ref, handleRef, isDragging } = useDraggable({
     id: `available-${widgetKey}`,
+    data: { label: title },
   });
   const setHandle = useCallback(
     (element: HTMLButtonElement | null) => {

@@ -1,6 +1,7 @@
 package spxrpc
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -49,6 +50,14 @@ func (s *Server) HandleWildcard(c echo.Context) error {
 	}
 
 	if err != nil {
+		var upstream *xrpc.Error
+		var detail *xrpc.XRPCError
+		if errors.As(err, &upstream) && upstream.StatusCode >= 400 && upstream.StatusCode < 500 {
+			if errors.As(err, &detail) {
+				return c.JSON(upstream.StatusCode, detail)
+			}
+			return echo.NewHTTPError(upstream.StatusCode, http.StatusText(upstream.StatusCode))
+		}
 		log.Error(ctx, "upstream xrpc error", "error", err)
 		return err
 	}

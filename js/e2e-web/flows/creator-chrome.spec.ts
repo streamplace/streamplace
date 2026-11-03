@@ -55,9 +55,21 @@ test("creator navigation and drafts remain usable across screen sizes", async ({
   await page
     .getByRole("button", { name: "Collapse creator navigation" })
     .click();
+  await expect(
+    page.getByRole("button", { name: "Expand creator navigation" }),
+  ).toHaveAttribute("aria-expanded", "false");
   await expect(navigation.getByTitle("Stream Settings")).toBeVisible();
   await expect(chat).toHaveValue("An unsent message");
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Expand creator navigation" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Expand creator navigation" }).click();
+  await expect(
+    page.getByRole("button", { name: "Collapse creator navigation" }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await chat.fill("An unsent message");
+  await title.fill("An unsaved title");
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(chat).toHaveValue("An unsent message");

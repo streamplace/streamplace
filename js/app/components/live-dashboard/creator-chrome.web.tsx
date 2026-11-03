@@ -9,6 +9,8 @@ import {
   LayoutGrid,
   ListVideo,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Radio,
   Share2,
   Video,
@@ -28,6 +30,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
 import { getStreamplaceNavigationAction } from "src/linking-config";
+import { useStore } from "store";
 
 const mainLinks = [
   { labelKey: "control-panel", href: "/dashboard", icon: LayoutGrid },
@@ -72,7 +75,8 @@ export default function CreatorChrome({ children }: { children: ReactNode }) {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const narrow = width < breakpoints.md;
-  const [collapsed, setCollapsed] = useState(false);
+  const collapsed = useStore((state) => state.isCollapsed);
+  const toggleSidebar = useStore((state) => state.toggleSidebar);
   const [open, setOpen] = useState(false);
   const entryRef = useRef<HTMLButtonElement>(null);
   const exitRef = useRef<HTMLButtonElement>(null);
@@ -185,6 +189,7 @@ export default function CreatorChrome({ children }: { children: ReactNode }) {
       {!theatre && (!narrow || open) && (
         <nav
           ref={nav}
+          id="creator-navigation"
           data-testid="creator-navigation"
           aria-label="Creator navigation"
           role={narrow ? "dialog" : undefined}
@@ -236,13 +241,24 @@ export default function CreatorChrome({ children }: { children: ReactNode }) {
                   ? "Expand creator navigation"
                   : "Collapse creator navigation"
             }
-            onClick={() => (narrow ? close() : setCollapsed(!collapsed))}
+            aria-expanded={narrow ? undefined : !collapsed}
+            aria-controls={narrow ? undefined : "creator-navigation"}
+            title={
+              narrow
+                ? "Close creator navigation"
+                : collapsed
+                  ? "Expand creator navigation"
+                  : "Collapse creator navigation"
+            }
+            onClick={() => (narrow ? close() : toggleSidebar())}
             style={{ ...buttonStyle, alignSelf: "flex-start" }}
           >
             {narrow ? (
               <X size={theme.spacing[6]} />
+            ) : collapsed ? (
+              <PanelLeftOpen size={theme.spacing[6]} />
             ) : (
-              <Menu size={theme.spacing[6]} />
+              <PanelLeftClose size={theme.spacing[6]} />
             )}
           </button>
           <div title={!narrow && collapsed ? "Back to Streamplace" : undefined}>

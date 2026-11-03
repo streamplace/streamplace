@@ -102,6 +102,7 @@ export function ChatBox({
 
   let linfo = useLivestream();
   const profile = useProfile();
+  const popoutDid = linfo?.author?.did ?? profile?.did;
 
   const { theme, zero: zt } = useTheme();
 
@@ -687,16 +688,16 @@ export function ChatBox({
               variant="secondary"
               aria-label="Popout Chat"
               testID="chat-popout-button"
+              disabled={!popoutDid}
               style={{
                 borderRadius: theme.borderRadius.md,
                 maxWidth: 44,
                 aspectRatio: 1,
               }}
               onPress={() => {
-                const did = linfo?.author?.did ?? profile?.did;
-                if (!did) return;
+                if (!popoutDid) return;
                 const u = new URL(window.location.href);
-                u.pathname = `/chat-popout/${did}`;
+                u.pathname = `/chat-popout/${popoutDid}`;
                 const popup = window.open(
                   u.toString(),
                   "_blank",

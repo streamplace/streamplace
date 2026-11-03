@@ -112,7 +112,7 @@ export function PopoutChatInner({ params }: { params: ChatPopoutParams }) {
           />
         ) : (
           <Pressable
-            onPress={() => openLoginModal({ name: "ChatPopout" })}
+            onPress={() => openLoginModal({ name: "PopoutChat", params })}
             style={[
               zero.layout.flex.row,
               zero.layout.flex.center,

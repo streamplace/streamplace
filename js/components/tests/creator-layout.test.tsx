@@ -2,10 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_LAYOUT,
   getDropSide,
-  getWidgetPlacements,
+  getLayoutGeometry,
   insertWidget,
   moveWidget,
   removeWidget,
+  resizeAdjacent,
   updateRatio,
   validateLayout,
 } from "../../app/components/live-dashboard/creator-layout";
@@ -113,7 +114,8 @@ describe("creator layout edits", () => {
   });
   it("places nested leaves in their saved order and proportions", () => {
     const layout = validateLayout(split)!;
-    expect(getWidgetPlacements(layout)).toEqual([
+    const geometry = getLayoutGeometry(layout);
+    expect(geometry.widgets).toEqual([
       { widget: monitor, path: [0], x: 0, y: 0, width: 2 / 3, height: 1 },
       {
         widget: chat,
@@ -132,6 +134,56 @@ describe("creator layout edits", () => {
         height: 0.75,
       },
     ]);
+    expect(
+      geometry.boundaries.map(
+        ({ path, index, direction, x, y, width, height }) => ({
+          path,
+          index,
+          direction,
+          x,
+          y,
+          width,
+          height,
+        }),
+      ),
+    ).toEqual([
+      {
+        path: [],
+        index: 0,
+        direction: "horizontal",
+        x: 2 / 3,
+        y: 0,
+        width: 1,
+        height: 1,
+      },
+      {
+        path: [1],
+        index: 0,
+        direction: "vertical",
+        x: 2 / 3,
+        y: 0.25,
+        width: 1 / 3,
+        height: 1,
+      },
+    ]);
+  });
+  it("resizes adjacent children within their minimum sizes without changing their siblings", () => {
+    const root = validateLayout({
+      type: "split",
+      direction: "horizontal",
+      ratio: [0.4, 0.35, 0.25],
+      children: [monitor, chat, health],
+    })!;
+    const result = resizeAdjacent(root, [], 0, 1, 0.2, 0.25);
+    expect(result).toMatchObject({ ratio: [0.5, 0.25, 0.25] });
+    expect(root).toMatchObject({ ratio: [0.4, 0.35, 0.25] });
+    expect(resizeAdjacent(root, [], 0, -1, 0.2, 0.25)).toMatchObject({
+      ratio: [0.2, 0.55, 0.25],
+    });
+    expect(resizeAdjacent(root, [], 0, 0.1, 0.5, 0.5)).toBe(root);
+    expect(resizeAdjacent(root, [], 2, 0.1, 0, 0)).toBe(root);
+    expect(resizeAdjacent(root, [], 0, Number.NaN, 0, 0)).toBe(root);
+    expect(resizeAdjacent(root, [99], 0, 0.1, 0, 0)).toBe(root);
   });
   it("inserts beside a nested leaf without discarding its configuration", () => {
     const original = validateLayout(split)!;

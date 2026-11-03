@@ -43,8 +43,23 @@ export type WidgetPlacement = {
   height: number;
 };
 
-export function getWidgetPlacements(layout: LayoutNode): WidgetPlacement[] {
-  const placements: WidgetPlacement[] = [];
+export type SplitBoundary = {
+  node: SplitNode;
+  path: number[];
+  index: number;
+  direction: SplitNode["direction"];
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export function getLayoutGeometry(layout: LayoutNode): {
+  widgets: WidgetPlacement[];
+  boundaries: SplitBoundary[];
+} {
+  const widgets: WidgetPlacement[] = [];
+  const boundaries: SplitBoundary[] = [];
   const visit = (
     node: LayoutNode,
     path: number[],
@@ -54,7 +69,7 @@ export function getWidgetPlacements(layout: LayoutNode): WidgetPlacement[] {
     height: number,
   ) => {
     if (node.type === "leaf") {
-      placements.push({ widget: node, path, x, y, width, height });
+      widgets.push({ widget: node, path, x, y, width, height });
       return;
     }
     let offset = 0;
@@ -80,10 +95,22 @@ export function getWidgetPlacements(layout: LayoutNode): WidgetPlacement[] {
         );
       }
       offset += fraction;
+      if (index < node.children.length - 1) {
+        boundaries.push({
+          node,
+          path,
+          index,
+          direction: node.direction,
+          x: node.direction === "horizontal" ? x + width * offset : x,
+          y: node.direction === "vertical" ? y + height * offset : y,
+          width,
+          height,
+        });
+      }
     });
   };
   visit(layout, [], 0, 0, 1, 1);
-  return placements;
+  return { widgets, boundaries };
 }
 
 export const DEFAULT_LAYOUT: LayoutNode = {
@@ -285,5 +312,37 @@ export function updateRatio(
     if (node.type !== "split") return node;
     const normalized = normalizeRatio(ratio, node.children.length);
     return normalized ? { ...node, ratio: normalized } : node;
+  });
+}
+
+export function resizeAdjacent(
+  root: LayoutNode,
+  path: readonly number[],
+  index: number,
+  delta: number,
+  minBefore: number,
+  minAfter: number,
+): LayoutNode {
+  if (
+    ![delta, minBefore, minAfter].every(Number.isFinite) ||
+    minBefore < 0 ||
+    minAfter < 0 ||
+    !Number.isInteger(index)
+  )
+    return root;
+  return updateAt(root, path, (node) => {
+    if (node.type !== "split" || index < 0 || index >= node.children.length - 1)
+      return node;
+    const total = node.ratio[index] + node.ratio[index + 1];
+    if (minBefore + minAfter > total) return node;
+    const before = Math.max(
+      minBefore,
+      Math.min(total - minAfter, node.ratio[index] + delta),
+    );
+    if (before === node.ratio[index]) return node;
+    const ratio = node.ratio.slice();
+    ratio[index] = before;
+    ratio[index + 1] = total - before;
+    return { ...node, ratio };
   });
 }

@@ -25,17 +25,20 @@ import {
   SlidersHorizontal,
   Video,
 } from "lucide-react-native";
-import { useRef, useState } from "react";
+import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useWindowDimensions, View } from "react-native";
 import { useEmojiData } from "utils/emoji";
 import CreatorHealth from "./creator-health.web";
 import {
   getDropSide,
-  getWidgetPlacements,
+  getLayoutGeometry,
   insertWidget,
   moveWidget,
   removeWidget,
+  resizeAdjacent,
   type LayoutNode,
+  type SplitBoundary,
+  type SplitNode,
   type WidgetNode,
 } from "./creator-layout";
 import { loadLayout, saveLayout } from "./creator-layout-storage";
@@ -85,6 +88,16 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   const addRef = useRef<HTMLButtonElement>(null);
   const moveSelectRef = useRef<HTMLSelectElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const resizing = useRef<{
+    pointerId: number;
+    start: number;
+    size: number;
+    boundary: SplitBoundary;
+    initial: LayoutNode;
+    latest: LayoutNode;
+    minBefore: number;
+    minAfter: number;
+  } | null>(null);
   const widgetIds = useRef(new WeakMap<WidgetNode, number>());
   const nextId = useRef(0);
   const [layout, setLayout] = useState(loadLayout);
@@ -103,7 +116,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   const [announcement, setAnnouncement] = useState("");
   const messagesPerMinute = history[history.length - 1]?.chatRate ?? null;
   const spacing = theme.spacing[4];
-  const placements = getWidgetPlacements(layout);
+  const { widgets: placements, boundaries } = getLayoutGeometry(layout);
   const available = [...widgets].filter(
     ([key]) => !placements.some(({ widget }) => widget.widget === key),
   );
@@ -192,8 +205,8 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     const fits = stacked
       ? direction === "vertical"
       : !!bounds &&
-        getWidgetPlacements(next)
-          .filter(
+        getLayoutGeometry(next)
+          .widgets.filter(
             ({ widget }) =>
               widget === source.widget || widget === target.widget,
           )
@@ -252,6 +265,141 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     return candidate
       ? { id: String(target.id), ...side, allowed: candidate.fits }
       : null;
+  }
+
+  function minimumExtent(
+    node: LayoutNode,
+    direction: SplitNode["direction"],
+  ): number {
+    if (node.type === "leaf") {
+      const meta = widgets.get(node.widget);
+      return meta
+        ? (direction === "horizontal" ? meta.minWidth : meta.minHeight) *
+            theme.spacing[16]
+        : theme.touchTargets.minimum;
+    }
+    const sizes = node.children.map((child) => minimumExtent(child, direction));
+    return node.direction === direction
+      ? sizes.reduce((sum, size) => sum + size, 0) +
+          spacing * (sizes.length - 1)
+      : Math.max(...sizes);
+  }
+
+  function resizeLimits(boundary: SplitBoundary) {
+    const bounds = canvasRef.current?.getBoundingClientRect();
+    const size =
+      boundary.direction === "horizontal"
+        ? (bounds?.width ?? 0) * boundary.width
+        : (bounds?.height ?? 0) * boundary.height;
+    if (!size) return null;
+    const minBefore =
+      (minimumExtent(
+        boundary.node.children[boundary.index],
+        boundary.direction,
+      ) +
+        spacing) /
+      size;
+    const minAfter =
+      (minimumExtent(
+        boundary.node.children[boundary.index + 1],
+        boundary.direction,
+      ) +
+        spacing) /
+      size;
+    const total =
+      boundary.node.ratio[boundary.index] +
+      boundary.node.ratio[boundary.index + 1];
+    return minBefore + minAfter <= total
+      ? { size, minBefore, minAfter, total }
+      : null;
+  }
+
+  function startResize(
+    event: PointerEvent<HTMLDivElement>,
+    boundary: SplitBoundary,
+  ) {
+    const limits = resizeLimits(boundary);
+    if (!limits || event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.focus();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    resizing.current = {
+      ...limits,
+      boundary,
+      pointerId: event.pointerId,
+      start:
+        boundary.direction === "horizontal" ? event.clientX : event.clientY,
+      initial: layout,
+      latest: layout,
+    };
+  }
+
+  function updateResize(event: PointerEvent<HTMLDivElement>) {
+    const current = resizing.current;
+    if (!current || current.pointerId !== event.pointerId) return;
+    const position =
+      current.boundary.direction === "horizontal"
+        ? event.clientX
+        : event.clientY;
+    current.latest = resizeAdjacent(
+      current.initial,
+      current.boundary.path,
+      current.boundary.index,
+      (position - current.start) / current.size,
+      current.minBefore,
+      current.minAfter,
+    );
+    setLayout(current.latest);
+  }
+
+  function finishResize(
+    event: PointerEvent<HTMLDivElement>,
+    cancelled: boolean,
+  ) {
+    const current = resizing.current;
+    if (!current || current.pointerId !== event.pointerId) return;
+    if (cancelled) setLayout(current.initial);
+    else {
+      updateResize(event);
+      if (current.latest !== current.initial) {
+        setSaveFailed(!saveLayout(current.latest));
+        setAnnouncement("Panel sizes updated");
+      }
+    }
+    resizing.current = null;
+  }
+
+  function keyboardResize(
+    event: KeyboardEvent<HTMLDivElement>,
+    boundary: SplitBoundary,
+  ) {
+    const limits = resizeLimits(boundary);
+    if (!limits) return;
+    const negative =
+      boundary.direction === "horizontal" ? "ArrowLeft" : "ArrowUp";
+    const positive =
+      boundary.direction === "horizontal" ? "ArrowRight" : "ArrowDown";
+    const delta =
+      event.key === negative
+        ? -0.05
+        : event.key === positive
+          ? 0.05
+          : event.key === "Home"
+            ? -1
+            : event.key === "End"
+              ? 1
+              : 0;
+    if (!delta) return;
+    event.preventDefault();
+    const next = resizeAdjacent(
+      layout,
+      boundary.path,
+      boundary.index,
+      delta,
+      limits.minBefore,
+      limits.minAfter,
+    );
+    if (next !== layout) updateLayout(next, "Panel sizes updated");
   }
 
   function renderWidget(key: string) {
@@ -652,6 +800,84 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                 );
               },
             )}
+            {editing &&
+              !stacked &&
+              boundaries.map((boundary) => {
+                const horizontal = boundary.direction === "horizontal";
+                const total =
+                  boundary.node.ratio[boundary.index] +
+                  boundary.node.ratio[boundary.index + 1];
+                const limits = resizeLimits(boundary);
+                return (
+                  <div
+                    key={`${boundary.path.join(".")}:${boundary.index}`}
+                    role="separator"
+                    aria-label={horizontal ? "Resize columns" : "Resize rows"}
+                    aria-orientation={horizontal ? "vertical" : "horizontal"}
+                    aria-valuenow={
+                      total
+                        ? Math.round(
+                            (100 * boundary.node.ratio[boundary.index]) / total,
+                          )
+                        : 0
+                    }
+                    aria-valuemin={
+                      limits
+                        ? Math.ceil((100 * limits.minBefore) / limits.total)
+                        : 0
+                    }
+                    aria-valuemax={
+                      limits
+                        ? Math.floor(
+                            (100 * (limits.total - limits.minAfter)) /
+                              limits.total,
+                          )
+                        : 100
+                    }
+                    tabIndex={0}
+                    onPointerDown={(event) => startResize(event, boundary)}
+                    onPointerMove={updateResize}
+                    onPointerUp={(event) => finishResize(event, false)}
+                    onPointerCancel={(event) => finishResize(event, true)}
+                    onKeyDown={(event) => keyboardResize(event, boundary)}
+                    style={{
+                      position: "absolute",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      zIndex: zero.atoms.zIndex[10].zIndex,
+                      touchAction: "none",
+                      cursor: horizontal ? "col-resize" : "row-resize",
+                      ...(horizontal
+                        ? {
+                            left: `calc(${boundary.x * 100}% - ${spacing / 2}px)`,
+                            top: `calc(${boundary.y * 100}% + ${spacing / 2}px)`,
+                            width: spacing,
+                            height: `calc(${boundary.height * 100}% - ${spacing}px)`,
+                          }
+                        : {
+                            left: `calc(${boundary.x * 100}% + ${spacing / 2}px)`,
+                            top: `calc(${boundary.y * 100}% - ${spacing / 2}px)`,
+                            width: `calc(${boundary.width * 100}% - ${spacing}px)`,
+                            height: spacing,
+                          }),
+                    }}
+                  >
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        background: theme.colors.borderStrong,
+                        width: horizontal
+                          ? zero.borders.width.medium.borderWidth
+                          : "100%",
+                        height: horizontal
+                          ? "100%"
+                          : zero.borders.width.medium.borderWidth,
+                      }}
+                    />
+                  </div>
+                );
+              })}
           </div>
         </div>
       </div>

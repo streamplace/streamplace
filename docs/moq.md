@@ -39,8 +39,21 @@ groups in track-id order, and validates the result with
 plus a check that the segment's signed creator is the streamer it asked
 for. A source track with no group at a segment's sequence has no part in
 that segment. Each rendition track's group is a single-track addendum,
-verified with `muxl verify` and folded into the live window on its own.
-Anything that is not MUXL ends the session.
+folded into the live window on its own once
+`MediaManager.ValidateReplicatedRenditions` passes it.
+
+Anybody can claim to be a stream's origin. Its source must be the
+streamer's, but a rendition, or a codec its ingest node completed in the
+source segment, is whatever its transcoder made, so these are trusted by who
+signed them: every such track must be validly signed by the streamer (one
+of its `place.stream.key` signing keys), by this node's own station, or by
+one of `--trusted-transcoders` (`SP_TRUSTED_TRANSCODERS`, default
+`did:web:stream.place`): a station, by the key its `did:web` document
+publishes, or a bare `did:key`. A node signs its transcodes with the key its
+station's `did:web` document publishes (`atproto.StationCryptoSigner`).
+Renditions from any other transcoder are dropped and the source goes on; a
+source segment with such a track is refused whole. A signature that fails,
+or anything that is not MUXL, ends the session.
 
 A node's listener advertises one route covering every path and serves a
 broadcast when a peer requests it: a request for a stream that is not live

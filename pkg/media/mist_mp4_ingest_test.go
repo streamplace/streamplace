@@ -25,17 +25,17 @@ import (
 // isolated ingest worker and returns how many signed canonical segments it
 // emitted. The worker watchdog is shortened so a wedged pipeline returns
 // promptly instead of hanging the test (override via SP_TEST_WATCHDOG to e.g.
-// park a wedge for a stack dump). With transcode=true the node keys are
-// supplied so the worker completes to dual-codec, as production does.
-func runMP4ThroughIngestWorker(t *testing.T, mp4 []byte, transcode bool) (int, error) {
-	segs, err := runMP4ThroughIngestWorkerSegments(t, mp4, transcode)
+// park a wedge for a stack dump). The worker completes single-codec audio to
+// dual-codec, as production does.
+func runMP4ThroughIngestWorker(t *testing.T, mp4 []byte) (int, error) {
+	segs, err := runMP4ThroughIngestWorkerSegments(t, mp4)
 	return len(segs), err
 }
 
 // runMP4ThroughIngestWorkerSegments is runMP4ThroughIngestWorker returning the
 // raw segment payloads, for tests that validate the emitted segments rather
 // than just count them.
-func runMP4ThroughIngestWorkerSegments(t *testing.T, mp4 []byte, transcode bool) ([][]byte, error) {
+func runMP4ThroughIngestWorkerSegments(t *testing.T, mp4 []byte) ([][]byte, error) {
 	t.Helper()
 	old := ingestWorkerWatchdog
 	ingestWorkerWatchdog = 10 * time.Second
@@ -58,10 +58,6 @@ func runMP4ThroughIngestWorkerSegments(t *testing.T, mp4 []byte, transcode bool)
 		CertPEM:         ms.Cert,
 		Manifest:        manifest,
 		BroadcasterHost: "test.example.com",
-	}
-	if transcode {
-		cfg.NodeCertPEM = ms.Cert
-		cfg.NodeKeyPEM = keyPEM
 	}
 
 	var buf bytes.Buffer
@@ -137,7 +133,7 @@ func TestMP4IngestSparseVideoNoWedge(t *testing.T) {
 	ctx := context.Background()
 	mp4 := makeSparseVideoAACFMP4(t, ctx, 12)
 
-	segs, err := runMP4ThroughIngestWorker(t, mp4, false)
+	segs, err := runMP4ThroughIngestWorker(t, mp4)
 	require.NoError(t, err, "sparse-video stream ingests cleanly (wedge → watchdog → context canceled)")
 	// 12s of 2s-apart keyframes ≈ 6 GoPs; wedging yields 0-1 segments.
 	require.GreaterOrEqual(t, segs, 4, "sparse-video stream emits its segments")
@@ -213,7 +209,7 @@ func TestMP4IngestMistRealSample(t *testing.T) {
 	mp4, err := os.ReadFile(remote.RemoteFixture("ee4d7f8f9b267ba8229314162ef268186048f91ac4242b13fce3f5ee955b97ae/mist-vt-720p.mp4"))
 	require.NoError(t, err)
 
-	segs, err := runMP4ThroughIngestWorkerSegments(t, mp4, false)
+	segs, err := runMP4ThroughIngestWorkerSegments(t, mp4)
 	require.NoError(t, err, "real Mist fMP4 capture ingests cleanly")
 	require.GreaterOrEqual(t, len(segs), 3, "capture emits its segments")
 
@@ -259,7 +255,7 @@ func TestMP4IngestBFramesValidate(t *testing.T) {
 	ctx := context.Background()
 	mp4 := makeBFrameAACFMP4(t, ctx, 8)
 
-	segs, err := runMP4ThroughIngestWorkerSegments(t, mp4, false)
+	segs, err := runMP4ThroughIngestWorkerSegments(t, mp4)
 	require.NoError(t, err, "B-frame stream ingests cleanly")
 	require.GreaterOrEqual(t, len(segs), 6, "B-frame stream emits its segments")
 
@@ -291,7 +287,7 @@ func TestMP4IngestBFramesValidate(t *testing.T) {
 // generic qtdemux parse error on an endless Mist-side restart loop.
 func TestMP4IngestRejectsMatroskaWithDiagnosis(t *testing.T) {
 	mkvish := append(append([]byte{}, matroskaMagic...), make([]byte, 1024)...)
-	_, err := runMP4ThroughIngestWorker(t, mkvish, false)
+	_, err := runMP4ThroughIngestWorker(t, mkvish)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "Matroska")
 	require.Contains(t, err.Error(), "MKVExec")

@@ -95,7 +95,7 @@ var _ = muxl.RunMuxlUnwrapEvents
 func TestIngestOpenGOPSegmentsStartOnIDR(t *testing.T) {
 	ctx := context.Background()
 	mp4 := makeOpenGOPFMP4(t, ctx)
-	segs, err := runMP4ThroughIngestWorkerSegments(t, mp4, false)
+	segs, err := runMP4ThroughIngestWorkerSegments(t, mp4)
 	require.NoError(t, err)
 	require.NotEmpty(t, segs)
 	var nonIDR int
@@ -126,7 +126,7 @@ func TestIngestOpenGOPSegmentsStartOnIDR(t *testing.T) {
 func TestIngestOpenGOPCompletionStaysAligned(t *testing.T) {
 	ctx := context.Background()
 	mp4 := makeOpenGOPFMP4(t, ctx)
-	segs, err := runMP4ThroughIngestWorkerSegments(t, mp4, true)
+	segs, err := runMP4ThroughIngestWorkerSegments(t, mp4)
 	require.NoError(t, err)
 	require.NotEmpty(t, segs)
 	for i, seg := range segs {

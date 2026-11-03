@@ -34,8 +34,6 @@ func TestWorkerServesFramesOverSocket(t *testing.T) {
 		KeyPEM:          keyPEM,
 		CertPEM:         ms.Cert,
 		Manifest:        manifest,
-		NodeCertPEM:     ms.Cert,
-		NodeKeyPEM:      keyPEM,
 		BroadcasterHost: "test.example.com",
 		SocketPath:      sock,
 	}

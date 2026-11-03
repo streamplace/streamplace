@@ -47,16 +47,17 @@ var serverRepoSigner func(ctx context.Context, did string, sb []byte) ([]byte, e
 // behind its did:web identity — captured by MakeServerRepo. Nil until then.
 var serverRepoPriv *atcrypto.PrivateKeyK256
 
-// ServerCryptoSigner returns a crypto.Signer for the node's own secp256k1
-// identity (the server-repo key behind its did:web). Used to S2PA-sign
-// node-produced artifacts — e.g. a transcoded audio track minted at validate
-// time, signed as a c2pa.transcoded derivative of the streamer's segment.
-// Errors if the server repo hasn't been initialized yet.
-func ServerCryptoSigner() (gocrypto.Signer, error) {
-	if serverRepoPriv == nil {
-		return nil, fmt.Errorf("server repo key not initialized")
+// StationCryptoSigner returns a crypto.Signer for the key the station's DID
+// publishes, used to sign node-produced transcodes so peers can attribute them.
+func StationCryptoSigner(cli *config.CLI) (gocrypto.Signer, error) {
+	priv := lexiconRepoPriv
+	if cli.ServerHost == cli.BroadcasterHost {
+		priv = serverRepoPriv
 	}
-	return spkey.KeyToSigner(serverRepoPriv)
+	if priv == nil {
+		return nil, fmt.Errorf("station key not initialized")
+	}
+	return spkey.KeyToSigner(priv)
 }
 
 // serverCommitSubscribers is notified when new commit events are created.

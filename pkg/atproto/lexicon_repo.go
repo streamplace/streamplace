@@ -33,6 +33,10 @@ import (
 
 var LexiconRepo *atrepo.Repo
 var LexiconPubMultibase string
+
+// lexiconRepoPriv is the station did:web key on a multi-node station, shared
+// through the statedb; captured by MakeLexiconRepo. See StationCryptoSigner.
+var lexiconRepoPriv *atcrypto.PrivateKeyK256
 var OAuthString string
 var RepoUser models.Uid = models.Uid(1)
 var CarStore carstore.CarStore
@@ -181,6 +185,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 		}
 	}
 
+	lexiconRepoPriv = priv
 	pub, err := priv.PublicKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get public key from private key: %w", err)

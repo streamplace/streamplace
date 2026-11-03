@@ -910,7 +910,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 )}
 
                 <Tooltip
-                  content="Off by default: every segment you stream is marked as not available for generative AI training unless you turn this on."
+                  content="Off by default. Your choice is included in the metadata of each streamed segment."
                   position="top"
                 >
                   <Checkbox
@@ -921,7 +921,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                       })
                     }
                     label={
-                      "Allow your content to be used for generative AI training"
+                      "Mark your content as available for generative AI training"
                     }
                     style={[{ fontSize: 12 }]}
                   />

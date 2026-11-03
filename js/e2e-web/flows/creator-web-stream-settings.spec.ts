@@ -42,6 +42,17 @@ test("stream settings show all metadata sections and save edits together", async
   });
   const distributeInitiallyChecked = await distribute.isChecked();
   if (!distributeInitiallyChecked) await distribute.click();
+  const aiTraining = page.getByRole("checkbox", {
+    name: "Mark your content as available for generative AI training",
+  });
+  await aiTraining.hover();
+  await expect(
+    page.getByText(
+      "Off by default. Your choice is included in the metadata of each streamed segment.",
+    ),
+  ).toBeVisible();
+  const aiTrainingInitiallyChecked = await aiTraining.isChecked();
+  if (!aiTrainingInitiallyChecked) await aiTraining.click();
   const saved = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
@@ -59,6 +70,7 @@ test("stream settings show all metadata sections and save edits together", async
   await expect(warning).toBeChecked();
   await expect(notice).toHaveValue("Creator settings draft");
   await expect(distribute).toBeChecked();
+  await expect(aiTraining).toBeChecked();
   await distribute.click();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect
@@ -87,6 +99,7 @@ test("stream settings show all metadata sections and save edits together", async
   ).toBeLessThan(30);
   if (!warningInitiallyChecked) await warning.click();
   if (distributeInitiallyChecked) await distribute.click();
+  if (!aiTrainingInitiallyChecked) await aiTraining.click();
   await notice.fill(originalNotice);
   const restored = page.waitForResponse(
     (response) =>

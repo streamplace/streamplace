@@ -25,11 +25,13 @@ const { flex, r, borders, p, layout, gap, mb, my, px, py } = atoms;
 interface ModeratorPanelProps {
   isLive?: boolean;
   embedded?: boolean; // If true, removes outer container styling (for use inside other panels)
+  showTitle?: boolean;
 }
 
 export default function ModeratorPanel({
   isLive,
   embedded = false,
+  showTitle = true,
 }: ModeratorPanelProps) {
   const { theme } = useTheme();
   const { moderators, isLoading, error, refresh } = useListModerators();
@@ -63,19 +65,22 @@ export default function ModeratorPanel({
           borders.bottom.width.thin,
           { borderBottomColor: theme.colors.borderStrong },
           p[4],
+          !showTitle && { justifyContent: "flex-end" },
         ]}
       >
-        <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-          <Shield size={18} color={colors.white} />
-          <Text
-            style={[
-              { color: theme.colors.text1 },
-              { fontSize: 18, fontWeight: "600" },
-            ]}
-          >
-            Moderators
-          </Text>
-        </View>
+        {showTitle && (
+          <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
+            <Shield size={18} color={colors.white} />
+            <Text
+              style={[
+                { color: theme.colors.text1 },
+                { fontSize: 18, fontWeight: "600" },
+              ]}
+            >
+              Moderators
+            </Text>
+          </View>
+        )}
         <Button
           size="sm"
           width="min"

@@ -187,9 +187,6 @@ export default function CreatorHealth({
             gap: theme.spacing[2],
           }}
         >
-          <strong>
-            {t("stream-health", { defaultValue: "Stream Health" })}
-          </strong>
           <span style={{ color: statusColor }}>{statusLabel}</span>
           <span style={{ color: theme.colors.text2 }}>
             Resolution {resolution ?? "—"}

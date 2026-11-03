@@ -12,6 +12,7 @@ interface ChatPanelProps {
   isConnected: boolean;
   messagesPerMinute?: number | null;
   shownMessages?: number;
+  showTitle?: boolean;
   emojiData?: any;
   emojiPicker?: (
     isOpen: boolean,
@@ -25,6 +26,7 @@ export default function ChatPanel({
   isConnected,
   messagesPerMinute = 0,
   shownMessages = 50,
+  showTitle = true,
   emojiData = null,
   emojiPicker,
 }: ChatPanelProps) {
@@ -49,10 +51,18 @@ export default function ChatPanel({
           p[4],
         ]}
       >
-        <Text style={[text.white, { fontSize: 15, fontWeight: "600" }]}>
-          Chat
-        </Text>
-        <View style={[layout.flex.row, layout.flex.alignCenter]}>
+        {showTitle && (
+          <Text style={[text.white, { fontSize: 15, fontWeight: "600" }]}>
+            Chat
+          </Text>
+        )}
+        <View
+          style={[
+            layout.flex.row,
+            layout.flex.alignCenter,
+            !showTitle && { marginLeft: "auto" },
+          ]}
+        >
           <View
             style={[
               { width: 6, height: 6, borderRadius: 3 },

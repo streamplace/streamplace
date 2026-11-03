@@ -11,6 +11,20 @@ import {
 } from "@streamplace/components/src/components/dashboard/problems";
 import { breakpoints } from "@streamplace/components/src/lib/theme/tokens";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
+import {
+  Activity,
+  AlertTriangle,
+  Check,
+  CircleHelp,
+  Globe,
+  MessageSquare,
+  Plus,
+  Radio,
+  Shield,
+  SlidersHorizontal,
+  Video,
+  X,
+} from "lucide-react-native";
 import { useRef, useState } from "react";
 import { useWindowDimensions, View } from "react-native";
 import { useEmojiData } from "utils/emoji";
@@ -29,13 +43,13 @@ import MultistreamStatus from "./multistream-status";
 import StreamMonitor from "./stream-monitor";
 
 const widgets = new Map([
-  ["stream-monitor", "Stream Monitor"],
-  ["stream-health", "Stream Health"],
-  ["chat", "Chat"],
-  ["stream-info", "Stream Info"],
-  ["multistream", "Multistream"],
-  ["problems", "Problems"],
-  ["moderators", "Moderators"],
+  ["stream-monitor", { title: "Stream Monitor", icon: Video }],
+  ["stream-health", { title: "Stream Health", icon: Activity }],
+  ["chat", { title: "Chat", icon: MessageSquare }],
+  ["stream-info", { title: "Stream Info", icon: Radio }],
+  ["multistream", { title: "Multistream", icon: Globe }],
+  ["problems", { title: "Problems", icon: AlertTriangle }],
+  ["moderators", { title: "Moderators", icon: Shield }],
 ]);
 
 export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
@@ -70,6 +84,9 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     background: theme.colors.surface2,
     font: "inherit",
     cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: theme.spacing[2],
   };
 
   function updateLayout(next: LayoutNode, message: string) {
@@ -89,7 +106,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
       .filter(({ width, height }) => width > 0 && height > 0)
       .at(-1)!;
     const next = insertWidget(layout, target.path, widget, "vertical", false);
-    updateLayout(next, `${widgets.get(key)} added`);
+    updateLayout(next, `${widgets.get(key)?.title} added`);
     setAdding(false);
     requestAnimationFrame(() => addRef.current?.focus());
   }
@@ -113,6 +130,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
       case "chat":
         return (
           <Dashboard.ChatPanel
+            showTitle={false}
             isLive={status.phase === "live"}
             isConnected={status.incoming !== null}
             messagesPerMinute={messagesPerMinute}
@@ -140,7 +158,10 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
       case "moderators":
         return (
           <View testID="creator-moderators" style={{ flex: 1, minHeight: 0 }}>
-            <Dashboard.ModeratorPanel isLive={status.incoming === true} />
+            <Dashboard.ModeratorPanel
+              isLive={status.incoming === true}
+              showTitle={false}
+            />
           </View>
         );
       case "problems":
@@ -188,6 +209,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   return (
     <ProblemsWrapper ref={problemsRef}>
       <div
+        className="creator-dashboard"
         style={{
           display: "flex",
           flexDirection: "column",
@@ -199,13 +221,18 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
           lineHeight: `${theme.typography.universal.xs.lineHeight}px`,
         }}
       >
+        <style>{`.creator-dashboard button:focus-visible { outline: ${zero.borders.width.medium.borderWidth}px solid ${theme.colors.focus}; outline-offset: ${zero.borders.width.medium.borderWidth}px; }`}</style>
         <div
+          role="toolbar"
+          aria-label="Creator dashboard controls"
           style={{
             display: "flex",
             flexWrap: "wrap",
             alignItems: "center",
             gap: theme.spacing[2],
-            padding: `${theme.spacing[2]}px ${spacing}px 0`,
+            padding: `${theme.spacing[2]}px ${spacing}px`,
+            background: theme.colors.surface1,
+            borderBottom: `${zero.borders.width.thin.borderWidth}px solid ${theme.colors.borderSubtle}`,
           }}
         >
           <button
@@ -216,6 +243,13 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
               setAdding(false);
             }}
           >
+            <span aria-hidden="true">
+              {editing ? (
+                <Check size={theme.spacing[4]} />
+              ) : (
+                <SlidersHorizontal size={theme.spacing[4]} />
+              )}
+            </span>
             {editing ? "Done customizing" : "Customize dashboard"}
           </button>
           {editing && (
@@ -226,6 +260,9 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
               aria-expanded={adding}
               onClick={() => setAdding(!adding)}
             >
+              <span aria-hidden="true">
+                <Plus size={theme.spacing[4]} />
+              </span>
               Add widget
             </button>
           )}
@@ -241,10 +278,13 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                   type="button"
                   style={buttonStyle}
                   onClick={() =>
-                    remove(path, widgets.get(widget.widget) ?? widget.widget)
+                    remove(
+                      path,
+                      widgets.get(widget.widget)?.title ?? widget.widget,
+                    )
                   }
                 >
-                  Remove {widgets.get(widget.widget) ?? widget.widget}
+                  Remove {widgets.get(widget.widget)?.title ?? widget.widget}
                 </button>
               ))}
         </div>
@@ -266,14 +306,17 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
             }}
           >
             {available.length ? (
-              available.map(([key, label]) => (
+              available.map(([key, { title, icon: Icon }]) => (
                 <button
                   key={key}
                   type="button"
                   style={buttonStyle}
                   onClick={() => add(key)}
                 >
-                  Add {label}
+                  <span aria-hidden="true">
+                    <Icon size={theme.spacing[4]} />
+                  </span>
+                  Add {title}
                 </button>
               ))
             ) : (
@@ -334,7 +377,11 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
               }) => {
                 if (!widgetIds.current.has(widget))
                   widgetIds.current.set(widget, nextId.current++);
-                const label = widgets.get(widget.widget) ?? widget.widget;
+                const meta = widgets.get(widget.widget);
+                const label =
+                  meta?.title ??
+                  (widget.widget === "blank" ? "Empty" : widget.widget);
+                const Icon = meta?.icon ?? CircleHelp;
                 const stackedHeight =
                   widget.widget === "stream-monitor"
                     ? Math.min(height * 0.45, width * 0.65)
@@ -344,8 +391,9 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                         ? theme.spacing[16] * 4
                         : undefined;
                 return (
-                  <div
+                  <section
                     key={widgetIds.current.get(widget)}
+                    aria-label={`${label} widget`}
                     style={{
                       display: "flex",
                       flexDirection: "column",
@@ -365,28 +413,43 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                           }),
                     }}
                   >
-                    {editing && widget.widget !== "blank" && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: theme.spacing[2],
-                          background: theme.colors.surface2,
-                          paddingLeft: theme.spacing[2],
-                        }}
-                      >
-                        <strong>{label}</strong>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: theme.spacing[2],
+                        minHeight: theme.spacing[8],
+                        background: theme.colors.surface1,
+                        border: `${zero.borders.width.thin.borderWidth}px solid ${theme.colors.borderSubtle}`,
+                        borderRadius: `${theme.borderRadius.md}px ${theme.borderRadius.md}px 0 0`,
+                        paddingLeft: theme.spacing[3],
+                        color: theme.colors.text2,
+                      }}
+                    >
+                      <span aria-hidden="true">
+                        <Icon size={theme.spacing[4]} />
+                      </span>
+                      <strong style={{ flex: 1, color: theme.colors.text1 }}>
+                        {label}
+                      </strong>
+                      {editing && widget.widget !== "blank" && (
                         <button
                           type="button"
                           aria-label={`Remove ${label}`}
-                          style={buttonStyle}
+                          style={{
+                            ...buttonStyle,
+                            border: 0,
+                            background: "transparent",
+                            padding: `0 ${theme.spacing[3]}px`,
+                          }}
                           onClick={() => remove(path, label)}
                         >
-                          Remove
+                          <span aria-hidden="true">
+                            <X size={theme.spacing[4]} />
+                          </span>
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                     <div
                       style={{
                         display: "flex",
@@ -399,7 +462,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                     >
                       {renderWidget(widget.widget)}
                     </div>
-                  </div>
+                  </section>
                 );
               },
             )}

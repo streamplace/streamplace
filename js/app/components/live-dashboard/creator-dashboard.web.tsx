@@ -110,7 +110,12 @@ const attachedPanelStyle: ViewStyle = {
   borderTopRightRadius: zero.atoms.borderRadius.none,
 };
 
-function dropSide(operation: DragMoveEvent["operation"]) {
+type DropOperation = Pick<
+  DragMoveEvent["operation"],
+  "source" | "target" | "position"
+>;
+
+function dropSide(operation: DropOperation) {
   const { source, target, position } = operation;
   if (!source || !target || source.id === target.id || !target.element) return;
   const rect = target.element.getBoundingClientRect();
@@ -375,7 +380,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
     if (candidate.adding) setAdding(false);
   }
 
-  function dropAt(operation: DragMoveEvent["operation"]) {
+  function dropAt(operation: DropOperation) {
     const { source, target } = operation;
     const side = dropSide(operation);
     if (!side || !source || !target) return null;
@@ -639,6 +644,22 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
           lineHeight: `${theme.typography.universal.xs.lineHeight}px`,
         }}
       >
+        <style>{`
+          .creator-widget-grip {
+            min-width: ${theme.spacing[8]}px;
+            min-height: ${theme.spacing[8]}px;
+          }
+          .creator-widget-grip[data-editing="true"] {
+            min-width: ${theme.touchTargets.minimum}px;
+            min-height: ${theme.touchTargets.minimum}px;
+          }
+          @media (pointer: coarse) {
+            .creator-widget-grip {
+              min-width: ${theme.touchTargets.minimum}px;
+              min-height: ${theme.touchTargets.minimum}px;
+            }
+          }
+        `}</style>
         <div
           role="toolbar"
           aria-label="Creator dashboard controls"
@@ -1128,8 +1149,19 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
               : plugin,
         )
       }
-      onDragMove={({ operation }) => setDrop(dropAt(operation))}
-      onDragOver={({ operation }) => setDrop(dropAt(operation))}
+      onCollision={({ collisions }, manager) => {
+        const collision = collisions[0];
+        const target = collision
+          ? manager.registry.droppables.get(collision.id)
+          : null;
+        setDrop(
+          dropAt({
+            source: manager.dragOperation.source,
+            target: target ?? null,
+            position: manager.dragOperation.position,
+          }),
+        );
+      }}
       onDragEnd={({ operation, canceled }) => {
         const side = canceled ? null : dropAt(operation);
         if (side && operation.source)

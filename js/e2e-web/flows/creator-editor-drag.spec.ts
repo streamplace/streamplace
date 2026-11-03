@@ -4,6 +4,131 @@ import { loginThroughPds } from "./login";
 const url = process.env.SERVER_HTTPS_URL;
 test.skip(!url, "harness started without its HTTPS hostnames");
 
+test("a widget can be dragged without entering customization", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await loginThroughPds(page);
+  await page.goto(`${url}/dashboard`);
+  const title = page.getByPlaceholder("Enter your stream title...");
+  const chat = page.getByPlaceholder("Type a message...");
+  await title.fill("A title in progress");
+  await chat.fill("A message in progress");
+  const drag = page.getByRole("button", { name: "Drag Moderators" });
+  await expect(drag).toBeVisible({ timeout: 5_000 });
+  const target = page.getByRole("region", { name: "Stream Monitor widget" });
+  const from = (await drag.boundingBox())!;
+  const to = (await target.boundingBox())!;
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height * 0.15, {
+    steps: 20,
+  });
+  await expect(page.getByTestId("creator-drop-preview")).toBeVisible();
+  await page.mouse.up();
+  const moderators = page.getByRole("region", { name: "Moderators widget" });
+  await expect
+    .poll(
+      async () =>
+        (await moderators.boundingBox())!.y < (await target.boundingBox())!.y,
+    )
+    .toBe(true);
+  await expect(title).toHaveValue("A title in progress");
+  await expect(chat).toHaveValue("A message in progress");
+  await page.reload();
+  expect((await moderators.boundingBox())!.y).toBeLessThan(
+    (await target.boundingBox())!.y,
+  );
+});
+
+test("the visible grip supports keyboard cancellation without customization", async ({
+  page,
+}) => {
+  await loginThroughPds(page);
+  await page.goto(`${url}/dashboard`);
+  const drag = page.getByRole("button", { name: "Drag Moderators" });
+  await drag.focus({ timeout: 5_000 });
+  await page.keyboard.press("Space");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Picked up Moderators" }),
+  ).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Move canceled" }),
+  ).toHaveCount(1);
+  await expect(drag).toBeFocused();
+});
+
+test("a keyboard user can move a widget without customization", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await loginThroughPds(page);
+  await page.goto(`${url}/dashboard`);
+  const drag = page.getByRole("button", { name: "Drag Moderators" });
+  const monitor = page.getByRole("region", { name: "Stream Monitor widget" });
+  const from = (await drag.boundingBox())!;
+  const target = (await monitor.boundingBox())!;
+  const dx = target.x + target.width / 2 - (from.x + from.width / 2);
+  const dy = target.y + target.height * 0.15 - (from.y + from.height / 2);
+  await drag.focus();
+  await page.keyboard.press("Space");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Picked up Moderators" }),
+  ).toHaveCount(1);
+  for (const [distance, key] of [
+    [dx, "Shift+ArrowLeft"],
+    [dy, "Shift+ArrowUp"],
+  ] as const) {
+    for (let i = 0; i < Math.round(Math.abs(distance) / 50); i++) {
+      await page.keyboard.press(key);
+    }
+  }
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Moving Moderators above Stream Monitor" }),
+  ).toHaveCount(1);
+  await page.keyboard.press("Space");
+  const moderators = page.getByRole("region", { name: "Moderators widget" });
+  await expect
+    .poll(
+      async () =>
+        (await moderators.boundingBox())!.y < (await monitor.boundingBox())!.y,
+    )
+    .toBe(true);
+  await expect(drag).toBeFocused();
+});
+
+test("a rapid keyboard drop uses the current target", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await loginThroughPds(page);
+  await page.goto(`${url}/dashboard`);
+  const drag = page.getByRole("button", { name: "Drag Moderators" });
+  const monitor = page.getByRole("region", { name: "Stream Monitor widget" });
+  const from = (await drag.boundingBox())!;
+  const target = (await monitor.boundingBox())!;
+  const dx = target.x + target.width / 2 - (from.x + from.width / 2);
+  const dy = target.y + target.height * 0.15 - (from.y + from.height / 2);
+  await drag.focus();
+  await page.keyboard.press("Space");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Picked up Moderators" }),
+  ).toHaveCount(1);
+  for (let i = 0; i < Math.round(Math.abs(dx) / 50); i++)
+    await page.keyboard.press("Shift+ArrowLeft");
+  for (let i = 0; i < Math.round(Math.abs(dy) / 50); i++)
+    await page.keyboard.press("Shift+ArrowUp");
+  await page.keyboard.press("Space");
+  const moderators = page.getByRole("region", { name: "Moderators widget" });
+  await expect
+    .poll(
+      async () =>
+        (await moderators.boundingBox())!.y < (await monitor.boundingBox())!.y,
+    )
+    .toBe(true);
+});
+
 test("dragging a widget onto an edge rearranges the layout without losing drafts", async ({
   page,
 }) => {
@@ -171,53 +296,57 @@ test("a quick drop uses the side where the pointer is released", async ({
     .toBeLessThan((await target.boundingBox())!.x);
 });
 
-test("a creator can move a widget in the stacked phone layout", async ({
-  page,
-  context,
-}) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await loginThroughPds(page);
-  await page.goto(`${url}/dashboard`);
-  await page.getByRole("button", { name: "Customize dashboard" }).click();
-  const drag = page.getByRole("button", { name: "Drag Stream Health" });
-  const health = page.getByRole("region", { name: "Stream Health widget" });
-  const monitor = page.getByRole("region", { name: "Stream Monitor widget" });
-  const from = (await drag.boundingBox())!;
-  const target = (await monitor.boundingBox())!;
-  const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
-  const end = {
-    x: target.x + target.width / 2,
-    y: target.y + target.height * 0.15,
-  };
-  const cdp = await context.newCDPSession(page);
-  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true });
-  await cdp.send("Input.dispatchTouchEvent", {
-    type: "touchStart",
-    touchPoints: [start],
-  });
-  // Touch dragging starts after a short hold so scrolling remains possible.
-  await page.waitForTimeout(300);
-  for (let i = 1; i <= 20; i++) {
+for (const editing of [false, true]) {
+  test(`a creator can move a widget in the stacked phone layout${editing ? " while customizing" : ""}`, async ({
+    page,
+    context,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginThroughPds(page);
+    await page.goto(`${url}/dashboard`);
+    if (editing) {
+      await page.getByRole("button", { name: "Customize dashboard" }).click();
+    }
+    const drag = page.getByRole("button", { name: "Drag Stream Health" });
+    const health = page.getByRole("region", { name: "Stream Health widget" });
+    const monitor = page.getByRole("region", { name: "Stream Monitor widget" });
+    const from = (await drag.boundingBox())!;
+    const target = (await monitor.boundingBox())!;
+    const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
+    const end = {
+      x: target.x + target.width / 2,
+      y: target.y + target.height * 0.15,
+    };
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true });
     await cdp.send("Input.dispatchTouchEvent", {
-      type: "touchMove",
-      touchPoints: [
-        {
-          x: start.x + ((end.x - start.x) * i) / 20,
-          y: start.y + ((end.y - start.y) * i) / 20,
-        },
-      ],
+      type: "touchStart",
+      touchPoints: [start],
     });
-  }
-  await expect(page.getByTestId("creator-drop-preview")).toBeVisible();
-  await cdp.send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
+    // Touch dragging starts after a short hold so scrolling remains possible.
+    await page.waitForTimeout(300);
+    for (let i = 1; i <= 20; i++) {
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [
+          {
+            x: start.x + ((end.x - start.x) * i) / 20,
+            y: start.y + ((end.y - start.y) * i) / 20,
+          },
+        ],
+      });
+    }
+    await expect(page.getByTestId("creator-drop-preview")).toBeVisible();
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    expect((await health.boundingBox())!.y).toBeLessThan(
+      (await monitor.boundingBox())!.y,
+    );
+    await page.reload();
+    expect((await health.boundingBox())!.y).toBeLessThan(
+      (await monitor.boundingBox())!.y,
+    );
   });
-  expect((await health.boundingBox())!.y).toBeLessThan(
-    (await monitor.boundingBox())!.y,
-  );
-  await page.reload();
-  expect((await health.boundingBox())!.y).toBeLessThan(
-    (await monitor.boundingBox())!.y,
-  );
-});
+}

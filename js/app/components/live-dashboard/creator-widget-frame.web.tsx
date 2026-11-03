@@ -48,12 +48,11 @@ export default function CreatorWidgetFrame({
   } = useDraggable({
     id,
     data: { label },
-    disabled: !editing || blank,
+    disabled: blank,
   });
   const { ref: dropRef } = useDroppable({
     id,
     data: { label },
-    disabled: !editing,
   });
   const setHandle = useCallback(
     (element: HTMLButtonElement | null) => {
@@ -97,12 +96,22 @@ export default function CreatorWidgetFrame({
           color: theme.colors.text2,
         }}
       >
-        {editing && !blank && (
+        {!blank && (
           <button
             ref={setHandle}
+            className="creator-widget-grip"
+            data-editing={editing}
             type="button"
             aria-label={`Drag ${label}`}
-            style={{ ...iconButton, cursor: "grab" }}
+            title={`Drag ${label}`}
+            style={{
+              ...iconButton,
+              minWidth: undefined,
+              minHeight: undefined,
+              padding: 0,
+              cursor: "grab",
+              touchAction: "none",
+            }}
           >
             <span aria-hidden="true" style={{ display: "inline-flex" }}>
               <GripVertical size={theme.spacing[4]} />

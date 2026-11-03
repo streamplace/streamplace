@@ -1,12 +1,20 @@
 import { useDraggable, useDroppable } from "@dnd-kit/react";
 import { useTheme, zero } from "@streamplace/components";
-import { GripVertical, Move, X, type LucideIcon } from "lucide-react-native";
+import {
+  ChevronDown,
+  GripVertical,
+  Move,
+  X,
+  type LucideIcon,
+} from "lucide-react-native";
 import { useCallback, type CSSProperties, type ReactNode } from "react";
 import type { SplitNode } from "./creator-layout";
 
 export default function CreatorWidgetFrame({
   id,
   label,
+  widgetKey,
+  choices,
   icon: Icon,
   editing,
   blank,
@@ -15,10 +23,13 @@ export default function CreatorWidgetFrame({
   style,
   onMove,
   onRemove,
+  onReplace,
   children,
 }: {
   id: string;
   label: string;
+  widgetKey: string;
+  choices: { key: string; title: string }[];
   icon: LucideIcon;
   editing: boolean;
   blank: boolean;
@@ -31,6 +42,7 @@ export default function CreatorWidgetFrame({
   style: CSSProperties;
   onMove: () => void;
   onRemove: () => void;
+  onReplace: (key: string) => void;
   children: ReactNode;
 }) {
   const { theme } = useTheme();
@@ -76,12 +88,12 @@ export default function CreatorWidgetFrame({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: theme.spacing[2],
+          gap: editing ? theme.spacing[1] : theme.spacing[2],
           minHeight: theme.spacing[8],
           background: theme.colors.surface1,
           border: `${zero.borders.width.thin.borderWidth}px solid ${theme.colors.borderSubtle}`,
           borderRadius: `${theme.borderRadius.md}px ${theme.borderRadius.md}px 0 0`,
-          paddingLeft: theme.spacing[3],
+          paddingLeft: editing ? theme.spacing[1] : theme.spacing[3],
           color: theme.colors.text2,
         }}
       >
@@ -100,18 +112,66 @@ export default function CreatorWidgetFrame({
         <span aria-hidden="true">
           <Icon size={theme.spacing[4]} />
         </span>
-        <strong
-          style={{
-            flex: 1,
-            minWidth: 0,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            color: theme.colors.text1,
-          }}
-        >
-          {label}
-        </strong>
+        {editing ? (
+          <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+            <select
+              aria-label={`Change ${label} widget`}
+              title={label}
+              data-change-widget={id}
+              value={widgetKey}
+              onChange={(event) => onReplace(event.target.value)}
+              style={{
+                width: "100%",
+                minHeight: theme.touchTargets.minimum,
+                appearance: "none",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                paddingRight: theme.spacing[5],
+                color: theme.colors.text1,
+                background: theme.colors.surface1,
+                border: 0,
+                font: "inherit",
+                cursor: "pointer",
+              }}
+            >
+              {!choices.some(({ key }) => key === widgetKey) && (
+                <option value={widgetKey}>{label}</option>
+              )}
+              {choices.map(({ key, title }) => (
+                <option key={key} value={key}>
+                  {title}
+                </option>
+              ))}
+            </select>
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                top: 0,
+                right: 0,
+                bottom: 0,
+                display: "flex",
+                alignItems: "center",
+                pointerEvents: "none",
+              }}
+            >
+              <ChevronDown size={theme.spacing[4]} />
+            </span>
+          </div>
+        ) : (
+          <strong
+            style={{
+              flex: 1,
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              color: theme.colors.text1,
+            }}
+          >
+            {label}
+          </strong>
+        )}
         {editing && !blank && (
           <button
             type="button"

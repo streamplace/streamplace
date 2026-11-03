@@ -48,6 +48,7 @@ import {
   insertWidget,
   moveWidget,
   removeWidget,
+  replaceWidget,
   resizeAdjacent,
   type LayoutNode,
   type SplitBoundary,
@@ -88,6 +89,7 @@ const widgets = new Map([
     { title: "Moderators", icon: Shield, minWidth: 5, minHeight: 3.5 },
   ],
 ]);
+const widgetChoices = [...widgets].map(([key, { title }]) => ({ key, title }));
 
 export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   const { theme } = useTheme();
@@ -164,6 +166,26 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   function remove(path: number[], label: string) {
     updateLayout(removeWidget(layout, path), `${label} removed`);
     requestAnimationFrame(() => addRef.current?.focus());
+  }
+
+  function replace(path: number[], key: string) {
+    if (!widgets.has(key)) return;
+    const next = replaceWidget(layout, path, key);
+    if (next === layout) return;
+    const replacement = getLayoutGeometry(next).widgets.find(
+      (item) =>
+        item.path.length === path.length &&
+        item.path.every((part, index) => part === path[index]),
+    );
+    updateLayout(next, `${widgets.get(key)?.title} selected`);
+    if (replacement)
+      requestAnimationFrame(() =>
+        document
+          .querySelector<HTMLSelectElement>(
+            `[data-change-widget="${widgetId(replacement.widget)}"]`,
+          )
+          ?.focus(),
+      );
   }
 
   function add(key: string) {
@@ -790,6 +812,8 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                     key={id}
                     id={id}
                     label={label}
+                    widgetKey={widget.widget}
+                    choices={widgetChoices}
                     icon={Icon}
                     editing={editing}
                     blank={widget.widget === "blank"}
@@ -797,6 +821,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                     dropSide={drop?.id === id ? drop : null}
                     onMove={() => openMove(widget)}
                     onRemove={() => remove(path, label)}
+                    onReplace={(key) => replace(path, key)}
                     style={{
                       display: "flex",
                       flexDirection: "column",

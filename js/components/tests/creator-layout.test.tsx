@@ -6,6 +6,7 @@ import {
   insertWidget,
   moveWidget,
   removeWidget,
+  replaceWidget,
   resizeAdjacent,
   updateRatio,
   validateLayout,
@@ -90,6 +91,24 @@ describe("creator layout validation", () => {
 });
 
 describe("creator layout edits", () => {
+  it("replaces one widget in place without changing siblings or its configuration", () => {
+    const root = validateLayout(split)!;
+    const before = getLayoutGeometry(root).widgets;
+    const result = replaceWidget(root, [1, 0], "problems");
+    const after = getLayoutGeometry(result).widgets;
+    expect(after[1]).toMatchObject({
+      widget: { widget: "problems", config: { filter: "following" } },
+      x: before[1].x,
+      y: before[1].y,
+      width: before[1].width,
+      height: before[1].height,
+    });
+    expect(after[0].widget).toBe(before[0].widget);
+    expect(after[2].widget).toBe(before[2].widget);
+    expect(replaceWidget(root, [1, 0], "chat")).toBe(root);
+    expect(replaceWidget(root, [2], "problems")).toBe(root);
+    expect(replaceWidget(root, [1], "problems")).toBe(root);
+  });
   it("chooses the split side from the pointer position", () => {
     expect(getDropSide(0.1, 0.5)).toEqual({
       direction: "horizontal",

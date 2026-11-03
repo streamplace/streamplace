@@ -240,6 +240,16 @@ function updateAt(
   return { ...root, children };
 }
 
+export function replaceWidget(
+  root: LayoutNode,
+  path: readonly number[],
+  widget: string,
+): LayoutNode {
+  return updateAt(root, path, (node) =>
+    node.type === "leaf" && node.widget !== widget ? { ...node, widget } : node,
+  );
+}
+
 export function insertWidget(
   root: LayoutNode,
   path: readonly number[],

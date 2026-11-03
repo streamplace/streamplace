@@ -287,10 +287,12 @@ function LivestreamPanel({
   status,
   scrollable = true,
   showModerators = true,
+  showTitle = true,
 }: {
   status: LiveDashboardStatus;
   scrollable?: boolean;
   showModerators?: boolean;
+  showTitle?: boolean;
 }) {
   const toast = useToast();
   const userIsLive = status.incoming === true;
@@ -661,14 +663,16 @@ function LivestreamPanel({
       <View
         style={[
           px[4],
-          py[4],
+          showTitle ? py[4] : py[2],
           borders.bottom.width.thin,
           { borderBottomColor: borderAlphas.dark.strong, gap: 12 },
         ]}
       >
-        <Text style={[text.white, { fontSize: 15, fontWeight: "600" }]}>
-          Stream Settings
-        </Text>
+        {showTitle && (
+          <Text style={[text.white, { fontSize: 15, fontWeight: "600" }]}>
+            Stream Settings
+          </Text>
+        )}
         <SegmentedTabs
           fullWidth
           size="sm"

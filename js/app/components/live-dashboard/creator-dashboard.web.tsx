@@ -203,6 +203,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
   const [announcement, setAnnouncement] = useState("");
   const messagesPerMinute = history[history.length - 1]?.chatRate ?? null;
   const spacing = theme.spacing[4];
+  const gutter = theme.spacing[2];
   const { widgets: placements, boundaries } = getLayoutGeometry(layout);
   const available = [...widgets].filter(
     ([key]) => !placements.some(({ widget }) => widget.widget === key),
@@ -560,6 +561,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
             status={status}
             scrollable={!stacked}
             showModerators={false}
+            showTitle={false}
           />
         );
       case "multistream":
@@ -949,7 +951,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
             flex: 1,
             minHeight: 0,
             overflow: "auto",
-            padding: spacing,
+            padding: gutter,
           }}
         >
           <div
@@ -958,7 +960,7 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
               position: "relative",
               display: stacked ? "flex" : "block",
               flexDirection: "column",
-              gap: spacing,
+              gap: gutter,
               height: stacked ? undefined : "100%",
               minHeight: 0,
             }}
@@ -1011,10 +1013,10 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                         ? { height: stackedHeight }
                         : {
                             position: "absolute",
-                            left: `calc(${x * 100}% + ${spacing / 2}px)`,
-                            top: `calc(${y * 100}% + ${spacing / 2}px)`,
-                            width: `calc(${widgetWidth * 100}% - ${spacing}px)`,
-                            height: `calc(${widgetHeight * 100}% - ${spacing}px)`,
+                            left: `calc(${x * 100}% + ${gutter / 2}px)`,
+                            top: `calc(${y * 100}% + ${gutter / 2}px)`,
+                            width: `calc(${widgetWidth * 100}% - ${gutter}px)`,
+                            height: `calc(${widgetHeight * 100}% - ${gutter}px)`,
                           }),
                     }}
                   >
@@ -1074,14 +1076,14 @@ export default function CreatorDashboard({ videoRef }: { videoRef: any }) {
                       ...(horizontal
                         ? {
                             left: `calc(${boundary.x * 100}% - ${spacing / 2}px)`,
-                            top: `calc(${boundary.y * 100}% + ${spacing / 2}px)`,
+                            top: `calc(${boundary.y * 100}% + ${gutter / 2}px)`,
                             width: spacing,
-                            height: `calc(${boundary.height * 100}% - ${spacing}px)`,
+                            height: `calc(${boundary.height * 100}% - ${gutter}px)`,
                           }
                         : {
-                            left: `calc(${boundary.x * 100}% + ${spacing / 2}px)`,
+                            left: `calc(${boundary.x * 100}% + ${gutter / 2}px)`,
                             top: `calc(${boundary.y * 100}% - ${spacing / 2}px)`,
-                            width: `calc(${boundary.width * 100}% - ${spacing}px)`,
+                            width: `calc(${boundary.width * 100}% - ${gutter}px)`,
                             height: spacing,
                           }),
                     }}

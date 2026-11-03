@@ -154,7 +154,7 @@ export const DEFAULT_LAYOUT: LayoutNode = {
     {
       type: "split",
       direction: "vertical",
-      ratio: [0.25, 0.75],
+      ratio: [0.2, 0.8],
       children: [
         { type: "leaf", widget: "multistream" },
         { type: "leaf", widget: "chat" },

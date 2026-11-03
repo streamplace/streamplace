@@ -210,7 +210,13 @@ export default function MultistreamStatus() {
           <Loader size="small" />
         </View>
       ) : targets.length === 0 && !listError ? (
-        <View style={[p[4], { gap: 12, alignItems: "flex-start" }]}>
+        <View
+          style={[
+            Platform.OS === "web" ? p[3] : p[4],
+            Platform.OS === "web" ? gap.all[2] : { gap: 12 },
+            { alignItems: "flex-start" },
+          ]}
+        >
           <View style={{ gap: 2 }}>
             <Text
               style={{
@@ -221,9 +227,11 @@ export default function MultistreamStatus() {
             >
               {t("no-multistream-destinations")}
             </Text>
-            <Text style={{ color: textAlphas.dark[3], fontSize: 12 }}>
-              Restream to Twitch, YouTube, and more.
-            </Text>
+            {Platform.OS !== "web" && (
+              <Text style={{ color: textAlphas.dark[3], fontSize: 12 }}>
+                Restream to Twitch, YouTube, and more.
+              </Text>
+            )}
           </View>
           <Button
             size="sm"

@@ -303,6 +303,8 @@ under `.maestro/artifacts/ios/`.
 development toolchain. pnpm settings live in `pnpm-workspace.yaml`, including
 the explicit native build-script allowlist; pnpm 12 no longer reads
 `node-linker` from `.npmrc`.
+Filtered installs still execute the root `prepare` hook. Include the i18n and
+brand workspaces so their translation and asset generators have dependencies.
 
 The Expo SDK 58 / React Native 0.88 upgrade requires new iOS and Android
 binaries. Its OTA runtime is `0.12.15`, separate from the previous `0.12.0`

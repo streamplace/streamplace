@@ -145,6 +145,7 @@ jobs:
         run:
           npm install -g corepack@latest && corepack enable && pnpm install
           --filter @streamplace/e2e-web --filter @atcute/internal-dev-env
+          --filter @streamplace/i18n --filter @streamplace/brand
           --frozen-lockfile
 
       - name: Download streamplace binary

@@ -351,6 +351,13 @@ Some dependencies intentionally stay on compatible release lines:
   repository storage as part of a dependency refresh.
 - The builder remains Ubuntu 22.04 to preserve the glibc 2.35 release baseline
   and cross-compilation sysroots. Runtime images use Ubuntu 26.04 LTS.
+- The Windows sysroot uses MinGW-w64 14 headers, CRT and winpthreads, built from a
+  checksum-pinned release with the existing GNU C++/MSVCRT ABI. GLib 2.90's
+  WinRT package parser needs headers missing from Ubuntu 22.04's packaged SDK.
+  LLVM-MinGW cannot replace it directly: its C++ standard library and CRT
+  objects are incompatible with the existing GNU static-library graph.
+  The GNU binutils 2.47 linker understands the exclusion directives emitted by
+  current Rust COFF objects; the packaged 2.38 linker ignores them.
 - OSXCross uses its supported LLVM flavor with LLVM 23 and `ld64.lld`.
   The legacy cctools flavor uses the old disassembler callback ABI; the newer
   cctools flavor's libdispatch dependency fails LLVM 23's warnings-as-errors

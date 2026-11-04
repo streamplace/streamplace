@@ -46,6 +46,40 @@ RUN apt update \
 # freedesktop.org's HTTP/2 Git responses can terminate before the pack is complete.
 RUN git config --global http.https://gitlab.freedesktop.org/.version HTTP/1.1
 
+# GLib's WinRT package parser needs current MinGW headers and import libraries.
+# Keep the existing GNU C++/MSVCRT ABI used by Go and Rust native dependencies.
+ENV MINGW_W64_VERSION 14.0.0
+RUN curl --fail -L https://github.com/mingw-w64/mingw-w64/archive/refs/tags/v${MINGW_W64_VERSION}.tar.gz -o /tmp/mingw-w64.tar.gz \
+  && echo "d71cc644cd5a37c337f2719f3e0c79d89e8d8d5fb9e2952a62d3fa23623dc137  /tmp/mingw-w64.tar.gz" | sha256sum -c - \
+  && tar -xf /tmp/mingw-w64.tar.gz -C /tmp \
+  && mkdir /tmp/mingw-headers /tmp/mingw-crt /tmp/mingw-winpthreads \
+  && cd /tmp/mingw-headers \
+  && ../mingw-w64-${MINGW_W64_VERSION}/mingw-w64-headers/configure --host=x86_64-w64-mingw32 --prefix=/usr/x86_64-w64-mingw32 --with-default-msvcrt=msvcrt \
+  && make install \
+  && cd /tmp/mingw-crt \
+  && ../mingw-w64-${MINGW_W64_VERSION}/mingw-w64-crt/configure --host=x86_64-w64-mingw32 --prefix=/usr/x86_64-w64-mingw32 --disable-lib32 --enable-lib64 --with-default-msvcrt=msvcrt \
+  && make -j"$(nproc)" \
+  && make install \
+  && cd /tmp/mingw-winpthreads \
+  && ../mingw-w64-${MINGW_W64_VERSION}/mingw-w64-libraries/winpthreads/configure --host=x86_64-w64-mingw32 --prefix=/usr/x86_64-w64-mingw32 \
+  && make -j"$(nproc)" \
+  && make install \
+  && cd / \
+  && rm -rf /tmp/mingw-w64.tar.gz /tmp/mingw-w64-${MINGW_W64_VERSION} /tmp/mingw-headers /tmp/mingw-crt /tmp/mingw-winpthreads
+
+# Rust's current COFF objects use exclusion directives unknown to binutils 2.38.
+ENV MINGW_BINUTILS_VERSION 2.47
+RUN curl --fail -L https://ftp.gnu.org/gnu/binutils/binutils-${MINGW_BINUTILS_VERSION}.tar.xz -o /tmp/mingw-binutils.tar.xz \
+  && echo "154ab23b60070e8f27013c22977f1129425d67d1e8acd6e13010e617811e4cff  /tmp/mingw-binutils.tar.xz" | sha256sum -c - \
+  && tar -xf /tmp/mingw-binutils.tar.xz -C /tmp \
+  && mkdir /tmp/mingw-binutils-build \
+  && cd /tmp/mingw-binutils-build \
+  && ../binutils-${MINGW_BINUTILS_VERSION}/configure --target=x86_64-w64-mingw32 --prefix=/usr --disable-nls --disable-gprofng \
+  && make -j"$(nproc)" \
+  && make install \
+  && cd / \
+  && rm -rf /tmp/mingw-binutils.tar.xz /tmp/binutils-${MINGW_BINUTILS_VERSION} /tmp/mingw-binutils-build
+
 # Builds DMGs from macOS app bundles on Linux (hack/make-dmg.sh), so the
 # desktop-darwin job no longer needs a Mac. hfsprogs/hfsplus create the HFS+
 # image; libdmg-hfsplus wraps it in a UDIF.

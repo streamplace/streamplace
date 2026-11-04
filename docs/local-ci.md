@@ -305,6 +305,10 @@ the explicit native build-script allowlist; pnpm 12 no longer reads
 `node-linker` from `.npmrc`.
 Filtered installs still execute the root `prepare` hook. Include the i18n and
 brand workspaces so their translation and asset generators have dependencies.
+The shared `glex` command clears cross-target compiler and Go environment
+variables because code generation must execute on the build machine.
+The native Cargo build likewise supplies separate host compiler wrappers for
+proc-macro dependencies while retaining Meson's target/sysroot wrappers.
 The builder and macOS CI use HTTP/1.1 only for Git fetches from freedesktop.org:
 its HTTP/2 responses have truncated pack downloads across fresh CI runners.
 The GitLab mirror runs after builder publication so a branch that changes

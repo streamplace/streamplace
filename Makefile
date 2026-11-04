@@ -499,12 +499,13 @@ authfull-lexicon:
 # glex is the standalone Go lexicon codegen tool (github.com/streamplace/glex).
 # It generates Go types that serialize as canonical DAG-CBOR via go-dasl,
 # using the glex runtime (github.com/streamplace/glex/runtime) for the data model.
-GO_LEXICON_GEN := github.com/streamplace/glex/cmd/glex
+# Code generators run on the build machine, even inside a cross-build target.
+GO_LEXICON_GEN := env -u CC -u CXX -u GOOS -u GOARCH go tool github.com/streamplace/glex/cmd/glex
 
 .PHONY: go-lexicons
 go-lexicons:
-	go tool github.com/streamplace/glex/cmd/glex install \
-	&& go tool github.com/streamplace/glex/cmd/glex build \
+	$(GO_LEXICON_GEN) install \
+	&& $(GO_LEXICON_GEN) build \
 		--lexicons-dir lexicons \
 		--output-dir pkg \
 		--module-path stream.place/streamplace/pkg \
@@ -513,7 +514,7 @@ go-lexicons:
 
 .PHONY: js-lexicons
 js-lexicons:
-	go tool github.com/streamplace/glex/cmd/glex install \
+	$(GO_LEXICON_GEN) install \
 	&& node js/streamplace/scripts/gen-raw-lexicons.mjs \
 	&& pnpm exec lex build \
 		--lexicons lexicons \

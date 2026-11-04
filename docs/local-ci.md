@@ -372,6 +372,13 @@ Some dependencies intentionally stay on compatible release lines:
   The legacy cctools flavor uses the old disassembler callback ABI; the newer
   cctools flavor's libdispatch dependency fails LLVM 23's warnings-as-errors
   build. This avoids patching or suppressing diagnostics in either dependency.
+- Some current upstream packages still require older dependency APIs: the local
+  PDS uses Nodemailer 6 and Zod 3, the local PLC uses Kysely 0.23, and Expo's
+  tooling uses older glob/minimatch majors. `pnpm audit --prod` still reports
+  advisories in those trees; this refresh does not claim a clean security audit.
+  Compatible fixes for pinned form-data, selector-parser, gRPC and stream-json
+  releases are scoped in the workspace overrides. The unused native Markdown
+  renderer was removed instead of carrying its obsolete parser dependencies.
 
 ## Notes
 

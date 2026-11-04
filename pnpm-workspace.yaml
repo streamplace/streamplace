@@ -34,6 +34,11 @@ overrides:
   "conventional-commits-parser@7.1.2": 7.1.4
   # lerna pulls in this deprecated stub, which breaks tsc's implicit @types.
   "@types/parse-path": "-"
+  # Upstream consumers still pin older releases within these compatible API lines.
+  "form-data@4.0.4": 4.0.6
+  "postcss-selector-parser@6.0.10": 6.1.5
+  "@grpc/grpc-js@~1.9.0": 1.14.7
+  "stream-json@3.5.0": 3.8.0
 minimumReleaseAgeExclude:
   - "@astrojs/starlight@0.42.9"
   - "@babel/core@7.29.13"

@@ -296,6 +296,7 @@ function buildQualities(
   const explicit = levels.map((level, index) => ({
     index,
     label: labelForLevel(level, index),
+    frameRate: level.frameRate,
   }));
   // "Auto" maps to hls.js currentLevel = -1.
   return [{ index: -1, label: t("player-quality-auto") }, ...explicit];

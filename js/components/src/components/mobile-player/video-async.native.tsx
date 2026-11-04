@@ -88,6 +88,8 @@ export function NativeVideo(props?: {
   const setPlayTime = usePlayerStore((x) => x.setPlayTime);
   const setDuration = usePlayerStore((x) => x.setDuration);
   const setBufferedEnd = usePlayerStore((x) => x.setBufferedEnd);
+  const playbackRate = usePlayerStore((x) => x.playbackRate);
+  const setNativeSeekTo = usePlayerStore((x) => x.setNativeSeekTo);
   const playTime = usePlayerStore((x) => x.playTime);
   const startTime = usePlayerStore((x) => x.startTime);
   const setTogglePlayPause = usePlayerStore((x) => x.setTogglePlayPause);
@@ -139,6 +141,17 @@ export function NativeVideo(props?: {
   useEffect(() => {
     player.volume = volume;
   }, [volume, player]);
+
+  useEffect(() => {
+    player.playbackRate = playbackRate;
+  }, [player, playbackRate]);
+
+  useEffect(() => {
+    setNativeSeekTo((time) => {
+      player.currentTime = time;
+    });
+    return () => setNativeSeekTo(undefined);
+  }, [player, setNativeSeekTo]);
 
   useEffect(() => {
     statusRef.current = status;

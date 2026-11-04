@@ -10,6 +10,12 @@ export enum PlayerProtocol {
 
 export type PlayerMode = "live" | "vod";
 
+export type PlayerFeedback =
+  | { type: "speed"; playbackRate: number }
+  | { type: "frame"; direction: "back" | "forward" };
+
+export type VodLevel = { name: string; frameRate?: number };
+
 export enum PlayerStatus {
   START = "start",
   PLAYING = "playing",
@@ -31,6 +37,11 @@ export interface PlayerState {
   id: string;
   mode: PlayerMode;
   setMode: (mode: PlayerMode) => void;
+  playbackRate: number;
+  setPlaybackRate: (rate: number) => void;
+  feedback: PlayerFeedback | null;
+  showFeedback: (feedback: PlayerFeedback) => void;
+  clearFeedback: () => void;
   duration: number;
   setDuration: (duration: number) => void;
   bufferedEnd: number;
@@ -39,8 +50,8 @@ export interface PlayerState {
   setSelectedRendition: (rendition: string) => void;
 
   /** Quality levels parsed from HLS manifest (VOD only) */
-  vodLevels: Array<{ name: string }>;
-  setVodLevels: (levels: Array<{ name: string }>) => void;
+  vodLevels: VodLevel[];
+  setVodLevels: (levels: VodLevel[]) => void;
 
   /** Actual rendition name currently playing when in auto/source mode (web HLS only) */
   playingVODRendition: string | null;
@@ -111,6 +122,9 @@ export interface PlayerState {
 
   /** Seek the video element to a specific time */
   seekTo: (time: number) => void;
+  /** Register absolute seeking for native video players. */
+  nativeSeekTo: ((time: number) => void) | undefined;
+  setNativeSeekTo: (action: ((time: number) => void) | undefined) => void;
 
   /**
    * Seconds into a VOD to start playback at, set from a `?t=` URL param.

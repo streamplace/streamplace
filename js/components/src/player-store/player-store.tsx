@@ -22,7 +22,21 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
   const store = createStore<PlayerState>()((set) => ({
     id: id || Math.random().toString(36).slice(8),
     mode: "live",
-    setMode: (mode) => set(() => ({ mode })),
+    setMode: (mode) =>
+      set((state) => ({
+        mode,
+        playbackRate: mode === "live" ? 1 : state.playbackRate,
+        feedback: null,
+      })),
+    playbackRate: 1,
+    setPlaybackRate: (rate) =>
+      set((state) => {
+        if (state.mode !== "vod" || !Number.isFinite(rate)) return {};
+        return { playbackRate: Math.max(0.25, Math.min(2, rate)) };
+      }),
+    feedback: null,
+    showFeedback: (feedback) => set(() => ({ feedback })),
+    clearFeedback: () => set(() => ({ feedback: null })),
     duration: 0,
     setDuration: (duration) => set(() => ({ duration })),
     bufferedEnd: 0,
@@ -135,11 +149,16 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
 
     playTime: 0,
     setPlayTime: (playTime: number) => set(() => ({ playTime })),
+    nativeSeekTo: undefined,
+    setNativeSeekTo: (nativeSeekTo) => set(() => ({ nativeSeekTo })),
     seekTo: (time: number) =>
       set((state) => {
+        if (state.mode !== "vod") return {};
         const ref = state.videoRef;
         if (ref && typeof ref === "object" && "current" in ref && ref.current) {
           ref.current.currentTime = time;
+        } else {
+          state.nativeSeekTo?.(time);
         }
         return { playTime: time };
       }),

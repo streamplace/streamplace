@@ -200,6 +200,10 @@ async function bindings() {
     useTheme: () => ({ theme: tokens }),
     Player: View,
     PlayerUI: {
+      ActionFeedback: () => null,
+      PlayerKeyboardShortcuts: () => (
+        <span data-player-keyboard-shortcuts="true" />
+      ),
       ViewerLoadingOverlay: () => null,
       ContextMenu: () => <span>Menu</span>,
       AutoplayButton: () => null,
@@ -371,6 +375,18 @@ it.each(["ios", "android", "web"])(
     expect(container.textContent).toContain("Mobile controls and chat");
   },
 );
+
+it("mounts keyboard shortcuts with the app player's video", async () => {
+  fixture.platform = "web";
+  await act(async () =>
+    root.render(
+      <PlayerInner showChat setShowChat={() => {}} showUnavailable={false} />,
+    ),
+  );
+  expect(container.querySelector("[data-player-keyboard-shortcuts]")).not.toBe(
+    null,
+  );
+});
 
 it("keeps the detached landscape controls from appearing twice", async () => {
   await act(async () =>

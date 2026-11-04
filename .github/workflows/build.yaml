@@ -360,7 +360,7 @@ jobs:
           && python -m pip install virtualenv \
           && python -m virtualenv ~/venv \
           && source ~/venv/bin/activate \
-          && python -m pip install meson==1.12.1 \
+          && python -m pip install meson==1.11.2 \
           && PATH="/opt/homebrew/opt/llvm/bin:$PATH" \
           && ${{ matrix.cmd }}
 

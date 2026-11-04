@@ -312,6 +312,9 @@ runtime; do not publish the upgraded JavaScript to the old runtime.
 Regenerate native projects with the existing prebuild target before building.
 The deprecated edge-to-edge library is replaced by React Native's built-in
 edge-to-edge support and the maintained navigation-bar controls.
+Firebase Apple SDK 13 is distributed through Swift Package Manager only.
+The Expo build-properties plugin selects dynamic iOS frameworks, as required
+by React Native Firebase 27; do not restore the old static-linking overrides.
 
 Iroh 1.x uses `endpoint...` tickets and a new transport protocol. Upgrade
 communicating nodes together and exchange newly generated tickets; old
@@ -321,6 +324,9 @@ Some dependencies intentionally stay on compatible release lines:
 
 - TypeScript 6.0 matches `typescript-eslint`'s supported `<6.1` range; Expo's
   Babel preset still requires Babel 7.
+- Meson 1.11.2 retains working cross-machine GLib fallback resolution.
+  With 1.12.1, native GLib/libffi fallback fails during ARM and Windows static
+  configuration and leaves GStreamer unable to retrieve its host GLib subproject.
 - Lex schema 0.2.9 avoids the conflicting `walk` exports between the published
   `@atproto/lex` 0.4.4 and schema 0.2.10, which prevent PDS startup in Node.
   Remove that override when the matching lex migration is published.

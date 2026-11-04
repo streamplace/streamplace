@@ -38,7 +38,7 @@ RUN apt update \
   libc6:arm64 libstdc++6:arm64 \
   cmake libssl-dev libssl-dev:arm64 libbz2-dev zlib1g-dev hfsprogs hfsplus \
   ruby-rubygems postgresql sudo \
-  && pip install meson==1.12.1 tomli \
+  && pip install meson==1.11.2 tomli \
   && curl -L --fail https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz -o go.tar.gz \
   && tar -C /usr/local -xf go.tar.gz \
   && rm go.tar.gz

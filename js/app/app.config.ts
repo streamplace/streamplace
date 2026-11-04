@@ -305,10 +305,7 @@ export default function () {
           "expo-build-properties",
           {
             ios: {
-              useFrameworks: "static",
-              forceStaticLinking: ["RNFBApp", "RNFBMessaging"],
-              // useful if you can't get forceStaticLinking to work
-              //buildReactNativeFromSource: true,
+              useFrameworks: "dynamic",
             },
             // uncomment to test OTA updates to http://localhost:8080
             // android: {

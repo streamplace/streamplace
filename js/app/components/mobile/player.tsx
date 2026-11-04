@@ -22,7 +22,7 @@ import {
   VodSection,
 } from "@streamplace/components";
 import { gap, h, pt, w } from "@streamplace/components/src/lib/theme/atoms";
-import { motion } from "@streamplace/components/src/lib/theme/tokens";
+import { motion, spacing } from "@streamplace/components/src/lib/theme/tokens";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import { ArrowLeft } from "lucide-react-native";
@@ -420,6 +420,8 @@ export function PlayerInner(
 
   const showFullDesktopMode = aspectRatio > 1 && screenWidth > 1200;
   const isLandscape = aspectRatio > 1;
+  const desktopVodPadding =
+    showFullDesktopMode && props.mode === "vod" && !fullscreen ? spacing[6] : 0;
 
   // Web VOD pages have a sticky translucent header (56px) rendered by the shell;
   // reserve space so the video starts below it and scrolls under it.
@@ -432,7 +434,7 @@ export function PlayerInner(
     ? contentWidth - chatPanelWidth
     : contentWidth;
   const desktopVideoWidth = Math.min(
-    calculatedWidth,
+    calculatedWidth - desktopVodPadding * 2,
     availableHeight * 0.8 * videoAspectRatio,
   );
   const calculatedHeight = desktopVideoWidth / videoAspectRatio;
@@ -552,7 +554,9 @@ export function PlayerInner(
               ...(fullscreen
                 ? {}
                 : {
-                    paddingTop: vodHeaderPad,
+                    paddingHorizontal: desktopVodPadding,
+                    paddingTop:
+                      vodHeaderPad + (props.mode === "vod" ? spacing[4] : 0),
                   }),
             }
           : props.mode === "vod"

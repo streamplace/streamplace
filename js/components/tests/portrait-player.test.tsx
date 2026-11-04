@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Player, PlayerInner } from "../../app/components/mobile/player";
 import { Fullscreen } from "../src/components/mobile-player/fullscreen.native";
 import { streamNotificationManager } from "../src/components/stream-notification/stream-notification-manager";
+import { spacing } from "../src/lib/theme/tokens";
 
 const fixture = vi.hoisted(() => ({
   window: { width: 390, height: 844 },
@@ -34,6 +35,7 @@ const fixture = vi.hoisted(() => ({
 function View({
   children,
   style,
+  contentContainerStyle,
   edges,
   pointerEvents,
   onFocus,
@@ -43,6 +45,7 @@ function View({
 }: {
   children?: ReactNode;
   style?: any;
+  contentContainerStyle?: any;
   edges?: string[];
   pointerEvents?: string;
   onFocus?: () => void;
@@ -55,6 +58,9 @@ function View({
     "div",
     {
       "data-style": JSON.stringify(flattenedStyle),
+      "data-content-style": JSON.stringify(
+        Object.assign({}, ...[contentContainerStyle].flat(Infinity)),
+      ),
       "data-edges": edges?.join(","),
       "data-pointer-events": pointerEvents ?? flattenedStyle.pointerEvents,
       "aria-hidden": ariaHidden,
@@ -815,11 +821,50 @@ it.each([
       frame = frame.parentElement!;
     const style = JSON.parse(frame.dataset.style!);
     const scrollStyle = JSON.parse(frame.parentElement!.dataset.style!);
+    const contentStyle = JSON.parse(frame.parentElement!.dataset.contentStyle!);
     expect(scrollStyle.maxWidth).toBe(windowWidth);
+    expect(contentStyle.paddingHorizontal ?? 0).toBe(0);
     expect(style.width).toBeLessThanOrEqual(windowWidth);
     expect(style.height).toBeLessThanOrEqual(windowHeight);
     if (videoWidth / videoHeight > windowWidth / windowHeight)
       expect(style.width).toBe(windowWidth);
+    expect(style.width / style.height).toBeCloseTo(videoWidth / videoHeight);
+  },
+);
+
+it.each([
+  [1280, 720, 2560, 1080, false],
+  [1440, 1100, 1920, 1080, false],
+  [1280, 720, 2560, 1080, true],
+  [1440, 1100, 1920, 1080, true],
+])(
+  "fits desktop VOD inside its page gutters at %sx%s with %sx%s media (fullscreen=%s)",
+  async (windowWidth, windowHeight, videoWidth, videoHeight, fullscreen) => {
+    fixture.platform = "web";
+    fixture.mode = "vod";
+    fixture.fullscreen = fullscreen;
+    fixture.window = { width: windowWidth, height: windowHeight };
+    fixture.video = { width: videoWidth, height: videoHeight };
+    fixture.insets = { top: 0, bottom: 0, left: 0, right: 0 };
+    await act(async () =>
+      root.render(
+        <PlayerInner
+          mode="vod"
+          showChat={false}
+          setShowChat={() => {}}
+          showUnavailable={false}
+        />,
+      ),
+    );
+    let frame = container.querySelector("button")!.parentElement!;
+    while (typeof JSON.parse(frame.dataset.style!).width !== "number")
+      frame = frame.parentElement!;
+    const style = JSON.parse(frame.dataset.style!);
+    const contentStyle = JSON.parse(frame.parentElement!.dataset.contentStyle!);
+    const sidePadding = fullscreen ? 0 : spacing[6];
+    expect(contentStyle.paddingHorizontal ?? 0).toBe(sidePadding);
+    expect(contentStyle.paddingTop ?? 0).toBe(fullscreen ? 0 : spacing[4]);
+    expect(style.width + 2 * sidePadding).toBeLessThanOrEqual(windowWidth);
     expect(style.width / style.height).toBeCloseTo(videoWidth / videoHeight);
   },
 );

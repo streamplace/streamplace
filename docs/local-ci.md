@@ -274,8 +274,9 @@ MAC_HOST=admin@mac-mini MAC_REPO=/Users/admin/streamplace make all
 ```
 
 The remote needs the same toolchain the CI macOS job installs (Go, Node 26,
-pnpm 12, Meson, Rust, Xcode 26.6). Without `MAC_HOST`, `make all` prints the skipped iOS
-job and exits successfully; set `ALL_STRICT=1` to make that a failure.
+pnpm 12, Meson, Rust, Xcode 26.6). Intel macOS native builds also require NASM
+for x264's enabled assembly paths. Without `MAC_HOST`, `make all` prints the
+skipped iOS job and exits successfully; set `ALL_STRICT=1` to make that a failure.
 `MAC_REPO` overrides the remote checkout path, including paths with spaces or
 quotes; it defaults to the local checkout's absolute path.
 

@@ -118,7 +118,7 @@ build-android-release:
     - mv streamplace /Users/admin/streamplace
     - cd /Users/admin/streamplace
     - git fetch --unshallow || echo 'already unshallow'
-    - brew install ninja go openssl@3 && go version
+    - brew install ninja go openssl@3 nasm && go version
     - export PATH="/opt/homebrew/opt/node@26/bin:$PATH"
     - brew install node@26
     - node --version

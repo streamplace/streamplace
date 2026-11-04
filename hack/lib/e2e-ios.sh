@@ -23,20 +23,21 @@ e2e_ios_install() {
   trap 'e2e_ios_stop; e2e_harness_stop' EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
-  # Pick the booted iPhone's runtime/type when available, otherwise the newest
-  # installed iOS runtime. IOS_SIMULATOR_UDID selects a template, not a device
-  # to erase or install into.
+  # Prefer a booted iPhone, otherwise the newest runtime supported by the
+  # selected Xcode SDK. IOS_SIMULATOR_UDID explicitly selects any available
+  # template, never a device to erase or install into.
   local template
   template="$(node - "${IOS_SIMULATOR_UDID:-}" <<'JS'
 const { execFileSync } = require('node:child_process');
 const devices = JSON.parse(execFileSync('xcrun', ['simctl', 'list', 'devices', 'available', '--json'])).devices;
+const requested = process.argv[2];
+const sdkMajor = parseInt(execFileSync('xcrun', ['--sdk', 'iphonesimulator', '--show-sdk-version']).toString(), 10);
 const phones = Object.entries(devices)
-  .filter(([runtime]) => runtime.includes('.iOS-'))
+  .filter(([runtime]) => runtime.includes('.iOS-') && (requested || parseInt(runtime.split('.iOS-')[1], 10) <= sdkMajor))
   .sort(([a], [b]) => b.localeCompare(a, undefined, { numeric: true }))
   .flatMap(([runtime, list]) => list.filter(d => d.isAvailable && d.deviceTypeIdentifier.includes('.iPhone-')).map(d => ({ ...d, runtime })));
-const requested = process.argv[2];
 const phone = requested ? phones.find(d => d.udid === requested) : phones.find(d => d.state === 'Booted') || phones[0];
-if (!phone) { console.error('No available iPhone Simulator; install an iOS runtime in Xcode or check IOS_SIMULATOR_UDID'); process.exit(1); }
+if (!phone) { console.error('No compatible iPhone Simulator; install a runtime supported by the selected Xcode or check IOS_SIMULATOR_UDID'); process.exit(1); }
 console.log(`${phone.deviceTypeIdentifier} ${phone.runtime}`);
 JS
 )"
@@ -48,6 +49,15 @@ JS
   xcrun simctl keychain "$DEVICE" add-root-cert "$E2E_TLS_CA"
   xcrun simctl install "$DEVICE" "$IOS_APP"
   applesimutils --byId "$DEVICE" --bundle "$APP_ID" --setPermissions notifications=YES
+  # Maestro cannot reliably type into secure fields while Password AutoFill
+  # intercepts input. Change only this disposable Simulator's restrictions.
+  local data_dir policy
+  data_dir="$(xcrun simctl getenv "$DEVICE" SIMULATOR_SHARED_RESOURCES_DIRECTORY)"
+  for policy in \
+    "$data_dir/Library/UserConfigurationProfiles/EffectiveUserSettings.plist" \
+    "$data_dir/Containers/Shared/SystemGroup/systemgroup.com.apple.configurationprofiles/Library/ConfigurationProfiles/UserSettings.plist"; do
+    plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO "$policy"
+  done
   # Query Foundation inside the selected Simulator, not the host's time zone.
   # iOS runtimes do not ship a `date` executable.
   local offset_tool

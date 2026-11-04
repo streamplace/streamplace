@@ -32,6 +32,8 @@
 # pkg/cmd/e2e_https.go). Set E2E_HTTPS_PDS_HOSTNAME empty to skip HTTPS; the
 # OAuth flows then skip themselves. A machine that redirects loopback 443
 # elsewhere (an iptables REDIRECT rule) sets E2E_HTTPS_PORT to the target port.
+# On macOS, hack/e2e-https-macos.sh installs a persistent loopback relay;
+# when that launchd service is loaded, the default target becomes 38443.
 #
 # E2E_HARNESS_LOG, if set, is where the harness log goes; it is kept after the
 # run (CI uploads it). Otherwise the log is a temp file, shown on a failed
@@ -70,6 +72,15 @@ e2e_harness_start() {
   E2E_PREEXISTING=" $( { pgrep -f "$BUILDDIR/libstreamplace" 2>/dev/null || true; } | tr '\n' ' ') "
   E2E_HTTPS_PDS_HOSTNAME="${E2E_HTTPS_PDS_HOSTNAME-localhost-pds.streamplace.network}"
   E2E_HTTPS_STATION_HOSTNAME="${E2E_HTTPS_STATION_HOSTNAME-localhost-station.streamplace.team}"
+  if [ "$(uname)" = Darwin ]; then
+    # Go 1.27+ supports per-process SSL_CERT_DIR on macOS; the module's
+    # older Go compatibility default otherwise keeps using the Mac keychain.
+    export GODEBUG="${GODEBUG:+$GODEBUG,}x509sslcertoverrideplatform=1"
+    if [ -z "${E2E_HTTPS_PORT:-}" ] &&
+      launchctl print system/network.streamplace.e2e-https >/dev/null 2>&1; then
+      E2E_HTTPS_PORT=38443
+    fi
+  fi
   local args=(e2e)
   if [ -n "$E2E_HTTPS_PDS_HOSTNAME" ]; then
     args+=(--https-pds-hostname "$E2E_HTTPS_PDS_HOSTNAME"

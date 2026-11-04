@@ -1,8 +1,9 @@
 appId: ${APP_ID}
 ---
 # Log in the way a user does: the app's atproto OAuth client talks to the
-# node's OAuth proxy, which opens the PDS's sign-in and consent pages in a
-# Chrome Custom Tab. The node's advertised callback route returns to the app.
+# node's OAuth proxy, which opens the PDS's sign-in and consent pages in the
+# platform authentication browser. The node's advertised callback route
+# returns to the app.
 - launchApp
 - tapOn:
     text: "Log in"
@@ -13,26 +14,50 @@ appId: ${APP_ID}
 # Log In instead misses: the modal slides down as the keyboard goes, after
 # maestro has worked out where to tap.
 - pressKey: Enter
+# A fresh iOS Simulator asks before sharing the authentication browser session.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Continue"
 # the handle comes along as login_hint, so the PDS only asks for the password
 - extendedWaitUntil:
     visible:
       text: "Password"
     timeout: 60000
 - takeScreenshot: oauth-login-pds-sign-in
-# The page opens with the password field focused. Don't tap "Password": that
-# matches the field's label and container, and tapping it takes focus off
-# the input, whose own label is only a hint.
+# Safari's DOM autofocus does not summon the keyboard. Target the input's
+# placeholder below its label, not the identically named page subtitle.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Enter your password"
+          below:
+            text: "Password"
+# Chrome already focuses the input; tapping its "Password" label removes focus.
 - inputText: "${ACCOUNT_PASSWORD}"
 # Enter submits the form. Not hideKeyboard: on Android that can send Back,
 # which closes the Custom Tab and cancels the login.
 - pressKey: Enter
 - takeScreenshot: oauth-login-pds-consent
+# Safari may offer to save the fixture password before showing consent.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Not Now"
+          optional: true
 - extendedWaitUntil:
     visible:
       text: "Authorize"
     timeout: 30000
 - tapOn:
     text: "Authorize"
+    below:
+      text: "wants to access your account"
 - takeScreenshot: oauth-login-app-return
 - extendedWaitUntil:
     visible:

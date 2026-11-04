@@ -48,7 +48,10 @@ export default function AQLink({
   testID?: string;
   // Runs before navigating, e.g. to dismiss the menu the link sits in.
   onPress?: () => void;
-} & Pick<PressableProps, "nativeID" | "role" | "aria-selected">) {
+} & Pick<
+  PressableProps,
+  "nativeID" | "role" | "aria-selected" | "accessibilityLabel"
+>) {
   const { isWeb } = usePlatform();
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);

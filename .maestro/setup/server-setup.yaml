@@ -9,17 +9,36 @@ appId: ${APP_ID}
 # A slow CI emulator can throw a "Pixel Launcher isn't responding" dialog
 # over the app, which the runner's hide_error_dialogs doesn't suppress; tap
 # Wait if it's there.
-- tapOn:
-    text: "Wait"
-    optional: true
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: "Wait"
+          optional: true
 # first launch on a cold CI emulator can take a while to render
 - extendedWaitUntil:
     visible:
       text: "Settings"
     timeout: 60000
-- tapOn:
-    text: "Wait"
-    optional: true
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: "Wait"
+          optional: true
+# Approve the scheme in setup so deep-link scenarios can also run alone.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - openLink: "${APP_ID}://"
+      - runFlow:
+          when:
+            visible: "Open in .*"
+          commands:
+            - tapOn: "Open"
 - tapOn:
     text: "Settings"
 - takeScreenshot: server-setup-settings

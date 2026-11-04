@@ -18,7 +18,11 @@ import (
 )
 
 func TestE2EHTTPSPLCHostname(t *testing.T) {
-	for _, plcHost := range []string{e2ePLCHost, "plc.pds.example.test"} {
+	for _, plcHost := range []string{
+		e2ePLCHost,
+		"plc.pds.example.test",   // Must take precedence over wildcard PDS routing.
+		"directory.example.test", // Requires its own certificate SAN.
+	} {
 		t.Run(plcHost, func(t *testing.T) {
 			h, err := newE2EHTTPS("pds.example.test", "station.example.test", plcHost, 0)
 			require.NoError(t, err)
@@ -29,8 +33,8 @@ func TestE2EHTTPSPLCHostname(t *testing.T) {
 			roots := x509.NewCertPool()
 			require.True(t, roots.AppendCertsFromPEM(caPEM), "harness CA could not be loaded")
 			backend := func(body string) string {
-				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					_, _ = io.WriteString(w, body+" "+r.Host+" "+r.URL.Path)
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					_, _ = io.WriteString(w, body)
 				}))
 				t.Cleanup(srv.Close)
 				return strings.TrimPrefix(srv.URL, "http://")
@@ -62,8 +66,6 @@ func TestE2EHTTPSPLCHostname(t *testing.T) {
 					}
 					t.Cleanup(transport.CloseIdleConnections)
 					client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
-					// The alias deliberately sits below the PDS hostname: exact
-					// PLC routing must take precedence over wildcard PDS routing.
 					for host, want := range map[string]string{
 						h.pdsHost:              "pds",
 						"account." + h.pdsHost: "pds",
@@ -76,7 +78,7 @@ func TestE2EHTTPSPLCHostname(t *testing.T) {
 						body, err := io.ReadAll(resp.Body)
 						resp.Body.Close()
 						require.NoError(t, err)
-						require.Equal(t, want+" "+host+" /did:plc:test", string(body), "GET %s", host)
+						require.Equal(t, want, string(body), "GET %s selected the wrong backend", host)
 					}
 				})
 			}

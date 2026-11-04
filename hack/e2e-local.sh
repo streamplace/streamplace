@@ -126,7 +126,7 @@ hosts="127.0.0.1 localhost
 ::1 ip6-localhost"
 # The prelive handle is unquoted so it drops out when the harness has none.
 # shellcheck disable=SC2086
-for name in "$E2E_HTTPS_STATION_HOSTNAME" "$E2E_HTTPS_PDS_HOSTNAME" "$ACCOUNT_HANDLE" ${PRELIVE_ACCOUNT_HANDLE:-} "${E2E_HTTPS_PLC_HOSTNAME:-plc.directory}" plc.directory; do
+for name in "$E2E_HTTPS_STATION_HOSTNAME" "$E2E_HTTPS_PDS_HOSTNAME" "$ACCOUNT_HANDLE" ${PRELIVE_ACCOUNT_HANDLE:-} plc.directory ${E2E_HTTPS_PLC_HOSTNAME:+"$E2E_HTTPS_PLC_HOSTNAME"}; do
   hosts="$hosts
 ${E2E_ANDROID_HOST_ADDR:-10.0.2.2} $name"
 done

@@ -201,6 +201,7 @@ ios-simulator: install
 		-scheme "$$scheme" \
 		-derivedDataPath ./bin/ios-simulator \
 		ARCHS="$$(uname -m)" \
+		ONLY_ACTIVE_ARCH=YES \
 		CODE_SIGNING_ALLOWED=NO \
 		SKIP_BUNDLING= \
 		build'

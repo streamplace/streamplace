@@ -152,8 +152,9 @@ func (h *e2eHTTPS) NodeEnv() []string {
 
 // TrustEnv is what any forked node needs to reach the PDS and PLC at their
 // HTTPS names: the CA, and the proxy that sends the configured PLC hostname
-// and legacy plc.directory to the local PLC. Go reads SSL_CERT_DIR on top of
-// the system bundle file, so public roots still work.
+// and legacy plc.directory to the local PLC. Linux retains the system root
+// bundle alongside SSL_CERT_DIR. The macOS runner enables Go 1.27's file-root
+// override, trusting this run's CA only.
 func (h *e2eHTTPS) TrustEnv() []string {
 	return []string{
 		"SSL_CERT_DIR=" + h.trustDir,

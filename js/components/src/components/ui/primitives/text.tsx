@@ -1,11 +1,10 @@
 import { createContext, forwardRef, useContext } from "react";
 import type { ColorValue as RNColorValue } from "react-native";
 import {
-  AnimatableNumericValue,
-  ColorValue,
   OpaqueColorValue,
   Text as RNText,
   TextProps as RNTextProps,
+  TextInstance,
   TextStyle,
 } from "react-native";
 import { useTheme } from "../../../lib/theme/theme";
@@ -28,7 +27,7 @@ interface TextContextValue {
   textTransform?: TextStyle["textTransform"];
   textDecorationLine?: TextStyle["textDecorationLine"];
   fontStyle?: TextStyle["fontStyle"];
-  opacity?: number | AnimatableNumericValue;
+  opacity?: TextStyle["opacity"];
 }
 
 export const TextContext = createContext<Partial<TextContextValue> | null>(
@@ -228,7 +227,7 @@ const variantStylesStatic: Record<string, TextStyle> = {
 const getVariantStyles = () => variantStylesStatic;
 
 // Text root primitive
-export const TextRoot = forwardRef<RNText, TextPrimitiveProps>(
+export const TextRoot = forwardRef<TextInstance, TextPrimitiveProps>(
   (
     {
       variant,
@@ -383,8 +382,6 @@ export const TextRoot = forwardRef<RNText, TextPrimitiveProps>(
       }),
     };
 
-    finalStyles.color = finalStyles.color as ColorValue;
-
     // Create context value for children
     // Process custom styles to auto-add line height for fontSize
     const processedStyle = Array.isArray(style)
@@ -440,20 +437,21 @@ export const TextRoot = forwardRef<RNText, TextPrimitiveProps>(
 TextRoot.displayName = "TextRoot";
 
 // Text span primitive (inherits from parent but doesn't create new context)
-export const TextSpan = forwardRef<RNText, Omit<TextPrimitiveProps, "reset">>(
-  ({ children, ...props }, ref) => {
-    return (
-      <TextRoot ref={ref as any} inherit={true} {...props}>
-        {children}
-      </TextRoot>
-    );
-  },
-);
+export const TextSpan = forwardRef<
+  TextInstance,
+  Omit<TextPrimitiveProps, "reset">
+>(({ children, ...props }, ref) => {
+  return (
+    <TextRoot ref={ref as any} inherit={true} {...props}>
+      {children}
+    </TextRoot>
+  );
+});
 
 TextSpan.displayName = "TextSpan";
 
 // Text block primitive (always creates new context)
-export const TextBlock = forwardRef<RNText, TextPrimitiveProps>(
+export const TextBlock = forwardRef<TextInstance, TextPrimitiveProps>(
   ({ children, reset = true, ...props }, ref) => {
     return (
       <TextRoot ref={ref as any} reset={reset} {...props}>
@@ -476,65 +474,61 @@ export function createTextStyle(
 ): TextStyle {
   // This is a utility function that can be used to generate styles
   // without rendering a component
-  const style: TextStyle = {};
+  const fontSize = props.size
+    ? typeof props.size === "number"
+      ? props.size
+      : sizeMap[props.size]
+    : undefined;
 
-  if (props.size) {
-    style.fontSize =
-      typeof props.size === "number" ? props.size : sizeMap[props.size];
-    // Apply size-specific line height only if leading is not explicitly set
-    if (props.leading === undefined) {
-      style.lineHeight =
-        typeof props.size === "number"
-          ? autoLineHeight(props.size)
-          : sizeLineHeightMap[props.size];
-    }
-  }
+  return {
+    ...(props.size && {
+      fontSize,
+      // Apply size-specific line height only if leading is not explicitly set
+      ...(props.leading === undefined && {
+        lineHeight:
+          typeof props.size === "number"
+            ? autoLineHeight(props.size)
+            : sizeLineHeightMap[props.size],
+      }),
+    }),
 
-  if (props.weight) {
-    style.fontWeight = weightMap[props.weight] as TextStyle["fontWeight"];
-    style.fontFamily = weightFamilyMap[props.weight];
-  }
+    ...(props.weight && {
+      fontWeight: weightMap[props.weight] as TextStyle["fontWeight"],
+      fontFamily: weightFamilyMap[props.weight],
+    }),
 
-  if (props.tabular) {
-    Object.assign(style, tabularNums);
-  }
+    ...(props.tabular && tabularNums),
 
-  if (props.align) {
-    style.textAlign = props.align;
-  }
+    ...(props.align && { textAlign: props.align }),
 
-  if (props.leading) {
-    const fontSize = style.fontSize || 16; // default font size
-    style.lineHeight =
-      typeof props.leading === "number"
-        ? props.leading
-        : leadingMap[props.leading] * fontSize;
-  }
+    ...(props.leading && {
+      lineHeight:
+        typeof props.leading === "number"
+          ? props.leading
+          : leadingMap[props.leading] * (fontSize || 16), // default font size
+    }),
 
-  if (props.tracking) {
-    style.letterSpacing =
-      typeof props.tracking === "number"
-        ? props.tracking
-        : trackingMap[props.tracking];
-  }
+    ...(props.tracking && {
+      letterSpacing:
+        typeof props.tracking === "number"
+          ? props.tracking
+          : trackingMap[props.tracking],
+    }),
 
-  if (props.transform && props.transform !== "none") {
-    style.textTransform = props.transform;
-  }
+    ...(props.transform &&
+      props.transform !== "none" && {
+        textTransform: props.transform,
+      }),
 
-  if (props.decoration && props.decoration !== "none") {
-    style.textDecorationLine = props.decoration;
-  }
+    ...(props.decoration &&
+      props.decoration !== "none" && {
+        textDecorationLine: props.decoration,
+      }),
 
-  if (props.italic) {
-    style.fontStyle = "italic";
-  }
+    ...(props.italic && { fontStyle: "italic" }),
 
-  if (props.opacity !== undefined) {
-    style.opacity = props.opacity;
-  }
-
-  return style;
+    ...(props.opacity !== undefined && { opacity: props.opacity }),
+  };
 }
 
 // Export primitive collection

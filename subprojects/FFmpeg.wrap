@@ -1,4 +1,4 @@
 [wrap-git]
 url = https://github.com/streamplace/FFmpeg.git
-revision = 20cbb6349be69e5c5a4c786365e4b2d7ff014f22
+revision = 255ab8ff7266f8cba666bb97d4b7c0ac1bfe6989
 depth = 1

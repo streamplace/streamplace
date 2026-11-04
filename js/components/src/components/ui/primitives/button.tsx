@@ -8,8 +8,10 @@ import {
   StyleProp,
   StyleSheet,
   Text,
+  TextInstance,
   TextProps,
   View,
+  ViewInstance,
   ViewProps,
   ViewStyle,
 } from "react-native";
@@ -145,7 +147,7 @@ export interface ButtonTextProps extends TextProps {
   loading?: boolean;
 }
 
-export const ButtonText = forwardRef<Text, ButtonTextProps>(
+export const ButtonText = forwardRef<TextInstance, ButtonTextProps>(
   ({ children, disabled, loading, style, ...props }, ref) => {
     return (
       <Text
@@ -172,7 +174,7 @@ export interface ButtonIconProps extends ViewProps {
   loading?: boolean;
 }
 
-export const ButtonIcon = forwardRef<View, ButtonIconProps>(
+export const ButtonIcon = forwardRef<ViewInstance, ButtonIconProps>(
   (
     { children, position = "left", disabled, loading, style, ...props },
     ref,
@@ -200,7 +202,7 @@ export interface ButtonLoadingProps extends ViewProps {
   visible?: boolean;
 }
 
-export const ButtonLoading = forwardRef<View, ButtonLoadingProps>(
+export const ButtonLoading = forwardRef<ViewInstance, ButtonLoadingProps>(
   ({ children, visible = false, style, ...props }, ref) => {
     if (!visible) return null;
 
@@ -222,7 +224,7 @@ export interface ButtonContentProps extends ViewProps {
     "flex-start" | "center" | "flex-end" | "space-between" | "space-around";
 }
 
-export const ButtonContent = forwardRef<View, ButtonContentProps>(
+export const ButtonContent = forwardRef<ViewInstance, ButtonContentProps>(
   (
     {
       children,

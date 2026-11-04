@@ -1,5 +1,5 @@
 import { forwardRef, type ComponentProps } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, type TextInstance } from "react-native";
 import { useTheme, zero } from "../..";
 import { LICENSE_URL_LABELS } from "../../lib/metadata-constants";
 import { Text } from "../ui/text";
@@ -17,7 +17,7 @@ export interface ContentRightsProps extends ComponentProps<typeof Text> {
   compact?: boolean;
 }
 
-export const ContentRights = forwardRef<Text, ContentRightsProps>(
+export const ContentRights = forwardRef<TextInstance, ContentRightsProps>(
   ({ contentRights, compact, ...rest }, ref) => {
     const { zero } = useTheme();
     if (!contentRights || Object.keys(contentRights).length === 0) {

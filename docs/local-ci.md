@@ -273,8 +273,8 @@ Set `MAC_HOST` to an SSH destination whose checkout is clean and at the same com
 MAC_HOST=admin@mac-mini MAC_REPO=/Users/admin/streamplace make all
 ```
 
-The remote needs the same toolchain the CI macOS job installs (Go, Node 22,
-Meson, Rust, Xcode 26). Without `MAC_HOST`, `make all` prints the skipped iOS
+The remote needs the same toolchain the CI macOS job installs (Go, Node 26,
+pnpm 12, Meson, Rust, Xcode 26.6). Without `MAC_HOST`, `make all` prints the skipped iOS
 job and exits successfully; set `ALL_STRICT=1` to make that a failure.
 `MAC_REPO` overrides the remote checkout path, including paths with spaces or
 quotes; it defaults to the local checkout's absolute path.
@@ -285,6 +285,60 @@ option is a macOS VM (OSX-KVM/OpenCore with the AMD kernel patches) or a
 physical/cloud Mac. Xcode 26.3 supports macOS Sequoia 15.6 and later, so an
 x86_64 VM is sufficient; the archive is built with `CODE_SIGNING_ALLOWED=NO`,
 so no Apple account is needed for the build itself.
+
+The iOS CI job also runs the existing Home → Videos → Settings Maestro flow
+against an unsigned simulator Release build, with OTA updates disabled:
+
+```sh
+make ios-simulator
+bash hack/ios-smoke.sh
+```
+
+The runner creates and removes its own simulator; screenshots and logs remain
+under `.maestro/artifacts/ios/`.
+
+## Dependency upgrades and deployment
+
+`mise.toml`, `docker/build.Dockerfile`, and the workspace manifests pin the
+development toolchain. pnpm settings live in `pnpm-workspace.yaml`, including
+the explicit native build-script allowlist; pnpm 12 no longer reads
+`node-linker` from `.npmrc`.
+
+The Expo SDK 58 / React Native 0.88 upgrade requires new iOS and Android
+binaries. Its OTA runtime is `0.12.15`, separate from the previous `0.12.0`
+runtime; do not publish the upgraded JavaScript to the old runtime.
+Regenerate native projects with the existing prebuild target before building.
+The deprecated edge-to-edge library is replaced by React Native's built-in
+edge-to-edge support and the maintained navigation-bar controls.
+
+Iroh 1.x uses `endpoint...` tickets and a new transport protocol. Upgrade
+communicating nodes together and exchange newly generated tickets; old
+`node...` tickets and mixed-version peers are not compatible.
+
+Some dependencies intentionally stay on compatible release lines:
+
+- TypeScript 6.0 matches `typescript-eslint`'s supported `<6.1` range; Expo's
+  Babel preset still requires Babel 7.
+- Lex schema 0.2.9 avoids the conflicting `walk` exports between the published
+  `@atproto/lex` 0.4.4 and schema 0.2.10, which prevent PDS startup in Node.
+  Remove that override when the matching lex migration is published.
+- UniFFI 0.28 matches the Go binding generator's metadata ABI. Gossip 0.101
+  matches the topic types exposed by `iroh-smol-kv`.
+- The C2PA fork retains Streamplace's signing APIs, and the FFmpeg fork retains
+  Livepeer's signature exports. Use published compatible fork revisions, not
+  upstream replacements that remove those APIs.
+- Echo 4 and JWX 2 match the public middleware/context and key types exposed
+  by the current `oatproxy` and AT Protocol OAuth client dependencies.
+- Indigo uses the 2026-10-08 revision before its repository-host API was
+  deprecated. Its newer `atproto/repo` replacement explicitly cannot implement
+  a repository host yet. This avoids adopting deprecated APIs or rewriting
+  repository storage as part of a dependency refresh.
+- The builder remains Ubuntu 22.04 to preserve the glibc 2.35 release baseline
+  and cross-compilation sysroots. Runtime images use Ubuntu 26.04 LTS.
+- OSXCross uses its supported LLVM flavor with LLVM 23 and `ld64.lld`.
+  The legacy cctools flavor uses the old disassembler callback ABI; the newer
+  cctools flavor's libdispatch dependency fails LLVM 23's warnings-as-errors
+  build. This avoids patching or suppressing diagnostics in either dependency.
 
 ## Notes
 

@@ -8,7 +8,7 @@ import Graphemer from "graphemer";
 import { AtSignIcon, ExternalLink, X } from "lucide-react-native";
 import { env } from "process";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, TextInput } from "react-native";
+import { Platform, Pressable, TextInputInstance } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { Button, Loader, Text, toast, useTheme, View } from "../../";
 import { StreamNotifications } from "../../lib/stream-notifications";
@@ -113,8 +113,8 @@ export function ChatBox({
   const addSystemMessage = useAddSystemMessage();
   const replyTo = useReplyToMessage();
   const setReplyToMessage = useSetReplyToMessage();
-  const textAreaRef = useRef<TextInput>(null);
-  const autocorrectFocusRef = useRef<TextInput>(null);
+  const textAreaRef = useRef<TextInputInstance>(null);
+  const autocorrectFocusRef = useRef<TextInputInstance>(null);
   const submitAfterEditing = useRef(false);
 
   const pdsAgent = usePDSAgent();

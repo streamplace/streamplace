@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { View, type ViewProps } from "react-native";
+import { View, type ViewInstance, type ViewProps } from "react-native";
 import { useTheme } from "../../lib/theme/theme";
 import { borderRadius } from "../../lib/theme/tokens";
 
@@ -19,7 +19,7 @@ export interface SurfaceProps extends ViewProps {
  * A themed surface. `Card` (level 1, bordered, radius md) is the common
  * building block for panels, list rows, and cards.
  */
-export const Surface = forwardRef<View, SurfaceProps>(
+export const Surface = forwardRef<ViewInstance, SurfaceProps>(
   ({ level = 1, bordered, radius = "md", style, children, ...props }, ref) => {
     const { theme } = useTheme();
     const surfaceColor = [
@@ -57,7 +57,7 @@ Surface.displayName = "Surface";
 export type CardProps = Omit<SurfaceProps, "level">;
 
 /** A level-1 surface with a hairline border — the standard card. */
-export const Card = forwardRef<View, CardProps>((props, ref) => (
+export const Card = forwardRef<ViewInstance, CardProps>((props, ref) => (
   <Surface ref={ref} level={1} {...props} />
 ));
 

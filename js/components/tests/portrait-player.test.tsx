@@ -26,7 +26,7 @@ const fixture = vi.hoisted(() => ({
   } | null,
   warnings: ["nudity"],
   openURL: vi.fn(),
-  tap: (_event: unknown, _success: boolean) => {},
+  tap: (_event: { canceled: boolean }) => {},
   goBack: vi.fn(),
 }));
 
@@ -102,7 +102,11 @@ vi.mock("react-native", () => ({
     ),
   Linking: { openURL: fixture.openURL },
   ScrollView: View,
-  StatusBar: Object.assign(() => null, { setHidden() {} }),
+  StatusBar: Object.assign(() => null, {
+    setHidden() {},
+    pushStackEntry: (props: unknown) => props,
+    popStackEntry() {},
+  }),
   Platform: {
     get OS() {
       return fixture.platform;
@@ -147,36 +151,15 @@ vi.mock("react-native-safe-area-context", () => ({
   SafeAreaView: View,
 }));
 vi.mock("react-native-gesture-handler", () => {
-  const gesture = {
-    runOnJS() {
-      return this;
-    },
-    onChange() {
-      return this;
-    },
-    onEnd() {
-      return this;
-    },
-    onStart() {
-      return this;
-    },
-    onUpdate() {
-      return this;
-    },
-  };
+  const gesture = () => ({});
   return {
-    Gesture: {
-      Hover: () => gesture,
-      Pan: () => gesture,
-      Tap: () => ({
-        ...gesture,
-        onEnd(handler: typeof fixture.tap) {
-          fixture.tap = handler;
-          return this;
-        },
-      }),
-      Race() {},
+    useHoverGesture: gesture,
+    usePanGesture: gesture,
+    useTapGesture: ({ onDeactivate }: { onDeactivate: typeof fixture.tap }) => {
+      fixture.tap = onDeactivate;
+      return {};
     },
+    useCompetingGestures: gesture,
     GestureDetector: View,
     Pressable: View,
   };
@@ -208,8 +191,11 @@ vi.mock("../../app/components/mobile/desktop-ui/mu", () => ({ Mu: View }));
 vi.mock("../../app/components/mobile/live-stats", () => ({
   LiveStats: () => <span>Live viewers</span>,
 }));
-vi.mock("react-native-edge-to-edge", () => ({
-  SystemBars: { setHidden() {} },
+vi.mock("@zoontek/react-native-navigation-bar", () => ({
+  NavigationBar: {
+    pushStackEntry: (props: unknown) => props,
+    popStackEntry() {},
+  },
 }));
 vi.mock("expo-video", () => ({ VideoView: View }));
 vi.mock("lucide-react-native", () => ({
@@ -511,7 +497,7 @@ it.each(["ios", "web"])(
     expect(canPress(readout)).toBe(true);
     await act(async () => vi.advanceTimersByTime(6100));
     expect(canPress(readout)).toBe(false);
-    await act(async () => fixture.tap({}, true));
+    await act(async () => fixture.tap({ canceled: false }));
     expect(canPress(readout)).toBe(true);
   },
 );
@@ -575,7 +561,7 @@ it.each(["vod", "live"])(
     expect(canPress(back!)).toBe(true);
     await act(async () => vi.advanceTimersByTime(7000));
     expect(canPress(back!)).toBe(false);
-    await act(async () => fixture.tap({}, true));
+    await act(async () => fixture.tap({ canceled: false }));
     expect(canPress(back!)).toBe(true);
   },
 );
@@ -595,15 +581,15 @@ it.each(["playing", "pause"])(
     const controls = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Recorded playback controls",
     )!;
-    await act(async () => fixture.tap({}, false));
+    await act(async () => fixture.tap({ canceled: true }));
     expect(canPress(back)).toBe(true);
     expect(canPress(controls)).toBe(true);
     await act(async () => vi.advanceTimersByTime(3000));
-    await act(async () => fixture.tap({}, true));
+    await act(async () => fixture.tap({ canceled: false }));
     expect(canPress(back)).toBe(false);
     expect(canPress(controls)).toBe(false);
     await act(async () => vi.advanceTimersByTime(500));
-    await act(async () => fixture.tap({}, true));
+    await act(async () => fixture.tap({ canceled: false }));
     await act(async () => vi.advanceTimersByTime(5900));
     expect(canPress(back)).toBe(true);
     expect(canPress(controls)).toBe(true);
@@ -666,10 +652,10 @@ it.each(["live", "vod"])(
       );
       expect(control, label).not.toBeNull();
       expect(canPress(control!)).toBe(true);
-      await act(async () => fixture.tap({}, true));
+      await act(async () => fixture.tap({ canceled: false }));
       expect(canPress(control!)).toBe(false);
       expect(control!.closest('[aria-hidden="true"]')).not.toBeNull();
-      await act(async () => fixture.tap({}, true));
+      await act(async () => fixture.tap({ canceled: false }));
       expect(canPress(control!)).toBe(true);
     }
   },

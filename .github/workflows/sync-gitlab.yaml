@@ -6,7 +6,7 @@ jobs:
   sync:
     runs-on: ubuntu-slim
     steps:
-      - uses: keninkujovic/gitlab-sync@2.0.0
+      - uses: kujov/gitlab-sync@2.2.1
         with:
           gitlab_url: https://git.stream.place/streamplace/streamplace.git
           username: streamplace-robot

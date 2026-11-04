@@ -21,6 +21,7 @@ import (
 	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortmplib/pkg/bytecounter"
 	"github.com/bluenviron/gortmplib/pkg/codecs"
+	"github.com/bluenviron/gortmplib/pkg/liberrors"
 	"github.com/bluenviron/gortmplib/pkg/message"
 	"github.com/go-gst/go-gst/pkg/gst"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -203,6 +204,12 @@ func TestDuplicateMistEndToEnd(t *testing.T) {
 		}
 		for {
 			if err := r.Read(); err != nil {
+				// Keep the primary connection open until the publisher's EOF;
+				// an unpublish command is not a transport close.
+				var unpublished liberrors.ErrReaderUnpublished
+				if errors.As(err, &unpublished) {
+					continue
+				}
 				if videoEnd < 8*time.Second || audioEnd < 8*time.Second {
 					primaryResult <- fmt.Errorf("primary media ended early: video=%s audio=%s: %w", videoEnd, audioEnd, err)
 				} else {

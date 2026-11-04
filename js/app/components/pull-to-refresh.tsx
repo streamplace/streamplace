@@ -7,7 +7,7 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
-  ScrollView,
+  ScrollViewInstance,
   ScrollViewProps,
   View,
 } from "react-native";
@@ -151,7 +151,7 @@ export default function PullToRefreshScrollView({
 }: PullToRefreshScrollViewProps) {
   const pullY = useRef(new Animated.Value(0)).current;
   const triggered = useRef(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const isDragging = useRef(false);
   const currentY = useRef(0);
   const [contentInset, setContentInset] = useState(0);
@@ -188,7 +188,7 @@ export default function PullToRefreshScrollView({
       )}
       <Animated.ScrollView
         {...scrollViewProps}
-        ref={scrollRef as any}
+        ref={scrollRef}
         bounces={true}
         scrollEventThrottle={16}
         contentInset={{ top: contentInset }}

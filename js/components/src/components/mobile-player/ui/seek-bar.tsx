@@ -1,6 +1,11 @@
 import { KeyboardEvent, useState } from "react";
 import { LayoutChangeEvent, Platform, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import {
+  GestureDetector,
+  useCompetingGestures,
+  usePanGesture,
+  useTapGesture,
+} from "react-native-gesture-handler";
 import {
   borderRadius,
   colors,
@@ -31,42 +36,44 @@ export function SeekBar({
   const [scrubbing, setScrubbing] = useState(false);
   const [scrubTime, setScrubTime] = useState(0);
 
-  if (mode !== "vod" || duration <= 0) {
-    return null;
-  }
-
   const timeAt = (x: number) => {
     if (trackWidth <= 0) return 0;
     const clamped = Math.max(0, Math.min(trackWidth, x));
     return (clamped / trackWidth) * duration;
   };
 
-  const pan = Gesture.Pan()
-    .runOnJS(true)
-    .onBegin((e) => {
+  const pan = usePanGesture({
+    runOnJS: true,
+    onBegin: (e) => {
       setScrubbing(true);
       onScrubbingChange?.(true);
       setScrubTime(timeAt(e.x));
-    })
-    .onUpdate((e) => {
+    },
+    onUpdate: (e) => {
       setScrubTime(timeAt(e.x));
-    })
-    .onEnd((e) => {
+    },
+    onDeactivate: (e) => {
       seekTo(timeAt(e.x));
-    })
-    .onFinalize(() => {
+    },
+    onFinalize: () => {
       setScrubbing(false);
       onScrubbingChange?.(false);
-    });
+    },
+  });
 
-  const tap = Gesture.Tap()
-    .runOnJS(true)
-    .onEnd((e) => {
+  const tap = useTapGesture({
+    runOnJS: true,
+    onDeactivate: (e) => {
       seekTo(timeAt(e.x));
       onScrubbingChange?.(false);
-    });
+    },
+  });
 
-  const gesture = Gesture.Race(pan, tap);
+  const gesture = useCompetingGestures(pan, tap);
+
+  if (mode !== "vod" || duration <= 0) {
+    return null;
+  }
 
   const current = scrubbing ? scrubTime : playTime;
   const progressPct = Math.max(0, Math.min(1, current / duration)) * 100;

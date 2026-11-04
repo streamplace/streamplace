@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { zero } from "../..";
 import { C2PA_WARNING_LABELS } from "../../lib/metadata-constants";
 import { useTheme } from "../../lib/theme/theme";
@@ -12,7 +12,7 @@ export interface ContentWarningsProps {
   compact?: boolean;
 }
 
-export const ContentWarnings = forwardRef<View, ContentWarningsProps>(
+export const ContentWarnings = forwardRef<ViewInstance, ContentWarningsProps>(
   ({ warnings, compact = false, ...rest }, ref) => {
     const { theme } = useTheme();
 

@@ -1,8 +1,12 @@
 import {
-  BottomTabIcon,
+  BottomTabNavigationOptions,
   createBottomTabNavigator,
 } from "@react-navigation/bottom-tabs";
-import { useLinkTo, useNavigation } from "@react-navigation/native";
+import {
+  MaterialSymbolProps,
+  useLinkTo,
+  useNavigation,
+} from "@react-navigation/native";
 import {
   createNativeStackNavigator,
   NativeStackHeaderBackProps,
@@ -570,22 +574,27 @@ function SettingsNavigator() {
   );
 }
 
-const IOS_ICONS: Record<string, SFSymbols7_0> = {
+const IOS_ICONS = {
   Home: "house.fill",
   Videos: "play.rectangle.fill",
   Search: "magnifyingglass",
   Settings: "gearshape.fill",
-};
+} satisfies Record<string, SFSymbols7_0>;
 const ANDROID_ICONS = {
   Home: "home",
   Videos: "video_library",
   Search: "search",
   Settings: "settings",
-};
+} satisfies Record<string, MaterialSymbolProps["name"]>;
+
+type TabBarSymbolIcon = Extract<
+  BottomTabNavigationOptions["tabBarIcon"],
+  { type: string }
+>;
 
 const getIcon = (
   name: keyof typeof IOS_ICONS | keyof typeof ANDROID_ICONS,
-): BottomTabIcon => {
+): TabBarSymbolIcon => {
   if (Platform.OS === "ios") {
     return {
       type: "sfSymbol",

@@ -24,14 +24,14 @@ export default function HeaderSearch() {
   return (
     <View
       pointerEvents="box-none"
-      style={[StyleSheet.absoluteFillObject, { zIndex: 128002 }]}
+      style={[StyleSheet.absoluteFill, { zIndex: 128002 }]}
     >
       {open && (
         <Pressable
           testID="header-search-dismiss"
           accessibilityLabel={t("close")}
           onPress={dismiss}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
         />
       )}
       <View

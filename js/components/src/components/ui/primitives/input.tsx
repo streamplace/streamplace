@@ -11,9 +11,11 @@ import {
   Text,
   TextInput,
   TextInputProps,
+  TextInstance,
   TextProps,
   TouchableOpacity,
   View,
+  ViewInstance,
   ViewProps,
 } from "react-native";
 import { useTheme } from "../../../lib/theme/theme";
@@ -137,7 +139,7 @@ export interface InputContainerProps extends ViewProps {
   disabled?: boolean;
 }
 
-export const InputContainer = forwardRef<View, InputContainerProps>(
+export const InputContainer = forwardRef<ViewInstance, InputContainerProps>(
   (
     {
       children,
@@ -184,7 +186,7 @@ export interface InputLabelProps extends TextProps {
   error?: boolean;
 }
 
-export const InputLabel = forwardRef<Text, InputLabelProps>(
+export const InputLabel = forwardRef<TextInstance, InputLabelProps>(
   (
     {
       children,
@@ -229,7 +231,7 @@ export interface InputDescriptionProps extends TextProps {
   disabled?: boolean;
 }
 
-export const InputDescription = forwardRef<Text, InputDescriptionProps>(
+export const InputDescription = forwardRef<TextInstance, InputDescriptionProps>(
   ({ children, error = false, disabled = false, style, ...props }, ref) => {
     const { theme } = useTheme();
 
@@ -260,7 +262,7 @@ export interface InputErrorProps extends TextProps {
   visible?: boolean;
 }
 
-export const InputError = forwardRef<Text, InputErrorProps>(
+export const InputError = forwardRef<TextInstance, InputErrorProps>(
   ({ children, visible = true, style, ...props }, ref) => {
     const { theme } = useTheme();
 
@@ -351,7 +353,7 @@ export interface InputGroupProps extends ViewProps {
   spacing?: number;
 }
 
-export const InputGroup = forwardRef<View, InputGroupProps>(
+export const InputGroup = forwardRef<ViewInstance, InputGroupProps>(
   ({ children, spacing = 8, style, ...props }, ref) => {
     return (
       <View
@@ -371,7 +373,6 @@ const structuralStyles = StyleSheet.create({
   input: {
     minHeight: tokens.touchTargets.minimum,
     paddingHorizontal: tokens.spacing[3],
-    paddingVertical: tokens.spacing[2],
     // typeScale.md, not base — inputs below 16px trigger zoom-on-focus in
     // mobile web browsers, and md clears that floor at 18px
     fontSize: tokens.typeScale.md.fontSize,
@@ -386,6 +387,9 @@ const structuralStyles = StyleSheet.create({
       android: {
         paddingVertical: tokens.spacing[2],
         textAlignVertical: "center",
+      },
+      default: {
+        paddingVertical: tokens.spacing[2],
       },
     }),
   },

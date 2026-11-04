@@ -1,11 +1,9 @@
 *
 !.gitignore
-!mistserver.wrap
-!FFmpeg.wrap
-!c2pa_go.wrap
-!gstreamer-full.wrap
-!atproto.wrap
+!*.wrap
+# Meson generates redirects only after downloading their target subprojects.
+/gvdb.wrap
+/fdk-aac.wrap
+/json-glib.wrap
 !packagefiles/
 !packagefiles/**
-!iroh_streamplace.wrap
-!moq.wrap

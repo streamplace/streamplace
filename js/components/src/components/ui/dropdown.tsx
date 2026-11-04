@@ -431,7 +431,13 @@ export const DropdownMenuItem = forwardRef<
         // Flatten to a single style object: on web this style is forwarded
         // straight to a DOM node (via Radix asChild/Slot), and React DOM throws
         // "Indexed property setter is not supported" if handed a style array.
-        style={StyleSheet.flatten([{ outlineStyle: "none" }, style]) as any}
+        // flatten only merges objects, so a state-callback style never applied.
+        style={
+          StyleSheet.flatten([
+            { outlineWidth: 0 },
+            typeof style === "function" ? undefined : style,
+          ]) as any
+        }
         onFocus={(e: any) => {
           setActive(true);
           onFocus?.(e);

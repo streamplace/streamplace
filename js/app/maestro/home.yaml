@@ -1,8 +1,13 @@
 # Sweeps the native app shell and verifies the disabled create controls stay hidden.
 # Screenshots are captured per step and land in artifacts/home (see scripts/ui-shoot.sh).
-appId: tv.aquareum.dev
+# APP_ID is the bundle id: scripts/ui-shoot.sh passes the dev one, hack/ios-smoke.sh reads it from the build.
+appId: ${APP_ID}
 ---
 - launchApp
+# a fresh iOS install may show the notification permission dialog, which blocks taps
+- tapOn:
+    text: "Allow"
+    optional: true
 - assertVisible: "Home"
 - assertNotVisible: "Create"
 - assertNotVisible: "Go Live"

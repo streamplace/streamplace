@@ -312,7 +312,7 @@ export const Button = forwardRef<any, ButtonProps>(
         : node;
 
     // if href, wrap in pressable that renders as <a> on web
-    let Wrapper = React.Fragment;
+    let Wrapper: React.ElementType = React.Fragment;
     let wrapperProps = {};
     if (href) {
       Wrapper = Pressable;

@@ -3,12 +3,17 @@ import {
   useBottomSheetInternal,
 } from "@gorhom/bottom-sheet";
 import * as React from "react";
-import { Platform, TextInput, type TextInputProps } from "react-native";
+import {
+  Platform,
+  TextInput,
+  type TextInputInstance,
+  type TextInputProps,
+} from "react-native";
 import { flex, p } from "../../lib/theme/atoms";
 import { borderRadius, fontFamilies, typeScale } from "../../lib/theme/tokens";
 import { useTheme } from "../../ui";
 
-const Textarea = React.forwardRef<TextInput, TextInputProps>(
+const Textarea = React.forwardRef<TextInputInstance, TextInputProps>(
   ({ style, multiline = true, numberOfLines = 4, ...props }, ref) => {
     let th = useTheme();
     const [focused, setFocused] = React.useState(false);

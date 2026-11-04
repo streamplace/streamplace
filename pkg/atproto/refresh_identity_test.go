@@ -134,7 +134,7 @@ func TestRefreshIdentityFailureLeavesRowAndCache(t *testing.T) {
 	// The directory behind the authoritative path stops knowing the account;
 	// the cache built on the original one still does.
 	empty := identity.NewMockDirectory()
-	atsync.PLCDirectory = &empty
+	atsync.PLCDirectory = empty
 
 	_, err = atsync.RefreshIdentity(ctx, user.DID)
 	require.Error(t, err)
@@ -162,7 +162,7 @@ func TestRefreshIdentitySerializesWriters(t *testing.T) {
 		DID: did, Handle: "old.example", PDS: "https://old-pds.example", Version: "3lrev00000000",
 	}))
 	inner := identity.NewMockDirectory()
-	gate := &gatedDirectory{Directory: &inner, lookups: make(chan chan *identity.Identity)}
+	gate := &gatedDirectory{Directory: inner, lookups: make(chan chan *identity.Identity)}
 	atsync.PLCDirectory = gate
 	stale := mockIdentity(did, "old.example", "https://old-pds.example")
 	fresh := mockIdentity(did, "new.example", "https://new-pds.example")
@@ -216,7 +216,7 @@ func TestRefreshIdentityPurgesEvictedOwner(t *testing.T) {
 	}))
 	dir := identity.NewMockDirectory()
 	dir.Insert(mockIdentity(old, "alice.example", "https://pds.example"))
-	atsync.PLCDirectory = &dir
+	atsync.PLCDirectory = dir
 	// Warm the cache with the old owner, by DID and by handle.
 	require.Equal(t, "alice.example", atsync.ResolveAuthorHandle(ctx, old))
 	// Behind the cache, the handle moves.
@@ -257,7 +257,7 @@ func TestSyncBlueskyRepoCachedSettlesAmbiguousHandle(t *testing.T) {
 	}))
 	dir := identity.NewMockDirectory()
 	dir.Insert(mockIdentity(old, "alice.example", "https://pds.example"))
-	atsync.PLCDirectory = &dir
+	atsync.PLCDirectory = dir
 	warm, err := atsync.resolveIdent(ctx, "alice.example", true)
 	require.NoError(t, err)
 	require.Equal(t, old, warm.DID.String(), "the cache names the old owner")
@@ -311,7 +311,7 @@ func TestRefreshIdentityRejectsDelayedOldOwner(t *testing.T) {
 	dir := identity.NewMockDirectory()
 	dir.Insert(mockIdentity(old, "alice.example", "https://pds.example"))
 	delayed := &delayedIdentityDirectory{
-		Directory: &dir, stale: mockIdentity(old, "alice.example", "https://pds.example"),
+		Directory: dir, stale: mockIdentity(old, "alice.example", "https://pds.example"),
 		entered: make(chan struct{}), release: make(chan struct{}),
 	}
 	atsync.PLCDirectory = delayed
@@ -344,7 +344,7 @@ func TestSyncBlueskyRepoCachedRejectsChangedHandle(t *testing.T) {
 		require.NoError(t, mod.UpdateRepo(&model.Repo{DID: did, Handle: "alice.example", Version: "3lrev00000000"}))
 	}
 	inner := identity.NewMockDirectory()
-	gate := &gatedDirectory{Directory: &inner, lookups: make(chan chan *identity.Identity)}
+	gate := &gatedDirectory{Directory: inner, lookups: make(chan chan *identity.Identity)}
 	atsync.PLCDirectory = gate
 	done := make(chan error, 1)
 	go func() {

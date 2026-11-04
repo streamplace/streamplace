@@ -1,0 +1,10 @@
+[wrap-file]
+directory = freetype-2.15.0
+source_url = https://download.savannah.gnu.org/releases/freetype/freetype-2.15.0.tar.xz
+source_fallback_url = https://wrapdb.mesonbuild.com/v2/freetype2_2.15.0-1/get_source/freetype-2.15.0.tar.xz
+source_filename = freetype-2.15.0.tar.xz
+source_hash = 93cd47eb719c325107f2d3cf087d06299e944c3b48a40b55537302304dea1dd5
+wrapdb_version = 2.15.0-1
+
+[provide]
+dependency_names = freetype2

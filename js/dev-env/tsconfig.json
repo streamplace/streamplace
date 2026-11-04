@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "outDir": "dist/",
+    "rootDir": "./lib",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "target": "ESNext",

@@ -15,10 +15,10 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Keyboard,
-  NativeSyntheticEvent,
   Platform,
   ScrollView,
-  TextInputKeyPressEventData,
+  ScrollViewInstance,
+  TextInputKeyPressEvent,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -239,7 +239,7 @@ function DropdownSearch({
   const { state, throttledSearch, cancel } = useActorSearch();
   const [text, setText] = useState("");
   const [activeIndex, setActiveIndex] = useState(-1);
-  const resultsRef = useRef<ScrollView>(null);
+  const resultsRef = useRef<ScrollViewInstance>(null);
   const linkTo = useLinkTo();
   const actors = open && state.status === "done" ? state.actors : undefined;
   const activeActor = actors?.[activeIndex];
@@ -274,7 +274,7 @@ function DropdownSearch({
     if (Platform.OS !== "web") Keyboard.dismiss();
   };
 
-  const onKeyPress = (e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+  const onKeyPress = (e: TextInputKeyPressEvent) => {
     if ("isComposing" in e.nativeEvent && e.nativeEvent.isComposing) return;
     const key = e.nativeEvent.key;
     if (key === "Escape") {

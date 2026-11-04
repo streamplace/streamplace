@@ -15,7 +15,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { Linking, Platform, Pressable, View } from "react-native";
+import {
+  Linking,
+  Platform,
+  Pressable,
+  type PressableInstance,
+  View,
+} from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { zero } from "../..";
 import { useAvatars } from "../../hooks/useAvatars";
@@ -422,7 +428,7 @@ export const UserProfileCard = ({
   const { setOpenCard } = useContext(OpenCardContext);
   const [hovered, setHovered] = useState(false);
   // web: ref for measuring anchor position
-  const triggerRef = useRef<View>(null);
+  const triggerRef = useRef<PressableInstance>(null);
   // native: ref for the dropdown trigger
   const dropdownRef = useRef<TriggerRef>(null);
 

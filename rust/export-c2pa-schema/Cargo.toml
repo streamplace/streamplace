@@ -3,20 +3,21 @@ name = "export_c2pa_schema"
 authors = ["Streamplace <support@stream.place>"]
 license = "MIT OR Apache-2.0"
 edition = "2018"
-rust-version = "1.86.0"
+rust-version = "1.91"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(test)'] }
 # Workaround for https://github.com/est31/cargo-udeps/issues/293.
 
 [dependencies]
-anyhow = "1.0.40"
-c2pa = { git = "https://github.com/streamplace/c2pa-rs.git", rev = "f23cfd398aac79f06cc7114baa633096189d5a37", default-features = false, features = [
+anyhow = "1.0.104"
+c2pa = { git = "https://github.com/streamplace/c2pa-rs.git", rev = "81d737bd117743d8146cd8317604162af4df269f", default-features = false, features = [
   "rust_native_crypto",
   "file_io",
   "json_schema",
 ] }
-schemars = "0.8.21"
-serde_json = "1.0.117"
-serde = { version = "1.0.197", features = ["derive"] }
-serde_with = "3.11.0"
+# The c2pa fork implements JsonSchema from schemars 0.8.
+schemars = "0.8.22"
+serde_json = "1.0.154"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_with = "3.24.0"

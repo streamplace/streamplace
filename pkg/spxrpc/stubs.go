@@ -57,6 +57,10 @@ func (s *Server) HandleAppBskyFeedGetFeedSkeleton(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) RegisterHandlersChatbsky(e *echo.Echo) error {
+	return nil
+}
+
 func (s *Server) RegisterHandlersComatproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.identity.refreshIdentity", s.HandleComAtprotoIdentityRefreshIdentity)
 	e.GET("/xrpc/com.atproto.identity.resolveHandle", s.HandleComAtprotoIdentityResolveHandle)

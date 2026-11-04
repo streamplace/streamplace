@@ -6,11 +6,13 @@ import {
   ModalProps,
   Platform,
   ScrollView,
+  ScrollViewInstance,
   ScrollViewProps,
   StyleSheet,
   TouchableOpacity,
   TouchableOpacityProps,
   View,
+  ViewInstance,
   ViewProps,
 } from "react-native";
 import { useTheme } from "../../../lib/theme/theme";
@@ -25,7 +27,7 @@ export interface ModalPrimitiveProps extends Omit<ModalProps, "children"> {
 }
 
 // Modal root primitive - handles the native Modal component
-export const ModalRoot = forwardRef<View, ModalPrimitiveProps>(
+export const ModalRoot = forwardRef<ViewInstance, ModalPrimitiveProps>(
   (
     {
       open = false,
@@ -133,7 +135,7 @@ export interface ModalContentProps extends ViewProps {
   size?: "sm" | "md" | "lg" | "xl" | "full";
 }
 
-export const ModalContent = forwardRef<View, ModalContentProps>(
+export const ModalContent = forwardRef<ViewInstance, ModalContentProps>(
   (
     {
       children,
@@ -204,7 +206,7 @@ export interface ModalHeaderProps extends ViewProps {
   withBorder?: boolean;
 }
 
-export const ModalHeader = forwardRef<View, ModalHeaderProps>(
+export const ModalHeader = forwardRef<ViewInstance, ModalHeaderProps>(
   ({ children, withBorder = false, style, ...props }, ref) => {
     const { theme } = useTheme();
     const borderStyle = withBorder
@@ -230,7 +232,7 @@ export interface ModalBodyProps extends ScrollViewProps {
   scrollable?: boolean;
 }
 
-export const ModalBody = forwardRef<ScrollView, ModalBodyProps>(
+export const ModalBody = forwardRef<ScrollViewInstance, ModalBodyProps>(
   ({ children, scrollable = true, style, ...props }, ref) => {
     if (!scrollable) {
       return <View style={[primitiveStyles.body, style]}>{children}</View>;
@@ -260,7 +262,7 @@ export interface ModalFooterProps extends ViewProps {
     "flex-start" | "center" | "flex-end" | "space-between" | "space-around";
 }
 
-export const ModalFooter = forwardRef<View, ModalFooterProps>(
+export const ModalFooter = forwardRef<ViewInstance, ModalFooterProps>(
   (
     {
       children,

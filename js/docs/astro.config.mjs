@@ -8,6 +8,12 @@ import starlightSidebarTopics from "starlight-sidebar-topics";
 // https://astro.build/config
 export default defineConfig({
   base: "/docs",
+  // Keep Astro's cookie v2 API in its prerender bundle, not the hoisted v0 copy.
+  vite: {
+    environments: {
+      prerender: { resolve: { noExternal: ["cookie"] } },
+    },
+  },
   image: {
     service: passthroughImageService(),
   },

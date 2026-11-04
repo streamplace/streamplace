@@ -49,9 +49,8 @@ func (DraftVideo) TableName() string {
 
 // draftSpaceType / draftSkey encode the personal-space addressing used for all
 // draft VODs. The space authority is the user's own DID (personal data); the
-// space type is an NSID string only (no "type":"space" lexicon is defined, to
-// avoid the indigo-fork lexgen compatibility risk); the skey is the spec's
-// reserved personal-data key "self".
+// space type is an NSID string only (no "type":"space" lexicon is defined);
+// the skey is the spec's reserved personal-data key "self".
 const (
 	draftSpaceType  = "place.stream.vod.drafts"
 	draftSkey       = "self"

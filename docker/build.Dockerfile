@@ -8,9 +8,9 @@ ARG DOCKERFILE_HASH
 ENV DOCKERFILE_HASH $DOCKERFILE_HASH
 
 # You'll probably need to bump golangci-lint if you bump go
-ENV GO_VERSION 1.26.10
-ENV GOLANGCI_LINT_VERSION 2.12.2
-ENV NODE_VERSION 22.15.0
+ENV GO_VERSION 1.27.3
+ENV GOLANGCI_LINT_VERSION 2.15.0
+ENV NODE_VERSION 26.13.0
 ENV DEBIAN_FRONTEND noninteractive
 
 ADD docker/sources.list /etc/apt/sources.list
@@ -31,14 +31,14 @@ RUN dpkg --add-architecture i386 && dpkg --add-architecture arm64
 # mc mirror --overwrite /var/spool/apt-mirror/mirror/dl.winehq.org/ streamplace-crap/streamplace-crap/dl.winehq.org/
 
 RUN apt update \
-  && apt install -y build-essential curl git openjdk-17-jdk unzip jq g++ python3-pip ninja-build \
+  && apt install -y build-essential curl git openjdk-21-jdk unzip jq g++ python3-pip ninja-build \
   gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user-static pkg-config \
   nasm gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 mingw-w64-tools zip bison flex expect \
   mono-runtime nuget mono-xsp4 squashfs-tools \
   libc6:arm64 libstdc++6:arm64 \
   cmake libssl-dev libssl-dev:arm64 libbz2-dev zlib1g-dev hfsprogs hfsplus \
   ruby-rubygems postgresql sudo \
-  && pip install meson==1.11.2 tomli \
+  && pip install meson==1.12.1 tomli \
   && curl -L --fail https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz -o go.tar.gz \
   && tar -C /usr/local -xf go.tar.gz \
   && rm go.tar.gz
@@ -55,12 +55,12 @@ RUN git clone https://github.com/mozilla/libdmg-hfsplus /tmp/libdmg-hfsplus \
   && rm -rf /tmp/libdmg-hfsplus
 
 RUN echo 'deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/winehq-archive.key] https://storage.googleapis.com/streamplace-crap/dl.winehq.org/wine-builds/ubuntu/ jammy main' >> /etc/apt/sources.list \
-  && echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/llvm-snapshot.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-21 main' >> /etc/apt/sources.list \
+  && echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/llvm-snapshot.key] https://apt.llvm.org/jammy/ llvm-toolchain-jammy-23 main' >> /etc/apt/sources.list \
   && apt update \
   && apt install -y --install-recommends winehq-stable \
-  clang-21 lldb-21 lld-21 clangd-21
+  clang-23 lldb-23 lld-23 clangd-23
 
-ENV PATH /usr/lib/llvm-21/bin:$PATH:/usr/local/go/bin:/root/go/bin:/root/.cargo/bin
+ENV PATH /usr/lib/llvm-23/bin:$PATH:/usr/local/go/bin:/root/go/bin:/root/.cargo/bin
 
 RUN export NODEARCH="$TARGETARCH" \
   && if [ "$TARGETARCH" = "amd64" ]; then export NODEARCH="x64"; fi \
@@ -71,7 +71,7 @@ RUN export NODEARCH="$TARGETARCH" \
 
 RUN npm install -g corepack@latest
 
-ARG ANDROID_SDK_VERSION=11076708
+ARG ANDROID_SDK_VERSION=16111833
 ENV ANDROID_HOME /opt/android-sdk
 RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
   curl -L -O https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_VERSION}_latest.zip && \
@@ -81,7 +81,7 @@ RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
   curl -L https://raw.githubusercontent.com/thyrlian/AndroidSDK/bfcbf0cdfd6bb1ef45579e6ddc4d3876264cbdd1/android-sdk/license_accepter.sh | bash
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh \
-  && bash rustup.sh -y \
+  && bash rustup.sh -y --default-toolchain 1.99.1 \
   && rustup target add aarch64-unknown-linux-gnu \
   && rustup target add x86_64-unknown-linux-gnu \
   && rustup target add x86_64-pc-windows-gnu \
@@ -110,7 +110,7 @@ RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v${GOLAN
   && rm -rf golangci-lint.tar.gz golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64
 
 RUN gem install fpm
-ENV APTLY_VERSION 1.6.2
+ENV APTLY_VERSION 1.6.3
 RUN curl --fail -L https://github.com/aptly-dev/aptly/releases/download/v${APTLY_VERSION}/aptly_${APTLY_VERSION}_linux_amd64.zip -o aptly.zip \
   && unzip aptly.zip \
   && mv aptly_${APTLY_VERSION}_linux_amd64/aptly /usr/local/bin/ \
@@ -126,11 +126,13 @@ FROM builder-no-darwin AS builder
 
 WORKDIR /osxcross
 
-RUN git clone https://github.com/tpoechtrager/osxcross.git .
+RUN git clone https://github.com/tpoechtrager/osxcross.git . \
+  && git checkout 27d21e4977c9751d01199c7a226a6faf494c3dd9
 # RUN UNATTENDED=1 ./build_apple_clang.sh
-ENV MAC_SDK_VERSION 15.4
+ENV MAC_SDK_VERSION 26.1
 RUN curl -L --fail https://github.com/joseluisq/macosx-sdks/releases/download/$MAC_SDK_VERSION/MacOSX$MAC_SDK_VERSION.sdk.tar.xz -o /osxcross/tarballs/MacOSX$MAC_SDK_VERSION.sdk.tar.xz
-RUN UNATTENDED=1 ./build.sh
+# Use current LLVM tools; legacy cctools do not support LLVM 23's callback ABI.
+RUN BUILD_FLAVOR=llvm UNATTENDED=1 ./build.sh
 RUN cargo install apple-codesign
 ENV PATH /osxcross/target/bin:$PATH
 

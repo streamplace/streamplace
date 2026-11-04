@@ -178,6 +178,26 @@ ios: app
 	&& cd bin \
 	&& tar -czvf streamplace-$(VERSION)-ios-release.xcarchive.tar.gz streamplace-$(VERSION)-ios-release.xcarchive'
 
+# Test-only Release build with embedded JS and OTA updates disabled.
+.PHONY: ios-simulator
+ios-simulator: install
+	cd js/app && SP_E2E_BUILD=true pnpm run prebuild
+	bash -eu -c ' \
+		set -- ./js/app/ios/*.xcworkspace; \
+		workspace="$$1"; \
+		scheme="$${workspace##*/}"; \
+		scheme="$${scheme%.xcworkspace}"; \
+		xcodebuild \
+		-workspace "$$workspace" \
+		-sdk iphonesimulator \
+		-destination "generic/platform=iOS Simulator" \
+		-configuration Release \
+		-scheme "$$scheme" \
+		-derivedDataPath ./bin/ios-simulator \
+		ARCHS="$$(uname -m)" \
+		CODE_SIGNING_ALLOWED=NO \
+		build'
+
 #    _____  ____
 #   / ____|/ __ \
 #  | |  __| |  | |
@@ -493,7 +513,7 @@ go-lexicons:
 
 .PHONY: js-lexicons
 js-lexicons:
-	pnpm exec lex install \
+	go tool github.com/streamplace/glex/cmd/glex install \
 	&& node js/streamplace/scripts/gen-raw-lexicons.mjs \
 	&& pnpm exec lex build \
 		--lexicons lexicons \
@@ -627,12 +647,12 @@ ci-npm-release: install
 
 .build/bin/uniffi-bindgen-go-forked:
 	mkdir -p .build \
-	&& cargo install uniffi-bindgen-go --git https://github.com/kegsay/uniffi-bindgen-go --rev f1f1064871faf05377c75e098d525d530d402d38 --root .build \
+	&& cargo install uniffi-bindgen-go --git https://github.com/kegsay/uniffi-bindgen-go --rev 73d8f45737c0678bd7abe9366b9d452f9d4abfa9 --root .build \
 	&& mv .build/bin/uniffi-bindgen-go .build/bin/uniffi-bindgen-go-forked
 
 .build/bundletool.jar:
 	mkdir -p .build \
-	&& curl -L -o ./.build/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.0/bundletool-all-1.17.0.jar
+	&& curl -L -o ./.build/bundletool.jar https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
 
 .PHONY: selftest-macos
 selftest-macos:
@@ -736,12 +756,12 @@ windows-amd64:
 
 .PHONY: darwin-amd64
 darwin-amd64:
-	export CC=x86_64-apple-darwin24.4-clang \
-	&& export CC_X86_64_APPLE_DARWIN=x86_64-apple-darwin24.4-clang \
-	&& export CXX_X86_64_APPLE_DARWIN=x86_64-apple-darwin24.4-clang++ \
-	&& export AR_X86_64_APPLE_DARWIN=x86_64-apple-darwin24.4-ar \
-	&& export CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER=x86_64-apple-darwin24.4-clang \
-	&& export LD=x86_64-apple-darwin24.4-ld \
+	export CC=x86_64-apple-darwin25.1-clang \
+	&& export CC_X86_64_APPLE_DARWIN=x86_64-apple-darwin25.1-clang \
+	&& export CXX_X86_64_APPLE_DARWIN=x86_64-apple-darwin25.1-clang++ \
+	&& export AR_X86_64_APPLE_DARWIN=x86_64-apple-darwin25.1-ar \
+	&& export CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER=x86_64-apple-darwin25.1-clang \
+	&& export LD=x86_64-apple-darwin25.1-ld \
 	&& export CROSS_COMPILE=1 \
 	&& export MACOSX_DEPLOYMENT_TARGET=12.3 \
 	&& export MESON_SETUP_OPTS="--cross-file util/osxcross-darwin-amd64.ini" \
@@ -759,12 +779,12 @@ darwin-amd64:
 
 .PHONY: darwin-arm64
 darwin-arm64:
-	export CC=aarch64-apple-darwin24.4-clang \
-	&& export CC_AARCH64_APPLE_DARWIN=aarch64-apple-darwin24.4-clang \
-	&& export CXX_AARCH64_APPLE_DARWIN=aarch64-apple-darwin24.4-clang++ \
-	&& export AR_AARCH64_APPLE_DARWIN=aarch64-apple-darwin24.4-ar \
-	&& export CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=aarch64-apple-darwin24.4-clang \
-	&& export LD=aarch64-apple-darwin24.4-ld \
+	export CC=aarch64-apple-darwin25.1-clang \
+	&& export CC_AARCH64_APPLE_DARWIN=aarch64-apple-darwin25.1-clang \
+	&& export CXX_AARCH64_APPLE_DARWIN=aarch64-apple-darwin25.1-clang++ \
+	&& export AR_AARCH64_APPLE_DARWIN=aarch64-apple-darwin25.1-ar \
+	&& export CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=aarch64-apple-darwin25.1-clang \
+	&& export LD=aarch64-apple-darwin25.1-ld \
 	&& export CROSS_COMPILE=1 \
 	&& export MACOSX_DEPLOYMENT_TARGET=12.3 \
 	&& export MESON_SETUP_OPTS="--cross-file util/osxcross-darwin-arm64.ini" \

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { View as RNView } from "react-native";
+import type { ViewInstance } from "react-native";
 import {
   DanmuOverlay,
   getFirstPlayerID,
@@ -34,7 +34,7 @@ export function Fullscreen(props: {
   const danmuLaneCount = useDanmuLaneCount();
   const danmuMaxMessages = useDanmuMaxMessages();
 
-  const divRef = useRef<RNView>(null);
+  const divRef = useRef<ViewInstance>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   // iPhone Safari has no Element.requestFullscreen, only the video
   // element's own webkitEnterFullscreen; the store holds that element.

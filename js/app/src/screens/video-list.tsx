@@ -103,7 +103,7 @@ export default function VideoListScreen({
           <View style={[zero.my[4]]}>
             <Title>{heading}</Title>
           </View>
-        ) : null
+        ) : undefined
       }
       ListEmptyComponent={
         loading ? (
@@ -157,7 +157,7 @@ export default function VideoListScreen({
           <View style={{ paddingVertical: 24, alignItems: "center" }}>
             <ActivityIndicator color={theme.colors.textMuted} />
           </View>
-        ) : null
+        ) : undefined
       }
     />
   );

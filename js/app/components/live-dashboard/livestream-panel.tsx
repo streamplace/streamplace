@@ -716,7 +716,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                       // re-focus the input after submitting
                       setTimeout(() => {
                         const input = e.target;
-                        input.focus();
+                        if (typeof input === "object") input.focus();
                       }, 10);
                     }}
                     inputStyle={[

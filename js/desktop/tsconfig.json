@@ -1,19 +1,15 @@
 {
   "compilerOptions": {
-    "target": "ES6",
+    "target": "ES2022",
     "allowJs": true,
-    "module": "commonjs",
+    "module": "Node16",
     "skipLibCheck": true,
     "esModuleInterop": true,
     "noImplicitAny": true,
     "sourceMap": true,
-    "baseUrl": ".",
     "outDir": "dist",
-    "moduleResolution": "node",
+    "moduleResolution": "Node16",
     "resolveJsonModule": true,
-    "paths": {
-      "*": ["node_modules/*"]
-    },
     "lib": ["es2021"]
   },
   "include": ["src/**/*"]

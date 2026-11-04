@@ -102,7 +102,7 @@ export function DanmuCategorySettings() {
               </View>
               {Platform.OS === "web" && (
                 <Slider.Root
-                  value={[danmuOpacity] as any}
+                  value={danmuOpacity}
                   min={0}
                   max={100}
                   step={5}
@@ -199,7 +199,7 @@ export function DanmuCategorySettings() {
               </View>
               {Platform.OS === "web" && (
                 <Slider.Root
-                  value={[danmuSpeed] as any}
+                  value={danmuSpeed}
                   min={0.5}
                   max={2}
                   step={0.1}
@@ -292,7 +292,7 @@ export function DanmuCategorySettings() {
               </View>
               {Platform.OS === "web" && (
                 <Slider.Root
-                  value={[danmuLaneCount] as any}
+                  value={danmuLaneCount}
                   min={4}
                   max={20}
                   step={1}
@@ -385,7 +385,7 @@ export function DanmuCategorySettings() {
               </View>
               {Platform.OS === "web" && (
                 <Slider.Root
-                  value={[danmuMaxMessages] as any}
+                  value={danmuMaxMessages}
                   min={5}
                   max={200}
                   step={5}

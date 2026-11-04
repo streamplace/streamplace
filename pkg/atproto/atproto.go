@@ -419,8 +419,7 @@ func (atsync *ATProtoSynchronizer) directory(cached bool) identity.Directory {
 		atsync.PLCDirectory = CustomDirectory(atsync.CLI.PLCURL)
 	}
 	if atsync.CachedPLCDirectory == nil {
-		cachedDir := identity.NewCacheDirectory(atsync.PLCDirectory, 250_000, time.Hour*24, time.Minute*2, time.Minute*5)
-		atsync.CachedPLCDirectory = &cachedDir
+		atsync.CachedPLCDirectory = identity.NewCacheDirectory(atsync.PLCDirectory, 250_000, time.Hour*24, time.Minute*2, time.Minute*5)
 	}
 	if cached {
 		return atsync.CachedPLCDirectory
@@ -449,7 +448,7 @@ func (atsync *ATProtoSynchronizer) purgeIdentCache(ctx context.Context, did stri
 		return
 	}
 	if cd, ok := atsync.directory(true).(*identity.CacheDirectory); ok {
-		if err := cd.Purge(ctx, *atid); err != nil {
+		if err := cd.Purge(ctx, atid); err != nil {
 			log.Debug(ctx, "failed to purge cached identity", "did", did, "err", err)
 		}
 	}
@@ -462,7 +461,7 @@ func (atsync *ATProtoSynchronizer) resolveIdent(ctx context.Context, arg string,
 		return nil, err
 	}
 
-	resolvedID, err := dir.Lookup(ctx, *id)
+	resolvedID, err := dir.Lookup(ctx, id)
 	if err != nil {
 		return nil, err
 	}

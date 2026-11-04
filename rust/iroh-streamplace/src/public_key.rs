@@ -51,7 +51,7 @@ impl PublicKey {
         self.key.to_vec()
     }
 
-    /// Make a PublicKey from base32 string
+    /// Make a PublicKey from its hexadecimal string representation.
     #[uniffi::constructor]
     #[allow(clippy::result_large_err)]
     pub fn from_string(s: String) -> Result<Self, PublicKeyError> {
@@ -82,7 +82,7 @@ impl PublicKey {
         Ok(key.into())
     }
 
-    /// Convert to a base32 string limited to the first 10 bytes for a friendly string
+    /// Convert the first five key bytes to ten hexadecimal characters for a friendly
     /// representation of the key.
     pub fn fmt_short(&self) -> String {
         iroh::PublicKey::from(self).fmt_short().to_string()

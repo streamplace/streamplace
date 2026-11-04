@@ -134,13 +134,13 @@ func TestPDSAuthMiddleware(t *testing.T) {
 	other := newPDSAuthTestKey(t)
 	dir := identity.NewMockDirectory()
 	dir.Insert(pdsAuthTestIdentity(t, priv))
-	e := newPDSAuthTestServer(&dir)
+	e := newPDSAuthTestServer(dir)
 
 	p256, err := atcrypto.GeneratePrivateKeyP256()
 	require.NoError(t, err)
 	p256Dir := identity.NewMockDirectory()
 	p256Dir.Insert(pdsAuthTestIdentity(t, p256))
-	p256Server := newPDSAuthTestServer(&p256Dir)
+	p256Server := newPDSAuthTestServer(p256Dir)
 
 	bareAud := "did:web:" + pdsAuthTestHost
 	now := time.Now()
@@ -199,7 +199,7 @@ func TestPDSAuthMiddleware(t *testing.T) {
 }
 
 type rotatingDirectory struct {
-	identity.MockDirectory
+	*identity.MockDirectory
 	mu      sync.Mutex
 	rotated identity.Identity
 	purges  int
@@ -391,7 +391,7 @@ func TestAuthMiddlewareStack(t *testing.T) {
 	priv := newPDSAuthTestKey(t)
 	dir := identity.NewMockDirectory()
 	dir.Insert(pdsAuthTestIdentity(t, priv))
-	e, client := newOAuthTestStack(t, &dir)
+	e, client := newOAuthTestStack(t, dir)
 
 	t.Run("oatproxy session", func(t *testing.T) {
 		rec := client.call(t, e)

@@ -7,7 +7,7 @@ import { WidgetLeaf } from "./widget-leaf";
 interface LayoutRendererProps {
   node: LayoutNode;
   store: LivestreamStore;
-  user?: string;
+  user: string;
   /** Called when the layout tree should be updated. */
   onUpdate: (updater: (node: LayoutNode) => LayoutNode) => void;
   /** Path of this node in the tree (array of child indices). */
@@ -159,7 +159,7 @@ interface SortableWidgetLeafProps {
   index: number;
   widgetKey: string;
   store: LivestreamStore;
-  user?: string;
+  user: string;
   onWidgetChange?: (newWidget: string) => void;
   onWidgetRemove?: () => void;
   /** Non-null when this leaf is the current drop target. */
@@ -211,7 +211,7 @@ export function DraggableLayoutRenderer({
 }: {
   layout: LayoutNode;
   store: LivestreamStore;
-  user?: string;
+  user: string;
   onUpdate: (updater: (node: LayoutNode) => LayoutNode) => void;
   onWidgetChange?: (path: number[], newWidget: string) => void;
   onWidgetRemove?: (path: number[]) => void;

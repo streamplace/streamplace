@@ -106,7 +106,15 @@ export const UserOffline = memo((props: { compact?: boolean }) => {
     } else {
       navigation.reset({
         index: 0,
-        routes: [{ name: "MainTabs", params: { screen: "Home" } }],
+        routes: [
+          {
+            name: "MainTabs",
+            params: {
+              screen: "HomeTab",
+              params: { screen: "HomeMain" },
+            },
+          },
+        ],
       });
     }
   };

@@ -218,7 +218,6 @@ export default function () {
           backgroundColor: brand.colors.adaptiveIconBackground,
         },
         package: bundle,
-        edgeToEdgeEnabled: true,
         versionCode: versionCode(pkg.version),
         intentFilters: [
           {
@@ -331,10 +330,9 @@ export default function () {
         ],
         [withConsistentVersionNumber, { version: pkg.version }],
         [
-          "react-native-edge-to-edge",
+          "@zoontek/react-native-navigation-bar",
           {
             android: {
-              parentTheme: "Default",
               enforceNavigationBarContrast: false,
             },
           },

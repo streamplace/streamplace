@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect } from "react";
-import { Text, View, type ViewProps } from "react-native";
+import { Text, View, type ViewInstance, type ViewProps } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -27,7 +27,7 @@ export interface BadgeProps extends ViewProps {
 }
 
 /** Status pill. Solid fill for `live`, tinted quiet fills otherwise. */
-export const Badge = forwardRef<View, BadgeProps>(
+export const Badge = forwardRef<ViewInstance, BadgeProps>(
   ({ children, variant = "neutral", size = "sm", style, ...props }, ref) => {
     const { theme } = useTheme();
     const c = theme.colors;
@@ -153,7 +153,7 @@ export interface LiveBadgeProps extends Omit<BadgeProps, "variant"> {
  * The LIVE badge. Reads instantly: live-red fill, uppercase label,
  * pulsing dot, tabular viewer count.
  */
-export const LiveBadge = forwardRef<View, LiveBadgeProps>(
+export const LiveBadge = forwardRef<ViewInstance, LiveBadgeProps>(
   ({ count, dot = true, label = "LIVE", size = "sm", ...props }, ref) => {
     const { theme } = useTheme();
     return (

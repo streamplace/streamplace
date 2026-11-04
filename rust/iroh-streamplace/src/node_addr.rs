@@ -1,4 +1,4 @@
-use iroh_base::ticket::NodeTicket;
+use iroh_tickets::endpoint::EndpointTicket;
 use std::{str::FromStr, sync::Arc};
 
 use crate::public_key::PublicKey;
@@ -13,7 +13,7 @@ pub struct NodeAddr {
 
 #[uniffi::export]
 impl NodeAddr {
-    /// Create a new [`NodeAddr`] with empty [`AddrInfo`].
+    /// Create a new [`NodeAddr`] with the supplied addressing information.
     #[uniffi::constructor]
     pub fn new(node_id: &PublicKey, derp_url: Option<String>, addresses: Vec<String>) -> Self {
         Self {
@@ -43,7 +43,7 @@ impl NodeAddr {
     }
 }
 
-/// Error when converting from ffi NodeAddr to iroh::NodeAddr
+/// Error when converting from ffi NodeAddr to iroh::EndpointAddr.
 #[derive(Debug, snafu::Snafu, uniffi::Error)]
 #[uniffi(flat_error)]
 #[snafu(visibility(pub(crate)))]
@@ -54,11 +54,11 @@ pub enum NodeAddrError {
     InvalidNetworkAddress { source: std::net::AddrParseError },
 }
 
-impl TryFrom<NodeAddr> for iroh::NodeAddr {
+impl TryFrom<NodeAddr> for iroh::EndpointAddr {
     type Error = NodeAddrError;
 
     fn try_from(value: NodeAddr) -> Result<Self, Self::Error> {
-        let mut node_addr = iroh::NodeAddr::new((&*value.node_id).into());
+        let mut node_addr = iroh::EndpointAddr::new((&*value.node_id).into());
         let addresses = value
             .direct_addresses()
             .into_iter()
@@ -70,26 +70,22 @@ impl TryFrom<NodeAddr> for iroh::NodeAddr {
 
             node_addr = node_addr.with_relay_url(url.into());
         }
-        node_addr = node_addr.with_direct_addresses(addresses);
+        node_addr = node_addr.with_addrs(addresses.into_iter().map(iroh::TransportAddr::Ip));
         Ok(node_addr)
     }
 }
 
-impl From<iroh::NodeAddr> for NodeAddr {
-    fn from(value: iroh::NodeAddr) -> Self {
+impl From<iroh::EndpointAddr> for NodeAddr {
+    fn from(value: iroh::EndpointAddr) -> Self {
         NodeAddr {
-            node_id: Arc::new(value.node_id.into()),
-            relay_url: value.relay_url.map(|url| url.to_string()),
-            addresses: value
-                .direct_addresses
-                .into_iter()
-                .map(|d| d.to_string())
-                .collect(),
+            node_id: Arc::new(value.id.into()),
+            relay_url: value.relay_urls().next().map(|url| url.to_string()),
+            addresses: value.ip_addrs().map(|addr| addr.to_string()).collect(),
         }
     }
 }
 
-/// Error when converting from ffi NodeAddr to iroh::NodeAddr
+/// Error parsing an endpoint ticket.
 #[derive(Debug, snafu::Snafu, uniffi::Error)]
 #[uniffi(flat_error)]
 pub enum TicketError {
@@ -101,9 +97,9 @@ pub enum TicketError {
 pub fn node_id_from_ticket(
     ticket_str: String,
 ) -> Result<Arc<crate::public_key::PublicKey>, TicketError> {
-    let ticket = NodeTicket::from_str(&ticket_str).map_err(|e| TicketError::ParseError {
+    let ticket = EndpointTicket::from_str(&ticket_str).map_err(|e| TicketError::ParseError {
         message: e.to_string(),
     })?;
-    let node_addr = ticket.node_addr();
-    Ok(Arc::new(node_addr.node_id.into()))
+    let node_addr = ticket.endpoint_addr();
+    Ok(Arc::new(node_addr.id.into()))
 }

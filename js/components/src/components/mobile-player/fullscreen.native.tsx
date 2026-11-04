@@ -1,12 +1,13 @@
+import { NavigationBar } from "@zoontek/react-native-navigation-bar";
 import { VideoView } from "expo-video";
 import { useEffect, useRef } from "react";
 import {
   BackHandler,
+  StatusBar,
   StyleSheet,
   useWindowDimensions,
   View,
 } from "react-native";
-import { SystemBars } from "react-native-edge-to-edge";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   DanmuOverlay,
@@ -60,30 +61,21 @@ export function Fullscreen(props: {
     setSrc(props.src);
   }, [props.src]);
 
-  // Hide status bar when in fullscreen mode
+  // Stack entries restore the previous bar state when this player leaves.
   useEffect(() => {
-    if (fullscreen) {
-      SystemBars.setHidden(true);
-      console.log("setting sidebar hidden");
-
-      // Handle hardware back button
-      const backHandler = BackHandler.addEventListener(
-        "hardwareBackPress",
-        () => {
+    const statusBar = StatusBar.pushStackEntry({ hidden: fullscreen });
+    const navigationBar = NavigationBar.pushStackEntry({ hidden: fullscreen });
+    const backHandler = fullscreen
+      ? BackHandler.addEventListener("hardwareBackPress", () => {
           setFullscreen(false);
           return true;
-        },
-      );
-
-      return () => {
-        backHandler.remove();
-      };
-    } else {
-      SystemBars.setHidden(false);
-    }
+        })
+      : undefined;
 
     return () => {
-      SystemBars.setHidden(false);
+      backHandler?.remove();
+      StatusBar.popStackEntry(statusBar);
+      NavigationBar.popStackEntry(navigationBar);
     };
   }, [fullscreen, setFullscreen]);
 

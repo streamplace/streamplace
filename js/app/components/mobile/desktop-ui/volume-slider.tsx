@@ -117,7 +117,6 @@ export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
             }
             scheduleFadeOut();
           }}
-          asChild
         >
           <Slider.Track
             testID="player-volume-track"

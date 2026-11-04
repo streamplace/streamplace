@@ -48,7 +48,7 @@ func TestSweepCheckRefreshesIdentityBeforeHeadRequest(t *testing.T) {
 	}))
 	dir := identity.NewMockDirectory()
 	dir.Insert(mockIdentity(did, "fresh.example", host.URL))
-	atsync.PLCDirectory = &dir
+	atsync.PLCDirectory = dir
 
 	done := make(chan bool)
 	go func() {
@@ -222,7 +222,7 @@ func TestSweepHealsIdentityBehindCache(t *testing.T) {
 
 	realDirectory := atsync.directory(false)
 	authoritative := identity.NewMockDirectory()
-	atsync.PLCDirectory = &authoritative
+	atsync.PLCDirectory = authoritative
 	atsync.CachedPLCDirectory = nil
 	for _, tc := range []struct {
 		user                      *devenv.DevEnvAccount

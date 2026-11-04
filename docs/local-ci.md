@@ -324,6 +324,15 @@ edge-to-edge support and the maintained navigation-bar controls.
 Firebase Apple SDK 13 is distributed through Swift Package Manager only.
 The Expo build-properties plugin selects dynamic iOS frameworks, as required
 by React Native Firebase 27; do not restore the old static-linking overrides.
+Expo's precompiled React Native integration builds the WebRTC pod as a static
+library. The existing WebRTC plugin exposes `WebRTCModuleOptions.h` through the
+app's Swift bridging header instead of importing a nonexistent framework module.
+
+Electron's application sources use TypeScript's bundler resolution and preserve
+imports for webpack; Forge's Node-loaded configuration keeps Node16 resolution.
+Webpack CSS imports and Forge-injected preload paths have ambient declarations.
+The desktop updater uses its existing static feed directly, with the same
+ten-minute interval and restart prompt, rather than depending on a second updater.
 
 Iroh 1.x uses `endpoint...` tickets and a new transport protocol. Upgrade
 communicating nodes together and exchange newly generated tickets; old

@@ -4,9 +4,11 @@ import {
   ConfigPlugin,
   IOSConfig,
   withAppDelegate,
+  withDangerousMod,
   withMainApplication,
   withXcodeProject,
 } from "expo/config-plugins";
+import { readFile, writeFile } from "fs/promises";
 import { resolve } from "path";
 
 const buildError = (message: string) => {
@@ -137,7 +139,8 @@ const iosDelegateReplacements = [
     to: () => `
 import ReactAppDependencyProvider
 import WebRTC
-import react_native_webrtc
+// WebRTCModuleOptions is exposed through the app's bridging header because
+// Expo's precompiled React Native integration builds this pod as a static library.
 import AVFoundation
     `,
   },
@@ -168,6 +171,23 @@ const withWorkingIOSWebRTCAudio: ConfigPlugin = (config) => {
 
     return config;
   });
+  config = withDangerousMod(config, [
+    "ios",
+    async (config) => {
+      const name = IOSConfig.XcodeUtils.sanitizedName(config.name);
+      const header = resolve(
+        config.modRequest.platformProjectRoot,
+        name,
+        `${name}-Bridging-Header.h`,
+      );
+      const contents = await readFile(header, "utf8");
+      const include = "#import <react-native-webrtc/WebRTCModuleOptions.h>";
+      if (!contents.includes(include)) {
+        await writeFile(header, `${contents}\n${include}\n`);
+      }
+      return config;
+    },
+  ]);
 
   // add the CustomRTCAudioDevice files to the xcode project
   config = withXcodeProject(config, (config) => {

@@ -76,7 +76,7 @@ if (require("electron-squirrel-startup")) {
           title: "Error on Bootup",
           message:
             "Please report to the Streamplace developers at git.stream.place!",
-          detail: e.message + "\n" + e.stack,
+          detail: e instanceof Error ? `${e.message}\n${e.stack}` : String(e),
         };
 
         await dialog.showMessageBox(dialogOpts);

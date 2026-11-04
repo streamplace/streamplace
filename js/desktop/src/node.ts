@@ -28,9 +28,9 @@ const findExe = async (): Promise<string> => {
   try {
     await access(exe, constants.F_OK);
   } catch (e) {
-    throw new Error(
-      `could not find streamplace node binary at ${exe}: ${e.message}`,
-    );
+    throw new Error(`could not find streamplace node binary at ${exe}`, {
+      cause: e,
+    });
   }
   return exe;
 };

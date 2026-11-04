@@ -43,6 +43,9 @@ RUN apt update \
   && tar -C /usr/local -xf go.tar.gz \
   && rm go.tar.gz
 
+# freedesktop.org's HTTP/2 Git responses can terminate before the pack is complete.
+RUN git config --global http.https://gitlab.freedesktop.org/.version HTTP/1.1
+
 # Builds DMGs from macOS app bundles on Linux (hack/make-dmg.sh), so the
 # desktop-darwin job no longer needs a Mac. hfsprogs/hfsplus create the HFS+
 # image; libdmg-hfsplus wraps it in a UDIF.

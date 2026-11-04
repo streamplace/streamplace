@@ -305,6 +305,8 @@ the explicit native build-script allowlist; pnpm 12 no longer reads
 `node-linker` from `.npmrc`.
 Filtered installs still execute the root `prepare` hook. Include the i18n and
 brand workspaces so their translation and asset generators have dependencies.
+The builder and macOS CI use HTTP/1.1 only for Git fetches from freedesktop.org:
+its HTTP/2 responses have truncated pack downloads across fresh CI runners.
 
 The Expo SDK 58 / React Native 0.88 upgrade requires new iOS and Android
 binaries. Its OTA runtime is `0.12.15`, separate from the previous `0.12.0`

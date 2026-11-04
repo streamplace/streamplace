@@ -132,6 +132,7 @@ build-android-release:
     - 'echo "which xcodeproj: $(which xcodeproj)"'
     - 'echo "xcodeproj --version: $(xcodeproj --version)"'
     - "$(which xcodeproj) --version"
+    - git config --global http.https://gitlab.freedesktop.org/.version HTTP/1.1
     - >
       export GOTOOLCHAIN=go1.27.3
       && python3 -m pip install virtualenv

@@ -352,6 +352,7 @@ jobs:
         run: |
           npm install -g corepack@latest \
           && corepack enable \
+          && git config --global http.https://gitlab.freedesktop.org/.version HTTP/1.1 \
           && export GOTOOLCHAIN=go1.27.3 \
           && brew install go llvm \
           && rustup toolchain install 1.99.1 && rustup default 1.99.1 \

@@ -245,6 +245,9 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					if bp.DisplayName != nil && *bp.DisplayName != "" {
 						p["displayName"] = *bp.DisplayName
 					}
+					if bp.Pronouns != nil {
+						p["pronouns"] = *bp.Pronouns
+					}
 					if bp.Avatar != nil {
 						p["avatar"] = fmt.Sprintf("https://cdn.bsky.app/img/avatar/plain/%s/%s@jpeg", repoDID, bp.Avatar.Ref.String())
 					}

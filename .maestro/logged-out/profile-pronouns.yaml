@@ -1,0 +1,46 @@
+appId: ${APP_ID}
+# The streamer's Bluesky profile pronouns show, trimmed, beside their identity.
+# onFlowStart puts padded pronouns in the harness account's real profile record
+# on the PDS; the node indexes it and sends it with the stream. The chat profile
+# card reads pronouns from the public AppView, which doesn't know harness
+# accounts, so only the Web suite (stubbing that AppView) covers it.
+# onFlowComplete restores the original profile even when the flow fails.
+onFlowStart:
+  - runScript:
+      file: profile-pronouns.js
+      env:
+        PROFILE_PRONOUNS_STEP: set
+onFlowComplete:
+  - runScript:
+      file: profile-pronouns.js
+      env:
+        PROFILE_PRONOUNS_STEP: restore
+---
+# The node sends the streamer's profile once per stream connection, so reopen
+# the stream until the node has indexed the record from the PDS firehose.
+- retry:
+    maxRetries: 3
+    commands:
+      - launchApp
+      - extendedWaitUntil:
+          visible:
+            id: "home-stream-card"
+          timeout: 30000
+      - tapOn:
+          id: "home-stream-card"
+      - extendedWaitUntil:
+          visible:
+            id: "stream-pronouns"
+            text: "ze/zir"
+          timeout: 15000
+- takeScreenshot: profile-pronouns-stream
+# The same element stays visible while the stream info is expanded.
+- tapOn: "Expand stream info"
+- extendedWaitUntil:
+    visible: "Collapse stream info"
+    timeout: 3000
+- assertVisible:
+    id: "stream-pronouns"
+    text: "ze/zir"
+- takeScreenshot: profile-pronouns-stream-expanded
+- tapOn: "Collapse stream info"

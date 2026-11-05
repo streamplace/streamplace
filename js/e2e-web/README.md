@@ -46,6 +46,16 @@ smoke, navigation, and stream coverage correspond to
 `.maestro/setup/oauth-login.yaml`; authenticated chat/profile behavior is covered
 on mobile by `.maestro/logged-in/{chat-reply,chat-profile}.yaml`.
 
+`pronouns` covers Bluesky pronouns in streamer identity metadata and chat profile
+cards in Expo web and the Vite beta. Pronouns are read-only here; users edit
+`app.bsky.actor.profile` through Bluesky. Padded values are trimmed, and blank or
+missing values leave no placeholder. The test writes a real PDS profile and
+waits for the indexed websocket profile; only public AppView discovery and chat
+profile lookup are substituted because the harness account is not public.
+Cleanup restores the original profile, using an empty record when none existed
+because profile deletions are not indexed. The native counterpart is
+`.maestro/logged-out/profile-pronouns.yaml`.
+
 `invalid-handle` runs against both Expo web and the Vite beta. It moves the
 harness account to a real `.test` handle, which cannot pass public
 bidirectional verification, and calls `com.atproto.identity.refreshIdentity`.

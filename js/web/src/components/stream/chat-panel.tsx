@@ -573,6 +573,10 @@ function ProfileCardContent({
   const lastSelectedBadgeIndexRef = useRef(0);
   const handle = formatHandle(author);
   const name = author.displayName || handle;
+  // The hover card only mounts while open, so this looks up the cached public
+  // profile for one author on demand rather than for every chat message.
+  const dids = useMemo(() => [author.did], [author.did]);
+  const pronouns = useAvatars(dids)[author.did]?.pronouns?.trim();
 
   useLayoutEffect(() => {
     const detailIsOpen = selectedBadgeIndex !== null;
@@ -656,6 +660,14 @@ function ProfileCardContent({
               </div>
             )}
             <div className="truncate">{formatHandleWithAt(author)}</div>
+            {pronouns && (
+              <div
+                data-testid="chat-profile-pronouns"
+                className="truncate text-sm text-(--color-fg-muted)"
+              >
+                {pronouns}
+              </div>
+            )}
           </div>
           <a
             href={`https://bsky.app/profile/${handle}`}

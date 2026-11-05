@@ -11,6 +11,12 @@
       "default": "./dist/src/index.js"
     }
   },
+  "files": [
+    "dist",
+    "locales",
+    "public",
+    "src"
+  ],
   "license": "MIT",
   "scripts": {
     "prepare": "node scripts/compile-translations.js && tsc",

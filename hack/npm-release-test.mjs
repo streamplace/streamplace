@@ -3,8 +3,9 @@
 // Dry run of `make ci-npm-release`. Builds and packs every package that
 // `lerna publish` would release, then checks the tarballs as a consumer would
 // see them: every workspace dependency must be published alongside the
-// package, and each entry point must bundle (with web and native file
-// resolution) from the unpacked tarballs alone.
+// package, and each entry point (both the JavaScript `default` export and the
+// `types` entry that TypeScript consumers check against) must bundle, with web
+// and native file resolution, from the unpacked tarballs alone.
 
 import * as esbuild from "esbuild";
 import { execFileSync } from "node:child_process";
@@ -97,28 +98,36 @@ try {
   };
 
   for (const name of published.keys()) {
-    for (const [platform, ext] of [
-      ["web", ".web.js"],
-      ["native", ".native.js"],
-    ]) {
-      try {
-        await esbuild.build({
-          absWorkingDir: dir,
-          entryPoints: [name],
-          bundle: true,
-          write: false,
-          logLevel: "silent",
-          platform: "neutral",
-          mainFields: ["main"],
-          resolveExtensions: [ext, ".js", ".json"],
-          loader: { ".png": "empty" },
-          plugins: [tarballsOnly],
-        });
-      } catch (e) {
-        if (!e.errors) throw e;
-        for (const { text, location } of e.errors) {
-          const at = location ? ` (${location.file}:${location.line})` : "";
-          errors.push(`${name} [${platform}]: ${text}${at}`);
+    for (const platform of ["web", "native"]) {
+      for (const entry of ["default", "types"]) {
+        try {
+          await esbuild.build({
+            absWorkingDir: dir,
+            entryPoints: [name],
+            bundle: true,
+            write: false,
+            logLevel: "silent",
+            platform: "neutral",
+            conditions: entry === "types" ? ["types"] : [],
+            mainFields: entry === "types" ? ["types", "main"] : ["main"],
+            resolveExtensions: [
+              `.${platform}.tsx`,
+              `.${platform}.ts`,
+              `.${platform}.js`,
+              ".tsx",
+              ".ts",
+              ".js",
+              ".json",
+            ],
+            loader: { ".png": "empty" },
+            plugins: [tarballsOnly],
+          });
+        } catch (e) {
+          if (!e.errors) throw e;
+          for (const { text, location } of e.errors) {
+            const at = location ? ` (${location.file}:${location.line})` : "";
+            errors.push(`${name} [${platform} ${entry}]: ${text}${at}`);
+          }
         }
       }
     }

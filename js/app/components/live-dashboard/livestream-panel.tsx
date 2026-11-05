@@ -349,6 +349,12 @@ function LivestreamPanel({
   const initializedRef = useRef(false);
   const editedFields = useRef(new Set<string>());
   const [title, setTitle] = useState("");
+  const [titleDraftUnavailable, setTitleDraftUnavailable] = useState(false);
+  const restoredTitleDraft = useRef<string | null>(null);
+  const titleDraftKey =
+    isWeb && dashboardWeb && profile?.did && url
+      ? `creator:title-draft:${JSON.stringify([url, profile.did])}`
+      : null;
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<
     string | File | Blob | undefined
@@ -374,6 +380,25 @@ function LivestreamPanel({
   const defaultCanonicalUrl = useMemo(() => {
     return `${url}/${profile && formatHandle(profile)}`;
   }, [url, profile?.handle]);
+
+  useEffect(() => {
+    if (!titleDraftKey || restoredTitleDraft.current === titleDraftKey) return;
+    restoredTitleDraft.current = titleDraftKey;
+    try {
+      if (editedFields.current.has("title")) {
+        localStorage.setItem(titleDraftKey, title);
+      } else {
+        const draft = localStorage.getItem(titleDraftKey);
+        if (draft !== null) {
+          editedFields.current.add("title");
+          setTitle(draft);
+        }
+      }
+      setTitleDraftUnavailable(false);
+    } catch {
+      setTitleDraftUnavailable(true);
+    }
+  }, [titleDraftKey, title]);
 
   useEffect(() => {
     if (!livestream) {
@@ -515,6 +540,17 @@ function LivestreamPanel({
         originalOptions.current = { canonicalUrl, idleTimeout };
       }
 
+      if (titleDraftKey) {
+        try {
+          if (localStorage.getItem(titleDraftKey) === title) {
+            localStorage.removeItem(titleDraftKey);
+          }
+          setTitleDraftUnavailable(false);
+        } catch {
+          setTitleDraftUnavailable(true);
+        }
+      }
+
       // Show success message
       const toastTitle = updating
         ? "Livestream updated"
@@ -560,6 +596,7 @@ function LivestreamPanel({
     activity,
     tags,
     toast,
+    titleDraftKey,
   ]);
 
   const handleEndLivestream = useCallback(async () => {
@@ -762,6 +799,14 @@ function LivestreamPanel({
                   onChangeText={(value) => {
                     editedFields.current.add("title");
                     setTitle(value);
+                    if (titleDraftKey) {
+                      try {
+                        localStorage.setItem(titleDraftKey, value);
+                        setTitleDraftUnavailable(false);
+                      } catch {
+                        setTitleDraftUnavailable(true);
+                      }
+                    }
                   }}
                   placeholder="Enter your stream title..."
                   maxLength={140}
@@ -777,6 +822,12 @@ function LivestreamPanel({
                     { fontSize: 15, lineHeight: 22 },
                   ]}
                 />
+                {titleDraftUnavailable && (
+                  <Text size="xs" color="destructive">
+                    This browser couldn't store your title draft. Keep this page
+                    open until you save.
+                  </Text>
+                )}
                 <View style={[layout.flex.row, layout.flex.spaceBetween]}>
                   <Text style={[text.neutral[600], { fontSize: 11 }]}>
                     {title.trim() === "" ? "Required" : ""}

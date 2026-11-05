@@ -22,11 +22,14 @@ export async function loginThroughPds(page: Page): Promise<void> {
   });
 }
 
-export async function completePdsLogin(page: Page): Promise<void> {
+export async function completePdsLogin(
+  page: Page,
+  credentials?: { handle: string; password: string },
+): Promise<void> {
   const httpsUrl = process.env.SERVER_HTTPS_URL!;
   const pdsUrl = process.env.PDS_HTTPS_URL!;
-  const handle = process.env.ACCOUNT_HANDLE!;
-  const password = process.env.ACCOUNT_PASSWORD!;
+  const handle = credentials?.handle ?? process.env.ACCOUNT_HANDLE!;
+  const password = credentials?.password ?? process.env.ACCOUNT_PASSWORD!;
   const appOrigin = new URL(httpsUrl).origin;
   const pdsOrigin = new URL(pdsUrl).origin;
 

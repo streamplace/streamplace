@@ -85,6 +85,16 @@ const endErrorMessage =
   "Couldn't confirm whether the announcement ended. Check your connection and status before trying again.";
 const endWaitingMessage =
   "Waiting for the stream status to update. If this takes too long, reload to check the status.";
+const END_CONFIRMATION_KEY = "creator:show-end-confirmation";
+
+function shouldConfirmEnd(): boolean {
+  if (!isWeb) return true;
+  try {
+    return localStorage.getItem(END_CONFIRMATION_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
 
 function isSameNodeUrl(candidate: string, nodeUrl: string): boolean {
   try {
@@ -332,6 +342,8 @@ function LivestreamPanel({
   const [endRequestComplete, setEndRequestComplete] = useState(false);
   const [endError, setEndError] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [showEndConfirmation, setShowEndConfirmation] =
+    useState(shouldConfirmEnd);
   const [showOptions, setShowOptions] = useState(false);
   const canonicalUrlLabel = useId();
   const postPermissionDescription = useId();
@@ -351,6 +363,30 @@ function LivestreamPanel({
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+
+  useEffect(() => {
+    if (!isWeb) return;
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === END_CONFIRMATION_KEY || event.key === null) {
+        setShowEndConfirmation(event.newValue !== "false");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const saveEndConfirmation = (show: boolean) => {
+    try {
+      localStorage.setItem(END_CONFIRMATION_KEY, String(show));
+      setShowEndConfirmation(show);
+    } catch {
+      toast.show(
+        "Couldn't save this preference",
+        "The confirmation setting couldn't be changed in this browser.",
+        { duration: 4 },
+      );
+    }
+  };
 
   useEffect(() => {
     if (!agent || vodBetaStatus !== "granted") return;
@@ -1220,6 +1256,13 @@ function LivestreamPanel({
                         label="End livestream automatically"
                       />
                     </Tooltip>
+                    {isWeb && (
+                      <Checkbox
+                        checked={showEndConfirmation}
+                        onCheckedChange={saveEndConfirmation}
+                        label="Show end confirmation on this device"
+                      />
+                    )}
                     {vodBetaStatus === "granted" && (
                       <Tooltip
                         content={t("auto-publish-vods-stream-description")}
@@ -1292,7 +1335,13 @@ function LivestreamPanel({
               onPress={() => {
                 if (isWeb) {
                   setEndError(false);
-                  setConfirmEnd(true);
+                  const shouldConfirm = shouldConfirmEnd();
+                  setShowEndConfirmation(shouldConfirm);
+                  if (shouldConfirm) {
+                    setConfirmEnd(true);
+                  } else {
+                    void handleEndLivestream();
+                  }
                 } else {
                   void handleEndLivestream();
                 }
@@ -1320,6 +1369,22 @@ function LivestreamPanel({
           <Text size="sm" color="muted">
             If automatic VOD publishing is on, ending may publish a recording.
           </Text>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={endingLivestream}
+            onPress={() => saveEndConfirmation(!showEndConfirmation)}
+            style={{ marginTop: theme.spacing[2] }}
+          >
+            {showEndConfirmation
+              ? "Don't show this again on this device"
+              : "Show this confirmation on this device"}
+          </Button>
+          {!showEndConfirmation && (
+            <Text size="xs" color="muted">
+              This confirmation is off in this browser.
+            </Text>
+          )}
           {endError && (
             <Text size="sm" color="destructive">
               {endErrorMessage}

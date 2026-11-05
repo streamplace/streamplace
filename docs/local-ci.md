@@ -300,6 +300,8 @@ under `.maestro/artifacts/ios/`.
 CI allows five minutes for Maestro's cold XCTest driver startup. The first
 hosted run started its driver HTTP server after the default deadline; the flow
 assertions and their timeouts are unchanged.
+Maestro handles notification permission prompts during `launchApp`; the shell
+flow must not tap Allow a second time after the dialog has disappeared.
 
 ## Dependency upgrades and deployment
 

@@ -4,10 +4,7 @@
 appId: ${APP_ID}
 ---
 - launchApp
-# a fresh iOS install may show the notification permission dialog, which blocks taps
-- tapOn:
-    text: "Allow"
-    optional: true
+# Maestro handles notification prompts through launchApp's default permissions.
 - assertVisible: "Home"
 - assertNotVisible: "Create"
 - assertNotVisible: "Go Live"

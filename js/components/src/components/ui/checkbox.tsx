@@ -1,5 +1,5 @@
 import { Check } from "lucide-react-native";
-import { forwardRef } from "react";
+import { forwardRef, useId } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { Theme, useTheme } from "../../lib/theme/theme";
 import { Text } from "./text";
@@ -13,6 +13,7 @@ export interface CheckboxProps {
   label?: string;
   description?: string;
   style?: any;
+  "aria-describedby"?: string;
 }
 
 export const Checkbox = forwardRef<any, CheckboxProps>(
@@ -30,6 +31,7 @@ export const Checkbox = forwardRef<any, CheckboxProps>(
     ref,
   ) => {
     const { theme } = useTheme();
+    const descriptionId = useId();
 
     const handlePress = () => {
       if (!disabled) {
@@ -47,6 +49,7 @@ export const Checkbox = forwardRef<any, CheckboxProps>(
         disabled={disabled}
         accessibilityRole="checkbox"
         accessibilityLabel={label}
+        aria-describedby={description ? descriptionId : undefined}
         aria-checked={checked}
         aria-disabled={disabled}
         {...props}
@@ -76,6 +79,7 @@ export const Checkbox = forwardRef<any, CheckboxProps>(
             )}
             {description && (
               <Text
+                nativeID={descriptionId}
                 size={size === "sm" ? "xs" : size === "lg" ? "base" : "sm"}
                 color={disabled ? "muted" : "muted"}
                 style={{ marginTop: theme.spacing[1] }}

@@ -283,6 +283,8 @@ export const Dialog = forwardRef<any, DialogProps>(
                 {showCloseButton && (
                   <ModalPrimitive.Close
                     onClose={handleClose}
+                    accessibilityLabel="Close"
+                    accessibilityRole="button"
                     style={styles.closeButton}
                   >
                     <DialogCloseIcon />

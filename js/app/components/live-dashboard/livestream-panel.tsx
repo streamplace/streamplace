@@ -9,6 +9,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  ExplanationDialog,
   formatHandle,
   getBlob,
   hexToRgba,
@@ -41,7 +42,14 @@ import {
 import { Image } from "expo-image";
 import type { LiveDashboardStatus } from "hooks/useLiveDashboardStatus";
 import { ChevronsUpDown, Globe, ImagePlus, Lock, X } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   Platform,
@@ -65,6 +73,12 @@ const { flex, p, px, py, gap, layout, bg, borders, text, r, w, typography } =
   zero;
 
 const isWeb = Platform.OS === "web";
+const canonicalExplanation =
+  "Set this to have the livestream announced with a link to this URL instead of the default URL.";
+const notificationExplanation =
+  "Send a push notification to your followers on the Streamplace iOS/Android app.";
+const automaticEndExplanation =
+  "Enabling this setting will turn your livestream off after 5 minutes of inactivity, and you'll need to press the 'Start Livestream' button again to start it again next time you stream.";
 
 function isSameNodeUrl(candidate: string, nodeUrl: string): boolean {
   try {
@@ -311,6 +325,7 @@ function LivestreamPanel({
   const [endingLivestream, setEndingLivestream] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const canonicalUrlLabel = useId();
   const [warningsOpened, setWarningsOpened] = useState(false);
   const bodyRef = useRef<ScrollView>(null);
   const { t } = useTranslation("settings");
@@ -1004,16 +1019,57 @@ function LivestreamPanel({
               )}
               {(!dashboardWeb || showOptions) && (
                 <>
+                  {dashboardWeb && (
+                    <ExplanationDialog
+                      title="About stream options"
+                      entries={[
+                        {
+                          label: "Canonical URL",
+                          description: canonicalExplanation,
+                        },
+                        ...(!updating
+                          ? [
+                              {
+                                label: `Create ${networkName} post`,
+                                description: canPostToBluesky
+                                  ? `Create a ${networkName} post announcing you're live with a link to the stream.`
+                                  : `You signed in without granting ${networkName} permissions, so Streamplace can't post to your account. Log out and back in to change this.`,
+                              },
+                              {
+                                label: "Send push notification",
+                                description: notificationExplanation,
+                              },
+                            ]
+                          : []),
+                        {
+                          label: "End livestream automatically",
+                          description: automaticEndExplanation,
+                        },
+                        ...(vodBetaStatus === "granted"
+                          ? [
+                              {
+                                label: t("auto-publish-vods-stream-label"),
+                                description: t(
+                                  "auto-publish-vods-stream-description",
+                                ),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  )}
                   {/* Canonical URL */}
-                  <Tooltip
-                    content="Set this to have the livestream announced with a link to this URL instead of the default URL."
-                    position="top"
-                  >
+                  <Tooltip content={canonicalExplanation} position="top">
                     <View style={[gap.all[1]]}>
-                      <Text size="sm" color="muted">
+                      <Text
+                        nativeID={canonicalUrlLabel}
+                        size="sm"
+                        color="muted"
+                      >
                         Canonical URL
                       </Text>
                       <Input
+                        aria-labelledby={canonicalUrlLabel}
                         value={canonicalUrl}
                         onChange={(value) => {
                           editedFields.current.add("canonicalUrl");
@@ -1078,10 +1134,7 @@ function LivestreamPanel({
                       </Tooltip>
                     )}
                     {!updating && (
-                      <Tooltip
-                        content="Send a push notification to your followers on the Streamplace iOS/Android app."
-                        position="top"
-                      >
+                      <Tooltip content={notificationExplanation} position="top">
                         <Checkbox
                           checked={sendPushNotification}
                           onCheckedChange={(checked) => {
@@ -1092,10 +1145,7 @@ function LivestreamPanel({
                         />
                       </Tooltip>
                     )}
-                    <Tooltip
-                      content="Enabling this setting will turn your livestream off after 5 minutes of inactivity, and you'll need to press the 'Start Livestream' button again to start it again next time you stream."
-                      position="top"
-                    >
+                    <Tooltip content={automaticEndExplanation} position="top">
                       <Checkbox
                         checked={idleTimeout}
                         onCheckedChange={(checked) => {

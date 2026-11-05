@@ -1,7 +1,15 @@
-import { forwardRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import {
+  cloneElement,
+  forwardRef,
+  isValidElement,
+  useId,
+  useRef,
+  useState,
+} from "react";
+import { Platform, StyleSheet, View } from "react-native";
 import { useTheme } from "../../lib/theme/theme";
 import { Text } from "../ui/text";
+import { Checkbox, CheckboxProps } from "./checkbox";
 
 export interface TooltipProps {
   content: string;
@@ -14,14 +22,19 @@ export const Tooltip = forwardRef<any, TooltipProps>(
   ({ content, children, position = "top", style }, ref) => {
     const { theme } = useTheme();
     const [isVisible, setIsVisible] = useState(false);
+    const id = useId();
+    const focused = useRef(false);
+    const hovered = useRef(false);
     const styles = createStyles(theme, position);
 
     const handleHoverIn = () => {
+      hovered.current = true;
       setIsVisible(true);
     };
 
     const handleHoverOut = () => {
-      setIsVisible(false);
+      hovered.current = false;
+      if (!focused.current) setIsVisible(false);
     };
 
     return (
@@ -30,10 +43,38 @@ export const Tooltip = forwardRef<any, TooltipProps>(
         style={[styles.container, style]}
         onPointerEnter={handleHoverIn}
         onPointerLeave={handleHoverOut}
+        {...(Platform.OS === "web"
+          ? {
+              onFocus: () => {
+                focused.current = true;
+                setIsVisible(true);
+              },
+              onBlur: () => {
+                focused.current = false;
+                if (!hovered.current) setIsVisible(false);
+              },
+              onKeyDown: (event: {
+                key: string;
+                stopPropagation: () => void;
+              }) => {
+                if (event.key === "Escape" && isVisible) {
+                  event.stopPropagation();
+                  setIsVisible(false);
+                }
+              },
+            }
+          : {})}
       >
-        {children}
-        {isVisible && (
-          <View style={styles.tooltip}>
+        {Platform.OS === "web" &&
+        isValidElement<CheckboxProps>(children) &&
+        children.type === Checkbox
+          ? cloneElement(children, { "aria-describedby": id })
+          : children}
+        {(isVisible || Platform.OS === "web") && (
+          <View
+            nativeID={id}
+            style={[styles.tooltip, !isVisible && { display: "none" }]}
+          >
             <Text style={styles.tooltipText}>{content}</Text>
           </View>
         )}

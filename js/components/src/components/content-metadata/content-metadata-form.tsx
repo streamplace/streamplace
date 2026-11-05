@@ -1,6 +1,14 @@
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import {
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   useWindowDimensions,
@@ -28,6 +36,7 @@ import * as zero from "../../ui";
 import { Admonition, SegmentedTabs } from "../ui";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
+import { ExplanationDialog } from "../ui/explanation-dialog";
 import { Input } from "../ui/input";
 import { Select } from "../ui/select";
 import { Text } from "../ui/text";
@@ -36,6 +45,22 @@ import { useToast } from "../ui/toast";
 import { Tooltip } from "../ui/tooltip";
 
 const { p, r, bg, borders, w, text, layout, gap, flex } = zero;
+const distributionExplanations = [
+  {
+    label: "Allow everyone to distribute your content",
+    description:
+      "Anyone can distribute your content, but they still have to respect the retention setting below.",
+  },
+  {
+    label: "Mark your content as available for generative AI training",
+    description:
+      "Your video's metadata signals whether you want your content used to train generative AI.",
+  },
+  {
+    label: "Allow everyone to archive your content",
+    description: "Anyone may archive your content indefinitely.",
+  },
+];
 
 function mergeEditedFields<T extends object>(
   base: T | undefined,
@@ -91,6 +116,9 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const toast = useToast();
     const th = zero.useTheme();
     const { width } = useWindowDimensions();
+    const fieldIds = useId();
+    const showWarningDescriptions =
+      Platform.OS === "web" && width >= breakpoints.md;
     const allSections = showAllSections && !warningsOnly;
     const stackedFields = allSections && width < breakpoints.md;
     const stackedFieldStyle = stackedFields
@@ -566,30 +594,65 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                       },
                   ]}
                 >
-                  {CONTENT_WARNINGS.map((warning) => (
-                    <View
-                      key={warning.value}
-                      style={[
-                        w.percent[100],
-                        allSections &&
-                          width >= breakpoints.lg && {
-                            width: "50%",
-                            paddingRight: th.theme.spacing[2],
-                          },
-                      ]}
-                    >
-                      <Tooltip content={warning.description} position="top">
-                        <Checkbox
-                          checked={contentWarnings.includes(warning.value)}
-                          onCheckedChange={(checked) =>
-                            handleContentWarningChange(warning.value, checked)
-                          }
-                          label={warning.label}
-                          style={[{ fontSize: 12 }]}
-                        />
-                      </Tooltip>
-                    </View>
-                  ))}
+                  {CONTENT_WARNINGS.map((warning) => {
+                    const choice = (
+                      <Checkbox
+                        checked={contentWarnings.includes(warning.value)}
+                        onCheckedChange={(checked) =>
+                          handleContentWarningChange(warning.value, checked)
+                        }
+                        label={warning.label}
+                        description={
+                          showWarningDescriptions
+                            ? warning.description
+                            : undefined
+                        }
+                        style={[{ fontSize: 12 }]}
+                      />
+                    );
+                    return (
+                      <View
+                        key={warning.value}
+                        style={[
+                          w.percent[100],
+                          Platform.OS === "web" &&
+                            !showWarningDescriptions &&
+                            layout.flex.row,
+                          Platform.OS === "web" &&
+                            !showWarningDescriptions &&
+                            layout.flex.alignCenter,
+                          allSections &&
+                            width >= breakpoints.lg && {
+                              width: "50%",
+                              paddingRight: th.theme.spacing[2],
+                            },
+                        ]}
+                      >
+                        {showWarningDescriptions ? (
+                          choice
+                        ) : (
+                          <Tooltip
+                            content={warning.description}
+                            position="top"
+                            style={
+                              Platform.OS === "web"
+                                ? { flexShrink: 1 }
+                                : undefined
+                            }
+                          >
+                            {choice}
+                          </Tooltip>
+                        )}
+                        {Platform.OS === "web" && !showWarningDescriptions && (
+                          <ExplanationDialog
+                            compact
+                            title={`About ${warning.label}`}
+                            entries={[warning]}
+                          />
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
                 <Admonition variant="info" size="sm">
                   <Text size="sm">
@@ -648,6 +711,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                     ]}
                   >
                     <Text
+                      nativeID={`${fieldIds}-year`}
                       style={[
                         text.neutral[300],
                         {
@@ -665,6 +729,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                       style={[flex.values[1], stackedFields && { flex: 0 }]}
                     >
                       <Input
+                        aria-labelledby={`${fieldIds}-year`}
                         value={contentRights.copyrightYear?.toString() || ""}
                         onChange={(value) =>
                           handleContentRightsChange("copyrightYear", value)
@@ -693,6 +758,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                     ]}
                   >
                     <Text
+                      nativeID={`${fieldIds}-license`}
                       style={[
                         text.neutral[300],
                         {
@@ -710,6 +776,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                       style={[flex.values[1], stackedFields && { flex: 0 }]}
                     >
                       <Select
+                        labelledBy={`${fieldIds}-license`}
                         value={selectedLicense}
                         onValueChange={(value) => {
                           setSelectedLicense(value);
@@ -748,6 +815,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                       ]}
                     >
                       <Text
+                        nativeID={`${fieldIds}-custom-license`}
                         style={[
                           text.neutral[300],
                           {
@@ -765,6 +833,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                         style={[flex.values[1], stackedFields && { flex: 0 }]}
                       >
                         <Textarea
+                          aria-labelledby={`${fieldIds}-custom-license`}
                           value={customLicenseText}
                           onChangeText={(value) => {
                             setCustomLicenseText(value);
@@ -800,6 +869,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                     ]}
                   >
                     <Text
+                      nativeID={`${fieldIds}-notice`}
                       style={[
                         text.neutral[300],
                         {
@@ -817,6 +887,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                       style={[flex.values[1], stackedFields && { flex: 0 }]}
                     >
                       <Textarea
+                        aria-labelledby={`${fieldIds}-notice`}
                         value={contentRights.copyrightNotice || ""}
                         onChangeText={(value: string) =>
                           handleContentRightsChange("copyrightNotice", value)
@@ -848,6 +919,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                     ]}
                   >
                     <Text
+                      nativeID={`${fieldIds}-credit`}
                       style={[
                         text.neutral[300],
                         {
@@ -865,6 +937,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                       style={[flex.values[1], stackedFields && { flex: 0 }]}
                     >
                       <Textarea
+                        aria-labelledby={`${fieldIds}-credit`}
                         value={contentRights.creditLine || ""}
                         onChangeText={(value: string) =>
                           handleContentRightsChange("creditLine", value)
@@ -905,6 +978,12 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                     Distribution
                   </Text>
                   <Text muted>(optional)</Text>
+                  {Platform.OS === "web" && (
+                    <ExplanationDialog
+                      title="About distribution"
+                      entries={distributionExplanations}
+                    />
+                  )}
                 </View>
                 {allSections && loadingDistribution && (
                   <Text size="xs" color="muted">
@@ -934,7 +1013,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
 
                 {/* allow everyone to distribute your content */}
                 <Tooltip
-                  content="Distribution of your content is unlimited, but they still have to respect the deleteAfter policy below."
+                  content={distributionExplanations[0].description}
                   position="top"
                 >
                   <Checkbox
@@ -983,6 +1062,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                       ]}
                     >
                       <Text
+                        nativeID={`${fieldIds}-broadcasters`}
                         leading="tight"
                         style={[
                           text.neutral[300],
@@ -1011,6 +1091,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                           allow to distribute your content, one per line.
                         </Text>
                         <Input
+                          aria-labelledby={`${fieldIds}-broadcasters`}
                           disabled={allSections && distributionLoadError}
                           multiline={true}
                           numberOfLines={4}
@@ -1041,7 +1122,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 )}
 
                 <Tooltip
-                  content="Your video's metadata signals whether you want your content used to train generative AI."
+                  content={distributionExplanations[1].description}
                   position="top"
                 >
                   <Checkbox
@@ -1063,7 +1144,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 </Tooltip>
 
                 <Tooltip
-                  content="Anyone may archive your content indefinitely."
+                  content={distributionExplanations[2].description}
                   position="top"
                 >
                   <Checkbox
@@ -1103,6 +1184,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                       ]}
                     >
                       <Text
+                        nativeID={`${fieldIds}-retention`}
                         style={[
                           text.neutral[300],
                           {
@@ -1128,6 +1210,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                           Duration in seconds (e.g., 300 for 5 minutes)
                         </Text>
                         <Input
+                          aria-labelledby={`${fieldIds}-retention`}
                           disabled={allSections && distributionLoadError}
                           value={
                             distributionPolicy.deleteAfter?.toString() || ""

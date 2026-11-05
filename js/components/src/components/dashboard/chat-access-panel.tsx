@@ -1,5 +1,5 @@
 import { ShieldCheck, Trash2 } from "lucide-react-native";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Button, Input, SegmentedTabs, useToast } from "../../components/ui";
 import { atoms } from "../../lib/theme";
@@ -39,6 +39,7 @@ export default function ChatAccessPanel({
 }: ChatAccessPanelProps) {
   const { theme } = useTheme();
   const toast = useToast();
+  const fieldIds = useId();
   const { rules, isLoading, error, refresh } = useListChatAccessRules();
   const { addRule, isLoading: adding } = useAddChatAccessRule();
   const { removeRule, isLoading: removing } = useRemoveChatAccessRule();
@@ -222,8 +223,11 @@ export default function ChatAccessPanel({
           />
           {subjectType === "verifier" ? (
             <View style={[mb[1]]}>
-              <Text style={label}>Verifier DID or handle</Text>
+              <Text nativeID={`${fieldIds}-verifier`} style={label}>
+                Verifier DID or handle
+              </Text>
               <Input
+                aria-labelledby={`${fieldIds}-verifier`}
                 value={verifier}
                 onChangeText={setVerifier}
                 placeholder="did:plc:... or @verifier.example"
@@ -234,16 +238,22 @@ export default function ChatAccessPanel({
           ) : (
             <View style={[gap.all[2]]}>
               <View>
-                <Text style={label}>Labeler DID or handle</Text>
+                <Text nativeID={`${fieldIds}-labeler`} style={label}>
+                  Labeler DID or handle
+                </Text>
                 <Input
+                  aria-labelledby={`${fieldIds}-labeler`}
                   value={labeler}
                   onChangeText={setLabeler}
                   placeholder="did:plc:... or @labeler.example"
                 />
               </View>
               <View>
-                <Text style={label}>Label (trailing * matches a prefix)</Text>
+                <Text nativeID={`${fieldIds}-label`} style={label}>
+                  Label (trailing * matches a prefix)
+                </Text>
                 <Input
+                  aria-labelledby={`${fieldIds}-label`}
                   value={labelValue}
                   onChangeText={setLabelValue}
                   placeholder="verified"

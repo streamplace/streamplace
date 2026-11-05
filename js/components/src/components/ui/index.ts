@@ -12,6 +12,7 @@ export * from "./button";
 export * from "./checkbox";
 export * from "./dialog";
 export * from "./dropdown";
+export * from "./explanation-dialog";
 export * from "./icon-button";
 export * from "./icons";
 export * from "./info-box";

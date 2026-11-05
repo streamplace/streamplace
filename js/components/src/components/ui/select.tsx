@@ -25,6 +25,7 @@ export interface SelectProps {
   placeholder?: string;
   items: SelectItem[];
   disabled?: boolean;
+  labelledBy?: string;
   style?: any;
 }
 
@@ -36,6 +37,7 @@ export const Select = forwardRef<View, SelectProps>(
       placeholder = "Select...",
       items,
       disabled = false,
+      labelledBy,
       style,
     },
     ref,
@@ -46,7 +48,13 @@ export const Select = forwardRef<View, SelectProps>(
 
     return (
       <DropdownMenu>
-        <DropdownMenuTrigger disabled={disabled}>
+        <DropdownMenuTrigger
+          disabled={disabled}
+          accessibilityRole="button"
+          aria-labelledby={
+            labelledBy ? `${labelledBy} ${labelledBy}-value` : undefined
+          }
+        >
           <View
             ref={ref}
             style={[
@@ -76,6 +84,7 @@ export const Select = forwardRef<View, SelectProps>(
               }}
             >
               <Text
+                nativeID={labelledBy ? `${labelledBy}-value` : undefined}
                 style={{
                   fontSize: typeScale.md.fontSize,
                   color: disabled

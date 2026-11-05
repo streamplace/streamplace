@@ -333,6 +333,8 @@ imports for webpack; Forge's Node-loaded configuration keeps Node16 resolution.
 Webpack CSS imports and Forge-injected preload paths have ambient declarations.
 The desktop updater uses its existing static feed directly, with the same
 ten-minute interval and restart prompt, rather than depending on a second updater.
+The synthetic desktop playback fixture reads the shipped Geist Mono font from
+`app.Assets()`, not obsolete Atkinson filenames in Expo's hashed export output.
 
 Iroh 1.x uses `endpoint...` tickets and a new transport protocol. Upgrade
 communicating nodes together and exchange newly generated tickets; old

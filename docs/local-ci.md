@@ -321,7 +321,7 @@ The GitLab mirror runs after builder publication so a branch that changes
 the immutable image hash cannot start jobs before that image exists.
 
 The Expo SDK 58 / React Native 0.88 upgrade requires new iOS and Android
-binaries. Its OTA runtime is `0.12.15`, separate from the previous `0.12.0`
+binaries. Its OTA runtime is `0.13.0`, separate from the previous `0.12.0`
 runtime; do not publish the upgraded JavaScript to the old runtime.
 Regenerate native projects with the existing prebuild target before building.
 The deprecated edge-to-edge library is replaced by React Native's built-in

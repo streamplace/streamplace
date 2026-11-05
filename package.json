@@ -34,6 +34,7 @@
     "@atproto/lex": "^0.3.14",
     "@types/node": "^22.20.5",
     "@typescript-eslint/parser": "^8.72.0",
+    "esbuild": "^0.27.4",
     "eslint": "^10.13.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "^9.1.6",

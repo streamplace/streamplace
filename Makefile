@@ -625,6 +625,10 @@ ci-npm-release: install
 	echo //registry.npmjs.org/:_authToken=$$NPM_TOKEN > ~/.npmrc \
 	&& npx lerna publish from-package --yes
 
+.PHONY: ci-npm-release-test
+ci-npm-release-test: install
+	node hack/npm-release-test.mjs
+
 .build/bin/uniffi-bindgen-go-forked:
 	mkdir -p .build \
 	&& cargo install uniffi-bindgen-go --git https://github.com/kegsay/uniffi-bindgen-go --rev f1f1064871faf05377c75e098d525d530d402d38 --root .build \

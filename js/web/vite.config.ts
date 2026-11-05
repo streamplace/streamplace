@@ -41,9 +41,10 @@ export default defineConfig(async () => {
     ],
     resolve: {
       alias: {
-        // Workspace packages — Vite reads each package's package.json `main`/`types`
-        // fields directly, so these aliases just make resolution explicit.
+        // Workspace packages — their `exports` default to the published `dist`
+        // build, so point Vite at source instead.
         "@streamplace/core": resolve(__dirname, "../core/src"),
+        "@streamplace/i18n": resolve(__dirname, "../i18n/src"),
         streamplace: resolve(__dirname, "../streamplace/src"),
         // @-prefix for src/ — makes imports a bit cleaner and avoids relative path hell.
         "@": resolve(__dirname, "./src"),

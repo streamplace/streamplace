@@ -73,6 +73,7 @@ test:
     - git fetch --unshallow || echo 'already unshallow'
     - make dev-setup && make dev && make dev-test && make ci-lexicons
     - pnpm --filter @atcute/internal-dev-env test:release
+    - make ci-npm-release-test
   artifacts:
     when: always
     paths:

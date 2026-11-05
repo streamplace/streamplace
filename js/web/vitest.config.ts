@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@streamplace/core": resolve(__dirname, "../core/src"),
+      "@streamplace/i18n": resolve(__dirname, "../i18n/src"),
       streamplace: resolve(__dirname, "../streamplace/src"),
       "@": resolve(__dirname, "./src"),
     },

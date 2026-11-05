@@ -162,6 +162,140 @@ test("distribution toggles preserve edited values, including explicit clears", a
   }
 });
 
+test("saving a warning preserves different warning choices from another tab", async ({
+  page,
+}) => {
+  const account = await metadataAccount();
+  const futureWarning = "place.stream.metadata.contentWarnings#future";
+  try {
+    await account.put({
+      $type: collection,
+      contentWarnings: { warnings: [futureWarning, futureWarning] },
+    });
+    await loginThroughPds(page);
+    await page.goto(`${url}/dashboard/stream`);
+    const death = page.getByRole("checkbox", { name: "Death", exact: true });
+    const language = page.getByRole("checkbox", {
+      name: "Language",
+      exact: true,
+    });
+    await expect(death).not.toBeChecked();
+    const other = await page.context().newPage();
+    await other.goto(`${url}/dashboard/stream`);
+    const otherLanguage = other.getByRole("checkbox", {
+      name: "Language",
+      exact: true,
+    });
+    await expect(otherLanguage).not.toBeChecked();
+    await death.check();
+    await otherLanguage.check();
+    await saveMetadata(other);
+    await saveMetadata(page);
+    await page.reload();
+    await expect(death).toBeChecked();
+    await expect(language).toBeChecked();
+    expect(
+      (await account.get()).contentWarnings.warnings.filter(
+        (warning: string) => warning === futureWarning,
+      ),
+    ).toHaveLength(2);
+
+    await other.reload();
+    const drugUse = other.getByRole("checkbox", {
+      name: "Drug Use",
+      exact: true,
+    });
+    await expect(otherLanguage).toBeChecked();
+    await page.goto(`${url}/dashboard`);
+    const widget = page.getByRole("region", { name: "Stream Info widget" });
+    await widget.getByRole("button", { name: "Edit content warnings" }).click();
+    const widgetDeath = widget.getByRole("checkbox", {
+      name: "Death",
+      exact: true,
+    });
+    await expect(widgetDeath).toBeChecked();
+    await widgetDeath.uncheck();
+    await drugUse.check();
+    await saveMetadata(other);
+    await saveMetadata(page);
+    await page.reload();
+    await widget.getByRole("button", { name: "Edit content warnings" }).click();
+    await expect(
+      widget.getByRole("checkbox", { name: "Death", exact: true }),
+    ).not.toBeChecked();
+    await expect(
+      widget.getByRole("checkbox", { name: "Language", exact: true }),
+    ).toBeChecked();
+    await expect(
+      widget.getByRole("checkbox", { name: "Drug Use", exact: true }),
+    ).toBeChecked();
+  } finally {
+    await account.restore();
+  }
+});
+
+test("warning edits made during a save do not replay earlier choices", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const account = await metadataAccount();
+  let release: (() => void) | undefined;
+  try {
+    await account.put({ $type: collection });
+    await loginThroughPds(page);
+    await page.goto(`${url}/dashboard/stream`);
+    const death = page.getByRole("checkbox", { name: "Death", exact: true });
+    const language = page.getByRole("checkbox", {
+      name: "Language",
+      exact: true,
+    });
+    await death.check();
+    let intercepted!: () => void;
+    const held = new Promise<void>((resolve) => (intercepted = resolve));
+    const resume = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/xrpc/com.atproto.repo.putRecord", async (route) => {
+      if (route.request().postDataJSON()?.collection === collection) {
+        intercepted();
+        await resume;
+      }
+      await route.continue();
+    });
+    const firstSave = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/xrpc/com.atproto.repo.putRecord") &&
+        response.request().postDataJSON()?.collection === collection,
+    );
+    await page
+      .getByRole("button", { name: /save metadata|update metadata/i })
+      .click();
+    await held;
+    await language.check();
+    release!();
+    expect((await firstSave).ok()).toBe(true);
+    await page.unrouteAll({ behavior: "wait" });
+    await expect(
+      page.getByRole("button", { name: /save metadata|update metadata/i }),
+    ).toBeEnabled();
+    const other = await page.context().newPage();
+    await other.goto(`${url}/dashboard/stream`);
+    const otherDeath = other.getByRole("checkbox", {
+      name: "Death",
+      exact: true,
+    });
+    await expect(otherDeath).toBeChecked();
+    await otherDeath.uncheck();
+    await saveMetadata(other);
+    await saveMetadata(page);
+    await page.reload();
+    await expect(death).not.toBeChecked();
+    await expect(language).toBeChecked();
+  } finally {
+    release?.();
+    await page.unrouteAll({ behavior: "wait" });
+    await account.restore();
+  }
+});
+
 test("saving one rights field preserves other rights changed in another tab", async ({
   page,
 }) => {

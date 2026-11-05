@@ -84,6 +84,22 @@ function clearSavedFields(
   }
 }
 
+function mergeWarningChoices(
+  base: string[] | undefined,
+  draft: string[],
+  edited: ReadonlyMap<string, number>,
+): string[] {
+  const warnings =
+    base?.filter(
+      (warning) => !edited.has(warning) || draft.includes(warning),
+    ) ?? [];
+  for (const warning of edited.keys()) {
+    if (draft.includes(warning) && !warnings.includes(warning))
+      warnings.push(warning);
+  }
+  return warnings;
+}
+
 export interface ContentMetadataFormProps {
   showUpdateButton?: boolean;
   onMetadataChange?: (
@@ -120,6 +136,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const showWarningDescriptions =
       Platform.OS === "web" && width >= breakpoints.md;
     const allSections = showAllSections && !warningsOnly;
+    const preserveWarnings =
+      Platform.OS === "web" && (allSections || warningsOnly);
     const stackedFields = allSections && width < breakpoints.md;
     const stackedFieldStyle = stackedFields
       ? { flexDirection: "column" as const, alignItems: "stretch" as const }
@@ -154,6 +172,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const [metadataRetry, setMetadataRetry] = useState(0);
     const [hasMetadata, setHasMetadata] = useState(false);
     const editedSections = useRef(new Set<string>());
+    const editedWarnings = useRef(new Map<string, number>());
     const editedDistributionFields = useRef(new Map<string, number>());
     const editedRightsFields = useRef(new Map<string, number>());
     const restrictedBroadcasters = useRef<{
@@ -204,10 +223,22 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
         }
         try {
           const metadata = await getContentMetadata();
-          if (allSections && request !== metadataLoad.current) return;
+          if (
+            (allSections || preserveWarnings) &&
+            request !== metadataLoad.current
+          )
+            return;
           if (metadata?.record) {
             setHasMetadata(true);
-            if (
+            if (preserveWarnings) {
+              setContentWarnings((previous) =>
+                mergeWarningChoices(
+                  metadata.record.contentWarnings?.warnings,
+                  previous,
+                  editedWarnings.current,
+                ),
+              );
+            } else if (
               metadata.record.contentWarnings?.warnings &&
               !editedSections.current.has("warnings")
             ) {
@@ -265,16 +296,28 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
 
       loadMetadata();
       return () => {
-        if (allSections && request === metadataLoad.current) {
+        if (
+          (allSections || preserveWarnings) &&
+          request === metadataLoad.current
+        ) {
           metadataLoad.current++;
         }
       };
-    }, [pdsAgent, did, initialMetadata, allSections, metadataRetry]);
+    }, [
+      pdsAgent,
+      did,
+      initialMetadata,
+      allSections,
+      preserveWarnings,
+      metadataRetry,
+    ]);
 
     const handleContentWarningChange = useCallback(
       (warning: string, checked: boolean) => {
         editedSections.current.add("warnings");
         editRevision.current++;
+        if (preserveWarnings)
+          editedWarnings.current.set(warning, editRevision.current);
         const newWarnings = checked
           ? [...contentWarnings, warning]
           : contentWarnings.filter((w) => w !== warning);
@@ -290,7 +333,13 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
           });
         }
       },
-      [contentWarnings, distributionPolicy, contentRights, onMetadataChange],
+      [
+        contentWarnings,
+        distributionPolicy,
+        contentRights,
+        onMetadataChange,
+        preserveWarnings,
+      ],
     );
 
     // Notify parent component when metadata changes
@@ -360,29 +409,54 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       try {
         const revision = editRevision.current;
         const edits = new Set(editedSections.current);
+        const warningEdits = new Map(editedWarnings.current);
         const distributionEdits = new Map(editedDistributionFields.current);
         const rightsEdits = new Map(editedRightsFields.current);
         const current = await getContentMetadata();
+        const warningsToSave =
+          preserveWarnings && current?.record
+            ? mergeWarningChoices(
+                current.record.contentWarnings?.warnings,
+                contentWarnings,
+                warningEdits,
+              )
+            : contentWarnings;
+        const reconcileWarnings = (saved: string[] | undefined) => {
+          clearSavedFields(editedWarnings.current, warningEdits);
+          const pending = new Map(editedWarnings.current);
+          if (pending.size === 0) editedSections.current.delete("warnings");
+          setContentWarnings((previous) =>
+            mergeWarningChoices(saved, previous, pending),
+          );
+        };
         if (warningsOnly) {
+          const savedWarnings =
+            edits.has("warnings") || !current?.record
+              ? warningsToSave
+              : current.record.contentWarnings?.warnings;
           await saveContentMetadata(
             {
               ...current?.record,
               $type: "place.stream.metadata.configuration",
               contentWarnings:
                 edits.has("warnings") || !current?.record
-                  ? contentWarnings.length
+                  ? warningsToSave.length
                     ? {
                         ...current?.record?.contentWarnings,
-                        warnings: contentWarnings,
+                        warnings: warningsToSave,
                       }
                     : undefined
                   : current.record.contentWarnings,
             },
             current,
           );
+          if (preserveWarnings) {
+            metadataLoad.current++;
+            reconcileWarnings(savedWarnings);
+          }
           if (revision === editRevision.current) {
             editedSections.current.clear();
-            if (!edits.has("warnings"))
+            if (!preserveWarnings && !edits.has("warnings"))
               setContentWarnings(
                 current?.record?.contentWarnings?.warnings ?? [],
               );
@@ -402,8 +476,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
 
         // Only include contentWarnings if it has values
         if (!current?.record || edits.has("warnings")) {
-          metadata.contentWarnings = contentWarnings.length
-            ? { ...current?.record?.contentWarnings, warnings: contentWarnings }
+          metadata.contentWarnings = warningsToSave.length
+            ? { ...current?.record?.contentWarnings, warnings: warningsToSave }
             : undefined;
         }
 
@@ -477,6 +551,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
         }
 
         await saveContentMetadata(metadata, current);
+        if (preserveWarnings)
+          reconcileWarnings(metadata.contentWarnings?.warnings);
         if (allSections) {
           metadataLoad.current++;
           setLoadingDistribution(false);
@@ -499,9 +575,10 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
         }
         if (revision === editRevision.current) {
           editedSections.current.clear();
+          editedWarnings.current.clear();
           editedDistributionFields.current.clear();
           editedRightsFields.current.clear();
-          if (!edits.has("warnings"))
+          if (!preserveWarnings && !edits.has("warnings"))
             setContentWarnings(
               current?.record?.contentWarnings?.warnings ?? [],
             );
@@ -538,6 +615,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       hasMetadata,
       warningsOnly,
       allSections,
+      preserveWarnings,
       getContentMetadata,
       saveContentMetadata,
       toast,

@@ -14,8 +14,8 @@ import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc"
 import { EmptyState, EmptyStateTile } from "components/empty-state";
 import Loading from "components/loading/loading";
 import { Edit3, Plus, Radio, RefreshCw, Trash2 } from "lucide-react-native";
-import { useEffect, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Alert, Platform, ScrollView, View } from "react-native";
 import { place } from "streamplace";
 import { timeAgo } from "utils/timeAgo";
 import { SettingsViewHeader } from "./components/settings-view-header";
@@ -82,22 +82,34 @@ export default function MultistreamManager() {
     new Set(),
   );
   const [formError, setFormError] = useState<string>("");
+  const [listError, setListError] = useState(false);
+  const [toggleErrors, setToggleErrors] = useState<Set<string>>(new Set());
+  const latestLoad = useRef(0);
 
   const loadMultistreamTargets = async () => {
     if (!agent) return;
 
+    const request = ++latestLoad.current;
     try {
       setLoading(true);
       const targetViews = await agent.client.call(
         place.stream.multistream.listTargets,
         { limit: 50 },
       );
+      if (Platform.OS === "web" && request !== latestLoad.current) return;
       setTargets(targetViews.targets as MultistreamTargetViewHydrated[]);
+      if (Platform.OS === "web") setListError(false);
     } catch (error) {
-      console.error("Failed to load multistream targets:", error);
-      Alert.alert("Error", t("failed-load-multistream-targets"));
+      if (Platform.OS === "web") {
+        if (request === latestLoad.current) setListError(true);
+      } else {
+        console.error("Failed to load multistream targets:", error);
+        Alert.alert("Error", t("failed-load-multistream-targets"));
+      }
     } finally {
-      setLoading(false);
+      if (Platform.OS !== "web" || request === latestLoad.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -154,17 +166,41 @@ export default function MultistreamManager() {
     if (!agent) return;
     try {
       setTogglingTargets((prev) => new Set(prev).add(target.uri));
-      await agent.client.call(place.stream.multistream.putTarget, {
-        multistreamTarget: {
-          ...target.record,
-          active: newActiveState,
+      if (Platform.OS === "web") {
+        setToggleErrors((previous) => {
+          const next = new Set(previous);
+          next.delete(target.uri);
+          return next;
+        });
+      }
+      const updated = await agent.client.call(
+        place.stream.multistream.putTarget,
+        {
+          multistreamTarget: {
+            ...target.record,
+            active: newActiveState,
+          },
+          rkey: target.uri.split("/").pop() || "",
         },
-        rkey: target.uri.split("/").pop() || "",
-      });
+      );
+      if (Platform.OS === "web") {
+        setTargets(
+          (previous) =>
+            previous?.map((item) =>
+              item.uri === target.uri
+                ? (updated as MultistreamTargetViewHydrated)
+                : item,
+            ) ?? null,
+        );
+      }
       await loadMultistreamTargets();
     } catch (error) {
-      console.error("Failed to toggle multistream target:", error);
-      Alert.alert("Error", t("failed-toggle-multistream-target"));
+      if (Platform.OS === "web") {
+        setToggleErrors((previous) => new Set(previous).add(target.uri));
+      } else {
+        console.error("Failed to toggle multistream target:", error);
+        Alert.alert("Error", t("failed-toggle-multistream-target"));
+      }
     } finally {
       setTogglingTargets((prev) => {
         const newSet = new Set(prev);
@@ -253,15 +289,39 @@ export default function MultistreamManager() {
           />
 
           {/* Content */}
+          {Platform.OS === "web" && listError && (
+            <View style={[mb[4], gap.all[2], { alignItems: "flex-start" }]}>
+              <Text color="destructive" accessibilityRole="alert">
+                {t("failed-load-multistream-targets")}
+              </Text>
+              {targets !== null && (
+                <Text size="sm" color="muted">
+                  Showing the last loaded destinations. Their status may be out
+                  of date.
+                </Text>
+              )}
+              <Button
+                size="sm"
+                width="min"
+                variant="secondary"
+                onPress={loadMultistreamTargets}
+                disabled={loading}
+              >
+                Retry
+              </Button>
+            </View>
+          )}
           {loading && !targets ? (
             <Loading />
           ) : targets === null ? (
-            <View style={[layout.flex.center, mt[8]]}>
-              <Text style={{ color: theme.colors.text3 }}>
-                {t("failed-load-multistream-targets")}
-              </Text>
-            </View>
-          ) : targets.length === 0 ? (
+            Platform.OS === "web" && listError ? null : (
+              <View style={[layout.flex.center, mt[8]]}>
+                <Text style={{ color: theme.colors.text3 }}>
+                  {t("failed-load-multistream-targets")}
+                </Text>
+              </View>
+            )
+          ) : targets.length === 0 && !listError ? (
             <EmptyState
               illustration={<EmptyStateTile icon={Radio} />}
               title="No multistream targets yet"
@@ -276,7 +336,7 @@ export default function MultistreamManager() {
                 </Button>
               }
             />
-          ) : (
+          ) : targets.length > 0 ? (
             <>
               <View style={[mb[4]]}>
                 <Text size="sm" style={{ color: theme.colors.text3 }}>
@@ -298,10 +358,12 @@ export default function MultistreamManager() {
                   onToggle={toggleMultistreamTarget}
                   isDeleting={deletingTargets.has(target.uri)}
                   isToggling={togglingTargets.has(target.uri)}
+                  isUnavailable={Platform.OS === "web" && listError}
+                  toggleError={toggleErrors.has(target.uri)}
                 />
               ))}
             </>
-          )}
+          ) : null}
         </View>
       </ScrollView>
       <MultistreamTargetForm
@@ -349,6 +411,8 @@ export function MultistreamRow({
   onToggle,
   isDeleting,
   isToggling,
+  isUnavailable,
+  toggleError,
 }: {
   target: MultistreamTargetViewHydrated;
   onEdit: (target: MultistreamTargetViewHydrated) => void;
@@ -356,6 +420,8 @@ export function MultistreamRow({
   onToggle: (target: MultistreamTargetViewHydrated, active: boolean) => void;
   isDeleting: boolean;
   isToggling: boolean;
+  isUnavailable?: boolean;
+  toggleError?: boolean;
 }) {
   const { t } = useTranslation("settings");
   const { theme } = zero.useTheme();
@@ -453,14 +519,14 @@ export function MultistreamRow({
           <Switch
             value={active}
             onValueChange={(next) => onToggle(target, next)}
-            disabled={isDeleting || isToggling}
+            disabled={isDeleting || isToggling || isUnavailable}
           />
           <IconButton
             size="sm"
             variant="ghost"
             accessibilityLabel="Edit multistream target"
             onPress={() => onEdit(target)}
-            disabled={isDeleting}
+            disabled={isDeleting || isUnavailable}
           >
             <Edit3 size={18} color={theme.colors.text2} />
           </IconButton>
@@ -469,12 +535,18 @@ export function MultistreamRow({
             variant="ghost"
             accessibilityLabel="Delete multistream target"
             onPress={() => onDelete(target.uri)}
-            disabled={isDeleting}
+            disabled={isDeleting || isUnavailable}
           >
             <Trash2 size={18} color={theme.colors.danger} />
           </IconButton>
         </View>
       </View>
+
+      {toggleError && (
+        <Text size="sm" color="destructive" accessibilityRole="alert">
+          {t("failed-toggle-multistream-target")}
+        </Text>
+      )}
 
       {/* Footer */}
       <View

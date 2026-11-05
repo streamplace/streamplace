@@ -1,17 +1,19 @@
 {
   "name": "@streamplace/core",
   "version": "0.12.15",
-  "private": true,
   "description": "Streamplace platform-agnostic core (data layer, providers, i18n, theme tokens, hooks). No React Native or Expo dependencies.",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
   "exports": {
     ".": {
+      "@streamplace/dev": "./src/index.ts",
       "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "default": "./dist/index.js"
     }
   },
+  "license": "MIT",
   "scripts": {
+    "prepare": "tsc",
     "check": "pnpm --filter @streamplace/i18n compile && bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -21,7 +23,6 @@
   },
   "dependencies": {
     "@atproto/api": "^0.29.1",
-    "@streamplace/components": "workspace:*",
     "react": "*",
     "streamplace": "workspace:*",
     "zustand": "^5.0.15"

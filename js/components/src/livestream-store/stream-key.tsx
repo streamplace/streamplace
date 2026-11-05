@@ -1,7 +1,7 @@
 // React-specific stream key generation flow. Uses useEffect/useState
 // to generate a Secp256k1 key, post it to the user's PDS, and cache the
 // result. Pure key/crypto utilities live in @streamplace/core.
-import "@streamplace/components/src/crypto-polyfill";
+import "../crypto-polyfill";
 
 import { bytesToMultibase, Secp256k1Keypair } from "@atproto/crypto";
 import { getBrowserName, getPlatform } from "@streamplace/core";

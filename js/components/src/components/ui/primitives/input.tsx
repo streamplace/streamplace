@@ -121,6 +121,9 @@ export const InputRoot = forwardRef<any, InputPrimitiveProps>(
         onFocus={handleFocus}
         onBlur={handleBlur}
         editable={!disabled && !loading && editable}
+        aria-disabled={
+          Platform.OS === "web" && (disabled || loading) ? true : undefined
+        }
         placeholderTextColor={placeholderTextColor}
         style={[structuralStyles.input, colorStyles, style]}
         {...props}

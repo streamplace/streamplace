@@ -37,6 +37,28 @@ import { Tooltip } from "../ui/tooltip";
 
 const { p, r, bg, borders, w, text, layout, gap, flex } = zero;
 
+function mergeEditedFields<T extends object>(
+  base: T | undefined,
+  draft: T,
+  edited: ReadonlyMap<string, number>,
+): T {
+  const result = { ...base } as T;
+  for (const field of edited.keys()) {
+    const key = field as keyof T;
+    result[key] = draft[key];
+  }
+  return result;
+}
+
+function clearSavedFields(
+  pending: Map<string, number>,
+  saved: ReadonlyMap<string, number>,
+) {
+  for (const [field, revision] of saved) {
+    if (pending.get(field) === revision) pending.delete(field);
+  }
+}
+
 export interface ContentMetadataFormProps {
   showUpdateButton?: boolean;
   onMetadataChange?: (
@@ -97,8 +119,20 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const [selectedLicense, setSelectedLicense] = useState<string>("");
     const [customLicenseText, setCustomLicenseText] = useState<string>("");
     const [loading, setLoading] = useState(false);
+    const [loadingDistribution, setLoadingDistribution] = useState(
+      allSections && !initialMetadata,
+    );
+    const [distributionLoadError, setDistributionLoadError] = useState(false);
+    const [metadataRetry, setMetadataRetry] = useState(0);
     const [hasMetadata, setHasMetadata] = useState(false);
     const editedSections = useRef(new Set<string>());
+    const editedDistributionFields = useRef(new Map<string, number>());
+    const editedRightsFields = useRef(new Map<string, number>());
+    const restrictedBroadcasters = useRef<{
+      value: string[] | undefined;
+    } | null>(null);
+    const archiveDuration = useRef<{ value: number | undefined } | null>(null);
+    const metadataLoad = useRef(0);
     const editRevision = useRef(0);
 
     // State for section toggles
@@ -116,6 +150,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
 
     // Load existing metadata on mount or from initialMetadata prop
     useEffect(() => {
+      const request = ++metadataLoad.current;
       if (initialMetadata) {
         // Use provided initial metadata
         if (initialMetadata.contentWarnings?.warnings) {
@@ -124,6 +159,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
         if (initialMetadata.distributionPolicy) {
           setDistributionPolicy(initialMetadata.distributionPolicy);
         }
+        setLoadingDistribution(false);
         if (initialMetadata.contentRights) {
           setContentRights(initialMetadata.contentRights);
           setSelectedLicense(initialMetadata.contentRights.license || "");
@@ -134,8 +170,13 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       const loadMetadata = async () => {
         if (!pdsAgent || !did) return;
 
+        if (allSections) {
+          setLoadingDistribution(true);
+          setDistributionLoadError(false);
+        }
         try {
           const metadata = await getContentMetadata();
+          if (allSections && request !== metadataLoad.current) return;
           if (metadata?.record) {
             setHasMetadata(true);
             if (
@@ -146,28 +187,61 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 metadata.record.contentWarnings.warnings as string[],
               );
             }
-            if (
-              metadata.record.distributionPolicy &&
-              !editedSections.current.has("distribution")
-            ) {
-              setDistributionPolicy(metadata.record.distributionPolicy);
+            const loadedDistribution = metadata.record.distributionPolicy;
+            if (loadedDistribution) {
+              if (allSections) {
+                setDistributionPolicy((previous) =>
+                  mergeEditedFields(
+                    loadedDistribution,
+                    previous,
+                    editedDistributionFields.current,
+                  ),
+                );
+              } else if (!editedSections.current.has("distribution")) {
+                setDistributionPolicy(loadedDistribution);
+              }
             }
-            if (
-              metadata.record.contentRights &&
-              !editedSections.current.has("rights")
-            ) {
-              setContentRights(metadata.record.contentRights);
-              setSelectedLicense(metadata.record.contentRights.license || "");
+            const loadedRights = metadata.record.contentRights;
+            if (loadedRights) {
+              if (allSections) {
+                setContentRights((previous) =>
+                  mergeEditedFields(
+                    loadedRights,
+                    previous,
+                    editedRightsFields.current,
+                  ),
+                );
+                if (!editedRightsFields.current.has("license")) {
+                  setSelectedLicense(loadedRights.license || "");
+                }
+              } else if (!editedSections.current.has("rights")) {
+                setContentRights(loadedRights);
+                setSelectedLicense(loadedRights.license || "");
+              }
             }
           }
         } catch (error) {
-          // No existing metadata is fine
-          console.log("No existing metadata found");
+          if (allSections) {
+            if (request === metadataLoad.current)
+              setDistributionLoadError(true);
+          } else {
+            // No existing metadata is fine
+            console.log("No existing metadata found");
+          }
+        } finally {
+          if (allSections && request === metadataLoad.current) {
+            setLoadingDistribution(false);
+          }
         }
       };
 
       loadMetadata();
-    }, [pdsAgent, did, initialMetadata]);
+      return () => {
+        if (allSections && request === metadataLoad.current) {
+          metadataLoad.current++;
+        }
+      };
+    }, [pdsAgent, did, initialMetadata, allSections, metadataRetry]);
 
     const handleContentWarningChange = useCallback(
       (warning: string, checked: boolean) => {
@@ -205,40 +279,13 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
 
     // Handle distribution policy changes
     const handleDistributionPolicyChange = useCallback(
-      ({
-        deleteAfter,
-        allowedBroadcasters,
-        allowGenAiTraining,
-      }: {
-        deleteAfter?: string;
-        allowedBroadcasters?: string;
-        allowGenAiTraining?: boolean;
-      }) => {
+      (changes: Partial<place.stream.metadata.distributionPolicy.Main>) => {
         editedSections.current.add("distribution");
         editRevision.current++;
-        let newDistributionPolicy: place.stream.metadata.distributionPolicy.Main =
-          {
-            ...distributionPolicy,
-          };
-        if (typeof allowGenAiTraining === "boolean") {
-          newDistributionPolicy.allowGenAiTraining = allowGenAiTraining;
+        for (const field of Object.keys(changes)) {
+          editedDistributionFields.current.set(field, editRevision.current);
         }
-        if (typeof deleteAfter === "string") {
-          let duration = parseInt(deleteAfter, 10);
-          if (isNaN(duration)) {
-            newDistributionPolicy.deleteAfter = undefined;
-          } else {
-            if (isNaN(duration) || duration < 0) {
-              duration = -1;
-            }
-            newDistributionPolicy.deleteAfter =
-              duration === 0 ? undefined : duration;
-          }
-        }
-        if (typeof allowedBroadcasters === "string") {
-          newDistributionPolicy.allowedBroadcasters =
-            allowedBroadcasters.split("\n");
-        }
+        const newDistributionPolicy = { ...distributionPolicy, ...changes };
         setDistributionPolicy(newDistributionPolicy);
 
         if (onMetadataChange) {
@@ -264,6 +311,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       (field: string, value: any) => {
         editedSections.current.add("rights");
         editRevision.current++;
+        editedRightsFields.current.set(field, editRevision.current);
         const newRights = { ...contentRights, [field]: value };
         setContentRights(newRights);
 
@@ -284,6 +332,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       try {
         const revision = editRevision.current;
         const edits = new Set(editedSections.current);
+        const distributionEdits = new Map(editedDistributionFields.current);
+        const rightsEdits = new Map(editedRightsFields.current);
         const current = await getContentMetadata();
         if (warningsOnly) {
           await saveContentMetadata(
@@ -339,8 +389,16 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
         };
 
         // Filter out empty values from contentRights and convert copyrightYear to number
+        const rightsToSave =
+          current?.record && allSections
+            ? mergeEditedFields(
+                current.record.contentRights,
+                rightsWithLicense,
+                rightsEdits,
+              )
+            : rightsWithLicense;
         const filteredRights = Object.fromEntries(
-          Object.entries(rightsWithLicense)
+          Object.entries(rightsToSave)
             .filter(
               ([_, value]) =>
                 value !== undefined && value !== null && value !== "",
@@ -364,28 +422,57 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
         // AI training is opt-in: absent an explicit choice, save the record
         // with training disallowed.
         if (!current?.record || edits.has("distribution")) {
-          metadata.distributionPolicy = {
+          const nextPolicy: place.stream.metadata.distributionPolicy.Main = {
             allowGenAiTraining: false,
-            ...distributionPolicy,
+            ...(!current?.record || !allSections
+              ? distributionPolicy
+              : mergeEditedFields(
+                  current.record.distributionPolicy,
+                  distributionPolicy,
+                  distributionEdits,
+                )),
           };
 
-          if (distributionPolicy?.allowedBroadcasters) {
-            const filteredBs = distributionPolicy.allowedBroadcasters.filter(
-              (broadcaster) => broadcaster !== "",
-            );
-            metadata.distributionPolicy.allowedBroadcasters = filteredBs;
-            if (revision === editRevision.current) {
+          if (nextPolicy.allowedBroadcasters) {
+            nextPolicy.allowedBroadcasters =
+              nextPolicy.allowedBroadcasters.filter(
+                (broadcaster) => broadcaster !== "",
+              );
+            if (!allSections && revision === editRevision.current) {
               setDistributionPolicy({
                 ...distributionPolicy,
-                allowedBroadcasters: filteredBs,
+                allowedBroadcasters: nextPolicy.allowedBroadcasters,
               });
             }
           }
+          metadata.distributionPolicy = nextPolicy;
         }
 
         await saveContentMetadata(metadata, current);
+        if (allSections) {
+          metadataLoad.current++;
+          setLoadingDistribution(false);
+          setDistributionLoadError(false);
+          clearSavedFields(editedDistributionFields.current, distributionEdits);
+          const pending = editedDistributionFields.current;
+          if (pending.size === 0) editedSections.current.delete("distribution");
+          setDistributionPolicy((previous) =>
+            mergeEditedFields(metadata.distributionPolicy, previous, pending),
+          );
+          clearSavedFields(editedRightsFields.current, rightsEdits);
+          const pendingRights = editedRightsFields.current;
+          if (pendingRights.size === 0) editedSections.current.delete("rights");
+          setContentRights((previous) =>
+            mergeEditedFields(metadata.contentRights, previous, pendingRights),
+          );
+          if (!pendingRights.has("license") && !rightsEdits.has("license")) {
+            setSelectedLicense(metadata.contentRights?.license || "");
+          }
+        }
         if (revision === editRevision.current) {
           editedSections.current.clear();
+          editedDistributionFields.current.clear();
+          editedRightsFields.current.clear();
           if (!edits.has("warnings"))
             setContentWarnings(
               current?.record?.contentWarnings?.warnings ?? [],
@@ -422,6 +509,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       customLicenseText,
       hasMetadata,
       warningsOnly,
+      allSections,
       getContentMetadata,
       saveContentMetadata,
       toast,
@@ -818,6 +906,31 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                   </Text>
                   <Text muted>(optional)</Text>
                 </View>
+                {allSections && loadingDistribution && (
+                  <Text size="xs" color="muted">
+                    Loading distribution settings…
+                  </Text>
+                )}
+                {allSections && distributionLoadError && (
+                  <View style={[gap.all[2], { alignItems: "flex-start" }]}>
+                    <Text
+                      size="sm"
+                      color="destructive"
+                      accessibilityRole="alert"
+                    >
+                      Could not load distribution settings.
+                    </Text>
+                    <Button
+                      size="sm"
+                      width="min"
+                      variant="secondary"
+                      accessibilityLabel="Retry distribution settings"
+                      onPress={() => setMetadataRetry((value) => value + 1)}
+                    >
+                      Retry
+                    </Button>
+                  </View>
+                )}
 
                 {/* allow everyone to distribute your content */}
                 <Tooltip
@@ -825,17 +938,34 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                   position="top"
                 >
                   <Checkbox
+                    disabled={
+                      allSections &&
+                      (loadingDistribution || distributionLoadError)
+                    }
                     checked={
                       distributionPolicy.allowedBroadcasters?.includes("*") ||
                       false
                     }
-                    onCheckedChange={(checked) =>
+                    onCheckedChange={(checked) => {
+                      if (allSections && checked) {
+                        restrictedBroadcasters.current = {
+                          value: distributionPolicy.allowedBroadcasters,
+                        };
+                      }
+                      const existing =
+                        distributionPolicy.allowedBroadcasters?.filter(
+                          (broadcaster) => broadcaster !== "*",
+                        );
                       handleDistributionPolicyChange({
                         allowedBroadcasters: checked
-                          ? "*"
-                          : broadcasterDID || "",
-                      })
-                    }
+                          ? ["*"]
+                          : allSections && restrictedBroadcasters.current
+                            ? restrictedBroadcasters.current.value
+                            : allSections && existing?.length
+                              ? existing
+                              : [broadcasterDID || ""],
+                      });
+                    }}
                     label={"Allow everyone to distribute your content"}
                     style={[{ fontSize: 12 }]}
                   />
@@ -881,6 +1011,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                           allow to distribute your content, one per line.
                         </Text>
                         <Input
+                          disabled={allSections && distributionLoadError}
                           multiline={true}
                           numberOfLines={4}
                           value={
@@ -890,7 +1021,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                           }
                           onChange={(value) => {
                             handleDistributionPolicyChange({
-                              allowedBroadcasters: value,
+                              allowedBroadcasters: value.split("\n"),
                             });
                           }}
                           variant="filled"
@@ -914,6 +1045,10 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                   position="top"
                 >
                   <Checkbox
+                    disabled={
+                      allSections &&
+                      (loadingDistribution || distributionLoadError)
+                    }
                     checked={distributionPolicy.allowGenAiTraining === true}
                     onCheckedChange={(checked) =>
                       handleDistributionPolicyChange({
@@ -932,17 +1067,24 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                   position="top"
                 >
                   <Checkbox
+                    disabled={
+                      allSections &&
+                      (loadingDistribution || distributionLoadError)
+                    }
                     checked={distributionPolicy.deleteAfter === -1}
                     onCheckedChange={(checked) => {
-                      if (checked) {
-                        handleDistributionPolicyChange({
-                          deleteAfter: "-1",
-                        });
-                      } else {
-                        handleDistributionPolicyChange({
-                          deleteAfter: "300",
-                        });
+                      if (allSections && checked) {
+                        archiveDuration.current = {
+                          value: distributionPolicy.deleteAfter,
+                        };
                       }
+                      handleDistributionPolicyChange({
+                        deleteAfter: checked
+                          ? -1
+                          : allSections && archiveDuration.current
+                            ? archiveDuration.current.value
+                            : 300,
+                      });
                     }}
                     label={"Allow everyone to archive your content"}
                     style={[{ fontSize: 12 }]}
@@ -986,12 +1128,17 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                           Duration in seconds (e.g., 300 for 5 minutes)
                         </Text>
                         <Input
+                          disabled={allSections && distributionLoadError}
                           value={
                             distributionPolicy.deleteAfter?.toString() || ""
                           }
                           onChange={(value) => {
+                            const duration = parseInt(value, 10);
                             handleDistributionPolicyChange({
-                              deleteAfter: value,
+                              deleteAfter:
+                                isNaN(duration) || duration === 0
+                                  ? undefined
+                                  : Math.max(-1, duration),
                             });
                           }}
                           keyboardType="numeric"

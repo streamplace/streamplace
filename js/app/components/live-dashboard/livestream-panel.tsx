@@ -79,6 +79,10 @@ const notificationExplanation =
   "Send a push notification to your followers on the Streamplace iOS/Android app.";
 const automaticEndExplanation =
   "Enabling this setting will turn your livestream off after 5 minutes of inactivity, and you'll need to press the 'Start Livestream' button again to start it again next time you stream.";
+const endErrorMessage =
+  "Couldn't confirm whether the announcement ended. Check your connection and status before trying again.";
+const endWaitingMessage =
+  "Waiting for the stream status to update. If this takes too long, reload to check the status.";
 
 function isSameNodeUrl(candidate: string, nodeUrl: string): boolean {
   try {
@@ -323,6 +327,8 @@ function LivestreamPanel({
   const endLivestream = useEndLivestream();
   const url = useUrl();
   const [endingLivestream, setEndingLivestream] = useState(false);
+  const [endRequestComplete, setEndRequestComplete] = useState(false);
+  const [endError, setEndError] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const canonicalUrlLabel = useId();
@@ -616,21 +622,30 @@ function LivestreamPanel({
 
   const handleEndLivestream = useCallback(async () => {
     if (!livestream) return;
+    setEndError(false);
+    setEndRequestComplete(false);
     setEndingLivestream(true);
     try {
       await endLivestream();
+      if (isWeb) setEndRequestComplete(true);
     } catch (error) {
       console.error("Error ending livestream:", error);
       setEndingLivestream(false);
-      toast.show("Error", "Failed to end livestream", {
-        duration: 3,
-      });
+      if (isWeb) setEndError(true);
+      toast.show(
+        "Error",
+        isWeb ? endErrorMessage : "Failed to end livestream",
+        {
+          duration: 3,
+        },
+      );
     }
-  }, [livestream, endLivestream]);
+  }, [livestream, endLivestream, toast]);
 
   useEffect(() => {
     if (livestream && livestream.record.endedAt !== undefined) {
       setEndingLivestream(false);
+      if (isWeb) setConfirmEnd(false);
     }
   }, [livestream]);
 
@@ -1224,14 +1239,24 @@ function LivestreamPanel({
           {canEndLivestream && (
             <Button
               variant="danger"
-              onPress={() =>
-                isWeb ? setConfirmEnd(true) : handleEndLivestream()
-              }
+              onPress={() => {
+                if (isWeb) {
+                  setEndError(false);
+                  setConfirmEnd(true);
+                } else {
+                  void handleEndLivestream();
+                }
+              }}
               style={[py[3]]}
               disabled={endingLivestream || status.incoming === null}
             >
               {endingLivestream ? "Ending..." : "End Livestream"}
             </Button>
+          )}
+          {isWeb && endingLivestream && endRequestComplete && (
+            <Text size="sm" color="muted">
+              {endWaitingMessage}
+            </Text>
           )}
         </View>
       )}
@@ -1242,10 +1267,21 @@ function LivestreamPanel({
           title="End announcement?"
           description="Ending the announcement does not stop video from your streaming app. To stop sending video, stop the stream in OBS or your streaming app."
         >
+          {endError && (
+            <Text size="sm" color="destructive">
+              {endErrorMessage}
+            </Text>
+          )}
+          {endingLivestream && endRequestComplete && (
+            <Text size="sm" color="muted">
+              {endWaitingMessage}
+            </Text>
+          )}
           <DialogFooter>
             <Button
               width="min"
               variant="secondary"
+              disabled={endingLivestream}
               onPress={() => setConfirmEnd(false)}
             >
               Cancel
@@ -1258,12 +1294,9 @@ function LivestreamPanel({
                 status.incoming === null ||
                 !canEndLivestream
               }
-              onPress={() => {
-                setConfirmEnd(false);
-                void handleEndLivestream();
-              }}
+              onPress={() => void handleEndLivestream()}
             >
-              End announcement
+              {endingLivestream ? "Ending..." : "End announcement"}
             </Button>
           </DialogFooter>
         </Dialog>

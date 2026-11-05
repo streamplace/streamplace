@@ -35,6 +35,9 @@ test("ending an announcement leaves an existing viewer receiving video", async (
   const status = page.getByTestId("creator-stream-status");
   const announce = page.getByTestId("creator-announce");
   await expect(status).toHaveText("Live");
+  const title = page.getByPlaceholder("Enter your stream title...");
+  const originalTitle = await title.inputValue();
+  await title.fill("Unfinished title");
   try {
     await page
       .getByRole("button", { name: "End Livestream", exact: true })
@@ -49,6 +52,7 @@ test("ending an announcement leaves an existing viewer receiving video", async (
       .getByRole("button", { name: "End announcement", exact: true })
       .click();
     await expect(status).toHaveText("Announcement ended");
+    await expect(title).toHaveValue("Unfinished title");
     await expect(
       page.getByText(
         "Video is still arriving. To stop sending video, stop the stream in OBS or your streaming app.",
@@ -62,9 +66,118 @@ test("ending an announcement leaves an existing viewer receiving video", async (
       .toBeGreaterThan(before + 2);
   } finally {
     if (await announce.getByText("Announce stream").isVisible()) {
+      await title.fill(originalTitle);
       await announce.click();
       await expect(status).toHaveText("Live");
     }
     await viewerContext.close();
+  }
+});
+
+test("shows progress while the real end request is pending", async ({
+  page,
+}) => {
+  await loginThroughPds(page);
+  await page.goto(`${url}/dashboard`);
+  const status = page.getByTestId("creator-stream-status");
+  await expect(status).toHaveText("Live");
+
+  let releaseRequest!: () => void;
+  const held = new Promise<void>((resolve) => {
+    releaseRequest = resolve;
+  });
+  let requestStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    requestStarted = resolve;
+  });
+  await page.route(
+    "**/xrpc/place.stream.live.stopLivestream",
+    async (route) => {
+      requestStarted();
+      await held;
+      await route.continue();
+    },
+  );
+  try {
+    await page
+      .getByRole("button", { name: "End Livestream", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "End announcement?" });
+    await dialog
+      .getByRole("button", { name: "End announcement", exact: true })
+      .click();
+    await started;
+    await expect(
+      dialog.getByRole("button", { name: "Ending..." }),
+    ).toBeDisabled({ timeout: 3_000 });
+    await expect(dialog.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    releaseRequest();
+    await expect(status).toHaveText("Announcement ended");
+  } finally {
+    releaseRequest();
+    await page.unrouteAll({ behavior: "wait" });
+    const announce = page.getByTestId("creator-announce");
+    if (await announce.getByText("Announce stream").isVisible()) {
+      await announce.click();
+      await expect(status).toHaveText("Live");
+    }
+  }
+});
+
+test("explains an uncertain end request and allows a retry after reconnecting", async ({
+  page,
+}) => {
+  await loginThroughPds(page);
+  await page.goto(`${url}/dashboard`);
+  const status = page.getByTestId("creator-stream-status");
+  await expect(status).toHaveText("Live");
+  let releaseRequest!: () => void;
+  const held = new Promise<void>((resolve) => {
+    releaseRequest = resolve;
+  });
+  let requestStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    requestStarted = resolve;
+  });
+  await page.route(
+    "**/xrpc/place.stream.live.stopLivestream",
+    async (route) => {
+      requestStarted();
+      await held;
+      await route.continue();
+    },
+  );
+  try {
+    await page
+      .getByRole("button", { name: "End Livestream", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "End announcement?" });
+    await dialog
+      .getByRole("button", { name: "End announcement", exact: true })
+      .click();
+    await started;
+    await page.context().setOffline(true);
+    releaseRequest();
+    await expect(
+      dialog.getByText(
+        "Couldn't confirm whether the announcement ended. Check your connection and status before trying again.",
+      ),
+    ).toBeVisible();
+    await page.context().setOffline(false);
+    await page.unrouteAll({ behavior: "wait" });
+    await expect(status).toHaveText("Live");
+    await dialog
+      .getByRole("button", { name: "End announcement", exact: true })
+      .click();
+    await expect(status).toHaveText("Announcement ended");
+  } finally {
+    releaseRequest();
+    await page.context().setOffline(false);
+    await page.unrouteAll({ behavior: "wait" });
+    const announce = page.getByTestId("creator-announce");
+    if (await announce.getByText("Announce stream").isVisible()) {
+      await announce.click();
+      await expect(status).toHaveText("Live");
+    }
   }
 });

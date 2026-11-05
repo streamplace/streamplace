@@ -117,8 +117,8 @@ export function VodComments({ videoUri }: { videoUri: string }) {
   }, [did, onNeedsLogin, draft, videoUri, createComment, loadComments]);
 
   return (
-    <View style={{ gap: spacing[5] }}>
-      <Text weight="semibold" size="lg">
+    <View style={{ gap: spacing[4] }}>
+      <Text weight="semibold" size="base">
         {comments.length > 0 ? `${comments.length} ` : ""}Comments
       </Text>
 

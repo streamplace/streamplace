@@ -76,7 +76,7 @@ export function AccountCategorySettings() {
     `rgb(${chatProfile.profile?.color?.red},${chatProfile.profile?.color?.green},${chatProfile.profile?.color?.blue})`; // eslint-disable-line streamplace/no-token-literals -- dynamic name color
 
   return (
-    <ScrollView>
+    <ScrollView contentInsetAdjustmentBehavior="automatic">
       <View style={[zero.layout.flex.align.center, zero.px[2]]}>
         <View style={{ paddingTop: 24, maxWidth: 500, width: "100%" }}>
           <View style={[zero.layout.flex.align.center, zero.pt[4], zero.pb[2]]}>

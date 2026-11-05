@@ -41,6 +41,49 @@ function makeState(overrides: Partial<LivestreamState> = {}): LivestreamState {
 }
 
 const MODERATOR_DID = "did:plc:mod";
+
+describe("channel presence", () => {
+  it("starts unknown and keeps presence separate from playback viewers", () => {
+    const store = makeLivestreamStore();
+    expect(store.getState().presence).toBeNull();
+    const next = handleWebSocketMessages(store.getState(), [
+      {
+        $type: "place.stream.livestream#viewerCount",
+        count: 7,
+        presence: 3,
+      },
+    ]);
+    expect(next.viewers).toBe(7);
+    expect(next.presence).toBe(3);
+  });
+
+  it.each([0, 1, 25])("accepts a presence count of %s", (presence) => {
+    const next = handleWebSocketMessages(makeLivestreamStore().getState(), [
+      {
+        $type: "place.stream.livestream#viewerCount",
+        count: 7,
+        presence,
+      },
+    ]);
+    expect(next.presence).toBe(presence);
+  });
+
+  it.each([undefined, -1, 1.5, "3", NaN, Infinity])(
+    "clears an unknown or invalid presence count (%s)",
+    (presence) => {
+      const state = { ...makeLivestreamStore().getState(), presence: 3 };
+      const next = handleWebSocketMessages(state, [
+        {
+          $type: "place.stream.livestream#viewerCount",
+          count: 7,
+          presence,
+        },
+      ]);
+      expect(next.presence).toBeNull();
+      expect(next.viewers).toBe(7);
+    },
+  );
+});
 const OTHER_MODERATOR_DID = "did:plc:othermod";
 const PERMISSION_URI =
   "at://did:plc:streamer/place.stream.moderation.permission/3kq";

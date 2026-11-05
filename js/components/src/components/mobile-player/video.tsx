@@ -320,6 +320,7 @@ const VideoElement = forwardRef<
       onVolumeChange={event("volumechange")}
       onWaiting={event("waiting")}
       style={{
+        display: "block",
         objectFit: props.objectFit || "contain",
         backgroundColor: "transparent",
         width: "100%",

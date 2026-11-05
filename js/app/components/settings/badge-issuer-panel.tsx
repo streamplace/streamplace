@@ -321,7 +321,7 @@ export function BadgeIssuerPanel() {
 
   if (view === "issue" && selectedDef) {
     return (
-      <ScrollView>
+      <ScrollView contentInsetAdjustmentBehavior="automatic">
         <View style={[layout.flex.align.center, px[2], py[2]]}>
           <View style={{ maxWidth: 500, width: "100%" }}>
             <BackButton
@@ -377,7 +377,7 @@ export function BadgeIssuerPanel() {
 
   if (view === "create") {
     return (
-      <ScrollView>
+      <ScrollView contentInsetAdjustmentBehavior="automatic">
         <View style={[layout.flex.align.center, px[2], py[2]]}>
           <View style={{ maxWidth: 500, width: "100%" }}>
             <BackButton
@@ -527,7 +527,7 @@ export function BadgeIssuerPanel() {
   }
 
   return (
-    <ScrollView>
+    <ScrollView contentInsetAdjustmentBehavior="automatic">
       <View style={[layout.flex.align.center, px[2], py[2]]}>
         <View style={{ maxWidth: 500, width: "100%" }}>
           <Text muted style={{ fontSize: 13 }}>

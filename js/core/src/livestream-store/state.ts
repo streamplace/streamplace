@@ -22,6 +22,8 @@ export interface LivestreamState {
   authors: { [key: string]: ChatMessageViewHydrated["chatProfile"] };
   livestream: LivestreamViewHydrated | null;
   viewers: number | null;
+  /** Channel connections on this node, or null when the node doesn't report it. */
+  presence: number | null;
   /** Running number of playback sessions this livestream has had. */
   viewTotal: number | null;
   pendingHides: string[];

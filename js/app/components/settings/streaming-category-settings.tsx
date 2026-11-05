@@ -13,7 +13,7 @@ import { SettingsNavigationItem } from "./components/settings-navigation-item";
 export function StreamingCategorySettings() {
   const { t } = useTranslation("settings");
   return (
-    <ScrollView>
+    <ScrollView contentInsetAdjustmentBehavior="automatic">
       <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
         <View style={{ paddingVertical: 0, maxWidth: 500, width: "100%" }}>
           <MenuContainer>

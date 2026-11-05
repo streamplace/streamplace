@@ -121,13 +121,13 @@ export const ButtonRoot = forwardRef<
           ...accessibilityState,
         }}
         testID={testID}
-        style={({ pressed }) => [
+        style={(state) => [
           primitiveStyles.button,
           primitiveStyles.transition,
           (disabled || loading) && primitiveStyles.disabled,
-          style as any,
+          typeof style === "function" ? style(state) : style,
           isHovered && hoverStyle,
-          pressed && !disabled && !loading && pressedStyle,
+          state.pressed && !disabled && !loading && pressedStyle,
         ]}
         {...props}
       >

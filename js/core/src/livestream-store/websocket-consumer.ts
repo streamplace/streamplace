@@ -113,6 +113,11 @@ export const handleWebSocketMessages = (
         state = {
           ...state,
           viewers: message.count,
+          presence:
+            Number.isSafeInteger(message.presence) &&
+            (message.presence ?? -1) >= 0
+              ? message.presence!
+              : null,
           viewTotal: message.total ?? state.viewTotal,
         };
       } else if (place.stream.chat.defs.messageView.isTypeOf(message)) {

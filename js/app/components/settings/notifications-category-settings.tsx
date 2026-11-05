@@ -81,7 +81,7 @@ export function NotificationsCategorySettings() {
   };
 
   return (
-    <ScrollView>
+    <ScrollView contentInsetAdjustmentBehavior="automatic">
       <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
         <View style={{ maxWidth: 500, width: "100%" }}>
           <MenuContainer>

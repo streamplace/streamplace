@@ -1,5 +1,11 @@
 import { useNavigation } from "@react-navigation/native";
-import { Text, useTheme, View, zero } from "@streamplace/components";
+import {
+  Text,
+  Icon as ThemedIcon,
+  useTheme,
+  View,
+  zero,
+} from "@streamplace/components";
 import { spacing } from "@streamplace/components/src/lib/theme/tokens";
 import { ChevronRight, ExternalLink, LucideIcon } from "lucide-react-native";
 import { Linking, Pressable } from "react-native";
@@ -51,10 +57,14 @@ export function SettingsNavigationItem({
               gap: spacing[3],
             }}
           >
-            <Icon size={18} color={styles.iconColor} />
+            <ThemedIcon icon={Icon} size={18} color={styles.iconColor} />
             <Text>{title}</Text>
           </View>
-          <ChevronRight size={18} color={styles.chevronColor} />
+          <ThemedIcon
+            icon={ChevronRight}
+            size={18}
+            color={styles.chevronColor}
+          />
         </View>
       )}
     </Pressable>
@@ -110,10 +120,16 @@ export function SettingsExternalItem({
               gap: spacing[3],
             }}
           >
-            {LeftIcon && <Left size={18} color={styles.iconColor} />}
+            {LeftIcon && (
+              <ThemedIcon icon={Left} size={18} color={styles.iconColor} />
+            )}
             <Text>{title}</Text>
           </View>
-          <ExternalLink size={18} color={styles.chevronColor} />
+          <ThemedIcon
+            icon={ExternalLink}
+            size={18}
+            color={styles.chevronColor}
+          />
         </View>
       )}
     </Pressable>

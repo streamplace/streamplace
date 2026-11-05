@@ -213,7 +213,10 @@ export default function MultistreamManager() {
 
   return (
     <>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: "center" }}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ flexGrow: 1, alignItems: "center" }}
+      >
         <View
           style={[
             { maxWidth: 800, width: "100%" },

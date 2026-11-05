@@ -1,4 +1,5 @@
 import {
+  Icon,
   MenuContainer,
   MenuGroup,
   MenuInfo,
@@ -53,7 +54,7 @@ export function Settings() {
   const { t } = useTranslation("settings");
 
   return (
-    <ScrollView>
+    <ScrollView contentInsetAdjustmentBehavior="automatic">
       <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
         <View style={{ maxWidth: 500, width: "100%" }}>
           <MenuContainer>
@@ -113,7 +114,7 @@ export function Settings() {
                         justifyContent: "center",
                       }}
                     >
-                      <LogIn size={24} color={theme.colors.text3} />
+                      <Icon icon={LogIn} size={24} color={theme.colors.text3} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text size="xl" style={{ fontWeight: "600" }}>

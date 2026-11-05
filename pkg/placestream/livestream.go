@@ -537,6 +537,8 @@ type Livestream_ViewerCount struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	// count: Viewers watching right now.
 	Count int64 `json:"count"`
+	// presence: Current channel WebSocket connections on this node, including while offline. Counts connections, not unique people, separately from playback viewers.
+	Presence *int64 `json:"presence,omitempty"`
 	// total: Running number of playback sessions this livestream has had (cumulative, session-based; the X-style 'views' beside the concurrent count).
 	Total *int64 `json:"total,omitempty"`
 }

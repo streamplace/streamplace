@@ -119,7 +119,10 @@ export default function KeyManager() {
   const isEmpty = !isLoading && keyRecords.records.length === 0;
 
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: "center" }}>
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={{ flexGrow: 1, alignItems: "center" }}
+    >
       <View
         style={{
           paddingHorizontal: 32,

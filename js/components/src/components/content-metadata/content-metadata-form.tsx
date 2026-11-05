@@ -43,6 +43,7 @@ import { Text } from "../ui/text";
 import { Textarea } from "../ui/textarea";
 import { useToast } from "../ui/toast";
 import { Tooltip } from "../ui/tooltip";
+import { WarningHelp } from "../ui/warning-help";
 
 const { p, r, bg, borders, w, text, layout, gap, flex } = zero;
 const distributionExplanations = [
@@ -722,11 +723,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                           </Tooltip>
                         )}
                         {Platform.OS === "web" && !showWarningDescriptions && (
-                          <ExplanationDialog
-                            compact
-                            title={`About ${warning.label}`}
-                            entries={[warning]}
-                          />
+                          <WarningHelp warning={warning} />
                         )}
                       </View>
                     );

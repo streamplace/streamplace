@@ -72,14 +72,27 @@ test.describe("touch explanations", () => {
     await page.goto(`${url}/dashboard/stream`);
     const warning = page.getByRole("checkbox", { name: "Death" });
     const checked = await warning.isChecked();
-    await page.getByRole("button", { name: "About Death" }).tap();
-    const dialog = page.getByRole("dialog");
+    const help = page.getByRole("button", { name: "About Death" });
+    await help.tap();
+    const dialog = page.getByRole("dialog", { name: "About Death" });
+    const anchor = (await help.boundingBox())!;
+    const panel = (await dialog.boundingBox())!;
+    expect(
+      Math.min(
+        Math.abs(panel.y - (anchor.y + anchor.height)),
+        Math.abs(anchor.y - (panel.y + panel.height)),
+      ),
+    ).toBeLessThanOrEqual(16);
+    expect(panel.x).toBeGreaterThanOrEqual(0);
+    expect(panel.x + panel.width).toBeLessThanOrEqual(390);
+    expect(panel.height).toBeLessThan(180);
+    await expect(dialog).not.toHaveAttribute("aria-modal", "true");
     await expect(
       dialog.getByText(/discussion or display of death/i),
     ).toBeVisible();
     const close = dialog.getByRole("button", { name: "Close" });
     await expect(close).toBeVisible();
-    const heading = dialog.getByText("About Death", { exact: true });
+    const heading = dialog.getByText("Death", { exact: true });
     expect(
       Math.abs(
         (await close.boundingBox())!.y - (await heading.boundingBox())!.y,
@@ -87,17 +100,75 @@ test.describe("touch explanations", () => {
     ).toBeLessThan(30);
     await close.tap();
     expect(await warning.isChecked()).toBe(checked);
+    await help.focus();
+    await page.keyboard.press("Enter");
+    await expect(dialog).toBeVisible();
+    await expect(help).toBeFocused();
+    await expect(help).toHaveAccessibleDescription(
+      /discussion or display of death/i,
+    );
+    await page.keyboard.press("Tab");
+    await expect(dialog).not.toBeVisible();
+    await help.focus();
+    await page.keyboard.press("Enter");
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).not.toBeVisible();
+    await expect(help).toBeFocused();
+    await help.tap();
+    await expect(dialog).toBeVisible();
+    await help.tap();
+    await expect(dialog).not.toBeVisible();
+    await help.tap();
+    const language = page.getByRole("checkbox", { name: "Language" });
+    const languageChecked = await language.isChecked();
+    await language.tap();
+    await expect(dialog).not.toBeVisible();
+    expect(await language.isChecked()).toBe(!languageChecked);
+    await language.tap();
+
+    const lowerHelp = page.getByRole("button", { name: "About Violence" });
+    await lowerHelp.evaluate((element) =>
+      element.scrollIntoView({ block: "end" }),
+    );
+    await lowerHelp.tap();
+    const lowerDialog = page.getByRole("dialog", { name: "About Violence" });
+    const lowerPanel = (await lowerDialog.boundingBox())!;
+    expect(lowerPanel.y).toBeGreaterThanOrEqual(0);
+    expect(lowerPanel.y + lowerPanel.height).toBeLessThanOrEqual(844);
+    await lowerDialog.getByRole("button", { name: "Close" }).tap();
+
+    await page
+      .getByRole("button", {
+        name: "About Personally Identifiable Information",
+      })
+      .tap();
+    const longDialog = page.getByRole("dialog", {
+      name: "About Personally Identifiable Information",
+    });
+    const longPanel = (await longDialog.boundingBox())!;
+    const longClose = (await longDialog
+      .getByRole("button", { name: "Close" })
+      .boundingBox())!;
+    expect(longClose.x + longClose.width).toBeLessThanOrEqual(
+      longPanel.x + longPanel.width,
+    );
+    expect(longPanel.x + longPanel.width).toBeLessThanOrEqual(390);
+    await longDialog.getByRole("button", { name: "Close" }).tap();
     const ai = page.getByRole("checkbox", {
       name: "Mark your content as available for generative AI training",
     });
     const aiChecked = await ai.isChecked();
     await page.getByRole("button", { name: "About distribution" }).tap();
+    const distributionHelp = page.getByRole("dialog", {
+      name: "About distribution",
+    });
     await expect(
-      dialog.getByText(
+      distributionHelp.getByText(
         "Your video's metadata signals whether you want your content used to train generative AI.",
       ),
     ).toBeVisible();
-    await dialog.getByRole("button", { name: "Close" }).tap();
+    await distributionHelp.getByRole("button", { name: "Close" }).tap();
     expect(await ai.isChecked()).toBe(aiChecked);
     await page.goto(`${url}/dashboard`);
     const widget = page.getByRole("region", { name: "Stream Info widget" });
@@ -106,9 +177,12 @@ test.describe("touch explanations", () => {
       widget.getByRole("textbox", { name: "Canonical URL" }),
     ).toBeVisible();
     await widget.getByRole("button", { name: "About stream options" }).tap();
+    const optionsHelp = page.getByRole("dialog", {
+      name: "About stream options",
+    });
     await expect(
-      dialog.getByText("End livestream automatically", { exact: true }),
+      optionsHelp.getByText("End livestream automatically", { exact: true }),
     ).toBeVisible();
-    await dialog.getByRole("button", { name: "Close" }).tap();
+    await optionsHelp.getByRole("button", { name: "Close" }).tap();
   });
 });

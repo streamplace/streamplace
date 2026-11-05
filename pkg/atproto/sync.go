@@ -252,6 +252,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if scm.Author.Handle == "" || scm.Author.Handle == "handle.invalid" {
 			scm.Author.Handle = atsync.ResolveAuthorHandle(ctx, scm.Author.Did)
 		}
+		atsync.DecorateChatProfiles(ctx, scm)
 		atsync.DecorateVerification(ctx, rec.Streamer, scm)
 		if !atsync.ChatAllowed(ctx, rec.Streamer, scm.Author.Did) {
 			// The streamer's chat access rules refuse this author: the message
@@ -382,6 +383,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			if err != nil {
 				return fmt.Errorf("failed to convert chat message: %w", err)
 			}
+			atsync.DecorateChatProfiles(ctx, msgView)
 			pinnedView.Message = msgView
 		}
 		if profile != nil {
@@ -518,6 +520,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			if err != nil {
 				log.Error(ctx, "failed to convert feed post to bsky post view", "err", err)
 			}
+			atsync.DecorateAuthorProfile(ctx, &postView.Author)
 			go atsync.Bus.Publish(livestream.RepoDID, postView)
 		}
 
@@ -578,6 +581,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to convert livestream to bsky post view: %w", err)
 		}
+		atsync.DecorateAuthorProfile(ctx, &lsv.Author)
 		go atsync.Bus.Publish(userDID, lsv)
 
 		if !isFirstSync {
@@ -848,6 +852,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			},
 			Record: &glex.LexiconTypeDecoder{Val: rec},
 		}
+		atsync.DecorateAuthorProfile(ctx, &view.Author)
 		// Publish moderation permission view to WebSocket bus for real-time updates
 		// This allows moderators to see their permissions instantly without page refresh
 		go atsync.Bus.Publish(userDID, moderationPermissionViewEvent{
@@ -1095,6 +1100,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if sc.Author.Handle == "" || sc.Author.Handle == "handle.invalid" {
 			sc.Author.Handle = atsync.ResolveAuthorHandle(ctx, sc.Author.Did)
 		}
+		atsync.DecorateAuthorProfile(ctx, &sc.Author)
 
 		if videoAuthor != "" {
 			go atsync.Bus.Publish(videoAuthor, sc)

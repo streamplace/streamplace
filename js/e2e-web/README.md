@@ -59,6 +59,14 @@ Cleanup restores the original profile, using an empty record when none existed
 because profile deletions are not indexed. The native counterpart is
 `.maestro/logged-out/profile-pronouns.yaml`.
 
+`websocket-authors` is a protocol-only third-party consumer flow, with no native
+UI counterpart. It writes a real Bluesky profile and avatar blob, then inspects
+live chat, reply previews, pins, and reconnect snapshots directly over the
+websocket. Livestream authors and nested message authors must carry the indexed
+display name, pronouns, and CDN avatar URL without changing their DID or handle.
+There are no public AppView substitutions. Cleanup restores the original
+profile and removes this flow's chat and pin records.
+
 `invalid-handle` runs against both Expo web and the Vite beta. It moves the
 harness account to a real `.test` handle, which cannot pass public
 bidirectional verification, and calls `com.atproto.identity.refreshIdentity`.

@@ -74,6 +74,28 @@ Refreshing an identity does not index an unknown account. Empty or invalid
 handles, and ambiguous cached handle claims, never select an arbitrary indexed
 account; use the DID while handle ownership is being repaired.
 
+## Websocket author profiles
+
+The stream websocket (`/api/websocket/{streamer}`) includes indexed Bluesky
+profile metadata in the `author` objects on its views. Alongside `did` and
+`handle`, an author can include `displayName`, `pronouns`, and `avatar`. The
+text fields retain their indexed values; `avatar` is an HTTPS image URL, not a
+blob reference:
+
+```text
+https://cdn.bsky.app/img/avatar/plain/{authorDid}/{avatarBlobCid}@jpeg
+```
+
+Live chat events and reconnect snapshots use the same local profile index,
+including authors inside reply previews and pinned messages. The node uses the
+ordinary Bluesky profile, not Streamplace's temporary go-live profile copy, and
+does not query a public AppView to fill these fields.
+
+Treat the metadata as optional: an account may have no indexed profile or may
+not have set every field. A profile lookup failure does not drop the event.
+Already emitted views are not rewritten when a profile changes; newly built
+views and reconnect snapshots use the profile indexed at that time.
+
 ## Chat message timestamps
 
 Chat messages (`place.stream.chat.message`) sent by Streamplace include the

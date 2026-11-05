@@ -89,11 +89,19 @@ for (const frontend of ["app", "web"]) {
     });
     const message = `pronouns profile ${frontend} ${Date.now()}`;
     try {
-      for (pronouns of [" xe/xem · 🦋 ", "   ", undefined]) {
+      for (pronouns of [` ${"🦋".repeat(18)} `, "   ", undefined]) {
         const value = { ...base };
         delete value.pronouns;
         if (pronouns !== undefined) value.pronouns = pronouns;
         await putProfile(value);
+        const profileResponse = page.waitForResponse(
+          (response) =>
+            response
+              .url()
+              .startsWith(
+                "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfiles?",
+              ) && response.request().method() === "GET",
+        );
         await expect(async () => {
           indexedPronouns = null;
           await page.goto(`${HTTPS_URL}/${DID}`);
@@ -107,6 +115,28 @@ for (const frontend of ["app", "web"]) {
           await page.screenshot({
             path: testInfo.outputPath("stream-pronouns.png"),
           });
+          if (frontend === "app") {
+            await page.setViewportSize({ width: 320, height: 844 });
+            const expand = page.getByRole("button", {
+              name: "Expand stream info",
+              exact: true,
+            });
+            await expect(expand).toBeInViewport({ ratio: 1 });
+            const identity = page.getByRole("button", {
+              name: "Stream info",
+              exact: true,
+            });
+            expect((await identity.boundingBox())!.width).toBeGreaterThan(0);
+            await page.screenshot({
+              path: testInfo.outputPath("compact-pronouns.png"),
+            });
+            await expand.click();
+            await expect(streamPronouns).toHaveCount(1);
+            await page
+              .getByRole("button", { name: "Collapse stream info" })
+              .click();
+            await page.setViewportSize({ width: 1280, height: 720 });
+          }
         } else {
           await expect(streamPronouns).toHaveCount(0);
         }
@@ -125,22 +155,16 @@ for (const frontend of ["app", "web"]) {
           .filter({ visible: true })
           .first();
         await expect(visibleMessage).toBeVisible();
-        if (frontend === "app") {
-          await page
-            .getByTestId(`chat-profile-trigger-${HANDLE}`)
-            .first()
-            .click();
-        } else {
-          await page
-            .getByRole("button", { name: HANDLE, exact: true })
-            .first()
-            .click();
-        }
-        await expect(
+        const profileTrigger =
+          frontend === "app"
+            ? page.getByTestId(`chat-profile-trigger-${HANDLE}`).first()
+            : page.getByRole("button", { name: HANDLE, exact: true }).first();
+        const profileCard =
           frontend === "app"
             ? page.getByTestId("chat-profile-card")
-            : page.getByRole("link", { name: /View profile on/ }),
-        ).toBeVisible();
+            : page.getByRole("link", { name: /View profile on/ });
+        await profileTrigger.click();
+        await expect(profileCard).toBeVisible();
         const cardPronouns = page.getByTestId("chat-profile-pronouns");
         if (pronouns?.trim()) {
           await expect(cardPronouns).toHaveText(pronouns.trim());
@@ -148,6 +172,19 @@ for (const frontend of ["app", "web"]) {
             path: testInfo.outputPath("chat-profile-pronouns.png"),
           });
         } else {
+          await (await profileResponse).finished();
+          // Reopen after the fetch completes: this checks the cached profile,
+          // not the card's initial render while its lookup is still pending.
+          if (frontend === "app") {
+            await page.getByTestId("chat-profile-backdrop").click({
+              position: { x: 10, y: 10 },
+            });
+          } else {
+            await page.keyboard.press("Escape");
+          }
+          await expect(profileCard).toBeHidden();
+          await profileTrigger.click();
+          await expect(profileCard).toBeVisible();
           await expect(cardPronouns).toHaveCount(0);
         }
       }

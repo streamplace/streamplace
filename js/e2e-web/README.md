@@ -52,6 +52,9 @@ cards in Expo web and the Vite beta. Pronouns are read-only here; users edit
 missing values leave no placeholder. The test writes a real PDS profile and
 waits for the indexed websocket profile; only public AppView discovery and chat
 profile lookup are substituted because the harness account is not public.
+The compact case uses maximum-length padded Unicode pronouns at 320px to keep
+the identity and expansion control usable. Blank chat-card checks wait for the
+profile response and reopen the card against its populated cache.
 Cleanup restores the original profile, using an empty record when none existed
 because profile deletions are not indexed. The native counterpart is
 `.maestro/logged-out/profile-pronouns.yaml`.

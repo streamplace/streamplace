@@ -286,10 +286,10 @@ test("ending an announcement can be cancelled before the stream is changed", asy
   await page.setViewportSize({ width: 390, height: 844 });
   const end = page.getByRole("button", { name: "End Livestream", exact: true });
   await end.click();
-  const dialog = page.getByRole("dialog", { name: "End livestream?" });
+  const dialog = page.getByRole("dialog", { name: "End announcement?" });
   await expect(dialog).toBeVisible();
   const confirmation = dialog.getByText(
-    "This ends the announcement. Incoming video will continue.",
+    "Ending the announcement does not stop video from your streaming app. To stop sending video, stop the stream in OBS or your streaming app.",
   );
   const bounds = await confirmation.boundingBox();
   expect(bounds).not.toBeNull();

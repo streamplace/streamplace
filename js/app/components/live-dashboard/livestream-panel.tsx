@@ -1239,8 +1239,8 @@ function LivestreamPanel({
         <Dialog
           open={confirmEnd}
           onOpenChange={setConfirmEnd}
-          title="End livestream?"
-          description="This ends the announcement. Incoming video will continue."
+          title="End announcement?"
+          description="Ending the announcement does not stop video from your streaming app. To stop sending video, stop the stream in OBS or your streaming app."
         >
           <DialogFooter>
             <Button
@@ -1263,7 +1263,7 @@ function LivestreamPanel({
                 void handleEndLivestream();
               }}
             >
-              End livestream
+              End announcement
             </Button>
           </DialogFooter>
         </Dialog>

@@ -21,7 +21,7 @@ import type { LiveDashboardStatus } from "hooks/useLiveDashboardStatus";
 import { Eye, EyeOff } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View, type ViewStyle } from "react-native";
+import { Platform, View, type ViewStyle } from "react-native";
 import StreamScreen from "./live-selector";
 
 const { flex, bg, r, borders, layout, p, text, w, h, mt } = zero;
@@ -117,7 +117,9 @@ function PreviewOverlay({ ended }: { ended: boolean }) {
           >
             {t(
               ended
-                ? "creator-status-ended-detail"
+                ? Platform.OS === "web"
+                  ? "creator-status-ended-incoming-detail"
+                  : "creator-status-ended-detail"
                 : "creator-status-ready-detail",
             )}
           </Text>

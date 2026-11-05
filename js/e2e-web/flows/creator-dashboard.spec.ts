@@ -147,13 +147,13 @@ test("creator status: reconnects without writes and ends only the announcement",
     .getByRole("button", { name: "End Livestream", exact: true })
     .click();
   await page
-    .getByRole("dialog", { name: "End livestream?" })
-    .getByRole("button", { name: "End livestream", exact: true })
+    .getByRole("dialog", { name: "End announcement?" })
+    .getByRole("button", { name: "End announcement", exact: true })
     .click();
   await expect(status).toHaveText("Announcement ended");
   await expect(
     page.getByText(
-      "This announcement has ended. Incoming video is independent.",
+      "Video is still arriving. To stop sending video, stop the stream in OBS or your streaming app.",
       {
         exact: true,
       },

@@ -392,6 +392,7 @@
   "creator-status-ready-detail": "Video is arriving. Announce your stream when you're ready.",
   "creator-status-reconnecting-detail": "Dashboard connection lost. Last readings may be stale.",
   "creator-status-ended-detail": "This announcement has ended. Incoming video is independent.",
+  "creator-status-ended-incoming-detail": "Video is still arriving. To stop sending video, stop the stream in OBS or your streaming app.",
   "creator-status-live-waiting-detail": "Waiting for incoming video. Your announcement is still active.",
   "creator-readings-stale": "Readings stale",
   "creator-announce": "Announce stream"

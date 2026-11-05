@@ -382,6 +382,8 @@ jobs:
         if: matrix.name == 'ios'
         env:
           E2E_ARTIFACTS: ${{ github.workspace }}/.maestro/artifacts
+          # Cold hosted XCTest startup exceeds Maestro's default deadline.
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: "300000"
         run: bash hack/ios-smoke.sh
 
       - name: upload ios smoke artifacts

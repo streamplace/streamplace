@@ -173,6 +173,7 @@ overrides:
   stream-json@3.5.0: 3.8.0
 
 patchedDependencies:
+  '@atproto-labs/fetch@0.4.1': 57a9aa181613818a42b8752a7dbb3ad40d53c7158e09693cb245e8c7312953dc
   core-js: 21c25ca1c792d52c0af7b9b268c163b4bda8a72bb061fcc6a07c81a8a42ecfe7
   lex-md: cac427b6bea381798daaec39095b256ccea51a569c484b84c795f9c6af80bf9c
 
@@ -15680,7 +15681,7 @@ snapshots:
 
   '@atproto-labs/did-resolver@0.3.12':
     dependencies:
-      '@atproto-labs/fetch': 0.4.1
+      '@atproto-labs/fetch': 0.4.1(patch_hash=57a9aa181613818a42b8752a7dbb3ad40d53c7158e09693cb245e8c7312953dc)
       '@atproto-labs/pipe': 0.2.5
       '@atproto-labs/simple-store': 0.5.1
       '@atproto-labs/simple-store-memory': 0.2.6
@@ -15689,14 +15690,14 @@ snapshots:
 
   '@atproto-labs/fetch-node@0.4.4':
     dependencies:
-      '@atproto-labs/fetch': 0.4.1
+      '@atproto-labs/fetch': 0.4.1(patch_hash=57a9aa181613818a42b8752a7dbb3ad40d53c7158e09693cb245e8c7312953dc)
       '@atproto-labs/pipe': 0.2.5
       ipaddr.js: 2.5.0
       undici_v6: undici@6.29.1
       undici_v7: undici@7.30.1
       undici_v8: undici@8.12.3
 
-  '@atproto-labs/fetch@0.4.1':
+  '@atproto-labs/fetch@0.4.1(patch_hash=57a9aa181613818a42b8752a7dbb3ad40d53c7158e09693cb245e8c7312953dc)':
     dependencies:
       '@atproto-labs/pipe': 0.2.5
 
@@ -15983,7 +15984,7 @@ snapshots:
   '@atproto/oauth-client@0.9.0':
     dependencies:
       '@atproto-labs/did-resolver': 0.3.12
-      '@atproto-labs/fetch': 0.4.1
+      '@atproto-labs/fetch': 0.4.1(patch_hash=57a9aa181613818a42b8752a7dbb3ad40d53c7158e09693cb245e8c7312953dc)
       '@atproto-labs/handle-resolver': 0.4.10
       '@atproto-labs/identity-resolver': 0.4.12
       '@atproto-labs/simple-store': 0.5.1
@@ -16043,7 +16044,7 @@ snapshots:
 
   '@atproto/oauth-resolver@0.0.1':
     dependencies:
-      '@atproto-labs/fetch': 0.4.1
+      '@atproto-labs/fetch': 0.4.1(patch_hash=57a9aa181613818a42b8752a7dbb3ad40d53c7158e09693cb245e8c7312953dc)
       '@atproto-labs/identity-resolver': 0.4.12
       '@atproto-labs/simple-store': 0.5.1
       '@atproto-labs/simple-store-memory': 0.2.6

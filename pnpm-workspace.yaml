@@ -22,6 +22,7 @@ allowBuilds:
   utf-8-validate: true
   workerd: true
 patchedDependencies:
+  "@atproto-labs/fetch@0.4.1": patches/@atproto-labs__fetch@0.4.1.patch
   core-js: patches/core-js.patch
   lex-md: patches/lex-md.patch
 overrides:

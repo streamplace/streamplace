@@ -297,6 +297,9 @@ bash hack/ios-smoke.sh
 
 The runner creates and removes its own simulator; screenshots and logs remain
 under `.maestro/artifacts/ios/`.
+CI allows five minutes for Maestro's cold XCTest driver startup. The first
+hosted run started its driver HTTP server after the default deadline; the flow
+assertions and their timeouts are unchanged.
 
 ## Dependency upgrades and deployment
 
@@ -335,6 +338,15 @@ The desktop updater uses its existing static feed directly, with the same
 ten-minute interval and restart prompt, rather than depending on a second updater.
 The synthetic desktop playback fixture reads the shipped Geist Mono font from
 `app.Assets()`, not obsolete Atkinson filenames in Expo's hashed export output.
+
+Expo's streaming fetch stays enabled. The scoped `@atproto-labs/fetch` patch
+backports the bounded JSON reader from [upstream PR #5805](https://github.com/bluesky-social/atproto/pull/5805):
+the published parser constructs a streaming `Response` using React Native's
+incompatible global constructor, silently preventing DPoP nonce retries.
+Remove the patch when a published release includes the upstream correction.
+The native timezone fixture starts with a capital letter so sentence
+capitalization cannot change the record lookup; its stored offset and send-time
+assertions remain unchanged.
 
 Iroh 1.x uses `endpoint...` tickets and a new transport protocol. Upgrade
 communicating nodes together and exchange newly generated tickets; old

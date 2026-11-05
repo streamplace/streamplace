@@ -79,6 +79,8 @@ const notificationExplanation =
   "Send a push notification to your followers on the Streamplace iOS/Android app.";
 const automaticEndExplanation =
   "Enabling this setting will turn your livestream off after 5 minutes of inactivity, and you'll need to press the 'Start Livestream' button again to start it again next time you stream.";
+const webAutomaticEndExplanation =
+  "If incoming video stops, the announcement can end after a period of inactivity. You can announce again when you're ready.";
 const endErrorMessage =
   "Couldn't confirm whether the announcement ended. Check your connection and status before trying again.";
 const endWaitingMessage =
@@ -332,6 +334,7 @@ function LivestreamPanel({
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const canonicalUrlLabel = useId();
+  const postPermissionDescription = useId();
   const [warningsOpened, setWarningsOpened] = useState(false);
   const bodyRef = useRef<ScrollView>(null);
   const { t } = useTranslation("settings");
@@ -393,6 +396,7 @@ function LivestreamPanel({
   const sessionScope = useStore((s) => s.sessionScope);
   const networkName = useNetworkName();
   const canPostToBluesky = scopeGrants(sessionScope, SCOPE_BSKY_POST_CREATE);
+  const postPermissionExplanation = `You signed in without ${networkName} posting permission. Sign out and back in to change this.`;
   const [createPost, setCreatePost] = useState(true);
   const [idleTimeout, setIdleTimeout] = useState(true);
   const [sendPushNotification, setSendPushNotification] = useState(true);
@@ -687,8 +691,12 @@ function LivestreamPanel({
 
   const { theme } = useTheme();
   const disabled = useMemo(
-    () => !status.canAnnounce || loading || title.trim() === "",
-    [status.canAnnounce, loading, title],
+    () =>
+      !status.canAnnounce ||
+      loading ||
+      (isWeb && endingLivestream) ||
+      title.trim() === "",
+    [status.canAnnounce, loading, endingLivestream, title],
   );
 
   const buttonText = useMemo(() => {
@@ -724,6 +732,38 @@ function LivestreamPanel({
 
   const canEndLivestream =
     livestream && livestream.record.endedAt === undefined;
+  const postOption = (
+    <View style={[gap.all[1]]}>
+      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[1]]}>
+        <Checkbox
+          checked={createPost && canPostToBluesky}
+          onCheckedChange={(checked) => {
+            editedFields.current.add("createPost");
+            setCreatePost(checked);
+          }}
+          disabled={!canPostToBluesky}
+          label={`Create ${networkName} post`}
+          aria-describedby={
+            dashboardWeb && !canPostToBluesky
+              ? postPermissionDescription
+              : undefined
+          }
+          style={dashboardWeb ? { flex: 1, minWidth: 0 } : undefined}
+        />
+        {!canPostToBluesky && <Lock size={14} color={theme.colors.textMuted} />}
+      </View>
+      {dashboardWeb && !canPostToBluesky && (
+        <Text
+          nativeID={postPermissionDescription}
+          testID="creator-post-permission"
+          size="xs"
+          color="muted"
+        >
+          {postPermissionExplanation}
+        </Text>
+      )}
+    </View>
+  );
 
   return (
     <View
@@ -1030,6 +1070,25 @@ function LivestreamPanel({
                   >
                     {showOptions ? "Hide stream options" : "Stream options"}
                   </Button>
+                  {!updating && status.incoming !== null && (
+                    <Text
+                      testID="creator-announcement-options"
+                      size="xs"
+                      color="muted"
+                    >
+                      Push notification: {sendPushNotification ? "on" : "off"}
+                      {" · "}
+                      {networkName} post:{" "}
+                      {canPostToBluesky
+                        ? createPost
+                          ? "on"
+                          : "off"
+                        : "unavailable"}
+                      {" · "}
+                      Automatic end:{" "}
+                      {idleTimeout ? "on (when inactive)" : "off"}
+                    </Text>
+                  )}
                 </View>
               )}
               {(!dashboardWeb || showOptions) && (
@@ -1048,7 +1107,7 @@ function LivestreamPanel({
                                 label: `Create ${networkName} post`,
                                 description: canPostToBluesky
                                   ? `Create a ${networkName} post announcing you're live with a link to the stream.`
-                                  : `You signed in without granting ${networkName} permissions, so Streamplace can't post to your account. Log out and back in to change this.`,
+                                  : postPermissionExplanation,
                               },
                               {
                                 label: "Send push notification",
@@ -1058,7 +1117,7 @@ function LivestreamPanel({
                           : []),
                         {
                           label: "End livestream automatically",
-                          description: automaticEndExplanation,
+                          description: webAutomaticEndExplanation,
                         },
                         ...(vodBetaStatus === "granted"
                           ? [
@@ -1117,37 +1176,21 @@ function LivestreamPanel({
                       { borderColor: borderAlphas.dark.strong },
                     ]}
                   >
-                    {!updating && (
-                      <Tooltip
-                        content={
-                          canPostToBluesky
-                            ? `Create a ${networkName} post announcing you're live with a link to the stream.`
-                            : `You signed in without granting ${networkName} permissions, so Streamplace can't post to your account. Log out and back in to change this.`
-                        }
-                        position="top"
-                      >
-                        <View
-                          style={[
-                            layout.flex.row,
-                            { alignItems: "center" },
-                            gap.all[1],
-                          ]}
+                    {!updating &&
+                      (dashboardWeb ? (
+                        postOption
+                      ) : (
+                        <Tooltip
+                          content={
+                            canPostToBluesky
+                              ? `Create a ${networkName} post announcing you're live with a link to the stream.`
+                              : `You signed in without granting ${networkName} permissions, so Streamplace can't post to your account. Log out and back in to change this.`
+                          }
+                          position="top"
                         >
-                          <Checkbox
-                            checked={createPost && canPostToBluesky}
-                            onCheckedChange={(checked) => {
-                              editedFields.current.add("createPost");
-                              setCreatePost(checked);
-                            }}
-                            disabled={!canPostToBluesky}
-                            label={`Create ${networkName} post`}
-                          />
-                          {!canPostToBluesky && (
-                            <Lock size={14} color={theme.colors.textMuted} />
-                          )}
-                        </View>
-                      </Tooltip>
-                    )}
+                          {postOption}
+                        </Tooltip>
+                      ))}
                     {!updating && (
                       <Tooltip content={notificationExplanation} position="top">
                         <Checkbox
@@ -1160,7 +1203,14 @@ function LivestreamPanel({
                         />
                       </Tooltip>
                     )}
-                    <Tooltip content={automaticEndExplanation} position="top">
+                    <Tooltip
+                      content={
+                        dashboardWeb
+                          ? webAutomaticEndExplanation
+                          : automaticEndExplanation
+                      }
+                      position="top"
+                    >
                       <Checkbox
                         checked={idleTimeout}
                         onCheckedChange={(checked) => {
@@ -1265,8 +1315,11 @@ function LivestreamPanel({
           open={confirmEnd}
           onOpenChange={setConfirmEnd}
           title="End announcement?"
-          description="Ending the announcement does not stop video from your streaming app. To stop sending video, stop the stream in OBS or your streaming app."
+          description="Ending the announcement doesn't stop video from your streaming app. People watching may still receive it. To stop sending video, stop streaming in OBS or your streaming app."
         >
+          <Text size="sm" color="muted">
+            If automatic VOD publishing is on, ending may publish a recording.
+          </Text>
           {endError && (
             <Text size="sm" color="destructive">
               {endErrorMessage}
@@ -1277,7 +1330,7 @@ function LivestreamPanel({
               {endWaitingMessage}
             </Text>
           )}
-          <DialogFooter>
+          <DialogFooter style={{ marginTop: theme.spacing[3] }}>
             <Button
               width="min"
               variant="secondary"

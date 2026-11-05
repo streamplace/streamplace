@@ -183,6 +183,11 @@ test.describe("touch explanations", () => {
     await expect(
       optionsHelp.getByText("End livestream automatically", { exact: true }),
     ).toBeVisible();
+    await expect(
+      optionsHelp.getByText(
+        "If incoming video stops, the announcement can end after a period of inactivity. You can announce again when you're ready.",
+      ),
+    ).toBeVisible();
     await optionsHelp.getByRole("button", { name: "Close" }).tap();
   });
 });

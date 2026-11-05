@@ -289,7 +289,7 @@ test("ending an announcement can be cancelled before the stream is changed", asy
   const dialog = page.getByRole("dialog", { name: "End announcement?" });
   await expect(dialog).toBeVisible();
   const confirmation = dialog.getByText(
-    "Ending the announcement does not stop video from your streaming app. To stop sending video, stop the stream in OBS or your streaming app.",
+    "Ending the announcement doesn't stop video from your streaming app. People watching may still receive it. To stop sending video, stop streaming in OBS or your streaming app.",
   );
   const bounds = await confirmation.boundingBox();
   expect(bounds).not.toBeNull();

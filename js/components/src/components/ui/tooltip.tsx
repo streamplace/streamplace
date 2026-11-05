@@ -73,6 +73,7 @@ export const Tooltip = forwardRef<any, TooltipProps>(
         {(isVisible || Platform.OS === "web") && (
           <View
             nativeID={id}
+            pointerEvents={Platform.OS === "web" ? "none" : "auto"}
             style={[styles.tooltip, !isVisible && { display: "none" }]}
           >
             <Text style={styles.tooltipText}>{content}</Text>

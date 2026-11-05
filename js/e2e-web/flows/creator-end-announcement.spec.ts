@@ -45,7 +45,7 @@ test("ending an announcement leaves an existing viewer receiving video", async (
     const dialog = page.getByRole("dialog", { name: "End announcement?" });
     await expect(
       dialog.getByText(
-        "Ending the announcement does not stop video from your streaming app. To stop sending video, stop the stream in OBS or your streaming app.",
+        "Ending the announcement doesn't stop video from your streaming app. People watching may still receive it. To stop sending video, stop streaming in OBS or your streaming app.",
       ),
     ).toBeVisible();
     await dialog
@@ -111,6 +111,10 @@ test("shows progress while the real end request is pending", async ({
       dialog.getByRole("button", { name: "Ending..." }),
     ).toBeDisabled({ timeout: 3_000 });
     await expect(dialog.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(page.getByTestId("creator-announce")).toBeDisabled({
+      timeout: 3_000,
+    });
     releaseRequest();
     await expect(status).toHaveText("Announcement ended");
   } finally {
@@ -178,6 +182,51 @@ test("explains an uncertain end request and allows a retry after reconnecting", 
     if (await announce.getByText("Announce stream").isVisible()) {
       await announce.click();
       await expect(status).toHaveText("Live");
+    }
+  }
+});
+
+test("warns when ending can publish a recording", async ({ page }) => {
+  await loginThroughPds(page);
+  await page.goto(`${url}/dashboard`);
+  await expect(page.getByTestId("creator-stream-status")).toHaveText("Live");
+  await page
+    .getByRole("button", { name: "Stream options", exact: true })
+    .click();
+  const toggle = page.getByTestId("live-auto-publish-vods");
+  await expect(toggle).toBeEnabled();
+  const initial = (await toggle.getAttribute("aria-checked")) === "true";
+  try {
+    if (!initial) {
+      const saved = page.waitForResponse((response) =>
+        response.url().endsWith("/xrpc/com.atproto.repo.putRecord"),
+      );
+      await toggle.click();
+      expect((await saved).ok()).toBe(true);
+      await expect(toggle).toHaveAttribute("aria-checked", "true");
+    }
+    await page
+      .getByRole("button", { name: "End Livestream", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "End announcement?" });
+    await expect(
+      dialog.getByText(
+        "If automatic VOD publishing is on, ending may publish a recording.",
+      ),
+    ).toBeVisible({ timeout: 3_000 });
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+  } finally {
+    const dialog = page.getByRole("dialog", { name: "End announcement?" });
+    if (await dialog.isVisible()) {
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+    }
+    if (!initial && (await toggle.getAttribute("aria-checked")) === "true") {
+      const saved = page.waitForResponse((response) =>
+        response.url().endsWith("/xrpc/com.atproto.repo.putRecord"),
+      );
+      await toggle.click();
+      expect((await saved).ok()).toBe(true);
     }
   }
 });

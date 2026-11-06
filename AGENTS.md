@@ -306,6 +306,15 @@ Keep this question top-of-mind throughout the task, and always address it _expli
 
 > Could this change be made smaller or simpler by removing, reusing, or consolidating existing code?
 
+### Comments
+
+We've had this recurring issue where agents publish long, 10+ line comments providing a narrative history of whatever issue is currently
+being worked on. Other agents then see this in the file and mimic the style and the process repeats until the file has a 10:1 comment-to-code
+ratio, making the code very difficult to scan through and parse at a glance.
+
+Please keep comments to 1-2 lines unless absolutely necessary and omit storytelling about how the code got to be where it is. If more extensive
+documentation is absolutely necessary to give other agents context, you may create new documentation in the `/docs` directory.
+
 ### Be deliberate about tests
 
 Tests should protect meaningful behavior, realistic regressions, edge cases, public contracts, and important invariants.

@@ -25,6 +25,11 @@ patchedDependencies:
   "@atproto-labs/fetch@0.4.1": patches/@atproto-labs__fetch@0.4.1.patch
   core-js: patches/core-js.patch
   lex-md: patches/lex-md.patch
+packageExtensions:
+  # debug 4 synchronously requires the optional detector's CommonJS exports.
+  "debug@4":
+    peerDependencies:
+      supports-color: ">=5.5.0 <9"
 overrides:
   # typescript-eslint supports TypeScript <6.1; keep optional peers aligned.
   typescript: ~6.0.3

@@ -364,6 +364,11 @@ Some dependencies intentionally stay on compatible release lines:
 
 - TypeScript 6.0 matches `typescript-eslint`'s supported `<6.1` range; Expo's
   Babel preset still requires Babel 7.
+- `debug` 4 synchronously requires `supports-color` but omits its optional peer's
+  version range. The package extension supplies the CommonJS-compatible <9
+  range: a hoisted ESM-only 10.x detector returned the wrong export shape and
+  triggered Node 26's module-facade assertion during Android update generation.
+  Consumers that explicitly depend on the ESM detector still resolve 10.x.
 - Meson 1.11.2 retains working cross-machine GLib fallback resolution.
   With 1.12.1, native GLib/libffi fallback fails during ARM and Windows static
   configuration and leaves GStreamer unable to retrieve its host GLib subproject.

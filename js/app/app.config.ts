@@ -296,6 +296,14 @@ export default function () {
         "expo-screen-orientation",
         streamplaceReactNativeWebRTC,
         [
+          "expo-camera",
+          {
+            cameraPermission:
+              "Allow $(PRODUCT_NAME) to access your camera to scan sign-in codes and stream video.",
+            recordAudioAndroid: false,
+          },
+        ],
+        [
           "expo-video",
           {
             supportsBackgroundPlayback: true,

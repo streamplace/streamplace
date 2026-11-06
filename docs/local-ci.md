@@ -319,6 +319,8 @@ The builder and macOS CI use HTTP/1.1 only for Git fetches from freedesktop.org:
 its HTTP/2 responses have truncated pack downloads across fresh CI runners.
 The GitLab mirror runs after builder publication so a branch that changes
 the immutable image hash cannot start jobs before that image exists.
+It permits a non-fast-forward mirror update only when GitHub marks the source
+push as forced, so rebases propagate without forcing ordinary branch pushes.
 
 The Expo SDK 58 / React Native 0.88 upgrade requires new iOS and Android
 binaries. Its OTA runtime is `0.13.0`, separate from the previous `0.12.0`

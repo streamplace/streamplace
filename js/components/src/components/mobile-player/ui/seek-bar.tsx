@@ -1,5 +1,5 @@
-import { KeyboardEvent, useState } from "react";
-import { LayoutChangeEvent, Platform, View } from "react-native";
+import { useState } from "react";
+import { KeyDownEvent, LayoutChangeEvent, Platform, View } from "react-native";
 import {
   GestureDetector,
   useCompetingGestures,
@@ -92,9 +92,9 @@ export function SeekBar({
             "aria-valuemin": 0,
             "aria-valuemax": duration,
             "aria-valuenow": current,
-            onKeyDown: (event: KeyboardEvent) => {
+            onKeyDown: (event: KeyDownEvent) => {
               let time: number;
-              switch (event.key) {
+              switch (event.nativeEvent.key) {
                 case "ArrowLeft":
                 case "ArrowDown":
                   time = playTime - 10;

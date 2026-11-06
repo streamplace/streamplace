@@ -87,3 +87,5 @@ jobs:
           gitlab_url: https://git.stream.place/streamplace/streamplace.git
           username: streamplace-robot
           gitlab_pat: ${{ secrets.GITLAB_PAT }}
+          # Mirror an intentional GitHub rebase without forcing ordinary pushes.
+          force_push: ${{ github.event.forced }}

@@ -115,7 +115,7 @@ it.each([
     expect(slider["aria-valuemin"]).toBe(0);
     expect(slider["aria-valuemax"]).toBe(60);
     expect(slider["aria-valuenow"]).toBe(start);
-    const event = { key, preventDefault: vi.fn() };
+    const event = { nativeEvent: { key }, preventDefault: vi.fn() };
     await act(async () => slider.onKeyDown(event));
     expect(store.getState().playTime).toBe(expected);
     expect(video.currentTime).toBe(expected);
@@ -167,7 +167,9 @@ it.each([-20, 50, 120])(
         .find((view) => view.onLayout)
         .onLayout({ nativeEvent: { layout: { width: 100 } } }),
     );
-    await act(async () => native.gestures.tap.onDeactivate({ x, canceled: false }));
+    await act(async () =>
+      native.gestures.tap.onDeactivate({ x, canceled: false }),
+    );
     expect(store.getState().playTime).toBe(Math.max(0, Math.min(60, x * 0.6)));
     expect(video.currentTime).toBe(store.getState().playTime);
   },

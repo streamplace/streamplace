@@ -120,7 +120,13 @@ func (r *WebsocketReplicator) Start(ctx context.Context, cli *config.CLI) error 
 			return r.serveMoQ(ctx)
 		})
 	}
-	return r.startBusSubscribe(ctx)
+	// Wait on the group rather than returning startBusSubscribe's error: a
+	// failed listener cancels ctx, and its error, not that cancellation,
+	// is why the replicator stopped.
+	r.group.Go(func() error {
+		return r.startBusSubscribe(ctx)
+	})
+	return r.group.Wait()
 }
 
 // pollOrigins learns about origins from the station's shared statedb rather

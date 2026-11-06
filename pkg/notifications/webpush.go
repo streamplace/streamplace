@@ -180,7 +180,7 @@ func (w *WebPushNotifier) sendOne(ctx context.Context, subscriptionJSON string, 
 		VAPIDPublicKey:  w.keys.PublicKey,
 		VAPIDPrivateKey: w.keys.PrivateKey,
 		Subscriber:      w.subscriber,
-		TTL:             24 * 60 * 60, // 24h
+		TTL:             5 * 60, // Five minutes; don't queue stale livestream alerts for offline browsers.
 	})
 	if err != nil {
 		return fmt.Errorf("error sending web push: %w", err)

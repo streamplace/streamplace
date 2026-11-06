@@ -376,6 +376,11 @@ vi.mock("@streamplace/components", async () => {
 });
 vi.mock("../src", bindings);
 
+// Collect the real controls before test and fake-timer deadlines begin.
+const { MobileUi } = await vi.importActual<typeof MobileUiModule>(
+  "../../app/components/mobile/ui",
+);
+
 let container: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
 beforeEach(() => {
@@ -404,9 +409,6 @@ it.each(["ios", "web"])(
   "puts the streamer profile above the audience notice on %s",
   async (platform) => {
     fixture.platform = platform;
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi />));
     const profile = container.querySelector<HTMLButtonElement>(
       '[aria-label="Open profile for streamer.example"]',
@@ -439,9 +441,6 @@ it("allows six seconds to use playing controls before they fade", async () => {
   vi.useFakeTimers();
   fixture.mode = "vod";
   fixture.rendition = "source";
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () => root.render(<MobileUi hideMobileChat />));
   const controls = [...container.querySelectorAll("button")].find(
     (button) => button.textContent === "Recorded playback controls",
@@ -460,9 +459,6 @@ it.each(["paused", "ended"])(
     fixture.status = state === "paused" ? "pause" : "suspend";
     if (state === "ended") fixture.playTime = fixture.duration;
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     await act(async () => vi.advanceTimersByTime(7000));
     const controls = [...container.querySelectorAll("button")].find(
@@ -477,9 +473,6 @@ it("keeps playback controls discoverable with a screen reader enabled", async ()
   fixture.mode = "vod";
   fixture.rendition = "source";
   fixture.screenReader = true;
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () => root.render(<MobileUi hideMobileChat />));
   await act(async () => vi.advanceTimersByTime(7000));
   const controls = [...container.querySelectorAll("button")].find(
@@ -494,9 +487,6 @@ it.each(["ios", "web"])(
     vi.useFakeTimers();
     fixture.platform = platform;
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     const readout = [...container.querySelectorAll("span")].find(
       (node) => node.textContent === "Live viewers",
@@ -518,9 +508,6 @@ it.each(["live", "vod"])(
     fixture.platform = "web";
     fixture.mode = mode;
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     const back = container.querySelector<HTMLElement>('[aria-label="Back"]')!;
     expect(canPress(back)).toBe(true);
@@ -531,9 +518,6 @@ it.each(["live", "vod"])(
 
 it("names the native fullscreen action", async () => {
   fixture.canRotate = true;
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () => root.render(<MobileUi hideMobileChat />));
   expect(
     container.querySelector('[aria-label="Enter fullscreen"]'),
@@ -544,9 +528,6 @@ it("requires revealing faded recorded controls before they accept a press", asyn
   vi.useFakeTimers();
   fixture.mode = "vod";
   fixture.rendition = "source";
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () => root.render(<MobileUi hideMobileChat />));
   await act(async () => vi.advanceTimersByTime(7000));
   const controls = [...container.querySelectorAll("button")].find(
@@ -561,9 +542,6 @@ it.each(["vod", "live"])(
     vi.useFakeTimers();
     fixture.mode = mode;
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     const back = container.querySelector<HTMLElement>('[aria-label="Back"]');
     expect(back).not.toBeNull();
@@ -584,9 +562,6 @@ it.each(["playing", "pause"])(
     fixture.mode = "vod";
     fixture.status = status;
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     const back = container.querySelector<HTMLElement>('[aria-label="Back"]')!;
     const controls = [...container.querySelectorAll("button")].find(
@@ -625,9 +600,6 @@ it.each([
     vi.useFakeTimers();
     fixture.mode = "vod";
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     const button = (label: string) =>
       [...container.querySelectorAll("button")].find(
@@ -644,9 +616,6 @@ it.each([
 
 it("leaves recorded creator identity and sharing to the watch-page metadata", async () => {
   fixture.mode = "vod";
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () => root.render(<MobileUi hideMobileChat />));
   expect(
     container.querySelector('[aria-label="Open profile for streamer.example"]'),
@@ -659,9 +628,6 @@ it.each(["live", "vod"])(
   async (mode) => {
     fixture.platform = "web";
     fixture.mode = mode;
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     for (const label of ["Back", "Mute", "Enter fullscreen"]) {
       const control = container.querySelector<HTMLElement>(
@@ -686,9 +652,6 @@ it("keeps mouse-revealed controls visible when the click completes", async () =>
   vi.useFakeTimers();
   fixture.platform = "web";
   fixture.rendition = "source";
-  const { MobileUi } = await vi.importActual<typeof MobileUiModule>(
-    "../../app/components/mobile/ui",
-  );
   await act(async () => root.render(<MobileUi hideMobileChat />));
   const back = container.querySelector<HTMLElement>('[aria-label="Back"]')!;
   await act(async () => vi.advanceTimersByTime(6100));
@@ -708,9 +671,6 @@ it.each(["live", "vod"])(
     fixture.platform = "web";
     fixture.mode = mode;
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     const mute = container.querySelector<HTMLButtonElement>(
       '[aria-label="Mute"]',
@@ -735,9 +695,6 @@ it.each(["live", "vod"])(
 it("shows the title and handle in landscape without a recorded-chat toggle", async () => {
   fixture.window = { width: 844, height: 390 };
   fixture.mode = "vod";
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () =>
     root.render(<MobileUi hideMobileChat showChat setShowChat={() => {}} />),
   );
@@ -751,9 +708,6 @@ it("keeps wide web identity below the player until fullscreen", async () => {
   fixture.platform = "web";
   fixture.window = { width: 1024, height: 768 };
   fixture.mode = "vod";
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () => root.render(<MobileUi hideMobileChat />));
   expect(container.textContent).not.toContain("From the studio");
   fixture.fullscreen = true;

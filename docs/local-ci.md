@@ -414,3 +414,8 @@ Some dependencies intentionally stay on compatible release lines:
 - The builder image must be the one pinned in `.ci/dockerfile-hash.yaml`.
   `hack/container.sh` warns if an existing container runs a different image;
   recreate it after the pin changes.
+- The portrait player component suite loads its real controls during test
+  collection, before per-test and fake-timer deadlines begin. A cold transform
+  can exceed five seconds on hosted macOS; importing inside the first test made
+  it time out and leak overlapping React `act` work into later cases. Keep
+  control behavior assertions independent of module-transform speed.

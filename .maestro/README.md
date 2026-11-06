@@ -114,6 +114,16 @@ These focused tests use native presentation adapters; the Maestro flow exercises
 the actual native sheet and portal. The component tests also run in
 `pnpm run check`.
 
+`logged-out/profile-pronouns.yaml` is shared by iOS and Android. It writes padded
+pronouns to the harness account's real Bluesky profile and checks trimmed
+streamer metadata before and after expanding stream info. Its completion hook
+restores the original profile even after failure; an originally absent profile
+becomes an empty record because the node indexes updates, not deletions.
+`js/e2e-web/flows/pronouns.spec.ts` additionally covers blank/missing values and
+chat profile cards in both web shells. Native chat-card pronouns use the public
+AppView, which does not know the local harness account, so that boundary is
+substituted only in the browser suite.
+
 ## Invalid handle coverage
 
 `logged-out/invalid-handle.yaml` covers an account whose handle no longer

@@ -245,6 +245,9 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					if bp.DisplayName != nil && *bp.DisplayName != "" {
 						p["displayName"] = *bp.DisplayName
 					}
+					if bp.Pronouns != nil {
+						p["pronouns"] = *bp.Pronouns
+					}
 					if bp.Avatar != nil {
 						p["avatar"] = fmt.Sprintf("https://cdn.bsky.app/img/avatar/plain/%s/%s@jpeg", repoDID, bp.Avatar.Ref.String())
 					}
@@ -302,6 +305,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				log.Error(ctx, "could not marshal livestream", "error", err)
 				return
 			}
+			a.ATSync.DecorateAuthorProfile(ctx, &lsv.Author)
 			initialBurst <- lsv
 		}()
 
@@ -333,6 +337,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				if err != nil {
 					log.Error(ctx, "failed to add mod badge to message", "error", err)
 				}
+				a.ATSync.DecorateChatProfiles(ctx, &message)
 				a.ATSync.DecorateVerification(ctx, repoDID, &message)
 				if message.Author.Handle == "" || message.Author.Handle == "handle.invalid" {
 					message.Author.Handle = a.ATSync.ResolveAuthorHandle(ctx, message.Author.Did)
@@ -383,6 +388,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					if msgView.Author.Handle == "" || msgView.Author.Handle == "handle.invalid" {
 						msgView.Author.Handle = a.ATSync.ResolveAuthorHandle(ctx, msgView.Author.Did)
 					}
+					a.ATSync.DecorateChatProfiles(ctx, msgView)
 					prv.Message = msgView
 				}
 				if profile != nil {

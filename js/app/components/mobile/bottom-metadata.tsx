@@ -134,6 +134,7 @@ function FullStreamInfo({
     handleStr,
     streamerName,
     streamerSubtitle,
+    pronouns,
   } = useStreamMeta();
   const { theme } = useTheme();
   const { t } = useTranslation("common");
@@ -209,6 +210,17 @@ function FullStreamInfo({
                     {streamerName}
                   </Text>
                 </Pressable>
+                {pronouns ? (
+                  <Text
+                    testID="stream-pronouns"
+                    numberOfLines={1}
+                    size="sm"
+                    color="muted"
+                    style={{ flexShrink: 1, maxWidth: "40%" }}
+                  >
+                    {pronouns}
+                  </Text>
+                ) : null}
                 {isLiveMode && count !== null && (
                   <Text size="xs" color="muted" style={tabularNums}>
                     {t(isLive ? "watching-count" : "here-count", { count })}
@@ -361,6 +373,7 @@ function useStreamMeta() {
   const streamerSubtitle = [displayName ? handleStr : null, activityLabel]
     .filter(Boolean)
     .join("  ·  ");
+  const pronouns = profile?.pronouns?.trim();
 
   return {
     profile,
@@ -377,6 +390,7 @@ function useStreamMeta() {
     handleStr,
     streamerName,
     streamerSubtitle,
+    pronouns,
   };
 }
 
@@ -399,6 +413,7 @@ function CompactStreamInfo() {
     contentRights,
     handleStr,
     streamerName,
+    pronouns,
   } = useStreamMeta();
 
   let metadataTags = tags;
@@ -546,6 +561,17 @@ function CompactStreamInfo() {
             )}
           </View>
         )}
+        {pronouns ? (
+          <Text
+            testID="stream-pronouns"
+            numberOfLines={1}
+            size="sm"
+            color="muted"
+            style={{ flexShrink: 1, maxWidth: "40%" }}
+          >
+            {pronouns}
+          </Text>
+        ) : null}
         {profile && (
           <FollowButton
             streamerDID={profile.did}

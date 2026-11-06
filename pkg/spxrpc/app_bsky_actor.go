@@ -47,6 +47,7 @@ func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string)
 		Handle:      repo.Handle,
 		DisplayName: profile.DisplayName,
 		Description: profile.Description,
+		Pronouns:    profile.Pronouns,
 	}
 
 	if profile.Banner != nil {

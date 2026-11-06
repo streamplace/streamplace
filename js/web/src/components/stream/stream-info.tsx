@@ -90,6 +90,7 @@ export function StreamInfo({
     useShallow((s) => ({
       livestream: s.livestream,
       viewers: s.viewers,
+      profile: s.profile,
     })),
   );
 
@@ -100,6 +101,9 @@ export function StreamInfo({
   const author = state.livestream?.author;
   const authorLabel =
     author?.displayName || (author ? formatHandle(author) : user);
+  // The node sends the streamer's indexed profile with the stream; the
+  // livestream view's author doesn't carry pronouns.
+  const pronouns = state.profile?.pronouns?.trim();
   const title = record?.title || user;
   const activity = activityLabel(record?.activity, t);
   const tags = record?.tags;
@@ -136,6 +140,14 @@ export function StreamInfo({
             {author && author.displayName && (
               <span className="truncate text-sm text-(--color-fg-muted)">
                 {formatHandleWithAt(author)}
+              </span>
+            )}
+            {pronouns && (
+              <span
+                data-testid="stream-pronouns"
+                className="truncate text-sm text-(--color-fg-muted)"
+              >
+                {pronouns}
               </span>
             )}
             {isLive && state.viewers != null && (

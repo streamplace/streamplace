@@ -190,6 +190,7 @@ export const ProfileCardContent = ({
 }) => {
   const profileUrl = useNetworkProfileUrl();
   const { author, profile, profiles, serviceDid, allBadges, streamer } = data;
+  const pronouns = profile?.pronouns?.trim();
 
   return (
     <View style={[zero.pb[1]]} testID="chat-profile-card">
@@ -267,6 +268,11 @@ export const ProfileCardContent = ({
             </View>
           )}
         </View>
+        {pronouns ? (
+          <Text testID="chat-profile-pronouns" size="sm" color="muted">
+            {pronouns}
+          </Text>
+        ) : null}
         {allBadges.length > 0 ? (
           <View style={[zero.py[2]]}>
             <MenuGroup>

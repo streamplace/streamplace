@@ -5,7 +5,10 @@ appId: ${APP_ID}
 ---
 - launchApp
 # Maestro handles notification prompts through launchApp's default permissions.
-- assertVisible: "Home"
+# Cold iOS launches can spend the default assertion window dismissing permissions.
+- extendedWaitUntil:
+    visible: "Home"
+    timeout: 60000
 - assertNotVisible: "Create"
 - assertNotVisible: "Go Live"
 - takeScreenshot: 01-home

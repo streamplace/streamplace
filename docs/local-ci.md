@@ -297,11 +297,12 @@ bash hack/ios-smoke.sh
 
 The runner creates and removes its own simulator; screenshots and logs remain
 under `.maestro/artifacts/ios/`.
-CI allows five minutes for Maestro's cold XCTest driver startup. The first
-hosted run started its driver HTTP server after the default deadline; the flow
-assertions and their timeouts are unchanged.
-Maestro handles notification permission prompts during `launchApp`; the shell
-flow must not tap Allow a second time after the dialog has disappeared.
+CI allows five minutes for Maestro's cold XCTest driver startup. The shell flow
+then waits up to one minute for its initial Home tab: on a cold hosted simulator,
+the first app hierarchy arrived more than 20 seconds after launch while Maestro
+dismissed the notification prompt. Later navigation assertions retain their
+default timeouts. Maestro handles notification permission prompts itself; the
+shell flow must not tap Allow a second time after the dialog has disappeared.
 
 ## Dependency upgrades and deployment
 

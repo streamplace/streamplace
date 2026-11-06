@@ -4,6 +4,10 @@ Expo (SDK 58) app for iOS/Android. Native projects (`ios/`, `android/`) are
 gitignored and generated via `expo prebuild`; shared UI lives in
 `@streamplace/components` and logic in `@streamplace/core`.
 
+`pnpm app check` checks both the app and `tsconfig.wallet.json`. The wallet's
+web-only importer has a separate TypeScript program so WalletConnect's Node
+typings do not change the native app's timer and environment types.
+
 ## User search
 
 Search is available without signing in. Wide windows (981px and up, matching

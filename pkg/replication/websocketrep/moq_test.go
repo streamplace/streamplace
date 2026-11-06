@@ -359,6 +359,22 @@ func TestMoqPushesLiveStreams(t *testing.T) {
 	require.Equal(t, segments[1], next(), "segments keep coming after the first")
 }
 
+// A peer that announces a stream and sends nothing does not make this node
+// the stream's origin: only a validated segment does, so naming a streamer
+// wins nobody its recording or transcoding.
+func TestAnnouncedPushIsNoOrigin(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	r := NewWebsocketReplicator(&config.CLI{}, bus.NewBus(), nil, nil, nil, nil)
+	pusher := official.NewOriginProducer()
+	broadcast, err := pusher.CreateBroadcast("did:plc:a")
+	require.NoError(t, err)
+	defer broadcast.Close()
+	require.NoError(t, broadcast.Announce(official.Route{}))
+	go r.acceptPush(ctx, pusher.Consume())
+	require.Never(t, func() bool { return r.ReceivesPush("did:plc:a") }, time.Second, 10*time.Millisecond)
+}
+
 // A --peers entry naming a node's web origin resolves to the MoQ URL that
 // node currently reports; one with no listener is an error to retry, not a
 // session to open.

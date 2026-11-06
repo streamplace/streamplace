@@ -826,12 +826,12 @@ const moqPushMaxStreams = 32
 // are the ones it is ingesting. Each one's source is pulled and fed through
 // the same validation as a pull; anything that fails validation ends the
 // session, the wire carrying MUXL and nothing else. While a pushed
-// stream's segments validate this node also puts itself in the station's
-// broadcast_origins for it, so peers sharing the statedb pull it from
-// here: the pusher is typically behind NAT, and its own origin record
-// names a listener nobody can reach. The row follows validated segments,
-// never the announcement alone: naming a DID proves nothing, a signed
-// segment does.
+// stream's segments validate this node is an origin for it (see
+// ReceivesPush) and puts itself in the station's broadcast_origins, so
+// peers sharing the statedb pull it from here: the pusher is typically
+// behind NAT, and its own origin record names a listener nobody can reach.
+// Both follow validated segments, never the announcement alone: naming a
+// DID proves nothing, a signed segment does.
 func (r *WebsocketReplicator) acceptPush(ctx context.Context, pushed *official.OriginConsumer) {
 	ann, err := pushed.Announced(official.AnnounceOptions{})
 	if err != nil {
@@ -874,10 +874,13 @@ func (r *WebsocketReplicator) acceptPush(ctx context.Context, pushed *official.O
 		running[streamer] = stop
 		g.Go(func() error {
 			log.Log(sctx, "moq push: receiving pushed stream", "streamer", streamer)
-			r.pushedMu.Lock()
-			r.pushed[streamer]++
-			r.pushedMu.Unlock()
+			// Counted from the first segment that validates; onSource runs
+			// only after one does, one segment at a time.
+			counted := false
 			defer func() {
+				if !counted {
+					return
+				}
 				r.pushedMu.Lock()
 				r.pushed[streamer]--
 				if r.pushed[streamer] == 0 {
@@ -885,12 +888,24 @@ func (r *WebsocketReplicator) acceptPush(ctx context.Context, pushed *official.O
 				}
 				r.pushedMu.Unlock()
 			}()
+			advertise := r.originAdvertiser(sctx, streamer)
+			onSource := func() {
+				if !counted {
+					counted = true
+					r.pushedMu.Lock()
+					r.pushed[streamer]++
+					r.pushedMu.Unlock()
+				}
+				if advertise != nil {
+					advertise()
+				}
+			}
 			// Only the source: renditions a pusher sends are signed by
 			// whoever it is, and this node, the stream's origin now, mints
 			// its own (see director's startOriginRoles).
 			broadcast, err := pushed.RequestBroadcast(sctx, streamer)
 			if err == nil {
-				err = consumeBroadcast(sctx, broadcast, r.validateSource(streamer, r.originAdvertiser(sctx, streamer)), nil)
+				err = consumeBroadcast(sctx, broadcast, r.validateSource(streamer, onSource), nil)
 			}
 			if sctx.Err() != nil || errors.Is(err, errMoqTrackEnded) {
 				// Retracted or finished by the peer, or the session is over.

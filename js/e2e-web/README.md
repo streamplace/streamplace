@@ -146,6 +146,12 @@ it from the first over Media over QUIC (`SERVER2_URL`; see `docs/moq.md`). It is
 web-only: node-to-node transfer has no mobile surface, and the mobile flows play
 from the ingest node.
 
+Web Push retention is covered at the push-service HTTP boundary by
+`TestWebPushNotifierBlast` in `pkg/notifications/webpush_test.go`. Encrypted
+requests carry `TTL: 300`, limiting queued delivery to offline browsers to five
+minutes. This is a push-service contract, not browser UI behavior; native iOS
+and Android notifications use the separate Firebase delivery path.
+
 ## OAuth over real HTTPS
 
 `oauth-login` logs in the way a user does, through the node's OAuth proxy

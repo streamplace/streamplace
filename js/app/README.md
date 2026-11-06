@@ -1,6 +1,6 @@
 # @streamplace/app
 
-Expo (SDK 55) app for iOS/Android. Native projects (`ios/`, `android/`) are
+Expo (SDK 58) app for iOS/Android. Native projects (`ios/`, `android/`) are
 gitignored and generated via `expo prebuild`; shared UI lives in
 `@streamplace/components` and logic in `@streamplace/core`.
 

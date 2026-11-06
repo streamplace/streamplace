@@ -98,6 +98,11 @@ the shipped binaries. Move them only together with a `runtimeVersion` bump.
 `npx @expo/fingerprint fingerprint:generate --platform ios` (and `android`) in
 `js/app` should report the same native sources before and after an update.
 
+QR sign-in uses `expo-camera`'s native scanner UI, not a custom camera view.
+Its config plugin sets the iOS camera permission without adding an Android
+microphone permission for scanning. The SDK 58 camera module ships with the
+0.13.0 native upgrade; this feature does not introduce another runtime version.
+
 ## Web bundle splitting and Atlas
 
 Secondary screens use module-scope `lazyScreen` imports with screen-local

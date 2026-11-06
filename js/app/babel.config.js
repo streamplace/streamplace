@@ -13,7 +13,9 @@ module.exports = (api) => {
     overrides: [
       {
         // Sign in with Ethereum's libraries; see babel-plugin-inline-imports.js
-        test: /node_modules[\\/](viem|ox)[\\/]/,
+        test: (filename) =>
+          typeof filename === "string" &&
+          /node_modules[\\/](viem|ox)[\\/]/.test(filename),
         plugins: [inlineImportsPlugin],
       },
     ],

@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
+import { PointerType } from "react-native-gesture-handler";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Player, PlayerInner } from "../../app/components/mobile/player";
+import type * as MobileUiModule from "../../app/components/mobile/ui";
 import { Fullscreen } from "../src/components/mobile-player/fullscreen.native";
 import { streamNotificationManager } from "../src/components/stream-notification/stream-notification-manager";
 import { spacing } from "../src/lib/theme/tokens";
@@ -26,7 +28,8 @@ const fixture = vi.hoisted(() => ({
   } | null,
   warnings: ["nudity"],
   openURL: vi.fn(),
-  tap: (_event: { canceled: boolean }) => {},
+  hover: () => {},
+  tap: (_event: { canceled: boolean; pointerType: number }) => {},
   goBack: vi.fn(),
 }));
 
@@ -153,7 +156,11 @@ vi.mock("react-native-safe-area-context", () => ({
 vi.mock("react-native-gesture-handler", () => {
   const gesture = () => ({});
   return {
-    useHoverGesture: gesture,
+    PointerType: { TOUCH: 0, MOUSE: 2 },
+    useHoverGesture: ({ onUpdate }: { onUpdate: typeof fixture.hover }) => {
+      fixture.hover = onUpdate;
+      return {};
+    },
     usePanGesture: gesture,
     useTapGesture: ({ onDeactivate }: { onDeactivate: typeof fixture.tap }) => {
       fixture.tap = onDeactivate;
@@ -497,7 +504,9 @@ it.each(["ios", "web"])(
     expect(canPress(readout)).toBe(true);
     await act(async () => vi.advanceTimersByTime(6100));
     expect(canPress(readout)).toBe(false);
-    await act(async () => fixture.tap({ canceled: false }));
+    await act(async () =>
+      fixture.tap({ canceled: false, pointerType: PointerType.TOUCH }),
+    );
     expect(canPress(readout)).toBe(true);
   },
 );
@@ -561,7 +570,9 @@ it.each(["vod", "live"])(
     expect(canPress(back!)).toBe(true);
     await act(async () => vi.advanceTimersByTime(7000));
     expect(canPress(back!)).toBe(false);
-    await act(async () => fixture.tap({ canceled: false }));
+    await act(async () =>
+      fixture.tap({ canceled: false, pointerType: PointerType.TOUCH }),
+    );
     expect(canPress(back!)).toBe(true);
   },
 );
@@ -581,15 +592,21 @@ it.each(["playing", "pause"])(
     const controls = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Recorded playback controls",
     )!;
-    await act(async () => fixture.tap({ canceled: true }));
+    await act(async () =>
+      fixture.tap({ canceled: true, pointerType: PointerType.TOUCH }),
+    );
     expect(canPress(back)).toBe(true);
     expect(canPress(controls)).toBe(true);
     await act(async () => vi.advanceTimersByTime(3000));
-    await act(async () => fixture.tap({ canceled: false }));
+    await act(async () =>
+      fixture.tap({ canceled: false, pointerType: PointerType.TOUCH }),
+    );
     expect(canPress(back)).toBe(false);
     expect(canPress(controls)).toBe(false);
     await act(async () => vi.advanceTimersByTime(500));
-    await act(async () => fixture.tap({ canceled: false }));
+    await act(async () =>
+      fixture.tap({ canceled: false, pointerType: PointerType.TOUCH }),
+    );
     await act(async () => vi.advanceTimersByTime(5900));
     expect(canPress(back)).toBe(true);
     expect(canPress(controls)).toBe(true);
@@ -652,14 +669,37 @@ it.each(["live", "vod"])(
       );
       expect(control, label).not.toBeNull();
       expect(canPress(control!)).toBe(true);
-      await act(async () => fixture.tap({ canceled: false }));
+      await act(async () =>
+        fixture.tap({ canceled: false, pointerType: PointerType.TOUCH }),
+      );
       expect(canPress(control!)).toBe(false);
       expect(control!.closest('[aria-hidden="true"]')).not.toBeNull();
-      await act(async () => fixture.tap({ canceled: false }));
+      await act(async () =>
+        fixture.tap({ canceled: false, pointerType: PointerType.TOUCH }),
+      );
       expect(canPress(control!)).toBe(true);
     }
   },
 );
+
+it("keeps mouse-revealed controls visible when the click completes", async () => {
+  vi.useFakeTimers();
+  fixture.platform = "web";
+  fixture.rendition = "source";
+  const { MobileUi } = await vi.importActual<typeof MobileUiModule>(
+    "../../app/components/mobile/ui",
+  );
+  await act(async () => root.render(<MobileUi hideMobileChat />));
+  const back = container.querySelector<HTMLElement>('[aria-label="Back"]')!;
+  await act(async () => vi.advanceTimersByTime(6100));
+  expect(canPress(back)).toBe(false);
+  await act(async () => fixture.hover());
+  expect(canPress(back)).toBe(true);
+  await act(async () =>
+    fixture.tap({ canceled: false, pointerType: PointerType.MOUSE }),
+  );
+  expect(canPress(back)).toBe(true);
+});
 
 it.each(["live", "vod"])(
   "allows web %s controls to hide after pointer focus, then holds keyboard interaction",

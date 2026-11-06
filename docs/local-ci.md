@@ -328,6 +328,9 @@ runtime; do not publish the upgraded JavaScript to the old runtime.
 Regenerate native projects with the existing prebuild target before building.
 The deprecated edge-to-edge library is replaced by React Native's built-in
 edge-to-edge support and the maintained navigation-bar controls.
+Gesture Handler 3 reports unsuccessful completion as `event.canceled`.
+Portrait mouse clicks preserve a preceding hover reveal; touch taps still
+toggle controls, and canceled gestures do neither.
 Firebase Apple SDK 13 is distributed through Swift Package Manager only.
 The Expo build-properties plugin selects dynamic iOS frameworks, as required
 by React Native Firebase 27; do not restore the old static-linking overrides.

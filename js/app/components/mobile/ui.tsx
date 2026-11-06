@@ -60,6 +60,7 @@ import {
 } from "react-native";
 import {
   GestureDetector,
+  PointerType,
   useCompetingGestures,
   useHoverGesture,
   usePanGesture,
@@ -272,7 +273,13 @@ export function MobileUi({
     runOnJS: true,
     onDeactivate: (event) => {
       if (event.canceled) return;
-      if (controlsInteractive && ingest === null) hideControls();
+      // Mouse hover can reveal the controls before this click completes.
+      if (
+        event.pointerType !== PointerType.MOUSE &&
+        controlsInteractive &&
+        ingest === null
+      )
+        hideControls();
       else resetFadeTimer();
     },
   });

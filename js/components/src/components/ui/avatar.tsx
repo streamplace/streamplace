@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { forwardRef } from "react";
-import { Text, View, type ViewProps } from "react-native";
+import { Text, View, type ViewInstance, type ViewProps } from "react-native";
 import { useTheme } from "../../lib/theme/theme";
 import { borderRadius } from "../../lib/theme/tokens";
 
@@ -27,7 +27,7 @@ export interface AvatarProps extends ViewProps {
 }
 
 /** Round avatar with an optional live ring. */
-export const Avatar = forwardRef<View, AvatarProps>(
+export const Avatar = forwardRef<ViewInstance, AvatarProps>(
   ({ src, name, size = "md", live = false, style, ...props }, ref) => {
     const { theme } = useTheme();
     const side = typeof size === "number" ? size : AVATAR_SIZES[size];

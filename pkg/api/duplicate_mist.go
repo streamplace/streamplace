@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortmplib"
+	"github.com/bluenviron/gortmplib/pkg/liberrors"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
@@ -154,6 +155,12 @@ func RunDuplicateMistWorker(parent context.Context, input io.Reader, progress io
 		defer close(session.EventChan)
 		for groupCtx.Err() == nil {
 			if err := r.Read(); err != nil {
+				// The shadow verifies the complete replay through transport EOF,
+				// including any malformed bytes after a logical unpublish.
+				var unpublished liberrors.ErrReaderUnpublished
+				if errors.As(err, &unpublished) {
+					continue
+				}
 				if errors.Is(err, io.EOF) || groupCtx.Err() != nil {
 					return nil
 				}

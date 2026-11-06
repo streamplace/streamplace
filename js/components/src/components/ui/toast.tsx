@@ -9,7 +9,12 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import {
+  GestureDetector,
+  useCompetingGestures,
+  useHoverGesture,
+  usePanGesture,
+} from "react-native-gesture-handler";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -312,34 +317,33 @@ function ToastContainer({
 
   const setHovered = (value: boolean) => toastManager.setHovered(value);
 
-  const pan = Gesture.Pan()
-    .onUpdate((event) => {
+  const pan = usePanGesture({
+    onUpdate: (event) => {
       const velocity = isTop ? -event.velocityY : event.velocityY;
       if (velocity > 500) {
         runOnJS(setHovered)(true);
       } else if (velocity < -500) {
         runOnJS(setHovered)(false);
       }
-    })
-    .onEnd((event) => {
+    },
+    onDeactivate: (event) => {
       const translationY = isTop ? -event.translationY : event.translationY;
       if (translationY > 50) {
         runOnJS(setHovered)(true);
       } else if (translationY < -50) {
         runOnJS(setHovered)(false);
       }
-    });
+    },
+  });
 
-  const gesture =
-    Platform.OS === "web"
-      ? Gesture.Hover()
-          .onStart(() => {
-            runOnJS(setHovered)(true);
-          })
-          .onEnd(() => {
-            runOnJS(setHovered)(false);
-          })
-      : pan;
+  const hover = useHoverGesture({
+    onActivate: () => {
+      runOnJS(setHovered)(true);
+    },
+    onDeactivate: () => {
+      runOnJS(setHovered)(false);
+    },
+  });
 
   const getPositionStyle = (): ViewStyle => {
     const resolvedPosition =
@@ -349,73 +353,68 @@ function ToastContainer({
           : "top-center"
         : position;
 
-    const styles: ViewStyle = {
+    return {
       position: "absolute",
       zIndex: 1000,
       paddingHorizontal: isDesktop ? 0 : theme.spacing[4],
+
+      // Set width/maxWidth
+      ...(isDesktop ? { width: 400 } : { width: "100%", maxWidth: 400 }),
+
+      ...(resolvedPosition.includes("top") && {
+        top: insets.top + theme.spacing[4],
+      }),
+      ...(resolvedPosition.includes("bottom") && {
+        bottom: insets.bottom + theme.spacing[4],
+      }),
+      ...(resolvedPosition.includes("left") && {
+        left: insets.left + theme.spacing[4],
+        alignItems: "flex-start",
+      }),
+      ...(resolvedPosition.includes("right") && {
+        right: insets.right + theme.spacing[4],
+        alignItems: "flex-end",
+      }),
+      ...(resolvedPosition.includes("center") && {
+        alignItems: "center",
+        // Center the container itself when it has maxWidth
+        ...(isDesktop
+          ? { left: 0, right: 0 }
+          : { left: "50%", transform: [{ translateX: "-50%" }] }),
+      }),
     };
-
-    // Set width/maxWidth
-    if (isDesktop) {
-      styles.width = 400;
-    } else {
-      styles.width = "100%";
-      styles.maxWidth = 400;
-    }
-
-    if (resolvedPosition.includes("top")) {
-      styles.top = insets.top + theme.spacing[4];
-    }
-    if (resolvedPosition.includes("bottom")) {
-      styles.bottom = insets.bottom + theme.spacing[4];
-    }
-    if (resolvedPosition.includes("left")) {
-      styles.left = insets.left + theme.spacing[4];
-      styles.alignItems = "flex-start";
-    }
-    if (resolvedPosition.includes("right")) {
-      styles.right = insets.right + theme.spacing[4];
-      styles.alignItems = "flex-end";
-    }
-    if (resolvedPosition.includes("center")) {
-      styles.alignItems = "center";
-      // Center the container itself when it has maxWidth
-      if (!isDesktop) {
-        styles.left = "50%";
-        styles.transform = [{ translateX: "-50%" }];
-      } else {
-        styles.left = 0;
-        styles.right = 0;
-      }
-    }
-
-    return styles;
   };
+
+  const toastStack = (
+    <View style={getPositionStyle()}>
+      {visibleToasts.reverse().map((toastState, index) => (
+        <Toast
+          key={toastState.id}
+          {...toastState}
+          onOpenChange={(open) => {
+            if (!open) toastManager.hide(toastState.id);
+          }}
+          index={index}
+          isLatest={index === 0}
+          position={
+            position === "auto"
+              ? isDesktop
+                ? "bottom-right"
+                : "top-center"
+              : position
+          }
+        />
+      ))}
+    </View>
+  );
 
   return (
     <Portal name="toasties">
-      <GestureDetector gesture={gesture}>
-        <View style={getPositionStyle()}>
-          {visibleToasts.reverse().map((toastState, index) => (
-            <Toast
-              key={toastState.id}
-              {...toastState}
-              onOpenChange={(open) => {
-                if (!open) toastManager.hide(toastState.id);
-              }}
-              index={index}
-              isLatest={index === 0}
-              position={
-                position === "auto"
-                  ? isDesktop
-                    ? "bottom-right"
-                    : "top-center"
-                  : position
-              }
-            />
-          ))}
-        </View>
-      </GestureDetector>
+      {isWeb ? (
+        <GestureDetector gesture={hover}>{toastStack}</GestureDetector>
+      ) : (
+        <GestureDetector gesture={pan}>{toastStack}</GestureDetector>
+      )}
     </Portal>
   );
 }
@@ -671,18 +670,18 @@ export function Toast({
     };
   }, [open, isLatest, isHovered, duration]);
 
-  const dismissGestureVertical = Gesture.Pan()
-    .enabled(isLatest && !isHovered)
-    .activeOffsetY(isTop ? [-10, 999999] : [-999999, 10])
-    .onUpdate((event) => {
+  const dismissGestureVertical = usePanGesture({
+    enabled: isLatest && !isHovered,
+    activeOffsetY: isTop ? [-10, 999999] : [-999999, 10],
+    onUpdate: (event) => {
       const direction = isTop ? -1 : 1;
       const movement = event.translationY * direction;
       if (movement > 0) {
         dismissTranslateY.value = event.translationY;
         dismissTranslateX.value = 0;
       }
-    })
-    .onEnd((event) => {
+    },
+    onDeactivate: (event) => {
       const direction = isTop ? -1 : 1;
       const movement = event.translationY * direction;
       const velocity = event.velocityY * direction;
@@ -703,18 +702,19 @@ export function Toast({
         // Spring back
         dismissTranslateY.value = withTiming(0, { duration: 200 });
       }
-    });
+    },
+  });
 
-  const dismissGestureHorizontal = Gesture.Pan()
-    .enabled(isLatest || isHovered)
-    .activeOffsetX([-10, 10])
-    .onUpdate((event) => {
+  const dismissGestureHorizontal = usePanGesture({
+    enabled: isLatest || isHovered,
+    activeOffsetX: [-10, 10],
+    onUpdate: (event) => {
       if (event.translationX < 0) {
         dismissTranslateX.value = event.translationX;
         dismissTranslateY.value = 0;
       }
-    })
-    .onEnd((event) => {
+    },
+    onDeactivate: (event) => {
       // Check for horizontal swipe left
       if (event.translationX < -100 || event.velocityX < -500) {
         dismissTranslateX.value = withTiming(
@@ -731,9 +731,10 @@ export function Toast({
         // Spring back
         dismissTranslateX.value = withTiming(0, { duration: 200 });
       }
-    });
+    },
+  });
 
-  const dismissGesture = Gesture.Race(
+  const dismissGesture = useCompetingGestures(
     dismissGestureVertical,
     dismissGestureHorizontal,
   );

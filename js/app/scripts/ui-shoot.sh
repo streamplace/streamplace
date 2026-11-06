@@ -54,7 +54,7 @@ sleep 1
 
 set +e
 cd "$OUT"
-"$MAESTRO" test "$FLOW_FILE"
+"$MAESTRO" test -e APP_ID="${SP_BUNDLE_OVERRIDE:-tv.aquareum.dev}" "$FLOW_FILE"
 MAESTRO_EXIT=$?
 set -e
 

@@ -6,7 +6,7 @@
 # dependency. buildx populates TARGETARCH per platform, selecting the matching
 # binary that the workflow staged under build-linux-<arch>/.
 ARG TARGETARCH
-FROM --platform=linux/$TARGETARCH ubuntu:24.04
+FROM --platform=linux/$TARGETARCH ubuntu:26.04
 RUN apt-get update && apt-get install -y curl ca-certificates && rm -rf /var/lib/apt/lists/*
 ARG TARGETARCH
 ARG BUILDARCH

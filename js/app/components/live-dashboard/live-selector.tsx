@@ -98,7 +98,7 @@ export default function StreamScreen({ route }: { route?: any }) {
   }
 
   if (selectedMode === "webcam") {
-    navigation.navigate("MobileGoLive" as never);
+    navigation.navigate("MobileGoLive");
   }
 
   if (selectedMode === "streamkey") {

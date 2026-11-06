@@ -21,7 +21,7 @@ import { StreamInfoWidget } from "./stream-info";
 import { StreamMonitorWidget } from "./stream-monitor";
 
 export interface WidgetMeta {
-  component: ComponentType<{ store: LivestreamStore; user?: string }>;
+  component: ComponentType<{ store: LivestreamStore; user: string }>;
   title: string;
   icon: LucideIcon;
   color: string;

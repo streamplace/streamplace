@@ -3,9 +3,10 @@
 Cross-platform Maestro flows for the mobile app, run against a self-contained
 `streamplace e2e` harness (a local PDS and PLC, a Streamplace node and a
 looping test stream). `hack/e2e-local.sh android` runs them on an emulator,
-and so does the `android-e2e` job in `.github/workflows/build.yaml`. iOS is not
-wired up yet. The web suite (`js/e2e-web`, `hack/e2e-web-local.sh`) mirrors
-these flows.
+and so does the `android-e2e` job in `.github/workflows/build.yaml`. iOS only has
+a smoke run: the `ios` job there builds `make ios-simulator` and
+`hack/ios-smoke.sh` runs `js/app/maestro/home.yaml` on a simulator. The web suite
+(`js/e2e-web`, `hack/e2e-web-local.sh`) mirrors these flows.
 
 ## Organization and prerequisites
 

@@ -1,8 +1,8 @@
 [tools]
-go = "latest"
-rust = "latest"
-node = "22"
+go = "1.27.3"
+rust = "1.99.1"
+node = "26.13.0"
 meson = "1.11.2"
 ninja = "latest"
-pnpm = "latest"
-java = "17"
+pnpm = "12.16.1"
+java = "21"

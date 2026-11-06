@@ -32,7 +32,7 @@ import { WIDGET_KEYS, WIDGET_REGISTRY, getWidgetMeta } from "./registry";
 
 interface ControlPanelProps {
   store: LivestreamStore;
-  user?: string;
+  user: string;
 }
 
 /** Prefix for drawer item source ids (e.g. `widget-stream-monitor`). */

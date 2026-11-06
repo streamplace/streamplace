@@ -3,6 +3,7 @@ import { forwardRef } from "react";
 import {
   View as RNView,
   ViewProps as RNViewProps,
+  ViewInstance,
   ViewStyle,
 } from "react-native";
 import { useTheme } from "../../lib/theme/theme";
@@ -99,7 +100,7 @@ export interface ViewProps
   flex?: number | "none" | "auto" | "initial";
 }
 
-export const View = forwardRef<RNView, ViewProps>(
+export const View = forwardRef<ViewInstance, ViewProps>(
   (
     {
       variant = "default",
@@ -288,31 +289,31 @@ View.displayName = "View";
 // NOTE: the old `Card`/`Surface` View-variant wrappers moved to
 // ./surface.tsx as level-based components (see MIGRATION.md).
 
-export const Container = forwardRef<RNView, Omit<ViewProps, "variant">>(
+export const Container = forwardRef<ViewInstance, Omit<ViewProps, "variant">>(
   (props, ref) => <View ref={ref} variant="container" {...props} />,
 );
 
 Container.displayName = "Container";
 
-export const Overlay = forwardRef<RNView, Omit<ViewProps, "variant">>(
+export const Overlay = forwardRef<ViewInstance, Omit<ViewProps, "variant">>(
   (props, ref) => <View ref={ref} variant="overlay" {...props} />,
 );
 
 Overlay.displayName = "Overlay";
 
-export const Row = forwardRef<RNView, Omit<ViewProps, "direction">>(
+export const Row = forwardRef<ViewInstance, Omit<ViewProps, "direction">>(
   (props, ref) => <View ref={ref} direction="row" {...props} />,
 );
 
 Row.displayName = "Row";
 
-export const Column = forwardRef<RNView, Omit<ViewProps, "direction">>(
+export const Column = forwardRef<ViewInstance, Omit<ViewProps, "direction">>(
   (props, ref) => <View ref={ref} direction="column" {...props} />,
 );
 
 Column.displayName = "Column";
 
-export const Center = forwardRef<RNView, ViewProps>((props, ref) => (
+export const Center = forwardRef<ViewInstance, ViewProps>((props, ref) => (
   <View ref={ref} centered {...props} />
 ));
 

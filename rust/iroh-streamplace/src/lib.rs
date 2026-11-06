@@ -30,17 +30,19 @@ use std::{
 };
 
 use bytes::Bytes;
-use iroh::{NodeId, PublicKey, RelayMode, SecretKey, discovery::static_provider::StaticProvider};
-use iroh_base::ticket::NodeTicket;
+use iroh::{
+    EndpointId, PublicKey, RelayMode, SecretKey, address_lookup::MemoryLookup, endpoint::presets,
+};
 use iroh_gossip::{net::Gossip, proto::TopicId};
+use iroh_tickets::endpoint::EndpointTicket;
 use irpc::{WithChannels, rpc::RemoteService};
-use irpc_iroh::{IrohProtocol, IrohRemoteConnection};
+use irpc_iroh::IrohProtocol;
 use n0_future::future::Boxed;
 
 mod rpc {
     //! Protocol API
     use bytes::Bytes;
-    use iroh::NodeId;
+    use iroh::EndpointId;
     use irpc::{channel::oneshot, rpc_requests};
     use serde::{Deserialize, Serialize};
 
@@ -51,7 +53,7 @@ mod rpc {
     pub struct Subscribe {
         pub key: String,
         // TODO: verify
-        pub remote_id: NodeId,
+        pub remote_id: EndpointId,
     }
 
     /// Unsubscribe from the given `key`
@@ -59,7 +61,7 @@ mod rpc {
     pub struct Unsubscribe {
         pub key: String,
         // TODO: verify
-        pub remote_id: NodeId,
+        pub remote_id: EndpointId,
     }
 
     // #[derive(Debug, Serialize, Deserialize)]
@@ -70,7 +72,7 @@ mod rpc {
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct RecvSegment {
-        pub from: NodeId,
+        pub from: EndpointId,
         pub key: String,
         pub data: Bytes,
     }
@@ -92,7 +94,7 @@ mod rpc {
 mod api {
     //! Protocol API
     use bytes::Bytes;
-    use iroh::{NodeAddr, NodeId};
+    use iroh::{EndpointAddr, EndpointId};
     use irpc::{channel::oneshot, rpc_requests};
     use serde::{Deserialize, Serialize};
 
@@ -101,7 +103,7 @@ mod api {
     pub struct Subscribe {
         pub key: String,
         // TODO: verify
-        pub remote_id: NodeId,
+        pub remote_id: EndpointId,
     }
 
     /// Unsubscribe from the given `key`
@@ -109,7 +111,7 @@ mod api {
     pub struct Unsubscribe {
         pub key: String,
         // TODO: verify
-        pub remote_id: NodeId,
+        pub remote_id: EndpointId,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -120,12 +122,12 @@ mod api {
 
     #[derive(Debug, Serialize, Deserialize)]
     pub struct JoinPeers {
-        pub peers: Vec<NodeAddr>,
+        pub peers: Vec<EndpointAddr>,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
     pub struct AddTickets {
-        pub peers: Vec<NodeAddr>,
+        pub peers: Vec<EndpointAddr>,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -149,7 +151,7 @@ mod api {
         JoinPeers(JoinPeers),
         #[rpc(tx=oneshot::Sender<()>)]
         AddTickets(AddTickets),
-        #[rpc(tx=oneshot::Sender<NodeAddr>)]
+        #[rpc(tx=oneshot::Sender<EndpointAddr>)]
         GetNodeAddr(GetNodeAddr),
         #[rpc(tx=oneshot::Sender<()>)]
         Shutdown(Shutdown),
@@ -205,7 +207,7 @@ impl HandlerMode {
     }
 }
 
-type Tasks = FuturesUnordered<Boxed<(NodeId, Result<(), RpcTaskError>)>>;
+type Tasks = FuturesUnordered<Boxed<(EndpointId, Result<(), RpcTaskError>)>>;
 
 /// Actor that contains both a kv db for metadata and a handler for the rpc protocol.
 ///
@@ -217,15 +219,15 @@ struct Actor {
     /// Receiver for API messages from the user
     api_rx: tokio::sync::mpsc::Receiver<ApiMessage>,
     /// nodes I need to send to for each stream
-    subscribers: BTreeMap<String, BTreeSet<NodeId>>,
+    subscribers: BTreeMap<String, BTreeSet<EndpointId>>,
     /// nodes I am subscribed to
-    subscriptions: BTreeMap<String, NodeId>,
+    subscriptions: BTreeMap<String, EndpointId>,
     /// lightweight typed connection pool
     connections: ConnectionPool,
     /// How to handle incoming data
     handler: HandlerMode,
-    /// Static provider for node discovery
-    sp: StaticProvider,
+    /// In-memory lookup for explicitly supplied endpoint addresses.
+    sp: MemoryLookup,
     /// Iroh protocol router, I need to keep it around to keep the protocol alive
     router: iroh::protocol::Router,
     /// Metadata db
@@ -240,7 +242,7 @@ struct Actor {
 
 #[derive(Debug, Clone)]
 struct Connection {
-    id: NodeId,
+    id: EndpointId,
     rpc: irpc::Client<RpcProtocol>,
 }
 
@@ -254,7 +256,7 @@ enum RpcTaskError {
 
 struct ConnectionPool {
     endpoint: iroh::Endpoint,
-    connections: BTreeMap<NodeId, Connection>,
+    connections: BTreeMap<EndpointId, Connection>,
 }
 
 impl ConnectionPool {
@@ -266,18 +268,11 @@ impl ConnectionPool {
     }
 
     /// Cheap conn pool hack
-    fn get(&mut self, remote: &NodeId) -> Connection {
+    fn get(&mut self, remote: &EndpointId) -> Connection {
         if !self.connections.contains_key(remote) {
             trace!(remote = %remote.fmt_short(),"ConnectionPool.get is inserting a new remote connection");
-            let conn = IrohRemoteConnection::new(
-                self.endpoint.clone(),
-                (*remote).into(),
-                rpc::ALPN.to_vec(),
-            );
-            let conn = Connection {
-                rpc: irpc::Client::boxed(conn),
-                id: *remote,
-            };
+            let rpc = irpc_iroh::client(self.endpoint.clone(), *remote, rpc::ALPN);
+            let conn = Connection { rpc, id: *remote };
             self.connections.insert(*remote, conn);
         }
         self.connections
@@ -286,7 +281,7 @@ impl ConnectionPool {
             .clone()
     }
 
-    fn remove(&mut self, remote: &NodeId) {
+    fn remove(&mut self, remote: &EndpointId) {
         self.connections.remove(remote);
     }
 }
@@ -294,7 +289,7 @@ impl ConnectionPool {
 impl Actor {
     pub async fn spawn(
         endpoint: iroh::Endpoint,
-        sp: StaticProvider,
+        sp: MemoryLookup,
         topic: iroh_gossip::proto::TopicId,
         config: Config,
         handler: HandlerMode,
@@ -302,7 +297,7 @@ impl Actor {
         let (rpc_tx, rpc_rx) = tokio::sync::mpsc::channel::<RpcMessage>(512);
         let (api_tx, api_rx) = tokio::sync::mpsc::channel::<ApiMessage>(512);
         let gossip = Gossip::builder().spawn(endpoint.clone());
-        let id = endpoint.node_id();
+        let id = endpoint.id();
         let router = iroh::protocol::Router::builder(endpoint.clone())
             .accept(iroh_gossip::ALPN, gossip.clone())
             .accept(
@@ -360,8 +355,11 @@ impl Actor {
                         break;
                     };
                     if let Some(shutdown) = self.handle_api(msg).instrument(trace_span!("api")).await {
+                        if let Err(err) = self.router.shutdown().await {
+                            warn!("RPC router shutdown failed: {err}");
+                        }
                         shutdown.send(()).await.ok();
-                        break;
+                        return;
                     }
                 }
                 res = self.tasks.next(), if !self.tasks.is_empty() => {
@@ -382,6 +380,9 @@ impl Actor {
                     self.connections.remove(&remote_id);
                 }
             }
+        }
+        if let Err(err) = self.router.shutdown().await {
+            warn!("RPC router shutdown failed: {err}");
         }
         warn!("RPC Actor loop has closed");
     }
@@ -512,17 +513,21 @@ impl Actor {
                     ..
                 } = msg;
                 let conn = self.connections.get(&remote_id);
-                tx.send(()).await.ok();
                 trace!(remote = %remote_id.fmt_short(), key = %key, "send rpc::Subscribe message");
-                conn.rpc
+                if let Err(err) = conn
+                    .rpc
                     .rpc(rpc::Subscribe {
                         key: key.clone(),
                         remote_id: self.node_id(),
                     })
                     .await
-                    .ok();
+                {
+                    warn!(remote = %remote_id.fmt_short(), key = %key, "subscribe failed: {err}");
+                    return None;
+                }
                 trace!(remote = %remote_id.fmt_short(), key = %key, "inserting subscription");
                 self.subscriptions.insert(key, remote_id);
+                tx.send(()).await.ok();
                 trace!("finished inserting subscription");
             }
             ApiMessage::Unsubscribe(msg) => {
@@ -551,7 +556,7 @@ impl Actor {
                     ..
                 } = msg;
                 for addr in &peers {
-                    self.sp.add_node_info(addr.clone());
+                    self.sp.add_endpoint_info(addr.clone());
                 }
                 // self.client.inner().join_peers(ids).await.ok();
                 tx.send(()).await.ok();
@@ -565,11 +570,11 @@ impl Actor {
                 } = msg;
                 let ids = peers
                     .iter()
-                    .map(|a| a.node_id)
+                    .map(|a| a.id)
                     .filter(|id| *id != self.node_id())
                     .collect::<HashSet<_>>();
                 for addr in &peers {
-                    self.sp.add_node_info(addr.clone());
+                    self.sp.add_endpoint_info(addr.clone());
                 }
                 self.client.inner().join_peers(ids).await.ok();
                 tx.send(()).await.ok();
@@ -581,7 +586,7 @@ impl Actor {
                     // don't await home relay if we have disabled relays, this will hang forever
                     self.router.endpoint().online().await;
                 }
-                let addr = self.router.endpoint().node_addr();
+                let addr = self.router.endpoint().addr();
                 tx.send(addr).await.ok();
             }
             ApiMessage::Shutdown(msg) => {
@@ -598,9 +603,9 @@ impl Actor {
         config: &Arc<Config>,
         key: String,
         data: Bytes,
-        remotes: &BTreeSet<NodeId>,
+        remotes: &BTreeSet<EndpointId>,
     ) {
-        let me = connections.endpoint.node_id();
+        let me = connections.endpoint.id();
         let msg = rpc::RecvSegment {
             key,
             data,
@@ -621,7 +626,7 @@ impl Actor {
         config: Arc<Config>,
         conn: Connection,
         msg: RecvSegment,
-    ) -> (NodeId, Result<(), RpcTaskError>) {
+    ) -> (EndpointId, Result<(), RpcTaskError>) {
         let id = conn.id;
         let res = async move {
             tokio::time::timeout(config.max_send_duration, conn.rpc.rpc(msg)).await??;
@@ -632,7 +637,7 @@ impl Actor {
     }
 
     fn node_id(&self) -> PublicKey {
-        self.router.endpoint().node_id()
+        self.router.endpoint().id()
     }
 }
 
@@ -667,11 +672,11 @@ impl Node {
         } else {
             RelayMode::Default
         };
-        let sp = StaticProvider::new();
-        let endpoint = iroh::Endpoint::builder()
+        let sp = MemoryLookup::new();
+        let endpoint = iroh::Endpoint::builder(presets::Minimal)
             .secret_key(secret_key)
             .relay_mode(relay_mode)
-            .discovery(sp.clone())
+            .address_lookup(sp.clone())
             .bind()
             .await
             .map_err(|e| CreateError::Bind {
@@ -788,14 +793,14 @@ impl Node {
     pub async fn join_peers(&self, peers: Vec<String>) -> Result<(), JoinPeersError> {
         let peers = peers
             .iter()
-            .map(|p| NodeTicket::from_str(p))
+            .map(|p| EndpointTicket::from_str(p))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| JoinPeersError::Ticket {
                 message: e.to_string(),
             })?;
         let addrs = peers
             .iter()
-            .map(|t| t.node_addr().clone())
+            .map(|t| t.endpoint_addr().clone())
             .collect::<Vec<_>>();
         self.api
             .rpc(api::JoinPeers { peers: addrs })
@@ -809,14 +814,14 @@ impl Node {
     pub async fn add_tickets(&self, peers: Vec<String>) -> Result<(), JoinPeersError> {
         let peers = peers
             .iter()
-            .map(|p| NodeTicket::from_str(p))
+            .map(|p| EndpointTicket::from_str(p))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| JoinPeersError::Ticket {
                 message: e.to_string(),
             })?;
         let addrs = peers
             .iter()
-            .map(|t| t.node_addr().clone())
+            .map(|t| t.endpoint_addr().clone())
             .collect::<Vec<_>>();
         self.api
             .rpc(api::AddTickets { peers: addrs })
@@ -835,7 +840,7 @@ impl Node {
             .map_err(|e| PutError::Irpc {
                 message: e.to_string(),
             })?;
-        Ok(NodeTicket::from(addr).to_string())
+        Ok(EndpointTicket::from(addr).to_string())
     }
 
     /// Get this node's node ID.
@@ -847,7 +852,7 @@ impl Node {
             .map_err(|e| PutError::Irpc {
                 message: e.to_string(),
             })?;
-        Ok(Arc::new(addr.node_id.into()))
+        Ok(Arc::new(addr.id.into()))
     }
 
     /// Shutdown the node, including the streaming system and the metadata db.

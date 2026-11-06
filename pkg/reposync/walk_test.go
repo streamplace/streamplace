@@ -651,19 +651,6 @@ func TestVisitorErrorAborts(t *testing.T) {
 	require.ErrorIs(t, err, boom)
 }
 
-func TestCheckNodeDataRejectsBadPrefixLen(t *testing.T) {
-	// A correctly-hashed but hostile node whose prefix compression points past
-	// the previous key would panic inside mst.NodeData.Node.
-	nd := &mst.NodeData{Entries: []mst.EntryData{{PrefixLen: 5, KeySuffix: []byte("x")}}}
-	require.Error(t, checkNodeData(nd))
-
-	nd = &mst.NodeData{Entries: []mst.EntryData{{PrefixLen: -1, KeySuffix: []byte("x")}}}
-	require.Error(t, checkNodeData(nd))
-
-	nd = &mst.NodeData{Entries: []mst.EntryData{{PrefixLen: 0, KeySuffix: []byte("abc")}, {PrefixLen: 2, KeySuffix: []byte("z")}}}
-	require.NoError(t, checkNodeData(nd))
-}
-
 // A node block can hash correctly and still be nonsense; the walker must not
 // trust the key order or bounds a node claims.
 func TestExpandNodeRejectsMalformedNodes(t *testing.T) {
@@ -691,6 +678,14 @@ func TestExpandNodeRejectsMalformedNodes(t *testing.T) {
 			{PrefixLen: 0, KeySuffix: []byte("a/1"), Value: val},
 			{PrefixLen: 2, KeySuffix: []byte("1"), Value: val},
 		})
+		_, err := expandNode(p, data, all)
+		require.ErrorIs(t, err, ErrInvalidNode)
+	})
+
+	// Prefix compression pointing past the previous key must be rejected, not
+	// sliced.
+	t.Run("prefix length past previous key", func(t *testing.T) {
+		p, data := encode(t, []mst.EntryData{{PrefixLen: 5, KeySuffix: []byte("x"), Value: val}})
 		_, err := expandNode(p, data, all)
 		require.ErrorIs(t, err, ErrInvalidNode)
 	})

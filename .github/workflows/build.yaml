@@ -15,6 +15,7 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: linux-arm64
@@ -31,13 +32,13 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
 
       - name: Check out code
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -49,13 +50,13 @@ jobs:
           # Ubuntu 24.04's crun (1.14.1) rejects the OCI spec version newer
           # podman emits ("unknown version specified", fixed in crun >= 1.14.3),
           # and the 20260726 runner image update made that pairing fatal.
-          sudo curl -fsSL -o /usr/bin/crun https://github.com/containers/crun/releases/download/1.28/crun-1.28-linux-amd64
+          sudo curl -fsSL -o /usr/bin/crun https://github.com/containers/crun/releases/download/1.30.1/crun-1.30.1-linux-amd64
           sudo chmod +x /usr/bin/crun
           make in-container BUILDER_TARGET=builder-no-darwin DOCKER_PWD_MOUNT_PATH=/app DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
 
       - name: Upload android e2e APK
         if: matrix.name == 'android'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: android-e2e-apk-${{ github.run_id }}
           path: ./bin/*-android-e2e.apk
@@ -63,7 +64,7 @@ jobs:
 
       - name: Upload bin artifacts
         if: matrix.name == 'windows-amd64'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: windows-bin-${{ github.event.pull_request.head.sha }}
           path: ./bin/
@@ -78,18 +79,18 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
 
       - name: Check out code
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: mise check
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v5.2.6
         with:
           install: true
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -101,13 +102,13 @@ jobs:
           # Ubuntu 24.04's crun (1.14.1) rejects the OCI spec version newer
           # podman emits ("unknown version specified", fixed in crun >= 1.14.3),
           # and the 20260726 runner image update made that pairing fatal.
-          sudo curl -fsSL -o /usr/bin/crun https://github.com/containers/crun/releases/download/1.28/crun-1.28-linux-amd64
+          sudo curl -fsSL -o /usr/bin/crun https://github.com/containers/crun/releases/download/1.30.1/crun-1.30.1-linux-amd64
           sudo chmod +x /usr/bin/crun
           make in-container BUILDER_TARGET=builder-no-darwin DOCKER_PWD_MOUNT_PATH=/app DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="make linux-amd64 && make test-vod && make static-test && make check && make ci-lexicons"
 
       - name: Publish Test Report
         if: success() || failure()
-        uses: mikepenz/action-junit-report@v5
+        uses: mikepenz/action-junit-report@v6.7.0
         with:
           report_paths: "test.xml"
           # Keep reports on this job; separate checks can attach to other workflows.
@@ -116,7 +117,7 @@ jobs:
           fail_on_failure: true
 
       - name: Upload streamplace binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: streamplace-linux-amd64-${{ github.run_id }}
           path: ./build-linux-amd64/streamplace
@@ -131,24 +132,25 @@ jobs:
     needs: linux-amd64
     steps:
       - name: Check out code
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7.1.0
         with:
-          node-version: 22
+          node-version: 26.13.0
 
       - name: Install e2e dependencies
         run:
           npm install -g corepack@latest && corepack enable && pnpm install
           --filter @streamplace/e2e-web --filter @atcute/internal-dev-env
+          --filter @streamplace/i18n --filter @streamplace/brand
           --frozen-lockfile
 
       - name: Download streamplace binary
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.2
         with:
           name: streamplace-linux-amd64-${{ github.run_id }}
           path: ./build-linux-amd64
@@ -170,7 +172,7 @@ jobs:
 
       - name: Upload e2e-web artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: e2e-web-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
@@ -189,27 +191,27 @@ jobs:
     needs: [linux, linux-amd64]
     steps:
       # full history: pnpm install's prepare steps derive the version from it
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: 22
+          node-version: 26.13.0
 
       # the harness runs js/dev-env (a local PDS and PLC) with node
       - name: install dependencies
         run: npm install -g corepack@latest && corepack enable && pnpm install
 
       - name: download streamplace binary
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.2
         with:
           name: streamplace-linux-amd64-${{ github.run_id }}
           path: ./build-linux-amd64
 
       - name: download android e2e APK
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.2
         with:
           name: android-e2e-apk-${{ github.run_id }}
           path: ./bin
@@ -223,26 +225,26 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
           # a pinned release, checked before anything in it runs
-          curl -fsSL -o /tmp/maestro.zip https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.6.1/maestro.zip
-          echo "3440825f514f537c6a96bcf5de995780c2a4a7f83a43208fdc95d4f1fecfad3b  /tmp/maestro.zip" | sha256sum -c -
+          curl -fsSL -o /tmp/maestro.zip https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.12.1/maestro.zip
+          echo "54dbb0716425626604973cbb374c585ca30272375d9ce15177a1152765ddd9d7  /tmp/maestro.zip" | sha256sum -c -
           unzip -q /tmp/maestro.zip -d "$HOME/.maestro-dist"
           echo "$HOME/.maestro-dist/maestro/bin" >> $GITHUB_PATH
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6.1.0
         id: avd-cache
         with:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-pixel-6-api-34-google-apis-v1
+          key: avd-pixel-6-api-37.0-google-apis-v1
 
       # A Google APIs image, not Play Store: hack/e2e-local.sh needs root to
       # point the emulator at the harness and install its CA.
       - name: create avd snapshot
         if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@v2.38.0
         with:
-          api-level: 34
+          api-level: "37.0"
           target: google_apis
           arch: x86_64
           profile: pixel_6
@@ -254,9 +256,9 @@ jobs:
           script: echo "avd snapshot created"
 
       - name: run maestro flows
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@v2.38.0
         with:
-          api-level: 34
+          api-level: "37.0"
           target: google_apis
           arch: x86_64
           profile: pixel_6
@@ -277,7 +279,7 @@ jobs:
 
       - name: upload maestro artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: maestro-android-${{ github.run_id }}
           path: |
@@ -292,7 +294,7 @@ jobs:
   #   needs: linux
   #   steps:
   #     - name: Download bin artifacts
-  #       uses: actions/download-artifact@v4
+  #       uses: actions/download-artifact@v8.0.2
   #       with:
   #         name: windows-bin-${{ github.event.pull_request.head.sha }}
   #         path: ./bin/
@@ -314,32 +316,33 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runs-on }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: darwin-arm64
-            runs-on: macos-15
+            runs-on: macos-26
             cmd: make && make test && make check
-            xcode-version: "16.4"
+            xcode-version: "26.6"
           - name: ios
             runs-on: macos-26
-            cmd: make ios
-            xcode-version: "26.3"
+            cmd: make ios ios-simulator
+            xcode-version: "26.6"
           - name: darwin-amd64
             runs-on: macos-15-intel
             cmd: make
-            xcode-version: "16.4"
+            xcode-version: "26.3"
     steps:
       - name: Check out code
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: 22
+          node-version: 26.13.0
 
-      - uses: maxim-lobanov/setup-xcode@v1
+      - uses: maxim-lobanov/setup-xcode@v1.7.0
         with:
           xcode-version: ${{ matrix.xcode-version }}
 
@@ -351,13 +354,43 @@ jobs:
         run: |
           npm install -g corepack@latest \
           && corepack enable \
-          && export GOTOOLCHAIN=go1.26.10 \
-          && brew install go llvm \
+          && git config --global http.https://gitlab.freedesktop.org/.version HTTP/1.1 \
+          && export GOTOOLCHAIN=go1.27.3 \
+          && brew install go llvm nasm \
+          && rustup toolchain install 1.99.1 && rustup default 1.99.1 \
           && rustup target add wasm32-wasip1 \
           && rustup target add wasm32-unknown-unknown \
           && python -m pip install virtualenv \
           && python -m virtualenv ~/venv \
           && source ~/venv/bin/activate \
-          && python -m pip install meson \
+          && python -m pip install meson==1.11.2 \
           && PATH="/opt/homebrew/opt/llvm/bin:$PATH" \
           && ${{ matrix.cmd }}
+
+      # Installs the simulator build on an iPhone simulator and runs the home
+      # Maestro flow against it (hack/ios-smoke.sh).
+      - name: install maestro
+        if: matrix.name == 'ios'
+        run: |
+          # a pinned release, checked before anything in it runs
+          curl -fsSL -o /tmp/maestro.zip https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.12.1/maestro.zip
+          echo "54dbb0716425626604973cbb374c585ca30272375d9ce15177a1152765ddd9d7  /tmp/maestro.zip" | shasum -a 256 -c -
+          unzip -q /tmp/maestro.zip -d "$HOME/.maestro-dist"
+          echo "$HOME/.maestro-dist/maestro/bin" >> $GITHUB_PATH
+
+      - name: run ios smoke flow
+        if: matrix.name == 'ios'
+        env:
+          E2E_ARTIFACTS: ${{ github.workspace }}/.maestro/artifacts
+          # Cold hosted XCTest startup exceeds Maestro's default deadline.
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: "300000"
+        run: bash hack/ios-smoke.sh
+
+      - name: upload ios smoke artifacts
+        if: always() && matrix.name == 'ios'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: maestro-ios-${{ github.run_id }}
+          path: .maestro/artifacts/ios/
+          retention-days: 7
+          if-no-files-found: warn

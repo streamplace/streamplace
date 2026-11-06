@@ -1,20 +1,23 @@
 {
   "compilerOptions": {
-    "target": "ES6",
+    "target": "ES2022",
     "allowJs": true,
-    "module": "commonjs",
+    "module": "preserve",
     "skipLibCheck": true,
     "esModuleInterop": true,
     "noImplicitAny": true,
     "sourceMap": true,
-    "baseUrl": ".",
+    "rootDir": ".",
     "outDir": "dist",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "paths": {
-      "*": ["node_modules/*"]
-    },
-    "lib": ["es2021"]
+    "lib": ["es2022"]
+  },
+  "ts-node": {
+    "compilerOptions": {
+      "module": "Node16",
+      "moduleResolution": "Node16"
+    }
   },
   "include": ["src/**/*"]
 }

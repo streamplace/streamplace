@@ -6,7 +6,7 @@ version: 1.0.0
 
 # Streamplace app dev loop (iOS simulator)
 
-Operational playbook for editing `js/app` (Expo SDK 55, React Native, expo-dev-client)
+Operational playbook for editing `js/app` (Expo SDK 58, React Native, expo-dev-client)
 and actually seeing the result. The whole point: JS edits hot-reload in seconds,
 and every run is capturable as screenshots + video for visual review.
 

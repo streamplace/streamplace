@@ -1,0 +1,8 @@
+[wrap-file]
+directory = harfbuzz-15.0.0
+source_url = https://github.com/harfbuzz/harfbuzz/releases/download/15.0.0/harfbuzz-15.0.0.tar.xz
+source_filename = harfbuzz-15.0.0.tar.xz
+source_hash = 968536e9abd782f07f7954044c0c4020199fcdd39b41d221ec42d2a3be4a44df
+
+[provide]
+dependency_names = harfbuzz, harfbuzz-cairo, harfbuzz-gobject, harfbuzz-icu, harfbuzz-subset

@@ -25,29 +25,19 @@ vi.mock("react-native", () => ({
   },
 }));
 vi.mock("react-native-gesture-handler", () => {
-  // Gesture builders chain configuration and native event handlers.
-  const builder = (name: string) => {
-    const callbacks: Record<string, (event?: any) => void> = {};
+  const gesture = (
+    name: string,
+    callbacks: Record<string, (event?: unknown) => void>,
+  ) => {
     native.gestures[name] = callbacks;
-    const chain = new Proxy(
-      {},
-      {
-        get:
-          (_target, key: string) =>
-          (...args: any[]) => {
-            if (key.startsWith("on")) callbacks[key] = args[0];
-            return chain;
-          },
-      },
-    );
-    return chain;
+    return {};
   };
   return {
-    Gesture: {
-      Pan: () => builder("pan"),
-      Tap: () => builder("tap"),
-      Race: () => ({}),
-    },
+    usePanGesture: (callbacks: Record<string, (event?: unknown) => void>) =>
+      gesture("pan", callbacks),
+    useTapGesture: (callbacks: Record<string, (event?: unknown) => void>) =>
+      gesture("tap", callbacks),
+    useCompetingGestures: () => ({}),
     GestureDetector: ({ children }: any) => children,
   };
 });
@@ -125,7 +115,7 @@ it.each([
     expect(slider["aria-valuemin"]).toBe(0);
     expect(slider["aria-valuemax"]).toBe(60);
     expect(slider["aria-valuenow"]).toBe(start);
-    const event = { key, preventDefault: vi.fn() };
+    const event = { nativeEvent: { key }, preventDefault: vi.fn() };
     await act(async () => slider.onKeyDown(event));
     expect(store.getState().playTime).toBe(expected);
     expect(video.currentTime).toBe(expected);
@@ -177,7 +167,9 @@ it.each([-20, 50, 120])(
         .find((view) => view.onLayout)
         .onLayout({ nativeEvent: { layout: { width: 100 } } }),
     );
-    await act(async () => native.gestures.tap.onEnd({ x }));
+    await act(async () =>
+      native.gestures.tap.onDeactivate({ x, canceled: false }),
+    );
     expect(store.getState().playTime).toBe(Math.max(0, Math.min(60, x * 0.6)));
     expect(video.currentTime).toBe(store.getState().playTime);
   },

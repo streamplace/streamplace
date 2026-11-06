@@ -14,8 +14,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	clock := syntax.NewTIDClock(uint(id.Uint64()))
-	TIDClock = &clock
+	TIDClock = syntax.NewTIDClock(uint(id.Uint64()))
 }
 
 // tid with a random clock id because i'm convinced that's a good idea
@@ -27,6 +26,5 @@ func TID() string {
 		// absence of entropy or ram i guess? seems like a legit panic
 		panic(err)
 	}
-	clock := syntax.NewTIDClock(uint(id.Uint64()))
-	return clock.Next().String()
+	return syntax.NewTIDNow(uint(id.Uint64())).String()
 }

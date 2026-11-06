@@ -1,12 +1,12 @@
-import "@formatjs/intl-displaynames/polyfill";
-import "@formatjs/intl-getcanonicallocales/polyfill";
-import "@formatjs/intl-locale/polyfill";
+import "@formatjs/intl-displaynames/polyfill.js";
+import "@formatjs/intl-getcanonicallocales/polyfill.js";
+import "@formatjs/intl-locale/polyfill.js";
 import "expo-crypto";
 import sqliteStorage from "expo-sqlite/kv-store";
-import { MMKV } from "react-native-mmkv";
+import { createMMKV } from "react-native-mmkv";
 
 // Import data for the languages you need
-import "@formatjs/intl-displaynames/locale-data/en";
+import "@formatjs/intl-displaynames/locale-data/en.js";
 
 const ATPROTO_OAUTH_MMKV_NAME = "expo-atproto-oauth-client.session";
 const OLD_SQLITE_STORE_PREFIX = "@@atproto/oauth-client-react-native:session:";
@@ -28,7 +28,7 @@ global.AbortSignal.prototype.throwIfAborted = function () {
 const allKeys = sqliteStorage.getAllKeysSync();
 
 function migrateOAuthStorage() {
-  const mmkvStorage = new MMKV({
+  const mmkvStorage = createMMKV({
     id: ATPROTO_OAUTH_MMKV_NAME,
   });
 

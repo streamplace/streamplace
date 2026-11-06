@@ -58,7 +58,14 @@ import {
   Pressable,
   useWindowDimensions,
 } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import {
+  GestureDetector,
+  PointerType,
+  useCompetingGestures,
+  useHoverGesture,
+  usePanGesture,
+  useTapGesture,
+} from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -260,15 +267,22 @@ export function MobileUi({
     opacity: fadeOpacity.value,
   }));
 
-  const hover = Gesture.Hover().onChange(onPlayerHover);
-  const pan = Gesture.Pan().onChange(onPlayerHover);
-  const tap = Gesture.Tap()
-    .runOnJS(true)
-    .onEnd((_event, success) => {
-      if (!success) return;
-      if (controlsInteractive && ingest === null) hideControls();
+  const hover = useHoverGesture({ onUpdate: onPlayerHover });
+  const pan = usePanGesture({ onUpdate: onPlayerHover });
+  const tap = useTapGesture({
+    runOnJS: true,
+    onDeactivate: (event) => {
+      if (event.canceled) return;
+      // Mouse hover can reveal the controls before this click completes.
+      if (
+        event.pointerType !== PointerType.MOUSE &&
+        controlsInteractive &&
+        ingest === null
+      )
+        hideControls();
       else resetFadeTimer();
-    });
+    },
+  });
   let chatSection: React.ReactNode = null;
   if (
     mode !== "vod" &&
@@ -281,7 +295,7 @@ export function MobileUi({
       <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
     );
   }
-  const combined = Gesture.Race(hover, pan, tap);
+  const combined = useCompetingGestures(hover, pan, tap);
   return (
     <>
       <View

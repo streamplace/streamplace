@@ -14,7 +14,7 @@ import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc"
 import { Image } from "expo-image";
 import { X } from "lucide-react-native";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Platform, Pressable, View } from "react-native";
+import { Platform, Pressable, View, type ViewInstance } from "react-native";
 import { games as gamesLex, place } from "streamplace";
 import { getDidFromAtUri, getGameCoverUrl } from "../utils/game";
 
@@ -64,7 +64,7 @@ export default function ActivityPicker({
   const [dropdownPos, setDropdownPos] = useState<DropdownPos | null>(null);
   const [labelsExpanded, setLabelsExpanded] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const inputContainerRef = useRef<View>(null);
+  const inputContainerRef = useRef<ViewInstance>(null);
 
   const selectedGame =
     value?.$type === "place.stream.defs#activityGame"

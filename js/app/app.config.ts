@@ -218,7 +218,6 @@ export default function () {
           backgroundColor: brand.colors.adaptiveIconBackground,
         },
         package: bundle,
-        edgeToEdgeEnabled: true,
         versionCode: versionCode(pkg.version),
         intentFilters: [
           {
@@ -306,10 +305,7 @@ export default function () {
           "expo-build-properties",
           {
             ios: {
-              useFrameworks: "static",
-              forceStaticLinking: ["RNFBApp", "RNFBMessaging"],
-              // useful if you can't get forceStaticLinking to work
-              //buildReactNativeFromSource: true,
+              useFrameworks: "dynamic",
             },
             // uncomment to test OTA updates to http://localhost:8080
             // android: {
@@ -331,10 +327,9 @@ export default function () {
         ],
         [withConsistentVersionNumber, { version: pkg.version }],
         [
-          "react-native-edge-to-edge",
+          "@zoontek/react-native-navigation-bar",
           {
             android: {
-              parentTheme: "Default",
               enforceNavigationBarContrast: false,
             },
           },

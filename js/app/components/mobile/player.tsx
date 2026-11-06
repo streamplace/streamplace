@@ -279,12 +279,18 @@ function PlayerWithProvider(
       <LivestreamProvider src={props.src ?? ""} onTeleport={handleTeleport}>
         <StatusBar hidden={true} />
         <PlayerProvider defaultId={props.playerId || undefined}>
+          {/* Fill the screen without taking size from the content: on web,
+              React Navigation lets a screen that fills the page grow with its
+              content, so the video's intrinsic height would push the player
+              and its controls past the bottom of the viewport. */}
           <View
             style={{
               flexDirection: chatVisible ? "row" : "column",
-              flex: 1,
-              width: "100%",
-              height: "100%",
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
             }}
           >
             <Reanimated.View

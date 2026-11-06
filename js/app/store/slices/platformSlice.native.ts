@@ -1,4 +1,15 @@
-import messaging from "@react-native-firebase/messaging";
+import {
+  AuthorizationStatus,
+  getInitialNotification,
+  getMessaging,
+  getToken,
+  onMessage,
+  onNotificationOpenedApp,
+  onTokenRefresh,
+  requestPermission,
+  setBackgroundMessageHandler,
+  subscribeToTopic,
+} from "@react-native-firebase/messaging";
 import { openAuthSessionAsync } from "expo-web-browser";
 import { PermissionsAndroid, Platform } from "react-native";
 import { AppStore } from "store";
@@ -66,33 +77,29 @@ export const createPlatformSlice: StateCreator<
   },
   initPushNotifications: async () => {
     try {
-      const msg = messaging();
+      const msg = getMessaging();
 
       // Handle background messages (when app is backgrounded)
-      if (msg && typeof msg.setBackgroundMessageHandler === "function") {
-        msg.setBackgroundMessageHandler(async (remoteMessage) => {
-          console.log("Message handled in the background!", remoteMessage);
-        });
-      }
+      setBackgroundMessageHandler(msg, async (remoteMessage) => {
+        console.log("Message handled in the background!", remoteMessage);
+      });
 
       // Request runtime permission on Android (POST_NOTIFICATIONS)
       await checkApplicationPermission();
 
       // Request notification permission from the OS
-      const authorizationStatus = await msg.requestPermission();
+      const authorizationStatus = await requestPermission(msg);
 
-      if (authorizationStatus === messaging.AuthorizationStatus.AUTHORIZED) {
+      if (authorizationStatus === AuthorizationStatus.AUTHORIZED) {
         console.log("User has notification permissions enabled.");
-      } else if (
-        authorizationStatus === messaging.AuthorizationStatus.PROVISIONAL
-      ) {
+      } else if (authorizationStatus === AuthorizationStatus.PROVISIONAL) {
         console.log("User has provisional notification permissions.");
       } else {
         console.log("User has notification permissions disabled");
       }
 
       // Fetch device token
-      const token = await msg.getToken();
+      const token = await getToken(msg);
       if (token) {
         set({ notificationToken: token });
         console.log("Notification token acquired:", token);
@@ -103,25 +110,24 @@ export const createPlatformSlice: StateCreator<
       // FCM rotates tokens periodically. Keep the store in sync so the
       // registration effect re-runs and re-registers the new token, otherwise
       // a rotated token never reaches the server until the next cold start.
-      msg.onTokenRefresh((refreshed) => {
+      onTokenRefresh(msg, (refreshed) => {
         console.log("Notification token refreshed");
         set({ notificationToken: refreshed });
       });
 
       // Subscribe to topic(s) if desired
-      msg
-        .subscribeToTopic("live")
+      subscribeToTopic(msg, "live")
         .then(() => console.log("Subscribed to live!"))
         .catch((e) => console.warn("Failed to subscribe to live topic", e));
 
       // Foreground message handler
-      msg.onMessage((remoteMessage) => {
+      onMessage(msg, (remoteMessage) => {
         console.log("Foreground message:", remoteMessage);
         // Could surface an in-app notification or toast here
       });
 
       // User tapped a notification while app was in background/foreground
-      msg.onNotificationOpenedApp((remoteMessage) => {
+      onNotificationOpenedApp(msg, (remoteMessage) => {
         console.log(
           "App opened by notification while in background/foreground:",
           remoteMessage,
@@ -139,7 +145,7 @@ export const createPlatformSlice: StateCreator<
 
       // App opened from quit state by a notification
       try {
-        const initial = await msg.getInitialNotification();
+        const initial = await getInitialNotification(msg);
         if (initial) {
           console.log("App opened by notification from closed state:", initial);
           const data = initial?.data;

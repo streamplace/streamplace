@@ -21,7 +21,13 @@ import {
 import Gradient from "components/ui/gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, type PointerEvent } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import {
+  GestureDetector,
+  useCompetingGestures,
+  useExclusiveGestures,
+  useHoverGesture,
+  useTapGesture,
+} from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -250,7 +256,9 @@ export function DesktopUi({
     if (pipAction) pipAction();
   }, [pipAction]);
 
-  const hover = Gesture.Hover().onChange((_) => runOnJS(onPlayerHover)());
+  const hover = useHoverGesture({
+    onUpdate: () => runOnJS(onPlayerHover)(),
+  });
 
   const togglePlayPause = usePlayerStore((x) => x.togglePlayPause);
 
@@ -280,18 +288,21 @@ export function DesktopUi({
     resetFadeTimer();
   }, [toggleFullscreen, resetFadeTimer]);
 
-  const singleTap = Gesture.Tap().onEnd((_event, success) => {
-    if (success) runOnJS(handleSingleClick)();
+  const singleTap = useTapGesture({
+    onDeactivate: (event) => {
+      if (!event.canceled) runOnJS(handleSingleClick)();
+    },
   });
 
-  const doubleTap = Gesture.Tap()
-    .numberOfTaps(2)
-    .onEnd((_event, success) => {
-      if (success) runOnJS(handleDoubleClick)();
-    });
+  const doubleTap = useTapGesture({
+    numberOfTaps: 2,
+    onDeactivate: (event) => {
+      if (!event.canceled) runOnJS(handleDoubleClick)();
+    },
+  });
 
-  const tap = Gesture.Exclusive(doubleTap, singleTap);
-  const hoverAndTap = Gesture.Race(hover, tap);
+  const tap = useExclusiveGestures(doubleTap, singleTap);
+  const hoverAndTap = useCompetingGestures(hover, tap);
 
   const portalContainerID = "desktop-ui-dropdown-portal-" + playerId;
 

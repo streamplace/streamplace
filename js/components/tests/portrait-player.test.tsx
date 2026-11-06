@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
+import { PointerType } from "react-native-gesture-handler";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Player, PlayerInner } from "../../app/components/mobile/player";
+import type * as MobileUiModule from "../../app/components/mobile/ui";
 import { Fullscreen } from "../src/components/mobile-player/fullscreen.native";
 import { streamNotificationManager } from "../src/components/stream-notification/stream-notification-manager";
 import { spacing } from "../src/lib/theme/tokens";
@@ -26,7 +28,8 @@ const fixture = vi.hoisted(() => ({
   } | null,
   warnings: ["nudity"],
   openURL: vi.fn(),
-  tap: (_event: unknown, _success: boolean) => {},
+  hover: () => {},
+  tap: (_event: { canceled: boolean; pointerType: number }) => {},
   goBack: vi.fn(),
 }));
 
@@ -102,7 +105,11 @@ vi.mock("react-native", () => ({
     ),
   Linking: { openURL: fixture.openURL },
   ScrollView: View,
-  StatusBar: Object.assign(() => null, { setHidden() {} }),
+  StatusBar: Object.assign(() => null, {
+    setHidden() {},
+    pushStackEntry: (props: unknown) => props,
+    popStackEntry() {},
+  }),
   Platform: {
     get OS() {
       return fixture.platform;
@@ -147,36 +154,19 @@ vi.mock("react-native-safe-area-context", () => ({
   SafeAreaView: View,
 }));
 vi.mock("react-native-gesture-handler", () => {
-  const gesture = {
-    runOnJS() {
-      return this;
-    },
-    onChange() {
-      return this;
-    },
-    onEnd() {
-      return this;
-    },
-    onStart() {
-      return this;
-    },
-    onUpdate() {
-      return this;
-    },
-  };
+  const gesture = () => ({});
   return {
-    Gesture: {
-      Hover: () => gesture,
-      Pan: () => gesture,
-      Tap: () => ({
-        ...gesture,
-        onEnd(handler: typeof fixture.tap) {
-          fixture.tap = handler;
-          return this;
-        },
-      }),
-      Race() {},
+    PointerType: { TOUCH: 0, MOUSE: 2 },
+    useHoverGesture: ({ onUpdate }: { onUpdate: typeof fixture.hover }) => {
+      fixture.hover = onUpdate;
+      return {};
     },
+    usePanGesture: gesture,
+    useTapGesture: ({ onDeactivate }: { onDeactivate: typeof fixture.tap }) => {
+      fixture.tap = onDeactivate;
+      return {};
+    },
+    useCompetingGestures: gesture,
     GestureDetector: View,
     Pressable: View,
   };
@@ -208,8 +198,11 @@ vi.mock("../../app/components/mobile/desktop-ui/mu", () => ({ Mu: View }));
 vi.mock("../../app/components/mobile/live-stats", () => ({
   LiveStats: () => <span>Live viewers</span>,
 }));
-vi.mock("react-native-edge-to-edge", () => ({
-  SystemBars: { setHidden() {} },
+vi.mock("@zoontek/react-native-navigation-bar", () => ({
+  NavigationBar: {
+    pushStackEntry: (props: unknown) => props,
+    popStackEntry() {},
+  },
 }));
 vi.mock("expo-video", () => ({ VideoView: View }));
 vi.mock("lucide-react-native", () => ({
@@ -383,6 +376,11 @@ vi.mock("@streamplace/components", async () => {
 });
 vi.mock("../src", bindings);
 
+// Collect the real controls before test and fake-timer deadlines begin.
+const { MobileUi } = await vi.importActual<typeof MobileUiModule>(
+  "../../app/components/mobile/ui",
+);
+
 let container: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
 beforeEach(() => {
@@ -411,9 +409,6 @@ it.each(["ios", "web"])(
   "puts the streamer profile above the audience notice on %s",
   async (platform) => {
     fixture.platform = platform;
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi />));
     const profile = container.querySelector<HTMLButtonElement>(
       '[aria-label="Open profile for streamer.example"]',
@@ -446,9 +441,6 @@ it("allows six seconds to use playing controls before they fade", async () => {
   vi.useFakeTimers();
   fixture.mode = "vod";
   fixture.rendition = "source";
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () => root.render(<MobileUi hideMobileChat />));
   const controls = [...container.querySelectorAll("button")].find(
     (button) => button.textContent === "Recorded playback controls",
@@ -467,9 +459,6 @@ it.each(["paused", "ended"])(
     fixture.status = state === "paused" ? "pause" : "suspend";
     if (state === "ended") fixture.playTime = fixture.duration;
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     await act(async () => vi.advanceTimersByTime(7000));
     const controls = [...container.querySelectorAll("button")].find(
@@ -484,9 +473,6 @@ it("keeps playback controls discoverable with a screen reader enabled", async ()
   fixture.mode = "vod";
   fixture.rendition = "source";
   fixture.screenReader = true;
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () => root.render(<MobileUi hideMobileChat />));
   await act(async () => vi.advanceTimersByTime(7000));
   const controls = [...container.querySelectorAll("button")].find(
@@ -501,9 +487,6 @@ it.each(["ios", "web"])(
     vi.useFakeTimers();
     fixture.platform = platform;
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     const readout = [...container.querySelectorAll("span")].find(
       (node) => node.textContent === "Live viewers",
@@ -511,7 +494,9 @@ it.each(["ios", "web"])(
     expect(canPress(readout)).toBe(true);
     await act(async () => vi.advanceTimersByTime(6100));
     expect(canPress(readout)).toBe(false);
-    await act(async () => fixture.tap({}, true));
+    await act(async () =>
+      fixture.tap({ canceled: false, pointerType: PointerType.TOUCH }),
+    );
     expect(canPress(readout)).toBe(true);
   },
 );
@@ -523,9 +508,6 @@ it.each(["live", "vod"])(
     fixture.platform = "web";
     fixture.mode = mode;
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     const back = container.querySelector<HTMLElement>('[aria-label="Back"]')!;
     expect(canPress(back)).toBe(true);
@@ -536,9 +518,6 @@ it.each(["live", "vod"])(
 
 it("names the native fullscreen action", async () => {
   fixture.canRotate = true;
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () => root.render(<MobileUi hideMobileChat />));
   expect(
     container.querySelector('[aria-label="Enter fullscreen"]'),
@@ -549,9 +528,6 @@ it("requires revealing faded recorded controls before they accept a press", asyn
   vi.useFakeTimers();
   fixture.mode = "vod";
   fixture.rendition = "source";
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () => root.render(<MobileUi hideMobileChat />));
   await act(async () => vi.advanceTimersByTime(7000));
   const controls = [...container.querySelectorAll("button")].find(
@@ -566,16 +542,15 @@ it.each(["vod", "live"])(
     vi.useFakeTimers();
     fixture.mode = mode;
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     const back = container.querySelector<HTMLElement>('[aria-label="Back"]');
     expect(back).not.toBeNull();
     expect(canPress(back!)).toBe(true);
     await act(async () => vi.advanceTimersByTime(7000));
     expect(canPress(back!)).toBe(false);
-    await act(async () => fixture.tap({}, true));
+    await act(async () =>
+      fixture.tap({ canceled: false, pointerType: PointerType.TOUCH }),
+    );
     expect(canPress(back!)).toBe(true);
   },
 );
@@ -587,23 +562,26 @@ it.each(["playing", "pause"])(
     fixture.mode = "vod";
     fixture.status = status;
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     const back = container.querySelector<HTMLElement>('[aria-label="Back"]')!;
     const controls = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Recorded playback controls",
     )!;
-    await act(async () => fixture.tap({}, false));
+    await act(async () =>
+      fixture.tap({ canceled: true, pointerType: PointerType.TOUCH }),
+    );
     expect(canPress(back)).toBe(true);
     expect(canPress(controls)).toBe(true);
     await act(async () => vi.advanceTimersByTime(3000));
-    await act(async () => fixture.tap({}, true));
+    await act(async () =>
+      fixture.tap({ canceled: false, pointerType: PointerType.TOUCH }),
+    );
     expect(canPress(back)).toBe(false);
     expect(canPress(controls)).toBe(false);
     await act(async () => vi.advanceTimersByTime(500));
-    await act(async () => fixture.tap({}, true));
+    await act(async () =>
+      fixture.tap({ canceled: false, pointerType: PointerType.TOUCH }),
+    );
     await act(async () => vi.advanceTimersByTime(5900));
     expect(canPress(back)).toBe(true);
     expect(canPress(controls)).toBe(true);
@@ -622,9 +600,6 @@ it.each([
     vi.useFakeTimers();
     fixture.mode = "vod";
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     const button = (label: string) =>
       [...container.querySelectorAll("button")].find(
@@ -641,9 +616,6 @@ it.each([
 
 it("leaves recorded creator identity and sharing to the watch-page metadata", async () => {
   fixture.mode = "vod";
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () => root.render(<MobileUi hideMobileChat />));
   expect(
     container.querySelector('[aria-label="Open profile for streamer.example"]'),
@@ -656,9 +628,6 @@ it.each(["live", "vod"])(
   async (mode) => {
     fixture.platform = "web";
     fixture.mode = mode;
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     for (const label of ["Back", "Mute", "Enter fullscreen"]) {
       const control = container.querySelector<HTMLElement>(
@@ -666,14 +635,34 @@ it.each(["live", "vod"])(
       );
       expect(control, label).not.toBeNull();
       expect(canPress(control!)).toBe(true);
-      await act(async () => fixture.tap({}, true));
+      await act(async () =>
+        fixture.tap({ canceled: false, pointerType: PointerType.TOUCH }),
+      );
       expect(canPress(control!)).toBe(false);
       expect(control!.closest('[aria-hidden="true"]')).not.toBeNull();
-      await act(async () => fixture.tap({}, true));
+      await act(async () =>
+        fixture.tap({ canceled: false, pointerType: PointerType.TOUCH }),
+      );
       expect(canPress(control!)).toBe(true);
     }
   },
 );
+
+it("keeps mouse-revealed controls visible when the click completes", async () => {
+  vi.useFakeTimers();
+  fixture.platform = "web";
+  fixture.rendition = "source";
+  await act(async () => root.render(<MobileUi hideMobileChat />));
+  const back = container.querySelector<HTMLElement>('[aria-label="Back"]')!;
+  await act(async () => vi.advanceTimersByTime(6100));
+  expect(canPress(back)).toBe(false);
+  await act(async () => fixture.hover());
+  expect(canPress(back)).toBe(true);
+  await act(async () =>
+    fixture.tap({ canceled: false, pointerType: PointerType.MOUSE }),
+  );
+  expect(canPress(back)).toBe(true);
+});
 
 it.each(["live", "vod"])(
   "allows web %s controls to hide after pointer focus, then holds keyboard interaction",
@@ -682,9 +671,6 @@ it.each(["live", "vod"])(
     fixture.platform = "web";
     fixture.mode = mode;
     fixture.rendition = "source";
-    const { MobileUi } = await vi.importActual<
-      typeof import("../../app/components/mobile/ui")
-    >("../../app/components/mobile/ui");
     await act(async () => root.render(<MobileUi hideMobileChat />));
     const mute = container.querySelector<HTMLButtonElement>(
       '[aria-label="Mute"]',
@@ -709,9 +695,6 @@ it.each(["live", "vod"])(
 it("shows the title and handle in landscape without a recorded-chat toggle", async () => {
   fixture.window = { width: 844, height: 390 };
   fixture.mode = "vod";
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () =>
     root.render(<MobileUi hideMobileChat showChat setShowChat={() => {}} />),
   );
@@ -725,9 +708,6 @@ it("keeps wide web identity below the player until fullscreen", async () => {
   fixture.platform = "web";
   fixture.window = { width: 1024, height: 768 };
   fixture.mode = "vod";
-  const { MobileUi } = await vi.importActual<
-    typeof import("../../app/components/mobile/ui")
-  >("../../app/components/mobile/ui");
   await act(async () => root.render(<MobileUi hideMobileChat />));
   expect(container.textContent).not.toContain("From the studio");
   fixture.fullscreen = true;

@@ -5,7 +5,7 @@
   "description": "The video layer for everything.",
   "main": "index.js",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=26.13.0"
   },
   "scripts": {
     "preinstall": "node hack/node-version.js",
@@ -31,17 +31,17 @@
   "author": "Streamplace",
   "license": "MIT",
   "devDependencies": {
-    "@atproto/lex": "^0.3.14",
-    "@types/node": "^22.20.5",
-    "@typescript-eslint/parser": "^8.72.0",
-    "eslint": "^10.13.0",
+    "@atproto/lex": "^0.4.4",
+    "@types/node": "^26.6.6",
+    "@typescript-eslint/parser": "^8.72.1",
+    "eslint": "^10.14.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "husky": "^9.1.6",
-    "knip": "^6.42.1",
-    "lerna": "~10.0.1",
-    "lint-staged": "^16.4.0",
+    "husky": "^9.1.7",
+    "knip": "^6.44.1",
+    "lerna": "~10.1.1",
+    "lint-staged": "^17.6.0",
     "prettier": "3.9.10",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   },
   "workspaces": [
     "js/*"
@@ -49,8 +49,8 @@
   "dependencies": {
     "firebase-admin": "^14.5.0",
     "lex-md": "^0.1.0",
-    "prettier-plugin-organize-imports": "^4.1.0",
+    "prettier-plugin-organize-imports": "^4.3.0",
     "quicktype": "^26.0.0"
   },
-  "packageManager": "pnpm@10.11.0+sha512.6540583f41cc5f628eb3d9773ecee802f4f9ef9923cc45b69890fb47991d4b092964694ec3a4f738a420c918a333062c8b925d312f42e4f0c263eb603551f977"
+  "packageManager": "pnpm@12.16.1"
 }

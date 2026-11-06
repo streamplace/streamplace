@@ -1,6 +1,6 @@
 import { Check, ChevronDown } from "lucide-react-native";
 import { forwardRef } from "react";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { useTheme } from "../../lib/theme/theme";
 import { typeScale } from "../../lib/theme/tokens";
 import { flex, gap, py } from "../../ui";
@@ -28,7 +28,7 @@ export interface SelectProps {
   style?: any;
 }
 
-export const Select = forwardRef<View, SelectProps>(
+export const Select = forwardRef<ViewInstance, SelectProps>(
   (
     {
       value,

@@ -5,6 +5,7 @@ js/app/android
 pnpm-lock.yaml
 lexicons.json
 lexicons/app
+lexicons/chat
 lexicons/com
 lexicons/tools
 lexicons/games

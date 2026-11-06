@@ -370,10 +370,10 @@ func expandNode(p pendingEntry, data []byte, ranges []KeyRange) ([]pendingEntry,
 	if err != nil {
 		return nil, fmt.Errorf("%w %s: %w", ErrInvalidNode, p.CID, err)
 	}
-	if err := checkNodeData(nd); err != nil {
+	node, err := nd.Node(&p.CID)
+	if err != nil {
 		return nil, fmt.Errorf("%w %s: %w", ErrInvalidNode, p.CID, err)
 	}
-	node := nd.Node(&p.CID)
 
 	out := make([]pendingEntry, 0, len(node.Entries))
 	// lo tracks the exclusive lower bound for the next child pointer: the key of
@@ -417,24 +417,4 @@ func expandNode(p pendingEntry, data []byte, ranges []KeyRange) ([]pendingEntry,
 		prevKey = key
 	}
 	return out, nil
-}
-
-// checkNodeData validates the prefix compression before mst.NodeData.Node
-// expands it, because Node slices the previous key by PrefixLen without checking
-// and would panic on a hostile (but correctly hashed) block.
-func checkNodeData(nd *mst.NodeData) error {
-	var prev []byte
-	for i, e := range nd.Entries {
-		if e.PrefixLen < 0 || e.PrefixLen > int64(len(prev)) {
-			return fmt.Errorf("entry %d has prefix length %d, previous key is %d bytes", i, e.PrefixLen, len(prev))
-		}
-		key := make([]byte, 0, int(e.PrefixLen)+len(e.KeySuffix))
-		key = append(key, prev[:e.PrefixLen]...)
-		key = append(key, e.KeySuffix...)
-		if len(key) == 0 || len(key) > mst.MAX_KEY_BYTES {
-			return fmt.Errorf("entry %d has invalid key length %d", i, len(key))
-		}
-		prev = key
-	}
-	return nil
 }

@@ -34,7 +34,29 @@ type RustBufferI interface {
 	Capacity() uint64
 }
 
-func RustBufferFromExternal(b RustBufferI) GoRustBuffer {
+// C.RustBuffer fields exposed as an interface so they can be accessed in different Go packages.
+// See https://github.com/golang/go/issues/13467
+type ExternalCRustBuffer interface {
+	Data() unsafe.Pointer
+	Len() uint64
+	Capacity() uint64
+}
+
+func RustBufferFromC(b C.RustBuffer) ExternalCRustBuffer {
+	return GoRustBuffer{
+		inner: b,
+	}
+}
+
+func CFromRustBuffer(b ExternalCRustBuffer) C.RustBuffer {
+	return C.RustBuffer{
+		capacity: C.uint64_t(b.Capacity()),
+		len:      C.uint64_t(b.Len()),
+		data:     (*C.uchar)(b.Data()),
+	}
+}
+
+func RustBufferFromExternal(b ExternalCRustBuffer) GoRustBuffer {
 	return GoRustBuffer{
 		inner: C.RustBuffer{
 			capacity: C.uint64_t(b.Capacity()),
@@ -729,7 +751,7 @@ func uniffiCheckChecksums() {
 		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
 			return C.uniffi_iroh_streamplace_checksum_method_publickey_fmt_short()
 		})
-		if checksum != 57639 {
+		if checksum != 20829 {
 			// If this happens try cleaning and rebuilding your project
 			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_publickey_fmt_short: UniFFI API checksum mismatch")
 		}
@@ -864,7 +886,7 @@ func uniffiCheckChecksums() {
 		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
 			return C.uniffi_iroh_streamplace_checksum_constructor_nodeaddr_new()
 		})
-		if checksum != 28044 {
+		if checksum != 16828 {
 			// If this happens try cleaning and rebuilding your project
 			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_constructor_nodeaddr_new: UniFFI API checksum mismatch")
 		}
@@ -882,7 +904,7 @@ func uniffiCheckChecksums() {
 		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
 			return C.uniffi_iroh_streamplace_checksum_constructor_publickey_from_string()
 		})
-		if checksum != 45922 {
+		if checksum != 43559 {
 			// If this happens try cleaning and rebuilding your project
 			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_constructor_publickey_from_string: UniFFI API checksum mismatch")
 		}
@@ -999,6 +1021,10 @@ func (FfiConverterString) Lower(value string) C.RustBuffer {
 	return stringToRustBuffer(value)
 }
 
+func (c FfiConverterString) LowerExternal(value string) ExternalCRustBuffer {
+	return RustBufferFromC(stringToRustBuffer(value))
+}
+
 func (FfiConverterString) Write(writer io.Writer, value string) {
 	if len(value) > math.MaxInt32 {
 		panic("String is too large to fit into Int32")
@@ -1024,6 +1050,10 @@ var FfiConverterBytesINSTANCE = FfiConverterBytes{}
 
 func (c FfiConverterBytes) Lower(value []byte) C.RustBuffer {
 	return LowerIntoRustBuffer[[]byte](c, value)
+}
+
+func (c FfiConverterBytes) LowerExternal(value []byte) ExternalCRustBuffer {
+	return RustBufferFromC(c.Lower(value))
 }
 
 func (c FfiConverterBytes) Write(writer io.Writer, value []byte) {
@@ -1079,6 +1109,10 @@ func (c FfiConverterDuration) Read(reader io.Reader) time.Duration {
 
 func (c FfiConverterDuration) Lower(value time.Duration) C.RustBuffer {
 	return LowerIntoRustBuffer[time.Duration](c, value)
+}
+
+func (c FfiConverterDuration) LowerExternal(value time.Duration) ExternalCRustBuffer {
+	return RustBufferFromC(c.Lower(value))
 }
 
 func (c FfiConverterDuration) Write(writer io.Writer, value time.Duration) {
@@ -2476,7 +2510,7 @@ type NodeAddr struct {
 	ffiObject FfiObject
 }
 
-// Create a new [`NodeAddr`] with empty [`AddrInfo`].
+// Create a new [`NodeAddr`] with the supplied addressing information.
 func NewNodeAddr(nodeId *PublicKey, derpUrl *string, addresses []string) *NodeAddr {
 	return FfiConverterNodeAddrINSTANCE.Lift(rustCall(func(_uniffiStatus *C.RustCallStatus) unsafe.Pointer {
 		return C.uniffi_iroh_streamplace_fn_constructor_nodeaddr_new(FfiConverterPublicKeyINSTANCE.Lower(nodeId), FfiConverterOptionalStringINSTANCE.Lower(derpUrl), FfiConverterSequenceStringINSTANCE.Lower(addresses), _uniffiStatus)
@@ -2583,7 +2617,7 @@ type PublicKeyInterface interface {
 	AsVec() []byte
 	// Returns true if the PublicKeys are equal
 	Equal(other *PublicKey) bool
-	// Convert to a base32 string limited to the first 10 bytes for a friendly string
+	// Convert the first five key bytes to ten hexadecimal characters for a friendly
 	// representation of the key.
 	FmtShort() string
 }
@@ -2609,7 +2643,7 @@ func PublicKeyFromBytes(bytes []byte) (*PublicKey, error) {
 	}
 }
 
-// Make a PublicKey from base32 string
+// Make a PublicKey from its hexadecimal string representation.
 func PublicKeyFromString(s string) (*PublicKey, error) {
 	_uniffiRV, _uniffiErr := rustCallWithError[PublicKeyError](FfiConverterPublicKeyError{}, func(_uniffiStatus *C.RustCallStatus) unsafe.Pointer {
 		return C.uniffi_iroh_streamplace_fn_constructor_publickey_from_string(FfiConverterStringINSTANCE.Lower(s), _uniffiStatus)
@@ -2644,7 +2678,7 @@ func (_self *PublicKey) Equal(other *PublicKey) bool {
 	}))
 }
 
-// Convert to a base32 string limited to the first 10 bytes for a friendly string
+// Convert the first five key bytes to ten hexadecimal characters for a friendly
 // representation of the key.
 func (_self *PublicKey) FmtShort() string {
 	_pointer := _self.ffiObject.incrementPointer("*PublicKey")
@@ -3407,6 +3441,10 @@ func (c FfiConverterConfig) Lower(value Config) C.RustBuffer {
 	return LowerIntoRustBuffer[Config](c, value)
 }
 
+func (c FfiConverterConfig) LowerExternal(value Config) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[Config](c, value))
+}
+
 func (c FfiConverterConfig) Write(writer io.Writer, value Config) {
 	FfiConverterBytesINSTANCE.Write(writer, value.Key)
 	FfiConverterBytesINSTANCE.Write(writer, value.Topic)
@@ -3459,6 +3497,10 @@ func (c FfiConverterEntry) Lower(value Entry) C.RustBuffer {
 	return LowerIntoRustBuffer[Entry](c, value)
 }
 
+func (c FfiConverterEntry) LowerExternal(value Entry) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[Entry](c, value))
+}
+
 func (c FfiConverterEntry) Write(writer io.Writer, value Entry) {
 	FfiConverterPublicKeyINSTANCE.Write(writer, value.Scope)
 	FfiConverterOptionalBytesINSTANCE.Write(writer, value.Stream)
@@ -3504,6 +3546,10 @@ func (c FfiConverterSubscribeOpts) Read(reader io.Reader) SubscribeOpts {
 
 func (c FfiConverterSubscribeOpts) Lower(value SubscribeOpts) C.RustBuffer {
 	return LowerIntoRustBuffer[SubscribeOpts](c, value)
+}
+
+func (c FfiConverterSubscribeOpts) LowerExternal(value SubscribeOpts) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[SubscribeOpts](c, value))
 }
 
 func (c FfiConverterSubscribeOpts) Write(writer io.Writer, value SubscribeOpts) {
@@ -3679,6 +3725,10 @@ func (c FfiConverterCreateError) Lower(value *CreateError) C.RustBuffer {
 	return LowerIntoRustBuffer[*CreateError](c, value)
 }
 
+func (c FfiConverterCreateError) LowerExternal(value *CreateError) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*CreateError](c, value))
+}
+
 func (c FfiConverterCreateError) Read(reader io.Reader) *CreateError {
 	errorID := readUint32(reader)
 
@@ -3842,6 +3892,10 @@ func (c FfiConverterJoinPeersError) Lower(value *JoinPeersError) C.RustBuffer {
 	return LowerIntoRustBuffer[*JoinPeersError](c, value)
 }
 
+func (c FfiConverterJoinPeersError) LowerExternal(value *JoinPeersError) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*JoinPeersError](c, value))
+}
+
 func (c FfiConverterJoinPeersError) Read(reader io.Reader) *JoinPeersError {
 	errorID := readUint32(reader)
 
@@ -3887,7 +3941,7 @@ func (_ FfiDestroyerJoinPeersError) Destroy(value *JoinPeersError) {
 	}
 }
 
-// Error when converting from ffi NodeAddr to iroh::NodeAddr
+// Error when converting from ffi NodeAddr to iroh::EndpointAddr.
 type NodeAddrError struct {
 	err error
 }
@@ -3963,6 +4017,10 @@ func (c FfiConverterNodeAddrError) Lift(eb RustBufferI) *NodeAddrError {
 
 func (c FfiConverterNodeAddrError) Lower(value *NodeAddrError) C.RustBuffer {
 	return LowerIntoRustBuffer[*NodeAddrError](c, value)
+}
+
+func (c FfiConverterNodeAddrError) LowerExternal(value *NodeAddrError) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*NodeAddrError](c, value))
 }
 
 func (c FfiConverterNodeAddrError) Read(reader io.Reader) *NodeAddrError {
@@ -4073,6 +4131,10 @@ func (c FfiConverterParseError) Lift(eb RustBufferI) *ParseError {
 
 func (c FfiConverterParseError) Lower(value *ParseError) C.RustBuffer {
 	return LowerIntoRustBuffer[*ParseError](c, value)
+}
+
+func (c FfiConverterParseError) LowerExternal(value *ParseError) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*ParseError](c, value))
 }
 
 func (c FfiConverterParseError) Read(reader io.Reader) *ParseError {
@@ -4206,6 +4268,10 @@ func (c FfiConverterPublicKeyError) Lower(value *PublicKeyError) C.RustBuffer {
 	return LowerIntoRustBuffer[*PublicKeyError](c, value)
 }
 
+func (c FfiConverterPublicKeyError) LowerExternal(value *PublicKeyError) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*PublicKeyError](c, value))
+}
+
 func (c FfiConverterPublicKeyError) Read(reader io.Reader) *PublicKeyError {
 	errorID := readUint32(reader)
 
@@ -4318,6 +4384,10 @@ func (c FfiConverterPutError) Lift(eb RustBufferI) *PutError {
 
 func (c FfiConverterPutError) Lower(value *PutError) C.RustBuffer {
 	return LowerIntoRustBuffer[*PutError](c, value)
+}
+
+func (c FfiConverterPutError) LowerExternal(value *PutError) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*PutError](c, value))
 }
 
 func (c FfiConverterPutError) Read(reader io.Reader) *PutError {
@@ -4453,6 +4523,10 @@ func (c FfiConverterSpError) Lower(value *SpError) C.RustBuffer {
 	return LowerIntoRustBuffer[*SpError](c, value)
 }
 
+func (c FfiConverterSpError) LowerExternal(value *SpError) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*SpError](c, value))
+}
+
 func (c FfiConverterSpError) Read(reader io.Reader) *SpError {
 	errorID := readUint32(reader)
 
@@ -4571,6 +4645,10 @@ func (c FfiConverterShutdownError) Lower(value *ShutdownError) C.RustBuffer {
 	return LowerIntoRustBuffer[*ShutdownError](c, value)
 }
 
+func (c FfiConverterShutdownError) LowerExternal(value *ShutdownError) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*ShutdownError](c, value))
+}
+
 func (c FfiConverterShutdownError) Read(reader io.Reader) *ShutdownError {
 	errorID := readUint32(reader)
 
@@ -4640,6 +4718,10 @@ func (c FfiConverterStreamFilter) Lift(rb RustBufferI) StreamFilter {
 
 func (c FfiConverterStreamFilter) Lower(value StreamFilter) C.RustBuffer {
 	return LowerIntoRustBuffer[StreamFilter](c, value)
+}
+
+func (c FfiConverterStreamFilter) LowerExternal(value StreamFilter) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[StreamFilter](c, value))
 }
 func (FfiConverterStreamFilter) Read(reader io.Reader) StreamFilter {
 	id := readInt32(reader)
@@ -4735,6 +4817,10 @@ func (c FfiConverterSubscribeItem) Lift(rb RustBufferI) SubscribeItem {
 func (c FfiConverterSubscribeItem) Lower(value SubscribeItem) C.RustBuffer {
 	return LowerIntoRustBuffer[SubscribeItem](c, value)
 }
+
+func (c FfiConverterSubscribeItem) LowerExternal(value SubscribeItem) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[SubscribeItem](c, value))
+}
 func (FfiConverterSubscribeItem) Read(reader io.Reader) SubscribeItem {
 	id := readInt32(reader)
 	switch id {
@@ -4812,6 +4898,10 @@ func (c FfiConverterSubscribeMode) Lift(rb RustBufferI) SubscribeMode {
 
 func (c FfiConverterSubscribeMode) Lower(value SubscribeMode) C.RustBuffer {
 	return LowerIntoRustBuffer[SubscribeMode](c, value)
+}
+
+func (c FfiConverterSubscribeMode) LowerExternal(value SubscribeMode) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[SubscribeMode](c, value))
 }
 func (FfiConverterSubscribeMode) Read(reader io.Reader) SubscribeMode {
 	id := readInt32(reader)
@@ -4896,6 +4986,10 @@ func (c FfiConverterSubscribeNextError) Lower(value *SubscribeNextError) C.RustB
 	return LowerIntoRustBuffer[*SubscribeNextError](c, value)
 }
 
+func (c FfiConverterSubscribeNextError) LowerExternal(value *SubscribeNextError) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*SubscribeNextError](c, value))
+}
+
 func (c FfiConverterSubscribeNextError) Read(reader io.Reader) *SubscribeNextError {
 	errorID := readUint32(reader)
 
@@ -4932,7 +5026,7 @@ func (_ FfiDestroyerSubscribeNextError) Destroy(value *SubscribeNextError) {
 	}
 }
 
-// Error when converting from ffi NodeAddr to iroh::NodeAddr
+// Error parsing an endpoint ticket.
 type TicketError struct {
 	err error
 }
@@ -4988,6 +5082,10 @@ func (c FfiConverterTicketError) Lift(eb RustBufferI) *TicketError {
 
 func (c FfiConverterTicketError) Lower(value *TicketError) C.RustBuffer {
 	return LowerIntoRustBuffer[*TicketError](c, value)
+}
+
+func (c FfiConverterTicketError) LowerExternal(value *TicketError) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*TicketError](c, value))
 }
 
 func (c FfiConverterTicketError) Read(reader io.Reader) *TicketError {
@@ -5061,6 +5159,10 @@ func (c FfiConverterTimeBound) Lift(rb RustBufferI) TimeBound {
 
 func (c FfiConverterTimeBound) Lower(value TimeBound) C.RustBuffer {
 	return LowerIntoRustBuffer[TimeBound](c, value)
+}
+
+func (c FfiConverterTimeBound) LowerExternal(value TimeBound) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[TimeBound](c, value))
 }
 func (FfiConverterTimeBound) Read(reader io.Reader) TimeBound {
 	id := readInt32(reader)
@@ -5171,6 +5273,10 @@ func (c FfiConverterWriteError) Lower(value *WriteError) C.RustBuffer {
 	return LowerIntoRustBuffer[*WriteError](c, value)
 }
 
+func (c FfiConverterWriteError) LowerExternal(value *WriteError) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*WriteError](c, value))
+}
+
 func (c FfiConverterWriteError) Read(reader io.Reader) *WriteError {
 	errorID := readUint32(reader)
 
@@ -5227,6 +5333,10 @@ func (c FfiConverterOptionalString) Lower(value *string) C.RustBuffer {
 	return LowerIntoRustBuffer[*string](c, value)
 }
 
+func (c FfiConverterOptionalString) LowerExternal(value *string) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*string](c, value))
+}
+
 func (_ FfiConverterOptionalString) Write(writer io.Writer, value *string) {
 	if value == nil {
 		writeInt8(writer, 0)
@@ -5262,6 +5372,10 @@ func (_ FfiConverterOptionalBytes) Read(reader io.Reader) *[]byte {
 
 func (c FfiConverterOptionalBytes) Lower(value *[]byte) C.RustBuffer {
 	return LowerIntoRustBuffer[*[]byte](c, value)
+}
+
+func (c FfiConverterOptionalBytes) LowerExternal(value *[]byte) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*[]byte](c, value))
 }
 
 func (_ FfiConverterOptionalBytes) Write(writer io.Writer, value *[]byte) {
@@ -5301,6 +5415,10 @@ func (c FfiConverterOptionalSegmentToSign) Lower(value *SegmentToSign) C.RustBuf
 	return LowerIntoRustBuffer[*SegmentToSign](c, value)
 }
 
+func (c FfiConverterOptionalSegmentToSign) LowerExternal(value *SegmentToSign) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*SegmentToSign](c, value))
+}
+
 func (_ FfiConverterOptionalSegmentToSign) Write(writer io.Writer, value *SegmentToSign) {
 	if value == nil {
 		writeInt8(writer, 0)
@@ -5338,6 +5456,10 @@ func (c FfiConverterOptionalStream) Lower(value *Stream) C.RustBuffer {
 	return LowerIntoRustBuffer[*Stream](c, value)
 }
 
+func (c FfiConverterOptionalStream) LowerExternal(value *Stream) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*Stream](c, value))
+}
+
 func (_ FfiConverterOptionalStream) Write(writer io.Writer, value *Stream) {
 	if value == nil {
 		writeInt8(writer, 0)
@@ -5373,6 +5495,10 @@ func (_ FfiConverterOptionalSubscribeItem) Read(reader io.Reader) *SubscribeItem
 
 func (c FfiConverterOptionalSubscribeItem) Lower(value *SubscribeItem) C.RustBuffer {
 	return LowerIntoRustBuffer[*SubscribeItem](c, value)
+}
+
+func (c FfiConverterOptionalSubscribeItem) LowerExternal(value *SubscribeItem) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*SubscribeItem](c, value))
 }
 
 func (_ FfiConverterOptionalSubscribeItem) Write(writer io.Writer, value *SubscribeItem) {
@@ -5414,6 +5540,10 @@ func (c FfiConverterSequenceString) Read(reader io.Reader) []string {
 
 func (c FfiConverterSequenceString) Lower(value []string) C.RustBuffer {
 	return LowerIntoRustBuffer[[]string](c, value)
+}
+
+func (c FfiConverterSequenceString) LowerExternal(value []string) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[[]string](c, value))
 }
 
 func (c FfiConverterSequenceString) Write(writer io.Writer, value []string) {
@@ -5459,6 +5589,10 @@ func (c FfiConverterSequencePublicKey) Lower(value []*PublicKey) C.RustBuffer {
 	return LowerIntoRustBuffer[[]*PublicKey](c, value)
 }
 
+func (c FfiConverterSequencePublicKey) LowerExternal(value []*PublicKey) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[[]*PublicKey](c, value))
+}
+
 func (c FfiConverterSequencePublicKey) Write(writer io.Writer, value []*PublicKey) {
 	if len(value) > math.MaxInt32 {
 		panic("[]*PublicKey is too large to fit into Int32")
@@ -5500,6 +5634,10 @@ func (c FfiConverterSequenceEntry) Read(reader io.Reader) []Entry {
 
 func (c FfiConverterSequenceEntry) Lower(value []Entry) C.RustBuffer {
 	return LowerIntoRustBuffer[[]Entry](c, value)
+}
+
+func (c FfiConverterSequenceEntry) LowerExternal(value []Entry) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[[]Entry](c, value))
 }
 
 func (c FfiConverterSequenceEntry) Write(writer io.Writer, value []Entry) {

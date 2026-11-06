@@ -5,7 +5,7 @@ const res = http.get(
 if (!res.ok) {
   throw new Error(`listRecords: HTTP ${res.status}: ${res.body}`);
 }
-const text = `timezone check ${output.timezoneSentAfter}`;
+const text = `Timezone check ${output.timezoneSentAfter}`;
 const record = json(res.body).records.find((r) => r.value.text === text);
 if (!record) {
   throw new Error(`no place.stream.chat.message record says "${text}"`);

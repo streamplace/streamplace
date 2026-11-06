@@ -3,6 +3,7 @@ import { ChildProcess } from "child_process";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
+import { hexToBytes } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import getEnv from "../env";
 import makeNode from "../node";
@@ -14,7 +15,6 @@ import { randomPort } from "./util";
 
 const allTests: Record<string, E2ETest> = {
   playback: playbackTest,
-  // sync: syncTest,
   resume: resumeLoopTest,
   serverRestart: serverRestartTest,
 };
@@ -36,7 +36,7 @@ export default async function runTests(
     testsToRun.push(test);
   }
   try {
-    const results: string[] = [];
+    const results: (string | null)[] = [];
     const funcs: (() => Promise<void>)[] = [];
     for (const testName of testsToRun) {
       const test = allTests[testName];
@@ -46,10 +46,7 @@ export default async function runTests(
         return async () => {
           try {
             const { skipNode } = getEnv();
-            const hexKey = privateKey.slice(2); // Remove 0x prefix
-            const exportedKey = new Uint8Array(
-              hexKey.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)),
-            );
+            const exportedKey = hexToBytes(privateKey);
             const multibaseKey = bytesToMultibase(exportedKey, "base58btc");
             const account = privateKeyToAccount(privateKey);
             const tmpDir = await fs.mkdtemp(
@@ -89,8 +86,9 @@ export default async function runTests(
             const result = await test.test(testEnv);
             results.push(result);
           } catch (e) {
-            console.error("error running test", e.message);
-            results.push(e.message);
+            const message = e instanceof Error ? e.message : String(e);
+            console.error("error running test", message);
+            results.push(message);
           } finally {
             if (testProc) {
               testProc.kill("SIGTERM");
@@ -114,7 +112,7 @@ export default async function runTests(
     }
     return true;
   } catch (e) {
-    console.error("error running tests", e.message);
+    console.error("error running tests", e);
     return false;
   }
 }

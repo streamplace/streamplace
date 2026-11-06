@@ -276,7 +276,7 @@ func TestSweepResolvesUnknownHosts(t *testing.T) {
 	insert("did:plc:two", "https://shared.example/")
 	insert("did:plc:three", "https://elsewhere.example")
 	// Pre-set so resolveIdent never reaches for a real directory.
-	atsync := &ATProtoSynchronizer{PLCDirectory: &dir, CachedPLCDirectory: &dir}
+	atsync := &ATProtoSynchronizer{PLCDirectory: dir, CachedPLCDirectory: dir}
 
 	var mu sync.Mutex
 	lanes := map[string]string{}

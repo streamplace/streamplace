@@ -1,8 +1,8 @@
-import type { OAuthAuthorizationServerMetadata } from "@atproto/oauth-client";
 import {
   OAuthResolver,
-  ResolveOAuthOptions,
-} from "@atproto/oauth-client/dist/oauth-resolver";
+  type OAuthAuthorizationServerMetadata,
+  type ResolveOAuthOptions,
+} from "@atproto/oauth-client";
 
 export class StreamplaceOAuthResolver extends OAuthResolver {
   private currentResourceServer: string | null = null;

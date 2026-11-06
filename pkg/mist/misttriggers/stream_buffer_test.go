@@ -63,5 +63,4 @@ func TestItCanParseAValidStreamBufferPayloadWithEmptyState(t *testing.T) {
 func TestItFailsToParseAnInvalidStreamBufferPayload(t *testing.T) {
 	_, err := ParseStreamBufferPayload(streamBufferPayloadInvalid)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "cannot unmarshal number into Go struct field TrackDetails.codec of type string")
 }

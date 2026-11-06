@@ -273,9 +273,10 @@ Set `MAC_HOST` to an SSH destination whose checkout is clean and at the same com
 MAC_HOST=admin@mac-mini MAC_REPO=/Users/admin/streamplace make all
 ```
 
-The remote needs the same toolchain the CI macOS job installs (Go, Node 22,
-Meson, Rust, Xcode 26). Without `MAC_HOST`, `make all` prints the skipped iOS
-job and exits successfully; set `ALL_STRICT=1` to make that a failure.
+The remote needs the same toolchain the CI macOS job installs (Go, Node 26,
+pnpm 12, Meson, Rust, Xcode 26.6). Intel macOS native builds also require NASM
+for x264's enabled assembly paths. Without `MAC_HOST`, `make all` prints the
+skipped iOS job and exits successfully; set `ALL_STRICT=1` to make that a failure.
 `MAC_REPO` overrides the remote checkout path, including paths with spaces or
 quotes; it defaults to the local checkout's absolute path.
 
@@ -285,6 +286,126 @@ option is a macOS VM (OSX-KVM/OpenCore with the AMD kernel patches) or a
 physical/cloud Mac. Xcode 26.3 supports macOS Sequoia 15.6 and later, so an
 x86_64 VM is sufficient; the archive is built with `CODE_SIGNING_ALLOWED=NO`,
 so no Apple account is needed for the build itself.
+
+The iOS CI job also runs the existing Home → Videos → Settings Maestro flow
+against an unsigned simulator Release build, with OTA updates disabled:
+
+```sh
+make ios-simulator
+bash hack/ios-smoke.sh
+```
+
+The runner creates and removes its own simulator; screenshots and logs remain
+under `.maestro/artifacts/ios/`.
+CI allows five minutes for Maestro's cold XCTest driver startup. The shell flow
+then waits up to one minute for its initial Home tab: on a cold hosted simulator,
+the first app hierarchy arrived more than 20 seconds after launch while Maestro
+dismissed the notification prompt. Later navigation assertions retain their
+default timeouts. Maestro handles notification permission prompts itself; the
+shell flow must not tap Allow a second time after the dialog has disappeared.
+
+## Dependency upgrades and deployment
+
+`mise.toml`, `docker/build.Dockerfile`, and the workspace manifests pin the
+development toolchain. pnpm settings live in `pnpm-workspace.yaml`, including
+the explicit native build-script allowlist; pnpm 12 no longer reads
+`node-linker` from `.npmrc`.
+Filtered installs still execute the root `prepare` hook. Include the i18n and
+brand workspaces so their translation and asset generators have dependencies.
+The shared `glex` command clears cross-target compiler and Go environment
+variables because code generation must execute on the build machine.
+The native Cargo build likewise supplies separate host compiler wrappers for
+proc-macro dependencies while retaining Meson's target/sysroot wrappers.
+The builder and macOS CI use HTTP/1.1 only for Git fetches from freedesktop.org:
+its HTTP/2 responses have truncated pack downloads across fresh CI runners.
+The GitLab mirror runs after builder publication so a branch that changes
+the immutable image hash cannot start jobs before that image exists.
+It permits a non-fast-forward mirror update only when GitHub marks the source
+push as forced, so rebases propagate without forcing ordinary branch pushes.
+
+The Expo SDK 58 / React Native 0.88 upgrade requires new iOS and Android
+binaries. Its OTA runtime is `0.13.0`, separate from the previous `0.12.0`
+runtime; do not publish the upgraded JavaScript to the old runtime.
+Regenerate native projects with the existing prebuild target before building.
+The deprecated edge-to-edge library is replaced by React Native's built-in
+edge-to-edge support and the maintained navigation-bar controls.
+Gesture Handler 3 reports unsuccessful completion as `event.canceled`.
+Portrait mouse clicks preserve a preceding hover reveal; touch taps still
+toggle controls, and canceled gestures do neither.
+Firebase Apple SDK 13 is distributed through Swift Package Manager only.
+The Expo build-properties plugin selects dynamic iOS frameworks, as required
+by React Native Firebase 27; do not restore the old static-linking overrides.
+Expo's precompiled React Native integration builds the WebRTC pod as a static
+library. The existing WebRTC plugin exposes `WebRTCModuleOptions.h` through the
+app's Swift bridging header instead of importing a nonexistent framework module.
+
+Electron's application sources use TypeScript's bundler resolution and preserve
+imports for webpack; Forge's Node-loaded configuration keeps Node16 resolution.
+Webpack CSS imports and Forge-injected preload paths have ambient declarations.
+The desktop updater uses its existing static feed directly, with the same
+ten-minute interval and restart prompt, rather than depending on a second updater.
+The synthetic desktop playback fixture reads the shipped Geist Mono font from
+`app.Assets()`, not obsolete Atkinson filenames in Expo's hashed export output.
+
+Expo's streaming fetch stays enabled. The scoped `@atproto-labs/fetch` patch
+backports the bounded JSON reader from [upstream PR #5805](https://github.com/bluesky-social/atproto/pull/5805):
+the published parser constructs a streaming `Response` using React Native's
+incompatible global constructor, silently preventing DPoP nonce retries.
+Remove the patch when a published release includes the upstream correction.
+The native timezone fixture starts with a capital letter so sentence
+capitalization cannot change the record lookup; its stored offset and send-time
+assertions remain unchanged.
+
+Iroh 1.x uses `endpoint...` tickets and a new transport protocol. Upgrade
+communicating nodes together and exchange newly generated tickets; old
+`node...` tickets and mixed-version peers are not compatible.
+
+Some dependencies intentionally stay on compatible release lines:
+
+- TypeScript 6.0 matches `typescript-eslint`'s supported `<6.1` range; Expo's
+  Babel preset still requires Babel 7.
+- `debug` 4 synchronously requires `supports-color` but omits its optional peer's
+  version range. The package extension supplies the CommonJS-compatible <9
+  range: a hoisted ESM-only 10.x detector returned the wrong export shape and
+  triggered Node 26's module-facade assertion during Android update generation.
+  Consumers that explicitly depend on the ESM detector still resolve 10.x.
+- Meson 1.11.2 retains working cross-machine GLib fallback resolution.
+  With 1.12.1, native GLib/libffi fallback fails during ARM and Windows static
+  configuration and leaves GStreamer unable to retrieve its host GLib subproject.
+- Lex schema 0.2.9 avoids the conflicting `walk` exports between the published
+  `@atproto/lex` 0.4.4 and schema 0.2.10, which prevent PDS startup in Node.
+  Remove that override when the matching lex migration is published.
+- UniFFI 0.28 matches the Go binding generator's metadata ABI. Gossip 0.101
+  matches the topic types exposed by `iroh-smol-kv`.
+- The C2PA fork retains Streamplace's signing APIs, and the FFmpeg fork retains
+  Livepeer's signature exports. Use published compatible fork revisions, not
+  upstream replacements that remove those APIs.
+- Echo 4 and JWX 2 match the public middleware/context and key types exposed
+  by the current `oatproxy` and AT Protocol OAuth client dependencies.
+- Indigo uses the 2026-10-08 revision before its repository-host API was
+  deprecated. Its newer `atproto/repo` replacement explicitly cannot implement
+  a repository host yet. This avoids adopting deprecated APIs or rewriting
+  repository storage as part of a dependency refresh.
+- The builder remains Ubuntu 22.04 to preserve the glibc 2.35 release baseline
+  and cross-compilation sysroots. Runtime images use Ubuntu 26.04 LTS.
+- The Windows sysroot uses MinGW-w64 14 headers, CRT and winpthreads, built from a
+  checksum-pinned release with the existing GNU C++/MSVCRT ABI. GLib 2.90's
+  WinRT package parser needs headers missing from Ubuntu 22.04's packaged SDK.
+  LLVM-MinGW cannot replace it directly: its C++ standard library and CRT
+  objects are incompatible with the existing GNU static-library graph.
+  The GNU binutils 2.47 linker understands the exclusion directives emitted by
+  current Rust COFF objects; the packaged 2.38 linker ignores them.
+- OSXCross uses its supported LLVM flavor with LLVM 23 and `ld64.lld`.
+  The legacy cctools flavor uses the old disassembler callback ABI; the newer
+  cctools flavor's libdispatch dependency fails LLVM 23's warnings-as-errors
+  build. This avoids patching or suppressing diagnostics in either dependency.
+- Some current upstream packages still require older dependency APIs: the local
+  PDS uses Nodemailer 6 and Zod 3, the local PLC uses Kysely 0.23, and Expo's
+  tooling uses older glob/minimatch majors. `pnpm audit --prod` still reports
+  advisories in those trees; this refresh does not claim a clean security audit.
+  Compatible fixes for pinned form-data, selector-parser, gRPC and stream-json
+  releases are scoped in the workspace overrides. The unused native Markdown
+  renderer was removed instead of carrying its obsolete parser dependencies.
 
 ## Notes
 
@@ -298,3 +419,8 @@ so no Apple account is needed for the build itself.
 - The builder image must be the one pinned in `.ci/dockerfile-hash.yaml`.
   `hack/container.sh` warns if an existing container runs a different image;
   recreate it after the pin changes.
+- The portrait player component suite loads its real controls during test
+  collection, before per-test and fake-timer deadlines begin. A cold transform
+  can exceed five seconds on hosted macOS; importing inside the first test made
+  it time out and leak overlapping React `act` work into later cases. Keep
+  control behavior assertions independent of module-transform speed.

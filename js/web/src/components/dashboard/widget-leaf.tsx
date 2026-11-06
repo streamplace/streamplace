@@ -8,7 +8,7 @@ import { WIDGET_KEYS, getWidgetMeta } from "./registry";
 interface WidgetLeafProps {
   widgetKey: string;
   store: LivestreamStore;
-  user?: string;
+  user: string;
   /** Called when the user picks a different widget from the dropdown. */
   onWidgetChange?: (newWidget: string) => void;
   /** Called when the user clicks the X to remove this slot from the tree. */

@@ -2,9 +2,9 @@ import { ChevronUp } from "lucide-react-native";
 import { ComponentProps, useEffect, useState } from "react";
 import { Dimensions } from "react-native";
 import {
-  Gesture,
   GestureDetector,
   Pressable,
+  usePanGesture,
 } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -67,11 +67,11 @@ export function Resizable({
     }, 1000);
   }, []);
 
-  const panGesture = Gesture.Pan()
-    .onStart(() => {
+  const panGesture = usePanGesture({
+    onActivate: () => {
       startHeight.value = sheetHeight.value;
-    })
-    .onUpdate((event) => {
+    },
+    onUpdate: (event) => {
       let newHeight = startHeight.value - event.translationY;
       if (newHeight > MAX_HEIGHT) newHeight = MAX_HEIGHT;
       if (newHeight < MIN_HEIGHT) newHeight = MIN_HEIGHT;
@@ -86,7 +86,8 @@ export function Resizable({
         wasCollapsed.value = false;
         runOnJS(setIsCollapsed)(false);
       }
-    });
+    },
+  });
 
   const animatedStyle = useAnimatedStyle(() => ({
     height: sheetHeight.value < COLLAPSE_HEIGHT ? 0 : sheetHeight.value,

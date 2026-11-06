@@ -69,7 +69,7 @@ func (sr *signedRepo) directory(t *testing.T, did string, pub atcrypto.PublicKey
 			"atproto": {Type: "Multikey", PublicKeyMultibase: pub.Multibase()},
 		},
 	})
-	return &dir
+	return dir
 }
 
 // ---------------------------------------------------------------------------
@@ -277,7 +277,7 @@ func TestFetchVerifiedHead(t *testing.T) {
 		client := host.start(t)
 		f := &XRPCBlockFetcher{Client: client, DID: testDID}
 		empty := identity.NewMockDirectory()
-		_, err := FetchVerifiedHead(ctx, client, f, &empty, testDID)
+		_, err := FetchVerifiedHead(ctx, client, f, empty, testDID)
 		require.ErrorIs(t, err, identity.ErrDIDNotFound)
 	})
 }

@@ -1,4 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import {
   Text,
   Icon as ThemedIcon,
@@ -9,10 +9,11 @@ import {
 import { spacing } from "@streamplace/components/src/lib/theme/tokens";
 import { ChevronRight, ExternalLink, LucideIcon } from "lucide-react-native";
 import { Linking, Pressable } from "react-native";
+import type { SettingsStackParamList } from "src/navigation-types";
 
 interface SettingsNavigationItemProps {
   title: string;
-  screen: string;
+  screen: keyof SettingsStackParamList;
   icon: LucideIcon;
 }
 
@@ -47,7 +48,9 @@ export function SettingsNavigationItem({
   const styles = useRowStyles();
 
   return (
-    <Pressable onPress={() => navigation.navigate(screen as never)}>
+    <Pressable
+      onPress={() => navigation.dispatch(CommonActions.navigate(screen))}
+    >
       {({ pressed, hovered }: any) => (
         <View style={styles.row(pressed || hovered)}>
           <View

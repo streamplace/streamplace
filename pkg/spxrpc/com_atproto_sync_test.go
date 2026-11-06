@@ -264,7 +264,7 @@ func TestComAtprotoSyncReposyncRoundTrip(t *testing.T) {
 		},
 	})
 
-	head, err := reposync.FetchVerifiedHead(ctx, client, fetcher, &dir, did)
+	head, err := reposync.FetchVerifiedHead(ctx, client, fetcher, dir, did)
 	require.NoError(t, err)
 	wantCID, wantRev, err := atproto.ServerRepoLatestCommit(ctx)
 	require.NoError(t, err)
@@ -286,7 +286,7 @@ func TestComAtprotoSyncReposyncRoundTrip(t *testing.T) {
 			"atproto": {Type: "Multikey", PublicKeyMultibase: otherPub.Multibase()},
 		},
 	})
-	_, err = reposync.FetchVerifiedHead(ctx, client, fetcher, &wrongDir, did)
+	_, err = reposync.FetchVerifiedHead(ctx, client, fetcher, wrongDir, did)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "signature")
 
@@ -302,7 +302,7 @@ func TestComAtprotoSyncReposyncRoundTrip(t *testing.T) {
 	// A walk that starts from a verified head must also see writes that
 	// happen afterwards, once the head is re-fetched.
 	commitTestRecord(t, cli, constants.PLACE_STREAM_MEDIA_ORIGIN, "babczxv3")
-	head2, err := reposync.FetchVerifiedHead(ctx, client, fetcher, &dir, did)
+	head2, err := reposync.FetchVerifiedHead(ctx, client, fetcher, dir, did)
 	require.NoError(t, err)
 	require.NotEqual(t, head.CID, head2.CID)
 	require.Greater(t, head2.Rev, head.Rev)

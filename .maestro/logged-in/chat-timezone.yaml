@@ -21,6 +21,7 @@ appId: ${APP_ID}
     timeout: 30000
 # The earliest the record can be stamped, which also makes the message unique
 # among the account's records.
+# Start with a capital so the keyboard's sentence capitalization is a no-op.
 - evalScript: ${output.timezoneSentAfter = Date.now()}
 # resend a send the page wasn't ready for, as in chat-reply
 - retry:
@@ -29,12 +30,12 @@ appId: ${APP_ID}
       - tapOn:
           id: "chat-input"
       - eraseText: 50
-      - inputText: "timezone check ${output.timezoneSentAfter}"
+      - inputText: "Timezone check ${output.timezoneSentAfter}"
       - pressKey: Enter
       - extendedWaitUntil:
           visible:
             # the row's text is the whole line, "@<handle>: <message>"
-            text: ".*: timezone check ${output.timezoneSentAfter}"
+            text: ".*: Timezone check ${output.timezoneSentAfter}"
           timeout: 15000
 - takeScreenshot: chat-timezone-sent
 # Relaunch, so the message comes from the node's chat history: only a record
@@ -48,7 +49,7 @@ appId: ${APP_ID}
     id: "home-stream-card"
 - extendedWaitUntil:
     visible:
-      text: ".*: timezone check ${output.timezoneSentAfter}"
+      text: ".*: Timezone check ${output.timezoneSentAfter}"
     timeout: 30000
 - takeScreenshot: chat-timezone-history
 - runScript: chat-timezone.js

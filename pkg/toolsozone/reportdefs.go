@@ -3,3 +3,721 @@
 // Lexicon schema: tools.ozone.report.defs
 
 package toolsozone
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+
+	glex "github.com/streamplace/glex/runtime"
+	cbg "github.com/whyrusleeping/cbor-gen"
+)
+
+// ReportDefs_AssignmentActivity is a "assignmentActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a moderator being assigned to a report.
+type ReportDefs_AssignmentActivity struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	// previousStatus: The report's status before this activity. Populated automatically from the report row; not required in input.
+	PreviousStatus *string `json:"previousStatus,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ReportDefs_AssignmentActivity) RecordTypeID() string {
+	return "tools.ozone.report.defs#assignmentActivity"
+}
+
+func (t *ReportDefs_AssignmentActivity) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "tools.ozone.report.defs#assignmentActivity"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ReportDefs_AssignmentActivity) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// ReportDefs_AssignmentView is a "assignmentView" in the tools.ozone.report.defs schema.
+type ReportDefs_AssignmentView struct {
+	LexiconTypeID string  `json:"$type,omitempty"`
+	Did           string  `json:"did"`
+	EndAt         *string `json:"endAt,omitempty"`
+	Id            int64   `json:"id"`
+	// moderator: The moderator assigned to this report
+	Moderator *TeamDefs_Member     `json:"moderator,omitempty"`
+	Queue     *QueueDefs_QueueView `json:"queue,omitempty"`
+	ReportId  int64                `json:"reportId"`
+	StartAt   string               `json:"startAt"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ReportDefs_AssignmentView) RecordTypeID() string {
+	return "tools.ozone.report.defs#assignmentView"
+}
+
+func (t *ReportDefs_AssignmentView) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "tools.ozone.report.defs#assignmentView"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ReportDefs_AssignmentView) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// ReportDefs_CloseActivity is a "closeActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a report being closed.
+type ReportDefs_CloseActivity struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	// previousStatus: The report's status before this activity. Populated automatically from the report row; not required in input.
+	PreviousStatus *string `json:"previousStatus,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ReportDefs_CloseActivity) RecordTypeID() string {
+	return "tools.ozone.report.defs#closeActivity"
+}
+
+func (t *ReportDefs_CloseActivity) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "tools.ozone.report.defs#closeActivity"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ReportDefs_CloseActivity) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// ReportDefs_EscalationActivity is a "escalationActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a report being escalated.
+type ReportDefs_EscalationActivity struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	// previousStatus: The report's status before this activity. Populated automatically from the report row; not required in input.
+	PreviousStatus *string `json:"previousStatus,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ReportDefs_EscalationActivity) RecordTypeID() string {
+	return "tools.ozone.report.defs#escalationActivity"
+}
+
+func (t *ReportDefs_EscalationActivity) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "tools.ozone.report.defs#escalationActivity"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ReportDefs_EscalationActivity) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// ReportDefs_HistoricalStats is a "historicalStats" in the tools.ozone.report.defs schema.
+//
+// A single daily snapshot of report statistics for a calendar date.
+type ReportDefs_HistoricalStats struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	// acknowledgedCount: Number of closures whose last report action is not label, tag, or takedown during this day.
+	AcknowledgedCount *int64 `json:"acknowledgedCount,omitempty"`
+	// actionRate: Percentage of closures actioned (actionedCount / closedCount * 100), rounded to nearest integer.
+	ActionRate *int64 `json:"actionRate,omitempty"`
+	// actionedCount: Number of closures whose last report action is label, tag, or takedown during this day.
+	ActionedCount *int64 `json:"actionedCount,omitempty"`
+	// ahtDurationSec: Sum of report assignment-to-close seconds for this day's samples.
+	AhtDurationSec *int64 `json:"ahtDurationSec,omitempty"`
+	// ahtSampleCount: Number of assigned closed-report samples in ahtDurationSec.
+	AhtSampleCount *int64 `json:"ahtSampleCount,omitempty"`
+	// avgHandlingTimeSec: Average handling time in seconds from report assignment to close.
+	AvgHandlingTimeSec *int64 `json:"avgHandlingTimeSec,omitempty"`
+	// avgResolutionTimeSec: Average resolution time in seconds from report creation to close.
+	AvgResolutionTimeSec *int64 `json:"avgResolutionTimeSec,omitempty"`
+	// closedCount: Number of close transitions during this day.
+	ClosedCount *int64 `json:"closedCount,omitempty"`
+	// closureTargetMetCount: Reports whose closure meets their closure target.
+	ClosureTargetMetCount *int64 `json:"closureTargetMetCount,omitempty"`
+	// closureTargetMetRate: Percent of reports meeting their closure target.
+	ClosureTargetMetRate *int64 `json:"closureTargetMetRate,omitempty"`
+	// closureTargetMissedCount: Reports whose closure exceeds their closure target.
+	ClosureTargetMissedCount *int64 `json:"closureTargetMissedCount,omitempty"`
+	// closureTargetOverdueCount: Unmuted pending reports past their closure target at the snapshot time.
+	ClosureTargetOverdueCount *int64 `json:"closureTargetOverdueCount,omitempty"`
+	// computedAt: When this snapshot was last computed.
+	ComputedAt *string `json:"computedAt,omitempty"`
+	// date: The calendar date this snapshot covers (YYYY-MM-DD).
+	Date string `json:"date"`
+	// escalatedCount: Number of reports escalated during this day.
+	EscalatedCount *int64 `json:"escalatedCount,omitempty"`
+	// inboundCount: Reports received during this day.
+	InboundCount *int64 `json:"inboundCount,omitempty"`
+	// labelActionCount: Closures whose last report action is a label event during this day.
+	LabelActionCount *int64 `json:"labelActionCount,omitempty"`
+	// pendingCount: Number of unmuted reports not closed at the end of this UTC day, or at computation time for the current day.
+	PendingCount *int64 `json:"pendingCount,omitempty"`
+	// resolutionDurationSec: Sum of report creation-to-close seconds for this day's samples.
+	ResolutionDurationSec *int64 `json:"resolutionDurationSec,omitempty"`
+	// resolutionSampleCount: Number of closed-report samples in resolutionDurationSec.
+	ResolutionSampleCount *int64 `json:"resolutionSampleCount,omitempty"`
+	// tagActionCount: Closures whose last report action is a tag event during this day.
+	TagActionCount *int64 `json:"tagActionCount,omitempty"`
+	// takedownActionCount: Closures whose last report action is a takedown event during this day.
+	TakedownActionCount *int64 `json:"takedownActionCount,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ReportDefs_HistoricalStats) RecordTypeID() string {
+	return "tools.ozone.report.defs#historicalStats"
+}
+
+func (t *ReportDefs_HistoricalStats) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "tools.ozone.report.defs#historicalStats"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ReportDefs_HistoricalStats) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// ReportDefs_LiveStats is a "liveStats" in the tools.ozone.report.defs schema.
+//
+// Live statistics for reports for the current calendar day, filterable by queue, moderator, or report type.
+type ReportDefs_LiveStats struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	// acknowledgedCount: Number of closures whose last report action is not label, tag, or takedown.
+	AcknowledgedCount *int64 `json:"acknowledgedCount,omitempty"`
+	// actionRate: Percentage of closures actioned (actionedCount / closedCount * 100), rounded to nearest integer.
+	ActionRate *int64 `json:"actionRate,omitempty"`
+	// actionedCount: Number of closures whose last report action is label, tag, or takedown.
+	ActionedCount *int64 `json:"actionedCount,omitempty"`
+	// ahtDurationSec: Sum of report assignment-to-close seconds.
+	AhtDurationSec *int64 `json:"ahtDurationSec,omitempty"`
+	// ahtSampleCount: Number of assigned closed-report samples in ahtDurationSec.
+	AhtSampleCount *int64 `json:"ahtSampleCount,omitempty"`
+	// avgHandlingTimeSec: Average handling time in seconds from report assignment to close.
+	AvgHandlingTimeSec *int64 `json:"avgHandlingTimeSec,omitempty"`
+	// avgResolutionTimeSec: Average resolution time in seconds from report creation to close.
+	AvgResolutionTimeSec *int64 `json:"avgResolutionTimeSec,omitempty"`
+	// closedCount: Number of close transitions.
+	ClosedCount *int64 `json:"closedCount,omitempty"`
+	// closureTargetMetCount: Reports whose closure meets their closure target.
+	ClosureTargetMetCount *int64 `json:"closureTargetMetCount,omitempty"`
+	// closureTargetMetRate: Percent of reports meeting their closure target.
+	ClosureTargetMetRate *int64 `json:"closureTargetMetRate,omitempty"`
+	// closureTargetMissedCount: Reports whose closure exceeds their closure target.
+	ClosureTargetMissedCount *int64 `json:"closureTargetMissedCount,omitempty"`
+	// closureTargetOverdueCount: Unmuted pending reports past their closure target.
+	ClosureTargetOverdueCount *int64 `json:"closureTargetOverdueCount,omitempty"`
+	// escalatedCount: Number of reports escalated.
+	EscalatedCount *int64 `json:"escalatedCount,omitempty"`
+	// inboundCount: Reports received.
+	InboundCount *int64 `json:"inboundCount,omitempty"`
+	// labelActionCount: Closures whose last report action is a label event.
+	LabelActionCount *int64 `json:"labelActionCount,omitempty"`
+	// lastUpdated: When these statistics were last computed.
+	LastUpdated *string `json:"lastUpdated,omitempty"`
+	// pendingCount: Number of unmuted reports currently not closed.
+	PendingCount *int64 `json:"pendingCount,omitempty"`
+	// resolutionDurationSec: Sum of report creation-to-close seconds.
+	ResolutionDurationSec *int64 `json:"resolutionDurationSec,omitempty"`
+	// resolutionSampleCount: Number of closed-report samples in resolutionDurationSec.
+	ResolutionSampleCount *int64 `json:"resolutionSampleCount,omitempty"`
+	// tagActionCount: Closures whose last report action is a tag event.
+	TagActionCount *int64 `json:"tagActionCount,omitempty"`
+	// takedownActionCount: Closures whose last report action is a takedown event.
+	TakedownActionCount *int64 `json:"takedownActionCount,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ReportDefs_LiveStats) RecordTypeID() string { return "tools.ozone.report.defs#liveStats" }
+
+func (t *ReportDefs_LiveStats) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "tools.ozone.report.defs#liveStats"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ReportDefs_LiveStats) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// ReportDefs_NoteActivity is a "noteActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a note on a report. Use internalNote for moderator-only notes or publicNote for reporter-visible notes (or both).
+type ReportDefs_NoteActivity struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ReportDefs_NoteActivity) RecordTypeID() string {
+	return "tools.ozone.report.defs#noteActivity"
+}
+
+func (t *ReportDefs_NoteActivity) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "tools.ozone.report.defs#noteActivity"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ReportDefs_NoteActivity) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// ReportDefs_QueueActivity is a "queueActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a report being routed to a queue.
+type ReportDefs_QueueActivity struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	// previousStatus: The report's status before this activity. Populated automatically from the report row; not required in input.
+	PreviousStatus *string `json:"previousStatus,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ReportDefs_QueueActivity) RecordTypeID() string {
+	return "tools.ozone.report.defs#queueActivity"
+}
+
+func (t *ReportDefs_QueueActivity) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "tools.ozone.report.defs#queueActivity"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ReportDefs_QueueActivity) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// ReportDefs_ReopenActivity is a "reopenActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a closed report being reopened. Only valid when the report is in 'closed' status.
+type ReportDefs_ReopenActivity struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	// previousStatus: The report's status before this activity. Populated automatically from the report row; not required in input.
+	PreviousStatus *string `json:"previousStatus,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ReportDefs_ReopenActivity) RecordTypeID() string {
+	return "tools.ozone.report.defs#reopenActivity"
+}
+
+func (t *ReportDefs_ReopenActivity) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "tools.ozone.report.defs#reopenActivity"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ReportDefs_ReopenActivity) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// ReportDefs_ReportActivityView is a "reportActivityView" in the tools.ozone.report.defs schema.
+//
+// A single activity entry on a report.
+type ReportDefs_ReportActivityView struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	// activity: The typed activity object describing what occurred.
+	Activity ReportDefs_ReportActivityView_Activity `json:"activity"`
+	// createdAt: When this activity was created
+	CreatedAt string `json:"createdAt"`
+	// createdBy: DID of the actor who created this activity, or the service DID for automated activities.
+	CreatedBy string `json:"createdBy"`
+	// id: Activity ID
+	Id int64 `json:"id"`
+	// internalNote: Optional moderator-only note. Not visible to reporters.
+	InternalNote *string `json:"internalNote,omitempty"`
+	// isAutomated: True if this activity was created by an automated process (e.g. queue router) rather than a direct human action.
+	IsAutomated bool `json:"isAutomated"`
+	// meta: Extensible JSON payload for loose activity-specific metadata (e.g. assignmentId).
+	Meta *glex.LexiconTypeDecoder `json:"meta,omitempty"`
+	// moderator: Full member record of the moderator who created this activity
+	Moderator *TeamDefs_Member `json:"moderator,omitempty"`
+	// publicNote: Optional public note, potentially visible to the reporter.
+	PublicNote *string `json:"publicNote,omitempty"`
+	// report: Full view of the report this activity belongs to.
+	Report *ReportDefs_ReportView `json:"report,omitempty"`
+	// reportId: ID of the report this activity belongs to
+	ReportId int64 `json:"reportId"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ReportDefs_ReportActivityView) RecordTypeID() string {
+	return "tools.ozone.report.defs#reportActivityView"
+}
+
+func (t *ReportDefs_ReportActivityView) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "tools.ozone.report.defs#reportActivityView"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ReportDefs_ReportActivityView) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// The typed activity object describing what occurred.
+type ReportDefs_ReportActivityView_Activity struct {
+	ReportDefs_AssignmentActivity   *ReportDefs_AssignmentActivity
+	ReportDefs_CloseActivity        *ReportDefs_CloseActivity
+	ReportDefs_EscalationActivity   *ReportDefs_EscalationActivity
+	ReportDefs_NoteActivity         *ReportDefs_NoteActivity
+	ReportDefs_QueueActivity        *ReportDefs_QueueActivity
+	ReportDefs_ReopenActivity       *ReportDefs_ReopenActivity
+	ReportDefs_UnassignmentActivity *ReportDefs_UnassignmentActivity
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
+}
+
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both ReportDefs_ReportActivityView_Activity and *ReportDefs_ReportActivityView_Activity marshal correctly.
+func (t ReportDefs_ReportActivityView_Activity) MarshalJSON() ([]byte, error) {
+	if t.ReportDefs_AssignmentActivity != nil {
+		cp := *t.ReportDefs_AssignmentActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#assignmentActivity"
+		return json.Marshal(&cp)
+	}
+	if t.ReportDefs_CloseActivity != nil {
+		cp := *t.ReportDefs_CloseActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#closeActivity"
+		return json.Marshal(&cp)
+	}
+	if t.ReportDefs_EscalationActivity != nil {
+		cp := *t.ReportDefs_EscalationActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#escalationActivity"
+		return json.Marshal(&cp)
+	}
+	if t.ReportDefs_NoteActivity != nil {
+		cp := *t.ReportDefs_NoteActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#noteActivity"
+		return json.Marshal(&cp)
+	}
+	if t.ReportDefs_QueueActivity != nil {
+		cp := *t.ReportDefs_QueueActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#queueActivity"
+		return json.Marshal(&cp)
+	}
+	if t.ReportDefs_ReopenActivity != nil {
+		cp := *t.ReportDefs_ReopenActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#reopenActivity"
+		return json.Marshal(&cp)
+	}
+	if t.ReportDefs_UnassignmentActivity != nil {
+		cp := *t.ReportDefs_UnassignmentActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#unassignmentActivity"
+		return json.Marshal(&cp)
+	}
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union ReportDefs_ReportActivityView_Activity", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ReportDefs_ReportActivityView_Activity as JSON")
+}
+
+func (t *ReportDefs_ReportActivityView_Activity) UnmarshalJSON(b []byte) error {
+	typ, err := glex.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "tools.ozone.report.defs#assignmentActivity":
+		t.ReportDefs_AssignmentActivity = new(ReportDefs_AssignmentActivity)
+		return json.Unmarshal(b, t.ReportDefs_AssignmentActivity)
+	case "tools.ozone.report.defs#closeActivity":
+		t.ReportDefs_CloseActivity = new(ReportDefs_CloseActivity)
+		return json.Unmarshal(b, t.ReportDefs_CloseActivity)
+	case "tools.ozone.report.defs#escalationActivity":
+		t.ReportDefs_EscalationActivity = new(ReportDefs_EscalationActivity)
+		return json.Unmarshal(b, t.ReportDefs_EscalationActivity)
+	case "tools.ozone.report.defs#noteActivity":
+		t.ReportDefs_NoteActivity = new(ReportDefs_NoteActivity)
+		return json.Unmarshal(b, t.ReportDefs_NoteActivity)
+	case "tools.ozone.report.defs#queueActivity":
+		t.ReportDefs_QueueActivity = new(ReportDefs_QueueActivity)
+		return json.Unmarshal(b, t.ReportDefs_QueueActivity)
+	case "tools.ozone.report.defs#reopenActivity":
+		t.ReportDefs_ReopenActivity = new(ReportDefs_ReopenActivity)
+		return json.Unmarshal(b, t.ReportDefs_ReopenActivity)
+	case "tools.ozone.report.defs#unassignmentActivity":
+		t.ReportDefs_UnassignmentActivity = new(ReportDefs_UnassignmentActivity)
+		return json.Unmarshal(b, t.ReportDefs_UnassignmentActivity)
+	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
+		return nil
+	}
+}
+
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t ReportDefs_ReportActivityView_Activity) MarshalCBOR() ([]byte, error) {
+	if t.ReportDefs_AssignmentActivity != nil {
+		cp := *t.ReportDefs_AssignmentActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#assignmentActivity"
+		return glex.MarshalCBORBytes(&cp)
+	}
+	if t.ReportDefs_CloseActivity != nil {
+		cp := *t.ReportDefs_CloseActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#closeActivity"
+		return glex.MarshalCBORBytes(&cp)
+	}
+	if t.ReportDefs_EscalationActivity != nil {
+		cp := *t.ReportDefs_EscalationActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#escalationActivity"
+		return glex.MarshalCBORBytes(&cp)
+	}
+	if t.ReportDefs_NoteActivity != nil {
+		cp := *t.ReportDefs_NoteActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#noteActivity"
+		return glex.MarshalCBORBytes(&cp)
+	}
+	if t.ReportDefs_QueueActivity != nil {
+		cp := *t.ReportDefs_QueueActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#queueActivity"
+		return glex.MarshalCBORBytes(&cp)
+	}
+	if t.ReportDefs_ReopenActivity != nil {
+		cp := *t.ReportDefs_ReopenActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#reopenActivity"
+		return glex.MarshalCBORBytes(&cp)
+	}
+	if t.ReportDefs_UnassignmentActivity != nil {
+		cp := *t.ReportDefs_UnassignmentActivity
+		cp.LexiconTypeID = "tools.ozone.report.defs#unassignmentActivity"
+		return glex.MarshalCBORBytes(&cp)
+	}
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union ReportDefs_ReportActivityView_Activity", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ReportDefs_ReportActivityView_Activity as CBOR")
+}
+
+func (t *ReportDefs_ReportActivityView_Activity) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "tools.ozone.report.defs#assignmentActivity":
+		t.ReportDefs_AssignmentActivity = new(ReportDefs_AssignmentActivity)
+		return glex.UnmarshalCBORBytes(b, t.ReportDefs_AssignmentActivity)
+	case "tools.ozone.report.defs#closeActivity":
+		t.ReportDefs_CloseActivity = new(ReportDefs_CloseActivity)
+		return glex.UnmarshalCBORBytes(b, t.ReportDefs_CloseActivity)
+	case "tools.ozone.report.defs#escalationActivity":
+		t.ReportDefs_EscalationActivity = new(ReportDefs_EscalationActivity)
+		return glex.UnmarshalCBORBytes(b, t.ReportDefs_EscalationActivity)
+	case "tools.ozone.report.defs#noteActivity":
+		t.ReportDefs_NoteActivity = new(ReportDefs_NoteActivity)
+		return glex.UnmarshalCBORBytes(b, t.ReportDefs_NoteActivity)
+	case "tools.ozone.report.defs#queueActivity":
+		t.ReportDefs_QueueActivity = new(ReportDefs_QueueActivity)
+		return glex.UnmarshalCBORBytes(b, t.ReportDefs_QueueActivity)
+	case "tools.ozone.report.defs#reopenActivity":
+		t.ReportDefs_ReopenActivity = new(ReportDefs_ReopenActivity)
+		return glex.UnmarshalCBORBytes(b, t.ReportDefs_ReopenActivity)
+	case "tools.ozone.report.defs#unassignmentActivity":
+		t.ReportDefs_UnassignmentActivity = new(ReportDefs_UnassignmentActivity)
+		return glex.UnmarshalCBORBytes(b, t.ReportDefs_UnassignmentActivity)
+	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
+		return nil
+	}
+}
+
+// ReportDefs_ReportAssignment is a "reportAssignment" in the tools.ozone.report.defs schema.
+//
+// Information about the moderator currently assigned to a report.
+type ReportDefs_ReportAssignment struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	// assignedAt: When the report was assigned
+	AssignedAt string `json:"assignedAt"`
+	// did: DID of the assigned moderator
+	Did string `json:"did"`
+	// moderator: Full member record of the assigned moderator
+	Moderator *TeamDefs_Member `json:"moderator,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ReportDefs_ReportAssignment) RecordTypeID() string {
+	return "tools.ozone.report.defs#reportAssignment"
+}
+
+func (t *ReportDefs_ReportAssignment) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "tools.ozone.report.defs#reportAssignment"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ReportDefs_ReportAssignment) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// ReportDefs_ReportView is a "reportView" in the tools.ozone.report.defs schema.
+type ReportDefs_ReportView struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	// actionEventIds: Array of moderation event IDs representing actions taken on this report, in append order (most recently linked event last)
+	ActionEventIds []int64 `json:"actionEventIds,omitempty"`
+	// actionNote: Note sent to reporter when report was actioned
+	ActionNote *string `json:"actionNote,omitempty"`
+	// actions: Optional: expanded action events
+	Actions []ModerationDefs_ModEventView `json:"actions,omitempty"`
+	// assignment: Information about moderator currently assigned to this report (if any)
+	Assignment *ReportDefs_ReportAssignment `json:"assignment,omitempty"`
+	// comment: Comment provided by the reporter
+	Comment *string `json:"comment,omitempty"`
+	// createdAt: When the report was created
+	CreatedAt string `json:"createdAt"`
+	// eventId: ID of the moderation event that created this report
+	EventId int64 `json:"eventId"`
+	// id: Report ID
+	Id int64 `json:"id"`
+	// isAutomated: Whether this report was emitted by automated tooling.
+	IsAutomated *bool `json:"isAutomated,omitempty"`
+	// isMuted: Whether this report is muted. A report is muted if the reporter was muted or the subject was muted at the time the report was created.
+	IsMuted *bool `json:"isMuted,omitempty"`
+	// priorityLevel: Priority level assigned to the report.
+	PriorityLevel *string `json:"priorityLevel,omitempty"`
+	// priorityScore: Report priority score. Higher scores have higher priority.
+	PriorityScore *int64 `json:"priorityScore,omitempty"`
+	// priorityTargetMet: Whether the current closure occurred within the report's snapshotted target.
+	PriorityTargetMet *bool `json:"priorityTargetMet,omitempty"`
+	// priorityTargetMinutes: Target resolution duration in minutes.
+	PriorityTargetMinutes *int64 `json:"priorityTargetMinutes,omitempty"`
+	// queue: The queue this report is assigned to (if any)
+	Queue *QueueDefs_QueueView `json:"queue,omitempty"`
+	// queuedAt: When the report was assigned to its current queue
+	QueuedAt *string `json:"queuedAt,omitempty"`
+	// relatedReportCount: Number of other pending reports on the same subject
+	RelatedReportCount *int64 `json:"relatedReportCount,omitempty"`
+	// reportType: Type of report
+	ReportType string `json:"reportType"`
+	// reportedBy: DID of the user who made the report
+	ReportedBy string `json:"reportedBy"`
+	// reporter: Full subject view of the reporter account
+	Reporter ModerationDefs_SubjectView `json:"reporter"`
+	// resolutionTimeSec: Time from report creation to its last closure.
+	ResolutionTimeSec *int64 `json:"resolutionTimeSec,omitempty"`
+	// status: Current status of the report
+	Status string `json:"status"`
+	// subject: The subject that was reported with full details
+	Subject ModerationDefs_SubjectView `json:"subject"`
+	// subjectStatus: Current status of the reported subject
+	SubjectStatus *ModerationDefs_SubjectStatusView `json:"subjectStatus,omitempty"`
+	// updatedAt: When the report was last updated
+	UpdatedAt *string `json:"updatedAt,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ReportDefs_ReportView) RecordTypeID() string { return "tools.ozone.report.defs#reportView" }
+
+func (t *ReportDefs_ReportView) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "tools.ozone.report.defs#reportView"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ReportDefs_ReportView) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// ReportDefs_UnassignmentActivity is a "unassignmentActivity" in the tools.ozone.report.defs schema.
+//
+// Activity recording a moderator being unassigned from a report.
+type ReportDefs_UnassignmentActivity struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	// nextStatus: The report's status immediately after the moderator was unassigned. May equal previousStatus if unassignment did not change the report's status, or be absent on older activities.
+	NextStatus *string `json:"nextStatus,omitempty"`
+	// previousStatus: The report's status immediately before the moderator was unassigned. May be absent on older activities.
+	PreviousStatus *string `json:"previousStatus,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ReportDefs_UnassignmentActivity) RecordTypeID() string {
+	return "tools.ozone.report.defs#unassignmentActivity"
+}
+
+func (t *ReportDefs_UnassignmentActivity) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "tools.ozone.report.defs#unassignmentActivity"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *ReportDefs_UnassignmentActivity) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}

@@ -8,7 +8,7 @@ import { makePlayerStore } from "../src/player-store/player-store";
 
 const input = vi.hoisted(() => ({
   ingest: null as string | null,
-  tap: {} as Record<number, (event: unknown, success: boolean) => void>,
+  tap: {} as Record<number, (event: { canceled: boolean }) => void>,
   hover: () => {},
 }));
 
@@ -51,27 +51,22 @@ vi.mock("react-native-reanimated", () => ({
   withTiming: (value: unknown) => value,
 }));
 vi.mock("react-native-gesture-handler", () => ({
-  Gesture: {
-    Hover: () => ({
-      onChange(callback: () => void) {
-        input.hover = callback;
-        return this;
-      },
-    }),
-    Tap: () => ({
-      taps: 1,
-      numberOfTaps(taps: number) {
-        this.taps = taps;
-        return this;
-      },
-      onEnd(callback: (event: unknown, success: boolean) => void) {
-        input.tap[this.taps] = callback;
-        return this;
-      },
-    }),
-    Exclusive: () => ({}),
-    Race: () => ({}),
+  useHoverGesture: ({ onUpdate }: { onUpdate: typeof input.hover }) => {
+    input.hover = onUpdate;
+    return {};
   },
+  useTapGesture: ({
+    numberOfTaps = 1,
+    onDeactivate,
+  }: {
+    numberOfTaps?: number;
+    onDeactivate: (event: { canceled: boolean }) => void;
+  }) => {
+    input.tap[numberOfTaps] = onDeactivate;
+    return {};
+  },
+  useExclusiveGestures: () => ({}),
+  useCompetingGestures: () => ({}),
   GestureDetector: ({ children }: any) => children,
 }));
 vi.mock("react-native-safe-area-context", () => ({
@@ -189,7 +184,7 @@ async function pointer(type: string, element?: HTMLElement) {
   );
 }
 async function tap(success = true) {
-  await act(async () => input.tap[1]({}, success));
+  await act(async () => input.tap[1]({ canceled: !success }));
 }
 
 it("gives header and footer six seconds, then disables both until revealed", async () => {
@@ -324,9 +319,9 @@ it("preserves F and double-click fullscreen while ignoring F in a text input", a
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "f" })),
   );
   expect(store.getState().fullscreen).toBe(true);
-  await act(async () => input.tap[2]({}, false));
+  await act(async () => input.tap[2]({ canceled: true }));
   expect(store.getState().fullscreen).toBe(true);
-  await act(async () => input.tap[2]({}, true));
+  await act(async () => input.tap[2]({ canceled: false }));
   expect(store.getState().fullscreen).toBe(false);
   const field = document.createElement("input");
   container.appendChild(field);

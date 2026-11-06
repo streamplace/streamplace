@@ -28,6 +28,8 @@ native_commands = {
   'cc': native_cc_command + get_option('c_args'),
   'cxx': native_cpp_command + get_option('cpp_args'),
   'linker': native_cc_command + get_option('c_args') + get_option('c_link_args'),
+  'host-cc': meson.get_compiler('c', native: true).cmd_array() + get_option('build.c_args'),
+  'host-cxx': meson.get_compiler('cpp', native: true).cmd_array() + get_option('build.cpp_args'),
 }
 foreach kind, command : native_commands
   quoted_command = []
@@ -50,6 +52,12 @@ native_env = environment()
 native_env.set('CC', native_cc)
 native_env.set('CXX', native_cpp)
 native_env.set('AR', find_program('ar', native: false).full_path())
+if meson.is_cross_build()
+  # Proc-macro dependencies compile C/C++ for the build machine, not the target.
+  native_env.set('HOST_CC', meson.current_build_dir() + '/native-host-cc')
+  native_env.set('HOST_CXX', meson.current_build_dir() + '/native-host-cxx')
+  native_env.set('HOST_AR', find_program('ar', native: true).full_path())
+endif
 if rust_triple != ''
   native_env.set('CARGO_TARGET_' + rust_triple.to_upper().replace('-', '_') + '_LINKER', native_linker)
 endif

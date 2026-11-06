@@ -1,9 +1,14 @@
 # Sweeps the native app shell and verifies the disabled create controls stay hidden.
 # Screenshots are captured per step and land in artifacts/home (see scripts/ui-shoot.sh).
-appId: tv.aquareum.dev
+# APP_ID is the bundle id: scripts/ui-shoot.sh passes the dev one, hack/ios-smoke.sh reads it from the build.
+appId: ${APP_ID}
 ---
 - launchApp
-- assertVisible: "Home"
+# Maestro handles notification prompts through launchApp's default permissions.
+# Cold iOS launches can spend the default assertion window dismissing permissions.
+- extendedWaitUntil:
+    visible: "Home"
+    timeout: 60000
 - assertNotVisible: "Create"
 - assertNotVisible: "Go Live"
 - takeScreenshot: 01-home

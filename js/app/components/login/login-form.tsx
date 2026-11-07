@@ -131,9 +131,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   };
 
   const onKeyPress = (e: any) => {
-    if (e.nativeEvent.key === "Enter") {
-      submit();
-    } else if (e.nativeEvent.key === "Tab" && completionText) {
+    // Enter is handled once by onSubmitEditing on web and native.
+    if (e.nativeEvent.key === "Tab" && completionText) {
       e.preventDefault();
       acceptSuggestion();
     } else if (e.nativeEvent.key === "ArrowRight" && completionText) {

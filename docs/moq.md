@@ -55,7 +55,11 @@ publishes, or a bare `did:key`. A node signs its transcodes with the key its
 station's `did:web` document publishes (`atproto.StationCryptoSigner`).
 Renditions from any other transcoder are dropped and the source goes on; a
 source segment with such a track is refused whole. A signature that fails,
-or anything that is not MUXL, ends the session.
+or anything that is not MUXL, ends the session. So does a catalog listing
+more than `--moq-max-tracks` tracks (default 32) or a group over
+`--moq-max-group-mb` (default 16 MiB): a subscriber buffers a whole group
+before it can verify it, so these bound what one peer's stream can make a
+node hold. Either is off at 0.
 
 A node's listener advertises one route covering every path and serves a
 broadcast when a peer requests it: a request for a stream that is not live

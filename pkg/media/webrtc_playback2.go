@@ -31,6 +31,10 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 	}
 
 	audioOnly := rendition == renditions.AudioRendition.Name
+	busRendition := rendition
+	if audioOnly {
+		busRendition = "source"
+	}
 
 	var videoTrack *webrtc.TrackLocalStaticSample
 	var videoRTPSender *webrtc.RTPSender
@@ -45,13 +49,33 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		}
 	}
 
+	// Audio tracks: the main audio (the full mix) first, then one track per
+	// stem group the stream currently carries, "audio-g<group>", ascending.
+	// pion binds our audio senders to the offer's audio transceivers in the
+	// order we add them, so this order is the client's: it offers one
+	// transceiver per track it can take, and we send what fits.
 	audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, "audio", "pion")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create audio track: %w", err)
 	}
+	audioSenders := []*webrtc.RTPSender{}
 	audioRTPSender, err := peerConnection.AddTrack(audioTrack)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add audio track to peer connection: %w", err)
+	}
+	audioSenders = append(audioSenders, audioRTPSender)
+	stemTracks := map[uint32]*webrtc.TrackLocalStaticSample{}
+	for _, group := range stemGroupsFor(mm.bus.LatestSegment(user, busRendition), offeredAudioTracks(offer)-1) {
+		track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, fmt.Sprintf("audio-g%d", group), "pion")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create stem track: %w", err)
+		}
+		sender, err := peerConnection.AddTrack(track)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add stem track to peer connection: %w", err)
+		}
+		audioSenders = append(audioSenders, sender)
+		stemTracks[group] = track
 	}
 
 	close := func() {
@@ -120,10 +144,6 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 
 		packetQueue := make(chan *bus.PacketizedSegment, 1024)
 		go func() {
-			busRendition := rendition
-			if audioOnly {
-				busRendition = "source"
-			}
 			segChan := mm.bus.SubscribeSegmentBuf(ctx, user, busRendition, 2)
 			defer mm.bus.UnsubscribeSegment(ctx, user, busRendition, segChan)
 			for {
@@ -179,31 +199,42 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					// timing regressions are immediately audible as garbling.
 					// Video is the track that needs per-sample durations (its
 					// spacing goes non-uniform when an encoder sheds frames).
-					var audioDur time.Duration
-					if len(packet.Audio) > 0 {
-						audioDur = packet.Duration / time.Duration(len(packet.Audio))
-					}
-					if audioDur > 0 {
-						wroteAny = true
-						g.Go(func() error {
-							ticker := time.NewTicker(time.Duration(float64(audioDur) * (1 / scalar)))
-							defer ticker.Stop()
-							for _, audio := range packet.Audio {
-								err := audioTrack.WriteSample(media.Sample{Data: audio.Data, Duration: audioDur})
-								if err != nil {
-									return fmt.Errorf("failed to write audio sample: %w", err)
-								}
-								select {
-								case <-ctx.Done():
-									return nil
-								case <-ticker.C:
-									continue
-								}
+					// The stems are paced the same way against the same
+					// segment duration, so they stay aligned with the mix.
+					writeOpus := func(track *webrtc.TrackLocalStaticSample, samples []bus.PacketizedSample) error {
+						audioDur := packet.Duration / time.Duration(len(samples))
+						ticker := time.NewTicker(time.Duration(float64(audioDur) * (1 / scalar)))
+						defer ticker.Stop()
+						for _, audio := range samples {
+							err := track.WriteSample(media.Sample{Data: audio.Data, Duration: audioDur})
+							if err != nil {
+								return fmt.Errorf("failed to write audio sample: %w", err)
 							}
-							return nil
-						})
+							select {
+							case <-ctx.Done():
+								return nil
+							case <-ticker.C:
+								continue
+							}
+						}
+						return nil
+					}
+					if len(packet.Audio) > 0 && packet.Duration > 0 {
+						wroteAny = true
+						g.Go(func() error { return writeOpus(audioTrack, packet.Audio) })
 					} else {
 						log.Warn(ctx, "no audio samples to write")
+					}
+					for _, stem := range packet.Stems {
+						// A stem this session has no track for (it appeared
+						// after the offer, or the client offered fewer
+						// transceivers) waits for the viewer's next session.
+						track := stemTracks[stem.Group]
+						if track == nil || len(stem.Audio) == 0 || packet.Duration == 0 {
+							continue
+						}
+						wroteAny = true
+						g.Go(func() error { return writeOpus(track, stem.Audio) })
 					}
 					if wroteAny {
 						if err := g.Wait(); err != nil {
@@ -226,14 +257,16 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 			}()
 		}
 
-		go func() {
-			rtcpBuf := make([]byte, 1500)
-			for {
-				if _, _, rtcpErr := audioRTPSender.Read(rtcpBuf); rtcpErr != nil {
-					return
+		for _, sender := range audioSenders {
+			go func() {
+				rtcpBuf := make([]byte, 1500)
+				for {
+					if _, _, rtcpErr := sender.Read(rtcpBuf); rtcpErr != nil {
+						return
+					}
 				}
-			}
-		}()
+			}()
+		}
 
 		// Set the handler for ICE connection state
 		// This will notify you when the peer has connected/disconnected
@@ -270,6 +303,40 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+// offeredAudioTracks counts the audio transceivers in a viewer's offer: how
+// many audio tracks the answer can carry. 1 when the offer can't be read
+// (SetRemoteDescription reports why).
+func offeredAudioTracks(offer *webrtc.SessionDescription) int {
+	parsed, err := offer.Unmarshal()
+	if err != nil {
+		return 1
+	}
+	n := 0
+	for _, md := range parsed.MediaDescriptions {
+		if md.MediaName.Media == "audio" {
+			n++
+		}
+	}
+	return max(n, 1)
+}
+
+// stemGroupsFor lists the stem groups a playback session sends, ascending:
+// the stems of the stream's latest packetized segment (none before the first
+// segment, or for a stream without stems), at most limit of them.
+func stemGroupsFor(latest *bus.Seg, limit int) []uint32 {
+	if latest == nil || latest.PacketizedData == nil || limit <= 0 {
+		return nil
+	}
+	var groups []uint32
+	for _, stem := range latest.PacketizedData.Stems {
+		if len(groups) == limit {
+			break
+		}
+		groups = append(groups, stem.Group)
+	}
+	return groups
 }
 
 // writeSamples writes one track's samples paced by their real durations —

@@ -27,6 +27,22 @@ directory (`plugin_config/rtmp-services/`). The entry names the plugin's output
 protocol, so OBS hides it whenever the plugin is not loaded. If OBS's service
 updater replaces that file, the entry comes back on the next start.
 
+## Audio stems
+
+Viewers watching over WebRTC can turn parts of your audio up or down, such as
+the music. To offer that, name OBS mixer tracks in Settings → Output → Audio
+(Advanced output mode), and route your sources to them in Advanced Audio
+Properties:
+
+- **Track 1** stays the full mix. Everything else (HLS, VODs, multistream)
+  uses it, and viewers hear it unless they change the mix.
+- **Named tracks 2–6** become stems, up to two of them, e.g. Track 2 "Voice &
+  game" and Track 3 "Music". A viewer who adjusts a stem hears the stems
+  instead of the full mix, so together they should add up to the full mix:
+  with only a "Music" stem, turning it down leaves nothing else playing.
+
+The plugin encodes each of these tracks in both AAC and Opus.
+
 ## Protocol
 
 When you start streaming, the plugin does three things in order.
@@ -35,7 +51,10 @@ When you start streaming, the plugin does three things in order.
    the shape of OBS's
    [GoLiveApi `PostData`](https://github.com/obsproject/obs-studio/blob/master/frontend/utility/models/multitrack-video.hpp).
    `authentication` carries the stream key, and `client.supported_codecs` is
-   `["h264"]`.
+   `["h264"]`. As a Streamplace extension, `preferences.audio_tracks` lists
+   OBS's six mixer tracks as `{"track_id", "name"}`, with the names set in
+   Settings → Output → Audio (empty when unnamed), so the server can ask for
+   named tracks as stems.
 2. It reads the response as a GoLiveApi `Config`:
    - `status.result: "error"` stops the stream and shows `status.html_en_us`.
    - `ingest_endpoints`: the plugin uses the first entry whose `protocol` is
@@ -45,7 +64,10 @@ When you start streaming, the plugin does three things in order.
      becomes one video track.
    - `audio_configurations.live` creates one audio encoder per entry. `codec`
      is `aac` or `opus`, and `track_id` is the zero-based OBS audio mixer track
-     to encode.
+     to encode. Each such track is written with `tkhd.alternate_group` set to
+     `track_id + 1`, so the AAC and Opus encodes of one mixer track share a
+     group, and with the mixer track's name (or "Track N") as its title in
+     `trak/udta/name`, the box ffmpeg writes a track title to.
    - If either list is empty, the plugin uses OBS's own encoders for that kind
      of track.
 3. It sends `POST` to the ingest URL with `Transfer-Encoding: chunked` and a

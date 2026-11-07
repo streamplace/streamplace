@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
@@ -21,12 +22,35 @@ import (
 // both. Only the fields the node reads or sets are modeled here.
 type clientConfigurationRequest struct {
 	Authentication string `json:"authentication"`
+	Preferences    struct {
+		// AudioTracks names the OBS mixer tracks: track_id 0..5, name empty
+		// when the streamer left the track unnamed.
+		AudioTracks []audioTrackPreference `json:"audio_tracks"`
+	} `json:"preferences"`
+}
+
+type audioTrackPreference struct {
+	TrackID int    `json:"track_id"`
+	Name    string `json:"name"`
 }
 
 type clientConfiguration struct {
 	Meta            clientConfigurationMeta   `json:"meta"`
 	Status          clientConfigurationStatus `json:"status"`
 	IngestEndpoints []ingestEndpoint          `json:"ingest_endpoints,omitempty"`
+	// AudioConfigurations lists the audio encoders the plugin creates, keyed
+	// by the output they feed ("live"); absent, the plugin keeps the encoder
+	// from OBS's own output settings.
+	AudioConfigurations map[string][]audioConfiguration `json:"audio_configurations,omitempty"`
+}
+
+type audioConfiguration struct {
+	Codec    string `json:"codec"`
+	TrackID  int    `json:"track_id"`
+	Channels int    `json:"channels"`
+	Settings struct {
+		Bitrate int `json:"bitrate"`
+	} `json:"settings"`
 }
 
 type clientConfigurationMeta struct {
@@ -45,11 +69,46 @@ type ingestEndpoint struct {
 	URLTemplate string `json:"url_template"`
 }
 
+// maxStems is how many named mixer tracks become stems beside the full mix:
+// OBS allows six audio encoders per output, and each track takes two.
+const maxStems = 2
+
+// stemAudioConfigurations lists the encoders the plugin should create when
+// the streamer named mixer tracks beyond the first: an AAC and an Opus
+// encode of track 0 (the full mix) and of each named track in track order,
+// up to maxStems of them. With no named track it returns nil, and the plugin
+// keeps the encoder from OBS's output settings: one audio track, as today.
+func stemAudioConfigurations(tracks []audioTrackPreference) []audioConfiguration {
+	var stems []int
+	for _, t := range tracks {
+		if t.TrackID >= 1 && t.TrackID <= 5 && t.Name != "" {
+			stems = append(stems, t.TrackID)
+		}
+	}
+	if len(stems) == 0 {
+		return nil
+	}
+	slices.Sort(stems)
+	ids := append([]int{0}, stems[:min(len(stems), maxStems)]...)
+	var out []audioConfiguration
+	for _, id := range ids {
+		for _, c := range []struct {
+			codec   string
+			bitrate int
+		}{{"aac", 160}, {"opus", 128}} {
+			cfg := audioConfiguration{Codec: c.codec, TrackID: id, Channels: 2}
+			cfg.Settings.Bitrate = c.bitrate
+			out = append(out, cfg)
+		}
+	}
+	return out
+}
+
 // HandleClientConfiguration answers the plugin's configuration request. A bad
 // stream key is reported in status, as GoLiveApi clients expect, so OBS shows
-// the message. The response names no encoders, so the plugin keeps the
-// encoders from OBS's output settings: one video and one audio track, which is
-// what the node's segment pipeline handles today.
+// the message. Unless the streamer named mixer tracks (see
+// stemAudioConfigurations) the response names no encoders, so the plugin keeps
+// the encoders from OBS's output settings: one video and one audio track.
 func (a *StreamplaceAPI) HandleClientConfiguration(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req clientConfigurationRequest
@@ -76,6 +135,9 @@ func (a *StreamplaceAPI) HandleClientConfiguration(ctx context.Context) http.Han
 				Protocol:    "FMP4",
 				URLTemplate: fmt.Sprintf("%s://%s/api/ingest/fmp4/{stream_key}", scheme, r.Host),
 			}}
+			if live := stemAudioConfigurations(req.Preferences.AudioTracks); live != nil {
+				config.AudioConfigurations = map[string][]audioConfiguration{"live": live}
+			}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(config); err != nil {

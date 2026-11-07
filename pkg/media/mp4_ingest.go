@@ -15,6 +15,7 @@ import (
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/muxl"
 )
 
 // ingest a fragmented-MP4 stream: H264+AAC through the demux pipeline (the
@@ -41,7 +42,12 @@ func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms Media
 			cancel(fmt.Errorf("ending stream: %s", reason))
 		})
 		ctx, onSegment := mm.validatingSegmentSink(ctx, ms)
-		return signFMP4Direct(ctx, mm.cli, ms.SignSegmentStream, input, onSegment)
+		// The plugin labels its stems (tkhd.alternate_group, trak/udta/name);
+		// signing as-is carries them into the segments' catalogs.
+		signStream := func(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
+			return ms.SignSegmentStream(ctx, input, eventCh, true)
+		}
+		return signFMP4Direct(ctx, mm.cli, signStream, input, onSegment)
 	}
 
 	signer, err := mm.SegmentAndSignElem(ctx, ms)

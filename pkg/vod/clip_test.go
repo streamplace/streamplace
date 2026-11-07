@@ -32,7 +32,7 @@ func liveSegments(t *testing.T) [][]byte {
 	events := make(chan *muxl.MuxlEvent, 16)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- ms.SignSegmentStream(context.Background(), bytes.NewReader(frag), events)
+		errCh <- ms.SignSegmentStream(context.Background(), bytes.NewReader(frag), events, false)
 		close(events)
 	}()
 	var segs [][]byte

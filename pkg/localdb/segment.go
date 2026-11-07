@@ -22,9 +22,16 @@ type SegmentMediadataVideo struct {
 	BFrames bool `json:"bframes"`
 }
 
+// SegmentMediadataAudio is one audio track. Codec is the lexicon's name
+// ("aac", "opus"); AlternateGroup and Label are the track's group and name
+// when the stream distinguishes its audio tracks (the OBS plugin's stems),
+// zero and empty otherwise.
 type SegmentMediadataAudio struct {
-	Rate     int `json:"rate"`
-	Channels int `json:"channels"`
+	Codec          string `json:"codec,omitempty"`
+	Rate           int    `json:"rate"`
+	Channels       int    `json:"channels"`
+	AlternateGroup uint32 `json:"alternateGroup,omitempty"`
+	Label          string `json:"label,omitempty"`
 }
 
 type SegmentMediaData struct {
@@ -192,6 +199,30 @@ func (s *Segment) ToStreamplaceSegment() (*placestream.Segment, error) {
 		}
 	}
 
+	audio := make([]placestream.Segment_Audio, 0, len(s.MediaData.Audio))
+	for _, a := range s.MediaData.Audio {
+		codec := a.Codec
+		if codec == "" {
+			// A row written before the codec was recorded: every such
+			// segment's audio was Opus.
+			codec = "opus"
+		}
+		track := placestream.Segment_Audio{
+			Codec:    codec,
+			Rate:     int64(a.Rate),
+			Channels: int64(a.Channels),
+		}
+		if a.AlternateGroup != 0 {
+			group := int64(a.AlternateGroup)
+			track.AlternateGroup = &group
+		}
+		if a.Label != "" {
+			label := a.Label
+			track.Label = &label
+		}
+		audio = append(audio, track)
+	}
+
 	return &placestream.Segment{
 		LexiconTypeID:      "place.stream.segment",
 		Creator:            s.RepoDID,
@@ -215,13 +246,7 @@ func (s *Segment) ToStreamplaceSegment() (*placestream.Segment, error) {
 				Bframes: &s.MediaData.Video[0].BFrames,
 			},
 		},
-		Audio: []placestream.Segment_Audio{
-			{
-				Codec:    "opus",
-				Rate:     int64(s.MediaData.Audio[0].Rate),
-				Channels: int64(s.MediaData.Audio[0].Channels),
-			},
-		},
+		Audio: audio,
 	}, nil
 }
 

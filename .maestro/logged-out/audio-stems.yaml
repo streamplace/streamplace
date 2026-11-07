@@ -1,0 +1,77 @@
+appId: ${APP_ID}
+---
+# Over fMP4 ingest (SP_E2E_INGEST=fmp4) the harness pushes the test stream
+# with a stem labeled "Music" beside the full mix. The player menu's Audio
+# section lists it; picking a level mixes the stems in place of the full mix,
+# and "Full mix" goes back. Web, which also checks what plays:
+# js/e2e-web/flows/audio-stems.spec.ts.
+- runFlow:
+    when:
+      true: ${typeof SP_E2E_INGEST !== "undefined" && SP_E2E_INGEST == "fmp4"}
+    commands:
+      - launchApp
+      # matched by testID because the card's link wrapper collapses its
+      # subtree on iOS
+      - extendedWaitUntil:
+          visible:
+            id: "home-stream-card"
+          timeout: 30000
+      - tapOn:
+          id: "home-stream-card"
+      - waitForAnimationToEnd
+      - extendedWaitUntil:
+          visible:
+            text: ".*e2e test stream.*"
+          timeout: 30000
+      # tap on the video to show the player controls, then open the menu.
+      # The controls stop taking taps 3s after the last touch. On CI's
+      # emulator a tap on an id lands ~3.5s after the one before it (one
+      # hierarchy dump to settle, another to find the element), so the cog
+      # is tapped by its point on the Android e2e device: [964,175][1027,238]
+      # of 1080x2400. Elsewhere the id tap opens it.
+      - retry:
+          maxRetries: 3
+          commands:
+            - tapOn:
+                point: 50%,20%
+            - tapOn:
+                point: 92%,9%
+            # the sheet animates in; only fall back once it plainly hasn't
+            - extendedWaitUntil:
+                visible:
+                  text: "Audio"
+                timeout: 3000
+                optional: true
+            - runFlow:
+                when:
+                  notVisible:
+                    text: "Audio"
+                commands:
+                  - tapOn:
+                      id: "player-menu"
+            - extendedWaitUntil:
+                visible:
+                  text: "Audio"
+                timeout: 10000
+      - assertVisible:
+          id: "player-audio-stem-0"
+      # substring matches: iOS merges a menu row's texts into one element
+      - assertVisible:
+          text: ".*Music.*"
+      - takeScreenshot: audio-stems-menu
+      - tapOn:
+          id: "player-audio-stem-0"
+      - tapOn:
+          id: "player-audio-stem-0-level-50"
+      # the submenu's header, titled with the stem, leads back
+      - tapOn:
+          text: "Music"
+      - extendedWaitUntil:
+          visible:
+            text: ".*50%.*"
+          timeout: 10000
+      - takeScreenshot: audio-stems-mixed
+      - tapOn:
+          id: "player-audio-full-mix"
+      - assertNotVisible:
+          text: ".*50%.*"

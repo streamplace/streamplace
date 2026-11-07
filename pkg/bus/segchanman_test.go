@@ -29,6 +29,21 @@ func TestPublishSegmentKeepsOrder(t *testing.T) {
 	}
 }
 
+// LatestSegment is the newest published segment, nil before the first one
+// and after the session ends.
+func TestLatestSegment(t *testing.T) {
+	b := NewBus()
+	ctx := context.Background()
+	require.Nil(t, b.LatestSegment("u", "source"))
+	for i := 0; i < bufSize+2; i++ {
+		b.PublishSegment(ctx, "u", "source", &Seg{Filepath: fmt.Sprint(i)})
+	}
+	require.Equal(t, fmt.Sprint(bufSize+1), b.LatestSegment("u", "source").Filepath)
+	require.Nil(t, b.LatestSegment("u", "720p"), "another rendition has its own cache")
+	b.EndSession(ctx, "u", "source")
+	require.Nil(t, b.LatestSegment("u", "source"))
+}
+
 // A subscriber that never reads does not hold the publisher.
 func TestPublishSegmentDropsForStalledSubscriber(t *testing.T) {
 	b := NewBus()

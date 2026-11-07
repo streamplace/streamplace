@@ -70,7 +70,18 @@
       "properties": {
         "codec": { "type": "string", "enum": ["opus", "aac"] },
         "rate": { "type": "integer" },
-        "channels": { "type": "integer" }
+        "channels": { "type": "integer" },
+        "alternateGroup": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Audio tracks sharing this value carry the same sound in different codecs. Tracks with different values are independent and play together: the lowest group is the full mix, and higher groups are stems a viewer can mix in. Absent when the stream doesn't distinguish its audio tracks."
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 640,
+          "maxGraphemes": 64,
+          "description": "The streamer's name for this audio track, such as \"Music\"."
+        }
       }
     },
     "video": {

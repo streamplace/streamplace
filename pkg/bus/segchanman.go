@@ -3,6 +3,7 @@ package bus
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -31,14 +32,67 @@ type PacketizedSample struct {
 	Duration time.Duration
 }
 
-// PacketizedSegment is a segment demuxed into WebRTC samples: the video and
-// the main audio (the full mix), plus one Opus track per stem the stream
-// carries (see media.Packetize), all on the segment's one timeline.
+// PacketizedSegment is a segment demuxed into WebRTC samples: the video, once
+// per video codec the segment carries, and the main audio (the full mix), plus
+// one Opus track per stem the stream carries (see media.Packetize), all on
+// the segment's one timeline.
 type PacketizedSegment struct {
-	Video    []PacketizedSample
+	// Video is every video track, in track order: Video[0] is the source;
+	// the first in each other codec is its fallback for viewers that can't
+	// take it (an AV1 source with an H.264 rendition alongside); a track
+	// named other than the source is a rendition of its own (see
+	// Renditions).
+	Video    []PacketizedVideo
 	Audio    []PacketizedSample
 	Stems    []PacketizedStem // ascending by group
 	Duration time.Duration
+}
+
+// PacketizedVideo is one video track's samples, in the codec its WebRTC MIME
+// type names (video/H264, video/AV1), and the rendition name its size goes
+// by ("720p"; empty when unknown).
+type PacketizedVideo struct {
+	MimeType string
+	Name     string
+	Samples  []PacketizedSample
+}
+
+// VideoSamples returns the segment's first video samples in the codec
+// mimeType names, nil when it carries none.
+func (p *PacketizedSegment) VideoSamples(mimeType string) []PacketizedSample {
+	for _, v := range p.Video {
+		if v.MimeType == mimeType {
+			return v.Samples
+		}
+	}
+	return nil
+}
+
+// Renditions splits off the video tracks the streamer sent alongside the
+// source under another name: one segment per name, keyed by it, with that
+// name's tracks (each codec it was encoded in) and the source's audio. A
+// name needs an H.264 track, which every viewer can take; one the streamer
+// sent only in AV1 is the transcoder's to make (see
+// renditions.GenerateRenditionsFrom).
+func (p *PacketizedSegment) Renditions() map[string]*PacketizedSegment {
+	out := map[string]*PacketizedSegment{}
+	for _, v := range p.Video {
+		if v.Name == "" || v.Name == p.Video[0].Name {
+			continue
+		}
+		r := out[v.Name]
+		if r == nil {
+			r = &PacketizedSegment{Audio: p.Audio, Stems: p.Stems, Duration: p.Duration}
+			out[v.Name] = r
+		}
+		r.Video = append(r.Video, v)
+	}
+	for name, r := range out {
+		if !slices.ContainsFunc(r.Video, func(v PacketizedVideo) bool { return v.MimeType == "video/H264" }) {
+			delete(out, name)
+		}
+	}
+	return out
 }
 
 // PacketizedStem is one stem's Opus samples, identified by its audio

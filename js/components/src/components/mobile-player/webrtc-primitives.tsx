@@ -26,6 +26,7 @@ try {
 
 export const RTCPeerConnection = window.RTCPeerConnection;
 export const RTCSessionDescription = window.RTCSessionDescription;
+export const RTCRtpReceiver = window.RTCRtpReceiver;
 export const WebRTCMediaStream = window.MediaStream;
 export const mediaDevices = navigator.mediaDevices;
 

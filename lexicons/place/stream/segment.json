@@ -88,7 +88,7 @@
       "type": "object",
       "required": ["codec", "width", "height"],
       "properties": {
-        "codec": { "type": "string", "enum": ["h264"] },
+        "codec": { "type": "string", "enum": ["h264", "av1"] },
         "width": { "type": "integer" },
         "height": { "type": "integer" },
         "framerate": {

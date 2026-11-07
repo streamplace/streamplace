@@ -24,7 +24,12 @@ import (
 // both. Only the fields the node reads or sets are modeled here.
 type clientConfigurationRequest struct {
 	Authentication string `json:"authentication"`
-	Preferences    struct {
+	Client         struct {
+		// SupportedCodecs are the video codecs the client can send; plugins
+		// before AV1 support send ["h264"].
+		SupportedCodecs []string `json:"supported_codecs"`
+	} `json:"client"`
+	Preferences struct {
 		// AudioTracks names the OBS mixer tracks: track_id 0..5, name empty
 		// when the streamer left the track unnamed.
 		AudioTracks []audioTrackPreference `json:"audio_tracks"`
@@ -64,7 +69,8 @@ type videoConfiguration struct {
 	Height    int64                            `json:"height"`
 	Framerate placestream.IngestDefs_Framerate `json:"framerate"`
 	// Settings are the encoder settings the plugin applies over the
-	// encoder's own; OBS's H.264 encoders share these names.
+	// encoder's own; OBS's H.264 and AV1 encoders share these names (AV1
+	// encoders without B-frames ignore bf).
 	Settings struct {
 		Bitrate     int64  `json:"bitrate"`
 		RateControl string `json:"rate_control"`
@@ -148,12 +154,17 @@ func audioConfigurations(tracks []audioTrackPreference, renditions []*placestrea
 }
 
 // videoConfigurations lists the video encoders the plugin should create from
-// the streamer's renditions: none, and the plugin keeps OBS's own. A stream
-// has one video track for now, so only the first rendition is encoded. OBS
-// can only drop whole frames from its canvas, so a rate the canvas (when
-// known) can't be divided into is refused with a problem for the streamer.
-func videoConfigurations(renditions []*placestream.IngestVideoRendition, canvas *placestream.IngestDefs_Framerate) (out []videoConfiguration, problem string) {
-	for _, r := range renditions[:min(len(renditions), 1)] {
+// the streamer's renditions, one track each in record order: none, and the
+// plugin keeps OBS's own. Renditions in a codec the client can't send are
+// left out, and if that leaves none the streamer is told to update the
+// plugin. OBS can only drop whole frames from its canvas, so a rate the canvas
+// (when known) can't be divided into is refused with a problem for the
+// streamer.
+func videoConfigurations(renditions []*placestream.IngestVideoRendition, codecs []string, canvas *placestream.IngestDefs_Framerate) (out []videoConfiguration, problem string) {
+	for _, r := range renditions {
+		if !slices.Contains(codecs, r.Codec) {
+			continue
+		}
 		if canvas != nil && !dividesFramerate(*canvas, r.Framerate) {
 			return nil, fmt.Sprintf("OBS runs at %s fps, which can't be encoded at the %s fps set in Streamplace Desktop. Pick a frame rate OBS's divides into, or change OBS's.", fps(*canvas), fps(r.Framerate))
 		}
@@ -164,6 +175,9 @@ func videoConfigurations(renditions []*placestream.IngestVideoRendition, canvas 
 		cfg.Settings.KeyintSec = 1
 		cfg.Settings.BFrames = 0
 		out = append(out, cfg)
+	}
+	if len(renditions) > 0 && len(out) == 0 {
+		return nil, fmt.Sprintf("This Streamplace OBS plugin can't send the %s video set in Streamplace Desktop. Update the plugin.", renditions[0].Codec)
 	}
 	return out, ""
 }
@@ -258,7 +272,11 @@ func (a *StreamplaceAPI) HandleClientConfiguration(ctx context.Context) http.Han
 			if len(req.Preferences.Canvases) > 0 {
 				canvas = &req.Preferences.Canvases[0].Framerate
 			}
-			config.EncoderConfigurations, problem = videoConfigurations(video, canvas)
+			codecs := req.Client.SupportedCodecs
+			if len(codecs) == 0 {
+				codecs = []string{"h264"}
+			}
+			config.EncoderConfigurations, problem = videoConfigurations(video, codecs, canvas)
 			if problem != "" {
 				config = clientConfiguration{Meta: config.Meta, Status: clientConfigurationStatus{Result: "error", HTMLEnUS: problem}}
 			} else if live := audioConfigurations(req.Preferences.AudioTracks, audio); live != nil {

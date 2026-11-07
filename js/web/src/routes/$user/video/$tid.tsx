@@ -59,7 +59,7 @@ function VodPage() {
           <VideoSectionInner
             user={user}
             liveness="live"
-            segment={null}
+            videos={null}
             contentWarnings={
               (video?.record as place.stream.video.Main | undefined)
                 ?.contentWarnings?.warnings ?? []

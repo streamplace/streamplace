@@ -3,6 +3,7 @@
 // lives in <Player> so the chrome (controls, fullscreen, error display) is
 // shared across backends. This is a sibling of hls-player.tsx with the same
 // prop shape so the dispatch in PlayerBackend is a single conditional.
+import { offerWithoutAV1, useSmoothAV1 } from "@streamplace/core";
 import { useEffect, useImperativeHandle, useRef, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { place, type StreamplaceAgent } from "streamplace";
@@ -24,6 +25,11 @@ export type WebRTCPlayerProps = {
   onError?: (message: string) => void;
   /** Called roughly once per second with a stats snapshot. */
   onStatsChange?: (stats: PlayerStats) => void;
+  /**
+   * The latest segment's video tracks: the stream's source first, which the
+   * node sends when the offer lists its codec, then its fallbacks.
+   */
+  videos?: place.stream.segment.Video[] | null;
 };
 
 const RECONNECT_DELAY_MS = 3000;
@@ -86,6 +92,7 @@ export function WebRTCPlayer({
   videoRef,
   src,
   active,
+  videos,
   onError,
   onStatsChange,
 }: WebRTCPlayerProps & {
@@ -120,6 +127,9 @@ export function WebRTCPlayer({
   onErrorRef.current = onError;
   onStatsChangeRef.current = onStatsChange;
   const { t } = useTranslation();
+  // A connection is made again if this device turns out not to take the
+  // stream's AV1 source, without AV1 so the node sends the H.264 fallback.
+  const smoothAV1 = useSmoothAV1(videos);
 
   useEffect(() => {
     if (!active) return;
@@ -348,7 +358,12 @@ export function WebRTCPlayer({
       pcRef.current = peerConnection;
 
       // Receive both video and audio.
-      peerConnection.addTransceiver("video", { direction: "recvonly" });
+      const videoTransceiver = peerConnection.addTransceiver("video", {
+        direction: "recvonly",
+      });
+      if (!smoothAV1) {
+        offerWithoutAV1(videoTransceiver, RTCRtpReceiver);
+      }
       peerConnection.addTransceiver("audio", { direction: "recvonly" });
 
       // When tracks arrive, attach the first stream to the video element.
@@ -409,7 +424,7 @@ export function WebRTCPlayer({
       pcRef.current?.close();
       pcRef.current = null;
     };
-  }, [src, active, videoRef]);
+  }, [src, active, videoRef, smoothAV1]);
 
   return null;
 }

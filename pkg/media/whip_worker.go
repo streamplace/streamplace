@@ -63,7 +63,8 @@ func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) er
 	// The worker owns the PeerConnection (its own UDP sockets), built with the
 	// same codec/interceptor setup as the in-process server. Debug recording is
 	// decided by main (cfg.Record) and written by the worker (S3 or cfg.DataDir).
-	api, webrtcConfig, err := newWebRTCAPI()
+	offer := &webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: cfg.OfferSDP}
+	api, webrtcConfig, err := newWebRTCAPI(ingestVideoCodec(offer))
 	if err != nil {
 		return finish(fmt.Errorf("webrtc api: %w", err))
 	}
@@ -89,7 +90,6 @@ func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) er
 		return finish(fmt.Errorf("build signer element: %w", err))
 	}
 
-	offer := &webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: cfg.OfferSDP}
 	streamDone := make(chan error, 1)
 	answer, err := mm.webRTCIngestPipeline(ctx, cancel, offer, pc, signerElem, nil, streamDone)
 	if err != nil {

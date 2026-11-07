@@ -133,6 +133,10 @@ export function StreamKeyScreen() {
                 >
                   (Very important!)
                 </Text>
+                <Text>
+                  AV1 (NVENC, QSV, AMF or SVT-AV1) works too, with the same
+                  keyframe interval; it needs no B-frame option.
+                </Text>
               </View>
             </Content>
           </FormRow>

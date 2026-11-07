@@ -50,6 +50,24 @@ func TestRunVODPipeline_h264Opus(t *testing.T) {
 	require.Equal(t, "ftyp", string(out.Bytes()[4:8]), "expected output to start with ftyp box")
 }
 
+// TestRunVODPipeline_av1Opus: an AV1 upload passes its video through av1parse
+// into the fMP4 and reports the codec it carries.
+func TestRunVODPipeline_av1Opus(t *testing.T) {
+	gstinit.InitGST()
+	ctx := log.WithLogValues(context.Background(), "test", "TestRunVODPipeline_av1Opus")
+
+	fixture, err := os.ReadFile(getFixture("av1-opus-frag.mp4"))
+	require.NoError(t, err)
+
+	out := &bytes.Buffer{}
+	res, err := RunVODPipeline(ctx, bytes.NewReader(fixture), int64(len(fixture)), out)
+	require.NoError(t, err)
+	require.Equal(t, "x-av1", res.Video.Codec)
+	require.Equal(t, 320, res.Video.Width)
+	require.Equal(t, "ftyp", string(out.Bytes()[4:8]), "expected output to start with ftyp box")
+	require.True(t, bytes.Contains(out.Bytes(), []byte("av01")), "the output's video sample entry is AV1")
+}
+
 // TestRunVODPipeline_h264AAC_RocketLeague exercises a real-world
 // recording (Rocket League gameplay, 30 s, 1080p60, h264 + AAC, no
 // B-frames). This is the kind of upload an actual user would push,

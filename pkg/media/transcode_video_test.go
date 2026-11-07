@@ -59,15 +59,21 @@ func nodeSignerForTest(t *testing.T) (cert, keyPEM []byte) {
 
 // The fixture signed as a streamer's source segment (the first GoP).
 func sourceSegmentForTest(t *testing.T) []byte {
+	return fixtureSegmentForTest(t, "h264-opus-frag.mp4")
+}
+
+// fixtureSegmentForTest is a fragmented fixture's first GoP signed as a
+// streamer's source segment.
+func fixtureSegmentForTest(t *testing.T, fixture string) []byte {
 	t.Helper()
-	return sourceSegmentSignedBy(t, newBareSegmentSigner(t))
+	return sourceSegmentSignedBy(t, newBareSegmentSigner(t), fixture)
 }
 
 // The fixture's first GoP, signed by ms.
-func sourceSegmentSignedBy(t *testing.T, ms *MediaSignerLocal) []byte {
+func sourceSegmentSignedBy(t *testing.T, ms *MediaSignerLocal, fixture string) []byte {
 	t.Helper()
 	ctx := context.Background()
-	frag, err := os.ReadFile(getFixture("h264-opus-frag.mp4"))
+	frag, err := os.ReadFile(getFixture(fixture))
 	require.NoError(t, err)
 	eventCh := make(chan *muxl.MuxlEvent, 16)
 	errCh := make(chan error, 1)
@@ -273,7 +279,7 @@ func TestReplicatedSegmentTracksNeedATrustedTranscoder(t *testing.T) {
 	// A streamer identified by its key, so validation needs no repo sync.
 	ms := newBareSegmentSigner(t)
 	ms.PrebuiltManifest = bytes.ReplaceAll(ms.PrebuiltManifest, []byte("did:example:rtmp-shadow"), []byte(ms.did))
-	src := sourceSegmentSignedBy(t, ms)
+	src := sourceSegmentSignedBy(t, ms, "h264-opus-frag.mp4")
 	r160 := renditionMP4(t, 160, 120)
 	stationCert, stationKey := nodeSignerForTest(t)
 	cli := &config.CLI{BroadcasterHost: "node.test", WideOpen: true}

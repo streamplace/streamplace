@@ -1,0 +1,54 @@
+diff --git a/subprojects/gst-libav/ext/libav/gstavviddec.c b/subprojects/gst-libav/ext/libav/gstavviddec.c
+index e21f3e1..ab4a3ea 100644
+--- a/subprojects/gst-libav/ext/libav/gstavviddec.c
++++ b/subprojects/gst-libav/ext/libav/gstavviddec.c
+@@ -1420,7 +1420,9 @@ gst_ffmpegviddec_update_par (GstFFMpegVidDec * ffmpegdec,
+   gint demuxer_num = 1, demuxer_denom = 1;
+   gint decoder_num = 1, decoder_denom = 1;
+   GstVideoCodecFrame *out_frame;
++#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT (60, 31, 100)
+   GstFFMpegVidDecVideoFrame *out_dframe;
++#endif
+ 
+   if (in_info->par_n && in_info->par_d) {
+     demuxer_num = in_info->par_n;
+@@ -1451,8 +1453,14 @@ gst_ffmpegviddec_update_par (GstFFMpegVidDec * ffmpegdec,
+    * for HEVC interlaced content, possibly to work around decoders that don't
+    * support field-based interlacing. Add some defensive checks to check for
+    * a "common" aspect ratio. */
++#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT (60, 31, 100)
++  /* picture->opaque is only set by get_buffer2, which a decoder without
++   * direct rendering (libdav1d) never calls */
++  out_frame = av_buffer_get_opaque (ffmpegdec->picture->opaque_ref);
++#else
+   out_dframe = ffmpegdec->picture->opaque;
+   out_frame = out_dframe->frame;
++#endif
+ 
+   if (demuxer_num == 1 && demuxer_denom == 1 &&
+       decoder_num == 1 && decoder_denom == 2 &&
+@@ -2063,6 +2071,11 @@ gst_ffmpegviddec_video_frame (GstFFMpegVidDec * ffmpegdec,
+   if (out_dframe) {
+     gst_buffer_replace (&output_frame->output_buffer, out_dframe->buffer);
+     gst_buffer_replace (&out_dframe->buffer, NULL);
++  } else {
++    /* a decoder that allocates its own pictures (libdav1d) never calls
++     * get_buffer2, which is where a frame stops being void */
++    GST_VIDEO_CODEC_FRAME_FLAG_UNSET (output_frame,
++        GST_VIDEO_CODEC_FRAME_FLAG_DECODE_ONLY);
+   }
+ 
+   /* Extract auxilliary info not stored in the main AVframe */
+@@ -3019,8 +3032,10 @@ gst_ffmpegviddec_register (GstPlugin * plugin)
+ 
+     /* No decoders depending on external libraries (we don't build them, but
+      * people who build against an external ffmpeg might have them.
+-     * We have native gstreamer plugins for all of those libraries anyway. */
+-    if (!strncmp (in_plugin->name, "lib", 3)) {
++     * We have native gstreamer plugins for all of those libraries anyway.
++     * Streamplace: except dav1d, its only software AV1 decoder. */
++    if (!strncmp (in_plugin->name, "lib", 3)
++        && strcmp (in_plugin->name, "libdav1d")) {
+       GST_DEBUG
+           ("Not using external library decoder %s. Use the gstreamer-native ones instead.",
+           in_plugin->name);

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/go-gst/go-gst/pkg/gst"
 	app "github.com/go-gst/go-gst/pkg/gstapp"
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
@@ -44,9 +46,42 @@ func hasVideoSlice(data []byte) bool {
 	return false
 }
 
-// Packetize demuxes a segment into WebRTC samples: the video, the main audio
-// (the full mix) and, for a segment with stems, one Opus track per stem group
-// (see filterSegmentAudio), all on the segment's one timeline.
+// tuHasOBU reports whether an AV1 temporal unit holds an OBU of one of types.
+func tuHasOBU(tu []byte, types ...int) bool {
+	found := false
+	av1OBUs(tu, func(typ int, _ []byte) bool {
+		found = slices.Contains(types, typ)
+		return !found
+	})
+	return found
+}
+
+// av1ConfigSequenceHeader returns the sequence header OBU of an AV1 stream's
+// caps: the one in the configOBUs of the av1C qtdemux hands on as
+// codec_data. nil when there is none.
+func av1ConfigSequenceHeader(caps *gst.Caps) []byte {
+	if caps == nil {
+		return nil
+	}
+	s := caps.GetStructure(0)
+	if s == nil || !s.HasField("codec_data") {
+		return nil
+	}
+	buf, ok := s.GetValue("codec_data").(*gst.Buffer)
+	if !ok {
+		return nil
+	}
+	av1C, err := copyBufferData(buf)
+	if err != nil || len(av1C) < 4 {
+		return nil
+	}
+	return tuSequenceHeader(av1C[4:])
+}
+
+// Packetize demuxes a segment into WebRTC samples: each video track (see
+// bus.PacketizedSegment), the main audio (the full mix) and, for a segment
+// with stems, one Opus track per stem group (see filterSegmentAudio), all on
+// the segment's one timeline.
 func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.PacketizedSegment, error) {
 
 	uu, err := uuid.NewV7()
@@ -58,6 +93,94 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 
 	ctx = log.WithLogValues(ctx, "func", "Packetize", "uuid", uu.String())
 
+	// A demux yields one video track, so each video track gets a demux of
+	// its own, with the audio. The first is the source's, and its audio is
+	// the one kept. A presentation without muxl bytes (a rendition, a
+	// fixture) has no catalog to say; its video is H.264. A segment without
+	// video still gets one demux, for its audio.
+	type packetTrack struct {
+		codec VideoCodec
+		name  string
+		video func(muxl.MuxlVideoConfig, VideoCodec) bool
+	}
+	tracks := []packetTrack{{codec: VideoH264}}
+	if len(seg.Muxl) > 0 {
+		events, err := unwrapMuxlEvents(ctx, seg.Muxl)
+		if err != nil {
+			return nil, fmt.Errorf("read segment catalog: %w", err)
+		}
+		cat, _ := catalogAndTracks(events)
+		var found []packetTrack
+		for _, v := range videoTracks(cat) {
+			c, ok := VideoCodecForCatalog(v.Codec)
+			if !ok {
+				continue
+			}
+			id := v.TrackID()
+			found = append(found, packetTrack{
+				codec: c,
+				name:  RenditionName(v.CodedWidth, v.CodedHeight),
+				video: func(t muxl.MuxlVideoConfig, _ VideoCodec) bool { return t.TrackID() == id },
+			})
+		}
+		if len(found) > 0 {
+			tracks = found
+		}
+	}
+	demuxes := make([]*packetDemux, len(tracks))
+	g, gctx := errgroup.WithContext(ctx)
+	for i, t := range tracks {
+		g.Go(func() error {
+			var err error
+			demuxes[i], err = demuxForPacketize(gctx, cli, fmt.Sprintf("packetize-input-%s-%d-%s.mp4", uu, i, t.codec.Name), seg, t.codec, t.video)
+			return err
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	src := demuxes[0]
+	packet := &bus.PacketizedSegment{Duration: src.segDur}
+	for i, d := range demuxes {
+		if video := finalizeSampleDurations(d.video, src.segDur); len(video) > 0 {
+			packet.Video = append(packet.Video, bus.PacketizedVideo{MimeType: tracks[i].codec.MimeType, Name: tracks[i].name, Samples: video})
+		}
+	}
+	// segDur is audio-derived; a video-only segment would report Duration 0,
+	// throwing off the sender's latency bookkeeping (the segment occupies the
+	// sender for its full video span). Fall back to the source video's
+	// timeline.
+	if packet.Duration == 0 && len(packet.Video) > 0 {
+		for _, s := range packet.Video[0].Samples {
+			packet.Duration += s.Duration
+		}
+	}
+	for k, a := range src.audio {
+		samples := finalizeSampleDurations(src.audioOutput[k], src.segDur)
+		if a.Main {
+			packet.Audio = samples
+		} else {
+			packet.Stems = append(packet.Stems, bus.PacketizedStem{Group: a.Group, Audio: samples})
+		}
+	}
+	sort.Slice(packet.Stems, func(i, j int) bool { return packet.Stems[i].Group < packet.Stems[j].Group })
+	return packet, nil
+}
+
+// packetDemux is one of Packetize's demuxes: a video track's samples and the
+// audio streams'.
+type packetDemux struct {
+	video       []rawSample
+	audio       []playbackAudio
+	audioOutput [][]rawSample
+	segDur      time.Duration // the main audio's span
+}
+
+// demuxForPacketize demuxes the video track video takes (see
+// filterSegmentAudio), in codec, and seg's audio streams into raw samples.
+// The MP4 it demuxes is dumped as debugName.
+func demuxForPacketize(ctx context.Context, cli *config.CLI, debugName string, seg *bus.Seg, codec VideoCodec, video func(muxl.MuxlVideoConfig, VideoCodec) bool) (*packetDemux, error) {
 	// WebRTC playback needs Opus. From a multi-track segment select video, the
 	// main group's Opus track and each stem's, and present them as a flat MP4,
 	// so the demux below yields exactly one Opus pad per kept track for
@@ -65,7 +188,7 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 	// bytes (a rendition, a fixture) has one audio stream: the mix.
 	audio := []playbackAudio{{Main: true}}
 	if len(seg.Muxl) > 0 {
-		opusM4s, kept, err := filterSegmentAudio(ctx, seg.Muxl, true, true)
+		opusM4s, kept, err := filterSegmentAudio(ctx, seg.Muxl, true, true, video)
 		if err != nil {
 			return nil, fmt.Errorf("select opus audio: %w", err)
 		}
@@ -79,10 +202,10 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		}
 	}
 
-	cli.DumpDebugSegment(ctx, fmt.Sprintf("packetize-input-%s.mp4", uu.String()), bytes.NewReader(seg.Data))
+	cli.DumpDebugSegment(ctx, debugName, bytes.NewReader(seg.Data))
 
 	pipelineSlice := []string{
-		fmt.Sprintf("%s name=videoparse ! h264parse ! video/x-h264,stream-format=byte-stream ! appsink sync=false name=videoappsink", constants.Queue2Big),
+		fmt.Sprintf("%s name=videoparse ! %s ! %s ! appsink sync=false name=videoappsink", constants.Queue2Big, codec.Parser, codec.SampleCaps),
 	}
 	for k := range audio {
 		pipelineSlice = append(pipelineSlice, fmt.Sprintf("%s name=audioparse%d ! opusparse ! appsink sync=false name=audioappsink%d", constants.Queue2Big, k, k))
@@ -97,7 +220,7 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		return nil, fmt.Errorf("failed to create GStreamer pipeline: not a pipeline")
 	}
 
-	demuxBin, err := ConcatDemuxBin(ctx, seg, true, len(audio))
+	demuxBin, err := ConcatDemuxBin(ctx, seg, codec, len(audio))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create concat bin: %w", err)
 	}
@@ -148,8 +271,13 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 	// unanswered the picture stays broken until the next keyframe). Prepending
 	// it to the following frame is where a caption SEI normally lives, so
 	// caption-aware receivers still get it. A remainder at EOS has no frame to
-	// ride with and is dropped.
+	// ride with and is dropped. The AV1 analogue is a temporal unit with no
+	// frame (header) OBU: bare sequence headers or metadata.
 	var pendingVideo []byte
+	hasPicture := hasVideoSlice
+	if codec.Name == VideoAV1.Name {
+		hasPicture = func(tu []byte) bool { return tuHasOBU(tu, obuFrame, obuFrameHeader) }
+	}
 
 	videoSink.(app.AppSink).SetCallbacks(&app.AppSinkCallbacks{
 		NewSample: func(sink app.AppSink) gst.FlowReturn {
@@ -171,7 +299,7 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 			defer info.Unmap()
 			samples := info.Data()
 
-			if !hasVideoSlice(samples) {
+			if !hasPicture(samples) {
 				pendingVideo = append(pendingVideo, samples...)
 				return gst.FlowOK
 			}
@@ -181,6 +309,13 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 			} else {
 				// the mapping is gone once this callback returns
 				samples = bytes.Clone(samples)
+			}
+			// A viewer joins at a key frame, and an AV1 decoder needs the
+			// sequence header before it: one the encoder put only in the av1C
+			// goes in-band. (A leading temporal delimiter can stay where it
+			// is: pion's payloader drops those.)
+			if codec.Name == VideoAV1.Name && tuHasShownKeyFrame(samples) && !tuHasOBU(samples, obuSequenceHeader) {
+				samples = append(av1ConfigSequenceHeader(sample.GetCaps()), samples...)
 			}
 
 			videoOutput = append(videoOutput, newRawSample(samples, buffer))
@@ -266,27 +401,7 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		return nil, fmt.Errorf("packetize pipeline error filename=%s, error=%w", seg.Filepath, err)
 	}
 
-	video := finalizeSampleDurations(videoOutput, segDur)
-	// segDur is audio-derived; a video-only segment would report Duration 0,
-	// throwing off the sender's latency bookkeeping (the segment occupies the
-	// sender for its full video span). Fall back to the video timeline.
-	duration := segDur
-	if duration == 0 {
-		for _, s := range video {
-			duration += s.Duration
-		}
-	}
-	packet := &bus.PacketizedSegment{Video: video, Duration: duration}
-	for k, a := range audio {
-		samples := finalizeSampleDurations(audioOutput[k], segDur)
-		if a.Main {
-			packet.Audio = samples
-		} else {
-			packet.Stems = append(packet.Stems, bus.PacketizedStem{Group: a.Group, Audio: samples})
-		}
-	}
-	sort.Slice(packet.Stems, func(i, j int) bool { return packet.Stems[i].Group < packet.Stems[j].Group })
-	return packet, nil
+	return &packetDemux{video: videoOutput, audio: audio, audioOutput: audioOutput, segDur: segDur}, nil
 }
 
 // rawSample is a demuxed sample plus the source timing needed to compute its

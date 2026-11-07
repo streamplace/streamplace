@@ -21,7 +21,7 @@ import (
 var localCollections = map[string]func(glex.Record) error{
 	"place.stream.ingest.videoRendition": func(rec glex.Record) error {
 		r := rec.(*placestream.IngestVideoRendition)
-		if r.Codec != "h264" {
+		if !slices.Contains([]string{"h264", "av1"}, r.Codec) {
 			return fmt.Errorf("unsupported video codec %q", r.Codec)
 		}
 		if r.Width < 1 || r.Height < 1 || r.Bitrate < 1 || r.Framerate.Numerator < 1 || r.Framerate.Denominator < 1 {

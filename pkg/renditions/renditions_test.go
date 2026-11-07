@@ -12,6 +12,7 @@ func seg(width int, height int, fpsNum int, fpsDen int) *placestream.Segment {
 	return &placestream.Segment{
 		Video: []placestream.Segment_Video{
 			{
+				Codec:  "h264",
 				Width:  int64(width),
 				Height: int64(height),
 				Framerate: &placestream.Segment_Framerate{
@@ -122,6 +123,59 @@ var cases = []struct {
 					"profile": "h264baseline",
 					"fps": 60000,
 					"fpsDen": 2002
+				}
+			]
+		`,
+	},
+	{
+		name:  "4K 120fps",
+		spseg: seg(3840, 2160, 120, 1),
+		lp: `
+			[
+				{
+					"name": "1080p",
+					"width": 1920,
+					"height": 1080,
+					"bitrate": 6000000,
+					"profile": "h264constrainedhigh",
+					"fps": 120,
+					"fpsDen": 2
+				},
+				{
+					"name": "720p",
+					"width": 1280,
+					"height": 720,
+					"bitrate": 3000000,
+					"profile": "h264constrainedhigh",
+					"fps": 120,
+					"fpsDen": 2
+				},
+				{
+					"name": "360p",
+					"width": 640,
+					"height": 360,
+					"bitrate": 1000000,
+					"profile": "h264constrainedhigh",
+					"fps": 120,
+					"fpsDen": 4
+				},
+				{
+					"name": "240p",
+					"width": 426,
+					"height": 240,
+					"bitrate": 500000,
+					"profile": "h264constrainedhigh",
+					"fps": 120,
+					"fpsDen": 4
+				},
+				{
+					"name": "160p",
+					"width": 284,
+					"height": 160,
+					"bitrate": 250000,
+					"profile": "h264baseline",
+					"fps": 120,
+					"fpsDen": 4
 				}
 			]
 		`,
@@ -267,6 +321,49 @@ func TestRenditions(t *testing.T) {
 			require.JSONEq(t, c.lp, string(bs))
 		})
 	}
+}
+
+// The transcoder takes a segment's first H.264 track, which in a multi-track
+// push is not the source: renditions fit that track, and an AV1-only segment
+// has none.
+func TestRenditionsFromH264Track(t *testing.T) {
+	av1 := seg(3840, 2160, 120, 1).Video[0]
+	av1.Codec = "av1"
+	h264 := seg(1280, 720, 60, 1).Video[0]
+
+	rs, err := GenerateRenditions(&placestream.Segment{Video: []placestream.Segment_Video{av1, h264}})
+	require.NoError(t, err)
+	names := []string{}
+	for _, r := range rs {
+		names = append(names, r.Name)
+	}
+	require.Equal(t, []string{"360p", "240p", "160p"}, names, "fitted under the 720p H.264 track, not the 4K AV1 source")
+	require.Equal(t, FPS{Num: 60, Den: 2}, rs[0].Framerate)
+
+	rs, err = GenerateRenditions(&placestream.Segment{Video: []placestream.Segment_Video{av1}})
+	require.NoError(t, err)
+	require.Empty(t, rs)
+
+	// A rung the streamer sent a track for is left to that track.
+	h1080 := seg(1920, 1080, 60, 1).Video[0]
+	rs, err = GenerateRenditions(&placestream.Segment{Video: []placestream.Segment_Video{av1, h1080, h264}})
+	require.NoError(t, err)
+	names = []string{}
+	for _, r := range rs {
+		names = append(names, r.Name)
+	}
+	require.Equal(t, []string{"360p", "240p", "160p"}, names, "720p is the streamer's own")
+
+	// One only an AV1 track goes by is still made, in H.264.
+	a720 := h264
+	a720.Codec = "av1"
+	rs, err = GenerateRenditions(&placestream.Segment{Video: []placestream.Segment_Video{av1, h1080, a720}})
+	require.NoError(t, err)
+	names = []string{}
+	for _, r := range rs {
+		names = append(names, r.Name)
+	}
+	require.Equal(t, []string{"720p", "360p", "240p", "160p"}, names, "the streamer's 720p is AV1 only")
 }
 
 var singleCases = []struct {

@@ -1,4 +1,8 @@
-import type { AudioTrackGroup } from "@streamplace/core";
+import {
+  offerWithoutAV1,
+  useSmoothAV1,
+  type AudioTrackGroup,
+} from "@streamplace/core";
 import { useEffect, useRef, useState } from "react";
 import * as sdpTransform from "sdp-transform";
 import { place, StreamplaceAgent } from "streamplace";
@@ -11,7 +15,12 @@ import {
   useStreamKey,
   useStreamplaceStore,
 } from "../..";
-import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
+import { useLivestreamStoreOptional } from "../../livestream-store/use-store";
+import {
+  RTCPeerConnection,
+  RTCRtpReceiver,
+  RTCSessionDescription,
+} from "./webrtc-primitives";
 
 // The group of the audio track the node sends on an audio transceiver, from
 // its answer: stems are "audio-g<group>" (see media.WebRTCPlayback2) and the
@@ -43,6 +52,7 @@ export default function useWebRTC(
   boolean,
   (MediaStreamTrack | undefined)[],
   AudioTrackGroup[],
+  boolean,
 ] {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   // The received audio tracks by transceiver: the full mix, then each stem.
@@ -54,6 +64,9 @@ export default function useWebRTC(
   // stems become later.
   const [audioGroups, setAudioGroups] = useState<AudioTrackGroup[]>([]);
   const [stuck, setStuck] = useState<boolean>(false);
+  // Whether this connection has received video frames: playing (above) also
+  // counts audio, which flows without a picture.
+  const [videoFrames, setVideoFrames] = useState<boolean>(false);
   const setStatus = usePlayerStore((x) => x.setStatus);
   let agent = usePossiblyUnauthedPDSAgent();
   const myDID = useDID();
@@ -65,6 +78,12 @@ export default function useWebRTC(
     myDID &&
     (streamer === myDID || streamer === myHandle)
   );
+  // The stream's video tracks, the source first: the node sends the source
+  // when the offer lists its codec, else the H.264 fallback. A connection is
+  // made again if this device turns out not to take the AV1 source.
+  const smoothAV1 = useSmoothAV1(
+    useLivestreamStoreOptional((x) => x.segment?.video),
+  );
 
   const lastChange = useRef<number>(0);
 
@@ -72,12 +91,16 @@ export default function useWebRTC(
     if (!agent) {
       return;
     }
+    setVideoFrames(false);
     const peerConnection = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
     });
-    peerConnection.addTransceiver("video", {
+    const videoTransceiver = peerConnection.addTransceiver("video", {
       direction: "recvonly",
     });
+    if (!smoothAV1) {
+      offerWithoutAV1(videoTransceiver, RTCRtpReceiver);
+    }
     // The node sends the full mix on the first audio transceiver and up to
     // two stems on the others.
     const audioTransceivers = [0, 1, 2].map(() =>
@@ -174,6 +197,9 @@ export default function useWebRTC(
         lastChange.current = Date.now();
         setStatus(PlayerStatus.PLAYING);
         setStuck(false);
+        if (mediaType === "video") {
+          setVideoFrames(true);
+        }
       });
       if (Date.now() - lastChange.current > 2000) {
         setStuck(true);
@@ -184,8 +210,8 @@ export default function useWebRTC(
       clearInterval(handle);
       peerConnection.close();
     };
-  }, [streamer, agent, isOwnStream, playbackWorkerUrl, rendition]);
-  return [mediaStream, stuck, audioTracks, audioGroups];
+  }, [streamer, agent, isOwnStream, playbackWorkerUrl, rendition, smoothAV1]);
+  return [mediaStream, stuck, audioTracks, audioGroups, videoFrames];
 }
 
 /**

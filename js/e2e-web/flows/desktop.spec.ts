@@ -26,10 +26,16 @@ async function save(page: Page) {
   await expect(page.getByText("Saved").first()).toBeVisible();
 }
 
-async function clientConfiguration(page: Page) {
+// codecs are the video codecs the plugin says it can send.
+async function clientConfiguration(page: Page, codecs = ["h264"]) {
   const response = await page.request.post(
     `${SERVER_URL}/api/ingest/client-configuration`,
-    { data: { authentication: STREAM_KEY } },
+    {
+      data: {
+        authentication: STREAM_KEY,
+        client: { supported_codecs: codecs },
+      },
+    },
   );
   expect(response.ok()).toBe(true);
   return response.json();
@@ -104,4 +110,60 @@ test("desktop: OBS encodes the renditions set on the node", async ({
       return [config.encoder_configurations, config.audio_configurations];
     })
     .toEqual([undefined, undefined]);
+});
+
+test("desktop: AV1 is encoded first, with an H.264 fallback", async ({
+  page,
+}) => {
+  await loginThroughPds(page);
+  await page.goto(`${HTTPS_URL}/desktop`);
+  await expect(page.getByTestId("desktop-video")).toBeVisible({
+    timeout: 30_000,
+  });
+
+  await toggle(page, "desktop-video", true);
+  await page.getByText("1080p", { exact: true }).click();
+  await page.getByText("2160p", { exact: true }).click();
+  await page.getByText("AV1", { exact: true }).click();
+  await page.getByText("120 fps", { exact: true }).click();
+  await page.getByTestId("desktop-video-bitrate").fill("20000");
+  await save(page);
+
+  const settings = (bitrate: number) => ({
+    bitrate,
+    rate_control: "CBR",
+    keyint_sec: 1,
+    bf: 0,
+  });
+  const av1 = {
+    codec: "av1",
+    width: 3840,
+    height: 2160,
+    framerate: { numerator: 120, denominator: 1 },
+    settings: settings(20000),
+  };
+  const av1Plugin = async () =>
+    (await clientConfiguration(page, ["h264", "av1"])).encoder_configurations;
+  await expect.poll(av1Plugin).toMatchObject([
+    av1,
+    {
+      codec: "h264",
+      width: 1920,
+      height: 1080,
+      framerate: { numerator: 60, denominator: 1 },
+      settings: settings(6000),
+    },
+  ]);
+
+  // Kept across a reload; back to H.264 alone, the fallback goes with it.
+  await page.reload();
+  await expect(page.getByText("Also H.264 1080p")).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.getByText("H.264", { exact: true }).click();
+  await save(page);
+  await expect.poll(av1Plugin).toMatchObject([{ ...av1, codec: "h264" }]);
+
+  await toggle(page, "desktop-video", false);
+  await save(page);
 });

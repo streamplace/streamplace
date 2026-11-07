@@ -3,6 +3,7 @@ package media
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,22 +25,29 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 	ctx = log.WithLogValues(ctx, "webrtcID", uu.String())
 	ctx = log.WithLogValues(ctx, "mediafunc", "WebRTCPlayback")
 
-	// Create a new RTCPeerConnection
-	peerConnection, err := mm.webrtcAPI.NewPeerConnection(mm.webrtcConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create WebRTC peer connection: %w", err)
-	}
-
 	audioOnly := rendition == renditions.AudioRendition.Name
 	busRendition := rendition
 	if audioOnly {
 		busRendition = "source"
 	}
+	offered := offeredVideoMimeTypes(offer)
+	videoMime := webrtc.MimeTypeH264
+	if latest := mm.bus.LatestSegment(user, busRendition); latest != nil {
+		if mime := offeredVideo(latest.PacketizedData, offered); mime != "" {
+			videoMime = mime
+		}
+	}
+
+	// Create a new RTCPeerConnection
+	peerConnection, err := mm.webrtcAPIs[videoMime].NewPeerConnection(mm.webrtcConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create WebRTC peer connection: %w", err)
+	}
 
 	var videoTrack *webrtc.TrackLocalStaticSample
 	var videoRTPSender *webrtc.RTPSender
 	if !audioOnly {
-		videoTrack, err = webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264}, "video", "pion")
+		videoTrack, err = webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: videoMime}, "video", "pion")
 		if err != nil {
 			return nil, fmt.Errorf("failed to create video track: %w", err)
 		}
@@ -135,8 +143,11 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		}
 	}
 
+	// The session's context: the answer below waits on it too, as a session
+	// can end before ICE gathering completes (see the codec check).
+	session, cancel := context.WithCancel(ctx)
 	go func() {
-		ctx, cancel := context.WithCancel(ctx)
+		ctx := session
 		defer cancel()
 		defer markDone()
 
@@ -184,13 +195,24 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					g, _ := errgroup.WithContext(ctx)
 					wroteAny := false
 
-					if !audioOnly && len(packet.Video) > 0 {
+					// The session's one codec only. A segment without it
+					// that the viewer could take in another means the
+					// session's codec was a guess made before the stream
+					// had a segment, or the stream changed codec: end the
+					// session, and the viewer reconnects into the codec the
+					// stream has. Otherwise (the stream dropped that
+					// rendition) its video is skipped.
+					if video := packet.VideoSamples(videoMime); !audioOnly && len(video) > 0 {
 						wroteAny = true
 						g.Go(func() error {
-							return writeSamples(ctx, videoTrack, packet.Video, scalar)
+							return writeSamples(ctx, videoTrack, video, scalar)
 						})
+					} else if mime := offeredVideo(packet, offered); !audioOnly && mime != "" && mime != videoMime {
+						log.Log(ctx, "stream's video isn't in this session's codec, ending the session", "session", videoMime, "stream", mime)
+						cancel()
+						return
 					} else if !audioOnly {
-						log.Warn(ctx, "no video samples to write")
+						log.Warn(ctx, "no video samples to write", "codec", videoMime)
 					}
 					// The audio path deliberately keeps the original
 					// uniform-duration ticker instead of writeSamples: Opus
@@ -300,8 +322,8 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 	select {
 	case <-gatherComplete:
 		return peerConnection.LocalDescription(), nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	case <-session.Done():
+		return nil, fmt.Errorf("playback session ended before answering: %w", context.Cause(session))
 	}
 }
 
@@ -320,6 +342,22 @@ func offeredAudioTracks(offer *webrtc.SessionDescription) int {
 		}
 	}
 	return max(n, 1)
+}
+
+// offeredVideo is the first video codec of a packetized segment (the
+// source's, then the fallbacks') in offered (see offeredVideoMimeTypes), or
+// "" when there's none. A viewer's session takes the first codec of the
+// stream's latest segment its offer takes, H.264 before the stream has one.
+func offeredVideo(p *bus.PacketizedSegment, offered map[string]bool) string {
+	if p == nil {
+		return ""
+	}
+	for _, v := range p.Video {
+		if offered[strings.ToLower(v.MimeType)] {
+			return v.MimeType
+		}
+	}
+	return ""
 }
 
 // stemGroupsFor lists the stem groups a playback session sends, ascending:

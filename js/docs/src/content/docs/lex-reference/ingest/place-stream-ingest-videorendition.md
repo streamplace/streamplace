@@ -19,14 +19,14 @@ A video track the streamer's encoder sends to the node they stream to, which tel
 
 **Record Properties:**
 
-| Name        | Type                                                                                      | Req'd | Description              | Constraints          |
-| ----------- | ----------------------------------------------------------------------------------------- | ----- | ------------------------ | -------------------- |
-| `codec`     | `string`                                                                                  | ✅    |                          | Known Values: `h264` |
-| `width`     | `integer`                                                                                 | ✅    |                          | Min: 1               |
-| `height`    | `integer`                                                                                 | ✅    |                          | Min: 1               |
-| `framerate` | [`place.stream.ingest.defs#framerate`](/lex-reference/place-stream-ingest-defs#framerate) | ✅    |                          |                      |
-| `bitrate`   | `integer`                                                                                 | ✅    | Target bitrate, in kbps. | Min: 1               |
-| `createdAt` | `string`                                                                                  | ✅    |                          | Format: `datetime`   |
+| Name        | Type                                                                                      | Req'd | Description              | Constraints                 |
+| ----------- | ----------------------------------------------------------------------------------------- | ----- | ------------------------ | --------------------------- |
+| `codec`     | `string`                                                                                  | ✅    |                          | Known Values: `h264`, `av1` |
+| `width`     | `integer`                                                                                 | ✅    |                          | Min: 1                      |
+| `height`    | `integer`                                                                                 | ✅    |                          | Min: 1                      |
+| `framerate` | [`place.stream.ingest.defs#framerate`](/lex-reference/place-stream-ingest-defs#framerate) | ✅    |                          |                             |
+| `bitrate`   | `integer`                                                                                 | ✅    | Target bitrate, in kbps. | Min: 1                      |
+| `createdAt` | `string`                                                                                  | ✅    |                          | Format: `datetime`          |
 
 ---
 
@@ -54,7 +54,7 @@ A video track the streamer's encoder sends to the node they stream to, which tel
         "properties": {
           "codec": {
             "type": "string",
-            "knownValues": ["h264"]
+            "knownValues": ["h264", "av1"]
           },
           "width": {
             "type": "integer",

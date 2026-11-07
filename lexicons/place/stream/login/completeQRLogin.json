@@ -1,0 +1,41 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.login.completeQRLogin",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Approve or deny a QR login attempt. Requires an OAuth session on this node: approving signs the waiting browser in as the caller, sharing the caller's session with their PDS.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["id", "approve"],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "approve": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "ref",
+          "ref": "place.stream.login.defs#qrLogin"
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound"
+        },
+        {
+          "name": "AlreadyCompleted",
+          "description": "The attempt was already approved or denied, or has expired."
+        }
+      ]
+    }
+  }
+}

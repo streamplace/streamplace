@@ -104,6 +104,22 @@ func TestMasterPlaylist_PropagatesTimeRange(t *testing.T) {
 	require.Contains(t, pl, "end=2000")
 }
 
+// A recording with stems lists only the full mix (the lowest audio group),
+// even when a stem's AAC comes first by track id: HLS has no stem mixing.
+func TestMasterPlaylist_FullMixOnly(t *testing.T) {
+	meta := fixtureMetafile()
+	stem := meta.Tracks["2"]
+	stem.Group = 2
+	meta.Tracks["2"] = stem
+	mix := stem
+	mix.Group = 1
+	meta.Tracks["3"] = mix
+	pl := masterPlaylist(meta, fixtureURI, fixtureSID, nil, nil)
+	require.Equal(t, 1, strings.Count(pl, "#EXT-X-MEDIA:TYPE=AUDIO"), pl)
+	require.Contains(t, pl, "track=3")
+	require.NotContains(t, pl, "track=2")
+}
+
 func TestMediaPlaylist_Video(t *testing.T) {
 	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, vodCDN{}, nil, nil)
 	require.NoError(t, err)

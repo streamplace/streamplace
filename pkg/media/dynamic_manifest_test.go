@@ -79,7 +79,7 @@ func TestSignSegmentStreamRefreshesManifestPerSegment(t *testing.T) {
 	eventCh := make(chan *muxl.MuxlEvent, 16)
 	errCh := make(chan error, 1)
 	go func() {
-		err := ms.SignSegmentStream(ctx, bytes.NewReader(frag), eventCh)
+		err := ms.SignSegmentStream(ctx, bytes.NewReader(frag), eventCh, false)
 		close(eventCh)
 		errCh <- err
 	}()
@@ -89,7 +89,7 @@ func TestSignSegmentStreamRefreshesManifestPerSegment(t *testing.T) {
 		if ev.Type != "signed-segment" {
 			continue
 		}
-		gops = append(gops, concatTracksSorted(ev.Tracks))
+		gops = append(gops, concatTracksByID(ev.Tracks))
 	}
 	require.NoError(t, <-errCh)
 	require.GreaterOrEqual(t, len(gops), 2,

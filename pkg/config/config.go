@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -21,6 +22,7 @@ import (
 
 	"math/rand/v2"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
 	"github.com/lmittmann/tint"
@@ -102,6 +104,7 @@ type CLI struct {
 	PKCS11KeypairID             string
 	StreamerName                string
 	RelayHost                   string
+	UpstreamStation             string
 	Debug                       map[string]map[string]int
 	AllowedStreams              []string
 	WideOpen                    bool
@@ -160,6 +163,8 @@ type CLI struct {
 	WebsocketURL                string
 	MoqAddr                     string
 	MoqURL                      string
+	MoqMaxTracks                int
+	MoqMaxGroupMB               int
 	BehindHTTPSProxy            bool
 	SegmentDebugDir             string
 	AdminDIDs                   []string
@@ -601,7 +606,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:  "peers",
-				Usage: `other streamplace nodes to replicate to (default: "")`,
+				Usage: `comma-separated nodes to push this node's live streams to over Media over QUIC, each a node's https:// origin (its MoQ URL is looked up) or a moqt:// URL (default: "")`,
 				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
 					if s == "" {
 						return nil
@@ -687,6 +692,12 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       "wss://bsky.network",
 				Destination: &cli.RelayHost,
 				Sources:     urfavecli.EnvVars("SP_RELAY_HOST"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "upstream-station",
+				Usage:       "DID of an upstream Streamplace station, for a node that indexes only its own logged-in users: OAuth goes through the station, streams are pushed to it (unless --peers is set), and those users' firehose events come from per-DID tracks on the MoQ --relay-host",
+				Destination: &cli.UpstreamStation,
+				Sources:     urfavecli.EnvVars("SP_UPSTREAM_STATION"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "color",
@@ -1107,6 +1118,20 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Destination: &cli.MoqURL,
 				Sources:     urfavecli.EnvVars("SP_MOQ_URL"),
 			},
+			&urfavecli.IntFlag{
+				Name:        "moq-max-tracks",
+				Usage:       "most tracks a peer's Media over QUIC broadcast may list before this node drops it, bounding how many readers one stream can open; 0 disables the limit",
+				Value:       32,
+				Destination: &cli.MoqMaxTracks,
+				Sources:     urfavecli.EnvVars("SP_MOQ_MAX_TRACKS"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "moq-max-group-mb",
+				Usage:       "largest Media over QUIC group (one track's segment for one GoP) this node buffers from a peer before verifying it, in MiB; 0 disables the limit",
+				Value:       16,
+				Destination: &cli.MoqMaxGroupMB,
+				Sources:     urfavecli.EnvVars("SP_MOQ_MAX_GROUP_MB"),
+			},
 			&urfavecli.BoolFlag{
 				Name:        "behind-https-proxy",
 				Usage:       "set to true if this node is behind an https proxy and we should report https URLs even though the node isn't serving HTTPS",
@@ -1409,7 +1434,7 @@ func (cli *CLI) OwnPublicURL() string {
 	host, port, _ := net.SplitHostPort(addr)
 
 	ip := net.ParseIP(host)
-	if host == "" || ip.IsUnspecified() {
+	if host == "" || host == "localhost" || ip.IsUnspecified() {
 		host = "127.0.0.1"
 	}
 	return fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(host, port))
@@ -1541,13 +1566,63 @@ func (cli *CLI) CheckConfig() error {
 			errs = append(errs, fmt.Errorf("--signing-key: %w", err))
 		}
 	}
+	if cli.DisableSyndication && len(cli.Peers) > 0 {
+		// A node pushing to peers announces its streams, then refuses every
+		// subscription to them with syndication off: the peers retry forever.
+		errs = append(errs, fmt.Errorf("--peers pushes this node's streams, which --disable-syndication refuses to serve; drop one of them"))
+	}
+	if len(cli.Peers) > 0 && len(cli.Replicators) > 0 && !slices.Contains(cli.Replicators, ReplicatorWebsocket) {
+		// The websocket replicator runs the MoQ listener and the pushes;
+		// without it --peers would be ignored.
+		errs = append(errs, fmt.Errorf("--peers needs the %s replicator (--replicators)", ReplicatorWebsocket))
+	}
 	if err := cli.validateVODCDN(); err != nil {
 		errs = append(errs, err)
 	}
 	if err := cli.validateLiveCDN(); err != nil {
 		errs = append(errs, err)
 	}
+	if cli.UpstreamStation != "" {
+		if _, err := syntax.ParseDID(cli.UpstreamStation); err != nil {
+			errs = append(errs, fmt.Errorf("--upstream-station: %w", err))
+		}
+		// Only a MoQ relay can serve one account's events (a per-DID track);
+		// a WebSocket relay would hand this node every account's.
+		for _, relay := range strings.Split(cli.RelayHost, ",") {
+			if err := ValidateMoQOrigin(strings.TrimSpace(relay)); err != nil {
+				errs = append(errs, fmt.Errorf("--upstream-station needs MoQ --relay-host entries: %w", err))
+			}
+		}
+	}
+	if cli.UpstreamStation != "" && !cli.Secure {
+		// The advertised URL maps a wildcard bind (":38080") to 127.0.0.1,
+		// so check the address the server actually listens on: plain-HTTP
+		// OAuth must not be reachable from other machines.
+		host, _, err := net.SplitHostPort(cli.HTTPAddr)
+		if err != nil || (host != "localhost" && !net.ParseIP(host).IsLoopback()) {
+			errs = append(errs, fmt.Errorf("local OAuth requires a loopback --http-addr (e.g. 127.0.0.1:38080) or --secure"))
+		}
+	} else if cli.PublicOAuth && !cli.Secure {
+		origin, err := url.Parse(cli.OwnPublicURL())
+		if err != nil || !net.ParseIP(origin.Hostname()).IsLoopback() {
+			errs = append(errs, fmt.Errorf("local OAuth requires a loopback --http-addr or --secure"))
+		}
+	}
 	return errors.Join(errs...)
+}
+
+// ValidateMoQOrigin rejects endpoints the raw-QUIC firehose consumer cannot use.
+func ValidateMoQOrigin(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+		return fmt.Errorf("invalid MoQ firehose origin %q", raw)
+	}
+	switch u.Scheme {
+	case "moqt", "moql", "moq", "moqs":
+		return nil
+	default:
+		return fmt.Errorf("firehose %q must use a MoQ transport", raw)
+	}
 }
 
 // PrepareConfig applies the defaults and process-level setup that used to be

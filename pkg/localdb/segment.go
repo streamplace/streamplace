@@ -14,17 +14,28 @@ import (
 	"stream.place/streamplace/pkg/placestream"
 )
 
+// SegmentMediadataVideo is one video track. Codec is the lexicon's name
+// ("h264", "av1"); a row written before the codec was recorded has none, and
+// every such segment's video was H.264.
 type SegmentMediadataVideo struct {
-	Width   int  `json:"width"`
-	Height  int  `json:"height"`
-	FPSNum  int  `json:"fpsNum"`
-	FPSDen  int  `json:"fpsDen"`
-	BFrames bool `json:"bframes"`
+	Codec   string `json:"codec,omitempty"`
+	Width   int    `json:"width"`
+	Height  int    `json:"height"`
+	FPSNum  int    `json:"fpsNum"`
+	FPSDen  int    `json:"fpsDen"`
+	BFrames bool   `json:"bframes"`
 }
 
+// SegmentMediadataAudio is one audio track. Codec is the lexicon's name
+// ("aac", "opus"); AlternateGroup and Label are the track's group and name
+// when the stream distinguishes its audio tracks (the OBS plugin's stems),
+// zero and empty otherwise.
 type SegmentMediadataAudio struct {
-	Rate     int `json:"rate"`
-	Channels int `json:"channels"`
+	Codec          string `json:"codec,omitempty"`
+	Rate           int    `json:"rate"`
+	Channels       int    `json:"channels"`
+	AlternateGroup uint32 `json:"alternateGroup,omitempty"`
+	Label          string `json:"label,omitempty"`
 }
 
 type SegmentMediaData struct {
@@ -192,6 +203,51 @@ func (s *Segment) ToStreamplaceSegment() (*placestream.Segment, error) {
 		}
 	}
 
+	video := make([]placestream.Segment_Video, 0, len(s.MediaData.Video))
+	for _, v := range s.MediaData.Video {
+		if v == nil {
+			continue
+		}
+		codec := v.Codec
+		if codec == "" {
+			codec = "h264"
+		}
+		video = append(video, placestream.Segment_Video{
+			Codec:  codec,
+			Width:  int64(v.Width),
+			Height: int64(v.Height),
+			Framerate: &placestream.Segment_Framerate{
+				Num: int64(v.FPSNum),
+				Den: int64(v.FPSDen),
+			},
+			Bframes: &v.BFrames,
+		})
+	}
+
+	audio := make([]placestream.Segment_Audio, 0, len(s.MediaData.Audio))
+	for _, a := range s.MediaData.Audio {
+		codec := a.Codec
+		if codec == "" {
+			// A row written before the codec was recorded: every such
+			// segment's audio was Opus.
+			codec = "opus"
+		}
+		track := placestream.Segment_Audio{
+			Codec:    codec,
+			Rate:     int64(a.Rate),
+			Channels: int64(a.Channels),
+		}
+		if a.AlternateGroup != 0 {
+			group := int64(a.AlternateGroup)
+			track.AlternateGroup = &group
+		}
+		if a.Label != "" {
+			label := a.Label
+			track.Label = &label
+		}
+		audio = append(audio, track)
+	}
+
 	return &placestream.Segment{
 		LexiconTypeID:      "place.stream.segment",
 		Creator:            s.RepoDID,
@@ -203,25 +259,8 @@ func (s *Segment) ToStreamplaceSegment() (*placestream.Segment, error) {
 		ContentRights:      contentRights,
 		ContentWarnings:    contentWarnings,
 		DistributionPolicy: distributionPolicy,
-		Video: []placestream.Segment_Video{
-			{
-				Codec:  "h264",
-				Width:  int64(s.MediaData.Video[0].Width),
-				Height: int64(s.MediaData.Video[0].Height),
-				Framerate: &placestream.Segment_Framerate{
-					Num: int64(s.MediaData.Video[0].FPSNum),
-					Den: int64(s.MediaData.Video[0].FPSDen),
-				},
-				Bframes: &s.MediaData.Video[0].BFrames,
-			},
-		},
-		Audio: []placestream.Segment_Audio{
-			{
-				Codec:    "opus",
-				Rate:     int64(s.MediaData.Audio[0].Rate),
-				Channels: int64(s.MediaData.Audio[0].Channels),
-			},
-		},
+		Video:              video,
+		Audio:              audio,
 	}, nil
 }
 
@@ -322,11 +361,14 @@ func (m *LocalDatabase) LatestSegmentsForUser(user string, limit int, includeUnp
 	return segs, nil
 }
 
+// GetSegment returns the segment with the given id, or nil if it is not
+// known. Receiving a segment twice is normal (a MoQ subscription is primed
+// with recent segments on every reconnect), so this is the dedup check and
+// must not fail on a known segment.
 func (m *LocalDatabase) GetSegment(id string) (*Segment, error) {
 	var seg Segment
 
 	err := m.DB.Model(&Segment{}).
-		Preload("Repo").
 		Where("id = ?", id).
 		First(&seg).Error
 

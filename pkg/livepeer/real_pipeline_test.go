@@ -253,7 +253,7 @@ func TestRealBroadcastPipeline(t *testing.T) {
 			Creator:   "did:test:real",
 			StartTime: time.Now().UTC().Format(time.RFC3339Nano),
 			Duration:  &durNs,
-			Video:     []placestream.Segment_Video{{Width: int64(vw), Height: int64(vh), Framerate: &placestream.Segment_Framerate{Num: fps, Den: 1}}},
+			Video:     []placestream.Segment_Video{{Codec: "h264", Width: int64(vw), Height: int64(vh), Framerate: &placestream.Segment_Framerate{Num: fps, Den: 1}}},
 		}
 		rw := int64(vw) * height / int64(vh)
 		rs := renditions.Renditions{{Name: fmt.Sprintf("%dp", height), Width: rw, Height: height, Bitrate: 250_000, Framerate: renditions.FPS{Num: uint(fps), Den: 1}, Profile: "h264baseline"}}

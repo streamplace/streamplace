@@ -3,9 +3,12 @@ package websocketrep
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"slices"
 	"strconv"
@@ -13,26 +16,28 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	official "moq.dev/moq"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/moq"
 	"stream.place/streamplace/pkg/muxl"
+	"stream.place/streamplace/pkg/placestream"
 )
 
-// signedSegments signs the fragmented fixture the way live ingest does and
+// signedSegments signs a fragmented fixture the way live ingest does and
 // returns each GoP's bare canonical segment (video1 + audio2).
-func signedSegments(t *testing.T, ctx context.Context) [][]byte {
+func signedSegments(t *testing.T, ctx context.Context, fixture string) [][]byte {
 	t.Helper()
 	ms, err := media.NewEphemeralMediaSigner("test-streamer")
 	require.NoError(t, err)
-	frag, err := os.ReadFile("../../../test/fixtures/h264-opus-frag.mp4")
+	frag, err := os.ReadFile("../../../test/fixtures/" + fixture)
 	require.NoError(t, err)
 	events := make(chan *muxl.MuxlEvent, 16)
 	signed := make(chan error, 1)
 	go func() {
-		signed <- ms.SignSegmentStream(ctx, bytes.NewReader(frag), events)
+		signed <- ms.SignSegmentStream(ctx, bytes.NewReader(frag), events, false)
 		close(events)
 	}()
 	var segments [][]byte
@@ -86,7 +91,7 @@ func TestMoqServesTheBus(t *testing.T) {
 	interval := moqLivenessInterval
 	moqLivenessInterval = 10 * time.Millisecond
 	t.Cleanup(func() { moqLivenessInterval = interval })
-	segments := signedSegments(t, ctx)
+	segments := signedSegments(t, ctx, "h264-opus-frag.mp4")
 	rendition := renditionOf(t, ctx, segments[0])
 
 	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
@@ -113,7 +118,7 @@ func TestMoqServesTheBus(t *testing.T) {
 	moqURL := fmt.Sprintf("moqt://%s?%s=%s", addr, moq.CertHashParam, cert.Hash())
 	var client *official.Client
 	require.Eventually(t, func() bool {
-		client, err = r.dialMoq(ctx, moqURL)
+		client, err = r.dialMoq(ctx, moqURL, nil)
 		return err == nil
 	}, 10*time.Second, 100*time.Millisecond, "the listener comes up")
 	defer client.Close()
@@ -122,7 +127,7 @@ func TestMoqServesTheBus(t *testing.T) {
 	unexpected := func([]byte) error { return errors.New("a segment of a stream that is not live") }
 	offline, err := requestMoqBroadcast(ctx, client, "did:plc:offline")
 	if err == nil {
-		err = consumeBroadcast(ctx, offline, unexpected, func(_ context.Context, b []byte) error { return unexpected(b) })
+		err = r.consumeBroadcast(ctx, offline, unexpected, func(_ context.Context, b []byte) error { return unexpected(b) })
 	}
 	require.Error(t, err, "a stream that is not live is refused")
 	require.NotContains(t, err.Error(), "a segment of", "a stream that is not live is refused")
@@ -138,7 +143,7 @@ func TestMoqServesTheBus(t *testing.T) {
 	renditions := make(chan []byte, 8)
 	done := make(chan error, 1)
 	go func() {
-		done <- consumeBroadcast(ctx, broadcast,
+		done <- r.consumeBroadcast(ctx, broadcast,
 			func(segment []byte) error { got <- segment; return nil },
 			func(_ context.Context, addendum []byte) error { renditions <- addendum; return nil })
 	}()
@@ -154,6 +159,14 @@ func TestMoqServesTheBus(t *testing.T) {
 		return nil
 	}
 	require.Equal(t, segments[1], next(got), "primed with the bus's recent published segment, reassembled from its tracks")
+
+	// A peer listing more tracks than this node takes is dropped, rather
+	// than given a reader, and its unverified bytes a buffer, per track.
+	strict := &WebsocketReplicator{cli: &config.CLI{MoqMaxTracks: 1}}
+	again, err := requestMoqBroadcast(ctx, client, streamer)
+	require.NoError(t, err)
+	err = strict.consumeBroadcast(ctx, again, func([]byte) error { return nil }, nil)
+	require.ErrorContains(t, err, "catalog lists 2 tracks, over the limit of 1")
 
 	catalog, err := broadcast.Catalog(ctx)
 	require.NoError(t, err)
@@ -178,35 +191,266 @@ func TestMoqServesTheBus(t *testing.T) {
 	}
 }
 
-// A peer's group is refused once it grows past the cap, before the node
-// holds more of what nothing has verified yet.
+// An AV1 track is served as a CMAF track whose init carries its av1C: the
+// hang catalog names AV1 by its codec string alone (no description, unlike
+// H.264's avcC), so the init is where a player gets the sequence header.
+func TestMoqServesAV1(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	segments := signedSegments(t, ctx, "av1-opus-frag.mp4")
+	broadcast, err := official.NewBroadcastProducer()
+	require.NoError(t, err)
+	defer broadcast.Close()
+	tracks := moqTracks{}
+	defer tracks.finish()
+	require.NoError(t, tracks.publish(ctx, broadcast, segments[0], (*official.CMAFProducer).AppendGroup))
+	consumer, err := broadcast.Consume()
+	require.NoError(t, err)
+	catalog, err := consumer.Catalog(ctx)
+	require.NoError(t, err)
+	video := catalog.Video["video1"]
+	require.Contains(t, video.Codec, "av01.")
+	cmaf, ok := video.Container.(official.ContainerCmaf)
+	require.True(t, ok, "AV1 is a CMAF track")
+	require.Contains(t, string(cmaf.Init), "av1C")
+}
+
+// A peer's group is refused once it grows past --moq-max-group-mb, before
+// the node holds more of what nothing has verified yet.
 func TestMoqGroupIsBounded(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	limit := moqMaxGroupBytes
-	moqMaxGroupBytes = 16
-	t.Cleanup(func() { moqMaxGroupBytes = limit })
+	r := &WebsocketReplicator{cli: &config.CLI{MoqMaxGroupMB: 1}}
 	broadcast, err := official.NewBroadcastProducer()
 	require.NoError(t, err)
 	defer broadcast.Close()
 	track, err := broadcast.PublishTrack("video1", nil)
 	require.NoError(t, err)
-	read := func(frames ...[]byte) error {
+	read := func(frames int) error {
 		consumer, err := track.Consume(nil)
 		require.NoError(t, err)
 		defer consumer.Cancel()
 		group, err := track.AppendGroup()
 		require.NoError(t, err)
-		for _, frame := range frames {
+		frame := make([]byte, 512<<10)
+		copy(frame, []byte{0, 0, 0, 8, 'u', 'u', 'i', 'd'})
+		for range frames {
 			require.NoError(t, group.WriteFrame(official.Frame{Payload: frame}))
 		}
 		require.NoError(t, group.Finish())
 		g, err := consumer.NextGroup(ctx)
 		require.NoError(t, err)
-		_, err = readMoqGroup(ctx, g)
+		_, err = r.readMoqGroup(ctx, g)
 		return err
 	}
-	frame := []byte{0, 0, 0, 8, 'u', 'u', 'i', 'd'}
-	require.NoError(t, read(frame, frame), "at the cap")
-	require.ErrorContains(t, read(frame, frame, frame), "over 16 bytes")
+	require.NoError(t, read(2), "at the cap")
+	require.ErrorContains(t, read(3), "over 1 MiB")
+}
+
+// A peer rotating rendition names through its catalog, each update within
+// the limit, can't keep getting fresh readers: every name the session has
+// listed counts.
+func TestMoqTrackLimitSpansCatalogUpdates(t *testing.T) {
+	seen := map[string]bool{}
+	src := []string{"video1", "audio2"}
+	added, err := admitMoqTracks(seen, src, []string{"video100"}, 3)
+	require.NoError(t, err)
+	require.Equal(t, []string{"video100"}, added)
+	added, err = admitMoqTracks(seen, src, []string{"video100"}, 3)
+	require.NoError(t, err)
+	require.Empty(t, added, "a name already read starts no second reader")
+	_, err = admitMoqTracks(seen, src, []string{"video101"}, 3)
+	require.ErrorContains(t, err, "catalog lists 4 tracks, over the limit of 3")
+}
+
+// A stream this node ingests is announced to the peers it pushes to from
+// its first segment, once, and retracted when its segments stop.
+func TestLiveStreamsAreAnnounced(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	b := bus.NewBus()
+	r := NewWebsocketReplicator(&config.CLI{StreamSessionTimeout: 50 * time.Millisecond}, b, nil, nil, nil, nil)
+	r.group, ctx = errgroup.WithContext(ctx)
+	announced, err := r.pushOrigin.Consume().Announced(official.AnnounceOptions{})
+	require.NoError(t, err)
+	defer announced.Cancel()
+
+	b.PublishSegment(ctx, "did:plc:a", moqSourceChannel, &bus.Seg{Muxl: signedSegments(t, ctx, "h264-opus-frag.mp4")[0], Published: true})
+	r.touchLive(ctx, "did:plc:a")
+	a, err := announced.Next(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "did:plc:a", a.Prefix())
+	require.True(t, a.Active())
+
+	// A later segment, just now: waiting on the announcement above can take
+	// longer than the session timeout on a loaded runner.
+	r.touchLive(ctx, "did:plc:a")
+	r.expireLive()
+	require.Contains(t, r.live, "did:plc:a", "still live inside the session timeout")
+	time.Sleep(80 * time.Millisecond)
+	r.expireLive()
+	a, err = announced.Next(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "did:plc:a", a.Prefix())
+	require.False(t, a.Active(), "retracted, after one announcement")
+}
+
+// A pushed broadcast that ends on its own, as one does when a track's codec
+// config changes, is announced afresh from the stream's next segment
+// instead of staying retracted while the stream goes on.
+func TestEndedPushIsAnnouncedAgain(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	b := bus.NewBus()
+	r := NewWebsocketReplicator(&config.CLI{StreamSessionTimeout: time.Minute}, b, nil, nil, nil, nil)
+	r.group, ctx = errgroup.WithContext(ctx)
+	announced, err := r.pushOrigin.Consume().Announced(official.AnnounceOptions{})
+	require.NoError(t, err)
+	defer announced.Cancel()
+	next := func() bool {
+		a, err := announced.Next(ctx)
+		require.NoError(t, err)
+		return a.Active()
+	}
+	segments := signedSegments(t, ctx, "h264-opus-frag.mp4")
+	publish := func(segment []byte) {
+		b.PublishSegment(ctx, "did:plc:a", moqSourceChannel, &bus.Seg{Muxl: segment, Published: true})
+	}
+
+	publish(segments[0])
+	r.touchLive(ctx, "did:plc:a")
+	require.True(t, next())
+	publish([]byte("not a segment the broadcast can carry"))
+	require.False(t, next(), "the broadcast ended")
+	require.Eventually(t, func() bool {
+		r.liveMu.Lock()
+		defer r.liveMu.Unlock()
+		return r.live["did:plc:a"] == nil
+	}, 5*time.Second, 10*time.Millisecond, "and was forgotten")
+	publish(segments[0])
+	publish(segments[1])
+	r.touchLive(ctx, "did:plc:a")
+	require.True(t, next(), "announced again")
+}
+
+// A peer this node pushes to gets each live stream announced on the session
+// and its segments served for as long as the stream is live, not just the
+// first one.
+func TestMoqPushesLiveStreams(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := pc.LocalAddr().String()
+	require.NoError(t, pc.Close())
+	cert, err := moq.NewSelfSignedCert()
+	require.NoError(t, err)
+	tlsFiles, err := moq.ManagedTLSFiles(t.TempDir(), cert.Certificate)
+	require.NoError(t, err)
+	require.NoError(t, tlsFiles.Sync())
+	// The peer: what acceptSession and acceptPush do, short of validation.
+	srv, err := official.Listen(ctx, addr, official.WithTLSCert(tlsFiles.CertPath), official.WithTLSKey(tlsFiles.KeyPath))
+	require.NoError(t, err)
+	defer srv.Close()
+	got := make(chan []byte, 8)
+	peer := &WebsocketReplicator{cli: &config.CLI{}}
+	go func() {
+		for req, err := range srv.Requests(ctx) {
+			if err != nil {
+				return
+			}
+			pushed := official.NewOriginProducer()
+			if req.SetConsume(pushed) != nil {
+				return
+			}
+			sess, err := req.Accept(ctx)
+			if err != nil {
+				return
+			}
+			defer sess.Shutdown()
+			announced, err := pushed.Consume().AnnouncedBroadcast("did:plc:a")
+			if err != nil {
+				return
+			}
+			broadcast, err := announced.Available(ctx)
+			if err != nil {
+				return
+			}
+			_ = peer.consumeBroadcast(ctx, broadcast, func(segment []byte) error {
+				got <- segment
+				return nil
+			}, nil)
+			return
+		}
+	}()
+
+	b := bus.NewBus()
+	r := NewWebsocketReplicator(&config.CLI{StreamSessionTimeout: time.Minute}, b, nil, nil, nil, nil)
+	r.group, ctx = errgroup.WithContext(ctx)
+	segments := signedSegments(t, ctx, "h264-opus-frag.mp4")
+	b.PublishSegment(ctx, "did:plc:a", moqSourceChannel, &bus.Seg{Muxl: segments[0], Published: true})
+	r.touchLive(ctx, "did:plc:a")
+	client, err := r.dialMoq(ctx, fmt.Sprintf("moqt://%s?%s=%s", addr, moq.CertHashParam, cert.Hash()), r.pushOrigin)
+	require.NoError(t, err)
+	defer client.Close()
+	next := func() []byte {
+		select {
+		case payload := <-got:
+			return payload
+		case <-ctx.Done():
+			t.Fatal("no segment arrived")
+		}
+		return nil
+	}
+	require.Equal(t, segments[0], next())
+	b.PublishSegment(ctx, "did:plc:a", moqSourceChannel, &bus.Seg{Muxl: segments[1], Published: true})
+	require.Equal(t, segments[1], next(), "segments keep coming after the first")
+}
+
+// A peer that announces a stream and sends nothing does not make this node
+// the stream's origin: only a validated segment does, so naming a streamer
+// wins nobody its recording or transcoding.
+func TestAnnouncedPushIsNoOrigin(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	r := NewWebsocketReplicator(&config.CLI{}, bus.NewBus(), nil, nil, nil, nil)
+	pusher := official.NewOriginProducer()
+	broadcast, err := pusher.CreateBroadcast("did:plc:a")
+	require.NoError(t, err)
+	defer broadcast.Close()
+	require.NoError(t, broadcast.Announce(official.Route{}))
+	go r.acceptPush(ctx, pusher.Consume())
+	require.Never(t, func() bool { return r.ReceivesPush("did:plc:a") }, time.Second, 10*time.Millisecond)
+}
+
+// A --peers entry naming a node's web origin resolves to the MoQ URL that
+// node currently reports; one with no listener is an error to retry, not a
+// session to open.
+func TestResolvePeer(t *testing.T) {
+	var moqURL string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		require.Equal(t, "/xrpc/place.stream.broadcast.getBroadcaster", req.URL.Path)
+		out := placestream.BroadcastGetBroadcaster_Output{Broadcaster: "did:web:peer"}
+		if moqURL != "" {
+			out.MoqURL = &moqURL
+		}
+		_ = json.NewEncoder(w).Encode(out)
+	}))
+	defer srv.Close()
+	r := &WebsocketReplicator{}
+
+	_, err := r.resolvePeer(context.Background(), srv.URL)
+	require.ErrorContains(t, err, "no moq listener")
+
+	moqURL = "moqt://127.0.0.1:38443?certhash=ab"
+	got, err := r.resolvePeer(context.Background(), srv.URL+"/ignored?x=1")
+	require.NoError(t, err)
+	require.Equal(t, moqURL, got)
+
+	got, err = r.resolvePeer(context.Background(), "moqt://peer.example:38443?certhash=cd")
+	require.NoError(t, err)
+	require.Equal(t, "moqt://peer.example:38443?certhash=cd", got)
+
+	_, err = r.resolvePeer(context.Background(), "ftp://peer.example")
+	require.Error(t, err)
 }

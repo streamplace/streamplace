@@ -1,3 +1,8 @@
+import {
+  offerWithoutAV1,
+  useSmoothAV1,
+  type AudioTrackGroup,
+} from "@streamplace/core";
 import { useEffect, useRef, useState } from "react";
 import * as sdpTransform from "sdp-transform";
 import { place, StreamplaceAgent } from "streamplace";
@@ -10,14 +15,58 @@ import {
   useStreamKey,
   useStreamplaceStore,
 } from "../..";
-import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
+import { useLivestreamStoreOptional } from "../../livestream-store/use-store";
+import {
+  RTCPeerConnection,
+  RTCRtpReceiver,
+  RTCSessionDescription,
+} from "./webrtc-primitives";
+
+// The group of the audio track the node sends on an audio transceiver, from
+// its answer: stems are "audio-g<group>" (see media.WebRTCPlayback2) and the
+// full mix "audio". Undefined until the answer is set.
+function transceiverGroup(
+  pc: RTCPeerConnection,
+  transceiver: RTCRtpTransceiver,
+): AudioTrackGroup {
+  const sdp = pc.remoteDescription?.sdp;
+  if (!sdp || transceiver.mid === null) {
+    return undefined;
+  }
+  const media = sdpTransform
+    .parse(sdp)
+    .media.find((m) => String(m.mid) === transceiver.mid);
+  const track = media?.msid?.[0]?.appdata;
+  if (track === "audio") {
+    return null;
+  }
+  const stem = track?.match(/^audio-g(\d+)$/);
+  return stem ? Number(stem[1]) : undefined;
+}
 
 export default function useWebRTC(
   streamer: string,
   rendition: string,
-): [MediaStream | null, boolean] {
+): [
+  MediaStream | null,
+  boolean,
+  (MediaStreamTrack | undefined)[],
+  AudioTrackGroup[],
+  boolean,
+] {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  // The received audio tracks by transceiver: the full mix, then each stem.
+  const [audioTracks, setAudioTracks] = useState<
+    (MediaStreamTrack | undefined)[]
+  >([]);
+  // Each audio transceiver's group, from the node's answer: the stems a
+  // connection carries are fixed when it is answered, whatever the stream's
+  // stems become later.
+  const [audioGroups, setAudioGroups] = useState<AudioTrackGroup[]>([]);
   const [stuck, setStuck] = useState<boolean>(false);
+  // Whether this connection has received video frames: playing (above) also
+  // counts audio, which flows without a picture.
+  const [videoFrames, setVideoFrames] = useState<boolean>(false);
   const setStatus = usePlayerStore((x) => x.setStatus);
   let agent = usePossiblyUnauthedPDSAgent();
   const myDID = useDID();
@@ -29,6 +78,12 @@ export default function useWebRTC(
     myDID &&
     (streamer === myDID || streamer === myHandle)
   );
+  // The stream's video tracks, the source first: the node sends the source
+  // when the offer lists its codec, else the H.264 fallback. A connection is
+  // made again if this device turns out not to take the AV1 source.
+  const smoothAV1 = useSmoothAV1(
+    useLivestreamStoreOptional((x) => x.segment?.video),
+  );
 
   const lastChange = useRef<number>(0);
 
@@ -36,21 +91,58 @@ export default function useWebRTC(
     if (!agent) {
       return;
     }
+    setVideoFrames(false);
     const peerConnection = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
     });
-    peerConnection.addTransceiver("video", {
+    const videoTransceiver = peerConnection.addTransceiver("video", {
       direction: "recvonly",
     });
-    peerConnection.addTransceiver("audio", {
-      direction: "recvonly",
+    if (!smoothAV1) {
+      offerWithoutAV1(videoTransceiver, RTCRtpReceiver);
+    }
+    // The node sends the full mix on the first audio transceiver and up to
+    // two stems on the others.
+    const audioTransceivers = [0, 1, 2].map(() =>
+      peerConnection.addTransceiver("audio", {
+        direction: "recvonly",
+      }),
+    );
+    const received: (MediaStreamTrack | undefined)[] = [];
+    // The first transceiver always carries the full mix; the others' groups
+    // come from the answer, which react-native-webrtc may set only after
+    // firing the track events, so they are read again once it is stable.
+    const syncGroups = () =>
+      setAudioGroups(
+        audioTransceivers.map((t, i) =>
+          i === 0 ? null : transceiverGroup(peerConnection, t),
+        ),
+      );
+    peerConnection.addEventListener("signalingstatechange", () => {
+      if (peerConnection.signalingState === "stable") {
+        syncGroups();
+      }
     });
     peerConnection.addEventListener("track", (event) => {
       const track = event.track;
       if (!track) {
         return;
       }
-      setMediaStream(event.streams[0]);
+      // An offered transceiver the node leaves unused still fires a track
+      // event, with no stream: keep the stream the real tracks arrived on.
+      if (event.streams[0]) {
+        setMediaStream(event.streams[0]);
+      }
+      const i = audioTransceivers.findIndex(
+        (t) => t.receiver.track?.id === track.id,
+      );
+      if (i >= 0) {
+        received[i] = track;
+      }
+      // A fresh array for every track, so consumers that also read the
+      // stream's tracks catch up with each arrival.
+      setAudioTracks([...received]);
+      syncGroups();
     });
     peerConnection.addEventListener("connectionstatechange", () => {
       console.log("connection state change", peerConnection.connectionState);
@@ -78,30 +170,35 @@ export default function useWebRTC(
       );
     });
 
-    let lastFramesReceived = 0;
-    let lastAudioFramesReceived = 0;
+    // The last progress seen on each inbound stream, by stats id: with
+    // several audio tracks, one shared value flips between them forever.
+    const lastProgress = new Map<string, number>();
 
     const handle = setInterval(async () => {
       const stats = await peerConnection.getStats();
       stats.forEach((stat) => {
-        const mediaType = stat.mediaType /* web */ ?? stat.kind; /* native */
-        if (stat.type === "inbound-rtp" && mediaType === "audio") {
-          const audioFramesReceived = stat.lastPacketReceivedTimestamp;
-          if (lastAudioFramesReceived !== audioFramesReceived) {
-            lastAudioFramesReceived = audioFramesReceived;
-            lastChange.current = Date.now();
-            setStatus(PlayerStatus.PLAYING);
-            setStuck(false);
-          }
+        if (stat.type !== "inbound-rtp") {
+          return;
         }
-        if (stat.type === "inbound-rtp" && mediaType === "video") {
-          const framesReceived = stat.framesReceived;
-          if (lastFramesReceived !== framesReceived) {
-            lastFramesReceived = framesReceived;
-            lastChange.current = Date.now();
-            setStatus(PlayerStatus.PLAYING);
-            setStuck(false);
-          }
+        const mediaType = stat.mediaType /* web */ ?? stat.kind; /* native */
+        const progress =
+          mediaType === "audio"
+            ? stat.lastPacketReceivedTimestamp
+            : mediaType === "video"
+              ? stat.framesReceived
+              : undefined;
+        if (
+          progress === undefined ||
+          (lastProgress.get(stat.id) ?? 0) === progress
+        ) {
+          return;
+        }
+        lastProgress.set(stat.id, progress);
+        lastChange.current = Date.now();
+        setStatus(PlayerStatus.PLAYING);
+        setStuck(false);
+        if (mediaType === "video") {
+          setVideoFrames(true);
         }
       });
       if (Date.now() - lastChange.current > 2000) {
@@ -113,8 +210,8 @@ export default function useWebRTC(
       clearInterval(handle);
       peerConnection.close();
     };
-  }, [streamer, agent, isOwnStream, playbackWorkerUrl, rendition]);
-  return [mediaStream, stuck];
+  }, [streamer, agent, isOwnStream, playbackWorkerUrl, rendition, smoothAV1]);
+  return [mediaStream, stuck, audioTracks, audioGroups, videoFrames];
 }
 
 /**

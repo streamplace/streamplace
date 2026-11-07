@@ -94,15 +94,13 @@ func (mm *MediaManager) mintVideoRenditions(ctx context.Context, srcSeg []byte, 
 		return nil, fmt.Errorf("unwrap source segment: %w", err)
 	}
 	cat, tracks := catalogAndTracks(events)
-	if cat == nil || cat.Video == nil {
-		return nil, fmt.Errorf("source segment has no video track")
+	// The renditions were transcoded from the first H.264 track (see
+	// PresentationWithOpus); that track is what they derive from.
+	src, _, ok := pickVideoTrack(cat, onlyH264)
+	if !ok {
+		return nil, fmt.Errorf("source segment has no h264 video track")
 	}
-	var srcVideoTID, srcTimescale uint32
-	for _, v := range cat.Video.Renditions {
-		srcVideoTID = v.TrackID()
-		srcTimescale = v.Timescale()
-		break
-	}
+	srcVideoTID, srcTimescale := src.TrackID(), src.Timescale()
 	sourceVideo := tracks[strconv.FormatUint(uint64(srcVideoTID), 10)]
 	if len(sourceVideo) == 0 {
 		return nil, fmt.Errorf("source video track %d missing", srcVideoTID)
@@ -186,11 +184,7 @@ func (mm *MediaManager) canonicalRenditionTrack(ctx context.Context, r Rendition
 	if cat == nil || cat.Video == nil || len(cat.Video.Renditions) == 0 {
 		return nil, 0, fmt.Errorf("no video track in rendition")
 	}
-	var videoTID uint32
-	for _, v := range cat.Video.Renditions {
-		videoTID = v.TrackID()
-		break
-	}
+	videoTID := videoTracks(cat)[0].TrackID()
 	if videoTID != want {
 		// First sight of this transcoder's layout: remember the id its
 		// video comes out under and canonicalize again with the relabel.
@@ -233,10 +227,12 @@ func (mm *MediaManager) canonicalRenditionTrack(ctx context.Context, r Rendition
 // MP4s come out under (see canonicalRenditionTrack).
 type renditionTIDCache = sync.Map
 
-// PresentationWithOpus is a segment as a fragmented MP4 with video plus its
-// Opus audio only — what the transcoder is handed so the audio it muxes
-// back into each rendition is the one the WebRTC packetizer can take. A
-// single-codec AAC segment (none completed yet) comes back as is.
+// PresentationWithOpus is a segment as a fragmented MP4 with its first H.264
+// video track plus its Opus audio only — what the transcoder is handed: it
+// takes H.264 alone, and the audio it muxes back into each rendition must be
+// the one the WebRTC packetizer can take. A single-codec AAC segment (none
+// completed yet) comes back with its AAC. A segment with no H.264 track is
+// an error.
 //
 // Fragmented, not flat: a flat MP4 carries a track duration, and qtdemux
 // clips samples that present past it — with B-frames the last P frame's
@@ -245,7 +241,13 @@ type renditionTIDCache = sync.Map
 // presentation has no duration to clip against and every sample gets
 // through.
 func PresentationWithOpus(ctx context.Context, seg []byte) ([]byte, error) {
-	opus, err := filterSegmentToCodec(ctx, seg, true)
+	return presentationWithOpus(ctx, seg, onlyH264)
+}
+
+// presentationWithOpus is PresentationWithOpus with the first video track
+// video accepts (every video track for nil).
+func presentationWithOpus(ctx context.Context, seg []byte, video func(muxl.MuxlVideoConfig, VideoCodec) bool) ([]byte, error) {
+	opus, err := filterSegmentToCodec(ctx, seg, true, video)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 import type { LivestreamStore } from "@streamplace/core";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import type { place } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { Player } from "../../components/player/player";
@@ -31,7 +32,7 @@ function writeDanmuPreference(enabled: boolean) {
   }
 }
 
-type Segment = { width: number; height: number } | null;
+type Videos = place.stream.segment.Video[] | null;
 type Problem = { code: string; severity: string; message: string };
 
 export function VideoSection({
@@ -84,7 +85,7 @@ export function VideoSection({
     <VideoSectionInner
       user={user}
       liveness={liveness}
-      segment={state.segment?.video?.at(0) ?? null}
+      videos={state.segment?.video ?? null}
       contentWarnings={state.segment?.contentWarnings?.warnings ?? []}
       problems={state.problems}
       playlistUrl={playlistUrl}
@@ -109,7 +110,7 @@ export function VideoSection({
 export function VideoSectionInner({
   user,
   liveness,
-  segment,
+  videos,
   contentWarnings = [],
   problems,
   playlistUrl,
@@ -128,7 +129,8 @@ export function VideoSectionInner({
 }: {
   user: string;
   liveness: Liveness;
-  segment: Segment;
+  /** The latest segment's video tracks, the source first. */
+  videos: Videos;
   contentWarnings?: string[];
   problems: Problem[];
   playlistUrl: string;
@@ -154,7 +156,8 @@ export function VideoSectionInner({
   const showPlayer = !neverLive && !offline;
 
   // calculate seg ratio for poster aspect ratio correction
-  const segRatio = segment ? segment.width / segment.height : 16 / 9;
+  const source = videos?.[0];
+  const segRatio = source ? source.width / source.height : 16 / 9;
 
   return (
     <div
@@ -192,6 +195,7 @@ export function VideoSectionInner({
             >
               <Player
                 src={playlistUrl}
+                videos={videos}
                 poster={thumbnailUrl}
                 active
                 mode={mode}

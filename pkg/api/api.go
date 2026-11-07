@@ -79,6 +79,10 @@ type StreamplaceAPI struct {
 	// ACME, when set, supplies TLS certificates for every TLS listener and
 	// answers HTTP-01 challenges on the redirect listener.
 	ACME *acme.Manager
+	// MoqURL is the moqt:// URL peers reach this node's Media over QUIC
+	// listener at, as place.stream.broadcast.getBroadcaster reports it;
+	// nil when --moq-addr is empty.
+	MoqURL func() string
 	// not thread-safe yet
 	Aliases  map[string]string
 	Bus      *bus.Bus
@@ -178,6 +182,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		return nil, err
 	}
 	a.XRPCServer = xrpc.(*spxrpc.Server)
+	a.XRPCServer.MoqURL = a.MoqURL
 	router := httprouter.New()
 
 	// Create our middleware factory with the default settings.
@@ -221,6 +226,8 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addHandle(apiRouter, "POST", "/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
+	addFunc(apiRouter, "POST", "/api/ingest/client-configuration", a.HandleClientConfiguration(ctx))
+	addHandle(apiRouter, "POST", "/api/ingest/fmp4/:key", a.HandleFMP4Ingest(ctx))
 	addHandle(apiRouter, "POST", "/api/player-event", a.HandlePlayerEvent(ctx))
 	addHandle(apiRouter, "GET", "/api/chat/:repoDID", a.HandleChat(ctx))
 	addHandle(apiRouter, "GET", "/api/websocket/:repoDID", a.HandleWebsocket(ctx))

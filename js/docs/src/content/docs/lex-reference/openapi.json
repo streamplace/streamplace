@@ -2362,6 +2362,11 @@
                         "type": "string",
                         "format": "did"
                       }
+                    },
+                    "moqURL": {
+                      "type": "string",
+                      "description": "moqt:// URL of this server's Media over QUIC listener, which peers push streams to and pull them from; a certhash query parameter pins the server certificate (SHA-256, hex) when it is self-signed. Absent when the listener is off.",
+                      "format": "uri"
                     }
                   },
                   "required": ["broadcaster"]
@@ -3152,6 +3157,183 @@
                 "$ref": "#/components/schemas/place.stream.live.subscribeSegments_segment"
               }
             ]
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.local.deleteRecord": {
+      "post": {
+        "summary": "Delete a record the caller keeps on this node. Shaped like com.atproto.repo.deleteRecord; deleting one that doesn't exist succeeds.",
+        "operationId": "place.stream.local.deleteRecord",
+        "tags": ["place.stream.local"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repo": {
+                    "type": "string",
+                    "format": "did"
+                  },
+                  "collection": {
+                    "type": "string",
+                    "format": "nsid"
+                  },
+                  "rkey": {
+                    "type": "string",
+                    "maxLength": 512,
+                    "format": "record-key"
+                  }
+                },
+                "required": ["repo", "collection", "rkey"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.local.listRecords": {
+      "get": {
+        "summary": "List the caller's records of a collection kept on this node, in record-key order. Shaped like com.atproto.repo.listRecords.",
+        "operationId": "place.stream.local.listRecords",
+        "tags": ["place.stream.local"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "records": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.local.listRecords_record"
+                      }
+                    }
+                  },
+                  "required": ["records"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "did"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "nsid"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.local.putRecord": {
+      "post": {
+        "summary": "Write a record that stays on this node instead of the caller's repo, such as its configuration for this node. Shaped like com.atproto.repo.putRecord.",
+        "operationId": "place.stream.local.putRecord",
+        "tags": ["place.stream.local"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "InvalidCollection"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repo": {
+                    "type": "string",
+                    "description": "The caller's DID; a node keeps local records for their own author only.",
+                    "format": "did"
+                  },
+                  "collection": {
+                    "type": "string",
+                    "description": "One of the collections this node keeps locally.",
+                    "format": "nsid"
+                  },
+                  "rkey": {
+                    "type": "string",
+                    "maxLength": 512,
+                    "format": "record-key"
+                  },
+                  "record": {}
+                },
+                "required": ["repo", "collection", "rkey", "record"]
+              }
+            }
           }
         }
       }
@@ -7974,6 +8156,21 @@
         "type": "string",
         "format": "byte",
         "description": "MP4 file of a user's signed livestream segment"
+      },
+      "place.stream.local.listRecords_record": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "value": {}
+        },
+        "required": ["uri", "cid", "value"]
       },
       "place.stream.media.getUploadStatus_trackRef": {
         "type": "object",

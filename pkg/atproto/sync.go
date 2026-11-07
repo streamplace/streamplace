@@ -45,6 +45,9 @@ type moderationPermissionViewEvent struct {
 // (bus fanout, notification tasks) has to be skipped when nothing changed. The
 // model layer signals that with [model.ErrAlreadyIndexed]; see pkg/model/indexed.go.
 func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID, isUpdate bool, isFirstSync bool, repoRev string) error {
+	if _, err := atsync.indexingDID(ctx, userDID); err != nil {
+		return err
+	}
 	ctx = log.WithLogValues(ctx, "func", "handleCreateUpdate", "userDID", userDID, "rkey", rkey.String(), "cid", cid, "collection", collection.String())
 	now := time.Now()
 	r, err := atsync.Model.GetRepo(userDID)
@@ -590,6 +593,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				return nil
 			}
 			if seenEnding {
+				if atsync.LivestreamEnded != nil {
+					atsync.LivestreamEnded(context.WithoutCancel(ctx), userDID)
+				}
 				// Publish its VOD if the streamer has that on now. Only on
 				// seeing it end, never for an ended record seen again (a
 				// redelivery, an edit, a backfilled one), so turning it on

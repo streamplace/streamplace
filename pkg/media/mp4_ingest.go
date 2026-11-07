@@ -15,11 +15,14 @@ import (
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/muxl"
 )
 
-// ingest a H264+AAC fragmented-MP4 stream (the MistServer live .mp4 output, or
-// an fMP4 push to /live)
-func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms MediaSigner) error {
+// ingest a fragmented-MP4 stream: H.264 or AV1 video and AAC audio through
+// the demux pipeline (the MistServer live .mp4 output, or an fMP4 push to
+// /live), or, with transport IngestTransportFMP4Direct, signed as-is (the OBS
+// plugin's push).
+func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms MediaSigner, transport string) error {
 	shouldRecord, err := mm.shouldRecord(ctx, ms.Streamer())
 	if err != nil {
 		return err
@@ -27,13 +30,26 @@ func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms Media
 	if shouldRecord {
 		log.Log(ctx, "recording ingest stream to file", "streamer", ms.Streamer())
 		var finalize func()
-		input, finalize = mm.recordTee(ctx, input, ms.Streamer(), ".rtmp.mp4")
+		input, finalize = mm.recordTee(ctx, input, ms.Streamer())
 		defer finalize()
 	} else {
 		log.Log(ctx, "not recording ingest stream to file", "streamer", ms.Streamer())
 	}
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
+	if transport == IngestTransportFMP4Direct {
+		go mm.watchKeyRevocation(ctx, ms.Streamer(), ms.DID(), func(reason string) {
+			cancel(fmt.Errorf("ending stream: %s", reason))
+		})
+		ctx, onSegment := mm.validatingSegmentSink(ctx, ms)
+		// The plugin labels its stems (tkhd.alternate_group, trak/udta/name);
+		// signing as-is carries them into the segments' catalogs.
+		signStream := func(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
+			return ms.SignSegmentStream(ctx, input, eventCh, true)
+		}
+		return signFMP4Direct(ctx, mm.cli, signStream, input, onSegment)
+	}
 
 	signer, err := mm.SegmentAndSignElem(ctx, ms)
 	if err != nil {
@@ -63,12 +79,12 @@ func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms Media
 	return <-busErr
 }
 
-// buildMP4IngestPipeline builds the H264+AAC fragmented-MP4 demux graph (video
-// → h264parse, audio → Opus re-encode) and links both branches into signerElem
-// — the muxl signing bin that emits one bare canonical .m4s per GoP. Shared by
-// the in-process MP4Ingest and the isolated ingest worker, which differ only in
-// where signerElem routes its segments (ValidateMP4 vs. a frame writer to the
-// main process).
+// buildMP4IngestPipeline builds the fragmented-MP4 demux graph (the first
+// video track → its codec's parser, audio → Opus re-encode) and links both
+// branches into signerElem — the muxl signing bin that emits one bare
+// canonical .m4s per GoP. Shared by the in-process MP4Ingest and the isolated
+// ingest worker, which differ only in where signerElem routes its segments
+// (ValidateMP4 vs. a frame writer to the main process).
 //
 // The source is fMP4, not MKV, very much on purpose: MP4 track fragments carry
 // both decode (tfdt/trun) and presentation (ctts) timestamps, so qtdemux hands
@@ -122,8 +138,7 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, signerElem gst
 	// demux-fed pipelines (transcode, rtmp_push, packetize, media_data_parser).
 	pipelineSlice := []string{
 		"appsrc name=streamsrc ! qtdemux name=demux",
-		"demux. ! " + constants.Queue2Big + " ! h264parse name=videoout",
-		"demux. ! " + constants.Queue2Big + " ! fdkaacdec ! audioresample ! opusenc name=audioenc",
+		"demux.audio_0 ! " + constants.Queue2Big + " ! fdkaacdec ! audioresample ! opusenc name=audioenc",
 	}
 	launched, err := gst.ParseLaunch(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
@@ -140,17 +155,8 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, signerElem gst
 	srcele.(app.AppSrc).SetCallbacks(&app.AppSrcCallbacks{
 		NeedData: ReaderNeedDataIncremental(ctx, input),
 	})
-	parseEle := pipeline.GetByName("videoout")
-	if parseEle == nil {
-		return nil, fmt.Errorf("videoout element not found")
-	}
-	// Only an IDR starts a segment (see installIDRKeyframeProbe).
-	installIDRKeyframeProbe(ctx, parseEle.GetStaticPad("src"), streamer)
 	if !pipeline.Add(signerElem) {
 		return nil, fmt.Errorf("failed to add signer element to pipeline")
-	}
-	if !parseEle.Link(signerElem) {
-		return nil, fmt.Errorf("failed to link h264parse to signer element")
 	}
 	audioenc := pipeline.GetByName("audioenc")
 	if audioenc == nil {
@@ -159,7 +165,75 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, signerElem gst
 	if !audioenc.Link(signerElem) {
 		return nil, fmt.Errorf("failed to link opusenc to signer element")
 	}
+	demux := pipeline.GetByName("demux")
+	if demux == nil {
+		return nil, fmt.Errorf("demux element not found")
+	}
+	// Only the video pad's caps name its codec, so its parser is plugged when
+	// the pad appears.
+	demux.ConnectPadAdded(func(demux gst.Element, pad gst.Pad) {
+		if pad.GetName() != "video_0" {
+			return
+		}
+		err := func() error {
+			codec, err := padVideoCodec(pad)
+			if err != nil {
+				return err
+			}
+			parse, err := plugDemuxBin(demux, pad, constants.Queue2Big+" ! "+codec.ParserLaunch("", ""))
+			if err != nil {
+				return err
+			}
+			// Only a frame a decoder can start on starts a segment (see installKeyframeProbe).
+			installKeyframeProbe(ctx, codec, parse.GetStaticPad("src"), streamer)
+			if !parse.Link(signerElem) {
+				return fmt.Errorf("failed to link %s to signer element", codec.Parser)
+			}
+			return nil
+		}()
+		if err != nil {
+			demux.PostMessage(gst.NewMessageError(demux, err.Error(), err))
+		}
+	})
 	return pipeline, nil
+}
+
+// padVideoCodec is the codec of a demuxer's video pad, which its caps name.
+func padVideoCodec(pad gst.Pad) (VideoCodec, error) {
+	caps := pad.GetCurrentCaps()
+	if caps == nil || caps.GetStructure(0) == nil {
+		return VideoCodec{}, fmt.Errorf("video pad %s has no caps", pad.GetName())
+	}
+	name := caps.GetStructure(0).GetName()
+	codec, ok := VideoCodecForCaps(name)
+	if !ok {
+		return VideoCodec{}, fmt.Errorf("unsupported video codec %s on pad %s", name, pad.GetName())
+	}
+	return codec, nil
+}
+
+// plugDemuxBin builds desc into a bin (its unlinked pads ghosted), adds it
+// next to demux, links pad into it and brings it to the pipeline's state: how
+// a pad-added handler plugs a chain it picked from the pad's caps. The caller
+// links the bin's src pad, if any, in the same handler, before the demuxer
+// pushes data on pad.
+func plugDemuxBin(demux gst.Element, pad gst.Pad, desc string) (gst.Bin, error) {
+	parent, ok := demux.GetParent().(gst.Bin)
+	if !ok {
+		return nil, fmt.Errorf("demuxer %s is not in a bin", demux.GetName())
+	}
+	bin, err := gst.ParseBinFromDescription(desc, true)
+	if err != nil {
+		return nil, fmt.Errorf("create %q: %w", desc, err)
+	}
+	if !parent.Add(bin) {
+		return nil, fmt.Errorf("add %q", desc)
+	}
+	if r := pad.Link(bin.GetStaticPad("sink")); r != gst.PadLinkOK {
+		return nil, fmt.Errorf("link %s to %q: %v", pad.GetName(), desc, r)
+	}
+	bin.SyncStateWithParent()
+	return bin, nil
 }
 
 // debugRecordingFlushTimeout bounds how long ingest teardown waits for a debug
@@ -191,7 +265,7 @@ const debugRecordingFlushTimeout = 5 * time.Minute
 // cleanup, which for S3 waits on every outstanding request) and
 // recordingTeeWriter drops every later write. The failure is logged; losing a
 // recording is acceptable, stalling a broadcast is not.
-func (mm *MediaManager) recordTee(ctx context.Context, r io.Reader, user string, filesuffix string) (io.Reader, func()) {
+func (mm *MediaManager) recordTee(ctx context.Context, r io.Reader, user string) (io.Reader, func()) {
 	pr, pw := io.Pipe()
 	done := make(chan struct{})
 	// stopIngest is how the dump releases the live stream: it closes the tee's
@@ -199,7 +273,7 @@ func (mm *MediaManager) recordTee(ctx context.Context, r io.Reader, user string,
 	stopIngest := func(err error) { _ = pw.CloseWithError(err) }
 	go func() {
 		defer close(done)
-		if err := mm.dumpToFile(ctx, pr, user, filesuffix, stopIngest); err != nil {
+		if err := mm.dumpToFile(ctx, pr, user, stopIngest); err != nil {
 			log.Error(ctx, "debug recording failed; continuing without it", "error", err, "streamer", user)
 		}
 	}()
@@ -231,9 +305,8 @@ func (t recordingTeeWriter) Write(p []byte) (int, error) {
 // S3 Close commits the upload (flushing a final part and waiting on every
 // outstanding request, bounded only by the s3 package's per-operation timeouts),
 // and the live ingest stream must not sit behind that wait.
-func (mm *MediaManager) dumpToFile(ctx context.Context, r io.Reader, user string, filesuffix string, stopIngest func(error)) error {
-	now := aqtime.FromTime(time.Now())
-	filename := fmt.Sprintf("%s%s", now.FileSafeString(), filesuffix)
+func (mm *MediaManager) dumpToFile(ctx context.Context, r io.Reader, user string, stopIngest func(error)) error {
+	filename := aqtime.FromTime(time.Now()).FileSafeString() + ".mp4"
 	// Streams to S3 when configured (production), else a local file under DataDir
 	// (dev). Close finalizes either target — for S3 it commits the upload.
 	f, err := mm.cli.DebugRecordingCreate(ctx, []string{"debug-recordings", user, filename}, "video/mp4", false)

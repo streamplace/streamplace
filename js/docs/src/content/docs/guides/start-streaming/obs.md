@@ -70,7 +70,9 @@ native RTMP listeners do not report this warning.
 
 #### 2e. Suggested Video Encoder Settings
 
-- Video Encoder: x264/h264 (**must** be an x/h.264 encoder)
+- Video Encoder: x264/h264, or AV1 (NVENC, QSV, AMF or SVT-AV1). AV1 needs no
+  bframes setting, but devices without AV1 decoding and multistreaming need
+  H.264.
 - Rate Control: `CBR`
 - Keyframe Interval: `1s` (or anything less than once every ~7s)
   - This is _one keyframe per second_

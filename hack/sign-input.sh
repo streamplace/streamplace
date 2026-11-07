@@ -31,9 +31,11 @@ step "version and frontends"
 run make version
 run make app
 
-step "darwin binaries (unsigned)"
+step "darwin binaries and OBS plugins (unsigned)"
 for arch in amd64 arm64; do
   run make "darwin-$arch" SKIP_SIGN=1
+  # Desktop bundles this build's OBS plugin archive.
+  run make "obs-plugin-darwin-$arch"
 done
 
 step "desktop app bundles (unsigned)"

@@ -155,6 +155,8 @@ target() {
   if [ "$target" = "linux-amd64" ]; then
     run make test-vod
   fi
+  # Desktop bundles this build's OBS plugin archive.
+  run make "obs-plugin-$target"
   run_desktop "desktop-$target"
   run make "pkg-$target"
 }

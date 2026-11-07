@@ -39,6 +39,12 @@ type segmentValidation struct {
 	ValidationState   string                      `json:"validation_state"`
 }
 
+// replicatedMaxAge is how far a replicated (non-local) segment's start time
+// may be from this node's clock before it is refused as a replay; see
+// validateSource. A live segment is seconds old; the slack is for clock
+// skew between nodes and a pull that resumes after an outage.
+const replicatedMaxAge = 10 * time.Minute
+
 func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local bool) error {
 	return mm.validateMP4(ctx, input, local, "")
 }
@@ -79,7 +85,7 @@ func (mm *MediaManager) validateMP4(ctx context.Context, input io.Reader, local 
 	// dual-codec segment asynchronously (~1 GoP later, gapless), signed by
 	// completionSigner. Everything else — already dual-codec, no audio,
 	// audio-only, exotic codec, or no signer — is distributed as-is.
-	if target, need := mm.audioCompletionTarget(ctx, buf); need {
+	if target, need := completionTarget(vs.catalog); need {
 		if signer, serr := mm.completionSigner(ctx, local); serr == nil {
 			return mm.feedStreamTranscoder(ctx, vs, buf, target, signer)
 		} else {
@@ -96,6 +102,7 @@ func (mm *MediaManager) validateMP4(ctx context.Context, input io.Reader, local 
 type validatedSegment struct {
 	meta          *SegmentMetadata
 	mediaData     *localdb.SegmentMediaData
+	catalog       *muxl.MuxlCatalog
 	label         string
 	repoDID       string
 	signingKeyDID string
@@ -124,6 +131,20 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 		return nil, fmt.Errorf("segment manifest has no label")
 	}
 	label := *valid.Manifest.Label
+	// A replicated segment is live by definition: it reached us over a
+	// peer's subscription, a push, or /api/segment, all of which carry what
+	// a streamer is producing now. One from the past is a replay: anyone can
+	// fetch a public streamer's old signed segments, and without this a
+	// node would take them as that streamer going live again. The window
+	// is generous because the clocks are the nodes' own. Checked before the
+	// dedup skip below: a replay of a segment this node already holds must
+	// not pass as a successful ingest either.
+	if !local {
+		if age := time.Since(meta.StartTime.Time()); age > replicatedMaxAge || age < -replicatedMaxAge {
+			return nil, fmt.Errorf("replicated segment of %s starts at %s, %s from now; refusing a replay", meta.Creator, meta.StartTime.Time().Format(time.RFC3339), age.Round(time.Second))
+		}
+	}
+
 	if mm.model != nil {
 		_, dbSpan := tracer.Start(ctx, "ValidateMP4.LocalDB.GetSegment")
 		oldSeg, err := mm.localDB.GetSegment(label)
@@ -206,6 +227,7 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 	return &validatedSegment{
 		meta:          meta,
 		mediaData:     valid.MediaData,
+		catalog:       valid.Catalog,
 		label:         label,
 		repoDID:       repoDID,
 		signingKeyDID: signingKeyDID,
@@ -364,6 +386,7 @@ type ValidationResult struct {
 	Pub       *atcrypto.PublicKeyK256
 	Meta      *SegmentMetadata
 	MediaData *localdb.SegmentMediaData
+	Catalog   *muxl.MuxlCatalog // the segment's track configs
 	Manifest  *c2patypes.Manifest
 	Cert      string
 	// TrackSigners is the did:key that signed each track, in track order.
@@ -373,6 +396,7 @@ type ValidationResult struct {
 func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error) {
 	g, ctx := errgroup.WithContext(ctx)
 	var mediaData *localdb.SegmentMediaData
+	var catalog *muxl.MuxlCatalog
 	var validationResult *ValidationResult
 	g.Go(func() error {
 		// gstreamer needs a parseable MP4, but the bytes on the wire/disk are
@@ -388,6 +412,16 @@ func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error
 		return err
 	})
 	g.Go(func() error {
+		// The catalog describes every audio track (codec, group, label);
+		// the gst parse above only reads the first one.
+		events, err := unwrapMuxlEvents(ctx, buf)
+		if err != nil {
+			return fmt.Errorf("unwrap segment for catalog: %w", err)
+		}
+		catalog, _ = catalogAndTracks(events)
+		return nil
+	})
+	g.Go(func() error {
 		var err error
 		validationResult, err = ValidateMP4MediaC2PA(ctx, buf)
 		return err
@@ -396,13 +430,17 @@ func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error
 	if err != nil {
 		return nil, err
 	}
+	if audio := audioMediaData(catalog); len(audio) > 0 {
+		mediaData.Audio = audio
+	}
 	validationResult.MediaData = mediaData
+	validationResult.Catalog = catalog
 	return validationResult, nil
 }
 
 func ValidateMP4MediaData(ctx context.Context, buf []byte) (*localdb.SegmentMediaData, error) {
 	tracer := otel.Tracer("signer")
-	// Drives a gst pipeline (qtdemux + h264parse + opusparse + appsinks) —
+	// Drives a gst pipeline (qtdemux + h2642json + appsinks) —
 	// any tail here means a gst element is misbehaving, not the c2pa
 	// signing stack.
 	mdCtx, mdSpan := tracer.Start(ctx, "ValidateMP4Media.ParseSegmentMediaData")

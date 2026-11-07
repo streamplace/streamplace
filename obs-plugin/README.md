@@ -1,0 +1,102 @@
+# obs-streamplace
+
+An OBS Studio plugin (OBS 30.2 or newer) that streams to a Streamplace node as
+fragmented MP4 over HTTP. The node configures the stream through the same
+request OBS sends for Enhanced RTMP multitrack video, so it can choose how many
+video renditions and audio tracks the plugin encodes.
+
+## Using it
+
+Extract the archive for your platform into OBS's plugin directory:
+
+| Platform | Directory                                           |
+| -------- | --------------------------------------------------- |
+| Linux    | `~/.config/obs-studio/plugins/`                     |
+| Windows  | `C:\ProgramData\obs-studio\plugins\`                |
+| macOS    | `~/Library/Application Support/obs-studio/plugins/` |
+
+Restart OBS, then pick **Streamplace** in Settings → Stream, the **Local
+Streamplace node** server (`http://127.0.0.1:38080`), and your stream key. OBS
+offers no free-form server field for listed services, so to use another
+address, set `server` in the profile's `service.json`. The plugin only speaks
+plain `http://`, and expects a node on the same machine.
+
+OBS's Settings page only lists services from `rtmp-services`, so on startup the
+plugin adds a Streamplace entry to the `services.json` copy in OBS's config
+directory (`plugin_config/rtmp-services/`). The entry names the plugin's output
+protocol, so OBS hides it whenever the plugin is not loaded. If OBS's service
+updater replaces that file, the entry comes back on the next start.
+
+## Audio stems
+
+Viewers watching over WebRTC can turn parts of your audio up or down, such as
+the music. To offer that, name OBS mixer tracks in Settings → Output → Audio
+(Advanced output mode), and route your sources to them in Advanced Audio
+Properties:
+
+- **Track 1** stays the full mix. Everything else (HLS, VODs, multistream)
+  uses it, and viewers hear it unless they change the mix.
+- **Named tracks 2–6** become stems, up to two of them, e.g. Track 2 "Voice &
+  game" and Track 3 "Music". A viewer who adjusts a stem hears the stems
+  instead of the full mix, so together they should add up to the full mix:
+  with only a "Music" stem, turning it down leaves nothing else playing.
+
+The plugin encodes each of these tracks in both AAC and Opus.
+
+## Protocol
+
+When you start streaming, the plugin does three things in order.
+
+1. It sends `POST {server}/api/ingest/client-configuration` with a JSON body in
+   the shape of OBS's
+   [GoLiveApi `PostData`](https://github.com/obsproject/obs-studio/blob/master/frontend/utility/models/multitrack-video.hpp).
+   `authentication` carries the stream key, and `client.supported_codecs` is
+   `["h264", "av1"]` (older plugins send `["h264"]`, and the server only asks
+   them for H.264). As a Streamplace extension, `preferences.audio_tracks` lists
+   OBS's six mixer tracks as `{"track_id", "name"}`, with the names set in
+   Settings → Output → Audio (empty when unnamed), so the server can ask for
+   named tracks as stems.
+2. It reads the response as a GoLiveApi `Config`:
+   - `status.result: "error"` stops the stream and shows `status.html_en_us`.
+   - `ingest_endpoints`: the plugin uses the first entry whose `protocol` is
+     `FMP4`, replacing `{stream_key}` in its `url_template`.
+   - `encoder_configurations` replaces the encoders from OBS's output settings
+     with one video encoder per entry, each becoming one video track. As a
+     Streamplace extension an entry names a `codec` (`h264` or `av1`) instead of an OBS
+     encoder `type`: the plugin uses the encoder from OBS's output settings
+     when it is that codec, with its settings under the entry's `settings`,
+     and otherwise the first available encoder of the codec. `width`,
+     `height` and `framerate` scale it from the canvas.
+   - `audio_configurations.live` creates one audio encoder per entry. `codec`
+     is `aac` or `opus`, and `track_id` is the zero-based OBS audio mixer track
+     to encode. Each such track is written with `tkhd.alternate_group` set to
+     `track_id + 1`, so the AAC and Opus encodes of one mixer track share a
+     group, and with the mixer track's name (or "Track N") as its title in
+     `trak/udta/name`, the box ffmpeg writes a track title to.
+   - If either list is empty, the plugin uses OBS's own encoders for that kind
+     of track.
+3. It sends `POST` to the ingest URL with `Transfer-Encoding: chunked` and a
+   `video/mp4` body:
+   - First comes an init segment (`ftyp` + `moov`) with every video track,
+     then every audio track. H.264 tracks are `avc1`, AV1 tracks `av01` with an
+     `av1C` built from the encoder's sequence header; AV1 samples are the
+     encoder's temporal units without their temporal delimiter OBUs.
+   - After that it sends one `moof` + `mdat` fragment per frame of the first
+     video track. Each fragment holds every sample completed since the last one.
+   - Sample durations come from the real gaps between timestamps, so frames
+     that OBS drops show up as longer samples.
+   - The plugin ends the body when streaming stops.
+
+## Building
+
+From the repository root, in the builder container (see the
+`streamplace-docker` skill):
+
+```sh
+make obs-plugin-linux-amd64   # or linux-arm64, windows-amd64, darwin-amd64, darwin-arm64
+```
+
+The archive is written to `bin/`. The build only needs the libobs headers. A
+Meson wrap downloads them, pinned to OBS 30.2.3, the oldest release the plugin
+supports. On Windows, the build generates an import library for `obs.dll` from
+`obs.def`. When the plugin starts calling a new libobs function, add it there.

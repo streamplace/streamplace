@@ -134,6 +134,9 @@ func (atsync *ATProtoSynchronizer) feedUnresolved(ctx context.Context, items []s
 	g.SetLimit(identityResolveConcurrency)
 	for _, item := range items {
 		g.Go(func() error {
+			if !atsync.indexEventAllowed(gctx, item.DID) {
+				return nil
+			}
 			// On cancellation, still hand the item over (with a lane of its
 			// own): the scheduler's workers notice the dead context themselves,
 			// and every item accounted for exactly once is the simpler
@@ -517,11 +520,11 @@ func (atsync *ATProtoSynchronizer) sweepLoop(ctx context.Context, bootDelay, int
 // queued: the next one is another interval away, which is exactly when a sweep
 // that just finished should run again.
 func (atsync *ATProtoSynchronizer) sweepOnce(ctx context.Context, sweep func(context.Context) error) {
-	if !atsync.sweeping.CompareAndSwap(false, true) {
+	if !atsync.sweeping.TryLock() {
 		log.Log(ctx, "skipping scheduled sweep; the previous one is still running")
 		return
 	}
-	defer atsync.sweeping.Store(false)
+	defer atsync.sweeping.Unlock()
 	if err := sweep(ctx); err != nil && ctx.Err() == nil {
 		log.Error(ctx, "backfill sweep failed", "err", err)
 	}
@@ -582,6 +585,24 @@ func (atsync *ATProtoSynchronizer) sweep(ctx context.Context, ladders bool) erro
 	if err != nil {
 		return err
 	}
+	return atsync.sweepRepos(ctx, dids, ladders)
+}
+
+// repairSubscribedRepo must run after any active head-check pass, not be
+// discarded like a periodic tick: sparse tracks cannot replay a reconnect gap.
+// The gap may hold a handle change or a PDS move too, so it resolves the
+// identity afresh rather than checking the head on a cached PDS.
+func (atsync *ATProtoSynchronizer) repairSubscribedRepo(ctx context.Context, did string) error {
+	atsync.sweeping.Lock()
+	defer atsync.sweeping.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	atsync.purgeIdentCache(ctx, did)
+	return atsync.sweepRepos(ctx, []string{did}, false)
+}
+
+func (atsync *ATProtoSynchronizer) sweepRepos(ctx context.Context, dids []string, ladders bool) error {
 	log.Log(ctx, "starting backfill sweep", "totalRepos", len(dids),
 		"concurrency", atsync.sweepConcurrency(), "deepening", ladders)
 
@@ -695,6 +716,22 @@ func (atsync *ATProtoSynchronizer) sweepCandidates(ctx context.Context) ([]strin
 	terminal := make(map[string]struct{}, len(terminalDIDs))
 	for _, did := range terminalDIDs {
 		terminal[did] = struct{}{}
+	}
+	if atsync.upstreamMode() {
+		if atsync.StatefulDB == nil {
+			return nil, fmt.Errorf("cannot list local OAuth users without the state database")
+		}
+		dids, err := atsync.StatefulDB.IndexingDIDs(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list local OAuth users: %w", err)
+		}
+		eligible := dids[:0]
+		for _, did := range dids {
+			if _, parked := terminal[did]; !parked {
+				eligible = append(eligible, did)
+			}
+		}
+		return eligible, nil
 	}
 
 	var allDIDs []string

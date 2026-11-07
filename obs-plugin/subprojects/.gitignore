@@ -1,0 +1,6 @@
+*
+!.gitignore
+!obs-studio.wrap
+!jansson.wrap
+!packagefiles/
+!packagefiles/**

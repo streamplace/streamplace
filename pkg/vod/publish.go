@@ -233,8 +233,17 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobS
 		DurationMs:    &durationMS,
 	}
 	if videoMeta != nil {
+		// An upload's probe names the codec by caps ("x-h264"), a finalized
+		// livestream's by its catalog string ("avc1.640028").
+		codec, ok := media.VideoCodecForCaps("video/" + videoMeta.Codec)
+		if !ok {
+			codec, ok = media.VideoCodecForCatalog(videoMeta.Codec)
+		}
+		if !ok {
+			return nil, fmt.Errorf("video codec %q has no place.stream name", videoMeta.Codec)
+		}
 		meta.Video = &placestream.Segment_Video{
-			Codec:  "h264",
+			Codec:  codec.Name,
 			Width:  int64(videoMeta.Width),
 			Height: int64(videoMeta.Height),
 		}

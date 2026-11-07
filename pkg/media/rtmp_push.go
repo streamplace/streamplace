@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -37,8 +38,11 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	// fMP4 stream for the push pipeline. Tied to ctx so it tears down when the
 	// pipeline returns.
 	pr, pw := io.Pipe()
+	srcErr := make(chan error, 1)
 	go func() {
-		pw.CloseWithError(mm.writeRTMPSource(ctx, user, rendition, pw))
+		err := mm.writeRTMPSource(ctx, user, rendition, pw)
+		srcErr <- err
+		pw.CloseWithError(err)
 	}()
 
 	// Status straight to the DB (in-process). The isolated worker reports the
@@ -49,14 +53,35 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 			log.Error(ctx, "failed to create multistream event", "error", err)
 		}
 	}
-	return mm.runRTMPPushPipeline(ctx, pr, rec.Url, report)
+	err := mm.runRTMPPushPipeline(ctx, pr, rec.Url, report)
+	return rtmpSourceErr(srcErr, err)
 }
 
-// writeRTMPSource subscribes to the streamer's source segments, selects the AAC
-// audio + video tracks from each dual-codec segment, synthesizes a single fMP4
-// init from the first segment, and writes one continuous fMP4 stream to w (init
-// then every segment's canonical bytes concatenated). It returns when ctx is
-// done or a select/encode/write fails; the caller owns closing w.
+// ErrNoH264Video is why a stream with no H.264 video track (an AV1-only
+// push) is not multistreamed: FLV over RTMP carries H.264.
+var ErrNoH264Video = errors.New("stream has no H.264 video track, which RTMP multistreaming needs")
+
+// rtmpSourceErr is why a push ended: the source's ErrNoH264Video when that is
+// what stopped it (the pipeline then only saw its input end), else err. The
+// source reports before it closes the pipeline's input, so it has by the
+// time the pipeline is done.
+func rtmpSourceErr(srcErr <-chan error, err error) error {
+	select {
+	case serr := <-srcErr:
+		if errors.Is(serr, ErrNoH264Video) {
+			return serr
+		}
+	default:
+	}
+	return err
+}
+
+// writeRTMPSource subscribes to the streamer's source segments, selects the
+// first H.264 video track + the AAC audio track from each segment, synthesizes
+// a single fMP4 init from the first segment, and writes one continuous fMP4
+// stream to w (init then every segment's canonical bytes concatenated). It
+// returns when ctx is done or a select/encode/write fails (ErrNoH264Video for
+// a stream with no H.264 track); the caller owns closing w.
 //
 // MUXL segments carry per-track monotonic tfdt, so blind concatenation after a
 // single synthesized init is a valid fMP4 timeline with no remux. The init
@@ -81,12 +106,15 @@ func (mm *MediaManager) writeRTMPSource(ctx context.Context, user, rendition str
 				log.Warn(ctx, "source segment has no MUXL bytes, skipping", "file", seg.Filepath)
 				continue
 			}
-			// RTMP wants AAC: select video + the AAC audio track from the
-			// dual-codec segment and feed only those, so flvmux gets AAC with no
-			// transcode.
-			aacSeg, err := filterSegmentToCodec(ctx, seg.Muxl, false)
+			// RTMP wants H.264 and AAC: select the first H.264 track (an AV1
+			// source may precede it) and the AAC audio track from the segment
+			// and feed only those, so flvmux gets AAC with no transcode.
+			aacSeg, err := filterSegmentToCodec(ctx, seg.Muxl, false, onlyH264)
+			if errors.Is(err, errNoVideoTrack) {
+				return ErrNoH264Video
+			}
 			if err != nil {
-				return fmt.Errorf("select AAC audio: %w", err)
+				return fmt.Errorf("select H.264 video and AAC audio: %w", err)
 			}
 			if first {
 				var init bytes.Buffer

@@ -1,9 +1,10 @@
-import { app, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { parseArgs } from "node:util";
 import "source-map-support/register";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { generatePrivateKey } from "viem/accounts";
 import getEnv from "./env";
 import makeNode from "./node";
+import { configureStream, installPlugin, status as obsStatus } from "./obs";
 import runTests, { allTestNames } from "./tests/test-runner";
 import initUpdater from "./updater";
 import { makeWindow } from "./window";
@@ -12,11 +13,15 @@ import { makeWindow } from "./window";
 if (require("electron-squirrel-startup")) {
   app.quit();
 } else {
+  // Electron leaves Chromium switches and the app entry in process.argv.
+  // Keep parsing our own options without rejecting those Electron arguments.
   const { values: args, positionals } = parseArgs({
+    strict: false,
+    allowPositionals: true,
     options: {
       path: {
         type: "string",
-        default: "",
+        default: "/desktop",
       },
       "self-test": {
         type: "boolean",
@@ -31,6 +36,18 @@ if (require("electron-squirrel-startup")) {
       },
     },
   });
+  const path = args.path;
+  const testsToRun = args["tests-to-run"];
+  const testDuration = args["self-test-duration"];
+  const selfTest = args["self-test"];
+  if (
+    typeof path !== "string" ||
+    typeof testsToRun !== "string" ||
+    typeof testDuration !== "string" ||
+    (selfTest !== undefined && typeof selfTest !== "boolean")
+  ) {
+    throw new TypeError("Invalid Streamplace Desktop command-line options");
+  }
   const env = getEnv();
   console.log(
     "starting with: ",
@@ -38,25 +55,16 @@ if (require("electron-squirrel-startup")) {
   );
 
   app.on("ready", async () => {
-    let privateKey: `0x${string}`;
-    if (process.env.AQD_ADMIN_ACCOUNT_KEY) {
-      privateKey = process.env.AQD_ADMIN_ACCOUNT_KEY as `0x${string}`;
-    } else {
-      privateKey = generatePrivateKey();
-    }
-    ipcMain.handle("getPrivateKey", () => privateKey);
-    const account = privateKeyToAccount(privateKey);
-    const env = {
-      SP_ADMIN_ACCOUNT: account.address.toLowerCase(),
-      SP_ALLOWED_STREAMS: account.address.toLowerCase(),
-    };
-    if (args["self-test"]) {
+    if (selfTest) {
+      // The self-tests stream with a key of their own.
+      const privateKey = (process.env.AQD_ADMIN_ACCOUNT_KEY ??
+        generatePrivateKey()) as `0x${string}`;
       app.on("window-all-closed", () => {
         // need to override this to prevent the app from quitting
       });
       const success = await runTests(
-        args["tests-to-run"].split(","),
-        args["self-test-duration"],
+        testsToRun.split(","),
+        testDuration,
         privateKey,
       );
       console.log("tests finished");
@@ -67,7 +75,7 @@ if (require("electron-squirrel-startup")) {
       }
     } else {
       try {
-        await start(env);
+        await start({});
       } catch (e) {
         console.error(e);
         const dialogOpts: Electron.MessageBoxOptions = {
@@ -104,12 +112,74 @@ if (require("electron-squirrel-startup")) {
 
     let startPath;
     if (nodeFrontend) {
-      startPath = `${loadAddr}${args.path}`;
+      startPath = `${loadAddr}${path}`;
     } else {
-      startPath = `http://127.0.0.1:38081${args.path}`;
+      startPath = `http://127.0.0.1:38081${path}`;
     }
+
+    // For the OBS setup screen, through SP_ELECTRON.obs in preload.ts. Only
+    // the app's own pages may call it: signing in sends this window to the
+    // PDS, whose pages get the same preload.
+    const server = loadAddr ?? "http://127.0.0.1:38082";
+    const appOrigin = new URL(startPath).origin;
+    const handleObs = <A extends unknown[]>(
+      channel: string,
+      fn: (...args: A) => unknown,
+    ) =>
+      ipcMain.handle(channel, (e, ...args) => {
+        if (e.senderFrame?.origin !== appOrigin) {
+          throw new Error(`${channel} is only available to ${appOrigin}`);
+        }
+        return fn(...(args as A));
+      });
+    handleObs("obs:status", () => obsStatus());
+    handleObs("obs:installPlugin", () => installPlugin());
+    handleObs("obs:configureStream", (streamKey: string) =>
+      configureStream(server, streamKey),
+    );
     console.log(`opening ${startPath}`);
     mainWindow.loadURL(startPath);
+
+    offerObsPlugin(mainWindow).catch((e) =>
+      console.error("OBS plugin check failed", e),
+    );
+  };
+
+  // Offers to install or update the bundled OBS plugin when OBS could load it.
+  const offerObsPlugin = async (window: BrowserWindow) => {
+    const { obs, plugin, obsRunning } = await obsStatus();
+    if (obs !== "installed" || plugin === "current") {
+      return;
+    }
+    const verb = plugin === "outdated" ? "Update" : "Install";
+    const { response } = await dialog.showMessageBox(window, {
+      type: "question",
+      buttons: [verb, "Later"],
+      title: "Streamplace OBS plugin",
+      message: `${verb} the Streamplace plugin for OBS?`,
+      detail:
+        obsRunning && process.platform === "win32"
+          ? `Close OBS first, then choose ${verb}.`
+          : "OBS streams to Streamplace through it.",
+    });
+    if (response !== 0) {
+      return;
+    }
+    const { ok, error, restartObs } = await installPlugin();
+    if (!ok) {
+      await dialog.showMessageBox(window, {
+        type: "error",
+        title: "Streamplace OBS plugin",
+        message: "Couldn't install the OBS plugin",
+        detail: error,
+      });
+    } else if (restartObs) {
+      await dialog.showMessageBox(window, {
+        type: "info",
+        title: "Streamplace OBS plugin",
+        message: "Restart OBS to load the new plugin.",
+      });
+    }
   };
 
   // This method will be called when Electron has finished

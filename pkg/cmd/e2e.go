@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/url"
@@ -14,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -25,6 +28,7 @@ import (
 	glex "github.com/streamplace/glex/runtime"
 	urfavecli "github.com/urfave/cli/v3"
 	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
 	spcomatproto "stream.place/streamplace/pkg/comatproto"
@@ -79,6 +83,17 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 				Value:   "js/dev-env/run.mjs",
 				Sources: urfavecli.EnvVars("SP_DEV_ENV_MJS"),
 			},
+			&urfavecli.BoolFlag{
+				Name:    "upstream-station",
+				Usage:   "start an HTTPS upstream station, real atmoq bridge and loopback local node (requires HTTPS hostnames and atmoq on PATH)",
+				Sources: urfavecli.EnvVars("SP_E2E_UPSTREAM_STATION"),
+			},
+			&urfavecli.StringFlag{
+				Name:    "atmoq-bin",
+				Usage:   "path to the released atmoq binary used in upstream mode",
+				Value:   "atmoq",
+				Sources: urfavecli.EnvVars("SP_E2E_ATMOQ_BIN"),
+			},
 			// Together these turn on locally trusted HTTPS, so atproto OAuth
 			// works end to end; see e2e_https.go.
 			&urfavecli.StringFlag{
@@ -102,6 +117,18 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 				Usage:   "bundle id of the mobile app under test, which the node hands OAuth logins back to (its --app-bundle-id)",
 				Sources: urfavecli.EnvVars("SP_E2E_APP_BUNDLE_ID"),
 			},
+			&urfavecli.StringFlag{
+				Name:    "ingest",
+				Usage:   "how the harness streams for the test account: whip (loop a fixture over WHIP), fmp4 (loop it through the OBS plugin's fragmented-MP4 ingest) or none (stream nothing; push with STREAM_KEY yourself, e.g. from OBS)",
+				Value:   "whip",
+				Sources: urfavecli.EnvVars("SP_E2E_INGEST"),
+			},
+			&urfavecli.StringFlag{
+				Name:    "video",
+				Usage:   "the test stream's video: h264 (an H.264 fixture) or av1 (test/fixtures/av1-h264-opus.mp4, read from the working directory: an AV1 source track with an H.264 fallback track, both sent over fmp4, the AV1 track alone over whip)",
+				Value:   "h264",
+				Sources: urfavecli.EnvVars("SP_E2E_VIDEO"),
+			},
 		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
 			// Canonical form, so they compare equal to the SNI names the
@@ -111,7 +138,32 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			if (pdsHost == "") != (stationHost == "") {
 				return errors.New("--https-pds-hostname and --https-station-hostname go together")
 			}
-			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"))
+			ingest := cmd.String("ingest")
+			if ingest != "whip" && ingest != "fmp4" && ingest != "none" {
+				return fmt.Errorf("--ingest must be whip, fmp4 or none, not %q", ingest)
+			}
+			if cmd.Bool("upstream-station") && pdsHost == "" {
+				return errors.New("--upstream-station requires the HTTPS PDS and station hostnames")
+			}
+			var fixture string
+			switch video := cmd.String("video"); video {
+			case "h264":
+				fixture = remote.RemoteFixture("3188c071b354f2e548d7f2d332699758e8e3ab1600280e5b07cb67eedc64f274/BigBuckBunny_1sGOP_240p30_NoBframes.mp4")
+			case "av1":
+				// Checked in rather than in the remote fixture bucket; the
+				// harness runs from the repo root.
+				abs, err := filepath.Abs("test/fixtures/av1-h264-opus.mp4")
+				if err != nil {
+					return err
+				}
+				if _, err := os.Stat(abs); err != nil {
+					return fmt.Errorf("--video av1 streams a fixture from the repo, so run from its root: %w", err)
+				}
+				fixture = abs
+			default:
+				return fmt.Errorf("--video must be h264 or av1, not %q", video)
+			}
+			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"), ingest, fixture, cmd.Bool("upstream-station"), cmd.String("atmoq-bin"))
 		},
 	}
 }
@@ -129,36 +181,51 @@ type e2eDevEnv struct {
 	LexiconPassword string `json:"lexicon-password"`
 }
 
+// Harness ports come from below the kernel's ephemeral range (Linux
+// 32768-60999, macOS 49152-65535). One picked there and released can't go
+// to a listener on :0, which every node opens, or to an outgoing
+// connection before the node it was picked for binds it.
+const harnessPortMin, harnessPortMax = 20000, 32000
+
+var (
+	pickedMu sync.Mutex
+	picked   = map[int]bool{}
+)
+
 func freePort() (int, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
+	return pickPort(func(addr string) (io.Closer, error) { return net.Listen("tcp", addr) })
 }
 
 func freeUDPPort() (int, error) {
-	c, err := net.ListenPacket("udp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
+	return pickPort(func(addr string) (io.Closer, error) { return net.ListenPacket("udp", addr) })
+}
+
+// pickPort finds a port in the harness range that listen can bind and no
+// earlier pick holds.
+func pickPort(listen func(addr string) (io.Closer, error)) (int, error) {
+	pickedMu.Lock()
+	defer pickedMu.Unlock()
+	for range 100 {
+		port := harnessPortMin + rand.IntN(harnessPortMax-harnessPortMin)
+		if picked[port] {
+			continue
+		}
+		l, err := listen(fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			continue
+		}
+		l.Close() //nolint:errcheck
+		picked[port] = true
+		return port, nil
 	}
-	defer c.Close()
-	return c.LocalAddr().(*net.UDPAddr).Port, nil
+	return 0, errors.New("no free port in the harness range")
 }
 
 // startNode forks this binary as a Streamplace node on the dev-env's PDS and
 // PLC, with extra on top of the configuration every harness node shares.
 func startNode(ctx context.Context, self string, env e2eDevEnv, dataDir string, extra []string) (*exec.Cmd, error) {
 	nodeCmd := exec.CommandContext(ctx, self)
-	// Inherit the parent environment (dev builds need LD_LIBRARY_PATH etc.)
-	// but strip any SP_ vars so the node only gets our config.
-	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "SP_") {
-			nodeCmd.Env = append(nodeCmd.Env, kv)
-		}
-	}
-	nodeCmd.Env = append(nodeCmd.Env,
+	nodeCmd.Env = append(e2eNodeEnv(),
 		fmt.Sprintf("SP_RELAY_HOST=%s", strings.ReplaceAll(env.PDSURL, "http://", "ws://")),
 		fmt.Sprintf("SP_PLC_URL=%s", env.PLCURL),
 		fmt.Sprintf("SP_DATA_DIR=%s", dataDir),
@@ -176,43 +243,7 @@ func startNode(ctx context.Context, self string, env e2eDevEnv, dataDir string, 
 	return nodeCmd, nil
 }
 
-// waitForNode waits for the node at httpAddr to answer /api/healthz. Bounded,
-// so a node that never comes up reports why instead of hanging the harness
-// (and `make provision`) with no output forever.
-func waitForNode(ctx context.Context, httpAddr string) error {
-	healthURL := fmt.Sprintf("http://%s/api/healthz", httpAddr)
-	httpClient := &http.Client{Timeout: 2 * time.Second}
-	deadline := time.Now().Add(nodeReadyTimeout)
-	var lastErr error
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		resp, err := httpClient.Get(healthURL)
-		switch {
-		case err != nil:
-			lastErr = err
-		case resp.StatusCode == http.StatusOK:
-			// Close every response, not just the happy one: a body left open
-			// holds its connection out of the pool, so a node answering
-			// non-200 exhausts them.
-			resp.Body.Close()
-			return nil
-		default:
-			lastErr = fmt.Errorf("GET %s: %s", healthURL, resp.Status)
-			resp.Body.Close()
-		}
-		if time.Now().After(deadline) {
-			if lastErr == nil {
-				lastErr = errors.New("no response")
-			}
-			return fmt.Errorf("node was not ready after %s: %w", nodeReadyTimeout, lastErr)
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-}
-
-func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, httpsPort int, appBundleID string) error {
+func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, httpsPort int, appBundleID, ingest, fixture string, upstream bool, atmoqBin string) error {
 	// Ctrl-C / SIGTERM must unwind through the normal path, or none of the
 	// teardown below runs: Go's default handling exits immediately, which left
 	// the dev-env node, the forked node and the temp data dir behind.
@@ -243,10 +274,11 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	if err != nil {
 		return fmt.Errorf("dev-env stdout pipe: %w", err)
 	}
+	setNodeProcessGroup(devEnvCmd)
 	if err := devEnvCmd.Start(); err != nil {
 		return fmt.Errorf("start dev-env: %w", err)
 	}
-	defer devEnvCmd.Process.Kill() //nolint:errcheck
+	defer stopE2EProcess(ctx, devEnvCmd, "")
 
 	// The PDS logs JSON to stdout too when LOG_ENABLED is set, so skip lines
 	// until the one that carries the URLs.
@@ -338,6 +370,16 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		tlsEnv.Serve(ctx, pdsURL.Host, plcURL.Host, httpAddr)
 	}
 
+	var bridgeURL string
+	if upstream {
+		bridge, relayURL, err := startE2EBridge(ctx, tlsEnv, env.PDSURL, atmoqBin)
+		if err != nil {
+			return err
+		}
+		defer stopE2EProcess(ctx, bridge, "")
+		bridgeURL = relayURL
+	}
+
 	// Fork ourselves as a Streamplace server node.
 	self, err := os.Executable()
 	if err != nil {
@@ -360,6 +402,29 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		return fmt.Errorf("break debug-recording sink: %w", err)
 	}
 
+	// A third node, fed by push: the first node pushes its streams to it
+	// over MoQ (--peers, see docs/moq.md), the way a node beside a
+	// streamer's encoder hands off to a server. Its ports are picked now so
+	// the first node can be told where it will be; it starts after the
+	// first, which retries the push until it is up.
+	pushHTTPPort, err := freePort()
+	if err != nil {
+		return err
+	}
+	pushInternalPort, err := freePort()
+	if err != nil {
+		return err
+	}
+	pushRTMPPort, err := freePort()
+	if err != nil {
+		return err
+	}
+	pushMoqPort, err := freeUDPPort()
+	if err != nil {
+		return err
+	}
+	pushAddr := fmt.Sprintf("127.0.0.1:%d", pushHTTPPort)
+
 	nodeEnv := []string{
 		fmt.Sprintf("SP_HTTP_ADDR=%s", httpAddr),
 		fmt.Sprintf("SP_HTTP_INTERNAL_ADDR=127.0.0.1:%d", internalPort),
@@ -372,6 +437,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		fmt.Sprintf("SP_BROADCASTER_HOST=%s", broadcasterHost),
 		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", httpAddr),
 		fmt.Sprintf("SP_MOQ_URL=moqt://127.0.0.1:%d", moqPort),
+		fmt.Sprintf("SP_PEERS=http://%s", pushAddr),
 	}
 	if tlsEnv != nil {
 		nodeEnv = append(nodeEnv, tlsEnv.NodeEnv()...)
@@ -385,9 +451,9 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	}
 	// Kill the node *and* the ingest workers it detaches; the plain
 	// Process.Kill that used to be here left those behind.
-	defer killNode(ctx, nodeCmd, out.Did)
-	if err := waitForNode(ctx, httpAddr); err != nil {
-		return err
+	defer stopE2EProcess(ctx, nodeCmd, out.Did)
+	if err := waitE2EHealth(ctx, fmt.Sprintf("http://%s/api/healthz", httpAddr)); err != nil {
+		return fmt.Errorf("station node: %w", err)
 	}
 	stationKey, err := e2eStationKey(ctx, httpAddr)
 	if err != nil {
@@ -442,9 +508,59 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	if err != nil {
 		return fmt.Errorf("peer: %w", err)
 	}
-	defer killNode(ctx, peerCmd, out.Did)
-	if err := waitForNode(ctx, peerAddr); err != nil {
+	defer stopE2EProcess(ctx, peerCmd, out.Did)
+	if err := waitE2EHealth(ctx, fmt.Sprintf("http://%s/api/healthz", peerAddr)); err != nil {
 		return fmt.Errorf("peer: %w", err)
+	}
+
+	// The push-fed node syndicates nothing itself: the only way the stream
+	// reaches it is the first node pushing it.
+	pushDataDir, err := os.MkdirTemp("", "streamplace-e2e-push-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(pushDataDir) //nolint:errcheck
+	pushEnv := []string{
+		fmt.Sprintf("SP_HTTP_ADDR=%s", pushAddr),
+		fmt.Sprintf("SP_HTTP_INTERNAL_ADDR=127.0.0.1:%d", pushInternalPort),
+		fmt.Sprintf("SP_RTMP_ADDR=127.0.0.1:%d", pushRTMPPort),
+		fmt.Sprintf("SP_MOQ_ADDR=127.0.0.1:%d", pushMoqPort),
+		fmt.Sprintf("SP_BROADCASTER_HOST=%s", pushAddr),
+		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", pushAddr),
+	}
+	if tlsEnv != nil {
+		pushEnv = append(pushEnv, tlsEnv.TrustEnv()...)
+	}
+	pushCmd, err := startNode(ctx, self, env, pushDataDir, pushEnv)
+	if err != nil {
+		return fmt.Errorf("push node: %w", err)
+	}
+	defer stopE2EProcess(ctx, pushCmd, out.Did)
+	if err := waitE2EHealth(ctx, fmt.Sprintf("http://%s/api/healthz", pushAddr)); err != nil {
+		return fmt.Errorf("push node: %w", err)
+	}
+
+	// Only the local node's own completed OAuth sessions authorize its indexing;
+	// do not seed a local session here. Its ingest loop retries until login.
+	var local *e2eLocalNode
+	var unrelated *e2eUnrelatedAccount
+	if upstream {
+		local, err = startE2ELocalNode(ctx, self, tlsEnv, env, out.Did, appBundleID, bridgeURL)
+		if err != nil {
+			return err
+		}
+		defer local.Close(ctx, out.Did)
+		unrelated, err = createE2EUnrelatedAccount(ctx, env.PDSURL, handleDomain)
+		if err != nil {
+			return err
+		}
+		if _, err := createRecord(ctx, xrpcc, "app.bsky.graph.follow", out.Did, &appbsky.GraphFollow{
+			LexiconTypeID: "app.bsky.graph.follow",
+			CreatedAt:     time.Now().UTC().Format(util.ISO8601),
+			Subject:       unrelated.did,
+		}); err != nil {
+			return fmt.Errorf("seed follow to unrelated account: %w", err)
+		}
 	}
 
 	// Register a stream key for the test account.
@@ -508,24 +624,37 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	// Give the node a moment to index the key before we start streaming.
 	time.Sleep(1 * time.Second)
 
-	// Stream a test fixture in a loop so it outlasts any Maestro test run.
-	fixture := remote.RemoteFixture("3188c071b354f2e548d7f2d332699758e8e3ab1600280e5b07cb67eedc64f274/BigBuckBunny_1sGOP_240p30_NoBframes.mp4")
+	// Stream the test fixture in a loop so it outlasts any Maestro test run.
+	ingestAddr := httpAddr
+	if local != nil {
+		ingestAddr = local.addr
+	}
 	g, streamCtx := errgroup.WithContext(ctx)
 	g.Go(func() error {
+		if ingest == "none" {
+			return nil
+		}
 		for {
 			select {
 			case <-streamCtx.Done():
 				return nil
 			default:
 			}
-			whip := &WHIPClient{
-				StreamKey: priv,
-				File:      fixture,
-				Endpoint:  fmt.Sprintf("http://%s", httpAddr),
-				Count:     1,
+			endpoint := fmt.Sprintf("http://%s", ingestAddr)
+			var err error
+			if ingest == "fmp4" {
+				err = pushFMP4(streamCtx, endpoint, priv, fixture)
+			} else {
+				whip := &WHIPClient{
+					StreamKey: priv,
+					File:      fixture,
+					Endpoint:  endpoint,
+					Count:     1,
+				}
+				err = whip.WHIP(streamCtx)
 			}
-			if err := whip.WHIP(streamCtx); err != nil && streamCtx.Err() == nil {
-				log.Log(streamCtx, "whip stream ended, restarting", "err", err)
+			if err != nil && streamCtx.Err() == nil {
+				log.Log(streamCtx, "test stream ended, restarting", "ingest", ingest, "err", err)
 			}
 			// Brief pause between restarts so we don't spin on errors.
 			select {
@@ -541,16 +670,26 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	// the local file the ingest loop is streaming, which tests upload through
 	// the app to get themselves a playable VOD. PDS_HTTP_URL is the PDS's own
 	// plain-HTTP listener, for host-side checks of the records it stores.
-	vars := fmt.Sprintf("SERVER_URL=http://%s\nSERVER2_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nE2E_FIXTURE_MP4=%s\nPDS_HTTP_URL=%s\n",
-		httpAddr, peerAddr, out.Handle, out.Did, password, videoURI, fixture, env.PDSURL)
+	serverAddr := httpAddr
+	if local != nil {
+		serverAddr = local.addr
+	}
+	vars := fmt.Sprintf("SERVER_URL=http://%s\nSERVER2_URL=http://%s\nSERVER3_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nE2E_FIXTURE_MP4=%s\nPDS_HTTP_URL=%s\nSTREAM_KEY=%s\n",
+		serverAddr, peerAddr, pushAddr, out.Handle, out.Did, password, videoURI, fixture, env.PDSURL, priv)
 	if tlsEnv != nil {
-		// The same node over HTTPS at its public name, plus what clients
-		// need to reach and trust it (see e2e_https.go): a browser pins the
-		// leaf by SPKI, a device installs the CA.
-		vars += fmt.Sprintf("SERVER_HTTPS_URL=%s\nPDS_HTTPS_URL=%s\nE2E_PROXY_URL=%s\nE2E_TLS_SPKI=%s\nE2E_TLS_CA=%s\n",
-			tlsEnv.StationURL(), tlsEnv.PDSURL(), tlsEnv.ProxyURL(), tlsEnv.spki, tlsEnv.caPath)
+		vars += fmt.Sprintf("PDS_HTTPS_URL=%s\nE2E_PROXY_URL=%s\nE2E_TLS_SPKI=%s\nE2E_TLS_CA=%s\n",
+			tlsEnv.PDSURL(), tlsEnv.ProxyURL(), tlsEnv.spki, tlsEnv.caPath)
+		if local != nil {
+			vars += fmt.Sprintf("E2E_UPSTREAM_STATION=true\nUPSTREAM_STATION_URL=%s\nATMOQ_RELAY_URL=%s\nE2E_ATMOQ_LOG=%s\nE2E_LOCAL_DATA_DIR=%s\nE2E_STATION_DATA_DIR=%s\nE2E_LOCAL_PDS_AUDIT=%s\nUNRELATED_ACCOUNT_DID=%s\nUNRELATED_ACCOUNT_HANDLE=%s\nUNRELATED_ACCESS_JWT=%s\nE2E_PDS_INTERNAL_URL=%s\nE2E_PLC_URL=%s\n",
+				tlsEnv.StationURL(), bridgeURL, filepath.Join(tlsEnv.dir, "atmoq.log"), local.dataDir, dataDir, tlsEnv.auditPath, unrelated.did, unrelated.handle, unrelated.accessJWT, env.PDSURL, env.PLCURL)
+		} else {
+			vars += fmt.Sprintf("SERVER_HTTPS_URL=%s\n", tlsEnv.StationURL())
+		}
 	}
 	fmt.Print(vars)
+	if local != nil {
+		go local.Control(ctx, out.Did)
+	}
 
 	<-ctx.Done()
 	return g.Wait()

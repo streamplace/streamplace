@@ -1,7 +1,6 @@
 package director
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -74,12 +74,19 @@ type StreamSession struct {
 
 	lastLivestreamTime time.Time
 	lastViewCountTime  time.Time
+	s3Mu               sync.Mutex
 	s3Uploader         *s3.S3Uploader
-	// localRole runs once this node takes up the ingest node's jobs for the
-	// session (recording, multistream targets): on the first local segment,
-	// whether that is the session's first segment or one that arrives after
-	// the node syndicated the stream for a while.
-	localRole sync.Once
+	// s3Pending counts the s3Uploader's queued segment workers.
+	s3Pending sync.WaitGroup
+	// roles enters the session into the stream's jobs once; see startRoles.
+	// originRoles is separate: it starts on the first segment that makes
+	// this node an origin for the stream (see startOriginRoles).
+	roles, originRoles sync.Once
+	// transcoding is the transcode role's context while this node holds the
+	// role, nil otherwise. Transcodes run under it, so a node that loses
+	// the role drops the ones in flight rather than pay for them alongside
+	// the new holder.
+	transcoding atomic.Pointer[context.Context]
 }
 
 // bitrateMargin is the wiggle room over the configured maximum before a stream
@@ -139,13 +146,12 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	allRenditions = append(allRenditions, renditions.AudioRendition)
 
 	close(ss.started)
-
-	// Live recording and multistream targets are the ingest node's jobs
-	// alone: a node that merely syndicates this stream must not also write
-	// it to S3, or every node records the same stream and they fight over
-	// the finalize. Taken up on the first local segment; see startLocalRole.
-	if notif.Local {
-		ss.startLocalRole(ctx, notif.Segment.RepoDID)
+	// Live recording, multistream targets and transcoding are jobs for
+	// exactly one node: the nodes carrying the stream that can do one
+	// contend for it, and the leases decide (see roles.go).
+	ss.startRoles(notif.Segment.RepoDID)
+	if ss.ingestOrigin(notif.Local) {
+		ss.startOriginRoles(notif.Segment.RepoDID)
 	}
 
 	// Start background workers for status, origin, and livestream updates
@@ -167,13 +173,9 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 		case <-ss.segmentChan:
 			// reset timer
 		case <-ctx.Done():
-			// Drain all in-flight session goroutines (including the per-segment
-			// AddSegment senders) BEFORE closing the uploader, so no segment
-			// send can race the uploader's channel close. s3Close then flushes
-			// the final object on the uploader's own (still-live) context.
-			err := ss.g.Wait()
-			ss.s3Close(ctx)
-			return err
+			// Every in-flight session goroutine finishes here, the role
+			// loops that put the stream's jobs down included.
+			return ss.g.Wait()
 		// case <-time.After(time.Minute * 1):
 		case <-time.After(ss.cli.StreamSessionTimeout):
 			log.Log(ctx, "stream session timeout, shutting down", "timeout", ss.cli.StreamSessionTimeout)
@@ -192,21 +194,6 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	}
 }
 
-// startLocalRole takes up what only the ingest node does for a stream:
-// recording it to S3 for live-to-VOD and driving its multistream targets.
-// Once per session, on the first local segment. For the session's first
-// segment the director runs Start in the background and NewSegment right
-// after it, so the two calls can race; sync.Once lets one of them do the
-// work and the other return.
-func (ss *StreamSession) startLocalRole(ctx context.Context, repoDID string) {
-	ss.localRole.Do(func() {
-		ss.maybeStartS3Upload(ctx, repoDID)
-		ss.Go(ctx, func() error {
-			return ss.HandleMultistreamTargets(ctx)
-		})
-	})
-}
-
 // Execute a goroutine in the context of the stream session. Errors are
 // non-fatal; if you actually want to melt the universe on an error you
 // should panic()
@@ -219,6 +206,15 @@ func (ss *StreamSession) Go(ctx context.Context, f func() error) {
 		}
 		return nil
 	})
+}
+
+// ingestOrigin reports whether this node is the origin of a stream it
+// ingests (local): it is unless it pushes its streams to --peers. Those
+// peers are then the origin, the nodes the station pulls the stream from
+// and that transcode it; the pusher is typically behind NAT, out of their
+// reach (see docs/moq.md).
+func (ss *StreamSession) ingestOrigin(local bool) bool {
+	return local && len(ss.cli.Peers) == 0
 }
 
 func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegmentNotification) error {
@@ -270,10 +266,13 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	}
 
 	// A session that began with replicated segments (this node syndicated
-	// the stream) and now receives local ones has become the ingest node:
-	// take up recording and multistream targets now rather than never.
-	if notif.Local {
-		ss.startLocalRole(ctx, spseg.Creator)
+	// the stream) and then receives local ones is already in the running
+	// for the stream's jobs: contention starts on the first segment of
+	// either kind. Recording and transcoding are contended for only once
+	// this node is an origin for the stream (see startOriginRoles).
+	ss.startRoles(spseg.Creator)
+	if ss.ingestOrigin(notif.Local) || ss.replicator.ReceivesPush(spseg.Creator) {
+		ss.startOriginRoles(spseg.Creator)
 	}
 
 	// stream.received is enqueued once per StreamSession when the first local media segment is accepted.
@@ -298,9 +297,8 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	// got absorbed into the recording). The moment publishing stops we complete
 	// the current object so it's immediately finalize-able instead of lingering
 	// un-completed (which made finalize report "no recorded S3 segments").
-	if !notif.Local {
-		// replicated segment: the origin node records it
-	} else if notif.Metadata.Published {
+	// Both are no-ops on a node that does not hold the record role.
+	if notif.Metadata.Published {
 		ss.s3Upload(ctx, notif)
 	} else {
 		ss.s3Cutover(ctx)
@@ -319,7 +317,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		}, sourceTurn)
 	})
 
-	if notif.Local {
+	if ss.ingestOrigin(notif.Local) {
 		ss.Go(ctx, func() error {
 			// The row carries what a peer cannot derive from our DID: where
 			// we serve this stream over MoQ (see websocketrep.originViewForRow).
@@ -352,14 +350,16 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		ss.UpdateLivestream(ctx, spseg.Creator)
 	}
 	ss.UpdateViewCount(ctx)
-
-	// Transcoding is the ingest node's job, like recording: a node that
-	// merely syndicates the stream receives the renditions with it.
-	if ss.cli.LivepeerGatewayURL != "" && notif.Local {
+	// Transcoding is a job for the node holding the transcode role; every
+	// other node carrying the stream receives the renditions from it.
+	if role := ss.transcoding.Load(); role != nil {
 		// Claimed in arrival order: the renditions publish in it however
 		// the gateway's round trips finish.
 		renditionTurn := ss.renditions.turn()
 		ss.Go(ctx, func() error {
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			defer context.AfterFunc(*role, cancel)()
 			start := time.Now()
 			err := ss.Transcode(ctx, spseg, notif, renditionTurn)
 			took := time.Since(start)
@@ -386,8 +386,8 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			// Refresh the S3 uploader's livestream tag now that this stream's
 			// own record is indexed (it may not have been when the uploader
 			// started), so all objects are attributed to the right stream.
-			if ss.s3Uploader != nil {
-				ss.s3Uploader.SetLivestreamURI(livestreamModel.URI)
+			if u := ss.uploader(); u != nil {
+				u.SetLivestreamURI(livestreamModel.URI)
 			}
 			lsv, err := livestreamModel.ToLivestreamView()
 			if err != nil {
@@ -460,7 +460,7 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 	}
 
 	return ss.cli.ThumbnailWrite(repoDID, func(w io.Writer) error {
-		return media.Thumbnail(ctx, bytes.NewReader(not.Data), w, "jpeg")
+		return media.SegmentThumbnail(ctx, not.Muxl, w, "jpeg")
 	})
 }
 
@@ -894,6 +894,11 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	// Released on every exit: a segment that is skipped or fails must not
 	// hold the ones behind it.
 	defer tn.release()
+	if renditions.H264Source(spseg) == nil {
+		spmetrics.TranscodeSkippedNoH264Total.Inc()
+		log.Debug(ctx, "transcode: skipped, segment has no h264 video track")
+		return nil
+	}
 	data := notif.Data
 	if len(notif.Muxl) > 0 {
 		// Hand the transcoder the Opus presentation: it muxes that audio
@@ -909,6 +914,10 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	if err != nil {
 		return fmt.Errorf("failed to generated renditions: %w", err)
 	}
+	if len(rs) == 0 {
+		log.Debug(ctx, "transcode: skipped, no rendition to make")
+		return nil
+	}
 
 	if ss.lp == nil {
 		var err error
@@ -920,6 +929,11 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	}
 	spmetrics.TranscodeAttemptsTotal.Inc()
 	segs, err := ss.lp.PostSegmentToGateway(ctx, data, spseg, rs)
+	if ctx.Err() != nil {
+		// The transcode role was lost mid-request: its new holder does
+		// the job.
+		return nil
+	}
 	if errors.Is(err, livepeer.ErrBacklog) {
 		spmetrics.TranscodeSkippedTotal.Inc()
 		log.Debug(ctx, "transcode: skipped, transcoder is behind")
@@ -958,6 +972,10 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 			addendum = nil
 		}
 	}
+	// The transcoder's output carries only the full mix; renditions play
+	// with the source's own Opus tracks, stems included, wherever the
+	// addendum lets them be paired.
+	paired := ss.mm.PacketizeRenditions(ctx, notif.Muxl, addendum)
 	playback := make([]*bus.Seg, len(segs))
 	var pg errgroup.Group
 	for i, seg := range segs {
@@ -979,6 +997,10 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 			// with the flag unset was refused to every viewer.
 			Published: notif.Metadata.Published,
 		}
+		if packet := paired[media.RenditionTrackID(i)]; packet != nil {
+			playback[i].PacketizedData = packet
+			continue
+		}
 		pg.Go(func() error {
 			packet, err := media.Packetize(ctx, ss.cli, playback[i])
 			if err != nil {
@@ -992,10 +1014,11 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 	}
 	_ = pg.Wait()
 
-	if !tn.wait(ctx) {
-		// The segments behind this one gave up waiting and published; a
-		// rendition published now would arrive after newer ones.
-		log.Warn(ctx, "rendition abandoned by later segments, not published", "rendition", "all")
+	if !tn.wait(ctx) || ctx.Err() != nil {
+		// The segments behind this one gave up waiting and published, and
+		// a rendition published now would arrive after newer ones; or the
+		// transcode role was lost, and its new holder publishes.
+		log.Warn(ctx, "rendition abandoned, not published", "rendition", "all", "roleLost", ctx.Err() != nil)
 		return nil
 	}
 	if addendum != nil {
@@ -1041,6 +1064,14 @@ func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *placestream.Seg
 		return nil
 	}
 	ss.bus.PublishSegment(ctx, spseg.Creator, rendition, seg)
+	if rendition != "source" {
+		return nil
+	}
+	// The renditions the streamer sent inside the source segment play by
+	// name, like the transcoder's (which leaves those names to them).
+	for name, packet := range packet.Renditions() {
+		ss.bus.PublishSegment(ctx, spseg.Creator, name, &bus.Seg{PacketizedData: packet, Published: seg.Published})
+	}
 	return nil
 }
 
@@ -1138,10 +1169,25 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 	// {target.Uri}:{rec.Url} -> runningMultistream
 	// no concurrency issues, it's only used from this one loop
 	running := map[string]*runningMultistream{}
+	// wait reports whether to go round again, false once ctx ends.
+	wait := func() bool {
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(time.Second * 5):
+			return true
+		}
+	}
 	for {
 		targets, err := ss.statefulDB.ListMultistreamTargets(ss.repoDID, 100, 0, &isTrue)
 		if err != nil {
-			return fmt.Errorf("failed to list multistream targets: %w", err)
+			// Retried rather than returned: this node holds the multistream
+			// lease, so nobody else would drive the targets.
+			log.Error(ctx, "failed to list multistream targets", "error", err)
+			if !wait() {
+				return nil
+			}
+			continue
 		}
 		currentRunning := map[string]bool{}
 		for _, targetView := range targets {
@@ -1150,30 +1196,35 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 				log.Error(ctx, "failed to convert multistream target to streamplace multistream target", "uri", targetView.Uri)
 				continue
 			}
+			key := fmt.Sprintf("%s:%s", targetView.Uri, rec.Url)
+			currentRunning[key] = true
+			if running[key] != nil {
+				continue
+			}
+			// The worker only stops with its context: nothing would restart
+			// it, and this node holds the multistream lease. A target that
+			// cannot start now is tried again on the next pass.
 			uu, err := uuid.NewV7()
 			if err != nil {
-				return err
+				log.Error(ctx, "failed to make a multistream push id", "error", err)
+				continue
 			}
 			ctx := log.WithLogValues(ctx, "url", sanitizeMultistreamTargetURL(rec.Url), "pushID", uu.String())
-			key := fmt.Sprintf("%s:%s", targetView.Uri, rec.Url)
-			if running[key] == nil {
-				childCtx, childCancel := context.WithCancel(ctx)
-				ss.Go(ctx, func() error {
-					log.Log(ctx, "starting multistream target", "uri", targetView.Uri)
-					err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, "starting multistream target", "pending")
-					if err != nil {
-						log.Error(ctx, "failed to create multistream event", "error", err)
-					}
-					return ss.StartMultistreamTarget(childCtx, &targetView)
-				})
-				running[key] = &runningMultistream{
-					cancel: childCancel,
-					key:    key,
-					pushID: uu.String(),
-					url:    sanitizeMultistreamTargetURL(rec.Url),
+			childCtx, childCancel := context.WithCancel(ctx)
+			ss.Go(ctx, func() error {
+				log.Log(ctx, "starting multistream target", "uri", targetView.Uri)
+				err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, "starting multistream target", "pending")
+				if err != nil {
+					log.Error(ctx, "failed to create multistream event", "error", err)
 				}
+				return ss.StartMultistreamTarget(childCtx, &targetView)
+			})
+			running[key] = &runningMultistream{
+				cancel: childCancel,
+				key:    key,
+				pushID: uu.String(),
+				url:    sanitizeMultistreamTargetURL(rec.Url),
 			}
-			currentRunning[key] = true
 		}
 		for key := range running {
 			if !currentRunning[key] {
@@ -1182,11 +1233,8 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 				delete(running, key)
 			}
 		}
-		select {
-		case <-ctx.Done():
+		if !wait() {
 			return nil
-		case <-time.After(time.Second * 5):
-			continue
 		}
 	}
 }
@@ -1208,6 +1256,11 @@ func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, targetView 
 			if err != nil {
 				log.Error(ctx, "failed to create multistream event", "error", err)
 			}
+		}
+		if errors.Is(err, media.ErrNoH264Video) {
+			// Retrying would reconnect to the target every few seconds only
+			// to fail the same way; the next stream session tries again.
+			return nil
 		}
 		select {
 		case <-ctx.Done():

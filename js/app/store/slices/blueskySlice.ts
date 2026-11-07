@@ -373,14 +373,6 @@ export const createBlueskySlice: StateCreator<
         }
       }
       const u = await updatedState.client.authorize(handle, authorizeOptions);
-      if (
-        typeof document !== "undefined" &&
-        document.location.href.startsWith("http://127.0.0.1")
-      ) {
-        const hostUrl = new URL(document.location.href);
-        u.host = hostUrl.host;
-        u.protocol = hostUrl.protocol;
-      }
       console.log("Opening link");
       await openLoginLink(u.toString());
       // cheeky 500ms delay so you don't see the text flash back

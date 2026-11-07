@@ -22,6 +22,8 @@
             "place.stream.chat.message",
             "place.stream.chat.pinnedRecord",
             "place.stream.chat.profile",
+            "place.stream.ingest.audioRendition",
+            "place.stream.ingest.videoRendition",
             "place.stream.key",
             "place.stream.like",
             "place.stream.live.recommendations",

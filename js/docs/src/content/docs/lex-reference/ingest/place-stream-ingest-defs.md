@@ -7,6 +7,23 @@ description: Reference for the place.stream.ingest.defs lexicon
 
 ## Definitions
 
+<a name="framerate"></a>
+
+### `framerate`
+
+**Type:** `object`
+
+A frame rate as a fraction, like 60/1 or 30000/1001.
+
+**Properties:**
+
+| Name          | Type      | Req'd | Description | Constraints |
+| ------------- | --------- | ----- | ----------- | ----------- |
+| `numerator`   | `integer` | ✅    |             | Min: 1      |
+| `denominator` | `integer` | ✅    |             | Min: 1      |
+
+---
+
 <a name="ingest"></a>
 
 ### `ingest`
@@ -66,6 +83,21 @@ Something the streamer should fix about how they're connected.
   "lexicon": 1,
   "id": "place.stream.ingest.defs",
   "defs": {
+    "framerate": {
+      "type": "object",
+      "description": "A frame rate as a fraction, like 60/1 or 30000/1001.",
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "denominator": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
     "ingest": {
       "type": "object",
       "description": "An ingest URL for a Streamplace station.",

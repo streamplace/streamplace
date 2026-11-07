@@ -68,7 +68,7 @@ type MediaManager struct {
 	model               model.Model
 	bus                 *bus.Bus
 	atsync              *atproto.ATProtoSynchronizer
-	webrtcAPI           *webrtc.API
+	webrtcAPIs          map[string]*webrtc.API // by video MIME type (see newWebRTCAPI)
 	webrtcConfig        webrtc.Configuration
 	localDB             localdb.LocalDB
 
@@ -137,7 +137,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		return nil, fmt.Errorf("error in gstreamer self-test: %w", err)
 	}
 
-	api, config, err := newWebRTCAPI()
+	apis, config, err := newWebRTCAPIs()
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		model:               mod,
 		bus:                 bus,
 		atsync:              atsync,
-		webrtcAPI:           api,
+		webrtcAPIs:          apis,
 		webrtcConfig:        config,
 		localDB:             ldb,
 		transcoders:         map[string]*streamTranscoder{},

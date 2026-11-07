@@ -66,6 +66,11 @@ var TranscodeSkippedNoKeyframeTotal = promauto.NewCounter(prometheus.CounterOpts
 	Help: "segments not sent to the transcoder because their video does not start with an IDR and its parameter sets (a transcoder cannot decode them and drops the session)",
 })
 
+var TranscodeSkippedNoH264Total = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_transcode_skipped_no_h264_total",
+	Help: "segments not transcoded because they carry no H.264 video track (an AV1-only stream; the transcoder takes H.264 only)",
+})
+
 var TranscodeManifestRotationsTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "streamplace_transcode_manifest_rotations_total",
 	Help: "times a stream moved to a fresh gateway manifest after the gateway refused every recent push (see livepeer.RotateAfterFailures)",
@@ -162,13 +167,11 @@ var LabelerFirehosesConnected = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "number of currently connected labeler firehoses",
 }, []string{"labeler"})
 
-// FirehoseRelaysConnected is 1 while a relay's firehose is connected and 0
-// while it is reconnecting, labeled by relay host and protocol ("websocket" or
-// "moq"). With multi-relay support this shows at a glance how many of the
-// configured relays are currently feeding us.
+// FirehoseRelaysConnected counts active firehose connections per relay and
+// protocol. Upstream mode opens one sparse MoQ connection per local user.
 var FirehoseRelaysConnected = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "streamplace_firehose_relays_connected",
-	Help: "1 if the relay's firehose is currently connected, else 0",
+	Help: "Number of active firehose connections to the relay",
 }, []string{"relay", "protocol"})
 
 // FirehoseEventsReceivedTotal counts every event a relay delivered, before

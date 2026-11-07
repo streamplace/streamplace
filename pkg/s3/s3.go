@@ -82,6 +82,11 @@ type S3Uploader struct {
 	closeOnce sync.Once
 	closeErr  error
 	closed    atomic.Bool
+	// closing orders a send on segCh before Close's close of it, so a
+	// segment that arrives as the uploader is being closed is refused
+	// rather than panicking: the recorder role moves between nodes while
+	// segments are still flowing.
+	closing sync.RWMutex
 }
 
 // SetLivestreamURI records the livestream this stream's objects belong to. A
@@ -192,12 +197,10 @@ type uploadCmd struct {
 
 // AddSegment feeds one bare canonical MUXL segment (uuid+moof+mdat per track)
 // that starts at start for upload. The bytes are copied, so the caller may
-// reuse its buffer. It is the caller's responsibility not to call AddSegment
-// concurrently with Close (the StreamSession guarantees this by draining its
-// goroutines before closing, see director.Start); the closed guard here is a
-// best-effort backstop that turns a late call into an error rather than a
-// send-on-closed-channel panic.
+// reuse its buffer. A call that meets Close returns an error.
 func (u *S3Uploader) AddSegment(ctx context.Context, data []byte, start time.Time) error {
+	u.closing.RLock()
+	defer u.closing.RUnlock()
 	if u.closed.Load() {
 		return fmt.Errorf("s3 uploader closed")
 	}
@@ -218,6 +221,8 @@ func (u *S3Uploader) AddSegment(ctx context.Context, data []byte, start time.Tim
 // can find the completed objects right away. A no-op if there's no current
 // object, and a no-op after Close.
 func (u *S3Uploader) Cutover(ctx context.Context) error {
+	u.closing.RLock()
+	defer u.closing.RUnlock()
 	if u.closed.Load() {
 		return nil
 	}
@@ -240,8 +245,10 @@ func (u *S3Uploader) Cutover(ctx context.Context) error {
 // symmetry.
 func (u *S3Uploader) Close(ctx context.Context) error {
 	u.closeOnce.Do(func() {
+		u.closing.Lock()
 		u.closed.Store(true)
 		close(u.segCh)
+		u.closing.Unlock()
 		if uploadErr := <-u.done; uploadErr != nil {
 			u.closeErr = fmt.Errorf("error uploading: %w", uploadErr)
 		}

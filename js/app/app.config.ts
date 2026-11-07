@@ -77,7 +77,7 @@ const withAndroidProfileable = (config) => {
 // the device's user store, where hack/e2e-local.sh installs the e2e harness's
 // throwaway CA so the app can reach its HTTPS station and PDS. Never ship
 // this — it lets whoever can add a user CA intercept the app's traffic.
-// Cleartext stays off, as in a release build (targetSdk 28+ default).
+// Only loopback HTTP is allowed, for the upstream-mode local OAuth proxy.
 const withE2EUserTrust: ConfigPlugin = (config) => {
   config = withDangerousMod(config, [
     "android",
@@ -97,6 +97,10 @@ const withE2EUserTrust: ConfigPlugin = (config) => {
       <certificates src="user" />
     </trust-anchors>
   </base-config>
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="false">127.0.0.1</domain>
+    <domain includeSubdomains="false">localhost</domain>
+  </domain-config>
 </network-security-config>
 `,
       );

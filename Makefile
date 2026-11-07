@@ -316,13 +316,17 @@ meson-compile:
 
 # Source bootstrap is independent of Meson configuration and is a no-op once
 # the pinned checkout exists, so repeated/offline native builds do not fetch.
-# A checkout of an older pin (moq.wrap's revision changed) is moved to the new
-# one, patches reapplied.
+# A checkout whose wrap changed since it was fetched (a new pin or diff_files)
+# is moved to the wrap's revision, patches reapplied. Fresh checkouts are left
+# to `meson setup`, and `make link-gstreamer` symlinks to your own tree.
 .PHONY: native-source
 native-source:
 	meson subprojects download --sourcedir . moq
-	@[ "$$(git -C subprojects/moq rev-parse HEAD)" = "$$(sed -n 's/^revision = //p' subprojects/moq.wrap)" ] || \
-		meson subprojects update --reset --sourcedir . moq
+	@for p in moq gstreamer-full; do \
+		[ ! -d subprojects/$$p ] || [ -L subprojects/$$p ] || \
+		[ "$$(cat subprojects/$$p/.meson-subproject-wrap-hash.txt 2>/dev/null)" = "$$(shasum -a 256 < subprojects/$$p.wrap | cut -d ' ' -f 1)" ] || \
+		meson subprojects update --reset --sourcedir . $$p || exit 1; \
+	done
 
 
 #    _____ _______    _______ _____ _____
@@ -626,7 +630,8 @@ ci-desktop-darwin: version install
 			&& ./streamplace self-test; \
 		fi \
 		&& mkdir -p build-darwin-$$arch \
-		&& mv ./streamplace ./build-darwin-$$arch/streamplace; \
+		&& mv ./streamplace ./build-darwin-$$arch/streamplace \
+		&& $(MAKE) ci-download-file download_file=obs-streamplace-$(VERSION)-darwin-$$arch.tar.gz; \
 	done \
 	&& $(MAKE) desktop-darwin \
 	&& for arch in amd64 arm64; do \
@@ -688,6 +693,7 @@ node-all-platforms: app
 	$(MAKE) linux-arm64
 	$(MAKE) windows-amd64
 	$(MAKE) windows-amd64-startup-test
+	$(MAKE) obs-plugin-linux-amd64 obs-plugin-linux-arm64 obs-plugin-windows-amd64
 	$(MAKE) desktop-linux
 	$(MAKE) desktop-windows-amd64
 
@@ -800,6 +806,28 @@ darwin-arm64:
 		&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-arm64.tar.gz ./streamplace \
 		&& cd -; \
 	fi
+
+# The OBS plugin in obs-plugin/, cross-compiled with the same cross files as the node.
+OBS_PLUGIN_TARGETS=linux-amd64 linux-arm64 windows-amd64 darwin-amd64 darwin-arm64
+OBS_PLUGIN_CROSS_FILE_linux-arm64=--cross-file ../util/linux-arm64-gnu.ini
+OBS_PLUGIN_CROSS_FILE_windows-amd64=--cross-file ../util/windows-amd64-gnu.ini
+OBS_PLUGIN_CROSS_FILE_darwin-amd64=--cross-file ../util/osxcross-darwin-amd64.ini
+OBS_PLUGIN_CROSS_FILE_darwin-arm64=--cross-file ../util/osxcross-darwin-arm64.ini
+
+.PHONY: $(addprefix obs-plugin-,$(OBS_PLUGIN_TARGETS))
+$(addprefix obs-plugin-,$(OBS_PLUGIN_TARGETS)): obs-plugin-%:
+	cd obs-plugin \
+	&& meson setup --reconfigure build-$* $(OBS_PLUGIN_CROSS_FILE_$*) -Dplugin_version=$(VERSION) \
+	&& meson compile -C build-$*
+	./obs-plugin/package.sh $* $(VERSION) $(OUT_DIR)
+
+# local obs plugin build for whatever you're on
+.PHONY: obs-plugin
+obs-plugin:
+	cd obs-plugin \
+	&& meson setup --reconfigure build-$(BUILDOS)-$(BUILDARCH) -Dplugin_version=$(VERSION) \
+	&& meson compile -C build-$(BUILDOS)-$(BUILDARCH)
+	./obs-plugin/package.sh $(BUILDOS)-$(BUILDARCH) $(VERSION) $(OUT_DIR)
 
 # unbuffer here is a workaround for wine trying to pop up a terminal window and failing
 .PHONY: windows-amd64-startup-test
@@ -1113,6 +1141,10 @@ ci-upload-android-release:
 ci-upload-ios: ios
 	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-ios-release.xcarchive.tar.gz
 
+.PHONY: $(addprefix ci-upload-obs-plugin-,$(OBS_PLUGIN_TARGETS))
+$(addprefix ci-upload-obs-plugin-,$(OBS_PLUGIN_TARGETS)): ci-upload-obs-plugin-%:
+	$(MAKE) ci-upload-file upload_file=obs-streamplace-$(VERSION)-$*.$(if $(findstring windows,$*),zip,tar.gz)
+
 upload_file?=""
 .PHONY: ci-upload-file
 ci-upload-file:
@@ -1126,7 +1158,7 @@ download_file?=""
 .PHONY: ci-download-file
 ci-download-file:
 	curl \
-		--fail-with-body \
+		--fail-with-body --create-dirs \
 		--header "JOB-TOKEN: $$CI_JOB_TOKEN" \
 		-o bin/$(download_file) \
 		"$$CI_API_V4_URL/projects/$$CI_PROJECT_ID/packages/generic/$(BRANCH)/$(VERSION)/$(download_file)";

@@ -134,7 +134,7 @@ func allSignedBareSegments(t *testing.T, ctx context.Context, ms *MediaSignerLoc
 	var out [][]byte
 	for ev := range eventCh {
 		if ev.Type == "signed-segment" {
-			out = append(out, concatTracksSorted(ev.Tracks))
+			out = append(out, concatTracksByID(ev.Tracks))
 		}
 	}
 	require.NoError(t, <-errCh)

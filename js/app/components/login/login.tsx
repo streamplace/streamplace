@@ -1,5 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
-import { storage, Text, useTheme, zero } from "@streamplace/components";
+import { storage, useTheme, zero } from "@streamplace/components";
 import { Redirect } from "components/aqlink";
 import Loading from "components/loading/loading";
 import { useEffect, useState } from "react";
@@ -13,7 +13,6 @@ import LoginForm from "./login-form";
 export default function Login() {
   const { theme } = useTheme();
   const closeLoginModal = useStore((state) => state.closeLoginModal);
-  const openPdsModal = useStore((state) => state.openPdsModal);
   const userProfile = useUserProfile();
   const navigation = useNavigation();
   const isReady = useIsReady();
@@ -102,20 +101,18 @@ export default function Login() {
         >
           <View
             style={[
-              zero.px[8],
-              zero.pt[10],
-              zero.pb[6],
-              zero.r.lg,
-              { backgroundColor: theme.colors.card },
-              { width: "100%" },
-              { maxWidth: 600 },
-              zero.gap.all[4],
+              zero.p[6],
+              {
+                backgroundColor: theme.colors.surface1,
+                borderWidth: 1,
+                borderColor: theme.colors.border,
+                borderRadius: theme.borderRadius.none,
+                width: "100%",
+                maxWidth: 400,
+              },
             ]}
           >
-            <Text style={[{ fontSize: 36, fontWeight: "200", color: "white" }]}>
-              Log in
-            </Text>
-            <LoginForm onOpenPdsModal={openPdsModal} />
+            <LoginForm />
           </View>
         </View>
       </ScrollView>

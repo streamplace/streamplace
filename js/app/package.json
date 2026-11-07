@@ -60,7 +60,7 @@
     "@react-navigation/native": "8.0.0-alpha.51",
     "@react-navigation/native-stack": "8.0.0-alpha.59",
     "@sentry/cli": "^3.8.2",
-    "@sentry/react-native": "8.33.0",
+    "@sentry/react-native": "8.34.0",
     "@streamplace/components": "workspace:*",
     "@streamplace/core": "workspace:*",
     "@tanstack/react-query": "^5.105.3",

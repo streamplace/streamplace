@@ -11,6 +11,33 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
+// IngestDefs_Framerate is a "framerate" in the place.stream.ingest.defs schema.
+//
+// A frame rate as a fraction, like 60/1 or 30000/1001.
+type IngestDefs_Framerate struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	Denominator   int64  `json:"denominator"`
+	Numerator     int64  `json:"numerator"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *IngestDefs_Framerate) RecordTypeID() string { return "place.stream.ingest.defs#framerate" }
+
+func (t *IngestDefs_Framerate) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.ingest.defs#framerate"
+	return glex.MarshalCBOR(w, &cp)
+}
+
+func (t *IngestDefs_Framerate) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
 // IngestDefs_Ingest is a "ingest" in the place.stream.ingest.defs schema.
 //
 // An ingest URL for a Streamplace station.

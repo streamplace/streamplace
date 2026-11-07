@@ -1,0 +1,52 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.local.putRecord",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Write a record that stays on this node instead of the caller's repo, such as its configuration for this node. Shaped like com.atproto.repo.putRecord.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["repo", "collection", "rkey", "record"],
+          "properties": {
+            "repo": {
+              "type": "string",
+              "format": "did",
+              "description": "The caller's DID; a node keeps local records for their own author only."
+            },
+            "collection": {
+              "type": "string",
+              "format": "nsid",
+              "description": "One of the collections this node keeps locally."
+            },
+            "rkey": {
+              "type": "string",
+              "format": "record-key",
+              "maxLength": 512
+            },
+            "record": { "type": "unknown" }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["uri", "cid"],
+          "properties": {
+            "uri": { "type": "string", "format": "at-uri" },
+            "cid": { "type": "string", "format": "cid" }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "InvalidCollection",
+          "description": "This node does not keep records of the collection locally."
+        }
+      ]
+    }
+  }
+}

@@ -60,8 +60,12 @@ When you start streaming, the plugin does three things in order.
    - `ingest_endpoints`: the plugin uses the first entry whose `protocol` is
      `FMP4`, replacing `{stream_key}` in its `url_template`.
    - `encoder_configurations` replaces the encoders from OBS's output settings
-     with one video encoder per entry (H.264 encoder types only). Each entry
-     becomes one video track.
+     with one video encoder per entry, each becoming one video track. As a
+     Streamplace extension an entry names a `codec` (`h264`) instead of an OBS
+     encoder `type`: the plugin uses the encoder from OBS's output settings
+     when it is that codec, with its settings under the entry's `settings`,
+     and otherwise the first available encoder of the codec. `width`,
+     `height` and `framerate` scale it from the canvas.
    - `audio_configurations.live` creates one audio encoder per entry. `codec`
      is `aac` or `opus`, and `track_id` is the zero-based OBS audio mixer track
      to encode. Each such track is written with `tkhd.alternate_group` set to

@@ -1,7 +1,7 @@
-import { app, dialog, ipcMain } from "electron";
+import { app, dialog } from "electron";
 import { parseArgs } from "node:util";
 import "source-map-support/register";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { generatePrivateKey } from "viem/accounts";
 import getEnv from "./env";
 import makeNode from "./node";
 import runTests, { allTestNames } from "./tests/test-runner";
@@ -38,19 +38,10 @@ if (require("electron-squirrel-startup")) {
   );
 
   app.on("ready", async () => {
-    let privateKey: `0x${string}`;
-    if (process.env.AQD_ADMIN_ACCOUNT_KEY) {
-      privateKey = process.env.AQD_ADMIN_ACCOUNT_KEY as `0x${string}`;
-    } else {
-      privateKey = generatePrivateKey();
-    }
-    ipcMain.handle("getPrivateKey", () => privateKey);
-    const account = privateKeyToAccount(privateKey);
-    const env = {
-      SP_ADMIN_ACCOUNT: account.address.toLowerCase(),
-      SP_ALLOWED_STREAMS: account.address.toLowerCase(),
-    };
     if (args["self-test"]) {
+      // The self-tests stream with a key of their own.
+      const privateKey = (process.env.AQD_ADMIN_ACCOUNT_KEY ??
+        generatePrivateKey()) as `0x${string}`;
       app.on("window-all-closed", () => {
         // need to override this to prevent the app from quitting
       });
@@ -67,7 +58,7 @@ if (require("electron-squirrel-startup")) {
       }
     } else {
       try {
-        await start(env);
+        await start({});
       } catch (e) {
         console.error(e);
         const dialogOpts: Electron.MessageBoxOptions = {

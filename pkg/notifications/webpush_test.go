@@ -3,7 +3,6 @@ package notifications
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,20 +14,20 @@ import (
 // TestWebPushNotifierBlast verifies that the WebPushNotifier:
 //   - ignores firebase targets,
 //   - POSTs the encrypted payload to each web subscription's endpoint,
+//   - limits push-service retention to five minutes,
 //   - surfaces a 410 Gone as an ExpiredSubscriptionError so the caller can
 //     prune the dead subscription.
 func TestWebPushNotifierBlast(t *testing.T) {
 	// Spin up a fake push service that records what it receives.
 	var (
-		gotPaths  []string
-		gotBodies [][]byte
-		status    int
+		gotPaths []string
+		gotTTLs  []string
+		status   int
 	)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/push/", func(w http.ResponseWriter, r *http.Request) {
 		gotPaths = append(gotPaths, r.URL.Path)
-		body, _ := io.ReadAll(r.Body)
-		gotBodies = append(gotBodies, body)
+		gotTTLs = append(gotTTLs, r.Header.Get("TTL"))
 		if status != 0 {
 			w.WriteHeader(status)
 			return
@@ -76,10 +75,7 @@ func TestWebPushNotifierBlast(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, gotPaths, 1, "only the web target should have been pushed to")
 	require.Equal(t, "/push/abc", gotPaths[0])
-
-	// The body is encrypted (RFC 8291), so it won't be our plaintext JSON —
-	// just confirm something non-empty was sent.
-	require.NotEmpty(t, gotBodies[0])
+	require.Equal(t, []string{"300"}, gotTTLs, "offline browsers must not receive pushes queued for more than five minutes")
 
 	// Now make the endpoint return 410 Gone and confirm we get an
 	// ExpiredSubscriptionError.

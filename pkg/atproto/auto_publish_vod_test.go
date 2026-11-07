@@ -24,11 +24,17 @@ import (
 // publishing when it sees a livestream record end, for a streamer who has it
 // on then. An ended record seen again (a redelivery, an edit, one met in a
 // backfill) never schedules: turning the setting on later must not publish a
-// recording from before.
+// recording from before. LivestreamEnded, which closes out the live
+// recording, fires on the same sightings, whatever the setting.
 func TestAutoPublishVODScheduledWhenSeenEnding(t *testing.T) {
 	ctx := context.Background()
 	atsync, mod, _ := offlineSynchronizer(t)
 	did := "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"
+	ended := 0
+	atsync.LivestreamEnded = func(_ context.Context, streamer string) {
+		require.Equal(t, did, streamer)
+		ended++
+	}
 	require.NoError(t, mod.UpdateRepo(&model.Repo{
 		DID:     did,
 		Handle:  "streamer.test",
@@ -83,25 +89,31 @@ func TestAutoPublishVODScheduledWhenSeenEnding(t *testing.T) {
 	require.Zero(t, scheduled(live), "still live")
 	index("3llive0000000", "live", true, false)
 	require.Equal(t, 1, scheduled(live), "seen ending")
+	require.Equal(t, 1, ended)
 	index("3llive0000000", "live", true, false)
 	index("3llive0000000", "live, retitled", true, false)
 	require.Equal(t, 1, scheduled(live), "seen again, and edited")
+	require.Equal(t, 1, ended)
 
 	first := index("3lfirst000000", "first", true, false)
 	require.Equal(t, 1, scheduled(first), "first seen already ended")
+	require.Equal(t, 2, ended)
 
 	old := index("3lold00000000", "old", true, true)
 	require.Zero(t, scheduled(old), "met ended in a backfill")
 	index("3lold00000000", "old", true, false)
 	require.Zero(t, scheduled(old), "the backfilled record seen again")
+	require.Equal(t, 2, ended)
 
 	optIn(false)
 	off := index("3loff00000000", "off", false, false)
 	index("3loff00000000", "off", true, false)
 	require.Zero(t, scheduled(off), "ended with the setting off")
+	require.Equal(t, 3, ended, "the recording closes out all the same")
 	optIn(true)
 	index("3loff00000000", "off, retitled", true, false)
 	require.Zero(t, scheduled(off), "edited after turning it on")
+	require.Equal(t, 3, ended)
 }
 
 func TestDeletedServerSettingsWithdrawAutoPublishConsent(t *testing.T) {

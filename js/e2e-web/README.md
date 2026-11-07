@@ -134,6 +134,13 @@ controls clipped below the web shell's header: the compact player's height must
 fill its available parent, not the whole browser window. These controls are
 web-only; native live playback uses device volume controls.
 
+`player-volume` checks Expo web's compact and desktop volume controls against the
+real stream. Track clicks and thumb drags must agree with left-to-right pointer
+position, the thumb must align with the track, and keyboard endpoints must mute
+and restore full volume. The slider stays expanded during use and displays both
+filled and remaining volume. Native iOS and Android live playback use device
+volume controls instead.
+
 `auto-publish-vods` saves and reloads the automatic publishing preference,
 checks that the stream form's Create tab and Privacy & Security share it,
 including the popout form, and hides the control without VOD beta access or

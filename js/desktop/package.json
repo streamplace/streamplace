@@ -11,6 +11,7 @@
     "make": "pnpm --filter @streamplace/brand generate && electron-forge make",
     "publish": "electron-forge publish",
     "nolint": "eslint --ext .ts,.tsx .",
+    "test": "node --require ts-node/register/transpile-only --test src/*.test.ts",
     "prepare": "CGO_ENABLED=0 go run ../../pkg/config/git/git.go --js > src/version.ts"
   },
   "devDependencies": {

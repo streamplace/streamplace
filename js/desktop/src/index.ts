@@ -1,9 +1,10 @@
-import { app, dialog } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { parseArgs } from "node:util";
 import "source-map-support/register";
 import { generatePrivateKey } from "viem/accounts";
 import getEnv from "./env";
 import makeNode from "./node";
+import { configureStream, installPlugin, status as obsStatus } from "./obs";
 import runTests, { allTestNames } from "./tests/test-runner";
 import initUpdater from "./updater";
 import { makeWindow } from "./window";
@@ -16,7 +17,7 @@ if (require("electron-squirrel-startup")) {
     options: {
       path: {
         type: "string",
-        default: "",
+        default: "/desktop",
       },
       "self-test": {
         type: "boolean",
@@ -99,8 +100,70 @@ if (require("electron-squirrel-startup")) {
     } else {
       startPath = `http://127.0.0.1:38081${args.path}`;
     }
+
+    // For the OBS setup screen, through SP_ELECTRON.obs in preload.ts. Only
+    // the app's own pages may call it: signing in sends this window to the
+    // PDS, whose pages get the same preload.
+    const server = loadAddr ?? "http://127.0.0.1:38082";
+    const appOrigin = new URL(startPath).origin;
+    const handleObs = <A extends unknown[]>(
+      channel: string,
+      fn: (...args: A) => unknown,
+    ) =>
+      ipcMain.handle(channel, (e, ...args) => {
+        if (e.senderFrame?.origin !== appOrigin) {
+          throw new Error(`${channel} is only available to ${appOrigin}`);
+        }
+        return fn(...(args as A));
+      });
+    handleObs("obs:status", () => obsStatus());
+    handleObs("obs:installPlugin", () => installPlugin());
+    handleObs("obs:configureStream", (streamKey: string) =>
+      configureStream(server, streamKey),
+    );
     console.log(`opening ${startPath}`);
     mainWindow.loadURL(startPath);
+
+    offerObsPlugin(mainWindow).catch((e) =>
+      console.error("OBS plugin check failed", e),
+    );
+  };
+
+  // Offers to install or update the bundled OBS plugin when OBS could load it.
+  const offerObsPlugin = async (window: BrowserWindow) => {
+    const { obs, plugin, obsRunning } = await obsStatus();
+    if (obs !== "installed" || plugin === "current") {
+      return;
+    }
+    const verb = plugin === "outdated" ? "Update" : "Install";
+    const { response } = await dialog.showMessageBox(window, {
+      type: "question",
+      buttons: [verb, "Later"],
+      title: "Streamplace OBS plugin",
+      message: `${verb} the Streamplace plugin for OBS?`,
+      detail:
+        obsRunning && process.platform === "win32"
+          ? `Close OBS first, then choose ${verb}.`
+          : "OBS streams to Streamplace through it.",
+    });
+    if (response !== 0) {
+      return;
+    }
+    const { ok, error, restartObs } = await installPlugin();
+    if (!ok) {
+      await dialog.showMessageBox(window, {
+        type: "error",
+        title: "Streamplace OBS plugin",
+        message: "Couldn't install the OBS plugin",
+        detail: error,
+      });
+    } else if (restartObs) {
+      await dialog.showMessageBox(window, {
+        type: "info",
+        title: "Streamplace OBS plugin",
+        message: "Restart OBS to load the new plugin.",
+      });
+    }
   };
 
   // This method will be called when Electron has finished

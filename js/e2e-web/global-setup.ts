@@ -1,4 +1,5 @@
 import { chromium, expect, type FullConfig } from "@playwright/test";
+import { loginThroughPds } from "./flows/login";
 import { pointAppAtNode } from "./server-setup";
 import { STORAGE_STATE } from "./storage";
 
@@ -11,10 +12,30 @@ export default async function globalSetup(_config: FullConfig) {
     throw new Error("SERVER_URL is not set — start the harness first");
   }
 
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
+  const browser = await chromium.launch({
+    args: process.env.E2E_TLS_SPKI
+      ? [`--ignore-certificate-errors-spki-list=${process.env.E2E_TLS_SPKI}`]
+      : [],
+  });
+  const page = await browser.newPage({
+    ...(process.env.E2E_PROXY_URL
+      ? {
+          proxy: {
+            server: process.env.E2E_PROXY_URL,
+            bypass: "127.0.0.1,localhost",
+          },
+        }
+      : {}),
+  });
   try {
     await pointAppAtNode(page, SERVER_URL);
+    if (process.env.E2E_UPSTREAM_STATION) {
+      // Keep scenario browser contexts unauthenticated. The actual completed
+      // bootstrap session remains persisted on the local node and authorizes
+      // its first repo sync and per-DID MoQ subscription.
+      await page.context().storageState({ path: STORAGE_STATE });
+      await loginThroughPds(page);
+    }
 
     // The harness WHIP stream takes a few seconds after boot to ingest its
     // first segments and register as live. The home feed fetches getLiveUsers
@@ -29,8 +50,24 @@ export default async function globalSetup(_config: FullConfig) {
     await expect(page.getByTestId("home-stream-card").first()).toBeVisible({
       timeout: 30_000,
     });
+    if (process.env.E2E_UPSTREAM_STATION) {
+      // Bootstrap grants are not an invisible second authorized local user.
+      // Leave scenarios a configured, logged-out browser and no active local
+      // subscription, so their final-user revoke actually stops the DID track.
+      await page.goto(`${SERVER_URL}/settings/account`);
+      const revoked = page.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          response.url() === `${SERVER_URL}/oauth/revoke` &&
+          response.ok(),
+      );
+      await page.getByText("Log out", { exact: true }).last().click();
+      await revoked;
+    }
 
-    await page.context().storageState({ path: STORAGE_STATE });
+    if (!process.env.E2E_UPSTREAM_STATION) {
+      await page.context().storageState({ path: STORAGE_STATE });
+    }
   } finally {
     await browser.close();
   }

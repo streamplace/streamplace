@@ -33,6 +33,7 @@ export const serverRestartTest: E2ETest = {
       SP_DATA_DIR: tmpDir,
       SP_TEST_STREAM: "true",
       SP_NO_FIREHOSE: "true",
+      SP_UPSTREAM_STATION: "",
       SP_WIDE_OPEN: "true",
     };
     let { proc } = await makeNode({

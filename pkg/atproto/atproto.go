@@ -24,6 +24,10 @@ var SyncGetRepo = comatproto.SyncGetRepo
 func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, handle string) (*model.Repo, error) {
 	ctx, span := otel.Tracer("signer").Start(ctx, "SyncBlueskyRepoCached")
 	defer span.End()
+	handle, err := atsync.indexingDID(ctx, handle)
+	if err != nil {
+		return nil, err
+	}
 	repo, err := atsync.Model.GetRepoByHandleOrDID(handle)
 	if errors.Is(err, model.ErrAmbiguousHandle) {
 		// More than one indexed row claims the handle. The directory knows
@@ -60,6 +64,10 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, ha
 }
 
 func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
+	handle, err := atsync.indexingDID(ctx, handle)
+	if err != nil {
+		return nil, err
+	}
 	ident, err := atsync.resolveIdent(ctx, handle, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve Bluesky handle %s: %w", handle, err)
@@ -84,6 +92,9 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	handleLock := handleLocks.GetLock(ident.DID.String())
 	handleLock.Lock()
 	defer handleLock.Unlock()
+	if _, err := atsync.indexingDID(ctx, ident.DID.String()); err != nil {
+		return nil, err
+	}
 	ctx = markWalking(ctx, ident.DID.String())
 
 	// Tell re-entrant callers (handleCreateUpdate syncs the repos it sees
@@ -153,6 +164,9 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		}
 		return nil, err
 	}
+	if _, err := atsync.indexingDID(ctx, ident.DID.String()); err != nil {
+		return nil, err
+	}
 
 	// A completed backfill proves the account is fine, so Status goes back to
 	// empty -- UpdateRepo writes every column, so this happens by construction.
@@ -202,6 +216,9 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 // served -- and stays out of the wedge path -- for the entire time its history
 // is being filled in.
 func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (bool, string, error) {
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
+		return false, "", err
+	}
 	repo, err := atsync.Model.GetRepo(did)
 	if err != nil {
 		return false, "", fmt.Errorf("failed to get repo for %s: %w", did, err)
@@ -229,6 +246,9 @@ func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (
 	handleLock := handleLocks.GetLock(did)
 	handleLock.Lock()
 	defer handleLock.Unlock()
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
+		return false, "", err
+	}
 	defer markSyncInFlight(did)()
 	ctx = markWalking(ctx, did)
 
@@ -260,6 +280,9 @@ func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (
 		if parked := parkTerminalRepo(ctx, atsync.Model, did, err); parked != nil {
 			return false, "", parked
 		}
+		return false, "", err
+	}
+	if _, err := atsync.indexingDID(ctx, did); err != nil {
 		return false, "", err
 	}
 
@@ -338,6 +361,12 @@ func syncInFlight(did string) bool {
 // Resolve and write under the stable DID's lock, including requests made by
 // handle. Otherwise an older resolution could write after a newer refresh.
 func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, identifier string) (*identity.Identity, error) {
+	// Upstream mode refreshes the account a local session authorized, by its
+	// DID, not whoever holds that session's handle now.
+	identifier, err := atsync.indexingDID(ctx, identifier)
+	if err != nil {
+		return nil, err
+	}
 	requestedHandle := ""
 	if !strings.HasPrefix(identifier, "did:") {
 		requestedHandle = identifier

@@ -86,6 +86,9 @@ type queryLabelsOut struct {
 }
 
 func (atsync *ATProtoSynchronizer) seedLabels(ctx context.Context, labeler string, patterns []string) error {
+	if _, err := atsync.indexingDID(ctx, labeler); err != nil {
+		return err
+	}
 	ident, err := atsync.resolveIdent(ctx, labeler, true)
 	if err != nil {
 		return err
@@ -114,6 +117,9 @@ func (atsync *ATProtoSynchronizer) seedLabels(ctx context.Context, labeler strin
 	}
 	added, removed := 0, 0
 	for {
+		if _, err := atsync.indexingDID(ctx, labeler); err != nil {
+			return err
+		}
 		params := map[string]any{
 			// Account labels only: DIDs, not records.
 			"uriPatterns": []string{"did:*"},

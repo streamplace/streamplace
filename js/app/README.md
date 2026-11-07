@@ -8,6 +8,11 @@ gitignored and generated via `expo prebuild`; shared UI lives in
 web-only importer has a separate TypeScript program so WalletConnect's Node
 typings do not change the native app's timer and environment types.
 
+Native OAuth uses the direct Custom Tab launch on Android, not Expo 58's proxy
+task, which can reopen a cancelled attempt after restarting the app. Handle-field
+Enter submission goes through `onSubmitEditing` only, so one press starts one
+sign-in attempt.
+
 ## User search
 
 Search is available without signing in. Wide windows (981px and up, matching

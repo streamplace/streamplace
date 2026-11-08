@@ -67,6 +67,8 @@ it.each([
     );
     expect(image.width).toBe(imageSide);
     expect(outer.width).toBe(imageSide + ringWidth * 4);
+    expect(outer.height).toBe(outer.width);
+    expect(outer.borderRadius).toBe(outer.width / 2);
     expect(outer.borderWidth).toBe(ringWidth);
     expect((outer.width - image.width) / 2 - outer.borderWidth).toBe(ringWidth);
 

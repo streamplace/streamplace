@@ -13,10 +13,11 @@ import {
   colors,
   motion,
   spacing,
+  textAlphas,
   touchTargets,
 } from "@streamplace/components/src/lib/theme/tokens";
 import { Volume2, VolumeX } from "lucide-react-native";
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -33,20 +34,13 @@ export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
 
   const fadeAnim = useSharedValue(0);
   const widthAnim = useSharedValue(0);
-  const fadeOutTimer = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const fadeOut = useCallback(() => {
     fadeAnim.value = withTiming(0, { duration: motion.slow });
     widthAnim.value = withTiming(0, { duration: motion.slow });
   }, [fadeAnim, widthAnim]);
 
-  const scheduleFadeOut = useCallback(() => {
-    clearTimeout(fadeOutTimer.current);
-    fadeOutTimer.current = setTimeout(fadeOut, 1500);
-  }, [fadeOut]);
-
   const onVolumeHover = useCallback(() => {
-    clearTimeout(fadeOutTimer.current);
     fadeAnim.value = withTiming(1, { duration: motion.base });
     widthAnim.value = withTiming(sliderWidth, { duration: motion.base });
   }, [fadeAnim, sliderWidth, widthAnim]);
@@ -70,6 +64,8 @@ export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
     <View
       onPointerEnter={onVolumeHover}
       onPointerLeave={fadeOut}
+      onFocus={onVolumeHover}
+      onBlur={fadeOut}
       style={[
         layout.flex.row,
         layout.flex.alignCenter,
@@ -97,6 +93,7 @@ export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
           style={{
             position: "relative",
             display: "flex",
+            flexDirection: "row",
             alignItems: "center",
             flex: 1,
             width: sliderWidth - spacing[4],
@@ -115,14 +112,14 @@ export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
             } else {
               setMuted(false);
             }
-            scheduleFadeOut();
           }}
         >
           <Slider.Track
             testID="player-volume-track"
             style={{
-              flexGrow: 1,
-              height: touchTargets.minimum,
+              height: spacing[1],
+              borderRadius: borderRadius.full,
+              backgroundColor: textAlphas.dark[4],
               position: "relative",
               flex: 1,
             }}
@@ -133,29 +130,18 @@ export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
                 backgroundColor: colors.white,
                 borderRadius: borderRadius.full,
                 height: spacing[1],
-                flex: 1,
-                width: "100%",
-                transform: [
-                  {
-                    translateY: (touchTargets.minimum - spacing[1]) / 2,
-                  },
-                ],
-              }}
-            />
-            <Slider.Thumb
-              style={{
-                position: "absolute",
-                width: spacing[3],
-                height: spacing[3],
-                borderRadius: borderRadius.full,
-                backgroundColor: colors.white,
-                transform: [
-                  { translateX: -spacing[3] / 2 },
-                  { translateY: (touchTargets.minimum - spacing[3]) / 2 },
-                ],
               }}
             />
           </Slider.Track>
+          <Slider.Thumb
+            accessibilityLabel="Volume"
+            style={{
+              width: spacing[3],
+              height: spacing[3],
+              borderRadius: borderRadius.full,
+              backgroundColor: colors.white,
+            }}
+          />
         </Slider.Root>
       </Animated.View>
     </View>

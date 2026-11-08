@@ -12,8 +12,10 @@
   },
   "include": [
     "flows/**/*.ts",
+    "desktop/**/*.ts",
     "global-setup.ts",
     "storage.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "playwright.desktop.config.ts"
   ]
 }

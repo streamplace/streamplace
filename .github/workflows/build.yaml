@@ -125,7 +125,7 @@ jobs:
           path: ./build-linux-amd64/streamplace
           retention-days: 1
 
-      # Desktop bundles the plugin, so the upstream e2e needs it to package.
+      # Desktop E2E packages the plugin from this same build.
       - name: Upload OBS plugin
         uses: actions/upload-artifact@v7.0.2
         with:
@@ -161,8 +161,8 @@ jobs:
         run:
           npm install -g corepack@latest && corepack enable && pnpm install
           --filter @streamplace/e2e-web --filter @atcute/internal-dev-env
-          --filter @streamplace/i18n --filter streamplace-desktop --filter
-          @streamplace/brand --frozen-lockfile
+          --filter @streamplace/i18n --filter @streamplace/brand
+          --frozen-lockfile
 
       - name: Download streamplace binary
         uses: actions/download-artifact@v8.0.2
@@ -187,21 +187,10 @@ jobs:
         run: |
           cargo install --git https://github.com/streamplace/atmoq --rev 09a604b0b00b1eb063295746de1878a258e88d5b --locked --root "$RUNNER_TEMP/atmoq-bin" atmoq
           echo "$RUNNER_TEMP/atmoq-bin/bin" >> "$GITHUB_PATH"
-      - name: Download OBS plugin
-        if: matrix.mode == 'upstream'
-        uses: actions/download-artifact@v8.0.2
-        with:
-          name: obs-plugin-linux-amd64-${{ github.run_id }}
-          path: ./bin
-      - name: Build Desktop e2e entry point
-        if: matrix.mode == 'upstream'
-        run: |
-          sudo apt-get update && sudo apt-get install -y xvfb
-          pnpm --filter streamplace-desktop package
       - name: Run web e2e tests
         run: |
           if [ "${{ matrix.mode }}" = upstream ]; then
-            E2E_DESKTOP_MAIN="$PWD/js/desktop/.webpack/x64/main/index.cjs" xvfb-run -a hack/e2e-web-local.sh --upstream-station -- upstream-station.spec.ts
+            hack/e2e-web-local.sh --upstream-station -- upstream-station.spec.ts
           else
             hack/e2e-web-local.sh
           fi
@@ -248,6 +237,70 @@ jobs:
             js/e2e-web/test-results/
             js/e2e-web/playwright-report/
             ${{ runner.temp }}/harness-*.log
+          retention-days: 7
+
+  e2e-desktop:
+    name: e2e-desktop
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: linux-amd64
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 26.13.0
+
+      - name: Install Desktop test dependencies
+        run: |
+          npm install -g corepack@latest && corepack enable
+          pnpm install --filter @streamplace/e2e-web --filter @atcute/internal-dev-env --filter @streamplace/i18n --filter streamplace-desktop --filter @streamplace/brand --frozen-lockfile
+          sudo apt-get update && sudo apt-get install -y xvfb
+          sudo env "PATH=$PATH" pnpm --filter @streamplace/e2e-web exec playwright install-deps chromium
+          sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+
+      - name: Download streamplace binary
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: streamplace-linux-amd64-${{ github.run_id }}
+          path: ./build-linux-amd64
+
+      - name: Download OBS plugin
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: obs-plugin-linux-amd64-${{ github.run_id }}
+          path: ./bin
+
+      - name: Install atmoq relay fixture
+        run: |
+          cargo install --git https://github.com/streamplace/atmoq --rev 09a604b0b00b1eb063295746de1878a258e88d5b --locked --root "$RUNNER_TEMP/atmoq-bin" atmoq
+          echo "$RUNNER_TEMP/atmoq-bin/bin" >> "$GITHUB_PATH"
+
+      - name: Build Desktop
+        run: |
+          chmod +x ./build-linux-amd64/streamplace
+          pnpm --filter streamplace-desktop package
+
+      - name: Run Desktop E2E
+        run: xvfb-run -a hack/e2e-desktop-local.sh
+        env:
+          E2E_HARNESS_LOG: ${{ runner.temp }}/harness-desktop.log
+
+      - name: Upload Desktop E2E artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name:
+            e2e-desktop-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            js/e2e-web/desktop-test-results/
+            js/e2e-web/desktop-playwright-report/
+            ${{ runner.temp }}/harness-desktop.log
           retention-days: 7
 
   # The Maestro suite (.maestro/) on an Android emulator, OAuth login included:

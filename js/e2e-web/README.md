@@ -5,6 +5,9 @@ mobile `.maestro/` suite. Shared harness (`streamplace e2e`) and testIDs;
 Playwright headless Chromium drives the web-specific surface because Maestro
 is mobile-only.
 
+Electron Desktop uses a [separate config, runner, and suite](../desktop/README.md#desktop-e2e-linux).
+Its flows live in `desktop/`, outside this config's `flows/` discovery.
+
 ## How it fits together
 
 - **Harness:** `streamplace e2e` (see `pkg/cmd/e2e.go`) boots a node + local

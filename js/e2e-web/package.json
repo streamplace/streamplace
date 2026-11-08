@@ -5,6 +5,7 @@
   "description": "Headless-web e2e flows (Playwright) — the web counterpart to the .maestro/ mobile flows",
   "scripts": {
     "test": "playwright test",
+    "test:desktop": "playwright test --config playwright.desktop.config.ts",
     "test:headed": "playwright test --headed",
     "typecheck": "tsc --noEmit",
     "report": "playwright show-report",

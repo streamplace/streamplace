@@ -1,5 +1,7 @@
 node_modules/
 test-results/
 playwright-report/
+desktop-test-results/
+desktop-playwright-report/
 blob-report/
 .playwright/

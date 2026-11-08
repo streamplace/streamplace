@@ -6,14 +6,6 @@ export const PLC_DIRECTORY_URL =
 
 const plcDirectoryUrl = new URL(PLC_DIRECTORY_URL);
 
-export function isPlcDirectoryRequest(requestUrl: string): boolean {
-  const url = new URL(requestUrl);
-  return (
-    url.origin === plcDirectoryUrl.origin &&
-    /^\/did(?::|%3[aA])plc(?::|%3[aA])[^/]+$/.test(url.pathname)
-  );
-}
-
 export interface DIDDocument {
   id: string;
   service?: Array<{

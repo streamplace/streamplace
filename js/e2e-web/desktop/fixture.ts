@@ -81,7 +81,6 @@ export const test = base.extend<{ desktop: Desktop }>({
       ),
     ) as Record<string, string>;
     Object.assign(env, {
-      HOME: state,
       XDG_CONFIG_HOME: join(state, "config"),
       XDG_DATA_HOME: join(state, "data"),
       WEBPACK_SERVE: "true",

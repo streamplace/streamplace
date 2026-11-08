@@ -42,7 +42,7 @@ xvfb-run -a hack/e2e-desktop-local.sh -- login.spec.ts
 
 The runner starts an isolated HTTPS station and dummy PDS, with no media ingest.
 Each test launches the real Electron entry point and its own single-user node,
-using temporary node/browser/home directories and unused loopback ports.
+using temporary node/browser/XDG config directories and unused loopback ports.
 The login smoke signs in and authorizes at the PDS, returns to Desktop, and checks
 the account remains signed in after a reload. The existing lifecycle flow also
 checks PDS writes across closing and reopening Desktop.

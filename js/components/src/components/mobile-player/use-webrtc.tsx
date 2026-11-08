@@ -128,16 +128,19 @@ export default function useWebRTC(
       if (!track) {
         return;
       }
-      // An offered transceiver the node leaves unused still fires a track
-      // event, with no stream: keep the stream the real tracks arrived on.
-      if (event.streams[0]) {
-        setMediaStream(event.streams[0]);
-      }
       const i = audioTransceivers.findIndex(
         (t) => t.receiver.track?.id === track.id,
       );
       if (i >= 0) {
         received[i] = track;
+      }
+      // Keep the stream the video and full mix arrive on: a transceiver the
+      // node leaves unused fires a track event too, with no stream (Chrome) or
+      // a stream of its own (Firefox), which has no video.
+      const nodeStream =
+        i === 0 || track.id === videoTransceiver.receiver.track?.id;
+      if (nodeStream && event.streams[0]) {
+        setMediaStream(event.streams[0]);
       }
       // A fresh array for every track, so consumers that also read the
       // stream's tracks catch up with each arrival.

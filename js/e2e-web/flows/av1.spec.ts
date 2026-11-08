@@ -23,13 +23,14 @@ async function capturePeerConnections(page: Page) {
   });
 }
 
-// The received video's codec and decoded frame count, on the newest open
-// connection (picking a quality replaces the playback connection).
+// The received video's codec and decoded frame count, on the newest connected
+// connection (picking a quality replaces the playback connection). Firefox's
+// getStats can hang on a connection still being set up or torn down.
 function inboundVideo(page: Page) {
   return page.evaluate(async () => {
     const pcs: RTCPeerConnection[] = (window as any).__spPeerConnections;
     for (const pc of [...pcs].reverse()) {
-      if (pc.connectionState === "closed") continue;
+      if (pc.connectionState !== "connected") continue;
       const byId = new Map<string, any>();
       (await pc.getStats()).forEach((s) => byId.set(s.id, s));
       for (const s of byId.values()) {
@@ -90,8 +91,10 @@ test("av1: WebRTC plays the AV1 source", async ({ page }) => {
 
 test("av1: a viewer without AV1 gets the H.264 fallback over WebRTC", async ({
   page,
+  browserName,
 }) => {
   test.skip(!HAS_FALLBACK, "only the fMP4 push carries an H.264 track");
+  test.skip(browserName === "firefox", "Playwright's Firefox has no H.264");
   await capturePeerConnections(page);
   // The playback connection offers every video codec but AV1.
   await page.addInitScript(() => {
@@ -117,8 +120,10 @@ test("av1: a viewer without AV1 gets the H.264 fallback over WebRTC", async ({
 
 test("av1: a viewer can pick the H.264 track as a quality over WebRTC", async ({
   page,
+  browserName,
 }) => {
   test.skip(!HAS_FALLBACK, "only the fMP4 push carries an H.264 track");
+  test.skip(browserName === "firefox", "Playwright's Firefox has no H.264");
   await capturePeerConnections(page);
   await openStream(page);
   await expectWebRTCPlays(page, "video/AV1", 640);

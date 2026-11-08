@@ -49,8 +49,8 @@ case "$PLATFORM" in
 esac
 
 # --- tools, device and app -------------------------------------------------
-MAESTRO="$HOME/.maestro/bin/maestro"
-[ -x "$MAESTRO" ] || MAESTRO=maestro
+MAESTRO=maestro
+command -v "$MAESTRO" >/dev/null || MAESTRO="$HOME/.maestro/bin/maestro"
 command -v "$MAESTRO" >/dev/null || { echo "maestro not found — see https://maestro.dev"; exit 1; }
 
 if [ "$PLATFORM" = ios ]; then

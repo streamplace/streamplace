@@ -214,6 +214,8 @@ configuration is required.
 Install Xcode with an iOS Simulator runtime, the toolchains pinned in
 `mise.toml` (including Node 26 and Go 1.27), CocoaPods, Maestro, and
 notification-permission tooling. The iOS CI build uses Xcode 26.6.
+The runner prefers Maestro on `PATH`, then falls back to
+`~/.maestro/bin/maestro`; put the CI-pinned release on `PATH` for tool parity.
 
 ```bash
 brew install socat wix/brew/applesimutils
@@ -221,7 +223,7 @@ sudo bash hack/e2e-https-macos.sh install   # one-time loopback HTTPS setup
 mise exec -- make app
 mise exec -- make dev
 mise exec -- make ios-e2e # embeds JS, no Metro or signing
-hack/e2e-local.sh ios
+mise exec -- bash hack/e2e-local.sh ios
 ```
 
 `ios-e2e` reuses the `ios-simulator` build used by CI, with the local PLC
@@ -235,9 +237,9 @@ selection.
 
 ```bash
 xcrun simctl list devices available # choose an existing iPhone template
-IOS_SIMULATOR_UDID=<existing-iphone-udid> hack/e2e-local.sh ios
+IOS_SIMULATOR_UDID=<existing-iphone-udid> mise exec -- bash hack/e2e-local.sh ios
 IOS_SIMULATOR_UDID=<existing-iphone-udid> \
-  E2E_FLOWS=".maestro/logged-in/chat-timezone.yaml" hack/e2e-local.sh ios
+  E2E_FLOWS=".maestro/logged-in/chat-timezone.yaml" mise exec -- bash hack/e2e-local.sh ios
 ```
 
 `IOS_SIMULATOR_UDID` selects a template; the original device is never erased or

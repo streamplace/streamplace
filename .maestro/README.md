@@ -47,6 +47,13 @@ The organization and generated config are platform-neutral; the current runner
 only provisions Android. No native Go Live scenario exists: native builds hide
 those controls, and `logged-out/tabs.yaml` checks they stay hidden.
 
+## Live avatar coverage
+
+`logged-out/user-search.yaml` captures a cropped live avatar on iOS and Android.
+Android compares it with `screenshots/android-live-avatar.png` (420 dpi, dark
+theme) to catch square rings. The web search test checks ring/corner pixels;
+the avatar unit test covers scaled and custom sizes.
+
 ## Chat submission coverage
 
 `logged-in/chat-submit.yaml` sends with keyboard Return, then the chat Send

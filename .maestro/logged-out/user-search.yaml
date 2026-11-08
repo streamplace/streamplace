@@ -63,6 +63,20 @@ appId: ${APP_ID}
 - assertNotVisible:
     id: "search-no-results"
 - takeScreenshot: user-search-result
+- takeScreenshot:
+    path: user-search-live-avatar
+    cropOn:
+      id: "search-avatar-.*"
+# Android's border renderer must draw a circle, not a square around the avatar.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertScreenshot:
+          path: ../screenshots/android-live-avatar.png
+          cropOn:
+            id: "search-avatar-.*"
+          thresholdPercentage: 98
 
 # emptying the box drops the stale result
 - tapOn:

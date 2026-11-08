@@ -181,13 +181,13 @@ ios: app
 # Test-only Release build with embedded JS and OTA updates disabled.
 # Regenerate iOS only; Android is untouched.
 .PHONY: ios-simulator
-ios-simulator: export NODE_ENV=production
 ios-simulator: export SP_E2E_BUILD=true
 ios-simulator: install
 	cd js/app && pnpm --filter @streamplace/i18n compile && pnpm run brand && node scripts/generate-build-info.js
-	cd js/app && EXPO_NO_GIT_STATUS=1 pnpm exec expo prebuild --platform ios --clean
+	cd js/app && NODE_ENV=production EXPO_NO_GIT_STATUS=1 pnpm exec expo prebuild --platform ios --clean
 	cd js/app && pnpm run find-node
 	bash -eu -c ' \
+		export NODE_ENV=production; \
 		set -- ./js/app/ios/*.xcworkspace; \
 		if [ "$$#" -ne 1 ] || [ ! -d "$$1" ]; then echo "Expected one iOS workspace after prebuild" >&2; exit 1; fi; \
 		workspace="$$1"; \

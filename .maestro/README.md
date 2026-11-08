@@ -367,40 +367,21 @@ transport audits, renewal, the actual Go-node restart and final-user revocation
 checks; native coverage is login/write/app-relaunch, not a claim those lower-level
 assertions were run on a device.
 
-### iOS Simulator manual recipe (macOS required)
+### iOS Simulator (macOS required)
 
-The Linux runner cannot provision an iOS Simulator. On a macOS development
-machine, build/install the current app on a booted simulator, pre-grant its
-notification permission, and start the same harness from the checkout root:
+Use the same disposable-Simulator runner for the upstream-station scenario:
 
 ```bash
-# Keep this shell alive; its EXIT trap owns the harness and the ephemeral CA.
-export SP_E2E_UPSTREAM_STATION=true
-export SP_E2E_ATMOQ_BIN=/path/to/atmoq
-export SP_E2E_APP_BUNDLE_ID=<installed-app-bundle-id>
-. hack/lib/e2e-harness.sh
-e2e_harness_start
-xcrun simctl keychain booted add-root-cert "$E2E_TLS_CA"
-SP_E2E_UPSTREAM_STATION=true bash hack/maestro-config.sh \
-  .maestro/logged-in/upstream-station.yaml > /tmp/streamplace-ios-upstream.yaml
-maestro --device <booted-simulator-udid> test \
-  --config /tmp/streamplace-ios-upstream.yaml \
-  -e APP_ID="$SP_E2E_APP_BUNDLE_ID" -e SERVER_URL="$SERVER_URL" \
-  -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD" \
-  -e E2E_UPSTREAM_STATION=true .maestro
+mise exec -- make ios-e2e
+SP_E2E_ATMOQ_BIN=/path/to/atmoq \
+  mise exec -- bash hack/e2e-local.sh ios --upstream-station
 ```
 
-Simulator networking must also resolve the harness's `plc.directory` to this
-run's local PLC TLS front end, not the public directory: arrange a temporary
-local DNS/hosts override or a simulator CONNECT proxy using `E2E_PROXY_URL`,
-and remove only that override afterward. The station/PDS/account DNS names
-already need to resolve to host loopback as described above. Trust the CA in
-the simulator, not the macOS system keychain. Confirm the installed build's
-generated `Info.plist` permits local-network transport with
-`NSAllowsLocalNetworking=true`; do not enable blanket arbitrary HTTP loads.
-Remove the temporary workspace file and the simulator's test CA after the run.
-These are execution prerequisites, not
-evidence that an iOS run has occurred.
+The runner configures the fixture PLC hostname, trusts the run's CA only in
+the disposable Simulator, and removes that Simulator afterward. No Mac
+DNS/hosts override or system-keychain change is needed. The app must allow
+local-network transport (`NSAllowsLocalNetworking=true`) for the local
+node's loopback HTTP URL; do not enable blanket arbitrary HTTP loads.
 
 ## Notes / gotchas
 

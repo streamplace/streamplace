@@ -404,9 +404,10 @@ node's loopback HTTP URL; do not enable blanket arbitrary HTTP loads.
 - **Android signing:** every build signs with its own throwaway keystore, so the
   runner uninstalls any earlier copy before installing.
 - **iOS notification dialog:** the first-launch "would like to send you
-  notifications" prompt dims the whole screen and blocks taps. It only shows
-  on a fresh install; pre-grant the permission with `applesimutils` and avoid
-  `clearState` (which reinstalls and re-triggers it).
+  notifications" prompt dims the whole screen and blocks taps. Both iOS runners
+  (`hack/e2e-local.sh ios` and `hack/ios-smoke.sh`) pre-grant it with
+  `applesimutils` before Maestro starts. Avoid `clearState`, which reinstalls
+  the app and re-triggers the prompt.
 - **iOS deep-link confirmation:** a fresh Simulator asks "Open in <app>?" on
   the first custom-scheme launch. `server-setup.yaml` accepts that system
   prompt so standalone deep-link scenarios do not depend on another scenario

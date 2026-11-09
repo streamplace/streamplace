@@ -4,7 +4,7 @@
   "engines": {
     "node": "26.x"
   },
-  "version": "0.13.2",
+  "version": "0.13.3",
   "runtimeVersion": "0.13.0",
   "scripts": {
     "start": "pnpm --filter @streamplace/i18n compile && npx expo start -c --port 38081",

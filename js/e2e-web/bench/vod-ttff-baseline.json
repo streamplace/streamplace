@@ -1,4 +1,9 @@
 {
   "tolerance": { "ratio": 0.25, "ms": 300 },
-  "firstFrameMs": {}
+  "firstFrameMs": {
+    "loopback/cold": 1268,
+    "loopback/warm": 1276,
+    "throttled/cold": 3519,
+    "throttled/warm": 3574
+  }
 }

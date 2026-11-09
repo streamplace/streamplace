@@ -63,11 +63,12 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
-    // Firefox covers browser-specific behavior and the bare web bootstrap.
+    // Firefox covers browser-specific behavior and the bare web bootstrap, and
+    // WebRTC playback over AV1: its Playwright build has no H.264.
     // No login flows: the harness's certificate pinning above is a Chromium flag.
     {
       name: "firefox",
-      testMatch: /(?:chat-wheel-scroll|bootstrap)\.spec\.ts$/,
+      testMatch: /(?:chat-wheel-scroll|bootstrap|av1)\.spec\.ts$/,
       use: {
         ...devices["Desktop Firefox"],
         // the launch flags above are Chromium's

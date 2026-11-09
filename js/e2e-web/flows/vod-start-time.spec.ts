@@ -5,11 +5,9 @@ import { uploadFixture } from "./upload-fixture";
 // seconds, or an `1h2m3s` duration). Point it at a video with real media and
 // the player must open there instead of at 0:00.
 //
-// The harness's own test VOD has no source tracks, so this uploads the file
-// the harness is streaming (E2E_FIXTURE_MP4) through the app's own /upload
-// workflow first — that is what gives the player something seekable. The
-// upload needs a signed-in user, so this needs the harness's HTTPS mode, like
-// the other OAuth flows.
+// The harness's own test VOD has no source tracks, so this uploads the
+// harness fixture first (see upload-fixture.ts), which needs the harness's HTTPS
+// mode, like the other OAuth flows.
 const HTTPS_URL = process.env.SERVER_HTTPS_URL;
 const ACCOUNT_DID = process.env.ACCOUNT_DID;
 const START_SECONDS = 151;
@@ -23,10 +21,10 @@ test("vod-start-time: ?t= starts playback partway into a VOD", async ({
   // test timeout on a loaded CI runner.
   test.setTimeout(10 * 60_000);
 
-  const watchPath = await uploadFixture(page);
-  expect(watchPath).toContain(ACCOUNT_DID as string);
+  const path = await uploadFixture(page);
+  expect(path).toContain(ACCOUNT_DID as string);
 
-  await page.goto(`${HTTPS_URL}${watchPath}?t=${START_SECONDS}`);
+  await page.goto(`${HTTPS_URL}${path}?t=${START_SECONDS}`);
   const video = page.locator("video").first();
   await expect(video).toBeVisible({ timeout: 30_000 });
 
@@ -44,7 +42,7 @@ test("vod-start-time: playback recovers after the HLS chunk fails", async ({
   page,
 }) => {
   test.setTimeout(10 * 60_000);
-  const watchPath = await uploadFixture(page);
+  const path = await uploadFixture(page);
   // Chromium may advertise native HLS. Exercise browsers that need hls.js,
   // while still decoding and playing the real uploaded media.
   await page.addInitScript(() => {
@@ -66,7 +64,7 @@ test("vod-start-time: playback recovers after the HLS chunk fails", async ({
     }
   });
 
-  await page.goto(`${HTTPS_URL}${watchPath}?t=${START_SECONDS}`);
+  await page.goto(`${HTTPS_URL}${path}?t=${START_SECONDS}`);
   const video = page.locator("video").first();
   await expect(video).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => attempts, { timeout: 30_000 }).toBeGreaterThan(1);

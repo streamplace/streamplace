@@ -239,6 +239,77 @@ jobs:
             ${{ runner.temp }}/harness-*.log
           retention-days: 7
 
+  # VOD time-to-first-frame benchmark (js/e2e-web/bench) on a runner of its
+  # own, so the e2e suite can't skew it. Fails past the committed baseline.
+  bench-vod:
+    name: bench-vod
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: linux-amd64
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 26.13.0
+
+      - name: Install e2e dependencies
+        run:
+          npm install -g corepack@latest && corepack enable && pnpm install
+          --filter @streamplace/e2e-web --filter @atcute/internal-dev-env
+          --filter @streamplace/i18n --filter @streamplace/brand
+          --frozen-lockfile
+
+      - name: Download streamplace binary
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: streamplace-linux-amd64-${{ github.run_id }}
+          path: ./build-linux-amd64
+
+      - name: Prepare benchmark runner
+        run: |
+          chmod +x ./build-linux-amd64/streamplace
+          sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+          echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/playwright-browsers" >> "$GITHUB_ENV"
+
+      - name: Install Playwright browser
+        run:
+          sudo env "PATH=$PATH"
+          "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/playwright-browsers" pnpm
+          --filter @streamplace/e2e-web exec playwright install --with-deps
+          chromium
+
+      # No looping test stream: it would compete with playback for the CPU.
+      - name: Run VOD time-to-first-frame benchmark
+        run: hack/e2e-web-local.sh --config playwright.bench.config.ts
+        env:
+          SP_E2E_INGEST: none
+          E2E_HARNESS_LOG: ${{ runner.temp }}/harness-bench.log
+
+      - name: Post benchmark summary
+        if: success() || failure()
+        run: |
+          if [ -f js/e2e-web/bench-results/vod-ttff.md ]; then
+            cat js/e2e-web/bench-results/vod-ttff.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload benchmark results
+        if: success() || failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name:
+            bench-vod-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            js/e2e-web/bench-results/
+            js/e2e-web/bench-test-results/
+            ${{ runner.temp }}/harness-bench.log
+          retention-days: 30
+
   e2e-desktop:
     name: e2e-desktop
     runs-on: ubuntu-latest

@@ -3,5 +3,7 @@ test-results/
 playwright-report/
 desktop-test-results/
 desktop-playwright-report/
+bench-test-results/
+bench-results/
 blob-report/
 .playwright/

@@ -22,6 +22,43 @@ last package run unpacked into `out/obs-plugin/`.
 
 Unit tests for the OBS plugin installer and profile writer.
 
+## Desktop E2E (Linux)
+
+Desktop has its own Playwright config and flows in `js/e2e-web/desktop/`.
+It shares the web suite's tooling, dummy PDS/PLC harness, and OAuth login helper,
+not its full-node scenarios, browser storage state, or live-stream setup.
+
+Inside the pinned builder, after `make provision`:
+
+```sh
+make obs-plugin-linux-amd64
+pnpm --filter streamplace-desktop package
+cargo install --git https://github.com/streamplace/atmoq --rev 09a604b0b00b1eb063295746de1878a258e88d5b --locked atmoq
+apt-get update && apt-get install -y xvfb
+xvfb-run -a hack/e2e-desktop-local.sh
+# Just the login smoke:
+xvfb-run -a hack/e2e-desktop-local.sh -- login.spec.ts
+```
+
+The runner starts an isolated HTTPS station and dummy PDS, with no media ingest.
+Each test launches the real Electron entry point and its own single-user node,
+using temporary node/browser/XDG config directories and unused loopback ports.
+The login smoke signs in and authorizes at the PDS, returns to Desktop, and checks
+the account remains signed in after a reload. The existing lifecycle flow also
+checks PDS writes across closing and reopening Desktop.
+
+`SP_E2E_ATMOQ_BIN` selects an installed atmoq executable; `E2E_DESKTOP_MAIN`
+overrides the packaged `.webpack/<arch>/main/index.cjs` entry point.
+After Desktop source changes, rerun `pnpm --filter streamplace-desktop package`.
+After embedded frontend changes, run `make app && make dev` first.
+
+Add Desktop scenarios as `js/e2e-web/desktop/*.spec.ts`, using `test` from
+`./fixture`. No web global setup or existing login state is required.
+`e2e-desktop` in GitHub Actions runs this suite separately and uploads
+`desktop-test-results/`, `desktop-playwright-report/`, and the harness log on
+failure. Traces, Electron/node logs, and failure screenshots are attached to
+the Playwright report; local results live under `js/e2e-web/`.
+
 ## Single-user node
 
 Desktop's bundled node is a single-user AppView: it runs the same indexing as

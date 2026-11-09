@@ -107,6 +107,18 @@ Expo splits production **web** exports. iOS/Android still include these modules
 in the installed bundle; the same loading boundaries work without downloading
 web chunks.
 
+On a failed web screen import, the app fetches the destination HTML without
+using the cache. A changed bootstrap script manifest reloads that URL onto the
+new deployment; unchanged or unavailable HTML keeps the local retry screen.
+Leaving the destination while that check runs cancels the reload.
+
+The node serves existing `/_expo/static/` files with a one-year immutable cache
+policy. HTML revalidates on every visit, including deep links. Missing Expo
+chunks return non-cacheable 404s, never the app shell.
+
+The crash fallback uses static Streamplace dark-theme tokens without requiring
+app providers. Retry remains available on every platform; page reload is web-only.
+
 Production web HTML renders a dependency-free bootstrap spinner before loading
 Expo's scripts. `scripts/bootstrap-web.mjs` runs after normal and Atlas exports:
 it replaces the eager script tags with a hashed, bare DOM bootloader, preserving
@@ -162,9 +174,10 @@ original branding bundle. This HTML-only bootstrap does not apply to native
 installs.
 
 `lazy-navigation.spec.ts` checks deferred settings requests, navigation away from
-a pending chunk, recovery from a failed chunk, and a cold settings deep link. The platform-neutral
+a pending chunk, manual retry during an outage, automatic deployment recovery at
+the requested category, and real bundle/HTML cache headers. The platform-neutral
 `.maestro/logged-out/lazy-navigation.yaml` covers first-use navigation and deep
-links on iOS/Android.
+links on iOS/Android; installed native bundles have no HTTP chunk-failure case.
 
 ## i18n
 

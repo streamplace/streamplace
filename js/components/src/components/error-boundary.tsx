@@ -1,5 +1,7 @@
 import * as React from "react";
 import { Platform, Pressable, Text, View } from "react-native";
+import { darkTheme } from "../lib/theme/theme";
+import { breakpoints, fontWeights, typeScale } from "../lib/theme/tokens";
 
 type ErrorBoundaryProps = {
   children: React.ReactNode;
@@ -51,82 +53,117 @@ export class ErrorBoundary extends React.Component<
   }
 }
 
-/**
- * Whole-app fallback: a plain screen with a retry that re-renders the tree
- * and, on the web, a reload. Deliberately free of the app's own providers
- * and theme, since those may be what crashed.
- */
+const theme = darkTheme;
+// The root boundary sits outside FontProvider, so keep the system font family.
+const bodyText = {
+  fontSize: typeScale.base.fontSize,
+  lineHeight: typeScale.base.lineHeight,
+};
+const button = {
+  minHeight: theme.touchTargets.minimum,
+  justifyContent: "center",
+  alignItems: "center",
+  paddingHorizontal: theme.spacing[4],
+  borderRadius: theme.borderRadius.md,
+  ...(Platform.OS === "web"
+    ? {
+        outlineColor: theme.colors.focus,
+        outlineWidth: theme.spacing[1] / 2,
+        outlineOffset: theme.spacing[1] / 2,
+      }
+    : {}),
+} as const;
+
+// Static theme tokens and native primitives only: app providers may have crashed.
 export function AppCrashScreen({ reset }: { reset: () => void }) {
-  const reload = () => {
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      window.location.reload();
-    } else {
-      reset();
-    }
-  };
   return (
     <View
+      testID="app-crash-screen"
       style={{
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        padding: 24,
-        backgroundColor: "#161928", // eslint-disable-line streamplace/no-token-literals -- no theme available here
+        padding: theme.spacing[6],
+        backgroundColor: theme.colors.surface0,
       }}
     >
-      <Text
+      <View
         style={{
-          color: "#ffffff", // eslint-disable-line streamplace/no-token-literals
-          fontSize: 20,
-          fontWeight: "600",
-          marginBottom: 8,
-          textAlign: "center",
-        }}
-      >
-        Something went wrong
-      </Text>
-      <Text
-        style={{
-          color: "#d0cfd7", // eslint-disable-line streamplace/no-token-literals
-          fontSize: 15,
-          marginBottom: 20,
-          textAlign: "center",
-        }}
-      >
-        The page hit an error it couldn't recover from.
-      </Text>
-      <Pressable
-        onPress={reset}
-        accessibilityRole="button"
-        style={{
-          paddingVertical: 10,
-          paddingHorizontal: 20,
-          borderRadius: 999,
-          backgroundColor: "#272f43", // eslint-disable-line streamplace/no-token-literals
-          marginBottom: 10,
+          width: "100%",
+          maxWidth: breakpoints.sm,
+          gap: theme.spacing[6],
+          padding: theme.spacing[8],
+          borderWidth: 1,
+          borderColor: theme.colors.borderSubtle,
+          borderRadius: theme.borderRadius.lg,
+          backgroundColor: theme.colors.surface1,
         }}
       >
         <Text
           style={{
-            color:
-              "#ffffff" /* eslint-disable-line streamplace/no-token-literals */,
-            fontSize: 15,
+            fontSize: typeScale.md.fontSize,
+            lineHeight: typeScale.md.lineHeight,
+            fontWeight: fontWeights.semibold,
+            color: theme.colors.text1,
           }}
         >
-          Try again
+          Streamplace
         </Text>
-      </Pressable>
-      <Pressable onPress={reload} accessibilityRole="button">
-        <Text
-          style={{
-            color:
-              "#11e8b2" /* eslint-disable-line streamplace/no-token-literals */,
-            fontSize: 15,
-          }}
-        >
-          Reload the page
-        </Text>
-      </Pressable>
+        <View style={{ gap: theme.spacing[2] }}>
+          <Text
+            accessibilityRole="header"
+            style={{
+              fontSize: typeScale.xl.fontSize,
+              lineHeight: typeScale.xl.lineHeight,
+              letterSpacing: typeScale.xl.letterSpacing,
+              fontWeight: fontWeights.semibold,
+              color: theme.colors.text1,
+            }}
+          >
+            Something went wrong
+          </Text>
+          <Text style={{ ...bodyText, color: theme.colors.text2 }}>
+            This screen hit an error it couldn't recover from.
+          </Text>
+        </View>
+        <View style={{ gap: theme.spacing[3] }}>
+          <Pressable
+            onPress={reset}
+            accessibilityRole="button"
+            style={[button, { backgroundColor: theme.colors.primary }]}
+          >
+            <Text
+              style={{
+                ...bodyText,
+                fontWeight: fontWeights.medium,
+                color: theme.colors.primaryForeground,
+              }}
+            >
+              Try again
+            </Text>
+          </Pressable>
+          {Platform.OS === "web" && (
+            <Pressable
+              onPress={() => window.location.reload()}
+              accessibilityRole="button"
+              style={[
+                button,
+                { borderWidth: 1, borderColor: theme.colors.border },
+              ]}
+            >
+              <Text
+                style={{
+                  ...bodyText,
+                  fontWeight: fontWeights.medium,
+                  color: theme.colors.text1,
+                }}
+              >
+                Reload the page
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
     </View>
   );
 }

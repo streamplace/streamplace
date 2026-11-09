@@ -1,0 +1,4 @@
+{
+  "tolerance": { "ratio": 0.25, "ms": 300 },
+  "firstFrameMs": {}
+}

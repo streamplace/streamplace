@@ -287,3 +287,27 @@ inside the build container.
 
 Artifacts on failure (traces, screenshots, video) land in `test-results/` and a
 report in `playwright-report/` (`pnpm --filter @streamplace/e2e-web report`).
+
+## Benchmarks
+
+`bench/` holds timing benchmarks, run by their own config against the same
+harness (no looping stream, which would compete for the CPU):
+
+```bash
+SP_E2E_INGEST=none hack/e2e-web-local.sh --config playwright.bench.config.ts
+```
+
+`vod-ttff` uploads two copies of the harness fixture, then measures time to
+first frame at `/<handle>/video/<tid>`: from navigation start to the first
+frame the `<video>` presents (`requestVideoFrameCallback`). **Cold** opens it
+in a fresh browser context (empty HTTP cache); **warm** opens it in a context
+that has just played the other video for a few seconds. Each runs over
+loopback and over Chromium's network emulation (10 Mbps down, 40 ms latency),
+`VOD_TTFF_RUNS` times (default 5). It writes `bench-results/vod-ttff.{md,json}`
+with medians and a per-milestone breakdown; CI's `bench-vod` job posts the
+Markdown to the run summary.
+
+A scenario fails when its median exceeds `bench/vod-ttff-baseline.json` by
+both the tolerance ratio and milliseconds. The baseline holds CI runner
+numbers: after a deliberate change (or a faster result), copy `firstFrameMs`
+from the `bench-vod` artifact's `vod-ttff.json` into it.

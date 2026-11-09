@@ -111,6 +111,8 @@ On a failed web screen import, the app fetches the destination HTML without
 using the cache. A changed bootstrap script manifest reloads that URL onto the
 new deployment; unchanged or unavailable HTML keeps the local retry screen.
 Leaving the destination while that check runs cancels the reload.
+Retry and screen unmount abort pending deployment checks, so a delayed response
+cannot reload a recovered screen and discard new work.
 
 The node serves existing `/_expo/static/` files with a one-year immutable cache
 policy. HTML revalidates on every visit, including deep links. Missing Expo

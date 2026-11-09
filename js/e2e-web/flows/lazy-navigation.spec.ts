@@ -1,5 +1,19 @@
 import { expect, test } from "@playwright/test";
 
+function deploymentHTML(html: string, version: string) {
+  return html.replace(
+    /(<script id="bootstrap-scripts" type="application\/json">)(.*?)(<\/script>)/,
+    (_, start, manifest, end) =>
+      start +
+      JSON.stringify(
+        JSON.parse(manifest).map(
+          (src: string) => `${src}?deployment=${version}`,
+        ),
+      ) +
+      end,
+  );
+}
+
 // Native counterpart: .maestro/logged-out/lazy-navigation.yaml. Only web
 // exports fetch separate chunks; native imports resolve from the installed bundle.
 test("lazy navigation: defer settings until opened and keep shell usable", async ({
@@ -104,6 +118,78 @@ test("lazy navigation: retry a failed chunk without losing navigation", async ({
   await expect(page.getByTestId("home-stream-card").first()).toBeVisible();
 });
 
+test("lazy navigation: retry cancels a delayed deployment reload", async ({
+  page,
+}) => {
+  const checkStarted = Promise.withResolvers<void>();
+  const releaseCheck = Promise.withResolvers<void>();
+  const checkFinished = Promise.withResolvers<void>();
+  await page.route("**/settings", async (route) => {
+    if (route.request().isNavigationRequest()) return route.continue();
+    const response = await route.fetch();
+    const body = deploymentHTML(await response.text(), "new");
+    checkStarted.resolve();
+    await releaseCheck.promise;
+    try {
+      await route.fulfill({ response, body });
+    } finally {
+      checkFinished.resolve();
+    }
+  });
+  let attempts = 0;
+  await page.route(/\/settings-[^/]+\.js$/, async (route) => {
+    if (++attempts === 1) {
+      await route.fulfill({ status: 503, body: "Temporarily unavailable" });
+    } else {
+      await route.continue();
+    }
+  });
+  try {
+    await page.goto("/");
+    await expect(page.getByTestId("home-stream-card").first()).toBeVisible();
+    await page
+      .getByRole("link", { name: "Settings", exact: true })
+      .first()
+      .click();
+    await checkStarted.promise;
+    const checkSettled = Promise.race([
+      page.waitForEvent(
+        "requestfailed",
+        (request) => new URL(request.url()).pathname === "/settings",
+      ),
+      page.waitForEvent(
+        "requestfinished",
+        (request) => new URL(request.url()).pathname === "/settings",
+      ),
+    ]);
+    await page.getByRole("button", { name: "Try again" }).click();
+    await expect(page.getByText("Advanced", { exact: true })).toBeVisible();
+    const search = page.getByRole("combobox", { name: "Search", exact: true });
+    await search.fill("preserve my search");
+    releaseCheck.resolve();
+    await checkFinished.promise;
+    await checkSettled;
+    await page.evaluate(async () => {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      requestAnimationFrame(() => resolve());
+      await promise;
+    });
+    await expect(search).toHaveValue("preserve my search");
+    expect(
+      await page.evaluate(
+        () =>
+          (
+            performance.getEntriesByType(
+              "navigation",
+            )[0] as PerformanceNavigationTiming
+          ).type,
+      ),
+    ).toBe("navigate");
+  } finally {
+    releaseCheck.resolve();
+  }
+});
+
 for (const destination of ["settings", "advanced"]) {
   test(`lazy navigation: a new deployment reloads ${destination}`, async ({
     page,
@@ -112,15 +198,7 @@ for (const destination of ["settings", "advanced"]) {
     await page.route("**/", async (route) => {
       if (!route.request().isNavigationRequest()) return route.continue();
       const response = await route.fetch();
-      const body = (await response.text()).replace(
-        /(<script id="bootstrap-scripts" type="application\/json">)(.*?)(<\/script>)/,
-        (_, start, manifest, end) =>
-          start +
-          JSON.stringify(
-            JSON.parse(manifest).map((src: string) => `${src}?deployment=old`),
-          ) +
-          end,
-      );
+      const body = deploymentHTML(await response.text(), "old");
       await route.fulfill({ response, body });
     });
     let attempts = 0;

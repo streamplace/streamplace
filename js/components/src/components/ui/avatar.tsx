@@ -43,7 +43,7 @@ export const Avatar = forwardRef<ViewInstance, AvatarProps>(
           {
             width: outerSide,
             height: outerSide,
-            borderRadius: borderRadius.full,
+            borderRadius: outerSide / 2,
             alignItems: "center",
             justifyContent: "center",
             ...(live && {

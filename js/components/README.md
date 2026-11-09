@@ -33,3 +33,9 @@ export function App() {
   );
 }
 ```
+
+## Avatars
+
+`Avatar` sizes its live ring and gap with the image. Its outer radius is half
+the rendered diameter, rather than an oversized pill radius, so Android draws
+a circular border as well as a circular image.

@@ -516,6 +516,37 @@ test("header-user-search: results show real profile pictures, and live accounts 
   expect(await ringWidth(offline)).toBe("0px");
   const liveBox = (await live.boundingBox())!;
   expect(liveBox.width).toBeGreaterThan((await offline.boundingBox())!.width);
+  const screenshot = await live.screenshot();
+  await test.info().attach("live-avatar", {
+    body: screenshot,
+    contentType: "image/png",
+  });
+  const pixels = await page.evaluate(async (png) => {
+    const image = await createImageBitmap(
+      await (await fetch(`data:image/png;base64,${png}`)).blob(),
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext("2d")!;
+    context.drawImage(image, 0, 0);
+    const sample = (x: number, y: number) =>
+      Array.from(
+        context.getImageData(
+          Math.round(x * (image.width - 1)),
+          Math.round(y * (image.height - 1)),
+          1,
+          1,
+        ).data,
+      );
+    return {
+      top: sample(0.5, 0.025),
+      right: sample(0.975, 0.5),
+      corner: sample(0.025, 0.025),
+    };
+  }, screenshot.toString("base64"));
+  expect(pixels.top).toEqual(pixels.right);
+  expect(pixels.corner).not.toEqual(pixels.top);
   const liveRow = (await rowOf(page, harnessActor).boundingBox())!;
   expect(liveBox.y).toBeGreaterThanOrEqual(liveRow.y);
   expect(liveBox.y + liveBox.height).toBeLessThanOrEqual(

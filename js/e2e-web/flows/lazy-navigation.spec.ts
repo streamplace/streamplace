@@ -104,54 +104,66 @@ test("lazy navigation: retry a failed chunk without losing navigation", async ({
   await expect(page.getByTestId("home-stream-card").first()).toBeVisible();
 });
 
-test("lazy navigation: a new deployment reloads the requested category", async ({
-  page,
-}) => {
-  // Serve the old document once, then expose the new deployment's real HTML.
-  await page.route("**/", async (route) => {
-    if (!route.request().isNavigationRequest()) return route.continue();
-    const response = await route.fetch();
-    const body = (await response.text()).replace(
-      /(<script id="bootstrap-scripts" type="application\/json">)(.*?)(<\/script>)/,
-      (_, start, manifest, end) =>
-        start +
-        JSON.stringify(
-          JSON.parse(manifest).map((src: string) => `${src}?deployment=old`),
-        ) +
-        end,
-    );
-    await route.fulfill({ response, body });
-  });
-  let attempts = 0;
-  await page.route(/\/advanced-category-settings-[^/]+\.js$/, async (route) => {
-    if (++attempts === 1) {
-      await route.fulfill({ status: 404, body: "Removed by deployment" });
-    } else {
-      await route.continue();
-    }
-  });
+for (const destination of ["settings", "advanced"]) {
+  test(`lazy navigation: a new deployment reloads ${destination}`, async ({
+    page,
+  }) => {
+    // Serve the old document once, then expose the new deployment's real HTML.
+    await page.route("**/", async (route) => {
+      if (!route.request().isNavigationRequest()) return route.continue();
+      const response = await route.fetch();
+      const body = (await response.text()).replace(
+        /(<script id="bootstrap-scripts" type="application\/json">)(.*?)(<\/script>)/,
+        (_, start, manifest, end) =>
+          start +
+          JSON.stringify(
+            JSON.parse(manifest).map((src: string) => `${src}?deployment=old`),
+          ) +
+          end,
+      );
+      await route.fulfill({ response, body });
+    });
+    let attempts = 0;
+    const chunk =
+      destination === "advanced"
+        ? /\/advanced-category-settings-[^/]+\.js$/
+        : /\/settings-[^/]+\.js$/;
+    await page.route(chunk, async (route) => {
+      if (++attempts === 1) {
+        await route.fulfill({ status: 404, body: "Removed by deployment" });
+      } else {
+        await route.continue();
+      }
+    });
 
-  await page.goto("/");
-  await expect(page.getByTestId("home-stream-card").first()).toBeVisible();
-  await page
-    .getByRole("link", { name: "Settings", exact: true })
-    .first()
-    .click();
-  await page.getByText("Advanced", { exact: true }).click();
-  await expect(page.getByTestId("settings-use-custom-node")).toBeVisible();
-  await expect(page).toHaveURL(/\/settings\/advanced$/);
-  expect(
-    await page.evaluate(
-      () =>
-        (
-          performance.getEntriesByType(
-            "navigation",
-          )[0] as PerformanceNavigationTiming
-        ).type,
-    ),
-  ).toBe("reload");
-  expect(attempts).toBe(2);
-});
+    await page.goto("/");
+    await expect(page.getByTestId("home-stream-card").first()).toBeVisible();
+    await page
+      .getByRole("link", { name: "Settings", exact: true })
+      .first()
+      .click();
+    if (destination === "advanced") {
+      await page.getByText("Advanced", { exact: true }).click();
+      await expect(page.getByTestId("settings-use-custom-node")).toBeVisible();
+    } else {
+      await expect(page.getByText("Advanced", { exact: true })).toBeVisible();
+    }
+    expect(new URL(page.url()).pathname).toBe(
+      destination === "advanced" ? "/settings/advanced" : "/settings",
+    );
+    expect(
+      await page.evaluate(
+        () =>
+          (
+            performance.getEntriesByType(
+              "navigation",
+            )[0] as PerformanceNavigationTiming
+          ).type,
+      ),
+    ).toBe("reload");
+    expect(attempts).toBe(2);
+  });
+}
 
 test("web bundles: immutable scripts and revalidated deep-link HTML", async ({
   page,

@@ -47,24 +47,20 @@ async function reloadStaleScreen() {
 export function lazyScreen<T extends ComponentType<any>>(
   load: () => Promise<{ default: T }>,
 ) {
-  const loadScreen = async () => {
-    try {
-      return await load();
-    } catch (error) {
-      void reloadStaleScreen();
-      throw error;
-    }
-  };
-  const InitialScreen = lazy(loadScreen);
+  const InitialScreen = lazy(load);
   return function LazyScreen(props: ComponentProps<T>) {
     const [Screen, setScreen] = useState(() => InitialScreen);
     return (
       <ErrorBoundary
+        onError={() => {
+          // Navigation commits its destination URL after the failed render.
+          setTimeout(reloadStaleScreen, 0);
+        }}
         fallback={(reset) => (
           <AppCrashScreen
             reset={() => {
               // React.lazy caches rejection; a retry needs a fresh lazy component.
-              setScreen(() => lazy(loadScreen));
+              setScreen(() => lazy(load));
               reset();
             }}
           />

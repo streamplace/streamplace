@@ -303,20 +303,23 @@ test(
     assert.deepEqual(seen, new Set(first.files.keys()));
 
     // Publish the full source documents for this checkout's place.stream.*
-    // namespace, without republishing imported schemas.
-    const sourceRoot = join(repo, "lexicons");
-    const sources = (
-      await Promise.all(
-        (await readdir(sourceRoot, { recursive: true }))
-          .filter((name) => name.endsWith(".json"))
-          .map(async (name) =>
-            JSON.parse(await readFile(join(sourceRoot, name), "utf8")),
-          ),
-      )
-    ).filter((doc) => typeof doc.id === "string");
+    // namespace, without republishing imported schemas. Documents under
+    // pkg/spaces/lexicons replace or add to them (docs/spaces.md).
+    const readDocs = async (root) =>
+      (
+        await Promise.all(
+          (await readdir(root, { recursive: true }))
+            .filter((name) => name.endsWith(".json"))
+            .map(async (name) =>
+              JSON.parse(await readFile(join(root, name), "utf8")),
+            ),
+        )
+      ).filter((doc) => typeof doc.id === "string");
+    const sources = await readDocs(join(repo, "lexicons"));
     const own = sources.filter((doc) => doc.id.startsWith("place.stream."));
+    const overlay = await readDocs(join(repo, "pkg/spaces/lexicons"));
     const expected = new Map(
-      own.map((doc) => [doc.id, { $type: SCHEMA, ...doc }]),
+      [...own, ...overlay].map((doc) => [doc.id, { $type: SCHEMA, ...doc }]),
     );
     const published = await schemas();
     assert.deepEqual(published, expected);
@@ -329,6 +332,11 @@ test(
       .get("place.stream.authFull")
       .defs.main.permissions.find((item) => item.resource === "repo");
     assert.deepEqual([...permission.collection].sort(), recordIds.sort());
+    // A PDS refuses a space grant whose type declaration it cannot resolve.
+    const space = published
+      .get("place.stream.authFull")
+      .defs.main.permissions.find((item) => item.resource === "space");
+    assert.equal(published.get(space.spaceType).defs.main.type, "space");
 
     // The offline preview shows the full schema bodies, not just their CIDs.
     const preview = await exec(

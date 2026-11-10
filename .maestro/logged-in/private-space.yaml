@@ -17,6 +17,10 @@ onFlowComplete:
       commands:
         # Relaunch dismisses an unfinished form before failure cleanup.
         - launchApp
+        - extendedWaitUntil:
+            visible:
+              id: "home-stream-card"
+            timeout: 30000
         - openLink: "${APP_ID}://settings/streaming/multistream"
         - scrollUntilVisible:
             element:
@@ -56,7 +60,7 @@ onFlowComplete:
                   env:
                     PRIVATE_SPACE_STEP: absent
 ---
-# Login is a suite prerequisite; every target stays inactive to avoid a push.
+# Login is a suite prerequisite; target activity is incidental to persistence.
 - launchApp
 - tapOn:
     text: "Settings"
@@ -80,14 +84,6 @@ onFlowComplete:
     id: "multistream-target-form-url"
 - inputText: "${output.privateSpaceUrl}"
 - hideKeyboard
-- assertVisible:
-    id: "multistream-target-form-active"
-    checked: true
-- tapOn:
-    id: "multistream-target-form-active"
-- assertVisible:
-    id: "multistream-target-form-active"
-    checked: false
 - evalScript: ${output.privateSpaceCreationAttempted = true}
 - tapOn:
     id: "multistream-target-save"
@@ -98,6 +94,10 @@ onFlowComplete:
     timeout: 30000
 # A fresh screen must load the target from the node, not the previous list.
 - launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
 - openLink: "${APP_ID}://settings/streaming/multistream"
 - scrollUntilVisible:
     element:

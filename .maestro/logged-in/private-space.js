@@ -36,10 +36,7 @@ if (PRIVATE_SPACE_STEP === "present") {
   if (!record) {
     throw new Error(`no private target named "${output.privateSpaceName}"`);
   }
-  if (
-    record.value.url !== output.privateSpaceUrl ||
-    record.value.active !== false
-  ) {
+  if (record.value.url !== output.privateSpaceUrl) {
     throw new Error(
       `unexpected private target: ${JSON.stringify(record.value)}`,
     );

@@ -1,10 +1,10 @@
 # atproto spaces
 
-Streamplace keeps each user's private records in an
+Streamplace copies each user's private records into an
 [atproto space](https://github.com/bluesky-social/proposals/tree/main/0016-permissioned-data)
 on the user's own PDS: data that must never reach the firehose, such as a
-multistream target's RTMP URL with its stream key. Until now that data lived
-only in the node's stateful database, under record URIs that were never real.
+multistream target's RTMP URL with its stream key. The node keeps these records
+in its stateful database and syncs them when the caller has a space grant.
 
 Spaces are an alpha that ships breaking changes weekly. This document
 describes the wire Streamplace targets, pinned in [Testing](#testing).
@@ -32,7 +32,7 @@ A record in it is addressed as
 
 Collections in the space today:
 
-| Collection                        | Was                                 |
+| Collection                        | Node index                          |
 | --------------------------------- | ----------------------------------- |
 | `place.stream.multistream.target` | statedb table `multistream_targets` |
 
@@ -92,10 +92,10 @@ can parse spaces, move both files into `lexicons/` and delete the overlay.
 
 ## How the node uses the space
 
-The space is the source of truth. The statedb table stays, as the node's
-index of it: a live stream's multistream loop reads its targets every few
-seconds with no user request in flight, and every node of a station has to
-see the same answer.
+The statedb index supplies the records the node serves and copies to the
+space. A live stream's multistream loop reads its targets every few seconds
+with no user request in flight, and every node of a station has to see the
+same answer. The space holds the last successfully synced copy.
 
 ```mermaid
 sequenceDiagram
@@ -103,38 +103,49 @@ sequenceDiagram
     participant Node
     participant PDS
     App->>Node: place.stream.multistream.createTarget
-    Node->>PDS: com.atproto.space.putRecord (user's OAuth session)
-    PDS-->>Node: uri, cid
-    Node->>Node: index row in statedb
+    Node->>Node: lock user, sync pending rows
+    Node->>Node: save index row (in_space = false)
+    Node->>PDS: sync: com.atproto.space.putRecord (caller's OAuth session)
+    PDS-->>Node: cid (or error: row stays pending)
+    Node->>Node: on success: in_space = true, space_stale = false, cid
+    Node->>Node: unlock user
     Node-->>App: targetView
 ```
 
-- **Writes** go to the PDS first, then to the index. The node acts through
-  the user's stored OAuth session, the one it already uses to write public
-  records.
+- **Create and update** write the index first. Update also sets
+  `space_stale = true`. Neither operation fails because the PDS is unavailable.
+- **Sync** uses one function, `SyncMultistreamTargets`, to copy pending rows
+  to the space, then mark them synced and store the returned CID.
+- **Delete** removes the PDS record first when `in_space = true`. It requires
+  a usable client and leaves the index untouched on a PDS error. A retry is
+  safe even if the PDS delete succeeds and the SQL delete fails.
 - **Reads** come from the index.
 - **Row URIs never change.** The index and every API view use
-  `at://{did}/place.stream.multistream.target/{rkey}`. The `in_space` column
-  marks rows backed by the space, under the same collection and record key.
+  `at://{did}/place.stream.multistream.target/{rkey}`. `in_space` means a copy
+  exists in the space under the same collection and key; `space_stale` means
+  the row changes are pending sync.
 
 ### Moving a user over
 
-Nothing is migrated in bulk. Whenever a user with old rows calls a
-multistream endpoint and the node holds a usable session for them, it writes
-each row with `in_space = false` into the space under the same record key,
-then sets `in_space = true` and stores the returned CID. Row URIs and event
-references stay untouched. Moving is safe to repeat and never fails the
-request: the first error stops the move, and remaining rows are tried again
-next time.
+Every multistream call takes a per-user lock before choosing a space client,
+including calls without OAuth. Lock failures fail the request rather than
+allowing unlocked edits. The helper uses the caller's own OAuth session, not
+another login's stored session. No session, a failed refresh, or no granted
+`space:place.stream.personal` scope means no client.
 
-A user stays on the old path, with nothing changed for them, when their PDS
-has no spaces, when their session predates the grant and has not refreshed
-yet, or when the node has no session for them. A new target created while
-the PDS is unreachable is saved the old way and moves later. Updating or
-deleting a target that is already in the space fails if the PDS write fails,
-because the index must not disagree with the space. For the same reason each
-handler holds a per-user lock from the move through its own PDS and index
-writes, so two requests cannot apply them in different orders.
+With a client, the helper runs `SyncMultistreamTargets` under that lock. It
+copies every row with `in_space = false` or `space_stale = true`, then sets
+`in_space = true`, `space_stale = false` and the returned CID. URI and event
+references stay untouched. Both columns default to false, so existing rows
+are picked up. The first error stops sync without clearing that row's pending
+flags; a failed SQL acknowledgment also leaves it eligible for retry.
+
+Create and update sync again after their index write, still under the lock.
+Sync errors are logged, not returned: saved changes stay available to the
+director and pending rows are retried on the user's next multistream call.
+A PDS without spaces or an unavailable client leaves creates and updates
+local. Deleting a row with `in_space = true` needs the PDS; a row with
+`in_space = false` is deleted locally.
 
 ## Adding a collection
 
@@ -142,9 +153,11 @@ writes, so two requests cannot apply them in different orders.
 2. Add the collection to `collections` in
    `pkg/spaces/lexicons/place.stream.personal.json` and run `make lexicons`.
    Existing sessions gain write access to it on their next token refresh.
-3. Write through `pkg/spaces` and index in statedb, as the multistream
-   handlers in `pkg/spxrpc/place_stream_multistream.go` do. Keep row URIs
-   stable and track space backing separately, including for existing rows.
+3. Save in statedb first and copy pending rows through one sync function using
+   `pkg/spaces`, as the multistream handlers do. Hold the per-user lock from
+   client selection through index writes and sync. Keep row URIs stable and
+   track space backing and pending changes separately, with defaults that
+   include existing rows. Space-backed deletes require the PDS.
 4. Extend the e2e flows below.
 
 Candidates, in rough order of readiness:
@@ -203,5 +216,7 @@ lexicon publisher's CAR proofs.
   the space does not reach the index.
 - The index still holds a copy of every private record, in statedb.
 - API record URIs identify index rows, not the records' space addresses.
+- Space copies can lag the index while the PDS or client is unavailable.
+  Pending rows retry on the user's next multistream call; no background sync runs.
 - The Maestro flow runs on Android. Nothing in the repository runs
   backend-backed flows on iOS yet.

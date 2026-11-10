@@ -443,7 +443,8 @@ function MultistreamFormDialog({
               {t("rtmp-target-name")} ({t("optional")})
             </label>
             <Input
-              aria-label="Multistream target name"
+              data-testid="multistream-target-form-name"
+              aria-label={t("rtmp-target-name")}
               value={form.name}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, name: e.target.value }))
@@ -458,7 +459,8 @@ function MultistreamFormDialog({
               {t("rtmp-target-url")} *
             </label>
             <Input
-              aria-label="Multistream target URL"
+              data-testid="multistream-target-form-url"
+              aria-label={t("rtmp-target-url")}
               value={changedUrl ? form.url : ""}
               onChange={(e) => {
                 setChangedUrl(true);
@@ -479,10 +481,13 @@ function MultistreamFormDialog({
           </div>
 
           {/* Active toggle */}
-          <div className="flex items-center justify-between">
+          <div
+            data-testid="multistream-target-form-active"
+            className="flex items-center justify-between"
+          >
             <span className="text-sm">{t("active")}</span>
             <Switch
-              aria-label="Multistream target active"
+              aria-label={t("active")}
               checked={form.active}
               onCheckedChange={(checked) =>
                 setForm((prev) => ({ ...prev, active: checked }))

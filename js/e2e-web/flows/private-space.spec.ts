@@ -182,16 +182,11 @@ for (const frontend of ["app", "web"]) {
       await expectSpaceTarget(request, legacy!, LEGACY_NAME, LEGACY_URL);
 
       await page.getByTestId("multistream-target-create").click();
-      await page
-        .getByLabel("Multistream target name", { exact: true })
-        .fill(name);
-      await page
-        .getByLabel("Multistream target URL", { exact: true })
-        .fill(url);
-      const active = page.getByRole("switch", {
-        name: "Multistream target active",
-        exact: true,
-      });
+      await page.getByTestId("multistream-target-form-name").fill(name);
+      await page.getByTestId("multistream-target-form-url").fill(url);
+      const active = page
+        .getByTestId("multistream-target-form-active")
+        .getByRole("switch");
       await expect(active).toBeChecked();
       await active.click();
       await expect(active).not.toBeChecked();
@@ -210,9 +205,7 @@ for (const frontend of ["app", "web"]) {
       await row(created!)
         .getByTestId(/^multistream-target-edit-/)
         .click();
-      await page
-        .getByLabel("Multistream target name", { exact: true })
-        .fill(renamed);
+      await page.getByTestId("multistream-target-form-name").fill(renamed);
       await expect(active).not.toBeChecked();
       await mutateTarget(page, "putTarget", () =>
         page.getByTestId("multistream-target-save").click(),

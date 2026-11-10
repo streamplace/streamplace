@@ -32,38 +32,35 @@ func validateMultistreamTargetURL(urlStr string) error {
 	return nil
 }
 
-// multistreamSpace migrates legacy targets using the user's OAuth space grant.
-// The caller holds the returned lock through its own PDS and index writes.
-func (s *Server) multistreamSpace(ctx context.Context, did string) (client spaces.Client, unlock func()) {
-	unlock = func() {}
-	session, err := s.statefulDB.GetSessionByDID(did)
-	if err != nil || session == nil || s.op == nil {
-		return nil, unlock
+// multistreamSpace locks all multistream calls before syncing with the caller's grant.
+// The caller holds the returned lock through its index writes and sync.
+func (s *Server) multistreamSpace(ctx context.Context, did string) (spaces.Client, func(), error) {
+	unlock, err := s.statefulDB.GetNamedLock("multistream-space:" + did)
+	if err != nil {
+		return nil, nil, fmt.Errorf("lock multistream space: %w", err)
 	}
-	session, err = s.op.RefreshIfNeeded(session)
+	caller := GetCaller(ctx)
+	if caller == nil || caller.OAuth == nil || s.op == nil {
+		return nil, unlock, nil
+	}
+	session, err := s.op.RefreshIfNeeded(caller.OAuth)
 	if err != nil || session == nil {
 		log.Debug(ctx, "could not refresh multistream space session", "error", err)
-		return nil, unlock
+		return nil, unlock, nil
 	}
 	// A PDS with spaces lists the expanded space scope in each token response.
 	if !strings.Contains(session.GrantedScope(), "space:"+spaces.PersonalSpaceType) {
-		return nil, unlock
+		return nil, unlock, nil
 	}
-	client, err = s.op.GetXrpcClient(session)
+	client, err := s.op.GetXrpcClient(session)
 	if err != nil {
 		log.Debug(ctx, "could not get multistream space client", "error", err)
-		return nil, unlock
+		return nil, unlock, nil
 	}
-	// One writer per user keeps the index and the space in the same order.
-	release, err := s.statefulDB.GetNamedLock("multistream-space:" + did)
-	if err != nil {
-		log.Warn(ctx, "could not lock multistream space", "error", err)
-		return nil, unlock
+	if err := s.statefulDB.SyncMultistreamTargets(ctx, client, did); err != nil {
+		log.Warn(ctx, "could not sync multistream targets", "error", err)
 	}
-	if err := s.statefulDB.MigrateMultistreamTargets(ctx, client, did); err != nil {
-		log.Warn(ctx, "could not migrate multistream targets", "error", err)
-	}
-	return client, release
+	return client, unlock, nil
 }
 
 func (s *Server) handlePlaceStreamMultistreamCreateTarget(ctx context.Context, body *placestreamtypes.MultistreamCreateTarget_Input) (*placestreamtypes.MultistreamDefs_TargetView, error) {
@@ -74,17 +71,23 @@ func (s *Server) handlePlaceStreamMultistreamCreateTarget(ctx context.Context, b
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
-	client, unlock := s.multistreamSpace(ctx, session.DID)
+	client, unlock, err := s.multistreamSpace(ctx, session.DID)
+	if err != nil {
+		return nil, err
+	}
 	defer unlock()
 
-	err := validateMultistreamTargetURL(body.MultistreamTarget.Url)
+	err = validateMultistreamTargetURL(body.MultistreamTarget.Url)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	out, err := s.statefulDB.CreateMultistreamTarget(ctx, client, *body, session.DID)
+	out, err := s.statefulDB.CreateMultistreamTarget(*body, session.DID)
 	if err != nil {
 		return nil, err
+	}
+	if err := s.statefulDB.SyncMultistreamTargets(ctx, client, session.DID); err != nil {
+		log.Warn(ctx, "could not sync multistream targets", "error", err)
 	}
 	return &out, nil
 }
@@ -98,7 +101,10 @@ func (s *Server) handlePlaceStreamMultistreamListTargets(ctx context.Context, cu
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
 
-	_, unlock := s.multistreamSpace(ctx, session.DID)
+	_, unlock, err := s.multistreamSpace(ctx, session.DID)
+	if err != nil {
+		return nil, err
+	}
 	defer unlock()
 	// Set default limit and validate bounds
 	if limit <= 0 || limit > 100 {
@@ -142,9 +148,12 @@ func (s *Server) handlePlaceStreamMultistreamPutTarget(ctx context.Context, body
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
 
-	client, unlock := s.multistreamSpace(ctx, session.DID)
+	client, unlock, err := s.multistreamSpace(ctx, session.DID)
+	if err != nil {
+		return nil, err
+	}
 	defer unlock()
-	err := validateMultistreamTargetURL(body.MultistreamTarget.Url)
+	err = validateMultistreamTargetURL(body.MultistreamTarget.Url)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -159,9 +168,12 @@ func (s *Server) handlePlaceStreamMultistreamPutTarget(ctx context.Context, body
 	}
 	uri := fmt.Sprintf("at://%s/place.stream.multistream.target/%s", session.DID, rkey)
 
-	out, err := s.statefulDB.UpdateMultistreamTarget(ctx, client, uri, *body)
+	out, err := s.statefulDB.UpdateMultistreamTarget(uri, *body)
 	if err != nil {
 		return nil, err
+	}
+	if err := s.statefulDB.SyncMultistreamTargets(ctx, client, session.DID); err != nil {
+		log.Warn(ctx, "could not sync multistream targets", "error", err)
 	}
 	return &out, nil
 }
@@ -174,12 +186,15 @@ func (s *Server) handlePlaceStreamMultistreamDeleteTarget(ctx context.Context, b
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
 
-	client, unlock := s.multistreamSpace(ctx, session.DID)
+	client, unlock, err := s.multistreamSpace(ctx, session.DID)
+	if err != nil {
+		return nil, err
+	}
 	defer unlock()
 	// Build URI from rkey
 	uri := fmt.Sprintf("at://%s/place.stream.multistream.target/%s", session.DID, body.Rkey)
 
-	err := s.statefulDB.DeleteMultistreamTarget(ctx, client, uri)
+	err = s.statefulDB.DeleteMultistreamTarget(ctx, client, uri)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to delete multistream target")
 	}

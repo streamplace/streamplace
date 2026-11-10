@@ -74,19 +74,19 @@ onFlowComplete:
 - tapOn:
     id: "multistream-target-create"
 - tapOn:
-    text: "Multistream target name"
+    id: "multistream-target-form-name"
 - inputText: "${output.privateSpaceName}"
 - tapOn:
-    text: "Multistream target URL"
+    id: "multistream-target-form-url"
 - inputText: "${output.privateSpaceUrl}"
 - hideKeyboard
 - assertVisible:
-    text: "Multistream target active"
+    id: "multistream-target-form-active"
     checked: true
 - tapOn:
-    text: "Multistream target active"
+    id: "multistream-target-form-active"
 - assertVisible:
-    text: "Multistream target active"
+    id: "multistream-target-form-active"
     checked: false
 - evalScript: ${output.privateSpaceCreationAttempted = true}
 - tapOn:

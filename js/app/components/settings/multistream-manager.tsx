@@ -608,7 +608,8 @@ function MultistreamTargetForm({
             {t("rtmp-target-name")} ({t("optional")})
           </Text>
           <Input
-            accessibilityLabel="Multistream target name"
+            testID="multistream-target-form-name"
+            accessibilityLabel={t("rtmp-target-name")}
             value={formData.name}
             onChangeText={(text) =>
               setFormData((prev) => ({ ...prev, name: text }))
@@ -627,7 +628,8 @@ function MultistreamTargetForm({
             {t("rtmp-target-url")} *
           </Text>
           <Input
-            accessibilityLabel="Multistream target URL"
+            testID="multistream-target-form-url"
+            accessibilityLabel={t("rtmp-target-url")}
             value={displayUrl}
             onChangeText={(text) => {
               setChangedTargetUrl(true);
@@ -664,7 +666,8 @@ function MultistreamTargetForm({
             {t("active")}
           </Text>
           <Switch
-            accessibilityLabel="Multistream target active"
+            testID="multistream-target-form-active"
+            accessibilityLabel={t("active")}
             value={formData.active}
             onValueChange={(active) =>
               setFormData((prev) => ({ ...prev, active }))

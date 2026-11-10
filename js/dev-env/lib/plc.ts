@@ -25,11 +25,10 @@ export class TestPlcServer {
 
     // The fixture PLC predates Multikey. Modernize its DID documents while
     // preserving the public keys and the signed operation log.
-    const { response } = server.app as typeof server.app & {
-      response: ServerResponse & { send(body?: unknown): unknown };
-    };
+    type Response = ServerResponse & { send(body?: unknown): unknown };
+    const { response } = server.app as unknown as { response: Response };
     const send = response.send;
-    response.send = function (body) {
+    response.send = function (this: Response, body?: unknown) {
       const contentType = this.getHeader("content-type");
       if (
         typeof body === "string" &&

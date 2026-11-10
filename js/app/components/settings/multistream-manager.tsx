@@ -646,6 +646,7 @@ function MultistreamTargetForm({
                 ? redactMultistreamTargetURL(target.record.url)
                 : "rtmps://example.com:443/live/foo"
             }
+            autoCapitalize="none"
             multiline
           />
           <Text size="xs" style={[{ color: theme.colors.danger }, mt[1]]}>

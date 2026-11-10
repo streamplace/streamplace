@@ -11,6 +11,7 @@ import {
   ThemeProvider,
   StreamplaceProvider as ZustandStreamplaceProvider,
 } from "@streamplace/components";
+import { QrLoginProvider } from "components/login/use-qr-login";
 import * as Font from "expo-font";
 import { useFonts } from "expo-font";
 import BlueskyProvider from "features/bluesky/blueskyProvider";
@@ -139,7 +140,7 @@ export const NewStreamplaceProvider = ({
       oauthSession={oauthSession}
       onNeedsLogin={openLoginModal ? () => openLoginModal() : undefined}
     >
-      {children}
+      <QrLoginProvider>{children}</QrLoginProvider>
     </ZustandStreamplaceProvider>
   );
 };

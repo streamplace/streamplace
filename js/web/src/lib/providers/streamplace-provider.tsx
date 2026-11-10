@@ -25,7 +25,7 @@ export default function StreamplaceProvider({
     if (!initialized || (!pdsAgent && !anonPDSAgent)) return;
 
     fetchBroadcasterDID().then(() => {
-      fetchBranding({ force: false });
+      fetchBranding();
     });
   }, [initialized, pdsAgent, anonPDSAgent, fetchBroadcasterDID, fetchBranding]);
 

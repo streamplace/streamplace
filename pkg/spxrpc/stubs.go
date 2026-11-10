@@ -451,6 +451,9 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.local.deleteRecord", s.HandlePlaceStreamLocalDeleteRecord)
 	e.GET("/xrpc/place.stream.local.listRecords", s.HandlePlaceStreamLocalListRecords)
 	e.POST("/xrpc/place.stream.local.putRecord", s.HandlePlaceStreamLocalPutRecord)
+	e.POST("/xrpc/place.stream.login.completeQRLogin", s.HandlePlaceStreamLoginCompleteQRLogin)
+	e.POST("/xrpc/place.stream.login.createQRLogin", s.HandlePlaceStreamLoginCreateQRLogin)
+	e.GET("/xrpc/place.stream.login.getQRLogin", s.HandlePlaceStreamLoginGetQRLogin)
 	e.POST("/xrpc/place.stream.media.createUpload", s.HandlePlaceStreamMediaCreateUpload)
 	e.POST("/xrpc/place.stream.media.deleteVideo", s.HandlePlaceStreamMediaDeleteVideo)
 	e.POST("/xrpc/place.stream.media.finalizeLivestream", s.HandlePlaceStreamMediaFinalizeLivestream)
@@ -970,6 +973,54 @@ func (s *Server) HandlePlaceStreamLocalPutRecord(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamLocalPutRecord(ctx context.Context,body *placestream.LocalPutRecord_Input) (*placestream.LocalPutRecord_Output, error)
 	out, handleErr = s.handlePlaceStreamLocalPutRecord(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamLoginCompleteQRLogin(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLoginCompleteQRLogin")
+	defer span.End()
+	var body placestream.LoginCompleteQRLogin_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.LoginDefs_QrLogin
+	var handleErr error
+	// func (s *Server) handlePlaceStreamLoginCompleteQRLogin(ctx context.Context,body *placestream.LoginCompleteQRLogin_Input) (*placestream.LoginDefs_QrLogin, error)
+	out, handleErr = s.handlePlaceStreamLoginCompleteQRLogin(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamLoginCreateQRLogin(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLoginCreateQRLogin")
+	defer span.End()
+	var body placestream.LoginCreateQRLogin_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.LoginCreateQRLogin_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamLoginCreateQRLogin(ctx context.Context,body *placestream.LoginCreateQRLogin_Input) (*placestream.LoginCreateQRLogin_Output, error)
+	out, handleErr = s.handlePlaceStreamLoginCreateQRLogin(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamLoginGetQRLogin(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLoginGetQRLogin")
+	defer span.End()
+	id := c.QueryParam("id")
+	var out *placestream.LoginDefs_QrLogin
+	var handleErr error
+	// func (s *Server) handlePlaceStreamLoginGetQRLogin(ctx context.Context,id string) (*placestream.LoginDefs_QrLogin, error)
+	out, handleErr = s.handlePlaceStreamLoginGetQRLogin(ctx, id)
 	if handleErr != nil {
 		return handleErr
 	}

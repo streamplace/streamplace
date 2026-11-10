@@ -42,6 +42,7 @@ export const ROOT_SCREENS = [
   "Stream",
   "MobileGoLive",
   "AppReturn",
+  "QrLogin",
   "PopoutChat",
   "Embed",
   "InfoWidgetEmbed",

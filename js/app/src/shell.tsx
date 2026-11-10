@@ -149,6 +149,7 @@ const LaunchGoLive = lazyScreen(() => import("src/screens/launch-go-live"));
 const LiveDashboard = lazyScreen(() => import("src/screens/live-dashboard"));
 const MobileGoLive = lazyScreen(() => import("src/screens/mobile-go-live"));
 const MobileStream = lazyScreen(() => import("src/screens/mobile-stream"));
+const QrLoginScreen = lazyScreen(() => import("src/screens/qr-login"));
 const MultiScreen = lazyScreen(() => import("src/screens/multi"));
 const PopoutInfoWidget = lazyScreen(
   () => import("src/screens/popout-info-widget"),
@@ -756,7 +757,6 @@ export default function Shell() {
   const showLoginModal = useStore((state) => state.showLoginModal);
   const closeLoginModal = useStore((state) => state.closeLoginModal);
   const showPdsModal = useStore((state) => state.showPdsModal);
-  const openPdsModal = useStore((state) => state.openPdsModal);
   const closePdsModal = useStore((state) => state.closePdsModal);
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
@@ -955,6 +955,11 @@ export default function Shell() {
             options={{ title: "Returning to app..." }}
           />
           <RootStack.Screen
+            name="QrLogin"
+            component={QrLoginScreen}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
             name="PopoutChat"
             component={PopoutChat}
             options={{ headerShown: false }}
@@ -1089,11 +1094,7 @@ export default function Shell() {
           </View>
         )}
       {showHeaderSearch && <HeaderSearch key={currentRouteName} />}
-      <LoginModal
-        visible={showLoginModal}
-        onClose={closeLoginModal}
-        onOpenPdsModal={openPdsModal}
-      />
+      <LoginModal visible={showLoginModal} onClose={closeLoginModal} />
       <PdsHostSelectorModal
         open={showPdsModal}
         onOpenChange={closePdsModal}

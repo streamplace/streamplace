@@ -1,10 +1,10 @@
-import { Text, useTheme, zero } from "@streamplace/components";
+import { useTheme, useTranslation, zero } from "@streamplace/components";
 import { X } from "lucide-react-native";
 import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
+  ScrollView,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -13,15 +13,11 @@ import LoginForm from "./login-form";
 interface LoginModalProps {
   visible: boolean;
   onClose: () => void;
-  onOpenPdsModal: () => void;
 }
 
-export default function LoginModal({
-  visible,
-  onClose,
-  onOpenPdsModal,
-}: LoginModalProps) {
+export default function LoginModal({ visible, onClose }: LoginModalProps) {
   const { theme } = useTheme();
+  const { t } = useTranslation("common");
 
   if (!visible) {
     return null;
@@ -38,7 +34,6 @@ export default function LoginModal({
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={[
           zero.layout.flex[1],
-          zero.layout.flex.center,
           zero.layout.flex.alignCenter,
           zero.layout.flex.justifyCenter,
           {
@@ -53,47 +48,41 @@ export default function LoginModal({
           },
         ]}
       >
-        <Pressable
-          style={[
-            zero.r.xl,
-            zero.p[6],
-            {
-              backgroundColor: theme.colors.surface2,
-              borderWidth: 1,
-              borderColor: theme.colors.borderStrong,
-              width: 600,
-              maxWidth: "95%",
-              maxHeight: "85%",
-              ...theme.shadows.xl,
-            },
-          ]}
-          onPress={(e) => e.stopPropagation()}
+        <View
+          style={{
+            backgroundColor: theme.colors.surface1,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            borderRadius: theme.borderRadius.none,
+            width: 400,
+            maxWidth: "92%",
+            maxHeight: "90%",
+          }}
         >
-          <View
-            style={[
-              zero.layout.flex.row,
-              zero.layout.flex.spaceBetween,
-              zero.layout.flex.alignCenter,
-              zero.mb[4],
-            ]}
+          <ScrollView
+            style={{ flexGrow: 0 }}
+            contentContainerStyle={zero.p[6]}
+            keyboardShouldPersistTaps="handled"
           >
-            <Text size="4xl" leading="snug">
-              Log in
-            </Text>
-            <TouchableOpacity
-              onPress={onClose}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            <View
+              style={[
+                zero.layout.flex.row,
+                zero.layout.flex.justify.end,
+                zero.mb[2],
+              ]}
             >
-              <X color={theme.colors.text3} size={24} />
-            </TouchableOpacity>
-          </View>
-
-          <LoginForm
-            onSuccess={onClose}
-            onCloseModal={onClose}
-            onOpenPdsModal={onOpenPdsModal}
-          />
-        </Pressable>
+              <TouchableOpacity
+                testID="login-close"
+                accessibilityLabel={t("close")}
+                onPress={onClose}
+                hitSlop={theme.spacing[3]}
+              >
+                <X color={theme.colors.text3} size={20} />
+              </TouchableOpacity>
+            </View>
+            <LoginForm onSuccess={onClose} />
+          </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );

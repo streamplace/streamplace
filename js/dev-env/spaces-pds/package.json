@@ -1,0 +1,7 @@
+{
+  "name": "streamplace-spaces-pds",
+  "private": true,
+  "dependencies": {
+    "@atproto/pds": "0.0.0-spaces-alpha-20261105160032"
+  }
+}

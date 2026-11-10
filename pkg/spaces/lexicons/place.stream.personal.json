@@ -1,0 +1,13 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.personal",
+  "defs": {
+    "main": {
+      "type": "space",
+      "description": "Private Streamplace records stored on the user's PDS.",
+      "key": "literal:self",
+      "name": "Streamplace private data",
+      "collections": ["place.stream.multistream.target"]
+    }
+  }
+}

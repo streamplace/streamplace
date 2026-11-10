@@ -226,6 +226,28 @@ jobs:
           SP_E2E_VIDEO: av1
           E2E_HARNESS_LOG: ${{ runner.temp }}/harness-av1-whip.log
 
+      - name: Fetch pinned reference spaces PDS
+        if: matrix.mode == 'standalone'
+        run: hack/fetch-spaces-pds.sh
+
+      - name: Run private-space tests on reference spaces alpha
+        if: matrix.mode == 'standalone'
+        run: hack/e2e-web-local.sh flows/private-space.spec.ts
+        env:
+          DEV_ENV_PDS: spaces
+          E2E_HARNESS_LOG: ${{ runner.temp }}/harness-spaces.log
+
+      - name: Fetch pinned vlpds
+        if: matrix.mode == 'standalone'
+        run: hack/fetch-vlpds.sh
+
+      - name: Run private-space tests on vlpds
+        if: matrix.mode == 'standalone'
+        run: hack/e2e-web-local.sh flows/private-space.spec.ts
+        env:
+          DEV_ENV_PDS: vlpds
+          E2E_HARNESS_LOG: ${{ runner.temp }}/harness-vlpds.log
+
       - name: Upload e2e-web artifacts
         if: failure()
         uses: actions/upload-artifact@v7.0.2
@@ -382,6 +404,9 @@ jobs:
           disable-animations: true
           script: echo "avd snapshot created"
 
+      - name: Fetch pinned reference spaces PDS
+        run: hack/fetch-spaces-pds.sh
+
       - name: run maestro flows
         uses: reactivecircus/android-emulator-runner@v2.38.0
         with:
@@ -402,10 +427,9 @@ jobs:
           # one line: the action runs each script line in its own shell.
           # fMP4 ingest gives the test stream a "Music" stem for the audio
           # stems flow; WHIP ingest stays covered by the web suite.
-          script:
-            SP_E2E_INGEST=fmp4
-            E2E_HARNESS_LOG=$PWD/.maestro/artifacts/harness.log bash
-            hack/e2e-local.sh android
+          script: |
+            SP_E2E_INGEST=fmp4 E2E_HARNESS_LOG=$PWD/.maestro/artifacts/harness.log bash hack/e2e-local.sh android
+            DEV_ENV_PDS=spaces E2E_ARTIFACTS=$PWD/.maestro/artifacts/spaces E2E_HARNESS_LOG=$PWD/.maestro/artifacts/spaces/harness.log E2E_FLOWS=logged-in/private-space.yaml bash hack/e2e-local.sh android
       # The AV1 stream, with its H.264 fallback track, must play on the
       # device whether or not it decodes AV1.
       - name: Run AV1 Maestro flow

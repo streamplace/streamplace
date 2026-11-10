@@ -118,8 +118,8 @@ The node serves existing `/_expo/static/` files with a one-year immutable cache
 policy. HTML revalidates on every visit, including deep links. Missing Expo
 chunks return non-cacheable 404s, never the app shell.
 
-The crash fallback uses static Streamplace dark-theme tokens without requiring
-app providers. Retry remains available on every platform; page reload is web-only.
+The crash fallback reads pure Streamplace dark-theme tokens without importing
+provider modules. Retry remains available on every platform; page reload is web-only.
 
 Production web HTML renders a dependency-free bootstrap spinner before loading
 Expo's scripts. `scripts/bootstrap-web.mjs` runs after normal and Atlas exports:

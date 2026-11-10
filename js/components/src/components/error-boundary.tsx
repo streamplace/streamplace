@@ -1,7 +1,15 @@
 import * as React from "react";
 import { Platform, Pressable, Text, View } from "react-native";
-import { darkTheme } from "../lib/theme/theme";
-import { breakpoints, fontWeights, typeScale } from "../lib/theme/tokens";
+import { defaultChrome } from "../lib/theme/chrome";
+import {
+  borderRadius,
+  breakpoints,
+  colors,
+  fontWeights,
+  spacing,
+  touchTargets,
+  typeScale,
+} from "../lib/theme/tokens";
 
 type ErrorBoundaryProps = {
   children: React.ReactNode;
@@ -53,23 +61,25 @@ export class ErrorBoundary extends React.Component<
   }
 }
 
-const theme = darkTheme;
+const chrome = defaultChrome(true);
+// eslint-disable-next-line streamplace/no-token-literals -- Provider-independent crash fallback.
+const primary = colors.primary[500];
 // The root boundary sits outside FontProvider, so keep the system font family.
 const bodyText = {
   fontSize: typeScale.base.fontSize,
   lineHeight: typeScale.base.lineHeight,
 };
 const button = {
-  minHeight: theme.touchTargets.minimum,
+  minHeight: touchTargets.minimum,
   justifyContent: "center",
   alignItems: "center",
-  paddingHorizontal: theme.spacing[4],
-  borderRadius: theme.borderRadius.md,
+  paddingHorizontal: spacing[4],
+  borderRadius: borderRadius.md,
   ...(Platform.OS === "web"
     ? {
-        outlineColor: theme.colors.focus,
-        outlineWidth: theme.spacing[1] / 2,
-        outlineOffset: theme.spacing[1] / 2,
+        outlineColor: primary,
+        outlineWidth: spacing[1] / 2,
+        outlineOffset: spacing[1] / 2,
       }
     : {}),
 } as const;
@@ -83,20 +93,20 @@ export function AppCrashScreen({ reset }: { reset: () => void }) {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        padding: theme.spacing[6],
-        backgroundColor: theme.colors.surface0,
+        padding: spacing[6],
+        backgroundColor: chrome.surface[0],
       }}
     >
       <View
         style={{
           width: "100%",
           maxWidth: breakpoints.sm,
-          gap: theme.spacing[6],
-          padding: theme.spacing[8],
+          gap: spacing[6],
+          padding: spacing[8],
           borderWidth: 1,
-          borderColor: theme.colors.borderSubtle,
-          borderRadius: theme.borderRadius.lg,
-          backgroundColor: theme.colors.surface1,
+          borderColor: chrome.border.subtle,
+          borderRadius: borderRadius.lg,
+          backgroundColor: chrome.surface[1],
         }}
       >
         <Text
@@ -104,12 +114,12 @@ export function AppCrashScreen({ reset }: { reset: () => void }) {
             fontSize: typeScale.md.fontSize,
             lineHeight: typeScale.md.lineHeight,
             fontWeight: fontWeights.semibold,
-            color: theme.colors.text1,
+            color: chrome.text[1],
           }}
         >
           Streamplace
         </Text>
-        <View style={{ gap: theme.spacing[2] }}>
+        <View style={{ gap: spacing[2] }}>
           <Text
             accessibilityRole="header"
             style={{
@@ -117,26 +127,26 @@ export function AppCrashScreen({ reset }: { reset: () => void }) {
               lineHeight: typeScale.xl.lineHeight,
               letterSpacing: typeScale.xl.letterSpacing,
               fontWeight: fontWeights.semibold,
-              color: theme.colors.text1,
+              color: chrome.text[1],
             }}
           >
             Something went wrong
           </Text>
-          <Text style={{ ...bodyText, color: theme.colors.text2 }}>
+          <Text style={{ ...bodyText, color: chrome.text[2] }}>
             This screen hit an error it couldn't recover from.
           </Text>
         </View>
-        <View style={{ gap: theme.spacing[3] }}>
+        <View style={{ gap: spacing[3] }}>
           <Pressable
             onPress={reset}
             accessibilityRole="button"
-            style={[button, { backgroundColor: theme.colors.primary }]}
+            style={[button, { backgroundColor: primary }]}
           >
             <Text
               style={{
                 ...bodyText,
                 fontWeight: fontWeights.medium,
-                color: theme.colors.primaryForeground,
+                color: colors.white,
               }}
             >
               Try again
@@ -148,14 +158,14 @@ export function AppCrashScreen({ reset }: { reset: () => void }) {
               accessibilityRole="button"
               style={[
                 button,
-                { borderWidth: 1, borderColor: theme.colors.border },
+                { borderWidth: 1, borderColor: chrome.border.default },
               ]}
             >
               <Text
                 style={{
                   ...bodyText,
                   fontWeight: fontWeights.medium,
-                  color: theme.colors.text1,
+                  color: chrome.text[1],
                 }}
               >
                 Reload the page

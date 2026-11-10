@@ -36,6 +36,7 @@ import (
 	"stream.place/streamplace/pkg/crypto/spkey"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spaces"
 	"stream.place/streamplace/test/remote"
 )
 
@@ -174,8 +175,9 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 const nodeReadyTimeout = 90 * time.Second
 
 type e2eDevEnv struct {
-	PDSURL string `json:"pds-url"`
-	PLCURL string `json:"plc-url"`
+	PDSURL        string `json:"pds-url"`
+	PLCURL        string `json:"plc-url"`
+	LexiconPDSURL string `json:"lexicon-pds-url"`
 	// Only in HTTPS mode: the account the PDS resolves lexicons from.
 	LexiconDID      string `json:"lexicon-did"`
 	LexiconPassword string `json:"lexicon-password"`
@@ -455,6 +457,11 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	if err := waitE2EHealth(ctx, fmt.Sprintf("http://%s/api/healthz", httpAddr)); err != nil {
 		return fmt.Errorf("station node: %w", err)
 	}
+	if tlsEnv != nil {
+		if err := seedE2ELegacyTarget(ctx, xrpcc, httpAddr, broadcasterHost); err != nil {
+			return fmt.Errorf("seed legacy multistream target: %w", err)
+		}
+	}
 	stationKey, err := e2eStationKey(ctx, httpAddr)
 	if err != nil {
 		return fmt.Errorf("station key: %w", err)
@@ -676,6 +683,11 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	}
 	vars := fmt.Sprintf("SERVER_URL=http://%s\nSERVER2_URL=http://%s\nSERVER3_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nE2E_FIXTURE_MP4=%s\nPDS_HTTP_URL=%s\nSTREAM_KEY=%s\n",
 		serverAddr, peerAddr, pushAddr, out.Handle, out.Did, password, videoURI, fixture, env.PDSURL, priv)
+	pdsKind := os.Getenv("DEV_ENV_PDS")
+	if pdsKind == "" {
+		pdsKind = "reference"
+	}
+	vars += fmt.Sprintf("PDS_KIND=%s\n", pdsKind)
 	if tlsEnv != nil {
 		vars += fmt.Sprintf("PDS_HTTPS_URL=%s\nE2E_PROXY_URL=%s\nE2E_TLS_SPKI=%s\nE2E_TLS_CA=%s\n",
 			tlsEnv.PDSURL(), tlsEnv.ProxyURL(), tlsEnv.spki, tlsEnv.caPath)
@@ -700,7 +712,11 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 // what the account behind _lexicon.stream.place holds in production. The PDS
 // resolves `include:place.stream.authFull` from it when the app logs in.
 func publishLexicons(ctx context.Context, env e2eDevEnv) error {
-	xrpcc := &xrpc.Client{Host: env.PDSURL, Client: &aqhttp.TrustedClient}
+	pdsURL := env.LexiconPDSURL
+	if pdsURL == "" {
+		pdsURL = env.PDSURL
+	}
+	xrpcc := &xrpc.Client{Host: pdsURL, Client: &aqhttp.TrustedClient}
 	session, err := comatproto.ServerCreateSession(ctx, xrpcc, &comatproto.ServerCreateSession_Input{
 		Identifier: env.LexiconDID,
 		Password:   env.LexiconPassword,
@@ -713,18 +729,68 @@ func publishLexicons(ctx context.Context, env e2eDevEnv) error {
 	if err != nil {
 		return err
 	}
+	documents, err := spaces.LexiconOverlay()
+	if err != nil {
+		return err
+	}
 	for _, lex := range lexs {
-		rkey := lex.ID
-		inp := spcomatproto.RepoCreateRecord_Input{
-			Collection: "com.atproto.lexicon.schema",
-			Repo:       session.Did,
-			Rkey:       &rkey,
-			Record:     &glex.LexiconTypeDecoder{Val: &atproto.SchemaFileWrapper{SchemaFile: *lex}},
+		if _, replaced := documents[lex.ID]; replaced {
+			continue
 		}
-		out := spcomatproto.RepoCreateRecord_Output{}
+		raw, err := json.Marshal(lex)
+		if err != nil {
+			return fmt.Errorf("marshal %s: %w", lex.ID, err)
+		}
+		documents[lex.ID] = raw
+	}
+	for nsid, raw := range documents {
+		var record map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &record); err != nil {
+			return fmt.Errorf("decode %s: %w", nsid, err)
+		}
+		record["$type"] = json.RawMessage(`"com.atproto.lexicon.schema"`)
+		inp := map[string]any{
+			"collection": "com.atproto.lexicon.schema",
+			"repo":       session.Did,
+			"rkey":       nsid,
+			"record":     record,
+		}
+		var out spcomatproto.RepoCreateRecord_Output
 		if err := xrpcc.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, inp, &out); err != nil {
-			return fmt.Errorf("%s: %w", lex.ID, err)
+			return fmt.Errorf("%s: %w", nsid, err)
 		}
+	}
+	return nil
+}
+
+func seedE2ELegacyTarget(ctx context.Context, pds *xrpc.Client, httpAddr, broadcasterHost string) error {
+	const method = "place.stream.multistream.createTarget"
+	var auth struct {
+		Token string `json:"token"`
+	}
+	if err := pds.Do(ctx, xrpc.Query, "", "com.atproto.server.getServiceAuth", map[string]any{
+		"aud": "did:web:" + broadcasterHost,
+		"lxm": method,
+	}, nil, &auth); err != nil {
+		return fmt.Errorf("get service auth: %w", err)
+	}
+	node := &xrpc.Client{
+		Host:   "http://" + httpAddr,
+		Client: &aqhttp.TrustedClient,
+		Auth:   &xrpc.AuthInfo{AccessJwt: auth.Token},
+	}
+	name := "e2e legacy target"
+	record := placestream.MultistreamTarget{
+		LexiconTypeID: "place.stream.multistream.target",
+		Url:           "rtmp://127.0.0.1:9/live/e2e-legacy",
+		Name:          &name,
+		Active:        false,
+		CreatedAt:     time.Now().UTC().Format(util.ISO8601),
+	}
+	inp := &placestream.MultistreamCreateTarget_Input{MultistreamTarget: record}
+	var out placestream.MultistreamDefs_TargetView
+	if err := node.Do(ctx, xrpc.Procedure, "application/json", method, nil, inp, &out); err != nil {
+		return fmt.Errorf("create target with service auth: %w", err)
 	}
 	return nil
 }

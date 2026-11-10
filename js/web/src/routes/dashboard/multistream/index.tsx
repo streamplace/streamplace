@@ -219,11 +219,16 @@ function MultistreamManager() {
       </div>
 
       <div className="flex gap-2">
-        <Button onClick={handleCreate} size="sm">
+        <Button
+          data-testid="multistream-target-create"
+          onClick={handleCreate}
+          size="sm"
+        >
           <Plus size={16} className="mr-1" />
           {t("create-multistream-target")}
         </Button>
         <Button
+          data-testid="multistream-target-refresh"
           onClick={() => loadTargets()}
           disabled={loading}
           variant="secondary"
@@ -253,6 +258,7 @@ function MultistreamManager() {
             return (
               <div
                 key={target.uri}
+                data-testid={`multistream-target-row-${target.uri.split("/").pop()}`}
                 className="flex items-start justify-between gap-3 px-3 py-3"
                 style={{ opacity: isDeleting ? 0.5 : 1 }}
               >
@@ -289,6 +295,8 @@ function MultistreamManager() {
                     onCheckedChange={(checked) => handleToggle(target, checked)}
                   />
                   <button
+                    data-testid={`multistream-target-edit-${target.uri.split("/").pop()}`}
+                    aria-label={`${t("multistream-edit-target")} ${targetTitle(target)}`}
                     type="button"
                     onClick={() => handleEdit(target)}
                     className="rounded p-1.5 transition-colors hover:bg-(--color-bg)"
@@ -296,6 +304,8 @@ function MultistreamManager() {
                     <Edit2 size={16} className="text-(--color-fg-muted)" />
                   </button>
                   <button
+                    data-testid={`multistream-target-delete-${target.uri.split("/").pop()}`}
+                    aria-label={`${t("delete")} ${targetTitle(target)}`}
                     type="button"
                     onClick={() => setDeleteTarget(target)}
                     disabled={isDeleting}
@@ -346,7 +356,11 @@ function MultistreamManager() {
             <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
               {t("cancel")}
             </Button>
-            <Button variant="destructive" onClick={handleDelete}>
+            <Button
+              data-testid="multistream-target-confirm-delete"
+              variant="destructive"
+              onClick={handleDelete}
+            >
               {t("delete")}
             </Button>
           </DialogFooter>
@@ -429,6 +443,7 @@ function MultistreamFormDialog({
               {t("rtmp-target-name")} ({t("optional")})
             </label>
             <Input
+              aria-label="Multistream target name"
               value={form.name}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, name: e.target.value }))
@@ -443,6 +458,7 @@ function MultistreamFormDialog({
               {t("rtmp-target-url")} *
             </label>
             <Input
+              aria-label="Multistream target URL"
               value={changedUrl ? form.url : ""}
               onChange={(e) => {
                 setChangedUrl(true);
@@ -466,6 +482,7 @@ function MultistreamFormDialog({
           <div className="flex items-center justify-between">
             <span className="text-sm">{t("active")}</span>
             <Switch
+              aria-label="Multistream target active"
               checked={form.active}
               onCheckedChange={(checked) =>
                 setForm((prev) => ({ ...prev, active: checked }))
@@ -480,7 +497,11 @@ function MultistreamFormDialog({
           <Button variant="secondary" onClick={onClose} disabled={loading}>
             {t("cancel")}
           </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
+          <Button
+            data-testid="multistream-target-save"
+            onClick={handleSubmit}
+            disabled={loading}
+          >
             {loading ? t("saving") : target ? t("update") : t("create")}
           </Button>
         </DialogFooter>

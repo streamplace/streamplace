@@ -29,10 +29,10 @@ appId: ${APP_ID}
 - takeScreenshot: oauth-login-pds-consent
 - extendedWaitUntil:
     visible:
-      text: "Authorize"
+      text: "Authorize|Allow"
     timeout: 30000
 - tapOn:
-    text: "Authorize"
+    text: "Authorize|Allow"
 - takeScreenshot: oauth-login-app-return
 - extendedWaitUntil:
     visible:

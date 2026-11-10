@@ -8,6 +8,16 @@ a smoke run: the `ios` job there builds `make ios-simulator` and
 `hack/ios-smoke.sh` runs `js/app/maestro/home.yaml` on a simulator. The web suite
 (`js/e2e-web`, `hack/e2e-web-local.sh`) mirrors these flows.
 
+`DEV_ENV_PDS` selects the harness PDS: unset uses the stable reference PDS,
+`spaces` uses the isolated reference spaces alpha (first run
+`hack/fetch-spaces-pds.sh`), and `vlpds` uses the pinned
+vlpds binary (Linux amd64; first run `hack/fetch-vlpds.sh` on the Docker host).
+OAuth tests require HTTPS mode; direct vlpds account/session smoke runs also
+work without a hostname. The runner passes `PDS_KIND=reference|spaces|vlpds`
+to Maestro; the login flow accepts either PDS's Authorize/Allow consent.
+For example, `DEV_ENV_PDS=spaces E2E_FLOWS=logged-in/private-space.yaml hack/e2e-local.sh android`
+runs just private-space CRUD and its login prerequisites.
+
 ## Organization and prerequisites
 
 Use feature/behavior names, not sequence numbers. Add a lowercase kebab-case

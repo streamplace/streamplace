@@ -1,0 +1,43 @@
+packages:
+  - .
+allowBuilds:
+  better-sqlite3: true
+  core-js: false
+  protobufjs: true
+# Keep the prerelease family on the exact version of the direct PDS dependency.
+overrides:
+  "@atproto-labs/did-resolver": "$@atproto/pds"
+  "@atproto-labs/fetch-node": "$@atproto/pds"
+  "@atproto-labs/handle-resolver": "$@atproto/pds"
+  "@atproto-labs/handle-resolver-node": "$@atproto/pds"
+  "@atproto-labs/opentelemetry-node": "$@atproto/pds"
+  "@atproto-labs/xrpc-utils": "$@atproto/pds"
+  "@atproto/aws": "$@atproto/pds"
+  "@atproto/car": "$@atproto/pds"
+  "@atproto/common": "$@atproto/pds"
+  "@atproto/common-web": "$@atproto/pds"
+  "@atproto/crypto": "$@atproto/pds"
+  "@atproto/did": "$@atproto/pds"
+  "@atproto/identity": "$@atproto/pds"
+  "@atproto/lex": "$@atproto/pds"
+  "@atproto/lex-builder": "$@atproto/pds"
+  "@atproto/lex-cbor": "$@atproto/pds"
+  "@atproto/lex-client": "$@atproto/pds"
+  "@atproto/lex-data": "$@atproto/pds"
+  "@atproto/lex-document": "$@atproto/pds"
+  "@atproto/lex-installer": "$@atproto/pds"
+  "@atproto/lex-json": "$@atproto/pds"
+  "@atproto/lex-resolver": "$@atproto/pds"
+  "@atproto/lex-schema": "$@atproto/pds"
+  "@atproto/lexicon": "$@atproto/pds"
+  "@atproto/oauth-provider": "$@atproto/pds"
+  "@atproto/oauth-provider-api": "$@atproto/pds"
+  "@atproto/oauth-provider-ui": "$@atproto/pds"
+  "@atproto/oauth-scopes": "$@atproto/pds"
+  "@atproto/oauth-types": "$@atproto/pds"
+  "@atproto/repo": "$@atproto/pds"
+  "@atproto/space": "$@atproto/pds"
+  "@atproto/star": "$@atproto/pds"
+  "@atproto/syntax": "$@atproto/pds"
+  "@atproto/xrpc": "$@atproto/pds"
+  "@atproto/xrpc-server": "$@atproto/pds"

@@ -58,7 +58,7 @@ export async function loginThroughPds(
   // The PDS can skip consent on a retry after this OAuth client is already
   // authorized, redirecting straight back to the app.
   await Promise.race([
-    page.getByRole("button", { name: /^authorize$/i }).click({
+    page.getByRole("button", { name: /^(authorize|allow)$/i }).click({
       timeout: 60_000,
     }),
     page.waitForURL((u) => u.origin === appOrigin, { timeout: 60_000 }),

@@ -2,12 +2,16 @@ package statedb
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/util"
 	glex "github.com/streamplace/glex/runtime"
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spaces"
 	"stream.place/streamplace/pkg/spid"
 )
 
@@ -18,6 +22,7 @@ type MultistreamTarget struct {
 	URI               string `gorm:"column:uri;primarykey"`
 	CID               string `gorm:"column:cid;not null"`
 	Active            bool   `gorm:"column:active"`
+	InSpace           bool   `gorm:"column:in_space;default:false"`
 	RepoDID           string `gorm:"column:repo_did;not null;index"`
 	MultistreamTarget []byte `gorm:"column:record"`
 }
@@ -26,7 +31,7 @@ func (m *MultistreamTarget) TableName() string {
 	return "multistream_targets"
 }
 
-func (state *StatefulDB) CreateMultistreamTarget(input placestream.MultistreamCreateTarget_Input, repoDID string) (placestream.MultistreamDefs_TargetView, error) {
+func (state *StatefulDB) CreateMultistreamTarget(ctx context.Context, client spaces.Client, input placestream.MultistreamCreateTarget_Input, repoDID string) (placestream.MultistreamDefs_TargetView, error) {
 	// Check total targets limit
 	var totalCount int64
 	err := state.DB.Model(&MultistreamTarget{}).Where("repo_did = ?", repoDID).Count(&totalCount).Error
@@ -49,7 +54,7 @@ func (state *StatefulDB) CreateMultistreamTarget(input placestream.MultistreamCr
 		}
 	}
 
-	// this URI is, of course, a LIE
+	// Legacy rows remain local until the user's PDS supports spaces.
 	tid := spid.TIDClock.Next()
 	uri := fmt.Sprintf("at://%s/place.stream.multistream.target/%s", repoDID, tid.String())
 
@@ -64,12 +69,24 @@ func (state *StatefulDB) CreateMultistreamTarget(input placestream.MultistreamCr
 		return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("failed to marshal multistream target: %w", err)
 	}
 
+	cidString := cid.String()
+	inSpace := false
+	if client != nil {
+		_, spaceCID, err := spaces.PutRecord(ctx, client, repoDID, "place.stream.multistream.target", tid.String(), &input.MultistreamTarget)
+		if err != nil {
+			log.Debug(ctx, "could not create multistream target in space", "error", err)
+		} else {
+			cidString, inSpace = spaceCID, true
+		}
+	}
+
 	dbTarget := &MultistreamTarget{
 		URI:               uri,
-		CID:               cid.String(),
+		CID:               cidString,
 		RepoDID:           repoDID,
 		MultistreamTarget: buf.Bytes(),
 		Active:            input.MultistreamTarget.Active,
+		InSpace:           inSpace,
 	}
 	err = state.DB.Create(dbTarget).Error
 	if err != nil {
@@ -77,13 +94,45 @@ func (state *StatefulDB) CreateMultistreamTarget(input placestream.MultistreamCr
 	}
 	return placestream.MultistreamDefs_TargetView{
 		Uri:    uri,
-		Cid:    cid.String(),
+		Cid:    cidString,
 		Record: &glex.LexiconTypeDecoder{Val: &input.MultistreamTarget},
 	}, nil
 }
 
-func (state *StatefulDB) GetMultistreamTarget(uri string) (placestream.MultistreamDefs_TargetView, error) {
-	return placestream.MultistreamDefs_TargetView{}, nil
+func (state *StatefulDB) GetMultistreamTarget(repoDID, rkey string) (MultistreamTarget, error) {
+	var target MultistreamTarget
+	err := state.DB.Where("repo_did = ? AND uri = ?", repoDID,
+		fmt.Sprintf("at://%s/place.stream.multistream.target/%s", repoDID, rkey)).First(&target).Error
+	return target, err
+}
+
+// MigrateMultistreamTargets moves the user's legacy rows into their personal
+// space, stopping at the first failure; the rest move on a later call.
+func (state *StatefulDB) MigrateMultistreamTargets(ctx context.Context, client spaces.Client, repoDID string) error {
+	if client == nil {
+		return nil
+	}
+	var targets []MultistreamTarget
+	if err := state.DB.Where("repo_did = ? AND in_space = ?", repoDID, false).Find(&targets).Error; err != nil {
+		return err
+	}
+	for _, target := range targets {
+		var record placestream.MultistreamTarget
+		if err := record.UnmarshalCBOR(bytes.NewReader(target.MultistreamTarget)); err != nil {
+			return fmt.Errorf("decode multistream target: %w", err)
+		}
+		rkey := target.URI[strings.LastIndex(target.URI, "/")+1:]
+		_, cid, err := spaces.PutRecord(ctx, client, repoDID, "place.stream.multistream.target", rkey, &record)
+		if err != nil {
+			return err
+		}
+		err = state.DB.Model(&MultistreamTarget{}).Where("uri = ?", target.URI).
+			Updates(map[string]any{"in_space": true, "cid": cid}).Error
+		if err != nil {
+			return fmt.Errorf("index migrated multistream target: %w", err)
+		}
+	}
+	return nil
 }
 
 type TargetWithEvent struct {
@@ -118,18 +167,12 @@ func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offse
 	result := make([]placestream.MultistreamDefs_TargetView, len(targets))
 	for i, target := range targets {
 		var multistreamTarget placestream.MultistreamTarget
-		err = multistreamTarget.UnmarshalCBOR(bytes.NewReader(target.MultistreamTarget.MultistreamTarget))
-		if err != nil {
+		if err := multistreamTarget.UnmarshalCBOR(bytes.NewReader(target.MultistreamTarget.MultistreamTarget)); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal multistream target: %w", err)
 		}
-		cid, err := spid.GetCID(&multistreamTarget)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get CID: %w", err)
-		}
-
 		targetView := placestream.MultistreamDefs_TargetView{
 			Uri:    target.URI,
-			Cid:    cid.String(),
+			Cid:    target.CID,
 			Record: &glex.LexiconTypeDecoder{Val: &multistreamTarget},
 		}
 
@@ -149,7 +192,7 @@ func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offse
 	return result, nil
 }
 
-func (state *StatefulDB) UpdateMultistreamTarget(uri string, input placestream.MultistreamPutTarget_Input) (placestream.MultistreamDefs_TargetView, error) {
+func (state *StatefulDB) UpdateMultistreamTarget(ctx context.Context, client spaces.Client, uri string, input placestream.MultistreamPutTarget_Input) (placestream.MultistreamDefs_TargetView, error) {
 	// Get the current target to check repo ownership and current active status
 	var currentTarget MultistreamTarget
 	err := state.DB.Where("uri = ?", uri).First(&currentTarget).Error
@@ -182,9 +225,20 @@ func (state *StatefulDB) UpdateMultistreamTarget(uri string, input placestream.M
 		return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("failed to marshal multistream target: %w", err)
 	}
 
+	cidString := cid.String()
+	if currentTarget.InSpace {
+		if client == nil {
+			return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("oauth session required to update space-backed target")
+		}
+		rkey := uri[strings.LastIndex(uri, "/")+1:]
+		_, cidString, err = spaces.PutRecord(ctx, client, currentTarget.RepoDID, "place.stream.multistream.target", rkey, &input.MultistreamTarget)
+		if err != nil {
+			return placestream.MultistreamDefs_TargetView{}, err
+		}
+	}
 	// Update the database record
 	updates := map[string]interface{}{
-		"cid":    cid.String(),
+		"cid":    cidString,
 		"record": buf.Bytes(),
 		"active": input.MultistreamTarget.Active,
 	}
@@ -199,12 +253,25 @@ func (state *StatefulDB) UpdateMultistreamTarget(uri string, input placestream.M
 
 	return placestream.MultistreamDefs_TargetView{
 		Uri:    uri,
-		Cid:    cid.String(),
+		Cid:    cidString,
 		Record: &glex.LexiconTypeDecoder{Val: &input.MultistreamTarget},
 	}, nil
 }
 
-func (state *StatefulDB) DeleteMultistreamTarget(uri string) error {
+func (state *StatefulDB) DeleteMultistreamTarget(ctx context.Context, client spaces.Client, uri string) error {
+	var target MultistreamTarget
+	if err := state.DB.Where("uri = ?", uri).First(&target).Error; err != nil {
+		return err
+	}
+	if target.InSpace {
+		if client == nil {
+			return fmt.Errorf("oauth session required to delete space-backed target")
+		}
+		rkey := uri[strings.LastIndex(uri, "/")+1:]
+		if err := spaces.DeleteRecord(ctx, client, target.RepoDID, "place.stream.multistream.target", rkey); err != nil {
+			return err
+		}
+	}
 	result := state.DB.Where("uri = ?", uri).Delete(&MultistreamTarget{})
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete multistream target: %w", result.Error)

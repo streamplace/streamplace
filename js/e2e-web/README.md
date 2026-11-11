@@ -301,13 +301,33 @@ SP_E2E_INGEST=none hack/e2e-web-local.sh --config playwright.bench.config.ts
 first frame at `/<handle>/video/<tid>`: from navigation start to the first
 frame the `<video>` presents (`requestVideoFrameCallback`). **Cold** opens it
 in a fresh browser context (empty HTTP cache); **warm** opens it in a context
-that has just played the other video for a few seconds. Each runs over
-loopback and over Chromium's network emulation (10 Mbps down, 40 ms latency),
+that has just played the other video for a few seconds. Each runs unthrottled
+and over Chromium's network emulation (10 Mbps, plus 40 ms latency),
 `VOD_TTFF_RUNS` times (default 5). It writes `bench-results/vod-ttff.{md,json}`
 with medians and a per-milestone breakdown; CI's `bench-vod` job posts the
 Markdown to the run summary.
 
 A scenario fails when its median exceeds `bench/vod-ttff-baseline.json` by
-both the tolerance ratio and milliseconds. The baseline holds CI runner
-numbers: after a deliberate change (or a faster result), copy `firstFrameMs`
-from the `bench-vod` artifact's `vod-ttff.json` into it.
+both 25% and 300 ms. The baseline holds CI runner numbers: after a deliberate
+change (or a faster result), copy `firstFrameMs` from the `bench-vod`
+artifact's `vod-ttff.json` into it.
+
+### Against a deployed node
+
+`VOD_TTFF_VIDEOS` runs `vod-ttff` against any node, such as production,
+without the harness. It takes two published watch URLs: warm runs play the
+first one, and all runs measure the second. Upload and node setup are
+skipped, and no baseline is applied unless `VOD_TTFF_BASELINE` names one.
+A previous run's `vod-ttff.json` works as a baseline. To compare a deploy:
+
+```bash
+cd js/e2e-web
+export VOD_TTFF_VIDEOS=https://stream.place/<handle>/video/<tid1>,https://stream.place/<handle>/video/<tid2>
+pnpm bench && cp bench-results/vod-ttff.json /tmp/before.json
+# ...deploy...
+VOD_TTFF_BASELINE=/tmp/before.json pnpm bench
+```
+
+`cold` is cold only in the browser: from the second run on, the node's and
+any CDN's caches hold the target video. Throttling adds to the real network
+path, and results depend on it, so compare runs from the same machine.

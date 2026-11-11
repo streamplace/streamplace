@@ -143,7 +143,7 @@ func (s *Server) handlePlaceStreamMultistreamListTargets(ctx context.Context, cu
 	if cursor != "" {
 		var err error
 		offset, err = strconv.Atoi(cursor)
-		if err != nil {
+		if err != nil || offset < 0 {
 			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid cursor")
 		}
 	}

@@ -52,6 +52,9 @@ func TestMultistreamLegacyRPC(t *testing.T) {
 	listed, err = s.handlePlaceStreamMultistreamListTargets(ctx, "", 50)
 	require.NoError(t, err)
 	require.Empty(t, listed.Targets)
+	// A cursor is an offset into the list, which the space path slices by.
+	_, err = s.handlePlaceStreamMultistreamListTargets(ctx, "-1", 50)
+	require.ErrorContains(t, err, "invalid cursor")
 }
 
 func TestMultistreamSpaceTargets(t *testing.T) {

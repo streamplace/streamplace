@@ -54,6 +54,7 @@ export default function LoginModal({
         ]}
       >
         <Pressable
+          accessible={false}
           style={[
             zero.r.xl,
             zero.p[6],

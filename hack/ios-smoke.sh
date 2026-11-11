@@ -7,7 +7,7 @@
 #
 #   hack/ios-smoke.sh
 #
-# Prerequisites: macOS with Xcode, jq and maestro (https://maestro.dev).
+# Prerequisites: macOS with Xcode, jq, Maestro and applesimutils.
 #
 # Creates an isolated iPhone simulator on the newest installed iOS runtime and
 # deletes only that simulator afterwards. Screenshots, Maestro reports and logs
@@ -19,8 +19,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 REPO="$PWD"
 
-for tool in xcrun jq plutil maestro; do
-  command -v "$tool" >/dev/null || { echo "$tool not found — this script needs macOS with Xcode, jq and maestro"; exit 1; }
+for tool in xcrun jq plutil maestro applesimutils; do
+  command -v "$tool" >/dev/null || { echo "$tool not found — this script needs macOS with Xcode, jq, Maestro and applesimutils"; exit 1; }
 done
 
 if [ -z "${APP:-}" ]; then
@@ -62,6 +62,8 @@ xcrun simctl bootstatus "$UDID" -b >/dev/null
 echo "simulator $UDID, app $APP_ID from $(basename "$APP")"
 
 xcrun simctl install "$UDID" "$APP"
+# Keep first-launch consent outside Maestro's app-hierarchy assertions.
+applesimutils --byId "$UDID" --bundle "$APP_ID" --setPermissions notifications=YES
 
 # maestro writes takeScreenshot files to the working directory
 cd "$OUT"

@@ -541,9 +541,10 @@ jobs:
 
       # Installs the simulator build on an iPhone simulator and runs the home
       # Maestro flow against it (hack/ios-smoke.sh).
-      - name: install maestro
+      - name: install ios test tools
         if: matrix.name == 'ios'
         run: |
+          brew install wix/brew/applesimutils
           # a pinned release, checked before anything in it runs
           curl -fsSL -o /tmp/maestro.zip https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.12.1/maestro.zip
           echo "54dbb0716425626604973cbb374c585ca30272375d9ce15177a1152765ddd9d7  /tmp/maestro.zip" | shasum -a 256 -c -

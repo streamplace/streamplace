@@ -487,9 +487,7 @@ function CompactStreamInfo() {
           <Pressable
             onPress={() => setExpandedAnimated(!expanded)}
             accessibilityRole="button"
-            accessibilityLabel={
-              countLabel ? `Stream info, ${countLabel}` : "Stream info"
-            }
+            accessibilityLabel={`Stream info: ${title || handleStr}${countLabel ? `, ${countLabel}` : ""}`}
             style={{ flex: 1, minWidth: 0 }}
           >
             <Text

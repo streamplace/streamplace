@@ -570,6 +570,7 @@ export function Chat({
         <FlatList
           ref={flatListRef}
           testID="chat-list"
+          keyboardShouldPersistTaps="handled"
           style={[
             flex.grow[1],
             flex.shrink[1],

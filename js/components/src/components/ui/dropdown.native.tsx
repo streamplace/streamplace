@@ -16,7 +16,13 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import {
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -168,7 +174,7 @@ export const DropdownMenuBottomSheet = forwardRef<
   { overlayStyle, portalHost, children, ...rest },
   _ref,
 ) {
-  const { onOpenChange } = DropdownMenuPrimitive.useRootContext();
+  const { open, onOpenChange } = DropdownMenuPrimitive.useRootContext();
   const { zero: zt, theme } = useTheme();
   const sheetRef = useRef<BottomSheet>(null);
   const { width } = useWindowDimensions();
@@ -177,6 +183,10 @@ export const DropdownMenuBottomSheet = forwardRef<
   const horizontalMargin = isWide ? (width - sheetWidth) / 2 : 0;
 
   const insets = useSafeAreaInsets();
+
+  React.useEffect(() => {
+    if (open) Keyboard.dismiss();
+  }, [open]);
 
   const [stack, setStack] = useState<NavigationStackItem[]>([
     { key: "root", content: children },

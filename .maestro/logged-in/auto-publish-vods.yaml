@@ -36,19 +36,47 @@ appId: ${APP_ID}
 - scrollUntilVisible:
     element:
       id: "live-auto-publish-vods"
-- extendedWaitUntil:
-    visible:
-      id: "live-auto-publish-vods"
-      checked: false
-      enabled: true
-    timeout: 30000
+# XCTest exposes the custom checkbox state as a value, not checked.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "live-auto-publish-vods"
+            checked: false
+            enabled: true
+          timeout: 30000
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "live-auto-publish-vods"
+            text: "checkbox, unchecked"
+            enabled: true
+          timeout: 30000
 - tapOn:
     id: "live-auto-publish-vods"
-- extendedWaitUntil:
-    visible:
-      id: "live-auto-publish-vods"
-      checked: true
-    timeout: 10000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "live-auto-publish-vods"
+            checked: true
+          timeout: 10000
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "live-auto-publish-vods"
+            text: "checkbox, checked"
+          timeout: 10000
 - takeScreenshot: auto-publish-vods-stream-form-on
 - launchApp
 - tapOn:

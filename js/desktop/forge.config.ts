@@ -46,6 +46,8 @@ export default async function () {
     buildVersion: version,
     icon: "./assets/images/streamplace-logo",
     extraResource: ["./assets/images/streamplace-logo.png"],
+    // Keep in sync with LOGIN_PROTOCOL in src/index.ts.
+    protocols: [{ name: "Streamplace", schemes: ["streamplace-desktop"] }],
   };
 
   const config: ForgeConfig = {

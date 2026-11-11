@@ -88,7 +88,9 @@ With a station:
   The station is the `#streamplace` HTTPS origin in its DID document; startup
   stops if it is missing. The local node's issuer and frontend callback use its
   actual loopback port; `SP_HTTP_ADDR` and `SP_HTTP_INTERNAL_ADDR` can override
-  the Desktop listener defaults.
+  the Desktop listener defaults. Sign-in opens in the system browser, so
+  passkeys work; the node's `/app-return` page hands the callback back to the
+  running app on the `streamplace-desktop` scheme.
 - **Streams.** Unless `SP_PEERS` is set, the node pushes the streams it
   ingests to the station over MoQ (see `docs/moq.md`).
 - **Labelers** are not followed: their firehoses carry other accounts.

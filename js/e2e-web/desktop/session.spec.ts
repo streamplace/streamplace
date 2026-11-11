@@ -1,12 +1,12 @@
-import { loginThroughPds } from "../flows/login";
 import { expect, test } from "./fixture";
+import { loginThroughSystemBrowser } from "./login";
 
 // Real Desktop lifecycle coverage, separate from the full-node web suite.
 test("login and writes survive closing Desktop", async ({ desktop }) => {
   const { nodeURL } = desktop;
   const localHost = new URL(nodeURL).host;
   let page = desktop.page;
-  await loginThroughPds(page, nodeURL);
+  await loginThroughSystemBrowser(desktop);
   await page.goto(nodeURL + "/settings/privacy");
   const toggleName = `Allow ${localHost} to record your livestream for debugging and improving the service`;
   const toggle = page.getByRole("switch", { name: toggleName });

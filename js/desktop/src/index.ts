@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { parseArgs } from "node:util";
 import "source-map-support/register";
 import { generatePrivateKey } from "viem/accounts";
@@ -9,10 +9,60 @@ import runTests, { allTestNames } from "./tests/test-runner";
 import initUpdater from "./updater";
 import { makeWindow } from "./window";
 
+// OAuth logins happen in the system browser (passkeys need it), and the node's
+// /app-return page sends the result back to us on this scheme.
+const LOGIN_PROTOCOL = "streamplace-desktop";
+
+const isLoginURL = (value: string): boolean =>
+  value.startsWith(`${LOGIN_PROTOCOL}:`);
+
+let mainWindow: BrowserWindow | undefined;
+let windowReady = false;
+let pendingLoginURL: string | undefined;
+
+// Delivers a system-browser OAuth callback to the renderer that started the
+// login. The window may not exist yet when the OS launches us with the URL.
+const deliverLoginURL = (url: string): void => {
+  if (!isLoginURL(url)) {
+    return;
+  }
+  if (!mainWindow || mainWindow.isDestroyed() || !windowReady) {
+    pendingLoginURL = url;
+    return;
+  }
+  console.log("delivering login callback");
+  mainWindow.webContents.send("auth:callback", url);
+};
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require("electron-squirrel-startup")) {
   app.quit();
+} else if (!app.requestSingleInstanceLock()) {
+  // A second launch is the OS handing us a login URL; the first instance gets
+  // it through second-instance below.
+  app.quit();
 } else {
+  app.on("open-url", (event, url) => {
+    event.preventDefault();
+    deliverLoginURL(url);
+  });
+  app.on("second-instance", (_event, argv) => {
+    const url = argv.find(isLoginURL);
+    if (url) {
+      deliverLoginURL(url);
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.focus();
+    }
+  });
+  const argvLoginURL = process.argv.find(isLoginURL);
+  if (argvLoginURL) {
+    pendingLoginURL = argvLoginURL;
+  }
+
   // Electron leaves Chromium switches and the app entry in process.argv.
   // Keep parsing our own options without rejecting those Electron arguments.
   const { values: args, positionals } = parseArgs({
@@ -108,7 +158,12 @@ if (require("electron-squirrel-startup")) {
       const { addr } = await makeNode({ env, autoQuit: true });
       loadAddr = addr;
     }
-    const mainWindow = await makeWindow();
+    const window = await makeWindow();
+    mainWindow = window;
+    const registered = app.setAsDefaultProtocolClient(LOGIN_PROTOCOL);
+    if (!registered) {
+      console.error(`could not register the ${LOGIN_PROTOCOL} scheme`);
+    }
 
     let startPath;
     if (nodeFrontend) {
@@ -117,12 +172,11 @@ if (require("electron-squirrel-startup")) {
       startPath = `http://127.0.0.1:38081${path}`;
     }
 
-    // For the OBS setup screen, through SP_ELECTRON.obs in preload.ts. Only
-    // the app's own pages may call it: signing in sends this window to the
-    // PDS, whose pages get the same preload.
+    // For the OBS setup screen and system-browser logins, through
+    // SP_ELECTRON in preload.ts. Only the app's own pages may call them.
     const server = loadAddr ?? "http://127.0.0.1:38082";
     const appOrigin = new URL(startPath).origin;
-    const handleObs = <A extends unknown[]>(
+    const handleIPC = <A extends unknown[]>(
       channel: string,
       fn: (...args: A) => unknown,
     ) =>
@@ -132,15 +186,33 @@ if (require("electron-squirrel-startup")) {
         }
         return fn(...(args as A));
       });
-    handleObs("obs:status", () => obsStatus());
-    handleObs("obs:installPlugin", () => installPlugin());
-    handleObs("obs:configureStream", (streamKey: string) =>
+    handleIPC("obs:status", () => obsStatus());
+    handleIPC("obs:installPlugin", () => installPlugin());
+    handleIPC("obs:configureStream", (streamKey: string) =>
       configureStream(server, streamKey),
     );
-    console.log(`opening ${startPath}`);
-    mainWindow.loadURL(startPath);
+    handleIPC("auth:openLogin", async (url: string) => {
+      // The app may point at a custom node, so any web page is allowed here;
+      // never hand an arbitrary scheme to the OS.
+      const { protocol } = new URL(url);
+      if (protocol !== "http:" && protocol !== "https:") {
+        throw new Error(`refusing to open ${url}`);
+      }
+      await shell.openExternal(url);
+    });
 
-    offerObsPlugin(mainWindow).catch((e) =>
+    console.log(`opening ${startPath}`);
+    window.webContents.once("did-finish-load", () => {
+      windowReady = true;
+      if (pendingLoginURL) {
+        const url = pendingLoginURL;
+        pendingLoginURL = undefined;
+        deliverLoginURL(url);
+      }
+    });
+    window.loadURL(startPath);
+
+    offerObsPlugin(window).catch((e) =>
       console.error("OBS plugin check failed", e),
     );
   };

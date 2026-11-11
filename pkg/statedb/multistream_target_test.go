@@ -7,8 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spaces/spacestest"
 )
@@ -29,66 +27,44 @@ func (c *editOnPut) Do(ctx context.Context, kind, inpenc, method string, params 
 	return c.Fake.Do(ctx, kind, inpenc, method, params, body, out)
 }
 
-func moveTestTargets(t *testing.T, n int) (*StatefulDB, []string) {
-	t.Helper()
-	mod, err := model.MakeDB(":memory:")
-	require.NoError(t, err)
-	state, err := MakeDB(t.Context(), &config.CLI{DBURL: ":memory:"}, nil, mod)
-	require.NoError(t, err)
-	uris := make([]string, n)
-	for i := range uris {
-		view, err := state.CreateMultistreamTarget(placestream.MultistreamCreateTarget_Input{MultistreamTarget: placestream.MultistreamTarget{
-			Url: "rtmp://localhost/live/key", CreatedAt: "2026-11-11T00:00:00Z",
-		}}, moveDID)
-		require.NoError(t, err)
-		uris[i] = view.Uri
-	}
-	return state, uris
-}
-
-func rowCount(t *testing.T, state *StatefulDB) int {
-	t.Helper()
-	rows, err := state.ListMultistreamTargets(moveDID, 100, 0, nil)
-	require.NoError(t, err)
-	return len(rows)
-}
-
 func TestMoveMultistreamTargets(t *testing.T) {
-	t.Run("moves every row under its own rkey", func(t *testing.T) {
-		state, uris := moveTestTargets(t, 2)
-		space := &spacestest.Fake{}
-		require.NoError(t, state.MoveMultistreamTargets(t.Context(), space, moveDID))
-		require.Zero(t, rowCount(t, state))
-		require.Len(t, space.Records, 2)
-		for _, uri := range uris {
-			require.Contains(t, space.Records, uri[strings.LastIndex(uri, "/")+1:])
+	target := func(url string) placestream.MultistreamTarget {
+		return placestream.MultistreamTarget{Url: url, CreatedAt: "2026-11-11T00:00:00Z"}
+	}
+	WithAllDatabases(t, func(state *StatefulDB) {
+		rows := func() int {
+			rows, err := state.ListMultistreamTargets(moveDID, 100, 0, nil)
+			require.NoError(t, err)
+			return len(rows)
 		}
-		// Nothing is left to move, so the PDS is not asked again.
-		calls := len(space.Calls)
-		require.NoError(t, state.MoveMultistreamTargets(t.Context(), space, moveDID))
-		require.Len(t, space.Calls, calls)
-	})
+		var rkeys []string
+		for range 2 {
+			view, err := state.CreateMultistreamTarget(placestream.MultistreamCreateTarget_Input{MultistreamTarget: target("rtmp://localhost/live/key")}, moveDID)
+			require.NoError(t, err)
+			rkeys = append(rkeys, view.Uri[strings.LastIndex(view.Uri, "/")+1:])
+		}
 
-	t.Run("keeps every row when the PDS fails", func(t *testing.T) {
-		state, _ := moveTestTargets(t, 2)
+		// A PDS failure moves nothing.
 		failure := errors.New("PDS unavailable")
 		require.ErrorIs(t, state.MoveMultistreamTargets(t.Context(), &spacestest.Fake{Err: failure}, moveDID), failure)
-		require.Equal(t, 2, rowCount(t, state))
-	})
+		require.Equal(t, 2, rows())
 
-	t.Run("keeps a row edited while it moved", func(t *testing.T) {
-		state, uris := moveTestTargets(t, 1)
+		// Both rows are copied under their rkeys; the one edited meanwhile stays.
 		space := &editOnPut{edit: func() {
-			_, err := state.UpdateMultistreamTarget(uris[0], placestream.MultistreamPutTarget_Input{MultistreamTarget: placestream.MultistreamTarget{
-				Url: "rtmp://localhost/live/edited", CreatedAt: "2026-11-11T00:00:00Z",
-			}})
+			uri := "at://" + moveDID + "/place.stream.multistream.target/" + rkeys[0]
+			_, err := state.UpdateMultistreamTarget(uri, placestream.MultistreamPutTarget_Input{MultistreamTarget: target("rtmp://localhost/live/edited")})
 			require.NoError(t, err)
 		}}
 		require.NoError(t, state.MoveMultistreamTargets(t.Context(), space, moveDID))
-		require.Equal(t, 1, rowCount(t, state))
-		// The next move carries the edit over.
+		require.Equal(t, 1, rows())
+		require.Contains(t, space.Records, rkeys[1])
+
+		// The next move carries the edit over, and the one after has nothing to do.
 		require.NoError(t, state.MoveMultistreamTargets(t.Context(), space, moveDID))
-		require.Zero(t, rowCount(t, state))
-		require.Contains(t, string(space.Records[uris[0][strings.LastIndex(uris[0], "/")+1:]]), "edited")
+		require.Zero(t, rows())
+		require.Contains(t, string(space.Records[rkeys[0]]), "edited")
+		calls := len(space.Calls)
+		require.NoError(t, state.MoveMultistreamTargets(t.Context(), space, moveDID))
+		require.Len(t, space.Calls, calls)
 	})
 }

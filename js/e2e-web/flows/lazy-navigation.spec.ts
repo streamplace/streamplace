@@ -35,7 +35,7 @@ test("lazy navigation: defer settings until opened and keep shell usable", async
   const heldChunk = new Promise<void>((resolve) => {
     releaseChunk = resolve;
   });
-  await page.route(/\/settings-[^/]+\.js$/, async (route) => {
+  await page.context().route(/\/settings-[^/]+\.js$/, async (route) => {
     await heldChunk;
     await route.continue();
   });
@@ -81,7 +81,7 @@ test("lazy navigation: retry a failed chunk without losing navigation", async ({
   page,
 }) => {
   let attempts = 0;
-  await page.route(/\/settings-[^/]+\.js$/, async (route) => {
+  await page.context().route(/\/settings-[^/]+\.js$/, async (route) => {
     attempts++;
     if (attempts === 1) {
       await route.fulfill({ status: 503, body: "Temporarily unavailable" });
@@ -137,7 +137,7 @@ test("lazy navigation: retry cancels a delayed deployment reload", async ({
     }
   });
   let attempts = 0;
-  await page.route(/\/settings-[^/]+\.js$/, async (route) => {
+  await page.context().route(/\/settings-[^/]+\.js$/, async (route) => {
     if (++attempts === 1) {
       await route.fulfill({ status: 503, body: "Temporarily unavailable" });
     } else {
@@ -206,7 +206,7 @@ for (const destination of ["settings", "advanced"]) {
       destination === "advanced"
         ? /\/advanced-category-settings-[^/]+\.js$/
         : /\/settings-[^/]+\.js$/;
-    await page.route(chunk, async (route) => {
+    await page.context().route(chunk, async (route) => {
       if (++attempts === 1) {
         await route.fulfill({ status: 404, body: "Removed by deployment" });
       } else {

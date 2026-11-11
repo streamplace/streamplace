@@ -524,9 +524,8 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 		req.URL.Host = req.Host
 		req.URL.Scheme = proto
 
-		// The app shell and link cards must revalidate so a deploy is seen
-		// at once; files with an asset extension keep their own policy.
-		if !looksLikeAsset(req.URL.Path) {
+		// HTML and the stable worker URL must revalidate on every visit.
+		if !looksLikeAsset(req.URL.Path) || req.URL.Path == "/sw.js" {
 			w.Header().Set("Cache-Control", "no-cache")
 		}
 
@@ -558,8 +557,8 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 		}
 
 		maybeHandle := strings.TrimPrefix(req.URL.Path, "/")
-		// quick check for things that aren't valid handles/dids
-		if strings.ContainsAny(maybeHandle, "/_") {
+		// Static assets are files, not streamer handles.
+		if strings.ContainsAny(maybeHandle, "/_") || looksLikeAsset(maybeHandle) {
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}

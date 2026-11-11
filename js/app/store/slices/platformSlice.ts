@@ -58,17 +58,17 @@ export const createPlatformSlice: StateCreator<
     }
   },
   initPushNotifications: async () => {
-    // Register the service worker that receives push events. This must
-    // happen early (on app mount) so that pushes delivered while the tab is
-    // backgrounded still surface as system notifications. The actual
-    // subscription + permission request is deferred to the settings toggle
-    // (enableWebNotifications) because browsers require a user gesture for
-    // the permission prompt.
+    // Production registers before Expo loads; Metro still needs registration.
+    // Push permission remains deferred to the settings toggle's user gesture.
     if (!("serviceWorker" in navigator)) {
       return;
     }
     try {
-      await navigator.serviceWorker.register("/sw.js");
+      if (!document.getElementById("bootstrap-scripts")) {
+        await navigator.serviceWorker.register("/sw.js", {
+          updateViaCache: "none",
+        });
+      }
       // Restore an existing PushSubscription into the store. The browser
       // keeps subscriptions across reloads (and the server still has the
       // row), but the Zustand store isn't persisted — so without this the

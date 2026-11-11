@@ -22,10 +22,12 @@ test("bootstrap: paint loading UI before app downloads, below 1 MB", async ({
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route(/\/__expo-metro-runtime-[^/]+\.js$/, async (route) => {
-    await held;
-    await route.continue();
-  });
+  await page
+    .context()
+    .route(/\/__expo-metro-runtime-[^/]+\.js$/, async (route) => {
+      await held;
+      await route.continue();
+    });
   try {
     await page.goto("/");
     await expect(page.locator("#bootstrap-status")).toBeHidden();
@@ -53,7 +55,7 @@ test("bootstrap: retry a failed common chunk without replaying Metro", async ({
     if (/\/__expo-metro-runtime-[^/]+\.js$/.test(request.url()))
       runtimeRequests++;
   });
-  await page.route(/\/__common-[^/]+\.js$/, async (route) => {
+  await page.context().route(/\/__common-[^/]+\.js$/, async (route) => {
     attempts++;
     if (attempts === 1) {
       await route.fulfill({ status: 503, body: "Temporarily unavailable" });

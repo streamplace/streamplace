@@ -93,6 +93,22 @@ html = html.replace(
 <script src="${baseUrl}${filename}" defer></script></body>`,
 );
 await writeFile(htmlPath, html);
+// Change worker bytes with the exported app, not just with its push handlers.
+const worker = await readFile(
+  new URL("../public/sw.js", import.meta.url),
+  "utf8",
+);
+if (!worker.includes("const CACHE_NAME = null;")) {
+  throw new Error("Expected the development worker's disabled asset cache");
+}
+const build = createHash("sha256").update(html).digest("hex");
+await writeFile(
+  path.join(output, "sw.js"),
+  worker.replace(
+    "const CACHE_NAME = null;",
+    'const CACHE_NAME = "streamplace-static-v1";',
+  ) + `\n// App build: ${build}\n`,
+);
 console.log(
   `Web bootstrap: ${code.length} initial JS bytes; ${scripts.length} Expo scripts deferred until after paint`,
 );

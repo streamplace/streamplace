@@ -118,6 +118,26 @@ The node serves existing `/_expo/static/` files with a one-year immutable cache
 policy. HTML revalidates on every visit, including deep links. Missing Expo
 chunks return non-cacheable 404s, never the app shell.
 
+Production web exports extend the existing `/sw.js` push registration with a
+persistent, cache-first store for public immutable `/_expo/static/` assets.
+Assets enter the cache only when requested; lazy chunks are not prefetched.
+The shared cache retains up to 128 assets across deployments and browser restarts.
+HTML, APIs, media, authenticated/range requests, and explicit cache-bypass requests
+stay on the network. This is not an offline app shell: HTML must remain fresh,
+including when switching to the cookie-selected beta frontend.
+
+The tiny bootstrap checks for worker updates before Expo loads. A waiting update
+can activate during the first three seconds measured from navigation start;
+already-controlled pages then reload their current URL once within that window.
+First installation never refreshes. Later updates wait until the next visit, and
+established tabs do not refresh or lose unsaved work when another tab updates.
+The export stamps the worker with the app's build digest; `/sw.js` revalidates
+instead of being cached immutably. Push subscriptions keep the same registration.
+Metro's public worker remains push-only; installed iOS/Android apps are unchanged.
+
+`service-worker.spec.ts` uses real Chromium workers and deployment responses to
+exercise persistence, early/late updates, multi-tab behavior, and cache bypasses.
+
 The crash fallback reads pure Streamplace dark-theme tokens without importing
 provider modules. Retry remains available on every platform; page reload is web-only.
 

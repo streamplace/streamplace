@@ -18,6 +18,7 @@ func TestFrontendCachePolicy(t *testing.T) {
 	files := fstest.MapFS{
 		"index.html":         {Data: index},
 		"assets/favicon.png": {Data: []byte("png")},
+		"sw.js":              {Data: []byte("// service worker")},
 		bundle:               {Data: []byte("console.log(1)")},
 	}
 	linker, err := linking.NewLinker(context.Background(), index, nil, nil)
@@ -36,6 +37,7 @@ func TestFrontendCachePolicy(t *testing.T) {
 		{"/_expo/static/css/gone-0123456789abcdef.css", http.StatusNotFound, "no-store"},
 		{"/", http.StatusOK, "no-cache"},
 		{"/settings/account/profile", http.StatusOK, "no-cache"},
+		{"/sw.js", http.StatusOK, "no-cache"},
 		{"/assets/favicon.png", http.StatusOK, ""},
 	} {
 		rec := httptest.NewRecorder()

@@ -29,16 +29,16 @@ appId: ${APP_ID}
           text: "Wait"
           optional: true
 # Approve the scheme in setup so deep-link scenarios can also run alone.
+# Fresh Simulators show consent asynchronously; wait for it before navigating.
 - runFlow:
     when:
       platform: iOS
     commands:
       - openLink: "${APP_ID}://"
-      - runFlow:
-          when:
-            visible: "Open in .*"
-          commands:
-            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible: "Open"
+          timeout: 60000
+      - tapOn: "Open"
 - tapOn:
     text: "Settings"
 - takeScreenshot: server-setup-settings

@@ -1204,16 +1204,17 @@ func (ss *StreamSession) openPersonalSpace(ctx context.Context, t *multistreamTa
 }
 
 // followPersonalSpace has the PDS notify this node of changes to the space,
-// which the node otherwise polls for. A refusal is asked again in a minute.
+// which the node otherwise polls for. It renews an hour before the PDS stops,
+// and asks again in a minute when refused.
 func (ss *StreamSession) followPersonalSpace(ctx context.Context, t *multistreamTargets) {
 	service := ss.cli.ServerDID() + "#" + atproto.StreamplaceServiceID
 	pds := xrpc.Client{Host: t.pds, Client: &aqhttp.Client}
 	until, err := spaces.RegisterNotify(ctx, t.space, pds, ss.repoDID, service)
-	t.followed, t.followAt = err == nil, until.Add(-time.Hour)
 	if err != nil {
 		log.Debug(ctx, "personal space will not notify this node", "error", err)
-		t.followAt = time.Now().Add(time.Minute)
 	}
+	t.followed = err == nil
+	t.followAt = time.Now().Add(max(time.Until(until)-time.Hour, time.Minute))
 }
 
 // refreshMultistreamTargets re-reads t.active, which keeps its last value
@@ -1287,6 +1288,10 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 		case <-ctx.Done():
 			return false
 		case <-changed:
+			// One read answers every notification that has queued up.
+			for len(changed) > 0 {
+				<-changed
+			}
 			return true
 		case <-time.After(poll):
 			return true

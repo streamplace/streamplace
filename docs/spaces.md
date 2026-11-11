@@ -126,8 +126,9 @@ sequenceDiagram
   the record, and the space record keeps the rkey. Events and running pushes
   are keyed by that URI, so moving a user disturbs neither.
 - **Limits** (100 targets, 5 active) are checked against the space before a
-  write. Another app can write to the space too, so the director also drives
-  at most the first 5 active targets it reads.
+  write, to tell the user at once. That check cannot be a guarantee: it is not
+  atomic with the write, and another app can write to the space. What holds
+  is that the director drives at most the first 5 active targets it reads.
 
 ### The server driving a stream
 

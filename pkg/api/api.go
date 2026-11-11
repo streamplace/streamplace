@@ -557,8 +557,8 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 		}
 
 		maybeHandle := strings.TrimPrefix(req.URL.Path, "/")
-		// Static assets are files, not streamer handles.
-		if strings.ContainsAny(maybeHandle, "/_") || looksLikeAsset(maybeHandle) {
+		// The worker URL is reserved; asset-like TLDs can still be handles.
+		if strings.ContainsAny(maybeHandle, "/_") || maybeHandle == "sw.js" {
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}

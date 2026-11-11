@@ -409,9 +409,14 @@ node's loopback HTTP URL; do not enable blanket arbitrary HTTP loads.
   `applesimutils` before Maestro starts. Avoid `clearState`, which reinstalls
   the app and re-triggers the prompt.
 - **iOS deep-link confirmation:** a fresh Simulator asks "Open in <app>?" on
-  the first custom-scheme launch. `server-setup.yaml` accepts that system
-  prompt so standalone deep-link scenarios do not depend on another scenario
-  running first.
+  the first custom-scheme launch. `server-setup.yaml` waits for and accepts that
+  prompt before continuing, so standalone deep-link scenarios also work.
+  A one-shot visibility check can race the delayed system dialog.
+- **Simulator audio:** a stuck host CoreAudio service can cause `AURemoteIO`
+  RPC-timeout aborts even outside Streamplace. Check playback in another native
+  Simulator app first. `sudo killall -TERM coreaudiod` restarts the host service
+  and briefly interrupts all Mac audio. `launchctl kickstart` may be blocked by
+  SIP; do not disable SIP to work around it.
 - **iOS accessibility:** the icon-only account link needs its logged-out
   `Log in` label. The login modal's press-intercepting container must not group
   its children, or iOS hides the handle field and buttons. Intentional compound

@@ -1,6 +1,11 @@
-import { expect, test, type BrowserContext } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Browser,
+  type BrowserContext,
+} from "@playwright/test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { uploadFixture, watchPath } from "../flows/vod-upload";
 import { pointAppAtNode } from "../server-setup";
 
@@ -11,12 +16,21 @@ const HTTPS_URL = process.env.SERVER_HTTPS_URL!;
 const HANDLE = process.env.ACCOUNT_HANDLE!;
 const RUNS = Number(process.env.VOD_TTFF_RUNS || 5);
 const RESULTS_DIR = join(__dirname, "..", "bench-results");
-const BASELINE_FILE = join(__dirname, "vod-ttff-baseline.json");
 
-// Chromium network emulation per network; loopback runs unthrottled. Without
-// throttling, bundle and segment bytes are nearly free.
+// Any node: two comma-separated watch URLs (primer, then target) replace the
+// harness's uploads. VOD_TTFF_BASELINE may name a previous run's vod-ttff.json.
+const REMOTE = process.env.VOD_TTFF_VIDEOS?.split(",");
+// Relative to js/e2e-web.
+const BASELINE_FILE =
+  process.env.VOD_TTFF_BASELINE ??
+  (REMOTE ? undefined : "bench/vod-ttff-baseline.json");
+// A scenario regresses past both of these over its baseline.
+const TOLERANCE = { ratio: 0.25, ms: 300 };
+
+// Chromium network emulation per network. Without throttling, on loopback,
+// bundle and segment bytes are nearly free.
 const NETWORKS = {
-  loopback: undefined,
+  unthrottled: undefined,
   throttled: {
     latency: 40,
     downloadThroughput: 10_000_000 / 8,
@@ -25,10 +39,7 @@ const NETWORKS = {
 };
 const STARTS = ["cold", "warm"] as const;
 
-type Baseline = {
-  tolerance: { ratio: number; ms: number };
-  firstFrameMs: Record<string, number>;
-};
+type Baseline = { firstFrameMs: Record<string, number> };
 
 // Milestones in ms since navigation start; null when the page never made
 // that request. Requests count from when the app made them: Chromium's
@@ -99,10 +110,10 @@ function collect(): Milestones {
   };
 }
 
-// Open `path` in a new page of `context` and wait for its first frame.
+// Open `url` in a new page of `context` and wait for its first frame.
 async function open(
   context: BrowserContext,
-  path: string,
+  url: string,
   network: (typeof NETWORKS)[keyof typeof NETWORKS],
 ) {
   const page = await context.newPage();
@@ -113,7 +124,7 @@ async function open(
       ...network,
     });
   }
-  await page.goto(`${HTTPS_URL}${path}`);
+  await page.goto(url);
   await page.waitForFunction(() => window.__vodTtff.firstFrame !== undefined);
   return page;
 }
@@ -126,30 +137,50 @@ function median(values: number[]): number {
     : sorted[Math.floor(mid)];
 }
 
-test.skip(!process.env.SERVER_HTTPS_URL, "harness started without HTTPS");
-
-test("vod-ttff: time to first frame, cold and warm", async ({ browser }) => {
-  test.setTimeout(30 * 60_000);
-  const baseline = JSON.parse(readFileSync(BASELINE_FILE, "utf8")) as Baseline;
-
-  // Two videos, so the warm run's video is one this browser has not seen. Each
-  // upload logs in from its own context; the measured contexts stay logged out.
-  const [primer, target] = await Promise.all(
+// Upload two harness videos and point the app at the harness node. Each upload
+// logs in from its own context; the measured contexts stay logged out.
+async function harnessVideos(browser: Browser) {
+  const videos = await Promise.all(
     [0, 1].map(async () => {
       const context = await browser.newContext();
       try {
-        return watchPath(await uploadFixture(await context.newPage()), HANDLE);
+        const uri = await uploadFixture(await context.newPage());
+        return `${HTTPS_URL}${watchPath(uri, HANDLE)}`;
       } finally {
         await context.close();
       }
     }),
   );
-
   // The app's node setting, without the HTTP cache that setting it warmed.
   const setup = await browser.newContext();
   await pointAppAtNode(await setup.newPage(), HTTPS_URL);
   const storageState = await setup.storageState();
   await setup.close();
+  return { videos, storageState };
+}
+
+test.skip(
+  !process.env.SERVER_HTTPS_URL && !REMOTE,
+  "harness started without HTTPS",
+);
+
+test("vod-ttff: time to first frame, cold and warm", async ({ browser }) => {
+  test.setTimeout(30 * 60_000);
+  const baseline: Baseline | undefined =
+    BASELINE_FILE &&
+    JSON.parse(readFileSync(resolve(__dirname, "..", BASELINE_FILE), "utf8"));
+
+  // Two videos, so the warm run's video is one this browser has not seen.
+  // Production builds of the app already talk to the node that serves them.
+  if (REMOTE) {
+    expect(REMOTE, "VOD_TTFF_VIDEOS holds two watch URLs").toHaveLength(2);
+  }
+  const {
+    videos: [primer, target],
+    storageState,
+  } = REMOTE
+    ? { videos: REMOTE, storageState: undefined }
+    : await harnessVideos(browser);
 
   const runs: Record<string, Milestones[]> = {};
   for (const [network, conditions] of Object.entries(NETWORKS)) {
@@ -178,13 +209,13 @@ test("vod-ttff: time to first frame, cold and warm", async ({ browser }) => {
       Math.round(median(results.map((r) => r.firstFrame))),
     ]),
   );
-  const { ratio, ms } = baseline.tolerance;
+  const { ratio, ms } = TOLERANCE;
   const limit = (base: number) =>
     Math.round(Math.max(base * (1 + ratio), base + ms));
 
   const rows = Object.entries(runs).map(([scenario, results]) => {
     const value = firstFrameMs[scenario];
-    const base = baseline.firstFrameMs[scenario];
+    const base = baseline?.firstFrameMs[scenario];
     const frames = results.map((r) => r.firstFrame);
     const status =
       base === undefined
@@ -206,9 +237,9 @@ test("vod-ttff: time to first frame, cold and warm", async ({ browser }) => {
     return `| ${scenario} | ${cells.join(" | ")} |`;
   });
   const report = [
-    "### VOD time to first frame",
+    `### VOD time to first frame: ${new URL(target).origin}`,
     "",
-    `Median of ${RUNS} runs, ms from navigation start. Baseline: \`js/e2e-web/bench/vod-ttff-baseline.json\`; a scenario regresses past both +${ratio * 100}% and +${ms} ms.`,
+    `Median of ${RUNS} runs, ms from navigation start. ${BASELINE_FILE ? `Baseline: \`${BASELINE_FILE}\`; a scenario regresses past both +${ratio * 100}% and +${ms} ms.` : "No baseline."}`,
     "",
     "| Scenario | First frame | Range | Baseline | Limit | |",
     "|---|---|---|---|---|---|",
@@ -232,6 +263,7 @@ test("vod-ttff: time to first frame, cold and warm", async ({ browser }) => {
   );
   console.log(report);
 
+  if (!baseline) return;
   for (const [scenario, value] of Object.entries(firstFrameMs)) {
     const base = baseline.firstFrameMs[scenario];
     expect.soft(base, `${scenario} has a baseline`).toBeDefined();

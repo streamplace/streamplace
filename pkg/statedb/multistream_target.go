@@ -2,12 +2,15 @@ package statedb
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/util"
 	glex "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spaces"
 	"stream.place/streamplace/pkg/spid"
 )
 
@@ -213,4 +216,60 @@ func (state *StatefulDB) DeleteMultistreamTarget(uri string) error {
 		return fmt.Errorf("multistream target not found")
 	}
 	return nil
+}
+
+// MoveMultistreamTargets moves repoDID's rows into their personal space. Rows
+// leave together once every record is in the space, so a reader of either
+// store sees all of the targets.
+func (state *StatefulDB) MoveMultistreamTargets(ctx context.Context, client spaces.Client, repoDID string) error {
+	var rows []MultistreamTarget
+	find := func() error {
+		return state.DB.Where("repo_did = ?", repoDID).Find(&rows).Error
+	}
+	if err := find(); err != nil || len(rows) == 0 {
+		return err
+	}
+	// Another mover may have finished since: only one may copy a row.
+	unlock, err := state.GetNamedLock("multistream-move:" + repoDID)
+	if err != nil {
+		return fmt.Errorf("lock multistream targets: %w", err)
+	}
+	defer unlock()
+	if err := find(); err != nil || len(rows) == 0 {
+		return err
+	}
+	moved := make([][]any, len(rows))
+	for i, row := range rows {
+		var record placestream.MultistreamTarget
+		if err := record.UnmarshalCBOR(bytes.NewReader(row.MultistreamTarget)); err != nil {
+			return fmt.Errorf("decode multistream target: %w", err)
+		}
+		rkey := row.URI[strings.LastIndex(row.URI, "/")+1:]
+		if _, _, err := spaces.PutRecord(ctx, client, repoDID, spaces.TargetCollection, rkey, &record); err != nil {
+			return err
+		}
+		// A row edited since it was read stays, to move next time.
+		moved[i] = []any{row.URI, row.CID}
+	}
+	return state.DB.Where("(uri, cid) IN ?", moved).Delete(&MultistreamTarget{}).Error
+}
+
+// LatestMultistreamEvents returns the newest event of each target that has one.
+func (state *StatefulDB) LatestMultistreamEvents(uris []string) (map[string]*placestream.MultistreamDefs_Event, error) {
+	var events []MultistreamEvent
+	err := state.DB.Where(`target_uri IN ? AND created_at =
+		(SELECT MAX(created_at) FROM multistream_events latest WHERE latest.target_uri = multistream_events.target_uri)`, uris).
+		Find(&events).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to list multistream events: %w", err)
+	}
+	latest := make(map[string]*placestream.MultistreamDefs_Event, len(events))
+	for _, event := range events {
+		latest[event.TargetURI] = &placestream.MultistreamDefs_Event{
+			Status:    event.Status,
+			Message:   event.Message,
+			CreatedAt: event.CreatedAt.Format(util.ISO8601),
+		}
+	}
+	return latest, nil
 }

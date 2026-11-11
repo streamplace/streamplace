@@ -233,6 +233,7 @@ export default function MultistreamManager() {
             action={
               <View style={{ flexDirection: "row", gap: 8 }}>
                 <Button
+                  testID="multistream-target-refresh"
                   size="sm"
                   width="min"
                   variant="secondary"
@@ -243,6 +244,7 @@ export default function MultistreamManager() {
                   {t("refresh")}
                 </Button>
                 <Button
+                  testID="multistream-target-create"
                   size="sm"
                   width="min"
                   variant="primary"
@@ -383,6 +385,7 @@ export function MultistreamRow({
 
   return (
     <View
+      testID={`multistream-target-row-${target.uri.split("/").pop()}`}
       style={[
         borders.width.thin,
         { borderColor: theme.colors.borderSubtle },
@@ -398,7 +401,12 @@ export function MultistreamRow({
         <View style={[flex.values[1], gap.all[1]]}>
           {/* Name + status pill */}
           <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-            <Text size="lg" weight="semibold" numberOfLines={1}>
+            <Text
+              testID="multistream-target-name"
+              size="lg"
+              weight="semibold"
+              numberOfLines={1}
+            >
               {multistreamTitle(target, t)}
             </Text>
             <View
@@ -459,18 +467,20 @@ export function MultistreamRow({
             disabled={isDeleting || isToggling}
           />
           <IconButton
+            testID={`multistream-target-edit-${target.uri.split("/").pop()}`}
             size="sm"
             variant="ghost"
-            accessibilityLabel="Edit multistream target"
+            accessibilityLabel={`${t("multistream-edit-target")} ${multistreamTitle(target, t)}`}
             onPress={() => onEdit(target)}
             disabled={isDeleting}
           >
             <Edit3 size={18} color={theme.colors.text2} />
           </IconButton>
           <IconButton
+            testID={`multistream-target-delete-${target.uri.split("/").pop()}`}
             size="sm"
             variant="ghost"
-            accessibilityLabel="Delete multistream target"
+            accessibilityLabel={`${t("delete")} ${multistreamTitle(target, t)}`}
             onPress={() => onDelete(target.uri)}
             disabled={isDeleting}
           >
@@ -598,6 +608,8 @@ function MultistreamTargetForm({
             {t("rtmp-target-name")} ({t("optional")})
           </Text>
           <Input
+            testID="multistream-target-form-name"
+            accessibilityLabel={t("rtmp-target-name")}
             value={formData.name}
             onChangeText={(text) =>
               setFormData((prev) => ({ ...prev, name: text }))
@@ -616,6 +628,8 @@ function MultistreamTargetForm({
             {t("rtmp-target-url")} *
           </Text>
           <Input
+            testID="multistream-target-form-url"
+            accessibilityLabel={t("rtmp-target-url")}
             value={displayUrl}
             onChangeText={(text) => {
               setChangedTargetUrl(true);
@@ -632,6 +646,7 @@ function MultistreamTargetForm({
                 ? redactMultistreamTargetURL(target.record.url)
                 : "rtmps://example.com:443/live/foo"
             }
+            autoCapitalize="none"
             multiline
           />
           <Text size="xs" style={[{ color: theme.colors.danger }, mt[1]]}>
@@ -652,6 +667,8 @@ function MultistreamTargetForm({
             {t("active")}
           </Text>
           <Switch
+            testID="multistream-target-form-active"
+            accessibilityLabel={t("active")}
             value={formData.active}
             onValueChange={(active) =>
               setFormData((prev) => ({ ...prev, active }))
@@ -672,7 +689,12 @@ function MultistreamTargetForm({
         >
           Cancel
         </Button>
-        <Button onPress={handleSubmit} disabled={isLoading} width="min">
+        <Button
+          testID="multistream-target-save"
+          onPress={handleSubmit}
+          disabled={isLoading}
+          width="min"
+        >
           {isLoading ? "Saving..." : target ? "Update" : "Create"}
         </Button>
       </DialogFooter>
@@ -732,6 +754,7 @@ const MultistreamTargetDeleteDialog = ({
           Cancel
         </Button>
         <Button
+          testID="multistream-target-confirm-delete"
           variant="danger"
           onPress={onSubmit}
           disabled={isLoading}

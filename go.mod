@@ -78,7 +78,7 @@ require (
 	github.com/starttoaster/prometheus-exporter-scraper v0.0.1
 	github.com/streamplace/atmoq/go v0.2.1
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20260908211910-e9bac3356167
-	github.com/streamplace/glex v0.0.0-20260820164827-814f46540f22
+	github.com/streamplace/glex v0.0.0-20261110173921-131d6139e2d5
 	github.com/streamplace/muxl/go v0.3.7-0.20261022070751-573c7bb10762
 	github.com/streamplace/oatproxy v0.0.0-20261012003324-43c7ac5473f7
 	github.com/stretchr/testify v1.12.1

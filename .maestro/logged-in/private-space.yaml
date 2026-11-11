@@ -1,0 +1,115 @@
+appId: ${APP_ID}
+tags:
+  - logged-in
+  - private-space
+onFlowStart:
+  - evalScript:
+      ${output.privateSpaceName = "Private space mobile " + Date.now()}
+  - evalScript:
+      ${output.privateSpaceUrl = "rtmp://127.0.0.1:9/live/private-space-" +
+      Date.now()}
+  - evalScript: ${output.privateSpaceRkey = null}
+  - evalScript: ${output.privateSpaceCreationAttempted = false}
+onFlowComplete:
+  - runFlow:
+      when:
+        true: ${output.privateSpaceCreationAttempted === true}
+      commands:
+        # Relaunch dismisses an unfinished form before failure cleanup.
+        - launchApp
+        - extendedWaitUntil:
+            visible:
+              id: "home-stream-card"
+            timeout: 30000
+        - openLink: "${APP_ID}://settings/streaming/multistream"
+        - scrollUntilVisible:
+            element:
+              id: "multistream-target-delete-${output.privateSpaceRkey || '.*'}"
+              text: ".*${output.privateSpaceName}"
+            timeout: 30000
+        - tapOn:
+            id: "multistream-target-delete-${output.privateSpaceRkey || '.*'}"
+            text: ".*${output.privateSpaceName}"
+        - tapOn:
+            id: "multistream-target-confirm-delete"
+        - extendedWaitUntil:
+            notVisible:
+              id: "multistream-target-name"
+              text: "${output.privateSpaceName}"
+            timeout: 30000
+        - scrollUntilVisible:
+            element:
+              id: "multistream-target-refresh"
+            direction: UP
+        - tapOn:
+            id: "multistream-target-refresh"
+        - extendedWaitUntil:
+            visible:
+              id: "multistream-target-name"
+              text: "e2e legacy target"
+            timeout: 30000
+        - assertNotVisible:
+            id: "multistream-target-name"
+            text: "${output.privateSpaceName}"
+        - runFlow:
+            when:
+              true: ${PDS_KIND != "reference"}
+            commands:
+              - runScript:
+                  file: private-space.js
+                  env:
+                    PRIVATE_SPACE_STEP: absent
+---
+# Login is a suite prerequisite; target activity is incidental to persistence.
+- launchApp
+- tapOn:
+    text: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Streaming"
+- tapOn:
+    text: "Streaming"
+- tapOn:
+    text: "Multistreaming"
+- extendedWaitUntil:
+    visible:
+      id: "multistream-target-create"
+    timeout: 30000
+- tapOn:
+    id: "multistream-target-create"
+- tapOn:
+    id: "multistream-target-form-name"
+- inputText: "${output.privateSpaceName}"
+- tapOn:
+    id: "multistream-target-form-url"
+- inputText: "${output.privateSpaceUrl}"
+- hideKeyboard
+- evalScript: ${output.privateSpaceCreationAttempted = true}
+- tapOn:
+    id: "multistream-target-save"
+- extendedWaitUntil:
+    visible:
+      id: "multistream-target-name"
+      text: "${output.privateSpaceName}"
+    timeout: 30000
+# A fresh screen must load the target from the node, not the previous list.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- openLink: "${APP_ID}://settings/streaming/multistream"
+- scrollUntilVisible:
+    element:
+      id: "multistream-target-name"
+      text: "${output.privateSpaceName}"
+    timeout: 30000
+- runFlow:
+    when:
+      true: ${PDS_KIND != "reference"}
+    commands:
+      - runScript:
+          file: private-space.js
+          env:
+            PRIVATE_SPACE_STEP: present
+- takeScreenshot: private-space-created

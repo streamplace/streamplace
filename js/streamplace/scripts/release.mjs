@@ -11,10 +11,9 @@
 // published: `streamplace` and its child `streamplace-desktop`; each gets an
 // immutable manifest, an immutable version record `<project>.<version>`, and
 // moves the mutable channel record `<project>.<channel>`. The checkout's
-// place.stream.* lexicons (lexicons/place/stream, including the generated
-// authFull permission set) are published as com.atproto.lexicon.schema records
-// keyed by NSID. Everything lands in a single atomic applyWrites, after the
-// blobs are uploaded.
+// place.stream.* lexicons are published as com.atproto.lexicon.schema records
+// keyed by NSID, with raw pkg/spaces/lexicons overlays replacing the base docs.
+// Everything lands in a single atomic applyWrites, after the blobs are uploaded.
 //
 // --dry-run is offline: it hashes the files and prints the records that would
 // be written, assuming an empty repo, as JSON on stdout. Nothing is read from

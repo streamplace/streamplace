@@ -6,6 +6,7 @@ interface SwitchProps {
   disabled?: boolean;
   className?: string;
   size?: "sm" | "default";
+  "aria-label"?: string;
 }
 
 function Switch({
@@ -14,6 +15,7 @@ function Switch({
   disabled,
   className,
   size = "default",
+  "aria-label": ariaLabel,
 }: SwitchProps) {
   const isSmall = size === "sm";
   return (
@@ -21,6 +23,7 @@ function Switch({
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={ariaLabel}
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={cn(

@@ -687,7 +687,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	if pdsKind == "" {
 		pdsKind = "reference"
 	}
-	vars += fmt.Sprintf("PDS_KIND=%s\n", pdsKind)
+	vars += fmt.Sprintf("PDS_KIND=%s\nSERVER_INTERNAL_URL=http://127.0.0.1:%d\n", pdsKind, internalPort)
 	if tlsEnv != nil {
 		vars += fmt.Sprintf("PDS_HTTPS_URL=%s\nE2E_PROXY_URL=%s\nE2E_TLS_SPKI=%s\nE2E_TLS_CA=%s\n",
 			tlsEnv.PDSURL(), tlsEnv.ProxyURL(), tlsEnv.spki, tlsEnv.caPath)

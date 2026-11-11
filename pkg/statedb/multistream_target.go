@@ -21,8 +21,6 @@ type MultistreamTarget struct {
 	URI               string `gorm:"column:uri;primarykey"`
 	CID               string `gorm:"column:cid;not null"`
 	Active            bool   `gorm:"column:active"`
-	InSpace           bool   `gorm:"column:in_space;default:false"`
-	SpaceStale        bool   `gorm:"column:space_stale;default:false"`
 	RepoDID           string `gorm:"column:repo_did;not null;index"`
 	MultistreamTarget []byte `gorm:"column:record"`
 }
@@ -54,7 +52,7 @@ func (state *StatefulDB) CreateMultistreamTarget(input placestream.MultistreamCr
 		}
 	}
 
-	// Row URIs identify the node's index, not their space copies.
+	// this URI is, of course, a LIE
 	tid := spid.TIDClock.Next()
 	uri := fmt.Sprintf("at://%s/place.stream.multistream.target/%s", repoDID, tid.String())
 
@@ -87,40 +85,8 @@ func (state *StatefulDB) CreateMultistreamTarget(input placestream.MultistreamCr
 	}, nil
 }
 
-func (state *StatefulDB) GetMultistreamTarget(repoDID, rkey string) (MultistreamTarget, error) {
-	var target MultistreamTarget
-	err := state.DB.Where("repo_did = ? AND uri = ?", repoDID,
-		fmt.Sprintf("at://%s/place.stream.multistream.target/%s", repoDID, rkey)).First(&target).Error
-	return target, err
-}
-
-// SyncMultistreamTargets copies pending rows into the user's personal space.
-// The caller holds the per-user lock through its index writes and sync.
-func (state *StatefulDB) SyncMultistreamTargets(ctx context.Context, client spaces.Client, repoDID string) error {
-	if client == nil {
-		return nil
-	}
-	var targets []MultistreamTarget
-	if err := state.DB.Where("repo_did = ? AND (in_space = ? OR space_stale = ?)", repoDID, false, true).Find(&targets).Error; err != nil {
-		return err
-	}
-	for _, target := range targets {
-		var record placestream.MultistreamTarget
-		if err := record.UnmarshalCBOR(bytes.NewReader(target.MultistreamTarget)); err != nil {
-			return fmt.Errorf("decode multistream target: %w", err)
-		}
-		rkey := target.URI[strings.LastIndex(target.URI, "/")+1:]
-		_, cid, err := spaces.PutRecord(ctx, client, repoDID, "place.stream.multistream.target", rkey, &record)
-		if err != nil {
-			return err
-		}
-		err = state.DB.Model(&MultistreamTarget{}).Where("uri = ?", target.URI).
-			Updates(map[string]any{"in_space": true, "space_stale": false, "cid": cid}).Error
-		if err != nil {
-			return fmt.Errorf("index synced multistream target: %w", err)
-		}
-	}
-	return nil
+func (state *StatefulDB) GetMultistreamTarget(uri string) (placestream.MultistreamDefs_TargetView, error) {
+	return placestream.MultistreamDefs_TargetView{}, nil
 }
 
 type TargetWithEvent struct {
@@ -155,12 +121,18 @@ func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offse
 	result := make([]placestream.MultistreamDefs_TargetView, len(targets))
 	for i, target := range targets {
 		var multistreamTarget placestream.MultistreamTarget
-		if err := multistreamTarget.UnmarshalCBOR(bytes.NewReader(target.MultistreamTarget.MultistreamTarget)); err != nil {
+		err = multistreamTarget.UnmarshalCBOR(bytes.NewReader(target.MultistreamTarget.MultistreamTarget))
+		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal multistream target: %w", err)
 		}
+		cid, err := spid.GetCID(&multistreamTarget)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get CID: %w", err)
+		}
+
 		targetView := placestream.MultistreamDefs_TargetView{
 			Uri:    target.URI,
-			Cid:    target.CID,
+			Cid:    cid.String(),
 			Record: &glex.LexiconTypeDecoder{Val: &multistreamTarget},
 		}
 
@@ -215,10 +187,9 @@ func (state *StatefulDB) UpdateMultistreamTarget(uri string, input placestream.M
 
 	// Update the database record
 	updates := map[string]interface{}{
-		"cid":         cid.String(),
-		"record":      buf.Bytes(),
-		"active":      input.MultistreamTarget.Active,
-		"space_stale": true,
+		"cid":    cid.String(),
+		"record": buf.Bytes(),
+		"active": input.MultistreamTarget.Active,
 	}
 
 	result := state.DB.Model(&MultistreamTarget{}).Where("uri = ?", uri).Updates(updates)
@@ -236,20 +207,7 @@ func (state *StatefulDB) UpdateMultistreamTarget(uri string, input placestream.M
 	}, nil
 }
 
-func (state *StatefulDB) DeleteMultistreamTarget(ctx context.Context, client spaces.Client, uri string) error {
-	var target MultistreamTarget
-	if err := state.DB.Where("uri = ?", uri).First(&target).Error; err != nil {
-		return err
-	}
-	if target.InSpace {
-		if client == nil {
-			return fmt.Errorf("oauth session required to delete space-backed target")
-		}
-		rkey := uri[strings.LastIndex(uri, "/")+1:]
-		if err := spaces.DeleteRecord(ctx, client, target.RepoDID, "place.stream.multistream.target", rkey); err != nil {
-			return err
-		}
-	}
+func (state *StatefulDB) DeleteMultistreamTarget(uri string) error {
 	result := state.DB.Where("uri = ?", uri).Delete(&MultistreamTarget{})
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete multistream target: %w", result.Error)
@@ -258,4 +216,60 @@ func (state *StatefulDB) DeleteMultistreamTarget(ctx context.Context, client spa
 		return fmt.Errorf("multistream target not found")
 	}
 	return nil
+}
+
+// MoveMultistreamTargets moves repoDID's rows into their personal space. Rows
+// leave together once every record is in the space, so a reader of either
+// store sees all of the targets.
+func (state *StatefulDB) MoveMultistreamTargets(ctx context.Context, client spaces.Client, repoDID string) error {
+	var rows []MultistreamTarget
+	find := func() error {
+		return state.DB.Where("repo_did = ?", repoDID).Find(&rows).Error
+	}
+	if err := find(); err != nil || len(rows) == 0 {
+		return err
+	}
+	// Another mover may have finished since: only one may copy a row.
+	unlock, err := state.GetNamedLock("multistream-move:" + repoDID)
+	if err != nil {
+		return fmt.Errorf("lock multistream targets: %w", err)
+	}
+	defer unlock()
+	if err := find(); err != nil || len(rows) == 0 {
+		return err
+	}
+	moved := make([][]any, len(rows))
+	for i, row := range rows {
+		var record placestream.MultistreamTarget
+		if err := record.UnmarshalCBOR(bytes.NewReader(row.MultistreamTarget)); err != nil {
+			return fmt.Errorf("decode multistream target: %w", err)
+		}
+		rkey := row.URI[strings.LastIndex(row.URI, "/")+1:]
+		if _, _, err := spaces.PutRecord(ctx, client, repoDID, spaces.TargetCollection, rkey, &record); err != nil {
+			return err
+		}
+		// A row edited since it was read stays, to move next time.
+		moved[i] = []any{row.URI, row.CID}
+	}
+	return state.DB.Where("(uri, cid) IN ?", moved).Delete(&MultistreamTarget{}).Error
+}
+
+// LatestMultistreamEvents returns the newest event of each target that has one.
+func (state *StatefulDB) LatestMultistreamEvents(uris []string) (map[string]*placestream.MultistreamDefs_Event, error) {
+	var events []MultistreamEvent
+	err := state.DB.Where(`target_uri IN ? AND created_at =
+		(SELECT MAX(created_at) FROM multistream_events latest WHERE latest.target_uri = multistream_events.target_uri)`, uris).
+		Find(&events).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to list multistream events: %w", err)
+	}
+	latest := make(map[string]*placestream.MultistreamDefs_Event, len(events))
+	for _, event := range events {
+		latest[event.TargetURI] = &placestream.MultistreamDefs_Event{
+			Status:    event.Status,
+			Message:   event.Message,
+			CreatedAt: event.CreatedAt.Format(util.ISO8601),
+		}
+	}
+	return latest, nil
 }

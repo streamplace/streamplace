@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/lexicons"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type fakeClient struct {
@@ -145,4 +147,51 @@ func TestLexiconOverlay(t *testing.T) {
 	base, err := lexicons.AllFiles.ReadFile("place/stream/authFull.json")
 	require.NoError(t, err)
 	require.JSONEq(t, string(base), string(withoutSpace))
+}
+
+// pagedClient serves listRecords one page per call.
+type pagedClient struct {
+	pages []string
+	err   error
+}
+
+func (c *pagedClient) Do(_ context.Context, _, _, _ string, params map[string]any, _, out any) error {
+	if c.err != nil {
+		return c.err
+	}
+	// The cursor a page hands out is the index of the next one.
+	cursor, _ := params["cursor"].(string)
+	page, _ := strconv.Atoi(cursor)
+	return json.Unmarshal([]byte(c.pages[page]), out)
+}
+
+func TestListMultistreamTargets(t *testing.T) {
+	did := "did:plc:example"
+	value := `{"$type":"place.stream.multistream.target","url":"rtmp://localhost/live/key","createdAt":"2026-11-11T00:00:00Z","active":true}`
+	client := &pagedClient{pages: []string{
+		`{"cursor":"1","records":[{"rkey":"b","cid":"cid-b","value":` + value + `},{"rkey":"bad","cid":"cid-bad","value":"not a record"}]}`,
+		`{"records":[{"rkey":"a","cid":"cid-a","value":` + value + `}]}`,
+	}}
+	targets, err := ListMultistreamTargets(t.Context(), client, did)
+	require.NoError(t, err)
+	require.Len(t, targets, 2)
+	require.Equal(t, TargetURI(did, "a"), targets[0].Uri)
+	require.Equal(t, "cid-b", targets[1].Cid)
+	require.True(t, targets[1].Record.Val.(*placestream.MultistreamTarget).Active)
+
+	// A space that does not exist yet, or was never written to, is empty.
+	for _, name := range []string{"SpaceNotFound", "RepoNotFound"} {
+		client.err = rpcError(name)
+		targets, err = ListMultistreamTargets(t.Context(), client, did)
+		require.NoError(t, err)
+		require.Empty(t, targets)
+		rev, err := LatestRev(t.Context(), client, did)
+		require.NoError(t, err)
+		require.Empty(t, rev)
+	}
+	client.err = errors.New("PDS unavailable")
+	_, err = ListMultistreamTargets(t.Context(), client, did)
+	require.ErrorIs(t, err, client.err)
+	_, err = LatestRev(t.Context(), client, did)
+	require.ErrorIs(t, err, client.err)
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -35,6 +36,7 @@ import (
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/s3"
+	"stream.place/streamplace/pkg/spaces"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/thumbnail"
@@ -1161,36 +1163,139 @@ func sanitizeMultistreamTargetURL(uri string) string {
 	return u.String()
 }
 
+// multistreamTargets tracks a stream's active targets. They come from the
+// streamer's personal space once a session of theirs has the grant, and from
+// statedb until then.
+type multistreamTargets struct {
+	space      spaces.Client // nil: look for a session before the next read
+	spaceUntil time.Time     // when space's access token runs out
+	pds        string        // URL of the PDS that hosts the space
+	inSpace    bool          // the space holds the targets, statedb none
+	rev        string        // space repo revision that active was read at
+	followed   bool          // the PDS tells this node when the space changes
+	followAt   time.Time     // when to ask it to, again
+	active     []placestream.MultistreamDefs_TargetView
+}
+
+// openPersonalSpace sets t.space to a client for the streamer's personal
+// space, having moved their statedb targets into it. It stays nil when none
+// of their sessions has the space grant.
+func (ss *StreamSession) openPersonalSpace(ctx context.Context, t *multistreamTargets) error {
+	session, err := ss.statefulDB.GetSpaceSession(ss.repoDID)
+	if err != nil || session == nil {
+		return err
+	}
+	session, err = ss.op.RefreshIfNeeded(session)
+	if err != nil {
+		return fmt.Errorf("could not refresh session for repoDID: %w", err)
+	}
+	if session == nil || session.UpstreamAccessTokenExp == nil {
+		return nil
+	}
+	client, err := ss.op.GetXrpcClient(session)
+	if err != nil {
+		return fmt.Errorf("could not get xrpc client: %w", err)
+	}
+	if err := ss.statefulDB.MoveMultistreamTargets(ctx, client, ss.repoDID); err != nil {
+		return err
+	}
+	t.space, t.spaceUntil, t.pds = client, *session.UpstreamAccessTokenExp, session.PDSUrl
+	return nil
+}
+
+// followPersonalSpace has the PDS notify this node of changes to the space,
+// which the node otherwise polls for. A refusal is asked again in a minute.
+func (ss *StreamSession) followPersonalSpace(ctx context.Context, t *multistreamTargets) {
+	service := ss.cli.ServerDID() + "#" + atproto.StreamplaceServiceID
+	pds := xrpc.Client{Host: t.pds, Client: &aqhttp.Client}
+	until, err := spaces.RegisterNotify(ctx, t.space, pds, ss.repoDID, service)
+	t.followed, t.followAt = err == nil, until.Add(-time.Hour)
+	if err != nil {
+		log.Debug(ctx, "personal space will not notify this node", "error", err)
+		t.followAt = time.Now().Add(time.Minute)
+	}
+}
+
+// refreshMultistreamTargets re-reads t.active, which keeps its last value
+// when its store cannot be read: this node holds the multistream lease, so
+// nobody else would drive the targets.
+func (ss *StreamSession) refreshMultistreamTargets(ctx context.Context, t *multistreamTargets) {
+	if t.space != nil && time.Until(t.spaceUntil) < 30*time.Second {
+		t.space = nil
+	}
+	// Active rows in statedb mean their owner has no space to look for yet.
+	if t.space == nil && (t.inSpace || len(t.active) == 0) {
+		if err := ss.openPersonalSpace(ctx, t); err != nil {
+			log.Error(ctx, "failed to open the personal space", "error", err)
+		}
+	}
+	if t.space == nil {
+		if t.inSpace {
+			return
+		}
+		isTrue := true
+		targets, err := ss.statefulDB.ListMultistreamTargets(ss.repoDID, 100, 0, &isTrue)
+		if err != nil {
+			log.Error(ctx, "failed to list multistream targets", "error", err)
+			return
+		}
+		t.active = targets
+		return
+	}
+	// Following starts before the read, so no change falls between the two.
+	if time.Now().After(t.followAt) {
+		ss.followPersonalSpace(ctx, t)
+	}
+	// The revision is read first, so a write between the two reads is read again.
+	rev, err := spaces.LatestRev(ctx, t.space, ss.repoDID)
+	if err == nil && (rev != t.rev || !t.inSpace) {
+		var targets []placestream.MultistreamDefs_TargetView
+		targets, err = spaces.ListMultistreamTargets(ctx, t.space, ss.repoDID)
+		if err == nil {
+			targets = slices.DeleteFunc(targets, func(target placestream.MultistreamDefs_TargetView) bool {
+				return !target.Record.Val.(*placestream.MultistreamTarget).Active
+			})
+			// Another app can write to the space, so the limit is applied here too.
+			t.active = targets[:min(len(targets), statedb.MAX_ACTIVE_MULTISTREAM_TARGETS)]
+			t.rev, t.inSpace = rev, true
+		}
+	}
+	if err != nil {
+		log.Error(ctx, "failed to read multistream targets from the personal space", "error", err)
+		t.space = nil
+	}
+}
+
 // we're making an attempt here not to log (sensitive) stream keys, so we're
 // referencing by atproto URI
 func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 	ctx = log.WithLogValues(ctx, "system", "multistreaming")
-	isTrue := true
 	// {target.Uri}:{rec.Url} -> runningMultistream
 	// no concurrency issues, it's only used from this one loop
 	running := map[string]*runningMultistream{}
-	// wait reports whether to go round again, false once ctx ends.
+	targets := &multistreamTargets{}
+	changed := ss.bus.Subscribe(spaces.ChangedTopic(ss.repoDID))
+	defer ss.bus.Unsubscribe(spaces.ChangedTopic(ss.repoDID), changed)
+	// wait reports whether to go round again, false once ctx ends. A space
+	// that notifies this node is still polled, as notifications can be lost.
 	wait := func() bool {
+		poll := 5 * time.Second
+		if targets.followed {
+			poll = time.Minute
+		}
 		select {
 		case <-ctx.Done():
 			return false
-		case <-time.After(time.Second * 5):
+		case <-changed:
+			return true
+		case <-time.After(poll):
 			return true
 		}
 	}
 	for {
-		targets, err := ss.statefulDB.ListMultistreamTargets(ss.repoDID, 100, 0, &isTrue)
-		if err != nil {
-			// Retried rather than returned: this node holds the multistream
-			// lease, so nobody else would drive the targets.
-			log.Error(ctx, "failed to list multistream targets", "error", err)
-			if !wait() {
-				return nil
-			}
-			continue
-		}
+		ss.refreshMultistreamTargets(ctx, targets)
 		currentRunning := map[string]bool{}
-		for _, targetView := range targets {
+		for _, targetView := range targets.active {
 			rec, ok := targetView.Record.Val.(*placestream.MultistreamTarget)
 			if !ok {
 				log.Error(ctx, "failed to convert multistream target to streamplace multistream target", "uri", targetView.Uri)

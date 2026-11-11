@@ -142,6 +142,8 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	})
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.handleComAtprotoSyncSubscribeRepos)
 	e.GET("/xrpc/place.stream.live.subscribeSegments", s.handlePlaceStreamLiveSubscribeSegments)
+	e.POST("/xrpc/com.atproto.space.notifyWrite", s.handleComAtprotoSpaceNotify)
+	e.POST("/xrpc/com.atproto.space.notifySpaceDeleted", s.handleComAtprotoSpaceNotify)
 	// Reports select a labeler and attach evidence before forwarding to the PDS.
 	e.POST("/xrpc/com.atproto.moderation.createReport", s.HandleComAtprotoModerationCreateReport)
 	// Override the auto-generated playback stubs: the wrapper in

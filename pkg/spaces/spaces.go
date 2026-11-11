@@ -6,13 +6,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/bluesky-social/indigo/xrpc"
+	glex "github.com/streamplace/glex/runtime"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 const (
 	PersonalSpaceType = "place.stream.personal"
 	PersonalSpaceKey  = "self"
+	TargetCollection  = "place.stream.multistream.target"
 )
 
 // Client is the XRPC surface used by personal spaces.
@@ -22,6 +27,11 @@ type Client interface {
 
 func PersonalSpaceURI(did string) string {
 	return "at://" + did + "/space/" + PersonalSpaceType + "/" + PersonalSpaceKey
+}
+
+// Granted reports whether an OAuth scope, as a PDS expands it, covers the personal space.
+func Granted(scope string) bool {
+	return strings.Contains(scope, "space:"+PersonalSpaceType)
 }
 
 type recordAddress struct {
@@ -72,6 +82,87 @@ func DeleteRecord(ctx context.Context, c Client, did, collection, rkey string) e
 		return fmt.Errorf("delete personal space record: %w", err)
 	}
 	return nil
+}
+
+// A space that was never created, or never written to, has no records.
+func noRepo(err error) bool {
+	return spaceError(err, "SpaceNotFound") || spaceError(err, "RepoNotFound")
+}
+
+// Record is one record of a personal space.
+type Record struct {
+	Rkey  string          `json:"rkey"`
+	CID   string          `json:"cid"`
+	Value json.RawMessage `json:"value"`
+}
+
+// ListRecords returns every record of collection in did's personal space.
+func ListRecords(ctx context.Context, c Client, did, collection string) ([]Record, error) {
+	params := map[string]any{"space": PersonalSpaceURI(did), "repo": did, "collection": collection, "limit": 1000}
+	var records []Record
+	for {
+		var out struct {
+			Cursor  string   `json:"cursor"`
+			Records []Record `json:"records"`
+		}
+		err := c.Do(ctx, "GET", "", "com.atproto.space.listRecords", params, nil, &out)
+		if noRepo(err) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, fmt.Errorf("list personal space records: %w", err)
+		}
+		records = append(records, out.Records...)
+		if out.Cursor == "" || len(out.Records) == 0 {
+			return records, nil
+		}
+		params["cursor"] = out.Cursor
+	}
+}
+
+// LatestRev returns the revision of did's repo in their personal space, which
+// changes with every write; it is empty before the first one.
+func LatestRev(ctx context.Context, c Client, did string) (string, error) {
+	var out struct {
+		Commit struct {
+			Rev string `json:"rev"`
+		} `json:"commit"`
+	}
+	params := map[string]any{"space": PersonalSpaceURI(did), "repo": did}
+	err := c.Do(ctx, "GET", "", "com.atproto.space.getLatestCommit", params, nil, &out)
+	if err != nil && !noRepo(err) {
+		return "", fmt.Errorf("get personal space commit: %w", err)
+	}
+	return out.Commit.Rev, nil
+}
+
+// TargetURI is the URI the API gives a multistream target, whichever store holds it.
+func TargetURI(did, rkey string) string {
+	return "at://" + did + "/" + TargetCollection + "/" + rkey
+}
+
+// ListMultistreamTargets returns did's multistream targets from their personal
+// space, in rkey order.
+func ListMultistreamTargets(ctx context.Context, c Client, did string) ([]placestream.MultistreamDefs_TargetView, error) {
+	records, err := ListRecords(ctx, c, did, TargetCollection)
+	if err != nil {
+		return nil, err
+	}
+	slices.SortFunc(records, func(a, b Record) int { return strings.Compare(a.Rkey, b.Rkey) })
+	targets := make([]placestream.MultistreamDefs_TargetView, 0, len(records))
+	for _, record := range records {
+		var target placestream.MultistreamTarget
+		// Another app can write to the space, so one bad record must not hide the rest.
+		if err := json.Unmarshal(record.Value, &target); err != nil {
+			continue
+		}
+		targets = append(targets, placestream.MultistreamDefs_TargetView{
+			Uri:    TargetURI(did, record.Rkey),
+			Cid:    record.CID,
+			Record: &glex.LexiconTypeDecoder{Val: &target},
+		})
+	}
+	return targets, nil
 }
 
 //go:embed lexicons/*.json

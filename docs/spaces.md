@@ -1,10 +1,11 @@
 # atproto spaces
 
-Streamplace copies each user's private records into an
+Streamplace keeps each user's private records in an
 [atproto space](https://github.com/bluesky-social/proposals/tree/main/0016-permissioned-data)
 on the user's own PDS: data that must never reach the firehose, such as a
-multistream target's RTMP URL with its stream key. The node keeps these records
-in its stateful database and syncs them when the caller has a space grant.
+multistream target's RTMP URL with its stream key. The space is the only
+store for a user who has granted it; a node holds no copy beyond the memory
+of a stream that is using the records.
 
 Spaces are an alpha that ships breaking changes weekly. This document
 describes the wire Streamplace targets, pinned in [Testing](#testing).
@@ -27,12 +28,11 @@ at://{did}/space/place.stream.personal/self
 A record in it is addressed as
 `at://{did}/space/place.stream.personal/self/{did}/{collection}/{rkey}`.
 `pkg/spaces` builds the personal space URI and holds the few
-`com.atproto.space.*` calls the node makes (`createSpace`, `putRecord`,
-`deleteRecord`).
+`com.atproto.space.*` calls the node makes.
 
 Collections in the space today:
 
-| Collection                        | Node index                          |
+| Collection                        | Before the space                    |
 | --------------------------------- | ----------------------------------- |
 | `place.stream.multistream.target` | statedb table `multistream_targets` |
 
@@ -95,10 +95,12 @@ and the JS tooling accepts space declarations, move both files into
 
 ## How the node uses the space
 
-The statedb index supplies the records the node serves and copies to the
-space. A live stream's multistream loop reads its targets every few seconds
-with no user request in flight, and every node of a station has to see the
-same answer. The space holds the last successfully synced copy.
+A user's targets are in exactly one of two places:
+
+| The caller's session               | Store                             |
+| ---------------------------------- | --------------------------------- |
+| has the `space:` grant             | the personal space, on the PDS    |
+| has none (PDS without spaces, etc) | statedb, exactly as before spaces |
 
 ```mermaid
 sequenceDiagram
@@ -106,61 +108,114 @@ sequenceDiagram
     participant Node
     participant PDS
     App->>Node: place.stream.multistream.createTarget
-    Node->>Node: lock user, sync pending rows
-    Node->>Node: save index row (in_space = false)
-    Node->>PDS: sync: com.atproto.space.putRecord (caller's OAuth session)
-    PDS-->>Node: cid (or error: row stays pending)
-    Node->>Node: on success: in_space = true, space_stale = false, cid
-    Node->>Node: unlock user
+    Node->>Node: statedb rows of this user? move them (below)
+    Node->>PDS: com.atproto.space.listRecords (limits)
+    Node->>PDS: com.atproto.space.putRecord (caller's OAuth session)
+    PDS-->>Node: cid
     Node-->>App: targetView
 ```
 
-- **Create and update** write the index first. Update also sets
-  `space_stale = true`. Neither operation fails because the PDS is unavailable.
-- **Sync** uses one function, `SyncMultistreamTargets`, to copy pending rows
-  to the space, then mark them synced and store the returned CID.
-- **Delete** removes the PDS record first when `in_space = true`. It requires
-  a usable client and leaves the index untouched on a PDS error. A retry is
-  safe even if the PDS delete succeeds and the SQL delete fails.
-- **Reads** come from the index.
-- **Row URIs never change.** The index and every API view use
-  `at://{did}/place.stream.multistream.target/{rkey}`. `in_space` means a copy
-  exists in the space under the same collection and key; `space_stale` means
-  the row changes are pending sync.
+- **Every multistream call** of a granted caller goes to the PDS with the
+  caller's own OAuth session. A PDS error fails the call; nothing falls back
+  to statedb, which would make a second store.
+- **Lists** read the space and add each target's latest status event, which
+  stays in statedb (`multistream_events`): it is the node's own operational
+  state, not the user's data.
+- **URIs never change.** Every API view uses
+  `at://{did}/place.stream.multistream.target/{rkey}` whichever store holds
+  the record, and the space record keeps the rkey. Events and running pushes
+  are keyed by that URI, so moving a user disturbs neither.
+- **Limits** (100 targets, 5 active) are checked against the space before a
+  write. Another app can write to the space too, so the director also drives
+  at most the first 5 active targets it reads.
+
+### The server driving a stream
+
+The server that holds a stream's multistream lease reads the streamer's
+targets with no user request in flight (`HandleMultistreamTargets`). It looks
+for a stored session of the streamer that has the grant:
+
+- **Found**: it moves any statedb rows, reads the targets from the space into
+  memory, then asks the PDS only for the space repo's revision
+  (`com.atproto.space.getLatestCommit`) and reads the targets again when
+  that changes. It reuses its client until the access token is about to run
+  out, so statedb is not asked again in between.
+- **Not found**: it reads statedb as before, and looks for a session again
+  whenever statedb has no active targets for the streamer.
+
+When the PDS cannot be read, the server keeps driving the targets it last
+saw. A server that starts driving a stream while the PDS is down has none
+until it comes back.
+
+### Change notifications
+
+A server driving a stream has the PDS tell it when the space changes, so an
+edit takes effect at once and the server need not poll every few seconds:
+
+```mermaid
+sequenceDiagram
+    participant Server as Server (lease holder)
+    participant PDS
+    Server->>PDS: getDelegationToken (streamer's OAuth session)
+    Server->>PDS: getSpaceCredential (delegation token, a fresh P-256 key)
+    Server->>PDS: registerNotify (credential, signed with that key)
+    Note over Server,PDS: later, a target is edited
+    PDS->>Server: notifyWrite (service auth, signed as the streamer)
+    Server->>PDS: getLatestCommit, listRecords
+```
+
+- **Each server registers itself**, as `did:web:{server host}#streamplace`,
+  which its DID document already publishes. The PDS resolves that to the
+  server's own address, so a notification reaches the lease holder with no
+  forwarding between nodes; a new lease holder registers on taking over.
+- **Registration** (`spaces.RegisterNotify`) happens before the first read,
+  so no change falls between the two. It lasts 24 hours and is renewed an
+  hour before it lapses. The credential and its key are used once and
+  dropped.
+- **A notification** carries no records. `com.atproto.space.notifyWrite`
+  (`pkg/spxrpc/com_atproto_space.go`) accepts it only from the space's own
+  authority, then wakes the stream's loop over the in-process bus, which
+  reads the space again. `notifySpaceDeleted` is handled the same way.
+- **Polling stays as the fallback**: every minute while registered, every 5
+  seconds while not. Delivery is best effort (the reference PDS sends once,
+  vlpds retries for about 30 seconds), and a PDS that cannot register the
+  server, because the space does not exist yet or the server's DID does not
+  resolve, is asked again every minute.
+- `streamplace_space_notifications_total` counts the notifications accepted.
+
+A server the PDS cannot reach over HTTPS (behind NAT, or on a non-default
+port, which this `did:web` cannot express) registers nothing or receives
+nothing, and relies on the poll.
 
 ### Moving a user over
 
-Every multistream call takes a per-user lock before choosing a space client,
-including calls without OAuth. Lock failures fail the request rather than
-allowing unlocked edits. The helper uses the caller's own OAuth session, not
-another login's stored session. No session, a failed refresh, or no granted
-`space:place.stream.personal` scope means no client.
+`MoveMultistreamTargets` runs at the start of every multistream call by a
+granted caller, and when a server driving a stream finds a granted session.
+It costs one statedb query when there is nothing to move. Otherwise, under a
+per-user lock, it writes each row to the space at the same rkey, then
+deletes all of them in one statement:
 
-With a client, the helper runs `SyncMultistreamTargets` under that lock. It
-copies every row with `in_space = false` or `space_stale = true`, then sets
-`in_space = true`, `space_stale = false` and the returned CID. URI and event
-references stay untouched. Both columns default to false, so existing rows
-are picked up. The first error stops sync without clearing that row's pending
-flags; a failed SQL acknowledgment also leaves it eligible for retry.
+- A failed write deletes nothing, and the next call starts over.
+- The rows leave together and only once the space has every record, so a
+  server driving the stream sees all of the targets in one store or the
+  other and restarts no push.
+- A row is deleted only if it still has the content that was copied. One
+  edited meanwhile, by a session without the grant, stays for the next move.
 
-Create and update sync again after their index write, still under the lock.
-Sync errors are logged, not returned: saved changes stay available to the
-director and pending rows are retried on the user's next multistream call.
-A PDS without spaces or an unavailable client leaves creates and updates
-local. Deleting a row with `in_space = true` needs the PDS; a row with
-`in_space = false` is deleted locally.
+A session without the grant sees statedb only, so for a user who has moved it
+lists nothing and can create a row there. That row moves on the user's next
+granted call or stream.
 
 ## Adding a collection
 
 1. Make sure the data is an atproto record with a lexicon under `lexicons/`.
 2. Add the collection to `collections` in
    `pkg/spaces/lexicons/place.stream.personal.json` and run `make lexicons`.
-   Existing sessions gain write access to it on their next token refresh.
-3. Save in statedb first and copy pending rows through one sync function using
-   `pkg/spaces`, as the multistream handlers do. Hold the per-user lock from
-   client selection through index writes and sync. Keep row URIs stable and
-   track space backing and pending changes separately, with defaults that
-   include existing rows. Space-backed deletes require the PDS.
+   Existing sessions gain access to it on their next token refresh.
+3. Read and write it with `pkg/spaces` when the caller has the grant, as the
+   multistream handlers do, and keep the statedb path for callers without.
+   Move existing rows the way `MoveMultistreamTargets` does: write, then
+   delete what was written. Keep API URIs stable across the move.
 4. Extend the e2e flows below.
 
 Candidates, in rough order of readiness:
@@ -190,11 +245,13 @@ DEV_ENV_PDS=vlpds hack/e2e-web-local.sh flows/private-space.spec.ts
 ```
 
 In HTTPS mode the harness seeds one multistream target for the test account
-before anything logs in, so it lands on the old path. The flows then log in through
+before anything logs in, so it lands in statedb. The flows then log in through
 the PDS's real consent screen and check, by reading the space from the PDS
 with its admin credentials, that the seeded target moved into the space and
 that creating, renaming and deleting a target in the app does the same on
-the PDS. `js/e2e-web/flows/private-space.spec.ts` covers the web app and
+the PDS. The web flow also checks that statedb is left empty, and that the
+director reports on a target once it is switched on.
+`js/e2e-web/flows/private-space.spec.ts` covers the web app and
 `.maestro/logged-in/private-space.yaml` the mobile apps.
 
 Both spaces PDSes must agree on the wire. vlpds releases up to 1.3.0, and
@@ -215,11 +272,10 @@ lexicon publisher's CAR proofs.
 
 ## Limits
 
-- The node does not read the space back. A record another app writes into
-  the space does not reach the index.
-- The index still holds a copy of every private record, in statedb.
-- API record URIs identify index rows, not the records' space addresses.
-- Space copies can lag the index while the PDS or client is unavailable.
-  Pending rows retry on the user's next multistream call; no background sync runs.
+- A node needs the PDS to read or change a granted user's targets. There is
+  no cache on disk: see [The server driving a stream](#the-server-driving-a-stream).
+- A server can only read a user's space with that user's OAuth tokens, which
+  are in statedb (`oauth_sessions`), as are the status events and the leases.
+- API record URIs are not the records' space addresses.
 - The Maestro flow runs on Android. Nothing in the repository runs
   backend-backed flows on iOS yet.

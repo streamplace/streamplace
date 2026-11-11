@@ -27,6 +27,7 @@ test.skip(
 interface Target {
   uri: string;
   record: { name?: string; url: string; active: boolean };
+  latestEvent?: { status: string };
 }
 
 interface SpaceRecord {
@@ -54,6 +55,7 @@ async function mutateTarget(
   page: Page,
   method: "createTarget" | "putTarget" | "deleteTarget",
   action: () => Promise<unknown>,
+  active = false,
 ) {
   const [response] = await Promise.all([
     page.waitForResponse(
@@ -67,9 +69,44 @@ async function mutateTarget(
   expect(response.ok(), await response.text()).toBe(true);
   if (method !== "deleteTarget") {
     expect(response.request().postDataJSON().multistreamTarget.active).toBe(
-      false,
+      active,
     );
   }
+}
+
+// A service-auth caller has no space grant, so the node answers it from statedb.
+async function statedbTargets(request: APIRequestContext) {
+  const pds = `${process.env.PDS_HTTP_URL}/xrpc`;
+  const lxm = "place.stream.multistream.listTargets";
+  const session = await request.post(
+    `${pds}/com.atproto.server.createSession`,
+    {
+      data: { identifier: DID, password: process.env.ACCOUNT_PASSWORD },
+    },
+  );
+  expect(session.ok(), await session.text()).toBe(true);
+  const auth = await request.get(`${pds}/com.atproto.server.getServiceAuth`, {
+    headers: { Authorization: `Bearer ${(await session.json()).accessJwt}` },
+    params: { aud: `did:web:${new URL(HTTPS_URL!).host}`, lxm },
+  });
+  expect(auth.ok(), await auth.text()).toBe(true);
+  const response = await request.get(`${process.env.SERVER_URL}/xrpc/${lxm}`, {
+    headers: { Authorization: `Bearer ${(await auth.json()).token}` },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  return ((await response.json()) as { targets: Target[] }).targets;
+}
+
+// Counts the space change notifications the node has accepted from the PDS.
+async function spaceNotifications(request: APIRequestContext) {
+  const response = await request.get(
+    `${process.env.SERVER_INTERNAL_URL}/metrics`,
+  );
+  const count = (await response.text()).match(
+    /^streamplace_space_notifications_total (\d+)/m,
+  );
+  expect(count, "the node's metrics list the counter").not.toBeNull();
+  return Number(count![1]);
 }
 
 async function spaceRecords(request: APIRequestContext) {
@@ -134,7 +171,7 @@ async function expectSpaceTarget(
 }
 
 for (const frontend of ["app", "web"]) {
-  test(`private-space: ${frontend} migrates legacy targets and persists inactive UI CRUD`, async ({
+  test(`private-space: ${frontend} moves legacy targets to the space and keeps UI CRUD there`, async ({
     page,
     request,
   }) => {
@@ -180,6 +217,10 @@ for (const frontend of ["app", "web"]) {
       expect(legacy!.record).toMatchObject({ url: LEGACY_URL, active: false });
       for (const target of initial) expectTargetURI(target);
       await expectSpaceTarget(request, legacy!, LEGACY_NAME, LEGACY_URL);
+      // Once moved, the space is the only store.
+      expect(
+        (await statedbTargets(request)).map((target) => target.record.name),
+      ).toEqual(PDS_KIND === "reference" ? [LEGACY_NAME] : []);
 
       await page.getByTestId("multistream-target-create").click();
       await page.getByTestId("multistream-target-form-name").fill(name);
@@ -202,14 +243,43 @@ for (const frontend of ["app", "web"]) {
       expect(created!.record).toMatchObject({ name, url, active: false });
       await expectSpaceTarget(request, created!, name, url);
 
+      // The director drives an active target from the store that holds it.
+      await row(created!)
+        .getByTestId(/^multistream-target-edit-/)
+        .click();
+      await expect(active).not.toBeChecked();
+      await active.click();
+      await mutateTarget(
+        page,
+        "putTarget",
+        () => page.getByTestId("multistream-target-save").click(),
+        true,
+      );
+      await expect
+        .poll(
+          async () =>
+            (await refresh()).find((target) => target.uri === created!.uri)
+              ?.latestEvent?.status,
+          { timeout: 60_000 },
+        )
+        .toBeTruthy();
+
+      // By now the director follows the space, so the PDS tells it of a write.
+      const notified = await spaceNotifications(request);
       await row(created!)
         .getByTestId(/^multistream-target-edit-/)
         .click();
       await page.getByTestId("multistream-target-form-name").fill(renamed);
-      await expect(active).not.toBeChecked();
+      await expect(active).toBeChecked();
+      await active.click();
       await mutateTarget(page, "putTarget", () =>
         page.getByTestId("multistream-target-save").click(),
       );
+      if (PDS_KIND !== "reference") {
+        await expect
+          .poll(() => spaceNotifications(request))
+          .toBeGreaterThan(notified);
+      }
       await expect(page.getByText(renamed, { exact: true })).toBeVisible();
       await expect(page.getByText(name, { exact: true })).toBeHidden();
       const updated = (await refresh()).find(
@@ -237,9 +307,12 @@ for (const frontend of ["app", "web"]) {
           )
           .toBe(false);
       }
+      creationAttempted = false;
     } finally {
-      // Reload also dismisses an unfinished form before cleaning up a failed run.
+      // Only a failed run leaves a target. Leaving the page first dismisses an
+      // unfinished form and keeps its late responses out of the reload's.
       if (creationAttempted) {
+        await page.goto("about:blank");
         const remaining = await nodeTargets(page, () => page.goto(screen));
         for (const target of remaining) {
           if (target.record.name === name || target.record.name === renamed) {

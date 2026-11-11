@@ -225,7 +225,7 @@ type Lab = {
 };
 
 const test = base.extend<{ lab: Lab }>({
-  lab: async ({}, use) => {
+  lab: async ({ launchOptions, proxy }, use) => {
     const servers: Deployment[] = [];
     const contexts: BrowserContext[] = [];
     const profile = await mkdtemp(path.join(tmpdir(), "sp-service-worker-"));
@@ -238,6 +238,8 @@ const test = base.extend<{ lab: Lab }>({
         },
         async launch(deployment) {
           const context = await chromium.launchPersistentContext(profile, {
+            ...launchOptions,
+            proxy,
             headless: true,
           });
           contexts.push(context);

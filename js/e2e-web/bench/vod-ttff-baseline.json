@@ -1,0 +1,8 @@
+{
+  "firstFrameMs": {
+    "unthrottled/cold": 1268,
+    "unthrottled/warm": 1276,
+    "throttled/cold": 3519,
+    "throttled/warm": 3574
+  }
+}

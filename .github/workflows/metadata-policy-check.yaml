@@ -19,8 +19,16 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
+      - name: Fetch release tags
+        run:
+          git fetch https://github.com/streamplace/streamplace.git
+          'refs/tags/*:refs/tags/*'
       - name: Prepare native builder
-        run: make dev-container
+        run: |
+          make container
+          CONTAINER="$(bash hack/container.sh name)"
+          docker exec "$CONTAINER" git config --global --add safe.directory "$(pwd -P)"
+          make dev-container
       - name: Build development binaries
         run: |
           REPO="$(pwd -P)"

@@ -1,5 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
-import { parseArgs } from "node:util";
+import { execFile } from "node:child_process";
+import { mkdir, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { parseArgs, promisify } from "node:util";
 import "source-map-support/register";
 import { generatePrivateKey } from "viem/accounts";
 import getEnv from "./env";
@@ -12,6 +16,7 @@ import { makeWindow } from "./window";
 // OAuth logins happen in the system browser (passkeys need it), and the node's
 // /app-return page sends the result back to us on this scheme.
 const LOGIN_PROTOCOL = "streamplace-desktop";
+const execFileAsync = promisify(execFile);
 
 const isLoginURL = (value: string): boolean =>
   value.startsWith(`${LOGIN_PROTOCOL}:`);
@@ -32,6 +37,50 @@ const deliverLoginURL = (url: string): void => {
   }
   console.log("delivering login callback");
   mainWindow.webContents.send("auth:callback", url);
+};
+
+// Electron's Linux registration needs a desktop entry to point at. An AppImage
+// that its integration tooling hasn't installed has none, so write one and
+// select it; without this the browser can't hand the login back.
+const registerLoginProtocol = async (): Promise<void> => {
+  const registered = app.setAsDefaultProtocolClient(LOGIN_PROTOCOL);
+  if (registered || !app.isPackaged || process.platform !== "linux") {
+    if (!registered) {
+      console.error(`could not register the ${LOGIN_PROTOCOL} scheme`);
+    }
+    return;
+  }
+  const applications = join(
+    process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share"),
+    "applications",
+  );
+  // AppImage mounts process.execPath under /tmp; process.env.APPIMAGE is the
+  // file the user actually launched.
+  const executable = process.env.APPIMAGE ?? process.execPath;
+  const desktopEntry = [
+    "[Desktop Entry]",
+    "Type=Application",
+    "Name=Streamplace",
+    `Exec="${executable}" %U`,
+    "Terminal=false",
+    `MimeType=x-scheme-handler/${LOGIN_PROTOCOL};`,
+    "",
+  ].join("\n");
+  try {
+    await mkdir(applications, { recursive: true });
+    await writeFile(
+      join(applications, "streamplace.desktop"),
+      desktopEntry,
+      "utf8",
+    );
+    await execFileAsync("xdg-mime", [
+      "default",
+      "streamplace.desktop",
+      `x-scheme-handler/${LOGIN_PROTOCOL}`,
+    ]);
+  } catch (e) {
+    console.error(`could not register the ${LOGIN_PROTOCOL} scheme`, e);
+  }
 };
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -160,10 +209,7 @@ if (require("electron-squirrel-startup")) {
     }
     const window = await makeWindow();
     mainWindow = window;
-    const registered = app.setAsDefaultProtocolClient(LOGIN_PROTOCOL);
-    if (!registered) {
-      console.error(`could not register the ${LOGIN_PROTOCOL} scheme`);
-    }
+    await registerLoginProtocol();
 
     let startPath;
     if (nodeFrontend) {

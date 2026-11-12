@@ -173,10 +173,19 @@ export const createContentMetadataSlice: StateCreator<
 
       if (distributionPolicy !== undefined) {
         const { deleteAfter, allowedBroadcasters } = distributionPolicy;
-        if (deleteAfter !== undefined || allowedBroadcasters?.length) {
+        const existingPolicy = existingRecord?.distributionPolicy as
+          { allowGenAiTraining?: boolean } | undefined;
+        if (
+          deleteAfter !== undefined ||
+          allowedBroadcasters?.length ||
+          existingPolicy?.allowGenAiTraining !== undefined
+        ) {
           metadataRecord.distributionPolicy = {
             ...(deleteAfter !== undefined && { deleteAfter }),
             ...(allowedBroadcasters && { allowedBroadcasters }),
+            ...(existingPolicy?.allowGenAiTraining !== undefined && {
+              allowGenAiTraining: existingPolicy.allowGenAiTraining,
+            }),
           };
         } else {
           delete metadataRecord.distributionPolicy;

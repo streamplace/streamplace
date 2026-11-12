@@ -20,6 +20,13 @@ import { useSession } from "@/lib/session";
 import { useStore } from "@/lib/store";
 import { useKeyRecords } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
+import {
+  ALL_BROADCASTERS,
+  DEFAULT_ALLOW_EVERYONE_TO_DISTRIBUTE,
+  DEFAULT_DELETE_AFTER,
+  INDEFINITE_ARCHIVAL,
+  allowsEveryoneToDistribute,
+} from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { Clipboard, Key, Loader2, Shield, Tags, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -141,10 +148,14 @@ function MetadataSection() {
   }>({});
   const [customLicense, setCustomLicense] = useState<string>("");
   const [licenseSelect, setLicenseSelect] = useState<string>("");
-  const [allowAllDistribute, setAllowAllDistribute] = useState(false);
+  const [allowAllDistribute, setAllowAllDistribute] = useState(
+    DEFAULT_ALLOW_EVERYONE_TO_DISTRIBUTE,
+  );
   const [allowedBroadcasters, setAllowedBroadcasters] = useState("");
   const [archiveIndefinite, setArchiveIndefinite] = useState(false);
-  const [deleteAfter, setDeleteAfter] = useState<string>("300");
+  const [deleteAfter, setDeleteAfter] = useState<string>(
+    String(DEFAULT_DELETE_AFTER ?? ""),
+  );
   const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -185,19 +196,20 @@ function MetadataSection() {
     }
     if (record.distributionPolicy) {
       const ap = record.distributionPolicy.allowedBroadcasters;
-      if (ap && ap.length === 1 && ap[0] === "*") {
+      if (allowsEveryoneToDistribute(ap)) {
         setAllowAllDistribute(true);
         setAllowedBroadcasters("");
       } else {
         setAllowAllDistribute(false);
         setAllowedBroadcasters((ap ?? []).join("\n"));
       }
-      if (record.distributionPolicy.deleteAfter === -1) {
+      if (record.distributionPolicy.deleteAfter === INDEFINITE_ARCHIVAL) {
         setArchiveIndefinite(true);
       } else {
         setArchiveIndefinite(false);
         setDeleteAfter(
-          record.distributionPolicy.deleteAfter?.toString() ?? "300",
+          record.distributionPolicy.deleteAfter?.toString() ??
+            String(DEFAULT_DELETE_AFTER ?? ""),
         );
       }
     }
@@ -254,17 +266,25 @@ function MetadataSection() {
       }
 
       const broadcasters = allowAllDistribute
-        ? ["*"]
+        ? [ALL_BROADCASTERS]
         : allowedBroadcasters
             .split("\n")
             .map((s) => s.trim())
             .filter(Boolean);
+      if (!allowAllDistribute && broadcasters.length === 0) {
+        toast.error(
+          t("allowed-broadcaster-required", {
+            defaultValue: "Enter an allowed broadcaster.",
+          }),
+        );
+        return;
+      }
       const distPolicy: {
         deleteAfter?: number;
         allowedBroadcasters?: string[];
       } = {};
       if (archiveIndefinite) {
-        distPolicy.deleteAfter = -1;
+        distPolicy.deleteAfter = INDEFINITE_ARCHIVAL;
       } else if (deleteAfter) {
         const n = parseInt(deleteAfter, 10);
         if (!isNaN(n) && n > 0) distPolicy.deleteAfter = n;
@@ -511,10 +531,13 @@ function MetadataSection() {
             )}
             <Toggle
               checked={archiveIndefinite}
-              onChange={setArchiveIndefinite}
-              label={t("allow-everyone-archive", {
-                defaultValue:
-                  "Allow everyone to archive your content indefinitely",
+              onChange={(checked) => {
+                setArchiveIndefinite(checked);
+                if (!checked)
+                  setDeleteAfter(String(DEFAULT_DELETE_AFTER ?? ""));
+              }}
+              label={t("explicitly-allow-indefinite-archiving", {
+                defaultValue: "Explicitly allow indefinite archiving",
               })}
             />
             {!archiveIndefinite && (
@@ -523,11 +546,15 @@ function MetadataSection() {
                   defaultValue: "Delete After",
                 })}
                 help={t("delete-after-help", {
-                  defaultValue: "Duration in seconds (e.g. 300 for 5 minutes).",
+                  defaultValue:
+                    "Duration in seconds. Leave blank for no specified deadline.",
                 })}
               >
                 <input
                   type="number"
+                  placeholder={t("no-deletion-deadline", {
+                    defaultValue: "No deletion deadline specified",
+                  })}
                   value={deleteAfter}
                   onChange={(e) => setDeleteAfter(e.target.value)}
                   className="focus:ring-ring h-9 w-full rounded-md border border-(--color-border) bg-(--color-bg) px-3 text-sm text-(--color-fg) focus:ring-1 focus:outline-none"

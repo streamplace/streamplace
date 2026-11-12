@@ -2,6 +2,15 @@ package constants
 
 import "fmt"
 
+// Keep these defaults in step with js/core/src/lib/distribution-policy.ts.
+// An absent deletion deadline does not declare an archival preference.
+const (
+	DefaultAllowEveryoneToDistribute = true
+	DefaultAllowGenAITraining        = false
+	AllBroadcasters                  = "*"
+	IndefiniteArchival               = -1
+)
+
 var PLACE_STREAM_KEY = "place.stream.key"                                     //nolint:all
 var PLACE_STREAM_LIVESTREAM = "place.stream.livestream"                       //nolint:all
 var PLACE_STREAM_CHAT_MESSAGE = "place.stream.chat.message"                   //nolint:all

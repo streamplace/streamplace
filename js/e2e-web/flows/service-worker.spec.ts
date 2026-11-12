@@ -6,7 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import {
   createServer,
   type IncomingMessage,
@@ -18,9 +18,8 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { STORAGE_STATE } from "../storage";
 
-// Web-only. A real local server, not page.route, since a browser's service
-// worker update fetch cannot be intercepted; it serves dist with a changed /sw.js.
-const DIST = path.resolve(__dirname, "../../app/dist");
+// Web-only. Proxy the harness's embedded app: worker update requests cannot
+// be intercepted by page.route, and binary-only CI has no local frontend dist.
 const SETTINGS = "/settings";
 const STARTUP_WINDOW_MS = 3_000;
 
@@ -29,19 +28,6 @@ const PROBE_CACHE_CONTROL: Record<string, string> = {
   "no-store": "public, max-age=31536000, immutable, no-store",
   private: "private, max-age=31536000, immutable",
   revalidated: "public, max-age=31536000",
-};
-const MIME: Record<string, string> = {
-  ".css": "text/css",
-  ".html": "text/html; charset=utf-8",
-  ".ico": "image/x-icon",
-  ".js": "text/javascript",
-  ".json": "application/json",
-  ".png": "image/png",
-  ".svg": "image/svg+xml",
-  ".ttf": "font/ttf",
-  ".wasm": "application/wasm",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
 };
 
 type WorkerMode = "ok" | "unavailable" | "broken";
@@ -115,7 +101,9 @@ class Deployment {
       return send(
         200,
         { "Content-Type": "text/javascript", "Cache-Control": "no-cache" },
-        (await readFile(path.join(DIST, "sw.js"), "utf8")) + marker + broken,
+        (await (await fetch(`${process.env.SERVER_URL}/sw.js`)).text()) +
+          marker +
+          broken,
       );
     }
 
@@ -136,44 +124,10 @@ class Deployment {
       return send(Number(url.searchParams.get("status") ?? 200), head, body);
     }
 
-    const rel = decodeURIComponent(url.pathname).replace(/^\/+/, "");
-    const file = path.resolve(DIST, rel);
-    const hashed = rel.startsWith("_expo/static/");
-    if (rel && file.startsWith(DIST + path.sep)) {
-      try {
-        const body = await readFile(file);
-        return send(
-          200,
-          {
-            "Content-Type":
-              MIME[path.extname(file).toLowerCase()] ??
-              "application/octet-stream",
-            ...(hashed
-              ? { "Cache-Control": "public, max-age=31536000, immutable" }
-              : {}),
-          },
-          body,
-        );
-      } catch {
-        // Not a file: an app route or a missing asset.
-      }
-    }
-    if (hashed || path.extname(rel)) {
-      return send(404, { "Cache-Control": "no-store" }, "file not found");
-    }
-    const wantsHTML =
-      headers["sec-fetch-dest"] === "document" ||
-      !!headers.accept?.includes("text/html");
-    if (!wantsHTML) return this.proxy(req, url, res);
-    return send(
-      200,
-      { "Content-Type": MIME[".html"], "Cache-Control": "no-cache" },
-      await readFile(path.join(DIST, "index.html")),
-    );
+    return this.proxy(req, url, res);
   }
 
-  // Same-origin API calls the app makes reach the harness node, as they would
-  // on a real node serving its own app.
+  // Use the real node's assets, HTML, and cache policy for every deployment.
   private async proxy(req: IncomingMessage, url: URL, res: ServerResponse) {
     const headers: Record<string, string> = {};
     for (const name of ["accept", "authorization", "content-type", "range"]) {
@@ -266,12 +220,12 @@ const test = base.extend<{ lab: Lab }>({
 });
 
 async function builtAsset() {
-  const html = await readFile(path.join(DIST, "index.html"), "utf8");
+  const html = await (await fetch(process.env.SERVER_URL!)).text();
   const manifest =
     /<script id="bootstrap-scripts" type="application\/json">(.*?)<\/script>/.exec(
       html,
     );
-  if (!manifest) throw new Error("dist has no bootstrap manifest: make app");
+  if (!manifest) throw new Error("harness HTML has no bootstrap manifest");
   return new URL((JSON.parse(manifest[1]) as string[])[0], "http://x").pathname;
 }
 

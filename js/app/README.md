@@ -135,8 +135,9 @@ The export stamps the worker with the app's build digest; `/sw.js` revalidates
 instead of being cached immutably. Push subscriptions keep the same registration.
 Metro's public worker remains push-only; installed iOS/Android apps are unchanged.
 
-`service-worker.spec.ts` uses real Chromium workers and deployment responses to
-exercise persistence, early/late updates, multi-tab behavior, and cache bypasses.
+`service-worker.spec.ts` proxies the node's embedded frontend through real
+deployment responses, so binary-only CI needs no local `dist`. It exercises
+persistence, early/late updates, multi-tab behavior, and cache bypasses in Chromium.
 
 The crash fallback reads pure Streamplace dark-theme tokens without importing
 provider modules. Retry remains available on every platform; page reload is web-only.

@@ -5,6 +5,13 @@ import {
   LICENSE_OPTIONS,
 } from "../../lib/metadata-constants";
 
+import {
+  ALL_BROADCASTERS,
+  DEFAULT_ALLOW_GEN_AI_TRAINING,
+  DEFAULT_DELETE_AFTER,
+  INDEFINITE_ARCHIVAL,
+  allowsEveryoneToDistribute,
+} from "@streamplace/core";
 import { ExternalLink } from "lucide-react-native";
 import { place } from "streamplace";
 import {
@@ -177,7 +184,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
             newDistributionPolicy.deleteAfter = undefined;
           } else {
             if (isNaN(duration) || duration < 0) {
-              duration = -1;
+              duration = INDEFINITE_ARCHIVAL;
             }
             newDistributionPolicy.deleteAfter =
               duration === 0 ? undefined : duration;
@@ -226,6 +233,16 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     );
 
     const handleSave = useCallback(async () => {
+      const broadcasters = distributionPolicy.allowedBroadcasters
+        ?.map((broadcaster) => broadcaster.trim())
+        .filter(Boolean);
+      if (
+        !allowsEveryoneToDistribute(distributionPolicy.allowedBroadcasters) &&
+        !broadcasters?.length
+      ) {
+        toast.show("Broadcaster required", "Enter an allowed broadcaster.");
+        return;
+      }
       setLoading(true);
       try {
         // Build the metadata object, only including non-empty fields
@@ -272,14 +289,12 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
         // AI training is opt-in: absent an explicit choice, save the record
         // with training disallowed.
         metadata.distributionPolicy = {
-          allowGenAiTraining: false,
+          allowGenAiTraining: DEFAULT_ALLOW_GEN_AI_TRAINING,
           ...distributionPolicy,
         };
 
         if (distributionPolicy?.allowedBroadcasters) {
-          const filteredBs = distributionPolicy.allowedBroadcasters.filter(
-            (broadcaster) => broadcaster !== "",
-          );
+          const filteredBs = broadcasters ?? [];
           metadata.distributionPolicy.allowedBroadcasters = filteredBs;
           setDistributionPolicy({
             ...distributionPolicy,
@@ -648,14 +663,13 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                   position="top"
                 >
                   <Checkbox
-                    checked={
-                      distributionPolicy.allowedBroadcasters?.includes("*") ||
-                      false
-                    }
+                    checked={allowsEveryoneToDistribute(
+                      distributionPolicy.allowedBroadcasters,
+                    )}
                     onCheckedChange={(checked) =>
                       handleDistributionPolicyChange({
                         allowedBroadcasters: checked
-                          ? "*"
+                          ? ALL_BROADCASTERS
                           : broadcasterDID || "",
                       })
                     }
@@ -665,7 +679,9 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 </Tooltip>
 
                 {/* allowedBroadcasters */}
-                {!distributionPolicy.allowedBroadcasters?.includes("*") && (
+                {!allowsEveryoneToDistribute(
+                  distributionPolicy.allowedBroadcasters,
+                ) && (
                   <View style={[gap.all[3], w.percent[100]]}>
                     <View
                       style={[
@@ -733,7 +749,10 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                   position="top"
                 >
                   <Checkbox
-                    checked={distributionPolicy.allowGenAiTraining === true}
+                    checked={
+                      distributionPolicy.allowGenAiTraining ??
+                      DEFAULT_ALLOW_GEN_AI_TRAINING
+                    }
                     onCheckedChange={(checked) =>
                       handleDistributionPolicyChange({
                         allowGenAiTraining: checked,
@@ -747,29 +766,31 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 </Tooltip>
 
                 <Tooltip
-                  content="Anyone may archive your content indefinitely."
+                  content="Explicitly allow indefinite archiving. Without a deadline, your preference is unspecified."
                   position="top"
                 >
                   <Checkbox
-                    checked={distributionPolicy.deleteAfter === -1}
+                    checked={
+                      distributionPolicy.deleteAfter === INDEFINITE_ARCHIVAL
+                    }
                     onCheckedChange={(checked) => {
                       if (checked) {
                         handleDistributionPolicyChange({
-                          deleteAfter: "-1",
+                          deleteAfter: String(INDEFINITE_ARCHIVAL),
                         });
                       } else {
                         handleDistributionPolicyChange({
-                          deleteAfter: "300",
+                          deleteAfter: String(DEFAULT_DELETE_AFTER ?? ""),
                         });
                       }
                     }}
-                    label={"Allow everyone to archive your content"}
+                    label={"Explicitly allow indefinite archiving"}
                     style={[{ fontSize: 12 }]}
                   />
                 </Tooltip>
 
                 {/* deleteAfter */}
-                {distributionPolicy.deleteAfter !== -1 && (
+                {distributionPolicy.deleteAfter !== INDEFINITE_ARCHIVAL && (
                   <View style={[gap.all[3], w.percent[100]]}>
                     <View
                       style={[
@@ -798,9 +819,11 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                             { fontSize: 12, paddingBottom: 4 },
                           ]}
                         >
-                          Duration in seconds (e.g., 300 for 5 minutes)
+                          Duration in seconds. Leave blank for no specified
+                          deadline.
                         </Text>
                         <Input
+                          placeholder="No deletion deadline specified"
                           value={
                             distributionPolicy.deleteAfter?.toString() || ""
                           }

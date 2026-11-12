@@ -84,6 +84,30 @@ describe("content metadata requests", () => {
 });
 
 describe("updateContentMetadata", () => {
+  it("preserves the AI training preference when updating other distribution settings", async () => {
+    let savedRecord: PutRecordInput["record"] = {
+      distributionPolicy: { allowGenAiTraining: true, deleteAfter: 600 },
+    };
+    const state = makeMetadataState({
+      getRecord: async () => ({
+        data: { value: structuredClone(savedRecord) },
+      }),
+      putRecord: async (input: PutRecordInput) => {
+        savedRecord = structuredClone(input.record);
+        return { data: { cid: "metadata-cid" } };
+      },
+    });
+
+    await state.updateContentMetadata({
+      distributionPolicy: { deleteAfter: 300 },
+    });
+
+    expect(savedRecord.distributionPolicy).toEqual({
+      allowGenAiTraining: true,
+      deleteAfter: 300,
+    });
+  });
+
   it("preserves offline rights and distribution settings through live warning edits", async () => {
     const uri = "at://did:plc:creator/place.stream.metadata.configuration/self";
     let savedRecord: PutRecordInput["record"] = {};

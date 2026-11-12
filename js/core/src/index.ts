@@ -11,6 +11,7 @@ export * from "./lib/audio-stems";
 export * from "./lib/badge-label";
 export * from "./lib/browser";
 export * from "./lib/did";
+export * from "./lib/distribution-policy";
 export * from "./lib/facet";
 export * from "./lib/format-handle";
 export * from "./lib/game";

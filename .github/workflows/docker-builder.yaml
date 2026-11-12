@@ -31,7 +31,7 @@ env:
 jobs:
   builder:
     name: builder image
-    if: github.repository == 'streamplace/streamplace'
+    if: github.ref != 'refs/heads/natb-c/ci-metadata-policy-check'
     runs-on: ubuntu-latest
     steps:
       - name: Maximize build space

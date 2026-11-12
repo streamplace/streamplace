@@ -31,6 +31,7 @@ env:
 jobs:
   builder:
     name: builder image
+    if: github.repository == 'streamplace/streamplace'
     runs-on: ubuntu-latest
     steps:
       - name: Maximize build space

@@ -1,0 +1,39 @@
+name: metadata policy check
+
+on:
+  push:
+    branches:
+      - natb-c/ci-metadata-policy-check
+
+permissions:
+  contents: read
+
+jobs:
+  media-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Maximize build space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Prepare native builder
+        run: make dev-container
+      - name: Build development binaries
+        run: |
+          REPO="$(pwd -P)"
+          CONTAINER="$(bash hack/container.sh name)"
+          docker exec -w "$REPO" "$CONTAINER" make dev
+      - name: Test distribution policy
+        run: |
+          REPO="$(pwd -P)"
+          CONTAINER="$(bash hack/container.sh name)"
+          GO_ENV="CGO_LDFLAGS=-L$REPO/build-linux-amd64/rust/streamplace-native -lmoq_ffi -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -lm"
+          docker exec -w "$REPO" "$CONTAINER" env "$GO_ENV" go test -count=1 ./pkg/media -run '^TestDistributionPolicyFilterAllowsIndefiniteArchiving$'
+      - name: Check Go lint
+        run: |
+          REPO="$(pwd -P)"
+          CONTAINER="$(bash hack/container.sh name)"
+          docker exec -w "$REPO" "$CONTAINER" make golangci-lint

@@ -56,7 +56,11 @@ const registerLoginProtocol = async (): Promise<void> => {
   );
   // AppImage mounts process.execPath under /tmp; process.env.APPIMAGE is the
   // file the user actually launched.
-  const executable = process.env.APPIMAGE ?? process.execPath;
+  // Desktop entry Exec strings quote reserved characters and use %% for a
+  // literal percent sign.
+  const executable = (process.env.APPIMAGE ?? process.execPath)
+    .replace(/%/g, "%%")
+    .replace(/([\\"`$])/g, "\\$1");
   const desktopEntry = [
     "[Desktop Entry]",
     "Type=Application",

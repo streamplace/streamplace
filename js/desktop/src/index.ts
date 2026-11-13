@@ -144,6 +144,11 @@ if (require("electron-squirrel-startup")) {
         return fn(...(args as A));
       });
     handleIPC("app:openLogFolder", openLogFolder);
+    handleIPC("app:focus", () => {
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.focus();
+    });
     handleIPC("obs:status", () => obsStatus());
     handleIPC("obs:installPlugin", () => installPlugin());
     handleIPC("obs:configureStream", (did: string, streamKey: string) =>

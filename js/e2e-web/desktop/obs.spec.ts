@@ -29,13 +29,7 @@ test("OBS gets a key through Desktop login, kept across reloads and restarts", a
   await expect(handleField).toBeVisible({ timeout: 60_000 });
   await desktop.page.keyboard.press("Escape");
   await expect(handleField).not.toBeVisible();
-  await app.evaluate(({ app: electron }) => {
-    electron.emit(
-      "open-url",
-      { preventDefault: () => {} },
-      "streamplace-desktop:obs",
-    );
-  });
+  expect((await request.get(`${desktop.nodeURL}/desktop/obs`)).ok()).toBe(true);
   await loginThroughSystemBrowser(desktop);
 
   const file = join(
@@ -69,13 +63,7 @@ test("OBS gets a key through Desktop login, kept across reloads and restarts", a
   expect((await stat(file)).mtimeMs).toBe(modified);
 
   // An explicit request still re-keys an already connected account.
-  await app.evaluate(({ app: electron }) => {
-    electron.emit(
-      "open-url",
-      { preventDefault: () => {} },
-      "streamplace-desktop:obs",
-    );
-  });
+  expect((await request.get(`${desktop.nodeURL}/desktop/obs`)).ok()).toBe(true);
   await expect
     .poll(() => readFile(file, "utf8"), { timeout: 60_000 })
     .not.toBe(original);

@@ -31,10 +31,9 @@ interface ObsBridge {
   status(): Promise<ObsStatus>;
   installPlugin(): Promise<Result & { restartObs: boolean }>;
   configureStream(did: string, streamKey: string): Promise<Result>;
-  onKeyRequest(callback: () => void): () => void;
 }
 
-export const obsBridge = (): ObsBridge | undefined =>
+const obsBridge = (): ObsBridge | undefined =>
   typeof window === "undefined" ? undefined : (window as any).SP_ELECTRON?.obs;
 
 const describe = (s: ObsStatus): string => {

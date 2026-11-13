@@ -841,15 +841,9 @@ export default function Shell() {
     return unsubscribe;
   }, [navigation]);
 
-  // Streamplace Desktop only offers its own screen for now; app-return is
-  // the OAuth handoff page.
+  // Streamplace Desktop only offers its own screen for now.
   useEffect(() => {
-    if (
-      isElectron &&
-      currentRouteName &&
-      currentRouteName !== "Desktop" &&
-      currentRouteName !== "AppReturn"
-    ) {
+    if (isElectron && currentRouteName && currentRouteName !== "Desktop") {
       navigation.dispatch(
         CommonActions.reset({ index: 0, routes: [{ name: "Desktop" }] }),
       );

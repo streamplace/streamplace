@@ -14,9 +14,10 @@ Logs rotate on restart and at 20 MiB; self-test nodes use separate named log fil
 ## Connecting OBS
 
 Accept Desktop's plugin install, restart OBS, then choose **Settings → Stream →
-Streamplace → Get Stream Key**. That opens `streamplace-desktop:obs`, which
-brings up Desktop's login; once signed in, Desktop sends a key to OBS, even
-while OBS is running. **Connect OBS** creates a replacement key.
+Streamplace → Get Stream Key**. Desktop must already be running: the link opens
+`http://127.0.0.1:38080/desktop/obs`, and Desktop notices the request and brings
+up its login. Once signed in, Desktop sends a key to OBS, even while OBS is
+running. **Connect OBS** creates a replacement key.
 
 Desktop writes `{"did":"did:…","key":"z…","replaces":[]}` to
 `<OBS config>/plugin_config/obs-streamplace/stream-key.json`, retaining up to 20

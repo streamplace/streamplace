@@ -1,0 +1,40 @@
+appId: ${APP_ID}
+---
+# Shared by iOS and Android; browser counterpart: not-found.spec.ts.
+- launchApp
+- openLink: ${APP_ID}://does-not-exist
+- extendedWaitUntil:
+    visible: "404 — Page not found"
+    timeout: 30000
+- assertVisible: "The page you're looking for doesn't exist."
+- takeScreenshot: not-found
+- tapOn:
+    text: "Home"
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- openLink: ${APP_ID}://settings/advanced
+- extendedWaitUntil:
+    visible:
+      id: "settings-use-custom-node"
+    timeout: 30000
+- openLink: ${APP_ID}://missing.example.invalid
+- extendedWaitUntil:
+    visible: "Connecting..."
+    timeout: 30000
+- assertNotVisible: "404 — Page not found"
+- openLink: ${APP_ID}://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa
+- extendedWaitUntil:
+    visible: "Connecting..."
+    timeout: 30000
+- assertNotVisible: "404 — Page not found"
+- openLink: ${APP_ID}://${ACCOUNT_HANDLE}
+- extendedWaitUntil:
+    visible: ".*e2e test stream.*"
+    timeout: 30000
+- openLink: ${APP_ID}://${ACCOUNT_DID}
+- extendedWaitUntil:
+    visible: ".*e2e test stream.*"
+    timeout: 30000
+- openLink: ${APP_ID}://

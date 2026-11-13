@@ -229,7 +229,12 @@ export const writeStreamHandoff = async (
   });
   await writeFile(
     `${file}.tmp`,
-    JSON.stringify({ did, key, replaces: [...new Set(replaces)].slice(-20) }),
+    JSON.stringify({
+      did,
+      key,
+      server,
+      replaces: [...new Set(replaces)].slice(-20),
+    }),
     { mode: 0o600 },
   );
   await rename(`${file}.tmp`, file);

@@ -1,7 +1,8 @@
 # Streamplace Desktop
 
 Desktop shows only its `/desktop` screen: the app redirects every other route
-there. Its node listens on `127.0.0.1:38080`, the OBS plugin's default server.
+there except `/multi`, which the self-tests play streams on. Its node listens
+on `127.0.0.1:38080`, the OBS plugin's default server.
 
 ## Logs
 
@@ -19,12 +20,13 @@ Streamplace → Get Stream Key**. Desktop must already be running: the link open
 up its login. Once signed in, Desktop sends a key to OBS, even while OBS is
 running. **Connect OBS** creates a replacement key.
 
-Desktop writes `{"did":"did:…","key":"z…","replaces":[]}` to
-`<OBS config>/plugin_config/obs-streamplace/stream-key.json`, retaining up to 20
-previously issued keys in `replaces`. The plugin checks it once a second and
-fills an empty Streamplace key or replaces a key in that history, even after
-restarts or stale Settings saves, never one entered by hand. With OBS closed,
-Desktop also writes the current profile's stream settings.
+Desktop writes
+`{"did":"did:…","key":"z…","server":"http://127.0.0.1:38080","replaces":[]}` to
+`<OBS config>/plugin_config/obs-streamplace/stream-key.json`; `replaces` holds
+up to 20 keys it issued before. The plugin checks the file once a second and,
+when the Streamplace key is empty or one of those, sets the key and server, even
+after restarts or stale Settings saves; a key entered by hand stays. With OBS
+closed, Desktop also writes the current profile's stream settings.
 
 ## `pnpm run start`
 

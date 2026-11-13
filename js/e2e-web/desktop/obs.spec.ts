@@ -47,6 +47,7 @@ test("OBS gets a key through Desktop login, kept across reloads and restarts", a
   expect(JSON.parse(original)).toEqual({
     did: process.env.ACCOUNT_DID,
     key: expect.stringMatching(/^z[1-9A-HJ-NP-Za-km-z]+$/),
+    server: desktop.nodeURL,
     replaces: [],
   });
   const modified = (await stat(file)).mtimeMs;
@@ -70,6 +71,7 @@ test("OBS gets a key through Desktop login, kept across reloads and restarts", a
   expect(JSON.parse(await readFile(file, "utf8"))).toEqual({
     did: process.env.ACCOUNT_DID,
     key: expect.stringMatching(/^z[1-9A-HJ-NP-Za-km-z]+$/),
+    server: desktop.nodeURL,
     replaces: [JSON.parse(original).key],
   });
 

@@ -841,9 +841,15 @@ export default function Shell() {
     return unsubscribe;
   }, [navigation]);
 
-  // Streamplace Desktop only offers its own screen for now.
+  // Streamplace Desktop only offers its own screen for now; its --self-test
+  // windows play streams on /multi.
   useEffect(() => {
-    if (isElectron && currentRouteName && currentRouteName !== "Desktop") {
+    if (
+      isElectron &&
+      currentRouteName &&
+      currentRouteName !== "Desktop" &&
+      currentRouteName !== "Multi"
+    ) {
       navigation.dispatch(
         CommonActions.reset({ index: 0, routes: [{ name: "Desktop" }] }),
       );

@@ -153,7 +153,7 @@ test("hands off a key and updates the profile while OBS is closed", async () => 
         "utf8",
       ),
     ),
-    { did: "did:plc:me", key: "zkey", replaces: [] },
+    { did: "did:plc:me", key: "zkey", server: "http://node", replaces: [] },
   );
 });
 
@@ -161,13 +161,24 @@ test("hands off and rotates keys without changing an open OBS profile", async ()
   const config = await makeProfiles("user.ini", "[Basic]\nProfileDir=Mine\n");
   const original = await service(config, "Mine");
   await writeStreamHandoff(config, "http://node", "did:plc:me", "zold", true);
-  await writeStreamHandoff(config, "http://node", "did:plc:me", "znew", true);
+  await writeStreamHandoff(
+    config,
+    "http://127.0.0.1:38123",
+    "did:plc:me",
+    "znew",
+    true,
+  );
   assert.deepEqual(await service(config, "Mine"), original);
   const dir = join(config, "plugin_config", "obs-streamplace");
   assert.deepEqual(await readdir(dir), ["stream-key.json"]);
   assert.deepEqual(
     JSON.parse(await readFile(join(dir, "stream-key.json"), "utf8")),
-    { did: "did:plc:me", key: "znew", replaces: ["zold"] },
+    {
+      did: "did:plc:me",
+      key: "znew",
+      server: "http://127.0.0.1:38123",
+      replaces: ["zold"],
+    },
   );
 });
 
@@ -206,6 +217,7 @@ test("keeps earlier handoffs across accounts and restarts for stale OBS keys", a
   assert.deepEqual(JSON.parse(await readFile(file, "utf8")), {
     did: "did:plc:new",
     key: "zthird",
+    server: "http://node",
     replaces: ["zfirst", "zsecond"],
   });
 });
@@ -230,6 +242,7 @@ test("caps replacement history at the 20 most recent prior keys", async () => {
   assert.deepEqual(JSON.parse(await readFile(file, "utf8")), {
     did: "did:plc:me",
     key: "z22",
+    server: "http://node",
     replaces: Array.from({ length: 20 }, (_, i) => `z${i + 2}`),
   });
 });
@@ -260,6 +273,7 @@ test("never adds the current key to replacement history on repeated writes", asy
   assert.deepEqual(JSON.parse(await readFile(file, "utf8")), {
     did: "did:plc:me",
     key: "zsecond",
+    server: "http://node",
     replaces: ["zfirst"],
   });
 });

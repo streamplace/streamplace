@@ -121,7 +121,8 @@ static void apply_handoff(void *unused)
 	json_t *handoff = load_json(handoff_path);
 	const char *key = json_string_value(json_object_get(handoff, "key"));
 	const char *did = json_string_value(json_object_get(handoff, "did"));
-	if (!key || !*key || !did || !*did) {
+	const char *server = json_string_value(json_object_get(handoff, "server"));
+	if (!key || !*key || !did || !*did || !server || !*server) {
 		json_decref(handoff);
 		return;
 	}
@@ -147,6 +148,7 @@ static void apply_handoff(void *unused)
 		}
 		if (strcmp(name, "Streamplace") == 0 && replaceable && strcmp(current, key) != 0) {
 			obs_data_set_string(settings, "key", key);
+			obs_data_set_string(settings, "server", server);
 			obs_service_update(service, settings);
 			obs_frontend_save_streaming_service();
 			do_log(LOG_INFO, "Applied Desktop stream key for %s", did);

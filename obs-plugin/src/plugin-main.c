@@ -105,13 +105,12 @@ static void install_service_entry(void)
 }
 
 static char *handoff_path;
-static char *last_key;
 static float handoff_elapsed;
 static atomic_bool handoff_pending;
 static atomic_bool handoff_stopped;
 
-/* Settings can save an empty key after we connect. Refill it, but leave a
- * manually entered key alone; only rotate a key we previously applied. */
+/* Desktop's persisted key history survives restarts and stale Settings saves,
+ * while keys entered by hand are never eligible for replacement. */
 static void apply_handoff(void *unused)
 {
 	UNUSED_PARAMETER(unused);
@@ -133,20 +132,23 @@ static void apply_handoff(void *unused)
 		obs_data_t *settings = obs_service_get_settings(service);
 		const char *name = obs_data_get_string(settings, "service");
 		const char *current = obs_data_get_string(settings, "key");
-		/* Recognize a handoff restored from the profile after restarting OBS. */
-		if (strcmp(name, "Streamplace") == 0 && strcmp(current, key) == 0 &&
-		    (!last_key || strcmp(last_key, key) != 0)) {
-			free(last_key);
-			last_key = strdup(key);
+		bool replaceable = !*current;
+		json_t *replaces = json_object_get(handoff, "replaces");
+		if (json_is_array(replaces)) {
+			size_t i;
+			json_t *value;
+			json_array_foreach(replaces, i, value) {
+				const char *old = json_string_value(value);
+				if (old && strcmp(current, old) == 0) {
+					replaceable = true;
+					break;
+				}
+			}
 		}
-		if (strcmp(name, "Streamplace") == 0 &&
-		    (!*current || (last_key && strcmp(current, last_key) == 0)) &&
-		    strcmp(current, key) != 0) {
+		if (strcmp(name, "Streamplace") == 0 && replaceable && strcmp(current, key) != 0) {
 			obs_data_set_string(settings, "key", key);
 			obs_service_update(service, settings);
 			obs_frontend_save_streaming_service();
-			free(last_key);
-			last_key = strdup(key);
 			do_log(LOG_INFO, "Applied Desktop stream key for %s", did);
 		}
 		obs_data_release(settings);
@@ -197,6 +199,5 @@ void obs_module_unload(void)
 	obs_remove_tick_callback(handoff_tick, NULL);
 	obs_frontend_remove_event_callback(handoff_event, NULL);
 	bfree(handoff_path);
-	free(last_key);
 	http_free();
 }

@@ -5,10 +5,11 @@ there. Its node listens on `127.0.0.1:38080`, the OBS plugin's default server.
 
 ## Logs
 
-The node's output goes to `node.log` (the previous run's to `node.previous.log`)
+The node's output goes to `node.log` (the previous file's to `node.previous.log`)
 in Electron's log folder: Windows `%APPDATA%\streamplace-desktop\logs`, macOS
 `~/Library/Logs/streamplace-desktop`, Linux `~/.config/streamplace-desktop/logs`.
 **Open log folder** on the Desktop screen and in the startup/crash dialogs opens it.
+Logs rotate on restart and at 20 MiB; self-test nodes use separate named log files.
 
 ## Connecting OBS
 
@@ -17,11 +18,12 @@ Streamplace → Get Stream Key**. That opens `streamplace-desktop:obs`, which
 brings up Desktop's login; once signed in, Desktop sends a key to OBS, even
 while OBS is running. **Connect OBS** creates a replacement key.
 
-Desktop writes `{"did":"did:…","key":"z…"}` to
-`<OBS config>/plugin_config/obs-streamplace/stream-key.json`. The plugin checks
-it once a second and fills an empty Streamplace key, or replaces a key it
-applied itself, never one entered by hand. With OBS closed, Desktop also writes
-the current profile's stream settings.
+Desktop writes `{"did":"did:…","key":"z…","replaces":[]}` to
+`<OBS config>/plugin_config/obs-streamplace/stream-key.json`, retaining up to 20
+previously issued keys in `replaces`. The plugin checks it once a second and
+fills an empty Streamplace key or replaces a key in that history, even after
+restarts or stale Settings saves, never one entered by hand. With OBS closed,
+Desktop also writes the current profile's stream settings.
 
 ## `pnpm run start`
 

@@ -23,6 +23,12 @@ test("OBS gets a key through Desktop login, kept across reloads and restarts", a
     ),
     join(plugin, "manifest.json"),
   );
+  const handleField = desktop.page
+    .locator('[data-testid="login-handle"], [data-testid="login-handle"] input')
+    .first();
+  await expect(handleField).toBeVisible({ timeout: 60_000 });
+  await desktop.page.keyboard.press("Escape");
+  await expect(handleField).not.toBeVisible();
   await app.evaluate(({ app: electron }) => {
     electron.emit(
       "open-url",
@@ -47,6 +53,7 @@ test("OBS gets a key through Desktop login, kept across reloads and restarts", a
   expect(JSON.parse(original)).toEqual({
     did: process.env.ACCOUNT_DID,
     key: expect.stringMatching(/^z[1-9A-HJ-NP-Za-km-z]+$/),
+    replaces: [],
   });
   const modified = (await stat(file)).mtimeMs;
   await expect(desktop.page.getByTestId("desktop-obs-connected")).toBeVisible();
@@ -75,6 +82,7 @@ test("OBS gets a key through Desktop login, kept across reloads and restarts", a
   expect(JSON.parse(await readFile(file, "utf8"))).toEqual({
     did: process.env.ACCOUNT_DID,
     key: expect.stringMatching(/^z[1-9A-HJ-NP-Za-km-z]+$/),
+    replaces: [JSON.parse(original).key],
   });
 
   const keyRecords = async () => {

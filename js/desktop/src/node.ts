@@ -3,6 +3,7 @@ import { app, dialog, shell } from "electron";
 import { access, constants, mkdir, open, rename, rm } from "fs/promises";
 import os from "os";
 import { resolve } from "path";
+import { Writable } from "stream";
 import { setTimeout as delay } from "timers/promises";
 import getEnv from "./env";
 
@@ -41,6 +42,7 @@ const findExe = async (): Promise<string> => {
 export default async function makeNode(opts: {
   env: { [k: string]: string };
   autoQuit: boolean;
+  logName?: string;
 }) {
   const exe = await findExe();
   const addr =
@@ -63,17 +65,40 @@ export default async function makeNode(opts: {
     (upstreamStation ? "moqt://streamplace.network" : undefined);
   const logDir = getLogDir();
   await mkdir(logDir, { recursive: true });
-  const logPath = resolve(logDir, "node.log");
-  const previousLogPath = resolve(logDir, "node.previous.log");
-  try {
-    await access(logPath);
-    await rm(previousLogPath, { force: true });
-    await rename(logPath, previousLogPath);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
-  // Owner-only: node logs can carry session and ingest details.
-  const log = (await open(logPath, "w", 0o600)).createWriteStream();
+  const logName = opts.logName ?? "node";
+  const logPath = resolve(logDir, `${logName}.log`);
+  const previousLogPath = resolve(logDir, `${logName}.previous.log`);
+  const rotateLog = async () => {
+    try {
+      await access(logPath);
+      await rm(previousLogPath, { force: true });
+      await rename(logPath, previousLogPath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    // Owner-only: node logs can carry session and ingest details.
+    return open(logPath, "w", 0o600);
+  };
+  let logFile = await rotateLog();
+  let logBytes = 0;
+  const writeLog = async (chunk: Buffer) => {
+    await logFile.writeFile(chunk);
+    logBytes += chunk.length;
+    if (logBytes >= 20 * 1024 * 1024) {
+      await logFile.close();
+      logFile = await rotateLog();
+      logBytes = 0;
+    }
+  };
+  // Serialize both pipes, buffering their output while a file is rotated.
+  const log = new Writable({
+    write(chunk: Buffer, _encoding, callback) {
+      writeLog(chunk).then(() => callback(), callback);
+    },
+    destroy(error, callback) {
+      logFile.close().then(() => callback(error), callback);
+    },
+  });
   log.on("error", (error) => console.error("Writing node log failed", error));
   const proc = spawn(exe, [], {
     stdio: ["ignore", "pipe", "pipe"],

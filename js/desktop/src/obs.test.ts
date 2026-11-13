@@ -153,7 +153,7 @@ test("hands off a key and updates the profile while OBS is closed", async () => 
         "utf8",
       ),
     ),
-    { did: "did:plc:me", key: "zkey" },
+    { did: "did:plc:me", key: "zkey", replaces: [] },
   );
 });
 
@@ -167,7 +167,7 @@ test("hands off and rotates keys without changing an open OBS profile", async ()
   assert.deepEqual(await readdir(dir), ["stream-key.json"]);
   assert.deepEqual(
     JSON.parse(await readFile(join(dir, "stream-key.json"), "utf8")),
-    { did: "did:plc:me", key: "znew" },
+    { did: "did:plc:me", key: "znew", replaces: ["zold"] },
   );
 });
 
@@ -180,4 +180,86 @@ test("hands off a key before OBS has created a profile", async () => {
     ),
     true,
   );
+});
+
+test("keeps earlier handoffs across accounts and restarts for stale OBS keys", async () => {
+  const config = await mkdtemp(join(os.tmpdir(), "obs-config-"));
+  const dir = join(config, "plugin_config", "obs-streamplace");
+  await mkdir(dir, { recursive: true });
+  const file = join(dir, "stream-key.json");
+  // Older Desktop versions wrote no replacement history.
+  await writeFile(file, JSON.stringify({ did: "did:plc:old", key: "zfirst" }));
+  await writeStreamHandoff(
+    config,
+    "http://node",
+    "did:plc:old",
+    "zsecond",
+    true,
+  );
+  await writeStreamHandoff(
+    config,
+    "http://node",
+    "did:plc:new",
+    "zthird",
+    true,
+  );
+  assert.deepEqual(JSON.parse(await readFile(file, "utf8")), {
+    did: "did:plc:new",
+    key: "zthird",
+    replaces: ["zfirst", "zsecond"],
+  });
+});
+
+test("caps replacement history at the 20 most recent prior keys", async () => {
+  const config = await mkdtemp(join(os.tmpdir(), "obs-config-"));
+  for (let i = 0; i <= 22; i++) {
+    await writeStreamHandoff(
+      config,
+      "http://node",
+      "did:plc:me",
+      `z${i}`,
+      true,
+    );
+  }
+  const file = join(
+    config,
+    "plugin_config",
+    "obs-streamplace",
+    "stream-key.json",
+  );
+  assert.deepEqual(JSON.parse(await readFile(file, "utf8")), {
+    did: "did:plc:me",
+    key: "z22",
+    replaces: Array.from({ length: 20 }, (_, i) => `z${i + 2}`),
+  });
+});
+
+test("never adds the current key to replacement history on repeated writes", async () => {
+  const config = await mkdtemp(join(os.tmpdir(), "obs-config-"));
+  await writeStreamHandoff(config, "http://node", "did:plc:me", "zfirst", true);
+  await writeStreamHandoff(
+    config,
+    "http://node",
+    "did:plc:me",
+    "zsecond",
+    true,
+  );
+  await writeStreamHandoff(
+    config,
+    "http://node",
+    "did:plc:me",
+    "zsecond",
+    true,
+  );
+  const file = join(
+    config,
+    "plugin_config",
+    "obs-streamplace",
+    "stream-key.json",
+  );
+  assert.deepEqual(JSON.parse(await readFile(file, "utf8")), {
+    did: "did:plc:me",
+    key: "zsecond",
+    replaces: ["zfirst"],
+  });
 });

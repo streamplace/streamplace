@@ -34,7 +34,7 @@ interface ObsBridge {
   onKeyRequest(callback: () => void): () => void;
 }
 
-const obsBridge = (): ObsBridge | undefined =>
+export const obsBridge = (): ObsBridge | undefined =>
   typeof window === "undefined" ? undefined : (window as any).SP_ELECTRON?.obs;
 
 const describe = (s: ObsStatus): string => {
@@ -47,17 +47,21 @@ const describe = (s: ObsStatus): string => {
   return `The Streamplace plugin is installed (${s.bundledVersion}).`;
 };
 
+export type ObsCardProps = {
+  obsKeyRequested: boolean;
+  clearObsKeyRequest: () => void;
+};
+
 /**
  * Streamplace Desktop's OBS setup: installing the plugin it ships, and
  * pointing OBS at this node with a new stream key. Nothing outside Desktop.
  */
-export function ObsCard() {
+export function ObsCard({ obsKeyRequested, clearObsKeyRequest }: ObsCardProps) {
   const { theme } = useTheme();
   const toast = useToast();
   const bridge = obsBridge();
   const [status, setStatus] = useState<ObsStatus | null>(null);
   const [busy, setBusy] = useState(false);
-  const [keyRequested, setKeyRequested] = useState(false);
   const connecting = useRef(false);
   const attemptedDid = useRef<string | undefined>(undefined);
   const did = useStore((s) => s.oauthSession?.did);
@@ -73,13 +77,6 @@ export function ObsCard() {
     const timer = setInterval(refresh, 3000);
     return () => clearInterval(timer);
   }, [refresh]);
-  useEffect(
-    () =>
-      bridge?.onKeyRequest(() => {
-        if (!connecting.current) setKeyRequested(true);
-      }),
-    [bridge],
-  );
 
   const run = useCallback(
     async (action: () => Promise<Result>, done: string) => {
@@ -132,14 +129,14 @@ export function ObsCard() {
       return;
     }
     if (
-      keyRequested ||
+      obsKeyRequested ||
       (status.handoffDid !== did && attemptedDid.current !== did)
     ) {
       attemptedDid.current = did;
-      setKeyRequested(false);
+      clearObsKeyRequest();
       void connect();
     }
-  }, [did, busy, status, keyRequested, connect]);
+  }, [did, busy, status, obsKeyRequested, clearObsKeyRequest, connect]);
 
   if (!bridge || !status) return null;
 

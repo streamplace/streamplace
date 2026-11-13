@@ -23,10 +23,12 @@ wait a second before starting the stream. Desktop's **Connect OBS** button
 creates a replacement key.
 
 The plugin checks its config file `plugin_config/obs-streamplace/stream-key.json`
-once a second: Desktop writes `{"did":"did:…","key":"z…"}` there atomically.
-On the UI thread it fills an empty Streamplace key (including after Settings
-saves an empty one), or replaces its own previous key, never a manually entered
-one. The Settings key field itself may remain blank until you reopen Settings.
+once a second: Desktop writes `{"did":"did:…","key":"z…","replaces":[]}`
+there atomically, retaining up to 20 previously issued keys in `replaces`.
+On the UI thread it fills an empty Streamplace key or replaces one listed in
+that history, including after restarts or stale Settings saves. Keys entered by
+hand are left alone. The Settings key field itself may remain blank until you
+reopen Settings.
 
 The **Local Streamplace node** server is `http://127.0.0.1:38080`. OBS offers no
 free-form server field for listed services, so to use another address, set

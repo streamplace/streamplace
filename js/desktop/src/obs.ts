@@ -209,15 +209,29 @@ export const writeStreamHandoff = async (
   key: string,
   obsRunning: boolean,
 ) => {
+  const file = handoffPath(configDir);
+  const previous = JSON.parse(
+    await readFile(file, "utf8").catch((error) => {
+      if (error.code === "ENOENT") return "{}";
+      throw error;
+    }),
+  );
+  const replaces = [
+    ...(Array.isArray(previous?.replaces) ? previous.replaces : []),
+    previous?.key,
+  ].filter((old) => typeof old === "string" && old.length > 0 && old !== key);
   if (!obsRunning && (await currentProfileDir(configDir))) {
     await writeStreamConfig(configDir, server, key);
   }
-  const file = handoffPath(configDir);
   await mkdir(join(configDir, "plugin_config", "obs-streamplace"), {
     recursive: true,
     mode: 0o700,
   });
-  await writeFile(`${file}.tmp`, JSON.stringify({ did, key }), { mode: 0o600 });
+  await writeFile(
+    `${file}.tmp`,
+    JSON.stringify({ did, key, replaces: [...new Set(replaces)].slice(-20) }),
+    { mode: 0o600 },
+  );
   await rename(`${file}.tmp`, file);
 };
 

@@ -9,17 +9,21 @@ import {
 import { breakpoints } from "@streamplace/components/src/lib/theme/tokens";
 import { ForwardingCard } from "components/desktop/forwarding-card";
 import { LogsCard } from "components/desktop/logs-card";
-import { ObsCard } from "components/desktop/obs-card";
+import {
+  obsBridge,
+  ObsCard,
+  type ObsCardProps,
+} from "components/desktop/obs-card";
 import { RenditionSettings } from "components/desktop/rendition-settings";
 import StreamMonitor from "components/live-dashboard/stream-monitor";
 import Loading from "components/loading/loading";
 import { useLiveUser } from "hooks/useLiveUser";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ScrollView, useWindowDimensions } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
 
-function DesktopInner() {
+function DesktopInner(props: ObsCardProps) {
   const { theme } = useTheme();
   const isLive = useLiveUser();
   const profile = useUserProfile();
@@ -61,7 +65,7 @@ function DesktopInner() {
             </Button>
           </View>
           <ForwardingCard />
-          <ObsCard />
+          <ObsCard {...props} />
           <RenditionSettings />
           <LogsCard />
         </View>
@@ -81,6 +85,18 @@ export default function Desktop() {
   const openLoginModal = useStore((state) => state.openLoginModal);
   const hideSidebar = useStore((x) => x.setSidebarHidden);
   const showSidebar = useStore((x) => x.setSidebarUnhidden);
+  const bridge = obsBridge();
+  const [obsKeyRequested, setObsKeyRequested] = useState(false);
+  const clearObsKeyRequest = useCallback(() => setObsKeyRequested(false), []);
+
+  useEffect(
+    () =>
+      bridge?.onKeyRequest(() => {
+        setObsKeyRequested(true);
+        if (!userProfile) openLoginModal({ name: "Desktop" });
+      }),
+    [bridge, userProfile, openLoginModal],
+  );
 
   // Desktop is the only screen, signed in or not; nothing to navigate to.
   useEffect(() => {
@@ -123,7 +139,10 @@ export default function Desktop() {
   return (
     <LivestreamProvider src={userProfile.did}>
       <PlayerProvider>
-        <DesktopInner />
+        <DesktopInner
+          obsKeyRequested={obsKeyRequested}
+          clearObsKeyRequest={clearObsKeyRequest}
+        />
       </PlayerProvider>
     </LivestreamProvider>
   );

@@ -405,8 +405,7 @@ func (r *WebsocketReplicator) feedRenditions(ctx context.Context, streamer strin
 	// wants the start time does not apply here.
 	r.mm.FeedLiveRenditions(context.WithoutCancel(ctx), streamer, addendum, time.Time{}, true)
 	// And onto this node's bus for WebRTC viewers who pick a rendition here.
-	r.mm.PublishRenditionsForPlayback(context.WithoutCancel(ctx), streamer, addendum, true)
-	return nil
+	return r.mm.PublishRenditionsForPlayback(context.WithoutCancel(ctx), streamer, addendum, true)
 }
 
 // openWebsocket dials the origin and feeds its segments through validation

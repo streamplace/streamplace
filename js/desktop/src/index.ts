@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { parseArgs, promisify } from "node:util";
 import "source-map-support/register";
 import { generatePrivateKey } from "viem/accounts";
@@ -39,33 +39,47 @@ const deliverLoginURL = (url: string): void => {
   mainWindow.webContents.send("auth:callback", url);
 };
 
-// Electron's Linux registration needs a desktop entry to point at. An AppImage
-// that its integration tooling hasn't installed has none, so write one and
-// select it; without this the browser can't hand the login back.
+// Desktop entry Exec strings quote reserved characters and use %% for a
+// literal percent sign.
+const escapeDesktopExec = (value: string): string =>
+  value.replace(/%/g, "%%").replace(/([\\"`$])/g, "\\$1");
+
 const registerLoginProtocol = async (): Promise<void> => {
-  const registered = app.setAsDefaultProtocolClient(LOGIN_PROTOCOL);
-  if (registered || !app.isPackaged || process.platform !== "linux") {
-    if (!registered) {
-      console.error(`could not register the ${LOGIN_PROTOCOL} scheme`);
-    }
+  // `electron-forge start` runs the dev app as `electron <app path>`, so the
+  // OS needs both arguments to relaunch it. Packaged builds need neither.
+  const appEntry =
+    process.defaultApp && process.argv[1]
+      ? resolve(process.argv[1])
+      : undefined;
+  const registered =
+    appEntry === undefined
+      ? app.setAsDefaultProtocolClient(LOGIN_PROTOCOL)
+      : app.setAsDefaultProtocolClient(LOGIN_PROTOCOL, process.execPath, [
+          appEntry,
+        ]);
+  if (registered) {
     return;
   }
+  if (process.platform !== "linux") {
+    console.error(`could not register the ${LOGIN_PROTOCOL} scheme`);
+    return;
+  }
+  // Electron's Linux registration needs a desktop entry to point at. A dev
+  // build or an unintegrated AppImage has none, so write one and select it.
   const applications = join(
     process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share"),
     "applications",
   );
   // AppImage mounts process.execPath under /tmp; process.env.APPIMAGE is the
   // file the user actually launched.
-  // Desktop entry Exec strings quote reserved characters and use %% for a
-  // literal percent sign.
-  const executable = (process.env.APPIMAGE ?? process.execPath)
-    .replace(/%/g, "%%")
-    .replace(/([\\"`$])/g, "\\$1");
+  const executable = process.env.APPIMAGE ?? process.execPath;
+  const args =
+    appEntry === undefined ? "" : ` "${escapeDesktopExec(appEntry)}"`;
   const desktopEntry = [
     "[Desktop Entry]",
     "Type=Application",
     "Name=Streamplace",
-    `Exec="${executable}" %U`,
+    `Exec="${escapeDesktopExec(executable)}"${args} %U`,
     "Terminal=false",
     `MimeType=x-scheme-handler/${LOGIN_PROTOCOL};`,
     "",

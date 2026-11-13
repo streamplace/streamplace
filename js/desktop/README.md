@@ -10,6 +10,9 @@ Boot up Streamplace Desktop for development. Two environment variable options:
 
 - `AQD_NODE_FRONTEND`: (default `false`): Use frontend bundled with the
   Streamplace node instead of the dev server on `http://127.0.0.1:38081`.
+  The bundle is embedded at build time: after frontend changes run `make app`
+  and then `make dev` (`make dev` alone skips an existing `js/app/dist`), and
+  restart the node that serves it.
 
 Sign-in opens in the system browser and returns on `streamplace-desktop:`. A
 development launch registers the dev Electron binary as that handler on Linux

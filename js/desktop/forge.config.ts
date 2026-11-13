@@ -46,8 +46,6 @@ export default async function () {
     buildVersion: version,
     icon: "./assets/images/streamplace-logo",
     extraResource: ["./assets/images/streamplace-logo.png"],
-    // Keep in sync with LOGIN_PROTOCOL in src/index.ts.
-    protocols: [{ name: "Streamplace", schemes: ["streamplace-desktop"] }],
   };
 
   const config: ForgeConfig = {
@@ -170,9 +168,6 @@ export default async function () {
         options: {
           bin: "Streamplace",
           icon: "./assets/images/streamplace-logo.png",
-          // The OAuth callback lands on this scheme; without it in the desktop
-          // entry, the AppImage never becomes the OS handler.
-          mimeType: ["x-scheme-handler/streamplace-desktop"],
         },
       }),
     ],

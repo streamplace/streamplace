@@ -1,9 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
-import { execFile } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
-import { parseArgs, promisify } from "node:util";
+import { parseArgs } from "node:util";
 import "source-map-support/register";
 import { generatePrivateKey } from "viem/accounts";
 import getEnv from "./env";
@@ -13,123 +9,10 @@ import runTests, { allTestNames } from "./tests/test-runner";
 import initUpdater from "./updater";
 import { makeWindow } from "./window";
 
-// OAuth logins happen in the system browser (passkeys need it), and the node's
-// /app-return page sends the result back to us on this scheme.
-const LOGIN_PROTOCOL = "streamplace-desktop";
-const execFileAsync = promisify(execFile);
-
-const isLoginURL = (value: string): boolean =>
-  value.startsWith(`${LOGIN_PROTOCOL}:`);
-
-let mainWindow: BrowserWindow | undefined;
-let windowReady = false;
-let pendingLoginURL: string | undefined;
-
-// Delivers a system-browser OAuth callback to the renderer that started the
-// login. The window may not exist yet when the OS launches us with the URL.
-const deliverLoginURL = (url: string): void => {
-  if (!isLoginURL(url)) {
-    return;
-  }
-  if (!mainWindow || mainWindow.isDestroyed() || !windowReady) {
-    pendingLoginURL = url;
-    return;
-  }
-  console.log("delivering login callback");
-  mainWindow.webContents.send("auth:callback", url);
-};
-
-// Desktop entry Exec strings quote reserved characters and use %% for a
-// literal percent sign.
-const escapeDesktopExec = (value: string): string =>
-  value.replace(/%/g, "%%").replace(/([\\"`$])/g, "\\$1");
-
-const registerLoginProtocol = async (): Promise<void> => {
-  // `electron-forge start` runs the dev app as `electron <app path>`, so the
-  // OS needs both arguments to relaunch it. Packaged builds need neither.
-  const appEntry =
-    process.defaultApp && process.argv[1]
-      ? resolve(process.argv[1])
-      : undefined;
-  const registered =
-    appEntry === undefined
-      ? app.setAsDefaultProtocolClient(LOGIN_PROTOCOL)
-      : app.setAsDefaultProtocolClient(LOGIN_PROTOCOL, process.execPath, [
-          appEntry,
-        ]);
-  if (registered) {
-    return;
-  }
-  if (process.platform !== "linux") {
-    console.error(`could not register the ${LOGIN_PROTOCOL} scheme`);
-    return;
-  }
-  // Electron's Linux registration needs a desktop entry to point at. A dev
-  // build or an unintegrated AppImage has none, so write one and select it.
-  const applications = join(
-    process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share"),
-    "applications",
-  );
-  // AppImage mounts process.execPath under /tmp; process.env.APPIMAGE is the
-  // file the user actually launched.
-  const executable = process.env.APPIMAGE ?? process.execPath;
-  const args =
-    appEntry === undefined ? "" : ` "${escapeDesktopExec(appEntry)}"`;
-  const desktopEntry = [
-    "[Desktop Entry]",
-    "Type=Application",
-    "Name=Streamplace",
-    `Exec="${escapeDesktopExec(executable)}"${args} %U`,
-    "Terminal=false",
-    `MimeType=x-scheme-handler/${LOGIN_PROTOCOL};`,
-    "",
-  ].join("\n");
-  try {
-    await mkdir(applications, { recursive: true });
-    await writeFile(
-      join(applications, "streamplace.desktop"),
-      desktopEntry,
-      "utf8",
-    );
-    await execFileAsync("xdg-mime", [
-      "default",
-      "streamplace.desktop",
-      `x-scheme-handler/${LOGIN_PROTOCOL}`,
-    ]);
-  } catch (e) {
-    console.error(`could not register the ${LOGIN_PROTOCOL} scheme`, e);
-  }
-};
-
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require("electron-squirrel-startup")) {
   app.quit();
-} else if (!app.requestSingleInstanceLock()) {
-  // A second launch is the OS handing us a login URL; the first instance gets
-  // it through second-instance below.
-  app.quit();
 } else {
-  app.on("open-url", (event, url) => {
-    event.preventDefault();
-    deliverLoginURL(url);
-  });
-  app.on("second-instance", (_event, argv) => {
-    const url = argv.find(isLoginURL);
-    if (url) {
-      deliverLoginURL(url);
-    }
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore();
-      }
-      mainWindow.focus();
-    }
-  });
-  const argvLoginURL = process.argv.find(isLoginURL);
-  if (argvLoginURL) {
-    pendingLoginURL = argvLoginURL;
-  }
-
   // Electron leaves Chromium switches and the app entry in process.argv.
   // Keep parsing our own options without rejecting those Electron arguments.
   const { values: args, positionals } = parseArgs({
@@ -226,8 +109,6 @@ if (require("electron-squirrel-startup")) {
       loadAddr = addr;
     }
     const window = await makeWindow();
-    mainWindow = window;
-    await registerLoginProtocol();
 
     let startPath;
     if (nodeFrontend) {
@@ -266,14 +147,6 @@ if (require("electron-squirrel-startup")) {
     });
 
     console.log(`opening ${startPath}`);
-    window.webContents.once("did-finish-load", () => {
-      windowReady = true;
-      if (pendingLoginURL) {
-        const url = pendingLoginURL;
-        pendingLoginURL = undefined;
-        deliverLoginURL(url);
-      }
-    });
     window.loadURL(startPath);
 
     offerObsPlugin(window).catch((e) =>

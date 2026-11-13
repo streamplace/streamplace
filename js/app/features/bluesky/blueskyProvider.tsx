@@ -6,7 +6,6 @@ import { Platform } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useOAuthSession, useUserProfile } from "store/hooks";
 import { navigateToRoute } from "utils/navigation";
-import { getDesktopAuth } from "./desktop-auth";
 
 export default function BlueskyProvider({
   children,
@@ -85,14 +84,6 @@ export default function BlueskyProvider({
       }
     }
   }, [url, lastLink, oauthCallback]);
-
-  // Desktop's login runs in the system browser, so its callback never appears
-  // in this window's URL. The main process delivers it over IPC instead.
-  useEffect(() => {
-    return getDesktopAuth()?.onCallback((callbackURL) => {
-      oauthCallback(callbackURL);
-    });
-  }, [oauthCallback]);
 
   // handle navigation after successful login
   useEffect(() => {

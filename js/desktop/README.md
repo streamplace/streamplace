@@ -14,11 +14,11 @@ Boot up Streamplace Desktop for development. Two environment variable options:
   and then `make dev` (`make dev` alone skips an existing `js/app/dist`), and
   restart the node that serves it.
 
-Sign-in opens in the system browser and returns on `streamplace-desktop:`. A
-development launch registers the dev Electron binary as that handler on Linux
-and Windows; macOS registers schemes only from a packaged app. If a dev login
-still happens inside the window, the renderer is running an old bundle:
-restart `pnpm run start`, and restart Expo for the dev-server frontend.
+Sign-in opens in the system browser. The local node receives the return at
+`/app-return/desktop/<token>` and holds it for the app, which polls the node
+and completes the login; the browser shows "You're logged in" and may be
+closed. If a dev login stays inside the window, the renderer is running an old
+bundle: restart `pnpm run start`, and restart Expo for the dev-server frontend.
 
 ## `pnpm run package` / `pnpm run make`
 
@@ -98,8 +98,8 @@ With a station:
   stops if it is missing. The local node's issuer and frontend callback use its
   actual loopback port; `SP_HTTP_ADDR` and `SP_HTTP_INTERNAL_ADDR` can override
   the Desktop listener defaults. Sign-in opens in the system browser, so
-  passkeys work; the node's `/app-return` page hands the callback back to the
-  running app on the `streamplace-desktop` scheme.
+  passkeys work; the node's `/app-return/desktop` page holds the callback for
+  the running app, which polls and completes the login.
 - **Streams.** Unless `SP_PEERS` is set, the node pushes the streams it
   ingests to the station over MoQ (see `docs/moq.md`).
 - **Labelers** are not followed: their firehoses carry other accounts.

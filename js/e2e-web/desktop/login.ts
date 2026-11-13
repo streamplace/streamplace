@@ -2,9 +2,6 @@ import { chromium, expect } from "@playwright/test";
 import { completePdsSignIn } from "../flows/login";
 import type { Desktop } from "./fixture";
 
-// Keep in sync with LOGIN_PROTOCOL in js/desktop/src/index.ts.
-const DESKTOP_LOGIN_SCHEME = "streamplace-desktop";
-
 declare global {
   // Written by the main-process stub installed below.
   var __streamplaceOpenExternalURLs: string[] | undefined;
@@ -74,30 +71,23 @@ export async function loginThroughSystemBrowser(
       },
     }),
   });
-  let callbackURL: string;
   try {
     const browserPage = await browser.newPage();
     await browserPage.goto(authorizeURL);
     await completePdsSignIn(browserPage, nodeOrigin, password);
     await browserPage.waitForURL(
-      (u) => u.origin === nodeOrigin && u.pathname.startsWith("/app-return/"),
+      (u) =>
+        u.origin === nodeOrigin &&
+        u.pathname.startsWith("/app-return/desktop/"),
       { timeout: 60_000 },
     );
-    // The node's app-return page is what sends the browser to the scheme.
-    await expect(
-      browserPage.getByRole("button", { name: "Complete login" }),
-    ).toBeVisible();
-    callbackURL = `${DESKTOP_LOGIN_SCHEME}:/${new URL(browserPage.url()).search}`;
+    // The node holds the response for the app to poll; no OS handler needed.
+    await expect(browserPage.getByText("You're logged in")).toBeVisible();
   } finally {
     await browser.close();
   }
 
-  await app.evaluate(({ app: electron }, url: string) => {
-    electron.emit("open-url", { preventDefault: () => {} }, url);
-  }, callbackURL);
-
-  // The callback lands in the renderer that opened the login modal. The
-  // desktop surface only renders once the signed-in profile has loaded.
+  // The renderer polls the node and completes the login.
   await expect(page.getByText("Streamplace Desktop").first()).toBeVisible({
     timeout: 60_000,
   });

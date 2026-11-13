@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
-import { DESKTOP_LOGIN_SCHEME, getDesktopAuth } from "./desktop-auth";
+import { getDesktopAuth, getDesktopLoginToken } from "./desktop-auth";
 import {
   ClientMetadata,
   clientMetadataSchema,
@@ -30,10 +30,10 @@ export default async function createOAuthClient(
   if (isLoopback && callbackUrl.hostname === "localhost") {
     callbackUrl.hostname = "127.0.0.1";
   }
-  // Desktop logs in through the system browser (passkeys need it) and comes
-  // back through the node's app-return page onto SP_ELECTRON's scheme.
+  // Desktop logs in through the system browser; the local node holds the
+  // response under a per-session token and the app polls for it.
   if (Platform.OS === "web" && getDesktopAuth()) {
-    callbackUrl.pathname = `/app-return/${DESKTOP_LOGIN_SCHEME}`;
+    callbackUrl.pathname = `/app-return/desktop/${getDesktopLoginToken()}`;
   } else if (Platform.OS === "web") {
     callbackUrl.pathname = "/login";
   } else if (isLoopback) {

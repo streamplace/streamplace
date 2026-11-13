@@ -71,6 +71,16 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const [customLicenseText, setCustomLicenseText] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [hasMetadata, setHasMetadata] = useState(false);
+    const [loadAttempt, setLoadAttempt] = useState(0);
+    const [metadataLoad, setMetadataLoad] = useState<{
+      did: string | undefined;
+      initialMetadata: ContentMetadataFormProps["initialMetadata"];
+      status: "loading" | "ready" | "error";
+    }>({ did: undefined, initialMetadata: undefined, status: "loading" });
+    const metadataReady =
+      metadataLoad.status === "ready" &&
+      metadataLoad.did === did &&
+      metadataLoad.initialMetadata === initialMetadata;
 
     // State for section toggles
     const [activeSection, setActiveSection] =
@@ -85,20 +95,22 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
 
     const broadcasterDID = useStreamplaceStore((state) => state.broadcasterDID);
 
-    // Load existing metadata on mount or from initialMetadata prop
     useEffect(() => {
+      let cancelled = false;
+      setMetadataLoad({ did, initialMetadata, status: "loading" });
       if (initialMetadata) {
-        // Use provided initial metadata
-        if (initialMetadata.contentWarnings?.warnings) {
-          setContentWarnings(initialMetadata.contentWarnings.warnings);
-        }
-        if (initialMetadata.distributionPolicy) {
-          setDistributionPolicy(initialMetadata.distributionPolicy);
-        }
-        if (initialMetadata.contentRights) {
-          setContentRights(initialMetadata.contentRights);
-          setSelectedLicense(initialMetadata.contentRights.license || "");
-        }
+        setContentWarnings(
+          initialMetadata.contentWarnings?.warnings ?? [
+            ...DEFAULT_CONTENT_METADATA.contentWarnings,
+          ],
+        );
+        setDistributionPolicy(initialMetadata.distributionPolicy ?? {});
+        setContentRights(
+          initialMetadata.contentRights ??
+            DEFAULT_CONTENT_METADATA.contentRights,
+        );
+        setSelectedLicense(initialMetadata.contentRights?.license || "");
+        setMetadataLoad({ did, initialMetadata, status: "ready" });
         return;
       }
 
@@ -107,29 +119,31 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
 
         try {
           const metadata = await getContentMetadata();
-          if (metadata?.record) {
-            setHasMetadata(true);
-            if (metadata.record.contentWarnings?.warnings) {
-              setContentWarnings(
-                metadata.record.contentWarnings.warnings as string[],
-              );
-            }
-            if (metadata.record.distributionPolicy) {
-              setDistributionPolicy(metadata.record.distributionPolicy);
-            }
-            if (metadata.record.contentRights) {
-              setContentRights(metadata.record.contentRights);
-              setSelectedLicense(metadata.record.contentRights.license || "");
-            }
-          }
+          if (cancelled) return;
+          const record = metadata?.record;
+          setHasMetadata(!!record);
+          setContentWarnings(
+            record?.contentWarnings?.warnings ?? [
+              ...DEFAULT_CONTENT_METADATA.contentWarnings,
+            ],
+          );
+          setDistributionPolicy(record?.distributionPolicy ?? {});
+          setContentRights(
+            record?.contentRights ?? DEFAULT_CONTENT_METADATA.contentRights,
+          );
+          setSelectedLicense(record?.contentRights?.license || "");
+          setMetadataLoad({ did, initialMetadata, status: "ready" });
         } catch (error) {
-          // No existing metadata is fine
-          console.log("No existing metadata found");
+          if (!cancelled)
+            setMetadataLoad({ did, initialMetadata, status: "error" });
         }
       };
 
-      loadMetadata();
-    }, [pdsAgent, did, initialMetadata]);
+      void loadMetadata();
+      return () => {
+        cancelled = true;
+      };
+    }, [pdsAgent, did, initialMetadata, loadAttempt]);
 
     const handleContentWarningChange = useCallback(
       (warning: string, checked: boolean) => {
@@ -153,7 +167,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
 
     // Notify parent component when metadata changes
     useEffect(() => {
-      if (onMetadataChange) {
+      if (metadataReady && onMetadataChange) {
         onMetadataChange({
           $type: "place.stream.metadata.configuration",
           contentWarnings: { warnings: contentWarnings },
@@ -161,7 +175,13 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
           contentRights,
         });
       }
-    }, [contentWarnings, distributionPolicy, contentRights, onMetadataChange]);
+    }, [
+      contentWarnings,
+      distributionPolicy,
+      contentRights,
+      onMetadataChange,
+      metadataReady,
+    ]);
 
     // Handle distribution policy changes
     const handleDistributionPolicyChange = useCallback(
@@ -236,6 +256,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     );
 
     const handleSave = useCallback(async () => {
+      if (!metadataReady) return;
       const broadcasters = distributionPolicy.allowedBroadcasters
         ?.map((broadcaster) => broadcaster.trim())
         .filter(Boolean);
@@ -322,6 +343,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       }
     }, [
       contentWarnings,
+      metadataReady,
       contentRights,
       distributionPolicy,
       selectedLicense,
@@ -329,6 +351,23 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       hasMetadata,
       saveContentMetadata,
     ]);
+
+    if (!metadataReady) {
+      return (
+        <View style={[gap.all[3], style]}>
+          {metadataLoad.did === did && metadataLoad.status === "error" ? (
+            <>
+              <Text>Couldn't load metadata</Text>
+              <Button onPress={() => setLoadAttempt((attempt) => attempt + 1)}>
+                <Text>Retry</Text>
+              </Button>
+            </>
+          ) : (
+            <Text>Loading metadata...</Text>
+          )}
+        </View>
+      );
+    }
 
     return (
       <>

@@ -28,7 +28,7 @@ import {
 } from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { Clipboard, Key, Loader2, Shield, Tags, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { place } from "streamplace";
@@ -140,6 +140,7 @@ function MetadataSection() {
     () => new Set(DEFAULT_CONTENT_METADATA.contentWarnings),
   );
   const [contentRights, setContentRights] = useState<{
+    creator?: string;
     copyrightYear?: number;
     copyrightNotice?: string;
     license?: string;
@@ -155,77 +156,65 @@ function MetadataSection() {
   const [deleteAfter, setDeleteAfter] = useState<string>(
     String(DEFAULT_CONTENT_METADATA.distributionPolicy.deleteAfter ?? ""),
   );
-  const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
-  const editedWarnings = useRef(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [metadataLoad, setMetadataLoad] = useState<{
+    did: string | null;
+    status: "loading" | "ready" | "error";
+    hasRecord: boolean;
+  }>({ did: null, status: "loading", hasRecord: false });
 
   useEffect(() => {
-    if (initialized) return;
-    setInitialized(true);
-    if (userDid) {
-      void getContentMetadata({ userDid });
-    }
-  }, [initialized, getContentMetadata, userDid]);
+    if (!userDid) return;
+    let cancelled = false;
+    setMetadataLoad({ did: userDid, status: "loading", hasRecord: false });
+    void getContentMetadata({ userDid }).then((metadata) => {
+      if (cancelled) return;
+      if (!metadata) {
+        setMetadataLoad({ did: userDid, status: "error", hasRecord: false });
+        return;
+      }
+      const record = metadata.record;
+      setSelectedWarnings(
+        new Set(
+          record?.contentWarnings?.warnings ??
+            DEFAULT_CONTENT_METADATA.contentWarnings,
+        ),
+      );
+      const rights = record?.contentRights;
+      setContentRights(rights ?? DEFAULT_CONTENT_METADATA.contentRights);
+      const license = rights?.license ?? "";
+      const isCustomLicense =
+        !!license &&
+        !LICENSE_OPTIONS.some((option) => option.value === license);
+      setLicenseSelect(isCustomLicense ? CUSTOM_LICENSE : license);
+      setCustomLicense(isCustomLicense ? license : "");
 
-  // Hydrate from existing metadata once we have data
-  const lastRecord = useStore((s) => s.lastCreatedRecord) as any;
-  useEffect(() => {
-    if (!lastRecord) return;
-    const record = lastRecord.record;
-    if (!record) return;
-    if (record.contentRights) {
-      setContentRights({
-        copyrightYear: record.contentRights.copyrightYear,
-        copyrightNotice: record.contentRights.copyrightNotice,
-        license: record.contentRights.license,
-        creditLine: record.contentRights.creditLine,
-      });
-      // Determine if the license is a custom one
-      const knownValues = new Set(LICENSE_OPTIONS.map((l) => l.value));
-      if (record.contentRights.license) {
-        if (knownValues.has(record.contentRights.license)) {
-          setLicenseSelect(record.contentRights.license);
-        } else {
-          setLicenseSelect(CUSTOM_LICENSE);
-          setCustomLicense(record.contentRights.license);
-        }
-      }
-    }
-    if (record.distributionPolicy) {
-      const ap = record.distributionPolicy.allowedBroadcasters;
-      if (allowsEveryoneToDistribute(ap)) {
-        setAllowAllDistribute(true);
-        setAllowedBroadcasters("");
-      } else {
-        setAllowAllDistribute(false);
-        setAllowedBroadcasters((ap ?? []).join("\n"));
-      }
-      if (record.distributionPolicy.deleteAfter === INDEFINITE_ARCHIVAL) {
-        setArchiveIndefinite(true);
-      } else {
-        setArchiveIndefinite(false);
-        setDeleteAfter(
-          record.distributionPolicy.deleteAfter?.toString() ??
-            String(
-              DEFAULT_CONTENT_METADATA.distributionPolicy.deleteAfter ?? "",
+      const policy = record?.distributionPolicy;
+      const broadcasters = policy?.allowedBroadcasters;
+      const allowEveryone = allowsEveryoneToDistribute(broadcasters);
+      setAllowAllDistribute(allowEveryone);
+      setAllowedBroadcasters(
+        allowEveryone ? "" : (broadcasters ?? []).join("\n"),
+      );
+      setArchiveIndefinite(policy?.deleteAfter === INDEFINITE_ARCHIVAL);
+      setDeleteAfter(
+        policy?.deleteAfter === INDEFINITE_ARCHIVAL
+          ? ""
+          : String(
+              policy?.deleteAfter ??
+                DEFAULT_CONTENT_METADATA.distributionPolicy.deleteAfter ??
+                "",
             ),
-        );
-      }
-    }
-  }, [lastRecord]);
-
-  useEffect(() => {
-    if (!lastRecord || editedWarnings.current) return;
-    const warnings = lastRecord.record
-      ? lastRecord.record.contentWarnings?.warnings
-      : (livestream?.record as any)?.contentWarnings?.warnings;
-    setSelectedWarnings(
-      new Set(warnings ?? DEFAULT_CONTENT_METADATA.contentWarnings),
-    );
-  }, [lastRecord, livestream]);
+      );
+      setMetadataLoad({ did: userDid, status: "ready", hasRecord: !!record });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [getContentMetadata, userDid, loadAttempt]);
 
   const toggleWarning = useCallback((value: string) => {
-    editedWarnings.current = true;
     setSelectedWarnings((prev) => {
       const next = new Set(prev);
       if (next.has(value)) {
@@ -238,7 +227,12 @@ function MetadataSection() {
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!userDid) return;
+    if (
+      !userDid ||
+      metadataLoad.did !== userDid ||
+      metadataLoad.status !== "ready"
+    )
+      return;
     setSaving(true);
     try {
       // Strip empty content rights fields
@@ -305,11 +299,12 @@ function MetadataSection() {
         distributionPolicy: distPolicy,
       };
 
-      if (livestreamRef) {
+      if (livestreamRef || metadataLoad.hasRecord) {
         await updateContentMetadata({ livestreamRef, ...params });
       } else {
         await createContentMetadata(params);
       }
+      setMetadataLoad((previous) => ({ ...previous, hasRecord: true }));
       toast.success(t("metadata-saved", { defaultValue: "Metadata saved" }));
     } catch (error) {
       console.error("Error saving metadata:", error);
@@ -323,6 +318,7 @@ function MetadataSection() {
     }
   }, [
     userDid,
+    metadataLoad,
     livestream,
     selectedWarnings,
     contentRights,
@@ -351,6 +347,19 @@ function MetadataSection() {
             defaultValue: "Please log in to manage streams.",
           })}
         </p>
+      ) : metadataLoad.did !== userDid || metadataLoad.status === "loading" ? (
+        <p>{t("loading", { defaultValue: "Loading..." })}</p>
+      ) : metadataLoad.status === "error" ? (
+        <div>
+          <p>
+            {t("metadata-load-failed", {
+              defaultValue: "Couldn't load metadata",
+            })}
+          </p>
+          <Button onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+            {t("retry", { defaultValue: "Retry" })}
+          </Button>
+        </div>
       ) : (
         <>
           <SubSection

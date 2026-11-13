@@ -123,13 +123,7 @@ export const useGetContentMetadata = () => {
       return contentMetadata;
     } catch (error) {
       // Handle record not found - this is normal for new users
-      if (
-        error instanceof Error &&
-        (error.message?.includes("not found") ||
-          error.message?.includes("RecordNotFound") ||
-          error.message?.includes("mst: not found") ||
-          (error as any)?.status === 404)
-      ) {
+      if ((error as { error?: string })?.error === "RecordNotFound") {
         return null;
       }
       throw error;

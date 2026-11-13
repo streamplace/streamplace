@@ -39,6 +39,7 @@ export const serverRestartTest: E2ETest = {
     let { proc } = await makeNode({
       env: env,
       autoQuit: false,
+      logName: `node-${path.basename(tmpDir)}-initial`,
     });
 
     const testId = uuidv7();
@@ -64,6 +65,7 @@ export const serverRestartTest: E2ETest = {
     let { proc: proc2 } = await makeNode({
       env: env,
       autoQuit: false,
+      logName: `node-${path.basename(tmpDir)}-restarted`,
     });
 
     await delay(60000);

@@ -9,7 +9,7 @@ import {
   useToast,
   View,
 } from "@streamplace/components";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "store";
 
 interface ObsStatus {
@@ -18,6 +18,7 @@ interface ObsStatus {
   obsRunning: boolean;
   bundledVersion: string;
   installedVersion?: string;
+  handoffDid?: string;
 }
 
 interface Result {
@@ -29,7 +30,7 @@ interface Result {
 interface ObsBridge {
   status(): Promise<ObsStatus>;
   installPlugin(): Promise<Result & { restartObs: boolean }>;
-  configureStream(streamKey: string): Promise<Result>;
+  configureStream(did: string, streamKey: string): Promise<Result>;
 }
 
 const obsBridge = (): ObsBridge | undefined =>
@@ -45,16 +46,24 @@ const describe = (s: ObsStatus): string => {
   return `The Streamplace plugin is installed (${s.bundledVersion}).`;
 };
 
+export type ObsCardProps = {
+  obsKeyRequested: boolean;
+  clearObsKeyRequest: () => void;
+};
+
 /**
  * Streamplace Desktop's OBS setup: installing the plugin it ships, and
  * pointing OBS at this node with a new stream key. Nothing outside Desktop.
  */
-export function ObsCard() {
+export function ObsCard({ obsKeyRequested, clearObsKeyRequest }: ObsCardProps) {
   const { theme } = useTheme();
   const toast = useToast();
   const bridge = obsBridge();
   const [status, setStatus] = useState<ObsStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const connecting = useRef(false);
+  const attemptedDid = useRef<string | undefined>(undefined);
+  const did = useStore((s) => s.oauthSession?.did);
   const createStreamKeyRecord = useStore((s) => s.createStreamKeyRecord);
   const clearStreamKeyRecord = useStore((s) => s.clearStreamKeyRecord);
 
@@ -62,36 +71,73 @@ export function ObsCard() {
     if (bridge) setStatus(await bridge.status());
   }, [bridge]);
   useEffect(() => {
-    refresh();
-  }, [refresh]);
-  // Setting up the stream needs OBS closed; notice when it is.
-  const obsRunning = status?.obsRunning;
-  useEffect(() => {
-    if (!obsRunning) return;
+    void refresh();
+    // Also notice a plugin installed by Desktop's startup prompt.
     const timer = setInterval(refresh, 3000);
     return () => clearInterval(timer);
-  }, [obsRunning, refresh]);
+  }, [refresh]);
 
-  if (!bridge || !status) {
-    return null;
-  }
-
-  const run = async (action: () => Promise<Result>, done: string) => {
-    setBusy(true);
-    try {
-      const result = await action();
-      if (result.ok) {
-        toast.show("OBS", done);
-      } else {
-        toast.show("OBS", result.error ?? "Something went wrong.", {
-          variant: "error",
-        });
+  const run = useCallback(
+    async (action: () => Promise<Result>, done: string) => {
+      setBusy(true);
+      try {
+        const result = await action();
+        if (result.ok) {
+          toast.show("OBS", done);
+        } else {
+          toast.show("OBS", result.error ?? "Something went wrong.", {
+            variant: "error",
+          });
+        }
+        await refresh();
+      } catch (error) {
+        toast.show("OBS", String(error), { variant: "error" });
+      } finally {
+        setBusy(false);
       }
-      await refresh();
+    },
+    [toast, refresh],
+  );
+
+  const connect = useCallback(async () => {
+    if (!bridge || !did || connecting.current) return;
+    connecting.current = true;
+    try {
+      await run(async () => {
+        clearStreamKeyRecord();
+        await createStreamKeyRecord(false);
+        const key = useStore.getState().newKey;
+        clearStreamKeyRecord();
+        if (!key) {
+          return { ok: false, error: "Couldn't create a stream key." };
+        }
+        return bridge.configureStream(did, key.privateKey);
+      }, "Stream key sent to OBS. Select Streamplace in OBS to use it.");
     } finally {
-      setBusy(false);
+      connecting.current = false;
     }
-  };
+  }, [bridge, did, run, createStreamKeyRecord, clearStreamKeyRecord]);
+
+  useEffect(() => {
+    if (
+      !did ||
+      busy ||
+      status?.obs !== "installed" ||
+      status.plugin !== "current"
+    ) {
+      return;
+    }
+    if (
+      obsKeyRequested ||
+      (status.handoffDid !== did && attemptedDid.current !== did)
+    ) {
+      attemptedDid.current = did;
+      clearObsKeyRequest();
+      void connect();
+    }
+  }, [did, busy, status, obsKeyRequested, clearObsKeyRequest, connect]);
+
+  if (!bridge || !status) return null;
 
   const install = () =>
     run(
@@ -100,19 +146,6 @@ export function ObsCard() {
         ? "Plugin installed. Restart OBS to load it."
         : "Plugin installed.",
     );
-
-  // A fresh key each time: Desktop never sees a key's secret again after
-  // creating it, so connecting OBS is what creates one.
-  const connect = () =>
-    run(async () => {
-      await createStreamKeyRecord(false);
-      const key = useStore.getState().newKey;
-      clearStreamKeyRecord();
-      if (!key) {
-        return { ok: false, error: "Couldn't create a stream key." };
-      }
-      return bridge.configureStream(key.privateKey);
-    }, "OBS now streams to Streamplace Desktop.");
 
   const installable = status.obs === "installed";
   return (
@@ -133,14 +166,20 @@ export function ObsCard() {
             )}
             {installable && status.plugin === "current" && (
               <>
-                <Button onPress={connect} disabled={busy || status.obsRunning}>
-                  Connect OBS to Desktop
-                </Button>
-                {status.obsRunning && (
-                  <Text size="sm" color="muted">
-                    Close OBS to change its stream settings.
+                <Text size="sm" color="muted">
+                  In OBS: Settings → Stream → Streamplace → Get Stream Key.
+                  Desktop signs you in and sends the key automatically, even
+                  while OBS is open. After saving OBS Settings, wait a second
+                  before streaming.
+                </Text>
+                {status.handoffDid === did && (
+                  <Text size="sm" testID="desktop-obs-connected">
+                    Stream key sent to OBS for this account.
                   </Text>
                 )}
+                <Button onPress={connect} disabled={busy || !did}>
+                  Connect OBS
+                </Button>
               </>
             )}
           </View>

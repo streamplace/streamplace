@@ -15,11 +15,29 @@ Extract the archive for your platform into OBS's plugin directory:
 | Windows  | `C:\ProgramData\obs-studio\plugins\`                |
 | macOS    | `~/Library/Application Support/obs-studio/plugins/` |
 
-Restart OBS, then pick **Streamplace** in Settings → Stream, the **Local
-Streamplace node** server (`http://127.0.0.1:38080`), and your stream key. OBS
-offers no free-form server field for listed services, so to use another
-address, set `server` in the profile's `service.json`. The plugin only speaks
-plain `http://`, and expects a node on the same machine.
+Desktop offers to install the bundled plugin. Restart OBS, then pick
+**Settings → Stream → Streamplace → Get Stream Key**. Desktop must already be
+running: the link opens `http://127.0.0.1:38080/desktop/obs` in your browser, and
+Desktop brings up its system-browser login. After login, Desktop sends the key
+to OBS without copying or pasting, even while OBS is open. Save OBS Settings and
+wait a second before starting the stream. Desktop's **Connect OBS** button
+creates a replacement key.
+
+The plugin checks its config file `plugin_config/obs-streamplace/stream-key.json`
+once a second: Desktop atomically writes
+`{"did":"did:…","key":"z…","server":"http://127.0.0.1:38080","replaces":[]}`,
+retaining up to 20 previously issued keys in `replaces`. When it applies a key,
+the plugin also sets the server to Desktop's actual node address, including an
+overridden port.
+On the UI thread it fills an empty Streamplace key or replaces one listed in
+that history, including after restarts or stale Settings saves. Keys entered by
+hand are left alone. The Settings key field itself may remain blank until you
+reopen Settings.
+
+The **Local Streamplace node** server is `http://127.0.0.1:38080`. OBS offers no
+free-form server field for listed services, so to use another address, set
+`server` in the profile's `service.json`. The plugin only speaks plain `http://`,
+and expects a node on the same machine.
 
 OBS's Settings page only lists services from `rtmp-services`, so on startup the
 plugin adds a Streamplace entry to the `services.json` copy in OBS's config

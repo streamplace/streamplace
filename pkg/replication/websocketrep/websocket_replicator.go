@@ -53,6 +53,8 @@ type WebsocketReplicator struct {
 	pushOrigin *official.OriginProducer
 	liveMu     sync.Mutex
 	live       map[string]*liveStream
+	pushMu     sync.Mutex
+	pushPeers  map[string]PushPeerStatus
 	// pushed counts the sessions currently pushing each streamer here.
 	pushedMu sync.Mutex
 	pushed   map[string]int
@@ -71,6 +73,7 @@ func NewWebsocketReplicator(cli *config.CLI, bus *bus.Bus, mod model.Model, mm *
 		moqCert:    moqCert,
 		pushOrigin: official.NewOriginProducer(),
 		live:       map[string]*liveStream{},
+		pushPeers:  map[string]PushPeerStatus{},
 		pushed:     map[string]int{},
 	}
 }

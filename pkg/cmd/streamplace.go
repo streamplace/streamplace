@@ -633,6 +633,9 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if cli.MoqAddr != "" && wsrep != nil {
 		a.MoqURL = func() string { return websocketrep.AdvertisedMoqURL(cli, moqSelfSigned) }
 	}
+	if wsrep != nil {
+		a.PushStatus = wsrep.PushStatus
+	}
 
 	ctx = log.WithLogValues(ctx, "version", build.Version)
 

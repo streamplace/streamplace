@@ -88,7 +88,7 @@ export async function loginThroughSystemBrowser(
   }
 
   // The renderer polls the node and completes the login.
-  await expect(page.getByText("Streamplace Desktop").first()).toBeVisible({
+  await expect(page.getByText(`Signed in as @${handle}`)).toBeVisible({
     timeout: 60_000,
   });
 }

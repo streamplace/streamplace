@@ -20,6 +20,7 @@ EXPORTS
     dstr_ncopy
     dstr_printf
     dstr_replace
+    obs_add_tick_callback
     obs_audio_encoder_create
     obs_data_array_count
     obs_data_array_create
@@ -90,8 +91,13 @@ EXPORTS
     obs_parse_avc_header
     obs_parse_avc_packet
     obs_register_output_s
+    obs_queue_task
+    obs_remove_tick_callback
     obs_service_get_connect_info
+    obs_service_get_settings
+    obs_service_update
     obs_video_encoder_create
+    os_fopen
     os_mkdirs
     os_quick_write_utf8_file_safe
     os_set_thread_name

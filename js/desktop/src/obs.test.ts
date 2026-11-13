@@ -4,7 +4,12 @@ import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { installPluginDir, pluginState, writeStreamConfig } from "./obs";
+import {
+  installPluginDir,
+  pluginState,
+  writeStreamConfig,
+  writeStreamHandoff,
+} from "./obs";
 
 // A plugin directory in the Linux/Windows layout package.sh produces.
 const makePlugin = async (dir: string, build_time: number) => {
@@ -98,12 +103,12 @@ test("points the current profile at the node", async () => {
     "user.ini",
     "\uFEFF[General]\r\nProfileDir=Other\r\n[Basic]\r\nProfile=Mine\r\nProfileDir=Mine\r\n",
   );
-  await writeStreamConfig(config, "http://127.0.0.1:38082", "sk");
+  await writeStreamConfig(config, "http://127.0.0.1:38080", "sk");
   assert.deepEqual(await service(config, "Mine"), {
     type: "rtmp_common",
     settings: {
       service: "Streamplace",
-      server: "http://127.0.0.1:38082",
+      server: "http://127.0.0.1:38080",
       key: "sk",
     },
   });
@@ -125,7 +130,7 @@ test("reads the current profile from global.ini before OBS 31", async () => {
     "global.ini",
     "[Basic]\nProfileDir=Other\n",
   );
-  await writeStreamConfig(config, "http://127.0.0.1:38082", "sk");
+  await writeStreamConfig(config, "http://127.0.0.1:38080", "sk");
   assert.equal((await service(config, "Other")).settings.key, "sk");
 });
 
@@ -135,4 +140,140 @@ test("refuses without a profile", async () => {
     writeStreamConfig(config, "http://x", "sk"),
     /no profile/,
   );
+});
+
+test("hands off a key and updates the profile while OBS is closed", async () => {
+  const config = await makeProfiles("user.ini", "[Basic]\nProfileDir=Mine\n");
+  await writeStreamHandoff(config, "http://node", "did:plc:me", "zkey", false);
+  assert.equal((await service(config, "Mine")).settings.key, "zkey");
+  assert.deepEqual(
+    JSON.parse(
+      await readFile(
+        join(config, "plugin_config", "obs-streamplace", "stream-key.json"),
+        "utf8",
+      ),
+    ),
+    { did: "did:plc:me", key: "zkey", server: "http://node", replaces: [] },
+  );
+});
+
+test("hands off and rotates keys without changing an open OBS profile", async () => {
+  const config = await makeProfiles("user.ini", "[Basic]\nProfileDir=Mine\n");
+  const original = await service(config, "Mine");
+  await writeStreamHandoff(config, "http://node", "did:plc:me", "zold", true);
+  await writeStreamHandoff(
+    config,
+    "http://127.0.0.1:38123",
+    "did:plc:me",
+    "znew",
+    true,
+  );
+  assert.deepEqual(await service(config, "Mine"), original);
+  const dir = join(config, "plugin_config", "obs-streamplace");
+  assert.deepEqual(await readdir(dir), ["stream-key.json"]);
+  assert.deepEqual(
+    JSON.parse(await readFile(join(dir, "stream-key.json"), "utf8")),
+    {
+      did: "did:plc:me",
+      key: "znew",
+      server: "http://127.0.0.1:38123",
+      replaces: ["zold"],
+    },
+  );
+});
+
+test("hands off a key before OBS has created a profile", async () => {
+  const config = await mkdtemp(join(os.tmpdir(), "obs-config-"));
+  await writeStreamHandoff(config, "http://node", "did:plc:me", "zkey", false);
+  assert.equal(
+    existsSync(
+      join(config, "plugin_config", "obs-streamplace", "stream-key.json"),
+    ),
+    true,
+  );
+});
+
+test("keeps earlier handoffs across accounts and restarts for stale OBS keys", async () => {
+  const config = await mkdtemp(join(os.tmpdir(), "obs-config-"));
+  const dir = join(config, "plugin_config", "obs-streamplace");
+  await mkdir(dir, { recursive: true });
+  const file = join(dir, "stream-key.json");
+  // Older Desktop versions wrote no replacement history.
+  await writeFile(file, JSON.stringify({ did: "did:plc:old", key: "zfirst" }));
+  await writeStreamHandoff(
+    config,
+    "http://node",
+    "did:plc:old",
+    "zsecond",
+    true,
+  );
+  await writeStreamHandoff(
+    config,
+    "http://node",
+    "did:plc:new",
+    "zthird",
+    true,
+  );
+  assert.deepEqual(JSON.parse(await readFile(file, "utf8")), {
+    did: "did:plc:new",
+    key: "zthird",
+    server: "http://node",
+    replaces: ["zfirst", "zsecond"],
+  });
+});
+
+test("caps replacement history at the 20 most recent prior keys", async () => {
+  const config = await mkdtemp(join(os.tmpdir(), "obs-config-"));
+  for (let i = 0; i <= 22; i++) {
+    await writeStreamHandoff(
+      config,
+      "http://node",
+      "did:plc:me",
+      `z${i}`,
+      true,
+    );
+  }
+  const file = join(
+    config,
+    "plugin_config",
+    "obs-streamplace",
+    "stream-key.json",
+  );
+  assert.deepEqual(JSON.parse(await readFile(file, "utf8")), {
+    did: "did:plc:me",
+    key: "z22",
+    server: "http://node",
+    replaces: Array.from({ length: 20 }, (_, i) => `z${i + 2}`),
+  });
+});
+
+test("never adds the current key to replacement history on repeated writes", async () => {
+  const config = await mkdtemp(join(os.tmpdir(), "obs-config-"));
+  await writeStreamHandoff(config, "http://node", "did:plc:me", "zfirst", true);
+  await writeStreamHandoff(
+    config,
+    "http://node",
+    "did:plc:me",
+    "zsecond",
+    true,
+  );
+  await writeStreamHandoff(
+    config,
+    "http://node",
+    "did:plc:me",
+    "zsecond",
+    true,
+  );
+  const file = join(
+    config,
+    "plugin_config",
+    "obs-streamplace",
+    "stream-key.json",
+  );
+  assert.deepEqual(JSON.parse(await readFile(file, "utf8")), {
+    did: "did:plc:me",
+    key: "zsecond",
+    server: "http://node",
+    replaces: ["zfirst"],
+  });
 });

@@ -5,15 +5,18 @@ import { loginThroughSystemBrowser } from "./login";
 test("log in through the dummy PDS", async ({ desktop }, testInfo) => {
   const { page, nodeURL } = desktop;
   await loginThroughSystemBrowser(desktop);
-  await page.goto(`${nodeURL}/settings/account`);
-  await expect(
-    page.getByText(`@${process.env.ACCOUNT_HANDLE}`, { exact: true }).first(),
-  ).toBeVisible();
-  await expect(page.getByText("Log out", { exact: true }).last()).toBeVisible();
+  const signedIn = page.getByText(
+    `Signed in as @${process.env.ACCOUNT_HANDLE}`,
+  );
+  // Desktop is the only screen: other app routes land back on it.
+  for (const path of ["/", "/settings/account"]) {
+    await page.goto(nodeURL + path);
+    await expect(page).toHaveURL(`${nodeURL}/desktop`);
+    await expect(signedIn).toBeVisible();
+  }
   await page.reload();
-  await expect(
-    page.getByText(`@${process.env.ACCOUNT_HANDLE}`, { exact: true }).first(),
-  ).toBeVisible();
-  await expect(page.getByText("Log out", { exact: true }).last()).toBeVisible();
+  await expect(signedIn).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("logged-in.png") });
+  await page.getByTestId("desktop-logout").click();
+  await expect(page.getByTestId("login-handle").first()).toBeVisible();
 });

@@ -223,6 +223,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	// this one is actually a jpeg (used previously and shouldn't remove for historical reasons)
 	addHandle(apiRouter, "GET", "/api/playback/:user/stream.png", a.HandleThumbnailPlayback(ctx))
 	addHandle(apiRouter, "GET", "/api/app-return/*anything", a.HandleAppReturn(ctx))
+	addHandle(apiRouter, "GET", "/api/desktop/oauth-callback/:token", a.HandleDesktopOAuthCallback(ctx))
 	addHandle(apiRouter, "POST", "/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
@@ -291,6 +292,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.GET("/.well-known/did.json", a.HandleDidJSON(ctx))
 	router.GET("/.well-known/atproto-did", a.HandleAtprotoDID(ctx))
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))
+	addHandle(router, "GET", "/app-return/desktop/:token", a.HandleDesktopOAuthReturn(ctx))
 	router.POST("/", a.HandleWebRTCIngest(ctx))
 	if a.CLI.FrontendProxy != "" {
 		u, err := url.Parse(a.CLI.FrontendProxy)

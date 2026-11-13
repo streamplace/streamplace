@@ -262,6 +262,7 @@ jobs:
           pnpm install --filter @streamplace/e2e-web --filter @atcute/internal-dev-env --filter @streamplace/i18n --filter streamplace-desktop --filter @streamplace/brand --frozen-lockfile
           sudo apt-get update && sudo apt-get install -y xvfb
           sudo env "PATH=$PATH" pnpm --filter @streamplace/e2e-web exec playwright install-deps chromium
+          pnpm --filter @streamplace/e2e-web exec playwright install chromium
           sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
 
       - name: Download streamplace binary

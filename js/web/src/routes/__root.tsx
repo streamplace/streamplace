@@ -7,12 +7,14 @@ import {
 } from "@/contexts/fullscreen-context";
 import {
   createRootRoute,
+  Link,
   Outlet,
   useRouterState,
 } from "@tanstack/react-router";
 import { Loader } from "lucide-react";
 import { Component, type ReactNode, useEffect, useState } from "react";
-import { Button } from "../components/ui/button";
+import { useTranslation } from "react-i18next";
+import { Button, buttonVariants } from "../components/ui/button";
 import { SidebarInset, SidebarProvider } from "../components/ui/sidebar";
 import { getStoredPreference, syncThemeClass } from "../hooks/use-color-scheme";
 import i18next from "../lib/i18n";
@@ -22,7 +24,23 @@ const POPOUT_PREFIXES = ["/chat-popout/", "/embed/"];
 export const Route = createRootRoute({
   component: RootLayout,
   pendingComponent: RouteLoadingSkeleton,
+  notFoundComponent: NotFoundPage,
 });
+
+function NotFoundPage() {
+  const { t } = useTranslation("common");
+  return (
+    <section className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
+      <h1 className="font-display text-2xl font-semibold">
+        {t("page-not-found-title")}
+      </h1>
+      <p className="text-muted-foreground">{t("page-not-found-description")}</p>
+      <Link to="/" className={buttonVariants({ variant: "default" })}>
+        {t("nav-home")}
+      </Link>
+    </section>
+  );
+}
 
 interface ErrorBoundaryState {
   error: Error | null;

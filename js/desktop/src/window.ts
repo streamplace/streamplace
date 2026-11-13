@@ -1,4 +1,4 @@
-import { BrowserWindow, globalShortcut } from "electron";
+import { BrowserWindow } from "electron";
 import { resolve } from "path";
 import getEnv from "./env";
 
@@ -22,12 +22,24 @@ export const makeWindow = async (): Promise<BrowserWindow> => {
     // titleBarOverlay: true,
   });
 
-  globalShortcut.register("CommandOrControl+Shift+I", () => {
-    window.webContents.toggleDevTools();
-  });
-
-  globalShortcut.register("CommandOrControl+Shift+R", () => {
-    window.webContents.reload();
+  // Window-level bindings work under Wayland, where global shortcuts don't.
+  window.webContents.on("before-input-event", (event, input) => {
+    if (input.type !== "keyDown") {
+      return;
+    }
+    const key = input.key.toLowerCase();
+    const devtools =
+      (input.shift && (input.control || input.meta) && key === "i") ||
+      (input.meta && input.alt && key === "i");
+    if (devtools) {
+      event.preventDefault();
+      window.webContents.toggleDevTools();
+      return;
+    }
+    if (input.shift && (input.control || input.meta) && key === "r") {
+      event.preventDefault();
+      window.webContents.reload();
+    }
   });
 
   window.removeMenu();

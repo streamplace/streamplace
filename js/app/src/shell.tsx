@@ -3,6 +3,7 @@ import {
   createBottomTabNavigator,
 } from "@react-navigation/bottom-tabs";
 import {
+  CommonActions,
   MaterialSymbolProps,
   useLinkTo,
   useNavigation,
@@ -741,7 +742,7 @@ function getActiveLeafRouteName(state: any): string | undefined {
 }
 
 export default function Shell() {
-  const { isNative } = usePlatform();
+  const { isNative, isElectron } = usePlatform();
   const sidebar = useSidebarControl();
   const navigation = useNavigation();
   const hydrate = useStore((state) => state.hydrate);
@@ -839,6 +840,21 @@ export default function Shell() {
     const unsubscribe = navigation.addListener("state", update);
     return unsubscribe;
   }, [navigation]);
+
+  // Streamplace Desktop only offers its own screen for now; app-return is
+  // the OAuth handoff page.
+  useEffect(() => {
+    if (
+      isElectron &&
+      currentRouteName &&
+      currentRouteName !== "Desktop" &&
+      currentRouteName !== "AppReturn"
+    ) {
+      navigation.dispatch(
+        CommonActions.reset({ index: 0, routes: [{ name: "Desktop" }] }),
+      );
+    }
+  }, [isElectron, currentRouteName, navigation]);
 
   // Detail views (watching a stream or video) take the sidebar out of the flow
   // so it opens as an overlay drawer over dimmed content instead of pushing.

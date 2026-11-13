@@ -48,6 +48,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/replication/websocketrep"
 	"stream.place/streamplace/pkg/rtmps"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
@@ -83,6 +84,9 @@ type StreamplaceAPI struct {
 	// listener at, as place.stream.broadcast.getBroadcaster reports it;
 	// nil when --moq-addr is empty.
 	MoqURL func() string
+	// PushStatus reports the --peers push sessions for /api/push; nil
+	// without the websocket replicator.
+	PushStatus func() websocketrep.PushStatus
 	// not thread-safe yet
 	Aliases  map[string]string
 	Bus      *bus.Bus
@@ -218,6 +222,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addHandle(apiRouter, "DELETE", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
 	addFunc(apiRouter, "POST", "/api/segment", a.HandleSegment(ctx))
 	addFunc(apiRouter, "GET", "/api/healthz", a.HandleHealthz(ctx))
+	addFunc(apiRouter, "GET", "/api/push", a.HandlePush(ctx))
 	// they're jpegs now
 	addHandle(apiRouter, "GET", "/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
 	// this one is actually a jpeg (used previously and shouldn't remove for historical reasons)
@@ -337,10 +342,11 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	// from tusd and floods the logs with one NetworkTimeoutError warning per
 	// PATCH chunk. Skip it for /api/upload/* so the response writer stays
 	// unwrapped on the upload path; tusd has its own per-request logging.
+	// Ingest URLs carrying a stream key skip it too, keeping keys out of logs.
 	preLog := handler
 	logged := sloghttp.New(slog.Default())(handler)
 	handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, upload.BasePath) {
+		if strings.HasPrefix(r.URL.Path, upload.BasePath) || redactKeyPath(r.URL.Path) != r.URL.Path {
 			preLog.ServeHTTP(w, r)
 			return
 		}
@@ -362,11 +368,21 @@ func (a *StreamplaceAPI) ContextMiddleware(parentContext context.Context) func(n
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			uuid := uuid.New().String()
-			ctx := log.WithLogValues(parentContext, "requestID", uuid, "method", r.Method, "path", r.URL.Path)
+			ctx := log.WithLogValues(parentContext, "requestID", uuid, "method", r.Method, "path", redactKeyPath(r.URL.Path))
 			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// redactKeyPath keeps the stream keys ingest URLs carry out of the logs.
+func redactKeyPath(path string) string {
+	for _, prefix := range []string{"/api/ingest/fmp4/", "/api/ingest/webrtc/"} {
+		if strings.HasPrefix(path, prefix) {
+			return prefix + "REDACTED"
+		}
+	}
+	return path
 }
 func copyHeader(dst, src http.Header) {
 	for k, vv := range src {
@@ -505,6 +521,7 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 		}
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
 		proto := "http"
 		if req.TLS != nil {
 			proto = "https"
@@ -676,8 +693,16 @@ func (a *StreamplaceAPI) MistProxyHandler(ctx context.Context, tmpl string) http
 	}
 }
 
+// Expo bundles/bootstrap and Metro assets include a content hash in their URL.
+// Unversioned files and generated HTML must pick up node upgrades immediately.
+var immutableFrontendAsset = regexp.MustCompile(`^/(?:_expo/static/.*-(?:[0-9a-f]{16}|[0-9a-f]{32})\.(?:js|css)(?:\.map)?|assets/(?:.*/)?(?:[0-9a-f]{32}|[^/]+\.[0-9a-f]{32}\.[a-z0-9]+))$`)
+
 func (a *StreamplaceAPI) FileHandler(ctx context.Context, fs http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		if immutableFrontendAsset.MatchString(req.URL.Path) {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
 		noslash := req.URL.Path[1:]
 		ct, ok := a.Mimes[noslash]
 		if ok {

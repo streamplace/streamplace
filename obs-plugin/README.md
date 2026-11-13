@@ -15,11 +15,23 @@ Extract the archive for your platform into OBS's plugin directory:
 | Windows  | `C:\ProgramData\obs-studio\plugins\`                |
 | macOS    | `~/Library/Application Support/obs-studio/plugins/` |
 
-Restart OBS, then pick **Streamplace** in Settings → Stream, the **Local
-Streamplace node** server (`http://127.0.0.1:38080`), and your stream key. OBS
-offers no free-form server field for listed services, so to use another
-address, set `server` in the profile's `service.json`. The plugin only speaks
-plain `http://`, and expects a node on the same machine.
+Desktop offers to install the bundled plugin. Restart OBS, then pick
+**Settings → Stream → Streamplace → Get Stream Key**. This opens Streamplace
+Desktop's login in your system browser; after login, Desktop sends the key to
+OBS without copying or pasting, even while OBS is open. Save OBS Settings and
+wait a second before starting the stream. Desktop's **Connect OBS** button
+creates a replacement key.
+
+The plugin checks its config file `plugin_config/obs-streamplace/stream-key.json`
+once a second: Desktop writes `{"did":"did:…","key":"z…"}` there atomically.
+On the UI thread it fills an empty Streamplace key (including after Settings
+saves an empty one), or replaces its own previous key, never a manually entered
+one. The Settings key field itself may remain blank until you reopen Settings.
+
+The **Local Streamplace node** server is `http://127.0.0.1:38080`. OBS offers no
+free-form server field for listed services, so to use another address, set
+`server` in the profile's `service.json`. The plugin only speaks plain `http://`,
+and expects a node on the same machine.
 
 OBS's Settings page only lists services from `rtmp-services`, so on startup the
 plugin adds a Streamplace entry to the `services.json` copy in OBS's config

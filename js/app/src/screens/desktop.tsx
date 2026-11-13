@@ -1,4 +1,5 @@
 import {
+  Button,
   LivestreamProvider,
   PlayerProvider,
   Text,
@@ -6,6 +7,8 @@ import {
   View,
 } from "@streamplace/components";
 import { breakpoints } from "@streamplace/components/src/lib/theme/tokens";
+import { ForwardingCard } from "components/desktop/forwarding-card";
+import { LogsCard } from "components/desktop/logs-card";
 import { ObsCard } from "components/desktop/obs-card";
 import { RenditionSettings } from "components/desktop/rendition-settings";
 import StreamMonitor from "components/live-dashboard/stream-monitor";
@@ -20,15 +23,9 @@ function DesktopInner() {
   const { theme } = useTheme();
   const isLive = useLiveUser();
   const profile = useUserProfile();
+  const logout = useStore((state) => state.logout);
   const { width } = useWindowDimensions();
   const wide = width >= breakpoints.lg;
-  const hideSidebar = useStore((x) => x.setSidebarHidden);
-  const showSidebar = useStore((x) => x.setSidebarUnhidden);
-
-  useEffect(() => {
-    hideSidebar();
-    return () => showSidebar();
-  }, [hideSidebar, showSidebar]);
 
   return (
     <View
@@ -46,8 +43,27 @@ function DesktopInner() {
       <ScrollView style={{ flex: 1 }}>
         <View style={{ gap: theme.spacing[6] }}>
           <Text size="xl">Streamplace Desktop</Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: theme.spacing[3],
+            }}
+          >
+            <Text color="muted">Signed in as @{profile?.handle}</Text>
+            <Button
+              variant="secondary"
+              testID="desktop-logout"
+              onPress={() => logout()}
+            >
+              Log out
+            </Button>
+          </View>
+          <ForwardingCard />
           <ObsCard />
           <RenditionSettings />
+          <LogsCard />
         </View>
       </ScrollView>
     </View>
@@ -59,9 +75,18 @@ function DesktopInner() {
  * streamer, and a preview of their stream.
  */
 export default function Desktop() {
+  const { theme } = useTheme();
   const isReady = useIsReady();
   const userProfile = useUserProfile();
   const openLoginModal = useStore((state) => state.openLoginModal);
+  const hideSidebar = useStore((x) => x.setSidebarHidden);
+  const showSidebar = useStore((x) => x.setSidebarUnhidden);
+
+  // Desktop is the only screen, signed in or not; nothing to navigate to.
+  useEffect(() => {
+    hideSidebar();
+    return () => showSidebar();
+  }, [hideSidebar, showSidebar]);
 
   useEffect(() => {
     if (isReady && !userProfile) {
@@ -69,8 +94,30 @@ export default function Desktop() {
     }
   }, [isReady, userProfile, openLoginModal]);
 
-  if (!isReady || !userProfile) {
+  if (!isReady) {
     return <Loading />;
+  }
+  // The login modal can be dismissed; keep a way back to it.
+  if (!userProfile) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: theme.spacing[4],
+          backgroundColor: theme.colors.surface0,
+        }}
+      >
+        <Text size="lg">Log in to start streaming.</Text>
+        <Button
+          testID="desktop-login"
+          onPress={() => openLoginModal({ name: "Desktop" })}
+        >
+          Log in
+        </Button>
+      </View>
+    );
   }
 
   return (

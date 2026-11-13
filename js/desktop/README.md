@@ -1,5 +1,28 @@
 # Streamplace Desktop
 
+Desktop shows only its `/desktop` screen: the app redirects every other route
+there. Its node listens on `127.0.0.1:38080`, the OBS plugin's default server.
+
+## Logs
+
+The node's output goes to `node.log` (the previous run's to `node.previous.log`)
+in Electron's log folder: Windows `%APPDATA%\streamplace-desktop\logs`, macOS
+`~/Library/Logs/streamplace-desktop`, Linux `~/.config/streamplace-desktop/logs`.
+**Open log folder** on the Desktop screen and in the startup/crash dialogs opens it.
+
+## Connecting OBS
+
+Accept Desktop's plugin install, restart OBS, then choose **Settings → Stream →
+Streamplace → Get Stream Key**. That opens `streamplace-desktop:obs`, which
+brings up Desktop's login; once signed in, Desktop sends a key to OBS, even
+while OBS is running. **Connect OBS** creates a replacement key.
+
+Desktop writes `{"did":"did:…","key":"z…"}` to
+`<OBS config>/plugin_config/obs-streamplace/stream-key.json`. The plugin checks
+it once a second and fills an empty Streamplace key, or replaces a key it
+applied itself, never one entered by hand. With OBS closed, Desktop also writes
+the current profile's stream settings.
+
 ## `pnpm run start`
 
 Boot up Streamplace Desktop for development. Two environment variable options:
@@ -29,7 +52,7 @@ last package run unpacked into `out/obs-plugin/`.
 
 ## `pnpm test`
 
-Unit tests for the OBS plugin installer and profile writer.
+Unit tests for the OBS plugin installer, key handoff, and profile writer.
 
 ## Desktop E2E (Linux)
 
@@ -53,8 +76,8 @@ The runner starts an isolated HTTPS station and dummy PDS, with no media ingest.
 Each test launches the real Electron entry point and its own single-user node,
 using temporary node/browser/XDG config directories and unused loopback ports.
 The login smoke signs in and authorizes at the PDS, returns to Desktop, and checks
-the account remains signed in after a reload. The existing lifecycle flow also
-checks PDS writes across closing and reopening Desktop.
+the account remains signed in after a reload. The OBS flow also checks PDS writes
+across closing and reopening Desktop.
 
 `SP_E2E_ATMOQ_BIN` selects an installed atmoq executable; `E2E_DESKTOP_MAIN`
 overrides the packaged `.webpack/<arch>/main/index.cjs` entry point.

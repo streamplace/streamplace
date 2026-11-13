@@ -148,6 +148,9 @@ minutes from the node's clock, so a pusher cannot replay a public
 streamer's old signed segments to make them appear live (the same window
 applies to every replicated segment, `/api/segment` included).
 
+On single-user nodes (`--upstream-station`), `GET /api/push` reports outgoing
+`peers` (query-free `moqURL`, `connected`, `connectedAt`, `lastError`) and `live` streamer DIDs; other nodes return 404.
+
 ## Who records, multistreams and transcodes
 
 Recording a stream to S3, driving its multistream targets and transcoding

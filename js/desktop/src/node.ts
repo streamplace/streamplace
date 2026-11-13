@@ -1,9 +1,12 @@
 import { spawn } from "child_process";
-import { app } from "electron";
-import { access, constants } from "fs/promises";
+import { app, dialog, shell } from "electron";
+import { access, constants, mkdir, open, rename, rm } from "fs/promises";
 import os from "os";
 import { resolve } from "path";
+import { setTimeout as delay } from "timers/promises";
 import getEnv from "./env";
+
+export const getLogDir = (): string => app.getPath("logs");
 
 const findExe = async (): Promise<string> => {
   const { isDev } = getEnv();
@@ -41,11 +44,11 @@ export default async function makeNode(opts: {
 }) {
   const exe = await findExe();
   const addr =
-    opts.env.SP_HTTP_ADDR ?? process.env.SP_HTTP_ADDR ?? "127.0.0.1:38082";
+    opts.env.SP_HTTP_ADDR ?? process.env.SP_HTTP_ADDR ?? "127.0.0.1:38080";
   const internalAddr =
     opts.env.SP_HTTP_INTERNAL_ADDR ??
     process.env.SP_HTTP_INTERNAL_ADDR ??
-    "127.0.0.1:39092";
+    "127.0.0.1:39090";
   // A single-user node: it indexes only the accounts logged into it, signs
   // them in and pushes their streams through the station, and takes their
   // firehose events from per-DID tracks on the station's MoQ relay. An empty
@@ -58,8 +61,22 @@ export default async function makeNode(opts: {
     opts.env.SP_RELAY_HOST ??
     process.env.SP_RELAY_HOST ??
     (upstreamStation ? "moqt://streamplace.network" : undefined);
+  const logDir = getLogDir();
+  await mkdir(logDir, { recursive: true });
+  const logPath = resolve(logDir, "node.log");
+  const previousLogPath = resolve(logDir, "node.previous.log");
+  try {
+    await access(logPath);
+    await rm(previousLogPath, { force: true });
+    await rename(logPath, previousLogPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  // Owner-only: node logs can carry session and ingest details.
+  const log = (await open(logPath, "w", 0o600)).createWriteStream();
+  log.on("error", (error) => console.error("Writing node log failed", error));
   const proc = spawn(exe, [], {
-    stdio: "inherit",
+    stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
       SP_UPSTREAM_STATION: upstreamStation,
@@ -74,21 +91,59 @@ export default async function makeNode(opts: {
     },
     windowsHide: true,
   });
-  await checkService(`http://${addr}/api/healthz`);
+  proc.stdout.pipe(process.stdout, { end: false });
+  proc.stderr.pipe(process.stderr, { end: false });
+  proc.stdout.pipe(log, { end: false });
+  proc.stderr.pipe(log, { end: false });
 
-  if (opts.autoQuit) {
-    app.on("before-quit", () => {
-      console.log("before-quit");
-      proc.kill("SIGTERM");
-    });
-  }
-  proc.on("exit", () => {
-    console.log("node exited");
-    if (opts.autoQuit) {
-      console.log("exiting app");
+  const boot = new AbortController();
+  let healthy = false;
+  let quitting = false;
+  const shutdown = () => {
+    quitting = true;
+    proc.kill("SIGTERM");
+  };
+  if (opts.autoQuit) app.once("before-quit", shutdown);
+  proc.once("error", (error) => boot.abort(error));
+  proc.once("exit", (code, signal) => {
+    if (!healthy) {
+      boot.abort(
+        new Error(
+          `Streamplace node exited before becoming healthy (exit code ${code}, signal ${signal ?? "none"}).`,
+        ),
+      );
+    }
+  });
+  proc.once("close", async (code, signal) => {
+    log.end();
+    app.removeListener("before-quit", shutdown);
+    if (!healthy || quitting || !opts.autoQuit) return;
+    try {
+      const { response } = await dialog.showMessageBox({
+        type: "error",
+        title: "Streamplace node stopped",
+        message: "The Streamplace node stopped unexpectedly.",
+        detail: `Exit code: ${code}. Signal: ${signal ?? "none"}.`,
+        buttons: ["Open log folder", "Quit"],
+        cancelId: 1,
+      });
+      if (response === 0) {
+        const error = await shell.openPath(getLogDir());
+        if (error) throw new Error(error);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
       app.quit();
     }
   });
+  try {
+    await checkService(`http://${addr}/api/healthz`, boot.signal);
+    healthy = true;
+  } catch (error) {
+    shutdown();
+    throw error;
+  }
 
   return {
     proc,
@@ -97,33 +152,27 @@ export default async function makeNode(opts: {
   };
 }
 
-const checkService = (
+const checkService = async (
   url: string,
+  signal: AbortSignal,
   interval = 300,
-  timeout = 10000,
+  timeout = 60000,
 ): Promise<void> => {
-  let attempts = 0;
-  const maxAttempts = timeout / interval;
-
-  return new Promise((resolve, reject) => {
-    const intervalId = setInterval(async () => {
-      attempts++;
-
-      try {
-        const response = await fetch(url);
-        if (response.ok) {
-          // Response status in the range 200-299
-          clearInterval(intervalId);
-          resolve();
-        }
-      } catch (error) {
-        // Fetch failed, continue trying
-      }
-
-      if (attempts >= maxAttempts) {
-        clearInterval(intervalId);
-        reject(new Error("streamplace did not boot up in time"));
-      }
-    }, interval);
-  });
+  const deadline = AbortSignal.timeout(timeout);
+  const abort = AbortSignal.any([signal, deadline]);
+  while (!abort.aborted) {
+    try {
+      const response = await fetch(url, { signal: abort });
+      if (response.ok) return;
+    } catch {
+      // Keep polling until the node exits or startup times out.
+    }
+    try {
+      await delay(interval, undefined, { signal: abort });
+    } catch {
+      break;
+    }
+  }
+  if (signal.aborted) throw signal.reason;
+  throw new Error("streamplace did not boot up in time");
 };

@@ -22,6 +22,7 @@ export type ObsStatus = {
   obsRunning: boolean;
   bundledVersion: string;
   installedVersion?: string;
+  handoffDid?: string;
 };
 
 // Flatpak OBS only loads plugins packaged as Flatpak extensions.
@@ -197,6 +198,47 @@ export const writeStreamConfig = async (
   );
 };
 
+const handoffPath = (configDir: string) =>
+  join(configDir, "plugin_config", "obs-streamplace", "stream-key.json");
+
+// OBS reads this atomically, including while its Settings dialog is open.
+export const writeStreamHandoff = async (
+  configDir: string,
+  server: string,
+  did: string,
+  key: string,
+  obsRunning: boolean,
+) => {
+  if (!obsRunning && (await currentProfileDir(configDir))) {
+    await writeStreamConfig(configDir, server, key);
+  }
+  const file = handoffPath(configDir);
+  await mkdir(join(configDir, "plugin_config", "obs-streamplace"), {
+    recursive: true,
+    mode: 0o700,
+  });
+  await writeFile(`${file}.tmp`, JSON.stringify({ did, key }), { mode: 0o600 });
+  await rename(`${file}.tmp`, file);
+};
+
+const handoffDid = async (): Promise<string | undefined> => {
+  try {
+    const handoff = JSON.parse(
+      await readFile(handoffPath(obsConfigDir()), "utf8"),
+    );
+    if (
+      typeof handoff.did === "string" &&
+      typeof handoff.key === "string" &&
+      handoff.key.length > 0
+    ) {
+      return handoff.did;
+    }
+  } catch {
+    // Not connected yet, or an older/incomplete handoff.
+  }
+  return undefined;
+};
+
 const detectObs = async (): Promise<ObsStatus["obs"]> => {
   if (process.platform === "win32") {
     if (
@@ -253,12 +295,13 @@ const isObsRunning = async () => {
 };
 
 export const status = async (): Promise<ObsStatus> => {
-  const [obs, obsRunning, state] = await Promise.all([
+  const [obs, obsRunning, state, did] = await Promise.all([
     detectObs(),
     isObsRunning(),
     pluginState(bundledPlugin(), pluginRoot()),
+    handoffDid(),
   ]);
-  return { obs, obsRunning, ...state };
+  return { obs, obsRunning, ...state, handoffDid: did };
 };
 
 export const installPlugin = async (): Promise<{
@@ -289,6 +332,7 @@ export const installPlugin = async (): Promise<{
 
 export const configureStream = async (
   server: string,
+  did: string,
   streamKey: string,
 ): Promise<{ ok: boolean; error?: string }> => {
   const [obs, obsRunning] = await Promise.all([detectObs(), isObsRunning()]);
@@ -298,12 +342,14 @@ export const configureStream = async (
       error: obs === "flatpak" ? FLATPAK_ERROR : "OBS isn't installed.",
     };
   }
-  // OBS writes its settings back out when it exits, undoing ours.
-  if (obsRunning) {
-    return { ok: false, error: "Close OBS, then set up the stream." };
-  }
   try {
-    await writeStreamConfig(obsConfigDir(), server, streamKey);
+    await writeStreamHandoff(
+      obsConfigDir(),
+      server,
+      did,
+      streamKey,
+      obsRunning,
+    );
     return { ok: true };
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);

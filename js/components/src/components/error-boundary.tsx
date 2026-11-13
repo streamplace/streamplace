@@ -1,5 +1,15 @@
 import * as React from "react";
 import { Platform, Pressable, Text, View } from "react-native";
+import { defaultChrome } from "../lib/theme/chrome";
+import {
+  borderRadius,
+  breakpoints,
+  colors,
+  fontWeights,
+  spacing,
+  touchTargets,
+  typeScale,
+} from "../lib/theme/tokens";
 
 type ErrorBoundaryProps = {
   children: React.ReactNode;
@@ -51,82 +61,119 @@ export class ErrorBoundary extends React.Component<
   }
 }
 
-/**
- * Whole-app fallback: a plain screen with a retry that re-renders the tree
- * and, on the web, a reload. Deliberately free of the app's own providers
- * and theme, since those may be what crashed.
- */
+const chrome = defaultChrome(true);
+// eslint-disable-next-line streamplace/no-token-literals -- Provider-independent crash fallback.
+const primary = colors.primary[500];
+// The root boundary sits outside FontProvider, so keep the system font family.
+const bodyText = {
+  fontSize: typeScale.base.fontSize,
+  lineHeight: typeScale.base.lineHeight,
+};
+const button = {
+  minHeight: touchTargets.minimum,
+  justifyContent: "center",
+  alignItems: "center",
+  paddingHorizontal: spacing[4],
+  borderRadius: borderRadius.md,
+  ...(Platform.OS === "web"
+    ? {
+        outlineColor: primary,
+        outlineWidth: spacing[1] / 2,
+        outlineOffset: spacing[1] / 2,
+      }
+    : {}),
+} as const;
+
+// Static theme tokens and native primitives only: app providers may have crashed.
 export function AppCrashScreen({ reset }: { reset: () => void }) {
-  const reload = () => {
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      window.location.reload();
-    } else {
-      reset();
-    }
-  };
   return (
     <View
+      testID="app-crash-screen"
       style={{
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        padding: 24,
-        backgroundColor: "#161928", // eslint-disable-line streamplace/no-token-literals -- no theme available here
+        padding: spacing[6],
+        backgroundColor: chrome.surface[0],
       }}
     >
-      <Text
+      <View
         style={{
-          color: "#ffffff", // eslint-disable-line streamplace/no-token-literals
-          fontSize: 20,
-          fontWeight: "600",
-          marginBottom: 8,
-          textAlign: "center",
-        }}
-      >
-        Something went wrong
-      </Text>
-      <Text
-        style={{
-          color: "#d0cfd7", // eslint-disable-line streamplace/no-token-literals
-          fontSize: 15,
-          marginBottom: 20,
-          textAlign: "center",
-        }}
-      >
-        The page hit an error it couldn't recover from.
-      </Text>
-      <Pressable
-        onPress={reset}
-        accessibilityRole="button"
-        style={{
-          paddingVertical: 10,
-          paddingHorizontal: 20,
-          borderRadius: 999,
-          backgroundColor: "#272f43", // eslint-disable-line streamplace/no-token-literals
-          marginBottom: 10,
+          width: "100%",
+          maxWidth: breakpoints.sm,
+          gap: spacing[6],
+          padding: spacing[8],
+          borderWidth: 1,
+          borderColor: chrome.border.subtle,
+          borderRadius: borderRadius.lg,
+          backgroundColor: chrome.surface[1],
         }}
       >
         <Text
           style={{
-            color:
-              "#ffffff" /* eslint-disable-line streamplace/no-token-literals */,
-            fontSize: 15,
+            fontSize: typeScale.md.fontSize,
+            lineHeight: typeScale.md.lineHeight,
+            fontWeight: fontWeights.semibold,
+            color: chrome.text[1],
           }}
         >
-          Try again
+          Streamplace
         </Text>
-      </Pressable>
-      <Pressable onPress={reload} accessibilityRole="button">
-        <Text
-          style={{
-            color:
-              "#11e8b2" /* eslint-disable-line streamplace/no-token-literals */,
-            fontSize: 15,
-          }}
-        >
-          Reload the page
-        </Text>
-      </Pressable>
+        <View style={{ gap: spacing[2] }}>
+          <Text
+            accessibilityRole="header"
+            style={{
+              fontSize: typeScale.xl.fontSize,
+              lineHeight: typeScale.xl.lineHeight,
+              letterSpacing: typeScale.xl.letterSpacing,
+              fontWeight: fontWeights.semibold,
+              color: chrome.text[1],
+            }}
+          >
+            Something went wrong
+          </Text>
+          <Text style={{ ...bodyText, color: chrome.text[2] }}>
+            This screen hit an error it couldn't recover from.
+          </Text>
+        </View>
+        <View style={{ gap: spacing[3] }}>
+          <Pressable
+            onPress={reset}
+            accessibilityRole="button"
+            style={[button, { backgroundColor: primary }]}
+          >
+            <Text
+              style={{
+                ...bodyText,
+                fontWeight: fontWeights.medium,
+                color: colors.white,
+              }}
+            >
+              Try again
+            </Text>
+          </Pressable>
+          {Platform.OS === "web" && (
+            <Pressable
+              onPress={() => window.location.reload()}
+              accessibilityRole="button"
+              style={[
+                button,
+                { borderWidth: 1, borderColor: chrome.border.default },
+              ]}
+            >
+              <Text
+                style={{
+                  ...bodyText,
+                  fontWeight: fontWeights.medium,
+                  color: chrome.text[1],
+                }}
+              >
+                Reload the page
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
     </View>
   );
 }

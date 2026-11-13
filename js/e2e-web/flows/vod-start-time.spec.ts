@@ -120,7 +120,7 @@ test("vod-start-time: playback recovers after the HLS chunk fails", async ({
   });
 
   let attempts = 0;
-  await page.route(/\/hls-[^/]+\.js$/, async (route) => {
+  await page.context().route(/\/hls-[^/]+\.js$/, async (route) => {
     attempts++;
     if (attempts === 1) {
       await route.fulfill({ status: 503, body: "Temporarily unavailable" });

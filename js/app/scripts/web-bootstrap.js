@@ -7,6 +7,38 @@ const scripts = JSON.parse(
 );
 let loaded = 0;
 
+if ("serviceWorker" in navigator) {
+  const controlled = !!navigator.serviceWorker.controller;
+  let refreshing = false;
+  const early = () => performance.now() < 3000;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (controlled && early() && !refreshing) {
+      refreshing = true;
+      location.reload();
+    }
+  });
+  navigator.serviceWorker
+    .register("/sw.js", { updateViaCache: "none" })
+    .then((registration) => {
+      const activate = (worker) => {
+        if (worker && navigator.serviceWorker.controller && early()) {
+          worker.postMessage({ type: "SKIP_WAITING" });
+        }
+      };
+      const watch = () => {
+        const worker = registration.installing;
+        if (!worker) return;
+        worker.addEventListener("statechange", () => {
+          if (worker.state === "installed") activate(worker);
+        });
+      };
+      activate(registration.waiting);
+      watch();
+      registration.addEventListener("updatefound", watch);
+    })
+    .catch((error) => console.warn("Streamplace service worker:", error));
+}
+
 async function boot() {
   retry.hidden = true;
   retry.disabled = true;

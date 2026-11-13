@@ -426,6 +426,10 @@ func looksLikeAsset(path string) bool {
 	return assetExtensions[strings.ToLower(filepath.Ext(path))]
 }
 
+// hashedBundlePrefix is where Expo writes content-hashed JS/CSS chunks, which
+// never change once published and never fall back to the app shell.
+const hashedBundlePrefix = "_expo/static/"
+
 // buildLinkingHandler builds the static-file + link-card handler for a
 // single frontend.
 func (a *StreamplaceAPI) buildLinkingHandler(ctx context.Context, load func() (fs.FS, error)) (http.HandlerFunc, error) {
@@ -474,18 +478,24 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 		if strings.HasPrefix(req.URL.Path, "/docs") && strings.HasSuffix(req.URL.Path, "/") {
 			f += "index.html"
 		}
-		_, err := fsys.Open(f)
+		hashed := strings.HasPrefix(f, hashedBundlePrefix)
+		file, err := fsys.Open(f)
 		if err == nil {
+			if hashed {
+				if info, err := file.Stat(); err == nil && !info.IsDir() {
+					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				}
+			}
+			_ = file.Close()
 			fileHandler.ServeHTTP(w, req)
 			return
 		}
 		if errors.Is(err, ErrorIndex) || f == "" {
-			if looksLikeAsset(f) {
-				// A missing file, not an app route: a 404, so that a
-				// CDN in front of this node (a blob or segment URL that
-				// reached the app shell by mistake, a stale hashed
-				// asset) caches a short miss rather than the app page
-				// as a month-old "video".
+			if hashed || looksLikeAsset(f) {
+				// Missing assets must not become cacheable app HTML.
+				if hashed {
+					w.Header().Set("Cache-Control", "no-store")
+				}
 				apierrors.WriteHTTPNotFound(w, "file not found", nil)
 				return
 			}
@@ -513,6 +523,11 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 		}
 		req.URL.Host = req.Host
 		req.URL.Scheme = proto
+
+		// HTML and the stable worker URL must revalidate on every visit.
+		if !looksLikeAsset(req.URL.Path) || req.URL.Path == "/sw.js" {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
 
 		// The app's tabs each get their own card: the front page (live),
 		// /video (on demand) and /live (go live).
@@ -542,8 +557,8 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 		}
 
 		maybeHandle := strings.TrimPrefix(req.URL.Path, "/")
-		// quick check for things that aren't valid handles/dids
-		if strings.ContainsAny(maybeHandle, "/_") {
+		// The worker URL is reserved; asset-like TLDs can still be handles.
+		if strings.ContainsAny(maybeHandle, "/_") || maybeHandle == "sw.js" {
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}

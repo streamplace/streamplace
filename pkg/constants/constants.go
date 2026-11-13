@@ -2,8 +2,8 @@ package constants
 
 import "fmt"
 
-// Keep these defaults in step with js/core/src/lib/distribution-policy.ts.
-// An absent deletion deadline does not declare an archival preference.
+// Keep defaults in step with js/core/src/lib/metadata-defaults.ts. Absent
+// warnings, rights, and deletion deadline express no creator preference.
 const (
 	DefaultAllowEveryoneToDistribute = true
 	DefaultAllowGenAITraining        = false

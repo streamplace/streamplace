@@ -7,8 +7,7 @@ import {
 
 import {
   ALL_BROADCASTERS,
-  DEFAULT_ALLOW_GEN_AI_TRAINING,
-  DEFAULT_DELETE_AFTER,
+  DEFAULT_CONTENT_METADATA,
   INDEFINITE_ARCHIVAL,
   allowsEveryoneToDistribute,
 } from "@streamplace/core";
@@ -59,11 +58,15 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const th = zero.useTheme();
 
     // Local state for metadata
-    const [contentWarnings, setContentWarnings] = useState<string[]>([]);
+    const [contentWarnings, setContentWarnings] = useState<string[]>(() => [
+      ...DEFAULT_CONTENT_METADATA.contentWarnings,
+    ]);
     const [distributionPolicy, setDistributionPolicy] =
       useState<place.stream.metadata.distributionPolicy.Main>({});
     const [contentRights, setContentRights] =
-      useState<place.stream.metadata.contentRights.Main>({});
+      useState<place.stream.metadata.contentRights.Main>(
+        DEFAULT_CONTENT_METADATA.contentRights,
+      );
     const [selectedLicense, setSelectedLicense] = useState<string>("");
     const [customLicenseText, setCustomLicenseText] = useState<string>("");
     const [loading, setLoading] = useState(false);
@@ -289,7 +292,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
         // AI training is opt-in: absent an explicit choice, save the record
         // with training disallowed.
         metadata.distributionPolicy = {
-          allowGenAiTraining: DEFAULT_ALLOW_GEN_AI_TRAINING,
+          allowGenAiTraining:
+            DEFAULT_CONTENT_METADATA.distributionPolicy.allowGenAiTraining,
           ...distributionPolicy,
         };
 
@@ -751,7 +755,8 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                   <Checkbox
                     checked={
                       distributionPolicy.allowGenAiTraining ??
-                      DEFAULT_ALLOW_GEN_AI_TRAINING
+                      DEFAULT_CONTENT_METADATA.distributionPolicy
+                        .allowGenAiTraining
                     }
                     onCheckedChange={(checked) =>
                       handleDistributionPolicyChange({
@@ -780,7 +785,10 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                         });
                       } else {
                         handleDistributionPolicyChange({
-                          deleteAfter: String(DEFAULT_DELETE_AFTER ?? ""),
+                          deleteAfter: String(
+                            DEFAULT_CONTENT_METADATA.distributionPolicy
+                              .deleteAfter ?? "",
+                          ),
                         });
                       }
                     }}

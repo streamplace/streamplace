@@ -22,14 +22,13 @@ import { useKeyRecords } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
 import {
   ALL_BROADCASTERS,
-  DEFAULT_ALLOW_EVERYONE_TO_DISTRIBUTE,
-  DEFAULT_DELETE_AFTER,
+  DEFAULT_CONTENT_METADATA,
   INDEFINITE_ARCHIVAL,
   allowsEveryoneToDistribute,
 } from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { Clipboard, Key, Loader2, Shield, Tags, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { place } from "streamplace";
@@ -138,26 +137,27 @@ function MetadataSection() {
   const livestream = useZustandStore(liveStore, (s) => s.livestream);
 
   const [selectedWarnings, setSelectedWarnings] = useState<Set<string>>(
-    new Set(),
+    () => new Set(DEFAULT_CONTENT_METADATA.contentWarnings),
   );
   const [contentRights, setContentRights] = useState<{
     copyrightYear?: number;
     copyrightNotice?: string;
     license?: string;
     creditLine?: string;
-  }>({});
+  }>(DEFAULT_CONTENT_METADATA.contentRights);
   const [customLicense, setCustomLicense] = useState<string>("");
   const [licenseSelect, setLicenseSelect] = useState<string>("");
-  const [allowAllDistribute, setAllowAllDistribute] = useState(
-    DEFAULT_ALLOW_EVERYONE_TO_DISTRIBUTE,
+  const [allowAllDistribute, setAllowAllDistribute] = useState<boolean>(
+    DEFAULT_CONTENT_METADATA.distributionPolicy.allowEveryoneToDistribute,
   );
   const [allowedBroadcasters, setAllowedBroadcasters] = useState("");
   const [archiveIndefinite, setArchiveIndefinite] = useState(false);
   const [deleteAfter, setDeleteAfter] = useState<string>(
-    String(DEFAULT_DELETE_AFTER ?? ""),
+    String(DEFAULT_CONTENT_METADATA.distributionPolicy.deleteAfter ?? ""),
   );
   const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
+  const editedWarnings = useRef(false);
 
   useEffect(() => {
     if (initialized) return;
@@ -173,9 +173,6 @@ function MetadataSection() {
     if (!lastRecord) return;
     const record = lastRecord.record;
     if (!record) return;
-    if (record.contentWarnings?.warnings) {
-      setSelectedWarnings(new Set(record.contentWarnings.warnings));
-    }
     if (record.contentRights) {
       setContentRights({
         copyrightYear: record.contentRights.copyrightYear,
@@ -209,23 +206,26 @@ function MetadataSection() {
         setArchiveIndefinite(false);
         setDeleteAfter(
           record.distributionPolicy.deleteAfter?.toString() ??
-            String(DEFAULT_DELETE_AFTER ?? ""),
+            String(
+              DEFAULT_CONTENT_METADATA.distributionPolicy.deleteAfter ?? "",
+            ),
         );
       }
     }
   }, [lastRecord]);
 
-  // Also hydrate from the per-user livestream's content warnings
   useEffect(() => {
-    if (!livestream) return;
-    const cw = (livestream.record as any)?.contentWarnings?.warnings as
-      string[] | undefined;
-    if (cw && selectedWarnings.size === 0) {
-      setSelectedWarnings(new Set(cw));
-    }
-  }, [livestream, selectedWarnings.size]);
+    if (!lastRecord || editedWarnings.current) return;
+    const warnings = lastRecord.record
+      ? lastRecord.record.contentWarnings?.warnings
+      : (livestream?.record as any)?.contentWarnings?.warnings;
+    setSelectedWarnings(
+      new Set(warnings ?? DEFAULT_CONTENT_METADATA.contentWarnings),
+    );
+  }, [lastRecord, livestream]);
 
   const toggleWarning = useCallback((value: string) => {
+    editedWarnings.current = true;
     setSelectedWarnings((prev) => {
       const next = new Set(prev);
       if (next.has(value)) {
@@ -534,7 +534,12 @@ function MetadataSection() {
               onChange={(checked) => {
                 setArchiveIndefinite(checked);
                 if (!checked)
-                  setDeleteAfter(String(DEFAULT_DELETE_AFTER ?? ""));
+                  setDeleteAfter(
+                    String(
+                      DEFAULT_CONTENT_METADATA.distributionPolicy.deleteAfter ??
+                        "",
+                    ),
+                  );
               }}
               label={t("explicitly-allow-indefinite-archiving", {
                 defaultValue: "Explicitly allow indefinite archiving",

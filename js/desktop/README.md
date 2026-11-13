@@ -9,7 +9,13 @@ Boot up Streamplace Desktop for development. Two environment variable options:
   running locally.
 
 - `AQD_NODE_FRONTEND`: (default `false`): Use frontend bundled with the
-  Streamplace node instead of the dev server on `http://localhost:8081`.
+  Streamplace node instead of the dev server on `http://127.0.0.1:38081`.
+
+Sign-in opens in the system browser and returns on `streamplace-desktop:`. A
+development launch registers the dev Electron binary as that handler on Linux
+and Windows; macOS registers schemes only from a packaged app. If a dev login
+still happens inside the window, the renderer is running an old bundle:
+restart `pnpm run start`, and restart Expo for the dev-server frontend.
 
 ## `pnpm run package` / `pnpm run make`
 

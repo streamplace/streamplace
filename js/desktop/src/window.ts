@@ -16,6 +16,9 @@ export const makeWindow = async (): Promise<BrowserWindow> => {
     width: 800,
     icon: logoFile,
     webPreferences: {
+      // Forge's dev preload bundle uses __dirname, which a sandboxed preload
+      // doesn't define; context isolation still keeps Node out of the page.
+      sandbox: !isDev,
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
     },
     // titleBarStyle: "hidden",

@@ -24,7 +24,12 @@ import { useStreamAvatar } from "@/hooks/use-stream-avatar";
 import { useStreamplaceUrl } from "@/lib/store/hooks";
 import type { LivestreamStore } from "@streamplace/core";
 import { formatHandle, formatHandleWithAt } from "@streamplace/core";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  notFound,
+  useNavigate,
+} from "@tanstack/react-router";
 import {
   ExternalLink,
   House,
@@ -45,6 +50,9 @@ import {
 import { StreamAvatar } from "../../components/stream/stream-avatar";
 
 export const Route = createFileRoute("/$user/")({
+  beforeLoad: ({ params }) => {
+    if (!/[.:]/.test(params.user)) throw notFound();
+  },
   component: StreamPage,
 });
 

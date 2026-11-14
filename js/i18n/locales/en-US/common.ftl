@@ -96,6 +96,10 @@ creator-not-found-description = We couldn't find an Atmosphere account for { $ha
 creator-lookup-failed-title = We couldn't load this creator
 creator-lookup-failed-description = The Atmosphere directory isn't responding right now. Try again in a moment.
 
+## Page not found
+page-not-found-title = 404 — Page not found
+page-not-found-description = The page you're looking for doesn't exist.
+
 ## Header
 profile = Profile
 more-results = More results

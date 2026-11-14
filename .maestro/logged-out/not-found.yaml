@@ -1,7 +1,7 @@
 appId: ${APP_ID}
 ---
 # Shared by iOS and Android; browser counterpart: not-found.spec.ts.
-- launchApp
+- stopApp
 - openLink: ${APP_ID}://does-not-exist
 - extendedWaitUntil:
     visible: "404 — Page not found"
@@ -21,12 +21,12 @@ appId: ${APP_ID}
     timeout: 30000
 - openLink: ${APP_ID}://missing.example.invalid
 - extendedWaitUntil:
-    visible: "Connecting..."
+    visible: "Log in or sign up to chat"
     timeout: 30000
 - assertNotVisible: "404 — Page not found"
 - openLink: ${APP_ID}://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa
 - extendedWaitUntil:
-    visible: "Connecting..."
+    visible: "Log in or sign up to chat"
     timeout: 30000
 - assertNotVisible: "404 — Page not found"
 - openLink: ${APP_ID}://${ACCOUNT_HANDLE}

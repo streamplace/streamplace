@@ -20,6 +20,12 @@ import { useSession } from "@/lib/session";
 import { useStore } from "@/lib/store";
 import { useKeyRecords } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
+import {
+  ALL_BROADCASTERS,
+  DEFAULT_CONTENT_METADATA,
+  INDEFINITE_ARCHIVAL,
+  allowsEveryoneToDistribute,
+} from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { Clipboard, Key, Loader2, Shield, Tags, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -131,87 +137,82 @@ function MetadataSection() {
   const livestream = useZustandStore(liveStore, (s) => s.livestream);
 
   const [selectedWarnings, setSelectedWarnings] = useState<Set<string>>(
-    new Set(),
+    () => new Set(DEFAULT_CONTENT_METADATA.contentWarnings),
   );
   const [contentRights, setContentRights] = useState<{
+    creator?: string;
     copyrightYear?: number;
     copyrightNotice?: string;
     license?: string;
     creditLine?: string;
-  }>({});
+  }>(DEFAULT_CONTENT_METADATA.contentRights);
   const [customLicense, setCustomLicense] = useState<string>("");
   const [licenseSelect, setLicenseSelect] = useState<string>("");
-  const [allowAllDistribute, setAllowAllDistribute] = useState(false);
+  const [allowAllDistribute, setAllowAllDistribute] = useState<boolean>(
+    DEFAULT_CONTENT_METADATA.distributionPolicy.allowEveryoneToDistribute,
+  );
   const [allowedBroadcasters, setAllowedBroadcasters] = useState("");
   const [archiveIndefinite, setArchiveIndefinite] = useState(false);
-  const [deleteAfter, setDeleteAfter] = useState<string>("300");
-  const [initialized, setInitialized] = useState(false);
+  const [deleteAfter, setDeleteAfter] = useState<string>(
+    String(DEFAULT_CONTENT_METADATA.distributionPolicy.deleteAfter ?? ""),
+  );
   const [saving, setSaving] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [metadataLoad, setMetadataLoad] = useState<{
+    did: string | null;
+    status: "loading" | "ready" | "error";
+    hasRecord: boolean;
+  }>({ did: null, status: "loading", hasRecord: false });
 
   useEffect(() => {
-    if (initialized) return;
-    setInitialized(true);
-    if (userDid) {
-      void getContentMetadata({ userDid });
-    }
-  }, [initialized, getContentMetadata, userDid]);
+    if (!userDid) return;
+    let cancelled = false;
+    setMetadataLoad({ did: userDid, status: "loading", hasRecord: false });
+    void getContentMetadata({ userDid }).then((metadata) => {
+      if (cancelled) return;
+      if (!metadata) {
+        setMetadataLoad({ did: userDid, status: "error", hasRecord: false });
+        return;
+      }
+      const record = metadata.record;
+      setSelectedWarnings(
+        new Set(
+          record?.contentWarnings?.warnings ??
+            DEFAULT_CONTENT_METADATA.contentWarnings,
+        ),
+      );
+      const rights = record?.contentRights;
+      setContentRights(rights ?? DEFAULT_CONTENT_METADATA.contentRights);
+      const license = rights?.license ?? "";
+      const isCustomLicense =
+        !!license &&
+        !LICENSE_OPTIONS.some((option) => option.value === license);
+      setLicenseSelect(isCustomLicense ? CUSTOM_LICENSE : license);
+      setCustomLicense(isCustomLicense ? license : "");
 
-  // Hydrate from existing metadata once we have data
-  const lastRecord = useStore((s) => s.lastCreatedRecord) as any;
-  useEffect(() => {
-    if (!lastRecord) return;
-    const record = lastRecord.record;
-    if (!record) return;
-    if (record.contentWarnings?.warnings) {
-      setSelectedWarnings(new Set(record.contentWarnings.warnings));
-    }
-    if (record.contentRights) {
-      setContentRights({
-        copyrightYear: record.contentRights.copyrightYear,
-        copyrightNotice: record.contentRights.copyrightNotice,
-        license: record.contentRights.license,
-        creditLine: record.contentRights.creditLine,
-      });
-      // Determine if the license is a custom one
-      const knownValues = new Set(LICENSE_OPTIONS.map((l) => l.value));
-      if (record.contentRights.license) {
-        if (knownValues.has(record.contentRights.license)) {
-          setLicenseSelect(record.contentRights.license);
-        } else {
-          setLicenseSelect(CUSTOM_LICENSE);
-          setCustomLicense(record.contentRights.license);
-        }
-      }
-    }
-    if (record.distributionPolicy) {
-      const ap = record.distributionPolicy.allowedBroadcasters;
-      if (ap && ap.length === 1 && ap[0] === "*") {
-        setAllowAllDistribute(true);
-        setAllowedBroadcasters("");
-      } else {
-        setAllowAllDistribute(false);
-        setAllowedBroadcasters((ap ?? []).join("\n"));
-      }
-      if (record.distributionPolicy.deleteAfter === -1) {
-        setArchiveIndefinite(true);
-      } else {
-        setArchiveIndefinite(false);
-        setDeleteAfter(
-          record.distributionPolicy.deleteAfter?.toString() ?? "300",
-        );
-      }
-    }
-  }, [lastRecord]);
-
-  // Also hydrate from the per-user livestream's content warnings
-  useEffect(() => {
-    if (!livestream) return;
-    const cw = (livestream.record as any)?.contentWarnings?.warnings as
-      string[] | undefined;
-    if (cw && selectedWarnings.size === 0) {
-      setSelectedWarnings(new Set(cw));
-    }
-  }, [livestream, selectedWarnings.size]);
+      const policy = record?.distributionPolicy;
+      const broadcasters = policy?.allowedBroadcasters;
+      const allowEveryone = allowsEveryoneToDistribute(broadcasters);
+      setAllowAllDistribute(allowEveryone);
+      setAllowedBroadcasters(
+        allowEveryone ? "" : (broadcasters ?? []).join("\n"),
+      );
+      setArchiveIndefinite(policy?.deleteAfter === INDEFINITE_ARCHIVAL);
+      setDeleteAfter(
+        policy?.deleteAfter === INDEFINITE_ARCHIVAL
+          ? ""
+          : String(
+              policy?.deleteAfter ??
+                DEFAULT_CONTENT_METADATA.distributionPolicy.deleteAfter ??
+                "",
+            ),
+      );
+      setMetadataLoad({ did: userDid, status: "ready", hasRecord: !!record });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [getContentMetadata, userDid, loadAttempt]);
 
   const toggleWarning = useCallback((value: string) => {
     setSelectedWarnings((prev) => {
@@ -226,7 +227,12 @@ function MetadataSection() {
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!userDid) return;
+    if (
+      !userDid ||
+      metadataLoad.did !== userDid ||
+      metadataLoad.status !== "ready"
+    )
+      return;
     setSaving(true);
     try {
       // Strip empty content rights fields
@@ -254,17 +260,25 @@ function MetadataSection() {
       }
 
       const broadcasters = allowAllDistribute
-        ? ["*"]
+        ? [ALL_BROADCASTERS]
         : allowedBroadcasters
             .split("\n")
             .map((s) => s.trim())
             .filter(Boolean);
+      if (!allowAllDistribute && broadcasters.length === 0) {
+        toast.error(
+          t("allowed-broadcaster-required", {
+            defaultValue: "Enter an allowed broadcaster.",
+          }),
+        );
+        return;
+      }
       const distPolicy: {
         deleteAfter?: number;
         allowedBroadcasters?: string[];
       } = {};
       if (archiveIndefinite) {
-        distPolicy.deleteAfter = -1;
+        distPolicy.deleteAfter = INDEFINITE_ARCHIVAL;
       } else if (deleteAfter) {
         const n = parseInt(deleteAfter, 10);
         if (!isNaN(n) && n > 0) distPolicy.deleteAfter = n;
@@ -285,11 +299,12 @@ function MetadataSection() {
         distributionPolicy: distPolicy,
       };
 
-      if (livestreamRef) {
+      if (livestreamRef || metadataLoad.hasRecord) {
         await updateContentMetadata({ livestreamRef, ...params });
       } else {
         await createContentMetadata(params);
       }
+      setMetadataLoad((previous) => ({ ...previous, hasRecord: true }));
       toast.success(t("metadata-saved", { defaultValue: "Metadata saved" }));
     } catch (error) {
       console.error("Error saving metadata:", error);
@@ -303,6 +318,7 @@ function MetadataSection() {
     }
   }, [
     userDid,
+    metadataLoad,
     livestream,
     selectedWarnings,
     contentRights,
@@ -331,6 +347,19 @@ function MetadataSection() {
             defaultValue: "Please log in to manage streams.",
           })}
         </p>
+      ) : metadataLoad.did !== userDid || metadataLoad.status === "loading" ? (
+        <p>{t("loading", { defaultValue: "Loading..." })}</p>
+      ) : metadataLoad.status === "error" ? (
+        <div>
+          <p>
+            {t("metadata-load-failed", {
+              defaultValue: "Couldn't load metadata",
+            })}
+          </p>
+          <Button onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+            {t("retry", { defaultValue: "Retry" })}
+          </Button>
+        </div>
       ) : (
         <>
           <SubSection
@@ -511,10 +540,18 @@ function MetadataSection() {
             )}
             <Toggle
               checked={archiveIndefinite}
-              onChange={setArchiveIndefinite}
-              label={t("allow-everyone-archive", {
-                defaultValue:
-                  "Allow everyone to archive your content indefinitely",
+              onChange={(checked) => {
+                setArchiveIndefinite(checked);
+                if (!checked)
+                  setDeleteAfter(
+                    String(
+                      DEFAULT_CONTENT_METADATA.distributionPolicy.deleteAfter ??
+                        "",
+                    ),
+                  );
+              }}
+              label={t("explicitly-allow-indefinite-archiving", {
+                defaultValue: "Explicitly allow indefinite archiving",
               })}
             />
             {!archiveIndefinite && (
@@ -523,11 +560,15 @@ function MetadataSection() {
                   defaultValue: "Delete After",
                 })}
                 help={t("delete-after-help", {
-                  defaultValue: "Duration in seconds (e.g. 300 for 5 minutes).",
+                  defaultValue:
+                    "Duration in seconds. Leave blank for no specified deadline.",
                 })}
               >
                 <input
                   type="number"
+                  placeholder={t("no-deletion-deadline", {
+                    defaultValue: "No deletion deadline specified",
+                  })}
                   value={deleteAfter}
                   onChange={(e) => setDeleteAfter(e.target.value)}
                   className="focus:ring-ring h-9 w-full rounded-md border border-(--color-border) bg-(--color-bg) px-3 text-sm text-(--color-fg) focus:ring-1 focus:outline-none"

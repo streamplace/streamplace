@@ -5,6 +5,12 @@ import {
   LICENSE_OPTIONS,
 } from "../../lib/metadata-constants";
 
+import {
+  ALL_BROADCASTERS,
+  DEFAULT_CONTENT_METADATA,
+  INDEFINITE_ARCHIVAL,
+  allowsEveryoneToDistribute,
+} from "@streamplace/core";
 import { ExternalLink } from "lucide-react-native";
 import { place } from "streamplace";
 import {
@@ -52,15 +58,29 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const th = zero.useTheme();
 
     // Local state for metadata
-    const [contentWarnings, setContentWarnings] = useState<string[]>([]);
+    const [contentWarnings, setContentWarnings] = useState<string[]>(() => [
+      ...DEFAULT_CONTENT_METADATA.contentWarnings,
+    ]);
     const [distributionPolicy, setDistributionPolicy] =
       useState<place.stream.metadata.distributionPolicy.Main>({});
     const [contentRights, setContentRights] =
-      useState<place.stream.metadata.contentRights.Main>({});
+      useState<place.stream.metadata.contentRights.Main>(
+        DEFAULT_CONTENT_METADATA.contentRights,
+      );
     const [selectedLicense, setSelectedLicense] = useState<string>("");
     const [customLicenseText, setCustomLicenseText] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [hasMetadata, setHasMetadata] = useState(false);
+    const [loadAttempt, setLoadAttempt] = useState(0);
+    const [metadataLoad, setMetadataLoad] = useState<{
+      did: string | undefined;
+      initialMetadata: ContentMetadataFormProps["initialMetadata"];
+      status: "loading" | "ready" | "error";
+    }>({ did: undefined, initialMetadata: undefined, status: "loading" });
+    const metadataReady =
+      metadataLoad.status === "ready" &&
+      metadataLoad.did === did &&
+      metadataLoad.initialMetadata === initialMetadata;
 
     // State for section toggles
     const [activeSection, setActiveSection] =
@@ -75,20 +95,22 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
 
     const broadcasterDID = useStreamplaceStore((state) => state.broadcasterDID);
 
-    // Load existing metadata on mount or from initialMetadata prop
     useEffect(() => {
+      let cancelled = false;
+      setMetadataLoad({ did, initialMetadata, status: "loading" });
       if (initialMetadata) {
-        // Use provided initial metadata
-        if (initialMetadata.contentWarnings?.warnings) {
-          setContentWarnings(initialMetadata.contentWarnings.warnings);
-        }
-        if (initialMetadata.distributionPolicy) {
-          setDistributionPolicy(initialMetadata.distributionPolicy);
-        }
-        if (initialMetadata.contentRights) {
-          setContentRights(initialMetadata.contentRights);
-          setSelectedLicense(initialMetadata.contentRights.license || "");
-        }
+        setContentWarnings(
+          initialMetadata.contentWarnings?.warnings ?? [
+            ...DEFAULT_CONTENT_METADATA.contentWarnings,
+          ],
+        );
+        setDistributionPolicy(initialMetadata.distributionPolicy ?? {});
+        setContentRights(
+          initialMetadata.contentRights ??
+            DEFAULT_CONTENT_METADATA.contentRights,
+        );
+        setSelectedLicense(initialMetadata.contentRights?.license || "");
+        setMetadataLoad({ did, initialMetadata, status: "ready" });
         return;
       }
 
@@ -97,29 +119,31 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
 
         try {
           const metadata = await getContentMetadata();
-          if (metadata?.record) {
-            setHasMetadata(true);
-            if (metadata.record.contentWarnings?.warnings) {
-              setContentWarnings(
-                metadata.record.contentWarnings.warnings as string[],
-              );
-            }
-            if (metadata.record.distributionPolicy) {
-              setDistributionPolicy(metadata.record.distributionPolicy);
-            }
-            if (metadata.record.contentRights) {
-              setContentRights(metadata.record.contentRights);
-              setSelectedLicense(metadata.record.contentRights.license || "");
-            }
-          }
+          if (cancelled) return;
+          const record = metadata?.record;
+          setHasMetadata(!!record);
+          setContentWarnings(
+            record?.contentWarnings?.warnings ?? [
+              ...DEFAULT_CONTENT_METADATA.contentWarnings,
+            ],
+          );
+          setDistributionPolicy(record?.distributionPolicy ?? {});
+          setContentRights(
+            record?.contentRights ?? DEFAULT_CONTENT_METADATA.contentRights,
+          );
+          setSelectedLicense(record?.contentRights?.license || "");
+          setMetadataLoad({ did, initialMetadata, status: "ready" });
         } catch (error) {
-          // No existing metadata is fine
-          console.log("No existing metadata found");
+          if (!cancelled)
+            setMetadataLoad({ did, initialMetadata, status: "error" });
         }
       };
 
-      loadMetadata();
-    }, [pdsAgent, did, initialMetadata]);
+      void loadMetadata();
+      return () => {
+        cancelled = true;
+      };
+    }, [pdsAgent, did, initialMetadata, loadAttempt]);
 
     const handleContentWarningChange = useCallback(
       (warning: string, checked: boolean) => {
@@ -143,7 +167,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
 
     // Notify parent component when metadata changes
     useEffect(() => {
-      if (onMetadataChange) {
+      if (metadataReady && onMetadataChange) {
         onMetadataChange({
           $type: "place.stream.metadata.configuration",
           contentWarnings: { warnings: contentWarnings },
@@ -151,7 +175,13 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
           contentRights,
         });
       }
-    }, [contentWarnings, distributionPolicy, contentRights, onMetadataChange]);
+    }, [
+      contentWarnings,
+      distributionPolicy,
+      contentRights,
+      onMetadataChange,
+      metadataReady,
+    ]);
 
     // Handle distribution policy changes
     const handleDistributionPolicyChange = useCallback(
@@ -177,7 +207,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
             newDistributionPolicy.deleteAfter = undefined;
           } else {
             if (isNaN(duration) || duration < 0) {
-              duration = -1;
+              duration = INDEFINITE_ARCHIVAL;
             }
             newDistributionPolicy.deleteAfter =
               duration === 0 ? undefined : duration;
@@ -226,6 +256,17 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     );
 
     const handleSave = useCallback(async () => {
+      if (!metadataReady) return;
+      const broadcasters = distributionPolicy.allowedBroadcasters
+        ?.map((broadcaster) => broadcaster.trim())
+        .filter(Boolean);
+      if (
+        !allowsEveryoneToDistribute(distributionPolicy.allowedBroadcasters) &&
+        !broadcasters?.length
+      ) {
+        toast.show("Broadcaster required", "Enter an allowed broadcaster.");
+        return;
+      }
       setLoading(true);
       try {
         // Build the metadata object, only including non-empty fields
@@ -272,14 +313,13 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
         // AI training is opt-in: absent an explicit choice, save the record
         // with training disallowed.
         metadata.distributionPolicy = {
-          allowGenAiTraining: false,
+          allowGenAiTraining:
+            DEFAULT_CONTENT_METADATA.distributionPolicy.allowGenAiTraining,
           ...distributionPolicy,
         };
 
         if (distributionPolicy?.allowedBroadcasters) {
-          const filteredBs = distributionPolicy.allowedBroadcasters.filter(
-            (broadcaster) => broadcaster !== "",
-          );
+          const filteredBs = broadcasters ?? [];
           metadata.distributionPolicy.allowedBroadcasters = filteredBs;
           setDistributionPolicy({
             ...distributionPolicy,
@@ -303,6 +343,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       }
     }, [
       contentWarnings,
+      metadataReady,
       contentRights,
       distributionPolicy,
       selectedLicense,
@@ -310,6 +351,23 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       hasMetadata,
       saveContentMetadata,
     ]);
+
+    if (!metadataReady) {
+      return (
+        <View style={[gap.all[3], style]}>
+          {metadataLoad.did === did && metadataLoad.status === "error" ? (
+            <>
+              <Text>Couldn't load metadata</Text>
+              <Button onPress={() => setLoadAttempt((attempt) => attempt + 1)}>
+                <Text>Retry</Text>
+              </Button>
+            </>
+          ) : (
+            <Text>Loading metadata...</Text>
+          )}
+        </View>
+      );
+    }
 
     return (
       <>
@@ -648,14 +706,13 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                   position="top"
                 >
                   <Checkbox
-                    checked={
-                      distributionPolicy.allowedBroadcasters?.includes("*") ||
-                      false
-                    }
+                    checked={allowsEveryoneToDistribute(
+                      distributionPolicy.allowedBroadcasters,
+                    )}
                     onCheckedChange={(checked) =>
                       handleDistributionPolicyChange({
                         allowedBroadcasters: checked
-                          ? "*"
+                          ? ALL_BROADCASTERS
                           : broadcasterDID || "",
                       })
                     }
@@ -665,7 +722,9 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 </Tooltip>
 
                 {/* allowedBroadcasters */}
-                {!distributionPolicy.allowedBroadcasters?.includes("*") && (
+                {!allowsEveryoneToDistribute(
+                  distributionPolicy.allowedBroadcasters,
+                ) && (
                   <View style={[gap.all[3], w.percent[100]]}>
                     <View
                       style={[
@@ -733,7 +792,11 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                   position="top"
                 >
                   <Checkbox
-                    checked={distributionPolicy.allowGenAiTraining === true}
+                    checked={
+                      distributionPolicy.allowGenAiTraining ??
+                      DEFAULT_CONTENT_METADATA.distributionPolicy
+                        .allowGenAiTraining
+                    }
                     onCheckedChange={(checked) =>
                       handleDistributionPolicyChange({
                         allowGenAiTraining: checked,
@@ -747,29 +810,34 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 </Tooltip>
 
                 <Tooltip
-                  content="Anyone may archive your content indefinitely."
+                  content="Explicitly allow indefinite archiving. Without a deadline, your preference is unspecified."
                   position="top"
                 >
                   <Checkbox
-                    checked={distributionPolicy.deleteAfter === -1}
+                    checked={
+                      distributionPolicy.deleteAfter === INDEFINITE_ARCHIVAL
+                    }
                     onCheckedChange={(checked) => {
                       if (checked) {
                         handleDistributionPolicyChange({
-                          deleteAfter: "-1",
+                          deleteAfter: String(INDEFINITE_ARCHIVAL),
                         });
                       } else {
                         handleDistributionPolicyChange({
-                          deleteAfter: "300",
+                          deleteAfter: String(
+                            DEFAULT_CONTENT_METADATA.distributionPolicy
+                              .deleteAfter ?? "",
+                          ),
                         });
                       }
                     }}
-                    label={"Allow everyone to archive your content"}
+                    label={"Explicitly allow indefinite archiving"}
                     style={[{ fontSize: 12 }]}
                   />
                 </Tooltip>
 
                 {/* deleteAfter */}
-                {distributionPolicy.deleteAfter !== -1 && (
+                {distributionPolicy.deleteAfter !== INDEFINITE_ARCHIVAL && (
                   <View style={[gap.all[3], w.percent[100]]}>
                     <View
                       style={[
@@ -798,9 +866,11 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                             { fontSize: 12, paddingBottom: 4 },
                           ]}
                         >
-                          Duration in seconds (e.g., 300 for 5 minutes)
+                          Duration in seconds. Leave blank for no specified
+                          deadline.
                         </Text>
                         <Input
+                          placeholder="No deletion deadline specified"
                           value={
                             distributionPolicy.deleteAfter?.toString() || ""
                           }

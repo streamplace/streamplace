@@ -246,11 +246,12 @@ for (const beta of [false, true]) {
         await expect(
           page.getByRole("heading", { name: "User not found", exact: true }),
         ).toBeVisible();
-        await stubSearch(page, [{ did, handle }]);
-        await page.getByRole("combobox", { name: /Search/ }).fill(handle);
+        // Accounts with an unverified handle remain reachable by DID.
+        await stubSearch(page, [{ did, handle: "handle.invalid" }]);
+        await page.getByRole("combobox", { name: /Search/ }).fill(did);
         await (
           beta
-            ? page.getByRole("option").filter({ hasText: handle })
+            ? page.getByRole("option").filter({ hasText: did })
             : page.getByTestId(`header-search-result-${did}`)
         ).click();
         await expectPlayback(page);

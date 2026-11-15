@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 #
-# Run the Maestro suite (.maestro/) against a self-contained `streamplace e2e`
-# harness on a running Android emulator — the mobile counterpart to
-# hack/e2e-web-local.sh.
+# Run the shared Maestro suite against the self-contained `streamplace e2e`
+# harness on Android or a throwaway iOS Simulator.
 #
-#   hack/e2e-local.sh android [--upstream-station] [-- <extra maestro test args>]
+#   hack/e2e-local.sh android|ios [--upstream-station] [-- <extra maestro test args>]
 #
-# Prerequisites (build once, or again when app or native code changes):
-#   * The harness binary: make dev
-#   * An e2e APK: make android-e2e (bin/streamplace-*-android-e2e.apk).
-#   * A running emulator with a Google APIs image (not Play Store, which
-#     can't be rooted), and maestro (https://maestro.dev).
+# Build once, and again after app/native changes:
+#   make dev
+#   make android-e2e   # rooted Google APIs emulator required
+#   make ios-e2e       # macOS/Xcode, iOS runtime and applesimutils required
+# Both platforms need Maestro (https://maestro.dev).
 #
 # This script only does the *run*: start the harness, set up the device, run
 # the flows and tear the harness down. It reinstalls the app but does not
@@ -19,14 +18,17 @@
 # The app talks to the harness only over HTTPS: release builds refuse
 # cleartext, and the OAuth flow logs in to the harness's own PDS. So the
 # harness runs in HTTPS mode (see hack/lib/e2e-harness.sh; it binds
-# 127.0.0.1:443, and says how to allow that if it can't), and the emulator is
-# set up, as root, to reach and trust it:
+# 127.0.0.1:443, and says how to allow that if it can't). Android is
+# set up as root to reach and trust it:
 #   * a hosts file mapping the harness's names (and plc.directory) to the
 #     host, bind mounted over /system/etc/hosts until the emulator reboots;
 #   * its throwaway CA in the user trust store, which Chrome (the login page)
 #     trusts, and which the e2e APK trusts via its network security config.
+# iOS reaches loopback directly, uses a configurable PLC hostname, and trusts
+# the CA only in its throwaway Simulator. No Mac DNS or keychain changes.
 #
-# Env overrides: APK, APP_ID, ANDROID_SERIAL, ANDROID_HOME,
+# Env overrides: APK, APP_ID, ANDROID_SERIAL, ANDROID_HOME, IOS_APP,
+# IOS_SIMULATOR_UDID (template), E2E_HTTPS_PLC_HOSTNAME,
 # E2E_ARTIFACTS (default .maestro/artifacts), E2E_HARNESS_LOG, and E2E_FLOWS
 # (space-separated flow files to run a subset; prerequisites are automatic).
 set -euo pipefail
@@ -42,18 +44,23 @@ if [ "${1:-}" = "--upstream-station" ]; then
 fi
 [ "${1:-}" = "--" ] && shift
 case "$PLATFORM" in
-  android) ;;
-  ios) echo "ios is not supported by this runner yet"; exit 1 ;;
-  *) echo "unknown platform: $PLATFORM (expected android)"; exit 1 ;;
+  android|ios) ;;
+  *) echo "unknown platform: $PLATFORM (expected android or ios)"; exit 1 ;;
 esac
 
-# --- tools, device and APK -------------------------------------------------
+# --- tools, device and app -------------------------------------------------
+MAESTRO=maestro
+command -v "$MAESTRO" >/dev/null || MAESTRO="$HOME/.maestro/bin/maestro"
+command -v "$MAESTRO" >/dev/null || { echo "maestro not found — see https://maestro.dev"; exit 1; }
+
+if [ "$PLATFORM" = ios ]; then
+  # shellcheck source=hack/lib/e2e-ios.sh
+  . hack/lib/e2e-ios.sh
+  e2e_ios_prepare
+else
 ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
 ADB="$ANDROID_HOME/platform-tools/adb"
 [ -x "$ADB" ] || ADB=adb
-MAESTRO="$HOME/.maestro/bin/maestro"
-[ -x "$MAESTRO" ] || MAESTRO=maestro
-command -v "$MAESTRO" >/dev/null || { echo "maestro not found — see https://maestro.dev"; exit 1; }
 
 DEVICE="${ANDROID_SERIAL:-$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1; exit}')}"
 [ -n "$DEVICE" ] || { echo "no android emulator running"; exit 1; }
@@ -81,6 +88,7 @@ if [ "$(adb_ shell id -u | tr -d '\r')" != 0 ]; then
   echo "can't get root on $DEVICE — use a Google APIs emulator image, not a Play Store one"
   exit 1
 fi
+fi
 
 # --- harness ---------------------------------------------------------------
 # the node hands OAuth logins back to the app by its bundle id
@@ -90,6 +98,16 @@ export SP_E2E_APP_BUNDLE_ID="$APP_ID"
 e2e_harness_start
 
 # --- device ----------------------------------------------------------------
+if [ "${E2E_UPSTREAM_STATION:-}" = true ]; then
+  : "${UPSTREAM_STATION_URL:?upstream mode requires the station HTTPS URL}"
+  : "${PDS_HTTPS_URL:?upstream mode requires the PDS HTTPS URL}"
+elif [ -z "${SERVER_HTTPS_URL:-}" ]; then
+  echo "the mobile suite needs HTTPS; unset E2E_HTTPS_PDS_HOSTNAME"
+  exit 1
+fi
+if [ "$PLATFORM" = ios ]; then
+  e2e_ios_install
+else
 # Every build signs with its own throwaway keystore, so an earlier install
 # has an incompatible signature and `install -r` would fail.
 adb_ uninstall "$APP_ID" >/dev/null 2>&1 || true
@@ -100,20 +118,13 @@ adb_ shell settings put secure stylus_handwriting_enabled 0 || true
 # otherwise float over the app and eat maestro's taps
 adb_ shell settings put global hide_error_dialogs 1 || true
 
-if [ "${E2E_UPSTREAM_STATION:-}" = true ]; then
-  : "${UPSTREAM_STATION_URL:?upstream mode requires the station HTTPS URL}"
-  : "${PDS_HTTPS_URL:?upstream mode requires the PDS HTTPS URL}"
-elif [ -z "${SERVER_HTTPS_URL:-}" ]; then
-  echo "the Android suite needs the harness's HTTPS mode (release builds refuse cleartext); unset E2E_HTTPS_PDS_HOSTNAME"
-  exit 1
-fi
 
 # Default to the emulator's host alias. An unprivileged host using a high
 # HTTPS port can instead map the fixture through adb reverse on port 443.
 # E2E_ANDROID_HOST_ADDR then selects device loopback without changing issuers.
 hosts="127.0.0.1 localhost
 ::1 ip6-localhost"
-for name in "$E2E_HTTPS_STATION_HOSTNAME" "$E2E_HTTPS_PDS_HOSTNAME" "$ACCOUNT_HANDLE" plc.directory; do
+for name in "$E2E_HTTPS_STATION_HOSTNAME" "$E2E_HTTPS_PDS_HOSTNAME" "$ACCOUNT_HANDLE" plc.directory ${E2E_HTTPS_PLC_HOSTNAME:+"$E2E_HTTPS_PLC_HOSTNAME"}; do
   hosts="$hosts
 ${E2E_ANDROID_HOST_ADDR:-10.0.2.2} $name"
 done
@@ -152,19 +163,22 @@ adb_ shell am force-stop com.android.chrome || true
 # RFC 3339 writes it (+HH:MM). Maestro runs on this host, so its scripts
 # read stored records from the PDS's plain-HTTP listener.
 device_offset="$(adb_ shell date +%z | tr -d '\r')"
+fi
 [[ "$device_offset" =~ ^[+-][0-9]{4}$ ]] || { echo "can't read $DEVICE's UTC offset: '$device_offset'"; exit 1; }
 
 if [ "${E2E_UPSTREAM_STATION:-}" = true ]; then
-  # Keep the issuer and callback loopback names identical on host and device.
-  # Merely substituting 10.0.2.2 would change the DPoP-bound request target.
-  local_port="${SERVER_URL##*:}"
-  adb_ reverse "tcp:$local_port" "tcp:$local_port"
   APP_SERVER_URL="$SERVER_URL"
-  e2e_android_stop() {
-    adb_ reverse --remove "tcp:$local_port" 2>/dev/null || true
-    e2e_harness_stop
-  }
-  trap e2e_android_stop EXIT INT TERM
+  if [ "$PLATFORM" = android ]; then
+    # Keep the issuer and callback loopback names identical on host and device.
+    # Merely substituting 10.0.2.2 would change the DPoP-bound request target.
+    local_port="${SERVER_URL##*:}"
+    adb_ reverse "tcp:$local_port" "tcp:$local_port"
+    e2e_android_stop() {
+      adb_ reverse --remove "tcp:$local_port" 2>/dev/null || true
+      e2e_harness_stop
+    }
+    trap e2e_android_stop EXIT INT TERM
+  fi
 else
   APP_SERVER_URL="$SERVER_HTTPS_URL"
 fi
@@ -194,6 +208,6 @@ if [ "${E2E_UPSTREAM_STATION:-}" = true ] && [ -z "${E2E_FLOWS:-}" ]; then
 fi
 bash "$REPO/hack/maestro-config.sh" ${E2E_FLOWS:-} > "$ARTIFACTS/workspace.yaml"
 cd "$ARTIFACTS"
-MAESTRO_CLI_NO_ANALYTICS=1 "$MAESTRO" --device "$DEVICE" test \
+MAESTRO_CLI_NO_ANALYTICS=1 "$MAESTRO" --platform "$PLATFORM" --device "$DEVICE" test \
   --test-output-dir "$ARTIFACTS" --config "$ARTIFACTS/workspace.yaml" \
   "${MAESTRO_ARGS[@]}" "$@" "$REPO/.maestro"

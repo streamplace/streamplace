@@ -1,3 +1,5 @@
+const crypto = require("node:crypto");
+const fs = require("node:fs");
 const { FileStore } = require("metro-cache");
 const path = require("path");
 
@@ -7,6 +9,15 @@ let config = getSentryExpoConfig(__dirname, {
   // [Web-only]: Enables CSS support in Metro.
   isCSSEnabled: true,
 });
+
+// Babel receives our Lucide plugin as a function, so its implementation and
+// the icon export map are not automatically part of Metro's transform key.
+config.cacheVersion = crypto
+  .createHash("sha256")
+  .update(config.cacheVersion || "")
+  .update(fs.readFileSync(require.resolve("./babel-plugin-lucide-transform")))
+  .update(fs.readFileSync(require.resolve("lucide-react-native")))
+  .digest("hex");
 
 config.cacheStores = [
   new FileStore({

@@ -12,6 +12,7 @@ import (
 
 	"stream.place/streamplace/pkg/comatproto"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
@@ -21,16 +22,27 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
+// errRepoNotFound marks an account confirmed not to exist, as opposed to a lookup that failed.
+var errRepoNotFound = errors.New("RepoNotFound")
+
 func (s *Server) resolveRepoService(ctx context.Context, repo string) (string, string, string, error) {
 	id, err := syntax.ParseAtIdentifier(repo)
 	if err != nil {
-		return "", "", "", fmt.Errorf("invalid repository identifier %q: %w", repo, err)
+		return "", "", "", fmt.Errorf("%w: invalid repository identifier %q: %w", errRepoNotFound, repo, err)
 	}
 	if s.identityDirectory == nil {
 		return "", "", "", fmt.Errorf("identity directory not configured")
 	}
 	ident, err := s.identityDirectory().Lookup(ctx, id)
 	if err != nil {
+		if errors.Is(err, identity.ErrHandleNotFound) ||
+			errors.Is(err, identity.ErrHandleReservedTLD) ||
+			errors.Is(err, identity.ErrInvalidHandle) ||
+			errors.Is(err, identity.ErrHandleMismatch) ||
+			errors.Is(err, identity.ErrHandleNotDeclared) ||
+			errors.Is(err, identity.ErrDIDNotFound) {
+			err = fmt.Errorf("%w: %w", errRepoNotFound, err)
+		}
 		return "", "", "", fmt.Errorf("failed to resolve repository %q: %w", repo, err)
 	}
 	service := ident.PDSEndpoint()
@@ -75,6 +87,14 @@ func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context, r io.Reader
 }
 
 func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo string) (*comatproto.RepoDescribeRepo_Output, error) {
+	out, err := s.describeRepo(ctx, repo)
+	if errors.Is(err, errRepoNotFound) {
+		return nil, echo.NewHTTPError(http.StatusNotFound, errRepoNotFound.Error()).WithInternal(err)
+	}
+	return out, err
+}
+
+func (s *Server) describeRepo(ctx context.Context, repo string) (*comatproto.RepoDescribeRepo_Output, error) {
 	isLocal, svc, err := s.isLocalPDS(ctx, repo)
 	if err != nil {
 		return nil, fmt.Errorf("error checking for local PDS: %w", err)

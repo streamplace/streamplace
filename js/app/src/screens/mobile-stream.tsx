@@ -6,8 +6,11 @@ import {
   PlayerProvider,
   Text,
   useTheme,
+  useUrl,
   View,
 } from "@streamplace/components";
+import { useActorLookup } from "@streamplace/core";
+import Loading from "components/loading/loading";
 import { Player } from "components/mobile/player";
 import { PlayerProps } from "components/player/props";
 import { FullscreenProvider } from "contexts/FullscreenContext";
@@ -19,12 +22,19 @@ import { queryToProps } from "./util";
 
 const isWeb = Platform.OS === "web";
 
-function NotFoundPage() {
+function StreamRouteState({
+  title,
+  description,
+  retry,
+}: {
+  title: string;
+  description: string;
+  retry?: () => void;
+}) {
   const { t } = useTranslation("common");
   const { theme } = useTheme();
   const linkTo = useLinkTo();
   const navigation = useNavigation();
-  const title = t("page-not-found-title");
   useEffect(() => {
     navigation.setOptions({ title });
   }, [navigation, title]);
@@ -41,12 +51,21 @@ function NotFoundPage() {
       }}
     >
       <Text role="heading" size="xl" weight="semibold" center>
-        {t("page-not-found-title")}
+        {title}
       </Text>
       <Text color="muted" center>
-        {t("page-not-found-description")}
+        {description}
       </Text>
-      <Button onPress={() => linkTo("/")}>{t("nav-home")}</Button>
+      <View style={{ flexDirection: "row", gap: theme.spacing[2] }}>
+        {retry && (
+          <Button width="min" onPress={retry}>
+            {t("try-again")}
+          </Button>
+        )}
+        <Button width="min" onPress={() => linkTo("/")}>
+          {t("nav-home")}
+        </Button>
+      </View>
     </View>
   );
 }
@@ -76,6 +95,22 @@ function MobileStreamInner({
 
 export default function MobileStream({ route }) {
   const { user } = route?.params ?? {};
+  const { t } = useTranslation("common");
+  if (!/[.:]/.test(user ?? "")) {
+    return (
+      <StreamRouteState
+        title={t("page-not-found-title")}
+        description={t("page-not-found-description")}
+      />
+    );
+  }
+  return <AccountStream key={user} user={user} />;
+}
+
+function AccountStream({ user }: { user: string }) {
+  const { t } = useTranslation("common");
+  const nodeUrl = useUrl();
+  const actor = useActorLookup(user, nodeUrl);
   let navi = useNavigation();
   let extraProps: Partial<PlayerProps> = {};
   if (isWeb) {
@@ -93,7 +128,26 @@ export default function MobileStream({ route }) {
     });
   };
 
-  if (!/[.:]/.test(user ?? "")) return <NotFoundPage />;
+  if (actor.status === "not-found") {
+    return (
+      <StreamRouteState
+        title={t("creator-not-found-title")}
+        description={t("creator-not-found-description", {
+          handle: user.startsWith("did:") ? user : `@${user}`,
+        })}
+      />
+    );
+  }
+  if (actor.status === "error") {
+    return (
+      <StreamRouteState
+        title={t("creator-lookup-failed-title")}
+        description={t("creator-lookup-failed-description")}
+        retry={actor.retry}
+      />
+    );
+  }
+  if (actor.status === "loading") return <Loading />;
 
   return (
     <LivestreamProvider key={src} src={src} onTeleport={handleTeleport}>

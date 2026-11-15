@@ -239,6 +239,14 @@ func makeUnauthenticatedRequest(ctx context.Context, service, method string, par
 		return echo.NewHTTPError(http.StatusLoopDetected, "repository proxy loop detected")
 	}
 	if resp.StatusCode != http.StatusOK {
+		// Only an explicit missing-repo response distinguishes absence from an outage.
+		var xrpcErr struct {
+			Error string `json:"error"`
+		}
+		if (resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusNotFound) &&
+			json.NewDecoder(resp.Body).Decode(&xrpcErr) == nil && xrpcErr.Error == errRepoNotFound.Error() {
+			return fmt.Errorf("upstream request failed with status %d: %w", resp.StatusCode, errRepoNotFound)
+		}
 		return fmt.Errorf("upstream request failed with status %d", resp.StatusCode)
 	}
 

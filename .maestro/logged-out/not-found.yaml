@@ -21,13 +21,24 @@ appId: ${APP_ID}
     timeout: 30000
 - openLink: ${APP_ID}://missing.example.invalid
 - extendedWaitUntil:
-    visible: "Log in or sign up to chat"
+    visible: "User not found"
     timeout: 30000
+- assertVisible:
+    "We couldn't find an Atmosphere account for @missing.example.invalid."
+- assertNotVisible: "^@user$"
+- assertNotVisible: "Log in or sign up to chat"
+- takeScreenshot: user-not-found-handle
 - assertNotVisible: "404 — Page not found"
 - openLink: ${APP_ID}://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa
 - extendedWaitUntil:
-    visible: "Log in or sign up to chat"
+    visible: "User not found"
     timeout: 30000
+- assertVisible:
+    "We couldn't find an Atmosphere account for
+    did:plc:aaaaaaaaaaaaaaaaaaaaaaaa."
+- assertNotVisible: "^@user$"
+- assertNotVisible: "Log in or sign up to chat"
+- takeScreenshot: user-not-found-did
 - assertNotVisible: "404 — Page not found"
 - openLink: ${APP_ID}://${ACCOUNT_HANDLE}
 - extendedWaitUntil:

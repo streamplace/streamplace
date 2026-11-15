@@ -16,14 +16,17 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useFullscreen } from "@/contexts/fullscreen-context";
-import { useActorLookup } from "@/hooks/actor-lookup";
 import useAvatars from "@/hooks/use-avatars";
 import { useLivenessState } from "@/hooks/use-liveness-state";
 import { useLivestreamStore } from "@/hooks/use-livestream-store";
 import { useStreamAvatar } from "@/hooks/use-stream-avatar";
 import { useStreamplaceUrl } from "@/lib/store/hooks";
 import type { LivestreamStore } from "@streamplace/core";
-import { formatHandle, formatHandleWithAt } from "@streamplace/core";
+import {
+  formatHandle,
+  formatHandleWithAt,
+  useActorLookup,
+} from "@streamplace/core";
 import {
   createFileRoute,
   Link,
@@ -59,7 +62,8 @@ export const Route = createFileRoute("/$user/")({
 function StreamPage() {
   const { t } = useTranslation("common");
   const { user } = Route.useParams();
-  const actor = useActorLookup(user);
+  const nodeUrl = useStreamplaceUrl();
+  const actor = useActorLookup(user, nodeUrl);
   const actorFound = actor.status === "found";
   const { store, ready } = useLivestreamStore(user, actorFound);
 

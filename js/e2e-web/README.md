@@ -108,9 +108,12 @@ It is web-only: native apps have no browser tab favicon, and branding image
 uploads are already limited to the web.
 
 `not-found` covers both web shells. Unknown root paths without a period or colon
-show a generic 404 with a Home action; query-string punctuation does not make a
-path an account. Named pages, missing-account states, and real handle/DID stream
-playback remain intact. The shared iOS/Android deep-link counterpart is
+show a generic 404 with a content-width Home action; query-string punctuation does
+not make a path an account. Missing handles and DIDs show "User not found" after
+the configured node's `com.atproto.repo.describeRepo` lookup; valid accounts do not
+require a Bluesky profile. Lookup outages offer Retry rather than claiming the
+account is missing. Coverage includes account switching and real handle/DID
+playback. The shared iOS/Android deep-link counterpart is
 `.maestro/logged-out/not-found.yaml`.
 
 `stream` also covers the narrow portrait web layout at 320 × 568, where the

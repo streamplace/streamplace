@@ -526,6 +526,68 @@
         ]
       }
     },
+    "/xrpc/com.atproto.identity.resolveIdentity": {
+      "get": {
+        "summary": "Resolves an identity (DID or Handle) to a full identity (DID document and verified handle).",
+        "operationId": "com.atproto.identity.resolveIdentity",
+        "tags": ["com.atproto.identity"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/com.atproto.identity.defs_identityInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "HandleNotFound"
+                        },
+                        {
+                          "const": "DidNotFound"
+                        },
+                        {
+                          "const": "DidDeactivated"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "query",
+            "required": true,
+            "description": "Handle or DID to resolve.",
+            "schema": {
+              "type": "string",
+              "description": "Handle or DID to resolve.",
+              "format": "at-identifier"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/com.atproto.identity.updateHandle": {
       "post": {
         "summary": "Updates the current account's handle. Verifies handle validity, and updates did:plc document if necessary. Implemented by PDS, and requires auth.",

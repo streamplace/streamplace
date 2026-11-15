@@ -10,6 +10,25 @@ transfer live in the `websocketrep` replicator
 origin, preferring the origin's MoQ URL over its websocket when one is
 advertised, and pushes its own streams to the nodes named in `--peers`.
 
+## Local fMP4 ingest
+
+OBS's `POST /api/ingest/client-configuration` and chunked
+`POST /api/ingest/fmp4/:key` are available only on the internal HTTP listener
+(`SP_HTTP_INTERNAL_ADDR`, default `127.0.0.1:39090`), never the public API.
+Keep this administrative listener private. Ingest has no request deadline and
+supports detached workers taking over the HTTP/1.1 connection.
+
+On Desktop (`SP_UPSTREAM_STATION` set), OBS sends the placeholder
+`streamplace-desktop`. Exactly one logged-in account must be present.
+The node publishes that account's `place.stream.key` through its OAuth session
+after login, and lazily on the first ingest request if necessary. Its private
+multibase key stays in the state database's `desktop_stream_keys` table and is
+reused after restarts; revoking its repo record rotates the key on next use.
+The signing key is indexed locally before use.
+Browser-originated placeholder requests (`Sec-Fetch-Site` other than `none`)
+are forbidden. Real multibase stream keys continue to work on the internal
+listener on all nodes.
+
 ## Wire convention
 
 Every byte a broadcast carries is signed MUXL, laid out the way the rest of

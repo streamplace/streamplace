@@ -16,8 +16,7 @@ func (a *StreamplaceAPI) HandleDesktopOBS(ctx context.Context) http.HandlerFunc 
 			apierrors.WriteHTTPNotFound(w, "OBS requests are only available on single-user nodes", nil)
 			return
 		}
-		if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "none" {
-			apierrors.WriteHTTPForbidden(w, "OBS requests must be opened directly", nil)
+		if !requireDirectOBSRequest(w, r) {
 			return
 		}
 		a.desktopObsPending.Store(true)
@@ -43,4 +42,12 @@ func (a *StreamplaceAPI) HandleDesktopOBSRequest(ctx context.Context) http.Handl
 			log.Error(ctx, "error writing OBS request response", "error", err)
 		}
 	}
+}
+
+func requireDirectOBSRequest(w http.ResponseWriter, r *http.Request) bool {
+	if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "none" {
+		apierrors.WriteHTTPForbidden(w, "OBS requests must be opened directly", nil)
+		return false
+	}
+	return true
 }

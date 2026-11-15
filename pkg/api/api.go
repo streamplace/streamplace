@@ -235,8 +235,6 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addHandle(apiRouter, "POST", "/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
-	addFunc(apiRouter, "POST", "/api/ingest/client-configuration", a.HandleClientConfiguration(ctx))
-	addHandle(apiRouter, "POST", "/api/ingest/fmp4/:key", a.HandleFMP4Ingest(ctx))
 	addHandle(apiRouter, "POST", "/api/player-event", a.HandlePlayerEvent(ctx))
 	addHandle(apiRouter, "GET", "/api/chat/:repoDID", a.HandleChat(ctx))
 	addHandle(apiRouter, "GET", "/api/websocket/:repoDID", a.HandleWebsocket(ctx))
@@ -1183,10 +1181,11 @@ func (a *StreamplaceAPI) ServerWithShutdown(ctx context.Context, handler http.Ha
 	// /api/upload/*; compressing opaque upload bytes is pointless anyway. Clips
 	// skip it too: already-compressed video gains nothing, and gzip would drop
 	// the Content-Length a downloader uses for progress.
+	// fMP4 ingest must keep the raw hijackable writer for detached workers.
 	raw := handler
 	gzipped := gziphandler.GzipHandler(handler)
 	handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, upload.BasePath) || r.URL.Path == "/xrpc/place.stream.live.getClip" {
+		if strings.HasPrefix(r.URL.Path, upload.BasePath) || strings.HasPrefix(r.URL.Path, "/api/ingest/fmp4/") || r.URL.Path == "/xrpc/place.stream.live.getClip" {
 			raw.ServeHTTP(w, r)
 			return
 		}

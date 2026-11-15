@@ -9,12 +9,12 @@ import {
 import { breakpoints } from "@streamplace/components/src/lib/theme/tokens";
 import { ForwardingCard } from "components/desktop/forwarding-card";
 import { LogsCard } from "components/desktop/logs-card";
-import { ObsCard, type ObsCardProps } from "components/desktop/obs-card";
+import { ObsCard } from "components/desktop/obs-card";
 import { RenditionSettings } from "components/desktop/rendition-settings";
 import StreamMonitor from "components/live-dashboard/stream-monitor";
 import Loading from "components/loading/loading";
 import { useLiveUser } from "hooks/useLiveUser";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { ScrollView, useWindowDimensions } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useStreamplaceUrl, useUserProfile } from "store/hooks";
@@ -23,7 +23,7 @@ type DesktopWindow = Window & {
   SP_ELECTRON?: { app?: { focus(): Promise<void> } };
 };
 
-function DesktopInner(props: ObsCardProps) {
+function DesktopInner() {
   const { theme } = useTheme();
   const isLive = useLiveUser();
   const profile = useUserProfile();
@@ -53,7 +53,7 @@ function DesktopInner(props: ObsCardProps) {
         </Button>
       </View>
       <ForwardingCard />
-      <ObsCard {...props} />
+      <ObsCard />
       <RenditionSettings />
       <LogsCard />
     </View>
@@ -96,8 +96,6 @@ export default function Desktop() {
     typeof window === "undefined"
       ? undefined
       : (window as DesktopWindow).SP_ELECTRON?.app;
-  const [obsKeyRequested, setObsKeyRequested] = useState(false);
-  const clearObsKeyRequest = useCallback(() => setObsKeyRequested(false), []);
 
   useEffect(() => {
     if (!bridge) return;
@@ -111,7 +109,6 @@ export default function Desktop() {
           cache: "no-store",
         });
         if (response.status === 200 && !stopped) {
-          setObsKeyRequested(true);
           if (!userProfile) openLoginModal({ name: "Desktop" });
           await bridge.focus();
         }
@@ -174,10 +171,7 @@ export default function Desktop() {
   return (
     <LivestreamProvider src={userProfile.did}>
       <PlayerProvider>
-        <DesktopInner
-          obsKeyRequested={obsKeyRequested}
-          clearObsKeyRequest={clearObsKeyRequest}
-        />
+        <DesktopInner />
       </PlayerProvider>
     </LivestreamProvider>
   );

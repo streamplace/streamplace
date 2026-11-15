@@ -9,8 +9,7 @@ import {
   useToast,
   View,
 } from "@streamplace/components";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useStore } from "store";
+import { useCallback, useEffect, useState } from "react";
 
 interface ObsStatus {
   obs: "absent" | "installed" | "flatpak";
@@ -18,7 +17,7 @@ interface ObsStatus {
   obsRunning: boolean;
   bundledVersion: string;
   installedVersion?: string;
-  handoffDid?: string;
+  connected: boolean;
 }
 
 interface Result {
@@ -30,7 +29,7 @@ interface Result {
 interface ObsBridge {
   status(): Promise<ObsStatus>;
   installPlugin(): Promise<Result & { restartObs: boolean }>;
-  configureStream(did: string, streamKey: string): Promise<Result>;
+  configureStream(): Promise<Result>;
 }
 
 const obsBridge = (): ObsBridge | undefined =>
@@ -45,26 +44,13 @@ const describe = (s: ObsStatus): string => {
   return "Streamplace plugin installed";
 };
 
-export type ObsCardProps = {
-  obsKeyRequested: boolean;
-  clearObsKeyRequest: () => void;
-};
-
-/**
- * Streamplace Desktop's OBS setup: installing the plugin it ships, and
- * pointing OBS at this node with a new stream key. Nothing outside Desktop.
- */
-export function ObsCard({ obsKeyRequested, clearObsKeyRequest }: ObsCardProps) {
+// Streamplace Desktop's bundled plugin and local OBS profile setup.
+export function ObsCard() {
   const { theme } = useTheme();
   const toast = useToast();
   const bridge = obsBridge();
   const [status, setStatus] = useState<ObsStatus | null>(null);
   const [busy, setBusy] = useState(false);
-  const connecting = useRef(false);
-  const attemptedDid = useRef<string | undefined>(undefined);
-  const did = useStore((s) => s.oauthSession?.did);
-  const createStreamKeyRecord = useStore((s) => s.createStreamKeyRecord);
-  const clearStreamKeyRecord = useStore((s) => s.clearStreamKeyRecord);
 
   const refresh = useCallback(async () => {
     if (bridge) setStatus(await bridge.status());
@@ -98,45 +84,9 @@ export function ObsCard({ obsKeyRequested, clearObsKeyRequest }: ObsCardProps) {
     [toast, refresh],
   );
 
-  const connect = useCallback(async () => {
-    if (!bridge || !did || connecting.current) return;
-    connecting.current = true;
-    try {
-      await run(async () => {
-        clearStreamKeyRecord();
-        await createStreamKeyRecord(false);
-        const key = useStore.getState().newKey;
-        clearStreamKeyRecord();
-        if (!key) {
-          return { ok: false, error: "Couldn't create a stream key." };
-        }
-        return bridge.configureStream(did, key.privateKey);
-      }, "OBS connected.");
-    } finally {
-      connecting.current = false;
-    }
-  }, [bridge, did, run, createStreamKeyRecord, clearStreamKeyRecord]);
-
-  // Sending a key to a running OBS doesn't work yet, so wait until it closes.
-  useEffect(() => {
-    if (
-      !did ||
-      busy ||
-      status?.obs !== "installed" ||
-      status.plugin !== "current" ||
-      status.obsRunning
-    ) {
-      return;
-    }
-    if (
-      obsKeyRequested ||
-      (status.handoffDid !== did && attemptedDid.current !== did)
-    ) {
-      attemptedDid.current = did;
-      clearObsKeyRequest();
-      void connect();
-    }
-  }, [did, busy, status, obsKeyRequested, clearObsKeyRequest, connect]);
+  const connect = () => {
+    if (bridge) void run(() => bridge.configureStream(), "OBS connected.");
+  };
 
   if (!bridge || !status) return null;
 
@@ -167,14 +117,14 @@ export function ObsCard({ obsKeyRequested, clearObsKeyRequest }: ObsCardProps) {
             )}
             {installable && status.plugin === "current" && (
               <>
-                {status.handoffDid === did && (
+                {status.connected && (
                   <Text size="sm" testID="desktop-obs-connected">
                     OBS connected
                   </Text>
                 )}
                 <Button
                   onPress={connect}
-                  disabled={busy || !did || status.obsRunning}
+                  disabled={busy || status.obsRunning}
                   width="min"
                 >
                   Connect OBS

@@ -94,6 +94,7 @@ EXPORTS
     obs_queue_task
     obs_remove_tick_callback
     obs_service_get_connect_info
+    obs_service_get_id
     obs_service_get_settings
     obs_service_update
     obs_video_encoder_create

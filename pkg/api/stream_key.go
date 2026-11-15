@@ -13,6 +13,15 @@ import (
 	"stream.place/streamplace/pkg/media"
 )
 
+const desktopPlaceholderKey = "streamplace-desktop"
+
+func (a *StreamplaceAPI) resolveIngestKey(ctx context.Context, key string) (string, error) {
+	if key == desktopPlaceholderKey && a.CLI.UpstreamStation != "" {
+		return a.StatefulDB.DesktopIngestKey(ctx)
+	}
+	return key, nil
+}
+
 func (a *StreamplaceAPI) MakeMediaSigner(ctx context.Context, keyStr string) (media.MediaSigner, error) {
 	if len(keyStr) < 2 || keyStr[0] != 'z' {
 		return nil, fmt.Errorf("invalid authorization key (not a multibase base58btc string)")

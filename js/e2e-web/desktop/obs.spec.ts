@@ -1,10 +1,10 @@
-import { cp, mkdir, readFile, stat } from "node:fs/promises";
+import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { expect, test } from "./fixture";
 import { loginThroughSystemBrowser } from "./login";
 
-// Also Desktop's lifecycle check: the session and PDS writes survive a restart.
-test("OBS gets a key through Desktop login, kept across reloads and restarts", async ({
+// Also Desktop's lifecycle check: the login and OBS connection survive a restart.
+test("OBS connects to Desktop's internal ingest and stays connected after restart", async ({
   desktop,
   request,
 }) => {
@@ -23,6 +23,11 @@ test("OBS gets a key through Desktop login, kept across reloads and restarts", a
     ),
     join(plugin, "manifest.json"),
   );
+  const profile = join(config, "basic", "profiles", "Desktop");
+  await mkdir(profile, { recursive: true });
+  await writeFile(join(config, "user.ini"), "[Basic]\nProfileDir=Desktop\n");
+  await writeFile(join(profile, "basic.ini"), "[General]\nName=Desktop\n");
+
   const handleField = desktop.page
     .locator('[data-testid="login-handle"], [data-testid="login-handle"] input')
     .first();
@@ -31,76 +36,32 @@ test("OBS gets a key through Desktop login, kept across reloads and restarts", a
   await expect(handleField).not.toBeVisible();
   await expect(desktop.page.getByTestId("desktop-login")).toBeVisible();
   expect((await request.get(`${desktop.nodeURL}/desktop/obs`)).ok()).toBe(true);
+  await expect(handleField).toBeVisible();
   await loginThroughSystemBrowser(desktop);
 
-  const file = join(
-    config,
-    "plugin_config",
-    "obs-streamplace",
-    "stream-key.json",
-  );
-  await expect
-    .poll(async () => readFile(file, "utf8").catch(() => ""), {
-      timeout: 60_000,
-    })
-    .toContain(process.env.ACCOUNT_DID!);
-  const original = await readFile(file, "utf8");
-  expect(JSON.parse(original)).toEqual({
-    did: process.env.ACCOUNT_DID,
-    key: expect.stringMatching(/^z[1-9A-HJ-NP-Za-km-z]+$/),
-    server: desktop.nodeURL,
-    replaces: [],
-  });
-  const modified = (await stat(file)).mtimeMs;
-  await expect(desktop.page.getByTestId("desktop-obs-connected")).toBeVisible();
-  await expect(
-    desktop.page.getByRole("button", { name: "Connect OBS", exact: true }),
-  ).toBeEnabled();
-  await desktop.page.reload();
-  await expect(desktop.page.getByTestId("desktop-obs-connected")).toBeVisible();
-  await expect(
-    desktop.page.getByRole("button", { name: "Connect OBS", exact: true }),
-  ).toBeEnabled();
-  expect(await readFile(file, "utf8")).toBe(original);
-  expect((await stat(file)).mtimeMs).toBe(modified);
-
-  // An explicit request still re-keys an already connected account.
-  expect((await request.get(`${desktop.nodeURL}/desktop/obs`)).ok()).toBe(true);
-  await expect
-    .poll(() => readFile(file, "utf8"), { timeout: 60_000 })
-    .not.toBe(original);
-  expect(JSON.parse(await readFile(file, "utf8"))).toEqual({
-    did: process.env.ACCOUNT_DID,
-    key: expect.stringMatching(/^z[1-9A-HJ-NP-Za-km-z]+$/),
-    server: desktop.nodeURL,
-    replaces: [JSON.parse(original).key],
-  });
-
-  const keyRecords = async () => {
-    const url = new URL(
-      "/xrpc/com.atproto.repo.listRecords",
-      process.env.PDS_HTTPS_URL!,
-    );
-    url.search = new URLSearchParams({
-      repo: process.env.ACCOUNT_DID!,
-      collection: "place.stream.key",
-    }).toString();
-    const response = await request.get(url.toString(), {
-      ignoreHTTPSErrors: true,
-    });
-    expect(response.ok()).toBe(true);
-    return ((await response.json()).records as unknown[]).length;
+  await desktop.page
+    .getByRole("button", { name: "Connect OBS", exact: true })
+    .click();
+  const file = join(profile, "service.json");
+  const expected = {
+    type: "rtmp_common",
+    settings: {
+      service: "Streamplace",
+      server: desktop.internalURL,
+      key: "streamplace-desktop",
+    },
   };
-  const rekeyed = await readFile(file, "utf8");
-  const before = await keyRecords();
+  await expect
+    .poll(async () =>
+      JSON.parse(await readFile(file, "utf8").catch(() => "null")),
+    )
+    .toEqual(expected);
+  await expect(desktop.page.getByTestId("desktop-obs-connected")).toBeVisible();
+
   const page = await desktop.restart();
   await expect(
     page.getByText(`Signed in as @${process.env.ACCOUNT_HANDLE}`),
   ).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId("desktop-obs-connected")).toBeVisible();
-  expect(await readFile(file, "utf8")).toBe(rekeyed);
-  expect(await keyRecords()).toBe(before);
-  // The session still writes to the PDS after a restart.
-  await page.getByRole("button", { name: "Connect OBS", exact: true }).click();
-  await expect.poll(keyRecords, { timeout: 60_000 }).toBe(before + 1);
+  expect(JSON.parse(await readFile(file, "utf8"))).toEqual(expected);
 });

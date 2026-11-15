@@ -116,9 +116,11 @@ if (require("electron-squirrel-startup")) {
       initUpdater();
     }
     let loadAddr;
+    let obsServer = "http://127.0.0.1:39090";
     if (!skipNode) {
-      const { addr } = await makeNode({ env, autoQuit: true });
+      const { addr, internalAddr } = await makeNode({ env, autoQuit: true });
       loadAddr = addr;
+      obsServer = internalAddr;
     }
     const window = await makeWindow();
 
@@ -131,7 +133,6 @@ if (require("electron-squirrel-startup")) {
 
     // For the OBS setup screen and system-browser logins, through
     // SP_ELECTRON in preload.ts. Only the app's own pages may call them.
-    const server = loadAddr ?? "http://127.0.0.1:38080";
     const appOrigin = new URL(startPath).origin;
     const handleIPC = <A extends unknown[]>(
       channel: string,
@@ -151,9 +152,7 @@ if (require("electron-squirrel-startup")) {
     });
     handleIPC("obs:status", () => obsStatus());
     handleIPC("obs:installPlugin", () => installPlugin());
-    handleIPC("obs:configureStream", (did: string, streamKey: string) =>
-      configureStream(server, did, streamKey),
-    );
+    handleIPC("obs:configureStream", () => configureStream(obsServer));
     handleIPC("auth:openLogin", async (url: string) => {
       // The app may point at a custom node, so any web page is allowed here;
       // never hand an arbitrary scheme to the OS.

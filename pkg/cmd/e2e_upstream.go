@@ -141,10 +141,11 @@ func startE2EBridge(ctx context.Context, tlsEnv *e2eHTTPS, pdsURL, binary string
 }
 
 type e2eLocalNode struct {
-	mu      sync.Mutex
-	cmd     *exec.Cmd
-	addr    string
-	dataDir string
+	mu           sync.Mutex
+	cmd          *exec.Cmd
+	addr         string
+	internalAddr string
+	dataDir      string
 }
 
 func (n *e2eLocalNode) Close(ctx context.Context, did string) {
@@ -225,11 +226,11 @@ func startE2ELocalNode(ctx context.Context, self string, tlsEnv *e2eHTTPS, env e
 	if err != nil {
 		return nil, err
 	}
-	n := &e2eLocalNode{addr: fmt.Sprintf("127.0.0.1:%d", ports[0]), dataDir: dir}
+	n := &e2eLocalNode{addr: fmt.Sprintf("127.0.0.1:%d", ports[0]), internalAddr: fmt.Sprintf("127.0.0.1:%d", ports[1]), dataDir: dir}
 	n.cmd = exec.CommandContext(ctx, self)
 	n.cmd.Env = append(e2eNodeEnv(),
 		"SP_HTTP_ADDR="+n.addr,
-		fmt.Sprintf("SP_HTTP_INTERNAL_ADDR=127.0.0.1:%d", ports[1]),
+		"SP_HTTP_INTERNAL_ADDR="+n.internalAddr,
 		fmt.Sprintf("SP_RTMP_ADDR=127.0.0.1:%d", ports[2]),
 		fmt.Sprintf("SP_MOQ_ADDR=127.0.0.1:%d", moqPort),
 		"SP_DATA_DIR="+dir,

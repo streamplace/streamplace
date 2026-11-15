@@ -392,6 +392,9 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 					if _, err := atsync.SyncBlueskyRepoCached(ctx, did); err != nil {
 						log.Warn(ctx, "failed to sync newly authenticated repo", "did", did, "err", err)
 					}
+					if _, err := state.DesktopStreamKey(ctx, did); err != nil {
+						log.Warn(ctx, "failed to prepare desktop stream key", "did", did, "err", err)
+					}
 				}()
 			}
 			return nil

@@ -198,8 +198,8 @@ jobs:
           E2E_HARNESS_LOG: ${{ runner.temp }}/harness-web.log
 
       # The stream specs again, with the harness pushing the way the OBS plugin
-      # does (/api/ingest/client-configuration, then fragmented MP4 with a
-      # "Music" stem), so that ingest path and audio stems are covered from
+      # does (internal /api/ingest/client-configuration, then fragmented MP4
+      # with a "Music" stem), so that ingest path and audio stems are covered from
       # push to web playback.
       - name: Run web stream e2e tests over fMP4 ingest
         if: matrix.mode == 'standalone'

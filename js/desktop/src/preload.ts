@@ -10,8 +10,7 @@ contextBridge.exposeInMainWorld("SP_ELECTRON", {
   obs: {
     status: () => ipcRenderer.invoke("obs:status"),
     installPlugin: () => ipcRenderer.invoke("obs:installPlugin"),
-    configureStream: (did: string, streamKey: string) =>
-      ipcRenderer.invoke("obs:configureStream", did, streamKey),
+    configureStream: () => ipcRenderer.invoke("obs:configureStream"),
   },
   // Desktop logins open in the system browser so passkeys work; the local
   // node holds the callback for the app to poll.

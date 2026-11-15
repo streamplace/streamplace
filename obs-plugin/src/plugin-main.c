@@ -28,7 +28,7 @@ static const char service_entry[] = "{"
 				    "\"protocol\": \"" STREAMPLACE_PROTOCOL "\","
 				    "\"more_info_link\": \"https://stream.place/about\","
 				    "\"stream_key_link\": \"http://127.0.0.1:38080/desktop/obs\","
-				    "\"servers\": [{\"name\": \"Local Streamplace node\", \"url\": \"http://127.0.0.1:38080\"}],"
+				    "\"servers\": [{\"name\": \"Local Streamplace node\", \"url\": \"http://127.0.0.1:39090\"}],"
 				    "\"supported video codecs\": [\"h264\", \"av1\"],"
 				    "\"supported audio codecs\": [\"aac\", \"opus\"],"
 				    "\"recommended\": {\"keyint\": 1, \"bframes\": 0}"
@@ -104,79 +104,61 @@ static void install_service_entry(void)
 	bfree(config_dir);
 }
 
-static char *handoff_path;
-static float handoff_elapsed;
-static atomic_bool handoff_pending;
-static atomic_bool handoff_stopped;
+static float service_elapsed;
+static atomic_bool service_pending;
+static atomic_bool service_stopped;
 
-/* Desktop's persisted key history survives restarts and stale Settings saves,
- * while keys entered by hand are never eligible for replacement. */
-static void apply_handoff(void *unused)
+/* OBS rejects an empty key before starting the output, even for local ingest. */
+static void configure_service(void *unused)
 {
 	UNUSED_PARAMETER(unused);
-	atomic_store(&handoff_pending, false);
-	if (atomic_load(&handoff_stopped))
+	atomic_store(&service_pending, false);
+	if (atomic_load(&service_stopped))
 		return;
-
-	json_t *handoff = load_json(handoff_path);
-	const char *key = json_string_value(json_object_get(handoff, "key"));
-	const char *did = json_string_value(json_object_get(handoff, "did"));
-	const char *server = json_string_value(json_object_get(handoff, "server"));
-	if (!key || !*key || !did || !*did || !server || !*server) {
-		json_decref(handoff);
-		return;
-	}
 
 	/* The frontend owns this service; only its settings need releasing. */
 	obs_service_t *service = obs_frontend_get_streaming_service();
-	if (service) {
-		obs_data_t *settings = obs_service_get_settings(service);
-		const char *name = obs_data_get_string(settings, "service");
-		const char *current = obs_data_get_string(settings, "key");
-		bool replaceable = !*current;
-		json_t *replaces = json_object_get(handoff, "replaces");
-		if (json_is_array(replaces)) {
-			size_t i;
-			json_t *value;
-			json_array_foreach(replaces, i, value) {
-				const char *old = json_string_value(value);
-				if (old && strcmp(current, old) == 0) {
-					replaceable = true;
-					break;
-				}
-			}
-		}
-		if (strcmp(name, "Streamplace") == 0 && replaceable && strcmp(current, key) != 0) {
-			obs_data_set_string(settings, "key", key);
-			obs_data_set_string(settings, "server", server);
+	if (!service || strcmp(obs_service_get_id(service), "rtmp_common") != 0)
+		return;
+	obs_data_t *settings = obs_service_get_settings(service);
+	if (strcmp(obs_data_get_string(settings, "service"), "Streamplace") == 0) {
+		bool empty = !*obs_data_get_string(settings, "key");
+		bool old_server = strcmp(obs_data_get_string(settings, "server"), "http://127.0.0.1:38080") == 0;
+		if (empty)
+			obs_data_set_string(settings, "key", "streamplace-desktop");
+		if (old_server)
+			obs_data_set_string(settings, "server", "http://127.0.0.1:39090");
+		if (empty || old_server) {
 			obs_service_update(service, settings);
 			obs_frontend_save_streaming_service();
-			do_log(LOG_INFO, "Applied Desktop stream key for %s", did);
+			if (empty)
+				do_log(LOG_INFO, "Filled the Desktop placeholder stream key");
 		}
-		obs_data_release(settings);
 	}
-	json_decref(handoff);
+	obs_data_release(settings);
 }
 
-/* The video tick only schedules work; file IO and service updates run on UI. */
-static void handoff_tick(void *unused, float seconds)
+/* The video tick only schedules work; service updates run on the UI thread. */
+static void service_tick(void *unused, float seconds)
 {
 	UNUSED_PARAMETER(unused);
-	if (atomic_load(&handoff_stopped))
+	if (atomic_load(&service_stopped))
 		return;
-	handoff_elapsed += seconds;
-	if (handoff_elapsed < 1.0f)
+	service_elapsed += seconds;
+	if (service_elapsed < 1.0f)
 		return;
-	handoff_elapsed = 0;
-	if (!atomic_exchange(&handoff_pending, true))
-		obs_queue_task(OBS_TASK_UI, apply_handoff, NULL, false);
+	service_elapsed = 0;
+	if (!atomic_exchange(&service_pending, true))
+		obs_queue_task(OBS_TASK_UI, configure_service, NULL, false);
 }
 
-static void handoff_event(enum obs_frontend_event event, void *unused)
+static void service_event(enum obs_frontend_event event, void *unused)
 {
 	UNUSED_PARAMETER(unused);
 	if (event == OBS_FRONTEND_EVENT_EXIT)
-		atomic_store(&handoff_stopped, true);
+		atomic_store(&service_stopped, true);
+	else if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING || event == OBS_FRONTEND_EVENT_PROFILE_CHANGED)
+		obs_queue_task(OBS_TASK_UI, configure_service, NULL, false);
 }
 
 bool obs_module_load(void)
@@ -190,16 +172,14 @@ bool obs_module_load(void)
 void obs_module_post_load(void)
 {
 	install_service_entry();
-	handoff_path = obs_module_config_path("stream-key.json");
-	obs_frontend_add_event_callback(handoff_event, NULL);
-	obs_add_tick_callback(handoff_tick, NULL);
+	obs_frontend_add_event_callback(service_event, NULL);
+	obs_add_tick_callback(service_tick, NULL);
 }
 
 void obs_module_unload(void)
 {
-	atomic_store(&handoff_stopped, true);
-	obs_remove_tick_callback(handoff_tick, NULL);
-	obs_frontend_remove_event_callback(handoff_event, NULL);
-	bfree(handoff_path);
+	atomic_store(&service_stopped, true);
+	obs_remove_tick_callback(service_tick, NULL);
+	obs_frontend_remove_event_callback(service_event, NULL);
 	http_free();
 }

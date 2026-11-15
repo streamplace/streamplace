@@ -32,8 +32,10 @@ export async function loginThroughSystemBrowser(
     .locator('[data-testid="login-handle"], [data-testid="login-handle"] input')
     .first();
   await expect(handleField).toBeVisible({ timeout: 60_000 });
+  // The signed-out fallback stays hidden behind an open login modal.
+  await expect(page.getByTestId("desktop-login")).toHaveCount(0);
   await handleField.fill(handle);
-  await page.getByTestId("login-submit").click();
+  await handleField.press("Enter");
 
   await expect
     .poll(
@@ -88,7 +90,11 @@ export async function loginThroughSystemBrowser(
   }
 
   // The renderer polls the node and completes the login.
-  await expect(page.getByText("Streamplace Desktop").first()).toBeVisible({
+  await expect(page.getByText(`Signed in as @${handle}`)).toBeVisible({
     timeout: 60_000,
   });
+  // One submit opens one login.
+  expect(
+    await app.evaluate(() => globalThis.__streamplaceOpenExternalURLs?.length),
+  ).toBe(1);
 }

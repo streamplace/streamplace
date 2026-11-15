@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"html/template"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -17,6 +18,16 @@ import (
 
 //go:embed desktop-return.html
 var desktopReturnHTML string
+
+var desktopReturnTemplate = template.Must(template.New("desktop-return").Parse(desktopReturnHTML))
+
+func writeDesktopReturn(ctx context.Context, w http.ResponseWriter, title, message string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	if err := desktopReturnTemplate.Execute(w, struct{ Title, Message string }{title, message}); err != nil {
+		log.Error(ctx, "error writing desktop return page", "error", err)
+	}
+}
 
 var desktopTokenPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{16,128}$`)
 
@@ -58,11 +69,7 @@ func (a *StreamplaceAPI) HandleDesktopOAuthReturn(ctx context.Context) httproute
 			expires: now.Add(desktopReturnTTL),
 		}
 		desktopOAuthStore.Unlock()
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-store")
-		if _, err := w.Write([]byte(desktopReturnHTML)); err != nil {
-			log.Error(ctx, "error writing response", "error", err)
-		}
+		writeDesktopReturn(ctx, w, "You're logged in", "You can close this window and return to Streamplace Desktop.")
 	}
 }
 

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Signed in to Streamplace</title>
+    <title>{{.Title}}</title>
     <style>
       html,
       body {
@@ -43,8 +43,8 @@
   </head>
   <body>
     <main>
-      <h1>You're logged in</h1>
-      <p>You can close this window and return to Streamplace Desktop.</p>
+      <h1>{{.Title}}</h1>
+      <p>{{.Message}}</p>
     </main>
   </body>
 </html>

@@ -328,6 +328,7 @@ export function RenditionSettings() {
           onPress={save}
           disabled={!valid || saving}
           loading={saving}
+          width="min"
           testID="desktop-save"
         >
           Save

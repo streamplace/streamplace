@@ -17,11 +17,12 @@ Search for games and other entities via the games.gamesgamesgamesgames catalog. 
 
 **Parameters:**
 
-| Name     | Type      | Req'd | Description | Constraints                           |
-| -------- | --------- | ----- | ----------- | ------------------------------------- |
-| `q`      | `string`  | ✅    |             | Min Length: 1<br/>Max Length: 200     |
-| `limit`  | `integer` | ❌    |             | Min: 1<br/>Max: 100<br/>Default: `20` |
-| `cursor` | `string`  | ❌    |             |                                       |
+| Name     | Type              | Req'd | Description | Constraints                           |
+| -------- | ----------------- | ----- | ----------- | ------------------------------------- |
+| `q`      | `string`          | ✅    |             | Min Length: 1<br/>Max Length: 200     |
+| `limit`  | `integer`         | ❌    |             | Min: 1<br/>Max: 100<br/>Default: `20` |
+| `cursor` | `string`          | ❌    |             |                                       |
+| `types`  | Array of `string` | ❌    |             |                                       |
 
 **Output:**
 
@@ -65,6 +66,12 @@ Search for games and other entities via the games.gamesgamesgamesgames catalog. 
           },
           "cursor": {
             "type": "string"
+          },
+          "types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

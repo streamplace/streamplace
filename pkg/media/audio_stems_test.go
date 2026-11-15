@@ -412,7 +412,7 @@ func TestPublishRenditionsForPlaybackCarriesStems(t *testing.T) {
 	sub := b.SubscribeSegment(ctx, did, "120p")
 	defer b.UnsubscribeSegment(ctx, did, "120p", sub)
 	mm.rememberSourceAudio(ctx, did, src)
-	mm.PublishRenditionsForPlayback(ctx, did, addendum, true)
+	require.NoError(t, mm.PublishRenditionsForPlayback(ctx, did, addendum, true))
 	select {
 	case seg := <-sub.C:
 		packet := seg.PacketizedData

@@ -58,35 +58,23 @@ function DesktopInner(props: ObsCardProps) {
       <LogsCard />
     </View>
   );
-  const monitor = <StreamMonitor isLive={isLive} userProfile={profile} />;
 
-  // Wide: the settings column scrolls beside the preview. Narrow: one column.
-  if (wide) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          flexDirection: "row",
-          gap: theme.spacing[4],
-          padding: theme.spacing[4],
-          backgroundColor: theme.colors.surface0,
-        }}
-      >
-        <View style={{ flex: 2 }}>{monitor}</View>
-        <ScrollView style={{ flex: 1 }}>{panel}</ScrollView>
-      </View>
-    );
-  }
+  // One tree at every width, so resizing never remounts the settings. Wide:
+  // the page is window-high and the settings column scrolls. Narrow: it all does.
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.colors.surface0 }}
       contentContainerStyle={{
+        flexDirection: wide ? "row" : "column",
         gap: theme.spacing[4],
         padding: theme.spacing[4],
+        ...(wide && { height: "100%" }),
       }}
     >
-      <View style={{ width: "100%", aspectRatio: 16 / 9 }}>{monitor}</View>
-      {panel}
+      <View style={wide ? { flex: 2 } : { width: "100%", aspectRatio: 16 / 9 }}>
+        <StreamMonitor isLive={isLive} userProfile={profile} />
+      </View>
+      <ScrollView style={wide ? { flex: 1 } : undefined}>{panel}</ScrollView>
     </ScrollView>
   );
 }

@@ -188,7 +188,7 @@ func (t *GameSearch_Output_Results_Elem) UnmarshalCBOR(b []byte) error {
 // GameSearch calls the XRPC method "place.stream.game.search".
 //
 // Search for games and other entities via the games.gamesgamesgamesgames catalog. Proxied from the configured games API.
-func GameSearch(ctx context.Context, c glex.LexClient, cursor string, limit *int64, q string) (*GameSearch_Output, error) {
+func GameSearch(ctx context.Context, c glex.LexClient, cursor string, limit *int64, q string, types []string) (*GameSearch_Output, error) {
 	var out GameSearch_Output
 
 	params := map[string]interface{}{}
@@ -197,6 +197,9 @@ func GameSearch(ctx context.Context, c glex.LexClient, cursor string, limit *int
 	}
 	if limit != nil {
 		params["limit"] = *limit
+	}
+	if len(types) != 0 {
+		params["types"] = types
 	}
 	params["q"] = q
 

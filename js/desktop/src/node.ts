@@ -174,6 +174,8 @@ export default async function makeNode(opts: {
     proc,
     addr: `http://${addr}`,
     internalAddr: `http://${internalAddr}`,
+    // Only a single-user node accepts OBS's placeholder key.
+    singleUser: !!upstreamStation,
   };
 }
 

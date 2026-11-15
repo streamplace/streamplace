@@ -117,10 +117,12 @@ if (require("electron-squirrel-startup")) {
     }
     let loadAddr;
     let obsServer = "http://127.0.0.1:39090";
+    let singleUser = true;
     if (!skipNode) {
-      const { addr, internalAddr } = await makeNode({ env, autoQuit: true });
-      loadAddr = addr;
-      obsServer = internalAddr;
+      const node = await makeNode({ env, autoQuit: true });
+      loadAddr = node.addr;
+      obsServer = node.internalAddr;
+      singleUser = node.singleUser;
     }
     const window = await makeWindow();
 
@@ -152,7 +154,15 @@ if (require("electron-squirrel-startup")) {
     });
     handleIPC("obs:status", () => obsStatus());
     handleIPC("obs:installPlugin", () => installPlugin());
-    handleIPC("obs:configureStream", () => configureStream(obsServer));
+    handleIPC("obs:configureStream", async () =>
+      singleUser
+        ? configureStream(obsServer)
+        : {
+            ok: false,
+            error:
+              "This node has no upstream station, so OBS needs a stream key.",
+          },
+    );
     handleIPC("auth:openLogin", async (url: string) => {
       // The app may point at a custom node, so any web page is allowed here;
       // never hand an arbitrary scheme to the OS.

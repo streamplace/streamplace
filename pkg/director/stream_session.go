@@ -1168,6 +1168,7 @@ func sanitizeMultistreamTargetURL(uri string) string {
 // statedb until then.
 type multistreamTargets struct {
 	space      spaces.Client // nil: look for a session before the next read
+	openAt     time.Time     // when to look for one though statedb has targets
 	spaceUntil time.Time     // when space's access token runs out
 	pds        string        // URL of the PDS that hosts the space
 	inSpace    bool          // the space holds the targets, statedb none
@@ -1224,24 +1225,33 @@ func (ss *StreamSession) refreshMultistreamTargets(ctx context.Context, t *multi
 	if t.space != nil && time.Until(t.spaceUntil) < 30*time.Second {
 		t.space = nil
 	}
-	// Active rows in statedb mean their owner has no space to look for yet.
-	if t.space == nil && (t.inSpace || len(t.active) == 0) {
-		if err := ss.openPersonalSpace(ctx, t); err != nil {
-			log.Error(ctx, "failed to open the personal space", "error", err)
-		}
-	}
-	if t.space == nil {
-		if t.inSpace {
-			return
-		}
+	var legacy []placestream.MultistreamDefs_TargetView
+	if t.space == nil && !t.inSpace {
 		isTrue := true
-		targets, err := ss.statefulDB.ListMultistreamTargets(ss.repoDID, 100, 0, &isTrue)
+		var err error
+		legacy, err = ss.statefulDB.ListMultistreamTargets(ss.repoDID, 100, 0, &isTrue)
 		if err != nil {
 			log.Error(ctx, "failed to list multistream targets", "error", err)
 			return
 		}
-		t.active = targets
-		return
+		// Targets in statedb mean no space was found for them, so look again
+		// only each minute. None may mean they have just moved: look at once.
+		if len(legacy) > 0 && time.Now().Before(t.openAt) {
+			t.active = legacy
+			return
+		}
+		t.openAt = time.Now().Add(time.Minute)
+	}
+	if t.space == nil {
+		if err := ss.openPersonalSpace(ctx, t); err != nil {
+			log.Error(ctx, "failed to open the personal space", "error", err)
+		}
+		if t.space == nil {
+			if !t.inSpace {
+				t.active = legacy
+			}
+			return
+		}
 	}
 	// Following starts before the read, so no change falls between the two.
 	if time.Now().After(t.followAt) {

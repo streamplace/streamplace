@@ -141,12 +141,14 @@ for a stored session of the streamer that has the grant:
   (`com.atproto.space.getLatestCommit`) and reads the targets again when
   that changes. It reuses its client until the access token is about to run
   out, so statedb is not asked again in between.
-- **Not found**: it reads statedb as before, and looks for a session again
-  whenever statedb has no active targets for the streamer.
+- **Not found**, or the space could not be opened: it reads statedb as
+  before, and looks again every minute. It looks at once when statedb has no
+  active targets, which is also what statedb shows just after they moved, so
+  a move under a running stream restarts no push.
 
 When the PDS cannot be read, the server keeps driving the targets it last
-saw. A server that starts driving a stream while the PDS is down has none
-until it comes back.
+saw. A server that starts driving a moved user's stream while the PDS is
+down has none until it comes back.
 
 ### Change notifications
 

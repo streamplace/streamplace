@@ -37,10 +37,19 @@ const AUTH_FULL = "place.stream.authFull";
 const SCHEMA_ROOT = fileURLToPath(
   new URL("../../../lexicons/place/stream", import.meta.url),
 );
+const SCHEMA_OVERLAY_ROOT = fileURLToPath(
+  new URL("../../../pkg/spaces/lexicons", import.meta.url),
+);
 
-/** This checkout's place.stream.* lexicon documents, exactly as in their files. */
+/** Published place.stream.* documents, with raw spaces overlays taking precedence. */
 export function readSchemaDocs() {
-  const docs = readLexiconDocs([SCHEMA_ROOT]);
+  const byID = new Map(
+    readLexiconDocs([SCHEMA_ROOT]).map((doc) => [doc.id, doc]),
+  );
+  for (const doc of readLexiconDocs([SCHEMA_OVERLAY_ROOT])) {
+    byID.set(doc.id, doc);
+  }
+  const docs = [...byID.values()].sort((a, b) => a.id.localeCompare(b.id));
   for (const { id } of docs) {
     if (!id.startsWith(SCHEMA_NAMESPACE)) {
       throw new Error(`${id} is not a ${SCHEMA_NAMESPACE}* lexicon`);

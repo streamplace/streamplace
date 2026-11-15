@@ -9,6 +9,7 @@ lexicons/chat
 lexicons/com
 lexicons/tools
 lexicons/games
+pkg/spaces/lexicons/place.stream.authFull.json
 js/app/assets/emoji-data-stripped.json
 js/web/public/emoji-data.json
 **/routeTree.gen.ts

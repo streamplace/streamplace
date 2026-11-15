@@ -21,11 +21,12 @@ vi.mock("@streamplace/components", async () => ({
   DropdownMenuItem: ({ children, onPress }: any) =>
     createElement("button", { onClick: onPress }, children),
   Text: View,
-  Input: ({ value, onChangeText, placeholder }: any) =>
+  Input: ({ value, onChangeText, onSubmitEditing, placeholder }: any) =>
     createElement("input", {
       value,
       placeholder,
       onChange: (e: any) => onChangeText(e.target.value),
+      onKeyDown: (e: any) => e.key === "Enter" && onSubmitEditing?.(),
     }),
 }));
 vi.mock(
@@ -100,14 +101,51 @@ it.each([
       "value",
     )!.set!.call(input, query);
     input.dispatchEvent(new Event("input", { bubbles: true }));
-    await vi.advanceTimersByTimeAsync(300);
+    await vi.advanceTimersByTimeAsync(0);
   });
-  const result = Array.from(container.querySelectorAll("button")).find((el) =>
-    el.textContent?.includes("Cooking Simulator"),
-  );
-  expect(result).toBeDefined();
-  await act(async () => result?.click());
   expect(selected).toEqual({
+    $type: "place.stream.defs#activityGame",
+    uri,
+    name: "Cooking Simulator",
+  });
+});
+
+it("selects a single game when the search is submitted", async () => {
+  vi.stubGlobal(
+    "fetch",
+    async () =>
+      new Response(
+        JSON.stringify({
+          results: [
+            {
+              $type: "games.gamesgamesgamesgames.defs#gameSummaryView",
+              uri,
+              name: "Cooking Simulator",
+            },
+          ],
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      ),
+  );
+  const onChange = vi.fn();
+  await act(async () =>
+    root.render(<ActivityPicker value={undefined} onChange={onChange} />),
+  );
+  const input = container.querySelector("input")!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )!.set!.call(input, "cooking");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => {
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(onChange).toHaveBeenCalledWith({
     $type: "place.stream.defs#activityGame",
     uri,
     name: "Cooking Simulator",

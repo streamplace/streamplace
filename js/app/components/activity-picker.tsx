@@ -69,11 +69,28 @@ export default function ActivityPicker({
       ? (value as place.stream.defs.ActivityLabel)
       : null;
 
+  function selectGame(game: GameSearchResult) {
+    onChange({
+      $type: "place.stream.defs#activityGame",
+      uri: game.uri as any,
+      name: game.name,
+    });
+    setSelectedCoverUrl(game.coverUrl);
+    setQuery("");
+  }
+
   const {
     results,
     searching,
     error: searchError,
-  } = useGameSearch(agent, query, mode === "game" && !selectedGame);
+    submit,
+    onQueryChange,
+  } = useGameSearch(agent, query, mode === "game" && !selectedGame, selectGame);
+
+  const changeQuery = (value: string) => {
+    setQuery(value);
+    onQueryChange(value);
+  };
 
   const showResults = query.trim().length > 0;
 
@@ -108,16 +125,6 @@ export default function ActivityPicker({
       width: rect.width,
     });
   }, [showResults]);
-
-  const selectGame = (game: GameSearchResult) => {
-    onChange({
-      $type: "place.stream.defs#activityGame",
-      uri: game.uri as any,
-      name: game.name,
-    });
-    setSelectedCoverUrl(game.coverUrl);
-    setQuery("");
-  };
 
   const clearActivity = () => {
     onChange(undefined);
@@ -234,7 +241,8 @@ export default function ActivityPicker({
             <View ref={inputContainerRef}>
               <Input
                 value={query}
-                onChangeText={setQuery}
+                onChangeText={changeQuery}
+                onSubmitEditing={() => submit()}
                 placeholder="Search games..."
               />
               {showResults &&
@@ -290,7 +298,8 @@ export default function ActivityPicker({
                 <View style={[p[2]]}>
                   <Input
                     value={query}
-                    onChangeText={setQuery}
+                    onChangeText={changeQuery}
+                    onSubmitEditing={() => submit()}
                     placeholder="Search games..."
                     autoFocus
                   />

@@ -65,20 +65,22 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
       ? (value as { label: string })
       : null;
 
-  const {
-    results,
-    searching,
-    error: searchError,
-  } = useGameSearch(agent, query, mode === "game" && !selectedGame);
-
-  const selectGame = (game: GameSearchResult) => {
+  function selectGame(game: GameSearchResult) {
     onChange({
       $type: "place.stream.defs#activityGame",
       uri: game.uri,
       name: game.name,
     } as unknown as place.stream.livestream.Main["activity"]);
     setQuery("");
-  };
+  }
+
+  const {
+    results,
+    searching,
+    error: searchError,
+    submit,
+    onQueryChange,
+  } = useGameSearch(agent, query, mode === "game" && !selectedGame, selectGame);
 
   const clearActivity = () => {
     onChange(undefined);
@@ -126,7 +128,16 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
               <input
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  onQueryChange(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    submit();
+                  }
+                }}
                 placeholder={t("activity-search-placeholder", {
                   defaultValue: "Search games…",
                 })}

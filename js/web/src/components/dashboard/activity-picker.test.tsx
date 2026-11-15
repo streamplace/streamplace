@@ -105,14 +105,13 @@ it("keeps the pasted game's result when an older search finishes late", async ()
   );
   await search("old search");
   await search(cartridgeURL);
-  expect(container.textContent).toContain("Cooking Simulator");
+  expect(selected).toEqual({
+    $type: "place.stream.defs#activityGame",
+    uri,
+    name: "Cooking Simulator",
+  });
   await act(async () => release());
-  expect(container.textContent).toContain("Cooking Simulator");
   expect(container.textContent).not.toContain("Old result");
-  const result = Array.from(container.querySelectorAll("button")).find((el) =>
-    el.textContent?.includes("Cooking Simulator"),
-  );
-  await act(async () => result?.click());
   expect(selected).toEqual({
     $type: "place.stream.defs#activityGame",
     uri,
@@ -172,13 +171,123 @@ it("distinguishes an unavailable catalog from no result and accepts a game AT UR
   expect(container.textContent).toContain("No games found");
   expect(container.textContent).not.toContain("Search failed");
   await search(igdbURL);
-  expect(container.textContent).toContain("Cooking Simulator");
-  await search(uri);
-  const result = Array.from(container.querySelectorAll("button")).find((el) =>
-    el.textContent?.includes("Cooking Simulator"),
-  );
-  await act(async () => result?.click());
   expect(selected).toEqual({
+    $type: "place.stream.defs#activityGame",
+    uri,
+    name: "Cooking Simulator",
+  });
+  selected = undefined;
+  await search(uri);
+  expect(selected).toEqual({
+    $type: "place.stream.defs#activityGame",
+    uri,
+    name: "Cooking Simulator",
+  });
+});
+
+const gameResult = {
+  $type: "games.gamesgamesgamesgames.defs#gameSummaryView",
+  uri,
+  name: "Cooking Simulator",
+};
+
+function response(results: object[]) {
+  return new Response(JSON.stringify({ results }), {
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+async function renderPicker() {
+  useStore.setState({ url: "https://node.example", anonPDSAgent: null });
+  const onChange = vi.fn();
+  await act(async () =>
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <ActivityPicker value={undefined} onChange={onChange} />
+      </I18nextProvider>,
+    ),
+  );
+  return { onChange, input: container.querySelector("input")! };
+}
+
+async function changeInput(input: HTMLInputElement, value: string) {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )!.set!.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+it.each(["paste", "enter"])(
+  "selects one game on %s without waiting for the debounce",
+  async (action) => {
+    vi.stubGlobal("fetch", async () => response([gameResult]));
+    const { input, onChange } = await renderPicker();
+    await changeInput(input, action === "paste" ? cartridgeURL : "cooking");
+    if (action === "enter") {
+      await act(async () =>
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+        ),
+      );
+    }
+    await act(async () => vi.advanceTimersByTimeAsync(0));
+    expect(onChange).toHaveBeenCalledWith({
+      $type: "place.stream.defs#activityGame",
+      uri,
+      name: "Cooking Simulator",
+    });
+  },
+);
+
+it("leaves multiple matches for the user to choose", async () => {
+  vi.stubGlobal("fetch", async () =>
+    response([
+      { ...gameResult, name: "First game" },
+      { ...gameResult, uri: `${uri}2`, name: "Second game" },
+    ]),
+  );
+  const { input, onChange } = await renderPicker();
+  await changeInput(input, igdbURL);
+  await act(async () => vi.advanceTimersByTimeAsync(0));
+  expect(onChange).not.toHaveBeenCalled();
+  expect(container.textContent).toContain("First game");
+  expect(container.textContent).toContain("Second game");
+});
+
+it("does not select a pasted link after the query changes", async () => {
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  vi.stubGlobal("fetch", async () => {
+    await pending;
+    return response([gameResult]);
+  });
+  const { input, onChange } = await renderPicker();
+  await changeInput(input, cartridgeURL);
+  await act(async () => vi.advanceTimersByTimeAsync(0));
+  await changeInput(input, "another game");
+  await act(async () => release());
+  expect(onChange).not.toHaveBeenCalled();
+});
+
+it("waits for enter when a game link is typed character by character", async () => {
+  vi.stubGlobal("fetch", async () => response([gameResult]));
+  const { input, onChange } = await renderPicker();
+  for (let i = 1; i <= cartridgeURL.length; i++) {
+    await changeInput(input, cartridgeURL.slice(0, i));
+  }
+  await act(async () => vi.advanceTimersByTimeAsync(300));
+  expect(onChange).not.toHaveBeenCalled();
+  await act(async () =>
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    ),
+  );
+  expect(onChange).toHaveBeenCalledWith({
     $type: "place.stream.defs#activityGame",
     uri,
     name: "Cooking Simulator",

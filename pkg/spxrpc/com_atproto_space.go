@@ -1,6 +1,7 @@
 package spxrpc
 
 import (
+	"crypto/hmac"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -8,22 +9,48 @@ import (
 	"stream.place/streamplace/pkg/spmetrics"
 )
 
-// handleComAtprotoSpaceNotify takes a PDS's word that a personal space was
-// written to or deleted, and wakes whatever on this node follows that space.
-// It serves com.atproto.space.notifyWrite and notifySpaceDeleted.
-func (s *Server) handleComAtprotoSpaceNotify(c echo.Context) error {
-	var body struct {
-		Space string `json:"space"`
+// spaceNotification is what a PDS posts to a node that asked to follow a
+// space (spaces.Follow). It carries no service auth: the token vouches for it.
+type spaceNotification struct {
+	Space     string `json:"space"`
+	Token     string `json:"token"`
+	Challenge string `json:"challenge"`
+	Update    struct {
+		Type string `json:"$type"`
+	} `json:"update"`
+}
+
+// bindSpaceNotification refuses a token this node did not issue for the space.
+func bindSpaceNotification(c echo.Context) (*spaceNotification, error) {
+	var body spaceNotification
+	if err := c.Bind(&body); err != nil || !hmac.Equal([]byte(body.Token), []byte(spaces.NotifyToken(body.Space))) {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "unknown space notification token")
 	}
-	if err := c.Bind(&body); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid notification")
+	return &body, nil
+}
+
+// handleComAtprotoSpaceConfirmRegistration tells a PDS that this node asked
+// for the registration it is about to make.
+func (s *Server) handleComAtprotoSpaceConfirmRegistration(c echo.Context) error {
+	body, err := bindSpaceNotification(c)
+	if err != nil {
+		return err
 	}
-	// A PDS signs as the space's authority, which can only speak for its own space.
-	caller := GetCaller(c.Request().Context())
-	if caller == nil || body.Space != spaces.PersonalSpaceURI(caller.DID) {
-		return echo.NewHTTPError(http.StatusUnauthorized, "not this space's authority")
+	return c.JSON(http.StatusOK, map[string]string{"challenge": body.Challenge})
+}
+
+// handleComAtprotoSpaceNotifySpaceUpdate wakes whatever on this node follows
+// the space. Updates carry no records, so every kind means: read it again.
+func (s *Server) handleComAtprotoSpaceNotifySpaceUpdate(c echo.Context) error {
+	body, err := bindSpaceNotification(c)
+	if err != nil {
+		return err
 	}
 	spmetrics.SpaceNotificationsTotal.Inc()
-	s.bus.Publish(spaces.ChangedTopic(caller.DID), struct{}{})
+	s.bus.Publish(body.Space, struct{}{})
+	if body.Update.Type == "com.atproto.space.notifySpaceUpdate#registrationExpired" {
+		// Refusing this notice unregisters. A stream still following registers again.
+		return echo.NewHTTPError(http.StatusBadRequest, "registration not renewed")
+	}
 	return c.JSON(http.StatusOK, struct{}{})
 }

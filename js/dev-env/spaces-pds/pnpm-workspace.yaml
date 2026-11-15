@@ -10,7 +10,6 @@ overrides:
   "@atproto-labs/fetch-node": "$@atproto/pds"
   "@atproto-labs/handle-resolver": "$@atproto/pds"
   "@atproto-labs/handle-resolver-node": "$@atproto/pds"
-  "@atproto-labs/opentelemetry-node": "$@atproto/pds"
   "@atproto-labs/xrpc-utils": "$@atproto/pds"
   "@atproto/aws": "$@atproto/pds"
   "@atproto/car": "$@atproto/pds"

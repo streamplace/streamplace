@@ -1204,17 +1204,17 @@ func (ss *StreamSession) openPersonalSpace(ctx context.Context, t *multistreamTa
 }
 
 // followPersonalSpace has the PDS notify this node of changes to the space,
-// which the node otherwise polls for. It renews an hour before the PDS stops,
-// and asks again in a minute when refused.
+// which the node otherwise polls for. The PDS stops when the credential it
+// answers with runs out, so the node asks again halfway there, and in a
+// minute when refused.
 func (ss *StreamSession) followPersonalSpace(ctx context.Context, t *multistreamTargets) {
-	service := ss.cli.ServerDID() + "#" + atproto.StreamplaceServiceID
-	pds := xrpc.Client{Host: t.pds, Client: &aqhttp.Client}
-	until, err := spaces.RegisterNotify(ctx, t.space, pds, ss.repoDID, service)
+	pds := &xrpc.Client{Host: t.pds, Client: &aqhttp.Client}
+	until, err := spaces.Follow(ctx, t.space, pds, ss.repoDID, "https://"+ss.cli.ServerHost)
 	if err != nil {
 		log.Debug(ctx, "personal space will not notify this node", "error", err)
 	}
 	t.followed = err == nil
-	t.followAt = time.Now().Add(max(time.Until(until)-time.Hour, time.Minute))
+	t.followAt = time.Now().Add(max(time.Until(until)/2, time.Minute))
 }
 
 // refreshMultistreamTargets re-reads t.active, which keeps its last value
@@ -1275,8 +1275,9 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 	// no concurrency issues, it's only used from this one loop
 	running := map[string]*runningMultistream{}
 	targets := &multistreamTargets{}
-	changed := ss.bus.Subscribe(spaces.ChangedTopic(ss.repoDID))
-	defer ss.bus.Unsubscribe(spaces.ChangedTopic(ss.repoDID), changed)
+	// The node's notification endpoint publishes under the space's URI.
+	changed := ss.bus.Subscribe(spaces.PersonalSpaceURI(ss.repoDID))
+	defer ss.bus.Unsubscribe(spaces.PersonalSpaceURI(ss.repoDID), changed)
 	// wait reports whether to go round again, false once ctx ends. A space
 	// that notifies this node is still polled, as notifications can be lost.
 	wait := func() bool {

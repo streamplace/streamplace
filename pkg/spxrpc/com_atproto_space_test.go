@@ -1,7 +1,6 @@
 package spxrpc
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,24 +12,38 @@ import (
 	"stream.place/streamplace/pkg/spaces"
 )
 
-func TestSpaceNotify(t *testing.T) {
-	const did = "did:plc:streamer"
+func TestSpaceNotifications(t *testing.T) {
+	space := spaces.PersonalSpaceURI("did:plc:streamer")
+	token := spaces.NotifyToken(space)
 	s := &Server{bus: bus.NewBus()}
-	changed := s.bus.Subscribe(spaces.ChangedTopic(did))
-	notify := func(issuer, space string) error {
-		req := httptest.NewRequest(http.MethodPost, "/xrpc/com.atproto.space.notifyWrite", strings.NewReader(`{"space":"`+space+`","repo":"`+did+`"}`))
+	changed := s.bus.Subscribe(space)
+	post := func(handler echo.HandlerFunc, body string) (string, error) {
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		if issuer != "" {
-			req = req.WithContext(context.WithValue(req.Context(), pdsAuthContextKey, issuer))
-		}
-		return s.handleComAtprotoSpaceNotify(echo.New().NewContext(req, httptest.NewRecorder()))
+		rec := httptest.NewRecorder()
+		err := handler(echo.New().NewContext(req, rec))
+		return rec.Body.String(), err
+	}
+	update := func(space, token, kind string) error {
+		_, err := post(s.handleComAtprotoSpaceNotifySpaceUpdate, `{"space":"`+space+`","token":"`+token+`","update":{"$type":"`+kind+`"}}`)
+		return err
 	}
 
-	// Only the space's own authority may wake its followers.
-	require.Error(t, notify("", spaces.PersonalSpaceURI(did)))
-	require.Error(t, notify("did:plc:other", spaces.PersonalSpaceURI(did)))
-	require.Empty(t, changed)
+	// A registration is confirmed only with the token issued for its space.
+	_, err := post(s.handleComAtprotoSpaceConfirmRegistration, `{"space":"`+spaces.PersonalSpaceURI("did:plc:other")+`","token":"`+token+`","challenge":"abc"}`)
+	require.Error(t, err)
+	echoed, err := post(s.handleComAtprotoSpaceConfirmRegistration, `{"space":"`+space+`","token":"`+token+`","challenge":"abc"}`)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"challenge":"abc"}`, echoed)
 
-	require.NoError(t, notify(did, spaces.PersonalSpaceURI(did)))
+	// Only that token wakes the space's followers.
+	require.Error(t, update(space, "", "com.atproto.space.defs#repoWrite"))
+	require.Error(t, update(space, spaces.NotifyToken("at://other"), "com.atproto.space.defs#repoWrite"))
+	require.Empty(t, changed)
+	require.NoError(t, update(space, token, "com.atproto.space.defs#repoWrite"))
+	<-changed
+
+	// The expiry notice wakes them too, and is refused so the PDS unregisters.
+	require.Error(t, update(space, token, "com.atproto.space.notifySpaceUpdate#registrationExpired"))
 	<-changed
 }

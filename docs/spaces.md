@@ -69,7 +69,7 @@ It lives in the permission set, not in the scope string, on purpose:
   spaces.
 
 A PDS with spaces also resolves the space type declaration,
-`place.stream.personal`, to show its `name` on the consent screen. Login
+`place.stream.personal`, to show its `title` on the consent screen. Login
 fails with `invalid_scope` if it cannot, so the declaration is published
 with the permission set.
 
@@ -88,10 +88,10 @@ declaration valid to the JS `lex build`. Both documents therefore live in
 
 Whoever publishes lexicons to the `place.stream` authority account (the
 release script, and the e2e harness for its local authority) publishes these
-in place of the same-named documents from `lexicons/`. glex already accepts
-both documents. Once the node loads lexicons with glex's `lexicon` package
-and the JS tooling accepts space declarations, move both files into
-`lexicons/` and delete the overlay.
+in place of the same-named documents from `lexicons/`. Once the node loads
+lexicons with glex's `lexicon` package, and glex and the JS tooling accept
+this alpha's space declarations (glex still wants the `name` that became
+`title`), move both files into `lexicons/` and delete the overlay.
 
 ## How the node uses the space
 
@@ -158,35 +158,44 @@ sequenceDiagram
     participant Server as Server (lease holder)
     participant PDS
     Server->>PDS: getDelegationToken (streamer's OAuth session)
-    Server->>PDS: getSpaceCredential (delegation token, a fresh P-256 key)
-    Server->>PDS: registerNotify (credential, signed with that key)
+    Server->>PDS: authorizeSpaceSync (delegation token, notify: endpoint and token)
+    PDS->>Server: confirmRegistration (token, challenge)
+    Server-->>PDS: challenge
+    PDS-->>Server: credential
     Note over Server,PDS: later, a target is edited
-    PDS->>Server: notifyWrite (service auth, signed as the streamer)
+    PDS->>Server: notifySpaceUpdate (token)
     Server->>PDS: getLatestCommit, listRecords
 ```
 
-- **Each server registers itself**, as `did:web:{server host}#streamplace`,
-  which its DID document already publishes. The PDS resolves that to the
-  server's own address, so a notification reaches the lease holder with no
-  forwarding between nodes; a new lease holder registers on taking over.
-- **Registration** (`spaces.RegisterNotify`) happens before the first read,
-  so no change falls between the two. It lasts 24 hours and is renewed an
-  hour before it lapses. The credential and its key are used once and
-  dropped.
-- **A notification** carries no records. `com.atproto.space.notifyWrite`
-  (`pkg/spxrpc/com_atproto_space.go`) accepts it only from the space's own
-  authority, then wakes the stream's loop over the in-process bus, which
-  reads the space again. `notifySpaceDeleted` is handled the same way.
+- **Each server registers itself**, with `https://{server host}` as the
+  endpoint, so a notification reaches the lease holder with no forwarding
+  between nodes; a new lease holder registers on taking over.
+- **Registration** (`spaces.Follow`) happens before the first read, so no
+  change falls between the two. It lasts only as long as the credential the
+  PDS answers with, 10 minutes on both PDSes, so the server asks again at
+  half that for as long as it drives the stream. It never uses the
+  credential: it reads the space with the streamer's OAuth session.
+- **The token** is what a notification is trusted by; there is no service
+  auth. It is an HMAC of the space URI under a key the process makes at
+  startup (`spaces.NotifyToken`), so nothing is stored, and a restart
+  registers afresh under a new token.
+- **A notification** carries no records. `notifySpaceUpdate`
+  (`pkg/spxrpc/com_atproto_space.go`) checks the token, then wakes the
+  stream's loop over the in-process bus, which reads the space again,
+  whatever kind of update it was. `confirmRegistration` checks the same
+  token and echoes the PDS's challenge.
+- **Nothing unregisters explicitly.** When a stream ends the server stops
+  asking, the registration lapses, and the PDS's `registrationExpired`
+  notice is refused, which is how the protocol has a syncer unregister. A
+  stream that is still running registers again on its next turn.
 - **Polling stays as the fallback**: every minute while registered, every 5
-  seconds while not. Delivery is best effort (the reference PDS sends once,
-  vlpds retries for about 30 seconds), and a PDS that cannot register the
-  server, because the space does not exist yet or the server's DID does not
-  resolve, is asked again every minute.
+  seconds while not. Delivery of writes is best effort, and a PDS that
+  cannot register the server is asked again every minute.
 - `streamplace_space_notifications_total` counts the notifications accepted.
 
-A server the PDS cannot reach over HTTPS (behind NAT, or on a non-default
-port, which this `did:web` cannot express) registers nothing or receives
-nothing, and relies on the poll.
+A server the PDS cannot reach at `https://{server host}` (behind NAT, or
+serving plain HTTP on a development port) fails the confirmation, registers
+nothing, and relies on the 5-second poll.
 
 ### Moving a user over
 
@@ -234,8 +243,8 @@ Candidates, in rough order of readiness:
 | `DEV_ENV_PDS` | PDS                                                             | Covers                                 |
 | ------------- | --------------------------------------------------------------- | -------------------------------------- |
 | unset         | reference PDS, stable release                                   | a PDS without spaces: the old path     |
-| `spaces`      | reference PDS, `@atproto/pds@0.0.0-spaces-alpha-20261105160032` | the alpha as Bluesky ships it          |
-| `vlpds`       | [vlpds](https://github.com/jazware/vlpds), image `sha-dba483f`  | the PDS Streamplace runs in production |
+| `spaces`      | reference PDS, `@atproto/pds@0.0.0-spaces-alpha-20261113224550` | the alpha as Bluesky ships it          |
+| `vlpds`       | [vlpds](https://github.com/jazware/vlpds), image `sha-ead9f95`  | the PDS Streamplace runs in production |
 
 ```sh
 hack/fetch-spaces-pds.sh   # once: installs the alpha PDS beside the workspace
@@ -255,12 +264,14 @@ director reports on a target once it is switched on.
 `js/e2e-web/flows/private-space.spec.ts` covers the web app and
 `.maestro/logged-in/private-space.yaml` the mobile apps.
 
-Both spaces PDSes must agree on the wire. vlpds releases up to 1.3.0, and
-the `bluesky-social/vlpds` fork, implement an older, incompatible alpha
-(`simplespace`); only vlpds builds from 7 November 2026 on speak this one.
-To move to a newer alpha, change the version in
-`js/dev-env/spaces-pds/package.json`, the image in `hack/fetch-vlpds.sh`,
-and the table above together.
+Both spaces PDSes must agree on the wire, which here is the alpha of 13
+November 2026 (atproto `16bfeba`). Only vlpds builds from 14 November on
+speak it: releases up to 1.3.0 implement earlier alphas, and the
+`bluesky-social/vlpds` fork an older one still. To move to a newer alpha,
+change the version in `js/dev-env/spaces-pds/package.json`, the image in
+`hack/fetch-vlpds.sh`, and the table above together, and drop any override
+in `js/dev-env/spaces-pds/pnpm-workspace.yaml` for a package the new PDS no
+longer takes from the alpha.
 
 Neither spaces PDS is installed by the root workspace. The alpha PDS lives in
 `js/dev-env/spaces-pds/`, a workspace of its own with its own lockfile, so

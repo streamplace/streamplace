@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -25,48 +25,48 @@ func (delegating) Do(_ context.Context, _, _, method string, params map[string]a
 	return json.Unmarshal([]byte(`{"token":"delegation"}`), out)
 }
 
-// The PDS here checks the registration the way proposal 0016 has a space host
-// check any credentialed request: the signature covers the credential and its
-// audience, and verifies under the key the credential was issued to.
-func TestRegisterNotify(t *testing.T) {
+func TestFollow(t *testing.T) {
 	const did = "did:plc:example"
-	expires := time.Now().Add(24 * time.Hour).UTC().Truncate(time.Second)
-	var kid string
+	space := PersonalSpaceURI(did)
+	expires := time.Now().Add(10 * time.Minute).Truncate(time.Second)
+	// A PDS answers with a JWT; only its expiry matters here.
+	credential := func(claims string) string {
+		return "e30." + base64.RawURLEncoding.EncodeToString([]byte(claims)) + ".sig"
+	}
+	answer := credential(fmt.Sprintf(`{"iss":%q,"exp":%d}`, did, expires.Unix()))
 	pds := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]string
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-		require.Equal(t, PersonalSpaceURI(did), body["space"])
-		switch r.URL.Path {
-		case "/xrpc/com.atproto.space.getSpaceCredential":
-			require.Equal(t, "delegation", body["delegationToken"])
-			kid = body["credentialKid"]
-			_, _ = w.Write([]byte(`{"credential":"credential.jwt"}`))
-		case "/xrpc/com.atproto.space.registerNotify":
-			require.Equal(t, "did:web:node.example#streamplace", body["service"])
-			require.Equal(t, "Atproto-Space-Credential credential.jwt", r.Header.Get("Authorization"))
-			require.Equal(t, did, r.Header.Get("Atproto-Space-Audience"))
-			params, ok := strings.CutPrefix(r.Header.Get("Signature-Input"), "atproto-space-credential=")
-			require.True(t, ok)
-			require.Equal(t, `("authorization" "atproto-space-audience");tag="atproto-space-credential"`, params)
-			encoded, ok := strings.CutPrefix(r.Header.Get("Signature"), "atproto-space-credential=:")
-			require.True(t, ok)
-			sig, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(encoded, ":"))
-			require.NoError(t, err)
-			key, err := atcrypto.ParsePublicDIDKey(kid)
-			require.NoError(t, err)
-			require.IsType(t, &atcrypto.PublicKeyP256{}, key)
-			base := "\"authorization\": Atproto-Space-Credential credential.jwt\n" +
-				"\"atproto-space-audience\": " + did + "\n" +
-				"\"@signature-params\": " + params
-			require.NoError(t, key.HashAndVerify([]byte(base), sig))
-			_, _ = w.Write([]byte(`{"expiresAt":"` + expires.Format(time.RFC3339) + `"}`))
-		default:
-			t.Errorf("unexpected call %s", r.URL.Path)
+		require.Equal(t, "/xrpc/com.atproto.space.authorizeSpaceSync", r.URL.Path)
+		var body struct {
+			Space           string `json:"space"`
+			CredentialKey   string `json:"credentialKey"`
+			DelegationToken string `json:"delegationToken"`
+			Notify          struct {
+				Endpoint string `json:"endpoint"`
+				Token    string `json:"token"`
+			} `json:"notify"`
 		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		require.Equal(t, space, body.Space)
+		require.Equal(t, "delegation", body.DelegationToken)
+		key, err := atcrypto.ParsePublicDIDKey(body.CredentialKey)
+		require.NoError(t, err)
+		require.IsType(t, &atcrypto.PublicKeyP256{}, key)
+		require.Equal(t, "https://node.example", body.Notify.Endpoint)
+		// The PDS sends this token back, so it must be the one the node accepts.
+		require.Equal(t, NotifyToken(space), body.Notify.Token)
+		_, _ = w.Write([]byte(`{"credential":"` + answer + `"}`))
 	}))
 	defer pds.Close()
-
-	until, err := RegisterNotify(t.Context(), delegating{}, xrpc.Client{Host: pds.URL, Client: pds.Client()}, did, "did:web:node.example#streamplace")
+	client := &xrpc.Client{Host: pds.URL, Client: pds.Client()}
+	until, err := Follow(t.Context(), delegating{}, client, did, "https://node.example")
 	require.NoError(t, err)
 	require.True(t, until.Equal(expires))
+
+	// Without an expiry the node cannot know when to ask again.
+	answer = credential(`{}`)
+	_, err = Follow(t.Context(), delegating{}, client, did, "https://node.example")
+	require.Error(t, err)
+
+	// Tokens differ by space, so one space's cannot wake another's follower.
+	require.NotEqual(t, NotifyToken(space), NotifyToken(PersonalSpaceURI("did:plc:other")))
 }

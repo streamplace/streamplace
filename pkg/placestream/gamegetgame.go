@@ -40,11 +40,18 @@ func (t *GameGetGame_Output) UnmarshalCBOR(r io.Reader) error {
 }
 
 // GameGetGame calls the XRPC method "place.stream.game.getGame".
-func GameGetGame(ctx context.Context, c glex.LexClient, uri string) (*GameGetGame_Output, error) {
+//
+// Get a game from the configured catalog by slug or AT URI. Provide exactly one.
+func GameGetGame(ctx context.Context, c glex.LexClient, slug string, uri string) (*GameGetGame_Output, error) {
 	var out GameGetGame_Output
 
 	params := map[string]interface{}{}
-	params["uri"] = uri
+	if slug != "" {
+		params["slug"] = slug
+	}
+	if uri != "" {
+		params["uri"] = uri
+	}
 
 	if err := c.LexDo(ctx, glex.Query, "", "place.stream.game.getGame", params, nil, &out); err != nil {
 		return nil, err

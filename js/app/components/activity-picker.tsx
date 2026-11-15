@@ -10,21 +10,14 @@ import {
 } from "@streamplace/components";
 import { ACTIVITY_LABELS } from "@streamplace/components/src/lib/metadata-constants";
 import { useStreamplaceStore } from "@streamplace/components/src/streamplace-store/streamplace-store";
-import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { useGameSearch, type GameSearchResult } from "@streamplace/core";
 import { Image } from "expo-image";
 import { X } from "lucide-react-native";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, View, type ViewInstance } from "react-native";
-import { games as gamesLex, place } from "streamplace";
-import { getDidFromAtUri, getGameCoverUrl } from "../utils/game";
+import { place, StreamplaceAgent } from "streamplace";
 
 const { p, px, r, layout, borders, gap, flex } = zero;
-
-interface GameResult {
-  uri: string;
-  name: string;
-  coverUrl?: string;
-}
 
 interface ActivityPickerProps {
   value: place.stream.livestream.Main["activity"] | undefined;
@@ -43,7 +36,11 @@ export default function ActivityPicker({
   value,
   onChange,
 }: ActivityPickerProps) {
-  const agent = usePDSAgent();
+  const nodeUrl = useStreamplaceStore((s) => s.url);
+  const agent = useMemo(
+    () => (nodeUrl ? new StreamplaceAgent(nodeUrl) : null),
+    [nodeUrl],
+  );
   const { theme, zero: z } = useTheme();
   const c = theme.colors;
   const gamesEnabled = useStreamplaceStore((s) => s.gamesEnabled);
@@ -55,15 +52,12 @@ export default function ActivityPicker({
     return gamesEnabled ? "game" : "label";
   });
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<GameResult[]>([]);
-  const [searching, setSearching] = useState(false);
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<
     string | undefined
   >();
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [dropdownPos, setDropdownPos] = useState<DropdownPos | null>(null);
   const [labelsExpanded, setLabelsExpanded] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputContainerRef = useRef<ViewInstance>(null);
 
   const selectedGame =
@@ -75,7 +69,30 @@ export default function ActivityPicker({
       ? (value as place.stream.defs.ActivityLabel)
       : null;
 
-  const showResults = searching || results.length > 0;
+  function selectGame(game: GameSearchResult) {
+    onChange({
+      $type: "place.stream.defs#activityGame",
+      uri: game.uri as any,
+      name: game.name,
+    });
+    setSelectedCoverUrl(game.coverUrl);
+    setQuery("");
+  }
+
+  const {
+    results,
+    searching,
+    error: searchError,
+    submit,
+    onQueryChange,
+  } = useGameSearch(agent, query, mode === "game" && !selectedGame, selectGame);
+
+  const changeQuery = (value: string) => {
+    setQuery(value);
+    onQueryChange(value);
+  };
+
+  const showResults = query.trim().length > 0;
 
   // The Game ⇄ Other Activity toggle only earns its place when both modes exist.
   // With games disabled it's a single orphaned control, so we drop it and show
@@ -93,7 +110,7 @@ export default function ActivityPicker({
         setSelectedGenres(res.genres ?? []);
       })
       .catch(() => {});
-  }, [selectedGame?.uri]);
+  }, [agent, selectedGame?.uri, selectedCoverUrl]);
 
   useLayoutEffect(() => {
     if (Platform.OS !== "web" || !inputContainerRef.current || !showResults) {
@@ -109,65 +126,11 @@ export default function ActivityPicker({
     });
   }, [showResults]);
 
-  useEffect(() => {
-    if (!query.trim() || !agent) {
-      setResults([]);
-      return;
-    }
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await agent.client.call(place.stream.game.search, {
-          q: query,
-          limit: 8,
-        });
-        const games: GameResult[] = [];
-        for (const result of res.results) {
-          if (
-            !gamesLex.gamesgamesgamesgames.defs.gameSummaryView.isTypeOf(result)
-          )
-            continue;
-          const did = getDidFromAtUri(result.uri);
-          const cover = getGameCoverUrl(result.media, did);
-          games.push({
-            uri: result.uri,
-            name: result.name,
-            coverUrl: cover,
-          });
-        }
-        setResults(games);
-      } catch (e) {
-        console.error("game search error:", e);
-        setResults([]);
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, agent]);
-
-  const selectGame = (game: GameResult) => {
-    onChange({
-      $type: "place.stream.defs#activityGame",
-      uri: game.uri as any,
-      name: game.name,
-    });
-    setSelectedCoverUrl(game.coverUrl);
-    setQuery("");
-    setResults([]);
-  };
-
   const clearActivity = () => {
     onChange(undefined);
     setSelectedCoverUrl(undefined);
     setSelectedGenres([]);
     setQuery("");
-    setResults([]);
   };
 
   const resultsList = (
@@ -185,6 +148,11 @@ export default function ActivityPicker({
       {searching && (
         <Text style={[p[2], { fontSize: 12, color: c.mutedForeground }]}>
           Searching...
+        </Text>
+      )}
+      {!searching && query.trim().length > 0 && results.length === 0 && (
+        <Text size="sm" color="muted" style={[p[2]]}>
+          {searchError ? "Search failed" : "No games found"}
         </Text>
       )}
       {results.map((game) => (
@@ -273,8 +241,9 @@ export default function ActivityPicker({
             <View ref={inputContainerRef}>
               <Input
                 value={query}
-                onChangeText={setQuery}
-                placeholder="Search for a game..."
+                onChangeText={changeQuery}
+                onSubmitEditing={() => submit()}
+                placeholder="Search games..."
               />
               {showResults &&
                 dropdownPos &&
@@ -318,7 +287,7 @@ export default function ActivityPicker({
                       { color: c.mutedForeground, fontSize: 14 },
                     ]}
                   >
-                    Search for a game...
+                    Search games...
                   </Text>
                 </Pressable>
               </DropdownMenuTrigger>
@@ -329,8 +298,9 @@ export default function ActivityPicker({
                 <View style={[p[2]]}>
                   <Input
                     value={query}
-                    onChangeText={setQuery}
-                    placeholder="Search for a game..."
+                    onChangeText={changeQuery}
+                    onSubmitEditing={() => submit()}
+                    placeholder="Search games..."
                     autoFocus
                   />
                   {searching && (
@@ -345,6 +315,13 @@ export default function ActivityPicker({
                       Searching...
                     </Text>
                   )}
+                  {!searching &&
+                    query.trim().length > 0 &&
+                    results.length === 0 && (
+                      <Text size="sm" color="muted" style={[p[2]]}>
+                        {searchError ? "Search failed" : "No games found"}
+                      </Text>
+                    )}
                 </View>
                 {results.map((game) => (
                   <DropdownMenuItem

@@ -4,11 +4,12 @@
   "defs": {
     "main": {
       "type": "query",
+      "description": "Get a game from the configured catalog by slug or AT URI. Provide exactly one.",
       "parameters": {
         "type": "params",
-        "required": ["uri"],
         "properties": {
-          "uri": { "type": "string", "format": "at-uri" }
+          "uri": { "type": "string", "format": "at-uri" },
+          "slug": { "type": "string" }
         }
       },
       "output": {

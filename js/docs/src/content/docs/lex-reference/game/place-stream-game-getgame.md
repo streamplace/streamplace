@@ -13,11 +13,14 @@ description: Reference for the place.stream.game.getGame lexicon
 
 **Type:** `query`
 
+Get a game from the configured catalog by slug or AT URI. Provide exactly one.
+
 **Parameters:**
 
-| Name  | Type     | Req'd | Description | Constraints      |
-| ----- | -------- | ----- | ----------- | ---------------- |
-| `uri` | `string` | ✅    |             | Format: `at-uri` |
+| Name   | Type     | Req'd | Description | Constraints      |
+| ------ | -------- | ----- | ----------- | ---------------- |
+| `uri`  | `string` | ❌    |             | Format: `at-uri` |
+| `slug` | `string` | ❌    |             |                  |
 
 **Output:**
 
@@ -45,13 +48,16 @@ description: Reference for the place.stream.game.getGame lexicon
   "defs": {
     "main": {
       "type": "query",
+      "description": "Get a game from the configured catalog by slug or AT URI. Provide exactly one.",
       "parameters": {
         "type": "params",
-        "required": ["uri"],
         "properties": {
           "uri": {
             "type": "string",
             "format": "at-uri"
+          },
+          "slug": {
+            "type": "string"
           }
         }
       },

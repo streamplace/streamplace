@@ -67,10 +67,15 @@ it.each([
     if (url.origin !== "https://node.example")
       return new Response(null, { status: 501 });
     const inputQuery = url.searchParams.get("q");
+    if (url.pathname.endsWith(".getGame")) {
+      return new Response(JSON.stringify({ uri, name: "Cooking Simulator" }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     return new Response(
       JSON.stringify({
         results:
-          inputQuery === query
+          inputQuery === "cooking simulator" && query.includes("igdb.com")
             ? [
                 {
                   $type: "games.gamesgamesgamesgames.defs#gameSummaryView",

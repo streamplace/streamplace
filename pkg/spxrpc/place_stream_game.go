@@ -7,9 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	gamesgamesgamesgamesgames "stream.place/streamplace/pkg/gamesgamesgamesgamesgames"
-	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
@@ -17,14 +15,9 @@ import (
 )
 
 func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string, limit int, q string) (*placestream.GameSearch_Output, error) {
-	if s.cli.GamesAPIURL == "" {
-		return nil, echo.NewHTTPError(http.StatusServiceUnavailable, "games API not configured")
-	}
-
 	if limit <= 0 {
 		limit = 20
 	}
-
 	cacheKey := fmt.Sprintf("game_search:%s:%d:%s", q, limit, cursor)
 	if cached, found := s.GameSearchCache.Get(cacheKey); found {
 		if out, ok := cached.(*placestream.GameSearch_Output); ok {
@@ -32,189 +25,108 @@ func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string,
 		}
 	}
 
-	params := url.Values{}
-	method := "search"
-	input := strings.TrimSpace(q)
-	if strings.HasPrefix(input, "at://") {
-		uri, err := syntax.ParseATURI(input)
-		if err != nil || uri.Collection().String() != "games.gamesgamesgamesgames.game" || uri.RecordKey().String() == "" {
-			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid game AT URI")
-		}
-		method = "getGame"
-		params.Set("uri", input)
-	} else if link, err := url.Parse(input); err == nil && (link.Scheme == "https" || link.Scheme == "http") &&
-		(strings.EqualFold(link.Hostname(), "cartridge.dev") || strings.EqualFold(link.Hostname(), "www.cartridge.dev")) {
-		parts := strings.Split(strings.Trim(link.Path, "/"), "/")
-		if link.User != nil || len(parts) != 2 || parts[0] != "game" || parts[1] == "" {
-			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid cartridge game URL")
-		}
-		method = "getGame"
-		params.Set("slug", parts[1])
-	} else if link, err := url.Parse(input); err == nil && (link.Scheme == "https" || link.Scheme == "http") &&
-		(strings.EqualFold(link.Hostname(), "igdb.com") || strings.EqualFold(link.Hostname(), "www.igdb.com")) {
-		parts := strings.Split(strings.Trim(link.Path, "/"), "/")
-		if link.User != nil || len(parts) != 2 || parts[0] != "games" || parts[1] == "" {
-			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid IGDB game URL")
-		}
-		slug := parts[1]
-		if i := strings.LastIndex(slug, "--"); i > 0 {
-			if _, err := strconv.ParseUint(slug[i+2:], 10, 64); err == nil {
-				slug = slug[:i]
-			}
-		}
-		params.Set("q", strings.ReplaceAll(slug, "-", " "))
-	} else {
-		params.Set("q", q)
+	params := url.Values{"q": {q}, "limit": {fmt.Sprintf("%d", limit)}}
+	if cursor != "" {
+		params.Set("cursor", cursor)
 	}
-	if method == "search" {
-		params.Set("limit", fmt.Sprintf("%d", limit))
-		if cursor != "" {
-			params.Set("cursor", cursor)
-		}
-	}
-
-	reqURL := s.cli.GamesAPIURL + "/xrpc/games.gamesgamesgamesgames." + method + "?" + params.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	body, err := s.requestGames(ctx, "/xrpc/games.gamesgamesgamesgames.search", params)
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to build games request")
+		return nil, err
 	}
-
-	if s.cli.GamesAPIClientKey != "" {
-		req.Header.Set("X-Client-Key", s.cli.GamesAPIClientKey)
-	}
-	if s.cli.GamesAPIClientSecret != "" {
-		req.Header.Set("X-Client-Secret", s.cli.GamesAPIClientSecret)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusBadGateway, "games API unreachable")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, echo.NewHTTPError(http.StatusBadGateway, fmt.Sprintf("games API returned %d", resp.StatusCode))
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusBadGateway, "failed to read games response")
-	}
-
 	var out placestream.GameSearch_Output
-	if method == "getGame" {
-		var response struct {
-			Game *gamesgamesgamesgamesgames.Defs_GameSummaryView `json:"game"`
-		}
-		if err := json.Unmarshal(body, &response); err != nil {
-			return nil, echo.NewHTTPError(http.StatusBadGateway, "failed to parse games response")
-		}
-		out.Results = []placestream.GameSearch_Output_Results_Elem{}
-		if response.Game != nil {
-			uri, err := syntax.ParseATURI(response.Game.Uri)
-			if err != nil || uri.Collection().String() != "games.gamesgamesgamesgames.game" || uri.RecordKey().String() == "" || response.Game.Name == "" {
-				return nil, echo.NewHTTPError(http.StatusBadGateway, "invalid game in games response")
-			}
-			out.Results = append(out.Results, placestream.GameSearch_Output_Results_Elem{Defs_GameSummaryView: response.Game})
-		}
-	} else if err := json.Unmarshal(body, &out); err != nil {
+	if err := json.Unmarshal(body, &out); err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadGateway, "failed to parse games response")
 	}
-
 	s.GameSearchCache.SetDefault(cacheKey, &out)
 	return &out, nil
 }
 
-func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, uri string) (*placestream.GameGetGame_Output, error) {
-	if s.cli.GamesAPIURL == "" {
-		return nil, echo.NewHTTPError(http.StatusServiceUnavailable, "games API not configured")
+func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, slug string, uri string) (*placestream.GameGetGame_Output, error) {
+	if (slug == "") == (uri == "") {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "provide exactly one game slug or AT URI")
 	}
-
-	cacheKey := "game:" + uri
+	params := url.Values{}
+	if uri != "" {
+		parsed, err := syntax.ParseATURI(uri)
+		if err != nil || parsed.Collection().String() != "games.gamesgamesgamesgames.game" || parsed.RecordKey().String() == "" {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid game AT URI")
+		}
+		params.Set("uri", uri)
+	} else {
+		params.Set("slug", slug)
+	}
+	cacheKey := "game_lookup:" + params.Encode()
 	if cached, found := s.GameSearchCache.Get(cacheKey); found {
 		if out, ok := cached.(*placestream.GameGetGame_Output); ok {
 			return out, nil
 		}
 	}
 
-	// Parse AT URI: at://authority/collection/rkey
-	withoutPrefix := strings.TrimPrefix(uri, "at://")
-	parts := strings.SplitN(withoutPrefix, "/", 3)
-	if len(parts) != 3 {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid AT URI")
-	}
-	did, collection, rkey := parts[0], parts[1], parts[2]
-
-	// resolve the DID to get the PDS
-	did, svc, _, err := s.resolveRepoService(ctx, did)
+	body, err := s.requestGames(ctx, "/xrpc/games.gamesgamesgamesgames.getGame", params)
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "failed to resolve DID")
+		return nil, err
 	}
+	var response struct {
+		Game *gamesgamesgamesgamesgames.Defs_GameDetailView `json:"game"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadGateway, "failed to parse games response")
+	}
+	if response.Game == nil {
+		return nil, echo.NewHTTPError(http.StatusNotFound, "game not found")
+	}
+	game := response.Game
+	parsed, err := syntax.ParseATURI(game.Uri)
+	if err != nil || parsed.Collection().String() != "games.gamesgamesgamesgames.game" || parsed.RecordKey().String() == "" || game.Name == "" {
+		return nil, echo.NewHTTPError(http.StatusBadGateway, "invalid game in games response")
+	}
+	out := &placestream.GameGetGame_Output{Uri: game.Uri, Name: game.Name, Summary: game.Summary, Genres: game.Genres}
+	var cover *gamesgamesgamesgamesgames.Defs_MediaItem
+	if len(game.Media) > 0 {
+		cover = &game.Media[0]
+	}
+	for i := range game.Media {
+		media := &game.Media[i]
+		if media.MediaType != nil && (*media.MediaType == "cover" || *media.MediaType == "coverSquare") {
+			cover = media
+			break
+		}
+	}
+	if cover != nil && cover.Blob != nil {
+		coverURL := "https://cdn.bsky.app/img/feed_thumbnail/plain/" + parsed.Authority().String() + "/" + cover.Blob.Ref.String() + "@jpeg"
+		out.CoverUrl = &coverURL
+	}
+	s.GameSearchCache.SetDefault(cacheKey, out)
+	return out, nil
+}
 
-	params := url.Values{}
-	params.Set("repo", did)
-	params.Set("collection", collection)
-	params.Set("rkey", rkey)
-	reqURL := svc + "/xrpc/com.atproto.repo.getRecord?" + params.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+func (s *Server) requestGames(ctx context.Context, path string, params url.Values) ([]byte, error) {
+	if s.cli.GamesAPIURL == "" {
+		return nil, echo.NewHTTPError(http.StatusServiceUnavailable, "games API not configured")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.cli.GamesAPIURL+path+"?"+params.Encode(), nil)
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to build request")
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to build games request")
 	}
-
+	if s.cli.GamesAPIClientKey != "" {
+		req.Header.Set("X-Client-Key", s.cli.GamesAPIClientKey)
+	}
+	if s.cli.GamesAPIClientSecret != "" {
+		req.Header.Set("X-Client-Secret", s.cli.GamesAPIClientSecret)
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadGateway, "games API unreachable")
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
 		return nil, echo.NewHTTPError(http.StatusBadGateway, fmt.Sprintf("games API returned %d", resp.StatusCode))
 	}
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusBadGateway, "failed to read response")
+		return nil, echo.NewHTTPError(http.StatusBadGateway, "failed to read games response")
 	}
-
-	var record struct {
-		Value struct {
-			Name    string   `json:"name"`
-			Summary string   `json:"summary"`
-			Genres  []string `json:"genres"`
-			Media   []struct {
-				MediaType string `json:"mediaType"`
-				Blob      struct {
-					Ref struct {
-						Link string `json:"$link"`
-					} `json:"ref"`
-				} `json:"blob"`
-			} `json:"media"`
-		} `json:"value"`
-	}
-	if err := json.Unmarshal(body, &record); err != nil {
-		return nil, echo.NewHTTPError(http.StatusBadGateway, "failed to parse response")
-	}
-
-	var coverUrl *string
-	for _, m := range record.Value.Media {
-		if (m.MediaType == "cover" || m.MediaType == "coverSquare") && m.Blob.Ref.Link != "" {
-			u := "https://cdn.bsky.app/img/feed_thumbnail/plain/" + did + "/" + m.Blob.Ref.Link + "@jpeg"
-			coverUrl = &u
-			break
-		}
-	}
-
-	out := placestream.GameGetGame_Output{
-		Uri:      uri,
-		Name:     record.Value.Name,
-		Summary:  &record.Value.Summary,
-		Genres:   record.Value.Genres,
-		CoverUrl: coverUrl,
-	}
-
-	s.GameSearchCache.SetDefault(cacheKey, &out)
-	return &out, nil
+	return body, nil
 }
 
 func (s *Server) handleGamesGamesgamesgamesgamesSearch(ctx context.Context, ageRatings []string, applicationTypes []string, cursor string, genres []string, includeCancelled bool, includeUnrated bool, limit int, modes []string, playerPerspectives []string, q string, sort string, themes []string, types []string) (*gamesgamesgamesgamesgames.Search_Output, error) {

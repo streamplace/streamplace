@@ -64,9 +64,15 @@ it("keeps the pasted game's result when an older search finishes late", async ()
     release = resolve;
   });
   const agent = new StreamplaceAgent(async (path) => {
-    const query = new URL(path, "https://node.example").searchParams.get("q");
+    const url = new URL(path, "https://node.example");
+    const query = url.searchParams.get("q");
     if (query === "old search") await slowSearch;
     const name = query === "old search" ? "Old result" : "Cooking Simulator";
+    if (url.pathname.endsWith(".getGame")) {
+      return new Response(JSON.stringify({ uri, name }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     return new Response(
       JSON.stringify({
         results: [
@@ -121,7 +127,13 @@ it("keeps the pasted game's result when an older search finishes late", async ()
 
 it("distinguishes an unavailable catalog from no result and accepts a game AT URI", async () => {
   const agent = new StreamplaceAgent(async (path) => {
-    const query = new URL(path, "https://node.example").searchParams.get("q");
+    const url = new URL(path, "https://node.example");
+    const query = url.searchParams.get("q");
+    if (url.pathname.endsWith(".getGame")) {
+      return new Response(JSON.stringify({ uri, name: "Cooking Simulator" }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     if (query === "unavailable") {
       return new Response(
         JSON.stringify({ error: "UpstreamFailure", message: "Unavailable" }),
@@ -129,7 +141,7 @@ it("distinguishes an unavailable catalog from no result and accepts a game AT UR
       );
     }
     const results =
-      query === uri || query === igdbURL
+      query === "cooking simulator"
         ? [
             {
               $type: "games.gamesgamesgamesgames.defs#gameSummaryView",
@@ -191,8 +203,95 @@ const gameResult = {
   name: "Cooking Simulator",
 };
 
-function response(results: object[]) {
-  return new Response(JSON.stringify({ results }), {
+it.each([
+  ["Cartridge link", cartridgeURL, "slug", "cooking-simulator"],
+  [
+    "Cartridge link with a query",
+    `${cartridgeURL}/?ref=share#details`,
+    "slug",
+    "cooking-simulator",
+  ],
+  ["AT URI", uri, "uri", uri],
+])(
+  "looks up a %s through the game endpoint",
+  async (_name, inputValue, param, value) => {
+    let requested: URL | undefined;
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+      requested = new URL(input instanceof Request ? input.url : String(input));
+      return new Response(JSON.stringify({ uri, name: "Cooking Simulator" }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    const { input, onChange } = await renderPicker();
+    await changeInput(input, inputValue);
+    await act(async () => vi.advanceTimersByTimeAsync(0));
+    expect(requested?.pathname).toBe("/xrpc/place.stream.game.getGame");
+    expect(requested?.searchParams.get(param)).toBe(value);
+    expect(onChange).toHaveBeenCalledWith({
+      $type: "place.stream.defs#activityGame",
+      uri,
+      name: "Cooking Simulator",
+    });
+  },
+);
+
+it("searches IGDB links by title", async () => {
+  let requested: URL | undefined;
+  vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+    requested = new URL(input instanceof Request ? input.url : String(input));
+    return response([]);
+  });
+  const { input } = await renderPicker();
+  await changeInput(input, "https://www.igdb.com/games/resident-evil-4--1");
+  await act(async () => vi.advanceTimersByTimeAsync(0));
+  expect(requested?.pathname).toBe("/xrpc/place.stream.game.search");
+  expect(requested?.searchParams.get("q")).toBe("resident evil 4");
+  expect(container.textContent).toContain("No games found");
+});
+
+it("shows no result for an unknown game link", async () => {
+  vi.stubGlobal(
+    "fetch",
+    async () =>
+      new Response(
+        JSON.stringify({ error: "NotFound", message: "game not found" }),
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+  );
+  const { input } = await renderPicker();
+  await changeInput(input, cartridgeURL);
+  await act(async () => vi.advanceTimersByTimeAsync(0));
+  expect(container.textContent).toContain("No games found");
+  expect(container.textContent).not.toContain("Search failed");
+});
+
+it.each([
+  "https://cartridge.dev/user/example",
+  "https://cartridge.dev/game/cooking%2Fsimulator",
+  "https://someone@cartridge.dev/game/example",
+  "https://igdb.com/games/",
+])("rejects invalid game link %s", async (value) => {
+  const fetch = vi.fn();
+  vi.stubGlobal("fetch", fetch);
+  const { input } = await renderPicker();
+  await changeInput(input, value);
+  await act(async () => vi.advanceTimersByTimeAsync(0));
+  expect(fetch).not.toHaveBeenCalled();
+  expect(container.textContent).toContain("Search failed");
+});
+
+function response(
+  results: { uri: string; name: string }[],
+  input?: RequestInfo | URL,
+) {
+  const url = input
+    ? new URL(input instanceof Request ? input.url : String(input))
+    : undefined;
+  const body = url?.pathname.endsWith(".getGame") ? results[0] : { results };
+  return new Response(JSON.stringify(body), {
     headers: { "Content-Type": "application/json" },
   });
 }
@@ -223,7 +322,9 @@ async function changeInput(input: HTMLInputElement, value: string) {
 it.each(["paste", "enter"])(
   "selects one game on %s without waiting for the debounce",
   async (action) => {
-    vi.stubGlobal("fetch", async () => response([gameResult]));
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL) =>
+      response([gameResult], input),
+    );
     const { input, onChange } = await renderPicker();
     await changeInput(input, action === "paste" ? cartridgeURL : "cooking");
     if (action === "enter") {
@@ -262,9 +363,9 @@ it("does not select a pasted link after the query changes", async () => {
   const pending = new Promise<void>((resolve) => {
     release = resolve;
   });
-  vi.stubGlobal("fetch", async () => {
+  vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
     await pending;
-    return response([gameResult]);
+    return response([gameResult], input);
   });
   const { input, onChange } = await renderPicker();
   await changeInput(input, cartridgeURL);
@@ -275,7 +376,9 @@ it("does not select a pasted link after the query changes", async () => {
 });
 
 it("waits for enter when a game link is typed character by character", async () => {
-  vi.stubGlobal("fetch", async () => response([gameResult]));
+  vi.stubGlobal("fetch", async (input: RequestInfo | URL) =>
+    response([gameResult], input),
+  );
   const { input, onChange } = await renderPicker();
   for (let i = 1; i <= cartridgeURL.length; i++) {
     await changeInput(input, cartridgeURL.slice(0, i));

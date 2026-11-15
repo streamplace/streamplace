@@ -7,9 +7,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	gamesgamesgamesgamesgames "stream.place/streamplace/pkg/gamesgamesgamesgamesgames"
 	"strings"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
 	placestream "stream.place/streamplace/pkg/placestream"
 )
@@ -31,13 +33,47 @@ func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string,
 	}
 
 	params := url.Values{}
-	params.Set("q", q)
-	params.Set("limit", fmt.Sprintf("%d", limit))
-	if cursor != "" {
-		params.Set("cursor", cursor)
+	method := "search"
+	input := strings.TrimSpace(q)
+	if strings.HasPrefix(input, "at://") {
+		uri, err := syntax.ParseATURI(input)
+		if err != nil || uri.Collection().String() != "games.gamesgamesgamesgames.game" || uri.RecordKey().String() == "" {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid game AT URI")
+		}
+		method = "getGame"
+		params.Set("uri", input)
+	} else if link, err := url.Parse(input); err == nil && (link.Scheme == "https" || link.Scheme == "http") &&
+		(strings.EqualFold(link.Hostname(), "cartridge.dev") || strings.EqualFold(link.Hostname(), "www.cartridge.dev")) {
+		parts := strings.Split(strings.Trim(link.Path, "/"), "/")
+		if link.User != nil || len(parts) != 2 || parts[0] != "game" || parts[1] == "" {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid cartridge game URL")
+		}
+		method = "getGame"
+		params.Set("slug", parts[1])
+	} else if link, err := url.Parse(input); err == nil && (link.Scheme == "https" || link.Scheme == "http") &&
+		(strings.EqualFold(link.Hostname(), "igdb.com") || strings.EqualFold(link.Hostname(), "www.igdb.com")) {
+		parts := strings.Split(strings.Trim(link.Path, "/"), "/")
+		if link.User != nil || len(parts) != 2 || parts[0] != "games" || parts[1] == "" {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid IGDB game URL")
+		}
+		slug := parts[1]
+		if i := strings.LastIndex(slug, "--"); i > 0 {
+			if _, err := strconv.ParseUint(slug[i+2:], 10, 64); err == nil {
+				slug = slug[:i]
+			}
+		}
+		params.Set("q", strings.ReplaceAll(slug, "-", " "))
+	} else {
+		params.Set("q", q)
+	}
+	if method == "search" {
+		params.Set("limit", fmt.Sprintf("%d", limit))
+		if cursor != "" {
+			params.Set("cursor", cursor)
+		}
 	}
 
-	reqURL := s.cli.GamesAPIURL + "/xrpc/games.gamesgamesgamesgames.search?" + params.Encode()
+	reqURL := s.cli.GamesAPIURL + "/xrpc/games.gamesgamesgamesgames." + method + "?" + params.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to build games request")
@@ -66,7 +102,22 @@ func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string,
 	}
 
 	var out placestream.GameSearch_Output
-	if err := json.Unmarshal(body, &out); err != nil {
+	if method == "getGame" {
+		var response struct {
+			Game *gamesgamesgamesgamesgames.Defs_GameSummaryView `json:"game"`
+		}
+		if err := json.Unmarshal(body, &response); err != nil {
+			return nil, echo.NewHTTPError(http.StatusBadGateway, "failed to parse games response")
+		}
+		out.Results = []placestream.GameSearch_Output_Results_Elem{}
+		if response.Game != nil {
+			uri, err := syntax.ParseATURI(response.Game.Uri)
+			if err != nil || uri.Collection().String() != "games.gamesgamesgamesgames.game" || uri.RecordKey().String() == "" || response.Game.Name == "" {
+				return nil, echo.NewHTTPError(http.StatusBadGateway, "invalid game in games response")
+			}
+			out.Results = append(out.Results, placestream.GameSearch_Output_Results_Elem{Defs_GameSummaryView: response.Game})
+		}
+	} else if err := json.Unmarshal(body, &out); err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadGateway, "failed to parse games response")
 	}
 

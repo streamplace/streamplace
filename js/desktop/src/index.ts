@@ -117,7 +117,8 @@ if (require("electron-squirrel-startup")) {
     }
     let loadAddr;
     let obsServer = "http://127.0.0.1:39090";
-    let singleUser = true;
+    // An external dev node (AQD_SKIP_NODE) is single-user only if told so.
+    let singleUser = !!process.env.SP_UPSTREAM_STATION;
     if (!skipNode) {
       const node = await makeNode({ env, autoQuit: true });
       loadAddr = node.addr;

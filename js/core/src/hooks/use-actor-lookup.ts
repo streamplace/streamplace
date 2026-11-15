@@ -1,5 +1,5 @@
-// Confirms an account exists via the configured node's describeRepo, which
-// accepts handles and DIDs and doesn't require a Bluesky profile.
+// Resolves handles and DIDs through the configured node's identity directory,
+// without requiring a Bluesky profile or contacting the account's PDS.
 import { useCallback, useEffect, useState } from "react";
 
 type RepoActor = {
@@ -22,14 +22,14 @@ export async function resolveActor(
   signal?: AbortSignal,
 ): Promise<ActorLookupResult> {
   const response = await fetchActor(
-    `${nodeUrl.replace(/\/+$/, "")}/xrpc/com.atproto.repo.describeRepo?repo=${encodeURIComponent(actor)}`,
+    `${nodeUrl.replace(/\/+$/, "")}/xrpc/com.atproto.identity.resolveIdentity?identifier=${encodeURIComponent(actor)}`,
     { signal },
   );
 
   if (response.ok) {
     const repo = (await response.json()) as Partial<RepoActor> | null;
     if (typeof repo?.did !== "string" || typeof repo.handle !== "string") {
-      throw new Error("Repo lookup returned a malformed response");
+      throw new Error("Identity lookup returned a malformed response");
     }
     return { status: "found", actor: { did: repo.did, handle: repo.handle } };
   }
@@ -38,16 +38,16 @@ export async function resolveActor(
     error?: string;
     message?: string;
   } | null;
-  // The node answers 404 "RepoNotFound"; upstream PDSes answer 400 with that XRPC error.
   if (
-    (response.status === 404 &&
-      (body?.message === "RepoNotFound" || body?.error === "RepoNotFound")) ||
-    (response.status === 400 && body?.error === "RepoNotFound")
+    response.status === 404 &&
+    ["HandleNotFound", "DidNotFound"].includes(
+      body?.error ?? body?.message ?? "",
+    )
   ) {
     return { status: "not-found" };
   }
 
-  throw new Error(`Repo lookup failed (${response.status})`);
+  throw new Error(`Identity lookup failed (${response.status})`);
 }
 
 type ActorLookupState = ActorLookupResult | { status: "error" };

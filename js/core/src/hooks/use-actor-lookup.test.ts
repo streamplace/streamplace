@@ -4,7 +4,7 @@ import { resolveActor } from "./use-actor-lookup";
 const respond = (response: Response) => async () => response;
 
 describe("resolveActor", () => {
-  it("returns the node's DID and handle for an existing repo", async () => {
+  it("returns the node's DID and handle for an existing account", async () => {
     let requested = "";
     const result = await resolveActor(
       "did:plc:natalie",
@@ -16,7 +16,7 @@ describe("resolveActor", () => {
     );
 
     expect(requested).toBe(
-      "https://node.example/xrpc/com.atproto.repo.describeRepo?repo=did%3Aplc%3Anatalie",
+      "https://node.example/xrpc/com.atproto.identity.resolveIdentity?identifier=did%3Aplc%3Anatalie",
     );
     expect(result).toEqual({
       status: "found",
@@ -25,9 +25,9 @@ describe("resolveActor", () => {
   });
 
   it.each([
-    ["node 404 message", 404, { message: "RepoNotFound" }],
-    ["node 404 XRPC error", 404, { error: "RepoNotFound" }],
-    ["upstream PDS 400", 400, { error: "RepoNotFound", message: "no repo" }],
+    ["missing handle", 404, { message: "HandleNotFound" }],
+    ["missing DID", 404, { message: "DidNotFound" }],
+    ["XRPC error", 404, { error: "HandleNotFound" }],
   ])("treats %s as a missing account", async (_, status, body) => {
     const result = await resolveActor(
       "missing.example",
@@ -46,8 +46,8 @@ describe("resolveActor", () => {
       Response.json({ error: "InvalidRequest" }, { status: 400 }),
     ],
     [
-      "RepoNotFound on a server error",
-      Response.json({ error: "RepoNotFound" }, { status: 500 }),
+      "DidNotFound on a server error",
+      Response.json({ error: "DidNotFound" }, { status: 500 }),
     ],
     ["invalid success JSON", new Response("<html>", { status: 200 })],
     ["a malformed success body", Response.json({ handle: "natalie.sh" })],

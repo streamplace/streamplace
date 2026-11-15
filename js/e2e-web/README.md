@@ -110,8 +110,9 @@ uploads are already limited to the web.
 `not-found` covers both web shells. Unknown root paths without a period or colon
 show a generic 404 with a content-width Home action; query-string punctuation does
 not make a path an account. Missing handles and DIDs show "User not found" after
-the configured node's `com.atproto.repo.describeRepo` lookup; valid accounts do not
-require a Bluesky profile. Lookup outages offer Retry rather than claiming the
+the configured node's `com.atproto.identity.resolveIdentity` lookup; valid accounts
+require neither a Bluesky profile nor a reachable PDS. Directory outages offer
+Retry rather than claiming the
 account is missing. Coverage includes account switching and real handle/DID
 playback. The shared iOS/Android deep-link counterpart is
 `.maestro/logged-out/not-found.yaml`.

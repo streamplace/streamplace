@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { pointAppAtNode } from "../server-setup";
-import { stubSearch } from "./search-fixtures";
+import { stubProfiles, stubSearch } from "./search-fixtures";
 
 async function expectPlayback(page: Page) {
   const video = page.locator("video").first();
@@ -29,7 +29,7 @@ for (const beta of [false, true]) {
       page.on("request", (request) => {
         if (
           request.url().includes("actor=does-not-exist") ||
-          request.url().includes("repo=does-not-exist")
+          request.url().includes("identifier=does-not-exist")
         ) {
           lookups.push(request.url());
         }
@@ -143,10 +143,12 @@ for (const beta of [false, true]) {
       const did = process.env.ACCOUNT_DID;
       if (!did) throw new Error("harness account required");
       let unavailable = true;
-      await page.route("**/xrpc/com.atproto.repo.describeRepo?*", (route) =>
-        unavailable
-          ? route.fulfill({ status: 503, body: "temporarily unavailable" })
-          : route.fallback(),
+      await page.route(
+        "**/xrpc/com.atproto.identity.resolveIdentity?*",
+        (route) =>
+          unavailable
+            ? route.fulfill({ status: 503, body: "temporarily unavailable" })
+            : route.fallback(),
       );
       await page.goto(`/${did}`);
       await expect(
@@ -167,9 +169,14 @@ for (const beta of [false, true]) {
       page,
       context,
     }) => {
+      test.skip(
+        beta && (!process.env.SERVER_HTTPS_URL || !process.env.PDS_HTTPS_URL),
+        "Authenticated Vite navigation requires the HTTPS harness",
+      );
       const did = process.env.ACCOUNT_DID;
       const handle = process.env.ACCOUNT_HANDLE;
       if (!did || !handle) throw new Error("harness account required");
+      await stubProfiles(page, [{ did, handle }]);
       let origin = "";
       if (beta) {
         // Vite's header search requires an authenticated PDS agent.
@@ -198,24 +205,26 @@ for (const beta of [false, true]) {
           page.waitForURL((url) => url.origin === origin),
         ]);
         await page.waitForURL(`${origin}/`);
+        await page.locator(`a[href="/${handle}"]`).first().click();
+      } else {
+        await page.goto(`/${did}`);
       }
-      await page.goto(`${origin}/${did}`);
       await expectPlayback(page);
       const missing = {
         did: "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa",
         handle: "missing.example.invalid",
       };
-      // Only typeahead discovery is substituted; the selected account's
-      // missing identity is resolved by the real node.
+      // Discovery and external Bluesky pictures are fixtures; identity lookup
+      // and playback still use the real node, directory and PDS.
       await stubSearch(page, [missing]);
       const { promise: held, resolve: release } = Promise.withResolvers<void>();
       const { promise: lookupStarted, resolve: requested } =
         Promise.withResolvers<void>();
       await page.route(
-        "**/xrpc/com.atproto.repo.describeRepo?*",
+        "**/xrpc/com.atproto.identity.resolveIdentity?*",
         async (route) => {
           if (
-            new URL(route.request().url()).searchParams.get("repo") ===
+            new URL(route.request().url()).searchParams.get("identifier") ===
             missing.handle
           ) {
             requested();

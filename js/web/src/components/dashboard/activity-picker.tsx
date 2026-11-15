@@ -10,7 +10,7 @@ import { place, StreamplaceAgent } from "streamplace";
 /**
  * Activity picker for livestreams:
  *  - "Game" mode: search for actual games via the streamplace xrpc,
- *    show cover art + name + genres. Stores an `ActivityGame` value
+ *    show cover art + name. Stores an `ActivityGame` value
  *    with `$type: "place.stream.defs#activityGame"`.
  *  - "Other Activity" mode: predefined labels (Just Chatting, Music, …).
  *    Stores an `ActivityLabel` value.
@@ -175,11 +175,6 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
                       <div className="line-clamp-2 text-sm font-medium">
                         {game.name}
                       </div>
-                      {game.genres && game.genres.length > 0 && (
-                        <div className="truncate text-[10px] text-(--color-fg-muted)">
-                          {game.genres.join(" · ")}
-                        </div>
-                      )}
                     </div>
                   </button>
                 ))}

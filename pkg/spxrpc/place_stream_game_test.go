@@ -25,9 +25,13 @@ func TestGameSearchForwardsTypesAndCursor(t *testing.T) {
 		out, err := s.handlePlaceStreamGameSearch(context.Background(), "page-2", 15, "zelda", types)
 		require.NoError(t, err)
 		require.Equal(t, "next-page", *out.Cursor)
-		request := <-requests
-		require.Equal(t, "page-2", request.URL.Query().Get("cursor"))
-		require.Equal(t, "15", request.URL.Query().Get("limit"))
-		require.Equal(t, types, request.URL.Query()["types"])
+		select {
+		case request := <-requests:
+			require.Equal(t, "page-2", request.URL.Query().Get("cursor"))
+			require.Equal(t, "15", request.URL.Query().Get("limit"))
+			require.Equal(t, types, request.URL.Query()["types"])
+		default:
+			t.Fatal("expected a separate upstream request for each type filter")
+		}
 	}
 }

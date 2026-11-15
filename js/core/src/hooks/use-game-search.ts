@@ -6,7 +6,6 @@ export interface GameSearchResult {
   uri: string;
   name: string;
   coverUrl?: string;
-  genres?: string[];
 }
 
 async function searchGames(
@@ -29,7 +28,6 @@ async function searchGames(
         uri: game.uri,
         name: game.name,
         coverUrl: getGameCoverUrl(game.media, getDidFromAtUri(game.uri)),
-        genres: (game as typeof game & { genres?: string[] }).genres,
       })),
     cursor: response.cursor,
   };

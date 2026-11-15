@@ -45,23 +45,6 @@ type TransferResult struct {
 	Downloaded bool `json:"downloaded"`
 }
 
-// NOTE (flat-MP4 / MUXL-CID migration): TransferVOD has NOT yet been ported
-// to the flat-MP4 content model and will fail-safe (CID mismatch, nothing
-// stored) on VODs produced by the current finalize/ProcessVOD path. Two
-// things break against a [flat-header][fragments] blob keyed by MUXL CID:
-//  1. downloadContentBlob hashes the whole downloaded blob and compares to
-//     contentCID, but contentCID is now BDASL(fragments) alone — the header
-//     makes the whole-blob hash differ, so verification always mismatches.
-//  2. regenerateSidecars runs `muxl unwrap` over the blob, but a flat
-//     presentation MP4 (ftyp+moov+co64) isn't a MUXL wrapper unwrap can read,
-//     and it uses the leading-init metafile builder (wrong offset base).
-//
-// The fix needs the receiver to recover the bare fragments from the blob
-// (strip the flat header) before hashing/unwrapping. Since box-walking should
-// live in muxl (not here), this awaits either a muxl "strip flat header" /
-// "unwrap flat" capability or a wire-protocol change (e.g. transfer the bare
-// fragments, or ship FlatHeaderSize alongside). Tracked as a follow-up.
-//
 // TransferVOD pulls a content-addressed VOD blob from a remote Streamplace
 // node into this node's playback store, regenerates the playback sidecars
 // (metafile + per-track init segments) locally from the blob, and publishes
@@ -165,6 +148,34 @@ func TransferVOD(ctx context.Context, cli *config.CLI, store blob.Store, httpCli
 	}, nil
 }
 
+// verifyResult is the outcome of the concurrent unwrap in downloadContentBlob:
+// the BDASL CID of the canonical fragment stream it re-derived, plus any
+// unwrap error.
+type verifyResult struct {
+	cid string
+	err error
+}
+
+// hashEventChunks feeds one unwrap event's per-track bytes to h in sorted
+// track-ID order — the byte layout of the canonical fragment stream. Init
+// events carry no fragment bytes. Returns the number of bytes hashed.
+func hashEventChunks(h *bdasl.Writer, ev *muxl.MuxlEvent) int64 {
+	if ev.Type != "segment" && ev.Type != "signed-segment" {
+		return 0
+	}
+	keys := make([]string, 0, len(ev.Tracks))
+	for k := range ev.Tracks {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var n int64
+	for _, k := range keys {
+		_, _ = h.Write(ev.Tracks[k])
+		n += int64(len(ev.Tracks[k]))
+	}
+	return n
+}
+
 // existingBlobSize returns the size of the blob at key, or blob.ErrNotFound
 // (unwrapped via errors.Is by the caller) if it isn't present.
 func existingBlobSize(ctx context.Context, store blob.Store, key string) (int64, error) {
@@ -178,8 +189,15 @@ func existingBlobSize(ctx context.Context, store blob.Store, key string) (int64,
 
 // downloadContentBlob streams the blob from the source node's getVideoBlob
 // endpoint into the store, hashing as it goes. The store write is only
-// Completed (made visible) once the running hash matches contentCID, so a
-// source that serves the wrong or corrupt bytes leaves nothing behind.
+// Completed (made visible) once the canonical fragment stream or, for legacy
+// blobs, the whole file hashes to contentCID, so a source that serves the
+// wrong or corrupt bytes leaves nothing behind.
+//
+// A content blob is [flat-header][canonical fragments], but its CID is the
+// BDASL of the fragments alone (stable across header re-synthesis), so a
+// whole-file hash is not enough. muxl unwrap re-derives the fragment stream
+// from the download as it streams; that hash is the primary check, with the
+// whole-file hash retained for legacy [init][segments] blobs.
 func downloadContentBlob(ctx context.Context, httpClient *http.Client, store blob.Store, base *url.URL, key, contentCID, did string) (int64, error) {
 	endpoint := strings.TrimRight(base.String(), "/") + "/xrpc/place.stream.playback.getVideoBlob"
 	u, err := url.Parse(endpoint)
@@ -210,13 +228,42 @@ func downloadContentBlob(ctx context.Context, httpClient *http.Client, store blo
 	// mismatch or copy error discards the partial blob.
 	defer w.Close()
 
-	hasher := bdasl.NewWriter()
-	n, err := io.Copy(io.MultiWriter(w, hasher), resp.Body)
-	if err != nil {
-		return 0, fmt.Errorf("stream blob to store: %w", err)
+	whole := bdasl.NewWriter()
+	pr, pw := io.Pipe()
+	verified := make(chan verifyResult, 1)
+	go func() {
+		events := make(chan *muxl.MuxlEvent, 16)
+		fragCID := make(chan string, 1)
+		go func() {
+			h := bdasl.NewWriter()
+			for ev := range events {
+				hashEventChunks(h, ev)
+			}
+			fragCID <- h.CID()
+		}()
+		err := muxl.RunMuxlUnwrapEvents(ctx, pr, events)
+		close(events)
+		// Unblocks a copy still feeding the pipe if unwrap stopped early
+		// (including the nil return it uses for context cancellation).
+		_ = pr.CloseWithError(err)
+		verified <- verifyResult{cid: <-fragCID, err: err}
+	}()
+
+	n, copyErr := io.Copy(io.MultiWriter(w, whole, pw), resp.Body)
+	_ = pw.CloseWithError(copyErr)
+	res := <-verified
+	if copyErr != nil {
+		if ctx.Err() != nil {
+			return 0, ctx.Err()
+		}
+		return 0, fmt.Errorf("stream blob to store: %w", copyErr)
 	}
-	if got := hasher.CID(); got != contentCID {
-		return 0, fmt.Errorf("CID mismatch: source served %s, expected %s (%d bytes)", got, contentCID, n)
+	if res.err != nil {
+		return 0, fmt.Errorf("verify blob: %w", res.err)
+	}
+	wholeCID := whole.CID()
+	if res.cid != contentCID && wholeCID != contentCID {
+		return 0, fmt.Errorf("CID mismatch: source served a blob with canonical-fragment CID %s and whole-file CID %s, expected %s (%d bytes)", res.cid, wholeCID, contentCID, n)
 	}
 	if err := w.Complete(); err != nil {
 		return 0, fmt.Errorf("complete store write: %w", err)
@@ -251,6 +298,12 @@ func ensureSidecars(ctx context.Context, store blob.Store, contentCID string, si
 // per-track event stream byte-for-byte) into the same metafileBuilder the
 // processing pipeline uses, so the regenerated sidecars are identical to
 // what the originating node produced.
+//
+// The same pass identifies the blob's shape by which hash matches contentCID:
+// a flat [flat-header][fragments] blob hashes only the fragments, while a
+// legacy [init][segments] blob hashes as a whole. Fragment-relative offsets
+// and FlatHeaderSize are set for the former; the init length is added back to
+// offsets for the latter.
 func regenerateSidecars(ctx context.Context, store blob.Store, contentCID string, size int64) (*Metafile, []string, error) {
 	r, err := store.Open(ctx, BlobsPrefix+contentCID+".mp4")
 	if err != nil {
@@ -258,7 +311,10 @@ func regenerateSidecars(ctx context.Context, store blob.Store, contentCID string
 	}
 	defer r.Close()
 
-	mb := newMetafileBuilder(ctx, store)
+	mb := newFragmentMetafileBuilder(ctx, store)
+	whole := bdasl.NewWriter()
+	fragments := bdasl.NewWriter()
+	var fragSize, initLen int64
 
 	// RunMuxlUnwrapEvents writes events synchronously and does not close
 	// the channel (the caller owns it), so the producer runs in its own
@@ -266,12 +322,16 @@ func regenerateSidecars(ctx context.Context, store blob.Store, contentCID string
 	eventCh := make(chan *muxl.MuxlEvent, 16)
 	producerErr := make(chan error, 1)
 	go func() {
-		producerErr <- muxl.RunMuxlUnwrapEvents(ctx, io.NewSectionReader(r, 0, size), eventCh)
+		producerErr <- muxl.RunMuxlUnwrapEvents(ctx, io.TeeReader(io.NewSectionReader(r, 0, size), whole), eventCh)
 		close(eventCh)
 	}()
 
 	var obsErr error
 	for ev := range eventCh {
+		if ev.Type == "init" && initLen == 0 {
+			initLen = int64(len(ev.Data))
+		}
+		fragSize += hashEventChunks(fragments, ev)
 		if e := mb.Observe(ev); e != nil && obsErr == nil {
 			obsErr = e
 		}
@@ -289,7 +349,35 @@ func regenerateSidecars(ctx context.Context, store blob.Store, contentCID string
 		return nil, nil, err
 	}
 
-	meta := mb.Finalize(contentCID, size)
+	fragCID, wholeCID := fragments.CID(), whole.CID()
+	metaSize := fragSize
+	flat := true
+	switch {
+	case fragCID == contentCID:
+	case wholeCID == contentCID:
+		flat = false
+		metaSize = size
+	default:
+		return nil, nil, fmt.Errorf("stored blob does not match %s (canonical fragments %s, whole file %s)", contentCID, fragCID, wholeCID)
+	}
+
+	meta := mb.Finalize(contentCID, metaSize)
+	if flat {
+		if fragSize > size {
+			return nil, nil, fmt.Errorf("canonical fragments (%d bytes) exceed blob size (%d)", fragSize, size)
+		}
+		meta.FlatHeaderSize = size - fragSize
+	} else {
+		if initLen == 0 {
+			return nil, nil, fmt.Errorf("legacy blob %s has no leading init segment", contentCID)
+		}
+		for tid, tr := range meta.Tracks {
+			for i := range tr.Segments {
+				tr.Segments[i].Offset += initLen
+			}
+			meta.Tracks[tid] = tr
+		}
+	}
 	if err := writeMetafile(ctx, store, contentCID, meta); err != nil {
 		return nil, nil, err
 	}

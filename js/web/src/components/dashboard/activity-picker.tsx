@@ -144,11 +144,6 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
                 className="focus:ring-ring h-8 w-full rounded-md border border-(--color-border) bg-(--color-bg) pr-2 pl-8 text-sm text-(--color-fg) placeholder:text-(--color-fg-muted) focus:ring-1 focus:outline-none"
               />
             </div>
-            <p className="mt-1 text-xs text-(--color-fg-muted)">
-              {t("activity-search-hint", {
-                defaultValue: "Paste a game link or AT URI.",
-              })}
-            </p>
             {searching && (
               <div className="px-2 py-1.5 text-xs text-(--color-fg-muted)">
                 {t("searching", { defaultValue: "Searching…" })}

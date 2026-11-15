@@ -349,11 +349,6 @@ export default function ActivityPicker({
               </ResponsiveDropdownMenuContent>
             </DropdownMenu>
           )}
-          {!selectedGame && (
-            <Text size="sm" color="muted">
-              Paste a game link or AT URI.
-            </Text>
-          )}
         </View>
       )}
 

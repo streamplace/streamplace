@@ -1003,7 +1003,9 @@ export default function Shell() {
           <RootStack.Screen
             name="Desktop"
             component={Desktop}
-            options={{ headerShown: false }}
+            // Bound the screen to the window so Desktop scrolls itself; web
+            // stacks otherwise grow the page past the app's overflow: hidden.
+            options={{ headerShown: false, contentStyle: { flex: 1 } }}
           />
           <RootStack.Screen
             name="PopoutInfoWidget"

@@ -31,46 +31,63 @@ function DesktopInner(props: ObsCardProps) {
   const { width } = useWindowDimensions();
   const wide = width >= breakpoints.lg;
 
+  const panel = (
+    <View style={{ gap: theme.spacing[6] }}>
+      <Text size="xl">Streamplace Desktop</Text>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: theme.spacing[3],
+        }}
+      >
+        <Text color="muted">Signed in as @{profile?.handle}</Text>
+        <Button
+          variant="secondary"
+          width="min"
+          testID="desktop-logout"
+          onPress={() => logout()}
+        >
+          Log out
+        </Button>
+      </View>
+      <ForwardingCard />
+      <ObsCard {...props} />
+      <RenditionSettings />
+      <LogsCard />
+    </View>
+  );
+  const monitor = <StreamMonitor isLive={isLive} userProfile={profile} />;
+
+  // Wide: the settings column scrolls beside the preview. Narrow: one column.
+  if (wide) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          flexDirection: "row",
+          gap: theme.spacing[4],
+          padding: theme.spacing[4],
+          backgroundColor: theme.colors.surface0,
+        }}
+      >
+        <View style={{ flex: 2 }}>{monitor}</View>
+        <ScrollView style={{ flex: 1 }}>{panel}</ScrollView>
+      </View>
+    );
+  }
   return (
-    <View
-      style={{
-        flex: 1,
-        flexDirection: wide ? "row" : "column",
+    <ScrollView
+      style={{ flex: 1, backgroundColor: theme.colors.surface0 }}
+      contentContainerStyle={{
         gap: theme.spacing[4],
         padding: theme.spacing[4],
-        backgroundColor: theme.colors.surface0,
       }}
     >
-      <View style={wide ? { flex: 2 } : { width: "100%", aspectRatio: 16 / 9 }}>
-        <StreamMonitor isLive={isLive} userProfile={profile} />
-      </View>
-      <ScrollView style={{ flex: 1 }}>
-        <View style={{ gap: theme.spacing[6] }}>
-          <Text size="xl">Streamplace Desktop</Text>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: theme.spacing[3],
-            }}
-          >
-            <Text color="muted">Signed in as @{profile?.handle}</Text>
-            <Button
-              variant="secondary"
-              testID="desktop-logout"
-              onPress={() => logout()}
-            >
-              Log out
-            </Button>
-          </View>
-          <ForwardingCard />
-          <ObsCard {...props} />
-          <RenditionSettings />
-          <LogsCard />
-        </View>
-      </ScrollView>
-    </View>
+      <View style={{ width: "100%", aspectRatio: 16 / 9 }}>{monitor}</View>
+      {panel}
+    </ScrollView>
   );
 }
 
@@ -83,6 +100,7 @@ export default function Desktop() {
   const isReady = useIsReady();
   const userProfile = useUserProfile();
   const openLoginModal = useStore((state) => state.openLoginModal);
+  const showLoginModal = useStore((state) => state.showLoginModal);
   const hideSidebar = useStore((x) => x.setSidebarHidden);
   const showSidebar = useStore((x) => x.setSidebarUnhidden);
   const nodeURL = useStreamplaceUrl();
@@ -149,13 +167,18 @@ export default function Desktop() {
           backgroundColor: theme.colors.surface0,
         }}
       >
-        <Text size="lg">Log in to start streaming.</Text>
-        <Button
-          testID="desktop-login"
-          onPress={() => openLoginModal({ name: "Desktop" })}
-        >
-          Log in
-        </Button>
+        {!showLoginModal && (
+          <>
+            <Text size="lg">Log in to start streaming.</Text>
+            <Button
+              width="min"
+              testID="desktop-login"
+              onPress={() => openLoginModal({ name: "Desktop" })}
+            >
+              Log in
+            </Button>
+          </>
+        )}
       </View>
     );
   }

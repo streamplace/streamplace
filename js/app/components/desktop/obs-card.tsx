@@ -37,13 +37,12 @@ const obsBridge = (): ObsBridge | undefined =>
   typeof window === "undefined" ? undefined : (window as any).SP_ELECTRON?.obs;
 
 const describe = (s: ObsStatus): string => {
-  if (s.obs === "absent") return "OBS isn't installed.";
+  if (s.obs === "absent") return "OBS isn't installed";
   if (s.obs === "flatpak")
-    return "Flatpak OBS can't load the Streamplace plugin; install OBS from your distribution or obsproject.com.";
-  if (s.plugin === "absent") return "The Streamplace plugin isn't installed.";
-  if (s.plugin === "outdated")
-    return `The Streamplace plugin is out of date (${s.installedVersion}).`;
-  return `The Streamplace plugin is installed (${s.bundledVersion}).`;
+    return "Flatpak OBS can't load the Streamplace plugin";
+  if (s.plugin === "absent") return "Streamplace plugin not installed";
+  if (s.plugin === "outdated") return "Streamplace plugin out of date";
+  return "Streamplace plugin installed";
 };
 
 export type ObsCardProps = {
@@ -112,18 +111,20 @@ export function ObsCard({ obsKeyRequested, clearObsKeyRequest }: ObsCardProps) {
           return { ok: false, error: "Couldn't create a stream key." };
         }
         return bridge.configureStream(did, key.privateKey);
-      }, "Stream key sent to OBS. Select Streamplace in OBS to use it.");
+      }, "OBS connected.");
     } finally {
       connecting.current = false;
     }
   }, [bridge, did, run, createStreamKeyRecord, clearStreamKeyRecord]);
 
+  // Sending a key to a running OBS doesn't work yet, so wait until it closes.
   useEffect(() => {
     if (
       !did ||
       busy ||
       status?.obs !== "installed" ||
-      status.plugin !== "current"
+      status.plugin !== "current" ||
+      status.obsRunning
     ) {
       return;
     }
@@ -158,7 +159,7 @@ export function ObsCard({ obsKeyRequested, clearObsKeyRequest }: ObsCardProps) {
               {describe(status)}
             </Text>
             {installable && status.plugin !== "current" && (
-              <Button onPress={install} disabled={busy}>
+              <Button onPress={install} disabled={busy} width="min">
                 {status.plugin === "absent"
                   ? "Install the plugin"
                   : "Update the plugin"}
@@ -166,20 +167,23 @@ export function ObsCard({ obsKeyRequested, clearObsKeyRequest }: ObsCardProps) {
             )}
             {installable && status.plugin === "current" && (
               <>
-                <Text size="sm" color="muted">
-                  In OBS: Settings → Stream → Streamplace → Get Stream Key.
-                  Desktop signs you in and sends the key automatically, even
-                  while OBS is open. After saving OBS Settings, wait a second
-                  before streaming.
-                </Text>
                 {status.handoffDid === did && (
                   <Text size="sm" testID="desktop-obs-connected">
-                    Stream key sent to OBS for this account.
+                    OBS connected
                   </Text>
                 )}
-                <Button onPress={connect} disabled={busy || !did}>
+                <Button
+                  onPress={connect}
+                  disabled={busy || !did || status.obsRunning}
+                  width="min"
+                >
                   Connect OBS
                 </Button>
+                {status.obsRunning && (
+                  <Text size="sm" color="muted">
+                    Close OBS to connect it.
+                  </Text>
+                )}
               </>
             )}
           </View>

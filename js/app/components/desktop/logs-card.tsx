@@ -4,10 +4,7 @@ import {
   MenuGroup,
   MenuItem,
   MenuLabel,
-  Text,
-  useTheme,
   useToast,
-  View,
 } from "@streamplace/components";
 
 interface AppBridge {
@@ -17,7 +14,6 @@ interface AppBridge {
 type DesktopWindow = Window & { SP_ELECTRON?: { app?: AppBridge } };
 
 export function LogsCard() {
-  const { theme } = useTheme();
   const toast = useToast();
   const bridge: AppBridge | undefined =
     typeof window === "undefined"
@@ -44,12 +40,13 @@ export function LogsCard() {
       <MenuLabel>Logs</MenuLabel>
       <MenuGroup>
         <MenuItem>
-          <View style={{ flex: 1, gap: theme.spacing[3] }}>
-            <Text size="base">The node's logs are saved on this computer.</Text>
-            <Button testID="desktop-open-logs" onPress={openLogFolder}>
-              Open log folder
-            </Button>
-          </View>
+          <Button
+            testID="desktop-open-logs"
+            onPress={openLogFolder}
+            width="min"
+          >
+            Open log folder
+          </Button>
         </MenuItem>
       </MenuGroup>
     </MenuContainer>

@@ -19,8 +19,8 @@ test("shows the connected upstream MoQ destination", async ({ desktop }) => {
     destination.toString(),
     { timeout: 60_000 },
   );
-  await expect(page.getByTestId("desktop-forwarding-state")).toContainText(
-    `Connected to ${destination}`,
+  await expect(page.getByTestId("desktop-forwarding-state")).toHaveText(
+    "Connected",
     { timeout: 60_000 },
   );
 });

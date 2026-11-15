@@ -140,10 +140,10 @@ export function ForwardingCard() {
           const connected = peer.connected && !fetchError;
           const forwarding = connected && live;
           const state = forwarding
-            ? `Forwarding to ${destination}`
+            ? "Forwarding"
             : connected
-              ? `Connected to ${destination} — ready and waiting for a stream.`
-              : `Connecting to ${destination}`;
+              ? "Connected"
+              : "Connecting…";
           const error = fetchError || (!connected && peer.lastError);
           return (
             <MenuItem key={peer.peer}>

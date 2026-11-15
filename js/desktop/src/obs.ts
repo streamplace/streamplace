@@ -361,6 +361,11 @@ export const configureStream = async (
       error: obs === "flatpak" ? FLATPAK_ERROR : "OBS isn't installed.",
     };
   }
+  // Handing a key to a running OBS doesn't work yet; OBS also rewrites its
+  // profile on exit.
+  if (obsRunning) {
+    return { ok: false, error: "Close OBS, then connect it." };
+  }
   try {
     await writeStreamHandoff(
       obsConfigDir(),

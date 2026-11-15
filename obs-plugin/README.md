@@ -18,10 +18,9 @@ Extract the archive for your platform into OBS's plugin directory:
 Desktop offers to install the bundled plugin. Restart OBS, then pick
 **Settings → Stream → Streamplace → Get Stream Key**. Desktop must already be
 running: the link opens `http://127.0.0.1:38080/desktop/obs` in your browser, and
-Desktop brings up its system-browser login. After login, Desktop sends the key
-to OBS without copying or pasting, even while OBS is open. Save OBS Settings and
-wait a second before starting the stream. Desktop's **Connect OBS** button
-creates a replacement key.
+Desktop brings up its system-browser login. After login, close OBS: Desktop
+then writes the key into OBS's profile, no copying or pasting. Desktop's
+**Connect OBS** button creates a replacement key.
 
 The plugin checks its config file `plugin_config/obs-streamplace/stream-key.json`
 once a second: Desktop atomically writes

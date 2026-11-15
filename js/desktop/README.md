@@ -17,16 +17,16 @@ Logs rotate on restart and at 20 MiB; self-test nodes use separate named log fil
 Accept Desktop's plugin install, restart OBS, then choose **Settings → Stream →
 Streamplace → Get Stream Key**. Desktop must already be running: the link opens
 `http://127.0.0.1:38080/desktop/obs`, and Desktop notices the request and brings
-up its login. Once signed in, Desktop sends a key to OBS, even while OBS is
-running. **Connect OBS** creates a replacement key.
+up its login. Once signed in and OBS is closed, Desktop writes OBS's current
+profile with a new key; it refuses while OBS runs, since handing a key to a
+running OBS doesn't work yet. **Connect OBS** creates a replacement key.
 
-Desktop writes
+Desktop also writes
 `{"did":"did:…","key":"z…","server":"http://127.0.0.1:38080","replaces":[]}` to
 `<OBS config>/plugin_config/obs-streamplace/stream-key.json`; `replaces` holds
 up to 20 keys it issued before. The plugin checks the file once a second and,
-when the Streamplace key is empty or one of those, sets the key and server, even
-after restarts or stale Settings saves; a key entered by hand stays. With OBS
-closed, Desktop also writes the current profile's stream settings.
+when the Streamplace key is empty or one of those, sets the key and server; a
+key entered by hand stays.
 
 ## `pnpm run start`
 

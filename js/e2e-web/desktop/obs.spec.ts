@@ -29,6 +29,7 @@ test("OBS gets a key through Desktop login, kept across reloads and restarts", a
   await expect(handleField).toBeVisible({ timeout: 60_000 });
   await desktop.page.keyboard.press("Escape");
   await expect(handleField).not.toBeVisible();
+  await expect(desktop.page.getByTestId("desktop-login")).toBeVisible();
   expect((await request.get(`${desktop.nodeURL}/desktop/obs`)).ok()).toBe(true);
   await loginThroughSystemBrowser(desktop);
 

@@ -50,6 +50,23 @@ export async function loginThroughPds(
       await page.waitForURL((u) => u.origin === pdsOrigin, { timeout: 60_000 });
     })(),
   ]);
+  await completePdsSignIn(page, appOrigin, password);
+
+  // back through the node's /oauth/return to the app's /login, which lands a
+  // logged-in user on their account settings
+  await page.waitForURL((u) => u.origin === appOrigin, { timeout: 60_000 });
+  await expect(page.getByText(`@${handle}`).first()).toBeVisible({
+    timeout: 30_000,
+  });
+}
+
+// Fills the PDS password page and authorizes the client, ending when the
+// browser is back at `appOrigin` (whatever that app's callback route is).
+export async function completePdsSignIn(
+  page: Page,
+  appOrigin: string,
+  password: string,
+): Promise<void> {
   const passwordField = page.locator('input[type="password"]');
   await expect(passwordField).toBeVisible({ timeout: 30_000 });
   await passwordField.fill(password);
@@ -64,10 +81,5 @@ export async function loginThroughPds(
     page.waitForURL((u) => u.origin === appOrigin, { timeout: 60_000 }),
   ]);
 
-  // back through the node's /oauth/return to the app's /login, which lands a
-  // logged-in user on their account settings
   await page.waitForURL((u) => u.origin === appOrigin, { timeout: 60_000 });
-  await expect(page.getByText(`@${handle}`).first()).toBeVisible({
-    timeout: 30_000,
-  });
 }

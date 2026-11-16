@@ -1,3 +1,8 @@
+import {
+  DESKTOP_LOGIN_CALLBACK_PREFIX,
+  getDesktopAuth,
+  getDesktopLoginToken,
+} from "features/bluesky/desktop-auth";
 import { AppStore } from "store";
 import { StateCreator } from "zustand";
 
@@ -31,6 +36,12 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return output;
 }
 
+function sleep(ms: number): Promise<void> {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  setTimeout(resolve, ms);
+  return promise;
+}
+
 export const createPlatformSlice: StateCreator<
   AppStore,
   [],
@@ -51,6 +62,38 @@ export const createPlatformSlice: StateCreator<
   openLoginLink: async (url: string) => {
     set({ status: "loading" });
     try {
+      const desktopAuth = getDesktopAuth();
+      if (desktopAuth) {
+        // Desktop hands the PDS page to the system browser, where passkeys
+        // work. The local node receives the return and holds it for the app.
+        await desktopAuth.openLogin(url);
+        const token = getDesktopLoginToken();
+        const nodeURL = get().url;
+        void (async () => {
+          for (let attempt = 0; attempt < 300; attempt++) {
+            await sleep(1000);
+            try {
+              const res = await fetch(
+                `${nodeURL}/api/desktop/oauth-callback/${token}`,
+              );
+              if (res.status === 404) {
+                continue;
+              }
+              if (!res.ok) {
+                throw new Error(`desktop login poll returned ${res.status}`);
+              }
+              const params = (await res.json()) as Record<string, string>;
+              await get().oauthCallback(
+                `${DESKTOP_LOGIN_CALLBACK_PREFIX}?${new URLSearchParams(params).toString()}`,
+              );
+              return;
+            } catch (e) {
+              console.error("desktop login poll failed", e);
+            }
+          }
+        })();
+        return;
+      }
       window.location.href = url;
       set({ status: "idle" });
     } catch (error) {

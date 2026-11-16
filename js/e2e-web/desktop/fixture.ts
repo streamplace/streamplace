@@ -43,9 +43,10 @@ async function freeUDPPort(): Promise<number> {
   return port;
 }
 
-type Desktop = {
+export type Desktop = {
   nodeURL: string;
   page: Page;
+  electronApp: () => ElectronApplication;
   restart: () => Promise<Page>;
 };
 
@@ -171,6 +172,12 @@ export const test = base.extend<{ desktop: Desktop }>({
       await use({
         nodeURL,
         page,
+        electronApp: () => {
+          if (!app) {
+            throw new Error("Electron is not running");
+          }
+          return app;
+        },
         restart: async () => {
           await stop();
           return launch();

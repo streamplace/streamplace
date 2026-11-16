@@ -74,7 +74,9 @@ export default function BlueskyProvider({
   useEffect(() => {
     if (url !== lastLink && url) {
       setLastLink(url);
-      if (url.includes("?")) {
+      // /app-return is the browser handoff page; its OAuth state belongs to
+      // the app it hands off to, so this page must not consume the code.
+      if (url.includes("?") && !url.includes("/app-return/")) {
         const params = new URLSearchParams(url.split("?")[1]);
         if (params.has("error") || params.has("code")) {
           oauthCallback(url);

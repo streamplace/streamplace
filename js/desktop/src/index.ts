@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { parseArgs } from "node:util";
 import "source-map-support/register";
 import { generatePrivateKey } from "viem/accounts";
@@ -108,7 +108,7 @@ if (require("electron-squirrel-startup")) {
       const { addr } = await makeNode({ env, autoQuit: true });
       loadAddr = addr;
     }
-    const mainWindow = await makeWindow();
+    const window = await makeWindow();
 
     let startPath;
     if (nodeFrontend) {
@@ -117,12 +117,11 @@ if (require("electron-squirrel-startup")) {
       startPath = `http://127.0.0.1:38081${path}`;
     }
 
-    // For the OBS setup screen, through SP_ELECTRON.obs in preload.ts. Only
-    // the app's own pages may call it: signing in sends this window to the
-    // PDS, whose pages get the same preload.
+    // For the OBS setup screen and system-browser logins, through
+    // SP_ELECTRON in preload.ts. Only the app's own pages may call them.
     const server = loadAddr ?? "http://127.0.0.1:38082";
     const appOrigin = new URL(startPath).origin;
-    const handleObs = <A extends unknown[]>(
+    const handleIPC = <A extends unknown[]>(
       channel: string,
       fn: (...args: A) => unknown,
     ) =>
@@ -132,15 +131,25 @@ if (require("electron-squirrel-startup")) {
         }
         return fn(...(args as A));
       });
-    handleObs("obs:status", () => obsStatus());
-    handleObs("obs:installPlugin", () => installPlugin());
-    handleObs("obs:configureStream", (streamKey: string) =>
+    handleIPC("obs:status", () => obsStatus());
+    handleIPC("obs:installPlugin", () => installPlugin());
+    handleIPC("obs:configureStream", (streamKey: string) =>
       configureStream(server, streamKey),
     );
-    console.log(`opening ${startPath}`);
-    mainWindow.loadURL(startPath);
+    handleIPC("auth:openLogin", async (url: string) => {
+      // The app may point at a custom node, so any web page is allowed here;
+      // never hand an arbitrary scheme to the OS.
+      const { protocol } = new URL(url);
+      if (protocol !== "http:" && protocol !== "https:") {
+        throw new Error(`refusing to open ${url}`);
+      }
+      await shell.openExternal(url);
+    });
 
-    offerObsPlugin(mainWindow).catch((e) =>
+    console.log(`opening ${startPath}`);
+    window.loadURL(startPath);
+
+    offerObsPlugin(window).catch((e) =>
       console.error("OBS plugin check failed", e),
     );
   };

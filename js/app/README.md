@@ -1,8 +1,17 @@
 # @streamplace/app
 
-Expo (SDK 55) app for iOS/Android. Native projects (`ios/`, `android/`) are
+Expo (SDK 58) app for iOS/Android. Native projects (`ios/`, `android/`) are
 gitignored and generated via `expo prebuild`; shared UI lives in
 `@streamplace/components` and logic in `@streamplace/core`.
+
+`pnpm app check` checks both the app and `tsconfig.wallet.json`. The wallet's
+web-only importer has a separate TypeScript program so WalletConnect's Node
+typings do not change the native app's timer and environment types.
+
+Native OAuth uses the direct Custom Tab launch on Android, not Expo 58's proxy
+task, which can reopen a cancelled attempt after restarting the app. Handle-field
+Enter submission goes through `onSubmitEditing` only, so one press starts one
+sign-in attempt.
 
 ## User search
 
@@ -88,6 +97,11 @@ to exact versions so that dependency updates keep OTA bundles compatible with
 the shipped binaries. Move them only together with a `runtimeVersion` bump.
 `npx @expo/fingerprint fingerprint:generate --platform ios` (and `android`) in
 `js/app` should report the same native sources before and after an update.
+
+QR sign-in uses `expo-camera`'s native scanner UI, not a custom camera view.
+Its config plugin sets the iOS camera permission without adding an Android
+microphone permission for scanning. The SDK 58 camera module ships with the
+0.13.0 native upgrade; this feature does not introduce another runtime version.
 
 ## Web bundle splitting and Atlas
 

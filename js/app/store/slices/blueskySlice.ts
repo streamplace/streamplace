@@ -27,6 +27,14 @@ type NewLivestream = {
   record: place.stream.livestream.Main | null;
 };
 
+type LoginOptions = {
+  blueskyPermissions?: boolean;
+  // a sign-in provider on the entryway PDS (Apple, Google)
+  provider?: string;
+  // the entryway's email + password form
+  screen?: "sign-in";
+};
+
 export interface BlueskySlice {
   authStatus: "start" | "loggedIn" | "loggedOut";
   oauthState: null | string;
@@ -39,6 +47,8 @@ export interface BlueskySlice {
   profiles: { [key: string]: AppBskyActorDefs.ProfileViewDetailed };
   profileCache: { [key: string]: AppBskyActorDefs.ProfileViewDetailed };
   client: null | OAuthClient;
+  // the node the client was made for: authorization requests go there
+  clientUrl: null | string;
   loginState: {
     loading: boolean;
     error: null | string;
@@ -75,8 +85,11 @@ export interface BlueskySlice {
   login: (
     handle: string,
     openLoginLink: (url: string) => Promise<void>,
-    options?: { blueskyPermissions?: boolean },
+    options?: LoginOptions,
   ) => Promise<void>;
+  // a pushed authorization request for identifier, as the URL to send the
+  // user to; QR login keeps it and never sends them
+  authorizeUrl: (identifier: string, options?: LoginOptions) => Promise<URL>;
   refreshSessionScope: () => Promise<void>;
   logout: () => Promise<void>;
   getProfile: (actor: string) => Promise<void>;
@@ -182,6 +195,7 @@ export const createBlueskySlice: StateCreator<
   profiles: {},
   profileCache: {},
   client: null,
+  clientUrl: null,
   loginState: {
     loading: false,
     error: null,
@@ -286,6 +300,7 @@ export const createBlueskySlice: StateCreator<
         });
         set({
           client,
+          clientUrl: streamplaceUrl,
           authStatus: "loggedIn",
           oauthSession: session,
           pdsAgent: new StreamplaceAgent(session),
@@ -297,6 +312,7 @@ export const createBlueskySlice: StateCreator<
           oauthSession: session,
           authStatus: "loggedOut",
           client,
+          clientUrl: streamplaceUrl,
           anonPDSAgent,
         });
       }
@@ -348,7 +364,7 @@ export const createBlueskySlice: StateCreator<
   login: async (
     handle: string,
     openLoginLink: (url: string) => Promise<void>,
-    options?: { blueskyPermissions?: boolean },
+    options?: LoginOptions,
   ) => {
     console.log("Logging in");
     set({
@@ -358,23 +374,19 @@ export const createBlueskySlice: StateCreator<
       },
     });
     try {
-      const state = get() as BlueskySlice;
-      await state.loadOAuthClient();
-      const updatedState = get() as BlueskySlice;
-      if (!updatedState.client) {
-        throw new Error("No client");
-      }
-      console.log("Authorizing");
-      const authorizeOptions: { scope?: string } = {};
-      if (options?.blueskyPermissions === false) {
-        const fullScope = updatedState.client.clientMetadata.scope;
-        if (fullScope) {
-          authorizeOptions.scope = withoutBlueskyScopes(fullScope);
-        }
-      }
-      const u = await updatedState.client.authorize(handle, authorizeOptions);
+      await (get() as BlueskySlice).loadOAuthClient();
+      const u = await (get() as BlueskySlice).authorizeUrl(handle, options);
+      // The node's OAuth proxy passes these on to the entryway PDS, as its
+      // /oauth/federated/start?provider= and /oauth/authorize?screen=.
+      // Appended by hand: React Native's URL repeats the whole query when
+      // searchParams is touched.
+      const extra = new URLSearchParams();
+      if (options?.provider) extra.set("provider", options.provider);
+      if (options?.screen) extra.set("screen", options.screen);
+      let href = u.toString();
+      if (extra.toString()) href += `&${extra.toString()}`;
       console.log("Opening link");
-      await openLoginLink(u.toString());
+      await openLoginLink(href);
       // cheeky 500ms delay so you don't see the text flash back
       await new Promise((resolve) => setTimeout(resolve, 5000));
       set({
@@ -396,6 +408,28 @@ export const createBlueskySlice: StateCreator<
         },
       });
     }
+  },
+
+  authorizeUrl: async (identifier: string, options?: LoginOptions) => {
+    // the client loaded at startup, unless the node has changed since:
+    // reloading resets authStatus, which remounts the login form this is
+    // called from
+    const { client: current, clientUrl } = get() as BlueskySlice;
+    if (!current || clientUrl !== get().url) {
+      await (get() as BlueskySlice).loadOAuthClient();
+    }
+    const client = (get() as BlueskySlice).client;
+    if (!client) {
+      throw new Error("No client");
+    }
+    const authorizeOptions: { scope?: string } = {};
+    if (options?.blueskyPermissions === false) {
+      const fullScope = client.clientMetadata.scope;
+      if (fullScope) {
+        authorizeOptions.scope = withoutBlueskyScopes(fullScope);
+      }
+    }
+    return await client.authorize(identifier, authorizeOptions);
   },
 
   logout: async () => {
@@ -493,6 +527,7 @@ export const createBlueskySlice: StateCreator<
         });
         set({
           client,
+          clientUrl: streamplaceUrl,
           oauthSession: ret.session,
           pdsAgent: new StreamplaceAgent(ret.session),
           authStatus: "loggedIn",

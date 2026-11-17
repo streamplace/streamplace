@@ -12,8 +12,6 @@ export interface BrandingAsset {
   height?: number; // image height in pixels
 }
 
-const BRANDING_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
-
 // helper to convert blob to base64
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -31,7 +29,7 @@ export interface BrandingSlice {
   brandingLoading: boolean;
   brandingError: string | null;
   fetchBroadcasterDID: () => Promise<void>;
-  fetchBranding: (opts?: { force?: boolean }) => Promise<boolean>;
+  fetchBranding: () => Promise<boolean>;
 }
 
 export const createBrandingSlice: StateCreator<
@@ -64,7 +62,7 @@ export const createBrandingSlice: StateCreator<
     }
   },
 
-  fetchBranding: async ({ force = true } = {}) => {
+  fetchBranding: async () => {
     const { broadcasterDID, url } = get();
     if (!broadcasterDID) {
       // If we don't know the broadcaster yet, resolve it first.
@@ -76,23 +74,15 @@ export const createBrandingSlice: StateCreator<
     try {
       set({ brandingLoading: true });
 
-      // check localStorage first
+      // Show what we had last time right away, then refresh from the node,
+      // so an operator's change shows on the next load.
       const cacheKey = `branding:${did}`;
       const cached = await storage.getItem(cacheKey);
-      if (!force && cached) {
+      if (cached && !get().branding) {
         try {
-          const parsed = JSON.parse(cached);
-          // check if cache is less than 1 hour old
-          if (Date.now() - parsed.timestamp < BRANDING_CACHE_TTL_MS) {
-            set({
-              branding: parsed.data,
-              brandingLoading: false,
-              brandingError: null,
-            });
-            return true;
-          }
+          const { data } = JSON.parse(cached);
+          if (data) set({ branding: data });
         } catch (e) {
-          // invalid cache, continue to fetch
           console.warn("Invalid branding cache, refetching", e);
         }
       }
@@ -127,13 +117,7 @@ export const createBrandingSlice: StateCreator<
 
       // cache in localStorage
       storage
-        .setItem(
-          cacheKey,
-          JSON.stringify({
-            timestamp: Date.now(),
-            data: brandingMap,
-          }),
-        )
+        .setItem(cacheKey, JSON.stringify({ data: brandingMap }))
         .catch(console.error);
 
       set({

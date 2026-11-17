@@ -1,0 +1,51 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.login.createQRLogin",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Start a QR login: a browser that has made an OAuth pushed authorization request asks for a code that the Streamplace app, already signed in to this node, can scan and approve. The browser's user agent and IP address are recorded to show the approver.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["requestUri"],
+          "properties": {
+            "requestUri": {
+              "type": "string",
+              "description": "The request_uri the node's OAuth server returned for the browser's pushed authorization request."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["id", "url", "expiresAt"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Identifies this login attempt to getQRLogin and completeQRLogin."
+            },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "description": "What the QR code encodes: the attempt's approval page, which the app opens."
+            },
+            "expiresAt": {
+              "type": "string",
+              "format": "datetime"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "QRLoginUnavailable",
+          "description": "This node has no Streamplace app configured to approve QR logins."
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,191 @@
+<!doctype html>
+<!-- A template: `streamplace vod-poc` fills it in for each video. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>{{.Title}}</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0a0a0b;
+        color: #e8e8ea;
+        font: 14px/1.4 system-ui, sans-serif;
+      }
+      main {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 100%;
+        padding: 64px 16px 16px;
+        box-sizing: border-box;
+      }
+      canvas {
+        width: min(100%, calc((100vh - 160px) * 16 / 9));
+        aspect-ratio: 16 / 9;
+        background: #000;
+        border-radius: 8px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      #logo {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        width: 32px;
+        height: 32px;
+      }
+      #stats {
+        font: 12px ui-monospace, monospace;
+        color: #9a9aa2;
+      }
+    </style>
+  </head>
+  <body>
+    <svg id="logo" viewBox="0 -6.1 493.29 493.29" aria-label="Streamplace">
+      <path
+        d="m253.76 445.69-208.02-93.734-45.742-290.22 243.33-61.739 249.95 58.678-9.9427 310.8z"
+        fill="#f8baca"
+      />
+      <path
+        d="m253.59 481.09-241.31-105.15-12.277-314.2 253.59 70.875 239.69-73.936-85.842 261.91z"
+        fill="#de91a6"
+      />
+      <path
+        d="m493.29 58.678-239.7 73.933-0.59253 348.48 230.34-111.61z"
+        fill="#ac6e81"
+      />
+    </svg>
+    <main>
+      <canvas id="video" width="426" height="240"></canvas>
+      <h1>{{.Title}}</h1>
+      <div id="stats" data-testid="vod-poc-stats"></div>
+    </main>
+    <script>
+      // The playback engine: WebCodecs onto the canvas, fed by SP.push. The
+      // first group arrives inline below; player.js fetches the rest over MoQ.
+      (() => {
+        const M = {{.Manifest}};
+        const canvas = document.getElementById("video");
+        const g2d = canvas.getContext("2d");
+        const bytes = (d) =>
+          typeof d !== "string"
+            ? d
+            : Uint8Array.fromBase64
+              ? Uint8Array.fromBase64(d)
+              : Uint8Array.from(atob(d), (c) => c.charCodeAt(0));
+        const marks = (window.__vodTtff ||= {});
+        const SP = (window.SP = { manifest: M, seq: -1, stalls: 0, moq: "connecting", push() {} });
+        const status = (text) => (document.getElementById("stats").textContent = text);
+
+        // Start the QUIC handshake now, alongside decoding; player.js takes it over.
+        try {
+          SP.transport = new WebTransport(M.moq.url, {
+            allowPooling: false,
+            congestionControl: "low-latency",
+            protocols: ["moq-lite-06"],
+            serverCertificateHashes: [
+              {
+                algorithm: "sha-256",
+                value: Uint8Array.from(M.moq.fingerprint.match(/../g), (h) => parseInt(h, 16)),
+              },
+            ],
+          });
+          SP.transport.closed.catch(() => {});
+        } catch {}
+
+        if (!window.VideoDecoder) return status("This proof of concept needs WebCodecs.");
+        const queue = []; // encoded frames
+        const frames = []; // decoded frames, oldest first
+        let configured = -1;
+        let clock = null;
+        let shown = null;
+        const decoder = new VideoDecoder({
+          output(f) {
+            frames.push(f);
+            if (!clock) start(f);
+          },
+          error(e) {
+            SP.error = String(e);
+          },
+        });
+        const pump = () => {
+          while (queue.length && decoder.decodeQueueSize + frames.length < 8) {
+            const c = queue.shift();
+            if (c.r !== configured) {
+              const r = M.renditions[c.r];
+              decoder.configure({ codec: r.codec, description: bytes(r.description), optimizeForLatency: true });
+              configured = c.r;
+            }
+            decoder.decode(
+              new EncodedVideoChunk({ type: c.key ? "key" : "delta", timestamp: c.ts, data: bytes(c.data) }),
+            );
+          }
+        };
+        decoder.ondequeue = pump;
+
+        // Frames of group `seq` of rendition `r`, in order; a new group starts at a keyframe.
+        SP.push = (r, seq, list) => {
+          list.forEach((f, i) => queue.push({ r, key: i === 0 && seq !== SP.seq, ts: f.ts, data: f.data }));
+          SP.seq = seq;
+          pump();
+        };
+        SP.mediaUs = () => (clock ? clock.media + (performance.now() - clock.wall) * 1000 : 0);
+
+        const draw = (f) => {
+          if (canvas.width !== f.displayWidth) {
+            canvas.width = f.displayWidth;
+            canvas.height = f.displayHeight;
+          }
+          g2d.drawImage(f, 0, 0, canvas.width, canvas.height);
+          shown = f;
+          SP.height = f.displayHeight;
+          if (SP.height === M.renditions.at(-1).height) SP.bestAt ??= performance.now();
+        };
+        const start = (f) => {
+          draw(f);
+          clock = { wall: performance.now(), media: f.timestamp };
+          requestAnimationFrame((t) => (marks.firstFrame = SP.firstFrame = t));
+          requestAnimationFrame(tick);
+        };
+        let lastStatus = 0;
+        const tick = (now) => {
+          requestAnimationFrame(tick);
+          const media = clock.media + (now - clock.wall) * 1000;
+          while (frames.length > 1 && frames[1].timestamp <= media) frames.shift().close();
+          const f = frames[0];
+          if (f !== shown) draw(f);
+          // Out of frames: hold the clock on the last one until more arrive.
+          const end = f.timestamp + 1e6 / M.renditions[configured].fps;
+          if (frames.length === 1 && media > end) {
+            if (!SP.stalled) SP.stalls++;
+            SP.stalled = true;
+            clock = { wall: now, media: end };
+          } else SP.stalled = false;
+          pump();
+          if (now - lastStatus > 250) {
+            lastStatus = now;
+            status(
+              `first frame ${Math.round(SP.firstFrame ?? 0)} ms · ${SP.height}p${SP.bestAt ? ` since ${Math.round(SP.bestAt)} ms` : ""} · ${(media / 1e6).toFixed(1)} s · MoQ ${SP.moq} · stalls ${SP.stalls}`,
+            );
+          }
+        };
+      })();
+    </script>
+    <script>
+      SP.push(0, 0, {{.Keyframe}});
+    </script>
+    <script>
+      SP.push(0, 0, {{.Rest}});
+    </script>
+    <script type="module" src="{{.Player}}"></script>
+  </body>
+</html>

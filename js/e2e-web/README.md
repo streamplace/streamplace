@@ -363,3 +363,10 @@ VOD_TTFF_BASELINE=/tmp/before.json pnpm bench
 `cold` is cold only in the browser: from the second run on, the node's and
 any CDN's caches hold the target video. Throttling adds to the real network
 path, and results depend on it, so compare runs from the same machine.
+
+### The proof of concept
+
+`hack/vod-poc-local.sh` serves [`js/vod-poc`](../vod-poc/README.md) and runs
+this config against it: `vod-poc` checks that its first frame needs no
+request but the page and that it switches up to 1080p, and `vod-ttff`
+measures it the same way as a node. CI's `bench-vod` job posts both reports.

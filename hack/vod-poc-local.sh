@@ -30,7 +30,8 @@ out="$(mktemp)"
 "$BUILDDIR/streamplace" vod-poc --media "$media" --web js/vod-poc \
   ${VOD_POC_HTTP_ADDR:+--http-addr "$VOD_POC_HTTP_ADDR"} >"$out" &
 pid=$!
-trap 'kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; rm -f "$out"' EXIT
+# The server dies of the kill; that is not this script's failure under set -e.
+trap 'kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true; rm -f "$out"' EXIT
 for _ in $(seq 120); do
   grep -q '^VOD_POC_URLS=' "$out" && break
   kill -0 "$pid" || { echo "vod-poc exited before serving"; exit 1; }

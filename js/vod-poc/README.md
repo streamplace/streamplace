@@ -26,8 +26,9 @@ hack/vod-poc-local.sh --serve    # print the two watch URLs and keep serving
    keyframe with WebCodecs, and draws it on a canvas. Nothing else has been
    requested yet: the first frame needs only the HTML's first 10 KB (5.5 KB
    gzipped, inside a first TCP congestion window).
-4. `src/player.ts`, bundled with the pinned `@moq/net`, loads as a module
-   after the HTML. It takes the WebTransport session over and fetches later
+4. `src/player.ts`, bundled with the pinned `@moq/net`, is imported once the
+   first frame is on screen, so even a cached copy can't compile ahead of it.
+   It takes the WebTransport session over and fetches later
    groups by sequence, two seconds ahead of playback. Until a 1080p group
    arrives before playback needs it, it fetches the starter's copy too and
    uses that instead; after one does, it stays on 1080p.

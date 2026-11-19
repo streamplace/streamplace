@@ -153,7 +153,11 @@
         const start = (f) => {
           draw(f);
           clock = { wall: performance.now(), media: f.timestamp };
-          requestAnimationFrame((t) => (marks.firstFrame = SP.firstFrame = t));
+          requestAnimationFrame((t) => {
+            marks.firstFrame = SP.firstFrame = t;
+            // Only now: a cached player would otherwise compile ahead of the first frame.
+            import("{{.Player}}");
+          });
           requestAnimationFrame(tick);
         };
         let lastStatus = 0;
@@ -186,6 +190,5 @@
     <script>
       SP.push(0, 0, {{.Rest}});
     </script>
-    <script type="module" src="{{.Player}}"></script>
   </body>
 </html>

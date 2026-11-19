@@ -96,6 +96,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeBrandingCommand(build),
 		makeValidateConfigCommand(build),
 		makeE2eCommand(build),
+		makeVodPocCommand(),
 	}
 	// Add the verbosity flag
 	// app.Flags = append(app.Flags, &urfavecli.StringFlag{

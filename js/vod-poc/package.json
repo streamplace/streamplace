@@ -1,0 +1,17 @@
+{
+  "name": "@streamplace/vod-poc",
+  "version": "0.13.1",
+  "private": true,
+  "description": "Proof of concept: a VOD watch page that paints its first frame from the HTML itself",
+  "scripts": {
+    "build": "esbuild src/player.ts --bundle --format=esm --target=es2022 --minify --outfile=dist/player.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@moq/net": "0.4.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "typescript": "~6.0.3"
+  }
+}

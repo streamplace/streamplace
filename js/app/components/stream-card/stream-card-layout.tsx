@@ -472,35 +472,23 @@ function PostCard({
             paddingBottom: 2,
           }}
         >
+          {/* one count, the eye and a number: the stream's running view
+              total, or who is watching now when the node keeps no total */}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
             <Eye
               size={18}
               color={isLive ? theme.colors.live : theme.colors.text3}
             />
             <Text
+              tabular
               style={{
                 fontSize: 13,
                 lineHeight: 17,
                 color: isLive ? theme.colors.live : theme.colors.text3,
               }}
             >
-              {typeof views === "number" ? views : 0}
-              {isLive ? " watching" : ""}
+              {(viewTotal ?? views ?? 0).toLocaleString()}
             </Text>
-            {/* the running total of sessions this stream has had, in grey
-                beside the live count */}
-            {viewTotal !== null && viewTotal > 0 ? (
-              <Text
-                style={{
-                  fontSize: 13,
-                  lineHeight: 17,
-                  color: theme.colors.text3,
-                  marginLeft: 4,
-                }}
-              >
-                {"· " + viewTotal.toLocaleString() + " views"}
-              </Text>
-            ) : null}
           </View>
           {isLive ? (
             <View

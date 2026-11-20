@@ -1,11 +1,13 @@
 import { useNavigation } from "@react-navigation/native";
 import {
+  Avatar,
   ContentWarningBadge,
   PlayerUI,
   Text,
   View,
   useAuthor,
   useAvatar,
+  useBrandingAsset,
   useCameraToggle,
   useLivestreamStore,
   useTheme,
@@ -14,11 +16,9 @@ import {
 } from "@streamplace/components";
 import {
   scrims,
-  surfaces,
   textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
-import { LogoTile } from "components/brand/logo";
-import { Image } from "expo-image";
+import { BRAND, LogoMark } from "components/brand/logo";
 import { ChevronLeft, MessageSquare, SwitchCamera } from "lucide-react-native";
 import {
   Linking,
@@ -29,7 +29,7 @@ import {
 import { convertNavigationParams } from "../../../src/navigation-helper";
 import { LiveBubble } from "./live-bubble";
 
-const { borders, colors, gap, layout, p, px, py, r, text } = zero;
+const { colors, gap, layout, p, px, py, r, text } = zero;
 
 interface TopControlBarProps {
   offline: boolean;
@@ -58,6 +58,8 @@ export function TopControlBar({
   const isSmallScreen = width < 600;
 
   const title = useTitle();
+  // "Powered by" names the operator's brand when one is configured, else ours.
+  const nodeTitle = useBrandingAsset("siteTitle")?.data || BRAND.name;
 
   // Get content warnings from segment
   const segment = useLivestreamStore((x) => x.segment);
@@ -96,23 +98,7 @@ export function TopControlBar({
               <View
                 style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
               >
-                <Image
-                  source={
-                    avatar
-                      ? { uri: avatar }
-                      : require("assets/images/goose.png")
-                  }
-                  style={[
-                    {
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: surfaces.dark[2],
-                    },
-                    borders.width.thin,
-                    borders.color.gray[700],
-                  ]}
-                />
+                <Avatar src={avatar} name={profile?.handle} size={40} />
 
                 <View style={[layout.flex.column]}>
                   <Text weight="semibold">{title}</Text>
@@ -155,8 +141,8 @@ export function TopControlBar({
               ]}
             >
               {!isSmallScreen && <Text size="lg">Powered by</Text>}
-              <LogoTile size={24} />
-              {!isTinyScreen && <Text size="lg">Streamplace</Text>}
+              <LogoMark size={24} color={colors.white} />
+              {!isTinyScreen && <Text size="lg">{nodeTitle}</Text>}
             </Pressable>
           )}
           {isActivelyLive && (

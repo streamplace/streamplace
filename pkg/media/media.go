@@ -52,6 +52,9 @@ type MediaManager struct {
 	// concurrently, so it is how a late pre-live segment is told apart
 	// from the stream going back to preview.
 	liveWindowLatest map[string]time.Time
+	// prelivePlayback is, per streamer, the one owner playback session that
+	// may play their pre-live stream; guarded by liveWindowsMut.
+	prelivePlayback map[string]string
 	// segBuffers holds each stream's recent canonical segments in memory: the
 	// part of a stream this node can clip that no recording holds yet. Keyed
 	// by repoDID. See segment_buffer.go.
@@ -103,11 +106,6 @@ type MediaManager struct {
 	// the restarted media timeline into the previous session's continuous encoder.
 	// See withIngestSession / feedStreamTranscoder.
 	ingestSessionSeq atomic.Uint64
-
-	// ownerPlaybacks counts, per streamer, the running WebRTC playbacks with
-	// owner privileges; guarded by ownerPlaybacksMu. See claimOwnerPlayback.
-	ownerPlaybacks   map[string]int
-	ownerPlaybacksMu sync.Mutex
 }
 
 // nextIngestSession claims a fresh monotonic ingest-session epoch for a new live

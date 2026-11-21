@@ -66,6 +66,14 @@ export interface PlayerState {
    *  unpublished stream, threaded onto the HLS playlist URL. */
   playbackSession?: string;
   setPlaybackSession: (sid: string | undefined) => void;
+  /** A newer owner session took over pre-live playback; this player stays
+   *  stopped until the viewer picks "Play here". Cleared on a new src. */
+  playbackStartedElsewhere: boolean;
+  setPlaybackStartedElsewhere: (elsewhere: boolean) => void;
+  /** Mints a fresh owner session and resumes playback here (set by
+   *  usePlaybackSession while it holds the owner's session). */
+  playHere?: () => void;
+  setPlayHere: (playHere: (() => void) | undefined) => void;
 
   /** Function to set the source URL */
   setSrc: (src: string) => void;

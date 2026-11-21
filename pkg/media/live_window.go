@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -61,6 +62,7 @@ func (mm *MediaManager) GetLiveWindow(did string) *livehls.Writer {
 		delete(mm.liveWindows, did)
 		delete(mm.liveWindowPublished, did)
 		delete(mm.liveWindowLatest, did)
+		delete(mm.prelivePlayback, did)
 		return nil
 	}
 	return w
@@ -72,6 +74,26 @@ func (mm *MediaManager) LiveWindowPublished(did string) bool {
 	mm.liveWindowsMut.Lock()
 	defer mm.liveWindowsMut.Unlock()
 	return mm.liveWindowPublished[did]
+}
+
+// ErrPlaybackStartedElsewhere refuses a pre-live playback session that a
+// newer one of the streamer's has replaced.
+var ErrPlaybackStartedElsewhere = errors.New("pre-live playback started elsewhere")
+
+// ClaimPrelivePlayback makes session (a TID, so newer sorts later) the
+// streamer's one pre-live playback unless a newer one holds it, and reports
+// whether session holds it.
+func (mm *MediaManager) ClaimPrelivePlayback(did, session string) bool {
+	mm.liveWindowsMut.Lock()
+	defer mm.liveWindowsMut.Unlock()
+	if session == "" || session < mm.prelivePlayback[did] {
+		return false
+	}
+	if mm.prelivePlayback == nil {
+		mm.prelivePlayback = map[string]string{}
+	}
+	mm.prelivePlayback[did] = session
+	return true
 }
 
 // feedLiveWindow re-derives the per-track event stream from a stored canonical

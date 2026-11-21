@@ -5124,6 +5124,9 @@
                         },
                         {
                           "const": "StreamUnavailable"
+                        },
+                        {
+                          "const": "PlaybackStartedElsewhere"
                         }
                       ]
                     },
@@ -5200,6 +5203,9 @@
                         },
                         {
                           "const": "SegmentNotFound"
+                        },
+                        {
+                          "const": "PlaybackStartedElsewhere"
                         }
                       ]
                     },
@@ -5247,10 +5253,10 @@
             "name": "sid",
             "in": "query",
             "required": false,
-            "description": "Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control.",
+            "description": "The playback session from the media playlist that referenced this segment; required on this route, and it gates pre-live segments.",
             "schema": {
               "type": "string",
-              "description": "Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control."
+              "description": "The playback session from the media playlist that referenced this segment; required on this route, and it gates pre-live segments."
             }
           }
         ]
@@ -5299,7 +5305,7 @@
     },
     "/xrpc/place.stream.playback.getPlaybackSession": {
       "get": {
-        "summary": "Mint the caller's own playback session for their live stream. Every playback URL carries a signed session as `sid`; the anonymous one a playlist hands out opens published streams only, while the owner session this returns also opens the caller's unpublished (pre-live) stream to their own player. Requires an authenticated session; the result is bound to the caller's DID and network address, opens the pre-live stream only from that address and never to a page on another site, and is never renewed. Pass it as `sid` on getLivePlaylist.",
+        "summary": "Mint the caller's own playback session for their live stream. Every playback URL carries a signed session as `sid`; the anonymous one a playlist hands out opens published streams only, while the owner session this returns also opens the caller's unpublished (pre-live) stream to their own player. Requires an authenticated session; the result is bound to the caller's DID and network address, opens the pre-live stream only from that address and never to a page on another site, and is never renewed. A pre-live stream plays to one owner session at a time: the newest one used takes over, and older ones get PlaybackStartedElsewhere. Pass it as `sid` on getLivePlaylist or whep.",
         "operationId": "place.stream.playback.getPlaybackSession",
         "tags": ["place.stream.playback"],
         "responses": {
@@ -5532,6 +5538,9 @@
                       "oneOf": [
                         {
                           "const": "Unauthorized"
+                        },
+                        {
+                          "const": "PlaybackStartedElsewhere"
                         }
                       ]
                     },
@@ -5563,6 +5572,16 @@
             "schema": {
               "type": "string",
               "description": "The rendition of the stream to play."
+            }
+          },
+          {
+            "name": "sid",
+            "in": "query",
+            "required": false,
+            "description": "The streamer's own playback session (getPlaybackSession), which opens their pre-live stream.",
+            "schema": {
+              "type": "string",
+              "description": "The streamer's own playback session (getPlaybackSession), which opens their pre-live stream."
             }
           }
         ],

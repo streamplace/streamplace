@@ -87,10 +87,19 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     setStemVolumes: (stemVolumes) => set(() => ({ stemVolumes })),
 
     src: "",
-    setSrc: (src: string) => set(() => ({ src })),
+    setSrc: (src: string) =>
+      set((state) =>
+        state.src === src ? {} : { src, playbackStartedElsewhere: false },
+      ),
     playbackSession: undefined,
     setPlaybackSession: (playbackSession: string | undefined) =>
       set(() => ({ playbackSession })),
+    playbackStartedElsewhere: false,
+    setPlaybackStartedElsewhere: (playbackStartedElsewhere: boolean) =>
+      set(() => ({ playbackStartedElsewhere })),
+    playHere: undefined,
+    setPlayHere: (playHere: (() => void) | undefined) =>
+      set(() => ({ playHere })),
 
     ingestMediaSource: undefined,
     setIngestMediaSource: (ingestMediaSource: IngestMediaSource | undefined) =>

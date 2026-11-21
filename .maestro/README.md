@@ -173,6 +173,20 @@ and Vite shells with the same fixture.
 (`PRELIVE_ACCOUNT_HANDLE`) by deep link. That account streams with no livestream
 record, so the app must show it as offline. Shared by iOS and Android.
 
+`logged-in/prelive-elsewhere.yaml` switches the app to that account
+(`setup/switch-account.yaml`: log out, then `setup/oauth-sign-in.yaml`, the
+same sign-in `setup/oauth-login.yaml` runs) and opens its own pre-live stream.
+Pre-live playback has one valid owner session; `prelive-elsewhere.js` evicts the
+app's from the host: it gets the account's service-auth token from the PDS
+(`getServiceAuth`; the node doesn't accept the PDS's access token), mints a
+session with it and requests a playlist with that session. The app must show
+`playback-elsewhere` and resume only after `playback-elsewhere-play-here`.
+Owner sessions bind to the client IP, and the script and the emulator both
+reach the node as 127.0.0.1 (the emulator through the HTTPS front on host
+loopback). `onFlowComplete` signs the harness account back in, even after a
+failure. The flow needs `PRELIVE_ACCOUNT_DID`, `_HANDLE`, `_PASSWORD`,
+`PDS_HTTP_URL` and `SERVER_HTTP_URL`, and skips itself without the account.
+
 ## HTTPS, and logging in
 
 The app reaches the harness over HTTPS only: release builds refuse cleartext,

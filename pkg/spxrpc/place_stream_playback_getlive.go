@@ -95,17 +95,16 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 	// playlist is re-fetched every few seconds, so one that arrives without
 	// a session is redirected to carry one rather than counted afresh on
 	// every poll. A pre-live (unpublished) window is the streamer's own
-	// preview: only their own session (from getPlaybackSession, bound to
-	// their client) opens it, never from another site's page, and it reads
-	// as not live to everyone else; its URLs stay self-hosted, a CDN must
-	// not see or cache a preview.
+	// preview: one session of theirs at a time (see preliveAccess), and it
+	// reads as not live to everyone else; its URLs stay self-hosted, a CDN
+	// must not see or cache a preview.
 	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), did, sessionClient(c), track != "" || rendition == "audio")
 	if err != nil {
 		return err
 	}
 	if !s.mm.LiveWindowPublished(did) {
-		if !s.preliveAllowed(c, ps.Scope) {
-			return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
+		if err := s.preliveAccess(c, did, ps.Session); err != nil {
+			return err
 		}
 		live = liveCDN{}
 	}
@@ -213,8 +212,10 @@ func (s *Server) serveLiveSegment(c echo.Context, streamer, track, segParam, sid
 			return err
 		}
 	}
-	if !s.mm.LiveWindowPublished(did) && !s.preliveAllowed(c, sess.Scope) {
-		return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
+	if !s.mm.LiveWindowPublished(did) {
+		if err := s.preliveAccess(c, did, sess); err != nil {
+			return err
+		}
 	}
 
 	// Segment fetches keep the playback session alive in the viewer count
@@ -255,10 +256,20 @@ func (s *Server) serveLiveSegment(c echo.Context, streamer, track, segParam, sid
 	return nil
 }
 
-// preliveAllowed reports whether a request with a session of scope may see
-// an unpublished window: the owner's, not fetched by another site's page.
-func (s *Server) preliveAllowed(c echo.Context, scope psession.Scope) bool {
-	return s.cli.WideOpen || (scope == psession.ScopeOwner && !s.foreignPage(c.Request()))
+// preliveAccess is why a request with sess may not see an unpublished window,
+// or nil: it must be the owner's session, not fetched by another site's page,
+// and the streamer's newest pre-live playback.
+func (s *Server) preliveAccess(c echo.Context, did string, sess psession.Session) error {
+	if s.cli.WideOpen {
+		return nil
+	}
+	if sess.Scope != psession.ScopeOwner || s.foreignPage(c.Request()) {
+		return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
+	}
+	if !s.mm.ClaimPrelivePlayback(did, sess.ID) {
+		return errPlaybackElsewhere
+	}
+	return nil
 }
 
 // foreignPage reports whether a browser made r on behalf of a page outside

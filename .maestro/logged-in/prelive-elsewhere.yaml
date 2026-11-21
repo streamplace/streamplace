@@ -1,0 +1,54 @@
+appId: ${APP_ID}
+# A pre-live stream plays to one owner session at a time. The streamer's app
+# plays their own unpublished stream; a newer session of theirs (made from
+# outside the device by prelive-elsewhere.js) evicts it, and the app must ask
+# "Play here" before it takes the stream back. Web counterpart:
+# js/e2e-web/flows/prelive-playback.spec.ts. Needs PRELIVE_ACCOUNT_*, the
+# harness's second account (absent under some ingest modes). onFlowComplete
+# puts the harness account back even when the flow fails, as later flows
+# expect it signed in.
+onFlowComplete:
+  - runFlow:
+      when:
+        true: ${PRELIVE_ACCOUNT_HANDLE != ""}
+      file: ../setup/switch-account.yaml
+      env:
+        LOGIN_HANDLE: "${ACCOUNT_HANDLE}"
+        LOGIN_PASSWORD: "${ACCOUNT_PASSWORD}"
+---
+- runFlow:
+    when:
+      true: ${PRELIVE_ACCOUNT_HANDLE != ""}
+    commands:
+      - runFlow:
+          file: ../setup/switch-account.yaml
+          env:
+            LOGIN_HANDLE: "${PRELIVE_ACCOUNT_HANDLE}"
+            LOGIN_PASSWORD: "${PRELIVE_ACCOUNT_PASSWORD}"
+      - openLink: "${APP_ID}://${PRELIVE_ACCOUNT_HANDLE}"
+      # the native player tags its video view player-video once video frames
+      # arrive
+      - extendedWaitUntil:
+          visible:
+            id: "player-video"
+          timeout: 60000
+      - assertNotVisible:
+          id: "playback-elsewhere"
+      - takeScreenshot: prelive-elsewhere-playing
+      - runScript: prelive-elsewhere.js
+      - extendedWaitUntil:
+          visible:
+            id: "playback-elsewhere"
+          timeout: 30000
+      - takeScreenshot: prelive-elsewhere-evicted
+      - tapOn:
+          id: "playback-elsewhere-play-here"
+      - extendedWaitUntil:
+          notVisible:
+            id: "playback-elsewhere"
+          timeout: 15000
+      - extendedWaitUntil:
+          visible:
+            id: "player-video"
+          timeout: 30000
+      - takeScreenshot: prelive-elsewhere-playing-again

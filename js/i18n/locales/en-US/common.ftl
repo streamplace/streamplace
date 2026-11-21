@@ -282,6 +282,8 @@ pip-enter = Picture-in-picture
 pip-exit = Exit picture-in-picture
 theatre-enter = Theatre mode
 theatre-exit = Exit theatre mode
+playback-started-elsewhere = Playback started elsewhere.
+play-here = Play here
 
 ## Notifications
 teleporting-in = Teleporting in

@@ -34,6 +34,7 @@ _Schema not defined._
 - `StreamNotLive`: No live segments are currently windowed for this streamer on this node.
 - `TrackNotFound`: The requested track ID is not present in the live stream.
 - `StreamUnavailable`: The streamer's account is unavailable (e.g. banned).
+- `PlaybackStartedElsewhere`: A pre-live stream plays to one owner session at a time, and a newer one has taken over; mint a new session to play here again.
 
 ---
 
@@ -80,6 +81,10 @@ _Schema not defined._
         {
           "name": "StreamUnavailable",
           "description": "The streamer's account is unavailable (e.g. banned)."
+        },
+        {
+          "name": "PlaybackStartedElsewhere",
+          "description": "A pre-live stream plays to one owner session at a time, and a newer one has taken over; mint a new session to play here again."
         }
       ]
     }

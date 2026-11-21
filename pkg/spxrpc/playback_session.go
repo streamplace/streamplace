@@ -76,7 +76,16 @@ type playbackSession struct {
 	Redirect bool
 }
 
-var errBadSession = echo.NewHTTPError(http.StatusBadRequest, "InvalidSession")
+// xrpcError is an XRPC error response; echo writes a non-error Message as is.
+func xrpcError(code int, name, message string) *echo.HTTPError {
+	return echo.NewHTTPError(code, map[string]string{"error": name, "message": message})
+}
+
+var errBadSession = xrpcError(http.StatusBadRequest, "InvalidSession", "playback session is invalid or expired")
+
+// errPlaybackElsewhere refuses a pre-live playback whose session a newer one
+// of the streamer's has replaced.
+var errPlaybackElsewhere = xrpcError(http.StatusConflict, "PlaybackStartedElsewhere", "pre-live playback started elsewhere")
 
 // resolveSession verifies the sid a playback request from client carries
 // against streamer, or mints one. A malformed or forged sid is refused; an

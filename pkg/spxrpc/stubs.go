@@ -1464,13 +1464,14 @@ func (s *Server) HandlePlaceStreamPlaybackWhep(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackWhep")
 	defer span.End()
 	rendition := c.QueryParam("rendition")
+	sid := c.QueryParam("sid")
 	streamer := c.QueryParam("streamer")
 	body := c.Request().Body
 	contentType := c.Request().Header.Get("Content-Type")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context,rendition string,streamer string,r io.Reader,contentType string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackWhep(ctx, rendition, streamer, body, contentType)
+	// func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context,rendition string,sid string,streamer string,r io.Reader,contentType string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackWhep(ctx, rendition, sid, streamer, body, contentType)
 	if handleErr != nil {
 		return handleErr
 	}

@@ -13,7 +13,7 @@ description: Reference for the place.stream.playback.getPlaybackSession lexicon
 
 **Type:** `query`
 
-Mint the caller's own playback session for their live stream. Every playback URL carries a signed session as `sid`; the anonymous one a playlist hands out opens published streams only, while the owner session this returns also opens the caller's unpublished (pre-live) stream to their own player. Requires an authenticated session; the result is bound to the caller's DID and network address, opens the pre-live stream only from that address and never to a page on another site, and is never renewed. Pass it as `sid` on getLivePlaylist.
+Mint the caller's own playback session for their live stream. Every playback URL carries a signed session as `sid`; the anonymous one a playlist hands out opens published streams only, while the owner session this returns also opens the caller's unpublished (pre-live) stream to their own player. Requires an authenticated session; the result is bound to the caller's DID and network address, opens the pre-live stream only from that address and never to a page on another site, and is never renewed. A pre-live stream plays to one owner session at a time: the newest one used takes over, and older ones get PlaybackStartedElsewhere. Pass it as `sid` on getLivePlaylist or whep.
 
 **Parameters:** _(None defined)_
 
@@ -40,7 +40,7 @@ Mint the caller's own playback session for their live stream. Every playback URL
   "defs": {
     "main": {
       "type": "query",
-      "description": "Mint the caller's own playback session for their live stream. Every playback URL carries a signed session as `sid`; the anonymous one a playlist hands out opens published streams only, while the owner session this returns also opens the caller's unpublished (pre-live) stream to their own player. Requires an authenticated session; the result is bound to the caller's DID and network address, opens the pre-live stream only from that address and never to a page on another site, and is never renewed. Pass it as `sid` on getLivePlaylist.",
+      "description": "Mint the caller's own playback session for their live stream. Every playback URL carries a signed session as `sid`; the anonymous one a playlist hands out opens published streams only, while the owner session this returns also opens the caller's unpublished (pre-live) stream to their own player. Requires an authenticated session; the result is bound to the caller's DID and network address, opens the pre-live stream only from that address and never to a page on another site, and is never renewed. A pre-live stream plays to one owner session at a time: the newest one used takes over, and older ones get PlaybackStartedElsewhere. Pass it as `sid` on getLivePlaylist or whep.",
       "output": {
         "encoding": "application/json",
         "schema": {

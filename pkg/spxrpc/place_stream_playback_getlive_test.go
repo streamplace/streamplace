@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/cdn/bunny"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/psession"
 )
 
@@ -259,6 +260,30 @@ func TestForeignPage(t *testing.T) {
 	require.True(t, foreign("Origin", "https://soccer.example"))
 	require.True(t, foreign("Referer", "https://soccer.example/watch"))
 	require.True(t, foreign("Origin", "null"), "sandboxed or opaque page")
+}
+
+// TestPreliveAccess: a pre-live window plays to one owner session at a time;
+// a newer one takes over and the older one is told so (409), not "not live".
+func TestPreliveAccess(t *testing.T) {
+	s := &Server{cli: &config.CLI{}, mm: &media.MediaManager{}}
+	c := echo.New().NewContext(httptest.NewRequest(http.MethodGet, "/", nil), httptest.NewRecorder())
+	const did = "did:plc:abc"
+	first := psession.Session{ID: "3kabcaaaaaa22", Scope: psession.ScopeOwner}
+	second := psession.Session{ID: "3kabcaaaaab22", Scope: psession.ScopeOwner}
+
+	require.NoError(t, s.preliveAccess(c, did, first))
+	require.NoError(t, s.preliveAccess(c, did, second))
+	require.ErrorIs(t, s.preliveAccess(c, did, first), errPlaybackElsewhere)
+	err := s.preliveAccess(c, did, psession.Session{ID: "3kabcaaaaac22", Scope: psession.ScopePublic})
+	require.ErrorContains(t, err, "StreamNotLive", "a public session never claims it")
+	require.NoError(t, s.preliveAccess(c, did, second), "not taken by the public one")
+
+	// XRPC clients read the error name from the body's "error" field.
+	e := echo.New()
+	rec := httptest.NewRecorder()
+	e.DefaultHTTPErrorHandler(errPlaybackElsewhere, e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), rec))
+	require.Equal(t, http.StatusConflict, rec.Code)
+	require.JSONEq(t, `{"error":"PlaybackStartedElsewhere","message":"pre-live playback started elsewhere"}`, rec.Body.String())
 }
 
 // TestRedirectWithSession: the redirect keeps the request's URL and adds the

@@ -22,7 +22,7 @@ func TestWebRTCPlayback2(t *testing.T) {
 		Type: webrtc.SDPTypeOffer,
 		SDP:  firefoxNoH264SDP,
 	}
-	answer, err := mm.WebRTCPlayback2(context.Background(), "test-user", "test-rendition", offer, "")
+	answer, err := mm.WebRTCPlayback2(context.Background(), "test-user", "test-rendition", offer, "", "")
 	require.ErrorContains(t, err, "RTPSender created with no codecs")
 	require.Nil(t, answer)
 }
@@ -37,7 +37,7 @@ func TestWebRTCPlayback2AV1Viewer(t *testing.T) {
 		Duration: time.Second,
 		Video:    []bus.PacketizedVideo{{MimeType: webrtc.MimeTypeAV1}, {MimeType: webrtc.MimeTypeH264}},
 	}})
-	answer, err := mm.WebRTCPlayback2(ctx, "streamer", "source", &webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: firefoxNoH264SDP}, "")
+	answer, err := mm.WebRTCPlayback2(ctx, "streamer", "source", &webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: firefoxNoH264SDP}, "", "")
 	require.NoError(t, err)
 	require.Contains(t, answer.SDP, "AV1/90000")
 }
@@ -72,7 +72,7 @@ func TestWebRTCPlayback2EndsSessionWithoutItsCodec(t *testing.T) {
 	require.NoError(t, pc.SetLocalDescription(offer))
 	<-gathered
 
-	answer, err := mm.WebRTCPlayback2(ctx, "streamer", "source", pc.LocalDescription(), "")
+	answer, err := mm.WebRTCPlayback2(ctx, "streamer", "source", pc.LocalDescription(), "", "")
 	require.NoError(t, err)
 	require.Contains(t, answer.SDP, "H264/90000", "no segment yet: H.264")
 	require.NoError(t, pc.SetRemoteDescription(*answer))
@@ -141,44 +141,17 @@ func TestOfferedVideo(t *testing.T) {
 	}
 }
 
-// The streamer's own playbacks past the cap run as anonymous viewers, other
-// viewers are never counted, and a released slot is reusable.
-func TestClaimOwnerPlayback(t *testing.T) {
+// One pre-live playback per streamer: the newest session takes over, and an
+// older one never gets it back, even once the newer one stops playing.
+func TestClaimPrelivePlayback(t *testing.T) {
 	mm := &MediaManager{}
-	var releases []func()
-	for range maxOwnerPlaybacks {
-		viewer, release := mm.claimOwnerPlayback("streamer", "streamer")
-		require.Equal(t, "streamer", viewer)
-		releases = append(releases, release)
-	}
-
-	viewer, demotedRelease := mm.claimOwnerPlayback("streamer", "streamer")
-	require.Empty(t, viewer)
-	demotedRelease()
-	viewer, _ = mm.claimOwnerPlayback("streamer", "streamer")
-	require.Empty(t, viewer, "releasing a demoted playback must not free an owner slot")
-
-	viewer, _ = mm.claimOwnerPlayback("other", "other")
-	require.Equal(t, "other", viewer, "the cap is per streamer")
-	viewer, _ = mm.claimOwnerPlayback("streamer", "someone-else")
-	require.Equal(t, "someone-else", viewer)
-	viewer, _ = mm.claimOwnerPlayback("streamer", "")
-	require.Empty(t, viewer)
-
-	releases[0]()
-	releases[0]()
-	viewer, release := mm.claimOwnerPlayback("streamer", "streamer")
-	require.Equal(t, "streamer", viewer, "a released slot is reusable")
-	viewer, _ = mm.claimOwnerPlayback("streamer", "streamer")
-	require.Empty(t, viewer, "a double release frees only one slot")
-
-	release()
-	for _, r := range releases[1:] {
-		r()
-	}
-	mm.ownerPlaybacksMu.Lock()
-	defer mm.ownerPlaybacksMu.Unlock()
-	require.Equal(t, map[string]int{"other": 1}, mm.ownerPlaybacks)
+	const older, newer = "3kabcaaaaaa22", "3kabcaaaaab22"
+	require.True(t, mm.ClaimPrelivePlayback("streamer", older))
+	require.True(t, mm.ClaimPrelivePlayback("streamer", older), "the holder keeps it")
+	require.True(t, mm.ClaimPrelivePlayback("streamer", newer), "a newer session takes over")
+	require.False(t, mm.ClaimPrelivePlayback("streamer", older), "the evicted one stays out")
+	require.True(t, mm.ClaimPrelivePlayback("other", older), "per streamer")
+	require.False(t, mm.ClaimPrelivePlayback("streamer", ""), "no session, no claim")
 }
 
 var firefoxNoH264SDP = `v=0

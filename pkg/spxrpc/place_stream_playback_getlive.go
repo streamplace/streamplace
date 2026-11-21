@@ -266,7 +266,7 @@ func (s *Server) preliveAccess(c echo.Context, did string, sess psession.Session
 	if sess.Scope != psession.ScopeOwner || s.foreignPage(c.Request()) {
 		return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
 	}
-	if !s.mm.ClaimPrelivePlayback(did, sess.ID) {
+	if !s.mm.ClaimPrelivePlayback(did, sess.ID, "") {
 		return errPlaybackElsewhere
 	}
 	return nil

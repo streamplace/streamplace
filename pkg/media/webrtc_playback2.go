@@ -17,18 +17,19 @@ import (
 )
 
 // WebRTCPlayback2 plays user's stream to viewer for as long as the playback lasts. Unpublished
-// segments go only to the streamer's playback whose session prelive holds the claim (see
-// ClaimPrelivePlayback); a playback that loses the claim is closed.
+// segments go only to the streamer's playback whose session prelive, and this connection,
+// hold the claim (see ClaimPrelivePlayback); a playback that loses the claim is closed.
 func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendition string, offer *webrtc.SessionDescription, viewer, prelive string) (*webrtc.SessionDescription, error) {
-	owner := viewer == user && prelive != ""
-	if owner && !mm.cli.WideOpen && !mm.LiveWindowPublished(user) && !mm.ClaimPrelivePlayback(user, prelive) {
-		return nil, ErrPlaybackStartedElsewhere
-	}
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
 	}
-	ctx = log.WithLogValues(ctx, "webrtcID", uu.String())
+	conn := uu.String()
+	owner := viewer == user && prelive != ""
+	if owner && !mm.cli.WideOpen && !mm.LiveWindowPublished(user) && !mm.ClaimPrelivePlayback(user, prelive, conn) {
+		return nil, ErrPlaybackStartedElsewhere
+	}
+	ctx = log.WithLogValues(ctx, "webrtcID", conn)
 	ctx = log.WithLogValues(ctx, "mediafunc", "WebRTCPlayback")
 
 	audioOnly := rendition == renditions.AudioRendition.Name
@@ -175,7 +176,7 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 							log.Warn(ctx, "segment is not published and viewer is not the streamer's playback", "viewer", viewer, "user", user)
 							continue
 						}
-						if !mm.ClaimPrelivePlayback(user, prelive) {
+						if !mm.ClaimPrelivePlayback(user, prelive, conn) {
 							log.Log(ctx, "pre-live playback started elsewhere, closing", "user", user)
 							cancel()
 							return

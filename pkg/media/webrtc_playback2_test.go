@@ -146,12 +146,21 @@ func TestOfferedVideo(t *testing.T) {
 func TestClaimPrelivePlayback(t *testing.T) {
 	mm := &MediaManager{}
 	const older, newer = "3kabcaaaaaa22", "3kabcaaaaab22"
-	require.True(t, mm.ClaimPrelivePlayback("streamer", older))
-	require.True(t, mm.ClaimPrelivePlayback("streamer", older), "the holder keeps it")
-	require.True(t, mm.ClaimPrelivePlayback("streamer", newer), "a newer session takes over")
-	require.False(t, mm.ClaimPrelivePlayback("streamer", older), "the evicted one stays out")
-	require.True(t, mm.ClaimPrelivePlayback("other", older), "per streamer")
-	require.False(t, mm.ClaimPrelivePlayback("streamer", ""), "no session, no claim")
+	require.True(t, mm.ClaimPrelivePlayback("streamer", older, ""))
+	require.True(t, mm.ClaimPrelivePlayback("streamer", older, ""), "the holder keeps it")
+	require.True(t, mm.ClaimPrelivePlayback("streamer", newer, ""), "a newer session takes over")
+	require.False(t, mm.ClaimPrelivePlayback("streamer", older, ""), "the evicted one stays out")
+	require.True(t, mm.ClaimPrelivePlayback("other", older, ""), "per streamer")
+	require.False(t, mm.ClaimPrelivePlayback("streamer", "", ""), "no session, no claim")
+
+	// One WebRTC connection per session: offers relayed through the owner's
+	// client with the same sid replace each other rather than fan out.
+	const conn1, conn2 = "0190a000-0000-7000-8000-000000000001", "0190a000-0000-7000-8000-000000000002"
+	require.True(t, mm.ClaimPrelivePlayback("streamer", newer, conn1))
+	require.True(t, mm.ClaimPrelivePlayback("streamer", newer, conn2))
+	require.False(t, mm.ClaimPrelivePlayback("streamer", newer, conn1), "the older connection is closed")
+	require.True(t, mm.ClaimPrelivePlayback("streamer", newer, ""), "HLS on the session still plays")
+	require.True(t, mm.ClaimPrelivePlayback("streamer", newer, conn2))
 }
 
 var firefoxNoH264SDP = `v=0

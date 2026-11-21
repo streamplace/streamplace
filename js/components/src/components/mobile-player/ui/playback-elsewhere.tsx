@@ -11,7 +11,7 @@ export function PlaybackElsewhereOverlay() {
 function PlaybackElsewhere() {
   const { t } = useTranslation("common");
   const { theme } = useTheme();
-  const playHere = usePlayerStore((x) => x.playHere);
+  const playHere = usePlayerStore((x) => x.playbackSessionActions?.playHere);
   return (
     <View
       testID="playback-elsewhere"

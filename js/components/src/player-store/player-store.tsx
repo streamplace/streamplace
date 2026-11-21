@@ -97,9 +97,9 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     playbackStartedElsewhere: false,
     setPlaybackStartedElsewhere: (playbackStartedElsewhere: boolean) =>
       set(() => ({ playbackStartedElsewhere })),
-    playHere: undefined,
-    setPlayHere: (playHere: (() => void) | undefined) =>
-      set(() => ({ playHere })),
+    playbackSessionActions: undefined,
+    setPlaybackSessionActions: (playbackSessionActions) =>
+      set(() => ({ playbackSessionActions })),
 
     ingestMediaSource: undefined,
     setIngestMediaSource: (ingestMediaSource: IngestMediaSource | undefined) =>

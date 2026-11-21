@@ -17,7 +17,7 @@ import { srcToUrl } from "./shared";
 // every place that mounts a player (the live dashboard included) gets it,
 // and so the session lasts as long as the video whose URL carries it.
 // A playback error fetches the playlist once to learn why: 400/403 re-mints
-// (at most every REMINT_MS), 409 (evicted) waits for "Play here" (playHere).
+// (at most every REMINT_MS), 409 (evicted) waits for "Play here".
 const REMINT_MS = 15_000;
 
 export function usePlaybackSession(src: string) {
@@ -27,7 +27,7 @@ export function usePlaybackSession(src: string) {
   const setPlaybackSession = usePlayerStore((x) => x.setPlaybackSession);
   const elsewhere = usePlayerStore((x) => x.playbackStartedElsewhere);
   const setElsewhere = usePlayerStore((x) => x.setPlaybackStartedElsewhere);
-  const setPlayHere = usePlayerStore((x) => x.setPlayHere);
+  const setActions = usePlayerStore((x) => x.setPlaybackSessionActions);
   const failed = usePlayerStore(
     (x) => !!x.playbackSession && x.status === PlayerStatus.ERROR,
   );
@@ -75,16 +75,19 @@ export function usePlaybackSession(src: string) {
     };
     remint.current = () =>
       schedule(Math.max(0, lastMint + REMINT_MS - Date.now()));
-    setPlayHere(() => void fetchToken(true));
+    setActions({
+      playHere: () => void fetchToken(true),
+      remint: () => remint.current?.(),
+    });
     if (!elsewhereRef.current) void fetchToken();
     return () => {
       cancelled = true;
       remint.current = undefined;
       if (timer) clearTimeout(timer);
-      setPlayHere(undefined);
+      setActions(undefined);
       setPlaybackSession(undefined);
     };
-  }, [isMine, agent, setPlaybackSession, setElsewhere, setPlayHere]);
+  }, [isMine, agent, setPlaybackSession, setElsewhere, setActions]);
   useEffect(() => {
     if (!failed) return;
     const probed = urlRef.current;

@@ -70,10 +70,13 @@ export interface PlayerState {
    *  stopped until the viewer picks "Play here". Cleared on a new src. */
   playbackStartedElsewhere: boolean;
   setPlaybackStartedElsewhere: (elsewhere: boolean) => void;
-  /** Mints a fresh owner session and resumes playback here (set by
-   *  usePlaybackSession while it holds the owner's session). */
-  playHere?: () => void;
-  setPlayHere: (playHere: (() => void) | undefined) => void;
+  /** Set by usePlaybackSession while it holds the owner's session: playHere
+   *  mints a fresh one and resumes after eviction; remint replaces a rejected
+   *  one (rate-limited). */
+  playbackSessionActions?: { playHere: () => void; remint: () => void };
+  setPlaybackSessionActions: (
+    actions: { playHere: () => void; remint: () => void } | undefined,
+  ) => void;
 
   /** Function to set the source URL */
   setSrc: (src: string) => void;

@@ -80,19 +80,32 @@ func (mm *MediaManager) LiveWindowPublished(did string) bool {
 // newer one of the streamer's has replaced.
 var ErrPlaybackStartedElsewhere = errors.New("pre-live playback started elsewhere")
 
+// prelivePlay is the one playback a pre-live stream plays to: an owner
+// session, and within it the WebRTC connection, if any, that holds it.
+type prelivePlay struct{ session, conn string }
+
 // ClaimPrelivePlayback makes session (a TID, so newer sorts later) the
 // streamer's one pre-live playback unless a newer one holds it, and reports
-// whether session holds it.
-func (mm *MediaManager) ClaimPrelivePlayback(did, session string) bool {
+// whether it holds it. conn, a time-ordered WebRTC connection ID, must also be
+// the session's newest: WebRTC media goes wherever the offer says, so a session
+// gets one connection; HLS ("") always answers its session's bound client.
+func (mm *MediaManager) ClaimPrelivePlayback(did, session, conn string) bool {
 	mm.liveWindowsMut.Lock()
 	defer mm.liveWindowsMut.Unlock()
-	if session == "" || session < mm.prelivePlayback[did] {
+	cur := mm.prelivePlayback[did]
+	if session == "" || session < cur.session || (session == cur.session && conn != "" && conn < cur.conn) {
 		return false
 	}
-	if mm.prelivePlayback == nil {
-		mm.prelivePlayback = map[string]string{}
+	if session > cur.session {
+		cur = prelivePlay{session: session}
 	}
-	mm.prelivePlayback[did] = session
+	if conn != "" {
+		cur.conn = conn
+	}
+	if mm.prelivePlayback == nil {
+		mm.prelivePlayback = map[string]prelivePlay{}
+	}
+	mm.prelivePlayback[did] = cur
 	return true
 }
 

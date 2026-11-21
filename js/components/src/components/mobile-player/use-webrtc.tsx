@@ -14,6 +14,7 @@ import {
   usePossiblyUnauthedPDSAgent,
   useStreamKey,
   useStreamplaceStore,
+  type PlayerState,
 } from "../..";
 import { useLivestreamStoreOptional } from "../../livestream-store/use-store";
 import {
@@ -70,6 +71,10 @@ export default function useWebRTC(
   const setStatus = usePlayerStore((x) => x.setStatus);
   const setElsewhere = usePlayerStore((x) => x.setPlaybackStartedElsewhere);
   const playbackSession = usePlayerStore((x) => x.playbackSession);
+  // Read when a connection fails; not a reason to reconnect.
+  const sessionActions =
+    useRef<PlayerState["playbackSessionActions"]>(undefined);
+  sessionActions.current = usePlayerStore((x) => x.playbackSessionActions);
   let agent = usePossiblyUnauthedPDSAgent();
   const myDID = useDID();
   const myHandle = useHandle();
@@ -180,8 +185,8 @@ export default function useWebRTC(
         if (peerConnection.connectionState === "closed") return;
         const name = sessionError(e);
         if (name === "PlaybackStartedElsewhere") setElsewhere(true);
-        // usePlaybackSession re-mints a rejected session on a playback error.
-        else if (name === "InvalidSession") setStatus(PlayerStatus.ERROR);
+        // A rejected (e.g. IP-changed) session: replace it, rate-limited.
+        else if (name === "InvalidSession") sessionActions.current?.remint();
         else console.error("webrtc negotiation failed", e);
       });
     });

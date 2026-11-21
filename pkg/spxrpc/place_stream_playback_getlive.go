@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -94,15 +95,16 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 	// playlist is re-fetched every few seconds, so one that arrives without
 	// a session is redirected to carry one rather than counted afresh on
 	// every poll. A pre-live (unpublished) window is the streamer's own
-	// preview: only their own session (from getPlaybackSession) opens it,
-	// and it reads as not live to everyone else; its URLs stay self-hosted,
-	// a CDN must not see or cache a preview.
-	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), did, track != "" || rendition == "audio")
+	// preview: only their own session (from getPlaybackSession, bound to
+	// their client) opens it, never from another site's page, and it reads
+	// as not live to everyone else; its URLs stay self-hosted, a CDN must
+	// not see or cache a preview.
+	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), did, sessionClient(c), track != "" || rendition == "audio")
 	if err != nil {
 		return err
 	}
 	if !s.mm.LiveWindowPublished(did) {
-		if !s.cli.WideOpen && ps.Scope != psession.ScopeOwner {
+		if !s.preliveAllowed(c, ps.Scope) {
 			return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
 		}
 		live = liveCDN{}
@@ -207,11 +209,11 @@ func (s *Server) serveLiveSegment(c echo.Context, streamer, track, segParam, sid
 	// segments open only to the streamer's own session.
 	var sess psession.Session
 	if sid != "" || requireSession {
-		if sess, err = s.verifySession(ctx, sid, did); err != nil {
+		if sess, err = s.verifySession(ctx, sid, did, sessionClient(c)); err != nil {
 			return err
 		}
 	}
-	if !s.mm.LiveWindowPublished(did) && !s.cli.WideOpen && sess.Scope != psession.ScopeOwner {
+	if !s.mm.LiveWindowPublished(did) && !s.preliveAllowed(c, sess.Scope) {
 		return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
 	}
 
@@ -251,6 +253,37 @@ func (s *Server) serveLiveSegment(c echo.Context, streamer, track, segParam, sid
 	// keeps the Content-Type we set above.
 	http.ServeContent(c.Response().Writer, c.Request(), "segment.m4s", time.Time{}, bytes.NewReader(data))
 	return nil
+}
+
+// preliveAllowed reports whether a request with a session of scope may see
+// an unpublished window: the owner's, not fetched by another site's page.
+func (s *Server) preliveAllowed(c echo.Context, scope psession.Scope) bool {
+	return s.cli.WideOpen || (scope == psession.ScopeOwner && !s.foreignPage(c.Request()))
+}
+
+// foreignPage reports whether a browser made r on behalf of a page outside
+// this node and loopback (Origin, else Referer). Native players send neither.
+func (s *Server) foreignPage(r *http.Request) bool {
+	page := r.Header.Get("Origin")
+	if page == "" {
+		page = r.Header.Get("Referer")
+	}
+	if page == "" {
+		return false
+	}
+	u, err := url.Parse(page)
+	if err != nil || u.Host == "" {
+		return true
+	}
+	if ip := net.ParseIP(u.Hostname()); u.Hostname() == "localhost" || (ip != nil && ip.IsLoopback()) {
+		return false
+	}
+	for _, host := range []string{r.Host, s.cli.BroadcasterHost, s.cli.ServerHost} {
+		if host != "" && strings.EqualFold(u.Host, host) {
+			return false
+		}
+	}
+	return true
 }
 
 // --- url builders -------------------------------------------------------

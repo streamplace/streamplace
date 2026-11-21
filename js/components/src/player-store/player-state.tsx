@@ -18,6 +18,7 @@ export enum PlayerStatus {
   WAITING = "waiting",
   PAUSE = "pause",
   MUTE = "mute",
+  ERROR = "error",
 }
 
 export type PlayerStatusTracker = Partial<Record<PlayerStatus, number>>;

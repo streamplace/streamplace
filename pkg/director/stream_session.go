@@ -333,15 +333,15 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		})
 	}
 
+	// everything else is for published segments
+	if !notif.Metadata.Published {
+		return nil
+	}
+
 	if ss.cli.Thumbnail {
 		ss.Go(ctx, func() error {
 			return ss.Thumbnail(ctx, spseg.Creator, notif)
 		})
-	}
-
-	// everything else is for published segments
-	if !notif.Metadata.Published {
-		return nil
 	}
 
 	if notif.Local {

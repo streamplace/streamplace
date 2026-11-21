@@ -16,6 +16,35 @@ import (
 	"stream.place/streamplace/pkg/renditions"
 )
 
+// maxOwnerPlaybacks caps a streamer's concurrent WebRTC playbacks that see
+// unpublished segments, so a leaked owner session can't fan out to many viewers.
+const maxOwnerPlaybacks = 3
+
+// claimOwnerPlayback returns the viewer a playback runs as and a release for
+// its slot. The streamer's own playbacks beyond maxOwnerPlaybacks are demoted
+// to anonymous ("") viewers.
+func (mm *MediaManager) claimOwnerPlayback(user, viewer string) (string, func()) {
+	if viewer == "" || viewer != user {
+		return viewer, func() {}
+	}
+	mm.ownerPlaybacksMu.Lock()
+	defer mm.ownerPlaybacksMu.Unlock()
+	if mm.ownerPlaybacks[user] >= maxOwnerPlaybacks {
+		return "", func() {}
+	}
+	if mm.ownerPlaybacks == nil {
+		mm.ownerPlaybacks = map[string]int{}
+	}
+	mm.ownerPlaybacks[user]++
+	return viewer, sync.OnceFunc(func() {
+		mm.ownerPlaybacksMu.Lock()
+		defer mm.ownerPlaybacksMu.Unlock()
+		if mm.ownerPlaybacks[user]--; mm.ownerPlaybacks[user] <= 0 {
+			delete(mm.ownerPlaybacks, user)
+		}
+	})
+}
+
 // This function remains in scope for the duration of a single users' playback
 func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendition string, offer *webrtc.SessionDescription, viewer string) (*webrtc.SessionDescription, error) {
 	uu, err := uuid.NewV7()
@@ -143,6 +172,9 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		}
 	}
 
+	// Past the owner cap the playback runs as an anonymous viewer.
+	viewer, releaseOwner := mm.claimOwnerPlayback(user, viewer)
+
 	// The session's context: the answer below waits on it too, as a session
 	// can end before ICE gathering completes (see the codec check).
 	session, cancel := context.WithCancel(ctx)
@@ -150,6 +182,7 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		ctx := session
 		defer cancel()
 		defer markDone()
+		defer releaseOwner()
 
 		latency := time.Duration(0)
 

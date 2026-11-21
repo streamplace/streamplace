@@ -298,38 +298,15 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	}()
 
 	// Create a test account on the local PDS.
-	xrpcc := &xrpc.Client{Host: env.PDSURL, Client: &aqhttp.TrustedClient}
 	uu, err := uuid.NewRandom()
 	if err != nil {
 		return err
 	}
 	handle := fmt.Sprintf("sp-%s.%s", uu.String()[:8], handleDomain)
-	email := fmt.Sprintf("%s@example.com", handle)
 	password := "test"
-	out, err := comatproto.ServerCreateAccount(ctx, xrpcc, &comatproto.ServerCreateAccount_Input{
-		Handle:   handle,
-		Email:    &email,
-		Password: &password,
-	})
+	out, xrpcc, err := createE2EAccount(ctx, env.PDSURL, handle, password)
 	if err != nil {
-		return fmt.Errorf("create account: %w", err)
-	}
-	session, err := comatproto.ServerCreateSession(ctx, xrpcc, &comatproto.ServerCreateSession_Input{
-		Identifier: out.Handle,
-		Password:   password,
-	})
-	if err != nil {
-		return fmt.Errorf("create session: %w", err)
-	}
-	xrpcc = &xrpc.Client{
-		Host:   env.PDSURL,
-		Client: &aqhttp.TrustedClient,
-		Auth: &xrpc.AuthInfo{
-			Did:        out.Did,
-			AccessJwt:  session.AccessJwt,
-			RefreshJwt: session.RefreshJwt,
-			Handle:     out.Handle,
-		},
+		return err
 	}
 
 	if env.LexiconDID != "" {
@@ -564,18 +541,25 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	}
 
 	// Register a stream key for the test account.
-	priv, pub, err := spkey.GenerateStreamKeyForDID(out.Did)
+	priv, err := registerE2EStreamKey(ctx, xrpcc, out.Did)
 	if err != nil {
-		return fmt.Errorf("generate stream key: %w", err)
+		return err
 	}
-	createdBy := "e2e"
-	streamKey := placestream.Key{
-		SigningKey: pub.DIDKey(),
-		CreatedAt:  time.Now().Format(util.ISO8601),
-		CreatedBy:  &createdBy,
-	}
-	if _, err := createRecord(ctx, xrpcc, "place.stream.key", out.Did, &streamKey); err != nil {
-		return fmt.Errorf("register stream key: %w", err)
+	// A second account streams the same fixture but never gets a livestream
+	// record, so its stream stays pre-live. The upstream topology only indexes
+	// the first account locally, so it has none.
+	var preliveOut *comatproto.ServerCreateAccount_Output
+	var preliveKey string
+	if ingest != "none" && !upstream {
+		var preliveClient *xrpc.Client
+		preliveOut, preliveClient, err = createE2EAccount(ctx, env.PDSURL, fmt.Sprintf("prelive-%s.%s", uu.String()[:8], handleDomain), password)
+		if err != nil {
+			return err
+		}
+		preliveKey, err = registerE2EStreamKey(ctx, preliveClient, preliveOut.Did)
+		if err != nil {
+			return err
+		}
 	}
 	// Turn debug recording on for the test account, whose sink is broken above:
 	// every stream session therefore attempts a recording that fails, which is
@@ -634,36 +618,13 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 		if ingest == "none" {
 			return nil
 		}
-		for {
-			select {
-			case <-streamCtx.Done():
-				return nil
-			default:
-			}
-			endpoint := fmt.Sprintf("http://%s", ingestAddr)
-			var err error
-			if ingest == "fmp4" {
-				err = pushFMP4(streamCtx, endpoint, priv, fixture)
-			} else {
-				whip := &WHIPClient{
-					StreamKey: priv,
-					File:      fixture,
-					Endpoint:  endpoint,
-					Count:     1,
-				}
-				err = whip.WHIP(streamCtx)
-			}
-			if err != nil && streamCtx.Err() == nil {
-				log.Log(streamCtx, "test stream ended, restarting", "ingest", ingest, "err", err)
-			}
-			// Brief pause between restarts so we don't spin on errors.
-			select {
-			case <-streamCtx.Done():
-				return nil
-			case <-time.After(500 * time.Millisecond):
-			}
-		}
+		return loopE2EIngest(streamCtx, ingest, "http://"+ingestAddr, priv, fixture)
 	})
+	if preliveKey != "" {
+		g.Go(func() error {
+			return loopE2EIngest(streamCtx, ingest, "http://"+httpAddr, preliveKey, fixture)
+		})
+	}
 
 	// Print the env vars for the workflow to consume, in one write: callers
 	// poll for SERVER_URL and then read the whole file. E2E_FIXTURE_MP4 is
@@ -686,6 +647,9 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 			vars += fmt.Sprintf("SERVER_HTTPS_URL=%s\n", tlsEnv.StationURL())
 		}
 	}
+	if preliveOut != nil {
+		vars += fmt.Sprintf("PRELIVE_ACCOUNT_DID=%s\nPRELIVE_ACCOUNT_HANDLE=%s\nPRELIVE_ACCOUNT_PASSWORD=%s\n", preliveOut.Did, preliveOut.Handle, password)
+	}
 	fmt.Print(vars)
 	if local != nil {
 		go local.Control(ctx, out.Did)
@@ -693,6 +657,85 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 
 	<-ctx.Done()
 	return g.Wait()
+}
+
+// createE2EAccount creates a PDS account and returns a client signed in as it.
+func createE2EAccount(ctx context.Context, pdsURL, handle, password string) (*comatproto.ServerCreateAccount_Output, *xrpc.Client, error) {
+	email := handle + "@example.com"
+	client := &xrpc.Client{Host: pdsURL, Client: &aqhttp.TrustedClient}
+	out, err := comatproto.ServerCreateAccount(ctx, client, &comatproto.ServerCreateAccount_Input{
+		Handle:   handle,
+		Email:    &email,
+		Password: &password,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("create account: %w", err)
+	}
+	session, err := comatproto.ServerCreateSession(ctx, client, &comatproto.ServerCreateSession_Input{
+		Identifier: out.Handle,
+		Password:   password,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("create session: %w", err)
+	}
+	client.Auth = &xrpc.AuthInfo{
+		Did:        out.Did,
+		AccessJwt:  session.AccessJwt,
+		RefreshJwt: session.RefreshJwt,
+		Handle:     out.Handle,
+	}
+	return out, client, nil
+}
+
+// registerE2EStreamKey publishes a new stream key for did and returns its private half.
+func registerE2EStreamKey(ctx context.Context, client *xrpc.Client, did string) (string, error) {
+	priv, pub, err := spkey.GenerateStreamKeyForDID(did)
+	if err != nil {
+		return "", fmt.Errorf("generate stream key: %w", err)
+	}
+	createdBy := "e2e"
+	streamKey := placestream.Key{
+		SigningKey: pub.DIDKey(),
+		CreatedAt:  time.Now().Format(util.ISO8601),
+		CreatedBy:  &createdBy,
+	}
+	if _, err := createRecord(ctx, client, "place.stream.key", did, &streamKey); err != nil {
+		return "", fmt.Errorf("register stream key: %w", err)
+	}
+	return priv, nil
+}
+
+// loopE2EIngest streams the fixture into endpoint until ctx ends, restarting
+// it whenever it stops so it outlasts any test run.
+func loopE2EIngest(ctx context.Context, ingest, endpoint, streamKey, fixture string) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		var err error
+		if ingest == "fmp4" {
+			err = pushFMP4(ctx, endpoint, streamKey, fixture)
+		} else {
+			whip := &WHIPClient{
+				StreamKey: streamKey,
+				File:      fixture,
+				Endpoint:  endpoint,
+				Count:     1,
+			}
+			err = whip.WHIP(ctx)
+		}
+		if err != nil && ctx.Err() == nil {
+			log.Log(ctx, "test stream ended, restarting", "ingest", ingest, "err", err)
+		}
+		// Brief pause between restarts so we don't spin on errors.
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }
 
 // publishLexicons writes this build's lexicons, OAuth permission sets

@@ -141,6 +141,46 @@ func TestOfferedVideo(t *testing.T) {
 	}
 }
 
+// The streamer's own playbacks past the cap run as anonymous viewers, other
+// viewers are never counted, and a released slot is reusable.
+func TestClaimOwnerPlayback(t *testing.T) {
+	mm := &MediaManager{}
+	var releases []func()
+	for range maxOwnerPlaybacks {
+		viewer, release := mm.claimOwnerPlayback("streamer", "streamer")
+		require.Equal(t, "streamer", viewer)
+		releases = append(releases, release)
+	}
+
+	viewer, demotedRelease := mm.claimOwnerPlayback("streamer", "streamer")
+	require.Empty(t, viewer)
+	demotedRelease()
+	viewer, _ = mm.claimOwnerPlayback("streamer", "streamer")
+	require.Empty(t, viewer, "releasing a demoted playback must not free an owner slot")
+
+	viewer, _ = mm.claimOwnerPlayback("other", "other")
+	require.Equal(t, "other", viewer, "the cap is per streamer")
+	viewer, _ = mm.claimOwnerPlayback("streamer", "someone-else")
+	require.Equal(t, "someone-else", viewer)
+	viewer, _ = mm.claimOwnerPlayback("streamer", "")
+	require.Empty(t, viewer)
+
+	releases[0]()
+	releases[0]()
+	viewer, release := mm.claimOwnerPlayback("streamer", "streamer")
+	require.Equal(t, "streamer", viewer, "a released slot is reusable")
+	viewer, _ = mm.claimOwnerPlayback("streamer", "streamer")
+	require.Empty(t, viewer, "a double release frees only one slot")
+
+	release()
+	for _, r := range releases[1:] {
+		r()
+	}
+	mm.ownerPlaybacksMu.Lock()
+	defer mm.ownerPlaybacksMu.Unlock()
+	require.Equal(t, map[string]int{"other": 1}, mm.ownerPlaybacks)
+}
+
 var firefoxNoH264SDP = `v=0
 o=mozilla...THIS_IS_SDPARTA-99.0 2400864153024665403 0 IN IP4 0.0.0.0
 s=-

@@ -10,6 +10,7 @@ import { pointAppAtNode } from "../server-setup";
 export async function loginThroughPds(
   page: Page,
   nodeURL?: string,
+  account?: { handle: string; password: string },
 ): Promise<void> {
   const httpsUrl =
     nodeURL ??
@@ -17,8 +18,8 @@ export async function loginThroughPds(
       ? process.env.SERVER_URL!
       : process.env.SERVER_HTTPS_URL!);
   const pdsUrl = process.env.PDS_HTTPS_URL!;
-  const handle = process.env.ACCOUNT_HANDLE!;
-  const password = process.env.ACCOUNT_PASSWORD!;
+  const handle = account?.handle ?? process.env.ACCOUNT_HANDLE!;
+  const password = account?.password ?? process.env.ACCOUNT_PASSWORD!;
   const appOrigin = new URL(httpsUrl).origin;
   const pdsOrigin = new URL(pdsUrl).origin;
 

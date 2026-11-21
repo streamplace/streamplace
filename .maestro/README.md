@@ -167,6 +167,12 @@ E2E_FLOWS=".maestro/logged-out/invalid-handle.yaml" hack/e2e-local.sh android
 The Web counterpart, `js/e2e-web/flows/invalid-handle.spec.ts`, covers the Expo
 and Vite shells with the same fixture.
 
+## Pre-live coverage
+
+`logged-out/prelive-hidden.yaml` opens the page of the harness's second account
+(`PRELIVE_ACCOUNT_HANDLE`) by deep link. That account streams with no livestream
+record, so the app must show it as offline. Shared by iOS and Android.
+
 ## HTTPS, and logging in
 
 The app reaches the harness over HTTPS only: release builds refuse cleartext,

@@ -103,6 +103,11 @@ type MediaManager struct {
 	// the restarted media timeline into the previous session's continuous encoder.
 	// See withIngestSession / feedStreamTranscoder.
 	ingestSessionSeq atomic.Uint64
+
+	// ownerPlaybacks counts, per streamer, the running WebRTC playbacks with
+	// owner privileges; guarded by ownerPlaybacksMu. See claimOwnerPlayback.
+	ownerPlaybacks   map[string]int
+	ownerPlaybacksMu sync.Mutex
 }
 
 // nextIngestSession claims a fresh monotonic ingest-session epoch for a new live

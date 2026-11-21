@@ -582,7 +582,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 	if livestream.Thumb == nil {
 		// Upload the user's current thumbnail to their PDS as the livestream image.
 		var thumb *glex.Blob
-		thumbData, err := os.ReadFile(s.cli.ThumbnailFilePath(session.DID))
+		thumbData, err := os.ReadFile(s.cli.LatestThumbnailFilePath(session.DID))
 		if err != nil {
 			log.Error(ctx, "failed to read thumbnail file", "err", err)
 		} else {

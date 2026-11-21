@@ -333,15 +333,15 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		})
 	}
 
-	// everything else is for published segments
-	if !notif.Metadata.Published {
-		return nil
-	}
-
 	if ss.cli.Thumbnail {
 		ss.Go(ctx, func() error {
 			return ss.Thumbnail(ctx, spseg.Creator, notif)
 		})
+	}
+
+	// everything else is for published segments
+	if !notif.Metadata.Published {
+		return nil
 	}
 
 	if notif.Local {
@@ -454,12 +454,13 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 	}
 	defer lock.Unlock()
 
-	if mt, ok := ss.cli.ThumbnailModTime(repoDID); ok && time.Since(mt) < thumbnailInterval {
+	published := not.Metadata.Published
+	if mt, ok := ss.cli.ThumbnailModTime(repoDID, published); ok && time.Since(mt) < thumbnailInterval {
 		// current thumbnail is still fresh, keep it
 		return nil
 	}
 
-	return ss.cli.ThumbnailWrite(repoDID, func(w io.Writer) error {
+	return ss.cli.ThumbnailWrite(repoDID, published, func(w io.Writer) error {
 		return media.SegmentThumbnail(ctx, not.Muxl, w, "jpeg")
 	})
 }

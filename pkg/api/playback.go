@@ -202,8 +202,8 @@ func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter
 			errors.WriteHTTPNotFound(w, "user not found", err)
 			return
 		}
-		fpath := a.CLI.ThumbnailFilePath(user)
-		mt, ok := a.CLI.ThumbnailModTime(user)
+		fpath := a.CLI.ThumbnailFilePath(user, true)
+		mt, ok := a.CLI.ThumbnailModTime(user, true)
 		if !ok {
 			errors.WriteHTTPNotFound(w, "thumbnail not found", nil)
 			return

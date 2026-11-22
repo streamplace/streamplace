@@ -26,6 +26,7 @@ test("QR login signs a browser in from a signed-in device", async ({
   test.setTimeout(4 * 60_000);
   await loginThroughPds(page);
   const visitor = await browser.newPage();
+  await visitor.clock.install();
   await pointAppAtNode(visitor, HTTPS_URL!);
   await page.goto(`${HTTPS_URL}/settings/branding`);
   const toggle = page.getByTestId("branding-login-method-qr");
@@ -58,6 +59,19 @@ test("QR login signs a browser in from a signed-in device", async ({
     expect(
       await visitor.getByTestId("login-qr").locator("svg rect").count(),
     ).toBe(1);
+    const qrPath = visitor.getByTestId("login-qr").locator("svg path");
+    const firstCode = (await qrPath.getAttribute("d"))!;
+
+    // Rotate the displayed code before approving the one the phone scanned.
+    // Keep OAuth proof timestamps on the server's clock while advancing timers.
+    const rotated = visitor.waitForResponse((r) =>
+      r.url().includes("/xrpc/place.stream.login.createQRLogin"),
+    );
+    await visitor.clock.setFixedTime(new Date());
+    await visitor.clock.fastForward(4.6 * 60_000);
+    expect((await rotated).ok()).toBe(true);
+    await visitor.clock.setFixedTime(new Date());
+    await expect(qrPath).not.toHaveAttribute("d", firstCode);
 
     await page.goto(url);
     await expect(page.getByText("Sign in on another device?")).toBeVisible({

@@ -163,8 +163,8 @@ only after successful reprocessing.
 over HLS with an owner playback session, while anonymous requests and the leaked
 session replayed from a foreign origin get 404 `StreamNotLive`; the same session
 without Origin/Referer (a native player) still plays. The native counterpart,
-`.maestro/logged-out/prelive-hidden.yaml`, checks another viewer sees the
-streamer as offline.
+`.maestro/logged-out/prelive-hidden.yaml`, checks no video plays for another
+viewer.
 
 `syndication` plays the test stream from the harness's second node, which pulls
 it from the first over Media over QUIC (`SERVER2_URL`; see `docs/moq.md`).

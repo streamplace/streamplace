@@ -15,6 +15,7 @@ export interface IconProps {
     | "warning";
   size?: number | "sm" | "md" | "lg" | "xl";
   color?: LucideProps["color"];
+  testID?: string;
 }
 
 // Size mapping

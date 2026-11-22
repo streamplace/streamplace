@@ -8,8 +8,9 @@ import {
   ChevronRight,
   ClipboardCopy,
   Pencil,
-  Plus,
   Share2,
+  UserMinus,
+  UserPlus,
 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -213,9 +214,9 @@ export function StreamInfo({
                 }
               >
                 {follow.following ? (
-                  <Check className="size-4" />
+                  <UserMinus className="size-4" />
                 ) : (
-                  <Plus className="size-4" />
+                  <UserPlus className="size-4" />
                 )}
                 {follow.following
                   ? t("following", { defaultValue: "Following" })

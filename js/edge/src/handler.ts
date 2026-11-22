@@ -63,6 +63,9 @@ const FORWARDED_HEADERS = [
   "x-forwarded-for",
   "x-proxy-secret",
 ];
+// fMP4 ingest answers only when the broadcast ends, and a tus chunk can be
+// large; a headers deadline would cut either off. WHIP answers promptly.
+const STREAMING_PREFIXES = ["/api/ingest/fmp4/", "/api/upload/"];
 const RETRY_STATUSES = new Set([502, 503, 504]);
 const DOWN_MS = 10_000;
 const HEAD_TIMEOUT_MS = 1500;
@@ -114,12 +117,14 @@ export function createEdge(opts: EdgeOptions): EdgeHandler {
   }
 
   // Times only the wait for response headers: once fetch resolves the timer
-  // is cleared, so a streamed body or a websocket is not cut off.
+  // is cleared, so a streamed body or a websocket is not cut off. A
+  // non-positive deadline opts out.
   async function withDeadline(
     input: RequestInfo | URL,
     init: RequestInit,
     ms: number,
   ): Promise<Response> {
+    if (ms <= 0) return fetch(input, init);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), ms);
     try {
@@ -165,10 +170,13 @@ export function createEdge(opts: EdgeOptions): EdgeHandler {
     for (const upstream of order()) {
       let res: Response;
       try {
+        const streaming = STREAMING_PREFIXES.some((prefix) =>
+          url.pathname.startsWith(prefix),
+        );
         res = await withDeadline(
           upstreamRequest(upstream, request, url, clientIP),
           {},
-          responseTimeoutMs,
+          streaming ? 0 : responseTimeoutMs,
         );
       } catch {
         markDown(upstream);
@@ -253,16 +261,20 @@ export function createEdge(opts: EdgeOptions): EdgeHandler {
   async function fetchHead(url: URL): Promise<string | null> {
     const path = "/api/page-head?url=" + encodeURIComponent(url.toString());
     for (const upstream of order()) {
+      // The deadline covers reading the body too: a stalled node must not
+      // hold the fallback page.
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), headTimeoutMs);
       try {
-        const res = await withDeadline(
-          upstream.origin + path,
-          {},
-          headTimeoutMs,
-        );
+        const res = await fetch(upstream.origin + path, {
+          signal: controller.signal,
+        });
         if (res.status !== 200) continue;
         return headOf(await res.json());
       } catch {
         markDown(upstream);
+      } finally {
+        clearTimeout(timer);
       }
     }
     return null;

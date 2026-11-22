@@ -20,6 +20,7 @@ function urlOf(input: RequestInfo | URL): string {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 it("serves the shell with the node's head", async () => {
@@ -124,6 +125,45 @@ it("does not retry a POST", async () => {
 
   expect(res.status).toBe(502);
   expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it("does not time out a streaming ingest request", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const { promise, resolve, reject } = Promise.withResolvers<Response>();
+      const timer = setTimeout(() => resolve(new Response("done")), 50);
+      init?.signal?.addEventListener("abort", () => {
+        clearTimeout(timer);
+        reject(new Error("aborted"));
+      });
+      return promise;
+    }),
+  );
+  const edge = createEdge({
+    upstreams: ["https://node.test"],
+    assets: assets({}),
+    responseTimeoutMs: 5,
+  });
+
+  const ingest = edge(
+    new Request("https://edge.test/api/ingest/fmp4/key", {
+      method: "POST",
+      body: "x",
+    }),
+    null,
+  );
+  await vi.advanceTimersByTimeAsync(50);
+  expect((await ingest).status).toBe(200);
+
+  // The same node, now slow on an ordinary request.
+  const stuck = edge(
+    new Request("https://edge.test/xrpc/place.stream.config.getEnv"),
+    null,
+  );
+  await vi.advanceTimersByTimeAsync(10);
+  expect((await stuck).status).toBe(502);
 });
 
 it("redirects playback to a node", async () => {

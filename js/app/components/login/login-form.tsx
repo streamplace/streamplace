@@ -96,6 +96,8 @@ export default function LoginForm({
   };
 
   const isMobile = Platform.OS === "ios" || Platform.OS === "android";
+  const webHandleTextStyle =
+    Platform.OS === "web" ? zero.tokens.typeScale.md : {};
 
   // Enter is handled by onSubmitEditing.
   const onKeyPress = (e: any) => {
@@ -163,7 +165,8 @@ export default function LoginForm({
                 {
                   position: "absolute",
                   left: 13 + 28 + 6,
-                  top: isMobile ? 15.25 : 12,
+                  top: isMobile ? 15.25 : 0,
+                  bottom: isMobile ? undefined : 0,
                   zIndex: 1000000,
                   pointerEvents: "none",
                 },
@@ -180,13 +183,17 @@ export default function LoginForm({
                     zIndex: 1000000,
                     fontSize: 16,
                   },
+                  webHandleTextStyle,
                 ]}
               >
                 <Text
-                  style={{
-                    opacity: 0.2,
-                    fontSize: 16,
-                  }}
+                  style={[
+                    {
+                      opacity: 0.2,
+                      fontSize: 16,
+                    },
+                    webHandleTextStyle,
+                  ]}
                 >
                   {handle}
                 </Text>
@@ -286,6 +293,7 @@ export default function LoginForm({
             autoCorrect={false}
             keyboardType="url"
             placeholderTextColor={theme.colors.textMuted}
+            inputStyle={webHandleTextStyle}
             containerStyle={{
               paddingLeft: 46,
             }}

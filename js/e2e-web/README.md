@@ -95,6 +95,12 @@ without changing its DID or avatar, then accepts the corrected completion. It
 covers the shared login hook; the public AppView boundary is substituted because
 the local PDS account is not publicly searchable.
 
+`login-typeahead` checks Expo web's completion font and vertical/horizontal
+alignment against the handle input at desktop and narrow widths, then accepts
+the suggestion with Tab. The completion shares the input's typography and is
+vertically centered instead of using a fixed top offset. Public AppView results
+are substituted; native iOS/Android typography and positioning are unchanged.
+
 The web app renders the **desktop layout** (a sidebar of nav links), not the
 mobile tab bar, so `tabs` drives Home ↔ Settings through the sidebar.
 `go-live` checks that the Live Dashboard (`/live`) requires login; this is

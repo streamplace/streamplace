@@ -1,5 +1,6 @@
 import {
   Button,
+  Checkbox,
   DEFAULT_CHROME,
   Input,
   MenuContainer,
@@ -19,6 +20,8 @@ import {
 } from "@streamplace/components";
 import { fontFamilies } from "@streamplace/components/src/lib/theme/tokens";
 import {
+  LOGIN_METHODS,
+  parseLoginMethods,
   useBrandingAsset,
   useFetchBranding,
   useSidebarBackgroundImage,
@@ -108,6 +111,9 @@ export function BrandingAdmin() {
   const [defaultVideo, setDefaultVideo] = useState("");
   const [broadcasterDID, setBroadcasterDID] = useState("");
   const [uploading, setUploading] = useState(false);
+  // the sign-in method toggles wait for the refetch, not just the write, so
+  // each one starts from what the node has
+  const [savingMethods, setSavingMethods] = useState(false);
   const [legalLinkText, setLegalLinkText] = useState("");
   const [legalLinkUrl, setLegalLinkUrl] = useState("");
   const [editingLinkIndex, setEditingLinkIndex] = useState<number | null>(null);
@@ -1136,6 +1142,47 @@ export function BrandingAdmin() {
                         {t("branding-reset")}
                       </Button>
                     </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-sign-in")}
+                    </Text>
+                    {LOGIN_METHODS.map((method) => {
+                      const enabled = parseLoginMethods(
+                        brandingValue("loginMethods"),
+                      );
+                      return (
+                        <Checkbox
+                          key={method}
+                          testID={`branding-login-method-${method}`}
+                          label={t(`branding-login-method-${method}`)}
+                          checked={enabled.includes(method)}
+                          disabled={uploading || savingMethods}
+                          onCheckedChange={async (on) => {
+                            const next = LOGIN_METHODS.filter((m) =>
+                              m === method ? on : enabled.includes(m),
+                            );
+                            setSavingMethods(true);
+                            try {
+                              await (next.length
+                                ? uploadText(
+                                    "loginMethods",
+                                    JSON.stringify(next),
+                                  )
+                                : deleteBlob("loginMethods"));
+                              await fetchBranding({ force: true });
+                            } finally {
+                              setSavingMethods(false);
+                            }
+                          }}
+                        />
+                      );
+                    })}
                   </View>
                 </SettingsRowItem>
               </MenuItem>

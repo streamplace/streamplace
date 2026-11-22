@@ -5,7 +5,7 @@
     "node": "26.x"
   },
   "version": "0.13.5",
-  "runtimeVersion": "0.13.0",
+  "runtimeVersion": "0.13.6",
   "scripts": {
     "start": "pnpm --filter @streamplace/i18n compile && npx expo start -c --port 38081",
     "start:fast": "npx expo start --port 38081",

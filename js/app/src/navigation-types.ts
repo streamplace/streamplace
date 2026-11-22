@@ -63,6 +63,7 @@ export type RootStackParamList = {
   MobileGoLive: undefined;
 
   AppReturn: { scheme: string };
+  QrLogin: { id: string };
   PopoutChat: { user: string };
   Embed: { user: string };
   InfoWidgetEmbed: undefined;

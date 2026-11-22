@@ -116,7 +116,7 @@ if (require("electron-squirrel-startup")) {
       initUpdater();
     }
     let loadAddr;
-    let obsServer = "http://127.0.0.1:39090";
+    let obsServer = `http://${process.env.SP_HTTP_INTERNAL_ADDR ?? "127.0.0.1:39090"}`;
     // An external dev node (AQD_SKIP_NODE) is single-user only if told so.
     let singleUser = !!process.env.SP_UPSTREAM_STATION;
     if (!skipNode) {
@@ -153,7 +153,7 @@ if (require("electron-squirrel-startup")) {
       window.show();
       window.focus();
     });
-    handleIPC("obs:status", () => obsStatus());
+    handleIPC("obs:status", () => obsStatus(obsServer));
     handleIPC("obs:installPlugin", () => installPlugin());
     handleIPC("obs:configureStream", async () =>
       singleUser
@@ -177,14 +177,14 @@ if (require("electron-squirrel-startup")) {
     console.log(`opening ${startPath}`);
     window.loadURL(startPath);
 
-    offerObsPlugin(window).catch((e) =>
+    offerObsPlugin(window, obsServer).catch((e) =>
       console.error("OBS plugin check failed", e),
     );
   };
 
   // Offers to install or update the bundled OBS plugin when OBS could load it.
-  const offerObsPlugin = async (window: BrowserWindow) => {
-    const { obs, plugin, obsRunning } = await obsStatus();
+  const offerObsPlugin = async (window: BrowserWindow, obsServer: string) => {
+    const { obs, plugin, obsRunning } = await obsStatus(obsServer);
     if (obs !== "installed" || plugin === "current") {
       return;
     }

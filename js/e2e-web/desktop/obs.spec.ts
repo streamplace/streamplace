@@ -27,6 +27,18 @@ test("OBS connects to Desktop's internal ingest and stays connected after restar
   await mkdir(profile, { recursive: true });
   await writeFile(join(config, "user.ini"), "[Basic]\nProfileDir=Desktop\n");
   await writeFile(join(profile, "basic.ini"), "[General]\nName=Desktop\n");
+  // A Streamplace profile aimed at another node isn't connected to this one.
+  await writeFile(
+    join(profile, "service.json"),
+    JSON.stringify({
+      type: "rtmp_common",
+      settings: {
+        service: "Streamplace",
+        server: "http://127.0.0.1:38080",
+        key: "streamplace-desktop",
+      },
+    }),
+  );
 
   const handleField = desktop.page
     .locator('[data-testid="login-handle"], [data-testid="login-handle"] input')
@@ -38,6 +50,12 @@ test("OBS connects to Desktop's internal ingest and stays connected after restar
   expect((await request.get(`${desktop.nodeURL}/desktop/obs`)).ok()).toBe(true);
   await expect(handleField).toBeVisible();
   await loginThroughSystemBrowser(desktop);
+  await expect(
+    desktop.page.getByRole("button", { name: "Connect OBS", exact: true }),
+  ).toBeVisible();
+  await expect(desktop.page.getByTestId("desktop-obs-connected")).toHaveCount(
+    0,
+  );
 
   await desktop.page
     .getByRole("button", { name: "Connect OBS", exact: true })

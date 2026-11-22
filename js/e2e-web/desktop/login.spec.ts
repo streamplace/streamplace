@@ -16,6 +16,9 @@ test("log in through the dummy PDS", async ({ desktop }, testInfo) => {
   }
   await page.reload();
   await expect(signedIn).toBeVisible();
+  // Offline, the preview points at OBS rather than the web go-live picker.
+  await expect(page.getByTestId("desktop-offline")).toBeVisible();
+  await expect(page.getByText("Camera", { exact: true })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("logged-in.png") });
   // The 800x600 window scrolls down to the settings below the preview.
   const save = page.getByTestId("desktop-save");

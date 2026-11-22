@@ -72,7 +72,22 @@ function DesktopInner() {
       }}
     >
       <View style={wide ? { flex: 2 } : { width: "100%", aspectRatio: 16 / 9 }}>
-        <StreamMonitor isLive={isLive} userProfile={profile} />
+        <StreamMonitor
+          isLive={isLive}
+          userProfile={profile}
+          offline={
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              testID="desktop-offline"
+            >
+              <Text color="muted">Offline · start streaming in OBS</Text>
+            </View>
+          }
+        />
       </View>
       <ScrollView style={wide ? { flex: 1 } : undefined}>{panel}</ScrollView>
     </ScrollView>

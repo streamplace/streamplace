@@ -23,7 +23,7 @@ import { DesktopUi } from "components/mobile/desktop-ui";
 import { OfflineCounter } from "components/mobile/offline-counter";
 import { Image } from "expo-image";
 import { Eye, EyeOff, Signal, Wifi, WifiOff } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { View } from "react-native";
 import { useLiveUser } from "../../hooks/useLiveUser";
 import StreamScreen from "./live-selector";
@@ -34,6 +34,8 @@ interface StreamMonitorProps {
   userProfile?: any;
   isLive?: boolean;
   videoRef?: any;
+  // Replaces the go-live source picker while offline.
+  offline?: ReactNode;
 }
 
 function PreviewOverlay() {
@@ -129,6 +131,7 @@ export default function StreamMonitor({
   userProfile: propUserProfile,
   isLive: propIsLive,
   videoRef,
+  offline,
 }: StreamMonitorProps) {
   // Get data from hooks - use props as fallback if provided
   const isUserLive = useLiveUser();
@@ -304,7 +307,7 @@ export default function StreamMonitor({
             </View>
           )
         ) : (
-          <StreamScreen route={profile?.did} />
+          (offline ?? <StreamScreen route={profile?.did} />)
         )}
       </View>
       <View

@@ -193,7 +193,8 @@ export const writeStreamConfig = async (configDir: string, server: string) => {
   );
 };
 
-const connected = async (): Promise<boolean> => {
+// OBS reaches this Desktop's node only through its internal server and the placeholder.
+const connected = async (server: string): Promise<boolean> => {
   try {
     const config = obsConfigDir();
     const profile = await currentProfileDir(config);
@@ -204,7 +205,12 @@ const connected = async (): Promise<boolean> => {
         "utf8",
       ),
     );
-    return service.settings?.service === "Streamplace";
+    const { settings } = service;
+    return (
+      settings?.service === "Streamplace" &&
+      settings.server === server &&
+      settings.key === "streamplace-desktop"
+    );
   } catch {
     return false;
   }
@@ -265,12 +271,12 @@ const isObsRunning = async () => {
   );
 };
 
-export const status = async (): Promise<ObsStatus> => {
+export const status = async (server: string): Promise<ObsStatus> => {
   const [obs, obsRunning, state, isConnected] = await Promise.all([
     detectObs(),
     isObsRunning(),
     pluginState(bundledPlugin(), pluginRoot()),
-    connected(),
+    connected(server),
   ]);
   return { obs, obsRunning, ...state, connected: isConnected };
 };

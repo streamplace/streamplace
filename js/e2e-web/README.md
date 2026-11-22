@@ -116,6 +116,16 @@ signature, MIME type, branded pixels and bundled fallback after deletion.
 It is web-only: native apps have no browser tab favicon, and branding image
 uploads are already limited to the web.
 
+`not-found` covers both web shells. Unknown root paths without a period or colon
+show a generic 404 with a content-width Home action; query-string punctuation does
+not make a path an account. Missing handles and DIDs show "User not found" after
+the configured node's `com.atproto.identity.resolveIdentity` lookup; valid accounts
+require neither a Bluesky profile nor a reachable PDS. Directory outages offer
+Retry rather than claiming the
+account is missing. Coverage includes account switching and real handle/DID
+playback. The shared iOS/Android deep-link counterpart is
+`.maestro/logged-out/not-found.yaml`.
+
 `stream` also covers the narrow portrait web layout at 320 × 568, where the
 live video sits above chat. It reveals the player chrome, exercises mute and
 fullscreen entry/exit, and verifies that faded controls reveal instead of

@@ -704,10 +704,11 @@ func (s *Server) HandlePlaceStreamGameSearch(c echo.Context) error {
 		}
 	}
 	q := c.QueryParam("q")
+	types := c.QueryParams()["types"]
 	var out *placestream.GameSearch_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamGameSearch(ctx context.Context,cursor string,limit int,q string) (*placestream.GameSearch_Output, error)
-	out, handleErr = s.handlePlaceStreamGameSearch(ctx, cursor, limit, q)
+	// func (s *Server) handlePlaceStreamGameSearch(ctx context.Context,cursor string,limit int,q string,types []string) (*placestream.GameSearch_Output, error)
+	out, handleErr = s.handlePlaceStreamGameSearch(ctx, cursor, limit, q, types)
 	if handleErr != nil {
 		return handleErr
 	}

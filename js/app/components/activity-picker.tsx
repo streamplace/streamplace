@@ -10,21 +10,22 @@ import {
 } from "@streamplace/components";
 import { ACTIVITY_LABELS } from "@streamplace/components/src/lib/metadata-constants";
 import { useStreamplaceStore } from "@streamplace/components/src/streamplace-store/streamplace-store";
-import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { useGameSearch, type GameSearchResult } from "@streamplace/core";
 import { Image } from "expo-image";
 import { X } from "lucide-react-native";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Platform, Pressable, View, type ViewInstance } from "react-native";
-import { games as gamesLex, place } from "streamplace";
-import { getDidFromAtUri, getGameCoverUrl } from "../utils/game";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  type ViewInstance,
+} from "react-native";
+import { place, StreamplaceAgent } from "streamplace";
 
 const { p, px, r, layout, borders, gap, flex } = zero;
-
-interface GameResult {
-  uri: string;
-  name: string;
-  coverUrl?: string;
-}
 
 interface ActivityPickerProps {
   value: place.stream.livestream.Main["activity"] | undefined;
@@ -34,16 +35,22 @@ interface ActivityPickerProps {
 }
 
 interface DropdownPos {
-  top: number;
+  top?: number;
+  bottom?: number;
   left: number;
   width: number;
+  maxResultsHeight: number;
 }
 
 export default function ActivityPicker({
   value,
   onChange,
 }: ActivityPickerProps) {
-  const agent = usePDSAgent();
+  const nodeUrl = useStreamplaceStore((s) => s.url);
+  const agent = useMemo(
+    () => (nodeUrl ? new StreamplaceAgent(nodeUrl) : null),
+    [nodeUrl],
+  );
   const { theme, zero: z } = useTheme();
   const c = theme.colors;
   const gamesEnabled = useStreamplaceStore((s) => s.gamesEnabled);
@@ -55,15 +62,12 @@ export default function ActivityPicker({
     return gamesEnabled ? "game" : "label";
   });
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<GameResult[]>([]);
-  const [searching, setSearching] = useState(false);
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<
     string | undefined
   >();
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [dropdownPos, setDropdownPos] = useState<DropdownPos | null>(null);
   const [labelsExpanded, setLabelsExpanded] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputContainerRef = useRef<ViewInstance>(null);
 
   const selectedGame =
@@ -75,7 +79,17 @@ export default function ActivityPicker({
       ? (value as place.stream.defs.ActivityLabel)
       : null;
 
-  const showResults = searching || results.length > 0;
+  const {
+    results,
+    searching,
+    error: searchError,
+    hasMore,
+    loadingMore,
+    loadMoreError,
+    loadMore,
+  } = useGameSearch(agent, query, mode === "game" && !selectedGame);
+
+  const showResults = query.trim().length > 0;
 
   // The Game ⇄ Other Activity toggle only earns its place when both modes exist.
   // With games disabled it's a single orphaned control, so we drop it and show
@@ -93,7 +107,7 @@ export default function ActivityPicker({
         setSelectedGenres(res.genres ?? []);
       })
       .catch(() => {});
-  }, [selectedGame?.uri]);
+  }, [agent, selectedGame?.uri, selectedCoverUrl]);
 
   useLayoutEffect(() => {
     if (Platform.OS !== "web" || !inputContainerRef.current || !showResults) {
@@ -102,56 +116,29 @@ export default function ActivityPicker({
     }
     const el = inputContainerRef.current as unknown as HTMLElement;
     const rect = el.getBoundingClientRect();
+    const below = window.innerHeight - rect.bottom;
+    const controlsHeight = theme.touchTargets.minimum + theme.spacing[4];
+    const above =
+      below < theme.spacing[64] + controlsHeight && rect.top > below;
+    const available = above ? rect.top : below;
     setDropdownPos({
-      top: rect.bottom + 4,
+      top: above ? undefined : rect.bottom + theme.spacing[1],
+      bottom: above
+        ? window.innerHeight - rect.top + theme.spacing[1]
+        : undefined,
       left: rect.left,
       width: rect.width,
+      maxResultsHeight: Math.min(
+        theme.spacing[64],
+        Math.max(
+          theme.spacing[16],
+          available - controlsHeight - theme.spacing[1],
+        ),
+      ),
     });
-  }, [showResults]);
+  }, [showResults, theme]);
 
-  useEffect(() => {
-    if (!query.trim() || !agent) {
-      setResults([]);
-      return;
-    }
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await agent.client.call(place.stream.game.search, {
-          q: query,
-          limit: 8,
-        });
-        const games: GameResult[] = [];
-        for (const result of res.results) {
-          if (
-            !gamesLex.gamesgamesgamesgames.defs.gameSummaryView.isTypeOf(result)
-          )
-            continue;
-          const did = getDidFromAtUri(result.uri);
-          const cover = getGameCoverUrl(result.media, did);
-          games.push({
-            uri: result.uri,
-            name: result.name,
-            coverUrl: cover,
-          });
-        }
-        setResults(games);
-      } catch (e) {
-        console.error("game search error:", e);
-        setResults([]);
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, agent]);
-
-  const selectGame = (game: GameResult) => {
+  const selectGame = (game: GameSearchResult) => {
     onChange({
       $type: "place.stream.defs#activityGame",
       uri: game.uri as any,
@@ -159,7 +146,6 @@ export default function ActivityPicker({
     });
     setSelectedCoverUrl(game.coverUrl);
     setQuery("");
-    setResults([]);
   };
 
   const clearActivity = () => {
@@ -167,8 +153,37 @@ export default function ActivityPicker({
     setSelectedCoverUrl(undefined);
     setSelectedGenres([]);
     setQuery("");
-    setResults([]);
   };
+
+  const onResultsScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    if (
+      !loadMoreError &&
+      contentSize.height - contentOffset.y - layoutMeasurement.height <=
+        theme.spacing[16]
+    ) {
+      void loadMore();
+    }
+  };
+
+  const loadMoreControl = hasMore && (
+    <Pressable
+      accessibilityRole="button"
+      disabled={loadingMore}
+      onPress={() => void loadMore()}
+      style={[
+        p[2],
+        {
+          minHeight: theme.touchTargets.minimum,
+          opacity: loadingMore ? 0.4 : 1,
+        },
+      ]}
+    >
+      <Text size="sm" color="muted">
+        {loadingMore ? "Loading..." : loadMoreError ? "Try again" : "Load more"}
+      </Text>
+    </Pressable>
+  );
 
   const resultsList = (
     <View
@@ -187,22 +202,41 @@ export default function ActivityPicker({
           Searching...
         </Text>
       )}
-      {results.map((game) => (
-        <Pressable
-          key={game.uri}
-          onPress={() => selectGame(game)}
-          style={[layout.flex.row, layout.flex.alignCenter, p[2], { gap: 10 }]}
-        >
-          <Image
-            source={{ uri: game.coverUrl }}
-            style={{ width: 32, height: 43, borderRadius: 3 }}
-            contentFit="cover"
-          />
-          <View style={[flex.values[1]]}>
-            <Text numberOfLines={1}>{game.name}</Text>
-          </View>
-        </Pressable>
-      ))}
+      {!searching && results.length === 0 && !hasMore && (
+        <Text size="sm" color="muted" style={[p[2]]}>
+          {searchError ? "Search failed" : "No games found"}
+        </Text>
+      )}
+      <ScrollView
+        style={{
+          maxHeight: dropdownPos?.maxResultsHeight ?? theme.spacing[64],
+        }}
+        onScroll={onResultsScroll}
+        scrollEventThrottle={16}
+      >
+        {results.map((game) => (
+          <Pressable
+            key={game.uri}
+            onPress={() => selectGame(game)}
+            style={[
+              layout.flex.row,
+              layout.flex.alignCenter,
+              p[2],
+              { gap: 10 },
+            ]}
+          >
+            <Image
+              source={{ uri: game.coverUrl }}
+              style={{ width: 32, height: 43, borderRadius: 3 }}
+              contentFit="cover"
+            />
+            <View style={[flex.values[1]]}>
+              <Text numberOfLines={2}>{game.name}</Text>
+            </View>
+          </Pressable>
+        ))}
+        {loadMoreControl}
+      </ScrollView>
     </View>
   );
 
@@ -263,7 +297,9 @@ export default function ActivityPicker({
                 />
               )}
               <View style={[flex.values[1]]}>
-                <Text style={{ color: c.primary }}>{selectedGame.name}</Text>
+                <Text numberOfLines={2} style={{ color: c.primary }}>
+                  {selectedGame.name}
+                </Text>
               </View>
               <Pressable onPress={clearActivity}>
                 <X size={16} color={c.mutedForeground} />
@@ -285,6 +321,7 @@ export default function ActivityPicker({
                     style={{
                       position: "fixed" as any,
                       top: dropdownPos.top,
+                      bottom: dropdownPos.bottom,
                       left: dropdownPos.left,
                       width: dropdownPos.width,
                       zIndex: 9999,
@@ -325,6 +362,7 @@ export default function ActivityPicker({
               <ResponsiveDropdownMenuContent
                 align="start"
                 style={{ minWidth: 300 }}
+                onContentScroll={onResultsScroll}
               >
                 <View style={[p[2]]}>
                   <Input
@@ -345,6 +383,14 @@ export default function ActivityPicker({
                       Searching...
                     </Text>
                   )}
+                  {!searching &&
+                    query.trim().length > 0 &&
+                    results.length === 0 &&
+                    !hasMore && (
+                      <Text size="sm" color="muted">
+                        {searchError ? "Search failed" : "No games found"}
+                      </Text>
+                    )}
                 </View>
                 {results.map((game) => (
                   <DropdownMenuItem
@@ -363,12 +409,13 @@ export default function ActivityPicker({
                         style={{ width: 32, height: 43, borderRadius: 3 }}
                         contentFit="cover"
                       />
-                      <Text numberOfLines={1} style={[flex.values[1]]}>
+                      <Text numberOfLines={2} style={[flex.values[1]]}>
                         {game.name}
                       </Text>
                     </View>
                   </DropdownMenuItem>
                 ))}
+                {loadMoreControl}
               </ResponsiveDropdownMenuContent>
             </DropdownMenu>
           )}

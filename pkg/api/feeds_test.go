@@ -12,16 +12,19 @@ import (
 func TestHandleAtprotoDID(t *testing.T) {
 	const customDID = "did:plc:rbvrr34edl5ddpuwcubjiost"
 	tests := []struct {
-		name        string
-		serverHost  string
-		requestHost string
-		defaultDID  string
+		name          string
+		serverHost    string
+		requestHost   string
+		forwardedHost string
+		defaultDID    string
 	}{
-		{"single node", "stream.place", "stream.place", "did:web:stream.place"},
-		{"single node via proxy", "stream.place", "localhost", "did:web:stream.place"},
-		{"multi node server", "node.stream.place", "node.stream.place", "did:web:node.stream.place"},
-		{"multi node broadcaster", "node.stream.place", "stream.place", "did:web:stream.place"},
-		{"multi node via proxy", "node.stream.place", "localhost", "did:web:stream.place"},
+		{"single node", "stream.place", "stream.place", "", "did:web:stream.place"},
+		{"single node via proxy", "stream.place", "localhost", "", "did:web:stream.place"},
+		{"multi node server", "node.stream.place", "node.stream.place", "", "did:web:node.stream.place"},
+		{"multi node broadcaster", "node.stream.place", "stream.place", "", "did:web:stream.place"},
+		{"multi node via proxy", "node.stream.place", "localhost", "", "did:web:stream.place"},
+		{"multi node behind worker", "node.stream.place", "node.stream.place", "stream.place", "did:web:stream.place"},
+		{"multi node behind worker, server host", "node.stream.place", "node.stream.place", "node.stream.place", "did:web:node.stream.place"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -37,6 +40,9 @@ func TestHandleAtprotoDID(t *testing.T) {
 						AtprotoDID:      override,
 					}}
 					req := httptest.NewRequest(http.MethodGet, "https://"+tt.requestHost+"/.well-known/atproto-did", nil)
+					if tt.forwardedHost != "" {
+						req.Header.Set("X-Forwarded-Host", tt.forwardedHost)
+					}
 					rec := httptest.NewRecorder()
 					a.HandleAtprotoDID(t.Context())(rec, req, nil)
 					require.Equal(t, http.StatusOK, rec.Code)

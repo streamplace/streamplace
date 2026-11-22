@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -96,6 +97,9 @@ type StreamplaceAPI struct {
 	connTracker       *WebsocketTracker
 	desktopObsPending atomic.Bool
 
+	// headLinker builds page heads without a template, for /api/page-head.
+	headLinker *linking.Linker
+
 	limiters      map[string]*rate.Limiter
 	limitersMu    sync.Mutex
 	SignerCache   map[string]media.MediaSigner
@@ -189,6 +193,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	a.XRPCServer = xrpc.(*spxrpc.Server)
 	a.XRPCServer.MoqURL = a.MoqURL
 	router := httprouter.New()
+	a.headLinker = linking.NewHeadLinker(a.StatefulDB, a.CLI)
 
 	// Create our middleware factory with the default settings.
 
@@ -221,6 +226,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addFunc(apiRouter, "POST", "/api/segment", a.HandleSegment(ctx))
 	addFunc(apiRouter, "GET", "/api/healthz", a.HandleHealthz(ctx))
 	addFunc(apiRouter, "GET", "/api/push", a.HandlePush(ctx))
+	addFunc(apiRouter, "GET", "/api/page-head", a.HandlePageHead(ctx))
 	// they're jpegs now
 	addHandle(apiRouter, "GET", "/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
 	// this one is actually a jpeg (used previously and shouldn't remove for historical reasons)
@@ -468,16 +474,39 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, frontends *
 	}, nil
 }
 
-// notFoundLinkingHandler serves static files and link cards for a single
-// frontend. Each frontend gets its own linker (built from that
-// frontend's index.html) so OpenGraph cards match the look of whichever
-// site the user is on.
+// notFoundLinkingHandler serves static files and page heads for a single
+// frontend. Each frontend gets its own linker (built from that frontend's
+// index.html) so the page keeps its own shell; the head is shared.
 func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *linking.Linker, frontendFS fs.FS) (http.HandlerFunc, error) {
-	files := frontendFS
-	fsys := AppHostingFS{http.FS(files)}
-
+	fsys := AppHostingFS{http.FS(frontendFS)}
 	fileHandler := a.FileHandler(ctx, http.FileServer(fsys))
-	defaultHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		proto := "http"
+		if req.TLS != nil {
+			proto = "https"
+		}
+		if fwProto := req.Header.Get("x-forwarded-proto"); fwProto != "" {
+			proto = fwProto
+		}
+		req.URL.Host = req.Host
+		req.URL.Scheme = proto
+
+		// HTML and the stable worker URL must revalidate on every visit.
+		if !looksLikeAsset(req.URL.Path) || req.URL.Path == "/sw.js" {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+
+		// A page with its own card is served before the static handler, so a
+		// handle that looks like an asset (alice.zip) still gets its card.
+		if head, ok := a.cardHead(ctx, linker, req.URL); ok {
+			w.Header().Set("Content-Type", "text/html")
+			if _, err := w.Write(linker.Page(head)); err != nil {
+				log.Error(ctx, "error writing response", "error", err)
+			}
+			return
+		}
+
 		f := strings.TrimPrefix(req.URL.Path, "/")
 		// under docs we need the index.html suffix due to astro rendering
 		if strings.HasPrefix(req.URL.Path, "/docs") && strings.HasSuffix(req.URL.Path, "/") {
@@ -495,140 +524,30 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 			fileHandler.ServeHTTP(w, req)
 			return
 		}
-		if errors.Is(err, ErrorIndex) || f == "" {
-			if hashed || looksLikeAsset(f) {
-				// Missing assets must not become cacheable app HTML.
-				if hashed {
-					w.Header().Set("Cache-Control", "no-store")
-				}
-				apierrors.WriteHTTPNotFound(w, "file not found", nil)
-				return
-			}
-			bs, err := linker.GenerateDefaultCard(ctx, req.URL, a.CLI.SentryDSN)
-			if err != nil {
-				log.Error(ctx, "error generating default card", "error", err)
-			}
-			w.Header().Set("Content-Type", "text/html")
-			if _, err := w.Write(bs); err != nil {
-				log.Error(ctx, "error writing response", "error", err)
-			}
-		} else {
+		if !errors.Is(err, ErrorIndex) && f != "" {
 			log.Warn(ctx, "error opening file", "error", err)
 			apierrors.WriteHTTPInternalServerError(w, "file not found", err)
+			return
 		}
-	})
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		proto := "http"
-		if req.TLS != nil {
-			proto = "https"
-		}
-		fwProto := req.Header.Get("x-forwarded-proto")
-		if fwProto != "" {
-			proto = fwProto
-		}
-		req.URL.Host = req.Host
-		req.URL.Scheme = proto
-
-		// HTML and the stable worker URL must revalidate on every visit.
-		if !looksLikeAsset(req.URL.Path) || req.URL.Path == "/sw.js" {
-			w.Header().Set("Cache-Control", "no-cache")
-		}
-
-		// The app's tabs each get their own card: the front page (live),
-		// /video (on demand) and /live (go live).
-		if page := linking.LandingPageFor(req.URL.Path); page != linking.LandingDefault {
-			bs, err := linker.GenerateLandingCard(ctx, req.URL, page, a.CLI.SentryDSN)
-			if err != nil {
-				log.Error(ctx, "error generating landing card", "path", req.URL.Path, "error", err)
-				defaultHandler.ServeHTTP(w, req)
-				return
+		if hashed || looksLikeAsset(f) {
+			// Missing assets must not become cacheable app HTML.
+			if hashed {
+				w.Header().Set("Cache-Control", "no-store")
 			}
-			w.Header().Set("Content-Type", "text/html")
-			if _, err := w.Write(bs); err != nil {
-				log.Error(ctx, "error writing response", "error", err)
-			}
+			apierrors.WriteHTTPNotFound(w, "file not found", nil)
 			return
 		}
-
-		// VOD link cards live at /<user>/video/<tid>. Everything else with a
-		// slash in it falls through to static-file / default-card handling.
-		parts := strings.Split(strings.Trim(req.URL.Path, "/"), "/")
-		if len(parts) == 3 && parts[1] == "video" {
-			if a.writeVideoCard(ctx, w, req, linker, parts[0], parts[2]) {
-				return
-			}
-			defaultHandler.ServeHTTP(w, req)
-			return
-		}
-
-		maybeHandle := strings.TrimPrefix(req.URL.Path, "/")
-		// The worker URL is reserved; asset-like TLDs can still be handles.
-		if strings.ContainsAny(maybeHandle, "/_") || maybeHandle == "sw.js" {
-			defaultHandler.ServeHTTP(w, req)
-			return
-		}
-		repo, err := a.Model.GetRepoByHandleOrDID(maybeHandle)
-		if err != nil || repo == nil {
-			log.Error(ctx, "no repo found", "maybeHandle", maybeHandle)
-			defaultHandler.ServeHTTP(w, req)
-			return
-		}
-		ls, err := a.Model.GetLatestLivestreamForRepo(repo.DID)
-		if err != nil || ls == nil {
-			log.Error(ctx, "no livestream found", "repoDID", repo.DID)
-			defaultHandler.ServeHTTP(w, req)
-			return
-		}
-		lsv, err := ls.ToLivestreamView()
-		if err != nil || lsv == nil {
-			log.Error(ctx, "no livestream view found", "repoDID", repo.DID)
-			defaultHandler.ServeHTTP(w, req)
-			return
-		}
-		a.hydrateAuthorName(ctx, &lsv.Author)
-		bs, err := linker.GenerateStreamerCard(ctx, req.URL, lsv, a.CLI.SentryDSN)
+		head, err := linker.GenerateDefaultCard(ctx, req.URL, a.CLI.SentryDSN)
 		if err != nil {
-			log.Error(ctx, "error generating html", "error", err)
-			defaultHandler.ServeHTTP(w, req)
+			log.Error(ctx, "error generating default card", "error", err)
+			apierrors.WriteHTTPInternalServerError(w, "error generating page", err)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html")
-		if _, err := w.Write(bs); err != nil {
+		if _, err := w.Write(linker.Page(head)); err != nil {
 			log.Error(ctx, "error writing response", "error", err)
 		}
 	}), nil
-}
-
-// writeVideoCard renders an OpenGraph link card for a VOD at
-// /<user>/video/<tid>, pulling the video out of the local index. It returns
-// true when it wrote a response, and false (having written nothing) when the
-// video can't be found or rendered, so the caller can fall back to
-// static-file / default-card handling.
-func (a *StreamplaceAPI) writeVideoCard(ctx context.Context, w http.ResponseWriter, req *http.Request, linker *linking.Linker, user, tid string) bool {
-	repo, err := a.Model.GetRepoByHandleOrDID(user)
-	if err != nil || repo == nil {
-		return false
-	}
-	uri := fmt.Sprintf("at://%s/place.stream.video/%s", repo.DID, tid)
-	vv, err := a.Model.GetVideoView(ctx, uri)
-	if err != nil {
-		log.Error(ctx, "error fetching video view for card", "uri", uri, "error", err)
-		return false
-	}
-	if vv == nil {
-		return false
-	}
-	a.hydrateAuthorName(ctx, &vv.Author)
-	bs, err := linker.GenerateVideoCard(ctx, req.URL, vv, a.CLI.SentryDSN)
-	if err != nil {
-		log.Error(ctx, "error generating video card", "uri", uri, "error", err)
-		return false
-	}
-	w.Header().Set("Content-Type", "text/html")
-	if _, err := w.Write(bs); err != nil {
-		log.Error(ctx, "error writing response", "error", err)
-	}
-	return true
 }
 
 // hydrateAuthorName fills a card author's display name from their indexed
@@ -948,13 +867,29 @@ func (a *StreamplaceAPI) HandleLivestream(ctx context.Context) httprouter.Handle
 	}
 }
 
+// clientIP is the address rate limits key on: the forwarded client when the
+// request carries this node's proxy secret, the peer otherwise.
+func (a *StreamplaceAPI) clientIP(req *http.Request) string {
+	if a.CLI.ProxySecret != "" &&
+		subtle.ConstantTimeCompare([]byte(req.Header.Get("X-Proxy-Secret")), []byte(a.CLI.ProxySecret)) == 1 {
+		if fwd := req.Header.Get("X-Forwarded-For"); fwd != "" {
+			first, _, _ := strings.Cut(fwd, ",")
+			if ip := strings.TrimSpace(first); ip != "" {
+				return ip
+			}
+		}
+	}
+	ip, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		return req.RemoteAddr
+	}
+	return ip
+}
+
 func (a *StreamplaceAPI) RateLimitMiddleware(ctx context.Context) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			ip, _, err := net.SplitHostPort(req.RemoteAddr)
-			if err != nil {
-				ip = req.RemoteAddr
-			}
+			ip := a.clientIP(req)
 
 			if a.CLI.RateLimitPerSecond > 0 {
 				limiter := a.getLimiter(ip)

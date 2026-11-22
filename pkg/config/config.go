@@ -166,6 +166,7 @@ type CLI struct {
 	MoqMaxTracks                int
 	MoqMaxGroupMB               int
 	BehindHTTPSProxy            bool
+	ProxySecret                 string
 	SegmentDebugDir             string
 	AdminDIDs                   []string
 	Syndicate                   []string
@@ -756,6 +757,12 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       10,
 				Destination: &cli.RateLimitWebsocket,
 				Sources:     urfavecli.EnvVars("SP_RATE_LIMIT_WEBSOCKET"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "proxy-secret",
+				Usage:       "shared secret an edge proxy sends in X-Proxy-Secret; when set and matched, per-ip limits use the first X-Forwarded-For address",
+				Destination: &cli.ProxySecret,
+				Sources:     urfavecli.EnvVars("SP_PROXY_SECRET"),
 			},
 			&urfavecli.IntFlag{
 				Name:        "muxl-initial-memory-mb",

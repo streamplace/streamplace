@@ -199,6 +199,28 @@ jobs:
         env:
           E2E_HARNESS_LOG: ${{ runner.temp }}/harness-web.log
 
+      # The same suite with js/edge in front of the node: the apex topology,
+      # where the site must stay up and every API call is proxied.
+      - name: Install edge worker dependencies
+        if: matrix.mode == 'standalone'
+        run: pnpm install --filter @streamplace/edge... --frozen-lockfile
+
+      # A representative set, not `--edge` with no arguments: that runs every
+      # non-sign-in flow, which is another full suite's worth of minutes.
+      # smoke (shell + assets), bootstrap (load sequence), tabs and
+      # lazy-navigation (chunks), websocket-authors and stream-reconnect
+      # (proxy upgrades), vod (page head and playback).
+      - name: Run web e2e tests through the edge worker
+        if: matrix.mode == 'standalone'
+        run: |
+          hack/e2e-web-local.sh --edge \
+            flows/smoke.spec.ts flows/bootstrap.spec.ts flows/tabs.spec.ts \
+            flows/lazy-navigation.spec.ts flows/websocket-authors.spec.ts \
+            flows/stream-reconnect.spec.ts flows/vod.spec.ts
+        env:
+          E2E_HARNESS_LOG: ${{ runner.temp }}/harness-web-edge.log
+          E2E_EDGE_LOG: ${{ runner.temp }}/edge-web.log
+
       # The stream specs again, with the harness pushing the way the OBS plugin
       # does (internal /api/ingest/client-configuration, then fragmented MP4
       # with a "Music" stem), so that ingest path and audio stems are covered from

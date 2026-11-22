@@ -11,6 +11,15 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
+// requestHost is the public host the client used: the edge proxy's
+// X-Forwarded-Host when present, the Host header otherwise.
+func requestHost(req *http.Request) string {
+	if h := req.Header.Get("X-Forwarded-Host"); h != "" {
+		return h
+	}
+	return req.Host
+}
+
 func (a *StreamplaceAPI) HandleDidJSON(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		// Route to the correct virtual PDS based on Host header.
@@ -18,7 +27,7 @@ func (a *StreamplaceAPI) HandleDidJSON(ctx context.Context) httprouter.Handle {
 		// Multi-node: server PDS on ServerHost, broadcaster PDS on BroadcasterHost.
 		host := a.CLI.ServerHost
 		pubKey := atproto.ServerPubMultibase
-		if a.CLI.ServerHost != a.CLI.BroadcasterHost && req.Host != a.CLI.ServerHost {
+		if a.CLI.ServerHost != a.CLI.BroadcasterHost && requestHost(req) != a.CLI.ServerHost {
 			host = a.CLI.BroadcasterHost
 			pubKey = atproto.LexiconPubMultibase
 		}
@@ -42,7 +51,7 @@ func (a *StreamplaceAPI) HandleAtprotoDID(ctx context.Context) httprouter.Handle
 		did := a.CLI.AtprotoDID
 		if did == "" {
 			did = a.CLI.ServerDID()
-			if a.CLI.ServerHost != a.CLI.BroadcasterHost && req.Host != a.CLI.ServerHost {
+			if a.CLI.ServerHost != a.CLI.BroadcasterHost && requestHost(req) != a.CLI.ServerHost {
 				did = a.CLI.BroadcasterDID()
 			}
 		}

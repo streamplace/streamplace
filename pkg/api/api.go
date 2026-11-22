@@ -340,7 +340,21 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		router.NotFound.ServeHTTP(w, r)
 	})
 	handler := sloghttp.Recovery(router)
-	handler = cors.AllowAll().Handler(handler)
+	handler = cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{
+			http.MethodHead, http.MethodGet, http.MethodPost,
+			http.MethodPut, http.MethodPatch, http.MethodDelete,
+		},
+		AllowedHeaders: []string{"*"},
+		// A web app behind an edge worker uploads straight to the node, so
+		// tus clients must be able to read these from another origin.
+		ExposedHeaders: []string{
+			"Location", "Tus-Resumable", "Tus-Version", "Tus-Max-Size",
+			"Tus-Extension", "Tus-Checksum-Algorithm",
+			"Upload-Offset", "Upload-Length", "Upload-Metadata", "Upload-Defer-Length",
+		},
+	}).Handler(handler)
 	// sloghttp.New wraps the ResponseWriter with a bodyWriter that doesn't
 	// implement Unwrap, which hides net/http.ResponseController.SetReadDeadline
 	// from tusd and floods the logs with one NetworkTimeoutError warning per

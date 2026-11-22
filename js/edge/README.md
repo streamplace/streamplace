@@ -42,7 +42,9 @@ Behind the worker, a node needs:
 
 - `--server-host <its own hostname>`, different from `--broadcaster-host` (the
   worker's hostname). This keeps `did:web:<broadcaster>` resolving to the
-  broadcaster document and points video uploads at the node itself.
+  broadcaster document and points video uploads at the node itself. It also
+  requires S3 uploads (`--s3-bucket`): the node refuses file-backed uploads in
+  multi-node mode.
 - `--proxy-secret <same secret>`, so per-IP limits use the forwarded client
   rather than the worker's shared egress address.
 

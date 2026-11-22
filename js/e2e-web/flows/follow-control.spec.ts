@@ -18,7 +18,10 @@ test("follow-control: signed-out follow shows user-plus and opens login", async 
   await expect(follow.getByTestId("follow-icon-user-plus")).toBeVisible();
 
   await follow.click();
-  await expect(page.getByText("Log in").first()).toBeVisible({
-    timeout: 15_000,
-  });
+  // Sidebar chrome already says "Log in"; this copy only exists in the modal.
+  await expect(
+    page.getByText("Sign in using your handle on the AT Protocol", {
+      exact: true,
+    }),
+  ).toBeVisible({ timeout: 15_000 });
 });

@@ -20,6 +20,6 @@ appId: ${APP_ID}
 - tapOn:
     id: "follow-button"
 - extendedWaitUntil:
-    visible: "Log in"
+    visible: "Sign in using your handle on the AT Protocol"
     timeout: 10000
 - takeScreenshot: follow-control-login

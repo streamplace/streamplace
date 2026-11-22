@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -94,16 +95,16 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 	// playlist is re-fetched every few seconds, so one that arrives without
 	// a session is redirected to carry one rather than counted afresh on
 	// every poll. A pre-live (unpublished) window is the streamer's own
-	// preview: only their own session (from getPlaybackSession) opens it,
-	// and it reads as not live to everyone else; its URLs stay self-hosted,
-	// a CDN must not see or cache a preview.
-	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), did, track != "" || rendition == "audio")
+	// preview: one session of theirs at a time (see preliveAccess), and it
+	// reads as not live to everyone else; its URLs stay self-hosted, a CDN
+	// must not see or cache a preview.
+	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), did, sessionClient(c), track != "" || rendition == "audio")
 	if err != nil {
 		return err
 	}
 	if !s.mm.LiveWindowPublished(did) {
-		if !s.cli.WideOpen && ps.Scope != psession.ScopeOwner {
-			return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
+		if err := s.preliveAccess(c, did, ps.Session); err != nil {
+			return err
 		}
 		live = liveCDN{}
 	}
@@ -207,12 +208,14 @@ func (s *Server) serveLiveSegment(c echo.Context, streamer, track, segParam, sid
 	// segments open only to the streamer's own session.
 	var sess psession.Session
 	if sid != "" || requireSession {
-		if sess, err = s.verifySession(ctx, sid, did); err != nil {
+		if sess, err = s.verifySession(ctx, sid, did, sessionClient(c)); err != nil {
 			return err
 		}
 	}
-	if !s.mm.LiveWindowPublished(did) && !s.cli.WideOpen && sess.Scope != psession.ScopeOwner {
-		return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
+	if !s.mm.LiveWindowPublished(did) {
+		if err := s.preliveAccess(c, did, sess); err != nil {
+			return err
+		}
 	}
 
 	// Segment fetches keep the playback session alive in the viewer count
@@ -251,6 +254,47 @@ func (s *Server) serveLiveSegment(c echo.Context, streamer, track, segParam, sid
 	// keeps the Content-Type we set above.
 	http.ServeContent(c.Response().Writer, c.Request(), "segment.m4s", time.Time{}, bytes.NewReader(data))
 	return nil
+}
+
+// preliveAccess is why a request with sess may not see an unpublished window,
+// or nil: it must be the owner's session, not fetched by another site's page,
+// and the streamer's newest pre-live playback.
+func (s *Server) preliveAccess(c echo.Context, did string, sess psession.Session) error {
+	if s.cli.WideOpen {
+		return nil
+	}
+	if sess.Scope != psession.ScopeOwner || s.foreignPage(c.Request()) {
+		return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
+	}
+	if !s.mm.ClaimPrelivePlayback(did, sess.ID, "") {
+		return errPlaybackElsewhere
+	}
+	return nil
+}
+
+// foreignPage reports whether a browser made r on behalf of a page outside
+// this node and loopback (Origin, else Referer). Native players send neither.
+func (s *Server) foreignPage(r *http.Request) bool {
+	page := r.Header.Get("Origin")
+	if page == "" {
+		page = r.Header.Get("Referer")
+	}
+	if page == "" {
+		return false
+	}
+	u, err := url.Parse(page)
+	if err != nil || u.Host == "" {
+		return true
+	}
+	if ip := net.ParseIP(u.Hostname()); u.Hostname() == "localhost" || (ip != nil && ip.IsLoopback()) {
+		return false
+	}
+	for _, host := range []string{r.Host, s.cli.BroadcasterHost, s.cli.ServerHost} {
+		if host != "" && strings.EqualFold(u.Host, host) {
+			return false
+		}
+	}
+	return true
 }
 
 // --- url builders -------------------------------------------------------

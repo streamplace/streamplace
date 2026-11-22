@@ -14,6 +14,7 @@ import {
   usePossiblyUnauthedPDSAgent,
   useStreamKey,
   useStreamplaceStore,
+  type PlayerState,
 } from "../..";
 import { useLivestreamStoreOptional } from "../../livestream-store/use-store";
 import {
@@ -68,6 +69,12 @@ export default function useWebRTC(
   // counts audio, which flows without a picture.
   const [videoFrames, setVideoFrames] = useState<boolean>(false);
   const setStatus = usePlayerStore((x) => x.setStatus);
+  const setElsewhere = usePlayerStore((x) => x.setPlaybackStartedElsewhere);
+  const playbackSession = usePlayerStore((x) => x.playbackSession);
+  // Read when a connection fails; not a reason to reconnect.
+  const sessionActions =
+    useRef<PlayerState["playbackSessionActions"]>(undefined);
+  sessionActions.current = usePlayerStore((x) => x.playbackSessionActions);
   let agent = usePossiblyUnauthedPDSAgent();
   const myDID = useDID();
   const myHandle = useHandle();
@@ -78,6 +85,9 @@ export default function useWebRTC(
     myDID &&
     (streamer === myDID || streamer === myHandle)
   );
+  // The streamer's owner session opens their pre-live stream; a new one
+  // means a new connection.
+  const sid = isOwnStream ? playbackSession : undefined;
   // The stream's video tracks, the source first: the node sends the source
   // when the offer lists its codec, else the H.264 fallback. A connection is
   // made again if this device turns out not to take the AV1 source.
@@ -170,7 +180,15 @@ export default function useWebRTC(
         isOwnStream,
         playbackWorkerUrl,
         rendition,
-      );
+        sid,
+      ).catch((e) => {
+        if (peerConnection.connectionState === "closed") return;
+        const name = sessionError(e);
+        if (name === "PlaybackStartedElsewhere") setElsewhere(true);
+        // A rejected (e.g. IP-changed) session: replace it, rate-limited.
+        else if (name === "InvalidSession") sessionActions.current?.remint();
+        else console.error("webrtc negotiation failed", e);
+      });
     });
 
     // The last progress seen on each inbound stream, by stats id: with
@@ -213,7 +231,15 @@ export default function useWebRTC(
       clearInterval(handle);
       peerConnection.close();
     };
-  }, [streamer, agent, isOwnStream, playbackWorkerUrl, rendition, smoothAV1]);
+  }, [
+    streamer,
+    agent,
+    isOwnStream,
+    playbackWorkerUrl,
+    rendition,
+    smoothAV1,
+    sid,
+  ]);
   return [mediaStream, stuck, audioTracks, audioGroups, videoFrames];
 }
 
@@ -237,6 +263,7 @@ export async function negotiateConnectionWithClientOffer(
   isOwnStream?: boolean,
   playbackWorkerUrl?: string | null,
   rendition?: string,
+  sid?: string,
 ) {
   /** https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createOffer */
   const offer = await peerConnection.createOffer({
@@ -277,6 +304,7 @@ export async function negotiateConnectionWithClientOffer(
         isOwnStream,
         playbackWorkerUrl,
         rendition,
+        sid,
       );
       let text = new TextDecoder().decode(response);
       if ((peerConnection.connectionState as string) === "closed") {
@@ -287,12 +315,22 @@ export async function negotiateConnectionWithClientOffer(
       );
       return "https://stream.place/example";
     } catch (e) {
+      // A refused session fails the same way on every retry.
+      if (sessionError(e)) throw e;
       console.error(`posting sdp offer failed: ${e}`);
     }
 
     /** Limit reconnection attempts to at-most once every 5 seconds */
     await new Promise((r) => setTimeout(r, 5000));
   }
+}
+
+// The XRPC error name when the node refused the owner session.
+function sessionError(e: unknown) {
+  const name = (e as { error?: string } | null)?.error;
+  return name === "PlaybackStartedElsewhere" || name === "InvalidSession"
+    ? name
+    : undefined;
 }
 
 export async function negotiateIngestConnectionWithClientOffer(
@@ -390,6 +428,7 @@ async function postSDPOffer(
   isOwnStream?: boolean,
   playbackWorkerUrl?: string | null,
   rendition?: string,
+  sid?: string,
 ) {
   if (!agent) {
     throw new Error("No agent found");
@@ -407,6 +446,7 @@ async function postSDPOffer(
       params: {
         rendition: rendition || "source",
         streamer: streamer,
+        ...(sid ? { sid } : {}),
       },
     },
   );

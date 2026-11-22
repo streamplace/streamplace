@@ -51,7 +51,7 @@ func (a *StreamplaceAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Ha
 			return
 		}
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
-		answer, err := a.MediaManager.WebRTCPlayback2(ctx, user, rendition, &offer, "")
+		answer, err := a.MediaManager.WebRTCPlayback2(ctx, user, rendition, &offer, "", "")
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, fmt.Sprintf("error playing back: %s", err.Error()), err)
 			return
@@ -202,8 +202,8 @@ func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter
 			errors.WriteHTTPNotFound(w, "user not found", err)
 			return
 		}
-		fpath := a.CLI.ThumbnailFilePath(user)
-		mt, ok := a.CLI.ThumbnailModTime(user)
+		fpath := a.CLI.ThumbnailFilePath(user, true)
+		mt, ok := a.CLI.ThumbnailModTime(user, true)
 		if !ok {
 			errors.WriteHTTPNotFound(w, "thumbnail not found", nil)
 			return

@@ -45,7 +45,6 @@ import (
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
-	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
@@ -219,9 +218,6 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	// new ones
 	addFunc(apiRouter, "GET", "/api/manifest", a.HandleAppUpdates(ctx))
 	addHandle(apiRouter, "GET", "/api/desktop-updates/:platform/:architecture/:version/:buildTime/:file", a.HandleDesktopUpdates(ctx))
-	addHandle(apiRouter, "POST", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	addHandle(apiRouter, "OPTIONS", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	addHandle(apiRouter, "DELETE", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
 	addFunc(apiRouter, "POST", "/api/segment", a.HandleSegment(ctx))
 	addFunc(apiRouter, "GET", "/api/healthz", a.HandleHealthz(ctx))
 	addFunc(apiRouter, "GET", "/api/push", a.HandlePush(ctx))
@@ -386,17 +382,6 @@ func redactKeyPath(path string) string {
 	}
 	return path
 }
-func copyHeader(dst, src http.Header) {
-	for k, vv := range src {
-		// we'll handle CORS ourselves, thanks
-		if strings.HasPrefix(k, "Access-Control") {
-			continue
-		}
-		for _, v := range vv {
-			dst.Add(k, v)
-		}
-	}
-}
 
 // frontendSet holds a per-frontend linking handler so the NotFound
 // dispatcher can pick which one to serve per request. The legacy RN app
@@ -446,6 +431,10 @@ func looksLikeAsset(path string) bool {
 	return assetExtensions[strings.ToLower(filepath.Ext(path))]
 }
 
+// hashedBundlePrefix is where Expo writes content-hashed JS/CSS chunks, which
+// never change once published and never fall back to the app shell.
+const hashedBundlePrefix = "_expo/static/"
+
 // buildLinkingHandler builds the static-file + link-card handler for a
 // single frontend.
 func (a *StreamplaceAPI) buildLinkingHandler(ctx context.Context, load func() (fs.FS, error)) (http.HandlerFunc, error) {
@@ -494,18 +483,24 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 		if strings.HasPrefix(req.URL.Path, "/docs") && strings.HasSuffix(req.URL.Path, "/") {
 			f += "index.html"
 		}
-		_, err := fsys.Open(f)
+		hashed := strings.HasPrefix(f, hashedBundlePrefix)
+		file, err := fsys.Open(f)
 		if err == nil {
+			if hashed {
+				if info, err := file.Stat(); err == nil && !info.IsDir() {
+					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				}
+			}
+			_ = file.Close()
 			fileHandler.ServeHTTP(w, req)
 			return
 		}
 		if errors.Is(err, ErrorIndex) || f == "" {
-			if looksLikeAsset(f) {
-				// A missing file, not an app route: a 404, so that a
-				// CDN in front of this node (a blob or segment URL that
-				// reached the app shell by mistake, a stale hashed
-				// asset) caches a short miss rather than the app page
-				// as a month-old "video".
+			if hashed || looksLikeAsset(f) {
+				// Missing assets must not become cacheable app HTML.
+				if hashed {
+					w.Header().Set("Cache-Control", "no-store")
+				}
 				apierrors.WriteHTTPNotFound(w, "file not found", nil)
 				return
 			}
@@ -523,7 +518,6 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 		}
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Cache-Control", "no-cache")
 		proto := "http"
 		if req.TLS != nil {
 			proto = "https"
@@ -534,6 +528,11 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 		}
 		req.URL.Host = req.Host
 		req.URL.Scheme = proto
+
+		// HTML and the stable worker URL must revalidate on every visit.
+		if !looksLikeAsset(req.URL.Path) || req.URL.Path == "/sw.js" {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
 
 		// The app's tabs each get their own card: the front page (live),
 		// /video (on demand) and /live (go live).
@@ -563,8 +562,8 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 		}
 
 		maybeHandle := strings.TrimPrefix(req.URL.Path, "/")
-		// quick check for things that aren't valid handles/dids
-		if strings.ContainsAny(maybeHandle, "/_") {
+		// The worker URL is reserved; asset-like TLDs can still be handles.
+		if strings.ContainsAny(maybeHandle, "/_") || maybeHandle == "sw.js" {
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}
@@ -650,61 +649,8 @@ func (a *StreamplaceAPI) hydrateAuthorName(ctx context.Context, author *appbsky.
 	}
 }
 
-func (a *StreamplaceAPI) MistProxyHandler(ctx context.Context, tmpl string) httprouter.Handle {
-	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		if !a.CLI.HasMist() {
-			apierrors.WriteHTTPNotImplemented(w, "Playback only on the Linux version for now", nil)
-			return
-		}
-		stream := params.ByName("stream")
-		if stream == "" {
-			apierrors.WriteHTTPBadRequest(w, "missing stream in request", nil)
-			return
-		}
-
-		fullstream := fmt.Sprintf("%s+%s", mistconfig.StreamName, stream)
-		prefix := fmt.Sprintf(tmpl, fullstream)
-		resource := params.ByName("resource")
-
-		// path := strings.TrimPrefix(req.URL.EscapedPath(), "/api")
-
-		client := &http.Client{}
-		req.URL = &url.URL{
-			Scheme:   "http",
-			Host:     fmt.Sprintf("127.0.0.1:%d", a.CLI.MistHTTPPort),
-			Path:     fmt.Sprintf("%s%s", prefix, resource),
-			RawQuery: req.URL.RawQuery,
-		}
-
-		//http: Request.RequestURI can't be set in client requests.
-		//http://golang.org/src/pkg/net/http/client.go
-		req.RequestURI = ""
-
-		resp, err := client.Do(req)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "error connecting to mist", err)
-			return
-		}
-		defer resp.Body.Close()
-
-		copyHeader(w.Header(), resp.Header)
-		w.WriteHeader(resp.StatusCode)
-		if _, err := io.Copy(w, resp.Body); err != nil {
-			log.Error(ctx, "error writing response", "error", err)
-		}
-	}
-}
-
-// Expo bundles/bootstrap and Metro assets include a content hash in their URL.
-// Unversioned files and generated HTML must pick up node upgrades immediately.
-var immutableFrontendAsset = regexp.MustCompile(`^/(?:_expo/static/.*-(?:[0-9a-f]{16}|[0-9a-f]{32})\.(?:js|css)(?:\.map)?|assets/(?:.*/)?(?:[0-9a-f]{32}|[^/]+\.[0-9a-f]{32}\.[a-z0-9]+))$`)
-
 func (a *StreamplaceAPI) FileHandler(ctx context.Context, fs http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Cache-Control", "no-cache")
-		if immutableFrontendAsset.MatchString(req.URL.Path) {
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-		}
 		noslash := req.URL.Path[1:]
 		ct, ok := a.Mimes[noslash]
 		if ok {

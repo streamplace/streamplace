@@ -2,6 +2,13 @@ import { StateCreator } from "zustand";
 import { getPDSServiceEndpoint, resolveDIDDocument } from "../../did";
 import { AppStore } from "../index";
 
+type ContentMetadataRead = {
+  userDid: string;
+  record: any | null;
+  uri: string | null;
+  cid: string | null | undefined;
+};
+
 export interface ContentMetadataSlice {
   creating: boolean;
   updating: boolean;
@@ -40,7 +47,7 @@ export interface ContentMetadataSlice {
   getContentMetadata: (params?: {
     userDid?: string;
     rkey?: string;
-  }) => Promise<void>;
+  }) => Promise<ContentMetadataRead | undefined>;
   clearError: () => void;
 }
 
@@ -173,10 +180,19 @@ export const createContentMetadataSlice: StateCreator<
 
       if (distributionPolicy !== undefined) {
         const { deleteAfter, allowedBroadcasters } = distributionPolicy;
-        if (deleteAfter !== undefined || allowedBroadcasters?.length) {
+        const existingPolicy = existingRecord?.distributionPolicy as
+          { allowGenAiTraining?: boolean } | undefined;
+        if (
+          deleteAfter !== undefined ||
+          allowedBroadcasters?.length ||
+          existingPolicy?.allowGenAiTraining !== undefined
+        ) {
           metadataRecord.distributionPolicy = {
             ...(deleteAfter !== undefined && { deleteAfter }),
             ...(allowedBroadcasters && { allowedBroadcasters }),
+            ...(existingPolicy?.allowGenAiTraining !== undefined && {
+              allowGenAiTraining: existingPolicy.allowGenAiTraining,
+            }),
           };
         } else {
           delete metadataRecord.distributionPolicy;
@@ -254,30 +270,30 @@ export const createContentMetadataSlice: StateCreator<
           throw new Error("Failed to get content metadata record");
         }
 
+        const metadata = {
+          userDid: targetDid,
+          record: result.data.value,
+          uri: result.data.uri,
+          cid: result.data.cid,
+        };
         set({
           error: null,
-          lastCreatedRecord: {
-            userDid: targetDid,
-            record: result.data.value,
-            uri: result.data.uri,
-            cid: result.data.cid,
-          },
+          lastCreatedRecord: metadata,
         });
+        return metadata;
       } catch (error: any) {
-        if (
-          error.message?.includes("not found") ||
-          error.message?.includes("RecordNotFound")
-        ) {
+        if (error?.error === "RecordNotFound") {
+          const metadata = {
+            userDid: targetDid,
+            record: null,
+            uri: null,
+            cid: null,
+          };
           set({
             error: null,
-            lastCreatedRecord: {
-              userDid: targetDid,
-              record: null,
-              uri: null,
-              cid: null,
-            },
+            lastCreatedRecord: metadata,
           });
-          return;
+          return metadata;
         }
         throw error;
       }

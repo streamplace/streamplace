@@ -1,7 +1,16 @@
 {
   "headers": [
     {
-      "source": "static/**/*.js",
+      "source": "sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
+    {
+      "source": "_expo/static/**",
       "headers": [
         {
           "key": "Cache-Control",

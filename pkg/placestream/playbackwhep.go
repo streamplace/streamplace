@@ -17,11 +17,15 @@ import (
 // Play a stream over WebRTC using WHEP.
 //
 // rendition: The rendition of the stream to play.
+// sid: The streamer's own playback session (getPlaybackSession), which opens their pre-live stream.
 // streamer: The DID of the streamer to play.
-func PlaybackWhep(ctx context.Context, c glex.LexClient, rendition string, streamer string, input io.Reader) ([]byte, error) {
+func PlaybackWhep(ctx context.Context, c glex.LexClient, rendition string, sid string, streamer string, input io.Reader) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
+	if sid != "" {
+		params["sid"] = sid
+	}
 	params["rendition"] = rendition
 	params["streamer"] = streamer
 

@@ -25,6 +25,7 @@ import {
 import { colors, surfaces } from "../../lib/theme/tokens";
 import { usePlaybackSession } from "./playback-session";
 import { AudioOnlyOverlay } from "./ui/audio-only-overlay";
+import { PlaybackElsewhereOverlay } from "./ui/playback-elsewhere";
 import Video from "./video.native";
 
 export function Fullscreen(props: {
@@ -145,6 +146,7 @@ export function Fullscreen(props: {
             maxMessages={danmuMaxMessages}
           />
           {props.children}
+          <PlaybackElsewhereOverlay />
         </View>
       </View>
     );
@@ -168,6 +170,7 @@ export function Fullscreen(props: {
         maxMessages={danmuMaxMessages}
       />
       {props.children}
+      <PlaybackElsewhereOverlay />
     </>
   );
 }

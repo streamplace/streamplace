@@ -704,10 +704,11 @@ func (s *Server) HandlePlaceStreamGameSearch(c echo.Context) error {
 		}
 	}
 	q := c.QueryParam("q")
+	types := c.QueryParams()["types"]
 	var out *placestream.GameSearch_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamGameSearch(ctx context.Context,cursor string,limit int,q string) (*placestream.GameSearch_Output, error)
-	out, handleErr = s.handlePlaceStreamGameSearch(ctx, cursor, limit, q)
+	// func (s *Server) handlePlaceStreamGameSearch(ctx context.Context,cursor string,limit int,q string,types []string) (*placestream.GameSearch_Output, error)
+	out, handleErr = s.handlePlaceStreamGameSearch(ctx, cursor, limit, q, types)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1464,13 +1465,14 @@ func (s *Server) HandlePlaceStreamPlaybackWhep(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackWhep")
 	defer span.End()
 	rendition := c.QueryParam("rendition")
+	sid := c.QueryParam("sid")
 	streamer := c.QueryParam("streamer")
 	body := c.Request().Body
 	contentType := c.Request().Header.Get("Content-Type")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context,rendition string,streamer string,r io.Reader,contentType string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackWhep(ctx, rendition, streamer, body, contentType)
+	// func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context,rendition string,sid string,streamer string,r io.Reader,contentType string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackWhep(ctx, rendition, sid, streamer, body, contentType)
 	if handleErr != nil {
 		return handleErr
 	}

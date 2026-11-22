@@ -1,0 +1,51 @@
+appId: ${APP_ID}
+# Signs the account LOGIN_HANDLE / LOGIN_PASSWORD in; the app must be logged
+# out. Not a scenario: oauth-login.yaml and flows that switch accounts run it.
+---
+# Log in the way a user does: the app's atproto OAuth client talks to the
+# node's OAuth proxy, which opens the PDS's sign-in and consent pages in a
+# Chrome Custom Tab. The node's advertised callback route returns to the app.
+- launchApp
+- tapOn:
+    text: "Log in"
+- tapOn:
+    id: "login-handle"
+- inputText: "${LOGIN_HANDLE}"
+# Submit from the keyboard, as a user can. Hiding the keyboard and tapping
+# Log In instead misses: the modal slides down as the keyboard goes, after
+# maestro has worked out where to tap.
+- pressKey: Enter
+# the handle comes along as login_hint, so the PDS only asks for the password
+- extendedWaitUntil:
+    visible:
+      text: "Password"
+    timeout: 60000
+- takeScreenshot: oauth-login-pds-sign-in
+# The page opens with the password field focused. Don't tap "Password": that
+# matches the field's label and container, and tapping it takes focus off
+# the input, whose own label is only a hint.
+- inputText: "${LOGIN_PASSWORD}"
+# Enter submits the form. Not hideKeyboard: on Android that can send Back,
+# which closes the Custom Tab and cancels the login.
+- pressKey: Enter
+- takeScreenshot: oauth-login-pds-consent
+- extendedWaitUntil:
+    visible:
+      text: "Authorize"
+    timeout: 30000
+- tapOn:
+    text: "Authorize"
+- takeScreenshot: oauth-login-app-return
+- extendedWaitUntil:
+    visible:
+      text: "Complete Login"
+    timeout: 30000
+- tapOn:
+    text: "Complete Login"
+- takeScreenshot: oauth-login-logged-in
+# logged in, the header's Log in button gives way to the account menu (the
+# handle alone proves nothing: the feed shows it on the stream card)
+- extendedWaitUntil:
+    notVisible:
+      text: "Log in"
+    timeout: 30000

@@ -52,6 +52,9 @@ type MediaManager struct {
 	// concurrently, so it is how a late pre-live segment is told apart
 	// from the stream going back to preview.
 	liveWindowLatest map[string]time.Time
+	// prelivePlayback is, per streamer, the one playback that may play their
+	// pre-live stream; guarded by liveWindowsMut.
+	prelivePlayback map[string]prelivePlay
 	// segBuffers holds each stream's recent canonical segments in memory: the
 	// part of a stream this node can clip that no recording holds yet. Keyed
 	// by repoDID. See segment_buffer.go.

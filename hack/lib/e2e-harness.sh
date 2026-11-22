@@ -7,12 +7,15 @@
 #
 # The caller's cwd must be the repo root. On return the harness is up and its
 # variables are exported: SERVER_URL, SERVER2_URL (a second node that pulls
-# the stream from the first over MoQ), SERVER3_URL (a third node the first
+# the stream from the first over MoQ), SERVER2_INTERNAL_URL (that node's
+# internal admin API), SERVER3_URL (a third node the first
 # pushes the stream to over MoQ), ACCOUNT_HANDLE, ACCOUNT_DID,
 # ACCOUNT_PASSWORD, VIDEO_URI (the account's test VOD), E2E_FIXTURE_MP4 (the
 # local file the harness streams into the node), STREAM_KEY (the account's
 # stream key), PDS_HTTP_URL (the PDS's plain-HTTP listener, for checking
-# stored records from the host), and in
+# stored records from the host), PRELIVE_ACCOUNT_DID / _HANDLE / _PASSWORD (a
+# second account that streams without a livestream record; unset with
+# SP_E2E_INGEST=none or the upstream topology), and in
 # HTTPS mode also SERVER_HTTPS_URL, PDS_HTTPS_URL,
 # E2E_PROXY_URL, E2E_TLS_SPKI and E2E_TLS_CA. An EXIT trap stops it; a caller
 # with its own EXIT work calls e2e_harness_stop from its trap instead.
@@ -101,9 +104,10 @@ e2e_harness_start() {
   fi
   # shellcheck disable=SC1090
   . "$E2E_ENVFILE"
-  export SERVER_URL SERVER2_URL SERVER3_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD VIDEO_URI
+  export SERVER_URL SERVER2_URL SERVER2_INTERNAL_URL SERVER3_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD VIDEO_URI
   export SERVER_INTERNAL_URL
   export E2E_FIXTURE_MP4 STREAM_KEY PDS_HTTP_URL
+  export PRELIVE_ACCOUNT_DID PRELIVE_ACCOUNT_HANDLE PRELIVE_ACCOUNT_PASSWORD
   # Every node's log, for specs that check how something happened.
   export E2E_LOGFILE
   # only set in HTTPS mode

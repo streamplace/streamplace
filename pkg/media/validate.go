@@ -158,13 +158,16 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 		}
 	}
 
+	var allowedBroadcasters []string
 	if meta.MetadataConfiguration != nil && meta.MetadataConfiguration.DistributionPolicy != nil {
-		allowedBroadcasters := meta.MetadataConfiguration.DistributionPolicy.AllowedBroadcasters
-		if allowedBroadcasters != nil {
-			if !slices.Contains(allowedBroadcasters, "*") && !slices.Contains(allowedBroadcasters, fmt.Sprintf("did:web:%s", mm.cli.BroadcasterHost)) {
-				return nil, fmt.Errorf("broadcaster %s is not allowed to distribute content. Allowed broadcasters: %v", fmt.Sprintf("did:web:%s", mm.cli.BroadcasterHost), allowedBroadcasters)
-			}
-		}
+		allowedBroadcasters = meta.MetadataConfiguration.DistributionPolicy.AllowedBroadcasters
+	}
+	allowed := constants.DefaultAllowEveryoneToDistribute
+	if allowedBroadcasters != nil {
+		allowed = slices.Contains(allowedBroadcasters, constants.AllBroadcasters) || slices.Contains(allowedBroadcasters, fmt.Sprintf("did:web:%s", mm.cli.BroadcasterHost))
+	}
+	if !allowed {
+		return nil, fmt.Errorf("broadcaster %s is not allowed to distribute content. Allowed broadcasters: %v", fmt.Sprintf("did:web:%s", mm.cli.BroadcasterHost), allowedBroadcasters)
 	}
 
 	var repoDID, signingKeyDID string
@@ -354,7 +357,7 @@ func (mm *MediaManager) applyContentFilters(ctx context.Context, meta *SegmentMe
 
 	// Check distribution policy (if enabled)
 	if mm.cli.ContentFilters.DistributionPolicy.Enabled && meta.DistributionPolicy != nil {
-		if meta.DistributionPolicy.DeleteAfterSeconds != nil {
+		if meta.DistributionPolicy.DeleteAfterSeconds != nil && *meta.DistributionPolicy.DeleteAfterSeconds != constants.IndefiniteArchival {
 			expiresAt := meta.StartTime.Time().Add(time.Duration(*meta.DistributionPolicy.DeleteAfterSeconds) * time.Second)
 			if time.Now().After(expiresAt) {
 				reason := fmt.Sprintf("distribution policy expired: segment expires at %s", expiresAt)

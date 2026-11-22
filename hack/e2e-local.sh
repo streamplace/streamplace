@@ -113,7 +113,9 @@ fi
 # E2E_ANDROID_HOST_ADDR then selects device loopback without changing issuers.
 hosts="127.0.0.1 localhost
 ::1 ip6-localhost"
-for name in "$E2E_HTTPS_STATION_HOSTNAME" "$E2E_HTTPS_PDS_HOSTNAME" "$ACCOUNT_HANDLE" plc.directory; do
+# The prelive handle is unquoted so it drops out when the harness has none.
+# shellcheck disable=SC2086
+for name in "$E2E_HTTPS_STATION_HOSTNAME" "$E2E_HTTPS_PDS_HOSTNAME" "$ACCOUNT_HANDLE" ${PRELIVE_ACCOUNT_HANDLE:-} plc.directory; do
   hosts="$hosts
 ${E2E_ANDROID_HOST_ADDR:-10.0.2.2} $name"
 done
@@ -174,6 +176,9 @@ MAESTRO_ARGS=(-e APP_ID="$APP_ID" -e SERVER_URL="$APP_SERVER_URL"
   -e SERVER_HTTP_URL="$SERVER_URL"
   -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" -e ACCOUNT_PASSWORD="$ACCOUNT_PASSWORD"
   -e ACCOUNT_DID="$ACCOUNT_DID" -e PDS_HTTP_URL="$PDS_HTTP_URL"
+  -e PRELIVE_ACCOUNT_HANDLE="${PRELIVE_ACCOUNT_HANDLE:-}"
+  -e PRELIVE_ACCOUNT_DID="${PRELIVE_ACCOUNT_DID:-}"
+  -e PRELIVE_ACCOUNT_PASSWORD="${PRELIVE_ACCOUNT_PASSWORD:-}"
   -e DEVICE_UTC_OFFSET="${device_offset:0:3}:${device_offset:3}"
   -e SP_E2E_INGEST="${SP_E2E_INGEST:-whip}"
   -e SP_E2E_VIDEO="${SP_E2E_VIDEO:-h264}"

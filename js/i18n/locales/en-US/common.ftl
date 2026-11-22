@@ -282,6 +282,8 @@ pip-enter = Picture-in-picture
 pip-exit = Exit picture-in-picture
 theatre-enter = Theatre mode
 theatre-exit = Exit theatre mode
+playback-started-elsewhere = Playback started elsewhere.
+play-here = Play here
 
 ## Notifications
 teleporting-in = Teleporting in
@@ -413,7 +415,7 @@ credit-line = Credit Line
 custom-license = Custom…
 custom-license-url = Custom License URL/Text
 delete-after = Delete After
-delete-after-help = Duration in seconds (e.g. 300 for 5 minutes).
+delete-after-help = Duration in seconds. Leave blank for no specified deadline.
 distribution = Distribution
 distribution-help = Control who can redistribute your stream and for how long archives are kept.
 editing-video = Editing video

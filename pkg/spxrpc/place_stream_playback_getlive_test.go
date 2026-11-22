@@ -12,6 +12,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/cdn/bunny"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/psession"
 )
 
@@ -129,47 +131,48 @@ func TestResolveSession(t *testing.T) {
 	s.sessionKeyCache.Store(&key)
 	ctx := context.Background()
 	const streamer = "did:plc:abc"
+	const client = "192.0.2.1"
 
-	fresh, err := s.resolveSession(ctx, "", streamer, true)
+	fresh, err := s.resolveSession(ctx, "", streamer, client, true)
 	require.NoError(t, err)
 	require.True(t, fresh.Redirect, "a media playlist without a session is redirected to one")
 	require.Equal(t, psession.ScopePublic, fresh.Scope)
 	require.Equal(t, fresh.ID, psession.ID(fresh.SID))
 
-	master, err := s.resolveSession(ctx, "", streamer, false)
+	master, err := s.resolveSession(ctx, "", streamer, client, false)
 	require.NoError(t, err)
 	require.False(t, master.Redirect, "a master playlist embeds the session it mints")
 
-	kept, err := s.resolveSession(ctx, fresh.SID, streamer, true)
+	kept, err := s.resolveSession(ctx, fresh.SID, streamer, "198.51.100.1", true)
 	require.NoError(t, err)
 	require.False(t, kept.Redirect)
-	require.Equal(t, fresh.SID, kept.SID, "a young session is emitted as is")
+	require.Equal(t, fresh.SID, kept.SID, "a young session is emitted as is, from any client")
 
-	_, err = s.resolveSession(ctx, fresh.SID, "did:plc:other", true)
+	_, err = s.resolveSession(ctx, fresh.SID, "did:plc:other", client, true)
 	require.ErrorIs(t, err, errBadSession, "bound to the stream it was minted for")
-	_, err = s.resolveSession(ctx, "3kabc", streamer, true)
+	_, err = s.resolveSession(ctx, "3kabc", streamer, client, true)
 	require.ErrorIs(t, err, errBadSession, "a bare id is not a session")
 
 	// Past half-life: renewed under the same id, and a media playlist is
 	// redirected to the renewal so the player's follow-ups carry it (a
 	// master embeds it).
-	aging, _ := psession.Mint(key, streamer, psession.ScopePublic, publicSessionTTL/3, time.Now())
-	_, agingSID := psession.Renew(key, aging, streamer, publicSessionTTL/3, time.Now())
-	half, err := s.resolveSession(ctx, agingSID, streamer, true)
+	aging, _ := psession.Mint(key, streamer, "", psession.ScopePublic, publicSessionTTL/3, time.Now())
+	_, agingSID := psession.Renew(key, aging, streamer, "", publicSessionTTL/3, time.Now())
+	half, err := s.resolveSession(ctx, agingSID, streamer, client, true)
 	require.NoError(t, err)
 	require.True(t, half.Redirect)
 	require.Equal(t, aging.ID, half.ID)
 	require.NotEqual(t, agingSID, half.SID)
-	halfMaster, err := s.resolveSession(ctx, agingSID, streamer, false)
+	halfMaster, err := s.resolveSession(ctx, agingSID, streamer, client, false)
 	require.NoError(t, err)
 	require.False(t, halfMaster.Redirect)
 	require.NotEqual(t, agingSID, halfMaster.SID, "renewed all the same")
 
 	// Expired: renewed under the same id; a media playlist is redirected to
 	// the renewal so the player's follow-ups carry it.
-	old, _ := psession.Mint(key, streamer, psession.ScopePublic, -time.Hour, time.Now())
-	_, oldSID := psession.Renew(key, old, streamer, -time.Hour, time.Now())
-	renewed, err := s.resolveSession(ctx, oldSID, streamer, true)
+	old, _ := psession.Mint(key, streamer, "", psession.ScopePublic, -time.Hour, time.Now())
+	_, oldSID := psession.Renew(key, old, streamer, "", -time.Hour, time.Now())
+	renewed, err := s.resolveSession(ctx, oldSID, streamer, client, true)
 	require.NoError(t, err)
 	require.True(t, renewed.Redirect)
 	require.Equal(t, old.ID, renewed.ID)
@@ -177,27 +180,110 @@ func TestResolveSession(t *testing.T) {
 
 	// A blob request is credited to its session only when the session
 	// verifies for the owner; a sid copied across streams credits nothing.
-	require.Equal(t, fresh.ID, s.accountedSession(ctx, fresh.SID, streamer))
-	require.Equal(t, "", s.accountedSession(ctx, fresh.SID, "did:plc:other"))
-	require.Equal(t, "", s.accountedSession(ctx, "3kabc", streamer))
-	require.Equal(t, old.ID, s.accountedSession(ctx, oldSID, streamer), "expired but genuine still names its session")
+	require.Equal(t, fresh.ID, s.accountedSession(ctx, fresh.SID, streamer, client))
+	require.Equal(t, "", s.accountedSession(ctx, fresh.SID, "did:plc:other", client))
+	require.Equal(t, "", s.accountedSession(ctx, "3kabc", streamer, client))
+	require.Equal(t, old.ID, s.accountedSession(ctx, oldSID, streamer, client), "expired but genuine still names its session")
 
 	// Segments never mint: a URL out of a playlist carries a session or is
 	// refused.
-	sess, err := s.verifySession(ctx, renewed.SID, streamer)
+	sess, err := s.verifySession(ctx, renewed.SID, streamer, client)
 	require.NoError(t, err)
 	require.Equal(t, old.ID, sess.ID)
-	_, err = s.verifySession(ctx, "", streamer)
+	_, err = s.verifySession(ctx, "", streamer, client)
 	require.Error(t, err)
-	_, err = s.verifySession(ctx, oldSID, streamer)
+	_, err = s.verifySession(ctx, oldSID, streamer, client)
 	require.Error(t, err, "expired")
+}
 
-	// The owner session: minted by getPlaybackSession, it is what opens a
-	// pre-live stream; a public one does not (the handler checks Scope).
-	_, ownerSID := psession.Mint(key, streamer, psession.ScopeOwner, ownerSessionTTL, time.Now())
-	owner, err := s.resolveSession(ctx, ownerSID, streamer, true)
+// TestOwnerSession: the owner session that opens a pre-live stream works
+// only from the client it was minted for, and is never renewed, so a copied
+// sid can't be shared or kept alive.
+func TestOwnerSession(t *testing.T) {
+	key := []byte("0123456789abcdef0123456789abcdef")
+	s := &Server{}
+	s.sessionKeyCache.Store(&key)
+	ctx := context.Background()
+	const streamer = "did:plc:abc"
+	const client = "192.0.2.1"
+
+	_, ownerSID := psession.Mint(key, streamer, client, psession.ScopeOwner, ownerSessionTTL, time.Now())
+	owner, err := s.resolveSession(ctx, ownerSID, streamer, client, true)
 	require.NoError(t, err)
 	require.Equal(t, psession.ScopeOwner, owner.Scope)
+	_, err = s.resolveSession(ctx, ownerSID, streamer, "198.51.100.1", true)
+	require.ErrorIs(t, err, errBadSession, "copied to another client")
+	_, err = s.verifySession(ctx, ownerSID, streamer, "198.51.100.1")
+	require.Error(t, err, "segments too")
+
+	_, agingSID := psession.Mint(key, streamer, client, psession.ScopeOwner, ownerSessionTTL/3, time.Now())
+	aging, err := s.resolveSession(ctx, agingSID, streamer, client, true)
+	require.NoError(t, err)
+	require.Equal(t, agingSID, aging.SID, "past half-life, not renewed")
+	require.False(t, aging.Redirect)
+
+	_, expiredSID := psession.Mint(key, streamer, client, psession.ScopeOwner, -time.Minute, time.Now())
+	_, err = s.resolveSession(ctx, expiredSID, streamer, client, true)
+	require.ErrorIs(t, err, errBadSession, "expired, not renewed")
+}
+
+// TestSessionClient: IPv6 clients are bound by /64, so a rotating privacy
+// address keeps its session.
+func TestSessionClient(t *testing.T) {
+	client := func(remote string) string {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = remote
+		return sessionClient(echo.New().NewContext(req, httptest.NewRecorder()))
+	}
+	require.Equal(t, "192.0.2.1", client("192.0.2.1:5000"))
+	require.Equal(t, client("[2001:db8:1:2::1]:5000"), client("[2001:db8:1:2:aaaa:bbbb:cccc:dddd]:5000"))
+	require.NotEqual(t, client("[2001:db8:1:2::1]:5000"), client("[2001:db8:1:3::1]:5000"))
+}
+
+// TestForeignPage: a pre-live window opens to this node's own pages, local
+// ones and native players, never to an embed on another site.
+func TestForeignPage(t *testing.T) {
+	s := &Server{cli: &config.CLI{BroadcasterHost: "stream.place", ServerHost: "node.stream.place"}}
+	foreign := func(header, value string) bool {
+		req := httptest.NewRequest(http.MethodGet, "http://iad.stream.place/xrpc/place.stream.playback.getLivePlaylist", nil)
+		if header != "" {
+			req.Header.Set(header, value)
+		}
+		return s.foreignPage(req)
+	}
+	require.False(t, foreign("", ""), "native player")
+	require.False(t, foreign("Origin", "https://iad.stream.place"))
+	require.False(t, foreign("Origin", "https://stream.place"))
+	require.False(t, foreign("Referer", "https://node.stream.place/live"))
+	require.False(t, foreign("Origin", "http://127.0.0.1:38081"), "desktop app")
+	require.False(t, foreign("Origin", "http://localhost:8081"))
+	require.True(t, foreign("Origin", "https://soccer.example"))
+	require.True(t, foreign("Referer", "https://soccer.example/watch"))
+	require.True(t, foreign("Origin", "null"), "sandboxed or opaque page")
+}
+
+// TestPreliveAccess: a pre-live window plays to one owner session at a time;
+// a newer one takes over and the older one is told so (409), not "not live".
+func TestPreliveAccess(t *testing.T) {
+	s := &Server{cli: &config.CLI{}, mm: &media.MediaManager{}}
+	c := echo.New().NewContext(httptest.NewRequest(http.MethodGet, "/", nil), httptest.NewRecorder())
+	const did = "did:plc:abc"
+	first := psession.Session{ID: "3kabcaaaaaa22", Scope: psession.ScopeOwner}
+	second := psession.Session{ID: "3kabcaaaaab22", Scope: psession.ScopeOwner}
+
+	require.NoError(t, s.preliveAccess(c, did, first))
+	require.NoError(t, s.preliveAccess(c, did, second))
+	require.ErrorIs(t, s.preliveAccess(c, did, first), errPlaybackElsewhere)
+	err := s.preliveAccess(c, did, psession.Session{ID: "3kabcaaaaac22", Scope: psession.ScopePublic})
+	require.ErrorContains(t, err, "StreamNotLive", "a public session never claims it")
+	require.NoError(t, s.preliveAccess(c, did, second), "not taken by the public one")
+
+	// XRPC clients read the error name from the body's "error" field.
+	e := echo.New()
+	rec := httptest.NewRecorder()
+	e.DefaultHTTPErrorHandler(errPlaybackElsewhere, e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), rec))
+	require.Equal(t, http.StatusConflict, rec.Code)
+	require.JSONEq(t, `{"error":"PlaybackStartedElsewhere","message":"pre-live playback started elsewhere"}`, rec.Body.String())
 }
 
 // TestRedirectWithSession: the redirect keeps the request's URL and adds the

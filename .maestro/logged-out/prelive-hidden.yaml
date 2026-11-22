@@ -1,0 +1,17 @@
+appId: ${APP_ID}
+# The harness's second account streams with no livestream record (pre-live).
+# Another viewer opening its page must get the offline state, not the video.
+# The Web counterpart is js/e2e-web/flows/prelive-playback.spec.ts.
+---
+- launchApp
+- openLink: "${APP_ID}://${PRELIVE_ACCOUNT_HANDLE}"
+# "Looks like @<handle> is offline ..." is nested text, so match a substring
+# (iOS collapses it into one element).
+- extendedWaitUntil:
+    visible:
+      text: ".*is offline.*"
+    timeout: 60000
+- takeScreenshot: prelive-hidden-offline
+# A watchable stream would show its chat's "Now streaming" system message.
+- assertNotVisible:
+    text: ".*Now streaming.*"

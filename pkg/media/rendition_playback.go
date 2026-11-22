@@ -2,6 +2,7 @@ package media
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"strconv"
 	"sync"
@@ -14,6 +15,8 @@ import (
 // keeps per streamer, to pair with the rendition addenda that follow them
 // a transcoder round trip later.
 const sourceAudioKeep = 8
+
+var ErrAudioSourceMissing = errors.New("rendition source audio is not ready")
 
 type sourceAudio struct {
 	tfdt uint64            // the source video track's first decode time
@@ -123,16 +126,23 @@ func (mm *MediaManager) sourceAudioAt(did string, tfdt uint64) map[string][]byte
 // rendition's name ("720p"), as the transcoding node publishes its own. A
 // node that only syndicates the stream received the renditions for HLS but
 // had nothing on its bus, so a WebRTC viewer who picked one got no video.
-func (mm *MediaManager) PublishRenditionsForPlayback(ctx context.Context, did string, addendum []byte, published bool) {
+func (mm *MediaManager) PublishRenditionsForPlayback(ctx context.Context, did string, addendum []byte, published bool) error {
 	if mm.bus == nil {
-		return
+		return nil
 	}
+	missingSource := false
 	packets := mm.renditionPackets(ctx, addendum, func(tfdt uint64) map[string][]byte {
-		return mm.sourceAudioAt(did, tfdt)
+		opus := mm.sourceAudioAt(did, tfdt)
+		missingSource = missingSource || opus == nil
+		return opus
 	})
+	if missingSource && len(packets) == 0 {
+		return ErrAudioSourceMissing
+	}
 	for _, p := range packets {
 		mm.bus.PublishSegment(ctx, did, p.name, &bus.Seg{PacketizedData: p.packet, Published: published})
 	}
+	return nil
 }
 
 // PacketizeRenditions packetizes each rendition of an addendum this node

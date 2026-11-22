@@ -13,6 +13,7 @@ import {
 import { View } from "../../components/ui";
 import { usePlaybackSession } from "./playback-session";
 import { AudioOnlyOverlay } from "./ui/audio-only-overlay";
+import { PlaybackElsewhereOverlay } from "./ui/playback-elsewhere";
 import Video from "./video";
 import { HostedVideo } from "./video-host";
 import VideoRetry from "./video-retry";
@@ -135,6 +136,7 @@ export function Fullscreen(props: {
         maxMessages={danmuMaxMessages}
       />
       {props.children}
+      <PlaybackElsewhereOverlay />
     </View>
   );
 }

@@ -160,7 +160,7 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 		streamplaceMetadata.DistributionPolicy = &placestream.MetadataDistributionPolicy{}
 	}
 	if streamplaceMetadata.DistributionPolicy.AllowGenAiTraining == nil {
-		notAllowed := false
+		notAllowed := constants.DefaultAllowGenAITraining
 		streamplaceMetadata.DistributionPolicy.AllowGenAiTraining = &notAllowed
 	}
 	metadataObj, err := toObj(streamplaceMetadata)

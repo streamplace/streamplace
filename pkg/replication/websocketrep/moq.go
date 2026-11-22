@@ -380,9 +380,40 @@ func requestMoqBroadcast(ctx context.Context, client *official.Client, streamer 
 func (r *WebsocketReplicator) consume(ctx context.Context, broadcast *official.BroadcastConsumer, streamer string) error {
 	spmetrics.ReplicationOutboundOpen.WithLabelValues(streamer).Inc()
 	defer spmetrics.ReplicationOutboundOpen.WithLabelValues(streamer).Dec()
-	return r.consumeBroadcast(ctx, broadcast, r.validateSource(streamer, nil),
+	var readyMu sync.Mutex
+	sourceReady := make(chan struct{})
+	return r.consumeBroadcast(ctx, broadcast, r.validateSource(streamer, func() {
+		readyMu.Lock()
+		close(sourceReady)
+		sourceReady = make(chan struct{})
+		readyMu.Unlock()
+	}),
 		func(ctx context.Context, addendum []byte) error {
-			return r.feedRenditions(ctx, streamer, addendum)
+			err := r.feedRenditions(ctx, streamer, addendum)
+			if !errors.Is(err, media.ErrAudioSourceMissing) {
+				return err
+			}
+			waiting, cancel := context.WithTimeout(ctx, time.Duration(moqMaxAgeUs)*time.Microsecond)
+			defer cancel()
+			for {
+				readyMu.Lock()
+				ready := sourceReady
+				readyMu.Unlock()
+				// Capture the notification before checking the cache to avoid a lost wakeup.
+				err = r.mm.PublishRenditionsForPlayback(waiting, streamer, addendum, true)
+				if !errors.Is(err, media.ErrAudioSourceMissing) {
+					return err
+				}
+				select {
+				case <-ready:
+				case <-waiting.Done():
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
+					log.Warn(ctx, "moq: rendition source audio did not arrive", "streamer", streamer)
+					return nil
+				}
+			}
 		})
 }
 

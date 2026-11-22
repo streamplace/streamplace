@@ -6,6 +6,7 @@ export * from "./slash-commands";
 export * from "./slash-commands/teleport";
 
 export * from "./hooks/use-actor-typeahead";
+export * from "./hooks/use-game-search";
 export * from "./hooks/use-smooth-av1";
 export * from "./lib/audio-stems";
 export * from "./lib/badge-label";
@@ -15,6 +16,7 @@ export * from "./lib/facet";
 export * from "./lib/format-handle";
 export * from "./lib/game";
 export * from "./lib/local-timestamp";
+export * from "./lib/metadata-defaults";
 export * from "./lib/pds-hosts";
 export { getPlatform } from "./lib/platform";
 export type { CorePlatform } from "./lib/platform";

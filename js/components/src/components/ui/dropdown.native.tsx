@@ -16,7 +16,13 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  type ScrollViewProps,
+} from "react-native";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -163,9 +169,10 @@ export const DropdownMenuBottomSheet = forwardRef<
   DropdownMenuPrimitive.ContentProps & {
     overlayStyle?: any;
     portalHost?: string;
+    onContentScroll?: ScrollViewProps["onScroll"];
   }
 >(function DropdownMenuBottomSheet(
-  { overlayStyle, portalHost, children, ...rest },
+  { overlayStyle, portalHost, onContentScroll, children, ...rest },
   _ref,
 ) {
   const { onOpenChange } = DropdownMenuPrimitive.useRootContext();
@@ -326,6 +333,7 @@ export const DropdownMenuBottomSheet = forwardRef<
           <Animated.View style={animatedStyle}>
             <BottomSheetScrollView
               style={[px[4]]}
+              onScroll={onContentScroll}
               contentContainerStyle={{
                 paddingBottom: insets.bottom + 50,
                 overflow: "hidden",

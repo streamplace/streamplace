@@ -107,6 +107,41 @@ Expo splits production **web** exports. iOS/Android still include these modules
 in the installed bundle; the same loading boundaries work without downloading
 web chunks.
 
+On a failed web screen import, the app fetches the destination HTML without
+using the cache. A changed bootstrap script manifest reloads that URL onto the
+new deployment; unchanged or unavailable HTML keeps the local retry screen.
+Leaving the destination while that check runs cancels the reload.
+Retry and screen unmount abort pending deployment checks, so a delayed response
+cannot reload a recovered screen and discard new work.
+
+The node serves existing `/_expo/static/` files with a one-year immutable cache
+policy. HTML revalidates on every visit, including deep links. Missing Expo
+chunks return non-cacheable 404s, never the app shell.
+
+Production web exports extend the existing `/sw.js` push registration with a
+persistent, cache-first store for public immutable `/_expo/static/` assets.
+Assets enter the cache only when requested; lazy chunks are not prefetched.
+The shared cache retains up to 128 assets across deployments and browser restarts.
+HTML, APIs, media, authenticated/range requests, and explicit cache-bypass requests
+stay on the network. This is not an offline app shell: HTML must remain fresh,
+including when switching to the cookie-selected beta frontend.
+
+The tiny bootstrap checks for worker updates before Expo loads. A waiting update
+can activate during the first three seconds measured from navigation start;
+already-controlled pages then reload their current URL once within that window.
+First installation never refreshes. Later updates wait until the next visit, and
+established tabs do not refresh or lose unsaved work when another tab updates.
+The export stamps the worker with the app's build digest; `/sw.js` revalidates
+instead of being cached immutably. Push subscriptions keep the same registration.
+Metro's public worker remains push-only; installed iOS/Android apps are unchanged.
+
+`service-worker.spec.ts` proxies the node's embedded frontend through real
+deployment responses, so binary-only CI needs no local `dist`. It exercises
+persistence, early/late updates, multi-tab behavior, and cache bypasses in Chromium.
+
+The crash fallback reads pure Streamplace dark-theme tokens without importing
+provider modules. Retry remains available on every platform; page reload is web-only.
+
 Production web HTML renders a dependency-free bootstrap spinner before loading
 Expo's scripts. `scripts/bootstrap-web.mjs` runs after normal and Atlas exports:
 it replaces the eager script tags with a hashed, bare DOM bootloader, preserving
@@ -162,9 +197,10 @@ original branding bundle. This HTML-only bootstrap does not apply to native
 installs.
 
 `lazy-navigation.spec.ts` checks deferred settings requests, navigation away from
-a pending chunk, recovery from a failed chunk, and a cold settings deep link. The platform-neutral
+a pending chunk, manual retry during an outage, automatic deployment recovery at
+the requested category, and real bundle/HTML cache headers. The platform-neutral
 `.maestro/logged-out/lazy-navigation.yaml` covers first-use navigation and deep
-links on iOS/Android.
+links on iOS/Android; installed native bundles have no HTTP chunk-failure case.
 
 ## i18n
 

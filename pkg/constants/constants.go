@@ -2,6 +2,15 @@ package constants
 
 import "fmt"
 
+// Keep defaults in step with js/core/src/lib/metadata-defaults.ts. Absent
+// warnings, rights, and deletion deadline express no creator preference.
+const (
+	DefaultAllowEveryoneToDistribute = true
+	DefaultAllowGenAITraining        = false
+	AllBroadcasters                  = "*"
+	IndefiniteArchival               = -1
+)
+
 var PLACE_STREAM_KEY = "place.stream.key"                                     //nolint:all
 var PLACE_STREAM_LIVESTREAM = "place.stream.livestream"                       //nolint:all
 var PLACE_STREAM_CHAT_MESSAGE = "place.stream.chat.message"                   //nolint:all

@@ -40,7 +40,7 @@ for (const timezoneId of ["America/Los_Angeles", "Asia/Kathmandu", "UTC"]) {
             request.postData()?.includes(message) === true
           );
         });
-        const before = Date.now();
+        const before = await page.evaluate(() => Date.now());
         const input =
           frontend === "web"
             ? page.locator('[contenteditable="true"]')
@@ -52,7 +52,9 @@ for (const timezoneId of ["America/Los_Angeles", "Asia/Kathmandu", "UTC"]) {
         const { createdAt } = response.request().postDataJSON().record;
         expect(typeof createdAt).toBe("string");
         expect(Date.parse(createdAt)).toBeGreaterThanOrEqual(before);
-        expect(Date.parse(createdAt)).toBeLessThanOrEqual(Date.now());
+        expect(Date.parse(createdAt)).toBeLessThanOrEqual(
+          await page.evaluate(() => Date.now()),
+        );
         const offset = await page.evaluate(
           (timestamp) => new Date(timestamp).getTimezoneOffset(),
           createdAt,

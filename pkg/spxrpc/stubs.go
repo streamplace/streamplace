@@ -490,7 +490,6 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.multistream.putTarget", s.HandlePlaceStreamMultistreamPutTarget)
 	e.GET("/xrpc/place.stream.playback.getLivePlaylist", s.HandlePlaceStreamPlaybackGetLivePlaylist)
 	e.GET("/xrpc/place.stream.playback.getLiveSegment", s.HandlePlaceStreamPlaybackGetLiveSegment)
-	e.GET("/xrpc/place.stream.playback.getPlaybackServer", s.HandlePlaceStreamPlaybackGetPlaybackServer)
 	e.GET("/xrpc/place.stream.playback.getPlaybackSession", s.HandlePlaceStreamPlaybackGetPlaybackSession)
 	e.GET("/xrpc/place.stream.playback.getVideoBlob", s.HandlePlaceStreamPlaybackGetVideoBlob)
 	e.GET("/xrpc/place.stream.playback.getVideoPlaylist", s.HandlePlaceStreamPlaybackGetVideoPlaylist)
@@ -1399,20 +1398,6 @@ func (s *Server) HandlePlaceStreamPlaybackGetLiveSegment(c echo.Context) error {
 		return handleErr
 	}
 	return c.Stream(200, "video/mp4", out)
-}
-
-func (s *Server) HandlePlaceStreamPlaybackGetPlaybackServer(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetPlaybackServer")
-	defer span.End()
-	stream := c.QueryParam("stream")
-	var out *placestream.PlaybackGetPlaybackServer_Output
-	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetPlaybackServer(ctx context.Context,stream string) (*placestream.PlaybackGetPlaybackServer_Output, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetPlaybackServer(ctx, stream)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetPlaybackSession(c echo.Context) error {

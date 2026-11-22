@@ -16,10 +16,6 @@
           "type": "object",
           "required": [],
           "properties": {
-            "playbackWorkerUrl": {
-              "type": "string",
-              "description": "URL of the Cloudflare playback router worker"
-            },
             "gamesEnabled": {
               "type": "boolean",
               "description": "Whether the games API is configured and available"

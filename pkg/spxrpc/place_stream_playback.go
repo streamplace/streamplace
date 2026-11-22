@@ -14,16 +14,8 @@ import (
 	"github.com/pion/webrtc/v4"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/media"
-	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/psession"
 )
-
-func (s *Server) handlePlaceStreamPlaybackGetPlaybackServer(ctx context.Context, stream string) (*placestream.PlaybackGetPlaybackServer_Output, error) {
-	addr := strings.TrimPrefix(s.cli.ServerDID(), "did:web:")
-	return &placestream.PlaybackGetPlaybackServer_Output{
-		Servers: []string{fmt.Sprintf("https://%s", addr)},
-	}, nil
-}
 
 func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition string, sid string, streamer string, r io.Reader, _contentType string) (io.Reader, error) {
 	if alias, ok := s.aliases[streamer]; ok {

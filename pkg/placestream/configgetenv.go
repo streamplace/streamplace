@@ -16,8 +16,6 @@ type ConfigGetEnv_Output struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	// gamesEnabled: Whether the games API is configured and available
 	GamesEnabled *bool `json:"gamesEnabled,omitempty"`
-	// playbackWorkerUrl: URL of the Cloudflare playback router worker
-	PlaybackWorkerUrl *string `json:"playbackWorkerUrl,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.

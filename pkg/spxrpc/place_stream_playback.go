@@ -48,7 +48,7 @@ func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition st
 			if !ok {
 				return nil, fmt.Errorf("no request context")
 			}
-			sess, err := s.verifySession(ctx, sid, streamer, sessionClient(c))
+			sess, err := s.verifySession(ctx, sid, streamer, s.sessionClient(c))
 			if err != nil || sess.Scope != psession.ScopeOwner {
 				return nil, errBadSession
 			}

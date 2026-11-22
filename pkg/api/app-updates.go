@@ -286,7 +286,9 @@ func (a *StreamplaceAPI) HandleAppUpdates(ctx context.Context) http.HandlerFunc 
 			proto = "https"
 		}
 		prefix := fmt.Sprintf("%s://%s", proto, req.Host)
-		log.Log(ctx, "got app-updates request", "method", req.Method, "headers", req.Header)
+		headers := req.Header.Clone()
+		headers.Del("X-Proxy-Secret")
+		log.Log(ctx, "got app-updates request", "method", req.Method, "headers", headers)
 		plat := req.Header.Get("expo-platform")
 		if plat == "" {
 			log.Log(ctx, "app-updates request missing Expo-Platform")

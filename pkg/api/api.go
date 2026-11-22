@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -884,20 +883,7 @@ func (a *StreamplaceAPI) HandleLivestream(ctx context.Context) httprouter.Handle
 // clientIP is the address rate limits key on: the forwarded client when the
 // request carries this node's proxy secret, the peer otherwise.
 func (a *StreamplaceAPI) clientIP(req *http.Request) string {
-	if a.CLI.ProxySecret != "" &&
-		subtle.ConstantTimeCompare([]byte(req.Header.Get("X-Proxy-Secret")), []byte(a.CLI.ProxySecret)) == 1 {
-		if fwd := req.Header.Get("X-Forwarded-For"); fwd != "" {
-			first, _, _ := strings.Cut(fwd, ",")
-			if ip := strings.TrimSpace(first); ip != "" {
-				return ip
-			}
-		}
-	}
-	ip, _, err := net.SplitHostPort(req.RemoteAddr)
-	if err != nil {
-		return req.RemoteAddr
-	}
-	return ip
+	return a.CLI.ClientIP(req.Header, req.RemoteAddr)
 }
 
 func (a *StreamplaceAPI) RateLimitMiddleware(ctx context.Context) func(http.Handler) http.Handler {

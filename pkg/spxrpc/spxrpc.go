@@ -187,6 +187,16 @@ func (s *Server) isLocalPDS(ctx context.Context, repo string) (bool, string, err
 	return false, svc, nil
 }
 
+// publicHost is the host the client used: an edge proxy's X-Forwarded-Host,
+// else the request's Host.
+func publicHost(ec echo.Context) string {
+	req := ec.Request()
+	if h := req.Header.Get("X-Forwarded-Host"); h != "" {
+		return h
+	}
+	return req.Host
+}
+
 // isServerPDS returns true if the request arrived on the ServerHost (server-local PDS).
 // When ServerHost == BroadcasterHost (single-node), always returns true — the server
 // PDS is the only PDS and the lexicon repo is not directly exposed.
@@ -198,7 +208,7 @@ func (s *Server) isServerPDS(ctx context.Context) bool {
 	if !ok {
 		return false
 	}
-	return ec.Request().Host == s.cli.ServerHost
+	return publicHost(ec) == s.cli.ServerHost
 }
 
 const repoProxyHeader = "X-Streamplace-Repo-Proxy"

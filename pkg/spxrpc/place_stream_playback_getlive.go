@@ -98,7 +98,7 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 	// preview: one session of theirs at a time (see preliveAccess), and it
 	// reads as not live to everyone else; its URLs stay self-hosted, a CDN
 	// must not see or cache a preview.
-	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), did, sessionClient(c), track != "" || rendition == "audio")
+	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), did, s.sessionClient(c), track != "" || rendition == "audio")
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func (s *Server) serveLiveSegment(c echo.Context, streamer, track, segParam, sid
 	// segments open only to the streamer's own session.
 	var sess psession.Session
 	if sid != "" || requireSession {
-		if sess, err = s.verifySession(ctx, sid, did, sessionClient(c)); err != nil {
+		if sess, err = s.verifySession(ctx, sid, did, s.sessionClient(c)); err != nil {
 			return err
 		}
 	}

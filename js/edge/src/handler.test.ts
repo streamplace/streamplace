@@ -127,6 +127,10 @@ it("does not retry a POST", async () => {
 });
 
 it("redirects playback to a node", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("ok")),
+  );
   const edge = createEdge({
     upstreams: ["https://node.test"],
     assets: assets({}),
@@ -146,6 +150,34 @@ it("redirects playback to a node", async () => {
   expect(res.headers.get("cache-control")).toBe("no-store");
 });
 
+it("redirects only to a node that answers", async () => {
+  vi.spyOn(Math, "random").mockReturnValue(0.999);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      if (new URL(urlOf(input)).origin === "https://stopped.test") {
+        throw new Error("down");
+      }
+      return new Response("ok");
+    }),
+  );
+  const edge = createEdge({
+    upstreams: ["https://stopped.test", "https://live.test"],
+    assets: assets({}),
+  });
+  const res = await edge(
+    new Request(
+      "https://edge.test/xrpc/place.stream.playback.getLivePlaylist?streamer=a",
+    ),
+    null,
+  );
+
+  expect(res.status).toBe(307);
+  expect(res.headers.get("location")).toBe(
+    "https://live.test/xrpc/place.stream.playback.getLivePlaylist?streamer=a",
+  );
+});
+
 it("404s a missing asset instead of serving the shell", async () => {
   vi.stubGlobal(
     "fetch",
@@ -157,9 +189,23 @@ it("404s a missing asset instead of serving the shell", async () => {
     upstreams: ["https://node.test"],
     assets: assets({}),
   });
-  const res = await edge(new Request("https://edge.test/missing.js"), null);
+  const res = await edge(
+    new Request("https://edge.test/assets/missing.js"),
+    null,
+  );
 
   expect(res.status).toBe(404);
+});
+
+it("serves a handle that looks like an asset as a page", async () => {
+  const edge = createEdge({
+    upstreams: [],
+    assets: assets({ "/index.html": TEMPLATE }),
+  });
+  const res = await edge(new Request("https://edge.test/alice.zip"), null);
+
+  expect(res.status).toBe(200);
+  expect(await res.text()).toContain("<title>Default</title>");
 });
 
 it("overwrites client-supplied proxy headers", async () => {

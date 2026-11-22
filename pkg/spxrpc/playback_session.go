@@ -50,11 +50,14 @@ func (s *Server) sessionKey(ctx context.Context) ([]byte, error) {
 }
 
 // sessionClient is what an owner session is bound to: the client's IPv4
-// address, or its IPv6 /64 so privacy-address rotation doesn't break it.
-func sessionClient(c echo.Context) string {
-	ip := net.ParseIP(c.RealIP())
+// address, or its IPv6 /64 so privacy-address rotation doesn't break it. The
+// address is the edge proxy's forwarded client when the request carries this
+// node's proxy secret, so a redirect to the node keeps matching.
+func (s *Server) sessionClient(c echo.Context) string {
+	raw := s.cli.ClientIP(c.Request().Header, c.Request().RemoteAddr)
+	ip := net.ParseIP(raw)
 	if ip == nil {
-		return c.RealIP()
+		return raw
 	}
 	if ip4 := ip.To4(); ip4 != nil {
 		return ip4.String()
@@ -196,6 +199,6 @@ func (s *Server) handlePlaceStreamPlaybackGetPlaybackSession(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	sess, sid := psession.Mint(key, session.DID, sessionClient(c), psession.ScopeOwner, ownerSessionTTL, time.Now())
+	sess, sid := psession.Mint(key, session.DID, s.sessionClient(c), psession.ScopeOwner, ownerSessionTTL, time.Now())
 	return &placestream.PlaybackGetPlaybackSession_Output{Sid: sid, ExpiresAt: sess.Expires.Format(time.RFC3339)}, nil
 }

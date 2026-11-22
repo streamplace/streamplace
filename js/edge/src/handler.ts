@@ -66,6 +66,8 @@ const FORWARDED_HEADERS = [
 const RETRY_STATUSES = new Set([502, 503, 504]);
 const DOWN_MS = 10_000;
 const HEAD_TIMEOUT_MS = 1500;
+const RESPONSE_TIMEOUT_MS = 10_000;
+const HEALTH_TTL_MS = 10_000;
 
 export interface EdgeOptions {
   upstreams: string[];
@@ -74,11 +76,15 @@ export interface EdgeOptions {
   assets: (request: Request) => Promise<Response>;
   now?: () => number;
   headTimeoutMs?: number;
+  // How long to wait for response headers before trying the next node.
+  responseTimeoutMs?: number;
 }
 
 interface Upstream {
   origin: string;
   downUntil: number;
+  // When this node last answered a health probe.
+  checkedAt: number;
 }
 
 export type EdgeHandler = (
@@ -89,9 +95,11 @@ export type EdgeHandler = (
 export function createEdge(opts: EdgeOptions): EdgeHandler {
   const now = opts.now ?? Date.now;
   const headTimeoutMs = opts.headTimeoutMs ?? HEAD_TIMEOUT_MS;
+  const responseTimeoutMs = opts.responseTimeoutMs ?? RESPONSE_TIMEOUT_MS;
   const upstreams: Upstream[] = opts.upstreams.map((origin) => ({
     origin: origin.replace(/\/+$/, ""),
     downUntil: 0,
+    checkedAt: 0,
   }));
   let template: string | null = null;
 
@@ -103,6 +111,22 @@ export function createEdge(opts: EdgeOptions): EdgeHandler {
 
   function markDown(upstream: Upstream): void {
     upstream.downUntil = now() + DOWN_MS;
+  }
+
+  // Times only the wait for response headers: once fetch resolves the timer
+  // is cleared, so a streamed body or a websocket is not cut off.
+  async function withDeadline(
+    input: RequestInfo | URL,
+    init: RequestInit,
+    ms: number,
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    try {
+      return await fetch(input, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   function upstreamRequest(
@@ -141,7 +165,11 @@ export function createEdge(opts: EdgeOptions): EdgeHandler {
     for (const upstream of order()) {
       let res: Response;
       try {
-        res = await fetch(upstreamRequest(upstream, request, url, clientIP));
+        res = await withDeadline(
+          upstreamRequest(upstream, request, url, clientIP),
+          {},
+          responseTimeoutMs,
+        );
       } catch {
         markDown(upstream);
         if (retry) continue;
@@ -159,8 +187,43 @@ export function createEdge(opts: EdgeOptions): EdgeHandler {
     return last ?? new Response("Bad Gateway", { status: 502 });
   }
 
-  function redirectToNode(url: URL): Response {
-    const upstream = order()[0];
+  async function probeHealth(upstream: Upstream): Promise<boolean> {
+    try {
+      const res = await withDeadline(
+        upstream.origin + "/api/healthz",
+        {},
+        headTimeoutMs,
+      );
+      if (!res.ok) {
+        markDown(upstream);
+        return false;
+      }
+      upstream.checkedAt = now();
+      return true;
+    } catch {
+      markDown(upstream);
+      return false;
+    }
+  }
+
+  // Redirects only to a node that answers: a viewer sent to a stopped node
+  // fails before the worker can see it.
+  async function redirectToNode(url: URL): Promise<Response> {
+    const candidates = order();
+    let upstream: Upstream | null = null;
+    for (const candidate of candidates) {
+      if (candidate.downUntil > now()) continue;
+      if (candidate.checkedAt > now() - HEALTH_TTL_MS) {
+        upstream = candidate;
+        break;
+      }
+      if (await probeHealth(candidate)) {
+        upstream = candidate;
+        break;
+      }
+    }
+    // Every node is marked down: try the first anyway.
+    upstream ??= candidates[0] ?? null;
     if (!upstream) {
       return new Response("Bad Gateway", { status: 502 });
     }
@@ -190,18 +253,16 @@ export function createEdge(opts: EdgeOptions): EdgeHandler {
   async function fetchHead(url: URL): Promise<string | null> {
     const path = "/api/page-head?url=" + encodeURIComponent(url.toString());
     for (const upstream of order()) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), headTimeoutMs);
       try {
-        const res = await fetch(upstream.origin + path, {
-          signal: controller.signal,
-        });
+        const res = await withDeadline(
+          upstream.origin + path,
+          {},
+          headTimeoutMs,
+        );
         if (res.status !== 200) continue;
         return headOf(await res.json());
       } catch {
         markDown(upstream);
-      } finally {
-        clearTimeout(timer);
       }
     }
     return null;
@@ -252,7 +313,7 @@ export function createEdge(opts: EdgeOptions): EdgeHandler {
     const readOnly = request.method === "GET" || request.method === "HEAD";
 
     if (readOnly && Object.hasOwn(PLAYBACK_PATHS, url.pathname)) {
-      return redirectToNode(url);
+      return await redirectToNode(url);
     }
     if (!readOnly || isProxiedPath(url.pathname)) {
       return proxy(request, url, clientIP);
@@ -262,7 +323,11 @@ export function createEdge(opts: EdgeOptions): EdgeHandler {
     if (asset) return asset;
 
     const hashed = url.pathname.startsWith("/_expo/static/");
-    if (hashed || looksLikeAsset(url.pathname)) {
+    // A single segment can be a streamer handle that looks like an asset
+    // (alice.zip); the node serves it a card before treating it as a file.
+    const handleLike =
+      !url.pathname.slice(1).includes("/") && url.pathname !== "/sw.js";
+    if (hashed || (looksLikeAsset(url.pathname) && !handleLike)) {
       // Missing assets must not become cacheable app HTML.
       return new Response("Not Found", {
         status: 404,

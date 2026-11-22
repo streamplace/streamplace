@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"crypto/rsa"
+	"crypto/subtle"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -11,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -2032,6 +2034,26 @@ func (cli *CLI) ShouldSyndicate(did string) bool {
 		}
 	}
 	return false
+}
+
+// ClientIP is the address rate limits and playback sessions key on: the
+// forwarded client when the request carries this node's proxy secret, the
+// peer otherwise.
+func (cli *CLI) ClientIP(header http.Header, remoteAddr string) string {
+	if cli != nil && cli.ProxySecret != "" &&
+		subtle.ConstantTimeCompare([]byte(header.Get("X-Proxy-Secret")), []byte(cli.ProxySecret)) == 1 {
+		if fwd := header.Get("X-Forwarded-For"); fwd != "" {
+			first, _, _ := strings.Cut(fwd, ",")
+			if ip := strings.TrimSpace(first); ip != "" {
+				return ip
+			}
+		}
+	}
+	ip, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		return remoteAddr
+	}
+	return ip
 }
 
 // RenditionLadder is the rendition ladder this node transcodes

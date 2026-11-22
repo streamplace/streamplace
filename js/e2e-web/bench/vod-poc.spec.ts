@@ -47,3 +47,20 @@ test("vod-poc: playback switches up to 1080p and keeps going", async ({
   ]);
   console.log(`vod-poc: first frame at ${first} ms, 1080p at ${best} ms`);
 });
+
+// The MoQ library reclaims groups nobody has read for 30 s, on sweeps every
+// 15 s that date reads late: up to 60 s idle. A fetch after that must still play.
+test("vod-poc: groups still play after the server's idle window", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const playsOverMoq = async () => {
+    await page.goto(URLS![1]);
+    await expect
+      .poll(() => page.evaluate(() => window.SP.mediaUs()), { timeout: 15_000 })
+      .toBeGreaterThan(2_500_000);
+  };
+  await playsOverMoq();
+  await page.waitForTimeout(65_000);
+  await playsOverMoq();
+});

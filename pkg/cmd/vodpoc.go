@@ -96,7 +96,7 @@ func runVodPoc(ctx context.Context, mediaDir, webDir, httpAddr, moqAddr string) 
 	defer func() { runtime.KeepAlive(producers) }()
 	for _, tid := range []string{"one", "two"} {
 		path := "vod-poc/" + tid
-		published, err := publishPocBroadcast(srv, path, renditions)
+		published, err := publishPocBroadcast(ctx, srv, path, renditions)
 		if err != nil {
 			return err
 		}
@@ -181,10 +181,10 @@ func bakePocPage(tmpl *template.Template, tid string, renditions []*pocRendition
 	return html.Bytes(), err
 }
 
-// publishPocBroadcast publishes every group of every rendition up front and
-// keeps them all, so a viewer fetches any group by its sequence. The broadcast
-// ends when the producers it returns are dropped.
-func publishPocBroadcast(srv *moq.Server, path string, renditions []*pocRendition) ([]any, error) {
+// publishPocBroadcast publishes each rendition as a finished track and serves
+// every fetched group on demand, so none ages out of the library's idle cache.
+// The broadcast ends when the producers it returns are dropped.
+func publishPocBroadcast(ctx context.Context, srv *moq.Server, path string, renditions []*pocRendition) ([]any, error) {
 	bc, err := srv.CreateBroadcast(path)
 	if err != nil {
 		return nil, err
@@ -196,26 +196,43 @@ func publishPocBroadcast(srv *moq.Server, path string, renditions []*pocRenditio
 		if err != nil {
 			return nil, err
 		}
-		producers = append(producers, track)
-		for seq, frames := range r.groups {
-			group, err := track.CreateGroup(uint64(seq))
-			if err != nil {
-				return nil, err
-			}
-			for _, f := range frames {
-				if err := group.WriteFrame(moq.Frame{Payload: f.Data, TimestampUs: f.TS}); err != nil {
-					return nil, err
-				}
-			}
-			if err := group.Finish(); err != nil {
-				return nil, err
-			}
-		}
-		if err := track.Finish(); err != nil {
+		dynamic, err := track.Dynamic()
+		if err != nil {
 			return nil, err
 		}
+		if err := track.FinishAt(uint64(len(r.groups))); err != nil {
+			return nil, err
+		}
+		producers = append(producers, track, dynamic)
+		go func() {
+			for req, err := range dynamic.Requests(ctx) {
+				if err != nil {
+					return
+				}
+				if err := servePocGroup(req, r.groups); err != nil {
+					log.Warn(ctx, "serving vod-poc group", "path", path, "track", r.Name, "error", err)
+				}
+			}
+		}()
 	}
 	return producers, bc.Announce(moq.Route{})
+}
+
+func servePocGroup(req *moq.GroupRequest, groups [][]pocFrame) error {
+	seq := req.Sequence()
+	if seq >= uint64(len(groups)) {
+		return req.Abort(404)
+	}
+	group, err := req.Accept()
+	if err != nil {
+		return err
+	}
+	for _, f := range groups[seq] {
+		if err := group.WriteFrame(moq.Frame{Payload: f.Data, TimestampUs: f.TS}); err != nil {
+			return err
+		}
+	}
+	return group.Finish()
 }
 
 func loadPocRenditions(dir string) ([]*pocRendition, error) {

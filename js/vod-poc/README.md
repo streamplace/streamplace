@@ -15,9 +15,11 @@ hack/vod-poc-local.sh --serve    # print the two watch URLs and keep serving
 1. `prepare-media.sh` makes two H.264 renditions with ffmpeg: a 240p starter
    at 150 kbps, whose keyframes are about 2 KB, and 1080p at 4 Mbps. Both have
    a keyframe every second, so groups line up.
-2. `streamplace vod-poc` (`pkg/cmd/vodpoc.go`) publishes every group of both
-   renditions on a MoQ broadcast, with the node's own MoQ library, and bakes
-   `index.html` for each video. It inlines:
+2. `streamplace vod-poc` (`pkg/cmd/vodpoc.go`) publishes both renditions as
+   finished tracks on a MoQ broadcast, with the node's own MoQ library, and
+   serves each fetched group on demand (`TrackProducer.Dynamic`): the library
+   drops groups idle for 30 s or more. It also bakes `index.html` for each
+   video, inlining:
    - the manifest: renditions, decoder configs, the MoQ URL and certificate
      hash;
    - the starter's first keyframe, in its own script;

@@ -138,6 +138,8 @@ Metro's public worker remains push-only; installed iOS/Android apps are unchange
 `service-worker.spec.ts` proxies the node's embedded frontend through real
 deployment responses, so binary-only CI needs no local `dist`. It exercises
 persistence, early/late updates, multi-tab behavior, and cache bypasses in Chromium.
+Early-update tests hold the new document's `performance.now()` just inside the
+startup window; Chromium still performs the actual install, activation, and reload.
 
 The crash fallback reads pure Streamplace dark-theme tokens without importing
 provider modules. Retry remains available on every platform; page reload is web-only.

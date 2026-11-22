@@ -23,6 +23,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Platform, Pressable, View } from "react-native";
 import { useStore } from "store";
 import { useLogin } from "store/hooks";
+import { LoginQr } from "./login-qr";
+import { OrDivider } from "./or-divider";
+import { useQrLogin } from "./use-qr-login";
+
+const QR_SIZE = 160;
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -46,6 +51,7 @@ export default function LoginForm({
   const [handle, setHandle] = useState("");
   const [imageLoading, setImageLoading] = useState(false);
   const [blueskyPermissions, setBlueskyPermissions] = useState(true);
+  const qrUrl = useQrLogin(blueskyPermissions);
   const { actors } = useActorTypeahead(handle);
 
   // an unverifiable account formats as its DID, so it can't complete a handle
@@ -100,9 +106,7 @@ export default function LoginForm({
     Platform.OS === "web" ? zero.tokens.typeScale.md : {};
 
   const onKeyPress = (e: any) => {
-    if (e.nativeEvent.key === "Enter") {
-      submit();
-    } else if (e.nativeEvent.key === "Tab" && completionText) {
+    if (e.nativeEvent.key === "Tab" && completionText) {
       e.preventDefault();
       acceptSuggestion();
     } else if (e.nativeEvent.key === "ArrowRight" && completionText) {
@@ -131,6 +135,28 @@ export default function LoginForm({
 
   return (
     <>
+      {qrUrl !== null && (
+        <View style={[zero.gap.all[4], zero.mb[4]]}>
+          <View
+            testID="login-qr"
+            style={[zero.layout.flex.alignCenter, zero.gap.all[3]]}
+          >
+            <View
+              style={[
+                zero.layout.flex.alignCenter,
+                zero.layout.flex.justifyCenter,
+                { width: QR_SIZE, height: QR_SIZE },
+              ]}
+            >
+              {qrUrl ? <LoginQr value={qrUrl} size={QR_SIZE} /> : <Loader />}
+            </View>
+            <Text size="sm" color="muted">
+              {t("login-scan-qr")}
+            </Text>
+          </View>
+          <OrDivider />
+        </View>
+      )}
       <View
         style={[
           zero.layout.flex.row,

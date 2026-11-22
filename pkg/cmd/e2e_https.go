@@ -29,6 +29,8 @@ import (
 	"syscall"
 	"time"
 
+	oauth "github.com/streamplace/atproto-oauth-golang"
+	"github.com/streamplace/atproto-oauth-golang/helpers"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -131,6 +133,47 @@ func (h *e2eHTTPS) StationURL() string { return "https://" + h.stationHost }
 func (h *e2eHTTPS) PDSURL() string     { return "https://" + h.pdsHost }
 
 func (h *e2eHTTPS) ProxyURL() string { return "http://" + h.proxyLn.Addr().String() }
+
+// qrLoginPAR starts the browser's half of the native QR sign-in test. Maestro
+// registers the code when the flow starts, so the QR attempt doesn't time out.
+func (h *e2eHTTPS) qrLoginPAR(ctx context.Context) (string, error) {
+	ca, err := os.ReadFile(h.caPath)
+	if err != nil {
+		return "", err
+	}
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM(ca) {
+		return "", fmt.Errorf("invalid e2e CA")
+	}
+	proxy := &url.URL{Scheme: "http", Host: h.proxyLn.Addr().String()}
+	transport := &http.Transport{
+		Proxy:           http.ProxyURL(proxy),
+		TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12},
+	}
+	defer transport.CloseIdleConnections()
+	station := h.StationURL()
+	client, err := oauth.NewClient(oauth.ClientArgs{
+		Http:        &http.Client{Transport: transport, Timeout: 5 * time.Second},
+		ClientId:    station + "/oauth/downstream/client-metadata.json",
+		RedirectUri: station + "/login",
+	})
+	if err != nil {
+		return "", err
+	}
+	meta, err := client.FetchAuthServerMetadata(ctx, station)
+	if err != nil {
+		return "", err
+	}
+	key, err := helpers.GenerateKey(nil)
+	if err != nil {
+		return "", err
+	}
+	par, err := client.SendParAuthRequest(ctx, station, meta, station, "atproto", key)
+	if err != nil {
+		return "", err
+	}
+	return par.RequestUri, nil
+}
 
 // DevEnvEnv is the extra environment for js/dev-env: the PDS's public
 // hostname, and trust in our CA for what it fetches over https (the node's

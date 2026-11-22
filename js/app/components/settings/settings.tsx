@@ -1,3 +1,4 @@
+import { useNavigation } from "@react-navigation/native";
 import {
   Icon,
   MenuContainer,
@@ -13,6 +14,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { formatHandleWithAt } from "@streamplace/core";
+import { scanQrLogin } from "components/login/scan-qr-login";
 import {
   SettingsNavigationItem,
   SettingsRowItem,
@@ -26,11 +28,12 @@ import {
   Info,
   Lock,
   LogIn,
+  ScanQrCode,
   Shield,
   User2,
   Video,
 } from "lucide-react-native";
-import { ScrollView } from "react-native";
+import { Pressable, ScrollView } from "react-native";
 
 import { LiquidGlassView } from "@callstack/liquid-glass";
 import Mu from "components/mobile/desktop-ui/mu";
@@ -40,6 +43,7 @@ import pkg from "../../package.json";
 
 export function Settings() {
   const { theme } = zero.useTheme();
+  const navigation = useNavigation();
   const loggedIn = useStore((state) => state.authStatus === "loggedIn");
   const userProfile = useUserProfile();
   const danmuUnlocked = useDanmuUnlocked();
@@ -92,6 +96,26 @@ export function Settings() {
                         {formatHandleWithAt(userProfile)}
                       </Text>
                     </View>
+                    {scanQrLogin && (
+                      <Pressable
+                        testID="settings-scan-qr"
+                        accessibilityRole="button"
+                        accessibilityLabel={t("scan-qr-code")}
+                        onPress={() =>
+                          scanQrLogin?.((id) =>
+                            navigation.navigate("QrLogin", { id }),
+                          )
+                        }
+                        style={{
+                          width: theme.touchTargets.minimum,
+                          height: theme.touchTargets.minimum,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <ScanQrCode size={24} color={theme.colors.text2} />
+                      </Pressable>
+                    )}
                   </View>
                 </SettingsRowItem>
               ) : (

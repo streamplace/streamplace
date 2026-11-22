@@ -445,6 +445,19 @@ select-license = Select a license…
 ## Login
 login-show-live-on-bluesky = Show when I'm live on { $network }
 login-show-live-on-bluesky-description = Gives your { $network } avatar the red LIVE ring while you stream and lets Streamplace post announcements for you. Uncheck to sign in without granting any access to your { $network } account.
+login-or = or
+login-scan-qr = Scan with Streamplace Mobile
+qr-login-title = Sign in on another device?
+qr-login-device = Device
+qr-login-ip = IP address
+qr-login-requested = Requested
+qr-login-warning = Only approve if you started this sign-in yourself. Whoever is at that browser gets your account.
+qr-login-approve = Approve
+qr-login-deny = Deny
+qr-login-approved = Signed in on your browser
+qr-login-denied = Request declined
+qr-login-gone = This sign-in request has expired or was already answered.
+qr-login-done = Done
 
 ## Video Player - Controls
 player-play = Play

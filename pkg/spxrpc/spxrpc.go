@@ -13,6 +13,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/labstack/echo/v4"
+	echoMiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/patrickmn/go-cache"
 	"github.com/slok/go-http-metrics/middleware"
 	echomiddleware "github.com/slok/go-http-metrics/middleware/echo"
@@ -127,6 +128,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	if err != nil {
 		return nil, err
 	}
+	e.POST("/xrpc/place.stream.login.createQRLogin", s.HandlePlaceStreamLoginCreateQRLogin, echoMiddleware.BodyLimit("1K"))
 	err = s.RegisterHandlersAppbsky(e)
 	if err != nil {
 		return nil, err

@@ -1,8 +1,18 @@
 # @streamplace/app
 
-Expo (SDK 55) app for iOS/Android. Native projects (`ios/`, `android/`) are
+Expo (SDK 58) app for iOS/Android. Native projects (`ios/`, `android/`) are
 gitignored and generated via `expo prebuild`; shared UI lives in
 `@streamplace/components` and logic in `@streamplace/core`.
+
+Native OAuth uses the direct Custom Tab launch on Android, not Expo 58's proxy
+task, which can reopen a cancelled attempt after restarting the app. Handle-field
+Enter submission goes through `onSubmitEditing` only, so one press starts one
+sign-in attempt.
+
+To offer QR sign-in, configure the node's `SP_APP_BUNDLE_ID`, use confidential
+OAuth, and enable **QR code for the mobile app** in Branding → Sign-in options
+(`loginMethods: ["qr"]`). A signed-in app on that node can then approve a
+browser login without opening the account's PDS.
 
 ## User search
 
@@ -81,13 +91,17 @@ Only when native code changes:
 - editing `ios/` or `android/` directly
 
 Then run `pnpm app ios` (or `pnpm app android`). Bump `runtimeVersion` in
-`package.json` only when native dependencies change (it gates expo-updates).
+`package.json` when a change needs new native binaries; it gates expo-updates.
 
 Packages with native code, and React and React Native themselves, are pinned
 to exact versions so that dependency updates keep OTA bundles compatible with
 the shipped binaries. Move them only together with a `runtimeVersion` bump.
 `npx @expo/fingerprint fingerprint:generate --platform ios` (and `android`) in
 `js/app` should report the same native sources before and after an update.
+
+QR sign-in uses `expo-camera`'s native scanner UI, not a custom camera view.
+The native configuration adds an Android app link and an iOS camera
+permission message, so ship it in a fresh native build (OTA runtime `0.13.6`).
 
 ## Web bundle splitting and Atlas
 

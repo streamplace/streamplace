@@ -10,10 +10,11 @@ declare global {
 // Desktop sends OAuth to the system browser and the local node holds the
 // result for the app to poll. This drives both halves: it intercepts the URL
 // the app asks the OS to open, then signs in there in a real Chromium.
-// reloadMidLogin reloads Desktop while the browser login is still open.
+// reloadMidLogin reloads Desktop while the browser login is still open;
+// cancelledAttemptFirst returns an error under the same token first.
 export async function loginThroughSystemBrowser(
   desktop: Desktop,
-  { reloadMidLogin = false } = {},
+  { reloadMidLogin = false, cancelledAttemptFirst = false } = {},
 ): Promise<void> {
   const app = desktop.electronApp();
   const page = desktop.page;
@@ -59,6 +60,20 @@ export async function loginThroughSystemBrowser(
   await expect(page).toHaveURL(`${desktop.nodeURL}/desktop`);
   if (reloadMidLogin) {
     await page.reload();
+  }
+  if (cancelledAttemptFirst) {
+    // An earlier, cancelled attempt returns an error under the same token.
+    const token = await page.evaluate(() =>
+      localStorage.getItem("desktopLoginToken"),
+    );
+    const cancelled = await page.request.get(
+      `${desktop.nodeURL}/app-return/desktop/${token}?error=access_denied&error_description=Earlier%20attempt%20cancelled`,
+    );
+    expect(cancelled.ok()).toBe(true);
+    // Desktop's poll picks it up and shows it before the real sign-in returns.
+    await expect(
+      page.getByText("Earlier attempt cancelled").first(),
+    ).toBeVisible({ timeout: 30_000 });
   }
 
   const browser = await chromium.launch({

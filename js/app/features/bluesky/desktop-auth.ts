@@ -70,10 +70,15 @@ export async function pollDesktopLogin(
           throw new Error(`desktop login poll returned ${res.status}`);
         }
         const params = (await res.json()) as Record<string, string>;
+        const url = `${DESKTOP_LOGIN_CALLBACK_PREFIX}?${new URLSearchParams(params).toString()}`;
+        // Attempts share the token: an error (say, a cancelled earlier tab)
+        // is shown, but a retried attempt may still return, so keep polling.
+        if (params.error) {
+          await complete(url);
+          continue;
+        }
         localStorage.removeItem(PENDING_KEY);
-        await complete(
-          `${DESKTOP_LOGIN_CALLBACK_PREFIX}?${new URLSearchParams(params).toString()}`,
-        );
+        await complete(url);
         return;
       } catch (e) {
         console.error("desktop login poll failed", e);

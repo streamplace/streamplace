@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Platform } from "react-native";
@@ -23,6 +24,7 @@ const RETRY_MS = 10_000;
 interface Attempt {
   id: string;
   url: string;
+  nodeUrl: string;
   blueskyPermissions: boolean;
 }
 
@@ -58,7 +60,10 @@ export function QrLoginProvider({ children }: { children: ReactNode }) {
   const [shown, setShown] = useState(false);
   const [generation, setGeneration] = useState(0);
   const [attempt, setAttempt] = useState<Attempt | null | undefined>();
+  const pending = useMemo(() => new Set<Attempt>(), []);
+  const displayed = useRef<Attempt | undefined>(undefined);
   const enabled = Platform.OS === "web" && methods.includes("qr") && loggedOut;
+  const visibleAttempt = attempt?.nodeUrl !== url ? undefined : attempt;
 
   useEffect(() => {
     if (!enabled || !agent || !url) {
@@ -78,7 +83,12 @@ export function QrLoginProvider({ children }: { children: ReactNode }) {
           { requestUri },
         );
         if (stopped) return;
-        setAttempt({ id: created.id, url: created.url, blueskyPermissions });
+        setAttempt({
+          id: created.id,
+          url: created.url,
+          nodeUrl: url,
+          blueskyPermissions,
+        });
         const refreshIn =
           Date.parse(created.expiresAt) - Date.now() - REFRESH_BEFORE_EXPIRY_MS;
         timer = setTimeout(
@@ -104,55 +114,64 @@ export function QrLoginProvider({ children }: { children: ReactNode }) {
     };
   }, [enabled, agent, url, blueskyPermissions, generation, authorizeUrl]);
 
+  // Keep polling codes the browser displayed, even after showing a newer QR.
   useEffect(() => {
-    // one made for other permissions is never redeemed, even if approved
+    displayed.current = undefined;
     if (
-      !enabled ||
-      !shown ||
-      !attempt ||
-      attempt.blueskyPermissions !== blueskyPermissions ||
-      !agent ||
-      !url
+      enabled &&
+      shown &&
+      visibleAttempt &&
+      visibleAttempt.blueskyPermissions === blueskyPermissions
     ) {
-      return;
+      displayed.current = visibleAttempt;
+      pending.add(visibleAttempt);
     }
+  }, [enabled, shown, visibleAttempt, blueskyPermissions, pending]);
+
+  useEffect(() => {
+    if (!enabled || !shown || !agent || !url) return;
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async () => {
-      try {
-        const login = await agent.client.call(place.stream.login.getQRLogin, {
-          id: attempt.id,
-        });
-        if (stopped) return;
-        if (login.status === "approved" && login.authorization) {
-          const { code, state, iss } = login.authorization;
-          const query = new URLSearchParams({ code, state, iss });
-          await oauthCallback(`${url}/login?${query}`);
-          // spent either way; signed in, this provider stops making them
-          setGeneration((n) => n + 1);
-          return;
+      for (const qr of pending) {
+        try {
+          const login = await agent.client.call(place.stream.login.getQRLogin, {
+            id: qr.id,
+          });
+          if (stopped) return;
+          if (login.status === "pending") continue;
+          pending.delete(qr);
+          if (login.status === "approved" && login.authorization) {
+            const { code, state, iss } = login.authorization;
+            const query = new URLSearchParams({ code, state, iss });
+            await oauthCallback(`${url}/login?${query}`);
+            if (stopped) return;
+            setGeneration((n) => n + 1);
+            break;
+          }
+          if (displayed.current === qr) {
+            setAttempt((current) => (current === qr ? undefined : current));
+            setGeneration((n) => n + 1);
+          }
+        } catch (e) {
+          if (stopped) return;
+          console.warn("qr login poll failed", e);
         }
-        if (login.status !== "pending") {
-          setGeneration((n) => n + 1);
-          return;
-        }
-      } catch (e) {
-        // a dropped request isn't the end of the attempt; try again
-        console.warn("qr login poll failed", e);
       }
       if (!stopped) timer = setTimeout(poll, POLL_MS);
     };
     timer = setTimeout(poll, POLL_MS);
     return () => {
       stopped = true;
+      pending.clear();
       clearTimeout(timer);
     };
-  }, [enabled, shown, attempt, blueskyPermissions, agent, url, oauthCallback]);
+  }, [enabled, shown, blueskyPermissions, agent, url, oauthCallback, pending]);
 
   return (
     <QrLoginContext.Provider
       value={{
-        attempt: enabled ? attempt : null,
+        attempt: enabled ? (attempt === null ? null : visibleAttempt) : null,
         setBlueskyPermissions,
         setShown,
       }}

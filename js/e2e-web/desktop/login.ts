@@ -7,12 +7,13 @@ declare global {
   var __streamplaceOpenExternalURLs: string[] | undefined;
 }
 
-// Desktop sends OAuth to the system browser and gets the result back on a
-// custom scheme. This drives both halves: it intercepts the URL the app asks
-// the OS to open, signs in there in a real Chromium, then emits the deep link
-// the OS would hand back to Electron.
+// Desktop sends OAuth to the system browser and the local node holds the
+// result for the app to poll. This drives both halves: it intercepts the URL
+// the app asks the OS to open, then signs in there in a real Chromium.
+// reloadMidLogin reloads Desktop while the browser login is still open.
 export async function loginThroughSystemBrowser(
   desktop: Desktop,
+  { reloadMidLogin = false } = {},
 ): Promise<void> {
   const app = desktop.electronApp();
   const page = desktop.page;
@@ -56,6 +57,9 @@ export async function loginThroughSystemBrowser(
   // The login left this window; only the system browser navigates from here.
   expect(new URL(authorizeURL).origin).toBe(nodeOrigin);
   await expect(page).toHaveURL(`${desktop.nodeURL}/desktop`);
+  if (reloadMidLogin) {
+    await page.reload();
+  }
 
   const browser = await chromium.launch({
     headless: true,

@@ -20,18 +20,66 @@ export function getDesktopAuth(): DesktopAuth | undefined {
   return typeof window === "undefined" ? undefined : window.SP_ELECTRON?.auth;
 }
 
-let desktopLoginToken: string | undefined;
+const TOKEN_KEY = "desktopLoginToken";
+const PENDING_KEY = "desktopLoginPendingUntil";
+// Matches the node's desktopReturnTTL.
+const PENDING_MS = 10 * 60_000;
 
-// One secret per renderer session: the local node stores the OAuth response
-// under it and the app polls for it, so no custom scheme is needed.
+// The local node stores the OAuth response under this secret. It's kept in
+// storage and never rotated: the OAuth client's redirect URI embeds it, so a
+// reload mid-login and the code exchange afterwards must both see the same one.
 export function getDesktopLoginToken(): string {
-  if (!desktopLoginToken) {
-    desktopLoginToken =
+  let token = localStorage.getItem(TOKEN_KEY);
+  if (!token) {
+    token =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : Array.from({ length: 4 }, () =>
             Math.random().toString(36).slice(2),
           ).join("");
+    localStorage.setItem(TOKEN_KEY, token);
   }
-  return desktopLoginToken;
+  return token;
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+let polling = false;
+
+// Polls the node for the browser's OAuth response while a login is pending,
+// including one a previous page load started.
+export async function pollDesktopLogin(
+  nodeURL: string,
+  complete: (url: string) => Promise<void>,
+  start = false,
+): Promise<void> {
+  if (start) {
+    localStorage.setItem(PENDING_KEY, String(Date.now() + PENDING_MS));
+  }
+  if (polling) return;
+  polling = true;
+  try {
+    const token = getDesktopLoginToken();
+    while (Number(localStorage.getItem(PENDING_KEY)) > Date.now()) {
+      await sleep(1000);
+      try {
+        const res = await fetch(
+          `${nodeURL}/api/desktop/oauth-callback/${token}`,
+        );
+        if (res.status === 404) continue;
+        if (!res.ok) {
+          throw new Error(`desktop login poll returned ${res.status}`);
+        }
+        const params = (await res.json()) as Record<string, string>;
+        localStorage.removeItem(PENDING_KEY);
+        await complete(
+          `${DESKTOP_LOGIN_CALLBACK_PREFIX}?${new URLSearchParams(params).toString()}`,
+        );
+        return;
+      } catch (e) {
+        console.error("desktop login poll failed", e);
+      }
+    }
+  } finally {
+    polling = false;
+  }
 }

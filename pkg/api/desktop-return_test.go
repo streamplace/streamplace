@@ -3,8 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/julienschmidt/httprouter"
@@ -21,7 +23,7 @@ func TestDesktopOAuthReturnRelay(t *testing.T) {
 	returnRec := httptest.NewRecorder()
 	returnHandler(
 		returnRec,
-		httptest.NewRequest(http.MethodGet, "/app-return/desktop/"+token+"?code=code-1&state=state-1&iss=issuer-1", nil),
+		httptest.NewRequest(http.MethodGet, "/app-return/desktop/"+token+"?code=code-1&state=state-1&iss=issuer-1&junk=dropped", nil),
 		params,
 	)
 	require.Equal(t, http.StatusOK, returnRec.Code)
@@ -39,6 +41,7 @@ func TestDesktopOAuthReturnRelay(t *testing.T) {
 	require.Equal(t, "code-1", out["code"])
 	require.Equal(t, "state-1", out["state"])
 	require.Equal(t, "issuer-1", out["iss"])
+	require.NotContains(t, out, "junk")
 
 	// The callback is handed out once.
 	callbackRec = httptest.NewRecorder()
@@ -78,4 +81,31 @@ func TestDesktopOAuthReturnValidation(t *testing.T) {
 		httprouter.Params{{Key: "token", Value: "desktop-relay-test-0123456789"}},
 	)
 	require.Equal(t, http.StatusNotFound, noPending.Code)
+}
+
+// The public return route can't be used to grow node memory without bound.
+func TestDesktopOAuthReturnBounded(t *testing.T) {
+	desktopOAuthStore.Lock()
+	desktopOAuthStore.pending = map[string]desktopOAuthPending{}
+	desktopOAuthStore.Unlock()
+	t.Cleanup(func() {
+		desktopOAuthStore.Lock()
+		desktopOAuthStore.pending = map[string]desktopOAuthPending{}
+		desktopOAuthStore.Unlock()
+	})
+	returnHandler := (&StreamplaceAPI{}).HandleDesktopOAuthReturn(context.Background())
+	send := func(token, query string) int {
+		rec := httptest.NewRecorder()
+		returnHandler(rec, httptest.NewRequest(http.MethodGet, "/app-return/desktop/"+token+"?"+query, nil),
+			httprouter.Params{{Key: "token", Value: token}})
+		return rec.Code
+	}
+	long := strings.Repeat("a", desktopReturnMaxParamLen+1)
+	require.Equal(t, http.StatusBadRequest, send("desktop-bounded-test-long", "code="+long))
+	for i := range desktopReturnMaxPending {
+		require.Equal(t, http.StatusOK, send(fmt.Sprintf("desktop-bounded-test-%04d", i), "code=c"))
+	}
+	require.Equal(t, http.StatusTooManyRequests, send("desktop-bounded-test-full", "code=c"))
+	// A repeated return for an already pending login still lands.
+	require.Equal(t, http.StatusOK, send("desktop-bounded-test-0000", "code=c2"))
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
-	"net/url"
 	"regexp"
 	"sync"
 	"time"
@@ -33,8 +32,16 @@ var desktopTokenPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{16,128}$`)
 
 const desktopReturnTTL = 10 * time.Minute
 
+// Bounds for the public return route: a few concurrent logins, OAuth fields only.
+const (
+	desktopReturnMaxPending  = 16
+	desktopReturnMaxParamLen = 2048
+)
+
+var desktopReturnParams = []string{"code", "state", "iss", "error", "error_description"}
+
 type desktopOAuthPending struct {
-	params  url.Values
+	params  map[string]string
 	expires time.Time
 }
 
@@ -57,6 +64,16 @@ func (a *StreamplaceAPI) HandleDesktopOAuthReturn(ctx context.Context) httproute
 			apierrors.WriteHTTPBadRequest(w, "missing OAuth response", nil)
 			return
 		}
+		kept := map[string]string{}
+		for _, key := range desktopReturnParams {
+			if value := query.Get(key); value != "" {
+				if len(value) > desktopReturnMaxParamLen {
+					apierrors.WriteHTTPBadRequest(w, "OAuth response too large", nil)
+					return
+				}
+				kept[key] = value
+			}
+		}
 		now := time.Now()
 		desktopOAuthStore.Lock()
 		for key, pending := range desktopOAuthStore.pending {
@@ -64,8 +81,14 @@ func (a *StreamplaceAPI) HandleDesktopOAuthReturn(ctx context.Context) httproute
 				delete(desktopOAuthStore.pending, key)
 			}
 		}
+		_, replacing := desktopOAuthStore.pending[token]
+		if !replacing && len(desktopOAuthStore.pending) >= desktopReturnMaxPending {
+			desktopOAuthStore.Unlock()
+			apierrors.WriteHTTPTooManyRequests(w, "too many pending desktop logins")
+			return
+		}
 		desktopOAuthStore.pending[token] = desktopOAuthPending{
-			params:  query,
+			params:  kept,
 			expires: now.Add(desktopReturnTTL),
 		}
 		desktopOAuthStore.Unlock()
@@ -91,12 +114,7 @@ func (a *StreamplaceAPI) HandleDesktopOAuthCallback(ctx context.Context) httprou
 			apierrors.WriteHTTPNotFound(w, "no pending desktop login", nil)
 			return
 		}
-		out := map[string]string{}
-		for key, values := range pending.params {
-			if len(values) > 0 {
-				out[key] = values[0]
-			}
-		}
+		out := pending.params
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
 		if err := json.NewEncoder(w).Encode(out); err != nil {

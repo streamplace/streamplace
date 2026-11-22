@@ -4,7 +4,8 @@ import { loginThroughSystemBrowser } from "./login";
 // Electron-specific runner; shared mobile/web OAuth coverage remains unchanged.
 test("log in through the dummy PDS", async ({ desktop }, testInfo) => {
   const { page, nodeURL } = desktop;
-  await loginThroughSystemBrowser(desktop);
+  // The login survives Desktop reloading while the browser sign-in is open.
+  await loginThroughSystemBrowser(desktop, { reloadMidLogin: true });
   const signedIn = page.getByText(
     `Signed in as @${process.env.ACCOUNT_HANDLE}`,
   );

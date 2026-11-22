@@ -44,8 +44,11 @@ test("OBS connects to Desktop's internal ingest and stays connected after restar
     .locator('[data-testid="login-handle"], [data-testid="login-handle"] input')
     .first();
   await expect(handleField).toBeVisible({ timeout: 60_000 });
-  await desktop.page.keyboard.press("Escape");
-  await expect(handleField).not.toBeVisible();
+  // RN-web's Modal only handles Escape once it has become active after mounting.
+  await expect(async () => {
+    await desktop.page.keyboard.press("Escape");
+    await expect(handleField).not.toBeVisible({ timeout: 1_000 });
+  }).toPass();
   await expect(desktop.page.getByTestId("desktop-login")).toBeVisible();
   expect((await request.get(`${desktop.nodeURL}/desktop/obs`)).ok()).toBe(true);
   await expect(handleField).toBeVisible();

@@ -12,7 +12,9 @@
 # ACCOUNT_PASSWORD, VIDEO_URI (the account's test VOD), E2E_FIXTURE_MP4 (the
 # local file the harness streams into the node), STREAM_KEY (the account's
 # stream key), PDS_HTTP_URL (the PDS's plain-HTTP listener, for checking
-# stored records from the host), and in
+# stored records from the host), PRELIVE_ACCOUNT_DID / _HANDLE / _PASSWORD (a
+# second account that streams without a livestream record; unset with
+# SP_E2E_INGEST=none or the upstream topology), and in
 # HTTPS mode also SERVER_HTTPS_URL, PDS_HTTPS_URL,
 # E2E_PROXY_URL, E2E_TLS_SPKI and E2E_TLS_CA. An EXIT trap stops it; a caller
 # with its own EXIT work calls e2e_harness_stop from its trap instead.
@@ -102,6 +104,7 @@ e2e_harness_start() {
   . "$E2E_ENVFILE"
   export SERVER_URL SERVER2_URL SERVER3_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD VIDEO_URI
   export E2E_FIXTURE_MP4 STREAM_KEY PDS_HTTP_URL
+  export PRELIVE_ACCOUNT_DID PRELIVE_ACCOUNT_HANDLE PRELIVE_ACCOUNT_PASSWORD
   # Every node's log, for specs that check how something happened.
   export E2E_LOGFILE
   # only set in HTTPS mode

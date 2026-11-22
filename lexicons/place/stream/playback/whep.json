@@ -16,6 +16,10 @@
           "rendition": {
             "type": "string",
             "description": "The rendition of the stream to play."
+          },
+          "sid": {
+            "type": "string",
+            "description": "The streamer's own playback session (getPlaybackSession), which opens their pre-live stream."
           }
         }
       },
@@ -29,6 +33,10 @@
         {
           "name": "Unauthorized",
           "description": "This user may not play this stream."
+        },
+        {
+          "name": "PlaybackStartedElsewhere",
+          "description": "A pre-live stream plays to one owner session at a time, and a newer one has taken over; mint a new session to play here again."
         }
       ]
     }

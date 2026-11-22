@@ -13,7 +13,9 @@ Its flows live in `desktop/`, outside this config's `flows/` discovery.
 - **Harness:** `streamplace e2e` (see `pkg/cmd/e2e.go`) boots a node + local
   PDS/PLC + a looping WHIP test stream and prints `SERVER_URL` /
   `ACCOUNT_HANDLE` / `ACCOUNT_DID` / `STREAM_KEY` (and `E2E_FIXTURE_MP4`, the
-  local file it streams). The node also serves the web app (embedded
+  local file it streams, and `PRELIVE_ACCOUNT_*`, a second account that streams
+  the same fixture with no livestream record, so it stays pre-live; absent with
+  `SP_E2E_INGEST=none` and in the upstream topology). The node also serves the web app (embedded
   via `//go:embed all:dist/**`), so Playwright just points a browser at
   `SERVER_URL`. `SP_E2E_INGEST=fmp4` loops the stream through the OBS plugin's
   fragmented-MP4 ingest instead (CI runs `flows/stream.spec.ts` that way too),
@@ -156,6 +158,13 @@ automatic publishing consent; the PDS-backed regression for that index deletion
 lives in `pkg/atproto/auto_publish_vod_test.go`. It also injects a deletion failure
 and checks that later deletions still run while the commit watermark advances
 only after successful reprocessing.
+
+`prelive-playback` covers the pre-live account: its own dashboard preview plays
+over HLS with an owner playback session, while anonymous requests and the leaked
+session replayed from a foreign origin get 404 `StreamNotLive`; the same session
+without Origin/Referer (a native player) still plays. The native counterpart,
+`.maestro/logged-out/prelive-hidden.yaml`, checks another viewer sees the
+streamer as offline.
 
 `syndication` plays the test stream from the harness's second node, which pulls
 it from the first over Media over QUIC (`SERVER2_URL`; see `docs/moq.md`).

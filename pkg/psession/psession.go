@@ -12,7 +12,8 @@
 //	1.<tid>.<scope>.<expiry unix seconds>.<signature>
 //
 // The signature is the first 16 bytes of HMAC-SHA256 over
-// "1|tid|scope|expiry|streamer", base64url without padding.
+// "1|tid|scope|expiry|streamer", plus "|client" for an owner session (bound to
+// the client that minted it), base64url without padding.
 package psession
 
 import (
@@ -36,7 +37,7 @@ const (
 	// ScopePublic is an ordinary viewer: published live streams and videos.
 	ScopePublic Scope = "p"
 	// ScopeOwner is the streamer's own session: it also opens their
-	// unpublished (pre-live) stream.
+	// unpublished (pre-live) stream, and only from the client it was minted for.
 	ScopeOwner Scope = "o"
 
 	version = "1"
@@ -60,28 +61,33 @@ type Session struct {
 	Expires time.Time
 }
 
-func sign(key []byte, id string, scope Scope, exp int64, streamer string) string {
+func sign(key []byte, id string, scope Scope, exp int64, streamer, client string) string {
 	mac := hmac.New(sha256.New, key)
 	fmt.Fprintf(mac, "%s|%s|%s|%d|%s", version, id, scope, exp, streamer)
+	if scope == ScopeOwner {
+		fmt.Fprintf(mac, "|%s", client)
+	}
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil)[:sigBytes])
 }
 
-func encode(key []byte, id string, scope Scope, exp time.Time, streamer string) string {
+func encode(key []byte, id string, scope Scope, exp time.Time, streamer, client string) string {
 	e := exp.Unix()
-	return strings.Join([]string{version, id, string(scope), strconv.FormatInt(e, 10), sign(key, id, scope, e, streamer)}, ".")
+	return strings.Join([]string{version, id, string(scope), strconv.FormatInt(e, 10), sign(key, id, scope, e, streamer, client)}, ".")
 }
 
-// Mint issues a new session for streamer, valid for ttl from now.
-func Mint(key []byte, streamer string, scope Scope, ttl time.Duration, now time.Time) (Session, string) {
+// Mint issues a new session for streamer, valid for ttl from now. client
+// binds an owner session (Parse must be given the same one); public sessions
+// ignore it.
+func Mint(key []byte, streamer, client string, scope Scope, ttl time.Duration, now time.Time) (Session, string) {
 	s := Session{ID: spid.TID(), Scope: scope, Expires: now.Add(ttl).Truncate(time.Second).UTC()}
-	return s, encode(key, s.ID, s.Scope, s.Expires, streamer)
+	return s, encode(key, s.ID, s.Scope, s.Expires, streamer, client)
 }
 
 // Renew re-issues s for streamer with a fresh expiry, keeping its ID so the
 // playback keeps counting as one session.
-func Renew(key []byte, s Session, streamer string, ttl time.Duration, now time.Time) (Session, string) {
+func Renew(key []byte, s Session, streamer, client string, ttl time.Duration, now time.Time) (Session, string) {
 	s.Expires = now.Add(ttl).Truncate(time.Second).UTC()
-	return s, encode(key, s.ID, s.Scope, s.Expires, streamer)
+	return s, encode(key, s.ID, s.Scope, s.Expires, streamer, client)
 }
 
 // WellFormed reports whether value has the shape of a session, without
@@ -101,10 +107,10 @@ func WellFormed(value string) bool {
 	return err == nil && parts[4] != ""
 }
 
-// Parse verifies value as a session for streamer at now. An expired session
-// comes back with ErrExpired and the parsed session, so a caller can renew
-// it in place.
-func Parse(key []byte, value, streamer string, now time.Time) (Session, error) {
+// Parse verifies value as a session for streamer, presented by client, at
+// now. An expired session comes back with ErrExpired and the parsed session,
+// so a caller can renew it in place.
+func Parse(key []byte, value, streamer, client string, now time.Time) (Session, error) {
 	parts := strings.Split(value, ".")
 	if len(parts) != 5 || parts[0] != version {
 		return Session{}, ErrMalformed
@@ -120,7 +126,7 @@ func Parse(key []byte, value, streamer string, now time.Time) (Session, error) {
 	if err != nil {
 		return Session{}, ErrMalformed
 	}
-	if !hmac.Equal([]byte(parts[4]), []byte(sign(key, parts[1], scope, exp, streamer))) {
+	if !hmac.Equal([]byte(parts[4]), []byte(sign(key, parts[1], scope, exp, streamer, client))) {
 		return Session{}, ErrSignature
 	}
 	s := Session{ID: parts[1], Scope: scope, Expires: time.Unix(exp, 0).UTC()}

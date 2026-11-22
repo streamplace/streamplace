@@ -290,7 +290,7 @@ func TestWebRTCPlayback2StemTracks(t *testing.T) {
 		return ids
 	}
 
-	answer, err := mm.WebRTCPlayback2(ctx, "streamer", "source", offer(3), "")
+	answer, err := mm.WebRTCPlayback2(ctx, "streamer", "source", offer(3), "", "")
 	require.NoError(t, err)
 	require.Equal(t, []string{"audio"}, audioTrackIDs(answer), "no segment yet: the mix only")
 
@@ -298,15 +298,15 @@ func TestWebRTCPlayback2StemTracks(t *testing.T) {
 		Duration: time.Second,
 		Stems:    []bus.PacketizedStem{{Group: 2}, {Group: 3}},
 	}})
-	answer, err = mm.WebRTCPlayback2(ctx, "streamer", "source", offer(3), "")
+	answer, err = mm.WebRTCPlayback2(ctx, "streamer", "source", offer(3), "", "")
 	require.NoError(t, err)
 	require.Equal(t, []string{"audio", "audio-g2", "audio-g3"}, audioTrackIDs(answer))
 
-	answer, err = mm.WebRTCPlayback2(ctx, "streamer", "source", offer(2), "")
+	answer, err = mm.WebRTCPlayback2(ctx, "streamer", "source", offer(2), "", "")
 	require.NoError(t, err)
 	require.Equal(t, []string{"audio", "audio-g2"}, audioTrackIDs(answer), "an offer with fewer transceivers gets what fits")
 
-	answer, err = mm.WebRTCPlayback2(ctx, "streamer", "source", offer(1), "")
+	answer, err = mm.WebRTCPlayback2(ctx, "streamer", "source", offer(1), "", "")
 	require.NoError(t, err)
 	require.Equal(t, []string{"audio"}, audioTrackIDs(answer), "a client that can't take stems gets the mix")
 }

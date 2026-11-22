@@ -1,0 +1,27 @@
+appId: ${APP_ID}
+# Leaves the app signed in as LOGIN_HANDLE / LOGIN_PASSWORD, whoever (or
+# nobody) was signed in. Not a scenario: flows that act as another account
+# run it, and run it again to put the harness account back.
+---
+- launchApp
+- tapOn:
+    text: "Settings"
+# the settings page offers either the account pages or signing in
+- extendedWaitUntil:
+    visible:
+      text: "Account|Sign In"
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        text: "Account"
+    commands:
+      - tapOn:
+          text: "Account"
+      - tapOn:
+          text: "Log out"
+      - extendedWaitUntil:
+          visible:
+            text: "Sign In"
+          timeout: 15000
+- runFlow: oauth-sign-in.yaml

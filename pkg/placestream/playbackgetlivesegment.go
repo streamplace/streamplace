@@ -16,7 +16,7 @@ import (
 // Fetch a single live HLS segment, or a track's init segment, from the in-memory live window. `seg` is `init` for the EXT-X-MAP init segment, otherwise the segment's media-sequence number; a cosmetic `.m4s` suffix is accepted (and ignored) so ffmpeg-based HLS players will fetch it. HTTP Range is honored. Segments are the verbatim signed canonical .m4s, so provenance travels with playback.
 //
 // seg: `init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored.
-// sid: Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control.
+// sid: The playback session from the media playlist that referenced this segment; required on this route, and it gates pre-live segments.
 // streamer: The streamer: a DID or a Bluesky handle (resolved to its DID).
 // track: Track ID (stringified u32 matching the MUXL container).
 func PlaybackGetLiveSegment(ctx context.Context, c glex.LexClient, seg string, sid string, streamer string, track string) ([]byte, error) {

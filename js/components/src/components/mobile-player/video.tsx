@@ -451,6 +451,8 @@ export function HLSPlayer(props: VideoProps) {
       hls.on(HlsClass.Events.ERROR, (_, data) => {
         if (!data.fatal || hlsRef.current !== hls) return;
         if (data.type === HlsClass.ErrorTypes.NETWORK_ERROR) {
+          // Tells usePlaybackSession its sid may have been rejected.
+          setStatus(PlayerStatus.ERROR);
           if (retry) clearTimeout(retry);
           retry = setTimeout(() => {
             retry = null;

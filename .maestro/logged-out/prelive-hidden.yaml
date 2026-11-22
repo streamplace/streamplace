@@ -3,7 +3,9 @@ appId: ${APP_ID}
 # Another viewer opening its page must get the offline state, not the video.
 # The Web counterpart is js/e2e-web/flows/prelive-playback.spec.ts.
 ---
-- launchApp
+# A cold deep link, as in lazy-navigation.yaml: a link sent while the app is
+# still starting can be dropped.
+- stopApp
 - openLink: "${APP_ID}://${PRELIVE_ACCOUNT_HANDLE}"
 # "Looks like @<handle> is offline ..." is nested text, so match a substring
 # (iOS collapses it into one element).

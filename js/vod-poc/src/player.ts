@@ -56,6 +56,8 @@ async function connect(origin: Moq.Origin.Producer) {
     webtransport: { serverCertificateHashes: [{ value: M.moq.fingerprint }] },
   };
   try {
+    // connect reads the negotiated protocol without waiting for ready; unready, it reads "".
+    await SP.transport?.ready;
     return await Moq.Connection.connect({ ...props, transport: SP.transport });
   } catch {
     // The page's early session failed; open a fresh one.

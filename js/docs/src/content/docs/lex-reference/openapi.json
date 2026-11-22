@@ -2408,6 +2408,7 @@
     },
     "/xrpc/place.stream.game.getGame": {
       "get": {
+        "summary": "Get a game from the configured catalog by slug or AT URI. Provide exactly one.",
         "operationId": "place.stream.game.getGame",
         "tags": ["place.stream.game"],
         "responses": {
@@ -2448,10 +2449,18 @@
           {
             "name": "uri",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string",
               "format": "uri"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ]

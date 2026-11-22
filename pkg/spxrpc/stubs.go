@@ -680,11 +680,12 @@ func (s *Server) HandlePlaceStreamConfigGetEnv(c echo.Context) error {
 func (s *Server) HandlePlaceStreamGameGetGame(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamGameGetGame")
 	defer span.End()
+	slug := c.QueryParam("slug")
 	uri := c.QueryParam("uri")
 	var out *placestream.GameGetGame_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context,uri string) (*placestream.GameGetGame_Output, error)
-	out, handleErr = s.handlePlaceStreamGameGetGame(ctx, uri)
+	// func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context,slug string,uri string) (*placestream.GameGetGame_Output, error)
+	out, handleErr = s.handlePlaceStreamGameGetGame(ctx, slug, uri)
 	if handleErr != nil {
 		return handleErr
 	}

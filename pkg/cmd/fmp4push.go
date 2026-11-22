@@ -34,7 +34,7 @@ func pushFMP4Tracks(videos int) map[uint32]muxl.TrackMeta {
 	}
 }
 
-// pushFMP4 streams file to the node at endpoint the way the Streamplace OBS
+// pushFMP4 streams file to the node's internal endpoint the way the Streamplace OBS
 // plugin does with one stem: it asks /api/ingest/client-configuration for the
 // FMP4 ingest endpoint, then POSTs realtime-paced fragmented MP4 with a
 // chunked body. Every video track of the file is pushed, as the plugin pushes

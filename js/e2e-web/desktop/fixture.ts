@@ -45,6 +45,7 @@ async function freeUDPPort(): Promise<number> {
 
 export type Desktop = {
   nodeURL: string;
+  internalURL: string;
   page: Page;
   electronApp: () => ElectronApplication;
   restart: () => Promise<Page>;
@@ -171,6 +172,7 @@ export const test = base.extend<{ desktop: Desktop }>({
       const page = await launch();
       await use({
         nodeURL,
+        internalURL: `http://${env.SP_HTTP_INTERNAL_ADDR}`,
         page,
         electronApp: () => {
           if (!app) {

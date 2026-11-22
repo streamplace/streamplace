@@ -762,16 +762,43 @@ func (r *WebsocketReplicator) push(ctx context.Context, peer string) {
 
 // openPush dials the peer, publishing this node's live streams, and holds
 // the session until it ends; it always returns an error saying why.
-func (r *WebsocketReplicator) openPush(ctx context.Context, peer string) error {
+func (r *WebsocketReplicator) openPush(ctx context.Context, peer string) (err error) {
+	defer func() {
+		r.pushMu.Lock()
+		defer r.pushMu.Unlock()
+		state := r.pushPeers[peer]
+		state.Connected = false
+		if err != nil {
+			state.LastError = err.Error()
+		}
+		r.pushPeers[peer] = state
+	}()
 	moqURL, err := r.resolvePeer(ctx, peer)
 	if err != nil {
 		return err
 	}
+	displayURL, err := url.Parse(moqURL)
+	if err != nil {
+		return err
+	}
+	displayURL.RawQuery, displayURL.ForceQuery, displayURL.Fragment = "", false, ""
+	r.pushMu.Lock()
+	state := r.pushPeers[peer]
+	state.MoqURL = displayURL.String()
+	r.pushPeers[peer] = state
+	r.pushMu.Unlock()
 	client, err := r.dialMoq(ctx, moqURL, r.pushOrigin)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
+	r.pushMu.Lock()
+	state = r.pushPeers[peer]
+	state.Connected = true
+	state.ConnectedAt = time.Now()
+	state.LastError = ""
+	r.pushPeers[peer] = state
+	r.pushMu.Unlock()
 	log.Log(ctx, "moq push: connected to peer", "url", moqURL)
 	if err := client.Session().Closed(ctx); err != nil {
 		return err

@@ -1,5 +1,27 @@
 # Streamplace Desktop
 
+Desktop shows only its `/desktop` screen: the app redirects every other route
+there except `/multi`, which the self-tests play streams on. Its public HTTP
+listener is `127.0.0.1:38080`; OBS ingest uses the internal port `39090` only.
+
+## Logs
+
+The node's output goes to `node.log` (the previous file's to `node.previous.log`)
+in Electron's log folder: Windows `%APPDATA%\streamplace-desktop\logs`, macOS
+`~/Library/Logs/streamplace-desktop`, Linux `~/.config/streamplace-desktop/logs`.
+**Open log folder** on the Desktop screen and in the startup/crash dialogs opens it.
+Logs rotate on restart and at 20 MiB; self-test nodes use separate named log files.
+
+## Connecting OBS
+
+Accept Desktop's plugin install, restart OBS, then pick **Settings → Stream →
+Streamplace**. Or, with OBS closed, press **Connect OBS** in Desktop to configure
+the current profile. The plugin fills an empty key with `streamplace-desktop`;
+the node streams as the account logged into Desktop, without copying a key.
+
+**Get Stream Key** opens `http://127.0.0.1:38080/desktop/obs` to bring up Desktop's
+login. Ingest goes to `http://127.0.0.1:39090`, never the public listener.
+
 ## `pnpm run start`
 
 Boot up Streamplace Desktop for development. Two environment variable options:
@@ -53,8 +75,8 @@ The runner starts an isolated HTTPS station and dummy PDS, with no media ingest.
 Each test launches the real Electron entry point and its own single-user node,
 using temporary node/browser/XDG config directories and unused loopback ports.
 The login smoke signs in and authorizes at the PDS, returns to Desktop, and checks
-the account remains signed in after a reload. The existing lifecycle flow also
-checks PDS writes across closing and reopening Desktop.
+the account remains signed in after a reload. The OBS flow also checks the
+connection and signed-in account survive closing and reopening Desktop.
 
 `SP_E2E_ATMOQ_BIN` selects an installed atmoq executable; `E2E_DESKTOP_MAIN`
 overrides the packaged `.webpack/<arch>/main/index.cjs` entry point.

@@ -3,11 +3,16 @@ import { parseArgs } from "node:util";
 import "source-map-support/register";
 import { generatePrivateKey } from "viem/accounts";
 import getEnv from "./env";
-import makeNode from "./node";
+import makeNode, { getLogDir } from "./node";
 import { configureStream, installPlugin, status as obsStatus } from "./obs";
 import runTests, { allTestNames } from "./tests/test-runner";
 import initUpdater from "./updater";
 import { makeWindow } from "./window";
+
+const openLogFolder = async (): Promise<void> => {
+  const error = await shell.openPath(getLogDir());
+  if (error) throw new Error(error);
+};
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require("electron-squirrel-startup")) {
@@ -80,15 +85,22 @@ if (require("electron-squirrel-startup")) {
         console.error(e);
         const dialogOpts: Electron.MessageBoxOptions = {
           type: "info",
-          buttons: ["Quit Streamplace"],
+          buttons: ["Open log folder", "Quit Streamplace"],
+          cancelId: 1,
           title: "Error on Bootup",
           message:
             "Please report to the Streamplace developers at git.stream.place!",
           detail: e instanceof Error ? `${e.message}\n${e.stack}` : String(e),
         };
 
-        await dialog.showMessageBox(dialogOpts);
-        app.quit();
+        try {
+          const { response } = await dialog.showMessageBox(dialogOpts);
+          if (response === 0) await openLogFolder();
+        } catch (error) {
+          console.error(error);
+        } finally {
+          app.quit();
+        }
       }
     }
   });
@@ -104,9 +116,14 @@ if (require("electron-squirrel-startup")) {
       initUpdater();
     }
     let loadAddr;
+    let obsServer = "http://127.0.0.1:39090";
+    // An external dev node (AQD_SKIP_NODE) is single-user only if told so.
+    let singleUser = !!process.env.SP_UPSTREAM_STATION;
     if (!skipNode) {
-      const { addr } = await makeNode({ env, autoQuit: true });
-      loadAddr = addr;
+      const node = await makeNode({ env, autoQuit: true });
+      loadAddr = node.addr;
+      obsServer = node.internalAddr;
+      singleUser = node.singleUser;
     }
     const window = await makeWindow();
 
@@ -119,7 +136,6 @@ if (require("electron-squirrel-startup")) {
 
     // For the OBS setup screen and system-browser logins, through
     // SP_ELECTRON in preload.ts. Only the app's own pages may call them.
-    const server = loadAddr ?? "http://127.0.0.1:38082";
     const appOrigin = new URL(startPath).origin;
     const handleIPC = <A extends unknown[]>(
       channel: string,
@@ -131,10 +147,22 @@ if (require("electron-squirrel-startup")) {
         }
         return fn(...(args as A));
       });
+    handleIPC("app:openLogFolder", openLogFolder);
+    handleIPC("app:focus", () => {
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.focus();
+    });
     handleIPC("obs:status", () => obsStatus());
     handleIPC("obs:installPlugin", () => installPlugin());
-    handleIPC("obs:configureStream", (streamKey: string) =>
-      configureStream(server, streamKey),
+    handleIPC("obs:configureStream", async () =>
+      singleUser
+        ? configureStream(obsServer)
+        : {
+            ok: false,
+            error:
+              "This node has no upstream station, so OBS needs a stream key.",
+          },
     );
     handleIPC("auth:openLogin", async (url: string) => {
       // The app may point at a custom node, so any web page is allowed here;

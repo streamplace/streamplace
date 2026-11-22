@@ -2,4 +2,8 @@
 ; import library generated from this list; a missing entry fails that link.
 LIBRARY obs-frontend-api.dll
 EXPORTS
+    obs_frontend_add_event_callback
+    obs_frontend_get_streaming_service
+    obs_frontend_remove_event_callback
+    obs_frontend_save_streaming_service
     obs_frontend_get_profile_config

@@ -95,6 +95,8 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	triggerCollection := misttriggers.NewMistCallbackHandlersCollection(a.CLI, broker)
 	router.POST("/mist-trigger", triggerCollection.Trigger())
 	router.HandlerFunc("GET", "/healthz", a.HandleHealthz(ctx))
+	router.HandlerFunc("POST", "/api/ingest/client-configuration", a.HandleClientConfiguration(ctx))
+	router.POST("/api/ingest/fmp4/:key", a.HandleFMP4Ingest(ctx))
 
 	// Add pprof handlers
 	router.HandlerFunc("GET", "/debug/pprof/", pprof.Index)
@@ -510,7 +512,16 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 
 	handler := sloghttp.Recovery(router)
 	if log.Level(4) {
-		handler = sloghttp.New(slog.Default())(handler)
+		logged := sloghttp.New(slog.Default())(handler)
+		raw := handler
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Preserve hijacking and keep real stream keys out of request logs.
+			if strings.HasPrefix(r.URL.Path, "/api/ingest/fmp4/") {
+				raw.ServeHTTP(w, r)
+				return
+			}
+			logged.ServeHTTP(w, r)
+		})
 	}
 	return handler, nil
 }

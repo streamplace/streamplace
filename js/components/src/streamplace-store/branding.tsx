@@ -353,7 +353,8 @@ export function useLoginPlaceholder(): string | undefined {
   return useBrandingAsset("loginPlaceholder")?.data?.trim() || undefined;
 }
 
-export const LOGIN_METHODS = ["qr"] as const;
+export const LOGIN_METHODS = ["apple", "google", "ethereum", "qr"] as const;
+type LoginMethod = (typeof LOGIN_METHODS)[number];
 
 export function parseLoginMethods(data: string | undefined) {
   try {
@@ -369,6 +370,43 @@ export function parseLoginMethods(data: string | undefined) {
 export function useLoginMethods() {
   const methods = useBrandingAsset("loginMethods")?.data;
   return useMemo(() => parseLoginMethods(methods), [methods]);
+}
+
+export interface LoginOptions {
+  /** The PDS email and provider sign-ins go to (branding key loginEntryway). */
+  entryway?: string;
+  /** Provider options, gated by the entryway. QR is read independently. */
+  methods: LoginMethod[];
+  /** WalletConnect project id (walletConnectProjectId); without it Sign in
+   *  with Ethereum offers browser wallets only. */
+  walletConnectProjectId?: string;
+}
+
+/** The node's sign-in options, from the loginEntryway, loginMethods and
+ *  walletConnectProjectId branding keys. */
+export function useLoginOptions(): LoginOptions {
+  const entryway = useBrandingAsset("loginEntryway")?.data?.trim();
+  const methods = useLoginMethods();
+  const projectId = useBrandingAsset("walletConnectProjectId")?.data?.trim();
+  return useMemo(() => {
+    if (!entryway || !isHttpUrl(entryway)) return { methods: [] };
+    return {
+      entryway,
+      methods,
+      walletConnectProjectId: projectId || undefined,
+    };
+  }, [entryway, methods, projectId]);
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "https:" || url.protocol === "http:") && !!url.host
+    );
+  } catch {
+    return false;
+  }
 }
 
 // convenience hook for main logo

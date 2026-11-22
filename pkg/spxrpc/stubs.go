@@ -64,6 +64,7 @@ func (s *Server) RegisterHandlersChatbsky(e *echo.Echo) error {
 func (s *Server) RegisterHandlersComatproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.identity.refreshIdentity", s.HandleComAtprotoIdentityRefreshIdentity)
 	e.GET("/xrpc/com.atproto.identity.resolveHandle", s.HandleComAtprotoIdentityResolveHandle)
+	e.GET("/xrpc/com.atproto.identity.resolveIdentity", s.HandleComAtprotoIdentityResolveIdentity)
 	e.POST("/xrpc/com.atproto.identity.updateHandle", s.HandleComAtprotoIdentityUpdateHandle)
 	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleComAtprotoRepoCreateRecord)
 	e.POST("/xrpc/com.atproto.repo.deleteRecord", s.HandleComAtprotoRepoDeleteRecord)
@@ -107,6 +108,20 @@ func (s *Server) HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context,handle string) (*comatproto.IdentityResolveHandle_Output, error)
 	out, handleErr = s.handleComAtprotoIdentityResolveHandle(ctx, handle)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoIdentityResolveIdentity(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoIdentityResolveIdentity")
+	defer span.End()
+	identifier := c.QueryParam("identifier")
+	var out *comatproto.IdentityDefs_IdentityInfo
+	var handleErr error
+	// func (s *Server) handleComAtprotoIdentityResolveIdentity(ctx context.Context,identifier string) (*comatproto.IdentityDefs_IdentityInfo, error)
+	out, handleErr = s.handleComAtprotoIdentityResolveIdentity(ctx, identifier)
 	if handleErr != nil {
 		return handleErr
 	}

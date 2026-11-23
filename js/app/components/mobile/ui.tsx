@@ -121,6 +121,11 @@ export function MobileUi({
   const mode = usePlayerStore((state) => state.mode);
   const status = usePlayerStore((state) => state.status);
   const fullscreen = usePlayerStore((state) => state.fullscreen);
+  // Native gesture handlers win over plain views stacked above them, so the
+  // tap layer would swallow the "Play here" button's taps.
+  const playbackElsewhere = usePlayerStore(
+    (state) => state.playbackStartedElsewhere,
+  );
   const hasEnded = usePlayerStore(
     (state) =>
       state.mode === "vod" &&
@@ -302,11 +307,13 @@ export function MobileUi({
         pointerEvents="box-none"
         style={[layout.position.absolute, h.percent[100], w.percent[100]]}
       >
-        <GestureDetector gesture={combined}>
-          <View
-            style={[layout.position.absolute, h.percent[100], w.percent[100]]}
-          />
-        </GestureDetector>
+        {!playbackElsewhere && (
+          <GestureDetector gesture={combined}>
+            <View
+              style={[layout.position.absolute, h.percent[100], w.percent[100]]}
+            />
+          </GestureDetector>
+        )}
         <Animated.View
           onPointerDown={onPointerDown}
           onFocus={() => setControlsFocused(true)}

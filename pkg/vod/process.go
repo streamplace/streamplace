@@ -151,32 +151,89 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 
 	stagingKey := StagingPrefix + in.UploadID + ".mp4"
 	span.SetAttributes(attribute.String("staging_key", stagingKey))
-	staging, err := store.NewWriter(ctx, stagingKey, "video/mp4")
-	if err != nil {
-		recordErr(span, stageStaging, err)
-		return "", fmt.Errorf("start staging upload: %w", err)
-	}
-	defer staging.Close() // Abort is idempotent; no-op once Complete ran
-
-	hasher := bdasl.NewWriter()
-	counter := &countingWriter{}
-	final := io.MultiWriter(hasher, counter, staging)
 
 	// Start a progress reporter that polls the byte counter and writes
 	// percentage updates to the DB every 2 seconds. It stops when the
 	// pipeline completes (progressDone closed) or the context is cancelled.
+	counter := &countingWriter{}
 	progressDone := make(chan struct{})
 	defer close(progressDone)
 	go reportProgress(ctx, state, in.UploadID, counter, size, progressDone, 2*time.Second)
+
+	res, err := buildContentBlob(ctx, span, store, src, size, stagingKey, counter, func(pct int) {
+		_ = state.SetUploadProgress(ctx, in.UploadID, pct)
+	})
+	if err != nil {
+		return "", err
+	}
+	muxlCID, blobSize, fragSize, probe := res.CID, res.BlobSize, res.FragSize, res.Probe
+	contentKey := BlobsPrefix + muxlCID + ".mp4"
+
+	// Thumbnail generation is deferred: the place.stream.video record is
+	// created client-side now, so there's no server-side record to attach
+	// one to. generateThumbnail (and its fmp4 fix) stay in the tree,
+	// exercised by vod-test, for when thumbnails are wired to the client.
+	if err := runVODStage(ctx, stagePublish, func(ctx context.Context) error {
+		return publishRecords(ctx, publishParams{
+			cli:        cli,
+			state:      state,
+			in:         in,
+			cid:        muxlCID,
+			size:       blobSize,
+			mimeType:   "video/mp4",
+			probe:      probe,
+			signingKey: res.SigningKey,
+		})
+	}); err != nil {
+		recordErr(span, stagePublish, err)
+		return "", fmt.Errorf("publish records: %w", err)
+	}
+
+	spmetrics.VODProcessSuccessesTotal.WithLabelValues(in.Backend).Inc()
+	span.SetStatus(codes.Ok, "")
+	log.Log(ctx, "VOD processed",
+		"cid", muxlCID,
+		"url", store.URL(contentKey),
+		"input_size", size,
+		"frag_size", fragSize,
+		"output_size", blobSize,
+		"duration_ms", time.Since(startTime).Milliseconds(),
+	)
+	return muxlCID, nil
+}
+
+// ImportResult is what a finished pipeline-to-store run yields: the MUXL CID the
+// content blob is keyed by, and what publishing records for it needs.
+type ImportResult struct {
+	CID        string
+	BlobSize   int64
+	FragSize   int64
+	Probe      media.VODResult
+	SigningKey string
+}
+
+// buildContentBlob runs src through the pipeline into store: staged fragments,
+// flat header, content blob at BlobsPrefix+<cid>.mp4, and the metafile. counter
+// tallies bytes written (for a progress reporter); progress is told 85/90/95.
+func buildContentBlob(ctx context.Context, span trace.Span, store blob.Store, src io.ReaderAt, size int64, stagingKey string, counter *countingWriter, progress func(pct int)) (*ImportResult, error) {
+	staging, err := store.NewWriter(ctx, stagingKey, "video/mp4")
+	if err != nil {
+		recordErr(span, stageStaging, err)
+		return nil, fmt.Errorf("start staging upload: %w", err)
+	}
+	defer staging.Close() // Abort is idempotent; no-op once Complete ran
+
+	hasher := bdasl.NewWriter()
+	final := io.MultiWriter(hasher, counter, staging)
 
 	// Ephemeral per-upload signing key. Generated here as muxing starts,
 	// used to C2PA-sign every segment, and dropped when this function
 	// returns — so once the upload is processed nobody can mint more
 	// signatures under its did:key.
-	signer, err := newUploadSigner(startTime)
+	signer, err := newUploadSigner(time.Now())
 	if err != nil {
 		recordErr(span, stageSigner, err)
-		return "", fmt.Errorf("create upload signer: %w", err)
+		return nil, fmt.Errorf("create upload signer: %w", err)
 	}
 	span.SetAttributes(attribute.String("signing_did", signer.DIDKey))
 
@@ -188,9 +245,9 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	probe, err := streamThroughMuxl(ctx, src, size, final, metaBuilder, signer.SignerInput)
 	if err != nil {
 		recordErr(span, stagePipeline, err)
-		return "", err
+		return nil, err
 	}
-	_ = state.SetUploadProgress(ctx, in.UploadID, 85)
+	progress(85)
 	span.SetAttributes(
 		attribute.Int64("output_size_bytes", counter.load()),
 		attribute.Int64("probe_duration_ms", probe.DurationMS),
@@ -214,16 +271,16 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	if counter.load() == 0 {
 		err := errors.New("muxl produced zero bytes")
 		recordErr(span, stageEmptyOutput, err)
-		return "", err
+		return nil, err
 	}
 
 	if err := runVODStage(ctx, stageStagingComplete, func(ctx context.Context) error {
 		return completeStaging(ctx, staging, stagingKey)
 	}); err != nil {
 		recordErr(span, stageStagingComplete, err)
-		return "", fmt.Errorf("complete staging upload: %w", err)
+		return nil, fmt.Errorf("complete staging upload: %w", err)
 	}
-	_ = state.SetUploadProgress(ctx, in.UploadID, 90)
+	progress(90)
 
 	// The staging blob is the bare canonical fragments; its BDASL hash is the
 	// MUXL CID — the stable, header-independent VOD id. Keying the content blob
@@ -241,7 +298,7 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	flatHeader, err := synthFlatHeaderForObjects(ctx, store, []string{stagingKey})
 	if err != nil {
 		recordErr(span, stageContentAddressCopy, err)
-		return "", fmt.Errorf("synthesize flat header: %w", err)
+		return nil, fmt.Errorf("synthesize flat header: %w", err)
 	}
 	blobSize := int64(len(flatHeader)) + fragSize
 	span.SetAttributes(
@@ -259,9 +316,9 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 		return store.Delete(ctx, stagingKey)
 	}); err != nil {
 		recordErr(span, stageContentAddressCopy, err)
-		return "", fmt.Errorf("finalize: %w", err)
+		return nil, fmt.Errorf("finalize: %w", err)
 	}
-	_ = state.SetUploadProgress(ctx, in.UploadID, 95)
+	progress(95)
 
 	metafile := metaBuilder.Finalize(muxlCID, fragSize)
 	metafile.FlatHeaderSize = int64(len(flatHeader))
@@ -269,40 +326,9 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 		return writeMetafile(ctx, store, muxlCID, metafile)
 	}); err != nil {
 		recordErr(span, stageMetafile, err)
-		return "", fmt.Errorf("write metafile: %w", err)
+		return nil, fmt.Errorf("write metafile: %w", err)
 	}
-
-	// Thumbnail generation is deferred: the place.stream.video record is
-	// created client-side now, so there's no server-side record to attach
-	// one to. generateThumbnail (and its fmp4 fix) stay in the tree,
-	// exercised by vod-test, for when thumbnails are wired to the client.
-	if err := runVODStage(ctx, stagePublish, func(ctx context.Context) error {
-		return publishRecords(ctx, publishParams{
-			cli:        cli,
-			state:      state,
-			in:         in,
-			cid:        muxlCID,
-			size:       blobSize,
-			mimeType:   "video/mp4",
-			probe:      probe,
-			signingKey: signer.DIDKey,
-		})
-	}); err != nil {
-		recordErr(span, stagePublish, err)
-		return "", fmt.Errorf("publish records: %w", err)
-	}
-
-	spmetrics.VODProcessSuccessesTotal.WithLabelValues(in.Backend).Inc()
-	span.SetStatus(codes.Ok, "")
-	log.Log(ctx, "VOD processed",
-		"cid", muxlCID,
-		"url", store.URL(contentKey),
-		"input_size", size,
-		"frag_size", fragSize,
-		"output_size", blobSize,
-		"duration_ms", time.Since(startTime).Milliseconds(),
-	)
-	return muxlCID, nil
+	return &ImportResult{CID: muxlCID, BlobSize: blobSize, FragSize: fragSize, Probe: probe, SigningKey: signer.DIDKey}, nil
 }
 
 // runVODStage runs a post-pipeline stage with the default stage timeout.

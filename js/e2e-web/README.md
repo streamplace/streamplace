@@ -107,8 +107,9 @@ mobile tab bar, so `tabs` drives Home ↔ Settings through the sidebar.
 web-only coverage, with no current native Go Live scenario. Chat popout is also
 web-only, as is `chat-wheel-scroll` (trackpad wheel input in the inverted
 chat list), which also runs in a Firefox project because the bug it covers
-was reported there. `vod` opens the VOD the harness publishes and checks both the node's
-page title and the app's tab title; document titles have no native counterpart.
+was reported there. `vod` opens the VOD the harness publishes (its fixture, playable) and checks the node's
+page title and the app's tab title (document titles have no native counterpart),
+that it plays, and that the page's own `<video>` shows a frame with the app bundle blocked.
 `branding-favicons` exercises authenticated light/dark favicon uploads, scheme
 switches, persistence and deletion fallbacks, including the HTML before
 hydration. It also decodes `/favicon.ico` as a browser image, verifying the ICO

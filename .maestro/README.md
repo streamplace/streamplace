@@ -54,6 +54,14 @@ The organization and generated config work on both platforms, including macOS's
 stock Bash. No native Go Live scenario exists: native builds hide those controls,
 and `logged-out/tabs.yaml` checks they stay hidden.
 
+## VOD playback coverage
+
+`logged-out/vod.yaml` opens the harness's test VOD (`VIDEO_URI`, the fixture
+run through the VOD pipeline into the node's store) by deep link, checks its
+title, and waits for the player to report playing with its position advancing.
+The web counterpart is `js/e2e-web/flows/vod.spec.ts`, which also covers the
+video page painting a frame before the app bundle loads.
+
 ## Live avatar coverage
 
 `logged-out/user-search.yaml` captures a cropped live avatar on iOS and Android.

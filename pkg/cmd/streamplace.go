@@ -636,6 +636,10 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	// URL, which is how a peer pushing streams here finds the listener.
 	if cli.MoqAddr != "" && wsrep != nil {
 		a.MoqURL = func() string { return websocketrep.AdvertisedMoqURL(cli, moqSelfSigned) }
+		// The listener serves videos to viewers too (--vod-moq).
+		wsrep.VODResolver = vodResolver{a}
+		wsrep.VODStore = vodStore
+		wsrep.ViewLog = viewLog
 	}
 	if wsrep != nil {
 		a.PushStatus = wsrep.PushStatus
@@ -876,6 +880,17 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 
 	return group.Wait()
+}
+
+// vodResolver resolves videos through the XRPC server, which exists only
+// once an HTTP server has built its handler.
+type vodResolver struct{ api *api.StreamplaceAPI }
+
+func (v vodResolver) ResolveServableVideo(ctx context.Context, did, rkey, sid string) (*vod.ServableVideo, error) {
+	if v.api.XRPCServer == nil {
+		return nil, errors.New("the XRPC server is not up yet")
+	}
+	return v.api.XRPCServer.ResolveServableVideo(ctx, did, rkey, sid)
 }
 
 // makeVODStore picks the blob.Store backing VOD output for this

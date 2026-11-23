@@ -1,0 +1,31 @@
+appId: ${APP_ID}
+---
+# The harness's test VOD (VIDEO_URI) is the real fixture, run through the VOD
+# pipeline: opened by deep link, it shows its title and plays.
+- evalScript:
+    ${output.watchPath = VIDEO_URI.split("/")[2] + "/video/" +
+    VIDEO_URI.split("/")[4]}
+- launchApp
+- openLink: ${APP_ID}://${output.watchPath}
+- extendedWaitUntil:
+    visible:
+      text: ".*e2e test video.*"
+    timeout: 30000
+- takeScreenshot: vod-open
+# Tap the video to show the player controls; the play/pause button is labelled
+# "Pause" once playback has started. The title is on screen with it.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          point: 50%,20%
+      - extendedWaitUntil:
+          visible:
+            text: "Pause"
+          timeout: 15000
+# and the position advances past the first seconds
+- extendedWaitUntil:
+    visible:
+      text: "0:(0[3-9]|[1-5][0-9]).*"
+    timeout: 30000
+- takeScreenshot: vod-playing

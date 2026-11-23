@@ -178,6 +178,7 @@ type CLI struct {
 	S3AccessKeyID               string
 	S3SecretAccessKey           string
 	S3Region                    string
+	VODMoQ                      bool
 	VODCDNURL                   string
 	VODCDNProvider              string
 	BunnyTokenAuthKey           string
@@ -1239,6 +1240,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       "us-east-1",
 				Destination: &cli.S3Region,
 				Sources:     urfavecli.EnvVars("SP_S3_REGION"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "vod-moq",
+				Usage:       "Offer VOD playback over the node's MoQ listener.",
+				Value:       true,
+				Destination: &cli.VODMoQ,
+				Sources:     urfavecli.EnvVars("SP_VOD_MOQ"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "vod-cdn-url",

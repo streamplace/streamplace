@@ -25,6 +25,8 @@ onFlowComplete:
           env:
             LOGIN_HANDLE: "${PRELIVE_ACCOUNT_HANDLE}"
             LOGIN_PASSWORD: "${PRELIVE_ACCOUNT_PASSWORD}"
+      # cold deep link (see prelive-hidden.yaml)
+      - stopApp
       - openLink: "${APP_ID}://${PRELIVE_ACCOUNT_HANDLE}"
       # the native player tags its video view player-video once video frames
       # arrive

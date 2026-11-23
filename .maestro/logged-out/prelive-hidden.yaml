@@ -1,17 +1,24 @@
 appId: ${APP_ID}
 # The harness's second account streams with no livestream record (pre-live).
-# Another viewer opening its page must get the offline state, not the video.
+# Another viewer opening its page must never get the video.
 # The Web counterpart is js/e2e-web/flows/prelive-playback.spec.ts.
 ---
-- launchApp
+# A cold deep link, as in lazy-navigation.yaml: a link sent while the app is
+# still starting can be dropped.
+- stopApp
 - openLink: "${APP_ID}://${PRELIVE_ACCOUNT_HANDLE}"
-# "Looks like @<handle> is offline ..." is nested text, so match a substring
-# (iOS collapses it into one element).
+# the stream page, not the feed (matched as a substring: iOS collapses it)
 - extendedWaitUntil:
     visible:
-      text: ".*is offline.*"
+      text: ".*@${PRELIVE_ACCOUNT_HANDLE}.*"
     timeout: 60000
-- takeScreenshot: prelive-hidden-offline
-# A watchable stream would show its chat's "Now streaming" system message.
+# A published stream reaches player-video within this window (av1.yaml), so
+# give it the same and then require that no video frames arrived.
+- extendedWaitUntil:
+    visible:
+      id: "player-video"
+    timeout: 30000
+    optional: true
+- takeScreenshot: prelive-hidden-not-playing
 - assertNotVisible:
-    text: ".*Now streaming.*"
+    id: "player-video"

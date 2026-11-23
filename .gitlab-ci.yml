@@ -49,11 +49,12 @@ build-windows-amd64:
   id_tokens:
     WINDOWS_SIGNING_ID_TOKEN:
       aud: api://AzureADTokenExchange
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+$/'
-      variables:
-        SP_WINDOWS_SIGN: "1"
-    - when: on_success
+  before_script:
+    - |
+      if [[ ${CI_COMMIT_TAG:-} =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        test "$CI_COMMIT_REF_PROTECTED" = true || { echo "Protect the Windows release tag before signing" >&2; exit 1; }
+        export SP_WINDOWS_SIGN=1
+      fi
   variables:
     TARGET: windows-amd64
 

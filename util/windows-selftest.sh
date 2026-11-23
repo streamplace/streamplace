@@ -12,6 +12,7 @@ verify_signatures() {
         ForEach-Object {
           $sig = Get-AuthenticodeSignature -LiteralPath $_.FullName
           if ($sig.Status -ne "Valid") { throw "$($_.FullName): $($sig.StatusMessage)" }
+          if (-not $sig.TimeStamperCertificate) { throw "$($_.FullName): missing Authenticode timestamp" }
         }'
   fi
 }

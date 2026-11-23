@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/labstack/echo/v4"
 	"github.com/patrickmn/go-cache"
 	"github.com/slok/go-http-metrics/middleware"
@@ -60,6 +62,10 @@ type Server struct {
 	// generated against. Zero-valued for self-hosted.
 	live    liveCDN
 	aliases map[string]string
+	// userAuthDir resolves the DID documents user service-auth tokens are
+	// checked against; built on first use (see identityDirectory).
+	userAuthDir     identity.Directory
+	userAuthDirOnce sync.Once
 }
 
 // vodCDN returns the playlist-generation CDN settings.
@@ -109,6 +115,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	e.Use(echomiddleware.Handler("", mdlw))
 	e.Use(s.ServiceAuthMiddleware())
 	e.Use(op.OAuthMiddleware)
+	e.Use(s.UserServiceAuthMiddleware())
 	e.Use(s.AccessGateMiddleware())
 	err = s.RegisterHandlersPlacestream(e)
 	if err != nil {

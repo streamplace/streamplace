@@ -24,7 +24,7 @@
             "did": {
               "type": "string",
               "format": "did",
-              "description": "The authenticated caller, when there is one."
+              "description": "The authenticated caller, when there is one: from the DPoP session, or from an atproto service-auth token (Authorization: Bearer, aud the node's DID, lxm this method) issued by the caller's PDS."
             },
             "roles": {
               "type": "array",
@@ -53,6 +53,10 @@
             "networkMember": {
               "type": "boolean",
               "description": "Whether the caller's (or subject's) account is hosted on the network's own PDS (branding key loginPdsUrl). Absent when the node has no such PDS configured."
+            },
+            "storedSession": {
+              "type": "boolean",
+              "description": "Whether the node holds a session for the authenticated caller that it can act with on its own: what starting and stopping a livestream through service auth needs, along with the live status and auto-published VODs. Absent for an anonymous caller."
             }
           }
         }

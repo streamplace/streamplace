@@ -61,7 +61,8 @@ func accessGateExempted(path string) bool {
 // caller's DID is known. Peer nodes authenticated with the shared service
 // key pass: they are the operator's own infrastructure.
 //
-// Identity comes from the DPoP session when the call carries one, and
+// Identity comes from the DPoP session when the call carries one, then from
+// a user service-auth token (an app holding the user's own PDS session), and
 // otherwise from the viewer cookie. The client makes most of its reads
 // (live users, recommendations, segments, playback) through an anonymous
 // agent even when signed in, and the browser attaches the cookie to those
@@ -82,11 +83,17 @@ func (s *Server) AccessGateMiddleware() echo.MiddlewareFunc {
 			}
 			session, _ := oatproxy.GetOAuthSession(ctx)
 			var did string
+			fromToken := false
 			if session != nil {
 				did = session.DID
+			} else if usa := GetUserServiceAuth(ctx); usa != nil {
+				// A per-call token proves the caller; it is no browser
+				// session, so it gets no cookie either.
+				did = usa.DID
+				fromToken = true
 			}
 			allowed := did != "" && ac.Allowed(ctx, did, access.RoleViewer)
-			if allowed {
+			if allowed && !fromToken {
 				c.SetCookie(ac.ViewerCookie(did))
 			} else if did == "" {
 				if cookieDID, ok := ac.ViewerFromCookie(c.Request()); ok {
@@ -148,7 +155,15 @@ func (s *Server) handlePlaceStreamAccessGetStatus(ctx context.Context, subject s
 	var did string
 	if session, _ := oatproxy.GetOAuthSession(ctx); session != nil {
 		did = session.DID
+	} else if usa := GetUserServiceAuth(ctx); usa != nil {
+		did = usa.DID
+	}
+	if did != "" {
 		out.Did = &did
+		if s.statefulDB != nil {
+			stored := s.statefulDB.HasUserSession(did)
+			out.StoredSession = &stored
+		}
 	}
 	for _, role := range access.Roles {
 		if ac.Allowed(ctx, did, role) {

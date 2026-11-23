@@ -20,7 +20,6 @@ import (
 	glex "github.com/streamplace/glex/runtime"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/appbsky"
-	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
@@ -519,6 +518,18 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 		}
 		client = oauthClient
 		streamerDID = session.DID
+	} else if usa := GetUserServiceAuth(ctx); usa != nil {
+		// The streamer's own PDS vouched for them; write with the session
+		// the node stored when they signed in to it.
+		if usa.DID != body.Streamer {
+			return nil, echo.NewHTTPError(http.StatusForbidden, "you are not the streamer")
+		}
+		c, err := s.storedStreamerClient(ctx, usa.DID)
+		if err != nil {
+			return nil, err
+		}
+		client = c
+		streamerDID = usa.DID
 	} else {
 		svc := GetServiceAuth(ctx)
 		if svc == nil {
@@ -616,7 +627,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 	}
 
 	createPost := body.CreateBlueskyPost == nil || *body.CreateBlueskyPost
-	if createPost && !session.HasScope(atproto.ScopeBskyPostCreate) {
+	if createPost && !s.canPostAs(ctx, streamerDID, session) {
 		log.Debug(ctx, "session was not granted Bluesky post permissions, skipping go-live post", "did", streamerDID)
 		createPost = false
 	}
@@ -769,14 +780,23 @@ func (s *Server) endPriorLivestream(ctx context.Context, repoDID string, client 
 
 func (s *Server) handlePlaceStreamLiveStopLivestream(ctx context.Context, body *placestream.LiveStopLivestream_Input) (*placestream.LiveStopLivestream_Output, error) {
 	now := time.Now().UTC().Format(util.ISO8601)
-	session, _ := oatproxy.GetOAuthSession(ctx)
-
-	_, client := oatproxy.GetOAuthSession(ctx)
-	if client == nil {
+	var client statedb.UserClient
+	var repoDID string
+	if session, oauthClient := oatproxy.GetOAuthSession(ctx); session != nil && oauthClient != nil {
+		client = oauthClient
+		repoDID = session.DID
+	} else if usa := GetUserServiceAuth(ctx); usa != nil {
+		c, err := s.storedStreamerClient(ctx, usa.DID)
+		if err != nil {
+			return nil, err
+		}
+		client = c
+		repoDID = usa.DID
+	} else {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required to stop livestream")
 	}
 
-	livestream, err := s.model.GetLatestLivestreamForRepo(session.DID)
+	livestream, err := s.model.GetLatestLivestreamForRepo(repoDID)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting livestream", err)
 	}
@@ -808,7 +828,7 @@ func (s *Server) handlePlaceStreamLiveStopLivestream(ctx context.Context, body *
 	var swapRecord *string
 	getOutput := comatproto.RepoGetRecord_Output{}
 	err = client.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.getRecord", map[string]any{
-		"repo":       session.DID,
+		"repo":       repoDID,
 		"collection": "place.stream.livestream",
 		"rkey":       aturi.RecordKey().String(),
 	}, nil, &getOutput)
@@ -821,7 +841,7 @@ func (s *Server) handlePlaceStreamLiveStopLivestream(ctx context.Context, body *
 		Collection: "place.stream.livestream",
 		Record:     &glex.LexiconTypeDecoder{Val: livestreamRecord},
 		Rkey:       aturi.RecordKey().String(),
-		Repo:       session.DID,
+		Repo:       repoDID,
 		SwapRecord: swapRecord,
 	}
 	var lsOutput comatproto.RepoPutRecord_Output

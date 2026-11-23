@@ -18,7 +18,7 @@ type AccessGetStatus_Output struct {
 	ChatVerified *bool `json:"chatVerified,omitempty"`
 	// chatVerifiedOnly: Whether chat is restricted to users verified by the node's trusted verifiers (branding key chatVerifiedOnly).
 	ChatVerifiedOnly *bool `json:"chatVerifiedOnly,omitempty"`
-	// did: The authenticated caller, when there is one.
+	// did: The authenticated caller, when there is one: from the DPoP session, or from an atproto service-auth token (Authorization: Bearer, aud the node's DID, lxm this method) issued by the caller's PDS.
 	Did *string `json:"did,omitempty"`
 	// networkMember: Whether the caller's (or subject's) account is hosted on the network's own PDS (branding key loginPdsUrl). Absent when the node has no such PDS configured.
 	NetworkMember *bool                 `json:"networkMember,omitempty"`
@@ -27,6 +27,8 @@ type AccessGetStatus_Output struct {
 	Roles []string `json:"roles"`
 	// space: The node's access-control space: at://{authority}/space/place.stream.access.control/self (A space URI; not validated as a classic at-uri because the space form is newer than that grammar.)
 	Space string `json:"space"`
+	// storedSession: Whether the node holds a session for the authenticated caller that it can act with on its own: what starting and stopping a livestream through service auth needs, along with the live status and auto-published VODs. Absent for an anonymous caller.
+	StoredSession *bool `json:"storedSession,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.

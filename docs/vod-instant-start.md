@@ -22,7 +22,8 @@ sequenceDiagram
 
 `place.stream.playback.getVideoManifest?uri=<at-uri>[&start=ms][&end=ms][&sid=]`
 returns JSON (`application/json`), gated like `getVideoPlaylist` (labels, bans,
-playback session, clip bounds). The page embeds the same object.
+playback session, clip bounds), including bans on the resolved blob's track owners.
+The page embeds the same object.
 
 ```jsonc
 {
@@ -81,7 +82,7 @@ metafile segment index (`first + i`). Each group carries one frame: the segment
 bytes, identical to the HTTP range. Groups are served on demand
 (`TrackProducer.Dynamic`), read from the blob store, and logged to the view log
 as segment requests for `sid`. The `sid` is verified like the HTTP path's;
-a labelled video or banned account is refused (404).
+a labelled video, banned video owner, or banned content track owner is refused (404).
 
 ## The page
 
@@ -108,9 +109,10 @@ React replaces):
   keyframe-only fragment (`key`) and the remainder (`rest`, `tfdt` advanced),
   plus segment 0 of the first audio track. Inlined greedily as key, audio, rest
   within 512 KiB of raw media; `audio` is omitted for a video without audio.
-  Anything over the budget is `null` and the engine fetches the whole segment
-  instead; MediaSource overlap removal replaces the inlined keyframe. A gated
-  video's page gets no boot payload at all.
+  Anything over the budget is `null`. Without the keyframe or required audio data,
+  boot gives way to a fresh app engine. A missing `rest` still paints the keyframe;
+  the engine fetches the whole segment and MediaSource replaces the overlap.
+  A gated video's page gets no boot payload at all.
 - No starter (only the manifest and boot script) when the page has a `?t=`, the
   video is a clip that does not start at segment 0's start, or the video is gated.
 - `vod-boot.js` opens a `MediaSource` on the `<video>`, appends the inits and the
@@ -118,7 +120,7 @@ React replaces):
   and, from the first frame's `requestVideoFrameCallback`, imports
   `vod-engine-<hash>.js` (its URL in `data-engine` on `#sp-vod-boot`), which
   continues playback and stores itself at `window.__spVod`.
-- Both scripts are built by `js/app/scripts/build-vod.mjs` (esbuild, run by
+- Both scripts are built by `js/app/scripts/bundle-vod.mjs` (esbuild, run by
   `pnpm run export`) into `dist/_expo/static/js/web/`, so they share the app's
   immutable caching. `dist/_expo/static/js/web/vod-boot.json` names them for the
   node: `{"boot": "<inline script source>", "engine": "/_expo/static/js/web/vod-engine-<hash>.js"}`.

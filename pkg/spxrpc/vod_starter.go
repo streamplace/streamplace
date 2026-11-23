@@ -34,14 +34,21 @@ type vodPartsCache struct {
 func (s *Server) videoParts(ctx context.Context, cid string) (*vodParts, error) {
 	cache := &s.vodCache
 	cache.mu.Lock()
+	if el := cache.entries[cid]; el != nil {
+		cache.lru.MoveToFront(el)
+		cache.mu.Unlock()
+		return el.Value.(*vodParts), nil
+	}
+	cache.mu.Unlock()
+	meta, err := s.fetchMetafile(ctx, cid)
+	if err != nil {
+		return nil, err
+	}
+	cache.mu.Lock()
 	defer cache.mu.Unlock()
 	if el := cache.entries[cid]; el != nil {
 		cache.lru.MoveToFront(el)
 		return el.Value.(*vodParts), nil
-	}
-	meta, err := s.fetchMetafile(ctx, cid)
-	if err != nil {
-		return nil, err
 	}
 	parts := &vodParts{cid: cid, meta: meta}
 	if cache.entries == nil {

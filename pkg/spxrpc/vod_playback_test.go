@@ -100,4 +100,22 @@ func TestVideoManifestPlayback(t *testing.T) {
 	putLabel(t, m, fixtureDID, atproto.LabelTakedown)
 	_, c = request(clipURI)
 	require.Equal(t, http.StatusForbidden, requireHTTPError(t, s.HandleGetVideoManifest(c)).Code)
+
+	t.Run("clip of banned content owner", func(t *testing.T) {
+		const clipperDID = "did:plc:other"
+		const otherClipURI = "at://" + clipperDID + "/place.stream.video/clip"
+		require.NoError(t, m.UpsertVideo(ctx, placestream.Video{Source: placestream.Video_Source{MediaDefs_SourceClip: &placestream.MediaDefs_SourceClip{Video: fixtureURI, Start: 0, End: 2000}}}, parse(otherClipURI)))
+		banned, err := s.accountBanned(clipperDID)
+		require.NoError(t, err)
+		require.False(t, banned)
+		_, sid := psession.Mint(key, clipperDID, psession.ScopePublic, time.Hour, time.Now())
+		served, err := s.ResolveServableVideo(ctx, clipperDID, "clip", sid)
+		require.Equal(t, http.StatusForbidden, requireHTTPError(t, err).Code)
+		require.Nil(t, served)
+		_, c := request(otherClipURI)
+		require.Equal(t, http.StatusForbidden, requireHTTPError(t, s.HandleGetVideoManifest(c)).Code)
+		boot, err := s.VideoBootPayload(httptest.NewRequest(http.MethodGet, "/video", nil), otherClipURI, false)
+		require.Equal(t, http.StatusForbidden, requireHTTPError(t, err).Code)
+		require.Nil(t, boot)
+	})
 }

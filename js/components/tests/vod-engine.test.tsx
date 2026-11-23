@@ -1,5 +1,8 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { VodEngine } from "../src/components/mobile-player/vod-engine/engine";
+import {
+  VodEngine,
+  type VodGlobals,
+} from "../src/components/mobile-player/vod-engine/engine";
 import {
   decodeTime,
   type Manifest,
@@ -158,6 +161,8 @@ let engine: VodEngine | undefined;
 afterEach(() => {
   engine?.destroy();
   vi.unstubAllGlobals();
+  delete (window as Window & VodGlobals).__spVodBoot;
+  document.body.replaceChildren();
 });
 
 it("appends segments at their manifest start, 30 s ahead, after the boot's", async () => {
@@ -204,3 +209,38 @@ it("switches a pinned level after the playing segment, init first", async () => 
   expect(engine.level).toBe(1);
   expect(switched).toHaveBeenCalled();
 });
+
+it.each([
+  undefined,
+  { track: "a", data: null },
+  { track: "other", data: "YXVkaW8=" },
+])(
+  "gives boot back to React when required audio is missing (%j)",
+  async (audio) => {
+    vi.resetModules();
+    const MS = vi.fn();
+    Object.assign(MS, { isTypeSupported: () => true });
+    vi.stubGlobal("MediaSource", MS);
+    const manifest: Manifest = {
+      uri: "at://did:plc:a/place.stream.video/r",
+      sid: "s",
+      durationMs: 2000,
+      tracks: [track("v0", "video", 240), track("a", "audio")],
+      sources: [{ type: "http" }],
+    };
+    document.body.innerHTML = `
+    <div id="sp-vod-boot"><video></video></div>
+    <script id="sp-vod-manifest" type="application/json">${JSON.stringify(manifest)}</script>
+    <script id="sp-vod-starter" type="application/json">${JSON.stringify({
+      video: { track: "v0", key: "a2V5", rest: null },
+      audio,
+    })}</script>`;
+    // Re-run the inline entrypoint against this page's globals, not at module load.
+    await import("../src/components/mobile-player/vod-engine/boot");
+    const boot = (window as Window & VodGlobals).__spVodBoot;
+    expect(boot).toBeDefined();
+    expect(await boot).toBeUndefined();
+    expect(document.getElementById("sp-vod-boot")).toBeNull();
+    expect(MS).not.toHaveBeenCalled();
+  },
+);

@@ -75,6 +75,9 @@ func (s *Server) resolvePlaybackRequest(c echo.Context, redirect bool) (*videoPl
 	if err != nil {
 		return nil, err
 	}
+	if err := s.gateVideoBlob(ctx, resolved.blobCID); err != nil {
+		return nil, err
+	}
 	meta, err := s.cachedMetafile(ctx, resolved.blobCID)
 	if err != nil {
 		return nil, err
@@ -101,6 +104,9 @@ func (s *Server) ResolveServableVideo(ctx context.Context, did, rkey, sid string
 	}
 	resolved, err := s.resolveVideoBlob(ctx, aturi.String())
 	if err != nil {
+		return nil, err
+	}
+	if err := s.gateVideoBlob(ctx, resolved.blobCID); err != nil {
 		return nil, err
 	}
 	meta, err := s.cachedMetafile(ctx, resolved.blobCID)

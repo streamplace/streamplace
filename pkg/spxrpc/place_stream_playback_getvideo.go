@@ -89,26 +89,8 @@ func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 	}
 	did := parsedDID.String()
 
-	// Labeler enforcement. If this CID is a known content blob, gate it on
-	// its content owners — the track owners — not on the requesting `did`.
-	// The blob is content-addressed and shared: a clip of another user's
-	// video references the same blob with the clipper's did, which doesn't
-	// own a track. So `did` is for egress accounting only; if any of the
-	// blob's track owners is banned, the content is unavailable. (A clip's
-	// own labels/ban are enforced at getVideoPlaylist, the playback entry
-	// point.) CIDs with no MediaTrack — per-track init segments, or simply
-	// unknown CIDs — serve unguarded.
-	tracks, err := s.model.GetMediaTracksByBlob(ctx, cid)
-	if err != nil {
-		log.Error(ctx, "playback: GetMediaTracksByBlob failed", "cid", cid, "error", err)
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	for _, t := range tracks {
-		if banned, err := s.accountBanned(t.RepoDID); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		} else if banned {
-			return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
-		}
+	if err := s.gateVideoBlob(ctx, cid); err != nil {
+		return err
 	}
 
 	if s.playbackStore == nil {
@@ -127,6 +109,24 @@ func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 	rangeStart, rangeEnd := parseRangeForLog(c.Request().Header.Get("Range"), r.Size())
 	s.logSegmentRequest(c, cid, did, s.accountedSession(ctx, c.QueryParam("sid"), did, sessionClient(c)), rangeStart, rangeEnd)
 	return serveBlobRange(c, r, "video/mp4")
+}
+
+// Gate shared content on its track owners, not the clipper or requesting DID.
+// Init segments and unknown CIDs have no tracks and serve unguarded.
+func (s *Server) gateVideoBlob(ctx context.Context, cid string) error {
+	tracks, err := s.model.GetMediaTracksByBlob(ctx, cid)
+	if err != nil {
+		log.Error(ctx, "playback: GetMediaTracksByBlob failed", "cid", cid, "error", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	for _, t := range tracks {
+		if banned, err := s.accountBanned(t.RepoDID); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		} else if banned {
+			return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
+		}
+	}
+	return nil
 }
 
 // parseRangeForLog is the lenient counterpart of parseSingleRange used

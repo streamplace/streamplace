@@ -33,11 +33,16 @@ async function boot(root: HTMLElement): Promise<VodEngine | undefined> {
   } = playable(manifest);
   const tracks = ta ? [tv, ta] : [tv];
   const key = starter?.video.track === tv.id && starter.video.key;
-  if (!MS || !key || !tracks.every((t) => MS.isTypeSupported(mime(t)))) {
+  const audio = ta && starter?.audio?.track === ta.id && starter.audio.data;
+  if (
+    !MS ||
+    !key ||
+    (ta && !audio) ||
+    !tracks.every((t) => MS.isTypeSupported(mime(t)))
+  ) {
     return;
   }
   const rest = starter.video.rest;
-  const audio = ta && starter.audio?.track === ta.id && starter.audio.data;
 
   // The body's var(--bootstrap-background) color, without inlining the theme.
   root.style.cssText =

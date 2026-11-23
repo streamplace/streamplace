@@ -2,9 +2,15 @@ package notifications
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	firebase "firebase.google.com/go/v4"
+	"firebase.google.com/go/v4/messaging"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/api/option"
 )
 
 var fakeServiceAccount = `
@@ -26,4 +32,52 @@ var fakeServiceAccount = `
 func TestFirebaseNotifier(t *testing.T) {
 	_, err := MakeFirebaseNotifier(context.Background(), fakeServiceAccount)
 	require.NoError(t, err)
+}
+
+func TestFirebasePushDelivery(t *testing.T) {
+	type message struct {
+		Token        string                  `json:"token"`
+		Notification messaging.Notification  `json:"notification"`
+		Data         map[string]string       `json:"data"`
+		Android      messaging.AndroidConfig `json:"android"`
+		APNS         messaging.APNSConfig    `json:"apns"`
+	}
+	type delivery struct {
+		message message
+		err     error
+	}
+	inbox := make(chan delivery, 2)
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Message message `json:"message"`
+		}
+		err := json.NewDecoder(r.Body).Decode(&body)
+		inbox <- delivery{message: body.Message, err: err}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"name":"projects/test/messages/1"}`))
+	}))
+	t.Cleanup(gateway.Close)
+
+	app, err := firebase.NewApp(t.Context(), &firebase.Config{ProjectID: "test"},
+		option.WithEndpoint(gateway.URL), option.WithHTTPClient(gateway.Client()))
+	require.NoError(t, err)
+	notifier := &FirebaseNotifierS{app: app}
+	blast := &NotificationBlast{
+		Title: "First livestream from @streamer.test",
+		Body:  "Debut",
+		Data:  map[string]string{"path": "/streamer.test"},
+	}
+	require.NoError(t, notifier.Blast(t.Context(), []NotificationTarget{
+		{Token: "native-device", Type: NotificationTypeFirebase},
+		{Token: "web-subscription", Type: NotificationTypeWeb},
+	}, blast))
+	require.Len(t, inbox, 1)
+	got := <-inbox
+	require.NoError(t, got.err)
+	require.Equal(t, "native-device", got.message.Token)
+	require.Equal(t, blast.Title, got.message.Notification.Title)
+	require.Equal(t, blast.Body, got.message.Notification.Body)
+	require.Equal(t, blast.Data, got.message.Data)
+	require.Equal(t, "default", got.message.Android.Notification.Sound)
+	require.Equal(t, "default", got.message.APNS.Payload.Aps.Sound)
 }

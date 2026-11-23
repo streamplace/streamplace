@@ -172,6 +172,13 @@ export const test = base.extend<{ desktop: Desktop }>({
         nodeURL,
         page,
         restart: async () => {
+          // Playwright never sees a relaunched Electron window that starts
+          // with a registered service worker (Desktop itself loads fine).
+          await app?.windows()[0]?.evaluate(async () => {
+            for (const r of await navigator.serviceWorker.getRegistrations()) {
+              await r.unregister();
+            }
+          });
           await stop();
           return launch();
         },

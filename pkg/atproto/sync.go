@@ -548,6 +548,16 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			ls.PostCID = rec.Post.Cid
 			ls.PostURI = rec.Post.Uri
 		}
+		allowedLiveEvent := !isFirstSync && atsync.CLI.StreamIsAllowed(userDID) == nil
+		firstLivestream := false
+		if allowedLiveEvent && !isUpdate && len(atsync.CLI.AdminDIDs) > 0 && atsync.Noter != nil && atsync.StatefulDB != nil {
+			exists, err := atsync.Model.HasLivestreamForRepo(ctx, userDID)
+			if err != nil {
+				log.Warn(ctx, "failed to check livestream history for admin push", "err", err)
+			} else {
+				firstLivestream = !exists
+			}
+		}
 		// Whether this version is the node seeing the livestream end: the
 		// version it had indexed, if any, had not ended. Read before indexing
 		// replaces it.
@@ -576,6 +586,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to create livestream: %w", err)
 		}
+		if firstLivestream {
+			go atsync.notifyFirstLivestream(ctx, userDID, r.Handle, rec.Title)
+		}
 		lsHydrated, err := atsync.Model.GetLatestLivestreamForRepo(userDID)
 		if err != nil {
 			return fmt.Errorf("failed to get latest livestream for repo: %w", err)
@@ -587,11 +600,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		atsync.DecorateAuthorProfile(ctx, &lsv.Author)
 		go atsync.Bus.Publish(userDID, lsv)
 
-		if !isFirstSync {
-			if atsync.CLI.StreamIsAllowed(userDID) != nil {
-				// they're live somewhere but they don't have nothin' to do with us
-				return nil
-			}
+		if allowedLiveEvent {
 			if seenEnding {
 				if atsync.LivestreamEnded != nil {
 					atsync.LivestreamEnded(context.WithoutCancel(ctx), userDID)
@@ -1177,6 +1186,30 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 	return nil
 }
 
+func (atsync *ATProtoSynchronizer) notifyFirstLivestream(ctx context.Context, did, handle, title string) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	ctx = log.WithLogValues(ctx, "notification", "first livestream")
+	rows, err := atsync.StatefulDB.GetManyAuthenticatedNotifications(atsync.CLI.AdminDIDs)
+	if err != nil {
+		log.Error(ctx, "failed to load admin push subscriptions", "err", err)
+		return
+	}
+	if len(rows) == 0 {
+		return
+	}
+	user := model.HandleOrDID(handle, did)
+	name := user
+	if model.IsUsableHandle(handle) {
+		name = "@" + user
+	}
+	atsync.blastPush(ctx, rows, &notificationpkg.NotificationBlast{
+		Title: "First livestream from " + name,
+		Body:  title,
+		Data:  map[string]string{"path": "/" + user},
+	})
+}
+
 // notifyBetaInvite pushes a "you're off the waitlist" notification to the
 // account named by a freshly-issued, trusted beta invite. Best-effort: any
 // failure is logged, never returned, since the invite is already indexed and
@@ -1185,29 +1218,33 @@ func (atsync *ATProtoSynchronizer) notifyBetaInvite(ctx context.Context, rec *pl
 	if atsync.Noter == nil || atsync.StatefulDB == nil {
 		return
 	}
-	notifications, err := atsync.StatefulDB.GetManyNotifications([]string{rec.Did})
+	ctx = log.WithLogValues(ctx, "notification", "beta invite", "did", rec.Did, "feature", rec.Feature)
+	rows, err := atsync.StatefulDB.GetManyNotifications([]string{rec.Did})
 	if err != nil {
-		log.Error(ctx, "beta invite notification: failed to load tokens", "did", rec.Did, "err", err)
+		log.Error(ctx, "failed to load push subscriptions", "err", err)
 		return
 	}
+	atsync.blastPush(ctx, rows, betaInviteBlast(rec.Feature))
+}
+
+func (atsync *ATProtoSynchronizer) blastPush(ctx context.Context, notifications []statedb.Notification, blast *notificationpkg.NotificationBlast) {
 	if len(notifications) == 0 {
-		log.Debug(ctx, "beta invite notification: no device tokens for invitee", "did", rec.Did, "feature", rec.Feature)
 		return
 	}
-	blast := betaInviteBlast(rec.Feature)
 	targets := make([]notificationpkg.NotificationTarget, len(notifications))
 	for i, n := range notifications {
 		targets[i] = notificationpkg.NotificationTarget{Token: n.Token, Type: n.Type}
 	}
-	if err := atsync.Noter.Blast(ctx, targets, blast); err != nil {
-		log.Error(ctx, "beta invite notification: blast failed", "did", rec.Did, "feature", rec.Feature, "err", err)
+	err := atsync.Noter.Blast(ctx, targets, blast)
+	if err != nil {
+		log.Error(ctx, "push notification delivery failed", "err", err)
 	} else {
-		log.Log(ctx, "sent beta invite notification", "did", rec.Did, "feature", rec.Feature, "tokens", len(notifications))
+		log.Log(ctx, "sent push notification", "tokens", len(notifications))
 	}
 	// Prune dead web push subscriptions so they don't accumulate.
 	for _, token := range notificationpkg.ExpiredTokens(err) {
 		if delErr := atsync.StatefulDB.DeleteNotification(token); delErr != nil {
-			log.Error(ctx, "beta invite notification: failed to prune expired", "token", token, "err", delErr)
+			log.Error(ctx, "failed to prune expired push subscription", "err", delErr)
 		}
 	}
 }

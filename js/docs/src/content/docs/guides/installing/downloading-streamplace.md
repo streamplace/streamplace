@@ -54,6 +54,12 @@ SP_TLS_CERT=/tls/tls.crt
 SP_TLS_KEY=/tls/tls.key
 ```
 
+Accounts in `SP_ADMIN_DIDS` get a push when the station indexes an allowed
+streamer's first new `place.stream.livestream` record. Indexing historical
+records does not send alerts. Admins must sign in to the station and enable
+push notifications on the device they want to receive alerts on. Native
+delivery requires the station's Firebase service account to be configured.
+
 Set `SP_ATPROTO_DID=did:plc:...` (or `--atproto-did`) to override the DID returned
 by `/.well-known/atproto-did` on all node hosts, including the broadcaster host
 in a multi-node cluster. Without an override, discovery returns the host-specific

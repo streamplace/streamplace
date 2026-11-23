@@ -163,50 +163,31 @@ export const createPlatformSlice: StateCreator<
     }
   },
   registerNotificationToken: async () => {
+    const { url, notificationToken: token, oauthSession } = get();
+    if (!url || !token) return;
+
     try {
-      // Ensure configured base URL is present
-      if (typeof process.env.EXPO_PUBLIC_STREAMPLACE_URL !== "string") {
-        console.log("process.env.EXPO_PUBLIC_STREAMPLACE_URL undefined!");
-        return;
-      }
-
-      // The store is flat (slices are spread, not namespaced), so read these
-      // directly off get(). The previous get().platform / get().bluesky access
-      // was always undefined, which meant token was undefined and this threw
-      // before ever registering anything.
-      const { notificationToken, oauthSession } = get();
-
-      const token = notificationToken;
-      if (!token) {
-        console.log("No notification token to register yet");
-        return;
-      }
-
-      const body: { token: string; type: string; repoDID?: string } = {
-        token,
-        type: "firebase",
+      // A session can still point at the previous station after settings change.
+      const session =
+        oauthSession &&
+        new URL((await oauthSession.getTokenInfo()).aud).origin ===
+          new URL(url).origin
+          ? oauthSession
+          : null;
+      const path = "/api/notification";
+      const init: RequestInit = {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token,
+          type: "firebase",
+          repoDID: session?.did,
+        }),
       };
-
-      const did = oauthSession?.did;
-      if (did) {
-        body.repoDID = did;
-      }
-
-      try {
-        const res = await fetch(
-          `${process.env.EXPO_PUBLIC_STREAMPLACE_URL}/api/notification`,
-          {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-            },
-            body: JSON.stringify(body),
-          },
-        );
-        console.log("registerNotificationToken status:", res.status);
-      } catch (e) {
-        console.log("Error registering notification token:", e);
-      }
+      const res = session
+        ? await session.fetchHandler(path, init)
+        : await fetch(`${url}${path}`, init);
+      console.log("registerNotificationToken status:", res.status);
     } catch (e) {
       console.error("registerNotificationToken error", e);
     }

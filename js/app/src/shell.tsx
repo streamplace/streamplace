@@ -49,11 +49,7 @@ import "src/navigation-types";
 import HomeScreen from "src/screens/home";
 
 import { useStore } from "store";
-import {
-  useHydrated,
-  useNotificationDestination,
-  useNotificationToken,
-} from "store/hooks";
+import { useHydrated, useNotificationDestination } from "store/hooks";
 import {
   AvatarButton,
   LGAvatarButton,
@@ -769,8 +765,12 @@ export default function Shell() {
     initPushNotifications();
   }, []);
 
-  const notificationToken = useNotificationToken();
+  const nativeNotificationToken = useStore((state) =>
+    isNative ? state.notificationToken : null,
+  );
   const did = useStore((state) => state.oauthSession?.did);
+  const issuer = useStore((state) => state.oauthSession?.serverMetadata.issuer);
+  const stationUrl = useStore((state) => state.url);
   const hydrated = useHydrated();
 
   // Two more things the first frame waits for (bounded by the same timeout):
@@ -786,15 +786,19 @@ export default function Shell() {
     const handle = setTimeout(() => setBootTimedOut(true), 6000);
     return () => clearTimeout(handle);
   }, []);
-  // Re-register when the token changes OR once the logged-in DID resolves, so a
-  // token acquired before the OAuth session finishes restoring still gets its
-  // repoDID association registered (otherwise the user is excluded from
-  // follower livestream notifications).
+  // Web subscriptions register during enable or restore, not on token change.
   useEffect(() => {
-    if (notificationToken) {
-      registerNotificationToken();
+    if (isNative ? nativeNotificationToken : did) {
+      void registerNotificationToken();
     }
-  }, [notificationToken, did]);
+  }, [
+    nativeNotificationToken,
+    isNative,
+    did,
+    issuer,
+    stationUrl,
+    registerNotificationToken,
+  ]);
 
   // Handle incoming push notification routing
   const notificationDestination = useNotificationDestination();

@@ -66,6 +66,7 @@ type Model interface {
 
 	CreateLivestream(ctx context.Context, ls *Livestream) error
 	GetLivestream(uri string) (*Livestream, error)
+	HasLivestreamForRepo(ctx context.Context, repoDID string) (bool, error)
 	GetLatestLivestreamForRepo(repoDID string) (*Livestream, error)
 	GetLivestreamByPostURI(postURI string) (*Livestream, error)
 	GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]Livestream, error)

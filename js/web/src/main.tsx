@@ -64,6 +64,13 @@ function AuthShell() {
   const showPdsModal = useStore((s) => s.showPdsModal);
   const closePdsModal = useStore((s) => s.closePdsModal);
   const { signIn } = useSession();
+  const did = useStore((s) => s.oauthSession?.did);
+  const issuer = useStore((s) => s.oauthSession?.serverMetadata.issuer);
+  const stationUrl = useStore((s) => s.url);
+  const initialized = useStore((s) => s.initialized);
+  const registerNotificationToken = useStore(
+    (s) => s.registerNotificationToken,
+  );
 
   // Register the push service worker early (on mount) so pushes
   // delivered while the tab is backgrounded still surface as system
@@ -72,6 +79,13 @@ function AuthShell() {
   useEffect(() => {
     void useStore.getState().initPushNotifications();
   }, []);
+
+  // If the subscription restored before OAuth, register it when OAuth resolves.
+  useEffect(() => {
+    if (initialized && did) {
+      void registerNotificationToken();
+    }
+  }, [initialized, did, issuer, stationUrl, registerNotificationToken]);
 
   return (
     <>

@@ -31,6 +31,33 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return output;
 }
 
+async function postWebSubscription(
+  url: string,
+  token: string,
+  oauthSession: AppStore["oauthSession"],
+  mode: "signed-only" | "allow-anonymous",
+) {
+  // Relative OAuth requests are resolved against the token's audience.
+  const session =
+    oauthSession &&
+    new URL((await oauthSession.getTokenInfo()).aud).origin ===
+      new URL(url).origin
+      ? oauthSession
+      : null;
+  if (!session && mode === "signed-only") return;
+
+  const path = "/api/notification";
+  const init: RequestInit = {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token, type: "web", repoDID: session?.did }),
+  };
+  const res = session
+    ? await session.fetchHandler(path, init)
+    : await fetch(`${url}${path}`, init);
+  if (!res.ok) throw new Error(`server registration failed: ${res.status}`);
+}
+
 export const createPlatformSlice: StateCreator<
   AppStore,
   [],
@@ -77,17 +104,27 @@ export const createPlatformSlice: StateCreator<
       // is re-acquired on startup.
       const reg = await navigator.serviceWorker.ready;
       const existing = await reg.pushManager.getSubscription();
-      if (existing) {
+      if (existing && !get().notificationToken) {
         set({ notificationToken: JSON.stringify(existing) });
+        await get().registerNotificationToken();
       }
     } catch (e) {
       console.log("service worker registration failed", e);
     }
   },
   registerNotificationToken: async () => {
-    // On web, token registration is driven by enableWebNotifications (which
-    // subscribes and posts the subscription). This no-op keeps the shared
-    // shell effect happy without double-registering.
+    const { url, notificationToken, oauthSession } = get();
+    if (!url || !notificationToken || !oauthSession) return;
+    try {
+      await postWebSubscription(
+        url,
+        notificationToken,
+        oauthSession,
+        "signed-only",
+      );
+    } catch (error) {
+      console.error("registerNotificationToken error", error);
+    }
   },
   enableWebNotifications: async () => {
     const url = get().url;
@@ -118,30 +155,14 @@ export const createPlatformSlice: StateCreator<
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
       });
-      const subJSON = JSON.stringify(subscription);
-
-      // Register the subscription with the backend. Only commit the token to
-      // the store after a confirmed successful POST — otherwise the toggle
-      // shows "on" while the server has no subscription row, and the user
-      // believes they're subscribed when they aren't.
-      const { oauthSession } = get();
-      const body: { token: string; type: string; repoDID?: string } = {
-        token: subJSON,
-        type: "web",
-      };
-      if (oauthSession?.did) {
-        body.repoDID = oauthSession.did;
-      }
-      const res = await fetch(`${url}/api/notification`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        throw new Error(`server registration failed: ${res.status}`);
-      }
-      set({ notificationToken: subJSON });
-      console.log("web notification registration status:", res.status);
+      const token = JSON.stringify(subscription);
+      await postWebSubscription(
+        url,
+        token,
+        get().oauthSession,
+        "allow-anonymous",
+      );
+      set({ notificationToken: token });
       return permission;
     } catch (e) {
       console.error("enableWebNotifications error", e);

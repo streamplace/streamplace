@@ -72,6 +72,12 @@ func (m *DBModel) GetLivestream(uri string) (*Livestream, error) {
 	return &livestream, nil
 }
 
+func (m *DBModel) HasLivestreamForRepo(ctx context.Context, repoDID string) (bool, error) {
+	var found int
+	err := m.DB.WithContext(ctx).Model(&Livestream{}).Select("1").Where("repo_did = ?", repoDID).Limit(1).Scan(&found).Error
+	return found != 0, err
+}
+
 // GetLatestLivestreamForRepo returns the most recent livestream for a given repo DID
 func (m *DBModel) GetLatestLivestreamForRepo(repoDID string) (*Livestream, error) {
 	var livestream Livestream

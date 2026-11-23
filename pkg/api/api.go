@@ -204,7 +204,8 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("GET", "/.well-known/apple-app-site-association", a.HandleAppleAppSiteAssociation(ctx))
 	router.Handler("GET", "/.well-known/assetlinks.json", a.HandleAndroidAssetLinks(ctx))
 	apiRouter := httprouter.New()
-	addFunc(apiRouter, "POST", "/api/notification", a.HandleNotification(ctx))
+	a.op.Echo.POST("/api/notification", echo.WrapHandler(a.HandleNotification(ctx)), a.op.OAuthMiddleware)
+	addFunc(apiRouter, "POST", "/api/notification", a.op.Handler().ServeHTTP)
 	addFunc(apiRouter, "DELETE", "/api/notification", a.HandleNotificationDelete(ctx))
 	addFunc(apiRouter, "GET", "/api/notification/vapid-public-key", a.HandleVapidPublicKey(ctx))
 	// old clients
@@ -697,7 +698,12 @@ func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFun
 			w.WriteHeader(400)
 			return
 		}
-		err = a.StatefulDB.CreateNotification(n.Token, n.RepoDID, statedb.NotificationType(n.Type))
+		if session, _ := oatproxy.GetOAuthSession(req.Context()); session != nil {
+			n.RepoDID = session.DID
+			err = a.StatefulDB.CreateAuthenticatedNotification(n.Token, n.RepoDID, statedb.NotificationType(n.Type))
+		} else {
+			err = a.StatefulDB.CreateNotification(n.Token, n.RepoDID, statedb.NotificationType(n.Type))
+		}
 		if err != nil {
 			log.Log(ctx, "error creating notification", "error", err)
 			w.WriteHeader(400)

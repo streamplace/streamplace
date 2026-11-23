@@ -145,7 +145,8 @@ func (s *Server) storedStreamerClient(ctx context.Context, did string) (statedb.
 	}
 	client, err := s.statefulDB.UserXrpcClient(ctx, did)
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting streamer client", err)
+		log.Error(ctx, "could not act for the streamer with the node's session", "did", did, "err", err)
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting streamer client: "+err.Error())
 	}
 	return client, nil
 }

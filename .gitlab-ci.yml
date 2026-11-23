@@ -46,6 +46,14 @@ build-linux-arm64:
 build-windows-amd64:
   extends:
     - .build
+  id_tokens:
+    WINDOWS_SIGNING_ID_TOKEN:
+      aud: api://AzureADTokenExchange
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+$/'
+      variables:
+        SP_WINDOWS_SIGN: "1"
+    - when: on_success
   variables:
     TARGET: windows-amd64
 

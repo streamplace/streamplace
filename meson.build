@@ -412,13 +412,30 @@ if get_option('default_library') == 'static'
   endif
 
   if host_machine.system() == 'windows'
+    prog_bash = find_program('bash', native: true)
     prog_zip = find_program('zip')
     archive_name = 'streamplace-' + version + '-' + GOOS + '-' + GOARCH + '.zip'
     custom_target(
       'archive',
       input: [streamplace],
       output: ['streamplace.zip'],
-      command: [prog_zip, '../bin/' + archive_name, '@INPUT@'],
+      # Desktop consumes the same linker output. Sign it before archiving
+      # so both distributions get the same executable.
+      command: [
+        prog_bash, '-ec', '''
+          signer="$1"
+          zip="$2"
+          archive="$3"
+          binary="$4"
+          if [ "${SP_WINDOWS_SIGN:-0}" = 1 ]; then
+            bash "$signer" "$binary"
+          fi
+          rm -f "$archive"
+          exec "$zip" "$archive" "$binary"
+        ''',
+        'archive', meson.project_source_root() / 'hack/sign-windows.sh',
+        prog_zip, '../bin/' + archive_name, '@INPUT@',
+      ],
       install: true,
       install_dir: './bin',
       build_by_default: false,

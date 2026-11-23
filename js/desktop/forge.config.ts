@@ -20,6 +20,12 @@ import { mainConfig } from "./webpack.main.config";
 import { rendererConfig } from "./webpack.renderer.config";
 
 export default async function () {
+  const signWindows = process.env.SP_WINDOWS_SIGN === "1";
+  const windowsSigningHelper = path.join(__dirname, "sign-windows.py");
+  const windowsSetupIcon = path.resolve(
+    __dirname,
+    "assets/images/streamplace-logo.ico",
+  );
   // go get the version from the actual script
   const gitVersion = child_process
     .execSync("go run ../../pkg/config/git/git.go -v")
@@ -117,6 +123,13 @@ export default async function () {
         return packageJson;
       },
       postPackage: async (_config, packageResult) => {
+        if (signWindows && packageResult.platform === "win32") {
+          child_process.execFileSync(
+            "python3",
+            [windowsSigningHelper, "package", ...packageResult.outputPaths],
+            { stdio: "inherit" },
+          );
+        }
         // macOS uses the built-in osxSign/osxNotarize above. Elsewhere (the
         // builder container) sign each .app with rcodesign so fuses, signing,
         // and notarization all still happen before the makers run.
@@ -141,13 +154,59 @@ export default async function () {
           }
         }
       },
+      postMake: async (_config, makeResults) => {
+        if (!signWindows) {
+          return makeResults;
+        }
+        const vendor = path.join(
+          path.dirname(
+            require.resolve("electron-winstaller/package.json", {
+              paths: [require.resolve("@electron-forge/maker-squirrel")],
+            }),
+          ),
+          "vendor",
+        );
+        for (const result of makeResults) {
+          if (result.platform !== "win32") {
+            continue;
+          }
+          const fullPackage = result.artifacts.find((artifact) =>
+            artifact.endsWith("-full.nupkg"),
+          );
+          const setup = result.artifacts.find((artifact) =>
+            artifact.endsWith(".exe"),
+          );
+          if (!setup || !fullPackage) {
+            throw new Error(
+              "Squirrel output is missing Setup.exe or full.nupkg",
+            );
+          }
+          // Squirrel-Mono skips signing its generated executables.
+          child_process.execFileSync(
+            "python3",
+            [
+              windowsSigningHelper,
+              "squirrel",
+              fullPackage,
+              setup,
+              vendor,
+              windowsSetupIcon,
+            ],
+            { stdio: "inherit" },
+          );
+        }
+        return makeResults;
+      },
     },
     rebuildConfig: {},
     makers: [
       new MakerSquirrel({
         iconUrl:
           "https://git.stream.place/-/project/1/uploads/2e5899ffd2b4799ce661cf9b8675e610/streamplace-logo-256.ico",
-        setupIcon: "./assets/images/streamplace-logo.ico",
+        setupIcon: windowsSetupIcon,
+        // Finalization changes the full package bytes. Never publish an
+        // upstream delta computed from the unsigned package.
+        ...(signWindows ? { noDelta: true } : {}),
       }),
       // @electron-forge/maker-dmg requires hdiutil, so non-macOS hosts build
       // the DMG from the signed bundle with hack/make-dmg.sh instead.

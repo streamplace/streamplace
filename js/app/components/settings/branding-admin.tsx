@@ -21,9 +21,9 @@ import {
 import { fontFamilies } from "@streamplace/components/src/lib/theme/tokens";
 import {
   LOGIN_METHODS,
-  parseLoginMethods,
   useBrandingAsset,
   useFetchBranding,
+  useLoginMethods,
   useSidebarBackgroundImage,
 } from "@streamplace/components/src/streamplace-store/branding";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
@@ -63,6 +63,12 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+// The login form's sign-in options (pkg/branding vocab).
+const SIGN_IN_TEXT_KEYS: { key: string; placeholder: string }[] = [
+  { key: "loginEntryway", placeholder: "https://streamplace.com" },
+  { key: "walletConnectProjectId", placeholder: "WalletConnect project ID" },
+];
+
 // The link-card templates (pkg/branding vocab): {site} is cardSiteName over
 // the site title; {name} and {handle} the account a page is about. The
 // placeholders show each template's default.
@@ -98,6 +104,7 @@ export function BrandingAdmin() {
   const { theme } = useTheme();
   const agent = usePDSAgent();
   const fetchBranding = useFetchBranding();
+  const enabledMethods = useLoginMethods();
   const toast = useToast();
   const currentBroadcasterDID = useStreamplaceStore((s) => s.broadcasterDID);
 
@@ -342,6 +349,8 @@ export function BrandingAdmin() {
         case "networkName":
         case "networkProfileUrl":
         case "loginPlaceholder":
+        case "loginEntryway":
+        case "walletConnectProjectId":
         case "cardSiteName":
         case "cardLiveTitle":
         case "cardHomeTitle":
@@ -352,7 +361,9 @@ export function BrandingAdmin() {
         case "cardGoLiveTitle":
         case "cardGoLiveDescription":
         case "chatLayout":
-          setChromeInputs((prev) => ({ ...prev, [key]: "" }));
+          // drop the edit, so the field shows its fallback (mostly the saved
+          // value) again
+          setChromeInputs(({ [key]: _saved, ...rest }) => rest);
           break;
         case "defaultStreamer":
           setDefaultStreamer("");
@@ -1152,37 +1163,110 @@ export function BrandingAdmin() {
                     <Text size="sm" weight="semibold">
                       {t("branding-sign-in")}
                     </Text>
-                    {LOGIN_METHODS.map((method) => {
-                      const enabled = parseLoginMethods(
-                        brandingValue("loginMethods"),
-                      );
-                      return (
-                        <Checkbox
-                          key={method}
-                          testID={`branding-login-method-${method}`}
-                          label={t(`branding-login-method-${method}`)}
-                          checked={enabled.includes(method)}
-                          disabled={uploading || savingMethods}
-                          onCheckedChange={async (on) => {
-                            const next = LOGIN_METHODS.filter((m) =>
-                              m === method ? on : enabled.includes(m),
-                            );
-                            setSavingMethods(true);
-                            try {
-                              await (next.length
-                                ? uploadText(
-                                    "loginMethods",
-                                    JSON.stringify(next),
-                                  )
-                                : deleteBlob("loginMethods"));
-                              await fetchBranding({ force: true });
-                            } finally {
-                              setSavingMethods(false);
+                    <Text size="xs" color="muted">
+                      {t("branding-sign-in-description")}
+                    </Text>
+                    {SIGN_IN_TEXT_KEYS.map(({ key, placeholder }) => (
+                      <View
+                        key={key}
+                        style={[
+                          zero.layout.flex.direction.row,
+                          zero.layout.flex.alignCenter,
+                          zero.gap.all[2],
+                        ]}
+                      >
+                        <View style={{ width: 160 }}>
+                          <Text size="xs" color="muted">
+                            {key}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Input
+                            testID={`branding-input-${key}`}
+                            placeholder={placeholder}
+                            value={chromeInputs[key] ?? brandingValue(key)}
+                            onChangeText={(v) =>
+                              setChromeInputs((prev) => ({
+                                ...prev,
+                                [key]: v,
+                              }))
                             }
-                          }}
-                        />
-                      );
-                    })}
+                          />
+                        </View>
+                      </View>
+                    ))}
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        testID="branding-update-sign-in"
+                        onPress={async () => {
+                          for (const { key } of SIGN_IN_TEXT_KEYS) {
+                            const v = (
+                              chromeInputs[key] ?? brandingValue(key)
+                            ).trim();
+                            if (v === brandingValue(key)) continue;
+                            // a field cleared out removes its setting
+                            if (v) await uploadText(key, v);
+                            else await deleteBlob(key);
+                          }
+                        }}
+                        disabled={uploading}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        testID="branding-reset-sign-in"
+                        variant="secondary"
+                        onPress={async () => {
+                          for (const { key } of SIGN_IN_TEXT_KEYS) {
+                            if (brandingValue(key)) await deleteBlob(key);
+                          }
+                          setChromeInputs((prev) => {
+                            const next = { ...prev };
+                            for (const { key } of SIGN_IN_TEXT_KEYS) {
+                              delete next[key];
+                            }
+                            return next;
+                          });
+                        }}
+                        disabled={
+                          uploading ||
+                          !SIGN_IN_TEXT_KEYS.some(({ key }) =>
+                            brandingValue(key),
+                          )
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    {LOGIN_METHODS.map((method) => (
+                      <Checkbox
+                        key={method}
+                        testID={`branding-login-method-${method}`}
+                        label={t(`branding-login-method-${method}`)}
+                        checked={enabledMethods.includes(method)}
+                        disabled={uploading || savingMethods}
+                        onCheckedChange={async (on) => {
+                          const next = LOGIN_METHODS.filter((m) =>
+                            m === method ? on : enabledMethods.includes(m),
+                          );
+                          setSavingMethods(true);
+                          try {
+                            await (next.length
+                              ? uploadText("loginMethods", JSON.stringify(next))
+                              : deleteBlob("loginMethods"));
+                            await fetchBranding({ force: true });
+                          } finally {
+                            setSavingMethods(false);
+                          }
+                        }}
+                      />
+                    ))}
                   </View>
                 </SettingsRowItem>
               </MenuItem>

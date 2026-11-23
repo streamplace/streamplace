@@ -75,7 +75,7 @@ function AdvancedSettings() {
       );
     };
 
-    fetchBranding({ force: true })
+    fetchBranding()
       .then((succeeded) => {
         if (!succeeded) {
           showRefreshError();

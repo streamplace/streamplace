@@ -28,7 +28,7 @@ describe("fetchBranding", () => {
       .mockImplementation(() => {});
     vi.spyOn(storage, "getItem").mockResolvedValue(null);
 
-    const succeeded = await state.fetchBranding({ force: true });
+    const succeeded = await state.fetchBranding();
 
     expect(succeeded).toBe(false);
     expect(state.brandingLoading).toBe(false);
@@ -37,5 +37,25 @@ describe("fetchBranding", () => {
       "Failed to fetch branding:",
       expect.any(Error),
     );
+  });
+
+  // An operator's branding change has to show on the next load, not once a
+  // cached copy expires.
+  it("refreshes over a cached copy", async () => {
+    const getBranding = vi.fn().mockResolvedValue({
+      assets: [{ key: "loginMethods", mimeType: "text/plain", data: '["qr"]' }],
+    });
+    const state = makeBrandingState({ client: { call: getBranding } });
+    vi.spyOn(storage, "getItem").mockResolvedValue(
+      JSON.stringify({
+        timestamp: Date.now(),
+        data: { loginMethods: { key: "loginMethods", data: "[]" } },
+      }),
+    );
+    vi.spyOn(storage, "setItem").mockResolvedValue(undefined);
+
+    expect(await state.fetchBranding()).toBe(true);
+    expect(getBranding).toHaveBeenCalled();
+    expect(state.branding?.loginMethods?.data).toBe('["qr"]');
   });
 });

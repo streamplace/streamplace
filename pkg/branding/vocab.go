@@ -65,7 +65,9 @@ var Specs = []Spec{
 	{Key: "cardGoLiveTitle", Kind: KindText, Default: "Go live on {site}", MaxSize: textMax, Doc: "Link-card title of the go-live tab (/live)."},
 	{Key: "cardGoLiveDescription", Kind: KindText, Default: "Set up and start your live stream on {site}.", MaxSize: textMax, Doc: "Link-card description of the go-live tab."},
 	{Key: "loginPlaceholder", Kind: KindText, MaxSize: textMax, Doc: "Example handle shown in the login form's empty handle field."},
-	{Key: "loginMethods", Kind: KindJSON, MaxSize: textMax, Doc: "Extra sign-in options on the login form. Set to [\"qr\"] to let browsers sign in with the signed-in mobile app."},
+	{Key: "loginEntryway", Kind: KindText, MaxSize: textMax, Doc: "URL of the PDS used for email and provider sign-in. Unset leaves handle and configured QR sign-in available."},
+	{Key: "loginMethods", Kind: KindJSON, MaxSize: textMax, Doc: "Extra sign-in options on the login form, a JSON list from apple, google, ethereum, qr. apple and google are also the entryway's provider ids."},
+	{Key: "walletConnectProjectId", Kind: KindText, MaxSize: textMax, Doc: "WalletConnect project id; with it, Sign in with Ethereum offers WalletConnect next to browser wallets."},
 	{Key: "defaultStreamer", Kind: KindText, MaxSize: textMax, Doc: "Handle or DID whose stream page is the node's front door (single-user nodes)."},
 	{Key: "defaultVideo", Kind: KindText, MaxSize: textMax, Doc: "A video whose page is the node's front door while set, over defaultStreamer: its at:// URI (at://did/place.stream.video/rkey) or its path (<handle-or-did>/video/<rkey>). Clear it to return the front door to the streamer."},
 	{Key: "primaryColor", Kind: KindColor, Default: "#6366f1", MaxSize: textMax, Doc: "Buttons, links, focus rings."},
@@ -205,7 +207,7 @@ var jsonShapes = map[string]func([]byte) error{
 	"socialLinks":  linkList("label", "url"),
 	"legalLinks":   linkList("text", "url"),
 	"navCta":       linkObject("label", "url"),
-	"loginMethods": stringSet("qr"),
+	"loginMethods": stringSet("apple", "google", "ethereum", "qr"),
 }
 
 // linkList accepts a JSON array of objects whose named fields are

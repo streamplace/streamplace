@@ -14,6 +14,12 @@ OAuth, and enable **QR code for the mobile app** in Branding → Sign-in options
 (`loginMethods: ["qr"]`). A signed-in app on that node can then approve a
 browser login without opening the account's PDS.
 
+Provider sign-in is configured separately through `loginEntryway`. The receipt
+of the provider and screen parameters by the OAuth proxy is covered; forwarding
+them to a federated PDS and redeeming a SIWE signature require backend support.
+`pnpm app check` also checks `tsconfig.wallet.json`, so the web-only wallet
+dependencies don't change the native TypeScript environment.
+
 ## User search
 
 Search is available without signing in. Wide windows (981px and up, matching

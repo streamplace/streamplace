@@ -29,6 +29,10 @@ type NewLivestream = {
 
 type LoginOptions = {
   blueskyPermissions?: boolean;
+  // a sign-in provider on the entryway PDS (Apple, Google)
+  provider?: string;
+  // the entryway's email + password form
+  screen?: "sign-in";
 };
 
 export interface BlueskySlice {
@@ -372,8 +376,17 @@ export const createBlueskySlice: StateCreator<
     try {
       await (get() as BlueskySlice).loadOAuthClient();
       const u = await (get() as BlueskySlice).authorizeUrl(handle, options);
+      // The node's OAuth proxy passes these on to the entryway PDS, as its
+      // /oauth/federated/start?provider= and /oauth/authorize?screen=.
+      // Appended by hand: React Native's URL repeats the whole query when
+      // searchParams is touched.
+      const extra = new URLSearchParams();
+      if (options?.provider) extra.set("provider", options.provider);
+      if (options?.screen) extra.set("screen", options.screen);
+      let href = u.toString();
+      if (extra.toString()) href += `&${extra.toString()}`;
       console.log("Opening link");
-      await openLoginLink(u.toString());
+      await openLoginLink(href);
       // cheeky 500ms delay so you don't see the text flash back
       await new Promise((resolve) => setTimeout(resolve, 5000));
       set({

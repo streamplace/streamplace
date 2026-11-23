@@ -1,4 +1,5 @@
 const lucideTransformPlugin = require("./babel-plugin-lucide-transform");
+const inlineImportsPlugin = require("./babel-plugin-inline-imports");
 
 module.exports = (api) => {
   api.cache(true);
@@ -8,6 +9,15 @@ module.exports = (api) => {
       lucideTransformPlugin,
       // NOTE: this is only necessary if you are using reanimated for animations
       "react-native-worklets/plugin",
+    ],
+    overrides: [
+      {
+        // Sign in with Ethereum's libraries; see babel-plugin-inline-imports.js
+        test: (filename) =>
+          typeof filename === "string" &&
+          /node_modules[\\/](viem|ox)[\\/]/.test(filename),
+        plugins: [inlineImportsPlugin],
+      },
     ],
   };
 };

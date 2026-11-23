@@ -28,15 +28,16 @@ Report the caller's roles on this node and the node's access policy. Works unaut
 
 **Schema Type:** `object`
 
-| Name               | Type                                                                                        | Req'd | Description                                                                                                                                                                                  | Constraints   |
-| ------------------ | ------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `did`              | `string`                                                                                    | ❌    | The authenticated caller, when there is one.                                                                                                                                                 | Format: `did` |
-| `roles`            | Array of [`place.stream.access.defs#role`](/lex-reference/place-stream-access-defs#role)    | ✅    | Every role the caller effectively holds.                                                                                                                                                     |               |
-| `policy`           | [`place.stream.access.defs#policyView`](/lex-reference/place-stream-access-defs#policyview) | ✅    |                                                                                                                                                                                              |               |
-| `space`            | `string`                                                                                    | ✅    | The node's access-control space: at://{authority}/space/place.stream.access.control/self (A space URI; not validated as a classic at-uri because the space form is newer than that grammar.) |               |
-| `chatVerifiedOnly` | `boolean`                                                                                   | ❌    | Whether chat is restricted to users verified by the node's trusted verifiers (branding key chatVerifiedOnly).                                                                                |               |
-| `chatVerified`     | `boolean`                                                                                   | ❌    | Whether the authenticated caller is verified by one of the node's trusted verifiers.                                                                                                         |               |
-| `networkMember`    | `boolean`                                                                                   | ❌    | Whether the caller's (or subject's) account is hosted on the network's own PDS (branding key loginPdsUrl). Absent when the node has no such PDS configured.                                  |               |
+| Name               | Type                                                                                        | Req'd | Description                                                                                                                                                                                                                                            | Constraints   |
+| ------------------ | ------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| `did`              | `string`                                                                                    | ❌    | The authenticated caller, when there is one: from the DPoP session, or from an atproto service-auth token (Authorization: Bearer, aud the node's DID, lxm this method) issued by the caller's PDS.                                                     | Format: `did` |
+| `roles`            | Array of [`place.stream.access.defs#role`](/lex-reference/place-stream-access-defs#role)    | ✅    | Every role the caller effectively holds.                                                                                                                                                                                                               |               |
+| `policy`           | [`place.stream.access.defs#policyView`](/lex-reference/place-stream-access-defs#policyview) | ✅    |                                                                                                                                                                                                                                                        |               |
+| `space`            | `string`                                                                                    | ✅    | The node's access-control space: at://{authority}/space/place.stream.access.control/self (A space URI; not validated as a classic at-uri because the space form is newer than that grammar.)                                                           |               |
+| `chatVerifiedOnly` | `boolean`                                                                                   | ❌    | Whether chat is restricted to users verified by the node's trusted verifiers (branding key chatVerifiedOnly).                                                                                                                                          |               |
+| `chatVerified`     | `boolean`                                                                                   | ❌    | Whether the authenticated caller is verified by one of the node's trusted verifiers.                                                                                                                                                                   |               |
+| `networkMember`    | `boolean`                                                                                   | ❌    | Whether the caller's (or subject's) account is hosted on the network's own PDS (branding key loginPdsUrl). Absent when the node has no such PDS configured.                                                                                            |               |
+| `storedSession`    | `boolean`                                                                                   | ❌    | Whether the node holds a session for the authenticated caller that it can act with on its own: what starting and stopping a livestream through service auth needs, along with the live status and auto-published VODs. Absent for an anonymous caller. |               |
 
 ---
 
@@ -69,7 +70,7 @@ Report the caller's roles on this node and the node's access policy. Works unaut
             "did": {
               "type": "string",
               "format": "did",
-              "description": "The authenticated caller, when there is one."
+              "description": "The authenticated caller, when there is one: from the DPoP session, or from an atproto service-auth token (Authorization: Bearer, aud the node's DID, lxm this method) issued by the caller's PDS."
             },
             "roles": {
               "type": "array",
@@ -98,6 +99,10 @@ Report the caller's roles on this node and the node's access policy. Works unaut
             "networkMember": {
               "type": "boolean",
               "description": "Whether the caller's (or subject's) account is hosted on the network's own PDS (branding key loginPdsUrl). Absent when the node has no such PDS configured."
+            },
+            "storedSession": {
+              "type": "boolean",
+              "description": "Whether the node holds a session for the authenticated caller that it can act with on its own: what starting and stopping a livestream through service auth needs, along with the live status and auto-published VODs. Absent for an anonymous caller."
             }
           }
         }

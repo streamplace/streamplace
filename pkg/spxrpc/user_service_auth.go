@@ -43,11 +43,24 @@ func GetUserServiceAuth(ctx context.Context) *UserServiceAuth {
 }
 
 // userServiceAuthAudiences are the DIDs a token may name as its audience:
-// this server's own and, when it differs, the broadcaster it serves.
+// this server's own and, when it differs, the broadcaster it serves. A host
+// with a port is also accepted in did:web's own spelling of it
+// ("did:web:localhost%3A8080"), which is the form a PDS will sign for.
 func (s *Server) userServiceAuthAudiences() []string {
-	auds := []string{s.cli.ServerDID()}
-	if b := s.cli.BroadcasterDID(); b != auds[0] {
-		auds = append(auds, b)
+	var auds []string
+	add := func(did string) {
+		for _, a := range auds {
+			if a == did {
+				return
+			}
+		}
+		auds = append(auds, did)
+	}
+	for _, did := range []string{s.cli.ServerDID(), s.cli.BroadcasterDID()} {
+		add(did)
+		if host, ok := strings.CutPrefix(did, "did:web:"); ok {
+			add("did:web:" + strings.ReplaceAll(host, ":", "%3A"))
+		}
 	}
 	return auds
 }

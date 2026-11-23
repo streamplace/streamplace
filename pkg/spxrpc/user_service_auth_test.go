@@ -101,6 +101,12 @@ func TestUserServiceAuthMiddleware(t *testing.T) {
 	t.Run("the broadcaster's DID is an accepted audience too", func(t *testing.T) {
 		require.Equal(t, testStreamer, f.callerFor(t, path, "Bearer "+f.token(t, "did:web:broadcaster.example", start, time.Minute)))
 	})
+	t.Run("a host with a port in did:web's encoding", func(t *testing.T) {
+		f.s.cli.ServerHost = "localhost:38080"
+		defer func() { f.s.cli.ServerHost = testNodeHost }()
+		require.Equal(t, testStreamer, f.callerFor(t, path, "Bearer "+f.token(t, "did:web:localhost%3A38080", start, time.Minute)))
+		require.Equal(t, testStreamer, f.callerFor(t, path, "Bearer "+f.token(t, "did:web:localhost:38080", start, time.Minute)))
+	})
 	t.Run("token for another method", func(t *testing.T) {
 		tok := f.token(t, testNodeDID, "place.stream.live.stopLivestream", time.Minute)
 		require.Empty(t, f.callerFor(t, path, "Bearer "+tok))

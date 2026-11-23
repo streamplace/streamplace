@@ -122,8 +122,11 @@ static void configure_service(void *unused)
 		return;
 	obs_data_t *settings = obs_service_get_settings(service);
 	if (strcmp(obs_data_get_string(settings, "service"), "Streamplace") == 0) {
-		bool empty = !*obs_data_get_string(settings, "key");
-		bool old_server = strcmp(obs_data_get_string(settings, "server"), "http://127.0.0.1:38080") == 0;
+		const char *key = obs_data_get_string(settings, "key");
+		bool empty = !*key;
+		/* Desktop writes its server with the placeholder; only older profiles move. */
+		bool old_server = strcmp(key, "streamplace-desktop") != 0 &&
+				  strcmp(obs_data_get_string(settings, "server"), "http://127.0.0.1:38080") == 0;
 		if (empty)
 			obs_data_set_string(settings, "key", "streamplace-desktop");
 		if (old_server)

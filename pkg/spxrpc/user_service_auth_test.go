@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/auth"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"github.com/stretchr/testify/require"
@@ -184,27 +185,24 @@ func TestStartStopLivestreamWithServiceAuth(t *testing.T) {
 	})
 }
 
-func TestCanPostAs(t *testing.T) {
+func TestPostClient(t *testing.T) {
 	f := newServiceAuthFixture(t)
 	ctx := context.Background()
 	post := "atproto repo?collection=app.bsky.feed.post&action=create"
+	own := &xrpc.Client{Host: "https://pds.example"}
 
-	require.True(t, f.s.canPostAs(ctx, testStreamer, &oatproxy.OAuthSession{DownstreamScope: post, UpstreamScope: post}))
-	require.False(t, f.s.canPostAs(ctx, testStreamer, &oatproxy.OAuthSession{DownstreamScope: "atproto", UpstreamScope: "atproto"}))
+	// The caller's own OAuth session decides, and posts with its client.
+	require.Equal(t, statedb.UserClient(own), f.s.postClient(ctx, testStreamer, &oatproxy.OAuthSession{DownstreamScope: post, UpstreamScope: post}, own))
+	require.Nil(t, f.s.postClient(ctx, testStreamer, &oatproxy.OAuthSession{DownstreamScope: "atproto", UpstreamScope: "atproto"}, own))
 
-	// No caller session (service auth, a peer node): a stored session decides.
-	require.False(t, f.s.canPostAs(ctx, testStreamer, nil), "no stored session at all")
-	require.NoError(t, f.sdb.CreateOAuthSession("jkt-noposts", &oatproxy.OAuthSession{
-		DID: testStreamer, DownstreamDPoPJKT: "jkt-noposts", DownstreamScope: "atproto", UpstreamScope: "atproto",
-	}))
-	require.False(t, f.s.canPostAs(ctx, testStreamer, nil), "stored session declined posting")
-	require.NoError(t, f.sdb.CreateOAuthSession("jkt-posts", &oatproxy.OAuthSession{
-		DID: testStreamer, DownstreamDPoPJKT: "jkt-posts", DownstreamScope: post, UpstreamScope: post,
-	}))
-	require.True(t, f.s.canPostAs(ctx, testStreamer, nil))
+	// No caller session (service auth, a peer node), no stored session.
+	require.Nil(t, f.s.postClient(ctx, testStreamer, nil, own))
 
+	// Development credentials carry every scope: they log in at the
+	// account's PDS, which this node hasn't indexed, so no client here --
+	// but the attempt is made rather than refused for lack of scope.
 	f.s.cli.DevAccountCreds = map[string]string{"did:plc:dev": "pw"}
-	require.True(t, f.s.canPostAs(ctx, "did:plc:dev", nil))
+	require.Nil(t, f.s.postClient(ctx, "did:plc:dev", nil, own))
 }
 
 func TestGetStatusWithServiceAuth(t *testing.T) {

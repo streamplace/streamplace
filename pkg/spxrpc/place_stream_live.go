@@ -627,11 +627,14 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 	}
 
 	createPost := body.CreateBlueskyPost == nil || *body.CreateBlueskyPost
-	if createPost && !s.canPostAs(ctx, streamerDID, session) {
-		log.Debug(ctx, "session was not granted Bluesky post permissions, skipping go-live post", "did", streamerDID)
-		createPost = false
-	}
+	var postClient statedb.UserClient
 	if createPost {
+		postClient = s.postClient(ctx, streamerDID, session, client)
+		if postClient == nil {
+			log.Debug(ctx, "session was not granted Bluesky post permissions, skipping go-live post", "did", streamerDID)
+		}
+	}
+	if postClient != nil {
 		prefix := "🔴 LIVE "
 		suffix := " " + livestream.Title
 		postText := prefix + canonicalUrl + suffix
@@ -678,7 +681,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 			Repo:       streamerDID,
 		}
 		var postOutput comatproto.RepoCreateRecord_Output
-		err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, postInput, &postOutput)
+		err = postClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, postInput, &postOutput)
 		if err != nil {
 			log.Error(ctx, "failed to create bluesky post", "err", err)
 		} else {

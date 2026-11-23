@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/gorm"
 
 	"stream.place/streamplace/pkg/aqhttp"
@@ -38,10 +39,22 @@ type passwordSession struct {
 // session created with that password, cached for an hour and made again on
 // demand.
 func (state *StatefulDB) UserXrpcClient(ctx context.Context, did string) (UserClient, error) {
+	return state.userXrpcClient(ctx, did, "")
+}
+
+// UserXrpcClientWithScope is UserXrpcClient from a stored session that was
+// granted scope, which need not be the newest one: the user may have
+// declined it on one sign-in and granted it on another. Development
+// credentials carry every scope.
+func (state *StatefulDB) UserXrpcClientWithScope(ctx context.Context, did, scope string) (UserClient, error) {
+	return state.userXrpcClient(ctx, did, scope)
+}
+
+func (state *StatefulDB) userXrpcClient(ctx context.Context, did, scope string) (UserClient, error) {
 	if c, err, ok := state.passwordClient(ctx, did); ok {
 		return c, err
 	}
-	session, err := state.GetSessionByDID(did)
+	session, err := state.userSession(did, scope)
 	if err != nil {
 		return nil, fmt.Errorf("get session for %s: %w", did, err)
 	}
@@ -60,6 +73,15 @@ func (state *StatefulDB) UserXrpcClient(ctx context.Context, did string) (UserCl
 		return nil, fmt.Errorf("get xrpc client for %s: %w", did, err)
 	}
 	return client, nil
+}
+
+// userSession is the stored session UserXrpcClient(WithScope) acts with:
+// the newest, or with a scope the newest one granted it.
+func (state *StatefulDB) userSession(did, scope string) (*oatproxy.OAuthSession, error) {
+	if scope == "" {
+		return state.GetSessionByDID(did)
+	}
+	return state.GetSessionByDIDWithScope(did, scope)
 }
 
 // HasUserSession reports whether UserXrpcClient can act for did: a stored

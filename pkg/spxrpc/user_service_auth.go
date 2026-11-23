@@ -151,20 +151,25 @@ func (s *Server) storedStreamerClient(ctx context.Context, did string) (statedb.
 	return client, nil
 }
 
-// canPostAs reports whether the node may create a Bluesky post for did:
-// the caller's own OAuth session decides when there is one, otherwise any
-// stored session that was granted post creation (or development
-// credentials, which carry every scope).
-func (s *Server) canPostAs(ctx context.Context, did string, session *oatproxy.OAuthSession) bool {
+// postClient is the client to create the go-live post for did with, or nil
+// when the node may not post for them. The caller's own OAuth session
+// decides when there is one (and posts with its client); otherwise the post
+// is made with a stored session that was granted post creation, which need
+// not be the newest session the livestream record is written with.
+func (s *Server) postClient(ctx context.Context, did string, session *oatproxy.OAuthSession, sessionClient statedb.UserClient) statedb.UserClient {
 	if session != nil {
-		return session.HasScope(atproto.ScopeBskyPostCreate)
+		if session.HasScope(atproto.ScopeBskyPostCreate) {
+			return sessionClient
+		}
+		return nil
 	}
-	if s.cli.DevAccountCreds[did] != "" {
-		return true
+	if s.statefulDB == nil {
+		return nil
 	}
-	if _, err := s.statefulDB.GetSessionByDIDWithScope(did, atproto.ScopeBskyPostCreate); err != nil {
+	client, err := s.statefulDB.UserXrpcClientWithScope(ctx, did, atproto.ScopeBskyPostCreate)
+	if err != nil {
 		log.Debug(ctx, "no stored session with post permission", "did", did, "err", err)
-		return false
+		return nil
 	}
-	return true
+	return client
 }

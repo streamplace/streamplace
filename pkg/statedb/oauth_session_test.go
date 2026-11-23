@@ -1,6 +1,7 @@
 package statedb
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -81,5 +82,34 @@ func TestGetSessionByDIDWithScope(t *testing.T) {
 		got, err = state.GetSessionByDIDWithScope(legacyDID, scopeBskyActorStatus)
 		require.NoError(t, err)
 		require.Equal(t, "jkt-legacy", got.DownstreamDPoPJKT)
+	})
+}
+
+// The node posts with a session that granted posting even when a newer one
+// declined it, and writes everything else with the newest.
+func TestUserSessionPicksScopedSession(t *testing.T) {
+	WithAllDatabases(t, func(state *StatefulDB) {
+		did := "did:plc:usersessiontest"
+		mk := func(jkt, scope string, updatedAt time.Time) {
+			require.NoError(t, state.CreateOAuthSession(jkt, &oatproxy.OAuthSession{
+				DID: did, DownstreamDPoPJKT: jkt, DownstreamScope: scope, UpstreamScope: scope,
+			}))
+			require.NoError(t, state.DB.Model(&oatproxy.OAuthSession{}).
+				Where("downstream_dpop_jkt = ?", jkt).
+				Update("updated_at", updatedAt).Error)
+		}
+		mk("jkt-old-posts", "atproto "+scopeBskyPostCreate, time.Now().Add(-time.Hour))
+		mk("jkt-new-declined", "atproto", time.Now())
+
+		newest, err := state.userSession(did, "")
+		require.NoError(t, err)
+		require.Equal(t, "jkt-new-declined", newest.DownstreamDPoPJKT)
+
+		posting, err := state.userSession(did, scopeBskyPostCreate)
+		require.NoError(t, err)
+		require.Equal(t, "jkt-old-posts", posting.DownstreamDPoPJKT)
+
+		_, err = state.UserXrpcClientWithScope(context.Background(), "did:plc:nobody", scopeBskyPostCreate)
+		require.Error(t, err)
 	})
 }

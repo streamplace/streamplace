@@ -1,11 +1,11 @@
 appId: ${APP_ID}
 ---
 # The harness's test VOD (VIDEO_URI) is the real fixture, run through the VOD
-# pipeline: opened by deep link, it shows its title and plays. The link names
-# the account by handle: a DID's colons don't survive as a custom-scheme host.
+# pipeline: opened by deep link, it shows its title and plays.
 - evalScript:
     ${output.watchPath = ACCOUNT_HANDLE + "/video/" + VIDEO_URI.split("/")[4]}
-- launchApp
+# Start through the link, not a launcher intent racing the JS URL listener.
+- stopApp
 - openLink: ${APP_ID}://${output.watchPath}
 - extendedWaitUntil:
     visible:

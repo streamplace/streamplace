@@ -59,6 +59,8 @@ and `logged-out/tabs.yaml` checks they stay hidden.
 `logged-out/vod.yaml` opens the harness's test VOD (`VIDEO_URI`, the fixture
 run through the VOD pipeline into the node's store) by deep link, checks its
 title, and waits for the player to report playing with its position advancing.
+It stops the app before opening the link so the URL is the cold-start intent;
+launching first can deliver the link before the JavaScript URL listener exists.
 The web counterpart is `js/e2e-web/flows/vod.spec.ts`, which also covers the
 video page painting a frame before the app bundle loads.
 

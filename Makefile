@@ -585,7 +585,7 @@ streamplace: app-cached meson-setup-static
 
 .PHONY: archive
 archive: app-cached meson-setup-static godeps
-	meson compile -C $(BUILDDIR) archive | grep -v drectve
+	bash -o pipefail -c 'meson compile -C $(BUILDDIR) archive | { grep -v drectve || true; }'
 
 .PHONY: linux-amd64
 linux-amd64:

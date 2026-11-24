@@ -2,11 +2,16 @@ package spxrpc
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/auth"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
@@ -109,17 +114,133 @@ func (s *Server) UserServiceAuthMiddleware() echo.MiddlewareFunc {
 	}
 }
 
+// serviceAuthLeeway is the clock skew allowed on a token's exp and iat.
+const serviceAuthLeeway = 5 * time.Second
+
+var errServiceAuthSignature = errors.New("service-auth token signature does not verify")
+
+// validateUserServiceAuth checks an atproto service-auth JWT and returns its
+// issuer: signed by the issuer's atproto key (ES256 or ES256K, low-S not
+// required), unexpired, addressed to this node, bound to method.
+//
+// Verified here with atcrypto rather than indigo's atproto/auth validator:
+// importing that package registers its own "ES256" and "ES256K" with
+// golang-jwt's process-wide signing-method table, which only accept atcrypto
+// keys, and oatproxy's DPoP checks (golang-jwt with an *ecdsa.PublicKey) then
+// fail for every OAuth request with "key is of invalid type".
 func (s *Server) validateUserServiceAuth(ctx context.Context, token string, method syntax.NSID) (syntax.DID, error) {
-	var lastErr error
-	for _, aud := range s.userServiceAuthAudiences() {
-		v := auth.ServiceAuthValidator{Audience: aud, Dir: s.identityDirectory()}
-		did, err := v.Validate(ctx, token, &method)
-		if err == nil {
-			return did, nil
-		}
-		lastErr = err
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return "", errors.New("not a JWT")
 	}
-	return "", lastErr
+	var header struct {
+		Alg string `json:"alg"`
+	}
+	if err := decodeJWTPart(parts[0], &header); err != nil {
+		return "", fmt.Errorf("header: %w", err)
+	}
+	if header.Alg != "ES256" && header.Alg != "ES256K" {
+		return "", fmt.Errorf("unsupported alg %q", header.Alg)
+	}
+	var claims struct {
+		Iss string          `json:"iss"`
+		Aud json.RawMessage `json:"aud"`
+		Exp *float64        `json:"exp"`
+		Iat *float64        `json:"iat"`
+		Lxm string          `json:"lxm"`
+	}
+	if err := decodeJWTPart(parts[1], &claims); err != nil {
+		return "", fmt.Errorf("claims: %w", err)
+	}
+	now := time.Now()
+	if claims.Exp == nil || time.Unix(int64(*claims.Exp), 0).Add(serviceAuthLeeway).Before(now) {
+		return "", errors.New("token is expired or has no exp")
+	}
+	if claims.Iat != nil && time.Unix(int64(*claims.Iat), 0).Add(-serviceAuthLeeway).After(now) {
+		return "", errors.New("token is issued in the future")
+	}
+	if claims.Lxm != method.String() {
+		return "", fmt.Errorf("token is for %q, not %q", claims.Lxm, method.String())
+	}
+	if !audienceMatches(claims.Aud, s.userServiceAuthAudiences()) {
+		return "", errors.New("token is addressed to another service")
+	}
+	did, err := syntax.ParseDID(claims.Iss)
+	if err != nil {
+		return "", fmt.Errorf("iss: %w", err)
+	}
+	sig, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil || len(sig) != 64 {
+		return "", errors.New("malformed signature")
+	}
+	signed := []byte(parts[0] + "." + parts[1])
+
+	err = s.verifyServiceAuthSignature(ctx, did, header.Alg, signed, sig)
+	if errors.Is(err, errServiceAuthSignature) {
+		// The account may have rotated its key since we cached its DID
+		// document: look it up afresh once.
+		if perr := s.identityDirectory().Purge(ctx, did.AtIdentifier()); perr != nil {
+			log.Debug(ctx, "could not purge cached identity", "did", did, "err", perr)
+		}
+		err = s.verifyServiceAuthSignature(ctx, did, header.Alg, signed, sig)
+	}
+	if err != nil {
+		return "", err
+	}
+	return did, nil
+}
+
+func (s *Server) verifyServiceAuthSignature(ctx context.Context, did syntax.DID, alg string, signed, sig []byte) error {
+	ident, err := s.identityDirectory().LookupDID(ctx, did)
+	if err != nil {
+		return fmt.Errorf("resolving %s: %w", did, err)
+	}
+	pub, err := ident.PublicKey()
+	if err != nil {
+		return fmt.Errorf("atproto key of %s: %w", did, err)
+	}
+	switch pub.(type) {
+	case *atcrypto.PublicKeyK256:
+		if alg != "ES256K" {
+			return fmt.Errorf("alg %s does not match a K-256 key", alg)
+		}
+	case *atcrypto.PublicKeyP256:
+		if alg != "ES256" {
+			return fmt.Errorf("alg %s does not match a P-256 key", alg)
+		}
+	default:
+		return fmt.Errorf("unsupported key type %T", pub)
+	}
+	if err := pub.HashAndVerifyLenient(signed, sig); err != nil {
+		return fmt.Errorf("%w: %w", errServiceAuthSignature, err)
+	}
+	return nil
+}
+
+func decodeJWTPart(part string, v any) error {
+	b, err := base64.RawURLEncoding.DecodeString(part)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, v)
+}
+
+// audienceMatches reports whether a JWT aud claim (a string, or an array of
+// them) names one of auds.
+func audienceMatches(raw json.RawMessage, auds []string) bool {
+	var one string
+	if json.Unmarshal(raw, &one) == nil {
+		return slices.Contains(auds, one)
+	}
+	var many []string
+	if json.Unmarshal(raw, &many) == nil {
+		for _, a := range many {
+			if slices.Contains(auds, a) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // xrpcMethod is the NSID of an /xrpc/<method> path.

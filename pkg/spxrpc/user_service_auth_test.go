@@ -2,6 +2,8 @@ package spxrpc
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -9,7 +11,6 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
-	"github.com/bluesky-social/indigo/atproto/auth"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -63,10 +64,31 @@ func newServiceAuthFixture(t *testing.T) *serviceAuthFixture {
 
 func (f *serviceAuthFixture) token(t *testing.T, aud, method string, ttl time.Duration) string {
 	t.Helper()
-	nsid := syntax.NSID(method)
-	tok, err := auth.SignServiceAuth(syntax.DID(testStreamer), aud, ttl, &nsid, f.key)
+	return signServiceAuth(t, testStreamer, aud, method, ttl, f.key)
+}
+
+// signServiceAuth makes a service-auth JWT the way a PDS does
+// (com.atproto.server.getServiceAuth). Not indigo's auth.SignServiceAuth:
+// importing that package takes over golang-jwt's ES256 and breaks DPoP.
+func signServiceAuth(t *testing.T, iss, aud any, method string, ttl time.Duration, key atcrypto.PrivateKey) string {
+	t.Helper()
+	alg := "ES256K"
+	if _, ok := key.(*atcrypto.PrivateKeyP256); ok {
+		alg = "ES256"
+	}
+	now := time.Now()
+	enc := func(v any) string {
+		b, err := json.Marshal(v)
+		require.NoError(t, err)
+		return base64.RawURLEncoding.EncodeToString(b)
+	}
+	signing := enc(map[string]any{"typ": "JWT", "alg": alg}) + "." + enc(map[string]any{
+		"iss": iss, "aud": aud, "lxm": method, "jti": "test",
+		"iat": now.Unix(), "exp": now.Add(ttl).Unix(),
+	})
+	sig, err := key.HashAndSign([]byte(signing))
 	require.NoError(t, err)
-	return tok
+	return signing + "." + base64.RawURLEncoding.EncodeToString(sig)
 }
 
 // callerFor runs path through the middleware and reports who it attributed
@@ -121,10 +143,24 @@ func TestUserServiceAuthMiddleware(t *testing.T) {
 	t.Run("token signed by a key that is not the account's", func(t *testing.T) {
 		other, err := atcrypto.GeneratePrivateKeyK256()
 		require.NoError(t, err)
-		nsid := syntax.NSID(start)
-		tok, err := auth.SignServiceAuth(syntax.DID(testStreamer), testNodeDID, time.Minute, &nsid, other)
-		require.NoError(t, err)
+		tok := signServiceAuth(t, testStreamer, testNodeDID, start, time.Minute, other)
 		require.Empty(t, f.callerFor(t, path, "Bearer "+tok))
+	})
+	t.Run("aud as an array", func(t *testing.T) {
+		tok := signServiceAuth(t, testStreamer, []string{"did:web:elsewhere.example", testNodeDID}, start, time.Minute, f.key)
+		require.Equal(t, testStreamer, f.callerFor(t, path, "Bearer "+tok))
+	})
+	t.Run("a P-256 account key (ES256)", func(t *testing.T) {
+		p256, err := atcrypto.GeneratePrivateKeyP256()
+		require.NoError(t, err)
+		pub, err := p256.PublicKey()
+		require.NoError(t, err)
+		did := "did:plc:p256p256p256p256p256p256"
+		f.s.userAuthDir.(*identity.MockDirectory).Insert(identity.Identity{
+			DID: syntax.DID(did), Handle: syntax.Handle("p256.example"),
+			Keys: map[string]identity.VerificationMethod{"atproto": {Type: "Multikey", PublicKeyMultibase: pub.Multibase()}},
+		})
+		require.Equal(t, did, f.callerFor(t, path, "Bearer "+signServiceAuth(t, did, testNodeDID, start, time.Minute, p256)))
 	})
 	t.Run("not a JWT, or not a bearer at all", func(t *testing.T) {
 		require.Empty(t, f.callerFor(t, path, "Bearer not-a-jwt"))

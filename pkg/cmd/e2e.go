@@ -106,6 +106,12 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 				Usage:   "the node's broadcaster host, served at https://<this>, which must resolve to 127.0.0.1",
 				Sources: urfavecli.EnvVars("SP_E2E_HTTPS_STATION_HOSTNAME"),
 			},
+			&urfavecli.StringFlag{
+				Name:    "https-plc-hostname",
+				Usage:   "serve the local PLC at https://<this>; native clients need a hostname that resolves to 127.0.0.1",
+				Value:   e2ePLCHost,
+				Sources: urfavecli.EnvVars("SP_E2E_HTTPS_PLC_HOSTNAME"),
+			},
 			&urfavecli.IntFlag{
 				Name:    "https-port",
 				Usage:   "port the HTTPS front end listens on; the URLs stay portless, so anything but 443 only works where loopback 443 is redirected to it",
@@ -135,8 +141,12 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			// TLS front end routes on.
 			canon := func(h string) string { return strings.ToLower(strings.TrimSuffix(h, ".")) }
 			pdsHost, stationHost := canon(cmd.String("https-pds-hostname")), canon(cmd.String("https-station-hostname"))
+			plcHost := canon(cmd.String("https-plc-hostname"))
 			if (pdsHost == "") != (stationHost == "") {
 				return errors.New("--https-pds-hostname and --https-station-hostname go together")
+			}
+			if pdsHost != "" && plcHost == "" {
+				return errors.New("--https-plc-hostname must not be empty in HTTPS mode")
 			}
 			ingest := cmd.String("ingest")
 			if ingest != "whip" && ingest != "fmp4" && ingest != "none" {
@@ -163,7 +173,7 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			default:
 				return fmt.Errorf("--video must be h264 or av1, not %q", video)
 			}
-			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"), ingest, fixture, cmd.Bool("upstream-station"), cmd.String("atmoq-bin"))
+			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, plcHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"), ingest, fixture, cmd.Bool("upstream-station"), cmd.String("atmoq-bin"))
 		},
 	}
 }
@@ -243,7 +253,7 @@ func startNode(ctx context.Context, self string, env e2eDevEnv, dataDir string, 
 	return nodeCmd, nil
 }
 
-func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost string, httpsPort int, appBundleID, ingest, fixture string, upstream bool, atmoqBin string) error {
+func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, httpsPLCHost string, httpsPort int, appBundleID, ingest, fixture string, upstream bool, atmoqBin string) error {
 	// Ctrl-C / SIGTERM must unwind through the normal path, or none of the
 	// teardown below runs: Go's default handling exits immediately, which left
 	// the dev-env node, the forked node and the temp data dir behind.
@@ -256,7 +266,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost stri
 	handleDomain := "test"
 	if httpsPDSHost != "" {
 		var err error
-		tlsEnv, err = newE2EHTTPS(httpsPDSHost, httpsStationHost, httpsPort)
+		tlsEnv, err = newE2EHTTPS(httpsPDSHost, httpsStationHost, httpsPLCHost, httpsPort)
 		if err != nil {
 			return err
 		}

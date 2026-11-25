@@ -175,7 +175,14 @@ export const LGAvatarButton = () => {
     </LiquidGlassView>
   );
   return (
-    <AQLink to={targetScreen} style={{ marginRight: 10 }}>
+    <AQLink
+      to={targetScreen}
+      role="button"
+      accessibilityLabel={
+        userProfile ? (userIsLive ? "Live dashboard" : "Account") : "Log in"
+      }
+      style={{ marginRight: 10 }}
+    >
       {userProfile && userIsLive ? (
         <View
           style={{

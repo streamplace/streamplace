@@ -168,6 +168,7 @@ export function BottomControlBar({
     <VolumeSlider
       key={String(sidebarCollapsed)}
       sliderWidth={volumeSliderWidth}
+      expandLeft={!!liveStats}
     />
   );
 

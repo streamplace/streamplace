@@ -20,6 +20,12 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+
+# New containers mount the checkout at /streamplace and warm builds are baked
+# there, so use that path whenever it is this checkout.
+if [[ -f /streamplace/go.mod ]]; then
+  cd /streamplace
+fi
 REPO="$PWD"
 NAME="$(basename "$REPO")"
 
@@ -47,8 +53,25 @@ else
   CONTAINER="$(bash hack/container.sh name)"
 fi
 
+# Build at the path the existing build tree was configured for. New checkouts
+# (and everything seeded from a warm image) use /streamplace; a checkout whose
+# artifacts predate that keeps building at its host path.
+WORKDIR="$REPO"
+if [[ -n "$CONTAINER" ]]; then
+  COREDATA="$REPO/build-linux-amd64/meson-private/coredata.dat"
+  if [[ -d "$REPO/build-linux-amd64" ]]; then
+    if grep -aq "/streamplace" "$COREDATA" 2>/dev/null &&
+      ! grep -aqF "$REPO" "$COREDATA" 2>/dev/null; then
+      WORKDIR=/streamplace
+    fi
+  elif docker exec "$CONTAINER" test -d /streamplace 2>/dev/null; then
+    WORKDIR=/streamplace
+  fi
+fi
+echo "building in $WORKDIR"
+
 run() {
-  if [[ -z "$CONTAINER" ]]; then "$@"; else docker exec -w "$REPO" "$CONTAINER" "$@"; fi
+  if [[ -z "$CONTAINER" ]]; then "$@"; else docker exec -w "$WORKDIR" "$CONTAINER" "$@"; fi
 }
 
 # --- dependencies -----------------------------------------------------------
@@ -113,7 +136,7 @@ fi
 # --- what you now have ------------------------------------------------------
 cat <<EOF
 
-provisioned $REPO
+provisioned $WORKDIR
   container   ${CONTAINER:-this container}
   build       build-linux-amd64/libstreamplace + the dev launcher
   frontends   js/app/dist, js/web/dist (embedded in the binary)

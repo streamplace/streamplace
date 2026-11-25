@@ -138,7 +138,8 @@ if [ -x "$AAPT2" ] && ! "$AAPT2" dump xmltree --file AndroidManifest.xml "$APK" 
   echo "$(basename "$APK") does not trust the harness's CA — build it with 'make android-e2e'"
   exit 1
 fi
-adb_ root >/dev/null
+# adbd restarting as root can drop this connection; the uid check below decides.
+adb_ root >/dev/null || true
 adb_ wait-for-device
 if [ "$(adb_ shell id -u | tr -d '\r')" != 0 ]; then
   echo "can't get root on $DEVICE — use a Google APIs emulator image, not a Play Store one"

@@ -12,20 +12,28 @@ appId: ${APP_ID}
       text: ".*e2e test video.*"
     timeout: 30000
 - takeScreenshot: vod-open
-# Tap the video to show the player controls; the play/pause button is labelled
-# "Pause" once playback has started. The title is on screen with it.
+# Don't wait for a playing video to settle past the controls' 6s fade timer.
+# Capture the position left of "/" so duration text cannot prove advancement.
 - retry:
     maxRetries: 3
     commands:
-      - tapOn:
-          point: 50%,20%
+      - runFlow:
+          when:
+            notVisible: "Pause"
+          commands:
+            - tapOn:
+                point: 50%,20%
+                waitToSettleTimeoutMs: 500
+      - extendedWaitUntil:
+          visible: "Pause"
+          timeout: 15000
+      - copyTextFrom:
+          text: "[0-9]+:[0-5][0-9]"
+          leftOf: "/"
+      - evalScript: ${output.vodPosition = maestro.copiedText}
       - extendedWaitUntil:
           visible:
-            text: "Pause"
-          timeout: 15000
-# and the position advances past the first seconds
-- extendedWaitUntil:
-    visible:
-      text: "0:(0[3-9]|[1-5][0-9]).*"
-    timeout: 30000
+            text: ${"(?!" + output.vodPosition + "$)[0-9]+:[0-5][0-9]"}
+            leftOf: "/"
+          timeout: 3000
 - takeScreenshot: vod-playing

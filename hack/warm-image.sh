@@ -49,7 +49,11 @@ if [[ "$(git -C "$CTX" rev-parse --show-toplevel)" != "$(cd "$CTX" && pwd -P)" ]
   echo "warm image: refusing to check out into $CTX; it is not this repository's worktree" >&2
   exit 1
 fi
-git -C "$CTX" checkout --quiet --detach "$COMMIT"
+# The copied index describes whatever the calling checkout has checked out, not
+# this archive. Point HEAD and the index at COMMIT without touching the files
+# (a checkout would refuse, thinking the archive has local changes).
+git -C "$CTX" update-ref --no-deref HEAD "$COMMIT"
+git -C "$CTX" read-tree "$COMMIT"
 
 # The recipe is this branch's, not the built commit's: the image is how a
 # checkout builds, so it must come from the working tree even when WARM_REF

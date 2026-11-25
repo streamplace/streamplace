@@ -23,6 +23,8 @@ RUN make dev-setup \
  && make dev \
  && pnpm --filter @streamplace/e2e-web install-browser \
  && find /streamplace -name node_modules -prune -exec rm -rf {} + \
+ && store="$(pnpm store path)" \
+ && if [ -n "$store" ]; then rm -rf "$store"; fi \
  && rm -rf /streamplace/.git \
  && echo "$WARM_COMMIT" > /tmp/warm-commit
 

@@ -34,7 +34,9 @@ after that starts from the image, mounts the checkout at `/streamplace`, and
 an incremental build plus the e2e run instead of a cold compile. Without a warm
 image, provisioning still works and cold-builds exactly as before. Refresh the
 warm image when `next` has moved; an older image is still safe, because seeding
-touches files that differ from its commit.
+touches files that differ from its commit. `WARM_REF=<ref> make warm-image`
+builds a different ref. The image stays in the local Docker daemon and is never
+pushed; share it with a registry yourself only if agents run on other machines.
 
 `hack/provision.sh` ensures the container, installs workspace dependencies,
 rebuilds missing/stale embedded frontends, runs `make dev`, installs Playwright's

@@ -108,14 +108,13 @@ Expo and Vite send paths in Los Angeles, Kathmandu, and UTC.
 
 ## Profile coverage
 
-`logged-in/chat-profile.yaml` taps the signed-in chat author's name, checks that the profile
-sheet contains that account's handle and the View Profile action, dismisses it
-by swiping its handle down, and opens it again. It then sends another message without
-restarting and verifies that message survives a relaunch from server history.
-The dismissal uses the same sheet handle gesture on iOS and Android, not Android
-Back. Android flattens nested username text, so the flow taps near the start of
-the matching message row. The logged-in Playwright flow (`oauth-login.spec.ts`) covers the matching
-open/dismiss/reopen/chat sequence in the Expo web app served by the default harness.
+`logged-in/chat-profile.yaml` taps the signed-in chat author's name, checks
+the sheet's handle and View Profile action, drags the sheet closed, and opens
+it again. It then sends another message without restarting and verifies the
+message survives a relaunch from server history. Android flattens nested
+username text, so opening the sheet uses a tap near the start of the matching
+message row.
+Playwright's `oauth-login.spec.ts` covers the same sequence on web.
 
 Native dropdowns render through the default `@rn-primitives` portal host. That
 host belongs below the app stores, i18n, branded theme and font providers so

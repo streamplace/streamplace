@@ -37,12 +37,12 @@ appId: ${APP_ID}
 - assertNotVisible:
     id: "menu-error"
 - takeScreenshot: chat-profile-open
-# Flick the handle so the sheet snaps closed rather than back open.
+# Give the emulator time to deliver a drag before releasing the handle.
 - swipe:
     from:
       text: "Bottom sheet handle"
     direction: DOWN
-    duration: 200
+    duration: 800
 - extendedWaitUntil:
     notVisible:
       id: "chat-profile-card"
@@ -63,7 +63,7 @@ appId: ${APP_ID}
     from:
       text: "Bottom sheet handle"
     direction: DOWN
-    duration: 200
+    duration: 800
 - extendedWaitUntil:
     notVisible:
       id: "chat-profile-card"

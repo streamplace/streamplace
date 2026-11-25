@@ -25,6 +25,10 @@ returns JSON (`application/json`), gated like `getVideoPlaylist` (labels, bans,
 playback session, clip bounds), including bans on the resolved blob's track owners.
 The page embeds the same object.
 
+HTTP playback uses the node's direct client-IP extractor for owner-bound sessions,
+including HTML boot requests; forwarded IP headers are not trusted. Public VOD
+sessions are unbound, so the same session also works over MoQ.
+
 ```jsonc
 {
   "uri": "at://did:plc:…/place.stream.video/<rkey>",

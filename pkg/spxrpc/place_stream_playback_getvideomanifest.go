@@ -129,6 +129,7 @@ func (s *Server) VideoBootPayload(req *http.Request, uri string, hasTime bool) (
 	copiedURL := *request.URL
 	request.URL = &copiedURL
 	request.URL.RawQuery = url.Values{"uri": {uri}}.Encode()
+	// Reuse the node's IP extractor so HTML boot and XRPC bind clients identically.
 	c := s.e.NewContext(request, nil)
 	playback, parts, manifest, err := s.videoManifest(c)
 	if err != nil {

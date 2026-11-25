@@ -27,6 +27,7 @@ func TestVideoManifestPlayback(t *testing.T) {
 	store, err := blob.NewFileStore(t.TempDir())
 	require.NoError(t, err)
 	s := &Server{e: echo.New(), model: m, playbackStore: store, cli: &config.CLI{VODMoQ: true}, MoqURL: func() string { return "moqt://example.com:443?certhash=abcd" }}
+	s.e.IPExtractor = echo.ExtractIPDirect()
 	key := []byte("01234567890123456789012345678901")
 	s.sessionKeyCache.Store(&key)
 	parse := func(uri string) syntax.ATURI {
@@ -71,9 +72,18 @@ func TestVideoManifestPlayback(t *testing.T) {
 	require.Equal(t, []vod.ByteRange{{Offset: 142, Size: 2000}, {Offset: 2142, Size: 1800}}, served.Tracks["1"])
 	_, err = s.ResolveServableVideo(ctx, fixtureDID, "rkey1", "forged")
 	require.Error(t, err)
-	_, wrongOwner := psession.Mint(key, "did:plc:other", psession.ScopePublic, time.Hour, time.Now())
+	_, wrongOwner := psession.Mint(key, "did:plc:other", "", psession.ScopePublic, time.Hour, time.Now())
 	_, err = s.ResolveServableVideo(ctx, fixtureDID, "rkey1", wrongOwner)
 	require.Error(t, err)
+
+	_, ownerSID := psession.Mint(key, fixtureDID, sessionClient(c), psession.ScopeOwner, time.Hour, time.Now())
+	_, c = request(fixtureURI)
+	c.Request().URL.RawQuery += "&sid=" + url.QueryEscape(ownerSID)
+	require.NoError(t, s.HandleGetVideoManifest(c))
+	c.Request().Header.Set("X-Forwarded-For", "198.51.100.2")
+	require.NoError(t, s.HandleGetVideoManifest(c))
+	c.Request().RemoteAddr = "198.51.100.2:1234"
+	require.Equal(t, http.StatusBadRequest, requireHTTPError(t, s.HandleGetVideoManifest(c)).Code)
 
 	const clipURI = "at://did:plc:abc/place.stream.video/clip"
 	require.NoError(t, m.UpsertVideo(ctx, placestream.Video{Source: placestream.Video_Source{MediaDefs_SourceClip: &placestream.MediaDefs_SourceClip{Video: fixtureURI, Start: 1000, End: 2000}}}, parse(clipURI)))
@@ -108,7 +118,7 @@ func TestVideoManifestPlayback(t *testing.T) {
 		banned, err := s.accountBanned(clipperDID)
 		require.NoError(t, err)
 		require.False(t, banned)
-		_, sid := psession.Mint(key, clipperDID, psession.ScopePublic, time.Hour, time.Now())
+		_, sid := psession.Mint(key, clipperDID, "", psession.ScopePublic, time.Hour, time.Now())
 		served, err := s.ResolveServableVideo(ctx, clipperDID, "clip", sid)
 		require.Equal(t, http.StatusForbidden, requireHTTPError(t, err).Code)
 		require.Nil(t, served)

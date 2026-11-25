@@ -17,6 +17,7 @@ import React, {
   useState,
 } from "react";
 import {
+  Keyboard,
   Pressable,
   StyleSheet,
   useWindowDimensions,
@@ -175,7 +176,7 @@ export const DropdownMenuBottomSheet = forwardRef<
   { overlayStyle, portalHost, onContentScroll, children, ...rest },
   _ref,
 ) {
-  const { onOpenChange } = DropdownMenuPrimitive.useRootContext();
+  const { open, onOpenChange } = DropdownMenuPrimitive.useRootContext();
   const { zero: zt, theme } = useTheme();
   const sheetRef = useRef<BottomSheet>(null);
   const { width } = useWindowDimensions();
@@ -184,6 +185,10 @@ export const DropdownMenuBottomSheet = forwardRef<
   const horizontalMargin = isWide ? (width - sheetWidth) / 2 : 0;
 
   const insets = useSafeAreaInsets();
+
+  React.useEffect(() => {
+    if (open) Keyboard.dismiss();
+  }, [open]);
 
   const [stack, setStack] = useState<NavigationStackItem[]>([
     { key: "root", content: children },

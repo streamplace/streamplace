@@ -123,8 +123,7 @@ for (const frontend of ["app", "web"]) {
             });
             await expect(expand).toBeInViewport({ ratio: 1 });
             const identity = page.getByRole("button", {
-              name: "Stream info",
-              exact: true,
+              name: /^Stream info:/,
             });
             expect((await identity.boundingBox())!.width).toBeGreaterThan(0);
             await page.screenshot({

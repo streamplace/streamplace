@@ -16,6 +16,7 @@ const SERVER_URL = process.env.SERVER_URL;
 // SPKI hash.
 const E2E_PROXY_URL = process.env.E2E_PROXY_URL;
 const E2E_TLS_SPKI = process.env.E2E_TLS_SPKI;
+const pollStartMs = Number(process.env.E2E_POLL_START_MS ?? 100);
 
 export default defineConfig({
   testDir: "./flows",
@@ -33,7 +34,14 @@ export default defineConfig({
     ? [["list"], ["html", { open: "never" }]]
     : [["list"]],
   timeout: 90_000,
-  expect: { timeout: 30_000 },
+  expect: {
+    timeout: 30_000,
+    toPass: {
+      intervals: Array.from({ length: 7 }, (_, i) =>
+        Math.min(1000, pollStartMs * 2 ** i),
+      ),
+    },
+  },
   use: {
     baseURL: SERVER_URL,
     storageState: STORAGE_STATE,

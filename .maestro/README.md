@@ -44,6 +44,12 @@ E2E_FLOWS=".maestro/logged-in/chat-profile.yaml" hack/e2e-local.sh android
 bash hack/maestro-config.sh .maestro/logged-in/chat-profile.yaml
 ```
 
+Set `E2E_SPEED` to a decimal from `0` (default, conservative) to `1`
+(fastest). It shortens animation-settle budgets and starts readiness polling
+sooner, without shortening assertion deadlines or the observation windows
+for negative tests. Pull requests run at `0.9`; pushes to `next` keep the
+conservative profile.
+
 The organization and generated config work on both platforms, including macOS's
 stock Bash. No native Go Live scenario exists: native builds hide those controls,
 and `logged-out/tabs.yaml` checks they stay hidden.
@@ -81,6 +87,9 @@ keyboard Send key and the app's Send button separately. Each must send exactly
 one corrected message, leave an empty input, and allow a fresh next message
 without the keyboard dropping down and reopening.
 Moving focus away without pressing either Send control must not send anything.
+
+Fresh chat scenarios wait for the composer to enable Send before pressing
+Return once; they don't erase the empty draft or retry a write.
 
 ## Chat timestamp coverage
 
@@ -272,20 +281,27 @@ builds.
 
 ```bash
 make dev           # harness binary
-make android-e2e   # bin/streamplace-*-android-e2e.apk (needs JDK 17 + ANDROID_HOME)
-# boot a Google APIs emulator (Play Store images can't be rooted), e.g.
-sdkmanager "system-images;android-34;google_apis;x86_64"
-avdmanager create avd -n e2e-api34 -k "system-images;android-34;google_apis;x86_64" -d pixel_6
-emulator -avd e2e-api34 -no-window -no-audio -no-snapshot-save &
-hack/e2e-local.sh android
+make android-e2e   # bin/streamplace-*-android-e2e.apk (needs JDK 21 + ANDROID_HOME)
+# Boot a rooted Google APIs emulator, not a Play Store image.
+sdkmanager "system-images;android-37.0;google_apis;x86_64"
+avdmanager create avd -n e2e-api37 -k "system-images;android-37.0;google_apis;x86_64" -d pixel_6
+emulator -avd e2e-api37 -no-window -no-audio -no-snapshot-save &
+E2E_HTTPS_PORT=38444 E2E_SPEED=1 bash hack/e2e-local.sh android
 ```
 
-The runner starts the harness, installs the app, prepares the device, runs
-the flows and tears the harness down. Screenshots, Maestro's logs and reports
-land in `.maestro/artifacts/` (override with `E2E_ARTIFACTS`).
+`hack/e2e-local.sh android` runs the same three passes as CI: the main suite
+with fMP4 ingest (including audio stems), the AV1/H.264 fallback flow, and the
+upstream-station flow. Install the [pinned `atmoq` relay](#upstream-station-native-flow)
+on `PATH` for the last pass.
 
-The runner runs on the host, not in the build container: the emulator has to
-reach the harness.
+Each pass gets a fresh harness and app install. The command attempts all three
+and exits nonzero if any fail. Screenshots, reports, and `harness.log` land
+under `.maestro/artifacts/{main,av1,upstream}/`; set `E2E_ARTIFACTS` to move them.
+
+Use `--main`, `--av1`, or `--upstream-station` for one pass. `E2E_FLOWS` alone
+selects a subset of the main pass; combine it with a pass flag for another
+fixture. `SP_E2E_INGEST`, `SP_E2E_VIDEO`, and `E2E_HARNESS_LOG` can override
+the fixture and log defaults for an individual pass.
 
 ### Port 443
 
@@ -344,18 +360,18 @@ sudo systemctl enable --now loopback-443-redirect.service
 E2E_HTTPS_PORT=38444 hack/e2e-local.sh android
 ```
 
-The rule covers the emulator too: its connections to the host (10.0.2.2)
-leave from the emulator process on the host's loopback. It only affects
-connections to loopback 443, so it can get in the way of anything else that
-serves HTTPS on 127.0.0.1:443 on that machine. Only set `E2E_HTTPS_PORT` when
-the redirect is in place: the app and PDS still use `https://<host>` URLs
-with no port.
+The Android runner uses `adb reverse` to forward the device's port 443 to
+the configured high port on the host. It removes that mapping on exit.
+Keep the host redirect for fixture processes that also use the portless
+HTTPS URLs. The redirect can interfere with other services on host loopback
+port 443; it does not change the published OAuth URLs.
 
 ## Upstream-station native flow
 
-The default single-node plan excludes flows tagged `upstream-station`. Opt in
-with the real atmoq executable built from the pinned, certificate-watcher-fixed
-commit in [the Web harness prerequisites](../js/e2e-web/README.md#upstream-station-topology):
+The main pass excludes flows tagged `upstream-station`; the full Android run
+executes them separately. Install the real `atmoq` executable built from the
+pinned commit in the [web harness prerequisites](../js/e2e-web/README.md#upstream-station-topology).
+To run only the upstream pass:
 
 ```bash
 make android-e2e

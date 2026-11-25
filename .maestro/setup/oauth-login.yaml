@@ -26,15 +26,10 @@ appId: ${APP_ID}
     visible:
       text: ".*e2e test stream.*"
     timeout: 30000
-- tapOn:
-    id: "chat-input"
-- inputText: "hello from oauth-login"
-- extendedWaitUntil:
-    visible:
-      text: "Send"
-      enabled: true
-    timeout: 30000
-- pressKey: Enter
+- runFlow:
+    file: send-chat.yaml
+    env:
+      CHAT_MESSAGE: "hello from oauth-login"
 - extendedWaitUntil:
     visible:
       # the row's text is the whole line, "@<handle>: <message>"

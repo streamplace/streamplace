@@ -15,14 +15,15 @@ appId: ${APP_ID}
     timeout: 30000
 - tapOn:
     id: "home-stream-card"
-- waitForAnimationToEnd
-- takeScreenshot: best-effort-recording-open
 # the stream's "Now streaming - e2e test stream" chat system message only
 # appears once playback context is up, which requires ingested segments
 - extendedWaitUntil:
     visible:
       text: ".*e2e test stream.*"
     timeout: 30000
+- waitForAnimationToEnd:
+    timeout: ${E2E_ANIMATION_WAIT_MS}
+- takeScreenshot: best-effort-recording-open
 # tap on the video to show the player controls
 - tapOn:
     point: 50%,20%

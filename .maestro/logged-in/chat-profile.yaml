@@ -13,18 +13,14 @@ appId: ${APP_ID}
       text: ".*e2e test stream.*"
     timeout: 30000
 # Create this flow's own target instead of depending on another scenario's chat.
-- retry:
-    maxRetries: 3
-    commands:
-      - tapOn:
-          id: "chat-input"
-      - eraseText: 100
-      - inputText: "profile target from chat-profile"
-      - pressKey: Enter
-      - extendedWaitUntil:
-          visible:
-            text: ".*: profile target from chat-profile"
-          timeout: 15000
+- runFlow:
+    file: ../setup/send-chat.yaml
+    env:
+      CHAT_MESSAGE: "profile target from chat-profile"
+- extendedWaitUntil:
+    visible:
+      text: ".*: profile target from chat-profile"
+    timeout: 15000
 # Android flattens nested Text spans; tap the handle at the row's start.
 - tapOn:
     text: ".*: profile target from chat-profile"
@@ -41,12 +37,12 @@ appId: ${APP_ID}
 - assertNotVisible:
     id: "menu-error"
 - takeScreenshot: chat-profile-open
-# Use the sheet's cross-platform handle gesture, not Android Back.
+# Flick the handle so the sheet snaps closed rather than back open.
 - swipe:
     from:
       text: "Bottom sheet handle"
     direction: DOWN
-    duration: 500
+    duration: 200
 - extendedWaitUntil:
     notVisible:
       id: "chat-profile-card"
@@ -67,7 +63,7 @@ appId: ${APP_ID}
     from:
       text: "Bottom sheet handle"
     direction: DOWN
-    duration: 500
+    duration: 200
 - extendedWaitUntil:
     notVisible:
       id: "chat-profile-card"

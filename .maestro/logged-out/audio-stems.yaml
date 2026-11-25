@@ -18,11 +18,12 @@ appId: ${APP_ID}
           timeout: 30000
       - tapOn:
           id: "home-stream-card"
-      - waitForAnimationToEnd
       - extendedWaitUntil:
           visible:
             text: ".*e2e test stream.*"
           timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: ${E2E_ANIMATION_WAIT_MS}
       # tap on the video to show the player controls, then open the menu.
       # The controls stop taking taps 3s after the last touch. On CI's
       # emulator a tap on an id lands ~3.5s after the one before it (one

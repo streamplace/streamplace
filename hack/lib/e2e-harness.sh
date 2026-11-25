@@ -41,6 +41,20 @@
 # E2E_HARNESS_LOG, if set, is where the harness log goes; it is kept after the
 # run (CI uploads it). Otherwise the log is a temp file, shown on a failed
 # start and deleted afterwards.
+#
+# E2E_SPEED tunes optional pacing, never readiness or assertion deadlines.
+e2e_pacing() {
+  local pace
+  if ! pace="$(LC_ALL=C awk -v speed="${E2E_SPEED-0}" 'BEGIN {
+    if (speed !~ /^([0-9]+([.][0-9]*)?|[.][0-9]+)$/ || speed > 1) exit 1
+    printf "%.0f %.0f\n", 25 + 75 * (1 - speed), 15000 * (1 - speed)
+  }')"; then
+    echo "E2E_SPEED must be a decimal between 0 (conservative) and 1 (fastest)" >&2
+    return 1
+  fi
+  read -r E2E_POLL_START_MS E2E_ANIMATION_WAIT_MS <<< "$pace"
+  export E2E_POLL_START_MS E2E_ANIMATION_WAIT_MS
+}
 
 case "$(uname)-$(uname -m)" in
   Linux-x86_64)  BUILDDIR=build-linux-amd64 ;;
@@ -51,6 +65,7 @@ case "$(uname)-$(uname -m)" in
 esac
 
 e2e_harness_start() {
+  e2e_pacing
   if [ ! -x "$BUILDDIR/streamplace" ]; then
     echo "harness binary $BUILDDIR/streamplace missing — run 'make dev' first"
     exit 1
@@ -72,7 +87,8 @@ e2e_harness_start() {
   #
   # PIDs matching this checkout's binary before we start — never kill a
   # scratch node someone else is running from the same build dir.
-  E2E_PREEXISTING=" $( { pgrep -f "$BUILDDIR/libstreamplace" 2>/dev/null || true; } | tr '\n' ' ') "
+  E2E_HARNESS_BIN="$(pwd -P)/$BUILDDIR/libstreamplace"
+  E2E_PREEXISTING=" $( { pgrep -f "^$E2E_HARNESS_BIN( |$)" 2>/dev/null || true; } | tr '\n' ' ') "
   E2E_HTTPS_PDS_HOSTNAME="${E2E_HTTPS_PDS_HOSTNAME-localhost-pds.streamplace.network}"
   E2E_HTTPS_STATION_HOSTNAME="${E2E_HTTPS_STATION_HOSTNAME-localhost-station.streamplace.team}"
   if [ "$(uname)" = Darwin ]; then
@@ -109,10 +125,17 @@ e2e_harness_start() {
     "$BUILDDIR/streamplace" "${args[@]}" < "$input" > "$E2E_ENVFILE" 2> "$E2E_LOGFILE" &
   fi
   E2E_HARNESS_PID=$!
-  trap e2e_harness_stop EXIT INT TERM
+  trap e2e_harness_stop EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
 
-  for _ in $(seq 1 90); do grep -q SERVER_URL "$E2E_ENVFILE" && break; sleep 2; done
-  if ! grep -q SERVER_URL "$E2E_ENVFILE"; then
+  local delay=$E2E_POLL_START_MS deadline=$((SECONDS + 180))
+  until grep -q '^SERVER_URL=' "$E2E_ENVFILE"; do
+    [ "$SECONDS" -lt "$deadline" ] || break
+    sleep "$(printf '%d.%03d' "$((delay / 1000))" "$((delay % 1000))")"
+    delay=$((delay < 1000 ? delay * 2 : 2000))
+  done
+  if ! grep -q '^SERVER_URL=' "$E2E_ENVFILE"; then
     echo "harness failed to start; log:"; tail -20 "$E2E_LOGFILE"; exit 1
   fi
   # shellcheck disable=SC1090
@@ -140,7 +163,7 @@ e2e_harness_stop() {
   # The ingest worker re-setsid's itself, escaping the group kill; sweep the
   # binaries that appeared since we started.
   local pid
-  for pid in $(pgrep -f "$BUILDDIR/libstreamplace" 2>/dev/null || true); do
+  for pid in $(pgrep -f "^$E2E_HARNESS_BIN( |$)" 2>/dev/null || true); do
     case "$E2E_PREEXISTING" in *" $pid "*) ;; *) kill "$pid" 2>/dev/null || true ;; esac
   done
   rm -f "$E2E_ENVFILE"

@@ -86,7 +86,9 @@ done
 frontend_diff="$(git diff --name-only -z "$COMMIT" -- "${FRONTEND_INPUTS[@]}" | tr -d '\0')"
 frontend_untracked="$(git ls-files --others --exclude-standard -z -- "${FRONTEND_INPUTS[@]}" | tr -d '\0')"
 if [[ -n "$frontend_diff" || -n "$frontend_untracked" ]]; then
-  rm -f js/app/dist/index.html js/web/dist/index.html
+  # Drop the bundles rather than their entrypoints: a stale chunk from a
+  # deleted source could otherwise survive an incremental export.
+  rm -rf js/app/dist js/web/dist
   echo "warm seed: frontend inputs differ from the image; bundles will rebuild"
 fi
 

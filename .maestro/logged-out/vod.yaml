@@ -12,8 +12,8 @@ appId: ${APP_ID}
       text: ".*e2e test video.*"
     timeout: 30000
 - takeScreenshot: vod-open
-# Don't wait for a playing video to settle past the controls' 6s fade timer.
-# Capture the position left of "/" so duration text cannot prove advancement.
+# Reveal the controls (they fade 6s after a tap while playing) and pause: the
+# player then reports "Play", the controls stay up, and the position is readable.
 - retry:
     maxRetries: 3
     commands:
@@ -24,16 +24,17 @@ appId: ${APP_ID}
             - tapOn:
                 point: 50%,20%
                 waitToSettleTimeoutMs: 500
+      # A playing video never settles, so this lets it play for 2s.
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - tapOn:
+          text: "Pause"
+          waitToSettleTimeoutMs: 500
       - extendedWaitUntil:
-          visible: "Pause"
-          timeout: 15000
-      - copyTextFrom:
-          text: "[0-9]+:[0-5][0-9]"
-          leftOf: "/"
-      - evalScript: ${output.vodPosition = maestro.copiedText}
-      - extendedWaitUntil:
-          visible:
-            text: ${"(?!" + output.vodPosition + "$)[0-9]+:[0-5][0-9]"}
-            leftOf: "/"
-          timeout: 3000
-- takeScreenshot: vod-playing
+          visible: "Play"
+          timeout: 5000
+# It played from 0:00: the elapsed time (left of the "/") is past it.
+- assertVisible:
+    text: "0:0[1-9]|0:[1-5][0-9]|[1-9][0-9]*:[0-5][0-9]"
+    leftOf: "/"
+- takeScreenshot: vod-paused

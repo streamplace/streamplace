@@ -67,6 +67,8 @@ export class VodEngine extends EventTarget {
       const res = await fetch(src);
       if (!res.ok) throw new Error(`VOD manifest: HTTP ${res.status}`);
       manifest = await res.json();
+      // Without a CDN, segment URLs are relative to the node that sent the manifest.
+      for (const t of manifest.tracks) t.url = new URL(t.url, res.url).href;
     } else {
       manifest = src;
     }

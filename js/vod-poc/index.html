@@ -155,8 +155,12 @@
           clock = { wall: performance.now(), media: f.timestamp };
           requestAnimationFrame((t) => {
             marks.firstFrame = SP.firstFrame = t;
-            // Only now: a cached player would otherwise compile ahead of the first frame.
-            import("{{.Player}}");
+            // After the first frame, so a cached player can't compile ahead of it, and
+            // after parsing, so the inline rest of group 0 is pushed before group 1.
+            const load = () => import("{{.Player}}");
+            if (document.readyState === "loading") {
+              document.addEventListener("DOMContentLoaded", load, { once: true });
+            } else load();
           });
           requestAnimationFrame(tick);
         };

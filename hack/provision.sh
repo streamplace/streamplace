@@ -22,11 +22,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # New containers mount the checkout at /streamplace and warm builds are baked
-# there, so use that path whenever it is this checkout.
-if [[ -f /streamplace/go.mod ]]; then
+# there, so use that path when it is this checkout (not a visible sibling).
+if [[ -f /streamplace/go.mod && . -ef /streamplace ]]; then
   cd /streamplace
 fi
 REPO="$PWD"
+# shellcheck source=hack/lib/frontend-inputs.sh
+. hack/lib/frontend-inputs.sh
 NAME="$(basename "$REPO")"
 
 N=0
@@ -99,12 +101,7 @@ frontends_stale() {
       echo "  $f is newer than js/app/dist/index.html"
       return 0
     fi
-  done < <(git ls-files -z -- \
-    js/app/src js/app/components js/app/store js/app/public \
-    js/app/app.config.ts js/app/package.json \
-    js/web js/components/src js/streamplace/src js/streamplace/package.json \
-    js/i18n/locales js/i18n/i18next.config.js js/brand/generate.mjs \
-    package.json pnpm-lock.yaml pnpm-workspace.yaml)
+  done < <(git ls-files -z -- "${FRONTEND_INPUTS[@]}")
   return 1
 }
 

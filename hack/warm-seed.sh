@@ -12,6 +12,8 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+# shellcheck source=hack/lib/frontend-inputs.sh
+. hack/lib/frontend-inputs.sh
 WARM=/opt/streamplace-warm
 
 if [[ ! -d "$WARM" ]]; then
@@ -30,22 +32,33 @@ if [[ -z "$COMMIT" ]] || ! git cat-file -e "${COMMIT}^{commit}" 2>/dev/null; the
   exit 0
 fi
 
+# The image's files can carry foreign uids from archive extraction; the
+# checkout must stay owned by the user running the build.
+COPY=(cp -a --no-preserve=ownership)
+
 echo "warm seed: copying build tree from $WARM ($(git rev-parse --short "$COMMIT"))"
-cp -a "$WARM/build-linux-amd64" .
+"${COPY[@]}" "$WARM/build-linux-amd64" .
+
+# Only downloaded subproject trees: wraps and patches are tracked source, and
+# an existing tree (or a local-dev symlink) must win over the image's.
 mkdir -p subprojects .build
-if [[ -d "$WARM/subprojects" ]]; then
-  cp -a "$WARM/subprojects/." subprojects/
-fi
+for entry in "$WARM"/subprojects/*; do
+  name="$(basename "$entry")"
+  if [[ -d "$entry" && ! -L "$entry" && ! -e "subprojects/$name" && ! -L "subprojects/$name" ]]; then
+    "${COPY[@]}" "$entry" subprojects/
+  fi
+done
 if [[ -d "$WARM/.build/bin" ]]; then
-  cp -a "$WARM/.build/bin" .build/
+  mkdir -p .build/bin
+  "${COPY[@]}" "$WARM/.build/bin/." .build/bin/
 fi
 if [[ -f "$WARM/.build/lexicon-stamp" ]]; then
-  cp -a "$WARM/.build/lexicon-stamp" .build/
+  cp -a --no-preserve=ownership "$WARM/.build/lexicon-stamp" .build/
 fi
 for d in js/app/dist js/web/dist; do
   if [[ -d "$WARM/$d" ]]; then
     rm -rf "$d"
-    cp -a "$WARM/$d" "$d"
+    "${COPY[@]}" "$WARM/$d" "$d"
   fi
 done
 
@@ -66,5 +79,15 @@ git diff --name-only -z "$COMMIT" | while IFS= read -r -d '' f; do
     touch "$f"
   fi
 done
+
+# A deleted or added frontend input has nothing for the mtime check above to
+# see, so the seeded bundle would keep the image's content. Force a rebuild
+# when the frontend inputs differ from the commit the bundle was built from.
+frontend_diff="$(git diff --name-only -z "$COMMIT" -- "${FRONTEND_INPUTS[@]}" | tr -d '\0')"
+frontend_untracked="$(git ls-files --others --exclude-standard -z -- "${FRONTEND_INPUTS[@]}" | tr -d '\0')"
+if [[ -n "$frontend_diff" || -n "$frontend_untracked" ]]; then
+  rm -f js/app/dist/index.html js/web/dist/index.html
+  echo "warm seed: frontend inputs differ from the image; bundles will rebuild"
+fi
 
 echo "warm seed: done"

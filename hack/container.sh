@@ -29,6 +29,12 @@ case "$MODE" in
   *) echo "usage: hack/container.sh [ensure|dev-setup|path|name]" >&2; exit 2 ;;
 esac
 
+# `path` prints exactly one line on stdout; every status message, including
+# the seed's, goes to stderr so callers can capture the path directly.
+if [[ "$MODE" == path ]]; then
+  exec 3>&1 1>&2
+fi
+
 # `name` prints the running container for this checkout and nothing else, for
 # callers that need to docker exec into it themselves.
 if [[ "$MODE" == name ]]; then
@@ -148,7 +154,7 @@ elif WARM="$(warm_image)"; then
 fi
 
 if [[ "$MODE" == path ]]; then
-  printf '%s\n' "$WORKDIR"
+  printf '%s\n' "$WORKDIR" >&3
   exit 0
 fi
 

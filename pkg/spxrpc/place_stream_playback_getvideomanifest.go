@@ -120,7 +120,8 @@ func (s *Server) HandleGetVideoManifest(c echo.Context) error {
 		return err
 	}
 	s.logManifestRequest(c, playback.uri, playback.session.ID, "", "manifest")
-	c.Response().Header().Set("Cache-Control", "public, max-age=60")
+	// It carries this viewer's session: a shared cache must not hand it to others.
+	c.Response().Header().Set("Cache-Control", "no-store")
 	return c.JSON(http.StatusOK, manifest)
 }
 

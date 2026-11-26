@@ -60,7 +60,7 @@ func TestVideoManifestPlayback(t *testing.T) {
 	rec, c := request(fixtureURI)
 	require.NoError(t, s.HandleGetVideoManifest(c))
 	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, "public, max-age=60", rec.Header().Get("Cache-Control"))
+	require.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
 	var manifest placestream.PlaybackGetVideoManifest_Output
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &manifest))
 	require.NotEmpty(t, manifest.Sid)

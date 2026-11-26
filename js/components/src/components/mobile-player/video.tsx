@@ -661,6 +661,16 @@ function VodEnginePlayer(props: VideoProps) {
     };
   }, [engine, fallback, src, node, startTime]);
 
+  // A new ?t= on the open video seeks the running engine; its seeking handler refetches.
+  const seekedTo = useRef(startTime);
+  useEffect(() => {
+    if (!engine || startTime === seekedTo.current) return;
+    seekedTo.current = startTime;
+    if (startTime !== null && startTime >= 0) {
+      engine.video.currentTime = startTime;
+    }
+  }, [engine, startTime]);
+
   // An engine that fails before playing gives way to HLS; later, it's a media error.
   useEffect(() => {
     if (!engine) return;

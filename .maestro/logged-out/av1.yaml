@@ -18,7 +18,6 @@ appId: ${APP_ID}
           timeout: 30000
       - tapOn:
           id: "home-stream-card"
-      - waitForAnimationToEnd
       - extendedWaitUntil:
           visible:
             text: ".*e2e test stream.*"
@@ -29,6 +28,8 @@ appId: ${APP_ID}
           visible:
             id: "player-video"
           timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: ${E2E_ANIMATION_WAIT_MS}
       - takeScreenshot: av1-playing
       - runFlow:
           when:

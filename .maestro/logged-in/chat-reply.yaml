@@ -15,21 +15,15 @@ appId: ${APP_ID}
     visible:
       text: ".*e2e test stream.*"
     timeout: 30000
-# something to reply to; resend a send the page wasn't ready for, as in
-# oauth-login
-- retry:
-    maxRetries: 3
-    commands:
-      - tapOn:
-          id: "chat-input"
-      - eraseText: 50
-      - inputText: "reply target from chat-reply"
-      - pressKey: Enter
-      - extendedWaitUntil:
-          visible:
-            # the row's text is the whole line, "@<handle>: <message>"
-            text: ".*: reply target from chat-reply"
-          timeout: 15000
+# Create the message to reply to.
+- runFlow:
+    file: ../setup/send-chat.yaml
+    env:
+      CHAT_MESSAGE: "reply target from chat-reply"
+- extendedWaitUntil:
+    visible:
+      text: ".*: reply target from chat-reply"
+    timeout: 15000
 - swipe:
     from:
       text: ".*: reply target from chat-reply"

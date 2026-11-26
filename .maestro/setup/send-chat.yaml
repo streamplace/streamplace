@@ -1,0 +1,12 @@
+appId: ${APP_ID}
+---
+- tapOn:
+    id: "chat-input"
+- inputText: "${CHAT_MESSAGE}"
+# Wait for the composer to accept the draft before pressing Return once.
+- extendedWaitUntil:
+    visible:
+      id: "chat-send"
+      enabled: true
+    timeout: 30000
+- pressKey: Enter

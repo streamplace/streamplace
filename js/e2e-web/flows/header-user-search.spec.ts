@@ -41,16 +41,16 @@ const harnessActor: Actor = { did: DID, handle: HANDLE };
 
 // Content can arrive in steps; wait for two matching measurements.
 async function settledBox(locator: Locator) {
-  let box = await locator.boundingBox();
-  for (let i = 0; i < 20; i++) {
-    await locator.page().waitForTimeout(100);
-    const next = await locator.boundingBox();
-    if (box && next && box.y === next.y && box.height === next.height) {
-      return next;
-    }
-    box = next;
-  }
-  throw new Error("box never settled");
+  let box: { y: number; height: number } | null = null;
+  await expect(async () => {
+    const previous = box;
+    box = await locator.boundingBox();
+    expect(
+      box && previous && box.y === previous.y && box.height === previous.height,
+      "search dropdown layout settled",
+    ).toBeTruthy();
+  }).toPass({ timeout: 2000 });
+  return box!;
 }
 
 // Every result sits inside the dropdown, which has nothing around them but

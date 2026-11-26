@@ -13,18 +13,14 @@ appId: ${APP_ID}
     visible:
       text: ".*e2e test stream.*"
     timeout: 30000
-- retry:
-    maxRetries: 3
-    commands:
-      - tapOn:
-          id: "chat-input"
-      - eraseText: 100
-      - inputText: "keyboard send from chat-submit"
-      - pressKey: Enter
-      - extendedWaitUntil:
-          visible:
-            text: ".*: keyboard send from chat-submit"
-          timeout: 15000
+- runFlow:
+    file: ../setup/send-chat.yaml
+    env:
+      CHAT_MESSAGE: "keyboard send from chat-submit"
+- extendedWaitUntil:
+    visible:
+      text: ".*: keyboard send from chat-submit"
+    timeout: 15000
 # Do not erase or refocus between sends: the draft must clear and focus stay.
 - inputText: "button send from chat-submit"
 - tapOn:

@@ -142,6 +142,8 @@ jobs:
     # ingest and with AV1; the first alone takes about 18 minutes.
     timeout-minutes: 40
     needs: linux-amd64
+    env:
+      E2E_SPEED: ${{ github.event_name == 'pull_request' && '0.9' || '0' }}
     strategy:
       matrix:
         mode: [standalone, upstream]
@@ -312,6 +314,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: [linux, linux-amd64]
+    env:
+      E2E_SPEED: ${{ github.event_name == 'pull_request' && '0.9' || '0' }}
     steps:
       # full history: pnpm install's prepare steps derive the version from it
       - uses: actions/checkout@v7.0.1
@@ -399,13 +403,7 @@ jobs:
             -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
             -no-boot-anim -camera-back none
           disable-animations: true
-          # one line: the action runs each script line in its own shell.
-          # fMP4 ingest gives the test stream a "Music" stem for the audio
-          # stems flow; WHIP ingest stays covered by the web suite.
-          script:
-            SP_E2E_INGEST=fmp4
-            E2E_HARNESS_LOG=$PWD/.maestro/artifacts/harness.log bash
-            hack/e2e-local.sh android
+          script: bash hack/e2e-local.sh android --main
       # The AV1 stream, with its H.264 fallback track, must play on the
       # device whether or not it decodes AV1.
       - name: Run AV1 Maestro flow
@@ -423,11 +421,7 @@ jobs:
             -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
             -no-boot-anim -camera-back none
           disable-animations: true
-          script:
-            SP_E2E_INGEST=fmp4 SP_E2E_VIDEO=av1
-            E2E_ARTIFACTS=$PWD/.maestro/artifacts/av1
-            E2E_HARNESS_LOG=$PWD/.maestro/artifacts/av1/harness.log
-            E2E_FLOWS=logged-out/av1.yaml bash hack/e2e-local.sh android
+          script: bash hack/e2e-local.sh android --av1
       - name: Run upstream station Maestro flow
         uses: reactivecircus/android-emulator-runner@v2.38.0
         with:
@@ -443,11 +437,7 @@ jobs:
             -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
             -no-boot-anim -camera-back none
           disable-animations: true
-          script:
-            E2E_ARTIFACTS=$PWD/.maestro/artifacts/upstream
-            E2E_HARNESS_LOG=$PWD/.maestro/artifacts/upstream/harness.log
-            E2E_FLOWS=logged-in/upstream-station.yaml bash hack/e2e-local.sh
-            android --upstream-station
+          script: bash hack/e2e-local.sh android --upstream-station
 
       - name: upload maestro artifacts
         if: always()

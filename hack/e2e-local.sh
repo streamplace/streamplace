@@ -3,7 +3,8 @@
 # Run the shared Maestro suite against the self-contained `streamplace e2e`
 # harness on Android or a throwaway iOS Simulator.
 #
-#   hack/e2e-local.sh android|ios [--upstream-station] [-- <extra maestro test args>]
+#   hack/e2e-local.sh android [--main|--av1|--upstream-station] [-- <maestro args>]
+#   hack/e2e-local.sh ios [--upstream-station] [-- <maestro args>]
 #
 # Build once, and again after app/native changes:
 #   make dev
@@ -15,10 +16,9 @@
 # the flows and tear the harness down. It reinstalls the app but does not
 # rebuild it.
 #
-# The app talks to the harness only over HTTPS: release builds refuse
-# cleartext, and the OAuth flow logs in to the harness's own PDS. So the
-# harness runs in HTTPS mode (see hack/lib/e2e-harness.sh; it binds
-# 127.0.0.1:443, and says how to allow that if it can't). Android is
+# Release builds refuse cleartext, and OAuth logs in to the harness's PDS.
+# The harness serves portless HTTPS URLs (see hack/lib/e2e-harness.sh).
+# The upstream fixture also uses a local HTTP node over adb reverse. Android is
 # set up as root to reach and trust it:
 #   * a hosts file mapping the harness's names (and plc.directory) to the
 #     host, bind mounted over /system/etc/hosts until the emulator reboots;
@@ -29,8 +29,9 @@
 #
 # Env overrides: APK, APP_ID, ANDROID_SERIAL, ANDROID_HOME, IOS_APP,
 # IOS_SIMULATOR_UDID (template), E2E_HTTPS_PLC_HOSTNAME,
-# E2E_ARTIFACTS (default .maestro/artifacts), E2E_HARNESS_LOG, and E2E_FLOWS
-# (space-separated flow files to run a subset; prerequisites are automatic).
+# E2E_HTTPS_PORT, E2E_SPEED (0 conservative to 1 fastest), E2E_ARTIFACTS,
+# E2E_HARNESS_LOG (single pass), and E2E_FLOWS (space-separated flow files;
+# selects a single pass with automatic prerequisites).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -38,15 +39,76 @@ REPO="$PWD"
 
 PLATFORM="${1:-android}"
 [ $# -gt 0 ] && shift
-if [ "${1:-}" = "--upstream-station" ]; then
-  export SP_E2E_UPSTREAM_STATION=true
-  shift
-fi
-[ "${1:-}" = "--" ] && shift
 case "$PLATFORM" in
   android|ios) ;;
   *) echo "unknown platform: $PLATFORM (expected android or ios)"; exit 1 ;;
 esac
+
+if [ "$PLATFORM" = android ]; then
+  ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+  ADB="$ANDROID_HOME/platform-tools/adb"
+  [ -x "$ADB" ] || ADB=adb
+  DEVICE="${ANDROID_SERIAL:-$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1; exit}')}"
+  [ -n "$DEVICE" ] || { echo "no Android device connected"; exit 1; }
+
+  case "${1:-}" in
+    --main) pass=main; shift ;;
+    --av1) pass=av1; shift ;;
+    --upstream-station) pass=upstream; shift ;;
+    *)
+      if [ "${SP_E2E_UPSTREAM_STATION:-}" = true ]; then
+        pass=upstream
+      elif [ -n "${E2E_FLOWS:-}" ]; then
+        pass=main
+      else
+        pass=all
+      fi
+      ;;
+  esac
+  if [ "$pass" = all ]; then
+    if [ -n "${E2E_HARNESS_LOG:-}" ]; then
+      echo "E2E_HARNESS_LOG is for a single pass; set E2E_ARTIFACTS to move all three logs" >&2
+      exit 1
+    fi
+    root="${E2E_ARTIFACTS:-$REPO/.maestro/artifacts}"
+    export ANDROID_SERIAL="$DEVICE"
+    status=0
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    for pass in main av1 upstream-station; do
+      dir="${pass%-station}"
+      echo "=== Android e2e: $dir ==="
+      E2E_ARTIFACTS="$root/$dir" bash "$REPO/hack/e2e-local.sh" android "--$pass" "$@" || {
+        code=$?
+        echo "Android e2e: $dir failed ($code); artifacts: $root/$dir" >&2
+        [ "$status" -ne 0 ] || status=$code
+      }
+    done
+    exit "$status"
+  fi
+
+  if [ "$pass" = upstream ]; then
+    export SP_E2E_UPSTREAM_STATION=true
+    if ! command -v "${SP_E2E_ATMOQ_BIN:-atmoq}" >/dev/null; then
+      echo "atmoq not found — see .maestro/README.md#upstream-station-native-flow" >&2
+      exit 1
+    fi
+    export SP_E2E_INGEST="${SP_E2E_INGEST:-whip}"
+  else
+    export SP_E2E_UPSTREAM_STATION=false
+    export SP_E2E_INGEST="${SP_E2E_INGEST:-fmp4}"
+  fi
+  if [ "$pass" = av1 ]; then
+    export SP_E2E_VIDEO="${SP_E2E_VIDEO:-av1}"
+    E2E_FLOWS="${E2E_FLOWS:-logged-out/av1.yaml}"
+  fi
+  E2E_ARTIFACTS="${E2E_ARTIFACTS:-$REPO/.maestro/artifacts/$pass}"
+  E2E_HARNESS_LOG="${E2E_HARNESS_LOG:-$E2E_ARTIFACTS/harness.log}"
+elif [ "${1:-}" = "--upstream-station" ]; then
+  export SP_E2E_UPSTREAM_STATION=true
+  shift
+fi
+[ "${1:-}" = "--" ] && shift
 
 # --- tools, device and app -------------------------------------------------
 MAESTRO=maestro
@@ -58,12 +120,6 @@ if [ "$PLATFORM" = ios ]; then
   . hack/lib/e2e-ios.sh
   e2e_ios_prepare
 else
-ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
-ADB="$ANDROID_HOME/platform-tools/adb"
-[ -x "$ADB" ] || ADB=adb
-
-DEVICE="${ANDROID_SERIAL:-$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1; exit}')}"
-[ -n "$DEVICE" ] || { echo "no android emulator running"; exit 1; }
 adb_() { "$ADB" -s "$DEVICE" "$@"; }
 
 # Newest by ctime: the APK comes out of bundletool's zip with the zip's fixed
@@ -118,17 +174,29 @@ adb_ shell settings put secure stylus_handwriting_enabled 0 || true
 # otherwise float over the app and eat maestro's taps
 adb_ shell settings put global hide_error_dialogs 1 || true
 
-
-# Default to the emulator's host alias. An unprivileged host using a high
-# HTTPS port can instead map the fixture through adb reverse on port 443.
-# E2E_ANDROID_HOST_ADDR then selects device loopback without changing issuers.
+# Keep public fixture URLs portless even when the harness listens on a high
+# port. adb reverse is scoped to the selected emulator, not the host firewall.
+android_host="${E2E_ANDROID_HOST_ADDR:-10.0.2.2}"
+reverse_ports=()
+e2e_android_stop() {
+  for port in "${reverse_ports[@]+"${reverse_ports[@]}"}"; do
+    adb_ reverse --remove "tcp:$port" 2>/dev/null || true
+  done
+  e2e_harness_stop
+}
+trap e2e_android_stop EXIT
+if [ -z "${E2E_ANDROID_HOST_ADDR:-}" ] && [ "${E2E_HTTPS_PORT:-443}" != 443 ]; then
+  adb_ reverse --no-rebind tcp:443 "tcp:$E2E_HTTPS_PORT"
+  reverse_ports+=(443)
+  android_host=127.0.0.1
+fi
 hosts="127.0.0.1 localhost
 ::1 ip6-localhost"
 # The prelive handle is unquoted so it drops out when the harness has none.
 # shellcheck disable=SC2086
 for name in "$E2E_HTTPS_STATION_HOSTNAME" "$E2E_HTTPS_PDS_HOSTNAME" "$ACCOUNT_HANDLE" ${PRELIVE_ACCOUNT_HANDLE:-} plc.directory ${E2E_HTTPS_PLC_HOSTNAME:+"$E2E_HTTPS_PLC_HOSTNAME"}; do
   hosts="$hosts
-${E2E_ANDROID_HOST_ADDR:-10.0.2.2} $name"
+$android_host $name"
 done
 printf '%s\n' "$hosts" | adb_ shell 'while grep -q " /system/etc/hosts " /proc/mounts; do umount /system/etc/hosts; done
   cat > /data/local/tmp/sp-e2e-hosts
@@ -174,12 +242,8 @@ if [ "${E2E_UPSTREAM_STATION:-}" = true ]; then
     # Keep the issuer and callback loopback names identical on host and device.
     # Merely substituting 10.0.2.2 would change the DPoP-bound request target.
     local_port="${SERVER_URL##*:}"
-    adb_ reverse "tcp:$local_port" "tcp:$local_port"
-    e2e_android_stop() {
-      adb_ reverse --remove "tcp:$local_port" 2>/dev/null || true
-      e2e_harness_stop
-    }
-    trap e2e_android_stop EXIT INT TERM
+    adb_ reverse --no-rebind "tcp:$local_port" "tcp:$local_port"
+    reverse_ports+=("$local_port")
   fi
 else
   APP_SERVER_URL="$SERVER_HTTPS_URL"
@@ -196,7 +260,8 @@ MAESTRO_ARGS=(-e APP_ID="$APP_ID" -e SERVER_URL="$APP_SERVER_URL"
   -e DEVICE_UTC_OFFSET="${device_offset:0:3}:${device_offset:3}"
   -e SP_E2E_INGEST="${SP_E2E_INGEST:-whip}"
   -e SP_E2E_VIDEO="${SP_E2E_VIDEO:-h264}"
-  -e E2E_UPSTREAM_STATION="${E2E_UPSTREAM_STATION:-false}")
+  -e E2E_UPSTREAM_STATION="${E2E_UPSTREAM_STATION:-false}"
+  -e E2E_ANIMATION_WAIT_MS="$E2E_ANIMATION_WAIT_MS")
 
 # --- run the flows ---------------------------------------------------------
 # takeScreenshot paths are relative to maestro's cwd, so run from the
@@ -211,6 +276,8 @@ if [ "${E2E_UPSTREAM_STATION:-}" = true ] && [ -z "${E2E_FLOWS:-}" ]; then
   # The generated plan includes server setup and OAuth before this scenario.
   E2E_FLOWS=".maestro/logged-in/upstream-station.yaml"
 fi
+# E2E_FLOWS is a space-separated list of fixture paths.
+# shellcheck disable=SC2086
 bash "$REPO/hack/maestro-config.sh" ${E2E_FLOWS:-} > "$ARTIFACTS/workspace.yaml"
 cd "$ARTIFACTS"
 MAESTRO_CLI_NO_ANALYTICS=1 "$MAESTRO" --platform "$PLATFORM" --device "$DEVICE" test \

@@ -312,5 +312,9 @@ hack/e2e-web-local.sh
 flows, and tears the harness down. On a host without the cgo runtime, run it
 inside the build container.
 
+`E2E_SPEED` (`0` conservative, `1` fastest) tunes the initial interval for
+fixture readiness and `toPass` assertions without reducing their deadlines.
+Both back off exponentially. Pull requests use `0.9`.
+
 Artifacts on failure (traces, screenshots, video) land in `test-results/` and a
 report in `playwright-report/` (`pnpm --filter @streamplace/e2e-web report`).

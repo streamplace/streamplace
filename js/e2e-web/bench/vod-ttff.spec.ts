@@ -15,6 +15,9 @@ import { pointAppAtNode } from "../server-setup";
 const HTTPS_URL = process.env.SERVER_HTTPS_URL!;
 const HANDLE = process.env.ACCOUNT_HANDLE!;
 const RUNS = Number(process.env.VOD_TTFF_RUNS || 5);
+if (!Number.isInteger(RUNS) || RUNS < 1) {
+  throw new Error(`VOD_TTFF_RUNS must be a positive integer, not ${RUNS}`);
+}
 const RESULTS_DIR = join(__dirname, "..", "bench-results");
 
 // Any node: two comma-separated watch URLs (primer, then target) replace the
@@ -58,7 +61,8 @@ const COLUMNS: [keyof Milestones, string][] = [
   ["playlistRequested", "Playlist requested"],
   ["blobRequested", "First blob requested"],
   ["firstFrame", "First frame"],
-  ["transferKB", "Fetched by first frame (KB)"],
+  // Whole responses of requests started before the first frame.
+  ["transferKB", "Requested before first frame (KB)"],
 ];
 
 type Marks = { videoMounted?: number; firstFrame?: number };

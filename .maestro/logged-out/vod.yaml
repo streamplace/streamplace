@@ -12,8 +12,11 @@ appId: ${APP_ID}
       text: ".*e2e test video.*"
     timeout: 30000
 - takeScreenshot: vod-open
-# Reveal the controls (they fade 6s after a tap while playing) and pause: the
-# player then reports "Play", the controls stay up, and the position is readable.
+# A playing video never settles, so this lets it play on before pausing.
+- waitForAnimationToEnd:
+    timeout: 2000
+# Reveal the controls and pause at once: Maestro's slow commands can outlast
+# their 6s fade. Paused, they stay up and the position is readable.
 - retry:
     maxRetries: 3
     commands:
@@ -24,9 +27,6 @@ appId: ${APP_ID}
             - tapOn:
                 point: 50%,20%
                 waitToSettleTimeoutMs: 500
-      # A playing video never settles, so this lets it play for 2s.
-      - waitForAnimationToEnd:
-          timeout: 2000
       - tapOn:
           text: "Pause"
           waitToSettleTimeoutMs: 500

@@ -23,7 +23,7 @@
           },
           "sid": {
             "type": "string",
-            "description": "Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control."
+            "description": "The playback session from the media playlist that referenced this segment; required on this route, and it gates pre-live segments."
           }
         }
       },
@@ -38,6 +38,10 @@
         {
           "name": "SegmentNotFound",
           "description": "The requested segment has slid out of the window, or never existed."
+        },
+        {
+          "name": "PlaybackStartedElsewhere",
+          "description": "A newer owner session has taken over this pre-live stream."
         }
       ]
     }

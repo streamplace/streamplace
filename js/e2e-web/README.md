@@ -13,7 +13,9 @@ Its flows live in `desktop/`, outside this config's `flows/` discovery.
 - **Harness:** `streamplace e2e` (see `pkg/cmd/e2e.go`) boots a node + local
   PDS/PLC + a looping WHIP test stream and prints `SERVER_URL` /
   `ACCOUNT_HANDLE` / `ACCOUNT_DID` / `STREAM_KEY` (and `E2E_FIXTURE_MP4`, the
-  local file it streams). The node also serves the web app (embedded
+  local file it streams, and `PRELIVE_ACCOUNT_*`, a second account that streams
+  the same fixture with no livestream record, so it stays pre-live; absent with
+  `SP_E2E_INGEST=none` and in the upstream topology). The node also serves the web app (embedded
   via `//go:embed all:dist/**`), so Playwright just points a browser at
   `SERVER_URL`. `SP_E2E_INGEST=fmp4` loops the stream through the OBS plugin's
   fragmented-MP4 ingest instead (CI runs `flows/stream.spec.ts` that way too),
@@ -92,6 +94,12 @@ without changing its DID or avatar, then accepts the corrected completion. It
 covers the shared login hook; the public AppView boundary is substituted because
 the local PDS account is not publicly searchable.
 
+`login-typeahead` checks Expo web's completion font and vertical/horizontal
+alignment against the handle input at desktop and narrow widths, then accepts
+the suggestion with Tab. The completion shares the input's typography and is
+vertically centered instead of using a fixed top offset. Public AppView results
+are substituted; native iOS/Android typography and positioning are unchanged.
+
 The web app renders the **desktop layout** (a sidebar of nav links), not the
 mobile tab bar, so `tabs` drives Home ↔ Settings through the sidebar.
 `go-live` checks that the Live Dashboard (`/live`) requires login; this is
@@ -106,6 +114,16 @@ hydration. It also decodes `/favicon.ico` as a browser image, verifying the ICO
 signature, MIME type, branded pixels and bundled fallback after deletion.
 It is web-only: native apps have no browser tab favicon, and branding image
 uploads are already limited to the web.
+
+`not-found` covers both web shells. Unknown root paths without a period or colon
+show a generic 404 with a content-width Home action; query-string punctuation does
+not make a path an account. Missing handles and DIDs show "User not found" after
+the configured node's `com.atproto.identity.resolveIdentity` lookup; valid accounts
+require neither a Bluesky profile nor a reachable PDS. Directory outages offer
+Retry rather than claiming the
+account is missing. Coverage includes account switching and real handle/DID
+playback. The shared iOS/Android deep-link counterpart is
+`.maestro/logged-out/not-found.yaml`.
 
 `stream` also covers the narrow portrait web layout at 320 × 568, where the
 live video sits above chat. It reveals the player chrome, exercises mute and
@@ -131,7 +149,9 @@ and Android use the separate Expo/native player.
 landscape, including 1080 × 722 and immediately below, at, and above the theme
 breakpoints (640, 768, 1024, 1280, 1536), sidebar boundary (981), and desktop
 player boundary (1201). It checks that the mute button and whole volume slider
-are fully inside the viewport and change the actual video element's audio state.
+are fully inside the viewport, that opening the slider leaves the mute button
+where the pointer found it, and that they change the actual video element's
+audio state.
 Side-chat layouts repeat those checks with chat open, closed, and reopened. This catches
 controls clipped below the web shell's header: the compact player's height must
 fill its available parent, not the whole browser window. These controls are
@@ -156,6 +176,13 @@ automatic publishing consent; the PDS-backed regression for that index deletion
 lives in `pkg/atproto/auto_publish_vod_test.go`. It also injects a deletion failure
 and checks that later deletions still run while the commit watermark advances
 only after successful reprocessing.
+
+`prelive-playback` covers the pre-live account: its own dashboard preview plays
+over HLS with an owner playback session, while anonymous requests and the leaked
+session replayed from a foreign origin get 404 `StreamNotLive`; the same session
+without Origin/Referer (a native player) still plays. The native counterpart,
+`.maestro/logged-out/prelive-hidden.yaml`, checks no video plays for another
+viewer.
 
 `syndication` plays the test stream from the harness's second node, which pulls
 it from the first over Media over QUIC (`SERVER2_URL`; see `docs/moq.md`).
@@ -284,6 +311,10 @@ hack/e2e-web-local.sh
 `hack/e2e-web-local.sh` starts the harness, waits for `SERVER_URL`, runs the
 flows, and tears the harness down. On a host without the cgo runtime, run it
 inside the build container.
+
+`E2E_SPEED` (`0` conservative, `1` fastest) tunes the initial interval for
+fixture readiness and `toPass` assertions without reducing their deadlines.
+Both back off exponentially. Pull requests use `0.9`.
 
 Artifacts on failure (traces, screenshots, video) land in `test-results/` and a
 report in `playwright-report/` (`pnpm --filter @streamplace/e2e-web report`).

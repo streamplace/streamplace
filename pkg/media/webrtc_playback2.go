@@ -16,13 +16,20 @@ import (
 	"stream.place/streamplace/pkg/renditions"
 )
 
-// This function remains in scope for the duration of a single users' playback
-func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendition string, offer *webrtc.SessionDescription, viewer string) (*webrtc.SessionDescription, error) {
+// WebRTCPlayback2 plays user's stream to viewer for as long as the playback lasts. Unpublished
+// segments go only to the streamer's playback whose session prelive, and this connection,
+// hold the claim (see ClaimPrelivePlayback); a playback that loses the claim is closed.
+func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendition string, offer *webrtc.SessionDescription, viewer, prelive string) (*webrtc.SessionDescription, error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
 	}
-	ctx = log.WithLogValues(ctx, "webrtcID", uu.String())
+	conn := uu.String()
+	owner := viewer == user && prelive != ""
+	if owner && !mm.cli.WideOpen && !mm.LiveWindowPublished(user) && !mm.ClaimPrelivePlayback(user, prelive, conn) {
+		return nil, ErrPlaybackStartedElsewhere
+	}
+	ctx = log.WithLogValues(ctx, "webrtcID", conn)
 	ctx = log.WithLogValues(ctx, "mediafunc", "WebRTCPlayback")
 
 	audioOnly := rendition == renditions.AudioRendition.Name
@@ -164,9 +171,16 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					return
 				case file := <-segChan.C:
 					log.Debug(ctx, "got segment", "file", file.Filepath)
-					if !file.Published && viewer != user && !mm.cli.WideOpen {
-						log.Warn(ctx, "segment is not published and viewer is not the user", "viewer", viewer, "user", user)
-						continue
+					if !file.Published && !mm.cli.WideOpen {
+						if !owner {
+							log.Warn(ctx, "segment is not published and viewer is not the streamer's playback", "viewer", viewer, "user", user)
+							continue
+						}
+						if !mm.ClaimPrelivePlayback(user, prelive, conn) {
+							log.Log(ctx, "pre-live playback started elsewhere, closing", "user", user)
+							cancel()
+							return
+						}
 					}
 					latency += file.PacketizedData.Duration
 					packetQueue <- file.PacketizedData

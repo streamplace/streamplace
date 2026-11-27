@@ -1,26 +1,20 @@
-import { getDidFromAtUri, getGameCoverUrl } from "@/lib/game";
-import { usePDSAgent } from "@/lib/store/hooks";
+import { getDidFromAtUri } from "@/lib/game";
+import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { useGameSearch, type GameSearchResult } from "@streamplace/core";
 import { Search, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { place } from "streamplace";
+import { place, StreamplaceAgent } from "streamplace";
 
 /**
  * Activity picker for livestreams:
  *  - "Game" mode: search for actual games via the streamplace xrpc,
- *    show cover art + name + genres. Stores an `ActivityGame` value
+ *    show cover art + name. Stores an `ActivityGame` value
  *    with `$type: "place.stream.defs#activityGame"`.
  *  - "Other Activity" mode: predefined labels (Just Chatting, Music, …).
  *    Stores an `ActivityLabel` value.
  */
-
-interface GameResult {
-  uri: string;
-  name: string;
-  coverUrl?: string;
-  genres?: string[];
-}
 
 const ACTIVITY_LABELS: Array<{ value: string; display: string }> = [
   { value: "just_chatting", display: "Just Chatting" },
@@ -46,7 +40,11 @@ interface ActivityPickerProps {
 
 export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
   const { t } = useTranslation("common");
-  const agent = usePDSAgent();
+  const nodeUrl = useStore((state) => state.url);
+  const agent = useMemo(
+    () => (nodeUrl ? new StreamplaceAgent(nodeUrl) : null),
+    [nodeUrl],
+  );
 
   // Determine initial mode from the current value
   const initialMode = useMemo<Mode>(() => {
@@ -57,9 +55,6 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
 
   const [mode, setMode] = useState<Mode>(initialMode);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<GameResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedGame =
     value?.$type === "place.stream.defs#activityGame"
@@ -70,74 +65,28 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
       ? (value as { label: string })
       : null;
 
-  // Debounced game search
-  useEffect(() => {
-    if (mode !== "game") {
-      setResults([]);
-      return;
-    }
-    if (!query.trim() || !agent) {
-      setResults([]);
-      return;
-    }
+  const {
+    results,
+    searching,
+    error: searchError,
+    hasMore,
+    loadingMore,
+    loadMoreError,
+    loadMore,
+  } = useGameSearch(agent, query, mode === "game" && !selectedGame);
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await agent.client.call(place.stream.game.search, {
-          q: query,
-          limit: 8,
-        });
-        const games: GameResult[] = [];
-        for (const result of res.results ?? []) {
-          // Type guard: only game summary views have the fields we need
-          if (!result || typeof result !== "object" || !("name" in result)) {
-            continue;
-          }
-          const r = result as {
-            uri: string;
-            name: string;
-            media?: any;
-            genres?: string[];
-          };
-          const did = getDidFromAtUri(r.uri);
-          const coverUrl = getGameCoverUrl(r.media, did);
-          games.push({
-            uri: r.uri,
-            name: r.name,
-            coverUrl,
-            genres: r.genres,
-          });
-        }
-        setResults(games);
-      } catch (e) {
-        console.error("game search error:", e);
-        setResults([]);
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, agent, mode]);
-
-  const selectGame = (game: GameResult) => {
+  const selectGame = (game: GameSearchResult) => {
     onChange({
       $type: "place.stream.defs#activityGame",
       uri: game.uri,
       name: game.name,
     } as unknown as place.stream.livestream.Main["activity"]);
     setQuery("");
-    setResults([]);
   };
 
   const clearActivity = () => {
     onChange(undefined);
     setQuery("");
-    setResults([]);
   };
 
   return (
@@ -193,8 +142,19 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
                 {t("searching", { defaultValue: "Searching…" })}
               </div>
             )}
-            {!searching && results.length > 0 && (
-              <div className="mt-1 max-h-64 overflow-hidden overflow-y-auto rounded-md border border-(--color-border) bg-(--color-bg)">
+            {!searching && (results.length > 0 || hasMore) && (
+              <div
+                data-testid="game-results"
+                onScroll={(event) => {
+                  const list = event.currentTarget;
+                  if (
+                    !loadMoreError &&
+                    list.scrollHeight - list.scrollTop - list.clientHeight <= 64
+                  )
+                    void loadMore();
+                }}
+                className="mt-1 max-h-64 overflow-y-auto rounded-md border border-(--color-border) bg-(--color-bg)"
+              >
                 {results.map((game) => (
                   <button
                     key={game.uri}
@@ -212,22 +172,33 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
                       <div className="h-10 w-8 shrink-0 rounded-sm bg-(--color-bg-elevated)" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">
+                      <div className="line-clamp-2 text-sm font-medium">
                         {game.name}
                       </div>
-                      {game.genres && game.genres.length > 0 && (
-                        <div className="truncate text-[10px] text-(--color-fg-muted)">
-                          {game.genres.join(" · ")}
-                        </div>
-                      )}
                     </div>
                   </button>
                 ))}
+                {hasMore && (
+                  <button
+                    type="button"
+                    onClick={() => void loadMore()}
+                    disabled={loadingMore}
+                    className="w-full px-2 py-2 text-center text-xs text-(--color-fg-muted) hover:bg-(--color-bg-elevated) disabled:opacity-40"
+                  >
+                    {loadingMore
+                      ? t("loading", { defaultValue: "Loading..." })
+                      : loadMoreError
+                        ? t("try-again", { defaultValue: "Try again" })
+                        : t("load-more", { defaultValue: "Load more" })}
+                  </button>
+                )}
               </div>
             )}
-            {!searching && query.trim() && results.length === 0 && (
+            {!searching && query.trim() && results.length === 0 && !hasMore && (
               <div className="px-2 py-1.5 text-xs text-(--color-fg-muted)">
-                {t("no-results", { defaultValue: "No games found" })}
+                {searchError
+                  ? t("search-failed", { defaultValue: "Search failed" })
+                  : t("no-results", { defaultValue: "No games found" })}
               </div>
             )}
           </div>
@@ -312,7 +283,7 @@ function SelectedGameCard({
   return (
     <div className="flex items-center gap-2 rounded-md border border-(--color-accent)/40 bg-(--color-accent)/5 p-2">
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-(--color-accent)">
+        <div className="line-clamp-2 text-sm font-medium text-(--color-accent)">
           {name}
         </div>
         <div className="truncate text-[10px] text-(--color-fg-muted)">

@@ -80,6 +80,10 @@ export function DesktopUi({
   const showMetrics = usePlayerStore((state) => state.showDebugInfo);
   const pipAction = usePlayerStore((state) => state.pipAction);
   const videoRef = usePlayerStore((state) => state.videoRef);
+  // The tap layer would swallow the "Play here" button's taps (see MobileUi).
+  const playbackElsewhere = usePlayerStore(
+    (state) => state.playbackStartedElsewhere,
+  );
   const embedded = usePlayerStore((state) => state.embedded);
 
   const fullscreen = usePlayerStore((state) => state.fullscreen);
@@ -317,14 +321,16 @@ export function DesktopUi({
           { overflow: "hidden" },
         ]}
       >
-        <GestureDetector gesture={hoverAndTap}>
-          <View
-            testID="desktop-player-surface"
-            onPointerDown={onPlayerPointerDown}
-            style={[layout.position.absolute, h.percent[100], w.percent[100]]}
-            collapsable={false}
-          />
-        </GestureDetector>
+        {!playbackElsewhere && (
+          <GestureDetector gesture={hoverAndTap}>
+            <View
+              testID="desktop-player-surface"
+              onPointerDown={onPlayerPointerDown}
+              style={[layout.position.absolute, h.percent[100], w.percent[100]]}
+              collapsable={false}
+            />
+          </GestureDetector>
+        )}
         <PlayerUI.ViewerLoadingOverlay />
         <PlayPauseIndicator />
         <Animated.View

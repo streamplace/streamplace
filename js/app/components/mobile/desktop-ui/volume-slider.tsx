@@ -26,7 +26,14 @@ import Animated, {
 
 const { layout } = zero;
 
-export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
+// expandLeft keeps a right-aligned button under the pointer while the slider opens.
+export function VolumeSlider({
+  sliderWidth = 200,
+  expandLeft = false,
+}: {
+  sliderWidth?: number;
+  expandLeft?: boolean;
+}) {
   const muted = useMuted();
   const setMuted = useSetMuted();
   const volume = useVolume();
@@ -67,7 +74,7 @@ export function VolumeSlider({ sliderWidth = 200 }: { sliderWidth?: number }) {
       onFocus={onVolumeHover}
       onBlur={fadeOut}
       style={[
-        layout.flex.row,
+        expandLeft ? { flexDirection: "row-reverse" } : layout.flex.row,
         layout.flex.alignCenter,
         { height: touchTargets.minimum },
       ]}

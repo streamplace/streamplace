@@ -17,10 +17,11 @@ Play a stream over WebRTC using WHEP.
 
 **Parameters:**
 
-| Name        | Type     | Req'd | Description                          | Constraints |
-| ----------- | -------- | ----- | ------------------------------------ | ----------- |
-| `streamer`  | `string` | ✅    | The DID of the streamer to play.     |             |
-| `rendition` | `string` | ✅    | The rendition of the stream to play. |             |
+| Name        | Type     | Req'd | Description                                                                                  | Constraints |
+| ----------- | -------- | ----- | -------------------------------------------------------------------------------------------- | ----------- |
+| `streamer`  | `string` | ✅    | The DID of the streamer to play.                                                             |             |
+| `rendition` | `string` | ✅    | The rendition of the stream to play.                                                         |             |
+| `sid`       | `string` | ❌    | The streamer's own playback session (getPlaybackSession), which opens their pre-live stream. |             |
 
 **Input:**
 
@@ -37,6 +38,7 @@ _Schema not defined._
 **Possible Errors:**
 
 - `Unauthorized`: This user may not play this stream.
+- `PlaybackStartedElsewhere`: A pre-live stream plays to one owner session at a time, and a newer one has taken over; mint a new session to play here again.
 
 ---
 
@@ -61,6 +63,10 @@ _Schema not defined._
           "rendition": {
             "type": "string",
             "description": "The rendition of the stream to play."
+          },
+          "sid": {
+            "type": "string",
+            "description": "The streamer's own playback session (getPlaybackSession), which opens their pre-live stream."
           }
         }
       },
@@ -74,6 +80,10 @@ _Schema not defined._
         {
           "name": "Unauthorized",
           "description": "This user may not play this stream."
+        },
+        {
+          "name": "PlaybackStartedElsewhere",
+          "description": "A pre-live stream plays to one owner session at a time, and a newer one has taken over; mint a new session to play here again."
         }
       ]
     }

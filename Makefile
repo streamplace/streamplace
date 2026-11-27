@@ -179,11 +179,17 @@ ios: app
 	&& tar -czvf streamplace-$(VERSION)-ios-release.xcarchive.tar.gz streamplace-$(VERSION)-ios-release.xcarchive'
 
 # Test-only Release build with embedded JS and OTA updates disabled.
+# Regenerate iOS only; Android is untouched.
 .PHONY: ios-simulator
+ios-simulator: export SP_E2E_BUILD=true
 ios-simulator: install
-	cd js/app && SP_E2E_BUILD=true pnpm run prebuild
+	cd js/app && pnpm --filter @streamplace/i18n compile && pnpm run brand && node scripts/generate-build-info.js
+	cd js/app && NODE_ENV=production EXPO_NO_GIT_STATUS=1 pnpm exec expo prebuild --platform ios --clean
+	cd js/app && pnpm run find-node
 	bash -eu -c ' \
+		export NODE_ENV=production; \
 		set -- ./js/app/ios/*.xcworkspace; \
+		if [ "$$#" -ne 1 ] || [ ! -d "$$1" ]; then echo "Expected one iOS workspace after prebuild" >&2; exit 1; fi; \
 		workspace="$$1"; \
 		scheme="$${workspace##*/}"; \
 		scheme="$${scheme%.xcworkspace}"; \
@@ -195,8 +201,22 @@ ios-simulator: install
 		-scheme "$$scheme" \
 		-derivedDataPath ./bin/ios-simulator \
 		ARCHS="$$(uname -m)" \
+		ONLY_ACTIVE_ARCH=YES \
 		CODE_SIGNING_ALLOWED=NO \
+		SKIP_BUNDLING= \
 		build'
+
+# The full local suite uses the fixture PLC rather than the public directory.
+.PHONY: ios-e2e
+ios-e2e: export EXPO_PUBLIC_PLC_URL ?= https://$(or $(E2E_HTTPS_PLC_HOSTNAME),plc.localhost-pds.streamplace.network)
+ios-e2e:
+	$(MAKE) ios-simulator
+	bash -eu -c ' \
+		set -- ./bin/ios-simulator/Build/Products/Release-iphonesimulator/*.app; \
+		if [ "$$#" -ne 1 ] || [ ! -d "$$1" ]; then echo "Expected one built simulator app" >&2; exit 1; fi; \
+		output="$(OUT_DIR)/streamplace-$(VERSION)-ios-e2e.app"; \
+		rm -rf "$$output"; \
+		ditto "$$1" "$$output"'
 
 #    _____  ____
 #   / ____|/ __ \

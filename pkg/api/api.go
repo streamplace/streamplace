@@ -44,7 +44,6 @@ import (
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
-	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
@@ -213,9 +212,6 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	// new ones
 	addFunc(apiRouter, "GET", "/api/manifest", a.HandleAppUpdates(ctx))
 	addHandle(apiRouter, "GET", "/api/desktop-updates/:platform/:architecture/:version/:buildTime/:file", a.HandleDesktopUpdates(ctx))
-	addHandle(apiRouter, "POST", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	addHandle(apiRouter, "OPTIONS", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	addHandle(apiRouter, "DELETE", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
 	addFunc(apiRouter, "POST", "/api/segment", a.HandleSegment(ctx))
 	addFunc(apiRouter, "GET", "/api/healthz", a.HandleHealthz(ctx))
 	// they're jpegs now
@@ -364,17 +360,6 @@ func (a *StreamplaceAPI) ContextMiddleware(parentContext context.Context) func(n
 			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
 		})
-	}
-}
-func copyHeader(dst, src http.Header) {
-	for k, vv := range src {
-		// we'll handle CORS ourselves, thanks
-		if strings.HasPrefix(k, "Access-Control") {
-			continue
-		}
-		for _, v := range vv {
-			dst.Add(k, v)
-		}
 	}
 }
 
@@ -641,51 +626,6 @@ func (a *StreamplaceAPI) hydrateAuthorName(ctx context.Context, author *appbsky.
 	}
 	if name := strings.TrimSpace(*bp.DisplayName); name != "" {
 		author.DisplayName = &name
-	}
-}
-
-func (a *StreamplaceAPI) MistProxyHandler(ctx context.Context, tmpl string) httprouter.Handle {
-	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		if !a.CLI.HasMist() {
-			apierrors.WriteHTTPNotImplemented(w, "Playback only on the Linux version for now", nil)
-			return
-		}
-		stream := params.ByName("stream")
-		if stream == "" {
-			apierrors.WriteHTTPBadRequest(w, "missing stream in request", nil)
-			return
-		}
-
-		fullstream := fmt.Sprintf("%s+%s", mistconfig.StreamName, stream)
-		prefix := fmt.Sprintf(tmpl, fullstream)
-		resource := params.ByName("resource")
-
-		// path := strings.TrimPrefix(req.URL.EscapedPath(), "/api")
-
-		client := &http.Client{}
-		req.URL = &url.URL{
-			Scheme:   "http",
-			Host:     fmt.Sprintf("127.0.0.1:%d", a.CLI.MistHTTPPort),
-			Path:     fmt.Sprintf("%s%s", prefix, resource),
-			RawQuery: req.URL.RawQuery,
-		}
-
-		//http: Request.RequestURI can't be set in client requests.
-		//http://golang.org/src/pkg/net/http/client.go
-		req.RequestURI = ""
-
-		resp, err := client.Do(req)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "error connecting to mist", err)
-			return
-		}
-		defer resp.Body.Close()
-
-		copyHeader(w.Header(), resp.Header)
-		w.WriteHeader(resp.StatusCode)
-		if _, err := io.Copy(w, resp.Body); err != nil {
-			log.Error(ctx, "error writing response", "error", err)
-		}
 	}
 }
 

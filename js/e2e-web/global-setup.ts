@@ -1,4 +1,5 @@
 import { chromium, expect, type FullConfig } from "@playwright/test";
+import { setTimeout } from "node:timers/promises";
 import { loginThroughPds } from "./flows/login";
 import { pointAppAtNode } from "./server-setup";
 import { STORAGE_STATE } from "./storage";
@@ -77,11 +78,13 @@ export default async function globalSetup(_config: FullConfig) {
 // a few seconds after boot to ingest its first segments).
 async function waitForLiveStream(serverUrl: string, timeoutMs = 90_000) {
   const deadline = Date.now() + timeoutMs;
+  let delay = Number(process.env.E2E_POLL_START_MS ?? 100);
   let lastErr = "";
   while (Date.now() < deadline) {
     try {
       const res = await fetch(
         `${serverUrl}/xrpc/place.stream.live.getLiveUsers?limit=50`,
+        { signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())) },
       );
       if (res.ok) {
         const body = (await res.json()) as { streams?: unknown[] };
@@ -92,7 +95,10 @@ async function waitForLiveStream(serverUrl: string, timeoutMs = 90_000) {
     } catch (e) {
       lastErr = (e as Error).message;
     }
-    await new Promise((r) => setTimeout(r, 2000));
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await setTimeout(Math.min(delay, remaining));
+    delay = Math.min(delay * 2, 2000);
   }
   throw new Error(
     `timed out waiting for a live stream from ${serverUrl} (last: ${lastErr || "empty feed"})`,

@@ -23,20 +23,14 @@ appId: ${APP_ID}
 # among the account's records.
 # Start with a capital so the keyboard's sentence capitalization is a no-op.
 - evalScript: ${output.timezoneSentAfter = Date.now()}
-# resend a send the page wasn't ready for, as in chat-reply
-- retry:
-    maxRetries: 3
-    commands:
-      - tapOn:
-          id: "chat-input"
-      - eraseText: 50
-      - inputText: "Timezone check ${output.timezoneSentAfter}"
-      - pressKey: Enter
-      - extendedWaitUntil:
-          visible:
-            # the row's text is the whole line, "@<handle>: <message>"
-            text: ".*: Timezone check ${output.timezoneSentAfter}"
-          timeout: 15000
+- runFlow:
+    file: ../setup/send-chat.yaml
+    env:
+      CHAT_MESSAGE: "Timezone check ${output.timezoneSentAfter}"
+- extendedWaitUntil:
+    visible:
+      text: ".*: Timezone check ${output.timezoneSentAfter}"
+    timeout: 15000
 - takeScreenshot: chat-timezone-sent
 # Relaunch, so the message comes from the node's chat history: only a record
 # that round-tripped through the PDS and firehose can show up here.

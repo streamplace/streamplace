@@ -12,6 +12,7 @@
     "app.bsky.richtext.facet",
     "com.atproto.identity.refreshIdentity",
     "com.atproto.identity.resolveHandle",
+    "com.atproto.identity.resolveIdentity",
     "com.atproto.identity.updateHandle",
     "com.atproto.label.defs",
     "com.atproto.moderation.defs",
@@ -162,6 +163,10 @@
     "com.atproto.identity.resolveHandle": {
       "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.identity.resolveHandle",
       "cid": "bafyreigckmqtt3jrtzd7tvigjatnz6ajqyafs26h5pwcudwag2anedxnmu"
+    },
+    "com.atproto.identity.resolveIdentity": {
+      "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.identity.resolveIdentity",
+      "cid": "bafyreibc3gr2wcoogckav25quul7dz24jnq7oevwvrve4fhanmyypujpai"
     },
     "com.atproto.identity.updateHandle": {
       "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.identity.updateHandle",

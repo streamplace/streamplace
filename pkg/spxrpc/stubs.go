@@ -64,6 +64,7 @@ func (s *Server) RegisterHandlersChatbsky(e *echo.Echo) error {
 func (s *Server) RegisterHandlersComatproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.identity.refreshIdentity", s.HandleComAtprotoIdentityRefreshIdentity)
 	e.GET("/xrpc/com.atproto.identity.resolveHandle", s.HandleComAtprotoIdentityResolveHandle)
+	e.GET("/xrpc/com.atproto.identity.resolveIdentity", s.HandleComAtprotoIdentityResolveIdentity)
 	e.POST("/xrpc/com.atproto.identity.updateHandle", s.HandleComAtprotoIdentityUpdateHandle)
 	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleComAtprotoRepoCreateRecord)
 	e.POST("/xrpc/com.atproto.repo.deleteRecord", s.HandleComAtprotoRepoDeleteRecord)
@@ -107,6 +108,20 @@ func (s *Server) HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context,handle string) (*comatproto.IdentityResolveHandle_Output, error)
 	out, handleErr = s.handleComAtprotoIdentityResolveHandle(ctx, handle)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoIdentityResolveIdentity(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoIdentityResolveIdentity")
+	defer span.End()
+	identifier := c.QueryParam("identifier")
+	var out *comatproto.IdentityDefs_IdentityInfo
+	var handleErr error
+	// func (s *Server) handleComAtprotoIdentityResolveIdentity(ctx context.Context,identifier string) (*comatproto.IdentityDefs_IdentityInfo, error)
+	out, handleErr = s.handleComAtprotoIdentityResolveIdentity(ctx, identifier)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -704,10 +719,11 @@ func (s *Server) HandlePlaceStreamGameSearch(c echo.Context) error {
 		}
 	}
 	q := c.QueryParam("q")
+	types := c.QueryParams()["types"]
 	var out *placestream.GameSearch_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamGameSearch(ctx context.Context,cursor string,limit int,q string) (*placestream.GameSearch_Output, error)
-	out, handleErr = s.handlePlaceStreamGameSearch(ctx, cursor, limit, q)
+	// func (s *Server) handlePlaceStreamGameSearch(ctx context.Context,cursor string,limit int,q string,types []string) (*placestream.GameSearch_Output, error)
+	out, handleErr = s.handlePlaceStreamGameSearch(ctx, cursor, limit, q, types)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1464,13 +1480,14 @@ func (s *Server) HandlePlaceStreamPlaybackWhep(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackWhep")
 	defer span.End()
 	rendition := c.QueryParam("rendition")
+	sid := c.QueryParam("sid")
 	streamer := c.QueryParam("streamer")
 	body := c.Request().Body
 	contentType := c.Request().Header.Get("Content-Type")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context,rendition string,streamer string,r io.Reader,contentType string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackWhep(ctx, rendition, streamer, body, contentType)
+	// func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context,rendition string,sid string,streamer string,r io.Reader,contentType string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackWhep(ctx, rendition, sid, streamer, body, contentType)
 	if handleErr != nil {
 		return handleErr
 	}

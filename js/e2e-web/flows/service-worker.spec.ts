@@ -244,6 +244,14 @@ const controlled = (page: Page) =>
   page.waitForFunction(() => navigator.serviceWorker.controller !== null);
 const olderThanStartupWindow = (page: Page) =>
   page.waitForFunction((ms) => performance.now() > ms, STARTUP_WINDOW_MS + 500);
+
+// Keep new documents inside the startup window even if Chromium defers its
+// update check. Existing tabs, worker lifecycle events, and timers stay real.
+const holdStartupWindow = (context: BrowserContext) =>
+  context.addInitScript((limit) => {
+    const now = performance.now.bind(performance);
+    performance.now = () => Math.min(now(), limit);
+  }, STARTUP_WINDOW_MS - 1);
 // A reload would replace the document and lose this.
 const mark = (page: Page) =>
   page.evaluate(() => {
@@ -466,6 +474,7 @@ test("service worker: an update inside the startup window reloads only the new t
 
   deployment.deployment = "v2";
   const before = deployment.documents(SETTINGS);
+  await holdStartupWindow(context);
   const fresh = await openSettings(context, deployment);
 
   await expect.poll(() => workers(context)).toMatchObject({ v2: "activated" });
@@ -475,6 +484,7 @@ test("service worker: an update inside the startup window reloads only the new t
   await expect(searchBox(fresh)).toBeVisible();
   expect(fresh.url()).toBe(deployment.origin + SETTINGS);
   // Past the startup window, a repeat reload would no longer be possible.
+  await fresh.evaluate(() => Reflect.deleteProperty(performance, "now"));
   await olderThanStartupWindow(fresh);
   expect(deployment.documents(SETTINGS)).toBe(before + 2);
 
@@ -509,6 +519,7 @@ test("service worker: a late update waits and activates on the next navigation",
     .toMatchObject({ v1: "activated", v2: "installed" });
 
   const before = deployment.documents(SETTINGS);
+  await holdStartupWindow(context);
   await page.reload({ waitUntil: "commit" });
   await expect.poll(() => workers(context)).toMatchObject({ v2: "activated" });
   await expect(searchBox(page)).toBeVisible();
@@ -555,6 +566,7 @@ test("service worker: failed updates keep the working version", async ({
 
   // The next good deployment still installs.
   deployment.worker = "ok";
+  await holdStartupWindow(context);
   await page.reload({ waitUntil: "commit" });
   await expect.poll(() => workers(context)).toMatchObject({ v2: "activated" });
 });

@@ -18,6 +18,7 @@ export enum PlayerStatus {
   WAITING = "waiting",
   PAUSE = "pause",
   MUTE = "mute",
+  ERROR = "error",
 }
 
 export type PlayerStatusTracker = Partial<Record<PlayerStatus, number>>;
@@ -65,6 +66,17 @@ export interface PlayerState {
    *  unpublished stream, threaded onto the HLS playlist URL. */
   playbackSession?: string;
   setPlaybackSession: (sid: string | undefined) => void;
+  /** A newer owner session took over pre-live playback; this player stays
+   *  stopped until the viewer picks "Play here". Cleared on a new src. */
+  playbackStartedElsewhere: boolean;
+  setPlaybackStartedElsewhere: (elsewhere: boolean) => void;
+  /** Set by usePlaybackSession while it holds the owner's session: playHere
+   *  mints a fresh one and resumes after eviction; remint replaces a rejected
+   *  one (rate-limited). */
+  playbackSessionActions?: { playHere: () => void; remint: () => void };
+  setPlaybackSessionActions: (
+    actions: { playHere: () => void; remint: () => void } | undefined,
+  ) => void;
 
   /** Function to set the source URL */
   setSrc: (src: string) => void;

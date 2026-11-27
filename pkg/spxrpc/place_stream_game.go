@@ -14,7 +14,7 @@ import (
 	placestream "stream.place/streamplace/pkg/placestream"
 )
 
-func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string, limit int, q string) (*placestream.GameSearch_Output, error) {
+func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string, limit int, q string, types []string) (*placestream.GameSearch_Output, error) {
 	if s.cli.GamesAPIURL == "" {
 		return nil, echo.NewHTTPError(http.StatusServiceUnavailable, "games API not configured")
 	}
@@ -23,7 +23,7 @@ func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string,
 		limit = 20
 	}
 
-	cacheKey := fmt.Sprintf("game_search:%s:%d:%s", q, limit, cursor)
+	cacheKey := fmt.Sprintf("game_search:%s:%d:%s:%q", q, limit, cursor, types)
 	if cached, found := s.GameSearchCache.Get(cacheKey); found {
 		if out, ok := cached.(*placestream.GameSearch_Output); ok {
 			return out, nil
@@ -35,6 +35,9 @@ func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string,
 	params.Set("limit", fmt.Sprintf("%d", limit))
 	if cursor != "" {
 		params.Set("cursor", cursor)
+	}
+	for _, entityType := range types {
+		params.Add("types", entityType)
 	}
 
 	reqURL := s.cli.GamesAPIURL + "/xrpc/games.gamesgamesgamesgames.search?" + params.Encode()

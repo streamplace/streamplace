@@ -91,10 +91,14 @@ pds-selector-info = Each host has their own policies and reliability standards. 
 pds-selector-different-policies = Streamplace has separate moderation policies. You can be banned from Streamplace regardless of which account host you choose.
 pds-selector-read-policies = Read { $label }'s <tosLink>Terms of Service</tosLink> and <privacyLink>Privacy Policy</privacyLink> before continuing.
 pds-selector-handle-policy-checkbox = I have read and agree to the <policyLink>handle policy</policyLink>
-creator-not-found-title = Creator not found
+creator-not-found-title = User not found
 creator-not-found-description = We couldn't find an Atmosphere account for { $handle }.
 creator-lookup-failed-title = We couldn't load this creator
 creator-lookup-failed-description = The Atmosphere directory isn't responding right now. Try again in a moment.
+
+## Page not found
+page-not-found-title = 404 — Page not found
+page-not-found-description = The page you're looking for doesn't exist.
 
 ## Header
 profile = Profile
@@ -282,6 +286,8 @@ pip-enter = Picture-in-picture
 pip-exit = Exit picture-in-picture
 theatre-enter = Theatre mode
 theatre-exit = Exit theatre mode
+playback-started-elsewhere = Playback started elsewhere.
+play-here = Play here
 
 ## Notifications
 teleporting-in = Teleporting in

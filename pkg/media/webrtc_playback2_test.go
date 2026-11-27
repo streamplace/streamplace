@@ -22,7 +22,7 @@ func TestWebRTCPlayback2(t *testing.T) {
 		Type: webrtc.SDPTypeOffer,
 		SDP:  firefoxNoH264SDP,
 	}
-	answer, err := mm.WebRTCPlayback2(context.Background(), "test-user", "test-rendition", offer, "")
+	answer, err := mm.WebRTCPlayback2(context.Background(), "test-user", "test-rendition", offer, "", "")
 	require.ErrorContains(t, err, "RTPSender created with no codecs")
 	require.Nil(t, answer)
 }
@@ -37,7 +37,7 @@ func TestWebRTCPlayback2AV1Viewer(t *testing.T) {
 		Duration: time.Second,
 		Video:    []bus.PacketizedVideo{{MimeType: webrtc.MimeTypeAV1}, {MimeType: webrtc.MimeTypeH264}},
 	}})
-	answer, err := mm.WebRTCPlayback2(ctx, "streamer", "source", &webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: firefoxNoH264SDP}, "")
+	answer, err := mm.WebRTCPlayback2(ctx, "streamer", "source", &webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: firefoxNoH264SDP}, "", "")
 	require.NoError(t, err)
 	require.Contains(t, answer.SDP, "AV1/90000")
 }
@@ -72,7 +72,7 @@ func TestWebRTCPlayback2EndsSessionWithoutItsCodec(t *testing.T) {
 	require.NoError(t, pc.SetLocalDescription(offer))
 	<-gathered
 
-	answer, err := mm.WebRTCPlayback2(ctx, "streamer", "source", pc.LocalDescription(), "")
+	answer, err := mm.WebRTCPlayback2(ctx, "streamer", "source", pc.LocalDescription(), "", "")
 	require.NoError(t, err)
 	require.Contains(t, answer.SDP, "H264/90000", "no segment yet: H.264")
 	require.NoError(t, pc.SetRemoteDescription(*answer))
@@ -139,6 +139,28 @@ func TestOfferedVideo(t *testing.T) {
 			require.Equal(t, tc.want, offeredVideo(tc.packet, offeredVideoMimeTypes(tc.offer)))
 		})
 	}
+}
+
+// One pre-live playback per streamer: the newest session takes over, and an
+// older one never gets it back, even once the newer one stops playing.
+func TestClaimPrelivePlayback(t *testing.T) {
+	mm := &MediaManager{}
+	const older, newer = "3kabcaaaaaa22", "3kabcaaaaab22"
+	require.True(t, mm.ClaimPrelivePlayback("streamer", older, ""))
+	require.True(t, mm.ClaimPrelivePlayback("streamer", older, ""), "the holder keeps it")
+	require.True(t, mm.ClaimPrelivePlayback("streamer", newer, ""), "a newer session takes over")
+	require.False(t, mm.ClaimPrelivePlayback("streamer", older, ""), "the evicted one stays out")
+	require.True(t, mm.ClaimPrelivePlayback("other", older, ""), "per streamer")
+	require.False(t, mm.ClaimPrelivePlayback("streamer", "", ""), "no session, no claim")
+
+	// One WebRTC connection per session: offers relayed through the owner's
+	// client with the same sid replace each other rather than fan out.
+	const conn1, conn2 = "0190a000-0000-7000-8000-000000000001", "0190a000-0000-7000-8000-000000000002"
+	require.True(t, mm.ClaimPrelivePlayback("streamer", newer, conn1))
+	require.True(t, mm.ClaimPrelivePlayback("streamer", newer, conn2))
+	require.False(t, mm.ClaimPrelivePlayback("streamer", newer, conn1), "the older connection is closed")
+	require.True(t, mm.ClaimPrelivePlayback("streamer", newer, ""), "HLS on the session still plays")
+	require.True(t, mm.ClaimPrelivePlayback("streamer", newer, conn2))
 }
 
 var firefoxNoH264SDP = `v=0

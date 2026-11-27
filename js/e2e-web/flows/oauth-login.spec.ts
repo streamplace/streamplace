@@ -34,14 +34,12 @@ test("oauth-login: log in, chat, and reopen a profile", async ({ page }) => {
       request.postData()?.includes(message) === true
     );
   });
-  // a send the page wasn't ready for clears the box and is dropped; resend
-  await expect(async () => {
-    await chatInput.fill(message);
-    await chatInput.press("Enter");
-    await expect(page.getByText(message).first()).toBeVisible({
-      timeout: 10_000,
-    });
-  }).toPass({ timeout: 45_000 });
+  await chatInput.fill(message);
+  await expect(page.getByTestId("chat-send")).toBeEnabled();
+  await chatInput.press("Enter");
+  await expect(page.getByText(message).first()).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(chatInput).toHaveValue("");
   const response = await messageCreateResponse;
   expect(

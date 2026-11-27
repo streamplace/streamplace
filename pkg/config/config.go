@@ -1809,17 +1809,28 @@ func (cli *CLI) SegmentFileCreate(user string, aqt aqtime.AQTime, ext string) (*
 }
 
 // ThumbnailFilePath returns the path to a user's current thumbnail. There is a
-// single, continually-overwritten thumbnail per user. The user is a DID
-// (e.g. did:plc:...); DataFilePath strips the colons so the filename is safe on
-// Windows.
-func (cli *CLI) ThumbnailFilePath(user string) string {
+// single, continually-overwritten thumbnail per user, and a separate one for
+// pre-live frames, which only the streamer's own go-live may use. The user is a
+// DID (e.g. did:plc:...); DataFilePath strips the colons so the filename is
+// safe on Windows.
+func (cli *CLI) ThumbnailFilePath(user string, published bool) string {
+	if !published {
+		return cli.DataFilePath([]string{ThumbnailsDir, "prelive", fmt.Sprintf("%s.jpg", user)})
+	}
 	return cli.DataFilePath([]string{ThumbnailsDir, fmt.Sprintf("%s.jpg", user)})
+}
+
+// LatestThumbnailFilePath is the user's newest thumbnail, pre-live or public.
+func (cli *CLI) LatestThumbnailFilePath(user string) string {
+	pre, okPre := cli.ThumbnailModTime(user, false)
+	pub, okPub := cli.ThumbnailModTime(user, true)
+	return cli.ThumbnailFilePath(user, okPub && (!okPre || pub.After(pre)))
 }
 
 // ThumbnailModTime returns the modification time of a user's thumbnail and
 // whether it exists. The mod time doubles as a "last seen live" signal.
-func (cli *CLI) ThumbnailModTime(user string) (time.Time, bool) {
-	fi, err := os.Stat(cli.ThumbnailFilePath(user))
+func (cli *CLI) ThumbnailModTime(user string, published bool) (time.Time, bool) {
+	fi, err := os.Stat(cli.ThumbnailFilePath(user, published))
 	if err != nil {
 		return time.Time{}, false
 	}
@@ -1829,8 +1840,8 @@ func (cli *CLI) ThumbnailModTime(user string) (time.Time, bool) {
 // ThumbnailWrite atomically (re)writes a user's thumbnail. The image is written
 // to a temp file via the supplied function and renamed into place, so readers
 // (and PDS uploads) never observe a half-written thumbnail.
-func (cli *CLI) ThumbnailWrite(user string, write func(io.Writer) error) error {
-	final := cli.ThumbnailFilePath(user)
+func (cli *CLI) ThumbnailWrite(user string, published bool, write func(io.Writer) error) error {
+	final := cli.ThumbnailFilePath(user, published)
 	dir := filepath.Dir(final)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		return fmt.Errorf("error creating thumbnail dir %s: %w", dir, err)

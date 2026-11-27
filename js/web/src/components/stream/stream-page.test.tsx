@@ -22,8 +22,13 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => fixture.navigate,
   Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
 }));
-vi.mock("@/hooks/actor-lookup", () => ({
-  useActorLookup: () => ({ status: "found" }),
+vi.mock(import("@streamplace/core"), async (importOriginal) => ({
+  ...(await importOriginal()),
+  useActorLookup: () => ({
+    status: "found",
+    actor: { did: "did:plc:streamer", handle: "streamer.example" },
+    retry: vi.fn(),
+  }),
 }));
 vi.mock("@/hooks/use-livestream-store", () => ({
   useLivestreamStore: () => ({ store: fixture.store, ready: true }),

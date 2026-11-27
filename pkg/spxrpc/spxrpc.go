@@ -76,6 +76,8 @@ func (s *Server) vodCDN() vodCDN { return s.cdn }
 
 func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer, aliases map[string]string) (*Server, error) {
 	e := echo.New()
+	// Nodes terminate TLS themselves: X-Forwarded-For is client-controlled.
+	e.IPExtractor = echo.ExtractIPDirect()
 	provider, err := providers.FromConfig(cli)
 	if err != nil {
 		return nil, err

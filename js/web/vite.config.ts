@@ -2,7 +2,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 
 // Conditionally add Sentry plugin for source maps upload in CI.
 function sentryPlugin() {
@@ -23,9 +23,16 @@ function sentryPlugin() {
 }
 
 // https://vite.dev/config/
-export default defineConfig(async () => {
+export default defineConfig(async ({ mode }) => {
+  const env = loadEnv(mode, __dirname, "");
   const sentry = await sentryPlugin();
   return {
+    define: {
+      // Keep shared core portable while Expo retains its static env inlining.
+      "process.env.EXPO_PUBLIC_PLC_URL": JSON.stringify(
+        env.VITE_PLC_URL || env.EXPO_PUBLIC_PLC_URL || "",
+      ),
+    },
     plugins: [
       // TanStack Router must be registered BEFORE @vitejs/plugin-react so the
       // generated route tree is in place when the React plugin runs.

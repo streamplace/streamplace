@@ -46,6 +46,7 @@ for (const orientation of ["portrait", "landscape"] as const) {
       await revealControls();
       const mute = page.getByRole("button", { name: "Mute", exact: true });
       await expect(mute).toBeInViewport({ ratio: 1 });
+      const muteBox = await mute.boundingBox();
       await mute.click({ timeout: 5_000 });
       await expect
         .poll(() =>
@@ -63,6 +64,8 @@ for (const orientation of ["portrait", "landscape"] as const) {
       await expect(page.getByTestId("player-volume-track")).toBeInViewport({
         ratio: 1,
       });
+      // Opening the slider must not move the button out from under the pointer.
+      expect(await unmute.boundingBox()).toEqual(muteBox);
       await unmute.click();
       await expect
         .poll(() =>

@@ -16,7 +16,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import {
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  type ScrollViewProps,
+} from "react-native";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -163,12 +170,13 @@ export const DropdownMenuBottomSheet = forwardRef<
   DropdownMenuPrimitive.ContentProps & {
     overlayStyle?: any;
     portalHost?: string;
+    onContentScroll?: ScrollViewProps["onScroll"];
   }
 >(function DropdownMenuBottomSheet(
-  { overlayStyle, portalHost, children, ...rest },
+  { overlayStyle, portalHost, onContentScroll, children, ...rest },
   _ref,
 ) {
-  const { onOpenChange } = DropdownMenuPrimitive.useRootContext();
+  const { open, onOpenChange } = DropdownMenuPrimitive.useRootContext();
   const { zero: zt, theme } = useTheme();
   const sheetRef = useRef<BottomSheet>(null);
   const { width } = useWindowDimensions();
@@ -177,6 +185,10 @@ export const DropdownMenuBottomSheet = forwardRef<
   const horizontalMargin = isWide ? (width - sheetWidth) / 2 : 0;
 
   const insets = useSafeAreaInsets();
+
+  React.useEffect(() => {
+    if (open) Keyboard.dismiss();
+  }, [open]);
 
   const [stack, setStack] = useState<NavigationStackItem[]>([
     { key: "root", content: children },
@@ -326,6 +338,7 @@ export const DropdownMenuBottomSheet = forwardRef<
           <Animated.View style={animatedStyle}>
             <BottomSheetScrollView
               style={[px[4]]}
+              onScroll={onContentScroll}
               contentContainerStyle={{
                 paddingBottom: insets.bottom + 50,
                 overflow: "hidden",

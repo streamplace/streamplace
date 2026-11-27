@@ -456,12 +456,13 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 	}
 	defer lock.Unlock()
 
-	if mt, ok := ss.cli.ThumbnailModTime(repoDID); ok && time.Since(mt) < thumbnailInterval {
+	published := not.Metadata.Published
+	if mt, ok := ss.cli.ThumbnailModTime(repoDID, published); ok && time.Since(mt) < thumbnailInterval {
 		// current thumbnail is still fresh, keep it
 		return nil
 	}
 
-	return ss.cli.ThumbnailWrite(repoDID, func(w io.Writer) error {
+	return ss.cli.ThumbnailWrite(repoDID, published, func(w io.Writer) error {
 		return media.SegmentThumbnail(ctx, not.Muxl, w, "jpeg")
 	})
 }

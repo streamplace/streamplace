@@ -38,6 +38,10 @@
         {
           "name": "StreamUnavailable",
           "description": "The streamer's account is unavailable (e.g. banned)."
+        },
+        {
+          "name": "PlaybackStartedElsewhere",
+          "description": "A pre-live stream plays to one owner session at a time, and a newer one has taken over; mint a new session to play here again."
         }
       ]
     }

@@ -7,14 +7,18 @@
 #
 # The caller's cwd must be the repo root. On return the harness is up and its
 # variables are exported: SERVER_URL, SERVER2_URL (a second node that pulls
-# the stream from the first over MoQ), SERVER3_URL (a third node the first
+# the stream from the first over MoQ), SERVER2_INTERNAL_URL (that node's
+# internal admin API), SERVER3_URL (a third node the first
 # pushes the stream to over MoQ), ACCOUNT_HANDLE, ACCOUNT_DID,
 # ACCOUNT_PASSWORD, VIDEO_URI (the account's test VOD), E2E_FIXTURE_MP4 (the
 # local file the harness streams into the node), STREAM_KEY (the account's
 # stream key), PDS_HTTP_URL (the PDS's plain-HTTP listener, for checking
 # stored records from the host), PDS_KIND (reference, spaces or vlpds),
 # SERVER_INTERNAL_URL (the first node's internal listener, for its metrics),
-# and in HTTPS mode also SERVER_HTTPS_URL, PDS_HTTPS_URL,
+# PRELIVE_ACCOUNT_DID / _HANDLE / _PASSWORD (a
+# second account that streams without a livestream record; unset with
+# SP_E2E_INGEST=none or the upstream topology), and in
+# HTTPS mode also SERVER_HTTPS_URL, PDS_HTTPS_URL,
 # E2E_PROXY_URL, E2E_TLS_SPKI and E2E_TLS_CA. An EXIT trap stops it; a caller
 # with its own EXIT work calls e2e_harness_stop from its trap instead.
 # Upstream mode (SP_E2E_UPSTREAM_STATION=true) additionally exports the local
@@ -33,10 +37,26 @@
 # pkg/cmd/e2e_https.go). Set E2E_HTTPS_PDS_HOSTNAME empty to skip HTTPS; the
 # OAuth flows then skip themselves. A machine that redirects loopback 443
 # elsewhere (an iptables REDIRECT rule) sets E2E_HTTPS_PORT to the target port.
+# On macOS, hack/e2e-https-macos.sh installs a persistent loopback relay;
+# when that launchd service is loaded, the default target becomes 38443.
 #
 # E2E_HARNESS_LOG, if set, is where the harness log goes; it is kept after the
 # run (CI uploads it). Otherwise the log is a temp file, shown on a failed
 # start and deleted afterwards.
+#
+# E2E_SPEED tunes optional pacing, never readiness or assertion deadlines.
+e2e_pacing() {
+  local pace
+  if ! pace="$(LC_ALL=C awk -v speed="${E2E_SPEED-0}" 'BEGIN {
+    if (speed !~ /^([0-9]+([.][0-9]*)?|[.][0-9]+)$/ || speed > 1) exit 1
+    printf "%.0f %.0f\n", 25 + 75 * (1 - speed), 15000 * (1 - speed)
+  }')"; then
+    echo "E2E_SPEED must be a decimal between 0 (conservative) and 1 (fastest)" >&2
+    return 1
+  fi
+  read -r E2E_POLL_START_MS E2E_ANIMATION_WAIT_MS <<< "$pace"
+  export E2E_POLL_START_MS E2E_ANIMATION_WAIT_MS
+}
 
 case "$(uname)-$(uname -m)" in
   Linux-x86_64)  BUILDDIR=build-linux-amd64 ;;
@@ -47,6 +67,7 @@ case "$(uname)-$(uname -m)" in
 esac
 
 e2e_harness_start() {
+  e2e_pacing
   if [ ! -x "$BUILDDIR/streamplace" ]; then
     echo "harness binary $BUILDDIR/streamplace missing — run 'make dev' first"
     exit 1
@@ -68,9 +89,19 @@ e2e_harness_start() {
   #
   # PIDs matching this checkout's binary before we start — never kill a
   # scratch node someone else is running from the same build dir.
-  E2E_PREEXISTING=" $( { pgrep -f "$BUILDDIR/libstreamplace" 2>/dev/null || true; } | tr '\n' ' ') "
+  E2E_HARNESS_BIN="$(pwd -P)/$BUILDDIR/libstreamplace"
+  E2E_PREEXISTING=" $( { pgrep -f "^$E2E_HARNESS_BIN( |$)" 2>/dev/null || true; } | tr '\n' ' ') "
   E2E_HTTPS_PDS_HOSTNAME="${E2E_HTTPS_PDS_HOSTNAME-localhost-pds.streamplace.network}"
   E2E_HTTPS_STATION_HOSTNAME="${E2E_HTTPS_STATION_HOSTNAME-localhost-station.streamplace.team}"
+  if [ "$(uname)" = Darwin ]; then
+    # Go 1.27+ supports per-process SSL_CERT_DIR on macOS; the module's
+    # older Go compatibility default otherwise keeps using the Mac keychain.
+    export GODEBUG="${GODEBUG:+$GODEBUG,}x509sslcertoverrideplatform=1"
+    if [ -z "${E2E_HTTPS_PORT:-}" ] &&
+      launchctl print system/network.streamplace.e2e-https >/dev/null 2>&1; then
+      E2E_HTTPS_PORT=38443
+    fi
+  fi
   local args=(e2e)
   if [ -n "$E2E_HTTPS_PDS_HOSTNAME" ]; then
     args+=(--https-pds-hostname "$E2E_HTTPS_PDS_HOSTNAME"
@@ -87,22 +118,33 @@ e2e_harness_start() {
     input="$E2E_CONTROL_FIFO"
     export E2E_CONTROL_FIFO
   fi
+  if [ -n "${E2E_HTTPS_PLC_HOSTNAME:-}" ]; then
+    args+=(--https-plc-hostname "$E2E_HTTPS_PLC_HOSTNAME")
+  fi
   if command -v setsid >/dev/null 2>&1; then
     setsid "$BUILDDIR/streamplace" "${args[@]}" < "$input" > "$E2E_ENVFILE" 2> "$E2E_LOGFILE" &
   else
     "$BUILDDIR/streamplace" "${args[@]}" < "$input" > "$E2E_ENVFILE" 2> "$E2E_LOGFILE" &
   fi
   E2E_HARNESS_PID=$!
-  trap e2e_harness_stop EXIT INT TERM
+  trap e2e_harness_stop EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
 
-  for _ in $(seq 1 90); do grep -q SERVER_URL "$E2E_ENVFILE" && break; sleep 2; done
-  if ! grep -q SERVER_URL "$E2E_ENVFILE"; then
+  local delay=$E2E_POLL_START_MS deadline=$((SECONDS + 180))
+  until grep -q '^SERVER_URL=' "$E2E_ENVFILE"; do
+    [ "$SECONDS" -lt "$deadline" ] || break
+    sleep "$(printf '%d.%03d' "$((delay / 1000))" "$((delay % 1000))")"
+    delay=$((delay < 1000 ? delay * 2 : 2000))
+  done
+  if ! grep -q '^SERVER_URL=' "$E2E_ENVFILE"; then
     echo "harness failed to start; log:"; tail -20 "$E2E_LOGFILE"; exit 1
   fi
   # shellcheck disable=SC1090
   . "$E2E_ENVFILE"
-  export SERVER_URL SERVER2_URL SERVER3_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD VIDEO_URI
+  export SERVER_URL SERVER2_URL SERVER2_INTERNAL_URL SERVER3_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD VIDEO_URI
   export E2E_FIXTURE_MP4 STREAM_KEY PDS_HTTP_URL PDS_KIND SERVER_INTERNAL_URL
+  export PRELIVE_ACCOUNT_DID PRELIVE_ACCOUNT_HANDLE PRELIVE_ACCOUNT_PASSWORD
   # Every node's log, for specs that check how something happened.
   export E2E_LOGFILE
   # only set in HTTPS mode
@@ -123,7 +165,7 @@ e2e_harness_stop() {
   # The ingest worker re-setsid's itself, escaping the group kill; sweep the
   # binaries that appeared since we started.
   local pid
-  for pid in $(pgrep -f "$BUILDDIR/libstreamplace" 2>/dev/null || true); do
+  for pid in $(pgrep -f "^$E2E_HARNESS_BIN( |$)" 2>/dev/null || true); do
     case "$E2E_PREEXISTING" in *" $pid "*) ;; *) kill "$pid" 2>/dev/null || true ;; esac
   done
   rm -f "$E2E_ENVFILE"

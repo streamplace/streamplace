@@ -7,6 +7,8 @@ export default function VideoRetry(props: { children: React.ReactNode }) {
   const playing = usePlayerStore((x) => x.status === PlayerStatus.PLAYING);
   const mode = usePlayerStore((x) => x.mode);
   const status = usePlayerStore((x) => x.status);
+  // Evicted by a newer owner session: no video and no retries until "Play here".
+  const elsewhere = usePlayerStore((x) => x.playbackStartedElsewhere);
   const [lastChange, setLastChange] = useState(Date.now());
   const [tick, setTick] = useState(0);
 
@@ -15,14 +17,14 @@ export default function VideoRetry(props: { children: React.ReactNode }) {
   }, [status]);
 
   useEffect(() => {
-    if (mode === "vod") return;
+    if (mode === "vod" || elsewhere) return;
     if (!playing) {
       const handle = setInterval(() => {
         setTick(Date.now());
       }, 1000);
       return () => clearInterval(handle);
     }
-  }, [setTick, playing]);
+  }, [setTick, playing, elsewhere]);
 
   const stalledFor5sec = !playing && tick - lastChange > 5000;
 
@@ -34,7 +36,7 @@ export default function VideoRetry(props: { children: React.ReactNode }) {
   }, [stalledFor5sec]);
 
   useEffect(() => {
-    if (mode === "vod") return;
+    if (mode === "vod" || elsewhere) return;
     if (!playing && status !== PlayerStatus.PAUSE) {
       const doRetry = () => {
         console.log("Retrying video playback...");
@@ -51,7 +53,8 @@ export default function VideoRetry(props: { children: React.ReactNode }) {
         retryTimeoutRef.current = null;
       }
     };
-  }, [!playing, mode, status]);
+  }, [!playing, mode, status, elsewhere]);
 
+  if (elsewhere) return null;
   return <React.Fragment key={retries}>{props.children}</React.Fragment>;
 }

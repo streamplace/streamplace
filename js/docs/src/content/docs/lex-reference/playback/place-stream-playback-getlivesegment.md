@@ -17,12 +17,12 @@ Fetch a single live HLS segment, or a track's init segment, from the in-memory l
 
 **Parameters:**
 
-| Name       | Type     | Req'd | Description                                                                                                                                                          | Constraints |
-| ---------- | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `streamer` | `string` | ✅    | The streamer: a DID or a Bluesky handle (resolved to its DID).                                                                                                       |             |
-| `track`    | `string` | ✅    | Track ID (stringified u32 matching the MUXL container).                                                                                                              |             |
-| `seg`      | `string` | ✅    | `init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored.                                              |             |
-| `sid`      | `string` | ❌    | Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control. |             |
+| Name       | Type     | Req'd | Description                                                                                                                        | Constraints |
+| ---------- | -------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `streamer` | `string` | ✅    | The streamer: a DID or a Bluesky handle (resolved to its DID).                                                                     |             |
+| `track`    | `string` | ✅    | Track ID (stringified u32 matching the MUXL container).                                                                            |             |
+| `seg`      | `string` | ✅    | `init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored.            |             |
+| `sid`      | `string` | ❌    | The playback session from the media playlist that referenced this segment; required on this route, and it gates pre-live segments. |             |
 
 **Output:**
 
@@ -34,6 +34,7 @@ _Schema not defined._
 
 - `StreamNotLive`: No live window for this streamer on this node.
 - `SegmentNotFound`: The requested segment has slid out of the window, or never existed.
+- `PlaybackStartedElsewhere`: A newer owner session has taken over this pre-live stream.
 
 ---
 
@@ -65,7 +66,7 @@ _Schema not defined._
           },
           "sid": {
             "type": "string",
-            "description": "Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control."
+            "description": "The playback session from the media playlist that referenced this segment; required on this route, and it gates pre-live segments."
           }
         }
       },
@@ -80,6 +81,10 @@ _Schema not defined._
         {
           "name": "SegmentNotFound",
           "description": "The requested segment has slid out of the window, or never existed."
+        },
+        {
+          "name": "PlaybackStartedElsewhere",
+          "description": "A newer owner session has taken over this pre-live stream."
         }
       ]
     }

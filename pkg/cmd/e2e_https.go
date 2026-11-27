@@ -36,8 +36,8 @@ import (
 // OAuth flow can run against the local PDS and node unmodified. Neither end
 // accepts less: the Go OAuth client wants a PDS issuer that is https:// with
 // no port, the PDS's OAuth provider refuses client IDs and redirect URIs on
-// .test/.local/.localhost names, and oatproxy and the browser OAuth client
-// both resolve did:plc against a hardcoded https://plc.directory.
+// .test/.local/.localhost names. Native clients use the configured PLC
+// hostname; oatproxy still resolves did:plc against https://plc.directory.
 //
 // So, given public DNS records pointing a PDS hostname, everything under it
 // (account handles) and a station (broadcaster) hostname at 127.0.0.1, the
@@ -45,18 +45,19 @@ import (
 // domains, as they are in production: the PDS refuses to show its sign-in
 // page to a same-site navigation (Sec-Fetch-Site: same-site).
 //
-//   - mints a throwaway CA and one leaf for all of those and plc.directory;
+//   - mints a throwaway CA and one leaf for all of those, the configured PLC
+//     hostname, and plc.directory (for oatproxy's fixed directory URL);
 //   - terminates TLS on 127.0.0.1:443 and routes by SNI: the PDS hostname and
 //     handles to the dev-env PDS, the station hostname to the node's
-//     plain-HTTP listener (it runs with --behind-https-proxy), plc.directory
+//     plain-HTTP listener (it runs with --behind-https-proxy), both PLC names
 //     to the dev-env PLC;
 //   - has the PDS resolve lexicons, the OAuth permission sets among them,
 //     from a local lexicon authority account that the harness publishes this
 //     build's lexicons into (see publishLexicons in e2e.go);
 //   - runs a CONNECT proxy that sends the names above to that listener and
 //     everything else where it was going. The node (HTTPS_PROXY) and the
-//     browser use it, which is how their hardcoded plc.directory lookups land
-//     on the local PLC.
+//     browser use it, so oatproxy's fixed plc.directory lookups reach the
+//     local PLC without a system DNS override.
 //
 // Nothing is installed system-wide: each process is told to trust the CA on
 // its own (SSL_CERT_DIR for Go, NODE_EXTRA_CA_CERTS for Node, the leaf's SPKI
@@ -64,6 +65,7 @@ import (
 type e2eHTTPS struct {
 	pdsHost     string
 	stationHost string
+	plcHost     string
 	dir         string
 	caPath      string
 	trustDir    string
@@ -87,8 +89,8 @@ const e2ePLCHost = "plc.directory"
 // The front end listens on 127.0.0.1:port. The URLs it serves stay portless
 // (https://<host>), so any port other than 443 only works on a machine that
 // redirects loopback 443 to it, e.g. with an iptables REDIRECT rule.
-func newE2EHTTPS(pdsHost, stationHost string, port int) (*e2eHTTPS, error) {
-	h := &e2eHTTPS{pdsHost: pdsHost, stationHost: stationHost}
+func newE2EHTTPS(pdsHost, stationHost, plcHost string, port int) (*e2eHTTPS, error) {
+	h := &e2eHTTPS{pdsHost: pdsHost, stationHost: stationHost, plcHost: plcHost}
 	var err error
 	h.dir, err = os.MkdirTemp("", "streamplace-e2e-tls-*")
 	if err != nil {
@@ -149,9 +151,10 @@ func (h *e2eHTTPS) NodeEnv() []string {
 }
 
 // TrustEnv is what any forked node needs to reach the PDS and PLC at their
-// HTTPS names: the CA, and the proxy that sends plc.directory to the local
-// PLC. Go reads SSL_CERT_DIR on top of the system bundle file, so public
-// roots still work.
+// HTTPS names: the CA, and the proxy that sends the configured PLC hostname
+// and legacy plc.directory to the local PLC. Linux retains the system root
+// bundle alongside SSL_CERT_DIR. The macOS runner enables Go 1.27's file-root
+// override, trusting this run's CA only.
 func (h *e2eHTTPS) TrustEnv() []string {
 	return []string{
 		"SSL_CERT_DIR=" + h.trustDir,
@@ -165,7 +168,7 @@ func (h *e2eHTTPS) Serve(ctx context.Context, pdsAddr, plcAddr, nodeAddr string)
 	route := func(name string) string {
 		name = strings.ToLower(strings.TrimSuffix(name, "."))
 		switch {
-		case name == e2ePLCHost:
+		case name == h.plcHost || name == e2ePLCHost:
 			return plcAddr
 		case name == h.stationHost:
 			return nodeAddr
@@ -222,6 +225,9 @@ func (h *e2eHTTPS) mintCerts() error {
 		NotAfter:     now.Add(7 * 24 * time.Hour),
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	if h.plcHost != e2ePLCHost {
+		leafTmpl.DNSNames = append(leafTmpl.DNSNames, h.plcHost)
 	}
 	leafDER, err := x509.CreateCertificate(rand.Reader, leafTmpl, ca, &leafKey.PublicKey, caKey)
 	if err != nil {
@@ -443,10 +449,10 @@ func (h *e2eHTTPS) StartLocalProxy(ctx context.Context, pdsURL string) (string, 
 		host, port, err := net.SplitHostPort(hostport)
 		if err == nil && port == "443" {
 			switch {
+			case host == h.plcHost || host == e2ePLCHost || host == h.stationHost:
+				return h.frontLn.Addr().String()
 			case host == h.pdsHost || strings.HasSuffix(host, "."+h.pdsHost):
 				return h.localPDSLn.Addr().String()
-			case host == h.stationHost || host == e2ePLCHost:
-				return h.frontLn.Addr().String()
 			}
 		}
 		return hostport

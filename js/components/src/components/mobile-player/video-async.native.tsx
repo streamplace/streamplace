@@ -258,6 +258,10 @@ export function NativeVideo(props?: {
           );
         }
       }),
+      // Tells usePlaybackSession its sid may have been rejected.
+      player.addListener("statusChange", ({ status }) => {
+        if (status === "error") setStatus(PlayerStatus.ERROR);
+      }),
     );
 
     return () => {

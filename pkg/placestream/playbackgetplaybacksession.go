@@ -14,7 +14,7 @@ import (
 
 type PlaybackGetPlaybackSession_Output struct {
 	LexiconTypeID string `json:"$type,omitempty"`
-	// expiresAt: When the session stops opening the stream unless renewed; fetch a new one before then.
+	// expiresAt: When the session stops opening the stream; it is not renewed, so fetch a new one before then (or when the client's address changes).
 	ExpiresAt string `json:"expiresAt"`
 	// sid: The signed session to pass as the `sid` query parameter.
 	Sid string `json:"sid"`
@@ -42,7 +42,7 @@ func (t *PlaybackGetPlaybackSession_Output) UnmarshalCBOR(r io.Reader) error {
 
 // PlaybackGetPlaybackSession calls the XRPC method "place.stream.playback.getPlaybackSession".
 //
-// Mint the caller's own playback session for their live stream. Every playback URL carries a signed session as `sid`; the anonymous one a playlist hands out opens published streams only, while the owner session this returns also opens the caller's unpublished (pre-live) stream to their own player. Requires an authenticated session; the result is bound to the caller's DID. Pass it as `sid` on getLivePlaylist.
+// Mint the caller's own playback session for their live stream. Every playback URL carries a signed session as `sid`; the anonymous one a playlist hands out opens published streams only, while the owner session this returns also opens the caller's unpublished (pre-live) stream to their own player. Requires an authenticated session; the result is bound to the caller's DID and network address, opens the pre-live stream only from that address and never to a page on another site, and is never renewed. A pre-live stream plays to one owner session at a time: the newest one used takes over, and older ones get PlaybackStartedElsewhere. Pass it as `sid` on getLivePlaylist or whep.
 func PlaybackGetPlaybackSession(ctx context.Context, c glex.LexClient) (*PlaybackGetPlaybackSession_Output, error) {
 	var out PlaybackGetPlaybackSession_Output
 

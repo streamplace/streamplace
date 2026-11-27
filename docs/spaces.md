@@ -16,7 +16,7 @@ Every user has at most one Streamplace space, with the user's own DID as its
 authority:
 
 ```
-at://{did}/space/place.stream.personal/self
+at:space/{did}/place.stream.personal/self
 ```
 
 | Part       | Value                              | Notes                                               |
@@ -26,7 +26,7 @@ at://{did}/space/place.stream.personal/self
 | policy     | `com.atproto.personalspace.policy` | only the owner can read; there are no other writers |
 
 A record in it is addressed as
-`at://{did}/space/place.stream.personal/self/{did}/{collection}/{rkey}`.
+`at:space/{did}/place.stream.personal/self/{did}/{collection}/{rkey}`.
 `pkg/spaces` builds the personal space URI and holds the few
 `com.atproto.space.*` calls the node makes.
 
@@ -245,8 +245,8 @@ Candidates, in rough order of readiness:
 | `DEV_ENV_PDS` | PDS                                                             | Covers                                 |
 | ------------- | --------------------------------------------------------------- | -------------------------------------- |
 | unset         | reference PDS, stable release                                   | a PDS without spaces: the old path     |
-| `spaces`      | reference PDS, `@atproto/pds@0.0.0-spaces-alpha-20261113224550` | the alpha as Bluesky ships it          |
-| `vlpds`       | [vlpds](https://github.com/jazware/vlpds), image `sha-ead9f95`  | the PDS Streamplace runs in production |
+| `spaces`      | reference PDS, `@atproto/pds@0.0.0-spaces-alpha-20261124235736` | the alpha as Bluesky ships it          |
+| `vlpds`       | [vlpds](https://github.com/jazware/vlpds), image `sha-0f57955`  | the PDS Streamplace runs in production |
 
 ```sh
 hack/fetch-spaces-pds.sh   # once: installs the alpha PDS beside the workspace
@@ -266,14 +266,12 @@ director reports on a target once it is switched on.
 `js/e2e-web/flows/private-space.spec.ts` covers the web app and
 `.maestro/logged-in/private-space.yaml` the mobile apps.
 
-Both spaces PDSes must agree on the wire, which here is the alpha of 13
-November 2026 (atproto `16bfeba`). Only vlpds builds from 14 November on
-speak it: releases up to 1.3.0 implement earlier alphas, and the
-`bluesky-social/vlpds` fork an older one still. To move to a newer alpha,
-change the version in `js/dev-env/spaces-pds/package.json`, the image in
-`hack/fetch-vlpds.sh`, and the table above together, and drop any override
-in `js/dev-env/spaces-pds/pnpm-workspace.yaml` for a package the new PDS no
-longer takes from the alpha.
+Both spaces PDSes must agree on the wire, which here is the alpha of 24
+November 2026 (atproto `1f510f8`), the first with `at:space/` URIs. vlpds
+speaks it from release 1.5.0; the pinned image is 1.5.1. Earlier releases
+and the `bluesky-social/vlpds` fork implement older alphas. To move to a
+newer alpha, change the version in `js/dev-env/spaces-pds/package.json`, the
+image in `hack/fetch-vlpds.sh`, and the table above together.
 
 Neither spaces PDS is installed by the root workspace. The alpha PDS lives in
 `js/dev-env/spaces-pds/`, a workspace of its own with its own lockfile, so
@@ -291,5 +289,6 @@ lexicon publisher's CAR proofs.
 - A server can only read a user's space with that user's OAuth tokens, which
   are in statedb (`oauth_sessions`), as are the status events and the leases.
 - API record URIs are not the records' space addresses.
-- The Maestro flow runs on Android. Nothing in the repository runs
-  backend-backed flows on iOS yet.
+- The Maestro flow runs on Android in CI, against the default and alpha
+  reference PDSes. `hack/e2e-local.sh ios` runs the same suite on a Mac; the
+  flow has not been run there.

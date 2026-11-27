@@ -38,7 +38,7 @@ func TestSpaceNotifications(t *testing.T) {
 
 	// Only that token wakes the space's followers.
 	require.Error(t, update(space, "", "com.atproto.space.defs#repoWrite"))
-	require.Error(t, update(space, spaces.NotifyToken("at://other"), "com.atproto.space.defs#repoWrite"))
+	require.Error(t, update(space, spaces.NotifyToken(spaces.PersonalSpaceURI("did:plc:other")), "com.atproto.space.defs#repoWrite"))
 	require.Empty(t, changed)
 	require.NoError(t, update(space, token, "com.atproto.space.defs#repoWrite"))
 	<-changed

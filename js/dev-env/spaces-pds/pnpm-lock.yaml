@@ -4,228 +4,198 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@atproto-labs/did-resolver': 0.0.0-spaces-alpha-20261113224550
-  '@atproto-labs/fetch-node': 0.0.0-spaces-alpha-20261113224550
-  '@atproto-labs/handle-resolver': 0.0.0-spaces-alpha-20261113224550
-  '@atproto-labs/handle-resolver-node': 0.0.0-spaces-alpha-20261113224550
-  '@atproto-labs/xrpc-utils': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/aws': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/car': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/common': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/common-web': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/crypto': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/did': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/identity': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/lex': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/lex-builder': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/lex-cbor': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/lex-client': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/lex-document': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/lex-installer': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/lex-json': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/lex-resolver': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/lex-schema': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/lexicon': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/oauth-provider': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/oauth-provider-api': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/oauth-provider-ui': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/oauth-scopes': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/oauth-types': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/repo': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/space': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/star': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/syntax': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/xrpc': 0.0.0-spaces-alpha-20261113224550
-  '@atproto/xrpc-server': 0.0.0-spaces-alpha-20261113224550
-
 importers:
 
   .:
     dependencies:
       '@atproto/pds':
-        specifier: 0.0.0-spaces-alpha-20261113224550
-        version: 0.0.0-spaces-alpha-20261113224550(debug@4.4.3)
+        specifier: 0.0.0-spaces-alpha-20261124235736
+        version: 0.0.0-spaces-alpha-20261124235736(debug@4.4.3)
 
 packages:
 
-  '@atproto-labs/did-resolver@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-dALH84KWd3C5M7QkuCarFNiJfnjIFuxBOacwJ0CeRBr9XDt8PREXNebNuuUPsaqLsOd7sOAQf/jks3xM5iF8Gw==}
+  '@atproto-labs/did-resolver@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-aAzU/+8d2M0eAo/yp4JH29QhRwTz30zA2rbnMA37axEVjjd6Z+kZ1EaToATR4NXbUQj08qceXdolJ4iTU2VWkA==}
     engines: {node: '>=22'}
 
-  '@atproto-labs/fetch-node@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-aGIsXFJM3mWmRKqgxYoG5kwaQ3hxnyh2DpAXr3tIcwIa/xm3F84i+WUekxHckrVSDNQ5cRHYrTxfrTkgnCP8sA==}
+  '@atproto-labs/fetch-node@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-Y0Sf+ffaHsZcIE06w6eMYY05Kk8az2TQImNrrXtkhf7fxgUx0cFpyIWwla9rixp458h8TGRAgkrrKx6c0nAp0w==}
     engines: {node: '>=22'}
 
-  '@atproto-labs/fetch@0.4.2':
-    resolution: {integrity: sha512-9mgISMM2eY/w373HUNrtWq4onPzES1K6DaeAv9BDcEgovcKTkcI60H9Jjp38thU2i/dQaGpKrxmxR9qc0FZocg==}
+  '@atproto-labs/fetch@0.4.3':
+    resolution: {integrity: sha512-Da747rqMhHOSbwEBUfpyCpg3kKwhPZNGLNTFBVc/JQ+KTsDmUy64quRwFqXEy+pd8xoaQ0fodaLDHGbD/LNK7Q==}
     engines: {node: '>=22'}
 
-  '@atproto-labs/handle-resolver-node@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-nCwIEyxUDWNp0wzJat/UV/zfzWj883ObREvtMk1E4UYZ4BeZaiiuuUwr41HN/wktr3Jzysqmz1smwa85k7bLRA==}
+  '@atproto-labs/handle-resolver-node@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-X0KWSmsW8V0kNsEVPTJACxuKQb0l+QSWAzKfAXEhmZyjfMC6IJeekQOCd1EZCXnQTQNvY6dy73DgvdVXW2KXaQ==}
     engines: {node: '>=22'}
 
-  '@atproto-labs/handle-resolver@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-gWHN+Wk3VNLJiqFfad56s1CgtIn9fknaPmF+I6yE33Wz3S7CqjB5wAHIJ1U6Z1IjRM1p/ue36nNjDTsa4gP9FQ==}
+  '@atproto-labs/handle-resolver@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-v+BysZrXd5iiLQW0NXE5FRANwFrASGnwS8d7GgyCi5YiFEKXELVqiHxMvnM+NL5RRHQTF+JLVtflJDEMZiHUDw==}
     engines: {node: '>=22'}
 
-  '@atproto-labs/identity-resolver@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-GgTNpqdt8zIR6MogHhh/hB6rSch3/+yf7wKcZ0CQ49UFhOy97+T1Rs2aAQD3Gx03fsFVR5XiAaIBDbaJnhgs5g==}
+  '@atproto-labs/identity-resolver@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-C2Eu/w5aDL3I4DRoiPdsEA9esRD00k+dN6RWIBSX1K5erI2LRbvwdTRqu4dTS886Cj0Zj8X/Xfsz/oYsKsmhaQ==}
     engines: {node: '>=22'}
 
-  '@atproto-labs/opentelemetry-node@0.5.0':
-    resolution: {integrity: sha512-tuiHRuKtvjYVHT0Y1fNevAhzPL64OFdYxPv34AhOcbTxEIAwSRaywYifVwKiH9hz03IcRDr5PDjqfnnTHqQlMQ==}
+  '@atproto-labs/opentelemetry-node@0.5.1':
+    resolution: {integrity: sha512-Cic8nvoi0jw84J9hmJw8C4aqxmG4n1SVHydJRYVk+PBPjjsymVU+lwiSrt8at05ZYxVHASQbkbuBH3tdgeqofQ==}
     engines: {node: '>=22.15.0'}
 
   '@atproto-labs/pipe@0.2.5':
     resolution: {integrity: sha512-1R1nYs/nHmBcYa4yzTjk5H/46MF5nZm342Ha9kKQTOMp/fr2Yn67qD1pTXUS7L2Mx8AEf3m7Z/TTxRfnERLc8w==}
     engines: {node: '>=22'}
 
-  '@atproto-labs/simple-store-memory@0.2.6':
-    resolution: {integrity: sha512-DD1v7MEfYF3BAcEpMTTpzfBLWLoI2HuyBhku2YpjHoqPrRrhCtE1alkxfPHjtjJVIjuU/XNU0cF/wB3+5FiKsA==}
+  '@atproto-labs/simple-store-memory@0.2.7':
+    resolution: {integrity: sha512-c3SLLf1ztfxdA8ZVtl1Kj47iSRIC/hzPqQHkDm+LOtN3b0znhugn9cIV/Ta6r9JgNBDUYNUAmRXAzRMy1w6JWA==}
     engines: {node: '>=22'}
 
-  '@atproto-labs/simple-store-redis@0.1.6':
-    resolution: {integrity: sha512-KNRvO4/DDAYJtn45YlSu3kZZmtv08wteziLzL6aEtpUPxolfbHBcVSnsWm8d/EyUAZMDqv/BSJANiaMRgPCQhg==}
+  '@atproto-labs/simple-store-redis@0.1.8':
+    resolution: {integrity: sha512-BceSWvLjiesxxRpEByO++2GZk1G/0LB80fnELoMl2CkLG7xq+bFB1i20fG5wsWx5cUlHQN1WAyb7FUNk5s2uow==}
     engines: {node: '>=22'}
     peerDependencies:
-      ioredis: ^5.3.2
+      ioredis: ^5.3.2 || ^6.0.0
 
-  '@atproto-labs/simple-store@0.5.1':
-    resolution: {integrity: sha512-vfvoDhu6ds6BT3Pqe+d2/LBU1WpDRtt69y6zltlfMCoucPm82m1j50/Wb6xTvv+oZ+2j0JyZVXsmXQ12SWYQJg==}
+  '@atproto-labs/simple-store@0.5.2':
+    resolution: {integrity: sha512-ecARZs4rBFY5OEr2XnsXBEx3IOgd9VGAdjiG0TUWgV6gIBIXbLm8QvMfn345yIZs99DY2q+Jbj0al/Bzuw3yBg==}
     engines: {node: '>=22'}
 
-  '@atproto-labs/xrpc-utils@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-0Wg5pN2TYpSgwIr0lp/CLCBZkqYD0F/FJgyPLJIrnw3ZfKaoV2QBgJDDpIv7tCZJKb2PQ8O4YSGwT5Hbpag1tg==}
+  '@atproto-labs/xrpc-utils@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-9D6ZRhgU5rpbx3sXOODRrr00PFcdduE4jy+nbSnSSCoFBSEJFHvTNKL8ulVG02H79BN1acDItcUVbLfK7NIYQA==}
     engines: {node: '>=22'}
 
-  '@atproto/aws@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-Q4MfQNyalKzy10cCN91m9mecOFd1rXaRhzfcvj/jYLvEuFtNW3UNJaT9PAESPdFYnNWyhlOwgTpnottOrpY5ag==}
+  '@atproto/aws@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-JcwQrXkFiGNTjQFoKtYk5x533dyaPTEYKA7q66Il+eaMUzT2FekQy5bVKaVw9jM6MAcMqILdQCrfn8Uz8ybVyA==}
     engines: {node: '>=22'}
 
-  '@atproto/car@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-40L/lgcSzEPzlktzVrAZ9mT7A+gfVeg1RHMqKie8w0FvrcynRV480/g7UPRPkxcK+eS9MpBwHNrq9IxAGOhiJQ==}
+  '@atproto/car@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-8StOl591s7fMDZRE66weahz6ciN6su51Xkqwt23yOAIAVgpuZoN75gcejMEn5XWe9FcMH3WmedPO4AqHRg7B+g==}
     engines: {node: '>=22'}
 
-  '@atproto/common-web@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-LcyZyoRZ2H71MpobwM3+KV/LQg8vO8uaz9nPGhMLCWSnOhvmSLaXumrVmH536cTdAZgaViAF4DN1vNvR7TSxKQ==}
+  '@atproto/common-web@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-soKZ3WtErYCDjjKcMk/p68103JQOgWex3HDNIZ5GeABWMDqpexH4Ffk+en4ZNv2QjINbqIApsuARUuMJpG6H3w==}
     engines: {node: '>=22'}
 
-  '@atproto/common@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-daU2fsAlPymio1icQPXKZofUAarRoefzGzNje3vcSQf3PWrTRLCrZpXhRWfu0qlYSIGNi3z85kxbYCjzMpaP2w==}
+  '@atproto/common@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-WnTt5LfJBSGDXRWv6QEWgtbrTJWKze4eB0ehRsWsm960+dQv2CEZ7bMAhjWEgR94KyN+WiN7AwcX6q5DvtG3iQ==}
     engines: {node: '>=22'}
 
-  '@atproto/crypto@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-4pg7e98lbeQ1FYtTZ4+NV8xo/yU94gPB92jGIPPbHq6U8To1YSH0RSk/1tkAXAPx4Krv69uWiOMzJTpXjfwN+A==}
+  '@atproto/common@0.1.1':
+    resolution: {integrity: sha512-GYwot5wF/z8iYGSPjrLHuratLc0CVgovmwfJss7+BUOB6y2/Vw8+1Vw0n9DDI0gb5vmx3UI8z0uJgC8aa8yuJg==}
+
+  '@atproto/crypto@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-e4XH8nDZpjMrseIZ8IhF6FoIlGO5BJk8lSggXdTH8E0pvQKXoUR6cYnaJhSupICHnyrg7p/tmpCyhShIsUB4IA==}
     engines: {node: '>=22'}
 
-  '@atproto/did@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-Q6WXHVBbs7qjPc7CMIj9GtYiY2rxEDpMWjmJGVsh58XyrBJuGRmV228W4gHQ3Np7LE9JPdG0Ack/jihudSlUnw==}
+  '@atproto/crypto@0.1.0':
+    resolution: {integrity: sha512-9xgFEPtsCiJEPt9o3HtJT30IdFTGw5cQRSJVIy5CFhqBA4vDLcdXiRDLCjkzHEVbtNCsHUW6CrlfOgbeLPcmcg==}
+
+  '@atproto/did@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-eVA0vPEIe2H/xBkjE5QNAPwwF5OeJkqX3bUpSY7Dm4K1uuL7+YD2e4IXQiiUTTe0jUNhck1v6si5y12Nw8OKhg==}
     engines: {node: '>=22'}
 
-  '@atproto/identity@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-KN6QmP8gZ5lFNu0xYzeon9cF13bpFFQT5eA6ltJmBxgHtkF3kKfBRtfuYor6LfutwubrgIpxYBbF7kssDSVe6Q==}
+  '@atproto/identity@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-0CR8f6FiqKplZO0VPTJykm8inpS7tNn7Jj4aqSa8U6p8F6d9bFDuJrPKJD8cNzuGz38X4NgPh14hKMWBjyXU+A==}
     engines: {node: '>=22'}
 
-  '@atproto/jwk-jose@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-abAqYpe26gGt9IzPD1uN29RYPbnUMo6oIgw/H8fF1JT1+efdE3eCw6RMaWAkOkcWZwhtSxMGr1z42Ms+sQ+gRA==}
+  '@atproto/jwk-jose@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-wIAr/S37gjUkybwR/9zL8LV8VgzBFKVmVt7aQclw1oowxFjTOAy5kLpJ7rhpm8iviz7s7uHT0OT/5Ax/to3NKg==}
     engines: {node: '>=22'}
 
-  '@atproto/jwk@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-Pe4fDl9257zCw/WNOZJ7TKGLH55KwC/iU3HtzSZ/vD2NraLRkB4rIBpMT79bE3ckJrfVq1COtWBQjjo7PDGb7g==}
+  '@atproto/jwk@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-cEmz4cq9tAE2GIK9nAnbg0H4tp1GrKZoZGGYpntyHa258zyD7b/47OUpjH25QfQDOCNQ25lQsodkmCE7TlUmMA==}
     engines: {node: '>=22'}
 
-  '@atproto/lex-cbor@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-OXdYrwUQkbtYqq6kKBXKoUznyGNypMY6n8aGGdnVKG8w04CkHdQVskI3gDrqrNGLoxQLb26mkf/to2qr1y1PRw==}
+  '@atproto/lex-cbor@0.1.11':
+    resolution: {integrity: sha512-gcsGIMLJNh9Wxc3h8NxeBvVsFUWpXiGAmwZ6otOqgakdmH8XyUkpVhvdaFRFFIktOeHn95RTYvK29B4FuFg62g==}
     engines: {node: '>=22'}
 
-  '@atproto/lex-client@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-i9BDmNXPzWpeVkabRb6Px8Akv3yh7hOkSjZvdGw3qXgyuBI2LDOdst4wPcwL/tQdG0UBfXf6gWoB3Lj5pqu6nA==}
+  '@atproto/lex-client@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-K1/YEMvsKcpiT6PU7R/Lb3+I4rBV52pK8ZaE4pja7slrIGDPc66gAvoiN9PlhPlh472J++PBe354BxzoUhsCVA==}
     engines: {node: '>=22'}
 
-  '@atproto/lex-data@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-e7x29VFUcPL0g+41CYpNhNDTQJZSt/yrUYsD3++ELCnD6txVqrhRW4fOGD9vhSm9X6AQVw5pd0/qKGJF3qiCkg==}
+  '@atproto/lex-data@0.1.11':
+    resolution: {integrity: sha512-m4fZaj9tGcGlRdsP9fLr8+UCutv8ahClYNGkrS+29ZGcen9E4336wggUyzq/XTOKo69Qa2FRVG79pareXh7mFQ==}
     engines: {node: '>=22'}
 
-  '@atproto/lex-document@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-gbHu3s8C0CPOgFWgjWIldMqelEzSQ9dCozSQkApSiFaZF/ngpsXNH0hq96aTdkUf18ZLe7YWOltWtyzPi45J0g==}
+  '@atproto/lex-document@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-GJ3Jf0kvkfEnn9x08VbRQfTQZIbR7ljyqEK1JadWMSrieCcCISJzjQ+WbdRFr7ZURjigt43MohjOAVp/EKzD9A==}
     engines: {node: '>=22'}
 
-  '@atproto/lex-json@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-MNiGSWVsKms3JJ+FymlVXjYEh4fcggx+5QH1fsBH48hPpneihAZQ3+t244DO5rrBCM356PVmgziHv6REJHRu1g==}
+  '@atproto/lex-json@0.1.10':
+    resolution: {integrity: sha512-U2AAUDhMyti0CC5FOil/XvYdNfF2decPn/L/K2ezfC3fM/rWsXMR11cpV04eM1efwzcQM7ZG/E5SxZO7wVLAQA==}
     engines: {node: '>=22'}
 
-  '@atproto/lex-resolver@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-JXUNsbN3d+wkjYpKvFhls/Ob9OYFl+2FGt/hbpnIJLuo027lKSl8G6nubl0cf4X2EqlxKEdy4ggf/MSxxtxWKw==}
+  '@atproto/lex-resolver@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-FAClM6GSu/htVHC1FcKACph7OIMgfKkS6rzdGxjD7fbohpgErUcFsT+cQlVZA2lWZXIu+Y8ri3qaxvlQgnJ0pA==}
     engines: {node: '>=22'}
 
-  '@atproto/lex-rpc@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-T6vOkOxLb9OfxIzroTcH5KtVgN73faV3dGNT0nxVHBRcPgIPXij07Xjs/fjdecOf6uPSZlCoz97dVlW3dNT6cA==}
+  '@atproto/lex-rpc@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-h7qWEFotjxpUxnwh8jZxMxBVOvV7w78StOyTxpBhh/w9mXTUsangvUwm1ffZ54Qbk4y/LOxlSJ3tw7/vZL555Q==}
     engines: {node: '>=22'}
 
-  '@atproto/lex-schema@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-d8mfykg5GWsjOMxA1ACxSie5JXp8pBYWUyjfDmJSVROzepj6+/22ABD30c2DUqS0gd+6KhFe9OAHX8fYpaVPSg==}
+  '@atproto/lex-schema@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-avk57910OailUcKoMHghrQFuErpF2Qxc55BPeTkAt+65oulYnUbaqfAGjr0enFeyO3J2ybca6vbem0G9QGNFOg==}
     engines: {node: '>=22'}
 
-  '@atproto/lexicon@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-oDxf5o1Z1/PkZDpQZUZtdn+pCCVZoAg71Hk6jyJL66D+8XwJsXFaKYli7OYzc2OoBBDHoJ6FX39uFJndw5hCog==}
+  '@atproto/lexicon@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-lRoXbs68mZjU9x/8zulWqplI96SeZYJhJOkVI7Uc9mwfYgAvD4Y0ddRp/vrLmC1RS0JFOIrsIdVe0xP5kbu1QA==}
     engines: {node: '>=22'}
 
-  '@atproto/oauth-provider-api@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-lyhWXoY5emVhxvx3IJftOHYiDLYeQnYFSr7tLLN/FbAMCmevgygnwILyxDeZ0wBYylu+e7DVGIjUyyynE2+bzg==}
+  '@atproto/oauth-provider-api@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-cbM9qFgy9WEE5f1JevaqiutQeNFy9MidIK6JtcX8yUJjM61rtQ1xX7dwcEw9IWA0f3syhKFO0lZw9vED0EhcFw==}
     engines: {node: '>=22'}
 
-  '@atproto/oauth-provider-ui@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-G+cuuK+maEb0WvtW4rYAlBbTkjPLMd+85yqY6v5bcbhqLsJkX6gzfTtC9+qUTpFjKR3XlKLW4h0iokUUVlHAeQ==}
+  '@atproto/oauth-provider-ui@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-syh3jj2J5PXySltK00PkNu7+ejynrTM65ZAxk5D8hOckhcoCiw9YQf5KZtF7Z5yca3zCrc8Uz6Xvyk/3ycnmBg==}
     engines: {node: '>=22'}
 
-  '@atproto/oauth-provider@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-S2ESodrDfdyFaWWuNHS7tmcwiG/RNoUStkWRY/0IdPhjel3mwSdjja64gSdfY7kpuhKD72TJRYXwzjhhbCgitg==}
+  '@atproto/oauth-provider@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-fdc11W5+N3fUxNqcZVgxecMUc/XS5ExQ2onLyuIYebxPV8wOYLuwzp6+8bwWIGcZu9ixE+S1jTlO2hVgIoQoyA==}
     engines: {node: '>=22'}
 
-  '@atproto/oauth-resolver@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-sBZB6wAhTKChu/Xd4n6KbrgTaxsavSbYAykR++0+UB2jhutWuHcGWLC/BggeKA5c6ftQqt1CyR80AzNGIcQYcg==}
+  '@atproto/oauth-resolver@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-cBV/OQnQLVA+ODwqP5TD11wKpgBWeW2z3H8gtlCiQbcEDwHi2D9SUpJ6GrbE5StW8bjTdjj3XGks8ux/osrjzA==}
     engines: {node: '>=22'}
 
-  '@atproto/oauth-scopes@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-cyLK+jIX2YtWvtAeaQC4hwMXQRZd0fO1PSwNpwDtU9vM+OcNFmsiIIYw6aoOayazn2dIjU58s0CFG/udX4MA2A==}
+  '@atproto/oauth-scopes@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-9FUB61oNK8rYKVmi9Z+RSA7DtqWCD1QgmP3J8XAKWMuBcPCOT4HNiu+hYeaWa/Zz4/5ooH00EwrQr5bV9Bt6gA==}
     engines: {node: '>=22'}
 
-  '@atproto/oauth-types@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-Cf5hS8l2LK6TrZzjei1i8H+1pOfiXKkLlm7Zpx/ePMuANZGdM1149dI/CwaMxBMPBlBXA9S7eGroTwkKNeGdgQ==}
+  '@atproto/oauth-types@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-QNDNqRyHfY/RuOs92+c3WHlBNfKPadK+cBXqElAytXztqxJ0jF26cozZPkzKyz9o93bEHifhgqMhTf15b7C/oQ==}
     engines: {node: '>=22'}
 
-  '@atproto/pds@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-ePkU/tPlS92mGuKVn3aHol5W3jvuLze6XJRr+NF5TkjdzohT1tuZL8slPVn1q9GDAcq3i+bn5Ckpy2sS90pk1Q==}
+  '@atproto/pds@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-U6Y8kxT4KaCe1mIVZGCD7svK2XoiLNFg1+jw8tcJZR0291C2194Sd4uoABCJQhY48q+ApHkkjGbS8cbBbKvT/Q==}
     engines: {node: '>=22'}
 
-  '@atproto/repo@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-2fLHowle3CQQurST65IOlewUUPXwtxrtgVpNyQ393Rr7TkyNQGP941CP16HrjkNEPpxwbPluHsAHXBKTYIbC2w==}
+  '@atproto/repo@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-RhhtpN70TmBJdKIr55A1jjD0+UiUspolLp8I7+x3Jtft+FjCj/HItCsRSKQppejTcw1l+O7BFgSDSMnzDV0LbA==}
     engines: {node: '>=22'}
 
-  '@atproto/space@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-CAp3oV6jOo0OiSchX+yrylp4x++9ftuVoEXH5MuXFXXwZb1PXLOwDtcYYD4dlfvhSLgPd4rWNQkaowEylEZ9yQ==}
+  '@atproto/space@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-tC8uNL+RBNbuZMX9/2wieVsa7tzVazrF7FrJk9P57C9fVfM5FZKGCGv3okWmSNQ+q0jeOaPRGhklNeSm/71JWQ==}
     engines: {node: '>=22'}
 
-  '@atproto/star@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-DWHiMaS0ymgwjrsV0uywCYPdFeTh0AXoCdLMUDau9v40Zpbt9BKQe0db4cVwAAMeV3dpjYeQ+tKhMUAwr5cckQ==}
+  '@atproto/star@0.0.1':
+    resolution: {integrity: sha512-1yks3K03ziNWVWRShEVhO8ELOpwdiUgonyOesKAbq1Nwh1cbEQ7eOWKQRapF2GIaP8TcQiZZLbGB64bAnE79WQ==}
     engines: {node: '>=22'}
 
-  '@atproto/syntax@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-lJI1ZHO7jv2xDpjYkBn8Z0F8fJhOblOX+CclpkLTFwh00WPuSEcUlmehYV/RxzMOTczcJWGmbZE/lOs7u3vWZg==}
+  '@atproto/syntax@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-0gjf91VdMzZjWNaTdkLHTBVDGUUwds1usf1KyiyRe+eSolz/lBJp0zbJBTW6yY8ZLh9boS/IVIn3NAWhyuJ4OQ==}
     engines: {node: '>=22'}
 
-  '@atproto/ws-client@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-rL9oCYH4t+kj6x5crb5UTnzSybZAegoQopxR+l9idbh1BsHwANdqP7XGnjfZrQARIqI0so2uTVGINde4jRQPxg==}
+  '@atproto/ws-client@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-JxmzhROT4iWZe1GbdTl/gIVJl/8naoJhMo7asomXW1mcFej5p8IgU0LP9sxqrio57hatiz2EDfDtkcvZrXItYw==}
     engines: {node: '>=22'}
 
-  '@atproto/xrpc-server@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-5GfHLN4TrU5b4JAE4KXpuLV1bOil+8hpAh8V5ZNKLYbL5fJdLJC0MqHZ0C+Ehg1ZEGOCA+lEh0afxLqoZktIxQ==}
+  '@atproto/xrpc-server@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-pEFyNTiR+NSooarJtD3H8Hvi2RfxKSzW1fs9sRp9zFF/ElRkz+H2D9grnIb+nwG933tmfDVkkKa7WkWRqawFOg==}
     engines: {node: '>=22'}
 
-  '@atproto/xrpc@0.0.0-spaces-alpha-20261113224550':
-    resolution: {integrity: sha512-/SkduW+HAHbxA+nKmHu1ev2IfkDBIwPicg4/H2pRRtnghYABUZ3p/v9Kpg5Ql/mqDwSutWKIndGcAZaJG/w3uw==}
+  '@atproto/xrpc@0.0.0-spaces-alpha-20261124235736':
+    resolution: {integrity: sha512-f187LV4jLw60o6GqM5oC2BiNQZ3sOWUvJviMg6uZZKNDjpqRhIIFrUv5nhhlG+6ll8eoIaCaowBJOKnkIi+HRg==}
     engines: {node: '>=22'}
 
   '@aws-sdk/checksums@3.1002.3':
@@ -348,8 +318,8 @@ packages:
   '@hapi/hoek@11.0.7':
     resolution: {integrity: sha512-HV5undWkKzcB4RZUusqOpcgxOaq6VOAH7zhhIr2g3G8NF/MlFO75SjOr2NfuSx0Mh40+1FqCkagKLJRykUWoFQ==}
 
-  '@ioredis/commands@1.10.0':
-    resolution: {integrity: sha512-UmeW7z4LfctwoQ5wkhVzgq8tXkreED2xZGpX+Bg+zA+WJFZCT6c062AfCK/Dfk81xZnnwdhJCUMkitihRaoC2Q==}
+  '@ioredis/commands@2.4.0':
+    resolution: {integrity: sha512-fyu7ZM5RvtsYZ3pz4DFlPqSGB3aoVD9ir0vL6/TLtRo8EMuC7f0Z+qGBskDkUL/gJs5fzelxityZAfNNUCrVrQ==}
 
   '@ipld/dag-cbor@7.0.3':
     resolution: {integrity: sha512-1VVh2huHsuohdXC1bGJNE8WR72slZ9XE2T3wbBBq31dm7ZBatmKLLxrB+XAqafxfRFjv08RZmj/W/ZqaM13AuA==}
@@ -368,6 +338,9 @@ packages:
   '@noble/hashes@1.8.0':
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
     engines: {node: ^14.21.3 || >=16}
+
+  '@noble/secp256k1@1.7.2':
+    resolution: {integrity: sha512-/qzwYl5eFLH8OWIecQWM31qld2g1NfjgylK+TNhqtaUKP37Nm+Y+z30Fjhw0Ct8p9yCQEm2N3W/AckdIb3SMcQ==}
 
   '@opentelemetry/api@1.10.0':
     resolution: {integrity: sha512-lMkyes8iHrG+mk6WH7X70MdCLI2RS0FwNBY1PyQ8UemaijE2m5mv5A0Niy3HtbYTFrgkUEQjFMXmSAk2hQDuPQ==}
@@ -930,6 +903,10 @@ packages:
   '@types/pg@8.15.6':
     resolution: {integrity: sha512-NoaMtzhxOrubeL/7UZuNTrejB4MPAJ0RpxZqXQf2qXuVlTPuG6Y8p4u9dKRaue4yjmC7ZhzVO2/Yyyn25znrPQ==}
 
+  abort-controller@3.0.0:
+    resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
+    engines: {node: '>=6.5'}
+
   accepts@1.3.8:
     resolution: {integrity: sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==}
     engines: {node: '>= 0.6'}
@@ -981,6 +958,10 @@ packages:
     resolution: {integrity: sha512-dq9AtApgg5PGFtBzPFSBl3HZQjHok5gaQCM6zh2Yk0aSmDCs1CbnVI8/HgASQkNKsWFpseIO9beg5xxpYhbIfA==}
     engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x || 26.x}
 
+  big-integer@1.6.52:
+    resolution: {integrity: sha512-QxD8cf2eVqJOOz63z6JIN9BzvVs/dlySa5HGSBH5xtR8dPteIRQnBxxKqkNTiT6jbDTF6jAfrd4oMcND9RGbQg==}
+    engines: {node: '>=0.6'}
+
   bignumber.js@9.3.1:
     resolution: {integrity: sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ==}
 
@@ -1005,6 +986,9 @@ packages:
 
   buffer@5.7.1:
     resolution: {integrity: sha512-EHcyIPBQ4BSGlvjB16k5KgAJ27CIsHY/2JBmCRReo48y9rQ3MaUzWX3KVlBa4U7MyX02HdVj0K7C3WaB3ju7FQ==}
+
+  buffer@6.0.3:
+    resolution: {integrity: sha512-FTiCpNxtwiZZHEZbcbTIcZjERVICn9yq/pDFkTl95/AxzD1naBctN7YO68riM/gLSDY7sdrMby8hofADYuuqOA==}
 
   bytes@3.1.2:
     resolution: {integrity: sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==}
@@ -1035,10 +1019,6 @@ packages:
   cliui@8.0.1:
     resolution: {integrity: sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ==}
     engines: {node: '>=12'}
-
-  cluster-key-slot@1.1.1:
-    resolution: {integrity: sha512-rwHwUfXL40Chm1r08yrhU3qpUvdVlgkKNeyeGPOxnW8/SyVDvgRaed/Uz54AqWNaTCAThlj6QAs3TZcKI0xDEw==}
-    engines: {node: '>=0.10.0'}
 
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
@@ -1211,6 +1191,10 @@ packages:
     resolution: {integrity: sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==}
     engines: {node: '>= 0.6'}
 
+  event-target-shim@5.0.1:
+    resolution: {integrity: sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==}
+    engines: {node: '>=6'}
+
   eventemitter3@5.0.4:
     resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
 
@@ -1237,6 +1221,10 @@ packages:
   fast-printf@1.6.10:
     resolution: {integrity: sha512-GwTgG9O4FVIdShhbVF3JxOgSBY2+ePGsu2V/UONgoCPzF9VY6ZdBMKsHKCYQHZwNk3qNouUolRDsgVxcVA5G1w==}
     engines: {node: '>=10.0'}
+
+  fast-redact@3.5.0:
+    resolution: {integrity: sha512-dwsoQlS7h9hMeYUq1W++23NDcBLV4KqONnITDV9DjfS3q1SgDGVrBdvvTLUotWtPSD7asWDV9/CmsZPy8Hf70A==}
+    engines: {node: '>=6'}
 
   fetch-blob@3.2.0:
     resolution: {integrity: sha512-7yAQpD2UMJzLi1Dqv7qFYnPbaPx7ZfFK6PiIxQ4PfkGPyNyl2Ugx+a/umUonmKqjhM4DnfbMvdX6otXq83soQQ==}
@@ -1389,9 +1377,9 @@ packages:
   ini@1.3.8:
     resolution: {integrity: sha512-JV/yugV2uzW5iMRSiZAyDtQd+nxtUnjeLt0acNdw98kKLrvuRVyB80tsREOE7yvGVgalhZ6RNXCmEHkUKBKxew==}
 
-  ioredis@5.11.1:
-    resolution: {integrity: sha512-ehuGcf94bQXhfagULNXrJdfnWO38v070jxSx/qE87Kjzmu2fU7ro5EFAb+OPituLqgfyuQaym5DlrNydW2sJ9A==}
-    engines: {node: '>=12.22.0'}
+  ioredis@6.1.0:
+    resolution: {integrity: sha512-0ooWUoxEiWEcCA0FFBsmCnYHnjiFgWPQwA144NxpQzLIVkW20JUjAoKtMg+7spFn+6OAI68XwpcLcGKW5xe4UA==}
+    engines: {node: '>=20.0.0'}
 
   ipaddr.js@1.9.1:
     resolution: {integrity: sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g==}
@@ -1560,6 +1548,9 @@ packages:
   once@1.4.0:
     resolution: {integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==}
 
+  one-webcrypto@1.0.3:
+    resolution: {integrity: sha512-fu9ywBVBPx0gS9K0etIROTiCkvI5S1TDjFsYFb3rC1ewFxeOqsbzq7aIMBHsYfrTHBcGXJaONXXjTl8B01cW1Q==}
+
   p-finally@1.0.0:
     resolution: {integrity: sha512-LICb2p9CB7FS+0eR1oqWnHhp0FljGLZCWBE9aix0Uye9W8LTQPwMTYVGWQWIw9RdQiDg4+epXQODwIYJtSJaow==}
     engines: {node: '>=4'}
@@ -1609,17 +1600,27 @@ packages:
     resolution: {integrity: sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==}
     engines: {node: '>=4'}
 
+  pino-abstract-transport@1.2.0:
+    resolution: {integrity: sha512-Guhh8EZfPCfH+PMXAb6rKOjGQEoy0xlAIn+irODG5kgfYV+BQ0rGYYWTIel3P5mmyXqkYkPmdIkywsn6QKUR1Q==}
+
   pino-abstract-transport@3.0.0:
     resolution: {integrity: sha512-wlfUczU+n7Hy/Ha5j9a/gZNy7We5+cXp8YL+X+PG8S0KXxw7n/JXA3c46Y0zQznIJ83URJiwy7Lh56WLokNuxg==}
 
   pino-http@11.0.0:
     resolution: {integrity: sha512-wqg5XIAGRRIWtTk8qPGxkbrfiwEWz1lgedVLvhLALudKXvg1/L2lTFgTGPJ4Z2e3qcRmxoFxDuSdMdMGNM6I1g==}
 
+  pino-std-serializers@6.2.2:
+    resolution: {integrity: sha512-cHjPPsE+vhj/tnhCy/wiMh3M3z3h/j15zHQX+S9GkTBgqJuTuJzYJ4gUyACLhDaJ7kk9ba9iRDmbH2tJU03OiA==}
+
   pino-std-serializers@7.1.0:
     resolution: {integrity: sha512-BndPH67/JxGExRgiX1dX0w1FvZck5Wa4aal9198SrRhZjH3GxKQUKIBnYJTdj2HDN3UQAS06HlfcSbQj2OHmaw==}
 
   pino@10.4.0:
     resolution: {integrity: sha512-bk1ZMTwG/Vymx+zPoa28MhNzucFvXJWp3csrSuxuHPSMeUettaCoQ5Jvg07mtC4JGNpcfTwz41oVCnNgBK9+vA==}
+    hasBin: true
+
+  pino@8.21.0:
+    resolution: {integrity: sha512-ip4qdzjkAyDDZklUaZkcRFb2iA118H9SgRh8yzTkSQK8HilsOJF7rSY8HoW5+I0M46AZgX/pxbprf2vvzQCE0Q==}
     hasBin: true
 
   postgres-array@2.0.0:
@@ -1644,8 +1645,15 @@ packages:
     deprecated: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
     hasBin: true
 
+  process-warning@3.0.0:
+    resolution: {integrity: sha512-mqn0kFRl0EoqhnL0GQ0veqFHyIN1yig9RHh/InzORTUiZHFRAur+aMtRkELNwGs9aNwKS6tg/An4NYBPGwvtzQ==}
+
   process-warning@5.1.1:
     resolution: {integrity: sha512-oCkNVj4OKnKEcocVBcDfiIugN1/cE6rgfT3nCtzeqZPA8+rIxMaQ0xXzIkGP8Gj2qUaP1UR7uhJ1VD8lUCpzCg==}
+
+  process@0.11.10:
+    resolution: {integrity: sha512-cdGef/drWFoydD1JsMzuFf8100nZl+GT+yacc2bEced5f9Rjk4z+WtFUTBu9PhOi9j/jfmBPu0mMEY4wIdAF8A==}
+    engines: {node: '>= 0.6.0'}
 
   protobufjs@7.6.6:
     resolution: {integrity: sha512-dYDWdjSl5RNb7SgPxGQcRU+GtvP7s2fpkrY0r432PcOIaZ0/rBcxEZnQN67iJhFuQiVw754JDoPruPCNdGsbjg==}
@@ -1688,15 +1696,19 @@ packages:
     resolution: {integrity: sha512-9u/sniCrY3D5WdsERHzHE4G2YCXqoG5FTHUiCC4SIbr6XcLZBY05ya9EKjYek9O5xOAwjGq+1JdGBAS7Q9ScoA==}
     engines: {node: '>= 6'}
 
+  readable-stream@4.8.0:
+    resolution: {integrity: sha512-2jhTTU3Eilp/2DMT71gbcoqC35eQHasMJH0RHkYxwlxIv3+FR6Y5xAFZIwEGLxKkjZYEFlsiMNIdwUqjK2lLHQ==}
+    engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+
+  real-require@0.2.0:
+    resolution: {integrity: sha512-57frrGM/OCTLqLOAh0mhVA9VBMHd+9U7Zb2THMGdBUoZVOtGbJzjxsYGDJ3A9AYYCP4hn6y1TVbaOfzWtm5GFg==}
+    engines: {node: '>= 12.13.0'}
+
   real-require@1.0.0:
     resolution: {integrity: sha512-P4nbQYQfePJxRSmY+v/KINxVucm4NF3p3s7pJveMTtom52FR4YGltUQLB8idDXwDDWW+eYrWDFbuzUnjoWHF7g==}
 
   redis-errors@1.2.0:
     resolution: {integrity: sha512-1qny3OExCf0UvUV/5wpYKf2YwPcOqXzkwKKSmKHiE6ZMQs5heeE/c8eXK+PNllPvmjgAbfnsbpkGZWy8cBpn9w==}
-    engines: {node: '>=4'}
-
-  redis-parser@3.0.0:
-    resolution: {integrity: sha512-DJnGAeenTdpMEH6uAJRK/uiyEIH9WVsUmoLwzudwGJUwZPp80PDBWPHXSAGNPwNvIXAbe7MSUB1zQFugFml66A==}
     engines: {node: '>=4'}
 
   require-directory@2.1.1:
@@ -1778,6 +1790,9 @@ packages:
   simple-get@4.0.1:
     resolution: {integrity: sha512-brv7p5WgH0jmQJr1ZDDfKDOSeWWg+OVypG99A/5vYGPqJ6pxiaHLy8nxtFjBA7oMa01ebA9gfh1uMCFqOuXxvA==}
 
+  sonic-boom@3.8.1:
+    resolution: {integrity: sha512-y4Z8LCDBuum+PBP3lSV7RHrXscqksve/bi0as7mhwVnBW+/wUqKT/2Kb7um8yqcFy0duYbbPxzt89Zy2nOCaxg==}
+
   sonic-boom@4.2.1:
     resolution: {integrity: sha512-w6AxtubXa2wTXAUsZMMWERrsIRAdrK0Sc+FUytWvYAhBJLyuI4llrMIC1DtlNSdI99EI86KZum2MMq3EAZlF9Q==}
 
@@ -1842,6 +1857,9 @@ packages:
   tar-stream@2.2.0:
     resolution: {integrity: sha512-ujeqbceABgwMZxEJnk2HDY2DlnUZ+9oEcb1KzTVfYHio0UE6dG71n60d8D2I4qNvleWrrXpmjpt7vZeF1LnMZQ==}
     engines: {node: '>=6'}
+
+  thread-stream@2.7.0:
+    resolution: {integrity: sha512-qQiRWsU/wvNolI6tbbCKd9iKaTnCXsTwVxhhKM6nctPdujTyztjlbUkUTUymidWcMnZ5pWR0ej4a0tjsW021vw==}
 
   thread-stream@4.2.1:
     resolution: {integrity: sha512-Stg6edJXC/6/xqGwSXwFokrUhChJ18amEjpKH89WrQQ0oVFDF+pUUcTpiwWhFUrE89Vf16FBOlwhaw+lescxMQ==}
@@ -1981,47 +1999,47 @@ packages:
 
 snapshots:
 
-  '@atproto-labs/did-resolver@0.0.0-spaces-alpha-20261113224550':
+  '@atproto-labs/did-resolver@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto-labs/fetch': 0.4.2
+      '@atproto-labs/fetch': 0.4.3
       '@atproto-labs/pipe': 0.2.5
-      '@atproto-labs/simple-store': 0.5.1
-      '@atproto-labs/simple-store-memory': 0.2.6
-      '@atproto/did': 0.0.0-spaces-alpha-20261113224550
+      '@atproto-labs/simple-store': 0.5.2
+      '@atproto-labs/simple-store-memory': 0.2.7
+      '@atproto/did': 0.0.0-spaces-alpha-20261124235736
       zod: 3.25.76
 
-  '@atproto-labs/fetch-node@0.0.0-spaces-alpha-20261113224550':
+  '@atproto-labs/fetch-node@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto-labs/fetch': 0.4.2
+      '@atproto-labs/fetch': 0.4.3
       '@atproto-labs/pipe': 0.2.5
       ipaddr.js: 2.5.0
       undici_v6: undici@6.29.1
       undici_v7: undici@7.30.2
       undici_v8: undici@8.12.4
 
-  '@atproto-labs/fetch@0.4.2':
+  '@atproto-labs/fetch@0.4.3':
     dependencies:
       '@atproto-labs/pipe': 0.2.5
 
-  '@atproto-labs/handle-resolver-node@0.0.0-spaces-alpha-20261113224550':
+  '@atproto-labs/handle-resolver-node@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto-labs/fetch-node': 0.0.0-spaces-alpha-20261113224550
-      '@atproto-labs/handle-resolver': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/did': 0.0.0-spaces-alpha-20261113224550
+      '@atproto-labs/fetch-node': 0.0.0-spaces-alpha-20261124235736
+      '@atproto-labs/handle-resolver': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/did': 0.0.0-spaces-alpha-20261124235736
 
-  '@atproto-labs/handle-resolver@0.0.0-spaces-alpha-20261113224550':
+  '@atproto-labs/handle-resolver@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto-labs/simple-store': 0.5.1
-      '@atproto-labs/simple-store-memory': 0.2.6
-      '@atproto/did': 0.0.0-spaces-alpha-20261113224550
+      '@atproto-labs/simple-store': 0.5.2
+      '@atproto-labs/simple-store-memory': 0.2.7
+      '@atproto/did': 0.0.0-spaces-alpha-20261124235736
       zod: 3.25.76
 
-  '@atproto-labs/identity-resolver@0.0.0-spaces-alpha-20261113224550':
+  '@atproto-labs/identity-resolver@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto-labs/did-resolver': 0.0.0-spaces-alpha-20261113224550
-      '@atproto-labs/handle-resolver': 0.0.0-spaces-alpha-20261113224550
+      '@atproto-labs/did-resolver': 0.0.0-spaces-alpha-20261124235736
+      '@atproto-labs/handle-resolver': 0.0.0-spaces-alpha-20261124235736
 
-  '@atproto-labs/opentelemetry-node@0.5.0':
+  '@atproto-labs/opentelemetry-node@0.5.1':
     dependencies:
       '@opentelemetry/api': 1.10.0
       '@opentelemetry/auto-instrumentations-node': 0.82.0(@opentelemetry/api@1.10.0)(@opentelemetry/core@3.1.1(@opentelemetry/api@1.10.0))
@@ -2042,32 +2060,32 @@ snapshots:
 
   '@atproto-labs/pipe@0.2.5': {}
 
-  '@atproto-labs/simple-store-memory@0.2.6':
+  '@atproto-labs/simple-store-memory@0.2.7':
     dependencies:
-      '@atproto-labs/simple-store': 0.5.1
+      '@atproto-labs/simple-store': 0.5.2
       lru-cache: 10.4.3
 
-  '@atproto-labs/simple-store-redis@0.1.6(ioredis@5.11.1)':
+  '@atproto-labs/simple-store-redis@0.1.8(ioredis@6.1.0)':
     dependencies:
-      '@atproto-labs/simple-store': 0.5.1
-      ioredis: 5.11.1
+      '@atproto-labs/simple-store': 0.5.2
+      ioredis: 6.1.0
 
-  '@atproto-labs/simple-store@0.5.1': {}
+  '@atproto-labs/simple-store@0.5.2': {}
 
-  '@atproto-labs/xrpc-utils@0.0.0-spaces-alpha-20261113224550':
+  '@atproto-labs/xrpc-utils@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/xrpc': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/xrpc-server': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/xrpc': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/xrpc-server': 0.0.0-spaces-alpha-20261124235736
     transitivePeerDependencies:
       - bufferutil
       - supports-color
       - utf-8-validate
 
-  '@atproto/aws@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/aws@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/common': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/crypto': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/repo': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/common': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/crypto': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/repo': 0.0.0-spaces-alpha-20261124235736
       '@aws-sdk/client-cloudfront': 3.1164.0
       '@aws-sdk/client-kms': 3.1164.0
       '@aws-sdk/client-s3': 3.1164.0
@@ -2076,147 +2094,173 @@ snapshots:
       multiformats: 13.4.2
       uint8arrays: 5.1.1
 
-  '@atproto/car@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/car@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/lex-cbor': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/lex-cbor': 0.1.11
+      '@atproto/lex-data': 0.1.11
       tslib: 2.9.1
       varint: 6.0.0
 
-  '@atproto/common-web@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/common-web@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-json': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/syntax': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/lex-data': 0.1.11
+      '@atproto/lex-json': 0.1.10
+      '@atproto/syntax': 0.0.0-spaces-alpha-20261124235736
       zod: 3.25.76
 
-  '@atproto/common@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/common@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/common-web': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-cbor': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/common-web': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-cbor': 0.1.11
+      '@atproto/lex-data': 0.1.11
       multiformats: 13.4.2
       pino: 10.4.0
 
-  '@atproto/crypto@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/common@0.1.1':
+    dependencies:
+      '@ipld/dag-cbor': 7.0.3
+      multiformats: 9.9.0
+      pino: 8.21.0
+      zod: 3.25.76
+
+  '@atproto/crypto@0.0.0-spaces-alpha-20261124235736':
     dependencies:
       '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       uint8arrays: 5.1.1
 
-  '@atproto/did@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/crypto@0.1.0':
+    dependencies:
+      '@noble/secp256k1': 1.7.2
+      big-integer: 1.6.52
+      multiformats: 9.9.0
+      one-webcrypto: 1.0.3
+      uint8arrays: 3.0.0
+
+  '@atproto/did@0.0.0-spaces-alpha-20261124235736':
     dependencies:
       zod: 3.25.76
 
-  '@atproto/identity@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/identity@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto-labs/fetch-node': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/common-web': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/crypto': 0.0.0-spaces-alpha-20261113224550
+      '@atproto-labs/fetch-node': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/common-web': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/crypto': 0.0.0-spaces-alpha-20261124235736
 
-  '@atproto/jwk-jose@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/jwk-jose@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/jwk': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/jwk': 0.0.0-spaces-alpha-20261124235736
       jose: 5.10.0
 
-  '@atproto/jwk@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/jwk@0.0.0-spaces-alpha-20261124235736':
     dependencies:
       multiformats: 13.4.2
       zod: 3.25.76
 
-  '@atproto/lex-cbor@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/lex-cbor@0.1.11':
     dependencies:
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/lex-data': 0.1.11
       cborg: 4.5.8
       tslib: 2.9.1
 
-  '@atproto/lex-client@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/lex-client@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-rpc': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/lex-data': 0.1.11
+      '@atproto/lex-rpc': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261124235736
       tslib: 2.9.1
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
-  '@atproto/lex-data@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/lex-data@0.1.11':
     dependencies:
       multiformats: 13.4.2
       tslib: 2.9.1
       unicode-segmenter: 0.14.5
 
-  '@atproto/lex-document@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/lex-document@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/lex-data': 0.1.11
+      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261124235736
       tslib: 2.9.1
 
-  '@atproto/lex-json@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/lex-json@0.1.10':
     dependencies:
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/lex-data': 0.1.11
       tslib: 2.9.1
 
-  '@atproto/lex-resolver@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/lex-resolver@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto-labs/did-resolver': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/crypto': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-document': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-rpc': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/repo': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/syntax': 0.0.0-spaces-alpha-20261113224550
+      '@atproto-labs/did-resolver': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/crypto': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-data': 0.1.11
+      '@atproto/lex-document': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-rpc': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/repo': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/syntax': 0.0.0-spaces-alpha-20261124235736
       tslib: 2.9.1
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
-  '@atproto/lex-rpc@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/lex-rpc@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-json': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/lex-cbor': 0.1.11
+      '@atproto/lex-data': 0.1.11
+      '@atproto/lex-json': 0.1.10
+      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/ws-client': 0.0.0-spaces-alpha-20261124235736
       tslib: 2.9.1
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
-  '@atproto/lex-schema@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/lex-schema@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/syntax': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/lex-data': 0.1.11
+      '@atproto/syntax': 0.0.0-spaces-alpha-20261124235736
       '@standard-schema/spec': 1.1.0
       tslib: 2.9.1
 
-  '@atproto/lexicon@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/lexicon@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/common-web': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/syntax': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/common-web': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/syntax': 0.0.0-spaces-alpha-20261124235736
       multiformats: 13.4.2
       zod: 3.25.76
 
-  '@atproto/oauth-provider-api@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/oauth-provider-api@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/jwk': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/oauth-types': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/syntax': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/jwk': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/oauth-types': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/syntax': 0.0.0-spaces-alpha-20261124235736
 
-  '@atproto/oauth-provider-ui@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/oauth-provider-ui@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/oauth-provider-api': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/oauth-provider-api': 0.0.0-spaces-alpha-20261124235736
 
-  '@atproto/oauth-provider@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/oauth-provider@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto-labs/did-resolver': 0.0.0-spaces-alpha-20261113224550
-      '@atproto-labs/fetch-node': 0.0.0-spaces-alpha-20261113224550
-      '@atproto-labs/handle-resolver-node': 0.0.0-spaces-alpha-20261113224550
+      '@atproto-labs/did-resolver': 0.0.0-spaces-alpha-20261124235736
+      '@atproto-labs/fetch-node': 0.0.0-spaces-alpha-20261124235736
+      '@atproto-labs/handle-resolver-node': 0.0.0-spaces-alpha-20261124235736
       '@atproto-labs/pipe': 0.2.5
-      '@atproto-labs/simple-store': 0.5.1
-      '@atproto-labs/simple-store-memory': 0.2.6
-      '@atproto/common': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/did': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/jwk': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/jwk-jose': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-document': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-resolver': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/oauth-provider-api': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/oauth-provider-ui': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/oauth-resolver': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/oauth-scopes': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/oauth-types': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/syntax': 0.0.0-spaces-alpha-20261113224550
+      '@atproto-labs/simple-store': 0.5.2
+      '@atproto-labs/simple-store-memory': 0.2.7
+      '@atproto/common': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/did': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/jwk': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/jwk-jose': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-document': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-resolver': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/oauth-provider-api': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/oauth-provider-ui': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/oauth-resolver': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/oauth-scopes': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/oauth-types': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/syntax': 0.0.0-spaces-alpha-20261124235736
       '@hapi/accept': 6.0.3
       '@hapi/address': 5.1.1
       '@hapi/bourne': 3.0.0
@@ -2225,62 +2269,64 @@ snapshots:
       disposable-email-domains-js: 1.26.0
       forwarded: 0.2.0
       http-errors: 2.0.1
-      ioredis: 5.11.1
+      ioredis: 6.1.0
       jose: 5.10.0
       zod: 3.25.76
     transitivePeerDependencies:
+      - bufferutil
       - supports-color
+      - utf-8-validate
 
-  '@atproto/oauth-resolver@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/oauth-resolver@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto-labs/fetch': 0.4.2
-      '@atproto-labs/identity-resolver': 0.0.0-spaces-alpha-20261113224550
-      '@atproto-labs/simple-store': 0.5.1
-      '@atproto-labs/simple-store-memory': 0.2.6
-      '@atproto/did': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/oauth-types': 0.0.0-spaces-alpha-20261113224550
+      '@atproto-labs/fetch': 0.4.3
+      '@atproto-labs/identity-resolver': 0.0.0-spaces-alpha-20261124235736
+      '@atproto-labs/simple-store': 0.5.2
+      '@atproto-labs/simple-store-memory': 0.2.7
+      '@atproto/did': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/oauth-types': 0.0.0-spaces-alpha-20261124235736
       zod: 3.25.76
 
-  '@atproto/oauth-scopes@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/oauth-scopes@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/did': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/syntax': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/did': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/syntax': 0.0.0-spaces-alpha-20261124235736
 
-  '@atproto/oauth-types@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/oauth-types@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/did': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/jwk': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/did': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/jwk': 0.0.0-spaces-alpha-20261124235736
       zod: 3.25.76
 
-  '@atproto/pds@0.0.0-spaces-alpha-20261113224550(debug@4.4.3)':
+  '@atproto/pds@0.0.0-spaces-alpha-20261124235736(debug@4.4.3)':
     dependencies:
-      '@atproto-labs/fetch': 0.4.2
-      '@atproto-labs/fetch-node': 0.0.0-spaces-alpha-20261113224550
-      '@atproto-labs/opentelemetry-node': 0.5.0
-      '@atproto-labs/simple-store': 0.5.1
-      '@atproto-labs/simple-store-memory': 0.2.6
-      '@atproto-labs/simple-store-redis': 0.1.6(ioredis@5.11.1)
-      '@atproto-labs/xrpc-utils': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/aws': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/common': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/crypto': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/did': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/identity': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/jwk': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-cbor': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-client': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-document': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-json': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/oauth-provider': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/oauth-scopes': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/oauth-types': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/repo': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/space': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/star': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/syntax': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/xrpc-server': 0.0.0-spaces-alpha-20261113224550
+      '@atproto-labs/fetch': 0.4.3
+      '@atproto-labs/fetch-node': 0.0.0-spaces-alpha-20261124235736
+      '@atproto-labs/opentelemetry-node': 0.5.1
+      '@atproto-labs/simple-store': 0.5.2
+      '@atproto-labs/simple-store-memory': 0.2.7
+      '@atproto-labs/simple-store-redis': 0.1.8(ioredis@6.1.0)
+      '@atproto-labs/xrpc-utils': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/aws': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/common': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/crypto': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/did': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/identity': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/jwk': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-cbor': 0.1.11
+      '@atproto/lex-client': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-data': 0.1.11
+      '@atproto/lex-document': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-json': 0.1.10
+      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/oauth-provider': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/oauth-scopes': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/oauth-types': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/repo': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/space': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/star': 0.0.1
+      '@atproto/syntax': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/xrpc-server': 0.0.0-spaces-alpha-20261124235736
       '@did-plc/lib': 0.0.4(debug@4.4.3)
       '@hapi/address': 5.1.1
       '@noble/curves': 1.9.7
@@ -2296,7 +2342,7 @@ snapshots:
       file-type: 22.3.0
       handlebars: 4.7.10
       http-terminator: 3.2.0
-      ioredis: 5.11.1
+      ioredis: 6.1.0
       jose: 5.10.0
       kysely: 0.29.8
       nodemailer: 6.10.1
@@ -2314,56 +2360,56 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@atproto/repo@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/repo@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/car': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/common-web': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/crypto': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-cbor': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/syntax': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/car': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/common-web': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/crypto': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-cbor': 0.1.11
+      '@atproto/lex-data': 0.1.11
+      '@atproto/syntax': 0.0.0-spaces-alpha-20261124235736
       zod: 3.25.76
 
-  '@atproto/space@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/space@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/crypto': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-cbor': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/star': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/syntax': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/crypto': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-cbor': 0.1.11
+      '@atproto/lex-data': 0.1.11
+      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/star': 0.0.1
+      '@atproto/syntax': 0.0.0-spaces-alpha-20261124235736
       '@noble/hashes': 1.8.0
       structured-headers: 1.0.1
 
-  '@atproto/star@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/star@0.0.1':
     dependencies:
-      '@atproto/lex-cbor': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/lex-cbor': 0.1.11
+      '@atproto/lex-data': 0.1.11
 
-  '@atproto/syntax@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/syntax@0.0.0-spaces-alpha-20261124235736':
     dependencies:
       iso-datestring-validator: 2.2.2
       tslib: 2.9.1
 
-  '@atproto/ws-client@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/ws-client@0.0.0-spaces-alpha-20261124235736':
     dependencies:
       ws: 8.22.2
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@atproto/xrpc-server@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/xrpc-server@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/common': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/crypto': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-cbor': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-client': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-data': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-json': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/lexicon': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/ws-client': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/xrpc': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/common': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/crypto': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-cbor': 0.1.11
+      '@atproto/lex-client': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lex-data': 0.1.11
+      '@atproto/lex-json': 0.1.10
+      '@atproto/lex-schema': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/lexicon': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/ws-client': 0.0.0-spaces-alpha-20261124235736
+      '@atproto/xrpc': 0.0.0-spaces-alpha-20261124235736
       body-parser: 1.20.9
       express: 4.22.3
       http-errors: 2.0.1
@@ -2375,9 +2421,9 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@atproto/xrpc@0.0.0-spaces-alpha-20261113224550':
+  '@atproto/xrpc@0.0.0-spaces-alpha-20261124235736':
     dependencies:
-      '@atproto/lexicon': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/lexicon': 0.0.0-spaces-alpha-20261124235736
       zod: 3.25.76
 
   '@aws-sdk/checksums@3.1002.3':
@@ -2582,8 +2628,8 @@ snapshots:
 
   '@did-plc/lib@0.0.4(debug@4.4.3)':
     dependencies:
-      '@atproto/common': 0.0.0-spaces-alpha-20261113224550
-      '@atproto/crypto': 0.0.0-spaces-alpha-20261113224550
+      '@atproto/common': 0.1.1
+      '@atproto/crypto': 0.1.0
       '@ipld/dag-cbor': 7.0.3
       axios: 1.21.0(debug@4.4.3)
       multiformats: 9.9.0
@@ -2626,7 +2672,7 @@ snapshots:
 
   '@hapi/hoek@11.0.7': {}
 
-  '@ioredis/commands@1.10.0': {}
+  '@ioredis/commands@2.4.0': {}
 
   '@ipld/dag-cbor@7.0.3':
     dependencies:
@@ -2649,6 +2695,8 @@ snapshots:
       '@noble/hashes': 1.8.0
 
   '@noble/hashes@1.8.0': {}
+
+  '@noble/secp256k1@1.7.2': {}
 
   '@opentelemetry/api@1.10.0': {}
 
@@ -3409,6 +3457,10 @@ snapshots:
       pg-protocol: 1.16.1
       pg-types: 2.2.0
 
+  abort-controller@3.0.0:
+    dependencies:
+      event-target-shim: 5.0.1
+
   accepts@1.3.8:
     dependencies:
       mime-types: 2.1.35
@@ -3457,6 +3509,8 @@ snapshots:
       bindings: 1.5.0
       prebuild-install: 7.1.3
 
+  big-integer@1.6.52: {}
+
   bignumber.js@9.3.1: {}
 
   bindings@1.5.0:
@@ -3502,6 +3556,11 @@ snapshots:
       base64-js: 1.5.1
       ieee754: 1.2.1
 
+  buffer@6.0.3:
+    dependencies:
+      base64-js: 1.5.1
+      ieee754: 1.2.1
+
   bytes@3.1.2: {}
 
   call-bind-apply-helpers@1.0.2:
@@ -3527,8 +3586,6 @@ snapshots:
       string-width: 4.2.3
       strip-ansi: 6.0.1
       wrap-ansi: 7.0.0
-
-  cluster-key-slot@1.1.1: {}
 
   color-convert@2.0.1:
     dependencies:
@@ -3673,6 +3730,8 @@ snapshots:
 
   etag@1.8.1: {}
 
+  event-target-shim@5.0.1: {}
+
   eventemitter3@5.0.4: {}
 
   events@3.3.0: {}
@@ -3722,6 +3781,8 @@ snapshots:
   extend@3.0.2: {}
 
   fast-printf@1.6.10: {}
+
+  fast-redact@3.5.0: {}
 
   fetch-blob@3.2.0:
     dependencies:
@@ -3914,14 +3975,12 @@ snapshots:
 
   ini@1.3.8: {}
 
-  ioredis@5.11.1:
+  ioredis@6.1.0:
     dependencies:
-      '@ioredis/commands': 1.10.0
-      cluster-key-slot: 1.1.1
+      '@ioredis/commands': 2.4.0
       debug: 4.4.3
       denque: 2.1.0
       redis-errors: 1.2.0
-      redis-parser: 3.0.0
       standard-as-callback: 2.1.0
     transitivePeerDependencies:
       - supports-color
@@ -4042,6 +4101,8 @@ snapshots:
     dependencies:
       wrappy: 1.0.2
 
+  one-webcrypto@1.0.3: {}
+
   p-finally@1.0.0: {}
 
   p-queue@8.1.1:
@@ -4084,6 +4145,11 @@ snapshots:
       postgres-date: 1.0.7
       postgres-interval: 1.2.0
 
+  pino-abstract-transport@1.2.0:
+    dependencies:
+      readable-stream: 4.8.0
+      split2: 4.2.0
+
   pino-abstract-transport@3.0.0:
     dependencies:
       split2: 4.2.0
@@ -4094,6 +4160,8 @@ snapshots:
       pino: 10.4.0
       pino-std-serializers: 7.1.0
       process-warning: 5.1.1
+
+  pino-std-serializers@6.2.2: {}
 
   pino-std-serializers@7.1.0: {}
 
@@ -4110,6 +4178,20 @@ snapshots:
       safe-stable-stringify: 2.5.0
       sonic-boom: 4.2.1
       thread-stream: 4.2.1
+
+  pino@8.21.0:
+    dependencies:
+      atomic-sleep: 1.0.0
+      fast-redact: 3.5.0
+      on-exit-leak-free: 2.1.2
+      pino-abstract-transport: 1.2.0
+      pino-std-serializers: 6.2.2
+      process-warning: 3.0.0
+      quick-format-unescaped: 4.0.4
+      real-require: 0.2.0
+      safe-stable-stringify: 2.5.0
+      sonic-boom: 3.8.1
+      thread-stream: 2.7.0
 
   postgres-array@2.0.0: {}
 
@@ -4136,7 +4218,11 @@ snapshots:
       tar-fs: 2.1.5
       tunnel-agent: 0.6.0
 
+  process-warning@3.0.0: {}
+
   process-warning@5.1.1: {}
+
+  process@0.11.10: {}
 
   protobufjs@7.6.6:
     dependencies:
@@ -4195,13 +4281,19 @@ snapshots:
       string_decoder: 1.3.0
       util-deprecate: 1.0.2
 
+  readable-stream@4.8.0:
+    dependencies:
+      abort-controller: 3.0.0
+      buffer: 6.0.3
+      events: 3.3.0
+      process: 0.11.10
+      string_decoder: 1.3.0
+
+  real-require@0.2.0: {}
+
   real-require@1.0.0: {}
 
   redis-errors@1.2.0: {}
-
-  redis-parser@3.0.0:
-    dependencies:
-      redis-errors: 1.2.0
 
   require-directory@2.1.1: {}
 
@@ -4305,6 +4397,10 @@ snapshots:
       once: 1.4.0
       simple-concat: 1.0.1
 
+  sonic-boom@3.8.1:
+    dependencies:
+      atomic-sleep: 1.0.0
+
   sonic-boom@4.2.1:
     dependencies:
       atomic-sleep: 1.0.0
@@ -4370,6 +4466,10 @@ snapshots:
       fs-constants: 1.0.0
       inherits: 2.0.4
       readable-stream: 3.6.2
+
+  thread-stream@2.7.0:
+    dependencies:
+      real-require: 0.2.0
 
   thread-stream@4.2.1:
     dependencies:

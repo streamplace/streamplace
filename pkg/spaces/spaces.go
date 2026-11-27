@@ -26,7 +26,7 @@ type Client interface {
 }
 
 func PersonalSpaceURI(did string) string {
-	return "at://" + did + "/space/" + PersonalSpaceType + "/" + PersonalSpaceKey
+	return "at:space/" + did + "/" + PersonalSpaceType + "/" + PersonalSpaceKey
 }
 
 // Granted reports whether an OAuth scope, as a PDS expands it, covers the personal space.

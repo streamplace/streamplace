@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-IMAGE=ghcr.io/jazware/vlpds:sha-ead9f95
+IMAGE=ghcr.io/jazware/vlpds:sha-0f57955
 BINARY="$REPO/build-linux-amd64/vlpds"
 container="$(docker create --platform linux/amd64 "$IMAGE")"
 trap 'docker rm "$container" >/dev/null' EXIT

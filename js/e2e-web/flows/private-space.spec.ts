@@ -11,7 +11,7 @@ const HTTPS_URL = process.env.SERVER_HTTPS_URL;
 const DID = process.env.ACCOUNT_DID!;
 const PDS_KIND = process.env.PDS_KIND ?? "reference";
 const COLLECTION = "place.stream.multistream.target";
-const SPACE = `at://${DID}/space/place.stream.personal/self`;
+const SPACE = `at:space/${DID}/place.stream.personal/self`;
 const LEGACY_NAME = "e2e legacy target";
 const LEGACY_URL = "rtmp://127.0.0.1:9/live/e2e-legacy";
 

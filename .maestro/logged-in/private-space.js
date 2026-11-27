@@ -2,7 +2,7 @@
 if (PDS_KIND !== "spaces" && PDS_KIND !== "vlpds") {
   throw new Error(`private-space admin read is not supported for ${PDS_KIND}`);
 }
-const space = `at://${ACCOUNT_DID}/space/place.stream.personal/self`;
+const space = `at:space/${ACCOUNT_DID}/place.stream.personal/self`;
 const method =
   PDS_KIND === "vlpds"
     ? "vlpds.admin.listSpaceRecords"

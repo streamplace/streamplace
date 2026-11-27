@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
@@ -26,8 +27,11 @@ func (f *Fake) Do(_ context.Context, _, _, method string, params map[string]any,
 		return f.Err
 	}
 	var in struct {
-		Rkey   string          `json:"rkey"`
-		Record json.RawMessage `json:"record"`
+		Space      string          `json:"space"`
+		Repo       string          `json:"repo"`
+		Collection string          `json:"collection"`
+		Rkey       string          `json:"rkey"`
+		Record     json.RawMessage `json:"record"`
 	}
 	if body != nil {
 		bs, err := json.Marshal(body)
@@ -46,7 +50,8 @@ func (f *Fake) Do(_ context.Context, _, _, method string, params map[string]any,
 		}
 		f.Records[in.Rkey] = in.Record
 		f.Rev++
-		res = map[string]any{"uri": "at://space/" + in.Rkey, "cid": fmt.Sprintf("cid-%d", f.Rev)}
+		uri := strings.Join([]string{in.Space, in.Repo, in.Collection, in.Rkey}, "/")
+		res = map[string]any{"uri": uri, "cid": fmt.Sprintf("cid-%d", f.Rev)}
 	case "com.atproto.space.deleteRecord":
 		delete(f.Records, in.Rkey)
 		f.Rev++

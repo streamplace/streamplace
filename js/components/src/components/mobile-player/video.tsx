@@ -611,7 +611,6 @@ function VodEnginePlayer(props: VideoProps) {
   const src = usePlayerStore((x) => x.src);
   const startTime = usePlayerStore((x) => x.startTime);
   const node = useStreamplaceStore((x) => x.url);
-  const setStatus = usePlayerStore((x) => x.setStatus);
   const [fallback, setFallback] = useState(false);
   // The boot handover is one-shot: whoever clears __spVodBoot owns the engine.
   const [engine, setEngine] = useState(() => {
@@ -622,10 +621,6 @@ function VodEnginePlayer(props: VideoProps) {
     g.__spVodBoot = undefined;
     return booted;
   });
-
-  useEffect(() => {
-    setStatus(PlayerStatus.START);
-  }, [setStatus]);
 
   useEffect(() => {
     if (engine || fallback) return;

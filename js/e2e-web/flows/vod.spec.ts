@@ -47,6 +47,7 @@ test("vod: the video page plays", async ({ page }) => {
     .toBeGreaterThan(2);
   await expect(page.locator("#sp-vod-boot")).toHaveCount(0);
   await expect(video).toHaveAttribute("src", /^blob:/);
+  await expect(page.getByTestId("viewer-loading")).toHaveCount(0);
 });
 
 test("vod: the page's own video shows a frame without the app bundle", async ({

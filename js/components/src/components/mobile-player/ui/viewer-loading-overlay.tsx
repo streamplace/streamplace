@@ -32,6 +32,7 @@ export function ViewerLoadingOverlay() {
 
   return (
     <Animated.View
+      testID="viewer-loading"
       style={[
         {
           position: "absolute",

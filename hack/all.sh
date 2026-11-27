@@ -148,6 +148,14 @@ run_desktop() {
 
 target() {
   local target="$1"
+  if [[ "$target" == windows-* ]]; then
+    if [[ ${SP_PRODUCTION_RELEASE:-} == true ]]; then
+      export SP_WINDOWS_SIGN=1
+    fi
+    if [[ ${SP_WINDOWS_SIGN:-} == 1 ]]; then
+      PASS_ENV+=(SP_WINDOWS_SIGN AZURE_SIGNING_ENDPOINT AZURE_SIGNING_ACCOUNT AZURE_SIGNING_PROFILE AZURE_SIGNING_ACCESS_TOKEN)
+    fi
+  fi
   step "$target"
   run make "$target"
   # test-vod only runs on the build host, so in CI it is a no-op for the

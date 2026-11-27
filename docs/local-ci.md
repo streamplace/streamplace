@@ -207,6 +207,52 @@ Run release regressions against an isolated local PDS with:
 pnpm --filter @atcute/internal-dev-env test:release
 ```
 
+## Signing Windows releases
+
+The GitLab `build-windows-amd64` job requires Azure Artifact Signing for release
+tags (`vX.Y.Z` or `X.Y.Z`). Ordinary branch and PR builds stay unsigned.
+Signing happens before publication: the node ZIP, OBS plugin ZIP, Desktop
+installer and Squirrel update all contain signed executables. Signing an
+installer alone does not authorize its embedded node or the DLL loaded by OBS.
+
+1. Create an [Artifact Signing account and Public Trust certificate profile](https://learn.microsoft.com/en-us/azure/artifact-signing/quickstart)
+   after completing publisher identity validation.
+2. Create an Entra application and grant its service principal **Artifact
+   Signing Certificate Profile Signer** on that profile. Protect the release
+   tag in GitLab. Configure an [OIDC federated credential](https://docs.gitlab.com/ci/cloud_services/azure/)
+   with issuer `https://git.stream.place`, audience `api://AzureADTokenExchange`
+   and subject `project_path:streamplace/streamplace:ref_type:tag:ref:<exact-tag>`.
+   Authorize each new release tag; do not authorize arbitrary branches, forks or PRs.
+3. Set protected GitLab variables `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`,
+   `AZURE_SIGNING_ACCOUNT`, `AZURE_SIGNING_PROFILE` and `AZURE_SIGNING_ENDPOINT`
+   (regional URL, e.g. `https://eus.codesigning.azure.net`). No client secret
+   or certificate file is needed. Missing credentials, denied signing requests
+   and timestamp failures stop the release.
+
+For a local signed build, grant your Azure identity the same profile role.
+Export the account, profile and endpoint above plus:
+
+```sh
+export SP_WINDOWS_SIGN=1
+export AZURE_SIGNING_ACCESS_TOKEN="$(az account get-access-token \
+  --resource https://codesigning.azure.net --query accessToken -o tsv)"
+```
+
+Use a trusted builder; never put the token in source, a Make command line, or
+an artifact. `make all` forwards it to the Windows lane. For individual
+`docker exec` builds pass `-e SP_WINDOWS_SIGN -e AZURE_SIGNING_ACCESS_TOKEN
+-e AZURE_SIGNING_ENDPOINT -e AZURE_SIGNING_ACCOUNT -e AZURE_SIGNING_PROFILE`
+and run `make windows-amd64`, `make obs-plugin-windows-amd64`, then
+`make desktop-windows-amd64`. Refresh the short-lived local token if necessary.
+Publishing existing artifacts does not retroactively sign them.
+
+On a fresh Windows test account with Smart App Control **On**, run
+`SP_WINDOWS_SIGN=1 bash util/windows-selftest.sh <installer-url>` in MSYS2.
+It checks Authenticode before installation and on installed executable
+content (including the OBS plugin), launches the embedded node, and runs the
+Desktop self-test. Then install the bundled plugin and start an OBS MoQ
+stream. Wine can test packaging and startup, but does not enforce SAC.
+
 ## Building and signing separately
 
 The macOS artifacts need the Developer ID certificate after they are compiled:

@@ -11,7 +11,8 @@ TARGET="$1"
 VERSION="$2"
 OUT="$(realpath "$3")"
 NAME=obs-streamplace
-BUILD="$(dirname "$0")/build-$TARGET"
+PLUGIN_DIR="$(dirname "$0")"
+BUILD="$PLUGIN_DIR/build-$TARGET"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 # Streamplace Desktop reads this to tell whether an installed copy is older
@@ -27,7 +28,11 @@ linux-*)
   ;;
 windows-*)
   mkdir -p "$STAGE/$NAME/bin/64bit" "$STAGE/$NAME/data"
-  cp "$BUILD/$NAME.dll" "$STAGE/$NAME/bin/64bit/"
+  DLL="$STAGE/$NAME/bin/64bit/$NAME.dll"
+  cp "$BUILD/$NAME.dll" "$DLL"
+  if [ "${SP_WINDOWS_SIGN:-0}" = 1 ]; then
+    bash "$PLUGIN_DIR/../hack/sign-windows.sh" "$DLL"
+  fi
   echo "$MANIFEST" >"$STAGE/$NAME/data/manifest.json"
   rm -f "$OUT/$NAME-$VERSION-$TARGET.zip"
   (cd "$STAGE" && zip -qr "$OUT/$NAME-$VERSION-$TARGET.zip" "$NAME")

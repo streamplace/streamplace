@@ -124,6 +124,12 @@ React replaces):
   and, from the first frame's `requestVideoFrameCallback`, imports
   `vod-engine-<hash>.js` (its URL in `data-engine` on `#sp-vod-boot`), which
   continues playback and stores itself at `window.__spVod`.
+  When boot can proceed, it surrounds the video with a token-styled page skeleton:
+  a desktop header, responsive player box, title, creator/actions and description.
+  CSS follows the app's header and theater breakpoints on resize, using the video
+  track's aspect ratio, so adopting the same video does not move or resize it.
+  Skeleton pulses stop under `prefers-reduced-motion`; unsupported boots leave
+  the existing app bootstrap unchanged.
 - Both scripts are built by `js/app/scripts/bundle-vod.mjs` (esbuild, run by
   `pnpm run export`) into `dist/_expo/static/js/web/`, so they share the app's
   immutable caching. `dist/_expo/static/js/web/vod-boot.json` names them for the

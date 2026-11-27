@@ -68,3 +68,48 @@ test("vod: the page's own video shows a frame without the app bundle", async ({
     )
     .toBe(true);
 });
+
+test("vod: the video doesn't move when the app takes over", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 900, height: 1100 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const bootstrap = /\/bootstrap-[^/]+\.js$/;
+    await page.route(bootstrap, (route) => route.abort());
+    await page.goto(`${APP_URL}${videoPath()}`, {
+      waitUntil: "domcontentloaded",
+    });
+    const bootVideo = page.locator("#sp-vod-boot video");
+    await expect
+      .poll(() =>
+        bootVideo.evaluate((video: HTMLVideoElement) => video.readyState),
+      )
+      .toBeGreaterThanOrEqual(2);
+    const bootBox = await bootVideo.boundingBox();
+    expect(bootBox).not.toBeNull();
+
+    await page.unroute(bootstrap);
+    await page.goto(`${APP_URL}${videoPath()}`);
+    await expect(page.locator("#sp-vod-boot")).toHaveCount(0, {
+      timeout: 60_000,
+    });
+    const video = page.locator("video").first();
+    await expect(video).toBeVisible();
+    await expect
+      .poll(async () => {
+        const appBox = await video.boundingBox();
+        if (!appBox) return Infinity;
+        return Math.max(
+          ...(["x", "y", "width", "height"] as const).map((key) =>
+            Math.abs(appBox[key] - bootBox![key]),
+          ),
+        );
+      })
+      .toBeLessThanOrEqual(1);
+  }
+});

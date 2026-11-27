@@ -22,8 +22,21 @@ visibility of a sibling does not grant permission to modify it.
 
 ```sh
 # Host, checkout root; builds and tests are dispatched into the container.
+make warm-image   # once per machine: a full build of `next`, kept as an image
 make provision
 ```
+
+`make warm-image` is the expensive step: it bakes one complete `make dev` tree
+of `next` into a local image (`hack/warm-image.sh`). Every container created
+after that starts from the image, mounts the checkout at `/streamplace`, and
+`hack/warm-seed.sh` copies the baked build tree into the checkout before
+`make provision` touches it. That turns a new checkout's first provision into
+an incremental build plus the e2e run instead of a cold compile. Without a warm
+image, provisioning still works and cold-builds exactly as before. Refresh the
+warm image when `next` has moved; an older image is still safe, because seeding
+touches files that differ from its commit. `WARM_REF=<ref> make warm-image`
+builds a different ref. The image stays in the local Docker daemon and is never
+pushed; share it with a registry yourself only if agents run on other machines.
 
 `hack/provision.sh` ensures the container, installs workspace dependencies,
 rebuilds missing/stale embedded frontends, runs `make dev`, installs Playwright's
@@ -37,10 +50,11 @@ To drive the stages separately from the host:
 ```sh
 make dev-container
 CONTAINER="$(bash hack/container.sh name)"
-docker exec -w "$REPO" "$CONTAINER" make app
-docker exec -w "$REPO" "$CONTAINER" make dev
-docker exec -w "$REPO" "$CONTAINER" pnpm --filter @streamplace/e2e-web install-browser
-docker exec -w "$REPO" "$CONTAINER" hack/e2e-web-local.sh
+WORKDIR="$(bash hack/container.sh path)"   # /streamplace in new containers
+docker exec -w "$WORKDIR" "$CONTAINER" make app
+docker exec -w "$WORKDIR" "$CONTAINER" make dev
+docker exec -w "$WORKDIR" "$CONTAINER" pnpm --filter @streamplace/e2e-web install-browser
+docker exec -w "$WORKDIR" "$CONTAINER" hack/e2e-web-local.sh
 ```
 
 `make dev-container` ensures the container and runs `make dev-setup` if
@@ -59,37 +73,50 @@ container build.
 Run these commands in a **host Bash shell at the checkout root**:
 
 ```sh
-REPO="$(pwd -P)"
 make container
 CONTAINER="$(bash hack/container.sh name)"
+WORKDIR="$(bash hack/container.sh path)"
 ```
 
 Retain these variables for the host commands below, or reinitialize them in a
-new shell. Always pass `-w "$REPO"`; do not rely on a previous shell's directory.
+new shell. Always pass `-w "$WORKDIR"`; do not rely on a previous shell's
+directory.
 
 `hack/container.sh`:
 
 - Requires a checkout basename beginning with `streamplace`.
 - Reuses a running container named after the checkout or `<checkout>-builder`,
   starts a stopped one, or creates one if neither exists.
-- Uses `ghcr.io/streamplace/streamplace:builder-<DOCKERFILE_HASH>`, pinned by
-  `.ci/dockerfile-hash.yaml`; it warns about an existing image mismatch but does
-  not recreate the container.
+- Creates new containers from the newest local warm image
+  (`ghcr.io/streamplace/streamplace:warm-<DOCKERFILE_HASH>-*`) when one exists,
+  otherwise from `ghcr.io/streamplace/streamplace:builder-<DOCKERFILE_HASH>`,
+  pinned by `.ci/dockerfile-hash.yaml`. `STREAMPLACE_WARM_IMAGE=<ref>` forces a
+  specific image; `STREAMPLACE_WARM=0` disables the warm image. It warns about an
+  existing image mismatch but does not recreate the container: a container keeps
+  the image it was created with.
 - For new containers, mounts the checkout's **entire parent** at the same absolute
-  path, making sibling checkouts visible and preserving paths in native metadata.
-  This is a broad writable mount: use a trusted builder image and a dedicated
-  development workspace, not a parent containing sensitive unrelated data.
-- Sets `PKG_CONFIG_PATH` and `LD_LIBRARY_PATH` to this checkout's
-  `build-linux-amd64` tree. The current helper assumes Linux amd64; inspect image
-  and architecture support before using it on another architecture.
+  path, making sibling checkouts visible, and additionally mounts the checkout
+  at `/streamplace`, which is the canonical build path: Meson, Cargo, and
+  pkg-config bake absolute paths into their outputs, and the warm image was
+  built there. This is a broad writable mount: use a trusted builder image and
+  a dedicated development workspace, not a parent containing sensitive
+  unrelated data.
+- Sets `PKG_CONFIG_PATH` and `LD_LIBRARY_PATH` to
+  `/streamplace/build-linux-amd64`. The current helper assumes Linux amd64;
+  inspect image and architecture support before using it on another architecture.
+
+`hack/container.sh path` prints the path to build at (`/streamplace` for new
+containers, the host path for older ones that predate the extra mount). Use it
+instead of assuming either. Adopting an old container does not add the mount;
+remove and recreate the container if you want warm seeding.
 
 Inspect adopted containers rather than assuming they have those mounts or settings:
 
 ```sh
 docker ps -a --format '{{.Names}}\t{{.Status}}'
 docker inspect "$CONTAINER" --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
-docker exec -w "$REPO" "$CONTAINER" printenv PKG_CONFIG_PATH LD_LIBRARY_PATH
-docker exec -w "$REPO" "$CONTAINER" uname -m
+docker exec -w "$WORKDIR" "$CONTAINER" printenv PKG_CONFIG_PATH LD_LIBRARY_PATH
+docker exec -w "$WORKDIR" "$CONTAINER" uname -m
 ```
 
 `docker ps` without `-a` hides stopped containers. Prefer the helper over a second
@@ -104,14 +131,14 @@ All commands in this section run from the host using the selected container:
 
 ```sh
 # After frontend edits, including shared workspace code:
-docker exec -w "$REPO" "$CONTAINER" make app
+docker exec -w "$WORKDIR" "$CONTAINER" make app
 # Re-embed the bundles and rebuild the Go/Rust development binaries:
-docker exec -w "$REPO" "$CONTAINER" make dev
+docker exec -w "$WORKDIR" "$CONTAINER" make dev
 
 # CI-shaped Go build. moq.dev/moq-ffi (Streamplace's fork) carries no
 # prebuilt library: link the one `make dev` built.
-GO_ENV="CGO_LDFLAGS=-L$REPO/build-linux-amd64/rust/streamplace-native -lmoq_ffi -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -lm"
-docker exec -w "$REPO" "$CONTAINER" env "$GO_ENV" go build ./pkg/... ./cmd/...
+GO_ENV="CGO_LDFLAGS=-L$WORKDIR/build-linux-amd64/rust/streamplace-native -lmoq_ffi -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -lm"
+docker exec -w "$WORKDIR" "$CONTAINER" env "$GO_ENV" go build ./pkg/... ./cmd/...
 ```
 
 For affected packages, run `go vet ./pkg/<package>/...` and
@@ -124,12 +151,12 @@ when adopting a container built by another workflow.
 Other checks, when relevant:
 
 ```sh
-docker exec -w "$REPO" "$CONTAINER" go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint run -c ./.golangci.yaml
-docker exec -w "$REPO" "$CONTAINER" gofmt -l pkg cmd
-docker exec -w "$REPO/js/app" "$CONTAINER" pnpm exec tsc -p . --noEmit
-docker exec -w "$REPO" "$CONTAINER" pnpm run check
+docker exec -w "$WORKDIR" "$CONTAINER" go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint run -c ./.golangci.yaml
+docker exec -w "$WORKDIR" "$CONTAINER" gofmt -l pkg cmd
+docker exec -w "$WORKDIR/js/app" "$CONTAINER" pnpm exec tsc -p . --noEmit
+docker exec -w "$WORKDIR" "$CONTAINER" pnpm run check
 # Required after lexicon edits; review generated changes on the host.
-docker exec -w "$REPO" "$CONTAINER" make lexicons
+docker exec -w "$WORKDIR" "$CONTAINER" make lexicons
 ```
 
 ### Branch changes and stale artifacts
@@ -164,7 +191,7 @@ after frontend changes.
 Enter the container from the host:
 
 ```sh
-docker exec -it -w "$REPO" "$CONTAINER" bash
+docker exec -it -w "$WORKDIR" "$CONTAINER" bash
 ```
 
 Then, **inside the container at the checkout root**, inspect listeners with
@@ -220,9 +247,9 @@ revision or try to execute a container cache path on the host:
 
 ```sh
 # Host shell:
-docker exec -w "$REPO/js/e2e-web" "$CONTAINER" \
+docker exec -w "$WORKDIR/js/e2e-web" "$CONTAINER" \
   node -p 'require("playwright").chromium.executablePath()'
-docker exec -w "$REPO" "$CONTAINER" hack/e2e-web-local.sh
+docker exec -w "$WORKDIR" "$CONTAINER" hack/e2e-web-local.sh
 ```
 
 For direct Chromium automation, headless mode and `--disable-dev-shm-usage` can be

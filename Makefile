@@ -402,6 +402,14 @@ container:
 dev-container:
 	bash hack/container.sh dev-setup
 
+# One full build of `next`, baked into a local image that new checkouts seed
+# from. Build it once per machine (or whenever `next` moves a lot); it is what
+# keeps `make provision` in a fresh checkout from cold-building. WARM_REF
+# selects the source ref.
+.PHONY: warm-image
+warm-image:
+	bash hack/warm-image.sh
+
 # Cold checkout to a proven dev environment: container, dependencies, embedded
 # frontends, dev binaries, Playwright browser and a passing e2e run. Idempotent
 # — re-run it after a branch switch and it redoes only what went stale.

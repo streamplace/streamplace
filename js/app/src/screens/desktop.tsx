@@ -1,4 +1,5 @@
 import {
+  Button,
   LivestreamProvider,
   PlayerProvider,
   Text,
@@ -6,6 +7,8 @@ import {
   View,
 } from "@streamplace/components";
 import { breakpoints } from "@streamplace/components/src/lib/theme/tokens";
+import { ForwardingCard } from "components/desktop/forwarding-card";
+import { LogsCard } from "components/desktop/logs-card";
 import { ObsCard } from "components/desktop/obs-card";
 import { RenditionSettings } from "components/desktop/rendition-settings";
 import StreamMonitor from "components/live-dashboard/stream-monitor";
@@ -14,43 +17,80 @@ import { useLiveUser } from "hooks/useLiveUser";
 import { useEffect } from "react";
 import { ScrollView, useWindowDimensions } from "react-native";
 import { useStore } from "store";
-import { useIsReady, useUserProfile } from "store/hooks";
+import { useIsReady, useStreamplaceUrl, useUserProfile } from "store/hooks";
+
+type DesktopWindow = Window & {
+  SP_ELECTRON?: { app?: { focus(): Promise<void> } };
+};
 
 function DesktopInner() {
   const { theme } = useTheme();
   const isLive = useLiveUser();
   const profile = useUserProfile();
+  const logout = useStore((state) => state.logout);
   const { width } = useWindowDimensions();
   const wide = width >= breakpoints.lg;
-  const hideSidebar = useStore((x) => x.setSidebarHidden);
-  const showSidebar = useStore((x) => x.setSidebarUnhidden);
 
-  useEffect(() => {
-    hideSidebar();
-    return () => showSidebar();
-  }, [hideSidebar, showSidebar]);
+  const panel = (
+    <View style={{ gap: theme.spacing[6] }}>
+      <Text size="xl">Streamplace Desktop</Text>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: theme.spacing[3],
+        }}
+      >
+        <Text color="muted">Signed in as @{profile?.handle}</Text>
+        <Button
+          variant="secondary"
+          width="min"
+          testID="desktop-logout"
+          onPress={() => logout()}
+        >
+          Log out
+        </Button>
+      </View>
+      <ForwardingCard />
+      <ObsCard />
+      <RenditionSettings />
+      <LogsCard />
+    </View>
+  );
 
+  // One tree at every width, so resizing never remounts the settings. Wide:
+  // the page is window-high and the settings column scrolls. Narrow: it all does.
   return (
-    <View
-      style={{
-        flex: 1,
+    <ScrollView
+      style={{ flex: 1, backgroundColor: theme.colors.surface0 }}
+      contentContainerStyle={{
         flexDirection: wide ? "row" : "column",
         gap: theme.spacing[4],
         padding: theme.spacing[4],
-        backgroundColor: theme.colors.surface0,
+        ...(wide && { height: "100%" }),
       }}
     >
       <View style={wide ? { flex: 2 } : { width: "100%", aspectRatio: 16 / 9 }}>
-        <StreamMonitor isLive={isLive} userProfile={profile} />
+        <StreamMonitor
+          isLive={isLive}
+          userProfile={profile}
+          offline={
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              testID="desktop-offline"
+            >
+              <Text color="muted">Offline · start streaming in OBS</Text>
+            </View>
+          }
+        />
       </View>
-      <ScrollView style={{ flex: 1 }}>
-        <View style={{ gap: theme.spacing[6] }}>
-          <Text size="xl">Streamplace Desktop</Text>
-          <ObsCard />
-          <RenditionSettings />
-        </View>
-      </ScrollView>
-    </View>
+      <ScrollView style={wide ? { flex: 1 } : undefined}>{panel}</ScrollView>
+    </ScrollView>
   );
 }
 
@@ -59,9 +99,52 @@ function DesktopInner() {
  * streamer, and a preview of their stream.
  */
 export default function Desktop() {
+  const { theme } = useTheme();
   const isReady = useIsReady();
   const userProfile = useUserProfile();
   const openLoginModal = useStore((state) => state.openLoginModal);
+  const showLoginModal = useStore((state) => state.showLoginModal);
+  const hideSidebar = useStore((x) => x.setSidebarHidden);
+  const showSidebar = useStore((x) => x.setSidebarUnhidden);
+  const nodeURL = useStreamplaceUrl();
+  const bridge =
+    typeof window === "undefined"
+      ? undefined
+      : (window as DesktopWindow).SP_ELECTRON?.app;
+
+  useEffect(() => {
+    if (!bridge) return;
+    const controller = new AbortController();
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const response = await fetch(`${nodeURL}/api/desktop/obs-request`, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (response.status === 200 && !stopped) {
+          if (!userProfile) openLoginModal({ name: "Desktop" });
+          await bridge.focus();
+        }
+      } catch (error) {
+        if (!stopped) console.error("Could not check OBS request", error);
+      }
+      if (!stopped) timer = setTimeout(poll, 2000);
+    };
+    void poll();
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [bridge, nodeURL, userProfile, openLoginModal]);
+
+  // Desktop is the only screen, signed in or not; nothing to navigate to.
+  useEffect(() => {
+    hideSidebar();
+    return () => showSidebar();
+  }, [hideSidebar, showSidebar]);
 
   useEffect(() => {
     if (isReady && !userProfile) {
@@ -69,8 +152,35 @@ export default function Desktop() {
     }
   }, [isReady, userProfile, openLoginModal]);
 
-  if (!isReady || !userProfile) {
+  if (!isReady) {
     return <Loading />;
+  }
+  // The login modal can be dismissed; keep a way back to it.
+  if (!userProfile) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          gap: theme.spacing[4],
+          backgroundColor: theme.colors.surface0,
+        }}
+      >
+        {!showLoginModal && (
+          <>
+            <Text size="lg">Log in to start streaming.</Text>
+            <Button
+              width="min"
+              testID="desktop-login"
+              onPress={() => openLoginModal({ name: "Desktop" })}
+            >
+              Log in
+            </Button>
+          </>
+        )}
+      </View>
+    );
   }
 
   return (

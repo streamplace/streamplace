@@ -620,8 +620,13 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, htt
 
 	// Stream the test fixture in a loop so it outlasts any Maestro test run.
 	ingestAddr := httpAddr
+	internalAddr := fmt.Sprintf("127.0.0.1:%d", internalPort)
 	if local != nil {
 		ingestAddr = local.addr
+		internalAddr = local.internalAddr
+	}
+	if ingest == "fmp4" {
+		ingestAddr = internalAddr
 	}
 	g, streamCtx := errgroup.WithContext(ctx)
 	g.Go(func() error {
@@ -631,8 +636,12 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, htt
 		return loopE2EIngest(streamCtx, ingest, "http://"+ingestAddr, priv, fixture)
 	})
 	if preliveKey != "" {
+		preliveAddr := httpAddr
+		if ingest == "fmp4" {
+			preliveAddr = fmt.Sprintf("127.0.0.1:%d", internalPort)
+		}
 		g.Go(func() error {
-			return loopE2EIngest(streamCtx, ingest, "http://"+httpAddr, preliveKey, fixture)
+			return loopE2EIngest(streamCtx, ingest, "http://"+preliveAddr, preliveKey, fixture)
 		})
 	}
 
@@ -647,6 +656,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, htt
 	}
 	vars := fmt.Sprintf("SERVER_URL=http://%s\nSERVER2_URL=http://%s\nSERVER2_INTERNAL_URL=http://127.0.0.1:%d\nSERVER3_URL=http://%s\nACCOUNT_HANDLE=%s\nACCOUNT_DID=%s\nACCOUNT_PASSWORD=%s\nVIDEO_URI=%s\nE2E_FIXTURE_MP4=%s\nPDS_HTTP_URL=%s\nSTREAM_KEY=%s\n",
 		serverAddr, peerAddr, peerInternalPort, pushAddr, out.Handle, out.Did, password, videoURI, fixture, env.PDSURL, priv)
+	vars += fmt.Sprintf("SERVER_INTERNAL_URL=http://%s\n", internalAddr)
 	if tlsEnv != nil {
 		vars += fmt.Sprintf("PDS_HTTPS_URL=%s\nE2E_PROXY_URL=%s\nE2E_TLS_SPKI=%s\nE2E_TLS_CA=%s\n",
 			tlsEnv.PDSURL(), tlsEnv.ProxyURL(), tlsEnv.spki, tlsEnv.caPath)

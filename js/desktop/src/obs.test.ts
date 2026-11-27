@@ -92,19 +92,19 @@ const service = async (config: string, profile: string) =>
     ),
   );
 
-test("points the current profile at the node", async () => {
+test("points the current profile at Desktop's internal ingest with a placeholder", async () => {
   // OBS 31+ keeps the current profile in user.ini, written with a BOM and CRLF.
   const config = await makeProfiles(
     "user.ini",
     "\uFEFF[General]\r\nProfileDir=Other\r\n[Basic]\r\nProfile=Mine\r\nProfileDir=Mine\r\n",
   );
-  await writeStreamConfig(config, "http://127.0.0.1:38082", "sk");
+  await writeStreamConfig(config, "http://127.0.0.1:39090");
   assert.deepEqual(await service(config, "Mine"), {
     type: "rtmp_common",
     settings: {
       service: "Streamplace",
-      server: "http://127.0.0.1:38082",
-      key: "sk",
+      server: "http://127.0.0.1:39090",
+      key: "streamplace-desktop",
     },
   });
   assert.equal(
@@ -125,14 +125,18 @@ test("reads the current profile from global.ini before OBS 31", async () => {
     "global.ini",
     "[Basic]\nProfileDir=Other\n",
   );
-  await writeStreamConfig(config, "http://127.0.0.1:38082", "sk");
-  assert.equal((await service(config, "Other")).settings.key, "sk");
+  await writeStreamConfig(config, "http://127.0.0.1:39123");
+  assert.deepEqual((await service(config, "Other")).settings, {
+    service: "Streamplace",
+    server: "http://127.0.0.1:39123",
+    key: "streamplace-desktop",
+  });
 });
 
 test("refuses without a profile", async () => {
   const config = await mkdtemp(join(os.tmpdir(), "obs-config-"));
   await assert.rejects(
-    writeStreamConfig(config, "http://x", "sk"),
+    writeStreamConfig(config, "http://127.0.0.1:39090"),
     /no profile/,
   );
 });

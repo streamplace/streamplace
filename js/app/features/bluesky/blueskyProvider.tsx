@@ -6,6 +6,7 @@ import { Platform } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useOAuthSession, useUserProfile } from "store/hooks";
 import { navigateToRoute } from "utils/navigation";
+import { getDesktopAuth, pollDesktopLogin } from "./desktop-auth";
 
 export default function BlueskyProvider({
   children,
@@ -22,6 +23,10 @@ export default function BlueskyProvider({
 
   useEffect(() => {
     loadOAuthClient();
+    // Resume a Desktop login a reload interrupted; a no-op when none is pending.
+    if (getDesktopAuth()) {
+      void pollDesktopLogin(useStore.getState().url, oauthCallback);
+    }
 
     // load return route from storage on mount
     if (Platform.OS !== "web") {
@@ -74,7 +79,9 @@ export default function BlueskyProvider({
   useEffect(() => {
     if (url !== lastLink && url) {
       setLastLink(url);
-      if (url.includes("?")) {
+      // /app-return is the browser handoff page; its OAuth state belongs to
+      // the app it hands off to, so this page must not consume the code.
+      if (url.includes("?") && !url.includes("/app-return/")) {
         const params = new URLSearchParams(url.split("?")[1]);
         if (params.has("error") || params.has("code")) {
           oauthCallback(url);

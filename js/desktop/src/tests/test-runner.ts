@@ -79,6 +79,7 @@ export default async function runTests(
               const { addr, internalAddr, proc } = await makeNode({
                 env: testEnv.env,
                 autoQuit: false,
+                logName: `node-${testName}-${path.basename(tmpDir)}`,
               });
               testEnv.addr = addr;
               testEnv.internalAddr = internalAddr;

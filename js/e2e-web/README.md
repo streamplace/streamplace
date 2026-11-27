@@ -20,7 +20,8 @@ Its flows live in `desktop/`, outside this config's `flows/` discovery.
   `SERVER_URL`. `SP_E2E_INGEST=fmp4` loops the stream through the OBS plugin's
   fragmented-MP4 ingest instead (CI runs `flows/stream.spec.ts` that way too),
   and `SP_E2E_INGEST=none` streams nothing, so you can push with `STREAM_KEY`
-  from OBS yourself. `SP_E2E_VIDEO=av1` streams
+  from OBS yourself, using the node's internal listener (`SERVER_INTERNAL_URL`)
+  as the server. `SP_E2E_VIDEO=av1` streams
   `test/fixtures/av1-h264-opus.mp4` instead: an AV1 source track with an H.264
   fallback track over fMP4, the AV1 track alone over WHIP. `flows/av1.spec.ts`
   runs only then (CI runs it both ways, `flows/stream.spec.ts` too over fMP4).

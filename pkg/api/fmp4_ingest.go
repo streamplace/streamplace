@@ -238,6 +238,9 @@ func (a *StreamplaceAPI) HandleClientConfiguration(ctx context.Context) http.Han
 			errors.WriteHTTPBadRequest(w, "invalid configuration request", err)
 			return
 		}
+		if req.Authentication == desktopPlaceholderKey && !requireDirectOBSRequest(w, r) {
+			return
+		}
 		config := clientConfiguration{
 			Meta: clientConfigurationMeta{
 				Service:       "Streamplace",
@@ -248,6 +251,10 @@ func (a *StreamplaceAPI) HandleClientConfiguration(ctx context.Context) http.Han
 		}
 		streamer, problem := a.streamKeyStreamer(r.Context(), req.Authentication)
 		if problem != "" {
+			if req.Authentication == desktopPlaceholderKey && a.CLI.UpstreamStation != "" {
+				errors.WriteHTTPUnauthorized(w, problem, nil)
+				return
+			}
 			config.Status = clientConfigurationStatus{Result: "error", HTMLEnUS: problem}
 		} else {
 			scheme := "http"
@@ -293,6 +300,11 @@ func (a *StreamplaceAPI) HandleClientConfiguration(ctx context.Context) http.Han
 // streamKeyStreamer returns whose key it is, or explains to the streamer why
 // key may not stream.
 func (a *StreamplaceAPI) streamKeyStreamer(ctx context.Context, key string) (streamer, problem string) {
+	var err error
+	key, err = a.resolveIngestKey(ctx, key)
+	if err != nil {
+		return "", err.Error()
+	}
 	ms, err := a.MakeMediaSigner(ctx, key)
 	if err != nil {
 		return "", "This stream key isn't valid. Copy a fresh one from your Streamplace dashboard."
@@ -307,7 +319,16 @@ func (a *StreamplaceAPI) streamKeyStreamer(ctx context.Context, key string) (str
 // MP4 that is signed as-is (media.IngestTransportFMP4Direct).
 func (a *StreamplaceAPI) HandleFMP4Ingest(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		mediaSigner, err := a.MakeMediaSigner(r.Context(), p.ByName("key"))
+		key := p.ByName("key")
+		if key == desktopPlaceholderKey && !requireDirectOBSRequest(w, r) {
+			return
+		}
+		key, err := a.resolveIngestKey(r.Context(), key)
+		if err != nil {
+			errors.WriteHTTPUnauthorized(w, err.Error(), err)
+			return
+		}
+		mediaSigner, err := a.MakeMediaSigner(r.Context(), key)
 		if err != nil {
 			errors.WriteHTTPUnauthorized(w, "invalid authorization key", err)
 			return

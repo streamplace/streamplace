@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/NYTimes/gziphandler"
@@ -47,6 +48,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/replication/websocketrep"
 	"stream.place/streamplace/pkg/rtmps"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
@@ -82,13 +84,17 @@ type StreamplaceAPI struct {
 	// listener at, as place.stream.broadcast.getBroadcaster reports it;
 	// nil when --moq-addr is empty.
 	MoqURL func() string
+	// PushStatus reports the --peers push sessions for /api/push; nil
+	// without the websocket replicator.
+	PushStatus func() websocketrep.PushStatus
 	// not thread-safe yet
 	Aliases  map[string]string
 	Bus      *bus.Bus
 	ATSync   *atproto.ATProtoSynchronizer
 	Director *director.Director
 
-	connTracker *WebsocketTracker
+	connTracker       *WebsocketTracker
+	desktopObsPending atomic.Bool
 
 	limiters      map[string]*rate.Limiter
 	limitersMu    sync.Mutex
@@ -214,16 +220,17 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addHandle(apiRouter, "GET", "/api/desktop-updates/:platform/:architecture/:version/:buildTime/:file", a.HandleDesktopUpdates(ctx))
 	addFunc(apiRouter, "POST", "/api/segment", a.HandleSegment(ctx))
 	addFunc(apiRouter, "GET", "/api/healthz", a.HandleHealthz(ctx))
+	addFunc(apiRouter, "GET", "/api/push", a.HandlePush(ctx))
 	// they're jpegs now
 	addHandle(apiRouter, "GET", "/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
 	// this one is actually a jpeg (used previously and shouldn't remove for historical reasons)
 	addHandle(apiRouter, "GET", "/api/playback/:user/stream.png", a.HandleThumbnailPlayback(ctx))
 	addHandle(apiRouter, "GET", "/api/app-return/*anything", a.HandleAppReturn(ctx))
+	addHandle(apiRouter, "GET", "/api/desktop/oauth-callback/:token", a.HandleDesktopOAuthCallback(ctx))
+	addFunc(apiRouter, "GET", "/api/desktop/obs-request", a.HandleDesktopOBSRequest(ctx))
 	addHandle(apiRouter, "POST", "/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
-	addFunc(apiRouter, "POST", "/api/ingest/client-configuration", a.HandleClientConfiguration(ctx))
-	addHandle(apiRouter, "POST", "/api/ingest/fmp4/:key", a.HandleFMP4Ingest(ctx))
 	addHandle(apiRouter, "POST", "/api/player-event", a.HandlePlayerEvent(ctx))
 	addHandle(apiRouter, "GET", "/api/chat/:repoDID", a.HandleChat(ctx))
 	addHandle(apiRouter, "GET", "/api/websocket/:repoDID", a.HandleWebsocket(ctx))
@@ -287,6 +294,8 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.GET("/.well-known/did.json", a.HandleDidJSON(ctx))
 	router.GET("/.well-known/atproto-did", a.HandleAtprotoDID(ctx))
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))
+	addHandle(router, "GET", "/app-return/desktop/:token", a.HandleDesktopOAuthReturn(ctx))
+	addFunc(router, "GET", "/desktop/obs", a.HandleDesktopOBS(ctx))
 	router.POST("/", a.HandleWebRTCIngest(ctx))
 	if a.CLI.FrontendProxy != "" {
 		u, err := url.Parse(a.CLI.FrontendProxy)
@@ -331,10 +340,11 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	// from tusd and floods the logs with one NetworkTimeoutError warning per
 	// PATCH chunk. Skip it for /api/upload/* so the response writer stays
 	// unwrapped on the upload path; tusd has its own per-request logging.
+	// Ingest URLs carrying a stream key skip it too, keeping keys out of logs.
 	preLog := handler
 	logged := sloghttp.New(slog.Default())(handler)
 	handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, upload.BasePath) {
+		if strings.HasPrefix(r.URL.Path, upload.BasePath) || redactKeyPath(r.URL.Path) != r.URL.Path {
 			preLog.ServeHTTP(w, r)
 			return
 		}
@@ -356,11 +366,21 @@ func (a *StreamplaceAPI) ContextMiddleware(parentContext context.Context) func(n
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			uuid := uuid.New().String()
-			ctx := log.WithLogValues(parentContext, "requestID", uuid, "method", r.Method, "path", r.URL.Path)
+			ctx := log.WithLogValues(parentContext, "requestID", uuid, "method", r.Method, "path", redactKeyPath(r.URL.Path))
 			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// redactKeyPath keeps the stream keys ingest URLs carry out of the logs.
+func redactKeyPath(path string) string {
+	for _, prefix := range []string{"/api/ingest/fmp4/", "/api/ingest/webrtc/"} {
+		if strings.HasPrefix(path, prefix) {
+			return prefix + "REDACTED"
+		}
+	}
+	return path
 }
 
 // frontendSet holds a per-frontend linking handler so the NotFound
@@ -1107,10 +1127,11 @@ func (a *StreamplaceAPI) ServerWithShutdown(ctx context.Context, handler http.Ha
 	// /api/upload/*; compressing opaque upload bytes is pointless anyway. Clips
 	// skip it too: already-compressed video gains nothing, and gzip would drop
 	// the Content-Length a downloader uses for progress.
+	// fMP4 ingest must keep the raw hijackable writer for detached workers.
 	raw := handler
 	gzipped := gziphandler.GzipHandler(handler)
 	handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, upload.BasePath) || r.URL.Path == "/xrpc/place.stream.live.getClip" {
+		if strings.HasPrefix(r.URL.Path, upload.BasePath) || strings.HasPrefix(r.URL.Path, "/api/ingest/fmp4/") || r.URL.Path == "/xrpc/place.stream.live.getClip" {
 			raw.ServeHTTP(w, r)
 			return
 		}

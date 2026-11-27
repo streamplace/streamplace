@@ -43,9 +43,11 @@ async function freeUDPPort(): Promise<number> {
   return port;
 }
 
-type Desktop = {
+export type Desktop = {
   nodeURL: string;
+  internalURL: string;
   page: Page;
+  electronApp: () => ElectronApplication;
   restart: () => Promise<Page>;
 };
 
@@ -170,7 +172,14 @@ export const test = base.extend<{ desktop: Desktop }>({
       const page = await launch();
       await use({
         nodeURL,
+        internalURL: `http://${env.SP_HTTP_INTERNAL_ADDR}`,
         page,
+        electronApp: () => {
+          if (!app) {
+            throw new Error("Electron is not running");
+          }
+          return app;
+        },
         restart: async () => {
           // Playwright never sees a relaunched Electron window that starts
           // with a registered service worker (Desktop itself loads fine).

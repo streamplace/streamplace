@@ -10,7 +10,6 @@ import {
   View,
 } from "@streamplace/components";
 import { useCallback, useEffect, useState } from "react";
-import { useStore } from "store";
 
 interface ObsStatus {
   obs: "absent" | "installed" | "flatpak";
@@ -18,6 +17,7 @@ interface ObsStatus {
   obsRunning: boolean;
   bundledVersion: string;
   installedVersion?: string;
+  connected: boolean;
 }
 
 interface Result {
@@ -29,69 +29,66 @@ interface Result {
 interface ObsBridge {
   status(): Promise<ObsStatus>;
   installPlugin(): Promise<Result & { restartObs: boolean }>;
-  configureStream(streamKey: string): Promise<Result>;
+  configureStream(): Promise<Result>;
 }
 
 const obsBridge = (): ObsBridge | undefined =>
   typeof window === "undefined" ? undefined : (window as any).SP_ELECTRON?.obs;
 
 const describe = (s: ObsStatus): string => {
-  if (s.obs === "absent") return "OBS isn't installed.";
+  if (s.obs === "absent") return "OBS isn't installed";
   if (s.obs === "flatpak")
-    return "Flatpak OBS can't load the Streamplace plugin; install OBS from your distribution or obsproject.com.";
-  if (s.plugin === "absent") return "The Streamplace plugin isn't installed.";
-  if (s.plugin === "outdated")
-    return `The Streamplace plugin is out of date (${s.installedVersion}).`;
-  return `The Streamplace plugin is installed (${s.bundledVersion}).`;
+    return "Flatpak OBS can't load the Streamplace plugin";
+  if (s.plugin === "absent") return "Streamplace plugin not installed";
+  if (s.plugin === "outdated") return "Streamplace plugin out of date";
+  return "Streamplace plugin installed";
 };
 
-/**
- * Streamplace Desktop's OBS setup: installing the plugin it ships, and
- * pointing OBS at this node with a new stream key. Nothing outside Desktop.
- */
+// Streamplace Desktop's bundled plugin and local OBS profile setup.
 export function ObsCard() {
   const { theme } = useTheme();
   const toast = useToast();
   const bridge = obsBridge();
   const [status, setStatus] = useState<ObsStatus | null>(null);
   const [busy, setBusy] = useState(false);
-  const createStreamKeyRecord = useStore((s) => s.createStreamKeyRecord);
-  const clearStreamKeyRecord = useStore((s) => s.clearStreamKeyRecord);
 
   const refresh = useCallback(async () => {
     if (bridge) setStatus(await bridge.status());
   }, [bridge]);
   useEffect(() => {
-    refresh();
-  }, [refresh]);
-  // Setting up the stream needs OBS closed; notice when it is.
-  const obsRunning = status?.obsRunning;
-  useEffect(() => {
-    if (!obsRunning) return;
+    void refresh();
+    // Also notice a plugin installed by Desktop's startup prompt.
     const timer = setInterval(refresh, 3000);
     return () => clearInterval(timer);
-  }, [obsRunning, refresh]);
+  }, [refresh]);
 
-  if (!bridge || !status) {
-    return null;
-  }
-
-  const run = async (action: () => Promise<Result>, done: string) => {
-    setBusy(true);
-    try {
-      const result = await action();
-      if (result.ok) {
-        toast.show("OBS", done);
-      } else {
-        toast.show("OBS", result.error ?? "Something went wrong.", {
-          variant: "error",
-        });
+  const run = useCallback(
+    async (action: () => Promise<Result>, done: string) => {
+      setBusy(true);
+      try {
+        const result = await action();
+        if (result.ok) {
+          toast.show("OBS", done);
+        } else {
+          toast.show("OBS", result.error ?? "Something went wrong.", {
+            variant: "error",
+          });
+        }
+        await refresh();
+      } catch (error) {
+        toast.show("OBS", String(error), { variant: "error" });
+      } finally {
+        setBusy(false);
       }
-      await refresh();
-    } finally {
-      setBusy(false);
-    }
+    },
+    [toast, refresh],
+  );
+
+  const connect = () => {
+    if (bridge) void run(() => bridge.configureStream(), "OBS connected.");
   };
+
+  if (!bridge || !status) return null;
 
   const install = () =>
     run(
@@ -100,19 +97,6 @@ export function ObsCard() {
         ? "Plugin installed. Restart OBS to load it."
         : "Plugin installed.",
     );
-
-  // A fresh key each time: Desktop never sees a key's secret again after
-  // creating it, so connecting OBS is what creates one.
-  const connect = () =>
-    run(async () => {
-      await createStreamKeyRecord(false);
-      const key = useStore.getState().newKey;
-      clearStreamKeyRecord();
-      if (!key) {
-        return { ok: false, error: "Couldn't create a stream key." };
-      }
-      return bridge.configureStream(key.privateKey);
-    }, "OBS now streams to Streamplace Desktop.");
 
   const installable = status.obs === "installed";
   return (
@@ -125,7 +109,7 @@ export function ObsCard() {
               {describe(status)}
             </Text>
             {installable && status.plugin !== "current" && (
-              <Button onPress={install} disabled={busy}>
+              <Button onPress={install} disabled={busy} width="min">
                 {status.plugin === "absent"
                   ? "Install the plugin"
                   : "Update the plugin"}
@@ -133,12 +117,21 @@ export function ObsCard() {
             )}
             {installable && status.plugin === "current" && (
               <>
-                <Button onPress={connect} disabled={busy || status.obsRunning}>
-                  Connect OBS to Desktop
+                {status.connected && (
+                  <Text size="sm" testID="desktop-obs-connected">
+                    OBS connected
+                  </Text>
+                )}
+                <Button
+                  onPress={connect}
+                  disabled={busy || status.obsRunning}
+                  width="min"
+                >
+                  Connect OBS
                 </Button>
                 {status.obsRunning && (
                   <Text size="sm" color="muted">
-                    Close OBS to change its stream settings.
+                    Close OBS to connect it.
                   </Text>
                 )}
               </>

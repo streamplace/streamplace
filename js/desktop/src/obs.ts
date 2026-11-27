@@ -22,6 +22,7 @@ export type ObsStatus = {
   obsRunning: boolean;
   bundledVersion: string;
   installedVersion?: string;
+  connected: boolean;
 };
 
 // Flatpak OBS only loads plugins packaged as Flatpak extensions.
@@ -174,13 +175,8 @@ const currentProfileDir = async (configDir: string) => {
   return undefined;
 };
 
-// Points OBS's current profile at server with this stream key, leaving the
-// profile's other settings alone.
-export const writeStreamConfig = async (
-  configDir: string,
-  server: string,
-  key: string,
-) => {
+// Points OBS's current profile at Desktop, leaving its other settings alone.
+export const writeStreamConfig = async (configDir: string, server: string) => {
   const profile = await currentProfileDir(configDir);
   if (!profile) {
     throw new Error(
@@ -189,12 +185,35 @@ export const writeStreamConfig = async (
   }
   const service = {
     type: "rtmp_common",
-    settings: { service: "Streamplace", server, key },
+    settings: { service: "Streamplace", server, key: "streamplace-desktop" },
   };
   await writeFile(
     join(configDir, "basic", "profiles", profile, "service.json"),
     JSON.stringify(service, null, 4),
   );
+};
+
+// OBS reaches this Desktop's node only through its internal server and the placeholder.
+const connected = async (server: string): Promise<boolean> => {
+  try {
+    const config = obsConfigDir();
+    const profile = await currentProfileDir(config);
+    if (!profile) return false;
+    const service = JSON.parse(
+      await readFile(
+        join(config, "basic", "profiles", profile, "service.json"),
+        "utf8",
+      ),
+    );
+    const { settings } = service;
+    return (
+      settings?.service === "Streamplace" &&
+      settings.server === server &&
+      settings.key === "streamplace-desktop"
+    );
+  } catch {
+    return false;
+  }
 };
 
 const detectObs = async (): Promise<ObsStatus["obs"]> => {
@@ -252,13 +271,14 @@ const isObsRunning = async () => {
   );
 };
 
-export const status = async (): Promise<ObsStatus> => {
-  const [obs, obsRunning, state] = await Promise.all([
+export const status = async (server: string): Promise<ObsStatus> => {
+  const [obs, obsRunning, state, isConnected] = await Promise.all([
     detectObs(),
     isObsRunning(),
     pluginState(bundledPlugin(), pluginRoot()),
+    connected(server),
   ]);
-  return { obs, obsRunning, ...state };
+  return { obs, obsRunning, ...state, connected: isConnected };
 };
 
 export const installPlugin = async (): Promise<{
@@ -289,7 +309,6 @@ export const installPlugin = async (): Promise<{
 
 export const configureStream = async (
   server: string,
-  streamKey: string,
 ): Promise<{ ok: boolean; error?: string }> => {
   const [obs, obsRunning] = await Promise.all([detectObs(), isObsRunning()]);
   if (obs !== "installed") {
@@ -298,12 +317,12 @@ export const configureStream = async (
       error: obs === "flatpak" ? FLATPAK_ERROR : "OBS isn't installed.",
     };
   }
-  // OBS writes its settings back out when it exits, undoing ours.
+  // OBS rewrites its profile on exit; never edit it while OBS is running.
   if (obsRunning) {
-    return { ok: false, error: "Close OBS, then set up the stream." };
+    return { ok: false, error: "Close OBS, then connect it." };
   }
   try {
-    await writeStreamConfig(obsConfigDir(), server, streamKey);
+    await writeStreamConfig(obsConfigDir(), server);
     return { ok: true };
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);

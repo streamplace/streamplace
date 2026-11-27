@@ -8,7 +8,7 @@ import { loginThroughPds } from "./login";
 // the answer is C (obs-plugin/); the OBS card needs Electron and is covered by
 // js/desktop's tests.
 const HTTPS_URL = process.env.SERVER_HTTPS_URL;
-const SERVER_URL = process.env.SERVER_URL!;
+const INTERNAL_URL = process.env.SERVER_INTERNAL_URL!;
 const STREAM_KEY = process.env.STREAM_KEY!;
 
 test.skip(!HTTPS_URL, "harness started without its HTTPS hostnames");
@@ -29,7 +29,7 @@ async function save(page: Page) {
 // codecs are the video codecs the plugin says it can send.
 async function clientConfiguration(page: Page, codecs = ["h264"]) {
   const response = await page.request.post(
-    `${SERVER_URL}/api/ingest/client-configuration`,
+    `${INTERNAL_URL}/api/ingest/client-configuration`,
     {
       data: {
         authentication: STREAM_KEY,

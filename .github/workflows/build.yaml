@@ -228,6 +228,28 @@ jobs:
           SP_E2E_VIDEO: av1
           E2E_HARNESS_LOG: ${{ runner.temp }}/harness-av1-whip.log
 
+      - name: Fetch pinned reference spaces PDS
+        if: matrix.mode == 'standalone'
+        run: hack/fetch-spaces-pds.sh
+
+      - name: Run private-space tests on reference spaces alpha
+        if: matrix.mode == 'standalone'
+        run: hack/e2e-web-local.sh flows/private-space.spec.ts
+        env:
+          DEV_ENV_PDS: spaces
+          E2E_HARNESS_LOG: ${{ runner.temp }}/harness-spaces.log
+
+      - name: Fetch pinned vlpds
+        if: matrix.mode == 'standalone'
+        run: hack/fetch-vlpds.sh
+
+      - name: Run private-space tests on vlpds
+        if: matrix.mode == 'standalone'
+        run: hack/e2e-web-local.sh flows/private-space.spec.ts
+        env:
+          DEV_ENV_PDS: vlpds
+          E2E_HARNESS_LOG: ${{ runner.temp }}/harness-vlpds.log
+
       - name: Upload e2e-web artifacts
         if: failure()
         uses: actions/upload-artifact@v7.0.2
@@ -387,6 +409,9 @@ jobs:
           disable-animations: true
           script: echo "avd snapshot created"
 
+      - name: Fetch pinned reference spaces PDS
+        run: hack/fetch-spaces-pds.sh
+
       - name: run maestro flows
         uses: reactivecircus/android-emulator-runner@v2.38.0
         with:
@@ -404,7 +429,10 @@ jobs:
             -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
             -no-boot-anim -camera-back none
           disable-animations: true
-          script: bash hack/e2e-local.sh android --main
+          # one line each: the action runs each script line in its own shell.
+          script: |
+            bash hack/e2e-local.sh android --main
+            DEV_ENV_PDS=spaces E2E_ARTIFACTS=$PWD/.maestro/artifacts/spaces E2E_FLOWS=logged-in/private-space.yaml bash hack/e2e-local.sh android --main
       # The AV1 stream, with its H.264 fallback track, must play on the
       # device whether or not it decodes AV1.
       - name: Run AV1 Maestro flow

@@ -11,6 +11,7 @@ import {
   buildInventory,
   localBlobRef,
   planRelease,
+  readSchemaDocs,
   validateInputs,
   validateRecord,
 } from "./release-lib.mjs";
@@ -237,8 +238,47 @@ describe("planRelease", () => {
         };
       }
     }
+
     return existing;
   };
+  it("publishes raw spaces overlays instead of base schemas, including overlay-only declarations", () => {
+    const docs = readSchemaDocs();
+    assert.equal(new Set(docs.map((doc) => doc.id)).size, docs.length);
+    const personal = docs.find((doc) => doc.id === "place.stream.personal");
+    assert.equal(personal.defs.main.type, "space");
+    const authFull = docs.find((doc) => doc.id === "place.stream.authFull");
+    const permission = authFull.defs.main.permissions.find(
+      (p) => p.resource === "space",
+    );
+    assert.equal(permission.spaceType, personal.id);
+    assert.deepEqual(permission.collection, personal.defs.main.collections);
+    assert.ok(
+      authFull.defs.main.permissions.some((p) => p.resource === "repo"),
+    );
+
+    const plan = run(empty(), { schemaDocs: docs });
+    const schemas = plan.writes.filter(
+      (w) => w.collection === "com.atproto.lexicon.schema",
+    );
+    assert.equal(schemas.length, docs.length);
+    for (const doc of docs) {
+      assert.deepEqual(schemas.find((w) => w.rkey === doc.id).value, {
+        $type: "com.atproto.lexicon.schema",
+        ...doc,
+      });
+      assert.equal(doc.$type, undefined);
+    }
+    const existing = apply(plan);
+    existing.schemas = Object.fromEntries(
+      schemas.map((w) => [w.rkey, w.value]),
+    );
+    assert.equal(
+      run(existing, { schemaDocs: docs }).writes.filter(
+        (w) => w.collection === "com.atproto.lexicon.schema",
+      ).length,
+      0,
+    );
+  });
 
   it("fails when a published version's contents differ", () => {
     const existing = apply(run(empty()));

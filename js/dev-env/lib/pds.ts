@@ -12,6 +12,7 @@ import { ADMIN_PASSWORD, JWT_SECRET } from "./constants.js";
 
 export interface PdsServerOptions extends Partial<pds.ServerEnvironment> {
   didPlcUrl: string;
+  implementation?: typeof pds;
 }
 
 export interface AdditionalPdsContext {
@@ -28,6 +29,7 @@ export class TestPdsServer {
   ) {}
 
   static async create(config: PdsServerOptions): Promise<TestPdsServer> {
+    const { implementation = pds, ...serverConfig } = config;
     const plcRotationKey = await Secp256k1Keypair.create({ exportable: true });
     const plcRotationPriv = ui8.toString(await plcRotationKey.export(), "hex");
     const recoveryKey = (await Secp256k1Keypair.create()).did();
@@ -66,13 +68,13 @@ export class TestPdsServer {
       termsOfServiceUrl: "https://bsky.social/about/support/tos",
       privacyPolicyUrl: "https://bsky.social/about/support/privacy-policy",
       supportUrl: "https://blueskyweb.zendesk.com/hc/en-us",
-      ...config,
+      ...serverConfig,
     };
 
-    const cfg = pds.envToCfg(env);
-    const secrets = pds.envToSecrets(env);
+    const cfg = implementation.envToCfg(env);
+    const secrets = implementation.envToSecrets(env);
 
-    const server = await pds.PDS.create(cfg, secrets);
+    const server = await implementation.PDS.create(cfg, secrets);
 
     await server.start();
 

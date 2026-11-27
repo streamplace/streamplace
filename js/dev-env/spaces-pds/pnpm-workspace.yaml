@@ -1,0 +1,6 @@
+packages:
+  - .
+allowBuilds:
+  better-sqlite3: true
+  core-js: false
+  protobufjs: true

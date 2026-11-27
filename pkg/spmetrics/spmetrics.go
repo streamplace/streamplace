@@ -36,6 +36,11 @@ var SwarmPutCalls = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "total number of swarm put calls currently in flight",
 }, []string{"streamer"})
 
+var SpaceNotificationsTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_space_notifications_total",
+	Help: "personal space change notifications accepted from PDSes",
+})
+
 var TranscodeAttemptsTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "streamplace_transcode_attempts_total",
 	Help: "total number of transcode attempts",

@@ -9,6 +9,17 @@ Android also runs in the `android-e2e` CI job. The `ios` CI job builds
 through `hack/ios-smoke.sh`; the full iOS suite runs locally.
 The web suite (`js/e2e-web`, `hack/e2e-web-local.sh`) mirrors these flows.
 
+`DEV_ENV_PDS` selects the harness PDS: unset uses the stable reference PDS,
+`spaces` uses the isolated reference spaces alpha (first run
+`hack/fetch-spaces-pds.sh`), and `vlpds` uses the pinned
+vlpds binary (Linux amd64; first run `hack/fetch-vlpds.sh` on the Docker host).
+OAuth tests require HTTPS mode; direct vlpds account/session smoke runs also
+work without a hostname. The runner passes `PDS_KIND=reference|spaces|vlpds`
+to Maestro. The login flow expects the reference PDS's consent page, so
+vlpds is covered by the web suite only.
+For example, `DEV_ENV_PDS=spaces E2E_FLOWS=logged-in/private-space.yaml hack/e2e-local.sh android`
+runs just private-space CRUD and its login prerequisites.
+
 ## Organization and prerequisites
 
 Use feature/behavior names, not sequence numbers. Add a lowercase kebab-case

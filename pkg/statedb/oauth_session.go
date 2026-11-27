@@ -6,6 +6,7 @@ import (
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/spaces"
 )
 
 func (state *StatefulDB) CreateOAuthSession(id string, session *oatproxy.OAuthSession) error {
@@ -91,4 +92,19 @@ func (state *StatefulDB) GetSessionByDIDWithScope(did string, scope string) (*oa
 		}
 	}
 	return nil, fmt.Errorf("%w: did=%s scope=%s", ErrNoSessionWithScope, did, scope)
+}
+
+// GetSpaceSession returns the most recently used valid session for the DID
+// that was granted their personal space, or nil when there is none.
+func (state *StatefulDB) GetSpaceSession(did string) (*oatproxy.OAuthSession, error) {
+	var sessions []oatproxy.OAuthSession
+	if err := state.DB.Where("repo_did = ? AND revoked_at IS NULL", did).Order("updated_at DESC").Find(&sessions).Error; err != nil {
+		return nil, err
+	}
+	for i := range sessions {
+		if spaces.Granted(sessions[i].GrantedScope()) {
+			return &sessions[i], nil
+		}
+	}
+	return nil, nil
 }

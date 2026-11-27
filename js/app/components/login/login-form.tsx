@@ -99,10 +99,9 @@ export default function LoginForm({
   const webHandleTextStyle =
     Platform.OS === "web" ? zero.tokens.typeScale.md : {};
 
+  // Enter is handled by onSubmitEditing.
   const onKeyPress = (e: any) => {
-    if (e.nativeEvent.key === "Enter") {
-      submit();
-    } else if (e.nativeEvent.key === "Tab" && completionText) {
+    if (e.nativeEvent.key === "Tab" && completionText) {
       e.preventDefault();
       acceptSuggestion();
     } else if (e.nativeEvent.key === "ArrowRight" && completionText) {

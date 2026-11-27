@@ -1,3 +1,7 @@
+import {
+  getDesktopAuth,
+  pollDesktopLogin,
+} from "features/bluesky/desktop-auth";
 import { AppStore } from "store";
 import { StateCreator } from "zustand";
 
@@ -51,6 +55,14 @@ export const createPlatformSlice: StateCreator<
   openLoginLink: async (url: string) => {
     set({ status: "loading" });
     try {
+      const desktopAuth = getDesktopAuth();
+      if (desktopAuth) {
+        // Desktop hands the PDS page to the system browser, where passkeys
+        // work. The local node receives the return and holds it for the app.
+        await desktopAuth.openLogin(url);
+        void pollDesktopLogin(get().url, get().oauthCallback, true);
+        return;
+      }
       window.location.href = url;
       set({ status: "idle" });
     } catch (error) {

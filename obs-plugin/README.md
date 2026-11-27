@@ -15,11 +15,16 @@ Extract the archive for your platform into OBS's plugin directory:
 | Windows  | `C:\ProgramData\obs-studio\plugins\`                |
 | macOS    | `~/Library/Application Support/obs-studio/plugins/` |
 
-Restart OBS, then pick **Streamplace** in Settings → Stream, the **Local
-Streamplace node** server (`http://127.0.0.1:38080`), and your stream key. OBS
-offers no free-form server field for listed services, so to use another
-address, set `server` in the profile's `service.json`. The plugin only speaks
-plain `http://`, and expects a node on the same machine.
+Desktop offers to install the bundled plugin. Restart OBS, then pick
+**Settings → Stream → Streamplace**, or press **Connect OBS** in Desktop with
+OBS closed. The plugin fills an empty key with `streamplace-desktop`; the node
+streams as the account logged into Desktop. Non-empty keys are left alone.
+
+**Get Stream Key** opens `http://127.0.0.1:38080/desktop/obs` to bring up Desktop's
+login. Ingest is internal-only: the **Local Streamplace node** server is
+`http://127.0.0.1:39090`. OBS offers no free-form server field for listed services;
+Desktop's **Connect OBS** uses its node's actual internal address, including an
+overridden port. The plugin only speaks plain `http://` to a local node.
 
 OBS's Settings page only lists services from `rtmp-services`, so on startup the
 plugin adds a Streamplace entry to the `services.json` copy in OBS's config

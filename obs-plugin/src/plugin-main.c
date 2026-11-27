@@ -1,7 +1,9 @@
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <jansson.h>
+#include <obs-frontend-api.h>
 #include <util/platform.h>
 
 #include "http.h"
@@ -25,12 +27,23 @@ static const char service_entry[] = "{"
 				    "\"common\": true,"
 				    "\"protocol\": \"" STREAMPLACE_PROTOCOL "\","
 				    "\"more_info_link\": \"https://stream.place/about\","
-				    "\"stream_key_link\": \"https://stream.place/live\","
-				    "\"servers\": [{\"name\": \"Local Streamplace node\", \"url\": \"http://127.0.0.1:38080\"}],"
+				    "\"stream_key_link\": \"http://127.0.0.1:38080/desktop/obs\","
+				    "\"servers\": [{\"name\": \"Local Streamplace node\", \"url\": \"http://127.0.0.1:39090\"}],"
 				    "\"supported video codecs\": [\"h264\", \"av1\"],"
 				    "\"supported audio codecs\": [\"aac\", \"opus\"],"
 				    "\"recommended\": {\"keyint\": 1, \"bframes\": 0}"
 				    "}";
+
+/* OBS paths are UTF-8, which jansson's fopen can't open on Windows. */
+static json_t *load_json(const char *path)
+{
+	FILE *file = path ? os_fopen(path, "rb") : NULL;
+	if (!file)
+		return NULL;
+	json_t *json = json_loadf(file, 0, NULL);
+	fclose(file);
+	return json;
+}
 
 /* Adds the entry to rtmp-services' services.json in the user's config
  * directory, which it reads in preference to its bundled copy. When OBS's
@@ -49,9 +62,9 @@ static void install_service_entry(void)
 	char *config_file = obs_module_get_config_path(rtmp_services, "services.json");
 	char *bundled_file = obs_find_module_file(rtmp_services, "services.json");
 
-	json_t *root = json_load_file(config_file, 0, NULL);
-	if (!root && bundled_file)
-		root = json_load_file(bundled_file, 0, NULL);
+	json_t *root = load_json(config_file);
+	if (!root)
+		root = load_json(bundled_file);
 
 	json_t *services = json_object_get(root, "services");
 	if (json_is_array(services)) {
@@ -91,6 +104,66 @@ static void install_service_entry(void)
 	bfree(config_dir);
 }
 
+static float service_elapsed;
+static atomic_bool service_pending;
+static atomic_bool service_stopped;
+
+/* OBS rejects an empty key before starting the output, even for local ingest. */
+static void configure_service(void *unused)
+{
+	UNUSED_PARAMETER(unused);
+	atomic_store(&service_pending, false);
+	if (atomic_load(&service_stopped))
+		return;
+
+	/* The frontend owns this service; only its settings need releasing. */
+	obs_service_t *service = obs_frontend_get_streaming_service();
+	if (!service || strcmp(obs_service_get_id(service), "rtmp_common") != 0)
+		return;
+	obs_data_t *settings = obs_service_get_settings(service);
+	if (strcmp(obs_data_get_string(settings, "service"), "Streamplace") == 0) {
+		const char *key = obs_data_get_string(settings, "key");
+		bool empty = !*key;
+		/* Desktop writes its server with the placeholder; only older profiles move. */
+		bool old_server = strcmp(key, "streamplace-desktop") != 0 &&
+				  strcmp(obs_data_get_string(settings, "server"), "http://127.0.0.1:38080") == 0;
+		if (empty)
+			obs_data_set_string(settings, "key", "streamplace-desktop");
+		if (old_server)
+			obs_data_set_string(settings, "server", "http://127.0.0.1:39090");
+		if (empty || old_server) {
+			obs_service_update(service, settings);
+			obs_frontend_save_streaming_service();
+			if (empty)
+				do_log(LOG_INFO, "Filled the Desktop placeholder stream key");
+		}
+	}
+	obs_data_release(settings);
+}
+
+/* The video tick only schedules work; service updates run on the UI thread. */
+static void service_tick(void *unused, float seconds)
+{
+	UNUSED_PARAMETER(unused);
+	if (atomic_load(&service_stopped))
+		return;
+	service_elapsed += seconds;
+	if (service_elapsed < 1.0f)
+		return;
+	service_elapsed = 0;
+	if (!atomic_exchange(&service_pending, true))
+		obs_queue_task(OBS_TASK_UI, configure_service, NULL, false);
+}
+
+static void service_event(enum obs_frontend_event event, void *unused)
+{
+	UNUSED_PARAMETER(unused);
+	if (event == OBS_FRONTEND_EVENT_EXIT)
+		atomic_store(&service_stopped, true);
+	else if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING || event == OBS_FRONTEND_EVENT_PROFILE_CHANGED)
+		obs_queue_task(OBS_TASK_UI, configure_service, NULL, false);
+}
+
 bool obs_module_load(void)
 {
 	http_init();
@@ -102,9 +175,14 @@ bool obs_module_load(void)
 void obs_module_post_load(void)
 {
 	install_service_entry();
+	obs_frontend_add_event_callback(service_event, NULL);
+	obs_add_tick_callback(service_tick, NULL);
 }
 
 void obs_module_unload(void)
 {
+	atomic_store(&service_stopped, true);
+	obs_remove_tick_callback(service_tick, NULL);
+	obs_frontend_remove_event_callback(service_event, NULL);
 	http_free();
 }

@@ -70,6 +70,7 @@ type StatefulDB struct {
 // list tables here so we can migrate them
 var StatefulDBModels = []any{
 	oatproxy.OAuthSession{},
+	DesktopStreamKey{},
 	Notification{},
 	Config{},
 	XrpcStreamEvent{},

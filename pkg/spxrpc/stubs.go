@@ -493,6 +493,7 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.playback.getPlaybackServer", s.HandlePlaceStreamPlaybackGetPlaybackServer)
 	e.GET("/xrpc/place.stream.playback.getPlaybackSession", s.HandlePlaceStreamPlaybackGetPlaybackSession)
 	e.GET("/xrpc/place.stream.playback.getVideoBlob", s.HandlePlaceStreamPlaybackGetVideoBlob)
+	e.GET("/xrpc/place.stream.playback.getVideoManifest", s.HandlePlaceStreamPlaybackGetVideoManifest)
 	e.GET("/xrpc/place.stream.playback.getVideoPlaylist", s.HandlePlaceStreamPlaybackGetVideoPlaylist)
 	e.POST("/xrpc/place.stream.playback.whep", s.HandlePlaceStreamPlaybackWhep)
 	e.POST("/xrpc/place.stream.server.createWebhook", s.HandlePlaceStreamServerCreateWebhook)
@@ -1442,6 +1443,37 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoBlob(c echo.Context) error {
 		return handleErr
 	}
 	return c.Stream(200, "video/mp4", out)
+}
+
+func (s *Server) HandlePlaceStreamPlaybackGetVideoManifest(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetVideoManifest")
+	defer span.End()
+	end := 0
+	if p := c.QueryParam("end"); p != "" {
+		var err error
+		end, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	}
+	sid := c.QueryParam("sid")
+	start := 0
+	if p := c.QueryParam("start"); p != "" {
+		var err error
+		start, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	}
+	uri := c.QueryParam("uri")
+	var out *placestream.PlaybackGetVideoManifest_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamPlaybackGetVideoManifest(ctx context.Context,end int,sid string,start int,uri string) (*placestream.PlaybackGetVideoManifest_Output, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetVideoManifest(ctx, end, sid, start, uri)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error {

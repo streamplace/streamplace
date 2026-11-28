@@ -68,7 +68,8 @@ type Server struct {
 	identityRefreshes *cache.Cache
 	// MoqURL reports the node's Media over QUIC URL for getBroadcaster;
 	// nil when the node has no listener.
-	MoqURL func() string
+	MoqURL   func() string
+	vodCache vodPartsCache
 }
 
 // vodCDN returns the playlist-generation CDN settings.
@@ -154,6 +155,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	// echo's last-write-wins for exact-match routes.
 	e.GET("/xrpc/place.stream.playback.getVideoBlob", s.HandleGetVideoBlob)
 	e.GET("/xrpc/place.stream.playback.getVideoPlaylist", s.HandleGetVideoPlaylist)
+	e.GET("/xrpc/place.stream.playback.getVideoManifest", s.HandleGetVideoManifest)
 	// Live HLS, same override rationale (Range + mpegurl), served from the
 	// in-memory live window instead of a stored metafile.
 	e.GET("/xrpc/place.stream.playback.getLivePlaylist", s.HandleGetLivePlaylist)

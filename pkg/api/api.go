@@ -454,6 +454,9 @@ func (a *StreamplaceAPI) buildLinkingHandler(ctx context.Context, load func() (f
 	if err != nil {
 		return nil, err
 	}
+	if err := linker.LoadVODBoot(frontendFS); err != nil {
+		return nil, err
+	}
 	return a.notFoundLinkingHandler(ctx, linker, frontendFS)
 }
 
@@ -619,7 +622,14 @@ func (a *StreamplaceAPI) writeVideoCard(ctx context.Context, w http.ResponseWrit
 		return false
 	}
 	a.hydrateAuthorName(ctx, &vv.Author)
-	bs, err := linker.GenerateVideoCard(ctx, req.URL, vv, a.CLI.SentryDSN)
+	var boot *linking.VODBootPayload
+	if linker.HasVODBoot() && a.XRPCServer != nil {
+		boot, err = a.XRPCServer.VideoBootPayload(req, uri, req.URL.Query().Has("t"))
+		if err != nil {
+			log.Error(ctx, "error preparing VOD boot payload", "uri", uri, "error", err)
+		}
+	}
+	bs, err := linker.GenerateVideoCard(ctx, req.URL, vv, a.CLI.SentryDSN, boot)
 	if err != nil {
 		log.Error(ctx, "error generating video card", "uri", uri, "error", err)
 		return false

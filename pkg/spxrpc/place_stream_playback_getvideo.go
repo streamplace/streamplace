@@ -20,7 +20,6 @@ import (
 	"stream.place/streamplace/pkg/cdn"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
-	"stream.place/streamplace/pkg/psession"
 	"stream.place/streamplace/pkg/vod"
 )
 
@@ -90,26 +89,8 @@ func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 	}
 	did := parsedDID.String()
 
-	// Labeler enforcement. If this CID is a known content blob, gate it on
-	// its content owners — the track owners — not on the requesting `did`.
-	// The blob is content-addressed and shared: a clip of another user's
-	// video references the same blob with the clipper's did, which doesn't
-	// own a track. So `did` is for egress accounting only; if any of the
-	// blob's track owners is banned, the content is unavailable. (A clip's
-	// own labels/ban are enforced at getVideoPlaylist, the playback entry
-	// point.) CIDs with no MediaTrack — per-track init segments, or simply
-	// unknown CIDs — serve unguarded.
-	tracks, err := s.model.GetMediaTracksByBlob(ctx, cid)
-	if err != nil {
-		log.Error(ctx, "playback: GetMediaTracksByBlob failed", "cid", cid, "error", err)
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	for _, t := range tracks {
-		if banned, err := s.accountBanned(t.RepoDID); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		} else if banned {
-			return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
-		}
+	if err := s.gateVideoBlob(ctx, cid); err != nil {
+		return err
 	}
 
 	if s.playbackStore == nil {
@@ -128,6 +109,24 @@ func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 	rangeStart, rangeEnd := parseRangeForLog(c.Request().Header.Get("Range"), r.Size())
 	s.logSegmentRequest(c, cid, did, s.accountedSession(ctx, c.QueryParam("sid"), did, sessionClient(c)), rangeStart, rangeEnd)
 	return serveBlobRange(c, r, "video/mp4")
+}
+
+// Gate shared content on its track owners, not the clipper or requesting DID.
+// Init segments and unknown CIDs have no tracks and serve unguarded.
+func (s *Server) gateVideoBlob(ctx context.Context, cid string) error {
+	tracks, err := s.model.GetMediaTracksByBlob(ctx, cid)
+	if err != nil {
+		log.Error(ctx, "playback: GetMediaTracksByBlob failed", "cid", cid, "error", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	for _, t := range tracks {
+		if banned, err := s.accountBanned(t.RepoDID); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		} else if banned {
+			return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
+		}
+	}
+	return nil
 }
 
 // parseRangeForLog is the lenient counterpart of parseSingleRange used
@@ -243,92 +242,18 @@ func parseSingleRange(header string, size int64) (int64, int64, error) {
 // store plus the metafile — no extra round trips back to atproto
 // after this single resolve.
 func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
-	ctx := c.Request().Context()
-	rawURI := c.QueryParam("uri")
-	if rawURI == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "uri is required")
-	}
-	aturi, err := s.normalizeURI(ctx, rawURI)
+	playback, err := s.resolvePlaybackRequest(c, c.QueryParam("track") != "")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "uri must be a valid AT-URI: "+err.Error())
+		return err
 	}
-	if aturi.Collection() != videoCollection {
-		return echo.NewHTTPError(http.StatusBadRequest,
-			fmt.Sprintf("UnsupportedCollection: %s", aturi.Collection()))
+	if playback.session.Redirect {
+		return redirectWithSession(c, playback.session.SID)
 	}
-	if s.playbackStore == nil {
-		return echo.NewHTTPError(http.StatusServiceUnavailable, "playback store not configured")
-	}
-
+	uri, sid := playback.uri, playback.session.SID
+	meta := playback.meta
+	startMS, endMS := playback.queryStart, playback.queryEnd
+	effectiveStartMS, effectiveEndMS := playback.start, playback.end
 	track := c.QueryParam("track")
-	startMS, err := optionalInt64Param(c, "start")
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	}
-	endMS, err := optionalInt64Param(c, "end")
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	}
-	if startMS != nil && endMS != nil && *startMS >= *endMS {
-		return echo.NewHTTPError(http.StatusBadRequest, "start must be less than end")
-	}
-
-	// Reuse the caller's sid when present (i.e. the player followed a
-	// URL we previously handed it) so the master/media/segment requests
-	// of one playback session share an identifier. Generate a fresh one
-	// when the player is making its first request.
-	// A sid that is not even the shape of a session is refused up front,
-	// before the lookups below; the signature is checked once the video is
-	// known to be servable.
-	if sid := c.QueryParam("sid"); sid != "" && !psession.WellFormed(sid) {
-		return errBadSession
-	}
-
-	uri := aturi.String()
-
-	// Labeler enforcement: any label on the video record, or a ban on
-	// the owning account, makes the VOD unavailable. This is the
-	// playback entry point, so gating here blocks the whole flow before
-	// any blob URLs are handed out.
-	if labeled, err := s.recordLabeled(uri); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	} else if labeled {
-		return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
-	}
-	if banned, err := s.accountBanned(aturi.Authority().String()); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	} else if banned {
-		return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
-	}
-
-	// The viewer's playback session, once the video is known to be
-	// servable: verified against the owner, renewed while they watch,
-	// minted for a first request (a media playlist without one is
-	// redirected to carry it, so the player's follow-ups share a session).
-	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), aturi.Authority().String(), sessionClient(c), track != "")
-	if err != nil {
-		return err
-	}
-	if ps.Redirect {
-		return redirectWithSession(c, ps.SID)
-	}
-	sid := ps.SID
-
-	resolved, err := s.resolveVideoBlob(ctx, uri)
-	if err != nil {
-		return err
-	}
-	meta, err := s.fetchMetafile(ctx, resolved.blobCID)
-	if err != nil {
-		return err
-	}
-
-	// Compose query-param start/end with any record-level clip bounds.
-	// Query params live in the *clip's* local timeline (0 == start of
-	// the clip); filterSegments wants bounds in the parent video's
-	// timeline. For non-clip records clipStartMS == 0 and clipEndMS ==
-	// nil, so the math collapses to identity.
-	effectiveStartMS, effectiveEndMS := composeClipBounds(resolved.clipStartMS, resolved.clipEndMS, startMS, endMS)
 
 	var body string
 	kind := "master"
@@ -339,13 +264,13 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 		// server side, so the propagation stays in clip-local time.
 		body = masterPlaylist(meta, uri, sid, startMS, endMS)
 	} else {
-		body, err = mediaPlaylist(meta, track, aturi.Authority().String(), sid, s.vodCDN(), effectiveStartMS, effectiveEndMS)
+		body, err = mediaPlaylist(meta, track, playback.did, sid, s.vodCDN(), effectiveStartMS, effectiveEndMS)
 		if err != nil {
 			return err
 		}
 		kind = "media"
 	}
-	s.logManifestRequest(c, uri, ps.ID, track, kind)
+	s.logManifestRequest(c, uri, playback.session.ID, track, kind)
 
 	c.Response().Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 	c.Response().Header().Set("Cache-Control", "public, max-age=60")
@@ -668,7 +593,7 @@ func masterPlaylist(meta *vod.Metafile, uri, sid string, startMS, endMS *int64) 
 		audioCodec = meta.Tracks[audioIDs[0]].Codec
 	}
 
-	videoIDs := tracksOfType(meta, "video")
+	videoIDs := videoTrackIDs(meta)
 	for _, tid := range videoIDs {
 		t := meta.Tracks[tid]
 		bandwidth, frameRate := computeBandwidth(t)
@@ -884,6 +809,18 @@ func tracksOfType(meta *vod.Metafile, t string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func videoTrackIDs(meta *vod.Metafile) []string {
+	ids := tracksOfType(meta, "video")
+	bandwidths := make(map[string]uint64, len(ids))
+	for _, id := range ids {
+		bandwidths[id], _ = computeBandwidth(meta.Tracks[id])
+	}
+	sort.SliceStable(ids, func(i, j int) bool {
+		return bandwidths[ids[i]] < bandwidths[ids[j]]
+	})
+	return ids
 }
 
 // mainAudioIDs keeps the full mix's tracks among audioIDs: those in the

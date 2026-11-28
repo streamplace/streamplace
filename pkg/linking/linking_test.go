@@ -112,7 +112,7 @@ func TestGenerateVideoCard(t *testing.T) {
 		Uri:    "at://did:plc:2zmxikig2sj7gqaezl5gntae/place.stream.video/3mms3tfkcxstu",
 	}
 
-	linkCard, err := linker.GenerateVideoCard(context.Background(), u, vv, "")
+	linkCard, err := linker.GenerateVideoCard(context.Background(), u, vv, "", nil)
 	require.NoError(t, err)
 	linkStr := string(linkCard)
 	require.True(t, strings.Contains(linkStr, "iame.li"), "should contain the author handle")
@@ -264,7 +264,7 @@ func TestCardTemplates(t *testing.T) {
 		Uri:    "at://did:plc:ada/place.stream.video/3mms3tfkcxstu",
 	}
 	vu, _ := url.Parse("https://example.com/ada.example/video/3mms3tfkcxstu")
-	out, err = linker.GenerateVideoCard(ctx, vu, vv, "")
+	out, err = linker.GenerateVideoCard(ctx, vu, vv, "", nil)
 	require.NoError(t, err)
 	page = string(out)
 	require.Contains(t, page, `<meta property="og:title" content="Ada Lovelace on X play"/>`)
@@ -272,7 +272,7 @@ func TestCardTemplates(t *testing.T) {
 	require.Contains(t, page, "<title>Lab replay</title>")
 
 	video.Title = "  "
-	out, err = linker.GenerateVideoCard(ctx, vu, vv, "")
+	out, err = linker.GenerateVideoCard(ctx, vu, vv, "", nil)
 	require.NoError(t, err)
 	require.Contains(t, string(out), "<title>Ada Lovelace on X play</title>", "untitled video: the card title")
 

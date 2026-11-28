@@ -572,6 +572,9 @@ importers:
       emojibase-data:
         specifier: ^18.0.0
         version: 18.0.0(emojibase@18.0.0)
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
       expo-atlas:
         specifier: 0.5.0
         version: 0.5.0(expo@58.0.23)(supports-color@8.1.1)
@@ -611,6 +614,9 @@ importers:
       '@gorhom/bottom-sheet':
         specifier: ^5.2.14
         version: 5.2.14(ba302b158e27304d672f7186b94750b2)
+      '@moq/net':
+        specifier: 0.4.3
+        version: 0.4.3(@types/react@19.3.0)(@zod/mini@4.6.7(zod@4.6.7))(react@19.3.0)(zod@4.6.7)
       '@radix-ui/react-dropdown-menu':
         specifier: ^2.2.1
         version: 2.2.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1013,7 +1019,7 @@ importers:
     dependencies:
       '@moq/net':
         specifier: 0.4.3
-        version: 0.4.3(@types/react@19.3.0)(@zod/mini@4.6.7(zod@4.6.7))(react@19.3.1)(zod@4.6.7)
+        version: 0.4.3(@types/react@19.3.0)(@zod/mini@4.6.7(zod@4.6.7))(react@19.3.0)(zod@4.6.7)
     devDependencies:
       esbuild:
         specifier: ^0.28.2
@@ -19560,11 +19566,11 @@ snapshots:
       '@types/react': 19.3.0
       react: 19.3.0
 
-  '@moq/net@0.4.3(@types/react@19.3.0)(@zod/mini@4.6.7(zod@4.6.7))(react@19.3.1)(zod@4.6.7)':
+  '@moq/net@0.4.3(@types/react@19.3.0)(@zod/mini@4.6.7(zod@4.6.7))(react@19.3.0)(zod@4.6.7)':
     dependencies:
       '@moq/pattern': 0.2.1
       '@moq/qmux': 0.3.5
-      '@moq/signals': 0.2.6(@types/react@19.3.0)(react@19.3.1)
+      '@moq/signals': 0.2.6(@types/react@19.3.0)(react@19.3.0)
       '@zod/mini': 4.6.7(zod@4.6.7)
       async-mutex: 0.5.0
       bowser: 2.15.0
@@ -19580,10 +19586,10 @@ snapshots:
     dependencies:
       '@moq/web-socket-stream': 0.1.1
 
-  '@moq/signals@0.2.6(@types/react@19.3.0)(react@19.3.1)':
+  '@moq/signals@0.2.6(@types/react@19.3.0)(react@19.3.0)':
     optionalDependencies:
       '@types/react': 19.3.0
-      react: 19.3.1
+      react: 19.3.0
 
   '@moq/web-socket-stream@0.1.1': {}
 

@@ -34,6 +34,7 @@
     "@fluent/langneg": "^0.7.0",
     "@fluent/react": "^0.15.2",
     "@gorhom/bottom-sheet": "^5.2.14",
+    "@moq/net": "0.4.3",
     "@radix-ui/react-dropdown-menu": "^2.2.1",
     "@rn-primitives/dropdown-menu": "1.5.2",
     "@rn-primitives/portal": "1.5.3",

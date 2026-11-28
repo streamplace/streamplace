@@ -50,10 +50,16 @@ if ("serviceWorker" in navigator) {
           }
           const onIdle = (event) => {
             if (event.data && event.data.type === "IDLE") {
+              clearTimeout(timer);
               navigator.serviceWorker.removeEventListener("message", onIdle);
               post();
             }
           };
+          // A worker from a previous deploy never answers, so do not wait forever.
+          const timer = setTimeout(() => {
+            navigator.serviceWorker.removeEventListener("message", onIdle);
+            post();
+          }, 1_000);
           navigator.serviceWorker.addEventListener("message", onIdle);
           active.postMessage({ type: "WHEN_IDLE" });
         };

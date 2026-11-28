@@ -109,6 +109,12 @@ class Deployment {
 
     // Synthetic assets whose headers and status the test chooses.
     if (/^\/((_expo\/static|api)\/)?probe\//.test(url.pathname)) {
+      const delay = Number(url.searchParams.get("delay") ?? 0);
+      if (delay > 0) {
+        const { promise, resolve } = Promise.withResolvers<void>();
+        setTimeout(resolve, delay);
+        await promise;
+      }
       const body = Buffer.from("x".repeat(64));
       const range = /^bytes=(\d+)-(\d+)$/.exec(headers.range ?? "");
       const head: Record<string, string> = {
@@ -618,6 +624,97 @@ test("service worker: a waiting update asks the active worker to go idle first",
   expect(messages.indexOf("WHEN_IDLE")).toBeLessThan(
     messages.indexOf("SKIP_WAITING"),
   );
+});
+
+test("service worker: activation waits for in-flight cacheable work", async ({
+  lab,
+}) => {
+  const deployment = await lab.serve();
+  const context = await lab.launch(deployment);
+  const page = await openSettings(context, deployment);
+  await controlled(page);
+  await olderThanStartupWindow(page);
+
+  deployment.deployment = "v2";
+  await checkForUpdate(page);
+  await expect
+    .poll(() => registrationState(page))
+    .toMatchObject({ waiting: true });
+
+  const before = deployment.documents(SETTINGS);
+  await holdStartupWindow(context);
+  // Hold a fetch through the old worker open across the replayed document.
+  await context.addInitScript(() => {
+    const start = () => {
+      const script = document.createElement("script");
+      script.src = "/_expo/static/probe/slow.js?delay=3000";
+      document.documentElement.appendChild(script);
+      const end = Date.now() + 250;
+      while (Date.now() < end) {}
+    };
+    if (document.documentElement) start();
+    else document.addEventListener("readystatechange", start, { once: true });
+  });
+  await page.reload({ waitUntil: "commit" });
+  await expect
+    .poll(() =>
+      deployment.requests.some((request) =>
+        request.path.startsWith("/_expo/static/probe/slow.js"),
+      ),
+    )
+    .toBe(true);
+  await page.waitForTimeout(700);
+  expect(await workers(context)).toMatchObject({ v2: "installed" });
+  await expect.poll(() => workers(context)).toMatchObject({ v2: "activated" });
+  await expect(searchBox(page)).toBeVisible();
+  await expect.poll(() => deployment.documents(SETTINGS)).toBe(before + 2);
+});
+
+test("service worker: activation falls back when the active worker cannot answer", async ({
+  lab,
+}) => {
+  const deployment = await lab.serve();
+  const context = await lab.launch(deployment);
+  const page = await openSettings(context, deployment);
+  await controlled(page);
+  await olderThanStartupWindow(page);
+
+  deployment.deployment = "v2";
+  await checkForUpdate(page);
+  await expect
+    .poll(() => registrationState(page))
+    .toMatchObject({ waiting: true });
+
+  const before = deployment.documents(SETTINGS);
+  await holdStartupWindow(context);
+  // Drop the handshake to model a worker from a deploy that predates it.
+  await context.addInitScript(() => {
+    const original = ServiceWorker.prototype.postMessage as unknown as (
+      this: ServiceWorker,
+      message: unknown,
+      ...rest: unknown[]
+    ) => void;
+    ServiceWorker.prototype.postMessage = function (
+      this: ServiceWorker,
+      message: { type?: string },
+      ...rest: unknown[]
+    ) {
+      if (message && message.type === "WHEN_IDLE") {
+        sessionStorage.setItem("streamplace-sw-silent-worker", "1");
+        return;
+      }
+      original.call(this, message, ...rest);
+    };
+  });
+  await page.reload({ waitUntil: "commit" });
+  await expect.poll(() => workers(context)).toMatchObject({ v2: "activated" });
+  await expect(searchBox(page)).toBeVisible();
+  await expect.poll(() => deployment.documents(SETTINGS)).toBe(before + 2);
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem("streamplace-sw-silent-worker"),
+    ),
+  ).toBe("1");
 });
 
 test("service worker: failed updates keep the working version", async ({

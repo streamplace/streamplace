@@ -630,9 +630,9 @@ function VodEnginePlayer(props: VideoProps) {
       const boot = g.__spVodBoot;
       g.__spVodBoot = undefined;
       const booted = await boot;
-      if (booted && !booted.error && playsRecord(booted, src)) {
-        if (cancelled) g.__spVodBoot = boot;
-        else setEngine(booted);
+      // No later run can claim a boot this one took, so a cancelled run releases it.
+      if (!cancelled && booted && !booted.error && playsRecord(booted, src)) {
+        setEngine(booted);
         return;
       }
       booted?.destroy();

@@ -31,9 +31,15 @@ cleanup() {
 trap cleanup EXIT
 
 : "${E2E_TLS_CA:?Safari chat requires the harness HTTPS hostnames}"
+# Start the driver while CoreSimulator boots so both are ready for the session.
+/usr/bin/safaridriver -p "$SAFARIDRIVER_PORT" --diagnose >"$E2E_ARTIFACTS/safaridriver.log" 2>&1 &
+driver_pid=$!
 e2e_ios_boot
 export E2E_IOS_DEVICE
 xcrun simctl keychain "$E2E_IOS_DEVICE" add-root-cert "$E2E_TLS_CA"
-/usr/bin/safaridriver --port "$SAFARIDRIVER_PORT" >"$E2E_ARTIFACTS/safaridriver.log" 2>&1 &
-driver_pid=$!
+if ! kill -0 "$driver_pid" 2>/dev/null; then
+  echo 'SafariDriver exited before the test started' >&2
+  tail -20 "$E2E_ARTIFACTS/safaridriver.log" >&2
+  exit 1
+fi
 node js/e2e-web/safari/chat.mts

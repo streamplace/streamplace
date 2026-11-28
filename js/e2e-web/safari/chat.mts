@@ -17,7 +17,7 @@ const {
 assert(did && handle && password && station && pds && directPds);
 assert(artifacts && device && port);
 
-const endpoint = `http://127.0.0.1:${port}`;
+const endpoint = `http://localhost:${port}`;
 const elementKey = "element-6066-11e4-a52e-4f735466cecf";
 class WebDriverError extends Error {
   readonly code: string;
@@ -56,21 +56,29 @@ async function until<T>(
   throw new Error(`Timed out waiting for ${description}`);
 }
 
-await until(
-  "SafariDriver",
-  async () => {
-    try {
-      return (await command<{ ready: boolean }>("/status")).ready;
-    } catch (error) {
-      // The server has not bound its port yet.
-      if (error instanceof TypeError && error.message === "fetch failed") {
-        return false;
+let startupError: unknown;
+try {
+  await until(
+    "SafariDriver HTTP listener",
+    async () => {
+      try {
+        const response = await fetch(`${endpoint}/status`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (response.ok) return true;
+        startupError = new Error(
+          `GET /status returned HTTP ${response.status}`,
+        );
+      } catch (error) {
+        startupError = error;
       }
-      throw error;
-    }
-  },
-  10_000,
-);
+      return false;
+    },
+    120_000,
+  );
+} catch (error) {
+  throw new Error(String(error), { cause: startupError });
+}
 const { sessionId, capabilities } = await command<{
   sessionId: string;
   capabilities: Record<string, unknown>;

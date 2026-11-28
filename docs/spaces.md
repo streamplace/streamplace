@@ -270,6 +270,8 @@ IDs come only from the node.
   before deleting the private record and local anchor. If cleanup fails, a
   publish retry resumes cleanup without rewriting the public record. An
   already absent private record does not block deletion of the owned anchor.
+  Once checkpointed, Streamplace rejects metadata edits and replacement
+  uploads with HTTP 409. Edit the public video, not its published draft.
   Private draft creation from a finalized livestream requires the owner's
   grant after cutover, not a moderator's session.
 

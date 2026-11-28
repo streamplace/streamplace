@@ -15,6 +15,7 @@ import (
 
 var (
 	ErrDraftNotFound    = errors.New("draft not found")
+	ErrDraftPublished   = errors.New("draft already published; retry publication to finish cleanup")
 	ErrDraftReauthorize = errors.New("reauthorize to access private drafts")
 	ErrDraftCursor      = errors.New("invalid draft cursor")
 )
@@ -357,6 +358,9 @@ func (d *Drafts) Update(ctx context.Context, input *placestream.VodUpdateDraft_I
 	if err != nil {
 		return nil, err
 	}
+	if dv.PublishedURI != "" {
+		return nil, ErrDraftPublished
+	}
 	rec, err := dv.Record()
 	if err != nil {
 		return nil, err
@@ -452,6 +456,9 @@ func (d *Drafts) AttachUpload(ctx context.Context, uri, uploadID string) error {
 	}
 	if dv == nil || (d.space != nil && dv.MetadataState != draftInSpace) {
 		return ErrDraftNotFound
+	}
+	if dv.PublishedURI != "" {
+		return ErrDraftPublished
 	}
 	if d.space != nil {
 		record, err := spaces.GetDraftMetadata(ctx, d.space, d.did, draftRkey(uri))

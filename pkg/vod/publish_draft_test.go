@@ -209,6 +209,10 @@ func TestPublishPrivateDraftUsesLatestMetadataAndRequiresCleanup(t *testing.T) {
 	_, err = drafts.Get(ctx, draft.URI)
 	require.NoError(t, err, "the failed cleanup must leave the same draft retriable")
 	space.err = nil
+	replacement := "After publication"
+	_, err = drafts.Update(ctx, &placestream.VodUpdateDraft_Input{Uri: draft.URI, Title: &replacement})
+	require.ErrorIs(t, err, statedb.ErrDraftPublished)
+	require.ErrorIs(t, drafts.AttachUpload(ctx, draft.URI, "replacement"), statedb.ErrDraftPublished)
 	uri, cid, err := PublishDraft(ctx, state, nil, drafts, client, draft.URI)
 	require.NoError(t, err)
 	rkey, err := draftTID(draft.URI)

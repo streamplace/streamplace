@@ -19,6 +19,8 @@ func draftHTTPError(err error) error {
 	switch {
 	case errors.Is(err, statedb.ErrDraftNotFound):
 		return echo.NewHTTPError(http.StatusNotFound, "draft not found")
+	case errors.Is(err, statedb.ErrDraftPublished):
+		return echo.NewHTTPError(http.StatusConflict, statedb.ErrDraftPublished.Error())
 	case errors.Is(err, statedb.ErrDraftReauthorize), spaces.DraftAuthorizationError(err):
 		return echo.NewHTTPError(http.StatusForbidden, "Reauthorize: sign in again to access private drafts")
 	case errors.Is(err, statedb.ErrDraftCursor):

@@ -529,6 +529,97 @@ test("service worker: a late update waits and activates on the next navigation",
   expect(deployment.documents(SETTINGS)).toBe(before + 2);
 });
 
+test("service worker: a navigation without a controller still activates a waiting update", async ({
+  lab,
+}) => {
+  const deployment = await lab.serve();
+  const context = await lab.launch(deployment);
+  const page = await openSettings(context, deployment);
+  await controlled(page);
+  await olderThanStartupWindow(page);
+
+  deployment.deployment = "v2";
+  await checkForUpdate(page);
+  await expect
+    .poll(() => registrationState(page))
+    .toMatchObject({
+      waiting: true,
+    });
+
+  const before = deployment.documents(SETTINGS);
+  await holdStartupWindow(context);
+  // A new document can report no controller even though this tab was already
+  // controlled; the tab's earlier control must still resume the update.
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator.serviceWorker, "controller", {
+      get: () => null,
+      configurable: true,
+    });
+  });
+  await page.reload({ waitUntil: "commit" });
+  expect(
+    await page.evaluate(() => navigator.serviceWorker.controller),
+  ).toBeNull();
+  await expect.poll(() => workers(context)).toMatchObject({ v2: "activated" });
+  await expect(searchBox(page)).toBeVisible();
+  await expect.poll(() => deployment.documents(SETTINGS)).toBe(before + 2);
+});
+
+test("service worker: a waiting update asks the active worker to go idle first", async ({
+  lab,
+}) => {
+  const deployment = await lab.serve();
+  const context = await lab.launch(deployment);
+  const page = await openSettings(context, deployment);
+  await controlled(page);
+  await olderThanStartupWindow(page);
+
+  deployment.deployment = "v2";
+  await checkForUpdate(page);
+  await expect
+    .poll(() => registrationState(page))
+    .toMatchObject({ waiting: true });
+
+  const before = deployment.documents(SETTINGS);
+  await holdStartupWindow(context);
+  // The handshake is what keeps skipWaiting away from the old worker's in-flight
+  // fetch and cache work, which Chromium lets stall activation.
+  await context.addInitScript(() => {
+    const original = ServiceWorker.prototype.postMessage as unknown as (
+      this: ServiceWorker,
+      message: unknown,
+      ...rest: unknown[]
+    ) => void;
+    ServiceWorker.prototype.postMessage = function (
+      this: ServiceWorker,
+      message: { type?: string },
+      ...rest: unknown[]
+    ) {
+      if (message && typeof message.type === "string") {
+        const key = "streamplace-sw-messages";
+        const seen = JSON.parse(sessionStorage.getItem(key) ?? "[]");
+        seen.push(message.type);
+        sessionStorage.setItem(key, JSON.stringify(seen));
+      }
+      original.call(this, message, ...rest);
+    };
+  });
+  await page.reload({ waitUntil: "commit" });
+  await expect.poll(() => workers(context)).toMatchObject({ v2: "activated" });
+  await expect(searchBox(page)).toBeVisible();
+  await expect.poll(() => deployment.documents(SETTINGS)).toBe(before + 2);
+  const messages = await page.evaluate(
+    () =>
+      JSON.parse(
+        sessionStorage.getItem("streamplace-sw-messages") ?? "[]",
+      ) as string[],
+  );
+  expect(messages.indexOf("WHEN_IDLE")).toBeGreaterThanOrEqual(0);
+  expect(messages.indexOf("WHEN_IDLE")).toBeLessThan(
+    messages.indexOf("SKIP_WAITING"),
+  );
+});
+
 test("service worker: failed updates keep the working version", async ({
   lab,
 }) => {

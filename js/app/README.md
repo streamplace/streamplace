@@ -140,6 +140,10 @@ deployment responses, so binary-only CI needs no local `dist`. It exercises
 persistence, early/late updates, multi-tab behavior, and cache bypasses in Chromium.
 Early-update tests hold the new document's `performance.now()` just inside the
 startup window; Chromium still performs the actual install, activation, and reload.
+A tab remembers that it was controlled, so a navigation whose document briefly reports
+no controller still resumes an update that is already waiting. Activation waits for
+the old worker to report its fetches and cache writes idle, since Chromium can stall
+skipWaiting behind that work.
 
 The crash fallback reads pure Streamplace dark-theme tokens without importing
 provider modules. Retry remains available on every platform; page reload is web-only.

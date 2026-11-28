@@ -8,6 +8,7 @@ FRONTEND_INPUTS=(
   js/app/components
   js/app/store
   js/app/public
+  js/app/scripts
   js/app/app.config.ts
   js/app/package.json
   js/web

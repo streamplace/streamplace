@@ -8,10 +8,22 @@ const scripts = JSON.parse(
 let loaded = 0;
 
 if ("serviceWorker" in navigator) {
-  const controlled = !!navigator.serviceWorker.controller;
+  const CONTROLLED_KEY = "streamplace-service-worker-controlled";
+  let controlled = !!navigator.serviceWorker.controller;
+  try {
+    if (controlled) sessionStorage.setItem(CONTROLLED_KEY, "1");
+    else controlled = sessionStorage.getItem(CONTROLLED_KEY) === "1";
+  } catch (e) {
+    // Storage is unavailable; trust this document's controller.
+  }
   let refreshing = false;
   const early = () => performance.now() < 3000;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
+    try {
+      sessionStorage.setItem(CONTROLLED_KEY, "1");
+    } catch (e) {
+      // Storage is unavailable; this document still has its controller.
+    }
     if (controlled && early() && !refreshing) {
       refreshing = true;
       location.reload();
@@ -19,22 +31,55 @@ if ("serviceWorker" in navigator) {
   });
   navigator.serviceWorker
     .register("/sw.js", { updateViaCache: "none" })
+    .then(() => navigator.serviceWorker.getRegistration())
     .then((registration) => {
+      if (!registration) return;
+      const scheduled = new WeakSet();
       const activate = (worker) => {
-        if (worker && navigator.serviceWorker.controller && early()) {
-          worker.postMessage({ type: "SKIP_WAITING" });
+        if (!worker || !controlled || scheduled.has(worker)) return;
+        scheduled.add(worker);
+        const post = () => {
+          if (early()) worker.postMessage({ type: "SKIP_WAITING" });
+        };
+        const requestIdle = () => {
+          const active =
+            navigator.serviceWorker.controller || registration.active;
+          if (!active) {
+            post();
+            return;
+          }
+          const onIdle = (event) => {
+            if (event.data && event.data.type === "IDLE") {
+              navigator.serviceWorker.removeEventListener("message", onIdle);
+              post();
+            }
+          };
+          navigator.serviceWorker.addEventListener("message", onIdle);
+          active.postMessage({ type: "WHEN_IDLE" });
+        };
+        // Ask after this document's loads reach the old worker; it answers
+        // once its fetch and cache work has settled.
+        if (document.readyState === "complete") {
+          requestIdle();
+        } else {
+          window.addEventListener("load", requestIdle, { once: true });
         }
       };
-      const watch = () => {
-        const worker = registration.installing;
-        if (!worker) return;
+      const watched = new WeakSet();
+      const watch = (worker) => {
+        if (!worker || watched.has(worker)) return;
+        watched.add(worker);
         worker.addEventListener("statechange", () => {
           if (worker.state === "installed") activate(worker);
         });
       };
+      // Re-read the registration: register() can resolve before an existing
+      // waiting worker reaches this document's registration object.
+      registration.addEventListener("updatefound", () =>
+        watch(registration.installing),
+      );
       activate(registration.waiting);
-      watch();
-      registration.addEventListener("updatefound", watch);
+      watch(registration.installing);
     })
     .catch((error) => console.warn("Streamplace service worker:", error));
 }

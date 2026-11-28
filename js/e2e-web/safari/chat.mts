@@ -4,15 +4,18 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 const {
+  ACCOUNT_DID: did,
   ACCOUNT_HANDLE: handle,
   ACCOUNT_PASSWORD: password,
   SERVER_HTTPS_URL: station,
   PDS_HTTPS_URL: pds,
+  PDS_HTTP_URL: directPds,
   E2E_ARTIFACTS: artifacts,
   E2E_IOS_DEVICE: device,
   SAFARIDRIVER_PORT: port,
 } = process.env;
-assert(handle && password && station && pds && artifacts && device && port);
+assert(did && handle && password && station && pds && directPds);
+assert(artifacts && device && port);
 
 const endpoint = `http://127.0.0.1:${port}`;
 const elementKey = "element-6066-11e4-a52e-4f735466cecf";
@@ -177,7 +180,20 @@ try {
   await visible(chatMessage);
   assert.equal(await send(`${await visible(chatInput)}/property/value`), "");
 
-  // The first appearance may be optimistic. Reload to read the node's history.
+  // The first appearance may be optimistic; don't reload during the write.
+  const records = new URL("/xrpc/com.atproto.repo.listRecords", directPds);
+  records.searchParams.set("repo", did);
+  records.searchParams.set("collection", "place.stream.chat.message");
+  await until("chat record to reach the PDS", async () => {
+    const response = await fetch(records, {
+      signal: AbortSignal.timeout(5000),
+    });
+    assert.equal(response.status, 200, "PDS listRecords failed");
+    const { records: rows }: { records: { value: { text: string } }[] } =
+      await response.json();
+    return rows.some(({ value }) => value.text === message);
+  });
+
   await send("/refresh", {});
   await visible(chatMessage);
   console.log("Passed: chat persisted after reload");

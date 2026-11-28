@@ -180,13 +180,6 @@ jobs:
           name: streamplace-linux-amd64-${{ github.run_id }}
           path: ./build-linux-amd64
 
-      - name: Download web frontend bundle
-        if: matrix.mode == 'standalone'
-        uses: actions/download-artifact@v8.0.2
-        with:
-          name: frontend-dist-${{ github.run_id }}
-          path: ./js/app/dist
-
       - name: Prepare e2e runner
         run: |
           chmod +x ./build-linux-amd64/streamplace
@@ -213,30 +206,6 @@ jobs:
           fi
         env:
           E2E_HARNESS_LOG: ${{ runner.temp }}/harness-web.log
-
-      # The same suite with js/edge in front of the node: the apex topology,
-      # where the site must stay up and every API call is proxied.
-      - name: Install edge worker dependencies
-        if: matrix.mode == 'standalone'
-        run: pnpm install --filter @streamplace/edge... --frozen-lockfile
-
-      # A representative set, not `--edge` with no arguments: that runs every
-      # non-sign-in flow, which is another full suite's worth of minutes.
-      # smoke (shell + assets), bootstrap (load sequence), tabs and
-      # lazy-navigation (chunks), websocket-authors and stream-reconnect
-      # (proxy upgrades), service-worker (shell updates at the edge), vod
-      # (page head and playback).
-      - name: Run web e2e tests through the edge worker
-        if: matrix.mode == 'standalone'
-        run: |
-          hack/e2e-web-local.sh --edge \
-            flows/smoke.spec.ts flows/bootstrap.spec.ts flows/tabs.spec.ts \
-            flows/lazy-navigation.spec.ts flows/websocket-authors.spec.ts \
-            flows/stream-reconnect.spec.ts flows/service-worker.spec.ts \
-            flows/vod.spec.ts
-        env:
-          E2E_HARNESS_LOG: ${{ runner.temp }}/harness-web-edge.log
-          E2E_EDGE_LOG: ${{ runner.temp }}/edge-web.log
 
       # The stream specs again, with the harness pushing the way the OBS plugin
       # does (internal /api/ingest/client-configuration, then fragmented MP4
@@ -278,6 +247,86 @@ jobs:
             js/e2e-web/test-results/
             js/e2e-web/playwright-report/
             ${{ runner.temp }}/harness-*.log
+          retention-days: 7
+
+  # The apex topology: js/edge in front of the node, where the site must stay
+  # up and every API call is proxied. Its own job so the browser suite's
+  # 40-minute budget stays for the suite.
+  e2e-edge:
+    name: e2e-edge
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: linux-amd64
+    env:
+      E2E_SPEED: ${{ github.event_name == 'pull_request' && '0.9' || '0' }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 26.13.0
+
+      - name: Install dependencies
+        run: |
+          npm install -g corepack@latest && corepack enable
+          pnpm install --filter @streamplace/e2e-web --filter @atcute/internal-dev-env --filter @streamplace/i18n --filter @streamplace/brand --filter @streamplace/edge --frozen-lockfile
+
+      - name: Download streamplace binary
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: streamplace-linux-amd64-${{ github.run_id }}
+          path: ./build-linux-amd64
+
+      - name: Download web frontend bundle
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: frontend-dist-${{ github.run_id }}
+          path: ./js/app/dist
+
+      - name: Prepare e2e runner
+        run: |
+          chmod +x ./build-linux-amd64/streamplace
+          sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+          echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/playwright-browsers" >> "$GITHUB_ENV"
+
+      - name: Install Playwright browser
+        run:
+          sudo env "PATH=$PATH"
+          "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/playwright-browsers" pnpm
+          --filter @streamplace/e2e-web install-browser
+
+      # A representative set, not `--edge` with no arguments: that runs every
+      # non-sign-in flow, which is another full suite's worth of minutes.
+      # smoke (shell + assets), bootstrap (load sequence), tabs and
+      # lazy-navigation (chunks), websocket-authors and stream-reconnect
+      # (proxy upgrades), service-worker (shell updates at the edge), vod
+      # (page head and playback).
+      - name: Run web e2e tests through the edge worker
+        run: |
+          hack/e2e-web-local.sh --edge \
+            flows/smoke.spec.ts flows/bootstrap.spec.ts flows/tabs.spec.ts \
+            flows/lazy-navigation.spec.ts flows/websocket-authors.spec.ts \
+            flows/stream-reconnect.spec.ts flows/service-worker.spec.ts \
+            flows/vod.spec.ts
+        env:
+          E2E_HARNESS_LOG: ${{ runner.temp }}/harness-web-edge.log
+          E2E_EDGE_LOG: ${{ runner.temp }}/edge-web.log
+
+      - name: Upload edge e2e artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: e2e-edge-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            js/e2e-web/test-results/
+            js/e2e-web/playwright-report/
+            ${{ runner.temp }}/harness-*.log
+            ${{ runner.temp }}/edge-web.log
           retention-days: 7
 
   e2e-desktop:

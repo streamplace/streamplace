@@ -85,21 +85,38 @@ try {
 } catch (error) {
   throw new Error(String(error), { cause: startupError });
 }
-const { sessionId, capabilities } = await command<{
-  sessionId: string;
-  capabilities: Record<string, unknown>;
-}>("/session", {
-  capabilities: {
-    alwaysMatch: {
-      browserName: "Safari",
-      platformName: "iOS",
-      // Let the UI assertions determine readiness, not the cold page load.
-      pageLoadStrategy: "none",
-      "safari:useSimulator": true,
-      "safari:deviceUDID": device,
+async function createSession() {
+  return command<{
+    sessionId: string;
+    capabilities: Record<string, unknown>;
+  }>("/session", {
+    capabilities: {
+      alwaysMatch: {
+        browserName: "Safari",
+        platformName: "iOS",
+        // Let the UI assertions determine readiness, not the cold page load.
+        pageLoadStrategy: "none",
+        "safari:useSimulator": true,
+        "safari:deviceUDID": device,
+      },
     },
+  });
+}
+
+const { sessionId, capabilities } = await createSession().catch(
+  (error: unknown) => {
+    if (
+      !(error instanceof WebDriverError) ||
+      error.code !== "session not created" ||
+      !error.message.includes("timed out while connecting to a Safari instance")
+    ) {
+      throw error;
+    }
+    // The simulator can finish opening the automation window after SafariDriver's deadline.
+    console.warn(`${error.message}; retrying the Safari handshake once`);
+    return createSession();
   },
-});
+);
 const session = `/session/${sessionId}`;
 const send = <T,>(path: string, body?: object) =>
   command<T>(`${session}${path}`, body);

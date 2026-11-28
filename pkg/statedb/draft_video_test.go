@@ -22,9 +22,10 @@ func TestDraftVideoCRUDRoundTrip(t *testing.T) {
 		ctx := t.Context()
 		did := "did:plc:alice"
 
-		// Create
-		rec := newDraftRec("My Draft", "processing")
-		dv, err := state.CreateDraft(ctx, did, "upload-123", rec)
+		drafts, err := state.OpenDrafts(ctx, did, nil)
+		require.NoError(t, err)
+		defer drafts.Close()
+		dv, err := drafts.Create(ctx, "upload-123", newDraftRec("My Draft", "processing"))
 		require.NoError(t, err)
 		require.NotEmpty(t, dv.URI)
 		require.Equal(t, did, dv.UserDID)
@@ -34,7 +35,7 @@ func TestDraftVideoCRUDRoundTrip(t *testing.T) {
 		require.Contains(t, dv.URI, "ats://"+did+"/place.stream.vod.drafts/self/"+did+"/place.stream.vod.draftVideo/")
 
 		// Get
-		got, err := state.GetDraft(ctx, dv.URI)
+		got, err := drafts.Get(ctx, dv.URI)
 		require.NoError(t, err)
 		require.Equal(t, dv.URI, got.URI)
 		require.Equal(t, dv.CID, got.CID)
@@ -47,17 +48,14 @@ func TestDraftVideoCRUDRoundTrip(t *testing.T) {
 		require.Equal(t, "processing", gotRec.Status)
 
 		// GetDraftByUpload
-		byUp, err := state.GetDraftByUpload(ctx, "upload-123")
+		byUp, err := state.getDraftByUpload(ctx, "upload-123")
 		require.NoError(t, err)
 		require.Equal(t, dv.URI, byUp.URI)
 
 		// Delete
-		deleted, err := state.DeleteDraft(ctx, dv.URI)
-		require.NoError(t, err)
-		require.True(t, deleted)
-		gone, err := state.GetDraft(ctx, dv.URI)
-		require.NoError(t, err)
-		require.Nil(t, gone)
+		require.NoError(t, drafts.Delete(ctx, dv.URI))
+		_, err = drafts.Get(ctx, dv.URI)
+		require.ErrorIs(t, err, ErrDraftNotFound)
 	})
 }
 
@@ -66,14 +64,16 @@ func TestDraftVideoUpdateMetadataRecomputesCID(t *testing.T) {
 		ctx := t.Context()
 		did := "did:plc:bob"
 
-		dv, err := state.CreateDraft(ctx, did, "upload-456", newDraftRec("Original", "processing"))
+		drafts, err := state.OpenDrafts(ctx, did, nil)
+		require.NoError(t, err)
+		defer drafts.Close()
+		dv, err := drafts.Create(ctx, "upload-456", newDraftRec("Original", "processing"))
 		require.NoError(t, err)
 		origCID := dv.CID
 
 		// Partial update of an editable field.
-		updated, err := state.UpdateDraftMetadata(ctx, dv.URI, func(rec *placestream.VodDraftVideo) {
-			rec.Title = "Edited Title"
-		})
+		title := "Edited Title"
+		updated, err := drafts.Update(ctx, &placestream.VodUpdateDraft_Input{Uri: dv.URI, Title: &title})
 		require.NoError(t, err)
 		require.NotNil(t, updated)
 
@@ -95,14 +95,17 @@ func TestDraftVideoListOwnershipScoped(t *testing.T) {
 		bob := "did:plc:bob"
 
 		for i := 0; i < 3; i++ {
-			_, err := state.CreateDraft(ctx, alice, "up-alice-"+strconv.Itoa(i), newDraftRec("A"+strconv.Itoa(i), "processing"))
+			_, err := state.insertDraft(ctx, alice, "up-alice-"+strconv.Itoa(i), "", "", newDraftRec("A"+strconv.Itoa(i), "processing"))
 			require.NoError(t, err)
 		}
-		_, err := state.CreateDraft(ctx, bob, "up-bob-0", newDraftRec("B0", "processing"))
+		_, err := state.insertDraft(ctx, bob, "up-bob-0", "", "", newDraftRec("B0", "processing"))
 		require.NoError(t, err)
 
 		// Alice sees only her 3 drafts.
-		aliceDrafts, err := state.ListDrafts(ctx, alice, 100, "")
+		aliceStore, err := state.OpenDrafts(ctx, alice, nil)
+		require.NoError(t, err)
+		defer aliceStore.Close()
+		aliceDrafts, _, err := aliceStore.List(ctx, 100, "")
 		require.NoError(t, err)
 		require.Len(t, aliceDrafts, 3)
 		for _, d := range aliceDrafts {
@@ -110,7 +113,10 @@ func TestDraftVideoListOwnershipScoped(t *testing.T) {
 		}
 
 		// Bob sees only his 1.
-		bobDrafts, err := state.ListDrafts(ctx, bob, 100, "")
+		bobStore, err := state.OpenDrafts(ctx, bob, nil)
+		require.NoError(t, err)
+		defer bobStore.Close()
+		bobDrafts, _, err := bobStore.List(ctx, 100, "")
 		require.NoError(t, err)
 		require.Len(t, bobDrafts, 1)
 	})
@@ -122,19 +128,17 @@ func TestSetDraftReadyAndError(t *testing.T) {
 		did := "did:plc:carol"
 
 		// ready path
-		dv, err := state.CreateDraft(ctx, did, "up-ready", newDraftRec("Ready me", "processing"))
+		dv, err := state.insertDraft(ctx, did, "up-ready", "", "", newDraftRec("Ready me", "processing"))
 		require.NoError(t, err)
 
-		sourceTracks := &placestream.VodDraftVideo_Source{
-			MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
-				LexiconTypeID: "place.stream.media.defs#sourceTracks",
-				Tracks:        nil,
-			},
-		}
-		err = state.SetDraftReady(ctx, "up-ready", sourceTracks, 12345, "muxlcid123")
+		require.NoError(t, state.CreateUpload(ctx, &Upload{
+			ID: "up-ready", RepoDID: did, TrackURIs: "[]", DurationMS: 12345,
+			ContentCID: "muxlcid123", ProcessingStatus: "done",
+		}))
+		err = state.syncDraftResult(ctx, "up-ready")
 		require.NoError(t, err)
 
-		ready, err := state.GetDraft(ctx, dv.URI)
+		ready, err := state.getDraft(ctx, did, dv.URI)
 		require.NoError(t, err)
 		require.Equal(t, "muxlcid123", ready.ContentCID)
 		rec, err := unmarshalDraft(ready.Data)
@@ -146,11 +150,14 @@ func TestSetDraftReadyAndError(t *testing.T) {
 		require.NotNil(t, rec.Source.MediaDefs_SourceTracks)
 
 		// error path
-		dv2, err := state.CreateDraft(ctx, did, "up-fail", newDraftRec("Fail me", "processing"))
+		dv2, err := state.insertDraft(ctx, did, "up-fail", "", "", newDraftRec("Fail me", "processing"))
 		require.NoError(t, err)
-		err = state.SetDraftError(ctx, "up-fail", "codec not supported")
+		require.NoError(t, state.CreateUpload(ctx, &Upload{
+			ID: "up-fail", RepoDID: did, ProcessingStatus: "error", ProcessingError: "codec not supported",
+		}))
+		err = state.syncDraftResult(ctx, "up-fail")
 		require.NoError(t, err)
-		failed, err := state.GetDraft(ctx, dv2.URI)
+		failed, err := state.getDraft(ctx, did, dv2.URI)
 		require.NoError(t, err)
 		rec2, err := unmarshalDraft(failed.Data)
 		require.NoError(t, err)
@@ -163,9 +170,6 @@ func TestSetDraftReadyAndError(t *testing.T) {
 func TestSetDraftOnMissingUploadIsNoOp(t *testing.T) {
 	WithAllDatabases(t, func(state *StatefulDB) {
 		// A pre-drafts-era upload (no draft row) must not error.
-		err := state.SetDraftReady(t.Context(), "no-such-upload", nil, 0, "")
-		require.NoError(t, err)
-		err = state.SetDraftError(t.Context(), "no-such-upload", "x")
-		require.NoError(t, err)
+		require.NoError(t, state.syncDraftResult(t.Context(), "no-such-upload"))
 	})
 }

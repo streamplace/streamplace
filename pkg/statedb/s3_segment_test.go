@@ -34,9 +34,9 @@ func TestListS3SegmentsForLivestreams(t *testing.T) {
 
 	segs, err := state.ListS3SegmentsForLivestreams(ctx, []string{second, first}) // caller order irrelevant
 	require.NoError(t, err)
-	keys := make([]string, len(segs))
-	for i, s := range segs {
-		keys[i] = path.Base(s.Key)
+	keys := RecordingObjectKeys(segs)
+	for i := range keys {
+		keys[i] = path.Base(keys[i])
 	}
 	require.Equal(t, []string{"07-12-34-1.m4s", "07-22-47-2.m4s", "07-25-15-3.m4s", "07-35-23-4.m4s"}, keys)
 
@@ -46,6 +46,40 @@ func TestListS3SegmentsForLivestreams(t *testing.T) {
 	none, err := state.ListS3SegmentsForLivestreams(ctx, nil)
 	require.NoError(t, err)
 	require.Empty(t, none)
+}
+
+func TestMergeCompletedS3Segments(t *testing.T) {
+	t0 := time.Date(2026, 9, 16, 7, 12, 34, 0, time.UTC)
+	legacy := []S3Segment{
+		{ID: "z", Bucket: "old", Key: "same-key", StartedAt: t0.Add(time.Second)},
+		{ID: "a", Bucket: "new", Key: "same-key", StartedAt: t0.Add(-time.Second)},
+		{ID: "g", Bucket: "old", Key: "other", StartedAt: t0},
+		{ID: "c", Bucket: "old", Key: "same-key", StartedAt: t0},
+	}
+	committed := []S3Segment{
+		{ID: "h", Bucket: "new", Key: "first", StartedAt: t0.Add(-2 * time.Second)},
+		{ID: "d", Bucket: "new", Key: "same-key", StartedAt: t0, Size: 42},
+		{ID: "e", Bucket: "new", Key: "same-key", StartedAt: t0.Add(time.Second)},
+		{ID: "f", Bucket: "new", Key: "last", StartedAt: t0.Add(2 * time.Second)},
+	}
+	want := []S3Segment{committed[0], legacy[3], committed[1], legacy[2], committed[3]}
+	for _, spare := range []string{"legacy", "committed", "neither"} {
+		t.Run(spare, func(t *testing.T) {
+			legacyCap, committedCap := len(legacy), len(committed)
+			switch spare {
+			case "legacy":
+				legacyCap += len(committed)
+			case "committed":
+				committedCap += len(legacy)
+			}
+			got := mergeCompletedS3Segments(
+				append(make([]S3Segment, 0, legacyCap), legacy...),
+				append(make([]S3Segment, 0, committedCap), committed...),
+			)
+			require.Equal(t, want, got)
+		})
+	}
+	require.Nil(t, mergeCompletedS3Segments(nil, nil))
 }
 
 // RecordStartHelper records an object start for tests.

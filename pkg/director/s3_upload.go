@@ -3,14 +3,15 @@ package director
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/s3"
+	"stream.place/streamplace/pkg/stationshard"
 )
 
-// liveRecPrefix namespaces in-progress livestream recordings in the S3 bucket
-// (keys are liveRecPrefix + <did>/ + <timestamp>.m4s).
+// liveRecPrefix namespaces immutable livestream recording objects.
 const liveRecPrefix = "live-rec/"
 
 // vodInviteFeature is the place.stream.beta.invite `feature` value that grants
@@ -67,7 +68,7 @@ func (ss *StreamSession) shouldRecordLivestream(ctx context.Context, repoDID str
 
 // startS3Upload takes up recording the stream: the record role's start. It
 // installs the uploader last, so on an error there is nothing to put down.
-func (ss *StreamSession) startS3Upload(ctx context.Context, repoDID string) error {
+func (ss *StreamSession) startS3Upload(ctx context.Context, repoDID string, lease stationshard.Lease) error {
 	record, err := ss.shouldRecordLivestream(ctx, repoDID)
 	if err != nil {
 		return err
@@ -79,11 +80,18 @@ func (ss *StreamSession) startS3Upload(ctx context.Context, repoDID string) erro
 		log.Log(ctx, "live recording disabled for streamer (not in VOD beta, or recording turned off in settings)", "repoDID", repoDID)
 		return errRoleDeclined
 	}
-	cfg := ss.cli.S3Config()
-	// live-rec/ namespaces the in-progress livestream recordings away from the
-	// finalized VOD blobs (blobs/) and anything else in the bucket.
-	keyPrefix := liveRecPrefix + repoDID + "/"
-	u := s3.NewS3Uploader(cfg, repoDID, keyPrefix, s3.DefaultCutoverEvery, ss.statefulDB)
+	// Bind every mutation to this acquisition, even if a later role takes over.
+	var recorder s3.Recorder = ss.statefulDB
+	if ss.statefulDB.StationShards != nil {
+		recorder, err = ss.statefulDB.NewRecordingWriter(ctx, lease)
+		if err != nil {
+			return fmt.Errorf("bind live recording writer: %w", err)
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	var uri string
 	// The object being uploaded can't be read back until it completes, so
 	// hold the stream's segments in memory that long for clips to draw on.
 	ss.mm.RetainSegments(repoDID, s3.MaxOpenObjectAge)
@@ -95,45 +103,113 @@ func (ss *StreamSession) startS3Upload(ctx context.Context, repoDID string) erro
 	if ls, err := ss.mod.GetLatestLivestreamForRepo(repoDID); err != nil {
 		log.Warn(ctx, "live recording: failed to resolve initial livestream URI; first object starts untagged", "error", err, "repoDID", repoDID)
 	} else if ls != nil {
-		u.SetLivestreamURI(ls.URI)
+		uri = ls.URI
 	}
-	ss.s3Mu.Lock()
-	ss.s3Uploader = u
-	ss.s3Mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	cfg := ss.cli.S3Config()
+	prefix := liveRecPrefix + repoDID + "/"
+	var u *s3.S3Uploader
+	if ss.statefulDB.StationShards != nil {
+		u = s3.NewFencedS3Uploader(cfg, repoDID, prefix, s3.DefaultCutoverEvery, recorder)
+	} else {
+		u = s3.NewS3Uploader(cfg, repoDID, prefix, s3.DefaultCutoverEvery, recorder)
+	}
+	u.SetLivestreamURI(uri)
+	ss.installS3Uploader(u)
 	log.Log(ctx, "S3 upload enabled", "bucket", ss.cli.S3Bucket, "endpoint", ss.cli.S3Endpoint, "repoDID", repoDID)
 	return nil
 }
 
-// uploader is the live recording, or nil while this node is not recording.
-func (ss *StreamSession) uploader() *s3.S3Uploader {
-	ss.s3Mu.Lock()
-	defer ss.s3Mu.Unlock()
-	return ss.s3Uploader
+// Only commands arriving during the first claim can wait for an uploader.
+const maxInitialRecordingCommands = 16
+
+type s3Initialization struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	u      *s3.S3Uploader // guarded by s3Mu; never points at a later acquisition
+	queued int
 }
 
-// withUploader runs f on the live recording, if there is one, as a session
-// goroutine s3Close lets finish before it closes that recording.
+func (ss *StreamSession) beginS3Initialization(ctx context.Context, ttl time.Duration) {
+	ctx, cancel := context.WithTimeout(ctx, ttl)
+	ss.s3Mu.Lock()
+	ss.s3Init = &s3Initialization{ctx: ctx, cancel: cancel}
+	ss.s3Mu.Unlock()
+}
+
+// A nil uploader resolves an unsuccessful first attempt, without detaching
+// an uploader that was already installed.
+func (ss *StreamSession) installS3Uploader(u *s3.S3Uploader) {
+	ss.s3Mu.Lock()
+	defer ss.s3Mu.Unlock()
+	if init := ss.s3Init; init != nil {
+		if u != nil && init.ctx.Err() == nil {
+			init.u = u
+		} else {
+			ss.s3Tail = nil
+		}
+		ss.s3Init = nil
+		init.cancel()
+	}
+	if u != nil {
+		ss.s3Uploader = u
+	}
+}
+
+func (ss *StreamSession) s3PersistenceFailed() <-chan struct{} {
+	ss.s3Mu.Lock()
+	defer ss.s3Mu.Unlock()
+	return ss.s3Uploader.PersistenceFailed()
+}
+
+// Queue recording commands in arrival order without blocking the director
+// behind multipart I/O. Closing detaches the queue and drains its tail.
 func (ss *StreamSession) withUploader(ctx context.Context, f func(u *s3.S3Uploader) error) {
+	ss.queueRecordingCommand(ctx, true, f)
+}
+
+func (ss *StreamSession) queueRecordingCommand(ctx context.Context, waitForFirst bool, f func(*s3.S3Uploader) error) {
 	ss.s3Mu.Lock()
 	u := ss.s3Uploader
-	if u != nil {
-		ss.s3Pending.Add(1)
-	}
-	ss.s3Mu.Unlock()
+	init := ss.s3Init
 	if u == nil {
-		return
+		if init == nil || init.ctx.Err() != nil || init.queued == maxInitialRecordingCommands {
+			ss.s3Mu.Unlock()
+			return
+		}
+		if !waitForFirst && init.queued == 0 {
+			ss.s3Mu.Unlock()
+			return
+		}
+		init.queued++
 	}
+	prev := ss.s3Tail
+	done := make(chan struct{})
+	ss.s3Tail = done
+	ss.s3Mu.Unlock()
 	ss.Go(ctx, func() error {
-		defer ss.s3Pending.Done()
+		defer close(done)
+		if prev != nil {
+			<-prev
+		}
+		if init != nil {
+			<-init.ctx.Done()
+			ss.s3Mu.Lock()
+			u = init.u
+			ss.s3Mu.Unlock()
+			if u == nil {
+				return nil
+			}
+		}
 		return f(u)
 	})
 }
 
 func (ss *StreamSession) s3Upload(ctx context.Context, notif *media.NewSegmentNotification) {
 	ss.withUploader(ctx, func(u *s3.S3Uploader) error {
-		// notif.Muxl is the bare canonical segment; it concatenates directly
-		// (the S3 uploader synthesizes one init and prepends it per object).
-		return u.AddSegment(ctx, notif.Muxl, notif.Segment.StartTime)
+		return u.AddSegment(context.WithoutCancel(ctx), notif.Muxl, notif.Segment.StartTime)
 	})
 }
 
@@ -143,8 +219,8 @@ func (ss *StreamSession) s3Upload(ctx context.Context, notif *media.NewSegmentNo
 // the recording is closed out promptly rather than lingering un-completed until
 // stream teardown.
 func (ss *StreamSession) s3Cutover(ctx context.Context) {
-	ss.withUploader(ctx, func(u *s3.S3Uploader) error {
-		return u.Cutover(ctx)
+	ss.queueRecordingCommand(ctx, false, func(u *s3.S3Uploader) error {
+		return u.Cutover(context.WithoutCancel(ctx))
 	})
 }
 
@@ -152,18 +228,25 @@ func (ss *StreamSession) s3Cutover(ctx context.Context) {
 // find it: the record role's stop, whether the session ended or another
 // node took the job over. Segments already handed to the recording go in
 // first.
-func (ss *StreamSession) s3Close(ctx context.Context) {
+func (ss *StreamSession) s3Close(drainCtx context.Context) {
 	ss.s3Mu.Lock()
 	u := ss.s3Uploader
-	ss.s3Uploader = nil
+	tail := ss.s3Tail
+	ss.s3Uploader, ss.s3Tail = nil, nil
 	ss.s3Mu.Unlock()
 	if u == nil {
 		return
 	}
-	ss.s3Pending.Wait()
-	// the session context may already be canceled, so we need a new one
-	err := u.Close(context.Background())
-	if err != nil {
-		log.Error(ctx, "error closing S3 upload", "error", err)
+	if tail != nil {
+		select {
+		case <-tail:
+		case <-drainCtx.Done():
+		}
+	}
+	if err := u.Close(drainCtx); err != nil {
+		log.Error(drainCtx, "error closing S3 upload", "error", err)
+	}
+	if tail != nil {
+		<-tail
 	}
 }

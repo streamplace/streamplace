@@ -282,6 +282,21 @@ type oauthTestClient struct {
 
 func newOAuthTestStack(t *testing.T, pdsDir identity.Directory) (*echo.Echo, *oauthTestClient) {
 	t.Helper()
+	op, client := newOAuthTestProxy(t, nil)
+	s := &Server{
+		cli:               &config.CLI{BroadcasterHost: pdsAuthTestHost, ServerHost: pdsAuthTestHost},
+		identityDirectory: func() identity.Directory { return pdsDir },
+		identityRefreshes: newIdentityRefreshCache(),
+		op:                op,
+	}
+	e := echo.New()
+	s.useAuthMiddleware(e)
+	e.GET("/xrpc/"+pdsAuthTestMethod, pdsAuthTestHandler)
+	return e, client
+}
+
+func newOAuthTestProxy(t *testing.T, onLookup func()) (*oatproxy.OATProxy, *oauthTestClient) {
+	t.Helper()
 	downstreamRaw, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 	downstream, err := jwk.FromRaw(downstreamRaw)
@@ -335,6 +350,9 @@ func newOAuthTestStack(t *testing.T, pdsDir identity.Directory) (*echo.Echo, *oa
 		Host:          pdsAuthTestHost,
 		DownstreamJWK: downstream,
 		GetOAuthSession: func(id string) (*oatproxy.OAuthSession, error) {
+			if onLookup != nil {
+				onLookup()
+			}
 			mu.Lock()
 			defer mu.Unlock()
 			return sessions[id], nil
@@ -346,27 +364,22 @@ func newOAuthTestStack(t *testing.T, pdsDir identity.Directory) (*echo.Echo, *oa
 			return nil
 		},
 	})
-
-	s := &Server{
-		cli:               &config.CLI{BroadcasterHost: pdsAuthTestHost, ServerHost: pdsAuthTestHost},
-		identityDirectory: func() identity.Directory { return pdsDir },
-		identityRefreshes: newIdentityRefreshCache(),
-		op:                op,
-	}
-	e := echo.New()
-	s.useAuthMiddleware(e)
-	e.GET("/xrpc/"+pdsAuthTestMethod, pdsAuthTestHandler)
-	return e, &oauthTestClient{key: clientKey, pub: clientPub, jkt: jkt, token: string(signedAccess)}
+	return op, &oauthTestClient{key: clientKey, pub: clientPub, jkt: jkt, token: string(signedAccess)}
 }
 
 func (c *oauthTestClient) proof(t *testing.T, nonce string) string {
+	t.Helper()
+	return c.proofFor(t, http.MethodGet, "https://"+pdsAuthTestHost+"/xrpc/"+pdsAuthTestMethod, nonce)
+}
+
+func (c *oauthTestClient) proofFor(t *testing.T, method, uri, nonce string) string {
 	t.Helper()
 	ath := sha256.Sum256([]byte(c.token))
 	claims, err := jwt.NewBuilder().
 		JwtID(base64.RawURLEncoding.EncodeToString([]byte(time.Now().String()))).
 		IssuedAt(time.Now()).
-		Claim("htm", http.MethodGet).
-		Claim("htu", "https://"+pdsAuthTestHost+"/xrpc/"+pdsAuthTestMethod).
+		Claim("htm", method).
+		Claim("htu", uri).
 		Claim("nonce", nonce).
 		Claim("ath", base64.RawURLEncoding.EncodeToString(ath[:])).
 		Build()

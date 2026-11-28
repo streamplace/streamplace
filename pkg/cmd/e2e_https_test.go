@@ -18,13 +18,17 @@ import (
 )
 
 func TestE2EHTTPSPLCHostname(t *testing.T) {
-	for _, plcHost := range []string{
-		e2ePLCHost,
-		"plc.pds.example.test",   // Must take precedence over wildcard PDS routing.
-		"directory.example.test", // Requires its own certificate SAN.
+	for _, tc := range []struct {
+		plcHost        string
+		stationCluster bool
+	}{
+		{plcHost: e2ePLCHost},
+		{plcHost: "plc.pds.example.test", stationCluster: true},   // Takes precedence over wildcard PDS routing.
+		{plcHost: "directory.example.test", stationCluster: true}, // Requires its own certificate SAN.
 	} {
+		plcHost := tc.plcHost
 		t.Run(plcHost, func(t *testing.T) {
-			h, err := newE2EHTTPS("pds.example.test", "station.example.test", plcHost, 0)
+			h, err := newE2EHTTPS("pds.example.test", "station.example.test", plcHost, 0, tc.stationCluster)
 			require.NoError(t, err)
 			t.Cleanup(h.Close)
 
@@ -40,9 +44,15 @@ func TestE2EHTTPSPLCHostname(t *testing.T) {
 				return strings.TrimPrefix(srv.URL, "http://")
 			}
 			pdsAddr, plcAddr, nodeAddr := backend("pds"), backend("plc"), backend("node")
+			var edgeAddr string
+			wantEdge := "pds"
+			if tc.stationCluster {
+				wantEdge = "edge"
+				edgeAddr = backend(wantEdge)
+			}
 			ctx, cancel := context.WithCancel(context.Background())
 			t.Cleanup(cancel)
-			h.Serve(ctx, pdsAddr, plcAddr, nodeAddr)
+			h.Serve(ctx, pdsAddr, plcAddr, nodeAddr, edgeAddr)
 
 			proxyURL, err := url.Parse(h.ProxyURL())
 			require.NoError(t, err)
@@ -67,11 +77,12 @@ func TestE2EHTTPSPLCHostname(t *testing.T) {
 					t.Cleanup(transport.CloseIdleConnections)
 					client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
 					for host, want := range map[string]string{
-						h.pdsHost:              "pds",
-						"account." + h.pdsHost: "pds",
-						h.stationHost:          "node",
-						e2ePLCHost:             "plc",
-						plcHost:                "plc",
+						h.pdsHost:                   "pds",
+						"account." + h.pdsHost:      "pds",
+						"station-edge." + h.pdsHost: wantEdge,
+						h.stationHost:               "node",
+						e2ePLCHost:                  "plc",
+						plcHost:                     "plc",
 					} {
 						resp, err := client.Get("https://" + host + "/did:plc:test")
 						require.NoError(t, err, "GET %s", host)
@@ -84,4 +95,14 @@ func TestE2EHTTPSPLCHostname(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestE2EHTTPSStationEdgePLCCollision(t *testing.T) {
+	const pdsHost = "pds.example.test"
+	edgeHost := "station-edge." + pdsHost
+	h, err := newE2EHTTPS(pdsHost, "station.example.test", edgeHost, 0, true)
+	if h != nil {
+		t.Cleanup(h.Close)
+	}
+	require.ErrorContains(t, err, edgeHost+" conflicts")
 }

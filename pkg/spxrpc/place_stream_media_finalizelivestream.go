@@ -12,15 +12,8 @@ import (
 	"stream.place/streamplace/pkg/statedb"
 )
 
-// handlePlaceStreamMediaFinalizeLivestream turns a recorded livestream (or
-// several records of one recording) into a VOD. It creates a synthetic
-// Upload row and enqueues a background finalize task that concatenates the
-// recorded MUXL objects into a content blob and publishes the track
-// records. By default it also creates a draft VOD in the 'processing' state
-// that the streamer publishes later from the Drafts tab; with publish set,
-// the task publishes the place.stream.video record itself as soon as the
-// VOD is finalized, with the streamer's stored session. The caller is the
-// streamer or a moderator with livestream.manage from them.
+// Finalize a recording in the queue. The default draft uses the caller's
+// grant; explicit publication is a delegated job using the streamer's session.
 func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, body *placestream.MediaFinalizeLivestream_Input) (*placestream.MediaFinalizeLivestream_Output, error) {
 	uris := uniqueURIs(body.Livestream, body.Livestreams)
 	if len(uris) == 0 {
@@ -35,11 +28,17 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 	for i, it := range items {
 		ordered[i] = it.Livestream.URI
 	}
-	modCtx, err := s.requireLivestreamManage(ctx, streamer, "finalizeLivestream")
-	if err != nil {
-		return nil, err
+	did, session, client := draftCaller(ctx)
+	if session == nil {
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
-	ctx = log.WithLogValues(ctx, "func", "finalizeLivestream", "did", streamer, "by", modCtx.ModeratorDID, "livestreams", strings.Join(ordered, ","))
+	publish := body.Publish != nil && *body.Publish
+	if publish || did != streamer {
+		if _, err := s.requireLivestreamManage(ctx, streamer, "finalizeLivestream"); err != nil {
+			return nil, err
+		}
+	}
+	ctx = log.WithLogValues(ctx, "func", "finalizeLivestream", "did", streamer, "by", did, "livestreams", strings.Join(ordered, ","))
 
 	// A banned account can't mint new VODs (the playback gates would hide them
 	// regardless, but skip the work and the dead records).
@@ -57,6 +56,15 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 		return nil, echo.NewHTTPError(http.StatusNotFound, "NoRecording: no completed recording objects for these livestreams")
 	}
 
+	var drafts *statedb.Drafts
+	if !publish {
+		drafts, err = s.openDrafts(ctx, streamer, session, client)
+		if err != nil {
+			return nil, err
+		}
+		defer drafts.Close()
+	}
+
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -66,8 +74,10 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	publish := body.Publish != nil && *body.Publish
 	task := statedb.FinalizeLivestreamVODTask{UploadID: uploadID, RepoDID: streamer, LivestreamURI: ordered[0], LivestreamURIs: ordered}
+	if s.statefulDB.StationShards != nil {
+		task.ObjectKeys = statedb.RecordingObjectKeys(segs)
+	}
 	out := &placestream.MediaFinalizeLivestream_Output{UploadId: uploadID, Livestreams: ordered}
 	objects := int64(len(segs))
 	out.Objects = &objects
@@ -79,15 +89,17 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 	} else {
 		// A draft VOD in the 'processing' state; it reaches 'ready'
 		// server-side and the streamer publishes it from the Drafts tab.
-		draft, err := s.statefulDB.CreateLivestreamDraft(ctx, streamer, uploadID, video)
+		draft, err := drafts.Create(ctx, uploadID, statedb.LivestreamDraftRecord(video))
 		if err != nil {
-			return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+			return nil, draftHTTPError(err)
 		}
 		out.DraftUri = &draft.URI
 	}
 	if _, err := s.statefulDB.EnqueueTask(ctx, statedb.TaskFinalizeLivestreamVOD, task, statedb.WithTaskKey("finalize-vod:"+uploadID)); err != nil {
 		if out.DraftUri != nil {
-			_, _ = s.statefulDB.DeleteDraft(ctx, *out.DraftUri)
+			if cleanupErr := drafts.Delete(ctx, *out.DraftUri); cleanupErr != nil {
+				return nil, draftHTTPError(cleanupErr)
+			}
 		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

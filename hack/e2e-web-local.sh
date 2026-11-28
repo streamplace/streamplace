@@ -3,7 +3,7 @@
 # Run the headless-web e2e suite (Playwright) against a self-contained
 # `streamplace e2e` harness — the web counterpart to hack/e2e-local.sh.
 #
-#   hack/e2e-web-local.sh [--upstream-station] [-- <extra playwright args>]
+#   hack/e2e-web-local.sh [--upstream-station | --station-cluster] [-- <extra playwright args>]
 #
 # Prerequisites:
 #   * A streamplace binary with the embedded web bundle (`make dev`).
@@ -17,6 +17,9 @@
 #     (pnpm --filter @streamplace/e2e-web install-browser; needs root for
 #     --with-deps, so run it inside the container).
 #   * For the OAuth flow, the harness's HTTPS mode: see hack/lib/e2e-harness.sh.
+#   * For --station-cluster, install the pinned Spaces PDS with
+#     bash hack/fetch-spaces-pds.sh and wrap this script with
+#     bash hack/with-station-s3.sh for an isolated loopback S3 fixture.
 #
 # On a dev host without the cgo runtime, run this inside the build container.
 set -euo pipefail
@@ -24,15 +27,26 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 REPO="$PWD"
 
-if [ "${1:-}" = "--upstream-station" ]; then
-  export SP_E2E_UPSTREAM_STATION=true
+while :; do
+  case "${1:-}" in
+    --upstream-station) export SP_E2E_UPSTREAM_STATION=true ;;
+    --station-cluster) export SP_E2E_STATION_CLUSTER=true ;;
+    *) break ;;
+  esac
   shift
-fi
+done
 [ "${1:-}" != "--" ] || shift
 # shellcheck source=hack/lib/e2e-harness.sh
 . hack/lib/e2e-harness.sh
 e2e_harness_start
-if [ "${E2E_UPSTREAM_STATION:-}" = true ] && [ $# -eq 0 ]; then
+playwright=(pnpm exec playwright test)
+if [ "${E2E_STATION_CLUSTER:-}" = true ]; then
+  # Unlike positional patterns (which are ORed), the test list intersects
+  # any extra Playwright filters with this spec.
+  printf '%s\n' station-cluster.spec.ts > "$E2E_CONTROL_DIR/station-tests.list"
+  set -- "$@" --test-list "$E2E_CONTROL_DIR/station-tests.list"
+  playwright=(env "NODE_EXTRA_CA_CERTS=$E2E_TLS_CA" "${playwright[@]}")
+elif [ "${E2E_UPSTREAM_STATION:-}" = true ] && [ $# -eq 0 ]; then
   set -- upstream-station.spec.ts
 fi
 
@@ -40,4 +54,4 @@ fi
 # No `exec` here: that would replace this shell and discard the EXIT trap,
 # leaving the harness and its children running after a successful run.
 cd "$REPO/js/e2e-web"
-pnpm exec playwright test "$@"
+"${playwright[@]}" "$@"

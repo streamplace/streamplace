@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 	glex "github.com/streamplace/glex/runtime"
 	"go.opentelemetry.io/otel/attribute"
@@ -30,6 +31,8 @@ var (
 	ErrUploadNotFound = errors.New("upload not found")
 	ErrUploadNotReady = errors.New("upload not finished processing")
 )
+
+const videoRecordEffectKey = "video"
 
 // PublishVideo creates a place.stream.video record in the authenticated
 // user's repo for a finished upload, server-side. The caller supplies the
@@ -64,6 +67,30 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		return "", "", ErrUploadNotReady
 	}
 
+	advertise := func(uri string) error {
+		if err := statedb.CheckTaskClaim(ctx); err != nil {
+			return err
+		}
+		if err := advertisePublishedVideo(ctx, state, store, upload.ContentCID, uri); err != nil {
+			return fmt.Errorf("record hosting intent: %w", err)
+		}
+		return nil
+	}
+
+	// A confirmed video receipt only needs its hosting intent, not writable OAuth.
+	if receipt, found, err := statedb.ReadTaskEffect[comatproto.RepoPutRecord_Output](ctx, videoRecordEffectKey); err != nil {
+		return "", "", fmt.Errorf("read video publication receipt: %w", err)
+	} else if found {
+		if receipt.Uri == "" || receipt.Cid == "" {
+			return "", "", errors.New("invalid video publication receipt")
+		}
+		if err := advertise(receipt.Uri); err != nil {
+			return "", "", err
+		}
+		span.SetAttributes(attribute.String("uri", receipt.Uri), attribute.String("cid", receipt.Cid))
+		return receipt.Uri, receipt.Cid, nil
+	}
+
 	// Server-authoritative fields: source tracks, duration, and the
 	// creation timestamp come from the server at publish time, not from
 	// whatever the client put in the record.
@@ -76,6 +103,7 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		span.RecordError(err)
 		return "", "", fmt.Errorf("get user xrpc client: %w", err)
 	}
+	client = videoRecordEffects{client}
 
 	// The track records are published here, at publish time, like the
 	// draft path does (processing no longer publishes them, so the upload
@@ -116,10 +144,45 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		span.SetStatus(codes.Error, "put_record")
 		return "", "", fmt.Errorf("putRecord video: %w", err)
 	}
+	if err := advertise(out.Uri); err != nil {
+		return "", "", err
+	}
 	span.SetAttributes(attribute.String("uri", out.Uri), attribute.String("cid", out.Cid))
 	log.Log(ctx, "published video record (server-side)",
 		"uri", out.Uri, "uploadId", uploadID, "title", video.Title)
 	return out.Uri, out.Cid, nil
+}
+
+// videoRecordEffects journals each record write, not the enclosing publish.
+// A confirmed track receipt can be reused even before TrackURIs was saved.
+type videoRecordEffects struct{ XRPCClient }
+
+func (c videoRecordEffects) Do(ctx context.Context, method, contentType, path string, query map[string]any, body, out any) error {
+	if path != "com.atproto.repo.putRecord" {
+		if err := statedb.CheckTaskClaim(ctx); err != nil {
+			return err
+		}
+		return c.XRPCClient.Do(ctx, method, contentType, path, query, body, out)
+	}
+	input := body.(comatproto.RepoPutRecord_Input)
+	key := videoRecordEffectKey
+	if track, ok := input.Record.Val.(*placestream.MediaTrack); ok {
+		key = "track-" + track.Track.MediaDefs_MuxlTrack.TrackId
+	}
+	target := syntax.ATURI("at://" + input.Repo + "/" + input.Collection + "/" + input.Rkey)
+	receipt, err := statedb.RunTaskEffectAtURI(ctx, key, target, func(ctx context.Context) (comatproto.RepoPutRecord_Output, error) {
+		var result comatproto.RepoPutRecord_Output
+		log.Debug(ctx, "dispatching VOD record", "repo", input.Repo, "collection", input.Collection, "rkey", input.Rkey)
+		err := c.XRPCClient.Do(ctx, method, contentType, path, query, body, &result)
+		if err == nil && (result.Uri == "" || result.Cid == "") {
+			err = errors.New("putRecord returned no record receipt")
+		}
+		return result, err
+	})
+	if err == nil {
+		*out.(*comatproto.RepoPutRecord_Output) = receipt
+	}
+	return err
 }
 
 // sourceTracksFromUpload turns the {uri,cid} track refs stored on the Upload

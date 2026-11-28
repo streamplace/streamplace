@@ -20,6 +20,8 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/stationdb"
+	"stream.place/streamplace/pkg/stationshard"
 )
 
 type DBType string
@@ -30,12 +32,15 @@ const (
 )
 
 type StatefulDB struct {
-	DB    *gorm.DB
-	CLI   *config.CLI
-	Type  DBType
-	locks *NamedLocks
-	noter notificationpkg.Notifier
-	model model.Model
+	DB                   *gorm.DB
+	CLI                  *config.CLI
+	Type                 DBType
+	locks                *NamedLocks
+	noter                notificationpkg.Notifier
+	model                model.Model
+	stationStore         *stationdb.Store
+	StationShards        *stationshard.Store
+	stationTargetsCipher stationTargetCipher
 	// pokeQueue is used to wake up the queue processor when a new task is enqueued
 	pokeQueue chan struct{}
 	// pgLockConn is used to hold a connection to the database for locking
@@ -75,6 +80,7 @@ var StatefulDBModels = []any{
 	Config{},
 	XrpcStreamEvent{},
 	AppTask{},
+	AppTaskEffect{},
 	Repo{},
 	Webhook{},
 	MultistreamTarget{},
@@ -114,21 +120,34 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 	log.Log(ctx, "starting stateful database", "dbURL", redactDBURL(dbURL))
 	var dial gorm.Dialector
 	var dbType DBType
+	var db *gorm.DB
+	var stationStore *stationdb.Store
+	var targetCipher stationTargetCipher
+	var err error
 	if dbURL == ":memory:" {
 		dial = sqlite.Open(":memory:")
 		dbType = DBTypeSQLite
 	} else if strings.HasPrefix(dbURL, "sqlite://") {
 		dial = sqlite.Open(dbURL[len("sqlite://"):])
 		dbType = DBTypeSQLite
+	} else if strings.HasPrefix(dbURL, "station://") {
+		prefix, key, e := cli.StationStorage()
+		if e != nil {
+			return nil, e
+		}
+		targetCipher, err = newStationTargetCipher(prefix, key)
+		if err != nil {
+			return nil, fmt.Errorf("initialize station multistream target encryption: %w", err)
+		}
+		db, stationStore, err = openStationDB(ctx, cli.S3Config(), prefix+"/operational", key)
+		dbType = DBTypeSQLite
 	} else if strings.HasPrefix(dbURL, "postgres://") || strings.HasPrefix(dbURL, "postgresql://") {
 		dial = postgres.Open(dbURL)
 		dbType = DBTypePostgres
 	} else {
-		return nil, fmt.Errorf("unsupported database URL (most start with sqlite:// or postgresql://): %s", redactDBURL(dbURL))
+		return nil, fmt.Errorf("unsupported database URL (expected sqlite://, postgresql:// or station://): %s", redactDBURL(dbURL))
 	}
 
-	var db *gorm.DB
-	var err error
 	if dbType == DBTypePostgres {
 		err = retryPostgresConnect(ctx, postgresConnectTimeout, func(attemptCtx context.Context) error {
 			var openErr error
@@ -141,13 +160,13 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 			}
 			return openErr
 		})
-	} else {
+	} else if dial != nil {
 		db, err = openDB(dial)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error starting database: %w", err)
 	}
-	if dbType == DBTypeSQLite {
+	if dbType == DBTypeSQLite && stationStore == nil {
 		if err := sqlitePragmas(db); err != nil {
 			return nil, err
 		}
@@ -161,6 +180,13 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 		if err := boundPostgresPool(ctx, db, cli.DBMaxOpenConns); err != nil {
 			return nil, err
 		}
+	}
+	if stationStore != nil {
+		unlock, err := stationStore.GetNamedLock("schema-migrate")
+		if err != nil {
+			return nil, fmt.Errorf("lock station schema migration: %w", err)
+		}
+		defer unlock()
 	}
 	for _, model := range StatefulDBModels {
 		err = db.AutoMigrate(model)
@@ -187,13 +213,15 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 	}
 
 	state := &StatefulDB{
-		DB:        db,
-		CLI:       cli,
-		Type:      dbType,
-		locks:     NewNamedLocks(),
-		model:     model,
-		pokeQueue: make(chan struct{}, 1),
-		noter:     noter,
+		DB:                   db,
+		CLI:                  cli,
+		Type:                 dbType,
+		locks:                NewNamedLocks(),
+		model:                model,
+		pokeQueue:            make(chan struct{}, 1),
+		noter:                noter,
+		stationStore:         stationStore,
+		stationTargetsCipher: targetCipher,
 	}
 	if state.Type == DBTypePostgres {
 		err = state.startPostgresLockerConn(ctx)

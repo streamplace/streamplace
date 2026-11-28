@@ -26,6 +26,11 @@
 # paths used by the scoped-indexing/lifecycle tests. SP_E2E_ATMOQ_BIN selects
 # the real released bridge executable. E2E_CONTROL_FIFO feeds harness stdin;
 # writing restart-local restarts only this run's local node.
+# Station cluster mode (SP_E2E_STATION_CLUSTER=true) needs HTTPS and the local
+# SP_TEST_S3_* fixture. SERVER_URL is the HTTPS station's HTTP listener and
+# SERVER2_URL is the independent edge's HTTP listener; SERVER2_HTTPS_URL is
+# its public origin. Writing restart-station-edge to E2E_CONTROL_FIFO restarts
+# that edge and atomically updates E2E_STATION_EDGE_RESTART.
 # SP_E2E_INGEST (whip, fmp4, none) and SP_E2E_VIDEO (h264, av1) pick how and
 # what the harness streams; see `streamplace e2e --help`.
 #
@@ -68,6 +73,15 @@ esac
 
 e2e_harness_start() {
   e2e_pacing
+  local station_cluster=false
+  case "${SP_E2E_STATION_CLUSTER:-}" in
+    1|t|T|true|TRUE|True) station_cluster=true; export SP_E2E_STATION_CLUSTER=true ;;
+  esac
+  if [ "$station_cluster" = true ] && [ "${SP_E2E_UPSTREAM_STATION:-false}" = true ]; then
+    echo "--station-cluster and --upstream-station are mutually exclusive" >&2
+    return 1
+  fi
+  unset SERVER2_HTTPS_URL E2E_STATION_CLUSTER E2E_STATION_DID E2E_STATION_HANDLE E2E_STATION_PASSWORD E2E_STATION_EDGE_RESTART
   if [ ! -x "$BUILDDIR/streamplace" ]; then
     echo "harness binary $BUILDDIR/streamplace missing — run 'make dev' first"
     exit 1
@@ -89,8 +103,10 @@ e2e_harness_start() {
   #
   # PIDs matching this checkout's binary before we start — never kill a
   # scratch node someone else is running from the same build dir.
-  E2E_HARNESS_BIN="$(pwd -P)/$BUILDDIR/libstreamplace"
-  E2E_PREEXISTING=" $( { pgrep -f "^$E2E_HARNESS_BIN( |$)" 2>/dev/null || true; } | tr '\n' ' ') "
+  if [ "$station_cluster" != true ]; then
+    E2E_HARNESS_BIN="$(pwd -P)/$BUILDDIR/libstreamplace"
+    E2E_PREEXISTING=" $( { pgrep -f "^$E2E_HARNESS_BIN( |$)" 2>/dev/null || true; } | tr '\n' ' ') "
+  fi
   E2E_HTTPS_PDS_HOSTNAME="${E2E_HTTPS_PDS_HOSTNAME-localhost-pds.streamplace.network}"
   E2E_HTTPS_STATION_HOSTNAME="${E2E_HTTPS_STATION_HOSTNAME-localhost-station.streamplace.team}"
   if [ "$(uname)" = Darwin ]; then
@@ -109,8 +125,9 @@ e2e_harness_start() {
       --https-port "${E2E_HTTPS_PORT:-443}")
   fi
   local input=/dev/null
-  if [ "${SP_E2E_UPSTREAM_STATION:-false}" = true ]; then
+  if [ "${SP_E2E_UPSTREAM_STATION:-false}" = true ] || [ "$station_cluster" = true ]; then
     E2E_CONTROL_DIR="$(mktemp -d)"
+    E2E_CONTROL_DIR="$(cd "$E2E_CONTROL_DIR" && pwd -P)"
     E2E_CONTROL_FIFO="$E2E_CONTROL_DIR/control"
     mkfifo "$E2E_CONTROL_FIFO"
     # Hold both ends open so the harness scanner survives between commands.
@@ -132,16 +149,44 @@ e2e_harness_start() {
   trap 'exit 143' TERM
 
   local delay=$E2E_POLL_START_MS deadline=$((SECONDS + 180))
+  if [ "$station_cluster" = true ]; then
+    deadline=$((SECONDS + 240))
+  fi
   until grep -q '^SERVER_URL=' "$E2E_ENVFILE"; do
     [ "$SECONDS" -lt "$deadline" ] || break
+    if [ "$station_cluster" = true ] && ! kill -0 "$E2E_HARNESS_PID" 2>/dev/null; then
+      break
+    fi
     sleep "$(printf '%d.%03d' "$((delay / 1000))" "$((delay % 1000))")"
     delay=$((delay < 1000 ? delay * 2 : 2000))
   done
   if ! grep -q '^SERVER_URL=' "$E2E_ENVFILE"; then
     echo "harness failed to start; log:"; tail -20 "$E2E_LOGFILE"; exit 1
   fi
+  local -a station_required=()
+  if [ "$station_cluster" = true ]; then
+    station_required=(SERVER_URL SERVER_HTTPS_URL SERVER_INTERNAL_URL SERVER2_URL SERVER2_HTTPS_URL SERVER2_INTERNAL_URL
+      ACCOUNT_HANDLE ACCOUNT_PASSWORD ACCOUNT_DID E2E_FIXTURE_MP4 PDS_HTTP_URL PDS_HTTPS_URL
+      E2E_PROXY_URL E2E_TLS_SPKI E2E_TLS_CA E2E_STATION_CLUSTER E2E_STATION_DID
+      E2E_STATION_HANDLE E2E_STATION_PASSWORD E2E_STATION_EDGE_RESTART)
+    unset E2E_UPSTREAM_STATION "${station_required[@]}"
+  fi
   # shellcheck disable=SC1090
   . "$E2E_ENVFILE"
+  if [ "$station_cluster" = true ]; then
+    local name
+    for name in "${station_required[@]}"; do
+      if [ -z "${!name:-}" ]; then
+        echo "station cluster harness did not report $name" >&2
+        exit 1
+      fi
+    done
+    if [ "$E2E_STATION_CLUSTER" != true ] || [[ "$E2E_STATION_EDGE_RESTART" != /* ]]; then
+      echo "station cluster harness reported an invalid mode or restart path" >&2
+      exit 1
+    fi
+    export SERVER2_HTTPS_URL E2E_STATION_CLUSTER E2E_STATION_DID E2E_STATION_HANDLE E2E_STATION_PASSWORD E2E_STATION_EDGE_RESTART
+  fi
   export SERVER_URL SERVER2_URL SERVER2_INTERNAL_URL SERVER3_URL ACCOUNT_HANDLE ACCOUNT_DID ACCOUNT_PASSWORD VIDEO_URI
   export SERVER_INTERNAL_URL
   export E2E_FIXTURE_MP4 STREAM_KEY PDS_HTTP_URL PDS_KIND
@@ -150,6 +195,7 @@ e2e_harness_start() {
   export E2E_LOGFILE
   # only set in HTTPS mode
   export SERVER_HTTPS_URL PDS_HTTPS_URL E2E_PROXY_URL E2E_TLS_SPKI E2E_TLS_CA
+  export E2E_LEGACY_DRAFT_URI E2E_DRAFT_STATE_DB
   export E2E_UPSTREAM_STATION UPSTREAM_STATION_URL ATMOQ_RELAY_URL E2E_ATMOQ_LOG
   export E2E_LOCAL_DATA_DIR E2E_LOCAL_PDS_AUDIT E2E_STATION_DATA_DIR
   export UNRELATED_ACCOUNT_DID UNRELATED_ACCOUNT_HANDLE UNRELATED_ACCESS_JWT E2E_PDS_INTERNAL_URL E2E_PLC_URL
@@ -165,10 +211,12 @@ e2e_harness_stop() {
   wait "$E2E_HARNESS_PID" 2>/dev/null || true
   # The ingest worker re-setsid's itself, escaping the group kill; sweep the
   # binaries that appeared since we started.
-  local pid
-  for pid in $(pgrep -f "^$E2E_HARNESS_BIN( |$)" 2>/dev/null || true); do
-    case "$E2E_PREEXISTING" in *" $pid "*) ;; *) kill "$pid" 2>/dev/null || true ;; esac
-  done
+  if [ "${SP_E2E_STATION_CLUSTER:-}" != true ]; then
+    local pid
+    for pid in $(pgrep -f "^$E2E_HARNESS_BIN( |$)" 2>/dev/null || true); do
+      case "$E2E_PREEXISTING" in *" $pid "*) ;; *) kill "$pid" 2>/dev/null || true ;; esac
+    done
+  fi
   rm -f "$E2E_ENVFILE"
   [ -n "$E2E_KEEP_LOG" ] || rm -f "$E2E_LOGFILE"
   if [ -n "${E2E_CONTROL_DIR:-}" ]; then

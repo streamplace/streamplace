@@ -2,10 +2,16 @@ package viewlog
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/ipfs/go-cid"
+	glex "github.com/streamplace/glex/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -13,19 +19,25 @@ import (
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
+	"stream.place/streamplace/pkg/vod"
 )
 
 var aggregateTracer = otel.Tracer("viewlog")
+
+const stationPublishTimeout = 15 * time.Second
 
 // RunAggregationInput plumbs everything the bootstrap-installed
 // aggregator function needs to do one window pass end-to-end.
 type RunAggregationInput struct {
 	Store          blob.Store
 	CLI            *config.CLI
+	StationClient  vod.XRPCClient
 	WindowStart    time.Time
 	WindowEnd      time.Time
 	ReadMargin     time.Duration
@@ -33,18 +45,41 @@ type RunAggregationInput struct {
 	FetchTrackRefs TrackRefFetcher
 }
 
-// RunAggregation reads logs for the window, computes per-video view
-// counts via AggregateWindow, and publishes one
-// place.stream.media.viewCount record per video in the node's server
-// repo. Idempotent across re-runs of the same window: the rkey is a
-// deterministic hash of (videoURI, windowStart), so a re-run
-// overwrites the existing record rather than appending.
+// RunAggregation publishes one view count per video and window, in the
+// configured station's PDS or, in standalone mode, the node's server repo.
 func RunAggregation(ctx context.Context, in RunAggregationInput) error {
 	ctx, span := aggregateTracer.Start(ctx, "viewlog.RunAggregation", trace.WithAttributes(
 		attribute.String("window_start", in.WindowStart.Format(time.RFC3339)),
 		attribute.String("window_end", in.WindowEnd.Format(time.RFC3339)),
 	))
 	defer span.End()
+
+	var did, head string
+	if in.CLI != nil {
+		did = in.CLI.StationDID
+	}
+	if did != "" {
+		if !in.CLI.StationOriginPublisher {
+			return errors.New("station view-count aggregation requires --station-origin-publisher")
+		}
+		if in.StationClient == nil {
+			return errors.New("station view-count aggregation requires an authenticated station PDS client")
+		}
+		// Fence the input snapshot, not just the write. A concurrent late-data
+		// job can otherwise publish newer counts while this job reads logs.
+		headCtx, cancel := context.WithTimeout(ctx, stationPublishTimeout)
+		var latest comatproto.SyncGetLatestCommit_Output
+		err := in.StationClient.Do(headCtx, xrpc.Query, "", "com.atproto.sync.getLatestCommit",
+			map[string]any{"did": did}, nil, &latest)
+		cancel()
+		if err != nil {
+			return errors.New("could not read station PDS commit for view-count aggregation")
+		}
+		if _, err := cid.Decode(latest.Cid); err != nil {
+			return errors.New("station PDS returned an invalid commit CID")
+		}
+		head = latest.Cid
+	}
 
 	result, err := AggregateWindow(ctx, in.Store, AggregateInput{
 		WindowStart:    in.WindowStart,
@@ -70,6 +105,7 @@ func RunAggregation(ctx context.Context, in RunAggregationInput) error {
 	)
 
 	indexedAt := aqtime.FromTime(time.Now().UTC()).String()
+	var publishErr error
 	for _, vc := range result.VideoCounts {
 		tracks := make([]placestream.MediaViewCount_TrackUsage, 0, len(vc.Tracks))
 		for _, t := range vc.Tracks {
@@ -88,22 +124,79 @@ func RunAggregation(ctx context.Context, in RunAggregationInput) error {
 			Tracks:        tracks,
 			IndexedAt:     indexedAt,
 		}
+		if did != "" {
+			next, err := putStationViewCount(ctx, in.StationClient, did, head, in.WindowStart, rec)
+			if err != nil {
+				return err // Retry from a fresh head and input snapshot, never this batch.
+			}
+			head = next
+			continue
+		}
 		rkey, err := viewCountRkey(vc.VideoURI, in.WindowStart)
 		if err != nil {
 			log.Error(ctx, "viewlog: build viewCount rkey",
 				"video", vc.VideoURI, "error", err)
+			publishErr = errors.Join(publishErr, err)
 			continue
 		}
+		if err := statedb.CheckTaskClaim(ctx); err != nil {
+			return err
+		}
 		if err := atproto.CommitServerRepoRecord(ctx, in.CLI, constants.PLACE_STREAM_MEDIA_VIEW_COUNT, rkey, rec); err != nil {
-			// Don't bail on a single record failure — keep publishing
-			// the rest and surface the error in logs. The window will
-			// re-run on schedule if needed.
+			// Other records are independent; retry the window using the same keys.
 			log.Error(ctx, "viewlog: publish view-count record",
 				"video", vc.VideoURI, "count", vc.Count, "error", err)
+			publishErr = errors.Join(publishErr, err)
 			continue
 		}
 	}
-	return nil
+	return publishErr
+}
+
+func putStationViewCount(ctx context.Context, client vod.XRPCClient, did, head string, windowStart time.Time, rec *placestream.MediaViewCount) (string, error) {
+	rkey, err := stationViewCountRkey(rec.Video, windowStart)
+	if err != nil {
+		return "", err
+	}
+	body := &comatproto.RepoPutRecord_Input{
+		Repo:       did,
+		Collection: constants.PLACE_STREAM_MEDIA_VIEW_COUNT,
+		Rkey:       rkey,
+		Record:     &glex.LexiconTypeDecoder{Val: rec},
+		SwapCommit: &head,
+	}
+	var out comatproto.RepoPutRecord_Output
+	writeCtx, cancel := context.WithTimeout(ctx, stationPublishTimeout)
+	defer cancel()
+	if err := statedb.CheckTaskClaim(ctx); err != nil {
+		return "", err
+	}
+	if err := client.Do(writeCtx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", nil, body, &out); err != nil {
+		var rpcErr *xrpc.XRPCError
+		if errors.As(err, &rpcErr) && rpcErr.ErrStr == "InvalidSwap" {
+			return "", errors.New("station PDS commit changed during view-count aggregation")
+		}
+		return "", errors.New("station PDS did not acknowledge view-count putRecord")
+	}
+	if out.Uri != "at://"+did+"/"+body.Collection+"/"+rkey || out.Commit == nil {
+		return "", errors.New("station PDS returned an invalid view-count write acknowledgement")
+	}
+	if _, err := cid.Decode(out.Cid); err != nil {
+		return "", errors.New("station PDS returned an invalid view-count record CID")
+	}
+	if _, err := cid.Decode(out.Commit.Cid); err != nil {
+		return "", errors.New("station PDS returned an invalid view-count commit CID")
+	}
+	return out.Commit.Cid, nil
+}
+
+func stationViewCountRkey(videoURI string, windowStart time.Time) (string, error) {
+	uri, err := syntax.ParseATURI(videoURI)
+	if err != nil || uri.Collection().String() != constants.PLACE_STREAM_VIDEO || uri.RecordKey().String() == "" {
+		return "", fmt.Errorf("invalid video record AT-URI %q", videoURI)
+	}
+	digest := sha256.Sum256([]byte(uri.String()))
+	return syntax.NewTIDFromTime(windowStart.UTC(), 0).String() + "-" + hex.EncodeToString(digest[:]), nil
 }
 
 // viewCountRkey derives a deterministic rkey for one (video, window)

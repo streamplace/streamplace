@@ -1277,6 +1277,8 @@ github.com/prometheus/procfs v0.23.0/go.mod h1:3AVXO0FqLafyYFU/V/IQRZlC8Rgqz8Dm/
 github.com/prometheus/statsd_exporter v0.22.7/go.mod h1:N/TevpjkIh9ccs6nuzY3jQn9dFqnUakOjnEuMPJJJnI=
 github.com/prometheus/statsd_exporter v0.31.0 h1:luXCp7OqyDJEV+2gIbaB0ia9ELmaUyWmI+m1bTNRvdU=
 github.com/prometheus/statsd_exporter v0.31.0/go.mod h1:xHdMJx7eBPnYXFkAATK5uKxfxbB+heEkrjx/Gn1fMBc=
+github.com/psanford/sqlite3vfs v0.0.0-20260519004904-f9180fa2acc9 h1:9bBMbcwroL46feESdJWjRX0GV+k8o/P9gAg9UX6Vz7U=
+github.com/psanford/sqlite3vfs v0.0.0-20260519004904-f9180fa2acc9/go.mod h1:iW4cSew5PAb1sMZiTEkVJAIBNrepaB6jTYjeP47WtI0=
 github.com/quasilyte/go-ruleguard v0.4.5 h1:AGY0tiOT5hJX9BTdx/xBdoCubQUAE2grkqY2lSwvZcA=
 github.com/quasilyte/go-ruleguard v0.4.5/go.mod h1:Vl05zJ538vcEEwu16V/Hdu7IYZWyKSwIy4c88Ro1kRE=
 github.com/quasilyte/go-ruleguard/dsl v0.3.23 h1:lxjt5B6ZCiBeeNO8/oQsegE6fLeCzuMRoVWSkXC4uvY=

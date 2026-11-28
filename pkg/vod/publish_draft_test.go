@@ -2,13 +2,17 @@ package vod
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/blob"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spaces/spacestest"
 	"stream.place/streamplace/pkg/statedb"
 )
 
@@ -30,8 +34,11 @@ func TestPublishDraftNotFoundForMissingDraft(t *testing.T) {
 	store, err := blob.NewFileStore(t.TempDir())
 	require.NoError(t, err)
 
-	_, _, err = PublishDraft(t.Context(), state, store, "did:plc:alice", "ats://did:plc:alice/place.stream.vod.drafts/self/did:plc:alice/place.stream.vod.draftVideo/none")
-	require.ErrorIs(t, err, ErrDraftNotFound)
+	drafts, err := state.OpenDrafts(t.Context(), "did:plc:alice", nil)
+	require.NoError(t, err)
+	defer drafts.Close()
+	_, _, err = PublishDraft(t.Context(), state, store, drafts, nil, statedb.DraftURI("did:plc:alice", "none"))
+	require.ErrorIs(t, err, statedb.ErrDraftNotFound)
 }
 
 func TestPublishDraftNotFoundForOtherUsersDraft(t *testing.T) {
@@ -41,7 +48,9 @@ func TestPublishDraftNotFoundForOtherUsersDraft(t *testing.T) {
 	ctx := context.Background()
 
 	// Alice owns the draft; Bob tries to publish it.
-	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-1", &placestream.VodDraftVideo{
+	alice, err := state.OpenDrafts(ctx, "did:plc:alice", nil)
+	require.NoError(t, err)
+	dv, err := alice.Create(ctx, "up-1", &placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         "Alice's draft",
 		Status:        "ready",
@@ -49,8 +58,12 @@ func TestPublishDraftNotFoundForOtherUsersDraft(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, _, err = PublishDraft(ctx, state, store, "did:plc:bob", dv.URI)
-	require.ErrorIs(t, err, ErrDraftNotFound, "a foreign caller must not learn the draft exists")
+	alice.Close()
+	bob, err := state.OpenDrafts(ctx, "did:plc:bob", nil)
+	require.NoError(t, err)
+	defer bob.Close()
+	_, _, err = PublishDraft(ctx, state, store, bob, nil, dv.URI)
+	require.ErrorIs(t, err, statedb.ErrDraftNotFound, "a foreign caller must not learn the draft exists")
 }
 
 func TestPublishDraftNotReadyWhileProcessing(t *testing.T) {
@@ -59,7 +72,10 @@ func TestPublishDraftNotReadyWhileProcessing(t *testing.T) {
 	require.NoError(t, err)
 	ctx := context.Background()
 
-	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-2", &placestream.VodDraftVideo{
+	drafts, err := state.OpenDrafts(ctx, "did:plc:alice", nil)
+	require.NoError(t, err)
+	defer drafts.Close()
+	dv, err := drafts.Create(ctx, "up-2", &placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         "Still cooking",
 		Status:        "processing",
@@ -67,7 +83,7 @@ func TestPublishDraftNotReadyWhileProcessing(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, _, err = PublishDraft(ctx, state, store, "did:plc:alice", dv.URI)
+	_, _, err = PublishDraft(ctx, state, store, drafts, nil, dv.URI)
 	require.ErrorIs(t, err, ErrDraftNotReady)
 }
 
@@ -77,7 +93,10 @@ func TestPublishDraftNotReadyWhenErrored(t *testing.T) {
 	require.NoError(t, err)
 	ctx := context.Background()
 
-	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-3", &placestream.VodDraftVideo{
+	drafts, err := state.OpenDrafts(ctx, "did:plc:alice", nil)
+	require.NoError(t, err)
+	defer drafts.Close()
+	dv, err := drafts.Create(ctx, "up-3", &placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         "Failed",
 		Status:        "error",
@@ -85,7 +104,7 @@ func TestPublishDraftNotReadyWhenErrored(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, _, err = PublishDraft(ctx, state, store, "did:plc:alice", dv.URI)
+	_, _, err = PublishDraft(ctx, state, store, drafts, nil, dv.URI)
 	require.ErrorIs(t, err, ErrDraftNotReady)
 }
 
@@ -121,4 +140,72 @@ func TestDraftTID(t *testing.T) {
 	// No slash at all.
 	_, err = draftTID("garbage")
 	require.Error(t, err)
+}
+
+type draftRepoWriter func(input comatproto.RepoPutRecord_Input, output *comatproto.RepoPutRecord_Output) error
+
+func (f draftRepoWriter) Do(_ context.Context, _, _, method string, _ map[string]any, body, out any) error {
+	if method != "com.atproto.repo.putRecord" {
+		return fmt.Errorf("unexpected public repo RPC %s", method)
+	}
+	return f(body.(comatproto.RepoPutRecord_Input), out.(*comatproto.RepoPutRecord_Output))
+}
+
+type draftDeleteFailure struct {
+	spacestest.Fake
+	err error
+}
+
+func (c *draftDeleteFailure) Do(ctx context.Context, kind, enc, method string, params map[string]any, body, out any) error {
+	if method == "com.atproto.space.applyWrites" && c.err != nil {
+		return c.err
+	}
+	return c.Fake.Do(ctx, kind, enc, method, params, body, out)
+}
+
+func TestPublishPrivateDraftUsesLatestMetadataAndRequiresCleanup(t *testing.T) {
+	ctx := t.Context()
+	state := newDraftTestState(t)
+	did := "did:plc:alice"
+	space := &draftDeleteFailure{}
+	drafts, err := state.OpenDrafts(ctx, did, space)
+	require.NoError(t, err)
+	defer drafts.Close()
+	draft, err := drafts.Create(ctx, "", &placestream.VodDraftVideo{
+		Title: "Initial", Status: "ready", CreatedAt: "2026-01-01T00:00:00Z",
+		Source: &placestream.VodDraftVideo_Source{
+			MediaDefs_SourceClip: &placestream.MediaDefs_SourceClip{
+				Video: "at://" + did + "/place.stream.video/original", Start: 1, End: 2,
+			},
+		},
+	})
+	require.NoError(t, err)
+	title := "Edited on PDS"
+	_, err = drafts.Update(ctx, &placestream.VodUpdateDraft_Input{Uri: draft.URI, Title: &title})
+	require.NoError(t, err)
+	failed := errors.New("PDS temporarily unavailable")
+	client := draftRepoWriter(func(input comatproto.RepoPutRecord_Input, output *comatproto.RepoPutRecord_Output) error {
+		video := input.Record.Val.(*placestream.Video)
+		require.Equal(t, did, input.Repo)
+		require.Equal(t, title, video.Title)
+		require.Equal(t, "at://"+did+"/place.stream.video/original", video.Source.MediaDefs_SourceClip.Video)
+		output.Uri = "at://" + did + "/place.stream.video/" + input.Rkey
+		output.Cid = "public-cid"
+		return nil
+	})
+	space.err = failed
+	_, _, err = PublishDraft(ctx, state, nil, drafts, client, draft.URI)
+	require.ErrorIs(t, err, failed)
+	_, err = drafts.Get(ctx, draft.URI)
+	require.NoError(t, err, "the failed cleanup must leave the same draft retriable")
+	space.err = nil
+	uri, cid, err := PublishDraft(ctx, state, nil, drafts, client, draft.URI)
+	require.NoError(t, err)
+	rkey, err := draftTID(draft.URI)
+	require.NoError(t, err)
+	require.Equal(t, "at://"+did+"/place.stream.video/"+rkey, uri)
+	require.Equal(t, "public-cid", cid)
+	_, err = drafts.Get(ctx, draft.URI)
+	require.ErrorIs(t, err, statedb.ErrDraftNotFound)
+	require.Empty(t, space.Records)
 }

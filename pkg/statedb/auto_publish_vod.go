@@ -81,7 +81,7 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 	}
 	if ls == nil {
 		log.Warn(ctx, "livestream to publish a VOD of is not indexed; skipping")
-		return state.CompleteTask(ctx, task.ID)
+		return nil
 	}
 	ctx = log.WithLogValues(ctx, "did", ls.RepoDID)
 	view, err := ls.ToLivestreamView()
@@ -100,7 +100,7 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 	}
 	if !on {
 		log.Log(ctx, "automatic VOD publishing was turned off after the livestream ended; skipping")
-		return state.CompleteTask(ctx, task.ID)
+		return nil
 	}
 
 	// The upload is named after the livestream, so a pass interrupted after
@@ -116,7 +116,7 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 	for _, u := range uploads {
 		if u.ID != uploadID {
 			log.Log(ctx, "livestream was already finalized into a VOD; not publishing another", "uploadId", u.ID)
-			return state.CompleteTask(ctx, task.ID)
+			return nil
 		}
 		created = true
 	}
@@ -128,11 +128,11 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 	if open > 0 && t.Waits < autoPublishVODMaxWaits {
 		next := t
 		next.Waits++
-		if err := state.enqueueAutoPublishVOD(ctx, next); err != nil {
+		if err := state.withTaskWrite(ctx, func(db *StatefulDB) error { return db.enqueueAutoPublishVOD(ctx, next) }); err != nil {
 			return fmt.Errorf("reschedule automatic VOD publishing: %w", err)
 		}
 		log.Debug(ctx, "livestream recording still being written; waiting to publish its VOD", "open", open, "waits", next.Waits)
-		return state.CompleteTask(ctx, task.ID)
+		return nil
 	}
 	segs, err := state.ListS3SegmentsForLivestream(ctx, ls.URI)
 	if err != nil {
@@ -140,14 +140,9 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 	}
 	if len(segs) == 0 {
 		log.Log(ctx, "livestream has no recording; no VOD to publish")
-		return state.CompleteTask(ctx, task.ID)
+		return nil
 	}
 
-	if !created {
-		if err := state.CreateLivestreamUpload(ctx, uploadID, ls.RepoDID, ls.URI); err != nil {
-			return fmt.Errorf("create upload: %w", err)
-		}
-	}
 	vodTask := FinalizeLivestreamVODTask{
 		UploadID:       uploadID,
 		RepoDID:        ls.RepoDID,
@@ -155,9 +150,20 @@ func (state *StatefulDB) processAutoPublishVODTask(ctx context.Context, task *Ap
 		LivestreamURIs: []string{ls.URI},
 		Publish:        VideoDraftForLivestreams([]LivestreamItem{{Livestream: ls, Record: rec}}, "", ""),
 	}
-	if _, err := state.EnqueueTask(ctx, TaskFinalizeLivestreamVOD, vodTask, WithTaskKey("finalize-vod:"+uploadID)); err != nil {
-		return fmt.Errorf("enqueue VOD finalize: %w", err)
+	if state.StationShards != nil {
+		vodTask.ObjectKeys = RecordingObjectKeys(segs)
+	}
+	if err := state.withTaskWrite(ctx, func(db *StatefulDB) error {
+		if !created {
+			if err := db.CreateLivestreamUpload(ctx, uploadID, ls.RepoDID, ls.URI); err != nil {
+				return fmt.Errorf("create upload: %w", err)
+			}
+		}
+		_, err := db.EnqueueTask(ctx, TaskFinalizeLivestreamVOD, vodTask, WithTaskKey("finalize-vod:"+uploadID))
+		return err
+	}); err != nil {
+		return fmt.Errorf("handoff to VOD finalize: %w", err)
 	}
 	log.Log(ctx, "livestream ended; VOD queued for automatic publishing", "uploadId", uploadID, "objects", len(segs), "waits", t.Waits)
-	return state.CompleteTask(ctx, task.ID)
+	return nil
 }

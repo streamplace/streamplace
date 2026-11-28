@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/julienschmidt/httprouter"
+	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/errors"
@@ -20,8 +23,7 @@ import (
 // content blob from a place.stream.video record (Source + URI) or name the
 // blob directly (CID + DID); Source is always required.
 type vodTransferRequest struct {
-	// Source is the base URL of the node to pull the blob from
-	// (e.g. "https://source.example").
+	// Source is the station DID or the operator-supplied playback origin.
 	Source string `json:"source"`
 	// URI is a place.stream.video AT-URI. When set, the content CID and
 	// owning DID are resolved from the local index.
@@ -67,6 +69,18 @@ func (a *StreamplaceAPI) HandleVODTransfer(ctx context.Context) httprouter.Handl
 			return
 		}
 
+		httpClient := vodTransferHTTPClient
+		if strings.HasPrefix(req.Source, "did:") {
+			station, err := atproto.ResolveStationIdentity(reqCtx, a.CLI.PLCURL, req.Source)
+			if err != nil || station.URL == "" {
+				errors.WriteHTTPBadRequest(w, "source station has no usable #streamplace service", err)
+				return
+			}
+			req.Source = station.URL
+			// DID documents are remote input, unlike an operator-supplied URL.
+			// Keep the protected dialer; the request context bounds a long download.
+			httpClient = &http.Client{Transport: aqhttp.Client.Transport, CheckRedirect: aqhttp.Client.CheckRedirect}
+		}
 		contentCID := req.CID
 		did := req.DID
 		switch {
@@ -83,22 +97,35 @@ func (a *StreamplaceAPI) HandleVODTransfer(ctx context.Context) httprouter.Handl
 			errors.WriteHTTPBadRequest(w, "provide either uri, or both cid and did", nil)
 			return
 		}
+		station := a.CLI.StationDID
+		if station != "" {
+			// Even a trusted operator's raw CID is not evidence of a public
+			// creator record. A cached draft must not become an attestation.
+			publicURI, err := a.transferSourceURI(reqCtx, req.URI, contentCID)
+			if err != nil || publicURI == "" {
+				errors.WriteHTTPBadRequest(w, "station transfer requires an eligible public video", err)
+				return
+			}
+			req.URI = publicURI
+		}
 
-		log.Log(reqCtx, "vod transfer requested", "source", req.Source, "uri", req.URI, "cid", contentCID, "did", did)
+		log.Log(reqCtx, "vod transfer requested", "uri", req.URI, "cid", contentCID, "did", did)
 
-		result, err := vod.TransferVOD(reqCtx, a.CLI, a.PlaybackStore, vodTransferHTTPClient, req.Source, contentCID, did)
+		result, err := vod.TransferVOD(reqCtx, a.PlaybackStore, httpClient, req.Source, contentCID, did, station != "")
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "vod transfer failed", err)
 			return
 		}
 
-		// TransferVOD commits the media.origin to the server repo and relies
-		// on the firehose to round-trip it back into the index, which can lag.
-		// Index it directly so the transferred video is immediately queryable
-		// (notably by getVideoList, which only lists videos we have an origin
-		// for). Idempotent — keyed by URI, and the firehose upsert is a no-op
-		// when it eventually arrives.
-		if err := a.indexOwnMediaOrigin(reqCtx, result.ContentCID, result.Size); err != nil {
+		if station != "" {
+			if err := vod.AdvertiseStationVideo(reqCtx, a.PlaybackStore, station, result.ContentCID, req.URI); err != nil {
+				errors.WriteHTTPInternalServerError(w, "record station hosting intent", err)
+				return
+			}
+		} else if err := vod.PublishNodeOrigin(reqCtx, a.CLI, result.ContentCID, result.Size); err != nil {
+			errors.WriteHTTPInternalServerError(w, "publish node origin", err)
+			return
+		} else if err := a.indexOwnMediaOrigin(reqCtx, result.ContentCID, result.Size); err != nil {
 			log.Error(reqCtx, "vod transfer: failed to index origin locally", "cid", result.ContentCID, "error", err)
 		}
 

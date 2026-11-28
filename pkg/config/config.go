@@ -64,6 +64,8 @@ type CLI struct {
 	Build                      *BuildFlags
 	DataDir                    string
 	DBURL                      string
+	StationStateKeyFile        string
+	StationPeers               string
 	DBMaxOpenConns             int
 	LocalDBURL                 string
 	EthAccountAddr             string
@@ -105,6 +107,8 @@ type CLI struct {
 	StreamerName                string
 	RelayHost                   string
 	UpstreamStation             string
+	StationDID                  string
+	StationOriginPublisher      bool
 	Debug                       map[string]map[string]int
 	AllowedStreams              []string
 	WideOpen                    bool
@@ -421,10 +425,22 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:        "db-url",
-				Usage:       "URL of the database to use for storing private streamplace state",
+				Usage:       "Private state database: sqlite://path, postgresql://host/db, or station://namespace for a shared S3 bucket",
 				Value:       "sqlite://$SP_DATA_DIR/state.sqlite",
 				Destination: &cli.DBURL,
 				Sources:     urfavecli.EnvVars("SP_DB_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "station-state-key-file",
+				Usage:       "File containing the station's shared 32-byte binary state encryption key (station:// only)",
+				Destination: &cli.StationStateKeyFile,
+				Sources:     urfavecli.EnvVars("SP_STATION_STATE_KEY_FILE"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "station-peers",
+				Usage:       "Comma-separated server DID=HTTPS origin pairs trusted for creator routing (station:// only)",
+				Destination: &cli.StationPeers,
+				Sources:     urfavecli.EnvVars("SP_STATION_PEERS"),
 			},
 			&urfavecli.IntFlag{
 				Name:        "db-max-open-conns",
@@ -698,6 +714,18 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "DID of an upstream Streamplace station, for a node that indexes only its own logged-in users: OAuth goes through the station, streams are pushed to it (unless --peers is set), and those users' firehose events come from per-DID tracks on the MoQ --relay-host",
 				Destination: &cli.UpstreamStation,
 				Sources:     urfavecli.EnvVars("SP_UPSTREAM_STATION"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "station-did",
+				Usage:       "external DID of the station advertising public VODs from the shared playback store (not the node's live or signing identity)",
+				Destination: &cli.StationDID,
+				Sources:     urfavecli.EnvVars("SP_STATION_DID"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "station-origin-publisher",
+				Usage:       "publish VOD hosting records and enabled view-count aggregates to the external station PDS; enable on one node authorized as the station account",
+				Destination: &cli.StationOriginPublisher,
+				Sources:     urfavecli.EnvVars("SP_STATION_ORIGIN_PUBLISHER"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "color",
@@ -1539,6 +1567,20 @@ func (cli *CLI) Validate(cmd *urfavecli.Command) error {
 // restart does.
 func (cli *CLI) CheckConfig() error {
 	var errs []error
+	if strings.HasPrefix(cli.DBURL, "station://") {
+		if _, _, err := cli.StationStorage(); err != nil {
+			errs = append(errs, err)
+		}
+		if cli.ServerHost == "" || cli.BroadcasterHost == "" || cli.StationDID == "" {
+			errs = append(errs, fmt.Errorf("station:// requires --server-host unique to this node and --broadcaster-host and --station-did shared by the fleet"))
+		}
+		if !cli.HasHTTPS() {
+			errs = append(errs, fmt.Errorf("station:// requires --secure or --behind-https-proxy for the shared OAuth issuer"))
+		}
+	}
+	if _, err := cli.StationPeerOrigins(); err != nil {
+		errs = append(errs, err)
+	}
 	if cli.DataDir == "" {
 		errs = append(errs, fmt.Errorf("could not determine default data dir (no $HOME) and none provided, please set --data-dir"))
 	}
@@ -1581,6 +1623,22 @@ func (cli *CLI) CheckConfig() error {
 	}
 	if err := cli.validateLiveCDN(); err != nil {
 		errs = append(errs, err)
+	}
+	if cli.StationDID != "" {
+		if _, err := syntax.ParseDID(cli.StationDID); err != nil {
+			errs = append(errs, fmt.Errorf("--station-did: %w", err))
+		}
+		if cli.UpstreamStation != "" || (cli.AtprotoDID != "" && cli.AtprotoDID != cli.StationDID) {
+			errs = append(errs, fmt.Errorf("--station-did conflicts with an upstream station or a different --atproto-did"))
+		}
+		if cli.VODCDNURL != "" {
+			errs = append(errs, fmt.Errorf("--station-did cannot use direct --vod-cdn-url playback: withdrawals must be enforced on every content request"))
+		}
+		if cli.StationDID == cli.ServerDID() || cli.StationDID == cli.BroadcasterDID() {
+			errs = append(errs, fmt.Errorf("--station-did must not identify a node's embedded repository"))
+		}
+	} else if cli.StationOriginPublisher {
+		errs = append(errs, fmt.Errorf("--station-origin-publisher requires --station-did"))
 	}
 	if cli.UpstreamStation != "" {
 		if _, err := syntax.ParseDID(cli.UpstreamStation); err != nil {
@@ -1968,6 +2026,63 @@ func (cli *CLI) DumpDebugSegment(ctx context.Context, name string, r io.Reader) 
 
 func (cli *CLI) S3Configured() bool {
 	return cli.S3Endpoint != "" && cli.S3Bucket != "" && cli.S3AccessKeyID != "" && cli.S3SecretAccessKey != ""
+}
+
+// StationPrefix validates the namespace before using it in an S3 object key.
+func StationPrefix(dbURL string) (string, error) {
+	namespace, ok := strings.CutPrefix(dbURL, "station://")
+	if !ok || namespace == "" || len(namespace) > 63 || strings.Trim(namespace, "-") != namespace ||
+		strings.Trim(namespace, "abcdefghijklmnopqrstuvwxyz0123456789-") != "" {
+		return "", fmt.Errorf("station:// requires a lowercase alphanumeric namespace with optional interior hyphens")
+	}
+	return "stations/" + namespace, nil
+}
+
+func (cli *CLI) StationStorage() (string, []byte, error) {
+	prefix, err := StationPrefix(cli.DBURL)
+	if err != nil {
+		return "", nil, err
+	}
+	if !cli.S3Configured() {
+		return "", nil, fmt.Errorf("station:// requires S3 endpoint, bucket and credentials")
+	}
+	if cli.StationStateKeyFile == "" {
+		return "", nil, fmt.Errorf("station:// requires --station-state-key-file")
+	}
+	key, err := os.ReadFile(cli.StationStateKeyFile)
+	if err != nil {
+		return "", nil, fmt.Errorf("read station state key: %w", err)
+	}
+	if len(key) != 32 {
+		return "", nil, fmt.Errorf("station state key file must contain exactly 32 raw bytes")
+	}
+	return prefix, key, nil
+}
+
+// StationPeerOrigins is both the creator routing address book and the inbound sender allowlist.
+func (cli *CLI) StationPeerOrigins() (map[string]*url.URL, error) {
+	if strings.TrimSpace(cli.StationPeers) == "" {
+		return nil, nil
+	}
+	peers := make(map[string]*url.URL)
+	for pair := range strings.SplitSeq(cli.StationPeers, ",") {
+		did, raw, ok := strings.Cut(pair, "=")
+		did, raw = strings.TrimSpace(did), strings.TrimSpace(raw)
+		if _, err := syntax.ParseDID(did); !ok || err != nil {
+			return nil, fmt.Errorf("--station-peers: expected server DID=HTTPS origin")
+		}
+		if _, ok := peers[did]; ok {
+			return nil, fmt.Errorf("--station-peers: duplicate server DID %s", did)
+		}
+		u, err := url.Parse(raw)
+		if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil ||
+			(u.Path != "" && u.Path != "/") || u.RawPath != "" || u.ForceQuery || u.RawQuery != "" || strings.Contains(raw, "#") {
+			return nil, fmt.Errorf("--station-peers: %s requires an HTTPS origin without credentials, path, query, or fragment", did)
+		}
+		u.Path = ""
+		peers[did] = u
+	}
+	return peers, nil
 }
 
 // S3Config assembles an s3.Config from the CLI's S3 flags.

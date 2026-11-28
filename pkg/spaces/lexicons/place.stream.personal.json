@@ -7,7 +7,10 @@
       "description": "Private Streamplace records stored on the user's PDS.",
       "key": "literal:self",
       "title": "Streamplace private data",
-      "collections": ["place.stream.multistream.target"]
+      "collections": [
+        "place.stream.multistream.target",
+        "place.stream.vod.draftMetadata"
+      ]
     }
   }
 }

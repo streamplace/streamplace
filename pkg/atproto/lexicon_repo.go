@@ -134,6 +134,13 @@ func PublishedLexicons(ctx context.Context) ([]*lexicon.SchemaFile, error) {
 func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, state *statedb.StatefulDB) (Closer, error) {
 	ctx = log.WithLogValues(ctx, "func", "MakeLexiconRepo")
 	var err error
+	if state.StationShards != nil {
+		unlock, err := state.WaitForNamedLock(ctx, "bootstrap:lexicon-repo:"+cli.BroadcasterDID())
+		if err != nil {
+			return nil, fmt.Errorf("lock lexicon repository: %w", err)
+		}
+		defer unlock()
+	}
 
 	sqliteStore := &carstore.SQLiteStore{}
 

@@ -10,12 +10,11 @@ import (
 	"github.com/bluesky-social/indigo/atproto/lexicon"
 )
 
-// AuthFullID is the OAuth permission set granting every place.stream record
-// collection. Its lexicon, place/stream/authFull.json, is generated from the
-// record lexicons by `make lexicons` (gen_authfull.go) and committed like any
-// other source lexicon, so the embedded bundle, codegen, and release
-// publication all see the same document.
+// AuthFullID is the OAuth permission set for Streamplace. `make lexicons`
+// generates its repo permission from the public record lexicons.
 const AuthFullID = "place.stream.authFull"
+
+const draftMetadataCollection = "place.stream.vod.draftMetadata"
 
 // PlaceStream parses every place.stream lexicon in bundle: the schemas a
 // place.stream lexicon authority publishes. Imported lexicons (app.bsky,
@@ -46,13 +45,13 @@ func PlaceStream(bundle fs.FS) ([]*lexicon.SchemaFile, error) {
 	return lexs, err
 }
 
-// AuthFull builds place.stream.authFull from lexs: one repo permission over
-// every record collection among them, in NSID order so the output is stable.
-// Non-record lexicons, including an already generated authFull, contribute
-// nothing.
+// AuthFull grants repo access to the public records in lexs, in NSID order.
 func AuthFull(lexs []*lexicon.SchemaFile) *lexicon.SchemaFile {
 	collections := []string{}
 	for _, lex := range lexs {
+		if lex.ID == draftMetadataCollection {
+			continue // This collection is authorized only through the space overlay.
+		}
 		if _, ok := lex.Defs["main"].Inner.(lexicon.SchemaRecord); ok {
 			collections = append(collections, lex.ID)
 		}

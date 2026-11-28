@@ -47,6 +47,18 @@ type reindexOriginsResponse struct {
 func (a *StreamplaceAPI) HandleReindexOrigins(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		reqCtx := r.Context()
+		if a.CLI.StationDID != "" {
+			res, err := a.backfillStationOrigins(reqCtx)
+			if err != nil {
+				errors.WriteHTTPInternalServerError(w, "backfill station origins", err)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				log.Error(reqCtx, "write station backfill response", "error", err)
+			}
+			return
+		}
 		serverDID := a.CLI.ServerDID()
 		res := reindexOriginsResponse{ServerDID: serverDID}
 

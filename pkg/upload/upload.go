@@ -4,10 +4,8 @@
 // URL and a short-lived bearer token; clients then PATCH/HEAD chunks against
 // the URL with only the bearer token, avoiding per-chunk DPoP.
 //
-// Two storage backends are supported. When S3 is configured, uploads are
-// streamed directly into an S3 multipart upload, which lets any node in a
-// station resume any upload. Otherwise uploads land on local disk under
-// $DataDir/uploads — that mode requires a single-node deployment.
+// Standalone uploads use tusd's file or S3 stores. Station uploads use a
+// shared transactional offset and immutable objects via NewStation.
 package upload
 
 import (
@@ -32,7 +30,6 @@ import (
 
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
 )
 
@@ -71,6 +68,7 @@ type Manager struct {
 	handler  *tushandler.UnroutedHandler
 	backend  Backend
 	authKey  []byte
+	station  *stationStore
 }
 
 // New constructs an upload Manager, choosing the storage backend based on
@@ -196,24 +194,26 @@ func (m *Manager) Create(ctx context.Context, did string, mimeType string, filen
 		return nil, fmt.Errorf("upload: read back upload info: %w", err)
 	}
 
-	row := &statedb.Upload{
-		ID:       final.ID,
-		RepoDID:  did,
-		MimeType: mimeType,
-		Filename: filename,
-		Size:     size,
-		Backend:  string(m.backend),
-	}
-	if final.Storage != nil {
-		// Filestore stores "Path"; s3store stores "Bucket"+"Key".
-		if p, ok := final.Storage["Path"]; ok {
-			row.Location = p
-		} else if k, ok := final.Storage["Key"]; ok {
-			row.Location = "s3://" + final.Storage["Bucket"] + "/" + k
+	if m.station == nil {
+		row := &statedb.Upload{
+			ID:       final.ID,
+			RepoDID:  did,
+			MimeType: mimeType,
+			Filename: filename,
+			Size:     size,
+			Backend:  string(m.backend),
 		}
-	}
-	if err := m.state.CreateUpload(ctx, row); err != nil {
-		return nil, fmt.Errorf("upload: persist upload row: %w", err)
+		if final.Storage != nil {
+			// Filestore stores "Path"; s3store stores "Bucket"+"Key".
+			if p, ok := final.Storage["Path"]; ok {
+				row.Location = p
+			} else if k, ok := final.Storage["Key"]; ok {
+				row.Location = "s3://" + final.Storage["Bucket"] + "/" + k
+			}
+		}
+		if err := m.state.CreateUpload(ctx, row); err != nil {
+			return nil, fmt.Errorf("upload: persist upload row: %w", err)
+		}
 	}
 
 	expiresAt := time.Now().Add(TokenLifetime)
@@ -259,6 +259,9 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// safer than mutating r.URL in-place.
 	r2 := r.Clone(r.Context())
 	r2.URL.Path = "/" + id
+	if m.station != nil && r2.Method == http.MethodPatch && r2.Body != nil {
+		r2 = observeStationPatch(w, r2)
+	}
 
 	wrapped := m.handler.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -333,35 +336,6 @@ func (m *Manager) onComplete(ctx context.Context, ev tushandler.HookEvent) {
 	if _, err := m.state.EnqueueTask(ctx, statedb.TaskVODProcess, payload, statedb.WithTaskKey("vod-process:"+row.ID)); err != nil {
 		log.Error(ctx, "failed to enqueue vod-process task", "error", err)
 	}
-
-	// Create a draft VOD in the 'processing' state, but only if the upload
-	// isn't already associated with a pre-created draft. The modern client
-	// flow creates the draft up front (place.stream.vod.createDraft) and passes
-	// its URI to createUpload, which re-points the draft's origin_upload_id at
-	// this upload — so a draft already exists for this row. Only fall back to
-	// creating one here for legacy clients / external callers that didn't
-	// supply a draftUri. A failed create is non-fatal: the upload still
-	// processes.
-	if existing, _ := m.state.GetDraftByUpload(ctx, row.ID); existing == nil {
-		if _, err := m.state.CreateDraft(ctx, row.RepoDID, row.ID, &placestream.VodDraftVideo{
-			LexiconTypeID: "place.stream.vod.draftVideo",
-			Title:         filenameOrDefault(row.Filename),
-			Status:        "processing",
-			CreatedAt:     time.Now().UTC().Format(time.RFC3339),
-		}); err != nil {
-			log.Error(ctx, "failed to create draft for upload", "error", err)
-		}
-	}
-}
-
-// filenameOrDefault returns a human placeholder title for a freshly-uploaded
-// draft: the original filename if present, else a generic "Uploaded video".
-// The user edits this before publishing.
-func filenameOrDefault(filename string) string {
-	if filename != "" {
-		return filename
-	}
-	return "Uploaded video"
 }
 
 func (m *Manager) mintToken(did, uploadID string, expiresAt time.Time) (string, error) {

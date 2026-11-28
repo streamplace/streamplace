@@ -70,6 +70,7 @@ require (
 	github.com/piprate/json-gold v0.9.1
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
+	github.com/psanford/sqlite3vfs v0.0.0-20260519004904-f9180fa2acc9
 	github.com/rivo/uniseg v0.4.7
 	github.com/rs/cors v1.11.1
 	github.com/samber/slog-http v1.12.1

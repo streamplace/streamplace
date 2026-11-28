@@ -44,9 +44,10 @@ func (state *StatefulDB) EnsureServiceAuthKey(ctx context.Context) (jwk.Key, err
 		return nil, fmt.Errorf("failed to marshal service auth key: %w", err)
 	}
 
-	if err := state.PutConfig("service-auth-key", b); err != nil {
+	b, err = state.createSharedConfig(ctx, "service-auth-key", b)
+	if err != nil {
 		return nil, fmt.Errorf("failed to save service auth key: %w", err)
 	}
 
-	return key, nil
+	return jwk.ParseKey(b)
 }

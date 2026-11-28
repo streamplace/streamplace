@@ -1,0 +1,92 @@
+appId: ${APP_ID}
+tags:
+  - logged-in
+  - private-draft
+---
+- runFlow:
+    when:
+      true: ${E2E_UPSTREAM_STATION != "true"}
+    commands:
+      - evalScript:
+          ${output.privateDraftRkey = E2E_LEGACY_DRAFT_URI.split("/").pop()}
+      - assertTrue:
+          ${E2E_LEGACY_DRAFT_URI === "ats://" + ACCOUNT_DID +
+          "/place.stream.vod.drafts/self/" + ACCOUNT_DID +
+          "/place.stream.vod.draftVideo/" + output.privateDraftRkey &&
+          /^[234567a-z]{13}$/.test(output.privateDraftRkey)}
+      - evalScript:
+          ${output.privateDraftTitle = "Private draft mobile " + Date.now()}
+      - launchApp
+      - extendedWaitUntil:
+          visible:
+            id: "home-stream-card"
+          timeout: 30000
+      - openLink: "${APP_ID}://upload/video/${output.privateDraftRkey}"
+      - extendedWaitUntil:
+          visible:
+            id: "vod-editor-title"
+            text: "^Untitled$"
+          timeout: 30000
+      - assertVisible: "Editing draft · Processing"
+      - runFlow:
+          when:
+            true: ${PDS_KIND == "spaces" || PDS_KIND == "vlpds"}
+          commands:
+            - runScript:
+                file: private-space.js
+                env:
+                  PRIVATE_DRAFT_STEP: migrated
+      - tapOn:
+          id: "vod-editor-title"
+      - eraseText: 8
+      - inputText: "${output.privateDraftTitle}"
+      - hideKeyboard
+      - scrollUntilVisible:
+          element:
+            text: "^Save Draft$"
+          timeout: 30000
+      - tapOn: "^Save Draft$"
+      - extendedWaitUntil:
+          visible:
+            text: "^Save Draft$"
+            enabled: true
+          timeout: 30000
+      - launchApp
+      - extendedWaitUntil:
+          visible:
+            id: "home-stream-card"
+          timeout: 30000
+      - openLink: "${APP_ID}://upload/video/${output.privateDraftRkey}"
+      - extendedWaitUntil:
+          visible:
+            id: "vod-editor-title"
+            text: "^${output.privateDraftTitle}$"
+          timeout: 30000
+      - runFlow:
+          when:
+            true: ${PDS_KIND == "spaces" || PDS_KIND == "vlpds"}
+          commands:
+            - runScript:
+                file: private-space.js
+                env:
+                  PRIVATE_DRAFT_STEP: edited
+      - scrollUntilVisible:
+          element:
+            text: "^Delete draft$"
+          timeout: 30000
+      - tapOn: "^Delete draft$"
+      - extendedWaitUntil:
+          visible: "e2e test video"
+          timeout: 30000
+      - openLink: "${APP_ID}://upload/video/${output.privateDraftRkey}"
+      - extendedWaitUntil:
+          visible: "Could not load this video. It may not exist."
+          timeout: 30000
+      - runFlow:
+          when:
+            true: ${PDS_KIND == "spaces" || PDS_KIND == "vlpds"}
+          commands:
+            - runScript:
+                file: private-space.js
+                env:
+                  PRIVATE_DRAFT_STEP: deleted

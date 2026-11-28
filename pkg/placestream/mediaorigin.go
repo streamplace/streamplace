@@ -16,7 +16,7 @@ func init() {
 	glex.RegisterType("place.stream.media.origin", &MediaOrigin{})
 }
 
-// An attestation that a MUXL blob is available for download from the publishing node, retrievable via XRPC (com.atproto.repo.getBlob and similar). Published by the Streamplace node that hosts the blob, not by the user who owns the underlying video. The rkey is conventionally the blob's BDASL CID — atproto lexicon doesn't yet have a literal-rkey syntax so we settle for `key: any` and rely on the convention.
+// The publishing station attests that it serves this public MUXL blob. The record key is the blob's BDASL CID. Resolve the station DID's #streamplace service and call place.stream.playback.getVideoBlob there. The #atproto_pds service hosts the attestation, not the media. Independent stations may attest to the same blob.
 type MediaOrigin struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	// blob: BLAKE-3 content hash (BDASL CID) of the blob.

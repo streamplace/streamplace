@@ -2,8 +2,8 @@ package statedb
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
+	"time"
 
 	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
@@ -145,14 +145,19 @@ func TestInvalidHandleNotification(t *testing.T) {
 		const did = "did:web:streamer.example"
 		noter := &identityNotifier{}
 		state.SetNotifier(noter)
-		payload, err := json.Marshal(NotificationTask{
+		const follower = "did:web:follower.example"
+		require.NoError(t, state.model.CreateFollow(t.Context(), follower, "follow", appbsky.GraphFollow{
+			Subject: did, CreatedAt: "2026-01-01T00:00:00Z",
+		}))
+		require.NoError(t, state.CreateNotification("device", follower, NotificationTypeFirebase))
+		task := enqueueClaimedTask(t, state, TaskNotification, NotificationTask{
 			Livestream: placestream.Livestream_LivestreamView{
 				Author: appbsky.ActorDefs_ProfileViewBasic{Did: did, Handle: "handle.invalid"},
 				Record: &glex.LexiconTypeDecoder{Val: &placestream.Livestream{Title: "Live"}},
 			},
 		})
-		require.NoError(t, err)
-		require.NoError(t, state.processNotificationTask(t.Context(), &AppTask{Payload: payload}))
+		require.NoError(t, state.runClaimedTask(t.Context(), task, time.Hour))
+		requireTaskStatus(t, state, task.ID, TaskStatusCompleted)
 		require.NotNil(t, noter.blast)
 		require.Contains(t, noter.blast.Title, did)
 		require.NotContains(t, noter.blast.Title, "@did:")

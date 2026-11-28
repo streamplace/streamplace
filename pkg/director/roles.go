@@ -6,17 +6,11 @@ import (
 	"time"
 
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/stationshard"
 )
 
-// The jobs a live stream needs doing exactly once however many nodes carry
-// it: recording it to S3 for live-to-VOD, driving its multistream targets,
-// transcoding its renditions. The nodes with a session for the stream that
-// can do a job compete for it through a lease in the station's shared
-// statedb: any of them for multistream, only the stream's origins for
-// recording and transcoding (see startOriginRoles). The holder renews the
-// lease; a holder that dies stops renewing, and the next node to ask after
-// roleLeaseTTL takes the job over. A node on its own statedb simply holds
-// every lease.
+// Recording and transcoding are origin-only; multistream can run on any
+// carrier. Standalone sessions use SQL leases; sharded stations use fenced leases.
 const (
 	roleRecord      = "record"
 	roleMultistream = "multistream"
@@ -42,9 +36,18 @@ var errRoleDeclined = errors.New("role declined")
 // a context that ends when the role is lost or the session ends; an error
 // means the job was not taken up, and its lease is handed back.
 type role struct {
-	name  string
-	start func(ctx context.Context) error
-	stop  func()
+	name             string
+	start            func(ctx context.Context, lease stationshard.Lease) error
+	stop             func(drainCtx context.Context)
+	firstAttemptDone func()
+	failed           func() <-chan struct{}
+}
+
+func (r *role) finishFirstAttempt() {
+	if r.firstAttemptDone != nil {
+		r.firstAttemptDone()
+		r.firstAttemptDone = nil
+	}
 }
 
 // startRoles enters the session into contention for driving the stream's
@@ -57,13 +60,18 @@ type role struct {
 func (ss *StreamSession) startRoles(repoDID string) {
 	ss.roles.Do(func() {
 		ctx := ss.ctx
+		var done chan struct{}
 		ss.contend(ctx, repoDID, role{
 			name: roleMultistream,
-			start: func(rctx context.Context) error {
-				ss.Go(ctx, func() error { return ss.HandleMultistreamTargets(rctx) })
+			start: func(rctx context.Context, _ stationshard.Lease) error {
+				done = make(chan struct{})
+				ss.Go(ctx, func() error {
+					defer close(done)
+					return ss.HandleMultistreamTargets(rctx)
+				})
 				return nil
 			},
-			stop: func() {},
+			stop: func(context.Context) { <-done },
 		})
 	})
 }
@@ -79,20 +87,35 @@ func (ss *StreamSession) startOriginRoles(repoDID string) {
 	ss.originRoles.Do(func() {
 		ctx := ss.ctx
 		if ss.cli.S3Configured() {
-			ss.contend(ctx, repoDID, role{
-				name:  roleRecord,
-				start: func(context.Context) error { return ss.startS3Upload(ctx, repoDID) },
-				stop:  func() { ss.s3Close(ctx) },
-			})
+			recording := role{
+				name: roleRecord,
+				start: func(rctx context.Context, lease stationshard.Lease) error {
+					return ss.startS3Upload(rctx, repoDID, lease)
+				},
+				stop: ss.s3Close,
+			}
+			if shards := ss.statefulDB.StationShards; shards != nil {
+				ss.beginS3Initialization(ctx, shards.TTL())
+				recording.firstAttemptDone = func() { ss.installS3Uploader(nil) }
+				recording.failed = ss.s3PersistenceFailed
+			}
+			ss.contend(ctx, repoDID, recording)
 		}
 		if ss.cli.LivepeerGatewayURL != "" {
 			ss.contend(ctx, repoDID, role{
 				name: roleTranscode,
-				start: func(rctx context.Context) error {
-					ss.transcoding.Store(&rctx)
+				start: func(rctx context.Context, _ stationshard.Lease) error {
+					ss.transcodeMu.Lock()
+					ss.transcoding = rctx
+					ss.transcodeMu.Unlock()
 					return nil
 				},
-				stop: func() { ss.transcoding.Store(nil) },
+				stop: func(context.Context) {
+					ss.transcodeMu.Lock()
+					ss.transcoding = nil
+					ss.transcodeMu.Unlock()
+					ss.transcodePending.Wait()
+				},
 			})
 		}
 	})
@@ -102,10 +125,16 @@ func (ss *StreamSession) startOriginRoles(repoDID string) {
 // lease when it is free, renew it while held, give the job up when it is
 // lost, and release it on the way out so a peer takes over at once. A job
 // won but not taken up is released at once too, and asked for again after
-// roleRetryAfter, or never, when declined. The first check happens before
-// contend returns, so a job this node wins is up before the segment that
-// started the contention is handled; the rest run in the background.
+// roleRetryAfter, or never, when declined. Standalone starts synchronously
+// to retain first-segment behavior; shard I/O stays off the director loop.
 func (ss *StreamSession) contend(ctx context.Context, repoDID string, r role) {
+	if shards := ss.statefulDB.StationShards; shards != nil {
+		ss.Go(ctx, func() error {
+			contendShard(ctx, shards, repoDID, r)
+			return nil
+		})
+		return
+	}
 	name := "stream:" + r.name + ":" + repoDID
 	holder := ss.cli.ServerDID()
 	ctx = log.WithLogValues(ctx, "role", r.name)
@@ -146,7 +175,7 @@ func (ss *StreamSession) contend(ctx context.Context, repoDID string, r role) {
 		switch {
 		case ok && !held:
 			rctx, stop := context.WithCancel(ctx)
-			if err := r.start(rctx); err != nil {
+			if err := r.start(rctx, stationshard.Lease{}); err != nil {
 				stop()
 				release()
 				if errors.Is(err, errRoleDeclined) {
@@ -163,7 +192,7 @@ func (ss *StreamSession) contend(ctx context.Context, repoDID string, r role) {
 				// down rather than do it alongside, and ask again.
 				log.Warn(ctx, "taking up stream role outlasted its lease; putting it down", "took", time.Since(asked))
 				stop()
-				r.stop()
+				r.stop(context.WithoutCancel(ctx))
 				return true
 			}
 			held, cancel = true, stop
@@ -172,7 +201,7 @@ func (ss *StreamSession) contend(ctx context.Context, repoDID string, r role) {
 			log.Log(ctx, "stream role taken over by another node")
 			held = false
 			cancel()
-			r.stop()
+			r.stop(context.WithoutCancel(ctx))
 		}
 		return true
 	}
@@ -183,7 +212,7 @@ func (ss *StreamSession) contend(ctx context.Context, repoDID string, r role) {
 		defer func() {
 			if held {
 				cancel()
-				r.stop()
+				r.stop(context.WithoutCancel(ctx))
 				release()
 			}
 		}()
@@ -198,4 +227,171 @@ func (ss *StreamSession) contend(ctx context.Context, repoDID string, r role) {
 			}
 		}
 	})
+}
+
+type shardRoleStore interface {
+	ClaimRole(context.Context, string, string) (stationshard.Lease, error)
+	RenewRole(context.Context, stationshard.Lease) error
+	ReleaseRole(context.Context, stationshard.Lease) error
+	TTL() time.Duration
+}
+
+func contendShard(ctx context.Context, shards shardRoleStore, did string, r role) {
+	ctx = log.WithLogValues(ctx, "role", r.name, "did", did)
+	defer r.finishFirstAttempt()
+	ttl := shards.TTL()
+	interval := ttl / 3
+	for ctx.Err() == nil {
+		asked := time.Now()
+		claimCtx, cancel := context.WithDeadline(ctx, asked.Add(interval))
+		lease, err := shards.ClaimRole(claimCtx, did, r.name)
+		cancel()
+		if err == nil {
+			if !runShardRole(ctx, shards, &r, lease, asked.Add(ttl), ttl, interval) {
+				return
+			}
+		} else if !errors.Is(err, stationshard.ErrHeld) {
+			log.Warn(ctx, "could not claim shard role", "error", err)
+		}
+		r.finishFirstAttempt()
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(interval):
+		}
+	}
+}
+
+func runShardRole(ctx context.Context, shards shardRoleStore, r *role, lease stationshard.Lease, validUntil time.Time, ttl, interval time.Duration) bool {
+	release := func() {
+		if !time.Now().Before(validUntil) {
+			return
+		}
+		// ReleaseRole conditionally clears only this exact lease, even if
+		// a recording write already observed a takeover.
+		releaseCtx, cancel := context.WithDeadline(context.WithoutCancel(ctx), validUntil)
+		defer cancel()
+		if err := shards.ReleaseRole(releaseCtx, lease); err != nil && !errors.Is(err, stationshard.ErrFenced) {
+			log.Warn(ctx, "could not release shard role", "error", err)
+		}
+	}
+	if ctx.Err() != nil || !time.Now().Before(validUntil) {
+		r.finishFirstAttempt()
+		release()
+		return true
+	}
+	roleCtx, cancelRole := context.WithCancel(ctx)
+	startTimer := time.AfterFunc(time.Until(validUntil), cancelRole)
+	err := r.start(roleCtx, lease)
+	startTimer.Stop()
+	r.finishFirstAttempt()
+	if err != nil {
+		cancelRole()
+		if !errors.Is(err, stationshard.ErrFenced) {
+			release()
+		}
+		if errors.Is(err, errRoleDeclined) {
+			return false
+		}
+		log.Warn(ctx, "could not take up shard role", "error", err)
+		return true
+	}
+	log.Log(ctx, "taking up shard role", "epoch", lease.Epoch)
+	var failed <-chan struct{}
+	if r.failed != nil {
+		failed = r.failed()
+	}
+
+	// Measure validity from the request, not its ACK. An uncertain renewal
+	// cannot extend local validity, and a fenced token must never be released.
+	renew := func(parent context.Context) bool {
+		asked := time.Now()
+		if !asked.Before(validUntil) {
+			return false
+		}
+		renewCtx, cancel := context.WithDeadline(parent, minTime(validUntil, asked.Add(interval)))
+		err := shards.RenewRole(renewCtx, lease)
+		cancel()
+		if errors.Is(err, stationshard.ErrFenced) || !time.Now().Before(validUntil) {
+			return false
+		}
+		if err != nil {
+			log.Warn(ctx, "could not renew shard role", "error", err)
+		} else {
+			validUntil = asked.Add(ttl)
+		}
+		return true
+	}
+
+	failedNow := func() bool {
+		select {
+		case <-failed:
+			return true
+		default:
+			return false
+		}
+	}
+	valid := time.Now().Before(validUntil)
+	for valid && ctx.Err() == nil && !failedNow() {
+		select {
+		case <-ctx.Done():
+		case <-failed:
+		case <-time.After(min(interval, time.Until(validUntil))):
+			if !failedNow() {
+				valid = renew(ctx)
+			}
+		}
+	}
+	cancelRole()
+
+	// Stop accepting work immediately; on clean shutdown keep renewing while
+	// in-flight work drains, bounded by one TTL. On loss, cancel the drain.
+	drainCtx, cancelDrain := context.WithTimeout(context.WithoutCancel(ctx), ttl)
+	defer cancelDrain()
+	if !valid || !time.Now().Before(validUntil) {
+		cancelDrain()
+		r.stop(drainCtx)
+		return true
+	}
+	if failedNow() {
+		cancelDrain()
+		r.stop(drainCtx)
+		release()
+		return true
+	}
+	drained := make(chan struct{})
+	go func() {
+		defer close(drained)
+		r.stop(drainCtx)
+	}()
+	for valid {
+		select {
+		case <-drained:
+			release()
+			return true
+		case <-failed:
+			cancelDrain()
+			<-drained
+			release()
+			return true
+		case <-drainCtx.Done():
+			<-drained
+			release()
+			return true
+		case <-time.After(min(interval, time.Until(validUntil))):
+			if !failedNow() {
+				valid = renew(drainCtx)
+			}
+		}
+	}
+	cancelDrain()
+	<-drained
+	return true
+}
+
+func minTime(a, b time.Time) time.Time {
+	if a.Before(b) {
+		return a
+	}
+	return b
 }

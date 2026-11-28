@@ -12,8 +12,9 @@ import (
 func TestAuthFull(t *testing.T) {
 	bundle := fstest.MapFS{
 		// Records are listed once each, sorted by NSID, whatever the walk order.
-		"place/stream/zed/thing.json": {Data: []byte(`{"lexicon":1,"id":"place.stream.zed.thing","defs":{"main":{"type":"record","key":"tid","record":{"type":"object","properties":{}}}}}`)},
-		"place/stream/alpha.json":     {Data: []byte(`{"lexicon":1,"id":"place.stream.alpha","defs":{"main":{"type":"record","key":"tid","record":{"type":"object","properties":{}}}}}`)},
+		"place/stream/zed/thing.json":         {Data: []byte(`{"lexicon":1,"id":"place.stream.zed.thing","defs":{"main":{"type":"record","key":"tid","record":{"type":"object","properties":{}}}}}`)},
+		"place/stream/alpha.json":             {Data: []byte(`{"lexicon":1,"id":"place.stream.alpha","defs":{"main":{"type":"record","key":"tid","record":{"type":"object","properties":{}}}}}`)},
+		"place/stream/vod/draftMetadata.json": {Data: []byte(`{"lexicon":1,"id":"place.stream.vod.draftMetadata","defs":{"main":{"type":"record","key":"tid","record":{"type":"object","properties":{}}}}}`)},
 		// Non-records contribute no collection.
 		"place/stream/getAlpha.json": {Data: []byte(`{"lexicon":1,"id":"place.stream.getAlpha","defs":{"main":{"type":"query","output":{"encoding":"application/json"}}}}`)},
 		"place/stream/defs.json":     {Data: []byte(`{"lexicon":1,"id":"place.stream.defs","defs":{"thing":{"type":"object","properties":{}}}}`)},
@@ -29,7 +30,7 @@ func TestAuthFull(t *testing.T) {
 	for _, lex := range lexs {
 		ids = append(ids, lex.ID)
 	}
-	require.ElementsMatch(t, []string{"place.stream.alpha", "place.stream.authFull", "place.stream.defs", "place.stream.getAlpha", "place.stream.zed.thing"}, ids)
+	require.ElementsMatch(t, []string{"place.stream.alpha", "place.stream.authFull", "place.stream.defs", "place.stream.getAlpha", draftMetadataCollection, "place.stream.zed.thing"}, ids)
 
 	authFull := AuthFull(lexs)
 	require.Equal(t, AuthFullID, authFull.ID)
@@ -37,6 +38,7 @@ func TestAuthFull(t *testing.T) {
 	require.True(t, ok)
 	require.Len(t, set.Permissions, 1)
 	require.Equal(t, "repo", set.Permissions[0].Resource)
+	require.NotContains(t, set.Permissions[0].Collection, draftMetadataCollection)
 	require.Equal(t, []string{"place.stream.alpha", "place.stream.zed.thing"}, set.Permissions[0].Collection)
 	require.NoError(t, authFull.CheckSchema())
 }

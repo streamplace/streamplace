@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "procedure",
-      "description": "Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream(s) into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records. By default it leaves a draft VOD the streamer publishes later via place.stream.vod.publishDraft; with publish set it publishes the place.stream.video record as soon as the VOD is finalized. The caller must be the streamer, or a moderator they have granted livestream.manage; every record is written with the streamer's session.",
+      "description": "Turn a finished livestream into a VOD. By default the server leaves a draft for place.stream.vod.publishDraft. After migration to private drafts, this mode requires the streamer's OAuth session with the private draft grant. With publish set, the server publishes the VOD when it is ready using the streamer's stored session, and can accept a caller with delegated livestream.manage.",
       "input": {
         "encoding": "application/json",
         "schema": {

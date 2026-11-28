@@ -196,6 +196,7 @@ func UpdateVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Stor
 	}
 	video := rec.Video
 	changed := applyVideoUpdate(video, up)
+	var publishedCID string
 
 	if up.UploadID != "" {
 		upload, err := state.GetUpload(ctx, up.UploadID)
@@ -216,6 +217,7 @@ func UpdateVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Stor
 			return "", fmt.Errorf("upload %s has no playable streams to publish tracks for", upload.ID)
 		}
 		video.Source = placestream.Video_Source{MediaDefs_SourceTracks: tracks}
+		publishedCID = upload.ContentCID
 		video.DurationMs = upload.DurationMS
 		if video.Thumb == nil && store != nil && upload.ContentCID != "" {
 			thumb, terr := generateAndUploadThumbnail(ctx, client, store, upload.ContentCID)
@@ -246,6 +248,16 @@ func UpdateVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Stor
 	if err := client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out); err != nil {
 		return "", fmt.Errorf("putRecord video: %w", err)
 	}
+	if publishedCID != "" {
+		if err := advertisePublishedVideo(ctx, state, store, publishedCID, uri); err != nil {
+			return "", err
+		}
+		if state.CLI.StationDID != "" {
+			if err := retractStationVideo(ctx, store, state.CLI.StationDID, uri, publishedCID); err != nil {
+				return "", err
+			}
+		}
+	}
 	log.Log(ctx, "updated video record (operator)", "uri", uri, "cid", out.Cid, "title", video.Title, "upload", up.UploadID)
 	return out.Cid, nil
 }
@@ -254,7 +266,7 @@ func UpdateVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Stor
 // its source pointed at (in the same repo). It returns the URIs it deleted.
 // The content blob and the upload row stay: another record can be published
 // for the same upload.
-func DeleteVideo(ctx context.Context, state *statedb.StatefulDB, uri string, withTracks bool) ([]string, error) {
+func DeleteVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Store, uri string, withTracks bool) ([]string, error) {
 	aturi, err := parseVideoURI(uri)
 	if err != nil {
 		return nil, err
@@ -268,6 +280,11 @@ func DeleteVideo(ctx context.Context, state *statedb.StatefulDB, uri string, wit
 	rec, err := getVideoRecord(ctx, client, aturi)
 	if err != nil {
 		return nil, err
+	}
+	if state.CLI.StationDID != "" {
+		if err := retractStationVideo(ctx, store, state.CLI.StationDID, uri, ""); err != nil {
+			return nil, fmt.Errorf("withdraw station hosting intent: %w", err)
+		}
 	}
 	var deleted []string
 	if err := deleteRecord(ctx, client, aturi); err != nil {

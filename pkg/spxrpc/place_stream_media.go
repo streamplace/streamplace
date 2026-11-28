@@ -13,7 +13,7 @@ import (
 )
 
 func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *placestream.MediaCreateUpload_Input) (*placestream.MediaCreateUpload_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session, client := oatproxy.GetOAuthSession(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
@@ -49,6 +49,12 @@ func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *p
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
+	drafts, err := s.openDrafts(ctx, session.DID, session, client)
+	if err != nil {
+		return nil, err
+	}
+	defer drafts.Close()
+
 	res, err := s.uploadManager.Create(ctx, session.DID, body.MimeType, filename, body.Size, baseURL)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -60,10 +66,8 @@ func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *p
 	// runs and supports re-upload (a new createUpload with the same draftUri
 	// re-points the draft at the new upload).
 	if body.DraftUri != nil && *body.DraftUri != "" {
-		if err := s.statefulDB.SetDraftOriginUpload(ctx, *body.DraftUri, session.DID, res.UploadID); err != nil {
-			// A missing/stale draft isn't fatal: the upload proceeds and the
-			// TUS-completion path will create a fresh draft as before.
-			log.Warn(ctx, "createUpload: failed to associate draft with upload", "draftUri", *body.DraftUri, "uploadId", res.UploadID, "error", err)
+		if err := drafts.AttachUpload(ctx, *body.DraftUri, res.UploadID); err != nil {
+			return nil, draftHTTPError(err)
 		}
 	}
 

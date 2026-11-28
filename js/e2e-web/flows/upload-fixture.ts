@@ -9,7 +9,10 @@ import { loginThroughPds } from "./login";
 const HTTPS_URL = process.env.SERVER_HTTPS_URL;
 const FIXTURE = process.env.E2E_FIXTURE_MP4;
 
-export async function uploadFixture(page: Page): Promise<string> {
+export async function uploadFixture(
+  page: Page,
+  beforePublish?: (page: Page) => Promise<void>,
+): Promise<string> {
   if (!HTTPS_URL || !FIXTURE) {
     throw new Error(
       "uploadFixture needs SERVER_HTTPS_URL and E2E_FIXTURE_MP4 from the harness",
@@ -47,7 +50,17 @@ export async function uploadFixture(page: Page): Promise<string> {
   await page
     .getByPlaceholder("Give your video a title")
     .fill(`e2e upload ${Date.now()}`);
-  await page.getByRole("button", { name: "Save Draft", exact: true }).click();
+  const [saved] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname ===
+          "/xrpc/place.stream.vod.updateDraft",
+    ),
+    page.getByRole("button", { name: "Save Draft", exact: true }).click(),
+  ]);
+  expect(saved.ok(), `updateDraft: HTTP ${saved.status()}`).toBe(true);
+  await beforePublish?.(page);
 
   const published = page.waitForResponse(
     (response) =>

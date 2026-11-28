@@ -17,7 +17,7 @@ func init() {
 	glex.RegisterType("place.stream.vod.draftVideo", &VodDraftVideo{})
 }
 
-// A draft VOD: pre-publication video metadata and processing state. Modeled as a permissioned-data-style record (CBOR-serialized, addressed by an ats:// URI) stored in statedb until the permissioned-data spec ships (bluesky-social/proposals PR #94, the 0016-permissioned-data proposal). Publishing promotes it to a public place.stream.video record.
+// The VOD draft API record, addressed by a stable ats:// URI. It combines editable metadata with server-controlled processing state. Publishing promotes it to a public place.stream.video record.
 type VodDraftVideo struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	// activity: The game or activity in the video.

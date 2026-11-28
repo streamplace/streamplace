@@ -31,6 +31,21 @@ const videoListMaxScan = 2000
 // scan walks indexed rows in page order, skipping the ones we don't host,
 // until the page is full or the table (or scan budget) is exhausted.
 func (m *DBModel) GetVideoList(ctx context.Context, repoDID string, limit int, cursor string, hostedByServerDID string) (placestream.MediaGetVideoList_Output, error) {
+	return m.videoList(ctx, repoDID, limit, cursor, hostedByServerDID, nil)
+}
+
+// StationVideoFilter consults the shared station catalog and local policy.
+// Unlike the origin index, neither depends on a successful station PDS write.
+type StationVideoFilter func(ctx context.Context, uri, cid string) (bool, error)
+
+func (m *DBModel) GetStationVideoList(ctx context.Context, repoDID string, limit int, cursor string, allowed StationVideoFilter) (placestream.MediaGetVideoList_Output, error) {
+	if allowed == nil {
+		return placestream.MediaGetVideoList_Output{}, fmt.Errorf("station catalog is required")
+	}
+	return m.videoList(ctx, repoDID, limit, cursor, "", allowed)
+}
+
+func (m *DBModel) videoList(ctx context.Context, repoDID string, limit int, cursor, hostedByServerDID string, allowed StationVideoFilter) (placestream.MediaGetVideoList_Output, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 25
 	}
@@ -59,7 +74,7 @@ func (m *DBModel) GetVideoList(ctx context.Context, repoDID string, limit int, c
 		// keep the number of round trips down. Unfiltered, limit+1 reproduces
 		// the original single-query behavior exactly.
 		batchSize := limit + 1
-		if hostedByServerDID != "" {
+		if hostedByServerDID != "" || allowed != nil {
 			batchSize = 100
 		}
 
@@ -109,6 +124,19 @@ func (m *DBModel) GetVideoList(ctx context.Context, repoDID string, limit int, c
 
 			if hostedByServerDID != "" && !hosted[row.URI] {
 				continue
+			}
+			if allowed != nil {
+				cid, err := m.videoContentBlob(ctx, row)
+				if err != nil {
+					return placestream.MediaGetVideoList_Output{}, err
+				}
+				ok, err := allowed(ctx, row.URI, cid)
+				if err != nil {
+					return placestream.MediaGetVideoList_Output{}, err
+				}
+				if !ok {
+					continue
+				}
 			}
 
 			view, err := m.hydrateVideoView(ctx, row)

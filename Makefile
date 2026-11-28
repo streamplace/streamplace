@@ -413,18 +413,40 @@ provision:
 dev-setup:
 	$(MAKE) -j16 app-cached dev-setup-meson
 
-.PHONY: dev
-dev: app-cached $(LEXICON_STAMP)
-	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
+.PHONY: dev dev-station station-runtime
+ifeq ($(BUILDOS),linux)
+STATION_DEV_TARGET := dev-station
+station-runtime:
+	cargo build --locked --manifest-path rust/station-slate/Cargo.toml --target-dir "$(BUILDDIR)/station-slate"
+	install -D "$(BUILDDIR)/station-slate/debug/libstation_slate.so" "$(BUILDDIR)/lib/libstation_slate.so"
+else
+dev-station station-runtime:
+	@echo "station SlateDB is only supported on Linux" >&2; exit 1
+endif
+
+dev $(STATION_DEV_TARGET): app-cached $(LEXICON_STAMP)
+	if [ ! -f "$(BUILDDIR)/build.ninja" ]; then $(MAKE) dev-setup; fi
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
+	$(if $(filter dev-station,$@),$(MAKE) station-runtime)
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
-	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)" \
-	LD_LIBRARY_PATH=$(BUILDDIR)/lib $(NATIVE_ENV) go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
+	CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS)$(if $(filter dev-station,$@), -L$(abspath $(BUILDDIR)/lib))" \
+	LD_LIBRARY_PATH=$(BUILDDIR)/lib $(NATIVE_ENV) go build -tags "mainnet$(if $(filter dev-station,$@), stationslate)" -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
+
+# Keep the native-backed smoke focused; ordinary suites still run without stationslate.
+STATION_TESTS := Station|StableDIDSlots|Shard(edRecording|Recording|Role)|FinalizeRecordingObjectKeysStayPinned|CopyState|ResolveStationIdentity|CheckConfig|E2EHTTPSStation|PrivateDraft|Migrated(Finalize|Implicit)|ScopedDraftAccess|DraftGrant|CollectionActionsGrant|LexiconOverlay|AuthFull
+STATION_TASK_TESTS := Task(Claims|Attempts|Effect|Heartbeat)|ConcurrentTask|Queue(Close|Central|dPublishVideo)|NotificationTakeover|WebhookRetries|AutomaticPublication|AutoPublishVOD|FinalizeLivestream
+STATION_GO_ENV = PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" LD_LIBRARY_PATH="$(abspath $(BUILDDIR)/lib):$(NATIVE_LIBDIR)" CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS) -L$(abspath $(BUILDDIR)/lib) -lm"
+.PHONY: test-station
+test-station: dev-station
+	$(STATION_GO_ENV) $(NATIVE_ENV) go test -count=1 -tags stationslate ./pkg/stationdb ./pkg/atprotoauth
+	$(STATION_GO_ENV) bash hack/with-station-s3.sh $(NATIVE_ENV) go test -count=1 -tags stationslate \
+		-run '^Test($(STATION_TESTS)|$(STATION_TASK_TESTS))' \
+		./lexicons ./pkg/spaces ./pkg/stationshard ./pkg/s3 ./pkg/statedb ./pkg/upload ./pkg/vod ./pkg/viewlog ./pkg/spxrpc ./pkg/director ./pkg/atproto ./pkg/config ./pkg/api ./pkg/cmd
 
 .PHONY: dev-web
 dev-web: app-cached $(LEXICON_STAMP)
-	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
+	if [ ! -f "$(BUILDDIR)/build.ninja" ]; then $(MAKE) dev-setup; fi
 	cp ./util/streamplace-dev-web.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
@@ -749,6 +771,16 @@ desktop-windows-amd64:
 .PHONY: streamplace
 streamplace: app-cached meson-setup-static
 	meson compile -C $(BUILDDIR) streamplace
+
+# Native release, not the dev-station launcher plus shared libraries. Use a
+# dedicated tree so a developer's live development binary remains untouched.
+STATION_RELEASE_DIR := build-station-release-$(BUILDOS)-$(BUILDARCH)
+.PHONY: station-release
+station-release:
+	$(MAKE) streamplace BUILDDIR="$(STATION_RELEASE_DIR)" MESON_SETUP_OPTS="-Dstation_release=true"
+	$(MAKE) link-test-linux BUILDDIR="$(STATION_RELEASE_DIR)"
+	readelf -d "$(STATION_RELEASE_DIR)/streamplace" | grep NEEDED
+	env -u LD_LIBRARY_PATH -u LD_PRELOAD "$(STATION_RELEASE_DIR)/streamplace" --version
 
 .PHONY: archive
 archive: app-cached meson-setup-static godeps

@@ -963,6 +963,26 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err := atsync.Model.UpsertVideo(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert video: %w", err)
 		}
+		if isUpdate && atsync.StationVideoUpdated != nil {
+			currentCID := ""
+			resolved := true
+			if src := rec.Source.MediaDefs_SourceTracks; src != nil && len(src.Tracks) > 0 {
+				track, err := atsync.Model.GetMediaTrackByURI(ctx, src.Tracks[0].Uri)
+				if err != nil {
+					return err
+				}
+				if track == nil {
+					resolved = false // incomplete local index is not proof of a source change
+				} else if track.Track.MediaDefs_MuxlTrack != nil {
+					currentCID = track.Track.MediaDefs_MuxlTrack.Blob
+				}
+			}
+			if resolved {
+				if err := atsync.StationVideoUpdated(ctx, aturi.String(), currentCID); err != nil {
+					return fmt.Errorf("retire changed station video source: %w", err)
+				}
+			}
+		}
 		log.Debug(ctx, "indexed video", "uri", aturi.String(), "title", rec.Title)
 
 	case *placestream.MediaTrack:

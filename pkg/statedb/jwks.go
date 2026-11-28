@@ -44,12 +44,12 @@ func (state *StatefulDB) EnsureJWK(ctx context.Context, name string) (jwk.Key, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal JWK: %w", err)
 	}
-	err = state.PutConfig(name, b)
+	b, err = state.createSharedConfig(ctx, name, b)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save JWK: %w", err)
 	}
 
-	return key, nil
+	return jwk.ParseKey(b)
 }
 
 // migration for the old one we stored on disk

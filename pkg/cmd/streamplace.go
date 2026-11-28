@@ -34,6 +34,7 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/cdn/providers"
 	"stream.place/streamplace/pkg/comatproto"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/director"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/ingestframe"
@@ -50,6 +51,8 @@ import (
 	"stream.place/streamplace/pkg/rtmps"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
+	"stream.place/streamplace/pkg/stationdb"
+	"stream.place/streamplace/pkg/stationshard"
 	"stream.place/streamplace/pkg/storage"
 	"stream.place/streamplace/pkg/upload"
 	"stream.place/streamplace/pkg/viewlog"
@@ -91,7 +94,8 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeSplitCommand(build),
 		makeLivepeerCommand(build),
 		makeMigrateCommand(build),
-		makeMigrateStateCommand(),
+		makeMigrateStateCommand(&cli),
+		makeCompactStationDBCommand(&cli),
 		makeSyncCommand(build),
 		makeBrandingCommand(build),
 		makeValidateConfigCommand(build),
@@ -239,6 +243,28 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
+	if strings.HasPrefix(cli.DBURL, "station://") {
+		prefix, err := config.StationPrefix(cli.DBURL)
+		if err != nil {
+			return err
+		}
+		sqlDB, err := state.DB.DB()
+		if err != nil {
+			return err
+		}
+		defer sqlDB.Close()
+		state.StationShards, err = stationshard.Open(stationshard.Config{
+			S3: cli.S3Config(), Prefix: prefix + "/shards", Owner: cli.ServerDID(),
+		})
+		if err != nil {
+			return fmt.Errorf("open station shards: %w", err)
+		}
+		defer func() {
+			if err := state.StationShards.Close(); err != nil {
+				log.Error(ctx, "close station shards", "error", err)
+			}
+		}()
+	}
 
 	// Build the Web Push notifier from VAPID keys generated/stored in the DB.
 	vapidKeys, err := state.EnsureVAPIDKeys(ctx)
@@ -292,12 +318,24 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		}
 		log.Log(ctx, "using upstream station", "did", upstreamStation.DID, "url", upstreamStation.URL, "relays", cli.RelayHost, "peers", cli.Peers)
 	}
+	vodStore, err := makeVODStore(ctx, cli)
+	if err != nil {
+		return fmt.Errorf("make vod store: %w", err)
+	}
 	atsync := &atproto.ATProtoSynchronizer{
 		CLI:        cli,
 		Model:      mod,
 		StatefulDB: state,
 		Noter:      noter,
 		Bus:        b,
+	}
+	if cli.StationDID != "" {
+		atsync.StationRecordDeleted = func(ctx context.Context, uri string) error {
+			return vod.RetractStationRecord(ctx, vodStore, cli.StationDID, uri)
+		}
+		atsync.StationVideoUpdated = func(ctx context.Context, uri, currentCID string) error {
+			return vod.UpdateStationVideoSource(ctx, vodStore, cli.StationDID, uri, currentCID)
+		}
 	}
 	mm, err := media.MakeMediaManager(ctx, cli, signer, mod, b, atsync, ldb)
 	if err != nil {
@@ -486,13 +524,19 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 
 	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb, atsync)
 	atsync.LivestreamEnded = d.CutoverLiveRecording
-	um, err := upload.New(ctx, cli, state)
+	newUploadManager := upload.New
+	if state.StationShards != nil {
+		newUploadManager = upload.NewStation
+	}
+	um, err := newUploadManager(ctx, cli, state)
 	if err != nil {
 		return err
 	}
-	vodStore, err := makeVODStore(ctx, cli)
-	if err != nil {
-		return fmt.Errorf("make vod store: %w", err)
+	if cli.StationOriginPublisher {
+		group.Go(func() error {
+			vod.RunStationOrigins(ctx, state, vodStore)
+			return nil
+		})
 	}
 	viewLog, err := makeViewLog(ctx, cli, vodStore, ldb)
 	if err != nil {
@@ -553,6 +597,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			RepoDID:        t.RepoDID,
 			LivestreamURI:  t.LivestreamURI,
 			LivestreamURIs: t.LivestreamURIs,
+			ObjectKeys:     t.ObjectKeys,
 			SigningKey:     signingKey,
 		})
 	})
@@ -572,7 +617,8 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	// statedb stays free of viewlog's transitive deps. The scheduler
 	// goroutine fires per --view-count-aggregate-interval; statedb's
 	// unique TaskKey makes the cross-node race a no-op for losers.
-	if vodStore != nil && cli.ViewCountAggregateInterval > 0 {
+	aggregateViewCounts := vodStore != nil && cli.ViewCountAggregateInterval > 0
+	if aggregateViewCounts && (cli.StationDID == "" || cli.StationOriginPublisher) {
 		// Resolver: for a blob CID, return strongRefs of every
 		// place.stream.media.track record whose muxlTrack lives in
 		// that blob, keyed by in-container trackId. Used by the
@@ -608,15 +654,32 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			return out, nil
 		}
 		state.SetViewCountAggregator(func(ctx context.Context, t statedb.ViewCountAggregateTask) error {
-			return viewlog.RunAggregation(ctx, viewlog.RunAggregationInput{
+			in := viewlog.RunAggregationInput{
 				Store:          vodStore,
 				CLI:            cli,
 				WindowStart:    t.WindowStart,
 				WindowEnd:      t.WindowEnd,
 				ReadMargin:     2 * cli.ViewLogFlushInterval,
 				FetchTrackRefs: fetchTrackRefs,
-			})
+			}
+			if cli.StationDID != "" {
+				lookupCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+				defer cancel()
+				station, err := atproto.ResolveStationIdentity(lookupCtx, cli.PLCURL, cli.StationDID)
+				if err != nil || station.PDS == "" {
+					return errors.New("could not resolve station PDS for view-count aggregation")
+				}
+				client, err := state.StationRepoClient(lookupCtx, cli.StationDID, station.PDS,
+					constants.PLACE_STREAM_MEDIA_VIEW_COUNT, "create", "update")
+				if err != nil {
+					return err
+				}
+				in.StationClient = client
+			}
+			return viewlog.RunAggregation(ctx, in)
 		})
+	}
+	if aggregateViewCounts {
 		group.Go(func() error {
 			return viewlog.ScheduleAggregations(ctx, state, viewlog.ScheduleConfig{
 				Interval: cli.ViewCountAggregateInterval,
@@ -1440,24 +1503,48 @@ func makeMigrateCommand(build *config.BuildFlags) *urfavecli.Command {
 	}
 }
 
-// makeMigrateStateCommand copies the state database from one engine to
-// another — the sqlite → Postgres move. Run it once while the old node is
-// still up to prove the target out, stop the node, run it again for the
-// delta (it is idempotent), then start the node with --db-url pointing at
-// the target.
-func makeMigrateStateCommand() *urfavecli.Command {
+func makeCompactStationDBCommand(cli *config.CLI) *urfavecli.Command {
+	var to string
+	return &urfavecli.Command{
+		Name:  "compact-station-db",
+		Usage: "offline compact copy of operational SQL state only, leaving the source untouched",
+		Flags: []urfavecli.Flag{
+			&urfavecli.StringFlag{Name: "to", Required: true, Usage: "fresh station:// namespace in the same bucket", Destination: &to},
+		},
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			fromPrefix, key, err := cli.StationStorage()
+			if err != nil {
+				return err
+			}
+			toPrefix, err := config.StationPrefix(to)
+			if err != nil {
+				return err
+			}
+			count, err := stationdb.Compact(ctx, cli.S3Config(), fromPrefix+"/operational", toPrefix+"/operational", key)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Copied %d live SQL pages. Shards, recording manifests and media were not copied.\n", count)
+			return nil
+		},
+	}
+}
+
+func makeMigrateStateCommand(cli *config.CLI) *urfavecli.Command {
 	var from, to string
 	var batch int
 	return &urfavecli.Command{
 		Name:  "migrate-statedb",
-		Usage: "copy the state database to another engine (sqlite → Postgres), then exit",
+		Usage: "copy private state to another database; for station://, stop the source first and use a fresh namespace",
 		Flags: []urfavecli.Flag{
 			&urfavecli.StringFlag{Name: "from", Usage: "source state database URL, e.g. sqlite:///data/state.sqlite", Required: true, Destination: &from},
 			&urfavecli.StringFlag{Name: "to", Usage: "target state database URL, e.g. postgres://user:pass@host/streamplace (created if missing)", Required: true, Destination: &to},
 			&urfavecli.IntFlag{Name: "batch-size", Usage: "rows per INSERT", Value: 500, Destination: &batch},
 		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
-			reports, err := statedb.CopyState(ctx, from, to, batch)
+			dst := *cli
+			dst.DBURL = to
+			reports, err := statedb.CopyState(ctx, from, &dst, batch)
 			fmt.Fprintf(os.Stderr, "\n%-28s %10s %10s %10s\n", "table", "source", "inserted", "target")
 			for _, r := range reports {
 				fmt.Fprintf(os.Stderr, "%-28s %10d %10d %10d\n", r.Table, r.Source, r.Inserted, r.Target)

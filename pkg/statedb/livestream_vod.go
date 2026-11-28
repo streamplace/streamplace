@@ -85,12 +85,8 @@ func (state *StatefulDB) ListLivestreamUploads(ctx context.Context, firstURI str
 	return out, err
 }
 
-// CreateLivestreamDraft creates the draft VOD for a livestream upload, in the
-// 'processing' state, inheriting the video record's title, description,
-// activity, tags and connections back to the livestream records. The draft
-// turns 'ready' with the upload; the streamer publishes it from the Drafts
-// tab.
-func (state *StatefulDB) CreateLivestreamDraft(ctx context.Context, did, uploadID string, v *VideoDraft) (*DraftVideo, error) {
+// LivestreamDraftRecord seeds the draft from its source livestreams.
+func LivestreamDraftRecord(v *VideoDraft) *placestream.VodDraftVideo {
 	draftRec := placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         v.Title,
@@ -115,5 +111,5 @@ func (state *StatefulDB) CreateLivestreamDraft(ctx context.Context, did, uploadI
 			draftRec.Connections = append(draftRec.Connections, placestream.VodDraftVideo_Connections_Elem{Video_Connection: c.Video_Connection})
 		}
 	}
-	return state.CreateDraft(ctx, did, uploadID, &draftRec)
+	return &draftRec
 }

@@ -41,6 +41,9 @@ func (a *StreamplaceAPI) HandleAtprotoDID(ctx context.Context) httprouter.Handle
 		// An explicit override takes precedence over host-based DID routing.
 		did := a.CLI.AtprotoDID
 		if did == "" {
+			did = a.CLI.StationDID
+		}
+		if did == "" {
 			did = a.CLI.ServerDID()
 			if a.CLI.ServerHost != a.CLI.BroadcasterHost && req.Host != a.CLI.ServerHost {
 				did = a.CLI.BroadcasterDID()

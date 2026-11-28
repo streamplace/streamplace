@@ -1,0 +1,1 @@
+option('station_release', type: 'boolean', value: false, description: 'Embed the station SlateDB runtime in a native Linux release executable')

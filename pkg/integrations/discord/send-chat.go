@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
@@ -63,21 +62,5 @@ func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *pla
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := aqhttp.Do(ctx, req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := readResponseBody(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	if resp.StatusCode != 204 {
-		log.Error(ctx, "chat webhook delivery failed", "webhook_url", w.URL, "status_code", resp.StatusCode, "response_body", body)
-		return fmt.Errorf("failed to send chat to discord: %s", body)
-	}
-
-	return nil
+	return sendWebhookRequest(ctx, req)
 }

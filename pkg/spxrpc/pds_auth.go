@@ -70,8 +70,17 @@ func GetCaller(ctx context.Context) *Caller {
 	return nil
 }
 
-func (s *Server) serviceAudiences() []string {
-	dids := []string{s.cli.ServerDID(), s.cli.BroadcasterDID()}
+func (s *Server) serviceAudiences(ctx context.Context) []string {
+	serverDID := s.cli.ServerDID()
+	route, creator := ctx.Value(creatorRouteContextKey{}).(creatorRoute)
+	if route.sender != "" {
+		// A forwarded bearer token was addressed to the ingress, not the owner.
+		serverDID = route.sender
+	}
+	dids := []string{serverDID, s.cli.BroadcasterDID()}
+	if creator && s.cli.StationDID != "" {
+		dids = append(dids, s.cli.StationDID)
+	}
 	auds := make([]string, 0, len(dids)*2)
 	for _, did := range dids {
 		auds = append(auds, did, did+"#"+atproto.StreamplaceServiceID)
@@ -81,8 +90,10 @@ func (s *Server) serviceAudiences() []string {
 
 func (s *Server) useAuthMiddleware(e *echo.Echo) {
 	e.Use(s.ServiceAuthMiddleware())
+	e.Use(s.creatorDispatch)
 	e.Use(s.op.OAuthMiddleware)
 	e.Use(s.PDSAuthMiddleware())
+	e.Use(s.creatorAuthorize)
 }
 
 func (s *Server) PDSAuthMiddleware() echo.MiddlewareFunc {
@@ -126,7 +137,7 @@ func newIdentityRefreshCache() *cache.Cache {
 
 func (s *Server) verifyServiceToken(ctx context.Context, raw string, method string) (syntax.DID, error) {
 	validator := jwt.NewValidator(
-		jwt.WithAudience(s.serviceAudiences()...),
+		jwt.WithAudience(s.serviceAudiences(ctx)...),
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(),
 		jwt.WithLeeway(serviceAuthLeeway),

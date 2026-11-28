@@ -5,20 +5,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	glex "github.com/streamplace/glex/runtime"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/integrations/discord"
 	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/stationdb"
 
 	"stream.place/streamplace/pkg/comatproto"
 )
@@ -80,10 +82,7 @@ func heartbeatFrozen(task FinalizeLivestreamTask, lastSeenAt string) bool {
 	return task.StaleSince != "" && task.StaleSince == lastSeenAt
 }
 
-// VODProcessTask is enqueued by the upload manager when a resumable user
-// upload completes. The processor probes the file, generates MUXL tracks,
-// and creates the place.stream.video record set. The actual processing is
-// not yet implemented — for now this just acknowledges receipt.
+// VODProcessTask is enqueued when a resumable upload completes.
 type VODProcessTask struct {
 	UploadID string `json:"uploadId"`
 	RepoDID  string `json:"repoDID"`
@@ -106,6 +105,7 @@ type FinalizeLivestreamVODTask struct {
 	// recordings make up the VOD, in order (LivestreamURI is the first);
 	// empty means just LivestreamURI.
 	LivestreamURIs []string `json:"livestreamURIs,omitempty"`
+	ObjectKeys     []string `json:"objectKeys,omitempty"`
 	// Publish, when set, describes the place.stream.video record to
 	// publish in the streamer's repo (with their stored session) as soon
 	// as the VOD is finalized, instead of leaving a draft for them to
@@ -143,8 +143,8 @@ func (d *VideoDraft) Record() *placestream.Video {
 	}
 }
 
-// VideoPublisher publishes a finalized livestream VOD's place.stream.video
-// record; installed at bootstrap like LivestreamVODFinalizer.
+// VideoPublisher journals each irreversible record write with RunTaskEffect.
+// A successful return also requires any postpublication hosting intent to be durable.
 type VideoPublisher func(ctx context.Context, t FinalizeLivestreamVODTask) (uri, cid string, err error)
 
 func (state *StatefulDB) SetVideoPublisher(f VideoPublisher) {
@@ -168,6 +168,16 @@ type CDNLogIngestTask struct {
 	Tick time.Time `json:"tick"`
 }
 
+func (state *StatefulDB) generalWorkerTaskTypes() []string {
+	if state.CLI == nil || state.CLI.StationDID == "" ||
+		(state.CLI.StationOriginPublisher && state.viewCountAggregator != nil) {
+		return nonVODTaskTypes
+	}
+	return slices.DeleteFunc(slices.Clone(nonVODTaskTypes), func(kind string) bool {
+		return kind == TaskViewCountAggregate
+	})
+}
+
 // ProcessQueue runs the task queue until ctx is cancelled. VOD tasks are
 // handled by a dedicated pool of vodConcurrency workers, so a slow remux
 // can't block quick uploads behind it (or starve the lighter tasks);
@@ -184,7 +194,7 @@ func (state *StatefulDB) ProcessQueue(ctx context.Context, vodConcurrency int) e
 
 	// General worker: everything except VOD.
 	group.Go(func() error {
-		return state.runQueueWorker(ctx, "queue_processor", nonVODTaskTypes)
+		return state.runQueueWorker(ctx, "queue_processor", state.generalWorkerTaskTypes())
 	})
 
 	// Dedicated VOD pool. Live-to-VOD finalize also runs here: it's heavy
@@ -200,27 +210,21 @@ func (state *StatefulDB) ProcessQueue(ctx context.Context, vodConcurrency int) e
 	return group.Wait()
 }
 
-// runQueueWorker pulls and processes tasks of the given types until ctx is
-// cancelled. A failed task is only logged here; it stays locked until its
-// lease expires and then becomes eligible for retry (capped by max_tries),
-// matching the queue's existing retry semantics. Empty dequeues back off
-// on a 1s timer or a queue poke.
+// Empty dequeues and station commit contention back off on a timer or a queue poke.
 func (state *StatefulDB) runQueueWorker(ctx context.Context, workerID string, taskTypes []string) error {
 	for {
-		task, err := state.DequeueTask(ctx, workerID, taskTypes...)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if task != nil {
-			// Defense-in-depth: a panic inside a task handler (e.g. a
-			// nil-deref in a codec, or a malformed record) must not crash
-			// this worker goroutine — errgroup would cancel the whole queue.
-			// Recover it into a logged error so the task fails and its retry
-			// semantics (lease expiry + max_tries) still apply.
-			if err := log.Recover(ctx, func() error {
-				return state.processTask(ctx, task)
-			}); err != nil {
-				log.Error(ctx, "failed to process task", "err", err, "worker", workerID, "taskId", fmt.Sprintf("%d", task.ID))
+		task, err := state.DequeueTask(ctx, workerID, taskTypes...)
+		if err != nil {
+			if !errors.Is(err, stationdb.ErrConflict) && !errors.Is(err, stationdb.ErrCommitUnknown) {
+				return err
+			}
+			log.Debug(ctx, "queue dequeue did not confirm a claim", "err", err, "worker", workerID)
+		} else if task != nil {
+			if err := state.runClaimedTask(ctx, task, taskLeaseDuration/3); err != nil {
+				log.Error(ctx, "queue task failed", "err", err, "worker", workerID, "taskId", task.ID)
 			}
 			continue
 		}
@@ -231,6 +235,184 @@ func (state *StatefulDB) runQueueWorker(ctx context.Context, workerID string, ta
 		case <-state.pokeQueue:
 		}
 	}
+}
+
+const taskCloseTimeout = 5 * time.Second
+
+func (state *StatefulDB) runClaimedTask(parent context.Context, task *AppTask, renewEvery time.Duration) error {
+	ctx, cancel := context.WithCancelCause(parent)
+	defer cancel(nil)
+	ctx = context.WithValue(ctx, queueClaimKey{}, queueClaim{state, task.ID, task.ClaimToken})
+	if err := CheckTaskClaim(ctx); err != nil {
+		if parent.Err() != nil {
+			closeCtx, stop := context.WithTimeout(context.WithoutCancel(parent), taskCloseTimeout)
+			defer stop()
+			return state.ReleaseTask(closeCtx, task.ID, task.ClaimToken)
+		}
+		return err
+	}
+
+	heartbeat, stopHeartbeat := context.WithCancel(ctx)
+	joined := make(chan error, 1)
+	go func() {
+		ticker := time.NewTicker(renewEvery)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-heartbeat.Done():
+				joined <- nil
+				return
+			case <-ticker.C:
+				if err := CheckTaskClaim(heartbeat); err != nil && heartbeat.Err() == nil {
+					lost := fmt.Errorf("renew task claim: %w", err)
+					cancel(lost)
+					joined <- lost
+					return
+				}
+			}
+		}
+	}()
+
+	err := log.Recover(ctx, func() error { return state.processTask(ctx, task) })
+	stopHeartbeat()
+	if lost := <-joined; lost != nil {
+		return errors.Join(lost, err)
+	}
+	closeCtx, stop := context.WithTimeout(context.WithoutCancel(parent), taskCloseTimeout)
+	defer stop()
+	switch {
+	case err == nil:
+		return state.CompleteTask(closeCtx, task.ID, task.ClaimToken)
+	case errors.Is(err, ErrTaskClaimLost):
+		return err
+	case parent.Err() != nil:
+		return errors.Join(err, state.ReleaseTask(closeCtx, task.ID, task.ClaimToken))
+	case task.Type == TaskFinalizeLivestreamVOD && errors.Is(err, ErrTaskEffectUncertain):
+		// A lost response may hide a committed receipt; block only for a durable reservation.
+		return errors.Join(err, state.failTask(closeCtx, task.ID, task.ClaimToken, err.Error(), true))
+	default:
+		return errors.Join(err, state.FailTask(closeCtx, task.ID, task.ClaimToken, err.Error()))
+	}
+}
+
+type queueClaimKey struct{}
+
+type queueClaim struct {
+	store interface {
+		taskEffectStore
+		RenewTask(context.Context, uint, string) error
+	}
+	id    uint
+	token string
+}
+
+// CheckTaskClaim fences an idempotent queue write at its dispatch boundary.
+func CheckTaskClaim(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if claim, ok := ctx.Value(queueClaimKey{}).(queueClaim); ok {
+		renewCtx, cancel := context.WithTimeout(ctx, taskCloseTimeout)
+		defer cancel()
+		return claim.store.RenewTask(renewCtx, claim.id, claim.token)
+	}
+	return nil
+}
+
+// errTaskEffectNotDispatched allows retry only when delivery is known not to have occurred.
+var errTaskEffectNotDispatched = errors.New("task effect not dispatched")
+
+// ReadTaskEffect reads a confirmed receipt without reserving an effect.
+// Outside the queue or for a missing effect it returns found=false.
+// An unresolved reservation returns ErrTaskEffectUncertain.
+func ReadTaskEffect[T any](ctx context.Context, key string) (receipt T, found bool, err error) {
+	if err := ctx.Err(); err != nil {
+		return receipt, false, err
+	}
+	claim, ok := ctx.Value(queueClaimKey{}).(queueClaim)
+	if !ok {
+		return receipt, false, nil
+	}
+	readCtx, stop := context.WithTimeout(ctx, taskCloseTimeout)
+	raw, err := claim.store.readTaskEffect(readCtx, claim.id, claim.token, key)
+	stop()
+	if err != nil || raw == nil {
+		return receipt, false, err
+	}
+	err = json.Unmarshal(raw, &receipt)
+	return receipt, err == nil, err
+}
+
+// RunTaskEffect commits a reservation before dispatch and reuses a confirmed
+// receipt on retries. A reservation without a receipt is never replayed.
+// The callback must contain only the irreversible operation, not preparation.
+func RunTaskEffect[T any](ctx context.Context, key string, send func(context.Context) (T, error)) (T, error) {
+	return runTaskEffect(ctx, key, "", send)
+}
+
+// RunTaskEffectAtURI records the public record identity before writing to the PDS.
+func RunTaskEffectAtURI[T any](ctx context.Context, key string, target syntax.ATURI, send func(context.Context) (T, error)) (T, error) {
+	return runTaskEffect(ctx, key, target.String(), send)
+}
+
+func runTaskEffect[T any](ctx context.Context, key, target string, send func(context.Context) (T, error)) (T, error) {
+	var zero T
+	if err := ctx.Err(); err != nil {
+		return zero, err
+	}
+	claim, ok := ctx.Value(queueClaimKey{}).(queueClaim)
+	if !ok {
+		return send(ctx) // synchronous non-queue caller
+	}
+	reserveCtx, stop := context.WithTimeout(ctx, taskCloseTimeout)
+	prior, err := claim.store.beginTaskEffect(reserveCtx, claim.id, claim.token, key, target)
+	stop()
+	if err != nil {
+		return zero, err
+	}
+	if prior != nil {
+		err = json.Unmarshal(prior, &zero)
+		return zero, err
+	}
+	// Use a bounded detached context for receipts on graceful cancellation.
+	save := func(receipt []byte) error {
+		saveCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), taskCloseTimeout)
+		defer stop()
+		return claim.store.setTaskEffect(saveCtx, claim.id, claim.token, key, receipt)
+	}
+	if err := ctx.Err(); err != nil {
+		return zero, errors.Join(err, save(nil)) // no I/O was attempted
+	}
+	result, err := send(ctx)
+	if errors.Is(err, errTaskEffectNotDispatched) {
+		return zero, errors.Join(err, save(nil))
+	}
+	if err != nil {
+		return zero, fmt.Errorf("%w (%s): %w", ErrTaskEffectUncertain, key, err)
+	}
+	receipt, err := json.Marshal(result)
+	if err == nil {
+		err = save(receipt)
+	}
+	if err != nil {
+		return zero, fmt.Errorf("%w (%s): save receipt: %w", ErrTaskEffectUncertain, key, err)
+	}
+	return result, nil
+}
+
+// withTaskWrite serializes queue-derived SQL writes with takeover. The
+// callback must contain only local SQL; never hold a claim lock across I/O.
+func (state *StatefulDB) withTaskWrite(ctx context.Context, write func(*StatefulDB) error) error {
+	claim, ok := ctx.Value(queueClaimKey{}).(queueClaim)
+	if !ok {
+		return write(state)
+	}
+	return state.withTaskClaimTx(ctx, claim.id, claim.token, func(tx *gorm.DB) error {
+		if err := write(&StatefulDB{DB: tx, Type: state.Type, pokeQueue: state.pokeQueue}); err != nil {
+			return err
+		}
+		return state.lockTaskClaim(tx, claim.id, claim.token)
+	})
 }
 
 func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
@@ -268,11 +450,7 @@ type VODProcessor func(ctx context.Context, t VODProcessTask) (cid string, err e
 
 func (state *StatefulDB) SetVODProcessor(f VODProcessor) { state.vodProcessor = f }
 
-// SetNotifier installs the notification notifier after construction. This is
-// needed because building the Web Push notifier requires VAPID keys, which
-// are stored in the DB — so the DB must exist before the notifier can be
-// fully assembled. The queue processor checks for nil, so a brief window
-// with no notifier is safe.
+// SetNotifier installs the notifier after the DB is available for VAPID keys.
 func (state *StatefulDB) SetNotifier(n notificationpkg.Notifier) { state.noter = n }
 
 func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTask) error {
@@ -281,52 +459,25 @@ func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTas
 	if err := json.Unmarshal(task.Payload, &t); err != nil {
 		return err
 	}
-	// Thread the upload + owner into the log context as early as possible so
-	// every downstream log line (and the error returned below, which is
-	// re-logged by runQueueWorker with the loop's context) carries the user.
-	ctx = log.WithLogValues(ctx, "uploadId", t.UploadID, "did", t.RepoDID)
-	log.Log(ctx, "dequeued vod-process task")
-	if state.vodProcessor == nil {
-		log.Warn(ctx, "no VOD processor configured; dropping task",
-			"uploadId", t.UploadID, "did", t.RepoDID)
-		return state.CompleteTask(ctx, task.ID)
+	// Complete uploads from older clients have no explicit draft. Anchor one
+	// before media processing so the terminal transition cannot pass it by.
+	if err := state.withDraftTaskWrite(ctx, t.RepoDID, func(db *StatefulDB) error {
+		_, err := state.CreateUploadDraftTx(ctx, db.DB, t.RepoDID, t.UploadID, nil)
+		return err
+	}); err != nil {
+		return fmt.Errorf("prepare upload draft: %w", err)
 	}
-	if err := state.SetUploadProcessing(ctx, t.UploadID); err != nil {
-		log.Warn(ctx, "failed to mark upload as processing", "uploadId", t.UploadID, "error", err)
-	}
-	cid, err := state.vodProcessor(ctx, t)
-	if err != nil {
-		if ferr := state.SetUploadFailed(ctx, t.UploadID, err.Error()); ferr != nil {
-			log.Warn(ctx, "failed to mark upload as failed", "uploadId", t.UploadID, "error", ferr)
+	return state.processQueueUpload(ctx, t.UploadID, true, func() (string, error) {
+		if state.vodProcessor == nil {
+			return "", errors.New("no VOD processor configured")
 		}
-		// Flip any tied draft to 'error' too, so the user sees the failure in
-		// the Drafts tab instead of an indefinite 'processing' state.
-		if derr := state.SetDraftError(ctx, t.UploadID, err.Error()); derr != nil {
-			log.Warn(ctx, "failed to mark draft as failed", "uploadId", t.UploadID, "error", derr)
-		}
-		// Complete the task so it doesn't retry — most VOD failures are
-		// permanent (unsupported codec, corrupted file, etc.).
-		_ = state.CompleteTask(ctx, task.ID)
-		// The upload ID + DID are now in the log context (set above), so the
-		// error string no longer needs to embed them for traceability — the
-		// runQueueWorker re-log picks them up from context.
-		return fmt.Errorf("vod processing upload %s: %w", t.UploadID, err)
-	}
-	// The processor (vod.ProcessVOD) calls SetUploadProcessed deep inside its
-	// own publish path, so by the time it returns the Upload row carries the
-	// finished TrackURIs / DurationMS / ContentCID. Re-read them and flip the
-	// tied draft to 'ready'. A missing draft (pre-drafts-era upload, or one
-	// whose create failed) is a no-op, not an error.
-	if err := state.markDraftReadyFromUpload(ctx, t.UploadID); err != nil {
-		log.Warn(ctx, "failed to mark draft ready", "uploadId", t.UploadID, "error", err)
-	}
-	log.Log(ctx, "vod processed", "uploadId", t.UploadID, "cid", cid)
-	return state.CompleteTask(ctx, task.ID)
+		return state.vodProcessor(ctx, t)
+	})
 }
 
 // LivestreamVODFinalizer concatenates a finished livestream's recorded MUXL
-// objects into a content-addressed VOD blob, derives its sidecars, and
-// publishes the origin + track records. Returns the resulting BDASL CID. Same
+// objects into a content-addressed VOD blob and derives its sidecars without
+// publishing it. Returns the resulting BDASL CID. Same
 // function-pointer indirection as VODProcessor so pkg/statedb doesn't import
 // the blob.Store/muxl-heavy pkg/vod.
 type LivestreamVODFinalizer func(ctx context.Context, t FinalizeLivestreamVODTask) (cid string, err error)
@@ -341,63 +492,95 @@ func (state *StatefulDB) processFinalizeLivestreamVODTask(ctx context.Context, t
 	if err := json.Unmarshal(task.Payload, &t); err != nil {
 		return err
 	}
-	// Thread the upload + owner into the log context so every downstream log
-	// line (and the error returned below, re-logged by runQueueWorker) carries
-	// the user.
-	ctx = log.WithLogValues(ctx, "uploadId", t.UploadID, "did", t.RepoDID, "livestream", t.LivestreamURI)
-	log.Log(ctx, "dequeued finalize-livestream-vod task")
-	if state.livestreamVODFinalizer == nil {
-		log.Warn(ctx, "no livestream VOD finalizer configured; dropping task",
-			"uploadId", t.UploadID, "did", t.RepoDID)
-		return state.CompleteTask(ctx, task.ID)
+	if err := state.processQueueUpload(ctx, t.UploadID, t.Publish == nil, func() (string, error) {
+		if state.livestreamVODFinalizer == nil {
+			return "", errors.New("no livestream VOD finalizer configured")
+		}
+		return state.livestreamVODFinalizer(ctx, t)
+	}); err != nil {
+		return err
 	}
-	if err := state.SetUploadProcessing(ctx, t.UploadID); err != nil {
-		log.Warn(ctx, "failed to mark upload as processing", "uploadId", t.UploadID, "error", err)
+	if t.Publish == nil {
+		return nil
 	}
-	cid, err := state.livestreamVODFinalizer(ctx, t)
+
+	var err error
+	if state.videoPublisher == nil {
+		err = errors.New("no video publisher configured")
+	} else {
+		_, _, err = state.videoPublisher(ctx, t)
+	}
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, ErrTaskClaimLost), errors.Is(err, ErrTaskEffectUncertain), ctx.Err() != nil, task.TryCount < task.MaxTries:
+		return err
+	}
+	// Offer a manual draft only if no irreversible publication step ran.
+	// A partial publish must not bypass the outbox via the manual path.
+	return state.withDraftTaskWrite(ctx, t.RepoDID, func(db *StatefulDB) error {
+		hasEffects, readErr := db.hasTaskEffects(ctx, task.ID, task.ClaimToken)
+		if readErr != nil {
+			return readErr
+		}
+		if hasEffects {
+			return err
+		}
+		if _, createErr := state.CreateUploadDraftTx(ctx, db.DB, t.RepoDID, t.UploadID, LivestreamDraftRecord(t.Publish)); createErr != nil {
+			return createErr
+		}
+		log.Warn(ctx, "automatic video publication failed before dispatch; leaving a draft", "uploadId", t.UploadID, "err", err)
+		return nil
+	})
+}
+
+func (state *StatefulDB) processQueueUpload(ctx context.Context, uploadID string, readyDraft bool, process func() (string, error)) error {
+	upload, err := state.GetUpload(ctx, uploadID)
 	if err != nil {
-		if ferr := state.SetUploadFailed(ctx, t.UploadID, err.Error()); ferr != nil {
-			log.Warn(ctx, "failed to mark upload as failed", "uploadId", t.UploadID, "error", ferr)
-		}
-		// Flip the tied draft to 'error' so the user sees the failure.
-		if derr := state.SetDraftError(ctx, t.UploadID, err.Error()); derr != nil {
-			log.Warn(ctx, "failed to mark draft as failed", "uploadId", t.UploadID, "error", derr)
-		}
-		// Complete so it doesn't retry: most finalize failures are permanent
-		// (missing objects, unreadable bytes, no OAuth session).
-		_ = state.CompleteTask(ctx, task.ID)
-		return fmt.Errorf("finalize livestream VOD upload %s: %w", t.UploadID, err)
+		return err
 	}
-	// As with VODProcess, the finalizer calls SetUploadProcessed internally, so
-	// re-read the finished Upload row and flip the tied draft to 'ready'.
-	if err := state.markDraftReadyFromUpload(ctx, t.UploadID); err != nil {
-		log.Warn(ctx, "failed to mark draft ready", "uploadId", t.UploadID, "error", err)
+	if upload == nil {
+		return fmt.Errorf("queue upload %s not found", uploadID)
 	}
-	log.Log(ctx, "livestream VOD finalized", "uploadId", t.UploadID, "cid", cid)
-	if t.Publish != nil {
-		// The VOD is finalized either way, so a failed publish is not
-		// retried (a retry would finalize the recording again). It leaves
-		// the streamer a ready draft instead, to publish from the Drafts tab;
-		// the publish remembers any track records it got as far as minting on
-		// the upload, and the draft's publish reuses them.
-		var perr error
-		if state.videoPublisher == nil {
-			perr = errors.New("no video publisher configured")
-		} else if uri, vcid, err := state.videoPublisher(ctx, t); err != nil {
-			perr = err
-		} else {
-			log.Log(ctx, "livestream VOD published", "uploadId", t.UploadID, "uri", uri, "cid", vcid)
+	if upload.ProcessingStatus != "done" {
+		if err := state.withTaskWrite(ctx, func(db *StatefulDB) error {
+			return db.SetUploadProcessing(ctx, uploadID)
+		}); err != nil {
+			return err
 		}
-		if perr != nil {
-			log.Error(ctx, "finalize-livestream-vod: VOD finalized but publishing the video record failed; leaving a draft", "uploadId", t.UploadID, "error", perr)
-			if _, err := state.CreateLivestreamDraft(ctx, t.RepoDID, t.UploadID, t.Publish); err != nil {
-				log.Error(ctx, "finalize-livestream-vod: could not create a draft for the unpublished VOD", "uploadId", t.UploadID, "error", err)
-			} else if err := state.markDraftReadyFromUpload(ctx, t.UploadID); err != nil {
-				log.Warn(ctx, "failed to mark draft ready", "uploadId", t.UploadID, "error", err)
+		if _, err := process(); err != nil {
+			if ctx.Err() != nil || errors.Is(err, ErrTaskClaimLost) {
+				return err
 			}
+			writeErr := state.withDraftTaskWrite(ctx, upload.RepoDID, func(db *StatefulDB) error {
+				current, readErr := db.GetUpload(ctx, uploadID)
+				if readErr != nil {
+					return readErr
+				}
+				if current != nil && current.ProcessingStatus == "done" {
+					return nil
+				}
+				if err := db.SetUploadFailed(ctx, uploadID, err.Error()); err != nil {
+					return err
+				}
+				return db.syncDraftResult(ctx, uploadID)
+			})
+			return errors.Join(fmt.Errorf("process upload %s: %w", uploadID, err), writeErr)
+		}
+		upload, err = state.GetUpload(ctx, uploadID)
+		if err != nil {
+			return err
+		}
+		if upload == nil || upload.ProcessingStatus != "done" {
+			return fmt.Errorf("queue upload %s did not persist its processing result", uploadID)
 		}
 	}
-	return state.CompleteTask(ctx, task.ID)
+	if !readyDraft {
+		return nil
+	}
+	return state.withDraftTaskWrite(ctx, upload.RepoDID, func(db *StatefulDB) error {
+		return db.syncDraftResult(ctx, uploadID)
+	})
 }
 
 // ViewCountAggregator runs the view-log → place.stream.media.viewCount
@@ -417,14 +600,12 @@ func (state *StatefulDB) processViewCountAggregateTask(ctx context.Context, task
 		return err
 	}
 	if state.viewCountAggregator == nil {
-		log.Warn(ctx, "no view-count aggregator configured; dropping task",
-			"windowStart", t.WindowStart, "windowEnd", t.WindowEnd)
-		return state.CompleteTask(ctx, task.ID)
+		return errors.New("no view-count aggregator configured")
 	}
 	if err := state.viewCountAggregator(ctx, t); err != nil {
 		return fmt.Errorf("view-count aggregation: %w", err)
 	}
-	return state.CompleteTask(ctx, task.ID)
+	return nil
 }
 
 // CDNLogIngester pulls newly archived CDN access logs into the view-log
@@ -438,13 +619,12 @@ func (state *StatefulDB) SetCDNLogIngester(f CDNLogIngester) {
 func (state *StatefulDB) processCDNLogIngestTask(ctx context.Context, task *AppTask) error {
 	ctx = log.WithLogValues(ctx, "func", "processCDNLogIngestTask")
 	if state.cdnLogIngester == nil {
-		log.Warn(ctx, "no cdn log ingester configured; dropping task")
-		return state.CompleteTask(ctx, task.ID)
+		return errors.New("no CDN log ingester configured")
 	}
 	if err := state.cdnLogIngester(ctx); err != nil {
 		return fmt.Errorf("cdn log ingest: %w", err)
 	}
-	return state.CompleteTask(ctx, task.ID)
+	return nil
 }
 
 func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task *AppTask) error {
@@ -518,7 +698,7 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 		session, err := state.GetSessionByDID(livestream.RepoDID)
 		if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && session == nil) {
 			log.Debug(ctx, "stale latest livestream has no local session; dropping finalize task (firehose-observed, no heartbeat to wait for)", "uri", livestream.URI, "lastSeenAt", lastSeenTime)
-			return state.CompleteTask(ctx, task.ID)
+			return nil
 		}
 		if err != nil {
 			return fmt.Errorf("failed to get session for finalize-livestream guard: %w", err)
@@ -527,11 +707,13 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 			log.Log(ctx, "livestream is latest for repo and its heartbeat has not moved in a full idle window; ending it", "uri", livestream.URI, "lastSeenAt", lastSeenTime)
 		} else {
 			rescheduledAt := time.Now().Add(time.Duration(*rec.IdleTimeoutSeconds) * time.Second).UTC()
-			rescheduledKey := fmt.Sprintf("finalize-livestream::%s::%s", livestream.URI, rescheduledAt.Format(util.ISO8601))
+			rescheduledKey := fmt.Sprintf("finalize-livestream::%s::retry-%d", livestream.URI, task.ID)
 			next := finalizeLivestreamTask
 			next.StaleSince = *rec.LastSeenAt
-			_, err = state.EnqueueTask(ctx, TaskFinalizeLivestream, next, WithTaskKey(rescheduledKey), WithScheduledAt(rescheduledAt))
-			if err != nil {
+			if err := state.withTaskWrite(ctx, func(db *StatefulDB) error {
+				_, err := db.EnqueueTask(ctx, TaskFinalizeLivestream, next, WithTaskKey(rescheduledKey), WithScheduledAt(rescheduledAt))
+				return err
+			}); err != nil {
 				return fmt.Errorf("failed to reschedule finalize livestream task: %w", err)
 			}
 			log.Log(ctx, "livestream is latest for repo but lastSeenAt is stale; rescheduling finalize once to let heartbeat catch up", "uri", livestream.URI, "lastSeenAt", lastSeenTime, "rescheduledAt", rescheduledAt)
@@ -579,6 +761,9 @@ func (state *StatefulDB) EndLivestreamRecord(ctx context.Context, livestream *mo
 	}
 	out := comatproto.RepoPutRecord_Output{}
 
+	if err := CheckTaskClaim(ctx); err != nil {
+		return err
+	}
 	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out)
 	if err != nil {
 		return fmt.Errorf("failed to update livestream record: %w", err)
@@ -601,90 +786,74 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 	}
 	userDID := lsv.Author.Did
 
-	log.Warn(ctx, "Livestream detected! Blasting followers!", "title", rec.Title, "url", rec.Url, "createdAt", rec.CreatedAt, "repo", userDID)
+	pushErr := state.sendTaskPushes(ctx, userDID, lsv.Author.Handle, rec.Title)
+	if errors.Is(pushErr, ErrTaskClaimLost) || ctx.Err() != nil {
+		return errors.Join(pushErr, ctx.Err())
+	}
+	hookErr := state.sendTaskWebhooks(ctx, userDID, "livestream", func(ctx context.Context, w *placestream.ServerDefs_Webhook) error {
+		return webhook.SendLivestreamWebhook(ctx, w, notificationTask.PDSURL, &lsv, notificationTask.FeedPost, &notificationTask.ChatProfile)
+	})
+	return errors.Join(pushErr, hookErr)
+}
+
+func (state *StatefulDB) sendTaskPushes(ctx context.Context, userDID, handle, title string) error {
 	followers, err := state.model.GetUserFollowers(ctx, userDID)
 	if err != nil {
 		return err
 	}
-
-	followersDIDs := make([]string, 0, len(followers))
+	dids := make([]string, 0, len(followers))
 	for _, follower := range followers {
-		followersDIDs = append(followersDIDs, follower.UserDID)
+		dids = append(dids, follower.UserDID)
 	}
-
-	log.Log(ctx, "found followers", "count", len(followersDIDs))
-
-	notifications, err := state.GetManyNotifications(followersDIDs)
+	notifications, err := state.GetManyNotifications(dids)
 	if err != nil {
 		return err
 	}
-
-	if state.noter != nil {
-		user := model.HandleOrDID(lsv.Author.Handle, userDID)
-		name := user
-		if model.IsUsableHandle(lsv.Author.Handle) {
-			name = "@" + name
+	user := model.HandleOrDID(handle, userDID)
+	name := user
+	if model.IsUsableHandle(handle) {
+		name = "@" + name
+	}
+	blast := &notificationpkg.NotificationBlast{
+		Title: fmt.Sprintf("🔴 %s is LIVE!", name),
+		Body:  title,
+		Data:  map[string]string{"path": "/" + user},
+	}
+	var errs []error
+	for _, n := range notifications {
+		if state.noter == nil {
+			return errors.New("no push notifier configured")
 		}
-		nb := &notificationpkg.NotificationBlast{
-			Title: fmt.Sprintf("🔴 %s is LIVE!", name),
-			Body:  rec.Title,
-			Data: map[string]string{
-				"path": fmt.Sprintf("/%s", user),
-			},
+		if router, ok := state.noter.(*notificationpkg.MultiNotifier); ok && !router.Supports(n.Type) {
+			errs = append(errs, fmt.Errorf("no push transport configured for %s", n.Type))
+			continue
 		}
-		targets := make([]notificationpkg.NotificationTarget, len(notifications))
-		for i, n := range notifications {
-			targets[i] = notificationpkg.NotificationTarget{Token: n.Token, Type: n.Type}
+		target := [1]notificationpkg.NotificationTarget{{Token: n.Token, Type: n.Type}}
+		expired, err := RunTaskEffect(ctx, taskEffectKey("push", n.Token), func(ctx context.Context) (bool, error) {
+			err := state.noter.Blast(ctx, target[:], blast)
+			if len(notificationpkg.ExpiredTokens(err)) > 0 && !errors.Is(err, notificationpkg.ErrPushNotDispatched) {
+				return true, nil // a definite expired-subscription response
+			}
+			if errors.Is(err, notificationpkg.ErrPushNotDispatched) {
+				return false, fmt.Errorf("%w: %w", errTaskEffectNotDispatched, err)
+			}
+			return false, err
+		})
+		if errors.Is(err, ErrTaskClaimLost) || ctx.Err() != nil {
+			return errors.Join(err, ctx.Err())
 		}
-		err = state.noter.Blast(ctx, targets, nb)
+		if errors.Is(err, ErrTaskEffectUncertain) {
+			log.Error(ctx, "push delivery unconfirmed", "err", err)
+			continue
+		}
+		if err == nil && expired {
+			err = state.withTaskWrite(ctx, func(db *StatefulDB) error { return db.DeleteNotification(n.Token) })
+		}
 		if err != nil {
-			log.Error(ctx, "failed to blast notifications", "err", err)
-		} else {
-			log.Log(ctx, "sent notifications", "user", userDID, "count", len(notifications), "content", nb)
-		}
-		// Prune web push subscriptions whose endpoints returned 410 Gone /
-		// 404 — they're dead and would just fail again on every future blast.
-		for _, token := range notificationpkg.ExpiredTokens(err) {
-			if delErr := state.DeleteNotification(token); delErr != nil {
-				log.Error(ctx, "failed to prune expired notification", "token", token, "err", delErr)
-			} else {
-				log.Log(ctx, "pruned expired notification", "token", token)
-			}
-		}
-	} else {
-		log.Log(ctx, "no notifier configured, skipping notifications", "user", userDID, "count", len(notifications))
-	}
-
-	// Send to webhooks using webhook manager
-	webhooks, err := state.GetActiveWebhooksForUser(userDID, "livestream")
-	if err != nil {
-		log.Error(ctx, "failed to get livestream webhooks", "err", err)
-	} else {
-		for _, w := range webhooks {
-			lexiconWebhook, err := w.ToLexicon()
-			if err != nil {
-				log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
-				continue
-			}
-			go func(lexiconWebhook placestream.ServerDefs_Webhook, wid string) {
-				err := webhook.SendLivestreamWebhook(ctx, &lexiconWebhook, notificationTask.PDSURL, &lsv, notificationTask.FeedPost, &notificationTask.ChatProfile)
-				if err != nil {
-					log.Error(ctx, "failed to send livestream to webhook", "err", err, "webhook_id", wid)
-					err := state.IncrementWebhookError(wid)
-					if err != nil {
-						log.Error(ctx, "failed to increment webhook error count", "err", err, "webhook_id", wid)
-					}
-				} else {
-					log.Log(ctx, "sent livestream to webhook", "webhook_id", wid)
-					err := state.ResetWebhookError(wid)
-					if err != nil {
-						log.Error(ctx, "failed to reset webhook error count", "err", err, "webhook_id", wid)
-					}
-				}
-			}(lexiconWebhook, w.ID)
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func (state *StatefulDB) processStreamReceivedTask(ctx context.Context, task *AppTask) error {
@@ -692,35 +861,9 @@ func (state *StatefulDB) processStreamReceivedTask(ctx context.Context, task *Ap
 	if err := json.Unmarshal(task.Payload, &streamReceivedTask); err != nil {
 		return err
 	}
-
-	webhooks, err := state.GetActiveWebhooksForUser(streamReceivedTask.StreamerDID, "stream.received")
-	if err != nil {
-		return fmt.Errorf("failed to get stream.received webhooks: %w", err)
-	}
-	for _, w := range webhooks {
-		lexiconWebhook, err := w.ToLexicon()
-		if err != nil {
-			log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
-			continue
-		}
-		go func(lexiconWebhook placestream.ServerDefs_Webhook, wid string) {
-			err := webhook.SendStreamReceivedWebhook(ctx, &lexiconWebhook, streamReceivedTask.StreamerDID)
-			if err != nil {
-				log.Error(ctx, "failed to send stream.received webhook", "err", err, "webhook_id", wid)
-				err = state.IncrementWebhookError(wid)
-				if err != nil {
-					log.Error(ctx, "failed to increment webhook error count", "err", err, "webhook_id", wid)
-				}
-			} else {
-				log.Log(ctx, "sent stream.received webhook", "webhook_id", wid)
-				err = state.ResetWebhookError(wid)
-				if err != nil {
-					log.Error(ctx, "failed to reset webhook error count", "err", err, "webhook_id", wid)
-				}
-			}
-		}(lexiconWebhook, w.ID)
-	}
-	return nil
+	return state.sendTaskWebhooks(ctx, streamReceivedTask.StreamerDID, "stream.received", func(ctx context.Context, w *placestream.ServerDefs_Webhook) error {
+		return webhook.SendStreamReceivedWebhook(ctx, w, streamReceivedTask.StreamerDID)
+	})
 }
 
 func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTask) error {
@@ -734,34 +877,57 @@ func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTa
 		return fmt.Errorf("invalid chat message record: %w", err)
 	}
 
-	// Send to webhooks using webhook manager
-	webhooks, err := state.GetActiveWebhooksForUser(rec.Streamer, "chat")
+	return state.sendTaskWebhooks(ctx, rec.Streamer, "chat", func(ctx context.Context, w *placestream.ServerDefs_Webhook) error {
+		return webhook.SendChatWebhook(ctx, w, scm.Author.Did, &scm)
+	})
+}
+
+func (state *StatefulDB) sendTaskWebhooks(ctx context.Context, did, event string, send func(context.Context, *placestream.ServerDefs_Webhook) error) error {
+	hooks, err := state.GetActiveWebhooksForUser(did, event)
 	if err != nil {
-		log.Error(ctx, "failed to get chat webhooks", "err", err)
-	} else {
-		for _, w := range webhooks {
-			lexiconWebhook, err := w.ToLexicon()
-			if err != nil {
-				log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
-				continue
-			}
-			go func(lexiconWebhook placestream.ServerDefs_Webhook, wid string) {
-				err := webhook.SendChatWebhook(ctx, &lexiconWebhook, scm.Author.Did, &scm)
-				if err != nil {
-					log.Error(ctx, "failed to send chat to webhook", "err", err, "webhook_id", wid)
-					err = state.IncrementWebhookError(wid)
-					if err != nil {
-						log.Error(ctx, "failed to increment webhook error count", "err", err, "webhook_id", wid)
-					}
-				} else {
-					log.Log(ctx, "sent chat to webhook", "webhook_id", wid)
-					err = state.ResetWebhookError(wid)
-					if err != nil {
-						log.Error(ctx, "failed to reset webhook error count", "err", err, "webhook_id", wid)
-					}
+		return fmt.Errorf("list %s webhooks: %w", event, err)
+	}
+	var errs []error
+	for _, w := range hooks {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		target, err := w.ToLexicon()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("decode webhook %s: %w", w.ID, err))
+			continue
+		}
+		attempted := false
+		dispatch := discord.WithWebhookDispatch(ctx, func(ctx context.Context, post func(context.Context) error) error {
+			_, err := RunTaskEffect(ctx, taskEffectKey("webhook", w.ID), func(ctx context.Context) (bool, error) {
+				attempted = true
+				err := post(ctx)
+				if errors.Is(err, discord.ErrWebhookRateLimited) {
+					err = fmt.Errorf("%w: %w", errTaskEffectNotDispatched, err)
 				}
-			}(lexiconWebhook, w.ID)
+				return true, err
+			})
+			return err
+		})
+		err = send(dispatch, &target)
+		if errors.Is(err, ErrTaskClaimLost) || ctx.Err() != nil {
+			return errors.Join(err, ctx.Err())
+		}
+		if attempted {
+			if statErr := state.withTaskWrite(ctx, func(db *StatefulDB) error {
+				if err != nil {
+					return db.IncrementWebhookError(w.ID)
+				}
+				return db.ResetWebhookError(w.ID)
+			}); statErr != nil {
+				log.Error(ctx, "update webhook error count", "webhook_id", w.ID, "err", statErr)
+			}
+		}
+		if errors.Is(err, ErrTaskEffectUncertain) {
+			log.Error(ctx, "webhook delivery unconfirmed", "webhook_id", w.ID, "err", err)
+		} else if err != nil {
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }

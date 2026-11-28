@@ -13,7 +13,7 @@ description: Reference for the place.stream.media.origin lexicon
 
 **Type:** `record`
 
-An attestation that a MUXL blob is available for download from the publishing node, retrievable via XRPC (com.atproto.repo.getBlob and similar). Published by the Streamplace node that hosts the blob, not by the user who owns the underlying video. The rkey is conventionally the blob's BDASL CID — atproto lexicon doesn't yet have a literal-rkey syntax so we settle for `key: any` and rely on the convention.
+The publishing station attests that it serves this public MUXL blob. The record key is the blob's BDASL CID. Resolve the station DID's #streamplace service and call place.stream.playback.getVideoBlob there. The #atproto_pds service hosts the attestation, not the media. Independent stations may attest to the same blob.
 
 **Record Key:** `any`
 
@@ -36,7 +36,7 @@ An attestation that a MUXL blob is available for download from the publishing no
   "defs": {
     "main": {
       "type": "record",
-      "description": "An attestation that a MUXL blob is available for download from the publishing node, retrievable via XRPC (com.atproto.repo.getBlob and similar). Published by the Streamplace node that hosts the blob, not by the user who owns the underlying video. The rkey is conventionally the blob's BDASL CID — atproto lexicon doesn't yet have a literal-rkey syntax so we settle for `key: any` and rely on the convention.",
+      "description": "The publishing station attests that it serves this public MUXL blob. The record key is the blob's BDASL CID. Resolve the station DID's #streamplace service and call place.stream.playback.getVideoBlob there. The #atproto_pds service hosts the attestation, not the media. Independent stations may attest to the same blob.",
       "key": "any",
       "record": {
         "type": "object",

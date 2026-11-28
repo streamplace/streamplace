@@ -29,12 +29,18 @@ class WebDriverError extends Error {
 }
 
 async function command<T>(path: string, body?: object, method?: string) {
-  const response = await fetch(`${endpoint}${path}`, {
-    method: method ?? (body ? "POST" : "GET"),
-    headers: body ? { "content-type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(100_000),
-  });
+  const verb = method ?? (body ? "POST" : "GET");
+  let response: Response;
+  try {
+    response = await fetch(`${endpoint}${path}`, {
+      method: verb,
+      headers: body ? { "content-type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(100_000),
+    });
+  } catch (error) {
+    throw new Error(`${verb} ${path} failed`, { cause: error });
+  }
   const { value } = await response.json();
   if (!response.ok) {
     throw new WebDriverError(value.error, `${path}: ${value.message}`);
@@ -87,7 +93,8 @@ const { sessionId, capabilities } = await command<{
     alwaysMatch: {
       browserName: "Safari",
       platformName: "iOS",
-      pageLoadStrategy: "eager",
+      // Let the UI assertions determine readiness, not the cold page load.
+      pageLoadStrategy: "none",
       "safari:useSimulator": true,
       "safari:deviceUDID": device,
     },
@@ -141,10 +148,6 @@ const button = (...labels: string[]) => {
 try {
   assert.equal(capabilities["safari:deviceUDID"], device);
   console.log(`Safari ${capabilities.browserVersion} on iPhone ${device}`);
-  // Navigation needs the document, not every subresource; the steps below
-  // wait for the app to render and the stream to connect.
-  await send("/timeouts", { pageLoad: 90_000 });
-
   // The bundled Expo web app defaults to its own origin.
   console.log("Signing in through the fixture PDS");
   await go(`${station}/login`);
@@ -199,7 +202,17 @@ try {
     return rows.some(({ value }) => value.text === message);
   });
 
+  const timeOrigin = () =>
+    send<number>("/execute/sync", {
+      script: "return performance.timeOrigin;",
+      args: [],
+    });
+  const beforeReload = await timeOrigin();
   await send("/refresh", {});
+  await until(
+    "new document after reload",
+    async () => (await timeOrigin()) !== beforeReload,
+  );
   await visible(chatMessage);
   console.log("Passed: chat persisted after reload");
 } catch (error) {
@@ -214,5 +227,7 @@ try {
   }
   throw error;
 } finally {
-  await command(session, undefined, "DELETE");
+  await command(session, undefined, "DELETE").catch((error: unknown) => {
+    console.error("Could not close SafariDriver session:", error);
+  });
 }

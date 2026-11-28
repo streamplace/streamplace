@@ -532,8 +532,11 @@ jobs:
 
       - name: Run iOS Simulator Safari chat
         if: matrix.name == 'darwin-arm64'
+        timeout-minutes: 15
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/safari-chat
+          # Chat needs a live stream, not the extra WHIP pipelines.
+          SP_E2E_INGEST: fmp4
         run: |
           brew install socat
           sudo bash hack/e2e-https-macos.sh install

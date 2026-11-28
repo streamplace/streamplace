@@ -4,13 +4,18 @@ appId: ${APP_ID}
 # through the PDS and firehose, and rendered again on relaunch: the facets
 # the send path detects and stamps travel with the record. The runner
 # configures the harness and signs in before running any logged-in flow.
-- launchApp
-- extendedWaitUntil:
-    visible:
-      id: "home-stream-card"
-    timeout: 30000
-- tapOn:
-    id: "home-stream-card"
+# A cold start can wedge before first render while Android initializes WebView
+# for Firebase, so relaunch instead of failing the whole suite.
+- retry:
+    maxRetries: 3
+    commands:
+      - launchApp
+      - extendedWaitUntil:
+          visible:
+            id: "home-stream-card"
+          timeout: 30000
+      - tapOn:
+          id: "home-stream-card"
 # chat needs the stream's context, which arrives over its websocket along
 # with this system message
 - extendedWaitUntil:
@@ -28,10 +33,17 @@ appId: ${APP_ID}
 - takeScreenshot: chat-facets-sent
 # Relaunch, so the message comes from the node's chat history: the chat box
 # echoes sends optimistically, and only a record that round-tripped through
-# the PDS and firehose can show up here.
-- launchApp
-- tapOn:
-    id: "home-stream-card"
+# the PDS and firehose can show up here. Retry the same cold-start wedge.
+- retry:
+    maxRetries: 3
+    commands:
+      - launchApp
+      - extendedWaitUntil:
+          visible:
+            id: "home-stream-card"
+          timeout: 30000
+      - tapOn:
+          id: "home-stream-card"
 - extendedWaitUntil:
     visible:
       text: ".*: read the https://dist.town/release.software docs"

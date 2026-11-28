@@ -6,10 +6,65 @@ const CACHE_NAME = null;
 const MAX_CACHE_ENTRIES = 128;
 const STATIC_PREFIX = "/_expo/static/";
 const BYPASS_CACHE_MODES = ["no-store", "no-cache", "reload", "only-if-cached"];
+const IDLE_DELAY_MS = 100;
+let running = 0;
+let idleTimer = null;
+const idleWaiters = [];
+
+// Chromium stalls skipWaiting while fetch work is running, so activation waits
+// for the worker to be quiet instead of racing the document's asset fetches.
+function beginWork() {
+  running++;
+  if (idleTimer !== null) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+}
+
+function endWork() {
+  running = Math.max(0, running - 1);
+  scheduleIdle();
+}
+
+function scheduleIdle() {
+  if (running !== 0 || idleTimer !== null) return;
+  idleTimer = setTimeout(() => {
+    idleTimer = null;
+    if (running !== 0) return;
+    for (const resolve of idleWaiters.splice(0)) resolve();
+  }, IDLE_DELAY_MS);
+}
+
+function whenIdle() {
+  return new Promise((resolve) => {
+    idleWaiters.push(resolve);
+    scheduleIdle();
+  });
+}
 
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") {
     event.waitUntil(self.skipWaiting());
+  }
+  if (event.data && event.data.type === "WHEN_IDLE") {
+    try {
+      if (event.source && "postMessage" in event.source) {
+        event.source.postMessage({ type: "IDLE_ACK" });
+      }
+    } catch (e) {
+      // The asking client navigated away; nobody needs the answer.
+    }
+    event.waitUntil(
+      whenIdle().then(() => {
+        try {
+          if (event.source && "postMessage" in event.source) {
+            event.source.postMessage({ type: "IDLE" });
+          }
+        } catch (e) {
+          // The asking client navigated away; nobody needs the answer.
+        }
+      }),
+    );
   }
 });
 
@@ -21,7 +76,8 @@ self.addEventListener("activate", (event) => {
 if (CACHE_NAME) {
   self.addEventListener("fetch", (event) => {
     if (isCacheableRequest(event.request)) {
-      event.respondWith(cacheFirst(event));
+      beginWork();
+      event.respondWith(cacheFirst(event).finally(endWork));
     }
   });
 }
@@ -75,7 +131,10 @@ async function cacheFirst(event) {
   const response = await fetch(request);
   if (isImmutableResponse(response)) {
     try {
-      event.waitUntil(store(request, response.clone()).catch(() => {}));
+      beginWork();
+      const stored = store(request, response.clone()).catch(() => {});
+      stored.finally(endWork);
+      event.waitUntil(stored);
     } catch (e) {
       // Never let caching fail a successful network response.
     }

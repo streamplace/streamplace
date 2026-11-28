@@ -5481,6 +5481,90 @@
         ]
       }
     },
+    "/xrpc/place.stream.playback.getVideoManifest": {
+      "get": {
+        "summary": "Get a session-bound VOD manifest with embedded track initialization segments and ordered playback sources.",
+        "operationId": "place.stream.playback.getVideoManifest",
+        "tags": ["place.stream.playback"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "sid": {
+                      "type": "string"
+                    },
+                    "durationMs": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "tracks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.playback.getVideoManifest_track"
+                      }
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.playback.getVideoManifest_source"
+                      }
+                    }
+                  },
+                  "required": ["uri", "sid", "durationMs", "tracks", "sources"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "uri",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "description": "Clip-local start in milliseconds.",
+            "schema": {
+              "type": "integer",
+              "description": "Clip-local start in milliseconds."
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "description": "Clip-local exclusive end in milliseconds.",
+            "schema": {
+              "type": "integer",
+              "description": "Clip-local exclusive end in milliseconds."
+            }
+          },
+          {
+            "name": "sid",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.playback.getVideoPlaylist": {
       "get": {
         "summary": "Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash. The `uri` is an AT-URI pointing at a playable record — today only place.stream.video records are supported, but the surface is collection-agnostic so other record types can join later.",
@@ -8485,6 +8569,98 @@
           }
         },
         "required": ["message", "status", "createdAt"]
+      },
+      "place.stream.playback.getVideoManifest_track": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "codec": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer"
+          },
+          "height": {
+            "type": "integer"
+          },
+          "channels": {
+            "type": "integer"
+          },
+          "sampleRate": {
+            "type": "integer"
+          },
+          "bandwidth": {
+            "type": "integer"
+          },
+          "timescale": {
+            "type": "integer"
+          },
+          "init": {
+            "type": "string",
+            "description": "Base64 initialization segment."
+          },
+          "url": {
+            "type": "string"
+          },
+          "first": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "offsets": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "sizes": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "durations": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "codec",
+          "bandwidth",
+          "timescale",
+          "init",
+          "url",
+          "first",
+          "offsets",
+          "sizes",
+          "durations"
+        ]
+      },
+      "place.stream.playback.getVideoManifest_source": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "broadcast": {
+            "type": "string"
+          }
+        },
+        "required": ["type"]
       },
       "place.stream.server.defs_rewriteRule": {
         "type": "object",

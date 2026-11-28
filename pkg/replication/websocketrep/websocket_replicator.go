@@ -15,6 +15,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	official "moq.dev/moq"
 	"stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
@@ -24,6 +25,8 @@ import (
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
+	"stream.place/streamplace/pkg/viewlog"
+	"stream.place/streamplace/pkg/vod"
 )
 
 type WebsocketReplicator struct {
@@ -48,6 +51,11 @@ type WebsocketReplicator struct {
 	// MoqTLS is the certificate the MoQ listener serves, as files: set
 	// before Start when --moq-addr is on (see serveMoQ).
 	MoqTLS *moq.TLSFiles
+	// What the MoQ listener serves videos from (see serveVOD): set before
+	// Start, and VOD is refused without the first two. ViewLog may be nil.
+	VODResolver vod.VideoResolver
+	VODStore    blob.Store
+	ViewLog     *viewlog.Writer
 	// pushOrigin is what this node's sessions to --peers publish: the
 	// streams it is ingesting, each announced while in live.
 	pushOrigin *official.OriginProducer

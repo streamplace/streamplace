@@ -31,11 +31,14 @@ import (
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/blob"
 	spcomatproto "stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/spkey"
+	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/vod"
 	"stream.place/streamplace/test/remote"
 )
 
@@ -596,19 +599,28 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, htt
 	if _, err := createRecord(ctx, xrpcc, "place.stream.livestream", out.Did, &livestream); err != nil {
 		return fmt.Errorf("create livestream record: %w", err)
 	}
-	// And a VOD, so flows have a video page to open. It has no source tracks:
-	// its metadata (title, author) loads, but there is nothing to play.
+	// And a VOD, so flows have a video page to open: the harness fixture, run
+	// through the VOD pipeline into the node's own store (rooted at its data dir,
+	// as makeVODStore does) so the node can serve it. Done once per harness start.
+	vodStore, err := blob.NewFileStore(dataDir)
+	if err != nil {
+		return fmt.Errorf("open vod store: %w", err)
+	}
+	gstinit.InitGST()
+	imported, err := vod.ImportFile(ctx, vodStore, fixture)
+	if err != nil {
+		return fmt.Errorf("import test video %s: %w", fixture, err)
+	}
+	source, err := vod.PublishImportTracks(ctx, xrpcc, out.Did, imported)
+	if err != nil {
+		return fmt.Errorf("publish test video tracks: %w", err)
+	}
 	video := placestream.Video{
 		LexiconTypeID: "place.stream.video",
 		CreatedAt:     now,
 		Title:         "e2e test video",
-		DurationMs:    10_000,
-		Source: placestream.Video_Source{
-			MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
-				LexiconTypeID: "place.stream.media.defs#sourceTracks",
-				Tracks:        []spcomatproto.RepoStrongRef{},
-			},
-		},
+		DurationMs:    imported.Probe.DurationMS,
+		Source:        placestream.Video_Source{MediaDefs_SourceTracks: source},
 	}
 	videoURI, err := createRecord(ctx, xrpcc, "place.stream.video", out.Did, &video)
 	if err != nil {

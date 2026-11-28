@@ -142,10 +142,15 @@ func (r *WebsocketReplicator) serveMoQ(ctx context.Context) error {
 
 // serveBroadcast answers a peer's request for a streamer's broadcast: a
 // stream that is not live here is refused rather than waited on, and a
-// live one is served until it ends on the bus.
+// live one is served until it ends on the bus. A vod/ path is a viewer's
+// request for a video instead (see serveVOD).
 func (r *WebsocketReplicator) serveBroadcast(ctx context.Context, req *official.BroadcastRequest) {
 	streamer, err := req.Path()
 	if err != nil {
+		return
+	}
+	if parts := strings.Split(streamer, "/"); r.cli.VODMoQ && parts[0] == "vod" {
+		r.serveVOD(ctx, req, parts)
 		return
 	}
 	if r.cli.DisableSyndication || !r.bus.HasSegments(streamer, moqSourceChannel) {

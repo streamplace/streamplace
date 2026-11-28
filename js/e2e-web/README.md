@@ -107,8 +107,9 @@ mobile tab bar, so `tabs` drives Home ↔ Settings through the sidebar.
 web-only coverage, with no current native Go Live scenario. Chat popout is also
 web-only, as is `chat-wheel-scroll` (trackpad wheel input in the inverted
 chat list), which also runs in a Firefox project because the bug it covers
-was reported there. `vod` opens the VOD the harness publishes and checks both the node's
-page title and the app's tab title; document titles have no native counterpart.
+was reported there. `vod` opens the VOD the harness publishes (its fixture, playable) and checks the node's
+page title and the app's tab title (document titles have no native counterpart),
+that it plays, and that the page's own `<video>` shows a frame with the app bundle blocked.
 `branding-favicons` exercises authenticated light/dark favicon uploads, scheme
 switches, persistence and deletion fallbacks, including the HTML before
 hydration. It also decodes `/favicon.ico` as a browser image, verifying the ICO
@@ -319,3 +320,54 @@ Both back off exponentially. Pull requests use `0.9`.
 
 Artifacts on failure (traces, screenshots, video) land in `test-results/` and a
 report in `playwright-report/` (`pnpm --filter @streamplace/e2e-web report`).
+
+## Benchmarks
+
+`bench/` holds timing benchmarks, run by their own config against the same
+harness (no looping stream, which would compete for the CPU):
+
+```bash
+SP_E2E_INGEST=none hack/e2e-web-local.sh --config playwright.bench.config.ts
+```
+
+`vod-ttff` uploads two copies of the harness fixture, then measures time to
+first frame at `/<handle>/video/<tid>`: from navigation start to the first
+frame the `<video>` presents (`requestVideoFrameCallback`). **Cold** opens it
+in a fresh browser context (empty HTTP cache); **warm** opens it in a context
+that has just played the other video for a few seconds. Each runs unthrottled
+and over Chromium's network emulation (10 Mbps, plus 40 ms latency),
+`VOD_TTFF_RUNS` times (default 5). It writes `bench-results/vod-ttff.{md,json}`
+with medians and a per-milestone breakdown; CI's `bench-vod` job posts the
+Markdown to the run summary.
+
+A scenario fails when its median exceeds `bench/vod-ttff-baseline.json` by
+both 25% and 300 ms. The baseline holds CI runner numbers: after a deliberate
+change (or a faster result), copy `firstFrameMs` from the `bench-vod`
+artifact's `vod-ttff.json` into it.
+
+### Against a deployed node
+
+`VOD_TTFF_VIDEOS` runs `vod-ttff` against any node, such as production,
+without the harness. It takes two published watch URLs: warm runs play the
+first one, and all runs measure the second. Upload and node setup are
+skipped, and no baseline is applied unless `VOD_TTFF_BASELINE` names one.
+A previous run's `vod-ttff.json` works as a baseline. To compare a deploy:
+
+```bash
+cd js/e2e-web
+export VOD_TTFF_VIDEOS=https://stream.place/<handle>/video/<tid1>,https://stream.place/<handle>/video/<tid2>
+pnpm bench && cp bench-results/vod-ttff.json /tmp/before.json
+# ...deploy...
+VOD_TTFF_BASELINE=/tmp/before.json pnpm bench
+```
+
+`cold` is cold only in the browser: from the second run on, the node's and
+any CDN's caches hold the target video. Throttling adds to the real network
+path, and results depend on it, so compare runs from the same machine.
+
+### The proof of concept
+
+`hack/vod-poc-local.sh` serves [`js/vod-poc`](../vod-poc/README.md) and runs
+this config against it: `vod-poc` checks that its first frame needs no
+request but the page and that it switches up to 1080p, and `vod-ttff`
+measures it the same way as a node. CI's `bench-vod` job posts both reports.

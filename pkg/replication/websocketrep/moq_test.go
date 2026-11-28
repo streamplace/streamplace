@@ -79,6 +79,39 @@ func renditionOf(t *testing.T, ctx context.Context, segment []byte) []byte {
 	return rendition
 }
 
+// listenMoq serves r's MoQ listener on a loopback port and dials it the
+// way a pull dials: the advertised URL, certificate pinned.
+func listenMoq(t *testing.T, ctx context.Context, r *WebsocketReplicator) *official.Client {
+	t.Helper()
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := pc.LocalAddr().String()
+	require.NoError(t, pc.Close())
+	cert, err := moq.NewSelfSignedCert()
+	require.NoError(t, err)
+	r.MoqTLS, err = moq.ManagedTLSFiles(t.TempDir(), cert.Certificate)
+	require.NoError(t, err)
+	// Listening the way --moq-addr defaults, with no host.
+	_, port, err := net.SplitHostPort(addr)
+	require.NoError(t, err)
+	r.cli.MoqAddr = ":" + port
+	ctx, cancel := context.WithCancel(ctx)
+	served := make(chan error, 1)
+	go func() { served <- r.serveMoQ(ctx) }()
+	t.Cleanup(func() {
+		cancel()
+		<-served //nolint:errcheck // cancelled on purpose
+	})
+	moqURL := fmt.Sprintf("moqt://%s?%s=%s", addr, moq.CertHashParam, cert.Hash())
+	var client *official.Client
+	require.Eventually(t, func() bool {
+		client, err = r.dialMoq(ctx, moqURL, nil)
+		return err == nil
+	}, 10*time.Second, 100*time.Millisecond, "the listener comes up")
+	t.Cleanup(func() { client.Close() })
+	return client
+}
+
 // A peer pulling a stream through the listener finds each MUXL track in
 // the broadcast's catalog as a CMAF track a hang player can decode, and
 // gets the bus's source segments back byte for byte, primed with the recent
@@ -94,34 +127,9 @@ func TestMoqServesTheBus(t *testing.T) {
 	segments := signedSegments(t, ctx, "h264-opus-frag.mp4")
 	rendition := renditionOf(t, ctx, segments[0])
 
-	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
-	require.NoError(t, err)
-	addr := pc.LocalAddr().String()
-	require.NoError(t, pc.Close())
-	cert, err := moq.NewSelfSignedCert()
-	require.NoError(t, err)
-	tlsFiles, err := moq.ManagedTLSFiles(t.TempDir(), cert.Certificate)
-	require.NoError(t, err)
 	b := bus.NewBus()
-	// Listening the way --moq-addr defaults, with no host.
-	_, port, err := net.SplitHostPort(addr)
-	require.NoError(t, err)
-	r := &WebsocketReplicator{bus: b, cli: &config.CLI{MoqAddr: ":" + port}, MoqTLS: tlsFiles}
-	served := make(chan error, 1)
-	go func() { served <- r.serveMoQ(ctx) }()
-	defer func() {
-		cancel()
-		<-served //nolint:errcheck // cancelled on purpose
-	}()
-
-	// Dialled the way a pull dials: the advertised URL, certificate pinned.
-	moqURL := fmt.Sprintf("moqt://%s?%s=%s", addr, moq.CertHashParam, cert.Hash())
-	var client *official.Client
-	require.Eventually(t, func() bool {
-		client, err = r.dialMoq(ctx, moqURL, nil)
-		return err == nil
-	}, 10*time.Second, 100*time.Millisecond, "the listener comes up")
-	defer client.Close()
+	r := &WebsocketReplicator{bus: b, cli: &config.CLI{}}
+	client := listenMoq(t, ctx, r)
 
 	// The refusal reaches a puller by the time it subscribes.
 	unexpected := func([]byte) error { return errors.New("a segment of a stream that is not live") }

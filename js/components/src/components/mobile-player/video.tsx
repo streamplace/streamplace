@@ -1,8 +1,10 @@
+import { AtUri } from "@atproto/syntax";
 import type Hls from "hls.js";
 import {
   forwardRef,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -25,6 +27,8 @@ import { Text, View } from "../ui/index";
 import { Loader } from "../ui/loader";
 import { srcToUrl } from "./shared";
 import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
+import type { VodEngine, VodGlobals } from "./vod-engine/engine";
+import { mediaSourceClass } from "./vod-engine/mse";
 import {
   logWebRTCDiagnostics,
   useWebRTCDiagnostics,
@@ -89,6 +93,7 @@ export default function WebVideo(props?: {
   pictureInPictureEnabled?: boolean;
 }) {
   const inProto = usePlayerStore((x) => x.protocol);
+  const mode = usePlayerStore((x) => x.mode);
   const isIngesting = usePlayerStore((x) => x.ingestConnectionState !== null);
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const src = usePlayerStore((x) => x.src);
@@ -122,7 +127,11 @@ export default function WebVideo(props?: {
       ) : protocol === PlayerProtocol.PROGRESSIVE_WEBM ? (
         <ProgressiveWebMPlayer {...playerProps} />
       ) : protocol === PlayerProtocol.HLS ? (
-        <HLSPlayer {...playerProps} />
+        mode === "vod" && src.startsWith("at://") ? (
+          <VodEnginePlayer key={src} {...playerProps} />
+        ) : (
+          <HLSPlayer {...playerProps} />
+        )
       ) : protocol === PlayerProtocol.WEBRTC ? (
         <WebRTCPlayer {...playerProps} />
       ) : (
@@ -134,7 +143,7 @@ export default function WebVideo(props?: {
   );
 }
 
-const updateEvents = {
+const updateEvents: Record<string, boolean> = {
   playing: true,
   waiting: true,
   stalled: true,
@@ -144,16 +153,16 @@ const updateEvents = {
   error: true,
 };
 
-const VideoElement = forwardRef<
-  HTMLVideoElement,
-  VideoProps & { videoRef?: React.RefObject<HTMLVideoElement | null> }
->((props, ref) => {
+// The player store wiring every web <video> gets (status and player events,
+// volume, PiP, autoplay), as DOM event handlers keyed by event type.
+function useVideoBehavior(
+  localVideoRef: React.RefObject<HTMLVideoElement | null>,
+) {
   const x = usePlayerStore((x) => x);
   const mode = usePlayerStore((x) => x.mode);
   const url = useStreamplaceStore((x) => x.url);
   const playerEvent = usePlayerStore((x) => x.playerEvent);
   const setMuteWasForced = usePlayerStore((x) => x.setMuteWasForced);
-  const ingest = usePlayerStore((x) => x.ingestConnectionState !== null);
   const volume = useEffectiveVolume();
   const muted = useMuted();
   const setMuted = useSetMuted();
@@ -164,19 +173,17 @@ const VideoElement = forwardRef<
   const setDuration = usePlayerStore((x) => x.setDuration);
   const setBufferedEnd = usePlayerStore((x) => x.setBufferedEnd);
 
-  const event = (evType) => (e) => {
+  const event = (evType: string) => () => {
     console.log(evType);
     const now = new Date();
     if (updateEvents[evType]) {
-      x.setStatus(evType);
+      x.setStatus(evType as PlayerStatus);
     }
     console.log("Sending", evType, "status to", url);
     playerEvent(url, now.toISOString(), evType, {});
   };
   const [firstAttempt, setFirstAttempt] = useState(true);
   const setAutoplayFailed = usePlayerStore((x) => x.setAutoplayFailed);
-
-  const localVideoRef = props.videoRef ?? useRef<HTMLVideoElement | null>(null);
 
   // setPipAction comes from Zustand store
   useEffect(() => {
@@ -202,13 +209,13 @@ const VideoElement = forwardRef<
     };
   }, []);
 
-  const canPlayThrough = (e) => {
+  const canPlayThrough = () => {
     console.log("canPlayThrough called", {
       firstAttempt,
       videoRef: !!localVideoRef.current,
     });
     setStatus(PlayerStatus.PLAYING);
-    event("canplaythrough")(e);
+    event("canplaythrough")();
     if (firstAttempt && localVideoRef.current) {
       setFirstAttempt(false);
       console.log("Attempting to play video");
@@ -240,9 +247,9 @@ const VideoElement = forwardRef<
     }
   };
 
-  const handlePlaying = (e) => {
+  const handlePlaying = () => {
     setAutoplayFailed(false);
-    event("playing")(e);
+    event("playing")();
   };
 
   useEffect(() => {
@@ -263,6 +270,54 @@ const VideoElement = forwardRef<
     setVideoRef(localVideoRef);
   }, [setVideoRef, localVideoRef]);
 
+  const handlers = {
+    mousemove: setUserInteraction,
+    click: setUserInteraction,
+    abort: event("abort"),
+    canplaythrough: canPlayThrough,
+    emptied: event("emptied"),
+    encrypted: event("encrypted"),
+    ended: event("ended"),
+    error: event("error"),
+    loadeddata: event("loadeddata"),
+    loadedmetadata: event("loadedmetadata"),
+    loadstart: event("loadstart"),
+    pause: event("pause"),
+    play: event("play"),
+    playing: handlePlaying,
+    ratechange: event("ratechange"),
+    seeked: event("seeked"),
+    seeking: event("seeking"),
+    stalled: event("stalled"),
+    suspend: event("suspend"),
+    timeupdate: () => {
+      const el = localVideoRef.current;
+      if (el) setPlayTime(el.currentTime);
+    },
+    durationchange: () => {
+      const d = localVideoRef.current?.duration;
+      if (d !== undefined && isFinite(d)) setDuration(d);
+    },
+    progress: () => {
+      const el = localVideoRef.current;
+      if (el && el.buffered.length > 0) {
+        setBufferedEnd(el.buffered.end(el.buffered.length - 1));
+      }
+    },
+    volumechange: event("volumechange"),
+    waiting: event("waiting"),
+  } satisfies Record<string, () => void>;
+  return { handlers, muted };
+}
+
+const VideoElement = forwardRef<
+  HTMLVideoElement,
+  VideoProps & { videoRef?: React.RefObject<HTMLVideoElement | null> }
+>((props, ref) => {
+  const ingest = usePlayerStore((x) => x.ingestConnectionState !== null);
+  const localVideoRef = props.videoRef ?? useRef<HTMLVideoElement | null>(null);
+  const { handlers: on, muted } = useVideoBehavior(localVideoRef);
+
   const handleVideoRef = (videoElement: HTMLVideoElement | null) => {
     if (typeof ref === "function") {
       ref(videoElement);
@@ -271,16 +326,6 @@ const VideoElement = forwardRef<
         videoElement;
     }
     (localVideoRef as any).current = videoElement;
-  };
-
-  const eventLogger = (evType) => (e) => {
-    console.log("📺 Video event:", evType);
-    const now = new Date();
-    if (updateEvents[evType]) {
-      x.setStatus(evType);
-    }
-    console.log("Sending", evType, "status to", url);
-    playerEvent(url, now.toISOString(), evType, {});
   };
 
   return (
@@ -292,42 +337,30 @@ const VideoElement = forwardRef<
       src={ingest ? undefined : props.url}
       muted={muted}
       crossOrigin="anonymous"
-      onMouseMove={setUserInteraction}
-      onClick={setUserInteraction}
-      onAbort={event("abort")}
-      onCanPlay={eventLogger}
-      onCanPlayThroughCapture={eventLogger}
-      onCanPlayThrough={canPlayThrough}
-      onEmptied={event("emptied")}
-      onEncrypted={event("encrypted")}
-      onEnded={event("ended")}
-      onError={event("error")}
-      onLoadedData={event("loadeddata")}
-      onLoadedMetadata={event("loadedmetadata")}
-      onLoadStart={event("loadstart")}
-      onPause={event("pause")}
-      onPlay={event("play")}
-      onPlaying={handlePlaying}
-      onRateChange={event("ratechange")}
-      onSeeked={event("seeked")}
-      onSeeking={event("seeking")}
-      onStalled={event("stalled")}
-      onSuspend={event("suspend")}
-      onTimeUpdate={(e) => {
-        setPlayTime((e.target as HTMLVideoElement).currentTime);
-      }}
-      onDurationChange={(e) => {
-        const d = (e.target as HTMLVideoElement).duration;
-        if (isFinite(d)) setDuration(d);
-      }}
-      onProgress={(e) => {
-        const el = e.target as HTMLVideoElement;
-        if (el.buffered.length > 0) {
-          setBufferedEnd(el.buffered.end(el.buffered.length - 1));
-        }
-      }}
-      onVolumeChange={event("volumechange")}
-      onWaiting={event("waiting")}
+      onMouseMove={on.mousemove}
+      onClick={on.click}
+      onAbort={on.abort}
+      onCanPlayThrough={on.canplaythrough}
+      onEmptied={on.emptied}
+      onEncrypted={on.encrypted}
+      onEnded={on.ended}
+      onError={on.error}
+      onLoadedData={on.loadeddata}
+      onLoadedMetadata={on.loadedmetadata}
+      onLoadStart={on.loadstart}
+      onPause={on.pause}
+      onPlay={on.play}
+      onPlaying={on.playing}
+      onRateChange={on.ratechange}
+      onSeeked={on.seeked}
+      onSeeking={on.seeking}
+      onStalled={on.stalled}
+      onSuspend={on.suspend}
+      onTimeUpdate={on.timeupdate}
+      onDurationChange={on.durationchange}
+      onProgress={on.progress}
+      onVolumeChange={on.volumechange}
+      onWaiting={on.waiting}
       style={{
         display: "block",
         objectFit: props.objectFit || "contain",
@@ -366,16 +399,14 @@ export function HLSPlayer(props: VideoProps) {
   // must pin the level once it knows the levels.
   const selectedRenditionRef = useRef(selectedRendition);
   selectedRenditionRef.current = selectedRendition;
-  const levelFor = (hls: Hls, rendition: string | undefined) => {
-    if (!rendition || rendition === "source" || rendition === "auto") {
-      return -1;
-    }
-    return hls.levels.findIndex((l) => {
-      const name =
-        l.height > 0 ? `${l.height}p` : `${Math.round(l.bitrate / 1000)}k`;
-      return name === rendition;
-    });
-  };
+  const levelFor = (hls: Hls, rendition: string | undefined) =>
+    levelIndex(
+      hls.levels.map((l) => ({
+        name:
+          l.height > 0 ? `${l.height}p` : `${Math.round(l.bitrate / 1000)}k`,
+      })),
+      rendition,
+    );
 
   // other players set some status on start, HLS doesn't, so
   // do this to make sure we we reset off of "error" state
@@ -551,6 +582,196 @@ export function HLSPlayer(props: VideoProps) {
   }, [selectedRendition, mode]);
 
   return <VideoElement {...props} ref={localRef} />;
+}
+
+// The level a quality-menu pick pins, or -1 to leave the choice to ABR.
+function levelIndex(levels: { name: string }[], rendition?: string) {
+  if (!rendition || rendition === "source" || rendition === "auto") {
+    return -1;
+  }
+  return levels.findIndex((l) => l.name === rendition);
+}
+
+// Whether the engine plays the record at `src`, which may name its repo by handle.
+function playsRecord(engine: VodEngine, src: string) {
+  const playing = new AtUri(engine.manifest.uri);
+  const wanted = new AtUri(src);
+  return (
+    playing.rkey === wanted.rkey &&
+    (playing.hostname === wanted.hostname ||
+      !wanted.hostname.startsWith("did:"))
+  );
+}
+
+const vodGlobals = () => window as Window & VodGlobals;
+
+// Web VOD on the MSE engine: the video page's booted engine when it plays this
+// record, else a fresh one; hls.js without MediaSource or on an early failure.
+function VodEnginePlayer(props: VideoProps) {
+  const src = usePlayerStore((x) => x.src);
+  const startTime = usePlayerStore((x) => x.startTime);
+  const node = useStreamplaceStore((x) => x.url);
+  const [fallback, setFallback] = useState(false);
+  // The boot handover is one-shot: whoever clears __spVodBoot owns the engine.
+  const [engine, setEngine] = useState(() => {
+    const g = vodGlobals();
+    const booted = g.__spVod;
+    if (!g.__spVodBoot || !booted || booted.error) return null;
+    if (!playsRecord(booted, src)) return null;
+    g.__spVodBoot = undefined;
+    return booted;
+  });
+
+  useEffect(() => {
+    if (engine || fallback) return;
+    let cancelled = false;
+    (async () => {
+      const g = vodGlobals();
+      const boot = g.__spVodBoot;
+      g.__spVodBoot = undefined;
+      const booted = await boot;
+      // No later run can claim a boot this one took, so a cancelled run releases it.
+      if (!cancelled && booted && !booted.error && playsRecord(booted, src)) {
+        setEngine(booted);
+        return;
+      }
+      booted?.destroy();
+      document.getElementById("sp-vod-boot")?.remove();
+      if (cancelled) return;
+      if (!mediaSourceClass()) return setFallback(true);
+      const { VodEngine } = await import("./vod-engine/engine");
+      const fresh = await VodEngine.start(
+        `${node}/xrpc/place.stream.playback.getVideoManifest?uri=${encodeURIComponent(src)}`,
+        document.createElement("video"),
+        { startTime: startTime ?? 0 },
+      );
+      if (cancelled) fresh.destroy();
+      else setEngine(fresh);
+    })().catch((err) => {
+      console.error("VOD engine failed to start, using HLS", err);
+      if (!cancelled) setFallback(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [engine, fallback, src, node, startTime]);
+
+  // A new ?t= on the open video seeks the running engine; its seeking handler refetches.
+  const seekedTo = useRef(startTime);
+  useEffect(() => {
+    if (!engine || startTime === seekedTo.current) return;
+    seekedTo.current = startTime;
+    if (startTime !== null && startTime >= 0) {
+      engine.video.currentTime = startTime;
+    }
+  }, [engine, startTime]);
+
+  // An engine that fails before playing gives way to HLS; later, it's a media error.
+  useEffect(() => {
+    if (!engine) return;
+    const onError = () => {
+      if (engine.video.played.length > 0) {
+        engine.video.dispatchEvent(new Event("error"));
+      } else {
+        setEngine(null);
+        setFallback(true);
+      }
+    };
+    if (engine.error) onError();
+    engine.addEventListener("error", onError);
+    return () => {
+      engine.removeEventListener("error", onError);
+      engine.destroy();
+    };
+  }, [engine]);
+
+  if (fallback) return <HLSPlayer {...props} />;
+  return engine ? <EngineVideo {...props} engine={engine} /> : null;
+}
+
+// The engine's <video>, moved into the player with VideoElement's store wiring.
+function EngineVideo({ engine, ...props }: VideoProps & { engine: VodEngine }) {
+  const box = useRef<HTMLDivElement>(null);
+  const ownRef = useRef<HTMLVideoElement | null>(null);
+  const videoRef = props.videoRef ?? ownRef;
+  const { handlers, muted } = useVideoBehavior(videoRef);
+  const latest = useRef(handlers);
+  latest.current = handlers;
+  const setVodLevels = usePlayerStore((x) => x.setVodLevels);
+  const setPlayingVODRendition = usePlayerStore(
+    (x) => x.setPlayingVODRendition,
+  );
+  const selectedRendition = usePlayerStore((x) => x.selectedRendition);
+
+  // Moved before paint, in one task, so a playing boot video keeps playing.
+  useLayoutEffect(() => {
+    const { video } = engine;
+    box.current!.appendChild(video);
+    document.getElementById("sp-vod-boot")?.remove();
+    assignVideoRef(videoRef, video);
+    return () => {
+      video.remove();
+      assignVideoRef(videoRef, null);
+    };
+  }, [engine]);
+
+  useLayoutEffect(() => {
+    const { video } = engine;
+    video.playsInline = true;
+    video.controls = false;
+    video.disablePictureInPicture = props.pictureInPictureEnabled === false;
+    Object.assign(video.style, {
+      display: "block",
+      objectFit: props.objectFit || "contain",
+      backgroundColor: "transparent",
+      width: "100%",
+      height: "100%",
+      maxWidth: "100%",
+      maxHeight: "100%",
+    });
+  }, [engine, props.objectFit, props.pictureInPictureEnabled]);
+
+  useEffect(() => {
+    engine.video.muted = muted;
+  }, [engine, muted]);
+
+  // Listen, then catch up on what the element did before it was adopted.
+  useEffect(() => {
+    const { video } = engine;
+    const ac = new AbortController();
+    const types = Object.keys(latest.current) as (keyof typeof handlers)[];
+    for (const type of types) {
+      video.addEventListener(type, () => latest.current[type](), {
+        signal: ac.signal,
+      });
+    }
+    const on = latest.current;
+    on.durationchange();
+    on.timeupdate();
+    on.progress();
+    if (!video.paused) on.playing();
+    if (video.readyState >= video.HAVE_FUTURE_DATA) on.canplaythrough();
+    return () => ac.abort();
+  }, [engine]);
+
+  useEffect(() => {
+    if (engine.levels.length > 1) setVodLevels(engine.levels);
+    const onLevel = () =>
+      setPlayingVODRendition(engine.levels[engine.level]?.name ?? null);
+    onLevel();
+    engine.addEventListener("level", onLevel);
+    return () => {
+      engine.removeEventListener("level", onLevel);
+      setVodLevels([]);
+      setPlayingVODRendition(null);
+    };
+  }, [engine]);
+
+  useEffect(() => {
+    engine.setLevel(levelIndex(engine.levels, selectedRendition));
+  }, [engine, selectedRendition]);
+
+  return <div ref={box} style={{ width: "100%", height: "100%" }} />;
 }
 
 export function WebRTCPlayer(

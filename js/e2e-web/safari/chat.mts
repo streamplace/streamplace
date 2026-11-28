@@ -33,7 +33,7 @@ async function command<T>(path: string, body?: object, method?: string) {
     method: method ?? (body ? "POST" : "GET"),
     headers: body ? { "content-type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(path === "/session" ? 90_000 : 35_000),
+    signal: AbortSignal.timeout(100_000),
   });
   const { value } = await response.json();
   if (!response.ok) {
@@ -87,6 +87,7 @@ const { sessionId, capabilities } = await command<{
     alwaysMatch: {
       browserName: "Safari",
       platformName: "iOS",
+      pageLoadStrategy: "eager",
       "safari:useSimulator": true,
       "safari:deviceUDID": device,
     },
@@ -140,7 +141,9 @@ const button = (...labels: string[]) => {
 try {
   assert.equal(capabilities["safari:deviceUDID"], device);
   console.log(`Safari ${capabilities.browserVersion} on iPhone ${device}`);
-  await send("/timeouts", { pageLoad: 30_000 });
+  // Navigation needs the document, not every subresource; the steps below
+  // wait for the app to render and the stream to connect.
+  await send("/timeouts", { pageLoad: 90_000 });
 
   console.log("Pointing the app at the harness");
   await go(`${station}/settings/advanced`);

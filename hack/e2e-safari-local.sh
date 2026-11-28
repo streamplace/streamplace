@@ -22,8 +22,17 @@ cleanup() {
     kill "$driver_pid" 2>/dev/null || true
     wait "$driver_pid" 2>/dev/null || true
   fi
+  if [ "$status" -ne 0 ] && [ -n "${driver_pid:-}" ]; then
+    local log
+    for log in "$HOME/Library/Logs/com.apple.WebDriver/"*"$driver_pid"*; do
+      [ ! -f "$log" ] || cp "$log" "$E2E_ARTIFACTS/" || true
+    done
+  fi
   if [ "$status" -ne 0 ] && [ -n "${E2E_IOS_DEVICE:-}" ]; then
     xcrun simctl io "$E2E_IOS_DEVICE" screenshot "$E2E_ARTIFACTS/simulator.png" || true
+    xcrun simctl spawn "$E2E_IOS_DEVICE" log show --last 5m --style compact \
+      --predicate 'process == "MobileSafari" OR process == "webinspectord"' \
+      >"$E2E_ARTIFACTS/simulator-safari.log" 2>&1 || true
   fi
   e2e_ios_stop
   e2e_harness_stop
@@ -37,6 +46,9 @@ driver_pid=$!
 e2e_ios_boot
 export E2E_IOS_DEVICE
 xcrun simctl keychain "$E2E_IOS_DEVICE" add-root-cert "$E2E_TLS_CA"
+# Launch Safari explicitly so a cold simulator does not spend the driver's
+# session handshake deadline starting its browser.
+xcrun simctl launch "$E2E_IOS_DEVICE" com.apple.mobilesafari
 if ! kill -0 "$driver_pid" 2>/dev/null; then
   echo 'SafariDriver exited before the test started' >&2
   tail -20 "$E2E_ARTIFACTS/safaridriver.log" >&2

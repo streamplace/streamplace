@@ -14,16 +14,8 @@ import (
 	"github.com/pion/webrtc/v4"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/media"
-	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/psession"
 )
-
-func (s *Server) handlePlaceStreamPlaybackGetPlaybackServer(ctx context.Context, stream string) (*placestream.PlaybackGetPlaybackServer_Output, error) {
-	addr := strings.TrimPrefix(s.cli.ServerDID(), "did:web:")
-	return &placestream.PlaybackGetPlaybackServer_Output{
-		Servers: []string{fmt.Sprintf("https://%s", addr)},
-	}, nil
-}
 
 func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition string, sid string, streamer string, r io.Reader, _contentType string) (io.Reader, error) {
 	if alias, ok := s.aliases[streamer]; ok {
@@ -56,7 +48,7 @@ func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition st
 			if !ok {
 				return nil, fmt.Errorf("no request context")
 			}
-			sess, err := s.verifySession(ctx, sid, streamer, sessionClient(c))
+			sess, err := s.verifySession(ctx, sid, streamer, s.sessionClient(c))
 			if err != nil || sess.Scope != psession.ScopeOwner {
 				return nil, errBadSession
 			}

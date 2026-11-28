@@ -18,8 +18,7 @@ func TestInvalidHandleLinkCard(t *testing.T) {
 	} {
 		did, handle := tc.did, tc.handle
 		t.Run(did+"/"+handle, func(t *testing.T) {
-			linker, err := NewLinker(context.Background(), []byte("<!doctype html><html><head><title>Streamplace</title></head><body></body></html>"), nil, nil)
-			require.NoError(t, err)
+			linker := NewHeadLinker(nil, nil)
 			u, err := url.Parse("https://stream.place/" + did)
 			require.NoError(t, err)
 			card, err := linker.GenerateStreamerCard(context.Background(), u, &placestream.Livestream_LivestreamView{

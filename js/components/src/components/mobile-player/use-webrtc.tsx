@@ -13,7 +13,6 @@ import {
   usePlayerStore,
   usePossiblyUnauthedPDSAgent,
   useStreamKey,
-  useStreamplaceStore,
   type PlayerState,
 } from "../..";
 import { useLivestreamStoreOptional } from "../../livestream-store/use-store";
@@ -78,9 +77,6 @@ export default function useWebRTC(
   let agent = usePossiblyUnauthedPDSAgent();
   const myDID = useDID();
   const myHandle = useHandle();
-  const playbackWorkerUrl = useStreamplaceStore(
-    (state) => state.playbackWorkerUrl,
-  );
   const isOwnStream = !!(
     myDID &&
     (streamer === myDID || streamer === myHandle)
@@ -175,10 +171,7 @@ export default function useWebRTC(
       negotiateConnectionWithClientOffer(
         peerConnection,
         streamer,
-        undefined,
         agent,
-        isOwnStream,
-        playbackWorkerUrl,
         rendition,
         sid,
       ).catch((e) => {
@@ -231,15 +224,7 @@ export default function useWebRTC(
       clearInterval(handle);
       peerConnection.close();
     };
-  }, [
-    streamer,
-    agent,
-    isOwnStream,
-    playbackWorkerUrl,
-    rendition,
-    smoothAV1,
-    sid,
-  ]);
+  }, [streamer, agent, isOwnStream, rendition, smoothAV1, sid]);
   return [mediaStream, stuck, audioTracks, audioGroups, videoFrames];
 }
 
@@ -258,10 +243,7 @@ export default function useWebRTC(
 export async function negotiateConnectionWithClientOffer(
   peerConnection: RTCPeerConnection,
   streamer: string,
-  bearerToken?: string,
   agent?: StreamplaceAgent,
-  isOwnStream?: boolean,
-  playbackWorkerUrl?: string | null,
   rendition?: string,
   sid?: string,
 ) {
@@ -299,10 +281,7 @@ export async function negotiateConnectionWithClientOffer(
       let response = await postSDPOffer(
         streamer,
         ofr.sdp,
-        bearerToken,
         agent,
-        isOwnStream,
-        playbackWorkerUrl,
         rendition,
         sid,
       );
@@ -394,62 +373,23 @@ export async function negotiateIngestConnectionWithClientOffer(
   }
 }
 
-async function getPlaybackServerAgent(
-  agent: StreamplaceAgent,
-  streamer: string,
-  playbackWorkerUrl?: string | null,
-): Promise<StreamplaceAgent> {
-  if (!playbackWorkerUrl) {
-    return agent;
-  }
-
-  try {
-    const lookupAgent = new StreamplaceAgent(playbackWorkerUrl);
-    const res = await lookupAgent.client.call(
-      place.stream.playback.getPlaybackServer,
-      { stream: streamer },
-    );
-    if (res.servers.length > 0) {
-      const serverUrl = res.servers[0];
-      console.log(`Using playback server: ${serverUrl}`);
-      return new StreamplaceAgent(serverUrl);
-    }
-  } catch (e) {
-    console.error("getPlaybackServer failed, using default agent:", e);
-  }
-  return agent;
-}
-
 async function postSDPOffer(
   streamer: string,
   data: string,
-  bearerToken?: string,
   agent?: StreamplaceAgent,
-  isOwnStream?: boolean,
-  playbackWorkerUrl?: string | null,
   rendition?: string,
   sid?: string,
 ) {
   if (!agent) {
     throw new Error("No agent found");
   }
-  // Own stream: use the authenticated PDS agent directly (needed for
-  // unpublished stream preview). Otherwise, look up a playback server
-  // and use an anonymous agent for it.
-  const playbackAgent = isOwnStream
-    ? agent
-    : await getPlaybackServerAgent(agent, streamer, playbackWorkerUrl);
-  return await playbackAgent.client.call(
-    place.stream.playback.whep,
-    data as any,
-    {
-      params: {
-        rendition: rendition || "source",
-        streamer: streamer,
-        ...(sid ? { sid } : {}),
-      },
+  return await agent.client.call(place.stream.playback.whep, data as any, {
+    params: {
+      rendition: rendition || "source",
+      streamer: streamer,
+      ...(sid ? { sid } : {}),
     },
-  );
+  });
 }
 
 async function postSDPIngestOffer(

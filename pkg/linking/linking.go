@@ -22,26 +22,43 @@ import (
 	"stream.place/streamplace/pkg/statedb"
 )
 
+// HeadStartMarker and HeadEndMarker delimit the part of a frontend template
+// the node owns. The edge worker splices the same region; see
+// js/edge/src/handler.ts.
+const (
+	HeadStartMarker = "<!-- sp-head -->"
+	HeadEndMarker   = "<!-- /sp-head -->"
+)
+
+// smartAppBanner is the iOS Smart App Banner for the first-party app.
+const smartAppBanner = "app-id=6535653195"
+
 type Linker struct {
 	BaseHTML []byte
 	sdb      *statedb.StatefulDB
 	cli      *config.CLI
 }
 
+// NewLinker validates a frontend template and builds its linker.
 func NewLinker(ctx context.Context, baseHTML []byte, sdb *statedb.StatefulDB, cli *config.CLI) (*Linker, error) {
-	_, err := html.Parse(bytes.NewReader(baseHTML))
-	if err != nil {
-		return nil, err
+	start := bytes.Index(baseHTML, []byte(HeadStartMarker))
+	end := bytes.Index(baseHTML, []byte(HeadEndMarker))
+	if start < 0 || end < start {
+		return nil, fmt.Errorf("frontend template has no %s … %s region", HeadStartMarker, HeadEndMarker)
 	}
-
 	return &Linker{BaseHTML: baseHTML, sdb: sdb, cli: cli}, nil
+}
+
+// NewHeadLinker builds a linker for page heads alone, for callers that never
+// render a template (the /api/page-head handler).
+func NewHeadLinker(sdb *statedb.StatefulDB, cli *config.CLI) *Linker {
+	return &Linker{sdb: sdb, cli: cli}
 }
 
 type PageConfig struct {
 	Title     string
 	Metas     []MetaTag
 	SentryDSN string
-	Branding  []string
 }
 
 // Define all meta tags in a structured way
@@ -86,26 +103,6 @@ func (l *Linker) brandingText(key string) string {
 		return ""
 	}
 	return strings.TrimSpace(string(blob.Data))
-}
-
-func findChild(parent *html.Node, name string) *html.Node {
-	for node := range parent.ChildNodes() {
-		if node.Type == html.ElementNode && node.Data == name {
-			return node
-		}
-	}
-	return nil
-}
-
-// isAppBannerMeta reports whether a <meta> is the iOS Smart App Banner
-// (apple-itunes-app), which the template ships for the first-party app.
-func isAppBannerMeta(node *html.Node) bool {
-	for _, attr := range node.Attr {
-		if attr.Key == "name" && attr.Val == "apple-itunes-app" {
-			return true
-		}
-	}
-	return false
 }
 
 // atTags returns meta tags implementing the at-tags proposal
@@ -318,7 +315,7 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *plac
 	// by the streamer
 	metaTags = append(metaTags, l.atTags(lsv.Uri, lsv.Author.Did)...)
 
-	return l.GenerateHTML(ctx, &PageConfig{
+	return l.RenderHead(&PageConfig{
 		Title:     title,
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
@@ -381,7 +378,7 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestr
 		pageTitle = title
 	}
 
-	return l.GenerateHTML(ctx, &PageConfig{
+	return l.RenderHead(&PageConfig{
 		Title:     pageTitle,
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
@@ -470,102 +467,48 @@ func (l *Linker) GenerateLandingCard(ctx context.Context, u *url.URL, page Landi
 	// no single author or canonical record for the front page
 	metaTags = append(metaTags, l.atTags("", "")...)
 
-	return l.GenerateHTML(ctx, &PageConfig{
+	return l.RenderHead(&PageConfig{
 		Title:     title,
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
 	})
 }
 
-// isLinkPreviewMeta reports whether a <meta> is one the cards own: the page
-// description and every og: / twitter: tag.
-func isLinkPreviewMeta(node *html.Node) bool {
-	for _, attr := range node.Attr {
-		switch attr.Key {
-		case "property":
-			if strings.HasPrefix(attr.Val, "og:") || strings.HasPrefix(attr.Val, "twitter:") {
-				return true
-			}
-		case "name":
-			if attr.Val == "description" || strings.HasPrefix(attr.Val, "twitter:") {
-				return true
-			}
+// RenderHead renders the page head: the iOS Smart App Banner, title,
+// link-preview tags, the node's bootstrap colours and the Sentry DSN.
+func (l *Linker) RenderHead(pc *PageConfig) ([]byte, error) {
+	if pc == nil {
+		pc = &PageConfig{}
+	}
+	var buf bytes.Buffer
+	render := func(n *html.Node) error { return html.Render(&buf, n) }
+
+	// The banner belongs to the first-party app; a node that is its own
+	// product drops it with branding key mobileAppBanner=off.
+	if l.brandingText("mobileAppBanner") != "off" {
+		banner := &html.Node{Type: html.ElementNode, Data: "meta", Attr: []html.Attribute{
+			{Key: "name", Val: "apple-itunes-app"},
+			{Key: "content", Val: smartAppBanner},
+		}}
+		if err := render(banner); err != nil {
+			return nil, err
 		}
 	}
-	return false
-}
 
-func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, error) {
-
-	root, err := html.Parse(bytes.NewReader(l.BaseHTML))
-	if err != nil {
+	title := &html.Node{Type: html.ElementNode, Data: "title"}
+	title.AppendChild(&html.Node{Type: html.TextNode, Data: pc.Title})
+	if err := render(title); err != nil {
 		return nil, err
 	}
 
-	var htmlNode *html.Node
-	for node := range root.ChildNodes() {
-		if node.Type == html.ElementNode && node.Data == "html" {
-			htmlNode = node
-			break
-		}
-	}
-	if htmlNode == nil {
-		return nil, errors.New("html not found")
-	}
-
-	var head *html.Node
-	for node := range htmlNode.ChildNodes() {
-		if node.Data == "head" {
-			head = node
-			break
-		}
-	}
-	if head == nil {
-		return nil, errors.New("head not found")
-	}
-
-	// The template ships its own title, description and link-preview tags
-	// (the first-party brand, for a static host). Every card replaces them,
-	// and crawlers honour the first tag they meet, so the template's go.
-	// A node that is its own product can also drop the template's iOS Smart
-	// App Banner (branding key mobileAppBanner=off).
-	dropAppBanner := l.brandingText("mobileAppBanner") == "off"
-	var stale []*html.Node
-	for node := range head.ChildNodes() {
-		if node.Type != html.ElementNode {
-			continue
-		}
-		if node.Data == "title" || (node.Data == "meta" && isLinkPreviewMeta(node)) {
-			stale = append(stale, node)
-		}
-		if dropAppBanner && node.Data == "meta" && isAppBannerMeta(node) {
-			stale = append(stale, node)
-		}
-	}
-	for _, node := range stale {
-		head.RemoveChild(node)
-	}
-
-	title := &html.Node{
-		Type: html.ElementNode,
-		Data: "title",
-	}
-	head.AppendChild(title)
-	title.AppendChild(&html.Node{
-		Type: html.TextNode,
-		Data: pc.Title,
-	})
-
-	// Add all meta tags in a loop
 	for _, tag := range pc.Metas {
-		head.AppendChild(&html.Node{
-			Type: html.ElementNode,
-			Data: "meta",
-			Attr: []html.Attribute{
-				{Key: tag.Type, Val: tag.Key},
-				{Key: "content", Val: tag.Content},
-			},
-		})
+		meta := &html.Node{Type: html.ElementNode, Data: "meta", Attr: []html.Attribute{
+			{Key: tag.Type, Val: tag.Key},
+			{Key: "content", Val: tag.Content},
+		}}
+		if err := render(meta); err != nil {
+			return nil, err
+		}
 	}
 
 	// Paint the branded background before any script runs: on the root
@@ -581,14 +524,13 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 		css.WriteString("}html,body{background-color:")
 		css.WriteString(background)
 		css.WriteString("}")
-		head.AppendChild(&html.Node{
-			Type: html.ElementNode,
-			Data: "meta",
-			Attr: []html.Attribute{
-				{Key: "name", Val: "theme-color"},
-				{Key: "content", Val: background},
-			},
-		})
+		themeColor := &html.Node{Type: html.ElementNode, Data: "meta", Attr: []html.Attribute{
+			{Key: "name", Val: "theme-color"},
+			{Key: "content", Val: background},
+		}}
+		if err := render(themeColor); err != nil {
+			return nil, err
+		}
 	}
 	if primary != "" {
 		css.WriteString("html{--bootstrap-primary:")
@@ -598,27 +540,36 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 	if css.Len() > 0 {
 		style := &html.Node{Type: html.ElementNode, Data: "style"}
 		style.AppendChild(&html.Node{Type: html.TextNode, Data: css.String()})
-		head.AppendChild(style)
-	}
-
-	// Add Sentry DSN script if configured
-	if pc.SentryDSN != "" {
-		script := &html.Node{
-			Type: html.ElementNode,
-			Data: "script",
+		if err := render(style); err != nil {
+			return nil, err
 		}
-		head.AppendChild(script)
-		script.AppendChild(&html.Node{
-			Type: html.TextNode,
-			Data: `window.SENTRY_DSN = "` + pc.SentryDSN + `";`,
-		})
 	}
 
-	// Render the HTML to a string
-	var buf bytes.Buffer
-	if err := html.Render(&buf, root); err != nil {
-		return nil, err
+	if pc.SentryDSN != "" {
+		script := &html.Node{Type: html.ElementNode, Data: "script"}
+		script.AppendChild(&html.Node{Type: html.TextNode, Data: `window.SENTRY_DSN = "` + pc.SentryDSN + `";`})
+		if err := render(script); err != nil {
+			return nil, err
+		}
 	}
 
 	return buf.Bytes(), nil
+}
+
+// Page splices a rendered head into the frontend template.
+func (l *Linker) Page(head []byte) []byte {
+	return spliceHead(l.BaseHTML, head)
+}
+
+// spliceHead replaces the template's marked head region, markers included.
+func spliceHead(base, head []byte) []byte {
+	start := bytes.Index(base, []byte(HeadStartMarker))
+	end := bytes.Index(base, []byte(HeadEndMarker))
+	if start < 0 || end < start {
+		return base
+	}
+	out := make([]byte, 0, len(base)-(end+len(HeadEndMarker)-start)+len(head))
+	out = append(out, base[:start]...)
+	out = append(out, head...)
+	return append(out, base[end+len(HeadEndMarker):]...)
 }

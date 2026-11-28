@@ -150,9 +150,6 @@ export function useFetchEnvConfig() {
       const result = await streamplaceAgent.client.call(
         place.stream.config.getEnv,
       );
-      if (result.playbackWorkerUrl) {
-        store.setState({ playbackWorkerUrl: result.playbackWorkerUrl });
-      }
       store.setState({ gamesEnabled: result.gamesEnabled ?? false });
     } catch (err) {
       console.error("Failed to fetch env config:", err);

@@ -61,9 +61,6 @@ export interface StreamplaceState {
   adminDIDs: string[];
   setAdminDIDs: (adminDIDs: string[]) => void;
 
-  playbackWorkerUrl: string | null;
-  setPlaybackWorkerUrl: (url: string | null) => void;
-
   gamesEnabled: boolean;
   setGamesEnabled: (enabled: boolean) => void;
 
@@ -139,10 +136,6 @@ export const makeStreamplaceStore = ({
     setServerDID: (serverDID: string | null) => set({ serverDID }),
     adminDIDs: [],
     setAdminDIDs: (adminDIDs: string[]) => set({ adminDIDs }),
-
-    playbackWorkerUrl: null,
-    setPlaybackWorkerUrl: (playbackWorkerUrl: string | null) =>
-      set({ playbackWorkerUrl }),
 
     gamesEnabled: false,
     setGamesEnabled: (gamesEnabled: boolean) => set({ gamesEnabled }),

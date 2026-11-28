@@ -24,10 +24,9 @@ Get client-facing environment configuration from the server.
 
 **Schema Type:** `object`
 
-| Name                | Type      | Req'd | Description                                       | Constraints |
-| ------------------- | --------- | ----- | ------------------------------------------------- | ----------- |
-| `playbackWorkerUrl` | `string`  | ❌    | URL of the Cloudflare playback router worker      |             |
-| `gamesEnabled`      | `boolean` | ❌    | Whether the games API is configured and available |             |
+| Name           | Type      | Req'd | Description                                       | Constraints |
+| -------------- | --------- | ----- | ------------------------------------------------- | ----------- |
+| `gamesEnabled` | `boolean` | ❌    | Whether the games API is configured and available |             |
 
 ---
 
@@ -52,10 +51,6 @@ Get client-facing environment configuration from the server.
           "type": "object",
           "required": [],
           "properties": {
-            "playbackWorkerUrl": {
-              "type": "string",
-              "description": "URL of the Cloudflare playback router worker"
-            },
             "gamesEnabled": {
               "type": "boolean",
               "description": "Whether the games API is configured and available"

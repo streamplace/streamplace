@@ -133,14 +133,11 @@ func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context, uplo
 	return &out, nil
 }
 
-// requestBaseURL returns the scheme+host of the inbound HTTP request, used
-// to construct user-facing URLs that the same client can reach.
+// requestBaseURL returns the base URL the same client should use for upload
+// requests. A node with its own host (normally behind an edge worker)
+// advertises that host: upload chunks must not be proxied, and the upload
+// store is local to this node.
 func (s *Server) requestBaseURL(ctx context.Context) (string, error) {
-	ec, ok := ctx.Value(echoContextKey).(echo.Context)
-	if !ok {
-		return "", echo.NewHTTPError(http.StatusInternalServerError, "no echo context")
-	}
-	req := ec.Request()
 	scheme := "https"
 	// HasHTTPS covers a TLS-terminating proxy in front of us, not just a
 	// node serving TLS itself: an https page refuses an http upload URL as
@@ -148,6 +145,14 @@ func (s *Server) requestBaseURL(ctx context.Context) (string, error) {
 	if !s.cli.HasHTTPS() {
 		scheme = "http"
 	}
+	if s.cli.ServerHost != "" && s.cli.ServerHost != s.cli.BroadcasterHost {
+		return scheme + "://" + s.cli.ServerHost, nil
+	}
+	ec, ok := ctx.Value(echoContextKey).(echo.Context)
+	if !ok {
+		return "", echo.NewHTTPError(http.StatusInternalServerError, "no echo context")
+	}
+	req := ec.Request()
 	if fwd := req.Header.Get("X-Forwarded-Proto"); fwd != "" {
 		scheme = fwd
 	}

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -38,10 +37,7 @@ var pingPeriod = 5 * time.Second
 func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle {
 	ctx = log.WithLogValues(ctx, "func", "HandleWebsocket")
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		ip, _, err := net.SplitHostPort(req.RemoteAddr)
-		if err != nil {
-			ip = req.RemoteAddr
-		}
+		ip := a.clientIP(req)
 
 		if a.CLI.RateLimitWebsocket > 0 {
 			if !a.connTracker.AddConnection(ip) {

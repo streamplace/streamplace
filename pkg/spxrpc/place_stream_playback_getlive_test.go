@@ -230,14 +230,32 @@ func TestOwnerSession(t *testing.T) {
 // TestSessionClient: IPv6 clients are bound by /64, so a rotating privacy
 // address keeps its session.
 func TestSessionClient(t *testing.T) {
+	s := &Server{cli: &config.CLI{}}
 	client := func(remote string) string {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.RemoteAddr = remote
-		return sessionClient(echo.New().NewContext(req, httptest.NewRecorder()))
+		return s.sessionClient(echo.New().NewContext(req, httptest.NewRecorder()))
 	}
 	require.Equal(t, "192.0.2.1", client("192.0.2.1:5000"))
 	require.Equal(t, client("[2001:db8:1:2::1]:5000"), client("[2001:db8:1:2:aaaa:bbbb:cccc:dddd]:5000"))
 	require.NotEqual(t, client("[2001:db8:1:2::1]:5000"), client("[2001:db8:1:3::1]:5000"))
+
+	// Behind an edge worker the session must bind to the viewer, or the
+	// playlist redirect to the node would invalidate it. Only the secret is
+	// trusted.
+	proxied := func(cli *config.CLI, secret, forwarded string) string {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = "10.0.0.1:5000"
+		req.Header.Set("X-Forwarded-For", forwarded)
+		if secret != "" {
+			req.Header.Set("X-Proxy-Secret", secret)
+		}
+		server := &Server{cli: cli}
+		return server.sessionClient(echo.New().NewContext(req, httptest.NewRecorder()))
+	}
+	require.Equal(t, "10.0.0.1", proxied(&config.CLI{ProxySecret: "s3cret"}, "wrong", "203.0.113.7"))
+	require.Equal(t, "10.0.0.1", proxied(&config.CLI{}, "", "203.0.113.7"))
+	require.Equal(t, "203.0.113.7", proxied(&config.CLI{ProxySecret: "s3cret"}, "s3cret", "203.0.113.7"))
 }
 
 // TestForeignPage: a pre-live window opens to this node's own pages, local

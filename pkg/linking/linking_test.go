@@ -2,7 +2,6 @@ package linking
 
 import (
 	"context"
-	"golang.org/x/net/html"
 	"io"
 	"net/url"
 	"strings"
@@ -36,6 +35,13 @@ func TestNewLinker(t *testing.T) {
 	linker, err := NewLinker(context.Background(), index, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, linker)
+	require.Contains(t, string(index), HeadStartMarker)
+	require.Contains(t, string(index), HeadEndMarker)
+}
+
+func TestNewLinkerRequiresHeadMarkers(t *testing.T) {
+	_, err := NewLinker(context.Background(), []byte("<html><head></head></html>"), nil, nil)
+	require.Error(t, err)
 }
 
 func TestGenerateLinkCard(t *testing.T) {
@@ -154,38 +160,45 @@ func TestGenerateDefaultCardAtMe(t *testing.T) {
 
 // The app template ships first-party link-preview tags; a card must replace
 // them rather than append after them, since crawlers take the first tag.
-func TestIsAppBannerMeta(t *testing.T) {
-	banner := &html.Node{Type: html.ElementNode, Data: "meta", Attr: []html.Attribute{{Key: "name", Val: "apple-itunes-app"}, {Key: "content", Val: "app-id=1"}}}
-	other := &html.Node{Type: html.ElementNode, Data: "meta", Attr: []html.Attribute{{Key: "name", Val: "viewport"}}}
-	require.True(t, isAppBannerMeta(banner))
-	require.False(t, isAppBannerMeta(other))
-	require.False(t, isLinkPreviewMeta(banner), "the banner is not a link-preview tag: it stays unless mobileAppBanner=off")
-}
-
-func TestGenerateHTMLReplacesTemplatePreviewTags(t *testing.T) {
+func TestPageReplacesTemplatePreviewTags(t *testing.T) {
 	base := []byte(`<!doctype html><html><head>
+<meta name="viewport" content="width=device-width" />
+<!-- sp-head -->
 <title>Streamplace</title>
 <meta name="description" content="The video layer for everything." />
-<meta property="og:site_name" content="Streamplace" />
 <meta property="og:title" content="Streamplace — the video layer for everything" />
 <meta property="og:image" content="/linkbanner.png" />
-<meta property="og:image:width" content="1200" />
-<meta name="twitter:title" content="Streamplace — the video layer for everything" />
-<meta name="viewport" content="width=device-width" />
+<!-- /sp-head -->
 </head><body></body></html>`)
 	linker, err := NewLinker(context.Background(), base, nil, &config.CLI{BroadcasterHost: "example.com"})
 	require.NoError(t, err)
 	u, err := url.Parse("https://example.com/")
 	require.NoError(t, err)
-	out, err := linker.GenerateDefaultCard(context.Background(), u, "")
+	head, err := linker.GenerateDefaultCard(context.Background(), u, "")
 	require.NoError(t, err)
-	page := string(out)
+	page := string(linker.Page(head))
 	require.NotContains(t, page, "video layer for everything")
 	require.NotContains(t, page, `content="/linkbanner.png"`)
-	require.NotContains(t, page, "og:image:width")
 	require.Contains(t, page, `name="viewport"`)
+	require.NotContains(t, page, "sp-head")
 	require.Equal(t, 1, strings.Count(page, `property="og:title"`))
 	require.Equal(t, 1, strings.Count(page, "<title>"))
+}
+
+// The banner lives in the node-owned head region, so the fragment carries it.
+func TestAppBanner(t *testing.T) {
+	ctx := context.Background()
+	sdb, err := statedb.MakeDB(ctx, &config.CLI{DBURL: ":memory:"}, nil, nil)
+	require.NoError(t, err)
+	linker := NewHeadLinker(sdb, &config.CLI{BroadcasterHost: "example.com"})
+	head, err := linker.RenderHead(&PageConfig{Title: "Hi"})
+	require.NoError(t, err)
+	require.Contains(t, string(head), `name="apple-itunes-app"`)
+
+	require.NoError(t, sdb.PutBrandingBlob("did:web:example.com", "mobileAppBanner", "text/plain", []byte("off"), nil, nil))
+	head, err = linker.RenderHead(&PageConfig{Title: "Hi"})
+	require.NoError(t, err)
+	require.NotContains(t, string(head), "apple-itunes-app")
 }
 
 func TestHomeCardFallsBackToSite(t *testing.T) {
@@ -316,7 +329,7 @@ func TestBootstrapBrandingRejectsCSSInjection(t *testing.T) {
 	require.NoError(t, sdb.PutBrandingBlob("did:web:example.com", "backgroundColor", "text/plain", []byte(" #123456 "), nil, nil))
 	require.NoError(t, sdb.PutBrandingBlob("did:web:example.com", "primaryColor", "text/plain", []byte(`</style><script>alert(1)</script>`), nil, nil))
 
-	out, err := linker.GenerateHTML(ctx, &PageConfig{})
+	out, err := linker.RenderHead(&PageConfig{})
 	require.NoError(t, err)
 	require.Contains(t, string(out), "--bootstrap-background:#123456")
 	require.NotContains(t, string(out), "--bootstrap-primary:")

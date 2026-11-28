@@ -1,0 +1,17 @@
+name = "streamplace-edge"
+main = "src/cloudflare.ts"
+compatibility_date = "2025-04-01"
+
+[assets]
+directory = "./assets"
+binding = "ASSETS"
+# The handler routes everything itself; the platform must not answer first.
+run_worker_first = true
+html_handling = "none"
+not_found_handling = "none"
+
+[vars]
+# Upstream nodes as UPSTREAM_SERVER__0, UPSTREAM_SERVER__1, etc.
+# UPSTREAM_SERVER__0 = "https://prod-sea1.stream.place"
+# Set the proxy secret with `wrangler secret put PROXY_SECRET`; it must match
+# the node's --proxy-secret.

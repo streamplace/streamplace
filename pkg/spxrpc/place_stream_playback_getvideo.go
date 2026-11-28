@@ -126,7 +126,7 @@ func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 	}
 	defer r.Close()
 	rangeStart, rangeEnd := parseRangeForLog(c.Request().Header.Get("Range"), r.Size())
-	s.logSegmentRequest(c, cid, did, s.accountedSession(ctx, c.QueryParam("sid"), did, sessionClient(c)), rangeStart, rangeEnd)
+	s.logSegmentRequest(c, cid, did, s.accountedSession(ctx, c.QueryParam("sid"), did, s.sessionClient(c)), rangeStart, rangeEnd)
 	return serveBlobRange(c, r, "video/mp4")
 }
 
@@ -305,7 +305,7 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	// servable: verified against the owner, renewed while they watch,
 	// minted for a first request (a media playlist without one is
 	// redirected to carry it, so the player's follow-ups share a session).
-	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), aturi.Authority().String(), sessionClient(c), track != "")
+	ps, err := s.resolveSession(ctx, c.QueryParam("sid"), aturi.Authority().String(), s.sessionClient(c), track != "")
 	if err != nil {
 		return err
 	}

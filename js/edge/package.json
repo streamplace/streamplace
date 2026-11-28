@@ -1,0 +1,17 @@
+{
+  "name": "@streamplace/edge",
+  "version": "0.13.5",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/copy-assets.mjs && wrangler dev",
+    "deploy": "node scripts/copy-assets.mjs && wrangler deploy",
+    "test": "vitest run",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vitest": "^5.1.0",
+    "wrangler": "~4.157.0"
+  }
+}

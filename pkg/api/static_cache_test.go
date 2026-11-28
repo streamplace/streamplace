@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,7 +18,7 @@ import (
 
 func TestFrontendCachePolicy(t *testing.T) {
 	const bundle = "_expo/static/js/web/entry-4435f578c13fb3bd2a64b65e8dc7f216.js"
-	index := []byte("<!doctype html><html><head><title>Streamplace</title></head><body></body></html>")
+	index := []byte("<!doctype html><html><head><!-- sp-head --><title>Streamplace</title><!-- /sp-head --></head><body></body></html>")
 	files := fstest.MapFS{
 		"index.html":         {Data: index},
 		"assets/favicon.png": {Data: []byte("png")},
@@ -73,7 +74,7 @@ func TestFrontendStreamerHandleWithAssetSuffix(t *testing.T) {
 		Livestream: &body,
 	}))
 
-	index := []byte("<!doctype html><html><head><title>Streamplace</title></head><body></body></html>")
+	index := []byte("<!doctype html><html><head><!-- sp-head --><title>Streamplace</title><!-- /sp-head --></head><body></body></html>")
 	linker, err := linking.NewLinker(ctx, index, nil, nil)
 	require.NoError(t, err)
 	a := &StreamplaceAPI{CLI: &config.CLI{}, Model: mod}
@@ -83,4 +84,24 @@ func TestFrontendStreamerHandleWithAssetSuffix(t *testing.T) {
 	handler(rec, httptest.NewRequest("GET", "/"+repo.Handle, nil))
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), record.Title)
+}
+
+func TestPageHeadRejectsRelativeURL(t *testing.T) {
+	a := &StreamplaceAPI{CLI: &config.CLI{}, headLinker: linking.NewHeadLinker(nil, nil)}
+	rec := httptest.NewRecorder()
+	a.HandlePageHead(context.Background())(rec, httptest.NewRequest("GET", "/api/page-head?url=/relative", nil))
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestPageHeadReturnsFragment(t *testing.T) {
+	a := &StreamplaceAPI{CLI: &config.CLI{}, headLinker: linking.NewHeadLinker(nil, nil)}
+	rec := httptest.NewRecorder()
+	a.HandlePageHead(context.Background())(rec, httptest.NewRequest("GET", "/api/page-head?url=https%3A%2F%2Fexample.com%2F", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		Head string `json:"head"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.Contains(t, body.Head, `<title>streamplace node</title>`)
+	require.Contains(t, body.Head, `property="og:url" content="https://example.com/"`)
 }

@@ -19,10 +19,7 @@ e2e_ios_stop() {
   [ -z "${E2E_IOS_OFFSET_DIR:-}" ] || rm -rf "$E2E_IOS_OFFSET_DIR"
 }
 
-e2e_ios_install() {
-  trap 'e2e_ios_stop; e2e_harness_stop' EXIT
-  trap 'exit 130' INT
-  trap 'exit 143' TERM
+e2e_ios_boot() {
   # Prefer a booted iPhone, otherwise the newest runtime supported by the
   # selected Xcode SDK. IOS_SIMULATOR_UDID explicitly selects any available
   # template, never a device to erase or install into.
@@ -42,10 +39,17 @@ console.log(`${phone.deviceTypeIdentifier} ${phone.runtime}`);
 JS
 )"
   E2E_IOS_DEVICE="$(xcrun simctl create "Streamplace e2e $$" ${template})"
+  xcrun simctl boot "$E2E_IOS_DEVICE"
+  xcrun simctl bootstatus "$E2E_IOS_DEVICE" -b
+}
+
+e2e_ios_install() {
+  trap 'e2e_ios_stop; e2e_harness_stop' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  e2e_ios_boot
   DEVICE="$E2E_IOS_DEVICE"
   echo "Simulator $DEVICE, app $APP_ID from $(basename "$IOS_APP")"
-  xcrun simctl boot "$DEVICE"
-  xcrun simctl bootstatus "$DEVICE" -b
   xcrun simctl keychain "$DEVICE" add-root-cert "$E2E_TLS_CA"
   xcrun simctl install "$DEVICE" "$IOS_APP"
   applesimutils --byId "$DEVICE" --bundle "$APP_ID" --setPermissions notifications=YES

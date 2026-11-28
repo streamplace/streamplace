@@ -319,3 +319,29 @@ Both back off exponentially. Pull requests use `0.9`.
 
 Artifacts on failure (traces, screenshots, video) land in `test-results/` and a
 report in `playwright-report/` (`pnpm --filter @streamplace/e2e-web report`).
+
+## iPhone Simulator Safari
+
+The macOS CI build runs one smoke test with Apple’s SafariDriver, not
+Playwright’s desktop WebKit. It signs in to the harness’s PDS, taps Send on
+the stream page, checks that the draft clears, and reloads to verify the
+message reached chat history. The shared native counterpart is
+`.maestro/logged-in/chat-submit.yaml`.
+
+On macOS with Xcode and an installed iOS Simulator runtime:
+
+```bash
+make
+brew install socat
+sudo bash hack/e2e-https-macos.sh install
+sudo /usr/bin/safaridriver --enable
+# Temporarily map plc.directory to 127.0.0.1 in the host's /etc/hosts.
+bash hack/e2e-safari-local.sh
+```
+
+Remove the hosts entry after the run. To remove the HTTPS relay, run
+`sudo bash hack/e2e-https-macos.sh uninstall`. The runner deletes its
+disposable simulator and only installs the harness CA there. Logs and failure
+screenshots go to `js/e2e-web/test-results/safari` by default; set
+`E2E_ARTIFACTS` to change that path. SafariDriver does not show the software
+keyboard, so this test does not exercise keyboard layout or autocorrect.

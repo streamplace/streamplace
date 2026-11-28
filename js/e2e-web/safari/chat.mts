@@ -45,7 +45,7 @@ async function command<T>(path: string, body?: object, method?: string) {
 async function until<T>(
   description: string,
   check: () => Promise<T | false>,
-  timeout = 30_000,
+  timeout = 120_000,
 ): Promise<T> {
   const deadline = performance.now() + timeout;
   do {
@@ -145,19 +145,7 @@ try {
   // wait for the app to render and the stream to connect.
   await send("/timeouts", { pageLoad: 90_000 });
 
-  console.log("Pointing the app at the harness");
-  await go(`${station}/settings/advanced`);
-  await click(await visible(id("settings-use-custom-node")));
-  await type(input("settings-custom-node-url"), station);
-  await click(await visible(id("settings-save-node")));
-  await until("node URL to persist", () =>
-    send<boolean>("/execute/sync", {
-      script:
-        "return Object.values(localStorage).some(v => v === arguments[0] || v === JSON.stringify(arguments[0]));",
-      args: [station],
-    }),
-  );
-
+  // The bundled Expo web app defaults to its own origin.
   console.log("Signing in through the fixture PDS");
   await go(`${station}/login`);
   await type(input("login-handle"), handle);

@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -38,6 +37,7 @@ import (
 	"stream.place/streamplace/pkg/s3"
 	"stream.place/streamplace/pkg/spaces"
 	"stream.place/streamplace/pkg/spmetrics"
+	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/thumbnail"
 )
@@ -78,17 +78,16 @@ type StreamSession struct {
 	lastViewCountTime  time.Time
 	s3Mu               sync.Mutex
 	s3Uploader         *s3.S3Uploader
-	// s3Pending counts the s3Uploader's queued segment workers.
-	s3Pending sync.WaitGroup
+	s3Tail             chan struct{} // last queued recording command
+	s3Init             *s3Initialization
 	// roles enters the session into the stream's jobs once; see startRoles.
 	// originRoles is separate: it starts on the first segment that makes
 	// this node an origin for the stream (see startOriginRoles).
 	roles, originRoles sync.Once
-	// transcoding is the transcode role's context while this node holds the
-	// role, nil otherwise. Transcodes run under it, so a node that loses
-	// the role drops the ones in flight rather than pay for them alongside
-	// the new holder.
-	transcoding atomic.Pointer[context.Context]
+	// Register work under transcodeMu so stop can detach the role and drain it.
+	transcodeMu      sync.Mutex
+	transcoding      context.Context
+	transcodePending sync.WaitGroup
 }
 
 // bitrateMargin is the wiggle room over the configured maximum before a stream
@@ -354,20 +353,31 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	ss.UpdateViewCount(ctx)
 	// Transcoding is a job for the node holding the transcode role; every
 	// other node carrying the stream receives the renditions from it.
-	if role := ss.transcoding.Load(); role != nil {
+	ss.transcodeMu.Lock()
+	role := ss.transcoding
+	if role != nil && role.Err() == nil {
+		ss.transcodePending.Add(1)
+		ss.transcodeMu.Unlock()
 		// Claimed in arrival order: the renditions publish in it however
 		// the gateway's round trips finish.
 		renditionTurn := ss.renditions.turn()
 		ss.Go(ctx, func() error {
+			defer ss.transcodePending.Done()
 			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
-			defer context.AfterFunc(*role, cancel)()
+			defer context.AfterFunc(role, cancel)()
+			if role.Err() != nil {
+				renditionTurn.release()
+				return nil
+			}
 			start := time.Now()
 			err := ss.Transcode(ctx, spseg, notif, renditionTurn)
 			took := time.Since(start)
 			spmetrics.QueuedTranscodeDuration.WithLabelValues(spseg.Creator).Set(float64(took.Milliseconds()))
 			return err
 		})
+	} else {
+		ss.transcodeMu.Unlock()
 	}
 
 	// trigger a notification blast if this is a new livestream
@@ -388,9 +398,10 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			// Refresh the S3 uploader's livestream tag now that this stream's
 			// own record is indexed (it may not have been when the uploader
 			// started), so all objects are attributed to the right stream.
-			if u := ss.uploader(); u != nil {
+			ss.withUploader(ctx, func(u *s3.S3Uploader) error {
 				u.SetLivestreamURI(livestreamModel.URI)
-			}
+				return nil
+			})
 			lsv, err := livestreamModel.ToLivestreamView()
 			if err != nil {
 				return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)
@@ -1157,11 +1168,10 @@ type runningMultistream struct {
 
 func sanitizeMultistreamTargetURL(uri string) string {
 	u, err := url.Parse(uri)
-	if err != nil {
-		return uri
+	if err != nil || u.Host == "" {
+		return "[redacted]"
 	}
-	u.Path = "/redacted"
-	return u.String()
+	return (&url.URL{Scheme: u.Scheme, Host: u.Host, Path: "/redacted"}).String()
 }
 
 // multistreamTargets tracks a stream's active targets. They come from the
@@ -1223,6 +1233,16 @@ func (ss *StreamSession) followPersonalSpace(ctx context.Context, t *multistream
 // when its store cannot be read: this node holds the multistream lease, so
 // nobody else would drive the targets.
 func (ss *StreamSession) refreshMultistreamTargets(ctx context.Context, t *multistreamTargets) {
+	if ss.statefulDB.StationShards != nil || strings.HasPrefix(ss.cli.DBURL, "station://") {
+		targets, err := spxrpc.FetchStationActiveMultistreamTargets(ctx, ss.cli, ss.statefulDB, ss.repoDID)
+		if err != nil {
+			log.Error(ctx, "failed to refresh station multistream targets", "error", err)
+			return
+		}
+		t.active = targets
+		return
+	}
+
 	if t.space != nil && time.Until(t.spaceUntil) < 30*time.Second {
 		t.space = nil
 	}
@@ -1282,6 +1302,8 @@ func (ss *StreamSession) refreshMultistreamTargets(ctx context.Context, t *multi
 // referencing by atproto URI
 func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 	ctx = log.WithLogValues(ctx, "system", "multistreaming")
+	var pending sync.WaitGroup
+	defer pending.Wait()
 	// {target.Uri}:{rec.Url} -> runningMultistream
 	// no concurrency issues, it's only used from this one loop
 	running := map[string]*runningMultistream{}
@@ -1309,10 +1331,13 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 			return true
 		}
 	}
-	for {
+	for ctx.Err() == nil {
 		ss.refreshMultistreamTargets(ctx, targets)
 		currentRunning := map[string]bool{}
 		for _, targetView := range targets.active {
+			if ctx.Err() != nil {
+				return nil
+			}
 			rec, ok := targetView.Record.Val.(*placestream.MultistreamTarget)
 			if !ok {
 				log.Error(ctx, "failed to convert multistream target to streamplace multistream target", "uri", targetView.Uri)
@@ -1333,7 +1358,9 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 			}
 			ctx := log.WithLogValues(ctx, "url", sanitizeMultistreamTargetURL(rec.Url), "pushID", uu.String())
 			childCtx, childCancel := context.WithCancel(ctx)
+			pending.Add(1)
 			ss.Go(ctx, func() error {
+				defer pending.Done()
 				log.Log(ctx, "starting multistream target", "uri", targetView.Uri)
 				err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, "starting multistream target", "pending")
 				if err != nil {
@@ -1359,10 +1386,11 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 			return nil
 		}
 	}
+	return nil
 }
 
 func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, targetView *placestream.MultistreamDefs_TargetView) error {
-	for {
+	for ctx.Err() == nil {
 		// Under --isolated-ingest the crash-prone native egress pipeline runs in a
 		// worker subprocess (a gst fault there can't take the node down); otherwise
 		// it runs in-process. The on/off + status flow is identical either way.
@@ -1391,4 +1419,5 @@ func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, targetView 
 			continue
 		}
 	}
+	return nil
 }

@@ -18,15 +18,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-// Copying a state database from one engine to another (the sqlite → Postgres
-// move when a node grows up). Rows travel through the Go models, so every
-// difference between the two schemas — bytea vs blob, jsonb vs text,
-// timestamptz vs datetime text, bool vs int — is GORM's type mapping doing
-// what it already does on every read and write; nothing is hand-mapped.
-//
-// The copy is idempotent (insert on conflict do nothing, keyed by each
-// table's primary key), so it can be run once while the old node is still up
-// to prove the target out, and again after stopping it to catch the delta.
+// Rows travel through the Go models so each engine uses its ordinary type mapping.
 
 // CopyReport is one table's outcome.
 type CopyReport struct {
@@ -68,10 +60,9 @@ func openSource(dbURL string) (*gorm.DB, DBType, error) {
 	return db, dbType, nil
 }
 
-// CopyState copies every table in StatefulDBModels from fromURL into toURL.
-// The target is opened exactly as a node would open it (created if missing,
-// AutoMigrated to the current schema). batch is rows per INSERT.
-func CopyState(ctx context.Context, fromURL, toURL string, batch int) ([]CopyReport, error) {
+// CopyState copies relational state. A station cutover requires a stopped source
+// and commits all tables together into an empty destination.
+func CopyState(ctx context.Context, fromURL string, dstConfig *config.CLI, batch int) ([]CopyReport, error) {
 	if batch <= 0 {
 		batch = 500
 	}
@@ -80,16 +71,70 @@ func CopyState(ctx context.Context, fromURL, toURL string, batch int) ([]CopyRep
 		return nil, err
 	}
 	log.Log(ctx, "copy: source open", "url", redactDBURL(fromURL), "type", srcType)
-	dst, err := MakeDB(ctx, &config.CLI{DBURL: toURL}, nil, nil)
+	srcPool, err := src.DB()
+	if err != nil {
+		return nil, err
+	}
+	defer srcPool.Close()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	dst, err := MakeDB(ctx, dstConfig, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error opening target database: %w", err)
 	}
-	log.Log(ctx, "copy: target open", "url", redactDBURL(toURL), "type", dst.Type)
+	log.Log(ctx, "copy: target open", "url", redactDBURL(dstConfig.DBURL), "type", dst.Type)
+	dstPool, err := dst.DB.DB()
+	if err != nil {
+		return nil, err
+	}
+	defer dstPool.Close()
 
+	if dst.stationStore != nil {
+		var count int64
+		if err := src.WithContext(ctx).Model(&Upload{}).Where("completed_at IS NULL").Count(&count).Error; err != nil {
+			return nil, err
+		}
+		if count != 0 {
+			return nil, fmt.Errorf("source has %d unfinished legacy uploads; finish or cancel them before cutover", count)
+		}
+		if err := src.WithContext(ctx).Model(&AppTask{}).Where("status = ?", TaskStatusProcessing).Count(&count).Error; err != nil {
+			return nil, err
+		}
+		if count != 0 {
+			return nil, fmt.Errorf("source has %d claimed tasks; reconcile outstanding side effects before cutover", count)
+		}
+		var reports []CopyReport
+		err := dst.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			for _, m := range StatefulDBModels {
+				var existing int64
+				if err := tx.Unscoped().Model(m).Count(&existing).Error; err != nil {
+					return err
+				}
+				if existing != 0 {
+					return fmt.Errorf("station migration requires an empty namespace; %T already contains rows", m)
+				}
+			}
+			var err error
+			reports, err = copyTables(ctx, src, tx, dst.Type, batch)
+			return err
+		})
+		if err != nil {
+			return nil, err
+		}
+		return reports, nil
+	}
+	return copyTables(ctx, src, dst.DB, dst.Type, batch)
+}
+
+func copyTables(ctx context.Context, src, dst *gorm.DB, dstType DBType, batch int) ([]CopyReport, error) {
 	var reports []CopyReport
 	var problems []string
-	for _, m := range StatefulDBModels {
-		r, err := copyTable(ctx, src, dst, m, batch)
+	models, err := copyStateSourceModels(ctx, src)
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range models {
+		r, err := copyTable(ctx, src, dst, dstType, m, batch)
 		if err != nil {
 			return reports, err
 		}
@@ -104,8 +149,8 @@ func CopyState(ctx context.Context, fromURL, toURL string, batch int) ([]CopyRep
 	return reports, nil
 }
 
-func copyTable(ctx context.Context, src *gorm.DB, dst *StatefulDB, m any, batch int) (CopyReport, error) {
-	s, err := schema.Parse(m, &sync.Map{}, dst.DB.NamingStrategy)
+func copyTable(ctx context.Context, src, dst *gorm.DB, dstType DBType, m any, batch int) (CopyReport, error) {
+	s, err := schema.Parse(m, &sync.Map{}, dst.NamingStrategy)
 	if err != nil {
 		return CopyReport{}, err
 	}
@@ -114,13 +159,31 @@ func copyTable(ctx context.Context, src *gorm.DB, dst *StatefulDB, m any, batch 
 		return r, fmt.Errorf("%s: counting source rows: %w", s.Table, err)
 	}
 	started := time.Now()
-	// A pointer to a []Model, built by reflection since the model list is
-	// []any; FindInBatches walks the source in primary-key order.
+	// Walk the entire primary key. GORM's FindInBatches cursor uses one field
+	// and cannot advance through a table such as (streamer_did, livestream_uri).
 	rows := reflect.New(reflect.SliceOf(reflect.TypeOf(m)))
 	// Hooks off: rows are copied as they are, not re-created. Unscoped on
 	// the target too, so a soft-deleted row is inserted with its deleted_at.
-	writer := dst.DB.Session(&gorm.Session{SkipHooks: true, Context: ctx}).Unscoped()
-	res := src.WithContext(ctx).Unscoped().Model(m).FindInBatches(rows.Interface(), batch, func(tx *gorm.DB, n int) error {
+	writer := dst.Session(&gorm.Session{SkipHooks: true, Context: ctx}).Unscoped()
+	if len(s.PrimaryFields) == 0 {
+		return r, fmt.Errorf("%s: no primary key for migration", s.Table)
+	}
+	columns := make([]string, len(s.PrimaryFields))
+	cursor := make([]any, len(columns))
+	q := src.WithContext(ctx).Unscoped().Model(m).Limit(batch)
+	for i, field := range s.PrimaryFields {
+		columns[i] = `"` + field.DBName + `"`
+		q = q.Order(clause.OrderByColumn{Column: clause.Column{Name: field.DBName}})
+	}
+	after := "(" + strings.Join(columns, ",") + ") > (" + strings.TrimSuffix(strings.Repeat("?,", len(columns)), ",") + ")"
+	page := q.Session(&gorm.Session{})
+	for {
+		if err := page.Find(rows.Interface()).Error; err != nil {
+			return r, fmt.Errorf("read %s: %w", s.Table, err)
+		}
+		if rows.Elem().Len() == 0 {
+			break
+		}
 		normalizeJSON(rows.Elem())
 		// Upsert, not insert-or-skip: the documented second (delta) pass
 		// after the cutover has to carry rows that changed since the first
@@ -128,20 +191,24 @@ func copyTable(ctx context.Context, src *gorm.DB, dst *StatefulDB, m any, batch 
 		// primary keys and would otherwise be left at their old values.
 		ins := writer.Clauses(clause.OnConflict{UpdateAll: true}).Create(rows.Interface())
 		if ins.Error != nil {
-			return ins.Error
+			return r, fmt.Errorf("copy %s: %w", s.Table, ins.Error)
 		}
 		r.Inserted += ins.RowsAffected
-		return nil
-	})
-	if res.Error != nil {
-		return r, fmt.Errorf("%s: %w", s.Table, res.Error)
+		if rows.Elem().Len() < batch {
+			break
+		}
+		last := rows.Elem().Index(rows.Elem().Len() - 1)
+		for i, field := range s.PrimaryFields {
+			cursor[i], _ = field.ValueOf(ctx, last)
+		}
+		page = q.Session(&gorm.Session{}).Where(after, cursor...)
 	}
-	if dst.Type == DBTypePostgres {
-		if err := bumpSequence(ctx, dst.DB, s); err != nil {
+	if dstType == DBTypePostgres {
+		if err := bumpSequence(ctx, dst, s); err != nil {
 			return r, err
 		}
 	}
-	if err := dst.DB.Unscoped().Model(m).Count(&r.Target).Error; err != nil {
+	if err := dst.Unscoped().Model(m).Count(&r.Target).Error; err != nil {
 		return r, fmt.Errorf("%s: counting target rows: %w", s.Table, err)
 	}
 	log.Log(ctx, "copy: table done", "table", s.Table, "source", r.Source, "inserted", r.Inserted, "target", r.Target, "took", time.Since(started).Round(time.Millisecond))

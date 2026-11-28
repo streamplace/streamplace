@@ -123,6 +123,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	// blobs we host but never indexed (a dropped firehose event, or a
 	// --secure node whose self-subscription never connected).
 	router.POST("/reindex-origins", a.HandleReindexOrigins(ctx))
+	router.POST("/withdraw-origin", a.HandleWithdrawOrigin(ctx))
 
 	router.Handler("GET", "/metrics", promhttp.Handler())
 

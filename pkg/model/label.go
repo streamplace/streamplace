@@ -46,7 +46,7 @@ func (m *DBModel) CreateLabel(label *Label) error {
 func (m *DBModel) GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, error) {
 	now := time.Now().UTC()
 	var labels []Label
-	err := m.DB.Where("uri = ? AND (exp IS NULL OR exp < ?) AND neg = ?", uri, now, false).Find(&labels).Error
+	err := m.DB.Where("uri = ? AND (exp IS NULL OR exp = ? OR exp > ?) AND neg = ?", uri, time.Time{}, now, false).Find(&labels).Error
 	if err != nil {
 		return nil, err
 	}

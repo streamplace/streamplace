@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
@@ -36,20 +38,42 @@ func SendStreamReceived(ctx context.Context, w *discordtypes.Webhook, streamerDI
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := aqhttp.Do(ctx, req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
+	return sendWebhookRequest(ctx, req)
+}
 
-	if resp.StatusCode != http.StatusNoContent {
-		body, err := readResponseBody(resp.Body)
+type webhookDispatchKey struct{}
+type webhookDispatch func(context.Context, func(context.Context) error) error
+
+// WithWebhookDispatch wraps the actual POST, after all request preparation.
+func WithWebhookDispatch(ctx context.Context, dispatch func(context.Context, func(context.Context) error) error) context.Context {
+	return context.WithValue(ctx, webhookDispatchKey{}, webhookDispatch(dispatch))
+}
+
+// ErrWebhookRateLimited indicates the service rejected the POST before delivery.
+var ErrWebhookRateLimited = errors.New("webhook rate limited")
+
+func sendWebhookRequest(ctx context.Context, req *http.Request) error {
+	post := func(ctx context.Context) error {
+		resp, err := aqhttp.Do(ctx, req)
 		if err != nil {
-			return fmt.Errorf("failed to read response body: %w", err)
+			return fmt.Errorf("send webhook: %w", err)
 		}
-		log.Error(ctx, "stream.received webhook delivery failed", "webhook_url", w.URL, "status_code", resp.StatusCode, "response_body", body)
-		return fmt.Errorf("failed to send request (http %d): %s", resp.StatusCode, body)
+		defer resp.Body.Close()
+		switch resp.StatusCode {
+		case http.StatusNoContent:
+			return nil
+		case http.StatusTooManyRequests:
+			return &webhookRateLimitError{retryAt: webhookRetryAt(resp, time.Now())}
+		default:
+			body, err := readResponseBody(resp.Body)
+			if err != nil {
+				return fmt.Errorf("read webhook response: %w", err)
+			}
+			return fmt.Errorf("send webhook (http %d): %s", resp.StatusCode, body)
+		}
 	}
-
-	return nil
+	if dispatch, ok := ctx.Value(webhookDispatchKey{}).(webhookDispatch); ok {
+		return dispatch(ctx, post)
+	}
+	return post(ctx)
 }

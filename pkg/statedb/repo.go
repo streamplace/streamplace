@@ -1,10 +1,9 @@
 package statedb
 
 import (
-	"errors"
 	"time"
 
-	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Very, very basic stateful repo representation. The complex stuff
@@ -34,24 +33,16 @@ func (state *StatefulDB) ListRepos(limit int, offset int) ([]Repo, error) {
 }
 
 func (state *StatefulDB) AddRepo(did string) error {
-	// Check if repo already exists
-	var existingRepo Repo
-	err := state.DB.Where("did = ?", did).First(&existingRepo).Error
-	if err == nil {
-		// Repo already exists, do nothing
-		return nil
-	}
-
-	// If error is not "record not found", return the error
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
-
-	// Repo doesn't exist, create it
+	// Only a matching DID is a no-op; preserve the first registration time.
+	db := state.DB
 	newRepo := Repo{
 		DID:       did,
 		IndexedAt: time.Now(),
 	}
-
-	return state.DB.Create(&newRepo).Error
+	for attempt := 0; ; attempt++ {
+		err := db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "did"}}, DoNothing: true}).Create(&newRepo).Error
+		if state.stationStore == nil || !retryStationWrite(db.Statement.Context, attempt, err) {
+			return err
+		}
+	}
 }

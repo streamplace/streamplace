@@ -16,7 +16,6 @@ import (
 
 	"stream.place/streamplace/pkg/bdasl"
 	"stream.place/streamplace/pkg/blob"
-	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 )
@@ -45,10 +44,8 @@ type TransferResult struct {
 	Downloaded bool `json:"downloaded"`
 }
 
-// TransferVOD pulls a content-addressed VOD blob from a remote Streamplace
-// node into this node's playback store, regenerates the playback sidecars
-// (metafile + per-track init segments) locally from the blob, and publishes
-// a place.stream.media.origin attestation that this node now hosts it.
+// TransferVOD pulls a content-addressed VOD blob from another node and
+// regenerates the playback sidecars. Copying bytes is not publication.
 //
 // Only the primary content blob crosses the network. The metafile and the
 // per-track init segments are deterministically derivable from it (via
@@ -57,18 +54,15 @@ type TransferResult struct {
 // existing place.stream.playback.getVideoBlob endpoint, and no
 // non-content-addressed surface is required on the source.
 //
-// The fetched bytes are verified against contentCID before they're
-// published; a source that serves the wrong bytes fails the transfer
-// rather than poisoning the store. The published origin is byte-for-byte
-// what the normal processing pipeline emits (rkey = CID), so it's
-// idempotent across retries and indistinguishable from a locally-produced
-// VOD once indexed.
+// The fetched fragments are verified against contentCID before committing
+// the result. A station transfer requires proof that the source can serve
+// this CID even when a private copy of the same bytes is already present.
 //
 // sourceBaseURL is the origin node's base URL (e.g. "https://source.example").
 // contentCID is the primary blob's BDASL CID. did is an account that owns a
 // track in the blob — the source's getVideoBlob requires it for egress
 // attribution and labeler enforcement on content blobs.
-func TransferVOD(ctx context.Context, cli *config.CLI, store blob.Store, httpClient *http.Client, sourceBaseURL, contentCID, did string) (*TransferResult, error) {
+func TransferVOD(ctx context.Context, store blob.Store, httpClient *http.Client, sourceBaseURL, contentCID, did string, requireSource bool) (*TransferResult, error) {
 	ctx = log.WithLogValues(ctx, "func", "TransferVOD", "cid", contentCID, "did", did)
 	ctx, span := vodTracer.Start(ctx, "vod.TransferVOD", trace.WithAttributes(
 		attribute.String("cid", contentCID),
@@ -76,6 +70,9 @@ func TransferVOD(ctx context.Context, cli *config.CLI, store blob.Store, httpCli
 	))
 	defer span.End()
 
+	if contentCID == "" {
+		return nil, fmt.Errorf("content CID is required")
+	}
 	if _, err := bdasl.Parse(contentCID); err != nil {
 		return nil, fmt.Errorf("invalid content CID %q: %w", contentCID, err)
 	}
@@ -83,8 +80,9 @@ func TransferVOD(ctx context.Context, cli *config.CLI, store blob.Store, httpCli
 		return nil, fmt.Errorf("did is required")
 	}
 	base, err := url.Parse(sourceBaseURL)
-	if err != nil || base.Scheme == "" || base.Host == "" {
-		return nil, fmt.Errorf("invalid source base URL %q", sourceBaseURL)
+	if err != nil || (base.Scheme != "http" && base.Scheme != "https") || base.Hostname() == "" || base.User != nil ||
+		base.ForceQuery || base.RawQuery != "" || base.Fragment != "" || (base.EscapedPath() != "" && base.EscapedPath() != "/") {
+		return nil, fmt.Errorf("source must be an HTTP(S) origin without credentials, path, query, or fragment")
 	}
 	if httpClient == nil {
 		httpClient = http.DefaultClient
@@ -98,7 +96,7 @@ func TransferVOD(ctx context.Context, cli *config.CLI, store blob.Store, httpCli
 	downloaded := false
 	size, err := existingBlobSize(ctx, store, key)
 	switch {
-	case errors.Is(err, blob.ErrNotFound):
+	case errors.Is(err, blob.ErrNotFound) || (err == nil && requireSource):
 		size, err = downloadContentBlob(ctx, httpClient, store, base, key, contentCID, did)
 		if err != nil {
 			span.RecordError(err)
@@ -117,12 +115,6 @@ func TransferVOD(ctx context.Context, cli *config.CLI, store blob.Store, httpCli
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "regenerate")
 		return nil, fmt.Errorf("regenerate sidecars: %w", err)
-	}
-
-	if err := publishOrigin(ctx, cli, contentCID, size, transferMimeType); err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "origin")
-		return nil, fmt.Errorf("publish origin: %w", err)
 	}
 
 	span.SetAttributes(

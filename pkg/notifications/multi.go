@@ -32,6 +32,25 @@ func NewMultiNotifier(notifiers ...Notifier) *MultiNotifier {
 	return nn
 }
 
+// Supports reports whether a transport for this target is installed.
+func (m *MultiNotifier) Supports(kind NotificationType) bool {
+	for _, n := range m.notifiers {
+		switch n.(type) {
+		case FirebaseNotifier:
+			if kind == NotificationTypeFirebase || kind == "" {
+				return true
+			}
+		case *WebPushNotifier:
+			if kind == NotificationTypeWeb {
+				return true
+			}
+		default:
+			return true
+		}
+	}
+	return false
+}
+
 func (m *MultiNotifier) Blast(ctx context.Context, targets []NotificationTarget, blast *NotificationBlast) error {
 	if len(m.notifiers) == 0 {
 		return nil

@@ -38,54 +38,22 @@ type XRPCClient interface {
 // publishParams bundles everything needed to publish the origin + track
 // records for a processed VOD and store the results on the Upload row.
 type publishParams struct {
-	cli        *config.CLI
 	state      *statedb.StatefulDB
 	in         Input
 	cid        string
 	size       int64
-	mimeType   string
 	probe      media.VODResult
 	signingKey string
 }
 
-// publishRecords does the post-processing record publish. With tracks
-// deferred to publishDraft time, this now:
-//
-//  1. place.stream.media.origin in the SERVER's repo (we attest that this
-//     blob is fetchable from us). Idempotent: rkey is the CID.
-//  2. Stores the probe metadata + signing key + duration + CID on the Upload
-//     row so publishDraft can publish the place.stream.media.track records
-//     (and build the video's source) at publish time.
-//
-// Track records are intentionally NOT published here: with drafts, the video
-// record isn't visible until the user publishes, so publishing tracks at
-// processing time would leak half-published content. publishDraft publishes
-// them when the video record is created.
+// Processing is private. Persist the trusted probe and content CID for later
+// creator publication, but do not announce the blob or publish tracks yet.
 func publishRecords(ctx context.Context, p publishParams) error {
 	ctx, span := vodTracer.Start(ctx, "vod.publishRecords", trace.WithAttributes(
 		attribute.String("cid", p.cid),
 		attribute.String("did", p.in.RepoDID),
 	))
 	defer span.End()
-
-	if err := publishOrigin(ctx, p.cli, p.cid, p.size, p.mimeType); err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "origin")
-		return fmt.Errorf("publish origin: %w", err)
-	}
-
-	// The commit above reaches the local index by federating back to us over
-	// the firehose, which is a single point of failure: miss that one event and
-	// the video plays fine by direct link but never shows up in any listing,
-	// with nothing to reconcile it later. Index it directly as well. Not fatal
-	// — a VOD that published its records but lost a race with the indexer is
-	// still a successful VOD, and the firehose upsert (or a reindex) converges
-	// it. Idempotent either way, keyed by URI.
-	if p.state != nil {
-		if err := p.state.IndexOwnMediaOrigin(ctx, p.cid, p.size, p.mimeType); err != nil {
-			log.Error(ctx, "failed to index own media.origin locally", "cid", p.cid, "error", err)
-		}
-	}
 
 	// Serialize the probe so publishDraft can publish the track records later
 	// without re-probing the blob.
@@ -175,17 +143,9 @@ func unmarshalProbe(s string) (media.VODResult, error) {
 	return res, nil
 }
 
-// publishOrigin attests that this server has the blob with the given
-// CID. The record's rkey is the CID, so retries of the same processed
-// VOD overwrite the existing record rather than accumulating dupes.
-//
-// Indexing is deliberately NOT done here: server-repo commits federate
-// through the same firehose path as everything else, and the
-// place.stream.media.origin case in pkg/atproto/sync.go handles the
-// upsert into the local model. Keeping publish and index separate
-// means this package can run as a standalone microservice without
-// dragging the indexer along.
-func publishOrigin(ctx context.Context, cli *config.CLI, cid string, size int64, mimeType string) error {
+// PublishNodeOrigin commits the standalone node's VOD hosting attestation.
+// Station deployments use shared publication intent instead.
+func PublishNodeOrigin(ctx context.Context, cli *config.CLI, cid string, size int64) error {
 	ctx, span := vodTracer.Start(ctx, "vod.publishOrigin", trace.WithAttributes(
 		attribute.String("cid", cid),
 		attribute.Int64("size", size),
@@ -196,7 +156,7 @@ func publishOrigin(ctx context.Context, cli *config.CLI, cid string, size int64,
 		LexiconTypeID: constants.PLACE_STREAM_MEDIA_ORIGIN,
 		Blob:          cid,
 		Size:          size,
-		MimeType:      mimeType,
+		MimeType:      transferMimeType,
 	}
 	if err := atproto.CommitServerRepoRecord(ctx, cli, constants.PLACE_STREAM_MEDIA_ORIGIN, cid, rec); err != nil {
 		span.RecordError(err)

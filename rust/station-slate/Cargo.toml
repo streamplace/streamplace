@@ -1,0 +1,14 @@
+[package]
+name = "station-slate"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+resolver = "3"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+slatedb = { version = "=0.18.1", default-features = false, features = ["aws"] }
+tokio = { version = "1", features = ["rt-multi-thread", "time"] }

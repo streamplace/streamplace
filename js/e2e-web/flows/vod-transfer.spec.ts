@@ -4,6 +4,7 @@ import {
   type APIRequestContext,
   type APIResponse,
 } from "@playwright/test";
+import { expectDraftMetadata } from "./private-space-fixture";
 import { uploadFixture } from "./upload-fixture";
 
 // A VOD's track record names a CID that is the BDASL of the canonical
@@ -55,10 +56,38 @@ test("vod-transfer: a peer pulls an uploaded VOD", async ({
   // Upload + transcode can outlast the suite's default 90s on a loaded runner.
   test.setTimeout(15 * 60_000);
 
-  const watchPath = await uploadFixture(page);
+  let draftKey = "";
+  let draftTitle = "";
+  const watchPath = await uploadFixture(page, async (editor) => {
+    draftKey = new URL(editor.url()).pathname.split("/").filter(Boolean).pop()!;
+    draftTitle = await editor
+      .getByPlaceholder("Give your video a title")
+      .inputValue();
+    await expectDraftMetadata(request, ACCOUNT_DID!, draftKey, {
+      title: draftTitle,
+    });
+  });
   const match = watchPath.match(/^\/([^/]+)\/video\/([^/]+)$/);
   expect(match).not.toBeNull();
   const uri = `at://${match![1]}/place.stream.video/${match![2]}`;
+  expect(match![1]).toBe(ACCOUNT_DID);
+  expect(match![2]).toBe(draftKey);
+  const published = await request.get(
+    `${process.env.PDS_HTTP_URL}/xrpc/com.atproto.repo.getRecord`,
+    {
+      params: {
+        repo: ACCOUNT_DID!,
+        collection: "place.stream.video",
+        rkey: draftKey,
+      },
+    },
+  );
+  expect(published.ok()).toBe(true);
+  const { value } = await published.json();
+  expect(value.title).toBe(draftTitle);
+  expect(value.durationMs).toBeGreaterThan(0);
+  expect(value.source.tracks.length).toBeGreaterThan(0);
+  await expectDraftMetadata(request, ACCOUNT_DID!, draftKey, null);
 
   // The peer indexes the record off the PDS firehose, so retry until it can
   // resolve the video. Failures before that point do not touch the blob store.

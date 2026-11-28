@@ -3,6 +3,7 @@ package s3
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -12,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -67,14 +69,17 @@ type uploadAPI interface {
 // what lets it "concat fearlessly". Every cutoverEvery, the current upload is
 // completed and a new one begins.
 type S3Uploader struct {
-	client       uploadAPI
-	bucket       string
-	cutoverEvery time.Duration
-	keyPrefix    string // e.g. "did:plc:abc123/"
-	userDID      string
-	segCh        chan uploadCmd // bare canonical MUXL segments / cutover requests
-	done         chan error
-	recorder     Recorder
+	client            uploadAPI
+	bucket            string
+	cutoverEvery      time.Duration
+	keyPrefix         string // e.g. "did:plc:abc123/"
+	userDID           string
+	segCh             chan uploadCmd // bare canonical MUXL segments / cutover requests
+	done              chan error
+	recorder          Recorder
+	uploadDone        <-chan struct{}
+	cancelUpload      context.CancelFunc
+	persistenceFailed chan struct{} // set only for a writer bound to a recording lease
 
 	mu            sync.Mutex
 	livestreamURI string // guarded by mu; stamped on each S3Segment row
@@ -150,6 +155,18 @@ func NewS3Uploader(cfg Config, userDID, keyPrefix string, cutoverEvery time.Dura
 	return newS3Uploader(NewClient(cfg), cfg.Bucket, userDID, keyPrefix, cutoverEvery, recorder)
 }
 
+// NewFencedS3Uploader stops taking work on a metadata failure. The lease
+// owner must acquire a fresh generation before opening another object.
+func NewFencedS3Uploader(cfg Config, userDID, keyPrefix string, cutoverEvery time.Duration, recorder Recorder) *S3Uploader {
+	return newS3UploaderWithFailureSignal(NewClient(cfg), cfg.Bucket, userDID, keyPrefix, cutoverEvery, recorder, make(chan struct{}))
+}
+
+// PersistenceFailed closes on the first fenced writer failure. It is nil
+// for standalone uploaders, which continue after a failed object.
+func (u *S3Uploader) PersistenceFailed() <-chan struct{} {
+	return u.persistenceFailed
+}
+
 // NewClient builds an *s3.Client for an S3-compatible endpoint from cfg. Uses
 // static credentials, an explicit BaseEndpoint, and path-style addressing (so it
 // works against MinIO / R2 / plain-IP endpoints, not just AWS virtual-host style).
@@ -169,20 +186,28 @@ func NewClient(cfg Config) *s3.Client {
 // newS3Uploader is the client-injectable constructor behind NewS3Uploader; the
 // fake-client tests use it directly.
 func newS3Uploader(client uploadAPI, bucket, userDID, keyPrefix string, cutoverEvery time.Duration, recorder Recorder) *S3Uploader {
+	return newS3UploaderWithFailureSignal(client, bucket, userDID, keyPrefix, cutoverEvery, recorder, nil)
+}
+
+func newS3UploaderWithFailureSignal(client uploadAPI, bucket, userDID, keyPrefix string, cutoverEvery time.Duration, recorder Recorder, failed chan struct{}) *S3Uploader {
 	if cutoverEvery == 0 {
 		cutoverEvery = DefaultCutoverEvery
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	u := &S3Uploader{
-		client:       client,
-		bucket:       bucket,
-		cutoverEvery: cutoverEvery,
-		keyPrefix:    keyPrefix,
-		userDID:      userDID,
-		segCh:        make(chan uploadCmd, 16),
-		done:         make(chan error, 1),
-		recorder:     recorder,
+		client:            client,
+		bucket:            bucket,
+		cutoverEvery:      cutoverEvery,
+		keyPrefix:         keyPrefix,
+		userDID:           userDID,
+		segCh:             make(chan uploadCmd, 16),
+		done:              make(chan error, 1),
+		recorder:          recorder,
+		uploadDone:        ctx.Done(),
+		cancelUpload:      cancel,
+		persistenceFailed: failed,
 	}
-	go u.uploadLoop(context.Background())
+	go u.uploadLoop(ctx)
 	return u
 }
 
@@ -190,9 +215,10 @@ func newS3Uploader(client uploadAPI, bucket, userDID, keyPrefix string, cutoverE
 // request to complete the current object now (cutover). Both travel the same
 // channel so a cutover stays FIFO-ordered behind the segments queued before it.
 type uploadCmd struct {
-	seg     []byte    // bare canonical MUXL segment to append; nil for a cutover
-	start   time.Time // the segment's media start time
-	cutover bool      // complete the current object now (see Cutover)
+	seg           []byte
+	start         time.Time
+	livestreamURI string
+	cutover       bool
 }
 
 // AddSegment feeds one bare canonical MUXL segment (uuid+moof+mdat per track)
@@ -201,15 +227,25 @@ type uploadCmd struct {
 func (u *S3Uploader) AddSegment(ctx context.Context, data []byte, start time.Time) error {
 	u.closing.RLock()
 	defer u.closing.RUnlock()
-	if u.closed.Load() {
+	if u.closed.Load() || ctx.Err() != nil {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		return fmt.Errorf("s3 uploader closed")
+	}
+	select {
+	case <-u.uploadDone:
+		return fmt.Errorf("s3 uploader stopped")
+	default:
 	}
 	seg := append([]byte(nil), data...)
 	select {
-	case u.segCh <- uploadCmd{seg: seg, start: start}:
+	case u.segCh <- uploadCmd{seg: seg, start: start, livestreamURI: u.getLivestreamURI()}:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-u.uploadDone:
+		return fmt.Errorf("s3 uploader stopped")
 	}
 }
 
@@ -231,20 +267,21 @@ func (u *S3Uploader) Cutover(ctx context.Context) error {
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-u.uploadDone:
+		return fmt.Errorf("s3 uploader stopped")
 	}
 }
 
-// Close signals that no more segments will be added, waits for all in-flight
-// uploads to complete, and returns any error completing the final object.
-// Mid-stream upload failures don't surface here — the upload loop recovers
-// from those by abandoning the broken object (logged loudly at the time) and
-// continuing with a fresh one. It is idempotent: repeated calls return the
-// same result without re-closing the channel. The supplied ctx is unused for
-// the wait (uploadLoop runs on its own context so it can flush the final
-// object even after the session context is cancelled) but kept for API
-// symmetry.
+// Close drains the queue and returns the final upload error and any recorder
+// failure. Cancel ctx to stop the drain, e.g. when the recording lease is lost.
+// Repeated calls return the first Close's result.
 func (u *S3Uploader) Close(ctx context.Context) error {
 	u.closeOnce.Do(func() {
+		if ctx.Err() != nil {
+			u.cancelUpload()
+		}
+		stop := context.AfterFunc(ctx, u.cancelUpload)
+		defer stop()
 		u.closing.Lock()
 		u.closed.Store(true)
 		close(u.segCh)
@@ -256,19 +293,25 @@ func (u *S3Uploader) Close(ctx context.Context) error {
 	return u.closeErr
 }
 
-// uploadLoop reads bare segments off segCh and manages multipart uploads.
-// Runs until segCh is closed (Close) or ctx is canceled. ctx is intentionally
-// independent of the session context so a final object can still be completed
-// after the stream tears down.
+// uploadLoop runs independently of the session so it can drain on shutdown.
 func (u *S3Uploader) uploadLoop(ctx context.Context) {
 	ctx = log.WithLogValues(ctx, "func", "s3.uploadLoop")
 	var current *activeUpload
-	objSeq := 0 // disambiguates keys when two objects roll over within one second
+	var startErr, completeErr, abortErr error
+	failPersistence := func() {
+		if u.persistenceFailed != nil {
+			u.cancelUpload()
+			close(u.persistenceFailed)
+		}
+	}
 
-	startUpload := func(firstSegment time.Time) error {
-		objSeq++
+	startUpload := func(firstSegment time.Time, uri string) error {
+		id, err := uuid.NewRandom()
+		if err != nil {
+			return fmt.Errorf("generating recording object key: %w", err)
+		}
 		now := time.Now()
-		key := fmt.Sprintf("%s%s-%d.m4s", u.keyPrefix, now.UTC().Format("2006-01-02T15-04-05"), objSeq)
+		key := u.keyPrefix + id.String() + ".m4s"
 
 		resp, err := u.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 			Bucket:      aws.String(u.bucket),
@@ -279,7 +322,6 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			return fmt.Errorf("creating multipart upload for %s: %w", key, err)
 		}
 
-		uri := u.getLivestreamURI()
 		current = &activeUpload{
 			key:           key,
 			uploadID:      *resp.UploadId,
@@ -287,9 +329,14 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			livestreamURI: uri,
 		}
 		if u.recorder != nil {
-			id, recErr := u.recorder.RecordStart(ctx, u.userDID, u.bucket, key, uri, firstSegment)
-			if recErr != nil {
-				log.Error(ctx, "recording S3 upload start", "key", key, "error", recErr)
+			id, err := u.recorder.RecordStart(ctx, u.userDID, u.bucket, key, uri, firstSegment)
+			if err == nil && id == "" {
+				err = errors.New("recorder returned an empty recording ID")
+			}
+			if err != nil {
+				startErr = fmt.Errorf("recording upload start for %s: %w", key, err)
+				failPersistence()
+				return startErr
 			}
 			current.recordID = id
 		}
@@ -331,16 +378,21 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 	// abortUpload aborts the current object's multipart upload and drops its
 	// recorder row, since the object will never exist.
 	abortUpload := func() {
-		if _, err := u.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+		abortCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		_, err := u.client.AbortMultipartUpload(abortCtx, &s3.AbortMultipartUploadInput{
 			Bucket:   aws.String(u.bucket),
 			Key:      aws.String(current.key),
 			UploadId: aws.String(current.uploadID),
-		}); err != nil {
+		})
+		cancel()
+		if err != nil {
 			log.Error(ctx, "aborting S3 multipart upload", "key", current.key, "error", err)
 		}
 		if u.recorder != nil && current.recordID != "" {
 			if err := u.recorder.RecordAbort(ctx, current.recordID); err != nil {
+				abortErr = fmt.Errorf("recording upload abort for %s: %w", current.key, err)
 				log.Error(ctx, "recording S3 upload abort", "key", current.key, "error", err)
+				failPersistence()
 			}
 		}
 		current = nil
@@ -355,12 +407,16 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		}
 		if len(current.parts) == 0 {
 			abortUpload()
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			return nil
 		}
 		_, err := u.client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
-			Bucket:   aws.String(u.bucket),
-			Key:      aws.String(current.key),
-			UploadId: aws.String(current.uploadID),
+			Bucket:      aws.String(u.bucket),
+			Key:         aws.String(current.key),
+			UploadId:    aws.String(current.uploadID),
+			IfNoneMatch: aws.String("*"),
 			MultipartUpload: &types.CompletedMultipartUpload{
 				Parts: current.parts,
 			},
@@ -368,17 +424,22 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		if err != nil {
 			return fmt.Errorf("completing multipart upload %s: %w", current.key, err)
 		}
-		log.Log(ctx, "completed S3 multipart upload", "key", current.key, "parts", len(current.parts), "size", current.totalSize)
-		if u.recorder != nil && current.recordID != "" {
-			if recErr := u.recorder.RecordComplete(ctx, current.recordID, int32(len(current.parts)), current.totalSize, current.segments); recErr != nil {
-				log.Error(ctx, "recording S3 upload completion", "key", current.key, "error", recErr)
+		// S3 completed the object. A metadata error may be a lost ACK for
+		// a committed row; neither the object nor the row may be aborted now.
+		completed := current
+		current = nil
+		if u.recorder != nil {
+			if err := u.recorder.RecordComplete(ctx, completed.recordID, int32(len(completed.parts)), completed.totalSize, completed.segments); err != nil {
+				completeErr = fmt.Errorf("recording upload completion for %s: %w", completed.key, err)
+				failPersistence()
+				return completeErr
 			}
 		}
-		current = nil
+		log.Log(ctx, "completed S3 multipart upload", "key", completed.key, "parts", len(completed.parts), "size", completed.totalSize)
 		return nil
 	}
 
-	handleSegment := func(seg []byte, start time.Time) error {
+	handleSegment := func(seg []byte, start time.Time, uri string) error {
 		now := time.Now()
 
 		// Roll over to a new object when the current one has run for cutoverEvery,
@@ -386,7 +447,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		// record). Cutting over on the livestream change keeps each object within
 		// a single livestream so finalize can select exactly one livestream's
 		// objects without one straddling two chapters.
-		if current != nil && (now.Sub(current.started) >= u.cutoverEvery || current.livestreamURI != u.getLivestreamURI()) {
+		if current != nil && (now.Sub(current.started) >= u.cutoverEvery || current.livestreamURI != uri) {
 			if err := completeUpload(); err != nil {
 				return err
 			}
@@ -394,7 +455,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 
 		// Start a new upload if needed
 		if current == nil {
-			if err := startUpload(start); err != nil {
+			if err := startUpload(start, uri); err != nil {
 				return err
 			}
 		}
@@ -414,18 +475,10 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		return nil
 	}
 
-	// abandonCurrent is the failure recovery: abort the broken object (so the
-	// backend doesn't hold its parts) and drop its un-completed bytes, loudly.
-	// The next segment starts a fresh object, so one bad object costs a gap in
-	// the recording instead of wedging the uploader for the rest of the stream
-	// (the abandoned object's recorder row is dropped, so finalize and clips
-	// don't wait on it). Before this existed, the first error killed the loop:
-	// segments backed up silently and the stream never recorded another byte.
+	// Recover on the next segment; a broken object costs a gap, not the stream.
 	abandonCurrent := func(reason error) {
 		if current == nil {
-			// Nothing in flight (e.g. CreateMultipartUpload itself failed); the
-			// segment is still dropped, so say so.
-			log.Error(ctx, "error in live-rec S3 upload; segment dropped", "error", reason)
+			log.Error(ctx, "error in live-rec S3 upload", "error", reason)
 			return
 		}
 		log.Error(ctx, "abandoning live-rec S3 object; its bytes will be missing from the recording",
@@ -437,44 +490,41 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		abortUpload()
 	}
 
-	for {
+	var finalErr error
+	defer func() {
+		u.cancelUpload()
+		u.done <- errors.Join(finalErr, startErr, completeErr, abortErr)
+	}()
+	for ctx.Err() == nil {
 		select {
 		case cmd, ok := <-u.segCh:
+			if ctx.Err() != nil {
+				break
+			}
 			if !ok {
-				// No more segments; complete any in-progress upload. This is the
-				// one error that still surfaces through done/Close — there are no
-				// more segments coming to recover with.
-				err := completeUpload()
-				if err != nil {
-					err = fmt.Errorf("error completing upload: %w", err)
+				if err := completeUpload(); err != nil {
+					if completeErr != err {
+						finalErr = err
+					}
 					abandonCurrent(err)
 				}
-				u.done <- err
 				return
 			}
 			if cmd.cutover {
-				// Close out the current object so it's immediately finalize-able
-				// (e.g. the livestream just ended). No-op if nothing is in flight.
 				if err := completeUpload(); err != nil {
 					abandonCurrent(fmt.Errorf("error completing upload on cutover: %w", err))
 				}
 				continue
 			}
 			log.Debug(ctx, "received segment for S3 upload", "size", len(cmd.seg))
-			if err := handleSegment(cmd.seg, cmd.start); err != nil {
-				// The triggering segment is dropped along with the object: it may
-				// already be partially flushed into it, so it can't be salvaged.
+			if err := handleSegment(cmd.seg, cmd.start, cmd.livestreamURI); err != nil {
 				abandonCurrent(fmt.Errorf("error handling segment: %w", err))
 			}
-
 		case <-ctx.Done():
-			err := completeUpload()
-			if err != nil {
-				err = fmt.Errorf("error completing upload: %w", err)
-				abandonCurrent(err)
-			}
-			u.done <- err
-			return
 		}
+	}
+	finalErr = ctx.Err()
+	if current != nil {
+		abandonCurrent(finalErr)
 	}
 }

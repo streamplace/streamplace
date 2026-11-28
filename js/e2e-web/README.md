@@ -35,6 +35,41 @@ Its flows live in `desktop/`, outside this config's `flows/` discovery.
   already pointed at the harness — the web analogue of
   `.maestro/setup/server-setup.yaml`.
 
+## Local shared station cluster
+
+Run from the checkout root inside the Linux builder, after `make dev-container`
+has set it up and `pnpm --filter @streamplace/e2e-web install-browser` has
+installed Chromium. `make dev-station` builds the `stationslate`-tagged node
+and native Slate. Station clusters require the pinned Spaces alpha PDS;
+the harness selects it if `DEV_ENV_PDS` is unset. The ordinary single-node
+run still defaults to the reference PDS.
+
+```bash
+make dev-station
+bash hack/fetch-spaces-pds.sh
+DEV_ENV_PDS=spaces bash hack/with-station-s3.sh bash hack/e2e-web-local.sh --station-cluster
+```
+
+`hack/with-station-s3.sh` can run any command against dedicated, disposable
+local S3 state. It sets `SP_TEST_S3_ENDPOINT`, `SP_TEST_S3_BUCKET`,
+`SP_TEST_S3_ACCESS_KEY_ID`, and `SP_TEST_S3_SECRET_ACCESS_KEY` for that command
+and tears down the S3 state on exit. Never pass cloud credentials or a cloud
+bucket to the wrapper.
+
+The scenario uses a local PDS and PLC with a station DID distinct from the node
+identities. It completes real OAuth, reads both nodes' public catalogs while the
+uploaded draft stays private, and verifies the CID attestation on the station's
+PDS. After an independent edge restarts, it plays the published video from
+shared S3 without node-to-node transfer. The scenario also exercises withdrawal
+and reindexing through internal admin routes and checks state after a cold
+restart. Those admin routes have no mobile UI.
+
+To run just the native shared-S3 regression inside the same builder:
+
+```bash
+bash hack/with-station-s3.sh env CGO_LDFLAGS="-L$PWD/build-linux-amd64/lib -L$PWD/build-linux-amd64/rust/streamplace-native -lmoq_ffi -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -lm" go test -tags stationslate -count=1 -run "^TestStationshardLive" ./pkg/s3
+```
+
 ## Adding scenarios
 
 Name specs `flows/<feature-or-behavior-slug>.spec.ts`, without sequence numbers.

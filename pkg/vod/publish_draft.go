@@ -1,7 +1,6 @@
 package vod
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -23,41 +22,30 @@ import (
 	"stream.place/streamplace/pkg/statedb"
 )
 
-// ErrDraftNotFound / ErrDraftNotReady let the publishDraft XRPC handler map
-// PublishDraft failures onto the right HTTP status (404 / 409) without
-// reaching into this package's internals.
-var (
-	ErrDraftNotFound = errors.New("draft not found")
-	ErrDraftNotReady = errors.New("draft is not ready to publish")
-)
+var ErrDraftNotReady = errors.New("draft is not ready to publish")
 
-// PublishDraft promotes a ready draft VOD to a public place.stream.video
-// record in the author's repo, then deletes the draft. It mirrors
-// PublishVideo's tail: the draft's editable fields (title, description, tags,
-// activity, connections, content warnings/rights, thumb) plus its
-// server-authoritative fields (source, durationMs) are carried over into the
-// video record, createdAt is set server-side, and a thumbnail is backfilled
-// from the content blob (via the draft row's ContentCID) when the draft
-// carries none. After a successful putRecord the draft row is deleted.
-//
-// did is the authenticated user; draftURI is the ats:// URI of their draft.
-func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Store, did, draftURI string) (string, string, error) {
-	ctx = log.WithLogValues(ctx, "func", "PublishDraft", "did", did, "draftUri", draftURI)
+// PublishDraft promotes an owned, ready draft using the caller's PDS client.
+// The open draft handle keeps cleanup serialized with edits and workers.
+func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Store, drafts *statedb.Drafts, client XRPCClient, draftURI string) (string, string, error) {
+	ctx = log.WithLogValues(ctx, "func", "PublishDraft", "draftUri", draftURI)
 	ctx, span := vodTracer.Start(ctx, "vod.PublishDraft", trace.WithAttributes(
-		attribute.String("did", did),
 		attribute.String("draft_uri", draftURI),
 	))
 	defer span.End()
 
-	dv, err := state.GetDraft(ctx, draftURI)
+	dv, err := drafts.GetForPublish(ctx, draftURI)
 	if err != nil {
 		span.RecordError(err)
 		return "", "", fmt.Errorf("get draft: %w", err)
 	}
-	if dv == nil || dv.UserDID != did {
-		return "", "", ErrDraftNotFound
+	if dv.PublishedURI != "" {
+		if err := drafts.Delete(ctx, draftURI); err != nil {
+			return "", "", fmt.Errorf("delete published draft: %w", err)
+		}
+		return dv.PublishedURI, dv.PublishedCID, nil
 	}
-	rec, err := unmarshalDraftRecord(dv.Data)
+	did := dv.UserDID
+	rec, err := dv.Record()
 	if err != nil {
 		span.RecordError(err)
 		return "", "", err
@@ -93,11 +81,8 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 	// If there's no Upload row (e.g. a draft whose upload predates this
 	// change, or a draft created outside the upload flow), fall back to
 	// carrying over any source the draft already carries.
-	client, err := getUserXRPCClient(ctx, state, did)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "get_client")
-		return "", "", fmt.Errorf("get user xrpc client: %w", err)
+	if client == nil {
+		return "", "", errors.New("caller PDS client required")
 	}
 	sourceTracks, terr := publishTracksFromUpload(ctx, state, client, did, dv)
 	if terr != nil {
@@ -157,27 +142,18 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		return "", "", fmt.Errorf("putRecord video: %w", err)
 	}
 	span.SetAttributes(attribute.String("uri", out.Uri), attribute.String("cid", out.Cid))
-	log.Log(ctx, "published video record from draft",
-		"uri", out.Uri, "draftUri", draftURI, "title", video.Title)
+	log.Log(ctx, "published video record from draft", "uri", out.Uri, "draftUri", draftURI)
 
-	// Draft fulfilled — delete it now that the public record exists.
-	if _, err := state.DeleteDraft(ctx, draftURI); err != nil {
-		// The video was published successfully; a delete failure here leaves a
-		// stale draft the user can just discard. Log and proceed.
-		log.Warn(ctx, "publishDraft: failed to delete draft after publish", "draftUri", draftURI, "error", err)
+	if dv.ContentCID != "" && video.Source.MediaDefs_SourceTracks != nil {
+		if err := advertisePublishedVideo(ctx, state, store, dv.ContentCID, out); err != nil {
+			return "", "", err
+		}
+	}
+	if err := drafts.DeletePublished(ctx, draftURI, out.Uri, out.Cid); err != nil {
+		return "", "", fmt.Errorf("delete published draft: %w", err)
 	}
 
 	return out.Uri, out.Cid, nil
-}
-
-// unmarshalDraftRecord CBOR-decodes a draft record body. (Sibling of
-// statedb.unmarshalDraft, exposed here so PublishDraft stays in pkg/vod.)
-func unmarshalDraftRecord(data []byte) (*placestream.VodDraftVideo, error) {
-	var rec placestream.VodDraftVideo
-	if err := rec.UnmarshalCBOR(bytes.NewReader(data)); err != nil {
-		return nil, fmt.Errorf("unmarshal draft CBOR: %w", err)
-	}
-	return &rec, nil
 }
 
 // draftTID extracts the record key (tid) from a draft's ats:// URI. The URI is
@@ -208,6 +184,9 @@ func publishTracksFromUpload(ctx context.Context, state *statedb.StatefulDB, cli
 	}
 	if upload == nil {
 		return nil, nil
+	}
+	if upload.RepoDID != did {
+		return nil, errors.New("draft upload belongs to another account")
 	}
 	return tracksForUpload(ctx, state, client, did, upload)
 }

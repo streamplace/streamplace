@@ -408,6 +408,7 @@ function MetadataEditor({
                 Title
               </Text>
               <TextInput
+                testID="vod-editor-title"
                 value={meta.title}
                 onChangeText={(v) => setField("title", v)}
                 maxLength={140}

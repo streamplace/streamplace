@@ -129,10 +129,12 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		if err != nil {
 			return nil, fmt.Errorf("failed to create empty DID record for %s: %w", ident.DID.String(), err)
 		}
-		err = atsync.StatefulDB.AddRepo(ident.DID.String())
-		if err != nil {
-			return nil, fmt.Errorf("failed to add repo to stateful DB for %s: %w", ident.DID.String(), err)
-		}
+	}
+	// Register the repo before backfill can mark the local placeholder complete.
+	if err := atsync.StatefulDB.AddRepo(ident.DID.String()); err != nil {
+		return nil, fmt.Errorf("failed to add repo to stateful DB for %s: %w", ident.DID.String(), err)
+	}
+	if oldRepo == nil {
 		log.Log(ctx, "discovered new user", "did", ident.DID.String(), "handle", ident.Handle.String(), "pds", ident.PDSEndpoint())
 	}
 
@@ -188,10 +190,6 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	err = mod.UpdateRepo(&newRepo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update DID record for %s: %w", ident.DID.String(), err)
-	}
-	err = atsync.StatefulDB.AddRepo(ident.DID.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to add repo to stateful DB for %s: %w", ident.DID.String(), err)
 	}
 
 	// The one Info line a sync gets. The walks it took are Debug; this is the

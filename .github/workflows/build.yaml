@@ -20,6 +20,12 @@ jobs:
         include:
           - name: linux-arm64
             cmd: "make linux-arm64"
+          - name: station-state
+            cmd: >-
+              make test-station && hack/fetch-spaces-pds.sh && pnpm --filter
+              @streamplace/e2e-web install-browser && DEV_ENV_PDS=spaces bash
+              hack/with-station-s3.sh bash hack/e2e-web-local.sh
+              --station-cluster
           - name: windows-amd64
             cmd:
               "make windows-amd64 && make obs-plugin-windows-amd64 && make
@@ -234,7 +240,9 @@ jobs:
 
       - name: Run private-space tests on reference spaces alpha
         if: matrix.mode == 'standalone'
-        run: hack/e2e-web-local.sh flows/private-space.spec.ts
+        run:
+          hack/e2e-web-local.sh flows/private-space.spec.ts
+          flows/private-draft.spec.ts
         env:
           DEV_ENV_PDS: spaces
           E2E_HARNESS_LOG: ${{ runner.temp }}/harness-spaces.log
@@ -245,7 +253,9 @@ jobs:
 
       - name: Run private-space tests on vlpds
         if: matrix.mode == 'standalone'
-        run: hack/e2e-web-local.sh flows/private-space.spec.ts
+        run:
+          hack/e2e-web-local.sh flows/private-space.spec.ts
+          flows/private-draft.spec.ts
         env:
           DEV_ENV_PDS: vlpds
           E2E_HARNESS_LOG: ${{ runner.temp }}/harness-vlpds.log
@@ -432,7 +442,7 @@ jobs:
           # one line each: the action runs each script line in its own shell.
           script: |
             bash hack/e2e-local.sh android --main
-            DEV_ENV_PDS=spaces E2E_ARTIFACTS=$PWD/.maestro/artifacts/spaces E2E_FLOWS=logged-in/private-space.yaml bash hack/e2e-local.sh android --main
+            DEV_ENV_PDS=spaces E2E_ARTIFACTS=$PWD/.maestro/artifacts/spaces E2E_FLOWS='logged-in/private-space.yaml logged-in/private-draft.yaml' bash hack/e2e-local.sh android --main
       # The AV1 stream, with its H.264 fallback track, must play on the
       # device whether or not it decodes AV1.
       - name: Run AV1 Maestro flow
@@ -516,7 +526,7 @@ jobs:
             xcode-version: "26.6"
           - name: ios
             runs-on: macos-26
-            cmd: make ios ios-simulator
+            cmd: make ios ios-e2e dev
             xcode-version: "26.6"
           - name: darwin-amd64
             runs-on: macos-15-intel
@@ -563,7 +573,7 @@ jobs:
       - name: install ios test tools
         if: matrix.name == 'ios'
         run: |
-          brew install wix/brew/applesimutils
+          brew install wix/brew/applesimutils socat
           # a pinned release, checked before anything in it runs
           curl -fsSL -o /tmp/maestro.zip https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.12.1/maestro.zip
           echo "54dbb0716425626604973cbb374c585ca30272375d9ce15177a1152765ddd9d7  /tmp/maestro.zip" | shasum -a 256 -c -
@@ -577,6 +587,20 @@ jobs:
           # Cold hosted XCTest startup exceeds Maestro's default deadline.
           MAESTRO_DRIVER_STARTUP_TIMEOUT: "300000"
         run: bash hack/ios-smoke.sh
+
+      - name: Exercise private drafts on iOS with the spaces PDS
+        if: matrix.name == 'ios'
+        env:
+          DEV_ENV_PDS: spaces
+          E2E_FLOWS: logged-in/private-draft.yaml
+          E2E_ARTIFACTS:
+            ${{ github.workspace }}/.maestro/artifacts/ios/private-draft
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: "300000"
+        run: |
+          hack/fetch-spaces-pds.sh
+          sudo bash hack/e2e-https-macos.sh install
+          trap 'sudo bash hack/e2e-https-macos.sh uninstall' EXIT
+          bash hack/e2e-local.sh ios
 
       - name: upload ios smoke artifacts
         if: always() && matrix.name == 'ios'

@@ -90,18 +90,15 @@ func TestFinalizeLivestreamReschedulesWhenLatestButStale(t *testing.T) {
 		// the task reschedules instead of ending or dropping.
 		seedSession(t, state, did)
 
-		task := &AppTask{ID: 1, Type: TaskFinalizeLivestream, Payload: mustMarshal(t, FinalizeLivestreamTask{
+		task := enqueueClaimedTask(t, state, TaskFinalizeLivestream, FinalizeLivestreamTask{
 			LivestreamURI: uri,
-		})}
+		})
 
-		// Must not reach the PDS client (no real PDS is configured, only
-		// the session row), and must not error — it reschedules and
-		// returns nil.
-		err := state.processFinalizeLivestreamTask(ctx, task)
-		require.NoError(t, err, "stale-but-latest with a session must reschedule, not error or end")
+		require.NoError(t, state.runClaimedTask(ctx, task, time.Hour))
+		requireTaskStatus(t, state, task.ID, TaskStatusCompleted)
 
 		// A rescheduled task must have been enqueued, keyed to the same URI.
-		tasks, err := state.ListTasks(ctx, TaskFilters{Type: TaskFinalizeLivestream, Limit: 10})
+		tasks, err := state.ListTasks(ctx, TaskFilters{Type: TaskFinalizeLivestream, Status: TaskStatusPending, Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, tasks, 1, "exactly one rescheduled finalize task expected")
 		require.Contains(t, *tasks[0].TaskKey, "finalize-livestream::"+uri+"::")
@@ -188,17 +185,12 @@ func TestFinalizeLivestreamDropsStaleLatestWithoutSession(t *testing.T) {
 		})
 		// Deliberately NO seedSession: this repo was only seen on the firehose.
 
-		// Create the task row so CompleteTask has something to mark done.
-		createdTask, err := state.EnqueueTask(ctx, TaskFinalizeLivestream, FinalizeLivestreamTask{
+		task := enqueueClaimedTask(t, state, TaskFinalizeLivestream, FinalizeLivestreamTask{
 			LivestreamURI: uri,
 		}, WithTaskKey("finalize-livestream::"+uri+"::initial"))
-		require.NoError(t, err)
 
-		// Must not error, must not reschedule, must not reach the PDS client.
-		// The task is dropped (completed) because there's no session and thus
-		// no heartbeat-lag scenario to guard.
-		err = state.processFinalizeLivestreamTask(ctx, createdTask)
-		require.NoError(t, err, "stale-but-latest with no session must drop, not error or reschedule")
+		require.NoError(t, state.runClaimedTask(ctx, task, time.Hour))
+		requireTaskStatus(t, state, task.ID, TaskStatusCompleted)
 
 		// No rescheduled (pending) task should have been enqueued. The
 		// original task row is COMPLETED; filter to PENDING to assert no

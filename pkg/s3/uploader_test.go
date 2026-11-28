@@ -2,14 +2,17 @@ package s3
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,6 +26,18 @@ type fakeUploadAPI struct {
 	failCompletes int
 	completes     int
 	aborts        int
+	conditions    []string
+}
+
+type abortProbe struct {
+	fakeUploadAPI
+	liveBoundedAbort bool
+}
+
+func (p *abortProbe) AbortMultipartUpload(ctx context.Context, in *awss3.AbortMultipartUploadInput, opts ...func(*awss3.Options)) (*awss3.AbortMultipartUploadOutput, error) {
+	deadline, bounded := ctx.Deadline()
+	p.liveBoundedAbort = ctx.Err() == nil && bounded && time.Until(deadline) <= 2*time.Second
+	return p.fakeUploadAPI.AbortMultipartUpload(ctx, in, opts...)
 }
 
 func (f *fakeUploadAPI) CreateMultipartUpload(_ context.Context, _ *awss3.CreateMultipartUploadInput, _ ...func(*awss3.Options)) (*awss3.CreateMultipartUploadOutput, error) {
@@ -44,9 +59,10 @@ func (f *fakeUploadAPI) UploadPart(_ context.Context, in *awss3.UploadPartInput,
 	return &awss3.UploadPartOutput{ETag: aws.String("etag")}, nil
 }
 
-func (f *fakeUploadAPI) CompleteMultipartUpload(_ context.Context, _ *awss3.CompleteMultipartUploadInput, _ ...func(*awss3.Options)) (*awss3.CompleteMultipartUploadOutput, error) {
+func (f *fakeUploadAPI) CompleteMultipartUpload(_ context.Context, in *awss3.CompleteMultipartUploadInput, _ ...func(*awss3.Options)) (*awss3.CompleteMultipartUploadOutput, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.conditions = append(f.conditions, aws.ToString(in.IfNoneMatch))
 	if f.failCompletes > 0 {
 		f.failCompletes--
 		return nil, fmt.Errorf("InvalidPart: all non-trailing parts must have the same length")
@@ -65,13 +81,16 @@ func (f *fakeUploadAPI) AbortMultipartUpload(_ context.Context, _ *awss3.AbortMu
 // fakeRecorder captures the (key, livestreamURI, start) of every started
 // object, the segment index of every completed one, and the aborted ids.
 type fakeRecorder struct {
-	mu      sync.Mutex
-	keys    []string
-	uris    []string
-	started []time.Time
-	indexes [][]RecordedSegment
-	aborted []string
-	starts  int
+	mu          sync.Mutex
+	keys        []string
+	uris        []string
+	started     []time.Time
+	indexes     [][]RecordedSegment
+	aborted     []string
+	starts      int
+	startErr    error
+	completeErr error
+	abortErr    error
 }
 
 func (r *fakeRecorder) RecordStart(_ context.Context, _, _, key, livestreamURI string, started time.Time) (string, error) {
@@ -81,21 +100,21 @@ func (r *fakeRecorder) RecordStart(_ context.Context, _, _, key, livestreamURI s
 	r.uris = append(r.uris, livestreamURI)
 	r.started = append(r.started, started)
 	r.starts++
-	return fmt.Sprintf("rec-%d", r.starts), nil
+	return fmt.Sprintf("rec-%d", r.starts), r.startErr
 }
 
 func (r *fakeRecorder) RecordComplete(_ context.Context, _ string, _ int32, _ int64, segments []RecordedSegment) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.indexes = append(r.indexes, segments)
-	return nil
+	return r.completeErr
 }
 
 func (r *fakeRecorder) RecordAbort(_ context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.aborted = append(r.aborted, id)
-	return nil
+	return r.abortErr
 }
 
 func (r *fakeRecorder) count() int { r.mu.Lock(); defer r.mu.Unlock(); return r.starts }
@@ -137,13 +156,15 @@ func TestS3UploaderCutoverOnLivestreamChange(t *testing.T) {
 	ctx := context.Background()
 	seg := make([]byte, 1024) // well under minPartSize: buffered until the object completes
 
+	// Hold creation until both segments are queued under their own URI.
+	fc.mu.Lock()
 	u.SetLivestreamURI("at://A")
-	require.NoError(t, u.AddSegment(ctx, seg, time.Now()))
-	waitForStarts(t, rec, 1) // object 1, livestream A
-
+	firstErr := u.AddSegment(ctx, seg, time.Now())
 	u.SetLivestreamURI("at://B")
-	require.NoError(t, u.AddSegment(ctx, seg, time.Now()))
-	waitForStarts(t, rec, 2) // livestream changed -> object 2, livestream B
+	secondErr := u.AddSegment(ctx, seg, time.Now())
+	fc.mu.Unlock()
+	require.NoError(t, firstErr)
+	require.NoError(t, secondErr)
 
 	require.NoError(t, u.Close(ctx))
 
@@ -314,5 +335,110 @@ func TestS3UploaderCloseIdempotent(t *testing.T) {
 	// A late AddSegment must be rejected, not panic on a closed channel.
 	if err := u.AddSegment(context.Background(), []byte("late"), time.Now()); err == nil {
 		t.Fatalf("AddSegment after Close should return an error")
+	}
+}
+
+func TestS3UploaderObjectKeysUniqueAcrossUploaders(t *testing.T) {
+	fc, rec := &fakeUploadAPI{}, &fakeRecorder{}
+	const prefix = "live-rec/did:plc:test/"
+	a := newS3Uploader(fc, "bucket", "did:plc:test", prefix, time.Hour, rec)
+	b := newS3Uploader(fc, "bucket", "did:plc:test", prefix, time.Hour, rec)
+	ctx := t.Context()
+	start := time.Now()
+	require.NoError(t, a.AddSegment(ctx, []byte("a"), start))
+	require.NoError(t, b.AddSegment(ctx, []byte("b"), start))
+	require.NoError(t, a.Close(ctx))
+	require.NoError(t, b.Close(ctx))
+
+	keys := rec.startKeys()
+	require.Len(t, keys, 2)
+	require.NotEqual(t, keys[0], keys[1])
+	for _, key := range keys {
+		id, ok := strings.CutPrefix(key, prefix)
+		require.True(t, ok)
+		id, ok = strings.CutSuffix(id, ".m4s")
+		require.True(t, ok)
+		_, err := uuid.Parse(id)
+		require.NoError(t, err)
+	}
+	require.Equal(t, []string{"*", "*"}, fc.conditions)
+}
+
+func TestS3UploaderPersistenceFailures(t *testing.T) {
+	persistenceErr := errors.New("metadata write failed")
+	t.Run("start failure aborts multipart without publishing", func(t *testing.T) {
+		fc, rec := &fakeUploadAPI{}, &fakeRecorder{startErr: persistenceErr}
+		u := newS3Uploader(fc, "bucket", "did:plc:test", "live/", time.Hour, rec)
+		require.NoError(t, u.AddSegment(t.Context(), []byte("segment"), time.Now()))
+		require.ErrorIs(t, u.Close(t.Context()), persistenceErr)
+		require.Equal(t, 1, fc.aborts)
+		require.Zero(t, fc.completes)
+		require.Empty(t, fc.partSizes)
+		require.Empty(t, rec.aborted, "start was not acknowledged")
+		require.Empty(t, rec.indexes)
+	})
+	t.Run("completion failure cannot abort an already committed object", func(t *testing.T) {
+		fc, rec := &fakeUploadAPI{}, &fakeRecorder{completeErr: persistenceErr}
+		u := newS3Uploader(fc, "bucket", "did:plc:test", "live/", time.Hour, rec)
+		require.NoError(t, u.AddSegment(t.Context(), []byte("segment"), time.Now()))
+		require.NoError(t, u.Cutover(t.Context()))
+		require.ErrorIs(t, u.Close(t.Context()), persistenceErr, "even a mid-stream completion failure must surface")
+		require.Equal(t, 1, fc.completes)
+		require.Zero(t, fc.aborts)
+		require.Empty(t, rec.aborted, "the metadata commit may have succeeded before losing its ACK")
+	})
+	t.Run("metadata abort failure surfaces", func(t *testing.T) {
+		fc, rec := &fakeUploadAPI{failCompletes: 1}, &fakeRecorder{abortErr: persistenceErr}
+		u := newS3Uploader(fc, "bucket", "did:plc:test", "live/", time.Hour, rec)
+		require.NoError(t, u.AddSegment(t.Context(), []byte("segment"), time.Now()))
+		err := u.Close(t.Context())
+		require.ErrorIs(t, err, persistenceErr)
+		require.ErrorContains(t, err, "InvalidPart")
+		require.Equal(t, 1, fc.aborts)
+		require.Zero(t, fc.completes)
+		require.Equal(t, []string{"rec-1"}, rec.aborted)
+	})
+}
+
+func TestFencedS3UploaderStopsOnAmbiguousPersistence(t *testing.T) {
+	persistenceErr := errors.New("metadata ACK lost")
+	for _, duringStart := range []bool{true, false} {
+		name := "complete"
+		if duringStart {
+			name = "start"
+		}
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+			client, rec := &abortProbe{}, &fakeRecorder{}
+			if duringStart {
+				rec.startErr = persistenceErr
+			} else {
+				rec.completeErr = persistenceErr
+			}
+			u := newS3UploaderWithFailureSignal(client, "bucket", "did:plc:test", "live/", time.Hour, rec, make(chan struct{}))
+			t.Cleanup(func() { _ = u.Close(ctx) })
+			require.NoError(t, u.AddSegment(ctx, []byte("segment"), time.Now()))
+			if !duringStart {
+				require.NoError(t, u.Cutover(ctx))
+			}
+			select {
+			case <-u.PersistenceFailed():
+			case <-ctx.Done():
+				t.Fatal("metadata failure did not notify the lease holder")
+			}
+			require.Error(t, u.AddSegment(ctx, []byte("later"), time.Now()))
+			require.ErrorIs(t, u.Close(ctx), persistenceErr)
+			require.Equal(t, 1, rec.count())
+			require.Empty(t, rec.aborted)
+			if duringStart {
+				require.Equal(t, 1, client.aborts)
+				require.True(t, client.liveBoundedAbort)
+				require.Zero(t, client.completes)
+			} else {
+				require.Equal(t, 1, client.completes)
+				require.Zero(t, client.aborts)
+			}
+		})
 	}
 }

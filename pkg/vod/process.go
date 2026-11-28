@@ -162,12 +162,17 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	counter := &countingWriter{}
 	final := io.MultiWriter(hasher, counter, staging)
 
-	// Start a progress reporter that polls the byte counter and writes
-	// percentage updates to the DB every 2 seconds. It stops when the
-	// pipeline completes (progressDone closed) or the context is cancelled.
+	progressCtx, stopProgress := context.WithCancel(ctx)
 	progressDone := make(chan struct{})
-	defer close(progressDone)
-	go reportProgress(ctx, state, in.UploadID, counter, size, progressDone, 2*time.Second)
+	joinProgress := func() {
+		stopProgress()
+		<-progressDone
+	}
+	defer joinProgress()
+	go func() {
+		defer close(progressDone)
+		reportProgress(progressCtx, state, in.UploadID, counter, size, 2*time.Second)
+	}()
 
 	// Ephemeral per-upload signing key. Generated here as muxing starts,
 	// used to C2PA-sign every segment, and dropped when this function
@@ -186,6 +191,7 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	// flat-MP4 faststart header below and prepended at assembly.
 	metaBuilder := newFragmentMetafileBuilder(ctx, store)
 	probe, err := streamThroughMuxl(ctx, src, size, final, metaBuilder, signer.SignerInput)
+	joinProgress()
 	if err != nil {
 		recordErr(span, stagePipeline, err)
 		return "", err
@@ -278,12 +284,10 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	// exercised by vod-test, for when thumbnails are wired to the client.
 	if err := runVODStage(ctx, stagePublish, func(ctx context.Context) error {
 		return publishRecords(ctx, publishParams{
-			cli:        cli,
 			state:      state,
 			in:         in,
 			cid:        muxlCID,
 			size:       blobSize,
-			mimeType:   "video/mp4",
 			probe:      probe,
 			signingKey: signer.DIDKey,
 		})
@@ -354,6 +358,9 @@ func completeStaging(ctx context.Context, staging blob.Writer, stagingKey string
 		attribute.String("staging_key", stagingKey),
 	))
 	defer span.End()
+	if err := statedb.CheckTaskClaim(ctx); err != nil {
+		return err
+	}
 	if err := staging.Complete(); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -374,15 +381,15 @@ func (c *countingWriter) Write(p []byte) (int, error) {
 func (c *countingWriter) load() int64 { return c.n.Load() }
 
 // reportProgress periodically reads the byte counter and writes a
-// percentage to the DB until doneCh closes. The estimate is
+// percentage to the DB until the context is canceled. The estimate is
 // counter.bytes / inputSize, capped at 90 so the remaining stages
 // (staging complete, finalize, publish) each have visible increments.
-func reportProgress(ctx context.Context, state *statedb.StatefulDB, uploadID string, counter *countingWriter, inputSize int64, doneCh <-chan struct{}, interval time.Duration) {
+func reportProgress(ctx context.Context, state *statedb.StatefulDB, uploadID string, counter *countingWriter, inputSize int64, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-doneCh:
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			if inputSize <= 0 {

@@ -51,9 +51,13 @@ func (state *StatefulDB) EnsureVAPIDKeys(ctx context.Context) (notificationpkg.V
 	if err != nil {
 		return notificationpkg.VAPIDKeys{}, fmt.Errorf("failed to marshal vapid keys: %w", err)
 	}
-	if err := state.PutConfig(vapidConfigKey, b); err != nil {
+	b, err = state.createSharedConfig(ctx, vapidConfigKey, b)
+	if err != nil {
 		return notificationpkg.VAPIDKeys{}, fmt.Errorf("failed to save vapid keys: %w", err)
 	}
 
+	if err := json.Unmarshal(b, &keys); err != nil {
+		return notificationpkg.VAPIDKeys{}, fmt.Errorf("parse winning VAPID keys: %w", err)
+	}
 	return keys, nil
 }

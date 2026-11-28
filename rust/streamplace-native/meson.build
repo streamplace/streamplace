@@ -78,9 +78,10 @@ native_libs = custom_target(
     native_profile,
     rust_triple,
     native_crate_type,
+    get_option('station_release') ? 'true' : 'false',
   ],
   env: native_env,
-  build_always_stale: true, # Cargo, not Ninja, tracks the two Rust source graphs.
+  build_always_stale: true, # Cargo, not Ninja, tracks the Rust source graphs.
   build_by_default: true,
   install: true,
   install_dir: get_option('libdir'),

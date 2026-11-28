@@ -129,12 +129,14 @@ func TestLexiconOverlay(t *testing.T) {
 	require.NoError(t, json.Unmarshal(docs[PersonalSpaceType], &declaration))
 	require.Equal(t, "space", declaration.Defs.Main.Type)
 	require.Equal(t, "literal:self", declaration.Defs.Main.Key)
+	require.Contains(t, declaration.Defs.Main.Collections, DraftMetadataCollection)
 	var auth map[string]any
 	require.NoError(t, json.Unmarshal(docs[lexicons.AuthFullID], &auth))
 	require.NotContains(t, auth, "$type")
 	main := auth["defs"].(map[string]any)["main"].(map[string]any)
 	permissions := main["permissions"].([]any)
 	require.Len(t, permissions, 2)
+	require.NotContains(t, permissions[0].(map[string]any)["collection"], DraftMetadataCollection)
 	want := map[string]any{"type": "permission", "resource": "space", "spaceType": PersonalSpaceType, "authority": "self", "collection": declaration.Defs.Main.Collections, "action": []string{"read", "create", "update", "delete"}, "manage": []string{"create"}}
 	bs, err := json.Marshal(want)
 	require.NoError(t, err)
@@ -194,4 +196,64 @@ func TestListMultistreamTargets(t *testing.T) {
 	require.ErrorIs(t, err, client.err)
 	_, err = LatestRev(t.Context(), client, did)
 	require.ErrorIs(t, err, client.err)
+}
+
+func TestDraftGrantUsesExpandedScope(t *testing.T) {
+	const did = "did:plc:example"
+	const base = "space:place.stream.personal?authority=" + did
+	const collection = "&collection=place.stream.vod.draftMetadata"
+	for _, scope := range []string{
+		"atproto " + base + "&collection=place.stream.multistream.target" + collection + "&manage=create",
+		base + collection + "&skey=self&action=read_self&action=create&action=update&action=delete",
+		"space:place.stream.personal?authority=did%3Aplc%3Aexample" + collection,
+		base + collection + "&action=read " + base + collection + "&action=create&action=update&action=delete",
+	} {
+		require.True(t, CollectionGrant(scope, did, DraftMetadataCollection), scope)
+	}
+	for _, scope := range []string{
+		"atproto include:place.stream.authFull",
+		"space:place.stream.personal",
+		base + "&collection=place.stream.multistream.target",
+		base + "&collection=place.stream.vod.draftMetadata.other",
+		base + collection + "&action=read&action=delete",
+		base + collection + "&skey=other",
+		base + collection + "&authority=*",
+		"space:place.stream.personal?authority=did:plc:other" + collection,
+		"space:place.stream.personal.other?authority=" + did + collection,
+		"other:" + base + collection,
+	} {
+		require.False(t, CollectionGrant(scope, did, DraftMetadataCollection), scope)
+	}
+}
+
+func TestCollectionActionsGrant(t *testing.T) {
+	const did = "did:plc:example"
+	const base = "space:place.stream.personal?authority=" + did + "&skey=self&collection=place.stream.vod.draftMetadata"
+	for _, tc := range []struct {
+		name, scope string
+		actions     []string
+		want        bool
+	}{
+		{"read only", base + "&action=read_self", []string{"read"}, true},
+		{"read cannot write", base + "&action=read", []string{"update"}, false},
+		{"write cannot read", base + "&action=delete", []string{"read"}, false},
+		{"all requested actions must be granted", base + "&action=delete", []string{"read", "delete"}, false},
+		{"actions can span grants", base + "&action=read " + base + "&action=delete", []string{"read", "delete"}, true},
+		{"other collection cannot supply delete", base + "&action=read space:place.stream.personal?authority=" + did + "&collection=place.stream.multistream.target&action=delete", []string{"read", "delete"}, false},
+		{"unknown requested action", base, []string{"manage"}, false},
+		{"empty action request", base, nil, false},
+		{"unknown granted action", base + "&action=read&action=manage", []string{"read"}, false},
+		{"explicit empty granted action", base + "&action=", []string{"read"}, false},
+		{"unexpanded authority", "space:place.stream.personal?authority=self&skey=self&collection=place.stream.vod.draftMetadata", []string{"read"}, false},
+		{"empty authority", "space:place.stream.personal?authority=&collection=place.stream.vod.draftMetadata", []string{"read"}, false},
+		{"ambiguous authority", base + "&authority=" + did, []string{"read"}, false},
+		{"empty key", "space:place.stream.personal?authority=" + did + "&skey=&collection=place.stream.vod.draftMetadata", []string{"read"}, false},
+		{"ambiguous key", base + "&skey=self", []string{"read"}, false},
+		{"empty collection", base + "&collection=", []string{"read"}, false},
+		{"valid grant after malformed token", base + "&action=% " + base + "&action=read", []string{"read"}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, CollectionActionsGrant(tc.scope, did, DraftMetadataCollection, tc.actions...))
+		})
+	}
 }

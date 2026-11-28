@@ -30,6 +30,14 @@ func TestCheckConfig(t *testing.T) {
 	}
 
 	ok(CLI{DataDir: t.TempDir()})
+	ok(CLI{DataDir: t.TempDir(), StationDID: "did:web:station.example", ServerHost: "node.example", StationOriginPublisher: true})
+	bad(CLI{DataDir: t.TempDir(), StationOriginPublisher: true}, "--station-did")
+	bad(CLI{DataDir: t.TempDir(), StationDID: "bad"}, "--station-did")
+	bad(CLI{DataDir: t.TempDir(), StationDID: "did:web:node.example", ServerHost: "node.example"}, "embedded repository")
+	bad(CLI{DataDir: t.TempDir(), StationDID: "did:web:station.example", AtprotoDID: "did:web:other.example"}, "--atproto-did")
+	bad(CLI{DataDir: t.TempDir(), StationDID: "did:web:station.example", VODCDNURL: "https://cdn.example"}, "--vod-cdn-url")
+	bad(CLI{DataDir: t.TempDir(), DBURL: "station://../other"}, "namespace")
+	bad(CLI{DataDir: t.TempDir(), DBURL: "station://west"}, "S3", "--server-host", "--broadcaster-host", "--station-did", "--behind-https-proxy")
 
 	// Do not silently enable a shadow test on a node without the TLS addon.
 	bad(CLI{DataDir: t.TempDir(), DuplicateMistTest: true},

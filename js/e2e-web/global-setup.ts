@@ -12,6 +12,11 @@ export default async function globalSetup(_config: FullConfig) {
   if (!SERVER_URL) {
     throw new Error("SERVER_URL is not set — start the harness first");
   }
+  const stationCluster = process.env.E2E_STATION_CLUSTER === "true";
+  const stationURL = process.env.SERVER_HTTPS_URL;
+  if (stationCluster && !stationURL) {
+    throw new Error("station cluster harness did not report SERVER_HTTPS_URL");
+  }
 
   const browser = await chromium.launch({
     args: process.env.E2E_TLS_SPKI
@@ -30,6 +35,11 @@ export default async function globalSetup(_config: FullConfig) {
   });
   try {
     await pointAppAtNode(page, SERVER_URL);
+    if (stationCluster && stationURL) {
+      await pointAppAtNode(page, stationURL);
+      await page.context().storageState({ path: STORAGE_STATE });
+      return;
+    }
     if (process.env.E2E_UPSTREAM_STATION) {
       // Keep scenario browser contexts unauthenticated. The actual completed
       // bootstrap session remains persisted on the local node and authorizes

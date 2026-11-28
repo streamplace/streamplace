@@ -141,11 +141,12 @@ func startE2EBridge(ctx context.Context, tlsEnv *e2eHTTPS, pdsURL, binary string
 }
 
 type e2eLocalNode struct {
-	mu           sync.Mutex
-	cmd          *exec.Cmd
-	addr         string
-	internalAddr string
-	dataDir      string
+	mu             sync.Mutex
+	cmd            *exec.Cmd
+	addr           string
+	internalAddr   string
+	dataDir        string
+	cleanOnRestart bool
 }
 
 func (n *e2eLocalNode) Close(ctx context.Context, did string) {
@@ -156,16 +157,19 @@ func (n *e2eLocalNode) Close(ctx context.Context, did string) {
 }
 
 // Control reads the harness's own stdin, never the node's HTTP listener.
-// Restart retains ports, data and genuine OAuth credentials, then acknowledges
-// readiness in a run-private file for the browser lifecycle scenario.
-func (n *e2eLocalNode) Control(ctx context.Context, did string) {
+// Upstream keeps its local state; a station replacement gets an empty disk.
+func (n *e2eLocalNode) Control(ctx context.Context, did, command, ackPath string) {
 	scanner := bufio.NewScanner(os.Stdin)
 	generation := 0
 	for scanner.Scan() {
-		if scanner.Text() != "restart-local" {
+		if scanner.Text() != command {
 			continue
 		}
 		n.mu.Lock()
+		if ctx.Err() != nil {
+			n.mu.Unlock()
+			return
+		}
 		old := n.cmd
 		stopE2EProcess(ctx, old, did)
 		n.cmd = exec.CommandContext(ctx, old.Path, old.Args[1:]...)
@@ -173,11 +177,16 @@ func (n *e2eLocalNode) Control(ctx context.Context, did string) {
 		n.cmd.Stdout = old.Stdout
 		n.cmd.Stderr = old.Stderr
 		setNodeProcessGroup(n.cmd)
-		err := n.cmd.Start()
+		var err error
+		if n.cleanOnRestart {
+			err = os.RemoveAll(n.dataDir)
+		}
+		if err == nil {
+			err = n.cmd.Start()
+		}
 		if err == nil {
 			err = waitE2EHealth(ctx, "http://"+n.addr+"/api/healthz")
 		}
-		n.mu.Unlock()
 		generation++
 		result := struct {
 			Generation int    `json:"generation"`
@@ -188,15 +197,16 @@ func (n *e2eLocalNode) Control(ctx context.Context, did string) {
 		}
 		data, err := json.Marshal(result)
 		if err == nil {
-			tmp := filepath.Join(n.dataDir, "restart.json.tmp")
+			tmp := ackPath + ".tmp"
 			err = os.WriteFile(tmp, data, 0o600)
 			if err == nil {
-				err = os.Rename(tmp, filepath.Join(n.dataDir, "restart.json"))
+				err = os.Rename(tmp, ackPath)
 			}
 		}
 		if err != nil {
 			log.Error(ctx, "write harness restart acknowledgment", "err", err)
 		}
+		n.mu.Unlock()
 		if ctx.Err() != nil {
 			return
 		}

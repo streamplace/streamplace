@@ -11,9 +11,17 @@ import (
 	"github.com/cenkalti/backoff"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/stationdb"
 )
 
 func (state *StatefulDB) GetNamedLock(name string) (func(), error) {
+	if state.stationStore != nil {
+		unlock, err := state.stationStore.GetNamedLock(name)
+		if errors.Is(err, stationdb.ErrLockBusy) {
+			return nil, fmt.Errorf("%w: %w", err, ErrNoLock)
+		}
+		return unlock, err
+	}
 	switch state.Type {
 	case DBTypeSQLite:
 		return state.getNamedLockSQLite(name)

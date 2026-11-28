@@ -1,10 +1,12 @@
 package statedb
 
 import (
+	"context"
 	"errors"
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Config struct {
@@ -31,4 +33,18 @@ func (state *StatefulDB) PutConfig(key string, value []byte) error {
 		Value: value,
 	}
 	return state.DB.Save(&config).Error
+}
+
+// createSharedConfig returns the winner of concurrent first-use key generation.
+func (state *StatefulDB) createSharedConfig(ctx context.Context, key string, value []byte) ([]byte, error) {
+	row := Config{Key: key, Value: value}
+	db := state.DB.WithContext(ctx)
+	res := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&row)
+	if res.Error != nil || res.RowsAffected == 1 {
+		return value, res.Error
+	}
+	if err := db.First(&row, "key = ?", key).Error; err != nil {
+		return nil, err
+	}
+	return row.Value, nil
 }

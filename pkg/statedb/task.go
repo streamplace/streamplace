@@ -2,13 +2,17 @@ package statedb
 
 import (
 	"context"
+	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"stream.place/streamplace/pkg/stationdb"
 )
 
 // TaskStatus represents the status of a task in the queue
@@ -20,6 +24,14 @@ const (
 	TaskStatusCompleted  TaskStatus = "COMPLETED"
 	TaskStatusFailed     TaskStatus = "FAILED"
 	TaskStatusRetrying   TaskStatus = "RETRYING"
+	TaskStatusBlocked    TaskStatus = "BLOCKED"
+)
+
+const taskLeaseDuration = 30 * time.Minute
+
+var (
+	ErrTaskClaimLost       = errors.New("task claim lost")
+	ErrTaskEffectUncertain = errors.New("task has an unconfirmed external effect; do not replay without reconciliation")
 )
 
 // AppTask represents a task in the queue
@@ -34,10 +46,19 @@ type AppTask struct {
 	MaxTries    int             `gorm:"column:max_tries;default:3"`
 	LockExpires *time.Time      `gorm:"column:lock_expires"`
 	WorkerID    *string         `gorm:"column:worker_id"`
+	ClaimToken  string          `gorm:"column:claim_token" json:"-"`
 	Error       *string         `gorm:"column:error"`
 	CreatedAt   time.Time       `gorm:"column:created_at"`
 	UpdatedAt   time.Time       `gorm:"column:updated_at"`
 	ScheduledAt *time.Time      `gorm:"column:scheduled_at"` // for delayed tasks
+}
+
+// AppTaskEffect journals one external write. A NULL receipt requires reconciliation.
+type AppTaskEffect struct {
+	TaskID    uint   `gorm:"primaryKey;autoIncrement:false;not null;index:idx_app_task_effects_pending,where:receipt IS NULL"`
+	EffectKey string `gorm:"primaryKey;not null"`
+	Target    string // public AT URI only; never credentials or delivery endpoints
+	Receipt   []byte
 }
 
 // EnqueueTask adds a new task to the queue
@@ -60,186 +81,318 @@ func (state *StatefulDB) EnqueueTask(ctx context.Context, taskType string, paylo
 		opt(task)
 	}
 
-	// If task has a key, check for deduplication
+	db := state.DB.WithContext(ctx)
 	if task.TaskKey != nil {
-		existingTask, err := state.GetTaskByKey(ctx, *task.TaskKey)
+		db = db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "task_key"}},
+			DoNothing: true,
+		})
+	}
+	result := db.Create(task)
+	if task.TaskKey != nil && (result.Error == nil && result.RowsAffected == 0 ||
+		errors.Is(result.Error, stationdb.ErrConflict) && !errors.Is(result.Error, stationdb.ErrCommitUnknown)) {
+		existing, err := state.GetTaskByKey(ctx, *task.TaskKey)
 		if err != nil {
-			return nil, fmt.Errorf("failed to check for existing task: %w", err)
+			return nil, errors.Join(result.Error, err)
 		}
-		if existingTask != nil {
-			// Task already exists, return the existing one
-			return existingTask, nil
+		if existing != nil {
+			return existing, nil
 		}
 	}
-
-	if err := state.DB.WithContext(ctx).Create(task).Error; err != nil {
-		// Handle unique constraint violation gracefully
-		if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "UNIQUE constraint") {
-			// Another node beat us to it, try to fetch the existing task
-			if task.TaskKey != nil {
-				existingTask, fetchErr := state.GetTaskByKey(ctx, *task.TaskKey)
-				if fetchErr == nil && existingTask != nil {
-					return existingTask, nil
-				}
-			}
-		}
-		return nil, fmt.Errorf("failed to enqueue task: %w", err)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to enqueue task: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return nil, errors.New("enqueue task returned no durable row")
 	}
 
-	go func() {
-		select {
-		case state.pokeQueue <- struct{}{}:
-			// wake up the queue processor
-		default:
-			// queue is already awake, do nothing
-		}
-	}()
+	select {
+	case state.pokeQueue <- struct{}{}:
+	default:
+	}
 
 	return task, nil
 }
 
-// DequeueTask retrieves the next available task from the queue and locks it
+// taskClock uses the database clock for lease comparisons between nodes.
+func (state *StatefulDB) taskClock(column string) (value, now string) {
+	if state.Type == DBTypePostgres {
+		return column, "clock_timestamp()"
+	}
+	return "julianday(" + column + ")", "julianday('now')"
+}
+
+func (state *StatefulDB) taskLeaseExpiry() string {
+	if state.Type == DBTypePostgres {
+		return postgresTaskLeaseExpiry
+	}
+	return sqliteTaskLeaseExpiry
+}
+
+var (
+	postgresTaskLeaseExpiry = fmt.Sprintf("clock_timestamp() + interval '%d seconds'", int(taskLeaseDuration.Seconds()))
+	sqliteTaskLeaseExpiry   = fmt.Sprintf("strftime('%%Y-%%m-%%d %%H:%%M:%%f', 'now', '+%d seconds')", int(taskLeaseDuration.Seconds()))
+)
+
+func (state *StatefulDB) expiredTaskLease() string {
+	expiry, now := state.taskClock("app_tasks.lock_expires")
+	return "(app_tasks.lock_expires IS NULL OR " + expiry + " <= " + now + ")"
+}
+
+// DequeueTask atomically claims and returns the next eligible task, including
+// abandoned claims that have attempts left.
 func (state *StatefulDB) DequeueTask(ctx context.Context, workerID string, taskTypes ...string) (*AppTask, error) {
-	var task AppTask
+	db := state.DB.WithContext(ctx)
+	expired := state.expiredTaskLease()
+	if _, err := state.cleanupTaskLocks(db, taskTypes, true); err != nil {
+		return nil, err
+	}
 
-	err := state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		query := tx.Where("status = ?", TaskStatusPending).
-			Where("try_count < max_tries").
-			Where("(lock_expires IS NULL OR lock_expires < ?)", time.Now().UTC()).
-			Where("(scheduled_at IS NULL OR scheduled_at <= ?)", time.Now().UTC())
-
-		if len(taskTypes) > 0 {
-			query = query.Where("type IN ?", taskTypes)
-		}
-
-		// Use raw SQL for PostgreSQL-specific locking
-		if state.Type == DBTypePostgres {
-			baseQuery := "SELECT * FROM app_tasks WHERE status = ? AND try_count < max_tries AND (lock_expires IS NULL OR lock_expires < ?) AND (scheduled_at IS NULL OR scheduled_at <= ?)"
-			if len(taskTypes) > 0 {
-				baseQuery += " AND type IN ?"
-				params := []interface{}{TaskStatusPending, time.Now(), time.Now(), taskTypes}
-				err := tx.Raw(baseQuery+" ORDER BY priority DESC, created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED", params...).
-					Scan(&task).Error
-				if err != nil {
-					return err
-				}
-			} else {
-				err := tx.Raw(baseQuery+" ORDER BY priority DESC, created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED",
-					TaskStatusPending, time.Now(), time.Now()).
-					Scan(&task).Error
-				if err != nil {
-					return err
-				}
-			}
-		} else {
-			// Fallback for SQLite (no SKIP LOCKED support)
-			err := query.Order("priority DESC, created_at ASC").First(&task).Error
-			if err != nil {
-				return err
-			}
-		}
-
-		if task.ID == 0 {
-			return gorm.ErrRecordNotFound
-		}
-
-		// Lock the task
-		lockExpires := time.Now().Add(30 * time.Minute) // 30-minute lock
-		updates := map[string]interface{}{
-			"status":       TaskStatusProcessing,
-			"worker_id":    workerID,
-			"lock_expires": lockExpires,
-			"try_count":    task.TryCount + 1,
-		}
-
-		return tx.Model(&task).Updates(updates).Error
-	})
-
+	token, err := uuid.NewRandom()
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil // No tasks available
-		}
-		return nil, fmt.Errorf("failed to dequeue task: %w", err)
+		return nil, fmt.Errorf("generate task claim token: %w", err)
 	}
-
-	// Reload the task to get updated fields
-	if err := state.DB.WithContext(ctx).First(&task, task.ID).Error; err != nil {
-		return nil, fmt.Errorf("failed to reload task: %w", err)
+	schedule, now := state.taskClock("scheduled_at")
+	next := db.Model(&AppTask{}).Select("id").
+		Where("status IN ? AND "+expired+" AND try_count < max_tries", []TaskStatus{TaskStatusPending, TaskStatusProcessing}).
+		Where("(scheduled_at IS NULL OR " + schedule + " <= " + now + ")").
+		Order("priority DESC, created_at ASC, id ASC").Limit(1)
+	if len(taskTypes) != 0 {
+		next = next.Where("type IN ?", taskTypes)
 	}
-
+	if state.Type == DBTypePostgres {
+		next = next.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"})
+	}
+	var task AppTask
+	result := db.Raw(`UPDATE app_tasks
+		SET status = ?, worker_id = ?, claim_token = ?, lock_expires = `+state.taskLeaseExpiry()+`,
+			try_count = try_count + 1, updated_at = ?
+		WHERE id = (?) RETURNING *`, TaskStatusProcessing, workerID, token.String(), time.Now().UTC(), next).Scan(&task)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to dequeue task: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return nil, nil
+	}
 	return &task, nil
 }
 
-// CompleteTask marks a task as completed
-func (state *StatefulDB) CompleteTask(ctx context.Context, taskID uint) error {
-	result := state.DB.WithContext(ctx).Model(&AppTask{}).
-		Where("id = ?", taskID).
-		Updates(map[string]interface{}{
-			"status":       TaskStatusCompleted,
-			"lock_expires": nil,
-			"worker_id":    nil,
-		})
+func (state *StatefulDB) taskClaim(db *gorm.DB, id uint, token string) *gorm.DB {
+	expiry, now := state.taskClock("app_tasks.lock_expires")
+	return db.Model(&AppTask{}).Where("app_tasks.id = ? AND app_tasks.status = ? AND app_tasks.claim_token = ? AND app_tasks.claim_token <> '' AND "+expiry+" > "+now,
+		id, TaskStatusProcessing, token)
+}
 
+func taskClaimResult(result *gorm.DB) error {
 	if result.Error != nil {
-		return fmt.Errorf("failed to complete task: %w", result.Error)
+		return result.Error
 	}
-
 	if result.RowsAffected == 0 {
-		return errors.New("task not found")
+		return ErrTaskClaimLost
 	}
-
 	return nil
 }
 
-// FailTask marks a task as failed and optionally retries it
-func (state *StatefulDB) FailTask(ctx context.Context, taskID uint, errorMsg string) error {
-	var task AppTask
-	err := state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.First(&task, taskID).Error; err != nil {
+const (
+	taskEffectsAny         = "EXISTS (SELECT 1 FROM app_task_effects WHERE app_task_effects.task_id = app_tasks.id)"
+	taskEffectsOutstanding = "EXISTS (SELECT 1 FROM app_task_effects WHERE app_task_effects.task_id = app_tasks.id AND app_task_effects.receipt IS NULL)"
+)
+
+func (state *StatefulDB) lockTaskClaim(tx *gorm.DB, id uint, token string) error {
+	claim := state.taskClaim(tx, id, token)
+	if state.Type == DBTypePostgres {
+		var lockedID uint
+		return taskClaimScanError(claim.Select("app_tasks.id").
+			Clauses(clause.Locking{Strength: "UPDATE"}).Row().Scan(&lockedID))
+	}
+	// SQLite must acquire its writer lock before reading any effect rows.
+	return taskClaimResult(claim.UpdateColumn("claim_token", token))
+}
+
+func (state *StatefulDB) withTaskClaimTx(ctx context.Context, id uint, token string, write func(*gorm.DB) error) error {
+	return state.withTaskTx(ctx, func(tx *gorm.DB) error {
+		if err := state.lockTaskClaim(tx, id, token); err != nil {
 			return err
 		}
-
-		updates := map[string]interface{}{
-			"error":        errorMsg,
-			"lock_expires": nil,
-			"worker_id":    nil,
-		}
-
-		if task.TryCount >= task.MaxTries {
-			updates["status"] = TaskStatusFailed
-		} else {
-			updates["status"] = TaskStatusPending
-		}
-
-		return tx.Model(&task).Updates(updates).Error
+		return write(tx)
 	})
+}
 
-	if err != nil {
-		return fmt.Errorf("failed to mark task as failed: %w", err)
+// Retry only rejected station commits, and only around SQL, never around dispatch.
+func retryTaskWrite(ctx context.Context, write func() error) error {
+	for attempt := 0; ; attempt++ {
+		err := write()
+		if !retryStationWrite(ctx, attempt, err) {
+			return err
+		}
 	}
+}
 
+func (state *StatefulDB) withTaskTx(ctx context.Context, write func(*gorm.DB) error) error {
+	db := state.DB.WithContext(ctx)
+	return retryTaskWrite(ctx, func() error { return db.Transaction(write) })
+}
+
+func endTaskClaim(dst TaskStatus, retry, blockOnUnknown bool, msg any) map[string]any {
+	unknown := taskEffectsOutstanding
+	var next any = dst
+	if retry {
+		next = gorm.Expr("CASE WHEN app_tasks.try_count < app_tasks.max_tries THEN ? ELSE ? END", TaskStatusPending, dst)
+		if !blockOnUnknown {
+			unknown = "(app_tasks.try_count >= app_tasks.max_tries AND " + unknown + ")"
+		}
+	}
+	return map[string]any{
+		"status":       gorm.Expr("CASE WHEN "+unknown+" THEN ? ELSE ? END", TaskStatusBlocked, next),
+		"error":        gorm.Expr("CASE WHEN "+unknown+" THEN ? ELSE ? END", ErrTaskEffectUncertain.Error(), msg),
+		"lock_expires": nil,
+		"worker_id":    nil,
+		"claim_token":  "",
+	}
+}
+
+func (state *StatefulDB) finishTaskClaim(ctx context.Context, id uint, token string, updates map[string]any) (TaskStatus, error) {
+	var task AppTask
+	err := state.withTaskClaimTx(ctx, id, token, func(tx *gorm.DB) error {
+		// Use a new statement snapshot after locking the task row on Postgres.
+		return taskClaimResult(state.taskClaim(tx, id, token).Model(&task).
+			Clauses(clause.Returning{Columns: []clause.Column{{Name: "status"}}}).Updates(updates))
+	})
+	return task.Status, err
+}
+
+// CompleteTask acknowledges a claim. Unconfirmed effects make it BLOCKED, not COMPLETED.
+func (state *StatefulDB) CompleteTask(ctx context.Context, id uint, token string) error {
+	status, err := state.finishTaskClaim(ctx, id, token, endTaskClaim(TaskStatusCompleted, false, false, gorm.Expr(`"error"`)))
+	if err != nil {
+		return fmt.Errorf("complete task: %w", err)
+	}
+	if status == TaskStatusBlocked {
+		return ErrTaskEffectUncertain
+	}
 	return nil
 }
 
-// ReleaseTask releases a locked task back to the queue (e.g., worker shutdown)
-func (state *StatefulDB) ReleaseTask(ctx context.Context, taskID uint) error {
-	result := state.DB.WithContext(ctx).Model(&AppTask{}).
-		Where("id = ?", taskID).
-		Updates(map[string]interface{}{
-			"status":       TaskStatusPending,
-			"lock_expires": nil,
-			"worker_id":    nil,
-		})
+// FailTask records an error and retries the task if it has attempts left.
+func (state *StatefulDB) FailTask(ctx context.Context, id uint, token, msg string) error {
+	return state.failTask(ctx, id, token, msg, false)
+}
 
-	if result.Error != nil {
-		return fmt.Errorf("failed to release task: %w", result.Error)
+func (state *StatefulDB) failTask(ctx context.Context, id uint, token, msg string, blockOnUnknown bool) error {
+	_, err := state.finishTaskClaim(ctx, id, token, endTaskClaim(TaskStatusFailed, true, blockOnUnknown, msg))
+	return err
+}
+
+// ReleaseTask gives up the claim without refunding the attempt.
+func (state *StatefulDB) ReleaseTask(ctx context.Context, id uint, token string) error {
+	msg := gorm.Expr(`CASE WHEN try_count < max_tries THEN "error" ELSE ? END`, "task claim released")
+	_, err := state.finishTaskClaim(ctx, id, token, endTaskClaim(TaskStatusFailed, true, false, msg))
+	return err
+}
+
+// RenewTask extends a current, unexpired claim.
+func (state *StatefulDB) RenewTask(ctx context.Context, id uint, token string) error {
+	db := state.DB.WithContext(ctx)
+	if state.Type == DBTypePostgres {
+		return db.Transaction(func(tx *gorm.DB) error { return state.renewTask(tx, id, token) })
 	}
+	return retryTaskWrite(ctx, func() error { return state.renewTask(db, id, token) })
+}
 
-	if result.RowsAffected == 0 {
-		return errors.New("task not found")
+func (state *StatefulDB) renewTask(tx *gorm.DB, id uint, token string) error {
+	// PostgreSQL can wait on a row lock past its lease; recheck after locking.
+	if state.Type == DBTypePostgres {
+		if err := state.lockTaskClaim(tx, id, token); err != nil {
+			return err
+		}
 	}
+	return taskClaimResult(state.taskClaim(tx, id, token).
+		UpdateColumn("lock_expires", gorm.Expr(state.taskLeaseExpiry())))
+}
 
-	return nil
+// The processor needs only these atomic effect operations; a shared state
+// backend can provide them without exposing SQL to dispatchers.
+type taskEffectStore interface {
+	beginTaskEffect(context.Context, uint, string, string, string) ([]byte, error)
+	readTaskEffect(context.Context, uint, string, string) ([]byte, error)
+	setTaskEffect(context.Context, uint, string, string, []byte, time.Time) error
+}
+
+func (state *StatefulDB) beginTaskEffect(ctx context.Context, id uint, token, key, target string) ([]byte, error) {
+	var receipt []byte
+	err := state.withTaskTx(ctx, func(tx *gorm.DB) error {
+		if err := state.renewTask(tx, id, token); err != nil {
+			return err
+		}
+		effect := AppTaskEffect{TaskID: id, EffectKey: key, Target: target}
+		result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&effect)
+		if result.Error != nil || result.RowsAffected != 0 {
+			return result.Error
+		}
+		var err error
+		receipt, err = selectTaskEffect(state.taskClaim(tx, id, token), key)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return receipt, nil
+}
+
+func (state *StatefulDB) readTaskEffect(ctx context.Context, id uint, token, key string) ([]byte, error) {
+	return selectTaskEffect(state.taskClaim(state.DB.WithContext(ctx), id, token), key)
+}
+
+func taskClaimScanError(err error) error {
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrTaskClaimLost
+	}
+	return err
+}
+
+func selectTaskEffect(claim *gorm.DB, key string) ([]byte, error) {
+	const point = "FROM app_task_effects WHERE app_task_effects.task_id = app_tasks.id AND app_task_effects.effect_key = ?"
+	var receipt []byte
+	var outstanding bool
+	err := claim.Select("(SELECT receipt "+point+" AND receipt IS NOT NULL), EXISTS (SELECT 1 "+point+" AND receipt IS NULL)", key, key).
+		Row().Scan(&receipt, &outstanding)
+	if err != nil {
+		return nil, taskClaimScanError(err)
+	}
+	if outstanding {
+		return nil, fmt.Errorf("%w: %s", ErrTaskEffectUncertain, key)
+	}
+	return receipt, nil
+}
+
+func (state *StatefulDB) hasTaskEffects(ctx context.Context, id uint, token string) (bool, error) {
+	var exists bool
+	err := state.taskClaim(state.DB.WithContext(ctx), id, token).Select(taskEffectsAny).Row().Scan(&exists)
+	return exists, taskClaimScanError(err)
+}
+
+// A nil receipt clears a known rejection. Persist any retry deadline in the same transaction.
+func (state *StatefulDB) setTaskEffect(ctx context.Context, id uint, token, key string, receipt []byte, retryAt time.Time) error {
+	return state.withTaskClaimTx(ctx, id, token, func(tx *gorm.DB) error {
+		claim := state.taskClaim(tx, id, token).Select("1")
+		pending := tx.Model(&AppTaskEffect{}).
+			Where("app_task_effects.task_id = ? AND app_task_effects.effect_key = ? AND app_task_effects.receipt IS NULL", id, key).
+			Where("EXISTS (?)", claim)
+		if receipt == nil {
+			if err := taskClaimResult(pending.Delete(&AppTaskEffect{})); err != nil || retryAt.IsZero() {
+				return err
+			}
+			scheduled, _ := state.taskClock("scheduled_at")
+			deadline, _ := state.taskClock("?")
+			return taskClaimResult(state.taskClaim(tx, id, token).UpdateColumn("scheduled_at",
+				gorm.Expr("CASE WHEN scheduled_at IS NULL OR "+scheduled+" < "+deadline+" THEN ? ELSE scheduled_at END", retryAt, retryAt)))
+		}
+		return taskClaimResult(pending.UpdateColumn("receipt", receipt))
+	})
+}
+
+func taskEffectKey(kind, target string) string {
+	return fmt.Sprintf("%s-%x", kind, sha256.Sum256([]byte(target)))
 }
 
 // GetTask retrieves a task by ID
@@ -299,21 +452,46 @@ func (state *StatefulDB) ListTasks(ctx context.Context, filters TaskFilters) ([]
 	return tasks, nil
 }
 
-// CleanupExpiredLocks releases tasks with expired locks
+// CleanupExpiredLocks releases a batch of expired claims, terminalizing exhausted attempts.
 func (state *StatefulDB) CleanupExpiredLocks(ctx context.Context) (int64, error) {
-	result := state.DB.WithContext(ctx).Model(&AppTask{}).
-		Where("status = ? AND lock_expires < ?", TaskStatusProcessing, time.Now()).
-		Updates(map[string]interface{}{
-			"status":       TaskStatusPending,
-			"lock_expires": nil,
-			"worker_id":    nil,
-		})
+	return state.cleanupTaskLocks(state.DB.WithContext(ctx), nil, false)
+}
 
-	if result.Error != nil {
-		return 0, fmt.Errorf("failed to cleanup expired locks: %w", result.Error)
+func (state *StatefulDB) cleanupTaskLocks(db *gorm.DB, taskTypes []string, exhaustedOnly bool) (int64, error) {
+	const batch = 128
+	var cleaned int64
+	err := db.Transaction(func(tx *gorm.DB) error {
+		pick := tx.Model(&AppTask{}).Select("app_tasks.id").Order("app_tasks.id").Limit(batch).
+			Where("((app_tasks.status = ? AND "+state.expiredTaskLease()+") OR (app_tasks.status = ? AND app_tasks.try_count >= app_tasks.max_tries))",
+				TaskStatusProcessing, TaskStatusPending)
+		if exhaustedOnly {
+			pick = pick.Where("app_tasks.try_count >= app_tasks.max_tries")
+		}
+		if len(taskTypes) > 0 {
+			pick = pick.Where("app_tasks.type IN ?", taskTypes)
+		}
+		query := tx.Model(&AppTask{})
+		if state.Type == DBTypePostgres {
+			var ids []uint
+			if err := pick.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Pluck("id", &ids).Error; err != nil {
+				return err
+			}
+			if len(ids) == 0 {
+				return nil
+			}
+			query = query.Where("app_tasks.id IN ?", ids)
+		} else {
+			query = query.Where("app_tasks.id IN (?)", pick)
+		}
+		msg := gorm.Expr(`CASE WHEN try_count < max_tries THEN "error" ELSE ? END`, "task claim expired")
+		result := query.Updates(endTaskClaim(TaskStatusFailed, !exhaustedOnly, false, msg))
+		cleaned = result.RowsAffected
+		return result.Error
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to cleanup expired locks: %w", err)
 	}
-
-	return result.RowsAffected, nil
+	return cleaned, nil
 }
 
 // TaskOption is a function that configures a task

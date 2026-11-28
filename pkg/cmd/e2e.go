@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -73,6 +74,8 @@ func putRecord(ctx context.Context, client *xrpc.Client, collection, repo, rkey 
 	return client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out)
 }
 
+const e2eStationPDSKind = "spaces"
+
 func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 	return &urfavecli.Command{
 		Name:  "e2e",
@@ -88,6 +91,11 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 				Name:    "upstream-station",
 				Usage:   "start an HTTPS upstream station, real atmoq bridge and loopback local node (requires HTTPS hostnames and atmoq on PATH)",
 				Sources: urfavecli.EnvVars("SP_E2E_UPSTREAM_STATION"),
+			},
+			&urfavecli.BoolFlag{
+				Name:    "station-cluster",
+				Usage:   "start an HTTPS station and HTTPS playback edge against a local SP_TEST_S3_* fixture",
+				Sources: urfavecli.EnvVars("SP_E2E_STATION_CLUSTER"),
 			},
 			&urfavecli.StringFlag{
 				Name:    "atmoq-bin",
@@ -153,13 +161,44 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			if ingest != "whip" && ingest != "fmp4" && ingest != "none" {
 				return fmt.Errorf("--ingest must be whip, fmp4 or none, not %q", ingest)
 			}
-			if cmd.Bool("upstream-station") && pdsHost == "" {
+			upstream := cmd.Bool("upstream-station")
+			stationCluster := cmd.Bool("station-cluster")
+			var stationS3 []string
+			if stationCluster {
+				if upstream {
+					return errors.New("--station-cluster and --upstream-station are mutually exclusive")
+				}
+				if kind, set := os.LookupEnv("DEV_ENV_PDS"); set && kind != e2eStationPDSKind {
+					return fmt.Errorf("--station-cluster requires DEV_ENV_PDS=%s or unset; got %q", e2eStationPDSKind, kind)
+				}
+				if pdsHost == "" {
+					return errors.New("--station-cluster requires the HTTPS PDS and station hostnames")
+				}
+				var err error
+				stationS3, err = e2eStationS3Env()
+				if err != nil {
+					return err
+				}
+			}
+			if upstream && pdsHost == "" {
 				return errors.New("--upstream-station requires the HTTPS PDS and station hostnames")
 			}
 			var fixture string
 			switch video := cmd.String("video"); video {
 			case "h264":
-				fixture = remote.RemoteFixture("3188c071b354f2e548d7f2d332699758e8e3ab1600280e5b07cb67eedc64f274/BigBuckBunny_1sGOP_240p30_NoBframes.mp4")
+				if stationCluster {
+					// Never download a media fixture for the isolated cluster.
+					abs, err := filepath.Abs("test/fixtures/5sec.mp4")
+					if err != nil {
+						return err
+					}
+					if _, err := os.Stat(abs); err != nil {
+						return fmt.Errorf("station cluster requires the checked-in MP4 fixture: %w", err)
+					}
+					fixture = abs
+				} else {
+					fixture = remote.RemoteFixture("3188c071b354f2e548d7f2d332699758e8e3ab1600280e5b07cb67eedc64f274/BigBuckBunny_1sGOP_240p30_NoBframes.mp4")
+				}
 			case "av1":
 				// Checked in rather than in the remote fixture bucket; the
 				// harness runs from the repo root.
@@ -174,7 +213,7 @@ func makeE2eCommand(build *config.BuildFlags) *urfavecli.Command {
 			default:
 				return fmt.Errorf("--video must be h264 or av1, not %q", video)
 			}
-			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, plcHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"), ingest, fixture, cmd.Bool("upstream-station"), cmd.String("atmoq-bin"))
+			return runE2E(ctx, cmd.String("dev-env"), pdsHost, stationHost, plcHost, int(cmd.Int("https-port")), cmd.String("app-bundle-id"), ingest, fixture, upstream, cmd.String("atmoq-bin"), stationS3)
 		},
 	}
 }
@@ -191,6 +230,10 @@ type e2eDevEnv struct {
 	// Only in HTTPS mode: the account the PDS resolves lexicons from.
 	LexiconDID      string `json:"lexicon-did"`
 	LexiconPassword string `json:"lexicon-password"`
+	// Only in station-cluster mode: the external station PDS account.
+	StationDID      string `json:"station-did"`
+	StationHandle   string `json:"station-handle"`
+	StationPassword string `json:"station-password"`
 }
 
 // Harness ports come from below the kernel's ephemeral range (Linux
@@ -255,7 +298,7 @@ func startNode(ctx context.Context, self string, env e2eDevEnv, dataDir string, 
 	return nodeCmd, nil
 }
 
-func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, httpsPLCHost string, httpsPort int, appBundleID, ingest, fixture string, upstream bool, atmoqBin string) error {
+func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, httpsPLCHost string, httpsPort int, appBundleID, ingest, fixture string, upstream bool, atmoqBin string, stationS3 []string) error {
 	// Ctrl-C / SIGTERM must unwind through the normal path, or none of the
 	// teardown below runs: Go's default handling exits immediately, which left
 	// the dev-env node, the forked node and the temp data dir behind.
@@ -268,7 +311,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, htt
 	handleDomain := "test"
 	if httpsPDSHost != "" {
 		var err error
-		tlsEnv, err = newE2EHTTPS(httpsPDSHost, httpsStationHost, httpsPLCHost, httpsPort)
+		tlsEnv, err = newE2EHTTPS(httpsPDSHost, httpsStationHost, httpsPLCHost, httpsPort, stationS3 != nil)
 		if err != nil {
 			return err
 		}
@@ -278,8 +321,17 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, htt
 
 	// Start the Node.js PDS/PLC dev environment.
 	devEnvCmd := exec.CommandContext(ctx, "node", devEnvPath)
+	devEnvCmd.Env = slices.DeleteFunc(os.Environ(), func(kv string) bool {
+		return strings.HasPrefix(kv, "DEV_ENV_STATION_URL=")
+	})
 	if tlsEnv != nil {
-		devEnvCmd.Env = append(os.Environ(), tlsEnv.DevEnvEnv()...)
+		devEnvCmd.Env = append(devEnvCmd.Env, tlsEnv.DevEnvEnv()...)
+		if stationS3 != nil {
+			devEnvCmd.Env = append(devEnvCmd.Env,
+				"DEV_ENV_PDS="+e2eStationPDSKind,
+				"DEV_ENV_STATION_URL="+tlsEnv.StationURL(),
+			)
+		}
 	}
 	devEnvCmd.Stderr = os.Stderr
 	devEnvStdout, err := devEnvCmd.StdoutPipe()
@@ -300,14 +352,24 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, htt
 		if !scanner.Scan() {
 			return fmt.Errorf("dev-env exited without printing its URLs: %w", scanner.Err())
 		}
-		log.Log(ctx, "dev-env: "+scanner.Text())
 		_ = json.Unmarshal(scanner.Bytes(), &env) //nolint:errcheck // not every line is ours
+		if stationS3 == nil || env.PDSURL == "" {
+			log.Log(ctx, "dev-env: "+scanner.Text())
+		}
 	}
 	go func() {
 		for scanner.Scan() {
 			log.Log(ctx, "dev-env: "+scanner.Text())
 		}
 	}()
+	if stationS3 != nil {
+		if env.PLCURL == "" || env.LexiconPDSURL == "" || env.LexiconDID == "" || env.LexiconPassword == "" {
+			return errors.New("station cluster dev-env did not return the HTTPS PLC and lexicon setup")
+		}
+		if env.StationDID == "" || env.StationHandle == "" || env.StationPassword == "" {
+			return errors.New("station cluster dev-env did not return the station account")
+		}
+	}
 
 	// Create a test account on the local PDS.
 	uu, err := uuid.NewRandom()
@@ -332,19 +394,15 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, htt
 	if err != nil {
 		return err
 	}
-	internalPort, err := freePort()
-	if err != nil {
-		return err
-	}
-	rtmpPort, err := freePort()
-	if err != nil {
-		return err
-	}
-	moqPort, err := freeUDPPort()
-	if err != nil {
-		return err
-	}
 	httpAddr := fmt.Sprintf("127.0.0.1:%d", httpPort)
+	var edgeAddr string
+	if stationS3 != nil {
+		edgePort, err := freePort()
+		if err != nil {
+			return err
+		}
+		edgeAddr = fmt.Sprintf("127.0.0.1:%d", edgePort)
+	}
 	broadcasterHost := httpAddr
 	if tlsEnv != nil {
 		broadcasterHost = httpsStationHost
@@ -356,7 +414,24 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, htt
 		if err != nil {
 			return fmt.Errorf("parse dev-env plc url: %w", err)
 		}
-		tlsEnv.Serve(ctx, pdsURL.Host, plcURL.Host, httpAddr)
+		tlsEnv.Serve(ctx, pdsURL.Host, plcURL.Host, httpAddr, edgeAddr)
+	}
+	if stationS3 != nil {
+		return runE2EStationCluster(ctx, tlsEnv, env, stationS3, out, password, appBundleID, fixture, httpAddr, edgeAddr, uu.String())
+	}
+
+	// The default and upstream topologies also run the live-ingest fixtures.
+	internalPort, err := freePort()
+	if err != nil {
+		return err
+	}
+	rtmpPort, err := freePort()
+	if err != nil {
+		return err
+	}
+	moqPort, err := freeUDPPort()
+	if err != nil {
+		return err
 	}
 
 	var bridgeURL string
@@ -444,9 +519,16 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, htt
 	if err := waitE2EHealth(ctx, fmt.Sprintf("http://%s/api/healthz", httpAddr)); err != nil {
 		return fmt.Errorf("station node: %w", err)
 	}
+	var legacyDraftURI string
 	if tlsEnv != nil {
 		if err := seedE2ELegacyTarget(ctx, xrpcc, httpAddr, broadcasterHost); err != nil {
 			return fmt.Errorf("seed legacy multistream target: %w", err)
+		}
+		if !upstream {
+			legacyDraftURI, err = seedE2ELegacyDraft(ctx, xrpcc, httpAddr, broadcasterHost)
+			if err != nil {
+				return fmt.Errorf("seed legacy VOD draft: %w", err)
+			}
 		}
 	}
 	stationKey, err := e2eStationKey(ctx, httpAddr)
@@ -675,7 +757,8 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, htt
 			vars += fmt.Sprintf("E2E_UPSTREAM_STATION=true\nUPSTREAM_STATION_URL=%s\nATMOQ_RELAY_URL=%s\nE2E_ATMOQ_LOG=%s\nE2E_LOCAL_DATA_DIR=%s\nE2E_STATION_DATA_DIR=%s\nE2E_LOCAL_PDS_AUDIT=%s\nUNRELATED_ACCOUNT_DID=%s\nUNRELATED_ACCOUNT_HANDLE=%s\nUNRELATED_ACCESS_JWT=%s\nE2E_PDS_INTERNAL_URL=%s\nE2E_PLC_URL=%s\n",
 				tlsEnv.StationURL(), bridgeURL, filepath.Join(tlsEnv.dir, "atmoq.log"), local.dataDir, dataDir, tlsEnv.auditPath, unrelated.did, unrelated.handle, unrelated.accessJWT, env.PDSURL, env.PLCURL)
 		} else {
-			vars += fmt.Sprintf("SERVER_HTTPS_URL=%s\n", tlsEnv.StationURL())
+			vars += fmt.Sprintf("SERVER_HTTPS_URL=%s\nE2E_LEGACY_DRAFT_URI=%s\nE2E_DRAFT_STATE_DB=%s\n",
+				tlsEnv.StationURL(), legacyDraftURI, filepath.Join(dataDir, "state.sqlite"))
 		}
 	}
 	if preliveOut != nil {
@@ -683,7 +766,7 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, htt
 	}
 	fmt.Print(vars)
 	if local != nil {
-		go local.Control(ctx, out.Did)
+		go local.Control(ctx, out.Did, "restart-local", filepath.Join(local.dataDir, "restart.json"))
 	}
 
 	<-ctx.Done()
@@ -825,8 +908,7 @@ func publishLexicons(ctx context.Context, env e2eDevEnv) error {
 	return nil
 }
 
-func seedE2ELegacyTarget(ctx context.Context, pds *xrpc.Client, httpAddr, broadcasterHost string) error {
-	const method = "place.stream.multistream.createTarget"
+func e2eServiceAuthClient(ctx context.Context, pds *xrpc.Client, httpAddr, broadcasterHost, method string) (*xrpc.Client, error) {
 	var auth struct {
 		Token string `json:"token"`
 	}
@@ -834,12 +916,20 @@ func seedE2ELegacyTarget(ctx context.Context, pds *xrpc.Client, httpAddr, broadc
 		"aud": "did:web:" + broadcasterHost,
 		"lxm": method,
 	}, nil, &auth); err != nil {
-		return fmt.Errorf("get service auth: %w", err)
+		return nil, fmt.Errorf("get service auth: %w", err)
 	}
-	node := &xrpc.Client{
+	return &xrpc.Client{
 		Host:   "http://" + httpAddr,
 		Client: &aqhttp.TrustedClient,
 		Auth:   &xrpc.AuthInfo{AccessJwt: auth.Token},
+	}, nil
+}
+
+func seedE2ELegacyTarget(ctx context.Context, pds *xrpc.Client, httpAddr, broadcasterHost string) error {
+	const method = "place.stream.multistream.createTarget"
+	node, err := e2eServiceAuthClient(ctx, pds, httpAddr, broadcasterHost, method)
+	if err != nil {
+		return err
 	}
 	name := "e2e legacy target"
 	record := placestream.MultistreamTarget{
@@ -855,6 +945,22 @@ func seedE2ELegacyTarget(ctx context.Context, pds *xrpc.Client, httpAddr, broadc
 		return fmt.Errorf("create target with service auth: %w", err)
 	}
 	return nil
+}
+
+func seedE2ELegacyDraft(ctx context.Context, pds *xrpc.Client, httpAddr, broadcasterHost string) (string, error) {
+	const method = "place.stream.vod.createDraft"
+	node, err := e2eServiceAuthClient(ctx, pds, httpAddr, broadcasterHost, method)
+	if err != nil {
+		return "", err
+	}
+	var draft placestream.VodCreateDraft_Output
+	if err := node.Do(ctx, xrpc.Procedure, "application/json", method, nil, &placestream.VodCreateDraft_Input{}, &draft); err != nil {
+		return "", fmt.Errorf("create draft with service auth: %w", err)
+	}
+	if draft.Uri == "" {
+		return "", errors.New("create draft returned no URI")
+	}
+	return draft.Uri, nil
 }
 
 // e2eStationKey returns the did:key the node at httpAddr signs transcodes with,

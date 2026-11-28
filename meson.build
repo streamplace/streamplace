@@ -13,6 +13,10 @@ project(
   },
 )
 
+if get_option('station_release') and (host_machine.system() != 'linux' or meson.is_cross_build() or get_option('default_library') != 'static')
+  error('station_release requires a native Linux static build')
+endif
+
 env = {}
 if get_option('default_library') == 'static'
   env = {
@@ -298,6 +302,11 @@ executable(
 
 if get_option('default_library') == 'static'
   prog_go = find_program('go')
+  release_tags = 'netgo,static,mainnet'
+  if get_option('station_release')
+    release_tags += ',stationslate'
+    env += {'PKG_CONFIG': find_program('hack/station-pkg-config.sh').full_path()}
+  endif
 
   flagbuilder = custom_target(
     'flagbuilder',
@@ -340,7 +349,7 @@ if get_option('default_library') == 'static'
       '-o', '@OUTPUT0@',
       '-buildmode', 'c-archive',
       '-ldflags', '-extld=' + native_linker,
-      '-tags', 'netgo,static,mainnet',
+      '-tags', release_tags,
       '@INPUT@',
     ],
     build_always_stale: true,
@@ -371,7 +380,7 @@ if get_option('default_library') == 'static'
         'build',
         '-ldflags', '-extld=' + native_linker,
         '-o', '@OUTPUT0@',
-        '-tags', 'netgo,static,mainnet',
+        '-tags', release_tags,
         'streamplace.go',
         '@INPUT1@'
       ],

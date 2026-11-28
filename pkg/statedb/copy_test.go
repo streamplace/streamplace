@@ -38,7 +38,11 @@ func TestCopyState(t *testing.T) {
 	require.NoError(t, src.DB.Delete(&gone).Error) // soft
 	require.NoError(t, src.DB.Create(&Config{Key: "k", Value: []byte{0, 1, 2, 255}}).Error)
 
-	reports, err := CopyState(ctx, fromURL, toURL, 500)
+	for i := range 6 {
+		require.NoError(t, src.DB.Create(&BroadcastOrigin{StreamerRepoDID: "did:plc:first", ServerDID: fmt.Sprintf("did:web:server-%d", i)}).Error)
+	}
+	dstConfig := &config.CLI{DBURL: toURL}
+	reports, err := CopyState(ctx, fromURL, dstConfig, 3)
 	require.NoError(t, err)
 	byTable := map[string]CopyReport{}
 	for _, r := range reports {
@@ -48,6 +52,7 @@ func TestCopyState(t *testing.T) {
 	require.Equal(t, int64(1203), byTable["repos"].Inserted)
 	require.Equal(t, int64(2), byTable["branding_blobs"].Inserted, "the soft-deleted row travels too")
 	require.Equal(t, int64(1), byTable["configs"].Inserted)
+	require.Equal(t, int64(6), byTable["broadcast_origins"].Inserted)
 
 	dst, err := MakeDB(ctx, &config.CLI{DBURL: toURL}, nil, nil)
 	require.NoError(t, err)
@@ -66,7 +71,7 @@ func TestCopyState(t *testing.T) {
 	// are carried over rather than left at their first-pass values.
 	require.NoError(t, src.DB.Model(&Config{}).Where("key = ?", "k").Update("value", []byte{9}).Error)
 	require.NoError(t, src.DB.Model(&AppTask{}).Where("type = ?", "a").Update("status", "COMPLETED").Error)
-	reports, err = CopyState(ctx, fromURL, toURL, 100)
+	reports, err = CopyState(ctx, fromURL, dstConfig, 100)
 	require.NoError(t, err)
 	for _, r := range reports {
 		require.Equal(t, r.Source, r.Target, r.Table)

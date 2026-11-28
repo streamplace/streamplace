@@ -62,7 +62,7 @@ func (w *WebPushNotifier) Blast(ctx context.Context, targets []NotificationTarge
 
 	payload, err := json.Marshal(blast)
 	if err != nil {
-		return fmt.Errorf("error marshaling notification blast: %w", err)
+		return fmt.Errorf("%w: marshal notification blast: %w", ErrPushNotDispatched, err)
 	}
 
 	var (
@@ -174,7 +174,7 @@ func errorsUnwrap(err error) []error {
 func (w *WebPushNotifier) sendOne(ctx context.Context, subscriptionJSON string, payload []byte) error {
 	var sub webpush.Subscription
 	if err := json.Unmarshal([]byte(subscriptionJSON), &sub); err != nil {
-		return fmt.Errorf("error parsing web push subscription: %w", err)
+		return fmt.Errorf("%w: parse web push subscription: %w", ErrPushNotDispatched, err)
 	}
 	resp, err := webpush.SendNotificationWithContext(ctx, payload, &sub, &webpush.Options{
 		VAPIDPublicKey:  w.keys.PublicKey,

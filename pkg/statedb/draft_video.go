@@ -10,19 +10,13 @@ import (
 
 	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
 )
 
-// DraftVideo is a draft VOD: a permissioned-data-style record (CBOR-serialized,
-// addressed by an ats:// URI) stored in statedb until the real permissioned-data
-// spec ships (bluesky-social/proposals PR #94, the 0016-permissioned-data
-// proposal). The CBOR record body (Data) holds the user-editable + processing
-// fields exactly as a future place.stream.video value plus status/error; the
-// server-internal fields (ContentCID, OriginUploadID) live only in the SQL row
-// so the CBOR body is a clean migration target.
+// DraftVideo anchors a draft's processing state. Data has editable metadata
+// only on legacy rows that have not moved to the user's personal space.
 type DraftVideo struct {
 	// URI is the ats:// URI identifying this draft (personal-space shape:
 	// ats://{did}/place.stream.vod.drafts/self/{did}/place.stream.vod.draftVideo/{tid}).
@@ -32,6 +26,13 @@ type DraftVideo struct {
 	Data []byte `gorm:"column:data;type:bytes"`
 	// CID is the sha256-of-CBOR CIDv1 of Data (computed via spid.GetCIDFromBytes).
 	CID string `gorm:"column:cid"`
+	// Legacy (empty), pending worker creation, or materialized in the space.
+	MetadataState string `gorm:"column:metadata_state"`
+	// Non-nil while a create may have committed without a local acknowledgment.
+	MetadataAttemptRev *string `gorm:"column:metadata_attempt_rev"`
+	// Confirmed public result while private draft cleanup is outstanding.
+	PublishedURI string `gorm:"column:published_uri"`
+	PublishedCID string `gorm:"column:published_cid"`
 	// ContentCID is the MUXL CID of the processed content blob. Server-internal:
 	// used to generate a thumbnail at publish time. Not part of the CBOR record.
 	ContentCID string `gorm:"column:content_cid"`
@@ -47,10 +48,7 @@ func (DraftVideo) TableName() string {
 	return "draft_videos"
 }
 
-// draftSpaceType / draftSkey encode the personal-space addressing used for all
-// draft VODs. The space authority is the user's own DID (personal data); the
-// space type is an NSID string only (no "type":"space" lexicon is defined);
-// the skey is the spec's reserved personal-data key "self".
+// These are the stable API URI components, not the PDS collection address.
 const (
 	draftSpaceType  = "place.stream.vod.drafts"
 	draftSkey       = "self"
@@ -77,7 +75,11 @@ func marshalDraft(rec *placestream.VodDraftVideo) (data []byte, cidStr string, e
 	return data, c.String(), nil
 }
 
-// unmarshalDraft CBOR-decodes a draft record body.
+// Record decodes the draft API record. Use Drafts to read joined metadata.
+func (dv *DraftVideo) Record() (*placestream.VodDraftVideo, error) {
+	return unmarshalDraft(dv.Data)
+}
+
 func unmarshalDraft(data []byte) (*placestream.VodDraftVideo, error) {
 	var rec placestream.VodDraftVideo
 	if err := rec.UnmarshalCBOR(bytes.NewReader(data)); err != nil {
@@ -86,53 +88,38 @@ func unmarshalDraft(data []byte) (*placestream.VodDraftVideo, error) {
 	return &rec, nil
 }
 
-// CreateDraft stores a new draft record. The record's CID and the row's URI are
-// derived from the record; originUploadID ties it to its processing job (may be
-// empty for drafts created outside an upload/finalize flow).
-func (state *StatefulDB) CreateDraft(ctx context.Context, did, originUploadID string, rec *placestream.VodDraftVideo) (*DraftVideo, error) {
+func (state *StatefulDB) insertDraft(ctx context.Context, did, uploadID, metadataState, contentCID string, rec *placestream.VodDraftVideo) (*DraftVideo, error) {
 	data, cidStr, err := marshalDraft(rec)
 	if err != nil {
 		return nil, err
 	}
-	// The record key (rkey) is a TID; reuse the LexiconTypeID-free path by
-	// minting one here. spid.TIDClock is the same source publishVideo uses.
-	tid := spid.TIDClock.Next().String()
 	dv := &DraftVideo{
-		URI:            DraftURI(did, tid),
+		URI:            DraftURI(did, spid.TIDClock.Next().String()),
 		UserDID:        did,
 		Data:           data,
 		CID:            cidStr,
-		OriginUploadID: originUploadID,
+		OriginUploadID: uploadID,
+		ContentCID:     contentCID,
+		MetadataState:  metadataState,
 	}
-	if err := state.DB.WithContext(ctx).Create(dv).Error; err != nil {
+	err = state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(dv).Error; err != nil {
+			return err
+		}
+		if uploadID == "" {
+			return nil
+		}
+		return tx.Model(&Upload{}).Where("id = ? AND user_did = ?", uploadID, did).Update("draft_uri", dv.URI).Error
+	})
+	if err != nil {
 		return nil, fmt.Errorf("create draft: %w", err)
 	}
 	return dv, nil
 }
 
-// SetDraftOriginUpload re-points a draft at a (new) upload ID, so the upload's
-// processing fills this draft. Used by createUpload when the client supplies a
-// draftUri: the draft was created up front (place.stream.vod.createDraft), and
-// this associates it with the upload that will populate it. Re-upload just
-// calls this again with a new uploadID. Returns an error if the draft doesn't
-// exist or doesn't belong to did.
-func (state *StatefulDB) SetDraftOriginUpload(ctx context.Context, uri, did, uploadID string) error {
-	res := state.DB.WithContext(ctx).Model(&DraftVideo{}).
-		Where("uri = ? AND user_did = ?", uri, did).
-		Update("origin_upload_id", uploadID)
-	if res.Error != nil {
-		return fmt.Errorf("set draft origin upload: %w", res.Error)
-	}
-	if res.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
-}
-
-// GetDraft fetches a draft by its ats:// URI. Returns (nil, nil) if not found.
-func (state *StatefulDB) GetDraft(ctx context.Context, uri string) (*DraftVideo, error) {
+func (state *StatefulDB) getDraft(ctx context.Context, did, uri string) (*DraftVideo, error) {
 	var dv DraftVideo
-	err := state.DB.WithContext(ctx).Where("uri = ?", uri).First(&dv).Error
+	err := state.DB.WithContext(ctx).Where("uri = ? AND user_did = ?", uri, did).First(&dv).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -142,9 +129,7 @@ func (state *StatefulDB) GetDraft(ctx context.Context, uri string) (*DraftVideo,
 	return &dv, nil
 }
 
-// GetDraftByUpload fetches the draft tied to an Upload row's processing job.
-// Returns (nil, nil) if no draft exists for that upload.
-func (state *StatefulDB) GetDraftByUpload(ctx context.Context, originUploadID string) (*DraftVideo, error) {
+func (state *StatefulDB) getDraftByUpload(ctx context.Context, originUploadID string) (*DraftVideo, error) {
 	var dv DraftVideo
 	err := state.DB.WithContext(ctx).Where("origin_upload_id = ?", originUploadID).First(&dv).Error
 	if err != nil {
@@ -154,110 +139,6 @@ func (state *StatefulDB) GetDraftByUpload(ctx context.Context, originUploadID st
 		return nil, fmt.Errorf("get draft by upload: %w", err)
 	}
 	return &dv, nil
-}
-
-// ListDrafts returns the drafts owned by did, newest first, with simple
-// time-cursor pagination (cursor is the CreatedAt of the last item returned,
-// RFC3339Nano; empty for the first page).
-func (state *StatefulDB) ListDrafts(ctx context.Context, did string, limit int, cursor string) ([]*DraftVideo, error) {
-	if limit <= 0 || limit > 100 {
-		limit = 50
-	}
-	q := state.DB.WithContext(ctx).Where("user_did = ?", did).Order("created_at DESC").Limit(limit)
-	if cursor != "" {
-		t, err := time.Parse(time.RFC3339Nano, cursor)
-		if err != nil {
-			return nil, fmt.Errorf("invalid cursor: %w", err)
-		}
-		q = q.Where("created_at < ?", t)
-	}
-	var drafts []*DraftVideo
-	if err := q.Find(&drafts).Error; err != nil {
-		return nil, fmt.Errorf("list drafts: %w", err)
-	}
-	return drafts, nil
-}
-
-// UpdateDraftMetadata applies a partial update of editable fields only. It never
-// touches source/durationMs/status/error — those are server-authoritative. The
-// CID is recomputed from the new CBOR body. Returns the updated row.
-func (state *StatefulDB) UpdateDraftMetadata(ctx context.Context, uri string, apply func(rec *placestream.VodDraftVideo)) (*DraftVideo, error) {
-	var dv DraftVideo
-	err := state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// FOR UPDATE (Postgres) so a concurrent SetDraftReady/SetDraftError
-		// transaction blocks until this one commits — preventing a lost update
-		// where the user's metadata edit clobbers the server's ready/error
-		// transition (or vice versa). SQLite serializes writes, so the clause
-		// is a no-op there.
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("uri = ?", uri).First(&dv).Error; err != nil {
-			return err
-		}
-		rec, err := unmarshalDraft(dv.Data)
-		if err != nil {
-			return err
-		}
-		apply(rec)
-		data, cidStr, err := marshalDraft(rec)
-		if err != nil {
-			return err
-		}
-		dv.Data = data
-		dv.CID = cidStr
-		return tx.Model(&DraftVideo{}).Where("uri = ?", uri).
-			Updates(map[string]any{
-				"data": data,
-				"cid":  cidStr,
-			}).Error
-	})
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("update draft metadata: %w", err)
-	}
-	return &dv, nil
-}
-
-// SetDraftReady flips a draft to status "ready" and fills the server-authoritative
-// fields (source, durationMs) in the CBOR body, plus content_cid on the SQL row.
-// sourceTracks is the JSON string of {uri,cid} track refs from the Upload row.
-// The caller is expected to have built the source union member from that JSON.
-func (state *StatefulDB) SetDraftReady(ctx context.Context, originUploadID string, source *placestream.VodDraftVideo_Source, durationMs int64, contentCID string) error {
-	return state.updateDraftByUpload(ctx, originUploadID, func(rec *placestream.VodDraftVideo) {
-		rec.Status = "ready"
-		rec.Source = source
-		rec.DurationMs = &durationMs
-		rec.Error = nil
-	}, func(dv *DraftVideo) {
-		dv.ContentCID = contentCID
-	})
-}
-
-// markDraftReadyFromUpload re-reads a (now-finished) Upload row and flips its
-// tied draft to 'ready', filling durationMs + content_cid. The draft's source
-// is left empty: track records are deferred to publishDraft time, so there
-// are no track refs to populate it with at ready time. Called by the queue
-// processors after the VOD processor / livestream finalizer returns, since
-// those call SetUploadProcessed internally and return only a cid — the
-// processor's results land on the Upload row, which we re-read here. A missing
-// draft is a no-op.
-func (state *StatefulDB) markDraftReadyFromUpload(ctx context.Context, uploadID string) error {
-	upload, err := state.GetUpload(ctx, uploadID)
-	if err != nil {
-		return fmt.Errorf("get upload: %w", err)
-	}
-	if upload == nil {
-		return nil
-	}
-	// source stays nil until PublishDraft publishes the tracks; durationMs is
-	// known at processing time. (draftSourceFromTrackURIs returns nil for the
-	// now-empty TrackURIs, so the legacy path is unchanged.)
-	source, err := draftSourceFromTrackURIs(upload.TrackURIs)
-	if err != nil {
-		return err
-	}
-	return state.SetDraftReady(ctx, uploadID, source, upload.DurationMS, upload.ContentCID)
 }
 
 // draftSourceFromTrackURIs builds the draft's source union (sourceTracks) from
@@ -287,68 +168,13 @@ func draftSourceFromTrackURIs(trackURIsJSON string) (*placestream.VodDraftVideo_
 	}, nil
 }
 
-// SetDraftError flips a draft to status "error" with an error message.
-func (state *StatefulDB) SetDraftError(ctx context.Context, originUploadID, errMsg string) error {
-	return state.updateDraftByUpload(ctx, originUploadID, func(rec *placestream.VodDraftVideo) {
-		rec.Status = "error"
-		rec.Error = &errMsg
-	}, nil)
-}
-
-// updateDraftByUpload rewrites the CBOR body (via apply) and, optionally, the
-// denormalized SQL columns (via applyRow) for the draft tied to originUploadID.
-func (state *StatefulDB) updateDraftByUpload(ctx context.Context, originUploadID string, apply func(rec *placestream.VodDraftVideo), applyRow func(dv *DraftVideo)) error {
-	return state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// FOR UPDATE (Postgres) — see UpdateDraftMetadata. A concurrent user
-		// metadata edit blocks until this ready/error transition commits, so it
-		// re-reads the new status rather than clobbering it.
-		var dv DraftVideo
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("origin_upload_id = ?", originUploadID).First(&dv).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				// No draft for this upload (e.g. a pre-drafts-era upload, or a
-				// draft that was deleted). Nothing to update; not an error.
-				return nil
-			}
-			return err
-		}
-		rec, err := unmarshalDraft(dv.Data)
-		if err != nil {
-			return err
-		}
-		apply(rec)
-		data, cidStr, err := marshalDraft(rec)
-		if err != nil {
-			return err
-		}
-		updates := map[string]any{
-			"data": data,
-			"cid":  cidStr,
-		}
-		if applyRow != nil {
-			applyRow(&dv)
-			updates["content_cid"] = dv.ContentCID
-		}
-		return tx.Model(&DraftVideo{}).Where("uri = ?", dv.URI).Updates(updates).Error
-	})
-}
-
-// DeleteDraft removes a draft row. Returns whether a row was deleted.
-func (state *StatefulDB) DeleteDraft(ctx context.Context, uri string) (bool, error) {
-	res := state.DB.WithContext(ctx).Where("uri = ?", uri).Delete(&DraftVideo{})
-	if res.Error != nil {
-		return false, fmt.Errorf("delete draft: %w", res.Error)
-	}
-	return res.RowsAffected > 0, nil
-}
-
 // ToDraftView converts a stored row + its CBOR record into the lexicon view.
 // The record field is typed as `unknown` in the lexicon (the @atproto/api
 // client validator can't validate a ref to a record-type lexicon), which
 // generates a *glex.LexiconTypeDecoder in Go — so we wrap the decoded
 // record the same way commentView/livestreamView do.
 func (dv *DraftVideo) ToDraftView() (placestream.VodDraftDefs_DraftView, error) {
-	rec, err := unmarshalDraft(dv.Data)
+	rec, err := dv.Record()
 	if err != nil {
 		return placestream.VodDraftDefs_DraftView{}, err
 	}

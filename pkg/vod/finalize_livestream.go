@@ -37,6 +37,8 @@ type FinalizeInput struct {
 	// records (one recording split across records) in recording order;
 	// empty means just LivestreamURI.
 	LivestreamURIs []string
+	// ObjectKeys pins the exact objects, in recording order, at enqueue time.
+	ObjectKeys []string
 	// SigningKey is the did:key whose private half C2PA-signed the live
 	// segments (the streamer's place.stream.key). Recorded on each
 	// place.stream.media.track so playback can verify signatures.
@@ -65,23 +67,10 @@ func FinalizeLivestreamVOD(ctx context.Context, cli *config.CLI, state *statedb.
 	))
 	defer span.End()
 
-	uris := in.LivestreamURIs
-	if len(uris) == 0 {
-		uris = []string{in.LivestreamURI}
-	}
-	segs, err := state.ListS3SegmentsForLivestreams(ctx, uris)
+	keys, err := finalizeObjectKeys(ctx, state, in)
 	if err != nil {
 		recordErr(span, "list_segments", err)
-		return "", fmt.Errorf("list s3 segments: %w", err)
-	}
-	if len(segs) == 0 {
-		err := fmt.Errorf("no recorded S3 segments for livestream(s) %s", strings.Join(uris, ", "))
-		recordErr(span, "list_segments", err)
 		return "", err
-	}
-	keys := make([]string, len(segs))
-	for i, s := range segs {
-		keys[i] = s.Key
 	}
 	span.SetAttributes(attribute.Int("object_count", len(keys)))
 	log.Log(ctx, "finalizing livestream VOD", "objects", len(keys))
@@ -126,17 +115,15 @@ func FinalizeLivestreamVOD(ctx context.Context, cli *config.CLI, state *statedb.
 		return "", fmt.Errorf("write metafile: %w", err)
 	}
 
-	// 4. Publish origin + track records (referencing the MUXL CID) and store
-	// TrackURIs on the Upload row, reusing the upload publish path unchanged.
+	// Record the trusted result on the upload. Publication is a separate
+	// decision, even for a completed recording.
 	probe := metafileToVODResult(metafile)
 	if err := runVODStage(ctx, stagePublish, func(ctx context.Context) error {
 		return publishRecords(ctx, publishParams{
-			cli:        cli,
 			state:      state,
 			in:         Input{UploadID: in.UploadID, RepoDID: in.RepoDID},
 			cid:        muxlCID,
 			size:       blobSize,
-			mimeType:   "video/mp4",
 			probe:      probe,
 			signingKey: in.SigningKey,
 		})
@@ -148,6 +135,27 @@ func FinalizeLivestreamVOD(ctx context.Context, cli *config.CLI, state *statedb.
 	span.SetStatus(codes.Ok, "")
 	log.Log(ctx, "livestream VOD finalized", "muxlCid", muxlCID, "blobSize", blobSize, "objects", len(keys), "duration_ms", probe.DurationMS)
 	return muxlCID, nil
+}
+
+func finalizeObjectKeys(ctx context.Context, state *statedb.StatefulDB, in FinalizeInput) ([]string, error) {
+	if len(in.ObjectKeys) != 0 {
+		return in.ObjectKeys, nil
+	}
+	if state.StationShards != nil {
+		return nil, errors.New("sharded livestream finalization requires pinned recording object keys")
+	}
+	uris := in.LivestreamURIs
+	if len(uris) == 0 {
+		uris = []string{in.LivestreamURI}
+	}
+	segs, err := state.ListS3SegmentsForLivestreams(ctx, uris)
+	if err != nil {
+		return nil, fmt.Errorf("list s3 segments: %w", err)
+	}
+	if len(segs) == 0 {
+		return nil, fmt.Errorf("no recorded S3 segments for livestream(s) %s", strings.Join(uris, ", "))
+	}
+	return statedb.RecordingObjectKeys(segs), nil
 }
 
 // captureInitHeader synthesizes the per-stream init segment (ftyp+moov) from

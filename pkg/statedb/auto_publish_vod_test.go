@@ -68,7 +68,17 @@ func runAutoPublish(t *testing.T, state *StatefulDB, did, uri string) {
 	require.NoError(t, state.ScheduleAutoPublishVOD(context.Background(), did, uri))
 	tasks := pendingTasks(t, state, TaskAutoPublishVOD)
 	require.Len(t, tasks, 1)
-	require.NoError(t, state.processAutoPublishVODTask(context.Background(), &tasks[0]))
+	runScheduledAutoPublish(t, state, tasks[0])
+}
+
+func runScheduledAutoPublish(t *testing.T, state *StatefulDB, task AppTask) {
+	t.Helper()
+	ctx := t.Context()
+	require.NoError(t, state.DB.Model(&AppTask{}).Where("id = ?", task.ID).UpdateColumn("scheduled_at", nil).Error)
+	claimed := dequeueTestTask(t, state, TaskAutoPublishVOD)
+	require.Equal(t, task.ID, claimed.ID)
+	require.NoError(t, state.runClaimedTask(ctx, claimed, time.Hour))
+	requireTaskStatus(t, state, claimed.ID, TaskStatusCompleted)
 }
 
 func TestScheduleAutoPublishVOD(t *testing.T) {
@@ -137,8 +147,14 @@ func TestAutoPublishVODRetriedHandoff(t *testing.T) {
 		tasks := pendingTasks(t, state, TaskAutoPublishVOD)
 		require.Len(t, tasks, 1)
 
-		require.NoError(t, state.processAutoPublishVODTask(ctx, &tasks[0]))
-		require.NoError(t, state.processAutoPublishVODTask(ctx, &tasks[0]))
+		require.NoError(t, state.DB.Model(&AppTask{}).Where("id = ?", tasks[0].ID).UpdateColumn("scheduled_at", nil).Error)
+		claim := dequeueTestTask(t, state, TaskAutoPublishVOD)
+		claimCtx := context.WithValue(ctx, queueClaimKey{}, queueClaim{state, claim.ID, claim.ClaimToken})
+		require.NoError(t, state.processAutoPublishVODTask(claimCtx, claim))
+		expireTestTask(t, state, claim)
+		next := dequeueTestTask(t, state, TaskAutoPublishVOD)
+		require.NoError(t, state.runClaimedTask(ctx, next, time.Hour))
+		requireTaskStatus(t, state, next.ID, TaskStatusCompleted)
 
 		require.Len(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD), 1, "one VOD")
 		uploads, err := state.ListLivestreamUploads(ctx, uri)
@@ -175,7 +191,7 @@ func TestAutoPublishVODStopsWaitingForAbandonedObject(t *testing.T) {
 
 		task, err := state.EnqueueTask(ctx, TaskAutoPublishVOD, AutoPublishVODTask{LivestreamURI: uri, Waits: autoPublishVODMaxWaits})
 		require.NoError(t, err)
-		require.NoError(t, state.processAutoPublishVODTask(ctx, task))
+		runScheduledAutoPublish(t, state, *task)
 
 		require.Len(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD), 1, "the VOD of the objects that completed")
 	})
@@ -200,7 +216,7 @@ func TestAutoPublishVODSkips(t *testing.T) {
 		setAutoPublishVODs(t, state, did, false)
 		tasks := pendingTasks(t, state, TaskAutoPublishVOD)
 		require.Len(t, tasks, 1)
-		require.NoError(t, state.processAutoPublishVODTask(ctx, &tasks[0]))
+		runScheduledAutoPublish(t, state, tasks[0])
 		require.Empty(t, pendingTasks(t, state, TaskFinalizeLivestreamVOD))
 		require.Empty(t, pendingTasks(t, state, TaskAutoPublishVOD))
 

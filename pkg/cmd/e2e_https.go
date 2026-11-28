@@ -48,8 +48,8 @@ import (
 //   - mints a throwaway CA and one leaf for all of those, the configured PLC
 //     hostname, and plc.directory (for oatproxy's fixed directory URL);
 //   - terminates TLS on 127.0.0.1:443 and routes by SNI: the PDS hostname and
-//     handles to the dev-env PDS, the station hostname to the node's
-//     plain-HTTP listener (it runs with --behind-https-proxy), both PLC names
+//     handles to the dev-env PDS, exact station and optional edge names to
+//     their plain-HTTP listeners (behind an HTTPS proxy), and both PLC names
 //     to the dev-env PLC;
 //   - has the PDS resolve lexicons, the OAuth permission sets among them,
 //     from a local lexicon authority account that the harness publishes this
@@ -65,6 +65,7 @@ import (
 type e2eHTTPS struct {
 	pdsHost     string
 	stationHost string
+	edgeHost    string
 	plcHost     string
 	dir         string
 	caPath      string
@@ -89,8 +90,15 @@ const e2ePLCHost = "plc.directory"
 // The front end listens on 127.0.0.1:port. The URLs it serves stay portless
 // (https://<host>), so any port other than 443 only works on a machine that
 // redirects loopback 443 to it, e.g. with an iptables REDIRECT rule.
-func newE2EHTTPS(pdsHost, stationHost, plcHost string, port int) (*e2eHTTPS, error) {
+func newE2EHTTPS(pdsHost, stationHost, plcHost string, port int, stationCluster bool) (*e2eHTTPS, error) {
 	h := &e2eHTTPS{pdsHost: pdsHost, stationHost: stationHost, plcHost: plcHost}
+	if stationCluster {
+		// The PDS wildcard already provides loopback DNS and a TLS SAN.
+		h.edgeHost = "station-edge." + pdsHost
+		if h.edgeHost == plcHost || h.edgeHost == stationHost {
+			return nil, fmt.Errorf("station cluster edge hostname %s conflicts with --https-plc-hostname or --https-station-hostname", h.edgeHost)
+		}
+	}
 	var err error
 	h.dir, err = os.MkdirTemp("", "streamplace-e2e-tls-*")
 	if err != nil {
@@ -144,8 +152,7 @@ func (h *e2eHTTPS) DevEnvEnv() []string {
 	}
 }
 
-// NodeEnv is the extra environment for the forked node, whose broadcaster
-// host is the station hostname.
+// NodeEnv configures a forked node served through the HTTPS front end.
 func (h *e2eHTTPS) NodeEnv() []string {
 	return append([]string{"SP_BEHIND_HTTPS_PROXY=true"}, h.TrustEnv()...)
 }
@@ -162,9 +169,9 @@ func (h *e2eHTTPS) TrustEnv() []string {
 	}
 }
 
-// Serve starts the TLS listeners and the proxy. The backends are the dev-env
-// PDS and PLC and the node's plain-HTTP listener, as host:port.
-func (h *e2eHTTPS) Serve(ctx context.Context, pdsAddr, plcAddr, nodeAddr string) {
+// Serve starts the TLS listener and CONNECT proxy with fixed host:port
+// backends. edgeAddr is set only in station-cluster mode.
+func (h *e2eHTTPS) Serve(ctx context.Context, pdsAddr, plcAddr, nodeAddr, edgeAddr string) {
 	route := func(name string) string {
 		name = strings.ToLower(strings.TrimSuffix(name, "."))
 		switch {
@@ -172,6 +179,8 @@ func (h *e2eHTTPS) Serve(ctx context.Context, pdsAddr, plcAddr, nodeAddr string)
 			return plcAddr
 		case name == h.stationHost:
 			return nodeAddr
+		case h.edgeHost != "" && name == h.edgeHost:
+			return edgeAddr
 		case name == h.pdsHost || strings.HasSuffix(name, "."+h.pdsHost):
 			return pdsAddr
 		}

@@ -19,6 +19,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/statedb"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -960,8 +961,42 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
-		if err := atsync.Model.UpsertVideo(ctx, *rec, aturi); err != nil {
+		if err := atsync.Model.UpsertVideo(ctx, *rec, aturi, repoRev); err != nil {
 			return fmt.Errorf("failed to upsert video: %w", err)
+		}
+		if isUpdate && atsync.StationVideoUpdated != nil {
+			currentCID := ""
+			resolved := true
+			if src := rec.Source.MediaDefs_SourceTracks; src != nil && len(src.Tracks) > 0 {
+				ref := src.Tracks[0]
+				trackURI, err := syntax.ParseATURI(ref.Uri)
+				if err == nil && trackURI.Authority() == aturi.Authority() && trackURI.Collection().String() == constants.PLACE_STREAM_MEDIA_TRACK {
+					track, err := atsync.Model.GetMediaTrackByURI(ctx, ref.Uri)
+					if err != nil {
+						return err
+					}
+					resolved = false
+					// A missing track or a different revision in the local index
+					// is not evidence that the source changed.
+					if track != nil {
+						actual, err := spid.GetCID(track)
+						if err != nil {
+							return err
+						}
+						if actual.String() == ref.Cid {
+							resolved = true
+							if muxl := track.Track.MediaDefs_MuxlTrack; muxl != nil {
+								currentCID = muxl.Blob
+							}
+						}
+					}
+				}
+			}
+			if resolved {
+				if err := atsync.StationVideoUpdated(ctx, aturi.String(), currentCID, repoRev); err != nil {
+					return fmt.Errorf("retire changed station video source: %w", err)
+				}
+			}
 		}
 		log.Debug(ctx, "indexed video", "uri", aturi.String(), "title", rec.Title)
 

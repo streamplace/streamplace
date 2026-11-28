@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	firebase "firebase.google.com/go/v4"
@@ -77,7 +78,7 @@ func (f *FirebaseNotifierS) Blast(ctx context.Context, targets []NotificationTar
 func (f *FirebaseNotifierS) BlastTokens(ctx context.Context, tokens []string, blast *NotificationBlast) error {
 	client, err := f.app.Messaging(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrPushNotDispatched, err)
 	}
 
 	notification := &messaging.MulticastMessage{
@@ -110,5 +111,9 @@ func (f *FirebaseNotifierS) BlastTokens(ctx context.Context, tokens []string, bl
 		return err
 	}
 	log.Log(ctx, "notification blast successful", "successCount", res.SuccessCount, "failureCount", res.FailureCount)
-	return nil
+	var sendErr error
+	for _, response := range res.Responses {
+		sendErr = errors.Join(sendErr, response.Error)
+	}
+	return sendErr
 }

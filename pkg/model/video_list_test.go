@@ -121,7 +121,7 @@ func putTrackVideo(t *testing.T, m Model, videoURI, trackURI, blobCID string) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(ctx, video, parseURI(t, videoURI)))
+	require.NoError(t, m.UpsertVideo(ctx, video, parseURI(t, videoURI), ""))
 }
 
 // putClipVideo writes a sourceClip video referencing parentURI.
@@ -139,7 +139,7 @@ func putClipVideo(t *testing.T, m Model, clipURI, parentURI string) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(context.Background(), video, parseURI(t, clipURI)))
+	require.NoError(t, m.UpsertVideo(context.Background(), video, parseURI(t, clipURI), ""))
 }
 
 // putOrigin attests that serverDID hosts blobCID.

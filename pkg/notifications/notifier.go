@@ -1,6 +1,12 @@
 package notifications
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+// ErrPushNotDispatched means no push request reached the delivery boundary.
+var ErrPushNotDispatched = errors.New("push not dispatched")
 
 // NotificationType identifies the push transport a token belongs to. It lives
 // in pkg/notifications (the lower-level package) so that pkg/statedb — which

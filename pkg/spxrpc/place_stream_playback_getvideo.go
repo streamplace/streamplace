@@ -89,6 +89,17 @@ func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "did is required and must be a valid DID")
 	}
 	did := parsedDID.String()
+	if s.cli != nil && s.cli.StationDID != "" {
+		// Content bytes are immutable, but the station's serving permission is not.
+		c.Response().Header().Set("Cache-Control", "no-store")
+		ok, err := vod.StationCanServe(ctx, s.playbackStore, s.model, s.cli.StationDID, cid, true)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "station catalog unavailable").SetInternal(err)
+		}
+		if !ok {
+			return echo.NewHTTPError(http.StatusNotFound, "BlobNotFound")
+		}
+	}
 
 	// Labeler enforcement. If this CID is a known content blob, gate it on
 	// its content owners — the track owners — not on the requesting `did`.
@@ -151,10 +162,7 @@ func parseRangeForLog(header string, size int64) (int64, int64) {
 	return start, end
 }
 
-// serveBlobRange writes a blob.Reader to the echo response, honoring
-// HTTP Range. We only support single ranges (`bytes=N-M`, `bytes=N-`,
-// `bytes=-N`); multi-range requests are rejected with 416. Cache
-// headers are set immutable since the URL is content-addressed.
+// serveBlobRange serves the whole object or one HTTP byte range.
 func serveBlobRange(c echo.Context, r blob.Reader, contentType string) error {
 	size := r.Size()
 	rangeHeader := c.Request().Header.Get("Range")
@@ -162,7 +170,9 @@ func serveBlobRange(c echo.Context, r blob.Reader, contentType string) error {
 	h := c.Response().Header()
 	h.Set("Content-Type", contentType)
 	h.Set("Accept-Ranges", "bytes")
-	h.Set("Cache-Control", "public, max-age=31536000, immutable")
+	if h.Get("Cache-Control") == "" {
+		h.Set("Cache-Control", "public, max-age=31536000, immutable")
+	}
 
 	if rangeHeader == "" {
 		h.Set("Content-Length", strconv.FormatInt(size, 10))
@@ -318,6 +328,16 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	if s.cli != nil && s.cli.StationDID != "" {
+		c.Response().Header().Set("Cache-Control", "no-store")
+		ok, err := vod.StationVideoVisible(ctx, s.playbackStore, s.model, s.cli.StationDID, uri, resolved.blobCID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "station catalog unavailable").SetInternal(err)
+		}
+		if !ok {
+			return echo.NewHTTPError(http.StatusNotFound, "VideoUnavailable")
+		}
+	}
 	meta, err := s.fetchMetafile(ctx, resolved.blobCID)
 	if err != nil {
 		return err
@@ -348,7 +368,9 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	s.logManifestRequest(c, uri, ps.ID, track, kind)
 
 	c.Response().Header().Set("Content-Type", "application/vnd.apple.mpegurl")
-	c.Response().Header().Set("Cache-Control", "public, max-age=60")
+	if c.Response().Header().Get("Cache-Control") == "" {
+		c.Response().Header().Set("Cache-Control", "public, max-age=60")
+	}
 	c.Response().WriteHeader(http.StatusOK)
 	_, err = c.Response().Writer.Write([]byte(body))
 	return err

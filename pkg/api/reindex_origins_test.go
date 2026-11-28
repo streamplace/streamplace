@@ -56,7 +56,7 @@ func putHostedVideo(t *testing.T, m model.Model, videoURI, trackURI, blobCID str
 				},
 			},
 		},
-	}, mustURI(t, videoURI)))
+	}, mustURI(t, videoURI), ""))
 }
 
 // TestReindexOriginsRepairsListing reproduces the production failure and its

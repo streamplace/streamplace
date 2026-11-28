@@ -11,7 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bdasl"
 	"stream.place/streamplace/pkg/blob"
+	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/statedb"
+	"stream.place/streamplace/pkg/stationshard"
 )
 
 // TestFinalizeHeaderConcat is the gating test for live-to-VOD finalize: it
@@ -170,4 +173,35 @@ func minFirstOffset(t *testing.T, m *Metafile) int64 {
 		}
 	}
 	return min
+}
+
+func TestFinalizeRecordingObjectKeysStayPinned(t *testing.T) {
+	ctx := t.Context()
+	state, err := statedb.MakeDB(ctx, &config.CLI{DBURL: ":memory:"}, nil, nil)
+	require.NoError(t, err)
+	const uri = "at://did:plc:x/place.stream.livestream/one"
+	at := time.Unix(1_760_000_000, 0)
+	record := func(key string, offset time.Duration) {
+		id, err := state.RecordStart(ctx, "did:plc:x", "bucket", key, uri, at.Add(offset))
+		require.NoError(t, err)
+		require.NoError(t, state.RecordComplete(ctx, id, 1, 100, nil))
+	}
+	record("second.m4s", time.Second)
+	record("first.m4s", 0)
+	segs, err := state.ListS3SegmentsForLivestreams(ctx, []string{uri})
+	require.NoError(t, err)
+	in := FinalizeInput{LivestreamURI: uri, ObjectKeys: statedb.RecordingObjectKeys(segs)}
+
+	record("later.m4s", 2*time.Second)
+	legacy := FinalizeInput{LivestreamURI: uri}
+	keys, err := finalizeObjectKeys(ctx, state, legacy)
+	require.NoError(t, err)
+	require.Equal(t, []string{"first.m4s", "second.m4s", "later.m4s"}, keys)
+
+	sharded := &statedb.StatefulDB{StationShards: new(stationshard.Store)}
+	keys, err = finalizeObjectKeys(ctx, sharded, in)
+	require.NoError(t, err)
+	require.Equal(t, []string{"first.m4s", "second.m4s"}, keys)
+	_, err = finalizeObjectKeys(ctx, sharded, legacy)
+	require.ErrorContains(t, err, "requires pinned recording object keys")
 }

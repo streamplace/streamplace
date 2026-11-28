@@ -6,12 +6,12 @@ import {
 } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { loginThroughPds } from "./login";
+import { spaceRecords, withServiceAuth } from "./private-space-fixture";
 
 const HTTPS_URL = process.env.SERVER_HTTPS_URL;
 const DID = process.env.ACCOUNT_DID!;
 const PDS_KIND = process.env.PDS_KIND ?? "reference";
 const COLLECTION = "place.stream.multistream.target";
-const SPACE = `at:space/${DID}/place.stream.personal/self`;
 const LEGACY_NAME = "e2e legacy target";
 const LEGACY_URL = "rtmp://127.0.0.1:9/live/e2e-legacy";
 
@@ -28,12 +28,6 @@ interface Target {
   uri: string;
   record: { name?: string; url: string; active: boolean };
   latestEvent?: { status: string };
-}
-
-interface SpaceRecord {
-  rkey?: string;
-  uri?: string;
-  value: { name?: string; url: string; active: boolean };
 }
 
 async function nodeTargets(page: Page, action: () => Promise<unknown>) {
@@ -77,23 +71,20 @@ async function mutateTarget(
 // A service-auth caller has no space grant, so the node answers it from statedb.
 async function statedbTargets(request: APIRequestContext) {
   const pds = `${process.env.PDS_HTTP_URL}/xrpc`;
-  const lxm = "place.stream.multistream.listTargets";
+  const method = "place.stream.multistream.listTargets";
   const session = await request.post(
     `${pds}/com.atproto.server.createSession`,
     {
       data: { identifier: DID, password: process.env.ACCOUNT_PASSWORD },
     },
   );
-  expect(session.ok(), await session.text()).toBe(true);
-  const auth = await request.get(`${pds}/com.atproto.server.getServiceAuth`, {
-    headers: { Authorization: `Bearer ${(await session.json()).accessJwt}` },
-    params: { aud: `did:web:${new URL(HTTPS_URL!).host}`, lxm },
-  });
-  expect(auth.ok(), await auth.text()).toBe(true);
-  const response = await request.get(`${process.env.SERVER_URL}/xrpc/${lxm}`, {
-    headers: { Authorization: `Bearer ${(await auth.json()).token}` },
-  });
-  expect(response.ok(), await response.text()).toBe(true);
+  expect(session.ok()).toBe(true);
+  const response = await withServiceAuth(
+    request,
+    (await session.json()).accessJwt,
+    method,
+  );
+  expect(response.ok()).toBe(true);
   return ((await response.json()) as { targets: Target[] }).targets;
 }
 
@@ -109,43 +100,8 @@ async function spaceNotifications(request: APIRequestContext) {
   return Number(count![1]);
 }
 
-async function spaceRecords(request: APIRequestContext) {
-  const method =
-    PDS_KIND === "vlpds"
-      ? "vlpds.admin.listSpaceRecords"
-      : "com.atproto.space.listRecords";
-  // The reference fixture's password is js/dev-env/lib/constants.ts ADMIN_PASSWORD.
-  const password = PDS_KIND === "vlpds" ? "dev-admin-token" : "admin-pass";
-  const records: SpaceRecord[] = [];
-  let cursor: string | undefined;
-  do {
-    const response = await request.get(
-      `${process.env.PDS_HTTP_URL}/xrpc/${method}`,
-      {
-        headers: {
-          Authorization: `Basic ${Buffer.from(`admin:${password}`).toString("base64")}`,
-        },
-        params: {
-          space: SPACE,
-          repo: DID,
-          collection: COLLECTION,
-          limit: 100,
-          ...(cursor ? { cursor } : {}),
-        },
-      },
-    );
-    expect(response.ok(), await response.text()).toBe(true);
-    const body = (await response.json()) as {
-      records: SpaceRecord[];
-      cursor?: string;
-    };
-    records.push(...body.records);
-    cursor = body.cursor;
-  } while (cursor);
-  return records.map((record) => ({
-    ...record,
-    rkey: record.rkey ?? record.uri?.split("/").pop(),
-  }));
+function targetSpaceRecords(request: APIRequestContext) {
+  return spaceRecords<Target["record"]>(request, DID, COLLECTION);
 }
 
 function expectTargetURI(target: Target) {
@@ -165,7 +121,9 @@ async function expectSpaceTarget(
   if (PDS_KIND === "reference") return;
   await expect
     .poll(async () =>
-      (await spaceRecords(request)).find((record) => record.rkey === rkey),
+      (await targetSpaceRecords(request)).find(
+        (record) => record.rkey === rkey,
+      ),
     )
     .toMatchObject({ rkey, value: { name, url, active: false } });
 }
@@ -301,7 +259,7 @@ for (const frontend of ["app", "web"]) {
         const rkey = expectTargetURI(created!);
         await expect
           .poll(async () =>
-            (await spaceRecords(request)).some(
+            (await targetSpaceRecords(request)).some(
               (record) => record.rkey === rkey,
             ),
           )

@@ -10,7 +10,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/s3"
 	"stream.place/streamplace/pkg/statedb"
+	"stream.place/streamplace/pkg/stationshard"
 )
 
 // contender is a session on one node, contending for a role, with its
@@ -37,7 +39,7 @@ func newContender(t *testing.T, state *statedb.StatefulDB, node string, start fu
 	var roleCtx context.Context
 	c.ss.contend(ctx, "did:plc:streamer", role{
 		name: "record",
-		start: func(rctx context.Context) error {
+		start: func(rctx context.Context, _ stationshard.Lease) error {
 			roleCtx = rctx
 			c.events <- node + " start"
 			if start == nil {
@@ -45,7 +47,7 @@ func newContender(t *testing.T, state *statedb.StatefulDB, node string, start fu
 			}
 			return start()
 		},
-		stop: func() {
+		stop: func(context.Context) {
 			if roleCtx.Err() == nil {
 				c.events <- node + " stop, role context live"
 				return
@@ -187,4 +189,194 @@ func TestRoleLostEndsItsContext(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, held)
 	a.expect(t, "a.example stop", 3*roleLeaseRenew)
+}
+
+type fencedRoleStore struct {
+	events []string
+	claims uint64
+}
+
+func (*fencedRoleStore) TTL() time.Duration { return 300 * time.Millisecond }
+
+func (s *fencedRoleStore) ClaimRole(_ context.Context, did, role string) (stationshard.Lease, error) {
+	s.events = append(s.events, "claim")
+	s.claims++
+	return stationshard.Lease{DID: did, Role: role, Owner: "node", Incarnation: "incarnation", Epoch: s.claims}, nil
+}
+
+func (s *fencedRoleStore) RenewRole(_ context.Context, lease stationshard.Lease) error {
+	if lease.Epoch == 1 {
+		s.events = append(s.events, "renew")
+		return stationshard.ErrFenced
+	}
+	return nil
+}
+
+func (s *fencedRoleStore) ReleaseRole(_ context.Context, lease stationshard.Lease) error {
+	if lease.Epoch == 2 {
+		s.events = append(s.events, "release second")
+	} else {
+		s.events = append(s.events, "release first")
+	}
+	return nil
+}
+
+func TestShardRoleStopsFencedLeaseBeforeReacquiring(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	shards := &fencedRoleStore{}
+	var roleCtx context.Context
+	var leases []stationshard.Lease
+	contendShard(ctx, shards, "did:plc:streamer", role{
+		name: roleRecord,
+		start: func(rctx context.Context, lease stationshard.Lease) error {
+			shards.events = append(shards.events, "start")
+			leases = append(leases, lease)
+			roleCtx = rctx
+			if lease.Epoch == 2 {
+				cancel()
+			}
+			return nil
+		},
+		stop: func(drainCtx context.Context) {
+			if roleCtx.Err() == nil {
+				shards.events = append(shards.events, "role still running")
+			}
+			if drainCtx.Err() != nil {
+				shards.events = append(shards.events, "discard")
+			} else {
+				shards.events = append(shards.events, "drain")
+			}
+		},
+	})
+	require.Equal(t, []string{"claim", "start", "renew", "discard", "claim", "start", "drain", "release second"}, shards.events)
+	require.Equal(t, []stationshard.Lease{
+		{DID: "did:plc:streamer", Role: roleRecord, Owner: "node", Incarnation: "incarnation", Epoch: 1},
+		{DID: "did:plc:streamer", Role: roleRecord, Owner: "node", Incarnation: "incarnation", Epoch: 2},
+	}, leases)
+}
+
+type initialRecordingStore struct {
+	fencedRoleStore
+	firstResult <-chan error
+}
+
+func (*initialRecordingStore) TTL() time.Duration { return 3 * time.Second }
+
+func (s *initialRecordingStore) ClaimRole(ctx context.Context, did, role string) (stationshard.Lease, error) {
+	if s.firstResult != nil {
+		result := s.firstResult
+		s.firstResult = nil
+		select {
+		case err := <-result:
+			if err != nil {
+				return stationshard.Lease{}, err
+			}
+		case <-ctx.Done():
+			return stationshard.Lease{}, ctx.Err()
+		}
+	}
+	return s.fencedRoleStore.ClaimRole(ctx, did, role)
+}
+
+func (*initialRecordingStore) RenewRole(context.Context, stationshard.Lease) error { return nil }
+
+func TestShardRecordingFirstClaimBacklog(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want []int
+	}{
+		{"acquired", nil, []int{1, 2, 3}},
+		{"held", stationshard.ErrHeld, []int{3}},
+		{"failed", errors.New("claim ACK lost"), []int{3}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			started := make(chan struct{})
+			close(started)
+			ss := &StreamSession{ctx: ctx, started: started, g: &errgroup.Group{}}
+			result := make(chan error)
+			shards := &initialRecordingStore{firstResult: result}
+			installed := make(chan struct{})
+			delivered := make(chan int, 3)
+			queue := func(segment int) {
+				ss.withUploader(ctx, func(*s3.S3Uploader) error {
+					delivered <- segment
+					return nil
+				})
+			}
+
+			ss.beginS3Initialization(ctx, shards.TTL())
+			ss.Go(ctx, func() error {
+				contendShard(ctx, shards, "did:plc:streamer", role{
+					name:             roleRecord,
+					firstAttemptDone: func() { ss.installS3Uploader(nil) },
+					start: func(context.Context, stationshard.Lease) error {
+						ss.installS3Uploader(s3.NewS3Uploader(s3.Config{}, "did:plc:streamer", "live/", time.Hour, nil))
+						close(installed)
+						return nil
+					},
+					stop: ss.s3Close,
+				})
+				return nil
+			})
+			for range maxInitialRecordingCommands {
+				ss.s3Cutover(ctx)
+			}
+			queue(1)
+			queue(2)
+			select {
+			case result <- tc.err:
+			case <-ctx.Done():
+				t.Fatal("first claim did not reach the store")
+			}
+			select {
+			case <-installed:
+			case <-ctx.Done():
+				t.Fatal("recording role did not start")
+			}
+			queue(3)
+			cancel()
+			require.NoError(t, ss.g.Wait())
+			close(delivered)
+			var recorded []int
+			for segment := range delivered {
+				recorded = append(recorded, segment)
+			}
+			require.Equal(t, tc.want, recorded)
+		})
+	}
+}
+
+func TestShardRecordingPersistenceFailureReacquires(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	shards := &initialRecordingStore{}
+	var failed chan struct{}
+	var epochs []uint64
+	contendShard(ctx, shards, "did:plc:streamer", role{
+		name: roleRecord,
+		start: func(_ context.Context, lease stationshard.Lease) error {
+			epochs = append(epochs, lease.Epoch)
+			failed = make(chan struct{})
+			if lease.Epoch == 1 {
+				close(failed)
+			} else {
+				cancel()
+			}
+			return nil
+		},
+		failed: func() <-chan struct{} { return failed },
+		stop: func(ctx context.Context) {
+			if ctx.Err() != nil {
+				shards.events = append(shards.events, "discard")
+			} else {
+				shards.events = append(shards.events, "drain")
+			}
+		},
+	})
+	require.Equal(t, []uint64{1, 2}, epochs)
+	require.Equal(t, []string{"claim", "discard", "release first", "claim", "drain", "release second"}, shards.events)
 }

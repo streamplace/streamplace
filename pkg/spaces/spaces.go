@@ -60,13 +60,8 @@ func PutRecord(ctx context.Context, c Client, did, collection, rkey string, reco
 		return c.Do(ctx, "POST", "application/json", "com.atproto.space.putRecord", nil, &body, &out)
 	}
 	if err = put(); spaceError(err, "SpaceNotFound") {
-		create := struct {
-			SpaceType string         `json:"spaceType"`
-			Skey      string         `json:"skey"`
-			Policy    map[string]any `json:"policy"`
-		}{PersonalSpaceType, PersonalSpaceKey, map[string]any{"$type": "com.atproto.personalspace.policy"}}
-		err = c.Do(ctx, "POST", "application/json", "com.atproto.space.createSpace", nil, &create, nil)
-		if err == nil || spaceError(err, "SpaceAlreadyExists") {
+		err = createPersonalSpace(ctx, c)
+		if err == nil {
 			err = put()
 		}
 	}
@@ -74,6 +69,19 @@ func PutRecord(ctx context.Context, c Client, did, collection, rkey string, reco
 		return "", "", fmt.Errorf("put personal space record: %w", err)
 	}
 	return out.URI, out.CID, nil
+}
+
+func createPersonalSpace(ctx context.Context, c Client) error {
+	body := struct {
+		SpaceType string         `json:"spaceType"`
+		Skey      string         `json:"skey"`
+		Policy    map[string]any `json:"policy"`
+	}{PersonalSpaceType, PersonalSpaceKey, map[string]any{"$type": "com.atproto.personalspace.policy"}}
+	err := c.Do(ctx, "POST", "application/json", "com.atproto.space.createSpace", nil, &body, nil)
+	if spaceError(err, "SpaceAlreadyExists") {
+		return nil
+	}
+	return err
 }
 
 func DeleteRecord(ctx context.Context, c Client, did, collection, rkey string) error {

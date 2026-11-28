@@ -1,7 +1,10 @@
 package statedb
 
 import (
+	"cmp"
 	"context"
+	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -43,6 +46,9 @@ func (s *S3Segment) TableName() string {
 // RecordStart inserts a new S3Segment row at the start of a multipart upload
 // and returns its ID. Implements s3.Recorder.
 func (state *StatefulDB) RecordStart(ctx context.Context, repoDID, bucket, key, livestreamURI string, started time.Time) (string, error) {
+	if state.StationShards != nil {
+		return "", errRecordingLeaseRequired
+	}
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return "", err
@@ -79,33 +85,141 @@ func (state *StatefulDB) ListS3SegmentsForLivestreams(ctx context.Context, lives
 	if len(livestreamURIs) == 0 {
 		return nil, nil
 	}
-	var segs []S3Segment
+	var did string
+	var match func(recordingEntry) bool
+	if state.StationShards != nil {
+		chapters := make(map[string]struct{}, len(livestreamURIs))
+		for _, uri := range livestreamURIs {
+			authority, err := recordingAuthority(uri)
+			if err != nil {
+				return nil, err
+			}
+			if did != "" && did != authority {
+				return nil, fmt.Errorf("recording chapters have different DIDs: %s and %s", did, authority)
+			}
+			did = authority
+			chapters[uri] = struct{}{}
+		}
+		match = func(entry recordingEntry) bool {
+			_, ok := chapters[entry.URI]
+			return ok
+		}
+	}
+	return state.listCompletedS3Segments(ctx, did, match, "livestream_uri IN ?", livestreamURIs)
+}
+
+// ListS3SegmentsInRange returns completed recordings that may hold segments
+// starting in [from, to]. Callers select exact segments from each byte index.
+func (state *StatefulDB) ListS3SegmentsInRange(ctx context.Context, repoDID string, from, to time.Time) ([]S3Segment, error) {
+	return state.listCompletedS3Segments(ctx, repoDID, func(entry recordingEntry) bool {
+		return entry.Start.UnixMilli() <= to.UnixMilli() && entry.EndMS >= from.UnixMilli()
+	}, "user_did = ? AND started_at <= ? AND completed_at >= ?", repoDID, to, from)
+}
+
+func (state *StatefulDB) listCompletedS3Segments(ctx context.Context, did string, match func(recordingEntry) bool, where string, args ...any) ([]S3Segment, error) {
+	// SQL is the frozen pre-cutover catalog in shard mode. Open uploads
+	// from that catalog cannot complete under a station recording lease.
+	var legacy []S3Segment
 	err := state.DB.WithContext(ctx).
-		Where("livestream_uri IN ? AND completed_at IS NOT NULL", livestreamURIs).
-		Order("started_at ASC").
-		Find(&segs).Error
+		Where("completed_at IS NOT NULL").
+		Where(where, args...).
+		Order("started_at ASC, id ASC").
+		Find(&legacy).Error
 	if err != nil {
 		return nil, err
 	}
-	return segs, nil
+	if state.StationShards == nil {
+		return legacy, nil
+	}
+	committed, err := state.listRecordings(ctx, did, match)
+	if err != nil {
+		return nil, err
+	}
+	return mergeCompletedS3Segments(legacy, committed), nil
 }
 
-// ListS3SegmentsInRange returns repoDID's completed objects that may hold
-// segments starting in [from, to], in recording order. An object's segments
-// all start between its StartedAt and its CompletedAt, so this is a superset;
-// callers pick the exact segments out of each object's index.
-func (state *StatefulDB) ListS3SegmentsInRange(ctx context.Context, repoDID string, from, to time.Time) ([]S3Segment, error) {
-	var segs []S3Segment
-	err := state.DB.WithContext(ctx).
-		Where("user_did = ? AND completed_at IS NOT NULL AND started_at <= ? AND completed_at >= ?", repoDID, to, from).
-		Order("started_at ASC").
-		Find(&segs).Error
-	return segs, err
+// mergeCompletedS3Segments consumes both slices; committed is already ordered
+// by the manifest reader. SQLite can order legacy timestamps by their offset.
+func mergeCompletedS3Segments(legacy, committed []S3Segment) []S3Segment {
+	if len(legacy)+len(committed) <= 1 {
+		if len(legacy) != 0 {
+			return legacy
+		}
+		return committed
+	}
+	compare := func(a, b S3Segment) int {
+		if order := a.StartedAt.Compare(b.StartedAt); order != 0 {
+			return order
+		}
+		return cmp.Compare(a.ID, b.ID)
+	}
+	slices.SortFunc(legacy, compare)
+
+	type object struct{ bucket, key string }
+	seen := make(map[object]struct{}, len(legacy)+len(committed))
+	unique := func(segs []S3Segment) []S3Segment {
+		n := 0
+		for i := range segs {
+			obj := object{segs[i].Bucket, segs[i].Key}
+			if _, ok := seen[obj]; ok {
+				continue
+			}
+			seen[obj] = struct{}{}
+			if n != i {
+				segs[n] = segs[i]
+			}
+			n++
+		}
+		clear(segs[n:])
+		return segs[:n]
+	}
+	committed = unique(committed)
+	legacy = unique(legacy)
+	if len(legacy) == 0 {
+		return committed
+	}
+	if len(committed) == 0 {
+		return legacy
+	}
+
+	// Merge backwards so either input buffer can hold the result in place.
+	i, j := len(legacy), len(committed)
+	n := i + j
+	var out []S3Segment
+	switch {
+	case cap(legacy) >= n && (cap(committed) < n || i >= j):
+		out = legacy[:n]
+	case cap(committed) >= n:
+		out = committed[:n]
+	default:
+		out = make([]S3Segment, n)
+	}
+	for i > 0 && j > 0 {
+		n--
+		if compare(legacy[i-1], committed[j-1]) > 0 {
+			i--
+			out[n] = legacy[i]
+		} else {
+			j--
+			out[n] = committed[j]
+		}
+	}
+	copy(out[:i], legacy[:i])
+	copy(out[:j], committed[:j])
+	return out
 }
 
 // LatestOpenS3Segment returns repoDID's most recently started object whose
 // upload has not completed and that started at or after since, or nil.
 func (state *StatefulDB) LatestOpenS3Segment(ctx context.Context, repoDID string, since time.Time) (*S3Segment, error) {
+	if state.StationShards != nil {
+		role, err := readRecordingRole(ctx, state.StationShards, repoDID)
+		if err != nil || role.Open == nil || role.Open.Start.Before(since) {
+			return nil, err
+		}
+		seg := role.Open.segment(repoDID)
+		return &seg, nil
+	}
 	var segs []S3Segment
 	err := state.DB.WithContext(ctx).
 		Where("user_did = ? AND completed_at IS NULL AND started_at >= ?", repoDID, since).
@@ -121,6 +235,20 @@ func (state *StatefulDB) LatestOpenS3Segment(ctx context.Context, repoDID string
 // CountOpenS3Segments counts the objects recorded for one livestream whose
 // uploads have not completed yet.
 func (state *StatefulDB) CountOpenS3Segments(ctx context.Context, livestreamURI string) (int64, error) {
+	if state.StationShards != nil {
+		did, err := recordingAuthority(livestreamURI)
+		if err != nil {
+			return 0, err
+		}
+		role, err := readRecordingRole(ctx, state.StationShards, did)
+		if err != nil {
+			return 0, err
+		}
+		if role.Open != nil && role.Open.URI == livestreamURI {
+			return 1, nil
+		}
+		return 0, nil
+	}
 	var n int64
 	err := state.DB.WithContext(ctx).Model(&S3Segment{}).
 		Where("livestream_uri = ? AND completed_at IS NULL", livestreamURI).
@@ -131,6 +259,9 @@ func (state *StatefulDB) CountOpenS3Segments(ctx context.Context, livestreamURI 
 // RecordComplete marks an S3 multipart upload as completed and records the
 // final part count, size and segment index. Implements s3.Recorder.
 func (state *StatefulDB) RecordComplete(ctx context.Context, id string, parts int32, size int64, segments []s3.RecordedSegment) error {
+	if state.StationShards != nil {
+		return errRecordingLeaseRequired
+	}
 	now := time.Now().UTC()
 	row := S3Segment{CompletedAt: &now, Size: size, PartCount: parts, Segments: segments}
 	cols := []string{"completed_at", "size", "part_count", "segments"}
@@ -149,11 +280,18 @@ func (state *StatefulDB) RecordComplete(ctx context.Context, id string, parts in
 // never comes into existence, so nothing should wait on it or read from it.
 // Implements s3.Recorder.
 func (state *StatefulDB) RecordAbort(ctx context.Context, id string) error {
+	if state.StationShards != nil {
+		return errRecordingLeaseRequired
+	}
 	return state.DB.WithContext(ctx).Delete(&S3Segment{ID: id}).Error
 }
 
-// GetS3Segment fetches an S3Segment by ID. Returns (nil, nil) if not found.
+// GetS3Segment fetches a standalone recording by ID. Sharded lookup requires
+// station authority, which a recording ID alone does not provide.
 func (state *StatefulDB) GetS3Segment(ctx context.Context, id string) (*S3Segment, error) {
+	if state.StationShards != nil {
+		return nil, fmt.Errorf("cannot look up sharded recording %q without a station DID", id)
+	}
 	var seg S3Segment
 	err := state.DB.WithContext(ctx).Where("id = ?", id).First(&seg).Error
 	if err != nil {
@@ -163,4 +301,13 @@ func (state *StatefulDB) GetS3Segment(ctx context.Context, id string) (*S3Segmen
 		return nil, err
 	}
 	return &seg, nil
+}
+
+// RecordingObjectKeys returns the object keys in the supplied recording order.
+func RecordingObjectKeys(segs []S3Segment) []string {
+	keys := make([]string, len(segs))
+	for i := range segs {
+		keys[i] = segs[i].Key
+	}
+	return keys
 }

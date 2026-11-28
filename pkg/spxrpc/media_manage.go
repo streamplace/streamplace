@@ -225,7 +225,7 @@ func (s *Server) handlePlaceStreamMediaDeleteVideo(ctx context.Context, body *pl
 	if _, err := s.requireLivestreamManage(ctx, owner, "deleteVideo"); err != nil {
 		return nil, err
 	}
-	deleted, err := vod.DeleteVideo(ctx, s.statefulDB, body.Uri, body.Tracks != nil && *body.Tracks)
+	deleted, err := vod.DeleteVideo(ctx, s.statefulDB, s.playbackStore, body.Uri, body.Tracks != nil && *body.Tracks)
 	if err != nil {
 		return nil, videoError("delete video", err)
 	}

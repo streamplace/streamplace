@@ -66,6 +66,7 @@ type Server struct {
 	aliases           map[string]string
 	identityDirectory func() identity.Directory
 	identityRefreshes *cache.Cache
+	creatorRoutes     *creatorRouter
 	// MoqURL reports the node's Media over QUIC URL for getBroadcaster;
 	// nil when the node has no listener.
 	MoqURL func() string
@@ -119,6 +120,14 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	if atsync != nil {
 		s.identityDirectory = atsync.IdentityDirectory
 	}
+	if statefulDB != nil && statefulDB.StationShards != nil {
+		peers, err := cli.StationPeerOrigins()
+		if err != nil {
+			return nil, err
+		}
+		s.creatorRoutes = &creatorRouter{slots: statefulDB.StationShards, peers: peers, client: newCreatorPeerClient()}
+	}
+	e.Pre(s.stationActiveTargetsDispatch)
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())
 	e.Use(echomiddleware.Handler("", mdlw))

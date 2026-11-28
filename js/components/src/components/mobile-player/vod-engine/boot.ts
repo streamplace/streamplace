@@ -60,12 +60,8 @@ function frame(
     }
     #sp-vod-boot .header { display: none; }
     #sp-vod-boot .player {
-      width: 100%; aspect-ratio: ${aspectRatio};
-      ${
-        aspectRatio > 1
-          ? `max-height: 100vh; margin-inline: max(0px, calc((100vw - 100vh * ${aspectRatio}) / 2));`
-          : "max-height: 70vh;"
-      }
+      width: 100%; aspect-ratio: ${aspectRatio}; max-height: 100vh;
+      margin-inline: max(0px, calc((100vw - 100vh * ${aspectRatio}) / 2));
     }
     #sp-vod-boot .metadata {
       display: grid; gap: ${spacing[4]}px; padding: ${spacing[4]}px;

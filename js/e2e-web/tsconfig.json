@@ -13,6 +13,7 @@
   "include": [
     "flows/**/*.ts",
     "desktop/**/*.ts",
+    "safari/**/*.mts",
     "global-setup.ts",
     "storage.ts",
     "playwright.config.ts",

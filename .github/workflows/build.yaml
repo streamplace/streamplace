@@ -530,6 +530,29 @@ jobs:
           && PATH="/opt/homebrew/opt/llvm/bin:$PATH" \
           && ${{ matrix.cmd }}
 
+      - name: Run iOS Simulator Safari chat
+        if: matrix.name == 'darwin-arm64'
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/safari-chat
+        run: |
+          brew install socat
+          sudo bash hack/e2e-https-macos.sh install
+          cp /etc/hosts "$RUNNER_TEMP/safari-hosts"
+          trap 'sudo cp "$RUNNER_TEMP/safari-hosts" /etc/hosts; sudo bash hack/e2e-https-macos.sh uninstall' EXIT
+          # The app's public PLC URL must reach the harness's local directory.
+          echo '127.0.0.1 plc.directory' | sudo tee -a /etc/hosts
+          sudo /usr/bin/safaridriver --enable
+          bash hack/e2e-safari-local.sh
+
+      - name: Upload Safari chat artifacts
+        if: failure() && matrix.name == 'darwin-arm64'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: safari-chat-${{ github.run_id }}
+          path: ${{ runner.temp }}/safari-chat/
+          retention-days: 7
+          if-no-files-found: ignore
+
       # Installs the simulator build on an iPhone simulator and runs the home
       # Maestro flow against it (hack/ios-smoke.sh).
       - name: install ios test tools

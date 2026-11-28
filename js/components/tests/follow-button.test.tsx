@@ -39,8 +39,8 @@ vi.mock("react-native", () => ({
   View: ({ children }: any) => <div>{children}</div>,
 }));
 vi.mock("lucide-react-native", () => ({
-  Plus: () => <span>Plus</span>,
-  Check: () => <span>Check</span>,
+  UserPlus: () => <span>UserPlus</span>,
+  UserMinus: () => <span>UserMinus</span>,
 }));
 vi.mock("@streamplace/components", () => ({
   Button,
@@ -135,19 +135,19 @@ async function render(
   );
 }
 
-it("uses an accessible plus and check while preserving real follow state", async () => {
+it("uses accessible user-plus and user-minus icons while preserving real follow state", async () => {
   await render();
   let button = container.querySelector("button")!;
   expect(button.getAttribute("aria-label")).toBe("Follow");
-  expect(button.textContent).toBe("Plus");
+  expect(button.textContent).toBe("UserPlus");
   await act(async () => button.click());
   expect(fixture.following.has("creator")).toBe(true);
   button = container.querySelector("button")!;
   expect(button.getAttribute("aria-label")).toBe("Unfollow");
-  expect(button.textContent).toBe("Check");
+  expect(button.textContent).toBe("UserMinus");
   await act(async () => button.click());
   expect(fixture.following.has("creator")).toBe(false);
-  expect(container.querySelector("button")!.textContent).toBe("Plus");
+  expect(container.querySelector("button")!.textContent).toBe("UserPlus");
 });
 
 it.each([false, true])(
@@ -158,7 +158,7 @@ it.each([false, true])(
     );
     const button = container.querySelector("button")!;
     expect(button.disabled).toBe(false);
-    expect(button.textContent).toBe(iconOnly ? "Plus" : "PlusFollow");
+    expect(button.textContent).toBe(iconOnly ? "UserPlus" : "UserPlusFollow");
     await act(async () => button.click());
     expect(fixture.loginOpen).toBe(true);
     expect(fixture.returnRoute).toEqual(streamRoute);
@@ -193,7 +193,7 @@ it("returns to the unfollowed appearance after signing out without unfollowing",
     root.render(<FollowButton streamerDID="creator" iconOnly />),
   );
   const button = container.querySelector("button")!;
-  expect(button.textContent).toBe("Plus");
+  expect(button.textContent).toBe("UserPlus");
   expect(button.disabled).toBe(false);
   await act(async () => button.click());
   expect(fixture.loginOpen).toBe(true);
@@ -203,7 +203,9 @@ it("returns to the unfollowed appearance after signing out without unfollowing",
 it("keeps the full button's text presentation", async () => {
   fixture.following.add("creator");
   await render("viewer", false);
-  expect(container.querySelector("button")!.textContent).toBe("Following");
+  expect(container.querySelector("button")!.textContent).toBe(
+    "UserMinusFollowing",
+  );
 });
 
 it.each([false, true])(
@@ -215,7 +217,7 @@ it.each([false, true])(
     await act(async () => container.querySelector("button")!.click());
     expect(fixture.following.has("creator")).toBe(following);
     expect(container.querySelector("button")!.textContent).toBe(
-      following ? "Check" : "Plus",
+      following ? "UserMinus" : "UserPlus",
     );
     expect(fixture.toasts.join(" ")).toContain("Request rejected");
   },
@@ -229,6 +231,6 @@ it("does not let another press reverse an update that is still pending", async (
   await act(async () => container.querySelector("button")!.click());
   await act(async () => fixture.release!());
   expect(fixture.following.has("creator")).toBe(true);
-  expect(container.querySelector("button")!.textContent).toBe("Check");
+  expect(container.querySelector("button")!.textContent).toBe("UserMinus");
   expect(container.querySelector("button")!.disabled).toBe(false);
 });

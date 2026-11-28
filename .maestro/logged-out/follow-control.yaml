@@ -1,0 +1,25 @@
+appId: ${APP_ID}
+---
+# The follow action is icon-only on phones. Signed out it must render as a
+# follow affordance (user-plus) and route to login rather than toggle state.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- tapOn:
+    id: "home-stream-card"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: "follow-button"
+    timeout: 30000
+- assertVisible:
+    text: "Follow"
+- takeScreenshot: follow-control-signed-out
+- tapOn:
+    id: "follow-button"
+- extendedWaitUntil:
+    visible: "Sign in using your handle on the AT Protocol"
+    timeout: 10000
+- takeScreenshot: follow-control-login

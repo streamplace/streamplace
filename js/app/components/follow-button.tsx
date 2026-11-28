@@ -10,7 +10,7 @@ import {
   useTranslation,
   zero,
 } from "@streamplace/components";
-import { Check, Plus } from "lucide-react-native";
+import { UserMinus, UserPlus } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { View } from "react-native";
 import { useStore } from "store";
@@ -154,6 +154,7 @@ const FollowButton: React.FC<FollowButtonProps> = ({
     >
       {iconOnly ? (
         <IconButton
+          testID="follow-button"
           accessibilityLabel={t(following ? "unfollow" : "follow")}
           accessibilityState={{ selected: following }}
           onPress={following ? handleUnfollow : handleFollow}
@@ -162,18 +163,33 @@ const FollowButton: React.FC<FollowButtonProps> = ({
           {checkingFollow ? (
             <Loader size="small" />
           ) : (
-            <Icon icon={following ? Check : Plus} size="md" />
+            <Icon
+              icon={following ? UserMinus : UserPlus}
+              size="md"
+              testID={
+                following ? "follow-icon-user-minus" : "follow-icon-user-plus"
+              }
+            />
           )}
         </IconButton>
       ) : (
         <Button
+          testID="follow-button"
           onPress={following ? handleUnfollow : handleFollow}
           variant={following ? "secondary" : "primary"}
           size="pill"
           width="min"
           disabled={checkingFollow}
           loading={!!currentUserDID && (checkingFollow || updating)}
-          leftIcon={!following && <Icon icon={Plus} size="sm" />}
+          leftIcon={
+            <Icon
+              icon={following ? UserMinus : UserPlus}
+              size="sm"
+              testID={
+                following ? "follow-icon-user-minus" : "follow-icon-user-plus"
+              }
+            />
+          }
           hoverStyle={
             following ? { backgroundColor: theme.colors.danger } : undefined
           }

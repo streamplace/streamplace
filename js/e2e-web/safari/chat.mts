@@ -104,8 +104,14 @@ async function find(selector: string) {
       using: selector.startsWith("//") ? "xpath" : "css selector",
       value: selector,
     });
-    const path = `/element/${element[elementKey]}`;
-    return (await send<boolean>(`${path}/displayed`)) ? path : false;
+    // SafariDriver does not implement the legacy /displayed endpoint.
+    const shown = await send<boolean>("/execute/sync", {
+      script: `const el = arguments[0];
+        return el.getClientRects().length > 0 &&
+          getComputedStyle(el).visibility === "visible";`,
+      args: [element],
+    });
+    return shown ? `/element/${element[elementKey]}` : false;
   } catch (error) {
     if (
       error instanceof WebDriverError &&

@@ -108,10 +108,8 @@ if [ "${E2E_EDGE:-}" = true ] && [ $# -eq 0 ]; then
   # Sign-in flows drive OAuth through the harness's HTTPS node hostnames, so
   # they reach the node directly and cannot run through the worker. The
   # player-viewport flow opts into the Vite beta frontend with sp_web_beta,
-  # which only a node serves; the worker serves the app build. The
-  # service-worker update flows fail the same way against a bare node in this
-  # environment, so they would say nothing about the worker.
-  EDGE_EXCLUDE='about-link|auto-publish-vods|bootstrap-branding|branding-favicons|chat-facets|chat-popout|chat-timezone|desktop|invalid-handle|login-typeahead|not-found|oauth-login|player-viewport|prelive-playback|pronouns|service-worker|stream|upstream-station'
+  # which only a node serves; the worker serves the app build.
+  EDGE_EXCLUDE='about-link|auto-publish-vods|bootstrap-branding|branding-favicons|chat-facets|chat-popout|chat-timezone|desktop|invalid-handle|login-typeahead|not-found|oauth-login|player-viewport|prelive-playback|pronouns|stream|upstream-station'
   set -- $(cd "$REPO/js/e2e-web/flows" && ls *.spec.ts | grep -Ev "^(${EDGE_EXCLUDE})\.spec\.ts$")
 fi
 

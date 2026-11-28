@@ -224,14 +224,16 @@ jobs:
       # non-sign-in flow, which is another full suite's worth of minutes.
       # smoke (shell + assets), bootstrap (load sequence), tabs and
       # lazy-navigation (chunks), websocket-authors and stream-reconnect
-      # (proxy upgrades), vod (page head and playback).
+      # (proxy upgrades), service-worker (shell updates at the edge), vod
+      # (page head and playback).
       - name: Run web e2e tests through the edge worker
         if: matrix.mode == 'standalone'
         run: |
           hack/e2e-web-local.sh --edge \
             flows/smoke.spec.ts flows/bootstrap.spec.ts flows/tabs.spec.ts \
             flows/lazy-navigation.spec.ts flows/websocket-authors.spec.ts \
-            flows/stream-reconnect.spec.ts flows/vod.spec.ts
+            flows/stream-reconnect.spec.ts flows/service-worker.spec.ts \
+            flows/vod.spec.ts
         env:
           E2E_HARNESS_LOG: ${{ runner.temp }}/harness-web-edge.log
           E2E_EDGE_LOG: ${{ runner.temp }}/edge-web.log

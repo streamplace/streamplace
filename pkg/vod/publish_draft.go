@@ -19,6 +19,7 @@ import (
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -234,16 +235,33 @@ func tracksForUpload(ctx context.Context, state *statedb.StatefulDB, client XRPC
 	if upload.ContentCID == "" {
 		return nil, fmt.Errorf("upload %s has no content_cid", upload.ID)
 	}
+	source, err := publishSourceTracks(ctx, client, did, upload.ContentCID, upload.BlobSize, upload.SigningKey, probe)
+	if err != nil || source == nil {
+		return nil, err
+	}
+	log.Log(ctx, "published media.track records (deferred to publish)",
+		"uploadId", upload.ID, "cid", upload.ContentCID, "tracks", len(source.Tracks))
+	if b, err := json.Marshal(trackRefsJSON(source.Tracks)); err == nil {
+		if err := state.SetUploadTrackURIs(ctx, upload.ID, string(b)); err != nil {
+			log.Warn(ctx, "could not remember published track records on the upload", "uploadId", upload.ID, "error", err)
+		}
+	}
+	return source, nil
+}
+
+// publishSourceTracks publishes one place.stream.media.track record per probed
+// A/V stream of the blob at cid; nil when the probe found none.
+func publishSourceTracks(ctx context.Context, client XRPCClient, did, cid string, blobSize int64, signingKey string, probe media.VODResult) (*placestream.MediaDefs_SourceTracks, error) {
 	var tracks []comatproto.RepoStrongRef
 	if probe.Video != nil {
-		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, "1", "video", upload.SigningKey, probe.Video, nil)
+		ref, err := publishTrack(ctx, client, did, cid, blobSize, probe.DurationMS, "1", "video", signingKey, probe.Video, nil)
 		if err != nil {
 			return nil, fmt.Errorf("publish video track: %w", err)
 		}
 		tracks = append(tracks, *ref)
 	}
 	if probe.Audio != nil {
-		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, "2", "audio", upload.SigningKey, nil, probe.Audio)
+		ref, err := publishTrack(ctx, client, did, cid, blobSize, probe.DurationMS, "2", "audio", signingKey, nil, probe.Audio)
 		if err != nil {
 			return nil, fmt.Errorf("publish audio track: %w", err)
 		}
@@ -251,13 +269,6 @@ func tracksForUpload(ctx context.Context, state *statedb.StatefulDB, client XRPC
 	}
 	if len(tracks) == 0 {
 		return nil, nil
-	}
-	log.Log(ctx, "published media.track records (deferred to publish)",
-		"uploadId", upload.ID, "cid", upload.ContentCID, "tracks", len(tracks))
-	if b, err := json.Marshal(trackRefsJSON(tracks)); err == nil {
-		if err := state.SetUploadTrackURIs(ctx, upload.ID, string(b)); err != nil {
-			log.Warn(ctx, "could not remember published track records on the upload", "uploadId", upload.ID, "error", err)
-		}
 	}
 	return &placestream.MediaDefs_SourceTracks{
 		LexiconTypeID: "place.stream.media.defs#sourceTracks",

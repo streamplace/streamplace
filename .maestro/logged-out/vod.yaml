@@ -1,0 +1,40 @@
+appId: ${APP_ID}
+---
+# The harness's test VOD (VIDEO_URI) is the real fixture, run through the VOD
+# pipeline: opened by deep link, it shows its title and plays.
+- evalScript:
+    ${output.watchPath = ACCOUNT_HANDLE + "/video/" + VIDEO_URI.split("/")[4]}
+# Start through the link, not a launcher intent racing the JS URL listener.
+- stopApp
+- openLink: ${APP_ID}://${output.watchPath}
+- extendedWaitUntil:
+    visible:
+      text: ".*e2e test video.*"
+    timeout: 30000
+- takeScreenshot: vod-open
+# A playing video never settles, so this lets it play on before pausing.
+- waitForAnimationToEnd:
+    timeout: 2000
+# Reveal the controls and pause at once: Maestro's slow commands can outlast
+# their 6s fade. Paused, they stay up and the position is readable.
+- retry:
+    maxRetries: 3
+    commands:
+      - runFlow:
+          when:
+            notVisible: "Pause"
+          commands:
+            - tapOn:
+                point: 50%,20%
+                waitToSettleTimeoutMs: 500
+      - tapOn:
+          text: "Pause"
+          waitToSettleTimeoutMs: 500
+      - extendedWaitUntil:
+          visible: "Play"
+          timeout: 5000
+# It played from 0:00: the elapsed time (left of the "/") is past it.
+- assertVisible:
+    text: "0:0[1-9]|0:[1-5][0-9]|[1-9][0-9]*:[0-5][0-9]"
+    leftOf: "/"
+- takeScreenshot: vod-paused

@@ -26,6 +26,7 @@ type Linker struct {
 	BaseHTML []byte
 	sdb      *statedb.StatefulDB
 	cli      *config.CLI
+	vodBoot  *vodBootScripts
 }
 
 func NewLinker(ctx context.Context, baseHTML []byte, sdb *statedb.StatefulDB, cli *config.CLI) (*Linker, error) {
@@ -42,6 +43,7 @@ type PageConfig struct {
 	Metas     []MetaTag
 	SentryDSN string
 	Branding  []string
+	VODBoot   *VODBootPayload
 }
 
 // Define all meta tags in a structured way
@@ -328,7 +330,7 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *plac
 // GenerateVideoCard is the card for a video page: "<name>'s video on <site>"
 // (cardVideoTitle) over the video's own title. The page's <title> is the
 // video's own title.
-func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestream.MediaGetVideo_VideoView, sentryDSN string) ([]byte, error) {
+func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestream.MediaGetVideo_VideoView, sentryDSN string, boot *VODBootPayload) ([]byte, error) {
 	if u == nil {
 		return nil, errors.New("url is nil")
 	}
@@ -385,6 +387,7 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestr
 		Title:     pageTitle,
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
+		VODBoot:   boot,
 	})
 }
 
@@ -612,6 +615,10 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 			Type: html.TextNode,
 			Data: `window.SENTRY_DSN = "` + pc.SentryDSN + `";`,
 		})
+	}
+
+	if err := l.injectVODBoot(findChild(htmlNode, "body"), pc.VODBoot); err != nil {
+		return nil, err
 	}
 
 	// Render the HTML to a string

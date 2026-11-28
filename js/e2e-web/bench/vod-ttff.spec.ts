@@ -193,11 +193,15 @@ test("vod-ttff: time to first frame, cold and warm", async ({ browser }) => {
         const context = await browser.newContext({ storageState });
         await context.addInitScript(instrument);
         if (start === "warm") {
-          // "Watched" means it played a little, not just painted a frame.
+          // "Watched" means it played a little, not just painted a frame. A
+          // page that draws its own frames (js/vod-poc) has no <video> to ask.
           const page = await open(context, primer, conditions);
-          await page.waitForFunction(
-            () => document.querySelector("video")!.currentTime >= 3,
-          );
+          await page.waitForFunction(() => {
+            const video = document.querySelector("video");
+            return video
+              ? video.currentTime >= 3
+              : performance.now() - window.__vodTtff.firstFrame! >= 3000;
+          });
           await page.close();
         }
         const page = await open(context, target, conditions);
@@ -235,7 +239,7 @@ test("vod-ttff: time to first frame, cold and warm", async ({ browser }) => {
     const cells = COLUMNS.map(([key]) => {
       const values = results
         .map((r) => r[key])
-        .filter((v): v is number => v !== null);
+        .filter((v) => typeof v === "number");
       return values.length ? Math.round(median(values)) : "–";
     });
     return `| ${scenario} | ${cells.join(" | ")} |`;

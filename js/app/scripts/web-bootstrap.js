@@ -49,17 +49,20 @@ if ("serviceWorker" in navigator) {
             return;
           }
           const onIdle = (event) => {
-            if (event.data && event.data.type === "IDLE") {
+            const type = event.data && event.data.type;
+            if (type === "IDLE_ACK") {
+              clearTimeout(timer);
+            } else if (type === "IDLE") {
               clearTimeout(timer);
               navigator.serviceWorker.removeEventListener("message", onIdle);
               post();
             }
           };
-          // A worker from a previous deploy never answers, so do not wait forever.
+          // A worker from a previous deploy never acknowledges; do not wait forever.
           const timer = setTimeout(() => {
             navigator.serviceWorker.removeEventListener("message", onIdle);
             post();
-          }, 1_000);
+          }, 500);
           navigator.serviceWorker.addEventListener("message", onIdle);
           active.postMessage({ type: "WHEN_IDLE" });
         };

@@ -663,7 +663,7 @@ test("service worker: activation waits for in-flight cacheable work", async ({
       ),
     )
     .toBe(true);
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(1_500);
   expect(await workers(context)).toMatchObject({ v2: "installed" });
   await expect.poll(() => workers(context)).toMatchObject({ v2: "activated" });
   await expect(searchBox(page)).toBeVisible();

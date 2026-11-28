@@ -47,6 +47,13 @@ self.addEventListener("message", (event) => {
     event.waitUntil(self.skipWaiting());
   }
   if (event.data && event.data.type === "WHEN_IDLE") {
+    try {
+      if (event.source && "postMessage" in event.source) {
+        event.source.postMessage({ type: "IDLE_ACK" });
+      }
+    } catch (e) {
+      // The asking client navigated away; nobody needs the answer.
+    }
     event.waitUntil(
       whenIdle().then(() => {
         try {

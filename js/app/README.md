@@ -143,7 +143,7 @@ startup window; Chromium still performs the actual install, activation, and relo
 A tab remembers that it was controlled, so a navigation whose document briefly reports
 no controller still resumes an update that is already waiting. Activation waits for
 the old worker to report its fetches and cache writes idle, since Chromium can stall
-skipWaiting behind that work.
+skipWaiting behind that work; a short timeout covers workers from an earlier deploy.
 
 The crash fallback reads pure Streamplace dark-theme tokens without importing
 provider modules. Retry remains available on every platform; page reload is web-only.

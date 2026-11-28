@@ -434,7 +434,7 @@ dev $(STATION_DEV_TARGET): app-cached $(LEXICON_STAMP)
 	LD_LIBRARY_PATH=$(BUILDDIR)/lib $(NATIVE_ENV) go build -tags "mainnet$(if $(filter dev-station,$@), stationslate)" -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
 
 # Keep the native-backed smoke focused; ordinary suites still run without stationslate.
-STATION_TESTS := Station|StableDIDSlots|Shard(edRecording|Recording|Role)|FinalizeRecordingObjectKeysStayPinned|CopyState|ResolveStationIdentity|CheckConfig|E2EHTTPSStation|PrivateDraft|Migrated(Finalize|Implicit)|ScopedDraftAccess|DraftGrant|CollectionActionsGrant|LexiconOverlay|AuthFull
+STATION_TESTS := Station|StableDIDSlots|Shard(edRecording|Recording|Role)|FinalizeRecordingObjectKeysStayPinned|CopyState|ResolveStationIdentity|CheckConfig|E2EHTTPSStation|PrivateDraft|Migrated(Finalize|Implicit)|ScopedDraftAccess|DraftGrant|CollectionActionsGrant|LexiconOverlay|AuthFull|PublishedLexiconsOAuthScope
 STATION_TASK_TESTS := Task(Claims|Attempts|Effect|Heartbeat)|ConcurrentTask|Queue(Close|Central|dPublishVideo)|NotificationTakeover|WebhookRetries|AutomaticPublication|AutoPublishVOD|FinalizeLivestream
 STATION_GO_ENV = PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" LD_LIBRARY_PATH="$(abspath $(BUILDDIR)/lib):$(NATIVE_LIBDIR)" CGO_LDFLAGS="$(NATIVE_CGO_LDFLAGS) -L$(abspath $(BUILDDIR)/lib) -lm"
 .PHONY: test-station

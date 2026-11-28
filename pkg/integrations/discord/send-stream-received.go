@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
@@ -62,7 +63,7 @@ func sendWebhookRequest(ctx context.Context, req *http.Request) error {
 		case http.StatusNoContent:
 			return nil
 		case http.StatusTooManyRequests:
-			return ErrWebhookRateLimited
+			return &webhookRateLimitError{retryAt: webhookRetryAt(resp, time.Now())}
 		default:
 			body, err := readResponseBody(resp.Body)
 			if err != nil {

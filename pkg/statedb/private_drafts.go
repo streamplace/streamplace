@@ -160,14 +160,9 @@ func (d *Drafts) materialize(ctx context.Context, dv *DraftVideo, rec *placestre
 			return fmt.Errorf("reconcile draft metadata: %w", err)
 		}
 	} else {
-		rev, err := spaces.LatestRev(ctx, d.space, d.did)
+		rev, err := spaces.DraftCreateBaseline(ctx, d.space, d.did)
 		if err != nil {
-			return err
-		}
-		if rev == "" {
-			if err := spaces.EnsureDraftSpace(ctx, d.space, d.did); err != nil {
-				return fmt.Errorf("ensure personal space: %w", err)
-			}
+			return fmt.Errorf("checkpoint draft metadata create: %w", err)
 		}
 		if err := d.state.DB.WithContext(ctx).Model(dv).Update("metadata_attempt_rev", rev).Error; err != nil {
 			return err
@@ -257,12 +252,24 @@ func (d *Drafts) Create(ctx context.Context, uploadID string, rec *placestream.V
 }
 
 func (d *Drafts) Get(ctx context.Context, uri string) (*DraftVideo, error) {
+	return d.get(ctx, uri, false)
+}
+
+// GetForPublish returns a confirmed publication without rejoining private metadata.
+func (d *Drafts) GetForPublish(ctx context.Context, uri string) (*DraftVideo, error) {
+	return d.get(ctx, uri, true)
+}
+
+func (d *Drafts) get(ctx context.Context, uri string, publishing bool) (*DraftVideo, error) {
 	dv, err := d.state.getDraft(ctx, d.did, uri)
 	if err != nil {
 		return nil, err
 	}
 	if dv == nil || (d.space != nil && dv.MetadataState != draftInSpace) {
 		return nil, ErrDraftNotFound
+	}
+	if publishing && dv.PublishedURI != "" {
+		return dv, nil
 	}
 	if d.space != nil {
 		record, err := spaces.GetDraftMetadata(ctx, d.space, d.did, draftRkey(uri))
@@ -398,8 +405,17 @@ func (d *Drafts) Update(ctx context.Context, input *placestream.VodUpdateDraft_I
 	return dv, nil
 }
 
-// Delete only removes the local anchor after private deletion succeeds.
+// Delete removes the owned anchor after private metadata is deleted or absent.
 func (d *Drafts) Delete(ctx context.Context, uri string) error {
+	return d.delete(ctx, uri, "", "")
+}
+
+// DeletePublished checkpoints the public result before removing private metadata.
+func (d *Drafts) DeletePublished(ctx context.Context, uri, videoURI, videoCID string) error {
+	return d.delete(ctx, uri, videoURI, videoCID)
+}
+
+func (d *Drafts) delete(ctx context.Context, uri, videoURI, videoCID string) error {
 	dv, err := d.state.getDraft(ctx, d.did, uri)
 	if err != nil {
 		return err
@@ -408,12 +424,15 @@ func (d *Drafts) Delete(ctx context.Context, uri string) error {
 		return ErrDraftNotFound
 	}
 	if d.space != nil {
-		ok, err := spaces.WriteExistingDraftMetadata(ctx, d.space, d.did, draftRkey(uri), nil)
-		if err != nil {
-			return fmt.Errorf("delete private draft metadata: %w", err)
+		if videoURI != "" {
+			if err := d.state.DB.WithContext(ctx).Model(dv).UpdateColumns(map[string]any{
+				"published_uri": videoURI, "published_cid": videoCID,
+			}).Error; err != nil {
+				return fmt.Errorf("checkpoint published draft: %w", err)
+			}
 		}
-		if !ok {
-			return ErrDraftNotFound
+		if _, err := spaces.WriteExistingDraftMetadata(ctx, d.space, d.did, draftRkey(uri), nil); err != nil {
+			return fmt.Errorf("delete private draft metadata: %w", err)
 		}
 	}
 	return d.state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

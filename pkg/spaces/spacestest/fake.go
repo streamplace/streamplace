@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -21,7 +22,14 @@ type Fake struct {
 	// Calls lists the methods called, in order.
 	Calls       []string
 	SpaceExists bool
-	ops         []map[string]any
+	ops         []repoOp
+}
+
+type repoOp struct {
+	Rev        string `json:"rev"`
+	Collection string `json:"collection"`
+	Rkey       string `json:"rkey"`
+	index      int
 }
 
 func (f *Fake) Do(_ context.Context, _, _, method string, params map[string]any, body, out any) error {
@@ -82,33 +90,60 @@ func (f *Fake) Do(_ context.Context, _, _, method string, params map[string]any,
 	case "com.atproto.space.deleteRecord":
 		f.write(in.Collection, in.Rkey, nil)
 	case "com.atproto.space.applyWrites":
-		if len(in.Writes) != 1 {
-			return fmt.Errorf("expected one write")
+		if !f.SpaceExists && f.Rev == 0 {
+			return rpcError("SpaceNotFound")
 		}
-		w := in.Writes[0]
-		if _, ok := f.Records[w.Rkey]; !ok {
-			return rpcError("RecordNotFound")
-		}
-		switch w.Type {
-		case "com.atproto.space.applyWrites#update":
-			if len(w.Value) == 0 {
-				return fmt.Errorf("missing update value")
+		staged := make(map[string]json.RawMessage, len(in.Writes))
+		for _, w := range in.Writes {
+			value, stagedAlready := staged[w.Rkey]
+			if !stagedAlready {
+				value = f.Records[w.Rkey]
 			}
-			f.write(w.Collection, w.Rkey, w.Value)
-		case "com.atproto.space.applyWrites#delete":
-			f.write(w.Collection, w.Rkey, nil)
-		default:
-			return fmt.Errorf("unexpected write %s", w.Type)
+			switch w.Type {
+			case "com.atproto.space.applyWrites#create":
+				if value != nil {
+					return rpcError("RecordAlreadyExists")
+				}
+				staged[w.Rkey] = w.Value
+			case "com.atproto.space.applyWrites#update":
+				if value == nil {
+					return rpcError("RecordNotFound")
+				}
+				staged[w.Rkey] = w.Value
+			case "com.atproto.space.applyWrites#delete":
+				if value == nil {
+					return rpcError("RecordNotFound")
+				}
+				staged[w.Rkey] = nil
+			default:
+				return fmt.Errorf("unexpected write %s", w.Type)
+			}
+		}
+		if len(in.Writes) != 0 {
+			f.Rev++
+			for i, w := range in.Writes {
+				f.applyOp(w.Collection, w.Rkey, w.Value, i)
+			}
 		}
 	case "com.atproto.space.listRepoOps":
 		since, _ := params["since"].(string)
-		var ops []map[string]any
+		cursor, _ := params["cursor"].(string)
+		cursorRev, index, _ := strings.Cut(cursor, "/")
+		cursorIndex, _ := strconv.Atoi(index)
+		limit, _ := params["limit"].(int)
+		var ops []repoOp
+		next := ""
 		for _, op := range f.ops {
-			if op["rev"].(string) > since {
-				ops = append(ops, op)
+			if op.Rev <= since || op.Rev < cursorRev || (op.Rev == cursorRev && op.index <= cursorIndex) {
+				continue
+			}
+			ops = append(ops, op)
+			if len(ops) == limit {
+				next = fmt.Sprintf("%s/%d", op.Rev, op.index)
+				break
 			}
 		}
-		res = map[string]any{"ops": ops}
+		res = map[string]any{"ops": ops, "cursor": next, "commit": map[string]any{"rev": f.revision()}}
 	case "com.atproto.space.listRecords":
 		records := []map[string]any{}
 		for rkey, value := range f.Records {
@@ -119,7 +154,7 @@ func (f *Fake) Do(_ context.Context, _, _, method string, params map[string]any,
 		if f.Rev == 0 {
 			return rpcError("RepoNotFound")
 		}
-		res = map[string]any{"commit": map[string]any{"rev": syntax.NewTIDFromInteger(uint64(f.Rev)).String()}}
+		res = map[string]any{"commit": map[string]any{"rev": f.revision()}}
 	default:
 		return fmt.Errorf("unexpected method %s", method)
 	}
@@ -134,6 +169,15 @@ func (f *Fake) Do(_ context.Context, _, _, method string, params map[string]any,
 }
 
 func (f *Fake) write(collection, rkey string, value json.RawMessage) {
+	f.Rev++
+	f.applyOp(collection, rkey, value, 0)
+}
+
+func (f *Fake) revision() string {
+	return syntax.NewTIDFromInteger(uint64(f.Rev)).String()
+}
+
+func (f *Fake) applyOp(collection, rkey string, value json.RawMessage, index int) {
 	if value == nil {
 		delete(f.Records, rkey)
 	} else {
@@ -142,10 +186,7 @@ func (f *Fake) write(collection, rkey string, value json.RawMessage) {
 		}
 		f.Records[rkey] = value
 	}
-	f.Rev++
-	f.ops = append(f.ops, map[string]any{
-		"rev": syntax.NewTIDFromInteger(uint64(f.Rev)).String(), "collection": collection, "rkey": rkey,
-	})
+	f.ops = append(f.ops, repoOp{Rev: f.revision(), Collection: collection, Rkey: rkey, index: index})
 }
 
 func rpcError(name string) error {

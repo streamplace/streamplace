@@ -51,7 +51,9 @@ func TestQueuedPublishVideoReplaysWithoutWritableOAuth(t *testing.T) {
 			first, err := state.DequeueTask(ctx, "first", statedb.TaskFinalizeLivestreamVOD)
 			require.NoError(t, err)
 			require.NotNil(t, first)
-			receipt, err := json.Marshal(comatproto.RepoPutRecord_Output{Uri: videoURI, Cid: recordCID})
+			receipt, err := json.Marshal(comatproto.RepoPutRecord_Output{
+				Uri: videoURI, Cid: recordCID, Commit: &comatproto.RepoDefs_CommitMeta{Rev: "2222222222223"},
+			})
 			require.NoError(t, err)
 			require.NoError(t, state.DB.Create(&statedb.AppTaskEffect{
 				TaskID: first.ID, EffectKey: "video", Target: videoURI, Receipt: receipt,

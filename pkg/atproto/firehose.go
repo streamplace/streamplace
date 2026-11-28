@@ -62,8 +62,8 @@ type ATProtoSynchronizer struct {
 	LivestreamEnded func(ctx context.Context, streamerDID string)
 	// Station catalog hooks only retire existing hosting approvals. An indexed
 	// third-party record never grants permission to publish a stored blob.
-	StationRecordDeleted func(context.Context, string) error
-	StationVideoUpdated  func(context.Context, string, string) error
+	StationRecordDeleted func(ctx context.Context, uri, rev, since string) error
+	StationVideoUpdated  func(ctx context.Context, uri, currentCID, rev string) error
 
 	// Liveness, written concurrently by every relay consumer (unix nanos).
 	// lastSeen is the last reception; lastEvent is the newest event stamp,
@@ -603,6 +603,9 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 			})
 			if err != nil {
 				log.Error(ctx, "failed to handle create update", "err", err)
+				if collection.String() == constants.PLACE_STREAM_VIDEO {
+					complete = false
+				}
 				continue
 			}
 
@@ -760,15 +763,20 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 
 			if atsync.StationRecordDeleted != nil && (collection.String() == constants.PLACE_STREAM_VIDEO ||
 				(collection.String() == constants.PLACE_STREAM_MEDIA_ORIGIN && evt.Repo == atsync.CLI.StationDID)) {
-				if err := atsync.StationRecordDeleted(ctx, uri); err != nil {
+				since := ""
+				if evt.Since != nil {
+					since = *evt.Since
+				}
+				if err := atsync.StationRecordDeleted(ctx, uri, evt.Rev, since); err != nil {
 					log.Error(ctx, "failed to retire hosted record", "uri", uri, "err", err)
 					complete = false
 				}
 			}
 			if collection.String() == constants.PLACE_STREAM_VIDEO {
 				log.Debug(ctx, "deleting video", "uri", uri)
-				if err := atsync.Model.DeleteVideo(ctx, uri); err != nil {
+				if err := atsync.Model.DeleteVideo(ctx, uri, evt.Rev); err != nil {
 					log.Error(ctx, "failed to delete video", "err", err)
+					complete = false
 				}
 			}
 

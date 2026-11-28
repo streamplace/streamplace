@@ -56,7 +56,7 @@ func TestGetVideoView_NoViewCounts(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(ctx, video, parseURI(t, videoURI)))
+	require.NoError(t, m.UpsertVideo(ctx, video, parseURI(t, videoURI), ""))
 
 	view, err := m.GetVideoView(ctx, videoURI)
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestGetVideoView_SumsAcrossReporters(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(ctx, video, parseURI(t, videoURI)))
+	require.NoError(t, m.UpsertVideo(ctx, video, parseURI(t, videoURI), ""))
 
 	trackRef := comatproto.RepoStrongRef{
 		LexiconTypeID: "com.atproto.repo.strongRef",

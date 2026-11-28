@@ -249,13 +249,8 @@ func UpdateVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Stor
 		return "", fmt.Errorf("putRecord video: %w", err)
 	}
 	if publishedCID != "" {
-		if err := advertisePublishedVideo(ctx, state, store, publishedCID, uri); err != nil {
+		if err := advertisePublishedVideo(ctx, state, store, publishedCID, out); err != nil {
 			return "", err
-		}
-		if state.CLI.StationDID != "" {
-			if err := retractStationVideo(ctx, store, state.CLI.StationDID, uri, publishedCID); err != nil {
-				return "", err
-			}
 		}
 	}
 	log.Log(ctx, "updated video record (operator)", "uri", uri, "cid", out.Cid, "title", video.Title, "upload", up.UploadID)
@@ -282,7 +277,7 @@ func DeleteVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Stor
 		return nil, err
 	}
 	if state.CLI.StationDID != "" {
-		if err := retractStationVideo(ctx, store, state.CLI.StationDID, uri, ""); err != nil {
+		if err := withdrawStationVideo(ctx, store, state.CLI.StationDID, aturi.String()); err != nil {
 			return nil, fmt.Errorf("withdraw station hosting intent: %w", err)
 		}
 	}

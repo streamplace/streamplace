@@ -10,6 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/placestream"
@@ -22,11 +23,13 @@ import (
 // the getters that return placestream.Video directly). Only
 // indexed fields and the URI/CID identity earn their own column.
 type Video struct {
-	URI       string    `gorm:"primaryKey;column:uri"`
-	CID       string    `gorm:"column:cid"`
-	RepoDID   string    `gorm:"column:repo_did;index:idx_videos_repo_indexed,priority:1"`
-	Record    []byte    `gorm:"column:record"`
-	IndexedAt time.Time `gorm:"column:indexed_at;index:idx_videos_repo_indexed,priority:2"`
+	URI       string         `gorm:"primaryKey;column:uri"`
+	CID       string         `gorm:"column:cid"`
+	RepoDID   string         `gorm:"column:repo_did;index:idx_videos_repo_indexed,priority:1"`
+	RepoRev   string         `gorm:"column:repo_rev;not null;default:''"`
+	DeletedAt gorm.DeletedAt `gorm:"column:deleted_at"`
+	Record    []byte         `gorm:"column:record"`
+	IndexedAt time.Time      `gorm:"column:indexed_at;index:idx_videos_repo_indexed,priority:2"`
 }
 
 // ToRecord decodes the stored CBOR into the typed lexicon struct.
@@ -38,7 +41,7 @@ func (v *Video) ToRecord() (placestream.Video, error) {
 	return video, nil
 }
 
-func (m *DBModel) UpsertVideo(ctx context.Context, rec placestream.Video, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertVideo(ctx context.Context, rec placestream.Video, aturi syntax.ATURI, repoRev string) error {
 	repoDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)
@@ -57,12 +60,26 @@ func (m *DBModel) UpsertVideo(ctx context.Context, rec placestream.Video, aturi 
 		RepoDID:   repoDID.String(),
 		Record:    buf.Bytes(),
 		IndexedAt: aqtime.FromTime(time.Now().UTC()).Time().UTC(),
+		RepoRev:   repoRev,
 	}
-	return m.DB.WithContext(ctx).Save(v).Error
+	return m.writeVideo(ctx, v)
 }
 
-func (m *DBModel) DeleteVideo(ctx context.Context, uri string) error {
-	return m.DB.WithContext(ctx).Where("uri = ?", uri).Delete(&Video{}).Error
+func (m *DBModel) DeleteVideo(ctx context.Context, uri, repoRev string) error {
+	return m.writeVideo(ctx, &Video{
+		URI:       uri,
+		RepoRev:   repoRev,
+		DeletedAt: gorm.DeletedAt{Time: time.Now().UTC(), Valid: true},
+	})
+}
+
+// Keep a tombstone on delete so an older update cannot resurrect the row.
+func (m *DBModel) writeVideo(ctx context.Context, v *Video) error {
+	return m.DB.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "uri"}},
+		DoUpdates: clause.AssignmentColumns([]string{"cid", "repo_did", "record", "indexed_at", "repo_rev", "deleted_at"}),
+		Where:     clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "videos.repo_rev = '' OR videos.repo_rev < excluded.repo_rev"}}},
+	}).Create(v).Error
 }
 
 func (m *DBModel) GetVideoByURI(ctx context.Context, uri string) (*placestream.Video, error) {

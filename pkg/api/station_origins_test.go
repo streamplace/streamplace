@@ -59,7 +59,7 @@ func TestStationBackfillRequiresPublishedOwnedUpload(t *testing.T) {
 	refs := []comatproto.RepoStrongRef{{Uri: trackURI, Cid: hash.String()}}
 	require.NoError(t, mod.UpsertVideo(ctx, placestream.Video{Title: "public", Source: placestream.Video_Source{MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
 		LexiconTypeID: "place.stream.media.defs#sourceTracks", Tracks: refs,
-	}}}, mustURI(t, videoURI)))
+	}}}, mustURI(t, videoURI), ""))
 	backfill(0) // indexed video with guessed CID, without completed creator publication
 	stored, err := json.Marshal(refs)
 	require.NoError(t, err)

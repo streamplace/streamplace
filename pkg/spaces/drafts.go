@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spid"
 )
 
 const DraftMetadataCollection = "place.stream.vod.draftMetadata"
@@ -160,25 +161,75 @@ func GetDraftMetadata(ctx context.Context, c Client, did, rkey string) (*Record,
 	return &out, nil
 }
 
+type draftWrite struct {
+	Type       string                        `json:"$type"`
+	Collection string                        `json:"collection"`
+	Rkey       string                        `json:"rkey"`
+	Value      *placestream.VodDraftMetadata `json:"value,omitempty"`
+}
+
+func applyDraftWrites(ctx context.Context, c Client, did string, writes []draftWrite) error {
+	body := struct {
+		Space  string       `json:"space"`
+		Repo   string       `json:"repo"`
+		Writes []draftWrite `json:"writes"`
+	}{PersonalSpaceURI(did), did, writes}
+	return c.Do(ctx, "POST", "application/json", "com.atproto.space.applyWrites", nil, &body, nil)
+}
+
+// DraftCreateBaseline anchors the first migration write without leaving a record.
+func DraftCreateBaseline(ctx context.Context, c Client, did string) (string, error) {
+	rev, err := LatestRev(ctx, c, did)
+	if err != nil || rev != "" {
+		return rev, err
+	}
+	if err := EnsureDraftSpace(ctx, c, did); err != nil {
+		return "", err
+	}
+	// Alpha may discard an oplog prefix without reporting it. A create/delete
+	// batch at a fresh key leaves an oplog revision but no live metadata.
+	key := spid.TIDClock.Next().String()
+	if err := applyDraftWrites(ctx, c, did, []draftWrite{
+		{"com.atproto.space.applyWrites#create", DraftMetadataCollection, key, &placestream.VodDraftMetadata{}},
+		{"com.atproto.space.applyWrites#delete", DraftMetadataCollection, key, nil},
+	}); err != nil {
+		return "", err
+	}
+	rev, err = LatestRev(ctx, c, did)
+	if err == nil && rev == "" {
+		err = errors.New("missing space revision after draft migration checkpoint")
+	}
+	return rev, err
+}
+
+type draftOpsPage struct {
+	Cursor string `json:"cursor"`
+	Commit struct {
+		Rev string `json:"rev"`
+	} `json:"commit"`
+	Ops []struct {
+		Rev        string `json:"rev"`
+		Collection string `json:"collection"`
+		Rkey       string `json:"rkey"`
+	} `json:"ops"`
+}
+
+func listDraftOps(ctx context.Context, c Client, params map[string]any) (draftOpsPage, error) {
+	var page draftOpsPage
+	err := c.Do(ctx, "GET", "", "com.atproto.space.listRepoOps", params, nil, &page)
+	return page, err
+}
+
+var errDraftCreateHistory = errors.New("cannot verify interrupted draft migration against space history")
+
 // WriteExistingDraftMetadata updates, or deletes if metadata is nil. Alpha
 // putRecord is an upsert; applyWrites enforces existence at commit time.
 func WriteExistingDraftMetadata(ctx context.Context, c Client, did, rkey string, metadata *placestream.VodDraftMetadata) (bool, error) {
-	type write struct {
-		Type       string                        `json:"$type"`
-		Collection string                        `json:"collection"`
-		Rkey       string                        `json:"rkey"`
-		Value      *placestream.VodDraftMetadata `json:"value,omitempty"`
-	}
 	kind := "update"
 	if metadata == nil {
 		kind = "delete"
 	}
-	body := struct {
-		Space  string   `json:"space"`
-		Repo   string   `json:"repo"`
-		Writes [1]write `json:"writes"`
-	}{PersonalSpaceURI(did), did, [1]write{{"com.atproto.space.applyWrites#" + kind, DraftMetadataCollection, rkey, metadata}}}
-	err := c.Do(ctx, "POST", "application/json", "com.atproto.space.applyWrites", nil, &body, nil)
+	err := applyDraftWrites(ctx, c, did, []draftWrite{{"com.atproto.space.applyWrites#" + kind, DraftMetadataCollection, rkey, metadata}})
 	if noRepo(err) || spaceError(err, "RecordNotFound") {
 		return false, nil
 	}
@@ -197,11 +248,11 @@ func DraftCreateObserved(ctx context.Context, c Client, did, rkey, before string
 		return false, err
 	}
 	if rev == "" {
-		if before != "" {
-			return true, nil // The repo was removed.
-		}
 		exists, err := draftSpaceExists(ctx, c, did)
-		return !exists, err // The space existed before the create was attempted.
+		if err != nil || !exists {
+			return !exists, err
+		}
+		return false, errDraftCreateHistory
 	}
 	if rev == before {
 		return false, nil
@@ -216,17 +267,10 @@ func DraftCreateObserved(ctx context.Context, c Client, did, rkey, before string
 		// Include the old head to detect a compacted or replaced oplog.
 		params["since"] = syntax.NewTIDFromInteger(tid.Integer() - 1).String()
 	}
-	baseline := false
+	baseline, last := false, ""
 	for {
-		var page struct {
-			Cursor string `json:"cursor"`
-			Ops    []struct {
-				Rev        string `json:"rev"`
-				Collection string `json:"collection"`
-				Rkey       string `json:"rkey"`
-			} `json:"ops"`
-		}
-		if err := c.Do(ctx, "GET", "", "com.atproto.space.listRepoOps", params, nil, &page); err != nil {
+		page, err := listDraftOps(ctx, c, params)
+		if err != nil {
 			return false, err
 		}
 		for _, op := range page.Ops {
@@ -234,13 +278,34 @@ func DraftCreateObserved(ctx context.Context, c Client, did, rkey, before string
 				return true, nil
 			}
 			baseline = baseline || op.Rev == before
+			last = op.Rev
+		}
+		if page.Commit.Rev != rev {
+			return false, errDraftCreateHistory
 		}
 		if page.Cursor == "" {
-			if baseline {
-				return false, nil
-			}
-			return false, fmt.Errorf("cannot verify interrupted draft migration against space history")
+			break
+		}
+		if page.Cursor == params["cursor"] {
+			return false, errDraftCreateHistory
 		}
 		params["cursor"] = page.Cursor
 	}
+	if !baseline || last != rev {
+		return false, errDraftCreateHistory
+	}
+	// Prefix pruning need not change the head. Recheck the baseline if the
+	// scan spanned multiple snapshots.
+	if _, paged := params["cursor"]; paged {
+		delete(params, "cursor")
+		params["limit"] = 1
+		page, err := listDraftOps(ctx, c, params)
+		if err != nil {
+			return false, err
+		}
+		if page.Commit.Rev != rev || len(page.Ops) == 0 || page.Ops[0].Rev != before {
+			return false, errDraftCreateHistory
+		}
+	}
+	return false, nil
 }

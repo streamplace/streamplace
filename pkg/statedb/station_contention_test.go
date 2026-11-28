@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -114,6 +115,43 @@ func stationWriteResult(t *testing.T, pending <-chan chan<- bool, done <-chan er
 		t.Fatal("station write did not return")
 	}
 	return nil
+}
+
+func TestStationQueueEffectRetriesRejectedCommits(t *testing.T) {
+	a, b, pending := stationContentionPair(t)
+	ctx := t.Context()
+	require.NoError(t, a.DB.AutoMigrate(&AppTask{}, &AppTaskEffect{}))
+	task := enqueueClaimedTask(t, a, "push-conflict", nil)
+	claim := func(state *StatefulDB) context.Context {
+		return context.WithValue(ctx, queueClaimKey{}, queueClaim{state, task.ID, task.ClaimToken})
+	}
+
+	var dispatches atomic.Int32
+	send := func(context.Context) (bool, error) {
+		dispatches.Add(1)
+		return true, nil
+	}
+	done := stationWriteAsync(func() error {
+		_, err := RunTaskEffect(claim(b), "push-b", send)
+		return err
+	})
+	// Advance the head while B's reservation and then its receipt await CAS.
+	for _, winner := range []string{"push-a1", "push-a2"} {
+		reject := stationHeadAttempt(t, pending, done)
+		_, err := RunTaskEffect(claim(a), winner, send)
+		require.NoError(t, err)
+		reject <- false
+		stationHeadAttempt(t, pending, done) <- false
+	}
+	require.NoError(t, stationWriteResult(t, pending, done))
+	require.EqualValues(t, 3, dispatches.Load())
+	for _, key := range []string{"push-b", "push-a1", "push-a2"} {
+		receipt, found, err := ReadTaskEffect[bool](claim(a), key)
+		require.NoError(t, err)
+		require.True(t, found && receipt, "missing delivery receipt for %s", key)
+	}
+	require.NoError(t, a.CompleteTask(ctx, task.ID, task.ClaimToken))
+	requireTaskStatus(t, a, task.ID, TaskStatusCompleted)
 }
 
 func TestStationRepoBootstrapContention(t *testing.T) {

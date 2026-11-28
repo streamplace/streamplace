@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -375,24 +376,29 @@ func runTaskEffect[T any](ctx context.Context, key, target string, send func(con
 		return zero, err
 	}
 	// Use a bounded detached context for receipts on graceful cancellation.
-	save := func(receipt []byte) error {
+	save := func(receipt []byte, retryAt time.Time) error {
 		saveCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), taskCloseTimeout)
 		defer stop()
-		return claim.store.setTaskEffect(saveCtx, claim.id, claim.token, key, receipt)
+		return claim.store.setTaskEffect(saveCtx, claim.id, claim.token, key, receipt, retryAt)
 	}
 	if err := ctx.Err(); err != nil {
-		return zero, errors.Join(err, save(nil)) // no I/O was attempted
+		return zero, errors.Join(err, save(nil, time.Time{})) // no I/O was attempted
 	}
 	result, err := send(ctx)
 	if errors.Is(err, errTaskEffectNotDispatched) {
-		return zero, errors.Join(err, save(nil))
+		var retryAt time.Time
+		var hint interface{ RetryAt() time.Time }
+		if errors.As(err, &hint) {
+			retryAt = hint.RetryAt()
+		}
+		return zero, errors.Join(err, save(nil, retryAt))
 	}
 	if err != nil {
 		return zero, fmt.Errorf("%w (%s): %w", ErrTaskEffectUncertain, key, err)
 	}
 	receipt, err := json.Marshal(result)
 	if err == nil {
-		err = save(receipt)
+		err = save(receipt, time.Time{})
 	}
 	if err != nil {
 		return zero, fmt.Errorf("%w (%s): save receipt: %w", ErrTaskEffectUncertain, key, err)
@@ -806,8 +812,11 @@ func (state *StatefulDB) sendTaskPushes(ctx context.Context, userDID, handle, ti
 		dids = append(dids, follower.UserDID)
 	}
 	notifications, err := state.GetManyNotifications(dids)
-	if err != nil {
+	if err != nil || len(notifications) == 0 {
 		return err
+	}
+	if state.noter == nil {
+		return errors.New("no push notifier configured")
 	}
 	user := model.HandleOrDID(handle, userDID)
 	name := user
@@ -819,41 +828,59 @@ func (state *StatefulDB) sendTaskPushes(ctx context.Context, userDID, handle, ti
 		Body:  title,
 		Data:  map[string]string{"path": "/" + user},
 	}
+	group, pushCtx := errgroup.WithContext(ctx)
+	group.SetLimit(taskPushConcurrency)
+	var mu sync.Mutex
 	var errs []error
 	for _, n := range notifications {
-		if state.noter == nil {
-			return errors.New("no push notifier configured")
+		if pushCtx.Err() != nil {
+			break
 		}
-		if router, ok := state.noter.(*notificationpkg.MultiNotifier); ok && !router.Supports(n.Type) {
-			errs = append(errs, fmt.Errorf("no push transport configured for %s", n.Type))
-			continue
-		}
-		target := [1]notificationpkg.NotificationTarget{{Token: n.Token, Type: n.Type}}
-		expired, err := RunTaskEffect(ctx, taskEffectKey("push", n.Token), func(ctx context.Context) (bool, error) {
-			err := state.noter.Blast(ctx, target[:], blast)
-			if len(notificationpkg.ExpiredTokens(err)) > 0 && !errors.Is(err, notificationpkg.ErrPushNotDispatched) {
-				return true, nil // a definite expired-subscription response
+		group.Go(func() error {
+			if err := pushCtx.Err(); err != nil {
+				return err
 			}
-			if errors.Is(err, notificationpkg.ErrPushNotDispatched) {
-				return false, fmt.Errorf("%w: %w", errTaskEffectNotDispatched, err)
+			err := log.Recover(pushCtx, func() error { return state.sendTaskPush(pushCtx, n, blast) })
+			if errors.Is(err, ErrTaskClaimLost) {
+				return err
 			}
-			return false, err
+			if err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+			return nil
 		})
-		if errors.Is(err, ErrTaskClaimLost) || ctx.Err() != nil {
-			return errors.Join(err, ctx.Err())
-		}
-		if errors.Is(err, ErrTaskEffectUncertain) {
-			log.Error(ctx, "push delivery unconfirmed", "err", err)
-			continue
-		}
-		if err == nil && expired {
-			err = state.withTaskWrite(ctx, func(db *StatefulDB) error { return db.DeleteNotification(n.Token) })
-		}
-		if err != nil {
-			errs = append(errs, err)
-		}
 	}
-	return errors.Join(errs...)
+	err = group.Wait()
+	return errors.Join(err, ctx.Err(), errors.Join(errs...))
+}
+
+const taskPushConcurrency = 8
+
+func (state *StatefulDB) sendTaskPush(ctx context.Context, n Notification, blast *notificationpkg.NotificationBlast) error {
+	if router, ok := state.noter.(*notificationpkg.MultiNotifier); ok && !router.Supports(n.Type) {
+		return fmt.Errorf("no push transport configured for %s", n.Type)
+	}
+	target := [1]notificationpkg.NotificationTarget{{Token: n.Token, Type: n.Type}}
+	expired, err := RunTaskEffect(ctx, taskEffectKey("push", n.Token), func(ctx context.Context) (bool, error) {
+		err := state.noter.Blast(ctx, target[:], blast)
+		if len(notificationpkg.ExpiredTokens(err)) > 0 && !errors.Is(err, notificationpkg.ErrPushNotDispatched) {
+			return true, nil // a definite expired-subscription response
+		}
+		if errors.Is(err, notificationpkg.ErrPushNotDispatched) {
+			return false, fmt.Errorf("%w: %w", errTaskEffectNotDispatched, err)
+		}
+		return false, err
+	})
+	if errors.Is(err, ErrTaskEffectUncertain) && !errors.Is(err, ErrTaskClaimLost) {
+		log.Error(ctx, "push delivery unconfirmed", "err", err)
+		return nil // The unresolved reservation keeps the task from completing.
+	}
+	if err == nil && expired {
+		return state.withTaskWrite(ctx, func(db *StatefulDB) error { return db.DeleteNotification(n.Token) })
+	}
+	return err
 }
 
 func (state *StatefulDB) processStreamReceivedTask(ctx context.Context, task *AppTask) error {

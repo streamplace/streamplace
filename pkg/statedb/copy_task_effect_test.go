@@ -3,6 +3,7 @@ package statedb
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
@@ -42,7 +43,7 @@ func TestCopyStateTaskEffects(t *testing.T) {
 					_, err := src.beginTaskEffect(ctx, blocked.ID, blocked.ClaimToken, effect.EffectKey, effect.Target)
 					require.NoError(t, err)
 					if effect.Receipt != nil {
-						require.NoError(t, src.setTaskEffect(ctx, blocked.ID, blocked.ClaimToken, effect.EffectKey, effect.Receipt))
+						require.NoError(t, src.setTaskEffect(ctx, blocked.ID, blocked.ClaimToken, effect.EffectKey, effect.Receipt, time.Time{}))
 					}
 				}
 				require.ErrorIs(t, src.CompleteTask(ctx, blocked.ID, blocked.ClaimToken), ErrTaskEffectUncertain)

@@ -153,8 +153,8 @@ type Model interface {
 	GetBadgeIssuanceByURI(ctx context.Context, uri string) (*BadgeIssuance, error)
 	GetBadgeIssuancesForRecipient(ctx context.Context, recipientDID string) ([]*BadgeIssuance, error)
 
-	UpsertVideo(ctx context.Context, rec placestream.Video, aturi syntax.ATURI) error
-	DeleteVideo(ctx context.Context, uri string) error
+	UpsertVideo(ctx context.Context, rec placestream.Video, aturi syntax.ATURI, repoRev string) error
+	DeleteVideo(ctx context.Context, uri, repoRev string) error
 	GetVideoByURI(ctx context.Context, uri string) (*placestream.Video, error)
 	GetLatestVideosForRepo(ctx context.Context, repoDID string, limit int) ([]*Video, error)
 

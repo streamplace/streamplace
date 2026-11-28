@@ -184,7 +184,7 @@ func TestTaskEffectReceiptRaceWithAcknowledgement(t *testing.T) {
 			acked := make(chan error, 1)
 			go func() {
 				<-start
-				saved <- state.setTaskEffect(ctx, task.ID, task.ClaimToken, "record", []byte("true"))
+				saved <- state.setTaskEffect(ctx, task.ID, task.ClaimToken, "record", []byte("true"), time.Time{})
 			}()
 			go func() {
 				<-start
@@ -230,7 +230,7 @@ func TestTaskEffectLookupWithLargeReceiptsAndTakeover(t *testing.T) {
 		const target = "at://did:web:creator.example/place.stream.video/original-rkey"
 		_, err := state.beginTaskEffect(ctx, first.ID, first.ClaimToken, "confirmed", "")
 		require.NoError(t, err)
-		require.NoError(t, state.setTaskEffect(ctx, first.ID, first.ClaimToken, "confirmed", []byte("null")))
+		require.NoError(t, state.setTaskEffect(ctx, first.ID, first.ClaimToken, "confirmed", []byte("null"), time.Time{}))
 		_, err = state.beginTaskEffect(ctx, first.ID, first.ClaimToken, "reserved", target)
 		require.NoError(t, err)
 		expireTestTask(t, state, first)
@@ -241,7 +241,7 @@ func TestTaskEffectLookupWithLargeReceiptsAndTakeover(t *testing.T) {
 		point := &StatefulDB{DB: state.DB.Session(&gorm.Session{Logger: log}), Type: state.Type}
 		_, err = point.readTaskEffect(ctx, first.ID, first.ClaimToken, "confirmed")
 		require.ErrorIs(t, err, ErrTaskClaimLost)
-		require.ErrorIs(t, point.setTaskEffect(ctx, first.ID, first.ClaimToken, "reserved", []byte("true")), ErrTaskClaimLost)
+		require.ErrorIs(t, point.setTaskEffect(ctx, first.ID, first.ClaimToken, "reserved", []byte("true"), time.Time{}), ErrTaskClaimLost)
 		prior, err := point.readTaskEffect(ctx, next.ID, next.ClaimToken, "confirmed")
 		require.NoError(t, err)
 		require.Equal(t, []byte("null"), prior, "JSON null is a confirmed receipt, not SQL NULL")
@@ -371,14 +371,31 @@ func TestNotificationTakeoverContinuesIndependentEffects(t *testing.T) {
 		require.NoError(t, state.model.CreateFollow(ctx, follower, "rkey", appbsky.GraphFollow{
 			Subject: did, CreatedAt: "2026-01-01T00:00:00Z",
 		}))
-		calls := map[string]int{"confirmed": 1, "crashed": 1}
-		for _, token := range []string{"confirmed", "crashed", "ambiguous", "remaining"} {
+		wantCalls := map[string]int{"confirmed": 1, "crashed": 1, "ambiguous": 1}
+		for i := range taskPushConcurrency + 1 {
+			wantCalls[fmt.Sprintf("remaining-%d", i)] = 1
+		}
+		for token := range wantCalls {
 			require.NoError(t, state.CreateNotification(token, follower, NotificationTypeFirebase))
 		}
-		state.SetNotifier(queueNotifier(func(_ context.Context, targets []notificationpkg.NotificationTarget, _ *notificationpkg.NotificationBlast) error {
-			require.Len(t, targets, 1)
+		calls := map[string]int{"confirmed": 1, "crashed": 1}
+		var mu sync.Mutex
+		started := make(chan struct{}, len(wantCalls))
+		release := make(chan struct{})
+		state.SetNotifier(queueNotifier(func(ctx context.Context, targets []notificationpkg.NotificationTarget, _ *notificationpkg.NotificationBlast) error {
+			if len(targets) != 1 {
+				return fmt.Errorf("expected one target per delivery, got %d", len(targets))
+			}
 			token := targets[0].Token
+			mu.Lock()
 			calls[token]++
+			mu.Unlock()
+			started <- struct{}{}
+			select {
+			case <-release:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 			if token == "ambiguous" {
 				return errors.New("provider lost response")
 			}
@@ -393,19 +410,51 @@ func TestNotificationTakeoverContinuesIndependentEffects(t *testing.T) {
 		confirmed := taskEffectKey("push", "confirmed")
 		_, err := state.beginTaskEffect(ctx, first.ID, first.ClaimToken, confirmed, "")
 		require.NoError(t, err)
-		require.NoError(t, state.setTaskEffect(ctx, first.ID, first.ClaimToken, confirmed, []byte("false")))
+		require.NoError(t, state.setTaskEffect(ctx, first.ID, first.ClaimToken, confirmed, []byte("false"), time.Time{}))
 		crashed := taskEffectKey("push", "crashed")
 		_, err = state.beginTaskEffect(ctx, first.ID, first.ClaimToken, crashed, "")
 		require.NoError(t, err)
 		expireTestTask(t, state, first)
 
 		next := dequeueTestTask(t, state, first.Type)
-		require.ErrorIs(t, state.runClaimedTask(ctx, next, time.Hour), ErrTaskEffectUncertain)
+		runCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		done := make(chan error, 1)
+		go func() { done <- state.runClaimedTask(runCtx, next, time.Hour) }()
+		for range taskPushConcurrency {
+			select {
+			case <-started:
+			case err := <-done:
+				t.Fatalf("task finished before filling the delivery slots: %v", err)
+			case <-runCtx.Done():
+				t.Fatal("pushes did not dispatch in parallel")
+			}
+		}
+		select {
+		case <-started:
+			t.Fatal("pushes exceeded the delivery limit while all slots were blocked")
+		case <-time.After(50 * time.Millisecond):
+		}
+		close(release)
+		select {
+		case err := <-done:
+			require.ErrorIs(t, err, ErrTaskEffectUncertain)
+		case <-runCtx.Done():
+			t.Fatal("task did not finish after releasing the deliveries")
+		}
 		requireTaskStatus(t, state, next.ID, TaskStatusBlocked)
-		var unresolved AppTaskEffect
-		require.NoError(t, state.DB.Where("task_id = ? AND effect_key = ?", next.ID, crashed).Take(&unresolved).Error)
-		require.Nil(t, unresolved.Receipt)
-		require.Equal(t, map[string]int{"confirmed": 1, "crashed": 1, "ambiguous": 1, "remaining": 1}, calls)
+		require.Equal(t, wantCalls, calls)
+		var receipts []AppTaskEffect
+		require.NoError(t, state.DB.Where("task_id = ?", next.ID).Find(&receipts).Error)
+		var wantReceipts []AppTaskEffect
+		for token := range wantCalls {
+			row := AppTaskEffect{TaskID: next.ID, EffectKey: taskEffectKey("push", token)}
+			if token != "crashed" && token != "ambiguous" {
+				row.Receipt = []byte("false")
+			}
+			wantReceipts = append(wantReceipts, row)
+		}
+		require.ElementsMatch(t, wantReceipts, receipts)
 		noRetry, err := state.DequeueTask(ctx, "any-worker", first.Type)
 		require.NoError(t, err)
 		require.Nil(t, noRetry)
@@ -413,34 +462,73 @@ func TestNotificationTakeoverContinuesIndependentEffects(t *testing.T) {
 }
 
 func TestWebhookRetriesKnownRejectionButNotConfirmedDelivery(t *testing.T) {
-	WithAllDatabases(t, func(state *StatefulDB) {
-		ctx := t.Context()
-		var retry, success atomic.Int32
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/retry" {
-				if retry.Add(1) == 1 {
-					w.WriteHeader(http.StatusTooManyRequests)
-					return
+	for _, tc := range []struct {
+		name, header, body string
+		delay              time.Duration
+		httpDate           bool
+	}{
+		{name: "seconds", header: "60", delay: time.Minute},
+		{name: "http date", httpDate: true},
+		{name: "client hint", header: "1", body: `{"retry_after":50.25}`, delay: 50250 * time.Millisecond},
+		{name: "missing hint"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			WithAllDatabases(t, func(state *StatefulDB) {
+				ctx := t.Context()
+				date := time.Now().UTC().Truncate(time.Second).Add(2 * time.Minute)
+				header := tc.header
+				if tc.httpDate {
+					header = date.Format(http.TimeFormat)
 				}
-			} else {
-				success.Add(1)
-			}
-			w.WriteHeader(http.StatusNoContent)
-		}))
-		defer server.Close()
-		const did = "did:web:streamer.example"
-		for _, path := range []string{"/retry", "/success"} {
-			require.NoError(t, state.CreateWebhook(&Webhook{UserDID: did, URL: server.URL + path, Active: true, Events: []byte(`["stream.received"]`)}))
-		}
-		task := enqueueClaimedTask(t, state, TaskStreamReceived, StreamReceivedTask{StreamerDID: did})
-		require.Error(t, state.runClaimedTask(ctx, task, time.Hour))
-		requireTaskStatus(t, state, task.ID, TaskStatusPending)
-		next := dequeueTestTask(t, state, task.Type)
-		require.NoError(t, state.runClaimedTask(ctx, next, time.Hour))
-		requireTaskStatus(t, state, task.ID, TaskStatusCompleted)
-		require.EqualValues(t, 2, retry.Load())
-		require.EqualValues(t, 1, success.Load())
-	})
+				var retry, success atomic.Int32
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path == "/retry" {
+						if retry.Add(1) == 1 {
+							w.Header().Set("Retry-After", header)
+							w.WriteHeader(http.StatusTooManyRequests)
+							_, _ = w.Write([]byte(tc.body))
+							return
+						}
+					} else {
+						success.Add(1)
+					}
+					w.WriteHeader(http.StatusNoContent)
+				}))
+				defer server.Close()
+				const did = "did:web:streamer.example"
+				for _, path := range []string{"/retry", "/success"} {
+					require.NoError(t, state.CreateWebhook(&Webhook{UserDID: did, URL: server.URL + path, Active: true, Events: []byte(`["stream.received"]`)}))
+				}
+				task := enqueueClaimedTask(t, state, TaskStreamReceived, StreamReceivedTask{StreamerDID: did})
+				before := time.Now()
+				require.Error(t, state.runClaimedTask(ctx, task, time.Hour))
+				after := time.Now()
+				pending := requireTaskStatus(t, state, task.ID, TaskStatusPending)
+				require.NotNil(t, pending.ScheduledAt)
+				switch {
+				case tc.httpDate:
+					require.True(t, pending.ScheduledAt.Equal(date), "scheduled at %v, want %v", pending.ScheduledAt, date)
+				case tc.delay != 0:
+					require.WithinRange(t, *pending.ScheduledAt, before.Add(tc.delay-time.Millisecond), after.Add(tc.delay+time.Millisecond))
+				default:
+					require.True(t, pending.ScheduledAt.After(after.Add(time.Second)))
+				}
+				ineligible, err := state.DequeueTask(ctx, "another-worker", task.Type)
+				require.NoError(t, err)
+				require.Nil(t, ineligible)
+				require.Equal(t, 1, pending.TryCount)
+
+				require.NoError(t, state.DB.Model(&AppTask{}).Where("id = ?", task.ID).
+					UpdateColumn("scheduled_at", time.Now().Add(-time.Second).UTC()).Error)
+				next := dequeueTestTask(t, state, task.Type)
+				require.Equal(t, 2, next.TryCount)
+				require.NoError(t, state.runClaimedTask(ctx, next, time.Hour))
+				requireTaskStatus(t, state, task.ID, TaskStatusCompleted)
+				require.EqualValues(t, 2, retry.Load())
+				require.EqualValues(t, 1, success.Load())
+			})
+		})
+	}
 }
 
 func TestQueueCentralAckAndPanicFailure(t *testing.T) {

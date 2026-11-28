@@ -90,12 +90,24 @@ func reconcileStationOrigins(ctx context.Context, store blob.Store, did string, 
 		return errors.New("could not list station origin markers")
 	}
 	generations := make(map[string]int)
+	eventCounts := make(map[string]int)
 	markers := make(map[string]struct{}, len(keys))
 	for _, key := range keys {
 		markers[key] = struct{}{}
-		if s, ok := strings.CutPrefix(key, prefix+"sources/"); ok {
-			if cid, _, ok := strings.Cut(s, "/"); ok {
-				generations[cid]++
+		if event, ok := strings.CutPrefix(key, prefix+"video-events/"); ok {
+			hash, _, _ := strings.Cut(event, "/")
+			eventCounts[hash]++
+		} else if hash, ok := strings.CutPrefix(key, prefix+"deleted-video/"); ok {
+			eventCounts[hash]++
+		}
+	}
+	for _, key := range keys {
+		if source, ok := strings.CutPrefix(key, prefix+"sources/"); ok {
+			cid, marker, _ := strings.Cut(source, "/")
+			generations[cid]++
+			if approval, ok := strings.CutPrefix(marker, "approved/"); ok {
+				hash, _, _ := strings.Cut(approval, ".")
+				generations[cid] += eventCounts[hash]
 			}
 		}
 	}
@@ -217,8 +229,29 @@ func reconcileStationOrigin(ctx context.Context, store blob.Store, client XRPCCl
 	}
 	if !matches {
 		if desired == nil {
-			err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", nil,
-				&comatproto.RepoDeleteRecord_Input{Repo: did, Collection: collection, Rkey: cid}, nil)
+			input := &comatproto.RepoDeleteRecord_Input{Repo: did, Collection: collection, Rkey: cid}
+			if !origin.terminal {
+				// Journal the exact parent before dispatch, including ambiguous
+				// responses. A delayed echo must not turn this into a CID ban.
+				var head comatproto.SyncGetLatestCommit_Output
+				if err := client.Do(ctx, xrpc.Query, "", "com.atproto.sync.getLatestCommit", map[string]any{"did": did}, nil, &head); err != nil {
+					return err
+				}
+				if _, err := syntax.ParseTID(head.Rev); err != nil || head.Cid == "" {
+					return errors.New("station PDS returned an invalid repo head")
+				}
+				current, known, err := stationOriginState(ctx, store, did, cid)
+				if err != nil || !known || !current.Withdrawn {
+					return err
+				}
+				if !current.terminal {
+					if err := writeStationMarker(ctx, store, prefix+"source-origin-delete/"+cid+"/"+head.Rev, nil); err != nil {
+						return err
+					}
+					input.SwapCommit = &head.Cid
+				}
+			}
+			err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", nil, input, nil)
 		} else {
 			// Never send a put if a withdrawal appeared during preflight.
 			withdrawn, markerErr := stationMarkerExists(ctx, store, prefix+"withdrawn/"+cid)

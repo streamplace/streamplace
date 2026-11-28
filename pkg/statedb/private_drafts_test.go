@@ -90,6 +90,75 @@ func TestPrivateDraftMigrationRetry(t *testing.T) {
 	})
 }
 
+func TestPrivateDraftEmptyHistoryMigrationRetriesAfterUnrelatedWrites(t *testing.T) {
+	WithAllDatabases(t, func(state *StatefulDB) {
+		ctx, did := t.Context(), "did:plc:emptyhistory"
+		legacy := openTestDrafts(t, state, did, nil)
+		row, err := legacy.Create(ctx, "", newDraftRec("Legacy title", "ready"))
+		require.NoError(t, err)
+		legacy.Close()
+
+		space := &draftSpaceFault{}
+		outage := errors.New("connection dropped before create committed")
+		space.intercept = func(method string, call func() error) error {
+			if method == "com.atproto.space.createRecord" {
+				return outage
+			}
+			return call()
+		}
+		_, err = state.OpenDrafts(ctx, did, space)
+		require.ErrorIs(t, err, outage)
+		require.Empty(t, space.Records, "the migration checkpoint leaves no live record")
+		space.intercept = nil
+
+		// Force the history scan through a second page.
+		for range 1000 {
+			_, _, err := spaces.PutRecord(ctx, space, did, spaces.TargetCollection, "unrelated", map[string]string{"name": "Target"})
+			require.NoError(t, err)
+		}
+		drafts := openTestDrafts(t, state, did, space)
+		defer drafts.Close()
+		got, err := drafts.Get(ctx, row.URI)
+		require.NoError(t, err)
+		rec, err := got.Record()
+		require.NoError(t, err)
+		require.Equal(t, "Legacy title", rec.Title)
+	})
+}
+
+func TestPrivateDraftTruncatedHistoryFailsClosed(t *testing.T) {
+	WithAllDatabases(t, func(state *StatefulDB) {
+		ctx, did := t.Context(), "did:plc:truncatedhistory"
+		legacy := openTestDrafts(t, state, did, nil)
+		row, err := legacy.Create(ctx, "", newDraftRec("Legacy title", "ready"))
+		require.NoError(t, err)
+		legacy.Close()
+
+		space := &draftSpaceFault{}
+		lost := errors.New("connection dropped after creating draft")
+		space.intercept = func(method string, call func() error) error {
+			err := call()
+			if method == "com.atproto.space.createRecord" && err == nil {
+				return lost
+			}
+			return err
+		}
+		_, err = state.OpenDrafts(ctx, did, space)
+		require.ErrorIs(t, err, lost)
+		space.intercept = nil
+		require.NoError(t, spaces.DeleteRecord(ctx, space, did, spaces.DraftMetadataCollection, draftRkey(row.URI)))
+
+		// Simulate prefix truncation: keep the repo head but lose the checkpoint
+		// and both draft operations. Later ops make the log look nonempty again.
+		space.Fake = spacestest.Fake{SpaceExists: true, Rev: space.Rev}
+		_, _, err = spaces.PutRecord(ctx, space, did, spaces.TargetCollection, "unrelated", map[string]string{"name": "Target"})
+		require.NoError(t, err)
+		_, err = state.OpenDrafts(ctx, did, space)
+		require.ErrorContains(t, err, "cannot verify interrupted draft migration")
+		require.NotContains(t, space.Records, draftRkey(row.URI))
+	})
+}
+
 func TestPrivateDraftLostCreateResponseDoesNotResurrectDeletedRecord(t *testing.T) {
 	WithAllDatabases(t, func(state *StatefulDB) {
 		ctx, did := t.Context(), "did:plc:lostresponse"
@@ -199,6 +268,44 @@ func TestPrivateDraftCRUDIgnoresForgedOperationalState(t *testing.T) {
 		rows, _, err := drafts.List(ctx, 50, "")
 		require.NoError(t, err)
 		require.Empty(t, rows, "duplicate completion must not replace a deleted draft")
+	})
+}
+
+func TestPrivateDraftDeleteRetryRemovesOwnedAnchor(t *testing.T) {
+	WithAllDatabases(t, func(state *StatefulDB) {
+		ctx, did := t.Context(), "did:plc:delete-retry"
+		const uploadID = "legacy-linked-upload"
+		require.NoError(t, state.CreateUpload(ctx, &Upload{ID: uploadID, RepoDID: did}))
+		space := &draftSpaceFault{}
+		drafts := openTestDrafts(t, state, did, space)
+		defer drafts.Close()
+		row, err := drafts.Create(ctx, uploadID, newDraftRec("Draft", "ready"))
+		require.NoError(t, err)
+		require.NoError(t, state.DB.Model(&Upload{ID: uploadID}).UpdateColumn("draft_uri", "").Error)
+
+		interrupted, cancel := context.WithCancel(ctx)
+		defer cancel()
+		space.intercept = func(method string, call func() error) error {
+			err := call()
+			if method == "com.atproto.space.applyWrites" && err == nil {
+				cancel()
+			}
+			return err
+		}
+		require.ErrorIs(t, drafts.Delete(interrupted, row.URI), context.Canceled)
+		require.Empty(t, space.Records)
+		raw, err := state.getDraft(ctx, did, row.URI)
+		require.NoError(t, err)
+		require.NotNil(t, raw, "the first call did not commit the anchor deletion")
+
+		space.intercept = nil
+		require.NoError(t, drafts.Delete(ctx, row.URI))
+		raw, err = state.getDraft(ctx, did, row.URI)
+		require.NoError(t, err)
+		require.Nil(t, raw)
+		replacement, err := state.CreateUploadDraftTx(ctx, state.DB, did, uploadID, nil)
+		require.NoError(t, err)
+		require.Nil(t, replacement, "retry must preserve the upload link against worker redelivery")
 	})
 }
 

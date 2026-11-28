@@ -131,8 +131,10 @@ For a permanent station-wide withdrawal, `POST /withdraw-origin` there with
 `{"cid":"<content CID>"}`. A success means the bucket marker is durable, not
 that the PDS has acknowledged deletion. It cannot recall bytes already delivered.
 An indexed moderation label suppresses playback locally but does not permanently
-withdraw an existing attestation. Deleting an approved video retires that source;
-the station can still host identical bytes for another approved video.
+withdraw an existing attestation. Creator edits and deletes retire approvals at
+or before their PDS revision, not a later confirmed publication. Reusing a
+deleted video's record key does not restore hosting without a new approval.
+The station can still host identical bytes for another approved video.
 
 Station uploads resume on any node. After an ambiguous PATCH response, use
 TUS `HEAD` before sending more bytes: its offset is the committed one.

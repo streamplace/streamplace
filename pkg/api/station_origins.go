@@ -97,7 +97,7 @@ func (a *StreamplaceAPI) backfillStationOrigins(ctx context.Context) (reindexOri
 			if !ok {
 				continue
 			}
-			err = vod.AdvertiseStationVideo(ctx, a.PlaybackStore, res.ServerDID, cid, uri)
+			err = vod.AdvertiseStationVideo(ctx, a.PlaybackStore, res.ServerDID, cid, uri, "")
 			switch {
 			case err == nil:
 				res.Indexed++

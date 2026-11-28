@@ -33,10 +33,16 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 	))
 	defer span.End()
 
-	dv, err := drafts.Get(ctx, draftURI)
+	dv, err := drafts.GetForPublish(ctx, draftURI)
 	if err != nil {
 		span.RecordError(err)
 		return "", "", fmt.Errorf("get draft: %w", err)
+	}
+	if dv.PublishedURI != "" {
+		if err := drafts.Delete(ctx, draftURI); err != nil {
+			return "", "", fmt.Errorf("delete published draft: %w", err)
+		}
+		return dv.PublishedURI, dv.PublishedCID, nil
 	}
 	did := dv.UserDID
 	rec, err := dv.Record()
@@ -139,11 +145,11 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 	log.Log(ctx, "published video record from draft", "uri", out.Uri, "draftUri", draftURI)
 
 	if dv.ContentCID != "" && video.Source.MediaDefs_SourceTracks != nil {
-		if err := advertisePublishedVideo(ctx, state, store, dv.ContentCID, out.Uri); err != nil {
+		if err := advertisePublishedVideo(ctx, state, store, dv.ContentCID, out); err != nil {
 			return "", "", err
 		}
 	}
-	if err := drafts.Delete(ctx, draftURI); err != nil {
+	if err := drafts.DeletePublished(ctx, draftURI, out.Uri, out.Cid); err != nil {
 		return "", "", fmt.Errorf("delete published draft: %w", err)
 	}
 

@@ -30,6 +30,9 @@ type DraftVideo struct {
 	MetadataState string `gorm:"column:metadata_state"`
 	// Non-nil while a create may have committed without a local acknowledgment.
 	MetadataAttemptRev *string `gorm:"column:metadata_attempt_rev"`
+	// Confirmed public result while private draft cleanup is outstanding.
+	PublishedURI string `gorm:"column:published_uri"`
+	PublishedCID string `gorm:"column:published_cid"`
 	// ContentCID is the MUXL CID of the processed content blob. Server-internal:
 	// used to generate a thumbnail at publish time. Not part of the CBOR record.
 	ContentCID string `gorm:"column:content_cid"`

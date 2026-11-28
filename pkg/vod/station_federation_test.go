@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -107,6 +108,7 @@ func TestStationOriginRetriedWriteAndWithdrawal(t *testing.T) {
 
 	methods = nil
 	origin.Withdrawn = true
+	origin.terminal = true
 	require.NoError(t, reconcileStationOrigin(ctx, store, client, did, cid, origin))
 	require.Equal(t, []string{"com.atproto.repo.getRecord", "com.atproto.repo.deleteRecord", "com.atproto.repo.getRecord"}, methods)
 	checkMarker(withdrawnACK, true)
@@ -124,6 +126,54 @@ func TestStationOriginRetriedWriteAndWithdrawal(t *testing.T) {
 		t.Fatal("withdrawn intent checked for publication")
 		return false, nil
 	}))
+}
+
+func TestStationOriginSourceDeleteReplay(t *testing.T) {
+	ctx := t.Context()
+	store, err := blob.NewFileStore(t.TempDir())
+	require.NoError(t, err)
+	did, cid := stationFederationTestDID, bdasl.CID([]byte("re-added source"))
+	uri := "at://did:plc:alice/place.stream.video/video"
+	originURI := "at://" + did + "/" + constants.PLACE_STREAM_MEDIA_ORIGIN + "/" + cid
+	prefix := stationOriginPrefix(did)
+	require.NoError(t, writeStationMarker(ctx, store, prefix+"public/"+cid,
+		[]byte(fmt.Sprintf(`{"cid":%q,"uri":%q,"size":12}`, cid, uri))))
+	require.NoError(t, AdvertiseStationVideo(ctx, store, did, cid, uri, "2222222222223"))
+	require.NoError(t, RetractStationRecord(ctx, store, did, uri, "2222222222224", ""))
+	const parentRev = "222222222222f"
+	const parentCID = "station-parent-cid"
+	remote := &placestream.MediaOrigin{LexiconTypeID: constants.PLACE_STREAM_MEDIA_ORIGIN, Blob: cid, Size: 12, MimeType: transferMimeType}
+	client := stationXRPCFunc(func(_ context.Context, _, _, method string, _ map[string]any, body, out any) error {
+		switch method {
+		case "com.atproto.repo.getRecord":
+			if remote == nil {
+				return &xrpc.Error{StatusCode: http.StatusBadRequest, Wrapped: &xrpc.XRPCError{ErrStr: "RecordNotFound"}}
+			}
+			*out.(*comatproto.RepoGetRecord_Output) = comatproto.RepoGetRecord_Output{Uri: originURI, Value: &glex.LexiconTypeDecoder{Val: remote}}
+		case "com.atproto.sync.getLatestCommit":
+			*out.(*comatproto.SyncGetLatestCommit_Output) = comatproto.SyncGetLatestCommit_Output{Rev: parentRev, Cid: parentCID}
+		case "com.atproto.repo.deleteRecord":
+			require.Equal(t, parentCID, *body.(*comatproto.RepoDeleteRecord_Input).SwapCommit)
+			remote = nil
+		case "com.atproto.repo.putRecord":
+			remote = body.(*comatproto.RepoPutRecord_Input).Record.Val.(*placestream.MediaOrigin)
+			*out.(*comatproto.RepoPutRecord_Output) = comatproto.RepoPutRecord_Output{Uri: originURI, Cid: "record-cid"}
+		default:
+			t.Fatalf("unexpected PDS request %s", method)
+		}
+		return nil
+	})
+	reconcile := func() {
+		t.Helper()
+		require.NoError(t, reconcileStationOrigins(ctx, store, did, func() (XRPCClient, error) { return client, nil },
+			func(stationOrigin) (bool, error) { return false, nil }))
+	}
+	reconcile()
+	require.Nil(t, remote)
+	require.NoError(t, AdvertiseStationVideo(ctx, store, did, cid, uri, "2222222222225"))
+	require.NoError(t, RetractStationRecord(ctx, store, did, originURI, "222222222222g", parentRev))
+	reconcile()
+	require.NotNil(t, remote)
 }
 
 func TestStationOriginWithdrawalAppearsDuringPreflight(t *testing.T) {

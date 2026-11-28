@@ -153,14 +153,22 @@ func (f draftRepoWriter) Do(_ context.Context, _, _, method string, _ map[string
 
 type draftDeleteFailure struct {
 	spacestest.Fake
-	err error
+	err        error
+	afterWrite func()
 }
 
 func (c *draftDeleteFailure) Do(ctx context.Context, kind, enc, method string, params map[string]any, body, out any) error {
-	if method == "com.atproto.space.applyWrites" && c.err != nil {
+	if method != "com.atproto.space.applyWrites" {
+		return c.Fake.Do(ctx, kind, enc, method, params, body, out)
+	}
+	if c.err != nil {
 		return c.err
 	}
-	return c.Fake.Do(ctx, kind, enc, method, params, body, out)
+	err := c.Fake.Do(ctx, kind, enc, method, params, body, out)
+	if err == nil && c.afterWrite != nil {
+		c.afterWrite()
+	}
+	return err
 }
 
 func TestPublishPrivateDraftUsesLatestMetadataAndRequiresCleanup(t *testing.T) {
@@ -184,7 +192,9 @@ func TestPublishPrivateDraftUsesLatestMetadataAndRequiresCleanup(t *testing.T) {
 	_, err = drafts.Update(ctx, &placestream.VodUpdateDraft_Input{Uri: draft.URI, Title: &title})
 	require.NoError(t, err)
 	failed := errors.New("PDS temporarily unavailable")
+	publicWrites := 0
 	client := draftRepoWriter(func(input comatproto.RepoPutRecord_Input, output *comatproto.RepoPutRecord_Output) error {
+		publicWrites++
 		video := input.Record.Val.(*placestream.Video)
 		require.Equal(t, did, input.Repo)
 		require.Equal(t, title, video.Title)
@@ -205,7 +215,46 @@ func TestPublishPrivateDraftUsesLatestMetadataAndRequiresCleanup(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "at://"+did+"/place.stream.video/"+rkey, uri)
 	require.Equal(t, "public-cid", cid)
+	require.Equal(t, 1, publicWrites, "cleanup retry must not rewrite the public record")
 	_, err = drafts.Get(ctx, draft.URI)
 	require.ErrorIs(t, err, statedb.ErrDraftNotFound)
 	require.Empty(t, space.Records)
+}
+
+func TestPublishPrivateDraftRetriesAfterPrivateDeletionAndSQLFailure(t *testing.T) {
+	ctx := t.Context()
+	state := newDraftTestState(t)
+	const did = "did:plc:alice"
+	space := &draftDeleteFailure{}
+	drafts, err := state.OpenDrafts(ctx, did, space)
+	require.NoError(t, err)
+	row, err := drafts.Create(ctx, "", &placestream.VodDraftVideo{
+		Title: "Ready", Status: "ready", CreatedAt: "2026-01-01T00:00:00Z",
+	})
+	require.NoError(t, err)
+	rkey, err := draftTID(row.URI)
+	require.NoError(t, err)
+	videoURI := "at://" + did + "/place.stream.video/" + rkey
+	client := draftRepoWriter(func(_ comatproto.RepoPutRecord_Input, out *comatproto.RepoPutRecord_Output) error {
+		out.Uri, out.Cid = videoURI, "public-cid"
+		return nil
+	})
+
+	interrupted, cancel := context.WithCancel(ctx)
+	defer cancel()
+	space.afterWrite = cancel
+	_, _, err = PublishDraft(interrupted, state, nil, drafts, client, row.URI)
+	require.ErrorIs(t, err, context.Canceled)
+	require.Empty(t, space.Records, "private delete committed before the SQL failure")
+	drafts.Close()
+
+	space.afterWrite = nil
+	retry, err := state.OpenDrafts(ctx, did, space)
+	require.NoError(t, err)
+	defer retry.Close()
+	uri, cid, err := PublishDraft(ctx, state, nil, retry, nil, row.URI)
+	require.NoError(t, err, "cleanup needs no second public repo write")
+	require.Equal(t, videoURI, uri)
+	require.Equal(t, "public-cid", cid)
+	require.ErrorIs(t, retry.Delete(ctx, row.URI), statedb.ErrDraftNotFound, "retry removed the anchor")
 }

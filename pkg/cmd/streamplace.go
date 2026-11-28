@@ -330,11 +330,11 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		Bus:        b,
 	}
 	if cli.StationDID != "" {
-		atsync.StationRecordDeleted = func(ctx context.Context, uri string) error {
-			return vod.RetractStationRecord(ctx, vodStore, cli.StationDID, uri)
+		atsync.StationRecordDeleted = func(ctx context.Context, uri, rev, since string) error {
+			return vod.RetractStationRecord(ctx, vodStore, cli.StationDID, uri, rev, since)
 		}
-		atsync.StationVideoUpdated = func(ctx context.Context, uri, currentCID string) error {
-			return vod.UpdateStationVideoSource(ctx, vodStore, cli.StationDID, uri, currentCID)
+		atsync.StationVideoUpdated = func(ctx context.Context, uri, currentCID, rev string) error {
+			return vod.UpdateStationVideoSource(ctx, vodStore, cli.StationDID, uri, currentCID, rev)
 		}
 	}
 	mm, err := media.MakeMediaManager(ctx, cli, signer, mod, b, atsync, ldb)

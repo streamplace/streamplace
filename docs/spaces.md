@@ -251,8 +251,9 @@ IDs come only from the node.
 - **Migration is create-only.** A record already at the rkey wins. Each
   successful create clears that row's editable SQL fields before the move
   continues. If a response is lost, the node checks the current record and
-  the space's operation history before retrying. An unverifiable outcome
-  fails closed rather than risking resurrection.
+  the space's operation history before retrying. An atomic create/delete at a
+  separate key supplies a revision even in an initially empty repo. If the
+  history cannot be verified, migration fails closed rather than risking resurrection.
 - **Workers write processing state locally.** An implicit upload draft is
   anchored before processing starts. After cutover the worker leaves an
   operational-only pending anchor. The next full-grant access initializes
@@ -265,9 +266,10 @@ IDs come only from the node.
   recreate the record. The pinned alpha has no record CAS, so an edit from
   another app can still race with a Streamplace edit.
 - **Publish and cleanup are separate writes.** After the public record is
-  written and its media advertised, the private record is deleted before
-  the local anchor. If cleanup fails, the request fails even though the
-  public record may already exist; a retry reuses the same public rkey.
+  written and its media advertised, the node checkpoints the public result
+  before deleting the private record and local anchor. If cleanup fails, a
+  publish retry resumes cleanup without rewriting the public record. An
+  already absent private record does not block deletion of the owned anchor.
   Private draft creation from a finalized livestream requires the owner's
   grant after cutover, not a moderator's session.
 

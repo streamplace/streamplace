@@ -118,7 +118,7 @@ func (a *StreamplaceAPI) HandleVODTransfer(ctx context.Context) httprouter.Handl
 		}
 
 		if station != "" {
-			if err := vod.AdvertiseStationVideo(reqCtx, a.PlaybackStore, station, result.ContentCID, req.URI); err != nil {
+			if err := vod.AdvertiseStationVideo(reqCtx, a.PlaybackStore, station, result.ContentCID, req.URI, ""); err != nil {
 				errors.WriteHTTPInternalServerError(w, "record station hosting intent", err)
 				return
 			}

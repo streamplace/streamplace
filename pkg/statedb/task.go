@@ -210,12 +210,27 @@ func (state *StatefulDB) lockTaskClaim(tx *gorm.DB, id uint, token string) error
 }
 
 func (state *StatefulDB) withTaskClaimTx(ctx context.Context, id uint, token string, write func(*gorm.DB) error) error {
-	return state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return state.withTaskTx(ctx, func(tx *gorm.DB) error {
 		if err := state.lockTaskClaim(tx, id, token); err != nil {
 			return err
 		}
 		return write(tx)
 	})
+}
+
+// Retry only rejected station commits, and only around SQL, never around dispatch.
+func retryTaskWrite(ctx context.Context, write func() error) error {
+	for attempt := 0; ; attempt++ {
+		err := write()
+		if !retryStationWrite(ctx, attempt, err) {
+			return err
+		}
+	}
+}
+
+func (state *StatefulDB) withTaskTx(ctx context.Context, write func(*gorm.DB) error) error {
+	db := state.DB.WithContext(ctx)
+	return retryTaskWrite(ctx, func() error { return db.Transaction(write) })
 }
 
 func endTaskClaim(dst TaskStatus, retry, blockOnUnknown bool, msg any) map[string]any {
@@ -281,7 +296,7 @@ func (state *StatefulDB) RenewTask(ctx context.Context, id uint, token string) e
 	if state.Type == DBTypePostgres {
 		return db.Transaction(func(tx *gorm.DB) error { return state.renewTask(tx, id, token) })
 	}
-	return state.renewTask(db, id, token)
+	return retryTaskWrite(ctx, func() error { return state.renewTask(db, id, token) })
 }
 
 func (state *StatefulDB) renewTask(tx *gorm.DB, id uint, token string) error {
@@ -300,12 +315,12 @@ func (state *StatefulDB) renewTask(tx *gorm.DB, id uint, token string) error {
 type taskEffectStore interface {
 	beginTaskEffect(context.Context, uint, string, string, string) ([]byte, error)
 	readTaskEffect(context.Context, uint, string, string) ([]byte, error)
-	setTaskEffect(context.Context, uint, string, string, []byte) error
+	setTaskEffect(context.Context, uint, string, string, []byte, time.Time) error
 }
 
 func (state *StatefulDB) beginTaskEffect(ctx context.Context, id uint, token, key, target string) ([]byte, error) {
 	var receipt []byte
-	err := state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := state.withTaskTx(ctx, func(tx *gorm.DB) error {
 		if err := state.renewTask(tx, id, token); err != nil {
 			return err
 		}
@@ -356,15 +371,21 @@ func (state *StatefulDB) hasTaskEffects(ctx context.Context, id uint, token stri
 	return exists, taskClaimScanError(err)
 }
 
-// A nil receipt clears a reservation only when its caller knows it never dispatched.
-func (state *StatefulDB) setTaskEffect(ctx context.Context, id uint, token, key string, receipt []byte) error {
+// A nil receipt clears a known rejection. Persist any retry deadline in the same transaction.
+func (state *StatefulDB) setTaskEffect(ctx context.Context, id uint, token, key string, receipt []byte, retryAt time.Time) error {
 	return state.withTaskClaimTx(ctx, id, token, func(tx *gorm.DB) error {
 		claim := state.taskClaim(tx, id, token).Select("1")
 		pending := tx.Model(&AppTaskEffect{}).
 			Where("app_task_effects.task_id = ? AND app_task_effects.effect_key = ? AND app_task_effects.receipt IS NULL", id, key).
 			Where("EXISTS (?)", claim)
 		if receipt == nil {
-			return taskClaimResult(pending.Delete(&AppTaskEffect{}))
+			if err := taskClaimResult(pending.Delete(&AppTaskEffect{})); err != nil || retryAt.IsZero() {
+				return err
+			}
+			scheduled, _ := state.taskClock("scheduled_at")
+			deadline, _ := state.taskClock("?")
+			return taskClaimResult(state.taskClaim(tx, id, token).UpdateColumn("scheduled_at",
+				gorm.Expr("CASE WHEN scheduled_at IS NULL OR "+scheduled+" < "+deadline+" THEN ? ELSE scheduled_at END", retryAt, retryAt)))
 		}
 		return taskClaimResult(pending.UpdateColumn("receipt", receipt))
 	})

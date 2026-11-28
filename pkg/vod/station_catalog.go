@@ -7,21 +7,21 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bdasl"
 	"stream.place/streamplace/pkg/blob"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
 )
 
-// Station catalog entries live alongside (but not under the public prefix of)
-// the media. The first approved source is immutable; a separate tombstone wins
-// over every publication or backfill, including a concurrent one. Neither an
-// OAuth session nor a station repo round trip is needed to read these facts.
+// Station catalog entries live outside the public media prefix. Approvals and
+// creator events are ordered by repo revision; admin tombstones always win.
 type stationOrigin struct {
 	CID        string `json:"cid"`
 	URI        string `json:"uri"`
@@ -86,8 +86,7 @@ func stationOriginState(ctx context.Context, store blob.Store, did, cid string) 
 	if _, err := parseVideoURI(entry.URI); err != nil {
 		return entry, false, err
 	}
-	// An approval and its retirement are independent immutable facts. One
-	// source cannot revoke another concurrent writer's public video.
+	// Legacy approvals without a revision predate all ordered events.
 	sourcePrefix := prefix + "sources/" + cid + "/"
 	keys, err := store.List(ctx, sourcePrefix)
 	if err != nil {
@@ -100,15 +99,33 @@ func stationOriginState(ctx context.Context, store blob.Store, did, cid string) 
 			retired[hash] = true
 		}
 	}
-	first := fmt.Sprintf("%x", sha256.Sum256([]byte(entry.URI)))
+	type approval struct {
+		rev   string
+		count int
+	}
+	approvals := make(map[string]approval)
 	for _, key := range keys {
-		hash, ok := strings.CutPrefix(key, sourcePrefix+"approved/")
-		if !ok || retired[hash] {
+		if approval, ok := strings.CutPrefix(key, sourcePrefix+"approved/"); ok {
+			hash, rev, _ := strings.Cut(approval, ".")
+			a := approvals[hash]
+			a.rev = max(a.rev, rev)
+			a.count++
+			approvals[hash] = a
+		}
+	}
+	first := fmt.Sprintf("%x", sha256.Sum256([]byte(entry.URI)))
+	for hash, a := range approvals {
+		events, err := stationVideoEvents(ctx, store, prefix, hash)
+		if err != nil {
+			return entry, false, err
+		}
+		entry.generation += a.count * len(events)
+		if retired[hash] || stationSourceRetired(events, cid, a.rev) {
 			continue
 		}
 		uri := entry.URI
 		if hash != first {
-			data, err := readWholeBlob(ctx, store, key)
+			data, err := readWholeBlob(ctx, store, stationApprovalKey(sourcePrefix, hash, a.rev))
 			if err != nil {
 				return entry, false, err
 			}
@@ -120,28 +137,62 @@ func stationOriginState(ctx context.Context, store blob.Store, did, cid string) 
 	return entry, true, nil
 }
 
+func stationApprovalKey(sourcePrefix, hash, rev string) string {
+	key := sourcePrefix + "approved/" + hash
+	if rev != "" {
+		key += "." + rev
+	}
+	return key
+}
+
+func stationVideoEvents(ctx context.Context, store blob.Store, prefix, hash string) ([]string, error) {
+	eventPrefix := prefix + "video-events/" + hash + "/"
+	keys, err := store.List(ctx, eventPrefix)
+	if err != nil {
+		return nil, err
+	}
+	for i := range keys {
+		keys[i] = strings.TrimPrefix(keys[i], eventPrefix)
+	}
+	// Old deployments and operator video deletes use an unordered tombstone.
+	deleted, err := stationMarkerExists(ctx, store, prefix+"deleted-video/"+hash)
+	if deleted {
+		keys = append(keys, "admin")
+	}
+	return keys, err
+}
+
+func stationSourceRetired(events []string, cid, approvedRev string) bool {
+	for _, event := range events {
+		rev, keep, _ := strings.Cut(event, "/")
+		if event == "admin" || (rev >= approvedRev && keep != cid) {
+			return true
+		}
+	}
+	return false
+}
+
 var ErrStationOriginWithdrawn = errors.New("station origin is withdrawn")
 
 // AdvertiseStationVideo is called only after a public, eligible creator record
 // has been established, never at processing completion. A metafile is the VOD
 // pipeline's completion marker. Require it, its primary bytes, and its init
 // segments before acknowledging a serving promise.
-func AdvertiseStationVideo(ctx context.Context, store blob.Store, did, cid, videoURI string) error {
+// An empty revision is reserved for transfer/backfill from the lagging AppView.
+func AdvertiseStationVideo(ctx context.Context, store blob.Store, did, cid, videoURI, rev string) error {
 	if !validStationCID(cid) {
 		return fmt.Errorf("invalid station origin CID")
 	}
 	if _, err := parseVideoURI(videoURI); err != nil {
 		return err
 	}
+	if rev != "" {
+		if _, err := syntax.ParseTID(rev); err != nil {
+			return fmt.Errorf("invalid video publication revision: %w", err)
+		}
+	}
 	prefix := stationOriginPrefix(did)
 	source := fmt.Sprintf("%x", sha256.Sum256([]byte(videoURI)))
-	retracted, err := stationMarkerExists(ctx, store, prefix+"deleted-video/"+source)
-	if err != nil {
-		return err
-	}
-	if retracted {
-		return ErrStationOriginWithdrawn
-	}
 	entry, known, err := stationOriginState(ctx, store, did, cid)
 	if err != nil {
 		return err
@@ -149,18 +200,16 @@ func AdvertiseStationVideo(ctx context.Context, store blob.Store, did, cid, vide
 	if entry.terminal {
 		return ErrStationOriginWithdrawn
 	}
-	sourcePrefix := prefix + "sources/" + cid + "/"
-	retired, err := stationMarkerExists(ctx, store, sourcePrefix+"retired/"+source)
-	if err != nil {
-		return err
-	}
-	if retired {
-		return ErrStationOriginWithdrawn
-	}
-	for _, u := range entry.sources {
-		if u == videoURI {
-			return nil
+	if rev == "" {
+		for _, uri := range entry.sources {
+			if uri == videoURI {
+				return nil // already approved; don't add an unversioned marker
+			}
 		}
+	}
+	sourcePrefix := prefix + "sources/" + cid + "/"
+	if err := checkStationApproval(ctx, store, prefix, sourcePrefix, source, cid, rev); err != nil {
+		return err
 	}
 	size := entry.Size
 	if !known {
@@ -169,10 +218,7 @@ func AdvertiseStationVideo(ctx context.Context, store blob.Store, did, cid, vide
 			return err
 		}
 	}
-	if err := writeStationMarker(ctx, store, prefix+"by-video/"+source+"/"+cid, nil); err != nil {
-		return err
-	}
-	if err := writeStationMarker(ctx, store, sourcePrefix+"approved/"+source, []byte(videoURI)); err != nil {
+	if err := writeStationMarker(ctx, store, stationApprovalKey(sourcePrefix, source, rev), []byte(videoURI)); err != nil {
 		return err
 	}
 	data, err := json.Marshal(stationOrigin{CID: cid, URI: videoURI, Size: size})
@@ -182,14 +228,29 @@ func AdvertiseStationVideo(ctx context.Context, store blob.Store, did, cid, vide
 	if err := writeStationMarker(ctx, store, prefix+"public/"+cid, data); err != nil {
 		return err
 	}
-	retracted, err = stationMarkerExists(ctx, store, prefix+"deleted-video/"+source)
-	if err != nil || !retracted {
+	terminal, err := stationMarkerExists(ctx, store, prefix+"withdrawn/"+cid)
+	if err != nil {
 		return err
 	}
-	if err := retractStationVideo(ctx, store, did, videoURI, ""); err != nil {
+	if terminal {
+		return ErrStationOriginWithdrawn
+	}
+	return checkStationApproval(ctx, store, prefix, sourcePrefix, source, cid, rev)
+}
+
+func checkStationApproval(ctx context.Context, store blob.Store, prefix, sourcePrefix, hash, cid, rev string) error {
+	events, err := stationVideoEvents(ctx, store, prefix, hash)
+	if err != nil {
 		return err
 	}
-	return ErrStationOriginWithdrawn
+	if stationSourceRetired(events, cid, rev) {
+		return ErrStationOriginWithdrawn
+	}
+	retired, err := stationMarkerExists(ctx, store, sourcePrefix+"retired/"+hash)
+	if retired {
+		return ErrStationOriginWithdrawn
+	}
+	return err
 }
 
 func checkStationMedia(ctx context.Context, store blob.Store, prefix, cid string) (int64, error) {
@@ -223,8 +284,16 @@ func checkStationMedia(ctx context.Context, store blob.Store, prefix, cid string
 	return size, nil
 }
 
-func advertisePublishedVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Store, cid, uri string) error {
+func advertisePublishedVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Store, cid string, publication comatproto.RepoPutRecord_Output) error {
+	uri := publication.Uri
 	if state.CLI.StationDID != "" {
+		if publication.Commit == nil || publication.Commit.Rev == "" {
+			return errors.New("PDS did not return a video publication revision")
+		}
+		rev := publication.Commit.Rev
+		if err := UpdateStationVideoSource(ctx, store, state.CLI.StationDID, uri, cid, rev); err != nil {
+			return err
+		}
 		blocked, err := stationOriginModerated(state.StationOriginLabels, uri)
 		if err != nil {
 			return err
@@ -232,7 +301,7 @@ func advertisePublishedVideo(ctx context.Context, state *statedb.StatefulDB, sto
 		if blocked {
 			return fmt.Errorf("station policy forbids advertising this video")
 		}
-		return AdvertiseStationVideo(ctx, store, state.CLI.StationDID, cid, uri)
+		return AdvertiseStationVideo(ctx, store, state.CLI.StationDID, cid, uri, rev)
 	}
 	size, err := existingBlobSize(ctx, store, BlobsPrefix+cid+".mp4")
 	if err != nil {
@@ -253,57 +322,38 @@ func WithdrawStationOrigin(ctx context.Context, store blob.Store, did, cid strin
 	return writeStationMarker(ctx, store, stationOriginPrefix(did)+"withdrawn/"+cid, nil)
 }
 
-// A video's retraction cannot withdraw a CID whose approved public source
-// belongs to another record, even if it refers to the same bytes.
-func retractStationVideo(ctx context.Context, store blob.Store, did, uri, keepCID string) error {
-	prefix := stationOriginPrefix(did)
-	source := fmt.Sprintf("%x", sha256.Sum256([]byte(uri)))
-	if keepCID == "" {
-		if err := writeStationMarker(ctx, store, prefix+"deleted-video/"+source, nil); err != nil {
-			return err
-		}
-	}
-	sourcePrefix := prefix + "by-video/" + source + "/"
-	keys, err := store.List(ctx, sourcePrefix)
-	if err != nil {
-		return err
-	}
-	for _, key := range keys {
-		cid := strings.TrimPrefix(key, sourcePrefix)
-		if cid == keepCID {
-			continue
-		}
-		if err := writeStationMarker(ctx, store, prefix+"sources/"+cid+"/retired/"+source, nil); err != nil {
-			return err
-		}
-	}
-	return nil
+// Keep the operator's pre-delete local withdrawal terminal, even if the PDS
+// operation fails or the rkey is reused.
+func withdrawStationVideo(ctx context.Context, store blob.Store, did, uri string) error {
+	return writeStationMarker(ctx, store, stationOriginPrefix(did)+fmt.Sprintf("deleted-video/%x", sha256.Sum256([]byte(uri))), nil)
 }
 
 // UpdateStationVideoSource does not grant hosting based on an external edit.
 // A clip/empty source retires every old CID without deleting the record.
-func UpdateStationVideoSource(ctx context.Context, store blob.Store, did, uri, currentCID string) error {
-	if currentCID == "" {
-		currentCID = "-" // no blob can have this record key
+func UpdateStationVideoSource(ctx context.Context, store blob.Store, did, uri, currentCID, rev string) error {
+	if _, err := syntax.ParseTID(rev); err != nil {
+		return fmt.Errorf("invalid video event revision: %w", err)
 	}
-	return retractStationVideo(ctx, store, did, uri, currentCID)
+	if currentCID == "" {
+		currentCID = "-" // no source survives a delete, clip or empty source
+	} else if !validStationCID(currentCID) {
+		return fmt.Errorf("invalid station video source CID")
+	}
+	key := stationOriginPrefix(did) + fmt.Sprintf("video-events/%x/%s/%s", sha256.Sum256([]byte(uri)), rev, currentCID)
+	return writeStationMarker(ctx, store, key, nil)
 }
 
-// RetractStationRecord consumes creator and station PDS deletes. Unrelated
-// creators generate no station state; a clip never withdraws its parent.
-func RetractStationRecord(ctx context.Context, store blob.Store, did, rawURI string) error {
+// RetractStationRecord consumes public creator and station PDS deletes.
+func RetractStationRecord(ctx context.Context, store blob.Store, did, rawURI, rev, since string) error {
 	uri, err := syntax.ParseATURI(rawURI)
 	if err != nil {
 		return err
 	}
 	switch uri.Collection().String() {
 	case constants.PLACE_STREAM_VIDEO:
-		prefix := stationOriginPrefix(did) + fmt.Sprintf("by-video/%x/", sha256.Sum256([]byte(rawURI)))
-		keys, err := store.List(ctx, prefix)
-		if err != nil || len(keys) == 0 {
-			return err
-		}
-		return retractStationVideo(ctx, store, did, rawURI, "")
+		// Record deletes even before approval, so a lagging AppView cannot
+		// backfill a deleted source or race a publisher replaying a receipt.
+		return UpdateStationVideoSource(ctx, store, did, rawURI, "", rev)
 	case constants.PLACE_STREAM_MEDIA_ORIGIN:
 		cid := uri.RecordKey().String()
 		if uri.Authority().String() != did || !validStationCID(cid) {
@@ -312,6 +362,18 @@ func RetractStationRecord(ctx context.Context, store blob.Store, did, rawURI str
 		entry, known, err := stationOriginState(ctx, store, did, cid)
 		if err != nil || (known && entry.Withdrawn) {
 			return err
+		}
+		if _, err := syntax.ParseTID(since); err == nil {
+			prefix := stationOriginPrefix(did)
+			automatic, err := stationMarkerExists(ctx, store, prefix+"source-origin-delete/"+cid+"/"+since)
+			if err != nil {
+				return err
+			}
+			if automatic {
+				// A late echo of our own source-scoped delete is not an admin
+				// withdrawal. Make reconciliation recheck the active generation.
+				return store.Delete(ctx, prefix+"acked/public/"+cid+"."+strconv.Itoa(entry.generation))
+			}
 		}
 		return WithdrawStationOrigin(ctx, store, did, cid)
 	}

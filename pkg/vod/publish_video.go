@@ -67,11 +67,11 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		return "", "", ErrUploadNotReady
 	}
 
-	advertise := func(uri string) error {
+	advertise := func(publication comatproto.RepoPutRecord_Output) error {
 		if err := statedb.CheckTaskClaim(ctx); err != nil {
 			return err
 		}
-		if err := advertisePublishedVideo(ctx, state, store, upload.ContentCID, uri); err != nil {
+		if err := advertisePublishedVideo(ctx, state, store, upload.ContentCID, publication); err != nil {
 			return fmt.Errorf("record hosting intent: %w", err)
 		}
 		return nil
@@ -84,7 +84,7 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		if receipt.Uri == "" || receipt.Cid == "" {
 			return "", "", errors.New("invalid video publication receipt")
 		}
-		if err := advertise(receipt.Uri); err != nil {
+		if err := advertise(receipt); err != nil {
 			return "", "", err
 		}
 		span.SetAttributes(attribute.String("uri", receipt.Uri), attribute.String("cid", receipt.Cid))
@@ -144,7 +144,7 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		span.SetStatus(codes.Error, "put_record")
 		return "", "", fmt.Errorf("putRecord video: %w", err)
 	}
-	if err := advertise(out.Uri); err != nil {
+	if err := advertise(out); err != nil {
 		return "", "", err
 	}
 	span.SetAttributes(attribute.String("uri", out.Uri), attribute.String("cid", out.Cid))

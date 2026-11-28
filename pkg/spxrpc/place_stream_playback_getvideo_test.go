@@ -374,7 +374,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(ctx, parent, parseURI(parentURI)))
+	require.NoError(t, m.UpsertVideo(ctx, parent, parseURI(parentURI), ""))
 
 	clip := placestream.Video{
 		LexiconTypeID: "place.stream.video",
@@ -388,7 +388,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(ctx, clip, parseURI(clipURI)))
+	require.NoError(t, m.UpsertVideo(ctx, clip, parseURI(clipURI), ""))
 
 	t.Run("non-clip parent resolves with no bounds", func(t *testing.T) {
 		got, err := s.resolveVideoBlob(ctx, parentURI)
@@ -424,7 +424,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, m.UpsertVideo(ctx, nested, parseURI(nestedURI)))
+		require.NoError(t, m.UpsertVideo(ctx, nested, parseURI(nestedURI), ""))
 		_, err := s.resolveVideoBlob(ctx, nestedURI)
 		require.Error(t, err)
 		he, ok := err.(*echo.HTTPError)

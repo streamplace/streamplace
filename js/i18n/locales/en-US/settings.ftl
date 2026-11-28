@@ -87,6 +87,7 @@ optional = optional
 account-greeting = Hey, { $handle }.
 edit-profile-bluesky = Edit profile (on { $network })
 change-name-color = Change name color
+scan-qr-code = Scan a sign-in code
 
 ## Key Management
 key-management = Key Management
@@ -298,6 +299,8 @@ branding-network-icon-description = Icon shown on those profile links. SVG prefe
 branding-verified-icon-description = Badge shown beside verified users. SVG preferred, max 64KB, currentColor takes the primary color; unset shows a check in the primary color.
 branding-login-placeholder = Login handle example
 branding-login-placeholder-description = The example handle shown in the login form's empty handle field, e.g. you.example.com.
+branding-sign-in = Sign-in options
+branding-login-method-qr = QR code for the mobile app
 branding-default-streamer = Default Streamer
 branding-default-streamer-none = None
 branding-default-streamer-placeholder = did:plc:...

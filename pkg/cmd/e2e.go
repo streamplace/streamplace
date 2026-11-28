@@ -665,6 +665,13 @@ func runE2E(ctx context.Context, devEnvPath, httpsPDSHost, httpsStationHost, htt
 				tlsEnv.StationURL(), bridgeURL, filepath.Join(tlsEnv.dir, "atmoq.log"), local.dataDir, dataDir, tlsEnv.auditPath, unrelated.did, unrelated.handle, unrelated.accessJWT, env.PDSURL, env.PLCURL)
 		} else {
 			vars += fmt.Sprintf("SERVER_HTTPS_URL=%s\n", tlsEnv.StationURL())
+			if appBundleID != "" {
+				requestURI, err := tlsEnv.qrLoginPAR(ctx)
+				if err != nil {
+					return fmt.Errorf("prepare e2e QR authorization request: %w", err)
+				}
+				vars += fmt.Sprintf("E2E_QR_REQUEST_URI=%s\n", requestURI)
+			}
 		}
 	}
 	if preliveOut != nil {

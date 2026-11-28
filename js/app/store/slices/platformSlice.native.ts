@@ -65,7 +65,11 @@ export const createPlatformSlice: StateCreator<
   openLoginLink: async (url: string) => {
     set({ status: "loading" });
     try {
-      const res = await openAuthSessionAsync(url);
+      // Expo 58's proxy task can reopen a stale Custom Tab after cancellation.
+      // Keep the direct-launch behavior used before the native upgrade.
+      const res = await openAuthSessionAsync(url, undefined, {
+        useProxyActivity: false,
+      });
       set({ status: "idle" });
       if (res.type === "success") {
         // do oauth callback

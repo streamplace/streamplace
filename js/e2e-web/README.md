@@ -58,6 +58,12 @@ smoke, navigation, and stream coverage correspond to
 `.maestro/setup/oauth-login.yaml`; authenticated chat/profile behavior is covered
 on mobile by `.maestro/logged-in/{chat-reply,chat-profile}.yaml`.
 
+`qr-login` enables QR without an entryway, lets the displayed browser code
+rotate, then approves the earlier code and writes a chat message using the
+linked session. The shared native flow `.maestro/logged-in/qr-login.yaml`
+opens the app's approval route, denies a real request, and checks the scanner
+entry points.
+
 `pronouns` covers Bluesky pronouns in streamer identity metadata and chat profile
 cards in Expo web and the Vite beta. Pronouns are read-only here; users edit
 `app.bsky.actor.profile` through Bluesky. Padded values are trimmed, and blank or

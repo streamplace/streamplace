@@ -148,6 +148,40 @@ func (m *DBModel) GetVideoList(ctx context.Context, repoDID string, limit int, c
 	return out, nil
 }
 
+// WalkVideoContentBlobs visits the primary content blob of every resolvable
+// video in the local index, without requiring an origin or hydrating views.
+// A blob can be visited more than once (e.g. for a video and its clips).
+func (m *DBModel) WalkVideoContentBlobs(ctx context.Context, visit func(string) error) error {
+	const batchSize = 100
+	var rows []Video
+	var after string
+	for {
+		query := m.DB.WithContext(ctx).Select("uri", "record").Order("uri").Limit(batchSize)
+		if after != "" {
+			query = query.Where("uri > ?", after)
+		}
+		if err := query.Find(&rows).Error; err != nil {
+			return fmt.Errorf("scan indexed videos: %w", err)
+		}
+		for i := range rows {
+			row := &rows[i]
+			blobCID, err := m.videoContentBlob(ctx, row)
+			if err != nil {
+				return fmt.Errorf("resolve content blob for %s: %w", row.URI, err)
+			}
+			if blobCID != "" {
+				if err := visit(blobCID); err != nil {
+					return err
+				}
+			}
+		}
+		if len(rows) < batchSize {
+			return nil
+		}
+		after = rows[len(rows)-1].URI
+	}
+}
+
 // hostedVideoRows resolves each row to its content blob CID and returns the
 // set of row URIs whose blob this server hosts (has a place.stream.media.origin
 // for under serverDID). A row we can't resolve to a blob is treated as not

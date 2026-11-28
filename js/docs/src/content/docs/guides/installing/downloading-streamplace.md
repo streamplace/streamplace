@@ -131,3 +131,30 @@ only for the accounts logged into it.
 
 Deploy the station's chained-OAuth support before releasing Desktop clients
 that default to `did:web:stream.place`.
+
+## Recovering VODs after losing the server repository
+
+If the new node still has access to the old VOD objects but lost its server
+repository, point it at the original playback bucket (or local playback store).
+Make sure the node's SQLite model index is up to date: recovery uses the
+published `place.stream.video` and `place.stream.media.track` records already in
+that index. It does not fetch records from the network.
+
+Run on the node against the private admin listener:
+
+```shell
+curl -fsS -X POST 'http://127.0.0.1:39090/reindex-origins?recover=true'
+```
+
+Use `SP_HTTP_INTERNAL_ADDR` if you changed the listener address. With S3, the
+node needs permission to list the bucket and read object metadata. Recovery
+looks for `blobs/<cid>.mp4` and its `blobs/<cid>.json` playback metafile. It
+publishes missing `place.stream.media.origin` records under the current server
+DID and indexes them immediately. It does not download video bytes, recreate
+missing playback files, or change existing origin records.
+
+`scanned` and `indexed` count the existing server-repo records replayed into the
+index; `recovered` counts new origin commits. Review `errors` for any records
+or files that need attention. Run one recovery at a time; rerunning skips
+origins that have already been committed. Without `?recover=true`, the endpoint
+only replays existing server-repo origins into the index.

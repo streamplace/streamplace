@@ -181,6 +181,7 @@ type Model interface {
 	GetMediaViewCountByURI(ctx context.Context, uri string) (*placestream.MediaViewCount, error)
 	GetVideoView(ctx context.Context, uri string) (*placestream.MediaGetVideo_VideoView, error)
 	GetVideoList(ctx context.Context, repoDID string, limit int, cursor string, hostedByServerDID string) (placestream.MediaGetVideoList_Output, error)
+	WalkVideoContentBlobs(ctx context.Context, visit func(string) error) error
 
 	CreateVodComment(ctx context.Context, comment *VodComment) error
 	DeleteVodComment(ctx context.Context, uri string, deletedAt *time.Time) error

@@ -119,7 +119,7 @@ func TransferVOD(ctx context.Context, cli *config.CLI, store blob.Store, httpCli
 		return nil, fmt.Errorf("regenerate sidecars: %w", err)
 	}
 
-	if err := publishOrigin(ctx, cli, contentCID, size, transferMimeType); err != nil {
+	if err := PublishOrigin(ctx, cli, contentCID, size, transferMimeType); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "origin")
 		return nil, fmt.Errorf("publish origin: %w", err)

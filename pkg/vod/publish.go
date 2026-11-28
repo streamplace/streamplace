@@ -68,7 +68,7 @@ func publishRecords(ctx context.Context, p publishParams) error {
 	))
 	defer span.End()
 
-	if err := publishOrigin(ctx, p.cli, p.cid, p.size, p.mimeType); err != nil {
+	if err := PublishOrigin(ctx, p.cli, p.cid, p.size, p.mimeType); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "origin")
 		return fmt.Errorf("publish origin: %w", err)
@@ -175,7 +175,7 @@ func unmarshalProbe(s string) (media.VODResult, error) {
 	return res, nil
 }
 
-// publishOrigin attests that this server has the blob with the given
+// PublishOrigin attests that this server has the blob with the given
 // CID. The record's rkey is the CID, so retries of the same processed
 // VOD overwrite the existing record rather than accumulating dupes.
 //
@@ -185,7 +185,7 @@ func unmarshalProbe(s string) (media.VODResult, error) {
 // upsert into the local model. Keeping publish and index separate
 // means this package can run as a standalone microservice without
 // dragging the indexer along.
-func publishOrigin(ctx context.Context, cli *config.CLI, cid string, size int64, mimeType string) error {
+func PublishOrigin(ctx context.Context, cli *config.CLI, cid string, size int64, mimeType string) error {
 	ctx, span := vodTracer.Start(ctx, "vod.publishOrigin", trace.WithAttributes(
 		attribute.String("cid", cid),
 		attribute.Int64("size", size),
